@@ -613,26 +613,35 @@ Shared design rules for all sub-steps:
 #### 62D2. Cache store and frontend results
 
 - Success criteria
-  - [ ] The storage interface and its file backend from the shared rules
+  - [x] The storage interface and its file backend from the shared rules
     exist, with `--no-cache`.
-  - [ ] Parse transform results are cached first, because they are the
+  - [x] Parse transform results are cached first, because they are the
     largest frontend cost: the imported forms as ETF, plus the transform's
     messages and output. A warm run starts no host `erl` for unchanged
     modules.
-  - [ ] Preprocess and parse results are cached only if a warm-cache load
+  - [x] Preprocess and parse results are cached only if a warm-cache load
     (ETF of the abstract forms through `transforms/import`, or a dedicated
     AST format) beats reparsing on the luerl fixture. Record the measurement
     either way.
-  - [ ] Header, define and feature changes invalidate exactly the modules
+  - [x] Header, define and feature changes invalidate exactly the modules
     that depend on them. That includes a new header that would shadow an
     included one.
 - Tests
-  - [ ] Black-box project runs: a cold build then a warm build give identical
+  - [x] Black-box project runs: a cold build then a warm build give identical
     diagnostics and outputs, with stage times showing `(cached)`. Then edit a
     header, a define, a transform source and a `.beam` on `transform_paths`;
     each edit rebuilds only the modules it affects.
-  - [ ] Corrupt, truncated and old-format entries are rebuilt silently. A
+  - [x] Corrupt, truncated and old-format entries are rebuilt silently. A
     deleted build directory is recreated.
+- Done 2026-10-11: `compiler/src/cache/store` (interface, file backend, `KeyBuilder`, xxh3-128 keys) and
+  `driver/build_cache` (`BuildCaches` per invocation, `TransformCache` as the loader's `transforms::HostCache`).
+  The transform key is computed after preprocessing from the request bytes, so header/define/feature
+  dependencies need no recorded file lists; transform sources add their includes (recorded by
+  `TransformSourceCache::includes_`), code paths add all their `.beam` files (coarse: a `.beam` change misses
+  every module using that path). Preprocess/parse not cached: on luerl with an identity transform on 169
+  modules, importing the forms alone took 1,063 ms vs 819 ms preprocess+parse (export for the key 727 ms);
+  cold transforms 46.2 s, warm 3.0 s. `transforms_cache` (host OTP) covers cold/warm, the four edits,
+  damaged/truncated/old-format entries, a deleted build directory and `--no-cache`.
 
 #### 62D3. Directory scan cache
 

@@ -23,6 +23,9 @@ struct TransformSettings {
     // Where loader runs make their workspaces (<build_dir>/tmp); absent: the system temporary directory.
     // Added for the build directory (62D1).
     std::optional<std::filesystem::path> temporary_directory_;
+    // Loader replies and sticky module lists kept between invocations; absent: none are kept. Added for the
+    // transform cache (62D2).
+    std::shared_ptr<HostCache> cache_;
 };
 
 // Whether a parsed module needs parse transforms: the settings name some, or one of its -compile attributes does.
@@ -34,6 +37,8 @@ struct TransformOutcome {
     std::string output_;
     bool failed_ = false;
     Position end_{};
+    // The loader's reply came from the cache. Added for the transform cache (62D2).
+    bool cached_ = false;
 };
 
 // Run the module's transforms on the host OTP and parse the forms they return into `parser`, as erlc does

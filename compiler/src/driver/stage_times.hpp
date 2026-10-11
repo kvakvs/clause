@@ -39,6 +39,8 @@ class StageClock {
     std::chrono::steady_clock::duration elapsed_{};
 };
 
-// Print "[time] <stage> <subject>: <milliseconds> ms" on stderr. Added for --print-stage-times.
-void print_stage_time(std::string_view stage, std::string_view subject, std::chrono::steady_clock::duration elapsed);
+// Print "[time] <stage> <subject>: <milliseconds> ms" on stderr, followed by " (cached)" when the stage reused a
+// cached result. Added for --print-stage-times.
+void print_stage_time(std::string_view stage, std::string_view subject, std::chrono::steady_clock::duration elapsed,
+                      bool cached = false);
 } // namespace clause::cli

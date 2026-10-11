@@ -438,6 +438,9 @@
   (module search, transform locate, literal sources, preprocessor `PreprocessorOptions::may_exist` hook).
   Build directory (62D1): target key `build_dir` / `--build-dir`, default `<manifest-dir>/build` (positional:
   none); Clause temp files under `<build_dir>/tmp` (transform loader workspaces); link staging stays beside output.
+  Build caches (62D2): `<build_dir>/cache/v1/<dir>-<hash>/{index,<kind>-*.pack}`; loader replies + sticky lists via
+  `transforms::HostCache` (`run_transforms(module, request, cache, &cached)`), key = request bytes + clau/OTP identity +
+  transform sources (+includes) + code-path beams; `--no-cache`; `(cached)` stage times; preprocess/parse not cached.
   Export liveness (62C, `semantic/liveness`): for executables only, a worklist from the entry over direct calls,
   funs, literal apply/spawn targets and escaped module-name atoms (whole module live; dynamic call + atom producer
   = everything live) clears `Function::live_`; codegen declares/lowers no dead function or lambda of a dead owner,

@@ -62,8 +62,9 @@ my_dependency = "vendor/my_dependency"
   `entry` is an executable target ([executables](#executables)); `--emit` and
   check/print modes ignore both keys' outputs.
 - Not supported yet: root defaults, inheritance, target dependencies, imports,
-  profiles, packages, watch, caching, parallel builds. Fields are
-  added only together with their behavior.
+  profiles, packages, watch, parallel builds. Fields are
+  added only together with their behavior. Build caches are described under
+  [build caches](#build-caches).
 
 ## CLI and target selection
 
@@ -178,6 +179,53 @@ Positional inputs get none unless `--build-dir` is given.
   outside the build directory; positional checks without `--build-dir` write
   no file at all.
 - `--print-env` prints each target's `build_dir` (`""` when there is none).
+
+### Build caches
+
+Results worth keeping between runs live below `<build_dir>/cache` (plan 11
+step 62D2); `--no-cache` neither reads nor writes them. Today they are the
+parse transform loader's replies and the host OTP's sticky module list, so a
+warm build starts no host `erl` for modules whose transform inputs did not
+change.
+
+- **Interface.** Callers use one project-internal store (`compiler/src/cache/
+  store.hpp`): `get`/`put` by input directory, file name, result kind and key,
+  plus `invalidate` and `prune`; they never see paths. The file backend keeps
+  `cache/v<format>/<directory tail>-<path hash>/` per input directory (for
+  example `src-3f2a91c0`), holding one `index` and append-only `<kind>-*.pack`
+  files. A later SQLite (or similar) backend replaces the file backend behind
+  the same interface.
+- **Keys.** A key is the 128-bit content hash of everything the result depends
+  on, never a time stamp: the `clau` version and executable (path, size,
+  modification time, so a rebuilt `clau` misses), the result kind, and for a
+  transform run the request sent to `erl` (the module's preprocessed forms and
+  its compile options: include directories, defines, features), the host OTP
+  release (`erl` and the `releases/*/OTP_VERSION` files beside it), every
+  project transform source compiled for the run with the files it includes,
+  and every `.beam` on the transform code paths. The cache format version is
+  the `v<format>` directory. Because the key covers the preprocessed forms, a
+  changed header, define or feature, or a new header that shadows an included
+  one, misses exactly the modules whose forms or options change; defines and
+  features are compile options every transform sees, so they miss every
+  transformed module; a changed `.beam` misses every module whose transforms
+  run with that code path.
+- **Safety.** Each `clau` process appends to pack files of its own and swaps
+  the index in by writing a temporary file and renaming it, so concurrent runs
+  sharing a build directory never corrupt it (the last index written wins; a
+  lost entry is a miss). Records carry checksums: a truncated, damaged or
+  foreign-format entry is a miss and is rebuilt, never an error. A run that
+  wrote to a directory compacts its packs when they hold mostly superseded
+  records.
+- **Observability.** `--print-stage-times` marks reused stages
+  (`[time] transform src/a.erl: 7.254 ms (cached)`); `--verbose` prints
+  `[cache] hit|miss <kind> <file>` with the reason of a miss (`no entry`,
+  `inputs changed`, `damaged entry`). Diagnostics and transform output are the
+  same with and without a hit: they are stored with the entry.
+- **Not cached:** preprocessing and parsing. A cached result would load
+  through the abstract forms (`transforms/import`), and on luerl (169
+  modules, Release, 2026-10-11) importing them alone took 1,063 ms against
+  819 ms to preprocess (409 ms) and parse (410 ms) the sources; exporting the
+  forms for a key took another 727 ms.
 
 ## Paths and discovery
 

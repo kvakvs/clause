@@ -141,6 +141,7 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
         return report_project(options, arguments);
     }
     project::DirectoryIndex index; // Added for the directory index (62E).
+    BuildCaches caches;            // Added for build caches (62D2).
     std::vector<Publication> pending;
     std::vector<PendingExecutable> executables;
     const project::TargetExecutor execute = [&](const project::Invocation &invocation,
@@ -174,9 +175,11 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
         request.ignore_ = target.ignore_;
         request.index_ = &index;
         request.build_directory_ = target.build_directory_;
+        request.caches_ = options.no_cache ? nullptr : &caches;
         return process_files(target.sources, request, sink);
     };
     const int status = project::run(options.project, plan_settings(options, &index), execute, std::cout, std::cerr);
+    caches.prune();
     if (options.verbose) {
         trace_index(index);
     }

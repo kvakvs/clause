@@ -47,7 +47,13 @@ configure_file(src/transforms/loader/loader_source.hpp.in
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS src/transforms/loader/clause_transform_loader.erl)
 target_include_directories(clause_transforms PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
+# Added for build caches (62D2): the cache store and its file backend.
+add_library(clause_cache STATIC src/cache/store.cpp)
+clause_project_options(clause_cache)
+target_link_libraries(clause_cache PRIVATE clause_llvm_sdk)
+
 add_executable(clau src/main.cpp src/driver/command.cpp src/driver/options.cpp src/driver/frontend.cpp
+    src/driver/build_cache.cpp
     src/driver/backend_options.cpp src/driver/analysis.cpp src/driver/entry.cpp src/driver/escript.cpp src/driver/predefined.cpp src/driver/transform_sources.cpp src/driver/backend.cpp src/driver/publication.cpp src/driver/project_backend.cpp src/driver/progress.cpp src/driver/display.cpp src/driver/inspection.cpp src/driver/type_report.cpp src/driver/environment.cpp
     src/driver/placeholders.cpp src/driver/stage_times.cpp)
 if(WIN32 AND MSVC)
@@ -60,7 +66,7 @@ set_target_properties(clau PROPERTIES
 )
 clause_project_options(clau)
 target_compile_definitions(clau PRIVATE CLAUSE_VERSION="${PROJECT_VERSION}")
-target_link_libraries(clau PRIVATE clause_abi clause_transforms)
+target_link_libraries(clau PRIVATE clause_abi clause_transforms clause_cache)
 
 add_subdirectory(src/project)
 

@@ -170,7 +170,10 @@ temporary directory, `clause-transform-*` below `<build_dir>/tmp`
 without `--build-dir`, the system's temporary directory, removed after the
 run; `erl` compiles and loads the loader in memory. The request
 holds the forms, the options, the transform list, the module's file name and
-the project transform sources to build. The loader:
+the project transform sources to build. With a build directory, the reply and
+the loader's output are kept in the [build cache](projects.md#build-caches)
+and reused while the request and everything it depends on are unchanged; the
+host's sticky module list is kept the same way. The loader:
 
 1. checks the OTP release;
 2. compiles the requested project transform sources in memory and loads them;

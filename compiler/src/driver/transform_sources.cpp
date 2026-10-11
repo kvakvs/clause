@@ -27,8 +27,11 @@ std::filesystem::path locate(const std::u32string &module, const SourcePlaces &p
     return {};
 }
 
-// The modules a source calls by literal name; none when it does not parse here (the host compiler decides).
-std::vector<std::u32string> called_modules(const std::filesystem::path &path, const PreprocessorOptions &options) {
+// The modules a source calls by literal name; none when it does not parse here (the host compiler decides). The
+// files it includes are added to `includes`.
+std::vector<std::u32string> called_modules(const std::filesystem::path &path, PreprocessorOptions options,
+                                           std::vector<std::filesystem::path> &includes) {
+    options.include_loaded = [&includes](const std::filesystem::path &file) { includes.push_back(file); };
     try {
         SourceManager sources;
         PreprocessorSession session(sources.read(path), options);
@@ -48,7 +51,7 @@ const std::vector<std::u32string> &cached_calls(const std::filesystem::path &pat
                                                 TransformSourceCache &cache) {
     auto found = cache.calls_.find(path);
     if (found == cache.calls_.end()) {
-        found = cache.calls_.emplace(path, called_modules(path, options)).first;
+        found = cache.calls_.emplace(path, called_modules(path, options, cache.includes_[path])).first;
     }
     return found->second;
 }

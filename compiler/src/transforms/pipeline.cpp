@@ -168,7 +168,8 @@ TransformRequest request_for(const std::filesystem::path &erl, std::vector<std::
     source_options.transforms_.clear();
     // The host's own sticky modules need no sources. Added for transform source caching.
     const HostModule host = [&](const std::u32string &module) {
-        return settings.sticky_ && settings.sticky_->contains(erl, module, settings.temporary_directory_);
+        return settings.sticky_ &&
+               settings.sticky_->contains(erl, module, settings.temporary_directory_, settings.cache_.get());
     };
     for (const auto &name : transforms) {
         if (precompiled(name, settings.code_paths_) || !settings.find_sources_) {
@@ -186,11 +187,11 @@ TransformRequest request_for(const std::filesystem::path &erl, std::vector<std::
     return request;
 }
 
-// Run the loader; failures that leave no reply become one error.
-std::optional<TransformReply> run(const AbstractModule &module, const TransformRequest &request,
+// Run the loader, or reuse its cached reply; failures that leave no reply become one error.
+std::optional<TransformReply> run(const AbstractModule &module, const TransformRequest &request, HostCache *cache,
                                   TransformOutcome &outcome, SourceManager &sources) {
     try {
-        return run_transforms(module, request);
+        return run_transforms(module, request, cache, &outcome.cached_);
     } catch (const LoaderError &error) {
         outcome.diagnostics_.push_back(located(request.file_, std::nullopt, error.what(), Severity::error, sources));
         outcome.failed_ = true;
@@ -239,8 +240,8 @@ TransformOutcome transform_module(const ast::Module &syntax, const Source &main,
     if (!erl) {
         return outcome;
     }
-    const auto reply =
-        run(module, request_for(*erl, std::move(transforms), settings, options, main.name), outcome, sources);
+    const auto reply = run(module, request_for(*erl, std::move(transforms), settings, options, main.name),
+                           settings.cache_.get(), outcome, sources);
     if (!reply) {
         return outcome;
     }

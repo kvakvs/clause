@@ -26,6 +26,8 @@ struct TransformSourceCache {
     // The sources by transform module, and the modules each source calls by literal name.
     std::map<std::u32string, std::vector<std::filesystem::path>> sources_;
     std::map<std::filesystem::path, std::vector<std::u32string>> calls_;
+    // The files each source includes; transform cache keys hash them. Added for build caches (62D2).
+    std::map<std::filesystem::path, std::vector<std::filesystem::path>> includes_;
 };
 
 // The source of a transform module and of the project modules it calls: Module.erl among the batch inputs, then

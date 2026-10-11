@@ -1,5 +1,6 @@
 #pragma once
 #include "backend_options.hpp"
+#include "build_cache.hpp"
 #include "project/directory_index.hpp"
 #include "project/entry.hpp"
 #include "project/ignore.hpp"
@@ -64,6 +65,8 @@ struct FrontendRequest {
     // Where temporary files (below tmp) go; positional inputs have none without --build-dir. Added for the build
     // directory (62D1).
     std::optional<std::filesystem::path> build_directory_ = {};
+    // The invocation's build caches; absent with --no-cache. Added for build caches (62D2).
+    BuildCaches *caches_ = nullptr;
 };
 
 // Process one isolated batch; project targets never share declaration tables.

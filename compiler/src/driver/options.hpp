@@ -25,6 +25,8 @@ struct Options {
     // --build-dir: where Clause keeps temporary files and caches; replaces the build directory of every selected
     // project target. Added for the build directory (62D1).
     std::optional<std::filesystem::path> build_directory;
+    // --no-cache: neither read nor write build caches. Added for build caches (62D2).
+    bool no_cache = false;
     // Distinguish explicit frontend settings from defaults for standalone commands.
     bool frontend_options_explicit = false;
     // Retain backend policy independently of frontend and project selection.

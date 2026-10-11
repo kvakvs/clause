@@ -3,6 +3,7 @@
 #include "etf.hpp"
 #include "term_text.hpp"
 #include "transforms/loader_source.hpp"
+#include <charconv>
 #include <clause/abi/external_term.hpp>
 #include <fstream>
 #include <llvm/Support/FileSystem.h>
@@ -192,8 +193,9 @@ constexpr std::string_view LIST_STICKY =
     "{ok,Fs}<-[file:list_dir(filename:join(code:lib_dir(A),\"ebin\"))],F<-Fs,filename:extension(F)=:=\".beam\"],"
     "halt().";
 
-// Ask the host erl for its sticky modules; empty when it cannot answer. Added for transform source caching.
-std::set<std::u32string> sticky_modules(const fs::path &erl, const std::optional<fs::path> &temporary) {
+// Ask the host erl for its sticky modules, one per line; none when it cannot answer. Added for transform source
+// caching.
+std::optional<std::string> sticky_listing(const fs::path &erl, const std::optional<fs::path> &temporary) {
     const Workspace workspace(temporary);
     const auto program = text(erl);
     const auto listing = workspace.path() / "sticky.txt";
@@ -202,10 +204,27 @@ std::set<std::u32string> sticky_modules(const fs::path &erl, const std::optional
     const std::array<std::optional<llvm::StringRef>, 3> redirects{llvm::StringRef(), llvm::StringRef(output),
                                                                   llvm::StringRef()};
     if (llvm::sys::ExecuteAndWait(program, argv, std::nullopt, redirects, TIME_LIMIT_SECONDS) != 0) {
-        return {};
+        return std::nullopt;
+    }
+    return read_file(listing);
+}
+
+// The host's sticky modules, from `cache` when it keeps them for this erl. Added for the transform cache (62D2).
+std::set<std::u32string> sticky_modules(const fs::path &erl, const std::optional<fs::path> &temporary,
+                                        HostCache *cache) {
+    TransformRequest request;
+    request.erl_ = erl;
+    request.file_ = text(erl);
+    const HostQuery query{"sticky", request, {}};
+    auto listing = cache ? cache->find(query) : std::nullopt;
+    if (!listing) {
+        listing = sticky_listing(erl, temporary);
+        if (listing && cache) {
+            cache->store(query, *listing);
+        }
     }
     std::set<std::u32string> result;
-    std::istringstream lines(read_file(listing).value_or(""));
+    std::istringstream lines(listing.value_or(""));
     for (std::string line; std::getline(lines, line);) {
         if (line.ends_with('\r')) {
             line.pop_back();
@@ -260,11 +279,45 @@ std::optional<fs::path> find_erl(const std::optional<fs::path> &explicit_path) {
     return std::nullopt;
 }
 
-TransformReply run_transforms(const AbstractModule &module, const TransformRequest &request) {
+namespace {
+// The reply file and the loader's own output of one run. Added for the transform cache (62D2).
+struct LoaderRun {
+    std::string reply_;
+    std::string output_;
+};
+
+// A run kept as one string: the reply's length in decimal, a newline, the reply, then the output.
+std::string encode_run(const LoaderRun &run) {
+    return std::to_string(run.reply_.size()) + "\n" + run.reply_ + run.output_;
+}
+
+std::optional<LoaderRun> decode_run(std::string_view bytes) {
+    const auto newline = bytes.find('\n');
+    std::size_t size = 0;
+    const auto digits = bytes.substr(0, newline);
+    const auto [end, error] = std::from_chars(digits.data(), digits.data() + digits.size(), size);
+    if (newline == std::string_view::npos || error != std::errc{} || end != digits.data() + digits.size() ||
+        size > bytes.size() - newline - 1) {
+        return std::nullopt;
+    }
+    const auto rest = bytes.substr(newline + 1);
+    return LoaderRun{std::string(rest.substr(0, size)), std::string(rest.substr(size))};
+}
+
+// The reply a run gave, with its output.
+TransformReply reply_of(const LoaderRun &run) {
+    TransformReply reply;
+    reply.output_ = run.output_;
+    parse_reply(run.reply_, reply);
+    return reply;
+}
+
+// Run the loader on the request bytes in a fresh workspace.
+LoaderRun execute(const std::string &bytes, const TransformRequest &request) {
     const Workspace workspace(request.temporary_directory_);
     const auto &directory = workspace.path();
     write_file(directory / "clause_transform_loader.erl", LOADER_SOURCE);
-    write_file(directory / "request.etf", request_bytes(module, request));
+    write_file(directory / "request.etf", bytes);
     const auto program = text(request.erl_);
     std::vector<std::string> arguments{program, "-noshell", "-noinput"};
     for (const auto &path : request.code_paths_) {
@@ -282,24 +335,45 @@ TransformReply run_transforms(const AbstractModule &module, const TransformReque
     if (failed) {
         throw LoaderError("cannot run " + program + ": " + error);
     }
-    TransformReply reply;
-    reply.output_ = read_file(directory / "output.txt", OUTPUT_LIMIT).value_or("");
-    const auto bytes = read_file(directory / "reply.etf");
-    if (!bytes) {
+    LoaderRun run;
+    run.output_ = read_file(directory / "output.txt", OUTPUT_LIMIT).value_or("");
+    auto reply = read_file(directory / "reply.etf");
+    if (!reply) {
         throw LoaderError("parse transform loader ended without a reply (exit status " + std::to_string(status) +
-                          (error.empty() ? "" : ", " + error) + ")\n" + reply.output_);
+                          (error.empty() ? "" : ", " + error) + ")\n" + run.output_);
     }
-    parse_reply(*bytes, reply);
+    run.reply_ = std::move(*reply);
+    return run;
+}
+} // namespace
+
+TransformReply run_transforms(const AbstractModule &module, const TransformRequest &request, HostCache *cache,
+                              bool *cached) {
+    const auto bytes = request_bytes(module, request);
+    const HostQuery query{"transform", request, bytes};
+    if (const auto stored = cache ? cache->find(query) : std::nullopt) {
+        if (const auto run = decode_run(*stored)) {
+            if (cached) {
+                *cached = true;
+            }
+            return reply_of(*run);
+        }
+    }
+    const auto run = execute(bytes, request);
+    auto reply = reply_of(run);
+    if (cache) {
+        cache->store(query, encode_run(run));
+    }
     return reply;
 }
 
 bool StickyModules::contains(const fs::path &erl, const std::u32string &module,
-                             const std::optional<fs::path> &temporary) {
+                             const std::optional<fs::path> &temporary, HostCache *cache) {
     auto found = modules_.find(erl);
     if (found == modules_.end()) {
         std::set<std::u32string> names;
         try {
-            names = sticky_modules(erl, temporary);
+            names = sticky_modules(erl, temporary, cache);
         } catch (const LoaderError &) {
             names.clear(); // No temporary directory: compile project sources as before.
         }

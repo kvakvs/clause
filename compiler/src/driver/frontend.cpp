@@ -79,6 +79,8 @@ struct FileTimes {
     StageClock parse;
     // Parse transforms of the module (host erl run and import of its forms); set only when transforms ran.
     std::optional<StageClock> transform;
+    // The transforms' result came from the build cache. Added for build caches (62D2).
+    bool transform_cached = false;
 };
 
 // What a parsing pass leaves besides the syntax: the module's features, whether its input failed, and where its
@@ -174,6 +176,7 @@ bool transform_and_finish(ParserSession &parser, PreprocessorSession &session, c
         return transforms::transform_module(parsed.module, *source, request.transforms_,
                                             compile_options(request, features), features, transformed);
     });
+    times.transform_cached = outcome.cached_;
     if (!outcome.output_.empty()) {
         std::cerr << outcome.output_;
     }
@@ -223,7 +226,7 @@ void print_file_times(const FrontendRequest &request, const std::filesystem::pat
         print_stage_time("parse", filename(path), times.parse.elapsed());
     }
     if (times.transform) {
-        print_stage_time("transform", filename(path), times.transform->elapsed());
+        print_stage_time("transform", filename(path), times.transform->elapsed(), times.transform_cached);
     }
 }
 
@@ -481,6 +484,11 @@ FrontendRequest batch_request(const std::span<const std::filesystem::path> paths
     }
     // The batch keeps what it found in memory. Added for transform source caching.
     auto cache = std::make_shared<TransformSourceCache>();
+    if (request.caches_ && request.build_directory_) {
+        // Added for build caches (62D2).
+        request.transforms_.cache_ =
+            std::make_shared<TransformCache>(request.caches_->store(*request.build_directory_), cache, request.verbose);
+    }
     request.transforms_.find_sources_ = [paths, &shared, cache, options = request.preprocessing](
                                             const std::u32string &module, const transforms::HostModule &host) {
         const SourcePlaces places{.inputs_ = paths,
@@ -541,8 +549,11 @@ int process_inputs(const Options &options) {
     if (options.build_directory) {
         request.build_directory_ = project::absolute_path(std::filesystem::current_path(), *options.build_directory);
     }
+    BuildCaches caches; // Added for build caches (62D2).
+    request.caches_ = options.no_cache ? nullptr : &caches;
     const DiagnosticSink sink = [](const std::string_view message) { std::cerr << message << '\n'; };
     const bool failed = process_files(options.inputs, request, sink);
+    caches.prune();
     if (options.verbose) {
         trace_index(index);
     }

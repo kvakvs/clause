@@ -17,7 +17,9 @@ Options:
       --print-stage-times  Print preprocess/parse/transform time per file, compile time per batch and link time to stderr.
   -o, --output <path>  Link an executable (Windows targets add .exe when no extension is given).
       --entry <module[:function]>  Select the executable entry function/1 (default function: main).
-      --build-dir <dir>  Keep temporary files below <dir>/tmp (projects default: <manifest-dir>/build).
+      --build-dir <dir>  Keep temporary files below <dir>/tmp and caches below <dir>/cache (projects default:
+                         <manifest-dir>/build).
+      --no-cache       Neither read nor write build caches.
       --linker <path>   Clang driver used to link executables (default: clang++ or clang on PATH).
       --runtime-library <path>  Runtime archive linked into executables (default: the one built with clau).
       --emit <obj|llvm-ir|llvm-bc>  Select one artifact per module (default: in memory).

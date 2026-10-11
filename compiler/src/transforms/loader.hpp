@@ -62,9 +62,33 @@ struct TransformReply {
     std::string output_;
 };
 
-// Run the request's transforms over the module's forms on the host OTP. A loader that cannot run or answer throws
-// LoaderError; transform failures are errors of the reply.
-TransformReply run_transforms(const AbstractModule &module, const TransformRequest &request);
+// What a host erl run depends on besides the files it reads: its kind ("transform", "sticky"), the request (erl,
+// transform sources, code paths, module file) and the bytes it sends to erl. Added for the transform cache (62D2).
+struct HostQuery {
+    std::string_view kind_;
+    const TransformRequest &request_;
+    std::string_view bytes_;
+};
+
+// Results of host erl runs kept between invocations; the driver backs it with the build cache. Added for the
+// transform cache (62D2).
+class HostCache {
+  public:
+    HostCache() = default;
+    HostCache(const HostCache &) = delete;
+    HostCache &operator=(const HostCache &) = delete;
+    virtual ~HostCache() = default;
+    // The result stored for the same query and inputs, if any.
+    virtual std::optional<std::string> find(const HostQuery &query) = 0;
+    // Keep a fresh result.
+    virtual void store(const HostQuery &query, std::string_view result) = 0;
+};
+
+// Run the request's transforms over the module's forms on the host OTP, or reuse the reply `cache` keeps for the
+// same request (then `cached` is set). A loader that cannot run or answer throws LoaderError; transform failures
+// are errors of the reply.
+TransformReply run_transforms(const AbstractModule &module, const TransformRequest &request, HostCache *cache = nullptr,
+                              bool *cached = nullptr);
 
 // The modules a host erl loads from its sticky directories (kernel, stdlib and compiler ebin), which cannot be
 // replaced: their project sources are never compiled. Asked once per erl, then kept in memory.
@@ -72,9 +96,9 @@ TransformReply run_transforms(const AbstractModule &module, const TransformReque
 class StickyModules {
   public:
     // Whether the host loads `module` from a sticky directory; when erl cannot answer, no module is. The query's
-    // workspace goes below `temporary` when given.
+    // workspace goes below `temporary` when given, and `cache` may answer it without starting erl.
     bool contains(const std::filesystem::path &erl, const std::u32string &module,
-                  const std::optional<std::filesystem::path> &temporary = {});
+                  const std::optional<std::filesystem::path> &temporary = {}, HostCache *cache = nullptr);
 
   private:
     // The sticky module names of each erl asked.
