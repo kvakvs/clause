@@ -38,6 +38,11 @@ struct AtomArgument {
     std::string_view spelling;
 };
 
+// A local pid argument (process_info/2, group_leader/2, step 41G1).
+struct PidArgument {
+    Term term;
+};
+
 // The result of a typed builtin: its value, or the Erlang error or term access failure it ends with.
 template <typename T> using BuiltinResult = std::expected<T, BuiltinFailure>;
 
@@ -78,6 +83,12 @@ template <> struct Argument<BinaryArgument> {
 
 template <> struct Argument<AtomArgument> {
     static TermResult<std::optional<AtomArgument>> convert(const Term &term);
+};
+
+template <> struct Argument<PidArgument> {
+    static TermResult<std::optional<PidArgument>> convert(const Term &term) {
+        return term.is_pid() ? std::optional{PidArgument{term}} : std::nullopt;
+    }
 };
 
 namespace typed_detail {

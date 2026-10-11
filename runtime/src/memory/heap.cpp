@@ -81,6 +81,7 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect(std::span<Word> r
     if (storage.pending_ || (calls.active() && !calls.at_safe_point())) {
         return std::unexpected(HeapError::unsafe_point);
     }
+    storage.collection_requested_ = false;
     CollectionStats stats{.words_before = storage.used_words_,
                           .fragment_words = storage.capacity_words_ - storage.heap_.capacity_};
     if (storage.heap_.capacity_ != 0) {
@@ -104,8 +105,11 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect(std::span<Word> r
 
 bool ProcessHeap::wants_collection() const noexcept {
     const auto &storage = *storage_;
-    return !storage.fragments_.empty() || storage.off_heap_words_ >= storage.binary_limit_words_;
+    return storage.collection_requested_ || !storage.fragments_.empty() ||
+           storage.off_heap_words_ >= storage.binary_limit_words_;
 }
+
+void ProcessHeap::request_collection() noexcept { storage_->collection_requested_ = true; }
 
 std::size_t ProcessHeap::collected_size(std::size_t live_words) const noexcept {
     const auto &storage = *storage_;

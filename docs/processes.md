@@ -345,6 +345,34 @@ Plan 11 step 41F (`builtins/erlang/timers.cpp`, `scheduler/timers.cpp`).
   `false`; `{async, true}` returns `ok` and sends `{cancel_timer, Ref, Left}`
   (`{read_timer, ...}`), `{info, false}` returns `ok` without a result.
 
+## Introspection
+
+Plan 11 step 41G1 (`builtins/erlang/introspection.cpp`,
+`scheduler/introspection.cpp`). `process_info/1,2` reads another process
+under the executor's lock and copies its terms (messages, dictionary) into the
+caller's heap; a process running on another worker is read once its slice
+ends. A pid of no live process gives `undefined`.
+
+- Items: `registered_name` (`[]` alone when unregistered), `status`
+  (`running`, `runnable`, `waiting`), `message_queue_len`, `messages`,
+  `links`, `monitors`, `monitored_by`, `dictionary`, `trap_exit`,
+  `group_leader`, `heap_size`, `total_heap_size`, `stack_size`, `memory`
+  (words of the heap, its fragments and off-heap binaries, and the stack),
+  `reductions` (0), `priority` (`normal`), `error_handler`,
+  `garbage_collection`. `process_info/1` lists them from `status` to
+  `garbage_collection`.
+- OTP items Clause does not keep (`current_function`, `initial_call`,
+  `current_stacktrace`, ...) raise `error:{notsup, Item}`; unknown items are
+  `badarg`.
+- `processes/0` lists live pids in creation order. A spawned process inherits
+  its parent's group leader; the first process leads itself.
+  `group_leader/2` of a pid of no live process is `badarg`.
+- `garbage_collect/0,1,2` asks for a collection at the target's next
+  safepoint and returns `true` (`false` for no live process); with
+  `{async, RequestId}` it returns `async` and sends
+  `{garbage_collect, RequestId, Result}`. `yield/0` ends the time slice at
+  the next function entry.
+
 ## Exit signals
 
 Every exit signal comes from a running process (`exit/2`,

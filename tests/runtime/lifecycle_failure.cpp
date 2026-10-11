@@ -67,7 +67,8 @@ void require_walkable(clause::runtime::ProcessContext &context) {
 // Every startup allocation, builtin registration included, must roll back before an owner can escape to the host.
 void check_startup() {
     bool succeeded = false;
-    for (std::size_t ordinal = 0; ordinal < 256 && !succeeded; ++ordinal) {
+    // Each registered builtin adds registry allocations, so the sweep bound grows with the catalog.
+    for (std::size_t ordinal = 0; ordinal < 1024 && !succeeded; ++ordinal) {
         const auto baseline = live_allocations;
         remaining = ordinal;
         auto runtime = Runtime::start();

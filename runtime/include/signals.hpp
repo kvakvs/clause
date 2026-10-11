@@ -73,6 +73,14 @@ class Signals final {
     // The monitors held on this process.
     const Monitors &watchers() const noexcept { return watchers_; }
 
+    // The monitors this process holds (process_info/2 monitors, step 41G1).
+    const Monitors &monitors() const noexcept { return monitors_; }
+
+    // The group leader's pid word, or 0 for the process itself (group_leader/0,2, step 41G1).
+    Word group_leader() const noexcept { return group_leader_; }
+
+    void set_group_leader(Word pid) noexcept { group_leader_ = pid; }
+
     // Remove and return the monitors held on this process, as it ends: each gets a 'DOWN' message.
     Monitors take_watchers() { return std::exchange(watchers_, {}); }
 
@@ -97,5 +105,7 @@ class Signals final {
     Word name_ = 0;
     // Turns exit signals other than kill into messages.
     bool trap_exit_ = false;
+    // The group leader inherited from the spawning process; 0 means the process leads itself. Added for 41G1.
+    Word group_leader_ = 0;
 };
 } // namespace clause::runtime

@@ -63,6 +63,9 @@ TermResult<Term> Executor::create(ProcessContext &parent, Prepare prepare, Spawn
         return std::unexpected(creation_error(created.error()));
     }
     auto &child = **created;
+    // A spawned process inherits its parent's group leader (step 41G1).
+    const auto leader = parent.signals().group_leader();
+    child.signals().set_group_leader(leader != 0 ? leader : pid_of(parent));
     child.generated_calls().enter();
     const auto frame = prepare(child);
     if (!frame) {

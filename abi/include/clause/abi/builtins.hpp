@@ -250,6 +250,20 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "cancel_timer", 2},
     BuiltinName{"erlang", "read_timer", 1},
     BuiltinName{"erlang", "read_timer", 2},
+    // Process and system introspection (plan step 41G1; erlang/introspection.cpp, erlang/system.cpp).
+    BuiltinName{"erlang", "process_info", 1},
+    BuiltinName{"erlang", "process_info", 2},
+    BuiltinName{"erlang", "processes", 0},
+    BuiltinName{"erlang", "group_leader", 0},
+    BuiltinName{"erlang", "group_leader", 2},
+    BuiltinName{"erlang", "garbage_collect", 0},
+    BuiltinName{"erlang", "garbage_collect", 1},
+    BuiltinName{"erlang", "garbage_collect", 2},
+    BuiltinName{"erlang", "yield", 0},
+    BuiltinName{"erlang", "statistics", 1},
+    BuiltinName{"erlang", "system_info", 1},
+    BuiltinName{"erlang", "memory", 0},
+    BuiltinName{"erlang", "memory", 1},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

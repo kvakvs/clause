@@ -121,9 +121,9 @@
 {fun_info_mfa, 1, [], {unavailable, not_selected}}.
 {fun_to_list, 1, [], {planned, '41G3'}}.
 {function_exported, 3, [], implemented}.
-{garbage_collect, 0, [auto_import], {planned, '41G1'}}.
-{garbage_collect, 1, [auto_import], {planned, '41G1'}}.
-{garbage_collect, 2, [auto_import], {planned, '41G1'}}.
+{garbage_collect, 0, [auto_import], implemented}.
+{garbage_collect, 1, [auto_import], implemented}.
+{garbage_collect, 2, [auto_import], implemented}.
 {garbage_collect_message_area, 0, [], {unavailable, not_selected}}.
 {gather_gc_info_result, 1, [], {unavailable, not_selected}}.
 {get, 0, [auto_import], implemented}.
@@ -134,8 +134,8 @@
 {get_keys, 1, [auto_import], implemented}.
 {get_module_info, 1, [], {planned, '41H'}}.
 {get_module_info, 2, [], {planned, '41H'}}.
-{group_leader, 0, [auto_import], {planned, '41G1'}}.
-{group_leader, 2, [auto_import], {planned, '41G1'}}.
+{group_leader, 0, [auto_import], implemented}.
+{group_leader, 2, [auto_import], implemented}.
 {halt, 0, [auto_import], implemented}.
 {halt, 1, [auto_import], implemented}.
 {halt, 2, [auto_import], {unavailable, not_selected}}.
@@ -206,8 +206,8 @@
 {md5_final, 1, [], {planned, '41G3'}}.
 {md5_init, 0, [], {planned, '41G3'}}.
 {md5_update, 2, [], {planned, '41G3'}}.
-{memory, 0, [], {planned, '41G1'}}.
-{memory, 1, [], {planned, '41G1'}}.
+{memory, 0, [], implemented}.
+{memory, 1, [], implemented}.
 {min, 2, [auto_import, guard], implemented}.
 {module_loaded, 1, [auto_import], {planned, '41H'}}.
 {monitor, 2, [auto_import], implemented}.
@@ -250,9 +250,9 @@
 {process_display, 2, [], {unavailable, tracing}}.
 {process_flag, 2, [auto_import], implemented}.
 {process_flag, 3, [auto_import], {unavailable, not_selected}}.
-{process_info, 1, [auto_import], {planned, '41G1'}}.
-{process_info, 2, [auto_import], {planned, '41G1'}}.
-{processes, 0, [auto_import], {planned, '41G1'}}.
+{process_info, 1, [auto_import], implemented}.
+{process_info, 2, [auto_import], implemented}.
+{processes, 0, [auto_import], implemented}.
 {processes_iterator, 0, [], {unavailable, not_selected}}.
 {processes_next, 1, [], {unavailable, not_selected}}.
 {purge_module, 1, [auto_import], {unavailable, code_loading}}.
@@ -309,12 +309,12 @@
 {split_binary, 2, [auto_import], implemented}.
 {start_timer, 3, [], implemented}.
 {start_timer, 4, [], implemented}.
-{statistics, 1, [auto_import], {planned, '41G1'}}.
+{statistics, 1, [auto_import], implemented}.
 {subtract, 2, [], {unavailable, not_selected}}.
 {suspend_process, 1, [], {unavailable, tracing}}.
 {suspend_process, 2, [], {unavailable, tracing}}.
 {system_flag, 2, [], {unavailable, not_selected}}.
-{system_info, 1, [], {planned, '41G1'}}.
+{system_info, 1, [], implemented}.
 {system_monitor, 0, [], {unavailable, tracing}}.
 {system_monitor, 1, [], {unavailable, tracing}}.
 {system_monitor, 2, [], {unavailable, tracing}}.
@@ -350,4 +350,4 @@
 {unregister, 1, [auto_import], implemented}.
 {whereis, 1, [auto_import], implemented}.
 {'xor', 2, [], implemented}.
-{yield, 0, [], {planned, '41G1'}}.
+{yield, 0, [], implemented}.

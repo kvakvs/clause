@@ -396,13 +396,14 @@ sizes, counts, hash values) are checked by shape and recorded in
 #### 41G1. Process and system introspection
 
 - Success criteria
-  - [ ] `process_info/1,2` (selected items; an OTP item Clause does not keep is
+  - [x] `process_info/1,2` (selected items; an OTP item Clause does not keep is
     named in the error), `processes/0`, `group_leader/0,2` (inherited by
     spawned processes), `garbage_collect/0,1,2` (a collection at the next
     safepoint), `yield/0`, `statistics/1`, `system_info/1` and `memory/0,1`
     for the items OTP programs commonly read; other items `badarg`.
 - Tests
-  - [ ] OTP-goldened executable (shapes and relations for values that vary).
+  - [x] OTP-goldened executable (shapes and relations for values that vary).
+- Done 2026-10-11: `executables_introspection` (OTP golden, shapes and relations).
 
 <a id="step-41g2"></a>
 

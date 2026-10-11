@@ -146,6 +146,8 @@ class ProcessHeap final {
     // Whether a generated-code safepoint should collect: a fragment exists (the heap block filled up) or
     // off-heap binaries reached the virtual binary heap limit (docs/runtime-heap.md#triggers).
     bool wants_collection() const noexcept;
+    // Ask for a collection at the next safepoint (garbage_collect/0,1,2, step 41G1).
+    void request_collection() noexcept;
     // Report consumed words and exact retained capacity of the heap block and fragments.
     std::size_t used_words() const noexcept;
     std::size_t capacity_words() const noexcept;

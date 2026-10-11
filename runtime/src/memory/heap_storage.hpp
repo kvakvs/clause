@@ -97,6 +97,8 @@ class HeapStorage final {
     bool pending_ = false;
     // Completed collections; host Terms admitted before the latest one are stale.
     std::size_t collections_ = 0;
+    // garbage_collect/0,1,2 asked for a collection at the next safepoint (step 41G1).
+    bool collection_requested_ = false;
     // Borrow the runtime atom table only while the process lifetime token remains alive.
     AtomStorage *atoms_;
     // Borrow the runtime's issued pid and port numbers, under the same lifetime rule as atoms_.

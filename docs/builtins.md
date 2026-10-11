@@ -63,7 +63,11 @@ builtin both the compiler and the runtime know:
   `universaltime/0`, `date/0`, `time/0`, `localtime_to_universaltime/1,2`,
   `universaltime_to_localtime/1`, `posixtime_to_universaltime/1`,
   `universaltime_to_posixtime/1`; [timers](processes.md#timers):
-  `start_timer/3,4`, `send_after/3,4`, `cancel_timer/1,2`, `read_timer/1,2`.
+  `start_timer/3,4`, `send_after/3,4`, `cancel_timer/1,2`, `read_timer/1,2`;
+- [process introspection](processes.md#introspection) (plan step 41G1):
+  `process_info/1,2`, `processes/0`, `group_leader/0,2`,
+  `garbage_collect/0,1,2`, `yield/0`; [system information](#system-information):
+  `statistics/1`, `system_info/1`, `memory/0,1`.
 
 Entries are only appended: an entry's index is the number generated code
 passes to the bridge service. A qualified call of a catalog builtin of another
@@ -278,6 +282,28 @@ increasing whatever the options (`positive`, `monotonic`; others `badarg`).
 `{{Y, M, D}, {H, Mi, S}}` strictly (an invalid date or time is `badarg`) and
 use the C library's local time zone.
 
+## System information
+
+Plan 11 step 41G1 (`erlang/system.cpp`).
+
+- `statistics/1`: `wall_clock` and `runtime` (`{Total, SinceLastCall}` in
+  milliseconds), `run_queue`, `total_run_queue_lengths`,
+  `total_active_tasks`, `context_switches` (time slices run). Clause keeps no
+  reduction, garbage collection or I/O counters: `reductions`,
+  `exact_reductions`, `garbage_collection` and `io` report zeros.
+- `system_info/1`: `otp_release` (`"29"`), `version` (`"17.1"`, the ERTS
+  Clause follows), `machine` (`"Clause"`), `system_version`,
+  `system_architecture`, `wordsize` and `{wordsize, internal | external}`,
+  `process_count`/`process_limit`, `port_count`/`port_limit`,
+  `atom_count`/`atom_limit`, `schedulers`, `schedulers_online`,
+  `logical_processors*`, `thread_pool_size`, `smp_support`, `threads`,
+  `build_type`, `heap_type`, `kernel_poll`, `debug_compiled`,
+  `time_correction`, `time_warp_mode`, `endian`, `compat_rel`.
+- `memory/0,1`: OTP's types; `processes` is the runtime-wide account of
+  process memory, `atom` an estimate from the atom count, `binary`, `code`
+  and `ets` are 0.
+- Other items are `badarg`.
+
 ## Source layout
 
 - The runtime implements builtins in `runtime/src/builtins/`. A large module
@@ -289,7 +315,7 @@ use the C library's local time zone.
   `ports`; `dictionary`: the [process dictionary](processes.md#process-dictionary);
   `binary_conversions` with `conversion_text`, the text rules it shares with
   `conversions`; `term_encoding` and `term_decoding`: the external term
-  format; `time` and `timers`).
+  format; `time` and `timers`; `introspection` and `system`).
 - Each family file defines its own `*_builtins()` table listed in
   `production_builtins()`. A new family adds a new file and table instead of
   growing an existing one; a file past about 400 lines is split by family

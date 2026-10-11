@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "introspection",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[]\n{registered_name,introspected}\n[{registered_name,introspected},\n {status,running},\n {trap_exit,false},\n {priority,normal},\n {error_handler,error_handler}]\n{trap_exit,true}\n[{message_queue_len,2},{messages,[a,{b,[1]}]}]\n{dictionary,[{key,value}]}\n[true,true,true,true]\n[true,true,true,true,true,true,true,true]\n{error,badarg}\n{error,badarg}\n{true,true,true}\nasync\ntrue\n{error,badarg}\ntrue\n{status,waiting}\n{messages,[]}\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n{undefined,undefined,false}\n{error,badarg}\n[true,true,true]\n{2,2,3}\n{error,badarg}\n\"29\"\ntrue\n[true,true,true,true,true,true]\ntrue\n{true,true}\n{error,badarg}\n[true,true,true,true,true,true,true,true,true]\ntrue\n[processes,atom]\n{error,badarg}\nintrospection: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "introspection.erl": "37c61b2951815dabc62aa07f4adb5c6a9ac8d8709ba6d345546eb5940a0d9a2a"
+  }
+}

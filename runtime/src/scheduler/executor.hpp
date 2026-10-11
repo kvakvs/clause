@@ -187,6 +187,44 @@ class Executor final {
 
     // Arm a start_timer/send_after timer (timers.cpp). Allocation failure throws.
     static void start_timer(ProcessContext &caller, TimerStart request);
+
+    // Counts of the runtime that statistics/1, system_info/1 and memory/0,1 read (plan step 41G1).
+    struct Counts {
+        std::size_t processes = 0;
+        std::size_t ports = 0;
+        std::size_t run_queue = 0;
+        std::size_t workers = 0;
+        std::uint64_t slices = 0;
+        // Words charged to the runtime-wide memory account, and when the executor started.
+        std::size_t memory_words = 0;
+        std::chrono::steady_clock::time_point started;
+    };
+
+    // A snapshot of the counts (introspection.cpp).
+    static Counts counts(ProcessContext &context) noexcept;
+    // The pid words of every live process, ascending. Allocation failure throws.
+    static std::vector<Word> pids(ProcessContext &context);
+
+    // Run read(target, executor) on the live process of `pid` under the executor's lock (process_info/2,
+    // group_leader/2, garbage_collect/1); none when no live process has the pid. A process running on another
+    // worker blocks the caller, whose builtin runs again once that slice ends.
+    template <typename Read> static auto inspect(ProcessContext &caller, Word pid, Read read) {
+        auto &executor = of(caller);
+        const std::scoped_lock lock(executor.mutex_);
+        using Result = decltype(read(caller, executor));
+        auto *target = find(caller, pid);
+        if (!target || executor.ending(*target)) {
+            return std::optional<Result>{};
+        }
+        if (executor.busy(target)) {
+            executor.block(caller, *target);
+        }
+        return std::optional<Result>{read(*target, executor)};
+    }
+
+    // The status process_info/2 reports for `target` seen from `caller`: running, runnable or waiting.
+    std::string_view status(const ProcessContext &caller, ProcessContext &target) const noexcept;
+
     // The milliseconds a timer has left, cancelling it when `cancel`; none when it fired, was cancelled or never
     // existed.
     static std::optional<std::int64_t> timer_left(ProcessContext &caller, std::uint64_t reference,
@@ -426,6 +464,8 @@ class Executor final {
     Schedule &schedule(ProcessContext &process);
     // Whether `process` runs on a worker other than the calling thread.
     bool busy(ProcessContext *process) const noexcept;
+    // Whether `process` has ended and only waits to be finished.
+    bool ending(ProcessContext &process) const noexcept;
     // Record that the running `process` waits for busy `target` and make its builtin run again: throws Blocked.
     [[noreturn]] void block(ProcessContext &process, ProcessContext &target);
     // A process an ended `process` must signal (a link or a monitor's watcher) that runs on another worker, or null.
