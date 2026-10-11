@@ -1,6 +1,7 @@
 #pragma once
 #include "backend_options.hpp"
 #include "project/entry.hpp"
+#include "project/ignore.hpp"
 #include <clause/compiler/preprocessor.hpp>
 #include <filesystem>
 #include <optional>
@@ -23,6 +24,8 @@ struct EnvironmentTarget {
     // Executable destination and entry selection; absent output means nothing is linked.
     std::optional<std::filesystem::path> output;
     std::optional<project::SelectedEntry> entry;
+    // A project target's ignore_dirs and ignore_modules; absent for positional inputs. Added for ignored modules.
+    const project::Ignore *ignore = nullptr;
 };
 
 // Print the invocation part of --print-env: command, actions and working directory, as TOML.

@@ -149,6 +149,9 @@
   input declares (`semantic::declared_module`) are parsed from `linking::library_directory()` (relative to
   `clau`, `CLAUSE_DEFAULT_LIBRARY`) until closed; they compile, link and publish like inputs. `referenced_modules`
   keeps each name's earliest naming site; `--print-inputs` (`FrontendRequest::list_inputs`) stops here and lists the batch.
+  Ignored sources (`project::Ignore`: ignore_dirs rules hashed by literal root and probed per ancestor, ignore_modules
+  hash set) leave target discovery and module search; each ignored referenced module gets a generated placeholder
+  module (`driver/placeholders`, keys from `semantic::referenced_functions`) returning `{module_ignored, M}`.
   Step 40 (`docs/io.md`): catalog entries of module `io` (`io_builtins()`); a qualified call of another module's
   catalog builtin is a service (`semantic::module_builtin`) ahead of call resolution. Runtime `builtins/io_format`
   (scan, control sequences, column tracking, chardata walks), `builtins/io_pretty` (OTP intermediate form with

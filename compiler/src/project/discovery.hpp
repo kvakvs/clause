@@ -10,6 +10,8 @@ struct DiscoveryLimits {
     std::size_t work = 16000000;
 };
 
+// Separate the explicitly named root from wildcard components before traversal.
+std::pair<std::filesystem::path, std::filesystem::path> split_pattern(const std::filesystem::path &path);
 // Expand one wildcard selection deterministically, rejecting an unmatched pattern.
 std::vector<std::filesystem::path> wildcard_sources(const std::filesystem::path &base, const Text &pattern,
                                                     DiscoveryLimits limits = {});

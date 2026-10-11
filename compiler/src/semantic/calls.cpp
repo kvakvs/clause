@@ -363,6 +363,63 @@ void note_function(const ast::Module &syntax, const ast::Function &function, Ref
         pending.insert(pending.end(), children.begin(), children.end());
     }
 }
+
+// Function keys by the literal module that names them. Added for ignored modules.
+using FunctionReferences = std::map<std::u32string, std::set<FunctionKey>>;
+
+// Note fun M:F/A when module, name and arity are all literal. Added for ignored modules.
+void note_fun_reference(const ast::RemoteFunReference &reference, FunctionReferences &result) {
+    const auto *module = std::get_if<ast::Atom>(&reference.module);
+    const auto *name = std::get_if<ast::Atom>(&reference.name);
+    const auto *count = std::get_if<Integer>(&reference.arity);
+    const auto value = count ? arity(*count) : std::nullopt;
+    if (module && name && value) {
+        result[module->name].insert({name->name, *value});
+    }
+}
+
+// Note apply(M, F, [A1, ..., An]) when M and F are atoms and the arguments a literal proper list. Added for ignored
+// modules.
+void note_apply(const ast::Module &syntax, const ast::Atom &module, const ast::CallExpression &call,
+                FunctionReferences &result) {
+    const auto *name = literal_atom(syntax, call.arguments[1]);
+    const auto *list = std::get_if<ast::List>(&syntax.expression(ungroup(syntax, call.arguments[2])).value);
+    if (name && list && !list->tail) {
+        result[module.name].insert({name->name, list->elements.size()});
+    }
+}
+
+// Note the remote function one call or fun expression names with literal atoms. Added for ignored modules.
+void note_remote(const ast::Module &syntax, const ast::Expression &expression, FunctionReferences &result) {
+    if (const auto *reference = std::get_if<ast::RemoteFunReference>(&expression.value)) {
+        note_fun_reference(*reference, result);
+        return;
+    }
+    const auto *call = std::get_if<ast::CallExpression>(&expression.value);
+    if (!call) {
+        return;
+    }
+    if (const auto *module = applied_module(syntax, *call)) {
+        note_apply(syntax, *module, *call, result);
+        return;
+    }
+    const auto *remote = std::get_if<ast::RemoteExpression>(&syntax.expression(ungroup(syntax, call->target)).value);
+    const auto *module = remote ? literal_atom(syntax, remote->module) : nullptr;
+    const auto *name = remote ? literal_atom(syntax, remote->function) : nullptr;
+    if (module && name && !builtin_call(syntax, *remote, call->arguments.size())) {
+        result[module->name].insert({name->name, call->arguments.size()});
+    }
+}
+
+// Note the functions an -import attribute names. Added for ignored modules.
+void note_imports(const ast::ImportAttribute &import, FunctionReferences &result) {
+    auto &keys = result[import.module.name];
+    for (const auto &function : import.functions) {
+        if (const auto value = arity(function.arity)) {
+            keys.insert({function.name.name, *value});
+        }
+    }
+}
 } // namespace
 
 std::optional<std::u32string> declared_module(const ast::Module &syntax) {
@@ -383,6 +440,26 @@ std::map<std::u32string, ast::NodeSource> referenced_modules(const ast::Module &
         }
         if (const auto *function = std::get_if<ast::Function>(&form.value)) {
             note_function(syntax, *function, result);
+        }
+    }
+    return result;
+}
+
+std::map<std::u32string, std::set<FunctionKey>> referenced_functions(const ast::Module &syntax) {
+    FunctionReferences result;
+    for (const auto &id : syntax.forms()) {
+        const auto &form = syntax.form(id);
+        if (const auto *import = std::get_if<ast::ImportAttribute>(&form.value)) {
+            note_imports(*import, result);
+        }
+        const auto *function = std::get_if<ast::Function>(&form.value);
+        auto pending = function ? function_roots(*function) : std::vector<ast::ExprId>{};
+        while (!pending.empty()) {
+            const auto &expression = syntax.expression(pending.back());
+            pending.pop_back();
+            note_remote(syntax, expression, result);
+            const auto children = expression_children(expression);
+            pending.insert(pending.end(), children.begin(), children.end());
         }
     }
     return result;

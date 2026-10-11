@@ -1,6 +1,7 @@
 #pragma once
 #include "discovery.hpp"
 #include "entry.hpp"
+#include "ignore.hpp"
 #include "options.hpp"
 
 namespace clause::project {
@@ -31,6 +32,8 @@ struct PlannedTarget {
     // The target's parse transforms and expanded transform_paths. Added for parse transforms.
     std::vector<std::string> transforms_ = {};
     std::vector<std::filesystem::path> transform_paths_ = {};
+    // ignore_dirs and ignore_modules, with the module names of the sources they left out. Added for ignored modules.
+    Ignore ignore_ = {};
 };
 
 struct Invocation {

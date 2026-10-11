@@ -126,3 +126,19 @@ if(HOST_SUFFIX STREQUAL ".exe")
         message(FATAL_ERROR "suffix_output: a colliding executable was published")
     endif()
 endif()
+
+# ignore_dirs and ignore_modules (docs/projects.md#ignored-sources): ignored sources hold syntax errors and are never
+# parsed; calls into their modules reach placeholders returning {module_ignored, Module}.
+file(COPY "${SOURCE_ROOT}/tests/fixtures/linking/ignore/" DESTINATION "${WORK}/ignore")
+execute_process(COMMAND "${TOOL}" --project ignore/project.toml --print-inputs WORKING_DIRECTORY "${WORK}"
+    RESULT_VARIABLE result OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 60)
+string(REPLACE "\r\n" "\n" out "${out}")
+set(ignored "\nignored module dep_tests \\(referenced at [^\n]*/app\\.erl:13\\)\nignored module legacy \\(referenced at "
+    "[^\n]*/app\\.erl:8\\)\nignored module telemetry \\(referenced at [^\n]*/app\\.erl:3\\)\n$")
+string(CONCAT ignored ${ignored})
+if(NOT result STREQUAL "0" OR NOT err STREQUAL "" OR out MATCHES "legacy\\.erl|telemetry\\.erl|dep_tests\\.erl" OR
+   NOT out MATCHES "${ignored}")
+    message(FATAL_ERROR "ignore_inputs: exit=${result} stdout=[${out}] stderr=[${err}]")
+endif()
+compile(ignore 0 "^$" --project ignore/project.toml)
+run(ignore/build/ignore 0 "{module_ignored,legacy}\nignore: ok\n")

@@ -7,6 +7,7 @@
 #include "backend.hpp"
 #include "escript.hpp"
 #include "options.hpp"
+#include "placeholders.hpp"
 #include "predefined.hpp"
 #include "transform_sources.hpp"
 #include "transforms/abstract_input.hpp"
@@ -256,14 +257,20 @@ bool defined(const Inputs &inputs, const std::u32string &name) {
                                [&](const auto &input) { return semantic::declared_module(input.syntax) == name; });
 }
 
-// The first Module.erl in the directories, in order; empty when none exists.
-std::filesystem::path module_source(const std::vector<std::filesystem::path> &directories, const std::u32string &name) {
+// The first Module.erl in the directories, in order, passing over ignored ones (then `ignored` is set); empty when
+// none exists.
+std::filesystem::path module_source(const std::vector<std::filesystem::path> &directories, const std::u32string &name,
+                                    const project::Ignore &ignore, bool &ignored) {
     const auto file = project::native_path(utf8(name) + ".erl");
     for (const auto &directory : directories) {
         std::error_code error;
-        if (std::filesystem::is_regular_file(directory / file, error)) {
+        if (!std::filesystem::is_regular_file(directory / file, error)) {
+            continue;
+        }
+        if (!ignore.skips(directory / file)) {
             return directory / file;
         }
+        ignored = true;
     }
     return {};
 }
@@ -282,6 +289,8 @@ struct Discovery {
     std::set<std::u32string> added;
     // Sources added by reference, in the order they joined the batch.
     std::vector<ReferencedInput> referenced;
+    // Ignored modules the batch names, each with its first naming site, in discovery order. Added for ignored modules.
+    std::vector<std::pair<std::u32string, std::string>> ignored;
 };
 
 // Render where a module was named as "file:line" of the token's logical location. Added for --print-inputs.
@@ -297,8 +306,14 @@ bool add_module(const std::u32string &name, std::string site, Discovery &discove
     if (defined(inputs, name) || !discovery.added.insert(name).second) {
         return false;
     }
-    auto path = module_source(discovery.directories, name);
+    // ignore_modules wins over search; a module found only in ignored places is ignored. Added for ignored modules.
+    const auto &ignore = request.ignore_;
+    bool passed = ignore.names(utf8(name));
+    auto path = passed ? std::filesystem::path{} : module_source(discovery.directories, name, ignore, passed);
     if (path.empty()) {
+        if (passed || ignore.skipped(utf8(name))) {
+            discovery.ignored.emplace_back(name, std::move(site));
+        }
         return false;
     }
     discovery.referenced.push_back({path, std::move(site)});
@@ -316,6 +331,36 @@ bool add_referenced(const FrontendRequest &request, const DiagnosticSink &sink, 
             auto site = site_text(inputs[scanned].syntax, source);
             failed = add_module(name, std::move(site), discovery, request, sink, inputs) || failed;
         }
+    }
+    return failed;
+}
+
+// Compile the placeholder of one ignored module: the functions the batch names in it. Added for ignored modules.
+bool add_placeholder(const std::u32string &module, const std::set<semantic::FunctionKey> &functions,
+                     const DiagnosticSink &sink, Inputs &inputs) {
+    FrontendRequest request;
+    request.compile = true;
+    SourceManager sources;
+    const auto path = placeholder_path(module);
+    const auto source = sources.add(project::path_text(path), placeholder_source(module, functions));
+    PreprocessorSession session(source, request.preprocessing);
+    return parse_and_print(session, request, sink, source, path, false, inputs);
+}
+
+// Add a placeholder module for each ignored module the batch names. Added for ignored modules.
+bool add_placeholders(const Discovery &discovery, const DiagnosticSink &sink, Inputs &inputs) {
+    if (discovery.ignored.empty()) {
+        return false;
+    }
+    std::map<std::u32string, std::set<semantic::FunctionKey>> functions;
+    for (const auto &input : inputs) {
+        for (auto &[module, keys] : semantic::referenced_functions(input.syntax)) {
+            functions[module].merge(keys);
+        }
+    }
+    bool failed = false;
+    for (const auto &[module, site] : discovery.ignored) {
+        failed = add_placeholder(module, functions[module], sink, inputs) || failed;
     }
     return failed;
 }
@@ -338,6 +383,19 @@ void list_batch(const std::span<const std::filesystem::path> paths, const Discov
     for (const auto &input : discovery.referenced) {
         std::cout << filename(input.path) << " (referenced at " << input.site << ")\n";
     }
+    // Added for ignored modules.
+    for (const auto &[module, site] : discovery.ignored) {
+        std::cout << "ignored module " << utf8(module) << " (referenced at " << site << ")\n";
+    }
+}
+
+// Compile the batch together with the placeholders of the ignored modules it names. Added for ignored modules.
+bool compile_with_placeholders(Inputs inputs, const Discovery &discovery, const FrontendRequest &request,
+                               const DiagnosticSink &sink) {
+    if (add_placeholders(discovery, sink, inputs)) {
+        return true;
+    }
+    return compile_batch(std::move(inputs), request, sink);
 }
 } // namespace
 
@@ -368,7 +426,7 @@ bool process_files(const std::span<const std::filesystem::path> paths, const Fro
         return failed;
     }
     if (request.compile && !failed) {
-        failed = compile_batch(std::move(inputs), request, sink);
+        failed = compile_with_placeholders(std::move(inputs), discovery, request, sink);
     }
     return failed;
 }

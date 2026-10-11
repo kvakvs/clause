@@ -37,6 +37,11 @@ struct TargetOptions {
     // transform modules (docs/transforms.md). Added for parse transforms.
     std::vector<Text> parse_transforms;
     std::vector<Text> transform_paths;
+    // Path wildcards whose sources are never discovered, searched or compiled, and module names left out the same
+    // way; references to such modules reach placeholders (docs/projects.md#ignored-sources). Added for ignored
+    // modules.
+    std::vector<Text> ignore_dirs;
+    std::vector<Text> ignore_modules;
 };
 
 struct Target {

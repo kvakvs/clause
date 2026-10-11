@@ -86,7 +86,8 @@ bool print_target_environment(const Options &options, const project::Invocation 
                               .preprocessing = target.preprocessing,
                               .backend = backend,
                               .output = target.output,
-                              .entry = target.entry});
+                              .entry = target.entry,
+                              .ignore = &target.ignore_});
     return false;
 }
 
@@ -163,6 +164,7 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
         request.pending_publications = &pending;
         request.pending_executables = &executables;
         request.module_search_paths_ = target.search_paths_;
+        request.ignore_ = target.ignore_;
         return process_files(target.sources, request, sink);
     };
     const int status = project::run(options.project, plan_settings(options), execute, std::cout, std::cerr);

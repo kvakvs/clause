@@ -135,6 +135,11 @@ void print_options(const EnvironmentTarget &target) {
     const auto &preprocessing = target.preprocessing;
     std::cout << "\n[targets.options]\n";
     print_array("source_search_paths", quoted_paths(target.search_paths));
+    // Added for ignored modules.
+    if (target.ignore) {
+        print_array("ignore_dirs", quoted_texts(target.ignore->patterns()));
+        print_array("ignore_modules", quoted_texts(target.ignore->modules()));
+    }
     print_array("include_dirs", quoted_paths(preprocessing.include_paths));
     print_array("defines", quoted_texts(preprocessing.definitions));
     print_applications(preprocessing);

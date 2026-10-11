@@ -37,6 +37,11 @@ defines = []
 # Do not list a feature in both arrays.
 enable_features = []
 disable_features = []
+# Sources never discovered, searched or compiled: path wildcards and module names, e.g.
+# ignore_dirs = ["vendor/*/test"], ignore_modules = ["legacy"]. Calls into such modules return
+# {module_ignored, Module}.
+ignore_dirs = []
+ignore_modules = []
 
 # Explicit include_lib application roots. Empty by default.
 # Example entry: my_dependency = "vendor/my_dependency"

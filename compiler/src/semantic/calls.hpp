@@ -1,6 +1,7 @@
 #pragma once
 #include "declarations.hpp"
 #include <map>
+#include <set>
 
 namespace clause::semantic {
 struct FunctionRef {
@@ -37,4 +38,7 @@ std::optional<std::u32string> declared_module(const ast::Module &syntax);
 // The modules a module names with a literal atom (M:F(...), fun M:F/A, apply(M, F, Args), -behaviour(M) and
 // -import(M, ...)), each with its earliest naming site (sites added for --print-inputs).
 std::map<std::u32string, ast::NodeSource> referenced_modules(const ast::Module &syntax);
+// The functions a module names in other modules with literal atoms (M:F(...), fun M:F/A, apply(M, F, [...]) and
+// -import(M, ...)), by module. Added for ignored modules.
+std::map<std::u32string, std::set<FunctionKey>> referenced_functions(const ast::Module &syntax);
 } // namespace clause::semantic

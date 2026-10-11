@@ -22,6 +22,8 @@ include_dirs = ["include", "vendor/include"]
 defines = ["DEBUG", "LIMIT=100", 'LABEL="demo"']
 enable_features = ["maybe_expr"]
 disable_features = ["compr_assign"]
+ignore_dirs = ["src/legacy", "deps/*/test"]
+ignore_modules = ["telemetry"]
 
 [targets.options.applications]
 my_dependency = "vendor/my_dependency"
@@ -40,6 +42,8 @@ my_dependency = "vendor/my_dependency"
 - `parse_transforms` (module names) and `transform_paths` (directories or
   patterns of precompiled `.beam` files) in `options` apply parse transforms to
   the target's modules ([transforms](transforms.md#options)).
+- `ignore_dirs` (path wildcards) and `ignore_modules` (module names) in
+  `options` leave sources out of the build ([ignored sources](#ignored-sources)).
 - `options` fields are optional typed frontend options. `defines` use
   `NAME` (= `true`) or `NAME=ERLANG_LITERAL_TERM`; duplicates are errors. A
   feature cannot appear in both feature lists.
@@ -51,7 +55,7 @@ my_dependency = "vendor/my_dependency"
   `entry` is an executable target ([executables](#executables)); `--emit` and
   check/print modes ignore both keys' outputs.
 - Not supported yet: root defaults, inheritance, target dependencies, imports,
-  profiles, exclusions, packages, watch, caching, parallel builds. Fields are
+  profiles, packages, watch, caching, parallel builds. Fields are
   added only together with their behavior.
 
 ## CLI and target selection
@@ -174,6 +178,45 @@ links every selected target that has an `output` or `entry` key, or that CLI
   case aliases), keeping the first spelling. The same file in two targets is
   compiled twice because options can differ.
 - Only selected targets touch the filesystem.
+
+## Ignored sources
+
+`ignore_dirs` and `ignore_modules` keep sources out of a target without
+removing them from the tree, e.g. vendored tests, legacy code or modules that
+only matter under OTP. An ignored source is silently skipped: it is never read,
+parsed, compiled or linked, so it may even hold syntax errors.
+
+- `ignore_dirs`: manifest-relative (or absolute) paths with the
+  [wildcards](#paths-and-discovery) of `sources`. A source is ignored when its
+  path, or a directory containing it, matches: `src/legacy`, `deps/*/test`,
+  `**/test` (any `test` directory), `src/*_SUITE.erl`. Matching is lexical;
+  a pattern need not match anything.
+- `ignore_modules`: module names. A source named `<Module>.erl` (or `.abstr`)
+  is ignored, and a referenced module of that name is never searched for.
+- Both apply to `sources`, `source_dirs`, literal sources found through
+  `source_search_paths`, and the [module search](#paths-and-discovery) of
+  `source_search_paths` and the library. A search passes over an ignored
+  `Module.erl` and keeps looking in later directories.
+- A module is ignored when `ignore_modules` names it, or when no batch source
+  defines it and its only sources found were ignored (by search, or skipped
+  from the target's sources, by file name). A module defined by a compiled
+  source is never ignored.
+- References to an ignored module (`M:F(...)`, `-import`, `fun M:F/A`,
+  `apply(M, F, [...])` with literal names) reach a generated placeholder module
+  `M` exporting each function named this way; every one returns
+  `{module_ignored, M}` instead of running. A function the batch never names
+  literally stays `undef` for dynamic calls. `-behaviour(M)` with an ignored
+  `M` warns `behaviour M undefined`.
+- `--print-inputs` lists each ignored referenced module after the added sources
+  as `ignored module <name> (referenced at <file>:<line>)`; `--print-env`
+  prints both keys.
+
+```toml
+[targets.options]
+source_search_paths = ["deps/**"]
+ignore_dirs = ["deps/*/test", "src/legacy"]
+ignore_modules = ["telemetry"]
+```
 
 ## Effective options
 

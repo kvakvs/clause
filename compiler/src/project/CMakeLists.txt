@@ -16,6 +16,8 @@ target_sources(clause_project PRIVATE glob.cpp glob_utf8.cpp)
 target_sources(clause_project PRIVATE discovery.cpp)
 
 target_sources(clause_project PRIVATE identity.cpp sources.cpp)
+# ignore_dirs and ignore_modules. Added for ignored modules.
+target_sources(clause_project PRIVATE ignore.cpp)
 
 target_sources(clause_project PRIVATE selection.cpp)
 

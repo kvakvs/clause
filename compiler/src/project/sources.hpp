@@ -1,5 +1,6 @@
 #pragma once
 #include "discovery.hpp"
+#include "ignore.hpp"
 #include <span>
 
 namespace clause::project {
@@ -7,8 +8,8 @@ namespace clause::project {
 std::vector<std::filesystem::path> search_directories(const std::filesystem::path &base, const Target &target,
                                                       DiscoveryLimits limits = {});
 // Assemble ordered translation units and deduplicate physical aliases within one target; literal sources fall back
-// to the search directories.
+// to the search directories. Sources `ignore` skips are left out and noted in it.
 std::vector<std::filesystem::path> target_sources(const std::filesystem::path &base, const Target &target,
-                                                  std::span<const std::filesystem::path> search,
+                                                  std::span<const std::filesystem::path> search, Ignore &ignore,
                                                   DiscoveryLimits limits = {});
 } // namespace clause::project

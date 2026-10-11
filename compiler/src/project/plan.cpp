@@ -108,12 +108,14 @@ Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
     for (const auto index : selected) {
         const auto &target = manifest.targets[index];
         auto search = search_directories(base, target, options.discovery);
-        auto sources = target_sources(base, target, search, options.discovery);
+        Ignore ignore(base, target.options);
+        auto sources = target_sources(base, target, search, ignore, options.discovery);
         result.targets.push_back({target.name.value, std::move(sources),
                                   compose_options(target, base, options.working_directory, options.preprocessing),
                                   output_path(target, options, base), entry_selection(target, options),
                                   std::move(search)});
         transform_options(base, target, options.discovery, result.targets.back());
+        result.targets.back().ignore_ = std::move(ignore);
     }
     outputs(result);
     return result;

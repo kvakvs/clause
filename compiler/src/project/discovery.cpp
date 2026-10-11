@@ -108,7 +108,8 @@ std::vector<fs::path> discover(Walk walk) {
     return result;
 }
 
-// Separate the explicitly named root from wildcard components before traversal.
+} // namespace
+
 std::pair<fs::path, fs::path> split_pattern(const fs::path &path) {
     fs::path root;
     fs::path suffix;
@@ -123,7 +124,6 @@ std::pair<fs::path, fs::path> split_pattern(const fs::path &path) {
     }
     return {root, suffix};
 }
-} // namespace
 
 std::vector<fs::path> directory_sources(const fs::path &base, const Text &directory, DiscoveryLimits limits) {
     const auto root = source_directory(base, directory);

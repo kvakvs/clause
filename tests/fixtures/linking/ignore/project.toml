@@ -1,0 +1,13 @@
+schema_version = 1
+
+# Ignored sources are never parsed: each one below holds a syntax error. Calls into their modules reach
+# placeholders returning {module_ignored, Module}.
+[[targets]]
+name = "ignore"
+source_dirs = ["src"]
+entry = "app"
+
+[targets.options]
+source_search_paths = ["lib", "vendor/**"]
+ignore_dirs = ["src/legacy", "vendor/*/test", "src/**/*_SUITE.erl"]
+ignore_modules = ["telemetry"]

@@ -1,6 +1,7 @@
 #pragma once
 #include "backend_options.hpp"
 #include "project/entry.hpp"
+#include "project/ignore.hpp"
 #include "transforms/pipeline.hpp"
 #include <clause/compiler/diagnostic.hpp>
 #include <clause/compiler/preprocessor.hpp>
@@ -48,6 +49,8 @@ struct FrontendRequest {
     // Directories searched, in order and before the library, for Module.erl when the batch names a module no
     // input defines (a project target's source_search_paths).
     std::vector<std::filesystem::path> module_search_paths_ = {};
+    // Sources and modules the batch leaves out; references to them reach placeholders. Added for ignored modules.
+    project::Ignore ignore_ = {};
     // Parse and add referenced modules as compilation would, then list the batch's sources instead.
     // Added for --print-inputs.
     bool list_inputs = false;
