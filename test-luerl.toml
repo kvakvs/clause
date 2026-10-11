@@ -22,6 +22,12 @@ source_dirs = []
 output = "build/emqx"
 
 [targets.options]
+ignore_dirs = [
+  "references/otp/lib/crypto"
+]
+ignore_modules = [
+  "prim_tty", "inet_dns"
+]
 # Fallback roots for listed source filenames, e.g. ["src", "generated"].
 # These do not discover extra files or search for headers.
 source_search_paths = [
