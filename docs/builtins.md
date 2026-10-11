@@ -56,7 +56,14 @@ builtin both the compiler and the runtime know:
   `unicode` and `latin1`; they run to completion;
 - the [external term format](#external-term-format) (plan step 41E):
   `term_to_binary/1,2`, `term_to_iovec/1,2`, `external_size/1,2`,
-  `binary_to_term/1,2`.
+  `binary_to_term/1,2`;
+- [time](#time) and unique values (plan step 41F): `monotonic_time/0,1`,
+  `system_time/0,1`, `time_offset/0,1`, `convert_time_unit/3`,
+  `timestamp/0`, `now/0`, `unique_integer/0,1`, `localtime/0`,
+  `universaltime/0`, `date/0`, `time/0`, `localtime_to_universaltime/1,2`,
+  `universaltime_to_localtime/1`, `posixtime_to_universaltime/1`,
+  `universaltime_to_posixtime/1`; [timers](processes.md#timers):
+  `start_timer/3,4`, `send_after/3,4`, `cancel_timer/1,2`, `read_timer/1,2`.
 
 Entries are only appended: an entry's index is the number generated code
 passes to the bridge service. A qualified call of a catalog builtin of another
@@ -259,6 +266,18 @@ native stack.
   returns `{Term, BytesRead}`. CTests: `executables_external_terms` (OTP
   bytes) and `builtins_etf_fuzz` (mutated encodings decode or raise).
 
+## Time
+
+Plan 11 step 41F (`erlang/time.cpp`). Monotonic time is the steady clock;
+`native` and `perf_counter` are nanoseconds; units are the OTP atoms
+(including the deprecated plural ones) or a positive parts-per-second
+integer. `convert_time_unit/3` rounds down, as OTP. `unique_integer/0,1`
+draws from one program-wide counter, so every value is positive, unique and
+increasing whatever the options (`positive`, `monotonic`; others `badarg`).
+`now/0` is system time made strictly increasing. Calendar conversions read
+`{{Y, M, D}, {H, Mi, S}}` strictly (an invalid date or time is `badarg`) and
+use the C library's local time zone.
+
 ## Source layout
 
 - The runtime implements builtins in `runtime/src/builtins/`. A large module
@@ -270,7 +289,7 @@ native stack.
   `ports`; `dictionary`: the [process dictionary](processes.md#process-dictionary);
   `binary_conversions` with `conversion_text`, the text rules it shares with
   `conversions`; `term_encoding` and `term_decoding`: the external term
-  format).
+  format; `time` and `timers`).
 - Each family file defines its own `*_builtins()` table listed in
   `production_builtins()`. A new family adds a new file and table instead of
   growing an existing one; a file past about 400 lines is split by family

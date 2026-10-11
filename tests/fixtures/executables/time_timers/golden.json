@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "timing",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "1\n-2\n3000\n3\n0\n1180591620717\n5000\n1000\n{error,badarg}\ntrue\n{true,true,true}\ntrue\ntrue\ntrue\ntrue\n{error,badarg}\n{error,badarg}\n86400\n1709251199\n{{1970,1,2},{0,0,0}}\n{{1969,12,31},{23,59,59}}\n{{2024,2,29},{23,59,59}}\n{error,badarg}\n{error,badarg}\n{error,badarg}\n{error,badarg}\n{error,badarg}\ntrue\n{error,badarg}\n{3,3,3}\n{3,3}\n[first,second,third]\n{payload,[1,2]}\ntrue\ntrue\n{false,false}\nok\ntrue\nok\nok\ntrue\nby_name\ntrue\nabsolute\n{error,badarg}\n{error,badarg}\n{error,badarg}\n{error,badarg}\n{error,badarg}\nfalse\nfalse\nno stray messages\ntiming: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "timing.erl": "25d734836ad546719bcbe555fc1b5720bf868b79c38c1d06f75cf520058ff855"
+  }
+}

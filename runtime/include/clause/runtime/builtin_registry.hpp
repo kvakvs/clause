@@ -115,6 +115,10 @@ std::span<const BuiltinEntry> binary_conversion_builtins() noexcept;
 // binary_to_term/1,2.
 std::span<const BuiltinEntry> term_encoding_builtins() noexcept;
 std::span<const BuiltinEntry> term_decoding_builtins() noexcept;
+// The time builtins of step 41F (monotonic, system and calendar time, units, unique integers) and its timers
+// (start_timer/3,4, send_after/3,4, cancel_timer/1,2, read_timer/1,2).
+std::span<const BuiltinEntry> time_builtins() noexcept;
+std::span<const BuiltinEntry> timer_builtins() noexcept;
 // The process dictionary builtins: put/2, get/0,1, get_keys/0,1, erase/0,1. Added for step 41C.
 std::span<const BuiltinEntry> dictionary_builtins() noexcept;
 // Every production builtin family runtime startup registers, together covering abi::v1::bridge_builtins.

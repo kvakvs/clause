@@ -22,6 +22,8 @@ class TimerWheel final {
         std::uint8_t slot = 0;
         // Whatever the owner identifies itself with when the timer fires.
         void *owner = nullptr;
+        // Whether the owner is a message timer (start_timer/send_after, step 41F) rather than a parked process.
+        bool message = false;
     };
 
     // Six levels of 64 slots cover 2^36 ticks, beyond OTP's longest receive timeout of 2^32 - 1 ms.

@@ -1,4 +1,5 @@
 #pragma once
+#include "../memory/message_buffer.hpp"
 #include "../ports/io.hpp"
 #include "../ports/port.hpp"
 #include "../ports/reactor.hpp"
@@ -175,6 +176,22 @@ class Executor final {
     // error is a failed copy. Throws builtins::Blocked while the receiver runs on another worker.
     static TermResult<void> send(ProcessContext &sender, Word pid, const Term &message);
 
+    // A start_timer/send_after request (plan step 41F): the program-wide number of its reference, the pid or
+    // registered name (atom word) it sends to, when, and the message.
+    struct TimerStart {
+        std::uint64_t reference;
+        Word destination;
+        std::chrono::steady_clock::time_point deadline;
+        std::shared_ptr<const MessageBuffer> message;
+    };
+
+    // Arm a start_timer/send_after timer (timers.cpp). Allocation failure throws.
+    static void start_timer(ProcessContext &caller, TimerStart request);
+    // The milliseconds a timer has left, cancelling it when `cancel`; none when it fired, was cancelled or never
+    // existed.
+    static std::optional<std::int64_t> timer_left(ProcessContext &caller, std::uint64_t reference,
+                                                  bool cancel) noexcept;
+
     // Links, monitors and names change under the lock at once, also while the other process runs elsewhere.
     // link(Pid) of the running `process` (docs/processes.md#links). For an ended process it sends itself
     // {'EXIT', Pid, noproc} when trapping exits; otherwise it returns false and the caller raises noproc.
@@ -272,6 +289,19 @@ class Executor final {
         std::vector<Word> throttling;
         // The receive timeout of this parked process in the timer wheel, armed while it waits with one.
         TimerWheel::Timer timer;
+        // Timer messages that fired while this process ran, delivered when its slice ends (step 41F).
+        std::vector<std::shared_ptr<const MessageBuffer>> messages;
+    };
+
+    // A start_timer/send_after timer (plan step 41F): its message waits in a buffer of its own until it fires.
+    struct MessageTimer final {
+        TimerWheel::Timer timer;
+        // The program-wide number of the timer's reference, and the pid or registered name (atom word) it sends to.
+        std::uint64_t reference = 0;
+        Word destination = 0;
+        std::shared_ptr<const MessageBuffer> message;
+        // The tick it fires at; one past the wheel's range is armed again until it is reached.
+        std::uint64_t deadline = 0;
     };
 
     // How an exit signal was sent (docs/processes.md#exit-signals): by a link, by exit_signal/2 or exit/2 to another
@@ -418,6 +448,14 @@ class Executor final {
     void expire(ProcessContext &process);
     // Forget a parked process's timer.
     void cancel(ProcessContext &process) noexcept;
+    // Arm a message timer at its deadline, or as far as the wheel reaches (step 41F).
+    void arm(MessageTimer &timer);
+    // A message timer whose tick came: send its message, or arm it again when its deadline is beyond the wheel.
+    void fire(MessageTimer &timer);
+    // Deliver a timer message: at once to a process not running, else when its slice ends.
+    void post(ProcessContext &receiver, const std::shared_ptr<const MessageBuffer> &message);
+    // Drop the message timers whose destination is the pid of an ending process.
+    void drop_timers(Word pid) noexcept;
 
     // Act on an exit signal from `from` at `target`: end it, turn the signal into a message when it traps exits, or
     // drop it.
@@ -492,6 +530,8 @@ class Executor final {
     ProcessContext *finished_ = nullptr;
     // Registered names (atom words) and their pid or port words; a name is released when its owner ends.
     std::map<Word, Word> names_;
+    // Message timers by reference number (step 41F); the wheel links their embedded timers.
+    std::unordered_map<std::uint64_t, std::unique_ptr<MessageTimer>> message_timers_;
     // The I/O thread; declared before the ports and services, so its io_context is destroyed after them.
     std::unique_ptr<Reactor> reactor_;
     // Open ports by number; a port leaves when it closes.

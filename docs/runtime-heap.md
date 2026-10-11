@@ -226,6 +226,17 @@ Any other request returns `unsafe_point` and changes nothing, not even the
 failure channel of a running generated call. Allocation never moves the heap:
 a request that does not fit creates a fragment.
 
+## Message buffers
+
+Plan 11 step 41F. A `MessageBuffer`
+([message_buffer.hpp](../runtime/src/memory/message_buffer.hpp)) keeps a term
+outside every process: `copy_of` copies the graph from its process heap into a
+`HeapStorage` of its own (its own lifetime token, the runtime's atoms and
+memory account, off-heap binaries shared and held), with the same `GraphCopy`
+a send uses; `copy_to` copies it into a receiver's heap. Immediates need no
+storage. The buffer is never collected and is freed with its last owner.
+Timer messages use it, so they are never re-encoded.
+
 ## Collection in generated code
 
 Decision of plan 11 step 24 (2026-10-06), implemented in step 26

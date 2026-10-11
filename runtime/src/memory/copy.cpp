@@ -1,6 +1,7 @@
 #include "heap_object.hpp"
 #include "heap_storage.hpp"
 #include "heap_walk.hpp"
+#include "message_buffer.hpp"
 #include "off_heap.hpp"
 #include "process_heap.hpp"
 #include <algorithm>
@@ -209,3 +210,55 @@ TermResult<Term> ProcessHeap::publish_copy(const detail::GraphCopy &graph, Word 
 
 TermResult<Term> Term::copy_to(ProcessHeap &destination) const noexcept { return destination.add(*this); }
 } // namespace clause::runtime
+
+namespace clause::runtime::detail {
+MessageBuffer::~MessageBuffer() = default;
+
+TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Term &value) noexcept {
+    if (const auto checked = TermAccess::validate(value); !checked) {
+        return std::unexpected(checked.error());
+    }
+    try {
+        std::shared_ptr<MessageBuffer> buffer(new MessageBuffer());
+        buffer->root_ = value.word();
+        auto *source = TermAccess::storage(value);
+        if (source == nullptr) {
+            return buffer;
+        }
+        GraphCopy graph(*source);
+        if (!graph.discover(value.word())) {
+            return std::unexpected(TermError::wrong_owner);
+        }
+        buffer->lifetime_ = std::shared_ptr<ContextLifetime>(new ContextLifetime());
+        buffer->storage_ = std::make_shared<HeapStorage>(source->options_, buffer->lifetime_, *source->atoms_,
+                                                         source->memory_, *source->identities_);
+        auto &storage = *buffer->storage_;
+        const std::span binaries = graph.binaries();
+        for (std::size_t held = 0; held < binaries.size(); ++held) {
+            if (const auto charged = hold_off_heap(storage, *binaries[held]->buffer_); !charged) {
+                drop_binaries(storage, binaries.first(held));
+                return std::unexpected(term_error(charged.error()));
+            }
+        }
+        const auto out = storage.reserve(graph.words());
+        if (!out) {
+            drop_binaries(storage, binaries);
+            return std::unexpected(term_error(out.error()));
+        }
+        buffer->root_ = graph.copy(value.word(), *out);
+        storage.pending_ = false;
+        graph.link(storage, *out);
+        return buffer;
+    } catch (const std::bad_alloc &) {
+        return std::unexpected(TermError::out_of_memory);
+    }
+}
+
+TermResult<Term> MessageBuffer::copy_to(ProcessContext &destination) const noexcept {
+    if (!storage_) {
+        return Term::from_word(root_, destination);
+    }
+    const auto value = TermAccess::admit(root_, *storage_);
+    return value ? value->copy_to(destination.heap()) : value;
+}
+} // namespace clause::runtime::detail

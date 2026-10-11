@@ -368,15 +368,18 @@ Backlog: F36, F05. Depends on: [41D](#step-41d).
 Backlog: F36, F23. Depends on: [41B](#step-41b).
 
 - Success criteria
-  - [ ] `monotonic_time/0,1`, `system_time/0,1`, `time_offset/0,1`,
+  - [x] `monotonic_time/0,1`, `system_time/0,1`, `time_offset/0,1`,
     `convert_time_unit/3`, `timestamp/0`, `unique_integer/0,1`,
     `localtime/0`, `universaltime/0` and their conversions.
-  - [ ] `start_timer/3,4`, `send_after/3,4`, `cancel_timer/1,2`,
+  - [x] `start_timer/3,4`, `send_after/3,4`, `cancel_timer/1,2`,
     `read_timer/1,2` on the existing timer wheel; messages and results as
     OTP, timers of exited processes released.
 - Tests
   - [ ] Executables with deterministic ordering assertions (no wall-clock
     flakiness); timer stress under TSan.
+- Done 2026-10-11: `executables_time_timers` (OTP golden). Timer messages live in a
+  `MessageBuffer` (runtime term format, user direction: no ETF re-encoding), so local funs travel too.
+  Open: the TSan timer stress run belongs to the next Linux sanitizer gate (V02).
 
 <a id="step-41g"></a>
 

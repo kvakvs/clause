@@ -128,10 +128,20 @@ const BuiltinFrame *BuiltinRegistry::bridge(std::size_t index) const noexcept {
 
 // Every module's families, in catalog order; each family is one translation unit (docs/builtins.md#source-layout).
 std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
-    static const std::array families{
-        erlang_builtins(),     term_access_builtins(),       list_builtins(),          conversion_builtins(),
-        io_builtins(),         process_builtins(),           port_builtins(),          os_builtins(),
-        dictionary_builtins(), binary_conversion_builtins(), term_encoding_builtins(), term_decoding_builtins()};
+    static const std::array families{erlang_builtins(),
+                                     term_access_builtins(),
+                                     list_builtins(),
+                                     conversion_builtins(),
+                                     io_builtins(),
+                                     process_builtins(),
+                                     port_builtins(),
+                                     os_builtins(),
+                                     dictionary_builtins(),
+                                     binary_conversion_builtins(),
+                                     term_encoding_builtins(),
+                                     term_decoding_builtins(),
+                                     time_builtins(),
+                                     timer_builtins()};
     return families;
 }
 } // namespace clause::runtime

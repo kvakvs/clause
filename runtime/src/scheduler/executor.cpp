@@ -275,7 +275,11 @@ void Executor::tick(std::unique_lock<std::mutex> &lock) {
     ++clock_reads_;
     const auto reached = std::chrono::floor<std::chrono::milliseconds>(std::chrono::steady_clock::now() - epoch_);
     for (auto *timer : wheel_.advance(static_cast<std::uint64_t>(reached.count()))) {
-        expire(*static_cast<ProcessContext *>(timer->owner));
+        if (timer->message) {
+            fire(*static_cast<MessageTimer *>(timer->owner));
+        } else {
+            expire(*static_cast<ProcessContext *>(timer->owner));
+        }
     }
 }
 
@@ -344,6 +348,9 @@ void Executor::after(ProcessContext &process, bool ended) {
         }
         for (const auto &event : std::exchange(state.events, {})) {
             apply(process, event);
+        }
+        for (const auto &message : std::exchange(state.messages, {})) {
+            deliver(process, message->copy_to(process));
         }
     }
     resume(blockers);
@@ -453,6 +460,7 @@ ProcessContext &Executor::run(ProcessContext &main) noexcept {
 
 void Executor::destroy(ProcessContext &process) noexcept {
     cancel(process);
+    drop_timers(pid_of(process));
     schedules_.erase(&process);
     process.runtime().destroy_context(&process);
 }
@@ -479,6 +487,7 @@ void Executor::clear() noexcept {
     if (io) {
         io->close();
     }
+
     // The services are destroyed after the lock (stopping one takes the I/O gate, which the I/O thread holds while it
     // takes this lock), in member order reversed: I/O, sockets, then the reactor's io_context.
     struct Services {
@@ -486,6 +495,7 @@ void Executor::clear() noexcept {
         std::unique_ptr<SocketService> sockets;
         std::unique_ptr<IoService> io;
     } services;
+
     const std::scoped_lock lock(mutex_);
     // The wheel links timers embedded in the schedules: unlink them while the schedules still exist.
     wheel_.clear();

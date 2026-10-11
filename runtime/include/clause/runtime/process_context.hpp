@@ -17,6 +17,7 @@ namespace detail {
 class RuntimeMemory;
 class IdentityNumbers;
 class Executor;
+class MessageBuffer;
 } // namespace detail
 
 // Keep control/creation failures separate from Erlang exceptions and exit reasons.
@@ -70,7 +71,9 @@ class ContextLifetime final {
 
   private:
     friend class ProcessContext;
-    // Only a real context may issue a lifetime token.
+    // A timer message's buffer owns a heap of its own (step 41F).
+    friend class detail::MessageBuffer;
+    // Only a real context or a message buffer may issue a lifetime token.
     ContextLifetime() = default;
     // Clear before releasing mailbox/heap state; future TermFactory bindings must retain/check this token.
     bool alive_ = true;

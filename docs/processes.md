@@ -323,6 +323,28 @@ dictionary, keys match with exact equality (`1` and `1.0` are two keys).
 - The order of `get/0` and `get_keys/0,1` is unspecified, as in OTP.
   Lookup scans the entries linearly; immediate keys compare by word.
 
+## Timers
+
+Plan 11 step 41F (`builtins/erlang/timers.cpp`, `scheduler/timers.cpp`).
+`start_timer/3,4` and `send_after/3,4` arm a timer in the executor's wheel
+(the one [receive timeouts](#receive-timeouts) use) that sends `Msg`, or
+`{timeout, TimerRef, Msg}`, to a pid or registered name when it fires.
+
+- The message is copied when the timer starts into a `MessageBuffer`
+  ([message buffers](runtime-heap.md#message-buffers)), a heap block of the
+  timer's own, and copied again into the receiver's heap when it fires, as a
+  send copies: any term, local funs included, travels unchanged.
+- A receiver running on a worker gets the message when its slice ends. A
+  registered name is resolved when the timer fires; a name nobody holds, or a
+  pid of an ended process, drops the message. Timers sent to a pid are
+  released when that process ends.
+- Time is relative milliseconds in 0..2^49-1, or with `{abs, true}` an
+  absolute `erlang:monotonic_time(millisecond)`; anything else is `badarg`. A
+  deadline past the wheel's reach is armed again when that slot comes.
+- `cancel_timer/1,2` and `read_timer/1,2` return the milliseconds left or
+  `false`; `{async, true}` returns `ok` and sends `{cancel_timer, Ref, Left}`
+  (`{read_timer, ...}`), `{info, false}` returns `ok` without a result.
+
 ## Exit signals
 
 Every exit signal comes from a running process (`exit/2`,
