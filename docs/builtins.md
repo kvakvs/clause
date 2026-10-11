@@ -67,7 +67,10 @@ builtin both the compiler and the runtime know:
 - [process introspection](processes.md#introspection) (plan step 41G1):
   `process_info/1,2`, `processes/0`, `group_leader/0,2`,
   `garbage_collect/0,1,2`, `yield/0`; [system information](#system-information):
-  `statistics/1`, `system_info/1`, `memory/0,1`.
+  `statistics/1`, `system_info/1`, `memory/0,1`;
+- [spawn options and aliases](processes.md#spawn-options) (plan step 41G2):
+  `spawn_opt/2..5`, `spawn_request/1..5`, `spawn_request_abandon/1`,
+  `alias/0,1`, `unalias/1`, `monitor/3`, `hibernate/3`.
 
 Entries are only appended: an entry's index is the number generated code
 passes to the bridge service. A qualified call of a catalog builtin of another
@@ -315,7 +318,7 @@ Plan 11 step 41G1 (`erlang/system.cpp`).
   `ports`; `dictionary`: the [process dictionary](processes.md#process-dictionary);
   `binary_conversions` with `conversion_text`, the text rules it shares with
   `conversions`; `term_encoding` and `term_decoding`: the external term
-  format; `time` and `timers`; `introspection` and `system`).
+  format; `time` and `timers`; `introspection` and `system`; `spawning`).
 - Each family file defines its own `*_builtins()` table listed in
   `production_builtins()`. A new family adds a new file and table instead of
   growing an existing one; a file past about 400 lines is split by family

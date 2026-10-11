@@ -21,8 +21,8 @@
 {adler32, 1, [], {unavailable, not_selected}}.
 {adler32, 2, [], {unavailable, not_selected}}.
 {adler32_combine, 3, [], {unavailable, not_selected}}.
-{alias, 0, [auto_import], {planned, '41G2'}}.
-{alias, 1, [auto_import], {planned, '41G2'}}.
+{alias, 0, [auto_import], implemented}.
+{alias, 1, [auto_import], implemented}.
 {alloc_info, 1, [], {unavailable, not_selected}}.
 {alloc_sizes, 1, [], {unavailable, not_selected}}.
 {'and', 2, [], implemented}.
@@ -142,7 +142,7 @@
 {has_prepared_code_on_load, 1, [], {unavailable, code_loading}}.
 {hd, 1, [auto_import, guard], implemented}.
 {hibernate, 0, [], {unavailable, not_selected}}.
-{hibernate, 3, [], {planned, '41G2'}}.
+{hibernate, 3, [], implemented}.
 {insert_element, 3, [], {unavailable, not_selected}}.
 {integer_to_binary, 1, [auto_import], implemented}.
 {integer_to_binary, 2, [auto_import], implemented}.
@@ -211,7 +211,7 @@
 {min, 2, [auto_import, guard], implemented}.
 {module_loaded, 1, [auto_import], {planned, '41H'}}.
 {monitor, 2, [auto_import], implemented}.
-{monitor, 3, [auto_import], {planned, '41G2'}}.
+{monitor, 3, [auto_import], implemented}.
 {monitor_node, 2, [auto_import], {planned, '41H'}}.
 {monitor_node, 3, [], {planned, '41H'}}.
 {monotonic_time, 0, [], implemented}.
@@ -296,16 +296,16 @@
 {spawn_monitor, 2, [auto_import], {unavailable, distribution}}.
 {spawn_monitor, 3, [auto_import], implemented}.
 {spawn_monitor, 4, [auto_import], {unavailable, distribution}}.
-{spawn_opt, 2, [auto_import], {planned, '41G2'}}.
-{spawn_opt, 3, [auto_import], {planned, '41G2'}}.
-{spawn_opt, 4, [auto_import], {planned, '41G2'}}.
-{spawn_opt, 5, [auto_import], {planned, '41G2'}}.
-{spawn_request, 1, [auto_import], {planned, '41G2'}}.
-{spawn_request, 2, [auto_import], {planned, '41G2'}}.
-{spawn_request, 3, [auto_import], {planned, '41G2'}}.
-{spawn_request, 4, [auto_import], {planned, '41G2'}}.
-{spawn_request, 5, [auto_import], {planned, '41G2'}}.
-{spawn_request_abandon, 1, [auto_import], {planned, '41G2'}}.
+{spawn_opt, 2, [auto_import], implemented}.
+{spawn_opt, 3, [auto_import], implemented}.
+{spawn_opt, 4, [auto_import], implemented}.
+{spawn_opt, 5, [auto_import], implemented}.
+{spawn_request, 1, [auto_import], implemented}.
+{spawn_request, 2, [auto_import], implemented}.
+{spawn_request, 3, [auto_import], implemented}.
+{spawn_request, 4, [auto_import], implemented}.
+{spawn_request, 5, [auto_import], implemented}.
+{spawn_request_abandon, 1, [auto_import], implemented}.
 {split_binary, 2, [auto_import], implemented}.
 {start_timer, 3, [], implemented}.
 {start_timer, 4, [], implemented}.
@@ -340,7 +340,7 @@
 {trunc, 1, [auto_import, guard], implemented}.
 {tuple_size, 1, [auto_import, guard], implemented}.
 {tuple_to_list, 1, [auto_import], implemented}.
-{unalias, 1, [auto_import], {planned, '41G2'}}.
+{unalias, 1, [auto_import], implemented}.
 {unique_integer, 0, [], implemented}.
 {unique_integer, 1, [], implemented}.
 {universaltime, 0, [], implemented}.

@@ -41,6 +41,10 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `process_info/2` `reductions`; `statistics/1` `reductions`, `garbage_collection`, `io` | Counted | 0 (not kept) | [builtins](builtins.md#system-information) |
 | `garbage_collect/0,1,2` | Collects before returning | Collects at the target's next safepoint | [processes](processes.md#introspection) |
 | `erlang:system_info(machine)` | `"BEAM"` | `"Clause"` | [builtins](builtins.md#system-information) |
+| `spawn_opt/2..5` tuning options (`priority`, `min_heap_size`, ...) | Applied | Checked and accepted, not applied | [processes](processes.md#spawn-options) |
+| `hibernate/3` | Discards the stack; the process ends when `M:F` returns | Keeps the stack; `M:F`'s result returns to the caller of `hibernate/3` | [processes](processes.md#spawn-options) |
+| `monitor(port, Item, Options)` with options | Accepted | `badarg` | [processes](processes.md#aliases) |
+| `spawn_request_abandon/1` | `true` while the reply is pending | Always `false`: the reply is sent before `spawn_request` returns | [processes](processes.md#spawn-options) |
 | `list_to_pid/1` of a number never issued | Returns a pid term | `badarg`: only pids this program created are admitted | [terms](terms.md#pids-and-references) |
 | `list_to_port/1` of a number never issued | Returns a port term | `badarg`: only ports this program opened are admitted | [ports](ports.md#identity) |
 | `port_info/1,2` values | `id` is a table index; `memory`, `queue_size`, `locking` describe the driver | `id` is the port number; `memory` and `queue_size` are 0; `locking` is `port_level` | [ports](ports.md#builtins-and-port-messages) |

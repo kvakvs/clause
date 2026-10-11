@@ -5,6 +5,7 @@
 // holds and those held on it, its name, and whether exit signals reach it as messages. Links, monitors and the name
 // change only under the executor's lock, also while the process runs; exit trapping only by the process itself.
 #include "terms.hpp"
+#include <memory>
 
 #include <algorithm>
 #include <map>
@@ -13,6 +14,10 @@
 #include <vector>
 
 namespace clause::runtime {
+namespace detail {
+class MessageBuffer;
+} // namespace detail
+
 class Signals final {
   public:
     Signals(const Signals &) = delete;
@@ -47,6 +52,8 @@ class Signals final {
     struct Monitor {
         Word pid;
         Word name = 0;
+        // monitor/3's {tag, Tag}: the first element of the 'DOWN' message instead of 'DOWN' (step 41G2).
+        std::shared_ptr<const detail::MessageBuffer> tag = nullptr;
     };
 
     // The monitors of one side, by reference. References order by creation.

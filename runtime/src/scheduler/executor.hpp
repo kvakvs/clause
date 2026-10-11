@@ -35,9 +35,23 @@ struct InitialCall final {
 
 // What a spawn does besides starting the process, before it can run: link it to the parent, or monitor it from the
 // parent (the spawn then returns {Pid, Ref}).
+// What an alias (alias/0,1, monitor/3 {alias, Mode}) does after a message (step 41G2): stay until unalias/1,
+// end after the first message, end with its monitor, or both.
+enum class AliasMode : std::uint8_t { explicit_unalias, reply, demonitor, reply_demonitor };
+
+// The options of monitor/3 and of a spawn's monitor (step 41G2): an alias of the monitor reference and the tag that
+// replaces 'DOWN'.
+struct MonitorOptions final {
+    std::optional<AliasMode> alias = std::nullopt;
+    std::shared_ptr<const MessageBuffer> tag = nullptr;
+};
+
 struct SpawnOptions final {
     bool link = false;
     bool monitor = false;
+    // Options of the spawn's monitor, and the reference it uses (spawn_request/1..5 reuses its request id).
+    MonitorOptions monitor_options = {};
+    std::optional<ReferenceIdentity> monitor_reference = std::nullopt;
 };
 
 // A request sent to a port as a message (docs/ports.md#builtins-and-port-messages): {From, close},
@@ -166,9 +180,9 @@ class Executor final {
     // spawn(Fun) of `parent`: a new process calls Fun(). Its call is prepared in the new process, so a fun of
     // another arity crashes it, not the parent. The parent gets the new pid ({Pid, Ref} when monitoring), or the
     // failure to create it.
-    TermResult<Term> spawn(ProcessContext &parent, const Term &fun, SpawnOptions options = {}) noexcept;
+    TermResult<Term> spawn(ProcessContext &parent, const Term &fun, const SpawnOptions &options = {}) noexcept;
     // spawn(M, F, Args) of `parent`: a new process calls M:F(Args...), crashing with undef when nothing exports it.
-    TermResult<Term> spawn(ProcessContext &parent, const InitialCall &call, SpawnOptions options = {}) noexcept;
+    TermResult<Term> spawn(ProcessContext &parent, const InitialCall &call, const SpawnOptions &options = {}) noexcept;
     // Whether the process of a pid word this runtime issued has not ended.
     static bool alive(ProcessContext &context, Word pid) noexcept;
     // Deliver `message` of `sender` to the process of a pid word this runtime issued: copied into the receiver's
@@ -241,7 +255,15 @@ class Executor final {
     // pid or port, or for what is registered as `name` (an atom word; `pid` is then 0), whose 'DOWN' names
     // {Name, nonode@nohost}. For an ended, closed or unregistered target the watcher gets its 'DOWN' with noproc at
     // once; monitoring itself creates nothing. Allocation failure throws.
-    Term monitor(ProcessContext &watcher, Word pid, Word name = 0, bool port = false);
+    Term monitor(ProcessContext &watcher, Word pid, Word name = 0, bool port = false,
+                 const MonitorOptions &options = {});
+    // Make `reference` an alias of the calling process (alias/0,1, step 41G2). Allocation failure throws.
+    static void alias(ProcessContext &owner, const ReferenceIdentity &reference, AliasMode mode);
+    // Deactivate an alias of the calling process; false when it was not one.
+    static bool unalias(ProcessContext &owner, const ReferenceIdentity &reference) noexcept;
+    // Send `message` through the alias `reference`: nothing when it is no active alias. A reply alias ends with the
+    // delivery, after any wait for a busy owner, so a retried send still finds it.
+    static TermResult<void> send_alias(ProcessContext &sender, const ReferenceIdentity &reference, const Term &message);
     // demonitor(Ref) of `watcher`: whether the monitor was active; no 'DOWN' of it arrives afterwards.
     static bool demonitor(ProcessContext &watcher, const ReferenceIdentity &reference) noexcept;
     // register(Name, Pid) (docs/processes.md#registered-names): false when the name is taken, or the process has a
@@ -473,10 +495,13 @@ class Executor final {
     // Create a process of the parent's runtime, let `prepare` load its first call into its registers (the frame,
     // or null after recording the error the process ends with) and queue it.
     template <typename Prepare>
-    TermResult<Term> create(ProcessContext &parent, Prepare prepare, SpawnOptions options) noexcept;
+    TermResult<Term> create(ProcessContext &parent, Prepare prepare, const SpawnOptions &options) noexcept;
     // Link or monitor a new process as `options` say and queue it; returns its pid, or {Pid, Ref} when monitored.
     // Allocation failure throws.
-    TermResult<Term> adopt(ProcessContext &parent, ProcessContext &child, const Term &pid, SpawnOptions options);
+    TermResult<Term> adopt(ProcessContext &parent, ProcessContext &child, const Term &pid, const SpawnOptions &options);
+    // Let `parent` monitor a new `child` with `monitor` and the spawn's monitor options (tag, alias; step 41G2).
+    void watch_child(ProcessContext &parent, ProcessContext &child, const ReferenceIdentity &monitor,
+                     const MonitorOptions &options);
     // Queue a runnable process, at the front for a woken blocker; a held one is only marked ready. Allocation
     // failure throws.
     void push(ProcessContext &process, bool front = false);
@@ -496,6 +521,14 @@ class Executor final {
     void post(ProcessContext &receiver, const std::shared_ptr<const MessageBuffer> &message);
     // Drop the message timers whose destination is the pid of an ending process.
     void drop_timers(Word pid) noexcept;
+    // Record an alias; lock held. Allocation failure throws.
+    void add_alias(const ReferenceIdentity &reference, Word owner, AliasMode mode);
+    // End the alias of a monitor reference that ends with its monitor (demonitor modes), or any when `always`.
+    void forget_alias(const ReferenceIdentity &reference, bool always) noexcept;
+    // Drop the aliases of an ending process.
+    void drop_aliases(Word pid) noexcept;
+    // End the process monitor `reference` held by the process of `owner` (a reply_demonitor alias got its reply).
+    void end_monitor(Word owner, const ReferenceIdentity &reference) noexcept;
 
     // Act on an exit signal from `from` at `target`: end it, turn the signal into a message when it traps exits, or
     // drop it.
@@ -570,6 +603,8 @@ class Executor final {
     ProcessContext *finished_ = nullptr;
     // Registered names (atom words) and their pid or port words; a name is released when its owner ends.
     std::map<Word, Word> names_;
+    // Active aliases by reference: the owner's pid and the mode (step 41G2).
+    std::map<ReferenceIdentity, std::pair<Word, AliasMode>> aliases_;
     // Message timers by reference number (step 41F); the wheel links their embedded timers.
     std::unordered_map<std::uint64_t, std::unique_ptr<MessageTimer>> message_timers_;
     // The I/O thread; declared before the ports and services, so its io_context is destroyed after them.

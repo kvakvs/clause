@@ -143,7 +143,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      time_builtins(),
                                      timer_builtins(),
                                      introspection_builtins(),
-                                     system_builtins()};
+                                     system_builtins(),
+                                     spawning_builtins()};
     return families;
 }
 } // namespace clause::runtime

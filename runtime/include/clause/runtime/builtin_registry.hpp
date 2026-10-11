@@ -123,6 +123,9 @@ std::span<const BuiltinEntry> timer_builtins() noexcept;
 // garbage_collect/0,1,2, yield/0, and statistics/1, system_info/1, memory/0,1.
 std::span<const BuiltinEntry> introspection_builtins() noexcept;
 std::span<const BuiltinEntry> system_builtins() noexcept;
+// Spawn options, spawn requests, aliases and hibernation of step 41G2: spawn_opt/2..5, spawn_request/1..5,
+// spawn_request_abandon/1, alias/0,1, unalias/1, hibernate/3 (monitor/3 is among process_builtins()).
+std::span<const BuiltinEntry> spawning_builtins() noexcept;
 // The process dictionary builtins: put/2, get/0,1, get_keys/0,1, erase/0,1. Added for step 41C.
 std::span<const BuiltinEntry> dictionary_builtins() noexcept;
 // Every production builtin family runtime startup registers, together covering abi::v1::bridge_builtins.

@@ -55,7 +55,7 @@ bool Executor::start(ProcessContext &process, const FrameDescriptor &function) n
 }
 
 template <typename Prepare>
-TermResult<Term> Executor::create(ProcessContext &parent, Prepare prepare, SpawnOptions options) noexcept {
+TermResult<Term> Executor::create(ProcessContext &parent, Prepare prepare, const SpawnOptions &options) noexcept {
     const std::scoped_lock lock(mutex_);
     auto &runtime = parent.runtime();
     const auto created = runtime.create_context();
@@ -88,17 +88,34 @@ TermResult<Term> Executor::create(ProcessContext &parent, Prepare prepare, Spawn
     }
 }
 
-TermResult<Term> Executor::adopt(ProcessContext &parent, ProcessContext &child, const Term &pid, SpawnOptions options) {
+namespace {
+// The reference of a spawn's monitor: spawn_request's request id (step 41G2), or a new one.
+TermResult<Term> monitor_reference(ProcessContext &parent, const SpawnOptions &options) {
+    TermFactory factory(parent);
+    return options.monitor_reference ? factory.reference(*options.monitor_reference) : factory.make_reference();
+}
+} // namespace
+
+void Executor::watch_child(ProcessContext &parent, ProcessContext &child, const ReferenceIdentity &monitor,
+                           const MonitorOptions &options) {
+    parent.signals().monitor(monitor, pid_of(child));
+    child.signals().watch(monitor, {.pid = pid_of(parent), .tag = options.tag});
+    if (options.alias) {
+        add_alias(monitor, pid_of(parent), *options.alias);
+    }
+}
+
+TermResult<Term> Executor::adopt(ProcessContext &parent, ProcessContext &child, const Term &pid,
+                                 const SpawnOptions &options) {
     auto result = TermResult<Term>(pid);
     std::optional<ReferenceIdentity> monitor;
     if (options.monitor) {
-        TermFactory factory(parent);
-        const auto reference = factory.make_reference();
+        const auto reference = monitor_reference(parent, options);
         const auto identity = reference.and_then([](const Term &term) { return term.reference_value(); });
         if (!identity) {
             return std::unexpected(identity.error());
         }
-        result = factory.tuple(std::array{pid, *reference});
+        result = TermFactory(parent).tuple(std::array{pid, *reference});
         monitor = *identity;
     }
     if (!result) {
@@ -111,8 +128,7 @@ TermResult<Term> Executor::adopt(ProcessContext &parent, ProcessContext &child, 
             child.signals().link(pid_of(parent));
         }
         if (monitor) {
-            parent.signals().monitor(*monitor, pid.word());
-            child.signals().watch(*monitor, {.pid = pid_of(parent)});
+            watch_child(parent, child, *monitor, options.monitor_options);
         }
         push(child);
     } catch (...) {
@@ -125,7 +141,7 @@ TermResult<Term> Executor::adopt(ProcessContext &parent, ProcessContext &child, 
     return result;
 }
 
-TermResult<Term> Executor::spawn(ProcessContext &parent, const Term &fun, SpawnOptions options) noexcept {
+TermResult<Term> Executor::spawn(ProcessContext &parent, const Term &fun, const SpawnOptions &options) noexcept {
     return create(
         parent,
         [&](ProcessContext &child) -> TermResult<const void *> {
@@ -138,7 +154,8 @@ TermResult<Term> Executor::spawn(ProcessContext &parent, const Term &fun, SpawnO
         options);
 }
 
-TermResult<Term> Executor::spawn(ProcessContext &parent, const InitialCall &call, SpawnOptions options) noexcept {
+TermResult<Term> Executor::spawn(ProcessContext &parent, const InitialCall &call,
+                                 const SpawnOptions &options) noexcept {
     return create(
         parent,
         [&](ProcessContext &child) -> TermResult<const void *> {
@@ -464,6 +481,7 @@ ProcessContext &Executor::run(ProcessContext &main) noexcept {
 void Executor::destroy(ProcessContext &process) noexcept {
     cancel(process);
     drop_timers(pid_of(process));
+    drop_aliases(pid_of(process));
     schedules_.erase(&process);
     process.runtime().destroy_context(&process);
 }

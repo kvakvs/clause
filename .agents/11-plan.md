@@ -410,12 +410,15 @@ sizes, counts, hash values) are checked by shape and recorded in
 #### 41G2. Spawn options, spawn requests, aliases and hibernation
 
 - Success criteria
-  - [ ] `spawn_opt/2..5` (link, monitor, priority and heap tuning options;
+  - [x] `spawn_opt/2..5` (link, monitor, priority and heap tuning options;
     another node is `badarg`), `spawn_request/1..5` with its reply message,
     `spawn_request_abandon/1`, `alias/0,1`, `unalias/1`, sends to an alias,
     `monitor/3` (`{alias, ...}`, `{tag, ...}`) and `hibernate/3`.
 - Tests
-  - [ ] OTP-goldened executable.
+  - [x] OTP-goldened executable.
+- Done 2026-10-11: `executables_spawning` (OTP golden). A repeat run under parallel load found that a
+  reply alias was consumed before a blocked send retried; `Executor::send_alias` now consumes it on
+  delivery.
 
 <a id="step-41g3"></a>
 

@@ -264,6 +264,23 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "system_info", 1},
     BuiltinName{"erlang", "memory", 0},
     BuiltinName{"erlang", "memory", 1},
+    // Spawn options, spawn requests, aliases, monitor/3 and hibernation (plan step 41G2; erlang/spawning.cpp,
+    // monitor/3 in erlang/processes.cpp).
+    BuiltinName{"erlang", "monitor", 3},
+    BuiltinName{"erlang", "spawn_opt", 2},
+    BuiltinName{"erlang", "spawn_opt", 3},
+    BuiltinName{"erlang", "spawn_opt", 4},
+    BuiltinName{"erlang", "spawn_opt", 5},
+    BuiltinName{"erlang", "spawn_request", 1},
+    BuiltinName{"erlang", "spawn_request", 2},
+    BuiltinName{"erlang", "spawn_request", 3},
+    BuiltinName{"erlang", "spawn_request", 4},
+    BuiltinName{"erlang", "spawn_request", 5},
+    BuiltinName{"erlang", "spawn_request_abandon", 1},
+    BuiltinName{"erlang", "alias", 0},
+    BuiltinName{"erlang", "alias", 1},
+    BuiltinName{"erlang", "unalias", 1},
+    BuiltinName{"erlang", "hibernate", 3},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

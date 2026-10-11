@@ -56,8 +56,9 @@ TermResult<Term> down_message(ProcessContext &process, const ReferenceIdentity &
                               const Term &reason) {
     TermFactory factory(process);
     const auto type = TermTag{item.pid}.get_kind() == TermKind::local_port ? "port" : "process";
-    const std::array parts{factory.atom("DOWN"), factory.reference(reference), factory.atom(type),
-                           monitored_item(process, item), reason.copy_to(process.heap())};
+    // monitor/3's {tag, Tag} replaces 'DOWN' (step 41G2).
+    const std::array parts{item.tag ? item.tag->copy_to(process) : factory.atom("DOWN"), factory.reference(reference),
+                           factory.atom(type), monitored_item(process, item), reason.copy_to(process.heap())};
     const auto failed = std::ranges::find_if(parts, [](const auto &part) { return !part.has_value(); });
     if (failed != parts.end()) {
         return *failed;
@@ -101,7 +102,7 @@ void Executor::unlink(ProcessContext &process, Word pid) noexcept {
     }
 }
 
-Term Executor::monitor(ProcessContext &watcher, Word pid, Word name, bool port) {
+Term Executor::monitor(ProcessContext &watcher, Word pid, Word name, bool port, const MonitorOptions &options) {
     const std::scoped_lock lock(mutex_);
     pid = name != 0 ? lookup(watcher, name) : pid;
     const auto reference = TermFactory(watcher).make_reference();
@@ -114,22 +115,28 @@ Term Executor::monitor(ProcessContext &watcher, Word pid, Word name, bool port) 
     }
     pid = is_port_word(pid) ? 0 : pid;
     auto *target = pid != 0 ? find(watcher, pid) : nullptr;
+    if (options.alias) {
+        add_alias(*identity, pid_of(watcher), *options.alias);
+    }
     if (target == &watcher) {
         return *reference;
     }
     if (!target) {
         const Running running(watcher);
-        deliver(watcher, down_message(watcher, *identity, {.pid = pid, .name = name}, atom(watcher, "noproc")));
+        deliver(watcher, down_message(watcher, *identity, {.pid = pid, .name = name, .tag = options.tag},
+                                      atom(watcher, "noproc")));
+        forget_alias(*identity, false);
         return *reference;
     }
     watcher.signals().monitor(*identity, pid);
-    target->signals().watch(*identity, {.pid = pid_of(watcher), .name = name});
+    target->signals().watch(*identity, {.pid = pid_of(watcher), .name = name, .tag = options.tag});
     return *reference;
 }
 
 bool Executor::demonitor(ProcessContext &watcher, const ReferenceIdentity &reference) noexcept {
     auto &executor = of(watcher);
     const std::scoped_lock lock(executor.mutex_);
+    executor.forget_alias(reference, false);
     const auto pid = watcher.signals().demonitor(reference);
     if (!pid) {
         return false;
@@ -300,7 +307,9 @@ void Executor::notify(ProcessContext &process, const Term &reason, const std::ve
         auto *watcher = find(process, monitor.pid);
         if (watcher && !watcher->generated_calls().failure()) {
             watcher->signals().demonitor(reference);
-            deliver(*watcher, down_message(*watcher, reference, {.pid = from, .name = monitor.name}, reason));
+            forget_alias(reference, false);
+            deliver(*watcher,
+                    down_message(*watcher, reference, {.pid = from, .name = monitor.name, .tag = monitor.tag}, reason));
         }
     }
 }

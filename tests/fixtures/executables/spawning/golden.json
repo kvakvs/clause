@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "spawning",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "true\ndown\nstopped\ntagged_down\nstopped\n{error,badarg}\n{error,badarg}\ntrue\nrequest_down\nno_reply\ncall_stopped\noptions_stopped\nnode_stopped\n{false,false}\n{error,badarg}\nbadopt\ngot_hello\ntrue\ndropped\nfalse\n[first]\n{error,badarg}\n{error,badarg}\nanswered\ndemonitor_down\nanswered\nmonitor_ended\n{tagged,normal}\n{error,badarg}\nping\nspawning: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "spawning.erl": "bcc87ea236c0e18d53b5dd22d1f238542166fba828d3d33d6ee4053e25f7d4d2"
+  }
+}

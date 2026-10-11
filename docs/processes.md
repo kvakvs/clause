@@ -373,6 +373,36 @@ ends. A pid of no live process gives `undefined`.
   `{garbage_collect, RequestId, Result}`. `yield/0` ends the time slice at
   the next function entry.
 
+## Spawn options
+
+Plan 11 step 41G2 (`builtins/erlang/spawning.cpp`, `scheduler/aliases.cpp`).
+
+- `spawn_opt/2..5` take `link`, `monitor`, `{monitor, MonitorOptions}` and
+  the tuning options `{priority, P}`, `{fullsweep_after, N}`,
+  `{min_heap_size, N}`, `{min_bin_vheap_size, N}`, `{max_heap_size, S}`,
+  `{message_queue_data, M}`, `{async_dist, B}`; tuning options are checked
+  and accepted, not applied. A node other than `nonode@nohost` is `badarg`.
+- `spawn_request/1..5` spawns at once and sends `{Tag, ReqId, ok, Pid}`
+  (`{Tag, ReqId, error, Reason}` on failure, `badopt` for an invalid option)
+  as `{reply_tag, Tag}` and `{reply, yes | no | error_only | success_only}`
+  ask; with `monitor` the request id is the monitor reference.
+  `spawn_request_abandon/1` returns `false`: the reply is already sent.
+- `hibernate(M, F, A)` waits until the mailbox holds a message, then calls
+  `M:F(A...)` in place of the call; the stack is kept, so the result returns
+  to the caller.
+
+## Aliases
+
+An alias is a reference messages can be sent to (`Alias ! Msg`): `alias/0,1`
+(`explicit_unalias`, or `reply` for one message), or a monitor made with
+`monitor/3`'s `{alias, explicit_unalias | demonitor | reply_demonitor}`
+(`demonitor` ends with the monitor, `reply_demonitor` also ends the monitor
+on its first message). `unalias/1` ends an alias of the caller. A send to a
+reference that is no active alias, or whose owner ended, is dropped. A reply
+alias is consumed only when its message is delivered, after any wait for a
+busy owner. `monitor/3`'s `{tag, Tag}` replaces `'DOWN'` in the monitor
+message; port monitors take no options.
+
 ## Exit signals
 
 Every exit signal comes from a running process (`exit/2`,

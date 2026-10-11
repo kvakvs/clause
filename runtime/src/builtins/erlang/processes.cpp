@@ -1,5 +1,6 @@
 #include "../typed.hpp"
 #include "ports.hpp"
+#include "spawning.hpp"
 #include <array>
 
 // The process builtins of the bridge (docs/builtins.md, docs/processes.md): self/0, make_ref/0, spawn/1,3,
@@ -84,18 +85,29 @@ Word monitored_name(const Term &item) {
     return need(item.tuple_element(0)).word();
 }
 
-// monitor(process | port, Item): a reference; the caller gets {'DOWN', Ref, Type, Item, Reason} when the process
-// ends or the port closes. Item is a pid or port of the type, or a registered name as Name or {Name, nonode@nohost}.
-TermResult<Term> monitor(ProcessContext &context, const AtomArgument &type, const Term &item) {
+// monitor(process | port, Item[, Options]): a reference; the caller gets {'DOWN', Ref, Type, Item, Reason} (or
+// {Tag, ...} with {tag, Tag}) when the process ends or the port closes. Item is a pid or port of the type, or a
+// registered name as Name or {Name, nonode@nohost}. Options apply to process monitors (step 41G2).
+TermResult<Term> monitor_with(ProcessContext &context, const AtomArgument &type, const Term &item,
+                              const detail::MonitorOptions &options) {
     const bool port = type.spelling == "port";
-    if ((!port && type.spelling != "process") || (port ? item.is_pid() : item.is_port())) {
+    if ((!port && type.spelling != "process") || (port ? item.is_pid() : item.is_port()) ||
+        (port && (options.alias || options.tag))) {
         bad_argument();
     }
     auto &executor = detail::Executor::of(context);
     if (item.is_pid() || item.is_port()) {
-        return executor.monitor(context, item.word(), 0, port);
+        return executor.monitor(context, item.word(), 0, port, options);
     }
-    return executor.monitor(context, 0, monitored_name(item), port);
+    return executor.monitor(context, 0, monitored_name(item), port, options);
+}
+
+TermResult<Term> monitor(ProcessContext &context, const AtomArgument &type, const Term &item) {
+    return monitor_with(context, type, item, {});
+}
+
+TermResult<Term> monitor3(ProcessContext &context, const AtomArgument &type, const Term &item, const Term &options) {
+    return monitor_with(context, type, item, monitor_options(options));
 }
 
 // The options of demonitor/2: a proper list of flush and info.
@@ -204,6 +216,7 @@ Word destination_pid(ProcessContext &context, const Term &destination) {
     if (destination.is_pid() || destination.is_port()) {
         return destination.word();
     }
+
     const auto &executor = detail::Executor::of(context);
     if (destination.is_atom()) {
         const auto pid = executor.whereis(context, destination.word());
@@ -233,6 +246,14 @@ Term send_to(ProcessContext &context, Word pid, const Term &message) {
 // Dest ! Msg and erlang:send(Dest, Msg): Msg, after delivering it to the process Dest names (nothing when that
 // process has ended or a {Name, Node} names none).
 TermResult<Term> send(ProcessContext &context, const Term &destination, const Term &message) {
+    // A reference sends through an alias, or nowhere when it is none (step 41G2).
+    if (destination.is_reference()) {
+        if (const auto sent = detail::Executor::send_alias(context, need(destination.reference_value()), message);
+            !sent) {
+            throw BuiltinFailure{.term = sent.error()};
+        }
+        return message;
+    }
     return send_to(context, destination_pid(context, destination), message);
 }
 
@@ -288,6 +309,7 @@ constexpr std::array PROCESS_BUILTINS{
     typed_entry<unregister>("erlang", "unregister"),
     typed_entry<whereis>("erlang", "whereis"),
     typed_entry<registered>("erlang", "registered"),
+    typed_entry<monitor3>("erlang", "monitor"),
     typed_entry<send>("erlang", "!"),
     typed_entry<send>("erlang", "send"),
 };
