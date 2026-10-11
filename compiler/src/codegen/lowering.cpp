@@ -23,11 +23,14 @@ void require(const bool condition, const char *message) {
     }
 }
 
-// Declare every definition first, retaining private linkage for unexported entries.
+// Declare every reachable definition first, retaining private linkage for unexported entries.
 void declare(llvm::Module &output, const semantic::Module &module, llvm::FunctionType *signature,
              const semantic::types::Inference &inferred) {
     output.setModuleIdentifier(utf8(module.name));
     for (const auto &function : module.functions) {
+        if (!function.live_) {
+            continue; // Export liveness (62C): no code for a function the executable cannot reach.
+        }
         const auto &summary = inferred.functions.at(&function);
         require(summary.inputs.size() == function.key.arity, "lowering: inconsistent inferred arity");
         // Validate fact ownership, but never turn a source contract into an LLVM assumption.
@@ -46,7 +49,7 @@ void declare(llvm::Module &output, const semantic::Module &module, llvm::Functio
 // Declare every anonymous fun's code, private, taking the fun's arguments and then its captured values.
 void declare_lambdas(llvm::Module &output, const semantic::Module &module, llvm::FunctionType *signature) {
     for (const auto &fun : module.funs) {
-        if (!fun.expression) {
+        if (!fun.expression || !fun.owner->live_) {
             continue;
         }
         require(!fun.symbol.empty(), "lowering: an anonymous fun has more than 255 arguments and captured values");
@@ -63,12 +66,15 @@ void define(llvm::Module &output, const semantic::Module &module, llvm::IntegerT
             const semantic::types::Inference &inferred, const bool proven) {
     const Proofs proofs(inferred.graph, word->getBitWidth());
     for (const auto &function : module.functions) {
+        if (!function.live_) {
+            continue;
+        }
         auto *entry = output.getFunction(function.symbol);
         llvm::IRBuilder<> builder(llvm::BasicBlock::Create(output.getContext(), "entry", entry));
         lower_function(builder, *entry, module, function, word, inferred, proven ? &proofs : nullptr);
     }
     for (const auto &fun : module.funs) {
-        if (fun.expression) {
+        if (fun.expression && fun.owner->live_) {
             auto *entry = output.getFunction(fun.symbol);
             llvm::IRBuilder<> builder(llvm::BasicBlock::Create(output.getContext(), "entry", entry));
             lower_lambda(builder, *entry, module, fun, word, inferred);

@@ -190,6 +190,49 @@ linking with `--lto is not supported for target <triple>: it needs LLD`.
 `--lto` needs an executable output (`-o` or a linking project build). The
 installed Clang/LLD must be the same LLVM release as `clau` (23.1).
 
+### Export liveness
+
+An executable leaves out the exports it cannot reach (plan 11 step 62C), so
+`-Os` dead-stripping and `--lto` remove library code the program never calls.
+Before LLVM IR is emitted, a whole-batch analysis starts at the entry function
+and marks live everything a live function calls directly (also through
+`-import` and OTP auto-imports), every `fun F/A` and literal `fun M:F/A`, and
+the literal targets of `apply/3`, `spawn/3`, `spawn_link/3`,
+`spawn_monitor/3`, `spawn_opt/4,5`, `spawn_request/3,5`, `hibernate/3` and
+`make_fun/3` (every arity of `M:F` when the argument list is not literal).
+It stays conservative:
+
+- a module whose name atom is used as a value anywhere in live code (passed,
+  stored, sent, `?MODULE`, a record tag, `M:F(...)` with a runtime function,
+  `fun M:F/A` with a runtime part) keeps every export, which also keeps the
+  callbacks of behaviour modules started by name;
+- once live code has both a call with a runtime module (`M:F(...)`, `apply/3`
+  or a spawn with a variable module, `fun M:F/A` with a variable module,
+  `binary_to_term/1,2`) and an atom-producing builtin (`list_to_atom/1`,
+  `list_to_existing_atom/1`, `binary_to_atom/1,2`,
+  `binary_to_existing_atom/1,2`, `binary_to_term/1,2`, `fun_info/1,2`,
+  `fun_info_mfa/1`, `process_info/1,2`, `loaded/0`, `pre_loaded/0`), every
+  export of every module stays.
+
+A function nothing live reaches gets no code at all. A left-out export keeps its
+name in the module's export table without code, so `function_exported/3` and
+`module_info(exports)` answer as if it were exported, while a dynamic call that
+reaches it raises `undef` ([differences](differences.md#errors-stack-traces-and-reports)).
+That can happen only when a module name comes from outside the analysis: a stack
+trace, an exception term or data from outside the program. `--verbose` traces
+the result per module (`phase=liveness detail="dropped-exports=3"`, or
+`detail="kept-all-exports reason='m' is used as a value in main:main/1"`).
+
+`--keep-exports` (or the project option `keep_exports = true`) keeps every
+export callable, as before step 62C. The analysis applies only to executables
+(`-o` or a linking project build); `--emit` artifacts, meant for other
+programs, keep every export.
+
+Weak export-table references resolved by the linker were evaluated instead and
+rejected: COFF weak externals need a default definition and do not let
+`/OPT:REF` drop the target, and Mach-O weak references bind only imported
+dylib symbols, so no form works on all three object formats.
+
 `-g` keeps Erlang line tables for debuggers: in the executable (ELF), or in a
 `<name>.pdb` published beside it (MSVC targets) ([debugging](debugging.md)).
 

@@ -157,6 +157,11 @@ const void *CodeServer::find_function(const Term &module, const Term &function, 
     return module_name && function_name ? builtins_.find(*module_name, *function_name, arity) : nullptr;
 }
 
+bool CodeServer::exported(const Term &module, const Term &function, std::size_t arity) const noexcept {
+    const std::shared_lock lock(mutex_);
+    return exports_.contains({module.word(), function.word(), arity}) || find_function(module, function, arity);
+}
+
 const FunDefinition &CodeServer::external_fun(const Term &module, const Term &function, std::size_t arity) {
     const FunctionAtoms key{module.word(), function.word(), arity};
     {

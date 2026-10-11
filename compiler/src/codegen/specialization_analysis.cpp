@@ -72,6 +72,9 @@ measurements(Compilation &compilation, const std::span<const std::unique_ptr<sem
     auto &outputs = detail::state(compilation).modules;
     for (std::size_t i = 0; i < modules.size(); ++i) {
         for (const auto &function : modules[i]->functions) {
+            if (!function.live_) {
+                continue;
+            }
             auto &entry = *outputs[i]->getFunction(function.symbol);
             SpecializationInput input{utf8(modules[i]->name),
                                       function.symbol,
@@ -107,7 +110,9 @@ SpecializationPlan analyze_specializations(Compilation &compilation,
     const auto bits = detail::state(compilation).modules.front()->getDataLayout().getPointerSizeInBits();
     for (const auto &module : modules) {
         for (const auto &function : module->functions) {
-            observe(*module, function, inputs, inferred, bits);
+            if (function.live_) {
+                observe(*module, function, inputs, inferred, bits);
+            }
         }
     }
     std::vector<SpecializationInput> ordered;

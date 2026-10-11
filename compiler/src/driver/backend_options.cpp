@@ -69,7 +69,8 @@ bool inspection_flag(const std::string_view option, BackendOptions &options) {
         {"--print-ir", &BackendOptions::print_ir},
         {"--print-optimized-ir", &BackendOptions::print_optimized_ir},
         {"-g", &BackendOptions::debug_info},
-        {"--lto", &BackendOptions::lto}};
+        {"--lto", &BackendOptions::lto},
+        {"--keep-exports", &BackendOptions::keep_exports}};
     const auto found = flags.find(option);
     if (found == flags.end()) {
         return false;
@@ -114,6 +115,9 @@ std::optional<std::string> linking_conflict(const Options &options) {
     if (backend.lto && !links) {
         return "--lto requires --output or a linking project build";
     }
+    if (backend.keep_exports && !links) {
+        return "--keep-exports requires --output or a linking project build";
+    }
     return {};
 }
 
@@ -143,7 +147,7 @@ std::optional<codegen::OptimizationLevel> optimization_level(const std::string_v
 bool explicit_backend(const BackendOptions &options) {
     return options.emit || options.artifact_directory || !options.target_triple.empty() || options.optimization ||
            options.disable_type_specialization || options.inspect_ir() || options.print_types || options.debug_info ||
-           options.lto;
+           options.lto || options.keep_exports;
 }
 } // namespace
 
@@ -157,6 +161,7 @@ bool is_backend_option(const std::string_view option) {
                                                     "--no-type-specialization",
                                                     "-g",
                                                     "--lto",
+                                                    "--keep-exports",
                                                     "--print-ir",
                                                     "--print-optimized-ir",
                                                     "--print-types",

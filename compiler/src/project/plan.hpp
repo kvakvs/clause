@@ -34,6 +34,8 @@ struct PlannedTarget {
     std::vector<std::filesystem::path> transform_paths_ = {};
     // ignore_dirs and ignore_modules, with the module names of the sources they left out. Added for ignored modules.
     Ignore ignore_ = {};
+    // The keep_exports option. Added for export liveness (62C).
+    bool keep_exports_ = false;
 };
 
 struct Invocation {

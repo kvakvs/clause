@@ -26,21 +26,23 @@ llvm::Constant *frame_of(llvm::Module &output, const std::string &symbol, llvm::
 }
 
 // Store only declared exports, each with its host entry and the frame dynamic calls enter; private implementations
-// remain reachable solely through direct calls.
+// remain reachable solely through direct calls. An export the executable cannot reach keeps only its name (62C).
 llvm::Constant *exports(llvm::Module &output, const semantic::Module &module, llvm::IntegerType *word,
                         std::size_t &count) {
     auto *ptr = llvm::PointerType::get(output.getContext(), 0);
     auto *type = llvm::StructType::get(ptr, word, word, ptr, ptr);
+    auto *none = llvm::ConstantPointerNull::get(ptr);
     std::vector<llvm::Constant *> entries;
     for (const auto &function : module.functions) {
         if (!function.exported) {
             continue;
         }
         const auto name = utf8(function.key.name);
-        entries.push_back(
-            llvm::ConstantStruct::get(type, spelling(output, name), llvm::ConstantInt::get(word, name.size()),
-                                      llvm::ConstantInt::get(word, function.key.arity),
-                                      output.getFunction(function.symbol), frame_of(output, function.symbol, word)));
+        auto *entry = function.live_ ? static_cast<llvm::Constant *>(output.getFunction(function.symbol)) : none;
+        auto *frame = function.live_ ? frame_of(output, function.symbol, word) : none;
+        entries.push_back(llvm::ConstantStruct::get(type, spelling(output, name),
+                                                    llvm::ConstantInt::get(word, name.size()),
+                                                    llvm::ConstantInt::get(word, function.key.arity), entry, frame));
     }
     count = entries.size();
     auto *array = llvm::ConstantArray::get(llvm::ArrayType::get(type, count), entries);
@@ -92,15 +94,16 @@ const semantic::Function *exported(const semantic::Module &module, const semanti
         return nullptr;
     }
     const auto &function = owner.functions.at(found->second);
-    return function.exported ? &function : nullptr;
+    return function.exported && function.live_ ? &function : nullptr;
 }
 
 // The FrameDescriptor a fun enters: a function of this module or an exported function of the batch, or null for
-// an external fun nothing in the batch exports. lower_frames defines the descriptors of this module.
+// an external fun nothing in the batch exports and for a fun only unreachable code creates (62C). lower_frames
+// defines the descriptors of this module.
 llvm::Constant *fun_frame(llvm::Module &output, const semantic::Module &module, const semantic::FunEntry &fun,
                           llvm::IntegerType *word) {
     const auto *target = fun.external ? exported(module, fun) : nullptr;
-    if (fun.external && !target) {
+    if (fun.external ? !target : !output.getFunction(fun.symbol)) {
         return llvm::ConstantPointerNull::get(llvm::PointerType::get(output.getContext(), 0));
     }
     return frame_of(output, target ? target->symbol : fun.symbol, word);

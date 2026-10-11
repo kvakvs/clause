@@ -51,4 +51,9 @@ if(CLAUSE_BUILD_RUNTIME)
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/lto/$<CONFIG>"
         "${CMAKE_EXECUTABLE_SUFFIX}")
     set_tests_properties(linking_lto PROPERTIES TIMEOUT 900)
+    # Export liveness: unreachable exports left out, --keep-exports and keep_exports keep them; sizes recorded (62C).
+    add_test(NAME linking_exports COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/exports.py"
+        "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/exports/$<CONFIG>"
+        "${CMAKE_EXECUTABLE_SUFFIX}")
+    set_tests_properties(linking_exports PROPERTIES TIMEOUT 900)
 endif()

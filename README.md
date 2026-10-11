@@ -296,6 +296,7 @@ clau [options] <source.erl>...
   --no-type-specialization  Disable compiler variants at either optimization level
   -g                      Emit Erlang line tables; executables keep them for debuggers
   --lto                   Link modules as bitcode with link-time optimization (LLD targets)
+  --keep-exports          Keep every export of an executable callable (default: unreachable ones left out)
   --verbose               Trace files and compilation phases to stderr
   --print-stage-times     Print preprocess/parse/transform time per file, compile time per batch and link time to stderr
   -I, --include <dir>      Add an include directory (last supplied searched first)

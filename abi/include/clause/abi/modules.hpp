@@ -21,6 +21,8 @@ struct ExportDescriptor {
     std::size_t name_size;
     // Resolve the generic entry's fixed Erlang arity independently of its machine signature.
     std::size_t arity;
+    // Null with a null frame for an export the executable never calls (plan step 62C): only its name remains, for
+    // function_exported/3, and dynamic calls of it raise undef.
     GeneratedFunction *entry;
     // The FrameDescriptor dynamic calls (M:F(Args), apply/3) enter; null for a host-only export.
     const FrameDescriptor *frame = nullptr;

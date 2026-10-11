@@ -126,15 +126,13 @@ Word raise_stack(ProcessContext &context, Arguments arguments) {
     return badarg->word();
 }
 
-// function_exported(Module, Function, Arity): true when a module of the program exports it or it is a builtin;
-// non-atom names or a non-small arity raise badarg.
+// function_exported(Module, Function, Arity): true when a module of the program exports it, even one the executable
+// never calls (plan step 62C), or it is a builtin; non-atom names or a non-small arity raise badarg.
 Word function_exported(ProcessContext &context, const builtins::AtomArgument &module,
                        const builtins::AtomArgument &function, std::int64_t arity) {
     const bool valid = arity >= 0 && arity < static_cast<std::int64_t>(abi::v1::register_count);
-    const auto *frame =
-        valid ? context.code_server().function_frame(module.term, function.term, static_cast<std::size_t>(arity))
-              : nullptr;
-    return boolean(context, frame != nullptr);
+    return boolean(
+        context, valid && context.code_server().exported(module.term, function.term, static_cast<std::size_t>(arity)));
 }
 
 using M = abi::v1::MapOperation;

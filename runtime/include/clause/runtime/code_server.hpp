@@ -193,6 +193,9 @@ class CodeServer final {
     // The FrameDescriptor a call of the atoms Module:Function/Arity enters: a registered module's export, else a
     // builtin's frame; null when neither exists.
     const void *function_frame(const Term &module, const Term &function, std::size_t arity) const noexcept;
+    // Whether a registered module exports Module:Function/Arity, even by name only (an export the executable never
+    // calls, plan step 62C), or a builtin has that name: the answer of function_exported/3.
+    bool exported(const Term &module, const Term &function, std::size_t arity) const noexcept;
     // The definition of external fun Module:Function/Arity built at run time (fun M:F/A with variables) from atoms,
     // created on first use and kept for the server's lifetime; may throw std::bad_alloc.
     const FunDefinition &external_fun(const Term &module, const Term &function, std::size_t arity);

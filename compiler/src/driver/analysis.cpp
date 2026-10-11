@@ -5,6 +5,7 @@
 #include "../semantic/behaviours.hpp"
 #include "../semantic/bindings.hpp"
 #include "../semantic/capabilities.hpp"
+#include "../semantic/liveness.hpp"
 #include "../semantic/services.hpp"
 
 namespace clause::cli {
@@ -62,5 +63,19 @@ bool analyze(const codegen::CompilationRequest &request, const EntryRequest &ent
     trace_analysis("contracts", request, analysis);
     semantic::types::check_contracts(*analysis.declared, *analysis.inferred, analysis.calls, report);
     return !failed;
+}
+
+void drop_unreachable(const codegen::CompilationRequest &request, Analysis &analysis) {
+    const auto &entry = *analysis.entry;
+    auto &module = *analysis.modules.at(entry.module);
+    auto &function = module.functions.at(module.lookup.at(entry.function));
+    const auto report = semantic::mark_live(analysis.modules, analysis.calls, {&module, &function});
+    for (std::size_t i = 0; i < analysis.modules.size(); ++i) {
+        const auto &name = analysis.modules[i]->name;
+        const auto kept = report.kept_.find(name);
+        codegen::progress(request, "liveness", request.inputs[i].source_path, utf8(name),
+                          kept != report.kept_.end() ? "kept-all-exports reason=" + kept->second
+                                                     : "dropped-exports=" + std::to_string(report.dropped_.at(name)));
+    }
 }
 } // namespace clause::cli

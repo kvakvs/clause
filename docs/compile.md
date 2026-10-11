@@ -135,6 +135,7 @@ in `printing.hpp`; `compiler/src/printing/source_*`) is reusable:
 | `-O0` / `-O2` / `-Os` | Default generic code + LLVM O0 / bounded specialization + LLVM O2 / LLVM Os, no specialization, one section per symbol and linker dead-stripping of unreferenced code and data |
 | `--no-type-specialization` | Disable variants regardless of option order |
 | `--lto` | Link the modules as bitcode with LLD link-time optimization (Windows MSVC and ELF targets; needs `-o` or a linking project build) ([linking](executables.md#linking)) |
+| `--keep-exports` | Keep every export of an executable callable instead of leaving out those it cannot reach; needs `-o` or a linking project build ([export liveness](executables.md#export-liveness)) |
 | `-g` | Erlang line tables in objects and linked executables (CodeView/PDB on MSVC targets, DWARF elsewhere) ([debugging](debugging.md)) |
 | `--print-ir` / `--print-optimized-ir` | Verified IR before/after LLVM passes, with Erlang source lines as comments |
 | `--print-types` | Each module as Erlang source annotated with inferred types ([semantic](semantic.md#--print-types)); stops before LLVM |
@@ -193,6 +194,7 @@ optimization = "O2"
 type_specialization = true  # O2 without --no-type-specialization
 debug_info = false
 lto = false
+keep_exports = false        # --keep-exports or the project option
 emit = "none"               # or obj, llvm-ir, llvm-bc
 artifact_dir = "/work/build/aot"
 ```

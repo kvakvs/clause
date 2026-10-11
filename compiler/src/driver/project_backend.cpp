@@ -18,6 +18,7 @@ BackendOptions target_options(const Options &options, const project::Invocation 
                           ? project::absolute_path(std::filesystem::current_path(), *backend.artifact_directory)
                           : invocation.file.parent_path() / "build" / "aot";
     backend.artifact_directory = root / artifacts::encoded_name(target.name);
+    backend.keep_exports = backend.keep_exports || target.keep_exports_;
     return backend;
 }
 

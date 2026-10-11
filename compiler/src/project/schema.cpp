@@ -43,6 +43,18 @@ std::vector<Text> strings(const toml::table &table, const std::string_view key, 
     return result;
 }
 
+bool boolean(const toml::table &table, const std::string_view key, const Context &context) {
+    const auto *node = table.get(key);
+    if (!node) {
+        return false;
+    }
+    const auto value = node->value<bool>();
+    if (!node->is_boolean() || !value) {
+        fail(site(*node, context, std::string(key)), "expected a boolean");
+    }
+    return *value;
+}
+
 const toml::table &table(const toml::node &node, const Context &context, std::string key) {
     const auto *result = node.as_table();
     if (!result) {

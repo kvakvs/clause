@@ -77,6 +77,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Stack trace locations | `[{file, F}, {line, L}]`, `error_info` for `error/3` | Always `[]`; no `error_info` | [ABI](abi.md#stack-traces) |
 | `function_clause` top frame | Argument list | Arity | [ABI](abi.md#stack-traces) |
 | `undef` top frame | `{M, F, Args, []}` of the missing function | The calling function's frame | [funs](funs.md#dynamic-calls) |
+| Dynamic call of an export an executable cannot reach (its module named only through a stack trace, an exception or a message from outside the program) | Calls it | `undef`, unless built with `--keep-exports`; `function_exported/3` and `module_info(exports)` still list it | [executables](executables.md#export-liveness) |
 | Failing BIF/operator frames | Present (`{erlang, '+', Args, ...}`) | Absent; nothing below the entry function | [ABI](abi.md#stack-traces) |
 | Atom table full (`list_to_atom/1`) | The emulator aborts (`no more index entries in atom_tab`) and writes a crash dump | `clau: runtime failure: entry call failed: resource_limit`, exit 70 | [builtins](builtins.md#how-calls-reach-them) |
 | `list_to_integer/1,2` with characters above 255 | Its first digits use only each character's low byte (`[16#131]` is 1) | `badarg` | [builtins](builtins.md#how-calls-reach-them) |

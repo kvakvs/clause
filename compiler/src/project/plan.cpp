@@ -116,6 +116,7 @@ Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
                                   std::move(search)});
         transform_options(base, target, options.discovery, result.targets.back());
         result.targets.back().ignore_ = std::move(ignore);
+        result.targets.back().keep_exports_ = target.options.keep_exports_;
     }
     outputs(result);
     return result;

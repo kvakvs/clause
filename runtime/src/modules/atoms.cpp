@@ -82,13 +82,14 @@ CodeResult<void> bind_records(ModuleAtoms &bindings, const abi::v1::ModuleDescri
     return {};
 }
 
-// A fun names only slots of its own module; a local fun's code takes its arguments, then its captured values.
+// A fun names only slots of its own module; a local fun's code takes its arguments, then its captured values. A
+// local fun without code is one only unreachable code creates (plan step 62C).
 bool valid_fun(const abi::v1::ModuleDescriptor &module, const abi::v1::FunDescriptor &fun) {
     const auto slot = [&](std::size_t index) { return index < module.atom_count; };
     if (fun.module != &module || !slot(fun.module_atom) || !slot(fun.function_atom)) {
         return false;
     }
-    return fun.external || (fun.frame && fun.frame->arity >= fun.arity);
+    return fun.external || !fun.frame || fun.frame->arity >= fun.arity;
 }
 
 // The code a fun enters: its descriptor's, else for an external fun nothing in the program exports the builtin of
@@ -114,7 +115,7 @@ CodeResult<void> bind_funs(ModuleAtoms &bindings, const abi::v1::ModuleDescripto
         if (!valid_fun(descriptor, fun)) {
             return std::unexpected(CodeError::invalid_module);
         }
-        const std::size_t captures = fun.external ? 0 : fun.frame->arity - fun.arity;
+        const std::size_t captures = fun.external || !fun.frame ? 0 : fun.frame->arity - fun.arity;
         bindings.funs.push_back(FunDefinition{.descriptor = &fun,
                                               .module = word(fun.module_atom),
                                               .function = word(fun.function_atom),

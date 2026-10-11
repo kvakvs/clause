@@ -18,6 +18,8 @@ void keys(const toml::table &table, std::initializer_list<std::string_view> allo
 Text text(const toml::node &node, const Context &context, std::string key);
 // Decode an optional ordered string array without coercing element types.
 std::vector<Text> strings(const toml::table &table, std::string_view key, const Context &context);
+// Decode an optional boolean; absent means false.
+bool boolean(const toml::table &table, std::string_view key, const Context &context);
 // Require a table at a known schema boundary.
 const toml::table &table(const toml::node &node, const Context &context, std::string key);
 // Bound total decoded input entries before allocating the manifest model.

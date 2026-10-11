@@ -71,6 +71,9 @@ struct Function {
     bool exported = false;
     // Stable private ABI name is independent of addresses and table order.
     std::string symbol;
+    // Whether the executable can reach the function; export liveness (62C) clears it, and codegen then emits no
+    // code for it and keeps only the name of an export.
+    bool live_ = true;
     // Preserve explicit binding operations and their clause-owned definitions outside syntax.
     std::vector<Binding> bindings = {};
     std::vector<ClauseBindings> clause_bindings = {};

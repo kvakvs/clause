@@ -30,6 +30,10 @@ draft with smaller, single-commit steps.
   the luerl project build showed the missing `erlang` builtins. Its steps
   follow 41 numerically but run after the open phase M/N2 work unless
   reordered.
+- Phase L3 (step 62D, as 62D1–62D4, and step 62E) was inserted on 2026-10-11
+  (user direction). It adds the `build_dir` option, build caches and an
+  in-memory index of searched directories, selecting the cache item of D07
+  ahead of decision step 77. 62E is independent and may run before 62D.
 
 ## Common gate and rules (apply to every step)
 
@@ -133,7 +137,8 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | K. End-to-end projects | [58](00-finished.md#step-58) | F01, V03 | done |
 | L. Optimization and tooling | [58A](00-finished.md#step-58a)–[58N3](00-finished.md#step-58n3), [59](00-finished.md#step-59)–[62B](00-finished.md#step-62b) | F23, F25, F29–F34 | done |
 | H2. `erlang` module builtins | [41A](#step-41a)–[41H](#step-41h) (41G as 41G1–41G3) | F36 | done (41F TSan stress with V02) |
-| L2. Export liveness | [62C](#step-62c) | F32, F36 | open |
+| L2. Export liveness | [62C](#step-62c) | F32, F36 | done |
+| L3. Build directory and caches | [62D](#step-62d) (62D1–62D4), [62E](#step-62e) | D07 | open |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -480,35 +485,259 @@ Backlog: F32, F36. Depends on: [62](00-finished.md#step-62),
 [41B](#step-41b).
 
 - Success criteria
-  - [ ] A whole-batch export liveness analysis runs before LLVM IR emission.
+  - [x] A whole-batch export liveness analysis runs before LLVM IR emission.
     Roots: the executable entry, `-on_load`-free startup, every exported
     function named statically elsewhere in the batch (`M:F(...)`,
     `-import`, `fun M:F/A`, `apply`/`spawn` families with literal module
     and function), behaviour callbacks of a module whose name escapes as a
     value, and everything a live function calls.
-  - [ ] Escape rules stay conservative: a module whose name atom is used as a
+  - [x] Escape rules stay conservative: a module whose name atom is used as a
     value (passed, stored, sent, `?MODULE`), or any dynamic call whose module
     is not a literal while `list_to_atom`/`binary_to_atom` or atom-producing
     builtins are reachable, keeps all exports of the affected modules;
     the analysis reports why a module stayed fully live (`--verbose`).
-  - [ ] A dead export leaves the module's export table and gets internal
+  - [x] A dead export leaves the module's export table and gets internal
     linkage (or is not emitted), so linker dead-stripping and LTO remove it;
     `module_info(exports)` and `function_exported/3` answer as if it were
     still exported (from the descriptor's name list, not frames), and a
     dynamic call that reaches it raises `undef`, recorded in
     `docs/differences.md`.
-  - [ ] Opt-out `--keep-exports` (all exports live, today's behavior) and a
+  - [x] Opt-out `--keep-exports` (all exports live, today's behavior) and a
     per-target project option; the default applies the analysis only to
     executables, never to `--emit` artifacts meant for other programs.
-  - [ ] Weak references are evaluated as an alternative (weak export-table
+  - [x] Weak references are evaluated as an alternative (weak export-table
     entries resolved by the linker): kept only if all targets (COFF, ELF,
     Mach-O) support them; the decision is recorded in `docs/executables.md`.
 - Tests
-  - [ ] Executable sizes with `-Os` and `--lto` for a program using a few
+  - [x] Executable sizes with `-Os` and `--lto` for a program using a few
     `lists`/`erlang` functions shrink measurably; recorded, not a gate.
-  - [ ] Behavior of all program fixtures and executable goldens unchanged
+  - [x] Behavior of all program fixtures and executable goldens unchanged
     with and without `--keep-exports`; dynamic calls, `spawn/3`, behaviours
     and `apply` on escaped module names still work.
+- Done 2026-10-11: `semantic/liveness` walks from the entry (only live functions' bodies count), so an export
+  named only in unreachable code is dropped too; dead functions and their lambdas get no code at all, their
+  export entries keep the name only. `linking_exports` checks the fixture (undef only for a module named through
+  a stack trace), `keep_exports`, `--verbose` reasons and 14 goldens with `--keep-exports`; all other executable
+  goldens run with liveness on. Sizes (sizes.erl: `lists:map/seq/foldl/reverse`): `-Os` 2,760,704 bytes vs
+  2,802,688 kept; `-O2 --lto` 2,760,192 vs 2,802,688 (the runtime archive dominates). Weak references rejected
+  (`docs/executables.md#export-liveness`).
+
+## L3. Build directory and caches
+
+Inserted 2026-10-11 (user direction). Selects the cache item of D07 ahead of
+step 77. Today `clau` keeps nothing between runs. Every build re-reads,
+preprocesses, parses, transforms and compiles every module. Temporary files
+are spread around: transform workspaces go to the system temp directory, link
+staging (`.clause-link*`) sits beside the output, and `--emit` artifacts go to
+`build/aot`.
+
+Measured on the luerl project (188 modules, Release `clau`,
+`--print-stage-times`, 2026-10-11):
+
+- planning, including `**` glob expansion over `references/otp/lib`: 0.09 s;
+- preprocess 0.5 s, parse 0.5 s, parse transforms 0.9 s (3 modules), compile
+  1.1 s; whole run 3.6 s.
+
+So directory scans are cheap at this size. Host `erl` transform runs and
+whole-batch compilation are the costs worth caching.
+
+<a id="step-62d"></a>
+
+### 62D. Build directory and cached build results
+
+Backlog: D07 (cache). Depends on: [58](00-finished.md#step-58),
+[73G](00-finished.md#step-73g), [62C](#step-62c) (compile-cache keys must
+include export liveness). Split into 62D1–62D4. Each sub-step is one commit
+titled `[plan11] 62Dn. <title>`.
+
+Shared design rules for all sub-steps:
+
+- **Storage.** One project-internal cache interface:
+  `get`/`put` by (input directory, file, kind, key), plus `invalidate` and
+  `prune`. Callers never see paths. The first backend stores files under
+  `<build_dir>/cache/v<format>/`, grouped by input directory. Each source
+  directory gets one subdirectory named by a readable tail of the path plus a
+  hash of the normalized absolute path (`src-3f2a91c0`). That subdirectory
+  holds one index file plus pack files per result kind, not one file per
+  module and kind. A later SQLite (or similar) backend must replace this
+  without changing any caller; record that boundary in `docs/projects.md`.
+- **Keys.** Never trust an entry by time stamp alone. Size and mtime are only a
+  fast pre-check, and the content hash decides. Every key includes:
+  - the `clau` version and the cache format version;
+  - the effective options of that stage: include directories, defines,
+    features and application directories for the frontend; triple,
+    optimization, `-g`, specialization and LTO for compilation; transform
+    names, `transform_paths` `.beam` hashes and the host OTP release for
+    transforms.
+- **Dependencies.** A frontend entry records every file it read, with its
+  hash: includes, `include_lib` results, and transform sources. It also
+  records every path probed and found missing. A header added earlier on the
+  include path must invalidate the entry.
+- **Safety.** Writes go to a temporary file and are renamed into place. A
+  truncated, corrupt or foreign-version entry is ignored and rebuilt, never
+  an error. Two `clau` processes sharing one build directory must not corrupt
+  it: use either a lock or append-only packs plus an atomic index swap.
+  Diagnostics come out the same with and without a cache hit, so warnings are
+  stored with the entry.
+- **Observability.** `--print-stage-times` marks reused stages
+  (`[time] parse a.erl: 0.012 ms (cached)`), and `--verbose` says why an
+  entry missed. `--no-cache` disables reads and writes.
+
+#### 62D1. Build directory option and temporary files
+
+- Success criteria
+  - [ ] Project option `build_dir` (manifest-relative, per target) and CLI
+    `--build-dir DIR` (overrides it for every selected target). The default
+    is `<manifest-dir>/build` for projects. Positional inputs get no build
+    directory unless `--build-dir` is given: today's "check/print modes
+    create no files" contract stays true without it.
+  - [ ] Clause-owned temporary files move under `<build_dir>/tmp`, starting
+    with the transform loader workspaces. Link staging stays beside the
+    output, because the final rename must stay on the same volume; record
+    that reason in `docs/executables.md`.
+  - [ ] `--print-env` reports the build directory, and `--help`,
+    `docs/projects.md`, `docs/compile.md` and the `--new-project` template
+    name it. The contract states that check/print modes may write only
+    inside the build directory.
+- Tests
+  - [ ] A project run creates temporary files only under `build_dir`, and
+    nothing is left there after success or failure. `--build-dir` overrides
+    the manifest, and a positional check run without it writes nothing.
+
+#### 62D2. Cache store and frontend results
+
+- Success criteria
+  - [ ] The storage interface and its file backend from the shared rules
+    exist, with `--no-cache`.
+  - [ ] Parse transform results are cached first, because they are the
+    largest frontend cost: the imported forms as ETF, plus the transform's
+    messages and output. A warm run starts no host `erl` for unchanged
+    modules.
+  - [ ] Preprocess and parse results are cached only if a warm-cache load
+    (ETF of the abstract forms through `transforms/import`, or a dedicated
+    AST format) beats reparsing on the luerl fixture. Record the measurement
+    either way.
+  - [ ] Header, define and feature changes invalidate exactly the modules
+    that depend on them. That includes a new header that would shadow an
+    included one.
+- Tests
+  - [ ] Black-box project runs: a cold build then a warm build give identical
+    diagnostics and outputs, with stage times showing `(cached)`. Then edit a
+    header, a define, a transform source and a `.beam` on `transform_paths`;
+    each edit rebuilds only the modules it affects.
+  - [ ] Corrupt, truncated and old-format entries are rebuilt silently. A
+    deleted build directory is recreated.
+
+#### 62D3. Directory scan cache
+
+- Success criteria
+  - [ ] Measure the expansion of `sources`, `source_dirs`,
+    `source_search_paths`, `include_dirs` and `ignore_dirs` cold and warm on
+    a large tree (all of `references/otp/lib` with `**` patterns), plus
+    include-path probing during preprocessing.
+  - [ ] Measure with the in-memory index of [62E](#step-62e) in place; a scan
+    cache persists that index between runs.
+  - [ ] Implement a scan cache only if planning or probing costs more than
+    100 ms or 5% of a warm build. It would store expansion results per
+    pattern root and invalidate them by directory mtimes (entries added or
+    removed) and the manifest hash. Otherwise record the numbers and close
+    the step without code.
+- Tests
+  - [ ] If implemented: adding, removing or renaming a file or directory
+    that matches a pattern is picked up on the next run, as is a change to
+    `ignore_dirs`.
+
+#### 62D4. Compile result cache
+
+- Success criteria
+  - [ ] Decide the reuse unit and record it in `docs/compile.md`.
+    Analysis and type inference cover the whole batch, so a module's object
+    is reusable only when its own syntax and every cross-module fact it
+    consumed are unchanged. Those facts are callee signatures, inferred
+    types, records, behaviours, export liveness and the entry/startup
+    module. The cache key hashes exactly those facts.
+  - [ ] If per-module keys cannot be made sound, fall back to a whole-batch
+    key, or defer with the reason recorded.
+  - [ ] Cached objects (or bitcode under `--lto`) feed linking and `--emit`
+    exactly like fresh ones. Inspection modes (`--print-ir`,
+    `--print-types`) always recompute.
+- Tests
+  - [ ] Executable goldens are identical with and without a warm cache.
+  - [ ] Editing one module's body that other modules' facts do not depend on
+    recompiles only that module. Changing an exported function's inferred
+    type recompiles its callers. Changing the triple or optimization level
+    misses the cache.
+  - [ ] Warm luerl build time recorded before and after 62D2–62D4, not a
+    gate.
+
+<a id="step-62e"></a>
+
+### 62E. In-memory index of searched directories
+
+Backlog: D07 (cache). Depends on: [58](00-finished.md#step-58). Independent
+of 62D, so it may run first; [62D3](#step-62d) then measures with this index
+in place and may persist it.
+
+Today every lookup probes every candidate directory, one at a time, through
+the filesystem. Most probes miss. The lookups are:
+
+- the referenced-module search over `source_search_paths` and the library
+  (`module_source` in `driver/frontend.cpp`);
+- transform sources (`locate` in `driver/transform_sources.cpp`);
+- literal `sources` found through `source_search_paths`
+  (`literal_source` in `project/paths.cpp`);
+- include resolution (`candidates` in `preprocessor/includes.cpp`). This
+  tries to open the include name in the including file's directory, the
+  working directory, every include directory and the `include_lib`
+  applications, for every include of every module. With patterns such as
+  `references/otp/lib/**/include`, that is dozens of failed opens per
+  include.
+
+- Success criteria
+  - [ ] Measure first: the number of filesystem probes, and the time spent in
+    them, for the luerl project before the change. Count them in a debug
+    build or under `--verbose`, never in normal output.
+  - [ ] One index per invocation, shared by all lookups and all targets.
+    It holds a list of scanned directories (by id) and a bucket map from
+    file name to the ids of every directory where that name was seen. A
+    name seen in several directories keeps all of them.
+  - [ ] Each directory is listed once, non-recursively, the first time a
+    lookup needs it. The recursive walks that already expand `**` in
+    `sources`, `source_dirs`, `source_search_paths` and `include_dirs` add
+    the entries they visit, so those directories are never listed twice.
+  - [ ] A lookup takes the name and the ordered candidate directories, and
+    returns the first directory in that order that has the name. Precedence
+    is therefore exactly what probing gives today: the including file's
+    directory, then the working directory, then include directories in order,
+    then `include_lib` applications for includes; inputs before search
+    directories for modules. `ignore_dirs` and `ignore_modules` are applied
+    to the result, as they are now.
+  - [ ] An include name with directory parts (`sub/x.hrl`, `../inc/x.hrl`) is
+    looked up by its last component. The rest of the name must then match
+    below the candidate directory; anything the index cannot answer
+    correctly falls back to probing. Absolute names are probed as they are
+    today.
+  - [ ] File name keys fold case where the volume is case-insensitive
+    (Windows, default macOS), so `Foo.hrl` is still found for `foo.hrl`.
+    Exact keys are used elsewhere. Record the rule and its reason in
+    `docs/projects.md`.
+  - [ ] The preprocessor stays independent of the filesystem. It gets the
+    index through a `PreprocessorOptions` lookup hook, next to the existing
+    `read_file`. Without a hook it probes as before (library users, unit
+    tests).
+  - [ ] Within one invocation the index is a snapshot. Files that appear
+    during the run, such as link staging or outputs, are never search inputs.
+    The contract says so.
+- Tests
+  - [ ] Black-box precedence:
+    - the same module name in two search directories picks the first, and
+      passes over an ignored copy;
+    - the same header name in the including directory, the working
+      directory and two include directories picks the first in OTP's order;
+    - `include_lib` still resolves through application directories;
+    - a header that differs only in case resolves on Windows.
+  - [ ] The probe count and time for luerl are recorded after the change,
+    alongside the planning and preprocess stage times.
 
 ## M. Validation closure
 
@@ -638,6 +867,7 @@ Backlog: D07. Depends on: [58](00-finished.md#step-58). **Decision.**
 - Success criteria
   - [ ] Demand recorded for each extension (profiles, dependencies, exclusions,
     packages, watch/cache, parallel builds); selected items get their own plan.
+    The build directory and caches are already selected as [62D](#step-62d).
 - Tests
   - [ ] None beyond the gate unless selected.
 

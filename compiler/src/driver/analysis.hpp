@@ -17,4 +17,7 @@ struct Analysis {
 // Run declaration, binding, call, declared-type and inference phases without creating LLVM state.
 bool analyze(const codegen::CompilationRequest &request, const EntryRequest &entry, Analysis &analysis,
              const DiagnosticSink &sink);
+// Leave out the functions an executable cannot reach from its entry, tracing under --verbose which modules keep
+// every export and why. Added for export liveness (62C).
+void drop_unreachable(const codegen::CompilationRequest &request, Analysis &analysis);
 } // namespace clause::cli

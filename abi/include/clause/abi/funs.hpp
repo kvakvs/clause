@@ -24,7 +24,8 @@ struct FunDescriptor {
     // Nonzero for an external fun M:F/A.
     std::size_t external;
     // The code a call enters: a local fun's function, an external fun's exported function within the program, or
-    // null for an external fun nothing in the program exports (calling it raises undef).
+    // null for an external fun nothing in the program exports (calling it raises undef) and for a fun only
+    // unreachable code creates (plan step 62C).
     const FrameDescriptor *frame;
 };
 

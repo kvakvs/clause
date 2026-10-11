@@ -55,19 +55,36 @@ CallResult<Term> invoke(abi::v1::GeneratedFunction *entry, ProcessContext &conte
     return *result;
 }
 
+// A named export with a valid arity; one without entry and frame keeps only its name: the executable never calls
+// it (plan step 62C).
+bool valid_export(const abi::v1::ExportDescriptor &item) {
+    return item.name && item.name_size != 0 && (item.entry || !item.frame) && item.arity <= 255;
+}
+
+// Add one export's generic host target.
+CodeResult<void> add_export(ModuleRegistry &registry, const abi::v1::ExportDescriptor &item) {
+    auto added = registry.add({item.name, item.name_size}, item.arity,
+                              [entry = item.entry](ProcessContext &context, std::span<const Term> arguments) {
+                                  return invoke(entry, context, arguments);
+                              });
+    if (!added) {
+        return std::unexpected(added.error() == RegistryError::resource_limit ? CodeError::resource_limit
+                                                                              : CodeError::invalid_export);
+    }
+    return {};
+}
+
 // Build all generic targets privately so any malformed or duplicate export rolls back the draft.
 CodeResult<void> add_exports(ModuleRegistry &registry, const abi::v1::ModuleDescriptor &descriptor) {
     for (const auto &item : std::span(descriptor.exports, descriptor.export_count)) {
-        if (!item.name || item.name_size == 0 || !item.entry || item.arity > 255) {
+        if (!valid_export(item)) {
             return std::unexpected(CodeError::invalid_export);
         }
-        auto added = registry.add({item.name, item.name_size}, item.arity,
-                                  [entry = item.entry](ProcessContext &context, std::span<const Term> arguments) {
-                                      return invoke(entry, context, arguments);
-                                  });
-        if (!added) {
-            return std::unexpected(added.error() == RegistryError::resource_limit ? CodeError::resource_limit
-                                                                                  : CodeError::invalid_export);
+        if (!item.entry) {
+            continue;
+        }
+        if (auto added = add_export(registry, item); !added) {
+            return added;
         }
     }
     return {};

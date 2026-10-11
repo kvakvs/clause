@@ -433,6 +433,11 @@
   `--profile FILE` (step 61, runtime option) attributes entries and self time at frame transfers per function
   and process (`process/profile`), merged at context destruction; no generated-code change.
   `--lto` (step 62) links bitcode outputs with `-flto -fuse-ld=lld` (MSVC/ELF only).
+  Export liveness (62C, `semantic/liveness`): for executables only, a worklist from the entry over direct calls,
+  funs, literal apply/spawn targets and escaped module-name atoms (whole module live; dynamic call + atom producer
+  = everything live) clears `Function::live_`; codegen declares/lowers no dead function or lambda of a dead owner,
+  the export table keeps a dead export's name with null entry/frame (runtime: name-only export, `CodeServer::
+  exported` for `function_exported/3`, local fun descriptor may lack a frame). `--keep-exports`/`keep_exports`.
   Code server lookups are hash indexes built at registration (62A). Receive timeouts live in a hierarchical
   timer wheel advanced by one timer thread per run (62B); workers never read the clock for timers.
 

@@ -559,3 +559,8 @@ Host and tool gotchas:
   TOOL_BUILD_DIR=build/tool, so build/debug keeps BUILD_TESTING=ON (user request). cmd scripts: never pass "|" in
   arguments (cmd pipes it). 41B: erlang.terms statuses are hand-maintained; regenerate erlang.erl with
   tests/compiler/builtins/generate_erlang.py after a status change.
+- 62C (2026-10-11): liveness only for executables (backend compile: executable_output && !keep_exports). Dead =
+  Function::live_ false -> codegen skips declare/define/lambdas/source scopes/specialization; registration emits
+  name-only exports (entry+frame null) and null fun frames when the symbol is not declared. Runtime accepts both.
+  Scratch edit tool: scratchpad rep.py (<<< old === new >>> blocks per @@@ file; handles CRLF files).
+  Build/test scripts build/plan11-62/{build,fast,test,quality}.cmd (-j 24, ctest 16).

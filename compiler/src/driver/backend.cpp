@@ -152,6 +152,9 @@ bool compile(std::vector<codegen::CompilationInput> inputs, const FrontendReques
         print_types(analysis, request);
         return false;
     }
+    if (frontend.executable_output && !frontend.backend.keep_exports) {
+        drop_unreachable(request, analysis);
+    }
     request.startup = startup_request(analysis);
     auto &compilation = output.emplace(std::move(request));
     const bool succeeded = generate(compilation, analysis, frontend);

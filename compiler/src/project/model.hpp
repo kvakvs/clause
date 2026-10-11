@@ -42,6 +42,8 @@ struct TargetOptions {
     // modules.
     std::vector<Text> ignore_dirs;
     std::vector<Text> ignore_modules;
+    // Keep every export of the target's executable callable (docs/projects.md). Added for export liveness (62C).
+    bool keep_exports_ = false;
 };
 
 struct Target {

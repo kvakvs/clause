@@ -30,6 +30,9 @@ struct BackendOptions {
     bool debug_info = false;
     // Link the modules as bitcode with link-time optimization (--lto); only with an executable output.
     bool lto = false;
+    // Keep every export of an executable's modules callable (--keep-exports or the project option keep_exports)
+    // instead of dropping those it cannot reach. Added for export liveness (62C).
+    bool keep_exports = false;
     // Override the Clang driver and runtime archive used to link an explicit --output executable.
     std::optional<std::filesystem::path> linker;
     std::optional<std::filesystem::path> runtime_library;

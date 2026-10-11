@@ -24,6 +24,7 @@ enable_features = ["maybe_expr"]
 disable_features = ["compr_assign"]
 ignore_dirs = ["src/legacy", "deps/*/test"]
 ignore_modules = ["telemetry"]
+keep_exports = false
 
 [targets.options.applications]
 my_dependency = "vendor/my_dependency"
@@ -44,6 +45,9 @@ my_dependency = "vendor/my_dependency"
   the target's modules ([transforms](transforms.md#options)).
 - `ignore_dirs` (path wildcards) and `ignore_modules` (module names) in
   `options` leave sources out of the build ([ignored sources](#ignored-sources)).
+- `keep_exports = true` in `options` keeps every export of the target's
+  executable callable, as `--keep-exports` does for every selected target
+  ([export liveness](executables.md#export-liveness)). It must be a boolean.
 - `options` fields are optional typed frontend options. `defines` use
   `NAME` (= `true`) or `NAME=ERLANG_LITERAL_TERM`; duplicates are errors. A
   feature cannot appear in both feature lists.
