@@ -218,7 +218,7 @@ per family, under a subdirectory named after the module. This step only moves
 and splits existing code; no builtin changes behavior.
 
 - Success criteria
-  - [ ] `runtime/src/builtins/erlang/` holds every translation unit whose
+  - [x] `runtime/src/builtins/erlang/` holds every translation unit whose
     builtins belong to module `erlang`: today's `erlang.cpp` (operators,
     type tests, errors), `term_access.cpp`, the `erlang` part of
     `lists.cpp` (`length/1`, `'++'/2`, `'--'/2`), `conversions.cpp`,
@@ -227,20 +227,22 @@ and splits existing code; no builtin changes behavior.
     `lists` library helpers) and the bridge infrastructure (`bridge`,
     `registry`, `invocation`, `portions`, `typed`, `text`) stay in
     `runtime/src/builtins/`.
-  - [ ] Each family TU defines its own `*_builtins()` span, listed in
+  - [x] Each family TU defines its own `*_builtins()` span, listed in
     `production_builtins()`; a new family (41C–41H) adds a new TU and span
     instead of growing an existing file. A TU past about 400 lines splits
     by family before it grows further.
-  - [ ] The catalog `abi::v1::bridge_builtins` stays one append-only array
+  - [x] The catalog `abi::v1::bridge_builtins` stays one append-only array
     (indices are the ABI); its entries are grouped by family comments that
     name the implementing TU.
-  - [ ] Same rule for later large modules (`binary`, `unicode`, `ets`):
+  - [x] Same rule for later large modules (`binary`, `unicode`, `ets`):
     `runtime/src/builtins/<module>/`.
-  - [ ] `runtime/CMakeLists.txt` lists the moved files; `files.md`,
+  - [x] `runtime/CMakeLists.txt` lists the moved files; `files.md`,
     `arch.md` and `docs/builtins.md` name the new layout.
 - Tests
-  - [ ] Unchanged full-mode CTest results and `check-quality-all`; the
+  - [x] Unchanged full-mode CTest results and `check-quality-all`; the
     standalone `runtime_link` build still succeeds.
+- Done 2026-10-11: `production_builtins()` moved to `registry.cpp` so new families never touch
+  `core.cpp`. Gate: fast CTest 242/243 (known `codegen_resource_cli`), `check-quality` clean.
 
 <a id="step-41b"></a>
 

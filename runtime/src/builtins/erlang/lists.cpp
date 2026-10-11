@@ -1,5 +1,5 @@
-#include "../terms/structural_order.hpp"
-#include "portions.hpp"
+#include "../../terms/structural_order.hpp"
+#include "../portions.hpp"
 #include <algorithm>
 #include <array>
 #include <bit>

@@ -14,7 +14,9 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/scheduler/services.cpp src/scheduler/registry.cpp src/scheduler/transitions.cpp src/scheduler/executor.cpp src/scheduler/timer_wheel.cpp src/scheduler/signals.cpp src/scheduler/ports.cpp src/ports/fd.cpp src/ports/input.cpp src/ports/io.cpp src/ports/spawn.cpp src/ports/file.cpp src/ports/value.cpp src/ports/sockets.cpp src/ports/reactor.cpp
     src/terms/term_text.cpp src/terms/term_text_scalars.cpp
     src/terms/atoms.cpp src/terms/atom_spelling.cpp src/terms/factory.cpp src/terms/immediate.cpp src/terms/term.cpp src/terms/equality.cpp src/terms/immediate_order.cpp src/terms/immediate_services.cpp
-    src/builtins/registry.cpp src/builtins/invocation.cpp src/builtins/bridge.cpp src/builtins/erlang.cpp src/builtins/term_access.cpp src/builtins/lists.cpp src/builtins/portions.cpp src/builtins/conversions.cpp src/builtins/float_text.cpp src/builtins/text.cpp src/builtins/typed.cpp src/builtins/io.cpp src/builtins/io_format.cpp src/builtins/io_pretty.cpp src/builtins/processes.cpp src/builtins/ports.cpp src/builtins/os.cpp src/builtins/output.cpp
+    src/builtins/registry.cpp src/builtins/invocation.cpp src/builtins/bridge.cpp src/builtins/portions.cpp src/builtins/float_text.cpp src/builtins/text.cpp src/builtins/typed.cpp src/builtins/io.cpp src/builtins/io_format.cpp src/builtins/io_pretty.cpp src/builtins/os.cpp src/builtins/output.cpp
+    # Module erlang: one translation unit per builtin family (docs/builtins.md#source-layout).
+    src/builtins/erlang/core.cpp src/builtins/erlang/term_access.cpp src/builtins/erlang/lists.cpp src/builtins/erlang/conversions.cpp src/builtins/erlang/processes.cpp src/builtins/erlang/ports.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp
     src/startup/halt.cpp
     src/modules/atoms.cpp src/modules/services.cpp src/modules/code_server.cpp src/modules/registration.cpp)

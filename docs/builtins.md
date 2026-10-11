@@ -186,3 +186,24 @@ functions of typed parameters ([typed.hpp](../runtime/src/builtins/typed.hpp)),
 - The older host path `abi::v1::dispatch_builtin` (host-registered native
   modules by name, [runtime](runtime.md#code-server-and-builtins)) is separate
   and unchanged.
+
+## Source layout
+
+- The runtime implements builtins in `runtime/src/builtins/`. A large module
+  gets its own subdirectory with one translation unit per builtin family:
+  module `erlang` lives in `runtime/src/builtins/erlang/` (`core`: type tests,
+  guard BIFs, operators, raising, `display`, `halt`, `function_exported`;
+  `term_access`; `lists`: `length`, `++`, `--`; `conversions`; `processes`:
+  identities, spawning, messages, links, monitors, registered names;
+  `ports`).
+- Each family file defines its own `*_builtins()` table listed in
+  `production_builtins()`. A new family adds a new file and table instead of
+  growing an existing one; a file past about 400 lines is split by family
+  before it grows further. Later large modules follow the same rule
+  (`runtime/src/builtins/<module>/`).
+- Small modules (`io`, `os`) and the bridge infrastructure (`registry`,
+  `invocation`, `bridge`, `portions`, `typed`, `text`, `float_text`,
+  `output`) stay in `runtime/src/builtins/`.
+- The compiler never reads runtime sources: the catalog
+  `abi::v1::bridge_builtins` is the single list both sides share. It stays
+  one append-only array; its group comments name the implementing file.

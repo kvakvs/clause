@@ -8,7 +8,7 @@ the driver model and the I/O thread before any source can open a port.
 
 Implemented: identities, the port table, the port builtins and messages,
 links, monitors, names and exit signals of ports, and output-only `fd` ports
-(step 57B, `runtime/src/scheduler/ports.cpp`, `runtime/src/builtins/ports.cpp`,
+(step 57B, `runtime/src/scheduler/ports.cpp`, `runtime/src/builtins/erlang/ports.cpp`,
 `runtime/src/ports/`; OTP golden `executables_port_identities`); the I/O
 thread and `fd` port input with stream, packet and line framing (step 57C,
 `runtime/src/ports/io*.cpp`; OTP golden `executables_port_input`);

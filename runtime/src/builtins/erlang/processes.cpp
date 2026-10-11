@@ -1,5 +1,5 @@
+#include "../typed.hpp"
 #include "ports.hpp"
-#include "typed.hpp"
 #include <array>
 
 // The process builtins of the bridge (docs/builtins.md, docs/processes.md): self/0, make_ref/0, spawn/1,3,

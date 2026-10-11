@@ -1,5 +1,5 @@
+#include "../typed.hpp"
 #include "terms.hpp"
-#include "typed.hpp"
 #include <algorithm>
 #include <array>
 #include <vector>

@@ -1,5 +1,5 @@
 #pragma once
-#include "../scheduler/executor.hpp"
+#include "../../scheduler/executor.hpp"
 
 // Port conversions shared by the port builtins and sends (docs/ports.md#builtins-and-port-messages).
 namespace clause::runtime::builtins {

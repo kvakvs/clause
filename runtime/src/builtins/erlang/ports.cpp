@@ -1,7 +1,7 @@
 #include "ports.hpp"
-#include "../process/identities.hpp"
-#include "text.hpp"
-#include "typed.hpp"
+#include "../../process/identities.hpp"
+#include "../text.hpp"
+#include "../typed.hpp"
 #include <array>
 #include <charconv>
 #include <string>

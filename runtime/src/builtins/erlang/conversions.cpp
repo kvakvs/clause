@@ -1,9 +1,9 @@
-#include "../terms/integers.hpp"
-#include "float_text.hpp"
-#include "portions.hpp"
+#include "../../terms/integers.hpp"
+#include "../float_text.hpp"
+#include "../portions.hpp"
+#include "../text.hpp"
+#include "../typed.hpp"
 #include "terms.hpp"
-#include "text.hpp"
-#include "typed.hpp"
 #include <algorithm>
 #include <array>
 #include <clause/abi/equality.hpp>

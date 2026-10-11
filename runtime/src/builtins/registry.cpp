@@ -1,3 +1,4 @@
+#include <array>
 #include <clause/abi/frames.hpp>
 #include <clause/runtime/builtin_registry.hpp>
 #include <clause/runtime/callable.hpp>
@@ -123,5 +124,12 @@ const BuiltinFrame *BuiltinRegistry::find(std::string_view module, std::string_v
 
 const BuiltinFrame *BuiltinRegistry::bridge(std::size_t index) const noexcept {
     return index < bridge_.size() ? bridge_[index] : nullptr;
+}
+
+// Every module's families, in catalog order; each family is one translation unit (docs/builtins.md#source-layout).
+std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
+    static const std::array families{erlang_builtins(), term_access_builtins(), list_builtins(), conversion_builtins(),
+                                     io_builtins(),     process_builtins(),     port_builtins(), os_builtins()};
+    return families;
 }
 } // namespace clause::runtime

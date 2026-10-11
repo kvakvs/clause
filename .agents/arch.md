@@ -239,7 +239,7 @@
   I/O thread per runtime (IOCP / poll()), events delivered under the executor mutex; prototype tests/prototypes/poller.
   Step 57B: port words (tag 0x7) from `IdentityNumbers` (pid + port sequences), executor `ports_` table of `Port`
   (driver, connected, links, watchers, name, options, counters), `scheduler/ports.cpp` (open/close/command/connect/
-  request/info, port exit rules, `PortEvent` post/apply for running targets), `builtins/ports.cpp` (13 BIFs, iodata,
+  request/info, port exit rules, `PortEvent` post/apply for running targets), `builtins/erlang/ports.cpp` (13 BIFs, iodata,
   options, `port_request` parsing for sends), `ports/fd.cpp` (output-only fd driver, framing). Executor holds
   `Runtime::Impl &runtime_` (`process(pid)`); `signal_messages.hpp` shares EXIT/DOWN builders and `Running`.
   Step 57C: `IoService` (`ports/io.hpp`; `io_posix.cpp` poll thread, `io_windows.cpp` reader threads) with

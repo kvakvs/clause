@@ -23,9 +23,11 @@ struct BuiltinName {
 };
 
 // Every bridge builtin. An entry's index is the `builtin` argument of CLAUSE_builtin_frame_v1, so entries are only
-// ever appended. The runtime registers an implementation for each; the compiler admits calls and funs of them.
+// ever appended. Group comments name the runtime translation unit implementing the group; module erlang's live in
+// runtime/src/builtins/erlang/, one per family. The runtime registers an implementation for each; the compiler admits
+// calls and funs of them.
 inline constexpr std::array bridge_builtins{
-    // Type tests.
+    // Type tests (runtime/src/builtins/erlang/core.cpp).
     BuiltinName{"erlang", "is_atom", 1},
     BuiltinName{"erlang", "is_binary", 1},
     BuiltinName{"erlang", "is_bitstring", 1},
@@ -41,7 +43,7 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "is_port", 1},
     BuiltinName{"erlang", "is_reference", 1},
     BuiltinName{"erlang", "is_tuple", 1},
-    // Term queries and numeric conversions also legal in guards.
+    // Term queries and numeric conversions also legal in guards (erlang/core.cpp; length/1: erlang/lists.cpp).
     BuiltinName{"erlang", "abs", 1},
     BuiltinName{"erlang", "bit_size", 1},
     BuiltinName{"erlang", "byte_size", 1},
@@ -63,7 +65,8 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "tuple_size", 1},
     BuiltinName{"erlang", "binary_part", 2},
     BuiltinName{"erlang", "binary_part", 3},
-    // Operators as functions (fun erlang:'+'/2, apply(erlang, '<', Args)).
+    // Operators as functions (fun erlang:'+'/2, apply(erlang, '<', Args); erlang/core.cpp, '++'/'--':
+    // erlang/lists.cpp).
     BuiltinName{"erlang", "=:=", 2},
     BuiltinName{"erlang", "=/=", 2},
     BuiltinName{"erlang", "==", 2},
@@ -90,7 +93,7 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "+", 1},
     BuiltinName{"erlang", "-", 1},
     BuiltinName{"erlang", "bnot", 1},
-    // Body-only builtins: output, halting, raising and code introspection.
+    // Body-only builtins: output, halting, raising and code introspection (erlang/core.cpp).
     BuiltinName{"erlang", "display", 1},
     BuiltinName{"erlang", "halt", 0},
     BuiltinName{"erlang", "halt", 1},
@@ -101,7 +104,7 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "throw", 1},
     BuiltinName{"erlang", "raise", 3},
     BuiltinName{"erlang", "function_exported", 3},
-    // Term access (plan step 37).
+    // Term access (plan step 37; erlang/term_access.cpp).
     BuiltinName{"erlang", "setelement", 3},
     BuiltinName{"erlang", "make_tuple", 2},
     BuiltinName{"erlang", "make_tuple", 3},
@@ -109,7 +112,7 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "list_to_tuple", 1},
     BuiltinName{"erlang", "++", 2},
     BuiltinName{"erlang", "--", 2},
-    // Conversions (plan step 38).
+    // Conversions (plan step 38; erlang/conversions.cpp).
     BuiltinName{"erlang", "atom_to_list", 1},
     BuiltinName{"erlang", "list_to_atom", 1},
     BuiltinName{"erlang", "integer_to_list", 1},
@@ -121,16 +124,16 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "binary_to_list", 1},
     BuiltinName{"erlang", "list_to_binary", 1},
     BuiltinName{"erlang", "iolist_to_binary", 1},
-    // Console output (plan step 40).
+    // Console output (plan step 40; runtime/src/builtins/io.cpp).
     BuiltinName{"io", "format", 1},
     BuiltinName{"io", "format", 2},
     BuiltinName{"io", "put_chars", 1},
-    // Process identities (plan step 42).
+    // Process identities (plan step 42; erlang/processes.cpp, the *_to_list conversions: erlang/conversions.cpp).
     BuiltinName{"erlang", "self", 0},
     BuiltinName{"erlang", "make_ref", 0},
     BuiltinName{"erlang", "pid_to_list", 1},
     BuiltinName{"erlang", "ref_to_list", 1},
-    // Processes (plan step 43).
+    // Processes (plan step 43; erlang/processes.cpp, as are the groups down to registered names).
     BuiltinName{"erlang", "spawn", 1},
     BuiltinName{"erlang", "spawn", 3},
     BuiltinName{"erlang", "is_process_alive", 1},
@@ -156,11 +159,11 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "unregister", 1},
     BuiltinName{"erlang", "whereis", 1},
     BuiltinName{"erlang", "registered", 0},
-    // Identity-dependent guard BIFs (plan step 52); self/0 is above.
+    // Identity-dependent guard BIFs (plan step 52; erlang/core.cpp); self/0 is above.
     BuiltinName{"erlang", "is_record", 1},
     BuiltinName{"erlang", "node", 0},
     BuiltinName{"erlang", "node", 1},
-    // Ports (plan step 57B).
+    // Ports (plan step 57B; erlang/ports.cpp).
     BuiltinName{"erlang", "open_port", 2},
     BuiltinName{"erlang", "port_close", 1},
     BuiltinName{"erlang", "port_command", 2},
@@ -174,7 +177,7 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "port_to_list", 1},
     BuiltinName{"erlang", "list_to_port", 1},
     BuiltinName{"erlang", "ports", 0},
-    // Operating system queries (plan step 57D).
+    // Operating system queries (plan step 57D; runtime/src/builtins/os.cpp).
     BuiltinName{"os", "type", 0},
     BuiltinName{"os", "getenv", 1},
 };

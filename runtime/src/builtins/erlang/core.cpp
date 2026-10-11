@@ -1,4 +1,4 @@
-#include "typed.hpp"
+#include "../typed.hpp"
 #include <array>
 #include <clause/abi/bits.hpp>
 #include <clause/abi/calls.hpp>
@@ -219,10 +219,4 @@ constexpr std::array ERLANG_BUILTINS{
 } // namespace
 
 std::span<const BuiltinEntry> erlang_builtins() noexcept { return ERLANG_BUILTINS; }
-
-std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
-    static const std::array families{erlang_builtins(), term_access_builtins(), list_builtins(), conversion_builtins(),
-                                     io_builtins(),     process_builtins(),     port_builtins(), os_builtins()};
-    return families;
-}
 } // namespace clause::runtime
