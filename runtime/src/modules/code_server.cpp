@@ -29,7 +29,26 @@ template <typename Map> auto found(const Map &map, const typename Map::key_type 
     const auto entry = map.find(key);
     return entry == map.end() ? nullptr : entry->second;
 }
+
+// The spellings of the atom words a module's slots pin, by word. Added for step 41B.
+std::unordered_map<Word, std::string_view> slot_spellings(const ModuleAtoms &atoms) {
+    std::unordered_map<Word, std::string_view> result;
+    for (const auto &slot : atoms.slots) {
+        if (const auto spelling = slot.atom_spelling()) {
+            result.emplace(slot.word(), *spelling);
+        }
+    }
+    return result;
+}
 } // namespace
+
+bool CodeServer::builtin_replaces(const std::unordered_map<Word, std::string_view> &spellings, const Word module,
+                                  const ExportFrame &item) const noexcept {
+    const auto module_name = spellings.find(module);
+    const auto function_name = spellings.find(item.function);
+    return module_name != spellings.end() && function_name != spellings.end() &&
+           builtins_.find(module_name->second, function_name->second, item.arity) != nullptr;
+}
 
 const ModuleAtoms *CodeServer::find_atoms(const void *descriptor) const noexcept {
     return found(modules_by_descriptor_, descriptor);
@@ -44,8 +63,11 @@ void CodeServer::index(const ModuleAtoms &atoms) {
         for (const auto &fun : atoms.funs) {
             funs_.emplace(fun.descriptor, &fun);
         }
+        const auto spellings = slot_spellings(atoms);
         for (const auto &item : atoms.exports) {
-            exports_.emplace(FunctionAtoms{atoms.module, item.function, item.arity}, item.frame);
+            if (!builtin_replaces(spellings, atoms.module, item)) {
+                exports_.emplace(FunctionAtoms{atoms.module, item.function, item.arity}, item.frame);
+            }
         }
     } catch (...) {
         unindex(atoms);

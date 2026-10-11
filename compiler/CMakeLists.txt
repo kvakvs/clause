@@ -83,7 +83,7 @@ target_link_libraries(clau PRIVATE clause_codegen)
 
 # Semantic analysis owns language identities without depending on LLVM representations.
 add_library(clause_semantic STATIC
-    src/semantic/declarations.cpp src/semantic/behaviours.cpp src/semantic/module_info.cpp src/semantic/imports.cpp src/semantic/escript.cpp src/semantic/records.cpp src/semantic/native_records.cpp src/semantic/funs.cpp src/semantic/symbols.cpp
+    src/semantic/declarations.cpp src/semantic/behaviours.cpp src/semantic/module_info.cpp src/semantic/imports.cpp src/semantic/erlang_module.cpp src/semantic/escript.cpp src/semantic/records.cpp src/semantic/native_records.cpp src/semantic/funs.cpp src/semantic/symbols.cpp
     src/semantic/bindings.cpp src/semantic/calls.cpp src/semantic/match_plan.cpp src/semantic/match_plan_containers.cpp src/semantic/match_plan_records.cpp src/semantic/match_plan_bits.cpp src/semantic/binary_options.cpp src/semantic/match_plan_maps.cpp src/semantic/pattern_reads.cpp
     src/semantic/binding_patterns.cpp src/semantic/binding_expressions.cpp
     src/semantic/pattern_analysis.cpp src/semantic/pattern_constants.cpp

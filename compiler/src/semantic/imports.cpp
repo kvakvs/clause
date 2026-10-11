@@ -37,12 +37,6 @@ bool no_auto_import(const ast::Module &syntax, const ast::TermId &option, const 
            std::ranges::any_of(list->elements, [&](const auto &item) { return names_function(syntax, item, key); });
 }
 
-// Whether the module's -compile options keep the function from being auto-imported.
-bool auto_import_off(const ast::Module &syntax, const FunctionKey &key) {
-    return std::ranges::any_of(compile_options(syntax),
-                               [&](const auto &option) { return no_auto_import(syntax, option, key); });
-}
-
 struct Importer {
     // The module indexed, its no-warning categories and where diagnostics go.
     Module &module_;
@@ -102,6 +96,11 @@ void index_imports(Module &module, const Reporter &out) {
                    "defining imported function " + function_text(function.key), out);
         }
     }
+}
+
+bool auto_import_off(const ast::Module &syntax, const FunctionKey &key) {
+    return std::ranges::any_of(compile_options(syntax),
+                               [&](const auto &option) { return no_auto_import(syntax, option, key); });
 }
 
 const std::u32string *import_owner(const Module &module, const FunctionKey &key) {

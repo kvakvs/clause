@@ -108,7 +108,7 @@ semantic_case(display_fun_local "-module(a). f() -> fun display/1." 1 "function 
 semantic_case(bridge_call "-module(a). f() -> {halt(), erlang:function_exported(a, f, 0)}." 0 "^$")
 semantic_case(bridge_unqualified "-module(a). f() -> function_exported(a, f, 0)." 1
     "undefined function a:function_exported/3")
-semantic_case(bridge_unknown "-module(a). f() -> erlang:no_such_builtin(1)." 1 "unknown module erlang")
+semantic_case(bridge_unknown "-module(a). f() -> erlang:no_such_builtin(1)." 1 "undefined function erlang:no_such_builtin/1")
 semantic_case(list_operators "-module(a). f(X) -> {X ++ [1], X -- [1], setelement(1, {a}, X), tuple_to_list({X})}." 0 "^$")
 semantic_case(list_operator_guard "-module(a). f(X) when X ++ [] =:= [] -> X." 1 "illegal guard expression")
 semantic_case(conversions "-module(a). f(X) -> {atom_to_list(X), list_to_atom(X), integer_to_list(X, 16), float_to_list(X, [short]), iolist_to_binary(X)}." 0 "^$")

@@ -213,6 +213,10 @@ class CodeServer final {
     const void *find_export(const FunctionAtoms &name) const noexcept;
     // Find an export's frame, else a builtin's.
     const void *find_function(const Term &module, const Term &function, std::size_t arity) const noexcept;
+    // Whether a registered builtin of the same name replaces an export (a library stub such as erlang:abs/1), so
+    // dynamic calls keep reaching the builtin; `spellings` names the module's atom words. Added for step 41B.
+    bool builtin_replaces(const std::unordered_map<Word, std::string_view> &spellings, Word module,
+                          const ExportFrame &item) const noexcept;
     // Add a module's descriptor, records, funs and exports to the indexes; on failure remove them again and rethrow.
     void index(const ModuleAtoms &atoms);
     // Remove the index entries of a module that index() added.

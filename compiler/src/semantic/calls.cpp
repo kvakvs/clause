@@ -1,6 +1,7 @@
 #include "calls.hpp"
 #include "behaviours.hpp"
 #include "capabilities.hpp"
+#include "erlang_module.hpp"
 #include "features.hpp"
 #include "funs.hpp"
 #include "imports.hpp"
@@ -55,6 +56,16 @@ struct CallTarget {
     bool remote_;
 };
 
+// The module an unqualified call reaches: its own, or the erlang library module for an OTP auto-import it does not
+// define (step 41B; without that module in the batch the call stays an undefined local one).
+CallTarget local_target(const FunctionRef caller, const FunctionKey &key, const Modules &modules) {
+    const auto erlang = modules.find(U"erlang");
+    if (erlang != modules.end() && library_auto_import(*caller.module->syntax, key)) {
+        return CallTarget{erlang->second, true};
+    }
+    return CallTarget{caller.module, false};
+}
+
 // The module a call reaches: its literal module, the module -import names for a local call, or the caller's own.
 std::optional<CallTarget> call_target(const FunctionRef caller, const ast::CallExpression &call,
                                       const ast::RemoteExpression *remote, const FunctionKey &key,
@@ -65,7 +76,7 @@ std::optional<CallTarget> call_target(const FunctionRef caller, const ast::CallE
     }
     const auto *imported = import_owner(*caller.module, key);
     if (!imported) {
-        return CallTarget{caller.module, false};
+        return local_target(caller, key, modules);
     }
     const auto found = modules.find(*imported);
     if (found == modules.end()) {
@@ -305,16 +316,39 @@ const ast::Atom *applied_module(const ast::Module &syntax, const ast::CallExpres
     return apply ? literal_atom(syntax, call.arguments.front()) : nullptr;
 }
 
-// Whether a literal M:F(...) call is a builtin of the runtime's catalog (io:format/2, os:type/0), which needs no
-// library module.
+// Whether a literal M:F(...) call is a builtin of the runtime's catalog (io:format/2, os:type/0) or an erlang
+// function the compiler handles, which needs no library module.
 bool builtin_call(const ast::Module &syntax, const ast::RemoteExpression &remote, std::size_t arity) {
     const auto *module = literal_atom(syntax, remote.module);
     const auto *function = literal_atom(syntax, remote.function);
-    return module && function && bridge_builtin(module->name, FunctionKey{function->name, arity});
+    if (!module || !function) {
+        return false;
+    }
+    const FunctionKey key{function->name, arity};
+    // erlang functions the compiler handles itself (is_record/3, apply/3) need no library module either (step 41B).
+    return bridge_builtin(module->name, key) || (module->name == U"erlang" && compiler_handled(key));
 }
 
 // The module one expression names with a literal atom, if any; calls of catalog builtins name none.
+// The erlang library module, named by an unqualified call or fun F/A of an OTP auto-import the module does not
+// define (step 41B).
+const ast::Atom *auto_imported_module(const ast::Module &syntax, const ast::Expression &expression) {
+    static const ast::Atom ERLANG{U"erlang"};
+    std::optional<FunctionKey> key;
+    if (const auto *reference = std::get_if<ast::LocalFunReference>(&expression.value)) {
+        const auto count = arity(reference->arity);
+        key = count ? std::optional{FunctionKey{reference->name.name, *count}} : std::nullopt;
+    } else if (const auto *call = std::get_if<ast::CallExpression>(&expression.value)) {
+        const auto *name = std::get_if<ast::Atom>(&syntax.expression(ungroup(syntax, call->target)).value);
+        key = name ? std::optional{FunctionKey{name->name, call->arguments.size()}} : std::nullopt;
+    }
+    return key && library_auto_import(syntax, *key) ? &ERLANG : nullptr;
+}
+
 const ast::Atom *named_module(const ast::Module &syntax, const ast::Expression &expression) {
+    if (const auto *module = auto_imported_module(syntax, expression)) {
+        return module;
+    }
     if (const auto *reference = std::get_if<ast::RemoteFunReference>(&expression.value)) {
         return std::get_if<ast::Atom>(&reference->module);
     }

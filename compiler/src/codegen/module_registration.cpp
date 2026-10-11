@@ -1,5 +1,6 @@
 #include "module_registration.hpp"
 #include "../semantic/records.hpp"
+#include "../semantic/services.hpp"
 #include "../semantic/symbols.hpp"
 #include "module_atoms.hpp"
 #include "runtime_symbols.hpp"
@@ -77,10 +78,12 @@ llvm::GlobalVariable *records(llvm::Module &output, const semantic::Module &modu
                                     prefix + ".records");
 }
 
-// The exported function of a batch module an external fun names; null when the batch exports none.
+// The exported function of a batch module an external fun names; null when the batch exports none or a builtin has
+// the name.
 const semantic::Function *exported(const semantic::Module &module, const semantic::FunEntry &fun) {
+    // Builtins are sticky: fun erlang:abs/1 binds the runtime's builtin, never a library stub (step 41B).
     const auto peer = module.peers.find(fun.module);
-    if (peer == module.peers.end()) {
+    if (peer == module.peers.end() || semantic::bridge_builtin(fun.module, {fun.function, fun.arity})) {
         return nullptr;
     }
     const auto &owner = *peer->second;

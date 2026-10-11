@@ -16,6 +16,7 @@ from OTP sources) and compiled with the programs that use it.
 | [`gen_udp`](../library/stdlib/gen_udp.erl) | `open/1,2`, `send/4`, `recv/2,3`, `controlling_process/2`, `close/1` |
 | [`inet`](../library/stdlib/inet.erl) | `port/1`, `sockname/1`, `peername/1`, `setopts/2`, `close/1` |
 | [`clause_socket`](../library/stdlib/clause_socket.erl) | Clause's own: the socket driver protocol the three modules above share |
+| [`erlang`](../library/stdlib/erlang.erl) | Generated stubs of every OTP 29 `erlang` export; builtins replace theirs, `nif_error/1,2` have bodies, others raise `undef` when called ([erlang module](builtins.md#erlang-module)) |
 | [`os`](../library/stdlib/os.erl) | `cmd/1` over a port ([subprocesses](ports.md#subprocesses)); `type/0` and `getenv/1` are runtime builtins |
 
 Results and error reasons match OTP 29, including the error shapes of OTP's

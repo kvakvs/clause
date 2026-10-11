@@ -183,8 +183,9 @@ at those commits. The anchors below keep older links to this file working.
 - 65 (for 66): ARM ran under qemu-user only; qemu's `posix_spawn` never reports
   a missing program (`port_spawn` `enoent` fails there). Native ARM is open.
 - 65A–65C (for 73): still rejected are `on_load`, `nifs`, `export_all`,
-  `{d, ...}`, `warnings_as_errors`, unknown `-compile` options and imports of
-  `erlang` functions that are no builtins; each names itself in the diagnostic.
+  `{d, ...}`, `warnings_as_errors` and unknown `-compile` options; each names
+  itself in the diagnostic (imports of `erlang` functions reach the library
+  module since 41B).
 - 73A–73G (for 73H): OTP-requiring tests carry label `host_otp` and skip when
   CMake finds no `erl`; host OTP lookup is `--erl`, `PATH`, then
   `%ProgramFiles%\Erlang OTP`; `--erl none` simulates a missing host OTP.
@@ -258,41 +259,45 @@ that an `erlang` function exists from a project-owned library module, as OTP's
 `erlang.erl` declares BIFs whose bodies ERTS replaces.
 
 - Success criteria
-  - [ ] An owned observation of OTP 29's `erlang` exports and auto-imports
+  - [x] An owned observation of OTP 29's `erlang` exports and auto-imports
     (name/arity, guard/auto-import flags; generated from the pinned
     checkout, no copied source) classifies every export as implemented,
     planned (41C–41H) or unavailable with a reason (distribution, tracing,
     code loading pending step 71, NIF loading).
-  - [ ] `library/stdlib/erlang.erl` (Clause's own source, not an OTP copy)
+  - [x] `library/stdlib/erlang.erl` (Clause's own source, not an OTP copy)
     exports exactly that inventory. A function without an implementation
     has a stub body that raises `error(undef)` with `erlang:F/A` on top of
     the stack, as OTP does for a missing function; a catalog builtin is
     exported and stubbed too, and the runtime's builtin replaces the stub
     at registration. Functions OTP writes in Erlang may get real Erlang
     bodies here, as `io.erl` mixes library code with runtime builtins.
-  - [ ] Compiler resolution of `erlang:F/A`, `fun erlang:F/A`, `apply` with
+  - [x] Compiler resolution of `erlang:F/A`, `fun erlang:F/A`, `apply` with
     literal names and auto-imported calls: a catalog builtin goes through
     the bridge; any other export of `erlang.erl` calls the library module
     (pulled in like `lists`); a name the stub does not export is
     `undefined function erlang:F/A`. Auto-imports follow OTP's list, so
     `get(K)` no longer reports `undefined function M:get/1`; a module's own
     definition and `-compile({no_auto_import, ...})` still win.
-  - [ ] Runtime: registering library module `erlang` next to the builtin
+  - [x] Runtime: registering library module `erlang` next to the builtin
     module keeps builtins first for catalog entries and serves the stubs
     for dynamic calls; no duplicate-module failure.
-  - [ ] `erlang:nif_error/1,2` raises `error(Reason)` like OTP's stub, so
+  - [x] `erlang:nif_error/1,2` raises `error(Reason)` like OTP's stub, so
     NIF stub modules compile and fail only when called.
-  - [ ] Later steps (41C–41H) add catalog entries and runtime builtins only;
+  - [x] Later steps (41C–41H) add catalog entries and runtime builtins only;
     the stub module changes only where a body moves into Erlang.
     `docs/builtins.md`, `docs/library.md` and `docs/differences.md`
     (stubs raise `undef` at run time where OTP has the BIF) describe it.
 - Tests
-  - [ ] Consistency check without OTP: every `erlang` catalog entry is
+  - [x] Consistency check without OTP: every `erlang` catalog entry is
     exported by `erlang.erl`, and every `erlang.erl` export is in the owned
     inventory; inventory freshness against the pin when OTP is present.
-  - [ ] Executables: a builtin reached directly, as a fun and by dynamic
+  - [x] Executables: a builtin reached directly, as a fun and by dynamic
     call; a stubbed function compiles and raises `undef` only when called;
     an auto-imported call resolves; a local definition shadows it.
+- Done 2026-10-11: 351 exports (133 implemented, 119 planned for 41C–41H, 99 unavailable). Literal
+  funs of builtins bind the builtin (`module_registration`), compiler-handled `erlang:` calls
+  (`is_record/3`) need no library module. Gate: fast CTest (known `codegen_resource_cli`),
+  `check-quality` clean.
 
 <a id="step-41c"></a>
 

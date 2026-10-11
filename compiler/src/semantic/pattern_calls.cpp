@@ -1,5 +1,6 @@
 #include "../preprocessor/expression.hpp"
 #include "capabilities.hpp"
+#include "erlang_module.hpp"
 #include "imports.hpp"
 #include "pattern_state.hpp"
 #include "services.hpp"
@@ -301,6 +302,10 @@ std::optional<FunctionKey> builtin_fun(BindingAnalysis &state, const ast::ExprId
         return {};
     }
     FunctionKey key{reference.name.name, *count};
+    // fun get/1 is the external fun erlang:get/1 of the library module (step 41B).
+    if (library_auto_import(*state.module.syntax, key)) {
+        return key;
+    }
     const bool imported = guard_bif(key.name, key.arity) || auto_imported(key);
     if (!imported || !bridge_builtin(key) || state.module.lookup.contains(key) || !auto_import(state, id, key)) {
         return {};

@@ -44,11 +44,8 @@ builtin both the compiler and the runtime know:
 
 Entries are only appended: an entry's index is the number generated code
 passes to the bridge service. A qualified call of a catalog builtin of another
-module (`io:format(F, A)`) also calls the bridge. Other `erlang` functions keep
-their diagnostics:
-a direct call of an unknown one is `unknown module erlang`, `fun erlang:F/A` or
-`fun F/A` of a guard BIF outside the catalog (`node/0`) and
-`fun erlang:apply/2,3` report the unavailable `dynamic calls` capability.
+module (`io:format(F, A)`) also calls the bridge. Every other `erlang`
+function reaches the [erlang library module](#erlang-module).
 
 ## How calls reach them
 
@@ -186,6 +183,41 @@ functions of typed parameters ([typed.hpp](../runtime/src/builtins/typed.hpp)),
 - The older host path `abi::v1::dispatch_builtin` (host-registered native
   modules by name, [runtime](runtime.md#code-server-and-builtins)) is separate
   and unchanged.
+
+## Erlang module
+
+Plan 11 step 41B. The compiler knows which `erlang` functions exist from two
+owned sources, never from runtime code:
+
+- `library/stdlib/erlang.terms`: OTP 29's `erlang` exports as
+  `{Name, Arity, Flags, Status}` (flags `auto_import`, `guard`; status
+  `implemented`, `{planned, Step}` or `{unavailable, Reason}`: `distribution`,
+  `tracing`, `code_loading`, `not_selected`).
+  `tests/compiler/builtins/observe_erlang.escript` observes the host OTP and
+  keeps the statuses, which are maintained by hand.
+- `tests/compiler/builtins/generate_erlang.py` turns it into
+  `library/stdlib/erlang.erl` (Clause's own stub module) and
+  `compiler/src/semantic/erlang_auto_imports.inc` (OTP's auto-import list).
+  CTest `builtins_erlang_inventory` checks both are current and that
+  `implemented` means a catalog builtin, a function the compiler handles
+  (`apply/2,3`, `is_record/1,2,3`) or a real Erlang body (`nif_error/1,2`
+  raise `error(Reason)` like OTP's stubs); `builtins_erlang_freshness`
+  (label `host_otp`) compares the inventory with the host OTP.
+
+Calls:
+
+- `erlang:F(...)`, `fun erlang:F/A`, `apply(erlang, F, [...])` and
+  `-import(erlang, ...)` of a builtin go to the builtin, as before. Any other
+  export joins the program as the library module `erlang` (compiled like
+  `lists`); its stubs raise `error(undef)` with `erlang:F/A` on top of the
+  stack, only when called. A name the module does not export is
+  `undefined function erlang:F/A`.
+- An unqualified call or `fun F/A` of an OTP auto-import (`get(K)`,
+  `fun put/2`) that the module neither defines, imports nor suppresses with
+  `-compile({no_auto_import, ...})` reaches `erlang:F/A` the same way.
+- Builtins are sticky: when the module `erlang` registers, the runtime skips
+  every export a registered builtin has the name of, so `M:F(Args)` with
+  `M = erlang` and external funs bind the builtin, never a stub.
 
 ## Source layout
 

@@ -1,0 +1,353 @@
+%% OTP 29 (ERTS 17.1) erlang exports: {Name, Arity, Flags, Status}; observed by
+%% tests/compiler/builtins/observe_erlang.escript, statuses maintained by hand (docs/builtins.md#erlang-module).
+{'!', 2, [], implemented}.
+{'*', 2, [], implemented}.
+{'+', 1, [], implemented}.
+{'+', 2, [], implemented}.
+{'++', 2, [], implemented}.
+{'-', 1, [], implemented}.
+{'-', 2, [], implemented}.
+{'--', 2, [], implemented}.
+{'/', 2, [], implemented}.
+{'/=', 2, [], implemented}.
+{'<', 2, [], implemented}.
+{'=/=', 2, [], implemented}.
+{'=:=', 2, [], implemented}.
+{'=<', 2, [], implemented}.
+{'==', 2, [], implemented}.
+{'>', 2, [], implemented}.
+{'>=', 2, [], implemented}.
+{abs, 1, [auto_import, guard], implemented}.
+{adler32, 1, [], {unavailable, not_selected}}.
+{adler32, 2, [], {unavailable, not_selected}}.
+{adler32_combine, 3, [], {unavailable, not_selected}}.
+{alias, 0, [auto_import], {planned, '41G'}}.
+{alias, 1, [auto_import], {planned, '41G'}}.
+{alloc_info, 1, [], {unavailable, not_selected}}.
+{alloc_sizes, 1, [], {unavailable, not_selected}}.
+{'and', 2, [], implemented}.
+{append, 2, [], {unavailable, not_selected}}.
+{append_element, 2, [], {unavailable, not_selected}}.
+{apply, 2, [auto_import], implemented}.
+{apply, 3, [auto_import], implemented}.
+{atom_to_binary, 1, [auto_import], {planned, '41D'}}.
+{atom_to_binary, 2, [auto_import], {planned, '41D'}}.
+{atom_to_list, 1, [auto_import], implemented}.
+{'band', 2, [], implemented}.
+{binary_part, 2, [auto_import, guard], implemented}.
+{binary_part, 3, [auto_import, guard], implemented}.
+{binary_to_atom, 1, [auto_import], {planned, '41D'}}.
+{binary_to_atom, 2, [auto_import], {planned, '41D'}}.
+{binary_to_existing_atom, 1, [auto_import], {planned, '41D'}}.
+{binary_to_existing_atom, 2, [auto_import], {planned, '41D'}}.
+{binary_to_float, 1, [auto_import], {planned, '41D'}}.
+{binary_to_integer, 1, [auto_import], {planned, '41D'}}.
+{binary_to_integer, 2, [auto_import], {planned, '41D'}}.
+{binary_to_list, 1, [auto_import], implemented}.
+{binary_to_list, 3, [auto_import], {planned, '41D'}}.
+{binary_to_term, 1, [auto_import], {planned, '41E'}}.
+{binary_to_term, 2, [auto_import], {planned, '41E'}}.
+{bit_size, 1, [auto_import, guard], implemented}.
+{bitstring_to_list, 1, [auto_import], {planned, '41D'}}.
+{'bnot', 1, [], implemented}.
+{'bor', 2, [], implemented}.
+{'bsl', 2, [], implemented}.
+{'bsr', 2, [], implemented}.
+{bump_reductions, 1, [], {unavailable, not_selected}}.
+{'bxor', 2, [], implemented}.
+{byte_size, 1, [auto_import, guard], implemented}.
+{call_on_load_function, 1, [], {unavailable, code_loading}}.
+{cancel_timer, 1, [], {planned, '41F'}}.
+{cancel_timer, 2, [], {planned, '41F'}}.
+{ceil, 1, [auto_import, guard], implemented}.
+{check_old_code, 1, [auto_import], {unavailable, code_loading}}.
+{check_process_code, 2, [auto_import], {unavailable, code_loading}}.
+{check_process_code, 3, [auto_import], {unavailable, code_loading}}.
+{convert_time_unit, 3, [], {planned, '41F'}}.
+{crc32, 1, [], {unavailable, not_selected}}.
+{crc32, 2, [], {unavailable, not_selected}}.
+{crc32_combine, 3, [], {unavailable, not_selected}}.
+{date, 0, [auto_import], {planned, '41F'}}.
+{decode_packet, 3, [], {unavailable, not_selected}}.
+{delay_trap, 2, [], {unavailable, not_selected}}.
+{delete_element, 2, [], {unavailable, not_selected}}.
+{delete_module, 1, [auto_import], {planned, '41H'}}.
+{demonitor, 1, [auto_import], implemented}.
+{demonitor, 2, [auto_import], implemented}.
+{disconnect_node, 1, [auto_import], {planned, '41H'}}.
+{display, 1, [], implemented}.
+{display_string, 1, [], {unavailable, not_selected}}.
+{display_string, 2, [], {unavailable, not_selected}}.
+{dist_ctrl_get_data, 1, [], {unavailable, distribution}}.
+{dist_ctrl_get_data_notification, 1, [], {unavailable, distribution}}.
+{dist_ctrl_get_opt, 2, [], {unavailable, distribution}}.
+{dist_ctrl_input_handler, 2, [], {unavailable, distribution}}.
+{dist_ctrl_put_data, 2, [], {unavailable, distribution}}.
+{dist_ctrl_set_opt, 3, [], {unavailable, distribution}}.
+{dist_get_stat, 1, [], {unavailable, distribution}}.
+{'div', 2, [], implemented}.
+{dmonitor_node, 3, [], {unavailable, distribution}}.
+{dt_append_vm_tag_data, 1, [], {unavailable, tracing}}.
+{dt_get_tag, 0, [], {unavailable, tracing}}.
+{dt_get_tag_data, 0, [], {unavailable, tracing}}.
+{dt_prepend_vm_tag_data, 1, [], {unavailable, tracing}}.
+{dt_put_tag, 1, [], {unavailable, tracing}}.
+{dt_restore_tag, 1, [], {unavailable, tracing}}.
+{dt_spread_tag, 1, [], {unavailable, tracing}}.
+{element, 2, [auto_import, guard], implemented}.
+{erase, 0, [auto_import], {planned, '41C'}}.
+{erase, 1, [auto_import], {planned, '41C'}}.
+{error, 1, [auto_import], implemented}.
+{error, 2, [auto_import], implemented}.
+{error, 3, [auto_import], implemented}.
+{exit, 1, [auto_import], implemented}.
+{exit, 2, [auto_import], implemented}.
+{exit, 3, [auto_import], {unavailable, not_selected}}.
+{exit_signal, 2, [auto_import], implemented}.
+{exit_signal, 3, [auto_import], {unavailable, not_selected}}.
+{external_size, 1, [], {planned, '41E'}}.
+{external_size, 2, [], {planned, '41E'}}.
+{finish_after_on_load, 2, [], {unavailable, not_selected}}.
+{finish_loading, 1, [], {planned, '41H'}}.
+{float, 1, [auto_import, guard], implemented}.
+{float_to_binary, 1, [auto_import], {planned, '41D'}}.
+{float_to_binary, 2, [auto_import], {planned, '41D'}}.
+{float_to_list, 1, [auto_import], implemented}.
+{float_to_list, 2, [auto_import], implemented}.
+{floor, 1, [auto_import, guard], implemented}.
+{format_cpu_topology, 1, [], {unavailable, not_selected}}.
+{fun_info, 1, [], {planned, '41G'}}.
+{fun_info, 2, [], {planned, '41G'}}.
+{fun_info_mfa, 1, [], {unavailable, not_selected}}.
+{fun_to_list, 1, [], {planned, '41G'}}.
+{function_exported, 3, [], implemented}.
+{garbage_collect, 0, [auto_import], {planned, '41G'}}.
+{garbage_collect, 1, [auto_import], {planned, '41G'}}.
+{garbage_collect, 2, [auto_import], {planned, '41G'}}.
+{garbage_collect_message_area, 0, [], {unavailable, not_selected}}.
+{gather_gc_info_result, 1, [], {unavailable, not_selected}}.
+{get, 0, [auto_import], {planned, '41C'}}.
+{get, 1, [auto_import], {planned, '41C'}}.
+{get_cookie, 0, [], {unavailable, distribution}}.
+{get_cookie, 1, [], {unavailable, distribution}}.
+{get_keys, 0, [auto_import], {planned, '41C'}}.
+{get_keys, 1, [auto_import], {planned, '41C'}}.
+{get_module_info, 1, [], {planned, '41H'}}.
+{get_module_info, 2, [], {planned, '41H'}}.
+{group_leader, 0, [auto_import], {planned, '41G'}}.
+{group_leader, 2, [auto_import], {planned, '41G'}}.
+{halt, 0, [auto_import], implemented}.
+{halt, 1, [auto_import], implemented}.
+{halt, 2, [auto_import], {unavailable, not_selected}}.
+{has_prepared_code_on_load, 1, [], {unavailable, code_loading}}.
+{hd, 1, [auto_import, guard], implemented}.
+{hibernate, 0, [], {unavailable, not_selected}}.
+{hibernate, 3, [], {planned, '41G'}}.
+{insert_element, 3, [], {unavailable, not_selected}}.
+{integer_to_binary, 1, [auto_import], {planned, '41D'}}.
+{integer_to_binary, 2, [auto_import], {planned, '41D'}}.
+{integer_to_list, 1, [auto_import], implemented}.
+{integer_to_list, 2, [auto_import], implemented}.
+{iolist_size, 1, [auto_import], {planned, '41D'}}.
+{iolist_to_binary, 1, [auto_import], implemented}.
+{iolist_to_iovec, 1, [], {unavailable, not_selected}}.
+{is_alive, 0, [auto_import], {planned, '41H'}}.
+{is_atom, 1, [auto_import, guard], implemented}.
+{is_binary, 1, [auto_import, guard], implemented}.
+{is_bitstring, 1, [auto_import, guard], implemented}.
+{is_boolean, 1, [auto_import, guard], implemented}.
+{is_builtin, 3, [], {planned, '41G'}}.
+{is_float, 1, [auto_import, guard], implemented}.
+{is_function, 1, [auto_import, guard], implemented}.
+{is_function, 2, [auto_import, guard], implemented}.
+{is_integer, 1, [auto_import, guard], implemented}.
+{is_integer, 3, [auto_import, guard], {unavailable, not_selected}}.
+{is_list, 1, [auto_import, guard], implemented}.
+{is_map, 1, [auto_import, guard], implemented}.
+{is_map_key, 2, [auto_import, guard], implemented}.
+{is_number, 1, [auto_import, guard], implemented}.
+{is_pid, 1, [auto_import, guard], implemented}.
+{is_port, 1, [auto_import, guard], implemented}.
+{is_process_alive, 1, [auto_import], implemented}.
+{is_record, 1, [auto_import, guard], implemented}.
+{is_record, 2, [auto_import, guard], implemented}.
+{is_record, 3, [auto_import, guard], implemented}.
+{is_reference, 1, [auto_import, guard], implemented}.
+{is_tuple, 1, [auto_import, guard], implemented}.
+{length, 1, [auto_import, guard], implemented}.
+{link, 1, [auto_import], implemented}.
+{link, 2, [auto_import], {unavailable, not_selected}}.
+{list_to_atom, 1, [auto_import], implemented}.
+{list_to_binary, 1, [auto_import], implemented}.
+{list_to_bitstring, 1, [auto_import], {planned, '41D'}}.
+{list_to_existing_atom, 1, [auto_import], {planned, '41D'}}.
+{list_to_float, 1, [auto_import], {planned, '41D'}}.
+{list_to_integer, 1, [auto_import], implemented}.
+{list_to_integer, 2, [auto_import], implemented}.
+{list_to_pid, 1, [auto_import], {planned, '41D'}}.
+{list_to_port, 1, [auto_import], implemented}.
+{list_to_ref, 1, [auto_import], {planned, '41D'}}.
+{list_to_tuple, 1, [auto_import], implemented}.
+{load_module, 2, [auto_import], {unavailable, code_loading}}.
+{load_nif, 2, [], {unavailable, code_loading}}.
+{loaded, 0, [], {planned, '41H'}}.
+{localtime, 0, [], {planned, '41F'}}.
+{localtime_to_universaltime, 1, [], {planned, '41F'}}.
+{localtime_to_universaltime, 2, [], {planned, '41F'}}.
+{make_fun, 3, [], {unavailable, not_selected}}.
+{make_ref, 0, [auto_import], implemented}.
+{make_tuple, 2, [], implemented}.
+{make_tuple, 3, [], implemented}.
+{map_get, 2, [auto_import, guard], implemented}.
+{map_size, 1, [auto_import, guard], implemented}.
+{match_spec_test, 3, [], {unavailable, not_selected}}.
+{max, 2, [auto_import, guard], implemented}.
+{md5, 1, [], {planned, '41G'}}.
+{md5_final, 1, [], {planned, '41G'}}.
+{md5_init, 0, [], {planned, '41G'}}.
+{md5_update, 2, [], {planned, '41G'}}.
+{memory, 0, [], {planned, '41G'}}.
+{memory, 1, [], {planned, '41G'}}.
+{min, 2, [auto_import, guard], implemented}.
+{module_loaded, 1, [auto_import], {planned, '41H'}}.
+{monitor, 2, [auto_import], implemented}.
+{monitor, 3, [auto_import], {planned, '41G'}}.
+{monitor_node, 2, [auto_import], {planned, '41H'}}.
+{monitor_node, 3, [], {planned, '41H'}}.
+{monotonic_time, 0, [], {planned, '41F'}}.
+{monotonic_time, 1, [], {planned, '41F'}}.
+{nif_error, 1, [], implemented}.
+{nif_error, 2, [], implemented}.
+{node, 0, [auto_import, guard], implemented}.
+{node, 1, [auto_import, guard], implemented}.
+{nodes, 0, [auto_import], {planned, '41H'}}.
+{nodes, 1, [auto_import], {planned, '41H'}}.
+{nodes, 2, [auto_import], {planned, '41H'}}.
+{'not', 1, [], implemented}.
+{now, 0, [auto_import], {planned, '41F'}}.
+{open_port, 2, [auto_import], implemented}.
+{'or', 2, [], implemented}.
+{phash, 2, [], {planned, '41G'}}.
+{phash2, 1, [], {planned, '41G'}}.
+{phash2, 2, [], {planned, '41G'}}.
+{pid_to_list, 1, [auto_import], implemented}.
+{port_call, 2, [], implemented}.
+{port_call, 3, [], implemented}.
+{port_close, 1, [auto_import], implemented}.
+{port_command, 2, [auto_import], implemented}.
+{port_command, 3, [auto_import], implemented}.
+{port_connect, 2, [auto_import], implemented}.
+{port_control, 3, [auto_import], implemented}.
+{port_get_data, 1, [], {unavailable, not_selected}}.
+{port_info, 1, [], implemented}.
+{port_info, 2, [], implemented}.
+{port_set_data, 2, [], {unavailable, not_selected}}.
+{port_to_list, 1, [auto_import], implemented}.
+{ports, 0, [], implemented}.
+{posixtime_to_universaltime, 1, [], {planned, '41F'}}.
+{pre_loaded, 0, [auto_import], {planned, '41H'}}.
+{prepare_loading, 2, [], {planned, '41H'}}.
+{process_display, 2, [], {unavailable, tracing}}.
+{process_flag, 2, [auto_import], implemented}.
+{process_flag, 3, [auto_import], {unavailable, not_selected}}.
+{process_info, 1, [auto_import], {planned, '41G'}}.
+{process_info, 2, [auto_import], {planned, '41G'}}.
+{processes, 0, [auto_import], {planned, '41G'}}.
+{processes_iterator, 0, [], {unavailable, not_selected}}.
+{processes_next, 1, [], {unavailable, not_selected}}.
+{purge_module, 1, [auto_import], {unavailable, code_loading}}.
+{put, 2, [auto_import], {planned, '41C'}}.
+{raise, 3, [], implemented}.
+{read_timer, 1, [], {planned, '41F'}}.
+{read_timer, 2, [], {planned, '41F'}}.
+{ref_to_list, 1, [auto_import], implemented}.
+{register, 2, [auto_import], implemented}.
+{registered, 0, [auto_import], implemented}.
+{'rem', 2, [], implemented}.
+{resume_process, 1, [], {unavailable, tracing}}.
+{round, 1, [auto_import, guard], implemented}.
+{self, 0, [auto_import, guard], implemented}.
+{send, 2, [], implemented}.
+{send, 3, [], {unavailable, not_selected}}.
+{send_after, 3, [], {planned, '41F'}}.
+{send_after, 4, [], {planned, '41F'}}.
+{send_nosuspend, 2, [], {unavailable, not_selected}}.
+{send_nosuspend, 3, [], {unavailable, not_selected}}.
+{seq_trace, 2, [], {unavailable, tracing}}.
+{seq_trace_info, 1, [], {unavailable, tracing}}.
+{seq_trace_print, 1, [], {unavailable, tracing}}.
+{seq_trace_print, 2, [], {unavailable, tracing}}.
+{set_cookie, 1, [], {unavailable, distribution}}.
+{set_cookie, 2, [], {unavailable, distribution}}.
+{set_cpu_topology, 1, [], {unavailable, not_selected}}.
+{setelement, 3, [auto_import], implemented}.
+{setnode, 2, [], {unavailable, distribution}}.
+{setnode, 3, [], {unavailable, distribution}}.
+{size, 1, [auto_import, guard], implemented}.
+{spawn, 1, [auto_import], implemented}.
+{spawn, 2, [auto_import], {unavailable, distribution}}.
+{spawn, 3, [auto_import], implemented}.
+{spawn, 4, [auto_import], {unavailable, distribution}}.
+{spawn_link, 1, [auto_import], implemented}.
+{spawn_link, 2, [auto_import], {unavailable, distribution}}.
+{spawn_link, 3, [auto_import], implemented}.
+{spawn_link, 4, [auto_import], {unavailable, distribution}}.
+{spawn_monitor, 1, [auto_import], implemented}.
+{spawn_monitor, 2, [auto_import], {unavailable, distribution}}.
+{spawn_monitor, 3, [auto_import], implemented}.
+{spawn_monitor, 4, [auto_import], {unavailable, distribution}}.
+{spawn_opt, 2, [auto_import], {planned, '41G'}}.
+{spawn_opt, 3, [auto_import], {planned, '41G'}}.
+{spawn_opt, 4, [auto_import], {planned, '41G'}}.
+{spawn_opt, 5, [auto_import], {planned, '41G'}}.
+{spawn_request, 1, [auto_import], {planned, '41G'}}.
+{spawn_request, 2, [auto_import], {planned, '41G'}}.
+{spawn_request, 3, [auto_import], {planned, '41G'}}.
+{spawn_request, 4, [auto_import], {planned, '41G'}}.
+{spawn_request, 5, [auto_import], {planned, '41G'}}.
+{spawn_request_abandon, 1, [auto_import], {planned, '41G'}}.
+{split_binary, 2, [auto_import], {planned, '41D'}}.
+{start_timer, 3, [], {planned, '41F'}}.
+{start_timer, 4, [], {planned, '41F'}}.
+{statistics, 1, [auto_import], {planned, '41G'}}.
+{subtract, 2, [], {unavailable, not_selected}}.
+{suspend_process, 1, [], {unavailable, tracing}}.
+{suspend_process, 2, [], {unavailable, tracing}}.
+{system_flag, 2, [], {unavailable, not_selected}}.
+{system_info, 1, [], {planned, '41G'}}.
+{system_monitor, 0, [], {unavailable, tracing}}.
+{system_monitor, 1, [], {unavailable, tracing}}.
+{system_monitor, 2, [], {unavailable, tracing}}.
+{system_profile, 0, [], {unavailable, tracing}}.
+{system_profile, 2, [], {unavailable, tracing}}.
+{system_time, 0, [], {planned, '41F'}}.
+{system_time, 1, [], {planned, '41F'}}.
+{term_to_binary, 1, [auto_import], {planned, '41E'}}.
+{term_to_binary, 2, [auto_import], {planned, '41E'}}.
+{term_to_iovec, 1, [auto_import], {planned, '41E'}}.
+{term_to_iovec, 2, [auto_import], {planned, '41E'}}.
+{throw, 1, [auto_import], implemented}.
+{time, 0, [auto_import], {planned, '41F'}}.
+{time_offset, 0, [], {planned, '41F'}}.
+{time_offset, 1, [], {planned, '41F'}}.
+{timestamp, 0, [], {planned, '41F'}}.
+{tl, 1, [auto_import, guard], implemented}.
+{trace, 3, [], {unavailable, tracing}}.
+{trace_delivered, 1, [], {unavailable, tracing}}.
+{trace_info, 2, [], {unavailable, tracing}}.
+{trace_pattern, 2, [], {unavailable, tracing}}.
+{trace_pattern, 3, [], {unavailable, tracing}}.
+{trunc, 1, [auto_import, guard], implemented}.
+{tuple_size, 1, [auto_import, guard], implemented}.
+{tuple_to_list, 1, [auto_import], implemented}.
+{unalias, 1, [auto_import], {planned, '41G'}}.
+{unique_integer, 0, [], {planned, '41F'}}.
+{unique_integer, 1, [], {planned, '41F'}}.
+{universaltime, 0, [], {planned, '41F'}}.
+{universaltime_to_localtime, 1, [], {planned, '41F'}}.
+{universaltime_to_posixtime, 1, [], {planned, '41F'}}.
+{unlink, 1, [auto_import], implemented}.
+{unregister, 1, [auto_import], implemented}.
+{whereis, 1, [auto_import], implemented}.
+{'xor', 2, [], implemented}.
+{yield, 0, [], {planned, '41G'}}.

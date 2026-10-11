@@ -149,6 +149,9 @@
   input declares (`semantic::declared_module`) are parsed from `linking::library_directory()` (relative to
   `clau`, `CLAUSE_DEFAULT_LIBRARY`) until closed; they compile, link and publish like inputs. `referenced_modules`
   keeps each name's earliest naming site; `--print-inputs` (`FrontendRequest::list_inputs`) stops here and lists the batch.
+  The `erlang` library module (step 41B): `library/stdlib/erlang.erl` is generated from the owned inventory
+  `erlang.terms`; non-builtin `erlang:F/A` and unqualified OTP auto-imports (`semantic::library_auto_import`) pull
+  it in like `lists`; `CodeServer::index` skips exports a builtin names, literal builtin funs bind the builtin.
   Ignored sources (`project::Ignore`: ignore_dirs rules hashed by literal root and probed per ancestor, ignore_modules
   hash set) leave target discovery and module search; each ignored referenced module gets a generated placeholder
   module (`driver/placeholders`, keys from `semantic::referenced_functions`) returning `{module_ignored, M}`.

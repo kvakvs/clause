@@ -6,6 +6,8 @@ set(object_dir "${TEST_DIR}/positional-objects")
 if(PROJECT_MODE)
     set(object_dir "${TEST_DIR}/project-objects")
 endif()
+# Objects of an earlier run would be counted as this run's.
+file(REMOVE_RECURSE "${object_dir}")
 file(MAKE_DIRECTORY "${TEST_DIR}/source")
 if(PROJECT_MODE)
     set(inputs --project "${INPUT_ROOT}/project.toml")
