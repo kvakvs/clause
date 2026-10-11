@@ -60,7 +60,7 @@ def problems(entries, builtins):
             found.append(f"erlang:{name}/{arity} is marked implemented but has no builtin or body")
         if status != "implemented" and implemented:
             found.append(f"erlang:{name}/{arity} is implemented but marked {status}")
-        if not re.fullmatch(r"implemented|\{planned,'41[A-H]'\}|\{unavailable,[a-z_]+\}", status):
+        if not re.fullmatch(r"implemented|\{planned,'41[A-H][0-9]*'\}|\{unavailable,[a-z_]+\}", status):
             found.append(f"erlang:{name}/{arity} has an unknown status {status}")
     return found
 

@@ -132,7 +132,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | J2. Ports and port I/O | [57A](00-finished.md#step-57a)–[57G3](00-finished.md#step-57g3) | F07, F23, F26, F35 | done |
 | K. End-to-end projects | [58](00-finished.md#step-58) | F01, V03 | done |
 | L. Optimization and tooling | [58A](00-finished.md#step-58a)–[58N3](00-finished.md#step-58n3), [59](00-finished.md#step-59)–[62B](00-finished.md#step-62b) | F23, F25, F29–F34 | done |
-| H2. `erlang` module builtins | [41A](#step-41a)–[41H](#step-41h) | F36 | open |
+| H2. `erlang` module builtins | [41A](#step-41a)–[41H](#step-41h) (41G as 41G1–41G3) | F36 | open |
 | L2. Export liveness | [62C](#step-62c) | F32, F36 | open |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -385,19 +385,47 @@ Backlog: F36, F23. Depends on: [41B](#step-41b).
 
 ### 41G. Process introspection and spawn options
 
-Backlog: F36, F22. Depends on: [41C](#step-41c).
+Backlog: F36, F22. Depends on: [41C](#step-41c). Split on 2026-10-11 before
+coding into 41G1–41G3 (about 40 functions in three unrelated families); each
+sub-step is one commit. Results that legitimately differ from OTP (memory
+sizes, counts, hash values) are checked by shape and recorded in
+`docs/differences.md`.
+
+<a id="step-41g1"></a>
+
+#### 41G1. Process and system introspection
 
 - Success criteria
-  - [ ] `process_info/1,2` (selected items, unsupported items named),
-    `processes/0`, `group_leader/0,2`, `spawn_opt/2..5` (supported options;
-    others `badarg` or named unavailable), `spawn_request/1..5`,
-    `alias/0,1`, `unalias/1`, `monitor/3`, `garbage_collect/1,2`,
-    `hibernate/3`, `statistics/1`, `system_info/1`, `memory/0,1`,
-    `fun_info/1,2`, `fun_to_list/1`, `is_builtin/3`, `phash2/1,2`,
-    `md5/1` and `md5_init/update/final`.
+  - [ ] `process_info/1,2` (selected items; an OTP item Clause does not keep is
+    named in the error), `processes/0`, `group_leader/0,2` (inherited by
+    spawned processes), `garbage_collect/0,1,2` (a collection at the next
+    safepoint), `yield/0`, `statistics/1`, `system_info/1` and `memory/0,1`
+    for the items OTP programs commonly read; other items `badarg`.
 - Tests
-  - [ ] OTP-goldened executables; results that legitimately differ (memory
-    sizes, counts) checked by shape and recorded in `docs/differences.md`.
+  - [ ] OTP-goldened executable (shapes and relations for values that vary).
+
+<a id="step-41g2"></a>
+
+#### 41G2. Spawn options, spawn requests, aliases and hibernation
+
+- Success criteria
+  - [ ] `spawn_opt/2..5` (link, monitor, priority and heap tuning options;
+    another node is `badarg`), `spawn_request/1..5` with its reply message,
+    `spawn_request_abandon/1`, `alias/0,1`, `unalias/1`, sends to an alias,
+    `monitor/3` (`{alias, ...}`, `{tag, ...}`) and `hibernate/3`.
+- Tests
+  - [ ] OTP-goldened executable.
+
+<a id="step-41g3"></a>
+
+#### 41G3. Fun information, hashing and MD5
+
+- Success criteria
+  - [ ] `fun_info/1,2`, `fun_to_list/1`, `is_builtin/3`, `phash/2`,
+    `phash2/1,2` (equal terms hash equally within the range), `md5/1` and
+    `md5_init/0`, `md5_update/2`, `md5_final/1` (RFC 1321, OTP's digests).
+- Tests
+  - [ ] OTP-goldened executable; MD5 digests byte-exact.
 
 <a id="step-41h"></a>
 
