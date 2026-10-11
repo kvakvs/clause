@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "node_code",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "{nonode@nohost,[],false,nonode@nohost}\n[[],[],[],[nonode@nohost],[nonode@nohost]]\n[nonode@nohost]\n[{nonode@nohost,#{connection_id => undefined}}]\n[]\n{error,badarg}\n{error,notalive}\n{error,notalive}\n{error,badarg}\nignored\n[true,true,false]\n{error,badarg}\ntrue\nundefined\nnode_code\ntrue\ntrue\n{error,badfile}\nok\nnode_code: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "node_code.erl": "07b390d6dcb557cb0a696eaa858b412abd6be5e6f208a67d976e45a738c204d4"
+  }
+}

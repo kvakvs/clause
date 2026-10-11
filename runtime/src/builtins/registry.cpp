@@ -126,6 +126,16 @@ const BuiltinFrame *BuiltinRegistry::bridge(std::size_t index) const noexcept {
     return index < bridge_.size() ? bridge_[index] : nullptr;
 }
 
+std::vector<std::string_view> BuiltinRegistry::modules() const {
+    std::vector<std::string_view> result;
+    for (const auto &[key, frame] : entries_) {
+        if (result.empty() || result.back() != std::get<0>(key)) {
+            result.push_back(std::get<0>(key));
+        }
+    }
+    return result;
+}
+
 // Every module's families, in catalog order; each family is one translation unit (docs/builtins.md#source-layout).
 std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
     static const std::array families{erlang_builtins(),
@@ -147,7 +157,9 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      spawning_builtins(),
                                      fun_info_builtins(),
                                      hashing_builtins(),
-                                     md5_builtins()};
+                                     md5_builtins(),
+                                     node_builtins(),
+                                     code_builtins()};
     return families;
 }
 } // namespace clause::runtime

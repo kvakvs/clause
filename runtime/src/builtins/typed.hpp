@@ -43,6 +43,11 @@ struct PidArgument {
     Term term;
 };
 
+// A map argument (nodes/2, step 41H).
+struct MapArgument {
+    Term term;
+};
+
 // The result of a typed builtin: its value, or the Erlang error or term access failure it ends with.
 template <typename T> using BuiltinResult = std::expected<T, BuiltinFailure>;
 
@@ -83,6 +88,12 @@ template <> struct Argument<BinaryArgument> {
 
 template <> struct Argument<AtomArgument> {
     static TermResult<std::optional<AtomArgument>> convert(const Term &term);
+};
+
+template <> struct Argument<MapArgument> {
+    static TermResult<std::optional<MapArgument>> convert(const Term &term) {
+        return term.is_map() ? std::optional{MapArgument{term}} : std::nullopt;
+    }
 };
 
 template <> struct Argument<PidArgument> {

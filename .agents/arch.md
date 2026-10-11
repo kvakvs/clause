@@ -152,6 +152,10 @@
   The `erlang` library module (step 41B): `library/stdlib/erlang.erl` is generated from the owned inventory
   `erlang.terms`; non-builtin `erlang:F/A` and unqualified OTP auto-imports (`semantic::library_auto_import`) pull
   it in like `lists`; `CodeServer::index` skips exports a builtin names, literal builtin funs bind the builtin.
+  Phase H2 (41A–41H) builtins live in `runtime/src/builtins/erlang/` (one TU and table per family, listed in
+  `production_builtins()`); process-wide state they need sits in the executor (`scheduler/timers.cpp`,
+  `aliases.cpp`, `introspection.cpp`), per-process state in `ProcessContext` (`ProcessDictionary`, group leader in
+  `Signals`), and terms kept outside processes in `memory/MessageBuffer`.
   Ignored sources (`project::Ignore`: ignore_dirs rules hashed by literal root and probed per ancestor, ignore_modules
   hash set) leave target discovery and module search; each ignored referenced module gets a generated placeholder
   module (`driver/placeholders`, keys from `semantic::referenced_functions`) returning `{module_ignored, M}`.

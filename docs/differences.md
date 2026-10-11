@@ -49,6 +49,9 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `erlang:is_builtin/3` of `lists:reverse/2` and other C-implemented library functions | `true` | `false`: only the runtime's builtins and `apply/2,3` | [funs](funs.md#fun-information) |
 | `fun_info/1,2` `pid`, `uniq`, `new_uniq` of a local fun | Creator pid, compiler checksums | `undefined`, MD5 of the module name | [funs](funs.md#fun-information) |
 | `md5_init/0` context | OTP's 92-byte state | Clause's 96-byte state; digests are equal | [builtins](builtins.md#hashing) |
+| `erlang:delete_module/1` of a loaded module | Makes its code old (`true`) | `error:notsup`: linked code stays | [builtins](builtins.md#code-loading) |
+| `erlang:prepare_loading/2` | Prepares a valid BEAM binary | Always `{error, badfile}` | [builtins](builtins.md#code-loading) |
+| `erlang:pre_loaded/0` | The preloaded boot modules | Every module of the program | [builtins](builtins.md#code-loading) |
 | `list_to_pid/1` of a number never issued | Returns a pid term | `badarg`: only pids this program created are admitted | [terms](terms.md#pids-and-references) |
 | `list_to_port/1` of a number never issued | Returns a port term | `badarg`: only ports this program opened are admitted | [ports](ports.md#identity) |
 | `port_info/1,2` values | `id` is a table index; `memory`, `queue_size`, `locking` describe the driver | `id` is the port number; `memory` and `queue_size` are 0; `locking` is `port_level` | [ports](ports.md#builtins-and-port-messages) |

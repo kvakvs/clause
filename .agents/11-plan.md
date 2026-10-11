@@ -132,7 +132,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | J2. Ports and port I/O | [57A](00-finished.md#step-57a)–[57G3](00-finished.md#step-57g3) | F07, F23, F26, F35 | done |
 | K. End-to-end projects | [58](00-finished.md#step-58) | F01, V03 | done |
 | L. Optimization and tooling | [58A](00-finished.md#step-58a)–[58N3](00-finished.md#step-58n3), [59](00-finished.md#step-59)–[62B](00-finished.md#step-62b) | F23, F25, F29–F34 | done |
-| H2. `erlang` module builtins | [41A](#step-41a)–[41H](#step-41h) (41G as 41G1–41G3) | F36 | open |
+| H2. `erlang` module builtins | [41A](#step-41a)–[41H](#step-41h) (41G as 41G1–41G3) | F36 | done (41F TSan stress with V02) |
 | L2. Export liveness | [62C](#step-62c) | F32, F36 | open |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -439,15 +439,30 @@ sizes, counts, hash values) are checked by shape and recorded in
 Backlog: F36, D01. Depends on: [41B](#step-41b), [71](#step-71).
 
 - Success criteria
-  - [ ] Single-node answers as a non-distributed OTP node: `node/0,1`,
+  - [x] Single-node answers as a non-distributed OTP node: `node/0,1`,
     `nodes/0,1,2` (`[]`), `is_alive/0` (`false`), `monitor_node/2`,
     `disconnect_node/1`; `module_loaded/1`, `pre_loaded/0`,
     `delete_module/1`, `prepare_loading/2`, `finish_loading/1` per the
     step 71 decision.
-  - [ ] Rerun `test-luerl.toml`; record which `erlang` functions remain
+  - [x] Rerun `test-luerl.toml`; record which `erlang` functions remain
     and plan or decline each.
 - Tests
-  - [ ] Executables against OTP goldens taken from a non-distributed node.
+  - [x] Executables against OTP goldens taken from a non-distributed node.
+- Done 2026-10-11: `executables_node_code` (OTP golden). Phase gate: full-mode CTest 258/259 (known
+  `codegen_resource_cli`), `check-quality-all` clean. Step 71 is still open, so code loading answers for
+  linked code (`delete_module/1` notsup, `prepare_loading/2` badfile). `test-luerl.toml` rerun: the 590
+  `unknown module erlang` errors and the auto-import errors are gone; no `erlang` function is missing. What
+  remains (626 lines) is other modules, planned or declined in `01-todo.md` F36:
+  - OTP's runtime modules without Clause counterparts: `prim_socket` (115), `prim_inet` (73), `prim_net`
+    (21), `socket_registry` (16), `prim_file` (8) — declined: Clause's sockets and files are its own drivers
+    (`clause_socket`, `file`);
+  - boot and code server internals: `init` (36), `erts_internal` (29), `erl_prim_loader` (29),
+    `erts_code_purger` (3), `prim_eval` (1) — declined with step 71;
+  - NIF and BIF modules worth a runtime implementation: `persistent_term` (54), `unicode_util` (101),
+    `zlib` (11) — open backlog;
+  - parsers generated from `.yrl`/`.xrl` (`erl_parse`, `core_parse`, `luerl_scan`, `luerl_parse`) — open:
+    leex/yecc generation through the host OTP, like parse transforms;
+  - 3 calls of `erlang:get_stacktrace/0`, removed in OTP 23: OTP rejects them too.
 
 ## L2. Export liveness
 

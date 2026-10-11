@@ -293,6 +293,22 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "md5_init", 0},
     BuiltinName{"erlang", "md5_update", 2},
     BuiltinName{"erlang", "md5_final", 1},
+    // Single-node distribution and code-loading answers (plan step 41H; erlang/node.cpp, erlang/code.cpp).
+    BuiltinName{"erlang", "nodes", 0},
+    BuiltinName{"erlang", "nodes", 1},
+    BuiltinName{"erlang", "nodes", 2},
+    BuiltinName{"erlang", "is_alive", 0},
+    BuiltinName{"erlang", "monitor_node", 2},
+    BuiltinName{"erlang", "monitor_node", 3},
+    BuiltinName{"erlang", "disconnect_node", 1},
+    BuiltinName{"erlang", "module_loaded", 1},
+    BuiltinName{"erlang", "loaded", 0},
+    BuiltinName{"erlang", "pre_loaded", 0},
+    BuiltinName{"erlang", "delete_module", 1},
+    BuiltinName{"erlang", "prepare_loading", 2},
+    BuiltinName{"erlang", "finish_loading", 1},
+    BuiltinName{"erlang", "get_module_info", 1},
+    BuiltinName{"erlang", "get_module_info", 2},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

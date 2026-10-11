@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <clause/runtime/code_server.hpp>
 #include <mutex>
 
@@ -92,6 +93,23 @@ void CodeServer::unindex(const ModuleAtoms &atoms) noexcept {
     for (const auto &item : atoms.exports) {
         erase(exports_, FunctionAtoms{atoms.module, item.function, item.arity}, item.frame);
     }
+}
+
+std::vector<std::string> CodeServer::module_names() const {
+    const std::shared_lock lock(mutex_);
+    std::vector<std::string> names;
+    const auto builtin_modules = builtins_.modules();
+    names.reserve(modules_.size() + builtin_modules.size());
+    for (const auto &[name, module] : modules_) {
+        names.push_back(name);
+    }
+    for (const auto module : builtin_modules) {
+        if (!modules_.contains(module)) {
+            names.emplace_back(module);
+        }
+    }
+    std::ranges::sort(names);
+    return names;
 }
 
 TermResult<Word> CodeServer::atom_word(const void *descriptor, std::size_t slot) const noexcept {

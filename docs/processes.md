@@ -403,6 +403,16 @@ alias is consumed only when its message is delivered, after any wait for a
 busy owner. `monitor/3`'s `{tag, Tag}` replaces `'DOWN'` in the monitor
 message; port monitors take no options.
 
+## Nodes
+
+Plan 11 step 41H (`builtins/erlang/node.cpp`). A Clause program is one node
+that is not distributed, `nonode@nohost`, and answers as such an OTP node:
+`nodes/0` is `[]`, `nodes(this | known)` `[nonode@nohost]`, other types
+`[]`; `nodes/2` gives `{nonode@nohost, #{connection_id => undefined,
+node_type => this}}` for the keys asked. `is_alive/0` is `false`,
+`monitor_node/2,3` raise `error:notalive` and `disconnect_node/1` returns
+`ignored`.
+
 ## Exit signals
 
 Every exit signal comes from a running process (`exit/2`,

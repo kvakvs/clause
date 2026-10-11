@@ -71,10 +71,10 @@
 {decode_packet, 3, [], {unavailable, not_selected}}.
 {delay_trap, 2, [], {unavailable, not_selected}}.
 {delete_element, 2, [], {unavailable, not_selected}}.
-{delete_module, 1, [auto_import], {planned, '41H'}}.
+{delete_module, 1, [auto_import], implemented}.
 {demonitor, 1, [auto_import], implemented}.
 {demonitor, 2, [auto_import], implemented}.
-{disconnect_node, 1, [auto_import], {planned, '41H'}}.
+{disconnect_node, 1, [auto_import], implemented}.
 {display, 1, [], implemented}.
 {display_string, 1, [], {unavailable, not_selected}}.
 {display_string, 2, [], {unavailable, not_selected}}.
@@ -108,7 +108,7 @@
 {external_size, 1, [], implemented}.
 {external_size, 2, [], implemented}.
 {finish_after_on_load, 2, [], {unavailable, not_selected}}.
-{finish_loading, 1, [], {planned, '41H'}}.
+{finish_loading, 1, [], implemented}.
 {float, 1, [auto_import, guard], implemented}.
 {float_to_binary, 1, [auto_import], implemented}.
 {float_to_binary, 2, [auto_import], implemented}.
@@ -132,8 +132,8 @@
 {get_cookie, 1, [], {unavailable, distribution}}.
 {get_keys, 0, [auto_import], implemented}.
 {get_keys, 1, [auto_import], implemented}.
-{get_module_info, 1, [], {planned, '41H'}}.
-{get_module_info, 2, [], {planned, '41H'}}.
+{get_module_info, 1, [], implemented}.
+{get_module_info, 2, [], implemented}.
 {group_leader, 0, [auto_import], implemented}.
 {group_leader, 2, [auto_import], implemented}.
 {halt, 0, [auto_import], implemented}.
@@ -151,7 +151,7 @@
 {iolist_size, 1, [auto_import], implemented}.
 {iolist_to_binary, 1, [auto_import], implemented}.
 {iolist_to_iovec, 1, [], {unavailable, not_selected}}.
-{is_alive, 0, [auto_import], {planned, '41H'}}.
+{is_alive, 0, [auto_import], implemented}.
 {is_atom, 1, [auto_import, guard], implemented}.
 {is_binary, 1, [auto_import, guard], implemented}.
 {is_bitstring, 1, [auto_import, guard], implemented}.
@@ -190,7 +190,7 @@
 {list_to_tuple, 1, [auto_import], implemented}.
 {load_module, 2, [auto_import], {unavailable, code_loading}}.
 {load_nif, 2, [], {unavailable, code_loading}}.
-{loaded, 0, [], {planned, '41H'}}.
+{loaded, 0, [], implemented}.
 {localtime, 0, [], implemented}.
 {localtime_to_universaltime, 1, [], implemented}.
 {localtime_to_universaltime, 2, [], implemented}.
@@ -209,20 +209,20 @@
 {memory, 0, [], implemented}.
 {memory, 1, [], implemented}.
 {min, 2, [auto_import, guard], implemented}.
-{module_loaded, 1, [auto_import], {planned, '41H'}}.
+{module_loaded, 1, [auto_import], implemented}.
 {monitor, 2, [auto_import], implemented}.
 {monitor, 3, [auto_import], implemented}.
-{monitor_node, 2, [auto_import], {planned, '41H'}}.
-{monitor_node, 3, [], {planned, '41H'}}.
+{monitor_node, 2, [auto_import], implemented}.
+{monitor_node, 3, [], implemented}.
 {monotonic_time, 0, [], implemented}.
 {monotonic_time, 1, [], implemented}.
 {nif_error, 1, [], implemented}.
 {nif_error, 2, [], implemented}.
 {node, 0, [auto_import, guard], implemented}.
 {node, 1, [auto_import, guard], implemented}.
-{nodes, 0, [auto_import], {planned, '41H'}}.
-{nodes, 1, [auto_import], {planned, '41H'}}.
-{nodes, 2, [auto_import], {planned, '41H'}}.
+{nodes, 0, [auto_import], implemented}.
+{nodes, 1, [auto_import], implemented}.
+{nodes, 2, [auto_import], implemented}.
 {'not', 1, [], implemented}.
 {now, 0, [auto_import], implemented}.
 {open_port, 2, [auto_import], implemented}.
@@ -245,8 +245,8 @@
 {port_to_list, 1, [auto_import], implemented}.
 {ports, 0, [], implemented}.
 {posixtime_to_universaltime, 1, [], implemented}.
-{pre_loaded, 0, [auto_import], {planned, '41H'}}.
-{prepare_loading, 2, [], {planned, '41H'}}.
+{pre_loaded, 0, [auto_import], implemented}.
+{prepare_loading, 2, [], implemented}.
 {process_display, 2, [], {unavailable, tracing}}.
 {process_flag, 2, [auto_import], implemented}.
 {process_flag, 3, [auto_import], {unavailable, not_selected}}.

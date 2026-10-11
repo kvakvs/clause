@@ -180,6 +180,8 @@ class CodeServer final {
     CodeResult<ResolvedFunction> resolve(FunctionRequest request) const;
     // Retain immutable module ownership or report a missing module.
     CodeResult<std::shared_ptr<const LoadedModule>> find_module(std::string_view name) const;
+    // The names of every module: registered ones and those only builtins implement (loaded/0, step 41H).
+    std::vector<std::string> module_names() const;
     // Resolve an initialized atom slot without allocation or spelling interning.
     TermResult<Word> atom_word(const void *descriptor, std::size_t slot) const noexcept;
     // Find the bound definition of a registered module's record descriptor; null when none is registered.

@@ -51,6 +51,9 @@ class BuiltinRegistry final {
     // Count registered builtins.
     std::size_t size() const noexcept { return entries_.size(); }
 
+    // The modules that have registered builtins, in name order (step 41H).
+    std::vector<std::string_view> modules() const;
+
   private:
     using Key = std::tuple<std::string_view, std::string_view, std::size_t>;
     // Record a registered frame under its bridge index, if its name is in the catalog.
@@ -131,6 +134,11 @@ std::span<const BuiltinEntry> spawning_builtins() noexcept;
 std::span<const BuiltinEntry> fun_info_builtins() noexcept;
 std::span<const BuiltinEntry> hashing_builtins() noexcept;
 std::span<const BuiltinEntry> md5_builtins() noexcept;
+// The answers of a non-distributed node and of linked code (step 41H): nodes/0,1,2, is_alive/0,
+// monitor_node/2,3, disconnect_node/1; module_loaded/1, loaded/0, pre_loaded/0, delete_module/1,
+// prepare_loading/2, finish_loading/1, get_module_info/1,2.
+std::span<const BuiltinEntry> node_builtins() noexcept;
+std::span<const BuiltinEntry> code_builtins() noexcept;
 // The process dictionary builtins: put/2, get/0,1, get_keys/0,1, erase/0,1. Added for step 41C.
 std::span<const BuiltinEntry> dictionary_builtins() noexcept;
 // Every production builtin family runtime startup registers, together covering abi::v1::bridge_builtins.

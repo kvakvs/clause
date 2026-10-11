@@ -74,7 +74,12 @@ builtin both the compiler and the runtime know:
 - [fun information](funs.md#fun-information), [hashing](#hashing) and MD5
   (plan step 41G3): `fun_info/1,2`, `fun_to_list/1`, `is_builtin/3`,
   `phash/2`, `phash2/1,2`, `md5/1`, `md5_init/0`, `md5_update/2`,
-  `md5_final/1`.
+  `md5_final/1`;
+- [nodes](processes.md#nodes) and [code loading](#code-loading) (plan step
+  41H): `nodes/0,1,2`, `is_alive/0`, `monitor_node/2,3`,
+  `disconnect_node/1`, `module_loaded/1`, `loaded/0`, `pre_loaded/0`,
+  `delete_module/1`, `prepare_loading/2`, `finish_loading/1`,
+  `get_module_info/1,2`.
 
 Entries are only appended: an entry's index is the number generated code
 passes to the bridge service. A qualified call of a catalog builtin of another
@@ -324,6 +329,18 @@ Plan 11 step 41G3 (`erlang/hashing.cpp`, `erlang/md5.cpp`).
   digests (OTP's bytes) of iodata. The context is an opaque 96-byte binary
   of Clause's own layout; another binary is `badarg`.
 
+## Code loading
+
+Plan 11 step 41H (`erlang/code.cpp`). Every module is linked into the program
+and stays loaded; [step 71](../.agents/11-plan.md#step-71) decides about
+dynamic code. `module_loaded/1` is true for a compiled module or a module with
+runtime builtins (`erlang`, `io`, `os`); `loaded/0` and `pre_loaded/0` list
+them all. `delete_module/1` returns `undefined` for an unknown module and
+raises `error:notsup` for a loaded one. `prepare_loading/2` returns
+`{error, badfile}` (no binary is code the program can load) and
+`finish_loading/1` accepts only `[]`. `get_module_info(M[, Item])` continues
+as `M:module_info(...)`.
+
 ## Source layout
 
 - The runtime implements builtins in `runtime/src/builtins/`. A large module
@@ -336,7 +353,7 @@ Plan 11 step 41G3 (`erlang/hashing.cpp`, `erlang/md5.cpp`).
   `binary_conversions` with `conversion_text`, the text rules it shares with
   `conversions`; `term_encoding` and `term_decoding`: the external term
   format; `time` and `timers`; `introspection` and `system`; `spawning`;
-  `fun_info`, `hashing` and `md5`).
+  `fun_info`, `hashing` and `md5`; `node` and `code`).
 - Each family file defines its own `*_builtins()` table listed in
   `production_builtins()`. A new family adds a new file and table instead of
   growing an existing one; a file past about 400 lines is split by family
