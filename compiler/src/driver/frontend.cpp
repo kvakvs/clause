@@ -70,6 +70,8 @@ using Inputs = std::vector<codegen::CompilationInput>;
 struct FileTimes {
     StageClock preprocess;
     StageClock parse;
+    // Parse transforms of the module (host erl run and import of its forms); set only when transforms ran.
+    std::optional<StageClock> transform;
 };
 
 // What a parsing pass leaves besides the syntax: the module's features, whether its input failed, and where its
@@ -161,8 +163,10 @@ bool transform_and_finish(ParserSession &parser, PreprocessorSession &session, c
         return true;
     }
     ParserSession transformed;
-    const auto outcome = transforms::transform_module(parsed.module, *source, request.transforms_,
-                                                      compile_options(request, features), features, transformed);
+    const auto outcome = times.transform.emplace().time([&] {
+        return transforms::transform_module(parsed.module, *source, request.transforms_,
+                                            compile_options(request, features), features, transformed);
+    });
     if (!outcome.output_.empty()) {
         std::cerr << outcome.output_;
     }
@@ -210,6 +214,9 @@ void print_file_times(const FrontendRequest &request, const std::filesystem::pat
     }
     if (stages.parsed) {
         print_stage_time("parse", filename(path), times.parse.elapsed());
+    }
+    if (times.transform) {
+        print_stage_time("transform", filename(path), times.transform->elapsed());
     }
 }
 
@@ -460,9 +467,13 @@ bool process_files(const std::span<const std::filesystem::path> paths, const Fro
                    const DiagnosticSink &sink) {
     // Project transform modules come from the batch and its search directories. Added for parse transforms.
     auto request = shared;
-    request.transforms_.find_sources_ = [paths, &shared](const std::u32string &module) {
-        return transform_sources(module, {.inputs_ = paths, .directories_ = shared.module_search_paths_},
-                                 shared.preprocessing);
+    // The batch keeps what it found in memory. Added for transform source caching.
+    auto cache = std::make_shared<TransformSourceCache>();
+    request.transforms_.find_sources_ = [paths, &shared, cache](const std::u32string &module,
+                                                                const transforms::HostModule &host) {
+        const SourcePlaces places{
+            .inputs_ = paths, .directories_ = shared.module_search_paths_, .ignore_ = shared.ignore_};
+        return transform_sources(module, places, shared.preprocessing, host, *cache);
     };
     Inputs inputs;
     if (request.compile && paths.size() > codegen::CompilationLimits{}.modules) {

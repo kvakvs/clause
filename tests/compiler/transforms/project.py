@@ -2,7 +2,9 @@
 
 project.py CLAU ERL FIXTURES WORK: a project whose transform and its helper are project sources found through
 source_search_paths, plus a dependency transform precompiled with the host OTP and found through transform_paths,
-links a program that prints what OTP prints; a transform source the loader cannot compile is reported with the
+links a program that prints what OTP prints; ignored search directories and sources of the host's sticky modules
+(with what they call) are left out of the transform's sources; a transform source the loader cannot compile is
+reported with the
 precompile hint; a precompiled .beam on a code path wins over the source.
 """
 import pathlib
@@ -40,6 +42,24 @@ def program(tool, erl, root):
     return [] if result.returncode == 0 and stdout == expected else [f"project: exit {result.returncode}\n{stdout}"]
 
 
+def skipped_sources(tool, erl, root):
+    """Transform source discovery passes over an ignored search directory holding a broken pt_helper.erl, and stops
+    at the host's sticky modules: a broken module called only from an erl_anno.erl source is never compiled.
+    Added for transform source caching."""
+    (root / "transforms/broken").mkdir()
+    (root / "transforms/broken/pt_helper.erl").write_text("-module(pt_helper).\nadd_function(F, _, _) -> F\n",
+                                                          encoding="utf-8")
+    (root / "transforms/erl_anno.erl").write_text("-module(erl_anno).\n-export([line/1]).\n"
+                                                  "line(A) -> pt_never:line(A).\n", encoding="utf-8")
+    (root / "transforms/pt_never.erl").write_text("-module(pt_never).\nline(A) -> A\n", encoding="utf-8")
+    manifest = root / "project.toml"
+    text = manifest.read_text(encoding="utf-8").replace(
+        'source_search_paths = ["transforms"]',
+        'source_search_paths = ["transforms/broken", "transforms"]\nignore_dirs = ["transforms/broken"]')
+    manifest.write_text(text, encoding="utf-8")
+    return program(tool, erl, root)
+
+
 def broken(tool, erl, root):
     """A transform source that does not compile fails the modules using it, with the precompile hint."""
     (root / "transforms/pt_rewrite.erl").write_text("-module(pt_rewrite).\nparse_transform(F, _) -> F\n",
@@ -71,7 +91,8 @@ def main():
     work.mkdir(parents=True, exist_ok=True)
     root, failures = prepare(erl, fixtures, work)
     if not failures:
-        failures = program(tool, erl, root) + broken(tool, erl, root) + precompiled(tool, erl, root, fixtures)
+        failures = (program(tool, erl, root) + skipped_sources(tool, erl, root) + broken(tool, erl, root) +
+                    precompiled(tool, erl, root, fixtures))
     if failures:
         print("\n".join(failures), file=sys.stderr)
         sys.exit(1)

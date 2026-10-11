@@ -194,8 +194,9 @@ parsed, compiled or linked, so it may even hold syntax errors.
 - `ignore_modules`: module names. A source named `<Module>.erl` (or `.abstr`)
   is ignored, and a referenced module of that name is never searched for.
 - Both apply to `sources`, `source_dirs`, literal sources found through
-  `source_search_paths`, and the [module search](#paths-and-discovery) of
-  `source_search_paths` and the library. A search passes over an ignored
+  `source_search_paths`, the [module search](#paths-and-discovery) of
+  `source_search_paths` and the library, and the search for
+  [parse transform sources](transforms.md#transform-modules). A search passes over an ignored
   `Module.erl` and keeps looking in later directories.
 - A module is ignored when `ignore_modules` names it, or when no batch source
   defines it and its only sources found were ignored (by search, or skipped

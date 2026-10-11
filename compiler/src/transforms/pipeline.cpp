@@ -165,11 +165,15 @@ TransformRequest request_for(const std::filesystem::path &erl, std::vector<std::
     auto source_options = options;
     source_options.features_.clear();
     source_options.transforms_.clear();
+    // The host's own sticky modules need no sources. Added for transform source caching.
+    const HostModule host = [&](const std::u32string &module) {
+        return settings.sticky_ && settings.sticky_->contains(erl, module);
+    };
     for (const auto &name : transforms) {
         if (precompiled(name, settings.code_paths_) || !settings.find_sources_) {
             continue;
         }
-        for (auto &path : settings.find_sources_(name)) {
+        for (auto &path : settings.find_sources_(name, host)) {
             const auto known =
                 std::ranges::any_of(request.sources_, [&](const auto &item) { return item.path_ == path; });
             if (!known) {

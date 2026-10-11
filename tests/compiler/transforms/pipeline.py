@@ -6,6 +6,7 @@ transform warnings and errors and an undefined transform are reported.
 pipeline.py none CLAU - FIXTURES WORK: with --erl none a module naming a transform fails with a message.
 """
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -76,6 +77,11 @@ def reported(tool, erl, fixtures, work):
     printed = run(base + ["--print-abstr", "tagged_user.erl"], directory)
     if printed.returncode != 0 or "{function,8,tagged,0," not in printed.stdout:
         failures.append(f"--print-abstr: exit {printed.returncode}\n{printed.stdout}{printed.stderr}")
+    # Stage times report the transform of a module separately from its parse. Added for --print-stage-times.
+    timed = run(base + ["--print-stage-times", "tagged_user.erl"], directory)
+    if timed.returncode != 0 or not re.search(r"^\[time\] transform tagged_user\.erl: [0-9.]+ ms$", text(timed)[1],
+                                              re.MULTILINE):
+        failures.append(f"--print-stage-times: exit {timed.returncode}\n{timed.stderr}")
     # A .beam on a transform path that does not load is named.
     (work / "ebin/pt_corrupt.beam").write_bytes(b"not a beam file")
     corrupt = run(base + ["--parse-transform", "pt_corrupt", "cli_user.erl"], directory)

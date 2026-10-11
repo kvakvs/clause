@@ -13,7 +13,8 @@
 - **Transform modules** are found as `.beam` files in `--transform-path`
   directories (repeatable) and the project's `transform_paths`, then as
   `Module.erl` among the batch's sources and `source_search_paths` (compiled
-  by the host OTP on every build, with the modules they call from there),
+  by the host OTP on every build, with the modules they call from there;
+  `ignore_dirs` and `ignore_modules` apply),
   then among OTP's modules (`ms_transform`, `qlc`).
 - **Precompile** a transform that comes from another library (always), or a
   project transform the host compiler cannot build with the target's include
@@ -189,12 +190,17 @@ A transform module is looked up in this order:
 2. **The current project's sources**: a `Module.erl` in the batch or its
    `source_search_paths`, compiled by the loader in memory with the target's
    include directories and defines on every run, together with the project
-   modules it calls by name (found the same way). There is no cache;
-   precompile a large transform to save that time.
-   Sources of modules the host loads from its sticky directories (`kernel`,
-   `stdlib`, `compiler`, such as `qlc_pt.erl` when OTP's sources are on a
-   search path) are not compiled: those cannot be reloaded, and the host's
-   own modules are used.
+   modules it calls by name (found the same way). The search passes over
+   sources that `ignore_dirs` or `ignore_modules` leave out, as the
+   [module search](projects.md#ignored-sources) does. Clause looks for these
+   sources once per batch and keeps them in memory; the loader still compiles
+   them for every module the transform runs on, so precompile a large
+   transform to save that time.
+   Modules the host loads from its sticky directories (`kernel`, `stdlib`,
+   `compiler`, such as `ms_transform` or `qlc_pt` when OTP's sources are on a
+   search path) cannot be reloaded, so the host's own modules are used: their
+   sources, and the modules only they call, are not looked for or compiled.
+   Clause asks the host `erl` for these modules once per invocation.
 3. **OTP's own modules** (`ms_transform`, `qlc`) from the host's code path.
    OTP ships `erl_id_trans` only as an example source, not as a module.
    Their headers resolve as every `include_lib` does

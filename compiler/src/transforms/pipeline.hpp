@@ -5,15 +5,21 @@
 #include <functional>
 
 namespace clause::transforms {
+// Whether the host OTP provides a module it never replaces (a sticky one). Added for transform source caching.
+using HostModule = std::function<bool(const std::u32string &)>;
+
 struct TransformSettings {
     // --erl; transforms named by --parse-transform or the project, run before the module's own; directories of
     // precompiled transform modules.
     std::optional<std::filesystem::path> erl_;
     std::vector<std::u32string> transforms_;
     std::vector<std::filesystem::path> code_paths_;
-    // The sources of a project transform module and of the project modules it calls, by module name; the loader
-    // compiles them when no .beam on the code paths precedes them.
-    std::function<std::vector<std::filesystem::path>(const std::u32string &)> find_sources_;
+    // The sources of a project transform module and of the project modules it calls, by module name, leaving out
+    // host modules; the loader compiles them when no .beam on the code paths precedes them.
+    std::function<std::vector<std::filesystem::path>(const std::u32string &, const HostModule &)> find_sources_;
+    // The host's sticky modules, shared by every copy of the settings so erl is asked once per invocation.
+    // Added for transform source caching.
+    std::shared_ptr<StickyModules> sticky_ = std::make_shared<StickyModules>();
 };
 
 // Whether a parsed module needs parse transforms: the settings name some, or one of its -compile attributes does.

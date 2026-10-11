@@ -180,6 +180,37 @@ std::vector<TransformMessage> messages(const Terms &terms, const TermId list) {
     return result;
 }
 
+// erl prints the modules of the sticky directories, one name per line. Added for transform source caching.
+constexpr std::string_view LIST_STICKY =
+    "[io:format(\"~ts~n\",[filename:rootname(F)])||A<-[kernel,stdlib,compiler],"
+    "{ok,Fs}<-[file:list_dir(filename:join(code:lib_dir(A),\"ebin\"))],F<-Fs,filename:extension(F)=:=\".beam\"],"
+    "halt().";
+
+// Ask the host erl for its sticky modules; empty when it cannot answer. Added for transform source caching.
+std::set<std::u32string> sticky_modules(const fs::path &erl) {
+    const Workspace workspace;
+    const auto program = text(erl);
+    const auto listing = workspace.path() / "sticky.txt";
+    const auto output = text(listing);
+    const std::vector<llvm::StringRef> argv{program, "-noshell", "-noinput", "-eval", LIST_STICKY};
+    const std::array<std::optional<llvm::StringRef>, 3> redirects{llvm::StringRef(), llvm::StringRef(output),
+                                                                  llvm::StringRef()};
+    if (llvm::sys::ExecuteAndWait(program, argv, std::nullopt, redirects, TIME_LIMIT_SECONDS) != 0) {
+        return {};
+    }
+    std::set<std::u32string> result;
+    std::istringstream lines(read_file(listing).value_or(""));
+    for (std::string line; std::getline(lines, line);) {
+        if (line.ends_with('\r')) {
+            line.pop_back();
+        }
+        if (!line.empty()) {
+            result.insert(wide(line));
+        }
+    }
+    return result;
+}
+
 // {ok, Forms, Warnings} | {error, Errors, Warnings} | {failed, Text}.
 void parse_reply(const std::string &bytes, TransformReply &reply) {
     const auto root = decode_external(bytes, reply.terms_);
@@ -254,5 +285,19 @@ TransformReply run_transforms(const AbstractModule &module, const TransformReque
     }
     parse_reply(*bytes, reply);
     return reply;
+}
+
+bool StickyModules::contains(const fs::path &erl, const std::u32string &module) {
+    auto found = modules_.find(erl);
+    if (found == modules_.end()) {
+        std::set<std::u32string> names;
+        try {
+            names = sticky_modules(erl);
+        } catch (const LoaderError &) {
+            names.clear(); // No temporary directory: compile project sources as before.
+        }
+        found = modules_.emplace(erl, std::move(names)).first;
+    }
+    return found->second.contains(module);
 }
 } // namespace clause::transforms

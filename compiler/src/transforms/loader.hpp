@@ -2,7 +2,9 @@
 // Added for parse transforms: running parse transforms through the loader on the host Erlang/OTP.
 #include "export.hpp"
 #include <filesystem>
+#include <map>
 #include <optional>
+#include <set>
 #include <stdexcept>
 
 namespace clause::transforms {
@@ -61,4 +63,17 @@ struct TransformReply {
 // Run the request's transforms over the module's forms on the host OTP. A loader that cannot run or answer throws
 // LoaderError; transform failures are errors of the reply.
 TransformReply run_transforms(const AbstractModule &module, const TransformRequest &request);
+
+// The modules a host erl loads from its sticky directories (kernel, stdlib and compiler ebin), which cannot be
+// replaced: their project sources are never compiled. Asked once per erl, then kept in memory.
+// Added for transform source caching.
+class StickyModules {
+  public:
+    // Whether the host loads `module` from a sticky directory; when erl cannot answer, no module is.
+    bool contains(const std::filesystem::path &erl, const std::u32string &module);
+
+  private:
+    // The sticky module names of each erl asked.
+    std::map<std::filesystem::path, std::set<std::u32string>> modules_;
+};
 } // namespace clause::transforms

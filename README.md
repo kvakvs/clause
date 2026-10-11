@@ -297,7 +297,7 @@ clau [options] <source.erl>...
   -g                      Emit Erlang line tables; executables keep them for debuggers
   --lto                   Link modules as bitcode with link-time optimization (LLD targets)
   --verbose               Trace files and compilation phases to stderr
-  --print-stage-times     Print preprocess/parse time per file, compile time per batch and link time to stderr
+  --print-stage-times     Print preprocess/parse/transform time per file, compile time per batch and link time to stderr
   -I, --include <dir>      Add an include directory (last supplied searched first)
   -D, --define <name[=term]>  Define a macro (default value: true)
   --app-dir <app=dir>      Set an include_lib application directory
@@ -352,7 +352,8 @@ traces. `[comp]` adds semantic/backend phases and bounded specialization decisio
 as they start. Tracing goes to stderr in every mode, including projects.
 
 `--print-stage-times` prints `[time] <stage> <subject>: <milliseconds> ms` on stderr as each stage
-finishes: `preprocess` (reading and preprocessing) and `parse` per source file, `compile` (analysis
+finishes: `preprocess` (reading and preprocessing), `parse` and, for modules using parse transforms,
+`transform` (the host `erl` run and import of its forms) per source file, `compile` (analysis
 through object emission) once per batch, naming its module count and project target, and `link` per
 executable, naming its final path. The parser pulls forms from the preprocessor, so the two per-file
 times are measured separately while they interleave.
