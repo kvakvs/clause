@@ -56,4 +56,9 @@ if(CLAUSE_BUILD_RUNTIME)
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/exports/$<CONFIG>"
         "${CMAKE_EXECUTABLE_SUFFIX}")
     set_tests_properties(linking_exports PROPERTIES TIMEOUT 900)
+    # Compile cache: warm project builds reuse the whole batch; edits and options miss (62D4).
+    add_test(NAME linking_compile_cache COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compile_cache.py"
+        "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/compile_cache/$<CONFIG>"
+        "${CMAKE_EXECUTABLE_SUFFIX}")
+    set_tests_properties(linking_compile_cache PROPERTIES TIMEOUT 900)
 endif()

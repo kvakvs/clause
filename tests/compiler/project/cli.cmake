@@ -58,7 +58,7 @@ check(default_pipeline 0 "^$" "^$" --project project.toml)
 # Loading and planning the manifest is a stage of its own (plan step 62D3).
 check(stage_times_plan 0 "^$" "^\\[time\\] plan [^\n]*project.toml: [0-9.]+ ms\n" --project project.toml --print-stage-times --parse-check)
 # Each project target compiles as its own batch, named in its stage time.
-check(stage_times 0 "^$" "\\[time\\] compile target app \\(1 module\\): [0-9.]+ ms\n.*\\[time\\] compile target tests \\(1 module\\)"
+check(stage_times 0 "^$" "\\[time\\] compile target app \\(1 module\\): [0-9.]+ ms( \\(cached\\))?\n.*\\[time\\] compile target tests \\(1 module\\)"
     --project project.toml --print-stage-times)
 check(print_inputs_all 0 "^\\[target app\\]\n[^\n]*/shared\\.erl\n\\[target tests\\]\n[^\n]*/shared\\.erl\n$" "^$"
     --project project.toml --print-inputs)
@@ -77,7 +77,7 @@ check(print_env_project_emit 0 "^# clau compile environment.*name = \"tests\".*e
     --print-env --emit obj --project project.toml --target tests)
 check(default_output 1 "^$" "no entry point: no module exports main/1" --project project.toml --target app -o sentinel)
 check(verbose_project 0 "^$" "^\\[pp\\] [^\n]*shared.erl\n\\[parse\\] [^\n]*shared.erl\n\\[comp\\].*phase=emission.*target=\"tests\""
-    --verbose --project project --target tests)
+    --verbose --no-cache --project project --target tests)
 check(verbose_project_pp 0 "^$" "^\\[pp\\] [^\n]*shared.erl\n\\[index\\] listed=[^\n]*\n$"
     --verbose --project project.toml --target app --preprocess-check)
 check(duplicate_macro 1 "^$" "redefining macro" --project project.toml --parse-check -DVALUE=3)
@@ -89,8 +89,10 @@ list(LENGTH matches count)
 if(NOT code EQUAL 0 OR NOT count EQUAL 1 OR NOT errors STREQUAL "")
     message(FATAL_ERROR "Repeated target was not deduplicated")
 endif()
-if(EXISTS "${TEST_DIR}/sentinel" OR EXISTS "${TEST_DIR}/build")
-    message(FATAL_ERROR "Project processing created output")
+# Project compiles may keep their build cache (plan steps 62D2/62D4), nothing else.
+file(GLOB build_entries RELATIVE "${TEST_DIR}/build" "${TEST_DIR}/build/*")
+if(EXISTS "${TEST_DIR}/sentinel" OR (build_entries AND NOT build_entries STREQUAL "cache"))
+    message(FATAL_ERROR "Project processing created output: ${build_entries}")
 endif()
 
 check(new_help 0 "--new-project" "^$" --help)
@@ -117,6 +119,8 @@ check(new_version_no_write 0 "^clau" "^$" --new-project version-only --version)
 if(EXISTS "${TEST_DIR}/help-only.toml" OR EXISTS "${TEST_DIR}/version-only.toml" OR EXISTS "${TEST_DIR}/new.toml")
     message(FATAL_ERROR "Informational or rejected creation wrote a manifest")
 endif()
+# Earlier project compiles kept a build cache; creation must not make a build directory itself.
+file(REMOVE_RECURSE "${TEST_DIR}/build")
 check(new_create 0 "Created .*starter.toml" "^$" --new-project starter)
 file(READ "${TEST_DIR}/starter.toml" starter)
 check(new_no_overwrite 1 "^$" "cannot create manifest exclusively" --new-project starter)

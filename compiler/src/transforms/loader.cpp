@@ -309,6 +309,7 @@ TransformReply reply_of(const LoaderRun &run) {
     TransformReply reply;
     reply.output_ = run.output_;
     parse_reply(run.reply_, reply);
+    reply.bytes_ = run.reply_;
     return reply;
 }
 

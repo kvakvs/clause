@@ -21,9 +21,6 @@ struct PendingExecutable {
     linking::StagedExecutable executable;
 };
 
-// Retain or publish a completed batch according to the invocation's publication boundary.
-Publication publication(codegen::Compilation compilation, const std::filesystem::path &root,
-                        std::vector<std::filesystem::path> protected_inputs);
 // Publish only complete batches; a platform replacement failure may leave earlier complete files installed.
 void publish(const Publication &pending);
 } // namespace clause::cli

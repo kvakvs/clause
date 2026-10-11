@@ -138,7 +138,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | L. Optimization and tooling | [58A](00-finished.md#step-58a)–[58N3](00-finished.md#step-58n3), [59](00-finished.md#step-59)–[62B](00-finished.md#step-62b) | F23, F25, F29–F34 | done |
 | H2. `erlang` module builtins | [41A](#step-41a)–[41H](#step-41h) (41G as 41G1–41G3) | F36 | done (41F TSan stress with V02) |
 | L2. Export liveness | [62C](#step-62c) | F32, F36 | done |
-| L3. Build directory and caches | [62D](#step-62d) (62D1–62D4), [62E](#step-62e) | D07 | open |
+| L3. Build directory and caches | [62D](#step-62d) (62D1–62D4), [62E](#step-62e) | D07 | done |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -672,25 +672,36 @@ Shared design rules for all sub-steps:
 #### 62D4. Compile result cache
 
 - Success criteria
-  - [ ] Decide the reuse unit and record it in `docs/compile.md`.
+  - [x] Decide the reuse unit and record it in `docs/compile.md`.
     Analysis and type inference cover the whole batch, so a module's object
     is reusable only when its own syntax and every cross-module fact it
     consumed are unchanged. Those facts are callee signatures, inferred
     types, records, behaviours, export liveness and the entry/startup
     module. The cache key hashes exactly those facts.
-  - [ ] If per-module keys cannot be made sound, fall back to a whole-batch
+  - [x] If per-module keys cannot be made sound, fall back to a whole-batch
     key, or defer with the reason recorded.
-  - [ ] Cached objects (or bitcode under `--lto`) feed linking and `--emit`
+  - [x] Cached objects (or bitcode under `--lto`) feed linking and `--emit`
     exactly like fresh ones. Inspection modes (`--print-ir`,
     `--print-types`) always recompute.
 - Tests
-  - [ ] Executable goldens are identical with and without a warm cache.
-  - [ ] Editing one module's body that other modules' facts do not depend on
+  - [x] Executable goldens are identical with and without a warm cache.
+  - [ ] (per-module part not applicable: whole-batch unit) Editing one module's body that other modules' facts do not depend on
     recompiles only that module. Changing an exported function's inferred
     type recompiles its callers. Changing the triple or optimization level
     misses the cache.
-  - [ ] Warm luerl build time recorded before and after 62D2–62D4, not a
+  - [x] Warm luerl build time recorded before and after 62D2–62D4, not a
     gate.
+- Done 2026-10-11 with a whole-batch key (`driver/compile_cache`, `docs/compile.md#compile-cache`): per-module keys
+  are not sound yet (batch-wide inference, specialization budgets, export liveness, records/behaviours across
+  modules have no canonical serialization to hash). Inputs carry `CompilationInput::fingerprint_` (every file the
+  frontend read with its bytes via the new `PreprocessorOptions::include_read` hook, preprocessing options,
+  transform reply bytes, placeholder text). The outcome keeps diagnostics, failure and, for `-o`/`--emit`, all
+  outputs; `Compiled` now feeds `link`/`deliver` for fresh and reused batches alike. `linking_compile_cache`:
+  six program fixtures cold/warm against their goldens, replayed warnings, any edit / `-O2` / `-g` misses,
+  `--emit` republishes identical objects, inspection and `--no-cache` recompute. luerl (Release): 3.74-3.84 s
+  without caches (`--no-cache`, as before 62D2), 1.64-1.65 s warm (compile 1,180 -> 68 ms, transforms
+  1,107 -> 89 ms). Tests running manifests inside `tests/fixtures` pass `--build-dir` into their work directory.
+  Phase L2/L3 gate: full-mode CTest 263/264 (known `codegen_resource_cli`), `check-quality-all` clean.
 
 <a id="step-62e"></a>
 

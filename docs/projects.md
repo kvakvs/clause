@@ -183,10 +183,10 @@ Positional inputs get none unless `--build-dir` is given.
 ### Build caches
 
 Results worth keeping between runs live below `<build_dir>/cache` (plan 11
-step 62D2); `--no-cache` neither reads nor writes them. Today they are the
+steps 62D2 and 62D4); `--no-cache` neither reads nor writes them. They are the
 parse transform loader's replies and the host OTP's sticky module list, so a
 warm build starts no host `erl` for modules whose transform inputs did not
-change.
+change, and each batch's [compile outcome](compile.md#compile-cache).
 
 - **Interface.** Callers use one project-internal store (`compiler/src/cache/
   store.hpp`): `get`/`put` by input directory, file name, result kind and key,

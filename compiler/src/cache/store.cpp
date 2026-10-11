@@ -26,51 +26,6 @@ std::uint64_t checksum(std::string_view bytes) {
     return llvm::xxh3_64bits(reinterpret_cast<const std::uint8_t *>(bytes.data()), bytes.size());
 }
 
-// Little-endian fixed-width integers and length-prefixed strings of the index and pack records.
-void put_number(std::string &out, std::uint64_t value) {
-    for (unsigned shift = 0; shift < 64; shift += 8) {
-        out.push_back(static_cast<char>((value >> shift) & 0xFFU));
-    }
-}
-
-void put_text(std::string &out, std::string_view text) {
-    put_number(out, text.size());
-    out.append(text);
-}
-
-class Reader {
-  public:
-    explicit Reader(std::string_view bytes) : bytes_(bytes) {}
-
-    std::optional<std::uint64_t> number() {
-        if (bytes_.size() < 8) {
-            return std::nullopt;
-        }
-        std::uint64_t value = 0;
-        for (unsigned i = 0; i < 8; ++i) {
-            value |= std::uint64_t{static_cast<unsigned char>(bytes_[i])} << (8 * i);
-        }
-        bytes_.remove_prefix(8);
-        return value;
-    }
-
-    std::optional<std::string> text() {
-        const auto size = number();
-        if (!size || *size > bytes_.size()) {
-            return std::nullopt;
-        }
-        std::string result(bytes_.substr(0, *size));
-        bytes_.remove_prefix(*size);
-        return result;
-    }
-
-    bool empty() const { return bytes_.empty(); }
-
-  private:
-    // What is left to read.
-    std::string_view bytes_;
-};
-
 struct Entry {
     // The key the result was stored under, where its record lies, and its payload's checksum.
     Key key_;
@@ -394,6 +349,39 @@ class FileStore final : public Store {
     std::set<std::string> written_;
 };
 } // namespace
+
+void put_number(std::string &out, const std::uint64_t value) {
+    for (unsigned shift = 0; shift < 64; shift += 8) {
+        out.push_back(static_cast<char>((value >> shift) & 0xFFU));
+    }
+}
+
+void put_text(std::string &out, const std::string_view text) {
+    put_number(out, text.size());
+    out.append(text);
+}
+
+std::optional<std::uint64_t> Reader::number() {
+    if (bytes_.size() < 8) {
+        return std::nullopt;
+    }
+    std::uint64_t value = 0;
+    for (unsigned i = 0; i < 8; ++i) {
+        value |= std::uint64_t{static_cast<unsigned char>(bytes_[i])} << (8 * i);
+    }
+    bytes_.remove_prefix(8);
+    return value;
+}
+
+std::optional<std::string> Reader::text() {
+    const auto size = number();
+    if (!size || *size > bytes_.size()) {
+        return std::nullopt;
+    }
+    std::string result(bytes_.substr(0, *size));
+    bytes_.remove_prefix(*size);
+    return result;
+}
 
 std::unique_ptr<Store> file_store(const fs::path &root) { return std::make_unique<FileStore>(root); }
 

@@ -212,6 +212,34 @@ later by name (through `source_search_paths` or the library) are not listed:
 finding them needs parsing (`--print-inputs` does that). `--print-env` cannot be combined with
 `--new-project`.
 
+## Compile cache
+
+A batch with a build directory (every project target, positional inputs with
+`--build-dir`) keeps its compile outcome in the
+[build cache](projects.md#build-caches) (plan 11 step 62D4): the diagnostics in
+order, failure, and, when an executable or `--emit` needs them, the objects
+(or bitcode) of every module and the startup module. A later build of the same
+batch with the same options replays the diagnostics and links or publishes the
+kept objects exactly like fresh ones; `--print-stage-times` then shows
+`[time] compile ... (cached)`. `--print-ir`, `--print-optimized-ir` and
+`--print-types` always recompute, and `--no-cache` neither reads nor writes.
+
+- **Reuse unit: the whole batch.** Analysis, type inference, specialization
+  budgets (per target), export liveness and the startup module span every
+  module, so one module's object depends on facts of others (callee types,
+  records, behaviours, which functions stay live). Those facts have no
+  canonical form to hash per module today, so a per-module key could not be
+  proven sound; any change to any module of the batch recompiles the batch.
+- **Key.** The `clau` version and executable identity; every input's path and
+  fingerprint (each file the frontend read for it, path and bytes, in order:
+  the source, its includes and `include_lib` files, and the reply of its parse
+  transforms; the preprocessing options; the generated text of placeholders),
+  predefined forms and escript status; the resolved triple, optimization
+  level, `--emit`, `--no-type-specialization`, `-g`, `--lto`,
+  `--keep-exports`, whether an executable is linked, the entry selection and
+  the project target. Entries of one target with other options are kept side
+  by side.
+
 ## Backend
 
 - One LLVM context and target machine per batch. Host triple uses host CPU and

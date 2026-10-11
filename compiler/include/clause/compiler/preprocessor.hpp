@@ -76,6 +76,8 @@ struct PreprocessorOptions {
     std::function<std::optional<std::string>(std::string_view)> environment;
     // Observe each successfully decoded include synchronously, before its forms are processed.
     std::function<void(const std::filesystem::path &)> include_loaded;
+    // Observe the path and bytes of each include as read (the driver's compile cache fingerprint, plan step 62D4).
+    std::function<void(const std::filesystem::path &, std::string_view)> include_read;
 };
 
 class PreprocessorSession {

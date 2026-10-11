@@ -55,6 +55,25 @@ std::string hash_text(std::string_view bytes);
 // This executable's path, size and modification time: a rebuilt clau never reuses an older one's results.
 std::string program_identity();
 
+// Little-endian fixed-width numbers and length-prefixed strings, the parts stored values are made of.
+void put_number(std::string &out, std::uint64_t value);
+void put_text(std::string &out, std::string_view text);
+
+// Reads the parts put_number and put_text wrote; a short or damaged value reads as none.
+class Reader {
+  public:
+    explicit Reader(std::string_view bytes) : bytes_(bytes) {}
+
+    std::optional<std::uint64_t> number();
+    std::optional<std::string> text();
+
+    [[nodiscard]] bool empty() const { return bytes_.empty(); }
+
+  private:
+    // What is left to read.
+    std::string_view bytes_;
+};
+
 // Collects the parts a key depends on, each length-prefixed so different splits never collide.
 class KeyBuilder {
   public:

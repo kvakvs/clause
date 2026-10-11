@@ -32,6 +32,9 @@ struct CompilationInput {
     std::size_t predefined_ = 0;
     // Retain immutable syntax and its source provenance beyond the parsing session.
     ast::Module syntax;
+    // The hash of everything the syntax came from: each file read (path and bytes), the preprocessing options and
+    // a parse transform reply. Keys of the driver's compile cache (plan step 62D4).
+    std::string fingerprint_ = {};
 };
 
 struct StartupRequest {

@@ -8,6 +8,7 @@
 #include "../linking/link.hpp"
 #include "../project/paths.hpp"
 #include "analysis.hpp"
+#include "compile_cache.hpp"
 #include "inspection.hpp"
 #include "progress.hpp"
 #include "publication.hpp"
@@ -69,13 +70,27 @@ bool emit(codegen::Compilation &compilation) {
                                                : codegen::emit_ir(compilation, kind);
 }
 
+// The outputs a fresh compilation leaves, with what linking and publication need besides them.
+Compiled compiled_of(codegen::Compilation compilation) {
+    Compiled result;
+    result.triple = codegen::target_triple(compilation);
+    result.object_extension = codegen::object_extension(compilation);
+    for (const auto &input : compilation.request().inputs) {
+        result.inputs.push_back(input.source_path);
+    }
+    result.result = std::move(compilation).take_result();
+    return result;
+}
+
 // Queue complete project batches or publish a successful positional invocation immediately.
-void deliver(codegen::Compilation compilation, const FrontendRequest &frontend) {
+void deliver(Compiled compiled, const FrontendRequest &frontend) {
     if (!frontend.backend.emit) {
         return;
     }
-    auto pending = publication(std::move(compilation), frontend.backend.artifact_directory.value_or("build/aot"),
-                               frontend.protected_inputs);
+    auto inputs = frontend.protected_inputs;
+    inputs.insert(inputs.end(), compiled.inputs.begin(), compiled.inputs.end());
+    Publication pending{std::move(compiled.result), frontend.backend.artifact_directory.value_or("build/aot"),
+                        std::move(inputs), compiled.object_extension, frontend.project_target};
     if (frontend.pending_publications) {
         frontend.pending_publications->push_back(std::move(pending));
     } else {
@@ -95,25 +110,22 @@ bool generate(codegen::Compilation &compilation, const Analysis &analysis, const
 }
 
 // Link the in-memory module and startup objects into `output`; project executables wait for the whole invocation.
-void link(const codegen::Compilation &compilation, const FrontendRequest &frontend, const std::filesystem::path &output,
+void link(const Compiled &compiled, const FrontendRequest &frontend, const std::filesystem::path &output,
           const DiagnosticSink &sink) {
     auto inputs = frontend.protected_inputs;
-    inputs.reserve(inputs.size() + compilation.request().inputs.size());
-    for (const auto &input : compilation.request().inputs) {
-        inputs.push_back(input.source_path);
-    }
+    inputs.insert(inputs.end(), compiled.inputs.begin(), compiled.inputs.end());
     StageClock clock; // Added for --print-stage-times.
     auto executable = clock.time([&] {
         return linking::stage_executable(
             {.output = output,
-             .target_triple = codegen::target_triple(compilation),
-             .objects = compilation.result().outputs(),
+             .target_triple = compiled.triple,
+             .objects = compiled.result.outputs(),
              .linker = frontend.backend.linker,
              .runtime_library = frontend.backend.runtime_library,
              .protected_inputs = inputs,
              .create_directory = frontend.create_output_directory,
-             .strip_unused = compilation.request().optimization == codegen::OptimizationLevel::size,
-             .debug_info = compilation.request().debug_info,
+             .strip_unused = frontend.backend.optimization == codegen::OptimizationLevel::size,
+             .debug_info = frontend.backend.debug_info,
              .lto = frontend.backend.lto});
     });
     if (frontend.stage_times) {
@@ -169,23 +181,68 @@ std::string batch_text(const std::size_t modules, const FrontendRequest &fronten
     return frontend.project_target.empty() ? text : "target " + frontend.project_target + " (" + text + ")";
 }
 
+// Compile the batch; a successful one leaves its outputs in `compiled`.
+bool compile_fresh(std::vector<codegen::CompilationInput> inputs, const FrontendRequest &frontend,
+                   const DiagnosticSink &sink, std::optional<Compiled> &compiled) {
+    std::optional<codegen::Compilation> compilation;
+    const bool failed = compile(std::move(inputs), frontend, sink, compilation);
+    if (!failed && compilation) {
+        compiled = compiled_of(std::move(*compilation));
+    }
+    return failed;
+}
+
+// Compile the batch, or replay the outcome the compile cache keeps for the same inputs and options (`cached` is
+// then set); a fresh outcome is kept with its diagnostics. Added for the compile cache (62D4).
+bool compile_or_reuse(std::vector<codegen::CompilationInput> inputs, const FrontendRequest &frontend,
+                      const DiagnosticSink &sink, std::optional<Compiled> &compiled, bool &cached) {
+    const auto cache = compile_cache(inputs, frontend);
+    if (!cache) {
+        return compile_fresh(std::move(inputs), frontend, sink, compiled);
+    }
+    std::vector<std::filesystem::path> paths;
+    paths.reserve(inputs.size());
+    for (const auto &input : inputs) {
+        paths.push_back(input.source_path);
+    }
+    if (auto stored = load_outcome(*cache, paths)) {
+        for (const auto &text : stored->diagnostics) {
+            sink(text);
+        }
+        compiled = std::move(stored->compiled);
+        cached = true;
+        return stored->failed;
+    }
+    CompileOutcome outcome;
+    const DiagnosticSink recording = [&](const std::string_view message) {
+        outcome.diagnostics.emplace_back(message);
+        sink(message);
+    };
+    outcome.failed = compile_fresh(std::move(inputs), frontend, recording, outcome.compiled);
+    save_outcome(*cache, outcome);
+    compiled = std::move(outcome.compiled);
+    return outcome.failed;
+}
+
 // Compile the batch, then link its executable or deliver its artifacts.
 bool compile_and_link(std::vector<codegen::CompilationInput> inputs, const FrontendRequest &frontend,
                       const DiagnosticSink &sink) {
     const auto modules = inputs.size();
-    std::optional<codegen::Compilation> compilation;
+    std::optional<Compiled> compiled;
+    bool cached = false;
     StageClock clock; // Added for --print-stage-times.
-    const bool failed = clock.time([&] { return compile(std::move(inputs), frontend, sink, compilation); });
+    const bool failed =
+        clock.time([&] { return compile_or_reuse(std::move(inputs), frontend, sink, compiled, cached); });
     if (frontend.stage_times) {
-        print_stage_time("compile", batch_text(modules, frontend), clock.elapsed());
+        print_stage_time("compile", batch_text(modules, frontend), clock.elapsed(), cached);
     }
-    if (failed || !compilation) {
+    if (failed || !compiled) {
         return failed;
     }
     if (frontend.executable_output) {
-        link(*compilation, frontend, *frontend.executable_output, sink);
+        link(*compiled, frontend, *frontend.executable_output, sink);
     } else {
-        deliver(std::move(*compilation), frontend);
+        deliver(std::move(*compiled), frontend);
     }
     return false;
 }

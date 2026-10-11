@@ -25,7 +25,7 @@ function(emit name)
 endfunction()
 
 emit(positional -O0 --entry app app.erl helper.erl)
-emit(project -O2 --project project.toml)
+emit(project -O2 --build-dir "${WORK}/project-build" --project project.toml)
 emit(escript -O0 --entry boom boom.escript)
 
 # One consumer build links each object set with the runtime; no harness source is involved.

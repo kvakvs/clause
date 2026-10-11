@@ -39,6 +39,8 @@ struct TransformOutcome {
     Position end_{};
     // The loader's reply came from the cache. Added for the transform cache (62D2).
     bool cached_ = false;
+    // The loader's reply bytes, for compile cache fingerprints. Added for the compile cache (62D4).
+    std::string reply_;
 };
 
 // Run the module's transforms on the host OTP and parse the forms they return into `parser`, as erlc does

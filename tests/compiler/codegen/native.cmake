@@ -9,7 +9,7 @@ endif()
 file(MAKE_DIRECTORY "${TEST_DIR}/source")
 set(inputs "${INPUT_ROOT}/answer.erl" "${INPUT_ROOT}/client.erl")
 if(PROJECT_MODE)
-    set(inputs --project "${INPUT_ROOT}/native-project.toml")
+    set(inputs --build-dir "${TEST_DIR}/project-build" --project "${INPUT_ROOT}/native-project.toml")
 endif()
 execute_process(COMMAND "${TOOL}" -${OPTIMIZATION} ${EXTRA_OPTIONS} --emit obj
     --artifact-dir "${object_dir}" ${inputs}

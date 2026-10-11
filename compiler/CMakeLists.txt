@@ -53,7 +53,7 @@ clause_project_options(clause_cache)
 target_link_libraries(clause_cache PRIVATE clause_llvm_sdk)
 
 add_executable(clau src/main.cpp src/driver/command.cpp src/driver/options.cpp src/driver/frontend.cpp
-    src/driver/build_cache.cpp
+    src/driver/build_cache.cpp src/driver/compile_cache.cpp
     src/driver/backend_options.cpp src/driver/analysis.cpp src/driver/entry.cpp src/driver/escript.cpp src/driver/predefined.cpp src/driver/transform_sources.cpp src/driver/backend.cpp src/driver/publication.cpp src/driver/project_backend.cpp src/driver/progress.cpp src/driver/display.cpp src/driver/inspection.cpp src/driver/type_report.cpp src/driver/environment.cpp
     src/driver/placeholders.cpp src/driver/stage_times.cpp)
 if(WIN32 AND MSVC)

@@ -60,6 +60,8 @@ struct TransformReply {
     std::vector<TransformMessage> errors_;
     std::vector<TransformMessage> warnings_;
     std::string output_;
+    // The reply as the loader wrote it, which compile cache fingerprints hash. Added for the compile cache (62D4).
+    std::string bytes_;
 };
 
 // What a host erl run depends on besides the files it reads: its kind ("transform", "sticky"), the request (erl,

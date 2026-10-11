@@ -246,6 +246,7 @@ TransformOutcome transform_module(const ast::Module &syntax, const Source &main,
         return outcome;
     }
     outcome.output_ = reply->output_;
+    outcome.reply_ = reply->bytes_;
     report(*reply, outcome, sources);
     if (!reply->ok_) {
         outcome.failed_ = true;

@@ -566,3 +566,9 @@ Host and tool gotchas:
   Build/test scripts build/plan11-62/{build,fast,test,quality}.cmd (-j 24, ctest 16).
 - 62E (2026-10-11): Release clau for measurements = build/plan11-62/release.cmd (build/tool, Release). Probe counts
   measured with a temporary counter header (scratchpad probe_stats.hpp + e7 spec), reverted before implementing.
+- 62D1-62D4 (2026-10-11): project builds now write <manifest-dir>/build/cache by default: tests that run
+  manifests inside tests/fixtures must pass --build-dir into their work dir (startup, match/atoms/native cmake);
+  tests asserting "no build dir" accept build/cache only. --verbose compile checks use --no-cache (a hit prints no
+  [comp] lines). A rebuilt clau (new exe mtime) misses every cache entry: Release timing runs need a warm-up run.
+  Never `git checkout <file>` to drop temporary instrumentation from a file with uncommitted work (lost 62D2
+  pipeline.cpp edits once; reapplied from the scratch spec).

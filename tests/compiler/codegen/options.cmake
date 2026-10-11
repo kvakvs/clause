@@ -38,6 +38,9 @@ foreach(level IN ITEMS -O0 -O2 -Os)
     check(0 "^$" --no-type-specialization ${level} one.erl)
     check(0 "^$" ${level} --no-type-specialization --project project.toml --target one)
 endforeach()
-if(EXISTS "${TEST_DIR}/build" OR EXISTS "${TEST_DIR}/artifacts" OR EXISTS "${TEST_DIR}/nowhere" OR EXISTS "${TEST_DIR}/new.toml")
-    message(FATAL_ERROR "Option-only/default requests created artifacts")
+# A project compile may keep its build cache (plan step 62D2/62D4), nothing else.
+file(GLOB build_entries RELATIVE "${TEST_DIR}/build" "${TEST_DIR}/build/*")
+if(EXISTS "${TEST_DIR}/artifacts" OR EXISTS "${TEST_DIR}/nowhere" OR EXISTS "${TEST_DIR}/new.toml"
+   OR (build_entries AND NOT build_entries STREQUAL "cache"))
+    message(FATAL_ERROR "Option-only/default requests created artifacts: ${build_entries}")
 endif()

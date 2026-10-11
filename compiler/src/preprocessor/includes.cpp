@@ -100,6 +100,9 @@ bool PreprocessorSession::State::open_include(const std::filesystem::path &path,
     if (!bytes) {
         return false;
     }
+    if (options.include_read) {
+        options.include_read(path, *bytes);
+    }
     try {
         push_file(sources.add(path.string(), *bytes), path, site);
     } catch (const EncodingError &error) {

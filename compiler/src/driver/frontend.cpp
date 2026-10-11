@@ -42,9 +42,13 @@ void use_index(PreprocessorOptions &options, project::DirectoryIndex *index) {
     }
 }
 
-// Trace resolved includes while preserving any caller-provided observation callback.
-PreprocessorOptions preprocessing_options(const FrontendRequest &request) {
+// Trace resolved includes while preserving any caller-provided observation callback; every include read joins the
+// file's fingerprint (added for the compile cache, 62D4).
+PreprocessorOptions preprocessing_options(const FrontendRequest &request, cache::KeyBuilder &fingerprint) {
     auto options = request.preprocessing;
+    options.include_read = [&fingerprint](const std::filesystem::path &path, const std::string_view bytes) {
+        fingerprint.add(project::path_text(path)).add(cache::hash_text(bytes));
+    };
     if (request.verbose) {
         options.include_loaded = [previous = std::move(options.include_loaded)](const auto &path) {
             trace_ingestion(true, "pp", path);
@@ -81,7 +85,28 @@ struct FileTimes {
     std::optional<StageClock> transform;
     // The transforms' result came from the build cache. Added for build caches (62D2).
     bool transform_cached = false;
+    // What the module's syntax came from: files read, preprocessing options, transform reply. Added for the
+    // compile cache (62D4).
+    cache::KeyBuilder fingerprint;
 };
+
+// The preprocessing options that shape a module's syntax, as one fingerprint part. Added for the compile cache.
+std::string options_text(const PreprocessorOptions &options) {
+    std::string text = project::path_text(options.working_directory);
+    for (const auto &path : options.include_paths) {
+        text += "\n-I" + project::path_text(path);
+    }
+    for (const auto &[name, path] : options.applications) {
+        text += "\n-app " + name + "=" + project::path_text(path);
+    }
+    for (const auto &definition : options.definitions) {
+        text += "\n-D" + definition;
+    }
+    for (const auto &[feature, enabled] : options.features) {
+        text += (enabled ? "\n+" : "\n-") + feature;
+    }
+    return text;
+}
 
 // What a parsing pass leaves besides the syntax: the module's features, whether its input failed, and where its
 // main source ends for the abstract format's eof form.
@@ -140,6 +165,7 @@ bool finish_module(ParserSession &parser, const ParsedModule &parsed, const Fron
         inputs.emplace_back(path, std::move(result.module));
         inputs.back().escript = escript;
         inputs.back().predefined_ = predefined;
+        inputs.back().fingerprint_ = times.fingerprint.finish(); // Added for the compile cache (62D4).
     }
     return false;
 }
@@ -177,6 +203,7 @@ bool transform_and_finish(ParserSession &parser, PreprocessorSession &session, c
                                             compile_options(request, features), features, transformed);
     });
     times.transform_cached = outcome.cached_;
+    times.fingerprint.add(outcome.reply_);
     if (!outcome.output_.empty()) {
         std::cerr << outcome.output_;
     }
@@ -236,8 +263,10 @@ bool process_abstract(const std::filesystem::path &path, const FrontendRequest &
     trace_ingestion(request.verbose, "parse", path);
     ParserSession parser;
     FileTimes times;
-    const auto file =
-        times.parse.time([&] { return transforms::parse_abstract_file(path, preprocessing_options(request), parser); });
+    times.fingerprint.add_file(path);
+    const auto file = times.parse.time([&] {
+        return transforms::parse_abstract_file(path, preprocessing_options(request, times.fingerprint), parser);
+    });
     bool failed = false;
     for (const auto &diagnostic : file.diagnostics_) {
         print_diagnostic(diagnostic, sink);
@@ -290,8 +319,11 @@ bool process_source(const std::filesystem::path &path, const FrontendRequest &re
     SourceManager sources;
     bool escript = false;
     const auto source = times.preprocess.time([&] { return read_source(sources, path, sink, escript); });
+    times.fingerprint.add(project::path_text(path)).add(cache::hash_text(source->bytes));
+    times.fingerprint.add(options_text(request.preprocessing));
     trace_ingestion(request.verbose, "pp", path);
-    auto session = times.preprocess.time([&] { return PreprocessorSession(source, preprocessing_options(request)); });
+    auto session = times.preprocess.time(
+        [&] { return PreprocessorSession(source, preprocessing_options(request, times.fingerprint)); });
     if (!parsing(request)) {
         return preprocess_only(session, request, sink, times);
     }
@@ -420,6 +452,7 @@ bool add_placeholder(const std::u32string &module, const std::set<semantic::Func
     const auto source = sources.add(project::path_text(path), placeholder_source(module, functions));
     PreprocessorSession session(source, request.preprocessing);
     FileTimes untimed; // Placeholders are generated, not files; their stage times are not printed.
+    untimed.fingerprint.add(source->bytes);
     return parse_and_print(session, request, sink, source, path, false, inputs, untimed);
 }
 
