@@ -130,6 +130,7 @@ in `printing.hpp`; `compiler/src/printing/source_*`) is reusable:
 | `--artifact-dir DIR` | Artifact root (requires `--emit`) |
 | `-o PATH` / `--output PATH` | Link an executable ([linking](executables.md#linking)); conflicts with `--emit` |
 | `--linker PATH`, `--runtime-library PATH` | Clang driver and runtime archive for `-o` |
+| `--build-dir DIR` | Where Clause keeps temporary files (below `DIR/tmp`); replaces every selected project target's `build_dir`; positional inputs have none without it ([build directory](projects.md#build-directory)) |
 | `--entry MODULE[:FUNCTION]` | Executable entry function/1; validated in every compiling mode and adds the `clausev1_start` startup artifact ([executables](executables.md#startup-object)) |
 | `--target-triple TRIPLE` | Target machine; `--target` is project target selection |
 | `-O0` / `-O2` / `-Os` | Default generic code + LLVM O0 / bounded specialization + LLVM O2 / LLVM Os, no specialization, one section per symbol and linker dead-stripping of unreferenced code and data |
@@ -144,7 +145,8 @@ in `printing.hpp`; `compiler/src/printing/source_*`) is reusable:
 | `--print-env` | Print the resolved compile environment as TOML on stdout and exit without processing sources ([environment report](#environment-report)) |
 | `--print-inputs` | Preprocess and parse the inputs, add the modules they name as compilation does, then list every source of the batch on stdout and stop before compilation ([projects](projects.md#cli-and-target-selection)) |
 
-- Without `--emit`, compilation verifies objects in memory and writes nothing.
+- Without `--emit`, compilation verifies objects in memory and writes nothing
+  outside the [build directory](projects.md#build-directory).
 - Positional inputs form one batch; each project target is its own batch.
 - Artifact roots: `build/aot` (positional) or `build/aot/<hex-target>` under the
   manifest directory. Explicit roots are invocation-relative.
@@ -176,6 +178,7 @@ name = "app"                # project targets only
 project = "/work/project.toml"
 sources = ["/work/src/main.erl"]           # globs and search paths resolved
 library_directory = "/clau/library/stdlib" # searched after source_search_paths
+build_dir = "/work/build"   # "" for positional inputs without --build-dir
 entry = "main:main"         # or "auto" when linking without --entry
 output = "/work/app"        # linking only: final name (".exe" on Windows)
 linker = "/usr/bin/clang++" # linking only; "" when none is found

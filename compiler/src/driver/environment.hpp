@@ -26,6 +26,8 @@ struct EnvironmentTarget {
     std::optional<project::SelectedEntry> entry;
     // A project target's ignore_dirs and ignore_modules; absent for positional inputs. Added for ignored modules.
     const project::Ignore *ignore = nullptr;
+    // The build directory; absent for positional inputs without --build-dir. Added for the build directory (62D1).
+    std::optional<std::filesystem::path> build_directory = {};
 };
 
 // Print the invocation part of --print-env: command, actions and working directory, as TOML.

@@ -72,7 +72,8 @@ static std::optional<std::string> parse_output(const std::string_view option, st
 }
 
 // Consume an entry operand, rejecting repetition and spellings that cannot name a function.
-static std::optional<std::string> parse_entry_option(std::span<char *> &remaining, Options &options) {
+static std::optional<std::string> parse_entry_option(const std::string_view /*option*/, std::span<char *> &remaining,
+                                                     Options &options) {
     if (options.entry) {
         return "entry specified more than once";
     }
@@ -84,6 +85,20 @@ static std::optional<std::string> parse_entry_option(std::span<char *> &remainin
     if (!options.entry) {
         return "--entry expects MODULE or MODULE:FUNCTION with 1..255-character names";
     }
+    return std::nullopt;
+}
+
+// Consume the --build-dir operand once. Added for the build directory (62D1).
+static std::optional<std::string> parse_build_directory(const std::string_view /*option*/, std::span<char *> &remaining,
+                                                        Options &options) {
+    if (options.build_directory) {
+        return "--build-dir specified more than once";
+    }
+    if (remaining.empty() || std::string_view(remaining.front()).empty()) {
+        return "expected a directory after --build-dir";
+    }
+    options.build_directory = remaining.front();
+    remaining = remaining.subspan(1);
     return std::nullopt;
 }
 
@@ -143,17 +158,20 @@ bool parse_flag(const std::string_view argument, Options &options) {
 // Delegate project operands while retaining the original generic CLI spelling rules.
 static std::optional<std::string> parse_option(const std::string_view argument, std::span<char *> &remaining,
                                                Options &options) {
+    using Parser = std::optional<std::string> (*)(std::string_view, std::span<char *> &, Options &);
+    // Options taking one operand of their own, by spelling.
+    static const std::map<std::string_view, Parser> parsers{{"-o", parse_output},
+                                                            {"--output", parse_output},
+                                                            {"--entry", parse_entry_option},
+                                                            {"--build-dir", parse_build_directory},
+                                                            {"--parse-transform", parse_transform_option},
+                                                            {"--transform-path", parse_transform_option},
+                                                            {"--erl", parse_transform_option}};
     if (parse_flag(argument, options)) {
         return std::nullopt;
     }
-    if (argument == "-o" || argument == "--output") {
-        return parse_output(argument, remaining, options);
-    }
-    if (argument == "--entry") {
-        return parse_entry_option(remaining, options);
-    }
-    if (argument == "--parse-transform" || argument == "--transform-path" || argument == "--erl") {
-        return parse_transform_option(argument, remaining, options);
+    if (const auto parser = parsers.find(argument); parser != parsers.end()) {
+        return parser->second(argument, remaining, options);
     }
     if (is_backend_option(argument)) {
         return parse_backend_option(argument, remaining, options.backend);

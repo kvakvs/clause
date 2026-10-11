@@ -586,23 +586,29 @@ Shared design rules for all sub-steps:
 #### 62D1. Build directory option and temporary files
 
 - Success criteria
-  - [ ] Project option `build_dir` (manifest-relative, per target) and CLI
+  - [x] Project option `build_dir` (manifest-relative, per target) and CLI
     `--build-dir DIR` (overrides it for every selected target). The default
     is `<manifest-dir>/build` for projects. Positional inputs get no build
     directory unless `--build-dir` is given: today's "check/print modes
     create no files" contract stays true without it.
-  - [ ] Clause-owned temporary files move under `<build_dir>/tmp`, starting
+  - [x] Clause-owned temporary files move under `<build_dir>/tmp`, starting
     with the transform loader workspaces. Link staging stays beside the
     output, because the final rename must stay on the same volume; record
     that reason in `docs/executables.md`.
-  - [ ] `--print-env` reports the build directory, and `--help`,
+  - [x] `--print-env` reports the build directory, and `--help`,
     `docs/projects.md`, `docs/compile.md` and the `--new-project` template
     name it. The contract states that check/print modes may write only
     inside the build directory.
 - Tests
-  - [ ] A project run creates temporary files only under `build_dir`, and
+  - [x] A project run creates temporary files only under `build_dir`, and
     nothing is left there after success or failure. `--build-dir` overrides
     the manifest, and a positional check run without it writes nothing.
+- Done 2026-10-11: `build_dir` is a target key (beside `output`), resolved in planning
+  (`PlannedTarget::build_directory_`); `FrontendRequest::build_directory_` sets
+  `TransformSettings::temporary_directory_` (`<build_dir>/tmp`), which the loader's workspaces and the sticky
+  query use. `transforms_build_dir` (host OTP) reads the workspace a transform prints from the loader's plain
+  argument: default, manifest, `--build-dir`, a failing transform, positional `--build-dir`, and a positional
+  check that writes nothing; the system temp stays empty.
 
 #### 62D2. Cache store and frontend results
 

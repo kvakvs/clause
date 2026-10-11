@@ -47,6 +47,16 @@ std::optional<SelectedEntry> entry_selection(const Target &target, const PlanOpt
     return entry ? std::optional{SelectedEntry{*entry, where(target.entry->site)}} : std::nullopt;
 }
 
+// The target's build directory: --build-dir, else its build_dir, else <manifest-dir>/build. Added for the build
+// directory (62D1).
+std::filesystem::path build_directory(const Target &target, const PlanOptions &options,
+                                      const std::filesystem::path &base) {
+    if (options.build_directory) {
+        return absolute_path(options.working_directory, *options.build_directory);
+    }
+    return absolute_path(base, target.build_dir_ ? native_path(target.build_dir_->value) : "build");
+}
+
 // Identify existing aliases and normalize unresolved paths without writing directories.
 std::string output_identity(const std::filesystem::path &path, const Site &site) {
     std::error_code error;
@@ -117,6 +127,7 @@ Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
         transform_options(base, target, options.discovery, result.targets.back());
         result.targets.back().ignore_ = std::move(ignore);
         result.targets.back().keep_exports_ = target.options.keep_exports_;
+        result.targets.back().build_directory_ = build_directory(target, options, base);
     }
     outputs(result);
     return result;

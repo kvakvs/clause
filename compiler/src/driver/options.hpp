@@ -22,6 +22,9 @@ struct Options {
     bool output_explicit = false;
     // Explicit --entry MODULE[:FUNCTION] selection; validated by compilation against the batch.
     std::optional<project::EntryName> entry;
+    // --build-dir: where Clause keeps temporary files and caches; replaces the build directory of every selected
+    // project target. Added for the build directory (62D1).
+    std::optional<std::filesystem::path> build_directory;
     // Distinguish explicit frontend settings from defaults for standalone commands.
     bool frontend_options_explicit = false;
     // Retain backend policy independently of frontend and project selection.

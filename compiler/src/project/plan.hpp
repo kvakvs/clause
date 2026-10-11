@@ -16,6 +16,9 @@ struct PlanOptions {
     // Frontend (check/print/emit/inspect) requests ignore manifest output paths and never plan executable writes.
     bool frontend = false;
     DiscoveryLimits discovery;
+    // CLI --build-dir, invocation-relative; replaces every selected target's build directory. Added for the build
+    // directory (62D1).
+    std::optional<std::filesystem::path> build_directory;
 };
 
 struct PlannedTarget {
@@ -36,6 +39,9 @@ struct PlannedTarget {
     Ignore ignore_ = {};
     // The keep_exports option. Added for export liveness (62C).
     bool keep_exports_ = false;
+    // Where Clause keeps its temporary files and caches: --build-dir, else build_dir, else <manifest-dir>/build.
+    // Added for the build directory (62D1).
+    std::filesystem::path build_directory_ = {};
 };
 
 struct Invocation {

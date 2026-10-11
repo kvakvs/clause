@@ -470,13 +470,15 @@ bool compile_with_placeholders(Inputs inputs, const Discovery &discovery, const 
     }
     return compile_batch(std::move(inputs), request, sink);
 }
-} // namespace
 
-bool process_files(const std::span<const std::filesystem::path> paths, const FrontendRequest &shared,
-                   const DiagnosticSink &sink) {
-    // Project transform modules come from the batch and its search directories. Added for parse transforms.
+// The batch's request: the directory index as the preprocessor's lookup hook, temporary files below the build
+// directory, and project transform modules found in the batch and its search directories.
+FrontendRequest batch_request(const std::span<const std::filesystem::path> paths, const FrontendRequest &shared) {
     auto request = shared;
     use_index(request.preprocessing, request.index_);
+    if (request.build_directory_) {
+        request.transforms_.temporary_directory_ = *request.build_directory_ / "tmp"; // Added for 62D1.
+    }
     // The batch keeps what it found in memory. Added for transform source caching.
     auto cache = std::make_shared<TransformSourceCache>();
     request.transforms_.find_sources_ = [paths, &shared, cache, options = request.preprocessing](
@@ -487,6 +489,13 @@ bool process_files(const std::span<const std::filesystem::path> paths, const Fro
                                   .index_ = shared.index_};
         return transform_sources(module, places, options, host, *cache);
     };
+    return request;
+}
+} // namespace
+
+bool process_files(const std::span<const std::filesystem::path> paths, const FrontendRequest &shared,
+                   const DiagnosticSink &sink) {
+    const auto request = batch_request(paths, shared);
     Inputs inputs;
     if (request.compile && paths.size() > codegen::CompilationLimits{}.modules) {
         sink("error: compilation module count limit exceeded");
@@ -529,6 +538,9 @@ int process_inputs(const Options &options) {
     }
     project::DirectoryIndex index; // Added for the directory index (62E).
     request.index_ = &index;
+    if (options.build_directory) {
+        request.build_directory_ = project::absolute_path(std::filesystem::current_path(), *options.build_directory);
+    }
     const DiagnosticSink sink = [](const std::string_view message) { std::cerr << message << '\n'; };
     const bool failed = process_files(options.inputs, request, sink);
     if (options.verbose) {

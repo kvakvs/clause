@@ -436,6 +436,8 @@
   Directory index (62E, `project/directory_index`): one per invocation (driver owns it, `FrontendRequest::index_`,
   `PlanOptions::discovery.index`); walks record listings, lookups list lazily; `may_exist` false = skip the probe
   (module search, transform locate, literal sources, preprocessor `PreprocessorOptions::may_exist` hook).
+  Build directory (62D1): target key `build_dir` / `--build-dir`, default `<manifest-dir>/build` (positional:
+  none); Clause temp files under `<build_dir>/tmp` (transform loader workspaces); link staging stays beside output.
   Export liveness (62C, `semantic/liveness`): for executables only, a worklist from the entry over direct calls,
   funs, literal apply/spawn targets and escaped module-name atoms (whole module live; dynamic call + atom producer
   = everything live) clears `Function::live_`; codegen declares/lowers no dead function or lambda of a dead owner,

@@ -15,6 +15,7 @@ sources = ["main.erl", "src/workers/*.erl", "shared/**/*.erl"]
 source_dirs = ["src/support"]
 output = "build/app"
 entry = "main:main"
+build_dir = "build"
 
 [targets.options]
 source_search_paths = ["src", "generated"]
@@ -54,6 +55,8 @@ my_dependency = "vendor/my_dependency"
 - `entry` (optional) selects the executable entry `MODULE[:FUNCTION]`; see
   [executables](executables.md#entry-selection). CLI `--entry` overrides it for
   a single selected target.
+- `build_dir` (optional) is the target's [build directory](#build-directory),
+  default `<manifest-dir>/build`.
 - `output` is the executable destination, default
   `<manifest-dir>/build/<target>` (`.exe` on Windows). A target with `output` or
   `entry` is an executable target ([executables](#executables)); `--emit` and
@@ -155,6 +158,26 @@ links every selected target that has an `output` or `entry` key, or that CLI
 - Content is deterministic UTF-8/LF with comments: one target `app`,
   `sources = []`, `source_dirs = ["src"]`, empty option lists and the platform
   default output. It decodes immediately; the user adds sources under `src`.
+
+## Build directory
+
+Each project target has a build directory where Clause keeps its own
+temporary files (and, from plan 11 step 62D2, its caches): the target's
+`build_dir`, relative to the manifest, default `<manifest-dir>/build`.
+`--build-dir DIR` (invocation-relative) replaces it for every selected target.
+Positional inputs get none unless `--build-dir` is given.
+
+- Temporary files go below `<build_dir>/tmp`: today the parse transform
+  loader's workspaces ([transforms](transforms.md#loader)). Each run removes
+  its own; an empty `tmp` may remain. Without a build directory they go to the
+  system's temporary directory.
+- Link staging (`.clause-link-*`) stays beside the executable output, because
+  the final rename must stay on the output's volume
+  ([linking](executables.md#linking)).
+- Check and print modes (`--parse-check`, `--print-ast`, ...) write nothing
+  outside the build directory; positional checks without `--build-dir` write
+  no file at all.
+- `--print-env` prints each target's `build_dir` (`""` when there is none).
 
 ## Paths and discovery
 

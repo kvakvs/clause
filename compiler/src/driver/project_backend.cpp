@@ -88,7 +88,8 @@ bool print_target_environment(const Options &options, const project::Invocation 
                               .backend = backend,
                               .output = target.output,
                               .entry = target.entry,
-                              .ignore = &target.ignore_});
+                              .ignore = &target.ignore_,
+                              .build_directory = target.build_directory_});
     return false;
 }
 
@@ -117,6 +118,7 @@ project::PlanOptions plan_settings(const Options &options, project::DirectoryInd
         settings.output = options.output;
     }
     settings.entry = options.entry;
+    settings.build_directory = options.build_directory;
     return settings;
 }
 
@@ -171,6 +173,7 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
         request.module_search_paths_ = target.search_paths_;
         request.ignore_ = target.ignore_;
         request.index_ = &index;
+        request.build_directory_ = target.build_directory_;
         return process_files(target.sources, request, sink);
     };
     const int status = project::run(options.project, plan_settings(options, &index), execute, std::cout, std::cerr);

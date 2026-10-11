@@ -234,6 +234,7 @@ void print_environment_target(const EnvironmentTarget &target) {
     }
     print_array("sources", quoted_paths(target.sources));
     print_value("library_directory", toml_path(linking::library_directory()));
+    print_value("build_dir", target.build_directory ? toml_path(*target.build_directory) : toml_string(""));
     print_link(target, triple);
     print_options(target);
     print_backend(target.backend, triple);
@@ -252,6 +253,11 @@ void print_positional_environment(const std::span<char *const> arguments, const 
                               .preprocessing = options.preprocessing,
                               .backend = options.backend,
                               .output = options.output_explicit ? std::optional{options.output} : std::nullopt,
-                              .entry = entry});
+                              .entry = entry,
+                              .ignore = nullptr,
+                              .build_directory = options.build_directory
+                                                     ? std::optional{project::absolute_path(
+                                                           std::filesystem::current_path(), *options.build_directory)}
+                                                     : std::nullopt});
 }
 } // namespace clause::cli

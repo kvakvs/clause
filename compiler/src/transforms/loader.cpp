@@ -29,15 +29,21 @@ std::string text(const fs::path &path) {
 
 std::u32string wide(const std::string &utf8_text) { return Source(0, "text", utf8_text).text; }
 
-// A removed-on-exit temporary directory for one run.
+// A removed-on-exit temporary directory for one run, below `parent` (the build directory's tmp, created when
+// missing) or the system temporary directory.
 class Workspace {
   public:
-    Workspace() {
-        llvm::SmallString<128> created;
-        if (const auto error = llvm::sys::fs::createUniqueDirectory("clause-transform", created)) {
-            throw LoaderError("cannot create a temporary directory: " + error.message());
+    explicit Workspace(const std::optional<fs::path> &parent) {
+        std::error_code error;
+        if (parent) {
+            fs::create_directories(*parent, error);
         }
-        path_ = fs::path(std::string(created.str()));
+        llvm::SmallString<128> created;
+        const auto model = parent ? text(*parent / "clause-transform") : std::string("clause-transform");
+        if (const auto failure = error ? error : llvm::sys::fs::createUniqueDirectory(model, created)) {
+            throw LoaderError("cannot create a temporary directory: " + failure.message());
+        }
+        path_ = fs::path(std::u8string(created.begin(), created.end()));
     }
 
     Workspace(const Workspace &) = delete;
@@ -187,8 +193,8 @@ constexpr std::string_view LIST_STICKY =
     "halt().";
 
 // Ask the host erl for its sticky modules; empty when it cannot answer. Added for transform source caching.
-std::set<std::u32string> sticky_modules(const fs::path &erl) {
-    const Workspace workspace;
+std::set<std::u32string> sticky_modules(const fs::path &erl, const std::optional<fs::path> &temporary) {
+    const Workspace workspace(temporary);
     const auto program = text(erl);
     const auto listing = workspace.path() / "sticky.txt";
     const auto output = text(listing);
@@ -255,7 +261,7 @@ std::optional<fs::path> find_erl(const std::optional<fs::path> &explicit_path) {
 }
 
 TransformReply run_transforms(const AbstractModule &module, const TransformRequest &request) {
-    const Workspace workspace;
+    const Workspace workspace(request.temporary_directory_);
     const auto &directory = workspace.path();
     write_file(directory / "clause_transform_loader.erl", LOADER_SOURCE);
     write_file(directory / "request.etf", request_bytes(module, request));
@@ -287,12 +293,13 @@ TransformReply run_transforms(const AbstractModule &module, const TransformReque
     return reply;
 }
 
-bool StickyModules::contains(const fs::path &erl, const std::u32string &module) {
+bool StickyModules::contains(const fs::path &erl, const std::u32string &module,
+                             const std::optional<fs::path> &temporary) {
     auto found = modules_.find(erl);
     if (found == modules_.end()) {
         std::set<std::u32string> names;
         try {
-            names = sticky_modules(erl);
+            names = sticky_modules(erl, temporary);
         } catch (const LoaderError &) {
             names.clear(); // No temporary directory: compile project sources as before.
         }

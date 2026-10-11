@@ -41,6 +41,8 @@ struct TransformRequest {
     std::vector<TransformSource> sources_;
     std::string file_;
     CompileOptions options_;
+    // Where the run's workspace is made; absent: the system temporary directory. Added for the build directory.
+    std::optional<std::filesystem::path> temporary_directory_ = {};
 };
 
 struct TransformMessage {
@@ -69,8 +71,10 @@ TransformReply run_transforms(const AbstractModule &module, const TransformReque
 // Added for transform source caching.
 class StickyModules {
   public:
-    // Whether the host loads `module` from a sticky directory; when erl cannot answer, no module is.
-    bool contains(const std::filesystem::path &erl, const std::u32string &module);
+    // Whether the host loads `module` from a sticky directory; when erl cannot answer, no module is. The query's
+    // workspace goes below `temporary` when given.
+    bool contains(const std::filesystem::path &erl, const std::u32string &module,
+                  const std::optional<std::filesystem::path> &temporary = {});
 
   private:
     // The sticky module names of each erl asked.

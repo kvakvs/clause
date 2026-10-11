@@ -32,7 +32,7 @@ std::optional<Text> entry(const toml::table &values, const schema::Context &cont
 // Decode one target's source declarations; options are decoded in their own module.
 Target target(const toml::node &node, schema::Context context) {
     const auto &values = schema::table(node, context, "targets");
-    schema::keys(values, {"name", "sources", "source_dirs", "output", "entry", "options"}, context);
+    schema::keys(values, {"name", "sources", "source_dirs", "output", "entry", "build_dir", "options"}, context);
     const auto *name = values.get("name");
     if (!name) {
         fail(schema::site(node, context, "name"), "missing target name");
@@ -53,6 +53,9 @@ Target target(const toml::node &node, schema::Context context) {
         result.output = schema::text(*output, context, "output");
     }
     result.entry = entry(values, context);
+    if (const auto *build = values.get("build_dir")) {
+        result.build_dir_ = schema::text(*build, context, "build_dir");
+    }
     if (const auto *options = values.get("options")) {
         result.options = decode_options(*options, context);
     }

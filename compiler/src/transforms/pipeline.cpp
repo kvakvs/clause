@@ -158,6 +158,7 @@ TransformRequest request_for(const std::filesystem::path &erl, std::vector<std::
                              const TransformSettings &settings, const CompileOptions &options, std::string file) {
     TransformRequest request;
     request.erl_ = erl;
+    request.temporary_directory_ = settings.temporary_directory_;
     request.code_paths_ = settings.code_paths_;
     request.file_ = std::move(file);
     request.options_ = options;
@@ -167,7 +168,7 @@ TransformRequest request_for(const std::filesystem::path &erl, std::vector<std::
     source_options.transforms_.clear();
     // The host's own sticky modules need no sources. Added for transform source caching.
     const HostModule host = [&](const std::u32string &module) {
-        return settings.sticky_ && settings.sticky_->contains(erl, module);
+        return settings.sticky_ && settings.sticky_->contains(erl, module, settings.temporary_directory_);
     };
     for (const auto &name : transforms) {
         if (precompiled(name, settings.code_paths_) || !settings.find_sources_) {

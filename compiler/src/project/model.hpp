@@ -56,6 +56,9 @@ struct Target {
     std::optional<Text> output;
     // Optional MODULE[:FUNCTION] entry selection; validated spelling, resolved during compilation.
     std::optional<Text> entry;
+    // The build directory (manifest-relative); absent means <manifest-dir>/build. Added for the build directory
+    // (62D1).
+    std::optional<Text> build_dir_;
     TargetOptions options;
 };
 

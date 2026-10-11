@@ -249,7 +249,9 @@ dylib symbols, so no form works on all three object formats.
   the target's architecture and object format; `--target-triple` for another
   target therefore needs a runtime built for it.
 - Objects and the executable are staged in a private `.clause-link-*`
-  directory beside the output, which is removed afterwards. The output is
+  directory beside the output, which is removed afterwards; it stays there,
+  not in the [build directory](projects.md#build-directory), because the final
+  rename must not cross volumes. The output is
   replaced only after a successful link, so every failure keeps an existing
   file unchanged. The output must not be a directory or alias an input.
 - Linker warnings are forwarded to stderr; `--linker` and `--runtime-library`

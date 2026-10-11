@@ -165,7 +165,10 @@ gives the same forms.
 
 `compiler/src/transforms/loader/clause_transform_loader.erl` is project-owned
 and embedded into `clau`. Each run writes it and the request into a fresh
-temporary directory, and `erl` compiles and loads it in memory. The request
+temporary directory, `clause-transform-*` below `<build_dir>/tmp`
+([build directory](projects.md#build-directory)) or, for positional inputs
+without `--build-dir`, the system's temporary directory, removed after the
+run; `erl` compiles and loads the loader in memory. The request
 holds the forms, the options, the transform list, the module's file name and
 the project transform sources to build. The loader:
 

@@ -20,6 +20,9 @@ struct TransformSettings {
     // The host's sticky modules, shared by every copy of the settings so erl is asked once per invocation.
     // Added for transform source caching.
     std::shared_ptr<StickyModules> sticky_ = std::make_shared<StickyModules>();
+    // Where loader runs make their workspaces (<build_dir>/tmp); absent: the system temporary directory.
+    // Added for the build directory (62D1).
+    std::optional<std::filesystem::path> temporary_directory_;
 };
 
 // Whether a parsed module needs parse transforms: the settings name some, or one of its -compile attributes does.

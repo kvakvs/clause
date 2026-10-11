@@ -21,6 +21,8 @@ sources = []
 source_dirs = ["src"]
 # Executable linked by `clau --project`; --emit/checks/printing do not write it. Windows: build/app.exe.
 output = "@OUTPUT@"
+# Clause's temporary files (and caches) go below this directory; --build-dir overrides it.
+build_dir = "build"
 
 [targets.options]
 # Fallback roots for listed source filenames, e.g. ["src", "generated"].

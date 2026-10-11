@@ -61,6 +61,9 @@ struct FrontendRequest {
     // The invocation's index of searched directories, shared by every lookup and target. Added for the directory
     // index (62E).
     project::DirectoryIndex *index_ = nullptr;
+    // Where temporary files (below tmp) go; positional inputs have none without --build-dir. Added for the build
+    // directory (62D1).
+    std::optional<std::filesystem::path> build_directory_ = {};
 };
 
 // Process one isolated batch; project targets never share declaration tables.

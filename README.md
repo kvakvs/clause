@@ -297,6 +297,7 @@ clau [options] <source.erl>...
   -g                      Emit Erlang line tables; executables keep them for debuggers
   --lto                   Link modules as bitcode with link-time optimization (LLD targets)
   --keep-exports          Keep every export of an executable callable (default: unreachable ones left out)
+  --build-dir <dir>       Keep temporary files below <dir>/tmp (projects default: <manifest-dir>/build)
   --verbose               Trace files and compilation phases to stderr
   --print-stage-times     Print preprocess/parse/transform time per file, compile time per batch and link time to stderr
   -I, --include <dir>      Add an include directory (last supplied searched first)
