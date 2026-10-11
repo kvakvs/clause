@@ -70,7 +70,11 @@ builtin both the compiler and the runtime know:
   `statistics/1`, `system_info/1`, `memory/0,1`;
 - [spawn options and aliases](processes.md#spawn-options) (plan step 41G2):
   `spawn_opt/2..5`, `spawn_request/1..5`, `spawn_request_abandon/1`,
-  `alias/0,1`, `unalias/1`, `monitor/3`, `hibernate/3`.
+  `alias/0,1`, `unalias/1`, `monitor/3`, `hibernate/3`;
+- [fun information](funs.md#fun-information), [hashing](#hashing) and MD5
+  (plan step 41G3): `fun_info/1,2`, `fun_to_list/1`, `is_builtin/3`,
+  `phash/2`, `phash2/1,2`, `md5/1`, `md5_init/0`, `md5_update/2`,
+  `md5_final/1`.
 
 Entries are only appended: an entry's index is the number generated code
 passes to the bridge service. A qualified call of a catalog builtin of another
@@ -307,6 +311,19 @@ Plan 11 step 41G1 (`erlang/system.cpp`).
   and `ets` are 0.
 - Other items are `badarg`.
 
+## Hashing
+
+Plan 11 step 41G3 (`erlang/hashing.cpp`, `erlang/md5.cpp`).
+
+- `phash2/1,2` and `phash/2` hash a term's structure: exactly equal terms
+  hash equally in every program run (atoms by spelling, maps in key order,
+  `1` and `1.0` apart). `phash2/1` is in 0..2^27-1, `phash2/2` in
+  0..Range-1, `phash/2` in 1..Range; Range is 1..2^32, else `badarg`. The
+  values are Clause's own, not OTP's.
+- `md5/1` and `md5_init/0`, `md5_update/2`, `md5_final/1` give RFC 1321's
+  digests (OTP's bytes) of iodata. The context is an opaque 96-byte binary
+  of Clause's own layout; another binary is `badarg`.
+
 ## Source layout
 
 - The runtime implements builtins in `runtime/src/builtins/`. A large module
@@ -318,7 +335,8 @@ Plan 11 step 41G1 (`erlang/system.cpp`).
   `ports`; `dictionary`: the [process dictionary](processes.md#process-dictionary);
   `binary_conversions` with `conversion_text`, the text rules it shares with
   `conversions`; `term_encoding` and `term_decoding`: the external term
-  format; `time` and `timers`; `introspection` and `system`; `spawning`).
+  format; `time` and `timers`; `introspection` and `system`; `spawning`;
+  `fun_info`, `hashing` and `md5`).
 - Each family file defines its own `*_builtins()` table listed in
   `production_builtins()`. A new family adds a new file and table instead of
   growing an existing one; a file past about 400 lines is split by family

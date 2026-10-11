@@ -31,8 +31,8 @@ TermResult<Term> char_list(ProcessContext &context, std::string_view text) {
     return TermFactory(context).list(items);
 }
 
-// The bytes of iodata: a binary, or a list of bytes, binaries and iodata lists with a binary or [] tail; none for
-// anything else. A byte is valid only as a list element.
+} // namespace
+
 std::optional<std::vector<std::byte>> iodata_bytes(const Term &data) {
     std::vector<std::byte> bytes;
     // Terms still to read, each with whether it is a list element.
@@ -56,6 +56,7 @@ std::optional<std::vector<std::byte>> iodata_bytes(const Term &data) {
     return bytes;
 }
 
+namespace {
 // The port a port argument names: a port, or an atom registered to one; badarg for anything else.
 Word port_of(ProcessContext &context, const Term &port) {
     if (port.is_port()) {

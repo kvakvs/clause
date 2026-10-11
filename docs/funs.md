@@ -143,3 +143,16 @@ Recorded in [differences](differences.md):
   order; OTP's compiler numbers them in its own order. Funs created inside
   comprehensions may also capture their values in another order than OTP's,
   which only shows when two such funs are compared.
+
+## Fun information
+
+Plan 11 step 41G3 (`builtins/erlang/fun_info.cpp`). `erlang:fun_info/1`
+lists OTP's items in OTP's order: for a local fun `pid`, `module`,
+`new_index`, `new_uniq`, `index`, `uniq`, `name` (`-F/A-fun-N-` for an
+anonymous fun), `arity`, `env` (the captured values) and `type`; for
+`fun M:F/A` `module`, `name`, `arity`, `env` (`[]`) and `type`.
+`fun_info/2` returns one `{Item, Value}`; an unknown item is `badarg`. `pid` is
+`undefined`, `new_uniq` the MD5 of the module name and `uniq` its first 24
+bits, so they differ from OTP's. `fun_to_list/1` is the `~w` text.
+`is_builtin/3` is true for the runtime's builtins and `erlang:apply/2,3`.
+

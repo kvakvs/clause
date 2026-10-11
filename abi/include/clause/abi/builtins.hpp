@@ -281,6 +281,18 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "alias", 1},
     BuiltinName{"erlang", "unalias", 1},
     BuiltinName{"erlang", "hibernate", 3},
+    // Fun information, hashing and MD5 (plan step 41G3; erlang/fun_info.cpp, erlang/hashing.cpp, erlang/md5.cpp).
+    BuiltinName{"erlang", "fun_info", 1},
+    BuiltinName{"erlang", "fun_info", 2},
+    BuiltinName{"erlang", "fun_to_list", 1},
+    BuiltinName{"erlang", "is_builtin", 3},
+    BuiltinName{"erlang", "phash", 2},
+    BuiltinName{"erlang", "phash2", 1},
+    BuiltinName{"erlang", "phash2", 2},
+    BuiltinName{"erlang", "md5", 1},
+    BuiltinName{"erlang", "md5_init", 0},
+    BuiltinName{"erlang", "md5_update", 2},
+    BuiltinName{"erlang", "md5_final", 1},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

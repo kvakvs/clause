@@ -425,11 +425,12 @@ sizes, counts, hash values) are checked by shape and recorded in
 #### 41G3. Fun information, hashing and MD5
 
 - Success criteria
-  - [ ] `fun_info/1,2`, `fun_to_list/1`, `is_builtin/3`, `phash/2`,
+  - [x] `fun_info/1,2`, `fun_to_list/1`, `is_builtin/3`, `phash/2`,
     `phash2/1,2` (equal terms hash equally within the range), `md5/1` and
     `md5_init/0`, `md5_update/2`, `md5_final/1` (RFC 1321, OTP's digests).
 - Tests
-  - [ ] OTP-goldened executable; MD5 digests byte-exact.
+  - [x] OTP-goldened executable; MD5 digests byte-exact.
+- Done 2026-10-11: `executables_fun_hashing` (OTP golden; MD5 byte-exact on the first run).
 
 <a id="step-41h"></a>
 

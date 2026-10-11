@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "fun_hashing",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[pid,module,new_index,new_uniq,index,uniq,name,arity,env,type]\n[module,name,arity,env,type]\n[{module,fun_hashing},{arity,1},{env,[5]},{type,local}]\n[{module,lists},{name,map},{arity,2},{env,[]},{type,external}]\n{pid,undefined}\ntrue\n\"fun lists:map/2\"\n{error,badarg}\n{error,badarg}\n{error,badarg}\n[true,true,false,false,true]\n{error,badarg}\n[true,true,true,true,true,true,true,true,true,true]\n[true,true,true,true,true,true,true,true,true,true]\n[true,true,true,true,true,true,true,true,true,true]\ntrue\ntrue\ntrue\ntrue\n{error,badarg}\n{error,badarg}\n<<212,29,140,217,143,0,178,4,233,128,9,152,236,248,66,126>>\n<<144,1,80,152,60,210,79,176,214,150,63,125,40,225,127,114>>\n<<144,1,80,152,60,210,79,176,214,150,63,125,40,225,127,114>>\n<<243,242,136,40,61,144,12,192,226,36,242,120,62,55,35,98>>\n<<144,1,80,152,60,210,79,176,214,150,63,125,40,225,127,114>>\ntrue\n{error,badarg}\n{error,badarg}\n{error,badarg}\nfun_hashing: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "fun_hashing.erl": "05cd33d0ed43127183bea9613a74fdd1d3f7cc5ea3253efe0f7eb3336756d96c"
+  }
+}
