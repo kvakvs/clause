@@ -24,7 +24,8 @@ draft with smaller, single-commit steps.
   steps run before step 9 and keep their letter IDs in commit titles.
 - Phase N2 (steps 73A–73H) was inserted on 2026-10-11 (user direction). It
   selects and implements the parse-transform slice of step 73 and depends on
-  [65C](#step-65c), not on step 73, so it may run before steps 66–72.
+  [65C](00-finished.md#step-65c), not on step 73, so it may run before steps
+  66–72.
 
 ## Common gate and rules (apply to every step)
 
@@ -110,352 +111,85 @@ oracle OTP 29.1.1 / ERTS 17.1. Latest combined Windows x64 Debug gate (steps 63-
 
 ## Step overview
 
-| Phase | Steps | Backlog owners |
-| --- | --- | --- |
-| A. Baseline and fixtures | [1](#step-1)–[2](#step-2) | V03 |
-| B. Production executables | [3](#step-3)–[8](#step-8) | F01, F26, V04 |
-| C. Classic process heap | [8A](#step-8a)–[8I](#step-8i) | F02–F05, F09 |
-| D. Control flow and exceptions | [9](#step-9)–[16](#step-16) | F13, F14, F16, F20 |
-| E. Execution model, recursion, comprehensions | [17](#step-17)–[22](#step-22) | F02, F13, F16, F21, F22 |
-| F. Memory management | [23](#step-23)–[28](#step-28) | F02–F05, F08–F11 |
-| G. Records, function values, dynamic calls | [29](#step-29)–[35](#step-35) | F03, F12, F14, F17–F19, F21 |
-| H. Builtins and libraries | [36](#step-36)–[41](#step-41) | F26, F27 |
-| I. Processes and messaging | [42](#step-42)–[53](#step-53), [43A](#step-43a) | F02, F04, F05, F07, F14, F22, F24–F26 |
-| J. Multi-worker scheduling | [54](#step-54)–[57](#step-57) | F06, F23, F25, F28 |
-| J2. Ports and port I/O | [57A](#step-57a)–[57G3](#step-57g3) | F07, F23, F26, F35 |
-| K. End-to-end projects | [58](#step-58) | F01, V03 |
-| L. Optimization and tooling | [58A](#step-58a)–[58N3](#step-58n3), [59](#step-59)–[62B](#step-62b) | F23, F25, F29–F34 |
-| M. Validation closure | [63](#step-63)–[70](#step-70), [65A](#step-65a), [65B](#step-65b), [65C](#step-65c) | V01–V04, D03 |
-| N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 |
-| N2. Parse transforms | [73A](#step-73a)–[73H](#step-73h) | D03 |
-| O. Final closure | [78A](#step-78a), [78B](#step-78b), [78](#step-78) | all |
+Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits).
+
+| Phase | Steps | Backlog owners | State |
+| --- | --- | --- | --- |
+| A. Baseline and fixtures | [1](00-finished.md#step-1)–[2](00-finished.md#step-2) | V03 | done |
+| B. Production executables | [3](00-finished.md#step-3)–[8](00-finished.md#step-8) | F01, F26, V04 | done |
+| C. Classic process heap | [8A](00-finished.md#step-8a)–[8I](00-finished.md#step-8i) | F02–F05, F09 | done |
+| D. Control flow and exceptions | [9](00-finished.md#step-9)–[16](00-finished.md#step-16) | F13, F14, F16, F20 | done |
+| E. Execution model, recursion, comprehensions | [17](00-finished.md#step-17)–[22](00-finished.md#step-22) | F02, F13, F16, F21, F22 | done |
+| F. Memory management | [23](00-finished.md#step-23)–[28](00-finished.md#step-28) | F02–F05, F08–F11 | done |
+| G. Records, function values, dynamic calls | [29](00-finished.md#step-29)–[35](00-finished.md#step-35) | F03, F12, F14, F17–F19, F21 | done |
+| H. Builtins and libraries | [36](00-finished.md#step-36)–[41](00-finished.md#step-41) | F26, F27 | done |
+| I. Processes and messaging | [42](00-finished.md#step-42)–[53](00-finished.md#step-53), [43A](00-finished.md#step-43a) | F02, F04, F05, F07, F14, F22, F24–F26 | done |
+| J. Multi-worker scheduling | [54](00-finished.md#step-54)–[57](00-finished.md#step-57) | F06, F23, F25, F28 | done |
+| J2. Ports and port I/O | [57A](00-finished.md#step-57a)–[57G3](00-finished.md#step-57g3) | F07, F23, F26, F35 | done |
+| K. End-to-end projects | [58](00-finished.md#step-58) | F01, V03 | done |
+| L. Optimization and tooling | [58A](00-finished.md#step-58a)–[58N3](00-finished.md#step-58n3), [59](00-finished.md#step-59)–[62B](00-finished.md#step-62b) | F23, F25, F29–F34 | done |
+| M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
+| N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
+| N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
+| O. Final closure | [78A](#step-78a), [78B](#step-78b), [78](#step-78) | all | open |
 
 ---
 
 ## Completed steps
 
-Each step's full text, criteria and evidence are in Git: the commit named
-here, and the plan as it stood there. Contracts in `docs/` hold the current
-behavior. Phases A–L are closed; phase M continues with steps 66, 69
-and 70 below.
+Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
+commit for 1–68, 65A–65C and 73A–73G); full step text and evidence are in Git
+at those commits. The anchors below keep older links to this file working.
 
-| Step | Title | Commit |
-| --- | --- | --- |
-| <a id="step-1"></a>1 | Refresh the OTP reference and record a fresh baseline | `2d27503` |
-| <a id="step-1a"></a>1A | Tests run time too long | `07d2c38` |
-| <a id="step-1b"></a>1B | Quality check checks too much | `3cdc743` |
-| <a id="step-1c"></a>1C | Run the available documentation check | `e381a86` |
-| <a id="step-2"></a>2 | Author target program fixtures and their feature map | `1a006ac` |
-| <a id="step-3"></a>3 | Decide the entrypoint, arguments and exit-status contract | `af55175` |
-| <a id="step-3a"></a>3A | Add escript compile mode | `8bb5f89` |
-| <a id="step-4"></a>4 | Add runtime term printing and erlang:display/1 | `d63132b` |
-| <a id="step-5"></a>5 | Generate the startup object | `6a246ae` |
-| <a id="step-6"></a>6 | Link executables from positional CLI inputs | `8f68c18` |
-| <a id="step-6a"></a>6A | Link a single project target with explicit -o | `0c27f72` |
-| <a id="step-7"></a>7 | Link executables from project targets | `bcaa23f` |
-| <a id="step-8"></a>8 | Add the executable golden test runner | `736a194` |
-| <a id="step-8a"></a>8A | Decide the classic process heap contract | `02ddf8d` |
-| <a id="step-8b"></a>8B | Split binary cells and add the off-heap list | `34005ee` |
-| <a id="step-8c"></a>8C | Make heap areas parseable and add a heap walker | `ad0f810` |
-| <a id="step-8d"></a>8D | Admit heap words by header instead of the object index | `a0dbc00`, `0c76a8a` |
-| <a id="step-8e"></a>8E | Hold host terms as raw words between safe points | `e5aa219` |
-| <a id="step-8f"></a>8F | Move generated root frames onto a process stack | `e99e4a8`, `b4c99d3`, `9573722`, `7ac15fb` |
-| <a id="step-8g"></a>8G | Replace chunks with a contiguous heap and heap fragments | `c162308` |
-| <a id="step-8h"></a>8H | Collect on explicit host request with a copying collector | `d0cf00b` |
-| <a id="step-8i"></a>8I | Close the heap rework | `dc6e349` |
-| <a id="step-9"></a>9 | Lower `begin`/`end` blocks and `case` expressions | `60102a1` |
-| <a id="step-10"></a>10 | Lower `if` expressions | `1982697` |
-| <a id="step-11"></a>11 | Raise exceptions from source | `80cd244` |
-| <a id="step-12"></a>12 | Lower `catch Expr` | `328a290` |
-| <a id="step-13"></a>13 | Lower `try … of … catch` | `27867ed` |
-| <a id="step-14"></a>14 | Lower `try … after` | `9df4e63` |
-| <a id="step-15"></a>15 | Provide stack traces and `erlang:raise/3` | `c311ae7` |
-| <a id="step-16"></a>16 | Lower `maybe` expressions | `aecbff2` |
-| <a id="step-17"></a>17 | Decide the frame and continuation model | `5447a16` |
-| <a id="step-18"></a>18 | Accept recursive call graphs in analysis | `0e6eb6d` |
-| <a id="step-19"></a>19 | Implement proper tail calls | `eff731f` |
-| <a id="step-20"></a>20 | Support deep non-tail recursion | `26f8b27` |
-| <a id="step-21"></a>21 | Lower list comprehensions | `07d249a` |
-| <a id="step-22"></a>22 | Lower binary and map comprehensions | `1f58ba4` |
-| <a id="step-23"></a>23 | Extend the root inventory to the execution model | `a3ef043` |
-| <a id="step-24"></a>24 | Decide collection triggers and safepoints in generated code | `cf9d82b` |
-| <a id="step-25"></a>25 | Collect on explicit runtime request (folded into 8H) | — |
-| <a id="step-26"></a>26 | Collect from generated code | `0a94ccf` |
-| <a id="step-27"></a>27 | Report heap exhaustion as a defined failure | `bcd1ed5`, `8e939f1`, `3a21bc0` |
-| <a id="step-27a"></a>27A | Runtime-wide memory limit and program-facing caps | `6a87dae` |
-| <a id="step-27b"></a>27B | Remove list length caps | `5701ab5` |
-| <a id="step-27c"></a>27C | Match OTP's tuple arity limit | `12f772d` |
-| <a id="step-27d"></a>27D | Remove map size and key-work caps | `d4baa1f` |
-| <a id="step-27e"></a>27E | Match OTP's big integer limit | `1c085f9` |
-| <a id="step-28"></a>28 | Copy term graphs between heaps | `4d707e5` |
-| <a id="step-29"></a>29 | Lower record updates | `ef7e2cc` |
-| <a id="step-30"></a>30 | Implement record_info/2 | `7186f18` |
-| <a id="step-31"></a>31 | Implement native, qualified and inferred record forms (31A–31E) | — |
-| <a id="step-31a"></a>31A | Decide the native record contract | `8e3e18b` |
-| <a id="step-31b"></a>31B | Add native record cells and runtime services | `206afc1` |
-| <a id="step-31c"></a>31C | Compile local native records | `68252fc` |
-| <a id="step-31d"></a>31D | Compile qualified and imported native records | `595650c` |
-| <a id="step-31e"></a>31E | Compile anonymous native record forms | `a80d26b` |
-| <a id="step-32"></a>32 | Implement function values without captures | `bffcb27` |
-| <a id="step-33"></a>33 | Implement closures with captured variables | `76e4713` |
-| <a id="step-34"></a>34 | Implement named funs | `4ad9bce` |
-| <a id="step-35"></a>35 | Implement dynamic calls | `919f32e` |
-| <a id="step-36"></a>36 | Implement the generic production builtin bridge | `78cbb41` |
-| <a id="step-37"></a>37 | Add the term-access builtin family | `b29cbfc` |
-| <a id="step-38"></a>38 | Add the conversion builtin family | `cd03833` |
-| <a id="step-39"></a>39 | Ship a project-owned library subset for lists and maps | `21f1f77` |
-| <a id="step-40"></a>40 | Add console output through io | `f6a5c30` |
-| <a id="step-41"></a>41 | Add typed native callables for builtin implementations | `09bdac0` |
-| <a id="step-42"></a>42 | Implement pid and reference identities | `59064bf` |
-| <a id="step-43"></a>43 | Run spawned processes on a cooperative executor | `f092504` |
-| <a id="step-43a"></a>43A | Make long-running builtins interruptible | `0682b54` |
-| <a id="step-44"></a>44 | Define process exit and crash reports | `98ad97a` |
-| <a id="step-45"></a>45 | Implement the signal inbox and message send | `dbad5db` |
-| <a id="step-46"></a>46 | Implement selective receive without timeout | `45b424c` |
-| <a id="step-47"></a>47 | Implement receive ... after timeouts | `e404460` |
-| <a id="step-48"></a>48 | Implement links, exit signals and trap_exit | `82d8187` |
-| <a id="step-49"></a>49 | Implement monitors | `e111740` |
-| <a id="step-50"></a>50 | Implement registered process names | `d881d4b` |
-| <a id="step-51"></a>51 | Collect garbage with mailboxes and suspended processes | `55347de` |
-| <a id="step-52"></a>52 | Enable identity-dependent guards | `dd6b8f2` |
-| <a id="step-53"></a>53 | Decide port identity scope | `583e779` |
-| <a id="step-54"></a>54 | Synchronize the atom table | `25215cf` |
-| <a id="step-55"></a>55 | Synchronize code-server publication and lookup | `8b8a699` |
-| <a id="step-56"></a>56 | Run processes on multiple scheduler workers | `c1ff627` |
-| <a id="step-57"></a>57 | Handle cross-worker wakeups, timers and shutdown | `fa54da5` |
-| <a id="step-57a"></a>57A | Decide the port contract | `d39a9e1` |
-| <a id="step-57b"></a>57B | Add port identities and the port table | `21a5199` |
-| <a id="step-57c"></a>57C | Run the I/O poller with scheduler wakeups | `d1dc2f2` |
-| <a id="step-57d"></a>57D | Open subprocesses as ports | `6b04929` |
-| <a id="step-57e"></a>57E | Implement file I/O and standard I/O through ports | `b1bc5d7` |
-| <a id="step-57f"></a>57F | Implement sockets as ports | `8c99374` |
-| <a id="step-57g"></a>57G | Schedule ports like processes on an event-driven backend (57G1–57G3) | — |
-| <a id="step-57g1"></a>57G1 | Serve every port kind from one event-driven I/O thread | `fbacc98` |
-| <a id="step-57g2"></a>57G2 | Run port tasks on the scheduler workers | `171b7f9` |
-| <a id="step-57g3"></a>57G3 | Suspend senders on busy ports and bound unread input | `616e7b2` |
-| <a id="step-58"></a>58 | Run the target fixture projects end to end | `3ec5737` |
-| <a id="step-58a"></a>58A | Decide the inference fact domain | `e52277c` |
-| <a id="step-58b"></a>58B | Infer facts of all literals | `a6c01b5` |
-| <a id="step-58c"></a>58C | Infer operator and builtin results | `e92650f` |
-| <a id="step-58d"></a>58D | Infer container facts | `6adc311` |
-| <a id="step-58e"></a>58E | Infer fun facts | `ebac255` |
-| <a id="step-58f"></a>58F | Infer local function inputs from their callers | `8b1e998` |
-| <a id="step-58f1"></a>58F1 | Print consecutive integers as ranges | `bfab7a8` |
-| <a id="step-58g"></a>58G | Narrow facts by patterns and guards; infer entry domains | `22dff64` |
-| <a id="step-58h"></a>58H | Narrow facts by their uses | `c56d515` |
-| <a id="step-58h1"></a>58H1 | Narrow integer ranges by guard comparisons | `16fb58e` |
-| <a id="step-58i"></a>58I | Reject specifications that contradict inferred types | `be76267` |
-| <a id="step-58i1"></a>58I1 | Print term() as `_` | `579e605` |
-| <a id="step-58i2"></a>58I2 | Print argument relations as variable names | `6d02bd1` |
-| <a id="step-58j"></a>58J | Keep wide known containers and print records | `bc94017` |
-| <a id="step-58j1"></a>58J1 | Infer try and maybe values | `2607172` |
-| <a id="step-58k"></a>58K | Keep per-clause function types and print them | `c7f52b6` |
-| <a id="step-58l"></a>58L | Match calls against function types | `01fbba5` |
-| <a id="step-58m"></a>58M | Re-analyse callees for each call | `06042fa` |
-| <a id="step-58n1"></a>58N1 | Keep dependent facts of case and if | `e63e14c` |
-| <a id="step-58n2"></a>58N2 | Carry dependent facts through operations and bindings | `60a5dd4` |
-| <a id="step-58n3"></a>58N3 | Dependent facts of tuple scrutinees and try ... of | `175b545` |
-| <a id="step-59"></a>59 | Make specialization remove real source checks | `8a5ace2` |
-| <a id="step-60"></a>60 | Emit source-level debug information | `116cff1` |
-| <a id="step-61"></a>61 | Add opt-in profiling | `ecb8de5` |
-| <a id="step-62"></a>62 | Integrate link-time optimization | `5ec3645` |
-| <a id="step-62a"></a>62A | Index code server lookups with hash maps | `aa0198b` |
-| <a id="step-62b"></a>62B | Keep receive timers in a timer wheel | `eccd7c4` |
-| <a id="step-63"></a>63 | Validate on Linux x86-64 | `5948a44` |
-| <a id="step-64"></a>64 | Validate 32-bit x86 (Windows x86 and Linux x86) | `9eef9cc` |
-| <a id="step-65"></a>65 | Validate Linux AArch64 and 32-bit ARM | `ab5943b` |
-| <a id="step-67"></a>67 | Run compiler and frontend sanitizers | `58b3243` |
-| <a id="step-68"></a>68 | Run ThreadSanitizer on the multi-worker runtime | `9679aea` |
+<a id="completed-steps"></a><a id="step-1"></a><a id="step-1a"></a><a id="step-1b"></a><a id="step-1c"></a>
+<a id="step-2"></a><a id="step-3"></a><a id="step-3a"></a><a id="step-4"></a><a id="step-5"></a><a id="step-6"></a>
+<a id="step-6a"></a><a id="step-7"></a><a id="step-8"></a><a id="step-8a"></a><a id="step-8b"></a><a id="step-8c"></a>
+<a id="step-8d"></a><a id="step-8e"></a><a id="step-8f"></a><a id="step-8g"></a><a id="step-8h"></a><a id="step-8i"></a>
+<a id="step-9"></a><a id="step-10"></a><a id="step-11"></a><a id="step-12"></a><a id="step-13"></a><a id="step-14"></a>
+<a id="step-15"></a><a id="step-16"></a><a id="step-17"></a><a id="step-18"></a><a id="step-19"></a><a id="step-20"></a>
+<a id="step-21"></a><a id="step-22"></a><a id="step-23"></a><a id="step-24"></a><a id="step-25"></a><a id="step-26"></a>
+<a id="step-27"></a><a id="step-27a"></a><a id="step-27b"></a><a id="step-27c"></a><a id="step-27d"></a><a id="step-27e"></a>
+<a id="step-28"></a><a id="step-29"></a><a id="step-30"></a><a id="step-31"></a><a id="step-31a"></a><a id="step-31b"></a>
+<a id="step-31c"></a><a id="step-31d"></a><a id="step-31e"></a><a id="step-32"></a><a id="step-33"></a><a id="step-34"></a>
+<a id="step-35"></a><a id="step-36"></a><a id="step-37"></a><a id="step-38"></a><a id="step-39"></a><a id="step-40"></a>
+<a id="step-41"></a><a id="step-42"></a><a id="step-43"></a><a id="step-43a"></a><a id="step-44"></a><a id="step-45"></a>
+<a id="step-46"></a><a id="step-47"></a><a id="step-48"></a><a id="step-49"></a><a id="step-50"></a><a id="step-51"></a>
+<a id="step-52"></a><a id="step-53"></a><a id="step-54"></a><a id="step-55"></a><a id="step-56"></a><a id="step-57"></a>
+<a id="step-57a"></a><a id="step-57b"></a><a id="step-57c"></a><a id="step-57d"></a><a id="step-57e"></a><a id="step-57f"></a>
+<a id="step-57g"></a><a id="step-57g1"></a><a id="step-57g2"></a><a id="step-57g3"></a><a id="step-58"></a><a id="step-58a"></a>
+<a id="step-58b"></a><a id="step-58c"></a><a id="step-58d"></a><a id="step-58e"></a><a id="step-58f"></a><a id="step-58f1"></a>
+<a id="step-58g"></a><a id="step-58h"></a><a id="step-58h1"></a><a id="step-58i"></a><a id="step-58i1"></a><a id="step-58i2"></a>
+<a id="step-58j"></a><a id="step-58j1"></a><a id="step-58k"></a><a id="step-58l"></a><a id="step-58m"></a><a id="step-58n1"></a>
+<a id="step-58n2"></a><a id="step-58n3"></a><a id="step-59"></a><a id="step-60"></a><a id="step-61"></a><a id="step-62"></a>
+<a id="step-62a"></a><a id="step-62b"></a><a id="step-63"></a><a id="step-64"></a><a id="step-65"></a><a id="step-65a"></a>
+<a id="step-65b"></a><a id="step-65c"></a><a id="step-67"></a><a id="step-68"></a><a id="step-73a"></a><a id="step-73b"></a>
+<a id="step-73c"></a><a id="step-73d"></a><a id="step-73e"></a><a id="step-73f"></a><a id="step-73g"></a>
 
-### Notes kept from completed steps
+### Notes from completed steps that guide remaining work
 
-- Inference 58A–58N3 (user direction 2026-10-08/10): contract
-  [semantic analysis](../docs/semantic.md#inference), domain budgets in
-  [inference domain](../docs/semantic.md#inference-domain), dependent facts
-  of `case`/`if`/`try ... of` in
-  [dependent facts](../docs/semantic.md#dependent-facts) (printed as
-  `$case_of_operator`, `$if_operator`, `$try_of_operator`). Expectations
-  `tests/fixtures/inference/` (values 143, base_types 46, narrowing 53,
-  clauses 53, dependent 25 functions, 13 contract fixtures). Facts stay
-  sound: specialization reads only proven facts and the erased union
-  summaries. Not done: the optional 58L report of a call no inferred
-  function type can enter; a `case` on a variable that itself depends on an
-  argument does not split over that argument.
-- 59: proofs at O2 with specialization only; source variants still rarely
-  fit the 2x size limit.
-- 60: Mach-O needs `dsymutil` (not run; step 66, docs/debugging.md).
-- 62: `--lto` on Windows MSVC and ELF targets only.
-- 62B: "within one tick" is bounded by the host's timed-wait resolution.
+- Gate baseline: since commit `33481a7` raised the module limit to 16384,
+  `codegen_resource_cli` still expects 1025 inputs to fail; every 73B–73G
+  gate ran with that one known failure.
+- 60 (for 66): Mach-O debug info needs `dsymutil`, not run yet
+  (`docs/debugging.md`).
 - 63: clang-tidy runs on the Windows host only (user); `cmake/tidy_filter.py`
   ignores Boost `cpp_int` analyzer reports (user decision).
-- 64: no 32-bit LLVM SDK, so `clau` stays x64 and 32-bit coverage is the
-  runtime plus cross-linked goldens (`cross.py`).
-- 65: ARM ran under qemu-user only; qemu's `posix_spawn` never reports a
-  missing program (`port_spawn` `enoent` fails there). Native ARM is open.
-- 67/68: ASan/UBSan/LSan and TSan on Linux x86-64 found and fixed one
-  shutdown use-after-free and one lock-order inversion; injected
-  host-refusal tests and allocator-replacing tests are out of scope.
+- 65 (for 66): ARM ran under qemu-user only; qemu's `posix_spawn` never reports
+  a missing program (`port_spawn` `enoent` fails there). Native ARM is open.
+- 65A–65C (for 73): still rejected are `on_load`, `nifs`, `export_all`,
+  `{d, ...}`, `warnings_as_errors`, unknown `-compile` options and imports of
+  `erlang` functions that are no builtins; each names itself in the diagnostic.
+- 73A–73G (for 73H): OTP-requiring tests carry label `host_otp` and skip when
+  CMake finds no `erl`; host OTP lookup is `--erl`, `PATH`, then
+  `%ProgramFiles%\Erlang OTP`; `--erl none` simulates a missing host OTP.
 
 ## M. Validation closure
-
-<a id="step-65a"></a>
-
-### 65A. Implement `-behaviour`/`-behavior` attributes
-
-Backlog: D03 (selected slice). Depends on: [58](#step-58). Added 2026-10-10
-(user direction); runs before every other remaining step.
-
-Accept both spellings instead of rejecting them as behavior-changing
-attributes, and check the module's exports against the declared callback API
-as described in
-[OTP design principles: behaviours](https://www.erlang.org/doc/system/design_principles.html#behaviours)
-and pinned `erl_lint` (`check_behaviour`).
-
-- Success criteria
-  - [x] `-behaviour(M)` and `-behavior(M)` are accepted and repeatable.
-    `module_info/0,1` does not exist in Clause yet, so the attributes are not
-    visible at run time (decided 2026-10-10; [65B](#step-65b) adds it).
-  - [x] Callbacks of `M` come from its `-callback` and `-optional_callbacks`
-    declarations, resolved from batch modules and the shipped library; a
-    module declaring `-callback` exports a generated `behaviour_info/1`
-    (`callbacks`, `optional_callbacks`), as OTP's `erl_internal` adds it, and
-    like OTP its own source cannot export, call, `fun` or `-spec` it.
-  - [x] Each required callback missing from the exports reports OTP's
-    `undefined callback function F/A (behaviour 'M')` warning; optional
-    callbacks are exempt. Also `behaviour M undefined`,
-    `conflicting behaviours`, OTP's module-name errors and the error for
-    `-callback` beside a hand-written `behaviour_info/1`, in OTP's wording and
-    location, honoring `-compile` `nowarn_*` options. A hand-written
-    `behaviour_info/1` is not evaluated, so ill-defined and deprecated
-    callback warnings cannot occur; `warnings_as_errors` stays a rejected
-    compile option (step 73).
-  - [x] An unresolvable OTP behaviour (`gen_server`, `supervisor`,
-    `application`, ...) follows OTP's `undefined_behaviour` warning path, not
-    an error; divergences are recorded in `docs/differences.md`.
-  - [x] Contract recorded in `docs/semantic.md`; step 73 lists `behaviour`
-    as decided.
-- Tests
-  - [x] CLI fixtures: a project behaviour module with required and optional
-    callbacks, a conforming implementer, missing/conflicting/undefined cases;
-    diagnostics compared with OTP-derived goldens.
-  - [x] Executable golden calling the implementer through
-    `M:behaviour_info(callbacks)` and a dynamic callback call.
-- Evidence (2026-10-10): `lint_diagnostics` (8 cases, OTP 29.1.1 goldens),
-  `executables_behaviours`, semantic CLI cases; fresh fast CTest 234/234,
-  check-quality clean ([validation](../docs/validation.md#history)).
-
-<a id="step-65b"></a>
-
-### 65B. Generate `module_info/0,1` and keep informational attributes
-
-Backlog: D03 (selected slice). Depends on: [65A](#step-65a). Added 2026-10-10
-(user direction); runs right after 65A, before every other remaining step.
-
-Every module gets OTP's predefined, exported `module_info/0` and
-`module_info/1` ([modules](https://www.erlang.org/doc/system/modules.html),
-`erl_internal:add_predefined_functions`: both call
-`erlang:get_module_info/1,2`), and informational attributes stop being
-rejected. Behavior-changing attributes (`on_load`, `nifs`, `-compile` options
-other than `nowarn_*`/`no_auto_import`, parse transforms, wider `-import`)
-stay rejected for [73](#step-73).
-
-Observed under OTP 29.1.1 (2026-10-10), to be confirmed by goldens:
-`module_info()` is `[{module,M},{exports,_},{attributes,_},{compile,_},{md5,_}]`;
-`exports` lists the source exports in order, then `behaviour_info/1` when
-generated, then `module_info/0`, `module_info/1`; `attributes` keeps every
-attribute except `module`, `export`, `import`, `export_type`, `type`,
-`opaque`, `nominal`, `spec`, `callback`, `optional_callbacks`, `record`,
-`compile`, `file`, `doc`, `moduledoc`, in source order, a non-list value
-wrapped in a list (`{behaviour,[shape]}`, `{my_attr,[again]}`), and adds
-`{vsn,[Integer]}` (from the MD5) when the source has no `-vsn`;
-`module_info(bogus)` raises `badarg`.
-
-- Success criteria
-  - [x] `module_info/0,1` are generated and exported like the 65A
-    `behaviour_info/1`, but, unlike it and as in OTP's erl_lint, local calls
-    and `fun module_info/1` reach them, an explicit export only warns
-    (`function module_info/0 already exported`), and a hand-written
-    definition is an error (`function module_info/0 already defined`).
-  - [x] `module_info/1` answers `module`, `exports`, `attributes`, `compile`,
-    `md5`, `functions`, `nifs` (`[]`) and `native` (`false`). Decided
-    2026-10-10: the generated functions return literal data, so no runtime
-    or ABI change is needed and `erlang:get_module_info/1,2` is not provided
-    (recorded in `docs/differences.md`).
-  - [x] Accepted informational attributes: `vsn`, `author`, `copyright`,
-    `deprecated`, `behaviour`/`behavior`, `dialyzer` and any other
-    user-defined literal attribute (`-my_attr(Term).`), all visible through
-    `module_info(attributes)`; names reserved for behavior changes keep the
-    capability diagnostic.
-  - [x] Values that cannot match OTP (`md5` bytes, the `vsn` integer
-    derived from it, `compile` `version`/`options`/`source`, `functions`
-    entries OTP adds for its own generated code) have a documented Clause
-    meaning and rows in `docs/differences.md`; contract in `docs/semantic.md`
-    (or a new `docs/modules.md`), backlog and step 73 updated. Generated
-    functions get no debug locations, source comments or `--print-types`
-    output.
-- Tests
-  - [x] Executable golden: `module_info/0,1` keys, `exports`, `attributes`
-    with `-vsn`, multiple custom attributes and non-list values, remote and
-    `apply/3` calls, `badarg` for an unknown key; values that differ
-    (`md5`, `compile`, missing-`vsn` integer) are checked by shape only.
-  - [x] Lint goldens (`tests/fixtures/lint`) for the diagnostics OTP shares
-    (hand-written definition, explicit export); CLI cases for the rest.
-- Evidence (2026-10-10): `executables_module_info` (OTP 29.1.1 stdout),
-  lint cases `module_info_defined`, `exports_repeated`; fresh fast CTest and
-  check-quality ([validation](../docs/validation.md#history)).
-
-<a id="step-65c"></a>
-
-### 65C. Import functions, accept compile hints, name rejected attributes
-
-Backlog: D03 (selected slice). Depends on: [65B](#step-65b). Added 2026-10-10
-(user direction, from compiling luerl); runs right after 65B.
-
-Real projects such as luerl stop on `-import(Mod, [F/A])` of modules other
-than `erlang` and on optimization-only `-compile` options, with an
-unspecific `[behavior-changing attributes] notimpl`.
-
-- Success criteria
-  - [x] `-import(Mod, [F/A, ...])` of any module: a local call `F(...)` of an
-    imported function, which the module does not define, is the remote call
-    `Mod:F(...)` (literal module, library loading and remote export rules
-    apply); an import overrides an auto-imported BIF of the same name and
-    arity as in OTP. erl_lint's conflicts are reported with OTP's wording:
-    importing one function from two modules, and defining an imported
-    function. `fun F/A` of an imported function follows OTP.
-  - [x] Optimization and reporting hints in `-compile` are accepted and
-    ignored: `inline` and `{inline, [F/A]}`, `{inline_size, N}`,
-    `{inline_effort, N}`, `inline_list_funcs`, `debug_info`, `deterministic`,
-    report/verbosity options and `warn_*` beside the existing `nowarn_*` and
-    `no_auto_import`; options that change meaning (`export_all`, parse
-    transforms, `{d, ...}`, unknown ones) stay rejected.
-  - [x] A rejected attribute names itself and the offending option, such as
-    `-on_load attribute`, `-compile option {parse_transform,eunit_autoexport}`
-    or `-import of erlang:foo/1` (an import of an `erlang` function that is
-    no builtin), instead of only the capability.
-  - [x] Contracts in `docs/semantic.md`/`docs/compile.md`, differences, step
-    73 and the backlog updated.
-- Tests
-  - [x] Executable golden: imported library and batch functions called
-    locally, in guards where OTP allows, through `fun F/A`, and an import that
-    overrides an auto-imported BIF.
-  - [x] Lint goldens for the import conflicts OTP reports; CLI cases for the
-    accepted hints and the named rejections.
-  - [x] luerl's `src/` gets past attribute admission (recorded, not a gate).
-- Added 2026-10-10 (user direction): `{parse_transform, Module}` is accepted
-  and not applied, with a `[parse transforms] notimpl` warning (feature ID
-  27); applying transforms stays with [73](#step-73).
-- Evidence (2026-10-10): `executables_imports` (OTP 29.1.1 stdout), lint cases
-  `imports_conflicts`, `imports_fun`, `imports_bif`, CLI cases; luerl `src/`
-  passes attribute admission and stops on missing library modules and
-  builtins (`array`, `ordsets`, `math`, `io_lib`, ...). Fresh fast CTest and
-  check-quality ([validation](../docs/validation.md#history)).
 
 <a id="step-66"></a>
 
 ### 66. Validate macOS Apple Silicon
 
-Backlog: V01. Depends on: [63](#step-63).
+Backlog: V01. Depends on: [63](00-finished.md#step-63).
 
 - Success criteria
   - [ ] Same as step 63 on macOS arm64.
@@ -466,7 +200,7 @@ Backlog: V01. Depends on: [63](#step-63).
 
 ### 69. Broaden OTP compatibility evidence
 
-Backlog: V03. Depends on: [58](#step-58).
+Backlog: V03. Depends on: [58](00-finished.md#step-58).
 
 - Success criteria
   - [ ] Selected applicable upstream Common Test suites run against a matching
@@ -480,7 +214,7 @@ Backlog: V03. Depends on: [58](#step-58).
 
 ### 70. Close the test migration ledger
 
-Backlog: V04. Depends on: [58](#step-58).
+Backlog: V04. Depends on: [58](00-finished.md#step-58).
 
 - Success criteria
   - [ ] Every remaining adapter or synthetic success test either has equivalent
@@ -497,7 +231,7 @@ write its own small implementation plan before coding.
 
 ### 71. Decide dynamic modules and code upgrades
 
-Backlog: D01. Depends on: [55](#step-55). **Decision.**
+Backlog: D01. Depends on: [55](00-finished.md#step-55). **Decision.**
 
 - Success criteria
   - [ ] Static-only, native dynamic libraries, or an upgrade model chosen;
@@ -509,7 +243,7 @@ Backlog: D01. Depends on: [55](#step-55). **Decision.**
 
 ### 72. Decide atom collection
 
-Backlog: D02. Depends on: [54](#step-54). **Decision.**
+Backlog: D02. Depends on: [54](00-finished.md#step-54). **Decision.**
 
 - Success criteria
   - [ ] Bounded permanent atoms kept, or collection roots and policy defined.
@@ -520,16 +254,16 @@ Backlog: D02. Depends on: [54](#step-54). **Decision.**
 
 ### 73. Decide behavior-changing attributes and transforms
 
-Backlog: D03. Depends on: [58](#step-58). **Decision.**
+Backlog: D03. Depends on: [58](00-finished.md#step-58). **Decision.**
 
 - Success criteria
   - [ ] Per-attribute decision (`compile` options, `on_load`, others;
     parse transforms are selected and implemented by phase N2,
-    [73A](#step-73a)–[73H](#step-73h), accepted unapplied with a warning
-    until then; `behaviour` is implemented by [65A](#step-65a),
-    `module_info` and informational attributes by [65B](#step-65b), imports
-    and compile hints by [65C](#step-65c));
-    rejected ones keep diagnostics.
+    [73A](00-finished.md#step-73a)–[73H](#step-73h) (applied since 73F);
+    `behaviour` is implemented by [65A](00-finished.md#step-65a),
+    `module_info` and informational attributes by
+    [65B](00-finished.md#step-65b), imports and compile hints by
+    [65C](00-finished.md#step-65c)); rejected ones keep diagnostics.
 - Tests
   - [ ] CLI diagnostics for each rejected attribute.
 
@@ -537,7 +271,7 @@ Backlog: D03. Depends on: [58](#step-58). **Decision.**
 
 ### 74. Decide public stage interchange
 
-Backlog: D04. Depends on: [58](#step-58). **Decision.**
+Backlog: D04. Depends on: [58](00-finished.md#step-58). **Decision.**
 
 - Success criteria
   - [ ] A concrete consumer named, or deferral recorded; inspection dumps stay
@@ -561,7 +295,7 @@ Backlog: D05. Depends on: [74](#step-74). **Decision.**
 
 ### 76. Decide C/FFI interoperability
 
-Backlog: D06. Depends on: [58](#step-58). **Decision.**
+Backlog: D06. Depends on: [58](00-finished.md#step-58). **Decision.**
 
 - Success criteria
   - [ ] An external caller and minimal API named, or deferral recorded.
@@ -572,7 +306,7 @@ Backlog: D06. Depends on: [58](#step-58). **Decision.**
 
 ### 77. Decide project schema extensions
 
-Backlog: D07. Depends on: [58](#step-58). **Decision.**
+Backlog: D07. Depends on: [58](00-finished.md#step-58). **Decision.**
 
 - Success criteria
   - [ ] Demand recorded for each extension (profiles, dependencies, exclusions,
@@ -599,330 +333,15 @@ entry point from the driver. Normal builds and tests stay OTP-free: format
 coverage uses OTP-generated goldens; tests that run a transform need host OTP
 and are labeled and skipped (recorded as a gap) without it.
 
-Facts from pinned `lib/compiler/src/compile.erl` (to be confirmed by 73A):
-transforms run as the first standard pass, after `epp` and before
-`erl_lint`. The list is `{parse_transform, M}` from the compile options, then
-from `-compile` attributes in form order; those options are removed from the
-forms before the first transform runs. Each `M` must be loadable
-(`code:ensure_loaded`) and export `parse_transform/2`, else
-`undefined parse transform 'M'`. It receives the forms and the compile
-options and returns `Forms`, `{warning, Forms, Warnings}` or
-`{error, Errors, Warnings}`; an exception becomes
-`error in parse transform 'M': ...`. An optional
-`parse_transform_info/0` returning `#{error_location => line}` (or the
-`error_location` option) strips columns from the forms before that transform
-runs and from the final forms. Forms are those of
-[the abstract format](https://www.erlang.org/doc/apps/erts/absform.html),
-including `{attribute, A, file, {File, Line}}` at include boundaries, `{error,
-E}`/`{warning, W}` forms from `epp`, and `{eof, Location}`. `erlc +to_abstr`
-writes the post-transform forms as `File.abstr` (one `~p.` term per form),
-and `compile:file(F, [from_abstr])` compiles such a file.
-
-<a id="step-73a"></a>
-
-### 73A. Decide the parse transform contract
-
-Backlog: D03. Depends on: [65C](#step-65c). **Decision.**
-
-Investigate OTP's transform pass, the data in and out of a transform module
-and the forms `epp` produces, and publish `docs/transforms.md`.
-
-- Success criteria
-  - [x] OTP behavior recorded from pinned sources (`compile.erl`
-    `transform_module`/`foldl_transform`/`maybe_strip_columns`, `epp`,
-    `erl_parse`) and observed under host OTP 29.1.1: transform order
-    (options, then `-compile` attributes; duplicates run twice), options
-    passed (external compile options only), return shapes, message format,
-    column stripping, `epp`'s `file` attributes and `eof`, and the OTP 29
-    forms `absform.md` omits (`native_record`, qualified and `#_` record
-    names, `zip`, map comprehensions).
-  - [x] Interchange: External Term Format files between `clau` and the
-    loader; `.abstr` consult text for `--print-abstr` output (stdout, one
-    form per line; replaces the proposed `--to-abstr` file output) and
-    `.abstr` inputs; one owned term model serves both.
-  - [x] Host OTP: `--erl PATH`, `PATH`, then `%ProgramFiles%\Erlang OTP`
-    (no project option: the host tool is per machine); OTP 29 required; the
-    loader source is embedded in `clau`, written to a fresh temporary
-    directory and compiled in memory by `erl` on each run; request/reply
-    files; loader output copied to `clau`'s stderr; 600 s limit; no host OTP
-    is an error naming the transform (replaces the 65C warning).
-  - [x] Transform module lookup: `.beam` files on `--transform-path` /
-    `transform_paths` first (the only way for dependency transforms), then
-    project sources compiled in memory by the loader on every run (no cache:
-    decided against for simplicity; precompiling avoids the cost), then
-    OTP's modules. `include_lib` of OTP headers resolves through the
-    existing `--app-dir` mapping.
-  - [x] Compile-failure risk: the loader reports the transform's compiler
-    messages plus the hint to precompile it and pass `--transform-path`.
-  - [x] Pipeline: after preprocessing and parsing, before `predefined`, lint
-    and semantic analysis; modules with preprocessor or parse errors never
-    reach transforms (a `docs/differences.md` row lands with 73F, when it
-    becomes observable). `--print-ast`/`--print-source`/`--print-abstr`
-    show the transformed module; checks do not run transforms.
-  - [x] Layout `compiler/src/transforms/` (+ `loader/`), tests
-    `tests/compiler/transforms/`, fixtures `tests/fixtures/transforms/`;
-    CLI `--parse-transform`, `--transform-path`, `--erl`, `--print-abstr`;
-    project `parse_transforms`, `transform_paths`; OTP-requiring tests carry
-    label `host_otp` and skip when CMake finds no `erl`. Step 73,
-    `features.md` and `01-todo.md` D03 updated.
-- Tests
-  - [x] None beyond the gate; observations are owned notes in
-    `docs/transforms.md`, not OTP copies.
-- Evidence (2026-10-11): `docs/transforms.md`; probes of OTP 29.1.1 `erlc`
-  with a printing transform. Documentation only, so no build or test gate
-  was run for this step.
-
-<a id="step-73b"></a>
-
-### 73B. Add the abstract term model and its codecs
-
-Backlog: D03. Depends on: [73A](#step-73a).
-
-An owned, compiler-side term value for abstract forms and transform options:
-atoms, integers (big), floats, lists (proper and improper), strings as lists,
-tuples, maps, binaries and bitstrings, as attribute values may hold any
-literal.
-
-- Success criteria
-  - [x] `compiler/src/transforms/` term model with an External Term Format
-    encoder/decoder (the tags OTP 29 `term_to_binary` emits for these kinds,
-    including UTF-8 atoms and bignums) and a `.abstr` text writer and reader
-    (`file:consult` syntax; reuse the parser's literal-term grammar where it
-    fits).
-  - [x] Malformed or unsupported input (pids, refs, funs, truncated data,
-    budget overruns) is a diagnostic, never a crash.
-- Tests
-  - [x] Focused unit tests for codec invariants a source fixture cannot
-    reach: tag coverage, round trips, truncation, size budgets; ETF and text
-    samples generated once by OTP and stored as goldens.
-- Evidence (2026-10-11): `transforms_terms` decodes OTP 29.1.1's
-  `term_to_binary` of 50 samples and re-encodes them byte for byte, reads
-  OTP's `~tp` text of each, round-trips Clause's own text, rejects every
-  truncation and unsupported tags, and handles 200,000-deep nesting
-  (`tests/compiler/transforms/terms_oracle.escript` regenerates the samples).
-  User direction (2026-10-11): the format layer is shared, not
-  compiler-private: `abi/include/clause/abi/external_term.hpp` holds a
-  representation-independent `Writer` and pull `Reader` that the runtime's
-  `term_to_binary`/`binary_to_term` and distribution must reuse; the
-  compiler's `transforms/etf` only adapts its term arena to it.
-  Gate: fresh fast CTest 236/237, the one failure `codegen_resource_cli`
-  predating this step (commit 33481a7 raised the module limit to 16384, the
-  test still expects 1025 inputs to fail); check-quality clean.
-
-<a id="step-73c"></a>
-
-### 73C. Export modules as abstract forms
-
-Backlog: D03. Depends on: [73B](#step-73b).
-
-- Success criteria
-  - [x] An AST-to-forms writer covers every form, attribute, record, type,
-    spec, clause, expression, pattern, guard, binary, map, comprehension,
-    `maybe` and native record construct the parser accepts, with `{Line,
-    Column}` annotations, `-file` attributes at include boundaries as `epp`
-    emits them, and `{eof, Location}`; predefined functions are not
-    exported.
-  - [x] `clau --print-abstr` prints each module's forms like
-    `erlc +to_abstr` writes them and stops (no transforms yet, so it is the
-    parsed module).
-- Tests
-  - [x] CLI goldens: `.abstr` files generated once by `erlc +to_abstr` for
-    fixtures covering the whole grammar (reuse parser corpus and
-    `programs` fixtures) compared exactly with Clause output; every
-    difference is fixed or recorded in `docs/differences.md`.
-- Evidence (2026-10-11): `transforms_abstract` compares `clau --print-abstr`
-  with `epp:parse_file(F, [{location, {1, 1}}])` of OTP 29.1.1 for four
-  fixtures (attributes, includes, explicit `-file`, every expression,
-  pattern, control, comprehension and type form, sigils, native and
-  qualified records) as terms: all equal. Found and matched along the way:
-  `[]` is annotated at `[`, an explicit `-file` carries
-  `[{generated,true},{location,L}]`, `eof` counts from the last `-file`.
-  Include names are written relative to the working directory
-  (`docs/differences.md` row for files outside it). Golden generator:
-  `tests/compiler/transforms/abstract_oracle.escript`.
-  Gate: fresh fast CTest 236/238 (`codegen_resource_cli` predates the
-  step; `transforms_abstract` first missed its Python lookup, then passed
-  in a rerun of the transforms/CLI/printing tests); check-quality clean.
-
-<a id="step-73d"></a>
-
-### 73D. Import abstract forms into the AST
-
-Backlog: D03. Depends on: [73C](#step-73c).
-
-- Success criteria
-  - [x] A forms-to-AST reader builds the owned AST through the existing
-    builder for every shape the writer emits and every shape OTP's
-    `erl_parse` can produce (forms a transform builds need not come from
-    source syntax). Annotations become source locations: line and optional
-    column, the file from preceding `-file` attributes, `generated`.
-  - [x] Invalid forms are diagnosed at their annotation, with `erl_lint`
-    wording where OTP reports the same problem; unsupported shapes are
-    explicit diagnostics.
-  - [x] `.abstr` files are accepted as compiler inputs, positional and in
-    projects, like `erlc File.abstr`, and compile through the normal lint,
-    semantic and codegen stages.
-- Tests
-  - [x] Round trip: export, import, export gives identical forms for every
-    73C fixture.
-  - [x] Executable goldens: OTP-generated `.abstr` fixtures (including forms
-    no source can spell, e.g. `generated` annotations or a `-file` that
-    moves locations) compile, link and print the same stdout as their
-    `.erl` originals; diagnostics for invalid forms.
-- Evidence (2026-10-11): `transforms_abstract` now also feeds every OTP
-  golden back as a `.abstr` input: printed back unchanged (operators and
-  nested lists, explicit `throw:`/`:_`, zip annotations decided with
-  erl_parse's first/last_anno). `transforms_inputs`: OTP-generated,
-  hand-crafted (`generated` annotations, a variable no source can spell, an
-  explicit `-file` moving lines) and line-only `.abstr` programs link and
-  print the same stdout as OTP 29.1.1 runs of them; a project target lists
-  a `.abstr`; three malformed forms give located errors. `generated` is
-  ignored (difference row).
-  Gate: fresh fast CTest 238/239 (only the earlier `codegen_resource_cli`
-  failure); Lizard and clang-tidy findings in the importer were fixed
-  (error-context parameters removed, functions split), then the transforms
-  tests and check-quality ran clean.
-
-<a id="step-73e"></a>
-
-### 73E. Run transforms through the host OTP loader
-
-Backlog: D03. Depends on: [73B](#step-73b).
-
-- Success criteria
-  - [x] Host OTP discovery and release check as decided in 73A
-    (`transforms/host_otp`), reusing the subprocess launching of
-    `compiler/src/linking/`.
-  - [x] An owned loader module (`compiler/src/transforms/loader/*.erl`,
-    erlfmt-formatted, embedded in `clau`) reads the request (forms, options,
-    ordered transform list, code paths), loads each transform, applies
-    `parse_transform_info/0` column stripping, runs `parse_transform/2` in
-    order and writes one result: forms plus warnings, errors plus warnings,
-    `undefined parse transform`, or the class, reason and stack of a crash.
-    Transform output on stdout/stderr reaches the user.
-  - [x] Time limit, missing or broken host OTP, and a loader that exits
-    without a result are distinct diagnostics.
-- Tests
-  - [x] OTP-requiring (labeled) loader tests through a CLI debug entry point
-    or 73F's pipeline: `erl_id_trans`, each return shape, crash, undefined
-    module, line-only `parse_transform_info/0`.
-  - [x] OTP-free: the no-host-OTP diagnostic (lands with the CLI in 73F).
-- Evidence (2026-10-11): `transforms_loader` (label `host_otp`, skipped
-  when CMake finds no `erl`) drives the loader on OTP 29.1.1 with owned
-  transform fixtures compiled in memory: identity (forms unchanged),
-  `{warning, ...}` (text and location), `{error, ...}`, a crash
-  (`error in parse transform 'pt_crash'`), an undefined module,
-  `parse_transform_info/0` asking for lines (columns stripped), a source
-  that does not compile (compiler message plus the precompile hint) and a
-  missing explicit `erl`. OTP has no `erl_id_trans` module (example source
-  only), so an owned identity transform replaces it.
-  Gate: fresh fast CTest 239/240 (only the earlier `codegen_resource_cli`
-  failure; `transforms_loader` ran on the host OTP); check-quality clean.
-
-<a id="step-73f"></a>
-
-### 73F. Apply parse transforms in the compile pipeline
-
-Backlog: D03. Depends on: [73D](#step-73d), [73E](#step-73e).
-
-- Success criteria
-  - [x] The driver collects transforms in OTP order (options, then
-    `-compile` attributes), removes their options from the forms, exports,
-    runs the loader once per module, imports the result and replaces the
-    module's AST; predefined functions, lint and semantic analysis run on
-    the transformed module. Modules without transforms are unchanged and
-    never start OTP.
-  - [x] Returned warnings and errors become Clause diagnostics at their
-    file and location, with OTP's `compile` wording for
-    `undefined parse transform 'M'` and `error in parse transform 'M': ...`;
-    `nowarn_*` and the 65C warning rules apply; the 65C `notimpl` warning is
-    removed.
-  - [x] `--print-abstr` now prints the post-transform forms, as `erlc +to_abstr` writes them.
-  - [x] Positional and project drivers both apply transforms.
-  - [x] User docs (`docs/transforms.md`, `docs/compile.md`, README) state
-    how to invoke a transform, the host OTP requirement and how `clau`
-    finds it.
-- Tests
-  - [x] OTP-requiring executable goldens: owned transforms (OTP ships no
-    `erl_id_trans` module) from `-compile` and from `--parse-transform`, and
-    `ets:fun2ms` through `ms_transform` printing the produced match
-    specification; stdout matches OTP.
-  - [x] CLI checks for transform-reported errors and warnings (exact
-    stderr lines; no lint golden needed, these are not erl_lint messages).
-- Evidence (2026-10-11): `transforms_pipeline` (label `host_otp`) links
-  `ms_transform`, `-compile` and `--parse-transform` programs through
-  precompiled transforms on `--transform-path` and gets OTP 29.1.1's
-  stdout; checks `subject.erl:1:2: pt_warning says hello`,
-  `subject.erl:4:1: pt_error refuses`,
-  `undefined.erl: undefined parse transform 'no_such_transform'` and the
-  transformed forms in `--print-abstr`. `transforms_no_otp` checks the
-  error without a host OTP through `--erl none` (Windows re-sets
-  `ProgramFiles` in every process, so the environment cannot hide an
-  installed OTP). The 65C warning, its capability code and placeholder are
-  gone; feature 27 is implemented; the semantic `transform` case expects
-  either OTP outcome.
-  Gate: fresh fast CTest 241/242 (only the earlier `codegen_resource_cli`
-  failure); check-quality clean.
-
-<a id="step-73g"></a>
-
-### 73G. Use precompiled and project transform modules
-
-Backlog: D03. Depends on: [73F](#step-73f).
-
-- Success criteria
-  - [x] Precompiled transforms: code-path directories from the CLI option and
-    the project option reach the loader; a transform from a dependency
-    library, built by the user with the host OTP, is found there as a
-    `.beam`. A `.beam` of the wrong OTP major or one that fails to load is a
-    diagnostic naming the file.
-  - [x] Project transforms: a transform module from the batch, a project
-    source path or `source_search_paths` without a precompiled `.beam` is
-    compiled in memory by the loader (with the project's include dirs and
-    defines, transform helper modules alongside) on every run, as 73A
-    decided (no cache). A precompiled `.beam` on a code path wins.
-  - [x] A compile failure of a project transform reports the transform's own diagnostics against
-    its source plus the 73A hint to precompile it into a `.beam` and pass a
-    code path; the modules that use it are not compiled. A transform that is
-    also compiled by Clause as an ordinary module still is.
-  - [x] Multiple transforms chain in order; a transform that depends on a
-    second project module (helper library) works.
-  - [x] User docs (`docs/transforms.md`, `docs/projects.md`) explain the code
-    path options with an example, when a `.beam` must be precompiled
-    (dependency transforms always, project transforms that host `erlc`
-    cannot build) and how to precompile it with the host OTP.
-- Tests
-  - [x] OTP-requiring project fixtures: an owned transform that adds a
-    function and rewrites calls, used by two modules (executable golden);
-    the same transform as a
-    prebuilt `.beam` in a dependency directory given as a code path; a
-    transform whose source host `erlc` cannot compile (error and hint
-    golden).
-  - [x] OTP-free: a code path that does not exist and a transform found
-    nowhere are diagnosed without starting OTP where possible.
-- Evidence (2026-10-11): `transforms_project` (label `host_otp`) builds a
-  project whose own transform (`transforms/pt_rewrite.erl`, rewriting
-  calls and adding a function through the helper module `pt_helper`) is
-  found via `source_search_paths` and compiled by the loader, and whose
-  dependency transform `pt_dep` is precompiled with `erlc` into
-  `deps/ptdep/ebin` and found via `transform_paths = ["deps/*/ebin"]` and
-  `parse_transforms`; both modules of the program are transformed and print
-  OTP 29.1.1's output. A transform source that does not compile fails with
-  its compiler message and the precompile hint; a precompiled `.beam` of the
-  same module then wins over the broken source. `transforms_pipeline` adds a
-  corrupt `.beam` (`cannot load parse transform 'pt_corrupt' from ...`);
-  `transforms_no_otp` adds a missing transform path, reported without
-  starting OTP. A transform found nowhere is only known to OTP, so it stays
-  `undefined parse transform` from the loader.
-  Gate: fresh fast CTest 242/243 (only the earlier `codegen_resource_cli`
-  failure; all seven `transforms_*` tests ran, the OTP ones on the host OTP);
-  one tidy finding fixed, then check-quality clean.
+Steps 73A–73G are done ([record](00-finished.md#plan-11-step-commits)). OTP's
+transform pass (order, options, return shapes, messages, column stripping,
+forms) and Clause's contract are in [transforms](../docs/transforms.md).
 
 <a id="step-73h"></a>
 
 ### 73H. Close parse transforms
 
-Backlog: D03. Depends on: [73G](#step-73g).
+Backlog: D03. Depends on: [73G](00-finished.md#step-73g).
 
 - Success criteria
   - [ ] Real projects with parse transforms (for example a `lager`- or

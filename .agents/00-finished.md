@@ -2,9 +2,10 @@
 
 Compact record of completed work, compatibility decisions and historical
 evidence (consolidated 2026-09-30, compacted 2026-10-04, plan 11 phases F–M
-added 2026-10-10). Current behavior lives
-in the linked `docs/`; architecture and file ownership are in [arch.md](arch.md)
-and [files.md](files.md). Full earlier wording is in Git history.
+added 2026-10-10, plan 11 step table and N2 moved here 2026-10-11). Current
+behavior lives in the linked `docs/`; architecture and file ownership are in
+[arch.md](arch.md) and [files.md](files.md). Full earlier wording is in Git
+history.
 
 | Area | Delivered | Remaining qualification |
 | --- | --- | --- |
@@ -15,11 +16,11 @@ and [files.md](files.md). Full earlier wording is in Git history.
 | Test migration | Frontend/project/runtime migrations, 2026-09-28 | Ledger audit (plan 11 step 70). |
 | Compiler/runtime milestone | Steps 1–46, 2026-09-29 | Immediate-only subset and runtime skeleton. |
 | Pattern matching and guards | Steps 1–20 and 15a, 2026-10-01–03 | Function clauses and body matches over the admitted domain. |
-| Plan 11 | Steps 1–68, 65A–65C (phases A–L, M without 66/69/70), 2026-10-03–10 | Linked executables, `-behaviour` callback checks, `module_info/0,1` and informational attributes, `-import`, ERTS-style heaps and collection, exceptions, recursion, comprehensions, records, funs, processes, multi-worker scheduling, ports, precise inference, specialization, tooling, Linux/x86/ARM validation and sanitizers. |
+| Plan 11 | Steps 1–68, 65A–65C, 73A–73G (phases A–L, M without 66/69/70, N2 without 73H), 2026-10-03–11 | Linked executables, `-behaviour` callback checks, `module_info/0,1` and informational attributes, `-import`, parse transforms on host OTP with abstract-format export/import, ERTS-style heaps and collection, exceptions, recursion, comprehensions, records, funs, processes, multi-worker scheduling, ports, precise inference, specialization, tooling, Linux/x86/ARM validation and sanitizers. |
 
 **Still unfinished:** macOS Apple Silicon validation, upstream OTP Common Test
-evidence, the test-migration ledger audit, the optional scope decisions (D01–D07)
-and final closure (plan 11 steps 66, 69–78).
+evidence, the test-migration ledger audit, the optional scope decisions (D01–D07),
+parse transform closure and final closure (plan 11 steps 66, 69–78, 73H).
 See [outstanding work](#outstanding-work-to-finish) and [the backlog](01-todo.md).
 
 ## Foundations
@@ -167,10 +168,11 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 2026-10-03–10)
+## Plan 11 (steps 1–68, 65A–65C, 73A–73G, 2026-10-03–11)
 
-Commits per step: [11-plan.md](11-plan.md#completed-steps); full step text in
-Git. Contracts in the linked `docs/`. Windows x64 unless noted.
+Per-step commits are in [the step table](#plan-11-step-commits); full step text,
+criteria and evidence are in Git at those commits. Contracts in the linked
+`docs/`. Windows x64 unless noted.
 
 | Steps | Delivered |
 | --- | --- |
@@ -189,6 +191,181 @@ Git. Contracts in the linked `docs/`. Windows x64 unless noted.
 | 58A–58N3 (L) | Inference ([semantic](../docs/semantic.md#inference)): fact domain, literal/operator/container/fun facts, caller inputs, narrowing by patterns, guards, uses and integer comparisons, entry/success domains, spec contradictions as errors, per-clause function types, call selection, per-call re-analysis, dependent facts of `case`/`if`/`try ... of`; `--print-types`. |
 | 59–62B (L) | O2 proofs remove tag/shape checks; debug info (`-g`); profiling (`--profile`); LTO (`--lto`); hashed code-server lookups; timer wheel. Phase close: 235/235 full CTests, `check-quality-all` clean. |
 | 63–65, 67–68 (M) | Linux x86-64 full gate (WSL2); 32-bit runtime on Windows x86 and Linux i386 with cross-linked goldens; arm64/armhf under qemu-user; ASan/UBSan/LSan and TSan clean on Linux after fixing a shutdown use-after-free and a lock-order inversion ([validation](../docs/validation.md)). |
+| 65A–65C (M) | 2026-10-10, from compiling luerl ([semantic](../docs/semantic.md), [compile](../docs/compile.md)): `-behaviour`/`-behavior` with OTP callback warnings and a generated `behaviour_info/1`; generated `module_info/0,1` returning literal data and informational attributes kept in `module_info(attributes)`; `-import` of any module with OTP conflicts; optimization/reporting `-compile` hints ignored; rejected attributes name themselves. Lint goldens from OTP 29.1.1. |
+| 73A–73G (N2) | 2026-10-11, parse transforms ([transforms](../docs/transforms.md)): contract; owned abstract term model with ETF and `.abstr` text codecs (the ETF `Writer`/`Reader` in `abi/include/clause/abi/external_term.hpp` is shared with the future runtime `term_to_binary` and distribution); `--print-abstr` equal to OTP `epp` forms; `.abstr` inputs; embedded loader run on host OTP 29 (`--erl`, `PATH`, default install, 600 s limit); transforms applied before lint in positional and project drivers with OTP's diagnostics; precompiled `.beam`s from `--transform-path`/`transform_paths`, project transforms compiled in memory each run. Last gate 242/243 fast CTests (known `codegen_resource_cli` failure), check-quality clean. |
+
+<a id="plan-11-step-commits"></a>
+
+### Plan 11 step commits
+
+| Step | Title | Commit |
+| --- | --- | --- |
+| <a id="step-1"></a>1 | Refresh the OTP reference and record a fresh baseline | `2d27503` |
+| <a id="step-1a"></a>1A | Tests run time too long | `07d2c38` |
+| <a id="step-1b"></a>1B | Quality check checks too much | `3cdc743` |
+| <a id="step-1c"></a>1C | Run the available documentation check | `e381a86` |
+| <a id="step-2"></a>2 | Author target program fixtures and their feature map | `1a006ac` |
+| <a id="step-3"></a>3 | Decide the entrypoint, arguments and exit-status contract | `af55175` |
+| <a id="step-3a"></a>3A | Add escript compile mode | `8bb5f89` |
+| <a id="step-4"></a>4 | Add runtime term printing and erlang:display/1 | `d63132b` |
+| <a id="step-5"></a>5 | Generate the startup object | `6a246ae` |
+| <a id="step-6"></a>6 | Link executables from positional CLI inputs | `8f68c18` |
+| <a id="step-6a"></a>6A | Link a single project target with explicit -o | `0c27f72` |
+| <a id="step-7"></a>7 | Link executables from project targets | `bcaa23f` |
+| <a id="step-8"></a>8 | Add the executable golden test runner | `736a194` |
+| <a id="step-8a"></a>8A | Decide the classic process heap contract | `02ddf8d` |
+| <a id="step-8b"></a>8B | Split binary cells and add the off-heap list | `34005ee` |
+| <a id="step-8c"></a>8C | Make heap areas parseable and add a heap walker | `ad0f810` |
+| <a id="step-8d"></a>8D | Admit heap words by header instead of the object index | `a0dbc00`, `0c76a8a` |
+| <a id="step-8e"></a>8E | Hold host terms as raw words between safe points | `e5aa219` |
+| <a id="step-8f"></a>8F | Move generated root frames onto a process stack | `e99e4a8`, `b4c99d3`, `9573722`, `7ac15fb` |
+| <a id="step-8g"></a>8G | Replace chunks with a contiguous heap and heap fragments | `c162308` |
+| <a id="step-8h"></a>8H | Collect on explicit host request with a copying collector | `d0cf00b` |
+| <a id="step-8i"></a>8I | Close the heap rework | `dc6e349` |
+| <a id="step-9"></a>9 | Lower `begin`/`end` blocks and `case` expressions | `60102a1` |
+| <a id="step-10"></a>10 | Lower `if` expressions | `1982697` |
+| <a id="step-11"></a>11 | Raise exceptions from source | `80cd244` |
+| <a id="step-12"></a>12 | Lower `catch Expr` | `328a290` |
+| <a id="step-13"></a>13 | Lower `try … of … catch` | `27867ed` |
+| <a id="step-14"></a>14 | Lower `try … after` | `9df4e63` |
+| <a id="step-15"></a>15 | Provide stack traces and `erlang:raise/3` | `c311ae7` |
+| <a id="step-16"></a>16 | Lower `maybe` expressions | `aecbff2` |
+| <a id="step-17"></a>17 | Decide the frame and continuation model | `5447a16` |
+| <a id="step-18"></a>18 | Accept recursive call graphs in analysis | `0e6eb6d` |
+| <a id="step-19"></a>19 | Implement proper tail calls | `eff731f` |
+| <a id="step-20"></a>20 | Support deep non-tail recursion | `26f8b27` |
+| <a id="step-21"></a>21 | Lower list comprehensions | `07d249a` |
+| <a id="step-22"></a>22 | Lower binary and map comprehensions | `1f58ba4` |
+| <a id="step-23"></a>23 | Extend the root inventory to the execution model | `a3ef043` |
+| <a id="step-24"></a>24 | Decide collection triggers and safepoints in generated code | `cf9d82b` |
+| <a id="step-25"></a>25 | Collect on explicit runtime request (folded into 8H) | — |
+| <a id="step-26"></a>26 | Collect from generated code | `0a94ccf` |
+| <a id="step-27"></a>27 | Report heap exhaustion as a defined failure | `bcd1ed5`, `8e939f1`, `3a21bc0` |
+| <a id="step-27a"></a>27A | Runtime-wide memory limit and program-facing caps | `6a87dae` |
+| <a id="step-27b"></a>27B | Remove list length caps | `5701ab5` |
+| <a id="step-27c"></a>27C | Match OTP's tuple arity limit | `12f772d` |
+| <a id="step-27d"></a>27D | Remove map size and key-work caps | `d4baa1f` |
+| <a id="step-27e"></a>27E | Match OTP's big integer limit | `1c085f9` |
+| <a id="step-28"></a>28 | Copy term graphs between heaps | `4d707e5` |
+| <a id="step-29"></a>29 | Lower record updates | `ef7e2cc` |
+| <a id="step-30"></a>30 | Implement record_info/2 | `7186f18` |
+| <a id="step-31"></a>31 | Implement native, qualified and inferred record forms (31A–31E) | — |
+| <a id="step-31a"></a>31A | Decide the native record contract | `8e3e18b` |
+| <a id="step-31b"></a>31B | Add native record cells and runtime services | `206afc1` |
+| <a id="step-31c"></a>31C | Compile local native records | `68252fc` |
+| <a id="step-31d"></a>31D | Compile qualified and imported native records | `595650c` |
+| <a id="step-31e"></a>31E | Compile anonymous native record forms | `a80d26b` |
+| <a id="step-32"></a>32 | Implement function values without captures | `bffcb27` |
+| <a id="step-33"></a>33 | Implement closures with captured variables | `76e4713` |
+| <a id="step-34"></a>34 | Implement named funs | `4ad9bce` |
+| <a id="step-35"></a>35 | Implement dynamic calls | `919f32e` |
+| <a id="step-36"></a>36 | Implement the generic production builtin bridge | `78cbb41` |
+| <a id="step-37"></a>37 | Add the term-access builtin family | `b29cbfc` |
+| <a id="step-38"></a>38 | Add the conversion builtin family | `cd03833` |
+| <a id="step-39"></a>39 | Ship a project-owned library subset for lists and maps | `21f1f77` |
+| <a id="step-40"></a>40 | Add console output through io | `f6a5c30` |
+| <a id="step-41"></a>41 | Add typed native callables for builtin implementations | `09bdac0` |
+| <a id="step-42"></a>42 | Implement pid and reference identities | `59064bf` |
+| <a id="step-43"></a>43 | Run spawned processes on a cooperative executor | `f092504` |
+| <a id="step-43a"></a>43A | Make long-running builtins interruptible | `0682b54` |
+| <a id="step-44"></a>44 | Define process exit and crash reports | `98ad97a` |
+| <a id="step-45"></a>45 | Implement the signal inbox and message send | `dbad5db` |
+| <a id="step-46"></a>46 | Implement selective receive without timeout | `45b424c` |
+| <a id="step-47"></a>47 | Implement receive ... after timeouts | `e404460` |
+| <a id="step-48"></a>48 | Implement links, exit signals and trap_exit | `82d8187` |
+| <a id="step-49"></a>49 | Implement monitors | `e111740` |
+| <a id="step-50"></a>50 | Implement registered process names | `d881d4b` |
+| <a id="step-51"></a>51 | Collect garbage with mailboxes and suspended processes | `55347de` |
+| <a id="step-52"></a>52 | Enable identity-dependent guards | `dd6b8f2` |
+| <a id="step-53"></a>53 | Decide port identity scope | `583e779` |
+| <a id="step-54"></a>54 | Synchronize the atom table | `25215cf` |
+| <a id="step-55"></a>55 | Synchronize code-server publication and lookup | `8b8a699` |
+| <a id="step-56"></a>56 | Run processes on multiple scheduler workers | `c1ff627` |
+| <a id="step-57"></a>57 | Handle cross-worker wakeups, timers and shutdown | `fa54da5` |
+| <a id="step-57a"></a>57A | Decide the port contract | `d39a9e1` |
+| <a id="step-57b"></a>57B | Add port identities and the port table | `21a5199` |
+| <a id="step-57c"></a>57C | Run the I/O poller with scheduler wakeups | `d1dc2f2` |
+| <a id="step-57d"></a>57D | Open subprocesses as ports | `6b04929` |
+| <a id="step-57e"></a>57E | Implement file I/O and standard I/O through ports | `b1bc5d7` |
+| <a id="step-57f"></a>57F | Implement sockets as ports | `8c99374` |
+| <a id="step-57g"></a>57G | Schedule ports like processes on an event-driven backend (57G1–57G3) | — |
+| <a id="step-57g1"></a>57G1 | Serve every port kind from one event-driven I/O thread | `fbacc98` |
+| <a id="step-57g2"></a>57G2 | Run port tasks on the scheduler workers | `171b7f9` |
+| <a id="step-57g3"></a>57G3 | Suspend senders on busy ports and bound unread input | `616e7b2` |
+| <a id="step-58"></a>58 | Run the target fixture projects end to end | `3ec5737` |
+| <a id="step-58a"></a>58A | Decide the inference fact domain | `e52277c` |
+| <a id="step-58b"></a>58B | Infer facts of all literals | `a6c01b5` |
+| <a id="step-58c"></a>58C | Infer operator and builtin results | `e92650f` |
+| <a id="step-58d"></a>58D | Infer container facts | `6adc311` |
+| <a id="step-58e"></a>58E | Infer fun facts | `ebac255` |
+| <a id="step-58f"></a>58F | Infer local function inputs from their callers | `8b1e998` |
+| <a id="step-58f1"></a>58F1 | Print consecutive integers as ranges | `bfab7a8` |
+| <a id="step-58g"></a>58G | Narrow facts by patterns and guards; infer entry domains | `22dff64` |
+| <a id="step-58h"></a>58H | Narrow facts by their uses | `c56d515` |
+| <a id="step-58h1"></a>58H1 | Narrow integer ranges by guard comparisons | `16fb58e` |
+| <a id="step-58i"></a>58I | Reject specifications that contradict inferred types | `be76267` |
+| <a id="step-58i1"></a>58I1 | Print term() as `_` | `579e605` |
+| <a id="step-58i2"></a>58I2 | Print argument relations as variable names | `6d02bd1` |
+| <a id="step-58j"></a>58J | Keep wide known containers and print records | `bc94017` |
+| <a id="step-58j1"></a>58J1 | Infer try and maybe values | `2607172` |
+| <a id="step-58k"></a>58K | Keep per-clause function types and print them | `c7f52b6` |
+| <a id="step-58l"></a>58L | Match calls against function types | `01fbba5` |
+| <a id="step-58m"></a>58M | Re-analyse callees for each call | `06042fa` |
+| <a id="step-58n1"></a>58N1 | Keep dependent facts of case and if | `e63e14c` |
+| <a id="step-58n2"></a>58N2 | Carry dependent facts through operations and bindings | `60a5dd4` |
+| <a id="step-58n3"></a>58N3 | Dependent facts of tuple scrutinees and try ... of | `175b545` |
+| <a id="step-59"></a>59 | Make specialization remove real source checks | `8a5ace2` |
+| <a id="step-60"></a>60 | Emit source-level debug information | `116cff1` |
+| <a id="step-61"></a>61 | Add opt-in profiling | `ecb8de5` |
+| <a id="step-62"></a>62 | Integrate link-time optimization | `5ec3645` |
+| <a id="step-62a"></a>62A | Index code server lookups with hash maps | `aa0198b` |
+| <a id="step-62b"></a>62B | Keep receive timers in a timer wheel | `eccd7c4` |
+| <a id="step-63"></a>63 | Validate on Linux x86-64 | `5948a44` |
+| <a id="step-64"></a>64 | Validate 32-bit x86 (Windows x86 and Linux x86) | `9eef9cc` |
+| <a id="step-65"></a>65 | Validate Linux AArch64 and 32-bit ARM | `ab5943b` |
+| <a id="step-65a"></a>65A | Implement `-behaviour`/`-behavior` attributes | `e3f7a89` |
+| <a id="step-65b"></a>65B | Generate `module_info/0,1` and keep informational attributes | `86d84aa` |
+| <a id="step-65c"></a>65C | Import functions, accept compile hints, name rejected attributes | `12dc2d5` |
+| <a id="step-67"></a>67 | Run compiler and frontend sanitizers | `58b3243` |
+| <a id="step-68"></a>68 | Run ThreadSanitizer on the multi-worker runtime | `9679aea` |
+| <a id="step-73a"></a>73A | Decide the parse transform contract | `57d4193` |
+| <a id="step-73b"></a>73B | Add the abstract term model and its codecs | `a3f66ab` |
+| <a id="step-73c"></a>73C | Export modules as abstract forms | `9a9f9aa` |
+| <a id="step-73d"></a>73D | Import abstract forms into the AST | `0ebf90e` |
+| <a id="step-73e"></a>73E | Run transforms through the host OTP loader | `13a5e20` |
+| <a id="step-73f"></a>73F | Apply parse transforms in the compile pipeline | `1c92c5c` |
+| <a id="step-73g"></a>73G | Use precompiled and project transform modules | `d1ce36a` |
+
+### Notes from completed plan 11 steps
+
+- Inference 58A–58N3 (user direction 2026-10-08/10): domain budgets in
+  [inference domain](../docs/semantic.md#inference-domain), dependent facts in
+  [dependent facts](../docs/semantic.md#dependent-facts) (printed as
+  `$case_of_operator`, `$if_operator`, `$try_of_operator`); expectations in
+  `tests/fixtures/inference/`. Specialization reads only proven facts and the
+  erased union summaries. Not done: the optional 58L report of a call no
+  inferred function type can enter; a `case` on a variable that depends on an
+  argument does not split over that argument.
+- 59: proofs at O2 with specialization only; source variants still rarely fit
+  the 2x size limit. 62: `--lto` on Windows MSVC and ELF targets only. 62B:
+  "within one tick" is bounded by the host's timed-wait resolution.
+- 64: no 32-bit LLVM SDK, so `clau` stays x64 and 32-bit coverage is the
+  runtime plus cross-linked goldens (`cross.py`).
+- 67/68: injected host-refusal tests and allocator-replacing tests are out of
+  scope.
+- 65A–65B: a hand-written `behaviour_info/1` is not evaluated (no ill-defined
+  or deprecated callback warnings); `erlang:get_module_info/1,2` is not
+  provided; generated functions get no debug locations, source comments or
+  `--print-types` output; `md5`, `vsn`, `compile` values differ from OTP
+  ([differences](../docs/differences.md)).
+- 65C: luerl `src/` passes attribute admission and then stops on missing
+  library modules and builtins (`array`, `ordsets`, `math`, `io_lib`, ...).
+- 73A–73G: OTP ships no `erl_id_trans` module, so owned identity transforms
+  replace it; `generated` annotations are ignored and include names are
+  written relative to the working directory (difference rows); a transform
+  found nowhere is only known to OTP and stays `undefined parse transform`
+  from the loader; `transforms_no_otp` uses `--erl none` because Windows
+  re-sets `ProgramFiles` in every process.
 
 <a id="outstanding-work-to-finish"></a>
 
@@ -198,7 +375,7 @@ Git. Contracts in the linked `docs/`. Windows x64 unless noted.
 Done: production executables, matching and guards, admitted terms, process
 heap and collection, graph copying, the Erlang semantics above, identities
 and atoms, processes, scheduling and ports, runtime services, tooling and
-inference, sanitizers.
+inference, sanitizers, parse transforms through host OTP.
 
 - [ ] **Native platform validation:** macOS Apple Silicon (step 66) and native
   ARM hardware; Linux x86-64, 32-bit x86 and ARM under emulation done.
@@ -206,9 +383,10 @@ inference, sanitizers.
   differential comparisons (step 69).
 - [ ] **Test migration closure:** retire adapters only after equivalent public
   coverage (step 70).
+- [ ] **Parse transform closure:** real projects and the user guide (step 73H).
 
 Deferred, not required: dynamic modules (D01), atom collection (D02),
-behavior-changing attributes (D03), public interchange (D04), stage readers
-(D05), C/FFI (D06), project-schema extensions (D07). Every change keeps
-formatting, behavioral tests and the fresh combined Debug quality gate without
-weakened thresholds or suppressions.
+behavior-changing attributes beyond the selected slices (D03), public
+interchange (D04), stage readers (D05), C/FFI (D06), project-schema extensions
+(D07). Every change keeps formatting, behavioral tests and the fresh combined
+Debug quality gate without weakened thresholds or suppressions.
