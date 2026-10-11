@@ -211,6 +211,15 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "iolist_size", 1},
     BuiltinName{"erlang", "list_to_pid", 1},
     BuiltinName{"erlang", "list_to_ref", 1},
+    // External term format (plan step 41E; erlang/term_encoding.cpp, erlang/term_decoding.cpp).
+    BuiltinName{"erlang", "term_to_binary", 1},
+    BuiltinName{"erlang", "term_to_binary", 2},
+    BuiltinName{"erlang", "term_to_iovec", 1},
+    BuiltinName{"erlang", "term_to_iovec", 2},
+    BuiltinName{"erlang", "external_size", 1},
+    BuiltinName{"erlang", "external_size", 2},
+    BuiltinName{"erlang", "binary_to_term", 1},
+    BuiltinName{"erlang", "binary_to_term", 2},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

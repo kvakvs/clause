@@ -45,8 +45,8 @@
 {binary_to_integer, 2, [auto_import], implemented}.
 {binary_to_list, 1, [auto_import], implemented}.
 {binary_to_list, 3, [auto_import], implemented}.
-{binary_to_term, 1, [auto_import], {planned, '41E'}}.
-{binary_to_term, 2, [auto_import], {planned, '41E'}}.
+{binary_to_term, 1, [auto_import], implemented}.
+{binary_to_term, 2, [auto_import], implemented}.
 {bit_size, 1, [auto_import, guard], implemented}.
 {bitstring_to_list, 1, [auto_import], implemented}.
 {'bnot', 1, [], implemented}.
@@ -105,8 +105,8 @@
 {exit, 3, [auto_import], {unavailable, not_selected}}.
 {exit_signal, 2, [auto_import], implemented}.
 {exit_signal, 3, [auto_import], {unavailable, not_selected}}.
-{external_size, 1, [], {planned, '41E'}}.
-{external_size, 2, [], {planned, '41E'}}.
+{external_size, 1, [], implemented}.
+{external_size, 2, [], implemented}.
 {finish_after_on_load, 2, [], {unavailable, not_selected}}.
 {finish_loading, 1, [], {planned, '41H'}}.
 {float, 1, [auto_import, guard], implemented}.
@@ -322,10 +322,10 @@
 {system_profile, 2, [], {unavailable, tracing}}.
 {system_time, 0, [], {planned, '41F'}}.
 {system_time, 1, [], {planned, '41F'}}.
-{term_to_binary, 1, [auto_import], {planned, '41E'}}.
-{term_to_binary, 2, [auto_import], {planned, '41E'}}.
-{term_to_iovec, 1, [auto_import], {planned, '41E'}}.
-{term_to_iovec, 2, [auto_import], {planned, '41E'}}.
+{term_to_binary, 1, [auto_import], implemented}.
+{term_to_binary, 2, [auto_import], implemented}.
+{term_to_iovec, 1, [auto_import], implemented}.
+{term_to_iovec, 2, [auto_import], implemented}.
 {throw, 1, [auto_import], implemented}.
 {time, 0, [auto_import], {planned, '41F'}}.
 {time_offset, 0, [], {planned, '41F'}}.

@@ -1,8 +1,8 @@
-"""The erlang library module (plan step 41B), as one of three checks.
+"""The erlang library module (plan step 41B) and builtin programs (41E), as one of three checks.
 
   inventory ROOT                 erlang.terms agrees with the catalog; erlang.erl and the auto-import table are current
   freshness ROOT ERL WORK        erlang.terms matches what the host OTP (ERL, or "-" for none) observes
-  program ROOT CLAU WORK SUFFIX  the fixture program links and runs
+  program ROOT CLAU WORK SUFFIX FIXTURE  tests/fixtures/builtins/FIXTURE/main.erl links and prints "FIXTURE: ok"
 """
 
 import filecmp
@@ -38,15 +38,15 @@ def freshness(root, erl, work):
     print("builtins_erlang_freshness: ok")
 
 
-def program(root, clau, work, suffix):
+def program(root, clau, work, suffix, fixture):
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)
-    source = root / "tests/fixtures/builtins/erlang_module/main.erl"
-    run([clau, "-o", str(work / "erlang_module"), str(source)])
-    output = run([str(work / ("erlang_module" + suffix))]).replace("\r\n", "\n")
-    if output != "erlang_module: ok\n":
+    source = root / "tests/fixtures/builtins" / fixture / "main.erl"
+    run([clau, "-o", str(work / fixture), str(source)])
+    output = run([str(work / (fixture + suffix))]).replace("\r\n", "\n")
+    if output != f"{fixture}: ok\n":
         raise AssertionError(f"unexpected output: {output!r}")
-    print("builtins_erlang_module: ok")
+    print(f"builtins_{fixture}: ok")
 
 
 def main(arguments):
@@ -56,7 +56,7 @@ def main(arguments):
     elif action == "freshness":
         freshness(root, arguments[2], pathlib.Path(arguments[3]))
     else:
-        program(root, arguments[2], pathlib.Path(arguments[3]), arguments[4] if len(arguments) > 4 else "")
+        program(root, arguments[2], pathlib.Path(arguments[3]), arguments[4], arguments[5])
 
 
 if __name__ == "__main__":

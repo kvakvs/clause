@@ -19,11 +19,13 @@ add_test(NAME builtins_erlang_freshness COMMAND "${Python3_EXECUTABLE}" "${erlan
 set_tests_properties(builtins_erlang_freshness PROPERTIES TIMEOUT 120 LABELS host_otp
     PASS_REGULAR_EXPRESSION "builtins_erlang_freshness: ok" SKIP_REGULAR_EXPRESSION "SKIP: no host Erlang/OTP")
 
-# Builtins, stubs and auto-imports through a linked program.
+# Linked programs: builtins, stubs and auto-imports of the erlang module; binary_to_term/1 on mutated input (41E).
 if(CLAUSE_BUILD_RUNTIME)
-    add_test(NAME builtins_erlang_module COMMAND "${Python3_EXECUTABLE}" "${erlang_module}" program
-        "${PROJECT_SOURCE_DIR}" "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/program/$<CONFIG>"
-        "${CMAKE_EXECUTABLE_SUFFIX}")
-    set_tests_properties(builtins_erlang_module PROPERTIES TIMEOUT 300
-        PASS_REGULAR_EXPRESSION "builtins_erlang_module: ok")
+    foreach(fixture IN ITEMS erlang_module etf_fuzz)
+        add_test(NAME builtins_${fixture} COMMAND "${Python3_EXECUTABLE}" "${erlang_module}" program
+            "${PROJECT_SOURCE_DIR}" "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/${fixture}/$<CONFIG>"
+            "${CMAKE_EXECUTABLE_SUFFIX}" ${fixture})
+        set_tests_properties(builtins_${fixture} PROPERTIES TIMEOUT 300
+            PASS_REGULAR_EXPRESSION "builtins_${fixture}: ok")
+    endforeach()
 endif()

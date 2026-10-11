@@ -221,8 +221,11 @@ class Decoder {
             return string(item.bytes_);
         case external::ItemKind::binary:
             return terms_.bits(std::string(item.bytes_), item.count_);
-        default:
+        case external::ItemKind::nil:
             return terms_.nil();
+        default:
+            // Identities and funs never occur in abstract forms (they appear in the runtime's codec, step 41E).
+            throw external::FormatError("external term format: unexpected identity or fun");
         }
     }
 

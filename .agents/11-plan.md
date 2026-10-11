@@ -346,16 +346,20 @@ Backlog: F36. Depends on: [41B](#step-41b).
 Backlog: F36, F05. Depends on: [41D](#step-41d).
 
 - Success criteria
-  - [ ] `term_to_binary/1,2` (minor version, for `compressed` we need to use
+  - [x] `term_to_binary/1,2` (minor version, for `compressed` we need to use
     system-available zlib or install a local copy of it), `binary_to_term/1,2` 
     (`safe`, `used`), `external_size/1,2` reuse
     `abi/include/clause/abi/external_term.hpp`; pids, references, ports and
     funs encode as OTP for the local node or are rejected explicitly.
-  - [ ] Bounds and atom-table limits checked before allocation; malformed
+  - [x] Bounds and atom-table limits checked before allocation; malformed
     input is `badarg`.
 - Tests
-  - [ ] Byte-exact goldens from OTP for every term kind; round trips; fuzzed
+  - [x] Byte-exact goldens from OTP for every term kind; round trips; fuzzed
     malformed input under the sanitizers.
+- Done 2026-10-11: OTP bytes matched on the first run (`executables_external_terms`); the fuzz test
+  found two decoder bugs (invalid atom UTF-8, NaN floats) before commit. Not run under the sanitizers
+  in this step (they run with V02 phase gates). `compressed` writes uncompressed bytes; differences
+  recorded in `docs/differences.md`.
 
 <a id="step-41f"></a>
 

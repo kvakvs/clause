@@ -3,9 +3,11 @@
 // shared by the compiler (parse transform loader exchange) and the runtime. Independent of any term representation:
 // encoders walk their own terms and drive Writer; decoders pull Items from Reader and build their own terms.
 // Added for parse transforms.
+#include <array>
 #include <bit>
 #include <charconv>
 #include <cstdint>
+#include <cstdio>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -17,6 +19,8 @@ inline constexpr std::uint8_t VERSION = 131;
 // Tags this codec reads; Writer emits the ones term_to_binary/1 chooses since OTP 26.
 enum Tag : std::uint8_t {
     NEW_FLOAT = 70,
+    // zlib-compressed data (term_to_binary/2 compressed); not decoded without zlib (plan step 41E).
+    COMPRESSED = 80,
     BIT_BINARY = 77,
     SMALL_INTEGER = 97,
     INTEGER = 98,
@@ -30,6 +34,12 @@ enum Tag : std::uint8_t {
     BINARY = 109,
     SMALL_BIG = 110,
     LARGE_BIG = 111,
+    // Identities and external funs of the runtime's term_to_binary/1 (plan step 41E).
+    NEW_PID = 88,
+    NEW_PORT = 89,
+    NEWER_REFERENCE = 90,
+    EXPORT = 113,
+    V4_PORT = 120,
     SMALL_ATOM_LATIN1 = 115,
     MAP = 116,
     ATOM_UTF8 = 118,
@@ -46,7 +56,27 @@ class FormatError : public std::runtime_error {
     explicit FormatError(const std::string &message) : std::runtime_error(message) {}
 };
 
-enum class ItemKind : std::uint8_t { atom, integer, big_integer, floating, tuple, list, nil, string, binary, map };
+enum class ItemKind : std::uint8_t {
+    atom,
+    integer,
+    big_integer,
+    floating,
+    tuple,
+    list,
+    nil,
+    string,
+    binary,
+    map,
+    // Plan step 41E: pids, ports and references name their node by an atom item that precedes them; an external fun
+    // names its module and function by two atom items that precede it.
+    pid,
+    port,
+    reference,
+    export_fun
+};
+
+// Most identity words a NEWER_REFERENCE_EXT carries.
+inline constexpr std::size_t REFERENCE_WORDS = 5;
 
 // One decoded tag. Container items announce how many items follow: a tuple's elements, a list's elements and then
 // its tail, a map's keys and values alternating.
@@ -60,8 +90,12 @@ struct Item {
     bool negative_ = false;
     std::int64_t integer_ = 0;
     double float_ = 0;
-    // Tuple arity, list element count (excluding the tail), map pair count, binary bit count.
+    // Tuple arity, list element count (excluding the tail), map pair count, binary bit count, external fun arity,
+    // reference word count.
     std::size_t count_ = 0;
+    // Pid number and serial, port number, or reference words (low word first), and the node's creation.
+    std::array<std::uint64_t, REFERENCE_WORDS> identity_{};
+    std::uint32_t creation_ = 0;
 };
 
 // Appends encoded tags to a byte string; callers emit children in order after a container header.
@@ -119,6 +153,42 @@ class Writer {
         tag(NEW_FLOAT);
         put<8>(std::bit_cast<std::uint64_t>(value));
     }
+
+    // A float as the 31-byte "%.20e" text of minor version 0, zero padded.
+    void float_text(const double value) {
+        std::array<char, 32> text{};
+        std::snprintf(text.data(), text.size(), "%.20e", value);
+        tag(FLOAT_TEXT);
+        out_.append(text.data(), 31);
+    }
+
+    // An atom spelled in Latin-1 (minor versions 0 and 1): ATOM_EXT with a two-byte length.
+    void atom_latin1(const std::string_view latin1) {
+        tag(ATOM_LATIN1);
+        put<2>(latin1.size());
+        out_ += latin1;
+    }
+
+    // Identity headers; the node atom follows each header, then its numbers through identity().
+    void pid() { tag(NEW_PID); }
+
+    void port() { tag(V4_PORT); }
+
+    void reference(const std::size_t words) {
+        tag(NEWER_REFERENCE);
+        put<2>(words);
+    }
+
+    // The numbers after an identity's node atom: a pid's number and serial or a reference's words (32 bits each), a
+    // port's number (64 bits), and the node's creation (32 bits, before a reference's words, after the others).
+    void identity_word(const std::uint32_t word) { put<4>(word); }
+
+    void port_number(const std::uint64_t number) { put<8>(number); }
+
+    void creation(const std::uint32_t creation) { put<4>(creation); }
+
+    // An external fun header; its module and function atoms and then its arity follow.
+    void export_fun() { tag(EXPORT); }
 
     // Container headers; `length` elements and then the tail follow a list header.
     void tuple(const std::size_t arity) {
@@ -210,6 +280,32 @@ class Reader {
         default:
             return number(tag);
         }
+    }
+
+    // The atom item an identity or external fun names, read after its header.
+    Item atom() {
+        auto result = next();
+        if (result.kind_ != ItemKind::atom) {
+            fail("expected an atom");
+        }
+        return result;
+    }
+
+    // The numbers of an identity whose header and node atom next() and atom() returned (plan step 41E).
+    void identity(Item &item) {
+        if (item.kind_ == ItemKind::pid) {
+            item.identity_[0] = take<4>();
+            item.identity_[1] = take<4>();
+        } else if (item.kind_ == ItemKind::port) {
+            item.identity_[0] = take<8>();
+        } else {
+            item.creation_ = static_cast<std::uint32_t>(take<4>());
+            for (std::size_t word = 0; word < item.count_; ++word) {
+                item.identity_[word] = take<4>();
+            }
+            return;
+        }
+        item.creation_ = static_cast<std::uint32_t>(take<4>());
     }
 
     [[noreturn]] void fail(const std::string &message) const {
@@ -321,6 +417,28 @@ class Reader {
         }
         case BIT_BINARY:
             return bit_binary();
+        default:
+            return identity_header(tag);
+        }
+    }
+
+    // Identity and external fun headers; their atoms and numbers are read by atom() and identity().
+    Item identity_header(const std::uint64_t tag) {
+        switch (tag) {
+        case NEW_PID:
+            return item(ItemKind::pid);
+        case V4_PORT:
+            return item(ItemKind::port);
+        case NEWER_REFERENCE: {
+            auto result = item(ItemKind::reference);
+            result.count_ = static_cast<std::size_t>(take<2>());
+            if (result.count_ == 0 || result.count_ > REFERENCE_WORDS) {
+                fail("invalid reference length");
+            }
+            return result;
+        }
+        case EXPORT:
+            return item(ItemKind::export_fun);
         default:
             fail("unsupported tag " + std::to_string(tag));
         }

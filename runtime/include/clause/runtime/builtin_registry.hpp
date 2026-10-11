@@ -111,6 +111,10 @@ std::span<const BuiltinEntry> os_builtins() noexcept;
 // float_to_binary/1,2, binary_to_float/1, list_to_float/1, binary_to_list/3, bitstring_to_list/1,
 // list_to_bitstring/1, split_binary/2, iolist_size/1, list_to_pid/1 and list_to_ref/1.
 std::span<const BuiltinEntry> binary_conversion_builtins() noexcept;
+// The external term format of step 41E: term_to_binary/1,2, term_to_iovec/1,2, external_size/1,2, and
+// binary_to_term/1,2.
+std::span<const BuiltinEntry> term_encoding_builtins() noexcept;
+std::span<const BuiltinEntry> term_decoding_builtins() noexcept;
 // The process dictionary builtins: put/2, get/0,1, get_keys/0,1, erase/0,1. Added for step 41C.
 std::span<const BuiltinEntry> dictionary_builtins() noexcept;
 // Every production builtin family runtime startup registers, together covering abi::v1::bridge_builtins.

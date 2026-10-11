@@ -53,7 +53,10 @@ builtin both the compiler and the runtime know:
   digits, float options) and OTP's errors: float text needs digits on both
   sides of the point (`list_to_float("1e10")` is `badarg`), an exponent past
   the range is `badarg` and an underflow `0.0`; encodings are `utf8`,
-  `unicode` and `latin1`; they run to completion.
+  `unicode` and `latin1`; they run to completion;
+- the [external term format](#external-term-format) (plan step 41E):
+  `term_to_binary/1,2`, `term_to_iovec/1,2`, `external_size/1,2`,
+  `binary_to_term/1,2`.
 
 Entries are only appended: an entry's index is the number generated code
 passes to the bridge service. A qualified call of a catalog builtin of another
@@ -232,6 +235,30 @@ Calls:
   every export a registered builtin has the name of, so `M:F(Args)` with
   `M = erlang` and external funs bind the builtin, never a stub.
 
+## External term format
+
+Plan 11 step 41E (`erlang/term_encoding.cpp`, `erlang/term_decoding.cpp`).
+Both directions share the codec of
+[external_term.hpp](../abi/include/clause/abi/external_term.hpp) with the
+compiler, and walk terms with explicit stacks, so nesting depth costs no
+native stack.
+
+- `term_to_binary/1,2` writes OTP's bytes for a non-distributed node
+  (`nonode@nohost`, creation 0): UTF-8 atoms, `NEW_FLOAT`, `STRING_EXT` for
+  byte lists up to 65535 elements, maps in key order, pids, ports and
+  references in their `NEW_PID`, `V4_PORT` and `NEWER_REFERENCE` forms, and
+  `EXPORT_EXT` for `fun M:F/A`. Options: `{minor_version, 0..2}` (0 writes
+  float text, 0 and 1 Latin-1 atoms), `deterministic`, `compressed` and
+  `{compressed, 0..9}`; anything else is `badarg`.
+- `term_to_iovec/1,2` returns the encoding as a list of one binary;
+  `external_size/1,2` its exact size.
+- `binary_to_term/1,2` checks every length against the input before
+  allocating, ignores bytes after the term, and returns `badarg` for
+  malformed input, invalid atom text, non-finite floats, repeated map keys
+  and identities of another node; `safe` admits only existing atoms, `used`
+  returns `{Term, BytesRead}`. CTests: `executables_external_terms` (OTP
+  bytes) and `builtins_etf_fuzz` (mutated encodings decode or raise).
+
 ## Source layout
 
 - The runtime implements builtins in `runtime/src/builtins/`. A large module
@@ -242,7 +269,8 @@ Calls:
   identities, spawning, messages, links, monitors, registered names;
   `ports`; `dictionary`: the [process dictionary](processes.md#process-dictionary);
   `binary_conversions` with `conversion_text`, the text rules it shares with
-  `conversions`).
+  `conversions`; `term_encoding` and `term_decoding`: the external term
+  format).
 - Each family file defines its own `*_builtins()` table listed in
   `production_builtins()`. A new family adds a new file and table instead of
   growing an existing one; a file past about 400 lines is split by family
