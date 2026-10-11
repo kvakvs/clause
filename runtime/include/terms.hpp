@@ -71,6 +71,8 @@ class TermFactory final {
     TermResult<Term> pid(const ProcessIdentity &identity);
     TermResult<Term> port(const PortIdentity &identity);
     TermResult<Term> reference(const ReferenceIdentity &identity);
+    // The reference of a program-wide number, as list_to_ref/1 parses it (step 41D); OTP accepts any number.
+    TermResult<Term> reference_number(std::uint64_t number);
     // Obtain a fresh unique reference from the owning runtime.
     TermResult<Term> make_reference();
     // Construct a fun of a registered definition with every captured value in capture order.

@@ -72,6 +72,12 @@ TermResult<Term> AtomStorage::intern(std::string_view spelling) noexcept {
     }
 }
 
+std::optional<Term> AtomStorage::existing(std::string_view spelling) const noexcept {
+    const std::shared_lock lock(mutex_);
+    const auto found = names_.find(spelling);
+    return found == names_.end() ? std::nullopt : std::optional{atom_term(found->second)};
+}
+
 TermResult<Term> AtomStorage::lookup(Word word) const noexcept {
     const std::shared_lock lock(mutex_);
     const auto found = words_.find(word);

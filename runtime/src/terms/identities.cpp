@@ -64,6 +64,8 @@ TermResult<PortIdentity> Term::port_value() const {
 
 TermResult<Term> TermFactory::make_reference() { return reference(ReferenceIdentity(next_reference())); }
 
+TermResult<Term> TermFactory::reference_number(std::uint64_t number) { return reference(ReferenceIdentity(number)); }
+
 TermResult<Term> TermFactory::reference(const ReferenceIdentity &identity) {
     const auto owner = heap();
     if (!owner) {

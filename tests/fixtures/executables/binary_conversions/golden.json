@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "conversions",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "<<\"caf\">>\n<<\"hél\">>\n<<\"hÃ©l\">>\n{error,badarg}\n{error,badarg}\nabc\nÿ\n{error,badarg}\n'Ã©'\né\n{error,system_limit}\n{error,badarg}\nok\n{error,badarg}\nerror\n<<\"-12345\">>\n<<\"FF\">>\n<<\"-11111111\">>\n<<\"3EWFDNCA0N6LD1GGVFGG\">>\n{error,badarg}\n12\n-255\n{error,badarg}\n{error,badarg}\n123456789012345678901234567890\n<<\"1.50000000000000000000e+00\">>\n<<\"1.5\">>\n<<\"0.1\">>\n<<\"1.00e+00\">>\n{error,badarg}\n-0.0\n0.0025\n{error,badarg}\n1.0e10\n{error,badarg}\n{error,badarg}\n{error,badarg}\n1.5\n1.5\n100.0\n{error,badarg}\n0.0\n{error,badarg}\n[2,3]\n[3]\n{error,badarg}\n{error,badarg}\n{error,badarg}\n{error,badarg}\n[1,<<2:3>>]\n[1,2]\n[]\n<<1,67,1:1>>\n<<>>\n{error,badarg}\n{error,badarg}\n{<<1>>,<<2,3:4>>}\n{<<>>,<<1,2>>}\n{<<1,2>>,<<>>}\n{error,badarg}\n5\n3\n{error,badarg}\n{error,badarg}\n{error,badarg}\n{error,badarg}\n{error,badarg}\n#Ref<0.1.2.3>\n#Ref<0.0.0.0>\n{error,badarg}\n{ok,-7,2.5,true,true,2,{<<1>>,<<2,3>>},[<<7:3>>]}\nconversions: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "conversions.erl": "8144f8217996b5626e8ec9ee9ea303af05919a5ec782d39ef43c2068960cdd74"
+  }
+}

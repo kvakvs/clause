@@ -42,7 +42,18 @@ builtin both the compiler and the runtime know:
 - messages (plan step 45): `'!'/2` (the `!` operator) and `send/2`
   ([messages](processes.md#messages));
 - the process dictionary (plan step 41C): `put/2`, `get/0,1`,
-  `get_keys/0,1`, `erase/0,1` ([process dictionary](processes.md#process-dictionary)).
+  `get_keys/0,1`, `erase/0,1` ([process dictionary](processes.md#process-dictionary));
+- binary, atom and number conversions (plan step 41D): `atom_to_binary/1,2`,
+  `binary_to_atom/1,2`, `binary_to_existing_atom/1,2`,
+  `list_to_existing_atom/1`, `integer_to_binary/1,2`, `binary_to_integer/1,2`,
+  `float_to_binary/1,2`, `binary_to_float/1`, `list_to_float/1`,
+  `binary_to_list/3`, `bitstring_to_list/1`, `list_to_bitstring/1`,
+  `split_binary/2`, `iolist_size/1`, `list_to_pid/1`, `list_to_ref/1`. They
+  share the list conversions' text rules (`conversion_text.cpp`: atom names,
+  digits, float options) and OTP's errors: float text needs digits on both
+  sides of the point (`list_to_float("1e10")` is `badarg`), an exponent past
+  the range is `badarg` and an underflow `0.0`; encodings are `utf8`,
+  `unicode` and `latin1`; they run to completion.
 
 Entries are only appended: an entry's index is the number generated code
 passes to the bridge service. A qualified call of a catalog builtin of another
@@ -229,7 +240,9 @@ Calls:
   guard BIFs, operators, raising, `display`, `halt`, `function_exported`;
   `term_access`; `lists`: `length`, `++`, `--`; `conversions`; `processes`:
   identities, spawning, messages, links, monitors, registered names;
-  `ports`; `dictionary`: the [process dictionary](processes.md#process-dictionary)).
+  `ports`; `dictionary`: the [process dictionary](processes.md#process-dictionary);
+  `binary_conversions` with `conversion_text`, the text rules it shares with
+  `conversions`).
 - Each family file defines its own `*_builtins()` table listed in
   `production_builtins()`. A new family adds a new file and table instead of
   growing an existing one; a file past about 400 lines is split by family

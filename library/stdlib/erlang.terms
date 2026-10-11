@@ -30,25 +30,25 @@
 {append_element, 2, [], {unavailable, not_selected}}.
 {apply, 2, [auto_import], implemented}.
 {apply, 3, [auto_import], implemented}.
-{atom_to_binary, 1, [auto_import], {planned, '41D'}}.
-{atom_to_binary, 2, [auto_import], {planned, '41D'}}.
+{atom_to_binary, 1, [auto_import], implemented}.
+{atom_to_binary, 2, [auto_import], implemented}.
 {atom_to_list, 1, [auto_import], implemented}.
 {'band', 2, [], implemented}.
 {binary_part, 2, [auto_import, guard], implemented}.
 {binary_part, 3, [auto_import, guard], implemented}.
-{binary_to_atom, 1, [auto_import], {planned, '41D'}}.
-{binary_to_atom, 2, [auto_import], {planned, '41D'}}.
-{binary_to_existing_atom, 1, [auto_import], {planned, '41D'}}.
-{binary_to_existing_atom, 2, [auto_import], {planned, '41D'}}.
-{binary_to_float, 1, [auto_import], {planned, '41D'}}.
-{binary_to_integer, 1, [auto_import], {planned, '41D'}}.
-{binary_to_integer, 2, [auto_import], {planned, '41D'}}.
+{binary_to_atom, 1, [auto_import], implemented}.
+{binary_to_atom, 2, [auto_import], implemented}.
+{binary_to_existing_atom, 1, [auto_import], implemented}.
+{binary_to_existing_atom, 2, [auto_import], implemented}.
+{binary_to_float, 1, [auto_import], implemented}.
+{binary_to_integer, 1, [auto_import], implemented}.
+{binary_to_integer, 2, [auto_import], implemented}.
 {binary_to_list, 1, [auto_import], implemented}.
-{binary_to_list, 3, [auto_import], {planned, '41D'}}.
+{binary_to_list, 3, [auto_import], implemented}.
 {binary_to_term, 1, [auto_import], {planned, '41E'}}.
 {binary_to_term, 2, [auto_import], {planned, '41E'}}.
 {bit_size, 1, [auto_import, guard], implemented}.
-{bitstring_to_list, 1, [auto_import], {planned, '41D'}}.
+{bitstring_to_list, 1, [auto_import], implemented}.
 {'bnot', 1, [], implemented}.
 {'bor', 2, [], implemented}.
 {'bsl', 2, [], implemented}.
@@ -110,8 +110,8 @@
 {finish_after_on_load, 2, [], {unavailable, not_selected}}.
 {finish_loading, 1, [], {planned, '41H'}}.
 {float, 1, [auto_import, guard], implemented}.
-{float_to_binary, 1, [auto_import], {planned, '41D'}}.
-{float_to_binary, 2, [auto_import], {planned, '41D'}}.
+{float_to_binary, 1, [auto_import], implemented}.
+{float_to_binary, 2, [auto_import], implemented}.
 {float_to_list, 1, [auto_import], implemented}.
 {float_to_list, 2, [auto_import], implemented}.
 {floor, 1, [auto_import, guard], implemented}.
@@ -144,11 +144,11 @@
 {hibernate, 0, [], {unavailable, not_selected}}.
 {hibernate, 3, [], {planned, '41G'}}.
 {insert_element, 3, [], {unavailable, not_selected}}.
-{integer_to_binary, 1, [auto_import], {planned, '41D'}}.
-{integer_to_binary, 2, [auto_import], {planned, '41D'}}.
+{integer_to_binary, 1, [auto_import], implemented}.
+{integer_to_binary, 2, [auto_import], implemented}.
 {integer_to_list, 1, [auto_import], implemented}.
 {integer_to_list, 2, [auto_import], implemented}.
-{iolist_size, 1, [auto_import], {planned, '41D'}}.
+{iolist_size, 1, [auto_import], implemented}.
 {iolist_to_binary, 1, [auto_import], implemented}.
 {iolist_to_iovec, 1, [], {unavailable, not_selected}}.
 {is_alive, 0, [auto_import], {planned, '41H'}}.
@@ -179,14 +179,14 @@
 {link, 2, [auto_import], {unavailable, not_selected}}.
 {list_to_atom, 1, [auto_import], implemented}.
 {list_to_binary, 1, [auto_import], implemented}.
-{list_to_bitstring, 1, [auto_import], {planned, '41D'}}.
-{list_to_existing_atom, 1, [auto_import], {planned, '41D'}}.
-{list_to_float, 1, [auto_import], {planned, '41D'}}.
+{list_to_bitstring, 1, [auto_import], implemented}.
+{list_to_existing_atom, 1, [auto_import], implemented}.
+{list_to_float, 1, [auto_import], implemented}.
 {list_to_integer, 1, [auto_import], implemented}.
 {list_to_integer, 2, [auto_import], implemented}.
-{list_to_pid, 1, [auto_import], {planned, '41D'}}.
+{list_to_pid, 1, [auto_import], implemented}.
 {list_to_port, 1, [auto_import], implemented}.
-{list_to_ref, 1, [auto_import], {planned, '41D'}}.
+{list_to_ref, 1, [auto_import], implemented}.
 {list_to_tuple, 1, [auto_import], implemented}.
 {load_module, 2, [auto_import], {unavailable, code_loading}}.
 {load_nif, 2, [], {unavailable, code_loading}}.
@@ -306,7 +306,7 @@
 {spawn_request, 4, [auto_import], {planned, '41G'}}.
 {spawn_request, 5, [auto_import], {planned, '41G'}}.
 {spawn_request_abandon, 1, [auto_import], {planned, '41G'}}.
-{split_binary, 2, [auto_import], {planned, '41D'}}.
+{split_binary, 2, [auto_import], implemented}.
 {start_timer, 3, [], {planned, '41F'}}.
 {start_timer, 4, [], {planned, '41F'}}.
 {statistics, 1, [auto_import], {planned, '41G'}}.

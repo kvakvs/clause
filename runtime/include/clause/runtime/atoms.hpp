@@ -1,6 +1,7 @@
 #pragma once
 #include "terms.hpp"
 #include <map>
+#include <optional>
 #include <shared_mutex>
 
 namespace clause::runtime {
@@ -24,6 +25,8 @@ class AtomStorage final {
 
     // Validate and deduplicate a spelling; failures never publish a partial entry.
     TermResult<Term> intern(std::string_view spelling) noexcept;
+    // The atom of an existing spelling, without interning; none when no atom has it (step 41D).
+    std::optional<Term> existing(std::string_view spelling) const noexcept;
     // Admit only words issued by this runtime, without allocating or interning.
     TermResult<Term> lookup(Word word) const noexcept;
     // Read a preinitialized canonical boolean; expression services never intern atoms.

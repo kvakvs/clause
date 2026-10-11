@@ -106,6 +106,11 @@ std::span<const BuiltinEntry> process_builtins() noexcept;
 std::span<const BuiltinEntry> port_builtins() noexcept;
 // The os builtins: os:type/0 and os:getenv/1.
 std::span<const BuiltinEntry> os_builtins() noexcept;
+// The binary, atom and number conversions of step 41D: atom_to_binary/1,2, binary_to_atom/1,2,
+// binary_to_existing_atom/1,2, list_to_existing_atom/1, integer_to_binary/1,2, binary_to_integer/1,2,
+// float_to_binary/1,2, binary_to_float/1, list_to_float/1, binary_to_list/3, bitstring_to_list/1,
+// list_to_bitstring/1, split_binary/2, iolist_size/1, list_to_pid/1 and list_to_ref/1.
+std::span<const BuiltinEntry> binary_conversion_builtins() noexcept;
 // The process dictionary builtins: put/2, get/0,1, get_keys/0,1, erase/0,1. Added for step 41C.
 std::span<const BuiltinEntry> dictionary_builtins() noexcept;
 // Every production builtin family runtime startup registers, together covering abi::v1::bridge_builtins.

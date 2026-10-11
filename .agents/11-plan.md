@@ -324,7 +324,7 @@ Backlog: F36. Depends on: [41B](#step-41b).
 Backlog: F36. Depends on: [41B](#step-41b).
 
 - Success criteria
-  - [ ] `atom_to_binary/1,2`, `binary_to_atom/1,2`,
+  - [x] `atom_to_binary/1,2`, `binary_to_atom/1,2`,
     `binary_to_existing_atom/1,2`, `list_to_existing_atom/1`,
     `integer_to_binary/1,2`, `binary_to_integer/1,2`, `float_to_binary/1,2`,
     `binary_to_float/1`, `list_to_float/1`, `binary_to_list/3`,
@@ -332,8 +332,12 @@ Backlog: F36. Depends on: [41B](#step-41b).
     `iolist_size/1`, `list_to_pid/1`, `list_to_ref/1`; encodings and
     `badarg` cases as OTP.
 - Tests
-  - [ ] OTP-goldened executable covering edge values (big integers, bases
+  - [x] OTP-goldened executable covering edge values (big integers, bases
     2–36, Unicode atoms, latin1 limits, improper iolists).
+- Done 2026-10-11: `executables_binary_conversions` (OTP golden, 70 cases plus direct calls). Added
+  `AtomStorage::existing` and `TermFactory::reference_number`; `Term::bit_slice` was declared but
+  never defined, so slices use `BitAccess::slice`. `list_to_pid/1` admits only issued pids
+  (`docs/differences.md`).
 
 <a id="step-41e"></a>
 
