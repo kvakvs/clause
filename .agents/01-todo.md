@@ -69,6 +69,11 @@ Complete for the selected scope; the plan steps hold criteria and evidence.
 - **F05 — Graph copying and process isolation** (28, 45; delivered:
   sharing-preserving copies between heaps of one runtime): [ ] cross-runtime
   atom/identity handling (cross-runtime copies are `wrong_owner`).
+- **F36 — `erlang` module builtins** ([41A](11-plan.md#step-41a)–[41H](11-plan.md#step-41h);
+  delivered: bridge catalog of step 36–43A, 50): [ ] `runtime/src/builtins/erlang/` layout; [ ] inventory and
+  `library/stdlib/erlang.erl` stub; [ ] process dictionary; [ ] conversions; [ ] external term
+  format; [ ] time and timers; [ ] process introspection; [ ] single-node
+  distribution and code-loading answers.
 - **F11 — Floating-point values** (38; delivered: finite binary64 values,
   operations, conversions): [ ] broader numeric scope when selected.
 

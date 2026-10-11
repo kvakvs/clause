@@ -26,6 +26,10 @@ draft with smaller, single-commit steps.
   selects and implements the parse-transform slice of step 73 and depends on
   [65C](00-finished.md#step-65c), not on step 73, so it may run before steps
   66–72.
+- Phase H2 (steps 41A–41H) was inserted on 2026-10-11 (user direction) after
+  the luerl project build showed the missing `erlang` builtins. Its steps
+  follow 41 numerically but run after the open phase M/N2 work unless
+  reordered.
 
 ## Common gate and rules (apply to every step)
 
@@ -128,6 +132,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | J2. Ports and port I/O | [57A](00-finished.md#step-57a)–[57G3](00-finished.md#step-57g3) | F07, F23, F26, F35 | done |
 | K. End-to-end projects | [58](00-finished.md#step-58) | F01, V03 | done |
 | L. Optimization and tooling | [58A](00-finished.md#step-58a)–[58N3](00-finished.md#step-58n3), [59](00-finished.md#step-59)–[62B](00-finished.md#step-62b) | F23, F25, F29–F34 | done |
+| H2. `erlang` module builtins | [41A](#step-41a)–[41H](#step-41h) | F36 | open |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -182,6 +187,212 @@ at those commits. The anchors below keep older links to this file working.
 - 73A–73G (for 73H): OTP-requiring tests carry label `host_otp` and skip when
   CMake finds no `erl`; host OTP lookup is `--erl`, `PATH`, then
   `%ProgramFiles%\Erlang OTP`; `--erl none` simulates a missing host OTP.
+
+## H2. `erlang` module builtins
+
+Real projects call many `erlang` functions outside the bridge catalog
+([builtins](../docs/builtins.md#which-builtins-exist)). Evidence, 2026-10-11:
+`test-luerl.toml` (luerl plus the OTP `kernel`/`stdlib` modules it pulls in)
+stops with 590 `unknown module erlang` errors and hundreds of
+`undefined function M:get/1`-style errors for auto-imported BIFs. Most frequent:
+`get/1` 147, `put/2` 138, `nif_error` 175, `erase/1` 45, `binary_to_term/1` 45,
+`iolist_size/1` 34, `monotonic_time` 34, `fun_info/2` 34, `term_to_binary/1,2`
+34, `nodes/0,1,2` 29, `group_leader/0,2` 27, `process_info/1,2` 21,
+`monitor_node/2` 19, `convert_time_unit/3` 18, `binary_to_integer/1,2` 15,
+`atom_to_binary/1,2` 17, timers (`start_timer`, `send_after`,
+`cancel_timer`) 29, `system_info/1` 12, `split_binary/2` 10. Each step from
+41C on appends catalog entries (indices never change), implements them in the runtime
+with OTP's error terms in its own translation unit under
+`runtime/src/builtins/erlang/` (41A), replacing the matching `erlang.erl`
+stub from 41B, documents them in `docs/builtins.md` and proves them
+with OTP-goldened executables; Lua/luerl progress is recorded, not a gate.
+
+<a id="step-41a"></a>
+
+### 41A. Organize `erlang` builtins in their own source directory
+
+Backlog: F36. Depends on: [41](00-finished.md#step-41).
+
+A large builtin module is implemented over several C++ translation units, one
+per family, under a subdirectory named after the module. This step only moves
+and splits existing code; no builtin changes behavior.
+
+- Success criteria
+  - [ ] `runtime/src/builtins/erlang/` holds every translation unit whose
+    builtins belong to module `erlang`: today's `erlang.cpp` (operators,
+    type tests, errors), `term_access.cpp`, the `erlang` part of
+    `lists.cpp` (`length/1`, `'++'/2`, `'--'/2`), `conversions.cpp`,
+    `processes.cpp` and the port builtins of `ports.cpp`; helpers shared
+    only by them live in `erlang/support.hpp`. Other modules (`io`, `os`,
+    `lists` library helpers) and the bridge infrastructure (`bridge`,
+    `registry`, `invocation`, `portions`, `typed`, `text`) stay in
+    `runtime/src/builtins/`.
+  - [ ] Each family TU defines its own `*_builtins()` span, listed in
+    `production_builtins()`; a new family (41C–41H) adds a new TU and span
+    instead of growing an existing file. A TU past about 400 lines splits
+    by family before it grows further.
+  - [ ] The catalog `abi::v1::bridge_builtins` stays one append-only array
+    (indices are the ABI); its entries are grouped by family comments that
+    name the implementing TU.
+  - [ ] Same rule for later large modules (`binary`, `unicode`, `ets`):
+    `runtime/src/builtins/<module>/`.
+  - [ ] `runtime/CMakeLists.txt` lists the moved files; `files.md`,
+    `arch.md` and `docs/builtins.md` name the new layout.
+- Tests
+  - [ ] Unchanged full-mode CTest results and `check-quality-all`; the
+    standalone `runtime_link` build still succeeds.
+
+<a id="step-41b"></a>
+
+### 41B. Declare `erlang` exports through a library stub
+
+Backlog: F36. Depends on: [41A](#step-41a).
+
+Builtins stay defined in the runtime (`runtime/src/builtins/`); the compiler
+never reads runtime sources. It learns that a builtin exists from the shared
+catalog `abi::v1::bridge_builtins` (`abi/include/clause/abi/builtins.hpp`) and
+that an `erlang` function exists from a project-owned library module, as OTP's
+`erlang.erl` declares BIFs whose bodies ERTS replaces.
+
+- Success criteria
+  - [ ] An owned observation of OTP 29's `erlang` exports and auto-imports
+    (name/arity, guard/auto-import flags; generated from the pinned
+    checkout, no copied source) classifies every export as implemented,
+    planned (41C–41H) or unavailable with a reason (distribution, tracing,
+    code loading pending step 71, NIF loading).
+  - [ ] `library/stdlib/erlang.erl` (Clause's own source, not an OTP copy)
+    exports exactly that inventory. A function without an implementation
+    has a stub body that raises `error(undef)` with `erlang:F/A` on top of
+    the stack, as OTP does for a missing function; a catalog builtin is
+    exported and stubbed too, and the runtime's builtin replaces the stub
+    at registration. Functions OTP writes in Erlang may get real Erlang
+    bodies here, as `io.erl` mixes library code with runtime builtins.
+  - [ ] Compiler resolution of `erlang:F/A`, `fun erlang:F/A`, `apply` with
+    literal names and auto-imported calls: a catalog builtin goes through
+    the bridge; any other export of `erlang.erl` calls the library module
+    (pulled in like `lists`); a name the stub does not export is
+    `undefined function erlang:F/A`. Auto-imports follow OTP's list, so
+    `get(K)` no longer reports `undefined function M:get/1`; a module's own
+    definition and `-compile({no_auto_import, ...})` still win.
+  - [ ] Runtime: registering library module `erlang` next to the builtin
+    module keeps builtins first for catalog entries and serves the stubs
+    for dynamic calls; no duplicate-module failure.
+  - [ ] `erlang:nif_error/1,2` raises `error(Reason)` like OTP's stub, so
+    NIF stub modules compile and fail only when called.
+  - [ ] Later steps (41C–41H) add catalog entries and runtime builtins only;
+    the stub module changes only where a body moves into Erlang.
+    `docs/builtins.md`, `docs/library.md` and `docs/differences.md`
+    (stubs raise `undef` at run time where OTP has the BIF) describe it.
+- Tests
+  - [ ] Consistency check without OTP: every `erlang` catalog entry is
+    exported by `erlang.erl`, and every `erlang.erl` export is in the owned
+    inventory; inventory freshness against the pin when OTP is present.
+  - [ ] Executables: a builtin reached directly, as a fun and by dynamic
+    call; a stubbed function compiles and raises `undef` only when called;
+    an auto-imported call resolves; a local definition shadows it.
+
+<a id="step-41c"></a>
+
+### 41C. Process dictionary
+
+Backlog: F36. Depends on: [41B](#step-41b).
+
+- Success criteria
+  - [ ] `put/2`, `get/0,1`, `get_keys/0,1`, `erase/0,1` with OTP semantics
+    and ordering-independent results; values live on the process heap,
+    are collection roots and are dropped at exit.
+  - [ ] `process_info(Pid, dictionary)` deferred to 41G is noted.
+- Tests
+  - [ ] Executables with large dictionaries across collections and spawned
+    processes (isolation); OTP goldens.
+
+<a id="step-41d"></a>
+
+### 41D. Binary, atom and number conversions
+
+Backlog: F36. Depends on: [41B](#step-41b).
+
+- Success criteria
+  - [ ] `atom_to_binary/1,2`, `binary_to_atom/1,2`,
+    `binary_to_existing_atom/1,2`, `list_to_existing_atom/1`,
+    `integer_to_binary/1,2`, `binary_to_integer/1,2`, `float_to_binary/1,2`,
+    `binary_to_float/1`, `list_to_float/1`, `binary_to_list/3`,
+    `bitstring_to_list/1`, `list_to_bitstring/1`, `split_binary/2`,
+    `iolist_size/1`, `list_to_pid/1`, `list_to_ref/1`; encodings and
+    `badarg` cases as OTP.
+- Tests
+  - [ ] OTP-goldened executable covering edge values (big integers, bases
+    2–36, Unicode atoms, latin1 limits, improper iolists).
+
+<a id="step-41e"></a>
+
+### 41E. External term format
+
+Backlog: F36, F05. Depends on: [41D](#step-41d).
+
+- Success criteria
+  - [ ] `term_to_binary/1,2` (minor version, for `compressed` we need to use
+    system-available zlib or install a local copy of it), `binary_to_term/1,2` 
+    (`safe`, `used`), `external_size/1,2` reuse
+    `abi/include/clause/abi/external_term.hpp`; pids, references, ports and
+    funs encode as OTP for the local node or are rejected explicitly.
+  - [ ] Bounds and atom-table limits checked before allocation; malformed
+    input is `badarg`.
+- Tests
+  - [ ] Byte-exact goldens from OTP for every term kind; round trips; fuzzed
+    malformed input under the sanitizers.
+
+<a id="step-41f"></a>
+
+### 41F. Time, unique values and timers
+
+Backlog: F36, F23. Depends on: [41B](#step-41b).
+
+- Success criteria
+  - [ ] `monotonic_time/0,1`, `system_time/0,1`, `time_offset/0,1`,
+    `convert_time_unit/3`, `timestamp/0`, `unique_integer/0,1`,
+    `localtime/0`, `universaltime/0` and their conversions.
+  - [ ] `start_timer/3,4`, `send_after/3,4`, `cancel_timer/1,2`,
+    `read_timer/1,2` on the existing timer wheel; messages and results as
+    OTP, timers of exited processes released.
+- Tests
+  - [ ] Executables with deterministic ordering assertions (no wall-clock
+    flakiness); timer stress under TSan.
+
+<a id="step-41g"></a>
+
+### 41G. Process introspection and spawn options
+
+Backlog: F36, F22. Depends on: [41C](#step-41c).
+
+- Success criteria
+  - [ ] `process_info/1,2` (selected items, unsupported items named),
+    `processes/0`, `group_leader/0,2`, `spawn_opt/2..5` (supported options;
+    others `badarg` or named unavailable), `spawn_request/1..5`,
+    `alias/0,1`, `unalias/1`, `monitor/3`, `garbage_collect/1,2`,
+    `hibernate/3`, `statistics/1`, `system_info/1`, `memory/0,1`,
+    `fun_info/1,2`, `fun_to_list/1`, `is_builtin/3`, `phash2/1,2`,
+    `md5/1` and `md5_init/update/final`.
+- Tests
+  - [ ] OTP-goldened executables; results that legitimately differ (memory
+    sizes, counts) checked by shape and recorded in `docs/differences.md`.
+
+<a id="step-41h"></a>
+
+### 41H. Single-node distribution and code-loading answers
+
+Backlog: F36, D01. Depends on: [41B](#step-41b), [71](#step-71).
+
+- Success criteria
+  - [ ] Single-node answers as a non-distributed OTP node: `node/0,1`,
+    `nodes/0,1,2` (`[]`), `is_alive/0` (`false`), `monitor_node/2`,
+    `disconnect_node/1`; `module_loaded/1`, `pre_loaded/0`,
+    `delete_module/1`, `prepare_loading/2`, `finish_loading/1` per the
+    step 71 decision.
+  - [ ] Rerun `test-luerl.toml`; record which `erlang` functions remain
+    and plan or decline each.
+- Tests
+  - [ ] Executables against OTP goldens taken from a non-distributed node.
 
 ## M. Validation closure
 
