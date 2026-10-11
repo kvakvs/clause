@@ -133,6 +133,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | K. End-to-end projects | [58](00-finished.md#step-58) | F01, V03 | done |
 | L. Optimization and tooling | [58A](00-finished.md#step-58a)–[58N3](00-finished.md#step-58n3), [59](00-finished.md#step-59)–[62B](00-finished.md#step-62b) | F23, F25, F29–F34 | done |
 | H2. `erlang` module builtins | [41A](#step-41a)–[41H](#step-41h) | F36 | open |
+| L2. Export liveness | [62C](#step-62c) | F32, F36 | open |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -395,6 +396,52 @@ Backlog: F36, D01. Depends on: [41B](#step-41b), [71](#step-71).
     and plan or decline each.
 - Tests
   - [ ] Executables against OTP goldens taken from a non-distributed node.
+
+## L2. Export liveness
+
+Inserted 2026-10-11 (user direction). Every exported function is reachable
+from its module descriptor's export table, so `-Os` dead-stripping and
+`--lto` can never drop one, even when nothing calls it; large library modules
+(the 41B `erlang.erl` stub, `lists`, OTP modules pulled in from search paths)
+keep every export alive.
+
+<a id="step-62c"></a>
+
+### 62C. Drop unreachable exports before emission
+
+Backlog: F32, F36. Depends on: [62](00-finished.md#step-62),
+[41B](#step-41b).
+
+- Success criteria
+  - [ ] A whole-batch export liveness analysis runs before LLVM IR emission.
+    Roots: the executable entry, `-on_load`-free startup, every exported
+    function named statically elsewhere in the batch (`M:F(...)`,
+    `-import`, `fun M:F/A`, `apply`/`spawn` families with literal module
+    and function), behaviour callbacks of a module whose name escapes as a
+    value, and everything a live function calls.
+  - [ ] Escape rules stay conservative: a module whose name atom is used as a
+    value (passed, stored, sent, `?MODULE`), or any dynamic call whose module
+    is not a literal while `list_to_atom`/`binary_to_atom` or atom-producing
+    builtins are reachable, keeps all exports of the affected modules;
+    the analysis reports why a module stayed fully live (`--verbose`).
+  - [ ] A dead export leaves the module's export table and gets internal
+    linkage (or is not emitted), so linker dead-stripping and LTO remove it;
+    `module_info(exports)` and `function_exported/3` answer as if it were
+    still exported (from the descriptor's name list, not frames), and a
+    dynamic call that reaches it raises `undef`, recorded in
+    `docs/differences.md`.
+  - [ ] Opt-out `--keep-exports` (all exports live, today's behavior) and a
+    per-target project option; the default applies the analysis only to
+    executables, never to `--emit` artifacts meant for other programs.
+  - [ ] Weak references are evaluated as an alternative (weak export-table
+    entries resolved by the linker): kept only if all targets (COFF, ELF,
+    Mach-O) support them; the decision is recorded in `docs/executables.md`.
+- Tests
+  - [ ] Executable sizes with `-Os` and `--lto` for a program using a few
+    `lists`/`erlang` functions shrink measurably; recorded, not a gate.
+  - [ ] Behavior of all program fixtures and executable goldens unchanged
+    with and without `--keep-exports`; dynamic calls, `spawn/3`, behaviours
+    and `apply` on escaped module names still work.
 
 ## M. Validation closure
 

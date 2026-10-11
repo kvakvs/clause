@@ -74,6 +74,8 @@ Complete for the selected scope; the plan steps hold criteria and evidence.
   `library/stdlib/erlang.erl` stub; [ ] process dictionary; [ ] conversions; [ ] external term
   format; [ ] time and timers; [ ] process introspection; [ ] single-node
   distribution and code-loading answers.
+- **F32 follow-up — export liveness** ([62C](11-plan.md#step-62c)): [ ] unused exports leave the export
+  table so dead-stripping and `--lto` can remove them.
 - **F11 — Floating-point values** (38; delivered: finite binary64 values,
   operations, conversions): [ ] broader numeric scope when selected.
 
