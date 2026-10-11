@@ -564,3 +564,5 @@ Host and tool gotchas:
   name-only exports (entry+frame null) and null fun frames when the symbol is not declared. Runtime accepts both.
   Scratch edit tool: scratchpad rep.py (<<< old === new >>> blocks per @@@ file; handles CRLF files).
   Build/test scripts build/plan11-62/{build,fast,test,quality}.cmd (-j 24, ctest 16).
+- 62E (2026-10-11): Release clau for measurements = build/plan11-62/release.cmd (build/tool, Release). Probe counts
+  measured with a temporary counter header (scratchpad probe_stats.hpp + e7 spec), reverted before implementing.

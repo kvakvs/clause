@@ -17,6 +17,9 @@ std::filesystem::path locate(const std::u32string &module, const SourcePlaces &p
     }
     for (const auto &directory : places.directories_) {
         std::error_code error;
+        if (places.index_ && !places.index_->may_exist(directory / file)) {
+            continue;
+        }
         if (std::filesystem::is_regular_file(directory / file, error) && !places.ignore_.skips(directory / file)) {
             return directory / file;
         }

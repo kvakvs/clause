@@ -17,3 +17,9 @@ add_test(NAME project_workflow COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/workflow.cmake")
 
 set_tests_properties(project_cli project_workflow PROPERTIES TIMEOUT 90)
+
+# The directory index keeps the search precedence of probing (plan step 62E).
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_test(NAME project_directory_index COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/index.py"
+    "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/project-index")
+set_tests_properties(project_directory_index PROPERTIES TIMEOUT 120)

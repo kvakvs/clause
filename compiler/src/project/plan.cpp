@@ -110,10 +110,10 @@ Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
         auto search = search_directories(base, target, options.discovery);
         Ignore ignore(base, target.options);
         auto sources = target_sources(base, target, search, ignore, options.discovery);
-        result.targets.push_back({target.name.value, std::move(sources),
-                                  compose_options(target, base, options.working_directory, options.preprocessing),
-                                  output_path(target, options, base), entry_selection(target, options),
-                                  std::move(search)});
+        result.targets.push_back(
+            {target.name.value, std::move(sources),
+             compose_options(target, base, options.working_directory, options.preprocessing, options.discovery),
+             output_path(target, options, base), entry_selection(target, options), std::move(search)});
         transform_options(base, target, options.discovery, result.targets.back());
         result.targets.back().ignore_ = std::move(ignore);
         result.targets.back().keep_exports_ = target.options.keep_exports_;

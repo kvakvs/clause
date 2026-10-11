@@ -694,50 +694,56 @@ the filesystem. Most probes miss. The lookups are:
   include.
 
 - Success criteria
-  - [ ] Measure first: the number of filesystem probes, and the time spent in
+  - [x] Measure first: the number of filesystem probes, and the time spent in
     them, for the luerl project before the change. Count them in a debug
     build or under `--verbose`, never in normal output.
-  - [ ] One index per invocation, shared by all lookups and all targets.
+  - [x] One index per invocation, shared by all lookups and all targets.
     It holds a list of scanned directories (by id) and a bucket map from
     file name to the ids of every directory where that name was seen. A
     name seen in several directories keeps all of them.
-  - [ ] Each directory is listed once, non-recursively, the first time a
+  - [x] Each directory is listed once, non-recursively, the first time a
     lookup needs it. The recursive walks that already expand `**` in
     `sources`, `source_dirs`, `source_search_paths` and `include_dirs` add
     the entries they visit, so those directories are never listed twice.
-  - [ ] A lookup takes the name and the ordered candidate directories, and
+  - [x] A lookup takes the name and the ordered candidate directories, and
     returns the first directory in that order that has the name. Precedence
     is therefore exactly what probing gives today: the including file's
     directory, then the working directory, then include directories in order,
     then `include_lib` applications for includes; inputs before search
     directories for modules. `ignore_dirs` and `ignore_modules` are applied
     to the result, as they are now.
-  - [ ] An include name with directory parts (`sub/x.hrl`, `../inc/x.hrl`) is
+  - [x] An include name with directory parts (`sub/x.hrl`, `../inc/x.hrl`) is
     looked up by its last component. The rest of the name must then match
     below the candidate directory; anything the index cannot answer
     correctly falls back to probing. Absolute names are probed as they are
     today.
-  - [ ] File name keys fold case where the volume is case-insensitive
+  - [x] File name keys fold case where the volume is case-insensitive
     (Windows, default macOS), so `Foo.hrl` is still found for `foo.hrl`.
     Exact keys are used elsewhere. Record the rule and its reason in
     `docs/projects.md`.
-  - [ ] The preprocessor stays independent of the filesystem. It gets the
+  - [x] The preprocessor stays independent of the filesystem. It gets the
     index through a `PreprocessorOptions` lookup hook, next to the existing
     `read_file`. Without a hook it probes as before (library users, unit
     tests).
-  - [ ] Within one invocation the index is a snapshot. Files that appear
+  - [x] Within one invocation the index is a snapshot. Files that appear
     during the run, such as link staging or outputs, are never search inputs.
     The contract says so.
 - Tests
-  - [ ] Black-box precedence:
+  - [x] Black-box precedence:
     - the same module name in two search directories picks the first, and
       passes over an ignored copy;
     - the same header name in the including directory, the working
       directory and two include directories picks the first in OTP's order;
     - `include_lib` still resolves through application directories;
     - a header that differs only in case resolves on Windows.
-  - [ ] The probe count and time for luerl are recorded after the change,
+  - [x] The probe count and time for luerl are recorded after the change,
     alongside the planning and preprocess stage times.
+- Done 2026-10-11: `project/directory_index` answers "may exist" from listings; callers still probe a hit, so
+  precedence and diagnostics are unchanged (luerl `--print-inputs` output identical). Before (Release, luerl
+  `--print-inputs`, temporary counters): 15,215 probes (13,675 module search, 1,538 include opens with 165 hits,
+  2 literal), about 105 ms in them; whole run 2.57-2.68 s, preprocess 452-464 ms. After: `[index] listed=66
+  walked=1380 lookups=15215 misses=14909 probes=0`; whole run 2.54-2.60 s, preprocess 443-446 ms.
+  `project_directory_index` covers precedence, include_lib, case folding and the --verbose line.
 
 ## M. Validation closure
 

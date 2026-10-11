@@ -4,6 +4,7 @@
 #include "paths.hpp"
 #include <algorithm>
 #include <limits>
+#include <map>
 
 namespace clause::project {
 namespace {
@@ -84,18 +85,30 @@ void collect_directory(const fs::directory_entry &entry, Walk &walk, std::vector
     }
 }
 
+// Give the directory index every directory listing a finished walk enumerated. Added for the directory index (62E).
+void record_listings(const Walk &walk, const std::map<fs::path, std::vector<fs::path>> &listings) {
+    if (walk.remaining.index) {
+        for (const auto &[directory, names] : listings) {
+            walk.remaining.index->add_listing(directory, names);
+        }
+    }
+}
+
 // Traverse with error-code iterators and stable sorting; default policy skips directory symlinks.
 std::vector<fs::path> discover(Walk walk) {
     std::error_code error;
     fs::recursive_directory_iterator iterator(walk.root, fs::directory_options::none, error);
     check_io(error, walk.root, walk.site);
     std::vector<fs::path> result;
+    // The entry names of each directory entered. Added for the directory index (62E).
+    std::map<fs::path, std::vector<fs::path>> listings;
     while (iterator != fs::recursive_directory_iterator{}) {
         if (walk.remaining.entries == 0) {
             fail(walk.site, "source traversal entry limit exceeded");
         }
         --walk.remaining.entries;
         prune(iterator, walk);
+        listings[iterator->path().parent_path()].push_back(iterator->path().filename());
         if (walk.directories) {
             collect_directory(*iterator, walk, result);
         } else {
@@ -104,6 +117,7 @@ std::vector<fs::path> discover(Walk walk) {
         iterator.increment(error);
         check_io(error, walk.root, walk.site);
     }
+    record_listings(walk, listings);
     std::ranges::sort(result, {}, [](const auto &path) { return path_text(path); });
     return result;
 }
@@ -161,7 +175,7 @@ std::vector<fs::path> wildcard_sources(const fs::path &base, const Text &pattern
     const auto [prefix, suffix] = split_pattern(native_path(pattern.value));
     const auto root = absolute_path(base, prefix);
     if (suffix.empty()) {
-        return {literal_source(base, {path_text(root), pattern.site}, {})};
+        return {literal_source(base, {path_text(root), pattern.site}, {}, limits.index)};
     }
     const auto glob = parse_glob({path_text(suffix), pattern.site});
     (void)source_directory(base, {path_text(root), pattern.site});

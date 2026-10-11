@@ -42,7 +42,7 @@ std::vector<std::filesystem::path> target_sources(const std::filesystem::path &b
         if (is_pattern(source.value)) {
             append(result, wildcard_sources(base, source, limits), source.site, ignore);
         } else {
-            append(result, {literal_source(base, source, search)}, source.site, ignore);
+            append(result, {literal_source(base, source, search, limits.index)}, source.site, ignore);
         }
     }
     for (const auto &directory : target.source_dirs) {

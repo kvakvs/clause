@@ -1,5 +1,6 @@
 #pragma once
 #include "backend_options.hpp"
+#include "project/directory_index.hpp"
 #include "project/entry.hpp"
 #include "project/ignore.hpp"
 #include "transforms/pipeline.hpp"
@@ -57,9 +58,14 @@ struct FrontendRequest {
     // Print stage durations on stderr: preprocess and parse per file, compile per batch, link per executable.
     // Added for --print-stage-times.
     bool stage_times = false;
+    // The invocation's index of searched directories, shared by every lookup and target. Added for the directory
+    // index (62E).
+    project::DirectoryIndex *index_ = nullptr;
 };
 
 // Process one isolated batch; project targets never share declaration tables.
 bool process_files(std::span<const std::filesystem::path> paths, const FrontendRequest &request,
                    const DiagnosticSink &diagnostics);
+// Report what the directory index did on stderr (--verbose). Added for the directory index (62E).
+void trace_index(const project::DirectoryIndex &index);
 } // namespace clause::cli

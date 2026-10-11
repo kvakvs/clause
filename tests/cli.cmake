@@ -192,17 +192,19 @@ file(WRITE "${TEST_DIR}/inner.hrl" "-file(\"logical.hrl\", 1).\n")
 set(pp_trace "\\[pp\\] trace.erl\n")
 set(parse_trace "\\[parse\\] trace.erl\n")
 set(include_trace "\\[pp\\] [^\n]*outer.hrl\n\\[pp\\] [^\n]*inner.hrl\n\\[pp\\] [^\n]*app/include/lib.hrl\n")
+# The directory index reports last (plan step 62E).
+set(index_trace "\\[index\\] listed=[^\n]*\n")
 check_cli(verbose_help 0 "--verbose" "^$" --verbose --help)
 check_cli(verbose_version 0 "^clau" "^$" --verbose --version)
 check_cli(verbose_no_inputs 2 "^$" "no input files" --verbose)
-check_cli(verbose_default 0 "^$" "^${pp_trace}${parse_trace}${include_trace}\\[comp\\].*phase=emission module=\"trace\"\n$" --verbose --app-dir demo=app trace.erl)
-check_cli(verbose_pp_only 0 "^$" "^${pp_trace}${include_trace}$" --verbose --preprocess-check --app-dir demo=app trace.erl)
-check_cli(verbose_parse 0 "^$" "^${pp_trace}${parse_trace}${include_trace}$" --verbose --parse-check --app-dir demo=app trace.erl)
-check_cli(verbose_print_pp 0 "^- file .*f [(] [)] -> true [.]\n$" "^${pp_trace}${include_trace}$"
+check_cli(verbose_default 0 "^$" "^${pp_trace}${parse_trace}${include_trace}\\[comp\\].*phase=emission module=\"trace\"\n${index_trace}$" --verbose --app-dir demo=app trace.erl)
+check_cli(verbose_pp_only 0 "^$" "^${pp_trace}${include_trace}${index_trace}$" --verbose --preprocess-check --app-dir demo=app trace.erl)
+check_cli(verbose_parse 0 "^$" "^${pp_trace}${parse_trace}${include_trace}${index_trace}$" --verbose --parse-check --app-dir demo=app trace.erl)
+check_cli(verbose_print_pp 0 "^- file .*f [(] [)] -> true [.]\n$" "^${pp_trace}${include_trace}${index_trace}$"
     --verbose --print-pp --app-dir demo=app trace.erl)
-check_cli(verbose_print_ast 0 "^\\(Module .*Atom name=true\\)\n    \\)\n  \\)\n\\)\n$" "^${pp_trace}${parse_trace}${include_trace}$"
+check_cli(verbose_print_ast 0 "^\\(Module .*Atom name=true\\)\n    \\)\n  \\)\n\\)\n$" "^${pp_trace}${parse_trace}${include_trace}${index_trace}$"
     --verbose --print-ast --app-dir demo=app trace.erl)
-check_cli(verbose_multiple 0 "^$" "^\\[pp\\] first.erl\n\\[parse\\] first.erl\n\\[pp\\] second.erl\n\\[parse\\] second.erl\n\\[comp\\].*phase=emission module=\"second\"\n$"
+check_cli(verbose_multiple 0 "^$" "^\\[pp\\] first.erl\n\\[parse\\] first.erl\n\\[pp\\] second.erl\n\\[parse\\] second.erl\n\\[comp\\].*phase=emission module=\"second\"\n${index_trace}$"
     --verbose first.erl second.erl)
 check_cli(verbose_opt_in 0 "^$" "^$" --app-dir demo=app trace.erl)
 

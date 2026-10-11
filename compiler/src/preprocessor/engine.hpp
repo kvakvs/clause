@@ -69,6 +69,8 @@ struct PreprocessorSession::State {
     // Include resolution has injectable filesystem/environment access and bounded nesting.
     void include(const Directive &directive, const Token &site);
     std::vector<std::filesystem::path> candidates(const std::string &name, bool library) const;
+    // Enter one include candidate when the lookup hook allows it and it can be read; false to try the next one.
+    bool open_include(const std::filesystem::path &path, const Token &site);
     std::string expand_environment(std::string name) const;
     void push_file(const SourcePtr &source, std::filesystem::path path, const Token &site);
     // Dynamic builtins retain invocation locations; function context is resolved in two passes.

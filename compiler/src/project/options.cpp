@@ -12,12 +12,13 @@ struct Roots {
 };
 
 // Preserve last-CLI-first include order, followed by manifest declaration order (patterns expanded in place).
-void includes(PreprocessorOptions &result, const TargetOptions &target, const Roots &roots) {
+void includes(PreprocessorOptions &result, const TargetOptions &target, const Roots &roots,
+              const DiscoveryLimits &limits) {
     for (auto &path : result.include_paths) {
         path = absolute_path(roots.invocation, path);
     }
     for (const auto &pattern : target.include_dirs) {
-        const auto directories = pattern_directories(roots.manifest, pattern, "include directory");
+        const auto directories = pattern_directories(roots.manifest, pattern, "include directory", limits);
         result.include_paths.insert(result.include_paths.end(), directories.begin(), directories.end());
     }
 }
@@ -77,10 +78,11 @@ void validate(const PreprocessorOptions &options, const Site &site) {
 } // namespace
 
 PreprocessorOptions compose_options(const Target &target, const std::filesystem::path &base,
-                                    const std::filesystem::path &invocation, const PreprocessorOptions &cli) {
+                                    const std::filesystem::path &invocation, const PreprocessorOptions &cli,
+                                    const DiscoveryLimits &limits) {
     auto result = cli;
     result.working_directory = base;
-    includes(result, target.options, {base, invocation});
+    includes(result, target.options, {base, invocation}, limits);
     result.definitions = definitions(target.options, cli);
     result.features = features(target.options, cli);
     result.applications = applications(target.options, cli, base, invocation);

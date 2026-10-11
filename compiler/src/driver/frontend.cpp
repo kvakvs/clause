@@ -35,6 +35,13 @@ void trace_ingestion(const bool verbose, const std::string_view stage, const std
     }
 }
 
+// Let the directory index rule out include candidates. Added for the directory index (62E).
+void use_index(PreprocessorOptions &options, project::DirectoryIndex *index) {
+    if (index) {
+        options.may_exist = [index](const std::filesystem::path &path) { return index->may_exist(path); };
+    }
+}
+
 // Trace resolved includes while preserving any caller-provided observation callback.
 PreprocessorOptions preprocessing_options(const FrontendRequest &request) {
     auto options = request.preprocessing;
@@ -321,13 +328,15 @@ bool defined(const Inputs &inputs, const std::u32string &name) {
 }
 
 // The first Module.erl in the directories, in order, passing over ignored ones (then `ignored` is set); empty when
-// none exists.
+// none exists. The directory index rules out most directories without probing them.
 std::filesystem::path module_source(const std::vector<std::filesystem::path> &directories, const std::u32string &name,
-                                    const project::Ignore &ignore, bool &ignored) {
+                                    const FrontendRequest &request, bool &ignored) {
     const auto file = project::native_path(utf8(name) + ".erl");
+    const auto &ignore = request.ignore_;
     for (const auto &directory : directories) {
         std::error_code error;
-        if (!std::filesystem::is_regular_file(directory / file, error)) {
+        if ((request.index_ && !request.index_->may_exist(directory / file)) ||
+            !std::filesystem::is_regular_file(directory / file, error)) {
             continue;
         }
         if (!ignore.skips(directory / file)) {
@@ -372,7 +381,7 @@ bool add_module(const std::u32string &name, std::string site, Discovery &discove
     // ignore_modules wins over search; a module found only in ignored places is ignored. Added for ignored modules.
     const auto &ignore = request.ignore_;
     bool passed = ignore.names(utf8(name));
-    auto path = passed ? std::filesystem::path{} : module_source(discovery.directories, name, ignore, passed);
+    auto path = passed ? std::filesystem::path{} : module_source(discovery.directories, name, request, passed);
     if (path.empty()) {
         if (passed || ignore.skipped(utf8(name))) {
             discovery.ignored.emplace_back(name, std::move(site));
@@ -467,13 +476,16 @@ bool process_files(const std::span<const std::filesystem::path> paths, const Fro
                    const DiagnosticSink &sink) {
     // Project transform modules come from the batch and its search directories. Added for parse transforms.
     auto request = shared;
+    use_index(request.preprocessing, request.index_);
     // The batch keeps what it found in memory. Added for transform source caching.
     auto cache = std::make_shared<TransformSourceCache>();
-    request.transforms_.find_sources_ = [paths, &shared, cache](const std::u32string &module,
-                                                                const transforms::HostModule &host) {
-        const SourcePlaces places{
-            .inputs_ = paths, .directories_ = shared.module_search_paths_, .ignore_ = shared.ignore_};
-        return transform_sources(module, places, shared.preprocessing, host, *cache);
+    request.transforms_.find_sources_ = [paths, &shared, cache, options = request.preprocessing](
+                                            const std::u32string &module, const transforms::HostModule &host) {
+        const SourcePlaces places{.inputs_ = paths,
+                                  .directories_ = shared.module_search_paths_,
+                                  .ignore_ = shared.ignore_,
+                                  .index_ = shared.index_};
+        return transform_sources(module, places, options, host, *cache);
     };
     Inputs inputs;
     if (request.compile && paths.size() > codegen::CompilationLimits{}.modules) {
@@ -515,8 +527,21 @@ int process_inputs(const Options &options) {
     if (options.entry) {
         request.entry = project::SelectedEntry{*options.entry, "--entry"};
     }
+    project::DirectoryIndex index; // Added for the directory index (62E).
+    request.index_ = &index;
     const DiagnosticSink sink = [](const std::string_view message) { std::cerr << message << '\n'; };
-    return process_files(options.inputs, request, sink) ? 1 : 0;
+    const bool failed = process_files(options.inputs, request, sink);
+    if (options.verbose) {
+        trace_index(index);
+    }
+    return failed ? 1 : 0;
+}
+
+void trace_index(const project::DirectoryIndex &index) {
+    const auto &statistics = index.statistics();
+    std::cerr << "[index] listed=" << statistics.listed_ << " walked=" << statistics.walked_
+              << " lookups=" << statistics.lookups_ << " misses=" << statistics.misses_
+              << " probes=" << statistics.probes_ << '\n';
 }
 
 // Check physical inputs before entering either preprocessing or future compilation.

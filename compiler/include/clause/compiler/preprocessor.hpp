@@ -70,6 +70,9 @@ struct PreprocessorOptions {
     PreprocessorLimits limits;
     // Tests/embedders can replace filesystem and environment access.
     std::function<std::optional<std::string>(const std::filesystem::path &)> read_file;
+    // Lookup hook (the driver's directory index, plan step 62E): false when an include candidate certainly does not
+    // exist, so it is not opened. Without it every candidate is opened in turn.
+    std::function<bool(const std::filesystem::path &)> may_exist;
     std::function<std::optional<std::string>(std::string_view)> environment;
     // Observe each successfully decoded include synchronously, before its forms are processed.
     std::function<void(const std::filesystem::path &)> include_loaded;

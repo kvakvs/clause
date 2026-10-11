@@ -1,5 +1,6 @@
 #include "paths.hpp"
 #include "diagnostics.hpp"
+#include "directory_index.hpp"
 #include <fstream>
 
 namespace clause::project {
@@ -30,8 +31,11 @@ void require_source(const std::filesystem::path &path, const Site &site) {
 }
 
 namespace {
-// Distinguish absence from a present invalid file, including dangling symlinks.
-bool candidate(const std::filesystem::path &path, const Site &site) {
+// Distinguish absence from a present invalid file, including dangling symlinks; the index answers most absences.
+bool candidate(const std::filesystem::path &path, const Site &site, DirectoryIndex *index) {
+    if (index && !index->may_exist(path)) {
+        return false;
+    }
     std::error_code error;
     const auto status = std::filesystem::symlink_status(path, error);
     if (error == std::errc::no_such_file_or_directory) {
@@ -49,20 +53,20 @@ bool candidate(const std::filesystem::path &path, const Site &site) {
 } // namespace
 
 std::filesystem::path literal_source(const std::filesystem::path &base, const Text &source,
-                                     const std::span<const std::filesystem::path> roots) {
+                                     const std::span<const std::filesystem::path> roots, DirectoryIndex *index) {
     const auto supplied = native_path(source.value);
     // .abstr files of abstract format forms are sources too (docs/transforms.md).
     if (supplied.extension() != ".erl" && supplied.extension() != ".abstr") {
         fail(source.site, "source must have .erl or .abstr extension");
     }
     auto direct = absolute_path(base, supplied);
-    if (candidate(direct, source.site)) {
+    if (candidate(direct, source.site, index)) {
         return direct;
     }
     if (supplied.is_relative()) {
         for (const auto &root : roots) {
             auto alternative = absolute_path(root, supplied);
-            if (candidate(alternative, source.site)) {
+            if (candidate(alternative, source.site, index)) {
                 return alternative;
             }
         }

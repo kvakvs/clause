@@ -1,4 +1,5 @@
 #pragma once
+#include "directory_index.hpp"
 #include "glob.hpp"
 #include "model.hpp"
 
@@ -8,6 +9,9 @@ struct DiscoveryLimits {
     std::size_t entries = 100000;
     std::size_t depth = 128;
     std::size_t work = 16000000;
+    // The invocation's directory index: walks record the listings they enumerate, literal lookups consult it.
+    // Added for the directory index (62E).
+    DirectoryIndex *index = nullptr;
 };
 
 // Separate the explicitly named root from wildcard components before traversal.

@@ -1,5 +1,6 @@
 #pragma once
 // Added for parse transforms: finding a project transform module's sources (docs/transforms.md#transform-modules).
+#include "project/directory_index.hpp"
 #include "project/ignore.hpp"
 #include "transforms/pipeline.hpp"
 #include <clause/compiler/preprocessor.hpp>
@@ -14,6 +15,9 @@ struct SourcePlaces {
     std::span<const std::filesystem::path> directories_;
     // ignore_dirs and ignore_modules: a search passes over the sources they leave out. Added for ignored modules.
     const project::Ignore &ignore_;
+    // The invocation's directory index, which rules out directories without probing them. Added for the
+    // directory index (62E).
+    project::DirectoryIndex *index_ = nullptr;
 };
 
 // Transform sources found for one batch, kept in memory so each transform and source is looked at once.

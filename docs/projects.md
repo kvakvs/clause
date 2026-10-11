@@ -183,6 +183,36 @@ links every selected target that has an `output` or `entry` key, or that CLI
   compiled twice because options can differ.
 - Only selected targets touch the filesystem.
 
+### Directory index
+
+Lookups by name do not probe every candidate directory (plan 11 step 62E).
+One index per `clau` invocation, shared by all targets, keeps the entry names
+of each searched directory: listed once, non-recursively, when a lookup first
+needs it, or recorded by the recursive walks that expand `**` in `sources`,
+`source_dirs`, `source_search_paths`, `include_dirs` and `transform_paths`,
+so no directory is listed twice. It answers the misses of the module search
+(`source_search_paths`, then the library), transform sources, literal
+`sources` found through `source_search_paths`, and include resolution (the
+including file's directory, the working directory, include directories in
+order, then `include_lib` applications); a candidate the index holds is still
+opened or checked as before, so precedence, `ignore_dirs` and error reports do
+not change. Include names with directory parts (`sub/x.hrl`) are looked up in
+the directory they name; names with `..` steps, absolute names, relative
+directories and listings that fail are probed as before.
+
+- File name keys fold ASCII case on Windows and macOS, whose volumes ignore
+  case by default, so `Foo.hrl` still finds `foo.hrl`; elsewhere keys are
+  exact. Names folding cannot match exactly (non-ASCII names there, and on
+  Windows names ending in `.` or a space or containing `~`, which may be 8.3
+  short names) are probed.
+- The index is a snapshot of one invocation: files that appear while `clau`
+  runs (link staging, outputs) are never search inputs.
+- `--verbose` ends with `[index] listed=N walked=N lookups=N misses=N probes=N`
+  (directories listed on demand, listings recorded by walks, lookups the index
+  answered and the misses among them, lookups left to a probe). On luerl
+  (2026-10-11) it answers all 15,215 lookups (14,909 misses) from 66 listings
+  and 1,380 walked directories.
+
 ## Ignored sources
 
 `ignore_dirs` and `ignore_modules` keep sources out of a target without

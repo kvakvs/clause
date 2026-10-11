@@ -76,7 +76,7 @@ check(print_env_project_emit 0 "^# clau compile environment.*name = \"tests\".*e
 check(default_output 1 "^$" "no entry point: no module exports main/1" --project project.toml --target app -o sentinel)
 check(verbose_project 0 "^$" "^\\[pp\\] [^\n]*shared.erl\n\\[parse\\] [^\n]*shared.erl\n\\[comp\\].*phase=emission.*target=\"tests\""
     --verbose --project project --target tests)
-check(verbose_project_pp 0 "^$" "^\\[pp\\] [^\n]*shared.erl\n$"
+check(verbose_project_pp 0 "^$" "^\\[pp\\] [^\n]*shared.erl\n\\[index\\] listed=[^\n]*\n$"
     --verbose --project project.toml --target app --preprocess-check)
 check(duplicate_macro 1 "^$" "redefining macro" --project project.toml --parse-check -DVALUE=3)
 check(terminator 2 "^$" "positional" --project project.toml -- --target)

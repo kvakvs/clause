@@ -85,17 +85,26 @@ void PreprocessorSession::State::include(const Directive &directive, const Token
     }
     const auto filename = expand_environment(utf8(name));
     for (const auto &path : candidates(filename, directive.kind == DirectiveKind::include_lib)) {
-        const auto bytes = options.read_file(path);
-        if (!bytes) {
-            continue;
+        if (open_include(path, site)) {
+            return;
         }
-        try {
-            push_file(sources.add(path.string(), *bytes), path, site);
-        } catch (const EncodingError &error) {
-            pp_fail(DiagnosticCode::invalid_encoding, path.string() + ": " + error.what(), site);
-        }
-        return;
     }
     pp_fail(DiagnosticCode::include_not_found, "cannot find include " + filename, site);
+}
+
+bool PreprocessorSession::State::open_include(const std::filesystem::path &path, const Token &site) {
+    if (options.may_exist && !options.may_exist(path)) {
+        return false;
+    }
+    const auto bytes = options.read_file(path);
+    if (!bytes) {
+        return false;
+    }
+    try {
+        push_file(sources.add(path.string(), *bytes), path, site);
+    } catch (const EncodingError &error) {
+        pp_fail(DiagnosticCode::invalid_encoding, path.string() + ": " + error.what(), site);
+    }
+    return true;
 }
 } // namespace clause

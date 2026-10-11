@@ -13,7 +13,8 @@ target_sources(clause_project PRIVATE paths.cpp)
 
 target_sources(clause_project PRIVATE glob.cpp glob_utf8.cpp)
 
-target_sources(clause_project PRIVATE discovery.cpp)
+# The invocation's index of searched directories. Added for the directory index (62E).
+target_sources(clause_project PRIVATE discovery.cpp directory_index.cpp)
 
 target_sources(clause_project PRIVATE identity.cpp sources.cpp)
 # ignore_dirs and ignore_modules. Added for ignored modules.

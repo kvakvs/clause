@@ -104,9 +104,11 @@ int publish_targets(const std::vector<Publication> &pending) {
     return 0;
 }
 
-// Plan targets with the invocation's overrides; frontend-only requests never plan executable outputs.
-project::PlanOptions plan_settings(const Options &options) {
+// Plan targets with the invocation's overrides; frontend-only requests never plan executable outputs. Pattern walks
+// feed `index` (62E).
+project::PlanOptions plan_settings(const Options &options, project::DirectoryIndex *index = nullptr) {
     project::PlanOptions settings;
+    settings.discovery.index = index;
     settings.working_directory = std::filesystem::current_path();
     settings.preprocessing = options.preprocessing;
     settings.frontend = options.preprocess || options.backend.emit.has_value() || options.backend.inspect_ir() ||
@@ -136,6 +138,7 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
     if (options.print_env) {
         return report_project(options, arguments);
     }
+    project::DirectoryIndex index; // Added for the directory index (62E).
     std::vector<Publication> pending;
     std::vector<PendingExecutable> executables;
     const project::TargetExecutor execute = [&](const project::Invocation &invocation,
@@ -167,9 +170,13 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
         request.pending_executables = &executables;
         request.module_search_paths_ = target.search_paths_;
         request.ignore_ = target.ignore_;
+        request.index_ = &index;
         return process_files(target.sources, request, sink);
     };
-    const int status = project::run(options.project, plan_settings(options), execute, std::cout, std::cerr);
+    const int status = project::run(options.project, plan_settings(options, &index), execute, std::cout, std::cerr);
+    if (options.verbose) {
+        trace_index(index);
+    }
     if (status != 0) {
         return status;
     }
