@@ -1,6 +1,7 @@
 #pragma once
 #include "generated_calls.hpp"
 #include "mailbox.hpp"
+#include "process_dictionary.hpp"
 #include "process_heap.hpp"
 #include "signals.hpp"
 #include "stack.hpp"
@@ -96,6 +97,9 @@ class ProcessContext final {
     // The process's links and exit trapping (docs/processes.md#links).
     Signals &signals() noexcept { return signals_; }
 
+    // The process dictionary (put/2, get/1, erase/1). Added for step 41C.
+    ProcessDictionary &dictionary() noexcept { return dictionary_; }
+
     // Resolve loaded code through the runtime-wide server shared by scheduler workers.
     CodeServer &code_server() noexcept;
     // Share one runtime-owned atom identity/name table across every scheduler and process.
@@ -109,13 +113,15 @@ class ProcessContext final {
     // The process stack of explicit generated frames and its argument/result registers.
     ProcessStack &stack() noexcept { return stack_; }
 
-    // Visit every root word (frame term slots, live registers, the failure channel's terms, messages), then the
+    // Visit every root word (frame term slots, live registers, the failure channel's terms, messages, the process
+    // dictionary), then the
     // host's explicit roots, so a collector can rewrite them in place. Nothing else holds heap words across a safe
     // point (docs/runtime-heap.md#roots-and-safe-points).
     template <typename Visitor> void visit_roots(std::span<Word> explicit_roots, Visitor &&visit) {
         stack_.visit(visit);
         generated_calls_.visit(visit);
         mailbox_.visit(visit);
+        dictionary_.visit(visit);
         for (auto &word : explicit_roots) {
             visit(word);
         }
@@ -140,6 +146,8 @@ class ProcessContext final {
     Mailbox mailbox_;
     // Links and exit trapping; holds no heap words.
     Signals signals_;
+    // Process dictionary entries, roots until erased; released before the heap they live in. Added for step 41C.
+    ProcessDictionary dictionary_;
     // Retire scheduling identity on removal; successful registration may occur only once per context.
     bool scheduler_registered_once_ = false;
     // Destroy pending immediate payloads with the context; host invocation scopes normally clear them first.

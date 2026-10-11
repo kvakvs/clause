@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "dictionary",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "{undefined,1,2,undefined}\n{<<\"value\">>,int,float}\n[{1.0,float},{1,int},{a,2},{{key,[1,2]},<<\"value\">>}]\n[1.0,1,a,{key,[1,2]}]\n[a,b]\n{2,undefined,undefined}\n{[1,2,3,4],2004,<<\"value\">>}\n{child,undefined,undefined,child}\n2\n{2004,[],undefined}\ndictionary: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "dictionary.erl": "af4aeafbc881e9dcb9f01fbdd26c64c1bcd403b12eb4620a2075f79a04818ff1"
+  }
+}

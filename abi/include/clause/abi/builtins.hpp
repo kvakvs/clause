@@ -180,6 +180,14 @@ inline constexpr std::array bridge_builtins{
     // Operating system queries (plan step 57D; runtime/src/builtins/os.cpp).
     BuiltinName{"os", "type", 0},
     BuiltinName{"os", "getenv", 1},
+    // Process dictionary (plan step 41C; erlang/dictionary.cpp).
+    BuiltinName{"erlang", "put", 2},
+    BuiltinName{"erlang", "get", 1},
+    BuiltinName{"erlang", "get", 0},
+    BuiltinName{"erlang", "get_keys", 0},
+    BuiltinName{"erlang", "get_keys", 1},
+    BuiltinName{"erlang", "erase", 1},
+    BuiltinName{"erlang", "erase", 0},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

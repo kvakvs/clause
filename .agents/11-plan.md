@@ -306,13 +306,16 @@ that an `erlang` function exists from a project-owned library module, as OTP's
 Backlog: F36. Depends on: [41B](#step-41b).
 
 - Success criteria
-  - [ ] `put/2`, `get/0,1`, `get_keys/0,1`, `erase/0,1` with OTP semantics
+  - [x] `put/2`, `get/0,1`, `get_keys/0,1`, `erase/0,1` with OTP semantics
     and ordering-independent results; values live on the process heap,
     are collection roots and are dropped at exit.
-  - [ ] `process_info(Pid, dictionary)` deferred to 41G is noted.
+  - [x] `process_info(Pid, dictionary)` deferred to 41G is noted.
 - Tests
-  - [ ] Executables with large dictionaries across collections and spawned
+  - [x] Executables with large dictionaries across collections and spawned
     processes (isolation); OTP goldens.
+- Done 2026-10-11: `executables_process_dictionary` (OTP golden). The hand-kept auto-import set became
+  OTP's table intersected with the catalog, so later steps only append catalog entries. `garbage_collect/0`
+  is not implemented yet (41G); the fixture forces collections by allocation.
 
 <a id="step-41d"></a>
 

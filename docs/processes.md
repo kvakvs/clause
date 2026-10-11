@@ -308,6 +308,21 @@ process its own name (`Signals::name`).
   signalled, so a `'DOWN'` or `'EXIT'` receiver can register the name again,
   as in OTP.
 
+## Process dictionary
+
+Plan 11 step 41C. `put/2`, `get/0,1`, `get_keys/0,1` and `erase/0,1`
+behave as OTP's: `put/2` and `erase/1` return the previous value or
+`undefined`, `erase/0` returns every `{Key, Value}` and empties the
+dictionary, keys match with exact equality (`1` and `1.0` are two keys).
+
+- Each process has its own dictionary; a spawned process starts empty.
+- Entries are words of the process heap held in `ProcessDictionary`
+  ([process_dictionary.hpp](../runtime/include/process_dictionary.hpp)) and
+  visited as collection roots ([roots](runtime-heap.md#roots-and-safe-points));
+  they are released with the process.
+- The order of `get/0` and `get_keys/0,1` is unspecified, as in OTP.
+  Lookup scans the entries linearly; immediate keys compare by word.
+
 ## Exit signals
 
 Every exit signal comes from a running process (`exit/2`,

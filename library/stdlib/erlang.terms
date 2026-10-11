@@ -95,8 +95,8 @@
 {dt_restore_tag, 1, [], {unavailable, tracing}}.
 {dt_spread_tag, 1, [], {unavailable, tracing}}.
 {element, 2, [auto_import, guard], implemented}.
-{erase, 0, [auto_import], {planned, '41C'}}.
-{erase, 1, [auto_import], {planned, '41C'}}.
+{erase, 0, [auto_import], implemented}.
+{erase, 1, [auto_import], implemented}.
 {error, 1, [auto_import], implemented}.
 {error, 2, [auto_import], implemented}.
 {error, 3, [auto_import], implemented}.
@@ -126,12 +126,12 @@
 {garbage_collect, 2, [auto_import], {planned, '41G'}}.
 {garbage_collect_message_area, 0, [], {unavailable, not_selected}}.
 {gather_gc_info_result, 1, [], {unavailable, not_selected}}.
-{get, 0, [auto_import], {planned, '41C'}}.
-{get, 1, [auto_import], {planned, '41C'}}.
+{get, 0, [auto_import], implemented}.
+{get, 1, [auto_import], implemented}.
 {get_cookie, 0, [], {unavailable, distribution}}.
 {get_cookie, 1, [], {unavailable, distribution}}.
-{get_keys, 0, [auto_import], {planned, '41C'}}.
-{get_keys, 1, [auto_import], {planned, '41C'}}.
+{get_keys, 0, [auto_import], implemented}.
+{get_keys, 1, [auto_import], implemented}.
 {get_module_info, 1, [], {planned, '41H'}}.
 {get_module_info, 2, [], {planned, '41H'}}.
 {group_leader, 0, [auto_import], {planned, '41G'}}.
@@ -256,7 +256,7 @@
 {processes_iterator, 0, [], {unavailable, not_selected}}.
 {processes_next, 1, [], {unavailable, not_selected}}.
 {purge_module, 1, [auto_import], {unavailable, code_loading}}.
-{put, 2, [auto_import], {planned, '41C'}}.
+{put, 2, [auto_import], implemented}.
 {raise, 3, [], implemented}.
 {read_timer, 1, [], {planned, '41F'}}.
 {read_timer, 2, [], {planned, '41F'}}.

@@ -106,6 +106,8 @@ std::span<const BuiltinEntry> process_builtins() noexcept;
 std::span<const BuiltinEntry> port_builtins() noexcept;
 // The os builtins: os:type/0 and os:getenv/1.
 std::span<const BuiltinEntry> os_builtins() noexcept;
+// The process dictionary builtins: put/2, get/0,1, get_keys/0,1, erase/0,1. Added for step 41C.
+std::span<const BuiltinEntry> dictionary_builtins() noexcept;
 // Every production builtin family runtime startup registers, together covering abi::v1::bridge_builtins.
 std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept;
 } // namespace clause::runtime

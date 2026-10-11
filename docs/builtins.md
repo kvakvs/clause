@@ -40,7 +40,9 @@ builtin both the compiler and the runtime know:
   `register/2`, `unregister/1`, `whereis/1`, `registered/0`
   ([registered names](processes.md#registered-names));
 - messages (plan step 45): `'!'/2` (the `!` operator) and `send/2`
-  ([messages](processes.md#messages)).
+  ([messages](processes.md#messages));
+- the process dictionary (plan step 41C): `put/2`, `get/0,1`,
+  `get_keys/0,1`, `erase/0,1` ([process dictionary](processes.md#process-dictionary)).
 
 Entries are only appended: an entry's index is the number generated code
 passes to the bridge service. A qualified call of a catalog builtin of another
@@ -227,7 +229,7 @@ Calls:
   guard BIFs, operators, raising, `display`, `halt`, `function_exported`;
   `term_access`; `lists`: `length`, `++`, `--`; `conversions`; `processes`:
   identities, spawning, messages, links, monitors, registered names;
-  `ports`).
+  `ports`; `dictionary`: the [process dictionary](processes.md#process-dictionary)).
 - Each family file defines its own `*_builtins()` table listed in
   `production_builtins()`. A new family adds a new file and table instead of
   growing an existing one; a file past about 400 lines is split by family

@@ -207,68 +207,12 @@ std::optional<FunctionKey> guard_identity(BindingAnalysis &state, const ast::Exp
 }
 
 namespace {
-// Body builtins auto-imported like OTP's (erl_internal:bif/2): the raising error/1,2,3, exit/1 and throw/1, halt/0,1,
-// the dynamic calls apply/2,3, setelement/3, tuple_to_list/1, list_to_tuple/1 (make_tuple/2,3 are not), the
-// conversions, make_ref/0, pid_to_list/1, ref_to_list/1, spawn/1,3, is_process_alive/1, spawn_link/1,3, link/1,
-// unlink/1, exit/2, exit_signal/2, process_flag/2, spawn_monitor/1,3, monitor/2, demonitor/1,2, register/2,
-// unregister/1, whereis/1, registered/0, and the ports' open_port/2, port_close/1, port_command/2,3,
-// port_connect/2, port_control/3, port_to_list/1 and list_to_port/1 (port_info/1,2, port_call/2,3 and ports/0
-// are not).
+// Body builtins auto-imported like OTP's (erl_internal:bif/2, from the owned inventory): every bridge builtin OTP
+// auto-imports (error/1, setelement/3, spawn/3, put/2, ...; not make_tuple/2,3 or port_info/1,2), and the dynamic
+// calls apply/2,3.
 bool auto_imported(const FunctionKey &key) {
-    static const std::set<FunctionKey> names{{U"error", 1},
-                                             {U"error", 2},
-                                             {U"error", 3},
-                                             {U"exit", 1},
-                                             {U"throw", 1},
-                                             {U"halt", 0},
-                                             {U"halt", 1},
-                                             {U"apply", 2},
-                                             {U"apply", 3},
-                                             {U"setelement", 3},
-                                             {U"tuple_to_list", 1},
-                                             {U"list_to_tuple", 1},
-                                             {U"atom_to_list", 1},
-                                             {U"list_to_atom", 1},
-                                             {U"integer_to_list", 1},
-                                             {U"integer_to_list", 2},
-                                             {U"list_to_integer", 1},
-                                             {U"list_to_integer", 2},
-                                             {U"float_to_list", 1},
-                                             {U"float_to_list", 2},
-                                             {U"binary_to_list", 1},
-                                             {U"list_to_binary", 1},
-                                             {U"iolist_to_binary", 1},
-                                             {U"make_ref", 0},
-                                             {U"pid_to_list", 1},
-                                             {U"ref_to_list", 1},
-                                             {U"spawn", 1},
-                                             {U"spawn", 3},
-                                             {U"is_process_alive", 1},
-                                             {U"spawn_link", 1},
-                                             {U"spawn_link", 3},
-                                             {U"link", 1},
-                                             {U"unlink", 1},
-                                             {U"exit", 2},
-                                             {U"exit_signal", 2},
-                                             {U"process_flag", 2},
-                                             {U"spawn_monitor", 1},
-                                             {U"spawn_monitor", 3},
-                                             {U"monitor", 2},
-                                             {U"demonitor", 1},
-                                             {U"demonitor", 2},
-                                             {U"register", 2},
-                                             {U"unregister", 1},
-                                             {U"whereis", 1},
-                                             {U"registered", 0},
-                                             {U"open_port", 2},
-                                             {U"port_close", 1},
-                                             {U"port_command", 2},
-                                             {U"port_command", 3},
-                                             {U"port_connect", 2},
-                                             {U"port_control", 3},
-                                             {U"port_to_list", 1},
-                                             {U"list_to_port", 1}};
-    return names.contains(key);
+    const bool apply = key.name == U"apply" && (key.arity == 2 || key.arity == 3);
+    return apply || (otp_auto_import(key) && bridge_builtin(key));
 }
 
 // Other erlang bridge builtins (display/1, raise/3, function_exported/3) are callable only qualified.
