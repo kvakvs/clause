@@ -27,11 +27,15 @@ int run(const Request &request, const PlanOptions &options, const TargetExecutor
         if (!request.file) {
             fail({}, "missing --project request", 2);
         }
+        const auto start = std::chrono::steady_clock::now();
         const auto file = resolve_project_file(absolute_path(options.working_directory, *request.file));
         const auto manifest = decode(load(file));
         auto settings = options;
         settings.selectors = request.targets;
         const auto invocation = prepare(manifest, settings);
+        if (options.planned) {
+            options.planned(file, std::chrono::steady_clock::now() - start);
+        }
         return execute(invocation, executor, [&](const std::string_view message) { diagnostics << message << '\n'; });
     } catch (const Failure &error) {
         diagnostics << "clau: error: " << error.what() << '\n';

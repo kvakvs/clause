@@ -3,6 +3,8 @@
 #include "entry.hpp"
 #include "ignore.hpp"
 #include "options.hpp"
+#include <chrono>
+#include <functional>
 
 namespace clause::project {
 struct PlanOptions {
@@ -19,6 +21,9 @@ struct PlanOptions {
     // CLI --build-dir, invocation-relative; replaces every selected target's build directory. Added for the build
     // directory (62D1).
     std::optional<std::filesystem::path> build_directory;
+    // Receives the manifest and how long loading and planning it took. Added for the directory scan measurement
+    // (62D3, --print-stage-times).
+    std::function<void(const std::filesystem::path &, std::chrono::steady_clock::duration)> planned;
 };
 
 struct PlannedTarget {

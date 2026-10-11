@@ -221,6 +221,18 @@ change.
   `[cache] hit|miss <kind> <file>` with the reason of a miss (`no entry`,
   `inputs changed`, `damaged entry`). Diagnostics and transform output are the
   same with and without a hit: they are stored with the entry.
+- **No directory scan cache** (step 62D3, 2026-10-11, Release `clau`, Windows,
+  OS file cache warm). luerl plans in 78 ms of a 2.77 s warm build (2.8%).
+  A manifest over all of `references/otp/lib` (1,319 directories, 9,711
+  files) plans in about 150 ms: `sources = ["…/lib/**/src/*.erl"]` 74 ms,
+  `source_dirs = ["…/lib"]` 140 ms, `source_search_paths` and `include_dirs`
+  with `**` 35 ms each, `ignore_dirs` 0.4 ms. Listing every directory of the
+  tree costs about 28 ms, while checking each directory's modification time
+  (what a scan cache would do instead) costs about 13 ms; the rest is the
+  per-source validation (opening and identifying each of 2,000-3,600
+  sources), which such a cache cannot skip. The first run after the tree left
+  the OS cache took 10-20 s, also dominated by opening files. Include probing
+  costs nothing measurable since the [directory index](#directory-index).
 - **Not cached:** preprocessing and parsing. A cached result would load
   through the abstract forms (`transforms/import`), and on luerl (169
   modules, Release, 2026-10-11) importing them alone took 1,063 ms against

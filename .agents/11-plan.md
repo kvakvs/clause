@@ -646,21 +646,28 @@ Shared design rules for all sub-steps:
 #### 62D3. Directory scan cache
 
 - Success criteria
-  - [ ] Measure the expansion of `sources`, `source_dirs`,
+  - [x] Measure the expansion of `sources`, `source_dirs`,
     `source_search_paths`, `include_dirs` and `ignore_dirs` cold and warm on
     a large tree (all of `references/otp/lib` with `**` patterns), plus
     include-path probing during preprocessing.
-  - [ ] Measure with the in-memory index of [62E](#step-62e) in place; a scan
+  - [x] Measure with the in-memory index of [62E](#step-62e) in place; a scan
     cache persists that index between runs.
-  - [ ] Implement a scan cache only if planning or probing costs more than
+  - [x] Implement a scan cache only if planning or probing costs more than
     100 ms or 5% of a warm build. It would store expansion results per
     pattern root and invalidate them by directory mtimes (entries added or
     removed) and the manifest hash. Otherwise record the numbers and close
     the step without code.
 - Tests
-  - [ ] If implemented: adding, removing or renaming a file or directory
+  - [ ] (not applicable) If implemented: adding, removing or renaming a file or directory
     that matches a pattern is picked up on the next run, as is a change to
     `ignore_dirs`.
+- Done 2026-10-11 without a scan cache; `--print-stage-times` gained `[time] plan <manifest>` to measure
+  planning. luerl: plan 78 ms of a 2.77 s warm build (2.8%), include probing answered by the index. All of
+  `references/otp/lib` (1,319 directories): plan about 150 ms warm (sources glob 74, source_dirs 140, search and
+  include patterns 35 each, ignore_dirs 0.4 ms), 10-20 s on first touch. That exceeds 100 ms, but listing the
+  whole tree costs about 28 ms against about 13 ms to stat its directories (what a mtime-validated cache would
+  do), and the remainder is per-source validation (open + identity) the cache cannot skip, so it would save
+  about 15 ms per walk; recorded in `docs/projects.md#build-caches`, no code.
 
 #### 62D4. Compile result cache
 

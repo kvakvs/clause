@@ -5,6 +5,7 @@
 #include "frontend.hpp"
 #include "options.hpp"
 #include "publication.hpp"
+#include "stage_times.hpp"
 #include <iostream>
 #include <utility>
 
@@ -119,6 +120,12 @@ project::PlanOptions plan_settings(const Options &options, project::DirectoryInd
     }
     settings.entry = options.entry;
     settings.build_directory = options.build_directory;
+    if (options.print_stage_times) {
+        // Added for the directory scan measurement (62D3).
+        settings.planned = [](const std::filesystem::path &manifest, const std::chrono::steady_clock::duration time) {
+            print_stage_time("plan", project::path_text(manifest), time);
+        };
+    }
     return settings;
 }
 

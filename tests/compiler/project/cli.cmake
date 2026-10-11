@@ -55,6 +55,8 @@ check(print_pp 0 "value.*1" "^$" --project project.toml --print-pp --target app)
 check(output_check_conflict 2 "^$" "cannot be used" --project project.toml --parse-check -o sentinel)
 check(output_multiple_conflict 2 "^$" "exactly one" --project project.toml -o sentinel)
 check(default_pipeline 0 "^$" "^$" --project project.toml)
+# Loading and planning the manifest is a stage of its own (plan step 62D3).
+check(stage_times_plan 0 "^$" "^\\[time\\] plan [^\n]*project.toml: [0-9.]+ ms\n" --project project.toml --print-stage-times --parse-check)
 # Each project target compiles as its own batch, named in its stage time.
 check(stage_times 0 "^$" "\\[time\\] compile target app \\(1 module\\): [0-9.]+ ms\n.*\\[time\\] compile target tests \\(1 module\\)"
     --project project.toml --print-stage-times)
