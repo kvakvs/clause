@@ -3,13 +3,13 @@ set -euo pipefail
 
 # Resolve build paths from the repository while preserving the caller's working directory.
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-build_dir=${BUILD_DIR:-build/debug}
+build_dir=${TOOL_BUILD_DIR:-build/tool}
 if [[ "$build_dir" != /* ]]; then
     build_dir="$project_dir/$build_dir"
 fi
 
 # Keep build output off the compiler's stdout and stop if configuration or compilation fails.
-make -C "$project_dir" build BUILD_DIR="$build_dir" >&2
+make -C "$project_dir" build TOOL_BUILD_DIR="$build_dir" >&2
 
 # Support both single-configuration and configuration-specific CMake output directories.
 executable=

@@ -2,6 +2,9 @@
 CMAKE ?= cmake
 CTEST ?= ctest
 BUILD_DIR ?= build/debug
+# Builds without tests (make build, run-macos.sh) use their own directory, so they never reconfigure the testing
+# build with BUILD_TESTING=OFF.
+TOOL_BUILD_DIR ?= build/tool
 BUILD_TYPE ?= Debug
 # An empty count requests the native build tool's default parallelism.
 JOBS ?=
@@ -17,10 +20,10 @@ CLANG_FORMAT ?= $(shell command -v clang-format 2>/dev/null || xcrun --find clan
 # Reconfigure each time; let CMake control jobs independently of outer make flags.
 # Build only the compiler executable and its dependencies for manual runs.
 build:
-	$(CMAKE) -S . -B "$(BUILD_DIR)" $(CMAKE_ARGS) \
+	$(CMAKE) -S . -B "$(TOOL_BUILD_DIR)" $(CMAKE_ARGS) \
 		-DCMAKE_BUILD_TYPE="$(BUILD_TYPE)" -DBUILD_TESTING=OFF \
 		-DCLAUSE_BUILD_COMPILER=ON -DCLAUSE_BUILD_RUNTIME=ON
-	+MAKEFLAGS= $(CMAKE) --build "$(BUILD_DIR)" --config "$(BUILD_TYPE)" --target clau --parallel $(if $(strip $(JOBS)),"$(JOBS)")
+	+MAKEFLAGS= $(CMAKE) --build "$(TOOL_BUILD_DIR)" --config "$(BUILD_TYPE)" --target clau --parallel $(if $(strip $(JOBS)),"$(JOBS)")
 
 # Build all executables including those for testing
 build_test:

@@ -555,7 +555,7 @@ Host and tool gotchas:
   --erl none. erlc -pa . does not find modules; pass absolute -pa (loader makes code paths absolute). Bash
   heredocs still collapse backslashes in python edits: write edit scripts with Write (scratchpad apply*.py).
   User AGENTS.md edit (2026-10-11, uncommitted): no feature tags on trivial one-line changes.
-- 41A-41H (2026-10-11): clau.bat/make-build.bat reconfigure build/debug with BUILD_TESTING=OFF; CTest then runs
-  stale test binaries. Before a gate: cmake -DBUILD_TESTING=ON build/debug. cmd scripts: never pass "|" in
+- 41A-41H (2026-10-11): testing-off wrappers (clau.bat, make-build.bat, make build, run-macos.sh) now build in
+  TOOL_BUILD_DIR=build/tool, so build/debug keeps BUILD_TESTING=ON (user request). cmd scripts: never pass "|" in
   arguments (cmd pipes it). 41B: erlang.terms statuses are hand-maintained; regenerate erlang.erl with
   tests/compiler/builtins/generate_erlang.py after a status change.

@@ -84,7 +84,7 @@ Keys are relative to the directory column. Stable backing and roots are implemen
 
 | Location | Lookup |
 | --- | --- |
-| Root | `CMakeLists.txt`, `CMakePresets.json`, `Makefile`, `make-*.bat`, `run-macos.sh`: build/test/format; `clau.bat`: run wrapper; `tools/windows-toolchain.cmd`: clang-cl/Ninja Multi-Config + VS environment for `make-{build,test}.bat`; `.clang-{format,tidy}`: style/quality |
+| Root | `CMakeLists.txt`, `CMakePresets.json`, `Makefile`, `make-*.bat`, `run-macos.sh`: build/test/format; `clau.bat`: run wrapper (testing-off builds in `build/tool`, testing builds in `build/debug`); `tools/windows-toolchain.cmd`: clang-cl/Ninja Multi-Config + VS environment for `make-{build,test}.bat`; `.clang-{format,tidy}`: style/quality |
 | Component CMake files | `compiler/`: frontend, semantic/backend, `clau`; `runtime/`: `clause_runtime`, `Clause::generated_program`; `abi/`: headers; `tests/`: opt-in CTest |
 | `cmake/` | `ProjectOptions.cmake`; `{Boost,Compiler,Erlang,LLVM,Zlib,Zstd}Dependencies.cmake`; `LLVM{Policy,Downloads}.cmake`; `Windows{Toolchain,Host,DependencyBuild}.cmake`; `ThirdPartyDependencies.cmake`; `ErlangVersion.escript` |
 | `cmake/` checks | `Check{Complexity,ClangTidy}.cmake` (changed or all scope via `QualityScope.cmake` + `quality_scope.py`; `tidy_filter.py` drops analyzer reports located in Boost and decides each batch), `{QualityToolchain,TestHost}.cmake.in`; `modules/Find{ZLIB,zstd}.cmake`; `probes/{windows,llvm}.cpp`; `tools/requirements-quality.txt` |
