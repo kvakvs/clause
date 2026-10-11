@@ -34,6 +34,8 @@ draft with smaller, single-commit steps.
   (user direction). It adds the `build_dir` option, build caches and an
   in-memory index of searched directories, selecting the cache item of D07
   ahead of decision step 77. 62E is independent and may run before 62D.
+  Step 62D5 (SQLite cache backend) was added on 2026-10-12 (user direction)
+  after 62D1–62D4 and 62E were done.
 
 ## Common gate and rules (apply to every step)
 
@@ -138,7 +140,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | L. Optimization and tooling | [58A](00-finished.md#step-58a)–[58N3](00-finished.md#step-58n3), [59](00-finished.md#step-59)–[62B](00-finished.md#step-62b) | F23, F25, F29–F34 | done |
 | H2. `erlang` module builtins | [41A](#step-41a)–[41H](#step-41h) (41G as 41G1–41G3) | F36 | done (41F TSan stress with V02) |
 | L2. Export liveness | [62C](#step-62c) | F32, F36 | done |
-| L3. Build directory and caches | [62D](#step-62d) (62D1–62D4), [62E](#step-62e) | D07 | done |
+| L3. Build directory and caches | [62D](#step-62d) (62D1–62D5), [62E](#step-62e) | D07 | open: [62D5](#step-62d5) |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -547,7 +549,7 @@ whole-batch compilation are the costs worth caching.
 
 Backlog: D07 (cache). Depends on: [58](00-finished.md#step-58),
 [73G](00-finished.md#step-73g), [62C](#step-62c) (compile-cache keys must
-include export liveness). Split into 62D1–62D4. Each sub-step is one commit
+include export liveness). Split into 62D1–62D5. Each sub-step is one commit
 titled `[plan11] 62Dn. <title>`.
 
 Shared design rules for all sub-steps:
@@ -702,6 +704,108 @@ Shared design rules for all sub-steps:
   without caches (`--no-cache`, as before 62D2), 1.64-1.65 s warm (compile 1,180 -> 68 ms, transforms
   1,107 -> 89 ms). Tests running manifests inside `tests/fixtures` pass `--build-dir` into their work directory.
   Phase L2/L3 gate: full-mode CTest 263/264 (known `codegen_resource_cli`), `check-quality-all` clean.
+
+<a id="step-62d5"></a>
+
+#### 62D5. Replace the cache file backend with SQLite
+
+Added 2026-10-12 (user direction). Depends on: [62D2](#step-62d),
+[62D4](#step-62d). The file backend of 62D2 keeps one `index` per input
+directory plus per-process append-only `<kind>-*.pack` files, and every
+`put` re-reads, rewrites and renames the whole index. Its values use custom
+length-prefixed encodings (index entries, pack records, loader runs, compile
+outcomes).
+
+Feasibility comparison (2026-10-12, Windows 11, NTFS, Python 3.14 with SQLite
+3.50.4 against a Python emulation of the file backend's I/O pattern,
+`journal_mode=WAL`, `synchronous=NORMAL`; the absolute numbers include Python
+overhead on both sides, so compare the ratios):
+
+| Case | File backend | SQLite |
+| --- | --- | --- |
+| 200 puts × 8 KB (transform replies) | 805 ms | 16 ms |
+| 2,000 puts × 8 KB | 8,849 ms (quadratic: index rewrite per put) | 149 ms |
+| Load + read 200 × 8 KB | 13 ms | 3 ms (open + selects) |
+| Load + read 2,000 × 8 KB | 66 ms | 22 ms |
+| 3 puts × 24 MB (compile outcomes) | 39 ms | 289 ms (WAL writes the data twice) |
+| 3 reads × 24 MB | 29 ms | 62 ms |
+| 4 processes × 50 puts at once | 7–14 of 200 entries kept, ~510 ms | 200 of 200 kept, ~90 ms |
+
+- **Speed and access time.** SQLite is 3–50x faster for small values: a put
+  is one indexed row in one transaction instead of an index rewrite, and a
+  lookup is a B-tree probe instead of loading the whole index. Large values are
+  2–7x slower: the write-ahead log writes them twice, and overflow-page reads
+  cost more than one sequential file read. SQLite's own guidance puts the
+  break-even point near 100 KB per value.
+- **Concurrency between processes.** The file backend loses most entries when
+  several `clau` processes share a build directory. The index swap lets the
+  last writer win. On Windows, a reader that hits the rename gets a sharing
+  violation, which the store reads as an empty index, so its next swap drops
+  every other entry. Nothing breaks, because every loss is only a miss, but
+  the cache stops working under parallel builds. SQLite in WAL mode serializes
+  writers with file locks (with a busy timeout) and lets readers run alongside
+  them: all entries were kept.
+- **Thread safety inside one process.** Today `cache::Store` is single-threaded
+  (the driver compiles targets one after another); D07 parallel builds would
+  need a mutex around it. SQLite built with `SQLITE_THREADSAFE=1` works safely
+  with one connection per thread, or with one shared connection behind a
+  mutex.
+- **Limits.** WAL needs shared memory between processes, so it does not work
+  on network file systems. Opening a database there fails or downgrades;
+  the store must then fall back to `journal_mode=DELETE`, or run without a
+  cache, never fail the build. SQLite is one public-domain C file (the
+  amalgamation) and is used by the compiler only, so the runtime stays free
+  of it.
+
+Design: a hybrid. SQLite (`<build_dir>/cache/v2/cache.db`) holds every entry's
+address (input directory, file, kind), key, size, checksum and last use.
+Values up to a threshold (start at 256 KB; set it from the benchmark below)
+live in a BLOB column. Larger values (compile outcomes with objects) are
+content-addressed files `blobs/<hash>` written as a temporary file and
+renamed, and the row names the hash. The `Store` interface and every caller
+stay unchanged.
+
+- Order: write and rename the blob file first, then commit the row. A crash
+  in between leaves only an orphan file, which `prune` deletes. A row never
+  names a file that was not complete.
+- Reads check the file's size and hash against the row. A missing or
+  different file is a miss, and the row is dropped.
+- Equal values share one file, so the objects of a batch built under two
+  option sets are stored once when identical. A compile outcome may keep its
+  diagnostics in the row and each module object as its own blob, so a later
+  per-module reuse can share them.
+- One threshold decides row versus file, set from the benchmark below.
+
+- Success criteria
+  - [ ] The SQLite amalgamation is a pinned third-party dependency (version
+    and hash, downloaded like toml++), built as its own target without the
+    project's warning flags, and linked only into `clau`'s cache library.
+  - [ ] A `Store` backend on SQLite: WAL journal, `synchronous=NORMAL`, a busy
+    timeout, one transaction per `put`, an index on the address, values above
+    the threshold in content-addressed blob files. `prune` deletes rows not
+    used for a configurable time and blob files no row names, then runs an
+    incremental vacuum. A damaged or foreign database (`SQLITE_CORRUPT`, a
+    wrong schema version) is moved aside and recreated, never an error. On
+    a file system without WAL support the store falls back to the rollback
+    journal, or disables the cache with one `--verbose` note.
+  - [ ] Store values that carry their own encoding (loader runs, compile
+    outcomes) become columns or tables where that removes a custom codec;
+    whatever stays a blob keeps its format version in the row.
+  - [ ] `Store` is safe to use from several threads (one connection per thread
+    or a mutex), documented in `compiler/src/cache/store.hpp`.
+  - [ ] The format directory becomes `v2`; `prune` removes a leftover `v1`
+    tree. `docs/projects.md#build-caches` describes the new layout, the
+    threshold and the network-file-system behavior.
+- Tests
+  - [ ] `transforms_cache` and `linking_compile_cache` pass unchanged.
+  - [ ] Several `clau` processes building projects that share one build
+    directory at the same time keep every entry; a focused store test
+    exercises threads and processes writing and reading one database.
+  - [ ] A truncated or garbage `cache.db`, and a missing blob file, are
+    rebuilt silently.
+  - [ ] Recorded, not a gate: put/get times of the C++ backends for 200 and
+    2,000 small values and for 24 MB values, which set the blob threshold;
+    luerl cold and warm build times before and after.
 
 <a id="step-62e"></a>
 

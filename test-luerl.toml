@@ -7,6 +7,7 @@ schema_version = 1
 # All targets run by default; select with --target app (repeat for more names).
 [[targets]]
 name = "luerl"
+build_dir = "build-clau-luerl"
 
 # List files or patterns, e.g. ["main.erl", "src/*.erl", "shared/**/*.erl"].
 # Patterns support *, ?, and ** as a whole directory component.
