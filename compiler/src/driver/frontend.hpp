@@ -54,6 +54,9 @@ struct FrontendRequest {
     // Parse and add referenced modules as compilation would, then list the batch's sources instead.
     // Added for --print-inputs.
     bool list_inputs = false;
+    // Print stage durations on stderr: preprocess and parse per file, compile per batch, link per executable.
+    // Added for --print-stage-times.
+    bool stage_times = false;
 };
 
 // Process one isolated batch; project targets never share declaration tables.

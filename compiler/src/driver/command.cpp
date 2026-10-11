@@ -14,6 +14,7 @@ Options:
   -h, --help           Show this help and exit.
       --version        Show the tool version and exit.
       --verbose        Trace inputs and compilation phases to stderr with [pp]/[parse]/[comp].
+      --print-stage-times  Print preprocess/parse time per file, compile time per batch and link time to stderr.
   -o, --output <path>  Link an executable (Windows targets add .exe when no extension is given).
       --entry <module[:function]>  Select the executable entry function/1 (default function: main).
       --linker <path>   Clang driver used to link executables (default: clang++ or clang on PATH).

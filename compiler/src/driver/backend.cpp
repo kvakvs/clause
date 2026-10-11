@@ -6,10 +6,12 @@
 #include "../codegen/serialization.hpp"
 #include "../codegen/target.hpp"
 #include "../linking/link.hpp"
+#include "../project/paths.hpp"
 #include "analysis.hpp"
 #include "inspection.hpp"
 #include "progress.hpp"
 #include "publication.hpp"
+#include "stage_times.hpp"
 #include "type_report.hpp"
 #include <clause/compiler/source.hpp>
 
@@ -100,17 +102,23 @@ void link(const codegen::Compilation &compilation, const FrontendRequest &fronte
     for (const auto &input : compilation.request().inputs) {
         inputs.push_back(input.source_path);
     }
-    auto executable = linking::stage_executable(
-        {.output = output,
-         .target_triple = codegen::target_triple(compilation),
-         .objects = compilation.result().outputs(),
-         .linker = frontend.backend.linker,
-         .runtime_library = frontend.backend.runtime_library,
-         .protected_inputs = inputs,
-         .create_directory = frontend.create_output_directory,
-         .strip_unused = compilation.request().optimization == codegen::OptimizationLevel::size,
-         .debug_info = compilation.request().debug_info,
-         .lto = frontend.backend.lto});
+    StageClock clock; // Added for --print-stage-times.
+    auto executable = clock.time([&] {
+        return linking::stage_executable(
+            {.output = output,
+             .target_triple = codegen::target_triple(compilation),
+             .objects = compilation.result().outputs(),
+             .linker = frontend.backend.linker,
+             .runtime_library = frontend.backend.runtime_library,
+             .protected_inputs = inputs,
+             .create_directory = frontend.create_output_directory,
+             .strip_unused = compilation.request().optimization == codegen::OptimizationLevel::size,
+             .debug_info = compilation.request().debug_info,
+             .lto = frontend.backend.lto});
+    });
+    if (frontend.stage_times) {
+        print_stage_time("link", project::path_text(executable.output), clock.elapsed());
+    }
     if (!executable.warnings.empty()) {
         sink(executable.warnings);
     }
@@ -130,9 +138,10 @@ std::optional<codegen::StartupRequest> startup_request(const Analysis &analysis)
     return codegen::StartupRequest{entry.module, utf8(entry.function.name), entry.function.arity, entry.escript};
 }
 
-// Analyze before constructing LLVM state; moving the vector preserves borrowed AST addresses.
-bool compile(std::vector<codegen::CompilationInput> inputs, const FrontendRequest &frontend,
-             const DiagnosticSink &sink) {
+// Analyze before constructing LLVM state; moving the vector preserves borrowed AST addresses. A successful batch
+// leaves its compilation in `output` unless it stopped at --print-types.
+bool compile(std::vector<codegen::CompilationInput> inputs, const FrontendRequest &frontend, const DiagnosticSink &sink,
+             std::optional<codegen::Compilation> &output) {
     auto request = backend_request(std::move(inputs), frontend);
     Analysis analysis;
     const EntryRequest entry{frontend.entry, frontend.executable_output.has_value(), !request.project_target.empty()};
@@ -144,17 +153,37 @@ bool compile(std::vector<codegen::CompilationInput> inputs, const FrontendReques
         return false;
     }
     request.startup = startup_request(analysis);
-    codegen::Compilation compilation(std::move(request));
+    auto &compilation = output.emplace(std::move(request));
     const bool succeeded = generate(compilation, analysis, frontend);
     report_backend(compilation.result(), sink);
-    if (!succeeded || !compilation.result().complete()) {
-        return true;
+    return !succeeded || !compilation.result().complete();
+}
+
+// The batch a compile time belongs to: its module count, and its project target when there is one.
+// Added for --print-stage-times.
+std::string batch_text(const std::size_t modules, const FrontendRequest &frontend) {
+    auto text = std::to_string(modules) + (modules == 1 ? " module" : " modules");
+    return frontend.project_target.empty() ? text : "target " + frontend.project_target + " (" + text + ")";
+}
+
+// Compile the batch, then link its executable or deliver its artifacts.
+bool compile_and_link(std::vector<codegen::CompilationInput> inputs, const FrontendRequest &frontend,
+                      const DiagnosticSink &sink) {
+    const auto modules = inputs.size();
+    std::optional<codegen::Compilation> compilation;
+    StageClock clock; // Added for --print-stage-times.
+    const bool failed = clock.time([&] { return compile(std::move(inputs), frontend, sink, compilation); });
+    if (frontend.stage_times) {
+        print_stage_time("compile", batch_text(modules, frontend), clock.elapsed());
+    }
+    if (failed || !compilation) {
+        return failed;
     }
     if (frontend.executable_output) {
-        link(compilation, frontend, *frontend.executable_output, sink);
-        return false;
+        link(*compilation, frontend, *frontend.executable_output, sink);
+    } else {
+        deliver(std::move(*compilation), frontend);
     }
-    deliver(std::move(compilation), frontend);
     return false;
 }
 } // namespace
@@ -162,7 +191,7 @@ bool compile(std::vector<codegen::CompilationInput> inputs, const FrontendReques
 bool compile_batch(std::vector<codegen::CompilationInput> inputs, const FrontendRequest &request,
                    const DiagnosticSink &sink) {
     try {
-        return compile(std::move(inputs), request, sink);
+        return compile_and_link(std::move(inputs), request, sink);
     } catch (const std::exception &error) {
         sink("error: " + std::string(error.what()));
     }

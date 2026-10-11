@@ -61,6 +61,10 @@ compile(no_arguments 0 "^$" --entry noargs:start -o noargs noargs.erl)
 run(noargs 0 "started\n" ignored)
 compile(both_arities 0 "^$" --entry noargs:both -o both noargs.erl)
 run(both 0 "{one,[\"x\"]}\n" x)
+# Stage times end with the link of the executable, named by its final path.
+compile(stage_times 0 "\\[time\\] compile 1 module: [0-9.]+ ms\r?\n\\[time\\] link [^\n]*/timed(\\.exe)?: [0-9.]+ ms"
+    --print-stage-times --entry noargs:start -o timed noargs.erl)
+run(timed 0 "started\n")
 # A project target links with an explicit -o (exactly one selected target); manifest and CLI entries apply.
 compile(project 0 "^$" --project project.toml -o project)
 run(project 0 "[\"x\"]\n" x)

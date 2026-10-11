@@ -9,6 +9,7 @@
 #include "options.hpp"
 #include "placeholders.hpp"
 #include "predefined.hpp"
+#include "stage_times.hpp"
 #include "transform_sources.hpp"
 #include "transforms/abstract_input.hpp"
 #include "transforms/export.hpp"
@@ -64,6 +65,13 @@ void print_form(const PreprocessorEvent &event) {
 // Own syntax for the entire batch before borrowing it in semantic side tables.
 using Inputs = std::vector<codegen::CompilationInput>;
 
+// Time one file spends being read and preprocessed, and being parsed; the parser pulls forms from the preprocessor,
+// so the two stages interleave. Added for --print-stage-times.
+struct FileTimes {
+    StageClock preprocess;
+    StageClock parse;
+};
+
 // What a parsing pass leaves besides the syntax: the module's features, whether its input failed, and where its
 // main source ends for the abstract format's eof form.
 struct ParsedModule {
@@ -87,26 +95,28 @@ void print_parsed(const FrontendRequest &request, const ast::Module &module, con
 }
 
 // Feed every preprocessed event to the parser until EOF or a parser resource limit.
-void parse_events(PreprocessorSession &session, const FrontendRequest &request, ParserSession &parser) {
+void parse_events(PreprocessorSession &session, const FrontendRequest &request, ParserSession &parser,
+                  FileTimes &times) {
     while (!parser.stopped()) {
-        const auto event = session.next();
+        const auto event = times.preprocess.time([&] { return session.next(); });
         if (!event) {
             return;
         }
         if (request.print_pp) {
             print_form(*event);
         }
-        parser.consume(*event);
+        times.parse.time([&] { parser.consume(*event); });
     }
 }
 
 // Finish a parsing pass and dispatch a successful module to the requested final stage; compiled modules get OTP's
 // predefined functions.
 bool finish_module(ParserSession &parser, const ParsedModule &parsed, const FrontendRequest &request,
-                   const DiagnosticSink &sink, const std::filesystem::path &path, const bool escript, Inputs &inputs) {
+                   const DiagnosticSink &sink, const std::filesystem::path &path, const bool escript, Inputs &inputs,
+                   FileTimes &times) {
     const auto predefined =
         request.compile && !parser.stopped() ? add_predefined(parser, parsed.features, path, escript) : std::size_t{0};
-    auto result = std::move(parser).finish(parsed.features);
+    auto result = times.parse.time([&] { return std::move(parser).finish(parsed.features); });
     for (const auto &diagnostic : result.diagnostics) {
         print_diagnostic(diagnostic, sink);
     }
@@ -141,9 +151,9 @@ transforms::CompileOptions compile_options(const FrontendRequest &request, const
 // Added for parse transforms.
 bool transform_and_finish(ParserSession &parser, PreprocessorSession &session, const FrontendRequest &request,
                           const DiagnosticSink &sink, const SourcePtr &source, const std::filesystem::path &path,
-                          const bool escript, Inputs &inputs) {
+                          const bool escript, Inputs &inputs, FileTimes &times) {
     const auto features = session.features();
-    auto parsed = std::move(parser).finish(features);
+    auto parsed = times.parse.time([&] { return std::move(parser).finish(features); });
     for (const auto &diagnostic : parsed.diagnostics) {
         print_diagnostic(diagnostic, sink);
     }
@@ -163,22 +173,44 @@ bool transform_and_finish(ParserSession &parser, PreprocessorSession &session, c
         return true;
     }
     const auto end = [position = outcome.end_](const ast::Module &) { return position; };
-    return finish_module(transformed, {features, false, end}, request, sink, path, escript, inputs);
+    return finish_module(transformed, {features, false, end}, request, sink, path, escript, inputs, times);
 }
 
 // Consume a preprocessing session as one module.
 bool parse_and_print(PreprocessorSession &session, const FrontendRequest &request, const DiagnosticSink &sink,
-                     const SourcePtr &source, const std::filesystem::path &path, const bool escript, Inputs &inputs) {
+                     const SourcePtr &source, const std::filesystem::path &path, const bool escript, Inputs &inputs,
+                     FileTimes &times) {
     ParserSession parser;
-    parse_events(session, request, parser);
+    parse_events(session, request, parser, times);
     if (transforming(request) && !parser.stopped() &&
         transforms::wants_transforms(parser.view(), request.transforms_)) {
-        return transform_and_finish(parser, session, request, sink, source, path, escript, inputs);
+        return transform_and_finish(parser, session, request, sink, source, path, escript, inputs, times);
     }
     const auto end = [&source](const ast::Module &module) {
         return transforms::end_of(module, module.forms(), *source);
     };
-    return finish_module(parser, {session.features(), session.failed(), end}, request, sink, path, escript, inputs);
+    const ParsedModule parsed{session.features(), session.failed(), end};
+    return finish_module(parser, parsed, request, sink, path, escript, inputs, times);
+}
+
+// The frontend stages one file went through. Added for --print-stage-times.
+struct FileStages {
+    bool preprocessed;
+    bool parsed;
+};
+
+// Print the times of the stages a file went through. Added for --print-stage-times.
+void print_file_times(const FrontendRequest &request, const std::filesystem::path &path, const FileTimes &times,
+                      const FileStages stages) {
+    if (!request.stage_times) {
+        return;
+    }
+    if (stages.preprocessed) {
+        print_stage_time("preprocess", filename(path), times.preprocess.elapsed());
+    }
+    if (stages.parsed) {
+        print_stage_time("parse", filename(path), times.parse.elapsed());
+    }
 }
 
 // A file of abstract format forms compiles like `erlc File.abstr`. Added for parse transforms.
@@ -186,14 +218,18 @@ bool process_abstract(const std::filesystem::path &path, const FrontendRequest &
                       Inputs &inputs) {
     trace_ingestion(request.verbose, "parse", path);
     ParserSession parser;
-    const auto file = transforms::parse_abstract_file(path, preprocessing_options(request), parser);
+    FileTimes times;
+    const auto file =
+        times.parse.time([&] { return transforms::parse_abstract_file(path, preprocessing_options(request), parser); });
     bool failed = false;
     for (const auto &diagnostic : file.diagnostics_) {
         print_diagnostic(diagnostic, sink);
         failed = failed || diagnostic.severity == Severity::error;
     }
     const auto end = [position = file.end_](const ast::Module &) { return position; };
-    return finish_module(parser, {file.features_, failed, end}, request, sink, path, false, inputs);
+    failed = finish_module(parser, {file.features_, failed, end}, request, sink, path, false, inputs, times);
+    print_file_times(request, path, times, {.preprocessed = false, .parsed = true});
+    return failed;
 }
 
 // Read a source, rewriting a "#!" escript header and warning about ignored emulator arguments.
@@ -212,22 +248,15 @@ SourcePtr read_source(SourceManager &sources, const std::filesystem::path &path,
     return sources.add(source->name, rewritten->bytes);
 }
 
-// Keep source ownership and all mutable frontend state local to one file.
-bool process_module(const std::filesystem::path &path, const FrontendRequest &request, const DiagnosticSink &sink,
-                    Inputs &inputs) {
-    if (path.extension() == ".abstr") {
-        return process_abstract(path, request, sink, inputs);
-    }
-    SourceManager sources;
-    bool escript = false;
-    const auto source = read_source(sources, path, sink, escript);
-    trace_ingestion(request.verbose, "pp", path);
-    PreprocessorSession session(source, preprocessing_options(request));
-    if (request.parse_check || request.print_ast || request.print_source || request.print_abstr || request.compile) {
-        trace_ingestion(request.verbose, "parse", path);
-        return parse_and_print(session, request, sink, source, path, escript, inputs);
-    }
-    while (const auto event = session.next()) {
+// Whether the request parses its sources rather than only preprocessing them.
+bool parsing(const FrontendRequest &request) {
+    return request.parse_check || request.print_ast || request.print_source || request.print_abstr || request.compile;
+}
+
+// Report preprocessing diagnostics and print expanded forms without parsing.
+bool preprocess_only(PreprocessorSession &session, const FrontendRequest &request, const DiagnosticSink &sink,
+                     FileTimes &times) {
+    while (const auto event = times.preprocess.time([&] { return session.next(); })) {
         if (const auto *diagnostic = std::get_if<Diagnostic>(&*event)) {
             print_diagnostic(*diagnostic, sink);
         }
@@ -236,6 +265,33 @@ bool process_module(const std::filesystem::path &path, const FrontendRequest &re
         }
     }
     return session.failed();
+}
+
+// Read, preprocess and, when requested, parse one source file.
+bool process_source(const std::filesystem::path &path, const FrontendRequest &request, const DiagnosticSink &sink,
+                    Inputs &inputs, FileTimes &times) {
+    SourceManager sources;
+    bool escript = false;
+    const auto source = times.preprocess.time([&] { return read_source(sources, path, sink, escript); });
+    trace_ingestion(request.verbose, "pp", path);
+    auto session = times.preprocess.time([&] { return PreprocessorSession(source, preprocessing_options(request)); });
+    if (!parsing(request)) {
+        return preprocess_only(session, request, sink, times);
+    }
+    trace_ingestion(request.verbose, "parse", path);
+    return parse_and_print(session, request, sink, source, path, escript, inputs, times);
+}
+
+// Keep source ownership and all mutable frontend state local to one file.
+bool process_module(const std::filesystem::path &path, const FrontendRequest &request, const DiagnosticSink &sink,
+                    Inputs &inputs) {
+    if (path.extension() == ".abstr") {
+        return process_abstract(path, request, sink, inputs);
+    }
+    FileTimes times;
+    const bool failed = process_source(path, request, sink, inputs, times);
+    print_file_times(request, path, times, {.preprocessed = true, .parsed = parsing(request)});
+    return failed;
 }
 
 // Preserve per-file recovery while retaining successful syntax for the batch.
@@ -344,7 +400,8 @@ bool add_placeholder(const std::u32string &module, const std::set<semantic::Func
     const auto path = placeholder_path(module);
     const auto source = sources.add(project::path_text(path), placeholder_source(module, functions));
     PreprocessorSession session(source, request.preprocessing);
-    return parse_and_print(session, request, sink, source, path, false, inputs);
+    FileTimes untimed; // Placeholders are generated, not files; their stage times are not printed.
+    return parse_and_print(session, request, sink, source, path, false, inputs, untimed);
 }
 
 // Add a placeholder module for each ignored module the batch names. Added for ignored modules.
@@ -436,7 +493,8 @@ int process_inputs(const Options &options) {
     FrontendRequest request{
         options.print_pp, options.print_ast,     options.parse_check, !options.preprocess || options.print_inputs,
         options.verbose,  options.preprocessing, options.backend};
-    request.list_inputs = options.print_inputs; // Added for --print-inputs.
+    request.list_inputs = options.print_inputs;      // Added for --print-inputs.
+    request.stage_times = options.print_stage_times; // Added for --print-stage-times.
     request.print_source = options.print_source;
     request.print_abstr = options.print_abstr;
     request.transforms_ = options.transforms;

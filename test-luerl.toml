@@ -31,7 +31,7 @@ ignore_modules = [
 # Fallback roots for listed source filenames, e.g. ["src", "generated"].
 # These do not discover extra files or search for headers.
 source_search_paths = [
-  "references/otp/lib/**/src/"
+  "references/otp/lib/**/src", # Allow peeking into OTP implementations
 ]
 # Header search directories, first listed first, e.g. ["include", "vendor/include"].
 # CLI -I directories take precedence; the last CLI -I is searched first.

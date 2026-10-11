@@ -13,6 +13,9 @@ struct Options {
     bool show_version = false;
     // Trace input ingestion without selecting a different compiler action.
     bool verbose = false;
+    // Print elapsed preprocess/parse time per file, compile time per batch and link time per executable.
+    // Added for --print-stage-times.
+    bool print_stage_times = false;
     // Retain the requested destination for the future code-generation stage.
     std::filesystem::path output = "a.out";
     // Distinguish explicit output overrides from the positional-mode default.

@@ -147,7 +147,8 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
                                 options.verbose,
                                 target.preprocessing,
                                 target_options(options, invocation, target)};
-        request.list_inputs = options.print_inputs; // Added for --print-inputs.
+        request.list_inputs = options.print_inputs;      // Added for --print-inputs.
+        request.stage_times = options.print_stage_times; // Added for --print-stage-times.
         request.project_target = target.name;
         request.print_source = options.print_source;
         request.print_abstr = options.print_abstr;

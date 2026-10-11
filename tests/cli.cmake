@@ -205,3 +205,13 @@ check_cli(verbose_print_ast 0 "^\\(Module .*Atom name=true\\)\n    \\)\n  \\)\n\
 check_cli(verbose_multiple 0 "^$" "^\\[pp\\] first.erl\n\\[parse\\] first.erl\n\\[pp\\] second.erl\n\\[parse\\] second.erl\n\\[comp\\].*phase=emission module=\"second\"\n$"
     --verbose first.erl second.erl)
 check_cli(verbose_opt_in 0 "^$" "^$" --app-dir demo=app trace.erl)
+
+# Stage times: preprocess and parse per file once it is done, compile per batch, all in milliseconds on stderr.
+set(ms ": [0-9]+\\.[0-9][0-9][0-9] ms\n")
+check_cli(stage_times_help 0 "--print-stage-times" "^$" --help)
+check_cli(stage_times_pp_only 0 "^$" "^\\[time\\] preprocess trace.erl${ms}$"
+    --print-stage-times --preprocess-check --app-dir demo=app trace.erl)
+check_cli(stage_times_parse 0 "^$" "^\\[time\\] preprocess trace.erl${ms}\\[time\\] parse trace.erl${ms}$"
+    --print-stage-times --parse-check --app-dir demo=app trace.erl)
+check_cli(stage_times_compile 0 "^$" "^\\[time\\] preprocess first.erl${ms}\\[time\\] parse first.erl${ms}\\[time\\] preprocess second.erl${ms}\\[time\\] parse second.erl${ms}\\[time\\] compile 2 modules${ms}$"
+    --print-stage-times first.erl second.erl)

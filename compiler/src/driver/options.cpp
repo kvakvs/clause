@@ -128,7 +128,8 @@ bool parse_flag(const std::string_view argument, Options &options) {
                                                         {"--print-abstr", {&Options::print_abstr, true}},
                                                         {"--print-inputs", {&Options::print_inputs, true}},
                                                         {"--print-env", {&Options::print_env, false}},
-                                                        {"--verbose", {&Options::verbose, false}}};
+                                                        {"--verbose", {&Options::verbose, false}},
+                                                        {"--print-stage-times", {&Options::print_stage_times, false}}};
     const auto found = flags.find(argument);
     if (found == flags.end()) {
         return false;
