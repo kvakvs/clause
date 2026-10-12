@@ -25,11 +25,13 @@ output = "@OUTPUT@"
 build_dir = "build"
 
 [targets.options]
-# Fallback roots for listed source filenames, e.g. ["src", "generated"].
+# Fallback roots for listed source filenames, e.g. ["src", "generated", "deps/*/src"].
+# Patterns support *, ?, and ** as a whole directory component, like sources.
 # These do not discover extra files or search for headers.
 source_search_paths = []
-# Header search directories, first listed first, e.g. ["include", "vendor/include"].
-# CLI -I directories take precedence; the last CLI -I is searched first.
+# Header search directories, first listed first, e.g. ["include", "vendor/include", "deps/*/include"].
+# Patterns expand to the matching directories. CLI -I directories take precedence; the last CLI -I
+# is searched first.
 include_dirs = []
 # Predefined macros, e.g. ["DEBUG", "LIMIT=100", 'LABEL="demo"'].
 # A bare name means true; values are Erlang literal terms. Duplicates are errors.
@@ -39,9 +41,9 @@ defines = []
 # Do not list a feature in both arrays.
 enable_features = []
 disable_features = []
-# Sources never discovered, searched or compiled: path wildcards and module names, e.g.
-# ignore_dirs = ["vendor/*/test"], ignore_modules = ["legacy"]. Calls into such modules return
-# {module_ignored, Module}.
+# Sources never discovered, searched or compiled: paths and module names, both with wildcards, e.g.
+# ignore_dirs = ["vendor/*/test", "**/test"], ignore_modules = ["legacy", "*_SUITE"]. Calls into such
+# modules return {module_ignored, Module}.
 ignore_dirs = []
 ignore_modules = []
 # Executables leave out exports nothing can call; true keeps every export callable by name.

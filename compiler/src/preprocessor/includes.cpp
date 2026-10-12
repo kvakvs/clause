@@ -76,11 +76,12 @@ bool PreprocessorSession::State::open_versioned(const std::filesystem::path &nam
     const auto application = *name.begin(); // A copy: a path iterator may own the element it yields.
     const auto rest = name.lexically_relative(application);
     for (const auto &base : search_bases()) {
-        const auto match = options.application_versions->find(base, application);
+        const auto unversioned = base / application;
+        const auto match = options.application_versions->find(unversioned);
         if (!match) {
             continue;
         }
-        if (!match->duplicates_.empty() && options.application_versions->first_report(base, application)) {
+        if (!match->duplicates_.empty() && options.application_versions->first_report(unversioned)) {
             report_duplicates(*match, site);
         }
         if (open_include(match->directory_ / rest, site)) {

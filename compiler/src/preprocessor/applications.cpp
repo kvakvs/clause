@@ -71,7 +71,9 @@ std::string text(const Name &name) {
 }
 } // namespace
 
-std::optional<ApplicationVersions::Match> ApplicationVersions::find(const fs::path &base, const fs::path &application) {
+std::optional<ApplicationVersions::Match> ApplicationVersions::find(const fs::path &unversioned) {
+    const auto base = unversioned.parent_path();
+    const auto application = unversioned.filename();
     const auto key = base.lexically_normal().native();
     auto listing = listings_.find(key);
     if (listing == listings_.end()) {
@@ -92,7 +94,7 @@ std::optional<ApplicationVersions::Match> ApplicationVersions::find(const fs::pa
     return result;
 }
 
-bool ApplicationVersions::first_report(const fs::path &base, const fs::path &application) {
-    return reported_.emplace(base.lexically_normal().native(), application.native()).second;
+bool ApplicationVersions::first_report(const fs::path &unversioned) {
+    return reported_.insert(unversioned.lexically_normal().native()).second;
 }
 } // namespace clause

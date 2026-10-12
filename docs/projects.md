@@ -24,7 +24,7 @@ defines = ["DEBUG", "LIMIT=100", 'LABEL="demo"']
 enable_features = ["maybe_expr"]
 disable_features = ["compr_assign"]
 ignore_dirs = ["src/legacy", "deps/*/test"]
-ignore_modules = ["telemetry"]
+ignore_modules = ["telemetry", "*_SUITE"]
 keep_exports = false
 
 [targets.options.applications]
@@ -44,7 +44,7 @@ my_dependency = "vendor/my_dependency"
 - `parse_transforms` (module names) and `transform_paths` (directories or
   patterns of precompiled `.beam` files) in `options` apply parse transforms to
   the target's modules ([transforms](transforms.md#options)).
-- `ignore_dirs` (path wildcards) and `ignore_modules` (module names) in
+- `ignore_dirs` (paths) and `ignore_modules` (module names), both with wildcards, in
   `options` leave sources out of the build ([ignored sources](#ignored-sources)).
 - `keep_exports = true` in `options` keeps every export of the target's
   executable callable, as `--keep-exports` does for every selected target
@@ -356,8 +356,10 @@ parsed, compiled or linked, so it may even hold syntax errors.
   path, or a directory containing it, matches: `src/legacy`, `deps/*/test`,
   `**/test` (any `test` directory), `src/*_SUITE.erl`. Matching is lexical;
   a pattern need not match anything.
-- `ignore_modules`: module names. A source named `<Module>.erl` (or `.abstr`)
-  is ignored, and a referenced module of that name is never searched for.
+- `ignore_modules`: module names, or name patterns with `*` and `?` matched
+  against the whole name (`*_SUITE`, `legacy_*`, `prim_???`). A source named
+  `<Module>.erl` (or `.abstr`) is ignored when an entry matches `<Module>`, and
+  a referenced module that matches is never searched for.
   This includes Clause's [library modules](library.md#which-module-a-name-resolves-to).
 - A source that `sources` lists literally (no wildcard) is never ignored: the
   rules have no effect on it, and the build warns `listed in sources but
@@ -390,7 +392,7 @@ parsed, compiled or linked, so it may even hold syntax errors.
 [targets.options]
 source_search_paths = ["deps/**"]
 ignore_dirs = ["deps/*/test", "src/legacy"]
-ignore_modules = ["telemetry"]
+ignore_modules = ["telemetry", "*_SUITE"]
 ```
 
 ## Effective options

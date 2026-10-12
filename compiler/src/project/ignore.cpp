@@ -6,23 +6,41 @@
 namespace clause::project {
 Ignore::Ignore(const std::filesystem::path &base, const TargetOptions &options) {
     for (const auto &pattern : options.ignore_dirs) {
-        const auto [prefix, suffix] = split_pattern(native_path(pattern.value));
-        auto directory = absolute_path(base, prefix);
-        // A trailing separator would not match the ancestor spelling of any path below the directory.
-        if (!directory.has_filename() && directory.has_relative_path()) {
-            directory = directory.parent_path();
-        }
-        auto &root = roots_[path_text(directory)];
-        if (suffix.empty()) {
-            root.whole_ = true;
-        } else {
-            root.globs_.push_back(parse_glob({path_text(suffix), pattern.site}));
-        }
-        patterns_.push_back(pattern.value);
+        add_directory(base, pattern);
     }
     for (const auto &name : options.ignore_modules) {
+        add_module(name);
+    }
+}
+
+void Ignore::add_directory(const std::filesystem::path &base, const Text &pattern) {
+    const auto [prefix, suffix] = split_pattern(native_path(pattern.value));
+    auto directory = absolute_path(base, prefix);
+    // A trailing separator would not match the ancestor spelling of any path below the directory.
+    if (!directory.has_filename() && directory.has_relative_path()) {
+        directory = directory.parent_path();
+    }
+    auto &root = roots_[path_text(directory)];
+    if (suffix.empty()) {
+        root.whole_ = true;
+    } else {
+        root.globs_.push_back(parse_glob({path_text(suffix), pattern.site}));
+    }
+    patterns_.push_back(pattern.value);
+}
+
+void Ignore::add_module(const Text &name) {
+    if (is_pattern(name.value)) {
+        module_globs_.push_back(parse_glob(name));
+        module_patterns_.push_back(name.value);
+    } else {
         modules_.insert(name.value);
     }
+}
+
+bool Ignore::names(const std::string_view module) const {
+    return modules_.contains(module) ||
+           std::ranges::any_of(module_globs_, [&](const Glob &glob) { return matches(glob, module); });
 }
 
 bool Ignore::covered(const Root &root, const std::filesystem::path &relative) {
@@ -64,6 +82,7 @@ void Ignore::note(const std::filesystem::path &source) { skipped_.insert(path_te
 
 std::vector<std::string> Ignore::modules() const {
     std::vector<std::string> result(modules_.begin(), modules_.end());
+    result.insert(result.end(), module_patterns_.begin(), module_patterns_.end());
     std::ranges::sort(result);
     return result;
 }

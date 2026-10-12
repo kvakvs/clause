@@ -14,8 +14,8 @@ class Ignore {
     // Whether the source lies in an ignored directory or is named after an ignored module.
     bool skips(const std::filesystem::path &source) const;
 
-    // Whether ignore_modules names the module.
-    bool names(std::string_view module) const { return modules_.contains(module); }
+    // Whether ignore_modules names the module, literally or by a wildcard pattern.
+    bool names(std::string_view module) const;
 
     // Whether a left-out source was named after the module.
     bool skipped(std::string_view module) const { return skipped_.contains(module); }
@@ -29,7 +29,7 @@ class Ignore {
 
     const std::vector<std::filesystem::path> &kept() const { return kept_; }
 
-    // The ignore_dirs spellings, and the ignore_modules names sorted, for --print-env.
+    // The ignore_dirs spellings, and the ignore_modules names and patterns sorted, for --print-env.
     const std::vector<std::string> &patterns() const { return patterns_; }
 
     std::vector<std::string> modules() const;
@@ -50,6 +50,10 @@ class Ignore {
         std::vector<Glob> globs_;
     };
 
+    // Add one ignore_dirs entry under its literal root.
+    void add_directory(const std::filesystem::path &base, const Text &pattern);
+    // Add one ignore_modules entry: a name, or a wildcard pattern. Added for module name patterns.
+    void add_module(const Text &name);
     // Whether the path below a root (relative to it), or one of its leading directories, matches the root's rules.
     static bool covered(const Root &root, const std::filesystem::path &relative);
 
@@ -59,6 +63,9 @@ class Ignore {
     std::vector<std::string> patterns_;
     // Module names from ignore_modules, and the stems of sources left out during discovery.
     Names modules_;
+    // ignore_modules entries with wildcards (`*`, `?`), and their spellings. Added for module name patterns.
+    std::vector<Glob> module_globs_;
+    std::vector<std::string> module_patterns_;
     Names skipped_;
     // Literally listed sources the rules matched but that stay in the target, for one warning each.
     std::vector<std::filesystem::path> kept_;

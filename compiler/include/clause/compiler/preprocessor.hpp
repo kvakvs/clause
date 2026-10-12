@@ -73,17 +73,17 @@ class ApplicationVersions {
         std::vector<std::string> duplicates_;
     };
 
-    // The highest-versioned `<application>-<version>` directory below `base`, if there is one.
-    std::optional<Match> find(const std::filesystem::path &base, const std::filesystem::path &application);
-    // True only the first time this run reports the duplicates of `application` below `base`.
-    bool first_report(const std::filesystem::path &base, const std::filesystem::path &application);
+    // The highest-versioned `<application>-<version>` sibling of the unversioned `<base>/<application>` path.
+    std::optional<Match> find(const std::filesystem::path &unversioned);
+    // True only the first time this run reports the duplicates of the unversioned `<base>/<application>` path.
+    bool first_report(const std::filesystem::path &unversioned);
 
   private:
     using Name = std::filesystem::path::string_type;
 
-    // The versioned directory names below each listed base, and the duplicate sets already reported.
+    // The versioned directory names below each listed base, and the unversioned paths already reported.
     std::map<Name, std::vector<Name>> listings_;
-    std::set<std::pair<Name, Name>> reported_;
+    std::set<Name> reported_;
 };
 
 struct PreprocessorOptions {

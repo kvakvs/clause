@@ -161,8 +161,9 @@
   `aliases.cpp`, `introspection.cpp`), per-process state in `ProcessContext` (`ProcessDictionary`, group leader in
   `Signals`), and terms kept outside processes in `memory/MessageBuffer`.
   Ignored sources (`project::Ignore`: ignore_dirs rules hashed by literal root and probed per ancestor, ignore_modules
-  hash set) leave target discovery and module search; each ignored referenced module gets a generated placeholder
-  module (`driver/placeholders`, keys from `semantic::referenced_functions`) returning `{module_ignored, M}`.
+  hash set plus globs for wildcard names) leave target discovery and module search; each ignored referenced module
+  gets a generated placeholder module (`driver/placeholders`, keys from `semantic::referenced_functions`) returning
+  `{module_ignored, M}`.
   Step 40 (`docs/io.md`): catalog entries of module `io` (`io_builtins()`); a qualified call of another module's
   catalog builtin is a service (`semantic::module_builtin`) ahead of call resolution. Runtime `builtins/io_format`
   (scan, control sequences, column tracking, chardata walks), `builtins/io_pretty` (OTP intermediate form with

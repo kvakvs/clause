@@ -10,4 +10,4 @@ entry = "app"
 [targets.options]
 source_search_paths = ["lib", "vendor/**"]
 ignore_dirs = ["src/legacy", "vendor/*/test", "src/**/*_SUITE.erl"]
-ignore_modules = ["telemetry"]
+ignore_modules = ["telemetry", "legacy_*"]

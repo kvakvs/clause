@@ -24,7 +24,7 @@ output = "luerl"
 
 [targets.options]
 ignore_dirs = [
-  "C:/Program Files/Erlang OTP/lib/crypto"
+  "C:/Program Files/Erlang OTP/lib/crypto*"
   # "references/otp/lib/compiler"
 ]
 ignore_modules = [
@@ -35,7 +35,7 @@ ignore_modules = [
 # Fallback roots for listed source filenames, e.g. ["src", "generated"].
 # These do not discover extra files or search for headers.
 source_search_paths = [
-  "references/otp/lib/**/src", # Allow peeking into OTP implementations
+  "C:/Program Files/Erlang OTP/lib/**/src", # Allow peeking into OTP implementations
 ]
 # Header search directories, first listed first, e.g. ["include", "vendor/include"].
 # CLI -I directories take precedence; the last CLI -I is searched first.
