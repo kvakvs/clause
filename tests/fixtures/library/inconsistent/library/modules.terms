@@ -1,0 +1,5 @@
+%% A library with every kind of inconsistency library_modules.py check reports (plan step 41J).
+{good, kernel, provided}.
+{bad, kernel, provided}.
+{gone, erts, missing, "the prim layer"}.
+{absent, erts, provided}.

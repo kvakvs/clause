@@ -117,7 +117,7 @@ warning, since nothing is replaced.
   `{Module, Application, missing, "reason"}.` The compiler reads it to know
   which names are Clause modules and which are reserved.
 - Each provided module has an inventory `<module>.terms` next to it:
-  `{Name, Arity, Group, Status}.` per OTP 29 export, in OTP's export order,
+  `{Name, Arity, Group, Status}.` per OTP 29 export, sorted by name and arity,
   where `Group` names the decision group (for example `stdlib`,
   `distribution`, `beam`). `erlang.terms` keeps its own format
   (`{Name, Arity, Flags, Status}`, [erlang module](builtins.md#erlang-module)).
@@ -152,8 +152,33 @@ clau.bat --project test-luerl --entry luerl:init
 
 classify every error (`unknown module`, `undefined function M:F/A`,
 unsupported syntax or feature, other), and assign each to a step of plan 11
-phase H3, another backlog item, or a recorded decline. Step 41J adds a script
-that does the classification.
+phase H3, another backlog item, or a recorded decline. With the run's stderr
+saved to a file, `python tests/compiler/library/library_modules.py report
+FILE` prints the classification as tables: each unknown module with its error
+count, calling modules and called functions with arities; undefined functions
+by module; other messages with their counts.
+
+### Tools
+
+Plan 11 step 41J. All live in `tests/compiler/library/`:
+
+- `escript observe_module.escript LIBRARY APP MODULE` writes
+  `LIBRARY/APP/MODULE.terms` from the host OTP's `MODULE:module_info(exports)`,
+  keeping the group and status of every entry already there; a new export
+  starts as `{Name, Arity, default, stub}`.
+- `python library_modules.py generate LIBRARY APP MODULE` writes the module
+  file once, every export a stub; from then on the file is edited by hand.
+- `python library_modules.py check ROOT` (CTest `library_inventory`, no OTP)
+  reports every disagreement: a provided module without its files, a missing
+  module with a file, an inventory not listed as provided, an export not in
+  the inventory or the reverse, a `stub`/`declined` entry that is not a stub
+  raising `undef`, an `implemented`/`refused` entry without a body or a
+  catalog builtin. `library_rejects` proves it on a deliberately
+  inconsistent fixture library.
+- CTest `library_freshness` (label `host_otp`) re-observes every inventory
+  and requires it unchanged, then observes, generates, checks and compiles a
+  new module end to end. `library_report` runs `clau` on a fixture program
+  and checks the report's rows.
 
 | Module | Decision (2026-10-12) | Reason or plan step |
 | --- | --- | --- |

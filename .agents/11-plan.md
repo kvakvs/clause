@@ -319,22 +319,27 @@ Backlog: F36. Depends on: [41B](00-finished.md#step-41b). **Decision.**
 Backlog: F36. Depends on: [41I](#step-41i).
 
 - Success criteria
-  - [ ] `observe_erlang.escript` and `generate_erlang.py` generalize to any
+  - [x] `observe_erlang.escript` and `generate_erlang.py` generalize to any
     module: an escript observes a module's exports from the host OTP
     (`M:module_info(exports)`, with `module_info` itself left out), and a
     generator writes `<m>.terms` and the stub module once; after that the
     module is hand-edited and a check keeps it consistent. `erlang` keeps
     its current files and auto-import output.
-  - [ ] The check, without OTP: every inventory entry is exported by the
+  - [x] The check, without OTP: every inventory entry is exported by the
     module, nothing else is exported, every `stub` entry raises `undef`,
     and every `implemented` entry has a body or a catalog builtin. With
     host OTP: the inventory still matches OTP's exports (`host_otp` label).
-  - [ ] A committed report script runs the ledger classification of this
+  - [x] A committed report script runs the ledger classification of this
     phase over a `clau` stderr file (module, error kind, callers, called
     functions with arities), so each refresh is one command.
 - Tests
-  - [ ] The consistency and freshness checks as CTests, including one
+  - [x] The consistency and freshness checks as CTests, including one
     deliberately inconsistent fixture inventory that fails.
+- Done 2026-10-12: new `tests/compiler/library/` (`observe_module.escript`, `library_modules.py` with `check`,
+  `rejects`, `generate`, `freshness`, `report`, `reporting`); the `erlang` observer and generator stay as they
+  are (flags and auto-import output are erlang-only). Generated stubs are erlfmt-stable. The report resolves every
+  luerl call site, including modules named through macros (the error column points at the call's `(`).
+  CTests `library_inventory`, `library_rejects`, `library_report`, `library_freshness` (`host_otp`).
 
 <a id="step-41k"></a>
 

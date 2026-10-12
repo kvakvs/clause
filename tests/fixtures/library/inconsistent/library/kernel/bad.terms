@@ -1,0 +1,6 @@
+%% Wrong against bad.erl in every way the check reports; the last line is malformed on purpose.
+{alpha, 1, default, stub}.
+{beta, 0, default, implemented}.
+{gamma, 2, default, implemented}.
+{delta, 1, default, stub}.
+this is not a term

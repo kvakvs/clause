@@ -1,0 +1,3 @@
+%% Consistent with good.erl.
+{one, 0, default, implemented}.
+{two, 1, default, stub}.

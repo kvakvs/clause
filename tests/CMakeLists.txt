@@ -338,6 +338,9 @@ add_subdirectory(compiler/cache)
 # The erlang library module and its inventory (plan step 41B).
 add_subdirectory(compiler/builtins)
 
+# Library module inventories, stubs and the ledger report (plan step 41J).
+add_subdirectory(compiler/library)
+
 # Symbol round trips have no observable emitted-object replacement until lowering exists.
 add_executable(semantic_symbols compiler/semantic/symbols.cpp)
 clause_project_options(semantic_symbols)

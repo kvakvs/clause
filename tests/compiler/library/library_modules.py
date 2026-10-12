@@ -1,0 +1,354 @@
+"""Clause library modules (docs/library.md#runtime-module-replacements): inventories, stubs, checks and the ledger.
+
+  library_modules.py check ROOT [LIBRARY]          inventories, module files and modules.terms agree (no OTP)
+  library_modules.py rejects ROOT                  check refuses the deliberately inconsistent fixture library
+  library_modules.py generate LIBRARY APP MODULE   write the all-stub module of an inventory, once
+  library_modules.py freshness ROOT ERL CLAU WORK  inventories match the host OTP; observe, generate, check, compile
+  library_modules.py report STDERR                 classify clau errors for the ledger (docs/library.md#ledger)
+  library_modules.py reporting ROOT CLAU WORK      report classifies a real clau run over the fixture program
+
+Added for plan step 41J.
+"""
+
+import collections
+import contextlib
+import filecmp
+import io
+import pathlib
+import re
+import shutil
+import subprocess
+import sys
+
+ATOM = r"'(?:[^'\\]|\\.)*'|[a-z][a-zA-Z0-9_@]*"
+INVENTORY_ENTRY = re.compile(rf"^\{{({ATOM}), (\d+), ([a-z][a-zA-Z0-9_]*), (implemented|refused|stub|declined)\}}\.$")
+PROVIDED = re.compile(rf"^\{{({ATOM}), ([a-z][a-z_]*), provided\}}\.$")
+MISSING = re.compile(rf'^\{{({ATOM}), ([a-z][a-z_]*), missing, "([^"]+)"\}}\.$')
+RESERVED = set(
+    "after and andalso band begin bnot bor bsl bsr bxor case catch cond div else end fun if let maybe not of or "
+    "orelse receive rem try when xor".split()
+)
+# Inventories with their own format and generator (docs/builtins.md#erlang-module), and the module list itself.
+OWN_FORMAT = {"erlang.terms", "modules.terms"}
+
+
+def unquote(name):
+    """An atom's name from its source spelling."""
+    return re.sub(r"\\(.)", r"\1", name[1:-1]) if name.startswith("'") else name
+
+
+def atom(name):
+    """Erlang source spelling of an atom."""
+    if re.fullmatch(r"[a-z][a-zA-Z0-9_@]*", name) and name not in RESERVED:
+        return name
+    return "'" + name.replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+
+def term_lines(path):
+    """The non-comment lines of a terms file."""
+    return [line for line in path.read_text(encoding="utf-8").splitlines() if line and not line.startswith("%")]
+
+
+def read_inventory(path, problems):
+    """Inventory entries in file order: (name, arity, group, status)."""
+    entries = []
+    for line in term_lines(path):
+        match = INVENTORY_ENTRY.match(line)
+        if match:
+            entries.append((unquote(match[1]), int(match[2]), match[3], match[4]))
+        else:
+            problems.append(f"{path.name}: malformed entry: {line}")
+    return entries
+
+
+def read_modules(library, problems):
+    """library/modules.terms: {module: (application, reason or None for provided)}."""
+    path = library / "modules.terms"
+    modules = {}
+    if not path.exists():
+        return modules
+    for line in term_lines(path):
+        provided, missing = PROVIDED.match(line), MISSING.match(line)
+        if provided:
+            modules[unquote(provided[1])] = (provided[2], None)
+        elif missing:
+            modules[unquote(missing[1])] = (missing[2], missing[3])
+        else:
+            problems.append(f"modules.terms: malformed entry: {line}")
+    return modules
+
+
+def strip_comments(text):
+    """Erlang source without % comments; strings, quoted atoms and $c character literals are kept."""
+    out, i, quote = [], 0, None
+    while i < len(text):
+        c = text[i]
+        if quote:
+            out.append(c)
+            if c == "\\":
+                out.append(text[i + 1 : i + 2])
+                i += 1
+            elif c == quote:
+                quote = None
+        elif c == "$":
+            out.append(text[i : i + 2])
+            i += 1
+        elif c in "\"'":
+            quote = c
+            out.append(c)
+        elif c == "%":
+            while i < len(text) and text[i] != "\n":
+                i += 1
+            continue
+        else:
+            out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def arity_at(text, start):
+    """The number of top-level arguments of a call whose '(' ends just before `start`."""
+    depth, commas, nonempty, i = 0, 0, False, start
+    while i < len(text):
+        c = text[i]
+        if c in "\"'":
+            j = i + 1
+            while j < len(text) and text[j] != c:
+                j += 2 if text[j] == "\\" else 1
+            i = j
+        elif c == "$":
+            i += 1
+        elif c in "([{":
+            depth += 1
+        elif c in ")]}":
+            if depth == 0:
+                return commas + 1 if nonempty else 0
+            depth -= 1
+        elif c == "," and depth == 0:
+            commas += 1
+        if not c.isspace():
+            nonempty = True
+        i += 1
+    return None
+
+
+def read_module(path):
+    """A module source's exports, defined functions and stub functions, as sets of (name, arity)."""
+    text = strip_comments(path.read_text(encoding="utf-8"))
+    exports = set()
+    for attribute in re.finditer(r"-export\(\[(.*?)\]\)\.", text, re.S):
+        for item in filter(None, (part.strip() for part in attribute[1].split(","))):
+            name, _, arity = item.rpartition("/")
+            exports.add((unquote(name.strip()), int(arity)))
+    defined = {(unquote(m[1]), arity_at(text, m.end())) for m in re.finditer(rf"(?m)^({ATOM})\(", text)}
+    stubs = {
+        (unquote(m[1]), m[2].count("_"))
+        for m in re.finditer(rf"(?m)^({ATOM})\(((?:_(?:, _)*)?)\) -> erlang:error\(undef\)\.$", text)
+    }
+    return exports, defined, stubs
+
+
+def catalog(root, module):
+    """The functions of `module` that the runtime's bridge catalog implements."""
+    text = (root / "abi/include/clause/abi/builtins.hpp").read_text(encoding="utf-8")
+    return {(f, int(a)) for f, a in re.findall(rf'BuiltinName\{{"{re.escape(module)}", "([^"]+)", (\d+)\}}', text)}
+
+
+def check_module(root, source, inventory, problems):
+    """An inventory and its module source agree: same exports, stub entries are stubs, the others are not."""
+    module = source.stem
+    entries = read_inventory(inventory, problems)
+    exports, defined, stubs = read_module(source)
+    listed = {(name, arity) for name, arity, _, _ in entries}
+    problems += [f"{module}:{f}/{a} is exported but not in {inventory.name}" for f, a in sorted(exports - listed)]
+    problems += [f"{module}:{f}/{a} is in {inventory.name} but not exported" for f, a in sorted(listed - exports)]
+    builtins = catalog(root, module)
+    for name, arity, _, status in entries:
+        key, label = (name, arity), f"{module}:{name}/{arity}"
+        if status in ("stub", "declined") and key not in stubs:
+            problems.append(f"{label} is marked {status} but is not a stub raising undef")
+        if status in ("implemented", "refused") and (key in stubs or (key not in defined and key not in builtins)):
+            problems.append(f"{label} is marked {status} but has no body or catalog builtin")
+
+
+def inventories(library):
+    """Every inventory below the library's application directories, except files with their own format."""
+    return sorted(p for p in library.glob("*/*.terms") if p.name not in OWN_FORMAT)
+
+
+def check(root, library):
+    """All problems of a library: modules.terms against the files, each inventory against its module."""
+    problems = []
+    modules = read_modules(library, problems)
+    for module, (app, reason) in sorted(modules.items()):
+        files = [library / app / f"{module}.erl", library / app / f"{module}.terms"]
+        if reason is None:
+            problems += [f"provided module {module} lacks {f.relative_to(library).as_posix()}" for f in files
+                         if not f.exists()]
+        elif list(library.glob(f"*/{module}.erl")):
+            problems.append(f"missing module {module} has a module file")
+    for inventory in inventories(library):
+        module, app = inventory.stem, inventory.parent.name
+        if modules.get(module, (None, ""))[0] != app or modules[module][1] is not None:
+            problems.append(f"{inventory.relative_to(library).as_posix()} is not a provided module in modules.terms")
+        source = inventory.with_suffix(".erl")
+        if source.exists():
+            check_module(root, source, inventory, problems)
+    return problems
+
+
+def generate(library, app, module):
+    """Write library/<app>/<module>.erl with every inventory entry as a stub; never overwrite."""
+    problems = []
+    entries = read_inventory(library / app / f"{module}.terms", problems)
+    target = library / app / f"{module}.erl"
+    if problems or target.exists():
+        raise SystemExit("\n".join(problems) or f"{target} exists; edit it by hand")
+    exports = ",\n".join(f"    {atom(name)}/{arity}" for name, arity, _, _ in entries)
+    clauses = "".join(f"{atom(name)}({', '.join(['_'] * arity)}) -> erlang:error(undef).\n"
+                      for name, arity, _, _ in entries)
+    target.write_bytes(
+        f"%% Clause's replacement for OTP's {module} (docs/library.md#runtime-module-replacements), generated from\n"
+        f"%% {module}.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises\n"
+        f"%% error(undef).\n-module({atom(module)}).\n-export([\n{exports}\n]).\n\n{clauses}".encode("utf-8"))
+    print(f"{target}: {len(entries)} stubs")
+
+
+def run(command):
+    """Run a tool; fail with its output unless it succeeds."""
+    result = subprocess.run([str(part) for part in command], capture_output=True, text=True, timeout=300,
+                            check=False)
+    if result.returncode != 0:
+        raise AssertionError((command, result.stdout, result.stderr))
+    return result
+
+
+def freshness(root, erl, clau, work):
+    """Each inventory equals a fresh observation; a new inventory goes through generate, check and clau."""
+    if erl == "-":
+        print("SKIP: no host Erlang/OTP")
+        return
+    escript = pathlib.Path(erl).with_name("escript.exe" if erl.lower().endswith(".exe") else "escript")
+    observe = root / "tests/compiler/library/observe_module.escript"
+    shutil.rmtree(work, ignore_errors=True)
+    for inventory in inventories(root / "library"):
+        observed = work / "observed" / inventory.name
+        run([escript, observe, root / "library", inventory.parent.name, inventory.stem, observed])
+        if not filecmp.cmp(observed, inventory, shallow=False):
+            raise AssertionError(f"{inventory} differs from the host OTP; rerun observe_module.escript")
+    library = work / "library"
+    run([escript, observe, library, "erts", "persistent_term"])
+    (library / "modules.terms").write_text("{persistent_term, erts, provided}.\n", encoding="utf-8")
+    generate(library, "erts", "persistent_term")
+    problems = check(root, library)
+    assert not problems, problems
+    run([clau, library / "erts/persistent_term.erl"])
+    print("library_freshness: ok")
+
+
+def rejects(root):
+    """The inconsistent fixture library yields exactly the expected problems."""
+    fixture = root / "tests/fixtures/library/inconsistent"
+    expected = (fixture / "expected.txt").read_text(encoding="utf-8").splitlines()
+    found = check(root, fixture / "library")
+    assert found == expected, "\n".join(found)
+    print("library_rejects: ok")
+
+
+def called_function(path, row, col, module):
+    """name/arity of the call to `module` an error points at; '?' when the source does not show it."""
+    lines = pathlib.Path(path).read_text(encoding="utf-8", errors="replace").split("\n")
+    text = "\n".join(lines[row - 1 : row + 30])
+    # A call's error column points at its '('; the name before it holds even when a macro names the module.
+    if text[col - 1 : col] == "(" and (name := re.search(rf"({ATOM})\s*$", text[: col - 1])):
+        arity = arity_at(text, col)
+        return f"{unquote(name[1])}/{'?' if arity is None else arity}"
+    start = text.rfind(module, 0, col + len(module))
+    call = re.match(rf"'?{re.escape(module)}'?\s*:\s*({ATOM})\s*(/\s*\d+|\()?", text[max(start, 0) :])
+    if not call:
+        return "?"
+    name = unquote(call[1])
+    if call[2] and call[2].startswith("/"):
+        return f"{name}/{call[2][1:].strip()}"
+    arity = arity_at(text, max(start, 0) + call.end()) if call[2] else None
+    return f"{name}/{'?' if arity is None else arity}"
+
+
+def report(stderr):
+    """Markdown tables of a clau run's errors: unknown modules, undefined functions, everything else."""
+    unknown = collections.defaultdict(lambda: (collections.Counter(), set()))
+    undefined = collections.defaultdict(collections.Counter)
+    other = collections.Counter()
+    for line in pathlib.Path(stderr).read_text(encoding="utf-8", errors="replace").splitlines():
+        match = re.match(r"error: (.+?):(\d+):(\d+): (.*)$", line)
+        if not match:
+            continue
+        path, row, col, message = match[1], int(match[2]), int(match[3]), match[4]
+        if module := re.fullmatch(r"unknown module (\S+)", message):
+            calls, callers = unknown[module[1]]
+            calls[called_function(path, row, col, module[1])] += 1
+            callers.add(pathlib.Path(path).stem)
+        elif function := re.fullmatch(r"undefined function (.+):(.+/\d+)", message):
+            undefined[function[1]][function[2]] += 1
+        else:
+            other[re.sub(r"(?<!\S)(?:[A-Za-z]:)?[\\/][^ :]+", "<path>", message)] += 1
+    print("| Unknown module | Errors | Callers | Functions called |\n| --- | --- | --- | --- |")
+    for module, (calls, callers) in sorted(unknown.items(), key=lambda item: -sum(item[1][0].values())):
+        print(f"| `{module}` | {sum(calls.values())} | {', '.join(sorted(callers))} | {listing(calls)} |")
+    print("\n| Module of undefined functions | Errors | Functions |\n| --- | --- | --- |")
+    for module, calls in sorted(undefined.items(), key=lambda item: -sum(item[1].values())):
+        print(f"| `{module}` | {sum(calls.values())} | {listing(calls)} |")
+    print("\n| Other errors | Message |\n| --- | --- |")
+    for message, count in other.most_common():
+        print(f"| {count} | {message} |")
+
+
+def reporting(root, clau, work):
+    """clau's errors for the fixture program come out of report as unknown module and undefined function rows."""
+    shutil.rmtree(work, ignore_errors=True)
+    work.mkdir(parents=True)
+    source = root / "tests/fixtures/library/report/main.erl"
+    result = subprocess.run([str(clau), str(source)], capture_output=True, text=True, timeout=300, check=False)
+    assert result.returncode != 0, result
+    (work / "stderr.txt").write_text(result.stderr, encoding="utf-8")
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        report(work / "stderr.txt")
+    rows = output.getvalue().splitlines()
+    assert "| `clause_report_absent` | 2 | main | `close/1`, `open/2` |" in rows, rows
+    assert "| `lists` | 1 | `clause_report_absent/1` |" in rows, rows
+    print("library_report: ok")
+
+
+def listing(calls):
+    """Functions with their counts above one, sorted."""
+    return ", ".join(f"`{f}`" + (f" x{n}" if n > 1 else "") for f, n in sorted(calls.items()))
+
+
+def main(arguments):
+    action = arguments[0] if arguments else ""
+    if action == "check" and len(arguments) in (2, 3):
+        root = pathlib.Path(arguments[1])
+        problems = check(root, pathlib.Path(arguments[2]) if len(arguments) == 3 else root / "library")
+        for problem in problems:
+            print(f"error: {problem}", file=sys.stderr)
+        print("library_inventory: ok" if not problems else f"{len(problems)} problems")
+        return 1 if problems else 0
+    if action == "rejects" and len(arguments) == 2:
+        rejects(pathlib.Path(arguments[1]))
+    elif action == "generate" and len(arguments) == 4:
+        generate(pathlib.Path(arguments[1]), arguments[2], arguments[3])
+    elif action == "freshness" and len(arguments) == 5:
+        freshness(pathlib.Path(arguments[1]), arguments[2], arguments[3], pathlib.Path(arguments[4]))
+    elif action == "report" and len(arguments) == 2:
+        report(arguments[1])
+    elif action == "reporting" and len(arguments) == 4:
+        reporting(pathlib.Path(arguments[1]), arguments[2], pathlib.Path(arguments[3]))
+    else:
+        print(__doc__, file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
