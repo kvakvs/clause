@@ -54,7 +54,7 @@ struct Substitution {
     Id run() {
         std::size_t work = 0;
         while (!pending.empty()) {
-            if (++work > registry.graph.limits().syntax_work) {
+            if (++work > registry.graph.limits().type_work) {
                 return registry.graph.exhausted();
             }
             const auto [id, ready] = pending.back();

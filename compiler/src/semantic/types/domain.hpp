@@ -51,9 +51,12 @@ struct Node {
 
 struct Limits {
     // Bound abstract-state growth; exhaustion widens to top and is observable by callers.
-    std::size_t nodes = 16384;
-    std::size_t union_members = 16;
-    std::size_t syntax_work = 100000;
+    std::size_t nodes = 1024 * 1024;
+    std::size_t union_members = 256;
+    // Whole-program inference steps, shared by every function of one pass.
+    std::size_t syntax_work = 10 * 1024 * 1024;
+    // Steps of one declared type's resolution, translation or expansion walk.
+    std::size_t type_work = 100000;
 };
 
 class Graph {

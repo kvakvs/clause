@@ -94,7 +94,7 @@ void syntax_categories() {
                             Kind::record, Kind::bitstring, Kind::function}) {
         require(kinds.contains(kind));
     }
-    Graph bounded({.syntax_work = 1});
+    Graph bounded({.type_work = 1});
     require(translate(bounded, parsed.module, decl.type) == bounded.top() && bounded.widened());
 }
 

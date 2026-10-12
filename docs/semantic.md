@@ -181,8 +181,9 @@ any semantic error clears the module's binding and normalization tables.
 A private type graph represents all parsed type forms independently of runtime
 layout: singletons, ranges, containers, map field roles, function products and
 unresolved applications. Unions flatten and deduplicate; `term()` is top and
-`none()` bottom. Defaults: 16,384 nodes, 16 union members, 100,000 work items per
-translation. Exhaustion widens to `term()` with a visible flag and never narrows
+`none()` bottom. Defaults: 1,048,576 nodes, 256 union members, 100,000 work items
+per declared type walk (resolution, translation, expansion) and 10,485,760 per
+whole-program inference pass. Exhaustion widens to `term()` with a visible flag and never narrows
 a representation.
 
 Declared metadata (`-type`, `-opaque`, `-nominal`, `-export_type`, `-spec`,

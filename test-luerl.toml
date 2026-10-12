@@ -20,7 +20,7 @@ sources = [
 # Set source_dirs = [] when selecting files exclusively through sources.
 source_dirs = []
 # Future executable path; checks/printing do not write it. Windows: build/app.exe.
-output = "build/emqx"
+output = "luerl"
 
 [targets.options]
 ignore_dirs = [
@@ -28,7 +28,7 @@ ignore_dirs = [
   "references/otp/lib/compiler"
 ]
 ignore_modules = [
-  "prim_tty", "inet_dns", "erl_pp", "erl_parse", "inet_udp"
+  # "prim_tty", "inet_dns", "erl_pp", "erl_parse", "inet_udp"
 ]
 # Fallback roots for listed source filenames, e.g. ["src", "generated"].
 # These do not discover extra files or search for headers.

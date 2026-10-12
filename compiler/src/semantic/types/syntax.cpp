@@ -114,7 +114,7 @@ Id translate(Graph &graph, const ast::Module &syntax, const ast::TypeId &root) {
     std::vector<Frame> pending{{describe(syntax.type(root).value)}};
     std::size_t work = 0;
     while (!pending.empty()) {
-        if (++work > graph.limits().syntax_work) {
+        if (++work > graph.limits().type_work) {
             return graph.exhausted();
         }
         auto &frame = pending.back();

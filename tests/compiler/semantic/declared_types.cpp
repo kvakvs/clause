@@ -63,7 +63,7 @@ id(X) -> X.
     require(function.children[0] == function.children[1]);
     auto bounded = t::resolve_declarations(modules, report, {.nodes = 2});
     require(!failed && bounded->graph.widened());
-    auto work_limited = t::resolve_declarations(modules, report, {.syntax_work = 1});
+    auto work_limited = t::resolve_declarations(modules, report, {.type_work = 1});
     require(!failed && work_limited->graph.widened());
 }
 
