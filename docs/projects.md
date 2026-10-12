@@ -89,7 +89,7 @@ clau --new-project <filename>
 - `--verbose` traces `[pp]` files/includes and `[parse]` sources on stderr.
 - `--print-inputs` runs each selected target up to compilation: it preprocesses
   and parses the sources after [discovery](#paths-and-discovery), then adds the
-  modules they name from `source_search_paths` and the library, as a build
+  modules they name from the library and `source_search_paths`, as a build
   does. It prints the target's sources (absolute paths), one per line, then each
   added source as `<path> (referenced at <file>:<line>)`, the earliest place in
   the referring module that names it; added sources are searched in turn.
@@ -294,9 +294,13 @@ change, and each batch's [compile outcome](compile.md#compile-cache).
   enumerate modules or affect includes.
 - When the target's sources name a module that none of them defines (a remote
   call, `fun M:F/A`, `apply` with a literal module, `-behaviour` or `-import`),
-  the search paths are searched in order for `Module.erl`, before the
-  [library](library.md#how-programs-get-them); a found file joins the target
-  like a listed source, and its own references are resolved the same way.
+  Clause's [library](library.md#how-programs-get-them) is searched first,
+  then the search paths in order, for `Module.erl` (plan step 41K: an
+  installed OTP never replaces a Clause module, and a module Clause records
+  as missing is never taken from a search path); a found file joins the
+  target like a listed source, and its own references are resolved the same
+  way. A listed source with a Clause module's name replaces it, with a
+  warning.
 - Wildcards: `*` and `?` within a component, `**` as a whole component. Brackets,
   braces, negation and escapes are rejected. Matching is case-sensitive; `?` is
   one Unicode scalar of a valid UTF-8 name.
@@ -318,7 +322,7 @@ of each searched directory: listed once, non-recursively, when a lookup first
 needs it, or recorded by the recursive walks that expand `**` in `sources`,
 `source_dirs`, `source_search_paths`, `include_dirs` and `transform_paths`,
 so no directory is listed twice. It answers the misses of the module search
-(`source_search_paths`, then the library), transform sources, literal
+(the library, then `source_search_paths`), transform sources, literal
 `sources` found through `source_search_paths`, and include resolution (the
 including file's directory, the working directory, include directories in
 order, then `include_lib` applications); a candidate the index holds is still

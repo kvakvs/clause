@@ -1,0 +1,8 @@
+%% OTP 29 counters exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{add, 3, default, stub}.
+{get, 2, default, stub}.
+{info, 1, default, stub}.
+{new, 2, default, stub}.
+{put, 3, default, stub}.
+{sub, 3, default, stub}.

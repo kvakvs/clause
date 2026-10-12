@@ -172,6 +172,9 @@ add_test(NAME fixture_sources COMMAND "${Python3_EXECUTABLE}"
 set_tests_properties(fixture_sources PROPERTIES TIMEOUT 60)
 add_test(NAME codegen_resource_cli COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/resource_cli.py"
     "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/resource-cli/$<CONFIG>")
+# Disabled 2026-10-12 (user): it expects 1025 inputs to exceed the module limit, which commit 33481a7 raised to
+# 16384; exceeding that takes 16385 files and does not fit a Windows command line positionally.
+set_tests_properties(codegen_resource_cli PROPERTIES DISABLED TRUE)
 get_filename_component(llvm_tools "${sdk_dir}/../../../bin" ABSOLUTE)
 find_program(CLAUSE_LLVM_AS NAMES llvm-as HINTS "${llvm_tools}" NO_DEFAULT_PATH REQUIRED)
 find_program(CLAUSE_LLVM_DIS NAMES llvm-dis HINTS "${llvm_tools}" NO_DEFAULT_PATH REQUIRED)

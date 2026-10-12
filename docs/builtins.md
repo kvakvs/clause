@@ -248,8 +248,8 @@ Calls:
 - `erlang:F(...)`, `fun erlang:F/A`, `apply(erlang, F, [...])` and
   `-import(erlang, ...)` of a builtin go to the builtin, as before. Any other
   export joins the program as the library module `erlang` (compiled like
-  `lists`); its stubs raise `error(undef)` with `erlang:F/A` on top of the
-  stack, only when called. A name the module does not export is
+  `lists`); its stubs raise `error({not_implemented, F, A})` with
+  `erlang:F/A` on top of the stack, only when called. A name the module does not export is
   `undefined function erlang:F/A`.
 - An unqualified call or `fun F/A` of an OTP auto-import (`get(K)`,
   `fun put/2`) that the module neither defines, imports nor suppresses with

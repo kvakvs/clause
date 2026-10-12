@@ -1,0 +1,16 @@
+%% OTP 29 gen_tcp exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{accept, 1, default, implemented}.
+{accept, 2, default, implemented}.
+{close, 1, default, implemented}.
+{connect, 2, default, stub}.
+{connect, 3, default, implemented}.
+{connect, 4, default, implemented}.
+{controlling_process, 2, default, implemented}.
+{fdopen, 2, default, stub}.
+{listen, 2, default, implemented}.
+{recv, 2, default, implemented}.
+{recv, 3, default, implemented}.
+{send, 2, default, implemented}.
+{shutdown, 2, default, implemented}.
+{unrecv, 2, default, stub}.

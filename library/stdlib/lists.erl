@@ -18,6 +18,87 @@
     seq/3,
     sort/1
 ]).
+%% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
+%% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
+-export([
+    all/2,
+    any/2,
+    concat/1,
+    delete/2,
+    droplast/1,
+    dropwhile/2,
+    duplicate/2,
+    enumerate/1,
+    enumerate/2,
+    enumerate/3,
+    filtermap/2,
+    flatlength/1,
+    flatmap/2,
+    flatten/1,
+    flatten/2,
+    foreach/2,
+    join/2,
+    keydelete/3,
+    keymap/3,
+    keymember/3,
+    keymerge/3,
+    keyreplace/4,
+    keysearch/3,
+    keysort/2,
+    keystore/4,
+    keytake/3,
+    last/1,
+    mapfoldl/3,
+    mapfoldr/3,
+    max/1,
+    merge/1,
+    merge/2,
+    merge/3,
+    merge3/3,
+    min/1,
+    nthtail/2,
+    partition/2,
+    prefix/2,
+    rkeymerge/3,
+    rmerge/2,
+    rmerge/3,
+    rmerge3/3,
+    rukeymerge/3,
+    rumerge/2,
+    rumerge/3,
+    rumerge3/3,
+    search/2,
+    sort/2,
+    split/2,
+    splitwith/2,
+    sublist/2,
+    sublist/3,
+    subtract/2,
+    suffix/2,
+    sum/1,
+    takewhile/2,
+    ukeymerge/3,
+    ukeysort/2,
+    umerge/1,
+    umerge/2,
+    umerge/3,
+    umerge3/3,
+    uniq/1,
+    uniq/2,
+    unzip/1,
+    unzip3/1,
+    usort/1,
+    usort/2,
+    zf/2,
+    zip/2,
+    zip/3,
+    zip3/3,
+    zip3/4,
+    zipwith/3,
+    zipwith/4,
+    zipwith3/4,
+    zipwith3/5
+]).
 
 %% The concatenation of a list of lists.
 append([Last]) -> Last;
@@ -155,3 +236,80 @@ merge([], Right, Acc) ->
     reverse(Acc, Right);
 merge(Left, [], Acc) ->
     reverse(Acc, Left).
+
+all(_, _) -> erlang:error({not_implemented, all, 2}).
+any(_, _) -> erlang:error({not_implemented, any, 2}).
+concat(_) -> erlang:error({not_implemented, concat, 1}).
+delete(_, _) -> erlang:error({not_implemented, delete, 2}).
+droplast(_) -> erlang:error({not_implemented, droplast, 1}).
+dropwhile(_, _) -> erlang:error({not_implemented, dropwhile, 2}).
+duplicate(_, _) -> erlang:error({not_implemented, duplicate, 2}).
+enumerate(_) -> erlang:error({not_implemented, enumerate, 1}).
+enumerate(_, _) -> erlang:error({not_implemented, enumerate, 2}).
+enumerate(_, _, _) -> erlang:error({not_implemented, enumerate, 3}).
+filtermap(_, _) -> erlang:error({not_implemented, filtermap, 2}).
+flatlength(_) -> erlang:error({not_implemented, flatlength, 1}).
+flatmap(_, _) -> erlang:error({not_implemented, flatmap, 2}).
+flatten(_) -> erlang:error({not_implemented, flatten, 1}).
+flatten(_, _) -> erlang:error({not_implemented, flatten, 2}).
+foreach(_, _) -> erlang:error({not_implemented, foreach, 2}).
+join(_, _) -> erlang:error({not_implemented, join, 2}).
+keydelete(_, _, _) -> erlang:error({not_implemented, keydelete, 3}).
+keymap(_, _, _) -> erlang:error({not_implemented, keymap, 3}).
+keymember(_, _, _) -> erlang:error({not_implemented, keymember, 3}).
+keymerge(_, _, _) -> erlang:error({not_implemented, keymerge, 3}).
+keyreplace(_, _, _, _) -> erlang:error({not_implemented, keyreplace, 4}).
+keysearch(_, _, _) -> erlang:error({not_implemented, keysearch, 3}).
+keysort(_, _) -> erlang:error({not_implemented, keysort, 2}).
+keystore(_, _, _, _) -> erlang:error({not_implemented, keystore, 4}).
+keytake(_, _, _) -> erlang:error({not_implemented, keytake, 3}).
+last(_) -> erlang:error({not_implemented, last, 1}).
+mapfoldl(_, _, _) -> erlang:error({not_implemented, mapfoldl, 3}).
+mapfoldr(_, _, _) -> erlang:error({not_implemented, mapfoldr, 3}).
+max(_) -> erlang:error({not_implemented, max, 1}).
+merge(_) -> erlang:error({not_implemented, merge, 1}).
+merge(_, _) -> erlang:error({not_implemented, merge, 2}).
+merge3(_, _, _) -> erlang:error({not_implemented, merge3, 3}).
+min(_) -> erlang:error({not_implemented, min, 1}).
+nthtail(_, _) -> erlang:error({not_implemented, nthtail, 2}).
+partition(_, _) -> erlang:error({not_implemented, partition, 2}).
+prefix(_, _) -> erlang:error({not_implemented, prefix, 2}).
+rkeymerge(_, _, _) -> erlang:error({not_implemented, rkeymerge, 3}).
+rmerge(_, _) -> erlang:error({not_implemented, rmerge, 2}).
+rmerge(_, _, _) -> erlang:error({not_implemented, rmerge, 3}).
+rmerge3(_, _, _) -> erlang:error({not_implemented, rmerge3, 3}).
+rukeymerge(_, _, _) -> erlang:error({not_implemented, rukeymerge, 3}).
+rumerge(_, _) -> erlang:error({not_implemented, rumerge, 2}).
+rumerge(_, _, _) -> erlang:error({not_implemented, rumerge, 3}).
+rumerge3(_, _, _) -> erlang:error({not_implemented, rumerge3, 3}).
+search(_, _) -> erlang:error({not_implemented, search, 2}).
+sort(_, _) -> erlang:error({not_implemented, sort, 2}).
+split(_, _) -> erlang:error({not_implemented, split, 2}).
+splitwith(_, _) -> erlang:error({not_implemented, splitwith, 2}).
+sublist(_, _) -> erlang:error({not_implemented, sublist, 2}).
+sublist(_, _, _) -> erlang:error({not_implemented, sublist, 3}).
+subtract(_, _) -> erlang:error({not_implemented, subtract, 2}).
+suffix(_, _) -> erlang:error({not_implemented, suffix, 2}).
+sum(_) -> erlang:error({not_implemented, sum, 1}).
+takewhile(_, _) -> erlang:error({not_implemented, takewhile, 2}).
+ukeymerge(_, _, _) -> erlang:error({not_implemented, ukeymerge, 3}).
+ukeysort(_, _) -> erlang:error({not_implemented, ukeysort, 2}).
+umerge(_) -> erlang:error({not_implemented, umerge, 1}).
+umerge(_, _) -> erlang:error({not_implemented, umerge, 2}).
+umerge(_, _, _) -> erlang:error({not_implemented, umerge, 3}).
+umerge3(_, _, _) -> erlang:error({not_implemented, umerge3, 3}).
+uniq(_) -> erlang:error({not_implemented, uniq, 1}).
+uniq(_, _) -> erlang:error({not_implemented, uniq, 2}).
+unzip(_) -> erlang:error({not_implemented, unzip, 1}).
+unzip3(_) -> erlang:error({not_implemented, unzip3, 1}).
+usort(_) -> erlang:error({not_implemented, usort, 1}).
+usort(_, _) -> erlang:error({not_implemented, usort, 2}).
+zf(_, _) -> erlang:error({not_implemented, zf, 2}).
+zip(_, _) -> erlang:error({not_implemented, zip, 2}).
+zip(_, _, _) -> erlang:error({not_implemented, zip, 3}).
+zip3(_, _, _) -> erlang:error({not_implemented, zip3, 3}).
+zip3(_, _, _, _) -> erlang:error({not_implemented, zip3, 4}).
+zipwith(_, _, _) -> erlang:error({not_implemented, zipwith, 3}).
+zipwith(_, _, _, _) -> erlang:error({not_implemented, zipwith, 4}).
+zipwith3(_, _, _, _) -> erlang:error({not_implemented, zipwith3, 4}).
+zipwith3(_, _, _, _, _) -> erlang:error({not_implemented, zipwith3, 5}).

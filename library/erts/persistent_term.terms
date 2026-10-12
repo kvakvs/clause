@@ -1,0 +1,9 @@
+%% OTP 29 persistent_term exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{erase, 1, default, stub}.
+{get, 0, default, stub}.
+{get, 1, default, stub}.
+{get, 2, default, stub}.
+{info, 0, default, stub}.
+{put, 2, default, stub}.
+{put_new, 2, default, stub}.

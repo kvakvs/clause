@@ -6,6 +6,7 @@
 #include "../semantic/calls.hpp"
 #include "backend.hpp"
 #include "escript.hpp"
+#include "library_modules.hpp"
 #include "options.hpp"
 #include "placeholders.hpp"
 #include "predefined.hpp"
@@ -19,6 +20,7 @@
 #include <clause/compiler/source.hpp>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 
 namespace clause::cli {
 namespace {
@@ -391,8 +393,11 @@ struct ReferencedInput {
 
 // Module discovery state shared by add_referenced and the listing. Added for --print-inputs.
 struct Discovery {
-    // Search directories in order (source_search_paths, then the library), and the module names already handled.
+    // Search directories in order (the library's application directories, then source_search_paths), and the
+    // module names already handled.
     std::vector<std::filesystem::path> directories;
+    // Clause's library: its directories and the module names it reserves. Added for runtime module replacements.
+    LibraryModules library;
     std::set<std::u32string> added;
     // Sources added by reference, in the order they joined the batch.
     std::vector<ReferencedInput> referenced;
@@ -406,6 +411,19 @@ std::string site_text(const ast::Module &syntax, const ast::NodeSource &source) 
     return project::path_text(project::native_path(location.file)) + ":" + std::to_string(location.line);
 }
 
+// A module Clause leaves missing is never taken from a search path; say so where the batch first names it.
+// Added for runtime module replacements (41K).
+bool reserved(const std::u32string &name, const std::string &site, const Discovery &discovery,
+              const DiagnosticSink &sink) {
+    const auto found = discovery.library.missing_.find(utf8(name));
+    if (found == discovery.library.missing_.end()) {
+        return false;
+    }
+    sink("note: " + site + ": Clause does not provide module " + found->first + " (" + found->second +
+         "; docs/library.md#provided-or-missing)");
+    return true;
+}
+
 // Load the module `name` when the batch lacks it and a search directory has it; true on a source failure.
 // Added for --print-inputs.
 bool add_module(const std::u32string &name, std::string site, Discovery &discovery, const FrontendRequest &request,
@@ -416,6 +434,9 @@ bool add_module(const std::u32string &name, std::string site, Discovery &discove
     // ignore_modules wins over search; a module found only in ignored places is ignored. Added for ignored modules.
     const auto &ignore = request.ignore_;
     bool passed = ignore.names(utf8(name));
+    if (!passed && reserved(name, site, discovery, sink)) {
+        return false;
+    }
     auto path = passed ? std::filesystem::path{} : module_source(discovery.directories, name, request, passed);
     if (path.empty()) {
         if (passed || ignore.skipped(utf8(name))) {
@@ -427,11 +448,11 @@ bool add_module(const std::u32string &name, std::string site, Discovery &discove
     return process_file(path, request, sink, inputs);
 }
 
-// Add the modules the batch references but does not define, from the search directories, then the library,
-// including those they reference in turn.
+// Add the modules the batch references but does not define, from the library, then the search directories,
+// including those they reference in turn. Clause's modules come first so an installed OTP never replaces them.
 bool add_referenced(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs, Discovery &discovery) {
-    discovery.directories = request.module_search_paths_;
-    discovery.directories.push_back(linking::library_directory());
+    discovery.directories = discovery.library.directories_;
+    std::ranges::copy(request.module_search_paths_, std::back_inserter(discovery.directories));
     bool failed = false;
     for (std::size_t scanned = 0; scanned < inputs.size(); ++scanned) {
         for (const auto &[name, source] : semantic::referenced_modules(inputs[scanned].syntax)) {
@@ -440,6 +461,24 @@ bool add_referenced(const FrontendRequest &request, const DiagnosticSink &sink, 
         }
     }
     return failed;
+}
+
+// An explicit input that defines a module Clause's library provides replaces it: warn, naming both files.
+// Added for runtime module replacements (41K).
+void warn_replaced(const Inputs &inputs, const LibraryModules &library, const FrontendRequest &request,
+                   const DiagnosticSink &sink) {
+    for (const auto &input : inputs) {
+        const auto declared = semantic::declared_module(input.syntax);
+        const auto name = declared ? utf8(*declared) : std::string();
+        const auto source = name.empty() ? std::filesystem::path() : library_source(library, name);
+        std::error_code error;
+        if (source.empty() || request.ignore_.names(name) ||
+            std::filesystem::equivalent(source, input.source_path, error)) {
+            continue;
+        }
+        sink("warning: " + filename(input.source_path) + ": module " + name + " replaces Clause's library module " +
+             filename(source));
+    }
 }
 
 // Compile the placeholder of one ignored module: the functions the batch names in it. Added for ignored modules.
@@ -548,6 +587,8 @@ bool process_files(const std::span<const std::filesystem::path> paths, const Fro
     }
     Discovery discovery;
     if (request.compile && !failed) {
+        discovery.library = load_library(linking::library_directory()); // Added for runtime module replacements.
+        warn_replaced(inputs, discovery.library, request, sink);
         failed = add_referenced(request, sink, inputs, discovery);
     }
     // Stop before compilation and list the batch. Added for --print-inputs.

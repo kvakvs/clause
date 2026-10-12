@@ -10,14 +10,14 @@ from OTP sources) and compiled with the programs that use it.
 | --- | --- |
 | [`lists`](../library/stdlib/lists.erl) | `append/1,2`, `filter/2`, `foldl/3`, `foldr/3`, `keyfind/3`, `map/2`, `member/2`, `nth/2`, `reverse/1,2`, `seq/2,3`, `sort/1` |
 | [`maps`](../library/stdlib/maps.erl) | `find/2`, `fold/3`, `from_list/1`, `get/2`, `keys/1`, `put/3`, `to_list/1`, `values/1` |
-| [`file`](../library/stdlib/file.erl) | `open/2`, `read/2`, `write/2`, `read_line/1`, `position/2`, `close/1`, `read_file/1`, `write_file/2`, `delete/1`, `rename/2`, `list_dir/1`, `make_dir/1`, `del_dir/1` over the file driver ([files](ports.md#standard-io-and-files)) |
+| [`file`](../library/kernel/file.erl) | `open/2`, `read/2`, `write/2`, `read_line/1`, `position/2`, `close/1`, `read_file/1`, `write_file/2`, `delete/1`, `rename/2`, `list_dir/1`, `make_dir/1`, `del_dir/1` over the file driver ([files](ports.md#standard-io-and-files)) |
 | [`io`](../library/stdlib/io.erl) | `get_line/1,2`, `get_chars/2,3` (standard input server or an open file); `format/1,2` and `put_chars/1` are runtime builtins |
-| [`gen_tcp`](../library/stdlib/gen_tcp.erl) | `listen/2`, `accept/1,2`, `connect/3,4`, `send/2`, `recv/2,3`, `shutdown/2`, `controlling_process/2`, `close/1` over socket ports ([sockets](ports.md#sockets-57f)) |
-| [`gen_udp`](../library/stdlib/gen_udp.erl) | `open/1,2`, `send/4`, `recv/2,3`, `controlling_process/2`, `close/1` |
-| [`inet`](../library/stdlib/inet.erl) | `port/1`, `sockname/1`, `peername/1`, `setopts/2`, `close/1` |
-| [`clause_socket`](../library/stdlib/clause_socket.erl) | Clause's own: the socket driver protocol the three modules above share |
-| [`erlang`](../library/stdlib/erlang.erl) | Generated stubs of every OTP 29 `erlang` export; builtins replace theirs, `nif_error/1,2` have bodies, others raise `undef` when called ([erlang module](builtins.md#erlang-module)) |
-| [`os`](../library/stdlib/os.erl) | `cmd/1` over a port ([subprocesses](ports.md#subprocesses)); `type/0` and `getenv/1` are runtime builtins |
+| [`gen_tcp`](../library/kernel/gen_tcp.erl) | `listen/2`, `accept/1,2`, `connect/3,4`, `send/2`, `recv/2,3`, `shutdown/2`, `controlling_process/2`, `close/1` over socket ports ([sockets](ports.md#sockets-57f)) |
+| [`gen_udp`](../library/kernel/gen_udp.erl) | `open/1,2`, `send/4`, `recv/2,3`, `controlling_process/2`, `close/1` |
+| [`inet`](../library/kernel/inet.erl) | `port/1`, `sockname/1`, `peername/1`, `setopts/2`, `close/1` |
+| [`clause_socket`](../library/kernel/clause_socket.erl) | Clause's own: the socket driver protocol the three modules above share |
+| [`erlang`](../library/erts/erlang.erl) | Generated stubs of every OTP 29 `erlang` export; builtins replace theirs, `nif_error/1,2` have bodies, others raise `{not_implemented, F, A}` when called ([erlang module](builtins.md#erlang-module)) |
+| [`os`](../library/kernel/os.erl) | `cmd/1` over a port ([subprocesses](ports.md#subprocesses)); `type/0` and `getenv/1` are runtime builtins |
 
 Results and error reasons match OTP 29, including the error shapes of OTP's
 Erlang implementations (`lists:map(F, x)` is `{case_clause, x}`,
@@ -31,15 +31,19 @@ sort. Stack traces name the library functions, not OTP's.
 
 - When a batch (positional inputs or one project target) names a module with
   a literal atom — `M:F(...)` with literal `M`, `fun M:F/A`,
-  `apply(M, F, Args)` with literal `M`, `-behaviour(M)` or `-import(M, ...)` — that
-  no input defines, and no project `source_search_paths` directory holds `M.erl`
-  ([projects](projects.md#paths-and-discovery)) but `<library>/M.erl` exists, the compiler parses and compiles that file into
-  the batch, then repeats for the modules the added files name. A call
-  `M:F(...)` of a catalog builtin (`io:format/2`, `os:type/0`) names no
-  module.
-- `<library>` is `library/stdlib` of the build tree, found relative to
-  `clau` like the runtime archive.
-- A module of the batch with the same name replaces the library module.
+  `apply(M, F, Args)` with literal `M`, `-behaviour(M)` or `-import(M, ...)` —
+  that no input defines, the compiler looks for `M.erl` in the library's
+  application directories, then in the project's `source_search_paths`
+  ([projects](projects.md#paths-and-discovery)), parses and compiles the
+  first one found into the batch, then repeats for the modules the added
+  files name ([which module a name resolves to](#which-module-a-name-resolves-to),
+  plan step 41K). A call `M:F(...)` of a catalog builtin (`io:format/2`,
+  `os:type/0`) names no module.
+- The library is `library/` of the build tree, found relative to `clau` like
+  the runtime archive, with one directory per OTP application (`erts`,
+  `kernel`, `stdlib`).
+- A module of the batch with the same name replaces the library module, with
+  a warning.
 - Library modules are ordinary batch modules: they link into executables and,
   for object or IR output, produce their own artifacts.
 - A module reached only through runtime names (`M:F(...)` with `M` a
@@ -65,9 +69,9 @@ per module, and per group of functions where a module mixes concerns:
   Every function has one of four statuses: `implemented` (a runtime builtin
   or an Erlang body over existing runtime services), `refused` (returns or
   raises what OTP callers already handle when a feature is absent, such as
-  `{error, enotsup}`), `stub` (raises `error(undef)` with `M:F/A` on top of the
-  stack, as the [`erlang` stubs](builtins.md#erlang-module) do; not done
-  yet), or `declined` (a stub that stays, with a reason such as distribution
+  `{error, enotsup}`), `stub` (raises `error({not_implemented, F, A})` with
+  `M:F/A` on top of the stack, as the [`erlang` stubs](builtins.md#erlang-module)
+  do; not done yet; user direction 2026-10-12), or `declined` (a stub that stays, with a reason such as distribution
   or code loading pending plan step 71). A module starts with every function
   a stub, so it is discoverable and its callers compile; groups then move to
   their decided status.
@@ -110,8 +114,7 @@ warning, since nothing is replaced.
   `erlang`), `kernel` (`file`, `gen_tcp`, `gen_udp`, `inet`, `os`, and Clause's
   own `clause_socket`), `stdlib` (`lists`, `maps`, `io`, `unicode_util`). The
   library lookup searches every application directory; a module name exists
-  in at most one of them. Existing modules move there when step 41K changes
-  the lookup.
+  in at most one of them.
 - `library/modules.terms` lists every module Clause decides about:
   `{Module, Application, provided}.` or
   `{Module, Application, missing, "reason"}.` The compiler reads it to know
@@ -182,13 +185,23 @@ Plan 11 step 41J. All live in `tests/compiler/library/`:
 
 | Module | Decision (2026-10-12) | Reason or plan step |
 | --- | --- | --- |
-| `init` | provided | argument and status answers (41L) |
-| `persistent_term` | provided | runtime-wide term table (41M) |
-| `erts_internal` | provided: `stdlib` group (`cmp_term/2`, `map_next/3`, `list_to_integer/2`, map helpers); declined: `distribution`, `beam` | 41N; no distribution, no `.beam` files |
-| `atomics`, `counters`, `erts_code_purger` | provided | 41N |
-| `unicode_util` | provided | tables generated from the Unicode data (41O) |
-| `erl_prim_loader` | to decide | 41P: provided over the file driver, or missing with its callers shadowed |
-| `zlib` | to decide | 41Q: pinned zlib in the runtime, or refused |
-| `prim_eval` | to decide | 41S |
+| `init` | provided, all stubs | argument and status answers (41L) |
+| `persistent_term` | provided, all stubs | runtime-wide term table (41M) |
+| `erts_internal` | provided, all stubs; to group: `stdlib` (`cmp_term/2`, `map_next/3`, `list_to_integer/2`, map helpers) implemented, `distribution` and `beam` declined | 41N; no distribution, no `.beam` files |
+| `atomics`, `counters`, `erts_code_purger` | provided, all stubs | 41N |
+| `unicode_util` | provided, all stubs | tables generated from the Unicode data (41O) |
+| `erl_prim_loader` | provided, all stubs | 41P decides between implementing it over the file driver and shadowing its callers |
+| `zlib` | provided, all stubs | 41Q: pinned zlib in the runtime, or refused |
+| `prim_eval` | provided, all stubs | 41S |
+| `application_controller` | provided, all stubs | shadows OTP's, which calls `prim_file` (luerl names it through OTP's `application`) |
+| `lists`, `maps`, `io`, `file`, `os`, `gen_tcp`, `gen_udp`, `inet` | provided, OTP 29's full export lists; what Clause had stays implemented, the rest stubs | grow as the ledger demands |
 | `prim_file`, `prim_buffer` | missing | Clause's `file` is the file layer (41P) |
 | `prim_socket`, `prim_net`, `prim_inet`, `socket_registry` | missing | Clause's `gen_tcp`, `gen_udp`, `inet` are the network layer (41R) |
+
+Latest luerl layer (2026-10-12, after step 41K, with `NEW_STACKTRACE` defined
+as luerl's `rebar.config.script` does on OTP 21 and later): no unknown
+module and no undefined function; 473 `undefined remote type` errors.
+Clause's library modules do not declare OTP's exported types yet (`file`
+305: `filename`, `name`, `date_time`, ...; `io` 51; `erlang` 25; `inet` 12;
+`maps` 6), and placeholders of ignored modules declare none (`erl_parse` 63,
+`compile` 11). Plan 11 steps 41K1 and 41K2 take them.

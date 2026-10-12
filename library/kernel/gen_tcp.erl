@@ -12,6 +12,13 @@
     controlling_process/2,
     close/1
 ]).
+%% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
+%% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
+-export([
+    connect/2,
+    fdopen/2,
+    unrecv/2
+]).
 
 % The project-owned gen_tcp module (docs/library.md, docs/ports.md#sockets): TCP sockets are ports of the runtime's
 % socket driver, driven through clause_socket.
@@ -105,3 +112,7 @@ flag(false) -> 0.
 
 ok({ok, _}) -> ok;
 ok(Error) -> Error.
+
+connect(_, _) -> erlang:error({not_implemented, connect, 2}).
+fdopen(_, _) -> erlang:error({not_implemented, fdopen, 2}).
+unrecv(_, _) -> erlang:error({not_implemented, unrecv, 2}).

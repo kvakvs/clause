@@ -33,8 +33,8 @@ def freshness(root, erl, work):
     work.mkdir(parents=True, exist_ok=True)
     observed = work / "erlang.terms"
     run([str(escript), str(root / "tests/compiler/builtins/observe_erlang.escript"), str(root), str(observed)])
-    if not filecmp.cmp(observed, root / "library/stdlib/erlang.terms", shallow=False):
-        raise AssertionError("library/stdlib/erlang.terms differs from the host OTP; rerun observe_erlang.escript")
+    if not filecmp.cmp(observed, root / "library/erts/erlang.terms", shallow=False):
+        raise AssertionError("library/erts/erlang.terms differs from the host OTP; rerun observe_erlang.escript")
     print("builtins_erlang_freshness: ok")
 
 

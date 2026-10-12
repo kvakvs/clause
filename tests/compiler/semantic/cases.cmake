@@ -113,7 +113,7 @@ semantic_case(list_operators "-module(a). f(X) -> {X ++ [1], X -- [1], setelemen
 semantic_case(list_operator_guard "-module(a). f(X) when X ++ [] =:= [] -> X." 1 "illegal guard expression")
 semantic_case(conversions "-module(a). f(X) -> {atom_to_list(X), list_to_atom(X), integer_to_list(X, 16), float_to_list(X, [short]), iolist_to_binary(X)}." 0 "^$")
 semantic_case(io_builtins "-module(a). f(X) -> {io:format(X), io:format(X, []), io:put_chars(X), fun io:format/2}." 0 "^$")
-semantic_case(io_unknown "-module(a). f(X) -> io:fwrite(X)." 1 "undefined function io:fwrite/1")
+semantic_case(io_unknown "-module(a). f(X) -> io:clause_absent(X)." 1 "undefined function io:clause_absent/1")
 semantic_case(io_guard "-module(a). f(X) when io:format(X) =:= ok -> X." 1 "illegal guard")
 semantic_case(make_tuple_unqualified "-module(a). f() -> make_tuple(1, a)." 1 "undefined function a:make_tuple/2")
 semantic_case(variable_fun "-module(a). f(M) -> fun M:f/0." 0 "^$")

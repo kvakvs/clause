@@ -144,14 +144,18 @@
   bridge (`binary_value`), so the `arithmetic` capability is implemented. Step 38: conversions (`conversion_builtins()`, float text in
   `builtins/float_text`: printf for `%.*e`, OTP's own fixed rounding, shortest digits from `std::to_chars` placed by
   OTP's Ryu notation rules). Step 39: library modules (`library/stdlib/{lists,maps}.erl`, original Erlang) join a
-  batch in `driver/frontend` `add_referenced` (project `source_search_paths` directories first, patterns expanded by
-  `project::pattern_directories`; then the library): modules named by literal atoms (`semantic::referenced_modules`) that no
+  batch in `driver/frontend` `add_referenced` (the library's application directories first since 41K, then project
+  `source_search_paths`, patterns expanded by `project::pattern_directories`): modules named by literal atoms (`semantic::referenced_modules`) that no
   input declares (`semantic::declared_module`) are parsed from `linking::library_directory()` (relative to
   `clau`, `CLAUSE_DEFAULT_LIBRARY`) until closed; they compile, link and publish like inputs. `referenced_modules`
   keeps each name's earliest naming site; `--print-inputs` (`FrontendRequest::list_inputs`) stops here and lists the batch.
-  The `erlang` library module (step 41B): `library/stdlib/erlang.erl` is generated from the owned inventory
+  The `erlang` library module (step 41B): `library/erts/erlang.erl` is generated from the owned inventory
   `erlang.terms`; non-builtin `erlang:F/A` and unqualified OTP auto-imports (`semantic::library_auto_import`) pull
   it in like `lists`; `CodeServer::index` skips exports a builtin names, literal builtin funs bind the builtin.
+  Runtime module replacements (41I-41K, docs/library.md#runtime-module-replacements): `library/{erts,kernel,stdlib}`,
+  `library/modules.terms` (provided / missing = reserved names, `driver/library_modules`); explicit inputs replacing a
+  Clause module warn; stubs raise `{not_implemented, F, A}`; inventories `<m>.terms` checked by
+  `tests/compiler/library/library_modules.py`.
   Phase H2 (41A–41H) builtins live in `runtime/src/builtins/erlang/` (one TU and table per family, listed in
   `production_builtins()`); process-wide state they need sits in the executor (`scheduler/timers.cpp`,
   `aliases.cpp`, `introspection.cpp`), per-process state in `ProcessContext` (`ProcessDictionary`, group leader in

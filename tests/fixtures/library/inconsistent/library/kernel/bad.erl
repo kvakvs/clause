@@ -8,6 +8,6 @@
 ]).
 
 alpha(X) -> X.
-beta() -> erlang:error(undef).
+beta() -> erlang:error({not_implemented, beta, 0}).
 gamma(_, _) -> ok.
 epsilon() -> ok.

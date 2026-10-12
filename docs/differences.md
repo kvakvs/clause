@@ -98,7 +98,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `-nominal` in `module_info(attributes)` | Kept as `{nominal,[{Name,AbstractType,Params}]}` with abstract format | Left out | [semantic](semantic.md#predefined-functions) |
 | `erlang:get_module_info/1,2` | The BIF behind `module_info/0,1` | Not provided; `module_info/0,1` return literal data | [semantic](semantic.md#predefined-functions) |
 | `-compile({parse_transform, Module})` | Runs the transform over the module's forms | Not applied; warning `[parse transforms] notimpl` and the module compiles untransformed | [compile](compile.md#accepted-source-subset) |
-| An `erlang` BIF Clause has not implemented (`get/1`, `nodes/0`, ...) | Runs | Compiles; raises `error(undef)` when called, with `erlang:F/A` on top of the stack ([status](../library/stdlib/erlang.terms)) | [builtins](builtins.md#erlang-module) |
+| A function of a Clause library module that Clause has not implemented (an `erlang` BIF, `lists:keysort/2`, `persistent_term:get/1`, ...) | Runs | Compiles; raises `error({not_implemented, F, A})` when called, with `M:F/A` on top of the stack ([statuses](../library/modules.terms)) | [library](library.md#provided-or-missing), [builtins](builtins.md#erlang-module) |
 | Import of a module outside the batch | Compiles; the call raises `undef` at run time if the module is missing | `unknown module M` compile error when the import is called (unused imports need no module) | [semantic](semantic.md#imports) |
 | `import directive overrides auto-imported BIF` warning | For every auto-imported BIF of `erl_internal:bif/2` | Only for the auto-imported BIFs Clause implements | [semantic](semantic.md#imports) |
 

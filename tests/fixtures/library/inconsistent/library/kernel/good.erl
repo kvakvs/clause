@@ -6,4 +6,4 @@
 ]).
 
 one() -> ok.
-two(_) -> erlang:error(undef).
+two(_) -> erlang:error({not_implemented, two, 1}).

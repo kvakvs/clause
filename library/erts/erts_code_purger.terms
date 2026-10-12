@@ -1,0 +1,8 @@
+%% OTP 29 erts_code_purger exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{finish_after_on_load, 2, default, stub}.
+{pending_purge_lambda, 3, default, stub}.
+{purge, 1, default, stub}.
+{soft_purge, 1, default, stub}.
+{start, 0, default, stub}.
+{wait_for_request, 0, default, stub}.

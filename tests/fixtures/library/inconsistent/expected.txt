@@ -4,7 +4,7 @@ missing module gone has a module file
 bad.terms: malformed entry: this is not a term
 bad:epsilon/0 is exported but not in bad.terms
 bad:delta/1 is in bad.terms but not exported
-bad:alpha/1 is marked stub but is not a stub raising undef
+bad:alpha/1 is marked stub but is not a not_implemented stub
 bad:beta/0 is marked implemented but has no body or catalog builtin
-bad:delta/1 is marked stub but is not a stub raising undef
+bad:delta/1 is marked stub but is not a not_implemented stub
 stdlib/stray.terms is not a provided module in modules.terms

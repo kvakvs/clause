@@ -1,5 +1,58 @@
 -module(io).
 -export([get_line/1, get_line/2, get_chars/2, get_chars/3]).
+%% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
+%% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
+-export([
+    columns/0,
+    columns/1,
+    format/1,
+    format/2,
+    format/3,
+    fread/2,
+    fread/3,
+    fwrite/1,
+    fwrite/2,
+    fwrite/3,
+    get_password/0,
+    get_password/1,
+    getopts/0,
+    getopts/1,
+    nl/0,
+    nl/1,
+    parse_erl_exprs/1,
+    parse_erl_exprs/2,
+    parse_erl_exprs/3,
+    parse_erl_exprs/4,
+    parse_erl_form/1,
+    parse_erl_form/2,
+    parse_erl_form/3,
+    parse_erl_form/4,
+    printable_range/0,
+    put_chars/1,
+    put_chars/2,
+    read/1,
+    read/2,
+    read/3,
+    read/4,
+    request/1,
+    request/2,
+    requests/1,
+    requests/2,
+    rows/0,
+    rows/1,
+    scan_erl_exprs/1,
+    scan_erl_exprs/2,
+    scan_erl_exprs/3,
+    scan_erl_exprs/4,
+    scan_erl_form/1,
+    scan_erl_form/2,
+    scan_erl_form/3,
+    scan_erl_form/4,
+    setopts/1,
+    setopts/2,
+    write/1,
+    write/2
+]).
 
 % Input functions of the project-owned io module (docs/library.md, docs/ports.md#standard-io-and-files); io:format/1,2
 % and io:put_chars/1 are builtins of the runtime. Standard input is read by one server process, registered as
@@ -132,3 +185,52 @@ line_size(Buffer, At) ->
         <<_:At/binary, _, _/binary>> -> line_size(Buffer, At + 1);
         _ -> none
     end.
+
+columns() -> erlang:error({not_implemented, columns, 0}).
+columns(_) -> erlang:error({not_implemented, columns, 1}).
+format(_) -> erlang:error({not_implemented, format, 1}).
+format(_, _) -> erlang:error({not_implemented, format, 2}).
+format(_, _, _) -> erlang:error({not_implemented, format, 3}).
+fread(_, _) -> erlang:error({not_implemented, fread, 2}).
+fread(_, _, _) -> erlang:error({not_implemented, fread, 3}).
+fwrite(_) -> erlang:error({not_implemented, fwrite, 1}).
+fwrite(_, _) -> erlang:error({not_implemented, fwrite, 2}).
+fwrite(_, _, _) -> erlang:error({not_implemented, fwrite, 3}).
+get_password() -> erlang:error({not_implemented, get_password, 0}).
+get_password(_) -> erlang:error({not_implemented, get_password, 1}).
+getopts() -> erlang:error({not_implemented, getopts, 0}).
+getopts(_) -> erlang:error({not_implemented, getopts, 1}).
+nl() -> erlang:error({not_implemented, nl, 0}).
+nl(_) -> erlang:error({not_implemented, nl, 1}).
+parse_erl_exprs(_) -> erlang:error({not_implemented, parse_erl_exprs, 1}).
+parse_erl_exprs(_, _) -> erlang:error({not_implemented, parse_erl_exprs, 2}).
+parse_erl_exprs(_, _, _) -> erlang:error({not_implemented, parse_erl_exprs, 3}).
+parse_erl_exprs(_, _, _, _) -> erlang:error({not_implemented, parse_erl_exprs, 4}).
+parse_erl_form(_) -> erlang:error({not_implemented, parse_erl_form, 1}).
+parse_erl_form(_, _) -> erlang:error({not_implemented, parse_erl_form, 2}).
+parse_erl_form(_, _, _) -> erlang:error({not_implemented, parse_erl_form, 3}).
+parse_erl_form(_, _, _, _) -> erlang:error({not_implemented, parse_erl_form, 4}).
+printable_range() -> erlang:error({not_implemented, printable_range, 0}).
+put_chars(_) -> erlang:error({not_implemented, put_chars, 1}).
+put_chars(_, _) -> erlang:error({not_implemented, put_chars, 2}).
+read(_) -> erlang:error({not_implemented, read, 1}).
+read(_, _) -> erlang:error({not_implemented, read, 2}).
+read(_, _, _) -> erlang:error({not_implemented, read, 3}).
+read(_, _, _, _) -> erlang:error({not_implemented, read, 4}).
+request(_, _) -> erlang:error({not_implemented, request, 2}).
+requests(_) -> erlang:error({not_implemented, requests, 1}).
+requests(_, _) -> erlang:error({not_implemented, requests, 2}).
+rows() -> erlang:error({not_implemented, rows, 0}).
+rows(_) -> erlang:error({not_implemented, rows, 1}).
+scan_erl_exprs(_) -> erlang:error({not_implemented, scan_erl_exprs, 1}).
+scan_erl_exprs(_, _) -> erlang:error({not_implemented, scan_erl_exprs, 2}).
+scan_erl_exprs(_, _, _) -> erlang:error({not_implemented, scan_erl_exprs, 3}).
+scan_erl_exprs(_, _, _, _) -> erlang:error({not_implemented, scan_erl_exprs, 4}).
+scan_erl_form(_) -> erlang:error({not_implemented, scan_erl_form, 1}).
+scan_erl_form(_, _) -> erlang:error({not_implemented, scan_erl_form, 2}).
+scan_erl_form(_, _, _) -> erlang:error({not_implemented, scan_erl_form, 3}).
+scan_erl_form(_, _, _, _) -> erlang:error({not_implemented, scan_erl_form, 4}).
+setopts(_) -> erlang:error({not_implemented, setopts, 1}).
+setopts(_, _) -> erlang:error({not_implemented, setopts, 2}).
+write(_) -> erlang:error({not_implemented, write, 1}).
+write(_, _) -> erlang:error({not_implemented, write, 2}).

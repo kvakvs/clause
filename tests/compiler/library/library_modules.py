@@ -3,6 +3,7 @@
   library_modules.py check ROOT [LIBRARY]          inventories, module files and modules.terms agree (no OTP)
   library_modules.py rejects ROOT                  check refuses the deliberately inconsistent fixture library
   library_modules.py generate LIBRARY APP MODULE   write the all-stub module of an inventory, once
+  library_modules.py complete ROOT APP MODULE      bring a hand-written library module to its inventory
   library_modules.py freshness ROOT ERL CLAU WORK  inventories match the host OTP; observe, generate, check, compile
   library_modules.py report STDERR                 classify clau errors for the ledger (docs/library.md#ledger)
   library_modules.py reporting ROOT CLAU WORK      report classifies a real clau run over the fixture program
@@ -143,7 +144,9 @@ def read_module(path):
     defined = {(unquote(m[1]), arity_at(text, m.end())) for m in re.finditer(rf"(?m)^({ATOM})\(", text)}
     stubs = {
         (unquote(m[1]), m[2].count("_"))
-        for m in re.finditer(rf"(?m)^({ATOM})\(((?:_(?:, _)*)?)\) -> erlang:error\(undef\)\.$", text)
+        for m in re.finditer(rf"(?m)^({ATOM})\(((?:_(?:, _)*)?)\) ->\s+erlang:error\(\{{not_implemented, ({ATOM}), "
+                             rf"(\d+)\}}\)\.$", text)
+        if m[1] == m[3] and m[2].count("_") == int(m[4])
     }
     return exports, defined, stubs
 
@@ -166,8 +169,9 @@ def check_module(root, source, inventory, problems):
     for name, arity, _, status in entries:
         key, label = (name, arity), f"{module}:{name}/{arity}"
         if status in ("stub", "declined") and key not in stubs:
-            problems.append(f"{label} is marked {status} but is not a stub raising undef")
-        if status in ("implemented", "refused") and (key in stubs or (key not in defined and key not in builtins)):
+            problems.append(f"{label} is marked {status} but is not a not_implemented stub")
+        # A catalog builtin replaces the module's stub at registration (docs/library.md#runtime-module-replacements).
+        if status in ("implemented", "refused") and key not in builtins and (key in stubs or key not in defined):
             problems.append(f"{label} is marked {status} but has no body or catalog builtin")
 
 
@@ -197,6 +201,14 @@ def check(root, library):
     return problems
 
 
+def stub_clause(name, arity):
+    """A stub: raises error({not_implemented, Name, Arity}) (docs/library.md#provided-or-missing)."""
+    head = f"{atom(name)}({', '.join(['_'] * arity)}) ->"
+    body = f"erlang:error({{not_implemented, {atom(name)}, {arity}}})."
+    # erlfmt breaks a clause longer than 100 columns after its arrow.
+    return f"{head} {body}\n" if len(head) + len(body) < 100 else f"{head}\n    {body}\n"
+
+
 def generate(library, app, module):
     """Write library/<app>/<module>.erl with every inventory entry as a stub; never overwrite."""
     problems = []
@@ -205,13 +217,46 @@ def generate(library, app, module):
     if problems or target.exists():
         raise SystemExit("\n".join(problems) or f"{target} exists; edit it by hand")
     exports = ",\n".join(f"    {atom(name)}/{arity}" for name, arity, _, _ in entries)
-    clauses = "".join(f"{atom(name)}({', '.join(['_'] * arity)}) -> erlang:error(undef).\n"
-                      for name, arity, _, _ in entries)
+    clauses = "".join(stub_clause(name, arity) for name, arity, _, _ in entries)
     target.write_bytes(
         f"%% Clause's replacement for OTP's {module} (docs/library.md#runtime-module-replacements), generated from\n"
         f"%% {module}.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises\n"
-        f"%% error(undef).\n-module({atom(module)}).\n-export([\n{exports}\n]).\n\n{clauses}".encode("utf-8"))
+        f"%% error({{not_implemented, Name, Arity}}).\n-module({atom(module)}).\n-export([\n{exports}\n]).\n\n{clauses}".encode("utf-8"))
     print(f"{target}: {len(entries)} stubs")
+
+
+def write_inventory(path, entries):
+    """Rewrite an inventory's entries, keeping its comment header."""
+    header = "".join(line + "\n" for line in path.read_text(encoding="utf-8").splitlines() if line.startswith("%"))
+    body = "".join(f"{{{atom(name)}, {arity}, {group}, {status}}}.\n" for name, arity, group, status in entries)
+    path.write_bytes((header + body).encode("utf-8"))
+
+
+def complete(root, library, app, module):
+    """Bring a hand-written module to its inventory: export every entry, stub what it does not define, and mark
+    each entry implemented (a body or a catalog builtin, whose stub the runtime replaces) or stub."""
+    problems = []
+    inventory, source = library / app / f"{module}.terms", library / app / f"{module}.erl"
+    entries = read_inventory(inventory, problems)
+    if problems:
+        raise SystemExit("\n".join(problems))
+    exports, defined, stubs = read_module(source)
+    builtins = catalog(root, module)
+    working = {key for key in defined if key not in stubs} | builtins
+    absent_exports = [(n, a) for n, a, _, _ in entries if (n, a) not in exports]
+    absent_bodies = [(n, a) for n, a, _, _ in entries if (n, a) not in defined]
+    text = source.read_text(encoding="utf-8")
+    if absent_exports:
+        last = list(re.finditer(r"-export\(\[.*?\]\)\.", text, re.S))[-1]
+        listing = ",\n".join(f"    {atom(n)}/{a}" for n, a in absent_exports)
+        text = (f"{text[: last.end()]}\n%% OTP 29 exports Clause does not implement yet: stubs raising error({{not_implemented, F, A}}),\n"
+                f"%% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).\n"
+                f"-export([\n{listing}\n]).{text[last.end():]}")
+    if absent_bodies:
+        text = text.rstrip("\n") + "\n\n" + "".join(stub_clause(n, a) for n, a in absent_bodies)
+    source.write_bytes(text.encode("utf-8"))
+    write_inventory(inventory, [(n, a, g, "implemented" if (n, a) in working else "stub") for n, a, g, _ in entries])
+    print(f"{source}: {len(working & {(n, a) for n, a, _, _ in entries})} implemented, {len(absent_bodies)} stubs added")
 
 
 def run(command):
@@ -275,9 +320,10 @@ def called_function(path, row, col, module):
 
 
 def report(stderr):
-    """Markdown tables of a clau run's errors: unknown modules, undefined functions, everything else."""
+    """Markdown tables of a clau run's errors: unknown modules, undefined functions and remote types, the rest."""
     unknown = collections.defaultdict(lambda: (collections.Counter(), set()))
     undefined = collections.defaultdict(collections.Counter)
+    types = collections.defaultdict(collections.Counter)
     other = collections.Counter()
     for line in pathlib.Path(stderr).read_text(encoding="utf-8", errors="replace").splitlines():
         match = re.match(r"error: (.+?):(\d+):(\d+): (.*)$", line)
@@ -290,6 +336,8 @@ def report(stderr):
             callers.add(pathlib.Path(path).stem)
         elif function := re.fullmatch(r"undefined function (.+):(.+/\d+)", message):
             undefined[function[1]][function[2]] += 1
+        elif remote := re.fullmatch(r"undefined remote type (.+?):(.+)", message):
+            types[remote[1]][remote[2]] += 1
         else:
             other[re.sub(r"(?<!\S)(?:[A-Za-z]:)?[\\/][^ :]+", "<path>", message)] += 1
     print("| Unknown module | Errors | Callers | Functions called |\n| --- | --- | --- | --- |")
@@ -298,6 +346,9 @@ def report(stderr):
     print("\n| Module of undefined functions | Errors | Functions |\n| --- | --- | --- |")
     for module, calls in sorted(undefined.items(), key=lambda item: -sum(item[1].values())):
         print(f"| `{module}` | {sum(calls.values())} | {listing(calls)} |")
+    print("\n| Module of undefined remote types | Errors | Types |\n| --- | --- | --- |")
+    for module, names in sorted(types.items(), key=lambda item: -sum(item[1].values())):
+        print(f"| `{module}` | {sum(names.values())} | {listing(names)} |")
     print("\n| Other errors | Message |\n| --- | --- |")
     for message, count in other.most_common():
         print(f"| {count} | {message} |")
@@ -336,6 +387,9 @@ def main(arguments):
         return 1 if problems else 0
     if action == "rejects" and len(arguments) == 2:
         rejects(pathlib.Path(arguments[1]))
+    elif action == "complete" and len(arguments) == 4:
+        root = pathlib.Path(arguments[1])
+        complete(root, root / "library", arguments[2], arguments[3])
     elif action == "generate" and len(arguments) == 4:
         generate(pathlib.Path(arguments[1]), arguments[2], arguments[3])
     elif action == "freshness" and len(arguments) == 5:

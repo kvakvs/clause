@@ -1,15 +1,15 @@
 #!/usr/bin/env escript
 %% Observe the erlang module of the host OTP (the pinned major, docs/otp-reference.md): every export with its
-%% auto-import and guard flags. Writes library/stdlib/erlang.terms, keeping each existing entry's status; a new
+%% auto-import and guard flags. Writes library/erts/erlang.terms, keeping each existing entry's status; a new
 %% export starts as unclassified. Run explicitly: escript observe_erlang.escript <repository root>; with an output
 %% path it writes there instead (the freshness test).
 -mode(compile).
 
 main([Root]) ->
-    File = filename:join([Root, "library", "stdlib", "erlang.terms"]),
+    File = filename:join([Root, "library", "erts", "erlang.terms"]),
     observe(File, File);
 main([Root, Output]) ->
-    observe(filename:join([Root, "library", "stdlib", "erlang.terms"]), Output);
+    observe(filename:join([Root, "library", "erts", "erlang.terms"]), Output);
 main(_) ->
     io:format(standard_error, "usage: observe_erlang.escript <repository root> [output]~n", []),
     halt(2).

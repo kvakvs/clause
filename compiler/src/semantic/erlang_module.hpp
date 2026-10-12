@@ -1,9 +1,9 @@
 #pragma once
 #include "declarations.hpp"
 
-// The erlang library module (library/stdlib/erlang.erl, plan step 41B): which unqualified names reach it.
+// The erlang library module (library/erts/erlang.erl, plan step 41B): which unqualified names reach it.
 namespace clause::semantic {
-// Whether OTP auto-imports erlang:F/A (erl_internal:bif/2), from the owned inventory library/stdlib/erlang.terms.
+// Whether OTP auto-imports erlang:F/A (erl_internal:bif/2), from the owned inventory library/erts/erlang.terms.
 bool otp_auto_import(const FunctionKey &key);
 // Whether the compiler handles erlang:F/A itself, without the library module: a bridge builtin, a guard BIF or a
 // body builtin such as apply/3.

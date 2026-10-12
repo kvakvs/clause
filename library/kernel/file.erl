@@ -14,6 +14,66 @@
     make_dir/1,
     del_dir/1
 ]).
+%% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
+%% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
+-export([
+    advise/4,
+    allocate/3,
+    altname/1,
+    change_group/2,
+    change_mode/2,
+    change_owner/2,
+    change_owner/3,
+    change_time/2,
+    change_time/3,
+    consult/1,
+    copy/2,
+    copy/3,
+    copy_opened/3,
+    datasync/1,
+    del_dir_r/1,
+    delete/2,
+    eval/1,
+    eval/2,
+    format_error/1,
+    get_cwd/0,
+    get_cwd/1,
+    ipread_s32bu_p32bu/3,
+    ipread_s32bu_p32bu_int/3,
+    list_dir_all/1,
+    make_link/2,
+    make_symlink/2,
+    native_name_encoding/0,
+    path_consult/2,
+    path_eval/2,
+    path_eval/3,
+    path_open/3,
+    path_script/2,
+    path_script/3,
+    pread/2,
+    pread/3,
+    pwrite/2,
+    pwrite/3,
+    raw_read_file_info/1,
+    raw_write_file_info/2,
+    read_file/2,
+    read_file_info/1,
+    read_file_info/2,
+    read_link/1,
+    read_link_all/1,
+    read_link_info/1,
+    read_link_info/2,
+    script/1,
+    script/2,
+    sendfile/2,
+    sendfile/5,
+    set_cwd/1,
+    sync/1,
+    truncate/1,
+    write_file/3,
+    write_file_info/2,
+    write_file_info/3
+]).
 
 % The project-owned file module (docs/library.md, docs/ports.md#standard-io-and-files): files are ports of the
 % runtime's file driver ({spawn_driver, "clause_file"}), driven with port_control/3. An open file is an I/O
@@ -266,3 +326,60 @@ encode([C | Rest], Acc) when is_integer(C), C < 16#110000 ->
 decode(<<>>) -> [];
 decode(<<C/utf8, Rest/binary>>) -> [C | decode(Rest)];
 decode(<<C, Rest/binary>>) -> [C | decode(Rest)].
+
+advise(_, _, _, _) -> erlang:error({not_implemented, advise, 4}).
+allocate(_, _, _) -> erlang:error({not_implemented, allocate, 3}).
+altname(_) -> erlang:error({not_implemented, altname, 1}).
+change_group(_, _) -> erlang:error({not_implemented, change_group, 2}).
+change_mode(_, _) -> erlang:error({not_implemented, change_mode, 2}).
+change_owner(_, _) -> erlang:error({not_implemented, change_owner, 2}).
+change_owner(_, _, _) -> erlang:error({not_implemented, change_owner, 3}).
+change_time(_, _) -> erlang:error({not_implemented, change_time, 2}).
+change_time(_, _, _) -> erlang:error({not_implemented, change_time, 3}).
+consult(_) -> erlang:error({not_implemented, consult, 1}).
+copy(_, _) -> erlang:error({not_implemented, copy, 2}).
+copy(_, _, _) -> erlang:error({not_implemented, copy, 3}).
+copy_opened(_, _, _) -> erlang:error({not_implemented, copy_opened, 3}).
+datasync(_) -> erlang:error({not_implemented, datasync, 1}).
+del_dir_r(_) -> erlang:error({not_implemented, del_dir_r, 1}).
+delete(_, _) -> erlang:error({not_implemented, delete, 2}).
+eval(_) -> erlang:error({not_implemented, eval, 1}).
+eval(_, _) -> erlang:error({not_implemented, eval, 2}).
+format_error(_) -> erlang:error({not_implemented, format_error, 1}).
+get_cwd() -> erlang:error({not_implemented, get_cwd, 0}).
+get_cwd(_) -> erlang:error({not_implemented, get_cwd, 1}).
+ipread_s32bu_p32bu(_, _, _) -> erlang:error({not_implemented, ipread_s32bu_p32bu, 3}).
+ipread_s32bu_p32bu_int(_, _, _) -> erlang:error({not_implemented, ipread_s32bu_p32bu_int, 3}).
+list_dir_all(_) -> erlang:error({not_implemented, list_dir_all, 1}).
+make_link(_, _) -> erlang:error({not_implemented, make_link, 2}).
+make_symlink(_, _) -> erlang:error({not_implemented, make_symlink, 2}).
+native_name_encoding() -> erlang:error({not_implemented, native_name_encoding, 0}).
+path_consult(_, _) -> erlang:error({not_implemented, path_consult, 2}).
+path_eval(_, _) -> erlang:error({not_implemented, path_eval, 2}).
+path_eval(_, _, _) -> erlang:error({not_implemented, path_eval, 3}).
+path_open(_, _, _) -> erlang:error({not_implemented, path_open, 3}).
+path_script(_, _) -> erlang:error({not_implemented, path_script, 2}).
+path_script(_, _, _) -> erlang:error({not_implemented, path_script, 3}).
+pread(_, _) -> erlang:error({not_implemented, pread, 2}).
+pread(_, _, _) -> erlang:error({not_implemented, pread, 3}).
+pwrite(_, _) -> erlang:error({not_implemented, pwrite, 2}).
+pwrite(_, _, _) -> erlang:error({not_implemented, pwrite, 3}).
+raw_read_file_info(_) -> erlang:error({not_implemented, raw_read_file_info, 1}).
+raw_write_file_info(_, _) -> erlang:error({not_implemented, raw_write_file_info, 2}).
+read_file(_, _) -> erlang:error({not_implemented, read_file, 2}).
+read_file_info(_) -> erlang:error({not_implemented, read_file_info, 1}).
+read_file_info(_, _) -> erlang:error({not_implemented, read_file_info, 2}).
+read_link(_) -> erlang:error({not_implemented, read_link, 1}).
+read_link_all(_) -> erlang:error({not_implemented, read_link_all, 1}).
+read_link_info(_) -> erlang:error({not_implemented, read_link_info, 1}).
+read_link_info(_, _) -> erlang:error({not_implemented, read_link_info, 2}).
+script(_) -> erlang:error({not_implemented, script, 1}).
+script(_, _) -> erlang:error({not_implemented, script, 2}).
+sendfile(_, _) -> erlang:error({not_implemented, sendfile, 2}).
+sendfile(_, _, _, _, _) -> erlang:error({not_implemented, sendfile, 5}).
+set_cwd(_) -> erlang:error({not_implemented, set_cwd, 1}).
+sync(_) -> erlang:error({not_implemented, sync, 1}).
+truncate(_) -> erlang:error({not_implemented, truncate, 1}).
+write_file(_, _, _) -> erlang:error({not_implemented, write_file, 3}).
+write_file_info(_, _) -> erlang:error({not_implemented, write_file_info, 2}).
+write_file_info(_, _, _) -> erlang:error({not_implemented, write_file_info, 3}).

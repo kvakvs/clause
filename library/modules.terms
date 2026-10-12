@@ -1,0 +1,29 @@
+%% Modules Clause decides about (docs/library.md#runtime-module-replacements): {Module, Application, provided} or
+%% {Module, Application, missing, "Reason"}. A missing module's name is reserved: never taken from a search path.
+%% Clause's own modules without an OTP counterpart (clause_socket) are not listed.
+{erlang, erts, provided}.
+{atomics, erts, provided}.
+{counters, erts, provided}.
+{erl_prim_loader, erts, provided}.
+{erts_code_purger, erts, provided}.
+{erts_internal, erts, provided}.
+{init, erts, provided}.
+{persistent_term, erts, provided}.
+{prim_eval, erts, provided}.
+{zlib, erts, provided}.
+{prim_buffer, erts, missing, "low-level file buffers; Clause's file module is the file layer"}.
+{prim_file, erts, missing, "low-level file driver; Clause's file module is the file layer"}.
+{prim_inet, erts, missing, "socket driver; Clause's gen_tcp, gen_udp and inet replace it"}.
+{prim_net, erts, missing, "low-level network queries; Clause's inet is the network layer"}.
+{prim_socket, erts, missing, "socket NIF; Clause's gen_tcp, gen_udp and inet replace it"}.
+{socket_registry, erts, missing, "bookkeeping of the socket NIF, which Clause does not provide"}.
+{application_controller, kernel, provided}.
+{file, kernel, provided}.
+{gen_tcp, kernel, provided}.
+{gen_udp, kernel, provided}.
+{inet, kernel, provided}.
+{os, kernel, provided}.
+{io, stdlib, provided}.
+{lists, stdlib, provided}.
+{maps, stdlib, provided}.
+{unicode_util, stdlib, provided}.

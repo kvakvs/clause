@@ -1,0 +1,22 @@
+%% OTP 29 erl_prim_loader exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{get_cwd, 0, default, stub}.
+{get_cwd, 1, default, stub}.
+{get_file, 1, default, stub}.
+{get_modules, 2, default, stub}.
+{get_modules, 3, default, stub}.
+{get_path, 0, default, stub}.
+{is_basename, 1, default, stub}.
+{list_dir, 1, default, stub}.
+{prim_get_cwd, 2, default, stub}.
+{prim_init, 0, default, stub}.
+{prim_list_dir, 2, default, stub}.
+{prim_read_file, 2, default, stub}.
+{prim_read_file_info, 3, default, stub}.
+{purge_archive_cache, 0, default, stub}.
+{read_file, 1, default, stub}.
+{read_file_info, 1, default, stub}.
+{read_link_info, 1, default, stub}.
+{set_path, 1, default, stub}.
+{set_primary_archive, 4, default, stub}.
+{start, 0, default, stub}.
