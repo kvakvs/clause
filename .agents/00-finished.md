@@ -418,6 +418,21 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   from the loader; `transforms_no_otp` uses `--erl none` because Windows
   re-sets `ProgramFiles` in every process.
 
+<a id="plan-20"></a>
+
+## Plan 20: optimizations from OTP T2-Full (2026-10-12–13)
+
+Plan and open steps: [20-opt.md](20-opt.md). Full step text and evidence are in
+Git at these commits. Fast CTest and `check-quality` were green at each.
+
+| Step | Commit | Done |
+| --- | --- | --- |
+| Plan | `4438fde` | `.agents/20-opt.md` from garazdawi/otp PR #855 (T2-Full) plans and the PR text |
+| OPT0.1 Inline frame transfers | `3c6cecc` | ABI 9. `abi::v1::FrameState` starts every context; enter, tail and return push, pop and spend reductions inline. Services only on the slow bits (collection wanted, profiling), no reductions, stack growth or builtin. The per-call failure check reads `failed`. |
+| OPT0.1A Register-passed arguments | `11439308` | ABI 10. `Code` = `void(ctx, x0, x1, x2)`; leading arguments and results travel as C parameters and are spilled only across calls. The runtime calls code via `run_code`. LLVM loops self tail calls at O2. |
+| OPT0.5A Off-heap large maps | `ed3ccc2` | Maps > 32 entries are `tree_map` stubs over a process-private persistent B+ tree (`terms/map_tree`). Updates copy their path (O(log n)); GC rewrites tree words through the stub and frees dead trees; copies rebuild the tree. `executables_large_maps`, `runtime_maps`. Maps measured much faster. |
+| OPT0.5B Compiler-proven in-place map updates | `04043339` | `semantic/map_ownership` marks updates of a fresh, single-read, uncaptured map: `MapOperation::update_owned` consumes the source stub and mutates exclusively held nodes. `executables_owned_maps`, inspection check. |
+
 <a id="outstanding-work-to-finish"></a>
 
 ## Outstanding work to finish

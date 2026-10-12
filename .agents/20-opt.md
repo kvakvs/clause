@@ -72,7 +72,7 @@ copy any OTP source.
    Example: T2 found that inlining for call overhead alone gives 0 ± 1 %
    (experiment G3-2). That holds only because a T1 call is about 20 cycles. In
    Clause, every Erlang call goes through `CLAUSE_enter_v1` and a trampoline, so
-   call overhead is a real cost until direct calls exist (item OPT0.1).
+   call overhead was a real cost; OPT0.1 (done) made transfers inline.
 3. **T2's deopt, profiling and tier-up machinery does not apply.** Clause has no
    T1 to fall back to. The usable content is:
    - the *transforms*
@@ -128,113 +128,21 @@ optimization target, not only a matter of correctness.
 These close the gap to BeamAsm. They come first because every later tier needs
 LLVM to *see* the operations instead of opaque service calls.
 
-### OPT0.1 Direct native calls for local and known remote targets
+Done (OPT0.1, OPT0.1A, OPT0.5A, OPT0.5B): see
+[00-finished.md](00-finished.md#plan-20). Open follow-ups of those steps:
 
-- **Now:** every call runs `CLAUSE_enter_v1` or `CLAUSE_tail_v1`, a `musttail`
-  trampoline, an argument memcpy into X registers, and a `CallFailed` check.
-- **Target:** direct `call`/`musttail` to known callees, with arguments in
-  registers. Reductions and the safepoint stay in the callee prologue.
-- **Effect:** removes the per-call tax. This is the precondition for LLVM's own
-  inliner and for items OPT1.2 and OPT1.5.
-- **Status: done 2026-10-12** (ABI revision 9), as inline transfers inside the
-  explicit-frame model rather than native calls:
-  - Every context starts with `abi::v1::FrameState`: stack, top, limit, frame,
-    reductions, registers, live, slow bits and `failed`.
-  - Body prologues read the frame and registers from it, with no service calls.
-  - Enter, tail and return push, pop and spend reductions inline. They fall back
-    to `CLAUSE_enter/tail/return_v1` only on a wanted collection, profiling, no
-    reductions left, stack growth or limit, or a builtin.
-  - The per-call `CLAUSE_call_failed_v2` became a load of `failed`.
-  - Still open:
-    - Arguments still travel through the memory X-register array (OPT0.1A).
-    - Comprehension loop-head safepoints still call the service
-      unconditionally; they could test `slow_collect` inline first.
-    - Benchmarks were not rerun; that is manual (`make-benchmark.bat`).
-
-### OPT0.1A Register-passed arguments and results
-
-User question (2026-10-12): "X registers are a memory array; can LLVM keep them
-in machine registers and spill the extras automatically?"
-
-- **Now:**
-  - X registers are `std::array<Word, 256>` in `ProcessStack`.
-  - A call stores its arguments there, the entry copies them into frame slots,
-    and the body reloads them from the slots.
-  - The result travels back through `x[0]` in memory.
-  - So every argument takes three memory trips, even for a leaf that never
-    needs a frame.
-- **Target:** one uniform body signature
-  `void body(ptr ctx, word x0, …, word x(K-1))`.
-  - The first K X registers are LLVM parameters; any further ones stay in the
-    memory array.
-  - Every transfer is `musttail` with identical prototypes, so the existing
-    guaranteed-tail-call model is unchanged.
-  - A return passes the result as `x0` to the caller's body.
-  - The calling convention should make K large and leave no callee-saved
-    registers:
-    - `preserve_nonecc` (LLVM 19+: x86-64, AArch64), designed for musttail
-      interpreter dispatch
-    - or `ghccc` (x86-32/64, AArch64)
-    - otherwise the C convention with K = the target's integer argument
-      registers
-  - Pick K per target. K = 0 keeps today's scheme for targets where the
-    convention or `musttail` is refused. Prove each required target with a
-    prototype like the step-17 `musttail` table in `execution-model.md`.
-- **What LLVM then does for free:**
-  - Arguments stay in SSA values. `lower_frames` already spills exactly the
-    values that cross a call or safepoint, so an argument gets a frame slot only
-    if it lives across one.
-  - Frames shrink, the entry memcpy disappears, and register allocation and
-    spilling are LLVM's.
-- **Runtime boundary:** the runtime calls code as C `void(ctx)` (start/resume,
-  `invoke`), and generated code tail-calls runtime code (`pause`, `finish`, the
-  services' returned bodies).
-  - The compiler emits small adapters with the uniform signature into the
-    startup object:
-    - an entry adapter `void(ctx)` that loads `x0..x(K-1)` from the array and
-      tail-calls a body
-    - `pause`/`finish` stubs that store the parameters back to the array and
-      return to the runtime
-  - `FrameDescriptor::body` stays the C-callable code, or gains a second pointer.
-  - Clang's `preserve_none` attribute could also serve, but an MSVC-built
-    runtime cannot declare it.
-- **GC and services:** register parameters are not roots.
-  - Every slow path (`CLAUSE_enter_v1` and the others, entry safepoints,
-    suspension) first stores `x0..x(K-1)` to the array, which is what the
-    services already read and the collector already roots via `live`.
-  - It reloads them after the service before the `musttail`.
-  - Inline fast paths never touch the array.
-- **Follow-on it enables:** frameless leaves. A function with no non-tail call
-  and no value live across a safepoint skips its push entirely.
-  `execution-model.md` already allows this; it needs the reduction check and
-  entry safepoint kept on the path. Together they give near-native leaf calls.
-- **Status: done 2026-10-13** (ABI revision 10):
-  - Kept the C calling convention with K = 3 on every target, which fits the
-    Win64 and armv7 argument registers. The runtime can then call and define
-    code directly, so no adapters are needed: `ProcessStack::run_code`, and
-    `finish` stores `x0`.
-  - `musttail` with the new prototype passes on all cross targets (i686 and
-    armv7 included) at O0/O2/Os.
-  - Direct calls pass the values the native form stored into the argument
-    array; those stores are removed. Fun calls load their parameters from the
-    registers.
-  - Bodies read leading arguments from `freeze`d parameters, spilled to their
-    slot only when live across a call. Call results come from `x0`.
-  - A specialization dispatcher stores its parameters into its slots first,
-    because it forwards the slots.
-  - With one shared prototype, LLVM turns self tail calls with an inline push
-    into loops at O2 (partly OPT1.1).
-  - Not done:
-    - frameless leaves
-    - a larger K on SysV and AArch64 (per-target K)
-    - `preserve_none`
-  - Benchmarks were not rerun (manual).
-- **Gate:**
-  - every target's `musttail` with the chosen convention at O0/O2/Os
-    (cross-target test)
-  - full suite and goldens unchanged
-  - deep-recursion, yield and GC-stress tests
-  - step-69A call-heavy kernels compared manually
+- **OPT0.1 follow-up:** comprehension loop-head safepoints still call
+  `CLAUSE_safepoint_v1` unconditionally; test `FrameState::slow_collect` inline
+  first.
+- **OPT0.1A follow-ups:**
+  - frameless leaves (no push for a function with no non-tail call and nothing
+    live across a safepoint, keeping the reduction check and entry safepoint)
+  - a per-target parameter count K (SysV x86-64 and AArch64 have more argument
+    registers than the 3 used everywhere now)
+  - `preserve_none` where the runtime can declare it
+- **OPT0.5B follow-up:** in-place updates for maps that arrive from callers
+  (`maps:put/3`, accumulator parameters) need interprocedural uniqueness or
+  inlining (OPT2.1).
 
 ### OPT0.2 Guard BIFs and term ops as inline primitives
 
@@ -266,6 +174,10 @@ Today all of these go through `CLAUSE_immediate_v1`, `CLAUSE_exact_v1` or
 
 ### OPT0.4 Literal pool
 
+- **Caveat from OPT0.5B:** the in-place map proof treats every map expression
+  as freshly built; constant maps moved into the pool must be excluded from it
+  (`semantic/map_ownership`).
+
 - Build compound literals (strings, tuples, maps, floats) once per module, in
   constant or literal-area memory. Today a float literal calls `CLAUSE_float_v1`
   on every evaluation, and tuple literals are rebuilt each time.
@@ -274,7 +186,7 @@ Today all of these go through `CLAUSE_immediate_v1`, `CLAUSE_exact_v1` or
 ### OPT0.5 Flatmap layout with a shared keys tuple
 
 - **Scope:** small maps only, up to a size threshold (OTP's
-  `MAP_SMALL_MAP_LIMIT` is 32). Larger maps move to OPT0.5A.
+  `MAP_SMALL_MAP_LIMIT` is 32). Larger maps are off-heap trees (OPT0.5A, done).
 - **Naming:** the current sorted-pairs `map` cell becomes the **classic map**.
   Classic maps stay the representation of small maps and literals.
 - **Layout:** `header, size, keys→tuple, v0..vn`. This replaces the
@@ -288,163 +200,7 @@ Today all of these go through `CLAUSE_immediate_v1`, `CLAUSE_exact_v1` or
 - **Fixes:** the host `std::vector` staging on every put. A put stays O(n),
   which is fine at n ≤ 32.
 - **Does not fix:** the quadratic growth of building or updating a large map
-  (the 618× `map_put` kernel builds 2000 keys). That is OPT0.5A.
-
-### OPT0.5A Off-heap large maps, updated in place while unshared
-
-User idea (2026-10-12). Store a large map the way a large binary is stored: a
-small stub cell on the owner's heap points to a faster structure allocated off
-the heap.
-
-- **Why:**
-  - A classic map put copies all n entries, so building a map key by key is
-    O(n²). `map_put` is 618× and `map_update` 418× slower than OTP.
-  - A copying GC moves a large classic map on every collection. An off-heap
-    body stays where it is; only the stub moves.
-  - The cost is memory allocated differently: off-heap nodes, charged to the
-    process like off-heap binaries.
-- **Representations:**
-  - **classic map:** the current cell, plus OPT0.5's shared keys tuple. Used for
-    small maps and literals.
-  - **off-heap map:** used above the threshold.
-  - Puts and removes that cross the threshold convert between the two. Add
-    hysteresis so a map near the limit does not convert back and forth.
-- **Stub cell:** on the process heap. It holds:
-  - a pointer to the off-heap body
-  - the size
-  - an off-heap list link, like `refc_binary`
-- **Body:** a persistent **ordered** tree, for example a B+tree with fanout
-  around 16–32.
-  - Ordered, not a HAMT. Clause's documented contract is canonical key order for
-    iteration, printing and `term_to_binary` (see `docs/differences.md`, Maps
-    rows), and an ordered tree keeps those rows unchanged.
-  - Lookup is O(log n). An update that copies its path is O(log n) and shares
-    every other node with the old version.
-  - Nodes are reference-counted, so several versions held by the same process
-    share structure.
-- **Keys and values stay on the process heap.** This is the difference from
-  binaries:
-  - The tree's leaves hold term words that point into the owner's heap.
-  - The GC treats every live stub's tree as a root set. It scans each node's
-    term slots once per collection (use an epoch mark, because versions share
-    nodes) and rewrites moved pointers in place.
-  - This is legal because the body is process-private. It is never shared
-    between processes.
-  - Deep-copying keys and values off the heap (ETS-style) is rejected: each put
-    would cost O(size of the value), and read values would need lifetimes of
-    their own.
-- **Freeing:**
-  - The off-heap list sweep releases the root reference of each dead stub, which
-    frees unreachable nodes.
-  - Path-copy garbage is charged as off-heap words, the virtual-heap analog, so
-    a heavy update loop triggers a collection that frees old versions.
-- **In-place update while unshared** (user refinement):
-  - If no other live value can observe the old version, update the body in
-    place. There is no path copy and no garbage, so a put is O(log n) with no
-    allocation.
-  - "Unshared" means exactly one stub references the body *and* that stub's old
-    value is dead after the update.
-  - A reference count of 1 is necessary but not enough. In
-    `M2 = M#{k => v}, {M, M2}` the single stub is still read as `M`, so
-    immutability requires a copy there.
-  - Two sources of the proof:
-    1. **Compiler uniqueness and liveness:** the old map variable dies at the
-       update and never escaped into another term, the process dictionary, a
-       closure or a message. This is the same analysis as OPT0.6
-       `private_append` and OTP's `beam_ssa_alias`. It covers the common
-       builders: a tail-recursive accumulator, a fold fun's `Acc`, map
-       comprehensions, chains of `#{... => ...}`.
-       - The update op then carries a "may mutate" flag.
-       - At run time the op still checks that the body's reference count is 1,
-         and copies its path otherwise. This guards against sharing between
-         versions.
-    2. **Runtime-owned fresh bodies:** `maps:from_list/1`, `maps:map/2`,
-       `maps:merge/2`, `maps:filter/2` and map construction mutate a body that
-       no term references yet, then publish the stub once.
-  - **Escapes copy:** send, ETS and `term_to_binary` copy the contents, so a
-    receiver gets its own body. Sending therefore never creates sharing between
-    processes. A dead stub left in a frame root slot is harmless, because no
-    Erlang code reads it.
-- **Semantics must not change:**
-  - Classic and off-heap maps with equal contents are indistinguishable under
-    `=:=`, `==`, term order, `phash2`, `erts_debug:flat_size` (if provided),
-    printing and the external term format.
-  - Every service walks in key order through one iterator interface.
-- **GC caveat:** in-place writes are safe while the collector is
-  non-generational, which is today's state (`runtime-heap.md`: "Old heap.
-  None"). A future generational GC needs a remembered set for nodes written
-  after tenuring. OTP's TMC branch solved the same problem with a forced full
-  sweep.
-- **Observable differences:** memory reporting such as
-  `process_info(_, memory)` and heap sizes will differ from OTP. Add a row to
-  `docs/differences.md` when this lands.
-- **Docs to update:**
-  - `docs/runtime-heap.md`: the cell table and off-heap sections
-  - `docs/terms.md`: Maps
-  - `.agents/arch.md`
-- **Status: done 2026-10-12** (runtime only, no ABI change):
-  - `BoxedKind::tree_map` stubs and `terms/map_tree` (B+ tree, fanout 32,
-    subtree sizes, refcounted nodes).
-  - Updates copy their path, so building a map is O(n log n). Nodes created by
-    the running update change in place under its edit token.
-  - Runtime-built maps (construction, `from_list`, comprehensions, decoding) are
-    bulk-built in O(n).
-  - GC rewrites the tree words through the stubs; the sweep frees dead trees.
-  - Copies between heaps rebuild the tree in the destination.
-  - Tests: `executables_large_maps` (OTP golden) and `runtime_maps` `tree_maps`
-    (sharing, rollback, freeing).
-  - Benchmarks are manual and not rerun.
-  - In-place update of an already published map, proven unshared by the
-    compiler, is split out as OPT0.5B.
-- **Gate:**
-  - `map_put` and `map_update` become O(n log n) (step-69A kernels).
-  - Differential checks against OTP on order, printing, `term_to_binary` and
-    errors.
-  - GC stress with large maps alive across many collections.
-  - Aliasing tests where the old version stays live (it must not be mutated).
-
-### OPT0.5B Compiler-proven in-place map updates
-
-Split from OPT0.5A.
-
-- **What:** let `CLAUSE_map_v1` update change a *published* off-heap map in
-  place, with no path copy and no garbage, when the compiler proves its old value
-  dead and unshared.
-- **Conditions:**
-  - The old map variable dies at the update.
-  - It never escaped into another term, the process dictionary, a closure or a
-    message.
-  - At run time, every node on the path still has one reference.
-- **Mechanism:**
-  - A "may mutate" flag on the update op.
-  - The runtime then hands the stub's root a fresh edit token instead of
-    copying.
-  - This shares the uniqueness analysis with OPT0.6 `private_append`.
-- **Limits:** most hot builders pass the map through a library call
-  (`maps:put/3`), so the proof needs inlining (OPT2.1) or a summary of
-  library functions to fire often.
-- **Status: done 2026-10-13** (no ABI version change; adds
-  `MapOperation::update_owned`):
-  - The proof is intraprocedural (`semantic/map_ownership`). In one clause
-    body, `M = <map expression or map comprehension>`, and the single read of
-    `M` is the base of a later update that is a body item, a match's right
-    side or a direct call argument. `M` is never captured.
-  - The runtime takes over the source stub's tree and mutates the nodes it
-    reaches through unshared nodes, copying the rest. The source stub is left
-    consumed (no tree, size 0); a failure gives the tree back.
-  - Tests:
-    - `executables_owned_maps` (OTP golden): owned chains plus shared,
-      captured and failing negatives.
-    - `runtime_maps` `owned_updates`: no copy, consumed source, failure,
-      collections.
-    - `codegen_inspection`: exactly the two chain updates are owned.
-  - As expected, the loop builders (`maps:put/3`, an accumulator parameter) are
-    not covered: their source map comes from the caller. That needs
-    interprocedural uniqueness or inlining (OPT2.1).
-  - A future literal pool (OPT0.4) must keep constant maps out of the proof.
-  - Benchmarks were not rerun (manual).
-- **Gate:** aliasing tests where the old version stays live and must not
-  change, plus step-69A `map_put`/`map_update` compared manually.
+  (the 618× `map_put` kernel builds 2000 keys); OPT0.5A (done) fixed that.
 
 ### OPT0.6 Writable/appendable binaries
 
@@ -617,8 +373,8 @@ Builds on OPT1.4.
   - a construct/deconstruct pair (`{ok,X}` returned and immediately matched)
   - opening up loop recovery
 - **Measured:** T2's MVP fused `diff/2` into the `total/2` loop.
-- **Clause caveat:** until OPT0.1 lands, plain call overhead is also worth removing.
-  After OPT0.1, follow T2's rule: never inline for call overhead alone. LLVM's
+- **Clause caveat:** with OPT0.1/OPT0.1A done, follow T2's rule: never inline
+  for call overhead alone. LLVM's
   inliner can take over once calls are direct and services are inline.
 
 ### OPT1.10 Cleanup suite across inlined boundaries
@@ -702,7 +458,7 @@ Builds on OPT1.4.
 - **Options:**
   - inline, or LTO-visible bodies for, `lists`/`maps`/`proplists` helpers and
     user wrappers
-  - turn on `--lto` with direct calls (OPT0.1) to get this mostly for free
+  - turn on `--lto` with the inline transfers (OPT0.1) to get this mostly for free
 - **Limits:**
   - mark modules that need code upgrade as opaque
   - preserve observable stack-trace and `function_clause` semantics; record any
@@ -727,7 +483,7 @@ Builds on OPT1.4.
 | Idea | T2 finding | Clause note |
 |---|---|---|
 | Cold-arm pruning / branch-counter dispatch specialization | 1.01–1.02×; a 12-clause dispatch costs ~4 ns in T1 | Use branch weights for layout only |
-| Inlining for call overhead alone | 0 ± 1 % | Holds only after OPT0.1 |
+| Inlining for call overhead alone | 0 ± 1 % | Holds now that OPT0.1 is done |
 | Polymorphic inline caches wider than 2 | rarely pays; compiler sites see 20–130+ shapes | Monomorphic map cache only |
 | General interning of map shapes | measured unnecessary: literal shapes already share the pointer | — |
 | Escape analysis at scale / PEA | survivors escape; top allocators are inside C BIFs | Revisit only after OPT2.1 creates pairs |
@@ -742,10 +498,10 @@ Builds on OPT1.4.
 
 ## Suggested order for Clause
 
-1. **Substrate (tier OPT0):** OPT0.1 (done), OPT0.1A (done), OPT0.2, OPT0.3, then
-   OPT0.4, OPT0.5, OPT0.5A (done) and OPT0.5B (done), then OPT0.6, then OPT0.7. OPT0.5A has no dependency on the others
-   and can go first if the map kernels are the priority. This attacks the measured 100–600× kernels and makes
-   everything below visible to LLVM.
+1. **Substrate (tier OPT0):** OPT0.2, OPT0.3, then OPT0.4 and OPT0.5, then
+   OPT0.6, then OPT0.7 (OPT0.1, OPT0.1A, OPT0.5A and OPT0.5B are done). This
+   attacks the remaining 100–600× kernels and makes everything below visible
+   to LLVM.
 2. **Loops:** OPT1.1, then OPT1.2, then OPT1.3.
 3. **Binaries:** OPT1.4, then OPT1.5.
 4. **Maps:** OPT1.6, then the `maps:fold` part of OPT1.7.
