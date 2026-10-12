@@ -30,7 +30,11 @@ interface, not a public stage format. `DirectiveReader` is the older syntax-only
 - Include lookup: current file's directory, working directory, then include
   paths in API order. The CLI reverses repeated `-I` to match `erlc`. Absolute
   paths bypass search. `include_lib` tries ordinary paths, then explicitly
-  supplied application directories; no code server or version guessing.
+  supplied application directories, then releases' `<app>-<version>`
+  directories below each searched directory (versions are dot-separated
+  digits, as OTP's code server reads them; the highest wins). Several versions
+  of one application warn once per run, naming the directory used; no code
+  server.
 - `$VAR` path heads use an injected resolver; unset variables stay literal.
   Include operands are not macro-expanded. Files decode as UTF-8 or declared
   Latin-1; host path rules apply regardless of target CPU.

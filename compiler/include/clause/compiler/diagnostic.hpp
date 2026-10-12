@@ -37,7 +37,8 @@ enum class DiagnosticCode : std::uint8_t {
     invalid_encoding,
     parser_syntax,
     unsupported_syntax,
-    parser_contract
+    parser_contract,
+    duplicate_application
 };
 
 enum class Severity : std::uint8_t { error, warning };

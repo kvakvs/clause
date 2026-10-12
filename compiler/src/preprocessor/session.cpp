@@ -57,6 +57,9 @@ PreprocessorSession::State::State(const SourcePtr &source, PreprocessorOptions s
     if (!options.environment) {
         options.environment = environment;
     }
+    if (!options.application_versions) {
+        options.application_versions = std::make_shared<ApplicationVersions>();
+    }
     files.push_back({source, Lexer(source), source->name, source->name, {}, {}, 1});
     initialize();
     emit_file(start_token(source), source->name, 1);

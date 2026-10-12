@@ -37,30 +37,70 @@ void append_application(std::vector<std::filesystem::path> &result, const std::f
 }
 } // namespace
 
+std::vector<std::filesystem::path> PreprocessorSession::State::search_bases() const {
+    auto directory = files.back().path.parent_path();
+    if (directory.is_relative()) {
+        directory = options.working_directory / directory;
+    }
+    std::vector<std::filesystem::path> result{directory, options.working_directory};
+    result.reserve(2 + options.include_paths.size());
+    for (auto include : options.include_paths) {
+        if (include.is_relative()) {
+            include = options.working_directory / include;
+        }
+        result.push_back(std::move(include));
+    }
+    return result;
+}
+
 std::vector<std::filesystem::path> PreprocessorSession::State::candidates(const std::string &name,
                                                                           const bool library) const {
     const std::filesystem::path path(name);
     if (path.is_absolute()) {
         return {path};
     }
-    auto directory = files.back().path.parent_path();
-    if (directory.is_relative()) {
-        directory = options.working_directory / directory;
-    }
-    std::vector<std::filesystem::path> result;
-    result.reserve(2 + options.include_paths.size());
-    result.push_back(directory / path);
-    result.push_back(options.working_directory / path);
-    for (auto include : options.include_paths) {
-        if (include.is_relative()) {
-            include = options.working_directory / include;
-        }
-        result.push_back(include / path);
+    auto result = search_bases();
+    for (auto &base : result) {
+        base /= path;
     }
     if (library) {
         append_application(result, path, options);
     }
     return result;
+}
+
+bool PreprocessorSession::State::open_versioned(const std::filesystem::path &name, const Token &site) {
+    if (name.is_absolute() || std::distance(name.begin(), name.end()) < 2) {
+        return false;
+    }
+    const auto application = *name.begin(); // A copy: a path iterator may own the element it yields.
+    const auto rest = name.lexically_relative(application);
+    for (const auto &base : search_bases()) {
+        const auto match = options.application_versions->find(base, application);
+        if (!match) {
+            continue;
+        }
+        if (!match->duplicates_.empty() && options.application_versions->first_report(base, application)) {
+            report_duplicates(*match, site);
+        }
+        if (open_include(match->directory_ / rest, site)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void PreprocessorSession::State::report_duplicates(const ApplicationVersions::Match &match, const Token &site) {
+    std::string names;
+    for (const auto &name : match.duplicates_) {
+        names += (names.empty() ? "" : ", ") + name;
+    }
+    const auto base = match.directory_.parent_path().generic_u8string();
+    const auto chosen = match.directory_.filename().u8string();
+    diagnostic({DiagnosticCode::duplicate_application,
+                "duplicate versioned application directories in " + std::string(base.begin(), base.end()) + ": " +
+                    names + "; using " + std::string(chosen.begin(), chosen.end()),
+                site.spelling, site.origins, Severity::warning, site.location});
 }
 
 void PreprocessorSession::State::push_file(const SourcePtr &source, std::filesystem::path path, const Token &site) {
@@ -84,10 +124,14 @@ void PreprocessorSession::State::include(const Directive &directive, const Token
         name += token.text();
     }
     const auto filename = expand_environment(utf8(name));
-    for (const auto &path : candidates(filename, directive.kind == DirectiveKind::include_lib)) {
+    const bool library = directive.kind == DirectiveKind::include_lib;
+    for (const auto &path : candidates(filename, library)) {
         if (open_include(path, site)) {
             return;
         }
+    }
+    if (library && open_versioned(filename, site)) {
+        return;
     }
     pp_fail(DiagnosticCode::include_not_found, "cannot find include " + filename, site);
 }

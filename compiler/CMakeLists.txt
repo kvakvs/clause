@@ -24,7 +24,7 @@ add_library(clause_frontend STATIC src/parsing/probe.cpp src/parsing/token_curso
     src/preprocessor/integer.cpp src/preprocessor/terms.cpp src/preprocessor/value.cpp src/preprocessor/expression_parse.cpp src/preprocessor/expression.cpp
     src/preprocessor/operators.cpp src/preprocessor/guards.cpp src/preprocessor/bits.cpp
     src/preprocessor/session.cpp src/preprocessor/conditions.cpp src/preprocessor/includes.cpp
-    src/preprocessor/builtins.cpp src/preprocessor/features.cpp)
+    src/preprocessor/builtins.cpp src/preprocessor/features.cpp src/preprocessor/applications.cpp)
 clause_project_options(clause_frontend)
 target_include_directories(clause_frontend PUBLIC include PRIVATE src)
 target_link_libraries(clause_frontend PRIVATE clause_parser_dependency)

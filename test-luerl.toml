@@ -12,8 +12,8 @@ build_dir = "build-clau-luerl"
 # List files or patterns, e.g. ["main.erl", "src/*.erl", "shared/**/*.erl"].
 # Patterns support *, ?, and ** as a whole directory component.
 sources = [
-  "references/otp/lib/kernel/src/application.erl",
-  "references/otp/lib/stdlib/src/supervisor.erl",
+  # "C:/Program Files/Erlang OTP/lib/kernel*/src/application.erl",
+  # "C:/Program Files/Erlang OTP/lib/stdlib*/src/supervisor.erl",
   "references/luerl/src/**/*.erl"
 ]
 # Recursively collect .erl files. Create/populate src or edit these selections.
@@ -24,11 +24,13 @@ output = "luerl"
 
 [targets.options]
 ignore_dirs = [
-  "references/otp/lib/crypto",
-  "references/otp/lib/compiler"
+  "C:/Program Files/Erlang OTP/lib/crypto"
+  # "references/otp/lib/compiler"
 ]
 ignore_modules = [
-  # "prim_tty", "inet_dns", "erl_pp", "erl_parse", "inet_udp"
+  "prim_tty", "prim_inet",
+  "erl_parse", "erl_pp"
+  # "inet_dns", "inet_udp"
 ]
 # Fallback roots for listed source filenames, e.g. ["src", "generated"].
 # These do not discover extra files or search for headers.
@@ -38,8 +40,8 @@ source_search_paths = [
 # Header search directories, first listed first, e.g. ["include", "vendor/include"].
 # CLI -I directories take precedence; the last CLI -I is searched first.
 include_dirs = [
-  "references/otp/lib/**/include",
-  "references/otp/lib",
+  "C:/Program Files/Erlang OTP/lib/**/include",
+  "C:/Program Files/Erlang OTP/lib",
   "references/luerl/**/include"
 ]
 # Predefined macros, e.g. ["DEBUG", "LIMIT=100", 'LABEL="demo"'].

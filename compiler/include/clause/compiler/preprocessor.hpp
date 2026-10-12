@@ -1,8 +1,12 @@
 #pragma once
 #include <clause/compiler/directive.hpp>
 #include <clause/compiler/features.hpp>
+#include <filesystem>
 #include <functional>
 #include <map>
+#include <memory>
+#include <optional>
+#include <set>
 
 namespace clause {
 struct MacroKey {
@@ -58,6 +62,30 @@ struct PreprocessorLimits {
     std::size_t expression_depth = 256;
 };
 
+// Added for versioned include_lib directories: finds the `<application>-<version>` directories releases install.
+// One instance serves a whole run, so each search directory is listed once and each duplicate set warns once.
+class ApplicationVersions {
+  public:
+    struct Match {
+        // The highest-versioned directory, and the names of every directory of that application when there are
+        // several (empty otherwise).
+        std::filesystem::path directory_;
+        std::vector<std::string> duplicates_;
+    };
+
+    // The highest-versioned `<application>-<version>` directory below `base`, if there is one.
+    std::optional<Match> find(const std::filesystem::path &base, const std::filesystem::path &application);
+    // True only the first time this run reports the duplicates of `application` below `base`.
+    bool first_report(const std::filesystem::path &base, const std::filesystem::path &application);
+
+  private:
+    using Name = std::filesystem::path::string_type;
+
+    // The versioned directory names below each listed base, and the duplicate sets already reported.
+    std::map<Name, std::vector<Name>> listings_;
+    std::set<std::pair<Name, Name>> reported_;
+};
+
 struct PreprocessorOptions {
     // Resolve host paths independently of the executable's eventual target.
     std::filesystem::path working_directory;
@@ -78,6 +106,8 @@ struct PreprocessorOptions {
     std::function<void(const std::filesystem::path &)> include_loaded;
     // Observe the path and bytes of each include as read (the driver's compile cache fingerprint, plan step 62D4).
     std::function<void(const std::filesystem::path &, std::string_view)> include_read;
+    // Versioned include_lib directories, shared by every session of a run; a session without one makes its own.
+    std::shared_ptr<ApplicationVersions> application_versions;
 };
 
 class PreprocessorSession {

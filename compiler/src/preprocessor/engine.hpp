@@ -68,7 +68,14 @@ struct PreprocessorSession::State {
     void end_file();
     // Include resolution has injectable filesystem/environment access and bounded nesting.
     void include(const Directive &directive, const Token &site);
+    // The directories an include name is searched below: the including file's, the working one, include paths.
+    std::vector<std::filesystem::path> search_bases() const;
     std::vector<std::filesystem::path> candidates(const std::string &name, bool library) const;
+    // Retry an include_lib name below the newest `<application>-<version>` directory of each search base, as a
+    // release names them. Added for versioned include_lib directories.
+    bool open_versioned(const std::filesystem::path &name, const Token &site);
+    // Warn that several versions of one application directory exist. Added for versioned include_lib directories.
+    void report_duplicates(const ApplicationVersions::Match &match, const Token &site);
     // Enter one include candidate when the lookup hook allows it and it can be read; false to try the next one.
     bool open_include(const std::filesystem::path &path, const Token &site);
     std::string expand_environment(std::string name) const;

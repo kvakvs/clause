@@ -49,14 +49,23 @@ struct Node {
     auto operator<=>(const Node &) const = default;
 };
 
+// Unoptimized builds analyse far slower, so their work budgets are smaller to keep large programs compiling quickly.
+#ifdef NDEBUG
+inline constexpr std::size_t DEFAULT_SYNTAX_WORK = 10 * 1024 * 1024;
+inline constexpr std::size_t DEFAULT_TYPE_WORK = 100000;
+#else
+inline constexpr std::size_t DEFAULT_SYNTAX_WORK = 200000;
+inline constexpr std::size_t DEFAULT_TYPE_WORK = 20000;
+#endif
+
 struct Limits {
     // Bound abstract-state growth; exhaustion widens to top and is observable by callers.
     std::size_t nodes = 1024 * 1024;
     std::size_t union_members = 256;
     // Whole-program inference steps, shared by every function of one pass.
-    std::size_t syntax_work = 10 * 1024 * 1024;
+    std::size_t syntax_work = DEFAULT_SYNTAX_WORK;
     // Steps of one declared type's resolution, translation or expansion walk.
-    std::size_t type_work = 100000;
+    std::size_t type_work = DEFAULT_TYPE_WORK;
 };
 
 class Graph {

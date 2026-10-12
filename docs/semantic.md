@@ -183,8 +183,10 @@ layout: singletons, ranges, containers, map field roles, function products and
 unresolved applications. Unions flatten and deduplicate; `term()` is top and
 `none()` bottom. Defaults: 1,048,576 nodes, 256 union members, 100,000 work items
 per declared type walk (resolution, translation, expansion) and 10,485,760 per
-whole-program inference pass. Exhaustion widens to `term()` with a visible flag and never narrows
-a representation.
+whole-program inference pass; a debug build of `clau` (no `NDEBUG`) allows 20,000
+and 200,000 so large programs still compile quickly, and may widen more.
+Exhaustion widens to `term()` with a visible flag and never narrows a
+representation.
 
 Declared metadata (`-type`, `-opaque`, `-nominal`, `-export_type`, `-spec`,
 `-callback`, `-optional_callbacks`) follows the OTP typespec reference and

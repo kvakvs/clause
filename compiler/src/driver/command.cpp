@@ -74,6 +74,8 @@ Input paths may contain spaces when quoted by the shell.
 // Validate the request and dispatch explicit actions or the default compiler pipeline.
 int run_command(const std::span<char *> arguments) {
     clause::cli::Options options;
+    // Every target and module of the run share one, so duplicates warn once. Added for versioned include_lib.
+    options.preprocessing.application_versions = std::make_shared<clause::ApplicationVersions>();
     if (const auto error = clause::cli::parse_options(arguments, options)) {
         std::cerr << "clau: error: " << *error << "\nTry 'clau --help' for usage.\n";
         return 2;

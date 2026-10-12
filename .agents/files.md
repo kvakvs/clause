@@ -24,7 +24,7 @@ Keys in the last column are relative to the directory column.
 | `source/`, `diagnostics/` | Buffers, positions / diagnostic provenance | `source`, `diagnostic`, respectively |
 | `lexer/` | Tokens, numbers, strings/sigils | `lexer`, `numbers`, `literals` |
 | `parsing/` | Boost boundary, token mechanics | `probe`, `boost_parser`, `token_{cursor,syntax}`, `operator_info`, `delimiters` |
-| `preprocessor/` | Directives, sessions, includes, macros | `preprocessor`, `directives`, `engine`, `cursor`, `session`, `conditions`, `includes`, `features`, `builtins`, `macros`, `arguments`, `token_utils` |
+| `preprocessor/` | Directives, sessions, includes, macros | `preprocessor`, `directives`, `engine`, `cursor`, `session`, `conditions`, `includes`, `applications` (versioned `include_lib` directories), `features`, `builtins`, `macros`, `arguments`, `token_utils` |
 | `preprocessor/` | Closed preprocessing evaluator | `expression*`, `operators`, `guards`, `terms`, `value`, `bits`, `integer` |
 | `ast/` | Owned arenas, IDs, transactions, shape checks | `arena`, `storage`, `builder`, `module`, `children`; category files mirror syntax |
 | `parser/` | Erlang grammar, recovery, budgets | `parser`, `forms`, `diagnostics`; `expressions`, `clauses`, `literals`, `aggregates`, `maps`, `records`, `structural`, `binaries`, `control`, `funs`, `exceptions`, `comprehensions` |

@@ -27,6 +27,24 @@ file(WRITE "${WORK}/a.hrl" "-ifndef(GUARD). -define(GUARD,true). -define(X,7). -
 file(WRITE "${WORK}/app/include/x.hrl" "-define(APP,9).")
 check(guarded_include "-include(\"a.hrl\"). -include_lib(\"test/include/x.hrl\"). {?X,?APP}."
     0 "7 , 9" "a.hrl.*a.hrl.*x.hrl" --app-dir test=app --verbose)
+# Release layouts name applications `<name>-<version>`: the highest numeric version wins, a non-numeric suffix is not
+# a version, and duplicates warn once per run however many files include from them.
+file(WRITE "${WORK}/libs/vapp-1.9/include/v.hrl" "-define(V,1).")
+file(WRITE "${WORK}/libs/vapp-1.10/include/v.hrl" "-define(V,2).")
+file(WRITE "${WORK}/libs/vapp-2.x/include/v.hrl" "-define(V,9).")
+file(WRITE "${WORK}/libs/solo-3/include/s.hrl" "-define(S,3).")
+check(versioned_include "-include_lib(\"vapp/include/v.hrl\"). -include_lib(\"solo/include/s.hrl\"). {?V,?S}."
+    0 "2 , 3" "duplicate versioned application directories in [^\n]*/libs: vapp-1.9, vapp-1.10; using vapp-1.10" -I libs)
+file(WRITE "${WORK}/versioned_again.erl" "-include_lib(\"vapp/include/v.hrl\"). ?V.")
+execute_process(COMMAND "${TOOL}" --print-pp -I libs versioned_include.erl versioned_again.erl
+    WORKING_DIRECTORY "${WORK}" RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE error TIMEOUT 10
+    ENCODING UTF-8)
+string(REGEX MATCHALL "duplicate versioned" reports "${error}")
+list(LENGTH reports count)
+if(NOT status EQUAL 0 OR NOT count EQUAL 1)
+    message(FATAL_ERROR "versioned_once: ${status}: ${count} reports: ${output}${error}")
+endif()
+
 file(WRITE "${WORK}/first/x.hrl" "-define(X,1).")
 file(WRITE "${WORK}/second/x.hrl" "-define(X,2).")
 file(WRITE "${WORK}/environment/x.hrl" "-define(E,3).")
