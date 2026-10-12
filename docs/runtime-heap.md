@@ -40,14 +40,15 @@ parses from its first word:
 
 No cell needs alignment stronger than a word. `memory/heap_walk` parses an area cell by cell and `ProcessHeap::verify`
 checks a whole heap (8C). Cells hold only words and bytes,
-except the off-heap binary's `std::shared_ptr` (below), so a cell moves by
-copying its words.
+except the off-heap binary's `std::shared_ptr` and the off-heap map's tree
+pointer (below), so a cell moves by copying its words.
 
 | Kind | Words after the header | Traced words |
 | --- | --- | --- |
 | cons (no header) | 2 words in total | head, tail |
 | `tuple` | n element slots | all |
-| `map` | 2n slots: keys in exact term order, each followed by its value | all |
+| `map` | 2n slots: keys in exact term order, each followed by its value; at most 32 entries | all |
+| `tree_map` | entry count, root of the off-heap tree, off-heap map link: 3 words ([off-heap maps](#off-heap-maps)) | none on the heap; the tree's words |
 | `native_record` | address of the runtime's `RecordDefinition`, then n field values in definition order | values |
 | `fun_closure` | address of the runtime's `FunDefinition`, then n captured values ([funs](funs.md)) | values |
 | `bignum` | sign word, then magnitude limbs, least significant first | none |
@@ -85,6 +86,31 @@ process heap, shared by reference count (BEAM ProcBin and `Binary`).
   once to the runtime-wide account from creation until the buffer is freed.
 - `std::shared_ptr` is two pointers on every supported STL; a `static_assert`
   keeps the cell size fixed at five words after the header on both widths.
+
+## Off-heap maps
+
+A map with more than 32 entries (OTP's `MAP_SMALL_MAP_LIMIT`) is a 4-word
+`tree_map` stub on the heap naming a process-private persistent B+ tree
+(`terms/map_tree`, plan 20 step OPT0.5A). Smaller maps stay `map` cells.
+
+- Leaves hold up to 32 key and value words in exact key order; branches hold up
+  to 32 children with their first keys and entry counts, so lookup and access by
+  position are O(log n). Key and value words point into the owner's heap: unlike
+  binaries, the tree holds terms.
+- An update copies the path to each changed leaf and shares every other node
+  with the source map, which stays unchanged, so building a map key by key costs
+  O(n log n) instead of O(n^2). Nodes are reference counted; nodes created by the
+  same update carry its edit token and change in place until the stub is
+  published. A failed update releases what it built.
+- Each stub is linked into its process's off-heap map list. A collection copies
+  a stub like any cell and, when it scans the copy, rewrites the key and value
+  words of the stub's tree, visiting each shared node once per collection. The
+  sweep then relinks moved stubs and releases the trees of dead ones; teardown
+  releases all.
+- Node words are charged to the process as off-heap words (with binaries:
+  enough of them requests a collection) and to the runtime-wide account.
+- Copying a map to another heap (messages, `MessageBuffer`) builds a new tree in
+  the destination from the translated entries.
 
 ## Areas
 
@@ -201,6 +227,7 @@ remains the full check that every slot names an object start, for tests.
 | Mailbox | Every message in the signal inbox and the message queue (step 45), including `'EXIT'` and `'DOWN'` messages | Until a receive takes it; rewritten in place, so the receive cursor (a list position) and timeout deadline stay valid |
 | Explicit roots | The span a host passes to `collect(roots)` (8E) | Read back after the call |
 | Off-heap list | None | Links are swept and relinked, not traced |
+| Off-heap maps | None directly: the key and value words of the tree of every stub the collection copies | Rewritten when the copied stub is scanned; the list is swept like the binary list |
 
 No heap cell holds a pin. Atoms are immediates and the atom table is never
 collected. Fun cells name code through their untraced `FunDefinition`, which

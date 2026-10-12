@@ -26,6 +26,20 @@ TermResult<MapPosition> map_position(std::span<const MapEntry> entries, const Te
     return MapPosition{first, false};
 }
 
+const layout::TreeMapCell *tree_of(const HeapObject &object) noexcept {
+    return layout::BoxHeader::kind(object.words[0]) == BoxedKind::tree_map
+               ? reinterpret_cast<const layout::TreeMapCell *>(object.words.data())
+               : nullptr;
+}
+
+TermResult<int> TermProbe::order(Word stored) const {
+    const auto key = TermAccess::child(map_, stored);
+    if (!key) {
+        return std::unexpected(TermError::invalid_encoding);
+    }
+    return structural_order(*key, key_, true);
+}
+
 TermResult<MapEntry> map_entry(const Term &map, std::size_t index) {
     const auto size = map.map_size();
     if (!size) {
@@ -35,8 +49,11 @@ TermResult<MapEntry> map_entry(const Term &map, std::size_t index) {
         return std::unexpected(TermError::out_of_range);
     }
     const auto object = TermAccess::object(map).value();
-    const auto key = TermAccess::child(map, object.words[1 + 2 * index]);
-    const auto value = TermAccess::child(map, object.words[2 + 2 * index]);
+    const auto *tree = tree_of(object);
+    const auto words =
+        tree ? map_tree_at(tree->root_, index) : MapWords{object.words[1 + 2 * index], object.words[2 + 2 * index]};
+    const auto key = TermAccess::child(map, words.first);
+    const auto value = TermAccess::child(map, words.second);
     if (!key || !value) {
         return std::unexpected(TermError::invalid_encoding);
     }
@@ -44,11 +61,27 @@ TermResult<MapEntry> map_entry(const Term &map, std::size_t index) {
 }
 
 namespace {
+// Search an off-heap map's tree (OPT0.5A).
+TermResult<std::optional<Term>> find_in_tree(const Term &map, const Term &key, const layout::TreeMapCell &tree) {
+    const TermProbe probe({.map = map, .key = key});
+    const auto found = map_tree_find(tree.root_, probe);
+    if (!found) {
+        return std::unexpected(found.error());
+    }
+    if (!*found) {
+        return std::nullopt;
+    }
+    return TermAccess::child(map, **found).transform([](const Term &value) { return std::optional<Term>(value); });
+}
+
 // Search published storage without materializing an entry vector or coercing key types.
 TermResult<std::optional<Term>> find(const Term &map, const Term &key, std::size_t size) {
     const auto admitted = TermAccess::child(map, key.word());
     if (!admitted) {
         return std::unexpected(admitted.error());
+    }
+    if (const auto *tree = tree_of(TermAccess::object(map).value())) {
+        return find_in_tree(map, *admitted, *tree);
     }
     std::size_t first = 0;
     std::size_t last = size;
@@ -103,6 +136,14 @@ TermResult<std::vector<std::pair<Term, Term>>> Term::map_entries() const {
     try {
         detail::MapEntries entries;
         entries.reserve(*size);
+        if (const auto *tree = detail::tree_of(detail::TermAccess::object(*this).value())) {
+            // An in-order walk instead of one descent per entry (OPT0.5A).
+            detail::map_tree_entries(tree->root_, [&](detail::MapWords words) {
+                entries.emplace_back(detail::TermAccess::child(*this, words.first).value(),
+                                     detail::TermAccess::child(*this, words.second).value());
+            });
+            return entries;
+        }
         for (std::size_t i = 0; i < *size; ++i) {
             entries.push_back(detail::map_entry(*this, i).value());
         }

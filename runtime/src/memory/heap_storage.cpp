@@ -1,4 +1,5 @@
 #include "heap_storage.hpp"
+#include "../terms/map_tree.hpp"
 #include "off_heap.hpp"
 #include <algorithm>
 #include <limits>
@@ -32,6 +33,7 @@ HeapStorage::HeapStorage(HeapOptions options, std::weak_ptr<const ContextLifetim
 
 HeapStorage::~HeapStorage() {
     release_off_heap(*this);
+    release_tree_maps(*this);
     memory_->release(capacity_words_);
 }
 

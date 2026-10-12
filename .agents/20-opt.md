@@ -359,12 +359,49 @@ the heap.
   - `docs/runtime-heap.md`: the cell table and off-heap sections
   - `docs/terms.md`: Maps
   - `.agents/arch.md`
+- **Status: done 2026-10-12** (runtime only, no ABI change):
+  - `BoxedKind::tree_map` stubs and `terms/map_tree` (B+ tree, fanout 32,
+    subtree sizes, refcounted nodes).
+  - Updates copy their path, so building a map is O(n log n). Nodes created by
+    the running update change in place under its edit token.
+  - Runtime-built maps (construction, `from_list`, comprehensions, decoding) are
+    bulk-built in O(n).
+  - GC rewrites the tree words through the stubs; the sweep frees dead trees.
+  - Copies between heaps rebuild the tree in the destination.
+  - Tests: `executables_large_maps` (OTP golden) and `runtime_maps` `tree_maps`
+    (sharing, rollback, freeing).
+  - Benchmarks are manual and not rerun.
+  - In-place update of an already published map, proven unshared by the
+    compiler, is split out as OPT0.5B.
 - **Gate:**
   - `map_put` and `map_update` become O(n log n) (step-69A kernels).
   - Differential checks against OTP on order, printing, `term_to_binary` and
     errors.
   - GC stress with large maps alive across many collections.
   - Aliasing tests where the old version stays live (it must not be mutated).
+
+### OPT0.5B Compiler-proven in-place map updates
+
+Split from OPT0.5A.
+
+- **What:** let `CLAUSE_map_v1` update change a *published* off-heap map in
+  place, with no path copy and no garbage, when the compiler proves its old value
+  dead and unshared.
+- **Conditions:**
+  - The old map variable dies at the update.
+  - It never escaped into another term, the process dictionary, a closure or a
+    message.
+  - At run time, every node on the path still has one reference.
+- **Mechanism:**
+  - A "may mutate" flag on the update op.
+  - The runtime then hands the stub's root a fresh edit token instead of
+    copying.
+  - This shares the uniqueness analysis with OPT0.6 `private_append`.
+- **Limits:** most hot builders pass the map through a library call
+  (`maps:put/3`), so the proof needs inlining (OPT2.1) or a summary of
+  library functions to fire often.
+- **Gate:** aliasing tests where the old version stays live and must not
+  change, plus step-69A `map_put`/`map_update` compared manually.
 
 ### OPT0.6 Writable/appendable binaries
 
@@ -663,7 +700,7 @@ Builds on OPT1.4.
 ## Suggested order for Clause
 
 1. **Substrate (tier OPT0):** OPT0.1 (done), OPT0.1A, OPT0.2, OPT0.3, then
-   OPT0.4, OPT0.5 and OPT0.5A, then OPT0.6, then OPT0.7. OPT0.5A has no dependency on the others
+   OPT0.4, OPT0.5, OPT0.5A (done) and OPT0.5B, then OPT0.6, then OPT0.7. OPT0.5A has no dependency on the others
    and can go first if the map kernels are the priority. This attacks the measured 100–600× kernels and makes
    everything below visible to LLVM.
 2. **Loops:** OPT1.1, then OPT1.2, then OPT1.3.

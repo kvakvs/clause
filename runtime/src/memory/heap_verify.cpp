@@ -1,3 +1,4 @@
+#include "../terms/map_tree.hpp"
 #include "heap_storage.hpp"
 #include "heap_walk.hpp"
 #include "off_heap.hpp"
@@ -31,7 +32,7 @@ class Verifier final {
     // Run both passes; any parse or pointer fault is corrupt_heap.
     std::expected<HeapCensus, HeapError> run() {
         if (!collect() || !std::ranges::all_of(slots_, [&](auto slots) { return slots_valid(slots); }) ||
-            !off_heap_valid()) {
+            !off_heap_valid() || !tree_maps_valid()) {
             return std::unexpected(HeapError::corrupt_heap);
         }
         return census_;
@@ -63,6 +64,8 @@ class Verifier final {
         ++(cell.shape == Shape::cons ? census_.cons_cells : census_.boxed_objects);
         refc_cells_ += static_cast<std::size_t>(cell.shape == Shape::boxed &&
                                                 layout::BoxHeader::kind(cell.words[0]) == BoxedKind::refc_binary);
+        tree_cells_ += static_cast<std::size_t>(cell.shape == Shape::boxed &&
+                                                layout::BoxHeader::kind(cell.words[0]) == BoxedKind::tree_map);
         starts_.push_back({reinterpret_cast<std::uintptr_t>(cell.words.data()), cell.shape});
         if (!cell.slots.empty()) {
             slots_.push_back(cell.slots);
@@ -117,7 +120,33 @@ class Verifier final {
             words += buffer_words(*entry.first);
         }
         return census_.off_heap_cells == refc_cells_ && buffers == storage_.buffers_ &&
-               words == storage_.off_heap_words_;
+               words + storage_.map_words_ == storage_.off_heap_words_;
+    }
+
+    // Every listed off-heap map stub is a parsed tree map, every parsed one is listed, and every word of their trees
+    // is a valid slot (OPT0.5A).
+    bool tree_maps_valid() const {
+        std::size_t listed = 0;
+        for (const auto *cell = storage_.tree_maps_; cell != nullptr; cell = cell->next_) {
+            const auto value = reinterpret_cast<Word>(cell) | static_cast<Word>(TermKindPrimary::boxed);
+            if (shape_at(value) != Shape::boxed ||
+                layout::BoxHeader::kind(cell->header_.value_) != BoxedKind::tree_map || !tree_valid(*cell)) {
+                return false;
+            }
+            ++listed;
+        }
+        return listed == tree_cells_;
+    }
+
+    // The entries of one stub's tree are valid slots, as many as the stub records.
+    bool tree_valid(const layout::TreeMapCell &cell) const {
+        std::size_t entries = 0;
+        bool valid = true;
+        map_tree_entries(cell.root_, [&](MapWords words) {
+            valid = valid && slot_valid(words.first) && slot_valid(words.second);
+            ++entries;
+        });
+        return valid && entries == cell.size_;
     }
 
     // Borrowed storage, the sorted object starts, traced slot spans and running counts.
@@ -125,6 +154,8 @@ class Verifier final {
     std::vector<Start> starts_;
     std::vector<std::span<const Word>> slots_;
     std::size_t refc_cells_ = 0;
+    // Parsed off-heap map stubs (OPT0.5A).
+    std::size_t tree_cells_ = 0;
     HeapCensus census_;
 };
 } // namespace

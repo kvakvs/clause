@@ -17,6 +17,10 @@ struct RecordDefinition;
 struct FunDefinition;
 } // namespace clause::runtime
 
+namespace clause::runtime::detail {
+struct MapNode;
+} // namespace clause::runtime::detail
+
 namespace clause::runtime::detail::layout {
 using Bignum = boost::multiprecision::cpp_int;
 
@@ -106,6 +110,9 @@ constexpr std::size_t reference_payload_words(std::size_t word_bytes) noexcept {
 // Words after the header of an off-heap binary: offset, bits, two-pointer shared_ptr, list link.
 constexpr std::size_t refc_payload_words(std::size_t) noexcept { return 5; }
 
+// Words after the header of an off-heap map stub: size, tree root, list link (OPT0.5A).
+constexpr std::size_t tree_map_payload_words(std::size_t) noexcept { return 3; }
+
 // Words after the header of a heap binary holding bits: the bit length, then data rounded up to words.
 constexpr std::size_t heap_binary_payload_words(std::size_t bits, std::size_t word_bytes) noexcept {
     return 1 + ((bits + 7) / 8 + word_bytes - 1) / word_bytes;
@@ -139,6 +146,17 @@ struct alignas(Word) RefcBinaryCell final {
     std::shared_ptr<const BinaryBuffer> buffer_;
     // Link the owning process's off-heap list, newest cell first; null ends the list.
     RefcBinaryCell *next_;
+};
+
+struct alignas(Word) TreeMapCell final {
+    // Identify an off-heap map (OPT0.5A); the header count is 3 on every word width.
+    BoxHeader header_;
+    // Entries of the map.
+    Word size_;
+    // One reference to the root of its tree (map_tree.hpp); only builders, sweeps and teardown touch it.
+    MapNode *root_;
+    // Link the owning process's off-heap map list, newest stub first; null ends the list.
+    TreeMapCell *next_;
 };
 
 struct alignas(Word) FunCell final {
@@ -183,6 +201,7 @@ static_assert(sizeof(std::shared_ptr<const BinaryBuffer>) == 2 * sizeof(Word));
 static_assert(alignof(std::shared_ptr<const BinaryBuffer>) <= alignof(Word));
 static_assert(sizeof(RefcBinaryCell) == (1 + refc_payload_words(sizeof(Word))) * sizeof(Word));
 static_assert(sizeof(FloatCell) == (1 + float_payload_words(sizeof(Word))) * sizeof(Word));
+static_assert(sizeof(TreeMapCell) == (1 + tree_map_payload_words(sizeof(Word))) * sizeof(Word));
 static_assert(!std::is_trivially_copyable_v<RefcBinaryCell>);
 static_assert(std::is_nothrow_move_constructible_v<RefcBinaryCell>);
 // Every other cell moves by copying its words.
@@ -191,5 +210,5 @@ static_assert(std::is_trivially_copyable_v<BoxHeader> && std::is_trivially_copya
               std::is_trivially_copyable_v<ConsCell> && std::is_trivially_copyable_v<TupleCell> &&
               std::is_trivially_copyable_v<KeyValuePair> && std::is_trivially_copyable_v<MapCell> &&
               std::is_trivially_copyable_v<HeapBinaryCell> && std::is_trivially_copyable_v<FunCell> &&
-              std::is_trivially_copyable_v<NativeRecordCell>);
+              std::is_trivially_copyable_v<NativeRecordCell> && std::is_trivially_copyable_v<TreeMapCell>);
 } // namespace clause::runtime::detail::layout

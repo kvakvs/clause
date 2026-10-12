@@ -12,6 +12,7 @@
 namespace clause::runtime::detail {
 namespace layout {
 struct RefcBinaryCell;
+struct TreeMapCell;
 } // namespace layout
 
 struct HeapArea {
@@ -93,6 +94,11 @@ class HeapStorage final {
     std::size_t binary_limit_words_ = MIN_BINARY_HEAP_WORDS;
     // Head of this process's off-heap binary cells, newest first; the only route to their C++ state.
     layout::RefcBinaryCell *off_heap_ = nullptr;
+    // Head of this process's off-heap map stubs, newest first, the words of their tree nodes (part of
+    // off_heap_words_) and the last edit token handed out (OPT0.5A, map_tree.hpp).
+    layout::TreeMapCell *tree_maps_ = nullptr;
+    std::size_t map_words_ = 0;
+    std::size_t map_edits_ = 0;
     // Set while a reservation is open; one reservation at a time.
     bool pending_ = false;
     // Completed collections; host Terms admitted before the latest one are stale.

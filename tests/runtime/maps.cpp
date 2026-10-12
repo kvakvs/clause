@@ -156,6 +156,52 @@ void large_maps() {
     const auto found = lists.map_find(long_key(factory, length, 2)).value();
     require(lists.map_size() == 2 && found && found->atom_spelling() == "two", "long list key not found");
 }
+
+// The admitted term of a root word after a collection rewrote it.
+Term rooted(ProcessContext &context, Word word) { return Term::from_word(word, context).value(); }
+
+// Maps above 32 entries are off-heap trees (plan 20 step OPT0.5A): an update copies one path and leaves its source
+// intact, a failed update releases what it built, and collections rewrite shared trees and free dead versions.
+void tree_maps() {
+    auto runtime = Runtime::start().value();
+    auto &context = *runtime->create_context().value();
+    TermFactory factory(context);
+    std::vector<std::pair<Term, Term>> entries;
+    for (std::int64_t key = 0; key < 100; ++key) {
+        const auto boxed = factory.tuple(std::array{factory.integer(key).value()}).value();
+        entries.emplace_back(factory.integer(key).value(), boxed);
+    }
+    const auto map = factory.map(entries).value();
+    const auto built = context.heap().off_heap_words();
+    require(map.map_size() == 100 && built > 0, "large map stayed on the heap");
+    const auto key = factory.integer(7).value();
+    const auto one = factory.integer(1).value();
+    const auto updated = invoke(context, Op::update, std::array{map, key, factory.atom("one").value(), one});
+    require(updated.first == Outcome::success && updated.second.map_size() == 100, "tree update failed");
+    const auto grown = context.heap().off_heap_words();
+    require(grown > built && grown < 2 * built, "update did not share the unchanged nodes");
+    const auto used = context.heap().used_words();
+    const auto failed =
+        invoke(context, Op::update, std::array{map, key, one, one, factory.atom("absent").value(), one, one});
+    require(failed.first == Outcome::bad_key && context.heap().used_words() == used &&
+                context.heap().off_heap_words() == grown,
+            "failed tree update kept storage");
+
+    std::vector<Word> roots{map.word(), updated.second.word()};
+    require(context.heap().collect(roots).has_value() && context.heap().verify().has_value(), "collection failed");
+    const auto old_value = rooted(context, roots[0]).map_find(rooted(context, key.word())).value();
+    require(old_value && old_value->tuple_element(0)->integer_value() == 7, "source map changed or lost a value");
+    const auto new_value = rooted(context, roots[1]).map_find(rooted(context, key.word())).value();
+    require(new_value && new_value->atom_spelling() == "one", "updated map lost its value");
+    require(rooted(context, roots[1]).map_entries()->size() == 100, "tree walk lost entries");
+
+    roots.pop_back();
+    require(context.heap().collect(roots).has_value() && context.heap().off_heap_words() == built,
+            "dead version kept its nodes");
+    roots.clear();
+    require(context.heap().collect(roots).has_value() && context.heap().off_heap_words() == 0,
+            "dead map kept its tree");
+}
 } // namespace
 
 // Source differential tests own semantic coverage; this native consumer owns inaccessible host invariants.
@@ -164,6 +210,8 @@ int main() {
         ownership();
         malformed();
         large_maps();
+        tree_maps();
+        std::cout << "runtime_maps: ok\n";
         return 0;
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';

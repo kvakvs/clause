@@ -25,6 +25,8 @@ class Copier final {
     void scan() noexcept;
     // Evacuate the term slots of one copied object starting at the first word of object.
     void evacuate_slots(std::span<Word> object, const HeapCell &cell) noexcept;
+    // Evacuate the key and value words of a copied off-heap map stub's tree, each shared node once (OPT0.5A).
+    void evacuate_tree(const HeapCell &cell) noexcept;
 
     // The collected process storage; from-space is its current heap block and fragments.
     HeapStorage &storage_;

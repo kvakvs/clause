@@ -26,6 +26,8 @@ std::optional<std::size_t> fixed_payload(BoxedKind kind) {
         return layout::reference_payload_words(sizeof(Word));
     case BoxedKind::refc_binary:
         return layout::refc_payload_words(sizeof(Word));
+    case BoxedKind::tree_map:
+        return layout::tree_map_payload_words(sizeof(Word));
     default:
         return std::nullopt;
     }

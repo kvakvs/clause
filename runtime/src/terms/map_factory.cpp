@@ -94,11 +94,37 @@ TermResult<Term> make(ProcessHeap &heap, std::span<const MapEntry> values) {
     return MapAccess::publish(heap, entries);
 }
 
+// The fault an off-heap map update reports for a failed tree insertion of key (OPT0.5A).
+MapFault tree_fault(const TreeFailure &failure, const Term &map, const MapUpdate &update) {
+    switch (failure.fault) {
+    case TreeFault::compare:
+        return {failure.error, update.key};
+    case TreeFault::missing_key:
+        return {TermError::missing_key, update.key};
+    case TreeFault::out_of_memory:
+        return {TermError::out_of_memory, map};
+    default:
+        return {TermError::resource_limit, map};
+    }
+}
+
+// Term error for a refused heap or off-heap allocation.
+TermError heap_fault(HeapError error) {
+    return error == HeapError::out_of_memory ? TermError::out_of_memory : TermError::resource_limit;
+}
+
 // Keep the source map immutable while exact updates see preceding associations from the same expression.
 MapResult update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> updates) {
     const auto owned = heap.retain(map);
     if (!owned) {
         return std::unexpected(MapFault{owned.error(), map});
+    }
+    const auto object = TermAccess::object(map);
+    if (!object) {
+        return std::unexpected(MapFault{object.error(), map});
+    }
+    if (const auto *tree = tree_of(*object)) {
+        return MapAccess::update_tree(heap, map, *tree, updates);
     }
     auto entries = map.map_entries();
     if (!entries) {
@@ -119,6 +145,18 @@ MapResult update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> 
 } // namespace
 
 TermResult<Term> MapAccess::publish(ProcessHeap &heap, std::span<const MapEntry> entries) {
+    if (entries.size() > MAP_TREE_THRESHOLD) {
+        std::vector<MapWords> words;
+        words.reserve(entries.size());
+        for (const auto &[key, value] : entries) {
+            words.emplace_back(key.word(), value.word());
+        }
+        const auto root = map_tree_build(*heap.storage_, words);
+        if (!root) {
+            return std::unexpected(heap_fault(root.error()));
+        }
+        return publish_stub(heap, *root, entries.size());
+    }
     if (entries.size() > MAX_MAP_SIZE) {
         return std::unexpected(TermError::resource_limit);
     }
@@ -136,6 +174,54 @@ TermResult<Term> MapAccess::publish(ProcessHeap &heap, std::span<const MapEntry>
     }
     return detail::publish(heap.storage_, *reserved,
                            reinterpret_cast<Word>(words) | static_cast<Word>(TermKindPrimary::boxed));
+}
+
+TermResult<Term> MapAccess::publish_stub(ProcessHeap &heap, MapNode *root, std::size_t size) {
+    constexpr auto total = sizeof(layout::TreeMapCell) / sizeof(Word);
+    auto reserved = heap.reserve(total);
+    if (!reserved) {
+        map_tree_release(*heap.storage_, root);
+        return std::unexpected(heap_fault(reserved.error()));
+    }
+    auto *cell = std::construct_at(reinterpret_cast<layout::TreeMapCell *>(reserved->bytes().data()));
+    cell->header_ = {layout::BoxHeader::make(BoxedKind::tree_map, total - 1)};
+    cell->size_ = static_cast<Word>(size);
+    cell->root_ = root;
+    cell->next_ = nullptr;
+    auto published = detail::publish(heap.storage_, *reserved,
+                                     reinterpret_cast<Word>(cell) | static_cast<Word>(TermKindPrimary::boxed));
+    if (published) {
+        link_tree_map(*heap.storage_, *cell);
+    } else {
+        map_tree_release(*heap.storage_, root);
+    }
+    return published;
+}
+
+MapResult MapAccess::update_tree(ProcessHeap &heap, const Term &map, const layout::TreeMapCell &stub,
+                                 std::span<const MapUpdate> updates) {
+    auto &storage = *heap.storage_;
+    auto *root = stub.root_;
+    // The update owns its own reference; nodes it creates may change in place until the stub is published.
+    map_tree_retain(root);
+    auto size = static_cast<std::size_t>(stub.size_);
+    const auto edit = map_edit(storage);
+    for (const auto &entry : updates) {
+        if (const auto checked = validate(heap, entry.key, entry.value); !checked) {
+            map_tree_release(storage, root);
+            return std::unexpected(MapFault{checked.error(), entry.key});
+        }
+        const TermProbe probe({.map = map, .key = entry.key});
+        bool added = false;
+        const auto inserted =
+            map_tree_insert(storage, root, edit, {entry.key.word(), entry.value.word()}, entry.exact, probe, added);
+        if (!inserted) {
+            map_tree_release(storage, root);
+            return std::unexpected(tree_fault(inserted.error(), map, entry));
+        }
+        size += added ? 1 : 0;
+    }
+    return publish_stub(heap, root, size).transform_error([&](TermError error) { return MapFault{error, map}; });
 }
 
 TermResult<Term> MapAccess::make(ProcessHeap &heap, std::span<const MapEntry> entries) {

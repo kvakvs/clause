@@ -18,14 +18,25 @@ bool shaped(TermKind tag, std::span<const Word> area) {
     return cell && cell->shape == (tag == TermKind::list ? HeapCell::Shape::cons : HeapCell::Shape::boxed);
 }
 
+// A map cell counts its entries: two words each, or the entry count word of an off-heap map's stub (OPT0.5A).
+HeapObject map_object(Word value, std::span<const Word> words) {
+    const auto payload = words.subspan(1);
+    switch (BoxHeader::kind(words[0])) {
+    case BoxedKind::map:
+        return {value, TermKind::map, words, payload.size() / 2};
+    case BoxedKind::tree_map:
+        return {value, TermKind::map, words, payload[0]};
+    default:
+        return {value, TermKind::invalid, words, 0};
+    }
+}
+
 // Map an admitted header to its term kind and logical element count.
 HeapObject boxed(Word value, std::span<const Word> words) {
     const auto payload = words.subspan(1);
     switch (BoxHeader::kind(words[0])) {
     case BoxedKind::tuple:
         return {value, TermKind::tuple, words, payload.size()};
-    case BoxedKind::map:
-        return {value, TermKind::map, words, payload.size() / 2};
     case BoxedKind::native_record:
         return {value, TermKind::native_record, words, payload.size() - 1};
     case BoxedKind::fun_closure:
@@ -41,7 +52,7 @@ HeapObject boxed(Word value, std::span<const Word> words) {
     case BoxedKind::refc_binary:
         return {value, TermKind::bitstring, words, payload[1]};
     default:
-        return {value, TermKind::invalid, words, 0};
+        return map_object(value, words);
     }
 }
 

@@ -378,7 +378,11 @@
 
 - Classic ERTS process heap (`docs/runtime-heap.md`, phase C 8A-8I). `HeapStorage` = one heap block
   `heap_` (lazy, `max(min_heap_words=233, request)`) + `fragments_` (newest tried after the heap, else a
-  new one) + off-heap list of `RefcBinaryCell`s (`memory/off_heap`); bump allocation, word alignment,
+  new one) + off-heap list of `RefcBinaryCell`s (`memory/off_heap`) + off-heap map list of `TreeMapCell` stubs
+  (OPT0.5A, `terms/map_tree`: maps > 32 entries are process-private persistent B+ trees, fanout 32, refcounted
+  nodes with subtree sizes, path-copying updates with per-update edit tokens; `Copier::scan` rewrites a copied
+  stub's tree words once per node per collection, `sweep_tree_maps` releases dead stubs; `GraphCopy` rebuilds
+  trees in the destination; node words count in `off_heap_words_`/`map_words_`); bump allocation, word alignment,
   one reservation with `HeapMark` rollback. Words are header-parsed (`memory/heap_walk`,
   `ProcessHeap::verify` in `memory/heap_verify`); admission = owned range (heap, then fragments by
   address, below top) + header shape; process pointers only name object starts. Host `Term` = word +

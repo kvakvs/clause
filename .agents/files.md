@@ -68,7 +68,7 @@ Keys are relative to the directory column. Stable backing and roots are implemen
 | `terms/` | `~w`/display text: traversal, scalar rules | `term_text` (frames, `TextOutput`), `term_text_scalars` (atoms, floats, bits, display strings); API `output.hpp` |
 | `terms/` | Canonical arbitrary integers, exact operations and checked transport | `integers`, `integer_{access,values,decimal,words,sum,factory,operations,service,literal}` |
 | `terms/` | Finite binary64 construction/conversions, mixed arithmetic/order | `floats`, `float_{factory,literal,operations}`, `numeric_{conversions,order,service}` |
-| `terms/` | Immutable exact-key maps, staged updates, checked service transport | `maps`, `map_{access,factory,services}`; compiler `semantic/{pattern_reads,match_plan_maps}`, `codegen/lowering_maps` |
+| `terms/` | Immutable exact-key maps, staged updates, checked service transport; maps above 32 entries as off-heap persistent B+ trees behind `tree_map` stubs (OPT0.5A) | `maps`, `map_{access,factory,services,tree}`; compiler `semantic/{pattern_reads,match_plan_maps}`, `codegen/lowering_maps` |
 | `terms/` | Fun cells (factory, `FunView`, printing) and `CLAUSE_make_fun_v1`/`CLAUSE_apply_v1`; definitions bound at registration (`modules/atoms`, `CodeServer::fun_definition`); ABI `abi/funs.hpp` | `funs`, `fun_services` |
 | `terms/` | Pids and references: `TermFactory::pid`/`make_reference`, reference cells, identity order and printing (`identities`) | `identities` |
 | `terms/` | Dynamic calls: `CLAUSE_call_v1`, `CLAUSE_apply_list_v1`, `CLAUSE_call_list_v1`, `CLAUSE_make_external_fun_v1` over export frames (`ModuleAtoms::exports`, `CodeServer::export_frame`/`external_fun`) | `dynamic_calls` |
