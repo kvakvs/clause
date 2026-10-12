@@ -113,7 +113,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Files without `#!` given as escripts | `escript file.erl` skips the first line | Compiled as ordinary modules | [executables](executables.md) |
 | Precompiled beam and archive escripts | Run | Not supported | [executables](executables.md) |
 | `include_lib` of an application found in several `<app>-<version>` directories | The code path holds one version (boot picks the highest); no diagnostic | The highest version below each searched directory, with one warning per run listing them | [preprocessor](preprocessor.md#compatibility-policies) |
-| A `-spec` whose types share no value with the inferred result, entry domain or a call's arguments | Compiles; Dialyzer may warn | Compile error naming the declared and inferred types | [semantic analysis](semantic.md#inference) |
+| A `-spec` whose types share no value with the inferred result, entry domain or a call's arguments | Compiles; Dialyzer may warn | A contradicted argument entry domain is a compile error naming the declared and inferred types; a contradicted result or call is a warning, and the inferred types are used | [semantic analysis](semantic.md#inference) |
 
 ## io
 

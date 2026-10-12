@@ -309,10 +309,10 @@ class Checker final {
 
     // Report a contradiction at a specification or call: the declared and the inferred type.
     void contradiction(const Module &module, const ast::NodeSource &source, const std::string &what,
-                       const std::string &declared, Id inferred) {
+                       const std::string &declared, Id inferred, const Severity severity = Severity::error) {
         report(module, &source,
                what + ": declared " + declared + ", inferred " + type_source(inferred_.graph, inferred), out_,
-               Severity::error);
+               severity);
     }
 
     Registry &declared_;
@@ -334,9 +334,11 @@ void Checker::result(const FunctionRef function) {
         results.push_back(declared_fact(contract->key.module, overload, arity));
         text += (text.empty() ? "" : " | ") + declared_text(overload, arity);
     }
+    // A warning: the program keeps the inferred result and never relies on the specification.
     if (disjoint(inferred, lattice_.join(results, 0))) {
         contradiction(*function.module, function.module->syntax->form(contract->form).source,
-                      "inferred result contradicts specification for " + contract->key.name, text, inferred);
+                      "inferred result contradicts specification for " + contract->key.name, text, inferred,
+                      Severity::warning);
     }
 }
 
@@ -396,11 +398,12 @@ void Checker::call(const Call &call) {
             rejected.push_back(std::move(*reason));
         }
     }
+    // A warning: the call may sit on a path that never runs, and code never relies on the callee's specification.
     if (!rejected.empty() && rejected.size() == contract->overloads.size()) {
         const auto &syntax = *call.caller.module->syntax;
         contradiction(*call.caller.module, syntax.expression(call.expression).source,
                       "inferred arguments contradict specification for " + contract->key.name, rejected.front().first,
-                      rejected.front().second);
+                      rejected.front().second, Severity::warning);
     }
 }
 } // namespace

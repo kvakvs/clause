@@ -51,11 +51,11 @@ struct Node {
 
 // Unoptimized builds analyse far slower, so their work budgets are smaller to keep large programs compiling quickly.
 #ifdef NDEBUG
-inline constexpr std::size_t DEFAULT_SYNTAX_WORK = std::size_t{10} * 1024 * 1024;
-inline constexpr std::size_t DEFAULT_TYPE_WORK = 100000;
+inline constexpr std::size_t DEFAULT_SYNTAX_WORK = std::size_t{8'000'000};
+inline constexpr std::size_t DEFAULT_TYPE_WORK = std::size_t{200'000};
 #else
-inline constexpr std::size_t DEFAULT_SYNTAX_WORK = 200000;
-inline constexpr std::size_t DEFAULT_TYPE_WORK = 20000;
+inline constexpr std::size_t DEFAULT_SYNTAX_WORK = std::size_t{1'000'000};
+inline constexpr std::size_t DEFAULT_TYPE_WORK = std::size_t{16'000};
 #endif
 
 struct Limits {

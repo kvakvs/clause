@@ -209,11 +209,19 @@ check_cli(verbose_multiple 0 "^$" "^\\[pp\\] first.erl\n\\[parse\\] first.erl\n\
 check_cli(verbose_opt_in 0 "^$" "^$" --app-dir demo=app trace.erl)
 
 # Stage times: preprocess and parse per file once it is done, compile per batch, all in milliseconds on stderr.
+# Before the compile total come its phases, each inference pass and the slowest inferred functions.
 set(ms ": [0-9]+\\.[0-9][0-9][0-9] ms\n")
+set(note ": [0-9]+\\.[0-9][0-9][0-9] ms \\([0-9]+ (of [0-9]+ )?work steps, [^\n]+\\)\n")
+set(phases "\\[time\\] index 2 modules${ms}\\[time\\] calls 2 modules${ms}\\[time\\] declared-types 2 modules${ms}"
+    "\\[time\\] inference 2 modules${ms}\\[time\\] inference pass 1 2 modules${note}"
+    "(\\[time\\] inference slowest (first|second):module_info/[01]${note})(\\[time\\] inference slowest [^\n]+\n)*"
+    "\\[time\\] contracts 2 modules${ms}\\[time\\] lower 2 modules${ms}\\[time\\] optimize 2 modules${ms}"
+    "\\[time\\] emit 2 modules${ms}")
+string(CONCAT phases ${phases})
 check_cli(stage_times_help 0 "--print-stage-times" "^$" --help)
 check_cli(stage_times_pp_only 0 "^$" "^\\[time\\] preprocess trace.erl${ms}$"
     --print-stage-times --preprocess-check --app-dir demo=app trace.erl)
 check_cli(stage_times_parse 0 "^$" "^\\[time\\] preprocess trace.erl${ms}\\[time\\] parse trace.erl${ms}$"
     --print-stage-times --parse-check --app-dir demo=app trace.erl)
-check_cli(stage_times_compile 0 "^$" "^\\[time\\] preprocess first.erl${ms}\\[time\\] parse first.erl${ms}\\[time\\] preprocess second.erl${ms}\\[time\\] parse second.erl${ms}\\[time\\] compile 2 modules${ms}$"
+check_cli(stage_times_compile 0 "^$" "^\\[time\\] preprocess first.erl${ms}\\[time\\] parse first.erl${ms}\\[time\\] preprocess second.erl${ms}\\[time\\] parse second.erl${ms}${phases}\\[time\\] compile 2 modules${ms}$"
     --print-stage-times first.erl second.erl)

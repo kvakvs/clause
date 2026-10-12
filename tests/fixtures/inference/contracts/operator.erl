@@ -1,5 +1,5 @@
 %% An operator's folded result contradicts the declared result.
-%% error: operator.erl:5:1: inferred result contradicts specification for f: declared atom(), inferred 3
+%% warning: operator.erl:5:1: inferred result contradicts specification for f: declared atom(), inferred 3
 -module(operator).
 -export([f/0]).
 -spec f() -> atom().

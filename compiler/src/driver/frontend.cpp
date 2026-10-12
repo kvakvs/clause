@@ -255,7 +255,8 @@ void print_file_times(const FrontendRequest &request, const std::filesystem::pat
         print_stage_time("parse", filename(path), times.parse.elapsed());
     }
     if (times.transform) {
-        print_stage_time("transform", filename(path), times.transform->elapsed(), times.transform_cached);
+        print_stage_time("transform", filename(path), times.transform->elapsed(),
+                         times.transform_cached ? "cached" : "");
     }
 }
 

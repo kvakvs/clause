@@ -181,10 +181,10 @@ any semantic error clears the module's binding and normalization tables.
 A private type graph represents all parsed type forms independently of runtime
 layout: singletons, ranges, containers, map field roles, function products and
 unresolved applications. Unions flatten and deduplicate; `term()` is top and
-`none()` bottom. Defaults: 1,048,576 nodes, 256 union members, 100,000 work items
-per declared type walk (resolution, translation, expansion) and 10,485,760 per
-whole-program inference pass; a debug build of `clau` (no `NDEBUG`) allows 20,000
-and 200,000 so large programs still compile quickly, and may widen more.
+`none()` bottom. Defaults: 1,048,576 nodes, 256 union members, 200,000 work items
+per declared type walk (resolution, translation, expansion) and 8,000,000 per
+whole-program inference pass; a debug build of `clau` (no `NDEBUG`) allows 16,000
+and 1,000,000 so large programs still compile quickly, and may widen more.
 Exhaustion widens to `term()` with a visible flag and never narrows a
 representation.
 
@@ -440,8 +440,13 @@ Inference is separate from declared types and never trusts specs.
   facts are discarded, so only facts from the final assumptions remain.
 - A shared work budget bounds inference; exhaustion loses precision and falls
   back to generic code, never rejects a program.
-- Specifications that contradict inference are errors (step 58I,
-  `semantic/types/contracts`). A declared type becomes the facts it holds (or
+- Specifications that contradict inference are diagnosed (step 58I,
+  `semantic/types/contracts`): a contradicted argument entry domain is an
+  error; a contradicted result, and a call whose argument facts every
+  overload rejects, are warnings (the call may sit on a path that never
+  runs). Specifications
+  never become facts: inference, specialization and code generation use the
+  inferred types, so the program behaves as its code says either way. A declared type becomes the facts it holds (or
   more): built-in types by name (`byte()` is `0..255`, `timeout()` is
   `non_neg_integer() | infinity`, `iodata()` and `iolist()` lists of any
   shape), aliases by their definition, opaque and nominal types by their
@@ -452,7 +457,7 @@ Inference is separate from declared types and never trusts specs.
   inference proves: the inferred result (unless unknown, or `none()`: a
   function that never returns fits any result), an argument's entry domain,
   or a call's argument facts against every overload. `none()`/`no_return()`
-  admits only a function that never returns. The error names the function,
+  admits only a function that never returns. The diagnostic names the function,
   the declared type as written and the inferred one. Because inferred facts
   may hold more values than the code produces, only a disjoint pair is a
   contradiction: a declared type narrower than the inferred one is

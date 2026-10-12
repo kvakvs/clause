@@ -15,14 +15,21 @@ void index_inputs(const codegen::CompilationRequest &request, Analysis &analysis
     analysis.modules.reserve(request.inputs.size());
     for (const auto &input : request.inputs) {
         codegen::progress(request, "analysis", input.source_path);
-        auto module = semantic::index(input.syntax, project::path_text(input.source_path), report,
-                                      {.escript_ = input.escript, .predefined_ = input.predefined_, .library_ = input.library_});
+        auto module =
+            semantic::index(input.syntax, project::path_text(input.source_path), report,
+                            {.escript_ = input.escript, .predefined_ = input.predefined_, .library_ = input.library_});
         semantic::bind_parameters(*module, report);
         semantic::resolve_services(*module, report);
         semantic::check_capabilities(*module, report);
         analysis.modules.push_back(std::move(module));
     }
     semantic::check_behaviours(analysis.modules, report);
+}
+
+// Run one analysis phase, timed under --print-stage-times.
+template <typename Work> void phase(Analysis &analysis, const std::string_view name, Work &&work) {
+    const auto lap = analysis.times.lap(name);
+    std::forward<Work>(work)();
 }
 
 // Attach known module identities to each batch analysis phase before invoking its shared implementation.
@@ -43,25 +50,31 @@ bool analyze(const codegen::CompilationRequest &request, const EntryRequest &ent
         const auto prefix = diagnostic.severity == Severity::warning ? "warning: " : "error: ";
         sink(prefix + render(diagnostic));
     };
-    index_inputs(request, analysis, report);
-    const bool entry_failed = resolve_entry(analysis.modules, entry, report, sink, analysis.entry);
+    bool entry_failed = false;
+    phase(analysis, "index", [&] {
+        index_inputs(request, analysis, report);
+        entry_failed = resolve_entry(analysis.modules, entry, report, sink, analysis.entry);
+    });
     if (failed || entry_failed) {
         return false;
     }
     trace_analysis("calls", request, analysis);
-    analysis.calls = semantic::resolve_calls(analysis.modules, report);
+    phase(analysis, "calls", [&] { analysis.calls = semantic::resolve_calls(analysis.modules, report); });
     if (failed) {
         return false;
     }
     trace_analysis("declared-types", request, analysis);
-    analysis.declared = semantic::types::resolve_declarations(analysis.modules, report);
+    phase(analysis, "declared-types",
+          [&] { analysis.declared = semantic::types::resolve_declarations(analysis.modules, report); });
     if (failed) {
         return false;
     }
     trace_analysis("inference", request, analysis);
-    analysis.inferred = semantic::types::infer(analysis.calls);
+    auto *profile = analysis.times.enabled() ? &analysis.profile : nullptr;
+    phase(analysis, "inference", [&] { analysis.inferred = semantic::types::infer(analysis.calls, {}, profile); });
     trace_analysis("contracts", request, analysis);
-    semantic::types::check_contracts(*analysis.declared, *analysis.inferred, analysis.calls, report);
+    phase(analysis, "contracts",
+          [&] { semantic::types::check_contracts(*analysis.declared, *analysis.inferred, analysis.calls, report); });
     return !failed;
 }
 

@@ -68,11 +68,11 @@ assert verbose.stdout == text and 'phase=inference' in verbose.stderr
 assert not re.search(r'phase=(lowering|specialization|verification|optimization|emission)', verbose.stderr)
 assert not (work / 'build').exists()
 
-# A specification that shares no value with the inferred result is an error naming both types.
+# A specification that shares no value with the inferred result is a warning naming both types.
 (work / 'contradiction.erl').write_text('-module(contradiction).\n-export([value/0]).\n-spec value() -> atom().\n'
                                        'value() -> 42.\n', encoding='utf-8')
-contradiction = run('--print-types', 'contradiction.erl', expected=1)
-assert ('contradiction.erl:3:1: inferred result contradicts specification for value: declared atom(), inferred 42'
+contradiction = run('--print-types', 'contradiction.erl')
+assert ('warning: contradiction.erl:3:1: inferred result contradicts specification for value: declared atom(), inferred 42'
         in contradiction.stderr), contradiction.stderr
 
 # Case and if results join like clause results; a name bound by several of their clauses stays unknown.

@@ -1,6 +1,7 @@
 #pragma once
 #include "../calls.hpp"
 #include "domain.hpp"
+#include "profile.hpp"
 #include <set>
 #include <string>
 #include <string_view>
@@ -96,9 +97,13 @@ struct Inference {
     // Dependent facts by the index facts carry, each kept once.
     std::vector<Dependent> dependents;
     std::map<Dependent, std::size_t> dependent_indices;
+    // Where passes and components spend time, when the caller asks; it outlives the inference. Added for
+    // --print-stage-times.
+    InferenceProfile *profile = nullptr;
 };
 
 // Infer supported bodies iteratively; recursive components iterate from bottom to a fixed point and widen
-// to top after a bounded number of rounds. Budget exhaustion conservatively loses precision.
-std::unique_ptr<Inference> infer(const CallGraph &calls, Limits limits = {});
+// to top after a bounded number of rounds. Budget exhaustion conservatively loses precision. A `profile` records
+// pass and component costs (added for --print-stage-times).
+std::unique_ptr<Inference> infer(const CallGraph &calls, Limits limits = {}, InferenceProfile *profile = nullptr);
 } // namespace clause::semantic::types

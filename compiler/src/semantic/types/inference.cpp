@@ -15,6 +15,7 @@
 #include "inference_values.hpp"
 #include "lattice.hpp"
 #include <algorithm>
+#include <chrono>
 #include <optional>
 
 namespace clause::semantic::types {
@@ -708,6 +709,42 @@ void solve(Inference &inference, const Component &component, std::size_t &work) 
 // given up as unknown.
 constexpr std::size_t PASSES = JOIN_ROUNDS + 2 * WIDENING_PASSES;
 
+// Infer one component from the current summaries of its callees.
+void infer_component(Inference &inference, const Component &component, std::size_t &work,
+                     std::vector<const ast::Expression *> &recorded) {
+    if (component.recursive) {
+        solve(inference, component, work);
+        return;
+    }
+    const auto function = component.members.front();
+    recorded.clear();
+    auto evaluated = body(inference, function, work, recorded);
+    summarize(inference, function, evaluated.result, std::move(evaluated.domain));
+    auto &summary = inference.functions.at(function.function);
+    summary.entry = std::move(evaluated.entry);
+    summary.types = std::move(evaluated.types);
+}
+
+// Infer one component and add its time, work and widening to the profile, noting the work budget running out in
+// it. Added for --print-stage-times.
+void profiled_component(Inference &inference, const CallGraph &calls, const std::size_t index, std::size_t &work,
+                        std::vector<const ast::Expression *> &recorded) {
+    const auto started = std::chrono::steady_clock::now();
+    const auto before = work;
+    const auto widenings = inference.graph.widenings();
+    infer_component(inference, calls.components[index], work, recorded);
+    auto &cost = inference.profile->costs_[index];
+    cost.elapsed_ += std::chrono::steady_clock::now() - started;
+    cost.work_ += work - before;
+    ++cost.passes_;
+    cost.widened_ = cost.widened_ || inference.graph.widenings() > widenings;
+    auto &pass = inference.profile->passes_.back();
+    const auto limit = inference.graph.limits().syntax_work;
+    if (!pass.exhausted_at_ && before < limit && work >= limit) {
+        pass.exhausted_at_ = &calls.components[index];
+    }
+}
+
 // Infer every component in callee-before-caller order, from fresh expression facts and its own work budget.
 void infer_pass(Inference &inference, const CallGraph &calls) {
     inference.expressions.clear();
@@ -715,17 +752,36 @@ void infer_pass(Inference &inference, const CallGraph &calls) {
     inference.reanalysis_work = 0;
     std::size_t work = 0;
     std::vector<const ast::Expression *> recorded;
-    for (const auto &component : calls.components) {
-        if (component.recursive) {
-            solve(inference, component, work);
-        } else {
-            const auto function = component.members.front();
-            recorded.clear();
-            auto evaluated = body(inference, function, work, recorded);
-            summarize(inference, function, evaluated.result, std::move(evaluated.domain));
-            auto &summary = inference.functions.at(function.function);
-            summary.entry = std::move(evaluated.entry);
-            summary.types = std::move(evaluated.types);
+    if (!inference.profile) {
+        for (const auto &component : calls.components) {
+            infer_component(inference, component, work, recorded);
+        }
+        return;
+    }
+    const auto started = std::chrono::steady_clock::now();
+    inference.profile->passes_.emplace_back();
+    for (std::size_t index = 0; index < calls.components.size(); ++index) {
+        profiled_component(inference, calls, index, work, recorded);
+    }
+    auto &pass = inference.profile->passes_.back();
+    pass.elapsed_ = std::chrono::steady_clock::now() - started;
+    pass.work_ = work;
+}
+
+// Record how the last pass ended. Added for --print-stage-times.
+void pass_outcome(const Inference &inference, const std::string_view outcome) {
+    if (inference.profile) {
+        inference.profile->passes_.back().outcome_ = outcome;
+    }
+}
+
+// Give the profile the pass budget and one cost per component. Added for --print-stage-times.
+void start_profile(InferenceProfile *profile, const CallGraph &calls, const std::size_t budget) {
+    if (profile) {
+        profile->budget_ = budget;
+        profile->costs_.resize(calls.components.size());
+        for (std::size_t index = 0; index < calls.components.size(); ++index) {
+            profile->costs_[index].component_ = &calls.components[index];
         }
     }
 }
@@ -758,8 +814,10 @@ void index_calls(Inference &inference, const CallGraph &calls) {
 }
 } // namespace
 
-std::unique_ptr<Inference> infer(const CallGraph &calls, const Limits limits) {
+std::unique_ptr<Inference> infer(const CallGraph &calls, const Limits limits, InferenceProfile *profile) {
     auto result = std::make_unique<Inference>(limits);
+    result->profile = profile;
+    start_profile(profile, calls, limits.syntax_work);
     index_calls(*result, calls);
     // Local inputs grow from their calls and a fun F/A reads its function's summary as far as it is known: passes
     // repeat until the inputs stop changing and each fun read its function's final result.
@@ -768,8 +826,10 @@ std::unique_ptr<Inference> infer(const CallGraph &calls, const Limits limits) {
         infer_pass(*result, calls);
         const bool changed = gather_inputs(*result, calls, pass >= JOIN_ROUNDS);
         if (!changed && settled(*result)) {
+            pass_outcome(*result, "settled");
             return result;
         }
+        pass_outcome(*result, changed ? "inputs changed" : "fun results changed");
     }
     for (auto &[function, inputs] : result->inputs) {
         (void)function;
@@ -777,6 +837,7 @@ std::unique_ptr<Inference> infer(const CallGraph &calls, const Limits limits) {
     }
     result->opaque_funs = true;
     infer_pass(*result, calls);
+    pass_outcome(*result, "final pass after passes did not settle: inputs widened to term()");
     return result;
 }
 } // namespace clause::semantic::types

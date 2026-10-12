@@ -9,6 +9,7 @@
 #include "../project/paths.hpp"
 #include "analysis.hpp"
 #include "compile_cache.hpp"
+#include "compile_times.hpp"
 #include "inspection.hpp"
 #include "progress.hpp"
 #include "publication.hpp"
@@ -99,14 +100,24 @@ void deliver(Compiled compiled, const FrontendRequest &frontend) {
 }
 
 // Share lowering and specialization, then stop at the selected inspection or artifact boundary.
-bool generate(codegen::Compilation &compilation, const Analysis &analysis, const FrontendRequest &frontend) {
-    if (!codegen::lower(compilation, analysis.modules, *analysis.inferred) || !codegen::lower_frames(compilation)) {
-        return false;
+bool generate(codegen::Compilation &compilation, Analysis &analysis, const FrontendRequest &frontend) {
+    {
+        const auto lap = analysis.times.lap("lower");
+        if (!codegen::lower(compilation, analysis.modules, *analysis.inferred) || !codegen::lower_frames(compilation)) {
+            return false;
+        }
     }
     if (frontend.backend.inspect_ir()) {
         return inspect_ir(compilation, frontend);
     }
-    return codegen::optimize(compilation) && emit(compilation);
+    {
+        const auto lap = analysis.times.lap("optimize");
+        if (!codegen::optimize(compilation)) {
+            return false;
+        }
+    }
+    const auto lap = analysis.times.lap("emit");
+    return emit(compilation);
 }
 
 // Link the in-memory module and startup objects into `output`; project executables wait for the whole invocation.
@@ -150,12 +161,17 @@ std::optional<codegen::StartupRequest> startup_request(const Analysis &analysis)
     return codegen::StartupRequest{entry.module, utf8(entry.function.name), entry.function.arity, entry.escript};
 }
 
+// The batch a compile time belongs to: its module count, and its project target when there is one.
+// Added for --print-stage-times.
+std::string batch_text(const std::size_t modules, const FrontendRequest &frontend) {
+    auto text = std::to_string(modules) + (modules == 1 ? " module" : " modules");
+    return frontend.project_target.empty() ? text : "target " + frontend.project_target + " (" + text + ")";
+}
+
 // Analyze before constructing LLVM state; moving the vector preserves borrowed AST addresses. A successful batch
 // leaves its compilation in `output` unless it stopped at --print-types.
-bool compile(std::vector<codegen::CompilationInput> inputs, const FrontendRequest &frontend, const DiagnosticSink &sink,
-             std::optional<codegen::Compilation> &output) {
-    auto request = backend_request(std::move(inputs), frontend);
-    Analysis analysis;
+bool compile_analyzed(codegen::CompilationRequest request, const FrontendRequest &frontend, const DiagnosticSink &sink,
+                      Analysis &analysis, std::optional<codegen::Compilation> &output) {
     const EntryRequest entry{frontend.entry, frontend.executable_output.has_value(), !request.project_target.empty()};
     if (!analyze(request, entry, analysis, sink)) {
         return true;
@@ -174,11 +190,18 @@ bool compile(std::vector<codegen::CompilationInput> inputs, const FrontendReques
     return !succeeded || !compilation.result().complete();
 }
 
-// The batch a compile time belongs to: its module count, and its project target when there is one.
-// Added for --print-stage-times.
-std::string batch_text(const std::size_t modules, const FrontendRequest &frontend) {
-    auto text = std::to_string(modules) + (modules == 1 ? " module" : " modules");
-    return frontend.project_target.empty() ? text : "target " + frontend.project_target + " (" + text + ")";
+// Compile the batch, printing the times of the phases it ran under --print-stage-times.
+bool compile(std::vector<codegen::CompilationInput> inputs, const FrontendRequest &frontend, const DiagnosticSink &sink,
+             std::optional<codegen::Compilation> &output) {
+    const auto subject = batch_text(inputs.size(), frontend);
+    Analysis analysis;
+    analysis.times = PhaseTimes(frontend.stage_times);
+    const bool failed =
+        compile_analyzed(backend_request(std::move(inputs), frontend), frontend, sink, analysis, output);
+    if (frontend.stage_times) {
+        print_compile_phases(analysis, subject);
+    }
+    return failed;
 }
 
 // Compile the batch; a successful one leaves its outputs in `compiled`.
@@ -234,7 +257,7 @@ bool compile_and_link(std::vector<codegen::CompilationInput> inputs, const Front
     const bool failed =
         clock.time([&] { return compile_or_reuse(std::move(inputs), frontend, sink, compiled, cached); });
     if (frontend.stage_times) {
-        print_stage_time("compile", batch_text(modules, frontend), clock.elapsed(), cached);
+        print_stage_time("compile", batch_text(modules, frontend), clock.elapsed(), cached ? "cached" : "");
     }
     if (failed || !compiled) {
         return failed;

@@ -2,6 +2,7 @@
 #include "../codegen/request.hpp"
 #include "../semantic/types/contracts.hpp"
 #include "entry.hpp"
+#include "stage_times.hpp"
 
 namespace clause::cli {
 struct Analysis {
@@ -12,6 +13,9 @@ struct Analysis {
     std::unique_ptr<semantic::types::Inference> inferred;
     // Validated entry function, present when selected explicitly or required for an executable.
     std::optional<ResolvedEntry> entry;
+    // The compile's phase times and where inference spent its time, when timed. Added for --print-stage-times.
+    PhaseTimes times;
+    semantic::types::InferenceProfile profile;
 };
 
 // Run declaration, binding, call, declared-type and inference phases without creating LLVM state.
