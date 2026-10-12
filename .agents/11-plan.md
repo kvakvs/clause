@@ -255,7 +255,7 @@ other), and add or adjust steps here before coding the next one.
 Backlog: F36. Depends on: [41B](00-finished.md#step-41b). **Decision.**
 
 - Success criteria
-  - [ ] `docs/library.md` gains a "Runtime module replacements" contract:
+  - [x] `docs/library.md` gains a "Runtime module replacements" contract:
     - which modules qualify (counterparts of `erts/preloaded` modules and of
       modules OTP generates at build time, such as `unicode_util`) and where
       they live (proposed `library/erts/` next to `library/stdlib/`, with the
@@ -303,9 +303,14 @@ Backlog: F36. Depends on: [41B](00-finished.md#step-41b). **Decision.**
       the host OTP (no copied source); results and error terms of
       implemented functions match OTP; differences go to
       `docs/differences.md`.
-  - [ ] The ledger refresh rule of this phase is written into the contract.
+  - [x] The ledger refresh rule of this phase is written into the contract.
 - Tests
-  - [ ] None beyond the gate.
+  - [x] None beyond the gate.
+- Done 2026-10-12: [runtime module replacements](../docs/library.md#runtime-module-replacements). Library
+  modules move to `library/<application>/` (`erts`, `kernel`, `stdlib`) with `library/modules.terms` naming
+  provided and missing (reserved) modules; inventories `{Name, Arity, Group, Status}`, statuses `implemented`,
+  `refused`, `stub`, `declined`; no kernel services at startup for now (OTP modules needing one fail with
+  `noproc` as on OTP without it). The ledger table and its refresh rule live in `docs/library.md`.
 
 <a id="step-41j"></a>
 
