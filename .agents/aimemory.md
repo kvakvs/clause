@@ -578,3 +578,9 @@ Host and tool gotchas:
   string_view::data() passed to C APIs: take const std::string&. Test scripts: build/plan11-62/ctest.cmd -R <one
   word> (cmd treats "|" in -R as a pipe). Bench: cache_store bench ROOT (Release needs a temp target in build/tool,
   BUILD_TESTING is OFF there); luerl timing = clau --project test-luerl.toml --entry luerl:init (exit 1 expected).
+- 69A benchmarks (2026-10-12): `make-benchmark.bat` -> build/bench Release + benchmarks/run.py; baseline worktree
+  build/bench-base/<hash> (thirdparty junction, ~5 min first build, cached). Windows OTP has no emu flavor.
+  First results vs OTP JIT: geomean ~20x slower; maps:put and <<Bin/binary, X>> look quadratic (500-3000x by size),
+  binary matching ~1000x, map update ~800x, lists:sort ~100x; sockets at par. Kernel spreads up to +/-60% on Clause.
+  History (gitignored, local) keyed by run day (rerun same day replaces). Python edits via heredoc: "\n" inside a '''...''' string
+  became a real newline; edit escapes with the Edit tool. Lizard on run.py: .venv-quality python -m lizard -C 10.

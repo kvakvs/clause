@@ -3,6 +3,8 @@
 /thirdparty/
 /.venv-quality/
 /references/
+# Local benchmark history and reports (plan step 69A), host-specific.
+/benchmarks/history/
 /CMakeUserPresets.json
 .DS_Store
 /.idea

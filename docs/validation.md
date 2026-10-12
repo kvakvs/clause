@@ -167,6 +167,47 @@ never stand in for a whole-test pass.
   ASan+UBSan, compiler-only and runtime-only builds for the parser and project
   stages; they predate the backend.
 
+## Benchmarks
+
+Manual performance comparison with Erlang/OTP (plan 11 step 69A). It is never
+part of CTest, the commit gate or `check-quality`, and only it needs a host
+Erlang/OTP; results are host-specific evidence, not gate results.
+
+```powershell
+make-benchmark.bat                         # Windows; set JOBS=N to cap parallel builds
+make-benchmark.bat --repeat 9 --only bench_gc,bench_msg
+make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
+```
+
+- Both configure and build a Release `clau` and runtime in `build/bench`, then
+  run `benchmarks/run.py` (`--help` lists its options).
+- Programs: `benchmarks/bench_*.erl` with `bench_util.erl`, built unchanged by
+  `erlc` and `clau -O2`. Each times its kernels with
+  `erlang:monotonic_time/1` after one warm-up call and prints
+  `BENCH <name> <microseconds>`: data generation, data processing, garbage
+  collection, message passing, file I/O (in an empty temporary working
+  directory) and loopback sockets.
+- Systems, on the same host in one run, interleaved: OTP with its default
+  flavor (JIT), OTP `-emu_flavor emu` when installed (the Windows installer
+  ships only the JIT, so those columns read `n/a`), Clause HEAD at O2 and
+  with `--lto`, and a previous Clause commit (default: the newest commit at
+  least one day older than HEAD; `--baseline REV`, `--no-baseline`) built in a
+  cached worktree under `build/bench-base/<hash>` that shares `thirdparty/`.
+- Report: per kernel the median of `--repeat` runs (default 5) with spread,
+  the change of Clause O2 against each system (`+N%`: Clause faster, the
+  other takes N% longer; `-N%`: Clause takes N% longer; `(Fx)` the time
+  ratio) with a geometric mean, `--lto` against OTP and O2, program wall
+  times including startup, failures and timeouts (`--timeout`, 600 s per run).
+  Iteration counts keep a default run under 10 minutes; Clause, the slowest
+  system, sets the sizes, so some OTP kernels last only a few milliseconds.
+- History: `benchmarks/history/<host>.json` keeps one record per run day
+  (run date, HEAD hash and commit date, Clause, OTP and baseline medians),
+  `benchmarks/history/reports/<host>/<day>-<hash>.txt` the text reports; a
+  rerun on the same day replaces both. Records and reports run more than
+  183 days before the newest are pruned; a run with uncommitted source
+  changes is reported but not recorded. The history directory is
+  gitignored: it stays on the host that ran it.
+
 ## History
 
 Condensed from the former per-step records (originals in Git history up to

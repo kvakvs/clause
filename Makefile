@@ -13,9 +13,13 @@ CMAKE_ARGS ?=
 TEST_MODE ?= fast
 # CTest slot count; the default is every logical CPU. Each test takes two slots, so half run concurrently.
 TEST_JOBS ?= $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+# Manual benchmarks against Erlang/OTP (plan step 69A) use their own Release build; BENCH_ARGS go to the driver.
+BENCH_BUILD_DIR ?= build/bench
+BENCH_ARGS ?=
+PYTHON ?= python3
 CLANG_FORMAT ?= $(shell command -v clang-format 2>/dev/null || xcrun --find clang-format 2>/dev/null)
 
-.PHONY: build build_test test test-full format fmt format-all clean
+.PHONY: build build_test test test-full benchmark format fmt format-all clean
 
 # Reconfigure each time; let CMake control jobs independently of outer make flags.
 # Build only the compiler executable and its dependencies for manual runs.
@@ -40,6 +44,14 @@ test: build_test
 # Run every policy/driver combination and full-only tests, e.g. at feature completion.
 test-full:
 	+$(MAKE) test TEST_MODE=full
+
+# Manual only, never part of the test gate: build Release clau and the runtime, then compare with OTP.
+benchmark:
+	$(CMAKE) -S . -B "$(BENCH_BUILD_DIR)" $(CMAKE_ARGS) \
+		-DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+		-DCLAUSE_BUILD_COMPILER=ON -DCLAUSE_BUILD_RUNTIME=ON
+	+MAKEFLAGS= $(CMAKE) --build "$(BENCH_BUILD_DIR)" --config Release --target clau clause_runtime --parallel $(if $(strip $(JOBS)),"$(JOBS)")
+	$(PYTHON) benchmarks/run.py --build-dir "$(BENCH_BUILD_DIR)" --config Release $(if $(strip $(JOBS)),--jobs "$(JOBS)") $(BENCH_ARGS)
 
 # Format project C++ files changed since HEAD (including untracked files).
 format fmt:

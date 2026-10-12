@@ -165,6 +165,10 @@ parallelism
 matching `make test` and propagating configuration, build, or test failures.
 Clean removes repository-local `build/` and `cmake-build*/` directories.
 
+`make benchmark` and `make-benchmark.bat` run the manual performance comparison with the host
+Erlang/OTP (Release build in `build/bench`, never part of the tests); see
+[benchmarks](docs/validation.md#benchmarks).
+
 Quality checks and formatting default to changed files: everything differing from `HEAD`
 in the working tree, plus untracked files.
 

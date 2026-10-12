@@ -652,7 +652,7 @@ part of the commit gate, `check-quality` or any preset; normal builds and tests
 never need it or host OTP.
 
 - Success criteria
-  - [ ] Owned benchmark sources in `benchmarks/` (new top-level directory,
+  - [x] Owned benchmark sources in `benchmarks/` (new top-level directory,
     recorded in `files.md`), each one `.erl` module that both `erlc`/`erl` and
     `clau` build unchanged, timing its own kernel with
     `erlang:monotonic_time/1` after a warm-up and printing one result line:
@@ -668,11 +668,13 @@ never need it or host OTP.
     - sockets: loopback `gen_tcp` echo throughput and connect/accept rate,
       `gen_udp` round trips;
     - message passing between processes as the cross-cutting baseline.
-  - [ ] One driver script (`benchmarks/run.py`, Python as `cmake/` scripts)
+  - [x] One driver script (`benchmarks/run.py`, Python as `cmake/` scripts)
     with fixed iteration counts and repetitions; reports the median and
     spread of N runs per benchmark, wall time per run including startup
-    listed separately from the kernel time.
-  - [ ] Systems compared on the same host in one run:
+    listed separately from the kernel time. A whole default run, builds of
+    the programs included, stays under 10 minutes (user direction
+    2026-10-12); iteration counts are sized for the slowest system.
+  - [x] Systems compared on the same host in one run:
     - OTP with the JIT (`erlang:system_info(emu_flavor)` confirms `jit`);
     - OTP without the JIT via `erl -emu_flavor emu` when that flavor is
       installed, otherwise the column reads `n/a (no emu flavor)`;
@@ -681,29 +683,40 @@ never need it or host OTP.
       date is at least one day older than `HEAD` (`--baseline <rev>`
       overrides), built in a `git worktree` under `build/bench-base/<hash>` and
       cached by hash; a benchmark the baseline cannot build reads `n/a`.
-  - [ ] Text report: one row per benchmark, columns for each system's time and
+  - [x] Text report: one row per benchmark, columns for each system's time and
     the change in percent against OTP JIT, OTP emu and the Clause baseline
     (`+12.3% faster` / `-40.1% slower`, same sign convention everywhere),
     with a header naming date, host, CPU, OS, OTP release, ERTS version,
     emu flavors found and both Clause commit hashes and dates.
-  - [ ] History: one record per benchmarked commit and host (commit date,
-    hash, host, per-benchmark medians; a rerun replaces it) under
-    `benchmarks/history/`, committed manually;
-    the driver prunes records whose commit date is more than 6 months older
-    than the newest record, and the report can show the trend of a benchmark
-    over the kept history (same host only).
-  - [ ] Invocation: a `make benchmark` target in the `Makefile` (manual use;
+  - [x] History: one record per run day and host (run date, HEAD commit
+    hash and date, per-benchmark medians of Clause, OTP and the baseline)
+    under `benchmarks/history/`, kept locally and out of git (user direction
+    2026-10-12); a rerun on the same
+    day replaces that day's record and report (user direction 2026-10-12).
+    The driver prunes records and reports run more than 6 months before the
+    newest, and the report shows the trend of each benchmark over the kept
+    history (same host only).
+  - [x] Invocation: a `make benchmark` target in the `Makefile` (manual use;
     agents never run it) and `make-benchmark.bat` for Windows, following
     `make-test.bat` (calls `tools\windows-toolchain.cmd`, honours `CMAKE`,
     `JOBS`, `CMAKE_ARGS` overrides). Both configure a Release build directory
     (`build/bench`) with `BUILD_TESTING=OFF`, build `clau` and the runtime,
     then call `benchmarks/run.py`; extra driver options pass through
     (`BENCH_ARGS` in make, remaining arguments in the `.bat`).
-  - [ ] `docs/validation.md` documents how to run it and that results are
+  - [x] `docs/validation.md` documents how to run it and that results are
     host-specific evidence, not gate results.
 - Tests
-  - [ ] One recorded manual run through `make-benchmark.bat` on the Windows
-    x64 host with report and history record committed; the gate shows no new CTest and no OTP need.
+  - [x] One recorded manual run through `make-benchmark.bat` on the Windows
+    x64 host, its summary recorded in this step (history and report stay
+    local); the gate shows no new CTest and no OTP need.
+- Done 2026-10-12: `benchmarks/` (6 programs, 29 kernels, `bench_util.erl`, `run.py`), `make benchmark`,
+  `make-benchmark.bat`, ignored `benchmarks/history/`. Run on Windows x64 (32 threads, OTP 29 / ERTS 17.1, JIT
+  only: no emu flavor installed), HEAD `a7bc0c9` against baseline `89d0c7d`, 5 runs: 3 min 43 s in total.
+  Clause O2 is 20.2x slower than OTP JIT (geometric mean); sockets are at par or faster (`tcp_connect`
+  +42%, `tcp_echo` +9%, UDP -43%); the worst kernels look quadratic: `<<Bin/binary, X>>` appends ~480x,
+  `maps:put` ~620x, binary matching ~730x, map updates ~420x; `lists:sort` ~120x. `--lto` and the
+  one-day baseline are within noise of HEAD. The connect kernel closes on the server side first: client-side
+  TIME_WAIT used up Windows' 16384 ephemeral ports (`eaddrinuse`). The gate is unchanged: no CTest added.
 
 <a id="step-70"></a>
 

@@ -116,7 +116,7 @@ Keep historical results with their original hosts and revisions.
   executable golden runner, step 8): [ ] audit the
   [ledger](../docs/validation.md#test-design) and retire covered adapters.
 - **V05 — Performance benchmarks against OTP** ([69A](11-plan.md#step-69a);
-  manual, outside the gate): [ ] data generation, data processing, garbage
+  manual, outside the gate): [x] data generation, data processing, garbage
   collection, file I/O, sockets; text report against OTP JIT, OTP emu when
   installed and a Clause build at least one day older; 6 months of history.
 
