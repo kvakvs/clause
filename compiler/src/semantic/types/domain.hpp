@@ -83,6 +83,9 @@ class Graph {
 
     bool widened() const { return widened_; }
 
+    // How often exhaustion widened to top, so callers can tell which work caused it. Added for plan step 41K1.
+    std::size_t widenings() const { return widenings_; }
+
     const Limits &limits() const { return limits_; }
 
   private:
@@ -90,6 +93,7 @@ class Graph {
     std::uint64_t owner_;
     Limits limits_;
     bool widened_ = false;
+    std::size_t widenings_ = 0;
     std::vector<Node> nodes_;
     std::map<Node, std::size_t> identities_;
 };

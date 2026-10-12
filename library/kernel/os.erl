@@ -23,6 +23,7 @@
     unsetenv/1,
     version/0
 ]).
+-include("os.types.hrl").
 
 % The project-owned os module (docs/library.md): os:cmd/1 in Erlang over a port; os:type/0 and os:getenv/1 are
 % builtins of the runtime.

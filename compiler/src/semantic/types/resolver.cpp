@@ -58,9 +58,25 @@ bool builtin(const std::string &name, const std::size_t arity) {
                           name == "nonempty_maybe_improper_list");
 }
 
+// Whether the module is a placeholder for a module ignored in project settings. Added for 41K2.
+bool ignored_module(const Resolver &r, const std::string &module) {
+    const auto found = r.registry.modules.find(module);
+    return found != r.registry.modules.end() && found->second->file.starts_with(IGNORED_MODULE_DIRECTORY);
+}
+
 // Distinguish a missing declaration in this batch from unavailable external metadata.
 Id unavailable_application(const Resolver &r, const Key &key, const ast::NodeSource &source) {
+    if (ignored_module(r, key.module)) {
+        r.diagnostic(source,
+                     "attempt to import a type from a module ignored in project settings: " + key.module + ":" +
+                         key.name,
+                     Severity::warning);
+        return r.registry.graph.top();
+    }
     const bool known = r.registry.modules.contains(key.module);
+    if (!known && r.module.library_) {
+        return r.registry.graph.top(); // Clause's own headers: nothing the user can act on (41K1).
+    }
     r.diagnostic(source,
                  (known ? "undefined remote type " : "unavailable external type metadata: ") + key.module + ":" +
                      key.name,

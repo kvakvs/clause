@@ -141,6 +141,15 @@ int report_project(const Options &options, const std::span<char *const> argument
     };
     return project::run(options.project, plan_settings(options), execute, std::cout, std::cerr);
 }
+
+// A source listed literally in `sources` that the ignore rules match is compiled anyway: warn once for each.
+// Added for plan step 41K2 (user direction 2026-10-12).
+void warn_kept(const project::PlannedTarget &target, const project::MessageSink &sink) {
+    for (const auto &source : target.ignore_.kept()) {
+        sink("warning: " + project::path_text(source) +
+             ": listed in sources but matched by ignore_modules or ignore_dirs; ignoring it has no effect");
+    }
+}
 } // namespace
 
 int run_project(const Options &options, const std::span<char *const> arguments) {
@@ -180,6 +189,7 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
         request.pending_executables = &executables;
         request.module_search_paths_ = target.search_paths_;
         request.ignore_ = target.ignore_;
+        warn_kept(target, sink);
         request.index_ = &index;
         request.build_directory_ = target.build_directory_;
         request.caches_ = options.no_cache ? nullptr : &caches;

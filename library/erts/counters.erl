@@ -10,6 +10,7 @@
     put/3,
     sub/3
 ]).
+-include("counters.types.hrl").
 
 add(_, _, _) -> erlang:error({not_implemented, add, 3}).
 get(_, _) -> erlang:error({not_implemented, get, 2}).

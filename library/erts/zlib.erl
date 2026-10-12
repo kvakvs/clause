@@ -33,6 +33,7 @@
     unzip/1,
     zip/1
 ]).
+-include("zlib.types.hrl").
 
 close(_) -> erlang:error({not_implemented, close, 1}).
 compress(_) -> erlang:error({not_implemented, compress, 1}).

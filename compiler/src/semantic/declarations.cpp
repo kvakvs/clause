@@ -219,6 +219,7 @@ std::unique_ptr<Module> index(const ast::Module &syntax, std::string file, const
     module->syntax = &syntax;
     module->file = std::move(file);
     module->predefined_ = options.predefined_;
+    module->library_ = options.library_;
     index_name(*module, out);
     index_functions(*module, out);
     index_predefined(*module);

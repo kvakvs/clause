@@ -12,12 +12,20 @@ struct Collection {
     std::unordered_set<std::string> identities;
 };
 
-// Append only the first spelling of each existing filesystem object; ignored sources are noted and left out.
-void append(Collection &result, const std::vector<std::filesystem::path> &paths, const Site &site, Ignore &ignore) {
+// Append only the first spelling of each existing filesystem object; ignored sources are noted and left out,
+// except a source the manifest lists literally, which is kept and noted for a warning.
+void append(Collection &result, const std::vector<std::filesystem::path> &paths, const Site &site, Ignore &ignore,
+            const bool literal = false) {
     for (const auto &path : paths) {
-        if (ignore.skips(path)) {
+        const bool skipped = ignore.skips(path);
+        if (skipped && !literal) {
             ignore.note(path);
-        } else if (result.identities.insert(file_identity(path, site)).second) {
+            continue;
+        }
+        if (skipped) {
+            ignore.keep(path);
+        }
+        if (result.identities.insert(file_identity(path, site)).second) {
             result.paths.push_back(path);
         }
     }
@@ -42,7 +50,7 @@ std::vector<std::filesystem::path> target_sources(const std::filesystem::path &b
         if (is_pattern(source.value)) {
             append(result, wildcard_sources(base, source, limits), source.site, ignore);
         } else {
-            append(result, {literal_source(base, source, search, limits.index)}, source.site, ignore);
+            append(result, {literal_source(base, source, search, limits.index)}, source.site, ignore, true);
         }
     }
     for (const auto &directory : target.source_dirs) {

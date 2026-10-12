@@ -37,6 +37,7 @@ const Node &Graph::get(const Id id) const {
 
 Id Graph::exhausted() {
     widened_ = true;
+    ++widenings_;
     return top();
 }
 

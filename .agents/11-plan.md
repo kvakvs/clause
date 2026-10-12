@@ -123,7 +123,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
-| H3. Drop-in replacements for OTP runtime modules | [41I](#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | open: [41K1](#step-41k1) |
+| H3. Drop-in replacements for OTP runtime modules | [41I](#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | open: [41L](#step-41l) |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -417,17 +417,24 @@ and types finds no such type. luerl (2026-10-12): `file` 305 errors
 `maps` 6.
 
 - Success criteria
-  - [ ] Inventories record exported types next to functions (for example
-    `{type, Name, Arity, Status}.`), observed from the host OTP (the
-    `-export_type` list of the module's debug info or docs chunk), and the
-    check requires each to be declared and exported by the Clause module.
-  - [ ] Decide how a type is written: the definition OTP documents (written
-    from the documentation, not copied source), or `term()` when the shape
-    does not matter to Clause; specs never narrow representation, so a wide
-    type is safe. `erlang`'s generated module gets its types too.
+  - [x] Each provided module with exported OTP types includes a
+    `<module>.types.hrl` observed from the host OTP; the check requires the
+    include and the freshness test compares the header's forms.
+  - [x] Decided (user, 2026-10-12): write each type as the documentation shows
+    it, or as OTP's implementation defines it when unclear. The installed
+    docs chunk has no type definitions, so the headers take them from the
+    beam's debug info or the shipped source of preloaded modules.
+    `erlang`'s generated module includes its header too.
 - Tests
-  - [ ] A program whose specs name a type of each completed module compiles;
+  - [x] A program whose specs name a type of each completed module compiles;
     inventory checks cover types.
+- Done 2026-10-12: `tests/compiler/library/observe_types.escript` (exported types plus the local types and records
+  they use, `--check`); headers for `atomics`, `counters`, `erlang` (66 forms, OTP's built-in type names included),
+  `zlib`, `file`, `gen_tcp`, `gen_udp`, `inet`, `os`, `io`, `maps`; `library_modules.py include`; CTest
+  `library_types`. Library inputs carry `CompilationInput::library_`: types their headers name from modules
+  outside the program, and union widening inside them, are not reported. luerl's 473 `undefined remote type`
+  errors are gone; with 41K2 the target compiles, links
+  (`build/emqx.exe`) and the executable exits 0.
 
 <a id="step-41k2"></a>
 
@@ -436,14 +443,21 @@ and types finds no such type. luerl (2026-10-12): `file` 305 errors
 Backlog: F36. Depends on: [41K](#step-41k).
 
 - Success criteria
-  - [ ] A remote type of an ignored module (luerl: `erl_parse` 63 errors,
-    `compile` 11, both ignored by the manifest) is treated like a module
-    outside the program (`unavailable external type metadata` warning),
-    or the placeholder declares the named types; decided and documented in
-    `docs/projects.md#ignored-sources`.
+  - [x] A remote type of an ignored module (luerl: `erl_parse` 63 errors,
+    `compile` 11, both ignored by the manifest) warns `attempt to import a
+    type from a module ignored in project settings: M:T` and is `term()`
+    (user, 2026-10-12); documented in `docs/projects.md#ignored-sources`.
+  - [x] A source `sources` lists literally is never ignored: `ignore_modules`
+    and `ignore_dirs` have no effect on it and the build warns (user,
+    2026-10-12); wildcard matches and `source_dirs` are ignored as before.
 - Tests
-  - [ ] A project ignoring a module whose types another module's specs name
-    compiles with the decided diagnostic.
+  - [x] A project ignoring a module whose types another module's specs name
+    compiles with the decided diagnostic (`library_ignored`); a listed
+    `lists.erl` in `ignore_modules` is compiled with the warning
+    (`library_precedence`).
+- Done 2026-10-12: placeholders' path prefix is `semantic::IGNORED_MODULE_DIRECTORY`; the type resolver warns for
+  them. `project::Ignore::keep` records literally listed sources the rules match; the project driver warns.
+  `test-luerl.toml` no longer ignores `inet` (a Clause module now).
 
 <a id="step-41l"></a>
 

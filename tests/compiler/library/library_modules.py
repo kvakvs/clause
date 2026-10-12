@@ -4,6 +4,7 @@
   library_modules.py rejects ROOT                  check refuses the deliberately inconsistent fixture library
   library_modules.py generate LIBRARY APP MODULE   write the all-stub module of an inventory, once
   library_modules.py complete ROOT APP MODULE      bring a hand-written library module to its inventory
+  library_modules.py include ROOT                  include each observed types header in its module
   library_modules.py freshness ROOT ERL CLAU WORK  inventories match the host OTP; observe, generate, check, compile
   library_modules.py report STDERR                 classify clau errors for the ledger (docs/library.md#ledger)
   library_modules.py reporting ROOT CLAU WORK      report classifies a real clau run over the fixture program
@@ -198,6 +199,10 @@ def check(root, library):
         source = inventory.with_suffix(".erl")
         if source.exists():
             check_module(root, source, inventory, problems)
+    for header in sorted(library.glob("*/*.types.hrl")):
+        source = header.parent / header.name.replace(".types.hrl", ".erl")
+        if not source.exists() or include_line(source) not in source.read_text(encoding="utf-8"):
+            problems.append(f"{header.relative_to(library).as_posix()} is not included by its module")
     return problems
 
 
@@ -222,6 +227,7 @@ def generate(library, app, module):
         f"%% Clause's replacement for OTP's {module} (docs/library.md#runtime-module-replacements), generated from\n"
         f"%% {module}.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises\n"
         f"%% error({{not_implemented, Name, Arity}}).\n-module({atom(module)}).\n-export([\n{exports}\n]).\n\n{clauses}".encode("utf-8"))
+    include_types(target)
     print(f"{target}: {len(entries)} stubs")
 
 
@@ -230,6 +236,21 @@ def write_inventory(path, entries):
     header = "".join(line + "\n" for line in path.read_text(encoding="utf-8").splitlines() if line.startswith("%"))
     body = "".join(f"{{{atom(name)}, {arity}, {group}, {status}}}.\n" for name, arity, group, status in entries)
     path.write_bytes((header + body).encode("utf-8"))
+
+
+def include_line(source):
+    """The include of a module's observed types header (docs/library.md#types). Added for plan step 41K1."""
+    return f'-include("{source.stem}.types.hrl").'
+
+
+def include_types(source):
+    """Include the module's types header after its last export attribute, when the header exists and is missing."""
+    text = source.read_text(encoding="utf-8")
+    if not source.with_suffix(".types.hrl").exists() or include_line(source) in text:
+        return
+    last = list(re.finditer(r"-export\(\[.*?\]\)\.", text, re.S))[-1]
+    text = f"{text[: last.end()]}\n{include_line(source)}{text[last.end():]}"
+    source.write_bytes(text.encode("utf-8"))
 
 
 def complete(root, library, app, module):
@@ -255,6 +276,7 @@ def complete(root, library, app, module):
     if absent_bodies:
         text = text.rstrip("\n") + "\n\n" + "".join(stub_clause(n, a) for n, a in absent_bodies)
     source.write_bytes(text.encode("utf-8"))
+    include_types(source)
     write_inventory(inventory, [(n, a, g, "implemented" if (n, a) in working else "stub") for n, a, g, _ in entries])
     print(f"{source}: {len(working & {(n, a) for n, a, _, _ in entries})} implemented, {len(absent_bodies)} stubs added")
 
@@ -281,6 +303,11 @@ def freshness(root, erl, clau, work):
         run([escript, observe, root / "library", inventory.parent.name, inventory.stem, observed])
         if not filecmp.cmp(observed, inventory, shallow=False):
             raise AssertionError(f"{inventory} differs from the host OTP; rerun observe_module.escript")
+    # Types headers (plan step 41K1): every provided module's header holds the forms a fresh observation gives.
+    for module, (app, reason) in sorted(read_modules(root / "library", []).items()):
+        if reason is None:
+            run([escript, root / "tests/compiler/library/observe_types.escript", "--check", root / "library", app,
+                 module])
     library = work / "library"
     run([escript, observe, library, "erts", "persistent_term"])
     (library / "modules.terms").write_text("{persistent_term, erts, provided}.\n", encoding="utf-8")
@@ -390,6 +417,9 @@ def main(arguments):
     elif action == "complete" and len(arguments) == 4:
         root = pathlib.Path(arguments[1])
         complete(root, root / "library", arguments[2], arguments[3])
+    elif action == "include" and len(arguments) == 2:
+        for source in sorted(pathlib.Path(arguments[1]).glob("library/*/*.erl")):
+            include_types(source)
     elif action == "generate" and len(arguments) == 4:
         generate(pathlib.Path(arguments[1]), arguments[2], arguments[3])
     elif action == "freshness" and len(arguments) == 5:

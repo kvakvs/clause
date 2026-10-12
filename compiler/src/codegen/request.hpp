@@ -35,6 +35,9 @@ struct CompilationInput {
     // The hash of everything the syntax came from: each file read (path and bytes), the preprocessing options and
     // a parse transform reply. Keys of the driver's compile cache (plan step 62D4).
     std::string fingerprint_ = {};
+    // The source is a Clause library module: types its headers name from modules outside the program are not
+    // reported, since the user cannot act on them. Added for plan step 41K1.
+    bool library_ = false;
 };
 
 struct StartupRequest {

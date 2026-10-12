@@ -98,6 +98,7 @@
     udp_module/2,
     udp_options/2
 ]).
+-include("inet.types.hrl").
 
 % The project-owned subset of inet (docs/library.md, docs/ports.md#sockets) for sockets of gen_tcp and gen_udp.
 

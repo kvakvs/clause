@@ -40,10 +40,13 @@ void body(Registry &registry, Declaration &declaration, const Reporter &out) {
     check_scope(scope, module, form.source, out);
 }
 
-// Record annotations belong to the defining module, with no executable default evaluation.
-void records(Registry &registry, const Reporter &out) {
+// Record annotations belong to the defining module, with no executable default evaluation. True when a record of
+// a module other than Clause's library widened the graph (plan step 41K1).
+bool records(Registry &registry, const Reporter &out) {
+    bool widened = false;
     for (auto &[key, record] : registry.records) {
         const auto &module = *record.module;
+        const auto before = registry.graph.widenings();
         const auto &form = module.syntax->form(record.form);
         Scope scope{scope_identity({key.first, key.second, 0}, "record"), {}};
         Resolver resolver{registry, module, out, scope};
@@ -54,7 +57,9 @@ void records(Registry &registry, const Reporter &out) {
                                        field.type ? resolver.type(*field.type) : registry.graph.top());
         }
         check_scope(scope, module, form.source, out);
+        widened = widened || (registry.graph.widenings() > before && !module.library_);
     }
+    return widened;
 }
 } // namespace
 
@@ -72,12 +77,18 @@ std::unique_ptr<Registry> resolve_declarations(const std::span<const std::unique
                                                const Reporter &out, const Limits limits) {
     auto registry = std::make_unique<Registry>(limits);
     collect(*registry, modules, out);
+    // Widening inside Clause's library headers (OTP's wide unions) is not reported: the user cannot act on it.
+    bool widened = false;
     for (auto &declaration : registry->declarations) {
+        const auto before = registry->graph.widenings();
         body(*registry, declaration, out);
+        widened = widened || (registry->graph.widenings() > before && !declaration.module->library_);
     }
-    records(*registry, out);
+    widened = records(*registry, out) || widened;
+    const auto before = registry->graph.widenings();
     contracts(*registry, out);
-    if (registry->graph.widened() && !modules.empty()) {
+    widened = widened || registry->graph.widenings() > before;
+    if (widened && !modules.empty()) {
         report(*modules.front(), nullptr, "type graph budget exhausted; widened to term()", out, Severity::warning);
     }
     return registry;

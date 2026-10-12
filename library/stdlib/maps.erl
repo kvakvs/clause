@@ -34,6 +34,7 @@
     with/2,
     without/2
 ]).
+-include("maps.types.hrl").
 
 %% {ok, Value} for Key, or error.
 find(Key, Map) when is_map(Map) ->

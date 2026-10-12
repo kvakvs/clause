@@ -133,6 +133,26 @@ warning, since nothing is replaced.
   `lists`, `maps`, `file`, `io`, `os`, `gen_tcp`, `gen_udp` and `inet` get
   inventories too and stubs for what they do not implement yet.
 
+### Types
+
+Plan 11 step 41K1. Because Clause's modules win over OTP's, OTP code naming
+`file:filename()` or `erlang:time_unit()` in its specs must find those types
+in Clause's modules. Every provided module whose OTP counterpart exports
+types includes `<module>.types.hrl` from its own directory: the
+`-export_type` list, then the exported types and the local types and records
+they use, as OTP defines them (the documentation shows the same definitions;
+the installed documentation carries no type definitions, so they come from
+the implementation: the beam's debug information, or the shipped source of a
+preloaded module such as `erlang`). `escript
+tests/compiler/library/observe_types.escript LIBRARY APP MODULE` writes the
+header from the host OTP, and `--check` compares its forms with a fresh
+observation (CTest `library_freshness`); `library_modules.py check`
+requires each header to be included by its module. Types the headers name
+from modules outside the program (`unicode:chardata()`,
+`calendar:datetime()`) and OTP's wide unions (`file:posix()` has more
+members than the type graph keeps) resolve to `term()` without a warning:
+the diagnostics belong to Clause's library, not to the user's program.
+
 ### Kernel services at startup
 
 OTP's `file`, `io`, `code` and `logger` call registered servers
@@ -198,10 +218,10 @@ Plan 11 step 41J. All live in `tests/compiler/library/`:
 | `prim_file`, `prim_buffer` | missing | Clause's `file` is the file layer (41P) |
 | `prim_socket`, `prim_net`, `prim_inet`, `socket_registry` | missing | Clause's `gen_tcp`, `gen_udp`, `inet` are the network layer (41R) |
 
-Latest luerl layer (2026-10-12, after step 41K, with `NEW_STACKTRACE` defined
-as luerl's `rebar.config.script` does on OTP 21 and later): no unknown
-module and no undefined function; 473 `undefined remote type` errors.
-Clause's library modules do not declare OTP's exported types yet (`file`
-305: `filename`, `name`, `date_time`, ...; `io` 51; `erlang` 25; `inet` 12;
-`maps` 6), and placeholders of ignored modules declare none (`erl_parse` 63,
-`compile` 11). Plan 11 steps 41K1 and 41K2 take them.
+Latest luerl layer (2026-10-12, after steps 41K1 and 41K2, with
+`NEW_STACKTRACE` defined as luerl's `rebar.config.script` does on OTP 21 and
+later, and `inet` no longer in `ignore_modules`): the target compiles and
+links with no error. 83 warnings remain: 74 types of the ignored `erl_parse`
+and `compile`, 8 types of OTP modules outside the program named by OTP code
+the target compiles, one type graph budget widening in that code. The executable starts `luerl:init/0` and exits 0. The next
+layer is run-time behavior: which stubs luerl reaches when it runs Lua code.

@@ -83,11 +83,12 @@ def clause(name, arity):
     return line if len(line) <= 101 else f"{atom(name)}({parameters}) ->\n    {body}.\n"
 
 
-def stub_module(entries):
-    """library/erts/erlang.erl."""
+def stub_module(entries, types):
+    """library/erts/erlang.erl; it includes the observed types header when there is one (plan step 41K1)."""
     exports = ",\n".join(f"    {atom(name)}/{arity}" for name, arity, _, _ in entries)
     clauses = "\n".join(clause(name, arity) for name, arity, _, _ in entries)
-    return f"-module(erlang).\n-export([\n{exports}\n]).\n\n{HEADER}\n{clauses}"
+    include = '-include("erlang.types.hrl").\n' if types else ""
+    return f"-module(erlang).\n-export([\n{exports}\n]).\n{include}\n{HEADER}\n{clauses}"
 
 
 def auto_imports(entries):
@@ -105,7 +106,7 @@ def main(arguments):
     entries = parse(root)
     found = problems(entries, catalog(root))
     outputs = {
-        root / "library/erts/erlang.erl": stub_module(entries),
+        root / "library/erts/erlang.erl": stub_module(entries, (root / "library/erts/erlang.types.hrl").exists()),
         root / "compiler/src/semantic/erlang_auto_imports.inc": auto_imports(entries),
     }
     for path, text in outputs.items():

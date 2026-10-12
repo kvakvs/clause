@@ -14,6 +14,7 @@
     sub/3,
     sub_get/3
 ]).
+-include("atomics.types.hrl").
 
 add(_, _, _) -> erlang:error({not_implemented, add, 3}).
 add_get(_, _, _) -> erlang:error({not_implemented, add_get, 3}).

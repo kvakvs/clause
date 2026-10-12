@@ -23,6 +23,12 @@ class Ignore {
     // Remember a left-out source's module name (its file stem).
     void note(const std::filesystem::path &source);
 
+    // Remember a source listed literally in `sources` that the rules would leave out; it is compiled anyway.
+    // Added for runtime module replacements (41K1, user direction 2026-10-12).
+    void keep(const std::filesystem::path &source) { kept_.push_back(source); }
+
+    const std::vector<std::filesystem::path> &kept() const { return kept_; }
+
     // The ignore_dirs spellings, and the ignore_modules names sorted, for --print-env.
     const std::vector<std::string> &patterns() const { return patterns_; }
 
@@ -54,5 +60,7 @@ class Ignore {
     // Module names from ignore_modules, and the stems of sources left out during discovery.
     Names modules_;
     Names skipped_;
+    // Literally listed sources the rules matched but that stay in the target, for one warning each.
+    std::vector<std::filesystem::path> kept_;
 };
 } // namespace clause::project

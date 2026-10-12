@@ -37,6 +37,6 @@ std::string placeholder_source(const std::u32string &module, const std::set<sema
 }
 
 std::filesystem::path placeholder_path(const std::u32string &module) {
-    return std::filesystem::path("(module_ignored)") / project::native_path(utf8(module) + ".erl");
+    return std::filesystem::path(semantic::IGNORED_MODULE_DIRECTORY) / project::native_path(utf8(module) + ".erl");
 }
 } // namespace clause::cli

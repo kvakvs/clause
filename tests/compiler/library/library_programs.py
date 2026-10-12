@@ -2,7 +2,10 @@
 
   library_programs.py stubs ROOT CLAU WORK SUFFIX       every provided module's stub raises not_implemented in every call form
   library_programs.py precedence ROOT CLAU WORK SUFFIX  Clause modules win over search paths, explicit inputs win
-                                                        over Clause modules with a warning, missing names are reserved
+                                                        over Clause modules with a warning, missing names are reserved,
+                                                        a listed source the ignore rules match is kept with a warning
+  library_programs.py types ROOT CLAU WORK SUFFIX       exported types of every library module resolve (41K1)
+  library_programs.py ignored ROOT CLAU WORK SUFFIX     a type of an ignored module warns, the build succeeds (41K2)
 """
 
 import pathlib
@@ -43,11 +46,11 @@ def stubs(root, clau, work, suffix):
 
 
 class Project:
-    """A copy of the precedence fixture with one manifest; builds into its own directory."""
+    """A copy of a library fixture with one manifest; builds into its own directory."""
 
-    def __init__(self, root, clau, work, name):
+    def __init__(self, root, clau, work, name, fixture="precedence"):
         self.clau, self.directory = clau, work / name
-        shutil.copytree(root / "tests/fixtures/library/precedence", self.directory)
+        shutil.copytree(root / "tests/fixtures/library" / fixture, self.directory)
 
     def build(self, sources, search=(), ignore=()):
         """Build with the given options; returns (status, stderr lines without the target header)."""
@@ -93,11 +96,42 @@ def precedence(root, clau, work, suffix):
     status, err = ignored.build(["src/main.erl"], ignore=["lists"])
     assert status == 0 and err == [], err
     assert ignored.output(suffix) == "{module_ignored,lists}\n"
+
+    # A listed source the ignore rules match is compiled anyway, with a warning (user direction 2026-10-12).
+    listed = Project(root, clau, work, "listed")
+    status, err = listed.build(["src/main.erl", "standins/lists.erl"], ignore=["lists"])
+    assert status == 0 and len(err) == 1 and "listed in sources but matched by ignore_modules" in err[0], err
+    assert listed.output(suffix) == "stand_in\n"
     print("library_precedence: ok")
 
 
+def types(root, clau, work, suffix):
+    """Specs naming a type of each library module compile without a diagnostic of their own and run."""
+    shutil.rmtree(work, ignore_errors=True)
+    work.mkdir(parents=True)
+    source = root / "tests/fixtures/library/types/main.erl"
+    status, _, err = run([clau, "-o", work / "types", source])
+    assert status == 0 and "undefined remote type" not in err, err
+    assert not [line for line in err.splitlines() if "types" + "/main.erl" in line.replace("\\", "/")], err
+    status, out, err = run([work / ("types" + suffix)])
+    assert status == 0 and out == "library_types: ok\n", (out, err)
+    print("library_types: ok")
+
+
+def ignored(root, clau, work, suffix):
+    """A spec naming a type of an ignored module warns once per use and the program builds and runs."""
+    shutil.rmtree(work, ignore_errors=True)
+    work.mkdir(parents=True)
+    project = Project(root, clau, work, "ignored", fixture="ignored")
+    status, err = project.build(["main.erl"], search=["."], ignore=["helper"])
+    expected = "attempt to import a type from a module ignored in project settings: helper:result"
+    assert status == 0 and err and all(expected in line for line in err), err
+    assert project.output(suffix) == "library_ignored: ok\n"
+    print("library_ignored: ok")
+
+
 def main(arguments):
-    actions = {"stubs": stubs, "precedence": precedence}
+    actions = {"stubs": stubs, "precedence": precedence, "types": types, "ignored": ignored}
     if len(arguments) != 5 or arguments[0] not in actions:
         print(__doc__, file=sys.stderr)
         return 2

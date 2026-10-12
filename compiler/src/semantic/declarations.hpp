@@ -8,6 +8,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <string_view>
 
 namespace clause::semantic {
 // Compare decoded names and arities without host-dependent hashes.
@@ -128,11 +129,17 @@ struct FunEntry {
     std::optional<BindingId> self = {};
 };
 
+// The directory part of a generated placeholder's path, standing in for a module ignored in project settings.
+// Added for remote types of ignored modules (41K2).
+inline constexpr std::string_view IGNORED_MODULE_DIRECTORY = "(module_ignored)";
+
 struct Module {
     // Borrow the batch-owned immutable AST for the duration of semantic analysis.
     const ast::Module *syntax = nullptr;
     // Preserve physical input identity even when the AST has no forms.
     std::string file;
+    // A Clause library module: unavailable external types its headers name are not reported (41K1).
+    bool library_ = false;
     // Decoded module identity is established before function indexing.
     std::u32string name;
     std::optional<ast::FormId> declaration;
@@ -168,6 +175,8 @@ struct IndexOptions {
     bool escript_ = false;
     // The number of trailing forms the frontend generated (OTP's predefined functions).
     std::size_t predefined_ = 0;
+    // The source is a Clause library module. Added for plan step 41K1.
+    bool library_ = false;
 };
 
 using Reporter = std::function<void(const Diagnostic &)>;

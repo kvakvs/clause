@@ -424,6 +424,17 @@ bool reserved(const std::u32string &name, const std::string &site, const Discove
     return true;
 }
 
+// Load a module source the search found; one from Clause's library is marked as such. Added for plan step 41K1.
+bool load_found(const std::filesystem::path &path, const Discovery &discovery, const FrontendRequest &request,
+                const DiagnosticSink &sink, Inputs &inputs) {
+    const auto before = inputs.size();
+    const bool failed = process_file(path, request, sink, inputs);
+    if (inputs.size() > before && std::ranges::contains(discovery.library.directories_, path.parent_path())) {
+        inputs.back().library_ = true;
+    }
+    return failed;
+}
+
 // Load the module `name` when the batch lacks it and a search directory has it; true on a source failure.
 // Added for --print-inputs.
 bool add_module(const std::u32string &name, std::string site, Discovery &discovery, const FrontendRequest &request,
@@ -445,7 +456,7 @@ bool add_module(const std::u32string &name, std::string site, Discovery &discove
         return false;
     }
     discovery.referenced.push_back({path, std::move(site)});
-    return process_file(path, request, sink, inputs);
+    return load_found(path, discovery, request, sink, inputs);
 }
 
 // Add the modules the batch references but does not define, from the library, then the search directories,

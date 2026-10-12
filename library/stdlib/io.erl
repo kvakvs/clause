@@ -53,6 +53,7 @@
     write/1,
     write/2
 ]).
+-include("io.types.hrl").
 
 % Input functions of the project-owned io module (docs/library.md, docs/ports.md#standard-io-and-files); io:format/1,2
 % and io:put_chars/1 are builtins of the runtime. Standard input is read by one server process, registered as

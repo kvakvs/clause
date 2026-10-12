@@ -10,6 +10,7 @@
     send/3,
     send/5
 ]).
+-include("gen_udp.types.hrl").
 
 % The project-owned gen_udp module (docs/library.md, docs/ports.md#sockets): UDP sockets are ports of the runtime's
 % socket driver, driven through clause_socket.

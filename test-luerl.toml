@@ -24,10 +24,11 @@ output = "build/emqx"
 
 [targets.options]
 ignore_dirs = [
-  "references/otp/lib/crypto"
+  "references/otp/lib/crypto",
+  "references/otp/lib/compiler"
 ]
 ignore_modules = [
-  "prim_tty", "inet_dns", "inet", "erl_pp", "erl_parse"
+  "prim_tty", "inet_dns", "erl_pp", "erl_parse", "inet_udp"
 ]
 # Fallback roots for listed source filenames, e.g. ["src", "generated"].
 # These do not discover extra files or search for headers.
@@ -43,7 +44,7 @@ include_dirs = [
 ]
 # Predefined macros, e.g. ["DEBUG", "LIMIT=100", 'LABEL="demo"'].
 # A bare name means true; values are Erlang literal terms. Duplicates are errors.
-defines = ["COMPILER_VSN=1"]
+defines = ["COMPILER_VSN=1", "NEW_STACKTRACE"]
 # Empty lists preserve compiler feature defaults; CLI feature settings apply last.
 # Example overrides: enable_features = ["maybe_expr"].
 # Do not list a feature in both arrays.

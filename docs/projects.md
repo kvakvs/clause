@@ -358,6 +358,12 @@ parsed, compiled or linked, so it may even hold syntax errors.
   a pattern need not match anything.
 - `ignore_modules`: module names. A source named `<Module>.erl` (or `.abstr`)
   is ignored, and a referenced module of that name is never searched for.
+  This includes Clause's [library modules](library.md#which-module-a-name-resolves-to).
+- A source that `sources` lists literally (no wildcard) is never ignored: the
+  rules have no effect on it, and the build warns `listed in sources but
+  matched by ignore_modules or ignore_dirs; ignoring it has no effect`
+  (plan 11 step 41K2, user direction 2026-10-12). Wildcard matches and
+  `source_dirs` are ignored as described.
 - Both apply to `sources`, `source_dirs`, literal sources found through
   `source_search_paths`, the [module search](#paths-and-discovery) of
   `source_search_paths` and the library, and the search for
@@ -371,7 +377,10 @@ parsed, compiled or linked, so it may even hold syntax errors.
   `apply(M, F, [...])` with literal names) reach a generated placeholder module
   `M` exporting each function named this way; every one returns
   `{module_ignored, M}` instead of running. A function the batch never names
-  literally stays `undef` for dynamic calls. `-behaviour(M)` with an ignored
+  literally stays `undef` for dynamic calls. A type of an ignored module
+  named in a spec or type (`helper:result()`) warns `attempt to import a type
+  from a module ignored in project settings: helper:result` and is treated as
+  `term()` (plan 11 step 41K2). `-behaviour(M)` with an ignored
   `M` warns `behaviour M undefined`.
 - `--print-inputs` lists each ignored referenced module after the added sources
   as `ignored module <name> (referenced at <file>:<line>)`; `--print-env`
