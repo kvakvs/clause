@@ -2,7 +2,7 @@
 
 Repo-relative paths. File keys omit `.cpp`/`.hpp`; `{a,b}` groups siblings, `*` groups a family.
 **C** = `compiler/src/`, **R** = `runtime/src/`; **+** = planned, create only with implementation.
-[Architecture](arch.md) · [Backlog](01-todo.md) · [Remaining plan](11-plan.md) · [History](00-finished.md).
+[Architecture](arch.md) · [Backlog](01-todo.md) · [Remaining plan](11-plan.md) · [History](00-finished.md) · [Optimization candidates](20-opt.md).
 
 ## Placement
 
