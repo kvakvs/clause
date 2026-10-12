@@ -21,7 +21,7 @@ sources = [
 # Set source_dirs = [] when selecting files exclusively through sources.
 source_dirs = []
 # Future executable path; checks/printing do not write it. Windows: build/app.exe.
-output = "build/clause_test1"
+output = "test1"
 
 [targets.options]
 # Fallback roots for listed source filenames, e.g. ["src", "generated"].

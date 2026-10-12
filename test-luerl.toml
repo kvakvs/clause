@@ -20,7 +20,7 @@ sources = [
 # Set source_dirs = [] when selecting files exclusively through sources.
 source_dirs = []
 # Future executable path; checks/printing do not write it. Windows: build/app.exe.
-output = "luerl"
+output = "test-luerl"
 
 [targets.options]
 ignore_dirs = [
