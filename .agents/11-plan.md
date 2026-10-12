@@ -34,6 +34,8 @@ draft with smaller, single-commit steps.
   replacements for the ERTS-preloaded and build-generated modules OTP's
   `kernel`/`stdlib` call, driven by the luerl build. Its steps follow 41H
   numerically and grow as the luerl ledger advances.
+- Step 69A (manual benchmarks against OTP, backlog V05) was inserted on
+  2026-10-12 (user direction); it is never part of the gate.
 
 ## Common gate and rules (apply to every step)
 
@@ -124,7 +126,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
 | H3. Drop-in replacements for OTP runtime modules | [41I](#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | open: [41L](#step-41l) |
-| M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
+| M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [69A](#step-69a), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
 | O. Final closure | [78A](#step-78a), [78B](#step-78b), [78](#step-78) | all | open |
@@ -638,6 +640,70 @@ Backlog: V03. Depends on: [58](00-finished.md#step-58).
     exclusions are published.
 - Tests
   - [ ] Opt-in upstream run with recorded commands; normal CTest stays OTP-free.
+
+<a id="step-69a"></a>
+
+### 69A. Manual performance benchmarks against OTP
+
+Backlog: V05. Depends on: [57F](00-finished.md#step-57f) (sockets),
+[57E](00-finished.md#step-57e) (files), [62](00-finished.md#step-62) (`--lto`).
+Added 2026-10-12 (user direction). **Manual only:** no CTest registration, not
+part of the commit gate, `check-quality` or any preset; normal builds and tests
+never need it or host OTP.
+
+- Success criteria
+  - [ ] Owned benchmark sources in `benchmarks/` (new top-level directory,
+    recorded in `files.md`), each one `.erl` module that both `erlc`/`erl` and
+    `clau` build unchanged, timing its own kernel with
+    `erlang:monotonic_time/1` after a warm-up and printing one result line:
+    - data generation: lists, tuples, maps, binaries, big integers built in
+      bulk;
+    - data processing: sort, `lists:foldl`/`map`, map updates, binary
+      matching, string/term conversion;
+    - garbage collection: many short-lived processes and a long-lived process
+      with a growing then shrinking heap (time plus collection count where
+      both systems expose one);
+    - file I/O: write, read back, line reads and `read_file`/`write_file` of
+      small and large files in a temporary directory;
+    - sockets: loopback `gen_tcp` echo throughput and connect/accept rate,
+      `gen_udp` round trips;
+    - message passing between processes as the cross-cutting baseline.
+  - [ ] One driver script (`benchmarks/run.py`, Python as `cmake/` scripts)
+    with fixed iteration counts and repetitions; reports the median and
+    spread of N runs per benchmark, wall time per run including startup
+    listed separately from the kernel time.
+  - [ ] Systems compared on the same host in one run:
+    - OTP with the JIT (`erlang:system_info(emu_flavor)` confirms `jit`);
+    - OTP without the JIT via `erl -emu_flavor emu` when that flavor is
+      installed, otherwise the column reads `n/a (no emu flavor)`;
+    - Clause at `HEAD`, Release build, O2, with and without `--lto`;
+    - Clause at a previous version: by default the newest commit whose commit
+      date is at least one day older than `HEAD` (`--baseline <rev>`
+      overrides), built in a `git worktree` under `build/bench-base/<hash>` and
+      cached by hash; a benchmark the baseline cannot build reads `n/a`.
+  - [ ] Text report: one row per benchmark, columns for each system's time and
+    the change in percent against OTP JIT, OTP emu and the Clause baseline
+    (`+12.3% faster` / `-40.1% slower`, same sign convention everywhere),
+    with a header naming date, host, CPU, OS, OTP release, ERTS version,
+    emu flavors found and both Clause commit hashes and dates.
+  - [ ] History: one record per benchmarked commit and host (commit date,
+    hash, host, per-benchmark medians; a rerun replaces it) under
+    `benchmarks/history/`, committed manually;
+    the driver prunes records whose commit date is more than 6 months older
+    than the newest record, and the report can show the trend of a benchmark
+    over the kept history (same host only).
+  - [ ] Invocation: a `make benchmark` target in the `Makefile` (manual use;
+    agents never run it) and `make-benchmark.bat` for Windows, following
+    `make-test.bat` (calls `tools\windows-toolchain.cmd`, honours `CMAKE`,
+    `JOBS`, `CMAKE_ARGS` overrides). Both configure a Release build directory
+    (`build/bench`) with `BUILD_TESTING=OFF`, build `clau` and the runtime,
+    then call `benchmarks/run.py`; extra driver options pass through
+    (`BENCH_ARGS` in make, remaining arguments in the `.bat`).
+  - [ ] `docs/validation.md` documents how to run it and that results are
+    host-specific evidence, not gate results.
+- Tests
+  - [ ] One recorded manual run through `make-benchmark.bat` on the Windows
+    x64 host with report and history record committed; the gate shows no new CTest and no OTP need.
 
 <a id="step-70"></a>
 
