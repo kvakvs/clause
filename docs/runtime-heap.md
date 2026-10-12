@@ -111,6 +111,14 @@ A map with more than 32 entries (OTP's `MAP_SMALL_MAP_LIMIT`) is a 4-word
   enough of them requests a collection) and to the runtime-wide account.
 - Copying a map to another heap (messages, `MessageBuffer`) builds a new tree in
   the destination from the translated entries.
+- An owned update (`MapOperation::update_owned`, OPT0.5B) whose source the
+  compiler proved unread afterwards takes over the source stub's tree reference
+  and changes in place every node it reaches through unshared nodes, copying
+  only shared ones. The source stub is left consumed (no tree, size 0); a failed
+  owned update gives the tree back to it. The compiler marks an update owned
+  only when the function built the source map itself (`M = <map expression or
+  comprehension>` in the same clause body), reads `M` nowhere else and never
+  captures it in a fun (`semantic/map_ownership`).
 
 ## Areas
 

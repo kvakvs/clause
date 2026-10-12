@@ -423,6 +423,26 @@ Split from OPT0.5A.
 - **Limits:** most hot builders pass the map through a library call
   (`maps:put/3`), so the proof needs inlining (OPT2.1) or a summary of
   library functions to fire often.
+- **Status: done 2026-10-13** (no ABI version change; adds
+  `MapOperation::update_owned`):
+  - The proof is intraprocedural (`semantic/map_ownership`). In one clause
+    body, `M = <map expression or map comprehension>`, and the single read of
+    `M` is the base of a later update that is a body item, a match's right
+    side or a direct call argument. `M` is never captured.
+  - The runtime takes over the source stub's tree and mutates the nodes it
+    reaches through unshared nodes, copying the rest. The source stub is left
+    consumed (no tree, size 0); a failure gives the tree back.
+  - Tests:
+    - `executables_owned_maps` (OTP golden): owned chains plus shared,
+      captured and failing negatives.
+    - `runtime_maps` `owned_updates`: no copy, consumed source, failure,
+      collections.
+    - `codegen_inspection`: exactly the two chain updates are owned.
+  - As expected, the loop builders (`maps:put/3`, an accumulator parameter) are
+    not covered: their source map comes from the caller. That needs
+    interprocedural uniqueness or inlining (OPT2.1).
+  - A future literal pool (OPT0.4) must keep constant maps out of the proof.
+  - Benchmarks were not rerun (manual).
 - **Gate:** aliasing tests where the old version stays live and must not
   change, plus step-69A `map_put`/`map_update` compared manually.
 
@@ -723,7 +743,7 @@ Builds on OPT1.4.
 ## Suggested order for Clause
 
 1. **Substrate (tier OPT0):** OPT0.1 (done), OPT0.1A (done), OPT0.2, OPT0.3, then
-   OPT0.4, OPT0.5, OPT0.5A (done) and OPT0.5B, then OPT0.6, then OPT0.7. OPT0.5A has no dependency on the others
+   OPT0.4, OPT0.5, OPT0.5A (done) and OPT0.5B (done), then OPT0.6, then OPT0.7. OPT0.5A has no dependency on the others
    and can go first if the map kernels are the priority. This attacks the measured 100–600× kernels and makes
    everything below visible to LLVM.
 2. **Loops:** OPT1.1, then OPT1.2, then OPT1.3.

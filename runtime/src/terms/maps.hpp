@@ -56,14 +56,18 @@ class TermProbe final : public MapProbe {
 struct MapAccess {
     // Validate and normalize all associations before publishing a single immutable map.
     static TermResult<Term> make(ProcessHeap &heap, std::span<const MapEntry> entries);
-    // Apply updates to a temporary canonical table; failure publishes no partial map.
-    static MapResult update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> updates);
+    // Apply updates to a temporary canonical table; failure publishes no partial map. An owned update may change an
+    // off-heap source map in place (OPT0.5B).
+    static MapResult update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> updates,
+                            bool owned = false);
     // Publish only an already validated canonical table, using stable owner-indexed backing; above
     // MAP_TREE_THRESHOLD entries as an off-heap tree (OPT0.5A).
     static TermResult<Term> publish(ProcessHeap &heap, std::span<const MapEntry> entries);
-    // Apply updates to an off-heap map by path copying its tree; the source map stays unchanged (OPT0.5A).
-    static MapResult update_tree(ProcessHeap &heap, const Term &map, const layout::TreeMapCell &stub,
-                                 std::span<const MapUpdate> updates);
+    // Apply updates to an off-heap map by path copying its tree; the source map stays unchanged (OPT0.5A). An owned
+    // update takes over the stub's tree and changes its exclusively held nodes in place, leaving the stub consumed
+    // (OPT0.5B).
+    static MapResult update_tree(ProcessHeap &heap, const Term &map, layout::TreeMapCell &stub,
+                                 std::span<const MapUpdate> updates, bool owned);
     // Publish a stub that takes over one reference to root, a tree of size entries; failure releases the tree.
     static TermResult<Term> publish_stub(ProcessHeap &heap, MapNode *root, std::size_t size);
 };

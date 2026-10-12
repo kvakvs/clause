@@ -1,5 +1,6 @@
 #include "binding_state.hpp"
 #include "funs.hpp"
+#include "map_ownership.hpp"
 #include "records.hpp"
 #include <algorithm>
 #include <limits>
@@ -189,6 +190,7 @@ void clear_bindings(Module &module) {
         function.captures.clear();
         function.fun_names.clear();
         function.fun_operands.clear();
+        function.owned_map_updates.clear();
     }
     module.funs.clear();
     module.fun_entries.clear();
@@ -220,6 +222,7 @@ void bind_parameters(Module &module, const Reporter &out, const std::size_t work
         clear_bindings(module);
     } else {
         index_funs(module);
+        mark_owned_map_updates(module);
     }
 }
 

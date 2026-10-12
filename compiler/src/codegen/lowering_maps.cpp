@@ -65,7 +65,7 @@ llvm::Value *lower_map_operation(ExpressionLowering &state, const Op operation,
     return service(state, operation, values);
 }
 
-llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map) {
+llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map, bool owned) {
     std::vector<llvm::Value *> values;
     values.reserve(1 + 3 * map.fields.size());
     const auto read = [&](const ast::ExprId &id) { return state.values.at(&state.module.syntax->expression(id)); };
@@ -80,7 +80,10 @@ llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map)
                 state.word, *abi::v1::IntegerEncoding<32>::encode(field.kind == ast::MapFieldKind::exact ? 1 : 0)));
         }
     }
-    return service(state, map.base ? Op::update : Op::make, values);
+    if (!map.base) {
+        return service(state, Op::make, values);
+    }
+    return service(state, owned ? Op::update_owned : Op::update, values);
 }
 
 llvm::Value *lower_map_query(ExpressionLowering &state, const abi::v1::ImmediateOperation operation, llvm::Value *left,

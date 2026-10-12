@@ -184,7 +184,8 @@ llvm::Value *lower_binary_part(ExpressionLowering &state, std::span<llvm::Value 
 BitLowering lower_bit_pattern(ExpressionLowering &state, const semantic::MatchNode &node,
                               std::span<llvm::Value *> values, llvm::BasicBlock *mismatch);
 // Stage source-ordered map construction/update through rooted checked services.
-llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map);
+// Construct or update a map; an owned update may change its source in place (OPT0.5B).
+llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map, bool owned);
 // Run one map service operation; badmap/badkey raise.
 llvm::Value *lower_map_operation(ExpressionLowering &state, abi::v1::MapOperation operation,
                                  std::span<llvm::Value *const> values);

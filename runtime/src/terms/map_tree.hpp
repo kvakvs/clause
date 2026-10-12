@@ -72,14 +72,22 @@ struct TreeFailure {
     TermError error = TermError::invalid_encoding;
 };
 
+struct InsertFlags {
+    // Whether the update consumed its source stub, so the nodes it holds exclusively may change in place (OPT0.5B).
+    bool owned;
+    // Set when the key was new.
+    bool &added;
+};
+
 // A new edit token: nodes created under it may change in place until their tree is published.
 std::size_t map_edit(HeapStorage &storage) noexcept;
 // Build a tree of sorted, distinct entries under a fresh edit; null for none.
 std::expected<MapNode *, HeapError> map_tree_build(HeapStorage &storage, std::span<const MapWords> entries) noexcept;
 // Insert or replace one association under `edit`, replacing `root` (one owned reference) by the new root; nodes
-// shared with other trees are copied first. `added` reports a new key. On failure `root` is unchanged.
-std::expected<void, TreeFailure> map_tree_insert(HeapStorage &storage, MapNode *&root, std::size_t edit, MapWords entry,
-                                                 bool exact, const MapProbe &probe, bool &added) noexcept;
+// shared with other trees are copied first. On failure `root` is unchanged.
+std::expected<void, TreeFailure> map_tree_insert(HeapStorage &storage, MapNode *&root, std::size_t edit,
+                                                 MapWords entry, bool exact, const MapProbe &probe,
+                                                 InsertFlags flags) noexcept;
 // The value of the probed key, if present.
 TermResult<std::optional<Word>> map_tree_find(const MapNode *root, const MapProbe &probe) noexcept;
 // The entry at canonical position `index` < size.
@@ -87,6 +95,9 @@ MapWords map_tree_at(const MapNode *root, std::size_t index) noexcept;
 
 // Every entry in key order.
 template <typename Visit> void map_tree_entries(const MapNode *node, Visit &&visit) {
+    if (node == nullptr) {
+        return; // A consumed stub's (OPT0.5B).
+    }
     if (node->leaf_) {
         const auto &leaf = static_cast<const MapLeaf &>(*node);
         for (std::size_t i = 0; i < leaf.count_; ++i) {
@@ -102,7 +113,7 @@ template <typename Visit> void map_tree_entries(const MapNode *node, Visit &&vis
 
 // Visit every term word of the tree once per `epoch` (a collection), so the collector can rewrite it.
 template <typename Visit> void map_tree_words(MapNode *node, std::size_t epoch, Visit &&visit) {
-    if (node->epoch_ == epoch) {
+    if (node == nullptr || node->epoch_ == epoch) {
         return;
     }
     node->epoch_ = epoch;

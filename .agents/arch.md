@@ -386,7 +386,9 @@
   (OPT0.5A, `terms/map_tree`: maps > 32 entries are process-private persistent B+ trees, fanout 32, refcounted
   nodes with subtree sizes, path-copying updates with per-update edit tokens; `Copier::scan` rewrites a copied
   stub's tree words once per node per collection, `sweep_tree_maps` releases dead stubs; `GraphCopy` rebuilds
-  trees in the destination; node words count in `off_heap_words_`/`map_words_`); bump allocation, word alignment,
+  trees in the destination; node words count in `off_heap_words_`/`map_words_`; OPT0.5B: `semantic/map_ownership`
+  marks updates of a fresh, single-read, uncaptured map, lowered as `MapOperation::update_owned`, which consumes
+  the source stub and mutates nodes reached through unshared nodes); bump allocation, word alignment,
   one reservation with `HeapMark` rollback. Words are header-parsed (`memory/heap_walk`,
   `ProcessHeap::verify` in `memory/heap_verify`); admission = owned range (heap, then fragments by
   address, below top) + header shape; process pointers only name object starts. Host `Term` = word +

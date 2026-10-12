@@ -202,6 +202,36 @@ void tree_maps() {
     require(context.heap().collect(roots).has_value() && context.heap().off_heap_words() == 0,
             "dead map kept its tree");
 }
+
+// An owned update (plan 20 step OPT0.5B) changes the tree of a map nothing else reads in place: no node is copied, its
+// source stub is consumed, a failed owned update leaves the stub holding the tree, and collections stay consistent.
+void owned_updates() {
+    auto runtime = Runtime::start().value();
+    auto &context = *runtime->create_context().value();
+    TermFactory factory(context);
+    std::vector<std::pair<Term, Term>> entries;
+    for (std::int64_t key = 0; key < 100; ++key) {
+        entries.emplace_back(factory.integer(key).value(), factory.integer(key).value());
+    }
+    const auto map = factory.map(entries).value();
+    const auto built = context.heap().off_heap_words();
+    const auto one = factory.integer(1).value();
+    const auto key = factory.integer(7).value();
+    const auto updated = invoke(context, Op::update_owned, std::array{map, key, factory.atom("seven").value(), one});
+    require(updated.first == Outcome::success && updated.second.map_find(key)->value().atom_spelling() == "seven",
+            "owned update failed");
+    require(context.heap().off_heap_words() == built && map.map_size() == 0, "owned update copied its tree");
+
+    const auto missing = factory.atom("missing").value();
+    const auto failed = invoke(context, Op::update_owned, std::array{updated.second, missing, one, one});
+    require(failed.first == Outcome::bad_key && updated.second.map_size() == 100, "failed owned update lost the tree");
+    std::vector<Word> roots{updated.second.word()};
+    require(context.heap().collect(roots).has_value() && context.heap().verify().has_value() &&
+                context.heap().off_heap_words() == built,
+            "collection after owned updates failed");
+    roots.clear();
+    require(context.heap().collect(roots).has_value() && context.heap().off_heap_words() == 0, "tree not freed");
+}
 } // namespace
 
 // Source differential tests own semantic coverage; this native consumer owns inaccessible host invariants.
@@ -211,6 +241,7 @@ int main() {
         malformed();
         large_maps();
         tree_maps();
+        owned_updates();
         std::cout << "runtime_maps: ok\n";
         return 0;
     } catch (const std::exception &error) {

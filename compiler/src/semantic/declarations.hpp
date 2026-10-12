@@ -94,6 +94,9 @@ struct Function {
     std::map<const ast::Expression *, BindingId> fun_names = {};
     // The definitions fun M:F/A with variables reads for its module, function and arity (none for a literal part).
     std::map<const ast::Expression *, std::array<std::optional<BindingId>, 3>> fun_operands = {};
+    // Map updates whose source map only this update reads (map_ownership.hpp): the runtime may update it in place.
+    // Added for plan 20 step OPT0.5B.
+    std::set<const ast::Expression *> owned_map_updates = {};
 };
 
 struct RecordLayout {

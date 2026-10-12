@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "owned_maps",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "{102,more,badkey,125251}\nowned_maps: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "owned_maps.erl": "a7141a11d720323364858cd8c6f3c5ad3f3b0ff60b8ec3294176438c8d2f44d5"
+  }
+}

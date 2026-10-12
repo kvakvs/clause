@@ -40,8 +40,9 @@ MapResult make(ProcessContext &context, std::span<const Term> terms) {
     return TermFactory(context).map(entries).transform_error([](TermError error) { return MapFault{error, {}}; });
 }
 
-// Exact flags preserve source order even when different key expressions resolve to the same key.
-MapResult update(ProcessContext &context, std::span<const Term> terms) {
+// Exact flags preserve source order even when different key expressions resolve to the same key. An owned update's
+// source map is read by nothing else (OPT0.5B).
+MapResult update(ProcessContext &context, std::span<const Term> terms, bool owned) {
     if (terms.empty() || (terms.size() - 1) % 3 != 0) {
         return std::unexpected(MapFault{TermError::invalid_encoding, {}});
     }
@@ -54,7 +55,7 @@ MapResult update(ProcessContext &context, std::span<const Term> terms) {
         }
         updates.push_back({terms[i], terms[i + 1], *flag == 1});
     }
-    return MapAccess::update(context.heap(), terms.front(), updates);
+    return MapAccess::update(context.heap(), terms.front(), updates, owned);
 }
 
 // Queries validate the candidate type before searching exact keys; absence remains a distinct Erlang error.
@@ -152,8 +153,8 @@ MapResult evaluate(ProcessContext &context, Op operation, std::span<const Term> 
     if (operation == Op::make) {
         return make(context, terms);
     }
-    if (operation == Op::update) {
-        return update(context, terms);
+    if (operation == Op::update || operation == Op::update_owned) {
+        return update(context, terms, operation == Op::update_owned);
     }
     if (operation == Op::from_list) {
         return from_list(context, terms);
@@ -185,7 +186,7 @@ bool ready(ProcessContext &context, std::uint8_t operation, const Word *values, 
     if (!calls.active() || calls.failure()) {
         return false;
     }
-    if (!output || (count != 0 && !values) || operation > static_cast<std::uint8_t>(Op::iterator)) {
+    if (!output || (count != 0 && !values) || operation > static_cast<std::uint8_t>(Op::update_owned)) {
         calls.fail_service(abi::v1::Status::invalid_argument);
         return false;
     }

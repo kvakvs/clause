@@ -108,23 +108,60 @@ MapFault tree_fault(const TreeFailure &failure, const Term &map, const MapUpdate
     }
 }
 
+struct TreeEdit {
+    // The storage, the tree an update builds (one owned reference), its edit token and whether it consumed its source
+    // stub.
+    HeapStorage &storage;
+    MapNode *&root;
+    std::size_t edit;
+    bool owned;
+};
+
+// Validate and insert one association into the tree under construction; true when the key is new.
+std::expected<bool, MapFault> insert_entry(ProcessHeap &heap, const Term &map, const MapUpdate &entry,
+                                           const TreeEdit &tree) {
+    if (const auto checked = validate(heap, entry.key, entry.value); !checked) {
+        return std::unexpected(MapFault{checked.error(), entry.key});
+    }
+    const TermProbe probe({.map = map, .key = entry.key});
+    bool added = false;
+    const auto inserted = map_tree_insert(tree.storage, tree.root, tree.edit, {entry.key.word(), entry.value.word()},
+                                          entry.exact, probe, {.owned = tree.owned, .added = added});
+    if (!inserted) {
+        return std::unexpected(tree_fault(inserted.error(), map, entry));
+    }
+    return added;
+}
+
+// After a failed update, drop its tree, or return it to the stub it consumed, which then holds what it holds now.
+void give_back(HeapStorage &storage, layout::TreeMapCell &stub, MapNode *root, bool owned) noexcept {
+    if (!owned) {
+        map_tree_release(storage, root);
+        return;
+    }
+    stub.root_ = root;
+    stub.size_ = static_cast<Word>(root->size_);
+}
+
 // Term error for a refused heap or off-heap allocation.
 TermError heap_fault(HeapError error) {
     return error == HeapError::out_of_memory ? TermError::out_of_memory : TermError::resource_limit;
 }
 
-// Keep the source map immutable while exact updates see preceding associations from the same expression.
-MapResult update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> updates) {
-    const auto owned = heap.retain(map);
-    if (!owned) {
-        return std::unexpected(MapFault{owned.error(), map});
+// Keep the source map immutable while exact updates see preceding associations from the same expression, unless the
+// compiler proved it unread afterwards (owned, OPT0.5B).
+MapResult update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> updates, bool owned) {
+    const auto retained = heap.retain(map);
+    if (!retained) {
+        return std::unexpected(MapFault{retained.error(), map});
     }
     const auto object = TermAccess::object(map);
     if (!object) {
         return std::unexpected(MapFault{object.error(), map});
     }
     if (const auto *tree = tree_of(*object)) {
-        return MapAccess::update_tree(heap, map, *tree, updates);
+        // The stub is this heap's own cell (retained above), so an owned update may consume it.
+        return MapAccess::update_tree(heap, map, const_cast<layout::TreeMapCell &>(*tree), updates, owned);
     }
     auto entries = map.map_entries();
     if (!entries) {
@@ -198,28 +235,30 @@ TermResult<Term> MapAccess::publish_stub(ProcessHeap &heap, MapNode *root, std::
     return published;
 }
 
-MapResult MapAccess::update_tree(ProcessHeap &heap, const Term &map, const layout::TreeMapCell &stub,
-                                 std::span<const MapUpdate> updates) {
+MapResult MapAccess::update_tree(ProcessHeap &heap, const Term &map, layout::TreeMapCell &stub,
+                                 std::span<const MapUpdate> updates, bool owned) {
     auto &storage = *heap.storage_;
     auto *root = stub.root_;
-    // The update owns its own reference; nodes it creates may change in place until the stub is published.
-    map_tree_retain(root);
     auto size = static_cast<std::size_t>(stub.size_);
+    // The update holds its own reference: a new one, or the consumed stub's (OPT0.5B). Nodes it creates, and an owned
+    // update's exclusively held nodes, change in place until the new stub is published.
+    owned = owned && root != nullptr;
+    if (owned) {
+        stub.root_ = nullptr;
+        stub.size_ = 0;
+    } else if (root != nullptr) {
+        map_tree_retain(root);
+    } else {
+        return std::unexpected(MapFault{TermError::invalid_encoding, map});
+    }
     const auto edit = map_edit(storage);
     for (const auto &entry : updates) {
-        if (const auto checked = validate(heap, entry.key, entry.value); !checked) {
-            map_tree_release(storage, root);
-            return std::unexpected(MapFault{checked.error(), entry.key});
-        }
-        const TermProbe probe({.map = map, .key = entry.key});
-        bool added = false;
-        const auto inserted =
-            map_tree_insert(storage, root, edit, {entry.key.word(), entry.value.word()}, entry.exact, probe, added);
+        auto inserted = insert_entry(heap, map, entry, {.storage = storage, .root = root, .edit = edit, .owned = owned});
         if (!inserted) {
-            map_tree_release(storage, root);
-            return std::unexpected(tree_fault(inserted.error(), map, entry));
+            give_back(storage, stub, root, owned);
+            return std::unexpected(inserted.error());
         }
-        size += added ? 1 : 0;
+        size += *inserted ? 1 : 0;
     }
     return publish_stub(heap, root, size).transform_error([&](TermError error) { return MapFault{error, map}; });
 }
@@ -234,9 +273,9 @@ TermResult<Term> MapAccess::make(ProcessHeap &heap, std::span<const MapEntry> en
     }
 }
 
-MapResult MapAccess::update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> updates) {
+MapResult MapAccess::update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> updates, bool owned) {
     try {
-        return detail::update(heap, map, updates);
+        return detail::update(heap, map, updates, owned);
     } catch (const std::bad_alloc &) {
         return std::unexpected(MapFault{TermError::out_of_memory, map});
     } catch (const std::length_error &) {

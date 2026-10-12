@@ -12,7 +12,7 @@ if work.exists():
     shutil.rmtree(work)
 work.mkdir(parents=True)
 (work / 'oracle').mkdir()
-for name in ('answer.erl', 'client.erl', 'source_comments.erl', 'source_comments.hrl'):
+for name in ('answer.erl', 'client.erl', 'source_comments.erl', 'source_comments.hrl', 'owned.erl'):
     shutil.copyfile(Path(fixtures) / name, work / name)
 sequence = itertools.count()
 
@@ -152,3 +152,9 @@ for flag in ('--print-ir', '--print-optimized-ir'):
     assert not run(flag, 'answer.erl', 'bad.erl', expected=1).stdout
 assert 'Usage:' in run('--help', '--print-ir', '--target-triple', 'invalid', 'missing.erl').stdout
 assert not (work / 'build').exists() and not (work / 'out').exists() and not (work / 'new.toml').exists()
+
+# Plan 20 step OPT0.5B: only the two updates of a map nothing else reads use the owned operation (10); the update of
+# a source read again stays an ordinary update (1), so that source keeps its value.
+owned = run('--print-ir', 'owned.erl').stdout
+operations = re.findall(r'CLAUSE_map_v1[^(]*\(ptr [^,]*, i8 (\d+)', owned)
+assert sorted(operations) == ['0', '0', '1', '10', '10'], operations

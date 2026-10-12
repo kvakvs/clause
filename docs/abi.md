@@ -145,6 +145,9 @@ comprehension builds its map with `MapOperation::from_list` (`{Pairs}`, later
 keys win). Map generators read `MapOperation::key_at`/`value_at`
 (`{Map, Position}` in canonical key order) and show a zip's remaining input
 with `MapOperation::iterator`, OTP's `{K, V, Next}` chain ending in `none`.
+`MapOperation::update_owned` (10, plan 20 step OPT0.5B) takes the operands of
+`update` for a map update whose source the compiler proved unread afterwards: an
+off-heap source map is updated in place and its stub left consumed (empty).
 Bitstring generators use ordinary pattern extraction plus a final
 `binary`/`all` segment for the rest.
 

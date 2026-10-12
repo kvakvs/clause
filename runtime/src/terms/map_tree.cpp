@@ -101,11 +101,12 @@ TermResult<std::size_t> child_index(const MapBranch &branch, const MapProbe &pro
     });
 }
 
-// The node itself when this edit created it and nothing else shares it, else a copy owned by the edit whose
-// children gain a reference.
+// The node itself when nothing else shares it and this edit created it or holds it exclusively (an owned update's
+// path of unshared nodes, OPT0.5B), else a copy owned by the edit whose children gain a reference.
 template <typename Node>
-std::expected<Node *, HeapError> writable(HeapStorage &storage, Node &node, std::size_t edit) noexcept {
-    if (node.edit_ == edit && node.references_ == 1) {
+std::expected<Node *, HeapError> writable(HeapStorage &storage, Node &node, std::size_t edit, bool exclusive) noexcept {
+    if ((node.edit_ == edit || exclusive) && node.references_ == 1) {
+        node.edit_ = edit;
         return &node;
     }
     auto copy = allocate<Node>(storage, edit);
@@ -136,6 +137,9 @@ struct Insertion {
     const MapProbe &probe;
     bool added = false;
 };
+
+// Whether a node the descent reaches is held only through unshared nodes from a consumed stub (OPT0.5B).
+bool exclusive_below(bool exclusive, const MapNode &node) noexcept { return exclusive && node.references_ == 1; }
 
 struct Grown {
     // The node replacing the one inserted into, and a new right sibling when it split (else null).
@@ -182,7 +186,7 @@ Grow split_leaf(Insertion &insertion, MapLeaf &left, std::size_t index) noexcept
 }
 
 // Insert into a leaf: replace a present key, add an absent one unless the update is exact, split when full.
-Grow insert_leaf(Insertion &insertion, MapLeaf &leaf) noexcept {
+Grow insert_leaf(Insertion &insertion, MapLeaf &leaf, bool exclusive) noexcept {
     const auto slot = search(std::span(leaf.keys_).first(leaf.count_), insertion.probe);
     if (!slot) {
         return std::unexpected(TreeFailure{TreeFault::compare, slot.error()});
@@ -190,7 +194,7 @@ Grow insert_leaf(Insertion &insertion, MapLeaf &leaf) noexcept {
     if (!slot->found && insertion.exact) {
         return std::unexpected(TreeFailure{TreeFault::missing_key});
     }
-    auto target = writable(insertion.storage, leaf, insertion.edit);
+    auto target = writable(insertion.storage, leaf, insertion.edit, exclusive);
     if (!target) {
         return std::unexpected(memory_failure(target.error()));
     }
@@ -216,7 +220,7 @@ Grow insert_leaf(Insertion &insertion, MapLeaf &leaf) noexcept {
     return Grown{&out, nullptr};
 }
 
-Grow insert(Insertion &insertion, MapNode &node) noexcept;
+Grow insert(Insertion &insertion, MapNode &node, bool exclusive) noexcept;
 
 // Move the upper half of a full branch, with the new child at index, into a new right branch.
 Grow split_branch(Insertion &insertion, MapBranch &left, std::size_t index, MapNode *child) noexcept {
@@ -262,17 +266,17 @@ Grow adopt(Insertion &insertion, MapBranch &out, std::size_t index, const Grown 
 }
 
 // Insert below a branch, then replace the child it went into, copying the branch first when it is shared.
-Grow insert_branch(Insertion &insertion, MapBranch &branch) noexcept {
+Grow insert_branch(Insertion &insertion, MapBranch &branch, bool exclusive) noexcept {
     const auto index = child_index(branch, insertion.probe);
     if (!index) {
         return std::unexpected(TreeFailure{TreeFault::compare, index.error()});
     }
     auto *child = branch.children_.at(*index);
-    auto grown = insert(insertion, *child);
+    auto grown = insert(insertion, *child, exclusive_below(exclusive, *child));
     if (!grown) {
         return grown;
     }
-    auto target = writable(insertion.storage, branch, insertion.edit);
+    auto target = writable(insertion.storage, branch, insertion.edit, exclusive);
     if (!target) {
         discard(insertion.storage, grown->node, *child);
         map_tree_release(insertion.storage, grown->split);
@@ -286,9 +290,9 @@ Grow insert_branch(Insertion &insertion, MapBranch &branch) noexcept {
     return adopted;
 }
 
-Grow insert(Insertion &insertion, MapNode &node) noexcept {
-    return node.leaf_ ? insert_leaf(insertion, static_cast<MapLeaf &>(node))
-                      : insert_branch(insertion, static_cast<MapBranch &>(node));
+Grow insert(Insertion &insertion, MapNode &node, bool exclusive) noexcept {
+    return node.leaf_ ? insert_leaf(insertion, static_cast<MapLeaf &>(node), exclusive)
+                      : insert_branch(insertion, static_cast<MapBranch &>(node), exclusive);
 }
 
 // A branch over the given children, created by edit.
@@ -381,9 +385,9 @@ std::expected<MapNode *, HeapError> map_tree_build(HeapStorage &storage, std::sp
 }
 
 std::expected<void, TreeFailure> map_tree_insert(HeapStorage &storage, MapNode *&root, std::size_t edit, MapWords entry,
-                                                 bool exact, const MapProbe &probe, bool &added) noexcept {
+                                                 bool exact, const MapProbe &probe, InsertFlags flags) noexcept {
     Insertion insertion{storage, edit, entry, exact, probe};
-    auto grown = insert(insertion, *root);
+    auto grown = insert(insertion, *root, exclusive_below(flags.owned, *root));
     if (!grown) {
         return std::unexpected(grown.error());
     }
@@ -402,11 +406,14 @@ std::expected<void, TreeFailure> map_tree_insert(HeapStorage &storage, MapNode *
         map_tree_release(storage, root);
     }
     root = top;
-    added = insertion.added;
+    flags.added = insertion.added;
     return {};
 }
 
 TermResult<std::optional<Word>> map_tree_find(const MapNode *root, const MapProbe &probe) noexcept {
+    if (root == nullptr) {
+        return std::nullopt; // A consumed stub's (OPT0.5B).
+    }
     const auto *node = root;
     while (!node->leaf_) {
         const auto &branch = static_cast<const MapBranch &>(*node);

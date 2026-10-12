@@ -14,7 +14,10 @@ enum class MapOperation : std::uint8_t {
     from_list,
     key_at,
     value_at,
-    iterator
+    iterator,
+    // An update whose source map the compiler proved unread after it (plan 20 step OPT0.5B): an off-heap map may be
+    // updated in place, its stub left consumed.
+    update_owned
 };
 // Semantic failures publish an owned offending key/map; infrastructure failures leave output untouched.
 enum class MapOutcome : std::uint8_t { success, bad_map, bad_key, failure };
