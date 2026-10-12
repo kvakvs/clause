@@ -97,29 +97,34 @@ void invocation(ProcessContext &context) {
     require(observed == std::vector<Word>{encode_integer(42).value(), arguments[0]}, "caller slot not preserved");
 }
 
+// A context whose stack has a word budget; each context owns exactly one stack.
+ProcessContext &limited(Runtime &runtime, std::size_t words) {
+    return *runtime.create_context(HeapOptions{}, StackOptions{.limit_words = words}).value();
+}
+
 // Tail calls replace the caller's frame, so a long chain stays one frame deep under a tiny budget.
-void tail_calls(ProcessContext &context) {
+void tail_calls(Runtime &runtime) {
+    auto &context = limited(runtime, 32);
     GeneratedInvocation scope(context.generated_calls());
-    ProcessStack stack(context, StackOptions{.limit_words = 32});
+    auto &stack = context.stack();
     active = &stack;
     const auto start = encode_integer(0).value();
     require(stack.invoke(increment, &start) == encode_integer(1).value(), "small stack unusable");
     const auto steps = encode_integer(20).value();
     require(stack.invoke(countdown, &steps) == encode_integer(0).value(), "tail chain result changed");
-    active = &context.stack();
 }
 
 // Exceeding the word budget records resource_limit, resumes the caller with 0 and releases every frame.
-void budget(ProcessContext &context) {
+void budget(Runtime &runtime) {
+    auto &context = limited(runtime, 100);
     GeneratedInvocation scope(context.generated_calls());
-    ProcessStack stack(context, StackOptions{.limit_words = 100});
+    auto &stack = context.stack();
     active = &stack;
     require(stack.invoke(deep, nullptr) == 0, "budget overflow produced a result");
     const auto &failure = context.generated_calls().failure();
     require(failure && failure->code == CallError::runtime_failure && failure->status == Status::resource_limit,
             "budget overflow is not resource_limit");
     require(stack.depth() == 0 && stack.words() == 0, "budget overflow left frames");
-    active = &context.stack();
 }
 
 // Native exceptions are contained by the invocation, which releases its frames.
@@ -204,8 +209,8 @@ int main() {
         auto runtime = Runtime::start().value();
         auto &context = *runtime->create_context().value();
         invocation(context);
-        tail_calls(context);
-        budget(context);
+        tail_calls(*runtime);
+        budget(*runtime);
         native_exception(context);
         boundaries(context);
         traces(context);

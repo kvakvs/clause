@@ -1,4 +1,5 @@
 #include <clause/runtime/runtime.hpp>
+#include <exception>
 #include <utility>
 
 namespace clause::runtime {
@@ -28,8 +29,13 @@ bool ContextLifetime::alive() const noexcept { return alive_; }
 ProcessContext::ProcessContext(Runtime &runtime, ProcessIdentity identity, HeapOptions options,
                                StackOptions stack_options, std::shared_ptr<detail::RuntimeMemory> memory,
                                const detail::IdentityNumbers &numbers)
-    : impl_(std::make_unique<Impl>(runtime, identity, std::move(memory), numbers)), heap_(*this, options),
-      generated_calls_(stack_), stack_(*this, stack_options) {}
+    : abi::v1::FrameState{}, impl_(std::make_unique<Impl>(runtime, identity, std::move(memory), numbers)),
+      heap_(*this, options), generated_calls_(stack_, *this), stack_(*this, stack_options) {
+    // Generated code reads the state through the context pointer (OPT0.1).
+    if (static_cast<void *>(static_cast<abi::v1::FrameState *>(this)) != static_cast<void *>(this)) {
+        std::terminate();
+    }
+}
 
 ProcessContext::~ProcessContext() { impl_->lifetime->alive_ = false; }
 

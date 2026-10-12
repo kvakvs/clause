@@ -42,6 +42,9 @@ std::expected<void, HeapError> hold_off_heap(HeapStorage &storage, const BinaryB
             return std::unexpected(HeapError::limit_exceeded);
         }
         storage.off_heap_words_ += words;
+        if (storage.off_heap_words_ >= storage.binary_limit_words_) {
+            storage.signal_collection();
+        }
     }
     ++entry->second;
     return {};

@@ -46,8 +46,6 @@ struct StackOptions {
 // Frames link by offsets, so the block may move whenever a frame is pushed.
 class ProcessStack final {
   public:
-    // Bind the stack to its process; no words are allocated before the first frame.
-    explicit ProcessStack(ProcessContext &owner, StackOptions options = {}) noexcept;
     // Return the stack's charge to the runtime-wide memory account.
     ~ProcessStack();
     ProcessStack(const ProcessStack &) = delete;
@@ -69,13 +67,16 @@ class ProcessStack final {
     abi::v1::Code *leave(Word result) noexcept;
 
     // Header of the current frame; valid until the next push.
-    Word *frame() noexcept { return &words_[frame_]; }
+    Word *frame() noexcept { return state_.stack + state_.frame; }
 
     // Registers carrying arguments into and results out of every transfer.
     Word *registers() noexcept { return registers_.data(); }
 
     // Keep the first `count` registers as roots until the next push or pop, as a suspended entry's arguments.
-    void keep_registers(std::size_t count) noexcept { live_registers_ = std::min(count, registers_.size()); }
+    void keep_registers(std::size_t count) noexcept { state_.live = std::min(count, registers_.size()); }
+
+    // Note that the heap wants a collection, so entries take the service path to their safepoint (OPT0.1).
+    void signal_collection() noexcept { state_.slow |= abi::v1::slow_collect; }
 
     // Run `function` to completion above a bottom frame, resuming it after every yield; frames left by native
     // exceptions are released.
@@ -108,7 +109,7 @@ class ProcessStack final {
 
     // Units of work the running builtin may do in this portion: WORK_PER_REDUCTION per reduction left, at least
     // one reduction's worth so every portion progresses.
-    std::size_t budget() const noexcept { return std::max<std::size_t>(reductions_, 1) * WORK_PER_REDUCTION; }
+    std::size_t budget() const noexcept { return std::max<std::size_t>(state_.reductions, 1) * WORK_PER_REDUCTION; }
 
     // Pay for `work` units of builtin work out of the reductions left.
     void spend(std::size_t work) noexcept;
@@ -126,10 +127,10 @@ class ProcessStack final {
     std::size_t depth() const noexcept;
 
     // Count the words of all live frames for leak checks.
-    std::size_t words() const noexcept { return words_.size(); }
+    std::size_t words() const noexcept { return state_.top; }
 
     // Report reserved stack words for heap statistics.
-    std::size_t capacity() const noexcept { return words_.capacity(); }
+    std::size_t capacity() const noexcept { return capacity_; }
 
     // Inspect the term slots of every frame without dereferencing candidate heap words.
     bool contains(Word value) const noexcept;
@@ -145,7 +146,7 @@ class ProcessStack final {
 
     // Visit the descriptor of every frame that names an Erlang function, innermost first (for debuggers).
     template <typename Visitor> void named_frames(Visitor &&visit) const {
-        for (auto at = frame_; at != none; at = words_[at]) {
+        for (auto at = state_.frame; at != none; at = state_.stack[at]) {
             if (descriptor(at).module) {
                 visit(descriptor(at));
             }
@@ -155,12 +156,12 @@ class ProcessStack final {
     // Visit every term slot of every frame, then the live registers and a trapping builtin's state words, so a
     // collector can rewrite them in place.
     template <typename Visitor> void visit(Visitor &&visit) {
-        for (auto at = frame_; at != none; at = words_[at]) {
-            for (auto &slot : std::span(words_).subspan(at + abi::v1::frame_header_words, descriptor(at).roots)) {
+        for (auto at = state_.frame; at != none; at = state_.stack[at]) {
+            for (auto &slot : std::span(state_.stack + at + abi::v1::frame_header_words, descriptor(at).roots)) {
                 visit(slot);
             }
         }
-        for (auto &word : std::span(registers_).first(live_registers_)) {
+        for (auto &word : std::span(registers_).first(state_.live)) {
             visit(word);
         }
         if (trap_state_) {
@@ -171,37 +172,47 @@ class ProcessStack final {
     }
 
   private:
+    friend class ProcessContext;
+    // Bind the stack to its process and the process's FrameState; each context owns exactly one stack (OPT0.1).
+    // No words are allocated before the first frame.
+    explicit ProcessStack(ProcessContext &owner, StackOptions options = {}) noexcept;
+
     // Offset marking the absence of a frame below the first one.
     static constexpr std::size_t none = static_cast<std::size_t>(-1);
 
     // Push a zeroed frame for `function` linked to the current one; false records the failure.
     bool push(const abi::v1::FrameDescriptor &function) noexcept;
-    // Resize to `size` words, charging new capacity to the runtime-wide account; false records the failure.
+    // Make room for `size` words, charging new capacity to the runtime-wide account; false records the failure.
     bool grow(std::size_t size) noexcept;
+    // Recompute the words a push may reach inline: the capacity, capped by the stack limit (OPT0.1).
+    void update_limit() noexcept;
+    // Recompute the slow bits after a safepoint or a profiling change (OPT0.1).
+    void update_slow() noexcept;
     // Release the current frame.
     void pop() noexcept;
     // Record `function` as the entry to repeat on resumption, keeping its arguments as register roots.
     void suspend(const abi::v1::FrameDescriptor &function) noexcept;
     // Drop every word from `size` on; shrinking never allocates.
     void truncate(std::size_t size) noexcept;
+
+    // Words of the stack block as a span over its used words.
+    std::span<const Word> used() const noexcept { return {state_.stack, state_.top}; }
+
     // The descriptor named by the header at offset `at`.
     const abi::v1::FrameDescriptor &descriptor(std::size_t at) const noexcept;
 
     // Record failures in the owner's checked channel.
     ProcessContext &owner_;
     StackOptions options_;
-    // Frame headers and slots; the size is the first free word.
-    std::vector<Word> words_;
-    // Capacity of words_ charged to the runtime-wide memory account.
-    std::size_t charged_words_ = 0;
-    // Offset of the current frame's header.
-    std::size_t frame_ = none;
+    // The owner's frame state, shared with generated code (OPT0.1): stack block, top, limit, current frame
+    // offset, reductions left, register pointer, live registers and slow bits.
+    abi::v1::FrameState &state_;
+    // Frame headers and slots; state_.stack points at it and state_.top is the first free word.
+    std::unique_ptr<Word[]> block_;
+    // Words of block_, all charged to the runtime-wide memory account.
+    std::size_t capacity_ = 0;
     // X registers; valid only across a transfer, never roots between invocations.
     std::array<Word, abi::v1::register_count> registers_{};
-    // Leading registers that are roots: set by keep_registers, cleared by every push and pop.
-    std::size_t live_registers_ = 0;
-    // Function entries left in the current time slice; at zero the next entry suspends the process.
-    std::size_t reductions_ = SLICE_REDUCTIONS;
     // The function a suspended process enters when it resumes; null while it runs and once it has ended.
     const abi::v1::FrameDescriptor *resume_ = nullptr;
     // The continuation a builtin trapped to, set by trap() until its caller takes it.

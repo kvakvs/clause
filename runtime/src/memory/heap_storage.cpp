@@ -111,6 +111,7 @@ std::expected<HeapArea *, HeapError> HeapStorage::add_fragment(std::size_t words
     ranges_.insert(std::ranges::upper_bound(ranges_, begin, {}, &FragmentRange::begin_), {begin, fragments_.size()});
     capacity_words_ += fresh->capacity_;
     memory_->force(fresh->capacity_);
+    signal_collection();
     return &fragments_.emplace_back(std::move(*fresh));
 }
 

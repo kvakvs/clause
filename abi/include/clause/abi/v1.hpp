@@ -7,8 +7,9 @@ class ProcessContext;
 
 namespace clause::abi::v1 {
 // Identify this project's generated-code contract; no external language compatibility is promised.
-// Revision 7 adds fun descriptors to modules; v1 names the unchanged term encoding.
-inline constexpr std::uint32_t version = 8;
+// Revision 7 adds fun descriptors to modules; revision 9 starts every context with abi::v1::FrameState (OPT0.1);
+// v1 names the unchanged term encoding.
+inline constexpr std::uint32_t version = 9;
 // Decode the shared immediate-term representation without preprocessor constants.
 inline constexpr unsigned primary_mask = 0x3;
 inline constexpr unsigned small_integer_tag = 0xf;

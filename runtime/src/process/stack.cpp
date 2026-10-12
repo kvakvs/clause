@@ -1,6 +1,7 @@
 #include "../memory/runtime_memory.hpp"
 #include "profile.hpp"
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <clause/runtime/builtin_registry.hpp>
 #include <clause/runtime/process_context.hpp>
@@ -22,74 +23,98 @@ void pause(void *) noexcept {}
 constexpr FrameDescriptor bottom{nullptr, 0, 0, 0, &finish, 0, 0};
 } // namespace
 
-ProcessStack::ProcessStack(ProcessContext &owner, StackOptions options) noexcept : owner_(owner), options_(options) {}
+ProcessStack::ProcessStack(ProcessContext &owner, StackOptions options) noexcept
+    : owner_(owner), options_(options), state_(owner) {
+    state_.stack = nullptr;
+    state_.top = 0;
+    state_.frame = none;
+    state_.reductions = SLICE_REDUCTIONS;
+    state_.registers = registers_.data();
+    state_.live = 0;
+    update_limit();
+}
 
-ProcessStack::~ProcessStack() { owner_.memory()->release(charged_words_); }
+ProcessStack::~ProcessStack() { owner_.memory()->release(capacity_); }
 
 bool ProcessStack::grow(std::size_t size) noexcept {
-    const auto capacity = words_.capacity();
-    // Double like std::vector while the runtime-wide limit allows it, else grow only to what is needed.
+    if (size <= capacity_) {
+        return true;
+    }
+    // Double while the runtime-wide limit allows it, else grow only to what is needed.
     auto &memory = *owner_.memory();
-    const auto wanted = std::max(size, capacity + std::min(capacity, memory.available()));
-    if (size > capacity && wanted - capacity > memory.available()) {
+    const auto wanted = std::max(size, capacity_ + std::min(capacity_, memory.available()));
+    if (wanted - capacity_ > memory.available()) {
         owner_.generated_calls().fail_service(abi::v1::Status::resource_limit);
         return false;
     }
     try {
-        if (size > capacity) {
-            words_.reserve(wanted);
-        }
-        words_.resize(size);
+        auto block = std::make_unique_for_overwrite<Word[]>(wanted);
+        std::copy_n(state_.stack, state_.top, block.get());
+        block_ = std::move(block);
     } catch (const std::bad_alloc &) {
         owner_.generated_calls().fail_service(abi::v1::Status::out_of_memory);
         return false;
     }
-    memory.force(words_.capacity() - charged_words_);
-    charged_words_ = words_.capacity();
+    memory.force(wanted - capacity_);
+    capacity_ = wanted;
+    state_.stack = block_.get();
+    update_limit();
     return true;
 }
 
+void ProcessStack::update_limit() noexcept { state_.limit = std::min(capacity_, options_.limit_words); }
+
+void ProcessStack::update_slow() noexcept {
+    state_.slow =
+        (profile_ ? abi::v1::slow_profile : 0) | (owner_.heap().wants_collection() ? abi::v1::slow_collect : 0);
+}
+
 bool ProcessStack::push(const FrameDescriptor &function) noexcept {
-    live_registers_ = 0;
+    state_.live = 0;
     const auto size = frame_header_words + function.slots;
-    if (size > options_.limit_words - std::min(options_.limit_words, words_.size())) {
+    if (size > options_.limit_words - std::min(options_.limit_words, state_.top)) {
         owner_.generated_calls().fail_service(abi::v1::Status::resource_limit);
         return false;
     }
-    const auto at = words_.size();
+    const auto at = state_.top;
     if (!grow(at + size)) {
         return false;
     }
-    words_[at] = frame_;
-    words_[at + 1] = std::bit_cast<Word>(&function);
-    frame_ = at;
+    // A zeroed frame: link to the caller, descriptor, resume and handler 0, then zeroed slots.
+    const std::array<Word, frame_header_words> header{state_.frame, std::bit_cast<Word>(&function), 0, 0};
+    auto *frame = std::ranges::copy(header, state_.stack + at).out;
+    std::fill_n(frame, function.slots, Word{0});
+    state_.frame = at;
+    state_.top = at + size;
     return true;
 }
 
 void ProcessStack::pop() noexcept {
-    const auto previous = words_[frame_];
-    truncate(frame_);
-    frame_ = previous;
+    const auto previous = state_.stack[state_.frame];
+    truncate(state_.frame);
+    state_.frame = previous;
 }
 
 void ProcessStack::truncate(std::size_t size) noexcept {
-    live_registers_ = 0;
-    words_.erase(words_.begin() + static_cast<std::ptrdiff_t>(size), words_.end());
+    state_.live = 0;
+    state_.top = size;
 }
 
 const FrameDescriptor &ProcessStack::descriptor(std::size_t at) const noexcept {
-    return *std::bit_cast<const FrameDescriptor *>(words_[at + 1]);
+    return *std::bit_cast<const FrameDescriptor *>(state_.stack[at + 1]);
 }
 
 bool ProcessStack::safepoint(std::size_t live) noexcept {
     auto &heap = owner_.heap();
     if (!heap.wants_collection()) {
+        update_slow();
         return false;
     }
     keep_registers(live);
     const SafePoint safe(owner_.generated_calls());
     const auto collected = heap.collect().has_value();
-    live_registers_ = 0;
+    state_.live = 0;
+    update_slow();
     return collected;
 }
 
@@ -99,30 +124,29 @@ void ProcessStack::suspend(const FrameDescriptor &function) noexcept {
 }
 
 abi::v1::Code *ProcessStack::enter(const FrameDescriptor &function) noexcept {
-    if (reductions_ == 0) {
+    if (state_.reductions == 0) {
         suspend(function);
         return &pause;
     }
-    --reductions_;
+    --state_.reductions;
     safepoint(function.arity);
     if (!function.body) {
         // A builtin runs at once on the registers; its result returns into the current frame's body, unless it
         // trapped: then the process suspends at its continuation until the next time slice.
         const auto result = call_builtin_portion(owner_, builtin_frame(function), registers_.data());
         if (const auto *continuation = take_trap()) {
-            reductions_ = 0;
+            state_.reductions = 0;
             suspend(*continuation);
             return &pause;
         }
         registers_[0] = result;
-        return descriptor(frame_).body;
+        return descriptor(state_.frame).body;
     }
     if (!push(function)) {
         registers_[0] = 0;
-        return descriptor(frame_).body;
+        return descriptor(state_.frame).body;
     }
-    std::copy_n(registers_.begin(), function.arity,
-                words_.begin() + static_cast<std::ptrdiff_t>(frame_ + frame_header_words));
+    std::copy_n(registers_.begin(), function.arity, state_.stack + state_.frame + frame_header_words);
     if (profile_) {
         profile_->enter(function);
     }
@@ -140,7 +164,7 @@ void ProcessStack::wait(const FrameDescriptor &continuation, std::span<const Wor
 }
 
 void ProcessStack::spend(std::size_t work) noexcept {
-    reductions_ -= std::min(reductions_, (work + WORK_PER_REDUCTION - 1) / WORK_PER_REDUCTION);
+    state_.reductions -= std::min(state_.reductions, (work + WORK_PER_REDUCTION - 1) / WORK_PER_REDUCTION);
 }
 
 abi::v1::Code *ProcessStack::tail(const FrameDescriptor &function) noexcept {
@@ -152,20 +176,23 @@ abi::v1::Code *ProcessStack::leave(Word result) noexcept {
     registers_[0] = result;
     pop();
     if (profile_) {
-        profile_->run(&descriptor(frame_));
+        profile_->run(&descriptor(state_.frame));
     }
-    return descriptor(frame_).body;
+    return descriptor(state_.frame).body;
 }
 
-void ProcessStack::enable_profile() { profile_ = std::make_unique<detail::ProcessProfile>(); }
+void ProcessStack::enable_profile() {
+    profile_ = std::make_unique<detail::ProcessProfile>();
+    update_slow();
+}
 
 Word ProcessStack::invoke(const FrameDescriptor &function, const Word *arguments) noexcept {
     auto &calls = owner_.generated_calls();
     if (!calls.active() || calls.failure()) {
         return 0;
     }
-    const auto base = words_.size();
-    const auto caller = frame_;
+    const auto base = state_.top;
+    const auto caller = state_.frame;
     std::copy_n(arguments, function.arity, registers_.begin());
     if (start(function)) {
         while (!run(SLICE_REDUCTIONS)) {
@@ -180,7 +207,7 @@ Word ProcessStack::invoke(const FrameDescriptor &function, const Word *arguments
     }
     const auto result = calls.failure() ? Word{0} : registers_[0];
     truncate(base);
-    frame_ = caller;
+    state_.frame = caller;
     return result;
 }
 
@@ -197,10 +224,11 @@ bool ProcessStack::run(std::size_t reductions) noexcept {
     if (!function) {
         return true;
     }
-    reductions_ = reductions;
+    state_.reductions = reductions;
+    update_slow();
     auto &calls = owner_.generated_calls();
     if (profile_) {
-        profile_->run(frame_ == none ? nullptr : &descriptor(frame_));
+        profile_->run(state_.frame == none ? nullptr : &descriptor(state_.frame));
     }
     try {
         enter (*function)(&owner_);
@@ -219,15 +247,15 @@ bool ProcessStack::run(std::size_t reductions) noexcept {
 
 std::size_t ProcessStack::depth() const noexcept {
     std::size_t count = 0;
-    for (auto at = frame_; at != none; at = words_[at]) {
+    for (auto at = state_.frame; at != none; at = state_.stack[at]) {
         ++count;
     }
     return count;
 }
 
 bool ProcessStack::contains(Word value) const noexcept {
-    for (auto at = frame_; at != none; at = words_[at]) {
-        if (std::ranges::contains(std::span(words_).subspan(at + frame_header_words, descriptor(at).roots), value)) {
+    for (auto at = state_.frame; at != none; at = state_.stack[at]) {
+        if (std::ranges::contains(used().subspan(at + frame_header_words, descriptor(at).roots), value)) {
             return true;
         }
     }
@@ -236,7 +264,7 @@ bool ProcessStack::contains(Word value) const noexcept {
 
 StackTrace ProcessStack::trace() const noexcept {
     StackTrace result;
-    for (auto at = frame_; at != none && result.depth < StackTrace::limit; at = words_[at]) {
+    for (auto at = state_.frame; at != none && result.depth < StackTrace::limit; at = state_.stack[at]) {
         if (descriptor(at).module) {
             result.frames.at(result.depth++) = &descriptor(at);
         }

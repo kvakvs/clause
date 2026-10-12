@@ -34,7 +34,9 @@ abi::v1::Status status(HeapError error) {
 
 ProcessHeap::ProcessHeap(ProcessContext &owner, HeapOptions options)
     : owner_(owner), storage_(std::make_shared<detail::HeapStorage>(options, owner.lifetime(), owner.atom_storage(),
-                                                                    owner.memory(), owner.identity_numbers())) {}
+                                                                    owner.memory(), owner.identity_numbers())) {
+    storage_->collection_signal_ = &static_cast<abi::v1::FrameState &>(owner).slow;
+}
 
 ProcessHeap::~ProcessHeap() = default;
 
@@ -109,7 +111,10 @@ bool ProcessHeap::wants_collection() const noexcept {
            storage.off_heap_words_ >= storage.binary_limit_words_;
 }
 
-void ProcessHeap::request_collection() noexcept { storage_->collection_requested_ = true; }
+void ProcessHeap::request_collection() noexcept {
+    storage_->collection_requested_ = true;
+    storage_->signal_collection();
+}
 
 std::size_t ProcessHeap::collected_size(std::size_t live_words) const noexcept {
     const auto &storage = *storage_;

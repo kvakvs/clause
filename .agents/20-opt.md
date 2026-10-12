@@ -5,6 +5,21 @@ optimizing-tier work for BeamAsm. Each one is restated for Clause's ahead-of-tim
 LLVM code generation. The plans are planning input only. This file does not
 copy any OTP source.
 
+## Working rules for plan 20 steps
+
+- Commit each step as soon as it is done (gate green). Don't batch several steps
+  into one commit (user direction 2026-10-12).
+- Prefix the commit subject with `[plan20]`, like plan 11's `[plan11]`, then
+  the step code and title. Example:
+  `[plan20] OPT0.1. Inline frame transfers`.
+- The plan 11 gate applies:
+  - fast CTest
+  - `check-quality` with clang-tidy and Lizard, no suppressions
+  - clang-format
+  - docs updated (`docs/`, `.agents/arch.md`, `.agents/files.md`,
+    `docs/differences.md` for observable differences)
+- Mark the step done here, with its date, in the same commit.
+
 ## Sources
 
 - PR: <https://github.com/garazdawi/otp/pull/855>, "Implement T2 JIT". It is
@@ -119,6 +134,84 @@ LLVM to *see* the operations instead of opaque service calls.
   registers. Reductions and the safepoint stay in the callee prologue.
 - **Effect:** removes the per-call tax. This is the precondition for LLVM's own
   inliner and for items OPT1.2 and OPT1.5.
+- **Status: done 2026-10-12** (ABI revision 9), as inline transfers inside the
+  explicit-frame model rather than native calls:
+  - Every context starts with `abi::v1::FrameState`: stack, top, limit, frame,
+    reductions, registers, live, slow bits and `failed`.
+  - Body prologues read the frame and registers from it, with no service calls.
+  - Enter, tail and return push, pop and spend reductions inline. They fall back
+    to `CLAUSE_enter/tail/return_v1` only on a wanted collection, profiling, no
+    reductions left, stack growth or limit, or a builtin.
+  - The per-call `CLAUSE_call_failed_v2` became a load of `failed`.
+  - Still open:
+    - Arguments still travel through the memory X-register array (OPT0.1A).
+    - Comprehension loop-head safepoints still call the service
+      unconditionally; they could test `slow_collect` inline first.
+    - Benchmarks were not rerun; that is manual (`make-benchmark.bat`).
+
+### OPT0.1A Register-passed arguments and results
+
+User question (2026-10-12): "X registers are a memory array; can LLVM keep them
+in machine registers and spill the extras automatically?"
+
+- **Now:**
+  - X registers are `std::array<Word, 256>` in `ProcessStack`.
+  - A call stores its arguments there, the entry copies them into frame slots,
+    and the body reloads them from the slots.
+  - The result travels back through `x[0]` in memory.
+  - So every argument takes three memory trips, even for a leaf that never
+    needs a frame.
+- **Target:** one uniform body signature
+  `void body(ptr ctx, word x0, …, word x(K-1))`.
+  - The first K X registers are LLVM parameters; any further ones stay in the
+    memory array.
+  - Every transfer is `musttail` with identical prototypes, so the existing
+    guaranteed-tail-call model is unchanged.
+  - A return passes the result as `x0` to the caller's body.
+  - The calling convention should make K large and leave no callee-saved
+    registers:
+    - `preserve_nonecc` (LLVM 19+: x86-64, AArch64), designed for musttail
+      interpreter dispatch
+    - or `ghccc` (x86-32/64, AArch64)
+    - otherwise the C convention with K = the target's integer argument
+      registers
+  - Pick K per target. K = 0 keeps today's scheme for targets where the
+    convention or `musttail` is refused. Prove each required target with a
+    prototype like the step-17 `musttail` table in `execution-model.md`.
+- **What LLVM then does for free:**
+  - Arguments stay in SSA values. `lower_frames` already spills exactly the
+    values that cross a call or safepoint, so an argument gets a frame slot only
+    if it lives across one.
+  - Frames shrink, the entry memcpy disappears, and register allocation and
+    spilling are LLVM's.
+- **Runtime boundary:** the runtime calls code as C `void(ctx)` (start/resume,
+  `invoke`), and generated code tail-calls runtime code (`pause`, `finish`, the
+  services' returned bodies).
+  - The compiler emits small adapters with the uniform signature into the
+    startup object:
+    - an entry adapter `void(ctx)` that loads `x0..x(K-1)` from the array and
+      tail-calls a body
+    - `pause`/`finish` stubs that store the parameters back to the array and
+      return to the runtime
+  - `FrameDescriptor::body` stays the C-callable code, or gains a second pointer.
+  - Clang's `preserve_none` attribute could also serve, but an MSVC-built
+    runtime cannot declare it.
+- **GC and services:** register parameters are not roots.
+  - Every slow path (`CLAUSE_enter_v1` and the others, entry safepoints,
+    suspension) first stores `x0..x(K-1)` to the array, which is what the
+    services already read and the collector already roots via `live`.
+  - It reloads them after the service before the `musttail`.
+  - Inline fast paths never touch the array.
+- **Follow-on it enables:** frameless leaves. A function with no non-tail call
+  and no value live across a safepoint skips its push entirely.
+  `execution-model.md` already allows this; it needs the reduction check and
+  entry safepoint kept on the path. Together they give near-native leaf calls.
+- **Gate:**
+  - every target's `musttail` with the chosen convention at O0/O2/Os
+    (cross-target test)
+  - full suite and goldens unchanged
+  - deep-recursion, yield and GC-stress tests
+  - step-69A call-heavy kernels compared manually
 
 ### OPT0.2 Guard BIFs and term ops as inline primitives
 
@@ -569,8 +662,8 @@ Builds on OPT1.4.
 
 ## Suggested order for Clause
 
-1. **Substrate (tier OPT0):** OPT0.1, OPT0.2, OPT0.3, then OPT0.4, OPT0.5 and
-   OPT0.5A, then OPT0.6, then OPT0.7. OPT0.5A has no dependency on the others
+1. **Substrate (tier OPT0):** OPT0.1 (done), OPT0.1A, OPT0.2, OPT0.3, then
+   OPT0.4, OPT0.5 and OPT0.5A, then OPT0.6, then OPT0.7. OPT0.5A has no dependency on the others
    and can go first if the map kernels are the priority. This attacks the measured 100–600× kernels and makes
    everything below visible to LLVM.
 2. **Loops:** OPT1.1, then OPT1.2, then OPT1.3.

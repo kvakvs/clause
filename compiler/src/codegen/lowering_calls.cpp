@@ -1,6 +1,7 @@
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
 #include <clause/abi/equality.hpp>
+#include <clause/abi/frames.hpp>
 #include <llvm/IR/Module.h>
 #include <stdexcept>
 
@@ -26,14 +27,15 @@ llvm::BasicBlock *failure_exit(ExpressionLowering &state) {
 void propagate_failure(ExpressionLowering &state) {
     auto &builder = state.builder;
     auto &output = *state.entry.getParent();
-    const auto symbol = services::symbol<services::CallFailed>(output.getTargetTriple());
-    auto service =
-        output.getOrInsertFunction(symbol, llvm::FunctionType::get(builder.getInt8Ty(), {builder.getPtrTy()}, false));
-    auto *failed = builder.CreateCall(service, {state.entry.getArg(0)}, "call.failed");
+    // The context's FrameState mirrors CLAUSE_call_failed_v2 in its `failed` word (OPT0.1).
+    auto *address = builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0),
+                                                       static_cast<std::uint64_t>(abi::v1::StateField::failed));
+    auto *failed =
+        builder.CreateAlignedLoad(state.word, address, llvm::Align(state.word->getBitWidth() / 8), "call.failed");
     auto *failure = failure_exit(state);
     auto *success = llvm::BasicBlock::Create(output.getContext(), "call.success", &state.entry);
-    auto *check = builder.Insert(
-        llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_NE, failed, builder.getInt8(0)));
+    auto *check = builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_NE, failed,
+                                                       llvm::ConstantInt::get(state.word, 0)));
     builder.CreateCondBr(check, failure, success);
     builder.SetInsertPoint(success);
 }

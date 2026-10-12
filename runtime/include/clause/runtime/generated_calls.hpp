@@ -1,5 +1,6 @@
 #pragma once
 #include "callable.hpp"
+#include <clause/abi/frames.hpp>
 
 namespace clause::runtime {
 class ProcessStack;
@@ -7,8 +8,11 @@ class ProcessStack;
 // Own one synchronous invocation's first failure, shared by all nested generated/service calls.
 class GeneratedCallState final {
   public:
-    // Borrow the process stack whose frames a recorded Erlang exception captures as its stack trace.
-    explicit GeneratedCallState(const ProcessStack &stack) noexcept : stack_(stack) {}
+    // Borrow the process stack whose frames a recorded Erlang exception captures as its stack trace, and the
+    // context's frame state, whose `failed` word mirrors CLAUSE_call_failed_v2 for generated code (OPT0.1).
+    GeneratedCallState(const ProcessStack &stack, abi::v1::FrameState &state) noexcept : stack_(stack), state_(state) {
+        sync();
+    }
 
     GeneratedCallState(const GeneratedCallState &) = delete;
     GeneratedCallState &operator=(const GeneratedCallState &) = delete;
@@ -29,7 +33,10 @@ class GeneratedCallState final {
     void fail_service(abi::v1::Status status, bool reported = false) noexcept;
 
     // Drop a caught Erlang exception so the invocation continues (`catch Expr`).
-    void clear() noexcept { failure_.reset(); }
+    void clear() noexcept {
+        failure_.reset();
+        sync();
+    }
 
     // Borrow until the outer invocation ends; the payload Term is a process root (BEAM fvalue).
     const std::optional<CallFailure> &failure() const noexcept;
@@ -56,8 +63,13 @@ class GeneratedCallState final {
         }
     }
 
+    // Mirror whether generated code must take its failure exit after a call (OPT0.1).
+    void sync() noexcept { state_.failed = !active_ || failure_.has_value(); }
+
     // The stack of generated frames, read when an Erlang exception is recorded.
     const ProcessStack &stack_;
+    // The context's frame state, whose `failed` word sync() keeps current.
+    abi::v1::FrameState &state_;
     // Mark the host scope owning cleanup; generated calls themselves never reset this state.
     bool active_ = false;
     // Set while running generated code holds heap words only in process roots (SafePoint).

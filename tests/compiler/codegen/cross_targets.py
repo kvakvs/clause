@@ -54,12 +54,14 @@ def inspect(tool, readobj, nm, work, triple, bits, format_name, architecture):
         ir = (root / "llvm-ir/clausev1_616e73776572__0.ll").read_text(encoding="utf-8")
         assert f"store i{bits} {minimum * 16 + 15}" in ir, ir
         assert f"store i{bits} {maximum * 16 + 15}" in ir, ir
-        assert f"i32 8, i32 {bits}" in ir and f"define i{bits} @clausev1_" in ir, ir
+        assert f"i32 9, i32 {bits}" in ir and f"define i{bits} @clausev1_" in ir, ir
         assert ("optsize" in ir) == (level == "-Os"), ir
-        # Calls, tail calls and returns all leave a body by a guaranteed tail call of the service's code.
+        # Calls, tail calls and returns leave a body by a guaranteed tail call of the code an inline transfer or
+        # its service chose (OPT0.1).
         caller = (root / "llvm-ir/clausev1_636c69656e74__0.ll").read_text(encoding="utf-8")
         for service in ["CLAUSE_enter_v1", "CLAUSE_tail_v1", "CLAUSE_return_v1"]:
-            assert re.search(service + r'[^\n]*\n\s*musttail call void %[\w.]+\(ptr[^\n]*\n\s*ret void', caller), caller
+            assert re.search(r'call ptr @[^\n]*' + service, caller), caller
+        assert re.search(r'musttail call void %[\w.]+\(ptr[^\n]*\n\s*ret void', caller), caller
     answer.write_text(f"-module(answer). value() -> {maximum + 1}.\n", encoding="utf-8")
     promoted = work / triple / "promoted"
     run([tool, "--target-triple", triple, "--emit", "obj", "--artifact-dir", str(promoted), str(answer)])

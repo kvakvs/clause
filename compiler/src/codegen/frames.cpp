@@ -4,6 +4,7 @@
 #include "runtime_symbols.hpp"
 #include "verification.hpp"
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <clause/abi/frames.hpp>
 #include <iterator>
@@ -19,6 +20,12 @@ namespace clause::codegen {
 namespace {
 using abi::v1::frame_header_words;
 using abi::v1::frame_resume_word;
+using abi::v1::StateField;
+
+// FrameDescriptor fields an inline entry reads (abi/modules.hpp).
+constexpr unsigned DESCRIPTOR_ARITY = 3;
+constexpr unsigned DESCRIPTOR_BODY = 4;
+constexpr unsigned DESCRIPTOR_SLOTS = 5;
 
 // Arity recorded on a native-form Erlang function; empty for every other function.
 std::optional<std::size_t> erlang_arity(const llvm::Function *function) {
@@ -39,7 +46,8 @@ llvm::FunctionCallee declare(llvm::Module &output, llvm::Type *result, llvm::Arr
 }
 
 struct Services {
-    // Target word, the FrameDescriptor layout and the frame services of one output module.
+    // Target word, the FrameDescriptor layout and the frame services of one output module; the transfer services
+    // are the slow paths of the inline transfers (OPT0.1).
     llvm::Module &output;
     llvm::IntegerType *word;
     llvm::StructType *descriptor;
@@ -47,12 +55,33 @@ struct Services {
     llvm::FunctionCallee enter;
     llvm::FunctionCallee tail;
     llvm::FunctionCallee leave;
-    llvm::FunctionCallee frame;
-    llvm::FunctionCallee registers;
     llvm::FunctionCallee invoke;
 
     // Word alignment of slots and registers.
     [[nodiscard]] llvm::Align align() const { return llvm::Align(word->getBitWidth() / 8); }
+
+    // Load one abi::v1::FrameState field of `context` as `type` (a word or a pointer); the state starts every
+    // context (OPT0.1).
+    llvm::Value *state(llvm::IRBuilder<> &builder, llvm::Value *context, StateField field, llvm::Type *type,
+                       const char *name) const {
+        return builder.CreateAlignedLoad(type, state_address(builder, context, field), align(), name);
+    }
+
+    // Store a word into one FrameState field of `context`.
+    void set_state(llvm::IRBuilder<> &builder, llvm::Value *context, StateField field, llvm::Value *value) const {
+        builder.CreateAlignedStore(value, state_address(builder, context, field), align());
+    }
+
+    // Address of one FrameState field; every field is one target word.
+    llvm::Value *state_address(llvm::IRBuilder<> &builder, llvm::Value *context, StateField field) const {
+        return builder.CreateConstInBoundsGEP1_64(word, context, static_cast<std::uint64_t>(field));
+    }
+
+    // Load field `index` of a FrameDescriptor as `type`.
+    llvm::Value *descriptor_field(llvm::IRBuilder<> &builder, llvm::Value *frame, unsigned index, llvm::Type *type,
+                                  const char *name) const {
+        return builder.CreateAlignedLoad(type, builder.CreateStructGEP(descriptor, frame, index), align(), name);
+    }
 
     // The descriptor a call to `function` enters; remote callees are external declarations.
     [[nodiscard]] llvm::Constant *descriptor_of(const llvm::Function &function) const {
@@ -71,8 +100,6 @@ Services frame_services(llvm::Module &output, llvm::IntegerType *word) {
             declare<services::Enter>(output, ptr, {ptr, ptr}),
             declare<services::Tail>(output, ptr, {ptr, ptr}),
             declare<services::Return>(output, ptr, {ptr, word}),
-            declare<services::Frame>(output, ptr, {ptr}),
-            declare<services::Registers>(output, ptr, {ptr}),
             declare<services::Invoke>(output, word, {ptr, ptr, ptr})};
 }
 
@@ -96,6 +123,13 @@ struct Continuation {
     // A non-tail Erlang call and the block resuming after it, reached through the body's resume switch.
     ErlangCall call;
     llvm::BasicBlock *resume;
+};
+
+struct Callee {
+    // The FrameDescriptor fields an inline entry needs: arity (words copied from the registers), body and slots.
+    llvm::Value *arity;
+    llvm::Value *body;
+    llvm::Value *slots;
 };
 
 // Whether a use reads its value in a `reached` block other than the definition's. A PHI reads at the end of
@@ -130,10 +164,11 @@ class FrameLowering {
         const auto calls = erlang_calls();
         replace_allocas(calls);
         hoist_addresses();
+        std::vector<ErlangCall> tails;
         for (const auto &call : calls) {
             const auto *next = llvm::dyn_cast_or_null<llvm::ReturnInst>(call.call->getNextNode());
             if (next && next->getReturnValue() == call.call) {
-                lower_tail(call);
+                tails.push_back(call);
             } else {
                 split(call);
             }
@@ -141,6 +176,10 @@ class FrameLowering {
         split_safepoints();
         spill_values();
         place_slots();
+        // Inline transfers add control flow, so they follow the spill analysis (OPT0.1).
+        for (const auto &call : tails) {
+            lower_tail(call);
+        }
         for (std::size_t i = 0; i < continuations_.size(); ++i) {
             lower_call(continuations_[i], i + 1);
         }
@@ -160,13 +199,18 @@ class FrameLowering {
         llvm::removeUnreachableBlocks(body_);
     }
 
-    // Read the frame header and registers on entry; argument reads become reads of the first slots.
+    // Read the frame header and registers from the context's FrameState on entry; argument reads become reads of
+    // the first slots.
     void build_prologue() {
         auto *entry = &body_.front();
         auto *block = llvm::BasicBlock::Create(body_.getContext(), "frame", &body_, entry);
         llvm::IRBuilder<> builder(block);
-        auto *header = builder.CreateCall(services_.frame, {body_.getArg(0)}, "frame.header");
-        auto *registers = builder.CreateCall(services_.registers, {body_.getArg(0)}, "frame.registers");
+        auto *context = body_.getArg(0);
+        auto *stack = services_.state(builder, context, StateField::stack, builder.getPtrTy(), "frame.stack");
+        auto *offset = services_.state(builder, context, StateField::frame, services_.word, "frame.offset");
+        auto *header = builder.CreateInBoundsGEP(services_.word, stack, offset, "frame.header");
+        auto *registers =
+            services_.state(builder, context, StateField::registers, builder.getPtrTy(), "frame.registers");
         auto *slots = builder.CreateConstInBoundsGEP1_64(services_.word, header, frame_header_words, "frame.slots");
         auto *resume = builder.CreateConstInBoundsGEP1_64(services_.word, header, frame_resume_word, "frame.resume");
         builder.CreateBr(entry);
@@ -377,13 +421,9 @@ class FrameLowering {
 
     // A tail call releases this frame and enters the callee, whose return reaches this function's caller.
     void lower_tail(const ErlangCall &call) {
-        auto *ret = call.call->getNextNode();
         llvm::IRBuilder<> builder(call.call);
         copy_arguments(builder, call);
-        auto *code = builder.CreateCall(services_.tail, {body_.getArg(0), call.descriptor}, "tail.code");
-        transfer(builder, code);
-        ret->eraseFromParent();
-        call.call->eraseFromParent();
+        enter(builder, call.descriptor, true);
     }
 
     // End the call's block at the call; the result arrives in the first register when the body resumes.
@@ -478,17 +518,134 @@ class FrameLowering {
 
     // Record the resume index, pass the arguments and enter the callee; its return resumes this body.
     void lower_call(const Continuation &continuation, std::size_t index) {
-        auto *block = continuation.call.call->getParent();
         llvm::IRBuilder<> builder(continuation.call.call);
         builder.CreateAlignedStore(llvm::ConstantInt::get(services_.word, index), prologue_.resume, services_.align());
         copy_arguments(builder, continuation.call);
-        auto *code = builder.CreateCall(services_.enter, {body_.getArg(0), continuation.call.descriptor}, "call.code");
-        transfer(builder, code);
-        block->getTerminator()->eraseFromParent();
-        continuation.call.call->eraseFromParent();
+        enter(builder, continuation.call.descriptor, false);
     }
 
-    // Every return passes its value to the caller's body through the return service.
+    // Enter `descriptor` with its arguments in the registers, replacing the call at the builder: pushed inline
+    // (OPT0.1) unless the entry needs the service (a wanted collection, profiling, no reductions left, stack growth
+    // or a builtin); a tail entry first releases this frame.
+    void enter(llvm::IRBuilder<> &builder, llvm::Value *descriptor, bool tail) {
+        auto *context = body_.getArg(0);
+        const auto callee = load_callee(builder, descriptor);
+        auto *at =
+            services_.state(builder, context, tail ? StateField::frame : StateField::top, services_.word, "enter.at");
+        auto *need = builder.CreateAdd(
+            at, builder.CreateAdd(callee.slots, llvm::ConstantInt::get(services_.word, frame_header_words)),
+            "enter.need");
+        auto *reductions = services_.state(builder, context, StateField::reductions, services_.word, "enter.reds");
+        auto *limit = services_.state(builder, context, StateField::limit, services_.word, "enter.limit");
+        auto *slow = services_.state(builder, context, StateField::slow, services_.word, "enter.slow");
+        auto *fast = builder.CreateAnd({builder.CreateIsNull(slow), builder.CreateIsNotNull(reductions),
+                                        builder.CreateIsNotNull(callee.body), builder.CreateICmpULE(need, limit)});
+        auto *rest = diamond(builder, fast, "enter");
+        push_inline(builder, descriptor, callee, {at, need, reductions}, tail);
+        transfer(builder, callee.body);
+        builder.SetInsertPoint(rest->getPrevNode());
+        const auto service = tail ? services_.tail : services_.enter;
+        transfer(builder, builder.CreateCall(service, {context, descriptor}, "enter.service"));
+        discard(*rest);
+    }
+
+    // The arity, body and slot count of the descriptor an entry pushes.
+    Callee load_callee(llvm::IRBuilder<> &builder, llvm::Value *descriptor) const {
+        auto *word = services_.word;
+        return {services_.descriptor_field(builder, descriptor, DESCRIPTOR_ARITY, word, "callee.arity"),
+                services_.descriptor_field(builder, descriptor, DESCRIPTOR_BODY, builder.getPtrTy(), "callee.body"),
+                services_.descriptor_field(builder, descriptor, DESCRIPTOR_SLOTS, word, "callee.slots")};
+    }
+
+    struct Push {
+        // Header offset of the new frame, the stack top after it and the reductions left before the entry.
+        llvm::Value *at;
+        llvm::Value *top;
+        llvm::Value *reductions;
+    };
+
+    // ProcessStack::enter inline: spend a reduction, write the header, copy the arguments from the registers, zero
+    // the other slots and make the frame current. A tail entry reuses this frame's place and its caller link.
+    void push_inline(llvm::IRBuilder<> &builder, llvm::Value *descriptor, const Callee &callee, const Push &push,
+                     bool tail) const {
+        auto *context = body_.getArg(0);
+        auto *word = services_.word;
+        auto *zero = llvm::ConstantInt::get(word, 0);
+        services_.set_state(builder, context, StateField::reductions,
+                            builder.CreateSub(push.reductions, llvm::ConstantInt::get(word, 1)));
+        auto *stack = services_.state(builder, context, StateField::stack, builder.getPtrTy(), "push.stack");
+        auto *header = builder.CreateInBoundsGEP(word, stack, push.at, "push.header");
+        auto *previous = tail ? builder.CreateAlignedLoad(word, header, services_.align(), "push.previous")
+                              : services_.state(builder, context, StateField::frame, word, "push.previous");
+        // The descriptor word is stored as a pointer of the same width, so no pointer conversion appears.
+        const std::array<llvm::Value *, frame_header_words> words{previous, descriptor, zero, zero};
+        for (std::size_t i = 0; i < words.size(); ++i) {
+            builder.CreateAlignedStore(words.at(i), builder.CreateConstInBoundsGEP1_64(word, header, i),
+                                       services_.align());
+        }
+        const auto unit = llvm::ConstantInt::get(word, word->getBitWidth() / 8);
+        auto *slots = builder.CreateConstInBoundsGEP1_64(word, header, frame_header_words, "push.slots");
+        builder.CreateMemCpy(slots, services_.align(), prologue_.registers, services_.align(),
+                             builder.CreateMul(callee.arity, unit));
+        builder.CreateMemSet(builder.CreateInBoundsGEP(word, slots, callee.arity), builder.getInt8(0),
+                             builder.CreateMul(builder.CreateSub(callee.slots, callee.arity), unit), services_.align());
+        services_.set_state(builder, context, StateField::frame, push.at);
+        services_.set_state(builder, context, StateField::top, push.top);
+        services_.set_state(builder, context, StateField::live, zero);
+    }
+
+    // Return `result` in the first register to the caller's body, replacing the return at the builder: popped
+    // inline (OPT0.1) unless the process profiles.
+    void leave(llvm::IRBuilder<> &builder, llvm::Value *result) {
+        auto *context = body_.getArg(0);
+        auto *word = services_.word;
+        builder.CreateAlignedStore(result, prologue_.registers, services_.align());
+        auto *slow = services_.state(builder, context, StateField::slow, word, "return.slow");
+        auto *fast = builder.CreateIsNull(builder.CreateAnd(slow, abi::v1::slow_profile));
+        auto *rest = diamond(builder, fast, "return");
+        auto *frame = services_.state(builder, context, StateField::frame, word, "return.frame");
+        auto *stack = services_.state(builder, context, StateField::stack, builder.getPtrTy(), "return.stack");
+        auto *header = builder.CreateInBoundsGEP(word, stack, frame);
+        auto *previous = builder.CreateAlignedLoad(word, header, services_.align(), "return.previous");
+        services_.set_state(builder, context, StateField::top, frame);
+        services_.set_state(builder, context, StateField::frame, previous);
+        services_.set_state(builder, context, StateField::live, llvm::ConstantInt::get(word, 0));
+        // The caller's descriptor word, loaded as a pointer of the same width.
+        auto *caller = builder.CreateAlignedLoad(
+            builder.getPtrTy(),
+            builder.CreateInBoundsGEP(word, stack, builder.CreateAdd(previous, llvm::ConstantInt::get(word, 1))),
+            services_.align(), "return.caller");
+        auto *body = services_.descriptor_field(builder, caller, DESCRIPTOR_BODY, builder.getPtrTy(), "return.body");
+        transfer(builder, body);
+        builder.SetInsertPoint(rest->getPrevNode());
+        transfer(builder, builder.CreateCall(services_.leave, {context, result}, "return.service"));
+        discard(*rest);
+    }
+
+    // Split the builder's block at its insertion point and branch on `condition` to an inline and a service block,
+    // which each end in their own transfer; the builder moves to the inline block. Returns the rest of the split
+    // block, the replaced call or return, for discard().
+    llvm::BasicBlock *diamond(llvm::IRBuilder<> &builder, llvm::Value *condition, const llvm::Twine &name) {
+        auto *head = builder.GetInsertBlock();
+        auto *rest = head->splitBasicBlock(builder.GetInsertPoint(), name + ".rest");
+        head->getTerminator()->eraseFromParent();
+        auto *fast = llvm::BasicBlock::Create(body_.getContext(), name + ".inline", &body_, rest);
+        auto *slow = llvm::BasicBlock::Create(body_.getContext(), name + ".service", &body_, rest);
+        builder.SetInsertPoint(head);
+        builder.CreateCondBr(condition, fast, slow);
+        builder.SetInsertPoint(fast);
+        return rest;
+    }
+
+    // Delete the unreachable rest of a split block, last instruction first so no value is erased before its users.
+    static void discard(llvm::BasicBlock &rest) {
+        while (!rest.empty()) {
+            rest.back().eraseFromParent();
+        }
+        rest.eraseFromParent();
+    }
+
+    // Every return passes its value to the caller's body, inline or through the return service.
     void lower_returns() {
         std::vector<llvm::ReturnInst *> returns;
         for (auto &block : body_) {
@@ -499,9 +656,7 @@ class FrameLowering {
         }
         for (auto *ret : returns) {
             llvm::IRBuilder<> builder(ret);
-            transfer(builder,
-                     builder.CreateCall(services_.leave, {body_.getArg(0), ret->getReturnValue()}, "return.code"));
-            ret->eraseFromParent();
+            leave(builder, ret->getReturnValue());
         }
     }
 

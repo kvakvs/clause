@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 4)
+# Generated-code ABI (revision 9)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -75,8 +75,10 @@ publishes nothing (already interned atoms stay in the bounded table).
 ## Failure channel (revision 2)
 
 Errors are not encoded in term bits. After every non-tail generated call the
-caller checks `CLAUSE_call_failed_v2(context)` before using the result or
-evaluating the next argument. On failure the callee returns an invalid zero word.
+caller checks the channel before using the result or evaluating the next
+argument: it reads the `failed` word of the context's `FrameState`, which the
+runtime keeps equal to `CLAUSE_call_failed_v2(context)` (OPT0.1). On failure the
+callee returns an invalid zero word.
 
 | Outcome | Transport |
 | --- | --- |
@@ -197,11 +199,20 @@ of type `void(void *context)`. An exported `<symbol>` keeps the `TermWord(Contex
 const TermWord *)` signature as a host entry calling
 `CLAUSE_invoke_v1(context, frame, arguments)`.
 
-- A body reads its frame header (`CLAUSE_frame_v1`) and the registers
-  (`CLAUSE_registers_v1`) on entry and switches on the header's resume
-  word. It leaves only by `musttail` calls of the code that
-  `CLAUSE_enter_v1` (call), `CLAUSE_tail_v1` (tail call) or
-  `CLAUSE_return_v1` (return) give back.
+- Every context starts with an `abi::v1::FrameState` (revision 9, OPT0.1):
+  stack block, top, push limit, current frame offset, reductions left,
+  register pointer, live register count, slow bits and the failed word, one
+  target word each. A body reads its frame header (`stack + frame`) and the
+  registers from it on entry and switches on the header's resume word.
+  `CLAUSE_frame_v1` and `CLAUSE_registers_v1` remain for other consumers.
+- A body leaves only by `musttail` calls. Calls, tail calls and returns run
+  inline when they can: an entry spends a reduction, pushes the zeroed frame
+  and copies the arguments itself unless the heap wants a collection, the
+  process profiles, no reduction is left, the push would pass the limit or the
+  callee is a builtin (null body); a return pops inline unless the process
+  profiles. Otherwise the code comes from `CLAUSE_enter_v1` (call),
+  `CLAUSE_tail_v1` (tail call) or `CLAUSE_return_v1` (return), which keep the
+  state current.
 - Arguments occupy the first frame slots; every evaluated value is stored in a
   term slot before the next expression or call. Failed candidates clear their
   slots. Values a body still needs after a call or a loop-head safepoint are
@@ -218,7 +229,9 @@ const TermWord *)` signature as a host entry calling
   values after them, in the registers; `CLAUSE_apply_v1` returns the
   `FrameDescriptor` the transfer enters ([funs](funs.md#representation)).
 - Safepoints: `CLAUSE_enter_v1`/`CLAUSE_tail_v1` collect before
-  pushing the callee frame (its arguments are register roots), and
+  pushing the callee frame (its arguments are register roots); the heap sets
+  the `slow_collect` bit whenever it wants a collection, so inline entries
+  never skip one. And
   `CLAUSE_safepoint_v1(context)` at each comprehension loop head collects
   in place, when the heap asks for it. Every other service is a critical
   section that never moves the heap

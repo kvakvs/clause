@@ -5,6 +5,7 @@
 #include "process_heap.hpp"
 #include "signals.hpp"
 #include "stack.hpp"
+#include <clause/abi/frames.hpp>
 #include <clause/abi/v1.hpp>
 
 namespace clause::runtime {
@@ -80,8 +81,9 @@ class ContextLifetime final {
 };
 
 // Bind the existing TermFactory sketch to one process's storage and registered roots.
-// This is passed to function calls as Context parameter.
-class ProcessContext final {
+// This is passed to function calls as Context parameter. It starts with the abi::v1::FrameState that generated code
+// reads through the same pointer (OPT0.1); only ProcessStack and GeneratedCallState update it.
+class ProcessContext final : private abi::v1::FrameState {
   public:
     // Keep context addresses stable for the full continuation/heap lifetime.
     ProcessContext(const ProcessContext &) = delete;

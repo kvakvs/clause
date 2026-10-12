@@ -22,6 +22,7 @@ bool plain_reason(abi::v1::ErrorReason reason) {
 bool GeneratedCallState::enter() noexcept {
     const bool outer = !active_;
     active_ = true;
+    sync();
     return outer;
 }
 
@@ -31,6 +32,7 @@ void GeneratedCallState::leave(bool outer) noexcept {
     if (outer) {
         failure_.reset();
         active_ = false;
+        sync();
     }
 }
 
@@ -40,6 +42,7 @@ void GeneratedCallState::fail(const CallFailure &failure) noexcept {
         if (failure.code == CallError::erlang_exception && !failure.stack) {
             failure_->trace = stack_.trace();
         }
+        sync();
     }
 }
 

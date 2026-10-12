@@ -164,10 +164,16 @@ Step 19 (2026-10-05) implements the model with these choices and gaps:
   turns calls, tail calls and returns into `musttail` transfers. Type
   specialization and test seams work on native form; the backend runs
   `lower_frames` before IR inspection and `optimize` runs it if still needed.
-- **Entry and body.** There is no separate entry function: the caller calls
-  `CLAUSE_enter_v1(context, callee.frame)`, which pushes the frame, copies
-  the arguments and returns the callee's body. A tail call uses
-  `CLAUSE_tail_v1`, which first releases the caller's frame.
+- **Entry and body.** There is no separate entry function. The process state
+  table above is `abi::v1::FrameState`, at the start of every context, so
+  generated code transfers inline (OPT0.1, ABI revision 9): an entry spends a
+  reduction, pushes the zeroed frame, copies the arguments from the
+  registers and transfers to the callee's body; a tail entry first reuses the
+  caller's place; a return pops and transfers to the caller's body. Each path
+  falls back to `CLAUSE_enter_v1`, `CLAUSE_tail_v1` or `CLAUSE_return_v1` when
+  the heap wants a collection, the process profiles, no reduction is left,
+  the stack must grow or reach its limit, or the callee is a builtin. The
+  failure check after a call reads the state's `failed` word.
 - **Tail positions** are the last expression of a clause body, followed
   through blocks, parentheses, `case` and `if` clause bodies. Calls in
   `catch`, `try`, `maybe` and `andalso`/`orelse` operands are not tail calls.
@@ -178,8 +184,9 @@ Step 19 (2026-10-05) implements the model with these choices and gaps:
   cursors and accumulator live in term slots, so no SSA value is carried
   around a loop and a resume point inside it needs nothing beyond the usual
   spills.
-- **Yields** (step 43, [processes](processes.md)). `CLAUSE_enter_v1` and
-  `CLAUSE_tail_v1` spend one of the process's reductions; with none left
+- **Yields** (step 43, [processes](processes.md)). Every entry, inline or
+  through `CLAUSE_enter_v1` and `CLAUSE_tail_v1`, spends one of the
+  process's reductions; with none left the services take over:
   they record the entered function (`ProcessStack::resume_`, the model's
   `resume_at`), keep its arguments as register roots and return code that
   ends the time slice, so the native stack unwinds to the executor, which

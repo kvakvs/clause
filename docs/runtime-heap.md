@@ -318,8 +318,9 @@ safepoint, and no native pointer crosses one at all (already an error in
   collection rewrites stack words in place and never moves the stack; every
   transfer re-reads it in the body prologue as before.
 - Optimization runs after `lower_frames` and cannot replace a reload by the
-  older SSA value: the frame address comes from `CLAUSE_frame_v1`, so the
-  safepoint call may write every slot (prototype below).
+  older SSA value: the frame address is loaded from the context's
+  `FrameState`, and the opaque safepoint call may write every slot through it
+  (prototype below).
 
 ### Failure behavior
 

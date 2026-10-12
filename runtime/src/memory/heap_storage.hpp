@@ -99,6 +99,17 @@ class HeapStorage final {
     std::size_t collections_ = 0;
     // garbage_collect/0,1,2 asked for a collection at the next safepoint (step 41G1).
     bool collection_requested_ = false;
+    // The owning context's FrameState::slow word, so generated entries see a wanted collection (OPT0.1); null for
+    // a message buffer's storage.
+    std::size_t *collection_signal_ = nullptr;
+
+    // Mark a collection as wanted for the owner's generated entries (OPT0.1).
+    void signal_collection() noexcept {
+        if (collection_signal_) {
+            *collection_signal_ |= abi::v1::slow_collect;
+        }
+    }
+
     // Borrow the runtime atom table only while the process lifetime token remains alive.
     AtomStorage *atoms_;
     // Borrow the runtime's issued pid and port numbers, under the same lifetime rule as atoms_.

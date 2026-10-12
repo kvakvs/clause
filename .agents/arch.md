@@ -81,11 +81,16 @@
 - Execution model (step 17 decision, implemented in step 19; `docs/execution-model.md#implementation`):
   lowering emits native form (`Word f(ctx, args)`, ordinary calls, `clause.frame` slot marker, `erlang-arity`
   attribute, tail calls as `ret call`); `codegen/frames` (`lower_frames`, run by the backend before inspection and by
-  `optimize`) moves each body to `<sym>.body` (`void(ctx)`), prologue = frame header/registers services + resume
-  switch, splits after non-tail calls, spills cross-call SSA values to raw slots, hoists constant slot GEPs, and emits
-  only `musttail` transfers via `clause_enter/tail/return_v1`. Descriptors `<sym>.frame` (7 words: names, arity,
-  body, slots, roots); exported `<sym>` = host wrapper over `CLAUSE_invoke_v1`. Runtime `ProcessStack`
-  (`process/stack`): flat `std::vector<Word>`, 4-word headers linked by offsets, 256 X registers, uncapped
+  `optimize`) moves each body to `<sym>.body` (`void(ctx)`), prologue = frame header/registers loaded from the
+  context's `abi::v1::FrameState` + resume switch, splits after non-tail calls, spills cross-call SSA values to raw
+  slots, hoists constant slot GEPs, and emits only `musttail` transfers. OPT0.1 (ABI 9): every context starts with
+  `FrameState` (private base of `ProcessContext`; stack/top/limit/frame/reductions/registers/live/slow/failed);
+  enter, tail and return run inline (diamonds built after spill analysis) and fall back to
+  `CLAUSE_enter/tail/return_v1` on slow bits (heap signals `slow_collect`, profiling `slow_profile`), no reductions,
+  limit or null body; `propagate_failure` reads `failed` (mirrored by `GeneratedCallState::sync`). Descriptors
+  `<sym>.frame` (7 words: names, arity, body, slots, roots); exported `<sym>` = host wrapper over
+  `CLAUSE_invoke_v1`. Runtime `ProcessStack` (`process/stack`, one per context): flat owned word block,
+  4-word headers linked by offsets, 256 X registers, uncapped
   by default (opt-in `StackOptions::limit_words` -> `resource_limit`; host refusal `out_of_memory` -> exit 70), bottom frame per invocation contains native exceptions. Exceptions still return
   through callers (channel check). Step 43 yields: `ProcessStack::enter` spends a reduction per entry (4,000 per
   slice); at zero it records `resume_` = the entered frame, keeps its argument registers and returns `pause`, so
