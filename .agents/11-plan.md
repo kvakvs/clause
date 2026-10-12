@@ -26,16 +26,14 @@ draft with smaller, single-commit steps.
   selects and implements the parse-transform slice of step 73 and depends on
   [65C](00-finished.md#step-65c), not on step 73, so it may run before steps
   66–72.
-- Phase H2 (steps 41A–41H) was inserted on 2026-10-11 (user direction) after
-  the luerl project build showed the missing `erlang` builtins. Its steps
-  follow 41 numerically but run after the open phase M/N2 work unless
-  reordered.
-- Phase L3 (step 62D, as 62D1–62D4, and step 62E) was inserted on 2026-10-11
-  (user direction). It adds the `build_dir` option, build caches and an
-  in-memory index of searched directories, selecting the cache item of D07
-  ahead of decision step 77. 62E is independent and may run before 62D.
-  Step 62D5 (SQLite cache backend) was added on 2026-10-12 (user direction)
-  after 62D1–62D4 and 62E were done.
+- Phases H2 (`erlang` builtins, 41A–41H), L2 (export liveness, 62C) and L3
+  (build directory and caches, 62D1–62D5 and 62E; the cache item of D07
+  selected ahead of step 77) were inserted on 2026-10-11/12 (user direction)
+  and are done.
+- Phase H3 (steps 41I–41S) was inserted on 2026-10-12 (user direction):
+  replacements for the ERTS-preloaded and build-generated modules OTP's
+  `kernel`/`stdlib` call, driven by the luerl build. Its steps follow 41H
+  numerically and grow as the luerl ledger advances.
 
 ## Common gate and rules (apply to every step)
 
@@ -125,22 +123,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
-| A. Baseline and fixtures | [1](00-finished.md#step-1)–[2](00-finished.md#step-2) | V03 | done |
-| B. Production executables | [3](00-finished.md#step-3)–[8](00-finished.md#step-8) | F01, F26, V04 | done |
-| C. Classic process heap | [8A](00-finished.md#step-8a)–[8I](00-finished.md#step-8i) | F02–F05, F09 | done |
-| D. Control flow and exceptions | [9](00-finished.md#step-9)–[16](00-finished.md#step-16) | F13, F14, F16, F20 | done |
-| E. Execution model, recursion, comprehensions | [17](00-finished.md#step-17)–[22](00-finished.md#step-22) | F02, F13, F16, F21, F22 | done |
-| F. Memory management | [23](00-finished.md#step-23)–[28](00-finished.md#step-28) | F02–F05, F08–F11 | done |
-| G. Records, function values, dynamic calls | [29](00-finished.md#step-29)–[35](00-finished.md#step-35) | F03, F12, F14, F17–F19, F21 | done |
-| H. Builtins and libraries | [36](00-finished.md#step-36)–[41](00-finished.md#step-41) | F26, F27 | done |
-| I. Processes and messaging | [42](00-finished.md#step-42)–[53](00-finished.md#step-53), [43A](00-finished.md#step-43a) | F02, F04, F05, F07, F14, F22, F24–F26 | done |
-| J. Multi-worker scheduling | [54](00-finished.md#step-54)–[57](00-finished.md#step-57) | F06, F23, F25, F28 | done |
-| J2. Ports and port I/O | [57A](00-finished.md#step-57a)–[57G3](00-finished.md#step-57g3) | F07, F23, F26, F35 | done |
-| K. End-to-end projects | [58](00-finished.md#step-58) | F01, V03 | done |
-| L. Optimization and tooling | [58A](00-finished.md#step-58a)–[58N3](00-finished.md#step-58n3), [59](00-finished.md#step-59)–[62B](00-finished.md#step-62b) | F23, F25, F29–F34 | done |
-| H2. `erlang` module builtins | [41A](#step-41a)–[41H](#step-41h) (41G as 41G1–41G3) | F36 | done (41F TSan stress with V02) |
-| L2. Export liveness | [62C](#step-62c) | F32, F36 | done |
-| L3. Build directory and caches | [62D](#step-62d) (62D1–62D5), [62E](#step-62e) | D07 | done |
+| H3. Drop-in replacements for OTP runtime modules | [41I](#step-41i)–[41S](#step-41s) | F36, D01 | open |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -151,32 +134,9 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 65A–65C and 73A–73G); full step text and evidence are in Git
-at those commits. The anchors below keep older links to this file working.
-
-<a id="completed-steps"></a><a id="step-1"></a><a id="step-1a"></a><a id="step-1b"></a><a id="step-1c"></a>
-<a id="step-2"></a><a id="step-3"></a><a id="step-3a"></a><a id="step-4"></a><a id="step-5"></a><a id="step-6"></a>
-<a id="step-6a"></a><a id="step-7"></a><a id="step-8"></a><a id="step-8a"></a><a id="step-8b"></a><a id="step-8c"></a>
-<a id="step-8d"></a><a id="step-8e"></a><a id="step-8f"></a><a id="step-8g"></a><a id="step-8h"></a><a id="step-8i"></a>
-<a id="step-9"></a><a id="step-10"></a><a id="step-11"></a><a id="step-12"></a><a id="step-13"></a><a id="step-14"></a>
-<a id="step-15"></a><a id="step-16"></a><a id="step-17"></a><a id="step-18"></a><a id="step-19"></a><a id="step-20"></a>
-<a id="step-21"></a><a id="step-22"></a><a id="step-23"></a><a id="step-24"></a><a id="step-25"></a><a id="step-26"></a>
-<a id="step-27"></a><a id="step-27a"></a><a id="step-27b"></a><a id="step-27c"></a><a id="step-27d"></a><a id="step-27e"></a>
-<a id="step-28"></a><a id="step-29"></a><a id="step-30"></a><a id="step-31"></a><a id="step-31a"></a><a id="step-31b"></a>
-<a id="step-31c"></a><a id="step-31d"></a><a id="step-31e"></a><a id="step-32"></a><a id="step-33"></a><a id="step-34"></a>
-<a id="step-35"></a><a id="step-36"></a><a id="step-37"></a><a id="step-38"></a><a id="step-39"></a><a id="step-40"></a>
-<a id="step-41"></a><a id="step-42"></a><a id="step-43"></a><a id="step-43a"></a><a id="step-44"></a><a id="step-45"></a>
-<a id="step-46"></a><a id="step-47"></a><a id="step-48"></a><a id="step-49"></a><a id="step-50"></a><a id="step-51"></a>
-<a id="step-52"></a><a id="step-53"></a><a id="step-54"></a><a id="step-55"></a><a id="step-56"></a><a id="step-57"></a>
-<a id="step-57a"></a><a id="step-57b"></a><a id="step-57c"></a><a id="step-57d"></a><a id="step-57e"></a><a id="step-57f"></a>
-<a id="step-57g"></a><a id="step-57g1"></a><a id="step-57g2"></a><a id="step-57g3"></a><a id="step-58"></a><a id="step-58a"></a>
-<a id="step-58b"></a><a id="step-58c"></a><a id="step-58d"></a><a id="step-58e"></a><a id="step-58f"></a><a id="step-58f1"></a>
-<a id="step-58g"></a><a id="step-58h"></a><a id="step-58h1"></a><a id="step-58i"></a><a id="step-58i1"></a><a id="step-58i2"></a>
-<a id="step-58j"></a><a id="step-58j1"></a><a id="step-58k"></a><a id="step-58l"></a><a id="step-58m"></a><a id="step-58n1"></a>
-<a id="step-58n2"></a><a id="step-58n3"></a><a id="step-59"></a><a id="step-60"></a><a id="step-61"></a><a id="step-62"></a>
-<a id="step-62a"></a><a id="step-62b"></a><a id="step-63"></a><a id="step-64"></a><a id="step-65"></a><a id="step-65a"></a>
-<a id="step-65b"></a><a id="step-65c"></a><a id="step-67"></a><a id="step-68"></a><a id="step-73a"></a><a id="step-73b"></a>
-<a id="step-73c"></a><a id="step-73d"></a><a id="step-73e"></a><a id="step-73f"></a><a id="step-73g"></a>
+commit for 1–68, 41A–41H, 62C–62E, 65A–65C and 73A–73G); full step text and
+evidence are in Git at those commits. The anchors below keep older links to
+this file working.
 
 ### Notes from completed steps that guide remaining work
 
@@ -193,712 +153,380 @@ at those commits. The anchors below keep older links to this file working.
   `{d, ...}`, `warnings_as_errors` and unknown `-compile` options; each names
   itself in the diagnostic (imports of `erlang` functions reach the library
   module since 41B).
+- 41F (for V02): the timer stress run under TSan belongs to the next Linux
+  sanitizer gate.
+- 41H (for 71): code loading answers for linked code (`delete_module/1`
+  `notsup`, `prepare_loading/2` `badfile`) until step 71 decides.
+- 62D (for 77): cache layout and limits in
+  [build caches](../docs/projects.md#build-caches); per-module compile reuse
+  and a directory scan cache stay open in D07.
 - 73A–73G (for 73H): OTP-requiring tests carry label `host_otp` and skip when
   CMake finds no `erl`; host OTP lookup is `--erl`, `PATH`, then
   `%ProgramFiles%\Erlang OTP`; `--erl none` simulates a missing host OTP.
 
-## H2. `erlang` module builtins
+## H3. Drop-in replacements for OTP runtime modules
 
-Real projects call many `erlang` functions outside the bridge catalog
-([builtins](../docs/builtins.md#which-builtins-exist)). Evidence, 2026-10-11:
-`test-luerl.toml` (luerl plus the OTP `kernel`/`stdlib` modules it pulls in)
-stops with 590 `unknown module erlang` errors and hundreds of
-`undefined function M:get/1`-style errors for auto-imported BIFs. Most frequent:
-`get/1` 147, `put/2` 138, `nif_error` 175, `erase/1` 45, `binary_to_term/1` 45,
-`iolist_size/1` 34, `monotonic_time` 34, `fun_info/2` 34, `term_to_binary/1,2`
-34, `nodes/0,1,2` 29, `group_leader/0,2` 27, `process_info/1,2` 21,
-`monitor_node/2` 19, `convert_time_unit/3` 18, `binary_to_integer/1,2` 15,
-`atom_to_binary/1,2` 17, timers (`start_timer`, `send_after`,
-`cancel_timer`) 29, `system_info/1` 12, `split_binary/2` 10. Each step from
-41C on appends catalog entries (indices never change), implements them in the runtime
-with OTP's error terms in its own translation unit under
-`runtime/src/builtins/erlang/` (41A), replacing the matching `erlang.erl`
-stub from 41B, documents them in `docs/builtins.md` and proves them
-with OTP-goldened executables; Lua/luerl progress is recorded, not a gate.
+Added 2026-10-12 (user direction). Backlog: F36 (other modules), D01 for code
+loading answers. OTP's `kernel` and `stdlib` are plain Erlang, but they call
+modules that ERTS preloads and implements in C (NIFs, BIFs, port drivers).
+Clause compiles `kernel`/`stdlib` sources found through `source_search_paths`,
+so those calls fail with `unknown module`. Whatever needs the runtime and
+cannot be written in plain Erlang is decided per module, and where a module
+mixes concerns per group of functions (user direction 2026-10-12). A module
+is either **provided** — a Clause replacement with OTP 29's exact export
+list, first all stubs so it is discoverable and callers compile, then real
+groups (runtime builtin, Erlang body over existing runtime services,
+OTP-shaped refusal such as `{error, enotsup}`, or a stub raising `undef`) —
+or **missing**, possibly forever. Low-level modules such as the `prim_*`
+file and socket layers can stay missing: Clause provides the higher-level
+standard modules above them (`file`, `gen_tcp`, `gen_udp`, `inet`, and
+`socket`, `net`, `filelib` where decided), and because Clause modules win
+over OTP's, the OTP callers of a missing module never enter a batch.
 
-<a id="step-41a"></a>
+Evidence, 2026-10-12 (`clau.bat --project test-luerl --entry luerl:init`,
+458 stderr lines, only the 62D5 build changed since 41H): `unknown module`
+for 12 modules, plus 3 `erlang:get_stacktrace/0` errors that OTP reports too
+(luerl source, not a gap). A scan of every `lib/kernel/src` and
+`lib/stdlib/src` module for remote calls into modules neither application
+defines adds four more ERTS modules. Calls to other applications (`compile`,
+`crypto`, `yecc`, `erl_syntax`, `erl_prettypr`) and to generated `erl_parse`
+(yecc, open since 41H) are outside this phase. The current ledger (the
+proposed direction is confirmed or changed in 41I and in each module's
+step):
 
-### 41A. Organize `erlang` builtins in their own source directory
+| Module | Kept by OTP in | luerl errors | kernel/stdlib callers | Functions called |
+| --- | --- | --- | --- | --- |
+| `prim_socket` | `erts/preloaded` (NIF) | 114 | `socket`, `inet` | ~60 (`open`, `bind`, `connect`, `send*`, `recv*`, `getopt`, `setopt`, `ioctl`, `info`, ...) |
+| `unicode_util` | generated into `stdlib` from `lib/stdlib/uc_spec` | 101 | `string`, `unicode`, `prim_tty` | `cp/1`, `gc/1`, `casefold/1`, `lowercase/1`, `uppercase/1`, `titlecase/1`, `nfc/nfd/nfkc/nfkd/1`, `category/1`, `is_whitespace/1`, `is_wide/1`, `pattern_whitespace/0`, `is_other_id_start/1`, `is_other_id_continue/1`, `is_letter_not_pattern_syntax/1` |
+| `persistent_term` | `erts/preloaded` (BIFs) | 48 | 14 (`logger_*`, `erl_features`, `code_server`, `inet_db`, `os`, `io_ansi`, ...) | `get/0,1,2`, `put/2`, `erase/1` (exports also `put_new/2`, `info/0`) |
+| `init` | `erts/preloaded` | 35 | 33 | `get_argument/1`, `get_arguments/0,1`, `get_plain_arguments/0`, `script_name/0`, `get_status/0`, `stop/0`, `objfile_extension/0`, `archive_extension/0`, `code_path_choice/0`, `fetch_loaded/0`, `ensure_loaded/1`, `notify_when_started/1`, `get_configfd/1`, `set_configfd/2`, `run_on_load_handlers/0` |
+| `erl_prim_loader` | `erts/preloaded` | 29 | 9 (`code`, `code_server`, `filelib`, `inet_db`, ...) | `read_file/1`, `read_file_info/1`, `read_link_info/1`, `list_dir/1`, `get_cwd/0,1`, `get_path/0`, `is_basename/1`, `prim_*` |
+| `erts_internal` | `erts/preloaded` (BIFs) | 22 | 9 (`maps`, `string`, `code`, `net_kernel`, ...) | `cmp_term/2`, `map_next/3`, `list_to_integer/2`, `map_to_tuple_keys/1`, `map_hashmap_children/1`, distribution (`new_connection/1`, `abort_pending_connection/2`, `dynamic_node_name/0,1`, `get_creation/0`, `get_dflags/0`), `beamfile_chunk/2`, `beamfile_module_md5/1` |
+| `prim_net` | `erts/preloaded` (NIF) | 21 | `net` | 16 (`gethostname/0`, `getaddrinfo/2`, `getifaddrs/1`, `if_*`, ...) |
+| `socket_registry` | `erts/preloaded` | 14 | `socket`, `gen_tcp_socket`, `gen_udp_socket` | `monitor/1,2`, `cancel_monitor/1`, `which_sockets/1`, `which_monitors/1`, ... |
+| `zlib` | `erts/preloaded` (NIF) | 10 | 8 (`zip`, `erl_tar`, `disk_log_1`, `beam_lib`, `code`, ...) | `open/0`, `close/1`, `deflateInit/6`, `deflate/2,3`, `deflateEnd/1`, `inflateInit/2,3`, `inflate/2`, `safeInflate/2`, `inflateEnd/1`, `inflateReset/1`, `gzip/1`, `gunzip/1`, `uncompress/1` |
+| `prim_file` | `erts/preloaded` (NIF) | 8 | `raw_file_io`, `application_controller` (and `file` through them) | `open/2`, `close/1`, `file_desc_to_ref/2`, ... (51 exports) |
+| `erts_code_purger` | `erts/preloaded` | 3 | `code_server` | `purge/1`, `soft_purge/1`, `finish_after_on_load/2` |
+| `prim_eval` | `erts/preloaded` | 1 | `erl_eval` | `'receive'/2` |
+| `prim_inet` | `erts/preloaded` (port driver) | hidden (`inet` ignored) | 10 (`inet`, `inet_tcp`, `inet_udp`, `inet_sctp`, ...) | ~60 |
+| `prim_buffer` | `erts/preloaded` (NIF) | — | `raw_file_io_delayed`, `raw_file_io_inflate` | `new/0`, `read/2`, `write/2`, `size/1`, `wipe/1`, ... |
+| `atomics`, `counters` | `erts/preloaded` (BIFs) | — | `erl_erts_errors` | `info/1` (whole BIF modules) |
 
-Backlog: F36. Depends on: [41](00-finished.md#step-41).
+Proposed direction:
 
-A large builtin module is implemented over several C++ translation units, one
-per family, under a subdirectory named after the module. This step only moves
-and splits existing code; no builtin changes behavior.
+- **Provided:** `init`, `persistent_term`, `unicode_util`, `atomics`,
+  `counters`, `erts_code_purger`, the `stdlib` group of `erts_internal`
+  (`cmp_term/2`, `map_next/3`, `list_to_integer/2`, map helpers); to decide:
+  `erl_prim_loader`, `zlib`, `prim_eval`.
+- **Missing, possibly forever:** `prim_file`, `prim_buffer`, `prim_socket`,
+  `prim_net`, `prim_inet`, `socket_registry`, and the distribution and
+  `.beam` groups of `erts_internal`. Their OTP callers (`raw_file_io*`,
+  `socket`, `net`, `inet_tcp`, `gen_tcp_socket`, `net_kernel`, ...) are
+  shadowed by Clause modules or recorded as unsupported.
 
-- Success criteria
-  - [x] `runtime/src/builtins/erlang/` holds every translation unit whose
-    builtins belong to module `erlang`: today's `erlang.cpp` (operators,
-    type tests, errors), `term_access.cpp`, the `erlang` part of
-    `lists.cpp` (`length/1`, `'++'/2`, `'--'/2`), `conversions.cpp`,
-    `processes.cpp` and the port builtins of `ports.cpp`; helpers shared
-    only by them live in `erlang/support.hpp`. Other modules (`io`, `os`,
-    `lists` library helpers) and the bridge infrastructure (`bridge`,
-    `registry`, `invocation`, `portions`, `typed`, `text`) stay in
-    `runtime/src/builtins/`.
-  - [x] Each family TU defines its own `*_builtins()` span, listed in
-    `production_builtins()`; a new family (41C–41H) adds a new TU and span
-    instead of growing an existing file. A TU past about 400 lines splits
-    by family before it grows further.
-  - [x] The catalog `abi::v1::bridge_builtins` stays one append-only array
-    (indices are the ABI); its entries are grouped by family comments that
-    name the implementing TU.
-  - [x] Same rule for later large modules (`binary`, `unicode`, `ets`):
-    `runtime/src/builtins/<module>/`.
-  - [x] `runtime/CMakeLists.txt` lists the moved files; `files.md`,
-    `arch.md` and `docs/builtins.md` name the new layout.
-- Tests
-  - [x] Unchanged full-mode CTest results and `check-quality-all`; the
-    standalone `runtime_link` build still succeeds.
-- Done 2026-10-11: `production_builtins()` moved to `registry.cpp` so new families never touch
-  `core.cpp`. Gate: fast CTest 242/243 (known `codegen_resource_cli`), `check-quality` clean.
+Two findings shape the steps:
 
-<a id="step-41b"></a>
+- **Precedence.** Today a module found in `source_search_paths` wins over the
+  library ([library](../docs/library.md#how-programs-get-them)). With
+  `references/otp/lib/**/src` on the search path, OTP's `file`, `io`, `lists`,
+  `maps`, `os`, `gen_tcp` replace Clause's library modules of the same name,
+  and a user's copy of `erts/preloaded/src` would replace the replacements.
+  Decided 2026-10-12 (user): every module Clause provides wins over OTP's
+  module of the same name. OTP is optional on the user's machine; when it is
+  present it must not change what a build compiles. Consequence: Clause's
+  library modules shadow OTP's complete ones, so each of them must also export
+  OTP 29's full list (stubs where not implemented), or OTP code calling a
+  function Clause lacks stops at `undefined function`.
+- **Kernel services.** OTP's `file`, `io`, `code`, `logger` and friends call
+  registered servers (`file_server_2`, `code_server`, the group leader's io
+  server, `logger`) that the `kernel` application starts at boot. A Clause
+  executable starts none of them, so making their modules compile is not
+  making them work. Which services exist at startup is decided in 41I.
 
-### 41B. Declare `erlang` exports through a library stub
+The ledger above lives on in `docs/library.md` (41K) and is refreshed by every
+step of this phase: rerun the luerl command, classify each new error
+(`unknown module`, `undefined function M:F/A`, unsupported syntax or feature,
+other), and add or adjust steps here before coding the next one.
 
-Backlog: F36. Depends on: [41A](#step-41a).
+<a id="step-41i"></a>
 
-Builtins stay defined in the runtime (`runtime/src/builtins/`); the compiler
-never reads runtime sources. It learns that a builtin exists from the shared
-catalog `abi::v1::bridge_builtins` (`abi/include/clause/abi/builtins.hpp`) and
-that an `erlang` function exists from a project-owned library module, as OTP's
-`erlang.erl` declares BIFs whose bodies ERTS replaces.
+### 41I. Decide the replacement-module contract
 
-- Success criteria
-  - [x] An owned observation of OTP 29's `erlang` exports and auto-imports
-    (name/arity, guard/auto-import flags; generated from the pinned
-    checkout, no copied source) classifies every export as implemented,
-    planned (41C–41H) or unavailable with a reason (distribution, tracing,
-    code loading pending step 71, NIF loading).
-  - [x] `library/stdlib/erlang.erl` (Clause's own source, not an OTP copy)
-    exports exactly that inventory. A function without an implementation
-    has a stub body that raises `error(undef)` with `erlang:F/A` on top of
-    the stack, as OTP does for a missing function; a catalog builtin is
-    exported and stubbed too, and the runtime's builtin replaces the stub
-    at registration. Functions OTP writes in Erlang may get real Erlang
-    bodies here, as `io.erl` mixes library code with runtime builtins.
-  - [x] Compiler resolution of `erlang:F/A`, `fun erlang:F/A`, `apply` with
-    literal names and auto-imported calls: a catalog builtin goes through
-    the bridge; any other export of `erlang.erl` calls the library module
-    (pulled in like `lists`); a name the stub does not export is
-    `undefined function erlang:F/A`. Auto-imports follow OTP's list, so
-    `get(K)` no longer reports `undefined function M:get/1`; a module's own
-    definition and `-compile({no_auto_import, ...})` still win.
-  - [x] Runtime: registering library module `erlang` next to the builtin
-    module keeps builtins first for catalog entries and serves the stubs
-    for dynamic calls; no duplicate-module failure.
-  - [x] `erlang:nif_error/1,2` raises `error(Reason)` like OTP's stub, so
-    NIF stub modules compile and fail only when called.
-  - [x] Later steps (41C–41H) add catalog entries and runtime builtins only;
-    the stub module changes only where a body moves into Erlang.
-    `docs/builtins.md`, `docs/library.md` and `docs/differences.md`
-    (stubs raise `undef` at run time where OTP has the BIF) describe it.
-- Tests
-  - [x] Consistency check without OTP: every `erlang` catalog entry is
-    exported by `erlang.erl`, and every `erlang.erl` export is in the owned
-    inventory; inventory freshness against the pin when OTP is present.
-  - [x] Executables: a builtin reached directly, as a fun and by dynamic
-    call; a stubbed function compiles and raises `undef` only when called;
-    an auto-imported call resolves; a local definition shadows it.
-- Done 2026-10-11: 351 exports (133 implemented, 119 planned for 41C–41H, 99 unavailable). Literal
-  funs of builtins bind the builtin (`module_registration`), compiler-handled `erlang:` calls
-  (`is_record/3`) need no library module. Gate: fast CTest (known `codegen_resource_cli`),
-  `check-quality` clean.
-
-<a id="step-41c"></a>
-
-### 41C. Process dictionary
-
-Backlog: F36. Depends on: [41B](#step-41b).
+Backlog: F36. Depends on: [41B](00-finished.md#step-41b). **Decision.**
 
 - Success criteria
-  - [x] `put/2`, `get/0,1`, `get_keys/0,1`, `erase/0,1` with OTP semantics
-    and ordering-independent results; values live on the process heap,
-    are collection roots and are dropped at exit.
-  - [x] `process_info(Pid, dictionary)` deferred to 41G is noted.
+  - [ ] `docs/library.md` gains a "Runtime module replacements" contract:
+    - which modules qualify (counterparts of `erts/preloaded` modules and of
+      modules OTP generates at build time, such as `unicode_util`) and where
+      they live (proposed `library/erts/` next to `library/stdlib/`, with the
+      library lookup searching both);
+    - precedence (decided, user 2026-10-12): every module Clause provides —
+      replacements, Clause's own `lists`, `maps`, `file`, `io`, `os`,
+      `gen_tcp`, `gen_udp`, `inet`, `erlang` and any later library module —
+      wins over a same-named module found through `source_search_paths`, so
+      an installed or referenced OTP never changes what a build compiles;
+    - explicit inputs (decided, user 2026-10-12): a source the user lists
+      explicitly (`sources`, `source_dirs`, positional inputs) with the name
+      of a Clause module is allowed and replaces the Clause module, with a
+      warning that names both; order is explicit inputs, then Clause
+      modules, then `source_search_paths`;
+    - `ignore_modules` (decided, user 2026-10-12) applies to Clause modules
+      too: an ignored Clause module is missing from the batch, and an
+      explicitly listed source can then provide it (no warning, since
+      nothing is replaced);
+    - every Clause library module exports OTP 29's complete list for its
+      name, so OTP callers compile against it; what is not implemented is a
+      `stub` or `refused` like in the replacement modules;
+    - a decision record per module (and per function group where a module
+      mixes concerns), kept in `docs/library.md`: **provided** (the module
+      exists; each group `implemented`, `refused` or `stub`) or **missing**
+      (no module at all, possibly forever, with the reason and the
+      higher-level Clause modules that shadow its OTP callers); a missing
+      module never gets a stub, so a reference to it stays a compile-time
+      error, never a run-time surprise. A missing module's name is
+      reserved: a same-named file on `source_search_paths` (such as OTP's
+      `erts/preloaded/src/prim_file.erl`) is not used, and the diagnostic
+      says Clause does not provide the module; an explicit input may still
+      provide it, with the replacement warning. Modules decided as
+      trivially implementable for the runtime need no separate decision;
+    - kernel services at startup: none (OTP modules that need a registered
+      server fail as in OTP without one), a minimal set started by the
+      startup object (for example `file_server_2` and an io server), or a
+      booted `kernel` application; record the choice and its cost;
+    - per-function statuses kept in an inventory per module, as
+      `erlang.terms` does: `implemented` (runtime builtin or Erlang body),
+      `refused` (an OTP-shaped error or return, such as `{error, enotsup}`,
+      that callers already handle), `stub` (raises `error(undef)` with
+      `M:F/A` on top of the stack, like the 41B stubs), `declined` (with the
+      reason, for example distribution or code loading pending step 71);
+    - OTP compatibility: the export list is exactly OTP 29's, observed from
+      the host OTP (no copied source); results and error terms of
+      implemented functions match OTP; differences go to
+      `docs/differences.md`.
+  - [ ] The ledger refresh rule of this phase is written into the contract.
 - Tests
-  - [x] Executables with large dictionaries across collections and spawned
-    processes (isolation); OTP goldens.
-- Done 2026-10-11: `executables_process_dictionary` (OTP golden). The hand-kept auto-import set became
-  OTP's table intersected with the catalog, so later steps only append catalog entries. `garbage_collect/0`
-  is not implemented yet (41G); the fixture forces collections by allocation.
+  - [ ] None beyond the gate.
 
-<a id="step-41d"></a>
+<a id="step-41j"></a>
 
-### 41D. Binary, atom and number conversions
+### 41J. Generalize the export inventory and stub generator
 
-Backlog: F36. Depends on: [41B](#step-41b).
+Backlog: F36. Depends on: [41I](#step-41i).
 
 - Success criteria
-  - [x] `atom_to_binary/1,2`, `binary_to_atom/1,2`,
-    `binary_to_existing_atom/1,2`, `list_to_existing_atom/1`,
-    `integer_to_binary/1,2`, `binary_to_integer/1,2`, `float_to_binary/1,2`,
-    `binary_to_float/1`, `list_to_float/1`, `binary_to_list/3`,
-    `bitstring_to_list/1`, `list_to_bitstring/1`, `split_binary/2`,
-    `iolist_size/1`, `list_to_pid/1`, `list_to_ref/1`; encodings and
-    `badarg` cases as OTP.
+  - [ ] `observe_erlang.escript` and `generate_erlang.py` generalize to any
+    module: an escript observes a module's exports from the host OTP
+    (`M:module_info(exports)`, with `module_info` itself left out), and a
+    generator writes `<m>.terms` and the stub module once; after that the
+    module is hand-edited and a check keeps it consistent. `erlang` keeps
+    its current files and auto-import output.
+  - [ ] The check, without OTP: every inventory entry is exported by the
+    module, nothing else is exported, every `stub` entry raises `undef`,
+    and every `implemented` entry has a body or a catalog builtin. With
+    host OTP: the inventory still matches OTP's exports (`host_otp` label).
+  - [ ] A committed report script runs the ledger classification of this
+    phase over a `clau` stderr file (module, error kind, callers, called
+    functions with arities), so each refresh is one command.
 - Tests
-  - [x] OTP-goldened executable covering edge values (big integers, bases
-    2–36, Unicode atoms, latin1 limits, improper iolists).
-- Done 2026-10-11: `executables_binary_conversions` (OTP golden, 70 cases plus direct calls). Added
-  `AtomStorage::existing` and `TermFactory::reference_number`; `Term::bit_slice` was declared but
-  never defined, so slices use `BitAccess::slice`. `list_to_pid/1` admits only issued pids
-  (`docs/differences.md`).
+  - [ ] The consistency and freshness checks as CTests, including one
+    deliberately inconsistent fixture inventory that fails.
 
-<a id="step-41e"></a>
+<a id="step-41k"></a>
 
-### 41E. External term format
+### 41K. Make the provided runtime modules discoverable
 
-Backlog: F36, F05. Depends on: [41D](#step-41d).
+Backlog: F36. Depends on: [41J](#step-41j).
 
 - Success criteria
-  - [x] `term_to_binary/1,2` (minor version, for `compressed` we need to use
-    system-available zlib or install a local copy of it), `binary_to_term/1,2` 
-    (`safe`, `used`), `external_size/1,2` reuse
-    `abi/include/clause/abi/external_term.hpp`; pids, references, ports and
-    funs encode as OTP for the local node or are rejected explicitly.
-  - [x] Bounds and atom-table limits checked before allocation; malformed
-    input is `badarg`.
+  - [ ] Replacement modules with OTP 29's full export lists, all `stub`,
+    for every module 41I decides as provided (proposed: `atomics`,
+    `counters`, `erts_code_purger`, `erts_internal`, `init`,
+    `persistent_term`, `unicode_util`, and `erl_prim_loader`, `zlib`,
+    `prim_eval` if decided so), found by the library lookup. Modules
+    decided as missing get no file.
+  - [ ] Module lookup order is explicit inputs, Clause modules, then
+    `source_search_paths`; an explicit input that replaces a Clause module
+    warns; `ignore_modules` removes Clause modules too. `docs/library.md`
+    and `docs/projects.md` say so.
+  - [ ] Clause's existing library modules (`lists`, `maps`, `file`, `io`,
+    `os`, `gen_tcp`, `gen_udp`, `inet`) get inventories and OTP 29's full
+    export lists, with stubs for what they do not implement yet. For every
+    missing module, each OTP caller luerl pulls in is either shadowed by a
+    Clause module (new stub modules such as `socket`, `net`, `filelib`
+    where 41P/41R decide so) or recorded as unsupported.
+  - [ ] The luerl rerun shows no `unknown module` error for provided
+    modules and none reached through a shadowed caller; the next layer of
+    errors is classified into the ledger in `docs/library.md`, and the
+    steps below are adjusted or extended to it.
+  - [ ] `docs/library.md` lists provided and missing modules with their
+    group statuses.
 - Tests
-  - [x] Byte-exact goldens from OTP for every term kind; round trips; fuzzed
-    malformed input under the sanitizers.
-- Done 2026-10-11: OTP bytes matched on the first run (`executables_external_terms`); the fuzz test
-  found two decoder bugs (invalid atom UTF-8, NaN floats) before commit. Not run under the sanitizers
-  in this step (they run with V02 phase gates). `compressed` writes uncompressed bytes; differences
-  recorded in `docs/differences.md`.
+  - [ ] An executable calls one stub of each provided module directly,
+    through `fun M:F/A` and by dynamic call, and gets OTP's `undef`
+    exception with the stub on top of the stack; inventory checks from 41J
+    pass.
+  - [ ] Precedence: a project whose search path holds a `lists.erl` and a
+    `prim_file.erl` of its own (stand-ins for OTP's) compiles Clause's
+    `lists` and never the stand-in `prim_file` (a call to it reports that
+    Clause does not provide the module), with the same output with and
+    without that directory; the
+    same `lists.erl` listed in `sources` replaces Clause's with the
+    warning; with `lists` in `ignore_modules` a call to `lists` is an
+    unknown module until `sources` lists one, which then compiles without
+    a warning.
 
-<a id="step-41f"></a>
+<a id="step-41l"></a>
 
-### 41F. Time, unique values and timers
+### 41L. `init` arguments and status
 
-Backlog: F36, F23. Depends on: [41B](#step-41b).
+Backlog: F36. Depends on: [41K](#step-41k).
 
 - Success criteria
-  - [x] `monotonic_time/0,1`, `system_time/0,1`, `time_offset/0,1`,
-    `convert_time_unit/3`, `timestamp/0`, `unique_integer/0,1`,
-    `localtime/0`, `universaltime/0` and their conversions.
-  - [x] `start_timer/3,4`, `send_after/3,4`, `cancel_timer/1,2`,
-    `read_timer/1,2` on the existing timer wheel; messages and results as
-    OTP, timers of exited processes released.
+  - [ ] Trivial for the runtime, so implemented: `get_argument/1`,
+    `get_arguments/0`, `get_plain_arguments/0` (the executable's argv, with
+    no emulator flags: `home` from the environment, other flags `error`),
+    `script_name/0`, `get_status/0` (`{started, started}`),
+    `objfile_extension/0`, `archive_extension/0`, `code_path_choice/0`,
+    `fetch_loaded/0` (the registered modules), `notify_when_started/1`,
+    `ensure_loaded/1`, `stop/0,1` with OTP's exit status rules.
+  - [ ] Boot and configuration entries (`boot/1`, `get_configfd/1`,
+    `set_configfd/2`, `restart/0,1`, `reboot/0`) decided per function.
 - Tests
-  - [ ] Executables with deterministic ordering assertions (no wall-clock
-    flakiness); timer stress under TSan.
-- Done 2026-10-11: `executables_time_timers` (OTP golden). Timer messages live in a
-  `MessageBuffer` (runtime term format, user direction: no ETF re-encoding), so local funs travel too.
-  Open: the TSan timer stress run belongs to the next Linux sanitizer gate (V02).
+  - [ ] OTP-goldened executable with arguments and environment.
 
-<a id="step-41g"></a>
+<a id="step-41m"></a>
 
-### 41G. Process introspection and spawn options
+### 41M. `persistent_term`
 
-Backlog: F36, F22. Depends on: [41C](#step-41c). Split on 2026-10-11 before
-coding into 41G1–41G3 (about 40 functions in three unrelated families); each
-sub-step is one commit. Results that legitimately differ from OTP (memory
-sizes, counts, hash values) are checked by shape and recorded in
-`docs/differences.md`.
-
-<a id="step-41g1"></a>
-
-#### 41G1. Process and system introspection
+Backlog: F36, F05. Depends on: [41K](#step-41k).
 
 - Success criteria
-  - [x] `process_info/1,2` (selected items; an OTP item Clause does not keep is
-    named in the error), `processes/0`, `group_leader/0,2` (inherited by
-    spawned processes), `garbage_collect/0,1,2` (a collection at the next
-    safepoint), `yield/0`, `statistics/1`, `system_info/1` and `memory/0,1`
-    for the items OTP programs commonly read; other items `badarg`.
+  - [ ] `put/2`, `put_new/2`, `get/0,1,2`, `erase/1`, `info/0` as runtime
+    builtins over one runtime-wide table safe for several workers; how a
+    stored term is shared (copied into an immutable literal area or copied
+    out on every `get`) and released after `erase` is decided and
+    documented in `docs/runtime-heap.md`; `badarg` cases as OTP.
 - Tests
-  - [x] OTP-goldened executable (shapes and relations for values that vary).
-- Done 2026-10-11: `executables_introspection` (OTP golden, shapes and relations).
+  - [ ] OTP-goldened executable with large values, several processes and
+    collections; the multi-worker stress runs under TSan with V02.
 
-<a id="step-41g2"></a>
+<a id="step-41n"></a>
 
-#### 41G2. Spawn options, spawn requests, aliases and hibernation
+### 41N. `erts_internal`, `atomics`, `counters` and `erts_code_purger`
+
+Backlog: F36, D01. Depends on: [41K](#step-41k).
 
 - Success criteria
-  - [x] `spawn_opt/2..5` (link, monitor, priority and heap tuning options;
-    another node is `badarg`), `spawn_request/1..5` with its reply message,
-    `spawn_request_abandon/1`, `alias/0,1`, `unalias/1`, sends to an alias,
-    `monitor/3` (`{alias, ...}`, `{tag, ...}`) and `hibernate/3`.
+  - [ ] `erts_internal` functions that `stdlib` needs: `cmp_term/2`,
+    `map_next/3` (the `maps` iterator protocol), `list_to_integer/2`,
+    `map_to_tuple_keys/1`, `map_hashmap_children/1`; distribution and
+    `.beam` functions `declined` or `refused` with OTP's non-distributed
+    answers.
+  - [ ] `atomics` and `counters` as runtime builtins (new, get, put, add,
+    sub, exchange, compare_exchange, info), if trivial; otherwise decided.
+  - [ ] `erts_code_purger:purge/1`, `soft_purge/1` answer as for a module
+    without old code; `finish_after_on_load/2` follows step 71.
 - Tests
-  - [x] OTP-goldened executable.
-- Done 2026-10-11: `executables_spawning` (OTP golden). A repeat run under parallel load found that a
-  reply alias was consumed before a blocked send retried; `Executor::send_alias` now consumes it on
-  delivery.
+  - [ ] OTP-goldened executable using `maps` iterators and ordering,
+    `string:to_integer`-style callers, atomics and counters.
 
-<a id="step-41g3"></a>
+<a id="step-41o"></a>
 
-#### 41G3. Fun information, hashing and MD5
+### 41O. `unicode_util` from the Unicode data
+
+Backlog: F36. Depends on: [41K](#step-41k).
 
 - Success criteria
-  - [x] `fun_info/1,2`, `fun_to_list/1`, `is_builtin/3`, `phash/2`,
-    `phash2/1,2` (equal terms hash equally within the range), `md5/1` and
-    `md5_init/0`, `md5_update/2`, `md5_final/1` (RFC 1321, OTP's digests).
+  - [ ] Decide how the tables are produced: an owned generator reading the
+    Unicode Character Database files OTP 29 pins (`lib/stdlib/uc_spec`),
+    run once and committed like other goldens (check the Unicode data
+    license allows committing the generated tables), so normal builds need
+    no OTP.
+  - [ ] `cp/1`, `gc/1` (extended grapheme clusters per UAX #29),
+    `casefold/1`, `lowercase/1`, `uppercase/1`, `titlecase/1`,
+    `nfc/1`, `nfd/1`, `nfkc/1`, `nfkd/1`, `category/1`, `is_whitespace/1`,
+    `is_wide/1`, `pattern_whitespace/0` and the identifier helpers, with
+    OTP's results on binaries, lists and mixed chardata, and OTP's error
+    tuples for invalid input. Split into sub-steps if the tables make one
+    commit too large.
 - Tests
-  - [x] OTP-goldened executable; MD5 digests byte-exact.
-- Done 2026-10-11: `executables_fun_hashing` (OTP golden; MD5 byte-exact on the first run).
+  - [ ] Goldens from OTP's `unicode_util` over every code point for the
+    property functions and over sampled strings for clusters and
+    normalization; `string` and `unicode` functions luerl uses run.
 
-<a id="step-41h"></a>
+<a id="step-41p"></a>
 
-### 41H. Single-node distribution and code-loading answers
+### 41P. Files: Clause `file` and `filelib`; `erl_prim_loader`, `prim_file`, `prim_buffer`
 
-Backlog: F36, D01. Depends on: [41B](#step-41b), [71](#step-71).
+Backlog: F36, F35. Depends on: [41I](#step-41i), [41K](#step-41k).
 
 - Success criteria
-  - [x] Single-node answers as a non-distributed OTP node: `node/0,1`,
-    `nodes/0,1,2` (`[]`), `is_alive/0` (`false`), `monitor_node/2`,
-    `disconnect_node/1`; `module_loaded/1`, `pre_loaded/0`,
-    `delete_module/1`, `prepare_loading/2`, `finish_loading/1` per the
-    step 71 decision.
-  - [x] Rerun `test-luerl.toml`; record which `erlang` functions remain
-    and plan or decline each.
+  - [ ] Decisions per module and group, following 41I's kernel-services
+    decision: Clause's `file` (over the runtime file driver) is the file
+    layer programs use and grows toward OTP's export list (`read_file_info`,
+    `consult`, `open/2` modes, ...) as the ledger demands; `filelib` is
+    either OTP's Erlang code running on Clause's `file` or a Clause module;
+    `erl_prim_loader` is provided over the file driver (its callers are
+    `code`, `code_server`, `filelib`, `inet_db`) or missing with those
+    callers shadowed; `prim_file` and `prim_buffer` are proposed missing
+    forever, with `raw_file_io*` and `application_controller` shadowed or
+    recorded.
 - Tests
-  - [x] Executables against OTP goldens taken from a non-distributed node.
-- Done 2026-10-11: `executables_node_code` (OTP golden). Phase gate: full-mode CTest 258/259 (known
-  `codegen_resource_cli`), `check-quality-all` clean. Step 71 is still open, so code loading answers for
-  linked code (`delete_module/1` notsup, `prepare_loading/2` badfile). `test-luerl.toml` rerun: the 590
-  `unknown module erlang` errors and the auto-import errors are gone; no `erlang` function is missing. What
-  remains (626 lines) is other modules, planned or declined in `01-todo.md` F36:
-  - OTP's runtime modules without Clause counterparts: `prim_socket` (115), `prim_inet` (73), `prim_net`
-    (21), `socket_registry` (16), `prim_file` (8) — declined: Clause's sockets and files are its own drivers
-    (`clause_socket`, `file`);
-  - boot and code server internals: `init` (36), `erts_internal` (29), `erl_prim_loader` (29),
-    `erts_code_purger` (3), `prim_eval` (1) — declined with step 71;
-  - NIF and BIF modules worth a runtime implementation: `persistent_term` (54), `unicode_util` (101),
-    `zlib` (11) — open backlog;
-  - parsers generated from `.yrl`/`.xrl` (`erl_parse`, `core_parse`, `luerl_scan`, `luerl_parse`) — open:
-    leex/yecc generation through the host OTP, like parse transforms;
-  - 3 calls of `erlang:get_stacktrace/0`, removed in OTP 23: OTP rejects them too.
+  - [ ] OTP-goldened executables for the implemented file operations,
+    including errors (`enoent`, `eacces`, `enotdir`).
 
-## L2. Export liveness
+<a id="step-41q"></a>
 
-Inserted 2026-10-11 (user direction). Every exported function is reachable
-from its module descriptor's export table, so `-Os` dead-stripping and
-`--lto` can never drop one, even when nothing calls it; large library modules
-(the 41B `erlang.erl` stub, `lists`, OTP modules pulled in from search paths)
-keep every export alive.
+### 41Q. `zlib`
 
-<a id="step-62c"></a>
-
-### 62C. Drop unreachable exports before emission
-
-Backlog: F32, F36. Depends on: [62](00-finished.md#step-62),
-[41B](#step-41b).
+Backlog: F36. Depends on: [41K](#step-41k).
 
 - Success criteria
-  - [x] A whole-batch export liveness analysis runs before LLVM IR emission.
-    Roots: the executable entry, `-on_load`-free startup, every exported
-    function named statically elsewhere in the batch (`M:F(...)`,
-    `-import`, `fun M:F/A`, `apply`/`spawn` families with literal module
-    and function), behaviour callbacks of a module whose name escapes as a
-    value, and everything a live function calls.
-  - [x] Escape rules stay conservative: a module whose name atom is used as a
-    value (passed, stored, sent, `?MODULE`), or any dynamic call whose module
-    is not a literal while `list_to_atom`/`binary_to_atom` or atom-producing
-    builtins are reachable, keeps all exports of the affected modules;
-    the analysis reports why a module stayed fully live (`--verbose`).
-  - [x] A dead export leaves the module's export table and gets internal
-    linkage (or is not emitted), so linker dead-stripping and LTO remove it;
-    `module_info(exports)` and `function_exported/3` answer as if it were
-    still exported (from the descriptor's name list, not frames), and a
-    dynamic call that reaches it raises `undef`, recorded in
-    `docs/differences.md`.
-  - [x] Opt-out `--keep-exports` (all exports live, today's behavior) and a
-    per-target project option; the default applies the analysis only to
-    executables, never to `--emit` artifacts meant for other programs.
-  - [x] Weak references are evaluated as an alternative (weak export-table
-    entries resolved by the linker): kept only if all targets (COFF, ELF,
-    Mach-O) support them; the decision is recorded in `docs/executables.md`.
+  - [ ] Decide: link a pinned zlib into the runtime (the 41E
+    `term_to_binary(_, [compressed])` gap would close with it) and
+    implement the stream API, `gzip/1`, `gunzip/1`, `compress/1`,
+    `uncompress/1`, `zip/1`, `unzip/1` as runtime builtins; or `refuse`
+    the module with OTP's `badarg`/`not_supported`-style errors.
 - Tests
-  - [x] Executable sizes with `-Os` and `--lto` for a program using a few
-    `lists`/`erlang` functions shrink measurably; recorded, not a gate.
-  - [x] Behavior of all program fixtures and executable goldens unchanged
-    with and without `--keep-exports`; dynamic calls, `spawn/3`, behaviours
-    and `apply` on escaped module names still work.
-- Done 2026-10-11: `semantic/liveness` walks from the entry (only live functions' bodies count), so an export
-  named only in unreachable code is dropped too; dead functions and their lambdas get no code at all, their
-  export entries keep the name only. `linking_exports` checks the fixture (undef only for a module named through
-  a stack trace), `keep_exports`, `--verbose` reasons and 14 goldens with `--keep-exports`; all other executable
-  goldens run with liveness on. Sizes (sizes.erl: `lists:map/seq/foldl/reverse`): `-Os` 2,760,704 bytes vs
-  2,802,688 kept; `-O2 --lto` 2,760,192 vs 2,802,688 (the runtime archive dominates). Weak references rejected
-  (`docs/executables.md#export-liveness`).
+  - [ ] If implemented: byte-exact goldens against OTP for compression
+    levels and strategies, round trips, damaged input.
 
-## L3. Build directory and caches
+<a id="step-41r"></a>
 
-Inserted 2026-10-11 (user direction). Selects the cache item of D07 ahead of
-step 77. Today `clau` keeps nothing between runs. Every build re-reads,
-preprocesses, parses, transforms and compiles every module. Temporary files
-are spread around: transform workspaces go to the system temp directory, link
-staging (`.clause-link*`) sits beside the output, and `--emit` artifacts go to
-`build/aot`.
+### 41R. Networking: Clause `gen_tcp`, `gen_udp`, `inet`, `socket`, `net`; the `prim_*` layer
 
-Measured on the luerl project (188 modules, Release `clau`,
-`--print-stage-times`, 2026-10-11):
-
-- planning, including `**` glob expansion over `references/otp/lib`: 0.09 s;
-- preprocess 0.5 s, parse 0.5 s, parse transforms 0.9 s (3 modules), compile
-  1.1 s; whole run 3.6 s.
-
-So directory scans are cheap at this size. Host `erl` transform runs and
-whole-batch compilation are the costs worth caching.
-
-<a id="step-62d"></a>
-
-### 62D. Build directory and cached build results
-
-Backlog: D07 (cache). Depends on: [58](00-finished.md#step-58),
-[73G](00-finished.md#step-73g), [62C](#step-62c) (compile-cache keys must
-include export liveness). Split into 62D1–62D5. Each sub-step is one commit
-titled `[plan11] 62Dn. <title>`.
-
-Shared design rules for all sub-steps:
-
-- **Storage.** One project-internal cache interface:
-  `get`/`put` by (input directory, file, kind, key), plus `invalidate` and
-  `prune`. Callers never see paths. The first backend stores files under
-  `<build_dir>/cache/v<format>/`, grouped by input directory. Each source
-  directory gets one subdirectory named by a readable tail of the path plus a
-  hash of the normalized absolute path (`src-3f2a91c0`). That subdirectory
-  holds one index file plus pack files per result kind, not one file per
-  module and kind. A later SQLite (or similar) backend must replace this
-  without changing any caller; record that boundary in `docs/projects.md`.
-- **Keys.** Never trust an entry by time stamp alone. Size and mtime are only a
-  fast pre-check, and the content hash decides. Every key includes:
-  - the `clau` version and the cache format version;
-  - the effective options of that stage: include directories, defines,
-    features and application directories for the frontend; triple,
-    optimization, `-g`, specialization and LTO for compilation; transform
-    names, `transform_paths` `.beam` hashes and the host OTP release for
-    transforms.
-- **Dependencies.** A frontend entry records every file it read, with its
-  hash: includes, `include_lib` results, and transform sources. It also
-  records every path probed and found missing. A header added earlier on the
-  include path must invalidate the entry.
-- **Safety.** Writes go to a temporary file and are renamed into place. A
-  truncated, corrupt or foreign-version entry is ignored and rebuilt, never
-  an error. Two `clau` processes sharing one build directory must not corrupt
-  it: use either a lock or append-only packs plus an atomic index swap.
-  Diagnostics come out the same with and without a cache hit, so warnings are
-  stored with the entry.
-- **Observability.** `--print-stage-times` marks reused stages
-  (`[time] parse a.erl: 0.012 ms (cached)`), and `--verbose` says why an
-  entry missed. `--no-cache` disables reads and writes.
-
-#### 62D1. Build directory option and temporary files
+Backlog: F36, F35. Depends on: [41I](#step-41i), [41K](#step-41k).
 
 - Success criteria
-  - [x] Project option `build_dir` (manifest-relative, per target) and CLI
-    `--build-dir DIR` (overrides it for every selected target). The default
-    is `<manifest-dir>/build` for projects. Positional inputs get no build
-    directory unless `--build-dir` is given: today's "check/print modes
-    create no files" contract stays true without it.
-  - [x] Clause-owned temporary files move under `<build_dir>/tmp`, starting
-    with the transform loader workspaces. Link staging stays beside the
-    output, because the final rename must stay on the same volume; record
-    that reason in `docs/executables.md`.
-  - [x] `--print-env` reports the build directory, and `--help`,
-    `docs/projects.md`, `docs/compile.md` and the `--new-project` template
-    name it. The contract states that check/print modes may write only
-    inside the build directory.
+  - [ ] Clause's `gen_tcp`, `gen_udp` and `inet` (over the runtime socket
+    ports, 57F) are the networking layer programs use and grow toward
+    OTP's export lists as the ledger demands. Decide whether Clause also
+    provides `socket` and `net` (OTP's newer API) over the same ports, or
+    leaves them missing; `prim_socket`, `prim_net`, `prim_inet` and
+    `socket_registry` are proposed missing forever, with their OTP callers
+    (`socket`, `net`, `inet_tcp`, `inet_udp`, `gen_tcp_socket`,
+    `gen_udp_socket`, ...) shadowed or recorded. `net` answers that need no
+    socket (`gethostname/0`, `getaddrinfo/2`, `getnameinfo/2`,
+    `if_names/0`) are implemented if trivial.
 - Tests
-  - [x] A project run creates temporary files only under `build_dir`, and
-    nothing is left there after success or failure. `--build-dir` overrides
-    the manifest, and a positional check run without it writes nothing.
-- Done 2026-10-11: `build_dir` is a target key (beside `output`), resolved in planning
-  (`PlannedTarget::build_directory_`); `FrontendRequest::build_directory_` sets
-  `TransformSettings::temporary_directory_` (`<build_dir>/tmp`), which the loader's workspaces and the sticky
-  query use. `transforms_build_dir` (host OTP) reads the workspace a transform prints from the loader's plain
-  argument: default, manifest, `--build-dir`, a failing transform, positional `--build-dir`, and a positional
-  check that writes nothing; the system temp stays empty.
+  - [ ] OTP-goldened executables for whatever is implemented; refusal
+    shapes for the rest.
 
-#### 62D2. Cache store and frontend results
+<a id="step-41s"></a>
+
+### 41S. `prim_eval` and the next luerl layer
+
+Backlog: F36. Depends on: [41K](#step-41k)–[41R](#step-41r).
 
 - Success criteria
-  - [x] The storage interface and its file backend from the shared rules
-    exist, with `--no-cache`.
-  - [x] Parse transform results are cached first, because they are the
-    largest frontend cost: the imported forms as ETF, plus the transform's
-    messages and output. A warm run starts no host `erl` for unchanged
-    modules.
-  - [x] Preprocess and parse results are cached only if a warm-cache load
-    (ETF of the abstract forms through `transforms/import`, or a dedicated
-    AST format) beats reparsing on the luerl fixture. Record the measurement
-    either way.
-  - [x] Header, define and feature changes invalidate exactly the modules
-    that depend on them. That includes a new header that would shadow an
-    included one.
+  - [ ] `prim_eval:'receive'/2` (selective receive driven by a matcher fun,
+    used by `erl_eval`) implemented or refused.
+  - [ ] Rerun the luerl command and refresh the ledger; every remaining
+    error is assigned to a new step of this phase, to another backlog item
+    (for example `erl_parse` through yecc on the host OTP), or recorded as
+    declined; the phase stays open until `luerl:init` links.
 - Tests
-  - [x] Black-box project runs: a cold build then a warm build give identical
-    diagnostics and outputs, with stage times showing `(cached)`. Then edit a
-    header, a define, a transform source and a `.beam` on `transform_paths`;
-    each edit rebuilds only the modules it affects.
-  - [x] Corrupt, truncated and old-format entries are rebuilt silently. A
-    deleted build directory is recreated.
-- Done 2026-10-11: `compiler/src/cache/store` (interface, file backend, `KeyBuilder`, xxh3-128 keys) and
-  `driver/build_cache` (`BuildCaches` per invocation, `TransformCache` as the loader's `transforms::HostCache`).
-  The transform key is computed after preprocessing from the request bytes, so header/define/feature
-  dependencies need no recorded file lists; transform sources add their includes (recorded by
-  `TransformSourceCache::includes_`), code paths add all their `.beam` files (coarse: a `.beam` change misses
-  every module using that path). Preprocess/parse not cached: on luerl with an identity transform on 169
-  modules, importing the forms alone took 1,063 ms vs 819 ms preprocess+parse (export for the key 727 ms);
-  cold transforms 46.2 s, warm 3.0 s. `transforms_cache` (host OTP) covers cold/warm, the four edits,
-  damaged/truncated/old-format entries, a deleted build directory and `--no-cache`.
-
-#### 62D3. Directory scan cache
-
-- Success criteria
-  - [x] Measure the expansion of `sources`, `source_dirs`,
-    `source_search_paths`, `include_dirs` and `ignore_dirs` cold and warm on
-    a large tree (all of `references/otp/lib` with `**` patterns), plus
-    include-path probing during preprocessing.
-  - [x] Measure with the in-memory index of [62E](#step-62e) in place; a scan
-    cache persists that index between runs.
-  - [x] Implement a scan cache only if planning or probing costs more than
-    100 ms or 5% of a warm build. It would store expansion results per
-    pattern root and invalidate them by directory mtimes (entries added or
-    removed) and the manifest hash. Otherwise record the numbers and close
-    the step without code.
-- Tests
-  - [ ] (not applicable) If implemented: adding, removing or renaming a file or directory
-    that matches a pattern is picked up on the next run, as is a change to
-    `ignore_dirs`.
-- Done 2026-10-11 without a scan cache; `--print-stage-times` gained `[time] plan <manifest>` to measure
-  planning. luerl: plan 78 ms of a 2.77 s warm build (2.8%), include probing answered by the index. All of
-  `references/otp/lib` (1,319 directories): plan about 150 ms warm (sources glob 74, source_dirs 140, search and
-  include patterns 35 each, ignore_dirs 0.4 ms), 10-20 s on first touch. That exceeds 100 ms, but listing the
-  whole tree costs about 28 ms against about 13 ms to stat its directories (what a mtime-validated cache would
-  do), and the remainder is per-source validation (open + identity) the cache cannot skip, so it would save
-  about 15 ms per walk; recorded in `docs/projects.md#build-caches`, no code.
-
-#### 62D4. Compile result cache
-
-- Success criteria
-  - [x] Decide the reuse unit and record it in `docs/compile.md`.
-    Analysis and type inference cover the whole batch, so a module's object
-    is reusable only when its own syntax and every cross-module fact it
-    consumed are unchanged. Those facts are callee signatures, inferred
-    types, records, behaviours, export liveness and the entry/startup
-    module. The cache key hashes exactly those facts.
-  - [x] If per-module keys cannot be made sound, fall back to a whole-batch
-    key, or defer with the reason recorded.
-  - [x] Cached objects (or bitcode under `--lto`) feed linking and `--emit`
-    exactly like fresh ones. Inspection modes (`--print-ir`,
-    `--print-types`) always recompute.
-- Tests
-  - [x] Executable goldens are identical with and without a warm cache.
-  - [ ] (per-module part not applicable: whole-batch unit) Editing one module's body that other modules' facts do not depend on
-    recompiles only that module. Changing an exported function's inferred
-    type recompiles its callers. Changing the triple or optimization level
-    misses the cache.
-  - [x] Warm luerl build time recorded before and after 62D2–62D4, not a
-    gate.
-- Done 2026-10-11 with a whole-batch key (`driver/compile_cache`, `docs/compile.md#compile-cache`): per-module keys
-  are not sound yet (batch-wide inference, specialization budgets, export liveness, records/behaviours across
-  modules have no canonical serialization to hash). Inputs carry `CompilationInput::fingerprint_` (every file the
-  frontend read with its bytes via the new `PreprocessorOptions::include_read` hook, preprocessing options,
-  transform reply bytes, placeholder text). The outcome keeps diagnostics, failure and, for `-o`/`--emit`, all
-  outputs; `Compiled` now feeds `link`/`deliver` for fresh and reused batches alike. `linking_compile_cache`:
-  six program fixtures cold/warm against their goldens, replayed warnings, any edit / `-O2` / `-g` misses,
-  `--emit` republishes identical objects, inspection and `--no-cache` recompute. luerl (Release): 3.74-3.84 s
-  without caches (`--no-cache`, as before 62D2), 1.64-1.65 s warm (compile 1,180 -> 68 ms, transforms
-  1,107 -> 89 ms). Tests running manifests inside `tests/fixtures` pass `--build-dir` into their work directory.
-  Phase L2/L3 gate: full-mode CTest 263/264 (known `codegen_resource_cli`), `check-quality-all` clean.
-
-<a id="step-62d5"></a>
-
-#### 62D5. Replace the cache file backend with SQLite
-
-Added 2026-10-12 (user direction). Depends on: [62D2](#step-62d),
-[62D4](#step-62d). The file backend of 62D2 keeps one `index` per input
-directory plus per-process append-only `<kind>-*.pack` files, and every
-`put` re-reads, rewrites and renames the whole index. Its values use custom
-length-prefixed encodings (index entries, pack records, loader runs, compile
-outcomes).
-
-Feasibility comparison (2026-10-12, Windows 11, NTFS, Python 3.14 with SQLite
-3.50.4 against a Python emulation of the file backend's I/O pattern,
-`journal_mode=WAL`, `synchronous=NORMAL`; the absolute numbers include Python
-overhead on both sides, so compare the ratios):
-
-| Case | File backend | SQLite |
-| --- | --- | --- |
-| 200 puts × 8 KB (transform replies) | 805 ms | 16 ms |
-| 2,000 puts × 8 KB | 8,849 ms (quadratic: index rewrite per put) | 149 ms |
-| Load + read 200 × 8 KB | 13 ms | 3 ms (open + selects) |
-| Load + read 2,000 × 8 KB | 66 ms | 22 ms |
-| 3 puts × 24 MB (compile outcomes) | 39 ms | 289 ms (WAL writes the data twice) |
-| 3 reads × 24 MB | 29 ms | 62 ms |
-| 4 processes × 50 puts at once | 7–14 of 200 entries kept, ~510 ms | 200 of 200 kept, ~90 ms |
-
-- **Speed and access time.** SQLite is 3–50x faster for small values: a put
-  is one indexed row in one transaction instead of an index rewrite, and a
-  lookup is a B-tree probe instead of loading the whole index. Large values are
-  2–7x slower: the write-ahead log writes them twice, and overflow-page reads
-  cost more than one sequential file read. SQLite's own guidance puts the
-  break-even point near 100 KB per value.
-- **Concurrency between processes.** The file backend loses most entries when
-  several `clau` processes share a build directory. The index swap lets the
-  last writer win. On Windows, a reader that hits the rename gets a sharing
-  violation, which the store reads as an empty index, so its next swap drops
-  every other entry. Nothing breaks, because every loss is only a miss, but
-  the cache stops working under parallel builds. SQLite in WAL mode serializes
-  writers with file locks (with a busy timeout) and lets readers run alongside
-  them: all entries were kept.
-- **Thread safety inside one process.** Today `cache::Store` is single-threaded
-  (the driver compiles targets one after another); D07 parallel builds would
-  need a mutex around it. SQLite built with `SQLITE_THREADSAFE=1` works safely
-  with one connection per thread, or with one shared connection behind a
-  mutex.
-- **Limits.** WAL needs shared memory between processes, so it does not work
-  on network file systems. Opening a database there fails or downgrades;
-  the store must then fall back to `journal_mode=DELETE`, or run without a
-  cache, never fail the build. SQLite is one public-domain C file (the
-  amalgamation) and is used by the compiler only, so the runtime stays free
-  of it.
-
-Design: a hybrid. SQLite (`<build_dir>/cache/v2/cache.db`) holds every entry's
-address (input directory, file, kind), key, size, checksum and last use.
-Values up to a threshold (start at 256 KB; set it from the benchmark below)
-live in a BLOB column. Larger values (compile outcomes with objects) are
-content-addressed files `blobs/<hash>` written as a temporary file and
-renamed, and the row names the hash. The `Store` interface and every caller
-stay unchanged.
-
-- Order: write and rename the blob file first, then commit the row. A crash
-  in between leaves only an orphan file, which `prune` deletes. A row never
-  names a file that was not complete.
-- Reads check the file's size and hash against the row. A missing or
-  different file is a miss, and the row is dropped.
-- Equal values share one file, so the objects of a batch built under two
-  option sets are stored once when identical. A compile outcome may keep its
-  diagnostics in the row and each module object as its own blob, so a later
-  per-module reuse can share them.
-- One threshold decides row versus file, set from the benchmark below.
-
-- Success criteria
-  - [x] The SQLite amalgamation is a pinned third-party dependency (version
-    and hash, downloaded like toml++), built as its own target without the
-    project's warning flags, and linked only into `clau`'s cache library.
-  - [x] A `Store` backend on SQLite: WAL journal, `synchronous=NORMAL`, a busy
-    timeout, one transaction per `put`, an index on the address, values above
-    the threshold in content-addressed blob files. `prune` deletes rows not
-    used for a configurable time and blob files no row names, then runs an
-    incremental vacuum. A damaged or foreign database (`SQLITE_CORRUPT`, a
-    wrong schema version) is moved aside and recreated, never an error. On
-    a file system without WAL support the store falls back to the rollback
-    journal, or disables the cache with one `--verbose` note.
-  - [x] Store values that carry their own encoding (loader runs, compile
-    outcomes) become columns or tables where that removes a custom codec;
-    whatever stays a blob keeps its format version in the row.
-  - [x] `Store` is safe to use from several threads (one connection per thread
-    or a mutex), documented in `compiler/src/cache/store.hpp`.
-  - [x] The format directory becomes `v2`; `prune` removes a leftover `v1`
-    tree. `docs/projects.md#build-caches` describes the new layout, the
-    threshold and the network-file-system behavior.
-- Tests
-  - [x] `transforms_cache` and `linking_compile_cache` pass unchanged (except the damage section of
-    `transforms_cache`, which edited v1 pack and index files and now damages `cache.db` rows).
-  - [x] Several `clau` processes building projects that share one build
-    directory at the same time keep every entry; a focused store test
-    exercises threads and processes writing and reading one database.
-  - [x] A truncated or garbage `cache.db`, and a missing blob file, are
-    rebuilt silently.
-  - [x] Recorded, not a gate: put/get times of the C++ backends for 200 and
-    2,000 small values and for 24 MB values, which set the blob threshold;
-    luerl cold and warm build times before and after.
-- Done 2026-10-12: SQLite 3.54.0 amalgamation (2026-10-09, SHA3-256 checked against sqlite.org, SHA-256 pinned)
-  downloaded on every host by `compiler/src/cache/cmake/Dependencies.cmake` (`CLAUSE_SQLITE_ROOT` overrides) into
-  `clause_sqlite` (no project warnings, `/W0`/`-w`), linked only into `clause_cache`. `cache/sqlite` (RAII
-  `Database`/`Statement`/`Transaction`, `sqlite::Error`), `cache/blob_files` (content-addressed parts, temporary
-  file + rename, touch on reuse), `cache/sqlite_store` (tables `entries`/`parts`, WAL else rollback journal else
-  off, busy timeout 30 s, `BEGIN IMMEDIATE` per put, damaged/foreign db seen twice is renamed `cache.db.damaged`,
-  mutex, lazy open: only a write creates the database, so check/inspection runs leave no `build/`; prune drops
-  `v1`, rows unused 30 days, orphan blobs older than 10 min, incremental vacuum). `Store` values became
-  `Value{format_, parts_}`: the loader's text codec (`HostRun{reply_, output_}`) and the compile outcome's
-  length-prefixed codec (parts `failed`, `diagnostic`, `triple`, `extension`, `<kind>[+startup]:<module>`) and
-  `cache::Reader` are gone. Tests: `cache_store` (8 threads × 40 entries, 4 processes × 60 entries kept,
-  missing blob/garbage/truncated db, prune, `bench` mode) and `cache_projects` (4 concurrent clau runs × 3
-  targets sharing `--build-dir`: all 12 compile outcomes reused; garbage `cache.db` rebuilt; `v1` removed).
-  Release bench: 2,000 × 8 KB puts 11.1-12.5 s (file backend, 1-3 entries lost single-process) -> 249-258 ms;
-  gets 118-128 -> 32-33 ms; 3 × 24 MB 106-127/144-157 ms -> 85-90/73 ms; inline limit 256 KB from the 64 KB-4 MB
-  sweep (`docs/projects.md#build-caches`). luerl unchanged: cold 3.75-3.78 -> 3.78-3.80 s, warm 1.65-1.68 ->
-  1.69-1.70 s. Gate: fast CTest 261/262 (known `codegen_resource_cli`), `check-quality` clean.
-
-<a id="step-62e"></a>
-
-### 62E. In-memory index of searched directories
-
-Backlog: D07 (cache). Depends on: [58](00-finished.md#step-58). Independent
-of 62D, so it may run first; [62D3](#step-62d) then measures with this index
-in place and may persist it.
-
-Today every lookup probes every candidate directory, one at a time, through
-the filesystem. Most probes miss. The lookups are:
-
-- the referenced-module search over `source_search_paths` and the library
-  (`module_source` in `driver/frontend.cpp`);
-- transform sources (`locate` in `driver/transform_sources.cpp`);
-- literal `sources` found through `source_search_paths`
-  (`literal_source` in `project/paths.cpp`);
-- include resolution (`candidates` in `preprocessor/includes.cpp`). This
-  tries to open the include name in the including file's directory, the
-  working directory, every include directory and the `include_lib`
-  applications, for every include of every module. With patterns such as
-  `references/otp/lib/**/include`, that is dozens of failed opens per
-  include.
-
-- Success criteria
-  - [x] Measure first: the number of filesystem probes, and the time spent in
-    them, for the luerl project before the change. Count them in a debug
-    build or under `--verbose`, never in normal output.
-  - [x] One index per invocation, shared by all lookups and all targets.
-    It holds a list of scanned directories (by id) and a bucket map from
-    file name to the ids of every directory where that name was seen. A
-    name seen in several directories keeps all of them.
-  - [x] Each directory is listed once, non-recursively, the first time a
-    lookup needs it. The recursive walks that already expand `**` in
-    `sources`, `source_dirs`, `source_search_paths` and `include_dirs` add
-    the entries they visit, so those directories are never listed twice.
-  - [x] A lookup takes the name and the ordered candidate directories, and
-    returns the first directory in that order that has the name. Precedence
-    is therefore exactly what probing gives today: the including file's
-    directory, then the working directory, then include directories in order,
-    then `include_lib` applications for includes; inputs before search
-    directories for modules. `ignore_dirs` and `ignore_modules` are applied
-    to the result, as they are now.
-  - [x] An include name with directory parts (`sub/x.hrl`, `../inc/x.hrl`) is
-    looked up by its last component. The rest of the name must then match
-    below the candidate directory; anything the index cannot answer
-    correctly falls back to probing. Absolute names are probed as they are
-    today.
-  - [x] File name keys fold case where the volume is case-insensitive
-    (Windows, default macOS), so `Foo.hrl` is still found for `foo.hrl`.
-    Exact keys are used elsewhere. Record the rule and its reason in
-    `docs/projects.md`.
-  - [x] The preprocessor stays independent of the filesystem. It gets the
-    index through a `PreprocessorOptions` lookup hook, next to the existing
-    `read_file`. Without a hook it probes as before (library users, unit
-    tests).
-  - [x] Within one invocation the index is a snapshot. Files that appear
-    during the run, such as link staging or outputs, are never search inputs.
-    The contract says so.
-- Tests
-  - [x] Black-box precedence:
-    - the same module name in two search directories picks the first, and
-      passes over an ignored copy;
-    - the same header name in the including directory, the working
-      directory and two include directories picks the first in OTP's order;
-    - `include_lib` still resolves through application directories;
-    - a header that differs only in case resolves on Windows.
-  - [x] The probe count and time for luerl are recorded after the change,
-    alongside the planning and preprocess stage times.
-- Done 2026-10-11: `project/directory_index` answers "may exist" from listings; callers still probe a hit, so
-  precedence and diagnostics are unchanged (luerl `--print-inputs` output identical). Before (Release, luerl
-  `--print-inputs`, temporary counters): 15,215 probes (13,675 module search, 1,538 include opens with 165 hits,
-  2 literal), about 105 ms in them; whole run 2.57-2.68 s, preprocess 452-464 ms. After: `[index] listed=66
-  walked=1380 lookups=15215 misses=14909 probes=0`; whole run 2.54-2.60 s, preprocess 443-446 ms.
-  `project_directory_index` covers precedence, include_lib, case folding and the --verbose line.
+  - [ ] As each new step defines.
 
 ## M. Validation closure
 
@@ -1028,7 +656,7 @@ Backlog: D07. Depends on: [58](00-finished.md#step-58). **Decision.**
 - Success criteria
   - [ ] Demand recorded for each extension (profiles, dependencies, exclusions,
     packages, watch/cache, parallel builds); selected items get their own plan.
-    The build directory and caches are already selected as [62D](#step-62d).
+    The build directory and caches are already selected as [62D](00-finished.md#step-62d).
 - Tests
   - [ ] None beyond the gate unless selected.
 

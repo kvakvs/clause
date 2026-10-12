@@ -69,11 +69,13 @@ Complete for the selected scope; the plan steps hold criteria and evidence.
 - **F05 — Graph copying and process isolation** (28, 45; delivered:
   sharing-preserving copies between heaps of one runtime): [ ] cross-runtime
   atom/identity handling (cross-runtime copies are `wrong_owner`).
-- **F36 — `erlang` module builtins** ([41A](11-plan.md#step-41a)–[41H](11-plan.md#step-41h); delivered: every
+- **F36 — `erlang` module builtins** ([41A](00-finished.md#step-41a)–[41H](00-finished.md#step-41h); delivered: every
   OTP 29 `erlang` export is implemented, compiler-handled or a named stub in `library/stdlib/erlang.erl`):
-  [ ] TSan timer stress (41F, with V02); [ ] `persistent_term`, `unicode_util`, `zlib` runtime modules;
+  [ ] TSan timer stress (41F, with V02); [ ] replacements for the ERTS-preloaded and generated modules
+  `kernel`/`stdlib` call (`init`, `persistent_term`, `unicode_util`, `zlib`, `prim_*`, ...; phase H3,
+  [41I](11-plan.md#step-41i)–[41S](11-plan.md#step-41s));
   [ ] leex/yecc generation for `.xrl`/`.yrl` sources through the host OTP.
-- **F32 follow-up — export liveness** ([62C](11-plan.md#step-62c)): [x] unused exports leave the export
+- **F32 follow-up — export liveness** ([62C](00-finished.md#step-62c)): [x] unused exports leave the export
   table so dead-stripping and `--lto` can remove them (executables; `--keep-exports` opts out).
 - **F11 — Floating-point values** (38; delivered: finite binary64 values,
   operations, conversions): [ ] broader numeric scope when selected.
@@ -138,8 +140,8 @@ checked as implemented.
   concrete external caller.
 - **D07 — Project schema extensions** ([77](11-plan.md#step-77)): defaults,
   profiles, dependencies, exclusions, fetching, watch/cache, parallel builds.
-  `build_dir` and caches are selected as [62D](11-plan.md#step-62d): [x] build directory, transform and
-  whole-batch compile caches, directory index (62E), SQLite cache backend ([62D5](11-plan.md#step-62d5));
+  `build_dir` and caches are selected as [62D](00-finished.md#step-62d): [x] build directory, transform and
+  whole-batch compile caches, directory index (62E), SQLite cache backend ([62D5](00-finished.md#step-62d5));
   [ ] per-module compile reuse, directory scan cache (not worth it on measurements).
 
 ## References
