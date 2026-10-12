@@ -28,17 +28,20 @@ void require(bool condition, const char *message) {
 ProcessStack &stack(void *context) { return static_cast<ProcessContext *>(context)->stack(); }
 
 // Run continuation code; hand-written bodies use ordinary calls where generated code uses tail calls.
-void run(Code *code, void *context) { code(context); }
+void run(Code *code, void *context) {
+    const auto *x = static_cast<ProcessContext *>(context)->stack().registers();
+    code(context, x[0], x[1], x[2]);
+}
 
 // Entries each process made, and the order in which processes began a time slice.
 std::map<void *, std::size_t> entries;
 std::vector<void *> slices;
 
 // spin/0: count an entry and tail-call itself forever, so only the executor's time slices stop it.
-void spin_body(void *context);
+void spin_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord);
 const FrameDescriptor spin{nullptr, 0, 0, 0, &spin_body, 0, 0};
 
-void spin_body(void *context) {
+void spin_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord) {
     if (entries[context]++ % SLICE_REDUCTIONS == 0) {
         slices.push_back(context);
     }
@@ -46,10 +49,10 @@ void spin_body(void *context) {
 }
 
 // countdown/1: tail-call itself until its argument is 0, then return it.
-void countdown_body(void *context);
+void countdown_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord);
 const FrameDescriptor countdown{nullptr, 0, 0, 1, &countdown_body, 1, 1};
 
-void countdown_body(void *context) {
+void countdown_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord) {
     auto &process = stack(context);
     const auto value = process.frame()[frame_header_words];
     ++entries[context];
@@ -62,13 +65,13 @@ void countdown_body(void *context) {
 }
 
 // crash/0 and halt/0: end their process with an Erlang exception or a halt request.
-void crash_body(void *context) {
+void crash_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord) {
     static_cast<ProcessContext *>(context)->generated_calls().fail(
         {.code = CallError::erlang_exception, .reason = clause::abi::v1::ErrorReason::badarg});
     run(stack(context).leave(0), context);
 }
 
-void halt_body(void *context) {
+void halt_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord) {
     static_cast<ProcessContext *>(context)->generated_calls().fail({.code = CallError::halted, .halt_status = 3});
     run(stack(context).leave(0), context);
 }
@@ -83,10 +86,10 @@ std::atomic<bool> overlapped{false};
 thread_local std::size_t depth = 0;
 
 // parallel/0: count the processes running at once and tail-call itself until two ran together, then return 0.
-void parallel_body(void *context);
+void parallel_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord);
 const FrameDescriptor parallel{nullptr, 0, 0, 0, &parallel_body, 0, 0};
 
-void parallel_body(void *context) {
+void parallel_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord) {
     if (depth++ == 0 && ++active >= 2) {
         overlapped = true;
     }

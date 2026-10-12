@@ -13,11 +13,14 @@ namespace {
 using abi::v1::frame_header_words;
 using abi::v1::FrameDescriptor;
 
-// Body of the runtime-owned bottom frame: returning into it ends the host invocation's native call.
-void finish(void *) noexcept {}
+// Body of the runtime-owned bottom frame: returning into it ends the host invocation's native call. The result
+// arrives as the first parameter (OPT0.1A) and stays in the first register for the host.
+void finish(void *context, Word result, Word, Word) noexcept {
+    static_cast<ProcessContext *>(context)->stack().registers()[0] = result;
+}
 
 // Code a suspended entry returns: it ends the time slice, so control returns to whoever ran the process.
-void pause(void *) noexcept {}
+void pause(void *, Word, Word, Word) noexcept {}
 
 // Descriptor of the bottom frame under each host invocation; it has no slots and no name.
 constexpr FrameDescriptor bottom{nullptr, 0, 0, 0, &finish, 0, 0};
@@ -231,7 +234,7 @@ bool ProcessStack::run(std::size_t reductions) noexcept {
         profile_->run(state_.frame == none ? nullptr : &descriptor(state_.frame));
     }
     try {
-        enter (*function)(&owner_);
+        run_code(enter(*function));
     } catch (const std::bad_alloc &) {
         calls.fail({CallError::resource_limit});
         resume_ = nullptr;

@@ -19,6 +19,8 @@ copy any OTP source.
   - docs updated (`docs/`, `.agents/arch.md`, `.agents/files.md`,
     `docs/differences.md` for observable differences)
 - Mark the step done here, with its date, in the same commit.
+- Completed steps should have their instructions compacted and focus on the 
+  "what was done in this task" part
 
 ## Sources
 
@@ -206,6 +208,27 @@ in machine registers and spill the extras automatically?"
   and no value live across a safepoint skips its push entirely.
   `execution-model.md` already allows this; it needs the reduction check and
   entry safepoint kept on the path. Together they give near-native leaf calls.
+- **Status: done 2026-10-13** (ABI revision 10):
+  - Kept the C calling convention with K = 3 on every target, which fits the
+    Win64 and armv7 argument registers. The runtime can then call and define
+    code directly, so no adapters are needed: `ProcessStack::run_code`, and
+    `finish` stores `x0`.
+  - `musttail` with the new prototype passes on all cross targets (i686 and
+    armv7 included) at O0/O2/Os.
+  - Direct calls pass the values the native form stored into the argument
+    array; those stores are removed. Fun calls load their parameters from the
+    registers.
+  - Bodies read leading arguments from `freeze`d parameters, spilled to their
+    slot only when live across a call. Call results come from `x0`.
+  - A specialization dispatcher stores its parameters into its slots first,
+    because it forwards the slots.
+  - With one shared prototype, LLVM turns self tail calls with an inline push
+    into loops at O2 (partly OPT1.1).
+  - Not done:
+    - frameless leaves
+    - a larger K on SysV and AArch64 (per-target K)
+    - `preserve_none`
+  - Benchmarks were not rerun (manual).
 - **Gate:**
   - every target's `musttail` with the chosen convention at O0/O2/Os
     (cross-target test)
@@ -699,7 +722,7 @@ Builds on OPT1.4.
 
 ## Suggested order for Clause
 
-1. **Substrate (tier OPT0):** OPT0.1 (done), OPT0.1A, OPT0.2, OPT0.3, then
+1. **Substrate (tier OPT0):** OPT0.1 (done), OPT0.1A (done), OPT0.2, OPT0.3, then
    OPT0.4, OPT0.5, OPT0.5A (done) and OPT0.5B, then OPT0.6, then OPT0.7. OPT0.5A has no dependency on the others
    and can go first if the map kernels are the priority. This attacks the measured 100–600× kernels and makes
    everything below visible to LLVM.

@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 9)
+# Generated-code ABI (revision 10)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -195,7 +195,8 @@ step 19; services in [frames.hpp](../abi/include/clause/abi/frames.hpp)).
 Each function has a `<symbol>.frame` descriptor (`FrameDescriptor`: module
 descriptor, module and function atom slots, arity, body code, slot count, term
 slot count; external for exported functions) and an internal `<symbol>.body`
-of type `void(void *context)`. An exported `<symbol>` keeps the `TermWord(Context *,
+of type `abi::v1::Code`, `void(void *context, TermWord x0, TermWord x1, TermWord x2)`
+(revision 10, OPT0.1A). An exported `<symbol>` keeps the `TermWord(Context *,
 const TermWord *)` signature as a host entry calling
 `CLAUSE_invoke_v1(context, frame, arguments)`.
 
@@ -213,12 +214,23 @@ const TermWord *)` signature as a host entry calling
   profiles. Otherwise the code comes from `CLAUSE_enter_v1` (call),
   `CLAUSE_tail_v1` (tail call) or `CLAUSE_return_v1` (return), which keep the
   state current.
-- Arguments occupy the first frame slots; every evaluated value is stored in a
-  term slot before the next expression or call. Failed candidates clear their
-  slots. Values a body still needs after a call or a loop-head safepoint are
-  spilled: terms to term slots (counted in the descriptor's `roots`), other
-  words to raw slots after them; raw slots are not roots.
-- A result passes in register 0; error payloads are root words of the channel
+- Every transfer passes the first `abi::v1::register_arguments` (3) X registers
+  as C parameters after the context (OPT0.1A): a call's leading arguments, a
+  return's result (as `x0` of the caller's body), zero for unused ones. Further
+  arguments travel in the register array. Around every transfer service the
+  generated code stores the parameters into the array (the services and the
+  collector read them there) and loads them back after it. The runtime calls
+  code the same way (`ProcessStack::run_code`), and its bottom-frame body
+  stores `x0` into the first register for the host.
+- An entry zeroes the frame and copies only the arguments past the parameters
+  into their slots; a body keeps a parameter argument in its slot only where
+  `lower_frames` spills it across a call or safepoint (the codegen also roots
+  arguments it reads). Every evaluated value is stored in a term slot before
+  the next expression or call. Failed candidates clear their slots. Values a
+  body still needs after a call or a loop-head safepoint are spilled: terms to
+  term slots (counted in the descriptor's `roots`), other words to raw slots
+  after them; raw slots are not roots.
+- A result passes as `x0`; error payloads are root words of the channel
   (BEAM `fvalue`). A failure returns to the caller like a result and every
   caller checks the channel after the call; the header's handler word stays 0.
 - The stack has no cap by default; a push the host cannot allocate records

@@ -174,6 +174,16 @@ Step 19 (2026-10-05) implements the model with these choices and gaps:
   the heap wants a collection, the process profiles, no reduction is left,
   the stack must grow or reach its limit, or the callee is a builtin. The
   failure check after a call reads the state's `failed` word.
+- **Register parameters** (OPT0.1A, ABI revision 10). Code is
+  `void(void *, TermWord x0, TermWord x1, TermWord x2)`: every transfer
+  passes the first three X registers as C parameters, so a call's leading
+  arguments and a return's result stay in machine registers. A body reads its
+  leading arguments from the parameters when it starts and the call result
+  from `x0` when it resumes; `lower_frames` spills either to a slot only when
+  it is live across a call or safepoint. The service paths store the
+  parameters into the register array before the service and reload them
+  after it. With every body sharing one prototype, LLVM turns a self tail call
+  whose inline push leads back into the same body into a loop.
 - **Tail positions** are the last expression of a clause body, followed
   through blocks, parentheses, `case` and `if` clause bodies. Calls in
   `catch`, `try`, `maybe` and `andalso`/`orelse` operands are not tail calls.

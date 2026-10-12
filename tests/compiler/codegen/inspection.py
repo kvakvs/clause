@@ -92,9 +92,11 @@ round_trip(run('--print-ir', 'space å.erl').stdout)
 annotated = run('-O2', '--print-ir', '--print-optimized-ir', 'source_comments.erl', 'answer.erl')
 source_parts = round_trip(annotated.stdout)[:2]
 before, after = [assembly for _, assembly in source_parts]
-assert re.search(r'load [^\n]*;         Value\)\.', before)
-assert re.search(r'store [^\n]*ptr %register[^\n]*;     \?OUTER\(', before)
-assert re.search(r'store [^\n]*ptr %register[^\n]*;     answer:identity\(', before)
+# Arguments arrive as transfer parameters (plan 20 step OPT0.1A): the read is the argument's rooting store, and the
+# call's line names the inline entry that passes it on.
+assert re.search(r'store [^\n]*%argument[^\n]*;         Value\)\.', before)
+assert re.search(r'callee\.arity = load [^\n]*;     \?OUTER\(', before)
+assert re.search(r'callee\.arity = load [^\n]*;     answer:identity\(', before)
 assert re.search(r'  [^\n]+ ;     7\. % original literal line', after)
 assert ';     answer:identity(' in after
 # Frame transfers keep the helper out of line; the transfer into it retains provenance.

@@ -87,7 +87,11 @@
   `FrameState` (private base of `ProcessContext`; stack/top/limit/frame/reductions/registers/live/slow/failed);
   enter, tail and return run inline (diamonds built after spill analysis) and fall back to
   `CLAUSE_enter/tail/return_v1` on slow bits (heap signals `slow_collect`, profiling `slow_profile`), no reductions,
-  limit or null body; `propagate_failure` reads `failed` (mirrored by `GeneratedCallState::sync`). Descriptors
+  limit or null body; `propagate_failure` reads `failed` (mirrored by `GeneratedCallState::sync`). OPT0.1A
+  (ABI 10): `Code` = `void(ctx, x0, x1, x2)`; transfers pass a call's leading arguments (the native-form
+  argument-array stores, removed at lowering) or a return's result as parameters; bodies read leading arguments
+  from `freeze`d parameters (`pass_arguments`) and call results from `x0`; service paths store/reload the
+  parameters around the service; the runtime enters code via `ProcessStack::run_code`, bottom `finish` stores x0. Descriptors
   `<sym>.frame` (7 words: names, arity, body, slots, roots); exported `<sym>` = host wrapper over
   `CLAUSE_invoke_v1`. Runtime `ProcessStack` (`process/stack`, one per context): flat owned word block,
   4-word headers linked by offsets, 256 X registers, uncapped
