@@ -239,6 +239,9 @@ kept objects exactly like fresh ones; `--print-stage-times` then shows
   `--keep-exports`, whether an executable is linked, the entry selection and
   the project target. Entries of one target with other options are kept side
   by side.
+- **Storage.** Each output is a part of its own (step 62D5), so an object
+  larger than the store's inline limit becomes a content-addressed blob file,
+  shared when two option sets produce identical objects.
 
 ## Backend
 

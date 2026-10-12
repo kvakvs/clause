@@ -1,13 +1,16 @@
 #pragma once
 // Added for build caches (plan step 62D2): one project-internal cache interface. Callers address entries by input
-// directory, file name, result kind and key and never see paths, so a later backend (SQLite or similar) can replace
-// the file backend without changing them (docs/projects.md#build-caches).
+// directory, file name, result kind and key and never see paths; plan step 62D5 replaced the first file backend
+// with SQLite without changing that (docs/projects.md#build-caches).
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <iosfwd>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace clause::cache {
 // A cache key: the 128-bit content hash of everything a result depends on, as 32 lowercase hex digits.
@@ -20,59 +23,70 @@ struct Address {
     std::string kind_;
 };
 
-// Why a lookup found nothing: no entry, an entry for another key, or one that failed its integrity checks.
+// One named part of a stored value, so callers need no codec of their own. Added for the SQLite backend (62D5).
+struct Part {
+    // What the part holds (for example "diagnostic"), and its bytes.
+    std::string name_;
+    std::string bytes_;
+};
+
+// A stored value: the caller's format version of its parts, and the parts in order. Added for the SQLite
+// backend (62D5).
+struct Value {
+    std::uint32_t format_ = 0;
+    std::vector<Part> parts_;
+};
+
+// Why a lookup found nothing: no entry, an entry for another key or format, or one that failed its integrity checks.
 enum class Miss : std::uint8_t { none, absent, stale, corrupt };
 
 struct Lookup {
-    // The stored bytes on a hit; otherwise why there are none.
-    std::optional<std::string> bytes_;
+    // The stored value on a hit; otherwise why there is none.
+    std::optional<Value> value_;
     Miss miss_ = Miss::absent;
 };
 
+// A cache store. Every operation is safe to call from several threads at once (the SQLite backend serializes
+// them behind one connection and a mutex), and several processes may share one store's files.
 class Store {
   public:
     Store() = default;
     Store(const Store &) = delete;
     Store &operator=(const Store &) = delete;
     virtual ~Store() = default;
-    // The bytes stored for `address` under `key`; a missing, stale or damaged entry is a miss, never an error.
-    virtual Lookup get(const Address &address, const Key &key) = 0;
-    // Store bytes for `address` under `key`, replacing an older entry; a failed write is ignored (rebuilt later).
-    virtual void put(const Address &address, const Key &key, std::string_view bytes) = 0;
+    // The value stored for `address` under `key` in `format`; a missing, stale or damaged entry is a miss, never an
+    // error.
+    virtual Lookup get(const Address &address, const Key &key, std::uint32_t format) = 0;
+    // Store a value for `address` under `key`, replacing an older entry; a failed write is ignored (rebuilt later).
+    virtual void put(const Address &address, const Key &key, const Value &value) = 0;
     // Forget the entry of `address`.
     virtual void invalidate(const Address &address) = 0;
-    // Drop superseded results of the directories this store wrote to.
+    // Drop entries unused for too long, and files no entry names any more.
     virtual void prune() = 0;
 };
 
-// The file backend below `root` (<build_dir>/cache): `v<format>/<directory tail>-<path hash>/` holds one index and
-// append-only pack files per result kind.
-std::unique_ptr<Store> file_store(const std::filesystem::path &root);
+// How a store keeps and ages its entries. Added for the SQLite backend (62D5).
+struct StoreOptions {
+    // Parts up to this size live in the database; larger ones in content-addressed blob files.
+    std::size_t inline_limit_ = std::size_t{256} << 10U;
+    // prune drops entries not used for this long, and blob files no entry names once they are this old.
+    std::chrono::seconds max_age_ = std::chrono::hours(24 * 30);
+    std::chrono::seconds orphan_age_ = std::chrono::minutes(10);
+    // Where one-line notes go (a cache that falls back or turns itself off); none to stay silent.
+    std::ostream *notes_ = nullptr;
+};
+
+// The SQLite backend below `root` (<build_dir>/cache): `v2/cache.db` and `v2/blobs/<hash>`
+// (docs/projects.md#build-caches).
+std::unique_ptr<Store> open_store(const std::filesystem::path &root, const StoreOptions &options = {});
 // A miss reason as --verbose prints it.
 std::string_view miss_text(Miss miss);
 // The 128-bit content hash of `bytes`, as 32 lowercase hex digits.
 std::string hash_text(std::string_view bytes);
 // This executable's path, size and modification time: a rebuilt clau never reuses an older one's results.
 std::string program_identity();
-
-// Little-endian fixed-width numbers and length-prefixed strings, the parts stored values are made of.
-void put_number(std::string &out, std::uint64_t value);
-void put_text(std::string &out, std::string_view text);
-
-// Reads the parts put_number and put_text wrote; a short or damaged value reads as none.
-class Reader {
-  public:
-    explicit Reader(std::string_view bytes) : bytes_(bytes) {}
-
-    std::optional<std::uint64_t> number();
-    std::optional<std::string> text();
-
-    [[nodiscard]] bool empty() const { return bytes_.empty(); }
-
-  private:
-    // What is left to read.
-    std::string_view bytes_;
-};
+// The first part named `name`, if any. Added for the SQLite backend (62D5).
+const Part *find_part(const Value &value, std::string_view name);
 
 // Collects the parts a key depends on, each length-prefixed so different splits never collide.
 class KeyBuilder {

@@ -183,18 +183,28 @@ Positional inputs get none unless `--build-dir` is given.
 ### Build caches
 
 Results worth keeping between runs live below `<build_dir>/cache` (plan 11
-steps 62D2 and 62D4); `--no-cache` neither reads nor writes them. They are the
+steps 62D2, 62D4 and 62D5); `--no-cache` neither reads nor writes them. They are the
 parse transform loader's replies and the host OTP's sticky module list, so a
 warm build starts no host `erl` for modules whose transform inputs did not
 change, and each batch's [compile outcome](compile.md#compile-cache).
 
 - **Interface.** Callers use one project-internal store (`compiler/src/cache/
   store.hpp`): `get`/`put` by input directory, file name, result kind and key,
-  plus `invalidate` and `prune`; they never see paths. The file backend keeps
-  `cache/v<format>/<directory tail>-<path hash>/` per input directory (for
-  example `src-3f2a91c0`), holding one `index` and append-only `<kind>-*.pack`
-  files. A later SQLite (or similar) backend replaces the file backend behind
-  the same interface.
+  plus `invalidate` and `prune`; they never see paths. A value is the caller's
+  format version and a list of named parts (a transform run: `reply` and
+  `output`; a compile outcome: `failed`, each `diagnostic`, and with outputs
+  `triple`, `extension` and one part per module object), so no caller needs a
+  codec of its own. A `get` with another format version is a miss. Every
+  operation is safe from several threads at once.
+- **Layout (SQLite backend, step 62D5).** `cache/v2/cache.db` is a SQLite 3.54
+  database: table `entries` (input directory, file, kind, key, format, last
+  use; unique on the address) and table `parts` (entry, order, name, size,
+  xxh3-64 checksum, and either the bytes or the name of a blob file). Parts
+  larger than 256 KB live in `cache/v2/blobs/<xxh3-128 of the bytes>`, so equal
+  parts (the identical objects of a batch built under two option sets) are
+  stored once. A blob file is written as a temporary file and renamed before
+  the row naming it commits, so a row never names an incomplete file; a crash
+  in between leaves only an orphan file.
 - **Keys.** A key is the 128-bit content hash of everything the result depends
   on, never a time stamp: the `clau` version and executable (path, size,
   modification time, so a rebuilt `clau` misses), the result kind, and for a
@@ -202,25 +212,59 @@ change, and each batch's [compile outcome](compile.md#compile-cache).
   its compile options: include directories, defines, features), the host OTP
   release (`erl` and the `releases/*/OTP_VERSION` files beside it), every
   project transform source compiled for the run with the files it includes,
-  and every `.beam` on the transform code paths. The cache format version is
-  the `v<format>` directory. Because the key covers the preprocessed forms, a
+  and every `.beam` on the transform code paths. The store's format version is
+  the `v<format>` directory; a value's own format version is kept in its row. Because the key covers the preprocessed forms, a
   changed header, define or feature, or a new header that shadows an included
   one, misses exactly the modules whose forms or options change; defines and
   features are compile options every transform sees, so they miss every
   transformed module; a changed `.beam` misses every module whose transforms
   run with that code path.
-- **Safety.** Each `clau` process appends to pack files of its own and swaps
-  the index in by writing a temporary file and renaming it, so concurrent runs
-  sharing a build directory never corrupt it (the last index written wins; a
-  lost entry is a miss). Records carry checksums: a truncated, damaged or
-  foreign-format entry is a miss and is rebuilt, never an error. A run that
-  wrote to a directory compacts its packs when they hold mostly superseded
-  records.
+- **Concurrency.** The database runs in write-ahead-log mode with
+  `synchronous=NORMAL`: readers run beside a writer, and writers (one
+  transaction per `put`) wait for each other up to 30 s. Several `clau`
+  processes sharing a build directory keep every entry. Inside one process a
+  mutex serializes the threads that share a store.
+- **Damage.** Parts carry sizes and checksums, and blob files are checked
+  against their names: a damaged part or a missing blob file is a miss
+  (`damaged entry`) and its entry is dropped. A garbage, truncated or foreign
+  `cache.db` (SQLite reports it corrupt or not a database, or its application
+  id or schema version differ) is renamed to `cache.db.damaged` and created
+  anew; when that is impossible the run continues without a cache. None of
+  this is an error, and `--verbose` notes it as `[cache] ...`.
+- **Network file systems.** Write-ahead logging needs shared memory between
+  processes, which network file systems do not provide. When SQLite cannot
+  enter WAL mode the store uses its rollback journal (readers then wait for a
+  writer) and `--verbose` says so once; when no journal mode works the run
+  continues without a cache.
+- **Pruning.** At the end of a run that wrote to a store, entries not used for
+  30 days are deleted, then blob files no entry names (once older than
+  10 minutes, so a concurrent writer's new file survives), and the freed pages
+  are returned to the file system (incremental vacuum). Every run removes a
+  leftover `cache/v1` tree of the step 62D2 file backend.
 - **Observability.** `--print-stage-times` marks reused stages
   (`[time] transform src/a.erl: 7.254 ms (cached)`); `--verbose` prints
   `[cache] hit|miss <kind> <file>` with the reason of a miss (`no entry`,
   `inputs changed`, `damaged entry`). Diagnostics and transform output are the
   same with and without a hit: they are stored with the entry.
+- **Backend measurements** (step 62D5, 2026-10-12, Release, Windows 11,
+  NTFS; `cache_store bench` in `tests/compiler/cache`). The 62D2 file backend
+  (one index rewritten per put, append-only packs) against SQLite:
+
+  | Case | File backend | SQLite |
+  | --- | --- | --- |
+  | 200 puts × 8 KB, then open and 200 gets | 788–902 ms, 9–16 ms | 37–41 ms, 8–9 ms |
+  | 2,000 puts × 8 KB, then open and gets | 11.1–12.5 s (1–3 entries lost), 118–128 ms | 249–258 ms, 32–33 ms |
+  | 3 puts × 24 MB, then open and gets | 106–127 ms, 144–157 ms | 85–90 ms, 73 ms (blob files) |
+
+  Kept inside the database, the 24 MB values took 379–392 ms to put (the log
+  writes them twice). Twenty different values per size, put and then read
+  back: 64 KB in the database 21 ms / 7 ms against 30 ms / 12–17 ms as blob
+  files; 256 KB 41–43 ms / 9 ms against 30–31 ms / 10–19 ms; 1 MB 105–110 ms /
+  18 ms against 37 ms / 18–22 ms; 4 MB 458–466 ms / 82 ms against 92 ms /
+  71 ms. Reads favor the database up to about 256 KB and writes favor files
+  from there on, which sets the inline limit at 256 KB. luerl builds (Release,
+  three runs) did not change: cold 3.75–3.78 s before and 3.78–3.80 s after,
+  warm 1.65–1.68 s before and 1.69–1.70 s after; they keep few entries.
 - **No directory scan cache** (step 62D3, 2026-10-11, Release `clau`, Windows,
   OS file cache warm). luerl plans in 78 ms of a 2.77 s warm build (2.8%).
   A manifest over all of `references/otp/lib` (1,319 directories, 9,711
@@ -359,6 +403,15 @@ syntax disabled. Archive SHA-256
 - Elsewhere: install it, extract to `thirdparty/tomlplusplus-3.4.0`, or pass
   `-DCLAUSE_TOML_ROOT=<path>` (takes precedence, disables download).
 - Runtime-only builds do not look for it.
+
+The [build cache](#build-caches) uses the SQLite 3.54.0 amalgamation (public
+domain), compiled into the compiler's cache library only (`clause_sqlite`,
+without the project's warning flags). CMake downloads
+`https://www.sqlite.org/2026/sqlite-amalgamation-3540000.zip` into
+`thirdparty/` on every host and verifies its SHA-256
+`68e913b0fe8ec6b4e5f391c594a28872884e80d6cd042a1e50c957be46b5aa4d`;
+`-DCLAUSE_SQLITE_ROOT=<directory with sqlite3.c and sqlite3.h>` takes
+precedence and disables the download.
 
 ## Limits
 

@@ -572,3 +572,9 @@ Host and tool gotchas:
   [comp] lines). A rebuilt clau (new exe mtime) misses every cache entry: Release timing runs need a warm-up run.
   Never `git checkout <file>` to drop temporary instrumentation from a file with uncommitted work (lost 62D2
   pipeline.cpp edits once; reapplied from the scratch spec).
+- 62D5 (2026-10-12): cache = SQLite (build/cache/v2/cache.db + blobs/). Store opens lazily; only put creates the db
+  (codegen_inspection/codegen_types assert no build/ after inspection runs). MSVC <filesystem> file_size /
+  last_write_time trip clang-analyzer EnumCastOutOfRange: use llvm::sys::fs::status instead. tidy flags
+  string_view::data() passed to C APIs: take const std::string&. Test scripts: build/plan11-62/ctest.cmd -R <one
+  word> (cmd treats "|" in -R as a pipe). Bench: cache_store bench ROOT (Release needs a temp target in build/tool,
+  BUILD_TESTING is OFF there); luerl timing = clau --project test-luerl.toml --entry luerl:init (exit 1 expected).

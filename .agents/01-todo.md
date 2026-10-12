@@ -139,7 +139,7 @@ checked as implemented.
 - **D07 — Project schema extensions** ([77](11-plan.md#step-77)): defaults,
   profiles, dependencies, exclusions, fetching, watch/cache, parallel builds.
   `build_dir` and caches are selected as [62D](11-plan.md#step-62d): [x] build directory, transform and
-  whole-batch compile caches, directory index (62E); [ ] SQLite cache backend ([62D5](11-plan.md#step-62d5));
+  whole-batch compile caches, directory index (62E), SQLite cache backend ([62D5](11-plan.md#step-62d5));
   [ ] per-module compile reuse, directory scan cache (not worth it on measurements).
 
 ## References

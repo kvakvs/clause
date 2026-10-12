@@ -582,7 +582,7 @@ int process_inputs(const Options &options) {
     if (options.build_directory) {
         request.build_directory_ = project::absolute_path(std::filesystem::current_path(), *options.build_directory);
     }
-    BuildCaches caches; // Added for build caches (62D2).
+    BuildCaches caches{options.verbose}; // Added for build caches (62D2).
     request.caches_ = options.no_cache ? nullptr : &caches;
     const DiagnosticSink sink = [](const std::string_view message) { std::cerr << message << '\n'; };
     const bool failed = process_files(options.inputs, request, sink);

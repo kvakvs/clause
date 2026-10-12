@@ -47,10 +47,12 @@ configure_file(src/transforms/loader/loader_source.hpp.in
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS src/transforms/loader/clause_transform_loader.erl)
 target_include_directories(clause_transforms PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
-# Added for build caches (62D2): the cache store and its file backend.
-add_library(clause_cache STATIC src/cache/store.cpp)
+# Added for build caches (62D2): the cache store; its SQLite backend since 62D5.
+include("${CMAKE_CURRENT_SOURCE_DIR}/src/cache/cmake/Dependencies.cmake")
+add_library(clause_cache STATIC src/cache/store.cpp src/cache/sqlite.cpp src/cache/blob_files.cpp
+    src/cache/sqlite_store.cpp)
 clause_project_options(clause_cache)
-target_link_libraries(clause_cache PRIVATE clause_llvm_sdk)
+target_link_libraries(clause_cache PRIVATE clause_llvm_sdk clause_sqlite)
 
 add_executable(clau src/main.cpp src/driver/command.cpp src/driver/options.cpp src/driver/frontend.cpp
     src/driver/build_cache.cpp src/driver/compile_cache.cpp

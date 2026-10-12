@@ -72,6 +72,13 @@ struct HostQuery {
     std::string_view bytes_;
 };
 
+// One host erl run as a cache keeps it: the reply file as the loader wrote it (the module list for a sticky query)
+// and the loader's own output. Added for the transform cache (62D2); public since the SQLite backend (62D5).
+struct HostRun {
+    std::string reply_;
+    std::string output_;
+};
+
 // Results of host erl runs kept between invocations; the driver backs it with the build cache. Added for the
 // transform cache (62D2).
 class HostCache {
@@ -81,9 +88,9 @@ class HostCache {
     HostCache &operator=(const HostCache &) = delete;
     virtual ~HostCache() = default;
     // The result stored for the same query and inputs, if any.
-    virtual std::optional<std::string> find(const HostQuery &query) = 0;
+    virtual std::optional<HostRun> find(const HostQuery &query) = 0;
     // Keep a fresh result.
-    virtual void store(const HostQuery &query, std::string_view result) = 0;
+    virtual void store(const HostQuery &query, const HostRun &run) = 0;
 };
 
 // Run the request's transforms over the module's forms on the host OTP, or reuse the reply `cache` keeps for the

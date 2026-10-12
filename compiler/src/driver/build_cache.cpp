@@ -8,6 +8,9 @@ namespace clause::cli {
 namespace {
 namespace fs = std::filesystem;
 
+// The format of a stored host run: its "reply" and "output" parts.
+constexpr std::uint32_t RUN_FORMAT = 1;
+
 // Where a query's result is kept: beside the module it transforms, or beside the erl it asks.
 cache::Address address(const transforms::HostQuery &query) {
     const auto file = query.kind_ == "sticky" ? query.request_.erl_ : project::native_path(query.request_.file_);
@@ -29,6 +32,16 @@ void add_includes(cache::KeyBuilder &key, const TransformSourceCache *sources, c
     }
 }
 
+// The host run a lookup found, when it has both parts.
+std::optional<transforms::HostRun> run_of(const cache::Lookup &found) {
+    const auto *reply = found.value_ ? cache::find_part(*found.value_, "reply") : nullptr;
+    const auto *output = found.value_ ? cache::find_part(*found.value_, "output") : nullptr;
+    if (!reply || !output) {
+        return std::nullopt;
+    }
+    return transforms::HostRun{reply->bytes_, output->bytes_};
+}
+
 // The entries of a directory with the extension (none: every entry without one), sorted.
 std::vector<fs::path> files_with(const fs::path &directory, const std::string_view extension) {
     std::vector<fs::path> result;
@@ -46,7 +59,9 @@ std::vector<fs::path> files_with(const fs::path &directory, const std::string_vi
 cache::Store &BuildCaches::store(const fs::path &build_directory) {
     auto &store = stores_[build_directory];
     if (!store) {
-        store = cache::file_store(build_directory / "cache");
+        cache::StoreOptions options;
+        options.notes_ = verbose_ ? &std::cerr : nullptr;
+        store = cache::open_store(build_directory / "cache", options);
     }
     return *store;
 }
@@ -57,19 +72,21 @@ void BuildCaches::prune() {
     }
 }
 
-std::optional<std::string> TransformCache::find(const transforms::HostQuery &query) {
+std::optional<transforms::HostRun> TransformCache::find(const transforms::HostQuery &query) {
     const auto where = address(query);
-    auto found = store_.get(where, key(query));
+    const auto found = store_.get(where, key(query), RUN_FORMAT);
+    auto run = run_of(found);
     if (verbose_) {
-        std::cerr << "[cache] " << (found.bytes_ ? "hit" : "miss") << ' ' << where.kind_ << ' '
+        const auto miss = found.value_ ? cache::Miss::corrupt : found.miss_;
+        std::cerr << "[cache] " << (run ? "hit" : "miss") << ' ' << where.kind_ << ' '
                   << project::path_text(where.directory_ / project::native_path(where.file_))
-                  << (found.bytes_ ? "" : ": " + std::string(cache::miss_text(found.miss_))) << '\n';
+                  << (run ? "" : ": " + std::string(cache::miss_text(miss))) << '\n';
     }
-    return std::move(found.bytes_);
+    return run;
 }
 
-void TransformCache::store(const transforms::HostQuery &query, const std::string_view result) {
-    store_.put(address(query), key(query), result);
+void TransformCache::store(const transforms::HostQuery &query, const transforms::HostRun &run) {
+    store_.put(address(query), key(query), {RUN_FORMAT, {{"reply", run.reply_}, {"output", run.output_}}});
 }
 
 cache::Key TransformCache::key(const transforms::HostQuery &query) {

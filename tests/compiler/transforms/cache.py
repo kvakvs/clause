@@ -6,9 +6,11 @@ diagnostics as the cold build. Editing a header, a define, a transform source an
 rebuilds exactly the modules whose inputs changed; damaged, truncated and old-format entries and a deleted build
 directory are rebuilt silently; --no-cache neither reads nor writes.
 """
+import contextlib
 import pathlib
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 
@@ -135,20 +137,20 @@ def main():
     edited(beam, {"a.erl": changed, "b.erl": changed})
     print("cache: headers, defines, transform sources and .beam files rebuild what depends on them")
 
-    # Damaged, truncated and old-format entries, and a deleted build directory, are rebuilt silently.
+    # Damaged, truncated and old-format entries, and a deleted build directory, are rebuilt silently. The SQLite
+    # backend of step 62D5 keeps every entry in build/cache/v2/cache.db: damage one reply's bytes in place.
     cache = root / "build/cache"
-    for pack in cache.rglob("transform-*.pack"):
-        data = bytearray(pack.read_bytes())
-        data[len(data) // 2] ^= 0xFF
-        pack.write_bytes(bytes(data))
+    database = cache / "v2/cache.db"
+    with contextlib.closing(sqlite3.connect(database)) as connection, connection:
+        connection.execute("UPDATE parts SET bytes = x'00' || substr(bytes, 2) WHERE name = 'reply'")
     damaged = Build(tool, erl, root)
     assert damaged.status == 0 and damaged.diagnostics == Build(tool, erl, root).diagnostics, damaged.diagnostics
     assert "damaged entry" in damaged.cache.values(), damaged.cache
-    for index in cache.rglob("index"):
-        index.write_bytes(index.read_bytes()[:10])
-    write(cache / "v0/old-00000000/index", "an older format\n")
+    database.write_bytes(database.read_bytes()[:10])
+    write(cache / "v1/old-00000000/index", "an older format\n")
     truncated = Build(tool, erl, root)
     assert truncated.status == 0 and truncated.outcome("a.erl") == "no entry", truncated.cache
+    assert not (cache / "v1").exists(), "the file backend's v1 tree is removed"
     shutil.rmtree(root / "build")
     recreated = Build(tool, erl, root)
     assert recreated.status == 0 and recreated.outcome("a.erl") == "no entry" and cache.is_dir(), recreated.cache

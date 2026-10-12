@@ -10,12 +10,16 @@ namespace clause::cli {
 // The cache stores of one invocation, one per build directory, pruned when the invocation ends.
 class BuildCaches {
   public:
+    // Stores note a fallback or a disabled cache under `verbose`.
+    explicit BuildCaches(const bool verbose) : verbose_(verbose) {}
+
     // The store of a build directory (below <build_dir>/cache), opened on first use.
     cache::Store &store(const std::filesystem::path &build_directory);
     // Drop superseded results of every store this invocation wrote to.
     void prune();
 
   private:
+    bool verbose_;
     std::map<std::filesystem::path, std::unique_ptr<cache::Store>> stores_;
 };
 
@@ -28,8 +32,8 @@ class TransformCache final : public transforms::HostCache {
     TransformCache(cache::Store &store, std::shared_ptr<const TransformSourceCache> sources, bool verbose)
         : store_(store), sources_(std::move(sources)), verbose_(verbose) {}
 
-    std::optional<std::string> find(const transforms::HostQuery &query) override;
-    void store(const transforms::HostQuery &query, std::string_view result) override;
+    std::optional<transforms::HostRun> find(const transforms::HostQuery &query) override;
+    void store(const transforms::HostQuery &query, const transforms::HostRun &run) override;
 
   private:
     // The key of everything a query's result depends on.

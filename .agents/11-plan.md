@@ -140,7 +140,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | L. Optimization and tooling | [58A](00-finished.md#step-58a)–[58N3](00-finished.md#step-58n3), [59](00-finished.md#step-59)–[62B](00-finished.md#step-62b) | F23, F25, F29–F34 | done |
 | H2. `erlang` module builtins | [41A](#step-41a)–[41H](#step-41h) (41G as 41G1–41G3) | F36 | done (41F TSan stress with V02) |
 | L2. Export liveness | [62C](#step-62c) | F32, F36 | done |
-| L3. Build directory and caches | [62D](#step-62d) (62D1–62D5), [62E](#step-62e) | D07 | open: [62D5](#step-62d5) |
+| L3. Build directory and caches | [62D](#step-62d) (62D1–62D5), [62E](#step-62e) | D07 | done |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c) | V01–V04, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -777,10 +777,10 @@ stay unchanged.
 - One threshold decides row versus file, set from the benchmark below.
 
 - Success criteria
-  - [ ] The SQLite amalgamation is a pinned third-party dependency (version
+  - [x] The SQLite amalgamation is a pinned third-party dependency (version
     and hash, downloaded like toml++), built as its own target without the
     project's warning flags, and linked only into `clau`'s cache library.
-  - [ ] A `Store` backend on SQLite: WAL journal, `synchronous=NORMAL`, a busy
+  - [x] A `Store` backend on SQLite: WAL journal, `synchronous=NORMAL`, a busy
     timeout, one transaction per `put`, an index on the address, values above
     the threshold in content-addressed blob files. `prune` deletes rows not
     used for a configurable time and blob files no row names, then runs an
@@ -788,24 +788,42 @@ stay unchanged.
     wrong schema version) is moved aside and recreated, never an error. On
     a file system without WAL support the store falls back to the rollback
     journal, or disables the cache with one `--verbose` note.
-  - [ ] Store values that carry their own encoding (loader runs, compile
+  - [x] Store values that carry their own encoding (loader runs, compile
     outcomes) become columns or tables where that removes a custom codec;
     whatever stays a blob keeps its format version in the row.
-  - [ ] `Store` is safe to use from several threads (one connection per thread
+  - [x] `Store` is safe to use from several threads (one connection per thread
     or a mutex), documented in `compiler/src/cache/store.hpp`.
-  - [ ] The format directory becomes `v2`; `prune` removes a leftover `v1`
+  - [x] The format directory becomes `v2`; `prune` removes a leftover `v1`
     tree. `docs/projects.md#build-caches` describes the new layout, the
     threshold and the network-file-system behavior.
 - Tests
-  - [ ] `transforms_cache` and `linking_compile_cache` pass unchanged.
-  - [ ] Several `clau` processes building projects that share one build
+  - [x] `transforms_cache` and `linking_compile_cache` pass unchanged (except the damage section of
+    `transforms_cache`, which edited v1 pack and index files and now damages `cache.db` rows).
+  - [x] Several `clau` processes building projects that share one build
     directory at the same time keep every entry; a focused store test
     exercises threads and processes writing and reading one database.
-  - [ ] A truncated or garbage `cache.db`, and a missing blob file, are
+  - [x] A truncated or garbage `cache.db`, and a missing blob file, are
     rebuilt silently.
-  - [ ] Recorded, not a gate: put/get times of the C++ backends for 200 and
+  - [x] Recorded, not a gate: put/get times of the C++ backends for 200 and
     2,000 small values and for 24 MB values, which set the blob threshold;
     luerl cold and warm build times before and after.
+- Done 2026-10-12: SQLite 3.54.0 amalgamation (2026-10-09, SHA3-256 checked against sqlite.org, SHA-256 pinned)
+  downloaded on every host by `compiler/src/cache/cmake/Dependencies.cmake` (`CLAUSE_SQLITE_ROOT` overrides) into
+  `clause_sqlite` (no project warnings, `/W0`/`-w`), linked only into `clause_cache`. `cache/sqlite` (RAII
+  `Database`/`Statement`/`Transaction`, `sqlite::Error`), `cache/blob_files` (content-addressed parts, temporary
+  file + rename, touch on reuse), `cache/sqlite_store` (tables `entries`/`parts`, WAL else rollback journal else
+  off, busy timeout 30 s, `BEGIN IMMEDIATE` per put, damaged/foreign db seen twice is renamed `cache.db.damaged`,
+  mutex, lazy open: only a write creates the database, so check/inspection runs leave no `build/`; prune drops
+  `v1`, rows unused 30 days, orphan blobs older than 10 min, incremental vacuum). `Store` values became
+  `Value{format_, parts_}`: the loader's text codec (`HostRun{reply_, output_}`) and the compile outcome's
+  length-prefixed codec (parts `failed`, `diagnostic`, `triple`, `extension`, `<kind>[+startup]:<module>`) and
+  `cache::Reader` are gone. Tests: `cache_store` (8 threads × 40 entries, 4 processes × 60 entries kept,
+  missing blob/garbage/truncated db, prune, `bench` mode) and `cache_projects` (4 concurrent clau runs × 3
+  targets sharing `--build-dir`: all 12 compile outcomes reused; garbage `cache.db` rebuilt; `v1` removed).
+  Release bench: 2,000 × 8 KB puts 11.1-12.5 s (file backend, 1-3 entries lost single-process) -> 249-258 ms;
+  gets 118-128 -> 32-33 ms; 3 × 24 MB 106-127/144-157 ms -> 85-90/73 ms; inline limit 256 KB from the 64 KB-4 MB
+  sweep (`docs/projects.md#build-caches`). luerl unchanged: cold 3.75-3.78 -> 3.78-3.80 s, warm 1.65-1.68 ->
+  1.69-1.70 s. Gate: fast CTest 261/262 (known `codegen_resource_cli`), `check-quality` clean.
 
 <a id="step-62e"></a>
 

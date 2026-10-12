@@ -2,12 +2,18 @@
 #include "compile_cache.hpp"
 #include "../codegen/target.hpp"
 #include "../project/paths.hpp"
+#include <algorithm>
+#include <array>
 #include <iostream>
 
 namespace clause::cli {
 namespace {
-// The stored value's format; another format reads as a damaged entry.
-constexpr std::string_view FORMAT = "clause-compile-outcome-1";
+// The stored value's format: parts "failed", "diagnostic" (in order) and, when outputs are kept, "triple",
+// "extension" and one part per output named by output_name.
+constexpr std::uint32_t OUTCOME_FORMAT = 2;
+// Output kinds as part names spell them, in OutputKind order.
+constexpr std::array<std::string_view, 3> OUTPUT_KINDS{"object", "llvm_ir", "llvm_bitcode"};
+constexpr std::string_view STARTUP = "+startup";
 
 // Append an option to a key text when it is set.
 void flag(std::string &text, const bool set, const std::string_view name) {
@@ -42,96 +48,69 @@ cache::Address outcome_address(const FrontendRequest &frontend, const std::strin
     return {*frontend.build_directory_, name + "@" + cache::hash_text(options).substr(0, 8), "compile"};
 }
 
-void put_outputs(std::string &out, const codegen::CompilationResult &result) {
-    cache::put_number(out, result.outputs().size());
-    for (const auto &output : result.outputs()) {
-        cache::put_text(out, output.module_name);
-        cache::put_number(out, static_cast<std::uint64_t>(output.kind));
-        cache::put_number(out, output.startup ? 1 : 0);
-        cache::put_text(out, {reinterpret_cast<const char *>(output.bytes.data()), output.bytes.size()});
-    }
+// An output's part name: its kind, "+startup" for the startup object, then ':' and the module name.
+std::string output_name(const codegen::OutputBuffer &output) {
+    return std::string(OUTPUT_KINDS.at(static_cast<std::size_t>(output.kind))) +
+           (output.startup ? std::string(STARTUP) : "") + ":" + output.module_name;
 }
 
-std::optional<codegen::OutputBuffer> read_output(cache::Reader &reader) {
-    auto name = reader.text();
-    const auto kind = reader.number();
-    const auto startup = reader.number();
-    const auto bytes = reader.text();
-    if (!name || !kind || *kind > static_cast<std::uint64_t>(codegen::OutputKind::llvm_bitcode) || !startup || !bytes) {
+// The output a part holds; none for a name output_name does not make.
+std::optional<codegen::OutputBuffer> read_output(const cache::Part &part) {
+    const auto colon = part.name_.find(':');
+    std::string_view head = std::string_view(part.name_).substr(0, colon);
+    const bool startup = head.ends_with(STARTUP);
+    head.remove_suffix(startup ? STARTUP.size() : 0);
+    const auto kind = std::ranges::find(OUTPUT_KINDS, head);
+    if (colon == std::string::npos || kind == OUTPUT_KINDS.end()) {
         return std::nullopt;
     }
-    codegen::OutputBuffer output{std::move(*name), static_cast<codegen::OutputKind>(*kind), {}, *startup != 0};
-    const auto *data = reinterpret_cast<const std::byte *>(bytes->data());
-    output.bytes.assign(data, data + bytes->size());
+    codegen::OutputBuffer output{
+        part.name_.substr(colon + 1), static_cast<codegen::OutputKind>(kind - OUTPUT_KINDS.begin()), {}, startup};
+    const auto *data = reinterpret_cast<const std::byte *>(part.bytes_.data());
+    output.bytes.assign(data, data + part.bytes_.size());
     return output;
 }
 
-// The outputs of a stored outcome as a completed result; none when damaged.
-std::optional<codegen::CompilationResult> read_outputs(cache::Reader &reader) {
-    const auto count = reader.number();
-    if (!count) {
-        return std::nullopt;
-    }
+// A stored outcome while its parts are read back.
+struct Reading {
+    CompileOutcome outcome;
+    std::optional<std::string> triple;
+    std::optional<std::string> extension;
     codegen::CompilationResult result;
-    for (std::uint64_t i = 0; i < *count; ++i) {
-        auto output = read_output(reader);
-        if (!output || !result.add_output(std::move(*output))) {
-            return std::nullopt;
-        }
-    }
-    result.complete();
-    return result;
-}
+};
 
-// The diagnostics of a stored outcome; none when damaged.
-std::optional<std::vector<std::string>> read_diagnostics(cache::Reader &reader) {
-    const auto count = reader.number();
-    if (!count) {
-        return std::nullopt;
+// Apply one part to the outcome being read; false when the part is damaged.
+bool read_part(const cache::Part &part, Reading &reading) {
+    if (part.name_ == "failed") {
+        reading.outcome.failed = part.bytes_ == "1";
+    } else if (part.name_ == "diagnostic") {
+        reading.outcome.diagnostics.push_back(part.bytes_);
+    } else if (part.name_ == "triple") {
+        reading.triple = part.bytes_;
+    } else if (part.name_ == "extension") {
+        reading.extension = part.bytes_;
+    } else {
+        auto output = read_output(part);
+        return output && reading.result.add_output(std::move(*output));
     }
-    std::vector<std::string> result;
-    for (std::uint64_t i = 0; i < *count; ++i) {
-        auto text = reader.text();
-        if (!text) {
-            return std::nullopt;
-        }
-        result.push_back(std::move(*text));
-    }
-    return result;
-}
-
-// The kept outputs of a stored outcome, if it has them; false when damaged.
-bool read_compiled(cache::Reader &reader, std::span<const std::filesystem::path> inputs,
-                   std::optional<Compiled> &compiled) {
-    const auto kept = reader.number();
-    if (!kept || *kept == 0) {
-        return kept.has_value();
-    }
-    auto triple = reader.text();
-    auto extension = reader.text();
-    auto result = triple && extension ? read_outputs(reader) : std::nullopt;
-    if (!result) {
-        return false;
-    }
-    compiled = Compiled{std::move(*result), std::move(*triple), std::move(*extension),
-                        std::vector<std::filesystem::path>(inputs.begin(), inputs.end())};
     return true;
 }
 
-// A stored outcome; none when damaged or of another format.
-std::optional<CompileOutcome> decode(std::string_view bytes, std::span<const std::filesystem::path> inputs) {
-    cache::Reader reader(bytes);
-    const auto format = reader.text();
-    const auto failed = reader.number();
-    auto diagnostics = format == FORMAT && failed ? read_diagnostics(reader) : std::nullopt;
-    if (!diagnostics) {
-        return std::nullopt;
+// A stored outcome; none when damaged. Outputs are kept when the outcome names its triple and extension.
+std::optional<CompileOutcome> decode(const cache::Value &value, std::span<const std::filesystem::path> inputs) {
+    Reading reading;
+    for (const auto &part : value.parts_) {
+        if (!read_part(part, reading)) {
+            return std::nullopt;
+        }
     }
-    CompileOutcome outcome{*failed != 0, std::move(*diagnostics), {}};
-    if (!read_compiled(reader, inputs, outcome.compiled) || !reader.empty()) {
-        return std::nullopt;
+    if (reading.triple && reading.extension) {
+        reading.result.complete();
+        reading.outcome.compiled =
+            Compiled{std::move(reading.result), std::move(*reading.triple), std::move(*reading.extension),
+                     std::vector<std::filesystem::path>(inputs.begin(), inputs.end())};
     }
-    return outcome;
+    return std::move(reading.outcome);
 }
 } // namespace
 
@@ -157,10 +136,10 @@ std::optional<CompileCache> compile_cache(std::span<const codegen::CompilationIn
 }
 
 std::optional<CompileOutcome> load_outcome(const CompileCache &cache, std::span<const std::filesystem::path> inputs) {
-    auto found = cache.store_->get(cache.address_, cache.key_);
-    auto outcome = found.bytes_ ? decode(*found.bytes_, inputs) : std::nullopt;
+    const auto found = cache.store_->get(cache.address_, cache.key_, OUTCOME_FORMAT);
+    auto outcome = found.value_ ? decode(*found.value_, inputs) : std::nullopt;
     if (cache.verbose_) {
-        const auto miss = found.bytes_ ? cache::Miss::corrupt : found.miss_;
+        const auto miss = found.value_ ? cache::Miss::corrupt : found.miss_;
         std::cerr << "[cache] " << (outcome ? "hit" : "miss") << " compile " << cache.address_.file_
                   << (outcome ? "" : ": " + std::string(cache::miss_text(miss))) << '\n';
     }
@@ -168,20 +147,18 @@ std::optional<CompileOutcome> load_outcome(const CompileCache &cache, std::span<
 }
 
 void save_outcome(const CompileCache &cache, const CompileOutcome &outcome) {
-    std::string out;
-    cache::put_text(out, FORMAT);
-    cache::put_number(out, outcome.failed ? 1 : 0);
-    cache::put_number(out, outcome.diagnostics.size());
+    cache::Value value{OUTCOME_FORMAT, {{"failed", outcome.failed ? "1" : "0"}}};
     for (const auto &text : outcome.diagnostics) {
-        cache::put_text(out, text);
+        value.parts_.push_back({"diagnostic", text});
     }
-    const bool compiled = cache.outputs_ && outcome.compiled;
-    cache::put_number(out, compiled ? 1 : 0);
-    if (compiled) {
-        cache::put_text(out, outcome.compiled->triple);
-        cache::put_text(out, outcome.compiled->object_extension);
-        put_outputs(out, outcome.compiled->result);
+    if (cache.outputs_ && outcome.compiled) {
+        value.parts_.push_back({"triple", outcome.compiled->triple});
+        value.parts_.push_back({"extension", outcome.compiled->object_extension});
+        for (const auto &output : outcome.compiled->result.outputs()) {
+            const auto *data = reinterpret_cast<const char *>(output.bytes.data());
+            value.parts_.push_back({output_name(output), std::string(data, output.bytes.size())});
+        }
     }
-    cache.store_->put(cache.address_, cache.key_, out);
+    cache.store_->put(cache.address_, cache.key_, value);
 }
 } // namespace clause::cli

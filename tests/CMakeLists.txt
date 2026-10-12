@@ -332,6 +332,9 @@ add_subdirectory(compiler/lint)
 # Added for parse transforms.
 add_subdirectory(compiler/transforms)
 
+# Added for the SQLite cache backend (plan step 62D5).
+add_subdirectory(compiler/cache)
+
 # The erlang library module and its inventory (plan step 41B).
 add_subdirectory(compiler/builtins)
 

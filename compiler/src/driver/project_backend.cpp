@@ -147,8 +147,8 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
     if (options.print_env) {
         return report_project(options, arguments);
     }
-    project::DirectoryIndex index; // Added for the directory index (62E).
-    BuildCaches caches;            // Added for build caches (62D2).
+    project::DirectoryIndex index;       // Added for the directory index (62E).
+    BuildCaches caches{options.verbose}; // Added for build caches (62D2).
     std::vector<Publication> pending;
     std::vector<PendingExecutable> executables;
     const project::TargetExecutor execute = [&](const project::Invocation &invocation,
