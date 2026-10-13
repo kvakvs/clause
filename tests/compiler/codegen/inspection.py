@@ -151,7 +151,11 @@ for flag in ('--print-ir', '--print-optimized-ir'):
     (work / 'bad.erl').write_text('-module(bad). value() -> fun erlang:apply/2.\n', encoding='utf-8')
     assert not run(flag, 'answer.erl', 'bad.erl', expected=1).stdout
 assert 'Usage:' in run('--help', '--print-ir', '--target-triple', 'invalid', 'missing.erl').stdout
-assert not (work / 'build').exists() and not (work / 'out').exists() and not (work / 'new.toml').exists()
+# Inspections may keep inference results in the build cache: the work directory lies below tests/compiler, which
+# the implicit inference cache pattern */compiler covers (plan step 58W). Nothing else is written.
+build = work / 'build'
+assert not build.exists() or [entry.name for entry in build.iterdir()] == ['cache']
+assert not (work / 'out').exists() and not (work / 'new.toml').exists()
 
 # Plan 20 step OPT0.5B: only the two updates of a map nothing else reads use the owned operation (10); the update of
 # a source read again stays an ordinary update (1), so that source keeps its value.

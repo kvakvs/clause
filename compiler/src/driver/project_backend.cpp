@@ -195,6 +195,7 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
         request.index_ = &index;
         request.build_directory_ = target.build_directory_;
         request.caches_ = options.no_cache ? nullptr : &caches;
+        request.cache_dirs_ = target.cache_dirs_; // Added for the inference cache (58W).
         return process_files(target.sources, request, sink);
     };
     const int status = project::run(options.project, plan_settings(options, &index), execute, std::cout, std::cerr);

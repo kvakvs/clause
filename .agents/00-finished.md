@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41H, 62C–62E, 65A–65C, 73A–73G, 2026-10-03–12)
+## Plan 11 (steps 1–68, 41A–41H, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 73A–73G, 2026-10-03–13)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -197,6 +197,23 @@ criteria and evidence are in Git at those commits. Contracts in the linked
 - **59–62B (L):** O2 proofs remove tag/shape checks; debug info (`-g`); profiling (`--profile`); LTO (`--lto`); hashed code-server lookups; timer wheel. Phase close: 235/235 full CTests, `check-quality-all` clean.
 - **62C (L2):** 2026-10-11, export liveness ([executables](../docs/executables.md#export-liveness)): executables leave out the functions their entry cannot reach (direct calls, funs, literal apply/spawn targets; escaped module names keep whole modules; a dynamic call plus an atom-producing builtin keeps everything); left-out exports keep only their names for `function_exported/3`; `--keep-exports` and `keep_exports` opt out.
 - **62D1–62D5, 62E (L3):** 2026-10-11–12, build directory and caches ([projects](../docs/projects.md#build-directory), [compile](../docs/compile.md#compile-cache)): per-invocation in-memory index of searched directories (lookups that miss cost no probe); `build_dir`/`--build-dir` with Clause temp files below `<build_dir>/tmp`; a cache store holding parse transform replies and whole-batch compile outcomes, `--no-cache`, `(cached)` stage times; first a file backend (62D2), then SQLite 3.54 (`cache/v2/cache.db`, parts above 256 KB in content-addressed blob files, WAL, safe across threads and processes, damaged databases moved aside, prune); no directory scan cache (measured); `[time] plan`. luerl warm build 3.8 s -> 1.65 s. Phase gate: full CTest 263/264 (known `codegen_resource_cli`), `check-quality-all` clean; 62D5 fast CTest 261/262.
+- <a id="plan-11-i2-i3"></a>**58O–58S (I2):** 2026-10-13, inference convergence and cost
+  ([semantic](../docs/semantic.md#inference)): `--print-stage-times` `inference rounds` per recursive group;
+  groups that hit their round cap or an eighth of the pass work are remembered and given `term()` at once; rounds
+  never shrink function types and a member flipping back to one of its last 4 summaries gives up alone; a round
+  re-walks only members whose read summaries changed; unions drop exact tuples another same-size tuple holds, so
+  joins at the container depth limit stop alternating. luerl inference 330 s to 107 s (work 65.6M to 48.6M
+  steps). Tests `inference_budgets`, `inference_trees`, `deep_tree_joins`.
+- **58U–58W (I3):** 2026-10-13, inference cache for library directories
+  ([projects](../docs/projects.md#inference-cache), [semantic](../docs/semantic.md#inference-cache)):
+  `cache_inference_in_dirs`/`--cache-inference-in-dirs` plus implicit `*/stdlib`, `*/kernel`, `*/compiler`,
+  `*/syntax_tools` (and `-*` forms), relative patterns matching trailing directories; one module's results as
+  bytes (`semantic/types/inference_store`, nodes in graph order, facts by AST arena position); covered modules
+  keyed by their own and every atom-reached module's fingerprint (calls, funs, `apply` atoms, native records),
+  reused when the kept entry holds every live function, fixed during inference, fresh ones stored. luerl: 138
+  of 188 modules covered, inference 180 s to 40.5 s on a warm recompile. Tests `cache_inference`,
+  `semantic_inference` round trip, `project_cli`/`cli` `--print-env`. Gate: full CTest 278/279 (known
+  `codegen_measurements` IR size bound, failing before 58U too), `check-quality-all` clean.
 - **63–65, 67–68 (M):** Linux x86-64 full gate (WSL2); 32-bit runtime on Windows x86 and Linux i386 with cross-linked goldens; arm64/armhf under qemu-user; ASan/UBSan/LSan and TSan clean on Linux after fixing a shutdown use-after-free and a lock-order inversion ([validation](../docs/validation.md)).
 - **65A–65C (M):** 2026-10-10, from compiling luerl ([semantic](../docs/semantic.md), [compile](../docs/compile.md)): `-behaviour`/`-behavior` with OTP callback warnings and a generated `behaviour_info/1`; generated `module_info/0,1` returning literal data and informational attributes kept in `module_info(attributes)`; `-import` of any module with OTP conflicts; optimization/reporting `-compile` hints ignored; rejected attributes name themselves. Lint goldens from OTP 29.1.1.
 - **73A–73G (N2):** 2026-10-11, parse transforms ([transforms](../docs/transforms.md)): contract; owned abstract term model with ETF and `.abstr` text codecs (the ETF `Writer`/`Reader` in `abi/include/clause/abi/external_term.hpp` is shared with the future runtime `term_to_binary` and distribution); `--print-abstr` equal to OTP `epp` forms; `.abstr` inputs; embedded loader run on host OTP 29 (`--erl`, `PATH`, default install, 600 s limit); transforms applied before lint in positional and project drivers with OTP's diagnostics; precompiled `.beam`s from `--transform-path`/`transform_paths`, project transforms compiled in memory each run. Last gate 242/243 fast CTests (known `codegen_resource_cli` failure), check-quality clean.
@@ -330,6 +347,14 @@ criteria and evidence are in Git at those commits. Contracts in the linked
 - <a id="step-58n1"></a>**58N1.** Keep dependent facts of case and if — `e63e14c`
 - <a id="step-58n2"></a>**58N2.** Carry dependent facts through operations and bindings — `60a5dd4`
 - <a id="step-58n3"></a>**58N3.** Dependent facts of tuple scrutinees and try ... of — `175b545`
+- <a id="step-58o"></a>**58O.** Measure the fixed-point rounds of recursive groups — `c712d605`
+- <a id="step-58p"></a>**58P.** Remember groups that failed to converge — `1ebaca6d`
+- <a id="step-58q"></a>**58Q.** Make fixed-point rounds monotone and detect flipping — `fa55a8d5`
+- <a id="step-58r"></a>**58R.** Re-walk only the members whose inputs changed — `2a3059ba`
+- <a id="step-58s"></a>**58S.** Make fact joins monotone at the container depth limit — `b5aec11f`
+- <a id="step-58u"></a>**58U.** Option `cache_inference_in_dirs` and `--cache-inference-in-dirs` — `5490832e`
+- <a id="step-58v"></a>**58V.** A module's inference results as bytes — `d8b26d1b`
+- <a id="step-58w"></a>**58W.** Reuse cached inference results of covered modules — commit `[plan11] 58W ...`
 - <a id="step-59"></a>**59.** Make specialization remove real source checks — `8a5ace2`
 - <a id="step-60"></a>**60.** Emit source-level debug information — `116cff1`
 - <a id="step-61"></a>**61.** Add opt-in profiling — `ecb8de5`

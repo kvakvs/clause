@@ -295,13 +295,18 @@ class Decoder {
         }
     }
 
+    // Functions export liveness left out (live in the analysis that encoded them) get nothing.
     void install() {
         for (auto &[function, summary] : summaries_) {
-            inference_.functions.insert_or_assign(function, std::move(summary));
-            inference_.reused.insert(function);
+            if (function->live_) {
+                inference_.functions.insert_or_assign(function, std::move(summary));
+                inference_.reused.insert(function);
+            }
         }
         for (auto &[function, inputs] : inputs_) {
-            inference_.inputs.insert_or_assign(function, std::move(inputs));
+            if (function->live_) {
+                inference_.inputs.insert_or_assign(function, std::move(inputs));
+            }
         }
         inference_.reused_expressions.merge(expressions_);
     }

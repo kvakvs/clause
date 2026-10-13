@@ -611,6 +611,43 @@ those proven reads. Each fallible service result is loaded only on its success
 path, and shape checks dominate extraction. Specialization policy:
 [specialization.md](specialization.md).
 
+### Inference cache
+
+Modules in the directories of the [inference cache](projects.md#inference-cache)
+may start a compile with the results an earlier compile kept (plan 11 steps
+58V and 58W): summaries, local inputs and expression facts of their
+functions. `infer` keeps them fixed in every pass, never walks a component
+whose members all reuse them, and walks every other function as usual,
+reading the kept summaries like any other.
+
+- **What a module's facts depend on.** Exported functions and functions a
+  `fun F/A` names start from `term()`; every other function's inputs come from
+  its callers, which are in the same module; a fact names a function of
+  another module only through an atom: a remote call, `fun M:F/A`, or
+  `apply/2,3` on an atom fact (and reads another module's record layout only
+  through a native record it qualifies or imports), and every atom fact comes from an atom the
+  module spells or from a fact of a module it reaches. So a module's facts
+  depend only on its own code and on the code of the batch modules its atoms
+  name, transitively. The key of its kept results covers exactly that:
+  `clau`'s identity, the module's fingerprint (its source, every file it
+  includes, preprocessing options and a parse transform reply), predefined
+  forms, escript and library status, and the same of every batch module its
+  atoms reach. A module reached that way which has no fingerprint makes the
+  module uncacheable.
+- **Liveness.** Export liveness only removes functions, and a removed caller
+  only narrows the inputs of the functions it called: facts computed with more
+  live functions still hold. Kept results are reused when they hold every
+  function live now (`results do not fit` otherwise); functions left out get
+  nothing.
+- **Mixing.** Kept and fresh results may meet in one batch: each module's
+  facts hold for every run of the program, whatever another module's facts
+  say, so a fresh module reading a kept summary (or the reverse) stays sound.
+  A recursive component with both kinds of members is walked whole.
+- **Precision.** Reused results are the ones of the compile that kept them. A
+  fresh module's results may still differ from a compile without the cache:
+  the pass budget no longer pays for reused modules, and graph identities, by
+  which a few union members are ordered, are numbered differently.
+
 ## `--print-types`
 
 Prints each module of the batch (input/target order, library modules after

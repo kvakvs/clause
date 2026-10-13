@@ -637,6 +637,7 @@ int process_inputs(const Options &options) {
     }
     BuildCaches caches{options.verbose}; // Added for build caches (62D2).
     request.caches_ = options.no_cache ? nullptr : &caches;
+    request.cache_dirs_ = positional_cache_dirs(options); // Added for the inference cache (58W).
     const DiagnosticSink sink = [](const std::string_view message) { std::cerr << message << '\n'; };
     const bool failed = process_files(options.inputs, request, sink);
     caches.prune();

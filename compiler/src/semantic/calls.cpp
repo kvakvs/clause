@@ -499,6 +499,43 @@ std::map<std::u32string, std::set<FunctionKey>> referenced_functions(const ast::
     return result;
 }
 
+namespace {
+// The atom an expression spells: a plain atom, or the module of a native record it qualifies (`#m:r{}`), whose
+// layout inference reads. Added for the inference cache (58W).
+const std::u32string *spelled_atom(const ast::Expression &expression) {
+    if (const auto *atom = std::get_if<ast::Atom>(&expression.value)) {
+        return &atom->name;
+    }
+    const ast::RecordIdentity *identity = nullptr;
+    if (const auto *record = std::get_if<ast::RecordExpression>(&expression.value)) {
+        identity = &record->identity;
+    } else if (const auto *access = std::get_if<ast::RecordAccess>(&expression.value)) {
+        identity = &access->identity;
+    }
+    const auto *qualified = identity ? std::get_if<ast::QualifiedRecordName>(&identity->value) : nullptr;
+    return qualified ? &qualified->module.name : nullptr;
+}
+} // namespace
+
+std::set<std::u32string> named_atoms(const ast::Module &syntax) {
+    std::set<std::u32string> result;
+    for (std::size_t index = 0; index < syntax.expression_count(); ++index) {
+        if (const auto *atom = spelled_atom(syntax.expression_at(index))) {
+            result.insert(*atom);
+        }
+    }
+    for (const auto &[module, site] : referenced_modules(syntax)) {
+        result.insert(module);
+    }
+    // -import_record(M, [...]) makes M's native records usable unqualified.
+    for (const auto &id : syntax.forms()) {
+        if (const auto *imported = std::get_if<ast::ImportRecordAttribute>(&syntax.form(id).value)) {
+            result.insert(imported->module.name);
+        }
+    }
+    return result;
+}
+
 CallGraph resolve_calls(const std::span<const std::unique_ptr<Module>> modules, const Reporter &out) {
     const auto names = module_index(modules, out);
     std::size_t total = 0;

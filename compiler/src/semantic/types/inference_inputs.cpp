@@ -52,7 +52,9 @@ std::map<const Function *, std::vector<std::vector<Id>>> call_arguments(const In
 void prepare_inputs(Inference &inference, const CallGraph &calls) {
     const auto named = fun_named(calls);
     for (const auto function : calls.order) {
-        if (!function.function->exported && !named.contains(function.function)) {
+        // A reused function keeps the inputs a build cache kept, or none (term()). Added for the inference cache.
+        if (!function.function->exported && !named.contains(function.function) &&
+            !inference.reused.contains(function.function)) {
             inference.inputs.emplace(function.function,
                                      std::vector<Id>(function.function->key.arity, inference.graph.bottom()));
         }
@@ -64,7 +66,8 @@ bool gather_inputs(Inference &inference, const CallGraph &calls, const bool wide
     Lattice lattice(inference.graph);
     bool changed = false;
     for (auto &[function, inputs] : inference.inputs) {
-        const auto found = arguments.find(function);
+        // Reused inputs stay as kept (58W).
+        const auto found = inference.reused.contains(function) ? arguments.end() : arguments.find(function);
         for (std::size_t index = 0; found != arguments.end() && index < inputs.size(); ++index) {
             const auto seen = lattice.join(found->second.at(index), 0);
             const auto next = widening ? lattice.widen(inputs[index], lattice.join(inputs[index], seen))

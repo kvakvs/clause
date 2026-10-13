@@ -294,8 +294,8 @@ change, and each batch's [compile outcome](compile.md#compile-cache).
 Library modules (OTP's `stdlib`, `kernel`, `compiler` and `syntax_tools`
 sources found through `source_search_paths`, Clause's own
 [library](library.md)) rarely change, so modules in configured directories
-may keep their type inference results in the build cache, per module (plan 11
-steps 58U–58W; reuse arrives with step 58W).
+keep their type inference results in the build cache, per module (plan 11
+steps 58U–58W), and later compiles reuse them instead of inferring them again.
 
 - Directories: the implicit OTP application patterns `*/stdlib`,
   `*/stdlib-*`, `*/kernel`, `*/kernel-*`, `*/compiler`, `*/compiler-*`,
@@ -311,10 +311,34 @@ steps 58U–58W; reuse arrives with step 58W).
   `references/otp/lib/stdlib/src/lists.erl`, while an installed
   `.../lib/stdlib-7.0/src/lists.erl` needs `*/stdlib-*`. An absolute pattern
   matches the whole directory path (`C:/Program Files/Erlang OTP/lib/*`).
-  Matching is lexical and case-sensitive.
+  Matching is lexical and case-sensitive. The implicit patterns also cover a
+  project's own directory of such a name (`apps/compiler`), which only stores
+  more entries: reuse is sound for every module.
 - `--print-env` prints the effective list as `cache_inference_in_dirs`,
   implicit patterns first. An unsupported construct (`[`, `{`, `!`) is a
   manifest error, or a usage error (exit 2) on the command line.
+- Reuse needs a build directory (every project target; positional inputs
+  with `--build-dir`) and is off with `--no-cache`. It works for every action
+  that analyses (compiling, executables, `--print-types`, IR inspections),
+  also when the batch's [compile cache](compile.md#compile-cache) misses.
+- Key: `clau`'s identity, the module's fingerprint and those of every batch
+  module its atoms name, transitively (remote calls, `fun M:F/A`, `apply`,
+  any atom that is a module name); see
+  [semantic: inference cache](semantic.md#inference-cache) for why that is
+  all its facts depend on. Editing a user module therefore keeps the library
+  hits unless a library module names it; editing a library module misses it
+  and every covered module that reaches it.
+- Entries are kept per source directory, file and project target (kind
+  `inference@<target>`, `inference@positional`); a value is one part
+  `results` (`semantic/types/inference_store`: graph nodes, summaries and
+  local inputs by function, expression facts by syntax position). Results
+  kept by a compile with more live functions (for example `--print-types`)
+  serve an executable that keeps fewer.
+- `--verbose` prints `[cache] hit|miss inference <file>` per covered module
+  (miss reasons: `no entry`, `inputs changed`, `damaged entry`, `results do not
+  fit` for kept results lacking a function that is live now);
+  `--print-stage-times` prints the phases `inference-cache` (with `N of M
+  covered modules reused`) and `inference-store`.
 
 ## Paths and discovery
 

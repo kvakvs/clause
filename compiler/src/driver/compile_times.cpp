@@ -109,6 +109,13 @@ void print_recursive(const InferenceProfile &profile) {
 
 void print_compile_phases(const Analysis &analysis, const std::string_view subject) {
     for (const auto &[phase, elapsed] : analysis.times.phases()) {
+        if (phase == "inference-cache") {
+            // Added for the inference cache (58W).
+            print_stage_time(
+                phase, subject, elapsed,
+                std::format("{} of {} covered modules reused", analysis.reused_modules_, analysis.covered_modules_));
+            continue;
+        }
         print_stage_time(phase, subject, elapsed);
         if (phase == "inference") {
             print_passes(analysis.profile, subject);

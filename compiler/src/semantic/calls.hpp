@@ -41,4 +41,8 @@ std::map<std::u32string, ast::NodeSource> referenced_modules(const ast::Module &
 // The functions a module names in other modules with literal atoms (M:F(...), fun M:F/A, apply(M, F, [...]) and
 // -import(M, ...)), by module. Added for ignored modules.
 std::map<std::u32string, std::set<FunctionKey>> referenced_functions(const ast::Module &syntax);
+// Every atom the module's expressions and patterns spell and every module it names (calls, funs, imports, behaviours,
+// native records): the modules whose functions or records its inferred facts can reach. Added for the inference
+// cache (58W).
+std::set<std::u32string> named_atoms(const ast::Module &syntax);
 } // namespace clause::semantic

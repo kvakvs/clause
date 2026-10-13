@@ -158,7 +158,10 @@ assert project.stdout.index('target="two"') < project.stdout.index('target="one"
 assert re.search(r'target="two"[\s\S]*value\(\) -> 2\n[\s\S]*target="one"[\s\S]*value\(\) -> 1\n',
                  project.stdout)
 assert 'phase=lowering' not in project.stderr
-assert not (work / 'reserved').exists() and not (work / 'build').exists()
+# Only the inference cache may be written: the work directory lies below tests/compiler, which the implicit pattern
+# */compiler covers (plan step 58W).
+build = work / 'build'
+assert not (work / 'reserved').exists() and (not build.exists() or [entry.name for entry in build.iterdir()] == ['cache'])
 
 for conflict in (('--print-ir',), ('--print-optimized-ir',), ('--emit', 'obj'), ('--artifact-dir', 'out'),
                  ('--output', 'exe'), ('-O0',), ('-O2',), ('--no-type-specialization',),

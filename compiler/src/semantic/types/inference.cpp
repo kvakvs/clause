@@ -939,9 +939,20 @@ SolveTrace solve(Inference &inference, const Component &component, std::size_t &
 // given up as unknown.
 constexpr std::size_t PASSES = JOIN_ROUNDS + 2 * WIDENING_PASSES;
 
+// Whether a build cache kept the results of every member: the component keeps them. Added for the inference cache
+// (58W).
+bool reused(const Inference &inference, const Component &component) {
+    return !inference.reused.empty() && std::ranges::all_of(component.members, [&](const FunctionRef member) {
+        return inference.reused.contains(member.function);
+    });
+}
+
 // Infer one component from the current summaries of its callees; a recursive one returns its rounds' trace.
 SolveTrace infer_component(Inference &inference, const Component &component, std::size_t &work,
                            std::vector<const ast::Expression *> &recorded) {
+    if (reused(inference, component)) {
+        return {};
+    }
     if (component.recursive) {
         return solve(inference, component, work);
     }
@@ -1002,9 +1013,10 @@ void profiled_component(Inference &inference, const CallGraph &calls, const std:
     }
 }
 
-// Infer every component in callee-before-caller order, from fresh expression facts and its own work budget.
+// Infer every component in callee-before-caller order, from fresh expression facts (besides reused ones) and its own
+// work budget.
 void infer_pass(Inference &inference, const CallGraph &calls) {
-    inference.expressions.clear();
+    inference.expressions = inference.reused_expressions;
     inference.fun_reads.clear();
     inference.reanalysis_work = 0;
     std::size_t work = 0;
@@ -1074,29 +1086,35 @@ void index_calls(Inference &inference, const CallGraph &calls) {
 std::unique_ptr<Inference> infer(const CallGraph &calls, const Limits limits, InferenceProfile *profile) {
     auto result = std::make_unique<Inference>(limits);
     result->profile = profile;
-    start_profile(profile, calls, limits.syntax_work);
-    index_calls(*result, calls);
+    infer(*result, calls);
+    return result;
+}
+
+void infer(Inference &inference, const CallGraph &calls) {
+    start_profile(inference.profile, calls, inference.graph.limits().syntax_work);
+    index_calls(inference, calls);
     // Local inputs grow from their calls and a fun F/A reads its function's summary as far as it is known: passes
     // repeat until the inputs stop changing and each fun read its function's final result.
-    prepare_inputs(*result, calls);
+    prepare_inputs(inference, calls);
     for (std::size_t pass = 0; pass < PASSES; ++pass) {
-        infer_pass(*result, calls);
-        const bool changed = gather_inputs(*result, calls, pass >= JOIN_ROUNDS);
-        if (!changed && settled(*result)) {
-            pass_outcome(*result, "settled");
-            return result;
+        infer_pass(inference, calls);
+        const bool changed = gather_inputs(inference, calls, pass >= JOIN_ROUNDS);
+        if (!changed && settled(inference)) {
+            pass_outcome(inference, "settled");
+            return;
         }
-        pass_outcome(*result, changed ? "inputs changed" : "fun results changed");
+        pass_outcome(inference, changed ? "inputs changed" : "fun results changed");
     }
-    for (auto &[function, inputs] : result->inputs) {
-        (void)function;
-        std::ranges::fill(inputs, result->graph.exhausted());
+    // Reused inputs stay: they were gathered from every caller in a module a build cache kept (58W).
+    for (auto &[function, inputs] : inference.inputs) {
+        if (!inference.reused.contains(function)) {
+            std::ranges::fill(inputs, inference.graph.exhausted());
+        }
     }
-    result->opaque_funs = true;
+    inference.opaque_funs = true;
     // With every input term() a component may converge where it could not before: it gets one more solve (58P).
-    result->failed.clear();
-    infer_pass(*result, calls);
-    pass_outcome(*result, "final pass after passes did not settle: inputs widened to term()");
-    return result;
+    inference.failed.clear();
+    infer_pass(inference, calls);
+    pass_outcome(inference, "final pass after passes did not settle: inputs widened to term()");
 }
 } // namespace clause::semantic::types

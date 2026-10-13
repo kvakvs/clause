@@ -472,6 +472,13 @@
   `fingerprint_` (frontend: files read with bytes, pp options, transform reply); outcome = parts "failed",
   "diagnostic"*, and for -o/--emit "triple", "extension", one part per output (`<kind>[+startup]:<module>`);
   `Compiled` struct feeds link/deliver for fresh and reused batches.
+  Inference cache (58U-58W): `project::InferenceCacheDirs` (implicit */stdlib,*/kernel,*/compiler,*/syntax_tools
+  + `-*` forms, manifest `cache_inference_in_dirs`, CLI `--cache-inference-in-dirs`; relative = `**/p/**`) ->
+  `FrontendRequest::cache_dirs_` -> `analyze(..., InferenceCache*)`: `driver/inference_cache` keys each covered
+  module by clau identity + own and transitive atom-reached (`semantic::named_atoms`) input identities, loads
+  part "results" (`semantic/types/inference_store`, decode needs every live function) into
+  `Inference::reused`/`reused_expressions`; `infer(Inference&, calls)` skips all-reused components, keeps reused
+  inputs and starts each pass from the reused facts; fresh covered results stored after inference.
   Export liveness (62C, `semantic/liveness`): for executables and IR/asm inspections with an entry, run in
   `analyze` right after `calls` (then `live_calls` prunes `Analysis::calls`, so inference/contracts see live code
   only), a worklist from the entry over direct calls,

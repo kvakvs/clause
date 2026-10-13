@@ -124,4 +124,7 @@ inline const Summary &summary_of(const Inference &inference, const Function *fun
 // to top after a bounded number of rounds. Budget exhaustion conservatively loses precision. A `profile` records
 // pass and component costs (added for --print-stage-times).
 std::unique_ptr<Inference> infer(const CallGraph &calls, Limits limits = {}, InferenceProfile *profile = nullptr);
+// Infer into `inference`, keeping the summaries, local inputs and expression facts of the functions it reuses: a
+// component whose members are all reused is never walked. Added for the inference cache (58W).
+void infer(Inference &inference, const CallGraph &calls);
 } // namespace clause::semantic::types

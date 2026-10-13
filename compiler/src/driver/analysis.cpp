@@ -26,10 +26,10 @@ void index_inputs(const codegen::CompilationRequest &request, Analysis &analysis
     semantic::check_behaviours(analysis.modules, report);
 }
 
-// Run one analysis phase, timed under --print-stage-times.
-template <typename Work> void phase(Analysis &analysis, const std::string_view name, Work &&work) {
+// Run one analysis phase, timed under --print-stage-times, returning what it returns.
+template <typename Work> decltype(auto) phase(Analysis &analysis, const std::string_view name, Work &&work) {
     const auto lap = analysis.times.lap(name);
-    std::forward<Work>(work)();
+    return std::forward<Work>(work)();
 }
 
 // Attach known module identities to each batch analysis phase before invoking its shared implementation.
@@ -56,10 +56,32 @@ void drop_unreachable(const codegen::CompilationRequest &request, Analysis &anal
     }
     analysis.calls = semantic::live_calls(analysis.calls);
 }
+
+// Infer the batch; with a build cache, covered modules first reuse the results it kept (phase inference-cache) and
+// fresh results of covered modules are kept afterwards (inference-store). Added for the inference cache (58W).
+void infer_batch(const codegen::CompilationRequest &request, const InferenceCache *cache, Analysis &analysis) {
+    auto inference = std::make_unique<semantic::types::Inference>(semantic::types::Limits{});
+    inference->profile = analysis.times.enabled() ? &analysis.profile : nullptr;
+    if (!cache) {
+        phase(analysis, "inference", [&] { semantic::types::infer(*inference, analysis.calls); });
+        analysis.inferred = std::move(inference);
+        return;
+    }
+    auto kept = phase(analysis, "inference-cache", [&] {
+        BatchInferenceCache result(*cache, request.inputs, analysis.modules);
+        result.load(*inference);
+        return result;
+    });
+    analysis.covered_modules_ = kept.covered();
+    analysis.reused_modules_ = kept.reused();
+    phase(analysis, "inference", [&] { semantic::types::infer(*inference, analysis.calls); });
+    phase(analysis, "inference-store", [&] { kept.save(*inference); });
+    analysis.inferred = std::move(inference);
+}
 } // namespace
 
 bool analyze(const codegen::CompilationRequest &request, const EntryRequest &entry, const bool live_only,
-             Analysis &analysis, const DiagnosticSink &sink) {
+             Analysis &analysis, const DiagnosticSink &sink, const InferenceCache *cache) {
     codegen::validate_input_limits(request.inputs, request.limits);
     bool failed = false;
     const semantic::Reporter report = [&](const Diagnostic &diagnostic) {
@@ -90,8 +112,7 @@ bool analyze(const codegen::CompilationRequest &request, const EntryRequest &ent
         return false;
     }
     trace_analysis("inference", request, analysis);
-    auto *profile = analysis.times.enabled() ? &analysis.profile : nullptr;
-    phase(analysis, "inference", [&] { analysis.inferred = semantic::types::infer(analysis.calls, {}, profile); });
+    infer_batch(request, cache, analysis);
     trace_analysis("contracts", request, analysis);
     phase(analysis, "contracts",
           [&] { semantic::types::check_contracts(*analysis.declared, *analysis.inferred, analysis.calls, report); });

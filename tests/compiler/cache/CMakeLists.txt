@@ -12,3 +12,9 @@ set_tests_properties(cache_store PROPERTIES TIMEOUT 300 PASS_REGULAR_EXPRESSION 
 add_test(NAME cache_projects COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/projects.py"
     "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/projects/$<CONFIG>")
 set_tests_properties(cache_projects PROPERTIES TIMEOUT 600 PASS_REGULAR_EXPRESSION "projects: ok")
+
+# Inference cache (plan step 58W): covered modules reuse their inference results. The work directory stays outside
+# tests/compiler, which the implicit pattern */compiler would cover.
+add_test(NAME cache_inference COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/inference.py"
+    "$<TARGET_FILE:clau>" "${PROJECT_BINARY_DIR}/tests/inference-cache/$<CONFIG>")
+set_tests_properties(cache_inference PROPERTIES TIMEOUT 600 PASS_REGULAR_EXPRESSION "inference: ok")

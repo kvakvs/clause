@@ -1,6 +1,7 @@
 #pragma once
 #include "backend_options.hpp"
 #include "build_cache.hpp"
+#include "project/cache_dirs.hpp"
 #include "project/directory_index.hpp"
 #include "project/entry.hpp"
 #include "project/ignore.hpp"
@@ -67,6 +68,9 @@ struct FrontendRequest {
     std::optional<std::filesystem::path> build_directory_ = {};
     // The invocation's build caches; absent with --no-cache. Added for build caches (62D2).
     BuildCaches *caches_ = nullptr;
+    // The directories whose modules keep their inference results in the build cache. Added for the inference cache
+    // (58W).
+    project::InferenceCacheDirs cache_dirs_ = {};
 };
 
 // Process one isolated batch; project targets never share declaration tables.

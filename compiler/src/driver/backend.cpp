@@ -175,12 +175,23 @@ bool live_only(const FrontendRequest &frontend) {
     return !backend.keep_exports && (frontend.executable_output || (backend.inspect_ir() && frontend.entry));
 }
 
+// The inference cache of a batch with a build cache; none without one or with --no-cache. Added for the inference
+// cache (58W).
+std::optional<InferenceCache> inference_cache(const FrontendRequest &frontend) {
+    if (!frontend.caches_ || !frontend.build_directory_) {
+        return std::nullopt;
+    }
+    return InferenceCache{&frontend.caches_->store(*frontend.build_directory_), &frontend.cache_dirs_,
+                          frontend.project_target, frontend.verbose};
+}
+
 // Analyze before constructing LLVM state; moving the vector preserves borrowed AST addresses. A successful batch
 // leaves its compilation in `output` unless it stopped at --print-types.
 bool compile_analyzed(codegen::CompilationRequest request, const FrontendRequest &frontend, const DiagnosticSink &sink,
                       Analysis &analysis, std::optional<codegen::Compilation> &output) {
     const EntryRequest entry{frontend.entry, frontend.executable_output.has_value(), !request.project_target.empty()};
-    if (!analyze(request, entry, live_only(frontend), analysis, sink)) {
+    const auto cache = inference_cache(frontend);
+    if (!analyze(request, entry, live_only(frontend), analysis, sink, cache ? &*cache : nullptr)) {
         return true;
     }
     if (frontend.backend.print_types) {
