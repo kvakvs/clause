@@ -80,7 +80,8 @@ add_library(clause_codegen STATIC src/codegen/sdk.cpp src/codegen/digest.cpp src
     src/codegen/specialization_cloning.cpp src/codegen/specialization_dispatch.cpp src/codegen/specialization_lowering.cpp
     src/codegen/result.cpp src/codegen/diagnostics.cpp src/codegen/target.cpp
     src/codegen/target_backends.cpp src/codegen/verification.cpp src/codegen/emission.cpp src/codegen/optimization.cpp src/codegen/serialization.cpp src/codegen/progress.cpp src/codegen/specialization_trace.cpp src/codegen/term_abi.cpp src/codegen/features.cpp src/codegen/lowering_boundaries.cpp src/codegen/lowering.cpp src/codegen/lowering_expressions.cpp src/codegen/lowering_containers.cpp src/codegen/lowering_records.cpp src/codegen/lowering_native_records.cpp src/codegen/lowering_record_tests.cpp src/codegen/lowering_integers.cpp src/codegen/lowering_floats.cpp src/codegen/lowering_bits.cpp src/codegen/lowering_maps.cpp src/codegen/lowering_roots.cpp src/codegen/lowering_clauses.cpp src/codegen/lowering_proofs.cpp src/codegen/proofs.cpp src/codegen/lowering_body_match.cpp src/codegen/lowering_calls.cpp src/codegen/lowering_funs.cpp src/codegen/frames.cpp
-    src/codegen/limits.cpp src/codegen/bounded_stream.cpp src/codegen/source_annotations.cpp src/codegen/source_locations.cpp)
+    src/codegen/limits.cpp src/codegen/bounded_stream.cpp src/codegen/source_annotations.cpp src/codegen/source_locations.cpp
+    src/codegen/assembly_listing.cpp src/codegen/assembly_annotations.cpp)
 clause_project_options(clause_codegen)
 target_link_libraries(clause_codegen PRIVATE clause_llvm_sdk clause_frontend clause_abi)
 get_target_property(codegen_backends clause_llvm_sdk CLAUSE_LLVM_BACKENDS)

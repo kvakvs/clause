@@ -19,7 +19,7 @@ Word wait(ProcessContext &context, builtins::Arguments state);
 constexpr BuiltinFrame WAIT_FRAME = continuation_frame(&builtins::guarded<wait>, 1);
 
 // A receive timeout in milliseconds, none for infinity; anything else raises timeout_value.
-std::optional<std::int64_t> milliseconds(ProcessContext &context, Word word) {
+std::optional<std::int64_t> milliseconds(ProcessContext &context, const Word word) {
     const auto timeout = builtins::term_of(context, word);
     if (timeout.is_atom() && timeout.atom_spelling().value_or("") == "infinity") {
         return std::nullopt;
@@ -32,7 +32,7 @@ std::optional<std::int64_t> milliseconds(ProcessContext &context, Word word) {
 }
 
 // Whether the receive's timeout has expired; its first wait with a finite timeout sets the deadline.
-bool expired(ProcessContext &context, std::optional<std::int64_t> timeout) {
+bool expired(ProcessContext &context, const std::optional<std::int64_t> timeout) {
     auto &mailbox = context.mailbox();
     if (timeout && !mailbox.deadline()) {
         mailbox.set_deadline(Clock::now() + std::chrono::milliseconds(*timeout));
@@ -42,7 +42,7 @@ bool expired(ProcessContext &context, std::optional<std::int64_t> timeout) {
 
 // true once a message the receive has not examined arrived, false once the timeout expired; until then the process
 // waits, resuming here.
-Word wait(ProcessContext &context, builtins::Arguments state) {
+Word wait(ProcessContext &context, const builtins::Arguments state) {
     if (context.mailbox().unexamined()) {
         return builtins::need(TermFactory(context).boolean(true)).word();
     }

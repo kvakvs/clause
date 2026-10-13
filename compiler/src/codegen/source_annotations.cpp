@@ -89,20 +89,33 @@ std::vector<std::byte> source_header(const Sources &sources, const std::size_t c
 // Prepare one complete comment before entering LLVM; unmapped synthetic instructions stay unannotated.
 std::vector<std::byte> source_comment(const llvm::DebugLoc &location, const SourceScopes &sources,
                                       const std::size_t capacity) {
-    const auto found = sources.find(location.getScope());
-    if (found == sources.end()) {
-        return {};
-    }
-    const auto line = source_line(*found->second, location.getLine());
+    const auto line = source_line_of(location, sources);
     if (!line) {
         return {};
     }
     BoundedStream stream(capacity);
-    stream << " ; ";
-    source_text(stream, *line);
+    stream << " ; " << line->text_;
     return stream.take_bytes();
 }
 } // namespace
+
+std::optional<SourceLine> source_line_of(const llvm::DebugLoc &location, const SourceScopes &sources) {
+    const auto found = sources.find(location.getScope());
+    if (found == sources.end()) {
+        return {};
+    }
+    const auto &source = *found->second;
+    const auto text = source_line(source, location.getLine());
+    if (!text) {
+        return {};
+    }
+    SourceLine result{.file_ = {}, .line_ = location.getLine(), .text_ = {}};
+    llvm::raw_string_ostream file(result.file_);
+    escaped_text(file, source.name, false);
+    llvm::raw_string_ostream contents(result.text_);
+    source_text(contents, *text);
+    return result;
+}
 
 SourceAnnotations::SourceAnnotations(const llvm::Module &module, const ast::Module &syntax, const SourceScopes &sources,
                                      std::size_t capacity) {

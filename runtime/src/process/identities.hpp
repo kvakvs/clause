@@ -17,9 +17,9 @@ class IdentityNumbers final {
     TermResult<Word> issue_port() { return issue(ports_, port_sequence()); }
 
     // Whether this runtime issued `number`; identities of ended processes and closed ports stay valid.
-    bool issued_pid(Word number) const noexcept { return issued(pids_, number); }
+    bool issued_pid(const Word number) const noexcept { return issued(pids_, number); }
 
-    bool issued_port(Word number) const noexcept { return issued(ports_, number); }
+    bool issued_port(const Word number) const noexcept { return issued(ports_, number); }
 
   private:
     // Issued numbers as ascending [first, end) runs: a single run while one runtime creates every identity.
@@ -28,7 +28,7 @@ class IdentityNumbers final {
     static std::atomic<Word> &pid_sequence() noexcept;
     static std::atomic<Word> &port_sequence() noexcept;
     // Reserve a number from `sequence` and record it in `runs`.
-    TermResult<Word> issue(Runs &runs, std::atomic<Word> &sequence);
+    TermResult<Word> issue(Runs &runs, std::atomic<Word> &sequence) const;
     // Whether `runs` holds `number`.
     bool issued(const Runs &runs, Word number) const noexcept;
 

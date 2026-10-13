@@ -1,7 +1,7 @@
 #include <clause/runtime/process_context.hpp>
 
 namespace clause::runtime {
-void Mailbox::deliver(Word message) { inbox_.push_back(message); }
+void Mailbox::deliver(const Word message) { inbox_.push_back(message); }
 
 std::optional<Word> Mailbox::peek() noexcept {
     if (!inbox_.empty()) {

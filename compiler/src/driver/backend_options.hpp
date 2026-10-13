@@ -12,9 +12,11 @@ struct BackendOptions {
     // Select verified before/after LLVM snapshots instead of machine-code emission.
     bool print_ir = false;
     bool print_optimized_ir = false;
+    // Print annotated machine assembly after the selected pipeline. Added for --print-asm.
+    bool print_asm = false;
 
-    // Identify the shared IR inspection action independently of requested stage order.
-    bool inspect_ir() const { return print_ir || print_optimized_ir; }
+    // Identify the shared IR/assembly inspection action independently of requested stage order.
+    bool inspect_ir() const { return print_ir || print_optimized_ir || print_asm; }
 
     // Absence runs the complete backend in memory without publishing artifacts.
     std::optional<codegen::OutputKind> emit;

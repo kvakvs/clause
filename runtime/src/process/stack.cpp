@@ -15,7 +15,7 @@ using abi::v1::FrameDescriptor;
 
 // Body of the runtime-owned bottom frame: returning into it ends the host invocation's native call. The result
 // arrives as the first parameter (OPT0.1A) and stays in the first register for the host.
-void finish(void *context, Word result, Word, Word) noexcept {
+void finish(void *context, const Word result, Word, Word) noexcept {
     static_cast<ProcessContext *>(context)->stack().registers()[0] = result;
 }
 
@@ -26,7 +26,7 @@ void pause(void *, Word, Word, Word) noexcept {}
 constexpr FrameDescriptor bottom{nullptr, 0, 0, 0, &finish, 0, 0};
 } // namespace
 
-ProcessStack::ProcessStack(ProcessContext &owner, StackOptions options) noexcept
+ProcessStack::ProcessStack(ProcessContext &owner, const StackOptions options) noexcept
     : owner_(owner), options_(options), state_(owner) {
     state_.stack = nullptr;
     state_.top = 0;
@@ -39,7 +39,7 @@ ProcessStack::ProcessStack(ProcessContext &owner, StackOptions options) noexcept
 
 ProcessStack::~ProcessStack() { owner_.memory()->release(capacity_); }
 
-bool ProcessStack::grow(std::size_t size) noexcept {
+bool ProcessStack::grow(const std::size_t size) noexcept {
     if (size <= capacity_) {
         return true;
     }
@@ -65,9 +65,9 @@ bool ProcessStack::grow(std::size_t size) noexcept {
     return true;
 }
 
-void ProcessStack::update_limit() noexcept { state_.limit = std::min(capacity_, options_.limit_words); }
+void ProcessStack::update_limit() const noexcept { state_.limit = std::min(capacity_, options_.limit_words); }
 
-void ProcessStack::update_slow() noexcept {
+void ProcessStack::update_slow() const noexcept {
     state_.slow =
         (profile_ ? abi::v1::slow_profile : 0) | (owner_.heap().wants_collection() ? abi::v1::slow_collect : 0);
 }
@@ -92,22 +92,22 @@ bool ProcessStack::push(const FrameDescriptor &function) noexcept {
     return true;
 }
 
-void ProcessStack::pop() noexcept {
+void ProcessStack::pop() const noexcept {
     const auto previous = state_.stack[state_.frame];
     truncate(state_.frame);
     state_.frame = previous;
 }
 
-void ProcessStack::truncate(std::size_t size) noexcept {
+void ProcessStack::truncate(const std::size_t size) const noexcept {
     state_.live = 0;
     state_.top = size;
 }
 
-const FrameDescriptor &ProcessStack::descriptor(std::size_t at) const noexcept {
+const FrameDescriptor &ProcessStack::descriptor(const std::size_t at) const noexcept {
     return *std::bit_cast<const FrameDescriptor *>(state_.stack[at + 1]);
 }
 
-bool ProcessStack::safepoint(std::size_t live) noexcept {
+bool ProcessStack::safepoint(const std::size_t live) const noexcept {
     auto &heap = owner_.heap();
     if (!heap.wants_collection()) {
         update_slow();
@@ -161,12 +161,12 @@ void ProcessStack::trap(const FrameDescriptor &continuation, std::span<const Wor
     trap_ = &continuation;
 }
 
-void ProcessStack::wait(const FrameDescriptor &continuation, std::span<const Word> state) noexcept {
+void ProcessStack::wait(const FrameDescriptor &continuation, const std::span<const Word> state) noexcept {
     trap(continuation, state);
     waiting_ = true;
 }
 
-void ProcessStack::spend(std::size_t work) noexcept {
+void ProcessStack::spend(const std::size_t work) const noexcept {
     state_.reductions -= std::min(state_.reductions, (work + WORK_PER_REDUCTION - 1) / WORK_PER_REDUCTION);
 }
 
@@ -175,7 +175,7 @@ abi::v1::Code *ProcessStack::tail(const FrameDescriptor &function) noexcept {
     return enter(function);
 }
 
-abi::v1::Code *ProcessStack::leave(Word result) noexcept {
+abi::v1::Code *ProcessStack::leave(const Word result) noexcept {
     registers_[0] = result;
     pop();
     if (profile_) {
@@ -222,7 +222,7 @@ bool ProcessStack::start(const FrameDescriptor &function) noexcept {
     return true;
 }
 
-bool ProcessStack::run(std::size_t reductions) noexcept {
+bool ProcessStack::run(const std::size_t reductions) noexcept {
     const auto *function = std::exchange(resume_, nullptr);
     if (!function) {
         return true;
@@ -256,7 +256,7 @@ std::size_t ProcessStack::depth() const noexcept {
     return count;
 }
 
-bool ProcessStack::contains(Word value) const noexcept {
+bool ProcessStack::contains(const Word value) const noexcept {
     for (auto at = state_.frame; at != none; at = state_.stack[at]) {
         if (std::ranges::contains(used().subspan(at + frame_header_words, descriptor(at).roots), value)) {
             return true;
@@ -294,7 +294,7 @@ void *CLAUSE_tail_v1(void *context, const void *frame) noexcept {
     return code(stack(context).tail(*static_cast<const clause::abi::v1::FrameDescriptor *>(frame)));
 }
 
-void *CLAUSE_return_v1(void *context, clause::abi::v1::TermWord result) noexcept {
+void *CLAUSE_return_v1(void *context, const clause::abi::v1::TermWord result) noexcept {
     return code(stack(context).leave(result));
 }
 

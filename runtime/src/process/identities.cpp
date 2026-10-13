@@ -36,7 +36,7 @@ std::atomic<Word> &IdentityNumbers::port_sequence() noexcept {
     return next;
 }
 
-TermResult<Word> IdentityNumbers::issue(Runs &runs, std::atomic<Word> &sequence) {
+TermResult<Word> IdentityNumbers::issue(Runs &runs, std::atomic<Word> &sequence) const {
     // Reserve under the lock so this runtime's runs stay ascending when several threads create identities.
     const std::unique_lock lock(mutex_);
     const auto number = reserve_number(sequence);
@@ -55,17 +55,17 @@ TermResult<Word> IdentityNumbers::issue(Runs &runs, std::atomic<Word> &sequence)
     return number;
 }
 
-bool IdentityNumbers::issued(const Runs &runs, Word number) const noexcept {
+bool IdentityNumbers::issued(const Runs &runs, const Word number) const noexcept {
     const std::shared_lock lock(mutex_);
     const auto run = std::ranges::upper_bound(runs, number, {}, &std::pair<Word, Word>::first);
     return run != runs.begin() && number < std::prev(run)->second;
 }
 
-Word pid_word(Word number) noexcept { return (number << IDENTITY_TAG_BITS) | PID_TAG; }
+Word pid_word(const Word number) noexcept { return (number << IDENTITY_TAG_BITS) | PID_TAG; }
 
-Word pid_number(Word word) noexcept { return word >> IDENTITY_TAG_BITS; }
+Word pid_number(const Word word) noexcept { return word >> IDENTITY_TAG_BITS; }
 
-Word port_word(Word number) noexcept { return (number << IDENTITY_TAG_BITS) | PORT_TAG; }
+Word port_word(const Word number) noexcept { return (number << IDENTITY_TAG_BITS) | PORT_TAG; }
 
-Word port_number(Word word) noexcept { return word >> IDENTITY_TAG_BITS; }
+Word port_number(const Word word) noexcept { return word >> IDENTITY_TAG_BITS; }
 } // namespace clause::runtime::detail

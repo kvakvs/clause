@@ -106,9 +106,9 @@ class ProcessContext final : private abi::v1::FrameState {
     ProcessDictionary &dictionary() noexcept { return dictionary_; }
 
     // Resolve loaded code through the runtime-wide server shared by scheduler workers.
-    CodeServer &code_server() noexcept;
+    CodeServer &code_server() const noexcept;
     // Share one runtime-owned atom identity/name table across every scheduler and process.
-    AtomStorage &atom_storage() noexcept;
+    AtomStorage &atom_storage() const noexcept;
     // Borrow the runtime's standard output sink for erlang:display/1 and later io services.
     OutputSink standard_output() const noexcept;
 
@@ -167,7 +167,7 @@ class ProcessContext final : private abi::v1::FrameState {
     // The pid numbers the runtime issued, against which pid words are admitted.
     const detail::IdentityNumbers &identity_numbers() const noexcept;
     // The runtime that owns this context; the executor creates and releases processes through it.
-    Runtime &runtime() noexcept;
+    Runtime &runtime() const noexcept;
 };
 
 } // namespace clause::runtime

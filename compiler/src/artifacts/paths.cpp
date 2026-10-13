@@ -22,6 +22,9 @@ std::string extension(const codegen::OutputKind kind, const std::string_view obj
         if (object_extension == ".o" || object_extension == ".obj") {
             return std::string(object_extension);
         }
+        break;
+    case codegen::OutputKind::assembly:
+        break;
     }
     throw std::invalid_argument("invalid artifact format extension");
 }

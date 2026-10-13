@@ -71,7 +71,7 @@ inline const BuiltinFrame &builtin_frame(const abi::v1::FrameDescriptor &frame) 
 
 // The frame of a trapping builtin's continuation (docs/builtins.md#portions), entered with `arity` state registers;
 // it has no name in the registry.
-constexpr BuiltinFrame continuation_frame(BuiltinBody body, std::size_t arity) noexcept {
+constexpr BuiltinFrame continuation_frame(const BuiltinBody body, const std::size_t arity) noexcept {
     return {.frame = {.module = nullptr,
                       .module_atom = 0,
                       .function_atom = 0,

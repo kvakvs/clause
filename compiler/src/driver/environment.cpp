@@ -91,7 +91,7 @@ std::vector<std::string> backend_actions(const Options &options) {
     std::vector<std::string> result;
     for (const auto &[flag, name] :
          {std::pair{backend.print_types, "print-types"}, std::pair{backend.print_ir, "print-ir"},
-          std::pair{backend.print_optimized_ir, "print-optimized-ir"}}) {
+          std::pair{backend.print_optimized_ir, "print-optimized-ir"}, std::pair{backend.print_asm, "print-asm"}}) {
         if (flag) {
             result.emplace_back(name);
         }
@@ -170,6 +170,7 @@ std::string_view emission_name(const std::optional<codegen::OutputKind> kind) {
     case codegen::OutputKind::llvm_bitcode:
         return "llvm-bc";
     case codegen::OutputKind::object:
+    case codegen::OutputKind::assembly:
         break;
     }
     return "obj";

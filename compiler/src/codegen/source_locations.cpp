@@ -56,9 +56,9 @@ const Span &source_site(const ast::TokenOrigin &origin) {
 
 void request_debug_format(llvm::Module &output) {
     if (llvm::Triple(output.getTargetTriple()).isWindowsMSVCEnvironment()) {
-        output.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
+        output.setModuleFlag(llvm::Module::Warning, "CodeView", 1);
     } else {
-        output.addModuleFlag(llvm::Module::Warning, "Dwarf Version", 5);
+        output.setModuleFlag(llvm::Module::Warning, "Dwarf Version", 5);
     }
 }
 

@@ -92,7 +92,7 @@ class PortIdentity final {
     friend class TermFactory;
 
     // Wrap the number of an existing port.
-    explicit PortIdentity(Word number) noexcept : number_(number) {}
+    explicit PortIdentity(const Word number) noexcept : number_(number) {}
 
     // The process-wide port number.
     Word number_;
@@ -110,7 +110,7 @@ class ReferenceIdentity final {
     friend class TermFactory;
 
     // Wrap the number of an existing reference.
-    explicit ReferenceIdentity(std::uint64_t number) noexcept : number_(number) {}
+    explicit ReferenceIdentity(const std::uint64_t number) noexcept : number_(number) {}
 
     // The program-wide reference number.
     std::uint64_t number_;

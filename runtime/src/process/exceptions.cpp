@@ -333,8 +333,8 @@ std::uint8_t CLAUSE_exception_v2(void *context, clause::abi::v1::TermWord *excep
         detail::take_exception(*static_cast<ProcessContext *>(context), detail::class_reason_stack, store));
 }
 
-std::uint8_t CLAUSE_reraise_v2(void *context, clause::abi::v1::TermWord exception_class,
-                               clause::abi::v1::TermWord reason, clause::abi::v1::TermWord stack) noexcept {
+std::uint8_t CLAUSE_reraise_v2(void *context, const clause::abi::v1::TermWord exception_class,
+                               const clause::abi::v1::TermWord reason, const clause::abi::v1::TermWord stack) noexcept {
     using clause::abi::v1::Status;
     if (!context) {
         return static_cast<std::uint8_t>(Status::invalid_argument);
@@ -351,8 +351,8 @@ std::uint8_t CLAUSE_reraise_v2(void *context, clause::abi::v1::TermWord exceptio
     }
 }
 
-std::uint8_t CLAUSE_error_v1(void *context, clause::abi::v1::TermWord reason,
-                             clause::abi::v1::TermWord arguments) noexcept {
+std::uint8_t CLAUSE_error_v1(void *context, const clause::abi::v1::TermWord reason,
+                             const clause::abi::v1::TermWord arguments) noexcept {
     if (!context) {
         return static_cast<std::uint8_t>(clause::abi::v1::Status::invalid_argument);
     }

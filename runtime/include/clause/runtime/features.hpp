@@ -36,8 +36,8 @@ class FeatureFailure final {
 
 // Translate the catalog status once at a host boundary; callers propagate the typed error unchanged.
 template <typename Error>
-std::unexpected<Error> deferred_service(abi::v1::FeatureId feature, std::string_view operation,
-                                        DiagnosticSink sink = {}) noexcept {
+std::unexpected<Error> deferred_service(const abi::v1::FeatureId feature, const std::string_view operation,
+                                        const DiagnosticSink sink = {}) noexcept {
     FeatureFailure failure(sink);
     const auto status = failure.report(feature, {.operation = operation});
     return std::unexpected(status == abi::v1::Status::not_implemented ? Error::not_implemented

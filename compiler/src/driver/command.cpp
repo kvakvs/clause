@@ -34,6 +34,7 @@ Options:
       --print-ir          Print verified IR with Erlang source comments before LLVM optimization.
       --print-types       Print each module as source annotated with inferred types; stop before LLVM lowering.
       --print-optimized-ir  Print verified IR with Erlang source comments after the selected pipeline.
+      --print-asm         Print each module's assembly, commented with the IR and Erlang lines it came from.
       --preprocess-check  Preprocess each module and report diagnostics only.
       --parse-check      Preprocess and parse; report syntax diagnostics only.
       --print-pp         Print preprocessed Erlang source to stdout.

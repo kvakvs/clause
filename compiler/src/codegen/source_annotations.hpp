@@ -4,14 +4,30 @@
 #include <cstddef>
 #include <llvm/IR/AssemblyAnnotationWriter.h>
 #include <map>
+#include <optional>
+#include <string>
 #include <vector>
 
 namespace llvm {
+class DebugLoc;
 class Module;
 class raw_ostream;
 } // namespace llvm
 
 namespace clause::codegen {
+// One physical Erlang source line an instruction came from, for IR comments and assembly listings.
+struct SourceLine {
+    // Physical file name as the preprocessor recorded it, escaped to stay on one comment line.
+    std::string file_;
+    // One-based line number within that file.
+    std::size_t line_ = 0;
+    // The line's text, escaped to stay on one comment line.
+    std::string text_;
+};
+
+// Find the source line a location names; synthetic or unmapped locations give nothing.
+std::optional<SourceLine> source_line_of(const llvm::DebugLoc &location, const SourceScopes &sources);
+
 // Prepare source comments before entering LLVM's assembly writer, which must not receive C++ exceptions.
 class SourceAnnotations final : public llvm::AssemblyAnnotationWriter {
   public:

@@ -193,6 +193,15 @@ add_test(NAME codegen_inspection COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURREN
     "$<TARGET_FILE:clau>" "${CLAUSE_LLVM_AS}" "${CLAUSE_LLVM_DIS}"
     "${CMAKE_CURRENT_BINARY_DIR}/inspection/$<CONFIG>" "${PROJECT_SOURCE_DIR}/tests/fixtures/codegen")
 
+# Added for --print-asm: reassembles listings and compares them with emitted objects.
+find_program(CLAUSE_LLVM_MC NAMES llvm-mc HINTS "${llvm_tools}" NO_DEFAULT_PATH REQUIRED)
+find_program(CLAUSE_LLVM_OBJDUMP NAMES llvm-objdump HINTS "${llvm_tools}" NO_DEFAULT_PATH REQUIRED)
+add_test(NAME codegen_assembly_inspection COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assembly_inspection.py" "$<TARGET_FILE:clau>" "${CLAUSE_LLVM_MC}"
+    "${CLAUSE_LLVM_OBJDUMP}" "${CMAKE_CURRENT_BINARY_DIR}/assembly-inspection/$<CONFIG>"
+    "${PROJECT_SOURCE_DIR}/tests/fixtures/codegen" "${backend_list}")
+set_tests_properties(codegen_assembly_inspection PROPERTIES TIMEOUT 120 PASS_REGULAR_EXPRESSION "assembly_inspection: ok")
+
 add_test(NAME codegen_types COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/type_inspection.py"
     "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/types/$<CONFIG>")
 

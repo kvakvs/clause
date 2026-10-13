@@ -61,7 +61,7 @@ class Runtime final {
     std::expected<ProcessContext *, abi::v1::Status> create_context(HeapOptions options,
                                                                     StackOptions stack_options = {}) noexcept;
     // Remove only a context owned by this runtime; foreign pointers are compared without dereferencing.
-    abi::v1::Status destroy_context(ProcessContext *context) noexcept;
+    abi::v1::Status destroy_context(ProcessContext *context) const noexcept;
     // Observe active context ownership without claiming scheduler/process execution support.
     std::size_t context_count() const noexcept;
     // Report the bytes all processes hold now: heap blocks, fragments, off-heap buffers and stacks.

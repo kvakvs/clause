@@ -60,26 +60,26 @@ class ProcessStack final {
     // Collect when the heap asks for it, keeping the first `live` registers as roots: the safepoint of a function
     // entry or loop head (docs/runtime-heap.md#collection-in-generated-code). Return whether it collected; a failed
     // collection changes nothing.
-    bool safepoint(std::size_t live) noexcept;
+    bool safepoint(std::size_t live) const noexcept;
     // Release the current frame for a tail call, then enter `function`.
     abi::v1::Code *tail(const abi::v1::FrameDescriptor &function) noexcept;
     // Pass `result` in the first register, release the current frame and return the body below it.
     abi::v1::Code *leave(Word result) noexcept;
 
     // Header of the current frame; valid until the next push.
-    Word *frame() noexcept { return state_.stack + state_.frame; }
+    Word *frame() const noexcept { return state_.stack + state_.frame; }
 
     // Registers carrying arguments into and results out of every transfer.
     Word *registers() noexcept { return registers_.data(); }
 
     // Run continuation code with the leading registers as its parameters (OPT0.1A), as generated transfers pass them.
-    void run_code(abi::v1::Code *code) { code(&owner_, registers_[0], registers_[1], registers_[2]); }
+    void run_code(abi::v1::Code *code) const { code(&owner_, registers_[0], registers_[1], registers_[2]); }
 
     // Keep the first `count` registers as roots until the next push or pop, as a suspended entry's arguments.
-    void keep_registers(std::size_t count) noexcept { state_.live = std::min(count, registers_.size()); }
+    void keep_registers(const std::size_t count) const noexcept { state_.live = std::min(count, registers_.size()); }
 
     // Note that the heap wants a collection, so entries take the service path to their safepoint (OPT0.1).
-    void signal_collection() noexcept { state_.slow |= abi::v1::slow_collect; }
+    void signal_collection() const noexcept { state_.slow |= abi::v1::slow_collect; }
 
     // Run `function` to completion above a bottom frame, resuming it after every yield; frames left by native
     // exceptions are released.
@@ -115,7 +115,7 @@ class ProcessStack final {
     std::size_t budget() const noexcept { return std::max<std::size_t>(state_.reductions, 1) * WORK_PER_REDUCTION; }
 
     // Pay for `work` units of builtin work out of the reductions left.
-    void spend(std::size_t work) noexcept;
+    void spend(std::size_t work) const noexcept;
 
     // The native state of the trapping builtin running in this process, if it is of type `State`.
     template <typename State> State *trap_state() noexcept { return dynamic_cast<State *>(trap_state_.get()); }
@@ -188,15 +188,15 @@ class ProcessStack final {
     // Make room for `size` words, charging new capacity to the runtime-wide account; false records the failure.
     bool grow(std::size_t size) noexcept;
     // Recompute the words a push may reach inline: the capacity, capped by the stack limit (OPT0.1).
-    void update_limit() noexcept;
+    void update_limit() const noexcept;
     // Recompute the slow bits after a safepoint or a profiling change (OPT0.1).
-    void update_slow() noexcept;
+    void update_slow() const noexcept;
     // Release the current frame.
-    void pop() noexcept;
+    void pop() const noexcept;
     // Record `function` as the entry to repeat on resumption, keeping its arguments as register roots.
     void suspend(const abi::v1::FrameDescriptor &function) noexcept;
     // Drop every word from `size` on; shrinking never allocates.
-    void truncate(std::size_t size) noexcept;
+    void truncate(std::size_t size) const noexcept;
 
     // Words of the stack block as a span over its used words.
     std::span<const Word> used() const noexcept { return {state_.stack, state_.top}; }

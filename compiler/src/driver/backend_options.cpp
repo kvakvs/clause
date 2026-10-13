@@ -68,6 +68,7 @@ bool inspection_flag(const std::string_view option, BackendOptions &options) {
         {"--print-types", &BackendOptions::print_types},
         {"--print-ir", &BackendOptions::print_ir},
         {"--print-optimized-ir", &BackendOptions::print_optimized_ir},
+        {"--print-asm", &BackendOptions::print_asm},
         {"-g", &BackendOptions::debug_info},
         {"--lto", &BackendOptions::lto},
         {"--keep-exports", &BackendOptions::keep_exports}};
@@ -164,6 +165,7 @@ bool is_backend_option(const std::string_view option) {
                                                     "--keep-exports",
                                                     "--print-ir",
                                                     "--print-optimized-ir",
+                                                    "--print-asm",
                                                     "--print-types",
                                                     "--linker",
                                                     "--runtime-library"};

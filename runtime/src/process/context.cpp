@@ -6,7 +6,7 @@ namespace clause::runtime {
 class ProcessContext::Impl final {
   public:
     // Bind the runtime and identity once, issuing a separately retained token for future host bindings.
-    Impl(Runtime &runtime, ProcessIdentity identity, std::shared_ptr<detail::RuntimeMemory> memory,
+    Impl(Runtime &runtime, const ProcessIdentity identity, std::shared_ptr<detail::RuntimeMemory> memory,
          const detail::IdentityNumbers &numbers)
         : runtime(runtime), identity(identity), memory(std::move(memory)), numbers(numbers) {}
 
@@ -22,12 +22,12 @@ class ProcessContext::Impl final {
     std::shared_ptr<ContextLifetime> lifetime{new ContextLifetime};
 };
 
-ProcessIdentity::ProcessIdentity(RuntimeKey runtime, std::uint64_t serial) : runtime_(runtime.value), serial_(serial) {}
+ProcessIdentity::ProcessIdentity(const RuntimeKey runtime, const std::uint64_t serial) : runtime_(runtime.value), serial_(serial) {}
 
 bool ContextLifetime::alive() const noexcept { return alive_; }
 
-ProcessContext::ProcessContext(Runtime &runtime, ProcessIdentity identity, HeapOptions options,
-                               StackOptions stack_options, std::shared_ptr<detail::RuntimeMemory> memory,
+ProcessContext::ProcessContext(Runtime &runtime, ProcessIdentity identity, const HeapOptions options,
+                               const StackOptions stack_options, std::shared_ptr<detail::RuntimeMemory> memory,
                                const detail::IdentityNumbers &numbers)
     : abi::v1::FrameState{}, impl_(std::make_unique<Impl>(runtime, identity, std::move(memory), numbers)),
       heap_(*this, options), generated_calls_(stack_, *this), stack_(*this, stack_options) {
@@ -43,9 +43,9 @@ const ProcessIdentity &ProcessContext::identity() const noexcept { return impl_-
 
 ProcessHeap &ProcessContext::heap() noexcept { return heap_; }
 
-CodeServer &ProcessContext::code_server() noexcept { return *impl_->runtime.code_server(); }
+CodeServer &ProcessContext::code_server() const noexcept { return *impl_->runtime.code_server(); }
 
-AtomStorage &ProcessContext::atom_storage() noexcept { return *impl_->runtime.atom_storage(); }
+AtomStorage &ProcessContext::atom_storage() const noexcept { return *impl_->runtime.atom_storage(); }
 
 OutputSink ProcessContext::standard_output() const noexcept { return impl_->runtime.standard_output(); }
 
@@ -57,6 +57,6 @@ const std::shared_ptr<detail::RuntimeMemory> &ProcessContext::memory() const noe
 
 const detail::IdentityNumbers &ProcessContext::identity_numbers() const noexcept { return impl_->numbers; }
 
-Runtime &ProcessContext::runtime() noexcept { return impl_->runtime; }
+Runtime &ProcessContext::runtime() const noexcept { return impl_->runtime; }
 
 } // namespace clause::runtime

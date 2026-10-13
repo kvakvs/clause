@@ -13,8 +13,8 @@ std::expected<ProcessContext *, Status> Runtime::create_context() noexcept {
     return create_context(impl_->options.process_heap, impl_->options.process_stack);
 }
 
-std::expected<ProcessContext *, Status> Runtime::create_context(HeapOptions options,
-                                                                StackOptions stack_options) noexcept {
+std::expected<ProcessContext *, Status> Runtime::create_context(const HeapOptions options,
+                                                                const StackOptions stack_options) noexcept {
     if (!impl_) {
         return std::unexpected(Status::stopped);
     }
@@ -52,7 +52,7 @@ std::expected<ProcessContext *, Status> Runtime::create_context(HeapOptions opti
     }
 }
 
-Status Runtime::destroy_context(ProcessContext *context) noexcept {
+Status Runtime::destroy_context(ProcessContext *context) const noexcept {
     if (!impl_) {
         return Status::stopped;
     }

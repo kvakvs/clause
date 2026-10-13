@@ -3,7 +3,7 @@
 namespace clause::runtime {
 namespace {
 // Payload-bearing language failures must retain their offending term before generated root cleanup.
-bool payload_reason(abi::v1::ErrorReason reason) {
+bool payload_reason(const abi::v1::ErrorReason reason) {
     return reason == abi::v1::ErrorReason::badmatch || reason == abi::v1::ErrorReason::badarg_value ||
            reason == abi::v1::ErrorReason::badmap || reason == abi::v1::ErrorReason::badkey ||
            reason == abi::v1::ErrorReason::badrecord || reason == abi::v1::ErrorReason::case_clause ||
@@ -12,7 +12,7 @@ bool payload_reason(abi::v1::ErrorReason reason) {
 }
 
 // Atom-only language failures carry no term.
-bool plain_reason(abi::v1::ErrorReason reason) {
+bool plain_reason(const abi::v1::ErrorReason reason) {
     return reason == abi::v1::ErrorReason::function_clause || reason == abi::v1::ErrorReason::badarg ||
            reason == abi::v1::ErrorReason::badarith || reason == abi::v1::ErrorReason::if_clause ||
            reason == abi::v1::ErrorReason::system_limit || reason == abi::v1::ErrorReason::timeout_value;
@@ -28,7 +28,7 @@ bool GeneratedCallState::enter() noexcept {
 
 bool GeneratedCallState::active() const noexcept { return active_; }
 
-void GeneratedCallState::leave(bool outer) noexcept {
+void GeneratedCallState::leave(const bool outer) noexcept {
     if (outer) {
         failure_.reset();
         active_ = false;
@@ -46,7 +46,7 @@ void GeneratedCallState::fail(const CallFailure &failure) noexcept {
     }
 }
 
-void GeneratedCallState::fail_service(abi::v1::Status status, bool reported) noexcept {
+void GeneratedCallState::fail_service(abi::v1::Status status, const bool reported) noexcept {
     if (status != abi::v1::Status::ok) {
         fail({.code = CallError::runtime_failure, .reported = reported, .status = status});
     }
@@ -68,7 +68,7 @@ std::uint8_t CLAUSE_call_failed_v2(void *context) noexcept {
 }
 
 std::uint8_t CLAUSE_raise_v2(void *context, clause::abi::v1::ErrorReason reason,
-                             clause::abi::v1::TermWord value) noexcept {
+                             const clause::abi::v1::TermWord value) noexcept {
     using namespace clause;
     using namespace runtime;
     if (!context) {

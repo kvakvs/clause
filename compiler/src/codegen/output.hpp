@@ -5,7 +5,8 @@
 #include <vector>
 
 namespace clause::codegen {
-enum class OutputKind : std::uint8_t { object, llvm_ir, llvm_bitcode };
+// `assembly` is only printed by --print-asm; it is never published as an artifact.
+enum class OutputKind : std::uint8_t { object, llvm_ir, llvm_bitcode, assembly };
 
 struct OutputBuffer {
     // Identify the semantic module for later artifact naming, independently of its source path.

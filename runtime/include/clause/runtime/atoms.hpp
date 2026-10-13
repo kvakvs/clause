@@ -8,7 +8,7 @@ namespace clause::runtime {
 // Immutable host pin; spellings survive runtime teardown without retaining a process or code image.
 struct AtomValue final {
     // Copy directly into stable storage so allocation failures remain catchable on Debug STL hosts.
-    AtomValue(Word word, std::string_view spelling) : word(word), spelling(spelling) {}
+    AtomValue(const Word word, const std::string_view spelling) : word(word), spelling(spelling) {}
 
     // Preserve the globally non-recycled word used to reject foreign raw atom words.
     Word word;
@@ -39,7 +39,7 @@ class AtomStorage final {
     friend class Runtime;
 
     // Only runtime startup may construct storage after validating the immutable entry ceiling.
-    explicit AtomStorage(std::uint32_t limit) : limit_(limit) {}
+    explicit AtomStorage(const std::uint32_t limit) : limit_(limit) {}
 
     // The atom Term of a stored entry, pinning its spelling.
     static Term atom_term(const std::shared_ptr<const AtomValue> &value) noexcept;

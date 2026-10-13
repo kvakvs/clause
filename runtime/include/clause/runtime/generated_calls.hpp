@@ -64,7 +64,7 @@ class GeneratedCallState final {
     }
 
     // Mirror whether generated code must take its failure exit after a call (OPT0.1).
-    void sync() noexcept { state_.failed = !active_ || failure_.has_value(); }
+    void sync() const noexcept { state_.failed = !active_ || failure_.has_value(); }
 
     // The stack of generated frames, read when an Erlang exception is recorded.
     const ProcessStack &stack_;
