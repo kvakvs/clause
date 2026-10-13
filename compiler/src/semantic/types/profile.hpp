@@ -25,6 +25,23 @@ struct InferenceProfile {
         std::size_t work_ = 0;
         std::size_t passes_ = 0;
         bool widened_ = false;
+
+        // Recursive components only: how their fixed-point rounds went. Added for the recursive-component
+        // measurements of --print-stage-times.
+        struct Rounds {
+            // Solves over all passes, rounds run, the per-solve round cap, solves that reached it (every member
+            // widened to term()) and solves that ended with the pass budget spent.
+            std::size_t solves_ = 0;
+            std::size_t rounds_ = 0;
+            std::size_t round_cap_ = 0;
+            std::size_t capped_ = 0;
+            std::size_t exhausted_ = 0;
+            // Member body walks and the walks that changed a member's summary.
+            std::size_t walks_ = 0;
+            std::size_t changes_ = 0;
+            // Members changed in each round of the last solve.
+            std::vector<std::size_t> last_changes_;
+        } rounds_;
     };
 
     // The work budget of each pass, the passes in the order they ran, and the costs of the call graph's components,

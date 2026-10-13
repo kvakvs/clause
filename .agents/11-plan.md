@@ -36,6 +36,8 @@ draft with smaller, single-commit steps.
   numerically and grow as the luerl ledger advances.
 - Step 69A (manual benchmarks against OTP, backlog V05) was inserted on
   2026-10-12 (user direction); it is never part of the gate.
+- Phase I2 (steps 58O–58R, inference convergence and cost) was inserted on
+  2026-10-13 (user direction), driven by the luerl build's 330 s inference.
 
 ## Common gate and rules (apply to every step)
 
@@ -125,6 +127,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
+| I2. Inference convergence and cost | [58O](#step-58o)–[58R](#step-58r) | F29, V05 | open: [58P](#step-58p) |
 | H3. Drop-in replacements for OTP runtime modules | [41I](#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | open: [41L](#step-41l) |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [69A](#step-69a), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -167,6 +170,111 @@ this file working.
 - 73A–73G (for 73H): OTP-requiring tests carry label `host_otp` and skip when
   CMake finds no `erl`; host OTP lookup is `--erl`, `PATH`, then
   `%ProgramFiles%\Erlang OTP`; `--erl none` simulates a missing host OTP.
+
+## I2. Inference convergence and cost
+
+Added 2026-10-13 (user direction). Evidence: `clau.bat --project test-luerl --entry luerl:init
+--print-stage-times` (188 modules) spends 330 s of a 399 s compile in inference: 17 passes, the 8M-step pass
+budget spent from pass 3 on. The cost is in recursive groups (strongly connected components), which `solve`
+iterates for up to `8 + 4 × members` rounds, re-walking every member each round:
+
+| Group | Members | Round cap | Solves capped | Walks that changed a summary | Last solve (inputs `term()`) | Time |
+| --- | --- | --- | --- | --- | --- | --- |
+| `erl_scan:scan1/5` | 47 | 196 | 13 / 17 | 12% | converged in 8 rounds | 167 s |
+| `luerl_comp_vars:stmts/3` | 29 | 124 | 14 / 17 | 56% | capped, ~19 members change every round | 17 s |
+| `luerl_comp_normalise:stmts/2` | 30 | 128 | 15 / 17 | 46% | capped, flat 16 per round | 15 s |
+| `luerl_parse:yeccpars1/5` | 220 | 888 | 0 / 17 | 21% | converged in 8 rounds | 15 s |
+| `io_lib:write/5` | 15 | 68 | 14 / 17 | 46% | capped, flat 9 per round | 8 s |
+
+No group is stopped by the pass budget (only `v3_core:clauses/2`, 13 of 17 solves); they stop at the round cap
+and widen every member to `term()`. Several never settle even with `term()` inputs, which points at
+non-monotone round merging (`next_round` replaces a member's function types when their inputs differ;
+`refine` overwrites `Summary::inputs`). The lattice is of finite height (`FactLimits`), so monotone rounds
+always end; the steps stop repeating known failures, make rounds monotone, and skip walks that cannot change
+anything. Each step reruns the luerl command and records inference time, passes and the `inference rounds`
+lines; `--print-types` output of the existing fixtures may change only where a step says so.
+
+<a id="step-58o"></a>
+
+### 58O. Measure the fixed-point rounds of recursive groups
+
+Backlog: F29, V05. Depends on: [58](00-finished.md#step-58).
+
+- Success criteria
+  - [x] `--print-stage-times` prints `inference rounds <group>` for the 10 slowest recursive groups: solves over
+    all passes, rounds run against the per-solve cap, solves that reached the cap or ended with the pass
+    budget spent, member walks and the share that changed a summary, and the members changed per round of the
+    last solve in ten groups of rounds (`docs/compile.md`).
+- Tests
+  - [x] None beyond the gate (timing output; recorded luerl run above).
+- Done 2026-10-13: `SolveTrace` from `solve`, `InferenceProfile::Cost::rounds_`, `print_recursive`; the
+  luerl evidence above is this step's run. Committed without the gate (user direction).
+
+<a id="step-58p"></a>
+
+### 58P. Remember groups that failed to converge
+
+Backlog: F29. Depends on: [58O](#step-58o).
+
+- Success criteria
+  - [ ] A recursive group whose solve reaches its round cap (every member widened to `term()`) is recorded as
+    failed; every later pass gives its members `term()` summaries directly and runs one round to record their
+    expression facts, instead of iterating up to the cap again. The result equals what a capped solve
+    produces (sound: `term()` is top), and the choice is deterministic.
+  - [ ] A group whose solve spends more than its share of the pass budget (decided in this step, for example
+    a fixed fraction of the budget, or a cap that grows with the group's size) is also recorded as failed, so
+    one group no longer starves every function after it in callee-first order.
+  - [ ] `--print-stage-times` shows remembered groups (`inference rounds ... N remembered`), and
+    `docs/semantic.md` (inference passes and budgets) describes the rule.
+  - [ ] luerl rerun: inference time and passes recorded against 58O; `erl_scan` and the capped `luerl_comp_*`,
+    `io_lib` groups solve to the cap at most once each.
+- Tests
+  - [ ] A fixture with a recursive group that cannot converge within its cap compiles with the same
+    `--print-types` result as before and reports one capped solve; existing inference tests pass unchanged.
+
+<a id="step-58q"></a>
+
+### 58Q. Make fixed-point rounds monotone and detect flipping
+
+Backlog: F29. Depends on: [58P](#step-58p).
+
+- Success criteria
+  - [ ] Each round's member summary only grows: function types whose inputs changed are joined with the
+    previous round's (positionally, or merged into one type) instead of replacing them, and `Summary::inputs`
+    joins with the previous round's instead of being overwritten.
+  - [ ] Flip detection (user direction): each member keeps its last few summaries, more than one, so a member
+    that returns to an earlier summary (A → B → A, or a longer cycle) is detected; the cycle's summaries are
+    joined (or widened) at once, so the round counts as progress toward the fixed point, not as a change.
+  - [ ] `inference rounds` splits changes into grown, flipped and replaced, so the luerl evidence shows which
+    cause remains.
+  - [ ] luerl rerun: the `luerl_comp_*` and `io_lib` groups converge below their caps with `term()` inputs;
+    inference time recorded against 58P. Any `--print-types` change in fixtures is reviewed and recorded as a
+    precision change (wider or narrower facts), never a soundness change.
+- Tests
+  - [ ] A fixture whose recursive group used to flip between two function-type shapes converges, with its
+    `--print-types` output recorded; existing inference and pattern-match tests pass or their recorded
+    precision changes are reviewed.
+
+<a id="step-58r"></a>
+
+### 58R. Re-walk only the members whose inputs changed
+
+Backlog: F29, V05. Depends on: [58Q](#step-58q).
+
+- Success criteria
+  - [ ] Within a group, the first round walks every member; later rounds walk only members whose callees'
+    summaries, own inputs or read `fun F/A` facts changed in the previous round (a worklist in a fixed,
+    deterministic order). Unchanged members keep their expression facts instead of discarding and recording
+    them again.
+  - [ ] The fixed point equals the one round-robin iteration reaches, or any difference caused by widening order
+    is recorded as a precision change; `--print-types` of the fixtures is unchanged.
+  - [ ] `inference rounds` counts skipped walks; luerl rerun: member walks and inference time recorded against
+    58Q (expected for `luerl_parse:yeccpars1/5`: about a fifth of the walks).
+  - [ ] Decide whether the same dirty tracking applies between passes (re-infer only components whose inputs
+    or callee summaries changed since the previous pass) and either implement it here or add a step.
+- Tests
+  - [ ] Inference and pattern-match tests pass unchanged; a recursive fixture's walk count drops in
+    `--print-stage-times` while its printed types stay the same.
 
 ## H3. Drop-in replacements for OTP runtime modules
 

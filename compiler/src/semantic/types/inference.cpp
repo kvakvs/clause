@@ -634,6 +634,14 @@ Body body(Inference &inference, const FunctionRef function, std::size_t &work,
     return {{inference.graph.exhausted()}, inputs, inputs};
 }
 
+// One solve of a recursive component: its round cap, the members whose summaries changed in each round it ran, and
+// whether it reached the cap and widened every member to term(). Added for --print-stage-times.
+struct SolveTrace {
+    std::size_t round_cap_ = 0;
+    std::vector<std::size_t> changes_;
+    bool capped_ = false;
+};
+
 // Rounds of plain joins before results widen (docs/semantic.md#inference-domain), as many as the singleton budget:
 // cycles of up to that many functions converge exactly.
 constexpr std::size_t JOIN_ROUNDS = 8;
@@ -650,21 +658,21 @@ void summarize(Inference &inference, const FunctionRef function, const Fact resu
 }
 
 // Re-infer every member from the current assumptions, discarding the previous round's expression facts; results
-// join with the previous round's, or widen once `widening`.
-bool refine(Inference &inference, const Component &component, std::size_t &work,
-            std::vector<const ast::Expression *> &recorded, bool widening) {
+// join with the previous round's, or widen once `widening`. Returns how many members' summaries changed.
+std::size_t refine(Inference &inference, const Component &component, std::size_t &work,
+                   std::vector<const ast::Expression *> &recorded, bool widening) {
     for (const auto *expression : recorded) {
         inference.expressions.erase(expression);
     }
     recorded.clear();
-    bool changed = false;
+    std::size_t changed = 0;
     for (const auto member : component.members) {
         auto evaluated = body(inference, member, work, recorded);
         auto &summary = inference.functions.at(member.function);
         const auto next = merged(inference.graph, summary.result, evaluated.result, widening);
         // Calls read the function types too: they converge with the results.
         auto types = next_round(inference.graph, summary.types, std::move(evaluated.types), widening);
-        changed = changed || next != summary.result || types != summary.types;
+        changed += next != summary.result || types != summary.types ? 1 : 0;
         summary.result = next;
         summary.inputs = std::move(evaluated.domain);
         summary.entry = std::move(evaluated.entry);
@@ -681,19 +689,23 @@ void finish(Inference &inference, const Component &component) {
 }
 
 // Iterate from bottom to a fixed point; non-convergence visibly widens all members to top and records final facts.
-void solve(Inference &inference, const Component &component, std::size_t &work) {
+// Returns the rounds' trace for --print-stage-times.
+SolveTrace solve(Inference &inference, const Component &component, std::size_t &work) {
     for (const auto member : component.members) {
         summarize(inference, member, {inference.graph.bottom()});
         inference.solving.insert(member.function);
     }
     std::vector<const ast::Expression *> recorded;
     const auto rounds = JOIN_ROUNDS + WIDENING_PASSES * component.members.size();
+    SolveTrace trace{.round_cap_ = rounds, .changes_ = {}, .capped_ = false};
     for (std::size_t round = 0; round < rounds; ++round) {
-        if (!refine(inference, component, work, recorded, round >= JOIN_ROUNDS)) {
+        trace.changes_.push_back(refine(inference, component, work, recorded, round >= JOIN_ROUNDS));
+        if (trace.changes_.back() == 0) {
             finish(inference, component);
-            return;
+            return trace;
         }
     }
+    trace.capped_ = true;
     for (const auto member : component.members) {
         summarize(inference, member, {inference.graph.exhausted()});
     }
@@ -703,18 +715,18 @@ void solve(Inference &inference, const Component &component, std::size_t &work) 
         inference.functions.at(member.function).types.clear();
     }
     finish(inference, component);
+    return trace;
 }
 
 // Passes over the batch that join local inputs, then passes that widen them, before inputs and fun references are
 // given up as unknown.
 constexpr std::size_t PASSES = JOIN_ROUNDS + 2 * WIDENING_PASSES;
 
-// Infer one component from the current summaries of its callees.
-void infer_component(Inference &inference, const Component &component, std::size_t &work,
-                     std::vector<const ast::Expression *> &recorded) {
+// Infer one component from the current summaries of its callees; a recursive one returns its rounds' trace.
+SolveTrace infer_component(Inference &inference, const Component &component, std::size_t &work,
+                           std::vector<const ast::Expression *> &recorded) {
     if (component.recursive) {
-        solve(inference, component, work);
-        return;
+        return solve(inference, component, work);
     }
     const auto function = component.members.front();
     recorded.clear();
@@ -723,6 +735,27 @@ void infer_component(Inference &inference, const Component &component, std::size
     auto &summary = inference.functions.at(function.function);
     summary.entry = std::move(evaluated.entry);
     summary.types = std::move(evaluated.types);
+    return {};
+}
+
+// Add one solve of a recursive component to its cost: rounds, the cap, member walks and changes, and whether the
+// pass budget was spent by its end. Added for the recursive-component measurements of --print-stage-times.
+void record_solve(InferenceProfile::Cost &cost, const SolveTrace &trace, const std::size_t members,
+                  const bool exhausted) {
+    if (trace.round_cap_ == 0) {
+        return;
+    }
+    auto &rounds = cost.rounds_;
+    ++rounds.solves_;
+    rounds.rounds_ += trace.changes_.size();
+    rounds.round_cap_ = trace.round_cap_;
+    rounds.capped_ += trace.capped_ ? 1 : 0;
+    rounds.exhausted_ += exhausted ? 1 : 0;
+    rounds.walks_ += (trace.changes_.size() + (trace.capped_ ? 1 : 0)) * members;
+    for (const auto changed : trace.changes_) {
+        rounds.changes_ += changed;
+    }
+    rounds.last_changes_ = trace.changes_;
 }
 
 // Infer one component and add its time, work and widening to the profile, noting the work budget running out in
@@ -732,14 +765,15 @@ void profiled_component(Inference &inference, const CallGraph &calls, const std:
     const auto started = std::chrono::steady_clock::now();
     const auto before = work;
     const auto widenings = inference.graph.widenings();
-    infer_component(inference, calls.components[index], work, recorded);
+    const auto trace = infer_component(inference, calls.components[index], work, recorded);
     auto &cost = inference.profile->costs_[index];
+    const auto limit = inference.graph.limits().syntax_work;
+    record_solve(cost, trace, calls.components[index].members.size(), work >= limit);
     cost.elapsed_ += std::chrono::steady_clock::now() - started;
     cost.work_ += work - before;
     ++cost.passes_;
     cost.widened_ = cost.widened_ || inference.graph.widenings() > widenings;
     auto &pass = inference.profile->passes_.back();
-    const auto limit = inference.graph.limits().syntax_work;
     if (!pass.exhausted_at_ && before < limit && work >= limit) {
         pass.exhausted_at_ = &calls.components[index];
     }
@@ -754,7 +788,7 @@ void infer_pass(Inference &inference, const CallGraph &calls) {
     std::vector<const ast::Expression *> recorded;
     if (!inference.profile) {
         for (const auto &component : calls.components) {
-            infer_component(inference, component, work, recorded);
+            (void)infer_component(inference, component, work, recorded);
         }
         return;
     }
