@@ -36,7 +36,7 @@ draft with smaller, single-commit steps.
   numerically and grow as the luerl ledger advances.
 - Step 69A (manual benchmarks against OTP, backlog V05) was inserted on
   2026-10-12 (user direction); it is never part of the gate.
-- Phase I2 (steps 58O–58R, inference convergence and cost) was inserted on
+- Phase I2 (steps 58O–58S, inference convergence and cost) was inserted on
   2026-10-13 (user direction), driven by the luerl build's 330 s inference.
 
 ## Common gate and rules (apply to every step)
@@ -127,7 +127,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
-| I2. Inference convergence and cost | [58O](#step-58o)–[58R](#step-58r) | F29, V05 | open: [58Q](#step-58q) |
+| I2. Inference convergence and cost | [58O](#step-58o)–[58S](#step-58s) | F29, V05 | open: [58R](#step-58r), [58S](#step-58s) |
 | H3. Drop-in replacements for OTP runtime modules | [41I](#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | open: [41L](#step-41l) |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [69A](#step-69a), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -260,21 +260,44 @@ Backlog: F29. Depends on: [58O](#step-58o).
 Backlog: F29. Depends on: [58P](#step-58p).
 
 - Success criteria
-  - [ ] Each round's member summary only grows: function types whose inputs changed are joined with the
-    previous round's (positionally, or merged into one type) instead of replacing them, and `Summary::inputs`
-    joins with the previous round's instead of being overwritten.
-  - [ ] Flip detection (user direction): each member keeps its last few summaries, more than one, so a member
-    that returns to an earlier summary (A → B → A, or a longer cycle) is detected; the cycle's summaries are
-    joined (or widened) at once, so the round counts as progress toward the fixed point, not as a change.
-  - [ ] `inference rounds` splits changes into grown, flipped and replaced, so the luerl evidence shows which
+  - [x] Each round's member summary only grows: function types whose inputs changed are joined with the
+    previous round's (positionally, or merged into one type) instead of replacing them. Changed: `Summary::inputs`
+    stays overwritten, because calls read it only after the group is solved (`!solving.contains(callee)`), so it
+    cannot make rounds churn and joining it would only widen the final success domain.
+  - [x] Flip detection (user direction): each member keeps its last few summaries, more than one, so a member
+    that returns to an earlier summary (A → B → A, or a longer cycle) is detected. Changed: such a member gives up
+    alone for the rest of the solve (`term()` without function types) instead of joining the cycle, because the
+    flip comes from the fact join itself not being monotone at the container depth limit (see 58S), so joining
+    the cycle's summaries flips again.
+  - [x] `inference rounds` splits changes into grown, flipped and replaced, so the luerl evidence shows which
     cause remains.
-  - [ ] luerl rerun: the `luerl_comp_*` and `io_lib` groups converge below their caps with `term()` inputs;
-    inference time recorded against 58P. Any `--print-types` change in fixtures is reviewed and recorded as a
-    precision change (wider or narrower facts), never a soundness change.
+  - [x] luerl rerun: inference time recorded against 58P; any `--print-types` change in fixtures is reviewed.
 - Tests
-  - [ ] A fixture whose recursive group used to flip between two function-type shapes converges, with its
-    `--print-types` output recorded; existing inference and pattern-match tests pass or their recorded
-    precision changes are reviewed.
+  - [x] A fixture whose recursive group used to flip converges, with its `--print-types` output recorded;
+    existing inference and pattern-match tests pass or their recorded precision changes are reviewed.
+- Done 2026-10-13: `RoundChanges`, `Snapshot`, `RoundHistory` (last 4 summaries per member, `HISTORY`) and
+  `next_summary` in `semantic/types/inference.cpp`; `next_round` joins type by type or merges both rounds' types
+  (`function_types.cpp`, `join_round`).
+  - Cause, from a luerl run with the classification only (no fix): flips appear exactly in the groups that hit
+    their cap or work share (`sys_core_fold:body/2` 418 of 485 changes, `v3_core:clauses/2` 263 of 469,
+    `erl_scan:scan1/5` 216 of 940, `beam_core_to_ssa:ubody_used_vars/2` 24 of 118); converging groups show
+    none. Monotone function types alone changed nothing. Debug output of the first flips (`ttdict:map/2`,
+    `ttdict:mapfold/3`) showed the result alternating between two tree-shaped unions that differ one level
+    below the depth limit: `join(A, x)` gave `B` and `join(B, x)` gave `A`.
+  - luerl (Release `build/tool`, `--no-cache`, idle host): inference 133 s (58P 113 s, 58O 330 s), compile
+    206 s (58P 182 s). `erl_scan`, `v3_core` and `sys_core_fold` now converge (0 capped, 0 over work share; 39,
+    48 and 43 members gave up alone) instead of giving up as a whole, and the final `term()` pass stays within
+    its budget (5.4M of 8M steps; it ran out in 58O and 58P). The extra time is those groups' real rounds:
+    `erl_scan` 171 rounds, 11.6 s. `luerl_comp_*` and `io_lib` left the 10 slowest groups (their counts are not
+    shown). Still capped twice: `beam_core_to_ssa:ubody_used_vars/2` and `luerl_comp_cg:stmts/2`, whose last
+    solves grow steadily (3 and 2 members per round) without flipping. `test-luerl.exe` exits 0. One earlier
+    run's 1.7–2x slower phases everywhere (contracts and emit too) was host load.
+  - Tests: `tests/fixtures/inference/flips.erl` (CTest `inference_flips`, erlfmt-clean), a tree map whose
+    `map/2` flips: `expect:` is the precise result, `today:` the given-up `_`; `inference_budgets` checks its
+    `inference rounds` line shows a flip and no cap. The existing inference, pattern-match and type tests pass
+    unchanged (no `--print-types` change).
+  - Gate: fast CTest 273/273 and `check-quality` clean on the code; the fixture and test additions ran after it
+    (`inference_flips`, `inference_budgets` pass).
 
 <a id="step-58r"></a>
 
@@ -296,6 +319,25 @@ Backlog: F29, V05. Depends on: [58Q](#step-58q).
 - Tests
   - [ ] Inference and pattern-match tests pass unchanged; a recursive fixture's walk count drops in
     `--print-stage-times` while its printed types stay the same.
+
+<a id="step-58s"></a>
+
+### 58S. Make fact joins monotone at the container depth limit
+
+Backlog: F29. Depends on: [58Q](#step-58q). Added 2026-10-13 from 58Q's evidence.
+
+- Success criteria
+  - [ ] `Lattice::join` (and `widen`) return a fact that holds both arguments also at the container depth
+    limit: a union member cut off at the limit and the same member kept one level deeper no longer alternate
+    (`ttdict:map/2`, `flips.erl`), for example by truncating every member at the same depth before joining or by
+    keeping one member per shape regardless of the first element's tag at the cut-off level.
+  - [ ] A check over the inference fixtures and generated deep tree facts that `within(a, join(a, b))` and
+    `within(b, join(a, b))` hold.
+  - [ ] luerl rerun: flips drop to none or near none; the given-up members of 58Q get their facts back;
+    inference time recorded against 58Q. `flips.erl` reaches its `expect:` line or a recorded nearer one.
+- Tests
+  - [ ] A focused lattice test for the join property on deep trees (it cannot be reached reliably through source),
+    plus `inference_flips`.
 
 ## H3. Drop-in replacements for OTP runtime modules
 

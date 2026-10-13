@@ -1,5 +1,6 @@
 #include "function_types.hpp"
 #include <algorithm>
+#include <iterator>
 
 namespace clause::semantic::types {
 namespace {
@@ -11,12 +12,6 @@ void absorb(Graph &graph, FunctionType &into, const FunctionType &type) {
     }
     into.result = merged(graph, into.result, type.result);
     into.exact = false;
-}
-
-// Whether two lists of function types have the same inputs, type by type.
-bool same_inputs(const std::vector<FunctionType> &left, const std::vector<FunctionType> &right) {
-    return std::ranges::equal(left, right,
-                              [](const FunctionType &a, const FunctionType &b) { return a.inputs == b.inputs; });
 }
 
 // Whether a call with these argument facts can enter a function type: each fact meets its input.
@@ -42,6 +37,19 @@ bool settles(Lattice &lattice, const FunctionType &type, const std::vector<Fact>
     return true;
 }
 
+// Join an earlier round's function type into `into`: results join (or widen), and changed inputs join, which keeps
+// the type exact no more. Added for step 58Q.
+void join_round(Graph &graph, FunctionType &into, const FunctionType &previous, const bool widening) {
+    if (into.inputs != previous.inputs) {
+        Lattice lattice(graph);
+        for (std::size_t index = 0; index < into.inputs.size() && index < previous.inputs.size(); ++index) {
+            into.inputs[index] = lattice.join(previous.inputs[index], into.inputs[index]);
+        }
+        into.exact = false;
+    }
+    into.result = merged(graph, previous.result, into.result, widening);
+}
+
 // Join a selected type's inputs into the inputs selected so far (none at first).
 void join_inputs(Lattice &lattice, std::vector<Id> &selected, const std::vector<Id> &inputs) {
     if (selected.empty()) {
@@ -54,6 +62,11 @@ void join_inputs(Lattice &lattice, std::vector<Id> &selected, const std::vector<
 }
 
 } // namespace
+
+bool same_inputs(const std::vector<FunctionType> &left, const std::vector<FunctionType> &right) {
+    return std::ranges::equal(left, right,
+                              [](const FunctionType &a, const FunctionType &b) { return a.inputs == b.inputs; });
+}
 
 Fact merged(Graph &graph, const Fact previous, const Fact next, const bool widening) {
     // A value that never exists relates to no argument.
@@ -88,13 +101,19 @@ std::vector<FunctionType> merge_types(Graph &graph, std::vector<FunctionType> ty
 
 std::vector<FunctionType> next_round(Graph &graph, const std::vector<FunctionType> &previous,
                                      std::vector<FunctionType> next, const bool widening) {
-    if (!same_inputs(previous, next)) {
+    if (previous.empty()) {
         return next;
     }
-    for (std::size_t index = 0; index < next.size(); ++index) {
-        next[index].result = merged(graph, previous[index].result, next[index].result, widening);
+    if (previous.size() == next.size()) {
+        for (std::size_t index = 0; index < next.size(); ++index) {
+            join_round(graph, next[index], previous[index], widening);
+        }
+        return next;
     }
-    return next;
+    // Different clauses or branches are possible now: keep both rounds' types (step 58Q).
+    std::vector<FunctionType> both(previous);
+    both.insert(both.end(), std::make_move_iterator(next.begin()), std::make_move_iterator(next.end()));
+    return merge_types(graph, std::move(both));
 }
 
 Id fun_fact(Lattice &lattice, const std::vector<FunctionType> &types) {

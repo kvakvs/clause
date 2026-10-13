@@ -443,6 +443,14 @@ Inference is separate from declared types and never trusts specs.
   `term()` at once and run only that final round, instead of iterating to
   the cap again. The pass that widens every input to `term()` forgets the
   remembered components, so each gets one more solve with those inputs.
+- Rounds never shrink a member's summary (step 58Q): its function types join
+  with the previous round's type by type (results join, changed inputs join
+  and the type is no longer exact), or, when the number of types changed,
+  both rounds' types merge. Joins of tree-shaped facts are not monotone at
+  the container depth limit, so a member can still return to a summary of an
+  earlier round; each member keeps its last 4 summaries, and one that returns
+  to any of them is `term()` without function types for the rest of the
+  solve, which lets the other members converge.
 - A shared work budget bounds inference; exhaustion loses precision and falls
   back to generic code, never rejects a program.
 - Specifications that contradict inference are diagnosed (step 58I,

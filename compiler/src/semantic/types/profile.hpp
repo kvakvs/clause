@@ -39,9 +39,13 @@ struct InferenceProfile {
             std::size_t over_share_ = 0;
             std::size_t remembered_ = 0;
             std::size_t exhausted_ = 0;
-            // Member body walks and the walks that changed a member's summary.
+            // Member body walks and the walks that changed a member's summary: grown in place, function types
+            // replaced because their inputs changed, or flipped back to an earlier round's summary (58Q).
             std::size_t walks_ = 0;
             std::size_t changes_ = 0;
+            std::size_t grown_ = 0;
+            std::size_t replaced_ = 0;
+            std::size_t flipped_ = 0;
             // Members changed in each round of the last solve.
             std::vector<std::size_t> last_changes_;
         } rounds_;

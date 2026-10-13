@@ -638,12 +638,73 @@ Body body(Inference &inference, const FunctionRef function, std::size_t &work,
 // round cap or its share of the pass work, or because an earlier pass gave up on it. Added for step 58P.
 enum class Ending : std::uint8_t { converged, capped, over_share, remembered };
 
-// One solve of a recursive component: its round cap, the members whose summaries changed in each round it ran, and
-// how it ended. Added for --print-stage-times.
+// How the members' summaries changed in a round: grown in place, function types replaced because their inputs
+// changed, or flipped back to a summary of an earlier round. Added for step 58Q.
+struct RoundChanges {
+    std::size_t grown_ = 0;
+    std::size_t replaced_ = 0;
+    std::size_t flipped_ = 0;
+
+    // The members whose summaries changed.
+    std::size_t total() const { return grown_ + replaced_ + flipped_; }
+
+    // Add another round's counts.
+    void add(const RoundChanges &other) {
+        grown_ += other.grown_;
+        replaced_ += other.replaced_;
+        flipped_ += other.flipped_;
+    }
+};
+
+// One solve of a recursive component: its round cap, the members whose summaries changed in each round it ran, the
+// kinds of those changes, and how it ended. Added for --print-stage-times.
 struct SolveTrace {
     std::size_t round_cap_ = 0;
     std::vector<std::size_t> changes_;
+    RoundChanges kinds_;
     Ending ending_ = Ending::converged;
+};
+
+// A member's summary as rounds compare it: its result and the function types calls select from.
+struct Snapshot {
+    Fact result;
+    std::vector<FunctionType> types;
+    bool operator==(const Snapshot &) const = default;
+};
+
+// Summaries a member keeps from its last rounds to see it return to one of them. Added for step 58Q.
+constexpr std::size_t HISTORY = 4;
+
+// The members' summaries of a solve's last rounds, oldest first, by member index, and the members that gave up after
+// returning to one of them. Added for step 58Q.
+class RoundHistory {
+  public:
+    explicit RoundHistory(const std::size_t members) : kept_(members), gave_up_(members, false) {}
+
+    // Whether `next` equals one of the member's kept summaries.
+    bool returns(const std::size_t member, const Snapshot &next) const {
+        return std::ranges::contains(kept_.at(member), next);
+    }
+
+    // Whether the member gave up for the rest of the solve, and make it give up.
+    bool gave_up(const std::size_t member) const { return gave_up_.at(member); }
+
+    void give_up(const std::size_t member) { gave_up_.at(member) = true; }
+
+    // Keep the member's summary of this round, forgetting the oldest past HISTORY.
+    void keep(const std::size_t member, Snapshot snapshot) {
+        auto &kept = kept_.at(member);
+        kept.push_back(std::move(snapshot));
+        if (kept.size() > HISTORY) {
+            kept.erase(kept.begin());
+        }
+    }
+
+  private:
+    // The kept summaries, oldest first, by member index.
+    std::vector<std::vector<Snapshot>> kept_;
+    // The members whose summaries are term() without function types for the rest of the solve.
+    std::vector<bool> gave_up_;
 };
 
 // Rounds of plain joins before results widen (docs/semantic.md#inference-domain), as many as the singleton budget:
@@ -664,28 +725,68 @@ void summarize(Inference &inference, const FunctionRef function, const Fact resu
         function.function, Summary{domain ? std::move(*domain) : inputs_of(inference, *function.function), result});
 }
 
+// Count one member's change of summary by its kind, against its previous summary and the ones `history` kept.
+void classify(const Summary &previous, const Snapshot &next, const RoundHistory *history, const std::size_t member,
+              RoundChanges &changes) {
+    if (next.result == previous.result && next.types == previous.types) {
+        return;
+    }
+    if (history && history->returns(member, next)) {
+        ++changes.flipped_;
+    } else if (!same_inputs(previous.types, next.types)) {
+        ++changes.replaced_;
+    } else {
+        ++changes.grown_;
+    }
+}
+
+// A member's summary after a round: its result joins (or widens) with the previous one and its function types never
+// shrink. A member that returns to a kept summary (joins are not monotone at the container depth limit, so it would
+// go round for ever) gives up for the rest of the solve: term() without function types (step 58Q).
+Snapshot next_summary(Inference &inference, const Summary &summary, Body evaluated, const bool widening,
+                      RoundHistory *history, const std::size_t member, RoundChanges &changes) {
+    if (history && history->gave_up(member)) {
+        return {{inference.graph.exhausted()}, {}};
+    }
+    // Calls read the function types too: they converge with the results.
+    Snapshot next{merged(inference.graph, summary.result, evaluated.result, widening),
+                  next_round(inference.graph, summary.types, std::move(evaluated.types), widening)};
+    const auto flips = changes.flipped_;
+    classify(summary, next, history, member, changes);
+    if (!history) {
+        return next;
+    }
+    if (changes.flipped_ != flips) {
+        history->give_up(member);
+        return {{inference.graph.exhausted()}, {}};
+    }
+    history->keep(member, next);
+    return next;
+}
+
 // Re-infer every member from the current assumptions, discarding the previous round's expression facts; results
-// join with the previous round's, or widen once `widening`. Returns how many members' summaries changed.
-std::size_t refine(Inference &inference, const Component &component, std::size_t &work,
-                   std::vector<const ast::Expression *> &recorded, bool widening) {
+// join with the previous round's, or widen once `widening`. Returns the members' changes by kind; `history`, when
+// given, keeps each member's summaries to tell flips.
+RoundChanges refine(Inference &inference, const Component &component, std::size_t &work,
+                    std::vector<const ast::Expression *> &recorded, bool widening, RoundHistory *history) {
     for (const auto *expression : recorded) {
         inference.expressions.erase(expression);
     }
     recorded.clear();
-    std::size_t changed = 0;
-    for (const auto member : component.members) {
+    RoundChanges changes;
+    for (std::size_t index = 0; index < component.members.size(); ++index) {
+        const auto member = component.members[index];
         auto evaluated = body(inference, member, work, recorded);
         auto &summary = inference.functions.at(member.function);
-        const auto next = merged(inference.graph, summary.result, evaluated.result, widening);
-        // Calls read the function types too: they converge with the results.
-        auto types = next_round(inference.graph, summary.types, std::move(evaluated.types), widening);
-        changed += next != summary.result || types != summary.types ? 1 : 0;
-        summary.result = next;
-        summary.inputs = std::move(evaluated.domain);
-        summary.entry = std::move(evaluated.entry);
-        summary.types = std::move(types);
+        auto domain = std::move(evaluated.domain);
+        auto entry = std::move(evaluated.entry);
+        auto next = next_summary(inference, summary, std::move(evaluated), widening, history, index, changes);
+        summary.result = next.result;
+        summary.inputs = std::move(domain);
+        summary.entry = std::move(entry);
+        summary.types = std::move(next.types);
     }
-    return changed;
+    return changes;
 }
 
 // The members of a solved component have final summaries.
@@ -696,15 +797,18 @@ void finish(Inference &inference, const Component &component) {
 }
 
 // Run rounds from the current summaries until no member changes, the round cap or the component's share of the pass
-// work; `changes` gets the members changed per round. Returns how the rounds ended.
+// work; `trace` gets the members changed per round and their kinds. Returns how the rounds ended.
 Ending iterate(Inference &inference, const Component &component, std::size_t &work,
-               std::vector<const ast::Expression *> &recorded, std::vector<std::size_t> &changes) {
+               std::vector<const ast::Expression *> &recorded, SolveTrace &trace) {
     const auto rounds = JOIN_ROUNDS + WIDENING_PASSES * component.members.size();
     const auto share = inference.graph.limits().syntax_work / COMPONENT_WORK_SHARE;
     const auto started = work;
+    RoundHistory history(component.members.size());
     for (std::size_t round = 0; round < rounds; ++round) {
-        changes.push_back(refine(inference, component, work, recorded, round >= JOIN_ROUNDS));
-        if (changes.back() == 0) {
+        const auto changes = refine(inference, component, work, recorded, round >= JOIN_ROUNDS, &history);
+        trace.changes_.push_back(changes.total());
+        trace.kinds_.add(changes);
+        if (changes.total() == 0) {
             return Ending::converged;
         }
         if (work - started > share) {
@@ -721,7 +825,7 @@ void give_up(Inference &inference, const Component &component, std::size_t &work
     for (const auto member : component.members) {
         summarize(inference, member, {inference.graph.exhausted()});
     }
-    (void)refine(inference, component, work, recorded, false);
+    (void)refine(inference, component, work, recorded, false, nullptr);
     for (const auto member : component.members) {
         inference.functions.at(member.function).types.clear();
     }
@@ -738,10 +842,10 @@ SolveTrace solve(Inference &inference, const Component &component, std::size_t &
     std::vector<const ast::Expression *> recorded;
     SolveTrace trace{.round_cap_ = JOIN_ROUNDS + WIDENING_PASSES * component.members.size(),
                      .changes_ = {},
+                     .kinds_ = {},
                      .ending_ = Ending::converged};
-    trace.ending_ = inference.failed.contains(&component)
-                        ? Ending::remembered
-                        : iterate(inference, component, work, recorded, trace.changes_);
+    trace.ending_ = inference.failed.contains(&component) ? Ending::remembered
+                                                          : iterate(inference, component, work, recorded, trace);
     if (trace.ending_ != Ending::converged) {
         inference.failed.insert(&component);
         give_up(inference, component, work, recorded);
@@ -790,6 +894,9 @@ void record_solve(InferenceProfile::Cost &cost, const SolveTrace &trace, const s
     for (const auto changed : trace.changes_) {
         rounds.changes_ += changed;
     }
+    rounds.grown_ += trace.kinds_.grown_;
+    rounds.replaced_ += trace.kinds_.replaced_;
+    rounds.flipped_ += trace.kinds_.flipped_;
     rounds.last_changes_ = trace.changes_;
 }
 

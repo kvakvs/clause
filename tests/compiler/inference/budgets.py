@@ -3,13 +3,15 @@ term() and is remembered, so later passes give up on it at once instead of itera
 
 The group is generated: two mutually recursive functions whose bodies are long list expressions, sized from the pass
 budget clau reports (debug and release builds have different budgets). A small copy of the same group converges.
+Step 58Q: in tests/fixtures/inference/flips.erl a member's summary flips back to an earlier one; it gives up alone
+and its group converges below the round cap.
 """
 import re
 import subprocess
 import sys
 from pathlib import Path
 
-tool, directory = sys.argv[1:]
+tool, directory, flips = sys.argv[1:]
 work = Path(directory)
 work.mkdir(parents=True, exist_ok=True)
 
@@ -32,6 +34,13 @@ def clau(*arguments):
     result = subprocess.run([tool, *map(str, arguments)], cwd=work, capture_output=True, text=True, timeout=300)
     assert result.returncode == 0, (arguments, result.stderr[-2000:])
     return result.stdout, result.stderr
+
+
+def rounds_of(stderr, group):
+    """The `inference rounds` line of a recursive group, named by its first member."""
+    found = re.search(rf"\[time\] inference rounds {re.escape(group)}: [^\n]*", stderr)
+    assert found, stderr[-3000:]
+    return found.group(0)
 
 
 def rounds(stderr, name):
@@ -59,6 +68,10 @@ types, timed = clau("--print-stage-times", "--print-types", small)
 line = rounds(timed, "small")
 assert "0 over work share" in line and "0 remembered" in line, line
 assert re.search(r"^%% inferred: f\(0, Acc\) -> Acc; \(_, _\) -> \[_, \.\.\.\]$", types, re.MULTILINE), types
+
+_, timed = clau("--print-stage-times", "--print-types", flips)
+line = rounds_of(timed, "flips:map/2")
+assert int(re.search(r"(\d+) flipped", line).group(1)) >= 1 and "0 capped" in line, line
 
 # The given-up group still compiles to code that runs.
 clau("-O2", "-o", "heavy", heavy)

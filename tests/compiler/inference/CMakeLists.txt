@@ -15,7 +15,9 @@ add_test(NAME inference_contracts COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRE
     "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}/tests/fixtures/inference/contracts")
 set_tests_properties(inference_contracts PROPERTIES TIMEOUT 120)
 
-# Step 58P: a recursive group over its share of the pass budget widens to term() once and is remembered after that.
+# Step 58P: a recursive group over its share of the pass budget widens to term() once and is remembered after that;
+# 58Q: a member that flips back to an earlier summary gives up alone.
 add_test(NAME inference_budgets COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/budgets.py"
-    "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/budgets/$<CONFIG>")
+    "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/budgets/$<CONFIG>"
+    "${PROJECT_SOURCE_DIR}/tests/fixtures/inference/flips.erl")
 set_tests_properties(inference_budgets PROPERTIES TIMEOUT 300 PASS_REGULAR_EXPRESSION "inference_budgets: ok")

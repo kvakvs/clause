@@ -81,10 +81,11 @@ void print_rounds(const InferenceProfile::Cost &cost) {
         rounds.walks_ == 0 ? 0.0 : 100.0 * static_cast<double>(rounds.changes_) / static_cast<double>(rounds.walks_);
     const auto note = std::format(
         "{} solves, {} rounds (cap {} per solve), {} capped, {} over work share, {} remembered, {} out "
-        "of pass budget; {} member walks, {:.1f}% changed a summary; last solve: {} rounds, members "
-        "changed per round (in tenths) {}",
+        "of pass budget; {} member walks, {:.1f}% changed a summary ({} grown, {} replaced, {} flipped); last "
+        "solve: {} rounds, members changed per round (in tenths) {}",
         rounds.solves_, rounds.rounds_, rounds.round_cap_, rounds.capped_, rounds.over_share_, rounds.remembered_,
-        rounds.exhausted_, rounds.walks_, useful, rounds.last_changes_.size(), round_series(rounds.last_changes_));
+        rounds.exhausted_, rounds.walks_, useful, rounds.grown_, rounds.replaced_, rounds.flipped_,
+        rounds.last_changes_.size(), round_series(rounds.last_changes_));
     print_stage_time("inference rounds", component_name(*cost.component_), cost.elapsed_, note);
 }
 
