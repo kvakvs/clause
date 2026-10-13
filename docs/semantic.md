@@ -434,10 +434,15 @@ Inference is separate from declared types and never trusts specs.
   previous one (widens it after the first 8 rounds,
   [inference domain](#inference-domain)), and a pending recursive call adds
   nothing to a join. A function that can never return stays `none()`. A
-  component that has not converged after 8 rounds plus 4 per member widens
-  every member to `term()` (reported as widened, like budget exhaustion) and a
+  component that has not converged after 8 rounds plus 4 per member, or whose
+  rounds have spent more than an eighth of the pass budget, widens every
+  member to `term()` (reported as widened, like budget exhaustion) and a
   final round recomputes the expression facts; earlier rounds' expression
   facts are discarded, so only facts from the final assumptions remain.
+  Such a component is remembered (step 58P): later passes give its members
+  `term()` at once and run only that final round, instead of iterating to
+  the cap again. The pass that widens every input to `term()` forgets the
+  remembered components, so each gets one more solve with those inputs.
 - A shared work budget bounds inference; exhaustion loses precision and falls
   back to generic code, never rejects a program.
 - Specifications that contradict inference are diagnosed (step 58I,

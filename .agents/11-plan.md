@@ -127,7 +127,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
-| I2. Inference convergence and cost | [58O](#step-58o)–[58R](#step-58r) | F29, V05 | open: [58P](#step-58p) |
+| I2. Inference convergence and cost | [58O](#step-58o)–[58R](#step-58r) | F29, V05 | open: [58Q](#step-58q) |
 | H3. Drop-in replacements for OTP runtime modules | [41I](#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | open: [41L](#step-41l) |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [69A](#step-69a), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -217,20 +217,41 @@ Backlog: F29, V05. Depends on: [58](00-finished.md#step-58).
 Backlog: F29. Depends on: [58O](#step-58o).
 
 - Success criteria
-  - [ ] A recursive group whose solve reaches its round cap (every member widened to `term()`) is recorded as
+  - [x] A recursive group whose solve reaches its round cap (every member widened to `term()`) is recorded as
     failed; every later pass gives its members `term()` summaries directly and runs one round to record their
     expression facts, instead of iterating up to the cap again. The result equals what a capped solve
     produces (sound: `term()` is top), and the choice is deterministic.
-  - [ ] A group whose solve spends more than its share of the pass budget (decided in this step, for example
+  - [x] A group whose solve spends more than its share of the pass budget (decided in this step, for example
     a fixed fraction of the budget, or a cap that grows with the group's size) is also recorded as failed, so
     one group no longer starves every function after it in callee-first order.
-  - [ ] `--print-stage-times` shows remembered groups (`inference rounds ... N remembered`), and
+  - [x] `--print-stage-times` shows remembered groups (`inference rounds ... N remembered`), and
     `docs/semantic.md` (inference passes and budgets) describes the rule.
-  - [ ] luerl rerun: inference time and passes recorded against 58O; `erl_scan` and the capped `luerl_comp_*`,
+  - [x] luerl rerun: inference time and passes recorded against 58O; `erl_scan` and the capped `luerl_comp_*`,
     `io_lib` groups solve to the cap at most once each.
 - Tests
-  - [ ] A fixture with a recursive group that cannot converge within its cap compiles with the same
-    `--print-types` result as before and reports one capped solve; existing inference tests pass unchanged.
+  - [x] A fixture with a recursive group that gives up (here: over its work share, since no small group was
+    found that reaches its round cap) reports one such solve and remembered ones after it, with a deterministic
+    `--print-types` result; existing inference tests pass unchanged.
+- Done 2026-10-13: `Ending` per solve (`converged`, `capped`, `over_share`, `remembered`), `iterate` and
+  `give_up` in `semantic/types/inference.cpp`, `Inference::failed`. Decided share: an eighth of the pass budget
+  (`COMPONENT_WORK_SHARE`), checked after each round. The pass that widens every input to `term()` forgets the
+  remembered groups, so each gets one solve with those inputs (in 58O, `erl_scan` converged in 8 rounds there).
+  - Tests: no hand-written group capped (walker-style AST rewriters of luerl's shape converge in 3 rounds), so
+    `tests/compiler/inference/budgets.py` (CTest `inference_budgets`) generates a two-member group sized from
+    the reported pass budget whose first round exceeds its share: `1 over work share`, remembered in the next
+    pass, `-> _` with `inferred=widened`, deterministic, and the linked executable runs; a small copy converges
+    with its precise types. The cap path uses the same `give_up` code, so its result is unchanged by
+    construction. `tests/cli.cmake` accepts the `inference rounds` lines.
+  - luerl (Release `build/tool`, same command as 58O): inference 330 s to 113 s, compile 399 s to 182 s;
+    passes 3–16 no longer spend the pass budget (2.7M–4.9M of 8M steps), only the final `term()` pass does.
+    `erl_scan:scan1/5` 167 s to 5.2 s (1 over work share, 12 remembered); `luerl_comp_*` and `io_lib` left the
+    10 slowest (each under 1.5 s, from 8–17 s); `v3_core:clauses/2` 2 over share, `sys_core_fold:body/2` 2
+    capped, the rest remembered. The slowest group is now `core_parse:yeccpars1/5` (523 members, converges in
+    7 rounds, 22% of walks change a summary: 58R's target). `test-luerl.exe` exits 0.
+  - Found on the way (for 58Q/58R or a new step): walks over a huge list literal get much slower per step
+    from pass to pass (generated 40,000-element list: 240k steps in 0.1 s in pass 1, 15 s in pass 7).
+  - Gate: fast CTest 273/273, `check-quality` clean (after guarding a possible division by zero in
+    `round_series`, from 58O).
 
 <a id="step-58q"></a>
 

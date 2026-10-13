@@ -91,6 +91,9 @@ struct Inference {
     std::map<std::tuple<std::string, std::string, std::size_t>, const Function *> exported;
     // Members of recursive components, whose calls are never re-analysed.
     std::set<const Function *> recursive;
+    // Recursive components that reached their round cap or work share in an earlier pass: later passes give their
+    // members term() at once instead of iterating again. Added for step 58P.
+    std::set<const Component *> failed;
     // How many callee re-analyses for a call are nested now, and the work they spent in the current pass.
     std::size_t reanalyses = 0;
     std::size_t reanalysis_work = 0;

@@ -634,12 +634,16 @@ Body body(Inference &inference, const FunctionRef function, std::size_t &work,
     return {{inference.graph.exhausted()}, inputs, inputs};
 }
 
+// How a recursive component's solve ended: at a fixed point, or giving every member term() because it reached its
+// round cap or its share of the pass work, or because an earlier pass gave up on it. Added for step 58P.
+enum class Ending : std::uint8_t { converged, capped, over_share, remembered };
+
 // One solve of a recursive component: its round cap, the members whose summaries changed in each round it ran, and
-// whether it reached the cap and widened every member to term(). Added for --print-stage-times.
+// how it ended. Added for --print-stage-times.
 struct SolveTrace {
     std::size_t round_cap_ = 0;
     std::vector<std::size_t> changes_;
-    bool capped_ = false;
+    Ending ending_ = Ending::converged;
 };
 
 // Rounds of plain joins before results widen (docs/semantic.md#inference-domain), as many as the singleton budget:
@@ -649,6 +653,9 @@ constexpr std::size_t JOIN_ROUNDS = 8;
 // and an integer fact widens at most three times (to a threshold, the next, unbounded). A component that has not
 // converged by then widens every member to top.
 constexpr std::size_t WIDENING_PASSES = 4;
+// A recursive component may spend this fraction of the pass work on its rounds; past it, it widens every member to
+// top like at its round cap, so one component cannot starve the components after it. Added for step 58P.
+constexpr std::size_t COMPONENT_WORK_SHARE = 8;
 
 // Replace a summary: its result and the entry domain of its arguments (by default the inputs the body starts from).
 void summarize(Inference &inference, const FunctionRef function, const Fact result,
@@ -688,31 +695,56 @@ void finish(Inference &inference, const Component &component) {
     }
 }
 
+// Run rounds from the current summaries until no member changes, the round cap or the component's share of the pass
+// work; `changes` gets the members changed per round. Returns how the rounds ended.
+Ending iterate(Inference &inference, const Component &component, std::size_t &work,
+               std::vector<const ast::Expression *> &recorded, std::vector<std::size_t> &changes) {
+    const auto rounds = JOIN_ROUNDS + WIDENING_PASSES * component.members.size();
+    const auto share = inference.graph.limits().syntax_work / COMPONENT_WORK_SHARE;
+    const auto started = work;
+    for (std::size_t round = 0; round < rounds; ++round) {
+        changes.push_back(refine(inference, component, work, recorded, round >= JOIN_ROUNDS));
+        if (changes.back() == 0) {
+            return Ending::converged;
+        }
+        if (work - started > share) {
+            return Ending::over_share;
+        }
+    }
+    return Ending::capped;
+}
+
+// Give every member term() and walk them once to record their expression facts: the summaries of a component that
+// does not converge, which keeps only its widened union summaries.
+void give_up(Inference &inference, const Component &component, std::size_t &work,
+             std::vector<const ast::Expression *> &recorded) {
+    for (const auto member : component.members) {
+        summarize(inference, member, {inference.graph.exhausted()});
+    }
+    (void)refine(inference, component, work, recorded, false);
+    for (const auto member : component.members) {
+        inference.functions.at(member.function).types.clear();
+    }
+}
+
 // Iterate from bottom to a fixed point; non-convergence visibly widens all members to top and records final facts.
-// Returns the rounds' trace for --print-stage-times.
+// A component an earlier pass gave up on gives up at once (step 58P). Returns the rounds' trace for
+// --print-stage-times.
 SolveTrace solve(Inference &inference, const Component &component, std::size_t &work) {
     for (const auto member : component.members) {
         summarize(inference, member, {inference.graph.bottom()});
         inference.solving.insert(member.function);
     }
     std::vector<const ast::Expression *> recorded;
-    const auto rounds = JOIN_ROUNDS + WIDENING_PASSES * component.members.size();
-    SolveTrace trace{.round_cap_ = rounds, .changes_ = {}, .capped_ = false};
-    for (std::size_t round = 0; round < rounds; ++round) {
-        trace.changes_.push_back(refine(inference, component, work, recorded, round >= JOIN_ROUNDS));
-        if (trace.changes_.back() == 0) {
-            finish(inference, component);
-            return trace;
-        }
-    }
-    trace.capped_ = true;
-    for (const auto member : component.members) {
-        summarize(inference, member, {inference.graph.exhausted()});
-    }
-    (void)refine(inference, component, work, recorded, false);
-    // A component that did not converge keeps only its widened union summaries.
-    for (const auto member : component.members) {
-        inference.functions.at(member.function).types.clear();
+    SolveTrace trace{.round_cap_ = JOIN_ROUNDS + WIDENING_PASSES * component.members.size(),
+                     .changes_ = {},
+                     .ending_ = Ending::converged};
+    trace.ending_ = inference.failed.contains(&component)
+                        ? Ending::remembered
+                        : iterate(inference, component, work, recorded, trace.changes_);
+    if (trace.ending_ != Ending::converged) {
+        inference.failed.insert(&component);
+        give_up(inference, component, work, recorded);
     }
     finish(inference, component);
     return trace;
@@ -749,9 +781,12 @@ void record_solve(InferenceProfile::Cost &cost, const SolveTrace &trace, const s
     ++rounds.solves_;
     rounds.rounds_ += trace.changes_.size();
     rounds.round_cap_ = trace.round_cap_;
-    rounds.capped_ += trace.capped_ ? 1 : 0;
+    rounds.capped_ += trace.ending_ == Ending::capped ? 1 : 0;
+    rounds.over_share_ += trace.ending_ == Ending::over_share ? 1 : 0;
+    rounds.remembered_ += trace.ending_ == Ending::remembered ? 1 : 0;
     rounds.exhausted_ += exhausted ? 1 : 0;
-    rounds.walks_ += (trace.changes_.size() + (trace.capped_ ? 1 : 0)) * members;
+    const bool gave_up = trace.ending_ != Ending::converged;
+    rounds.walks_ += (trace.changes_.size() + (gave_up ? 1 : 0)) * members;
     for (const auto changed : trace.changes_) {
         rounds.changes_ += changed;
     }
@@ -870,6 +905,8 @@ std::unique_ptr<Inference> infer(const CallGraph &calls, const Limits limits, In
         std::ranges::fill(inputs, result->graph.exhausted());
     }
     result->opaque_funs = true;
+    // With every input term() a component may converge where it could not before: it gets one more solve (58P).
+    result->failed.clear();
     infer_pass(*result, calls);
     pass_outcome(*result, "final pass after passes did not settle: inputs widened to term()");
     return result;

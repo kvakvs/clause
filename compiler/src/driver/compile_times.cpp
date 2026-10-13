@@ -66,23 +66,25 @@ std::string round_series(const std::vector<std::size_t> &changes) {
         for (auto index = begin; index < end; ++index) {
             sum += changes[index];
         }
-        text += std::format("{}{}", group == 0 ? "" : " ", (sum + (end - begin) / 2) / (end - begin));
+        // At most as many groups as rounds, so a group holds at least one round.
+        const auto rounds = std::max<std::size_t>(1, end - begin);
+        text += std::format("{}{}", group == 0 ? "" : " ", (sum + rounds / 2) / rounds);
     }
     return text;
 }
 
-// One recursive component's fixed-point rounds: solves, rounds against the cap, solves capped or out of budget,
-// the share of member walks that changed a summary, and the members changed per round of its last solve.
+// One recursive component's fixed-point rounds: solves, rounds against the cap, how solves gave up, the share of
+// member walks that changed a summary, and the members changed per round of its last solve.
 void print_rounds(const InferenceProfile::Cost &cost) {
     const auto &rounds = cost.rounds_;
     const auto useful =
         rounds.walks_ == 0 ? 0.0 : 100.0 * static_cast<double>(rounds.changes_) / static_cast<double>(rounds.walks_);
-    const auto note =
-        std::format("{} solves, {} rounds (cap {} per solve), {} capped, {} out of pass budget; {} "
-                    "member walks, {:.1f}% changed a summary; last solve: {} rounds, members changed "
-                    "per round (in tenths) {}",
-                    rounds.solves_, rounds.rounds_, rounds.round_cap_, rounds.capped_, rounds.exhausted_, rounds.walks_,
-                    useful, rounds.last_changes_.size(), round_series(rounds.last_changes_));
+    const auto note = std::format(
+        "{} solves, {} rounds (cap {} per solve), {} capped, {} over work share, {} remembered, {} out "
+        "of pass budget; {} member walks, {:.1f}% changed a summary; last solve: {} rounds, members "
+        "changed per round (in tenths) {}",
+        rounds.solves_, rounds.rounds_, rounds.round_cap_, rounds.capped_, rounds.over_share_, rounds.remembered_,
+        rounds.exhausted_, rounds.walks_, useful, rounds.last_changes_.size(), round_series(rounds.last_changes_));
     print_stage_time("inference rounds", component_name(*cost.component_), cost.elapsed_, note);
 }
 
