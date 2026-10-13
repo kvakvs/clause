@@ -169,6 +169,15 @@ Clean removes repository-local `build/` and `cmake-build*/` directories.
 Erlang/OTP (Release build in `build/bench`, never part of the tests); see
 [benchmarks](docs/validation.md#benchmarks).
 
+`decompile-debug.bat <module>` and `decompile-release.bat <module>` recompile one C++ source
+(name without path or extension; add parent directories when it is ambiguous, e.g. `ast/attributes`)
+with its recorded Debug or Release flags and write `<module>.debug.asm` / `<module>.release.asm`
+to the current directory. They wrap `tools/asm.py` (clang-cl builds only), which takes the
+compile command from `build/tool`, then `build/debug` (`--build-dir` overrides). The output
+keeps code and data with source line comments and demangled names, without debug-info,
+unwinding and symbol-table directives. `--function TEXT` keeps only functions whose demangled
+name contains `TEXT`, and `--raw` writes the unfiltered listing.
+
 Quality checks and formatting default to changed files: everything differing from `HEAD`
 in the working tree, plus untracked files.
 
