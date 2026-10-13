@@ -14,6 +14,9 @@ draft with smaller, single-commit steps.
   grows beyond one reviewable change is split into lettered sub-steps (`12a`,
   `12b`) before coding, not widened silently.
   - IMPORTANT: Do not add "co-authored by" in commit messages.
+- When a plan step is complete, the description has to be compacted and moved 
+  into `00-finished.md` and added to the all steps table as 1-2 lines of text.
+
 - **Decision** steps publish a short contract in `docs/` (plus a prototype where
   stated) and enable no source feature by themselves.
 - Check a success or test box only with recorded evidence. Update the backlog
@@ -467,19 +470,44 @@ Backlog: F29. Depends on: [58U](#step-58u).
 Backlog: F29, V05. Depends on: [58V](#step-58v).
 
 - Success criteria
-  - [ ] With a build cache, `analyze` looks up each covered module (non-empty fingerprint) under a key of the
+  - [x] With a build cache, `analyze` looks up each covered module (non-empty fingerprint) under a key of the
     clau identity, the module's fingerprint and the fingerprints of the batch modules its atom literals reach
     transitively; `infer` takes decoded modules whose stored functions include every live one, keeps their
     summaries, local inputs and expression facts fixed in every pass and walks only the other functions. Fresh
     results of covered modules are stored after inference.
-  - [ ] `--verbose` prints `[cache] hit|miss inference <file>`; `--print-stage-times` shows how many modules
+  - [x] `--verbose` prints `[cache] hit|miss inference <file>`; `--print-stage-times` shows how many modules
     reused their results; `--no-cache` disables it. `docs/projects.md`, `docs/compile.md` and
     `docs/semantic.md` describe key, reuse rule and soundness.
-  - [ ] luerl rerun (cold and warm, user code unchanged and changed) recorded against 58S.
+  - [x] luerl rerun (cold and warm, user code unchanged and changed) recorded against 58S.
 - Tests
-  - [ ] A project with covered library modules builds twice: the second build hits, `--print-types` output and
+  - [x] A project with covered library modules builds twice: the second build hits, `--print-types` output and
     the executable's behaviour are the same; editing a reached library module misses its dependents; editing a
     user module keeps the library hits.
+- Done 2026-10-13: `driver/inference_cache` (`InferenceCache`, `BatchInferenceCache`: covered modules, keys over
+  `semantic::named_atoms` (every atom expression or pattern, plus `referenced_modules`) reached transitively,
+  entries `inference@<target>` per source directory and file, part `results`), `analyze(..., InferenceCache*)`
+  with phases `inference-cache` and `inference-store`, `infer(Inference &, calls)`: a component whose members are
+  all reused is skipped (a mixed recursive component is walked whole), each pass starts from
+  `reused_expressions`, `prepare_inputs`/`gather_inputs` and the final widening leave reused functions' inputs
+  alone; decoding installs only functions live now.
+  - luerl (Release `build/tool`, `--entry luerl:init`, busier host than 58S: the cold compile is 312 s against
+    175 s there, inference 180 s against 107 s): 138 of 188 modules covered (OTP `stdlib-*`, `kernel-*`,
+    `compiler-*` and Clause's `library/stdlib`). Cold: `inference-cache` 64 ms (0 reused), `inference-store`
+    231 ms. Warm with `-g` (compile cache misses, as after a user-code edit; the inference key is unchanged): 138
+    of 138 reused in 173 ms, inference 180 s to 40.5 s (the 50 luerl modules; passes 1-16 take 0.19-4.8 s),
+    compile 312 s to 164 s, the same 110 diagnostics, `test-luerl.exe` exits 0. `--print-types` (no liveness, so
+    the executable's entries did not fit and were stored again): an all-hit rerun prints byte-identical output in
+    42 s of inference. Against `--no-cache` 357 annotation lines differ, all more precise with the cache: with the
+    reused modules not spending the pass budget, re-analysis reaches `lists:mapfoldl/3` (a `not_implemented`
+    stub in Clause's library, correctly `none()`) through luerl's callers (`luerl_comp_env:functiondef/2 ->
+    none()` instead of a tuple).
+  - Tests: CTest `cache_inference` (`tests/compiler/cache/inference.py`; work directory under
+    `build/*/tests/inference-cache`, outside `tests/compiler`, which `*/compiler` would cover): cold misses, warm
+    `--print-types` hits all 4 covered modules (implicit `*/stdlib`, manifest `vendor/*`, CLI `extra`) with the
+    same output and `4 of 4 covered modules reused`; executables reuse entries kept by `--print-types` (more live
+    functions) and keep hitting after a user-module edit, with the expected program output; editing `texts`
+    misses it and `seqs` (which names it) while `pairs` and `more` hit, and the result equals `--no-cache`;
+    without the CLI pattern `more.erl` is not covered.
 
 ## H3. Drop-in replacements for OTP runtime modules
 

@@ -20,7 +20,8 @@ copy any OTP source.
     `docs/differences.md` for observable differences)
 - Mark the step done here, with its date, in the same commit.
 - Completed steps should have their instructions compacted and focus on the 
-  "what was done in this task" part
+  "what was done in this task" part, move the completed steps into 
+  `00-finished.md` as 1-2 line table row.
 
 ## Sources
 
