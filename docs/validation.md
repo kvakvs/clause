@@ -207,6 +207,15 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
   183 days before the newest are pruned; a run with uncommitted source
   changes is reported but not recorded. The history directory is
   gitignored: it stays on the host that ran it.
+- Listings: before measuring, every run writes each program's
+  [`--print-asm`](compile.md#assembly-listings) and `--print-ir` listings
+  (with `bench_util`) beside the reports as `<program>.debug.asm` /
+  `<program>.debug.ll` (`-O0`) and `<program>.release.asm` /
+  `<program>.release.ll` (`-O2`, the code the `clause-o2` column runs),
+  replacing the previous run's listings, `--no-history` and uncommitted
+  changes included. `--print-ir` is the IR before the LLVM pipeline; the
+  assembly comments quote the IR after it. A program that fails to compile
+  loses its stale listings.
 
 ## History
 

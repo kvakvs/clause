@@ -20,7 +20,7 @@
 
 namespace clause::codegen {
 namespace {
-// Fold LLVM's printing of one instruction (a `switch` spans lines) to one line without its `!dbg` attachment.
+// Fold LLVM's printing of one instruction (a `switch` spans lines) to one line without its indentation.
 std::string one_line(const std::string_view printed) {
     std::string text;
     bool newline = false;
@@ -33,6 +33,11 @@ std::string one_line(const std::string_view printed) {
             newline = false;
         }
     }
+    return text;
+}
+
+// Drop the `!dbg` attachment, which names the original's Erlang location metadata.
+std::string without_location(std::string text) {
     constexpr std::string_view DEBUG_ATTACHMENT = ", !dbg !";
     if (const auto at = text.find(DEBUG_ATTACHMENT); at != std::string::npos) {
         const auto end = text.find_first_not_of("0123456789", at + DEBUG_ATTACHMENT.size());
@@ -92,7 +97,7 @@ class Numbering {
         llvm::raw_string_ostream stream(printed);
         instruction.print(stream, slots_);
         const auto &location = instruction.getDebugLoc();
-        return {.text_ = one_line(printed),
+        return {.text_ = without_location(one_line(printed)),
                 .source_ = location ? source_line_of(location, sources_) : std::nullopt,
                 .function_ = function};
     }
@@ -126,7 +131,9 @@ class VerboseAssembly {
         : machine_(machine), previous_(machine.Options.MCOptions.AsmVerbose) {
         machine.Options.MCOptions.AsmVerbose = true;
     }
+
     ~VerboseAssembly() { machine_.Options.MCOptions.AsmVerbose = previous_; }
+
     VerboseAssembly(const VerboseAssembly &) = delete;
     VerboseAssembly &operator=(const VerboseAssembly &) = delete;
 

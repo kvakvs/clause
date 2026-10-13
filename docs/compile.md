@@ -140,6 +140,7 @@ in `printing.hpp`; `compiler/src/printing/source_*`) is reusable:
 | `--keep-exports` | Keep every export of an executable callable instead of leaving out those it cannot reach; needs `-o` or a linking project build ([export liveness](executables.md#export-liveness)) |
 | `-g` | Erlang line tables in objects and linked executables (CodeView/PDB on MSVC targets, DWARF elsewhere) ([debugging](debugging.md)) |
 | `--print-ir` / `--print-optimized-ir` | Verified IR before/after LLVM passes, with Erlang source lines as comments |
+| `--print-asm` | Each module's target assembly after the selected pipeline, every run of machine code commented with the IR instruction and Erlang line it came from ([assembly listings](#assembly-listings)) |
 | `--print-types` | Each module as Erlang source annotated with inferred types ([semantic](semantic.md#--print-types)); stops before LLVM |
 | `--verbose` | `[pp]`, `[parse]` and `[comp]` phase events on stderr, then the [directory index](projects.md#directory-index) summary `[index] ...` |
 | `--print-stage-times` | `[time] <stage> <subject>: <ms> ms` on stderr: `plan` per project manifest (loading it and expanding every selected target's patterns), `preprocess`, `parse` and `transform` (modules with parse transforms) per source file, `compile` per batch (module count, project target), `link` per executable; ` (cached)` follows a stage that reused a [cached](projects.md#build-caches) result. Before a batch's `compile` total come its phases with the same subject: `index`, `calls`, `declared-types`, `inference`, `contracts`, `lower`, `optimize`, `emit` (those that ran). After `inference`: `inference pass N` lines with the pass's work steps out of the inference work budget (`N of BUDGET work steps`) and how it ended (`inputs changed`, `fun results changed`, `settled`, or the final pass after unsettled passes), naming the function running when the budget ran out; then `inference slowest <module>:<function>/<arity>` for the 10 functions (recursive groups name one member `and N more`) that took longest over all passes, with their work steps and that work's share of the budget of the passes that ran them (`877450 work steps, 43.9% of 10 passes of 200000 budget`), and `widened to term()` when a budget widened one of their facts. A cached compile prints no phases |
@@ -161,6 +162,35 @@ in `printing.hpp`; `compiler/src/printing/source_*`) is reusable:
   comment headers and are not one parseable module. Use `--emit llvm-ir` for
   tool input. Source-line comments show original text (unexpanded macros) and
   survive optimization through debug locations.
+
+## Assembly listings
+
+`--print-asm` runs the selected pipeline (as `--print-optimized-ir` does), then
+prints each input module's assembly from the same target machine that writes
+objects, one module at a time. Comments use the target's marker (`#` on x86,
+`//` on AArch64 ELF, `;` on Apple, `@` on ARM):
+
+```
+# erlang answer.erl:3: value() -> 42.
+#     ir store i64 687, ptr %frame.slots, align 8
+	movq	$687, 32(%r15,%r12,8)
+#     ir br i1 %4, label %return.inline, label %return.service
+```
+
+- An `ir` comment opens each run of instructions selected from one IR
+  instruction, spelled as `--print-optimized-ir` prints it (same value
+  numbering, `switch` folded onto one line, no `!dbg`). Code moved or merged
+  across instructions repeats or skips comments as the line table says.
+- An `erlang` comment names the physical file, line and text, like IR source
+  comments, when the line changes within a function. Instructions lowering
+  located nowhere (wrappers, frame setup) have none.
+- The listing compiles a copy whose line table numbers IR instructions instead
+  of Erlang lines; that line table's directives, debug sections and labels
+  are left out. Reassembled, it gives the object `--emit obj` writes.
+- With other inspections, each module prints `before`, `after` and
+  `assembly` in turn, each after a header (`stage=assembly`). Like IR
+  inspection it rejects `--emit`, `--artifact-dir`, `--output` and
+  `--print-types`. x86 listings use AT&T syntax.
 
 ## Environment report
 
@@ -206,7 +236,7 @@ artifact_dir = "/work/build/aot"
 (Arrays print one item per line.) `actions` lists the frontend actions
 (`print-pp`, `parse-check`, `print-ast`, `print-source`, `print-abstr`, else
 `preprocess-check`; `print-inputs` alone replaces them), else the inspections
-(`print-types`, `print-ir`, `print-optimized-ir`), else `emit`, `link` (`-o`) or
+(`print-types`, `print-ir`, `print-optimized-ir`, `print-asm`), else `emit`, `link` (`-o`) or
 `compile`. In a project build, targets with an `output` link too. Modules found
 later by name (through `source_search_paths` or the library) are not listed:
 finding them needs parsing (`--print-inputs` does that). `--print-env` cannot be combined with
@@ -221,8 +251,8 @@ order, failure, and, when an executable or `--emit` needs them, the objects
 (or bitcode) of every module and the startup module. A later build of the same
 batch with the same options replays the diagnostics and links or publishes the
 kept objects exactly like fresh ones; `--print-stage-times` then shows
-`[time] compile ... (cached)`. `--print-ir`, `--print-optimized-ir` and
-`--print-types` always recompute, and `--no-cache` neither reads nor writes.
+`[time] compile ... (cached)`. `--print-ir`, `--print-optimized-ir`,
+`--print-asm` and `--print-types` always recompute, and `--no-cache` neither reads nor writes.
 
 - **Reuse unit: the whole batch.** Analysis, type inference, specialization
   budgets (per target), export liveness and the startup module span every

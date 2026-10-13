@@ -445,7 +445,9 @@
   runtime services. Standard O0/O2 PassBuilder pipelines verify fresh batches on
   both sides; -Os is O2 over optsize definitions with function/data sections and
   linker dead-stripping (runtime also built with sections). Text/bitcode/object serialization owns bytes; source-scoped line
-  metadata and bounded comments annotate textual IR. Artifact publication checks
+  metadata and bounded comments annotate textual IR. `--print-asm` emits verbose assembly from a clone whose
+  line table numbers IR instructions, then turns `.loc`/`.cv_loc` back into `ir`/`erlang` comments
+  (`codegen/assembly_{listing,annotations}`). Artifact publication checks
   encoded paths/aliases, stages exclusive writes and replaces complete files;
   multi-file publication is not atomic. Startup objects exist; positional `-o` links executables.
   `-g` (step 60) turns the same line scopes into CodeView/DWARF line tables; linking keeps them (PDB published

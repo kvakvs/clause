@@ -75,7 +75,7 @@ missing = [text for text in named if not text.startswith('switch ') and text not
 assert not missing, missing[:5]
 
 # Erlang lines name the physical file through includes and macros; logical -file remapping never appears.
-included = run('-O2', '--print-asm', 'source_comments.erl').stdout
+included = run('-O2', '--print-asm', 'source_comments.erl', 'answer.erl').stdout
 assert re.search(r'erlang [^\n]*source_comments\.hrl:\d+: +passthrough\($', included, re.MULTILINE)
 assert re.search(r'erlang source_comments\.erl:11: +7\. % original literal line$', included, re.MULTILINE)
 assert 'logical-only.erl' not in included

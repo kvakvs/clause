@@ -76,6 +76,16 @@ std::string_view defined_label(const std::string_view line) {
     return !label.empty() && line.substr(label.size()) == ":" ? label : std::string_view{};
 }
 
+// Add every line-table label one line mentions.
+void mentioned_labels(const std::string_view text, Labels &used) {
+    for (auto at = text.find('L'); at != std::string_view::npos; at = text.find('L', at + 1)) {
+        const auto begin = at != 0 && text[at - 1] == '.' ? at - 1 : at;
+        if (const auto label = line_table_label(text.substr(begin)); !label.empty()) {
+            used.insert(label);
+        }
+    }
+}
+
 // Collect the line-table labels kept code still uses, outside the dropped debug sections and their own definitions.
 Labels used_labels(const std::span<const std::string_view> lines) {
     Labels used;
@@ -83,14 +93,8 @@ Labels used_labels(const std::span<const std::string_view> lines) {
     for (const auto line : lines) {
         const auto text = trimmed(line);
         in_debug_section = debug_section(text).value_or(in_debug_section);
-        if (in_debug_section || !defined_label(text).empty()) {
-            continue;
-        }
-        for (auto at = text.find('L'); at != std::string_view::npos; at = text.find('L', at + 1)) {
-            const auto begin = at != 0 && text[at - 1] == '.' ? at - 1 : at;
-            if (const auto label = line_table_label(text.substr(begin)); !label.empty()) {
-                used.insert(label);
-            }
+        if (!in_debug_section && defined_label(text).empty()) {
+            mentioned_labels(text, used);
         }
     }
     return used;
@@ -148,8 +152,7 @@ class Annotator {
         const auto &source = origin.source_;
         if (source && (!source_ || source_->file_ != source->file_ || source_->line_ != source->line_)) {
             source_ = &*source;
-            stream_ << comment_ << " erlang " << source->file_ << ':' << source->line_ << ": " << source->text_
-                    << '\n';
+            stream_ << comment_ << " erlang " << source->file_ << ':' << source->line_ << ": " << source->text_ << '\n';
         }
         stream_ << comment_ << "     ir " << origin.text_ << '\n';
     }

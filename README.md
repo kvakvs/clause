@@ -303,6 +303,7 @@ clau [options] <source.erl>...
   --print-types            Print each module as source annotated with inferred types
   --print-ir               Print verified IR with Erlang source comments before LLVM optimization
   --print-optimized-ir     Print verified IR with Erlang source comments after LLVM optimization
+  --print-asm              Print each module's assembly with IR and Erlang source comments
   --emit obj|llvm-ir|llvm-bc  Write one artifact per module
   --artifact-dir <dir>     Override the artifact root (requires --emit)
   --target-triple <triple>  Select the machine/OS/ABI
@@ -352,11 +353,14 @@ See [executables](docs/executables.md) for the entry, argument and exit-status c
 clau -O2 -o demo answer.erl client.erl && ./demo
 clau -O2 --emit obj answer.erl client.erl
 clau --print-ir --print-optimized-ir -O2 answer.erl
+clau --print-asm -O2 answer.erl
 clau --print-types answer.erl client.erl
 ```
 
 IR inspection allows both stages together and stops before object emission. Multiple
 snapshots are separate modules; use `--emit llvm-ir` for individual assembly files.
+`--print-asm` prints each module's target assembly with every run of instructions commented by
+the IR instruction and Erlang line it came from ([assembly listings](docs/compile.md#assembly-listings)).
 Type inspection stops before LLVM and prints each module as source with inferred
 function signatures and trailing `% Type` comments on each line's outermost expression. It accepts preprocessing/project/verbosity options, but rejects other
 actions, output destinations and backend policy. See [compilation options](docs/compile.md).

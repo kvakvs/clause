@@ -4,6 +4,7 @@
 Builds every benchmarks/bench_*.erl program with OTP (JIT, and the emu flavor when installed),
 Clause at HEAD (O2, with and without --lto) and a previous Clause commit, runs them on this host,
 prints a text report and keeps a 6-month history per host under benchmarks/history/, one run per day.
+Next to the reports it writes each program's annotated assembly and IR (clau --print-asm, --print-ir) at O0 and O2.
 """
 
 import argparse
@@ -28,6 +29,10 @@ HISTORY_DAYS = 183
 # Paths whose changes make the Clause build differ from the HEAD commit.
 SOURCE_PATHS = ["abi", "cmake", "compiler", "library", "runtime", "CMakeLists.txt"]
 SECONDS_PER_DAY = 86400
+# Listing configurations with their optimization level, and the inspection flag and file extension of each listing
+# kind; every run replaces the previous run's listings.
+LISTING_CONFIGS = (("debug", "-O0"), ("release", "-O2"))
+LISTING_KINDS = (("--print-asm", "asm"), ("--print-ir", "ll"))
 
 
 def parse_args():
@@ -413,9 +418,40 @@ def update_history(context, summary, kernels):
     return "History of Clause O2 on this host (ms, last 8 run days)\n\n" + trend_table(kept, kernels) + "\n"
 
 
+def report_directory(host):
+    """Where the reports and assembly listings of one host are kept."""
+    return HISTORY_DIR / "reports" / host
+
+
+def write_listing(clau, options, sources, path):
+    """Write one inspection's stdout to `path`; on failure delete `path` and report clau's error."""
+    # Bytes: listings quote UTF-8 Erlang source, which the locale's text decoding may reject.
+    done = subprocess.run([str(clau), *options, *sources], capture_output=True, timeout=600)
+    if done.returncode == 0:
+        path.write_bytes(done.stdout)
+        return
+    # A stale listing would pass for the current code; drop it.
+    path.unlink(missing_ok=True)
+    error = done.stderr.decode(errors="replace").strip()[:2000]
+    print(f"benchmark: no listing {path.name}:\n{error}", file=sys.stderr)
+
+
+def write_listings(clau, directory):
+    """Write every program's --print-asm and --print-ir listings as <program>.<debug|release>.<asm|ll>.
+
+    Added for benchmark assembly listings: the newest run's code generation, for analysis beside the reports.
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+    for name in programs(None):
+        sources = [str(BENCH_DIR / f"{name}.erl"), str(BENCH_DIR / "bench_util.erl")]
+        for config, level in LISTING_CONFIGS:
+            for flag, extension in LISTING_KINDS:
+                write_listing(clau, [level, flag], sources, directory / f"{name}.{config}.{extension}")
+
+
 def write_report(context, report):
     """Save the report as <run day>-<commit>.txt, replacing reports of the same day, and prune old ones."""
-    directory = HISTORY_DIR / "reports" / context["host"]
+    directory = report_directory(context["host"])
     directory.mkdir(parents=True, exist_ok=True)
     day = context["run_date"][:10]
     for same_day in directory.glob(f"{day}-*.txt"):
@@ -450,7 +486,9 @@ def main():
     otp, otp_facts = otp_systems(erl)
     otp_dir = REPO / "build" / "bench" / "programs" / "otp"
     build_otp(erl, otp_dir)
-    builds, base = prepare_clause(args, (REPO / args.build_dir).resolve())
+    head_dir = (REPO / args.build_dir).resolve()
+    builds, base = prepare_clause(args, head_dir)
+    write_listings(clau_path(head_dir, args.config), report_directory(args.host))
     head = commit_info("HEAD")
     head["dirty"] = bool(git("status", "--porcelain", "--", *SOURCE_PATHS))
     names = programs(args.only)

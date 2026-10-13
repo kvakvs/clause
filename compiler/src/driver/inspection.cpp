@@ -71,8 +71,7 @@ void print_snapshots(const codegen::Compilation &compilation, const FrontendRequ
             print_snapshot(snapshots.after_.at(i), source, target, "after", ";", headers);
         }
         if (!snapshots.assembly_.empty()) {
-            print_snapshot(snapshots.assembly_.at(i), source, target, "assembly", snapshots.assembly_comment_,
-                           headers);
+            print_snapshot(snapshots.assembly_.at(i), source, target, "assembly", snapshots.assembly_comment_, headers);
         }
     }
 }
