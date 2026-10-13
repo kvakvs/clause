@@ -701,10 +701,50 @@ class Assemble final {
     std::size_t depth_;
 };
 
+// Whether a union member is an exact tuple: the one kind a union keeps several shapes of (one per size and tag), so
+// one shape can hold another. Other families join into one member each.
+bool exact_tuple(const Graph &graph, const Id member) {
+    const auto &node = graph.get(member);
+    return node.kind == Kind::tuple && node.name == "exact";
+}
+
+// Whether tuple member `index` adds nothing: another tuple of its size holds it, and when both hold each other (the
+// same values in another shape) the earlier one stays. Added for step 58S.
+bool subsumed(Lattice &lattice, const std::vector<Id> &members, const std::size_t index) {
+    const auto &graph = lattice.graph();
+    const auto member = members[index];
+    if (!exact_tuple(graph, member)) {
+        return false;
+    }
+    const auto size = graph.get(member).children.size();
+    for (std::size_t other = 0; other < members.size(); ++other) {
+        if (other == index || !exact_tuple(graph, members[other]) ||
+            graph.get(members[other]).children.size() != size || !lattice.within(member, members[other])) {
+            continue;
+        }
+        if (other < index || !lattice.within(members[other], member)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// A union's members without those another member holds, so one set of values has one union and rounds that reach
+// the same values stop changing (step 58S).
+std::vector<Id> without_subsumed(Lattice &lattice, const std::vector<Id> &members) {
+    std::vector<Id> kept;
+    for (std::size_t index = 0; index < members.size(); ++index) {
+        if (!subsumed(lattice, members, index)) {
+            kept.push_back(members[index]);
+        }
+    }
+    return kept;
+}
+
 // The fact whose members are `families`, joined `depth` containers deep.
 Id fact_of(Lattice &lattice, const Families &families, std::size_t depth) {
     auto &graph = lattice.graph();
-    auto members = Assemble(lattice, depth).members(families);
+    auto members = without_subsumed(lattice, Assemble(lattice, depth).members(families));
     if (members.empty()) {
         return graph.bottom();
     }

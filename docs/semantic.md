@@ -446,11 +446,10 @@ Inference is separate from declared types and never trusts specs.
 - Rounds never shrink a member's summary (step 58Q): its function types join
   with the previous round's type by type (results join, changed inputs join
   and the type is no longer exact), or, when the number of types changed,
-  both rounds' types merge. Joins of tree-shaped facts are not monotone at
-  the container depth limit, so a member can still return to a summary of an
-  earlier round; each member keeps its last 4 summaries, and one that returns
-  to any of them is `term()` without function types for the rest of the
-  solve, which lets the other members converge.
+  both rounds' types merge. As a safety net each member keeps its last 4
+  summaries, and one that returns to any of them is `term()` without
+  function types for the rest of the solve, which lets the other members
+  converge.
 - A round walks only members that read a summary changed since their last
   walk (step 58R): each walk notes the summaries it reads (calls, call
   results, `fun F/A`), a changed summary marks its readers, and a member not
@@ -588,6 +587,10 @@ Facts print as Erlang types, categories by their built-in names.
   `[]`, lists, bitstrings, then declared named types; more than 8 members
   become `term()`.
 - Containers nest at most 4 levels; a fact deeper inside becomes `term()`.
+- A union drops an exact tuple member that another exact tuple of its size
+  holds (of two that hold each other, the earlier stays), so one set of
+  values has one union (step 58S); without it, recursions over trees reached
+  the same values in alternating shapes and their rounds never settled.
 - A recursive component joins results for 8 rounds (cycles of up to 8
   functions converge exactly), then widens them. A component that has not
   converged after 4 further rounds per member widens every member to `term()`

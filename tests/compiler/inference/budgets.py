@@ -3,15 +3,16 @@ term() and is remembered, so later passes give up on it at once instead of itera
 
 The group is generated: two mutually recursive functions whose bodies are long list expressions, sized from the pass
 budget clau reports (debug and release builds have different budgets). A small copy of the same group converges.
-Step 58Q: in tests/fixtures/inference/flips.erl a member's summary flips back to an earlier one; it gives up alone
-and its group converges below the round cap.
+Steps 58Q/58S: a map over a tree of two node shapes (as luerl's ttdict has) flipped between two
+union shapes of the same values; since unions drop the members another member holds, it converges below its round
+cap without flipping.
 """
 import re
 import subprocess
 import sys
 from pathlib import Path
 
-tool, directory, flips = sys.argv[1:]
+tool, directory = sys.argv[1:]
 work = Path(directory)
 work.mkdir(parents=True, exist_ok=True)
 
@@ -69,9 +70,18 @@ line = rounds(timed, "small")
 assert "0 over work share" in line and "0 remembered" in line, line
 assert re.search(r"^%% inferred: f\(0, Acc\) -> Acc; \(_, _\) -> \[_, \.\.\.\]$", types, re.MULTILINE), types
 
-_, timed = clau("--print-stage-times", "--print-types", flips)
-line = rounds_of(timed, "flips:map/2")
-assert int(re.search(r"(\d+) flipped", line).group(1)) >= 1 and "0 capped" in line, line
+TREES = """-module(trees).
+-export([main/1, map/2]).
+main(_) -> io:format("~p~n", [map(fun(_, V) -> {V} end, {empty, 1, a, {empty, 2, b, empty, 3, c, empty}})]).
+map(_, empty) -> empty;
+map(F, {A, K, V, B}) -> {map(F, A), K, F(K, V), map(F, B)};
+map(F, {A, K1, V1, B, K2, V2, C}) -> {map(F, A), K1, F(K1, V1), map(F, B), K2, F(K2, V2), map(F, C)}.
+"""
+(work / "trees.erl").write_text(TREES, encoding="utf-8")
+types, timed = clau("--print-stage-times", "--print-types", work / "trees.erl")
+line = rounds_of(timed, "trees:map/2")
+assert "0 flipped" in line and "0 capped" in line and "0 over work share" in line, line
+assert re.search(r"^%% inferred: map\(.*\) -> \{empty \|", types, re.MULTILINE), types[:2000]
 
 # The given-up group still compiles to code that runs.
 clau("-O2", "-o", "heavy", heavy)

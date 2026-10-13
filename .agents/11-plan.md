@@ -127,7 +127,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
-| I2. Inference convergence and cost | [58O](#step-58o)–[58T](#step-58t) | F29, V05 | open: [58S](#step-58s), [58T](#step-58t) |
+| I2. Inference convergence and cost | [58O](#step-58o)–[58T](#step-58t) | F29, V05 | open: [58T](#step-58t) |
 | H3. Drop-in replacements for OTP runtime modules | [41I](#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | open: [41L](#step-41l) |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [69A](#step-69a), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -267,8 +267,8 @@ Backlog: F29. Depends on: [58P](#step-58p).
   - [x] Flip detection (user direction): each member keeps its last few summaries, more than one, so a member
     that returns to an earlier summary (A → B → A, or a longer cycle) is detected. Changed: such a member gives up
     alone for the rest of the solve (`term()` without function types) instead of joining the cycle, because the
-    flip comes from the fact join itself not being monotone at the container depth limit (see 58S), so joining
-    the cycle's summaries flips again.
+    flip came from the facts themselves (58S found the cause: one set of values in several union shapes), so
+    joining the cycle's summaries flipped again.
   - [x] `inference rounds` splits changes into grown, flipped and replaced, so the luerl evidence shows which
     cause remains.
   - [x] luerl rerun: inference time recorded against 58P; any `--print-types` change in fixtures is reviewed.
@@ -345,17 +345,36 @@ Backlog: F29, V05. Depends on: [58Q](#step-58q).
 Backlog: F29. Depends on: [58Q](#step-58q). Added 2026-10-13 from 58Q's evidence.
 
 - Success criteria
-  - [ ] `Lattice::join` (and `widen`) return a fact that holds both arguments also at the container depth
+  - [x] `Lattice::join` (and `widen`) return a fact that holds both arguments also at the container depth
     limit: a union member cut off at the limit and the same member kept one level deeper no longer alternate
     (`ttdict:map/2`, `flips.erl`), for example by truncating every member at the same depth before joining or by
     keeping one member per shape regardless of the first element's tag at the cut-off level.
-  - [ ] A check over the inference fixtures and generated deep tree facts that `within(a, join(a, b))` and
+  - [x] A check over the inference fixtures and generated deep tree facts that `within(a, join(a, b))` and
     `within(b, join(a, b))` hold.
-  - [ ] luerl rerun: flips drop to none or near none; the given-up members of 58Q get their facts back;
+  - [x] luerl rerun: flips drop to none or near none; the given-up members of 58Q get their facts back;
     inference time recorded against 58Q. `flips.erl` reaches its `expect:` line or a recorded nearer one.
 - Tests
-  - [ ] A focused lattice test for the join property on deep trees (it cannot be reached reliably through source),
+  - [x] A focused lattice test for the join property on deep trees (it cannot be reached reliably through source),
     plus `inference_flips`.
+- Done 2026-10-13. Cause corrected: the join was monotone in values. A unit test of the tree recursion
+  (`next = join(previous, empty | {previous, K, V, previous} | {previous, K, V, previous, K, V, previous})`) held
+  both arguments in every round yet returned to an earlier fact: the two facts held each other (`within` both
+  ways) but were different nodes. Unions kept tuple members that another member holds (`{empty, 1..3, 1..3,
+  empty}` next to `{_, _, _, _}`: tags differ, so the tuple join keeps both), so one set of values had several
+  shapes and node-comparing rounds saw changes for ever. Fix in `semantic/types/lattice.cpp`: `fact_of` drops an
+  exact tuple member another exact tuple of its size holds, keeping the earlier of two equal ones
+  (`without_subsumed`). Restricting the check to same-size exact tuples gives the same results as checking every
+  family (48,591,221 inference steps either way) at about 2% of pass time instead of 25%.
+  - luerl (Release `build/tool`, `--no-cache`, idle host; emit 38 s against 39 s in 58R): inference 107 s (58R
+    97 s, 58Q 133 s, 58O 330 s), compile 175 s (58R 166 s), work 49.9M to 48.6M steps. No flips and no capped or
+    over-share solve among the 10 slowest groups; `beam_core_to_ssa:ubody_used_vars/2` (2 capped in 58R) and
+    `luerl_comp_normalise:stmts/2` converge, so the extra time is real rounds with more precise facts; the final
+    `term()` pass uses 3.7M of 8M steps. `test-luerl.exe` exits 0.
+  - Tests: `deep_tree_joins` in `tests/compiler/semantic/inference.cpp` (CTest `semantic_inference`) fails without
+    the fix; `flips.erl` became `tests/fixtures/inference/trees.erl` (CTest `inference_trees`): with one node shape
+    its precise `map/2` type is the `expect:` line (the two-shape type prints 6.5 KB); `inference_budgets` generates
+    the two-shape tree map and requires no flip, cap or over-share solve. Gate: fast CTest 274/274,
+    `check-quality` clean.
 
 <a id="step-58t"></a>
 

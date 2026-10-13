@@ -5,6 +5,7 @@
 #include "semantic/types/declarations.hpp"
 #include "semantic/types/lattice.hpp"
 #include "semantic/types/printing.hpp"
+#include <algorithm>
 #include <clause/compiler/parser.hpp>
 #include <cstdio>
 #include <initializer_list>
@@ -229,6 +230,31 @@ void meets() {
     prints(t::type_source(graph, lattice.subtract(lattice.join(i(1), lattice.atom("a")), category("integer"))), "a");
 }
 
+// Joins of tree facts at the container depth limit hold both facts, so the rounds of a tree recursion only grow and
+// settle (step 58S: they alternated between two unions, as ttdict:map/2 did).
+void deep_tree_joins() {
+    t::Graph graph;
+    t::Lattice lattice(graph);
+    const auto empty = lattice.atom("empty");
+    const auto key = lattice.range({"1", "3"});
+    auto previous = empty;
+    std::vector<t::Id> seen;
+    for (int round = 0; round < 40; ++round) {
+        const auto two = lattice.tuple({previous, key, key, previous});
+        const auto three = lattice.tuple({previous, key, key, previous, key, key, previous});
+        const auto evaluated = lattice.join(lattice.join(empty, two), three);
+        const auto next = lattice.join(previous, evaluated);
+        require(lattice.within(previous, next) && lattice.within(evaluated, next));
+        if (next == previous) {
+            return;
+        }
+        require(!std::ranges::contains(seen, next));
+        seen.push_back(previous);
+        previous = next;
+    }
+    require(false);
+}
+
 int main() {
     try {
         local_inference();
@@ -236,6 +262,7 @@ int main() {
         atom_joins();
         container_joins();
         budgets();
+        deep_tree_joins();
         widening();
         meets();
     } catch (const std::exception &error) {
