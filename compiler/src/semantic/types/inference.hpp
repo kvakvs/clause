@@ -106,6 +106,10 @@ struct Inference {
     // The functions whose summaries the current walk reads, while a recursive component's solve tracks them so it
     // re-walks only members whose reads changed. Added for step 58R.
     std::set<const Function *> *reads = nullptr;
+    // Functions whose results a build cache kept, and the expression facts of their modules: passes keep their
+    // summaries, local inputs and facts instead of walking them. Added for the inference cache (58V).
+    std::set<const Function *> reused;
+    std::map<const ast::Expression *, Fact> reused_expressions;
 };
 
 // A function's summary, noting the read for the solve that tracks them (step 58R).

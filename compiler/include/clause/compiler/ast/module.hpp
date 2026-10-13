@@ -24,6 +24,9 @@ class Module {
     const Form &form(const FormId &id) const;
     const Expression &expression(const ExprId &id) const;
     std::size_t expression_count() const;
+    // The expression at an arena position below expression_count(): a reference that a later parse of the same
+    // source resolves to the same expression. Added for the inference cache (58V).
+    const Expression &expression_at(std::size_t index) const;
     const PatternSyntax &pattern(const PatternSyntaxId &id) const;
     std::size_t pattern_count() const;
     const LiteralTerm &term(const TermId &id) const;

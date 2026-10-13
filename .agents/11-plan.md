@@ -443,14 +443,22 @@ Backlog: F29, D07. Depends on: [62D5](00-finished.md#step-62d5).
 Backlog: F29. Depends on: [58U](#step-58u).
 
 - Success criteria
-  - [ ] `semantic/types/inference_store` encodes one module's results without addresses: the graph nodes they
+  - [x] `semantic/types/inference_store` encodes one module's results without addresses: the graph nodes they
     reach, its live functions' summaries and local inputs by name and arity, its expression facts by AST arena
     position (`ast::Module::expression_at`), and the dependent facts they index. Decoding into another
     `Inference` over a re-parse of the same source interns the same nodes; damaged or mismatched bytes decode to
     nothing.
 - Tests
-  - [ ] A focused round trip in `semantic_inference`: every summary and expression fact of a re-parsed module
+  - [x] A focused round trip in `semantic_inference`: every summary and expression fact of a re-parsed module
     prints the same after decoding (an invariant the CLI cannot reach until 58W).
+- Done 2026-10-13: LEB128 numbers and length-prefixed texts; nodes numbered in graph index order (children are
+  always interned before parents, so a node's children precede it) and re-interned in that order, keeping each
+  union's member order, so decoded facts print exactly as encoded; function names as Unicode scalars;
+  `Inference::reused`/`reused_expressions` receive what decoding installs (consumed by 58W); `dependent.cpp`
+  `intern` is now declared in `dependent.hpp`. Test: `stored_results` in `semantic_inference` (which now prints
+  `semantic_inference: ok`): summaries, local inputs and every expression fact (including dependent ones) print
+  the same after a round trip; truncated or extended bytes and a module with an extra live function decode to
+  nothing. Gate: fast CTest 274/274, `check-quality` clean.
 
 <a id="step-58w"></a>
 

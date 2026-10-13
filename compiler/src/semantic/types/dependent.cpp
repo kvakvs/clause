@@ -195,17 +195,6 @@ struct Table {
     std::vector<FunctionType> types;
 };
 
-// The index a dependent fact is kept at.
-std::size_t intern(Inference &inference, Dependent dependent) {
-    const auto found = inference.dependent_indices.find(dependent);
-    if (found != inference.dependent_indices.end()) {
-        return found->second;
-    }
-    inference.dependents.push_back(dependent);
-    inference.dependent_indices.emplace(std::move(dependent), inference.dependents.size() - 1);
-    return inference.dependents.size() - 1;
-}
-
 // Inputs over `from` placed over `to`, met with `into` (term() for parameters `from` lacks); false when a parameter
 // of `from` that `to` drops was narrowed, so the type can no longer be exact.
 bool place(Lattice &lattice, const Table &from, const std::vector<Id> &inputs, const std::vector<BindingId> &to,
@@ -552,6 +541,16 @@ bool add_row(BindingFacts &bindings, const std::vector<Factor> &parts, const std
     return true;
 }
 } // namespace
+
+std::size_t intern(Inference &inference, Dependent dependent) {
+    const auto found = inference.dependent_indices.find(dependent);
+    if (found != inference.dependent_indices.end()) {
+        return found->second;
+    }
+    inference.dependents.push_back(dependent);
+    inference.dependent_indices.emplace(std::move(dependent), inference.dependents.size() - 1);
+    return inference.dependents.size() - 1;
+}
 
 Fact erased(const Fact fact) { return {fact.type, fact.argument}; }
 

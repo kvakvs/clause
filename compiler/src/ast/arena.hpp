@@ -40,6 +40,10 @@ template <typename Value, typename Tag> class Arena {
     // Checkpoint sizes come only from the builder's single active transaction.
     std::size_t size() const { return entries_.size(); }
 
+    // The value at an arena position, for references by position that outlive handles. Added for the inference cache
+    // (58V).
+    const Value &at(std::size_t index) const { return entries_.at(index).value; }
+
     void truncate(std::size_t size) noexcept {
         assert(size <= entries_.size());
         while (entries_.size() > size) {

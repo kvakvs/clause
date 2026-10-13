@@ -115,6 +115,7 @@ add_library(clause_semantic STATIC
     src/semantic/types/meet.cpp src/semantic/types/inference_uses.cpp src/semantic/types/function_types.cpp
     src/semantic/types/dependent.cpp
     src/semantic/types/inference_apply.cpp
+    src/semantic/types/inference_store.cpp
     src/semantic/types/contracts.cpp
     src/semantic/types/printing.cpp
     src/semantic/types/lattice.cpp)

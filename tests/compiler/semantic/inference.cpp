@@ -3,6 +3,7 @@
 #include "semantic/capabilities.hpp"
 #include "semantic/services.hpp"
 #include "semantic/types/declarations.hpp"
+#include "semantic/types/inference_store.hpp"
 #include "semantic/types/lattice.hpp"
 #include "semantic/types/printing.hpp"
 #include <algorithm>
@@ -255,6 +256,103 @@ void deep_tree_joins() {
     require(false);
 }
 
+// One module of source analysed through call resolution, owning the syntax its semantic module borrows.
+struct Analysed {
+    SourceManager sources;
+    ast::Module syntax;
+    std::vector<std::unique_ptr<Module>> modules;
+    CallGraph calls;
+};
+
+// Parse and index `text` as stored.erl and resolve its calls.
+std::unique_ptr<Analysed> analyse(const char *text) {
+    auto result = std::make_unique<Analysed>();
+    PreprocessorSession pp(result->sources.add("stored.erl", text));
+    auto parsed = parse_module(pp);
+    require(!parsed.failed);
+    result->syntax = std::move(parsed.module);
+    const Reporter report = [](const Diagnostic &d) { require(d.severity != Severity::error); };
+    result->modules.push_back(index(result->syntax, "stored.erl", report));
+    auto &module = *result->modules.front();
+    bind_parameters(module, report);
+    resolve_services(module, report);
+    check_capabilities(module, report);
+    result->calls = resolve_calls(result->modules, report);
+    return result;
+}
+
+// A fact as printed, with whether it names an argument or depends on clauses.
+std::string printed(const t::Graph &graph, const t::Fact &fact) {
+    return t::type_source(graph, fact.type) + (fact.argument ? " arg" + std::to_string(*fact.argument) : "") +
+           (fact.dependent ? " dependent" : "");
+}
+
+// A summary as printed: inputs, result, entry domain and function types.
+std::string printed(const t::Graph &graph, const t::Summary &summary) {
+    std::string text;
+    for (const auto id : summary.inputs) {
+        text += t::type_source(graph, id) + ",";
+    }
+    text += " -> " + printed(graph, summary.result) + "; entry";
+    for (const auto id : summary.entry) {
+        text += " " + t::type_source(graph, id);
+    }
+    for (const auto &type : summary.types) {
+        text += "; type";
+        for (const auto id : type.inputs) {
+            text += " " + t::type_source(graph, id);
+        }
+        text += " -> " + printed(graph, type.result) + (type.exact ? " exact" : "");
+    }
+    return text;
+}
+
+// Encoded results decode into another inference over a re-analysis of the same source with every summary, local
+// input and expression fact printing the same; damaged bytes and a module with another function decode to nothing.
+// Added for the inference cache (step 58V).
+void stored_results() {
+    constexpr auto source = R"(-module(stored).
+-export([run/1, tree/1]).
+run(X) when is_integer(X) -> helper(X, [a, b]);
+run(X) -> case X of {ok, V} -> V; _ -> {error, X} end.
+helper(N, L) -> [N + 1 | L].
+tree(0) -> leaf;
+tree(N) -> {node, tree(N - 1), N, fun(Y) -> Y + N end}.
+)";
+    const auto first = analyse(source);
+    const auto inferred = t::infer(first->calls);
+    const auto bytes = t::encode_module(*inferred, *first->modules.front());
+    const auto second = analyse(source);
+    t::Inference loaded({});
+    require(t::decode_module(loaded, *second->modules.front(), bytes));
+    const auto &before = first->modules.front()->functions;
+    const auto &after = second->modules.front()->functions;
+    require(before.size() == after.size() && loaded.reused.size() == after.size());
+    for (std::size_t index = 0; index < before.size(); ++index) {
+        prints(printed(loaded.graph, loaded.functions.at(&after[index])),
+               printed(inferred->graph, inferred->functions.at(&before[index])));
+        const auto inputs = inferred->inputs.find(&before[index]);
+        require((inputs != inferred->inputs.end()) == loaded.inputs.contains(&after[index]));
+    }
+    std::size_t facts = 0;
+    for (std::size_t index = 0; index < first->syntax.expression_count(); ++index) {
+        const auto found = inferred->expressions.find(&first->syntax.expression_at(index));
+        const auto kept = loaded.reused_expressions.find(&second->syntax.expression_at(index));
+        require((found == inferred->expressions.end()) == (kept == loaded.reused_expressions.end()));
+        if (found != inferred->expressions.end()) {
+            prints(printed(loaded.graph, kept->second), printed(inferred->graph, found->second));
+            facts += found->second.dependent ? 1 : 0;
+        }
+    }
+    require(facts > 0 && !loaded.dependents.empty());
+    t::Inference damaged({});
+    require(!t::decode_module(damaged, *second->modules.front(), std::string_view(bytes).substr(0, bytes.size() / 2)));
+    require(!t::decode_module(damaged, *second->modules.front(), bytes + "x"));
+    require(damaged.functions.empty() && damaged.reused_expressions.empty());
+    const auto other = analyse((std::string(source) + "extra() -> ok.\n").c_str());
+    require(!t::decode_module(damaged, *other->modules.front(), bytes) && damaged.functions.empty());
+}
+
 int main() {
     try {
         local_inference();
@@ -265,6 +363,7 @@ int main() {
         deep_tree_joins();
         widening();
         meets();
+        stored_results();
     } catch (const std::exception &error) {
         std::fprintf(stderr, "%s\n", error.what());
         return 1;
@@ -272,4 +371,5 @@ int main() {
         std::fputs("unexpected inference failure\n", stderr);
         return 1;
     }
+    std::puts("semantic_inference: ok");
 }

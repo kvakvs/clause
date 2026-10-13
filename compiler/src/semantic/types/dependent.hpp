@@ -10,6 +10,8 @@ inline constexpr std::size_t DEPENDENT_PARAMETERS = 4;
 // Combinations of dependent operands' clauses a use is evaluated for at most; past it the use is their plain join.
 inline constexpr std::size_t LIFT_ROWS = 16;
 
+// The index a dependent fact is kept at, interning it once.
+std::size_t intern(Inference &inference, Dependent dependent);
 // The fact without its dependence: what is kept beyond the walked function.
 Fact erased(Fact fact);
 // After a possible clause's guard: keep the facts of its case's or if's parameters entering it.

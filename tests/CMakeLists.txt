@@ -365,6 +365,7 @@ clause_project_options(semantic_inference)
 target_include_directories(semantic_inference PRIVATE "${PROJECT_SOURCE_DIR}/compiler/src")
 target_link_libraries(semantic_inference PRIVATE clause_semantic)
 add_test(NAME semantic_inference COMMAND semantic_inference)
+set_tests_properties(semantic_inference PROPERTIES PASS_REGULAR_EXPRESSION "semantic_inference: ok")
 
 # Identity and candidate rollback invariants remain private until clause dispatch is executable.
 add_executable(semantic_bindings compiler/semantic/bindings.cpp)

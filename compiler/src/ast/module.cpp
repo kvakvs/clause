@@ -38,6 +38,8 @@ const Expression &Module::expression(const ExprId &id) const { return storage().
 
 std::size_t Module::expression_count() const { return storage().expressions.size(); }
 
+const Expression &Module::expression_at(const std::size_t index) const { return storage().expressions.at(index); }
+
 const LiteralTerm &Module::term(const TermId &id) const { return storage().terms.get(id); }
 
 std::size_t Module::term_count() const { return storage().terms.size(); }
