@@ -132,7 +132,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
-| I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t) | F29, V05 | open: [58T](#step-58t) |
+| I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
 | H3. Drop-in replacements for OTP runtime modules | [41I](#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | open: [41L](#step-41l) |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [69A](#step-69a), [70](#step-70) |
@@ -201,6 +201,30 @@ anything. Each step reruns the luerl command and records inference time, passes 
 lines; `--print-types` output of the existing fixtures may change only where a step says so.
 
 Steps 58O–58S are done ([finished work](00-finished.md#plan-11-i2-i3)): luerl inference 330 s to 107 s.
+
+<a id="step-58x"></a>
+
+### 58X. Widen integers inside containers so local inputs settle
+
+Backlog: F29. Depends on: [58S](00-finished.md#step-58s). Added 2026-10-13 from the `parsers.erl` fixture (user
+direction: an inference test shaped like yecc/leex output). Should run before 58T: it may remove most of the
+`inputs changed` passes 58T wants to skip.
+
+- Evidence: `tests/fixtures/inference/parsers.erl` (CTest `inference_parsers`) never settles its local inputs in 16
+  passes, so the final pass gives every local input `term()` (1 of 18 functions at its `expect:` type). The
+  smallest repro is its `count_up/2`: `count_up([A | Stack], N) -> count_up([A + 1 | Stack], N - 1)`. Cause:
+  `Lattice::widen` relaxes only the top-level integer bounds of a fact; an integer inside a list, tuple, map or
+  positional list is joined, never widened (`1..2`, `1..3`, ... one step per pass). Value stacks of yecc parsers
+  (`[A + B | Stack]`) are exactly this shape; the scanner and state stacks alone settle in 10-11 passes.
+- Success criteria
+  - [ ] Widening descends into containers of the same shape (list elements, tuple elements by position,
+    positional lists, map values) and relaxes their integer bounds with the same thresholds, so the lattice
+    height stays finite.
+  - [ ] `parsers.erl` settles its inputs; its `today` lines move toward `expect:`; existing fixtures change only
+    where the new widening applies, each change reviewed.
+  - [ ] luerl rerun: passes and inference time recorded against 58W (warm, cached library) and cold.
+- Tests
+  - [ ] `inference_parsers` (and `count_up/2`) reach their expected types or recorded nearer ones.
 
 <a id="step-58t"></a>
 
