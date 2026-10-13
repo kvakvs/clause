@@ -197,9 +197,14 @@ void clear_bindings(Module &module) {
 }
 } // namespace
 
-void bind_parameters(Module &module, const Reporter &out, const std::size_t work_limit) {
+std::size_t default_work_limit(const Module &module) {
+    return std::max(BINDING_WORK_FLOOR, BINDING_WORK_PER_EXPRESSION * module.syntax->expression_count());
+}
+
+void bind_parameters(Module &module, const Reporter &out, const std::optional<std::size_t> work_limit) {
     std::size_t work = 0;
-    const auto limit = std::min(work_limit, std::numeric_limits<std::size_t>::max() - 1);
+    const auto limit =
+        std::min(work_limit.value_or(default_work_limit(module)), std::numeric_limits<std::size_t>::max() - 1);
     clear_bindings(module);
     bool failed = false;
     const Reporter transactional = [&](const Diagnostic &diagnostic) {

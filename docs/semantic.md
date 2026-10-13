@@ -173,7 +173,12 @@ context. Analysis is deterministic.
   (`Function::fun_names`); it is never captured. The variables of
   `fun M:F/A` are reads of the fun expression (`Function::fun_operands`).
 
-Walks are iterative with a module budget of 1,000,000 work units. Exhaustion or
+Walks are iterative with a module budget of 1,000,000 work units, or 32 per
+expression when that is more: generated parsers need about 10 per expression
+(OTP's `erl_parse`, 139,093 expressions, takes 1,290,198). Service resolution
+has a budget of the same size; it scans the module's `-compile` and `-import`
+forms for a name's auto-import state once per name, not once per call (each of
+`erl_parse`'s thousands of clauses calls `hd/1`). Exhaustion or
 any semantic error clears the module's binding and normalization tables.
 
 ## Types and specifications

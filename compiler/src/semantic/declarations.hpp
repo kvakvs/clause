@@ -136,6 +136,13 @@ struct FunEntry {
 // Added for remote types of ignored modules (41K2).
 inline constexpr std::string_view IGNORED_MODULE_DIRECTORY = "(module_ignored)";
 
+// How a module's -compile(no_auto_import) and -import forms treat one name: auto-import disabled, and whether an
+// explicit import names erlang. Added for large generated modules.
+struct AutoImportState {
+    bool disabled_ = false;
+    std::optional<bool> explicit_import_;
+};
+
 struct Module {
     // Borrow the batch-owned immutable AST for the duration of semantic analysis.
     const ast::Module *syntax = nullptr;
@@ -171,6 +178,10 @@ struct Module {
     std::size_t predefined_ = 0;
     // behaviour_info/1 is among them, generated from the -callback declarations.
     bool behaviour_info_ = false;
+    // Each name's auto-import state, scanned over the forms once: a large generated module (OTP's erl_parse) calls
+    // the same builtins in thousands of clauses. A cache only, so analyses holding the module const fill it.
+    // Added for large generated modules.
+    mutable std::map<FunctionKey, AutoImportState> auto_imports_ = {};
 };
 
 struct IndexOptions {

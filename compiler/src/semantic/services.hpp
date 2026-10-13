@@ -35,8 +35,9 @@ std::optional<FunctionKey> builtin_fun(BindingAnalysis &state, const ast::ExprId
 // Resolve legal guard calls using the same imports/suppression rules as embedded pattern expressions.
 std::optional<FunctionKey> guard_identity(BindingAnalysis &state, const ast::ExprId &id,
                                           const ast::CallExpression &call, bool top_test);
-// Validate all guard operands, including unreachable ones, and record ordinary immediate service calls.
-void resolve_services(Module &module, const Reporter &out, std::size_t work_limit = 1'000'000);
+// Validate all guard operands, including unreachable ones, and record ordinary immediate service calls; without a
+// work budget, the default one for the module's size.
+void resolve_services(Module &module, const Reporter &out, std::optional<std::size_t> work_limit = {});
 // What a form the capability check flags would change, named for the diagnostic (`-on_load attribute`, `-compile
 // option {parse_transform,m}`); empty for a -compile whose options are all inert.
 std::optional<std::string> rejected_attribute(const ast::Module &syntax, const ast::FormValue &value);

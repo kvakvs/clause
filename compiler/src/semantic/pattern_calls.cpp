@@ -96,37 +96,45 @@ std::optional<bool> imported(BindingAnalysis &state, const ast::ExprId &site, co
     return {};
 }
 
-struct ImportState {
-    // Distinguish explicit erlang imports from suppressed or unrelated auto-imported names.
-    bool disabled = false;
-    std::optional<bool> explicit_import;
-};
-
 // Merge one declaration without letting unrelated imports erase a previously found owner.
 void import_form(BindingAnalysis &state, const ast::ExprId &site, const ast::FormValue &value, const FunctionKey &key,
-                 ImportState &result) {
+                 AutoImportState &result) {
     if (const auto *attribute = std::get_if<ast::GenericAttribute>(&value);
         attribute && attribute->name.name == U"compile") {
-        result.disabled = suppressed(state, site, attribute->value, key) || result.disabled;
+        result.disabled_ = suppressed(state, site, attribute->value, key) || result.disabled_;
     }
     if (const auto *attribute = std::get_if<ast::ImportAttribute>(&value)) {
         const auto owner = imported(state, site, *attribute, key);
         if (owner) {
-            result.explicit_import = owner;
+            result.explicit_import_ = owner;
         }
     }
 }
 
-// Resolve only import/suppression metadata; capability analysis separately admits its inert supported forms.
-bool auto_import(BindingAnalysis &state, const ast::ExprId &site, const FunctionKey &key) {
-    ImportState result;
+// The import state of `key`: the module's forms are scanned for it once and the result kept in the module; none
+// when the work budget ran out. Added for large generated modules.
+std::optional<AutoImportState> import_state(BindingAnalysis &state, const ast::ExprId &site, const FunctionKey &key) {
+    if (const auto found = state.module.auto_imports_.find(key); found != state.module.auto_imports_.end()) {
+        return state.spend(site) ? std::optional{found->second} : std::nullopt;
+    }
+    AutoImportState result;
     for (const auto &id : state.module.syntax->forms()) {
         if (!state.spend(site)) {
-            return false;
+            return std::nullopt;
         }
         import_form(state, site, state.module.syntax->form(id).value, key, result);
     }
-    return result.explicit_import.value_or(!result.disabled);
+    if (state.work > state.limit) {
+        return std::nullopt;
+    }
+    state.module.auto_imports_.emplace(key, result);
+    return result;
+}
+
+// Resolve only import/suppression metadata; capability analysis separately admits its inert supported forms.
+bool auto_import(BindingAnalysis &state, const ast::ExprId &site, const FunctionKey &key) {
+    const auto result = import_state(state, site, key);
+    return result && result->explicit_import_.value_or(!result->disabled_);
 }
 
 // Explicit erlang operator calls follow the same closed operator catalog as ordinary guard operators.
@@ -156,14 +164,8 @@ bool pattern_call(BindingAnalysis &state, const ast::ExprId &id, const ast::Call
 namespace {
 // Legacy aliases ignore modern auto-import suppression but cannot authorize an unrelated explicit owner.
 bool legacy_owner(BindingAnalysis &state, const ast::ExprId &site, const FunctionKey &key) {
-    ImportState result;
-    for (const auto &id : state.module.syntax->forms()) {
-        if (!state.spend(site)) {
-            return false;
-        }
-        import_form(state, site, state.module.syntax->form(id).value, key, result);
-    }
-    return !state.module.lookup.contains(key) && result.explicit_import.value_or(true);
+    const auto result = import_state(state, site, key);
+    return result && !state.module.lookup.contains(key) && result->explicit_import_.value_or(true);
 }
 
 // Legacy tests resolve separately from expression calls and cannot be recovered through suppression metadata.

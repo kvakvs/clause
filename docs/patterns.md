@@ -128,7 +128,8 @@ size/unit, typed/sized literal strings and non-final unsized binary segments.
 
 ## Limits
 
-Pattern normalization shares the module's 1,000,000-unit semantic budget
+Pattern normalization shares the module's semantic budget (1,000,000 units, or
+32 per expression for larger modules)
 (an integer costs about its decimal digits); a constant past the integer limit
 of 4,194,240 bits is an `illegal pattern`, as in OTP
 ([terms](terms.md#integers)).

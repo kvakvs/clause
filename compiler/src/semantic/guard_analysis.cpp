@@ -313,9 +313,10 @@ void clause(BindingAnalysis &state, const ast::FunctionClause &clause) {
 }
 } // namespace
 
-void resolve_services(Module &module, const Reporter &out, const std::size_t work_limit) {
+void resolve_services(Module &module, const Reporter &out, const std::optional<std::size_t> work_limit) {
     std::size_t work = 0;
-    const auto limit = std::min(work_limit, std::numeric_limits<std::size_t>::max() - 1);
+    const auto limit =
+        std::min(work_limit.value_or(default_work_limit(module)), std::numeric_limits<std::size_t>::max() - 1);
     bool failed = false;
     const Reporter transactional = [&](const Diagnostic &d) {
         failed = failed || d.severity == Severity::error;

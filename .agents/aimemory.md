@@ -584,7 +584,8 @@ Host and tool gotchas:
   binary matching ~1000x, map update ~800x, lists:sort ~100x; sockets at par. Kernel spreads up to +/-60% on Clause.
   History (gitignored, local) keyed by run day (rerun same day replaces). Python edits via heredoc: "\n" inside a '''...''' string
   became a real newline; edit escapes with the Edit tool. Lizard on run.py: .venv-quality python -m lizard -C 10.
-- 58U-58W inference cache (2026-10-13): scripts build/plan11-58u/{configure,build,ctest,quality,gate}.cmd. Fresh
+- 58U-58W inference cache (2026-10-13): helper scripts live in the session scratchpad (user runs make-clean.bat,
+  which wipes build/; never keep helpers there). Fresh
   configure MUST pass %CLAUSE_CONFIGURE_ARGS% from tools/windows-toolchain.cmd (with BUILD_DIR set), else CMake
   picks the VS generator + cl (C2220 build failure). Edit tool strips a trailing space at the end of new_string:
   never end old/new_string mid-line before a quoted argument (cmake `check(x 0 "..."` became `0"...`).

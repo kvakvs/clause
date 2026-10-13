@@ -28,8 +28,18 @@ struct BindingCandidate {
     void shadow(BindingEnvironment &destination) const;
 };
 
-// Resolve all clause heads, read-only guards and sequential body-match scopes within a work budget.
-void bind_parameters(Module &module, const Reporter &out, std::size_t work_limit = 1'000'000);
+// The default work budget of a module's binding and service walks: a floor, or so many steps per expression for
+// large modules (a generated parser such as OTP's erl_parse needs about 10 per expression). Added for large
+// generated modules.
+inline constexpr std::size_t BINDING_WORK_FLOOR = 1'000'000;
+inline constexpr std::size_t BINDING_WORK_PER_EXPRESSION = 32;
+
+// The default walk budget for `module`'s size. Added for large generated modules.
+std::size_t default_work_limit(const Module &module);
+
+// Resolve all clause heads, read-only guards and sequential body-match scopes within a work budget; without one,
+// the default budget for the module's size.
+void bind_parameters(Module &module, const Reporter &out, std::optional<std::size_t> work_limit = {});
 // Return projection provenance only for a validated read, never for an equality obligation.
 std::optional<std::size_t> binding_argument(const Function &function, const ast::ExprId &expression);
 } // namespace clause::semantic

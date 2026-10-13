@@ -1,4 +1,5 @@
 #include "semantic/bindings.hpp"
+#include "semantic/services.hpp"
 #include <algorithm>
 #include <clause/compiler/parser.hpp>
 #include <cstdio>
@@ -17,7 +18,7 @@ void require(const bool value, const std::source_location site = std::source_loc
 
 // Analyze real syntax independently of the still-closed matching/guard execution capability gates.
 void inspect(const std::string &source, const std::function<void(Module &, const std::vector<Diagnostic> &)> &check,
-             const std::size_t budget = 1'000'000) {
+             const std::optional<std::size_t> budget = {}) {
     SourceManager sources;
     PreprocessorSession pp(sources.add("bindings.erl", source));
     auto parsed = parse_module(pp);
@@ -122,12 +123,39 @@ void budgets() {
         2);
 }
 
+// A large generated module (yecc-style state functions, each with a -compile attribute and a call of the
+// auto-imported hd/1, like OTP's erl_parse) needs more than the budget floor. The default budgets grow with the
+// module's expressions, and each name's auto-import state is scanned once, not once per call, so binding and
+// service resolution succeed. Added for large generated modules.
+void large_modules() {
+    std::string source = "-module(bindings).\n";
+    for (int state = 0; state < 8000; ++state) {
+        const auto name = "yeccpars2_" + std::to_string(state);
+        source += "-compile({nowarn_unused_function, " + name + "/6}).\n";
+        source += name + "(S, Cat, Ss, Stack, T, Ts) -> yeccpars2_" + std::to_string((state + 1) % 8000) + "(hd(Ss), " +
+                  std::to_string(state) + ", [S | Ss], [T | Stack], Cat, Ts).\n";
+    }
+    inspect(
+        source,
+        [](Module &, const std::vector<Diagnostic> &errors) {
+            require(errors.size() == 1 && errors[0].message == "binding analysis work limit exceeded");
+        },
+        BINDING_WORK_FLOOR);
+    inspect(source, [](Module &module, const std::vector<Diagnostic> &errors) {
+        require(errors.empty() && !module.functions.back().bindings.empty());
+        std::size_t failures = 0;
+        resolve_services(module, [&](const Diagnostic &) { ++failures; });
+        require(failures == 0 && !module.functions.back().services.empty());
+    });
+}
+
 int main() {
     try {
         identities();
         body_scopes();
         candidates();
         budgets();
+        large_modules();
     } catch (const std::exception &error) {
         std::fprintf(stderr, "%s\n", error.what());
         return 1;
@@ -135,4 +163,5 @@ int main() {
         std::fputs("unexpected binding failure\n", stderr);
         return 1;
     }
+    std::puts("semantic_bindings: ok");
 }
