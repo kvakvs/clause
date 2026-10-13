@@ -103,7 +103,18 @@ struct Inference {
     // Where passes and components spend time, when the caller asks; it outlives the inference. Added for
     // --print-stage-times.
     InferenceProfile *profile = nullptr;
+    // The functions whose summaries the current walk reads, while a recursive component's solve tracks them so it
+    // re-walks only members whose reads changed. Added for step 58R.
+    std::set<const Function *> *reads = nullptr;
 };
+
+// A function's summary, noting the read for the solve that tracks them (step 58R).
+inline const Summary &summary_of(const Inference &inference, const Function *function) {
+    if (inference.reads) {
+        inference.reads->insert(function);
+    }
+    return inference.functions.at(function);
+}
 
 // Infer supported bodies iteratively; recursive components iterate from bottom to a fixed point and widen
 // to top after a bounded number of rounds. Budget exhaustion conservatively loses precision. A `profile` records

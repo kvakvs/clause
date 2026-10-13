@@ -43,6 +43,8 @@ struct InferenceProfile {
             // replaced because their inputs changed, or flipped back to an earlier round's summary (58Q).
             std::size_t walks_ = 0;
             std::size_t changes_ = 0;
+            // Member walks a round skipped because nothing they read had changed (58R).
+            std::size_t skipped_ = 0;
             std::size_t grown_ = 0;
             std::size_t replaced_ = 0;
             std::size_t flipped_ = 0;

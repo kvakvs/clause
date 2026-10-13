@@ -36,7 +36,7 @@ draft with smaller, single-commit steps.
   numerically and grow as the luerl ledger advances.
 - Step 69A (manual benchmarks against OTP, backlog V05) was inserted on
   2026-10-12 (user direction); it is never part of the gate.
-- Phase I2 (steps 58O–58S, inference convergence and cost) was inserted on
+- Phase I2 (steps 58O–58T, inference convergence and cost) was inserted on
   2026-10-13 (user direction), driven by the luerl build's 330 s inference.
 
 ## Common gate and rules (apply to every step)
@@ -127,7 +127,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
-| I2. Inference convergence and cost | [58O](#step-58o)–[58S](#step-58s) | F29, V05 | open: [58R](#step-58r), [58S](#step-58s) |
+| I2. Inference convergence and cost | [58O](#step-58o)–[58T](#step-58t) | F29, V05 | open: [58S](#step-58s), [58T](#step-58t) |
 | H3. Drop-in replacements for OTP runtime modules | [41I](#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | open: [41L](#step-41l) |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [69A](#step-69a), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -306,19 +306,37 @@ Backlog: F29. Depends on: [58P](#step-58p).
 Backlog: F29, V05. Depends on: [58Q](#step-58q).
 
 - Success criteria
-  - [ ] Within a group, the first round walks every member; later rounds walk only members whose callees'
+  - [x] Within a group, the first round walks every member; later rounds walk only members whose callees'
     summaries, own inputs or read `fun F/A` facts changed in the previous round (a worklist in a fixed,
     deterministic order). Unchanged members keep their expression facts instead of discarding and recording
     them again.
-  - [ ] The fixed point equals the one round-robin iteration reaches, or any difference caused by widening order
+  - [x] The fixed point equals the one round-robin iteration reaches, or any difference caused by widening order
     is recorded as a precision change; `--print-types` of the fixtures is unchanged.
-  - [ ] `inference rounds` counts skipped walks; luerl rerun: member walks and inference time recorded against
+  - [x] `inference rounds` counts skipped walks; luerl rerun: member walks and inference time recorded against
     58Q (expected for `luerl_parse:yeccpars1/5`: about a fifth of the walks).
-  - [ ] Decide whether the same dirty tracking applies between passes (re-infer only components whose inputs
+  - [x] Decide whether the same dirty tracking applies between passes (re-infer only components whose inputs
     or callee summaries changed since the previous pass) and either implement it here or add a step.
 - Tests
-  - [ ] Inference and pattern-match tests pass unchanged; a recursive fixture's walk count drops in
+  - [x] Inference and pattern-match tests pass unchanged; a recursive fixture's walk count drops in
     `--print-stage-times` while its printed types stay the same.
+- Done 2026-10-13: `Inference::reads` and `summary_of` note which summaries a walk reads (calls, call results,
+  selected calls, `fun F/A` facts in `inference_funs`); `Worklist` in `semantic/types/inference.cpp` keeps each
+  member's reads, readers and recorded expression facts. A round walks the dirty members in member order; a
+  changed summary dirties its readers, later ones in the same round and earlier ones in the next, so with every
+  member dirty a round is the round-robin round of 58Q.
+  - luerl (Release `build/tool`, `--no-cache`): inference work 65.6M to 49.9M steps over 17 passes (-24%).
+    Times on the idle host: inference 133 s (58Q) to 97 s, compile 206 s to 166 s; a first run under load read
+    155 s (emit 52 s against 39 s shows the load). Walks: `core_parse:yeccpars1/5` 36,610 to 15,447 (21,163
+    skipped), `luerl_parse:yeccpars1/5` 16,940 to 7,143 (42%, not the fifth expected: a yecc state reads many
+    others), `v3_core:clauses/2` 8,745 to 3,822, `erl_eval:exprs/6` 5,184 to 2,839; one-member groups such as
+    `luerl_scan:yystate/7` skip nothing. Convergence: the same rounds and changes as 58Q for the yecc parsers and
+    `erl_eval`; `erl_scan` 2,921 to 2,939 grown and 39 to 31 flips, `v3_core` 1,399 to 1,377 grown and 48 to 46
+    flips, 165 to 161 rounds (widening starts at the same round but members are walked in other rounds), no
+    group newly capped. `test-luerl.exe` exits 0.
+  - Between-pass dirty tracking is deferred to [58T](#step-58t): it needs expression facts kept across passes
+    (`infer_pass` clears them) and a different settling check.
+  - Tests: inference, pattern-match and type tests pass unchanged; `inference rounds` reports skipped walks.
+    Gate: fast CTest 274/274, `check-quality` clean.
 
 <a id="step-58s"></a>
 
@@ -338,6 +356,22 @@ Backlog: F29. Depends on: [58Q](#step-58q). Added 2026-10-13 from 58Q's evidence
 - Tests
   - [ ] A focused lattice test for the join property on deep trees (it cannot be reached reliably through source),
     plus `inference_flips`.
+
+<a id="step-58t"></a>
+
+### 58T. Re-infer only the components whose inputs changed since the last pass
+
+Backlog: F29, V05. Depends on: [58R](#step-58r). Added 2026-10-13 (58R decision).
+
+- Success criteria
+  - [ ] A pass re-infers a component only when its inputs (`Inference::inputs` of its members), a callee summary
+    it read, or a `fun F/A` fact it read changed since its previous inference; others keep their summaries and
+    expression facts. The settling check (`settled`, `fun_reads`) stays correct for skipped components.
+  - [ ] `--print-stage-times` shows components skipped per pass; luerl rerun recorded against 58R (passes 9–16
+    each still take 7–11 s while reporting `inputs changed`).
+- Tests
+  - [ ] Inference, pattern-match and type tests pass unchanged; a fixture whose inputs settle in an early pass
+    shows later passes skipping it.
 
 ## H3. Drop-in replacements for OTP runtime modules
 

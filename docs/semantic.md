@@ -451,6 +451,11 @@ Inference is separate from declared types and never trusts specs.
   earlier round; each member keeps its last 4 summaries, and one that returns
   to any of them is `term()` without function types for the rest of the
   solve, which lets the other members converge.
+- A round walks only members that read a summary changed since their last
+  walk (step 58R): each walk notes the summaries it reads (calls, call
+  results, `fun F/A`), a changed summary marks its readers, and a member not
+  marked keeps its expression facts. The first round walks every member, so
+  with every member marked a round is the full round of earlier steps.
 - A shared work budget bounds inference; exhaustion loses precision and falls
   back to generic code, never rejects a program.
 - Specifications that contradict inference are diagnosed (step 58I,

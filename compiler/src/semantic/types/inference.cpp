@@ -36,7 +36,7 @@ using Impossible = std::set<const std::vector<ast::ExprId> *>;
 Fact call_result(const Inference &inference, const ast::Module &syntax, const ast::Expression &expression,
                  const ast::CallExpression &call) {
     const auto callee = inference.callees.at(&expression);
-    const auto &summary = inference.functions.at(callee.function);
+    const auto &summary = summary_of(inference, callee.function);
     if (!summary.result.argument) {
         return summary.result;
     }
@@ -433,7 +433,7 @@ Fact function_call(Inference &inference, const FunctionRef function, const ast::
                    const ast::CallExpression &call, BindingFacts &bindings) {
     const auto &syntax = *function.module->syntax;
     const auto callee = inference.callees.at(&expression);
-    const auto &summary = inference.functions.at(callee.function);
+    const auto &summary = summary_of(inference, callee.function);
     const auto arguments = argument_facts(inference, syntax, call);
     auto selection = summary.types.empty() ? Selection{call_result(inference, syntax, expression, call)}
                                            : select(inference.graph, summary.types, arguments);
@@ -502,7 +502,7 @@ Id selected_call(Inference &inference, const ast::Module &syntax, const ast::Exp
     if (unreachable_call(inference, syntax, call)) {
         return inference.graph.bottom();
     }
-    const auto &summary = inference.functions.at(inference.callees.at(&expression).function);
+    const auto &summary = summary_of(inference, inference.callees.at(&expression).function);
     return summary.types.empty()
                ? call_result(inference, syntax, expression, call).type
                : select(inference.graph, summary.types, argument_facts(inference, syntax, call)).result.type;
@@ -657,12 +657,68 @@ struct RoundChanges {
 };
 
 // One solve of a recursive component: its round cap, the members whose summaries changed in each round it ran, the
-// kinds of those changes, and how it ended. Added for --print-stage-times.
+// kinds of those changes, the member walks it ran (58R), and how it ended. Added for --print-stage-times.
 struct SolveTrace {
     std::size_t round_cap_ = 0;
     std::vector<std::size_t> changes_;
     RoundChanges kinds_;
+    std::size_t walks_ = 0;
     Ending ending_ = Ending::converged;
+};
+
+// Which members of a solve still need a walk, which members each walk read, and the expression facts each recorded,
+// so a round walks only members that read a summary changed since their last walk. Added for step 58R.
+class Worklist {
+  public:
+    explicit Worklist(const Component &component)
+        : dirty_(component.members.size(), true), readers_(component.members.size()), reads_(component.members.size()),
+          recorded_(component.members.size()) {
+        for (std::size_t index = 0; index < component.members.size(); ++index) {
+            indices_.emplace(component.members[index].function, index);
+        }
+    }
+
+    // Whether the member needs a walk, and take it off the list for its walk.
+    bool dirty(const std::size_t member) const { return dirty_.at(member); }
+
+    void clean(const std::size_t member) { dirty_.at(member) = false; }
+
+    // Every member needs a walk again (giving up records every member's facts).
+    void all() { std::ranges::fill(dirty_, true); }
+
+    // Note the members a member's walk read, replacing what its previous walk read.
+    void read(const std::size_t member, const std::set<const Function *> &functions) {
+        for (const auto read : reads_.at(member)) {
+            readers_.at(read).erase(member);
+        }
+        reads_.at(member).clear();
+        for (const auto *function : functions) {
+            if (const auto found = indices_.find(function); found != indices_.end()) {
+                reads_.at(member).push_back(found->second);
+                readers_.at(found->second).insert(member);
+            }
+        }
+    }
+
+    // A member's summary changed: every member that read it needs a walk.
+    void changed(const std::size_t member) {
+        for (const auto reader : readers_.at(member)) {
+            dirty_.at(reader) = true;
+        }
+    }
+
+    // The expression facts the member's last walk recorded.
+    std::vector<const ast::Expression *> &recorded(const std::size_t member) { return recorded_.at(member); }
+
+  private:
+    // Member indices by function, and the members still to walk.
+    std::map<const Function *, std::size_t> indices_;
+    std::vector<bool> dirty_;
+    // For each member: the members that read it, and the members it read.
+    std::vector<std::set<std::size_t>> readers_;
+    std::vector<std::vector<std::size_t>> reads_;
+    // For each member: the expressions whose facts its last walk recorded.
+    std::vector<std::vector<const ast::Expression *>> recorded_;
 };
 
 // A member's summary as rounds compare it: its result and the function types calls select from.
@@ -764,27 +820,50 @@ Snapshot next_summary(Inference &inference, const Summary &summary, Body evaluat
     return next;
 }
 
-// Re-infer every member from the current assumptions, discarding the previous round's expression facts; results
-// join with the previous round's, or widen once `widening`. Returns the members' changes by kind; `history`, when
-// given, keeps each member's summaries to tell flips.
-RoundChanges refine(Inference &inference, const Component &component, std::size_t &work,
-                    std::vector<const ast::Expression *> &recorded, bool widening, RoundHistory *history) {
+// Walk one member from the current assumptions, replacing the expression facts of its previous walk and noting the
+// summaries it read. Added for step 58R.
+Body walk_member(Inference &inference, const FunctionRef member, const std::size_t index, std::size_t &work,
+                 Worklist &worklist) {
+    auto &recorded = worklist.recorded(index);
     for (const auto *expression : recorded) {
         inference.expressions.erase(expression);
     }
     recorded.clear();
+    std::set<const Function *> reads;
+    inference.reads = &reads;
+    auto evaluated = body(inference, member, work, recorded);
+    inference.reads = nullptr;
+    worklist.read(index, reads);
+    return evaluated;
+}
+
+// Re-infer the members the worklist holds, in member order, from the current assumptions; results join with the
+// previous round's, or widen once `widening`. A changed summary puts its readers on the worklist: later members in
+// this round, earlier ones in the next (step 58R). Returns the members' changes by kind and counts walks in `walks`;
+// `history`, when given, keeps each member's summaries to tell flips.
+RoundChanges refine(Inference &inference, const Component &component, std::size_t &work, Worklist &worklist,
+                    bool widening, RoundHistory *history, std::size_t &walks) {
     RoundChanges changes;
     for (std::size_t index = 0; index < component.members.size(); ++index) {
+        if (!worklist.dirty(index)) {
+            continue;
+        }
+        worklist.clean(index);
+        ++walks;
         const auto member = component.members[index];
-        auto evaluated = body(inference, member, work, recorded);
+        auto evaluated = walk_member(inference, member, index, work, worklist);
         auto &summary = inference.functions.at(member.function);
         auto domain = std::move(evaluated.domain);
         auto entry = std::move(evaluated.entry);
+        const auto before = changes.total();
         auto next = next_summary(inference, summary, std::move(evaluated), widening, history, index, changes);
         summary.result = next.result;
         summary.inputs = std::move(domain);
         summary.entry = std::move(entry);
         summary.types = std::move(next.types);
+        if (changes.total() != before) {
+            worklist.changed(index);
+        }
     }
     return changes;
 }
@@ -797,15 +876,15 @@ void finish(Inference &inference, const Component &component) {
 }
 
 // Run rounds from the current summaries until no member changes, the round cap or the component's share of the pass
-// work; `trace` gets the members changed per round and their kinds. Returns how the rounds ended.
-Ending iterate(Inference &inference, const Component &component, std::size_t &work,
-               std::vector<const ast::Expression *> &recorded, SolveTrace &trace) {
+// work; `trace` gets the members changed per round, their kinds and the walks. Returns how the rounds ended.
+Ending iterate(Inference &inference, const Component &component, std::size_t &work, Worklist &worklist,
+               SolveTrace &trace) {
     const auto rounds = JOIN_ROUNDS + WIDENING_PASSES * component.members.size();
     const auto share = inference.graph.limits().syntax_work / COMPONENT_WORK_SHARE;
     const auto started = work;
     RoundHistory history(component.members.size());
     for (std::size_t round = 0; round < rounds; ++round) {
-        const auto changes = refine(inference, component, work, recorded, round >= JOIN_ROUNDS, &history);
+        const auto changes = refine(inference, component, work, worklist, round >= JOIN_ROUNDS, &history, trace.walks_);
         trace.changes_.push_back(changes.total());
         trace.kinds_.add(changes);
         if (changes.total() == 0) {
@@ -820,12 +899,13 @@ Ending iterate(Inference &inference, const Component &component, std::size_t &wo
 
 // Give every member term() and walk them once to record their expression facts: the summaries of a component that
 // does not converge, which keeps only its widened union summaries.
-void give_up(Inference &inference, const Component &component, std::size_t &work,
-             std::vector<const ast::Expression *> &recorded) {
+void give_up(Inference &inference, const Component &component, std::size_t &work, Worklist &worklist,
+             std::size_t &walks) {
     for (const auto member : component.members) {
         summarize(inference, member, {inference.graph.exhausted()});
     }
-    (void)refine(inference, component, work, recorded, false, nullptr);
+    worklist.all();
+    (void)refine(inference, component, work, worklist, false, nullptr, walks);
     for (const auto member : component.members) {
         inference.functions.at(member.function).types.clear();
     }
@@ -839,16 +919,17 @@ SolveTrace solve(Inference &inference, const Component &component, std::size_t &
         summarize(inference, member, {inference.graph.bottom()});
         inference.solving.insert(member.function);
     }
-    std::vector<const ast::Expression *> recorded;
+    Worklist worklist(component);
     SolveTrace trace{.round_cap_ = JOIN_ROUNDS + WIDENING_PASSES * component.members.size(),
                      .changes_ = {},
                      .kinds_ = {},
+                     .walks_ = 0,
                      .ending_ = Ending::converged};
     trace.ending_ = inference.failed.contains(&component) ? Ending::remembered
-                                                          : iterate(inference, component, work, recorded, trace);
+                                                          : iterate(inference, component, work, worklist, trace);
     if (trace.ending_ != Ending::converged) {
         inference.failed.insert(&component);
-        give_up(inference, component, work, recorded);
+        give_up(inference, component, work, worklist, trace.walks_);
     }
     finish(inference, component);
     return trace;
@@ -889,8 +970,8 @@ void record_solve(InferenceProfile::Cost &cost, const SolveTrace &trace, const s
     rounds.over_share_ += trace.ending_ == Ending::over_share ? 1 : 0;
     rounds.remembered_ += trace.ending_ == Ending::remembered ? 1 : 0;
     rounds.exhausted_ += exhausted ? 1 : 0;
-    const bool gave_up = trace.ending_ != Ending::converged;
-    rounds.walks_ += (trace.changes_.size() + (gave_up ? 1 : 0)) * members;
+    rounds.walks_ += trace.walks_;
+    rounds.skipped_ += (trace.changes_.size() + (trace.ending_ != Ending::converged ? 1 : 0)) * members - trace.walks_;
     for (const auto changed : trace.changes_) {
         rounds.changes_ += changed;
     }

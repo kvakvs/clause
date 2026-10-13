@@ -21,6 +21,9 @@ std::optional<std::size_t> arity_of(const Integer &arity) {
 Id function_fun(Inference &inference, const Function *target, const std::size_t arity) {
     Lattice lattice(inference.graph);
     const auto summary = target ? inference.functions.find(target) : inference.functions.end();
+    if (target && inference.reads) {
+        inference.reads->insert(target);
+    }
     if (inference.opaque_funs || summary == inference.functions.end()) {
         return lattice.fun(arity, inference.graph.top());
     }
