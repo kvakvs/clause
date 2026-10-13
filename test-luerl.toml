@@ -29,7 +29,7 @@ ignore_dirs = [
 ]
 ignore_modules = [
   "prim_tty", "prim_inet",
-  "erl_parse", "erl_pp"
+  # "erl_parse", "erl_pp"
   # "inet_dns", "inet_udp"
 ]
 # Fallback roots for listed source filenames, e.g. ["src", "generated"].

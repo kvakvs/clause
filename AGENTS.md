@@ -78,9 +78,9 @@ skeleton and test migration are archived in `.agents/00-finished.md`.
 - IMPORTANT: Document class fields creation intent, what will they be doing.
   Document function creation intent. Keep comments down to 1-2 lines.
   - (do not do the following for trivial one-line changes):
-    When implementing new features which require creating new code, tag that new code
-    with a very short comment that it was created and used for this specific feature
-    initially
+    When implementing new features which require creating new code, tag that new
+    code with a very short comment that it was created and used for this specific
+    feature initially, prefer feature names over feature codes
 - The code will be read by humans, keep it readable.
 - The cyclomatic complexity of new functions and new files must remain low
   (avoid complex code). Use both Lizard and clang-tidy.
