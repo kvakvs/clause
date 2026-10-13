@@ -39,10 +39,27 @@ void trace_analysis(const std::string_view phase, const codegen::CompilationRequ
         codegen::progress(request, phase, request.inputs[i].source_path, utf8(analysis.modules[i]->name));
     }
 }
+
+// Leave out the functions an executable cannot reach from its entry, tracing under --verbose which modules keep
+// every export and why; later phases then see only the live call graph. Added for export liveness (62C).
+void drop_unreachable(const codegen::CompilationRequest &request, Analysis &analysis) {
+    const auto &entry = *analysis.entry;
+    auto &module = *analysis.modules.at(entry.module);
+    auto &function = module.functions.at(module.lookup.at(entry.function));
+    const auto report = semantic::mark_live(analysis.modules, analysis.calls, {&module, &function});
+    for (std::size_t i = 0; i < analysis.modules.size(); ++i) {
+        const auto &name = analysis.modules[i]->name;
+        const auto kept = report.kept_.find(name);
+        codegen::progress(request, "liveness", request.inputs[i].source_path, utf8(name),
+                          kept != report.kept_.end() ? "kept-all-exports reason=" + kept->second
+                                                     : "dropped-exports=" + std::to_string(report.dropped_.at(name)));
+    }
+    analysis.calls = semantic::live_calls(analysis.calls);
+}
 } // namespace
 
-bool analyze(const codegen::CompilationRequest &request, const EntryRequest &entry, Analysis &analysis,
-             const DiagnosticSink &sink) {
+bool analyze(const codegen::CompilationRequest &request, const EntryRequest &entry, const bool live_only,
+             Analysis &analysis, const DiagnosticSink &sink) {
     codegen::validate_input_limits(request.inputs, request.limits);
     bool failed = false;
     const semantic::Reporter report = [&](const Diagnostic &diagnostic) {
@@ -63,6 +80,9 @@ bool analyze(const codegen::CompilationRequest &request, const EntryRequest &ent
     if (failed) {
         return false;
     }
+    if (live_only && analysis.entry) {
+        phase(analysis, "liveness", [&] { drop_unreachable(request, analysis); });
+    }
     trace_analysis("declared-types", request, analysis);
     phase(analysis, "declared-types",
           [&] { analysis.declared = semantic::types::resolve_declarations(analysis.modules, report); });
@@ -76,19 +96,5 @@ bool analyze(const codegen::CompilationRequest &request, const EntryRequest &ent
     phase(analysis, "contracts",
           [&] { semantic::types::check_contracts(*analysis.declared, *analysis.inferred, analysis.calls, report); });
     return !failed;
-}
-
-void drop_unreachable(const codegen::CompilationRequest &request, Analysis &analysis) {
-    const auto &entry = *analysis.entry;
-    auto &module = *analysis.modules.at(entry.module);
-    auto &function = module.functions.at(module.lookup.at(entry.function));
-    const auto report = semantic::mark_live(analysis.modules, analysis.calls, {&module, &function});
-    for (std::size_t i = 0; i < analysis.modules.size(); ++i) {
-        const auto &name = analysis.modules[i]->name;
-        const auto kept = report.kept_.find(name);
-        codegen::progress(request, "liveness", request.inputs[i].source_path, utf8(name),
-                          kept != report.kept_.end() ? "kept-all-exports reason=" + kept->second
-                                                     : "dropped-exports=" + std::to_string(report.dropped_.at(name)));
-    }
 }
 } // namespace clause::cli

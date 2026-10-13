@@ -446,7 +446,9 @@ def write_listings(clau, directory):
         sources = [str(BENCH_DIR / f"{name}.erl"), str(BENCH_DIR / "bench_util.erl")]
         for config, level in LISTING_CONFIGS:
             for flag, extension in LISTING_KINDS:
-                write_listing(clau, [level, flag], sources, directory / f"{name}.{config}.{extension}")
+                # The entry leaves out library code the program cannot reach, as its executable does.
+                path = directory / f"{name}.{config}.{extension}"
+                write_listing(clau, [level, flag, "--entry", name], sources, path)
 
 
 def write_report(context, report):

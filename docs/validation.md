@@ -209,7 +209,8 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
   gitignored: it stays on the host that ran it.
 - Listings: before measuring, every run writes each program's
   [`--print-asm`](compile.md#assembly-listings) and `--print-ir` listings
-  (with `bench_util`) beside the reports as `<program>.debug.asm` /
+  (with `bench_util`, `--entry <program>` so unreachable library code is
+  left out as in the executable) beside the reports as `<program>.debug.asm` /
   `<program>.debug.ll` (`-O0`) and `<program>.release.asm` /
   `<program>.release.ll` (`-O2`, the code the `clause-o2` column runs),
   replacing the previous run's listings, `--no-history` and uncommitted

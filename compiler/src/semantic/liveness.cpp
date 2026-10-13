@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <clause/compiler/source.hpp>
+#include <iterator>
 
 namespace clause::semantic {
 namespace {
@@ -321,5 +322,21 @@ class Liveness {
 LivenessReport mark_live(const std::span<const std::unique_ptr<Module>> modules, const CallGraph &calls,
                          const FunctionRef entry) {
     return Liveness(modules, calls).run(entry);
+}
+
+CallGraph live_calls(const CallGraph &calls) {
+    const auto live = [](const FunctionRef function) { return function.function->live_; };
+    CallGraph result;
+    std::ranges::copy_if(calls.calls, std::back_inserter(result.calls),
+                         [&](const Call &call) { return live(call.caller); });
+    std::ranges::copy_if(calls.order, std::back_inserter(result.order), live);
+    for (const auto &component : calls.components) {
+        Component kept{.members = {}, .recursive = component.recursive};
+        std::ranges::copy_if(component.members, std::back_inserter(kept.members), live);
+        if (!kept.members.empty()) {
+            result.components.push_back(std::move(kept));
+        }
+    }
+    return result;
 }
 } // namespace clause::semantic

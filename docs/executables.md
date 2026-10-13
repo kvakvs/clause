@@ -194,7 +194,8 @@ installed Clang/LLD must be the same LLVM release as `clau` (23.1).
 
 An executable leaves out the exports it cannot reach (plan 11 step 62C), so
 `-Os` dead-stripping and `--lto` remove library code the program never calls.
-Before LLVM IR is emitted, a whole-batch analysis starts at the entry function
+Right after call resolution, before type inference, a whole-batch analysis
+starts at the entry function
 and marks live everything a live function calls directly (also through
 `-import` and OTP auto-imports), every `fun F/A` and literal `fun M:F/A`, and
 the literal targets of `apply/3`, `spawn/3`, `spawn_link/3`,
@@ -223,10 +224,18 @@ trace, an exception term or data from outside the program. `--verbose` traces
 the result per module (`phase=liveness detail="dropped-exports=3"`, or
 `detail="kept-all-exports reason='m' is used as a value in main:main/1"`).
 
+A function nothing live reaches is also never type-inferred or checked against
+its `-spec`: inference covers only live code, which is faster for programs that
+use little of large library modules (`bench_gc`: 68 ms to 10 ms) and can only
+narrow live functions' facts, since unreachable callers no longer join their
+arguments. A specification contradicted only in unreachable code is therefore
+reported for `--emit` artifacts but not for the executable.
+
 `--keep-exports` (or the project option `keep_exports = true`) keeps every
-export callable, as before step 62C. The analysis applies only to executables
-(`-o` or a linking project build); `--emit` artifacts, meant for other
-programs, keep every export.
+export callable, as before step 62C. The analysis applies to executables (`-o`
+or a linking project build) and to IR and assembly inspections given an entry
+(`--entry` or the target's manifest `entry`), which then show the executable's
+code; `--emit` artifacts, meant for other programs, keep every export.
 
 Weak export-table references resolved by the linker were evaluated instead and
 rejected: COFF weak externals need a default definition and do not let

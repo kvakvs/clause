@@ -116,8 +116,8 @@ std::optional<std::string> linking_conflict(const Options &options) {
     if (backend.lto && !links) {
         return "--lto requires --output or a linking project build";
     }
-    if (backend.keep_exports && !links) {
-        return "--keep-exports requires --output or a linking project build";
+    if (backend.keep_exports && !links && !backend.inspect_ir()) {
+        return "--keep-exports requires --output, a linking project build or IR/assembly inspection";
     }
     return {};
 }

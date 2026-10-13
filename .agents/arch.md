@@ -470,7 +470,9 @@
   `fingerprint_` (frontend: files read with bytes, pp options, transform reply); outcome = parts "failed",
   "diagnostic"*, and for -o/--emit "triple", "extension", one part per output (`<kind>[+startup]:<module>`);
   `Compiled` struct feeds link/deliver for fresh and reused batches.
-  Export liveness (62C, `semantic/liveness`): for executables only, a worklist from the entry over direct calls,
+  Export liveness (62C, `semantic/liveness`): for executables and IR/asm inspections with an entry, run in
+  `analyze` right after `calls` (then `live_calls` prunes `Analysis::calls`, so inference/contracts see live code
+  only), a worklist from the entry over direct calls,
   funs, literal apply/spawn targets and escaped module-name atoms (whole module live; dynamic call + atom producer
   = everything live) clears `Function::live_`; codegen declares/lowers no dead function or lambda of a dead owner,
   the export table keeps a dead export's name with null entry/frame (runtime: name-only export, `CodeServer::

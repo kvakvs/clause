@@ -18,10 +18,9 @@ struct Analysis {
     semantic::types::InferenceProfile profile;
 };
 
-// Run declaration, binding, call, declared-type and inference phases without creating LLVM state.
-bool analyze(const codegen::CompilationRequest &request, const EntryRequest &entry, Analysis &analysis,
+// Run declaration, binding, call, declared-type and inference phases without creating LLVM state. With `live_only`
+// (export liveness, 62C) functions the entry cannot reach are left out right after call
+// resolution, so inference, contract checks and code generation never see them.
+bool analyze(const codegen::CompilationRequest &request, const EntryRequest &entry, bool live_only, Analysis &analysis,
              const DiagnosticSink &sink);
-// Leave out the functions an executable cannot reach from its entry, tracing under --verbose which modules keep
-// every export and why. Added for export liveness (62C).
-void drop_unreachable(const codegen::CompilationRequest &request, Analysis &analysis);
 } // namespace clause::cli

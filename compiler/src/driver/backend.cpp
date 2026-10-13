@@ -168,20 +168,24 @@ std::string batch_text(const std::size_t modules, const FrontendRequest &fronten
     return frontend.project_target.empty() ? text : "target " + frontend.project_target + " (" + text + ")";
 }
 
+// Executables leave out what their entry cannot reach, and so do IR and assembly inspections given an entry, so they
+// show the executable's code. Inspections with an entry added for inspection liveness.
+bool live_only(const FrontendRequest &frontend) {
+    const auto &backend = frontend.backend;
+    return !backend.keep_exports && (frontend.executable_output || (backend.inspect_ir() && frontend.entry));
+}
+
 // Analyze before constructing LLVM state; moving the vector preserves borrowed AST addresses. A successful batch
 // leaves its compilation in `output` unless it stopped at --print-types.
 bool compile_analyzed(codegen::CompilationRequest request, const FrontendRequest &frontend, const DiagnosticSink &sink,
                       Analysis &analysis, std::optional<codegen::Compilation> &output) {
     const EntryRequest entry{frontend.entry, frontend.executable_output.has_value(), !request.project_target.empty()};
-    if (!analyze(request, entry, analysis, sink)) {
+    if (!analyze(request, entry, live_only(frontend), analysis, sink)) {
         return true;
     }
     if (frontend.backend.print_types) {
         print_types(analysis, request);
         return false;
-    }
-    if (frontend.executable_output && !frontend.backend.keep_exports) {
-        drop_unreachable(request, analysis);
     }
     request.startup = startup_request(analysis);
     auto &compilation = output.emplace(std::move(request));

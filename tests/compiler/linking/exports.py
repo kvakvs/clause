@@ -64,6 +64,42 @@ assert "--keep-exports requires --output" in clau(["--keep-exports", *modules], 
 print("exports: project option keep_exports and refused uses")
 
 
+def inspected(arguments):
+    """The stdout of an inspection run."""
+    result = subprocess.run([tool, *arguments], cwd=work, capture_output=True, text=True, timeout=300)
+    assert result.returncode == 0, (arguments, result)
+    return result.stdout
+
+
+# Inspections given an entry show the executable's code: unreachable worker:idle/0 is gone unless --keep-exports;
+# without an entry every export stays. Added for inspection liveness.
+IDLE = "@clausev1_776f726b6572_69646c65_0("  # worker:idle/0
+for flag in ("--print-ir", "--print-optimized-ir", "--print-asm"):
+    marker = IDLE if flag != "--print-asm" else IDLE[1:-1] + ":"
+    assert marker in inspected(["-O2", flag, *modules]), flag
+    assert marker not in inspected(["-O2", flag, "--entry", "main", *modules]), flag
+    assert marker in inspected(["-O2", flag, "--entry", "main", "--keep-exports", *modules]), flag
+print("exports: inspections with --entry leave out unreachable functions")
+
+# Liveness runs before inference: a contradicted specification in unreachable code is reported for artifacts and
+# inspections without an entry, but not for an executable, which never infers that code. Added for liveness before
+# inference.
+(work / "contracts.erl").write_text('-module(contracts).\n-export([main/1, dead/1]).\n'
+                                    'main(_) -> io:format("contracts: ok~n").\n'
+                                    '-spec dead(atom()) -> integer().\ndead(X) -> {X}.\n', encoding="utf-8")
+WARNING = "inferred result contradicts specification for dead"
+assert WARNING in clau(["-O2", "--emit", "obj", "--artifact-dir", "contracts-obj", "contracts.erl"])
+assert WARNING in clau(["--print-ir", "contracts.erl"])
+timed = clau(["-O2", "--print-stage-times", "-o", "contracts", "contracts.erl"])
+assert WARNING not in timed
+phases = [line.split()[1] for line in timed.splitlines() if line.startswith("[time] ")]
+assert phases.index("calls") < phases.index("liveness") < phases.index("declared-types"), phases
+assert output("contracts") == "contracts: ok\n"
+assert WARNING not in clau(["--print-ir", "--entry", "contracts", "contracts.erl"])
+assert WARNING in clau(["-O2", "--keep-exports", "-o", "contracts-kept", "contracts.erl"])
+print("exports: unreachable code is left out before inference")
+
+
 def golden_run(case):
     """Link and run one case with --keep-exports against its golden; returns (case, ok, output)."""
     result = subprocess.run([sys.executable, str(runner), tool, str(work / "runs" / case.name), str(case),
