@@ -1,4 +1,5 @@
 #pragma once
+#include "cache_dirs.hpp"
 #include "discovery.hpp"
 #include "entry.hpp"
 #include "ignore.hpp"
@@ -21,6 +22,9 @@ struct PlanOptions {
     // CLI --build-dir, invocation-relative; replaces every selected target's build directory. Added for the build
     // directory (62D1).
     std::optional<std::filesystem::path> build_directory;
+    // CLI --cache-inference-in-dirs patterns, added after each target's cache_inference_in_dirs. Added for the
+    // inference cache (58U).
+    std::vector<Text> cache_inference_in_dirs;
     // Receives the manifest and how long loading and planning it took. Added for the directory scan measurement
     // (62D3, --print-stage-times).
     std::function<void(const std::filesystem::path &, std::chrono::steady_clock::duration)> planned;
@@ -47,6 +51,9 @@ struct PlannedTarget {
     // Where Clause keeps its temporary files and caches: --build-dir, else build_dir, else <manifest-dir>/build.
     // Added for the build directory (62D1).
     std::filesystem::path build_directory_ = {};
+    // The implicit OTP directories, cache_inference_in_dirs and --cache-inference-in-dirs. Added for the inference
+    // cache (58U).
+    InferenceCacheDirs cache_dirs_ = {};
 };
 
 struct Invocation {

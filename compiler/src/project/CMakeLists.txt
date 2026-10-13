@@ -19,6 +19,8 @@ target_sources(clause_project PRIVATE discovery.cpp directory_index.cpp)
 target_sources(clause_project PRIVATE identity.cpp sources.cpp)
 # ignore_dirs and ignore_modules. Added for ignored modules.
 target_sources(clause_project PRIVATE ignore.cpp)
+# cache_inference_in_dirs. Added for the inference cache (58U).
+target_sources(clause_project PRIVATE cache_dirs.cpp)
 
 target_sources(clause_project PRIVATE selection.cpp)
 

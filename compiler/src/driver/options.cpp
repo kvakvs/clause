@@ -1,4 +1,5 @@
 #include "options.hpp"
+#include "project/diagnostics.hpp"
 #include <map>
 
 namespace clause::cli {
@@ -123,6 +124,24 @@ static std::optional<std::string> parse_transform_option(const std::string_view 
     return std::nullopt;
 }
 
+// Consume one --cache-inference-in-dirs pattern, rejecting one the matcher cannot use. Added for the inference
+// cache (58U).
+static std::optional<std::string> parse_cache_dirs(const std::string_view argument, std::span<char *> &remaining,
+                                                   Options &options) {
+    if (remaining.empty() || std::string_view(remaining.front()).empty()) {
+        return "expected a directory pattern after " + std::string(argument);
+    }
+    const project::Text pattern{remaining.front(), {{}, std::string(argument), {}, 0, 0}};
+    remaining = remaining.subspan(1);
+    try {
+        project::InferenceCacheDirs().add(pattern);
+    } catch (const project::Failure &failure) {
+        return std::string(argument) + " " + pattern.value + ": " + failure.detail.message;
+    }
+    options.cache_inference_in_dirs.push_back(pattern);
+    return std::nullopt;
+}
+
 namespace {
 struct Flag {
     // Map a flag to its destination and whether it requests frontend processing.
@@ -167,7 +186,8 @@ static std::optional<std::string> parse_option(const std::string_view argument, 
                                                             {"--build-dir", parse_build_directory},
                                                             {"--parse-transform", parse_transform_option},
                                                             {"--transform-path", parse_transform_option},
-                                                            {"--erl", parse_transform_option}};
+                                                            {"--erl", parse_transform_option},
+                                                            {"--cache-inference-in-dirs", parse_cache_dirs}};
     if (parse_flag(argument, options)) {
         return std::nullopt;
     }
@@ -235,5 +255,13 @@ std::optional<std::string> parse_options(std::span<char *> remaining, Options &o
         options.print_abstr = false;
     }
     return validate_options(options);
+}
+
+project::InferenceCacheDirs positional_cache_dirs(const Options &options) {
+    project::InferenceCacheDirs result;
+    for (const auto &pattern : options.cache_inference_in_dirs) {
+        result.add(pattern);
+    }
+    return result;
 }
 } // namespace clause::cli

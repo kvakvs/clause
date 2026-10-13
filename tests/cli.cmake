@@ -38,6 +38,8 @@ check_cli(print_env 0 "^# clau compile environment[^\n]*\ncommand = \\[\n  \"cla
     --print-env -O2 -DV=1 -I inc unparsable.erl)
 check_cli(print_env_link 0 "actions = \\[\n  \"link\",.*entry = \"example:main\"\noutput = \"[^\n]*/app(\\.exe)?\"\nlinker = \"[^\n]*\"\nruntime_library = \"[^\n]+\"" "^$"
     --print-env -o app --entry example "source with spaces.erl")
+check_cli(print_env_cache_dirs 0 "cache_inference_in_dirs = \\[\n  \"\\*/stdlib\",\n.*  \"\\*/syntax_tools-\\*\",\n  \"lib/\\*\",\n\\]\n" "^$"
+    --print-env --cache-inference-in-dirs lib/* unparsable.erl)
 check_cli(print_env_frontend 0 "actions = \\[\n  \"print-pp\",\n  \"print-ast\",\n\\]" "^$" --print-env --print-ast --print-pp unparsable.erl)
 check_cli(print_env_quoted 0 "defines = \\[\n  \"Q=\\\\\"x\\\\\"\",\n\\]" "^$" --print-env "-DQ=\"x\"" unparsable.erl)
 check_cli(print_env_missing 1 "^$" "cannot access" --print-env missing.erl)

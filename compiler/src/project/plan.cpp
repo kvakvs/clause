@@ -100,6 +100,19 @@ void transform_options(const std::filesystem::path &base, const Target &target, 
         planned.transform_paths_.insert(planned.transform_paths_.end(), directories.begin(), directories.end());
     }
 }
+
+// The target's inference cache directories: the implicit ones, its cache_inference_in_dirs, then the CLI's. Added
+// for the inference cache (58U).
+InferenceCacheDirs cache_dirs(const Target &target, const PlanOptions &options) {
+    InferenceCacheDirs result;
+    for (const auto &pattern : target.options.cache_inference_in_dirs_) {
+        result.add(pattern);
+    }
+    for (const auto &pattern : options.cache_inference_in_dirs) {
+        result.add(pattern);
+    }
+    return result;
+}
 } // namespace
 
 Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
@@ -128,6 +141,7 @@ Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
         result.targets.back().ignore_ = std::move(ignore);
         result.targets.back().keep_exports_ = target.options.keep_exports_;
         result.targets.back().build_directory_ = build_directory(target, options, base);
+        result.targets.back().cache_dirs_ = cache_dirs(target, options);
     }
     outputs(result);
     return result;

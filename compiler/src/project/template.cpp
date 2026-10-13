@@ -48,6 +48,10 @@ ignore_dirs = []
 ignore_modules = []
 # Executables leave out exports nothing can call; true keeps every export callable by name.
 keep_exports = false
+# Directories whose modules keep their inference results in the build cache (relative patterns match the
+# trailing directories of any path), besides the implicit OTP ones "*/stdlib", "*/kernel", "*/compiler",
+# "*/syntax_tools" and their versioned "*/stdlib-*" forms, e.g. ["*/deps/*"].
+cache_inference_in_dirs = []
 
 # Explicit include_lib application roots. Empty by default.
 # Example entry: my_dependency = "vendor/my_dependency"

@@ -140,6 +140,9 @@ void print_options(const EnvironmentTarget &target) {
         print_array("ignore_dirs", quoted_texts(target.ignore->patterns()));
         print_array("ignore_modules", quoted_texts(target.ignore->modules()));
     }
+    if (target.cache_dirs) {
+        print_array("cache_inference_in_dirs", quoted_texts(target.cache_dirs->patterns())); // Added for 58U.
+    }
     print_array("include_dirs", quoted_paths(preprocessing.include_paths));
     print_array("defines", quoted_texts(preprocessing.definitions));
     print_applications(preprocessing);
@@ -243,6 +246,7 @@ void print_environment_target(const EnvironmentTarget &target) {
 
 void print_positional_environment(const std::span<char *const> arguments, const Options &options) {
     print_environment_header(arguments, options);
+    const auto cache_dirs = positional_cache_dirs(options); // Added for the inference cache (58U).
     std::optional<project::SelectedEntry> entry;
     if (options.entry) {
         entry = project::SelectedEntry{*options.entry, "--entry"};
@@ -259,6 +263,7 @@ void print_positional_environment(const std::span<char *const> arguments, const 
                               .build_directory = options.build_directory
                                                      ? std::optional{project::absolute_path(
                                                            std::filesystem::current_path(), *options.build_directory)}
-                                                     : std::nullopt});
+                                                     : std::nullopt,
+                              .cache_dirs = &cache_dirs});
 }
 } // namespace clause::cli

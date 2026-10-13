@@ -26,6 +26,7 @@ disable_features = ["compr_assign"]
 ignore_dirs = ["src/legacy", "deps/*/test"]
 ignore_modules = ["telemetry", "*_SUITE"]
 keep_exports = false
+cache_inference_in_dirs = ["deps/*"]
 
 [targets.options.applications]
 my_dependency = "vendor/my_dependency"
@@ -49,6 +50,9 @@ my_dependency = "vendor/my_dependency"
 - `keep_exports = true` in `options` keeps every export of the target's
   executable callable, as `--keep-exports` does for every selected target
   ([export liveness](executables.md#export-liveness)). It must be a boolean.
+- `cache_inference_in_dirs` (directory wildcards) in `options` adds directories
+  whose modules keep their inference results in the build cache
+  ([inference cache](#inference-cache)).
 - `options` fields are optional typed frontend options. `defines` use
   `NAME` (= `true`) or `NAME=ERLANG_LITERAL_TERM`; duplicates are errors. A
   feature cannot appear in both feature lists.
@@ -277,11 +281,40 @@ change, and each batch's [compile outcome](compile.md#compile-cache).
   sources), which such a cache cannot skip. The first run after the tree left
   the OS cache took 10-20 s, also dominated by opening files. Include probing
   costs nothing measurable since the [directory index](#directory-index).
+- **Inference results** of modules in configured directories
+  ([inference cache](#inference-cache)).
 - **Not cached:** preprocessing and parsing. A cached result would load
   through the abstract forms (`transforms/import`), and on luerl (169
   modules, Release, 2026-10-11) importing them alone took 1,063 ms against
   819 ms to preprocess (409 ms) and parse (410 ms) the sources; exporting the
   forms for a key took another 727 ms.
+
+### Inference cache
+
+Library modules (OTP's `stdlib`, `kernel`, `compiler` and `syntax_tools`
+sources found through `source_search_paths`, Clause's own
+[library](library.md)) rarely change, so modules in configured directories
+may keep their type inference results in the build cache, per module (plan 11
+steps 58U–58W; reuse arrives with step 58W).
+
+- Directories: the implicit OTP application patterns `*/stdlib`,
+  `*/stdlib-*`, `*/kernel`, `*/kernel-*`, `*/compiler`, `*/compiler-*`,
+  `*/syntax_tools` and `*/syntax_tools-*`, then the target's
+  `cache_inference_in_dirs`, then every `--cache-inference-in-dirs PATTERN`
+  (repeatable; positional inputs too). Patterns use the
+  [wildcards](#paths-and-discovery) of `sources`; Windows separators are
+  accepted.
+- A module is covered when a directory containing its source matches a
+  pattern. A relative pattern matches the trailing directories of any path,
+  not paths below the manifest directory: `*/stdlib` covers
+  `/usr/lib/erlang/lib/stdlib/src/lists.erl` and
+  `references/otp/lib/stdlib/src/lists.erl`, while an installed
+  `.../lib/stdlib-7.0/src/lists.erl` needs `*/stdlib-*`. An absolute pattern
+  matches the whole directory path (`C:/Program Files/Erlang OTP/lib/*`).
+  Matching is lexical and case-sensitive.
+- `--print-env` prints the effective list as `cache_inference_in_dirs`,
+  implicit patterns first. An unsupported construct (`[`, `{`, `!`) is a
+  manifest error, or a usage error (exit 2) on the command line.
 
 ## Paths and discovery
 
@@ -406,6 +439,7 @@ ignore_modules = ["telemetry", "*_SUITE"]
 | Feature lists | Manifest settings, then ordered CLI changes; CLI wins |
 | `output` | Per target, executable targets only; CLI `-o` overrides for a single selected target |
 | `entry` | Per target; CLI `--entry` overrides for a single selected target |
+| `cache_inference_in_dirs` | Implicit OTP patterns, then the manifest's, then CLI `--cache-inference-in-dirs` ([inference cache](#inference-cache)) |
 
 ## Build dependency
 

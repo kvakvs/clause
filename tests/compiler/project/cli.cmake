@@ -73,6 +73,18 @@ check(print_inputs_referenced 0 "^[^\n]*/main\\.erl\n[^\n]*/lib/helper\\.erl \\(
     --project refs.toml --print-inputs)
 check(print_env_project 0 "^# clau compile environment[^\n]*\ncommand = .*\n\n\\[\\[targets\\]\\]\nname = \"app\"\nproject = \"[^\n]*/project\\.toml\"\nsources = \\[\n  \"[^\n]*/shared\\.erl\",\n\\].*defines = \\[\n  \"VALUE=1\",\n\\].*\n\n\\[\\[targets\\]\\]\nname = \"tests\".*defines = \\[\n  \"VALUE=2\",\n\\]" "^$"
     --print-env --project project.toml)
+# Inference cache directories: the implicit OTP ones, then cache_inference_in_dirs, then the CLI's (plan step 58U).
+file(WRITE "${TEST_DIR}/cached.toml" "schema_version=1\n[[targets]]\nname='cached'\nsources=['shared.erl']\n[targets.options]\ncache_inference_in_dirs=['deps/*']\n")
+check(print_env_cache_dirs 0 "cache_inference_in_dirs = \\[\n  \"\\*/stdlib\",\n  \"\\*/stdlib-\\*\",\n  \"\\*/kernel\",\n  \"\\*/kernel-\\*\",\n  \"\\*/compiler\",\n  \"\\*/compiler-\\*\",\n  \"\\*/syntax_tools\",\n  \"\\*/syntax_tools-\\*\",\n  \"deps/\\*\",\n  \"vendor/\\*\\*/lib\",\n\\]\n" "^$"
+    --print-env --project cached.toml --cache-inference-in-dirs vendor/**/lib)
+check(cache_dirs_cli_construct 2 "^$" "--cache-inference-in-dirs deps/\\[ab\\]: unsupported wildcard construct"
+    --print-env --project cached.toml --cache-inference-in-dirs deps/[ab])
+check(cache_dirs_cli_missing 2 "^$" "expected a directory pattern after --cache-inference-in-dirs"
+    --project cached.toml --cache-inference-in-dirs)
+file(WRITE "${TEST_DIR}/cached_type.toml" "schema_version=1\n[[targets]]\nname='cached'\nsources=['shared.erl']\n[targets.options]\ncache_inference_in_dirs='deps'\n")
+check(cache_dirs_manifest_type 1 "^$" "cache_inference_in_dirs" --print-env --project cached_type.toml)
+file(WRITE "${TEST_DIR}/cached_construct.toml" "schema_version=1\n[[targets]]\nname='cached'\nsources=['shared.erl']\n[targets.options]\ncache_inference_in_dirs=['deps/{a,b}']\n")
+check(cache_dirs_manifest_construct 1 "^$" "unsupported wildcard construct" --print-env --project cached_construct.toml)
 check(print_env_project_emit 0 "^# clau compile environment.*name = \"tests\".*emit = \"obj\"\nartifact_dir = \"[^\n]*/build/aot/[^/\n]+\"\n$" "^$"
     --print-env --emit obj --project project.toml --target tests)
 check(default_output 1 "^$" "no entry point: no module exports main/1" --project project.toml --target app -o sentinel)

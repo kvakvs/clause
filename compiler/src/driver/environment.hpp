@@ -1,5 +1,6 @@
 #pragma once
 #include "backend_options.hpp"
+#include "project/cache_dirs.hpp"
 #include "project/entry.hpp"
 #include "project/ignore.hpp"
 #include <clause/compiler/preprocessor.hpp>
@@ -28,6 +29,8 @@ struct EnvironmentTarget {
     const project::Ignore *ignore = nullptr;
     // The build directory; absent for positional inputs without --build-dir. Added for the build directory (62D1).
     std::optional<std::filesystem::path> build_directory = {};
+    // The directories whose modules keep their inference results. Added for the inference cache (58U).
+    const project::InferenceCacheDirs *cache_dirs = nullptr;
 };
 
 // Print the invocation part of --print-env: command, actions and working directory, as TOML.

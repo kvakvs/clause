@@ -1,5 +1,6 @@
 #pragma once
 #include "backend_options.hpp"
+#include "project/cache_dirs.hpp"
 #include "project/cli.hpp"
 #include "project/entry.hpp"
 #include "transforms/pipeline.hpp"
@@ -27,6 +28,8 @@ struct Options {
     std::optional<std::filesystem::path> build_directory;
     // --no-cache: neither read nor write build caches. Added for build caches (62D2).
     bool no_cache = false;
+    // --cache-inference-in-dirs patterns, in order, validated while parsing. Added for the inference cache (58U).
+    std::vector<project::Text> cache_inference_in_dirs;
     // Distinguish explicit frontend settings from defaults for standalone commands.
     bool frontend_options_explicit = false;
     // Retain backend policy independently of frontend and project selection.
@@ -58,6 +61,9 @@ struct Options {
     clause::PreprocessorOptions preprocessing;
 };
 
+// The inference cache directories of positional inputs: the implicit ones, then --cache-inference-in-dirs. Added for
+// the inference cache (58U).
+project::InferenceCacheDirs positional_cache_dirs(const Options &options);
 // Parse and validate usage independently of reading source files.
 std::optional<std::string> parse_options(std::span<char *> remaining, Options &options);
 // Process every input using an independent frontend ownership context.

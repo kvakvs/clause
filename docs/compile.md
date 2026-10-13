@@ -131,6 +131,7 @@ in `printing.hpp`; `compiler/src/printing/source_*`) is reusable:
 | `-o PATH` / `--output PATH` | Link an executable ([linking](executables.md#linking)); conflicts with `--emit` |
 | `--linker PATH`, `--runtime-library PATH` | Clang driver and runtime archive for `-o` |
 | `--no-cache` | Neither read nor write [build caches](projects.md#build-caches) |
+| `--cache-inference-in-dirs PATTERN` | Repeatable: modules in matching directories keep their inference results in the build cache, besides the implicit OTP application directories ([inference cache](projects.md#inference-cache)) |
 | `--build-dir DIR` | Where Clause keeps temporary files (below `DIR/tmp`); replaces every selected project target's `build_dir`; positional inputs have none without it ([build directory](projects.md#build-directory)) |
 | `--entry MODULE[:FUNCTION]` | Executable entry function/1; validated in every compiling mode and adds the `clausev1_start` startup artifact ([executables](executables.md#startup-object)); IR and assembly inspections then leave out what it cannot reach ([export liveness](executables.md#export-liveness)) |
 | `--target-triple TRIPLE` | Target machine; `--target` is project target selection |

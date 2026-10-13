@@ -90,7 +90,8 @@ bool print_target_environment(const Options &options, const project::Invocation 
                               .output = target.output,
                               .entry = target.entry,
                               .ignore = &target.ignore_,
-                              .build_directory = target.build_directory_});
+                              .build_directory = target.build_directory_,
+                              .cache_dirs = &target.cache_dirs_});
     return false;
 }
 
@@ -120,6 +121,7 @@ project::PlanOptions plan_settings(const Options &options, project::DirectoryInd
     }
     settings.entry = options.entry;
     settings.build_directory = options.build_directory;
+    settings.cache_inference_in_dirs = options.cache_inference_in_dirs; // Added for the inference cache (58U).
     if (options.print_stage_times) {
         // Added for the directory scan measurement (62D3).
         settings.planned = [](const std::filesystem::path &manifest, const std::chrono::steady_clock::duration time) {

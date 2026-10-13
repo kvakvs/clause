@@ -38,6 +38,8 @@ draft with smaller, single-commit steps.
   2026-10-12 (user direction); it is never part of the gate.
 - Phase I2 (steps 58O–58T, inference convergence and cost) was inserted on
   2026-10-13 (user direction), driven by the luerl build's 330 s inference.
+- Phase I3 (steps 58U–58W, inference cache for library directories) was
+  inserted on 2026-10-13 (user direction); it may run before 58T.
 
 ## Common gate and rules (apply to every step)
 
@@ -391,6 +393,85 @@ Backlog: F29, V05. Depends on: [58R](#step-58r). Added 2026-10-13 (58R decision)
 - Tests
   - [ ] Inference, pattern-match and type tests pass unchanged; a fixture whose inputs settle in an early pass
     shows later passes skipping it.
+
+## I3. Inference cache for library directories
+
+Added 2026-10-13 (user direction): library modules (OTP `stdlib`, `kernel`, `compiler`, `syntax_tools` sources
+found through `source_search_paths`, Clause's own library) rarely change, yet every build re-infers them; on
+luerl they hold most of the inference time. Modules in configured directories keep their inference results in
+the [build cache](../docs/projects.md#build-caches), per module, and a later build reuses them.
+
+Soundness argument (recorded in `docs/semantic.md` by 58W): a module's facts depend only on its own code and the
+code of the batch modules it can reach, because exported functions and fun-named functions start from `term()`,
+local inputs come from callers in the same module, and every module a fact can name (remote calls, `apply` on
+atoms) is named by an atom literal of the module or of a module it reaches. So the key covers the module and the
+transitive closure of batch modules its atom literals name. Export liveness only removes callers, which narrows
+local inputs: facts computed with a superset of the current live functions stay sound, so an entry is reused
+when it holds every function live now. Cached and freshly inferred modules may mix: each module's facts hold for
+the program's actual behaviour, whatever the other modules' facts say.
+
+<a id="step-58u"></a>
+
+### 58U. Option `cache_inference_in_dirs` and `--cache-inference-in-dirs`
+
+Backlog: F29, D07. Depends on: [62D5](00-finished.md#step-62d5).
+
+- Success criteria
+  - [x] Target option `cache_inference_in_dirs` (strings with the wildcards of `sources`) and repeatable CLI
+    `--cache-inference-in-dirs <pattern>` (positional inputs too); both add to the implicit OTP application
+    patterns `*/stdlib`, `*/stdlib-*`, `*/kernel`, `*/kernel-*`, `*/compiler`, `*/compiler-*`,
+    `*/syntax_tools`, `*/syntax_tools-*`. A module is covered when a directory containing its source matches:
+    relative patterns match the trailing directories of any path (an installed
+    `C:/Program Files/Erlang OTP/lib/stdlib-7.0/src/lists.erl` matches `*/stdlib-*`, a checkout's
+    `lib/stdlib/src/lists.erl` matches `*/stdlib`), absolute ones the whole directory path.
+  - [x] `--print-env` prints the effective list (implicit patterns first); `docs/projects.md` documents the
+    option; the project template mentions it.
+- Tests
+  - [x] `--print-env` with manifest and CLI entries; manifest type errors; an unsupported wildcard construct.
+- Done 2026-10-13: `project/cache_dirs` (`InferenceCacheDirs`: a relative pattern becomes the glob
+  `**/<pattern>/**`, an absolute one `<pattern>/**`, matched against the source's absolute directory; Windows
+  separators normalized first), `TargetOptions::cache_inference_in_dirs_`, `PlannedTarget::cache_dirs_` (manifest
+  patterns validated while planning, CLI ones while parsing options: exit 2), `cli::positional_cache_dirs`.
+  Matching is only observable from 58W on. Tests: `project_cli` (`print_env_cache_dirs`, CLI construct and
+  missing operand, manifest type and construct), `cli` (`print_env_cache_dirs` positional). Gate (fresh
+  configure): fast CTest 274/274, `check-quality` clean.
+
+<a id="step-58v"></a>
+
+### 58V. A module's inference results as bytes
+
+Backlog: F29. Depends on: [58U](#step-58u).
+
+- Success criteria
+  - [ ] `semantic/types/inference_store` encodes one module's results without addresses: the graph nodes they
+    reach, its live functions' summaries and local inputs by name and arity, its expression facts by AST arena
+    position (`ast::Module::expression_at`), and the dependent facts they index. Decoding into another
+    `Inference` over a re-parse of the same source interns the same nodes; damaged or mismatched bytes decode to
+    nothing.
+- Tests
+  - [ ] A focused round trip in `semantic_inference`: every summary and expression fact of a re-parsed module
+    prints the same after decoding (an invariant the CLI cannot reach until 58W).
+
+<a id="step-58w"></a>
+
+### 58W. Reuse cached inference results of covered modules
+
+Backlog: F29, V05. Depends on: [58V](#step-58v).
+
+- Success criteria
+  - [ ] With a build cache, `analyze` looks up each covered module (non-empty fingerprint) under a key of the
+    clau identity, the module's fingerprint and the fingerprints of the batch modules its atom literals reach
+    transitively; `infer` takes decoded modules whose stored functions include every live one, keeps their
+    summaries, local inputs and expression facts fixed in every pass and walks only the other functions. Fresh
+    results of covered modules are stored after inference.
+  - [ ] `--verbose` prints `[cache] hit|miss inference <file>`; `--print-stage-times` shows how many modules
+    reused their results; `--no-cache` disables it. `docs/projects.md`, `docs/compile.md` and
+    `docs/semantic.md` describe key, reuse rule and soundness.
+  - [ ] luerl rerun (cold and warm, user code unchanged and changed) recorded against 58S.
+- Tests
+  - [ ] A project with covered library modules builds twice: the second build hits, `--print-types` output and
+    the executable's behaviour are the same; editing a reached library module misses its dependents; editing a
+    user module keeps the library hits.
 
 ## H3. Drop-in replacements for OTP runtime modules
 

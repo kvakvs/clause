@@ -314,6 +314,7 @@ clau [options] <source.erl>...
   --keep-exports          Keep every export of an executable callable (default: unreachable ones left out)
   --build-dir <dir>       Keep temporary files and caches below <dir> (projects default: <manifest-dir>/build)
   --no-cache              Neither read nor write build caches
+  --cache-inference-in-dirs <pattern>  Cache inference results of modules in matching directories (besides OTP's)
   --verbose               Trace files and compilation phases to stderr
   --print-stage-times     Print preprocess/parse/transform time per file, compile time per batch and link time to stderr
   -I, --include <dir>      Add an include directory (last supplied searched first)
