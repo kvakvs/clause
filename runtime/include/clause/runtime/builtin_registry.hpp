@@ -133,6 +133,11 @@ std::span<const BuiltinEntry> unicode_builtins() noexcept;
 std::span<const BuiltinEntry> code_module_builtins() noexcept;
 // The init module of step 41L: get_plain_arguments/0, get_arguments/0, get_argument/1, script_name/0.
 std::span<const BuiltinEntry> init_builtins() noexcept;
+// The atomics module of step 41N: new/2, get/2, put/3, add/3, add_get/3, sub/3, sub_get/3, exchange/3,
+// compare_exchange/4, info/1 over handle references.
+std::span<const BuiltinEntry> atomics_builtins() noexcept;
+// The erts_internal functions of step 41N stdlib needs: cmp_term/2, map_next/3.
+std::span<const BuiltinEntry> erts_internal_builtins() noexcept;
 // The binary module of step 41W: match/2,3, matches/2,3, split/2,3, compile_pattern/1; part/2,3, at/2, first/1,
 // last/1, bin_to_list/1,2,3, copy/1,2, longest_common_prefix/1, longest_common_suffix/1, referenced_byte_size/1,
 // join/2; decode_unsigned/1,2, encode_unsigned/1,2, encode_hex/1,2, decode_hex/1.

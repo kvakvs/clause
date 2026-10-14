@@ -440,6 +440,19 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"init", "get_arguments", 0},
     BuiltinName{"init", "get_argument", 1},
     BuiltinName{"init", "script_name", 0},
+    // atomics over handle references and the erts_internal functions stdlib needs (plan step 41N).
+    BuiltinName{"atomics", "new", 2},
+    BuiltinName{"atomics", "get", 2},
+    BuiltinName{"atomics", "put", 3},
+    BuiltinName{"atomics", "add", 3},
+    BuiltinName{"atomics", "add_get", 3},
+    BuiltinName{"atomics", "sub", 3},
+    BuiltinName{"atomics", "sub_get", 3},
+    BuiltinName{"atomics", "exchange", 3},
+    BuiltinName{"atomics", "compare_exchange", 4},
+    BuiltinName{"atomics", "info", 1},
+    BuiltinName{"erts_internal", "cmp_term", 2},
+    BuiltinName{"erts_internal", "map_next", 3},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

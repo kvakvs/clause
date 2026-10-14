@@ -180,7 +180,7 @@ class GraphCopy final {
 
     // Report whether a cell is an off-heap binary, whose copy needs its C++ reference built in place.
     static bool binary(const HeapCell &cell) noexcept {
-        return cell.shape == HeapCell::Shape::boxed && BoxHeader::kind(cell.words[0]) == BoxedKind::refc_binary;
+        return cell.shape == HeapCell::Shape::boxed && layout::off_heap_cell(cell.words[0]);
     }
 
     // Record a newly found object after every object found before it.

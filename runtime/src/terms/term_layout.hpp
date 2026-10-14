@@ -118,6 +118,14 @@ constexpr std::size_t heap_binary_payload_words(std::size_t bits, std::size_t wo
     return 1 + ((bits + 7) / 8 + word_bytes - 1) / word_bytes;
 }
 
+// Whether a header starts a cell of the off-heap list: an off-heap binary, or a handle reference (step 41N,
+// docs/terms.md#handle-references), a reference cell laid out as RefcBinaryCell whose number fills offset_ and bits_.
+constexpr bool off_heap_cell(Word header) noexcept {
+    return BoxHeader::kind(header) == BoxedKind::refc_binary ||
+           (BoxHeader::kind(header) == BoxedKind::reference &&
+            BoxHeader::count(header) == refc_payload_words(sizeof(Word)));
+}
+
 static_assert(float_payload_words(4) == 2 && float_payload_words(8) == 1);
 static_assert(heap_binary_payload_words(512, 4) == 17 && heap_binary_payload_words(512, 8) == 9);
 static_assert(heap_binary_payload_words(0, 4) == 1 && heap_binary_payload_words(9, 8) == 2);
@@ -200,6 +208,9 @@ static_assert(sizeof(FunCell) == 2 * sizeof(Word));
 static_assert(sizeof(std::shared_ptr<const BinaryBuffer>) == 2 * sizeof(Word));
 static_assert(alignof(std::shared_ptr<const BinaryBuffer>) <= alignof(Word));
 static_assert(sizeof(RefcBinaryCell) == (1 + refc_payload_words(sizeof(Word))) * sizeof(Word));
+// A handle reference keeps its number where a reference cell does (step 41N).
+static_assert(offsetof(RefcBinaryCell, offset_) == offsetof(ReferenceCell, number_) &&
+              offsetof(RefcBinaryCell, buffer_) >= offsetof(ReferenceCell, number_) + 8);
 static_assert(sizeof(FloatCell) == (1 + float_payload_words(sizeof(Word))) * sizeof(Word));
 static_assert(sizeof(TreeMapCell) == (1 + tree_map_payload_words(sizeof(Word))) * sizeof(Word));
 static_assert(!std::is_trivially_copyable_v<RefcBinaryCell>);

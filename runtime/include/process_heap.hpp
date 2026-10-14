@@ -73,6 +73,7 @@ struct IntegerAccess;
 struct FloatAccess;
 struct MapAccess;
 struct BitAccess;
+struct HandleAccess;
 } // namespace detail
 
 struct HeapMark {
@@ -164,6 +165,7 @@ class ProcessHeap final {
     friend struct detail::FloatAccess;
     friend struct detail::MapAccess;
     friend struct detail::BitAccess;
+    friend struct detail::HandleAccess;
     // Bind one process owner and validate heap limits before creating lazy backing storage.
     ProcessHeap(ProcessContext &owner, HeapOptions options);
     // Record a heap failure as the failed service's status, as reservations do.

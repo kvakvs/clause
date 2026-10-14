@@ -341,8 +341,42 @@ rumerge(_, _) -> erlang:error({not_implemented, rumerge, 2}).
 rumerge(_, _, _) -> erlang:error({not_implemented, rumerge, 3}).
 rumerge3(_, _, _) -> erlang:error({not_implemented, rumerge3, 3}).
 search(_, _) -> erlang:error({not_implemented, search, 2}).
-sort(_, _) -> erlang:error({not_implemented, sort, 2}).
-split(_, _) -> erlang:error({not_implemented, split, 2}).
+%% A stable merge sort by Fun(A, B), true when A sorts before or with B; maps:iterator/2 needs it (step 41N).
+sort(Fun, List) when is_function(Fun, 2) ->
+    case List of
+        [_, _ | _] -> merge_sort(Fun, List, length(List));
+        [_] -> List;
+        [] -> List
+    end.
+
+merge_sort(_, [Head | _], 1) ->
+    [Head];
+merge_sort(Fun, List, Length) ->
+    Half = Length div 2,
+    {Front, Back} = lists:split(Half, List),
+    sort_merge(Fun, merge_sort(Fun, Front, Half), merge_sort(Fun, Back, Length - Half)).
+
+sort_merge(Fun, [A | As] = Left, [B | Bs] = Right) ->
+    case Fun(A, B) of
+        true -> [A | sort_merge(Fun, As, Right)];
+        false -> [B | sort_merge(Fun, Left, Bs)]
+    end;
+sort_merge(_, [], Right) ->
+    Right;
+sort_merge(_, Left, []) ->
+    Left.
+%% The first N elements and the rest; badarg when the list is shorter (step 41N).
+split(N, List) when is_integer(N), N >= 0, is_list(List) ->
+    case split_at(N, List, []) of
+        {_, _} = Result -> Result;
+        badarg -> erlang:error(badarg, [N, List])
+    end;
+split(N, List) ->
+    erlang:error(badarg, [N, List]).
+
+split_at(0, Rest, Front) -> {lists:reverse(Front), Rest};
+split_at(N, [Head | Tail], Front) -> split_at(N - 1, Tail, [Head | Front]);
+split_at(_, _, _) -> badarg.
 sublist(_, _) -> erlang:error({not_implemented, sublist, 2}).
 sublist(_, _, _) -> erlang:error({not_implemented, sublist, 3}).
 subtract(_, _) -> erlang:error({not_implemented, subtract, 2}).

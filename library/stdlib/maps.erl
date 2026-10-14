@@ -95,12 +95,32 @@ intersect(_, _) -> erlang:error({not_implemented, intersect, 2}).
 intersect_with(_, _, _) -> erlang:error({not_implemented, intersect_with, 3}).
 is_iterator_valid(_) -> erlang:error({not_implemented, is_iterator_valid, 1}).
 is_key(_, _) -> erlang:error({not_implemented, is_key, 2}).
-iterator(_) -> erlang:error({not_implemented, iterator, 1}).
-iterator(_, _) -> erlang:error({not_implemented, iterator, 2}).
+%% Iterators (plan step 41N): [Position | Map] walks the map in its exact key order, [Keys | Map] a key list.
+iterator(Map) when is_map(Map) -> [0 | Map];
+iterator(Map) -> erlang:error({badmap, Map}, [Map]).
+
+iterator(Map, undefined) when is_map(Map) -> [0 | Map];
+iterator(Map, ordered) when is_map(Map) -> [maps:keys(Map) | Map];
+iterator(Map, reversed) when is_map(Map) -> [lists:reverse(maps:keys(Map)) | Map];
+iterator(Map, Order) when is_map(Map), is_function(Order, 2) ->
+    [lists:sort(Order, maps:keys(Map)) | Map];
+iterator(Map, Order) ->
+    erlang:error(badarg, [Map, Order]).
 merge(_, _) -> erlang:error({not_implemented, merge, 2}).
 merge_with(_, _, _) -> erlang:error({not_implemented, merge_with, 3}).
 new() -> erlang:error({not_implemented, new, 0}).
-next(_) -> erlang:error({not_implemented, next, 1}).
+next({Key, Value, Iterator}) ->
+    {Key, Value, Iterator};
+next([Path | Map] = Iterator) when (is_integer(Path) orelse is_list(Path)), is_map(Map) ->
+    try
+        erts_internal:map_next(Path, Map, iterator)
+    catch
+        error:badarg -> erlang:error(badarg, [Iterator])
+    end;
+next(none) ->
+    none;
+next(Iterator) ->
+    erlang:error(badarg, [Iterator]).
 remove(_, _) -> erlang:error({not_implemented, remove, 2}).
 size(_) -> erlang:error({not_implemented, size, 1}).
 take(_, _) -> erlang:error({not_implemented, take, 2}).

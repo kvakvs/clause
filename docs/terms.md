@@ -171,6 +171,10 @@ new reference; `pid_to_list/1` and `ref_to_list/1` return their text.
   a collection of a host `Term`, copied by value between processes.
   Numbers come from one process-wide counter, so every reference of a program
   run is unique.
+- A handle reference (plan step 41N, an OTP magic reference) is a reference
+  cell that also holds an off-heap buffer; it is the same reference to every
+  service and shares its buffer with every copy
+  ([handle references](runtime-heap.md#handle-references)).
 - Printing follows OTP's local identities: a pid as `<0.N.S>` (N the low 28
   bits of its number, S the rest), a reference as `#Ref<0.A.B.C>` (C the low
   18 bits of its number, B the next 32, A the rest), in both `~w` and display

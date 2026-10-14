@@ -212,8 +212,8 @@ Plan 11 step 41J. All live in `tests/compiler/library/`:
 | --- | --- | --- |
 | `init` | provided; implemented except `boot/1`, `restart/0,1` and `make_permanent/2`, refused | argument and status answers of a started system (41L, [init module](builtins.md#init-module)) |
 | `persistent_term` | provided, all stubs | runtime-wide term table (41M) |
-| `erts_internal` | provided, all stubs; to group: `stdlib` (`cmp_term/2`, `map_next/3`, `list_to_integer/2`, map helpers) implemented, `distribution` and `beam` declined | 41N; no distribution, no `.beam` files |
-| `atomics`, `counters`, `erts_code_purger` | provided, all stubs | 41N |
+| `erts_internal` | provided; `stdlib` and `counters` groups implemented, `get_creation/0` and `map_hashmap_children/1` refused, the `distribution`, `beam` and `emulator` groups declined | 41N ([erts_internal](builtins.md#erts-internal)); no distribution, no `.beam` files |
+| `atomics`, `counters`, `erts_code_purger` | provided; `atomics`, `counters` implemented; `purge/1`, `soft_purge/1` implemented, the purger process declined | 41N ([atomics and counters](builtins.md#atomics-and-counters)); code loading waits for step 71 |
 | `unicode_util` | provided, all stubs | tables generated from the Unicode data (41O) |
 | `erl_prim_loader` | provided, all stubs | 41P decides between implementing it over the file driver and shadowing its callers |
 | `zlib` | provided, all stubs | 41Q: pinned zlib in the runtime, or refused |

@@ -1,6 +1,9 @@
 %% Clause's replacement for OTP's erts_internal (docs/library.md#runtime-module-replacements), generated from
 %% erts_internal.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
-%% error({not_implemented, Name, Arity}).
+%% error({not_implemented, Name, Arity}). The functions stdlib needs are implemented (plan step 41N,
+%% docs/builtins.md#erts-internal): cmp_term/2 and map_next/3 are runtime builtins, the rest Erlang; write-concurrency
+%% counters are atomics arrays. A non-distributed node answers the distribution queries; the other functions serve
+%% the emulator itself, .beam files or distribution and stay declined.
 -module(erts_internal).
 -export([
     '@flush_monitor_messages_refopt'/0,
@@ -115,25 +118,48 @@ await_sched_wall_time_modifications(_, _) ->
     erlang:error({not_implemented, await_sched_wall_time_modifications, 2}).
 beamfile_chunk(_, _) -> erlang:error({not_implemented, beamfile_chunk, 2}).
 beamfile_module_md5(_) -> erlang:error({not_implemented, beamfile_module_md5, 1}).
-binary_to_integer(_, _) -> erlang:error({not_implemented, binary_to_integer, 2}).
+%% Helper of binary_to_integer/1,2: the integer, big beyond a small integer, or badarg.
+binary_to_integer(Binary, Base) ->
+    try erlang:binary_to_integer(Binary, Base) of
+        Integer -> small_or_big(Integer)
+    catch
+        error:_ -> badarg
+    end.
 breakpoint(_, _, _, _) -> erlang:error({not_implemented, breakpoint, 4}).
 check_dirty_process_code(_, _) -> erlang:error({not_implemented, check_dirty_process_code, 2}).
 check_process_code(_) -> erlang:error({not_implemented, check_process_code, 1}).
 check_process_code(_, _, _) -> erlang:error({not_implemented, check_process_code, 3}).
 cmp_term(_, _) -> erlang:error({not_implemented, cmp_term, 2}).
-counters_add(_, _, _) -> erlang:error({not_implemented, counters_add, 3}).
-counters_get(_, _) -> erlang:error({not_implemented, counters_get, 2}).
-counters_info(_) -> erlang:error({not_implemented, counters_info, 1}).
-counters_new(_) -> erlang:error({not_implemented, counters_new, 1}).
-counters_put(_, _, _) -> erlang:error({not_implemented, counters_put, 3}).
+%% Write-concurrency counters: a signed atomics array, as atomics counters are.
+counters_add(Ref, Ix, Incr) -> atomics:add(Ref, Ix, Incr).
+counters_get(Ref, Ix) -> atomics:get(Ref, Ix).
+counters_info(Ref) ->
+    #{size := Size, memory := Memory} = atomics:info(Ref),
+    #{size => Size, memory => Memory}.
+counters_new(Size) -> atomics:new(Size, [{signed, true}]).
+counters_put(Ref, Ix, Value) -> atomics:put(Ref, Ix, Value).
 crasher(_, _, _, _, _, _) -> erlang:error({not_implemented, crasher, 6}).
 create_dist_channel(_, _, _) -> erlang:error({not_implemented, create_dist_channel, 3}).
 dirty_process_handle_signals(_) -> erlang:error({not_implemented, dirty_process_handle_signals, 1}).
 dist_ctrl_put_data(_, _) -> erlang:error({not_implemented, dist_ctrl_put_data, 2}).
 dist_spawn_init(_) -> erlang:error({not_implemented, dist_spawn_init, 1}).
 dist_spawn_request(_, _, _, _) -> erlang:error({not_implemented, dist_spawn_request, 4}).
-dynamic_node_name() -> erlang:error({not_implemented, dynamic_node_name, 0}).
-dynamic_node_name(_) -> erlang:error({not_implemented, dynamic_node_name, 1}).
+dynamic_node_name() ->
+    case persistent_term:get({?MODULE, dynamic_node_name}, false) of
+        false -> false;
+        _ -> true
+    end.
+
+dynamic_node_name(true) ->
+    persistent_term:put({?MODULE, dynamic_node_name}, true);
+dynamic_node_name(false) ->
+    case dynamic_node_name() of
+        false ->
+            ok;
+        _ ->
+            _ = persistent_term:erase({?MODULE, dynamic_node_name}),
+            ok
+    end.
 erase_persistent_terms() -> erlang:error({not_implemented, erase_persistent_terms, 0}).
 ets_info_binary(_) -> erlang:error({not_implemented, ets_info_binary, 1}).
 ets_lookup_binary_info(_, _) -> erlang:error({not_implemented, ets_lookup_binary_info, 2}).
@@ -150,7 +176,8 @@ gather_microstate_accounting_result(_, _) ->
 gather_sched_wall_time_result(_) ->
     erlang:error({not_implemented, gather_sched_wall_time_result, 1}).
 gather_system_check_result(_) -> erlang:error({not_implemented, gather_system_check_result, 1}).
-get_creation() -> erlang:error({not_implemented, get_creation, 0}).
+%% A node that is not distributed has no creation.
+get_creation() -> undefined.
 get_dflags() -> erlang:error({not_implemented, get_dflags, 0}).
 get_internal_state_blocked(_) -> erlang:error({not_implemented, get_internal_state_blocked, 1}).
 group_leader(_, _) -> erlang:error({not_implemented, group_leader, 2}).
@@ -159,10 +186,59 @@ is_process_alive(_) -> erlang:error({not_implemented, is_process_alive, 1}).
 is_process_alive(_, _) -> erlang:error({not_implemented, is_process_alive, 2}).
 is_process_executing_dirty(_) -> erlang:error({not_implemented, is_process_executing_dirty, 1}).
 is_system_process(_) -> erlang:error({not_implemented, is_system_process, 1}).
-list_to_integer(_, _) -> erlang:error({not_implemented, list_to_integer, 2}).
-map_hashmap_children(_) -> erlang:error({not_implemented, map_hashmap_children, 1}).
+%% Helper of list_to_integer/1,2 and string:to_integer/1: {Integer, Rest} for an optional sign and at least one
+%% digit, big beyond a small integer, no_integer without digits, not_a_list or badarg.
+list_to_integer([], _) ->
+    no_integer;
+list_to_integer(List, _) when not is_list(List) ->
+    not_a_list;
+list_to_integer(_, Base) when not is_integer(Base); Base < 2; Base > 36 ->
+    badarg;
+list_to_integer([$- | Digits], Base) ->
+    signed_digits(-1, Digits, Base);
+list_to_integer([$+ | Digits], Base) ->
+    signed_digits(1, Digits, Base);
+list_to_integer(Digits, Base) ->
+    signed_digits(1, Digits, Base).
+
+signed_digits(Sign, Digits, Base) ->
+    case digits(Digits, Base, 0, 0) of
+        {_, _, 0} -> no_integer;
+        {Value, Rest, _} -> small_or_big_rest(Sign * Value, Rest)
+    end.
+
+digits([C | Rest] = All, Base, Value, Count) when is_integer(C) ->
+    case digit(C) of
+        D when D < Base -> digits(Rest, Base, Value * Base + D, Count + 1);
+        _ -> {Value, All, Count}
+    end;
+digits(Rest, _, Value, Count) ->
+    {Value, Rest, Count}.
+
+digit(C) when C >= $0, C =< $9 -> C - $0;
+digit(C) when C >= $a, C =< $z -> C - $a + 10;
+digit(C) when C >= $A, C =< $Z -> C - $A + 10;
+digit(_) -> 36.
+
+small_or_big_rest(Integer, Rest) ->
+    case small_or_big(Integer) of
+        big -> big;
+        _ -> {Integer, Rest}
+    end.
+
+%% OTP's helpers answer big for integers outside a small integer of the word size.
+small_or_big(Integer) ->
+    Bits = 8 * erlang:system_info(wordsize) - 4,
+    case Integer >= -(1 bsl (Bits - 1)) andalso Integer < 1 bsl (Bits - 1) of
+        true -> Integer;
+        false -> big
+    end.
+
+%% No map has hashmap nodes: every map is one sorted table.
+map_hashmap_children(_) -> erlang:error(badarg).
 map_next(_, _, _) -> erlang:error({not_implemented, map_next, 3}).
-map_to_tuple_keys(_) -> erlang:error({not_implemented, map_to_tuple_keys, 1}).
+%% The sorted keys of any map, as of OTP's flatmaps.
+map_to_tuple_keys(Map) when is_map(Map) -> list_to_tuple(maps:keys(Map)).
 mc_iterator(_) -> erlang:error({not_implemented, mc_iterator, 1}).
 mc_refill(_) -> erlang:error({not_implemented, mc_refill, 1}).
 new_connection(_) -> erlang:error({not_implemented, new_connection, 1}).
@@ -198,7 +274,29 @@ system_monitor(_) -> erlang:error({not_implemented, system_monitor, 1}).
 system_monitor(_, _, _) -> erlang:error({not_implemented, system_monitor, 3}).
 term_to_string(_) -> erlang:error({not_implemented, term_to_string, 1}).
 term_to_string(_, _) -> erlang:error({not_implemented, term_to_string, 2}).
-term_type(_) -> erlang:error({not_implemented, term_type, 1}).
+%% OTP's internal type names for Clause's terms: maps are flatmaps, bitstrings sub_binary as OTP's binary terms
+%% usually are, integers fixnum within a small integer of the word size.
+term_type(Term) when is_integer(Term) ->
+    case small_or_big(Term) of
+        big -> bignum;
+        _ -> fixnum
+    end;
+term_type(Term) when is_float(Term) -> hfloat;
+term_type([]) ->
+    nil;
+term_type(Term) when is_list(Term) -> list;
+term_type(Term) when is_tuple(Term) -> tuple;
+term_type(Term) when is_map(Term) -> flatmap;
+term_type(Term) when is_bitstring(Term) -> sub_binary;
+term_type(Term) when is_function(Term) ->
+    case erlang:fun_info(Term, type) of
+        {type, external} -> export;
+        _ -> 'fun'
+    end;
+term_type(Term) when is_reference(Term) -> reference;
+term_type(Term) when is_pid(Term) -> pid;
+term_type(Term) when is_port(Term) -> port;
+term_type(Term) when is_atom(Term) -> atom.
 time_unit() -> erlang:error({not_implemented, time_unit, 0}).
 trace(_, _, _) -> erlang:error({not_implemented, trace, 3}).
 trace(_, _, _, _) -> erlang:error({not_implemented, trace, 4}).

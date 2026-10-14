@@ -139,7 +139,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | --- | --- | --- | --- |
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
-| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41L; open: [41N](#step-41n)–[41S](#step-41s) |
+| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41N; open: [41O](#step-41o)–[41S](#step-41s) |
 | H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](00-finished.md#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -151,7 +151,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41L, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41N, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -342,26 +342,6 @@ other), and add or adjust steps here before coding the next one.
 
 Split on 2026-10-14 (user direction) into [41M1](00-finished.md#step-41m1) (the runtime
 table) and [41M2](00-finished.md#step-41m2) (the builtins), both in phase H4.
-
-<a id="step-41n"></a>
-
-### 41N. `erts_internal`, `atomics`, `counters` and `erts_code_purger`
-
-Backlog: F36, D01. Depends on: [41K](00-finished.md#step-41k).
-
-- Success criteria
-  - [ ] `erts_internal` functions that `stdlib` needs: `cmp_term/2`,
-    `map_next/3` (the `maps` iterator protocol), `list_to_integer/2`,
-    `map_to_tuple_keys/1`, `map_hashmap_children/1`; distribution and
-    `.beam` functions `declined` or `refused` with OTP's non-distributed
-    answers.
-  - [ ] `atomics` and `counters` as runtime builtins (new, get, put, add,
-    sub, exchange, compare_exchange, info), if trivial; otherwise decided.
-  - [ ] `erts_code_purger:purge/1`, `soft_purge/1` answer as for a module
-    without old code; `finish_after_on_load/2` follows step 71.
-- Tests
-  - [ ] OTP-goldened executable using `maps` iterators and ordering,
-    `string:to_integer`-style callers, atomics and counters.
 
 <a id="step-41o"></a>
 

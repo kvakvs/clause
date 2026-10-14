@@ -87,6 +87,25 @@ process heap, shared by reference count (BEAM ProcBin and `Binary`).
 - `std::shared_ptr` is two pointers on every supported STL; a `static_assert`
   keeps the cell size fixed at five words after the header on both widths.
 
+### Handle references
+
+Plan 11 step 41N. A handle reference is a reference that also holds one
+off-heap buffer, as an OTP magic reference holds a resource; `atomics` arrays
+live in them ([atomics and counters](builtins.md#atomics-and-counters)).
+
+- Its cell has kind `reference` and the `refc_binary` layout: five words after
+  the header, the 64-bit reference number in the offset and bit-length words
+  (where a plain reference cell keeps it), then the `shared_ptr` and the link
+  word. Every reference service reads only the number, so it compares, hashes,
+  prints and encodes like a plain reference.
+- It is listed, moved, swept, charged and copied exactly like an off-heap
+  binary cell (`layout::off_heap_cell`); its buffer is freed when the last
+  copy of the reference in any process dies.
+- A process-wide registry maps the numbers of live handles to their buffers
+  (weak references), so `binary_to_term/1` of an encoded handle rebuilds a
+  handle sharing the buffer while it lives, and a plain reference after.
+  Expired entries are dropped as the registry grows.
+
 ## Off-heap maps
 
 A map with more than 32 entries (OTP's `MAP_SMALL_MAP_LIMIT`) is a 4-word

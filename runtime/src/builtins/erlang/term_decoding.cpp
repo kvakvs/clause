@@ -1,4 +1,5 @@
 #include "../../process/identities.hpp"
+#include "../../terms/identities.hpp"
 #include "../../terms/integers.hpp"
 #include "../text.hpp"
 #include "../typed.hpp"
@@ -251,7 +252,7 @@ class Decoder {
             bad_argument();
         }
         const auto number = item.identity_[2] << 50U | item.identity_[1] << 18U | item.identity_[0];
-        return need(TermFactory(context_).reference_number(number));
+        return need(detail::HandleAccess::reference(context_, number));
     }
 
     // fun M:F/A.

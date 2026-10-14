@@ -17,13 +17,14 @@ bool heap_binary_sized(std::span<const Word> payload) {
            payload.size() == layout::heap_binary_payload_words(payload[0], sizeof(Word));
 }
 
-// The payload words of the fixed-size kinds without terms: floats, references and off-heap binaries.
-std::optional<std::size_t> fixed_payload(BoxedKind kind) {
+// The payload words of the fixed-size kinds without terms: floats, references and off-heap binaries. A reference
+// of `all` off-heap binary words is a handle reference (step 41N).
+std::optional<std::size_t> fixed_payload(BoxedKind kind, std::size_t all) {
     switch (kind) {
     case BoxedKind::floating:
         return layout::float_payload_words(sizeof(Word));
     case BoxedKind::reference:
-        return layout::reference_payload_words(sizeof(Word));
+        return all == layout::refc_payload_words(sizeof(Word)) ? all : layout::reference_payload_words(sizeof(Word));
     case BoxedKind::refc_binary:
         return layout::refc_payload_words(sizeof(Word));
     case BoxedKind::tree_map:
@@ -37,7 +38,7 @@ std::optional<std::size_t> fixed_payload(BoxedKind kind) {
 // without terms is untraced throughout. A native record's or fun's definition word precedes its values.
 std::expected<std::size_t, WalkError> untraced(BoxedKind kind, std::span<const Word> payload) {
     const auto all = payload.size();
-    if (const auto words = fixed_payload(kind)) {
+    if (const auto words = fixed_payload(kind, all)) {
         return sized(all == *words, all);
     }
     switch (kind) {

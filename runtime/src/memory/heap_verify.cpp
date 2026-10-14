@@ -62,8 +62,7 @@ class Verifier final {
             return;
         }
         ++(cell.shape == Shape::cons ? census_.cons_cells : census_.boxed_objects);
-        refc_cells_ += static_cast<std::size_t>(cell.shape == Shape::boxed &&
-                                                layout::BoxHeader::kind(cell.words[0]) == BoxedKind::refc_binary);
+        refc_cells_ += static_cast<std::size_t>(cell.shape == Shape::boxed && layout::off_heap_cell(cell.words[0]));
         tree_cells_ += static_cast<std::size_t>(cell.shape == Shape::boxed &&
                                                 layout::BoxHeader::kind(cell.words[0]) == BoxedKind::tree_map);
         starts_.push_back({reinterpret_cast<std::uintptr_t>(cell.words.data()), cell.shape});
@@ -108,8 +107,7 @@ class Verifier final {
         decltype(storage_.buffers_) buffers;
         for (const auto *cell = storage_.off_heap_; cell != nullptr; cell = cell->next_) {
             const auto value = reinterpret_cast<Word>(cell) | static_cast<Word>(TermKindPrimary::boxed);
-            if (shape_at(value) != Shape::boxed ||
-                layout::BoxHeader::kind(cell->header_.value_) != BoxedKind::refc_binary) {
+            if (shape_at(value) != Shape::boxed || !layout::off_heap_cell(cell->header_.value_)) {
                 return false;
             }
             ++buffers[cell->buffer_.get()];

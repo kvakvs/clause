@@ -39,6 +39,8 @@ builtin both the compiler and the runtime know:
 - the `unicode` conversions (plan step 41Y1, [unicode module](#unicode-module));
 - the `code` module's loaded-module queries (plan step 41Z, [code module](#code-module));
 - the `init` module's command-line answers (plan step 41L, [init module](#init-module));
+- `atomics`, `counters` and the `erts_internal` functions stdlib calls (plan step 41N,
+  [atomics and counters](#atomics-and-counters), [erts_internal](#erts-internal));
 - process identities (plan step 42): `self/0`, `make_ref/0`, `pid_to_list/1`
   and `ref_to_list/1` ([pids and references](terms.md#pids-and-references));
 - processes (plan step 43): `spawn/1,3` and `is_process_alive/1`
@@ -310,6 +312,51 @@ forward slashes. These four are builtins; the rest are Erlang:
   checks (`restart/1` of a list that is not `[]` or `[{mode, M}]` is
   `badarg`), `make_permanent/2` returns `{error, notsup}` for valid names and
   `{error, badarg}` otherwise.
+
+## Atomics and counters
+
+Plan 11 step 41N (`runtime/src/builtins/atomics.cpp`). An `atomics` array is a
+[handle reference](runtime-heap.md#handle-references) whose buffer holds a
+signedness word and the 64-bit values, updated through `std::atomic_ref`
+with sequentially consistent operations; it is shared by every copy of the
+reference (messages, persistent terms, `binary_to_term/1` while it lives) and
+freed with the last one.
+
+- `new/2` takes an arity from 1 to 2^27 and `[{signed, Bool}]` options (the
+  last wins); `get/2`, `put/3`, `add/3`, `add_get/3`, `sub/3`, `sub_get/3`,
+  `exchange/3`, `compare_exchange/4` and `info/1` are builtins with OTP's
+  `badarg` for a bad reference, index or value. Stored values must fit the
+  array (int64 or uint64); increments may be any integer from -2^63 to
+  2^64 - 1 and wrap. `info/1` reports OTP's `memory` of 40 + 8 bytes per
+  value.
+- `counters` is Erlang (`library/erts/counters.erl`): `{atomics, Ref}` and
+  `{write_concurrency, Ref}` both wrap a signed atomics array, so
+  write-concurrency counters are exact at every read. `info/1` of the
+  latter reports the array's size and memory.
+
+## Erts internal
+
+Plan 11 step 41N (`runtime/src/builtins/erts_internal.cpp`,
+`library/erts/erts_internal.erl`). The functions OTP's `stdlib` and `kernel`
+call:
+
+- builtins `cmp_term/2` (exact term order: an integer before an equal
+  float) and `map_next/3`, the protocol of `maps:iterator/1,2` and
+  `maps:next/1`: an integer path walks the map in key order and continues
+  over the remaining keys, a key-list path takes its keys in order; a list
+  accumulator receives every association from the path on;
+- Erlang `list_to_integer/2` and `binary_to_integer/2` (the helpers of
+  `string:to_integer/1` and the conversion BIFs, `big` beyond a small
+  integer of the word size), `map_to_tuple_keys/1` (the sorted keys of any
+  map), `term_type/1`, the write-concurrency `counters_*` functions,
+  `dynamic_node_name/0,1` over `persistent_term`;
+- refused: `get_creation/0` is `undefined` (no distribution) and
+  `map_hashmap_children/1` raises `badarg` (no map has hashmap nodes);
+- declined: the distribution, `.beam` and emulator-internal groups.
+
+`erts_code_purger:purge/1` answers `{false, false}` and `soft_purge/1`
+`true`, since linked code has no old code; the purger process and
+`finish_after_on_load/2` wait for [step 71](../.agents/11-plan.md#step-71).
 
 ## Portions
 

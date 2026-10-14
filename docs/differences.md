@@ -12,6 +12,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | --- | --- | --- | --- |
 | Map generator order (`K := V <- M`) | Flat maps (up to 32 keys) iterate in key order, but atom keys in atom-table order, which varies between VM runs; larger maps in hash order | Always canonical key order (term order) | [patterns](patterns.md#comprehensions) |
 | `bad_generators` payload of a map generator in a zip group | Its iterator: `{K, V, Next}` chain ending in `none`, in OTP's order | The same chain, built in canonical key order | [patterns](patterns.md#comprehensions) |
+| `maps:iterator/1,2`, `maps:next/1`, `erts_internal:map_next/3` (step 41N) | Internal order (atom-table order for atom keys, hash order above 32 keys); an iterator is a position or a `{K, V, Next}` chain | Canonical key order; an iterator continues over a key list | [builtins](builtins.md#erts-internal) |
 | Map printing (`erlang:display/1`, `~w`, `~p`) | Internal layout order (atom-table order for atom keys, hash order above 32 keys) | Map-key order, as OTP's `~kw` | [terms](terms.md#printing) |
 | Native record printing (`erlang:display/1`) | Fields in atom-table index order | Definition order, as `~w` | [native records](native-records.md#printing-and-order) |
 | `==` between native records whose fields differ only as integer/float | The compiler may fold it to `=:=` (false) | Numeric comparison (true) | [native records](native-records.md#printing-and-order) |
@@ -41,6 +42,9 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `init:get_argument(home)` on Windows without `HOMEDRIVE`/`HOMEPATH` (step 41L) | The shell's profile folder | `USERPROFILE`, normally the same folder | [builtins](builtins.md#init-module) |
 | `erlang:halt(Slogan)`, `init:stop(Slogan)` | Prints the slogan, writes `erl_crash.dump` in the current directory and says so on stderr; exit status 1 | Prints the slogan on stderr, writes no crash dump; exit status 1 | [executables](executables.md) |
 | `init:restart/0,1`, `init:boot/1`, `init:make_permanent/2` (step 41L) | Restart the system in the same node, boot it, or set the boot script of the next restart | Refused: `notsup` error, `{error, notsup}` from `make_permanent/2` | [builtins](builtins.md#init-module) |
+| `atomics:new/2` arity (step 41N) | Any positive integer the allocator can serve; a huge one ends the node with a crash dump | 1 to 2^27, else `badarg` | [builtins](builtins.md#atomics-and-counters) |
+| `counters` with `write_concurrency` (step 41N) | Per-scheduler counters summed on read; `info/1` memory grows with the scheduler count | One atomics array; `info/1` memory is the array's | [builtins](builtins.md#atomics-and-counters) |
+| `erts_internal:term_type/1` (step 41N) | The internal representation: `flatmap` or `hashmap`, `heap_binary`, `refc_binary` or `sub_binary`, ... | Every map `flatmap`, every bitstring `sub_binary` | [builtins](builtins.md#erts-internal) |
 | `code:is_sticky/1` (step 41Z) | `true` for modules of `kernel`, `stdlib` and `compiler` | Always `false` | [builtins](builtins.md#code-module) |
 | Output to a file device (`io:format(File, ...)`, step 41U) | Characters are encoded as the file's encoding (`latin1` by default: characters above 255 are an error) | Always UTF-8 bytes | [io](io.md#calls) |
 | Formatting a large term (`io:format/1,2`) | Runs in Erlang code (`io_lib`) and the group leader, so the process can be preempted while formatting | Runs to completion in one builtin call; other processes wait | [builtins](builtins.md#portions) |

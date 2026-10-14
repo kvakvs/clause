@@ -75,7 +75,7 @@ Word Copier::copy_cons(std::span<Word> from) noexcept {
 Word Copier::copy_boxed(std::span<Word> from) noexcept {
     const auto size = 1 + BoxHeader::count(from[0]);
     const auto copy = to_.bump(size);
-    if (BoxHeader::kind(from[0]) == BoxedKind::refc_binary) {
+    if (layout::off_heap_cell(from[0])) {
         relocate_off_heap(*reinterpret_cast<layout::RefcBinaryCell *>(from.data()),
                           reinterpret_cast<std::byte *>(copy.data()));
     } else {

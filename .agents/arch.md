@@ -165,6 +165,9 @@
   Persistent terms: runtime-wide `memory/persistent_terms` table of `MessageBuffer`s, values copied out per read.
   Phase H3 41L: startup decodes argv/executable path/home once into `ProgramArguments` (`RuntimeOptions::program`,
   `ProcessContext::program_arguments`); entry argv and the `init` builtins read it; `init` answers as a started node.
+  41N handle references: kind `reference` in the `refc_binary` layout (number in offset_/bits_, shared_ptr buffer,
+  off-heap list link; `layout::off_heap_cell`), weak process-wide registry revives them in `binary_to_term`;
+  `atomics` arrays live in their buffers.
   The `erlang` library module (step 41B): `library/erts/erlang.erl` is generated from the owned inventory
   `erlang.terms`; non-builtin `erlang:F/A` and unqualified OTP auto-imports (`semantic::library_auto_import`) pull
   it in like `lists`; `CodeServer::index` skips exports a builtin names, literal builtin funs bind the builtin.

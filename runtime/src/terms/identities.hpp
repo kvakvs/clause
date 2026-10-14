@@ -1,7 +1,11 @@
 #pragma once
 #include "term_text.hpp"
 #include <clause/runtime/terms.hpp>
+#include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <span>
+#include <vector>
 
 // Pids, ports and references (docs/terms.md#pids-and-references, docs/ports.md#identity): an immediate pid or port
 // word carries its number; a reference cell carries a number unique within the program run.
@@ -13,4 +17,20 @@ TermResult<int> identity_order(const Term &left, const Term &right) noexcept;
 // Print a pid as <0.Number.Serial>, a port as #Port<0.Number> and a reference as #Ref<0.N2.N1.N0>, as OTP prints
 // local identities.
 TermResult<void> print_identity(const Term &value, TextOutput &out);
+
+// Handle references (plan step 41N, docs/terms.md#handle-references): references that also hold one off-heap
+// buffer, as OTP's magic references hold a resource. atomics arrays live in them.
+struct HandleAccess {
+    // A new reference holding a new off-heap buffer of `bytes`, charged to this process like an off-heap binary.
+    static TermResult<Term> make(ProcessHeap &heap, std::span<const std::byte> bytes);
+    // The reference of `number`: a handle reference again while its buffer lives, else a plain one (binary_to_term).
+    static TermResult<Term> reference(ProcessContext &context, std::uint64_t number);
+    // The buffer a handle reference holds, valid while the term is; wrong_type for every other term.
+    static TermResult<const std::vector<std::byte> *> buffer(const Term &value) noexcept;
+
+  private:
+    // Publish a handle reference cell of `number` holding `buffer`, charged to this process like an off-heap binary.
+    static TermResult<Term> publish_handle(ProcessHeap &heap, std::uint64_t number,
+                                           std::shared_ptr<const std::vector<std::byte>> buffer);
+};
 } // namespace clause::runtime::detail

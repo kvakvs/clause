@@ -618,3 +618,9 @@ Host and tool gotchas:
   own, get_status {starting, started}, init:ensure_loaded loads; fully started OTP gives {started, started},
   not_allowed, fetch_loaded []. Golden checks shape only for those. init:stop("bye") under OTP writes erl_crash.dump
   in the staged dir, exit 1.
+- 41N (2026-10-14): handle reference = RefcBinaryCell layout with kind reference (count 5); every refc-binary
+  site that keyed on BoxedKind::refc_binary now uses layout::off_heap_cell (copy.cpp, heap_collect, heap_verify,
+  heap_walk fixed_payload). OTP revives magic refs through binary_to_term on the same node (atomics still usable):
+  Clause's weak registry in terms/identities.cpp does the same. OTP small-map iteration order follows atom index
+  (user 2026-10-14: leave Clause's key order, recorded in differences). OTP atomics:new(2^60) kills the VM
+  (allocator crash dump): never probe huge arities. Python edit scripts: write with the Write tool, run with python.
