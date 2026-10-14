@@ -120,6 +120,12 @@ std::span<const BuiltinEntry> lists_ordering_builtins() noexcept;
 std::span<const BuiltinEntry> lists_key_builtins() noexcept;
 // The math module of step 41V: every OTP 29 math function over the C library.
 std::span<const BuiltinEntry> math_builtins() noexcept;
+// The binary module of step 41W: match/2,3, matches/2,3, split/2,3, compile_pattern/1; part/2,3, at/2, first/1,
+// last/1, bin_to_list/1,2,3, copy/1,2, longest_common_prefix/1, longest_common_suffix/1, referenced_byte_size/1,
+// join/2; decode_unsigned/1,2, encode_unsigned/1,2, encode_hex/1,2, decode_hex/1.
+std::span<const BuiltinEntry> binary_search_builtins() noexcept;
+std::span<const BuiltinEntry> binary_part_builtins() noexcept;
+std::span<const BuiltinEntry> binary_encoding_builtins() noexcept;
 // The binary, atom and number conversions of step 41D: atom_to_binary/1,2, binary_to_atom/1,2,
 // binary_to_existing_atom/1,2, list_to_existing_atom/1, integer_to_binary/1,2, binary_to_integer/1,2,
 // float_to_binary/1,2, binary_to_float/1, list_to_float/1, binary_to_list/3, bitstring_to_list/1,

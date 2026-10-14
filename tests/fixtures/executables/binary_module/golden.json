@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "binary_module",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "{match,{2,2}}\n{match,nomatch}\n{match,{0,3}}\n{match,{0,2}}\n{match,{3,2}}\n{match,{6,2}}\n{match,error,badarg}\n{match,error,badarg}\n{match,error,badarg}\n{match,error,badarg}\n{match,error,badarg}\n{match,error,badarg}\n{match,error,badarg}\n{match,error,badarg}\n{match,error,badarg}\n{match,nomatch}\n{matches,[{0,2},{3,2},{6,2}]}\n{matches,[{0,3},{3,3},{6,1}]}\n{matches,[{0,2},{2,2}]}\n{matches,[{3,2},{6,2}]}\n{matches,[]}\n{split,[<<97,98>>,<<97,98,99,97,98>>]}\n{split,[<<97,98>>,<<97,98>>,<<97,98>>]}\n{split,[<<>>,<<97>>,<<>>,<<98>>,<<>>,<<>>]}\n{split,[<<>>,<<97>>,<<>>,<<98>>]}\n{split,[<<97>>,<<98>>]}\n{split,[<<97,44,44,98,44,44>>]}\n{split,[<<>>]}\n{split,[]}\n{split,[]}\n{split,[<<97,98,99,97>>,<<99,97,98>>]}\n{split,[<<>>,<<>>,<<>>,<<>>,<<>>,<<98>>]}\n{split,[<<97,98,99,97,98,99,97,98>>]}\n{split,error,badarg}\n{part,<<98,99,97>>}\n{part,<<99,97,98>>}\n{part,<<97,98,99,97,98,99,97,98>>}\n{part,<<>>}\n{part,error,badarg}\n{part,error,badarg}\n{part,error,badarg}\n{part,error,badarg}\n{at,97}\n{at,98}\n{at,error,badarg}\n{at,error,badarg}\n{first,97}\n{first,error,badarg}\n{last,98}\n{last,error,badarg}\n{bin_to_list,[1,2,3]}\n{bin_to_list,[2,3]}\n{bin_to_list,[2,3]}\n{bin_to_list,error,badarg}\n{list_to_bin,<<1,2,3>>}\n{list_to_bin,error,badarg}\n{list_to_bin,error,badarg}\n{copy,<<97,98>>}\n{copy,<<97,98,97,98,97,98>>}\n{copy,<<>>}\n{copy,error,badarg}\n{longest_common_prefix,2}\n{longest_common_prefix,3}\n{longest_common_prefix,0}\n{longest_common_prefix,error,badarg}\n{longest_common_suffix,2}\n{longest_common_suffix,error,badarg}\n{referenced_byte_size,8}\n{decode_unsigned,256}\n{decode_unsigned,1}\n{decode_unsigned,0}\n{decode_unsigned,4722366482869645213695}\n{decode_unsigned,error,badarg}\n{encode_unsigned,<<1,0>>}\n{encode_unsigned,<<0,1>>}\n{encode_unsigned,<<0>>}\n{encode_unsigned,<<64,0,0,0,0,0,0,0,0>>}\n{encode_unsigned,error,badarg}\n{encode_hex,<<48,49,65,66,70,70>>}\n{encode_hex,<<48,49,97,98,102,102>>}\n{encode_hex,<<>>}\n{encode_hex,error,badarg}\n{decode_hex,<<1,171,255>>}\n{decode_hex,error,badarg}\n{decode_hex,error,badarg}\n{join,<<97,44,32,98,44,32,99>>}\n{join,<<>>}\n{join,<<97>>}\n{join,error,badarg}\n[<<97,88,99,97,98,99>>,<<97,88,99,97,88,99>>,<<91,97,93,98,91,99,93,91,97,93,98,91,99,93>>,<<97,98,99,60,98,99,62,98,99,97,98,99,60,98,99,62,98,99>>,<<97,98,98,99,97,98,98,99>>,<<97,98,99,97,45,99>>,<<97,98,99,97,98,99>>,{replace,error,badarg},{replace,error,badarg},{replace,error,badarg},{replace,error,badarg}]\n[{2,2},[{1,1},{2,2},{4,1}],[<<49>>,<<50>>],<<33,33>>,{compile_pattern,error,badarg},{compile_pattern,error,badarg}]\nbinary_module: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "binary_module.erl": "1c5fbdb4ef9c738565d04e0a69db4ea3e35f8e5f22490ef96c0cba9e46f1982c"
+  }
+}

@@ -23,6 +23,7 @@
 {gen_udp, kernel, provided}.
 {inet, kernel, provided}.
 {os, kernel, provided}.
+{binary, stdlib, provided}.
 {io, stdlib, provided}.
 {lists, stdlib, provided}.
 {maps, stdlib, provided}.

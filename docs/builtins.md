@@ -32,6 +32,7 @@ builtin both the compiler and the runtime know:
   41U): `io:format/3`, `io:fwrite/1,2,3`, `io:put_chars/2`, `io:nl/0,1`;
 - the `lists` data functions (plan step 41T, [lists module](#lists-module));
 - every `math` function (plan step 41V, [math module](#math-module));
+- the `binary` module (plan step 41W, [binary module](#binary-module));
 - process identities (plan step 42): `self/0`, `make_ref/0`, `pid_to_list/1`
   and `ref_to_list/1` ([pids and references](terms.md#pids-and-references));
 - processes (plan step 43): `spawn/1,3` and `is_process_alive/1`
@@ -180,6 +181,29 @@ result that is not a finite float (a domain error such as `sqrt(-1)`,
 `badarith`. `floor/1` and `ceil/1` return floats. Results are the host C
 library's, which can differ from OTP's in the last bit
 ([differences](differences.md)).
+
+## Binary module
+
+Plan 11 step 41W (`runtime/src/builtins/binary/`). `library/stdlib/binary.erl`
+holds OTP 29's exports; `replace/3,4` (including a fun replacement and
+`{insert_replaced, ...}`) and `list_to_bin/1` are Erlang over the builtins,
+every other function is a builtin:
+
+- Patterns are a non-empty binary, a non-empty list of non-empty binaries or
+  a compiled pattern. A match is the leftmost position and there the longest
+  pattern; `matches/2,3` and `split/2,3` with `global` take non-overlapping
+  matches from the left. `{scope, {Start, Length}}` limits where matches may
+  start and end (a negative length counts back); `split/3` also takes
+  `global`, `trim` and `trim_all`.
+- `compile_pattern/1` returns `{bm, [Pattern]}` or `{ac, Patterns}`, Clause's
+  own shape (OTP: a reference inside the tuple, [differences](differences.md)).
+- `part/2,3`, `bin_to_list/2,3`, `at/2`, `first/1`, `last/1`, `copy/1,2`,
+  `longest_common_prefix/1`, `longest_common_suffix/1`, `join/2`,
+  `decode_unsigned/1,2`, `encode_unsigned/1,2`, `encode_hex/1,2` and
+  `decode_hex/1` follow OTP; every wrong argument (a bitstring, a range
+  outside the subject, an unknown option) is `badarg`.
+- `referenced_byte_size/1` is the binary's own size.
+- They run to completion.
 
 ## Portions
 

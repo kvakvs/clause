@@ -17,6 +17,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/registry.cpp src/builtins/invocation.cpp src/builtins/bridge.cpp src/builtins/portions.cpp src/builtins/float_text.cpp src/builtins/text.cpp src/builtins/typed.cpp src/builtins/io.cpp src/builtins/io_format.cpp src/builtins/io_pretty.cpp src/builtins/os.cpp src/builtins/math.cpp src/builtins/output.cpp
     # Module erlang: one translation unit per builtin family (docs/builtins.md#source-layout).
     src/builtins/erlang/core.cpp src/builtins/erlang/term_access.cpp src/builtins/erlang/lists.cpp src/builtins/erlang/conversions.cpp src/builtins/erlang/conversion_text.cpp src/builtins/erlang/binary_conversions.cpp src/builtins/erlang/term_encoding.cpp src/builtins/erlang/term_decoding.cpp src/builtins/erlang/time.cpp src/builtins/erlang/timers.cpp src/builtins/erlang/introspection.cpp src/builtins/erlang/system.cpp src/builtins/erlang/spawning.cpp src/builtins/erlang/fun_info.cpp src/builtins/erlang/hashing.cpp src/builtins/erlang/md5.cpp src/builtins/erlang/node.cpp src/builtins/erlang/code.cpp src/builtins/erlang/processes.cpp src/builtins/erlang/ports.cpp src/builtins/erlang/dictionary.cpp
+    # Module binary (plan step 41W).
+    src/builtins/binary/binary_search.cpp src/builtins/binary/search.cpp src/builtins/binary/parts.cpp src/builtins/binary/encoding.cpp
     # Module lists (plan step 41T).
     src/builtins/lists/list_walk.cpp src/builtins/lists/sublists.cpp src/builtins/lists/ordering.cpp src/builtins/lists/keys.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp
