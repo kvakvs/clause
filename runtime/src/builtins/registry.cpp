@@ -186,7 +186,9 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      erts_internal_builtins(),
                                      unicode_table_builtins(),
                                      re_builtins(),
-                                     zlib_builtins()};
+                                     zlib_builtins(),
+                                     re_pattern_builtins(),
+                                     re_matching_builtins()};
     return families;
 }
 } // namespace clause::runtime

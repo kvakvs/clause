@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
+## Plan 11 (steps 1–68, 41A–41R, 41ZA, 41ZB, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -292,6 +292,15 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   `term_to_binary(_, [compressed | {compressed, N}])` compresses as OTP decides and `binary_to_term` inflates. Test
   `executables_zlib_streams` (byte-exact output for every level/strategy/window, compressed terms). Gate: fast
   CTest 294/294 (1 disabled), `check-quality` clean.
+- **41ZB (H5):** 2026-10-14, `re` over PCRE2 ([builtins](../docs/builtins.md#re-module)): decided to keep OTP's
+  split instead of making all of `re` builtins: C++ `clause_re:compile/2` (compile options, PCRE2's error message)
+  and `clause_re:run/4` (one match of a byte subject: offsets, capture specs and types, duplicated names, match
+  limits, report_errors, OTP's badargs) plus `re:inspect/2`; a compiled pattern is OTP 29's
+  `{re_pattern, N, Unicode, CRLF, Ref}` with a handle reference owning the `pcre2_code`. `re.erl` converts Unicode
+  chardata, runs the global loop as OTP's loopexec, and implements replace/split. `import/1` and `export` declined;
+  `lists:all/2`, `any/2`, `dropwhile/2`, `takewhile/2` implemented. Differences rows: long matches do not yield,
+  exported patterns, error origin. Test `executables_re_module` (OTP golden). The luerl rerun moved to 41S.
+  Fresh gate: fast CTest 295/295 (1 disabled; six tests timed out across a host suspend and passed on rerun), check-quality passed.
 - **41T (H4):** 2026-10-14, `lists` data functions as runtime builtins ([builtins](../docs/builtins.md#lists-module)):
   `runtime/src/builtins/lists/` (`sublist/2,3`, `droplast/1`, `nthtail/2`, `last/1`, `duplicate/2`, `join/2`,
   `flatten/1,2`, `max/1`, `min/1`, `usort/1`, `umerge/1,2`, `keymember/3`, `keysearch/3`, `keydelete/3`) with OTP's

@@ -368,6 +368,26 @@ Plan 11 steps 41ZA and 41ZB (`runtime/src/builtins/re/`, `library/stdlib/re.erl`
 over the PCRE2 release OTP bundles ([PCRE2](compile.md#pcre2)). `version/0` is PCRE2's version and date as a
 binary (`<<"10.47 2025-10-21">>`, as on OTP).
 
+A compiled pattern is OTP 29's `{re_pattern, CaptureCount, Unicode, UseCRLF, Ref}`, where `Ref` is a
+[handle reference](runtime-heap.md#handle-references) owning the `pcre2_code`; its finalizer frees the code with
+the last copy, and processes share it read-only. As in OTP, the C side is small and the rest is Erlang:
+
+- `clause_re:compile/2` compiles a regex binary with compile options (`{ok, Pattern}` or `{error, {Message,
+  Offset}}` with PCRE2's message); `re:inspect/2` answers `namelist`.
+- `clause_re:run/4` is OTP's `re:run` BIF without its traps: one match of a binary subject from `{offset, N}`,
+  compiling a textual regex first (`{error, {compile, Reason}}` with `report_errors`), with every capture spec
+  (`all`, `first`, `all_but_first`, `none`, `all_names`, numbers and names, duplicated names) and type
+  (`index`, `list`, `binary`), `match_limit` and `match_limit_recursion` (`{error, match_limit}` with
+  `report_errors`, else `nomatch`), and OTP's `badarg` for compile options or other newline conventions given
+  with a compiled pattern.
+- `re.erl` converts Unicode chardata to UTF-8 and captures back to characters, runs `global` matches one at a time
+  (after an empty match it retries anchored and non-empty, then steps one character, or a CR LF pair with CRLF
+  newlines, as OTP's `loopexec` does), and implements `replace/3,4` (`\N`, `\gN`, `\g{N}`, `&`, a replacement
+  fun) and `split/2,3` (`{parts, N}`, `trim`, `group`, `{return, Type}`) with OTP's results.
+
+Exported patterns (`export`, `import/1`) are not provided. `executables_re_module` compares compiling, matching,
+captures, global and Unicode matches, replace, split and argument errors with OTP.
+
 ## Atomics and counters
 
 Plan 11 step 41N (`runtime/src/builtins/atomics.cpp`). An `atomics` array is a

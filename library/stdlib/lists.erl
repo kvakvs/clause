@@ -112,6 +112,59 @@ append(List1, List2) -> List1 ++ List2.
 filter(Pred, List) when is_function(Pred, 1) ->
     [Element || Element <- List, Pred(Element)].
 
+%% Whether Pred is true for every element (re's global matches and splits, plan step 41ZB); a non-list is a
+%% case_clause error, as in OTP.
+all(Pred, List) when is_function(Pred, 1) ->
+    case List of
+        [Element | Rest] -> all_rest(Pred, [Element | Rest]);
+        [] -> true
+    end.
+
+all_rest(Pred, [Element | Rest]) ->
+    case Pred(Element) of
+        true -> all_rest(Pred, Rest);
+        false -> false
+    end;
+all_rest(_, []) ->
+    true.
+
+%% Whether Pred is true for some element.
+any(Pred, List) when is_function(Pred, 1) ->
+    case List of
+        [Element | Rest] -> any_rest(Pred, [Element | Rest]);
+        [] -> false
+    end.
+
+any_rest(Pred, [Element | Rest]) ->
+    case Pred(Element) of
+        true -> true;
+        false -> any_rest(Pred, Rest)
+    end;
+any_rest(_, []) ->
+    false.
+
+%% The list from the first element for which Pred is false.
+dropwhile(Pred, List) when is_function(Pred, 1) -> drop_while(Pred, List).
+
+drop_while(Pred, [Element | Rest] = List) ->
+    case Pred(Element) of
+        true -> drop_while(Pred, Rest);
+        false -> List
+    end;
+drop_while(_, []) ->
+    [].
+
+%% The elements before the first one for which Pred is false.
+takewhile(Pred, List) when is_function(Pred, 1) -> take_while(Pred, List).
+
+take_while(Pred, [Element | Rest]) ->
+    case Pred(Element) of
+        true -> [Element | take_while(Pred, Rest)];
+        false -> []
+    end;
+take_while(_, []) ->
+    [].
+
 %% Fold from the first element: Fun(Element, Acc) returns the next Acc. A non-list
 %% is a case_clause error, an improper tail a function_clause error, as in OTP.
 foldl(Fun, Acc, List) when is_function(Fun, 2) ->
@@ -286,12 +339,9 @@ merge([], Right, Acc) ->
 merge(Left, [], Acc) ->
     reverse(Acc, Left).
 
-all(_, _) -> erlang:error({not_implemented, all, 2}).
-any(_, _) -> erlang:error({not_implemented, any, 2}).
 concat(_) -> erlang:error({not_implemented, concat, 1}).
 delete(_, _) -> erlang:error({not_implemented, delete, 2}).
 droplast(_) -> erlang:error({not_implemented, droplast, 1}).
-dropwhile(_, _) -> erlang:error({not_implemented, dropwhile, 2}).
 duplicate(_, _) -> erlang:error({not_implemented, duplicate, 2}).
 enumerate(_) -> erlang:error({not_implemented, enumerate, 1}).
 enumerate(_, _) -> erlang:error({not_implemented, enumerate, 2}).
@@ -387,7 +437,6 @@ suffix(Suffix, List) ->
     Delta = length(List) - length(Suffix),
     Delta >= 0 andalso lists:nthtail(Delta, List) =:= Suffix.
 sum(_) -> erlang:error({not_implemented, sum, 1}).
-takewhile(_, _) -> erlang:error({not_implemented, takewhile, 2}).
 ukeymerge(_, _, _) -> erlang:error({not_implemented, ukeymerge, 3}).
 ukeysort(_, _) -> erlang:error({not_implemented, ukeysort, 2}).
 umerge(_) -> erlang:error({not_implemented, umerge, 1}).

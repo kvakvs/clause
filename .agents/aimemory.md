@@ -192,3 +192,7 @@ Plan history: .agents/11-plan.md (compact step records), .agents/00-finished.md 
   CMake change) once failed a tidy batch with no diagnostic; a rerun passed. Heredoc python with '\0' writes a real
   NUL into C++: use static_cast<char>(0) or the Write tool. include_guard(GLOBAL) cmake files: file-level variables
   are invisible to later includers in other directories - keep data inside functions.
+- 41ZB (2026-10-14): re.erl mirrors OTP's re.erl split (urun / loopexec / precomp_repl / do_split) over
+  clause_re:compile/2 and clause_re:run/4; re:inspect/2 is a builtin, so re.erl calls it qualified. OTP's re
+  source (references/otp/lib/stdlib/src/re.erl) is the spec for edge cases: retry-after-empty uses the original
+  offset, duplicate matches are dropped. lists:all/any/dropwhile/takewhile became implemented for it.

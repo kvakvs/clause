@@ -24,7 +24,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     # Module unicode (plan step 41Y1).
     src/builtins/unicode/encodings.cpp src/builtins/unicode/properties.cpp src/builtins/unicode/tables.cpp src/builtins/unicode/chardata.cpp src/builtins/unicode/conversions.cpp
     # Module re over PCRE2 (plan step 41ZA).
-    src/builtins/re/version.cpp
+    src/builtins/re/version.cpp src/builtins/re/options.cpp src/builtins/re/patterns.cpp src/builtins/re/matching.cpp
     # Module zlib streams (plan step 41Q).
     src/builtins/zlib/streams.cpp
     # Module lists (plan step 41T).

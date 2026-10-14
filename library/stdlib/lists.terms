@@ -1,13 +1,13 @@
 %% OTP 29 lists exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
 %% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
-{all, 2, default, stub}.
-{any, 2, default, stub}.
+{all, 2, default, implemented}.
+{any, 2, default, implemented}.
 {append, 1, default, implemented}.
 {append, 2, default, implemented}.
 {concat, 1, default, stub}.
 {delete, 2, default, stub}.
 {droplast, 1, default, implemented}.
-{dropwhile, 2, default, stub}.
+{dropwhile, 2, default, implemented}.
 {duplicate, 2, default, implemented}.
 {enumerate, 1, default, stub}.
 {enumerate, 2, default, stub}.
@@ -69,7 +69,7 @@
 {subtract, 2, default, stub}.
 {suffix, 2, default, implemented}.
 {sum, 1, default, stub}.
-{takewhile, 2, default, stub}.
+{takewhile, 2, default, implemented}.
 {ukeymerge, 3, default, stub}.
 {ukeysort, 2, default, stub}.
 {umerge, 1, default, implemented}.

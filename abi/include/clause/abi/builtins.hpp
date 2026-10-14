@@ -463,6 +463,10 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"unicode_util", "pattern_whitespace", 0},
     // The re module over PCRE2 (plan step 41ZA; runtime/src/builtins/re/).
     BuiltinName{"re", "version", 0},
+    // Patterns and matching (plan step 41ZB; runtime/src/builtins/re/).
+    BuiltinName{"clause_re", "compile", 2},
+    BuiltinName{"re", "inspect", 2},
+    BuiltinName{"clause_re", "run", 4},
     // zlib streams (plan step 41Q; runtime/src/builtins/zlib/).
     BuiltinName{"clause_zlib", "open", 0},
     BuiltinName{"clause_zlib", "close", 1},

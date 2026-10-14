@@ -172,6 +172,8 @@
   observation dump + UCD files) behind private `clause_unicode` builtins; Erlang walks keep OTP's shapes (41O2: gc/1 in OTP's rule order, nf*).
   H5 41ZA: PCRE2 10.47 objects merged into clause_runtime (source or download); an installed PCRE2 becomes an
   extra linker input in clause_runtime.link that clau appends.
+  41ZB re: OTP's split kept: C++ `clause_re:compile/2`/`run/4` (one match of a byte subject, pattern = handle
+  reference owning pcre2_code); re.erl does Unicode conversion, the global loop (loopexec), replace and split.
   41Q zlib 1.3.2 objects likewise; zlib streams are handle references with a finalizer (HandleAccess::make);
   term_to_binary compressed / binary_to_term inflate in term_encoding/term_decoding.
   The `erlang` library module (step 41B): `library/erts/erlang.erl` is generated from the owned inventory

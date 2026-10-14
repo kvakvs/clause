@@ -140,7 +140,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
 | H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41R; open: [41S](#step-41s) |
-| H5. Regular expressions (`re`) | [41ZA](00-finished.md#step-41za), [41ZB](#step-41zb) | F36 | done: 41ZA; open: [41ZB](#step-41zb) |
+| H5. Regular expressions (`re`) | [41ZA](00-finished.md#step-41za), [41ZB](00-finished.md#step-41zb) | F36 | done |
 | H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](00-finished.md#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -372,22 +372,6 @@ of their module; fun-taking functions stay Erlang. Left for later steps: `re` (l
 Inserted 2026-10-14 (user direction) for [the luerl library ledger](21-lib.md) row 17. The engine is upstream
 PCRE2, the library OTP itself bundles, so pattern syntax, options and captures match without translation. OTP's
 interruptible-match patch to `pcre2_match` is not carried over: Clause uses stock PCRE2.
-
-<a id="step-41zb"></a>
-
-### 41ZB. `re` builtins over PCRE2
-
-Backlog: F36. Depends on: [41ZA](00-finished.md#step-41za).
-
-- Success criteria
-  - [ ] `re:compile/1,2`, `re:run/2,3` as runtime builtins over PCRE2 (options, capture specs, `unicode`,
-    `match_limit`/`match_limit_recursion` mapped to PCRE2 limits); `re:replace`, `re:split` and the rest of
-    `re.erl` stay Erlang.
-  - [ ] A compiled pattern is an opaque `{re_pattern, ...}` term whose binary differs from OTP's; recorded in
-    `docs/differences.md`, together with matches not yielding (a long match holds its scheduler thread).
-  - [ ] luerl ledger row 17 rerun; `os.date` checked against OTP.
-- Tests
-  - [ ] OTP-goldened executables for compile/run/replace/split options, captures, Unicode and error tuples.
 
 ## M. Validation closure
 
