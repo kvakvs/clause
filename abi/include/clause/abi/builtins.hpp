@@ -417,6 +417,15 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"persistent_term", "get", 2},
     BuiltinName{"persistent_term", "erase", 1},
     BuiltinName{"persistent_term", "info", 0},
+    // The unicode conversions (plan step 41Y1; runtime/src/builtins/unicode/).
+    BuiltinName{"unicode", "characters_to_binary", 1},
+    BuiltinName{"unicode", "characters_to_binary", 2},
+    BuiltinName{"unicode", "characters_to_binary", 3},
+    BuiltinName{"unicode", "characters_to_list", 1},
+    BuiltinName{"unicode", "characters_to_list", 2},
+    BuiltinName{"unicode", "bin_is_7bit", 1},
+    BuiltinName{"unicode", "bom_to_encoding", 1},
+    BuiltinName{"unicode", "encoding_to_bom", 1},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

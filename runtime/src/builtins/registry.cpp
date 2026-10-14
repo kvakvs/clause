@@ -178,7 +178,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      binary_part_builtins(),
                                      binary_encoding_builtins(),
                                      maps_builtins(),
-                                     persistent_term_builtins()};
+                                     persistent_term_builtins(),
+                                     unicode_builtins()};
     return families;
 }
 } // namespace clause::runtime

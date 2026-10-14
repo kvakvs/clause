@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "unicode_calls",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "{characters_to_binary,<<97,98,99,100,226,130,172,101>>}\n{characters_to_binary,<<112,108,97,105,110>>}\n{characters_to_binary,{error,<<97>>,[-1,98]}}\n{characters_to_binary,{error,<<97,98>>,[[1114112,99],100]}}\n{characters_to_binary,{error,<<97,98>>,[[[55296,99],100],101]}}\n{characters_to_binary,{error,<<97,98>>,[<<255>>,[99]]}}\n{characters_to_binary,{incomplete,<<97>>,<<226,130>>}}\n{characters_to_binary,<<97,226,130,172>>}\n{characters_to_binary,{error,<<97>>,[<<226>>,[98]]}}\n{characters_to_binary,{error,<<97>>,<<192,128>>}}\n{characters_to_binary,<<97>>}\n{characters_to_binary,{error,<<>>,[256]}}\n{characters_to_binary,<<195,136,195,137>>}\n{characters_to_binary,{error,<<>>,[[256]]}}\n{characters_to_binary,{error,<<97>>,[[256],98]}}\n{characters_to_binary,<<195,136>>}\n{characters_to_binary,<<0,97,0,98>>}\n{characters_to_binary,<<97,0,98,0>>}\n{characters_to_binary,<<216,61,222,0>>}\n{characters_to_binary,<<61,216,0,222>>}\n{characters_to_binary,<<0,0,0,97>>}\n{characters_to_binary,<<97,0,0,0>>}\n{characters_to_binary,<<97,240,159,152,128>>}\n{characters_to_binary,{incomplete,<<97>>,<<61,216>>}}\n{characters_to_binary,{incomplete,<<97>>,<<0>>}}\n{characters_to_binary,<<97>>}\n{characters_to_binary,{error,<<>>,<<0,17,0,0>>}}\n{characters_to_binary,<<97,255>>}\n{characters_to_binary,<<120,121>>}\n{characters_to_binary,{error,<<>>,<<226,130,172>>}}\n{characters_to_binary,{error,<<97,98>>,[[-1]]}}\n{characters_to_binary,{error,<<>>,[[<<255>>]]}}\n{characters_to_binary,{error,<<97>>,[[<<255>>,99]]}}\n{characters_to_binary,{error,<<97>>,[[[-1],98]]}}\n{characters_to_binary,{error,<<97>>,[[<<255>>]]}}\n{characters_to_binary,{error,<<120>>,[<<226>>,[98]]}}\n{characters_to_binary,{error,<<120>>,[<<226>>,[[98]]]}}\n{characters_to_binary,{incomplete,<<120>>,<<226>>}}\n{characters_to_binary,{error,<<120>>,<<226,121>>}}\n{characters_to_binary,{error,<<97>>,[[[[256]],98]]}}\n{characters_to_binary,{error,<<97>>,[<<196,128>>,98]}}\n{characters_to_binary,<<>>}\n{characters_to_binary,error,badarg}\n{characters_to_binary,error,badarg}\n{characters_to_binary,error,badarg}\n{characters_to_binary,error,badarg}\n{characters_to_binary,error,badarg}\n{characters_to_list,[104,233]}\n{characters_to_list,[200]}\n{characters_to_list,{error,[97],[55296]}}\n{characters_to_list,[97,98]}\n{characters_to_list,{incomplete,[97],<<226>>}}\n{characters_to_list,{error,[],[55296]}}\n{bin_is_7bit,true}\n{bin_is_7bit,false}\n{bin_is_7bit,false}\n{bom_to_encoding,{utf8,3}}\n{bom_to_encoding,{latin1,0}}\n{bom_to_encoding,{{utf32,little},4}}\n{bom_to_encoding,{{utf16,little},2}}\n{bom_to_encoding,{{utf16,big},2}}\n{bom_to_encoding,{{utf32,big},4}}\n{encoding_to_bom,<<255,254>>}\n{encoding_to_bom,<<254,255>>}\n{encoding_to_bom,<<0,0,254,255>>}\n{encoding_to_bom,<<239,187,191>>}\n{encoding_to_bom,<<>>}\n{encoding_to_bom,error,function_clause}\nunicode_calls: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "unicode_calls.erl": "27868be5727ce4dc2b496a76a58b2183017d65c36d41de1f776c17f07412c2c3"
+  }
+}

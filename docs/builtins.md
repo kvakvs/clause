@@ -36,6 +36,7 @@ builtin both the compiler and the runtime know:
 - `os` environment, process and version queries and the `maps` BIFs (plan step 41X,
   [maps module](#maps-module));
 - `persistent_term` (plan step 41M2, [persistent terms](#persistent-terms));
+- the `unicode` conversions (plan step 41Y1, [unicode module](#unicode-module));
 - process identities (plan step 42): `self/0`, `make_ref/0`, `pid_to_list/1`
   and `ref_to_list/1` ([pids and references](terms.md#pids-and-references));
 - processes (plan step 43): `spawn/1,3` and `is_process_alive/1`
@@ -236,6 +237,31 @@ equal value, else `badarg`); `get/1` of a key not stored is `badarg`,
 says whether the key was stored; `info/0` is `#{count => N, memory => Bytes}`
 (the words of the stored copies). Keys match exactly (`1` and `1.0` differ).
 Every read copies the value into the caller's heap.
+
+## Unicode module
+
+Plan 11 step 41Y1 (`runtime/src/builtins/unicode/`). `library/stdlib/unicode.erl`
+holds OTP 29's exports and types; `characters_to_binary/1,2,3`,
+`characters_to_list/1,2`, `bin_is_7bit/1`, `bom_to_encoding/1` and
+`encoding_to_bom/1` are builtins, the normalization, category and identifier
+functions stay stubs until `unicode_util` ([step 41O](../.agents/11-plan.md#step-41o)).
+
+- Encodings: `latin1`, `unicode`/`utf8`, `utf16` and `utf32`, big endian by
+  default or `{utf16 | utf32, big | little}`; anything else is `badarg`
+  (`encoding_to_bom/1`: `function_clause`, as OTP).
+- Chardata is a binary or a list, possibly improper with a binary tail, of
+  code points, binaries in the input encoding and nested chardata;
+  consecutive binaries decode as one stream, so a character may span two.
+  Anything else is `badarg`.
+- A character the output cannot take (an invalid code point or byte
+  sequence, a code above 255 for `latin1` output) ends the conversion with
+  `{error, Converted, Rest}`; input ending inside a character with
+  `{incomplete, Converted, Rest}`. `Rest` has OTP's shape: the unconverted
+  part of the innermost list headed by the failing element (a binary as its
+  unconverted suffix, alone when it ends the top level), inside the remaining
+  tail of every enclosing list; unfinished bytes carried from a binary come
+  first, and with `latin1` output a failing integer is wrapped in a list.
+- `bin_is_7bit/1` is false for anything but a binary of bytes below 128.
 
 ## Portions
 

@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
+## Plan 11 (steps 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -266,6 +266,12 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   (`builtins/erlang/hashing.hpp`) and matched exactly; OTP's `badarg` for a missing key and a conflicting
   `put_new/2`. Test `executables_persistent_term` (large values, 8 reader processes, readers keeping copies after
   replace and erase). Gate: fast CTest clean, `check-quality` clean.
+- **41Y1 (H4):** 2026-10-14, `unicode` conversions ([builtins](../docs/builtins.md#unicode-module)): provided module
+  `library/stdlib/unicode.erl` (OTP 29 exports and types); `runtime/src/builtins/unicode/` builtins
+  `characters_to_binary/1,2,3`, `characters_to_list/1,2`, `bin_is_7bit/1`, `bom_to_encoding/1`, `encoding_to_bom/1`
+  for latin1/utf8/utf16/utf32 in both byte orders, binaries decoded as one stream, OTP's `error`/`incomplete`
+  results with OTP-shaped rest terms (derived from probes); normalization and properties stay stubs (41O). Test
+  `executables_unicode`. Gate: fast CTest clean, `check-quality` clean.
 - **69A (M):** 2026-10-12, manual benchmarks against OTP ([validation](../docs/validation.md)): `benchmarks/` (6
   programs, 29 kernels, `run.py`), `make benchmark`, `make-benchmark.bat`, local history; never part of the gate.
   First run: Clause O2 20.2x slower than OTP JIT (geometric mean), sockets at par, quadratic binary appends and map
@@ -366,6 +372,7 @@ criteria and evidence are in Git at those commits. Contracts in the linked
 - <a id="step-41x"></a>**41X.** `os` and `maps` gaps — commit `[plan11] 41X ...`
 - <a id="step-41m1"></a>**41M1.** Runtime-wide persistent term table — commit `[plan11] 41M1 ...`
 - <a id="step-41m2"></a>**41M2.** `persistent_term` builtins — commit `[plan11] 41M2 ...`
+- <a id="step-41y1"></a>**41Y1.** `unicode` conversions — commit `[plan11] 41Y1 ...`
 - <a id="step-42"></a>**42.** Implement pid and reference identities — `59064bf`
 - <a id="step-43"></a>**43.** Run spawned processes on a cooperative executor — `f092504`
 - <a id="step-43a"></a>**43A.** Make long-running builtins interruptible — `0682b54`

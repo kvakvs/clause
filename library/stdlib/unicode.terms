@@ -1,0 +1,24 @@
+%% OTP 29 unicode exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{bin_is_7bit, 1, default, implemented}.
+{bom_to_encoding, 1, default, implemented}.
+{category, 1, default, stub}.
+{characters_to_binary, 1, default, implemented}.
+{characters_to_binary, 2, default, implemented}.
+{characters_to_binary, 3, default, implemented}.
+{characters_to_binary_int, 2, default, stub}.
+{characters_to_list, 1, default, implemented}.
+{characters_to_list, 2, default, implemented}.
+{characters_to_list_int, 2, default, stub}.
+{characters_to_nfc_binary, 1, default, stub}.
+{characters_to_nfc_list, 1, default, stub}.
+{characters_to_nfd_binary, 1, default, stub}.
+{characters_to_nfd_list, 1, default, stub}.
+{characters_to_nfkc_binary, 1, default, stub}.
+{characters_to_nfkc_list, 1, default, stub}.
+{characters_to_nfkd_binary, 1, default, stub}.
+{characters_to_nfkd_list, 1, default, stub}.
+{encoding_to_bom, 1, default, implemented}.
+{is_id_continue, 1, default, stub}.
+{is_id_start, 1, default, stub}.
+{is_whitespace, 1, default, stub}.

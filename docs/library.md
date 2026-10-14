@@ -18,6 +18,7 @@ from OTP sources) and compiled with the programs that use it.
 | [`clause_socket`](../library/kernel/clause_socket.erl) | Clause's own: the socket driver protocol the three modules above share |
 | [`erlang`](../library/erts/erlang.erl) | Generated stubs of every OTP 29 `erlang` export; builtins replace theirs, `nif_error/1,2` have bodies, others raise `{not_implemented, F, A}` when called ([erlang module](builtins.md#erlang-module)) |
 | [`binary`](../library/stdlib/binary.erl) | Every OTP 29 function: `replace/3,4` and `list_to_bin/1` in Erlang, the others runtime builtins ([binary module](builtins.md#binary-module)) |
+| [`unicode`](../library/stdlib/unicode.erl) | Conversions, `bin_is_7bit/1` and byte order marks as runtime builtins ([unicode module](builtins.md#unicode-module)); normalization and properties are stubs |
 | [`math`](../library/stdlib/math.erl) | Every OTP 29 function as a runtime builtin ([math module](builtins.md#math-module)) |
 | [`persistent_term`](../library/erts/persistent_term.erl) | Every OTP 29 function as a runtime builtin ([persistent terms](builtins.md#persistent-terms)) |
 | [`os`](../library/kernel/os.erl) | `cmd/1` over a port ([subprocesses](ports.md#subprocesses)), `timestamp/0`, `system_time/0,1`, `perf_counter/0,1`, `getenv/2`; `type/0`, `getenv/0,1`, `env/0`, `putenv/2`, `unsetenv/1`, `getpid/0` and `version/0` are runtime builtins |
@@ -115,7 +116,7 @@ warning, since nothing is replaced.
 - Library modules live in `library/<application>/`, named after the OTP
   application that owns the module in OTP: `erts` (preloaded counterparts and
   `erlang`), `kernel` (`file`, `gen_tcp`, `gen_udp`, `inet`, `os`, and Clause's
-  own `clause_socket`), `stdlib` (`binary`, `lists`, `maps`, `math`, `io`, `unicode_util`). The
+  own `clause_socket`), `stdlib` (`binary`, `lists`, `maps`, `math`, `io`, `unicode`, `unicode_util`). The
   library lookup searches every application directory; a module name exists
   in at most one of them.
 - `library/modules.terms` lists every module Clause decides about:
