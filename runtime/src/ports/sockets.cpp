@@ -66,6 +66,8 @@ enum class SocketOperation : std::uint8_t {
     udp_recv = 12,
     cancel = 13,
     resolve = 14,
+    // The machine's host name (step 41R).
+    hostname = 15,
 };
 
 // How data reaches the owner: as messages ({active, true}, once for one message) or only through recv.
@@ -853,6 +855,18 @@ Bytes resolve(std::span<const std::byte> data) {
     return addresses.empty() ? failure("nxdomain") : ok(addresses);
 }
 
+// hostname: this machine's host name, from the socket layer (plan step 41R); runs on the calling worker.
+Bytes hostname() {
+    std::array<char, 256> name{};
+    if (gethostname(name.data(), static_cast<int>(name.size() - 1)) != 0) {
+        return failure("einval");
+    }
+    const std::string_view text(name.data());
+    Bytes bytes(text.size());
+    std::ranges::transform(text, bytes.begin(), [](char c) { return static_cast<std::byte>(c); });
+    return ok(bytes);
+}
+
 class SocketDriver final : public PortDriver {
   public:
     explicit SocketDriver(std::shared_ptr<Socket> socket) noexcept : socket_(std::move(socket)) {}
@@ -883,6 +897,9 @@ class SocketDriver final : public PortDriver {
         const auto kind = static_cast<SocketOperation>(operation);
         if (kind == SocketOperation::resolve) {
             return resolve(data);
+        }
+        if (kind == SocketOperation::hostname) {
+            return hostname();
         }
         Bytes copy(data.begin(), data.end());
         return on_socket_thread(socket_->context(),

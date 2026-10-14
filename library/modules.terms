@@ -18,6 +18,8 @@
 {prim_socket, erts, missing, "socket NIF; Clause's gen_tcp, gen_udp and inet replace it"}.
 {socket_registry, erts, missing, "bookkeeping of the socket NIF, which Clause does not provide"}.
 {application_controller, kernel, provided}.
+{net, kernel, missing, "network queries over the socket NIF; Clause's inet answers host names and addresses"}.
+{socket, kernel, missing, "the socket NIF API; Clause's gen_tcp, gen_udp and inet are the network layer"}.
 {code, kernel, provided}.
 {file, kernel, provided}.
 {gen_tcp, kernel, provided}.

@@ -372,6 +372,19 @@ Implementation (`runtime/src/ports/sockets.cpp`):
   lookup runs on the caller's worker, as it blocks.
 - Socket ports are scheduled like other ports ([port tasks](#port-tasks)): a
   socket's messages wait in its port until the port's task delivers them.
+- Addresses and hosts (plan step 41R): `inet:parse_address/1,2`,
+  `parse_strict_address/1,2`, `parse_ipv4_address/1`, `parse_ipv4strict_address/1`,
+  `parse_ipv6_address/1`, `parse_ipv6strict_address/1` (OTP's relaxed forms: short
+  and octal or hexadecimal IPv4 fields, `::`, IPv4 tails, `%scope` of `fe80::` and
+  `ff02::`), `ntoa/1` (OTP's spelling: lowercase hexadecimal, the first longest
+  zero run as `::`), `is_ipv4_address/1`, `is_ipv6_address/1`, `is_ip_address/1`
+  are Erlang; `gethostname/0` (a socket operation), `getaddr/2`, `getaddrs/2`
+  (the system resolver, `getaddrinfo`) and `gethostbyname/1,2` (`h_name` is the
+  name asked, no aliases) answer through a socket port opened for the query.
+- Decided in 41R: Clause's `gen_tcp`, `gen_udp` and `inet` are the network layer
+  and grow toward OTP's export lists as programs need; OTP's `socket` and `net`
+  modules (the socket NIF API) are missing, so are `prim_socket`, `prim_net`,
+  `prim_inet` and `socket_registry`.
 
 ## Not provided
 

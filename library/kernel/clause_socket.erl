@@ -8,6 +8,8 @@
     control/3,
     request/4,
     resolve/3,
+    addresses/3,
+    hostname/1,
     names/2,
     setopts/2,
     controlling_process/2,
@@ -23,6 +25,7 @@
 -define(PEERNAME, 8).
 -define(CANCEL, 13).
 -define(RESOLVE, 14).
+-define(HOSTNAME, 15).
 -define(UNCHANGED, 255).
 
 % A new socket port of Driver ("tcp_inet" or "udp_inet") owned by and linked to the caller.
@@ -190,6 +193,32 @@ resolve(Socket, Host, Family) when is_list(Host) ->
     end;
 resolve(_, _, _) ->
     {error, einval}.
+
+% {ok, [Address]}: every address of a host name of family 4 or 6, loopback too (plan step 41R).
+addresses(_, loopback, Family) ->
+    {ok, [element(2, resolve(none, loopback, Family))]};
+addresses(Socket, Host, Family) when is_atom(Host) ->
+    addresses(Socket, atom_to_list(Host), Family);
+addresses(Socket, Host, Family) when is_list(Host) ->
+    case control(Socket, ?RESOLVE, [Family, Host]) of
+        {ok, Bytes} -> {ok, address_list(Bytes)};
+        Error -> Error
+    end;
+addresses(_, _, _) ->
+    {error, einval}.
+
+address_list(<<>>) ->
+    [];
+address_list(Bytes) ->
+    {Address, Rest} = address_tuple(Bytes),
+    [Address | address_list(Rest)].
+
+% {ok, Name}: this machine's host name (plan step 41R).
+hostname(Socket) ->
+    case control(Socket, ?HOSTNAME, []) of
+        {ok, Name} -> {ok, binary_to_list(Name)};
+        Error -> Error
+    end.
 
 % {ok, {Address, Port}} of the socket's own end, or of its peer when Peer.
 names(Socket, Peer) ->

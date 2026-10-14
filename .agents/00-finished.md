@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41P, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
+## Plan 11 (steps 1–68, 41A–41P, 41R, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -269,6 +269,12 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   option variants; `del_dir/1` no longer deletes files; links read with readlink/FSCTL_GET_REPARSE_POINT (MSVC
   `read_symlink` trips clang-analyzer). Test `executables_file_paths`. Gate: fast CTest 291/291 (1 disabled),
   `check-quality` clean.
+- **41R (H3):** 2026-10-14, networking ([ports](../docs/ports.md#sockets-57f)): decided Clause's `gen_tcp`, `gen_udp`,
+  `inet` are the network layer; `socket` and `net` missing with the `prim_*` layer and `socket_registry`. `inet`
+  gains OTP's address parsing (relaxed/strict IPv4 and IPv6, scopes), `ntoa/1`, `is_*_address/1`, `gethostname/0`
+  (new socket operation hostname), `getaddr/2`, `getaddrs/2` (all addresses: `clause_socket:addresses/3`),
+  `gethostbyname/1,2`. Test `executables_inet_addresses` (48 texts through 8 parsers, ntoa, lookups by shape).
+  Gate: fast CTest 292/292 (1 disabled), `check-quality` clean.
 - **41T (H4):** 2026-10-14, `lists` data functions as runtime builtins ([builtins](../docs/builtins.md#lists-module)):
   `runtime/src/builtins/lists/` (`sublist/2,3`, `droplast/1`, `nthtail/2`, `last/1`, `duplicate/2`, `join/2`,
   `flatten/1,2`, `max/1`, `min/1`, `usort/1`, `umerge/1,2`, `keymember/3`, `keysearch/3`, `keydelete/3`) with OTP's
