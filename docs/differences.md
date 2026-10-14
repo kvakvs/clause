@@ -32,6 +32,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `binary:compile_pattern/1` result (step 41W) | `{bm, Ref}` or `{ac, Ref}` with an opaque reference | `{bm, [Pattern]}` or `{ac, Patterns}` | [builtins](builtins.md#binary-module) |
 | `binary:referenced_byte_size/1` of a sub-binary (step 41W) | The size of the binary it refers into | Its own size | [builtins](builtins.md#binary-module) |
 | Cost of `persistent_term:get/1,2` (step 41M1) | Constant: the value stays in a literal area; `put`/`erase` of a replaced value trigger a global collection | Copies the value into the reader's heap on every read; no global collection | [runtime](runtime.md#persistent-terms) |
+| `persistent_term:info/0` and `get/0` (step 41M2) | Include the terms OTP's `kernel` and `stdlib` store at boot (26 on OTP 29) | Only the program's own terms | [builtins](builtins.md#persistent-terms) |
 | Output to a file device (`io:format(File, ...)`, step 41U) | Characters are encoded as the file's encoding (`latin1` by default: characters above 255 are an error) | Always UTF-8 bytes | [io](io.md#calls) |
 | Formatting a large term (`io:format/1,2`) | Runs in Erlang code (`io_lib`) and the group leader, so the process can be preempted while formatting | Runs to completion in one builtin call; other processes wait | [builtins](builtins.md#portions) |
 | `process_flag/2` flags | `trap_exit`, `priority`, `message_queue_data`, `min_heap_size` and others | Only `trap_exit`; every other flag raises `badarg` | [processes](processes.md#builtins) |

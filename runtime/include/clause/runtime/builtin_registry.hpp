@@ -123,6 +123,8 @@ std::span<const BuiltinEntry> math_builtins() noexcept;
 // The maps builtins of step 41X: get/3, is_key/2, remove/2, new/0, size/1, merge/2, take/2, update/3, with/2,
 // without/2, from_keys/2.
 std::span<const BuiltinEntry> maps_builtins() noexcept;
+// The persistent_term builtins of step 41M2: put/2, put_new/2, get/0,1,2, erase/1, info/0.
+std::span<const BuiltinEntry> persistent_term_builtins() noexcept;
 // The binary module of step 41W: match/2,3, matches/2,3, split/2,3, compile_pattern/1; part/2,3, at/2, first/1,
 // last/1, bin_to_list/1,2,3, copy/1,2, longest_common_prefix/1, longest_common_suffix/1, referenced_byte_size/1,
 // join/2; decode_unsigned/1,2, encode_unsigned/1,2, encode_hex/1,2, decode_hex/1.

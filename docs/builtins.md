@@ -35,6 +35,7 @@ builtin both the compiler and the runtime know:
 - the `binary` module (plan step 41W, [binary module](#binary-module));
 - `os` environment, process and version queries and the `maps` BIFs (plan step 41X,
   [maps module](#maps-module));
+- `persistent_term` (plan step 41M2, [persistent terms](#persistent-terms));
 - process identities (plan step 42): `self/0`, `make_ref/0`, `pid_to_list/1`
   and `ref_to_list/1` ([pids and references](terms.md#pids-and-references));
 - processes (plan step 43): `spawn/1,3` and `is_process_alive/1`
@@ -224,6 +225,17 @@ Plan 11 step 41X (`runtime/src/builtins/maps.cpp`, `runtime/src/builtins/os.cpp`
   non-empty without `=`), `os:getpid/0` and `os:version/0` are builtins;
   `os:timestamp/0`, `os:system_time/0,1`, `os:perf_counter/0,1` and
   `os:getenv/2` are Erlang over the `erlang` time builtins and `getenv/1`.
+
+## Persistent terms
+
+Plan 11 step 41M2 (`runtime/src/builtins/persistent_term.cpp`) over the
+runtime's table ([runtime](runtime.md#persistent-terms)). `put/2` and
+`put_new/2` return `ok` (`put_new/2` of a stored key is `ok` for an exactly
+equal value, else `badarg`); `get/1` of a key not stored is `badarg`,
+`get/2` returns the default; `get/0` lists every `{Key, Value}`; `erase/1`
+says whether the key was stored; `info/0` is `#{count => N, memory => Bytes}`
+(the words of the stored copies). Keys match exactly (`1` and `1.0` differ).
+Every read copies the value into the caller's heap.
 
 ## Portions
 

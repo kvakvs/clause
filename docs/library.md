@@ -19,6 +19,7 @@ from OTP sources) and compiled with the programs that use it.
 | [`erlang`](../library/erts/erlang.erl) | Generated stubs of every OTP 29 `erlang` export; builtins replace theirs, `nif_error/1,2` have bodies, others raise `{not_implemented, F, A}` when called ([erlang module](builtins.md#erlang-module)) |
 | [`binary`](../library/stdlib/binary.erl) | Every OTP 29 function: `replace/3,4` and `list_to_bin/1` in Erlang, the others runtime builtins ([binary module](builtins.md#binary-module)) |
 | [`math`](../library/stdlib/math.erl) | Every OTP 29 function as a runtime builtin ([math module](builtins.md#math-module)) |
+| [`persistent_term`](../library/erts/persistent_term.erl) | Every OTP 29 function as a runtime builtin ([persistent terms](builtins.md#persistent-terms)) |
 | [`os`](../library/kernel/os.erl) | `cmd/1` over a port ([subprocesses](ports.md#subprocesses)), `timestamp/0`, `system_time/0,1`, `perf_counter/0,1`, `getenv/2`; `type/0`, `getenv/0,1`, `env/0`, `putenv/2`, `unsetenv/1`, `getpid/0` and `version/0` are runtime builtins |
 
 Results and error reasons match OTP 29, including the error shapes of OTP's

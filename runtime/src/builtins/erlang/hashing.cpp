@@ -1,3 +1,4 @@
+#include "hashing.hpp"
 #include "../../process/identities.hpp"
 #include "../../terms/funs.hpp"
 #include "../../terms/identities.hpp"
@@ -153,7 +154,7 @@ class TermHash {
     std::uint64_t state_ = 0xcbf29ce484222325ULL;
 };
 
-std::uint64_t hash(ProcessContext &context, const Term &term) { return TermHash{}.of(context, term); }
+std::uint64_t hash(ProcessContext &context, const Term &term) { return term_hash(context, term); }
 
 // A range argument: an integer in 1..2^32; badarg otherwise.
 std::uint64_t range_of(const detail::Integer &range) {
@@ -184,6 +185,8 @@ constexpr std::array HASHING_BUILTINS{
     typed_entry<phash>("erlang", "phash"),
 };
 } // namespace
+
+std::uint64_t term_hash(ProcessContext &context, const Term &term) { return TermHash{}.of(context, term); }
 } // namespace clause::runtime::builtins
 
 namespace clause::runtime {

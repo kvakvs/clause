@@ -409,6 +409,14 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"maps", "with", 2},
     BuiltinName{"maps", "without", 2},
     BuiltinName{"maps", "from_keys", 2},
+    // Persistent terms (plan step 41M2; runtime/src/builtins/persistent_term.cpp).
+    BuiltinName{"persistent_term", "put", 2},
+    BuiltinName{"persistent_term", "put_new", 2},
+    BuiltinName{"persistent_term", "get", 0},
+    BuiltinName{"persistent_term", "get", 1},
+    BuiltinName{"persistent_term", "get", 2},
+    BuiltinName{"persistent_term", "erase", 1},
+    BuiltinName{"persistent_term", "info", 0},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

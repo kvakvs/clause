@@ -1,0 +1,10 @@
+#pragma once
+#include <clause/runtime/process_context.hpp>
+#include <clause/runtime/terms.hpp>
+#include <cstdint>
+
+namespace clause::runtime::builtins {
+// The structure hash behind phash2: equal for exactly equal terms in every program run. Shared with the persistent
+// term builtins (step 41M2).
+std::uint64_t term_hash(ProcessContext &context, const Term &term);
+} // namespace clause::runtime::builtins
