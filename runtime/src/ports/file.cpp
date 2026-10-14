@@ -1,3 +1,4 @@
+#include "file_info.hpp"
 #include "port.hpp"
 #include <algorithm>
 #include <array>
@@ -40,6 +41,8 @@ enum class FileOperation : std::uint8_t {
     list_dir = 14,
     make_dir = 15,
     delete_dir = 16,
+    // A path's status (step 41Y2).
+    read_file_info = 17,
 };
 
 // Bits of the open operation's mode byte.
@@ -130,12 +133,12 @@ int access_flags(unsigned mode) {
     return read && write ? O_RDWR : (write ? O_WRONLY : O_RDONLY);
 }
 
-// Open flags of the open operation's mode byte: writing creates; write alone truncates; append appends; exclusive
-// creates a new file only.
+// Open flags of the open operation's mode byte: writing creates; write alone truncates (not with append, as OTP);
+// append appends; exclusive creates a new file only.
 int open_flags(unsigned mode) {
     const auto access = access_flags(mode);
     int flags = access | (access != O_RDONLY ? O_CREAT : 0);
-    flags |= access == O_WRONLY && (mode & MODE_WRITE) != 0 ? O_TRUNC : 0;
+    flags |= access == O_WRONLY && (mode & MODE_WRITE) != 0 && (mode & MODE_APPEND) == 0 ? O_TRUNC : 0;
     flags |= (mode & MODE_APPEND) != 0 ? O_APPEND : 0;
     flags |= (mode & MODE_EXCLUSIVE) != 0 ? O_EXCL | O_CREAT : 0;
 #ifdef _WIN32
@@ -301,9 +304,15 @@ Bytes delete_dir(std::span<const std::byte> bytes) {
     return done(code);
 }
 
+// read_file_info: the path's status record (file_info.hpp). Added for step 41Y2.
+Bytes read_file_info(std::span<const std::byte> bytes) {
+    const auto status = file_status(path_of(bytes));
+    return status ? ok(*status) : failure(reason(std::error_code(status.error(), std::generic_category())));
+}
+
 // The path operations, which need no open file, from read_file on in FileOperation order.
-constexpr std::array<Bytes (*)(std::span<const std::byte>), 7> PATH_OPERATIONS{
-    read_file, write_file, remove_file, rename_path, list_dir, make_dir, delete_dir};
+constexpr std::array<Bytes (*)(std::span<const std::byte>), 8> PATH_OPERATIONS{
+    read_file, write_file, remove_file, rename_path, list_dir, make_dir, delete_dir, read_file_info};
 
 // Run a path operation.
 Bytes path_operation(FileOperation operation, std::span<const std::byte> bytes) {
@@ -335,7 +344,7 @@ class FileDriver final : public PortDriver {
     std::optional<Bytes> control(std::uint32_t operation, std::span<const std::byte> bytes, Word) override {
         const auto kind = static_cast<FileOperation>(operation);
         if (operation >= static_cast<std::uint32_t>(FileOperation::read_file) &&
-            operation <= static_cast<std::uint32_t>(FileOperation::delete_dir)) {
+            operation <= static_cast<std::uint32_t>(FileOperation::read_file_info)) {
             return path_operation(kind, bytes);
         }
         const Turn turn(*this);

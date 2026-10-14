@@ -290,12 +290,19 @@ Step 57E.
   `{spawn_driver, "clause_file"}`, with `port_control/3`. Its operations
   (`ports/file.cpp`: open, read, write, position, read_line, close, and the
   path operations read_file, write_file, delete, rename, list_dir, make_dir,
-  del_dir) are synchronous system calls on the caller's worker, outside the
+  del_dir and read_file_info, `ports/file_info.cpp`) are synchronous system calls on the caller's worker, outside the
   executor mutex; their replies start with a status byte (0 ok, 1 error and
   its POSIX reason, 2 end of file). The protocol is Clause's own.
 - `file:open/2` returns an I/O server pid that owns a file port and is linked
   to the opener (modes `read`, `write`, `append`, `exclusive`, `binary`;
-  other modes are ignored, as OTP ignores options it does not use).
+  other modes are ignored, as OTP ignores options it does not use; `write`
+  truncates unless `append` is also given).
+- `file:write_file/3` opens with its modes plus `binary` and `write` (plan
+  step 41Y2); `file:read_file_info/1,2` return OTP's `#file_info{}` from the
+  path's status (following links), with times as local or universal date and
+  time or POSIX seconds (`{time, local | universal | posix}`; `raw` is
+  accepted). On Windows `inode`, `uid` and `gid` are 0 and `major_device` is
+  the drive number, as OTP reports them.
   `read/2`, `read_line/1`, `write/2`, `position/2` and `io:get_line/2`,
   `io:get_chars/3` on it are requests to that server; after `close/1`
   requests return `{error, terminated}` and `close/1` stays `ok`.

@@ -138,7 +138,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
 | H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41K2; open: [41L](#step-41l) |
-| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done: 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1; open: [41Y2](#step-41y2) |
+| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done: 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2; open: [41Z](#step-41z) |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -149,7 +149,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -501,26 +501,11 @@ time, plus the functions luerl references next. Rules for every step:
   `tests/fixtures/executables/` covering results and error cases.
 - `re` (ledger row 17) is not part of this phase.
 
-<a id="step-41y2"></a>
-
-### 41Y2. `file` gaps
-
-Backlog: F36, F35. Depends on: [41K](00-finished.md#step-41k). Referenced by
-luerl: `file:read_file_info/1,2`, `file:write_file/3`. Split from 41Y on
-2026-10-14.
-
-- Success criteria
-  - [ ] `file:read_file_info/1,2` through a new file-driver stat operation
-    (OTP's `#file_info{}` tuple, `{time, local | universal | posix}`),
-    `file:write_file/3` with `append`/`write`/`exclusive` modes.
-- Tests
-  - [ ] `file_io` extended, or a new OTP-goldened executable.
-
 <a id="step-41z"></a>
 
 ### 41Z. `code` without a code server, and the luerl rerun
 
-Backlog: F36, D01. Depends on: [41T](00-finished.md#step-41t)–[41Y2](#step-41y2),
+Backlog: F36, D01. Depends on: [41T](00-finished.md#step-41t)–[41Y2](00-finished.md#step-41y2),
 [41M2](00-finished.md#step-41m2). Ledger rows 21–22.
 
 - Success criteria

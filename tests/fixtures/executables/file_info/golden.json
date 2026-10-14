@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "file_info",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[ok,ok,{ok,<<97,98,99,100,101,102>>},{error,eexist},ok,{ok,<<120,121>>},{error,badarg},{error,function_clause},{error,enoent}]\n[2,regular,read_write,true,true,true,true,true,directory,true,{error,enoent},{error,badarg},{error,function_clause}]\nfile_info: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "file_info.erl": "11c89a06b02882ec36ccc2d9c7b99ba8fce78c77821d4afbd19295ca588af095"
+  }
+}

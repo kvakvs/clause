@@ -93,6 +93,7 @@
 -define(LIST_DIR, 14).
 -define(MAKE_DIR, 15).
 -define(DEL_DIR, 16).
+-define(READ_FILE_INFO, 17).
 
 % Open File with Modes (read, write, append, exclusive, binary; others are ignored, as OTP ignores options it does
 % not use): {ok, IoDevice} or {error, Reason}.
@@ -150,6 +151,75 @@ list_dir(Dir) ->
 make_dir(Dir) -> path_call(Dir, ?MAKE_DIR, fun(Name) -> Name end, fun(_) -> ok end).
 
 del_dir(Dir) -> path_call(Dir, ?DEL_DIR, fun(Name) -> Name end, fun(_) -> ok end).
+
+% Write Bytes to File opened with Modes plus the implicit binary and write (plan step 41Y2): append and exclusive
+% apply, as open/2 takes them.
+write_file(File, Bytes, Modes) when is_list(Modes) ->
+    try iolist_to_binary(Bytes) of
+        Data ->
+            case open(File, [binary, write | Modes]) of
+                {ok, Device} ->
+                    Result = write(Device, Data),
+                    ok = close(Device),
+                    Result;
+                Error ->
+                    Error
+            end
+    catch
+        error:badarg -> {error, badarg}
+    end.
+
+% The #file_info{} of File, times as local date and time (plan step 41Y2).
+read_file_info(File) -> read_file_info(File, []).
+
+% The #file_info{} of File; {time, local | universal | posix} picks the time format, raw is accepted.
+read_file_info(File, Options) when is_list(Options) ->
+    case time_option(Options, local) of
+        error ->
+            {error, badarg};
+        Time ->
+            path_call(File, ?READ_FILE_INFO, fun(Name) -> Name end, fun(Status) ->
+                {ok, file_info(Status, Time)}
+            end)
+    end.
+
+time_option([{time, Time} | Rest], _) when Time =:= local; Time =:= universal; Time =:= posix ->
+    time_option(Rest, Time);
+time_option([raw | Rest], Time) ->
+    time_option(Rest, Time);
+time_option([], Time) ->
+    Time;
+time_option(_, _) ->
+    error.
+
+% The driver's status record as #file_info{}.
+file_info(
+    <<Size:64, Type, Access, ATime:64/signed, MTime:64/signed, CTime:64/signed, Mode:32, Links:32,
+        Major:32, Minor:32, Inode:64, Uid:32, Gid:32>>,
+    Time
+) ->
+    #file_info{
+        size = Size,
+        type = element(Type + 1, {regular, directory, symlink, device, other}),
+        access = element(Access + 1, {none, read, write, read_write}),
+        atime = file_time(ATime, Time),
+        mtime = file_time(MTime, Time),
+        ctime = file_time(CTime, Time),
+        mode = Mode,
+        links = Links,
+        major_device = Major,
+        minor_device = Minor,
+        inode = Inode,
+        uid = Uid,
+        gid = Gid
+    }.
+
+file_time(Seconds, posix) ->
+    Seconds;
+file_time(Seconds, universal) ->
+    erlang:posixtime_to_universaltime(Seconds);
+file_time(Seconds, local) ->
+    erlang:universaltime_to_localtime(erlang:posixtime_to_universaltime(Seconds)).
 
 % --- Requests to an open file's server ---
 
@@ -368,8 +438,6 @@ pwrite(_, _, _) -> erlang:error({not_implemented, pwrite, 3}).
 raw_read_file_info(_) -> erlang:error({not_implemented, raw_read_file_info, 1}).
 raw_write_file_info(_, _) -> erlang:error({not_implemented, raw_write_file_info, 2}).
 read_file(_, _) -> erlang:error({not_implemented, read_file, 2}).
-read_file_info(_) -> erlang:error({not_implemented, read_file_info, 1}).
-read_file_info(_, _) -> erlang:error({not_implemented, read_file_info, 2}).
 read_link(_) -> erlang:error({not_implemented, read_link, 1}).
 read_link_all(_) -> erlang:error({not_implemented, read_link_all, 1}).
 read_link_info(_) -> erlang:error({not_implemented, read_link_info, 1}).
@@ -381,6 +449,5 @@ sendfile(_, _, _, _, _) -> erlang:error({not_implemented, sendfile, 5}).
 set_cwd(_) -> erlang:error({not_implemented, set_cwd, 1}).
 sync(_) -> erlang:error({not_implemented, sync, 1}).
 truncate(_) -> erlang:error({not_implemented, truncate, 1}).
-write_file(_, _, _) -> erlang:error({not_implemented, write_file, 3}).
 write_file_info(_, _) -> erlang:error({not_implemented, write_file_info, 2}).
 write_file_info(_, _, _) -> erlang:error({not_implemented, write_file_info, 3}).
