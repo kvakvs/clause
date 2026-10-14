@@ -1,4 +1,5 @@
 #include "file_info.hpp"
+#include "file_paths.hpp"
 #include "port.hpp"
 #include <algorithm>
 #include <array>
@@ -43,6 +44,13 @@ enum class FileOperation : std::uint8_t {
     delete_dir = 16,
     // A path's status (step 41Y2).
     read_file_info = 17,
+    // Directories and links (step 41P).
+    get_cwd = 18,
+    set_cwd = 19,
+    read_link = 20,
+    read_link_info = 21,
+    make_link = 22,
+    make_symlink = 23,
 };
 
 // Bits of the open operation's mode byte.
@@ -73,7 +81,7 @@ Bytes failure(std::string_view reason) {
 
 // The POSIX reason of an error code, as OTP names it.
 std::string_view reason(std::error_code code) {
-    static constexpr std::array<std::pair<std::errc, std::string_view>, 12> NAMES{{
+    static constexpr std::array<std::pair<std::errc, std::string_view>, 14> NAMES{{
         {std::errc::no_such_file_or_directory, "enoent"},
         {std::errc::permission_denied, "eacces"},
         {std::errc::file_exists, "eexist"},
@@ -86,6 +94,8 @@ std::string_view reason(std::error_code code) {
         {std::errc::directory_not_empty, "eexist"},
         {std::errc::operation_not_permitted, "eperm"},
         {std::errc::filename_too_long, "enametoolong"},
+        {std::errc::not_supported, "enotsup"},
+        {std::errc::no_such_device, "enodev"},
     }};
     const auto found = std::ranges::find_if(NAMES, [&](const auto &name) { return code == name.first; });
     return found == NAMES.end() ? std::string_view{"eio"} : found->second;
@@ -297,9 +307,16 @@ Bytes make_dir(std::span<const std::byte> bytes) {
     return std::filesystem::create_directory(path_of(bytes), code) || code ? done(code) : failure("eexist");
 }
 
-// del_dir: an empty directory.
+// del_dir: an empty directory; enoent for a missing path and enotdir for any other file, as OTP.
 Bytes delete_dir(std::span<const std::byte> bytes) {
     std::error_code code;
+    const auto status = std::filesystem::symlink_status(path_of(bytes), code);
+    if (!std::filesystem::exists(status)) {
+        return failure("enoent");
+    }
+    if (!std::filesystem::is_directory(status)) {
+        return failure("enotdir");
+    }
     std::filesystem::remove(path_of(bytes), code);
     return done(code);
 }
@@ -310,9 +327,32 @@ Bytes read_file_info(std::span<const std::byte> bytes) {
     return status ? ok(*status) : failure(reason(std::error_code(status.error(), std::generic_category())));
 }
 
+// The reply of a directory or link operation (file_paths.hpp, step 41P).
+Bytes path_reply(const PathReply &result) { return result ? ok(*result) : failure(reason(result.error())); }
+
+Bytes get_cwd(std::span<const std::byte> bytes) { return path_reply(current_directory(bytes)); }
+
+Bytes set_cwd(std::span<const std::byte> bytes) { return path_reply(change_directory(path_of(bytes))); }
+
+Bytes read_link(std::span<const std::byte> bytes) { return path_reply(link_target(path_of(bytes))); }
+
+Bytes read_link_info(std::span<const std::byte> bytes) { return path_reply(link_status(path_of(bytes))); }
+
+// make_link and make_symlink: the existing path, then the new link.
+Bytes make_link(std::span<const std::byte> bytes) {
+    const auto [existing, link] = split(bytes);
+    return path_reply(make_hard_link(path_of(existing), path_of(link)));
+}
+
+Bytes make_symlink(std::span<const std::byte> bytes) {
+    const auto [existing, link] = split(bytes);
+    return path_reply(make_symbolic_link(path_of(existing), path_of(link)));
+}
+
 // The path operations, which need no open file, from read_file on in FileOperation order.
-constexpr std::array<Bytes (*)(std::span<const std::byte>), 8> PATH_OPERATIONS{
-    read_file, write_file, remove_file, rename_path, list_dir, make_dir, delete_dir, read_file_info};
+constexpr std::array<Bytes (*)(std::span<const std::byte>), 14> PATH_OPERATIONS{
+    read_file,      write_file, remove_file, rename_path, list_dir,       make_dir,  delete_dir,
+    read_file_info, get_cwd,    set_cwd,     read_link,   read_link_info, make_link, make_symlink};
 
 // Run a path operation.
 Bytes path_operation(FileOperation operation, std::span<const std::byte> bytes) {
@@ -344,7 +384,7 @@ class FileDriver final : public PortDriver {
     std::optional<Bytes> control(std::uint32_t operation, std::span<const std::byte> bytes, Word) override {
         const auto kind = static_cast<FileOperation>(operation);
         if (operation >= static_cast<std::uint32_t>(FileOperation::read_file) &&
-            operation <= static_cast<std::uint32_t>(FileOperation::read_file_info)) {
+            operation <= static_cast<std::uint32_t>(FileOperation::make_symlink)) {
             return path_operation(kind, bytes);
         }
         const Turn turn(*this);

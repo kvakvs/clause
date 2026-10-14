@@ -139,7 +139,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | --- | --- | --- | --- |
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
-| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41O2; open: [41P](#step-41p)–[41S](#step-41s) |
+| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41P; open: [41Q](#step-41q)–[41S](#step-41s) |
 | H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](00-finished.md#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -151,7 +151,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41N, 41O1, 41O2, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41P, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -342,27 +342,6 @@ other), and add or adjust steps here before coding the next one.
 
 Split on 2026-10-14 (user direction) into [41M1](00-finished.md#step-41m1) (the runtime
 table) and [41M2](00-finished.md#step-41m2) (the builtins), both in phase H4.
-
-<a id="step-41p"></a>
-
-### 41P. Files: Clause `file` and `filelib`; `erl_prim_loader`, `prim_file`, `prim_buffer`
-
-Backlog: F36, F35. Depends on: [41I](00-finished.md#step-41i), [41K](00-finished.md#step-41k).
-
-- Success criteria
-  - [ ] Decisions per module and group, following 41I's kernel-services
-    decision: Clause's `file` (over the runtime file driver) is the file
-    layer programs use and grows toward OTP's export list (`read_file_info`,
-    `consult`, `open/2` modes, ...) as the ledger demands; `filelib` is
-    either OTP's Erlang code running on Clause's `file` or a Clause module;
-    `erl_prim_loader` is provided over the file driver (its callers are
-    `code`, `code_server`, `filelib`, `inet_db`) or missing with those
-    callers shadowed; `prim_file` and `prim_buffer` are proposed missing
-    forever, with `raw_file_io*` and `application_controller` shadowed or
-    recorded.
-- Tests
-  - [ ] OTP-goldened executables for the implemented file operations,
-    including errors (`enoent`, `eacces`, `enotdir`).
 
 <a id="step-41q"></a>
 

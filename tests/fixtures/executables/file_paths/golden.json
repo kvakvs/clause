@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "file_paths",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[true,true,true]\n[{ok,5},\n {ok,<<\"hello\">>},\n {ok,3},\n {ok,<<\"hel\">>},\n {ok,5},\n {ok,5},\n {ok,<<\"hellohello\">>},\n {error,enoent},\n {error,enoent},\n {error,badarg},\n [\"a.txt\",\"c.txt\",\"d\",\"e.txt\",\"f.txt\"],\n utf8,regular,\n {ok,<<\"hello\">>},\n ok,\n {error,enoent},\n {error,eisdir},\n {error,eisdir},\n {error,eisdir},\n {error,enotdir},\n {error,enoent},\n {error,enoent},\n {error,enoent},\n {error,enoent},\n ok,\n {error,enoent}]\n[ok,\n {ok,<<\"hello\">>},\n {error,eexist},\n {error,enoent},\n {error,einval},\n {error,enoent},\n {error,einval},\n regular,regular,\n {error,enoent},\n true,\n [symlink,{ok,\"a.txt\"},{ok,<<\"hello\">>}]]\n[{ok,<<\"hello\">>},\n error,\n [\"a.txt\",\"c.txt\",\"f.txt\",\"h.txt\"],\n error,regular,error,error,true,error,error,true,false,false,\n {error,function_clause},\n ok]\n[ok,{error,enoent}]\nfile_paths: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "file_paths.erl": "9dac859c86a32f49d150dabb672c4d5fd729bd00cc89921895e7349ebaf1c936"
+  }
+}

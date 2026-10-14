@@ -177,3 +177,7 @@ Plan history: .agents/11-plan.md (compact step records), .agents/00-finished.md 
   geomean, maps:put / binary append look quadratic, binary matching ~1000x.
 - Known pre-existing: codegen_resource_cli uses 1025 inputs vs module limit 16384 (user commit 33481a7). OTP loader
   literal-record-guard and core_to_ssa legacy-import crashes documented; not executed OTP goldens.
+- 41P (2026-10-14): MSVC std::filesystem::read_symlink trips clang-analyzer EnumCastOutOfRange (like file_size):
+  file_paths.cpp reads links with readlink / FSCTL_GET_REPARSE_POINT. Symlink creation needs a privilege on this
+  Windows host (eperm), so reading a real link on Windows is untested here. OTP filelib checked by hand with a
+  project over host OTP sources (needs COMPILER_VSN define + luerl's ignores, ~3.5 min build).

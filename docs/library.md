@@ -215,12 +215,12 @@ Plan 11 step 41J. All live in `tests/compiler/library/`:
 | `erts_internal` | provided; `stdlib` and `counters` groups implemented, `get_creation/0` and `map_hashmap_children/1` refused, the `distribution`, `beam` and `emulator` groups declined | 41N ([erts_internal](builtins.md#erts-internal)); no distribution, no `.beam` files |
 | `atomics`, `counters`, `erts_code_purger` | provided; `atomics`, `counters` implemented; `purge/1`, `soft_purge/1` implemented, the purger process declined | 41N ([atomics and counters](builtins.md#atomics-and-counters)); code loading waits for step 71 |
 | `unicode_util` | provided, implemented (41O1, 41O2) | tables generated from OTP's answers and the Unicode data ([unicode_util](builtins.md#unicode-util)) |
-| `erl_prim_loader` | provided, all stubs | 41P decides between implementing it over the file driver and shadowing its callers |
+| `erl_prim_loader` | provided; file queries implemented over `file`, loading and archives declined | 41P ([files](ports.md#standard-io-and-files)); code loading waits for step 71 |
 | `zlib` | provided, all stubs | 41Q: pinned zlib in the runtime, or refused |
 | `prim_eval` | provided, all stubs | 41S |
 | `application_controller` | provided, all stubs | shadows OTP's, which calls `prim_file` (luerl names it through OTP's `application`) |
 | `lists`, `maps`, `io`, `file`, `os`, `gen_tcp`, `gen_udp`, `inet` | provided, OTP 29's full export lists; what Clause had stays implemented, the rest stubs | grow as the ledger demands |
-| `prim_file`, `prim_buffer` | missing | Clause's `file` is the file layer (41P) |
+| `prim_file`, `prim_buffer` | missing, decided in 41P | Clause's `file` is the file layer; OTP's `filelib`/`filename` run on it |
 | `prim_socket`, `prim_net`, `prim_inet`, `socket_registry` | missing | Clause's `gen_tcp`, `gen_udp`, `inet` are the network layer (41R) |
 
 Latest luerl layer (2026-10-12, after steps 41K1 and 41K2, with

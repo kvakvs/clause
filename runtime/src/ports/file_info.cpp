@@ -61,24 +61,34 @@ std::uint8_t access_code(const std::filesystem::path &path) {
     return static_cast<std::uint8_t>((readable ? 1 : 0) | (writable ? 2 : 0));
 }
 
-// The status of `path`, or false with errno set.
-bool status_of(const std::filesystem::path &path, Status &status) {
+// The status of `path`, or false with errno set; without `follow` a final symbolic link's own.
+bool status_of(const std::filesystem::path &path, Status &status, bool follow) {
 #ifdef _WIN32
+    static_cast<void>(follow);
     return _wstat64(path.c_str(), &status) == 0;
 #else
-    return ::stat(path.c_str(), &status) == 0;
+    return (follow ? ::stat(path.c_str(), &status) : ::lstat(path.c_str(), &status)) == 0;
 #endif
+}
+
+// The type code of a status, a symbolic link's own when not following it.
+std::uint8_t status_type(const std::filesystem::path &path, const Status &status, bool follow) {
+    std::error_code code;
+    if (!follow && std::filesystem::is_symlink(std::filesystem::symlink_status(path, code))) {
+        return 2;
+    }
+    return type_code(static_cast<unsigned>(status.st_mode));
 }
 } // namespace
 
-std::expected<std::vector<std::byte>, int> file_status(const std::filesystem::path &path) {
+std::expected<std::vector<std::byte>, int> file_status(const std::filesystem::path &path, bool follow) {
     Status status{};
-    if (!status_of(path, status)) {
+    if (!status_of(path, status, follow)) {
         return std::unexpected(errno);
     }
     std::vector<std::byte> out;
     field<8>(out, static_cast<std::uint64_t>(status.st_size));
-    field<1>(out, type_code(static_cast<unsigned>(status.st_mode)));
+    field<1>(out, status_type(path, status, follow));
     field<1>(out, access_code(path));
     field<8>(out, static_cast<std::uint64_t>(status.st_atime));
     field<8>(out, static_cast<std::uint64_t>(status.st_mtime));

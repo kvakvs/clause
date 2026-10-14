@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41N, 41O1, 41O2, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
+## Plan 11 (steps 1–68, 41A–41P, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -259,6 +259,16 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   Hangul, canonical ordering and composition pairs; `lists:keysort/2`. Test `executables_unicode_clusters`
   (every rule as lists, binaries and mixed chardata; 2000-string seeded sweep). Gate: fast CTest 290/290 (1
   disabled), `check-quality` clean.
+- **41P (H3):** 2026-10-14, files ([ports](../docs/ports.md#standard-io-and-files)): decided Clause's `file` is the file
+  layer, OTP's `filelib`/`filename` run on it from OTP's sources (checked by hand: `ensure_dir`, `wildcard`,
+  `is_dir`, `file_size`, `ensure_path`, `filename:*` match OTP; `fold_files/5` needs `re`), `erl_prim_loader`
+  provided over `file` (bare `error`, loader path `["."]`, loading/archives declined), `prim_file`/`prim_buffer`
+  missing. File driver operations get_cwd, set_cwd, read_link, read_link_info, make_link, make_symlink
+  (`ports/file_paths.cpp`); `file` gains `get_cwd/0,1`, `set_cwd/1`, `read_link*`, `read_link_info/1,2`,
+  `make_link/2`, `make_symlink/2`, `list_dir_all/1`, `del_dir_r/1`, `copy/2,3`, `native_name_encoding/0` and the
+  option variants; `del_dir/1` no longer deletes files; links read with readlink/FSCTL_GET_REPARSE_POINT (MSVC
+  `read_symlink` trips clang-analyzer). Test `executables_file_paths`. Gate: fast CTest 291/291 (1 disabled),
+  `check-quality` clean.
 - **41T (H4):** 2026-10-14, `lists` data functions as runtime builtins ([builtins](../docs/builtins.md#lists-module)):
   `runtime/src/builtins/lists/` (`sublist/2,3`, `droplast/1`, `nthtail/2`, `last/1`, `duplicate/2`, `join/2`,
   `flatten/1,2`, `max/1`, `min/1`, `usort/1`, `umerge/1,2`, `keymember/3`, `keysearch/3`, `keydelete/3`) with OTP's

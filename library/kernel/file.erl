@@ -94,6 +94,12 @@
 -define(MAKE_DIR, 15).
 -define(DEL_DIR, 16).
 -define(READ_FILE_INFO, 17).
+-define(GET_CWD, 18).
+-define(SET_CWD, 19).
+-define(READ_LINK, 20).
+-define(READ_LINK_INFO, 21).
+-define(MAKE_LINK, 22).
+-define(MAKE_SYMLINK, 23).
 
 % Open File with Modes (read, write, append, exclusive, binary; others are ignored, as OTP ignores options it does
 % not use): {ok, IoDevice} or {error, Reason}.
@@ -220,6 +226,146 @@ file_time(Seconds, universal) ->
     erlang:posixtime_to_universaltime(Seconds);
 file_time(Seconds, local) ->
     erlang:universaltime_to_localtime(erlang:posixtime_to_universaltime(Seconds)).
+
+% --- Directories, links and copies (plan step 41P) ---
+
+% The current directory with forward slashes; on Windows also the current directory of a drive "X:".
+get_cwd() -> path_call(<<>>, ?GET_CWD, fun(Name) -> Name end, fun(Dir) -> {ok, decode(Dir)} end).
+
+get_cwd(Drive) ->
+    path_call(Drive, ?GET_CWD, fun(Name) -> Name end, fun(Dir) -> {ok, decode(Dir)} end).
+
+% Change the current directory of the whole program, as OTP's file server does.
+set_cwd(Dir) -> path_call(Dir, ?SET_CWD, fun(Name) -> Name end, fun(_) -> ok end).
+
+read_link(Link) ->
+    path_call(Link, ?READ_LINK, fun(Name) -> Name end, fun(Target) -> {ok, decode(Target)} end).
+
+read_link_all(Link) -> read_link(Link).
+
+read_link_info(File) -> read_link_info(File, []).
+
+% The #file_info{} of File itself when it is a symbolic link; options as read_file_info/2's.
+read_link_info(File, Options) when is_list(Options) ->
+    case time_option(Options, local) of
+        error ->
+            {error, badarg};
+        Time ->
+            path_call(File, ?READ_LINK_INFO, fun(Name) -> Name end, fun(Status) ->
+                {ok, file_info(Status, Time)}
+            end)
+    end.
+
+raw_read_file_info(File) -> read_file_info(File, [raw]).
+
+read_file(File, Options) when is_list(Options) -> read_file(File).
+
+delete(File, Options) when is_list(Options) -> delete(File).
+
+make_link(Existing, New) -> link_call(Existing, New, ?MAKE_LINK).
+
+make_symlink(Existing, New) -> link_call(Existing, New, ?MAKE_SYMLINK).
+
+link_call(Existing, New, Operation) ->
+    case name(New) of
+        error ->
+            {error, badarg};
+        Link ->
+            path_call(Existing, Operation, fun(Name) -> [sized(Name), Link] end, fun(_) -> ok end)
+    end.
+
+% File names are UTF-8 on every platform Clause supports.
+native_name_encoding() -> utf8.
+
+list_dir_all(Dir) -> list_dir(Dir).
+
+% Delete a directory and everything below it, or a file.
+del_dir_r(File) ->
+    case read_link_info(File) of
+        {ok, #file_info{type = directory}} ->
+            case list_dir_all(File) of
+                {ok, Names} ->
+                    case delete_all([join(File, Name) || Name <- Names]) of
+                        ok -> del_dir(File);
+                        Error -> Error
+                    end;
+                Error ->
+                    Error
+            end;
+        {ok, _} ->
+            delete(File);
+        Error ->
+            Error
+    end.
+
+delete_all([File | Rest]) ->
+    case del_dir_r(File) of
+        ok -> delete_all(Rest);
+        Error -> Error
+    end;
+delete_all([]) ->
+    ok.
+
+join(Dir, Name) when is_binary(Dir) ->
+    <<Dir/binary, "/", (unicode:characters_to_binary(Name))/binary>>;
+join(Dir, Name) when is_atom(Dir) -> join(atom_to_list(Dir), Name);
+join(Dir, Name) ->
+    lists:flatten([Dir, "/", Name]).
+
+% Copy all of Source to Destination: names, {Name, Modes} or open files; {ok, BytesCopied}.
+copy(Source, Destination) -> copy(Source, Destination, infinity).
+
+copy(Source, Destination, Count) when Count =:= infinity; is_integer(Count), Count >= 0 ->
+    case open_end(Source, [read]) of
+        {ok, In, CloseIn} ->
+            Result =
+                case open_end(Destination, [write]) of
+                    {ok, Out, CloseOut} ->
+                        Copied = copy_loop(In, Out, Count, 0),
+                        CloseOut(),
+                        Copied;
+                    Error ->
+                        Error
+                end,
+            CloseIn(),
+            Result;
+        Error ->
+            Error
+    end;
+copy(_, _, _) ->
+    {error, badarg}.
+
+% An open file for one end of a copy and how to close it: a device stays open.
+open_end(Device, _) when is_pid(Device) ->
+    {ok, Device, fun() -> ok end};
+open_end({Name, Modes}, Default) when is_list(Modes) ->
+    open_end(Name, Modes ++ Default);
+open_end(Name, Modes) ->
+    case open(Name, [binary | Modes]) of
+        {ok, Device} -> {ok, Device, fun() -> close(Device) end};
+        Error -> Error
+    end.
+
+copy_loop(_, _, 0, Copied) ->
+    {ok, Copied};
+copy_loop(In, Out, Count, Copied) ->
+    Size =
+        case Count of
+            infinity -> 65536;
+            _ -> min(Count, 65536)
+        end,
+    case read(In, Size) of
+        {ok, Data} ->
+            case write(Out, Data) of
+                ok when Count =:= infinity -> copy_loop(In, Out, Count, Copied + iolist_size(Data));
+                ok -> copy_loop(In, Out, Count - iolist_size(Data), Copied + iolist_size(Data));
+                Error -> Error
+            end;
+        eof ->
+            {ok, Copied};
+        Error ->
+            Error
+    end.
 
 % --- Requests to an open file's server ---
 
@@ -408,23 +554,13 @@ change_owner(_, _, _) -> erlang:error({not_implemented, change_owner, 3}).
 change_time(_, _) -> erlang:error({not_implemented, change_time, 2}).
 change_time(_, _, _) -> erlang:error({not_implemented, change_time, 3}).
 consult(_) -> erlang:error({not_implemented, consult, 1}).
-copy(_, _) -> erlang:error({not_implemented, copy, 2}).
-copy(_, _, _) -> erlang:error({not_implemented, copy, 3}).
 copy_opened(_, _, _) -> erlang:error({not_implemented, copy_opened, 3}).
 datasync(_) -> erlang:error({not_implemented, datasync, 1}).
-del_dir_r(_) -> erlang:error({not_implemented, del_dir_r, 1}).
-delete(_, _) -> erlang:error({not_implemented, delete, 2}).
 eval(_) -> erlang:error({not_implemented, eval, 1}).
 eval(_, _) -> erlang:error({not_implemented, eval, 2}).
 format_error(_) -> erlang:error({not_implemented, format_error, 1}).
-get_cwd() -> erlang:error({not_implemented, get_cwd, 0}).
-get_cwd(_) -> erlang:error({not_implemented, get_cwd, 1}).
 ipread_s32bu_p32bu(_, _, _) -> erlang:error({not_implemented, ipread_s32bu_p32bu, 3}).
 ipread_s32bu_p32bu_int(_, _, _) -> erlang:error({not_implemented, ipread_s32bu_p32bu_int, 3}).
-list_dir_all(_) -> erlang:error({not_implemented, list_dir_all, 1}).
-make_link(_, _) -> erlang:error({not_implemented, make_link, 2}).
-make_symlink(_, _) -> erlang:error({not_implemented, make_symlink, 2}).
-native_name_encoding() -> erlang:error({not_implemented, native_name_encoding, 0}).
 path_consult(_, _) -> erlang:error({not_implemented, path_consult, 2}).
 path_eval(_, _) -> erlang:error({not_implemented, path_eval, 2}).
 path_eval(_, _, _) -> erlang:error({not_implemented, path_eval, 3}).
@@ -435,18 +571,11 @@ pread(_, _) -> erlang:error({not_implemented, pread, 2}).
 pread(_, _, _) -> erlang:error({not_implemented, pread, 3}).
 pwrite(_, _) -> erlang:error({not_implemented, pwrite, 2}).
 pwrite(_, _, _) -> erlang:error({not_implemented, pwrite, 3}).
-raw_read_file_info(_) -> erlang:error({not_implemented, raw_read_file_info, 1}).
 raw_write_file_info(_, _) -> erlang:error({not_implemented, raw_write_file_info, 2}).
-read_file(_, _) -> erlang:error({not_implemented, read_file, 2}).
-read_link(_) -> erlang:error({not_implemented, read_link, 1}).
-read_link_all(_) -> erlang:error({not_implemented, read_link_all, 1}).
-read_link_info(_) -> erlang:error({not_implemented, read_link_info, 1}).
-read_link_info(_, _) -> erlang:error({not_implemented, read_link_info, 2}).
 script(_) -> erlang:error({not_implemented, script, 1}).
 script(_, _) -> erlang:error({not_implemented, script, 2}).
 sendfile(_, _) -> erlang:error({not_implemented, sendfile, 2}).
 sendfile(_, _, _, _, _) -> erlang:error({not_implemented, sendfile, 5}).
-set_cwd(_) -> erlang:error({not_implemented, set_cwd, 1}).
 sync(_) -> erlang:error({not_implemented, sync, 1}).
 truncate(_) -> erlang:error({not_implemented, truncate, 1}).
 write_file_info(_, _) -> erlang:error({not_implemented, write_file_info, 2}).

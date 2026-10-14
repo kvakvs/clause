@@ -45,6 +45,8 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `atomics:new/2` arity (step 41N) | Any positive integer the allocator can serve; a huge one ends the node with a crash dump | 1 to 2^27, else `badarg` | [builtins](builtins.md#atomics-and-counters) |
 | `counters` with `write_concurrency` (step 41N) | Per-scheduler counters summed on read; `info/1` memory grows with the scheduler count | One atomics array; `info/1` memory is the array's | [builtins](builtins.md#atomics-and-counters) |
 | `erts_internal:term_type/1` (step 41N) | The internal representation: `flatmap` or `hashmap`, `heap_binary`, `refc_binary` or `sub_binary`, ... | Every map `flatmap`, every bitstring `sub_binary` | [builtins](builtins.md#erts-internal) |
+| `erl_prim_loader:get_path/0` (step 41P) | The boot code path | `["."]` until `set_path/1` | [ports](ports.md#standard-io-and-files) |
+| `file:read_link_info/1,2` of a symbolic link on Windows (step 41P) | The link's own reparse-point data | The target's size and times with type `symlink` | [ports](ports.md#standard-io-and-files) |
 | `code:is_sticky/1` (step 41Z) | `true` for modules of `kernel`, `stdlib` and `compiler` | Always `false` | [builtins](builtins.md#code-module) |
 | Output to a file device (`io:format(File, ...)`, step 41U) | Characters are encoded as the file's encoding (`latin1` by default: characters above 255 are an error) | Always UTF-8 bytes | [io](io.md#calls) |
 | Formatting a large term (`io:format/1,2`) | Runs in Erlang code (`io_lib`) and the group leader, so the process can be preempted while formatting | Runs to completion in one builtin call; other processes wait | [builtins](builtins.md#portions) |

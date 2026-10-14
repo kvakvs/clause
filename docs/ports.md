@@ -290,7 +290,8 @@ Step 57E.
   `{spawn_driver, "clause_file"}`, with `port_control/3`. Its operations
   (`ports/file.cpp`: open, read, write, position, read_line, close, and the
   path operations read_file, write_file, delete, rename, list_dir, make_dir,
-  del_dir and read_file_info, `ports/file_info.cpp`) are synchronous system calls on the caller's worker, outside the
+  del_dir and read_file_info, `ports/file_info.cpp`; get_cwd, set_cwd, read_link, read_link_info, make_link and
+  make_symlink, `ports/file_paths.cpp`, step 41P) are synchronous system calls on the caller's worker, outside the
   executor mutex; their replies start with a status byte (0 ok, 1 error and
   its POSIX reason, 2 end of file). The protocol is Clause's own.
 - `file:open/2` returns an I/O server pid that owns a file port and is linked
@@ -306,6 +307,19 @@ Step 57E.
   `read/2`, `read_line/1`, `write/2`, `position/2` and `io:get_line/2`,
   `io:get_chars/3` on it are requests to that server; after `close/1`
   requests return `{error, terminated}` and `close/1` stays `ok`.
+- Directories, links and copies (plan step 41P): `get_cwd/0` spells the current directory as OTP does (forward
+  slashes, a lowercase drive letter), `get_cwd/1` takes a Windows drive (`enotsup` elsewhere); `set_cwd/1` changes
+  it for the whole program; `read_link/1`, `read_link_all/1` (`einval` for a path that is not a link),
+  `read_link_info/1,2` (a final link's own status: POSIX `lstat`, on Windows the target's fields with type
+  `symlink`), `make_link/2`, `make_symlink/2` (needs a privilege on Windows: `eperm`, as OTP), `list_dir_all/1`,
+  `del_dir_r/1`, `copy/2,3` (names, `{Name, Modes}` or open files; `{ok, BytesCopied}`), `raw_read_file_info/1`,
+  `read_file/2`, `delete/2`, `native_name_encoding/0` (`utf8`). `del_dir/1` answers `enoent` for a missing path and
+  `enotdir` for a file. `consult/1` and the `eval`/`script` family stay stubs: they need OTP's generated parser.
+- Files decided (plan step 41P): Clause's `file` is the file layer; OTP's `filelib` and `filename` are plain
+  Erlang that runs on it when a program's search path holds OTP's sources (`filelib:fold_files/5` needs `re`);
+  `erl_prim_loader` is provided over `file` with OTP's bare `error` answers and a loader path of `["."]`
+  (`set_path/1`), its loading and archive functions declined until step 71; `prim_file` and `prim_buffer` stay
+  missing, so OTP's `raw_file_io*` callers never enter a program.
 - Errors follow OTP: `{error, enoent}`, `eexist`, `eisdir` (a directory
   opened or read as a file), `einval` (a negative position), `ebadf`
   (reading a write-only or writing a read-only file), `badarg` for bad names
