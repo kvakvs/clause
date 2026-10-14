@@ -43,6 +43,9 @@ draft with smaller, single-commit steps.
   2026-10-13 (user direction), driven by the luerl build's 330 s inference.
 - Phase I3 (steps 58U–58W, inference cache for library directories) was
   inserted on 2026-10-13 (user direction); it may run before 58T.
+- Phase H4 (steps 41T–41Z, with 41M split into 41M1/41M2) was inserted on
+  2026-10-14 (user direction) from [the luerl library ledger](21-lib.md); it
+  runs before 58X and 58T. `re` stays out of it.
 
 ## Common gate and rules (apply to every step)
 
@@ -134,8 +137,9 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | --- | --- | --- | --- |
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
-| H3. Drop-in replacements for OTP runtime modules | [41I](#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | open: [41L](#step-41l) |
-| M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [69A](#step-69a), [70](#step-70) |
+| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41K2; open: [41L](#step-41l) |
+| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](#step-41z), [41M1](#step-41m1), [41M2](#step-41m2) | F36, F05 | done: 41T; open: [41U](#step-41u) |
+| M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
 | O. Final closure | [78A](#step-78a), [78B](#step-78b), [78](#step-78) | all | open |
@@ -145,7 +149,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41H, 62C–62E, 65A–65C and 73A–73G); full step text and
+commit for 1–68, 41A–41K2, 41T, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -330,220 +334,11 @@ step of this phase: rerun the luerl command, classify each new error
 (`unknown module`, `undefined function M:F/A`, unsupported syntax or feature,
 other), and add or adjust steps here before coding the next one.
 
-<a id="step-41i"></a>
-
-### 41I. Decide the replacement-module contract
-
-Backlog: F36. Depends on: [41B](00-finished.md#step-41b). **Decision.**
-
-- Success criteria
-  - [x] `docs/library.md` gains a "Runtime module replacements" contract:
-    - which modules qualify (counterparts of `erts/preloaded` modules and of
-      modules OTP generates at build time, such as `unicode_util`) and where
-      they live (proposed `library/erts/` next to `library/stdlib/`, with the
-      library lookup searching both);
-    - precedence (decided, user 2026-10-12): every module Clause provides —
-      replacements, Clause's own `lists`, `maps`, `file`, `io`, `os`,
-      `gen_tcp`, `gen_udp`, `inet`, `erlang` and any later library module —
-      wins over a same-named module found through `source_search_paths`, so
-      an installed or referenced OTP never changes what a build compiles;
-    - explicit inputs (decided, user 2026-10-12): a source the user lists
-      explicitly (`sources`, `source_dirs`, positional inputs) with the name
-      of a Clause module is allowed and replaces the Clause module, with a
-      warning that names both; order is explicit inputs, then Clause
-      modules, then `source_search_paths`;
-    - `ignore_modules` (decided, user 2026-10-12) applies to Clause modules
-      too: an ignored Clause module is missing from the batch, and an
-      explicitly listed source can then provide it (no warning, since
-      nothing is replaced);
-    - every Clause library module exports OTP 29's complete list for its
-      name, so OTP callers compile against it; what is not implemented is a
-      `stub` or `refused` like in the replacement modules;
-    - a decision record per module (and per function group where a module
-      mixes concerns), kept in `docs/library.md`: **provided** (the module
-      exists; each group `implemented`, `refused` or `stub`) or **missing**
-      (no module at all, possibly forever, with the reason and the
-      higher-level Clause modules that shadow its OTP callers); a missing
-      module never gets a stub, so a reference to it stays a compile-time
-      error, never a run-time surprise. A missing module's name is
-      reserved: a same-named file on `source_search_paths` (such as OTP's
-      `erts/preloaded/src/prim_file.erl`) is not used, and the diagnostic
-      says Clause does not provide the module; an explicit input may still
-      provide it, with the replacement warning. Modules decided as
-      trivially implementable for the runtime need no separate decision;
-    - kernel services at startup: none (OTP modules that need a registered
-      server fail as in OTP without one), a minimal set started by the
-      startup object (for example `file_server_2` and an io server), or a
-      booted `kernel` application; record the choice and its cost;
-    - per-function statuses kept in an inventory per module, as
-      `erlang.terms` does: `implemented` (runtime builtin or Erlang body),
-      `refused` (an OTP-shaped error or return, such as `{error, enotsup}`,
-      that callers already handle), `stub` (raises
-      `error({not_implemented, F, A})` with `M:F/A` on top of the stack),
-      `declined` (with the
-      reason, for example distribution or code loading pending step 71);
-    - OTP compatibility: the export list is exactly OTP 29's, observed from
-      the host OTP (no copied source); results and error terms of
-      implemented functions match OTP; differences go to
-      `docs/differences.md`.
-  - [x] The ledger refresh rule of this phase is written into the contract.
-- Tests
-  - [x] None beyond the gate.
-- Done 2026-10-12: [runtime module replacements](../docs/library.md#runtime-module-replacements). Library
-  modules move to `library/<application>/` (`erts`, `kernel`, `stdlib`) with `library/modules.terms` naming
-  provided and missing (reserved) modules; inventories `{Name, Arity, Group, Status}`, statuses `implemented`,
-  `refused`, `stub`, `declined`; no kernel services at startup for now (OTP modules needing one fail with
-  `noproc` as on OTP without it). The ledger table and its refresh rule live in `docs/library.md`.
-
-<a id="step-41j"></a>
-
-### 41J. Generalize the export inventory and stub generator
-
-Backlog: F36. Depends on: [41I](#step-41i).
-
-- Success criteria
-  - [x] `observe_erlang.escript` and `generate_erlang.py` generalize to any
-    module: an escript observes a module's exports from the host OTP
-    (`M:module_info(exports)`, with `module_info` itself left out), and a
-    generator writes `<m>.terms` and the stub module once; after that the
-    module is hand-edited and a check keeps it consistent. `erlang` keeps
-    its current files and auto-import output.
-  - [x] The check, without OTP: every inventory entry is exported by the
-    module, nothing else is exported, every `stub` entry is a stub,
-    and every `implemented` entry has a body or a catalog builtin. With
-    host OTP: the inventory still matches OTP's exports (`host_otp` label).
-  - [x] A committed report script runs the ledger classification of this
-    phase over a `clau` stderr file (module, error kind, callers, called
-    functions with arities), so each refresh is one command.
-- Tests
-  - [x] The consistency and freshness checks as CTests, including one
-    deliberately inconsistent fixture inventory that fails.
-- Done 2026-10-12: new `tests/compiler/library/` (`observe_module.escript`, `library_modules.py` with `check`,
-  `rejects`, `generate`, `freshness`, `report`, `reporting`); the `erlang` observer and generator stay as they
-  are (flags and auto-import output are erlang-only). Generated stubs are erlfmt-stable. The report resolves every
-  luerl call site, including modules named through macros (the error column points at the call's `(`).
-  CTests `library_inventory`, `library_rejects`, `library_report`, `library_freshness` (`host_otp`).
-
-<a id="step-41k"></a>
-
-### 41K. Make the provided runtime modules discoverable
-
-Backlog: F36. Depends on: [41J](#step-41j).
-
-- Success criteria
-  - [x] Replacement modules with OTP 29's full export lists, all `stub`,
-    for every module 41I decides as provided (proposed: `atomics`,
-    `counters`, `erts_code_purger`, `erts_internal`, `init`,
-    `persistent_term`, `unicode_util`, and `erl_prim_loader`, `zlib`,
-    `prim_eval` if decided so), found by the library lookup. Modules
-    decided as missing get no file.
-  - [x] Module lookup order is explicit inputs, Clause modules, then
-    `source_search_paths`; an explicit input that replaces a Clause module
-    warns; `ignore_modules` removes Clause modules too. `docs/library.md`
-    and `docs/projects.md` say so.
-  - [x] Clause's existing library modules (`lists`, `maps`, `file`, `io`,
-    `os`, `gen_tcp`, `gen_udp`, `inet`) get inventories and OTP 29's full
-    export lists, with stubs for what they do not implement yet. For every
-    missing module, each OTP caller luerl pulls in is either shadowed by a
-    Clause module (new stub modules such as `socket`, `net`, `filelib`
-    where 41P/41R decide so) or recorded as unsupported.
-  - [x] The luerl rerun shows no `unknown module` error for provided
-    modules and none reached through a shadowed caller; the next layer of
-    errors is classified into the ledger in `docs/library.md`, and the
-    steps below are adjusted or extended to it.
-  - [x] `docs/library.md` lists provided and missing modules with their
-    group statuses.
-- Tests
-  - [x] An executable calls one stub of each provided module directly,
-    through `fun M:F/A` and by dynamic call, and gets
-    `{not_implemented, F, A}` (user direction 2026-10-12, instead of `undef`)
-    with the stub on top of the stack; inventory checks from 41J
-    pass.
-  - [x] Precedence: a project whose search path holds a `lists.erl` and a
-    `prim_file.erl` of its own (stand-ins for OTP's) compiles Clause's
-    `lists` and never the stand-in `prim_file` (a call to it reports that
-    Clause does not provide the module), with the same output with and
-    without that directory; the
-    same `lists.erl` listed in `sources` replaces Clause's with the
-    warning; with `lists` in `ignore_modules` a call to `lists` reaches the
-    ignored-module placeholder (`{module_ignored, lists}`) without a warning.
-    Open question for the user: today `ignore_modules` also ignores a listed
-    `lists.erl`, so a listed source cannot provide an ignored module yet.
-- Done 2026-10-12: library split into `library/{erts,kernel,stdlib}/` with `library/modules.terms`
-  (`driver/library_modules`: application directories, reserved missing names); discovery searches the library
-  before `source_search_paths`, warns when an explicit input replaces a Clause module and adds a `note` naming
-  a reserved missing module where the batch first names it. Provided all-stub modules: `atomics`, `counters`,
-  `erl_prim_loader`, `erts_code_purger`, `erts_internal`, `init`, `persistent_term`, `prim_eval`, `zlib`,
-  `unicode_util`, and `application_controller` (it shadows OTP's, the only remaining caller of `prim_file`).
-  Existing `lists`, `maps`, `io`, `file`, `os`, `gen_tcp`, `gen_udp`, `inet` completed to OTP 29's export lists
-  (`library_modules.py complete`). Every library stub raises `error({not_implemented, F, A})` (user direction),
-  `erlang.erl` included. luerl: no unknown module, no undefined function; the next layer is 473
-  `undefined remote type` errors (41K1, 41K2). `test-luerl.toml` needs `NEW_STACKTRACE` in `defines` (luerl's
-  `rebar.config.script` sets it on OTP 21+). Gate: fast CTest 267/268 (known `codegen_resource_cli`),
-  `check-quality` clean. Tests `library_stubs`, `library_precedence`.
-
-<a id="step-41k1"></a>
-
-### 41K1. Declare OTP's exported types in Clause library modules
-
-Backlog: F36. Depends on: [41K](#step-41k).
-
-Clause's modules win over OTP's, so OTP code that names `file:filename()`,
-`io:format()`, `erlang:time_unit()` or `maps:iterator_order()` in its specs
-and types finds no such type. luerl (2026-10-12): `file` 305 errors
-(`filename`, `name`, `name_all`, `filename_all`, `date_time`, `posix`, `fd`,
-`io_device`, `mode`), `io` 51 (`format`, `device`), `erlang` 25
-(`time_unit`, `timestamp`, `spawn_opt_option`, `stacktrace`, ...), `inet` 12,
-`maps` 6.
-
-- Success criteria
-  - [x] Each provided module with exported OTP types includes a
-    `<module>.types.hrl` observed from the host OTP; the check requires the
-    include and the freshness test compares the header's forms.
-  - [x] Decided (user, 2026-10-12): write each type as the documentation shows
-    it, or as OTP's implementation defines it when unclear. The installed
-    docs chunk has no type definitions, so the headers take them from the
-    beam's debug info or the shipped source of preloaded modules.
-    `erlang`'s generated module includes its header too.
-- Tests
-  - [x] A program whose specs name a type of each completed module compiles;
-    inventory checks cover types.
-- Done 2026-10-12: `tests/compiler/library/observe_types.escript` (exported types plus the local types and records
-  they use, `--check`); headers for `atomics`, `counters`, `erlang` (66 forms, OTP's built-in type names included),
-  `zlib`, `file`, `gen_tcp`, `gen_udp`, `inet`, `os`, `io`, `maps`; `library_modules.py include`; CTest
-  `library_types`. Library inputs carry `CompilationInput::library_`: types their headers name from modules
-  outside the program, and union widening inside them, are not reported. luerl's 473 `undefined remote type`
-  errors are gone; with 41K2 the target compiles, links
-  (`build/emqx.exe`) and the executable exits 0.
-
-<a id="step-41k2"></a>
-
-### 41K2. Remote types of ignored modules
-
-Backlog: F36. Depends on: [41K](#step-41k).
-
-- Success criteria
-  - [x] A remote type of an ignored module (luerl: `erl_parse` 63 errors,
-    `compile` 11, both ignored by the manifest) warns `attempt to import a
-    type from a module ignored in project settings: M:T` and is `term()`
-    (user, 2026-10-12); documented in `docs/projects.md#ignored-sources`.
-  - [x] A source `sources` lists literally is never ignored: `ignore_modules`
-    and `ignore_dirs` have no effect on it and the build warns (user,
-    2026-10-12); wildcard matches and `source_dirs` are ignored as before.
-- Tests
-  - [x] A project ignoring a module whose types another module's specs name
-    compiles with the decided diagnostic (`library_ignored`); a listed
-    `lists.erl` in `ignore_modules` is compiled with the warning
-    (`library_precedence`).
-- Done 2026-10-12: placeholders' path prefix is `semantic::IGNORED_MODULE_DIRECTORY`; the type resolver warns for
-  them. `project::Ignore::keep` records literally listed sources the rules match; the project driver warns.
-  `test-luerl.toml` no longer ignores `inet` (a Clause module now).
-
 <a id="step-41l"></a>
 
 ### 41L. `init` arguments and status
 
-Backlog: F36. Depends on: [41K](#step-41k).
+Backlog: F36. Depends on: [41K](00-finished.md#step-41k).
 
 - Success criteria
   - [ ] Trivial for the runtime, so implemented: `get_argument/1`,
@@ -562,23 +357,14 @@ Backlog: F36. Depends on: [41K](#step-41k).
 
 ### 41M. `persistent_term`
 
-Backlog: F36, F05. Depends on: [41K](#step-41k).
-
-- Success criteria
-  - [ ] `put/2`, `put_new/2`, `get/0,1,2`, `erase/1`, `info/0` as runtime
-    builtins over one runtime-wide table safe for several workers; how a
-    stored term is shared (copied into an immutable literal area or copied
-    out on every `get`) and released after `erase` is decided and
-    documented in `docs/runtime-heap.md`; `badarg` cases as OTP.
-- Tests
-  - [ ] OTP-goldened executable with large values, several processes and
-    collections; the multi-worker stress runs under TSan with V02.
+Split on 2026-10-14 (user direction) into [41M1](#step-41m1) (the runtime
+table) and [41M2](#step-41m2) (the builtins), both in phase H4.
 
 <a id="step-41n"></a>
 
 ### 41N. `erts_internal`, `atomics`, `counters` and `erts_code_purger`
 
-Backlog: F36, D01. Depends on: [41K](#step-41k).
+Backlog: F36, D01. Depends on: [41K](00-finished.md#step-41k).
 
 - Success criteria
   - [ ] `erts_internal` functions that `stdlib` needs: `cmp_term/2`,
@@ -598,7 +384,7 @@ Backlog: F36, D01. Depends on: [41K](#step-41k).
 
 ### 41O. `unicode_util` from the Unicode data
 
-Backlog: F36. Depends on: [41K](#step-41k).
+Backlog: F36. Depends on: [41K](00-finished.md#step-41k).
 
 - Success criteria
   - [ ] Decide how the tables are produced: an owned generator reading the
@@ -622,7 +408,7 @@ Backlog: F36. Depends on: [41K](#step-41k).
 
 ### 41P. Files: Clause `file` and `filelib`; `erl_prim_loader`, `prim_file`, `prim_buffer`
 
-Backlog: F36, F35. Depends on: [41I](#step-41i), [41K](#step-41k).
+Backlog: F36, F35. Depends on: [41I](00-finished.md#step-41i), [41K](00-finished.md#step-41k).
 
 - Success criteria
   - [ ] Decisions per module and group, following 41I's kernel-services
@@ -643,7 +429,7 @@ Backlog: F36, F35. Depends on: [41I](#step-41i), [41K](#step-41k).
 
 ### 41Q. `zlib`
 
-Backlog: F36. Depends on: [41K](#step-41k).
+Backlog: F36. Depends on: [41K](00-finished.md#step-41k).
 
 - Success criteria
   - [ ] Decide: link a pinned zlib into the runtime (the 41E
@@ -659,7 +445,7 @@ Backlog: F36. Depends on: [41K](#step-41k).
 
 ### 41R. Networking: Clause `gen_tcp`, `gen_udp`, `inet`, `socket`, `net`; the `prim_*` layer
 
-Backlog: F36, F35. Depends on: [41I](#step-41i), [41K](#step-41k).
+Backlog: F36, F35. Depends on: [41I](00-finished.md#step-41i), [41K](00-finished.md#step-41k).
 
 - Success criteria
   - [ ] Clause's `gen_tcp`, `gen_udp` and `inet` (over the runtime socket
@@ -680,7 +466,7 @@ Backlog: F36, F35. Depends on: [41I](#step-41i), [41K](#step-41k).
 
 ### 41S. `prim_eval` and the next luerl layer
 
-Backlog: F36. Depends on: [41K](#step-41k)–[41R](#step-41r).
+Backlog: F36. Depends on: [41K](00-finished.md#step-41k)–[41R](#step-41r).
 
 - Success criteria
   - [ ] `prim_eval:'receive'/2` (selective receive driven by a matcher fun,
@@ -691,6 +477,170 @@ Backlog: F36. Depends on: [41K](#step-41k)–[41R](#step-41r).
     declined; the phase stays open until `luerl:init` links.
 - Tests
   - [ ] As each new step defines.
+
+## H4. Library functions luerl reaches
+
+Added 2026-10-14 (user direction) from [the luerl library ledger](21-lib.md):
+the stubs, OTP NIF stubs and missing services a luerl program reaches at run
+time, plus the functions luerl references next. Rules for every step:
+
+- Implementation is C++ in `runtime/src/builtins/` (a catalog entry in
+  `abi::v1::bridge_builtins`, a typed builtin, the inventory entry turned
+  `implemented`; the library stub stays and is replaced at registration).
+  A builtin cannot call an Erlang fun and get its result back, so functions
+  taking funs (`lists:foreach/2`, `mapfoldl/3`, ...) get Erlang bodies in the
+  library module; so do one-line wrappers over an existing builtin.
+- A module Clause does not have yet (`math`, `binary`, `unicode`, `code`)
+  joins `library/modules.terms` as provided, with OTP 29's export list and
+  types observed from the host OTP (41J/41K1 tooling), stubs for the rest.
+- Results and error terms follow OTP; where a builtin cannot match OTP's
+  error detail (a `function_clause` raised by a builtin has no Erlang frame
+  with its arguments) the row goes to `docs/differences.md`. List builtins
+  run to completion; portions follow if a benchmark shows the need.
+- Tests: one OTP-goldened executable per step under
+  `tests/fixtures/executables/` covering results and error cases.
+- `re` (ledger row 17) is not part of this phase.
+
+<a id="step-41u"></a>
+
+### 41U. `io` output wrappers
+
+Backlog: F36. Depends on: [41K](00-finished.md#step-41k). Ledger row 5 and grouping item 2.
+
+- Success criteria
+  - [ ] `nl/0,1`, `fwrite/1,2,3`, `format/3`, `put_chars/2` as builtins next
+    to `io:format/1,2` and `put_chars/1`; devices `standard_io`,
+    `standard_error` and `user`; an open file pid writes through `file`;
+    other devices as OTP (`error:terminated`-style or `badarg`, golden).
+- Tests
+  - [ ] `executables_io_output`.
+
+<a id="step-41v"></a>
+
+### 41V. `math` as runtime builtins
+
+Backlog: F36. Depends on: [41K](00-finished.md#step-41k). Ledger rows 7 and 13.
+
+- Success criteria
+  - [ ] Provided module `math` (OTP 29 exports): every function over libm,
+    `pi/0`, `tau/0`; integer arguments converted; `badarg` for non-numbers and
+    `badarith` for domain errors and non-finite results, as OTP.
+- Tests
+  - [ ] `executables_math`: exact float results printed with `~w` (shortest
+    round trip), `1.0e100` exponents, domain errors.
+
+<a id="step-41w"></a>
+
+### 41W. `binary` as runtime builtins
+
+Backlog: F36. Depends on: [41K](00-finished.md#step-41k). Ledger rows 11, 12 and the
+referenced `split/2,3`.
+
+- Success criteria
+  - [ ] Provided module `binary` (OTP 29 exports and types): `match/2,3`,
+    `matches/2,3`, `part/2,3`, `split/2,3`, `replace/3,4`, `at/2`,
+    `first/1`, `last/1`, `bin_to_list/1,2,3`, `list_to_bin/1`, `copy/1,2`,
+    `compile_pattern/1`, `longest_common_prefix/1`,
+    `longest_common_suffix/1`, `decode_unsigned/1,2`, `encode_unsigned/1,2`,
+    `encode_hex/1,2`, `decode_hex/1`, `referenced_byte_size/1`; OTP's
+    options (`{scope, ...}`, `global`, `trim`, `trim_all`,
+    `{insert_replaced, ...}`) and `badarg` cases. A compiled pattern is a
+    Clause-shaped term (difference row).
+- Tests
+  - [ ] `executables_binary`.
+
+<a id="step-41x"></a>
+
+### 41X. `os` and `maps` gaps
+
+Backlog: F36. Depends on: [41K](00-finished.md#step-41k). Ledger rows 16, 20 and the
+referenced `maps:is_key/2`, `remove/2`.
+
+- Success criteria
+  - [ ] `os`: `timestamp/0`, `system_time/0,1`, `perf_counter/0,1`,
+    `getpid/0`, `getenv/0,2`, `putenv/2`, `unsetenv/1`, `env/0`,
+    `version/0` as builtins.
+  - [ ] `maps`: `get/3`, `is_key/2`, `remove/2`, `new/0`, `size/1`,
+    `merge/2`, `take/2`, `update/3`, `with/2`, `without/2`,
+    `from_keys/2` as builtins (`{badmap, M}`, `{badkey, K}` as OTP);
+    `filter/2`, `map/2`, `foreach/2`, `update_with/3,4` as Erlang bodies.
+- Tests
+  - [ ] `executables_os_maps` (time values checked for shape only).
+
+<a id="step-41m1"></a>
+
+### 41M1. Runtime-wide persistent term table
+
+Backlog: F36, F05. Depends on: [41K](00-finished.md#step-41k). Ledger rows 18–19.
+
+- Success criteria
+  - [ ] One table owned by the runtime, safe for several workers, maps keys
+    to stored terms. A stored term is copied once into a runtime-owned,
+    immutable area that no process collection moves or frees; `get` returns
+    a term that refers to that area without copying, and process heaps,
+    copying, comparison, printing, sending and the collector accept such
+    words (the representation rules of this plan). Erasing or replacing a
+    key releases the old copy only when no process can still hold it
+    (decided rule recorded in `docs/runtime.md`; OTP's global collection
+    is not required: keeping replaced values until exit is an allowed
+    first answer if recorded as a difference).
+- Tests
+  - [ ] Focused runtime tests for storage, replacement and concurrent
+    reads (TSan with V02).
+
+<a id="step-41m2"></a>
+
+### 41M2. `persistent_term` builtins
+
+Backlog: F36. Depends on: [41M1](#step-41m1).
+
+- Success criteria
+  - [ ] `put/2`, `put_new/2`, `get/0,1,2`, `erase/1`, `info/0` as builtins
+    over 41M1's table; `badarg` cases as OTP; `erl_features`'s cache in the
+    luerl syntax-error path works.
+- Tests
+  - [ ] `executables_persistent_term`: large values, several processes,
+    values surviving collections of the reader.
+
+<a id="step-41y"></a>
+
+### 41Y. `unicode` conversions and `file` gaps
+
+Backlog: F36, F35. Depends on: [41K](00-finished.md#step-41k). Referenced by luerl:
+`unicode:characters_to_binary/2`, `file:read_file_info/1,2`,
+`file:write_file/3`.
+
+- Success criteria
+  - [ ] Provided module `unicode` (OTP 29 exports and types):
+    `characters_to_binary/1,2,3`, `characters_to_list/1,2`,
+    `bom_to_encoding/1`, `encoding_to_bom/1` as builtins with OTP's
+    `{error, ...}`/`{incomplete, ...}` results; normalization functions stay
+    stubs until 41O.
+  - [ ] `file:read_file_info/1,2` through a new file-driver stat operation
+    (OTP's `#file_info{}` tuple, `{time, local | universal | posix}`),
+    `file:write_file/3` with `append`/`write`/`exclusive` modes.
+- Tests
+  - [ ] `executables_unicode`, `file_io` extended.
+
+<a id="step-41z"></a>
+
+### 41Z. `code` without a code server, and the luerl rerun
+
+Backlog: F36, D01. Depends on: [41T](00-finished.md#step-41t)–[41Y](#step-41y),
+[41M2](#step-41m2). Ledger rows 21–22.
+
+- Success criteria
+  - [ ] Provided module `code` (OTP 29 exports and types) answering for
+    linked code with no `code_server`: `ensure_loaded/1`,
+    `ensure_modules_loaded/1`, `is_loaded/1`, `all_loaded/0`,
+    `is_sticky/1`, `which/1`, `module_status/1`; code-path and loading
+    functions `refused` or `stub` (step 71); `io_lib:format`'s error path
+    reaches `badarg` as on OTP.
+  - [ ] luerl driver rerun ([method](21-lib.md#method-reproducible)):
+    every snippet except `os.date` (`re`) prints OTP's output;
+    `21-lib.md` updated.
+- Tests
+  - [ ] `executables_code`.
 
 ## M. Validation closure
 
@@ -718,83 +668,6 @@ Backlog: V03. Depends on: [58](00-finished.md#step-58).
     exclusions are published.
 - Tests
   - [ ] Opt-in upstream run with recorded commands; normal CTest stays OTP-free.
-
-<a id="step-69a"></a>
-
-### 69A. Manual performance benchmarks against OTP
-
-Backlog: V05. Depends on: [57F](00-finished.md#step-57f) (sockets),
-[57E](00-finished.md#step-57e) (files), [62](00-finished.md#step-62) (`--lto`).
-Added 2026-10-12 (user direction). **Manual only:** no CTest registration, not
-part of the commit gate, `check-quality` or any preset; normal builds and tests
-never need it or host OTP.
-
-- Success criteria
-  - [x] Owned benchmark sources in `benchmarks/` (new top-level directory,
-    recorded in `files.md`), each one `.erl` module that both `erlc`/`erl` and
-    `clau` build unchanged, timing its own kernel with
-    `erlang:monotonic_time/1` after a warm-up and printing one result line:
-    - data generation: lists, tuples, maps, binaries, big integers built in
-      bulk;
-    - data processing: sort, `lists:foldl`/`map`, map updates, binary
-      matching, string/term conversion;
-    - garbage collection: many short-lived processes and a long-lived process
-      with a growing then shrinking heap (time plus collection count where
-      both systems expose one);
-    - file I/O: write, read back, line reads and `read_file`/`write_file` of
-      small and large files in a temporary directory;
-    - sockets: loopback `gen_tcp` echo throughput and connect/accept rate,
-      `gen_udp` round trips;
-    - message passing between processes as the cross-cutting baseline.
-  - [x] One driver script (`benchmarks/run.py`, Python as `cmake/` scripts)
-    with fixed iteration counts and repetitions; reports the median and
-    spread of N runs per benchmark, wall time per run including startup
-    listed separately from the kernel time. A whole default run, builds of
-    the programs included, stays under 10 minutes (user direction
-    2026-10-12); iteration counts are sized for the slowest system.
-  - [x] Systems compared on the same host in one run:
-    - OTP with the JIT (`erlang:system_info(emu_flavor)` confirms `jit`);
-    - OTP without the JIT via `erl -emu_flavor emu` when that flavor is
-      installed, otherwise the column reads `n/a (no emu flavor)`;
-    - Clause at `HEAD`, Release build, O2, with and without `--lto`;
-    - Clause at a previous version: by default the newest commit whose commit
-      date is at least one day older than `HEAD` (`--baseline <rev>`
-      overrides), built in a `git worktree` under `build/bench-base/<hash>` and
-      cached by hash; a benchmark the baseline cannot build reads `n/a`.
-  - [x] Text report: one row per benchmark, columns for each system's time and
-    the change in percent against OTP JIT, OTP emu and the Clause baseline
-    (`+12.3% faster` / `-40.1% slower`, same sign convention everywhere),
-    with a header naming date, host, CPU, OS, OTP release, ERTS version,
-    emu flavors found and both Clause commit hashes and dates.
-  - [x] History: one record per run day and host (run date, HEAD commit
-    hash and date, per-benchmark medians of Clause, OTP and the baseline)
-    under `benchmarks/history/`, kept locally and out of git (user direction
-    2026-10-12); a rerun on the same
-    day replaces that day's record and report (user direction 2026-10-12).
-    The driver prunes records and reports run more than 6 months before the
-    newest, and the report shows the trend of each benchmark over the kept
-    history (same host only).
-  - [x] Invocation: a `make benchmark` target in the `Makefile` (manual use;
-    agents never run it) and `make-benchmark.bat` for Windows, following
-    `make-test.bat` (calls `tools\windows-toolchain.cmd`, honours `CMAKE`,
-    `JOBS`, `CMAKE_ARGS` overrides). Both configure a Release build directory
-    (`build/bench`) with `BUILD_TESTING=OFF`, build `clau` and the runtime,
-    then call `benchmarks/run.py`; extra driver options pass through
-    (`BENCH_ARGS` in make, remaining arguments in the `.bat`).
-  - [x] `docs/validation.md` documents how to run it and that results are
-    host-specific evidence, not gate results.
-- Tests
-  - [x] One recorded manual run through `make-benchmark.bat` on the Windows
-    x64 host, its summary recorded in this step (history and report stay
-    local); the gate shows no new CTest and no OTP need.
-- Done 2026-10-12: `benchmarks/` (6 programs, 29 kernels, `bench_util.erl`, `run.py`), `make benchmark`,
-  `make-benchmark.bat`, ignored `benchmarks/history/`. Run on Windows x64 (32 threads, OTP 29 / ERTS 17.1, JIT
-  only: no emu flavor installed), HEAD `a7bc0c9` against baseline `89d0c7d`, 5 runs: 3 min 43 s in total.
-  Clause O2 is 20.2x slower than OTP JIT (geometric mean); sockets are at par or faster (`tcp_connect`
-  +42%, `tcp_echo` +9%, UDP -43%); the worst kernels look quadratic: `<<Bin/binary, X>>` appends ~480x,
-  `maps:put` ~620x, binary matching ~730x, map updates ~420x; `lists:sort` ~120x. `--lto` and the
-  one-day baseline are within noise of HEAD. The connect kernel closes on the server side first: client-side
-  TIME_WAIT used up Windows' 16384 ephemeral ports (`eaddrinuse`). The gate is unchanged: no CTest added.
 
 <a id="step-70"></a>
 

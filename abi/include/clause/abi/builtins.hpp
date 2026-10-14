@@ -309,6 +309,24 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "finish_loading", 1},
     BuiltinName{"erlang", "get_module_info", 1},
     BuiltinName{"erlang", "get_module_info", 2},
+    // The lists module's data functions (plan step 41T; runtime/src/builtins/lists/).
+    BuiltinName{"lists", "sublist", 2},
+    BuiltinName{"lists", "sublist", 3},
+    BuiltinName{"lists", "droplast", 1},
+    BuiltinName{"lists", "nthtail", 2},
+    BuiltinName{"lists", "last", 1},
+    BuiltinName{"lists", "duplicate", 2},
+    BuiltinName{"lists", "join", 2},
+    BuiltinName{"lists", "flatten", 1},
+    BuiltinName{"lists", "flatten", 2},
+    BuiltinName{"lists", "max", 1},
+    BuiltinName{"lists", "min", 1},
+    BuiltinName{"lists", "usort", 1},
+    BuiltinName{"lists", "umerge", 1},
+    BuiltinName{"lists", "umerge", 2},
+    BuiltinName{"lists", "keymember", 3},
+    BuiltinName{"lists", "keysearch", 3},
+    BuiltinName{"lists", "keydelete", 3},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

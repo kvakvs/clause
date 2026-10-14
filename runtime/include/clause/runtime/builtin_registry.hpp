@@ -113,6 +113,11 @@ std::span<const BuiltinEntry> process_builtins() noexcept;
 std::span<const BuiltinEntry> port_builtins() noexcept;
 // The os builtins: os:type/0 and os:getenv/1.
 std::span<const BuiltinEntry> os_builtins() noexcept;
+// The lists module's data functions of step 41T: sublist/2,3, droplast/1, nthtail/2, last/1, duplicate/2, join/2,
+// flatten/1,2; max/1, min/1, usort/1, umerge/1,2; keymember/3, keysearch/3, keydelete/3.
+std::span<const BuiltinEntry> lists_sublist_builtins() noexcept;
+std::span<const BuiltinEntry> lists_ordering_builtins() noexcept;
+std::span<const BuiltinEntry> lists_key_builtins() noexcept;
 // The binary, atom and number conversions of step 41D: atom_to_binary/1,2, binary_to_atom/1,2,
 // binary_to_existing_atom/1,2, list_to_existing_atom/1, integer_to_binary/1,2, binary_to_integer/1,2,
 // float_to_binary/1,2, binary_to_float/1, list_to_float/1, binary_to_list/3, bitstring_to_list/1,

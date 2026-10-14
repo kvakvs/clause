@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "lists_data",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "{sublist,ok,[a,b]}\n{sublist,ok,[]}\n{sublist,ok,[a,b,c]}\n{sublist,ok,[]}\n{sublist,ok,[a]}\n{sublist,error,function_clause}\n{sublist,error,function_clause}\n{sublist,error,function_clause}\n{sublist,error,function_clause}\n{sublist,ok,[b,c]}\n{sublist,ok,[a,b,c]}\n{sublist,ok,[c]}\n{sublist,ok,[]}\n{sublist,ok,[]}\n{sublist,error,function_clause}\n{sublist,error,function_clause}\n{droplast,ok,[a,b]}\n{droplast,ok,[]}\n{droplast,error,function_clause}\n{droplast,error,function_clause}\n{droplast,error,function_clause}\n{nthtail,ok,[a,b]}\n{nthtail,ok,[b]}\n{nthtail,ok,[]}\n{nthtail,error,function_clause}\n{nthtail,error,function_clause}\n{nthtail,ok,b}\n{nthtail,error,function_clause}\n{nthtail,error,function_clause}\n{flatten,ok,[a,b,c,d,e]}\n{flatten,ok,[]}\n{flatten,error,function_clause}\n{flatten,error,function_clause}\n{flatten,error,function_clause}\n{flatten,ok,[a,b,c]}\n{flatten,error,function_clause}\n{flatten,ok,[a,b|c]}\n{duplicate,ok,[x,x,x]}\n{duplicate,ok,[]}\n{duplicate,error,function_clause}\n{duplicate,error,function_clause}\n{max,ok,3}\n{max,ok,1}\n{max,ok,1.0}\n{max,ok,[115]}\n{max,error,function_clause}\n{max,error,function_clause}\n{max,error,function_clause}\n{min,ok,1}\n{min,ok,1}\n{min,ok,1.0}\n{min,ok,1}\n{min,error,function_clause}\n{last,ok,c}\n{last,ok,a}\n{last,error,function_clause}\n{last,error,function_clause}\n{umerge,ok,[0,1,2,3,4,5,6]}\n{umerge,ok,[1,2]}\n{umerge,ok,[1.0,2.0]}\n{umerge,ok,[]}\n{umerge,ok,[]}\n{umerge,ok,[a,b,c]}\n{umerge,ok,[1,2,3]}\n{umerge,ok,[1]}\n{umerge,ok,[1.0]}\n{umerge,ok,[a]}\n{usort,ok,[a,b,c]}\n{usort,ok,[1,2.0]}\n{usort,ok,[1.0]}\n{usort,ok,[]}\n{usort,ok,[1,b,c,{a},[],[120]]}\n{join,ok,[a,x,b,x,c]}\n{join,ok,[a]}\n{join,ok,[]}\n{join,error,function_clause}\n{join,error,function_clause}\n{keymember,ok,true}\n{keymember,ok,true}\n{keymember,ok,false}\n{keymember,error,badarg}\n{keymember,error,badarg}\n{keymember,error,badarg}\n{keysearch,ok,{value,{b,2}}}\n{keysearch,ok,false}\n{keysearch,ok,false}\n{keysearch,error,badarg}\n{keydelete,ok,[{a,1},{b,3}]}\n{keydelete,ok,[x,{b,1}]}\n{keydelete,ok,[]}\n{keydelete,error,function_clause}\n{keydelete,error,function_clause}\n[[1,2,3],[4,5],[1,2,3,4,5,6,7,8,9],[9,10],true,[[1,2,3,4,5,6,7,8,9,10],[1,2,3,4,5,6,7,8,9,10]],10,1,10,true,true,[1,0,2],true,{value,{x,3}},[]]\n[[a,b],[c],1000]\na b c \n[{[2,4,6],6},{[2,4,6],[1,2,3]},{[1,2],[3,1]},{[],[]},{[2,4],[1,3,5]},{[],acc}]\n[{error,function_clause},{error,function_clause},{error,{case_clause,x}},{error,{case_clause,x}},{error,{badmatch,x}}]\nlists_data: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "lists_data.erl": "c30998cd595338b00a1317ca0ab1aa0f31597222e1d90619177aa22b6a32f924"
+  }
+}

@@ -142,6 +142,30 @@ function reaches the [erlang library module](#erlang-module).
   and `A` a small integer; it is true when a module of the program exports
   `M:F/A` or `M:F/A` is a registered builtin.
 
+## Lists module
+
+Plan 11 step 41T (`runtime/src/builtins/lists/`). OTP's `lists` is Erlang code
+(apart from a few BIFs), so Clause's builtins raise what OTP's clauses raise:
+
+- `sublist/2,3`, `droplast/1`, `nthtail/2`, `last/1`, `duplicate/2`,
+  `join/2`, `flatten/1,2`, `max/1`, `min/1`, `usort/1`, `umerge/1,2` and
+  `keydelete/3` raise `function_clause` for an argument no OTP clause
+  accepts, and walk lists as lazily as OTP: `sublist([a | b], 1)` is `[a]`,
+  `nthtail(1, [a | b])` is `b`, `flatten/2` does not check its tail beyond
+  `is_list`.
+- `keymember/3` and `keysearch/3` are BIFs in OTP: `badarg` for a position
+  that is not a positive small integer or an improper tail reached before a
+  match.
+- Keys and order compare with `==` and term order; of elements comparing
+  equal the first wins (`max([1, 1.0])` is `1`, `usort([1.0, 1])` is
+  `[1.0]`, `umerge/1,2` keep the element of the earlier list).
+- They run to completion. Functions that take funs (`foreach/2`,
+  `mapfoldl/3`, `mapfoldr/3`, `splitwith/2`, `partition/2`, ...) are Erlang
+  in `library/stdlib/lists.erl`, because a builtin cannot call a fun and get
+  its result back.
+- A `function_clause` from a builtin has no frame of its own
+  ([differences](differences.md)).
+
 ## Portions
 
 Plan 11 step 43A (2026-10-08): builtins whose work grows with a list or binary

@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41H, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 73A–73G, 2026-10-03–13)
+## Plan 11 (steps 1–68, 41A–41K2, 41T, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -214,6 +214,29 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   of 188 modules covered, inference 180 s to 40.5 s on a warm recompile. Tests `cache_inference`,
   `semantic_inference` round trip, `project_cli`/`cli` `--print-env`. Gate: full CTest 278/279 (known
   `codegen_measurements` IR size bound, failing before 58U too), `check-quality-all` clean.
+- **41I–41K2 (H3):** 2026-10-12, runtime module replacements ([library](../docs/library.md#runtime-module-replacements)):
+  contract (Clause modules win over `source_search_paths`, explicit inputs replace them with a warning,
+  `ignore_modules` applies to them, missing modules are reserved names); library split into
+  `library/{erts,kernel,stdlib}/` with `library/modules.terms`; inventories `{Name, Arity, Group, Status}`
+  (`implemented`, `refused`, `stub`, `declined`) checked against the modules and, with host OTP, OTP 29's exports
+  (`tests/compiler/library/`: observer, generator, ledger report); all-stub replacements of the preloaded modules
+  (`atomics`, `counters`, `erl_prim_loader`, `erts_code_purger`, `erts_internal`, `init`, `persistent_term`,
+  `prim_eval`, `zlib`, `unicode_util`, `application_controller`); existing library modules completed to OTP 29's
+  export lists; stubs raise `{not_implemented, F, A}`; OTP's exported types in `<module>.types.hrl` headers; remote
+  types of ignored modules warn and are `term()`; literally listed sources are never ignored. luerl compiles, links
+  and exits 0. Tests `library_inventory`, `library_rejects`, `library_report`, `library_freshness`,
+  `library_stubs`, `library_precedence`, `library_types`, `library_ignored`.
+- **41T (H4):** 2026-10-14, `lists` data functions as runtime builtins ([builtins](../docs/builtins.md#lists-module)):
+  `runtime/src/builtins/lists/` (`sublist/2,3`, `droplast/1`, `nthtail/2`, `last/1`, `duplicate/2`, `join/2`,
+  `flatten/1,2`, `max/1`, `min/1`, `usort/1`, `umerge/1,2`, `keymember/3`, `keysearch/3`, `keydelete/3`) with OTP's
+  `function_clause`/`badarg` and laziness; `foreach/2`, `mapfoldl/3`, `mapfoldr/3`, `splitwith/2`, `partition/2` as
+  Erlang bodies. The call tracer of 6a7d402a no longer allocates without tracing (`runtime_lifecycle_failure`) and
+  passes clang-tidy. Test `executables_lists_data`. Gate: fast CTest 277/278 before the last tidy-only edits
+  (`linking_compile_cache` "Access is denied" publishing an exe, passes on rerun), `check-quality` clean.
+- **69A (M):** 2026-10-12, manual benchmarks against OTP ([validation](../docs/validation.md)): `benchmarks/` (6
+  programs, 29 kernels, `run.py`), `make benchmark`, `make-benchmark.bat`, local history; never part of the gate.
+  First run: Clause O2 20.2x slower than OTP JIT (geometric mean), sockets at par, quadratic binary appends and map
+  updates found.
 - **63–65, 67–68 (M):** Linux x86-64 full gate (WSL2); 32-bit runtime on Windows x86 and Linux i386 with cross-linked goldens; arm64/armhf under qemu-user; ASan/UBSan/LSan and TSan clean on Linux after fixing a shutdown use-after-free and a lock-order inversion ([validation](../docs/validation.md)).
 - **65A–65C (M):** 2026-10-10, from compiling luerl ([semantic](../docs/semantic.md), [compile](../docs/compile.md)): `-behaviour`/`-behavior` with OTP callback warnings and a generated `behaviour_info/1`; generated `module_info/0,1` returning literal data and informational attributes kept in `module_info(attributes)`; `-import` of any module with OTP conflicts; optimization/reporting `-compile` hints ignored; rejected attributes name themselves. Lint goldens from OTP 29.1.1.
 - **73A–73G (N2):** 2026-10-11, parse transforms ([transforms](../docs/transforms.md)): contract; owned abstract term model with ETF and `.abstr` text codecs (the ETF `Writer`/`Reader` in `abi/include/clause/abi/external_term.hpp` is shared with the future runtime `term_to_binary` and distribution); `--print-abstr` equal to OTP `epp` forms; `.abstr` inputs; embedded loader run on host OTP 29 (`--erl`, `PATH`, default install, 600 s limit); transforms applied before lint in positional and project drivers with OTP's diagnostics; precompiled `.beam`s from `--transform-path`/`transform_paths`, project transforms compiled in memory each run. Last gate 242/243 fast CTests (known `codegen_resource_cli` failure), check-quality clean.
@@ -298,6 +321,12 @@ criteria and evidence are in Git at those commits. Contracts in the linked
 - <a id="step-41g2"></a>**41G2.** Spawn options, spawn requests, aliases and hibernation — `752c5fc`
 - <a id="step-41g3"></a>**41G3.** Fun information, hashing and MD5 — `a0a9bc9`
 - <a id="step-41h"></a>**41H.** Single-node distribution and code-loading answers — `89d0c7d`
+- <a id="step-41i"></a>**41I.** Decide the replacement-module contract — `8c6a94f1`
+- <a id="step-41j"></a>**41J.** Generalize the export inventory and stub generator — `b284a034`
+- <a id="step-41k"></a>**41K.** Make the provided runtime modules discoverable — `347ae0ad`
+- <a id="step-41k1"></a>**41K1.** Declare OTP's exported types in Clause library modules — `4810de56`
+- <a id="step-41k2"></a>**41K2.** Remote types of ignored modules — `4810de56`
+- <a id="step-41t"></a>**41T.** `lists` data functions as builtins — commit `[plan11] 41T ...`
 - <a id="step-42"></a>**42.** Implement pid and reference identities — `59064bf`
 - <a id="step-43"></a>**43.** Run spawned processes on a cooperative executor — `f092504`
 - <a id="step-43a"></a>**43A.** Make long-running builtins interruptible — `0682b54`
@@ -377,6 +406,7 @@ criteria and evidence are in Git at those commits. Contracts in the linked
 - <a id="step-65c"></a>**65C.** Import functions, accept compile hints, name rejected attributes — `12dc2d5`
 - <a id="step-67"></a>**67.** Run compiler and frontend sanitizers — `58b3243`
 - <a id="step-68"></a>**68.** Run ThreadSanitizer on the multi-worker runtime — `9679aea`
+- <a id="step-69a"></a>**69A.** Manual performance benchmarks against OTP — `0777b693`
 - <a id="step-73a"></a>**73A.** Decide the parse transform contract — `57d4193`
 - <a id="step-73b"></a>**73B.** Add the abstract term model and its codecs — `a3f66ab`
 - <a id="step-73c"></a>**73C.** Export modules as abstract forms — `9a9f9aa`

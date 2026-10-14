@@ -8,15 +8,20 @@
     filter/2,
     foldl/3,
     foldr/3,
+    foreach/2,
     keyfind/3,
     map/2,
+    mapfoldl/3,
+    mapfoldr/3,
     member/2,
     nth/2,
+    partition/2,
     reverse/1,
     reverse/2,
     seq/2,
     seq/3,
-    sort/1
+    sort/1,
+    splitwith/2
 ]).
 %% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
 %% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
@@ -36,7 +41,6 @@
     flatmap/2,
     flatten/1,
     flatten/2,
-    foreach/2,
     join/2,
     keydelete/3,
     keymap/3,
@@ -48,8 +52,6 @@
     keystore/4,
     keytake/3,
     last/1,
-    mapfoldl/3,
-    mapfoldr/3,
     max/1,
     merge/1,
     merge/2,
@@ -57,7 +59,6 @@
     merge3/3,
     min/1,
     nthtail/2,
-    partition/2,
     prefix/2,
     rkeymerge/3,
     rmerge/2,
@@ -70,7 +71,6 @@
     search/2,
     sort/2,
     split/2,
-    splitwith/2,
     sublist/2,
     sublist/3,
     subtract/2,
@@ -170,6 +170,55 @@ nth(N, [_ | _] = List) when is_integer(N), N > 1 -> nth_from(N, List).
 nth_from(1, [Element | _]) -> Element;
 nth_from(N, [_ | Rest]) -> nth_from(N - 1, Rest).
 
+%% Fun applied to every element for its effects, then ok (plan step 41T).
+foreach(Fun, List) when is_function(Fun, 1) -> for_each(Fun, List).
+
+for_each(Fun, [Element | Rest]) ->
+    Fun(Element),
+    for_each(Fun, Rest);
+for_each(_, []) ->
+    ok.
+
+%% Map and fold in one pass from the first element: Fun(Element, Acc) returns
+%% {Mapped, NextAcc} (plan step 41T).
+mapfoldl(Fun, Acc, [Element | Rest]) ->
+    {Mapped, Next} = Fun(Element, Acc),
+    {MappedRest, Last} = mapfoldl(Fun, Next, Rest),
+    {[Mapped | MappedRest], Last};
+mapfoldl(Fun, Acc, []) when is_function(Fun, 2) ->
+    {[], Acc}.
+
+%% Map and fold from the last element (plan step 41T).
+mapfoldr(Fun, Acc, [Element | Rest]) ->
+    {MappedRest, Next} = mapfoldr(Fun, Acc, Rest),
+    {Mapped, Last} = Fun(Element, Next),
+    {[Mapped | MappedRest], Last};
+mapfoldr(Fun, Acc, []) when is_function(Fun, 2) ->
+    {[], Acc}.
+
+%% The elements for which Pred is true and those for which it is false, each in
+%% order (plan step 41T).
+partition(Pred, List) when is_function(Pred, 1) -> partition(Pred, List, [], []).
+
+partition(Pred, [Element | Rest], Satisfying, Others) ->
+    case Pred(Element) of
+        true -> partition(Pred, Rest, [Element | Satisfying], Others);
+        false -> partition(Pred, Rest, Satisfying, [Element | Others])
+    end;
+partition(_, [], Satisfying, Others) ->
+    {reverse(Satisfying), reverse(Others)}.
+
+%% The longest prefix whose elements satisfy Pred, and the rest (plan step 41T).
+splitwith(Pred, List) when is_function(Pred, 1) -> split_while(Pred, List, []).
+
+split_while(Pred, [Element | Rest] = List, Prefix) ->
+    case Pred(Element) of
+        true -> split_while(Pred, Rest, [Element | Prefix]);
+        false -> {reverse(Prefix), List}
+    end;
+split_while(_, [], Prefix) ->
+    {reverse(Prefix), []}.
+
 %% The elements in reverse order.
 reverse([] = List) -> List;
 reverse([_] = List) -> List;
@@ -252,7 +301,6 @@ flatlength(_) -> erlang:error({not_implemented, flatlength, 1}).
 flatmap(_, _) -> erlang:error({not_implemented, flatmap, 2}).
 flatten(_) -> erlang:error({not_implemented, flatten, 1}).
 flatten(_, _) -> erlang:error({not_implemented, flatten, 2}).
-foreach(_, _) -> erlang:error({not_implemented, foreach, 2}).
 join(_, _) -> erlang:error({not_implemented, join, 2}).
 keydelete(_, _, _) -> erlang:error({not_implemented, keydelete, 3}).
 keymap(_, _, _) -> erlang:error({not_implemented, keymap, 3}).
@@ -264,15 +312,12 @@ keysort(_, _) -> erlang:error({not_implemented, keysort, 2}).
 keystore(_, _, _, _) -> erlang:error({not_implemented, keystore, 4}).
 keytake(_, _, _) -> erlang:error({not_implemented, keytake, 3}).
 last(_) -> erlang:error({not_implemented, last, 1}).
-mapfoldl(_, _, _) -> erlang:error({not_implemented, mapfoldl, 3}).
-mapfoldr(_, _, _) -> erlang:error({not_implemented, mapfoldr, 3}).
 max(_) -> erlang:error({not_implemented, max, 1}).
 merge(_) -> erlang:error({not_implemented, merge, 1}).
 merge(_, _) -> erlang:error({not_implemented, merge, 2}).
 merge3(_, _, _) -> erlang:error({not_implemented, merge3, 3}).
 min(_) -> erlang:error({not_implemented, min, 1}).
 nthtail(_, _) -> erlang:error({not_implemented, nthtail, 2}).
-partition(_, _) -> erlang:error({not_implemented, partition, 2}).
 prefix(_, _) -> erlang:error({not_implemented, prefix, 2}).
 rkeymerge(_, _, _) -> erlang:error({not_implemented, rkeymerge, 3}).
 rmerge(_, _) -> erlang:error({not_implemented, rmerge, 2}).
@@ -285,7 +330,6 @@ rumerge3(_, _, _) -> erlang:error({not_implemented, rumerge3, 3}).
 search(_, _) -> erlang:error({not_implemented, search, 2}).
 sort(_, _) -> erlang:error({not_implemented, sort, 2}).
 split(_, _) -> erlang:error({not_implemented, split, 2}).
-splitwith(_, _) -> erlang:error({not_implemented, splitwith, 2}).
 sublist(_, _) -> erlang:error({not_implemented, sublist, 2}).
 sublist(_, _, _) -> erlang:error({not_implemented, sublist, 3}).
 subtract(_, _) -> erlang:error({not_implemented, subtract, 2}).
