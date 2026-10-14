@@ -54,7 +54,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
   },
   "inputs": {
     "integer_limit.erl": "9214b694a81489f4cbac95daa8a6d63d3c112b12596f5c86f2d0f39311710fb1"

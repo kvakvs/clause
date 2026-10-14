@@ -23,7 +23,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
   },
   "inputs": {
     "clospeer.erl": "be411d7ff01c5497e28a51eca2dd872f2a842342423ec5da7cde8f262f514f86",

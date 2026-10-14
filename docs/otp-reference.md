@@ -3,8 +3,8 @@
 Clause tracks the official `maint-29` branch. The reviewed pin lives in
 [`references/otp-pin.cmake`](../references/otp-pin.cmake):
 
-- Revision `21776803ecd11f5fa948732c0ec66b8f325dedfc` (upstream commit dated
-  2026-09-22), last confirmed unchanged on 2026-10-03.
+- Revision `d199a49a01a2079afb6f2c5c9ae047cd4555e68d` (OTP 29.1.2, upstream
+  commit dated 2026-10-14), refreshed on 2026-10-14.
 - Installed oracle used for goldens and audits: OTP 29.1.1 / ERTS 17.1.
 
 `references/otp` is an ignored checkout. Normal builds and tests use
@@ -52,3 +52,4 @@ Historical records keep the revision they were made against.
 | 2026-09-28 | Switched to `maint-29`; grammar and ten corpus files identical | `21776803ecd11f5fa948732c0ec66b8f325dedfc` |
 | 2026-10-01 – 10-03 | Re-fetched before each pattern/guard step; unchanged | same |
 | 2026-10-03 | Plan 11 step 1: 14 audit tests pass, 19 corpora reproduce | same |
+| 2026-10-14 | Refreshed to OTP 29.1.2: grammar, scanner, preprocessor and `phase6/otp.tsv` hashes unchanged (`genop.tab` comment only); 17 audit tests pass and 19 corpora reproduce under oracle 29.1.1; the revision recorded by executable, lint, program and printing goldens updated (outputs unchanged, `external_terms` keeps its atom-order-dependent map output) | `d199a49a01a2079afb6f2c5c9ae047cd4555e68d` |

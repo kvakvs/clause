@@ -22,7 +22,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
   },
   "inputs": {
     "many_ports.erl": "59740d35cb03e527755ef07c38ec23a1f107cbe46bcf7f634234ae787cc8673f",

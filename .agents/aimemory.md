@@ -607,3 +607,8 @@ Host and tool gotchas:
   oracle compiles with warnings_as_errors (hide bad formats behind id/1) and prints maps in atom-table order (use ~kw).
   Bash tool heredocs containing apostrophes in python fail ("unexpected EOF"): write scripts to scratchpad files.
   Call tracer sink is now allocated only when CLAUSE_CALL_TRACE is set (lifecycle_failure counts allocations).
+- OTP pin refresh 2026-10-14 to d199a49a (29.1.2; oracle still 29.1.1): executable/lint/programs/printing goldens
+  store the pin revision and their --check compares it, so a pin change needs those four regenerate.py runs (diff
+  must be revision lines only). executables external_terms prints an ETF map whose key order follows OTP's atom
+  index: its oracle check flips between runs; keep the committed stdout. ctest via cmd: select tests with -I
+  numbers, never -R "a|b".

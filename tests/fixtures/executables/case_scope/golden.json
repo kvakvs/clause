@@ -31,7 +31,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
   },
   "inputs": {
     "scope.erl": "edc82dbf76f739d830007d947c83cca31cd21d9279b9052cb4d3e666f0412d45"
