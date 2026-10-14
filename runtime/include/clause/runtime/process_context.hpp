@@ -3,6 +3,7 @@
 #include "mailbox.hpp"
 #include "process_dictionary.hpp"
 #include "process_heap.hpp"
+#include "program_arguments.hpp"
 #include "signals.hpp"
 #include "stack.hpp"
 #include <clause/abi/frames.hpp>
@@ -114,6 +115,8 @@ class ProcessContext final : private abi::v1::FrameState {
     OutputSink standard_output() const noexcept;
     // The runtime-wide persistent term table (persistent_term builtins). Added for step 41M1.
     detail::PersistentTerms &persistent_terms() const noexcept;
+    // The command line the program started with (init builtins). Added for step 41L.
+    const ProgramArguments &program_arguments() const noexcept;
 
     // Share failure state across a synchronous generated invocation and its runtime services.
     GeneratedCallState &generated_calls() noexcept { return generated_calls_; }

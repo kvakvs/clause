@@ -3,6 +3,7 @@
 #include <clause/runtime/runtime.hpp>
 #include <expected>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -20,9 +21,11 @@ struct ProgramOptions {
 
 // Parse CLAUSE_FLAGS, then the leading arguments; the error is the text of an invalid or unimplemented option.
 std::expected<ProgramOptions, std::string> program_options(int argc, char **argv);
-// Build the entry argument: a proper list of strings, decoded from the platform's native arguments after the
-// first `skip` ones (runtime options).
-TermResult<Term> program_arguments(ProcessContext &context, int argc, char **argv, std::size_t skip);
+// Decode the platform's native arguments after the first `skip` ones (runtime options), the executable's path and
+// the home directory (step 41L).
+ProgramArguments command_line(int argc, char **argv, std::size_t skip);
+// Build the entry argument: a proper list of strings.
+TermResult<Term> argument_list(ProcessContext &context, std::span<const std::string> arguments);
 // Render the uncaught-exception reason of a failed entry call in ~w form.
 TermResult<std::string> exception_reason(const CallFailure &failure);
 } // namespace clause::runtime::detail

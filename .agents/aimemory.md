@@ -612,3 +612,9 @@ Host and tool gotchas:
   must be revision lines only). executables external_terms prints an ETF map whose key order follows OTP's atom
   index: its oracle check flips between runs; keep the committed stdout. ctest via cmd: select tests with -I
   numbers, never -R "a|b".
+- 41L init (2026-10-14): OTP's init:request/1 does a bare `receive {init, Rep}`, so a pending {init, _} message in
+  the caller's mailbox is taken as the reply (fixture sends {init, started} only after its last request). The
+  executables oracle runs entries from an escript while init still boots: plain arguments start with the escript's
+  own, get_status {starting, started}, init:ensure_loaded loads; fully started OTP gives {started, started},
+  not_allowed, fetch_loaded []. Golden checks shape only for those. init:stop("bye") under OTP writes erl_crash.dump
+  in the staged dir, exit 1.

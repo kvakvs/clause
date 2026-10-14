@@ -435,6 +435,11 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"code", "module_status", 0},
     BuiltinName{"code", "module_status", 1},
     BuiltinName{"code", "is_sticky", 1},
+    // The init module's command-line answers (plan step 41L; runtime/src/builtins/init.cpp).
+    BuiltinName{"init", "get_plain_arguments", 0},
+    BuiltinName{"init", "get_arguments", 0},
+    BuiltinName{"init", "get_argument", 1},
+    BuiltinName{"init", "script_name", 0},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

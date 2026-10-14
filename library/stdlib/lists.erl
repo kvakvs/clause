@@ -296,7 +296,17 @@ duplicate(_, _) -> erlang:error({not_implemented, duplicate, 2}).
 enumerate(_) -> erlang:error({not_implemented, enumerate, 1}).
 enumerate(_, _) -> erlang:error({not_implemented, enumerate, 2}).
 enumerate(_, _, _) -> erlang:error({not_implemented, enumerate, 3}).
-filtermap(_, _) -> erlang:error({not_implemented, filtermap, 2}).
+%% The elements Fun keeps, as themselves (true) or replaced ({true, Value}); erl_features needs it (step 41L).
+filtermap(Fun, List) when is_function(Fun, 1) -> filtermap_1(Fun, List).
+
+filtermap_1(Fun, [Head | Tail]) ->
+    case Fun(Head) of
+        true -> [Head | filtermap_1(Fun, Tail)];
+        {true, Value} -> [Value | filtermap_1(Fun, Tail)];
+        false -> filtermap_1(Fun, Tail)
+    end;
+filtermap_1(_, []) ->
+    [].
 flatlength(_) -> erlang:error({not_implemented, flatlength, 1}).
 flatmap(_, _) -> erlang:error({not_implemented, flatmap, 2}).
 flatten(_) -> erlang:error({not_implemented, flatten, 1}).
@@ -318,7 +328,10 @@ merge(_, _) -> erlang:error({not_implemented, merge, 2}).
 merge3(_, _, _) -> erlang:error({not_implemented, merge3, 3}).
 min(_) -> erlang:error({not_implemented, min, 1}).
 nthtail(_, _) -> erlang:error({not_implemented, nthtail, 2}).
-prefix(_, _) -> erlang:error({not_implemented, prefix, 2}).
+%% Whether List starts with Prefix; function_clause unless both are lists (step 41L).
+prefix([X | PrefixTail], [X | Tail]) -> prefix(PrefixTail, Tail);
+prefix([], List) when is_list(List) -> true;
+prefix([_ | _], List) when is_list(List) -> false.
 rkeymerge(_, _, _) -> erlang:error({not_implemented, rkeymerge, 3}).
 rmerge(_, _) -> erlang:error({not_implemented, rmerge, 2}).
 rmerge(_, _, _) -> erlang:error({not_implemented, rmerge, 3}).
@@ -333,7 +346,10 @@ split(_, _) -> erlang:error({not_implemented, split, 2}).
 sublist(_, _) -> erlang:error({not_implemented, sublist, 2}).
 sublist(_, _, _) -> erlang:error({not_implemented, sublist, 3}).
 subtract(_, _) -> erlang:error({not_implemented, subtract, 2}).
-suffix(_, _) -> erlang:error({not_implemented, suffix, 2}).
+%% Whether List ends with Suffix (step 41L); nthtail/2 is a builtin, so the call is qualified.
+suffix(Suffix, List) ->
+    Delta = length(List) - length(Suffix),
+    Delta >= 0 andalso lists:nthtail(Delta, List) =:= Suffix.
 sum(_) -> erlang:error({not_implemented, sum, 1}).
 takewhile(_, _) -> erlang:error({not_implemented, takewhile, 2}).
 ukeymerge(_, _, _) -> erlang:error({not_implemented, ukeymerge, 3}).
@@ -342,13 +358,33 @@ umerge(_) -> erlang:error({not_implemented, umerge, 1}).
 umerge(_, _) -> erlang:error({not_implemented, umerge, 2}).
 umerge(_, _, _) -> erlang:error({not_implemented, umerge, 3}).
 umerge3(_, _, _) -> erlang:error({not_implemented, umerge3, 3}).
-uniq(_) -> erlang:error({not_implemented, uniq, 1}).
-uniq(_, _) -> erlang:error({not_implemented, uniq, 2}).
+%% The list without repeated elements, first occurrences kept in order; erl_features needs it (step 41L).
+uniq(List) -> uniq_1(List, #{}).
+
+uniq_1([Head | Tail], Seen) ->
+    case is_map_key(Head, Seen) of
+        true -> uniq_1(Tail, Seen);
+        false -> [Head | uniq_1(Tail, Seen#{Head => true})]
+    end;
+uniq_1([], _) ->
+    [].
+
+%% The list without elements whose Fun key repeats an earlier one.
+uniq(Fun, List) when is_function(Fun, 1) -> uniq_2(List, Fun, #{}).
+
+uniq_2([Head | Tail], Fun, Seen) ->
+    Key = Fun(Head),
+    case is_map_key(Key, Seen) of
+        true -> uniq_2(Tail, Fun, Seen);
+        false -> [Head | uniq_2(Tail, Fun, Seen#{Key => true})]
+    end;
+uniq_2([], _, _) ->
+    [].
 unzip(_) -> erlang:error({not_implemented, unzip, 1}).
 unzip3(_) -> erlang:error({not_implemented, unzip3, 1}).
 usort(_) -> erlang:error({not_implemented, usort, 1}).
 usort(_, _) -> erlang:error({not_implemented, usort, 2}).
-zf(_, _) -> erlang:error({not_implemented, zf, 2}).
+zf(Fun, List) -> filtermap(Fun, List).
 zip(_, _) -> erlang:error({not_implemented, zip, 2}).
 zip(_, _, _) -> erlang:error({not_implemented, zip, 3}).
 zip3(_, _, _) -> erlang:error({not_implemented, zip3, 3}).

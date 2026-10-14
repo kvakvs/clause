@@ -87,6 +87,8 @@ OutputSink Runtime::standard_output() const noexcept { return impl_ ? impl_->opt
 
 detail::PersistentTerms &Runtime::persistent_terms() noexcept { return impl_->persistent_terms; }
 
+const ProgramArguments &Runtime::program_arguments() const noexcept { return impl_->options.program; }
+
 std::size_t Runtime::context_count() const noexcept { return impl_ ? impl_->contexts.size() : 0; }
 
 std::size_t Runtime::memory_bytes() const noexcept { return impl_ ? impl_->memory->used() * sizeof(Word) : 0; }

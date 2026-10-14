@@ -52,6 +52,10 @@ OutputSink ProcessContext::standard_output() const noexcept { return impl_->runt
 
 detail::PersistentTerms &ProcessContext::persistent_terms() const noexcept { return impl_->runtime.persistent_terms(); }
 
+const ProgramArguments &ProcessContext::program_arguments() const noexcept {
+    return impl_->runtime.program_arguments();
+}
+
 Mailbox &ProcessContext::mailbox() noexcept { return mailbox_; }
 
 std::weak_ptr<const ContextLifetime> ProcessContext::lifetime() const noexcept { return impl_->lifetime; }

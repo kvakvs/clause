@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
+## Plan 11 (steps 1–68, 41A–41L, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -226,6 +226,15 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   types of ignored modules warn and are `term()`; literally listed sources are never ignored. luerl compiles, links
   and exits 0. Tests `library_inventory`, `library_rejects`, `library_report`, `library_freshness`,
   `library_stubs`, `library_precedence`, `library_types`, `library_ignored`.
+- **41L (H3):** 2026-10-14, `init` of a started system without a boot script ([builtins](../docs/builtins.md#init-module)):
+  startup decodes argv, the executable path and the home directory once (`ProgramArguments` in
+  `RuntimeOptions::program`); builtins `get_plain_arguments/0`, `get_arguments/0`, `get_argument/1` (`home` only),
+  `script_name/0`; Erlang answers of OTP's started `init` (`{started, started}`, `not_allowed`, `fetch_loaded/0`
+  `[]`, configfd in `persistent_term`); `stop/0,1`, `reboot/0` halt at once with OTP's status rules; `boot/1`,
+  `restart/0,1`, `make_permanent/2` refused (`notsup`). Also `lists:prefix/2`, `suffix/2`, `filtermap/2`, `zf/2`, `uniq/1,2` (`lists_data`). luerl
+  driver rerun: Lua syntax errors now equal OTP's, 33 of 35 snippets match (left: `os.date` needs `re`, `goto`
+  frame detail). Test `executables_init_module` (OTP-goldened runs, exit statuses 0/3/1, authored exact argv).
+  Gate: fast CTest 287/287 (1 disabled), `check-quality` clean.
 - **41T (H4):** 2026-10-14, `lists` data functions as runtime builtins ([builtins](../docs/builtins.md#lists-module)):
   `runtime/src/builtins/lists/` (`sublist/2,3`, `droplast/1`, `nthtail/2`, `last/1`, `duplicate/2`, `join/2`,
   `flatten/1,2`, `max/1`, `min/1`, `usort/1`, `umerge/1,2`, `keymember/3`, `keysearch/3`, `keydelete/3`) with OTP's
@@ -376,6 +385,7 @@ criteria and evidence are in Git at those commits. Contracts in the linked
 - <a id="step-41k"></a>**41K.** Make the provided runtime modules discoverable — `347ae0ad`
 - <a id="step-41k1"></a>**41K1.** Declare OTP's exported types in Clause library modules — `4810de56`
 - <a id="step-41k2"></a>**41K2.** Remote types of ignored modules — `4810de56`
+- <a id="step-41l"></a>**41L.** `init` arguments and status — commit `[plan11] 41L ...`
 - <a id="step-41t"></a>**41T.** `lists` data functions as builtins — commit `[plan11] 41T ...`
 - <a id="step-41u"></a>**41U.** `io` output wrappers — commit `[plan11] 41U ...`
 - <a id="step-41v"></a>**41V.** `math` as runtime builtins — commit `[plan11] 41V ...`

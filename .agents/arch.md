@@ -163,6 +163,8 @@
   library stub stays and registration replaces it. Fun-taking functions stay Erlang. A builtin may continue in an
   Erlang export by trapping to `function_frame` (io devices -> `file:write/2`; liveness `BUILTIN_CONTINUATIONS`).
   Persistent terms: runtime-wide `memory/persistent_terms` table of `MessageBuffer`s, values copied out per read.
+  Phase H3 41L: startup decodes argv/executable path/home once into `ProgramArguments` (`RuntimeOptions::program`,
+  `ProcessContext::program_arguments`); entry argv and the `init` builtins read it; `init` answers as a started node.
   The `erlang` library module (step 41B): `library/erts/erlang.erl` is generated from the owned inventory
   `erlang.terms`; non-builtin `erlang:F/A` and unqualified OTP auto-imports (`semantic::library_auto_import`) pull
   it in like `lists`; `CodeServer::index` skips exports a builtin names, literal builtin funs bind the builtin.

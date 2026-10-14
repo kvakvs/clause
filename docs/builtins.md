@@ -38,6 +38,7 @@ builtin both the compiler and the runtime know:
 - `persistent_term` (plan step 41M2, [persistent terms](#persistent-terms));
 - the `unicode` conversions (plan step 41Y1, [unicode module](#unicode-module));
 - the `code` module's loaded-module queries (plan step 41Z, [code module](#code-module));
+- the `init` module's command-line answers (plan step 41L, [init module](#init-module));
 - process identities (plan step 42): `self/0`, `make_ref/0`, `pid_to_list/1`
   and `ref_to_list/1` ([pids and references](terms.md#pids-and-references));
 - processes (plan step 43): `spawn/1,3` and `is_process_alive/1`
@@ -169,9 +170,10 @@ Plan 11 step 41T (`runtime/src/builtins/lists/`). OTP's `lists` is Erlang code
   equal the first wins (`max([1, 1.0])` is `1`, `usort([1.0, 1])` is
   `[1.0]`, `umerge/1,2` keep the element of the earlier list).
 - They run to completion. Functions that take funs (`foreach/2`,
-  `mapfoldl/3`, `mapfoldr/3`, `splitwith/2`, `partition/2`, ...) are Erlang
-  in `library/stdlib/lists.erl`, because a builtin cannot call a fun and get
-  its result back.
+  `mapfoldl/3`, `mapfoldr/3`, `splitwith/2`, `partition/2`, `filtermap/2`,
+  `uniq/2`, ...) are Erlang in `library/stdlib/lists.erl`, because a builtin
+  cannot call a fun and get its result back; so are `prefix/2`, `suffix/2`
+  and `uniq/1` (step 41L), with OTP's clauses and guards.
 - A `function_clause` from a builtin has no frame of its own
   ([differences](differences.md)).
 
@@ -279,6 +281,35 @@ argument that is not an atom is `function_clause`. Code paths and loading
 stay stubs until [step 71](../.agents/11-plan.md#step-71). OTP's
 `io_lib:format/2` error path (`code:ensure_modules_loaded/1`) now raises the
 original `badarg`.
+
+## Init module
+
+Plan 11 step 41L (`runtime/src/builtins/init.cpp`, `library/erts/init.erl`).
+An executable is a started system without a boot script. Startup decodes the
+command line once (`ProgramArguments`, `runtime/src/startup/arguments.cpp`):
+the arguments after the runtime options are both the arity-1 entry's argv
+and `get_plain_arguments/0`. There are no emulator flags; the only flag is
+`home`, set at startup as OTP's `erlexec` sets it (`HOME`; on Windows
+`HOMEDRIVE` and `HOMEPATH`, else `USERPROFILE`), so `get_argument(home)` is
+`{ok, [[Home]]}`, `get_arguments/0` is `[{home, [Home]}]` and every other
+flag is `error`. `script_name/0` is the executable's absolute path with
+forward slashes. These four are builtins; the rest are Erlang:
+
+- answers of OTP's started `init`: `get_status/0` `{started, started}`,
+  `notify_when_started/1` `started`, `ensure_loaded/1` `not_allowed`,
+  `fetch_loaded/0` `[]`, `objfile_extension/0` `".beam"`,
+  `archive_extension/0` `".ez"`, `code_path_choice/0` `strict`,
+  `run_on_load_handlers/0` `ok`, `wait_until_started/0` (waits for
+  `{init, started}`); `get_configfd/1` and `set_configfd/2` keep their values
+  in `persistent_term` under `{init, configfd, Id}`;
+- `script_id/0` is `{"Clause", "29"}`;
+- `stop/0,1` and `reboot/0` halt at once with OTP's status rules: a
+  non-negative integer is the exit status, a byte list the halt slogan, any
+  other argument `badarg`;
+- refused: `boot/1` and `restart/0,1` raise `notsup` after OTP's argument
+  checks (`restart/1` of a list that is not `[]` or `[{mode, M}]` is
+  `badarg`), `make_permanent/2` returns `{error, notsup}` for valid names and
+  `{error, badarg}` otherwise.
 
 ## Portions
 

@@ -73,7 +73,7 @@ Complete for the selected scope; the plan steps hold criteria and evidence.
   OTP 29 `erlang` export is implemented, compiler-handled or a named stub in `library/stdlib/erlang.erl`):
   [ ] TSan timer stress (41F, with V02); [ ] replacements for the ERTS-preloaded and generated modules
   `kernel`/`stdlib` call (`init`, `persistent_term`, `unicode_util`, `zlib`, `prim_*`, ...; phase H3,
-  [41I](11-plan.md#step-41i)–[41S](11-plan.md#step-41s));
+  [41I](11-plan.md#step-41i)–[41S](11-plan.md#step-41s); delivered so far: `init` 41L, `persistent_term` 41M1/41M2);
   [ ] leex/yecc generation for `.xrl`/`.yrl` sources through the host OTP.
 - **F32 follow-up — export liveness** ([62C](00-finished.md#step-62c)): [x] unused exports leave the export
   table so dead-stripping and `--lto` can remove them (executables; `--keep-exports` opts out).

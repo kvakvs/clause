@@ -210,7 +210,7 @@ Plan 11 step 41J. All live in `tests/compiler/library/`:
 
 | Module | Decision (2026-10-12) | Reason or plan step |
 | --- | --- | --- |
-| `init` | provided, all stubs | argument and status answers (41L) |
+| `init` | provided; implemented except `boot/1`, `restart/0,1` and `make_permanent/2`, refused | argument and status answers of a started system (41L, [init module](builtins.md#init-module)) |
 | `persistent_term` | provided, all stubs | runtime-wide term table (41M) |
 | `erts_internal` | provided, all stubs; to group: `stdlib` (`cmp_term/2`, `map_next/3`, `list_to_integer/2`, map helpers) implemented, `distribution` and `beam` declined | 41N; no distribution, no `.beam` files |
 | `atomics`, `counters`, `erts_code_purger` | provided, all stubs | 41N |

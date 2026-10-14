@@ -7,6 +7,7 @@ main([]) ->
     [io:format("~w~n", [outcome(F, A)]) || {F, A} <- id(calls())],
     direct(),
     higher_order(),
+    filters(),
     io:format("lists_data: ok~n").
 
 id(X) -> X.
@@ -168,6 +169,32 @@ higher_order() ->
             catch_error(fun() -> lists:splitwith(fun(_) -> x end, [a]) end),
             catch_error(fun() -> lists:partition(fun(_) -> x end, [a]) end),
             catch_error(fun() -> lists:mapfoldl(fun(_, _) -> x end, 0, [a]) end)
+        ]
+    ]).
+
+%% prefix/2, suffix/2, filtermap/2 and uniq/1,2 (step 41L).
+filters() ->
+    Keep = fun
+        (X) when X > 2 -> {true, X * 10};
+        (X) -> X =:= 1
+    end,
+    io:format("~w~n", [
+        [
+            lists:prefix([1, 2], [1, 2, 3]),
+            lists:prefix([], []),
+            lists:prefix([2], [1, 2]),
+            lists:suffix([2, 3], [1, 2, 3]),
+            lists:suffix([1, 2, 3, 4], [2, 3]),
+            lists:filtermap(Keep, [1, 2, 3, 4]),
+            lists:uniq([b, a, b, c, a]),
+            lists:uniq([1, 1.0, 1]),
+            lists:uniq(fun(X) -> X rem 3 end, [1, 2, 4, 5, 6]),
+            catch_error(fun() -> lists:prefix(x, [1]) end),
+            catch_error(fun() -> lists:suffix(x, [1]) end),
+            catch_error(fun() -> lists:filtermap(fun(_) -> x end, [a]) end),
+            catch_error(fun() -> lists:filtermap(x, [a]) end),
+            catch_error(fun() -> lists:uniq(x) end),
+            catch_error(fun() -> lists:uniq(x, [a]) end)
         ]
     ]).
 

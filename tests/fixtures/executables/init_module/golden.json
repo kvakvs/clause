@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "entry": "init_module",
+  "runs": [
+    {
+      "args": [
+        "a",
+        "b c"
+      ],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[true,true,true,error,error,true,started,started,true,[],\".beam\",\".ez\",strict,\n ok,true,none,ok,config,\n {error,badarg},\n {error,badarg},\n {error,badarg},\n {error,badarg},\n {error,badarg},\n {error,function_clause},\n {error,badarg}]\nok\ninit_module: ok\n"
+    },
+    {
+      "args": [
+        "stop",
+        "3"
+      ],
+      "stderr": "^$",
+      "exit_status": 3,
+      "stdout": "stopping\n"
+    },
+    {
+      "args": [
+        "stop",
+        "0"
+      ],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "stopping\n"
+    },
+    {
+      "args": [
+        "stop_text"
+      ],
+      "stderr": "^bye\n$",
+      "exit_status": 1,
+      "stdout": "stopping\n"
+    },
+    {
+      "args": [
+        "reboot"
+      ],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "rebooting\n"
+    },
+    {
+      "args": [
+        "--",
+        "exact",
+        "-x",
+        "b c"
+      ],
+      "authored": true,
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[\"exact\",\"-x\",\"b c\"]\ntrue\ninit_module: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "init_module.erl": "e43e1cee56f1bbf6bccf1c2b5c388337d0c9e01f1151ea3416ca0207ee58f0cc"
+  }
+}

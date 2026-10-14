@@ -180,7 +180,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      maps_builtins(),
                                      persistent_term_builtins(),
                                      unicode_builtins(),
-                                     code_module_builtins()};
+                                     code_module_builtins(),
+                                     init_builtins()};
     return families;
 }
 } // namespace clause::runtime

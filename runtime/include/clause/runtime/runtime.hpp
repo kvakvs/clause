@@ -40,6 +40,8 @@ struct RuntimeOptions {
     // File the program writes its profile report to at exit (--profile FILE, docs/profiling.md); empty disables
     // profiling. The runtime itself only collects the costs.
     std::string profile = {};
+    // The command line and home directory startup decoded (plan step 41L); empty for runtimes a host starts.
+    ProgramArguments program = {};
 };
 
 // Own stable process contexts and reserved runtime-wide services; calls require host-side serialization.
@@ -80,6 +82,8 @@ class Runtime final {
     OutputSink standard_output() const noexcept;
     // Borrow the runtime-wide persistent term table; only active runtimes have one. Added for step 41M1.
     detail::PersistentTerms &persistent_terms() noexcept;
+    // The command line of RuntimeOptions::program. Added for step 41L.
+    const ProgramArguments &program_arguments() const noexcept;
 
   private:
     friend class detail::Executor;

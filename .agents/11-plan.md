@@ -46,6 +46,8 @@ draft with smaller, single-commit steps.
 - Phase H4 (steps 41T–41Z, with 41M split into 41M1/41M2) was inserted on
   2026-10-14 (user direction) from [the luerl library ledger](21-lib.md); it
   runs before 58X and 58T. `re` stays out of it.
+- Phase H5 (steps 41ZA PCRE2 dependency, 41ZB `re` builtins) was inserted on
+  2026-10-14 (user direction).
 
 ## Common gate and rules (apply to every step)
 
@@ -137,7 +139,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | --- | --- | --- | --- |
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
-| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41K2; open: [41L](#step-41l) |
+| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41L; open: [41N](#step-41n)–[41S](#step-41s) |
 | H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](00-finished.md#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -149,7 +151,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41L, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -334,25 +336,6 @@ step of this phase: rerun the luerl command, classify each new error
 (`unknown module`, `undefined function M:F/A`, unsupported syntax or feature,
 other), and add or adjust steps here before coding the next one.
 
-<a id="step-41l"></a>
-
-### 41L. `init` arguments and status
-
-Backlog: F36. Depends on: [41K](00-finished.md#step-41k).
-
-- Success criteria
-  - [ ] Trivial for the runtime, so implemented: `get_argument/1`,
-    `get_arguments/0`, `get_plain_arguments/0` (the executable's argv, with
-    no emulator flags: `home` from the environment, other flags `error`),
-    `script_name/0`, `get_status/0` (`{started, started}`),
-    `objfile_extension/0`, `archive_extension/0`, `code_path_choice/0`,
-    `fetch_loaded/0` (the registered modules), `notify_when_started/1`,
-    `ensure_loaded/1`, `stop/0,1` with OTP's exit status rules.
-  - [ ] Boot and configuration entries (`boot/1`, `get_configfd/1`,
-    `set_configfd/2`, `restart/0,1`, `reboot/0`) decided per function.
-- Tests
-  - [ ] OTP-goldened executable with arguments and environment.
-
 <a id="step-41m"></a>
 
 ### 41M. `persistent_term`
@@ -482,8 +465,60 @@ Backlog: F36. Depends on: [41K](00-finished.md#step-41k)–[41R](#step-41r).
 
 Added and done 2026-10-14 (user direction) from [the luerl library ledger](21-lib.md), steps 41T–41Z with 41M split
 into 41M1/41M2 and 41Y into 41Y1/41Y2: [finished work](00-finished.md#step-41t). Library functions are C++ builtins
-of their module; fun-taking functions stay Erlang. Left for later steps: `re` (ledger row 17), `init:get_arguments/0`
-([41L](#step-41l)).
+of their module; fun-taking functions stay Erlang. Left for later steps: `re` (ledger row 17); `init:get_arguments/0` came with
+[41L](00-finished.md#step-41l).
+
+## H5. Regular expressions (`re`)
+
+Inserted 2026-10-14 (user direction) for [the luerl library ledger](21-lib.md) row 17. The engine is upstream
+PCRE2, the library OTP itself bundles, so pattern syntax, options and captures match without translation. OTP's
+interruptible-match patch to `pcre2_match` is not carried over: Clause uses stock PCRE2.
+
+<a id="step-41za"></a>
+
+### 41ZA. PCRE2 dependency
+
+Backlog: F36. Depends on: [41Z](00-finished.md#step-41z).
+
+- Success criteria
+  - [ ] PCRE2 **10.47** (the version OTP 29 bundles, `erts/emulator/pcre/vendor.info`), 8-bit code unit
+    width, Unicode support on, JIT off. A newer upstream is allowed only by recording it in this step.
+  - [ ] CMake resolves it in order: `-DCLAUSE_PCRE2_ROOT=<source dir>` (takes precedence, no download); a global
+    install (`find_package(pcre2 CONFIG COMPONENTS 8BIT)`, else pkg-config `libpcre2-8`) whose version is
+    checked; otherwise the pinned release tarball is downloaded and SHA-256-verified with
+    `clause_download_dependency` into `thirdparty/`, as SQLite does. `CLAUSE_DOWNLOAD_PCRE2=OFF` disables the
+    download.
+  - [ ] Source builds use a project-owned target `clause_pcre2` (static, listed `.c` files,
+    `PCRE2_CODE_UNIT_WIDTH=8`, `PCRE2_STATIC`, `config.h.generic`, `pcre2.h.generic`,
+    `pcre2_chartables.c.dist`, no generation step) built without the project's warning flags and excluded
+    from clang-tidy and Lizard. No PCRE2 file is committed.
+  - [ ] Always linked into `clause_runtime` for now (decided 2026-10-14). On-demand linking (a separate
+    archive member pulled only by programs that call `re`) or a dynamically loaded library is deferred.
+  - [ ] A global install that is only a shared library makes generated executables depend on it at run time;
+    prefer a static archive when found, and document the outcome per platform.
+  - [ ] Exported runtime targets (`RUNTIME_TARGETS`, `Clause::generated_program`) carry the dependency for
+    nested test consumers, the standalone runtime build (`runtime_link`) and `examples/compile`.
+  - [ ] `docs/projects.md` (or `docs/compile.md`) documents the resolution order, the options and the license
+    (BSD-3-Clause with the PCRE2 exception).
+- Tests
+  - [ ] Full gate on Windows with the download path; one CTest proves the runtime calls PCRE2 (for example
+    `pcre2_config` version check through a minimal runtime entry), without waiting for `re` builtins.
+
+<a id="step-41zb"></a>
+
+### 41ZB. `re` builtins over PCRE2
+
+Backlog: F36. Depends on: [41ZA](#step-41za).
+
+- Success criteria
+  - [ ] `re:compile/1,2`, `re:run/2,3` as runtime builtins over PCRE2 (options, capture specs, `unicode`,
+    `match_limit`/`match_limit_recursion` mapped to PCRE2 limits); `re:replace`, `re:split` and the rest of
+    `re.erl` stay Erlang.
+  - [ ] A compiled pattern is an opaque `{re_pattern, ...}` term whose binary differs from OTP's; recorded in
+    `docs/differences.md`, together with matches not yielding (a long match holds its scheduler thread).
+  - [ ] luerl ledger row 17 rerun; `os.date` checked against OTP.
+- Tests
+  - [ ] OTP-goldened executables for compile/run/replace/split options, captures, Unicode and error tuples.
 
 ## M. Validation closure
 

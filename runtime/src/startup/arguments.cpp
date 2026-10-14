@@ -1,21 +1,32 @@
+#include "../builtins/text.hpp"
 #include "startup.hpp"
 #include "terms.hpp"
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <span>
 #include <stdexcept>
 #include <string_view>
 #include <vector>
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <corecrt_startup.h>
 #include <stdlib.h>
+#include <windows.h>
+#elif defined(__APPLE__)
+#include <climits>
+#include <mach-o/dyld.h>
+#else
+#include <filesystem>
+#include <system_error>
 #endif
 
 namespace clause::runtime::detail {
 namespace {
 // Unicode code points of one argument, in order.
-using Points = std::vector<std::uint32_t>;
+using Points = std::u32string;
 
 // True for UTF-16 surrogate code points, which are never Unicode scalar values.
 bool surrogate(std::uint32_t point) { return point >= 0xD800 && point <= 0xDFFF; }
@@ -58,6 +69,44 @@ std::vector<Points> native_arguments(int, char **) {
         }
     }
     return arguments;
+}
+
+// The path of the running executable from the module table, growing the buffer until it fits (step 41L).
+Points executable_path(char **) {
+    std::wstring path(MAX_PATH, L'\0');
+    for (;;) {
+        const auto size = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
+        if (size == 0) {
+            return {};
+        }
+        if (size < path.size()) {
+            path.resize(size);
+            return decode(path);
+        }
+        path.resize(path.size() * 2);
+    }
+}
+
+// The value of environment variable `name`; none when it is not set (step 41L).
+std::optional<std::wstring> variable(const wchar_t *name) {
+    const auto size = GetEnvironmentVariableW(name, nullptr, 0);
+    if (size == 0) {
+        return std::nullopt;
+    }
+    std::wstring value(size, L'\0');
+    value.resize(GetEnvironmentVariableW(name, value.data(), size));
+    return value;
+}
+
+// OTP's home directory on Windows: HOMEDRIVE and HOMEPATH, else the user profile (step 41L).
+std::optional<Points> home_directory() {
+    const auto drive = variable(L"HOMEDRIVE");
+    const auto path = variable(L"HOMEPATH");
+    if (drive && path) {
+        return decode(*drive + *path);
+    }
+    const auto profile = variable(L"USERPROFILE");
+    return profile ? std::optional<Points>(decode(*profile)) : std::nullopt;
 }
 #else
 // Sequence length announced by a UTF-8 lead byte; 0 for ASCII, continuation and never-valid leads.
@@ -109,13 +158,41 @@ std::vector<Points> native_arguments(int argc, char **argv) {
     }
     return arguments;
 }
+
+#ifdef __APPLE__
+// The path of the running executable as dyld loaded it, resolved to an absolute path (step 41L).
+Points executable_path(char **) {
+    std::array<char, PATH_MAX> path{};
+    auto size = static_cast<std::uint32_t>(path.size());
+    std::array<char, PATH_MAX> resolved{};
+    if (_NSGetExecutablePath(path.data(), &size) != 0 || !realpath(path.data(), resolved.data())) {
+        return {};
+    }
+    return decode(resolved.data());
+}
+#else
+// The path of the running executable from /proc, else argv[0] made absolute (step 41L).
+Points executable_path(char **argv) {
+    std::error_code error;
+    auto path = std::filesystem::read_symlink("/proc/self/exe", error);
+    if (error && argv && argv[0]) {
+        path = std::filesystem::absolute(argv[0], error);
+    }
+    return error ? Points{} : decode(path.native());
+}
 #endif
 
-// Build one string term from its code points.
-TermResult<Term> string_term(TermFactory &factory, const Points &points) {
+// OTP's home directory on Unix: HOME, none when it is not set (step 41L).
+std::optional<Points> home_directory() {
+    const auto *home = std::getenv("HOME");
+    return home ? std::optional<Points>(decode(home)) : std::nullopt;
+}
+#endif
+
+// Build one string term from UTF-8 text.
+TermResult<Term> string_term(TermFactory &factory, std::string_view text) {
     std::vector<Term> characters;
-    characters.reserve(points.size());
-    for (const auto point : points) {
+    for (const auto point : builtins::code_points(text)) {
         const auto character = factory.integer(point);
         if (!character) {
             return character;
@@ -126,14 +203,25 @@ TermResult<Term> string_term(TermFactory &factory, const Points &points) {
 }
 } // namespace
 
-TermResult<Term> program_arguments(ProcessContext &context, int argc, char **argv, std::size_t skip) {
-    TermFactory factory(context);
+ProgramArguments command_line(int argc, char **argv, std::size_t skip) {
     const auto arguments = native_arguments(argc, argv);
-    const auto remaining = std::span(arguments).subspan(std::min(skip, arguments.size()));
+    ProgramArguments program;
+    for (const auto &points : std::span(arguments).subspan(std::min(skip, arguments.size()))) {
+        program.plain.push_back(builtins::utf8(points));
+    }
+    program.executable = builtins::utf8(executable_path(argv));
+    if (const auto home = home_directory()) {
+        program.home = builtins::utf8(*home);
+    }
+    return program;
+}
+
+TermResult<Term> argument_list(ProcessContext &context, std::span<const std::string> arguments) {
+    TermFactory factory(context);
     std::vector<Term> strings;
-    strings.reserve(remaining.size());
-    for (const auto &points : remaining) {
-        const auto string = string_term(factory, points);
+    strings.reserve(arguments.size());
+    for (const auto &argument : arguments) {
+        const auto string = string_term(factory, argument);
         if (!string) {
             return string;
         }
