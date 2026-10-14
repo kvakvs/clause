@@ -200,7 +200,9 @@ and marks live everything a live function calls directly (also through
 `-import` and OTP auto-imports), every `fun F/A` and literal `fun M:F/A`, and
 the literal targets of `apply/3`, `spawn/3`, `spawn_link/3`,
 `spawn_monitor/3`, `spawn_opt/4,5`, `spawn_request/3,5`, `hibernate/3` and
-`make_fun/3` (every arity of `M:F` when the argument list is not literal).
+`make_fun/3` (every arity of `M:F` when the argument list is not literal),
+and `file:write/2` once `io:format/3`, `io:fwrite/3`, `io:put_chars/2` or
+`io:nl/1` is live (their builtins write to a process device through it).
 It stays conservative:
 
 - a module whose name atom is used as a value anywhere in live code (passed,

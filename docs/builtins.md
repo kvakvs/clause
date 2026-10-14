@@ -28,7 +28,9 @@ builtin both the compiler and the runtime know:
   `binary_to_list/1`, `list_to_binary/1`, `iolist_to_binary/1`
   (`term_to_binary/1` is not selected);
 - console output (plan step 40): `io:format/1,2` and `io:put_chars/1`, the
-  first builtins of another module ([io](io.md));
+  first builtins of another module ([io](io.md)); output devices (plan step
+  41U): `io:format/3`, `io:fwrite/1,2,3`, `io:put_chars/2`, `io:nl/0,1`;
+- the `lists` data functions (plan step 41T, [lists module](#lists-module));
 - process identities (plan step 42): `self/0`, `make_ref/0`, `pid_to_list/1`
   and `ref_to_list/1` ([pids and references](terms.md#pids-and-references));
 - processes (plan step 43): `spawn/1,3` and `is_process_alive/1`

@@ -102,7 +102,7 @@ std::span<const BuiltinEntry> list_builtins() noexcept;
 // The conversion builtins: atom_to_list/1, list_to_atom/1, integer_to_list/1,2, list_to_integer/1,2,
 // float_to_list/1,2, binary_to_list/1, list_to_binary/1, iolist_to_binary/1, pid_to_list/1, ref_to_list/1.
 std::span<const BuiltinEntry> conversion_builtins() noexcept;
-// The io builtins: io:format/1,2 and io:put_chars/1 on standard output.
+// The io builtins: io:format/1,2,3, io:fwrite/1,2,3, io:put_chars/1,2 and io:nl/0,1.
 std::span<const BuiltinEntry> io_builtins() noexcept;
 // The process builtins: self/0, make_ref/0, spawn/1,3, spawn_link/1,3, is_process_alive/1, '!'/2, send/2, link/1,
 // unlink/1, exit/2, exit_signal/2, process_flag/2, spawn_monitor/1,3, monitor/2, demonitor/1,2, register/2,

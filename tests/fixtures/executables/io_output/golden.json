@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "io_output",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^to standard error\r?\nmore\r?\n$",
+      "exit_status": 0,
+      "stdout": "\nfwrite/1\nfwrite/2\nfwrite/3\nformat/3\nput_chars/2\n[{error,badarg},{error,badarg},{error,badarg},{error,function_clause},{error,function_clause},{error,function_clause},{error,terminated},{error,calling_self},{error,badarg},{error,badarg},{error,badarg},{error,badarg}]\nline 1\nline 2\nline 3\nio_output: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "io_output.erl": "32a4b7bc42c8d3a655602bbd13ada7bbfc50bac4c3f2fd694ce9b564925ed855"
+  }
+}

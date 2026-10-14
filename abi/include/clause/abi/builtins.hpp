@@ -327,6 +327,14 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"lists", "keymember", 3},
     BuiltinName{"lists", "keysearch", 3},
     BuiltinName{"lists", "keydelete", 3},
+    // Output to a device (plan step 41U; runtime/src/builtins/io.cpp).
+    BuiltinName{"io", "format", 3},
+    BuiltinName{"io", "fwrite", 1},
+    BuiltinName{"io", "fwrite", 2},
+    BuiltinName{"io", "fwrite", 3},
+    BuiltinName{"io", "put_chars", 2},
+    BuiltinName{"io", "nl", 0},
+    BuiltinName{"io", "nl", 1},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

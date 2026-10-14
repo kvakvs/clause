@@ -3,6 +3,7 @@
 #include "funs.hpp"
 #include <algorithm>
 #include <array>
+#include <clause/abi/builtins.hpp>
 #include <clause/compiler/source.hpp>
 #include <iterator>
 
@@ -45,6 +46,23 @@ constexpr std::array ATOM_PRODUCERS{BuiltinName{U"list_to_atom", 1},
                                     BuiltinName{U"process_info", 2},
                                     BuiltinName{U"loaded", 0},
                                     BuiltinName{U"pre_loaded", 0}};
+
+struct BuiltinContinuation {
+    // A library function the runtime implements as a builtin.
+    abi::v1::BuiltinName builtin;
+    // The exported function of the batch its implementation continues in.
+    std::u32string_view target_module;
+    BuiltinName target;
+};
+
+// Builtins whose runtime implementation continues in Erlang code: io output to a process device goes through
+// file:write/2 (added for io output devices, step 41U).
+constexpr std::array BUILTIN_CONTINUATIONS{
+    BuiltinContinuation{{"io", "format", 3}, U"file", {U"write", 2}},
+    BuiltinContinuation{{"io", "fwrite", 3}, U"file", {U"write", 2}},
+    BuiltinContinuation{{"io", "put_chars", 2}, U"file", {U"write", 2}},
+    BuiltinContinuation{{"io", "nl", 1}, U"file", {U"write", 2}},
+};
 
 // Whether erlang:Name/Arity is an atom-producing builtin.
 bool atom_producer(const FunctionKey &key) {
@@ -114,11 +132,24 @@ class Liveness {
   private:
     using Skipped = std::set<const ast::Expression *>;
 
-    // Mark one function live and queue its body.
+    // Mark one function live and queue its body, with the code its builtin implementation continues in.
     void reach(const FunctionRef function) {
         if (!function.function->live_) {
             function.function->live_ = true;
             pending_.push_back(function);
+            continue_builtin(utf8(function.module->name), utf8(function.function->key.name),
+                             function.function->key.arity, function);
+        }
+    }
+
+    // Reach the code the builtin Module:Function/Arity continues in, if it is one that does (step 41U).
+    void continue_builtin(const std::string &module, const std::string &name, const std::size_t arity,
+                          const FunctionRef site) {
+        for (const auto &item : BUILTIN_CONTINUATIONS) {
+            if (item.builtin.module == module && item.builtin.function == name && item.builtin.arity == arity) {
+                reach_name(std::u32string(item.target_module), {std::u32string(item.target.name), item.target.arity},
+                           site);
+            }
         }
     }
 
@@ -232,6 +263,10 @@ class Liveness {
         const auto &syntax = *function.module->syntax;
         if (const auto found = function.function->services.find(&expression);
             found != function.function->services.end()) {
+            if (const auto index = found->second.builtin) {
+                const auto &name = abi::v1::bridge_builtins.at(*index);
+                continue_builtin(std::string(name.module), std::string(name.function), name.arity, function);
+            }
             visit_builtin(function, found->second.identity, call, skipped);
             return;
         }

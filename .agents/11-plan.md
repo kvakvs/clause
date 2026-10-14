@@ -138,7 +138,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
 | H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41K2; open: [41L](#step-41l) |
-| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](#step-41z), [41M1](#step-41m1), [41M2](#step-41m2) | F36, F05 | done: 41T; open: [41U](#step-41u) |
+| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](#step-41z), [41M1](#step-41m1), [41M2](#step-41m2) | F36, F05 | done: 41T, 41U; open: [41V](#step-41v) |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -149,7 +149,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41K2, 41T, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41K2, 41T, 41U, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -500,20 +500,6 @@ time, plus the functions luerl references next. Rules for every step:
 - Tests: one OTP-goldened executable per step under
   `tests/fixtures/executables/` covering results and error cases.
 - `re` (ledger row 17) is not part of this phase.
-
-<a id="step-41u"></a>
-
-### 41U. `io` output wrappers
-
-Backlog: F36. Depends on: [41K](00-finished.md#step-41k). Ledger row 5 and grouping item 2.
-
-- Success criteria
-  - [ ] `nl/0,1`, `fwrite/1,2,3`, `format/3`, `put_chars/2` as builtins next
-    to `io:format/1,2` and `put_chars/1`; devices `standard_io`,
-    `standard_error` and `user`; an open file pid writes through `file`;
-    other devices as OTP (`error:terminated`-style or `badarg`, golden).
-- Tests
-  - [ ] `executables_io_output`.
 
 <a id="step-41v"></a>
 
