@@ -33,6 +33,8 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `binary:referenced_byte_size/1` of a sub-binary (step 41W) | The size of the binary it refers into | Its own size | [builtins](builtins.md#binary-module) |
 | Cost of `persistent_term:get/1,2` (step 41M1) | Constant: the value stays in a literal area; `put`/`erase` of a replaced value trigger a global collection | Copies the value into the reader's heap on every read; no global collection | [runtime](runtime.md#persistent-terms) |
 | `persistent_term:info/0` and `get/0` (step 41M2) | Include the terms OTP's `kernel` and `stdlib` store at boot (26 on OTP 29) | Only the program's own terms | [builtins](builtins.md#persistent-terms) |
+| `code:is_loaded/1`, `code:which/1`, `code:all_loaded/0` of a compiled module (step 41Z) | The `.beam` file it was loaded from | `preloaded`: every module is linked into the executable | [builtins](builtins.md#code-module) |
+| `code:is_sticky/1` (step 41Z) | `true` for modules of `kernel`, `stdlib` and `compiler` | Always `false` | [builtins](builtins.md#code-module) |
 | Output to a file device (`io:format(File, ...)`, step 41U) | Characters are encoded as the file's encoding (`latin1` by default: characters above 255 are an error) | Always UTF-8 bytes | [io](io.md#calls) |
 | Formatting a large term (`io:format/1,2`) | Runs in Erlang code (`io_lib`) and the group leader, so the process can be preempted while formatting | Runs to completion in one builtin call; other processes wait | [builtins](builtins.md#portions) |
 | `process_flag/2` flags | `trap_exit`, `priority`, `message_queue_data`, `min_heap_size` and others | Only `trap_exit`; every other flag raises `badarg` | [processes](processes.md#builtins) |

@@ -426,6 +426,15 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"unicode", "bin_is_7bit", 1},
     BuiltinName{"unicode", "bom_to_encoding", 1},
     BuiltinName{"unicode", "encoding_to_bom", 1},
+    // The code module without a code server (plan step 41Z; runtime/src/builtins/code.cpp).
+    BuiltinName{"code", "ensure_loaded", 1},
+    BuiltinName{"code", "ensure_modules_loaded", 1},
+    BuiltinName{"code", "is_loaded", 1},
+    BuiltinName{"code", "all_loaded", 0},
+    BuiltinName{"code", "which", 1},
+    BuiltinName{"code", "module_status", 0},
+    BuiltinName{"code", "module_status", 1},
+    BuiltinName{"code", "is_sticky", 1},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

@@ -37,6 +37,7 @@ builtin both the compiler and the runtime know:
   [maps module](#maps-module));
 - `persistent_term` (plan step 41M2, [persistent terms](#persistent-terms));
 - the `unicode` conversions (plan step 41Y1, [unicode module](#unicode-module));
+- the `code` module's loaded-module queries (plan step 41Z, [code module](#code-module));
 - process identities (plan step 42): `self/0`, `make_ref/0`, `pid_to_list/1`
   and `ref_to_list/1` ([pids and references](terms.md#pids-and-references));
 - processes (plan step 43): `spawn/1,3` and `is_process_alive/1`
@@ -262,6 +263,22 @@ functions stay stubs until `unicode_util` ([step 41O](../.agents/11-plan.md#step
   tail of every enclosing list; unfinished bytes carried from a binary come
   first, and with `latin1` output a failing integer is wrapped in a list.
 - `bin_is_7bit/1` is false for anything but a binary of bytes below 128.
+
+## Code module
+
+Plan 11 step 41Z (`runtime/src/builtins/code.cpp`). `library/kernel/code.erl`
+holds OTP 29's exports and types; no `code_server` process exists, and the
+queries about loaded modules answer for the linked program: a module is
+loaded when the program has it (compiled code or runtime builtins).
+`ensure_loaded/1` gives `{module, M}` or `{error, nofile}`,
+`ensure_modules_loaded/1` `ok` or `{error, [{M, nofile}]}`, `is_loaded/1`
+`{file, preloaded}` or `false`, `which/1` `preloaded` or `non_existing`,
+`module_status/1` `loaded` or `not_loaded`, `all_loaded/0` and
+`module_status/0` list every module, `is_sticky/1` is `false`. A module
+argument that is not an atom is `function_clause`. Code paths and loading
+stay stubs until [step 71](../.agents/11-plan.md#step-71). OTP's
+`io_lib:format/2` error path (`code:ensure_modules_loaded/1`) now raises the
+original `badarg`.
 
 ## Portions
 

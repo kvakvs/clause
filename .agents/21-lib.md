@@ -6,7 +6,24 @@ behave differently from OTP. Each one is a reason the luerl executable produces
 no output or fails. Later steps reimplement them or decide what to do about
 them.
 
-## Why `test-luerl` prints nothing
+## Status after plan phase H4 (2026-10-14)
+
+Rows 1–16 and 18–22 are implemented in the repository library and runtime
+(plan steps 41T–41Z, 41M1, 41M2; [finished work](00-finished.md)). Rerun of
+the driver (`tools/luerl-trace/drive.toml` without the `ovr/` stand-ins,
+built with `clau --project drive.toml --entry luerl_drive:main`, 6 min 18 s
+cold) against OTP 29 with luerl's rebar beams: 32 of the 35 snippets print
+exactly OTP's output, including `math.*`, `string.find`/`sub`/`format`,
+`tonumber('1e2')`, `print(1e100)`, the scanner, compiler and `io.write`.
+The other 3:
+
+- `os` (`os.date`): `re:run/2` (row 17), still out of scope.
+- `syntax`: `persistent_term` and `code:ensure_modules_loaded/1` now answer;
+  `erl_features` next calls `init:get_arguments/0`, a stub until plan step
+  41L, so `io_lib:format("~tp")` still ends in `badarg`.
+- `goto`: the same `function_clause` as OTP; only the stack frames differ
+  (no argument lists or locations, already in `docs/differences.md`).
+
 
 - `test-luerl.toml` uses `--entry luerl:init`. `luerl:init/0` only builds a Lua
   state and returns it. It prints nothing on real OTP either, so the executable

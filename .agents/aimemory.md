@@ -595,3 +595,15 @@ Host and tool gotchas:
   copy at bin/Release/../../../../library) lets stubs be filled without touching the repo; any library edit =
   ~4.5 min luerl rebuild. difflib on 186k-line traces hangs: use GNU diff (mismatch.py). Bash heredocs eat
   backslashes in C++/Erlang escapes: use Edit for those lines.
+- Phase H4 (2026-10-14, steps 41T-41Z): library functions as C++ builtins. Term::list_elements, without_map_entry,
+  with_existing_map_entry (and bit_slice) are declared but NOT defined: walk lists by hand, rebuild maps from
+  map_entries + TermFactory::map. tidy bugprone-easily-swappable-parameters: two adjacent const Term& that are not
+  passed to the same call get flagged; fix with a tiny wrapper struct + Argument<> specialization accepting any term
+  (lists::Count, MapOperand, KeyList, IoDevice, EncodingArgument, Default). A builtin can tail-continue in Erlang via
+  code_server().function_frame + stack().trap (io device -> file:write/2); export liveness must then keep the target
+  (semantic/liveness.cpp BUILTIN_CONTINUATIONS). Builtins cannot call funs and get results: fun-taking functions stay
+  Erlang in library/*.erl, which must call sibling builtins qualified (a local call hits the stub). New library module
+  = add to library/modules.terms, observe_module.escript, observe_types.escript, library_modules.py generate. Golden
+  oracle compiles with warnings_as_errors (hide bad formats behind id/1) and prints maps in atom-table order (use ~kw).
+  Bash tool heredocs containing apostrophes in python fail ("unexpected EOF"): write scripts to scratchpad files.
+  Call tracer sink is now allocated only when CLAUSE_CALL_TRACE is set (lifecycle_failure counts allocations).

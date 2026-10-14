@@ -128,6 +128,9 @@ std::span<const BuiltinEntry> persistent_term_builtins() noexcept;
 // The unicode builtins of step 41Y1: characters_to_binary/1,2,3, characters_to_list/1,2, bin_is_7bit/1,
 // bom_to_encoding/1, encoding_to_bom/1.
 std::span<const BuiltinEntry> unicode_builtins() noexcept;
+// The code module of step 41Z: ensure_loaded/1, ensure_modules_loaded/1, is_loaded/1, all_loaded/0, which/1,
+// module_status/0,1, is_sticky/1, answered for linked code.
+std::span<const BuiltinEntry> code_module_builtins() noexcept;
 // The binary module of step 41W: match/2,3, matches/2,3, split/2,3, compile_pattern/1; part/2,3, at/2, first/1,
 // last/1, bin_to_list/1,2,3, copy/1,2, longest_common_prefix/1, longest_common_suffix/1, referenced_byte_size/1,
 // join/2; decode_unsigned/1,2, encode_unsigned/1,2, encode_hex/1,2, decode_hex/1.

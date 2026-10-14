@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "code_module",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[{module,lists},{module,code_module},{error,nofile},ok,{error,[{no_such_module,nofile}]},{file,preloaded},false,file,preloaded,non_existing,loaded,not_loaded,false,true,true,{error,function_clause},{error,function_clause},{error,function_clause},{error,function_clause}]\ncode_module: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "code_module.erl": "e9586da93499cf7a29b76d4eb2ba31faf0afcb975019ab0edbe768101aed16cc"
+  }
+}

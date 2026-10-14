@@ -138,7 +138,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
 | H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41K2; open: [41L](#step-41l) |
-| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done: 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2; open: [41Z](#step-41z) |
+| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](00-finished.md#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -149,7 +149,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -480,46 +480,10 @@ Backlog: F36. Depends on: [41K](00-finished.md#step-41k)–[41R](#step-41r).
 
 ## H4. Library functions luerl reaches
 
-Added 2026-10-14 (user direction) from [the luerl library ledger](21-lib.md):
-the stubs, OTP NIF stubs and missing services a luerl program reaches at run
-time, plus the functions luerl references next. Rules for every step:
-
-- Implementation is C++ in `runtime/src/builtins/` (a catalog entry in
-  `abi::v1::bridge_builtins`, a typed builtin, the inventory entry turned
-  `implemented`; the library stub stays and is replaced at registration).
-  A builtin cannot call an Erlang fun and get its result back, so functions
-  taking funs (`lists:foreach/2`, `mapfoldl/3`, ...) get Erlang bodies in the
-  library module; so do one-line wrappers over an existing builtin.
-- A module Clause does not have yet (`math`, `binary`, `unicode`, `code`)
-  joins `library/modules.terms` as provided, with OTP 29's export list and
-  types observed from the host OTP (41J/41K1 tooling), stubs for the rest.
-- Results and error terms follow OTP; where a builtin cannot match OTP's
-  error detail (a `function_clause` raised by a builtin has no Erlang frame
-  with its arguments) the row goes to `docs/differences.md`. List builtins
-  run to completion; portions follow if a benchmark shows the need.
-- Tests: one OTP-goldened executable per step under
-  `tests/fixtures/executables/` covering results and error cases.
-- `re` (ledger row 17) is not part of this phase.
-
-<a id="step-41z"></a>
-
-### 41Z. `code` without a code server, and the luerl rerun
-
-Backlog: F36, D01. Depends on: [41T](00-finished.md#step-41t)–[41Y2](00-finished.md#step-41y2),
-[41M2](00-finished.md#step-41m2). Ledger rows 21–22.
-
-- Success criteria
-  - [ ] Provided module `code` (OTP 29 exports and types) answering for
-    linked code with no `code_server`: `ensure_loaded/1`,
-    `ensure_modules_loaded/1`, `is_loaded/1`, `all_loaded/0`,
-    `is_sticky/1`, `which/1`, `module_status/1`; code-path and loading
-    functions `refused` or `stub` (step 71); `io_lib:format`'s error path
-    reaches `badarg` as on OTP.
-  - [ ] luerl driver rerun ([method](21-lib.md#method-reproducible)):
-    every snippet except `os.date` (`re`) prints OTP's output;
-    `21-lib.md` updated.
-- Tests
-  - [ ] `executables_code`.
+Added and done 2026-10-14 (user direction) from [the luerl library ledger](21-lib.md), steps 41T–41Z with 41M split
+into 41M1/41M2 and 41Y into 41Y1/41Y2: [finished work](00-finished.md#step-41t). Library functions are C++ builtins
+of their module; fun-taking functions stay Erlang. Left for later steps: `re` (ledger row 17), `init:get_arguments/0`
+([41L](#step-41l)).
 
 ## M. Validation closure
 
