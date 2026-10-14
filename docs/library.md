@@ -220,6 +220,7 @@ Plan 11 step 41J. All live in `tests/compiler/library/`:
 | `prim_eval` | provided, all stubs | 41S |
 | `application_controller` | provided, all stubs | shadows OTP's, which calls `prim_file` (luerl names it through OTP's `application`) |
 | `lists`, `maps`, `io`, `file`, `os`, `gen_tcp`, `gen_udp`, `inet` | provided, OTP 29's full export lists; what Clause had stays implemented, the rest stubs | grow as the ledger demands |
+| `re` | provided; `version/0` implemented (41ZA), the rest stubs until 41ZB | over the pinned PCRE2 ([re module](builtins.md#re-module)) |
 | `prim_file`, `prim_buffer` | missing, decided in 41P | Clause's `file` is the file layer; OTP's `filelib`/`filename` run on it |
 | `prim_socket`, `prim_net`, `prim_inet`, `socket_registry`, `socket`, `net` | missing, decided in 41R | Clause's `gen_tcp`, `gen_udp`, `inet` are the network layer; OTP's `gen_tcp_socket`, `gen_udp_socket`, `inet_tcp`, `inet_udp` are only reached from OTP's shadowed modules ([sockets](ports.md#sockets-57f)) |
 

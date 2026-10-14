@@ -181,3 +181,8 @@ Plan history: .agents/11-plan.md (compact step records), .agents/00-finished.md 
   file_paths.cpp reads links with readlink / FSCTL_GET_REPARSE_POINT. Symlink creation needs a privilege on this
   Windows host (eperm), so reading a real link on Windows is untested here. OTP filelib checked by hand with a
   project over host OTP sources (needs COMPILER_VSN define + luerl's ignores, ~3.5 min build).
+- 41ZA (2026-10-14): PCRE2 10.47 objects (clause_pcre2 OBJECT lib) are merged into clause_runtime.lib via
+  $<TARGET_OBJECTS>, so clau/link lines and the export set need nothing; an installed PCRE2 instead lands in
+  <runtime>.link (one linker input per line) that clau appends (runtime_link_inputs). Untested here: the installed-
+  library path (no system pcre2 on Windows). modules.terms entries must stay one line each after erlfmt (keep
+  reasons short); a new provided module's .erl must -include its .types.hrl.

@@ -140,6 +140,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
 | H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41P, 41R; open: [41Q](#step-41q) (after 41ZA), [41S](#step-41s) |
+| H5. Regular expressions (`re`) | [41ZA](00-finished.md#step-41za), [41ZB](#step-41zb) | F36 | done: 41ZA; open: [41ZB](#step-41zb) |
 | H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](00-finished.md#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -151,7 +152,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41P, 41R, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41P, 41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -347,7 +348,7 @@ table) and [41M2](00-finished.md#step-41m2) (the builtins), both in phase H4.
 
 ### 41Q. `zlib`
 
-Backlog: F36. Depends on: [41K](00-finished.md#step-41k), [41ZA](#step-41za) (moved after it on 2026-10-14: the
+Backlog: F36. Depends on: [41K](00-finished.md#step-41k), [41ZA](00-finished.md#step-41za) (moved after it on 2026-10-14: the
 runtime's third-party linking is built there and reused for zlib).
 
 - Success criteria
@@ -389,41 +390,11 @@ Inserted 2026-10-14 (user direction) for [the luerl library ledger](21-lib.md) r
 PCRE2, the library OTP itself bundles, so pattern syntax, options and captures match without translation. OTP's
 interruptible-match patch to `pcre2_match` is not carried over: Clause uses stock PCRE2.
 
-<a id="step-41za"></a>
-
-### 41ZA. PCRE2 dependency
-
-Backlog: F36. Depends on: [41Z](00-finished.md#step-41z).
-
-- Success criteria
-  - [ ] PCRE2 **10.47** (the version OTP 29 bundles, `erts/emulator/pcre/vendor.info`), 8-bit code unit
-    width, Unicode support on, JIT off. A newer upstream is allowed only by recording it in this step.
-  - [ ] CMake resolves it in order: `-DCLAUSE_PCRE2_ROOT=<source dir>` (takes precedence, no download); a global
-    install (`find_package(pcre2 CONFIG COMPONENTS 8BIT)`, else pkg-config `libpcre2-8`) whose version is
-    checked; otherwise the pinned release tarball is downloaded and SHA-256-verified with
-    `clause_download_dependency` into `thirdparty/`, as SQLite does. `CLAUSE_DOWNLOAD_PCRE2=OFF` disables the
-    download.
-  - [ ] Source builds use a project-owned target `clause_pcre2` (static, listed `.c` files,
-    `PCRE2_CODE_UNIT_WIDTH=8`, `PCRE2_STATIC`, `config.h.generic`, `pcre2.h.generic`,
-    `pcre2_chartables.c.dist`, no generation step) built without the project's warning flags and excluded
-    from clang-tidy and Lizard. No PCRE2 file is committed.
-  - [ ] Always linked into `clause_runtime` for now (decided 2026-10-14). On-demand linking (a separate
-    archive member pulled only by programs that call `re`) or a dynamically loaded library is deferred.
-  - [ ] A global install that is only a shared library makes generated executables depend on it at run time;
-    prefer a static archive when found, and document the outcome per platform.
-  - [ ] Exported runtime targets (`RUNTIME_TARGETS`, `Clause::generated_program`) carry the dependency for
-    nested test consumers, the standalone runtime build (`runtime_link`) and `examples/compile`.
-  - [ ] `docs/projects.md` (or `docs/compile.md`) documents the resolution order, the options and the license
-    (BSD-3-Clause with the PCRE2 exception).
-- Tests
-  - [ ] Full gate on Windows with the download path; one CTest proves the runtime calls PCRE2 (for example
-    `pcre2_config` version check through a minimal runtime entry), without waiting for `re` builtins.
-
 <a id="step-41zb"></a>
 
 ### 41ZB. `re` builtins over PCRE2
 
-Backlog: F36. Depends on: [41ZA](#step-41za).
+Backlog: F36. Depends on: [41ZA](00-finished.md#step-41za).
 
 - Success criteria
   - [ ] `re:compile/1,2`, `re:run/2,3` as runtime builtins over PCRE2 (options, capture specs, `unicode`,

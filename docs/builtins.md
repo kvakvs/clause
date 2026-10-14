@@ -345,6 +345,12 @@ answers of plane 0 and sample blocks of the other planes with OTP's (all 1.1M co
 the tables were generated); `executables_unicode_clusters` compares clusters and normal forms of hand-picked
 strings for every rule and a seeded sweep of 2000 random strings.
 
+## Re module
+
+Plan 11 steps 41ZA and 41ZB (`runtime/src/builtins/re/`, `library/stdlib/re.erl`): OTP 29's exports and types
+over the PCRE2 release OTP bundles ([PCRE2](compile.md#pcre2)). `version/0` is PCRE2's version and date as a
+binary (`<<"10.47 2025-10-21">>`, as on OTP).
+
 ## Atomics and counters
 
 Plan 11 step 41N (`runtime/src/builtins/atomics.cpp`). An `atomics` array is a

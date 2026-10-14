@@ -1,11 +1,14 @@
 #include "../project/paths.hpp"
 #include "toolchain.hpp"
+#include <fstream>
 #include <llvm/Object/Archive.h>
 #include <llvm/Object/ObjectFile.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/TargetParser/Triple.h>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 namespace clause::linking {
 namespace {
@@ -89,6 +92,22 @@ std::filesystem::path find_runtime_library(const std::optional<std::filesystem::
                                  "; build the clause_runtime target or pass --runtime-library");
     }
     return path;
+}
+
+std::vector<std::string> runtime_link_inputs(const std::filesystem::path &library) {
+    auto list = library;
+    list.replace_extension(".link");
+    std::ifstream in(list);
+    std::vector<std::string> inputs;
+    for (std::string line; std::getline(in, line);) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (!line.empty()) {
+            inputs.push_back(line);
+        }
+    }
+    return inputs;
 }
 
 void check_runtime_target(const std::filesystem::path &library, const std::string &target_triple) {

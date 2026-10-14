@@ -184,7 +184,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      init_builtins(),
                                      atomics_builtins(),
                                      erts_internal_builtins(),
-                                     unicode_table_builtins()};
+                                     unicode_table_builtins(),
+                                     re_builtins()};
     return families;
 }
 } // namespace clause::runtime

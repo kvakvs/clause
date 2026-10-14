@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41P, 41R, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
+## Plan 11 (steps 1–68, 41A–41P, 41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -275,6 +275,15 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   (new socket operation hostname), `getaddr/2`, `getaddrs/2` (all addresses: `clause_socket:addresses/3`),
   `gethostbyname/1,2`. Test `executables_inet_addresses` (48 texts through 8 parsers, ntoa, lookups by shape).
   Gate: fast CTest 292/292 (1 disabled), `check-quality` clean.
+- **41ZA (H5):** 2026-10-14, PCRE2 dependency ([compile](../docs/compile.md#pcre2)): `cmake/Pcre2Dependencies.cmake`
+  resolves PCRE2 10.47 (`CLAUSE_PCRE2_ROOT`, an installed >= 10.47 via CMake package or pkg-config preferring
+  static, else the SHA-256-checked download into `thirdparty/`, `CLAUSE_DOWNLOAD_PCRE2`); source builds become the
+  object library `clause_pcre2` (distributed generic config/header/tables, no warnings, outside quality tools)
+  merged into `clause_runtime`; an installed library is listed in `clause_runtime.link`, which `clau` appends to
+  links (`runtime_link_inputs`). New provided module `re` (OTP 29 exports and types, stubs) with builtin
+  `re:version/0`. Test `executables_re_version` (OTP's `<<"10.47 2025-10-21">>`). The installed-library path is
+  untested on this host. The root project now enables C (PCRE2 objects in consumers that add the repository).
+  Gate: fast CTest 293/293 (1 disabled), `check-quality` clean.
 - **41T (H4):** 2026-10-14, `lists` data functions as runtime builtins ([builtins](../docs/builtins.md#lists-module)):
   `runtime/src/builtins/lists/` (`sublist/2,3`, `droplast/1`, `nthtail/2`, `last/1`, `duplicate/2`, `join/2`,
   `flatten/1,2`, `max/1`, `min/1`, `usort/1`, `umerge/1,2`, `keymember/3`, `keysearch/3`, `keydelete/3`) with OTP's

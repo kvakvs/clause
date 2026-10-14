@@ -316,6 +316,41 @@ settings; an explicit `LLVM_DIR` does not, and the link probe then fails.
 Historical macOS reference: Homebrew `llvm` 23.1.1_1 (arm64, shared
 `libLLVM.23.1.dylib`, assertions off) with AppleClang 21.
 
+## PCRE2
+
+Plan 11 step 41ZA. The runtime's `re` builtins use PCRE2 **10.47**, the release
+OTP 29 bundles (`erts/emulator/pcre/vendor.info`), so pattern syntax, options and
+captures behave as OTP's: 8-bit code units, Unicode support, no JIT, stock
+`pcre2_match` (OTP's yielding patch is not carried over). PCRE2 is BSD-3-Clause
+licensed with the PCRE2 exception for compiled binaries; no PCRE2 file is
+committed. CMake (`cmake/Pcre2Dependencies.cmake`) resolves it in this order:
+
+1. `-DCLAUSE_PCRE2_ROOT=<source directory>` takes precedence (no download); the
+   version in its `configure.ac` must be 10.47.
+2. An installed PCRE2 of at least 10.47 (`CLAUSE_PCRE2_SYSTEM=ON`, the default):
+   the CMake package (`find_package(pcre2 CONFIG COMPONENTS 8BIT)`, static
+   libraries preferred), else pkg-config `libpcre2-8`, a static `libpcre2-8.a`
+   preferred over the shared library.
+3. The pinned release, downloaded into `thirdparty/pcre2-10.47` and verified
+   (`pcre2-10.47.tar.bz2`, SHA-256
+   `47fe8c99461250d42f89e6e8fdaeba9da057855d06eb7fc08d9ca03fd08d7bc7`);
+   `-DCLAUSE_DOWNLOAD_PCRE2=OFF` disables the download.
+
+A source directory (1 or 3) builds the object library `clause_pcre2` from the
+listed `.c` files with the distributed `config.h.generic`, `pcre2.h.generic`
+and `pcre2_chartables.c.dist` copied into the build tree (no generation step,
+no project warning flags, outside clang-tidy and Lizard), and its objects are
+added to `clause_runtime` itself: the archive is self-contained and every
+consumer (`clau` links, nested test programs, `runtime_link`,
+`examples/compile`) gets PCRE2 with it. An installed library instead becomes
+an extra linker input recorded in `clause_runtime.link` beside the archive
+(one input per line), which `clau` adds to every link; a shared library makes
+the executables depend on it at run time. Per platform: Windows uses the
+download (no system PCRE2 is searched for in practice); Linux and macOS use an
+installed PCRE2 10.47 or newer when present, else the download. Always linked
+into the runtime for now (decided 2026-10-14); linking it only into programs
+that call `re`, or a dynamically loaded library, is deferred.
+
 Other prerequisites: CMake ≥ 3.28, a C++23 compiler, Boost ≥ 1.90, toml++
 3.4.0 and the quality tools. OTP is needed only for opt-in audits and fixture
 regeneration.

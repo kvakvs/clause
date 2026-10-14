@@ -1,0 +1,17 @@
+%% OTP 29 re exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{compile, 1, default, stub}.
+{compile, 2, default, stub}.
+{grun, 3, default, stub}.
+{import, 1, default, stub}.
+{inspect, 2, default, stub}.
+{internal_run, 4, default, stub}.
+{replace, 3, default, stub}.
+{replace, 4, default, stub}.
+{run, 2, default, stub}.
+{run, 3, default, stub}.
+{split, 2, default, stub}.
+{split, 3, default, stub}.
+{ucompile, 2, default, stub}.
+{urun, 3, default, stub}.
+{version, 0, default, implemented}.

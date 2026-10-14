@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 include(cmake/WindowsToolchain.cmake)
-project(Clause VERSION 0.1.0 LANGUAGES CXX)
+project(Clause VERSION 0.1.0 LANGUAGES C CXX)
 # Require portable C++23 for every target created in this project and its subdirectories.
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

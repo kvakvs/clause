@@ -1,4 +1,5 @@
 include(${PROJECT_SOURCE_DIR}/cmake/BoostDependencies.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/Pcre2Dependencies.cmake)
 
 add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/terms/bit_factory.cpp src/terms/bit_access.cpp src/terms/bit_float.cpp src/terms/bit_numeric.cpp src/terms/bit_utf.cpp src/terms/bit_services.cpp
@@ -21,6 +22,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/binary/binary_search.cpp src/builtins/binary/search.cpp src/builtins/binary/parts.cpp src/builtins/binary/encoding.cpp
     # Module unicode (plan step 41Y1).
     src/builtins/unicode/encodings.cpp src/builtins/unicode/properties.cpp src/builtins/unicode/tables.cpp src/builtins/unicode/chardata.cpp src/builtins/unicode/conversions.cpp
+    # Module re over PCRE2 (plan step 41ZA).
+    src/builtins/re/version.cpp
     # Module lists (plan step 41T).
     src/builtins/lists/list_walk.cpp src/builtins/lists/sublists.cpp src/builtins/lists/ordering.cpp src/builtins/lists/keys.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp
@@ -73,6 +76,13 @@ target_link_libraries(clause_runtime
     PUBLIC clause_multiprecision_dependency clause_abi $<$<PLATFORM_ID:Linux>:-pthread>
     $<$<PLATFORM_ID:Windows>:ws2_32> $<$<PLATFORM_ID:Windows>:mswsock>
 )
+
+# PCRE2 for the re builtins (plan step 41ZA): built from source into the archive itself, or an installed library
+# whose path clau adds when it links an executable. clause_runtime.link beside the archive lists such extra linker
+# inputs, one per line (docs/compile.md#pcre2).
+clause_add_pcre2(clause_runtime)
+file(GENERATE OUTPUT "$<TARGET_FILE_DIR:clause_runtime>/clause_runtime.link"
+    CONTENT "$<JOIN:$<TARGET_PROPERTY:clause_runtime,CLAUSE_LINK_ARGUMENTS>,\n>")
 
 # Every generated-program consumer links one matching target runtime through this boundary.
 # Platform dependencies (threads) come with clause_runtime.

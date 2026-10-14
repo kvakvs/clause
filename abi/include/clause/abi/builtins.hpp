@@ -461,6 +461,8 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"clause_unicode", "compose_pair", 2},
     BuiltinName{"unicode_util", "spec_version", 0},
     BuiltinName{"unicode_util", "pattern_whitespace", 0},
+    // The re module over PCRE2 (plan step 41ZA; runtime/src/builtins/re/).
+    BuiltinName{"re", "version", 0},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

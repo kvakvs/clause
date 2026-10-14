@@ -125,6 +125,7 @@ std::vector<std::string> link_arguments(const LinkRequest &request, const std::f
     }
     arguments.insert(arguments.end(), std::make_move_iterator(objects.begin()), std::make_move_iterator(objects.end()));
     arguments.push_back(utf8_path(runtime));
+    std::ranges::move(runtime_link_inputs(runtime), std::back_inserter(arguments));
     return arguments;
 }
 
