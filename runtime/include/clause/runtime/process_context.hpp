@@ -19,6 +19,7 @@ class RuntimeMemory;
 class IdentityNumbers;
 class Executor;
 class MessageBuffer;
+class PersistentTerms;
 } // namespace detail
 
 // Keep control/creation failures separate from Erlang exceptions and exit reasons.
@@ -111,6 +112,8 @@ class ProcessContext final : private abi::v1::FrameState {
     AtomStorage &atom_storage() const noexcept;
     // Borrow the runtime's standard output sink for erlang:display/1 and later io services.
     OutputSink standard_output() const noexcept;
+    // The runtime-wide persistent term table (persistent_term builtins). Added for step 41M1.
+    detail::PersistentTerms &persistent_terms() const noexcept;
 
     // Share failure state across a synchronous generated invocation and its runtime services.
     GeneratedCallState &generated_calls() noexcept { return generated_calls_; }

@@ -22,7 +22,8 @@ class ProcessContext::Impl final {
     std::shared_ptr<ContextLifetime> lifetime{new ContextLifetime};
 };
 
-ProcessIdentity::ProcessIdentity(const RuntimeKey runtime, const std::uint64_t serial) : runtime_(runtime.value), serial_(serial) {}
+ProcessIdentity::ProcessIdentity(const RuntimeKey runtime, const std::uint64_t serial)
+    : runtime_(runtime.value), serial_(serial) {}
 
 bool ContextLifetime::alive() const noexcept { return alive_; }
 
@@ -48,6 +49,8 @@ CodeServer &ProcessContext::code_server() const noexcept { return *impl_->runtim
 AtomStorage &ProcessContext::atom_storage() const noexcept { return *impl_->runtime.atom_storage(); }
 
 OutputSink ProcessContext::standard_output() const noexcept { return impl_->runtime.standard_output(); }
+
+detail::PersistentTerms &ProcessContext::persistent_terms() const noexcept { return impl_->runtime.persistent_terms(); }
 
 Mailbox &ProcessContext::mailbox() noexcept { return mailbox_; }
 

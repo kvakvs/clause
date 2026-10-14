@@ -176,3 +176,12 @@ add_test(NAME runtime_services COMMAND runtime_services)
 add_test(NAME runtime_service_output COMMAND "${CMAKE_COMMAND}"
     "-DPROGRAM=$<TARGET_FILE:runtime_services>"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/service_output.cmake")
+
+# The runtime-wide persistent term table: values outlive their writer, replaced values stay readable while held,
+# concurrent readers see whole values, nothing stays charged (plan step 41M1).
+add_executable(runtime_persistent_terms persistent_terms.cpp)
+clause_project_options(runtime_persistent_terms)
+target_link_libraries(runtime_persistent_terms PRIVATE Clause::generated_program)
+target_include_directories(runtime_persistent_terms PRIVATE "${PROJECT_SOURCE_DIR}/runtime/src")
+add_test(NAME runtime_persistent_terms COMMAND runtime_persistent_terms)
+set_tests_properties(runtime_persistent_terms PROPERTIES PASS_REGULAR_EXPRESSION "runtime_persistent_terms: ok")

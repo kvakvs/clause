@@ -20,6 +20,11 @@ class MessageBuffer final {
     static TermResult<std::shared_ptr<const MessageBuffer>> copy_of(const Term &value) noexcept;
     // The buffered value as a term of `destination`, copied into its heap.
     TermResult<Term> copy_to(ProcessContext &destination) const noexcept;
+    // The buffered value as a term to read in place (an immediate as a term of `reader`), for comparing and hashing
+    // without a copy. Added for persistent terms (step 41M1).
+    TermResult<Term> value(ProcessContext &reader) const noexcept;
+    // The words the buffer's heap holds. Added for persistent terms (step 41M1).
+    std::size_t words() const noexcept;
 
   private:
     MessageBuffer() = default;

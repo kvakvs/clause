@@ -1,4 +1,5 @@
 #pragma once
+#include "memory/persistent_terms.hpp"
 #include "memory/runtime_memory.hpp"
 #include "process/identities.hpp"
 #include "process/profile.hpp"
@@ -34,6 +35,8 @@ class Runtime::Impl final {
     std::unordered_map<const ProcessContext *, std::unique_ptr<ProcessContext>> contexts;
     // Live processes by pid number, for is_process_alive/1 and later routing.
     std::unordered_map<Word, ProcessContext *> processes;
+    // The persistent terms every process shares (step 41M1); no process refers into it, since readers copy values out.
+    detail::PersistentTerms persistent_terms;
     // Costs of ended processes when RuntimeOptions::profile names a report; null otherwise.
     std::unique_ptr<detail::RuntimeProfile> profile;
     // Run processes on the scheduler workers (RuntimeOptions::schedulers) while the program runs.

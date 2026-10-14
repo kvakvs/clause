@@ -144,6 +144,31 @@ auto fn = context.code_server().resolve({.module = "native_demo", .function = "i
   time.
 - `CodeServer::unload` is deferred; dynamic loading is not supported.
 
+## Persistent terms
+
+Plan 11 step 41M1 (`memory/persistent_terms`). One table per runtime, owned by
+`Runtime::Impl` and reached through `ProcessContext::persistent_terms()`, keeps
+the terms of `persistent_term` (builtins: step 41M2).
+
+- A key and its value are each copied into a `MessageBuffer`
+  ([message buffers](runtime-heap.md#message-buffers)) outside every process,
+  so they outlive the process that stored them and no collection moves them.
+- Entries are found by a hash of the key (the builtins use the term hash of
+  `phash2`) and exact equality, compared in place in the buffer
+  (`MessageBuffer::value`).
+- A read copies the value into the reader's heap (decided 2026-10-14). OTP
+  instead hands out a reference into a literal area and copies only on
+  replace or erase through a global collection; Clause's admission accepts
+  only words of the process's own areas, so in-place literals would need a new
+  shared term region. Copying keeps every process heap self-contained: a
+  replaced or erased value is freed when the last reader still copying it
+  drops its buffer reference, and no global collection is needed. Reads cost
+  the size of the value ([differences](differences.md)).
+- A shared lock serves readers on any number of workers; put and erase take it
+  alone and never copy while holding it. CTest `runtime_persistent_terms`
+  covers values outliving their writer, replaced values held by readers,
+  concurrent readers and writers, and released charges.
+
 ## Scheduler bookkeeping
 
 `SchedulerService` ([scheduler.hpp](../runtime/include/clause/runtime/scheduler.hpp))

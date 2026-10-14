@@ -290,6 +290,12 @@ TermResult<Term> Term::copy_to(ProcessHeap &destination) const noexcept { return
 namespace clause::runtime::detail {
 MessageBuffer::~MessageBuffer() = default;
 
+TermResult<Term> MessageBuffer::value(ProcessContext &reader) const noexcept {
+    return storage_ ? TermAccess::admit(root_, *storage_) : Term::from_word(root_, reader);
+}
+
+std::size_t MessageBuffer::words() const noexcept { return storage_ ? storage_->used_words_ : 0; }
+
 TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Term &value) noexcept {
     if (const auto checked = TermAccess::validate(value); !checked) {
         return std::unexpected(checked.error());

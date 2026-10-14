@@ -11,6 +11,7 @@ class SchedulerService;
 
 namespace detail {
 class Executor;
+class PersistentTerms;
 } // namespace detail
 
 // Most scheduler workers a runtime runs processes on, OTP's +S limit.
@@ -77,6 +78,8 @@ class Runtime final {
     SchedulerService *scheduler() noexcept;
     // Copy the configured standard output sink; stopped runtimes report the stdout default.
     OutputSink standard_output() const noexcept;
+    // Borrow the runtime-wide persistent term table; only active runtimes have one. Added for step 41M1.
+    detail::PersistentTerms &persistent_terms() noexcept;
 
   private:
     friend class detail::Executor;
