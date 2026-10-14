@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
+## Plan 11 (steps 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 41X, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -249,6 +249,12 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   parts and lists, unsigned and hex encodings; `replace/3,4` (fun replacements, `insert_replaced`) and
   `list_to_bin/1` in Erlang over them. Test `executables_binary_module`. Gate: fast CTest clean, `check-quality`
   clean.
+- **41X (H4):** 2026-10-14, `os` and `maps` gaps ([builtins](../docs/builtins.md#maps-module)): builtins
+  `os:getenv/0`, `env/0`, `putenv/2`, `unsetenv/1`, `getpid/0`, `version/0` and `maps:get/3`, `is_key/2`,
+  `remove/2`, `new/0`, `size/1`, `merge/2`, `take/2`, `update/3`, `with/2`, `without/2`, `from_keys/2` with
+  OTP's `{badmap, M}`/`{badkey, K}`/`badarg`; Erlang `os:timestamp/0`, `system_time/0,1`, `perf_counter/0,1`,
+  `getenv/2` and `maps:filter/2`, `map/2`, `foreach/2`, `update_with/3,4`. Test `executables_os_maps`. Gate: fast
+  CTest clean, `check-quality` clean.
 - **69A (M):** 2026-10-12, manual benchmarks against OTP ([validation](../docs/validation.md)): `benchmarks/` (6
   programs, 29 kernels, `run.py`), `make benchmark`, `make-benchmark.bat`, local history; never part of the gate.
   First run: Clause O2 20.2x slower than OTP JIT (geometric mean), sockets at par, quadratic binary appends and map
@@ -346,6 +352,7 @@ criteria and evidence are in Git at those commits. Contracts in the linked
 - <a id="step-41u"></a>**41U.** `io` output wrappers — commit `[plan11] 41U ...`
 - <a id="step-41v"></a>**41V.** `math` as runtime builtins — commit `[plan11] 41V ...`
 - <a id="step-41w"></a>**41W.** `binary` as runtime builtins — commit `[plan11] 41W ...`
+- <a id="step-41x"></a>**41X.** `os` and `maps` gaps — commit `[plan11] 41X ...`
 - <a id="step-42"></a>**42.** Implement pid and reference identities — `59064bf`
 - <a id="step-43"></a>**43.** Run spawned processes on a cooperative executor — `f092504`
 - <a id="step-43a"></a>**43A.** Make long-running builtins interruptible — `0682b54`

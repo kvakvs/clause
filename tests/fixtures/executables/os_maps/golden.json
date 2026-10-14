@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "os_maps",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[true,true,true,true,true,true,[118,97,108,117,101],[100,101,102,97,117,108,116],[118,97,108,117,101],true,true,false,true,{error,badarg},{error,badarg},{error,badarg},{error,badarg}]\n{get,1}\n{get,d}\n{get,error,{badmap,x}}\n{is_key,true}\n{is_key,false}\n{is_key,error,{badmap,x}}\n{remove,#{b => 2}}\n{remove,#{a => 1,b => 2}}\n{remove,error,{badmap,x}}\n{new,#{}}\n{size,2}\n{size,error,{badmap,x}}\n{merge,#{a => 1,b => 3,c => 4}}\n{merge,error,{badmap,x}}\n{merge,error,{badmap,x}}\n{take,{1,#{b => 2}}}\n{take,error}\n{take,error,{badmap,x}}\n{update,#{a => 9,b => 2}}\n{update,error,{badkey,z}}\n{update,error,{badmap,x}}\n{with,#{a => 1}}\n{with,error,badarg}\n{with,error,{badmap,x}}\n{without,#{b => 2}}\n{without,error,{badmap,x}}\n{from_keys,#{a => 0,b => 0}}\n{from_keys,error,badarg}\n{from_keys,error,badarg}\n{get,none}\n[#{a => 1,c => 3},#{a => {a,10},b => {b,20},c => {c,30}},ok,[{a,1},{b,2},{c,3}],#{a => 101,b => 2,c => 3},#{a => 1,b => 2,c => 3,z => 0},{error,{badkey,z}},{error,{badmap,x}},{error,badarg},{error,{badmap,x}},{error,{case_clause,x}}]\nos_maps: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc"
+  },
+  "inputs": {
+    "os_maps.erl": "e7e24d74246a68d956e5a4302414a1188118ed81cba7c81b27ef38f67becde50"
+  }
+}

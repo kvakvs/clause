@@ -138,7 +138,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
 | H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41K2; open: [41L](#step-41l) |
-| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](#step-41z), [41M1](#step-41m1), [41M2](#step-41m2) | F36, F05 | done: 41T, 41U, 41V, 41W; open: [41X](#step-41x) |
+| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](#step-41z), [41M1](#step-41m1), [41M2](#step-41m2) | F36, F05 | done: 41T, 41U, 41V, 41W, 41X; open: [41M1](#step-41m1) |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -149,7 +149,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41K2, 41T, 41U, 41V, 41W, 41X, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -500,24 +500,6 @@ time, plus the functions luerl references next. Rules for every step:
 - Tests: one OTP-goldened executable per step under
   `tests/fixtures/executables/` covering results and error cases.
 - `re` (ledger row 17) is not part of this phase.
-
-<a id="step-41x"></a>
-
-### 41X. `os` and `maps` gaps
-
-Backlog: F36. Depends on: [41K](00-finished.md#step-41k). Ledger rows 16, 20 and the
-referenced `maps:is_key/2`, `remove/2`.
-
-- Success criteria
-  - [ ] `os`: `timestamp/0`, `system_time/0,1`, `perf_counter/0,1`,
-    `getpid/0`, `getenv/0,2`, `putenv/2`, `unsetenv/1`, `env/0`,
-    `version/0` as builtins.
-  - [ ] `maps`: `get/3`, `is_key/2`, `remove/2`, `new/0`, `size/1`,
-    `merge/2`, `take/2`, `update/3`, `with/2`, `without/2`,
-    `from_keys/2` as builtins (`{badmap, M}`, `{badkey, K}` as OTP);
-    `filter/2`, `map/2`, `foreach/2`, `update_with/3,4` as Erlang bodies.
-- Tests
-  - [ ] `executables_os_maps` (time values checked for shape only).
 
 <a id="step-41m1"></a>
 

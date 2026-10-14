@@ -391,6 +391,24 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"binary", "encode_hex", 1},
     BuiltinName{"binary", "encode_hex", 2},
     BuiltinName{"binary", "decode_hex", 1},
+    // The os and maps gaps (plan step 41X; runtime/src/builtins/os.cpp, runtime/src/builtins/maps.cpp).
+    BuiltinName{"os", "getenv", 0},
+    BuiltinName{"os", "env", 0},
+    BuiltinName{"os", "putenv", 2},
+    BuiltinName{"os", "unsetenv", 1},
+    BuiltinName{"os", "getpid", 0},
+    BuiltinName{"os", "version", 0},
+    BuiltinName{"maps", "get", 3},
+    BuiltinName{"maps", "is_key", 2},
+    BuiltinName{"maps", "remove", 2},
+    BuiltinName{"maps", "new", 0},
+    BuiltinName{"maps", "size", 1},
+    BuiltinName{"maps", "merge", 2},
+    BuiltinName{"maps", "take", 2},
+    BuiltinName{"maps", "update", 3},
+    BuiltinName{"maps", "with", 2},
+    BuiltinName{"maps", "without", 2},
+    BuiltinName{"maps", "from_keys", 2},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

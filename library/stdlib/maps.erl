@@ -86,9 +86,7 @@ to_list(Map) -> erlang:error({badmap, Map}).
 values(Map) when is_map(Map) -> [Value || _ := Value <- Map];
 values(Map) -> erlang:error({badmap, Map}).
 
-filter(_, _) -> erlang:error({not_implemented, filter, 2}).
 filtermap(_, _) -> erlang:error({not_implemented, filtermap, 2}).
-foreach(_, _) -> erlang:error({not_implemented, foreach, 2}).
 from_keys(_, _) -> erlang:error({not_implemented, from_keys, 2}).
 get(_, _, _) -> erlang:error({not_implemented, get, 3}).
 groups_from_list(_, _) -> erlang:error({not_implemented, groups_from_list, 2}).
@@ -99,7 +97,6 @@ is_iterator_valid(_) -> erlang:error({not_implemented, is_iterator_valid, 1}).
 is_key(_, _) -> erlang:error({not_implemented, is_key, 2}).
 iterator(_) -> erlang:error({not_implemented, iterator, 1}).
 iterator(_, _) -> erlang:error({not_implemented, iterator, 2}).
-map(_, _) -> erlang:error({not_implemented, map, 2}).
 merge(_, _) -> erlang:error({not_implemented, merge, 2}).
 merge_with(_, _, _) -> erlang:error({not_implemented, merge_with, 3}).
 new() -> erlang:error({not_implemented, new, 0}).
@@ -108,7 +105,60 @@ remove(_, _) -> erlang:error({not_implemented, remove, 2}).
 size(_) -> erlang:error({not_implemented, size, 1}).
 take(_, _) -> erlang:error({not_implemented, take, 2}).
 update(_, _, _) -> erlang:error({not_implemented, update, 3}).
-update_with(_, _, _) -> erlang:error({not_implemented, update_with, 3}).
-update_with(_, _, _, _) -> erlang:error({not_implemented, update_with, 4}).
 with(_, _) -> erlang:error({not_implemented, with, 2}).
 without(_, _) -> erlang:error({not_implemented, without, 2}).
+
+%% The associations for which Pred(Key, Value) is true; anything but a boolean is a case_clause (plan step 41X).
+filter(Pred, Map) when is_function(Pred, 2), is_map(Map) ->
+    from_list(filter_pairs(Pred, to_list(Map)));
+filter(Pred, Map) when is_function(Pred, 2) ->
+    erlang:error({badmap, Map});
+filter(_, _) ->
+    erlang:error(badarg).
+
+filter_pairs(Pred, [{Key, Value} | Rest]) ->
+    case Pred(Key, Value) of
+        true -> [{Key, Value} | filter_pairs(Pred, Rest)];
+        false -> filter_pairs(Pred, Rest)
+    end;
+filter_pairs(_, []) ->
+    [].
+
+%% Every value replaced by Fun(Key, Value) (plan step 41X).
+map(Fun, Map) when is_function(Fun, 2), is_map(Map) ->
+    #{Key => Fun(Key, Value) || Key := Value <- Map};
+map(Fun, Map) when is_function(Fun, 2) ->
+    erlang:error({badmap, Map});
+map(_, _) ->
+    erlang:error(badarg).
+
+%% Fun(Key, Value) for every association, in key order, then ok (plan step 41X).
+foreach(Fun, Map) when is_function(Fun, 2), is_map(Map) ->
+    _ = [Fun(Key, Value) || Key := Value <- Map],
+    ok;
+foreach(Fun, Map) when is_function(Fun, 2) ->
+    erlang:error({badmap, Map});
+foreach(_, _) ->
+    erlang:error(badarg).
+
+%% Map with the value of the existing Key replaced by Fun(Value); {badkey, Key} when absent (plan step 41X).
+update_with(Key, Fun, Map) when is_function(Fun, 1), is_map(Map) ->
+    case Map of
+        #{Key := Value} -> Map#{Key := Fun(Value)};
+        #{} -> erlang:error({badkey, Key})
+    end;
+update_with(_, Fun, Map) when is_function(Fun, 1) ->
+    erlang:error({badmap, Map});
+update_with(_, _, _) ->
+    erlang:error(badarg).
+
+%% Map with the value of Key replaced by Fun(Value), or Init when Key is absent (plan step 41X).
+update_with(Key, Fun, Init, Map) when is_function(Fun, 1), is_map(Map) ->
+    case Map of
+        #{Key := Value} -> Map#{Key := Fun(Value)};
+        #{} -> Map#{Key => Init}
+    end;
+update_with(_, Fun, _, Map) when is_function(Fun, 1) ->
+    erlang:error({badmap, Map});
+update_with(_, _, _, _) ->
+    erlang:error(badarg).

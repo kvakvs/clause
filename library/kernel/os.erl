@@ -25,8 +25,8 @@
 ]).
 -include("os.types.hrl").
 
-% The project-owned os module (docs/library.md): os:cmd/1 in Erlang over a port; os:type/0 and os:getenv/1 are
-% builtins of the runtime.
+% The project-owned os module (docs/library.md): os:cmd/1 and the time functions in Erlang; os:type/0,
+% os:getenv/0,1, os:env/0, os:putenv/2, os:unsetenv/1, os:getpid/0 and os:version/0 are builtins of the runtime.
 
 % Run Command through the system's command processor (cmd.exe /c on Windows, /bin/sh -c elsewhere) and return
 % what it writes to its standard output and error, as bytes.
@@ -67,16 +67,29 @@ find_executable(_) -> erlang:error({not_implemented, find_executable, 1}).
 find_executable(_, _) -> erlang:error({not_implemented, find_executable, 2}).
 getenv() -> erlang:error({not_implemented, getenv, 0}).
 getenv(_) -> erlang:error({not_implemented, getenv, 1}).
-getenv(_, _) -> erlang:error({not_implemented, getenv, 2}).
 getpid() -> erlang:error({not_implemented, getpid, 0}).
 internal_init_cmd_shell() -> erlang:error({not_implemented, internal_init_cmd_shell, 0}).
-perf_counter() -> erlang:error({not_implemented, perf_counter, 0}).
-perf_counter(_) -> erlang:error({not_implemented, perf_counter, 1}).
 putenv(_, _) -> erlang:error({not_implemented, putenv, 2}).
 set_signal(_, _) -> erlang:error({not_implemented, set_signal, 2}).
-system_time() -> erlang:error({not_implemented, system_time, 0}).
-system_time(_) -> erlang:error({not_implemented, system_time, 1}).
-timestamp() -> erlang:error({not_implemented, timestamp, 0}).
 type() -> erlang:error({not_implemented, type, 0}).
 unsetenv(_) -> erlang:error({not_implemented, unsetenv, 1}).
 version() -> erlang:error({not_implemented, version, 0}).
+
+%% The time functions over the erlang ones (plan step 41X): OS system time, the {MegaSecs, Secs, MicroSecs}
+%% timestamp and the performance counter, whose native unit is nanoseconds.
+timestamp() -> erlang:timestamp().
+
+system_time() -> erlang:system_time().
+
+system_time(Unit) -> erlang:system_time(Unit).
+
+perf_counter() -> erlang:monotonic_time(perf_counter).
+
+perf_counter(Unit) -> erlang:convert_time_unit(os:perf_counter(), perf_counter, Unit).
+
+%% The value of variable Name, or Default when it is not set (plan step 41X).
+getenv(Name, Default) ->
+    case os:getenv(Name) of
+        false -> Default;
+        Value -> Value
+    end.

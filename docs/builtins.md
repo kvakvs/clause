@@ -33,6 +33,8 @@ builtin both the compiler and the runtime know:
 - the `lists` data functions (plan step 41T, [lists module](#lists-module));
 - every `math` function (plan step 41V, [math module](#math-module));
 - the `binary` module (plan step 41W, [binary module](#binary-module));
+- `os` environment, process and version queries and the `maps` BIFs (plan step 41X,
+  [maps module](#maps-module));
 - process identities (plan step 42): `self/0`, `make_ref/0`, `pid_to_list/1`
   and `ref_to_list/1` ([pids and references](terms.md#pids-and-references));
 - processes (plan step 43): `spawn/1,3` and `is_process_alive/1`
@@ -204,6 +206,24 @@ every other function is a builtin:
   outside the subject, an unknown option) is `badarg`.
 - `referenced_byte_size/1` is the binary's own size.
 - They run to completion.
+
+## Maps module
+
+Plan 11 step 41X (`runtime/src/builtins/maps.cpp`, `runtime/src/builtins/os.cpp`).
+
+- `maps:get/3`, `is_key/2`, `remove/2`, `new/0`, `size/1`, `merge/2`,
+  `take/2`, `update/3`, `with/2`, `without/2` and `from_keys/2` are builtins
+  with OTP's errors: a non-map is `{badmap, Map}`, a missing key of
+  `update/3` `{badkey, Key}`, a key list that is not a proper list `badarg`.
+  Keys match exactly (`1` and `1.0` are different keys). `filter/2`,
+  `map/2`, `foreach/2` and `update_with/3,4` are Erlang in
+  `library/stdlib/maps.erl`.
+- `os:getenv/0` (`"Name=Value"` strings; Windows' per-drive `=C:` entries
+  are left out), `os:env/0` (`{Name, Value}` pairs), `os:putenv/2`,
+  `os:unsetenv/1` (`badarg` unless the arguments are strings and the name is
+  non-empty without `=`), `os:getpid/0` and `os:version/0` are builtins;
+  `os:timestamp/0`, `os:system_time/0,1`, `os:perf_counter/0,1` and
+  `os:getenv/2` are Erlang over the `erlang` time builtins and `getenv/1`.
 
 ## Portions
 
