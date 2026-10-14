@@ -31,6 +31,7 @@ builtin both the compiler and the runtime know:
   first builtins of another module ([io](io.md)); output devices (plan step
   41U): `io:format/3`, `io:fwrite/1,2,3`, `io:put_chars/2`, `io:nl/0,1`;
 - the `lists` data functions (plan step 41T, [lists module](#lists-module));
+- every `math` function (plan step 41V, [math module](#math-module));
 - process identities (plan step 42): `self/0`, `make_ref/0`, `pid_to_list/1`
   and `ref_to_list/1` ([pids and references](terms.md#pids-and-references));
 - processes (plan step 43): `spawn/1,3` and `is_process_alive/1`
@@ -167,6 +168,18 @@ Plan 11 step 41T (`runtime/src/builtins/lists/`). OTP's `lists` is Erlang code
   its result back.
 - A `function_clause` from a builtin has no frame of its own
   ([differences](differences.md)).
+
+## Math module
+
+Plan 11 step 41V (`runtime/src/builtins/math.cpp`). `library/stdlib/math.erl`
+holds OTP 29's exports as stubs; every one is a builtin over the C library
+(`pi/0` and `tau/0` are constants). Arguments are numbers converted to floats:
+anything else is `badarg`, an integer too large for a float `badarith`. A
+result that is not a finite float (a domain error such as `sqrt(-1)`,
+`log(0)`, `acos(2)`, or an overflow such as `pow(10, 400)`, `exp(1000)`) is
+`badarith`. `floor/1` and `ceil/1` return floats. Results are the host C
+library's, which can differ from OTP's in the last bit
+([differences](differences.md)).
 
 ## Portions
 

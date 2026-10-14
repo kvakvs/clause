@@ -172,7 +172,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      code_builtins(),
                                      lists_sublist_builtins(),
                                      lists_ordering_builtins(),
-                                     lists_key_builtins()};
+                                     lists_key_builtins(),
+                                     math_builtins()};
     return families;
 }
 } // namespace clause::runtime

@@ -17,6 +17,7 @@ from OTP sources) and compiled with the programs that use it.
 | [`inet`](../library/kernel/inet.erl) | `port/1`, `sockname/1`, `peername/1`, `setopts/2`, `close/1` |
 | [`clause_socket`](../library/kernel/clause_socket.erl) | Clause's own: the socket driver protocol the three modules above share |
 | [`erlang`](../library/erts/erlang.erl) | Generated stubs of every OTP 29 `erlang` export; builtins replace theirs, `nif_error/1,2` have bodies, others raise `{not_implemented, F, A}` when called ([erlang module](builtins.md#erlang-module)) |
+| [`math`](../library/stdlib/math.erl) | Every OTP 29 function as a runtime builtin ([math module](builtins.md#math-module)) |
 | [`os`](../library/kernel/os.erl) | `cmd/1` over a port ([subprocesses](ports.md#subprocesses)); `type/0` and `getenv/1` are runtime builtins |
 
 Results and error reasons match OTP 29, including the error shapes of OTP's
@@ -112,7 +113,7 @@ warning, since nothing is replaced.
 - Library modules live in `library/<application>/`, named after the OTP
   application that owns the module in OTP: `erts` (preloaded counterparts and
   `erlang`), `kernel` (`file`, `gen_tcp`, `gen_udp`, `inet`, `os`, and Clause's
-  own `clause_socket`), `stdlib` (`lists`, `maps`, `io`, `unicode_util`). The
+  own `clause_socket`), `stdlib` (`lists`, `maps`, `math`, `io`, `unicode_util`). The
   library lookup searches every application directory; a module name exists
   in at most one of them.
 - `library/modules.terms` lists every module Clause decides about:

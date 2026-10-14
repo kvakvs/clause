@@ -26,4 +26,5 @@
 {io, stdlib, provided}.
 {lists, stdlib, provided}.
 {maps, stdlib, provided}.
+{math, stdlib, provided}.
 {unicode_util, stdlib, provided}.

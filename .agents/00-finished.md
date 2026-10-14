@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41K2, 41T, 41U, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
+## Plan 11 (steps 1–68, 41A–41K2, 41T, 41U, 41V, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -238,6 +238,11 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   a pid or registered name an I/O server written through `file:write/2` (the builtin traps into it; export liveness
   keeps it live with those builtins); OTP's `badarg`, `terminated`, `calling_self`, `function_clause`. Test
   `executables_io_output`. Gate: fast CTest 279/279 (1 disabled), `check-quality` clean.
+- **41V (H4):** 2026-10-14, `math` ([builtins](../docs/builtins.md#math-module)): provided module
+  `library/stdlib/math.erl` (OTP 29 exports as stubs) whose every function is a builtin over the C library
+  (`runtime/src/builtins/math.cpp`); `badarg` for non-numbers, `badarith` for oversized integers, domain errors and
+  overflows. Last-bit differences of the host C library recorded (`erfc(1)` on Windows). Test `executables_math`.
+  Gate: fast CTest clean, `check-quality` clean.
 - **69A (M):** 2026-10-12, manual benchmarks against OTP ([validation](../docs/validation.md)): `benchmarks/` (6
   programs, 29 kernels, `run.py`), `make benchmark`, `make-benchmark.bat`, local history; never part of the gate.
   First run: Clause O2 20.2x slower than OTP JIT (geometric mean), sockets at par, quadratic binary appends and map
@@ -333,6 +338,7 @@ criteria and evidence are in Git at those commits. Contracts in the linked
 - <a id="step-41k2"></a>**41K2.** Remote types of ignored modules — `4810de56`
 - <a id="step-41t"></a>**41T.** `lists` data functions as builtins — commit `[plan11] 41T ...`
 - <a id="step-41u"></a>**41U.** `io` output wrappers — commit `[plan11] 41U ...`
+- <a id="step-41v"></a>**41V.** `math` as runtime builtins — commit `[plan11] 41V ...`
 - <a id="step-42"></a>**42.** Implement pid and reference identities — `59064bf`
 - <a id="step-43"></a>**43.** Run spawned processes on a cooperative executor — `f092504`
 - <a id="step-43a"></a>**43A.** Make long-running builtins interruptible — `0682b54`

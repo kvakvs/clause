@@ -63,7 +63,7 @@ calls() ->
         {sqrt, [a]},
         {sqrt, ["4"]},
         {erf, [1]},
-        {erfc, [1]},
+        {erfc, [0]},
         {floor, [1]},
         {floor, [-1.5]},
         {floor, [1 bsl 70]},
