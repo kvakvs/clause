@@ -143,6 +143,9 @@ std::span<const BuiltinEntry> erts_internal_builtins() noexcept;
 std::span<const BuiltinEntry> unicode_table_builtins() noexcept;
 // The re module over PCRE2 of step 41ZA: version/0.
 std::span<const BuiltinEntry> re_builtins() noexcept;
+// The zlib streams of step 41Q: clause_zlib:open/0, close/1, set_controller/2, deflate_init/2, inflate_init/2,
+// deflate/3, inflate/2, *_end/1, *_reset/1, deflate_params/2 and the dictionary functions.
+std::span<const BuiltinEntry> zlib_builtins() noexcept;
 // The binary module of step 41W: match/2,3, matches/2,3, split/2,3, compile_pattern/1; part/2,3, at/2, first/1,
 // last/1, bin_to_list/1,2,3, copy/1,2, longest_common_prefix/1, longest_common_suffix/1, referenced_byte_size/1,
 // join/2; decode_unsigned/1,2, encode_unsigned/1,2, encode_hex/1,2, decode_hex/1.

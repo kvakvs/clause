@@ -10,11 +10,15 @@
 #include <clause/runtime/atoms.hpp>
 #include <clause/runtime/code_server.hpp>
 #include <cmath>
+#include <string>
+#include <utility>
 #include <vector>
+#include <zlib.h>
 
 // binary_to_term/1,2 (plan step 41E, docs/builtins.md#external-term-format): decodes iteratively, checking every
 // length against the input before allocating; malformed input, identities of another node and pids this program
-// never created are badarg, compressed input is notsup. Bytes after the term are ignored, as in OTP.
+// never created are badarg, compressed input is inflated first (plan step 41Q). Bytes after the term are ignored, as in
+// OTP.
 namespace clause::runtime::builtins {
 namespace {
 namespace external = abi::external;
@@ -275,12 +279,46 @@ class Decoder {
     std::vector<Open> open_;
 };
 
+// The size OTP accepts for decompressed term data, against corrupt sizes.
+constexpr std::size_t MAX_DECOMPRESSED = std::size_t{32} * 1024 * 1024;
+
+// <<131, Payload/binary>> of <<131, 80, Size:32, Zlib/binary>>, and the input bytes the compressed form used; badarg
+// unless zlib gives exactly Size bytes (plan step 41Q).
+std::pair<std::string, std::size_t> decompressed(std::string_view bytes) {
+    if (bytes.size() < 6) {
+        bad_argument();
+    }
+    std::size_t size = 0;
+    for (std::size_t at = 2; at < 6; ++at) {
+        size = (size << 8) | static_cast<unsigned char>(bytes[at]);
+    }
+    if (size > MAX_DECOMPRESSED) {
+        bad_argument();
+    }
+    std::string out(1 + size, static_cast<char>(0));
+    out[0] = static_cast<char>(external::VERSION);
+    z_stream z{};
+    z.next_in = reinterpret_cast<Bytef *>(const_cast<char *>(bytes.data() + 6));
+    z.avail_in = static_cast<uInt>(bytes.size() - 6);
+    z.next_out = reinterpret_cast<Bytef *>(out.data() + 1);
+    z.avail_out = static_cast<uInt>(size);
+    const bool done = inflateInit(&z) == Z_OK && inflate(&z, Z_FINISH) == Z_STREAM_END && z.total_out == size;
+    const auto used = 6 + static_cast<std::size_t>(z.total_in);
+    inflateEnd(&z);
+    if (!done) {
+        bad_argument();
+    }
+    return {std::move(out), used};
+}
+
 // Decode `binary`, adding {Term, Used} when asked.
 TermResult<Term> decode(ProcessContext &context, const BinaryArgument &binary, DecodeOptions options) {
-    const std::string_view bytes(reinterpret_cast<const char *>(binary.bytes.data()), binary.bytes.size());
-    if (bytes.size() > 1 && static_cast<unsigned char>(bytes[1]) == external::COMPRESSED) {
-        throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
-                             .payload = need(TermFactory(context).atom("notsup")).word()};
+    std::string_view bytes(reinterpret_cast<const char *>(binary.bytes.data()), binary.bytes.size());
+    std::pair<std::string, std::size_t> inflated;
+    if (bytes.size() > 1 && static_cast<unsigned char>(bytes[1]) == external::COMPRESSED &&
+        static_cast<unsigned char>(bytes[0]) == external::VERSION) {
+        inflated = decompressed(bytes);
+        bytes = inflated.first;
     }
     try {
         Decoder decoder(context, bytes, options);
@@ -288,7 +326,8 @@ TermResult<Term> decode(ProcessContext &context, const BinaryArgument &binary, D
         if (!options.used) {
             return term;
         }
-        const std::array parts{term, need(TermFactory(context).integer(static_cast<std::int64_t>(decoder.used())))};
+        const auto used = inflated.first.empty() ? decoder.used() : inflated.second;
+        const std::array parts{term, need(TermFactory(context).integer(static_cast<std::int64_t>(used)))};
         return TermFactory(context).tuple(parts);
     } catch (const external::FormatError &) {
         bad_argument();

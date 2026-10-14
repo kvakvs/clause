@@ -172,6 +172,8 @@
   observation dump + UCD files) behind private `clause_unicode` builtins; Erlang walks keep OTP's shapes (41O2: gc/1 in OTP's rule order, nf*).
   H5 41ZA: PCRE2 10.47 objects merged into clause_runtime (source or download); an installed PCRE2 becomes an
   extra linker input in clause_runtime.link that clau appends.
+  41Q zlib 1.3.2 objects likewise; zlib streams are handle references with a finalizer (HandleAccess::make);
+  term_to_binary compressed / binary_to_term inflate in term_encoding/term_decoding.
   The `erlang` library module (step 41B): `library/erts/erlang.erl` is generated from the owned inventory
   `erlang.terms`; non-builtin `erlang:F/A` and unqualified OTP auto-imports (`semantic::library_auto_import`) pull
   it in like `lists`; `CodeServer::index` skips exports a builtin names, literal builtin funs bind the builtin.

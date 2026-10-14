@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "zlib_streams",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[{error,not_initialized},\n ok,\n {error,already_initialized},\n [<<120,156>>],\n [<<202,72,205,201,201,79,76,2,0,0,0,255,255>>],\n [<<3,0,11,122,2,216>>],\n {error,stream_error},\n {error,data_error},\n {error,not_initialized},\n ok,\n [<<\"abc\">>],\n [],ok,\n {error,not_initialized},\n ok,\n {error,data_error},\n {error,data_error},\n ok,\n {error,data_error},\n {error,data_error},\n ok,<<\"r1r2\">>,ok,[],\n {error,data_error},\n ok,\n {error,not_initialized},\n {error,already_initialized},\n {error,bad_compression_level},\n {error,bad_windowbits},\n {error,bad_memlevel},\n {error,bad_compression_strategy},\n {error,bad_compression_method},\n {error,bad_eos_behavior},\n {error,bad_flush_mode}]\n[<<120,156,203,72,205,201,201,87,200,64,144,0,58,46,6,125>>,\n <<120,156,75,76,74,6,0,2,77,1,39>>,\n <<75,76,2,0>>,\n <<120,156,3,0,0,0,0,1>>,\n [<<250,163,121,134,201,100,155,95,219,160,191,31,39,12,78,93>>,\n  <<137,22,98,33,235,34,255,211,157,118,190,223,112,228,133,44>>,\n  <<154,222,38,228,26,248,88,226,213,130,131,118,168,43,84,219>>,\n  <<109,179,219,188,229,2,162,177,227,46,66,128,76,127,94,68>>,\n  <<250,163,121,134,201,100,155,95,219,160,191,31,39,12,78,93>>,\n  <<234,19,117,61,24,148,112,166,205,237,32,233,255,243,119,172>>,\n  <<109,179,219,188,229,2,162,177,227,46,66,128,76,127,94,68>>],\n [<<154,222,38,228,26,248,88,226,213,130,131,118,168,43,84,219>>,\n  <<105,172,206,122,67,56,119,155,161,111,52,111,18,138,203,226>>,\n  <<2,111,150,232,3,110,209,46,192,12,228,86,197,209,147,209>>,\n  <<32,183,119,29,179,23,46,82,6,1,205,44,186,204,178,170>>],\n [<<207,147,9,156,132,74,15,100,25,233,247,48,8,207,125,29>>,\n  <<20,13,146,187,223,133,233,130,93,93,231,243,114,79,141,229>>,\n  <<238,177,198,147,224,4,160,88,36,21,97,253,173,45,104,234>>,\n  <<120,39,53,235,244,74,51,24,181,149,80,254,75,47,26,196>>],\n 410,\n {<<197,233,196,237,88,53,151,176,103,85,44,4,92,204,215,8>>,true}]\n[true,true,true,<<\"qr\">>,<<\"q\">>,{finished,[<<\"safe\">>]},{finished,[]},true]\n[{error,data_error},\n {error,data_error},\n {error,data_error},\n {error,data_error},\n {error,data_error},\n {error,data_error},\n {error,badarg},\n {error,badarg}]\n[{error,not_on_controlling_process},\n ok,\n [2137328081,\n  {need_dictionary,2137328081,[]},\n  [<<\"common words again\">>],\n  <<\"common words common words\">>,\n  {error,{need_dictionary,2137328081}}]]\n[<<13,207,191,97,7,32,13,255,218,143,129,149,18,70,250,157>>,\n true,\n [<<197,59,241,167,143,30,43,8,182,14,54,226,109,195,187,151>>,\n  <<14,230,150,50,30,254,155,42,69,40,43,156,137,55,191,255>>,\n  <<125,183,96,213,234,7,212,160,19,135,245,52,228,235,151,160>>],\n <<131,119,3,97,98,99>>,\n true,true,true,true,\n {error,badarg},\n {error,badarg},\n {error,badarg}]\nzlib_streams: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "zlib_streams.erl": "193506cc9b475647c79da97f1480428d1cfde42ed06077acdeb0439ad31fd4b9"
+  }
+}

@@ -213,12 +213,21 @@ TermResult<Term> HandleAccess::publish_handle(ProcessHeap &heap, std::uint64_t n
     return published;
 }
 
-TermResult<Term> HandleAccess::make(ProcessHeap &heap, std::span<const std::byte> bytes) {
+TermResult<Term> HandleAccess::make(ProcessHeap &heap, std::span<const std::byte> bytes, Finalizer finalizer) {
     auto created = heap.off_heap_buffer(bytes);
     if (!created) {
         return std::unexpected(heap_error(created.error()));
     }
     std::shared_ptr<const layout::BinaryBuffer> buffer = std::move(*created);
+    if (finalizer != nullptr) {
+        // The finalizer runs first; the inner reference then frees the buffer and returns its charge.
+        auto *raw = buffer.get();
+        buffer = std::shared_ptr<const layout::BinaryBuffer>(
+            raw, [inner = buffer, finalizer](const layout::BinaryBuffer *data) mutable noexcept {
+                finalizer(std::span(const_cast<std::byte *>(data->data()), data->size()));
+                inner.reset();
+            });
+    }
     const auto number = next_reference();
     handle_registry().add(number, buffer);
     return publish_handle(heap, number, std::move(buffer));

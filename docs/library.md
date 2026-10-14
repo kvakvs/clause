@@ -216,7 +216,7 @@ Plan 11 step 41J. All live in `tests/compiler/library/`:
 | `atomics`, `counters`, `erts_code_purger` | provided; `atomics`, `counters` implemented; `purge/1`, `soft_purge/1` implemented, the purger process declined | 41N ([atomics and counters](builtins.md#atomics-and-counters)); code loading waits for step 71 |
 | `unicode_util` | provided, implemented (41O1, 41O2) | tables generated from OTP's answers and the Unicode data ([unicode_util](builtins.md#unicode-util)) |
 | `erl_prim_loader` | provided; file queries implemented over `file`, loading and archives declined | 41P ([files](ports.md#standard-io-and-files)); code loading waits for step 71 |
-| `zlib` | provided, all stubs | 41Q: pinned zlib in the runtime, or refused |
+| `zlib` | provided, implemented over the pinned zlib (41Q) | streams are handle references ([zlib module](builtins.md#zlib-module)) |
 | `prim_eval` | provided, all stubs | 41S |
 | `application_controller` | provided, all stubs | shadows OTP's, which calls `prim_file` (luerl names it through OTP's `application`) |
 | `lists`, `maps`, `io`, `file`, `os`, `gen_tcp`, `gen_udp`, `inet` | provided, OTP 29's full export lists; what Clause had stays implemented, the rest stubs | grow as the ledger demands |

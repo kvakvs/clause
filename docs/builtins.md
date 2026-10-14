@@ -345,6 +345,23 @@ answers of plane 0 and sample blocks of the other planes with OTP's (all 1.1M co
 the tables were generated); `executables_unicode_clusters` compares clusters and normal forms of hand-picked
 strings for every rule and a seeded sweep of 2000 random strings.
 
+## Zlib module
+
+Plan 11 step 41Q (`runtime/src/builtins/zlib/streams.cpp`, `library/erts/zlib.erl`). The runtime links zlib
+1.3.2, the release OTP 29 bundles ([zlib](compile.md#zlib)), so compressed bytes equal OTP's for every level,
+strategy, window size and flush. A stream is a [handle reference](runtime-heap.md#handle-references) whose buffer
+holds the `z_stream`; its finalizer ends an active session when the last copy dies. The private `clause_zlib`
+builtins (`open/0`, `close/1`, `set_controller/2`, `deflate_init/2`, `inflate_init/3`, `deflate/3`, `inflate/2`,
+the end, reset, parameter and dictionary calls) run one operation over all their input; `zlib.erl` keeps OTP's
+API, argument errors (`bad_compression_level`, `bad_windowbits`, ...), stream states (`not_initialized`,
+`already_initialized`, `not_on_controlling_process`, a closed stream refusing a new init), `eos_behavior` (`cut`,
+`reset`, `error`), `data_error` from `inflateEnd/1` before the end of a stream, dictionaries
+(`{need_dictionary, Adler}` raised or returned), output kept by `deflateParams/3` for the next `deflate`, and the
+whole-buffer `compress/1`, `uncompress/1`, `zip/1`, `unzip/1`, `gzip/1`, `gunzip/1` (concatenated members). A gzip
+header names the platform, as OTP's zlib writes it. `term_to_binary/2` with `compressed` or `{compressed, Level}`
+compresses as OTP decides (into five bytes fewer than the payload, else plain) and `binary_to_term/1,2` inflates
+compressed input.
+
 ## Re module
 
 Plan 11 steps 41ZA and 41ZB (`runtime/src/builtins/re/`, `library/stdlib/re.erl`): OTP 29's exports and types

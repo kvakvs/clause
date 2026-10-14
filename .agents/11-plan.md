@@ -139,7 +139,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | --- | --- | --- | --- |
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
-| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41P, 41R; open: [41Q](#step-41q) (after 41ZA), [41S](#step-41s) |
+| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41R; open: [41S](#step-41s) |
 | H5. Regular expressions (`re`) | [41ZA](00-finished.md#step-41za), [41ZB](#step-41zb) | F36 | done: 41ZA; open: [41ZB](#step-41zb) |
 | H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](00-finished.md#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
@@ -152,7 +152,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41P, 41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -344,28 +344,11 @@ other), and add or adjust steps here before coding the next one.
 Split on 2026-10-14 (user direction) into [41M1](00-finished.md#step-41m1) (the runtime
 table) and [41M2](00-finished.md#step-41m2) (the builtins), both in phase H4.
 
-<a id="step-41q"></a>
-
-### 41Q. `zlib`
-
-Backlog: F36. Depends on: [41K](00-finished.md#step-41k), [41ZA](00-finished.md#step-41za) (moved after it on 2026-10-14: the
-runtime's third-party linking is built there and reused for zlib).
-
-- Success criteria
-  - [ ] Decide: link a pinned zlib into the runtime (the 41E
-    `term_to_binary(_, [compressed])` gap would close with it) and
-    implement the stream API, `gzip/1`, `gunzip/1`, `compress/1`,
-    `uncompress/1`, `zip/1`, `unzip/1` as runtime builtins; or `refuse`
-    the module with OTP's `badarg`/`not_supported`-style errors.
-- Tests
-  - [ ] If implemented: byte-exact goldens against OTP for compression
-    levels and strategies, round trips, damaged input.
-
 <a id="step-41s"></a>
 
 ### 41S. `prim_eval` and the next luerl layer
 
-Backlog: F36. Depends on: [41K](00-finished.md#step-41k)–[41R](00-finished.md#step-41r), [41Q](#step-41q). Runs last in H3 (2026-10-14), after H5, so its luerl rerun has `re`.
+Backlog: F36. Depends on: [41K](00-finished.md#step-41k)–[41R](00-finished.md#step-41r), [41Q](00-finished.md#step-41q). Runs last in H3 (2026-10-14), after H5, so its luerl rerun has `re`.
 
 - Success criteria
   - [ ] `prim_eval:'receive'/2` (selective receive driven by a matcher fun,

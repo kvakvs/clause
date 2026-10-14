@@ -49,13 +49,14 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `file:read_link_info/1,2` of a symbolic link on Windows (step 41P) | The link's own reparse-point data | The target's size and times with type `symlink` | [ports](ports.md#standard-io-and-files) |
 | `inet:gethostbyname/1,2` (step 41R) | The resolver's canonical name and aliases (`inet_res`, hosts file, native) | The name asked and no aliases; addresses from the system resolver | [ports](ports.md#sockets-57f) |
 | `socket`, `net` modules (step 41R) | The socket NIF API | Missing: a reference is a compile-time error; use `gen_tcp`, `gen_udp`, `inet` | [library](library.md) |
+| `zlib` output lists (step 41Q) | One binary per internal chunk, nested where a stream ended and restarted | One binary per call, `[]` when there is none; the bytes are OTP's | [builtins](builtins.md#zlib-module) |
+| `zlib:safeInflate/2` and long `zlib` calls (step 41Q) | Return after a bounded amount of output (`{continue, Output}`) and yield | Inflate all queued input in one call (`{finished, Output}`); a long call holds its scheduler thread | [builtins](builtins.md#zlib-module) |
 | `code:is_sticky/1` (step 41Z) | `true` for modules of `kernel`, `stdlib` and `compiler` | Always `false` | [builtins](builtins.md#code-module) |
 | Output to a file device (`io:format(File, ...)`, step 41U) | Characters are encoded as the file's encoding (`latin1` by default: characters above 255 are an error) | Always UTF-8 bytes | [io](io.md#calls) |
 | Formatting a large term (`io:format/1,2`) | Runs in Erlang code (`io_lib`) and the group leader, so the process can be preempted while formatting | Runs to completion in one builtin call; other processes wait | [builtins](builtins.md#portions) |
 | `process_flag/2` flags | `trap_exit`, `priority`, `message_queue_data`, `min_heap_size` and others | Only `trap_exit`; every other flag raises `badarg` | [processes](processes.md#builtins) |
 | Error report order of processes crashing at the same time | Logger order | The order their workers finish them | [processes](processes.md#workers) |
 | Signals to a process running on another scheduler | Queued in its signal queue and handled later, while the sender goes on | The sender waits until the target's time slice ends, then acts at once; observable only as timing | [processes](processes.md#workers) |
-| `term_to_binary/2` with `compressed` | zlib-compressed when smaller | Uncompressed, still valid for `binary_to_term/1` everywhere; decoding compressed input raises `error:notsup` | [builtins](builtins.md#external-term-format) |
 | `term_to_binary/1` of a local fun or a native record | Encoded (`NEW_FUN_EXT`, ...) | `error:notsup`; `fun M:F/A` is encoded | [builtins](builtins.md#external-term-format) |
 | `term_to_binary/1` of a map with more than 32 keys | Hash order unless `deterministic` | Always key order (`deterministic`'s bytes) | [builtins](builtins.md#external-term-format) |
 | `binary_to_term/1` of another node's pid, port or reference; option `local` of `term_to_binary/2` | External identities; `LOCAL_EXT` encoding | `badarg` | [builtins](builtins.md#external-term-format) |

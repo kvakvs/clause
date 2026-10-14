@@ -186,3 +186,9 @@ Plan history: .agents/11-plan.md (compact step records), .agents/00-finished.md 
   <runtime>.link (one linker input per line) that clau appends (runtime_link_inputs). Untested here: the installed-
   library path (no system pcre2 on Windows). modules.terms entries must stay one line each after erlfmt (keep
   reasons short); a new provided module's .erl must -include its .types.hrl.
+- 41Q (2026-10-14): zlib streams = handle refs with finalizer; leftover input after need_dictionary and
+  deflateParams output are kept by zlib.erl in the process dictionary ({zlib, input|pending, Z}). OTP's
+  safeInflate "finished" = queued input consumed (not end of stream). A full-scope check-quality (428 units, after a
+  CMake change) once failed a tidy batch with no diagnostic; a rerun passed. Heredoc python with '\0' writes a real
+  NUL into C++: use static_cast<char>(0) or the Write tool. include_guard(GLOBAL) cmake files: file-level variables
+  are invisible to later includers in other directories - keep data inside functions.

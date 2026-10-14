@@ -351,6 +351,16 @@ installed PCRE2 10.47 or newer when present, else the download. Always linked
 into the runtime for now (decided 2026-10-14); linking it only into programs
 that call `re`, or a dynamically loaded library, is deferred.
 
+## zlib
+
+Plan 11 step 41Q. The runtime's zlib module and compressed external terms use zlib **1.3.2**, the release OTP 29
+bundles (`erts/emulator/zlib/vendor.info`), so compressed bytes equal OTP's. CMake compiles its library sources
+(`cmake/ZlibDependencies.cmake`, `clause_add_runtime_zlib`) into the object library `clause_runtime_zlib`, whose
+objects join `clause_runtime` as PCRE2's do; `-DCLAUSE_RUNTIME_ZLIB_ROOT=<source directory>` takes precedence,
+otherwise the release is downloaded into `thirdparty/zlib-1.3.2` and verified (SHA-256
+`bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16`) on every host. zlib's license is the zlib
+license. The compiler's LLVM keeps its own zlib; the two never meet in one binary.
+
 Other prerequisites: CMake ≥ 3.28, a C++23 compiler, Boost ≥ 1.90, toml++
 3.4.0 and the quality tools. OTP is needed only for opt-in audits and fixture
 regeneration.

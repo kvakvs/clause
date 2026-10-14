@@ -21,8 +21,10 @@ TermResult<void> print_identity(const Term &value, TextOutput &out);
 // Handle references (plan step 41N, docs/terms.md#handle-references): references that also hold one off-heap
 // buffer, as OTP's magic references hold a resource. atomics arrays live in them.
 struct HandleAccess {
+    // Runs on a handle's buffer when its last reference dies, before the buffer is freed (zlib streams, step 41Q).
+    using Finalizer = void (*)(std::span<std::byte> bytes) noexcept;
     // A new reference holding a new off-heap buffer of `bytes`, charged to this process like an off-heap binary.
-    static TermResult<Term> make(ProcessHeap &heap, std::span<const std::byte> bytes);
+    static TermResult<Term> make(ProcessHeap &heap, std::span<const std::byte> bytes, Finalizer finalizer = nullptr);
     // The reference of `number`: a handle reference again while its buffer lives, else a plain one (binary_to_term).
     static TermResult<Term> reference(ProcessContext &context, std::uint64_t number);
     // The buffer a handle reference holds, valid while the term is; wrong_type for every other term.

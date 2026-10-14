@@ -463,6 +463,22 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"unicode_util", "pattern_whitespace", 0},
     // The re module over PCRE2 (plan step 41ZA; runtime/src/builtins/re/).
     BuiltinName{"re", "version", 0},
+    // zlib streams (plan step 41Q; runtime/src/builtins/zlib/).
+    BuiltinName{"clause_zlib", "open", 0},
+    BuiltinName{"clause_zlib", "close", 1},
+    BuiltinName{"clause_zlib", "set_controller", 2},
+    BuiltinName{"clause_zlib", "deflate_init", 2},
+    BuiltinName{"clause_zlib", "inflate_init", 2},
+    BuiltinName{"clause_zlib", "deflate", 3},
+    BuiltinName{"clause_zlib", "inflate", 2},
+    BuiltinName{"clause_zlib", "deflate_end", 1},
+    BuiltinName{"clause_zlib", "inflate_end", 1},
+    BuiltinName{"clause_zlib", "deflate_reset", 1},
+    BuiltinName{"clause_zlib", "inflate_reset", 1},
+    BuiltinName{"clause_zlib", "deflate_params", 2},
+    BuiltinName{"clause_zlib", "deflate_set_dictionary", 2},
+    BuiltinName{"clause_zlib", "inflate_set_dictionary", 2},
+    BuiltinName{"clause_zlib", "inflate_get_dictionary", 1},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

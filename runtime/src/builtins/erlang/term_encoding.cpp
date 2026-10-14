@@ -10,12 +10,16 @@
 #include <array>
 #include <clause/abi/external_term.hpp>
 #include <clause/runtime/atoms.hpp>
+#include <optional>
+#include <string>
+#include <utility>
 #include <vector>
+#include <zlib.h>
 
 // term_to_binary/1,2, term_to_iovec/1,2 and external_size/1,2 (plan step 41E, docs/builtins.md#external-term-format):
-// OTP's encoding of a local, non-distributed node, walked iteratively with an explicit stack. `compressed` is
-// accepted and leaves the encoding uncompressed (OTP itself keeps it so when compression does not shrink it); a local
-// fun or a native record raises notsup.
+// OTP's encoding of a local, non-distributed node, walked iteratively with an explicit stack. `compressed` zlib-
+// compresses the encoding as OTP does when the result is smaller (plan step 41Q); a local fun or a native record
+// raises notsup.
 namespace clause::runtime::builtins {
 namespace {
 namespace external = abi::external;
@@ -23,10 +27,15 @@ namespace external = abi::external;
 // The node every identity of a non-distributed program names.
 constexpr std::string_view LOCAL_NODE = "nonode@nohost";
 
+// The zlib level of the plain `compressed` option, as OTP's.
+constexpr int Z_DEFAULT_LEVEL = 6;
+
 // The term_to_binary/2 options that change the bytes.
 struct EncodeOptions {
     // 2 writes UTF-8 atoms; 1 and 0 Latin-1 atoms where possible; 0 also writes floats as text.
     int minor = 2;
+    // The zlib level of `compressed` (6) or {compressed, Level}; none leaves the encoding as it is.
+    std::optional<int> compression = std::nullopt;
 };
 
 // One {Name, Value} option of term_to_binary/2: {minor_version, 0..2} or {compressed, 0..9}.
@@ -35,13 +44,20 @@ bool pair_option(std::string_view name, std::int64_t value, EncodeOptions &optio
         options.minor = static_cast<int>(value);
         return true;
     }
-    return name == "compressed" && value >= 0 && value <= 9;
+    if (name == "compressed" && value >= 0 && value <= 9) {
+        options.compression = static_cast<int>(value);
+        return true;
+    }
+    return false;
 }
 
 // One term_to_binary/2 option, applied to `options`; false for anything OTP rejects.
 bool encode_option(const Term &option, EncodeOptions &options) {
     if (option.is_atom()) {
         const auto name = need(option.atom_spelling());
+        if (name == "compressed") {
+            options.compression = Z_DEFAULT_LEVEL;
+        }
         return name == "compressed" || name == "deterministic";
     }
     if (!option.is_tuple() || need(option.tuple_size()) != 2) {
@@ -239,6 +255,28 @@ class Encoder {
     std::vector<Term> pending_;
 };
 
+// The compressed form <<131, 80, Size:32, Zlib/binary>> of an encoding when zlib fits it in five bytes fewer than the
+// payload, as OTP decides; otherwise the encoding unchanged.
+std::string compressed(std::string encoding, int level) {
+    const auto payload = std::string_view(encoding).substr(1);
+    if (payload.size() < 5) {
+        return encoding;
+    }
+    std::string out(6 + payload.size() - 5, '\0');
+    auto size = static_cast<uLongf>(payload.size() - 5);
+    if (compress2(reinterpret_cast<Bytef *>(out.data() + 6), &size, reinterpret_cast<const Bytef *>(payload.data()),
+                  static_cast<uLong>(payload.size()), level) != Z_OK) {
+        return encoding;
+    }
+    out[0] = static_cast<char>(external::VERSION);
+    out[1] = static_cast<char>(external::COMPRESSED);
+    for (int shift = 3; shift >= 0; --shift) {
+        out[static_cast<std::size_t>(5 - shift)] = static_cast<char>((payload.size() >> (8 * shift)) & 0xFFU);
+    }
+    out.resize(6 + size);
+    return out;
+}
+
 // The encoding of `term` with `options`.
 std::string encoding(ProcessContext &context, const Term &term, EncodeOptions options = {}) {
     std::string bytes;
@@ -256,7 +294,12 @@ TermResult<Term> term_to_binary1(ProcessContext &context, const Term &term) {
 }
 
 TermResult<Term> term_to_binary2(ProcessContext &context, const Term &term, const ListArgument &options) {
-    return binary(context, encoding(context, term, encode_options(options)));
+    const auto chosen = encode_options(options);
+    auto bytes = encoding(context, term, chosen);
+    if (chosen.compression) {
+        bytes = compressed(std::move(bytes), *chosen.compression);
+    }
+    return binary(context, bytes);
 }
 
 // term_to_iovec/1,2: the encoding as a list of one binary.
