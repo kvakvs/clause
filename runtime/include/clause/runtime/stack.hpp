@@ -199,6 +199,10 @@ class ProcessStack final {
     void pop() const noexcept;
     // Record `function` as the entry to repeat on resumption, keeping its arguments as register roots.
     void suspend(const abi::v1::FrameDescriptor &function) noexcept;
+    // Run the builtin `function` on the registers, entered from `caller`; the body to continue in, or pause when it
+    // trapped.
+    abi::v1::Code *enter_builtin(const abi::v1::FrameDescriptor *caller, const abi::v1::FrameDescriptor &function,
+                                 std::size_t replaced) noexcept;
     // Drop every word from `size` on; shrinking never allocates.
     void truncate(std::size_t size) const noexcept;
 

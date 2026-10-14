@@ -7,6 +7,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <mutex>
+#include <optional>
+#include <span>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -46,37 +48,60 @@ struct Sink final {
     std::unordered_map<const abi::v1::FrameDescriptor *, std::string> names;
 };
 
-// Open the sink once from CLAUSE_CALL_TRACE, CLAUSE_CALL_TRACE_QUIET (comma separated) and CLAUSE_CALL_TRACE_ALL.
-Sink &sink() {
-    static Sink *instance = [] {
-        auto *result = new Sink();
-        const auto path = environment("CLAUSE_CALL_TRACE");
-        if (!path.empty()) {
-#ifdef _WIN32
-            if (fopen_s(&result->file, path.c_str(), "wb") != 0) {
-                result->file = nullptr;
-            }
-#else
-            result->file = std::fopen(path.c_str(), "wb");
-#endif
+// The module prefixes of CLAUSE_CALL_TRACE_QUIET (comma separated), by default luerl,ttdict,ttsets.
+std::vector<std::string> quiet_prefixes() {
+    auto quiet = environment("CLAUSE_CALL_TRACE_QUIET");
+    if (quiet.empty()) {
+        quiet = "luerl,ttdict,ttsets";
+    }
+    std::vector<std::string> prefixes;
+    for (std::size_t at = 0; at <= quiet.size();) {
+        const auto end = std::min(quiet.find(',', at), quiet.size());
+        if (end > at) {
+            prefixes.push_back(quiet.substr(at, end - at));
         }
-        auto quiet = environment("CLAUSE_CALL_TRACE_QUIET");
-        if (quiet.empty()) {
-            quiet = "luerl,ttdict,ttsets";
-        }
-        for (std::size_t at = 0; at <= quiet.size();) {
-            const auto end = std::min(quiet.find(',', at), quiet.size());
-            if (end > at) {
-                result->quiet.push_back(quiet.substr(at, end - at));
-            }
-            at = end + 1;
-        }
-        result->all = environment("CLAUSE_CALL_TRACE_ALL") == "1";
-        result->first = environment("CLAUSE_CALL_TRACE_FIRST") == "1";
-        return result;
-    }();
-    return *instance;
+        at = end + 1;
+    }
+    return prefixes;
 }
+
+// Open the trace file for writing; null when it cannot be opened.
+std::FILE *open_file(const std::string &path) {
+    std::FILE *file = nullptr;
+#ifdef _WIN32
+    if (fopen_s(&file, path.c_str(), "wb") != 0) {
+        file = nullptr;
+    }
+#else
+    file = std::fopen(path.c_str(), "wb");
+#endif
+    return file;
+}
+
+// The sink of CLAUSE_CALL_TRACE, CLAUSE_CALL_TRACE_QUIET, CLAUSE_CALL_TRACE_ALL and CLAUSE_CALL_TRACE_FIRST; null
+// when tracing is off, so a program that does not trace allocates nothing for it.
+Sink *open_sink() {
+    const auto path = environment("CLAUSE_CALL_TRACE");
+    auto *file = path.empty() ? nullptr : open_file(path);
+    if (!file) {
+        return nullptr;
+    }
+    auto *result = new Sink();
+    result->file = file;
+    result->quiet = quiet_prefixes();
+    result->all = environment("CLAUSE_CALL_TRACE_ALL") == "1";
+    result->first = environment("CLAUSE_CALL_TRACE_FIRST") == "1";
+    return result;
+}
+
+// The sink, opened on first use and kept for the program's lifetime.
+Sink *sink_instance() {
+    static Sink *const instance = open_sink();
+    return instance;
+}
+
+// The open sink; only a CallTrace, which exists only while tracing, uses it.
+Sink &sink() { return *sink_instance(); }
 
 std::string_view atom(const abi::v1::ModuleDescriptor &module, const std::size_t slot) {
     return slot < module.atom_count && module.atoms[slot].spelling
@@ -131,16 +156,8 @@ class Printer final {
     void term(const Term &value, const int depth) {
         if (depth == 0) {
             out_ += "_";
-        } else if (value.is_integer() || value.is_float() || value.is_atom()) {
-            out_ += format_term(value, TermStyle::write, 400).value_or("?");
-        } else if (value.is_function()) {
-            out_ += "#Fun";
-        } else if (value.is_pid()) {
-            out_ += "#Pid";
-        } else if (value.is_port()) {
-            out_ += "#Port";
-        } else if (value.is_reference()) {
-            out_ += "#Ref";
+        } else if (const auto text = scalar(value)) {
+            out_ += *text;
         } else if (value.is_bitstring()) {
             bits(value);
         } else if (value.is_nil() || value.is_cons()) {
@@ -155,6 +172,26 @@ class Printer final {
     }
 
   private:
+    // The text of a number or atom, or the placeholder of a value printed without contents; none for containers.
+    static std::optional<std::string> scalar(const Term &value) {
+        if (value.is_integer() || value.is_float() || value.is_atom()) {
+            return format_term(value, TermStyle::write, 400).value_or("?");
+        }
+        if (value.is_function()) {
+            return "#Fun";
+        }
+        if (value.is_pid()) {
+            return "#Pid";
+        }
+        if (value.is_port()) {
+            return "#Port";
+        }
+        if (value.is_reference()) {
+            return "#Ref";
+        }
+        return std::nullopt;
+    }
+
     void bits(const Term &value) {
         if (!value.is_binary()) {
             out_ += "#Bits";
@@ -174,22 +211,33 @@ class Printer final {
 
     // The first `size` bytes as a quoted string when all are printable ASCII, else as decimals.
     void prefix(const std::vector<std::byte> &bytes, const std::size_t size) {
-        const auto printable =
-            std::all_of(bytes.begin(), bytes.begin() + static_cast<std::ptrdiff_t>(size),
-                        [](std::byte item) { return item >= std::byte{32} && item <= std::byte{126}; });
-        out_ += printable ? "<<\"" : "<<";
-        for (std::size_t at = 0; at < size; ++at) {
-            const auto code = static_cast<unsigned char>(bytes[at]);
-            if (printable) {
-                if (code == '"' || code == '\\') {
-                    out_ += '\\';
-                }
-                out_ += static_cast<char>(code);
-            } else {
-                out_ += (at == 0 ? "" : ",") + std::to_string(code);
-            }
+        const auto shown = std::span(bytes).first(size);
+        if (std::ranges::all_of(shown,
+                                [](std::byte item) { return item >= std::byte{32} && item <= std::byte{126}; })) {
+            quoted(shown);
+        } else {
+            decimals(shown);
         }
-        out_ += printable ? "\">>" : ">>";
+    }
+
+    void quoted(std::span<const std::byte> bytes) {
+        out_ += "<<\"";
+        for (const auto item : bytes) {
+            const auto code = static_cast<char>(item);
+            if (code == '"' || code == '\\') {
+                out_ += '\\';
+            }
+            out_ += code;
+        }
+        out_ += "\">>";
+    }
+
+    void decimals(std::span<const std::byte> bytes) {
+        out_ += "<<";
+        for (std::size_t at = 0; at < bytes.size(); ++at) {
+            out_ += (at == 0 ? "" : ",") + std::to_string(static_cast<unsigned char>(bytes[at]));
+        }
+        out_ += ">>";
     }
 
     void list(Term value, const int depth) {
@@ -248,7 +296,7 @@ class Printer final {
 
 bool call_trace_enabled() noexcept {
     try {
-        return sink().file != nullptr;
+        return sink_instance() != nullptr;
     } catch (...) {
         return false;
     }
@@ -279,25 +327,35 @@ std::string CallTrace::text(const Word word) const noexcept {
     }
 }
 
+void CallTrace::note_first(const abi::v1::FrameDescriptor &callee) const {
+    auto &out = sink();
+    if (!out.first) {
+        return;
+    }
+    bool fresh = false;
+    {
+        const std::scoped_lock lock(out.mutex);
+        fresh = out.seen.insert(&callee).second;
+    }
+    if (fresh) {
+        line("FIRST " + name(owner_, &callee));
+    }
+}
+
+bool CallTrace::release(const std::size_t frame, const std::size_t replaced) {
+    // Frames at or above the new one were released by unwinding.
+    while (!open_.empty() && open_.back().frame != NONE && frame != NONE && open_.back().frame >= frame &&
+           !(replaced != NONE && open_.back().frame == replaced)) {
+        open_.pop_back();
+    }
+    return replaced != NONE && !open_.empty() && open_.back().frame == replaced;
+}
+
 void CallTrace::enter(const abi::v1::FrameDescriptor *caller, const abi::v1::FrameDescriptor &callee,
                       const std::size_t frame, const std::size_t replaced, const Word *arguments) noexcept {
     try {
-        // Frames at or above the new one were released by unwinding.
-        if (auto &out = sink(); out.first) {
-            bool fresh = false;
-            {
-                const std::scoped_lock lock(out.mutex);
-                fresh = out.seen.insert(&callee).second;
-            }
-            if (fresh) {
-                line("FIRST " + name(owner_, &callee));
-            }
-        }
-        while (!open_.empty() && open_.back().frame != NONE && frame != NONE && open_.back().frame >= frame &&
-               !(replaced != NONE && open_.back().frame == replaced)) {
-            open_.pop_back();
-        }
-        if (replaced != NONE && !open_.empty() && open_.back().frame == replaced) {
+        note_first(callee);
+        if (release(frame, replaced)) {
             return; // A boundary call continues in its own tail call.
         }
         const auto callee_name = name(owner_, &callee);
@@ -314,7 +372,7 @@ void CallTrace::enter(const abi::v1::FrameDescriptor *caller, const abi::v1::Fra
         line(text + ")");
         open_.push_back({frame, callee_name});
     } catch (...) {
-        // Tracing never fails the program.
+        ++dropped_;
     }
 }
 
@@ -327,10 +385,11 @@ void CallTrace::builtin_done(const Word result, const bool failed, const bool tr
     try {
         line(failed ? "EXC " + open.name : "RET " + open.name + " -> " + (trapped ? "#Trapped" : text(result)));
     } catch (...) {
+        ++dropped_;
     }
 }
 
-void CallTrace::leave(const std::size_t frame, const Word result, const bool failed) noexcept {
+void CallTrace::leave(const std::size_t frame, const Outcome outcome) noexcept {
     while (!open_.empty() && open_.back().frame != NONE && open_.back().frame > frame) {
         open_.pop_back();
     }
@@ -340,8 +399,9 @@ void CallTrace::leave(const std::size_t frame, const Word result, const bool fai
     const auto open = std::move(open_.back());
     open_.pop_back();
     try {
-        line(failed ? "EXC " + open.name : "RET " + open.name + " -> " + text(result));
+        line(outcome.failed ? "EXC " + open.name : "RET " + open.name + " -> " + text(outcome.result));
     } catch (...) {
+        ++dropped_;
     }
 }
 
@@ -359,6 +419,7 @@ void CallTrace::failure(const abi::v1::FrameDescriptor *running, const CallFailu
         }
         line(text);
     } catch (...) {
+        ++dropped_;
     }
 }
 } // namespace clause::runtime::detail

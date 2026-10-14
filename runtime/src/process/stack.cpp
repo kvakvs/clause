@@ -145,23 +145,7 @@ abi::v1::Code *ProcessStack::enter(const FrameDescriptor &function) noexcept {
     const auto replaced = std::exchange(tail_replaced_, none);
     const auto *caller = state_.frame == none ? nullptr : &descriptor(state_.frame);
     if (!function.body) {
-        if (trace_) {
-            trace_->enter(caller, function, none, replaced, registers_.data());
-        }
-        // A builtin runs at once on the registers; its result returns into the current frame's body, unless it
-        // trapped: then the process suspends at its continuation until the next time slice.
-        const auto result = call_builtin_portion(owner_, builtin_frame(function), registers_.data());
-        const auto *continuation = take_trap();
-        if (trace_) {
-            trace_->builtin_done(result, owner_.generated_calls().failure().has_value(), continuation != nullptr);
-        }
-        if (continuation) {
-            state_.reductions = 0;
-            suspend(*continuation);
-            return &pause;
-        }
-        registers_[0] = result;
-        return descriptor(state_.frame).body;
+        return enter_builtin(caller, function, replaced);
     }
     if (!push(function)) {
         registers_[0] = 0;
@@ -175,6 +159,27 @@ abi::v1::Code *ProcessStack::enter(const FrameDescriptor &function) noexcept {
         trace_->enter(caller, function, state_.frame, replaced, registers_.data());
     }
     return function.body;
+}
+
+abi::v1::Code *ProcessStack::enter_builtin(const FrameDescriptor *caller, const FrameDescriptor &function,
+                                           const std::size_t replaced) noexcept {
+    if (trace_) {
+        trace_->enter(caller, function, none, replaced, registers_.data());
+    }
+    // A builtin runs at once on the registers; its result returns into the current frame's body, unless it
+    // trapped: then the process suspends at its continuation until the next time slice.
+    const auto result = call_builtin_portion(owner_, builtin_frame(function), registers_.data());
+    const auto *continuation = take_trap();
+    if (trace_) {
+        trace_->builtin_done(result, owner_.generated_calls().failure().has_value(), continuation != nullptr);
+    }
+    if (continuation) {
+        state_.reductions = 0;
+        suspend(*continuation);
+        return &pause;
+    }
+    registers_[0] = result;
+    return descriptor(state_.frame).body;
 }
 
 void ProcessStack::trap(const FrameDescriptor &continuation, std::span<const Word> state) noexcept {
@@ -200,7 +205,7 @@ abi::v1::Code *ProcessStack::tail(const FrameDescriptor &function) noexcept {
 abi::v1::Code *ProcessStack::leave(const Word result) noexcept {
     registers_[0] = result;
     if (trace_) {
-        trace_->leave(state_.frame, result, owner_.generated_calls().failure().has_value());
+        trace_->leave(state_.frame, {.result = result, .failed = owner_.generated_calls().failure().has_value()});
     }
     pop();
     if (profile_) {

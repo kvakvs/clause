@@ -20,6 +20,12 @@ namespace clause::runtime::detail {
 // The call trace of one process, kept by its stack; only that process's worker touches it.
 class CallTrace final {
   public:
+    // How a frame ended: its result, or a failure being unwound.
+    struct Outcome final {
+        Word result;
+        bool failed;
+    };
+
     // A tracer for a new process, or null when tracing is off.
     static std::unique_ptr<CallTrace> create(ProcessContext &owner);
 
@@ -31,8 +37,8 @@ class CallTrace final {
                std::size_t replaced, const Word *arguments) noexcept;
     // A builtin entered through enter() with frame none finished with `result`, failed, or trapped to continue later.
     void builtin_done(Word result, bool failed, bool trapped) noexcept;
-    // The frame at offset `frame` returns `result`, or unwinds a failure.
-    void leave(std::size_t frame, Word result, bool failed) noexcept;
+    // The frame at offset `frame` returns or unwinds a failure.
+    void leave(std::size_t frame, Outcome outcome) noexcept;
     // An exception or failure was recorded while `running` was the innermost frame.
     void failure(const abi::v1::FrameDescriptor *running, const CallFailure &failure) noexcept;
 
@@ -47,10 +53,16 @@ class CallTrace final {
     void line(std::string_view text) const noexcept;
     // A term as text, bounded in depth and width the same way the OTP-side tracer prints it.
     std::string text(Word word) const noexcept;
+    // Drop the open calls a frame at offset `frame` released; true when `replaced` continues an open boundary call.
+    bool release(std::size_t frame, std::size_t replaced);
+    // Log the first entry of `callee` under CLAUSE_CALL_TRACE_FIRST.
+    void note_first(const abi::v1::FrameDescriptor &callee) const;
 
     ProcessContext &owner_;
     // Boundary calls not returned yet, innermost last.
     std::vector<Open> open_;
+    // Trace lines lost to a failure while tracing; tracing never fails the program.
+    std::size_t dropped_ = 0;
 };
 
 // Whether CLAUSE_CALL_TRACE names a trace file.
