@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41N, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
+## Plan 11 (steps 1–68, 41A–41N, 41O1, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -245,6 +245,14 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   `erts_code_purger:purge/1`, `soft_purge/1` answer for linked code; `maps:iterator/1,2`, `next/1`, `lists:sort/2`,
   `split/2`. Test `executables_atomics_counters` (4 sharing processes, persistent term, collections, ETF round
   trip). Gate: fast CTest 288/288 (1 disabled), `check-quality` clean.
+- **41O1 (H3):** 2026-10-14, `unicode_util` tables ([builtins](../docs/builtins.md#unicode-util)): generated C++
+  tables (`runtime/src/builtins/unicode/tables.cpp`, 573 KB) from `tools/unicode/observe.escript` (the host OTP's
+  answers per code point) and `tools/unicode/generate.py` (plus the UCD break, emoji, Indic and composition files);
+  private `clause_unicode` builtins `table/1`, `class/1`, `cases/1`, `flags/1`, `compose_pair/2`; `unicode_util`
+  `cp/1` (OTP's shapes), `lookup/1`, `category/1`, `get_case/1`, case functions, `is_wide/1`, whitespace and
+  identifier predicates, `spec_version/0`, `pattern_whitespace/0`. All 1.1M code points matched OTP once; test
+  `executables_unicode_tables` digests plane 0 and 6 sample blocks. Gate: fast CTest 289/289 (1 disabled),
+  `check-quality` clean.
 - **41T (H4):** 2026-10-14, `lists` data functions as runtime builtins ([builtins](../docs/builtins.md#lists-module)):
   `runtime/src/builtins/lists/` (`sublist/2,3`, `droplast/1`, `nthtail/2`, `last/1`, `duplicate/2`, `join/2`,
   `flatten/1,2`, `max/1`, `min/1`, `usort/1`, `umerge/1,2`, `keymember/3`, `keysearch/3`, `keydelete/3`) with OTP's
@@ -397,6 +405,7 @@ criteria and evidence are in Git at those commits. Contracts in the linked
 - <a id="step-41k2"></a>**41K2.** Remote types of ignored modules — `4810de56`
 - <a id="step-41l"></a>**41L.** `init` arguments and status — commit `[plan11] 41L ...`
 - <a id="step-41n"></a>**41N.** `erts_internal`, `atomics`, `counters` and `erts_code_purger` — commit `[plan11] 41N ...`
+- <a id="step-41o1"></a>**41O1.** `unicode_util` tables, properties and case — commit `[plan11] 41O1 ...`
 - <a id="step-41t"></a>**41T.** `lists` data functions as builtins — commit `[plan11] 41T ...`
 - <a id="step-41u"></a>**41U.** `io` output wrappers — commit `[plan11] 41U ...`
 - <a id="step-41v"></a>**41V.** `math` as runtime builtins — commit `[plan11] 41V ...`

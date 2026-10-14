@@ -20,7 +20,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     # Module binary (plan step 41W).
     src/builtins/binary/binary_search.cpp src/builtins/binary/search.cpp src/builtins/binary/parts.cpp src/builtins/binary/encoding.cpp
     # Module unicode (plan step 41Y1).
-    src/builtins/unicode/encodings.cpp src/builtins/unicode/chardata.cpp src/builtins/unicode/conversions.cpp
+    src/builtins/unicode/encodings.cpp src/builtins/unicode/properties.cpp src/builtins/unicode/tables.cpp src/builtins/unicode/chardata.cpp src/builtins/unicode/conversions.cpp
     # Module lists (plan step 41T).
     src/builtins/lists/list_walk.cpp src/builtins/lists/sublists.cpp src/builtins/lists/ordering.cpp src/builtins/lists/keys.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp

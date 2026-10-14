@@ -41,6 +41,7 @@ builtin both the compiler and the runtime know:
 - the `init` module's command-line answers (plan step 41L, [init module](#init-module));
 - `atomics`, `counters` and the `erts_internal` functions stdlib calls (plan step 41N,
   [atomics and counters](#atomics-and-counters), [erts_internal](#erts-internal));
+- `unicode_util`'s tables (plan step 41O1, [unicode_util](#unicode-util));
 - process identities (plan step 42): `self/0`, `make_ref/0`, `pid_to_list/1`
   and `ref_to_list/1` ([pids and references](terms.md#pids-and-references));
 - processes (plan step 43): `spawn/1,3` and `is_process_alive/1`
@@ -312,6 +313,30 @@ forward slashes. These four are builtins; the rest are Erlang:
   checks (`restart/1` of a list that is not `[]` or `[{mode, M}]` is
   `badarg`), `make_permanent/2` returns `{error, notsup}` for valid names and
   `{error, badarg}` otherwise.
+
+## Unicode util
+
+Plan 11 step 41O1 (`library/stdlib/unicode_util.erl`, `runtime/src/builtins/unicode/`). OTP generates
+`unicode_util` while it builds (900 KB of Erlang); Clause keeps the data in generated C++ tables
+(`unicode/tables.cpp`) queried by the builtins of its private `clause_unicode` module (`table/1`, `class/1`,
+`cases/1`, `flags/1`, `compose_pair/2`), and `unicode_util.erl` answers OTP's functions over them with OTP's result
+shapes:
+
+- `cp/1` takes the first code point of chardata as OTP does, keeping binary tails and flattening up to three more
+  code points of nested lists; `{error, Rest}` at invalid UTF-8;
+- `lookup/1`, `category/1`, `get_case/1`, `spec_version/0` (`{17, 0}`), `pattern_whitespace/0`; `uppercase/1`,
+  `lowercase/1`, `titlecase/1`, `casefold/1` map the first code point (`{badarg, Rest}` at invalid UTF-8);
+  `is_wide/1`, `is_whitespace/1`, `is_other_id_start/1`, `is_other_id_continue/1`,
+  `is_letter_not_pattern_syntax/1`.
+
+`tools/unicode/generate.py` writes the tables once per Unicode update: case mappings, categories (including the
+neighbor categories OTP's generator gives some unassigned code points), decompositions and the property predicates
+come from the host OTP's answers for every code point (`tools/unicode/observe.escript`), the grapheme break, emoji,
+Indic and composition data from the Unicode Character Database files OTP 29 pins (`lib/stdlib/uc_spec`, Unicode
+17.0). Only the generated tables are committed, with the Unicode copyright notice the Unicode License v3 asks
+for; normal builds need neither OTP nor the data files. Test `executables_unicode_tables` compares digests of the
+answers of plane 0 and sample blocks of the other planes with OTP's (all 1.1M code points matched when
+the tables were generated).
 
 ## Atomics and counters
 

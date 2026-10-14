@@ -138,6 +138,9 @@ std::span<const BuiltinEntry> init_builtins() noexcept;
 std::span<const BuiltinEntry> atomics_builtins() noexcept;
 // The erts_internal functions of step 41N stdlib needs: cmp_term/2, map_next/3.
 std::span<const BuiltinEntry> erts_internal_builtins() noexcept;
+// The Unicode table queries of step 41O1: clause_unicode:table/1, class/1, cases/1, flags/1, compose_pair/2 and
+// unicode_util:spec_version/0, pattern_whitespace/0.
+std::span<const BuiltinEntry> unicode_table_builtins() noexcept;
 // The binary module of step 41W: match/2,3, matches/2,3, split/2,3, compile_pattern/1; part/2,3, at/2, first/1,
 // last/1, bin_to_list/1,2,3, copy/1,2, longest_common_prefix/1, longest_common_suffix/1, referenced_byte_size/1,
 // join/2; decode_unsigned/1,2, encode_unsigned/1,2, encode_hex/1,2, decode_hex/1.

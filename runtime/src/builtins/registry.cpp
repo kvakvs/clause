@@ -183,7 +183,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      code_module_builtins(),
                                      init_builtins(),
                                      atomics_builtins(),
-                                     erts_internal_builtins()};
+                                     erts_internal_builtins(),
+                                     unicode_table_builtins()};
     return families;
 }
 } // namespace clause::runtime

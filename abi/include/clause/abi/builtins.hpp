@@ -453,6 +453,14 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"atomics", "info", 1},
     BuiltinName{"erts_internal", "cmp_term", 2},
     BuiltinName{"erts_internal", "map_next", 3},
+    // The Unicode tables of unicode_util (plan step 41O1; runtime/src/builtins/unicode/properties.cpp).
+    BuiltinName{"clause_unicode", "table", 1},
+    BuiltinName{"clause_unicode", "class", 1},
+    BuiltinName{"clause_unicode", "cases", 1},
+    BuiltinName{"clause_unicode", "flags", 1},
+    BuiltinName{"clause_unicode", "compose_pair", 2},
+    BuiltinName{"unicode_util", "spec_version", 0},
+    BuiltinName{"unicode_util", "pattern_whitespace", 0},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

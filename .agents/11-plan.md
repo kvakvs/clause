@@ -151,7 +151,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41N, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41N, 41O1, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -347,14 +347,13 @@ table) and [41M2](00-finished.md#step-41m2) (the builtins), both in phase H4.
 
 ### 41O. `unicode_util` from the Unicode data
 
-Backlog: F36. Depends on: [41K](00-finished.md#step-41k).
+Backlog: F36. Depends on: [41K](00-finished.md#step-41k). Split on 2026-10-14 into
+[41O1](00-finished.md#step-41o1) (tables, properties, case, `cp/1`; done) and 41O2 (`gc/1`, normalization).
 
 - Success criteria
-  - [ ] Decide how the tables are produced: an owned generator reading the
-    Unicode Character Database files OTP 29 pins (`lib/stdlib/uc_spec`),
-    run once and committed like other goldens (check the Unicode data
-    license allows committing the generated tables), so normal builds need
-    no OTP.
+  - [x] Decide how the tables are produced (41O1): `tools/unicode/generate.py`
+    over the host OTP's answers and the Unicode data files OTP 29 pins,
+    committed with the Unicode License v3 notice; normal builds need no OTP.
   - [ ] `cp/1`, `gc/1` (extended grapheme clusters per UAX #29),
     `casefold/1`, `lowercase/1`, `uppercase/1`, `titlecase/1`,
     `nfc/1`, `nfd/1`, `nfkc/1`, `nfkd/1`, `category/1`, `is_whitespace/1`,
