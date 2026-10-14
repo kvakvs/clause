@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41R, 41ZA, 41ZB, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
+## Plan 11 (steps 1–68, 41A–41S, 41ZA, 41ZB, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -301,6 +301,14 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   `lists:all/2`, `any/2`, `dropwhile/2`, `takewhile/2` implemented. Differences rows: long matches do not yield,
   exported patterns, error origin. Test `executables_re_module` (OTP golden). The luerl rerun moved to 41S.
   Fresh gate: fast CTest 295/295 (1 disabled; six tests timed out across a host suspend and passed on rerun), check-quality passed.
+- **41S (H3):** 2026-10-14, `prim_eval` and the luerl rerun ([builtins](../docs/builtins.md#prim-eval)):
+  `prim_eval:'receive'/2` implemented in Erlang over private `clause_receive` builtins (`peek/0`, `skip/0`, `take/0`,
+  `restart/0`, `wait/1`: the mailbox steps and wait builtin of a compiled receive); an exception from the matcher fun
+  leaves the mailbox whole. Fixed a compiled receive with a bad timeout leaving its scan position, so the next receive
+  skipped messages. The bridge catalog may be reordered (user direction: no release to keep compatible). luerl driver
+  rerun with no stand-ins: 34 of 35 snippets print OTP's output (`os.date` included); `goto` differs only in stack
+  frames. Ledger [21-lib.md](21-lib.md) closed; H3 and H5 done. Test `executables_prim_eval_receive` (OTP golden).
+  Fresh gate: full CTest 299/300 (1 disabled; known `codegen_measurements` IR size bound), `check-quality-all` clean.
 - **41T (H4):** 2026-10-14, `lists` data functions as runtime builtins ([builtins](../docs/builtins.md#lists-module)):
   `runtime/src/builtins/lists/` (`sublist/2,3`, `droplast/1`, `nthtail/2`, `last/1`, `duplicate/2`, `join/2`,
   `flatten/1,2`, `max/1`, `min/1`, `usort/1`, `umerge/1,2`, `keymember/3`, `keysearch/3`, `keydelete/3`) with OTP's

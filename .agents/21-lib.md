@@ -6,6 +6,15 @@ behave differently from OTP. Each one is a reason the luerl executable produces
 no output or fails. Later steps reimplement them or decide what to do about
 them.
 
+## Status after phases H3, H4 and H5 (2026-10-14, step 41S)
+
+Every row below is done. Rerun after 41ZB (`re`) and 41S (`prim_eval`), a cold
+`clau.bat --project drive.toml --entry luerl_drive:main` build with no
+stand-ins: 34 of the 35 snippets print exactly OTP's output, `os.date`
+included. The one left is `goto`: the same `function_clause` as OTP, with
+stack frames that carry no arguments or locations (already in
+`docs/differences.md`). Nothing open from this driver.
+
 ## Status after plan phase H4 and step 41L (2026-10-14)
 
 Rows 1–16 and 18–24 are implemented in the repository library and runtime
@@ -107,7 +116,7 @@ snippets. "Kind" values:
 | 14 | `lists:max/1`, `lists:min/1` | stub | `luerl_lib_math` (`math.max`/`min`) | crash | done (41T) |
 | 15 | `lists:umerge/1` | stub | OTP `ordsets:union/1` in the luerl compiler (variable sets) | compile fails for some chunks | done (41T) |
 | 16 | `os:timestamp/0` | stub | `luerl_lib_os` (`os.clock`/`os.time`) | crash | done (41X) |
-| 17 | `re:run/2` | nif | `luerl_lib_os_date:replace_pattern/3` (`os.date`) | **still failing** (no regex engine) | **open** (`re`) |
+| 17 | `re:run/2` | nif | `luerl_lib_os_date:replace_pattern/3` (`os.date`) | `os.date` fails | done (41ZA, 41ZB) |
 | 18 | `persistent_term:get/2` | stub | `io_lib:write_atom` → `erl_scan:reserved_word` → `erl_features:keywords` | Lua syntax-error message fails | done (41M2) |
 | 19 | `persistent_term:put/2` | stub | `erl_features` initializes its cache (same chain as 18) | **still failing** | done (41M2) |
 | 20 | `maps:get/3` | stub | `erl_features` (same chain) | — | done (41X) |
@@ -154,7 +163,7 @@ These are stubs or NIF stubs that luerl source calls directly. Expect them next:
 - [x] `math:acos/1`, `asin/1`, `atan/1`, `atan2/2`, `cosh/1`, `log10/1`, `sinh/1`,
   `tan/1`, `tanh/1` (41V)
 - [x] `unicode:characters_to_binary/2` (41Y1)
-- [ ] Indirectly: `re:replace` (pure Erlang over `re:run`)
+- [x] Indirectly: `re:replace` (pure Erlang over `re:run`) (41ZB)
 - [x] `math:floor`/`ceil` if luerl reaches them (41V)
 
 ## Suggested grouping for the follow-up work

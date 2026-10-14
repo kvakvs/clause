@@ -163,7 +163,8 @@ Plan history: .agents/11-plan.md (compact step records), .agents/00-finished.md 
 - Profiling: runtime-only `--profile FILE`.
 
 ## Library and builtins
-- Bridge catalog abi::v1::bridge_builtins is append-only (index = CLAUSE_builtin_v1 arg); BuiltinRegistry names are
+- Bridge catalog abi::v1::bridge_builtins (index = CLAUSE_builtin_v1 arg) may be reordered freely: no release, no
+  users, only own tests (user direction 2026-10-14); keep groups by module; BuiltinRegistry names are
   static string_views. Helpers in builtins/support.hpp; typed_entry<F> derives arity. Builtin can tail-continue in
   Erlang via code_server().function_frame + stack().trap.
 - Builtins cannot call funs and get results: fun-taking functions stay Erlang in library/*.erl, calling sibling

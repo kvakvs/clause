@@ -149,6 +149,9 @@ std::span<const BuiltinEntry> zlib_builtins() noexcept;
 // The re builtins of step 41ZB: clause_re:compile/2, re:inspect/2 and clause_re:run/4.
 std::span<const BuiltinEntry> re_pattern_builtins() noexcept;
 std::span<const BuiltinEntry> re_matching_builtins() noexcept;
+// The mailbox steps of step 41S behind prim_eval:'receive'/2: clause_receive:peek/0, skip/0, take/0, restart/0 and
+// wait/1.
+std::span<const BuiltinEntry> receive_builtins() noexcept;
 // The binary module of step 41W: match/2,3, matches/2,3, split/2,3, compile_pattern/1; part/2,3, at/2, first/1,
 // last/1, bin_to_list/1,2,3, copy/1,2, longest_common_prefix/1, longest_common_suffix/1, referenced_byte_size/1,
 // join/2; decode_unsigned/1,2, encode_unsigned/1,2, encode_hex/1,2, decode_hex/1.

@@ -226,7 +226,8 @@ messages of the mailbox:
   stack.
 - `after T -> Body`: `T` is evaluated first, before the scan. When the
   receive would wait, `T` must be `infinity` or an integer in
-  0..4294967295 (milliseconds), else `error:timeout_value`; a message that
+  0..4294967295 (milliseconds), else `error:timeout_value`, after which the
+  next receive scans from the oldest message (step 41S); a message that
   matches at once never checks it, as in OTP. `after 0` runs `Body` as soon as
   every message has been examined. A finite timeout starts when the receive
   first waits and is not restarted by messages that match no clause; when it

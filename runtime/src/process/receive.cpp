@@ -1,8 +1,10 @@
 #include "../builtins/portions.hpp"
+#include <array>
 #include <chrono>
 #include <clause/abi/messages.hpp>
 #include <clause/runtime/builtin_registry.hpp>
 #include <clause/runtime/process_context.hpp>
+#include <string_view>
 
 // Selective receive (docs/processes.md#receive): generated code scans the mailbox with CLAUSE_receive_v1 and,
 // having examined every message, enters the wait builtin until another message arrives.
@@ -18,7 +20,8 @@ Word wait(ProcessContext &context, builtins::Arguments state);
 // The wait builtin; its register holds the receive's timeout.
 constexpr BuiltinFrame WAIT_FRAME = continuation_frame(&builtins::guarded<wait>, 1);
 
-// A receive timeout in milliseconds, none for infinity; anything else raises timeout_value.
+// A receive timeout in milliseconds, none for infinity; anything else raises timeout_value, after which the next
+// receive starts at the oldest message.
 std::optional<std::int64_t> milliseconds(ProcessContext &context, const Word word) {
     const auto timeout = builtins::term_of(context, word);
     if (timeout.is_atom() && timeout.atom_spelling().value_or("") == "infinity") {
@@ -26,6 +29,7 @@ std::optional<std::int64_t> milliseconds(ProcessContext &context, const Word wor
     }
     const auto value = timeout.is_integer() ? timeout.integer_value() : std::unexpected(TermError::wrong_type);
     if (!value || *value < 0 || *value > MAX_TIMEOUT) {
+        context.mailbox().restart();
         throw builtins::BuiltinFailure{.reason = abi::v1::ErrorReason::timeout_value};
     }
     return *value;
@@ -52,7 +56,51 @@ Word wait(ProcessContext &context, const builtins::Arguments state) {
     context.stack().wait(WAIT_FRAME.frame, state);
     return 0;
 }
+
+// The receive steps behind prim_eval:'receive'/2 (plan step 41S): erl_eval's receive scans the mailbox as compiled
+// code does, with a fun for its clauses.
+Word atom_word(ProcessContext &context, std::string_view name) {
+    return builtins::need(TermFactory(context).atom(name)).word();
+}
+
+// clause_receive:peek(): {message, Message} for the next unexamined message, none when every one was examined.
+Word peek(ProcessContext &context, builtins::Arguments) {
+    const auto message = context.mailbox().peek();
+    if (!message) {
+        return atom_word(context, "none");
+    }
+    const std::array parts{builtins::term_of(context, atom_word(context, "message")),
+                           builtins::term_of(context, *message)};
+    return builtins::need(TermFactory(context).tuple(parts)).word();
+}
+
+// clause_receive:skip(), take() and restart(): the mailbox steps of a message no clause matched, of the matched
+// message, and of an expired timeout or an abandoned scan.
+Word skip(ProcessContext &context, builtins::Arguments) {
+    context.mailbox().skip();
+    return atom_word(context, "ok");
+}
+
+Word take(ProcessContext &context, builtins::Arguments) {
+    context.mailbox().take();
+    return atom_word(context, "ok");
+}
+
+Word restart(ProcessContext &context, builtins::Arguments) {
+    context.mailbox().restart();
+    return atom_word(context, "ok");
+}
+
+constexpr std::array RECEIVE_BUILTINS{
+    BuiltinEntry{"clause_receive", "peek", 0, &builtins::guarded<peek>},
+    BuiltinEntry{"clause_receive", "skip", 0, &builtins::guarded<skip>},
+    BuiltinEntry{"clause_receive", "take", 0, &builtins::guarded<take>},
+    BuiltinEntry{"clause_receive", "restart", 0, &builtins::guarded<restart>},
+    BuiltinEntry{"clause_receive", "wait", 1, &builtins::guarded<wait>},
+};
 } // namespace
+
+std::span<const BuiltinEntry> receive_builtins() noexcept { return RECEIVE_BUILTINS; }
 } // namespace clause::runtime
 
 std::uint8_t CLAUSE_receive_v1(void *context, std::uint8_t operation, clause::abi::v1::TermWord *output) noexcept {

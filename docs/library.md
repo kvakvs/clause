@@ -217,7 +217,7 @@ Plan 11 step 41J. All live in `tests/compiler/library/`:
 | `unicode_util` | provided, implemented (41O1, 41O2) | tables generated from OTP's answers and the Unicode data ([unicode_util](builtins.md#unicode-util)) |
 | `erl_prim_loader` | provided; file queries implemented over `file`, loading and archives declined | 41P ([files](ports.md#standard-io-and-files)); code loading waits for step 71 |
 | `zlib` | provided, implemented over the pinned zlib (41Q) | streams are handle references ([zlib module](builtins.md#zlib-module)) |
-| `prim_eval` | provided, all stubs | 41S |
+| `prim_eval` | provided, implemented (41S) | `'receive'/2` over the steps of a compiled receive ([prim eval](builtins.md#prim-eval)) |
 | `application_controller` | provided, all stubs | shadows OTP's, which calls `prim_file` (luerl names it through OTP's `application`) |
 | `lists`, `maps`, `io`, `file`, `os`, `gen_tcp`, `gen_udp`, `inet` | provided, OTP 29's full export lists; what Clause had stays implemented, the rest stubs | grow as the ledger demands |
 | `re` | provided; implemented (41ZA, 41ZB) except `import/1`, declined | over the pinned PCRE2 ([re module](builtins.md#re-module)); Clause exports no patterns |
@@ -231,3 +231,8 @@ links with no error. 83 warnings remain: 74 types of the ignored `erl_parse`
 and `compile`, 8 types of OTP modules outside the program named by OTP code
 the target compiles, one type graph budget widening in that code. The executable starts `luerl:init/0` and exits 0. The next
 layer is run-time behavior: which stubs luerl reaches when it runs Lua code.
+
+Run-time layer (2026-10-14, after phases H3–H5, step 41S): a driver that runs 35 Lua snippets through `luerl:do`
+builds with 17 warnings and prints OTP 29's output for 34 of them, `os.date` included. The other one, a `goto`, fails
+with OTP's `function_clause`; only its stack frames differ, with no arguments or locations
+([differences](differences.md)).

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "prim_eval_receive",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[{got,1},{got,2},timeout,[a,c,d]]\n[timeout,timeout,\n {error,timeout_value},\n {error,timeout_value},\n [kept],\n [{error,timeout_value},[kept]]]\n[{late,42},[skipped]]\n[{error,boom},took_y,[x]]\nprim_eval_receive: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "prim_eval_receive.erl": "cfdafce2e98e175d83bedeade5fc298faa6db4d7dac35bf438a325bf88bba837"
+  }
+}

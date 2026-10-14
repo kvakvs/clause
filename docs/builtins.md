@@ -388,6 +388,17 @@ the last copy, and processes share it read-only. As in OTP, the C side is small 
 Exported patterns (`export`, `import/1`) are not provided. `executables_re_module` compares compiling, matching,
 captures, global and Unicode matches, replace, split and argument errors with OTP.
 
+## Prim eval
+
+Plan 11 step 41S (`runtime/src/process/receive.cpp`, `library/erts/prim_eval.erl`). `prim_eval:'receive'(Fun,
+Timeout)` is the receive of `erl_eval`, whose clauses are a fun: it scans the mailbox from the oldest message
+with the steps of a compiled [receive](processes.md#receive), the private `clause_receive` builtins `peek/0`
+(`{message, M}` or `none`), `skip/0`, `take/0`, `restart/0` and `wait/1` (the wait builtin of compiled code, with
+its timeout and `timeout_value`). The first message for which `Fun` answers anything but `nomatch` is removed and
+that answer returned; `timeout` when `Timeout` expires. An exception from `Fun` leaves every message in place.
+`executables_prim_eval_receive` compares mailbox order, timeouts, a message arriving during the wait and
+exceptions with OTP.
+
 ## Atomics and counters
 
 Plan 11 step 41N (`runtime/src/builtins/atomics.cpp`). An `atomics` array is a

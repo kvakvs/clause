@@ -22,10 +22,10 @@ struct BuiltinName {
     std::size_t arity;
 };
 
-// Every bridge builtin. An entry's index is the `builtin` argument of CLAUSE_builtin_frame_v1, so entries are only
-// ever appended. Group comments name the runtime translation unit implementing the group; module erlang's live in
-// runtime/src/builtins/erlang/, one per family. The runtime registers an implementation for each; the compiler admits
-// calls and funs of them.
+// Every bridge builtin. An entry's index is the `builtin` argument of CLAUSE_builtin_frame_v1; compiler and runtime
+// are built together, so entries may be reordered (no released ABI to keep). Group comments name the runtime
+// translation unit implementing the group; module erlang's live in runtime/src/builtins/erlang/, one per family. The
+// runtime registers an implementation for each; the compiler admits calls and funs of them.
 inline constexpr std::array bridge_builtins{
     // Type tests (runtime/src/builtins/erlang/core.cpp).
     BuiltinName{"erlang", "is_atom", 1},
@@ -483,6 +483,12 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"clause_zlib", "deflate_set_dictionary", 2},
     BuiltinName{"clause_zlib", "inflate_set_dictionary", 2},
     BuiltinName{"clause_zlib", "inflate_get_dictionary", 1},
+    // The receive of prim_eval (plan step 41S; runtime/src/process/receive.cpp).
+    BuiltinName{"clause_receive", "peek", 0},
+    BuiltinName{"clause_receive", "skip", 0},
+    BuiltinName{"clause_receive", "take", 0},
+    BuiltinName{"clause_receive", "restart", 0},
+    BuiltinName{"clause_receive", "wait", 1},
 };
 
 // The bridge index of Module:Function/Arity, if it is a bridge builtin.

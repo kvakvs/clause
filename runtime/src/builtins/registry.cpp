@@ -188,7 +188,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      re_builtins(),
                                      zlib_builtins(),
                                      re_pattern_builtins(),
-                                     re_matching_builtins()};
+                                     re_matching_builtins(),
+                                     receive_builtins()};
     return families;
 }
 } // namespace clause::runtime
