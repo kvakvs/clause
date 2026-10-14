@@ -11,7 +11,8 @@
 namespace clause::runtime {
 namespace detail {
 class ProcessProfile;
-}
+class CallTrace;
+} // namespace detail
 
 // Reductions of one time slice, OTP's CONTEXT_REDS: every function entry spends one (docs/processes.md).
 inline constexpr std::size_t SLICE_REDUCTIONS = 4000;
@@ -144,6 +145,9 @@ class ProcessStack final {
     // std::bad_alloc.
     void enable_profile();
 
+    // Log a failure recorded while this process runs, when call tracing is on. Added for call tracing.
+    void trace_failure(const CallFailure &failure) const noexcept;
+
     // The costs collected since enable_profile(); null when profiling is off.
     const detail::ProcessProfile *profile() const noexcept { return profile_.get(); }
 
@@ -226,5 +230,9 @@ class ProcessStack final {
     bool waiting_ = false;
     // Costs of this process's functions when the program profiles (docs/profiling.md); null otherwise.
     std::unique_ptr<detail::ProcessProfile> profile_;
+    // Call trace of this process when CLAUSE_CALL_TRACE is set; null otherwise. Added for call tracing.
+    std::unique_ptr<detail::CallTrace> trace_;
+    // The frame a tail call released before its entry, for the call trace; none otherwise.
+    std::size_t tail_replaced_ = none;
 };
 } // namespace clause::runtime

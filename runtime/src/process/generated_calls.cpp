@@ -42,6 +42,7 @@ void GeneratedCallState::fail(const CallFailure &failure) noexcept {
         if (failure.code == CallError::erlang_exception && !failure.stack) {
             failure_->trace = stack_.trace();
         }
+        stack_.trace_failure(*failure_);
         sync();
     }
 }

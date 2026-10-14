@@ -116,6 +116,16 @@ void BuiltinRegistry::link_bridge(const Key &key, const BuiltinFrame &frame) noe
     }
 }
 
+std::string BuiltinRegistry::name_of(const abi::v1::FrameDescriptor &frame) const {
+    for (const auto &[key, entry] : entries_) {
+        if (&entry.frame == &frame) {
+            const auto &[module, function, arity] = key;
+            return std::string(module) + ":" + std::string(function) + "/" + std::to_string(arity);
+        }
+    }
+    return {};
+}
+
 const BuiltinFrame *BuiltinRegistry::find(std::string_view module, std::string_view function,
                                           std::size_t arity) const noexcept {
     const auto found = entries_.find({module, function, arity});

@@ -589,3 +589,9 @@ Host and tool gotchas:
   configure MUST pass %CLAUSE_CONFIGURE_ARGS% from tools/windows-toolchain.cmd (with BUILD_DIR set), else CMake
   picks the VS generator + cl (C2220 build failure). Edit tool strips a trailing space at the end of new_string:
   never end old/new_string mid-line before a quoted argument (cmake `check(x 0 "..."` became `0"...`).
+- luerl run-time tracing (2026-10-14, .agents/21-lib.md): runtime CLAUSE_CALL_TRACE=FILE (+ _FIRST=1, _ALL=1,
+  _QUIET=prefixes) logs boundary calls program->library with bounded args/results; OTP twin
+  tools/luerl-trace/ctrace.erl prints identically. Scratch compiler tree (clau.exe + clause_runtime.lib + library
+  copy at bin/Release/../../../../library) lets stubs be filled without touching the repo; any library edit =
+  ~4.5 min luerl rebuild. difflib on 186k-line traces hangs: use GNU diff (mismatch.py). Bash heredocs eat
+  backslashes in C++/Erlang escapes: use Edit for those lines.

@@ -1,4 +1,5 @@
 #include "../memory/runtime_memory.hpp"
+#include "call_trace.hpp"
 #include "profile.hpp"
 #include <algorithm>
 #include <array>
@@ -34,6 +35,14 @@ ProcessStack::ProcessStack(ProcessContext &owner, const StackOptions options) no
     state_.reductions = SLICE_REDUCTIONS;
     state_.registers = registers_.data();
     state_.live = 0;
+    try {
+        trace_ = detail::CallTrace::create(owner);
+    } catch (...) {
+        trace_ = nullptr;
+    }
+    if (trace_) {
+        state_.slow |= abi::v1::slow_profile;
+    }
     update_limit();
 }
 
@@ -68,8 +77,8 @@ bool ProcessStack::grow(const std::size_t size) noexcept {
 void ProcessStack::update_limit() const noexcept { state_.limit = std::min(capacity_, options_.limit_words); }
 
 void ProcessStack::update_slow() const noexcept {
-    state_.slow =
-        (profile_ ? abi::v1::slow_profile : 0) | (owner_.heap().wants_collection() ? abi::v1::slow_collect : 0);
+    state_.slow = (profile_ || trace_ ? abi::v1::slow_profile : 0) |
+                  (owner_.heap().wants_collection() ? abi::v1::slow_collect : 0);
 }
 
 bool ProcessStack::push(const FrameDescriptor &function) noexcept {
@@ -133,11 +142,20 @@ abi::v1::Code *ProcessStack::enter(const FrameDescriptor &function) noexcept {
     }
     --state_.reductions;
     safepoint(function.arity);
+    const auto replaced = std::exchange(tail_replaced_, none);
+    const auto *caller = state_.frame == none ? nullptr : &descriptor(state_.frame);
     if (!function.body) {
+        if (trace_) {
+            trace_->enter(caller, function, none, replaced, registers_.data());
+        }
         // A builtin runs at once on the registers; its result returns into the current frame's body, unless it
         // trapped: then the process suspends at its continuation until the next time slice.
         const auto result = call_builtin_portion(owner_, builtin_frame(function), registers_.data());
-        if (const auto *continuation = take_trap()) {
+        const auto *continuation = take_trap();
+        if (trace_) {
+            trace_->builtin_done(result, owner_.generated_calls().failure().has_value(), continuation != nullptr);
+        }
+        if (continuation) {
             state_.reductions = 0;
             suspend(*continuation);
             return &pause;
@@ -152,6 +170,9 @@ abi::v1::Code *ProcessStack::enter(const FrameDescriptor &function) noexcept {
     std::copy_n(registers_.begin(), function.arity, state_.stack + state_.frame + frame_header_words);
     if (profile_) {
         profile_->enter(function);
+    }
+    if (trace_) {
+        trace_->enter(caller, function, state_.frame, replaced, registers_.data());
     }
     return function.body;
 }
@@ -171,17 +192,27 @@ void ProcessStack::spend(const std::size_t work) const noexcept {
 }
 
 abi::v1::Code *ProcessStack::tail(const FrameDescriptor &function) noexcept {
+    tail_replaced_ = trace_ ? state_.frame : none;
     pop();
     return enter(function);
 }
 
 abi::v1::Code *ProcessStack::leave(const Word result) noexcept {
     registers_[0] = result;
+    if (trace_) {
+        trace_->leave(state_.frame, result, owner_.generated_calls().failure().has_value());
+    }
     pop();
     if (profile_) {
         profile_->run(&descriptor(state_.frame));
     }
     return descriptor(state_.frame).body;
+}
+
+void ProcessStack::trace_failure(const CallFailure &failure) const noexcept {
+    if (trace_) {
+        trace_->failure(state_.frame == none ? nullptr : &descriptor(state_.frame), failure);
+    }
 }
 
 void ProcessStack::enable_profile() {

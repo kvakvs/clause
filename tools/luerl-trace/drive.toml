@@ -1,0 +1,16 @@
+schema_version = 1
+[[targets]]
+name = "drive"
+build_dir = "build-drive"
+sources = ["drv/luerl_drive.erl", "ovr/math.erl", "ovr/binary.erl", "F:/CLAUSE/clau/references/luerl/src/**/*.erl"]
+source_dirs = []
+output = "drive"
+[targets.options]
+ignore_dirs = ["C:/Program Files/Erlang OTP/lib/crypto*"]
+ignore_modules = ["prim_tty", "prim_inet"]
+source_search_paths = ["C:/Program Files/Erlang OTP/lib/**/src"]
+include_dirs = ["C:/Program Files/Erlang OTP/lib/**/include", "C:/Program Files/Erlang OTP/lib", "F:/CLAUSE/clau/references/luerl/**/include"]
+defines = ["COMPILER_VSN=1", "NEW_STACKTRACE"]
+enable_features = []
+disable_features = []
+[targets.options.applications]

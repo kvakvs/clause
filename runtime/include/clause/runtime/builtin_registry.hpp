@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <map>
 #include <span>
+#include <string>
 #include <tuple>
 #include <type_traits>
 
@@ -53,6 +54,9 @@ class BuiltinRegistry final {
 
     // The modules that have registered builtins, in name order (step 41H).
     std::vector<std::string_view> modules() const;
+
+    // module:function/arity of a registered builtin's frame, empty when unknown; a linear scan. Added for call tracing.
+    std::string name_of(const abi::v1::FrameDescriptor &frame) const;
 
   private:
     using Key = std::tuple<std::string_view, std::string_view, std::size_t>;
