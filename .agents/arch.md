@@ -169,7 +169,7 @@
   off-heap list link; `layout::off_heap_cell`), weak process-wide registry revives them in `binary_to_term`;
   `atomics` arrays live in their buffers.
   41O1 unicode_util: generated C++ tables (`builtins/unicode/tables.cpp`, tools/unicode/generate.py from an OTP
-  observation dump + UCD files) behind private `clause_unicode` builtins; Erlang walks keep OTP's shapes.
+  observation dump + UCD files) behind private `clause_unicode` builtins; Erlang walks keep OTP's shapes (41O2: gc/1 in OTP's rule order, nf*).
   The `erlang` library module (step 41B): `library/erts/erlang.erl` is generated from the owned inventory
   `erlang.terms`; non-builtin `erlang:F/A` and unqualified OTP auto-imports (`semantic::library_auto_import`) pull
   it in like `lists`; `CodeServer::index` skips exports a builtin names, literal builtin funs bind the builtin.

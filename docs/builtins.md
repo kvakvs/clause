@@ -250,7 +250,7 @@ Plan 11 step 41Y1 (`runtime/src/builtins/unicode/`). `library/stdlib/unicode.erl
 holds OTP 29's exports and types; `characters_to_binary/1,2,3`,
 `characters_to_list/1,2`, `bin_is_7bit/1`, `bom_to_encoding/1` and
 `encoding_to_bom/1` are builtins, the normalization, category and identifier
-functions stay stubs until `unicode_util` ([step 41O](../.agents/11-plan.md#step-41o)).
+functions stay stubs; they can now be written over [unicode_util](#unicode-util) when a program needs them.
 
 - Encodings: `latin1`, `unicode`/`utf8`, `utf16` and `utf32`, big endian by
   default or `{utf16 | utf32, big | little}`; anything else is `badarg`
@@ -316,7 +316,7 @@ forward slashes. These four are builtins; the rest are Erlang:
 
 ## Unicode util
 
-Plan 11 step 41O1 (`library/stdlib/unicode_util.erl`, `runtime/src/builtins/unicode/`). OTP generates
+Plan 11 steps 41O1 and 41O2 (`library/stdlib/unicode_util.erl`, `runtime/src/builtins/unicode/`). OTP generates
 `unicode_util` while it builds (900 KB of Erlang); Clause keeps the data in generated C++ tables
 (`unicode/tables.cpp`) queried by the builtins of its private `clause_unicode` module (`table/1`, `class/1`,
 `cases/1`, `flags/1`, `compose_pair/2`), and `unicode_util.erl` answers OTP's functions over them with OTP's result
@@ -327,7 +327,13 @@ shapes:
 - `lookup/1`, `category/1`, `get_case/1`, `spec_version/0` (`{17, 0}`), `pattern_whitespace/0`; `uppercase/1`,
   `lowercase/1`, `titlecase/1`, `casefold/1` map the first code point (`{badarg, Rest}` at invalid UTF-8);
   `is_wide/1`, `is_whitespace/1`, `is_other_id_start/1`, `is_other_id_continue/1`,
-  `is_letter_not_pattern_syntax/1`.
+  `is_letter_not_pattern_syntax/1`;
+- `gc/1` (step 41O2): extended grapheme clusters by UAX #29, with OTP's rule order (CR LF, controls, Latin-1 fast
+  paths, prepend, Hangul syllables, regional indicator pairs, extended pictographic and ZWJ sequences, Indic
+  conjuncts) and its result shapes: a cluster is a code point or a list, and the rest stays the chardata it came
+  from where OTP keeps it (`{error, Rest}` at invalid UTF-8);
+- `nfd/1`, `nfc/1`, `nfkd/1`, `nfkc/1` (step 41O2) normalize the first cluster: canonical or compatibility
+  decomposition with algorithmic Hangul, stable canonical ordering, then composition by the composition pairs.
 
 `tools/unicode/generate.py` writes the tables once per Unicode update: case mappings, categories (including the
 neighbor categories OTP's generator gives some unassigned code points), decompositions and the property predicates
@@ -336,7 +342,8 @@ Indic and composition data from the Unicode Character Database files OTP 29 pins
 17.0). Only the generated tables are committed, with the Unicode copyright notice the Unicode License v3 asks
 for; normal builds need neither OTP nor the data files. Test `executables_unicode_tables` compares digests of the
 answers of plane 0 and sample blocks of the other planes with OTP's (all 1.1M code points matched when
-the tables were generated).
+the tables were generated); `executables_unicode_clusters` compares clusters and normal forms of hand-picked
+strings for every rule and a seeded sweep of 2000 random strings.
 
 ## Atomics and counters
 

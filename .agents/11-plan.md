@@ -139,7 +139,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | --- | --- | --- | --- |
 | I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
-| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41N; open: [41O](#step-41o)–[41S](#step-41s) |
+| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](#step-41s) (41K1, 41K2 added) | F36, D01 | done: 41I–41O2; open: [41P](#step-41p)–[41S](#step-41s) |
 | H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](00-finished.md#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
@@ -151,7 +151,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41N, 41O1, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41N, 41O1, 41O2, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -342,29 +342,6 @@ other), and add or adjust steps here before coding the next one.
 
 Split on 2026-10-14 (user direction) into [41M1](00-finished.md#step-41m1) (the runtime
 table) and [41M2](00-finished.md#step-41m2) (the builtins), both in phase H4.
-
-<a id="step-41o"></a>
-
-### 41O. `unicode_util` from the Unicode data
-
-Backlog: F36. Depends on: [41K](00-finished.md#step-41k). Split on 2026-10-14 into
-[41O1](00-finished.md#step-41o1) (tables, properties, case, `cp/1`; done) and 41O2 (`gc/1`, normalization).
-
-- Success criteria
-  - [x] Decide how the tables are produced (41O1): `tools/unicode/generate.py`
-    over the host OTP's answers and the Unicode data files OTP 29 pins,
-    committed with the Unicode License v3 notice; normal builds need no OTP.
-  - [ ] `cp/1`, `gc/1` (extended grapheme clusters per UAX #29),
-    `casefold/1`, `lowercase/1`, `uppercase/1`, `titlecase/1`,
-    `nfc/1`, `nfd/1`, `nfkc/1`, `nfkd/1`, `category/1`, `is_whitespace/1`,
-    `is_wide/1`, `pattern_whitespace/0` and the identifier helpers, with
-    OTP's results on binaries, lists and mixed chardata, and OTP's error
-    tuples for invalid input. Split into sub-steps if the tables make one
-    commit too large.
-- Tests
-  - [ ] Goldens from OTP's `unicode_util` over every code point for the
-    property functions and over sampled strings for clusters and
-    normalization; `string` and `unicode` functions luerl uses run.
 
 <a id="step-41p"></a>
 

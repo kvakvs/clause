@@ -214,7 +214,7 @@ Plan 11 step 41J. All live in `tests/compiler/library/`:
 | `persistent_term` | provided, all stubs | runtime-wide term table (41M) |
 | `erts_internal` | provided; `stdlib` and `counters` groups implemented, `get_creation/0` and `map_hashmap_children/1` refused, the `distribution`, `beam` and `emulator` groups declined | 41N ([erts_internal](builtins.md#erts-internal)); no distribution, no `.beam` files |
 | `atomics`, `counters`, `erts_code_purger` | provided; `atomics`, `counters` implemented; `purge/1`, `soft_purge/1` implemented, the purger process declined | 41N ([atomics and counters](builtins.md#atomics-and-counters)); code loading waits for step 71 |
-| `unicode_util` | provided; tables, case and property functions implemented (41O1), `gc/1` and normalization stubs (41O2) | tables generated from OTP's answers and the Unicode data ([unicode_util](builtins.md#unicode-util)) |
+| `unicode_util` | provided, implemented (41O1, 41O2) | tables generated from OTP's answers and the Unicode data ([unicode_util](builtins.md#unicode-util)) |
 | `erl_prim_loader` | provided, all stubs | 41P decides between implementing it over the file driver and shadowing its callers |
 | `zlib` | provided, all stubs | 41Q: pinned zlib in the runtime, or refused |
 | `prim_eval` | provided, all stubs | 41S |

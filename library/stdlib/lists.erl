@@ -318,7 +318,9 @@ keymember(_, _, _) -> erlang:error({not_implemented, keymember, 3}).
 keymerge(_, _, _) -> erlang:error({not_implemented, keymerge, 3}).
 keyreplace(_, _, _, _) -> erlang:error({not_implemented, keyreplace, 4}).
 keysearch(_, _, _) -> erlang:error({not_implemented, keysearch, 3}).
-keysort(_, _) -> erlang:error({not_implemented, keysort, 2}).
+%% A stable sort by the N-th element of tuples (step 41O2).
+keysort(N, List) when is_integer(N), N > 0 ->
+    lists:sort(fun(A, B) -> element(N, A) =< element(N, B) end, List).
 keystore(_, _, _, _) -> erlang:error({not_implemented, keystore, 4}).
 keytake(_, _, _) -> erlang:error({not_implemented, keytake, 3}).
 last(_) -> erlang:error({not_implemented, last, 1}).
