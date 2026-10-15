@@ -27,7 +27,7 @@ draft with smaller, single-commit steps.
   steps run before step 9 and keep their letter IDs in commit titles.
 - Phase N2 (steps 73A–73H) was inserted on 2026-10-11 (user direction). It
   selects and implements the parse-transform slice of step 73 and depends on
-  [65C](00-finished.md#step-65c), not on step 73, so it may run before steps
+  [65C](00-finished.md), not on step 73, so it may run before steps
   66–72.
 - Phases H2 (`erlang` builtins, 41A–41H), L2 (export liveness, 62C) and L3
   (build directory and caches, 62D1–62D5 and 62E; the cache item of D07 selected
@@ -89,7 +89,7 @@ draft with smaller, single-commit steps.
 
 Old plan 10 steps 1–20 and added 15a finished on 2026-10-03; their numbers are
 historical and unrelated to the steps below. Per-step records are in
-[the archive](00-finished.md#completed-patternmatch) and condensed in
+[the archive](00-finished.md) and condensed in
 [validation history](../docs/validation.md#history).
 
 Executable baseline: ordered function clauses with guards, body
@@ -134,25 +134,25 @@ clean (338 units, headers now checked); Linux x86-64 235/235.
 ## Step overview
 
 Completed steps link to
-[the plan 11 record](00-finished.md#plan-11-step-commits).
+[the plan 11 record](00-finished.md).
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
-| I2. Inference convergence and cost | [58O](00-finished.md#step-58o)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
-| I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
-| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](00-finished.md#step-41s) (41K1, 41K2 added) | F36, D01 | done |
-| H5. Regular expressions (`re`) | [41ZA](00-finished.md#step-41za), [41ZB](00-finished.md#step-41zb) | F36 | done |
-| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](00-finished.md#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2), [41ZC](00-finished.md#step-41zc) | F36, F05 | done |
-| M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
+| I2. Inference convergence and cost | [58O](00-finished.md)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
+| I3. Inference cache for library directories | [58U](00-finished.md)–[58W](00-finished.md) | F29, D07 | done |
+| H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md)–[41S](00-finished.md) (41K1, 41K2 added) | F36, D01 | done |
+| H5. Regular expressions (`re`) | [41ZA](00-finished.md), [41ZB](00-finished.md) | F36 | done |
+| H4. Library functions luerl reaches | [41T](00-finished.md)–[41Z](00-finished.md), [41M1](00-finished.md), [41M2](00-finished.md), [41ZC](00-finished.md) | F36, F05 | done |
+| M. Validation closure | [63](00-finished.md)–[70](#step-70), [65A](00-finished.md), [65B](00-finished.md), [65C](00-finished.md), [69A](00-finished.md) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
-| N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
+| N2. Parse transforms | [73A](00-finished.md)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
 | O. Final closure | [78A](#step-78a), [78B](#step-78b), [78](#step-78) | all | open |
 
 
 
 ## Completed steps
 
-Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
+Moved to [00-finished.md](00-finished.md) (step, title and
 commit for 1–68, 41A–41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2,
 41Z, 41ZC, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and evidence are
 in Git at those commits. The anchors below keep older links to this file
@@ -217,14 +217,14 @@ step reruns the luerl command and records inference time, passes and the
 `inference rounds` lines; `--print-types` output of the existing fixtures may
 change only where a step says so.
 
-Steps 58O–58S are done ([finished work](00-finished.md#plan-11-i2-i3)): luerl
+Steps 58O–58S are done ([finished work](00-finished.md)): luerl
 inference 330 s to 107 s.
 
 <a id="step-58x"></a>
 
 ### 58X. Widen integers inside containers so local inputs settle
 
-Backlog: F29. Depends on: [58S](00-finished.md#step-58s). Added 2026-10-13 from
+Backlog: F29. Depends on: [58S](00-finished.md). Added 2026-10-13 from
 the `parsers.erl` fixture (user direction: an inference test shaped like
 yecc/leex output). Should run before 58T: it may remove most of the
 `inputs changed` passes 58T wants to skip.
@@ -256,7 +256,7 @@ yecc/leex output). Should run before 58T: it may remove most of the
 
 ### 58T. Re-infer only the components whose inputs changed since the last pass
 
-Backlog: F29, V05. Depends on: [58R](00-finished.md#step-58r). Added 2026-10-13
+Backlog: F29, V05. Depends on: [58R](00-finished.md). Added 2026-10-13
 (58R decision).
 
 - Success criteria
@@ -275,7 +275,7 @@ Backlog: F29, V05. Depends on: [58R](00-finished.md#step-58r). Added 2026-10-13
 ## I3. Inference cache for library directories
 
 Added and done 2026-10-13 (user direction), steps 58U–58W:
-[finished work](00-finished.md#plan-11-i2-i3).
+[finished work](00-finished.md).
 
 ## H3. Drop-in replacements for OTP runtime modules
 
@@ -364,18 +364,18 @@ other), and add or adjust steps here before coding the next one.
 
 ### 41M. `persistent_term`
 
-Split on 2026-10-14 (user direction) into [41M1](00-finished.md#step-41m1) (the
-runtime table) and [41M2](00-finished.md#step-41m2) (the builtins), both in
+Split on 2026-10-14 (user direction) into [41M1](00-finished.md) (the
+runtime table) and [41M2](00-finished.md) (the builtins), both in
 phase H4.
 
 ## H4. Library functions luerl reaches
 
 Added and done 2026-10-14 (user direction) from
 [the luerl library ledger](21-lib.md), steps 41T–41Z with 41M split into
-41M1/41M2 and 41Y into 41Y1/41Y2: [finished work](00-finished.md#step-41t).
+41M1/41M2 and 41Y into 41Y1/41Y2: [finished work](00-finished.md).
 Library functions are C++ builtins of their module; fun-taking functions stay
 Erlang. `re` (ledger row 17) came with H5; `init:get_arguments/0` came with
-[41L](00-finished.md#step-41l). [41ZC](00-finished.md#step-41zc) (2026-10-15)
+[41L](00-finished.md). [41ZC](00-finished.md) (2026-10-15)
 added OTP's I/O protocol for the euler example.
 
 ## H5. Regular expressions (`re`)
@@ -392,7 +392,7 @@ stock PCRE2.
 
 ### 66. Validate macOS Apple Silicon
 
-Backlog: V01. Depends on: [63](00-finished.md#step-63).
+Backlog: V01. Depends on: [63](00-finished.md).
 
 - Success criteria
   - [ ] Same as step 63 on macOS arm64.
@@ -403,7 +403,7 @@ Backlog: V01. Depends on: [63](00-finished.md#step-63).
 
 ### 69. Broaden OTP compatibility evidence
 
-Backlog: V03. Depends on: [58](00-finished.md#step-58).
+Backlog: V03. Depends on: [58](00-finished.md).
 
 - Success criteria
   - [ ] Selected applicable upstream Common Test suites run against a matching
@@ -417,7 +417,7 @@ Backlog: V03. Depends on: [58](00-finished.md#step-58).
 
 ### 70. Close the test migration ledger
 
-Backlog: V04. Depends on: [58](00-finished.md#step-58).
+Backlog: V04. Depends on: [58](00-finished.md).
 
 - Success criteria
   - [ ] Every remaining adapter or synthetic success test either has equivalent
@@ -434,7 +434,7 @@ write its own small implementation plan before coding.
 
 ### 71. Decide dynamic modules and code upgrades
 
-Backlog: D01. Depends on: [55](00-finished.md#step-55). **Decision.**
+Backlog: D01. Depends on: [55](00-finished.md). **Decision.**
 
 - Success criteria
   - [ ] Static-only, native dynamic libraries, or an upgrade model chosen;
@@ -446,7 +446,7 @@ Backlog: D01. Depends on: [55](00-finished.md#step-55). **Decision.**
 
 ### 72. Decide atom collection
 
-Backlog: D02. Depends on: [54](00-finished.md#step-54). **Decision.**
+Backlog: D02. Depends on: [54](00-finished.md). **Decision.**
 
 - Success criteria
   - [ ] Bounded permanent atoms kept, or collection roots and policy defined.
@@ -457,15 +457,15 @@ Backlog: D02. Depends on: [54](00-finished.md#step-54). **Decision.**
 
 ### 73. Decide behavior-changing attributes and transforms
 
-Backlog: D03. Depends on: [58](00-finished.md#step-58). **Decision.**
+Backlog: D03. Depends on: [58](00-finished.md). **Decision.**
 
 - Success criteria
   - [ ] Per-attribute decision (`compile` options, `on_load`, others; parse
     transforms are selected and implemented by phase N2,
-    [73A](00-finished.md#step-73a)–[73H](#step-73h) (applied since 73F);
-    `behaviour` is implemented by [65A](00-finished.md#step-65a), `module_info`
-    and informational attributes by [65B](00-finished.md#step-65b), imports and
-    compile hints by [65C](00-finished.md#step-65c)); rejected ones keep
+    [73A](00-finished.md)–[73H](#step-73h) (applied since 73F);
+    `behaviour` is implemented by [65A](00-finished.md), `module_info`
+    and informational attributes by [65B](00-finished.md), imports and
+    compile hints by [65C](00-finished.md)); rejected ones keep
     diagnostics.
 - Tests
   - [ ] CLI diagnostics for each rejected attribute.
@@ -474,7 +474,7 @@ Backlog: D03. Depends on: [58](00-finished.md#step-58). **Decision.**
 
 ### 74. Decide public stage interchange
 
-Backlog: D04. Depends on: [58](00-finished.md#step-58). **Decision.**
+Backlog: D04. Depends on: [58](00-finished.md). **Decision.**
 
 - Success criteria
   - [ ] A concrete consumer named, or deferral recorded; inspection dumps stay
@@ -498,7 +498,7 @@ Backlog: D05. Depends on: [74](#step-74). **Decision.**
 
 ### 76. Decide C/FFI interoperability
 
-Backlog: D06. Depends on: [58](00-finished.md#step-58). **Decision.**
+Backlog: D06. Depends on: [58](00-finished.md). **Decision.**
 
 - Success criteria
   - [ ] An external caller and minimal API named, or deferral recorded.
@@ -509,13 +509,13 @@ Backlog: D06. Depends on: [58](00-finished.md#step-58). **Decision.**
 
 ### 77. Decide project schema extensions
 
-Backlog: D07. Depends on: [58](00-finished.md#step-58). **Decision.**
+Backlog: D07. Depends on: [58](00-finished.md). **Decision.**
 
 - Success criteria
   - [ ] Demand recorded for each extension (profiles, dependencies, exclusions,
     packages, watch/cache, parallel builds); selected items get their own plan.
     The build directory and caches are already selected as
-    [62D](00-finished.md#step-62d).
+    [62D](00-finished.md).
 - Tests
   - [ ] None beyond the gate unless selected.
 
@@ -538,7 +538,7 @@ entry point from the driver. Normal builds and tests stay OTP-free: format
 coverage uses OTP-generated goldens; tests that run a transform need host OTP
 and are labeled and skipped (recorded as a gap) without it.
 
-Steps 73A–73G are done ([record](00-finished.md#plan-11-step-commits)). OTP's
+Steps 73A–73G are done ([record](00-finished.md)). OTP's
 transform pass (order, options, return shapes, messages, column stripping,
 forms) and Clause's contract are in [transforms](../docs/transforms.md).
 
@@ -546,7 +546,7 @@ forms) and Clause's contract are in [transforms](../docs/transforms.md).
 
 ### 73H. Close parse transforms
 
-Backlog: D03. Depends on: [73G](00-finished.md#step-73g).
+Backlog: D03. Depends on: [73G](00-finished.md).
 
 - Success criteria
   - [ ] Real projects with parse transforms (for example a `lager`- or
