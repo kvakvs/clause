@@ -2,6 +2,7 @@
 #include "service_errors.hpp"
 #include "terms.hpp"
 #include <array>
+#include <boost/container/small_vector.hpp>
 #include <clause/abi/maps.hpp>
 #include <clause/runtime/atoms.hpp>
 #include <clause/runtime/process_context.hpp>
@@ -46,8 +47,7 @@ MapResult update(ProcessContext &context, std::span<const Term> terms, bool owne
     if (terms.empty() || (terms.size() - 1) % 3 != 0) {
         return std::unexpected(MapFault{TermError::invalid_encoding, {}});
     }
-    std::vector<MapUpdate> updates;
-    updates.reserve((terms.size() - 1) / 3);
+    boost::container::small_vector<MapUpdate, 4> updates;
     for (std::size_t i = 1; i < terms.size(); i += 3) {
         const auto flag = terms[i + 2].integer_value();
         if (!flag || (*flag != 0 && *flag != 1)) {
@@ -159,6 +159,14 @@ MapResult evaluate(ProcessContext &context, Op operation, std::span<const Term> 
     if (operation == Op::from_list) {
         return from_list(context, terms);
     }
+    if (operation == Op::entries) {
+        if (terms.size() != 1) {
+            return std::unexpected(MapFault{TermError::invalid_encoding, {}});
+        }
+        return MapAccess::entries(context.heap(), terms[0]).transform_error([&](TermError error) {
+            return MapFault{error, terms[0]};
+        });
+    }
     if (operation >= Op::key_at) {
         return position(context, operation, terms);
     }
@@ -186,7 +194,7 @@ bool ready(ProcessContext &context, std::uint8_t operation, const Word *values, 
     if (!calls.active() || calls.failure()) {
         return false;
     }
-    if (!output || (count != 0 && !values) || operation > static_cast<std::uint8_t>(Op::update_owned)) {
+    if (!output || (count != 0 && !values) || operation > static_cast<std::uint8_t>(Op::entries)) {
         calls.fail_service(abi::v1::Status::invalid_argument);
         return false;
     }

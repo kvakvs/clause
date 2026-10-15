@@ -129,14 +129,18 @@ optimization target, not only a matter of correctness.
 These close the gap to BeamAsm. They come first because every later tier needs
 LLVM to *see* the operations instead of opaque service calls.
 
-Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6, OPT0.7, OPT0.5 staging, OPT0.10, OPT0.11, OPT0.12): see
+Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6, OPT0.7, OPT0.5 staging, OPT0.10, OPT0.11, OPT0.12, OPT0.13): see
 [00-finished.md](00-finished.md#plan-20). Open follow-ups of those steps:
 
 - ~~**OPT0.1 follow-up:** loop-head safepoints called `CLAUSE_safepoint_v1`
   unconditionally~~: done with OPT0.7 (inline `slow_collect` test).
 - **OPT0.1A follow-ups:**
   - frameless leaves (no push for a function with no non-tail call and nothing
-    live across a safepoint, keeping the reduction check and entry safepoint)
+    live across a safepoint, keeping the reduction check and entry safepoint):
+    **deferred 2026-10-15.** A leaf without a frame has no stack-trace entry, so
+    `erlang:raise`/error traces and `process_info(current_function)` would differ
+    from OTP, and the frame push it saves is a few stores after OPT0.1A and
+    `preserve_none`. Revisit only with a profile where leaf entry dominates.
   - ~~a per-target parameter count K~~: done 2026-10-15 as six everywhere (ABI 17)
   - ~~`preserve_none` where the runtime can declare it~~: done 2026-10-15 (ABI 16)
 - **OPT0.5B follow-up:** in-place updates for maps that arrive from callers
@@ -308,6 +312,11 @@ Added and done 2026-10-15 from the 69A string_build kernel ([record](00-finished
 without `weak_ptr::lock()`, lock-free atom admission, word-level list walks, short `++`, `to_chars` integer text.
 Open follow-up: the remaining ~200 ns of a list-building builtin (typed argument conversion, `Term` copies with
 their weak pointer, per-element admission in `list_words`).
+
+### OPT0.13 Inline map generators and cheaper tree-map updates
+
+Added and done 2026-10-15 from a profile of the 69A map_update kernel ([record](00-finished.md#plan-20)):
+`MapOperation::entries` (ABI 20), word-level small-integer key order, reused tree nodes.
 
 ---
 

@@ -130,6 +130,9 @@ A map with more than 32 entries (OTP's `MAP_SMALL_MAP_LIMIT`) is a 4-word
   releases all.
 - Node words are charged to the process as off-heap words (with binaries:
   enough of them requests a collection) and to the runtime-wide account.
+  Freed nodes are kept for reuse, up to 1,024 of each kind per process (about
+  1 MB at most), since a path-copying update allocates a node per level and a
+  collection frees the old paths together (OPT0.13).
 - Copying a map to another heap (messages, `MessageBuffer`) builds a new tree in
   the destination from the translated entries.
 - An owned update (`MapOperation::update_owned`, OPT0.5B) whose source the

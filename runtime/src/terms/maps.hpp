@@ -72,5 +72,9 @@ struct MapAccess {
     // Publish key and value words already in exact key order: a classic map cell, or above MAP_TREE_THRESHOLD
     // entries an off-heap tree (OPT0.5).
     static TermResult<Term> publish_words(ProcessHeap &heap, std::span<const MapWords> entries);
+    // The map's key and value words readable by index (MapOperation::entries, OPT0.13): a classic map itself, or a
+    // copy of an off-heap map's entries in a tuple-shaped cell, which may pass the tuple arity limit because Erlang
+    // code never sees it.
+    static TermResult<Term> entries(ProcessHeap &heap, const Term &map);
 };
 } // namespace clause::runtime::detail

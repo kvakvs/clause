@@ -18,8 +18,10 @@ struct Generator {
     const ast::Qualifier *part;
     Source source;
     bool strict;
-    // Frame slots: the rest of a list or bitstring input, or a map with its next position and its size.
+    // Frame slots: the rest of a list or bitstring input, or a map's entries cell (MapOperation::entries) with its
+    // next position and its size, and the map itself for error reports (OPT0.13).
     llvm::Value *slot = nullptr;
+    llvm::Value *original = nullptr;
     llvm::Value *position = nullptr;
     llvm::Value *size = nullptr;
     // What this step reads: the rest of a list or bitstring, or a map and its position.
@@ -137,6 +139,9 @@ void start_map(ExpressionLowering &state, Generator &generator, llvm::Value *inp
     state.builder.SetInsertPoint(bad);
     raise_reason(state, abi::v1::ErrorReason::bad_generator, input);
     state.builder.SetInsertPoint(ready);
+    generator.original = root_slot(state);
+    store(state, input, generator.original);
+    store(state, lower_map_operation(state, abi::v1::MapOperation::entries, std::array{input}), generator.slot);
     generator.size = root_slot(state);
     store(state, lower_map_operation(state, abi::v1::MapOperation::size, std::array{input}), generator.size);
     generator.position = root_slot(state);
@@ -174,11 +179,20 @@ void match(ExpressionLowering &state, const ast::PatternSyntaxId &pattern, llvm:
     state.builder.SetInsertPoint(matched);
 }
 
-// The key and value at the map generator's position.
+// The key and value at the map generator's position, read from its entries cell (OPT0.13): words 1 + 2i and 2 + 2i.
 std::array<llvm::Value *, 2> entry(ExpressionLowering &state, const Generator &generator) {
-    const std::array arguments{generator.map, generator.input};
-    return {lower_map_operation(state, abi::v1::MapOperation::key_at, arguments),
-            lower_map_operation(state, abi::v1::MapOperation::value_at, arguments)};
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    auto *cell = cell_address(state, generator.map, abi::v1::boxed_tag);
+    auto *index = builder.CreateShl(builder.CreateAShr(generator.input, 4), 1);
+    const auto word = [&](unsigned offset, const char *name) {
+        auto *at =
+            builder.CreateGEP(state.word, cell, builder.CreateAdd(index, llvm::ConstantInt::get(state.word, offset)));
+        auto *loaded = builder.CreateAlignedLoad(state.word, at, align, name);
+        mark_term(state, loaded);
+        return static_cast<llvm::Value *>(loaded);
+    };
+    return {word(1, "generator.key"), word(2, "generator.value")};
 }
 
 // A bitstring element is the prefix its pattern matches; a skip pattern reads it without testing values.
@@ -267,7 +281,8 @@ llvm::Value *remaining(ExpressionLowering &state, const Generator &generator) {
     if (generator.source != Source::map) {
         return generator.input;
     }
-    return lower_map_operation(state, abi::v1::MapOperation::iterator, std::array{generator.map, generator.input});
+    return lower_map_operation(state, abi::v1::MapOperation::iterator,
+                               std::array{load(state, generator.original, "generator.original"), generator.input});
 }
 
 // The element a lone strict generator rejected: a list head, a bitstring's rest or a map's {Key, Value}; null for
@@ -297,7 +312,8 @@ void lone_failure(ExpressionLowering &state, const Generator &generator) {
     }
     state.builder.SetInsertPoint(bad);
     raise_reason(state, abi::v1::ErrorReason::bad_generator,
-                 generator.source == Source::map ? generator.map : generator.input);
+                 generator.source == Source::map ? load(state, generator.original, "generator.original")
+                                                 : generator.input);
 }
 
 // Leave the loop for `next` once every generator is exhausted; anything else fails.

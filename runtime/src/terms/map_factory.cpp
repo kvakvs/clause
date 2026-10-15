@@ -250,6 +250,31 @@ TermResult<Term> MapAccess::publish(ProcessHeap &heap, std::span<const MapEntry>
                            reinterpret_cast<Word>(words) | static_cast<Word>(TermKindPrimary::boxed));
 }
 
+TermResult<Term> MapAccess::entries(ProcessHeap &heap, const Term &map) {
+    const auto object = TermAccess::object(map);
+    if (!object || object->kind != TermKind::map) {
+        return std::unexpected(object ? TermError::wrong_type : object.error());
+    }
+    const auto *tree = tree_of(*object);
+    if (!tree) {
+        return map;
+    }
+    const auto count = 1 + 2 * object->count;
+    auto reserved = heap.reserve(count);
+    if (!reserved) {
+        return std::unexpected(heap_fault(reserved.error()));
+    }
+    auto *words = ::new (reserved->bytes().data()) Word[count]{};
+    words[0] = layout::BoxHeader::make(BoxedKind::tuple, count - 1);
+    auto *next = words + 1;
+    map_tree_entries(tree->root_, [&](const MapWords &entry) {
+        *next++ = entry.first;
+        *next++ = entry.second;
+    });
+    return detail::publish(heap.storage_, *reserved,
+                           reinterpret_cast<Word>(words) | static_cast<Word>(TermKindPrimary::boxed));
+}
+
 TermResult<Term> MapAccess::publish_words(ProcessHeap &heap, std::span<const MapWords> entries) {
     if (entries.size() > MAP_TREE_THRESHOLD) {
         const auto root = map_tree_build(*heap.storage_, entries);

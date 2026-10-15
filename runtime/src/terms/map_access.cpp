@@ -33,6 +33,13 @@ const layout::TreeMapCell *tree_of(const HeapObject &object) noexcept {
 }
 
 TermResult<int> TermProbe::order(Word stored) const {
+    // A stored key of the map's own words needs no admission when the words decide (cheap term access).
+    if (stored == key_.word()) {
+        return 0;
+    }
+    if (const auto order = small_order(stored, key_.word())) {
+        return *order;
+    }
     const auto key = TermAccess::child(map_, stored);
     if (!key) {
         return std::unexpected(TermError::invalid_encoding);

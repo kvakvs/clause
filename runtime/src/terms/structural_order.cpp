@@ -270,6 +270,9 @@ TermResult<int> compare(const Term &left, const Term &right, bool exact) {
 } // namespace
 
 TermResult<int> structural_order(const Term &left, const Term &right, bool exact) noexcept {
+    if (const auto order = small_order(left.word(), right.word())) {
+        return *order;
+    }
     for (const auto *value : {&left, &right}) {
         if (const auto checked = TermAccess::validate(*value); !checked) {
             return std::unexpected(checked.error());

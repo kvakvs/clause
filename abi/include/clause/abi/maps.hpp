@@ -17,7 +17,11 @@ enum class MapOperation : std::uint8_t {
     iterator,
     // An update whose source map the compiler proved unread after it (plan 20 step OPT0.5B): an off-heap map may be
     // updated in place, its stub left consumed.
-    update_owned
+    update_owned,
+    // A cell holding a map's keys and values at words 1 + 2i and 2 + 2i in canonical order, with 2n in its header
+    // count (OPT0.13): a classic map is its own cell; an off-heap map's entries are copied into a tuple-shaped cell
+    // that only generated code reads.
+    entries
 };
 // Semantic failures publish an owned offending key/map; infrastructure failures leave output untouched.
 enum class MapOutcome : std::uint8_t { success, bad_map, bad_key, failure };

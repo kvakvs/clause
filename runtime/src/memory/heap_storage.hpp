@@ -110,6 +110,10 @@ class HeapStorage final {
     layout::TreeMapCell *tree_maps_ = nullptr;
     std::size_t map_words_ = 0;
     std::size_t map_edits_ = 0;
+    // Freed map leaves and branches kept for reuse (OPT0.13): a path-copying update allocates one node per tree
+    // level. Bounded by map_tree.cpp; released with the trees.
+    std::vector<void *> free_map_leaves_;
+    std::vector<void *> free_map_branches_;
     // Set while a reservation is open; one reservation at a time.
     bool pending_ = false;
     // Completed collections; host Terms admitted before the latest one are stale.

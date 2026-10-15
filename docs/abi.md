@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 19)
+# Generated-code ABI (revision 20)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -148,9 +148,13 @@ result in one heap reservation; list generators test and read cons cells
 inline (OPT0.10); a binary
 comprehension joins its pieces with `BitOperation::concat` (`{List}`) and a map
 comprehension builds its map with `MapOperation::from_list` (`{Pairs}`, later
-keys win). Map generators read `MapOperation::key_at`/`value_at`
-(`{Map, Position}` in canonical key order) and show a zip's remaining input
-with `MapOperation::iterator`, OTP's `{K, V, Next}` chain ending in `none`.
+keys win). Map generators take `MapOperation::entries` (11, `{Map}`, OPT0.13)
+once: a cell with the keys and values at words `1 + 2i` and `2 + 2i` in
+canonical key order (a classic map itself, or a tuple-shaped copy of an
+off-heap map's entries that only generated code reads) and read each entry
+inline; `key_at`/`value_at` (`{Map, Position}`) remain for other callers. A
+zip's remaining input is shown with `MapOperation::iterator`, OTP's
+`{K, V, Next}` chain ending in `none`.
 `MapOperation::update_owned` (10, plan 20 step OPT0.5B) takes the operands of
 `update` for a map update whose source the compiler proved unread afterwards: an
 off-heap source map is updated in place and its stub left consumed (empty).
@@ -380,3 +384,4 @@ success.
 | 17 | Six X registers as `Code` parameters (`register_arguments`, OPT0.1A follow-up) |
 | 18 | `sub_binary` cells (`HeaderKind::sub_binary`, `sub_*_word`) and inline `Rest` extraction (OPT1.4B) |
 | 19 | Append end and limit words in `refc_binary` cells (`refc_append_*_word`, 8 payload words) and inline appends (OPT0.11B) |
+| 20 | `MapOperation::entries` and inline map generators (OPT0.13) |

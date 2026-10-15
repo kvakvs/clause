@@ -2,6 +2,7 @@
 #include "../memory/heap_storage.hpp"
 #include "../memory/heap_walk.hpp"
 #include <algorithm>
+#include <memory>
 #include <new>
 #include <type_traits>
 #include <vector>
@@ -28,13 +29,55 @@ void refund(HeapStorage &storage, std::size_t words) noexcept {
     storage.map_words_ -= words;
 }
 
+// Freed nodes of each kind a process keeps for reuse (OPT0.13).
+constexpr std::size_t NODE_CACHE = 1024;
+
+// The free list of a node kind.
+template <typename Node> std::vector<void *> &free_nodes(HeapStorage &storage) noexcept {
+    if constexpr (std::is_same_v<Node, MapLeaf>) {
+        return storage.free_map_leaves_;
+    } else {
+        return storage.free_map_branches_;
+    }
+}
+
+// An empty node from the free list, or a new one; null when memory runs out. The list's room is reserved with the
+// first node, so recycling never allocates.
+template <typename Node> Node *fresh_node(HeapStorage &storage) noexcept {
+    auto &cache = free_nodes<Node>(storage);
+    if (cache.empty()) {
+        if (cache.capacity() == 0) {
+            try {
+                cache.reserve(NODE_CACHE);
+            } catch (const std::bad_alloc &) {
+                return nullptr;
+            }
+        }
+        return new (std::nothrow) Node();
+    }
+    auto *node = static_cast<Node *>(cache.back());
+    cache.pop_back();
+    std::destroy_at(node);
+    return std::construct_at(node);
+}
+
+// Keep a dead node for reuse while its free list has reserved room, else delete it.
+template <typename Node> void recycle(HeapStorage &storage, Node *node) noexcept {
+    auto &cache = free_nodes<Node>(storage);
+    if (cache.size() < cache.capacity()) {
+        cache.push_back(node);
+    } else {
+        delete node;
+    }
+}
+
 // A new empty node created by `edit`, charged to the storage; no exception escapes.
 template <typename Node> std::expected<Node *, HeapError> allocate(HeapStorage &storage, std::size_t edit) noexcept {
     constexpr auto words = node_words<Node>();
     if (words > storage.room()) {
         return std::unexpected(HeapError::limit_exceeded);
     }
-    auto *node = new (std::nothrow) Node();
+    auto *node = fresh_node<Node>(storage);
     if (node == nullptr) {
         return std::unexpected(HeapError::out_of_memory);
     }
@@ -47,10 +90,10 @@ template <typename Node> std::expected<Node *, HeapError> allocate(HeapStorage &
 // Free one node whose last reference is gone, without touching its children.
 void free_node(HeapStorage &storage, MapNode *node) noexcept {
     if (node->leaf_) {
-        delete static_cast<MapLeaf *>(node);
+        recycle(storage, static_cast<MapLeaf *>(node));
         refund(storage, node_words<MapLeaf>());
     } else {
-        delete static_cast<MapBranch *>(node);
+        recycle(storage, static_cast<MapBranch *>(node));
         refund(storage, node_words<MapBranch>());
     }
 }
@@ -485,6 +528,12 @@ void sweep_tree_maps(HeapStorage &storage, HeapArea &copies) noexcept {
 void release_tree_maps(HeapStorage &storage) noexcept {
     for (auto *cell = std::exchange(storage.tree_maps_, nullptr); cell != nullptr; cell = cell->next_) {
         map_tree_release(storage, cell->root_);
+    }
+    for (auto *leaf : std::exchange(storage.free_map_leaves_, {})) {
+        delete static_cast<MapLeaf *>(leaf);
+    }
+    for (auto *branch : std::exchange(storage.free_map_branches_, {})) {
+        delete static_cast<MapBranch *>(branch);
     }
 }
 } // namespace clause::runtime::detail

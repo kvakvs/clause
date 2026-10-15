@@ -102,7 +102,7 @@ foreach(target IN ITEMS "x86_64-pc-windows-msvc|64|?CLAUSE_main_v1@@YAHHPEAPEADP
             app.erl helper.erl)
         file(READ "${directory}/clausev1_start.ll" ir)
         string(REPLACE "?" "\\?" pattern "${symbol}")
-        set(descriptor "{ i32 19, i32 ${bits}, ptr @startup.modules, ${word} 2, ptr @startup.module, ${word} 3, ptr @startup.function, ${word} 4, i32 0 }")
+        set(descriptor "{ i32 20, i32 ${bits}, ptr @startup.modules, ${word} 2, ptr @startup.module, ${word} 3, ptr @startup.function, ${word} 4, i32 0 }")
         string(FIND "${ir}" "${descriptor}" found)
         if(found EQUAL -1 OR NOT ir MATCHES "define [a-z_ ]*i32 @main\\(i32 %0, ptr %1\\)"
                 OR NOT ir MATCHES "call i32 @\"?${pattern}\"?\\(i32 %0, ptr %1, ptr [a-z ]*@startup.descriptor\\)"
