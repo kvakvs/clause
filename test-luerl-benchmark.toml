@@ -15,13 +15,13 @@ sources = [
   # "C:/Program Files/Erlang OTP/lib/kernel*/src/application.erl",
   # "C:/Program Files/Erlang OTP/lib/stdlib*/src/supervisor.erl",
   "references/luerl/src/**/*.erl",
-  "references/luerl/examples/euler/*.erl"
+  "references/luerl/examples/benchmark/**/*.erl"
 ]
 # Recursively collect .erl files. Create/populate src or edit these selections.
 # Set source_dirs = [] when selecting files exclusively through sources.
 source_dirs = []
 # Future executable path; checks/printing do not write it. Windows: build/app.exe.
-output = "test-luerl"
+output = "test-luerl-benchmark"
 
 [targets.options]
 ignore_dirs = [

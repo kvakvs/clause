@@ -27,3 +27,8 @@ sources = ["app.erl", "helper.erl"]
 [[targets]]
 name = "ambiguous"
 sources = ["app.erl", "other.erl"]
+
+[[targets]]
+name = "explicit"
+sources = ["helper.erl"]
+entry = "helper:run/0"

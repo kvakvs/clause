@@ -370,7 +370,7 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   input server and every open file's server answer `{io_request, From, ReplyAs, Request}` (`get_until` with the
   unused rest kept: buffered on standard input, the file position moved back for a file; `get_line`, `get_chars`,
   `put_chars`, old latin1 forms, unknown requests, OTP's exit of a file server whose function fails, opener kept);
-  `io:request/1,2`, `io:requests/1,2`. The luerl euler example (`clau.bat --project test-luerl --entry euler:run`)
+  `io:request/1,2`, `io:requests/1,2`. The luerl euler example (`clau.bat --project test-luerl-euler --entry euler:run`)
   prints OTP's output for all 10 problems. Test `executables_io_requests` (OTP golden).
 - **69A (M):** 2026-10-12, manual benchmarks against OTP ([validation](../docs/validation.md)): `benchmarks/` (6
   programs, 29 kernels, `run.py`), `make benchmark`, `make-benchmark.bat`, local history; never part of the gate.

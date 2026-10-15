@@ -345,7 +345,7 @@ each project target forms its own batch. `--emit` writes artifacts under `build/
 or `--artifact-dir`; projects append an encoded target name and use a manifest-relative
 default root. Filenames encode module identity. `-o PATH` links positional inputs, or one
 selected project target, into an executable with Clang and the runtime library (entry:
-`--entry MODULE[:FUNCTION]`, manifest `entry`, or the only module exporting `main/1`). Without
+`--entry MODULE[:FUNCTION[/ARITY]]`, manifest `entry`, or the only module exporting `main/1`). Without
 `-o`, project targets with an `output` or `entry` key link to their TOML `output` (default
 `build/<target>`), publishing only after every selected target linked.
 See [executables](docs/executables.md) for the entry, argument and exit-status contract.

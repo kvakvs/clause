@@ -61,6 +61,9 @@ compile(no_arguments 0 "^$" --entry noargs:start -o noargs noargs.erl)
 run(noargs 0 "started\n" ignored)
 compile(both_arities 0 "^$" --entry noargs:both -o both noargs.erl)
 run(both 0 "{one,[\"x\"]}\n" x)
+# An explicit /0 suffix overrides that preference.
+compile(explicit_arity 0 "^$" --entry noargs:both/0 -o both0 noargs.erl)
+run(both0 0 "zero\n" x)
 # Stage times end with the link of the executable, named by its final path.
 compile(stage_times 0 "\\[time\\] compile 1 module: [0-9.]+ ms\r?\n\\[time\\] link [^\n]*/timed(\\.exe)?: [0-9.]+ ms"
     --print-stage-times --entry noargs:start -o timed noargs.erl)

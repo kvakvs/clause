@@ -24,7 +24,7 @@ std::optional<Text> entry(const toml::table &values, const schema::Context &cont
     }
     auto result = schema::text(*node, context, "entry");
     if (!parse_entry(result.value)) {
-        fail(result.site, "invalid entry; expected MODULE or MODULE:FUNCTION");
+        fail(result.site, "invalid entry; expected MODULE[:FUNCTION[/ARITY]] with ARITY 0 or 1");
     }
     return result;
 }

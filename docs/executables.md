@@ -10,17 +10,21 @@ project build links each selected executable target to its manifest `output`
 The entry is an exported function of arity 1 that receives the argument list.
 A selected `FUNCTION` without `FUNCTION/1` may instead be an exported
 `FUNCTION/0`: it runs without the program arguments (runtime options are still
-taken out). The default (no selection) is always `main/1`.
+taken out). A `/0` or `/1` suffix selects that arity only, so
+`--entry benchmarks:run/0` runs `run/0` even when `run/1` is exported too. The
+default (no selection) is always `main/1`.
 
 | Source | Spelling | Scope |
 | --- | --- | --- |
-| CLI | `--entry MODULE[:FUNCTION]` | Positional batch, or the single selected project target |
-| Manifest | `entry = "MODULE[:FUNCTION]"` in a `[[targets]]` table | That target |
+| CLI | `--entry MODULE[:FUNCTION[/ARITY]]` | Positional batch, or the single selected project target |
+| Manifest | `entry = "MODULE[:FUNCTION[/ARITY]]"` in a `[[targets]]` table | That target |
 | Default | Only escript, else only module exporting `main/1` | Only when an executable is requested (`-o`, or a project target with `output`) |
 
 - `FUNCTION` defaults to `main`. Names are unquoted atom text: 1–255 Unicode
-  scalars, valid UTF-8, no control characters and no `:`. Other spellings are
-  usage errors (CLI, exit 2) or manifest errors (exit 1).
+  scalars, valid UTF-8, no control characters and no `:`. A trailing `/DIGITS`
+  after `FUNCTION` is the arity and must be `0` or `1`; other slashes stay part
+  of the name. Other spellings are usage errors (CLI, exit 2) or manifest errors
+  (exit 1).
 - `entry` is an optional schema-1 key; older manifests stay valid. The whole
   manifest is decoded, so a malformed `entry` fails even in unselected targets.
 - CLI `--entry` overrides the manifest key and requires exactly one selected
@@ -33,19 +37,20 @@ taken out). The default (no selection) is always `main/1`.
 | --- | --- |
 | Module not in the batch | `<origin>: entry module M is not among the compiled modules` (origin: `--entry` or manifest `file:line:col [target t] (entry)`) |
 | No `F/1` nor `F/0` | `<file>:<line>:<col>: entry function M:F/1 is not defined` at the module declaration |
+| Explicit `F/A` missing | `... entry function M:F/A is not defined; found F/N` at a same-named definition, else at the module declaration |
 | Only other arities | `... is not defined; found F/N, but the entry takes the argument list (FUNCTION/1) or nothing (FUNCTION/0)` at that definition |
 | `F/1` (else `F/0`) not exported | `<file>:<line>:<col>: entry function M:F/A is not exported` at the definition |
-| No selection, no `main/1` export | `no entry point: no module exports main/1; choose the entry with --entry MODULE[:FUNCTION] (an exported FUNCTION/1, or FUNCTION/0 run without the program arguments; FUNCTION defaults to main)` |
+| No selection, no `main/1` export | `no entry point: no module exports main/1; choose the entry with --entry MODULE[:FUNCTION[/ARITY]] (an exported FUNCTION/1, or FUNCTION/0 run without the program arguments; FUNCTION defaults to main, ARITY to 1, else 0)` |
 | No selection, several | `ambiguous entry point: main/1 is exported by a, b; choose the entry with ...` (same hint) |
 
-For project targets the hint also names the manifest key: `... --entry MODULE[:FUNCTION] or with
-entry = "MODULE[:FUNCTION]" in this target's [[targets]] table of the project manifest ...`, for example:
+For project targets the hint also names the manifest key: `... --entry MODULE[:FUNCTION[/ARITY]] or with
+entry = "MODULE[:FUNCTION[/ARITY]]" in this target's [[targets]] table of the project manifest ...`, for example:
 
 ```toml
 [[targets]]
 name = "app"
 sources = ["src/*.erl"]
-entry = "app:start"   # calls app:start/1 (or app:start/0); plain "app" calls app:main/1
+entry = "app:start"   # calls app:start/1 (or app:start/0); "app:start/0" calls app:start/0; plain "app" calls app:main/1
 ```
 
 ## Arguments

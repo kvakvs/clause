@@ -197,7 +197,7 @@ void print_backend(const BackendOptions &backend, const std::string &triple) {
 // Print the executable destination, entry and link tools; targets without an output link nothing.
 void print_link(const EnvironmentTarget &target, const std::string &triple) {
     if (target.entry) {
-        print_value("entry", toml_string(project::entry_text(target.entry->name)));
+        print_value("entry", toml_string(project::entry_spelling(target.entry->name_)));
     } else if (target.output) {
         print_value("entry", toml_string("auto"));
     }

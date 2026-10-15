@@ -21,7 +21,7 @@ struct Options {
     std::filesystem::path output = "a.out";
     // Distinguish explicit output overrides from the positional-mode default.
     bool output_explicit = false;
-    // Explicit --entry MODULE[:FUNCTION] selection; validated by compilation against the batch.
+    // Explicit --entry MODULE[:FUNCTION[/ARITY]] selection; validated by compilation against the batch.
     std::optional<project::EntryName> entry;
     // --build-dir: where Clause keeps temporary files and caches; replaces the build directory of every selected
     // project target. Added for the build directory (62D1).

@@ -36,7 +36,7 @@ std::string options_text(const FrontendRequest &frontend, const bool outputs) {
     flag(text, frontend.executable_output.has_value(), "executable");
     flag(text, outputs, "outputs");
     if (frontend.entry) {
-        text += "\nentry " + project::entry_text(frontend.entry->name) + " " + frontend.entry->origin;
+        text += "\nentry " + project::entry_spelling(frontend.entry->name_) + " " + frontend.entry->origin_;
     }
     return text + "\ntarget " + frontend.project_target;
 }

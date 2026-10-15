@@ -1,0 +1,59 @@
+# Clause project. Paths are relative to this TOML file's directory.
+# Check with: clau --parse-check --project <this-file.toml>
+# Also available: --preprocess-check, --print-pp, and --print-ast.
+schema_version = 1
+
+# Add another [[targets]] block after this target's option tables for more targets.
+# All targets run by default; select with --target app (repeat for more names).
+[[targets]]
+name = "luerl"
+build_dir = "build-clau-luerl"
+
+# List files or patterns, e.g. ["main.erl", "src/*.erl", "shared/**/*.erl"].
+# Patterns support *, ?, and ** as a whole directory component.
+sources = [
+  # "C:/Program Files/Erlang OTP/lib/kernel*/src/application.erl",
+  # "C:/Program Files/Erlang OTP/lib/stdlib*/src/supervisor.erl",
+  "references/luerl/src/**/*.erl",
+  "references/luerl/examples/euler/*.erl"
+]
+# Recursively collect .erl files. Create/populate src or edit these selections.
+# Set source_dirs = [] when selecting files exclusively through sources.
+source_dirs = []
+# Future executable path; checks/printing do not write it. Windows: build/app.exe.
+output = "test-luerl-euler"
+
+[targets.options]
+ignore_dirs = [
+  "C:/Program Files/Erlang OTP/lib/crypto*"
+  # "references/otp/lib/compiler"
+]
+ignore_modules = [
+  "prim_tty", "prim_inet",
+  # "erl_parse", "erl_pp"
+  # "inet_dns", "inet_udp"
+]
+# Fallback roots for listed source filenames, e.g. ["src", "generated"].
+# These do not discover extra files or search for headers.
+source_search_paths = [
+  "C:/Program Files/Erlang OTP/lib/**/src", # Allow peeking into OTP implementations
+]
+# Header search directories, first listed first, e.g. ["include", "vendor/include"].
+# CLI -I directories take precedence; the last CLI -I is searched first.
+include_dirs = [
+  "C:/Program Files/Erlang OTP/lib/**/include",
+  "C:/Program Files/Erlang OTP/lib",
+  "references/luerl/**/include"
+]
+# Predefined macros, e.g. ["DEBUG", "LIMIT=100", 'LABEL="demo"'].
+# A bare name means true; values are Erlang literal terms. Duplicates are errors.
+defines = ["COMPILER_VSN=1", "NEW_STACKTRACE"]
+# Empty lists preserve compiler feature defaults; CLI feature settings apply last.
+# Example overrides: enable_features = ["maybe_expr"].
+# Do not list a feature in both arrays.
+enable_features = []
+disable_features = []
+
+# Explicit include_lib application roots. Empty by default.
+# Example entry: my_dependency = "vendor/my_dependency"
+[targets.options.applications]

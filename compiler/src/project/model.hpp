@@ -57,7 +57,7 @@ struct Target {
     std::vector<Text> source_dirs;
     // Distinguish omitted output (default build/<target>, or no executable without entry) from an explicit one.
     std::optional<Text> output;
-    // Optional MODULE[:FUNCTION] entry selection; validated spelling, resolved during compilation.
+    // Optional MODULE[:FUNCTION[/ARITY]] entry selection; validated spelling, resolved during compilation.
     std::optional<Text> entry;
     // The build directory (manifest-relative); absent means <manifest-dir>/build. Added for the build directory
     // (62D1).

@@ -56,7 +56,7 @@ my_dependency = "vendor/my_dependency"
 - `options` fields are optional typed frontend options. `defines` use
   `NAME` (= `true`) or `NAME=ERLANG_LITERAL_TERM`; duplicates are errors. A
   feature cannot appear in both feature lists.
-- `entry` (optional) selects the executable entry `MODULE[:FUNCTION]`; see
+- `entry` (optional) selects the executable entry `MODULE[:FUNCTION[/ARITY]]`; see
   [executables](executables.md#entry-selection). CLI `--entry` overrides it for
   a single selected target.
 - `build_dir` (optional) is the target's [build directory](#build-directory),

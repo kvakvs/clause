@@ -17,7 +17,8 @@ Options:
       --print-stage-times  Print preprocess/parse/transform time per file, compile time per batch with its phases,
                            inference passes and slowest inferred functions, and link time to stderr.
   -o, --output <path>  Link an executable (Windows targets add .exe when no extension is given).
-      --entry <module[:function]>  Select the executable entry function/1 (default function: main).
+      --entry <module[:function[/arity]]>  Select the executable entry: function/1 receives argv, function/0
+                         runs without it; without /arity, /1 is preferred (default function: main).
       --build-dir <dir>  Keep temporary files below <dir>/tmp and caches below <dir>/cache (projects default:
                          <manifest-dir>/build).
       --no-cache       Neither read nor write build caches.

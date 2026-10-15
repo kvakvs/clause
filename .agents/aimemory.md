@@ -182,7 +182,11 @@ Plan history: .agents/11-plan.md (compact step records), .agents/00-finished.md 
   builtins qualified (a local call hits the stub).
 - New library module = library/modules.terms + observe_module.escript + observe_types.escript + library_modules.py
   generate. erlang.terms statuses hand-maintained: regenerate erlang.erl via tests/compiler/builtins/generate_erlang.py.
-  Any library edit = ~4.5 min luerl rebuild; luerl timing: clau --project test-luerl.toml --entry luerl:init.
+  Any library edit = ~4.5 min luerl rebuild; luerl timing: clau --project test-luerl-euler --entry luerl:init.
+- luerl manifests (old test-luerl.toml split 2026-10-15, both share build_dir build-clau-luerl, run from the example
+  dir): test-luerl-euler.toml (--entry euler:run, cwd references/luerl/examples/euler) and
+  test-luerl-benchmark.toml (--entry benchmarks:run/0, cwd references/luerl/examples/benchmark; plain
+  benchmarks:run picks run/1).
 - unicode_util tables: observe host OTP (observe.escript dump, ~15 MB, scratch) + UCD files -> generate.py ->
   clang-format tables.cpp. Full 1.1M-codepoint checks ~40 s Release: tests sample.
 - Benchmarks: make-benchmark.bat -> build/bench Release + benchmarks/run.py; first results ~20x slower than OTP JIT

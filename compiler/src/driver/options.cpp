@@ -79,12 +79,12 @@ static std::optional<std::string> parse_entry_option(const std::string_view /*op
         return "entry specified more than once";
     }
     if (remaining.empty() || std::string_view(remaining.front()).empty()) {
-        return "expected MODULE or MODULE:FUNCTION after --entry";
+        return "expected MODULE[:FUNCTION[/ARITY]] after --entry";
     }
     options.entry = project::parse_entry(remaining.front());
     remaining = remaining.subspan(1);
     if (!options.entry) {
-        return "--entry expects MODULE or MODULE:FUNCTION with 1..255-character names";
+        return "--entry expects MODULE[:FUNCTION[/ARITY]] with 1..255-character names and ARITY 0 or 1";
     }
     return std::nullopt;
 }

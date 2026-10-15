@@ -6,10 +6,34 @@ behave differently from OTP. Each one is a reason the luerl executable produces
 no output or fails. Later steps reimplement them or decide what to do about
 them.
 
+## luerl `examples/benchmark` (2026-10-15)
+
+Command: `clau.bat --project test-luerl-benchmark --entry benchmarks:run/0`
+(`test-luerl-benchmark.toml` lists luerl's `src` plus
+`references/luerl/examples/benchmark/**/*.erl`; it shares `build-clau-luerl`
+with `test-luerl-euler.toml`), run with the current directory at `references/luerl/examples/benchmark/` (it globs
+`suites/*.lua` and loads `util/extract_bench_keys.lua`).
+
+- **Entry, not a library gap:** `--entry benchmarks:run` resolved to
+  `run/1` (the argument-list entry is preferred) and called `run([])`, so
+  `luerl:dofile([], _)` returned `error` and the program stopped at once with
+  `uncaught exception error: {badmatch,error}`. OTP's `-s benchmarks run` calls
+  `run/0`. Fixed by the `/ARITY` entry suffix (`--entry M:F/0`,
+  `docs/executables.md`).
+- **Result:** with `run/0`, all 22 suites print the same 158 lines as OTP 29
+  with luerl's rebar beams, timings aside. No missing library function was
+  reached.
+- **What it measures:** `luerl:call_method([<<"bench">>], Key, [], Lua)`
+  returns `{lua_error,{illegal_index,[<<"bench">>],Key},_}` on OTP too (the
+  API wants a table reference, not a path), so every timing is 1000 error
+  returns. OTP: 0.0–0.2 ms per benchmark (coarse timer), whole run 0.55 s.
+  Clause `-O0`: 2.4–3.1 ms per benchmark, whole run 1.8 s.
+
 ## luerl `examples/euler` (2026-10-15)
 
-Command: `clau.bat --project test-luerl --entry euler:run` (`test-luerl.toml`
-now also lists `references/luerl/examples/euler/*.erl`), run with the current
+Command: `clau.bat --project test-luerl-euler --entry euler:run`
+(`test-luerl-euler.toml` lists luerl's `src` plus
+`references/luerl/examples/euler/*.erl`), run with the current
 directory at `references/luerl/examples/euler/`, because `euler:run/0` loads
 `./problem_00N.lua`. The program runs 10 Lua files through
 `luerl:loadfile/2` and `luerl:call_chunk/3`.
@@ -96,7 +120,8 @@ The other 3:
   (no argument lists or locations, already in `docs/differences.md`).
 
 
-- `test-luerl.toml` uses `--entry luerl:init`. `luerl:init/0` only builds a Lua
+- `test-luerl.toml` (since 2026-10-15 split into `test-luerl-euler.toml` and
+  `test-luerl-benchmark.toml`) used `--entry luerl:init`. `luerl:init/0` only builds a Lua
   state and returns it. It prints nothing on real OTP either, so the executable
   "doing nothing" is the expected behavior of that entry point.
 - Once luerl runs real Lua code (`luerl:do/2`), the Clause build failed on the

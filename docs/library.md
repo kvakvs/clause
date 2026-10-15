@@ -175,7 +175,7 @@ Booting the whole `kernel` application is not planned.
 The luerl project drives this work. After each step, run
 
 ```text
-clau.bat --project test-luerl --entry luerl:init
+clau.bat --project test-luerl-euler --entry luerl:init
 ```
 
 classify every error (`unknown module`, `undefined function M:F/A`,

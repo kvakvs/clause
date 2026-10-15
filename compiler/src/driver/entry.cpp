@@ -1,6 +1,7 @@
 #include "entry.hpp"
 #include <algorithm>
 #include <clause/compiler/source.hpp>
+#include <vector>
 
 namespace clause::cli {
 namespace {
@@ -8,11 +9,12 @@ using Modules = std::span<const std::unique_ptr<semantic::Module>>;
 
 // Explain how to choose an entry; only project targets have the manifest key.
 std::string selection_hint(const bool project) {
-    const std::string manifest =
-        project ? " or with entry = \"MODULE[:FUNCTION]\" in this target's [[targets]] table of the project manifest"
-                : "";
-    return "; choose the entry with --entry MODULE[:FUNCTION]" + manifest +
-           " (an exported FUNCTION/1, or FUNCTION/0 run without the program arguments; FUNCTION defaults to main)";
+    const std::string manifest = project ? " or with entry = \"MODULE[:FUNCTION[/ARITY]]\" in this target's [[targets]]"
+                                           " table of the project manifest"
+                                         : "";
+    return "; choose the entry with --entry MODULE[:FUNCTION[/ARITY]]" + manifest +
+           " (an exported FUNCTION/1, or FUNCTION/0 run without the program arguments; FUNCTION defaults to main,"
+           " ARITY to 1, else 0)";
 }
 
 // Find the batch module whose declared name matches the requested atom text.
@@ -25,7 +27,7 @@ std::optional<std::size_t> find_module(const Modules modules, const std::u32stri
     return std::nullopt;
 }
 
-// Locate a same-named definition with another arity so wrong-arity errors point at it.
+// Locate a same-named definition so wrong-arity errors point at it.
 const semantic::Function *other_arity(const semantic::Module &module, const std::u32string &name) {
     for (const auto &function : module.functions) {
         if (function.key.name == name) {
@@ -43,27 +45,46 @@ const ast::NodeSource *source(const semantic::Module &module, const semantic::Fu
     return module.declaration ? &module.syntax->form(*module.declaration).source : nullptr;
 }
 
-// The selected entry definition: FUNCTION/1, which receives the argument list, else FUNCTION/0, which runs without it.
-const semantic::Function *entry_function(const semantic::Module &module, const std::u32string &name) {
-    for (const std::size_t arity : {1, 0}) {
-        if (const auto found = module.lookup.find({name, arity}); found != module.lookup.end()) {
+// The arities an entry may resolve to, in preference order: the explicit one, else 1 (argument list) then 0.
+// Added for explicit entry arity.
+std::vector<std::size_t> candidate_arities(const project::EntryName &name) {
+    if (name.arity_) {
+        return {*name.arity_};
+    }
+    return {1, 0};
+}
+
+// The selected entry definition: the first defined candidate arity.
+const semantic::Function *entry_function(const semantic::Module &module, const project::EntryName &name) {
+    for (const std::size_t arity : candidate_arities(name)) {
+        if (const auto found = module.lookup.find({name.function_, arity}); found != module.lookup.end()) {
             return &module.functions[found->second];
         }
     }
     return nullptr;
 }
 
-// Require FUNCTION/1 or FUNCTION/0 to exist and be exported; returns its arity.
+// Explain a missing entry by a same-named definition; only implicit arities list the accepted ones.
+// Added for explicit entry arity.
+std::string missing_detail(const project::EntryName &name, const semantic::Function *other) {
+    if (!other) {
+        return {};
+    }
+    const auto found = "; found " + utf8(name.function_) + "/" + std::to_string(other->key.arity);
+    return name.arity_ ? found : found + ", but the entry takes the argument list (FUNCTION/1) or nothing (FUNCTION/0)";
+}
+
+// Require the selected FUNCTION/1 or FUNCTION/0 to exist and be exported; returns its arity.
 std::optional<std::size_t> check_function(const semantic::Module &module, const project::EntryName &name,
                                           const semantic::Reporter &report) {
     const auto text = "entry function " + project::entry_text(name);
-    const auto *function = entry_function(module, name.function);
+    const auto *function = entry_function(module, name);
     if (!function) {
-        const auto *other = other_arity(module, name.function);
-        const auto detail = other ? "; found " + utf8(name.function) + "/" + std::to_string(other->key.arity) +
-                                        ", but the entry takes the argument list (FUNCTION/1) or nothing (FUNCTION/0)"
-                                  : std::string{};
-        semantic::report(module, source(module, other), text + "/1 is not defined" + detail, report);
+        const auto *other = other_arity(module, name.function_);
+        semantic::report(module, source(module, other),
+                         text + "/" + std::to_string(name.arity_.value_or(1)) + " is not defined" +
+                             missing_detail(name, other),
+                         report);
         return std::nullopt;
     }
     if (!function->exported) {
@@ -77,17 +98,17 @@ std::optional<std::size_t> check_function(const semantic::Module &module, const 
 // Check an explicit selection; unknown modules are reported against the selection's origin.
 std::optional<ResolvedEntry> check_selected(const Modules modules, const project::SelectedEntry &selected,
                                             const semantic::Reporter &report, const DiagnosticSink &sink) {
-    const auto index = find_module(modules, selected.name.module);
+    const auto index = find_module(modules, selected.name_.module_);
     if (!index) {
-        sink("error: " + selected.origin + ": entry module " + utf8(selected.name.module) +
+        sink("error: " + selected.origin_ + ": entry module " + utf8(selected.name_.module_) +
              " is not among the compiled modules");
         return std::nullopt;
     }
-    const auto arity = check_function(*modules[*index], selected.name, report);
+    const auto arity = check_function(*modules[*index], selected.name_, report);
     if (!arity) {
         return std::nullopt;
     }
-    return ResolvedEntry{*index, {selected.name.function, *arity}, modules[*index]->escript};
+    return ResolvedEntry{*index, {selected.name_.function_, *arity}, modules[*index]->escript};
 }
 
 // Report whether a module can serve as the default entry: escripts first, then main/1 exporters.
