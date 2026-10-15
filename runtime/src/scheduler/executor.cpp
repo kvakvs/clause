@@ -1,5 +1,6 @@
 #include "executor.hpp"
 #include "../builtins/support.hpp"
+#include "../memory/message_buffer.hpp"
 #include "../process/exits.hpp"
 #include "../process/identities.hpp"
 #include "../runtime_state.hpp"
@@ -194,7 +195,14 @@ TermResult<void> Executor::send(ProcessContext &sender, Word pid, const Term &me
     }
     auto &receiver = *found;
     if (executor.busy(&receiver)) {
-        executor.block(sender, receiver);
+        // Buffered sends: a message to a process running on another worker waits in a buffer of its own and is
+        // delivered, in order, when that slice ends, instead of blocking the sender until then.
+        const auto buffered = MessageBuffer::copy_of(message);
+        if (!buffered) {
+            return std::unexpected(buffered.error());
+        }
+        executor.post(receiver, *buffered);
+        return {};
     }
     const auto copy = message.copy_to(receiver.heap());
     if (!copy) {

@@ -73,18 +73,19 @@ the default is one worker per logical processor, as OTP's `+S`.
   failure channel belong to its worker alone; Erlang code runs without the
   lock.
 - Links, monitors and names change under the lock at once, also for a process
-  running elsewhere. A send, or an exit signal of `exit/2` or
-  `exit_signal/2`, to a process running on another worker cannot touch its
-  heap: the builtin does nothing and its process ends its slice
-  (`builtins::Blocked`); it waits until the target's slice ends, then runs
-  first and repeats the builtin with the same arguments. The target is held
-  until then, so the repeated builtin cannot find it running again. A process
-  that ends with links or monitors whose processes run elsewhere is finished
-  likewise once their slices end.
-- So messages and exit signals still take effect when they are sent: a send
-  returns after the message is in the receiver's mailbox, and
-  `is_process_alive/1` after `exit(Pid, kill)` is false, as OTP promises
-  for signals from the caller.
+  running elsewhere. A message to a process running on another worker cannot
+  go into its heap yet: it is copied into a buffer of its own and delivered,
+  after earlier buffered ones, when the receiver's slice ends (OPT0.24). An
+  exit signal of `exit/2` or `exit_signal/2` to such a process does nothing
+  and its process ends its slice (`builtins::Blocked`); it waits until the
+  target's slice ends, then runs first and repeats the builtin with the same
+  arguments. The target is held until then, so the repeated builtin cannot
+  find it running again. A process that ends with links or monitors whose
+  processes run elsewhere is finished likewise once their slices end.
+- So signals keep their order: a message buffered before a blocked exit signal
+  of the same sender reaches the receiver first, and `is_process_alive/1`
+  after `exit(Pid, kill)` is false, as OTP promises for signals from the
+  caller.
 - A spawn links or monitors the new process (`spawn_link`, `spawn_monitor`)
   before any worker can run it. A spawned process may run before its parent
   goes on, so a program that monitors or links to a short-lived process after
