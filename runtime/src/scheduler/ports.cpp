@@ -225,14 +225,14 @@ void Executor::queue_port(Port &port) {
     }
     port_queue_.push_back(port.number);
     port.queued = true;
-    work_.notify_one();
+    wake_idle(queues_.size());
 }
 
 std::optional<Word> Executor::next_port() noexcept {
     if (port_queue_.empty()) {
         return std::nullopt;
     }
-    if (!queue_.empty()) {
+    if (!queues_[worker_ ? worker_index_ : 0]->processes.empty()) {
         // Processes and ports take turns, so neither can starve the other.
         port_turn_ = !port_turn_;
         if (port_turn_) {

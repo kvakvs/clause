@@ -10,7 +10,7 @@ Executor::Counts Executor::counts(ProcessContext &context) noexcept {
     const std::scoped_lock lock(executor.mutex_);
     return {.processes = executor.runtime_.processes.size(),
             .ports = executor.ports_.size(),
-            .run_queue = executor.queue_.size(),
+            .run_queue = executor.queued(),
             .workers = executor.runtime_.options.schedulers,
             .slices = executor.slices_,
             .memory_words = executor.runtime_.memory->used(),

@@ -45,7 +45,8 @@ bool Executor::start(ProcessContext &process, const FrameDescriptor &function) n
         return false;
     }
     try {
-        schedules_[&process] = {};
+        // A spawned process starts on its parent's worker (run queues).
+        schedules_[&process].home = worker_ ? worker_index_ : 0;
         push(process);
         return true;
     } catch (const std::bad_alloc &) {
@@ -230,17 +231,123 @@ void Executor::push(ProcessContext &process, bool front) {
         state.ready = true;
         return;
     }
+    const auto home = place(state.home);
+    state.home = home;
+    auto &queue = queues_[home]->processes;
     if (front) {
-        queue_.push_front(&process);
+        queue.push_front(&process);
     } else {
-        queue_.push_back(&process);
+        queue.push_back(&process);
     }
-    // Lazy wakeups, as ERTS keeps processes that talk to each other on one scheduler: a worker queues work it takes
-    // itself after the current slice, so another worker is woken only for more than that one process. Other threads
-    // (timers, I/O) always wake a worker.
-    if (!worker_ || queue_.size() > 1) {
-        work_.notify_one();
+    signal_queued(home);
+}
+
+std::size_t Executor::place(std::size_t home) const noexcept {
+    home = std::min(home, queues_.size() - 1);
+    if (worker_ && home == worker_index_) {
+        return home;
     }
+    // A process that a running process wakes, whose worker sleeps with nothing queued, joins the waker's worker: a
+    // chain of messages stays on one worker instead of waking another per hop, and stealing spreads work again once
+    // a queue holds two. Any other waker (a port task, the timer or I/O thread, another worker between slices) hands
+    // a process whose worker is busy to an idle worker, which runs it at once.
+    const auto &queue = *queues_[home];
+    if (worker_ && running_ != nullptr) {
+        return queue.idle && queue.processes.empty() ? worker_index_ : home;
+    }
+    return queue.idle ? home : idle_worker().value_or(home);
+}
+
+void Executor::signal_queued(std::size_t home) {
+    // Lazy wakeups, as ERTS keeps processes that talk to each other on one scheduler: a busy worker takes its next
+    // queued process itself after the current slice, so another worker is woken only for more than that one.
+    auto &queue = *queues_[home];
+    if (queue.idle && !(worker_ && worker_index_ == home)) {
+        queue.wake.notify_one();
+    }
+    if (queue.processes.size() > 1) {
+        wake_idle(home);
+    }
+}
+
+std::optional<std::size_t> Executor::idle_worker() const noexcept {
+    for (std::size_t index = 0; index < queues_.size(); ++index) {
+        if (queues_[index]->idle && queues_[index]->processes.empty()) {
+            return index;
+        }
+    }
+    return std::nullopt;
+}
+
+void Executor::wake_idle(std::size_t except) {
+    for (std::size_t index = 0; index < queues_.size(); ++index) {
+        if (index != except && queues_[index]->idle) {
+            queues_[index]->wake.notify_one();
+            return;
+        }
+    }
+}
+
+void Executor::wake_all() {
+    for (const auto &queue : queues_) {
+        queue->wake.notify_all();
+    }
+}
+
+std::size_t Executor::queued() const noexcept {
+    std::size_t count = 0;
+    for (const auto &queue : queues_) {
+        count += queue->processes.size();
+    }
+    return count;
+}
+
+ProcessContext *Executor::steal(std::size_t thief) {
+    RunQueue *victim = nullptr;
+    for (std::size_t index = 0; index < queues_.size(); ++index) {
+        auto &queue = *queues_[index];
+        // A sleeping worker's only process is taken too: this worker runs it before that one wakes.
+        const auto spare = queue.idle ? std::size_t{1} : std::size_t{2};
+        if (index != thief && queue.processes.size() >= spare &&
+            (!victim || queue.processes.size() > victim->processes.size())) {
+            victim = &queue;
+        }
+    }
+    if (!victim) {
+        return nullptr;
+    }
+    auto *process = victim->processes.back();
+    victim->processes.pop_back();
+    schedule(*process).home = thief;
+    return process;
+}
+
+void Executor::balance(std::size_t index) {
+    // ERTS migrates processes between schedulers periodically; this compares one neighbor every few slices.
+    constexpr std::size_t BALANCE_SLICES = 4;
+    auto &own = *queues_[index];
+    if (++own.since_balance < BALANCE_SLICES || queues_.size() < 2) {
+        return;
+    }
+    own.since_balance = 0;
+    auto &neighbor = *queues_[(index + 1) % queues_.size()];
+    if (neighbor.processes.size() >= own.processes.size() + 2) {
+        auto *process = neighbor.processes.back();
+        neighbor.processes.pop_back();
+        schedule(*process).home = index;
+        own.processes.push_back(process);
+    }
+}
+
+ProcessContext *Executor::next_process(std::size_t index) {
+    balance(index);
+    auto &own = queues_[index]->processes;
+    if (own.empty()) {
+        return steal(index);
+    }
+    auto *process = own.front();
+    own.pop_front();
+    return process;
 }
 
 TermResult<void> Executor::wake(ProcessContext &receiver) {
@@ -269,8 +376,6 @@ void Executor::expire(ProcessContext &process) {
     process.stack().wake();
     push(process);
 }
-
-void Executor::idle(std::unique_lock<std::mutex> &lock) { work_.wait(lock); }
 
 std::uint64_t Executor::tick_of(const std::chrono::steady_clock::time_point deadline) const noexcept {
     if (deadline <= epoch_) {
@@ -329,8 +434,9 @@ void Executor::time() noexcept {
     }
 }
 
-void Executor::work() noexcept {
+void Executor::work(const std::size_t index) noexcept {
     worker_ = true;
+    worker_index_ = index;
     std::unique_lock lock(mutex_);
     while (!finished_) {
         try {
@@ -338,12 +444,15 @@ void Executor::work() noexcept {
                 run_port(*port);
                 continue;
             }
-            if (queue_.empty()) {
-                idle(lock);
+            auto *next = next_process(index);
+            if (!next) {
+                auto &queue = *queues_[index];
+                queue.idle = true;
+                queue.wake.wait(lock);
+                queue.idle = false;
                 continue;
             }
-            auto &process = *queue_.front();
-            queue_.pop_front();
+            auto &process = *next;
             schedule(process).running = true;
             ++slices_;
             lock.unlock();
@@ -360,7 +469,7 @@ void Executor::work() noexcept {
         }
     }
     worker_ = false;
-    work_.notify_all();
+    wake_all();
 }
 
 void Executor::after(ProcessContext &process, bool ended) {
@@ -463,15 +572,25 @@ ProcessContext &Executor::run(ProcessContext &main) noexcept {
     }
     std::vector<std::thread> helpers;
     const auto workers = main.runtime().impl_->options.schedulers;
-    for (std::size_t count = 1; count < workers; ++count) {
+    {
+        const std::scoped_lock lock(mutex_);
+        while (queues_.size() < workers) {
+            try {
+                queues_.push_back(std::make_unique<RunQueue>());
+            } catch (const std::bad_alloc &) {
+                break; // Run on the queues there are.
+            }
+        }
+    }
+    for (std::size_t count = 1; count < std::min(workers, queues_.size()); ++count) {
         try {
-            helpers.emplace_back([this] { work(); });
+            helpers.emplace_back([this, count] { work(count); });
         } catch (const std::exception &) {
             // Run on the workers started so far.
             break;
         }
     }
-    work();
+    work(0);
     for (auto &helper : helpers) {
         helper.join();
     }
@@ -541,7 +660,9 @@ void Executor::clear() noexcept {
         }
     }
     schedules_.clear();
-    queue_.clear();
+    for (const auto &queue : queues_) {
+        queue->processes.clear();
+    }
     port_queue_.clear();
     parked_.clear();
     ending_.clear();

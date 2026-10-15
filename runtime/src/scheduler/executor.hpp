@@ -162,7 +162,7 @@ bool ends_program(ProcessContext &process) noexcept;
 class Executor final {
   public:
     // Bind the executor to the runtime whose processes it runs.
-    explicit Executor(Runtime::Impl &runtime) : runtime_(runtime) {}
+    explicit Executor(Runtime::Impl &runtime) : runtime_(runtime) { queues_.push_back(std::make_unique<RunQueue>()); }
 
     Executor(const Executor &) = delete;
     Executor &operator=(const Executor &) = delete;
@@ -351,6 +351,21 @@ class Executor final {
         TimerWheel::Timer timer;
         // Timer messages that fired while this process ran, delivered when its slice ends (step 41F).
         std::vector<std::shared_ptr<const MessageBuffer>> messages;
+        // The worker whose queue it joins when runnable: the one it last ran on or was spawned by (run queues).
+        std::size_t home = 0;
+    };
+
+    // One worker's runnable processes (run queues): a process stays with its worker, as on ERTS schedulers, and
+    // moves only when another worker steals it.
+    struct RunQueue final {
+        // Runnable processes of this worker in the order they run; a running process is in none of them.
+        std::deque<ProcessContext *> processes;
+        // Wakes this worker: a process was queued for it, there is work to steal, or the program ended.
+        std::condition_variable wake;
+        // Whether this worker waits for work.
+        bool idle = false;
+        // Slices run since this worker last compared its queue with its neighbor's.
+        std::size_t since_balance = 0;
     };
 
     // A start_timer/send_after timer (plan step 41F): its message waits in a buffer of its own until it fires.
@@ -460,10 +475,27 @@ class Executor final {
     // Restore the running process after a signal operation of a builtin, which may run outside run().
     class Running;
 
-    // Run processes from the queue until the program ends; every worker thread runs this.
-    void work() noexcept;
-    // Wait until a process is queued, by another worker, a send, or the timer thread.
-    void idle(std::unique_lock<std::mutex> &lock);
+    // Run processes from worker `index`'s queue until the program ends; every worker thread runs this.
+    void work(std::size_t index) noexcept;
+    // The next process worker `index` runs: its own queue's first, else one stolen; null when there is none.
+    ProcessContext *next_process(std::size_t index);
+    // Take one process from the back of the longest other queue holding at least two, or one if its worker sleeps
+    // (run queues).
+    ProcessContext *steal(std::size_t thief);
+    // Every few slices: steal one process from the neighbor's queue when it holds at least two more (run queues).
+    void balance(std::size_t index);
+    // The worker whose queue a runnable process with home worker `home` joins (run queues).
+    std::size_t place(std::size_t home) const noexcept;
+    // Wake the worker of queue `home` if it is idle and another thread queued for it, and an idle worker to steal
+    // when that queue holds more than one process (lazy wakeups, OPT0.19).
+    void signal_queued(std::size_t home);
+    // A worker that waits with nothing queued, if any.
+    std::optional<std::size_t> idle_worker() const noexcept;
+    // Wake one idle worker other than `except`, or all workers.
+    void wake_idle(std::size_t except);
+    void wake_all();
+    // Processes queued on every worker.
+    std::size_t queued() const noexcept;
     // The timer thread: sleep until the next occupied slot of the wheel, read the clock once, and queue the parked
     // processes whose receive timeout expired, until the program ends.
     void time() noexcept;
@@ -570,8 +602,6 @@ class Executor final {
     Runtime::Impl &runtime_;
     // Guards everything below and every process that is not running.
     mutable std::mutex mutex_;
-    // Wakes idle workers: a process was queued or the program ended.
-    std::condition_variable work_;
     // Wakes the timer thread: an earlier timer was armed, or run() ends.
     std::condition_variable timer_signal_;
     // Tick 0 of the wheel.
@@ -585,8 +615,8 @@ class Executor final {
     std::uint64_t clock_reads_ = 0;
     // Scheduling state of every process started and not yet released.
     std::unordered_map<ProcessContext *, Schedule> schedules_;
-    // Runnable processes in the order they run; a running process is in none of them.
-    std::deque<ProcessContext *> queue_;
+    // The run queue of each worker; worker 0 is the thread that called run().
+    std::vector<std::unique_ptr<RunQueue>> queues_;
     // Numbers of ports whose tasks wait to run, oldest first; a closed port's number is skipped.
     std::deque<Word> port_queue_;
     // Whether the next pick goes to the port queue while both queues have work.
@@ -602,6 +632,8 @@ class Executor final {
     // Whether the calling thread is a scheduler worker, which takes the next queued process itself when its current
     // slice ends (lazy wakeups).
     static inline thread_local bool worker_ = false;
+    // The worker the calling thread is, while worker_ is set.
+    static inline thread_local std::size_t worker_index_ = 0;
     // The process whose outcome ends the program, once one ended; run() returns it.
     ProcessContext *finished_ = nullptr;
     // Registered names (atom words) and their pid or port words; a name is released when its owner ends.

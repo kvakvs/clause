@@ -268,8 +268,9 @@
   with re-check); `runtime_concurrency` stresses it from 8 threads. Step 55: `CodeServer` likewise (modules_,
   external_funs_; private unlocked `find_*` helpers); modules never unloaded, so returned pointers stay valid.
   Step 56 (`docs/processes.md#workers`): `Executor::run` starts `RuntimeOptions::schedulers - 1` threads and
-  runs `work()` on each (one shared FIFO queue, `mutex_`, `work_` condition variable, idle waits until the earliest
-  timer). Per-process `Schedule` (running, blocked_on, blockers, holds/holding, ready, ending) in `schedules_`;
+  runs `work(index)` on each (OPT0.25: one `RunQueue` per worker with its own condition variable and idle flag, all
+  under `mutex_`; `Schedule::home` affinity, `place()` wake-affine/idle handoff, `steal()` from queues of two or a
+  sleeping worker's one, `balance()` with the right neighbor every 4 slices). Per-process `Schedule` (running, blocked_on, blockers, holds/holding, ready, ending) in `schedules_`;
   thread_local `running_`. Signals' links/monitors/name are executor-guarded; heap/mailbox/failure of a process
   running elsewhere are not touched: `send`/`exit` throw `builtins::Blocked`, the typed adapter traps to
   `Adapter::RETRY` (itself) and `after()` parks the sender among the target's blockers; at the target's slice end

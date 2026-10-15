@@ -212,7 +212,9 @@ void Executor::retire(ProcessContext &process) {
 }
 
 void Executor::withdraw(ProcessContext &process) {
-    std::erase(queue_, &process);
+    for (const auto &queue : queues_) {
+        std::erase(queue->processes, &process);
+    }
     if (parked_.erase(&process) != 0) {
         cancel(process);
     }
@@ -376,7 +378,7 @@ std::vector<Word> Executor::registered(ProcessContext &context) const {
 void Executor::stop(ProcessContext &process) {
     if (!finished_) {
         finished_ = &process;
-        work_.notify_all();
+        wake_all();
     } else {
         stopped_.push_back(&process);
     }
@@ -405,12 +407,14 @@ void Executor::fail_main() noexcept {
         withdraw(*main_);
     } catch (const std::bad_alloc &) {
         // The main process ends the program now; queues are released by clear().
-        queue_.clear();
+        for (const auto &queue : queues_) {
+            queue->processes.clear();
+        }
     }
     auto &calls = main_->generated_calls();
     calls.clear();
     calls.fail_service(abi::v1::Status::out_of_memory);
     finished_ = main_;
-    work_.notify_all();
+    wake_all();
 }
 } // namespace clause::runtime::detail

@@ -14,9 +14,10 @@ One runtime runs its processes on its scheduler workers ([workers](#workers),
 call the first process, the main process, and runs the executor until it
 ends:
 
-- Runnable processes wait in one first-in, first-out queue. A worker runs
-  the first one for a time slice of 4,000 reductions (OTP's `CONTEXT_REDS`),
-  then puts it back at the end of the queue, unless it ended.
+- Runnable processes wait in their worker's first-in, first-out run queue
+  ([workers](#workers)). A worker runs the first one for a time slice of 4,000
+  reductions (OTP's `CONTEXT_REDS`), then puts it back at the end of its
+  queue, unless it ended.
 - Every function entry spends one reduction: calls, tail calls, fun and
   dynamic calls, and builtins. With none left, the entry does not happen:
   the process records the function it was entering, keeps its arguments in
@@ -56,17 +57,25 @@ program and one more thread per further worker. Programs take the count from
 `--schedulers N` (1 to 1,024, [runtime options](executables.md#runtime-options));
 the default is one worker per logical processor, as OTP's `+S`.
 
-- Every worker takes the first process of the one shared queue (the
-  documented alternative to per-worker queues with work stealing: one queue
-  keeps OTP's first-in, first-out order and needs no stealing). Idle workers
-  sleep until a process is queued; the timer thread queues processes whose
-  receive timeout expires ([receive timeouts](#receive-timeouts)).
+- Each worker has its own run queue (OPT0.25), as each ERTS scheduler does: a
+  process stays with the worker it last ran on, so its heap stays in that
+  core's caches. A spawned process starts on its parent's worker. Idle workers
+  sleep until a process is queued for them or there is work to steal; the
+  timer thread queues processes whose receive timeout expires
+  ([receive timeouts](#receive-timeouts)).
+- Processes migrate as on ERTS, which balances its run queues periodically:
+  every 4 slices a worker compares its queue with its neighbor's and takes
+  one process from it when the neighbor holds at least two more. A worker
+  with an empty queue steals one process from the longest queue holding at
+  least two, or the only process of a sleeping worker, which it runs before
+  that worker wakes.
 - Wakeups are lazy (OPT0.19), as ERTS keeps processes that talk to each other
-  on one scheduler: a worker that queues a process wakes another worker only
-  when the queue then holds more than that one process, since it takes the
-  queue's next process itself when its slice ends; the timer and I/O threads
-  always wake one. A second runnable process thus gets its own worker at the
-  next slice end, when the queue holds two.
+  on one scheduler: a running process that wakes a process of a sleeping,
+  empty worker queues it on its own worker, which takes it when its slice
+  ends; another worker is woken only when a queue then holds more than one
+  process. The timer and I/O threads, port tasks and workers between slices
+  queue a process for its own worker, or for an idle worker when its own one
+  is busy.
 - One executor mutex guards the queue, the waiting processes, the timers, the
   registered names, the links and monitors of every process, and every
   process that is not running. A running process's heap, stack, mailbox and

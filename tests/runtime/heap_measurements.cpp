@@ -14,8 +14,9 @@ using namespace clause::runtime;
 namespace {
 // Count live host bytes so heap backing and side metadata (fragment chain, buffers) are both visible.
 std::size_t live_bytes = 0;
-// Prefix each block with its size; a max_align_t prefix keeps returned storage fundamentally aligned.
-constexpr std::size_t prefix = alignof(std::max_align_t);
+// Prefix each block with its size; the prefix keeps returned storage aligned as operator new must
+// (__STDCPP_DEFAULT_NEW_ALIGNMENT__, 16 bytes on x64, more than max_align_t on Windows).
+constexpr std::size_t prefix = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 } // namespace
 
 // Record the block size ahead of the returned storage before delegating to the host allocator.
