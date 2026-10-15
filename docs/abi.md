@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 16)
+# Generated-code ABI (revision 17)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -237,7 +237,7 @@ const TermWord *)` signature as a host entry calling
   profiles. Otherwise the code comes from `CLAUSE_enter_v1` (call),
   `CLAUSE_tail_v1` (tail call) or `CLAUSE_return_v1` (return), which keep the
   state current.
-- Every transfer passes the first `abi::v1::register_arguments` (3) X registers
+- Every transfer passes the first `abi::v1::register_arguments` (6 since revision 17) X registers
   as C parameters after the context (OPT0.1A): a call's leading arguments, a
   return's result (as `x0` of the caller's body), zero for unused ones. Further
   arguments travel in the register array. Around every transfer service the
@@ -355,3 +355,4 @@ success.
 | 14 | Module literal areas: `ModuleDescriptor::literals`, `literal_words` (OPT0.4) |
 | 15 | `FrameState::self`, the context's pid word (OPT0.2D) |
 | 16 | `Code` uses `preserve_none` on x86-64 and AArch64 with a Clang-built runtime; `ModuleDescriptor::code_convention` (OPT0.1A follow-up) |
+| 17 | Six X registers as `Code` parameters (`register_arguments`, OPT0.1A follow-up) |

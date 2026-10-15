@@ -14,9 +14,9 @@ namespace clause::abi::v1 {
 // revision 10 passes the leading X registers as code parameters (OPT0.1A); revision 11 fixes the words of false and
 // true (OPT0.2A); revision 12 adds the inline heap fields to FrameState (OPT0.3); revision 13 fixes more atoms and adds
 // the module atom cache and FrameState::runtime (OPT0.8); revision 14 adds module literal areas (OPT0.4); revision 15
-// adds FrameState::self (OPT0.2D); revision 16 records the Code convention in module descriptors; v1 names the
-// unchanged term encoding.
-inline constexpr std::uint32_t version = 16;
+// adds FrameState::self (OPT0.2D); revision 16 records the Code convention in module descriptors; revision 17 passes
+// six X registers as Code parameters; v1 names the unchanged term encoding.
+inline constexpr std::uint32_t version = 17;
 // Decode the shared immediate-term representation without preprocessor constants.
 inline constexpr unsigned primary_mask = 0x3;
 inline constexpr unsigned small_integer_tag = 0xf;
@@ -42,8 +42,9 @@ using Context = runtime::ProcessContext;
 using GeneratedFunction = TermWord(Context *, const TermWord *);
 // X registers every code transfer passes as parameters after the context (OPT0.1A): arguments on entry, the result
 // when a body resumes after a call. The others, and these whenever a service runs, live in the register array.
-inline constexpr std::size_t register_arguments = 3;
-// Generated continuation code: entered with the process context and x0..x2, it leaves only by tail transfers. Where
+// Six since revision 17: with preserve_none every one is a register on x86-64 and AArch64 (OPT0.1A follow-up).
+inline constexpr std::size_t register_arguments = 6;
+// Generated continuation code: entered with the process context and x0..x5, it leaves only by tail transfers. Where
 // the compiler supports it (Clang on x86-64 and AArch64), Code keeps no callee-saved registers: it never returns
 // normally, so saving them on every entry is waste (preserve_none, OPT0.1A follow-up). C++ code defining a Code
 // function marks it CLAUSE_CODE_CONVENTION.
@@ -54,7 +55,7 @@ inline constexpr bool code_preserve_none = true;
 #define CLAUSE_CODE_CONVENTION
 inline constexpr bool code_preserve_none = false;
 #endif
-using Code = void CLAUSE_CODE_CONVENTION(void *, TermWord, TermWord, TermWord);
+using Code = void CLAUSE_CODE_CONVENTION(void *, TermWord, TermWord, TermWord, TermWord, TermWord, TermWord);
 
 static_assert(sizeof(TermWord) == 4 || sizeof(TermWord) == 8);
 static_assert(alignof(TermWord) == sizeof(TermWord));

@@ -137,8 +137,7 @@ Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.
 - **OPT0.1A follow-ups:**
   - frameless leaves (no push for a function with no non-tail call and nothing
     live across a safepoint, keeping the reduction check and entry safepoint)
-  - a per-target parameter count K (SysV x86-64 and AArch64 have more argument
-    registers than the 3 used everywhere now)
+  - ~~a per-target parameter count K~~: done 2026-10-15 as six everywhere (ABI 17)
   - ~~`preserve_none` where the runtime can declare it~~: done 2026-10-15 (ABI 16)
 - **OPT0.5B follow-up:** in-place updates for maps that arrive from callers
   (`maps:put/3`, accumulator parameters) need interprocedural uniqueness or

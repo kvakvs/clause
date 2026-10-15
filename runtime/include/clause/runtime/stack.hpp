@@ -74,7 +74,9 @@ class ProcessStack final {
     Word *registers() noexcept { return registers_.data(); }
 
     // Run continuation code with the leading registers as its parameters (OPT0.1A), as generated transfers pass them.
-    void run_code(abi::v1::Code *code) const { code(&owner_, registers_[0], registers_[1], registers_[2]); }
+    void run_code(abi::v1::Code *code) const {
+        code(&owner_, registers_[0], registers_[1], registers_[2], registers_[3], registers_[4], registers_[5]);
+    }
 
     // Keep the first `count` registers as roots until the next push or pop, as a suspended entry's arguments.
     void keep_registers(const std::size_t count) const noexcept { state_.live = std::min(count, registers_.size()); }

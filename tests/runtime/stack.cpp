@@ -28,12 +28,13 @@ bool throw_in_body = false;
 // Run continuation code; hand-written bodies use ordinary calls where generated code uses tail calls.
 void run(Code *code, void *context) {
     const auto *x = static_cast<ProcessContext *>(context)->stack().registers();
-    code(context, x[0], x[1], x[2]);
+    code(context, x[0], x[1], x[2], x[3], x[4], x[5]);
 }
 
 // Return the first argument plus one after recording the frame's slots.
 CLAUSE_CODE_CONVENTION void increment_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
-                                           clause::abi::v1::TermWord) {
+                                           clause::abi::v1::TermWord, clause::abi::v1::TermWord,
+                                           clause::abi::v1::TermWord, clause::abi::v1::TermWord) {
     auto *header = active->frame();
     observed.assign(header + frame_header_words, header + frame_header_words + 3);
     if (throw_in_body) {
@@ -47,6 +48,7 @@ const FrameDescriptor increment{nullptr, 0, 0, 1, &increment_body, 3, 2};
 
 // Call increment(X) and return {its result, X}: the argument slot survives the callee's frame.
 CLAUSE_CODE_CONVENTION void caller_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
+                                        clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
                                         clause::abi::v1::TermWord) {
     auto *header = active->frame();
     if (header[frame_resume_word] == 0) {
@@ -63,11 +65,13 @@ const FrameDescriptor caller{nullptr, 0, 0, 1, &caller_body, 1, 1};
 
 // Count down by tail calls; a non-tail version would need one frame per step.
 CLAUSE_CODE_CONVENTION void countdown_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
-                                           clause::abi::v1::TermWord);
+                                           clause::abi::v1::TermWord, clause::abi::v1::TermWord,
+                                           clause::abi::v1::TermWord, clause::abi::v1::TermWord);
 const FrameDescriptor countdown{nullptr, 0, 0, 1, &countdown_body, 1, 1};
 
 CLAUSE_CODE_CONVENTION void countdown_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
-                                           clause::abi::v1::TermWord) {
+                                           clause::abi::v1::TermWord, clause::abi::v1::TermWord,
+                                           clause::abi::v1::TermWord, clause::abi::v1::TermWord) {
     const auto value = active->frame()[frame_header_words];
     if (value == encode_integer(0).value()) {
         run(active->leave(value), context);
@@ -79,10 +83,12 @@ CLAUSE_CODE_CONVENTION void countdown_body(void *context, clause::abi::v1::TermW
 
 // Recurse without returning until entry fails; the failing entry resumes the caller with 0.
 CLAUSE_CODE_CONVENTION void deep_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
+                                      clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
                                       clause::abi::v1::TermWord);
 const FrameDescriptor deep{nullptr, 0, 0, 0, &deep_body, 2, 2};
 
 CLAUSE_CODE_CONVENTION void deep_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
+                                      clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
                                       clause::abi::v1::TermWord) {
     auto *header = active->frame();
     if (header[frame_resume_word] == 0) {
@@ -161,6 +167,7 @@ void boundaries(ProcessContext &context) {
 
 // Named frames appear innermost first; unnamed frames and raw slots are left out of traces and roots.
 CLAUSE_CODE_CONVENTION void trace_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
+                                       clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
                                        clause::abi::v1::TermWord) {
     auto *header = active->frame();
     header[frame_header_words] = encode_integer(7).value();
