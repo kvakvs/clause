@@ -195,10 +195,40 @@ std::optional<std::size_t> operator_builtin(ast::BinaryOperator operation) {
     }
 }
 
+// `Left ++ Right` where Left is written as a proper list (a string literal, or a list without a tail) built as
+// [E1, ..., En | Right], as OTP's compiler does, without the builtin's copy (literal prefixes); null otherwise.
+llvm::Value *literal_prefix(ExpressionLowering &state, const ast::BinaryExpression &binary, llvm::Value *right) {
+    const auto &syntax = *state.module.syntax;
+    const auto &left = syntax.expression(semantic::ungroup(syntax, binary.left)).value;
+    std::vector<llvm::Value *> values;
+    if (const auto *string = std::get_if<ast::StringLiteral>(&left)) {
+        for (const auto character : string->value) {
+            values.push_back(llvm::ConstantInt::get(
+                state.word, *abi::v1::IntegerEncoding<32>::encode(static_cast<std::int64_t>(character))));
+        }
+    } else if (const auto *list = std::get_if<ast::List>(&left); list && !list->tail) {
+        for (const auto &element : list->elements) {
+            values.push_back(state.values.at(&syntax.expression(element)));
+        }
+    } else {
+        return nullptr;
+    }
+    if (values.empty()) {
+        return right;
+    }
+    values.push_back(right);
+    return lower_list(state, values);
+}
+
 // List and send operators call their bridge builtins; every other binary operator uses the shared checked services.
 llvm::Value *binary_value(ExpressionLowering &state, const ast::BinaryExpression &binary) {
     const std::array values{state.values.at(&state.module.syntax->expression(binary.left)),
                             state.values.at(&state.module.syntax->expression(binary.right))};
+    if (binary.operation == ast::BinaryOperator::append) {
+        if (auto *prefixed = literal_prefix(state, binary, values[1])) {
+            return prefixed;
+        }
+    }
     if (const auto builtin = operator_builtin(binary.operation)) {
         return lower_builtin(state, *builtin, values);
     }

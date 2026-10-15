@@ -139,7 +139,16 @@ operators() ->
         attempt(fun() -> A -- id(x) end),
         attempt(fun() -> id([1 | 2]) -- [] end)
     ]),
-    erlang:display([show(a) ++ show(b), show(c) -- show(d)]).
+    erlang:display([show(a) ++ show(b), show(c) -- show(d)]),
+    % Literal prefixes are built as cons cells onto the right operand.
+    erlang:display([
+        "ab" ++ id([1]),
+        "ab" ++ [],
+        [] ++ id(z),
+        [a, b | []] ++ id(c),
+        "x" ++ "y" ++ id("z"),
+        [id(1), 2] ++ id(tail)
+    ]).
 
 %% Print a tag on evaluation, then yield it as a one-element list.
 show(Tag) ->

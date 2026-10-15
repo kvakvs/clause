@@ -235,6 +235,9 @@ const TermWord *)` signature as a host entry calling
   integer constants and string literals at constant whole-byte widths, at most
   64 bytes) is an inline binary cell of the module literal area (OPT0.18), like
   other compound literals (OPT0.4).
+- `Left ++ Right` where `Left` is written as a proper list (a string literal,
+  or a list without a tail) is built as `[E1, ..., En | Right]`, as OTP's
+  compiler does, without calling `erlang:'++'/2` (OPT0.21).
 - `erlang:make_tuple(N, V)` with a small `N` in 1..64 bump-allocates the tuple
   and fills it with `llvm.experimental.memset.pattern` where the heap has room;
   otherwise the builtin runs (OPT0.18).

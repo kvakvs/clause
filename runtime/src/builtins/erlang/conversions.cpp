@@ -6,6 +6,8 @@
 #include "terms.hpp"
 #include <algorithm>
 #include <array>
+#include <boost/container/small_vector.hpp>
+#include <charconv>
 #include <clause/abi/equality.hpp>
 #include <clause/runtime/atoms.hpp>
 #include <clause/runtime/output.hpp>
@@ -18,11 +20,6 @@
 namespace clause::runtime::builtins {
 namespace {
 using detail::Integer;
-
-// atom_to_list(Atom): its characters.
-TermResult<Term> atom_to_list(ProcessContext &context, const AtomArgument &atom) {
-    return char_list(context, code_points(atom.spelling));
-}
 
 // list_to_atom(String): more than 255 characters is system_limit; a full atom table stops the program.
 BuiltinResult<Term> list_to_atom(ProcessContext &context, const Term &list) {
@@ -218,12 +215,90 @@ template <bool Pid> TermResult<Term> identity_to_list(ProcessContext &context, c
     return byte_list(context, need(format_term(value, TermStyle::write)));
 }
 
+// The word of a list of character words onto [], built in one step.
+Word char_words(ProcessContext &context, std::span<const Word> characters) {
+    TermFactory factory(context);
+    return need(factory.list_words(characters, need(factory.nil()))).word();
+}
+
+// integer_to_list(Integer): a small integer's digits from its word with no staging allocation (word-level
+// conversions); other integers take the multiprecision path.
+Word integer_to_list_word(ProcessContext &context, Arguments arguments) {
+    if (const auto value = small(arguments[0])) {
+        std::array<char, 24> digits{};
+        const auto written = std::to_chars(digits.data(), digits.data() + digits.size(), *value);
+        boost::container::small_vector<Word, 24> characters;
+        for (const auto *at = digits.data(); at != written.ptr; ++at) {
+            characters.push_back(*abi::v1::NativeIntegerEncoding::encode(static_cast<unsigned char>(*at)));
+        }
+        return char_words(context, characters);
+    }
+    const auto term = term_of(context, arguments[0]);
+    if (!term.is_integer()) {
+        bad_argument();
+    }
+    return need(integer_to_list1(context, need(detail::integer_read(term)))).word();
+}
+
+// Up to 20 ASCII characters of a proper list read from its cells; none for a longer, improper or non-ASCII list.
+std::optional<std::string> short_text(ProcessContext &context, Word list) {
+    std::string text;
+    auto rest = term_of(context, list);
+    bool ascii = true;
+    walk(rest, 20, [&](Word head) {
+        const auto code = small(head);
+        ascii = ascii && code && *code >= 0 && *code < 128;
+        if (ascii) {
+            text.push_back(static_cast<char>(*code));
+        }
+    });
+    return ascii && rest.is_nil() ? std::optional{std::move(text)} : std::nullopt;
+}
+
+// The small integer a short decimal text spells, with an optional sign; none for any other text, which takes the
+// general path. from_chars takes a leading minus only; a plus is OTP's other sign, never followed by a minus.
+std::optional<std::int64_t> small_decimal(std::string_view text) {
+    const bool plus = text.starts_with('+');
+    const auto digits = text.substr(plus ? 1 : 0);
+    if (digits.empty() || (plus && digits.front() == '-')) {
+        return std::nullopt;
+    }
+    std::int64_t value = 0;
+    const auto parsed = std::from_chars(digits.data(), digits.data() + digits.size(), value);
+    const bool whole = parsed.ec == std::errc{} && parsed.ptr == digits.data() + digits.size();
+    return whole && abi::v1::NativeIntegerEncoding::encode(value) ? std::optional{value} : std::nullopt;
+}
+
+// list_to_integer(String): a short decimal string from its words (word-level conversions); others take the general
+// path, which also reports every error.
+Word list_to_integer_word(ProcessContext &context, Arguments arguments) {
+    const auto text = short_text(context, arguments[0]);
+    if (const auto value = text ? small_decimal(*text) : std::nullopt) {
+        return *abi::v1::NativeIntegerEncoding::encode(*value);
+    }
+    return need(list_to_integer1(context, term_of(context, arguments[0]))).word();
+}
+
+// atom_to_list(Atom): its characters decoded straight into list words (word-level conversions).
+Word atom_to_list_word(ProcessContext &context, Arguments arguments) {
+    const auto atom = term_of(context, arguments[0]);
+    const auto spelling = atom.is_atom() ? atom.atom_spelling() : std::unexpected(TermError::wrong_type);
+    if (!spelling) {
+        bad_argument();
+    }
+    boost::container::small_vector<Word, 64> characters;
+    for (const auto code : code_points(*spelling)) {
+        characters.push_back(*abi::v1::NativeIntegerEncoding::encode(code));
+    }
+    return char_words(context, characters);
+}
+
 constexpr std::array CONVERSION_BUILTINS{
-    typed_entry<atom_to_list>("erlang", "atom_to_list"),
+    BuiltinEntry{"erlang", "atom_to_list", 1, &guarded<atom_to_list_word>},
     typed_entry<list_to_atom>("erlang", "list_to_atom"),
-    typed_entry<integer_to_list1>("erlang", "integer_to_list"),
+    BuiltinEntry{"erlang", "integer_to_list", 1, &guarded<integer_to_list_word>},
     typed_entry<integer_to_list2>("erlang", "integer_to_list"),
-    typed_entry<list_to_integer1>("erlang", "list_to_integer"),
+    BuiltinEntry{"erlang", "list_to_integer", 1, &guarded<list_to_integer_word>},
     typed_entry<list_to_integer2>("erlang", "list_to_integer"),
     typed_entry<float_to_list1>("erlang", "float_to_list"),
     typed_entry<float_to_list2>("erlang", "float_to_list"),

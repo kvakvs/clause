@@ -467,6 +467,9 @@ cannot keep other processes from running ([processes](processes.md)).
 - Results, errors and evaluation order are the same as running to completion.
   An error found late (an improper tail) is raised when the walk reaches it.
 - Host calls (`call_builtin`) continue every trap at once.
+- `integer_to_list/1` of a small integer, `list_to_integer/1` of a short
+  decimal string and `atom_to_list/1` work on words without staging
+  allocations; other arguments take the general paths (OPT0.21).
 - List walks validate the list once and read its cells as words, with no
   `Term` per cell; `Left ++ Right` copies a `Left` of at most 64 cells in one
   step without portion state (OPT0.12).
