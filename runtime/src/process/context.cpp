@@ -36,6 +36,8 @@ ProcessContext::ProcessContext(Runtime &runtime, ProcessIdentity identity, const
     if (static_cast<void *>(static_cast<abi::v1::FrameState *>(this)) != static_cast<void *>(this)) {
         std::terminate();
     }
+    // Atom caches of modules this runtime registered name it (OPT0.8).
+    abi::v1::FrameState::runtime = static_cast<std::size_t>(runtime.identity());
 }
 
 ProcessContext::~ProcessContext() { impl_->lifetime->alive_ = false; }

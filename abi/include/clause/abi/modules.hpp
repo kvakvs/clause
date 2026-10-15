@@ -46,6 +46,10 @@ struct ModuleDescriptor {
     // Function values this module creates (funs.hpp), bound to its atom slots at registration.
     const FunDescriptor *funs = nullptr;
     std::size_t fun_count = 0;
+    // Writable words beside the descriptor: the runtime identity that claimed them (0 for none), then the word of
+    // every atom slot. The first runtime to register the module fills them, so its generated code loads atom
+    // literals without a call; others call CLAUSE_atom_v3 (OPT0.8). Null for a descriptor without one.
+    TermWord *atom_cache = nullptr;
 };
 
 struct FrameDescriptor {
@@ -69,7 +73,7 @@ static_assert(std::is_standard_layout_v<ModuleDescriptor>);
 static_assert(sizeof(ExportDescriptor) == 5 * sizeof(TermWord));
 static_assert(offsetof(ExportDescriptor, entry) == 3 * sizeof(TermWord));
 static_assert(sizeof(AtomDescriptor) == 2 * sizeof(TermWord));
-static_assert(sizeof(ModuleDescriptor) == 8 + 10 * sizeof(TermWord));
+static_assert(sizeof(ModuleDescriptor) == 8 + 11 * sizeof(TermWord));
 static_assert(std::is_standard_layout_v<FrameDescriptor>);
 static_assert(sizeof(FrameDescriptor) == 7 * sizeof(TermWord));
 static_assert(offsetof(ModuleDescriptor, name) == 8);

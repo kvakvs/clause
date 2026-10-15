@@ -7,6 +7,9 @@ namespace clause::codegen {
 // The module and every function name are included for stack trace frames.
 llvm::Constant *emit_atom_table(llvm::Module &output, const semantic::Module &module, llvm::IntegerType *word,
                                 std::size_t &count);
+// The writable atom cache of a module descriptor: a claim word, then one word per atom slot (OPT0.8).
+llvm::GlobalVariable *emit_atom_cache(llvm::Module &output, const std::string &prefix, llvm::IntegerType *word,
+                                      std::size_t count);
 // The slot index of an atom spelling collected by emit_atom_table.
 llvm::Constant *atom_slot(llvm::Module &output, const std::string &spelling);
 } // namespace clause::codegen

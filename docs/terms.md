@@ -42,11 +42,18 @@ records; native records ([native records](native-records.md)); funs
   detectable. 32-bit processes have 2^26 lifetime identities in total.
 - Host atom Terms pin the spelling, surviving runtime teardown. Moving an atom
   between runtimes means interning `atom_utf8()` in the destination.
-- Booleans are the atoms `true`/`false`. They have the fixed words of atom
-  numbers 0 and 1 in every runtime (`abi::v1::false_atom`/`true_atom`, OPT0.2A),
-  entered with the storage and counted neither by `size()` nor toward
-  `max_atoms`; generated code uses them as constants. Every other atom word is
-  runtime-private.
+- Booleans are the atoms `true`/`false`. The fixed atoms `false`, `true`,
+  `undefined`, `ok` and `error` (`abi::v1::fixed_atom_spellings`) have the
+  words of atom numbers 0–4 in every runtime (OPT0.2A, OPT0.8), entered with
+  the storage, found without the lock and counted neither by `size()` nor
+  toward `max_atoms`; generated code uses them as constants. Every other atom
+  word is runtime-private.
+- Other atom literals load from the module's atom cache
+  (`ModuleDescriptor::atom_cache`: the claiming runtime's identity, then one
+  word per slot), which the first runtime to register the module fills; a
+  context whose `FrameState::runtime` matches the claim reads it without a
+  call, any other calls `CLAUSE_atom_v3` (OPT0.8). The claim is given back when
+  the runtime's code server releases the module.
 - Interning and lookup are safe from concurrent scheduler workers
   ([threads](runtime.md#threads)); a spelling keeps one word.
 

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <atomic>
 #include <clause/abi/v1.hpp>
 #include <clause/runtime/atoms.hpp>
@@ -6,10 +7,10 @@
 
 namespace clause::runtime {
 namespace {
-// Never reuse a raw atom word, even across destroyed runtimes or aborted registrations; only the fixed words of false
-// and true (numbers 0 and 1) are shared by every runtime (OPT0.2A).
+// Never reuse a raw atom word, even across destroyed runtimes or aborted registrations; only the fixed atoms' words
+// are shared by every runtime (OPT0.2A, OPT0.8).
 TermResult<Word> reserve_word() noexcept {
-    static std::atomic<Word> next{2};
+    static std::atomic<Word> next{abi::v1::fixed_atom_spellings.size()};
     constexpr auto maximum = std::numeric_limits<Word>::max() >> 6;
     auto candidate = next.load(std::memory_order_relaxed);
     do {
@@ -21,13 +22,20 @@ TermResult<Word> reserve_word() noexcept {
 }
 } // namespace
 
-AtomStorage::AtomStorage(const std::uint32_t limit)
-    : limit_(limit), false_(std::make_shared<const AtomValue>(abi::v1::false_atom, "false")),
-      true_(std::make_shared<const AtomValue>(abi::v1::true_atom, "true")) {
-    for (const auto &value : {false_, true_}) {
-        names_.emplace(value->spelling, value);
-        words_.emplace(value->word, value);
+AtomStorage::AtomStorage(const std::uint32_t limit) : limit_(limit) {
+    for (std::size_t number = 0; number < fixed_atoms; ++number) {
+        fixed_[number] =
+            std::make_shared<const AtomValue>(abi::v1::fixed_atom(number), abi::v1::fixed_atom_spellings[number]);
+        names_.emplace(fixed_[number]->spelling, fixed_[number]);
+        words_.emplace(fixed_[number]->word, fixed_[number]);
     }
+}
+
+const std::shared_ptr<const AtomValue> *AtomStorage::fixed(const std::string_view spelling) const noexcept {
+    const auto found = std::ranges::find(abi::v1::fixed_atom_spellings, spelling);
+    return found == abi::v1::fixed_atom_spellings.end()
+               ? nullptr
+               : &fixed_[static_cast<std::size_t>(found - abi::v1::fixed_atom_spellings.begin())];
 }
 
 Term AtomStorage::atom_term(const std::shared_ptr<const AtomValue> &value) noexcept {
@@ -37,9 +45,12 @@ Term AtomStorage::atom_term(const std::shared_ptr<const AtomValue> &value) noexc
     return result;
 }
 
-TermResult<Term> AtomStorage::boolean(bool value) const noexcept { return atom_term(value ? true_ : false_); }
+TermResult<Term> AtomStorage::boolean(bool value) const noexcept { return atom_term(fixed_[value ? 1 : 0]); }
 
 TermResult<Term> AtomStorage::intern(std::string_view spelling) noexcept {
+    if (const auto *entry = fixed(spelling)) {
+        return atom_term(*entry);
+    }
     if (!valid_atom_spelling(spelling)) {
         return std::unexpected(TermError::invalid_encoding);
     }
@@ -77,6 +88,9 @@ TermResult<Term> AtomStorage::intern(std::string_view spelling) noexcept {
 }
 
 std::optional<Term> AtomStorage::existing(std::string_view spelling) const noexcept {
+    if (const auto *entry = fixed(spelling)) {
+        return atom_term(*entry);
+    }
     const std::shared_lock lock(mutex_);
     const auto found = names_.find(spelling);
     return found == names_.end() ? std::nullopt : std::optional{atom_term(found->second)};

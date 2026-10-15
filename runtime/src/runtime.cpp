@@ -81,6 +81,8 @@ CodeServer *Runtime::code_server() noexcept { return impl_ ? &impl_->code_server
 
 AtomStorage *Runtime::atom_storage() noexcept { return impl_ ? &impl_->atom_storage : nullptr; }
 
+std::uint64_t Runtime::identity() const noexcept { return impl_ ? impl_->identity : 0; }
+
 SchedulerService *Runtime::scheduler() noexcept { return impl_ ? &impl_->scheduler : nullptr; }
 
 OutputSink Runtime::standard_output() const noexcept { return impl_ ? impl_->options.standard_output : OutputSink{}; }

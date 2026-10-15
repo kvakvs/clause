@@ -111,7 +111,7 @@ register_module(Runtime &runtime, const abi::v1::ModuleDescriptor &descriptor, s
         if (!added) {
             return std::unexpected(added.error());
         }
-        const auto atoms = bind_atoms(*runtime.atom_storage(), descriptor, server->builtins());
+        const auto atoms = bind_atoms(*runtime.atom_storage(), descriptor, server->builtins(), runtime.identity());
         if (!atoms) {
             return std::unexpected(atoms.error());
         }

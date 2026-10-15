@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 12)
+# Generated-code ABI (revision 13)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -18,8 +18,8 @@ from the configured LLVM target, so cross-target code uses target widths.
 - Small integers: low four bits `0xf`; signed payload of `word_bits - 4` bits,
   range `[-2^(word_bits-5), 2^(word_bits-5)-1]`. Larger values are heap bignums.
 - Atoms: low six bits `0x0b`, non-recycled process-wide payload. IDs are never
-  serialized or used for ordering. `false` and `true` are fixed: payloads 0 and 1
-  (`0x0b`, `0x4b`) in every runtime (revision 11).
+  serialized or used for ordering. `false`, `true`, `undefined`, `ok` and
+  `error` are fixed: payloads 0–4 in every runtime (revisions 11 and 13).
 - Empty tuple `0x2b` and nil `0x3b` exactly; other payload bits are invalid.
 - Local pids: low four bits `0x3`, payload the process number, admitted only
   when the runtime issued it ([pids and references](terms.md#pids-and-references)).
@@ -337,3 +337,4 @@ success.
 | 10 | Leading X registers passed as code parameters (OPT0.1A) |
 | 11 | Fixed words of `false` and `true` (OPT0.2A) |
 | 12 | Inline heap fields `heap_top`/`heap_limit` in `FrameState` (OPT0.3) |
+| 13 | Fixed `undefined`, `ok`, `error`; `ModuleDescriptor::atom_cache` and `FrameState::runtime` (OPT0.8) |

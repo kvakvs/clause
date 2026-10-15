@@ -1,5 +1,6 @@
 #include "atoms.hpp"
 #include <algorithm>
+#include <atomic>
 #include <clause/abi/funs.hpp>
 #include <clause/abi/records.hpp>
 
@@ -129,8 +130,35 @@ CodeResult<void> bind_funs(ModuleAtoms &bindings, const abi::v1::ModuleDescripto
 }
 } // namespace
 
-CodeResult<std::shared_ptr<const ModuleAtoms>>
-bind_atoms(AtomStorage &storage, const abi::v1::ModuleDescriptor &descriptor, const BuiltinRegistry &builtins) {
+namespace {
+// Claim the descriptor's atom cache for this runtime and fill it with the slot words; a cache another runtime
+// claimed stays its (OPT0.8).
+void claim_cache(ModuleAtoms &bindings, const abi::v1::ModuleDescriptor &descriptor, const std::uint64_t runtime) {
+    if (!descriptor.atom_cache || runtime == 0) {
+        return;
+    }
+    std::atomic_ref claim(descriptor.atom_cache[0]);
+    Word unclaimed = 0;
+    if (!claim.compare_exchange_strong(unclaimed, static_cast<Word>(runtime))) {
+        return;
+    }
+    for (std::size_t slot = 0; slot < bindings.slots.size(); ++slot) {
+        descriptor.atom_cache[slot + 1] = bindings.slots[slot].word();
+    }
+    bindings.claimed_cache = descriptor.atom_cache;
+}
+} // namespace
+
+ModuleAtoms::~ModuleAtoms() {
+    if (claimed_cache) {
+        std::atomic_ref(claimed_cache[0]).store(0);
+    }
+}
+
+CodeResult<std::shared_ptr<const ModuleAtoms>> bind_atoms(AtomStorage &storage,
+                                                          const abi::v1::ModuleDescriptor &descriptor,
+                                                          const BuiltinRegistry &builtins,
+                                                          const std::uint64_t runtime) {
     if (!valid_spellings(descriptor)) {
         return std::unexpected(CodeError::invalid_module);
     }
@@ -154,6 +182,7 @@ bind_atoms(AtomStorage &storage, const abi::v1::ModuleDescriptor &descriptor, co
     if (const auto funs = bind_funs(*bindings, descriptor, builtins); !funs) {
         return std::unexpected(funs.error());
     }
+    claim_cache(*bindings, descriptor, runtime);
     return bindings;
 }
 } // namespace clause::runtime

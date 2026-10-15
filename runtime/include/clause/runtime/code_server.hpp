@@ -88,6 +88,11 @@ struct ModuleAtoms final {
     // Explicit empty construction keeps Debug STL bookkeeping failures inside registration's catch boundary.
     ModuleAtoms() : slots(0) {}
 
+    // Give a claimed atom cache back, so a later runtime may claim it (OPT0.8).
+    ~ModuleAtoms();
+    ModuleAtoms(const ModuleAtoms &) = delete;
+    ModuleAtoms &operator=(const ModuleAtoms &) = delete;
+
     // Use the image-owned descriptor address solely as a stable lookup key, never dereference it at use sites.
     const void *descriptor = nullptr;
     // Pin every initialized spelling in compiler slot order, including duplicate slots.
@@ -99,6 +104,8 @@ struct ModuleAtoms final {
     // Atom word of the module name and its exports, which dynamic calls look up.
     Word module = 0;
     std::vector<ExportFrame> exports;
+    // The descriptor's atom cache when this runtime claimed it (OPT0.8), else null.
+    Word *claimed_cache = nullptr;
 };
 
 struct ModuleDefinition final {

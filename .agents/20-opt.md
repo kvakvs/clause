@@ -129,7 +129,7 @@ optimization target, not only a matter of correctness.
 These close the gap to BeamAsm. They come first because every later tier needs
 LLVM to *see* the operations instead of opaque service calls.
 
-Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.5A, OPT0.5B): see
+Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.5A, OPT0.5B, OPT0.8): see
 [00-finished.md](00-finished.md#plan-20). Open follow-ups of those steps:
 
 - **OPT0.1 follow-up:** comprehension loop-head safepoints still call
@@ -240,6 +240,8 @@ Done 2026-10-15 for tuples and lists, one check per construction ([record](00-fi
   - yield only at chunk granularity
 
 ### OPT0.8 Cached atom words in runtime services and literals
+
+Done 2026-10-15 ([record](00-finished.md#plan-20)).
 
 Added 2026-10-15 (user direction) from the luerl euler profile
 ([21-lib.md](21-lib.md#luerl-exampleseuler-2026-10-15)): about 21% of the samples

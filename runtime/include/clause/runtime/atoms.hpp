@@ -1,5 +1,7 @@
 #pragma once
 #include "terms.hpp"
+#include <array>
+#include <clause/abi/v1.hpp>
 #include <map>
 #include <optional>
 #include <shared_mutex>
@@ -32,14 +34,14 @@ class AtomStorage final {
     // Read a preinitialized canonical boolean; expression services never intern atoms.
     TermResult<Term> boolean(bool value) const noexcept;
 
-    // Observe retained entries for capacity accounting and registration diagnostics; the fixed false and true entries
-    // count neither here nor toward the limit (OPT0.2A).
+    // Observe retained entries for capacity accounting and registration diagnostics; the fixed entries count neither
+    // here nor toward the limit (OPT0.2A, OPT0.8).
     std::size_t size() const noexcept;
 
   private:
     friend class Runtime;
-    // false and true, entered with the storage.
-    static constexpr std::size_t fixed_atoms = 2;
+    // The fixed atoms (abi::v1::fixed_atom_spellings), entered with the storage.
+    static constexpr std::size_t fixed_atoms = abi::v1::fixed_atom_spellings.size();
 
     // Only runtime startup may construct storage after validating the immutable entry ceiling; false and true are
     // entered first, with their fixed words (OPT0.2A).
@@ -55,9 +57,11 @@ class AtomStorage final {
     // Both indexes share immutable records; failed insertion rolls back the other index.
     std::map<std::string, std::shared_ptr<const AtomValue>, std::less<>> names_;
     std::map<Word, std::shared_ptr<const AtomValue>> words_;
-    // The fixed false and true entries, read by boolean() without the lock (OPT0.2A).
-    std::shared_ptr<const AtomValue> false_;
-    std::shared_ptr<const AtomValue> true_;
+    // The fixed entries in number order, found without the lock (OPT0.2A, OPT0.8).
+    std::array<std::shared_ptr<const AtomValue>, fixed_atoms> fixed_;
+
+    // The fixed entry of a spelling, or null.
+    const std::shared_ptr<const AtomValue> *fixed(std::string_view spelling) const noexcept;
 };
 
 // Erlang atoms contain at most 255 Unicode scalar values, including the empty spelling and NUL.

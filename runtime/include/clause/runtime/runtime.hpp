@@ -76,6 +76,8 @@ class Runtime final {
     CodeServer *code_server() noexcept;
     // Borrow active runtime-owned atom storage; stopped runtimes return null.
     AtomStorage *atom_storage() noexcept;
+    // The never-reused identity of this runtime, nonzero; 0 once stopped. Module atom caches name it (OPT0.8).
+    std::uint64_t identity() const noexcept;
     // Borrow lifecycle bookkeeping while active; no scheduler workers are started and stopped runtimes return null.
     SchedulerService *scheduler() noexcept;
     // Copy the configured standard output sink; stopped runtimes report the stdout default.

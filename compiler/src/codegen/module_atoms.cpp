@@ -7,6 +7,7 @@
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
 #include <algorithm>
+#include <clause/abi/frames.hpp>
 #include <set>
 
 namespace clause::codegen {
@@ -263,26 +264,80 @@ llvm::Constant *emit_atom_table(llvm::Module &output, const semantic::Module &mo
                                     "module.atoms");
 }
 
+llvm::GlobalVariable *emit_atom_cache(llvm::Module &output, const std::string &prefix, llvm::IntegerType *word,
+                                      const std::size_t count) {
+    auto *type = llvm::ArrayType::get(word, count + 1);
+    return new llvm::GlobalVariable(output, type, false, llvm::GlobalValue::InternalLinkage,
+                                    llvm::ConstantAggregateZero::get(type), prefix + ".atom_cache");
+}
+
 llvm::Constant *atom_slot(llvm::Module &output, const std::string &spelling) {
     return output.getNamedGlobal(slot_name(spelling))->getInitializer();
 }
 
-llvm::Value *lower_atom(ExpressionLowering &state, const ast::Atom &atom) {
-    // false and true have fixed words in every runtime (OPT0.2A).
-    if (atom.name == U"false" || atom.name == U"true") {
-        return llvm::ConstantInt::get(state.word, atom.name == U"true" ? abi::v1::true_atom : abi::v1::false_atom);
-    }
+namespace {
+// The atom word of a slot through CLAUSE_atom_v3, which checks that the owner module is registered.
+llvm::Value *atom_service(ExpressionLowering &state, llvm::Constant *slot, llvm::Value *descriptor) {
     auto &output = *state.entry.getParent();
     auto &builder = state.builder;
-    auto *slot = atom_slot(output, utf8(atom.name));
-    const auto &owner = state.atom_owner ? *state.atom_owner : state.module;
-    const auto prefix = semantic::encode_symbol({utf8(owner.name), "", 0});
-    auto *descriptor = output.getNamedGlobal(prefix + ".descriptor");
     const auto symbol = services::symbol<services::Atom>(output.getTargetTriple());
     auto service = output.getOrInsertFunction(
         symbol, llvm::FunctionType::get(state.word, {builder.getPtrTy(), state.word, builder.getPtrTy()}, false));
     auto *value = builder.CreateCall(service, {state.entry.getArg(0), slot, descriptor}, "atom.value");
     propagate_failure(state);
     return value;
+}
+
+// The atom word from the module's atom cache when this context's runtime claimed it, else from the service (OPT0.8).
+llvm::Value *cached_atom(ExpressionLowering &state, llvm::GlobalVariable *cache, llvm::Constant *slot,
+                         llvm::Value *descriptor) {
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    auto *claim = builder.CreateAlignedLoad(state.word, cache, align, "atom.claim");
+    claim->setAtomic(llvm::AtomicOrdering::Monotonic);
+    auto *runtime = builder.CreateAlignedLoad(
+        state.word,
+        builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0),
+                                           static_cast<unsigned>(abi::v1::StateField::runtime)),
+        align, "context.runtime");
+    auto &context = state.entry.getContext();
+    auto *hit = llvm::BasicBlock::Create(context, "atom.cached", &state.entry);
+    auto *miss = llvm::BasicBlock::Create(context, "atom.service", &state.entry);
+    auto *join = llvm::BasicBlock::Create(context, "atom.join", &state.entry);
+    builder.CreateCondBr(
+        builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, claim, runtime)), hit,
+        miss);
+    builder.SetInsertPoint(hit);
+    auto *index = llvm::ConstantExpr::getAdd(slot, llvm::ConstantInt::get(state.word, 1));
+    auto *cached =
+        builder.CreateAlignedLoad(state.word, builder.CreateGEP(state.word, cache, index), align, "atom.word");
+    builder.CreateBr(join);
+    builder.SetInsertPoint(miss);
+    auto *serviced = atom_service(state, slot, descriptor);
+    auto *miss_end = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    return join_values(state, state.word, {hit, cached}, {miss_end, serviced});
+}
+} // namespace
+
+llvm::Value *lower_atom(ExpressionLowering &state, const ast::Atom &atom) {
+    // The fixed atoms have the same words in every runtime (OPT0.2A, OPT0.8).
+    const auto spelling = utf8(atom.name);
+    if (const auto fixed = std::ranges::find(abi::v1::fixed_atom_spellings, spelling);
+        fixed != abi::v1::fixed_atom_spellings.end()) {
+        return llvm::ConstantInt::get(
+            state.word, abi::v1::fixed_atom(static_cast<std::size_t>(fixed - abi::v1::fixed_atom_spellings.begin())));
+    }
+    auto &output = *state.entry.getParent();
+    auto *slot = atom_slot(output, spelling);
+    const auto &owner = state.atom_owner ? *state.atom_owner : state.module;
+    const auto prefix = semantic::encode_symbol({utf8(owner.name), "", 0});
+    auto *descriptor = output.getNamedGlobal(prefix + ".descriptor");
+    // Another module's literal defaults name that module's slots, whose cache this object cannot see.
+    if (auto *cache = output.getNamedGlobal(prefix + ".atom_cache"); cache && &owner == &state.module) {
+        return cached_atom(state, cache, slot, descriptor);
+    }
+    return atom_service(state, slot, descriptor);
 }
 } // namespace clause::codegen
