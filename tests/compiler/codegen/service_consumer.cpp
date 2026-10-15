@@ -358,9 +358,10 @@ int main() {
         boolean_failures(context);
         body_matches(context);
         checked_arguments(context);
-        for (const auto name : {"construct", "inspect", "heap_guard", "integer_guard", "integer_body", "float_guard",
-                                "float_body", "map_guard", "map_body", "map_pattern", "bits_guard", "bits_body",
-                                "record_guard", "record_body", "range_guard", "range_body"}) {
+        // inspect/1 tests its tuple shape inline since OPT0.2A, so no service of it can fail.
+        for (const auto name : {"construct", "heap_guard", "integer_guard", "integer_body", "float_guard", "float_body",
+                                "map_guard", "map_body", "map_pattern", "bits_guard", "bits_body", "record_guard",
+                                "record_body", "range_guard", "range_body"}) {
             failures(context, "service_answer", name);
         }
         bit_extractions(context);

@@ -268,6 +268,10 @@ llvm::Constant *atom_slot(llvm::Module &output, const std::string &spelling) {
 }
 
 llvm::Value *lower_atom(ExpressionLowering &state, const ast::Atom &atom) {
+    // false and true have fixed words in every runtime (OPT0.2A).
+    if (atom.name == U"false" || atom.name == U"true") {
+        return llvm::ConstantInt::get(state.word, atom.name == U"true" ? abi::v1::true_atom : abi::v1::false_atom);
+    }
     auto &output = *state.entry.getParent();
     auto &builder = state.builder;
     auto *slot = atom_slot(output, utf8(atom.name));

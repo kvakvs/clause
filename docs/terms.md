@@ -42,7 +42,11 @@ records; native records ([native records](native-records.md)); funs
   detectable. 32-bit processes have 2^26 lifetime identities in total.
 - Host atom Terms pin the spelling, surviving runtime teardown. Moving an atom
   between runtimes means interning `atom_utf8()` in the destination.
-- Booleans are the atoms `true`/`false`.
+- Booleans are the atoms `true`/`false`. They have the fixed words of atom
+  numbers 0 and 1 in every runtime (`abi::v1::false_atom`/`true_atom`, OPT0.2A),
+  entered with the storage and counted neither by `size()` nor toward
+  `max_atoms`; generated code uses them as constants. Every other atom word is
+  runtime-private.
 - Interning and lookup are safe from concurrent scheduler workers
   ([threads](runtime.md#threads)); a spelling keeps one word.
 

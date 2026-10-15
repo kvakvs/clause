@@ -115,7 +115,7 @@ void foreign(Runtime &runtime, ProcessContext &context, const Term &atom) {
             "second runtime registration failed");
     auto &second = *other->create_context().value();
     native_payloads(context, second, atom);
-    require(call(second, "answer", "truth").atom_utf8() == atom.atom_utf8(), "independent runtime spelling differs");
+    require(call(second, "answer", "ok_value").atom_utf8() == atom.atom_utf8(), "independent runtime spelling differs");
     require(Term::from_word(atom.word(), second).error() == TermError::wrong_owner, "foreign raw word aliased");
     require(atom.copy_to(second.heap()).error() == TermError::wrong_owner, "implicit cross-runtime copy admitted");
     const auto target = other->code_server()->resolve({"answer", "id", 1}).value();
@@ -138,10 +138,11 @@ void registration_order() {
     auto runtime = Runtime::start().value();
     require(register_client(runtime.get()) == 0, "client registration failed");
     auto &context = *runtime->create_context().value();
-    const auto target = runtime->code_server()->resolve({"client", "truth", 0}).value();
+    // ok, not true: false and true have fixed words, so a folded true needs no binding (OPT0.2A).
+    const auto target = runtime->code_server()->resolve({"client", "ok_value", 0}).value();
     require(!target.call(context, {}), "unregistered remote literal fabricated an atom");
     require(register_answer(runtime.get()) == 0, "remote registration failed");
-    require(target.call(context, {})->boolean_value() == true, "post-registration retry failed");
+    require(target.call(context, {})->atom_utf8() == "ok", "post-registration retry failed");
 }
 
 // Validate spelling boundaries and factory lifetime using real owned host atoms.
@@ -210,7 +211,8 @@ int main() {
         TermFactory expired(context);
         const auto atom = execution(*runtime, context);
         const auto failure = error_payload(context, atom);
-        foreign(*runtime, context, atom);
+        // false and true have the same words in every runtime (OPT0.2A); foreign words are checked with ok.
+        foreign(*runtime, context, call(context, "client", "ok_value"));
         spelling(context);
         runtime.reset();
         require(atom.atom_utf8() == "true" && payload(failure).boolean_value() == true,

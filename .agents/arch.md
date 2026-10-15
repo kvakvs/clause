@@ -370,7 +370,7 @@
   for an invalid lazy left operand. Join instructions retain operator provenance.
   See docs/{patterns,guards}.md.
 
-- Runtime Terms admit exact arbitrary integers, owned atoms, tuples and proper/improper lists. Atom storage validates UTF-8, deduplicates spelling and enforces limits.
+- Runtime Terms admit exact arbitrary integers, owned atoms, tuples and proper/improper lists. Atom storage validates UTF-8, deduplicates spelling and enforces limits; `false`/`true` are fixed atom numbers 0/1 in every runtime (ABI 11, OPT0.2A), constants in generated code. Match shapes are tested inline at every level; exact equality compares words first (OPT0.2A).
   Globally non-recycled words reject foreign ownership; immutable pins retain
   host/error spellings after teardown. Revision-4 module descriptors initialize
   deterministic atom slots before registry publication. Generated reads/booleans

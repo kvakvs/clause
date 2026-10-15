@@ -15,7 +15,8 @@ def main():
     records = load(source, "containers", work)
     native(tool, cmake, source, work, settings, config, suffix)
     ir = run([tool, '--print-ir', str(work / 'answer.erl'), str(work / 'client.erl')])
-    assert 'inspect.outcome' in ir and 'container.outcome' in ir
+    # Match shapes are tested inline (OPT0.2A); construction still calls its service.
+    assert 'match.tuple.header' in ir and 'container.outcome' in ir
     assert re.search(r'container.arguments\w* = getelementptr i64, ptr %frame.slots', ir)
     for triple in ['i686-pc-windows-msvc', 'x86_64-unknown-linux-gnu', 'i686-unknown-linux-gnu',
                    'aarch64-unknown-linux-gnu', 'armv7-unknown-linux-gnueabihf',

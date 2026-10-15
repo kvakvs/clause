@@ -72,7 +72,8 @@ def widths(tool, work):
         path = work / "width.erl"
         path.write_text(f"-module(width).\nf(-{bound}, {bound-1}) -> ok.\n", encoding="utf-8")
         ir = run([tool, "--target-triple", triple, "--print-ir", str(path)])
-        assert f"i{bits}" in ir and "exact.outcome" in ir and "match.mismatch" in ir
+        # Immediate literals compare as words inline (OPT0.2A).
+        assert f"icmp eq i{bits}" in ir and "exact.outcome" not in ir and "match.mismatch" in ir
         run([tool, "--target-triple", triple, "--emit", "obj", "--artifact-dir", str(work / f"width{bits}"), str(path)])
         path.write_text(f"-module(width).\nf({bound}) -> ok.\n", encoding="utf-8")
         ir = run([tool, "--target-triple", triple, "--print-ir", str(path)])

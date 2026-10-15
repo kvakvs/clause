@@ -32,14 +32,18 @@ class AtomStorage final {
     // Read a preinitialized canonical boolean; expression services never intern atoms.
     TermResult<Term> boolean(bool value) const noexcept;
 
-    // Observe retained entries for capacity accounting and registration diagnostics.
+    // Observe retained entries for capacity accounting and registration diagnostics; the fixed false and true entries
+    // count neither here nor toward the limit (OPT0.2A).
     std::size_t size() const noexcept;
 
   private:
     friend class Runtime;
+    // false and true, entered with the storage.
+    static constexpr std::size_t fixed_atoms = 2;
 
-    // Only runtime startup may construct storage after validating the immutable entry ceiling.
-    explicit AtomStorage(const std::uint32_t limit) : limit_(limit) {}
+    // Only runtime startup may construct storage after validating the immutable entry ceiling; false and true are
+    // entered first, with their fixed words (OPT0.2A).
+    explicit AtomStorage(std::uint32_t limit);
 
     // The atom Term of a stored entry, pinning its spelling.
     static Term atom_term(const std::shared_ptr<const AtomValue> &value) noexcept;
@@ -51,6 +55,9 @@ class AtomStorage final {
     // Both indexes share immutable records; failed insertion rolls back the other index.
     std::map<std::string, std::shared_ptr<const AtomValue>, std::less<>> names_;
     std::map<Word, std::shared_ptr<const AtomValue>> words_;
+    // The fixed false and true entries, read by boolean() without the lock (OPT0.2A).
+    std::shared_ptr<const AtomValue> false_;
+    std::shared_ptr<const AtomValue> true_;
 };
 
 // Erlang atoms contain at most 255 Unicode scalar values, including the empty spelling and NUL.

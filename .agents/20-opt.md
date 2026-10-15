@@ -129,7 +129,7 @@ optimization target, not only a matter of correctness.
 These close the gap to BeamAsm. They come first because every later tier needs
 LLVM to *see* the operations instead of opaque service calls.
 
-Done (OPT0.1, OPT0.1A, OPT0.5A, OPT0.5B): see
+Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.5A, OPT0.5B): see
 [00-finished.md](00-finished.md#plan-20). Open follow-ups of those steps:
 
 - **OPT0.1 follow-up:** comprehension loop-head safepoints still call
@@ -163,6 +163,22 @@ Today all of these go through `CLAUSE_immediate_v1`, `CLAUSE_exact_v1` or
 - **Invariant:** a split fast/slow lowering (`length/1`, bignum comparison) is
   atomic. No pass may delete the slow tail because it believes the fast path
   always succeeds.
+
+Split on 2026-10-15 (user direction to implement OPT0.2 and OPT0.3) before coding:
+
+- **OPT0.2A Fixed boolean atoms, inline exact equality and match shapes** (done 2026-10-15,
+  [record](00-finished.md#plan-20)).
+  `false` and `true` get fixed atom words in every runtime (ABI constants), so
+  generated code and services use them without a lookup (the boolean part of
+  OPT0.8). Guard truth tests, `=:=`/`=/=` and match equality compare words
+  inline (identical words are equal; an immediate operand decides), calling
+  `CLAUSE_exact_v1` only for two distinct boxed or list words. Match plans test
+  tuple and cons shapes inline at every optimization level and then read the
+  elements inline; immediate literals compare as words at O0 too.
+- **OPT0.2B Inline immediate operations.** `lower_immediate` emits inline
+  type tests, small-integer and atom comparisons, `element/2`, `tuple_size/1`,
+  `hd/1`, `tl/1`, `self/0` and small-integer `band`/`bor`/`bxor`/`bsr`/`bsl`/
+  `div`/`rem`, with the service as the slow tail for every other operand.
 
 ### OPT0.3 Inline bump allocation with one heap check per block
 
@@ -225,10 +241,8 @@ Added 2026-10-15 (user direction) from the luerl euler profile
 ([21-lib.md](21-lib.md#luerl-exampleseuler-2026-10-15)): about 21% of the samples
 were atom lookups by spelling or by descriptor, under a lock.
 
-- `AtomStorage::boolean` (`runtime/src/terms/atoms.cpp`) looks up `"true"` or
-  `"false"` in the name map under a shared lock for every comparison and
-  type-test result (8%). Keep both words fixed: they are interned when the
-  table is created and never move.
+- ~~`AtomStorage::boolean`~~ looked up `"true"`/`"false"` under a lock (8%):
+  done in OPT0.2A (fixed words).
 - `erlang:get/1` interns `"undefined"` by spelling on every miss
   (`builtins/erlang/dictionary.cpp`; luerl calls `get(luerl_itrace)` on every
   emulator step, 8%). Use the same fixed-word table for the atoms that runtime

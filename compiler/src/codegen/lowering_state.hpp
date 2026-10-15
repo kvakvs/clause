@@ -86,8 +86,12 @@ std::optional<Known> known_expression(const ExpressionLowering &state, const ast
 std::optional<Known> known_argument(const ExpressionLowering &state, std::size_t index);
 // The small integers an expression is proven to be one of.
 std::optional<SmallRange> small_expression(const ExpressionLowering &state, const ast::ExprId &id);
-// An i1 that holds when a word proven to be a proper list is a cons cell.
+// An i1 that holds when a word is a cons cell (its primary tag); any word may be tested.
 llvm::Value *inline_cons_test(ExpressionLowering &state, llvm::Value *value);
+// Branch to `success` when any word is a tuple of `arity` elements, else to `mismatch`; the header is read only after
+// the boxed tag test (OPT0.2A).
+void inline_tuple_shape(ExpressionLowering &state, llvm::Value *value, std::size_t arity, llvm::BasicBlock *success,
+                        llvm::BasicBlock *mismatch);
 // Word `index` (head 0, tail 1) of a proven cons cell, and element `index` (zero-based) of a proven tuple.
 llvm::Value *inline_cons_word(ExpressionLowering &state, llvm::Value *value, std::size_t index);
 llvm::Value *inline_tuple_element(ExpressionLowering &state, llvm::Value *value, std::size_t index);

@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 10)
+# Generated-code ABI (revision 11)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -18,7 +18,8 @@ from the configured LLVM target, so cross-target code uses target widths.
 - Small integers: low four bits `0xf`; signed payload of `word_bits - 4` bits,
   range `[-2^(word_bits-5), 2^(word_bits-5)-1]`. Larger values are heap bignums.
 - Atoms: low six bits `0x0b`, non-recycled process-wide payload. IDs are never
-  serialized or used for ordering.
+  serialized or used for ordering. `false` and `true` are fixed: payloads 0 and 1
+  (`0x0b`, `0x4b`) in every runtime (revision 11).
 - Empty tuple `0x2b` and nil `0x3b` exactly; other payload bits are invalid.
 - Local pids: low four bits `0x3`, payload the process number, admitted only
   when the runtime issued it ([pids and references](terms.md#pids-and-references)).
@@ -28,7 +29,10 @@ from the configured LLVM target, so cross-target code uses target widths.
   the count of following words from bit 7 (`header_count_shift`); a tuple's kind
   is 0. Generated code reads tuple elements and cons cells inline only after
   inference or a dominating shape test proved the cell
-  ([proofs](specialization.md#proofs)); the runtime asserts these constants.
+  ([proofs](specialization.md#proofs)); match plans test tuple and cons shapes
+  inline at every optimization level (a boxed tag, then the header), and exact
+  equality compares words first, calling `CLAUSE_exact_v1` only for two distinct
+  list or boxed words (OPT0.2A). The runtime asserts these constants.
 
 ## Functions and symbols
 
@@ -310,3 +314,6 @@ success.
 | 6 | Native record descriptors in module descriptors, `CLAUSE_record_v1` |
 | 7 | Fun descriptors in module descriptors, `CLAUSE_make_fun_v1`, `CLAUSE_apply_v1` |
 | 8 | Export descriptors name their `FrameDescriptor`; dynamic call services `CLAUSE_call_v1`, `CLAUSE_apply_list_v1`, `CLAUSE_call_list_v1`, `CLAUSE_make_external_fun_v1` |
+| 9 | Every context starts with `abi::v1::FrameState`; inline transfers (OPT0.1) |
+| 10 | Leading X registers passed as code parameters (OPT0.1A) |
+| 11 | Fixed words of `false` and `true` (OPT0.2A) |

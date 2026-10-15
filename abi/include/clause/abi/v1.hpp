@@ -9,12 +9,19 @@ class ProcessContext;
 namespace clause::abi::v1 {
 // Identify this project's generated-code contract; no external language compatibility is promised.
 // Revision 7 adds fun descriptors to modules; revision 9 starts every context with abi::v1::FrameState (OPT0.1);
-// revision 10 passes the leading X registers as code parameters (OPT0.1A); v1 names the unchanged term encoding.
-inline constexpr std::uint32_t version = 10;
+// revision 10 passes the leading X registers as code parameters (OPT0.1A); revision 11 fixes the words of false and
+// true (OPT0.2A); v1 names the unchanged term encoding.
+inline constexpr std::uint32_t version = 11;
 // Decode the shared immediate-term representation without preprocessor constants.
 inline constexpr unsigned primary_mask = 0x3;
 inline constexpr unsigned small_integer_tag = 0xf;
 inline constexpr unsigned small_integer_bits = 4;
+// Atom words are the atom number shifted past the six atom tag bits (OPT0.2A). Every runtime gives false and true
+// the first two numbers, so generated code and services use these words without a lookup.
+inline constexpr unsigned atom_tag_bits = 6;
+inline constexpr unsigned atom_tag = 0x0b;
+inline constexpr std::size_t false_atom = (std::size_t{0} << atom_tag_bits) | atom_tag;
+inline constexpr std::size_t true_atom = (std::size_t{1} << atom_tag_bits) | atom_tag;
 
 // Match the runtime target's unsigned pointer width, independently of the compiler host target.
 using TermWord = std::uintptr_t;

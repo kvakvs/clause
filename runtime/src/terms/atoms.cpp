@@ -1,13 +1,15 @@
 #include <atomic>
+#include <clause/abi/v1.hpp>
 #include <clause/runtime/atoms.hpp>
 #include <limits>
 #include <mutex>
 
 namespace clause::runtime {
 namespace {
-// Never reuse a raw atom word, even across destroyed runtimes or aborted registrations.
+// Never reuse a raw atom word, even across destroyed runtimes or aborted registrations; only the fixed words of false
+// and true (numbers 0 and 1) are shared by every runtime (OPT0.2A).
 TermResult<Word> reserve_word() noexcept {
-    static std::atomic<Word> next{0};
+    static std::atomic<Word> next{2};
     constexpr auto maximum = std::numeric_limits<Word>::max() >> 6;
     auto candidate = next.load(std::memory_order_relaxed);
     do {
@@ -19,6 +21,15 @@ TermResult<Word> reserve_word() noexcept {
 }
 } // namespace
 
+AtomStorage::AtomStorage(const std::uint32_t limit)
+    : limit_(limit), false_(std::make_shared<const AtomValue>(abi::v1::false_atom, "false")),
+      true_(std::make_shared<const AtomValue>(abi::v1::true_atom, "true")) {
+    for (const auto &value : {false_, true_}) {
+        names_.emplace(value->spelling, value);
+        words_.emplace(value->word, value);
+    }
+}
+
 Term AtomStorage::atom_term(const std::shared_ptr<const AtomValue> &value) noexcept {
     Term result;
     result.value_ = value->word;
@@ -26,14 +37,7 @@ Term AtomStorage::atom_term(const std::shared_ptr<const AtomValue> &value) noexc
     return result;
 }
 
-TermResult<Term> AtomStorage::boolean(bool value) const noexcept {
-    const std::shared_lock lock(mutex_);
-    const auto found = names_.find(value ? "true" : "false");
-    if (found == names_.end()) {
-        return std::unexpected(TermError::wrong_owner);
-    }
-    return atom_term(found->second);
-}
+TermResult<Term> AtomStorage::boolean(bool value) const noexcept { return atom_term(value ? true_ : false_); }
 
 TermResult<Term> AtomStorage::intern(std::string_view spelling) noexcept {
     if (!valid_atom_spelling(spelling)) {
@@ -50,7 +54,7 @@ TermResult<Term> AtomStorage::intern(std::string_view spelling) noexcept {
     if (const auto found = names_.find(spelling); found != names_.end()) {
         return atom_term(found->second);
     }
-    if (names_.size() >= limit_) {
+    if (names_.size() - fixed_atoms >= limit_) {
         return std::unexpected(TermError::resource_limit);
     }
     const auto word = reserve_word();
@@ -89,6 +93,6 @@ TermResult<Term> AtomStorage::lookup(Word word) const noexcept {
 
 std::size_t AtomStorage::size() const noexcept {
     const std::shared_lock lock(mutex_);
-    return names_.size();
+    return names_.size() - fixed_atoms;
 }
 } // namespace clause::runtime

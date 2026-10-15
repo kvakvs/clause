@@ -8,6 +8,7 @@
 #include <clause/abi/equality.hpp>
 #include <clause/abi/term.hpp>
 #include <llvm/IR/Module.h>
+#include <llvm/Transforms/Utils/SSAUpdater.h>
 #include <stdexcept>
 
 namespace clause::codegen {
@@ -133,28 +134,27 @@ struct Proven {
     std::vector<bool> conses;
 };
 
-// A shape test inferred facts prove: skipped, or reduced to a primary tag test for a proven proper list.
+// A shape test: skipped where inferred facts prove it, else tested inline (OPT0.2A): a cons cell by its primary tag,
+// a tuple by its boxed tag and header.
 bool proven_shape(ExpressionLowering &state, const semantic::MatchNode &node, std::span<llvm::Value *const> values,
                   const Proven &proven, const std::vector<llvm::BasicBlock *> &blocks) {
     const auto &known = proven.known[node.input];
-    if (!known) {
-        return false;
-    }
+    auto *success = blocks.at(node.success);
+    auto *mismatch = blocks.at(node.mismatch);
     if (node.operation == semantic::MatchOperation::tuple_shape) {
-        if (state.proofs->arity(*known) != node.index) {
-            return false;
+        if (known && state.proofs->arity(*known) == node.index) {
+            state.builder.CreateBr(success);
+        } else {
+            inline_tuple_shape(state, values[node.input], node.index, success, mismatch);
         }
-        state.builder.CreateBr(blocks.at(node.success));
         return true;
     }
-    const auto shape = state.proofs->list(*known);
-    if (shape == ListShape::cons) {
-        state.builder.CreateBr(blocks.at(node.success));
-    } else if (shape == ListShape::list) {
-        state.builder.CreateCondBr(inline_cons_test(state, values[node.input]), blocks.at(node.success),
-                                   blocks.at(node.mismatch));
+    if (known && state.proofs->list(*known) == ListShape::cons) {
+        state.builder.CreateBr(success);
+    } else {
+        state.builder.CreateCondBr(inline_cons_test(state, values[node.input]), success, mismatch);
     }
-    return shape != ListShape::unknown;
+    return true;
 }
 
 // The fact of an extracted value: a tuple element, a list head or a list tail.
@@ -237,12 +237,12 @@ bool proven_node(ExpressionLowering &state, const semantic::MatchNode &node, std
 
 // Bindings remain tentative; every failed constraint reaches the caller-owned mismatch continuation.
 void node(ExpressionLowering &state, const semantic::MatchNode &node, const std::span<llvm::Value *> values,
-          const std::vector<llvm::BasicBlock *> &blocks, Proven *proven) {
+          const std::vector<llvm::BasicBlock *> &blocks, Proven &proven) {
     locate_source(state.builder, *state.module.syntax, state.module.syntax->expression(node.source).source);
     if (node.input >= values.size()) {
         throw std::invalid_argument("lowering: match input is out of range");
     }
-    if (proven && proven_node(state, node, values, *proven, blocks)) {
+    if (proven_node(state, node, values, proven, blocks)) {
         return;
     }
     if (extraction(state, node, values, blocks)) {
@@ -260,12 +260,9 @@ void node(ExpressionLowering &state, const semantic::MatchNode &node, const std:
     state.builder.CreateCondBr(lower_exact(state, input, expected), blocks.at(node.success), blocks.at(node.mismatch));
 }
 
-// What proofs know of a plan's candidates before its first node: the inputs' facts; none without proofs.
-std::optional<Proven> proven_values(const ExpressionLowering &state, const semantic::MatchPlan &plan,
-                                    std::span<const std::optional<Known>> known) {
-    if (!state.proofs) {
-        return std::nullopt;
-    }
+// What is known of a plan's candidates before its first node: the inputs' facts (none without proofs); shape tests
+// add what they prove at every optimization level.
+Proven proven_values(const semantic::MatchPlan &plan, std::span<const std::optional<Known>> known) {
     Proven proven{std::vector<std::optional<Known>>(plan.values), std::vector<bool>(plan.values),
                   std::vector<bool>(plan.values)};
     std::ranges::copy(known.first(std::min(known.size(), plan.values)), proven.known.begin());
@@ -331,16 +328,61 @@ bool lower_unconditional_head(ExpressionLowering &state) {
     return true;
 }
 
-llvm::Value *lower_exact(ExpressionLowering &state, llvm::Value *left, llvm::Value *right) {
+namespace {
+// Whether a constant word is an immediate (primary tag 0b11): exact equality with it is word identity.
+bool constant_immediate(const llvm::Value *value) {
+    const auto *constant = llvm::dyn_cast<llvm::ConstantInt>(value);
+    return constant && (constant->getZExtValue() & abi::v1::primary_mask) == abi::v1::primary_mask;
+}
+
+llvm::Value *word_equal(ExpressionLowering &state, llvm::Value *left, llvm::Value *right) {
+    return state.builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, left, right));
+}
+
+// Exact equality of two words through CLAUSE_exact_v1, for two distinct list or boxed words.
+llvm::Value *exact_service(ExpressionLowering &state, llvm::Value *left, llvm::Value *right) {
     auto &output = *state.entry.getParent();
     auto service = output.getOrInsertFunction(
         services::symbol<services::Exact>(output.getTargetTriple()),
         llvm::FunctionType::get(state.builder.getInt8Ty(), {state.builder.getPtrTy(), state.word, state.word}, false));
     auto *result = state.builder.CreateCall(service, {state.entry.getArg(0), left, right}, "exact.outcome");
     propagate_failure(state);
-    return state.builder.Insert(
-        llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, result,
-                              state.builder.getInt8(static_cast<std::uint8_t>(abi::v1::Equality::equal))));
+    return word_equal(state, result, state.builder.getInt8(static_cast<std::uint8_t>(abi::v1::Equality::equal)));
+}
+} // namespace
+
+// Identical words are exactly equal; an immediate equals only its own word and a list never equals a boxed term, which
+// the primary tags joined to 0b11 show. Only two distinct list words or boxed words need the service (OPT0.2A).
+llvm::Value *lower_exact(ExpressionLowering &state, llvm::Value *left, llvm::Value *right) {
+    if (constant_immediate(left) || constant_immediate(right)) {
+        return word_equal(state, left, right);
+    }
+    auto &builder = state.builder;
+    auto *mask = llvm::ConstantInt::get(state.word, abi::v1::primary_mask);
+    auto *same = word_equal(state, left, right);
+    auto *decided = word_equal(state, builder.CreateAnd(builder.CreateOr(left, right), mask), mask);
+    auto *start = builder.GetInsertBlock();
+    auto *slow = llvm::BasicBlock::Create(state.entry.getContext(), "exact.compound", &state.entry);
+    auto *join = llvm::BasicBlock::Create(state.entry.getContext(), "exact.done", &state.entry);
+    builder.CreateCondBr(builder.CreateOr(same, decided), join, slow);
+    builder.SetInsertPoint(slow);
+    auto *compound = exact_service(state, left, right);
+    auto *compound_end = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    // LLVM's SSA formation joins the two answers, as the lazy joins of lowering_integers do.
+    auto *boundary = builder.CreateUnreachable();
+    llvm::SmallVector<llvm::PHINode *, 2> phis;
+    llvm::SSAUpdater updater(&phis);
+    updater.Initialize(builder.getInt1Ty(), "exact.equal");
+    updater.AddAvailableValue(start, same);
+    updater.AddAvailableValue(compound_end, compound);
+    auto *result = updater.GetValueInMiddleOfBlock(join);
+    for (auto *phi : phis) {
+        phi->setDebugLoc(builder.getCurrentDebugLocation());
+    }
+    boundary->eraseFromParent();
+    return result;
 }
 
 void lower_head(ExpressionLowering &state, llvm::BasicBlock *success, llvm::BasicBlock *mismatch) {
@@ -360,15 +402,13 @@ std::vector<llvm::Value *> lower_match_plan(ExpressionLowering &state, const sem
                                             llvm::BasicBlock *mismatch, std::span<const std::optional<Known>> known) {
     std::vector<llvm::Value *> candidates(plan.values);
     std::ranges::copy(values, candidates.begin());
-    auto proven = proven_values(state, plan, known);
+    auto proven = proven_values(plan, known);
     const auto blocks = node_blocks(state, plan, success, mismatch);
     state.builder.CreateBr(blocks.front());
     for (std::size_t i = 0; i + 2 < plan.nodes.size(); ++i) {
         state.builder.SetInsertPoint(blocks[i]);
-        node(state, plan.nodes[i], candidates, blocks, proven ? &*proven : nullptr);
-        if (proven) {
-            mark_shape(plan.nodes[i], *proven);
-        }
+        node(state, plan.nodes[i], candidates, blocks, proven);
+        mark_shape(plan.nodes[i], proven);
     }
     return candidates;
 }

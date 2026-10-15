@@ -25,11 +25,11 @@ found unreachable) prove nothing; anonymous fun bodies get no proofs.
 | --- | --- | --- |
 | `+ - *` | both operands small-integer ranges, result range within the immediate payload | decode, compute and encode inline; no tag, overflow or fallback |
 | `+ - *` | one or both operands small-integer ranges | the proven tag tests go; overflow check and service fallback stay |
-| tuple pattern | argument or scrutinee fact: exact tuples of the pattern's arity | shape test removed |
+| tuple pattern | argument or scrutinee fact: exact tuples of the pattern's arity | shape test removed (unproven: tested inline, OPT0.2A) |
 | tuple element | a shape test or fact proving the tuple | inline load of the element |
-| list pattern | fact: surely a cons cell / a proper list | shape test removed / reduced to a primary-tag test |
+| list pattern | fact: surely a cons cell | shape test removed (otherwise a primary-tag test at every level, OPT0.2A) |
 | head, tail | a cons test or fact proving the cell | inline loads |
-| exact literal `[]`, `{}`, small integer, atom | always (proofs mode) | word comparison: equal immediates are one word |
+| exact literal `[]`, `{}`, small integer, atom | always (every level since OPT0.2A) | word comparison: equal immediates are one word |
 | list generator | generator input fact: a proper list | cons test and cell reads inline on every iteration |
 
 Facts reach patterns of function heads (caller-joined arguments), body
@@ -37,7 +37,8 @@ matches (the right side) and case/try clauses (the scrutinee or try body
 value); element, head and tail facts follow extractions. An inline read is
 stored into a root slot like a service output, so frame lowering keeps it as a
 term across safepoints ([reload rule](runtime-heap.md#reload-rule)). The only
-pointer conversions in generated code are these proven reads (`proven.cell`).
+pointer conversions in generated code are these proven reads and the header
+loads of inline tuple shape tests (`proven.cell`).
 Layout constants come from [`abi/term.hpp`](abi.md#terms); the runtime asserts
 them against its private cell layouts.
 

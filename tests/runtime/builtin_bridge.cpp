@@ -74,7 +74,8 @@ void check_bridge(ProcessContext &context) {
                 "body error lost in bridge");
         require(output == 123, "failure overwrote output");
     }
-    for (Word invalid : {Word{0}, Word{1}, Word{2}, Word{0xb}, Word{0x7}, Word{0x3}}) {
+    // An atom number no runtime issued here (false and true have the fixed numbers 0 and 1).
+    for (Word invalid : {Word{0}, Word{1}, Word{2}, (Word{0xffffff} << 6) | 0xb, Word{0x7}, Word{0x3}}) {
         require(dispatch_builtin(&context, "test", 4, "id", 2, &invalid, 1, &output) == Status::invalid_argument,
                 "unsupported term crossed bridge");
         require(output == 123, "invalid argument overwrote output");
