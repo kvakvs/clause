@@ -1,6 +1,7 @@
 #include "off_heap.hpp"
 #include "heap_storage.hpp"
 #include "heap_walk.hpp"
+#include <algorithm>
 #include <memory>
 #include <utility>
 
@@ -23,11 +24,18 @@ struct BufferCharge {
 
 std::expected<std::shared_ptr<BinaryBuffer>, HeapError> make_buffer(HeapStorage &storage,
                                                                     std::span<const std::byte> bytes) {
-    const auto words = (bytes.size() + sizeof(Word) - 1) / sizeof(Word);
+    return make_buffer(storage, bytes, bytes.size());
+}
+
+std::expected<std::shared_ptr<BinaryBuffer>, HeapError>
+make_buffer(HeapStorage &storage, std::span<const std::byte> bytes, const std::size_t capacity) {
+    const auto size = std::max(capacity, bytes.size());
+    const auto words = (size + sizeof(Word) - 1) / sizeof(Word);
     if (words > storage.room()) {
         return std::unexpected(HeapError::limit_exceeded);
     }
-    auto buffer = std::make_unique<BinaryBuffer>(bytes.begin(), bytes.end());
+    auto buffer = std::make_unique<BinaryBuffer>(size);
+    std::ranges::copy(bytes, buffer->begin());
     storage.memory_->force(words);
     // A throwing control block allocation runs the deleter, which returns the charge.
     return std::shared_ptr<BinaryBuffer>(buffer.release(), BufferCharge{storage.memory_, words});
@@ -55,6 +63,7 @@ void drop_off_heap(HeapStorage &storage, const BinaryBuffer &buffer) noexcept {
     if (--entry->second == 0) {
         storage.off_heap_words_ -= buffer_words(buffer);
         storage.buffers_.erase(entry);
+        storage.appendable_.erase(&buffer);
     }
 }
 
@@ -98,6 +107,7 @@ void release_off_heap(HeapStorage &storage) noexcept {
         cell = next;
     }
     storage.buffers_.clear();
+    storage.appendable_.clear();
     storage.off_heap_words_ = 0;
 }
 } // namespace clause::runtime::detail

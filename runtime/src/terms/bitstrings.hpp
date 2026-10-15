@@ -2,6 +2,7 @@
 #include "integers.hpp"
 #include <boost/container/small_vector.hpp>
 #include <clause/abi/bits.hpp>
+#include <optional>
 #include <process_heap.hpp>
 
 namespace clause::runtime::detail {
@@ -19,11 +20,18 @@ struct BitRange {
     std::size_t length;
 };
 
+struct BitWriter;
+
 struct BitAccess {
     // Copy packed MSB-first input, zeroing unused low bits: inline up to 64 bytes, else a new shared buffer.
     static TermResult<Term> make(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count);
     // Share an off-heap source's buffer for a checked view; slices of heap binaries are copied.
     static TermResult<Term> slice(ProcessHeap &heap, const Term &source, std::size_t offset, std::size_t count);
+    // The binary `accumulator` followed by `rest` (OPT0.6): written in place when the accumulator is this process's
+    // appendable view ending at its buffer's used bits and the spare bytes suffice; none when it is not such a view.
+    static std::optional<TermResult<Term>> append(ProcessHeap &heap, const Term &accumulator, const BitWriter &rest);
+    // Publish constructed bits as an appendable binary: a buffer with spare room, registered for appends (OPT0.6).
+    static TermResult<Term> appendable(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count);
 
   private:
     // Publish an inline binary: header, bit length, then the data bytes rounded up to words.

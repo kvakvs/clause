@@ -1,5 +1,6 @@
 #include "bitstrings.hpp"
 #include "service_errors.hpp"
+#include "term_layout.hpp"
 #include "terms.hpp"
 #include <boost/container/small_vector.hpp>
 #include <clause/runtime/process_context.hpp>
@@ -28,21 +29,56 @@ TermResult<BitSegment> segment(std::span<const Term> values) {
                       values[2]};
 }
 
-// Stage all segments privately; only successful complete construction reserves process heap storage.
-TermResult<BitExtract> make(ProcessContext &context, std::span<const Term> values) {
-    if (values.size() % 3 != 0) {
-        return std::unexpected(TermError::invalid_encoding);
-    }
-    BitWriter writer;
+// Construct the segments of `values` (three words each) into a private writer.
+TermResult<void> construct_all(BitWriter &writer, std::span<const Term> values) {
     for (std::size_t i = 0; i < values.size(); i += 3) {
         const auto field = segment(values.subspan(i, 3));
         if (!field) {
             return std::unexpected(field.error());
         }
-        const auto added = bit_construct(writer, *field);
-        if (!added) {
+        if (const auto added = bit_construct(writer, *field); !added) {
             return std::unexpected(added.error());
         }
+    }
+    return {};
+}
+
+// Whether a construction starts with a whole binary, as <<Acc/binary, ...>> does (OPT0.6).
+bool accumulates(std::span<const Term> values) {
+    const auto first = values.size() > 3 ? segment(values.first(3)) : std::unexpected(TermError::invalid_encoding);
+    return first && first->type == abi::v1::BitType::binary && first->all;
+}
+
+TermResult<BitExtract> extract(TermResult<Term> value) {
+    return value.transform([](Term made) {
+        const auto bits = made.bit_size().value_or(0);
+        return BitExtract{std::move(made), bits};
+    });
+}
+
+// Stage all segments privately; only successful complete construction reserves process heap storage. A
+// construction appending to an accumulator writes in place when it can, and otherwise leaves room to (OPT0.6).
+TermResult<BitExtract> make(ProcessContext &context, std::span<const Term> values) {
+    if (values.size() % 3 != 0) {
+        return std::unexpected(TermError::invalid_encoding);
+    }
+    const bool accumulator = accumulates(values);
+    BitWriter writer;
+    if (accumulator) {
+        BitWriter rest;
+        if (const auto built = construct_all(rest, values.subspan(3)); !built) {
+            return std::unexpected(built.error());
+        }
+        if (auto appended = BitAccess::append(context.heap(), values[2], rest)) {
+            return extract(std::move(*appended));
+        }
+    }
+    if (const auto built = construct_all(writer, values); !built) {
+        return std::unexpected(built.error());
+    }
+    if (accumulator && writer.bytes.size() > layout::heap_binary_bytes) {
+        return extract(
+            BitAccess::appendable(context.heap(), {writer.bytes.data(), writer.bytes.size()}, writer.length));
     }
     return BitAccess::make(context.heap(), writer.bytes, writer.length).transform([&](Term value) {
         return BitExtract{std::move(value), writer.length};

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <limits>
 #include <new>
+#include <optional>
 
 namespace clause::runtime::detail {
 namespace {
@@ -92,6 +93,55 @@ TermResult<Term> BitAccess::make(ProcessHeap &heap, std::span<const std::byte> b
     } catch (const std::bad_alloc &) {
         return std::unexpected(TermError::out_of_memory);
     }
+}
+
+TermResult<Term> BitAccess::appendable(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count) {
+    const auto size = (count + 7) / 8;
+    // Double the room each time, so a loop of appends copies each byte a constant number of times.
+    auto buffer = make_buffer(*heap.storage_, bytes.first(size), std::max<std::size_t>(2 * size, 256));
+    if (!buffer) {
+        return std::unexpected(heap_error(buffer.error()));
+    }
+    clear_padding(**buffer, count);
+    const auto *key = buffer->get();
+    auto made = refc_binary(heap, std::move(*buffer), {0, count});
+    if (made) {
+        heap.storage_->appendable_[key] = count;
+    }
+    return made;
+}
+
+std::optional<TermResult<Term>> BitAccess::append(ProcessHeap &heap, const Term &accumulator, const BitWriter &rest) {
+    const auto object = TermAccess::object(accumulator);
+    if (!object || BoxHeader::kind(object->words[0]) != BoxedKind::refc_binary) {
+        return std::nullopt;
+    }
+    const auto &cell = *reinterpret_cast<const RefcBinaryCell *>(object->words.data());
+    auto &storage = *heap.storage_;
+    const auto end = static_cast<std::size_t>(cell.offset_ + cell.bits_);
+    const auto found = storage.appendable_.find(cell.buffer_.get());
+    if (found == storage.appendable_.end() || found->second != end || end % 8 != 0 || cell.offset_ % 8 != 0) {
+        return std::nullopt;
+    }
+    const auto total = static_cast<std::size_t>(cell.bits_) + rest.length;
+    if ((end + rest.length + 7) / 8 > cell.buffer_->size()) {
+        BitWriter joined;
+        joined.bytes.assign(cell.buffer_->begin() + static_cast<std::ptrdiff_t>(cell.offset_ / 8),
+                            cell.buffer_->begin() + static_cast<std::ptrdiff_t>(end / 8));
+        joined.length = cell.bits_;
+        if (const auto added = joined.append({{rest.bytes.data(), rest.bytes.size()}, 0, rest.length}); !added) {
+            return std::unexpected(added.error());
+        }
+        return appendable(heap, {joined.bytes.data(), joined.bytes.size()}, joined.length);
+    }
+    // The bytes past `end` belong to no view, so writing them changes no term.
+    auto *spare = const_cast<std::byte *>(cell.buffer_->data()) + end / 8;
+    std::ranges::copy(std::span(rest.bytes.data(), (rest.length + 7) / 8), spare);
+    auto made = refc_binary(heap, cell.buffer_, {cell.offset_, total});
+    if (made) {
+        found->second = cell.offset_ + total;
+    }
+    return made;
 }
 
 TermResult<Term> BitAccess::slice(ProcessHeap &heap, const Term &source, std::size_t offset, std::size_t count) {

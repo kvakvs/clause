@@ -129,7 +129,7 @@ optimization target, not only a matter of correctness.
 These close the gap to BeamAsm. They come first because every later tier needs
 LLVM to *see* the operations instead of opaque service calls.
 
-Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C): see
+Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6): see
 [00-finished.md](00-finished.md#plan-20). Open follow-ups of those steps:
 
 - **OPT0.1 follow-up:** comprehension loop-head safepoints still call
@@ -230,6 +230,8 @@ maps and binaries stay with their services (maps: OPT0.5).
   (the 618× `map_put` kernel builds 2000 keys); OPT0.5A (done) fixed that.
 
 ### OPT0.6 Writable/appendable binaries
+
+Done 2026-10-15 at run time, as OTP's writable binaries ([record](00-finished.md#plan-20)).
 
 - OTP's `private_append` and `beam_ssa_private_append`. `<<Acc/binary, X>>` on a
   uniquely owned accumulator must append in place, not copy.

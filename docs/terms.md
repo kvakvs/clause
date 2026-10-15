@@ -135,6 +135,14 @@ records; native records ([native records](native-records.md)); funs
   small value and a width of at most 64 bits is written from its machine word
   (whole bytes at once on a byte boundary); others take the multiprecision path
   (OPT0.9).
+- Appends (OPT0.6, as OTP's writable binaries): a construction starting with a
+  whole binary (`<<Acc/binary, ...>>`) builds its result in a buffer with
+  spare room (twice its size, at least 256 bytes) that the creating process
+  records with its used bits. A later append whose accumulator view ends
+  exactly there writes the new bytes into the spare room, which no view
+  covers, and returns a longer view of the same buffer; any other accumulator
+  (an older view, another process's, an unaligned one, a full buffer) is
+  copied into a new doubled buffer. Other views of the buffer never change.
 - Float segments: widths 16/32/64; construction may encode infinity, but
   matching rejects infinite/NaN fields. Zero-width float matches extract `0.0`.
 - UTF-8/16/32 segments validate scalars, surrogates and truncation.
