@@ -63,6 +63,10 @@ class TermFactory final {
     TermResult<Term> tuple(std::span<const Term> elements);
     // Construct a tuple from ABI words, admitting each like Term::from_word; generated services avoid a Term per field.
     TermResult<Term> tuple_words(std::span<const Word> elements);
+    // The same from words that are already this process's terms, read from its heap, registers or literals, so not
+    // admitted again (word-level builtins); the caller guarantees it.
+    TermResult<Term> tuple_of_words(std::span<const Word> elements);
+    TermResult<Term> list_of_words(std::span<const Word> elements, const Term &tail);
     // Construct a map; the last input entry wins for an exactly equal key.
     TermResult<Term> map(std::span<const std::pair<Term, Term>> entries);
     // Copy bytes or an explicitly sized MSB-first sequence of bits.

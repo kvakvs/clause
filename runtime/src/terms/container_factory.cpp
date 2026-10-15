@@ -136,6 +136,32 @@ TermResult<Term> TermFactory::tuple_words(std::span<const Word> elements) {
     return runtime::tuple(**owner, (*owner)->storage_, elements);
 }
 
+TermResult<Term> TermFactory::tuple_of_words(std::span<const Word> elements) {
+    const auto owner = heap();
+    if (!owner) {
+        return std::unexpected(owner.error());
+    }
+    if (elements.size() > MAX_TUPLE_ARITY) {
+        return std::unexpected(TermError::resource_limit);
+    }
+    return runtime::tuple(**owner, (*owner)->storage_, elements);
+}
+
+TermResult<Term> TermFactory::list_of_words(std::span<const Word> elements, const Term &tail) {
+    const auto owner = heap();
+    if (!owner) {
+        return std::unexpected(owner.error());
+    }
+    if (elements.empty()) {
+        return tail;
+    }
+    try {
+        return runtime::list(**owner, (*owner)->storage_, elements, tail);
+    } catch (const std::bad_alloc &) {
+        return std::unexpected(TermError::out_of_memory);
+    }
+}
+
 TermResult<Term> TermFactory::list_tail(std::span<const Term> elements, const Term &tail) {
     const auto owner = heap();
     if (!owner) {

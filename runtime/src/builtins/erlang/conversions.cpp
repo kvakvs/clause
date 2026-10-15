@@ -218,7 +218,7 @@ template <bool Pid> TermResult<Term> identity_to_list(ProcessContext &context, c
 // The word of a list of character words onto [], built in one step.
 Word char_words(ProcessContext &context, std::span<const Word> characters) {
     TermFactory factory(context);
-    return need(factory.list_words(characters, need(factory.nil()))).word();
+    return need(factory.list_of_words(characters, need(factory.nil()))).word();
 }
 
 // integer_to_list(Integer): a small integer's digits from its word with no staging allocation (word-level

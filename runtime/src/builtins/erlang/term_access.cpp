@@ -1,7 +1,12 @@
+#include "../../memory/heap_object.hpp"
+#include "../../terms/term_layout.hpp"
+#include "../portions.hpp"
 #include "../typed.hpp"
 #include "terms.hpp"
 #include <algorithm>
 #include <array>
+#include <boost/container/small_vector.hpp>
+#include <clause/abi/equality.hpp>
 #include <vector>
 
 // The tuple builtins of the bridge without an inline service (docs/builtins.md): setelement/3, make_tuple/2,3,
@@ -57,23 +62,39 @@ TermResult<Term> make_tuple_list(ProcessContext &context, std::int64_t size, con
     return TermFactory(context).tuple_words(words);
 }
 
-// tuple_to_list(Tuple).
-TermResult<Term> tuple_to_list(ProcessContext &context, const TupleArgument &tuple) {
-    return TermFactory(context).list(tuple.elements);
-}
-
-// list_to_tuple(List): a proper list of at most MAX_TUPLE_ARITY elements.
-TermResult<Term> list_to_tuple(ProcessContext &context, const ListArgument &list) {
-    if (list.elements.size() > MAX_TUPLE_ARITY) {
+// tuple_to_list(Tuple): the elements read from the tuple's cell as words (word-level conversions).
+Word tuple_to_list(ProcessContext &context, Arguments arguments) {
+    TermFactory factory(context);
+    if (arguments[0] == abi::v1::empty_tuple) {
+        return need(factory.nil()).word();
+    }
+    const auto words = (arguments[0] & abi::v1::primary_mask) == abi::v1::boxed_tag
+                           ? detail::TermAccess::boxed_words(context.heap(), arguments[0])
+                           : std::span<const Word>{};
+    if (words.empty() || detail::layout::BoxHeader::kind(words[0]) != BoxedKind::tuple) {
         bad_argument();
     }
-    return TermFactory(context).tuple(list.elements);
+    return need(factory.list_of_words(words.subspan(1), need(factory.nil()))).word();
+}
+
+// list_to_tuple(List): a proper list of at most MAX_TUPLE_ARITY elements, read from its cells as words (word-level
+// conversions).
+Word list_to_tuple(ProcessContext &context, Arguments arguments) {
+    auto list = term_of(context, arguments[0]);
+    boost::container::small_vector<Word, 64> words;
+    walk(list, MAX_TUPLE_ARITY + 1, [&](Word head) { words.push_back(head); });
+    if (!list.is_nil() || words.size() > MAX_TUPLE_ARITY) {
+        bad_argument();
+    }
+    return need(TermFactory(context).tuple_of_words(words)).word();
 }
 
 constexpr std::array TERM_ACCESS_BUILTINS{
-    typed_entry<setelement>("erlang", "setelement"),       typed_entry<make_tuple>("erlang", "make_tuple"),
-    typed_entry<make_tuple_list>("erlang", "make_tuple"),  typed_entry<tuple_to_list>("erlang", "tuple_to_list"),
-    typed_entry<list_to_tuple>("erlang", "list_to_tuple"),
+    typed_entry<setelement>("erlang", "setelement"),
+    typed_entry<make_tuple>("erlang", "make_tuple"),
+    typed_entry<make_tuple_list>("erlang", "make_tuple"),
+    BuiltinEntry{"erlang", "tuple_to_list", 1, &guarded<tuple_to_list>},
+    BuiltinEntry{"erlang", "list_to_tuple", 1, &guarded<list_to_tuple>},
 };
 } // namespace
 } // namespace clause::runtime::builtins
