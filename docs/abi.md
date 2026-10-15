@@ -231,6 +231,13 @@ const TermWord *)` signature as a host entry calling
   subject (`sub_*_word`) is read through its original. A trailing
   `Rest/binary` or `Rest/bits` of unit 1 is bump-allocated inline as a 4-word
   `sub_binary` cell of the original (OPT1.4B).
+- A binary construction whose every byte is known at compile time (small
+  integer constants and string literals at constant whole-byte widths, at most
+  64 bytes) is an inline binary cell of the module literal area (OPT0.18), like
+  other compound literals (OPT0.4).
+- `erlang:make_tuple(N, V)` with a small `N` in 1..64 bump-allocates the tuple
+  and fills it with `llvm.experimental.memset.pattern` where the heap has room;
+  otherwise the builtin runs (OPT0.18).
 - Binary constructions (OPT0.11A, 64-bit targets) whose segments are all
   integers of constant whole-byte widths up to 64 bits, at most 64 bytes in
   all, are bump-allocated inline as `heap_binary` cells (header, bit length,

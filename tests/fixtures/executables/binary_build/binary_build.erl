@@ -69,4 +69,19 @@ main(_) ->
             erlang:md5(<<Base/binary, Again/binary>>)
         }
     ]),
+    % Binaries of constants are literal-area cells (literal binaries).
+    io:format("~w~n", [
+        [
+            <<"__add">>,
+            <<"ab":16>>,
+            <<"ab":16/little>>,
+            <<1, 2, "ab", -1:16/little, 300:8>>,
+            <<"">>,
+            <<"x"/utf8>>,
+            <<"abc", 1:4>>,
+            <<0:64, 1:64/native>>,
+            <<"0123456789012345678901234567890123456789012345678901234567890123">>,
+            <<"01234567890123456789012345678901234567890123456789012345678901234">>
+        ]
+    ]),
     io:format("binary_build: ok~n").

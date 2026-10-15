@@ -150,6 +150,8 @@ struct HeapRoom {
 HeapRoom heap_room(ExpressionLowering &state, llvm::Value *words);
 // Take the words of an inline allocation: FrameState::heap_top becomes its end.
 void heap_commit(ExpressionLowering &state, const HeapRoom &room);
+// make_tuple/2 of 1..64 elements bump-allocated and filled inline where the heap has room, else the builtin.
+llvm::Value *lower_make_tuple(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values);
 // setelement/3 copying a small tuple inline where the heap has room, else the builtin (OPT0.2C).
 llvm::Value *lower_setelement(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values);
 

@@ -119,9 +119,11 @@ std::vector<llvm::Value *> call_arguments(ExpressionLowering &state, const ast::
     return arguments;
 }
 
-// The bridge index of setelement/3, which has an inline form (OPT0.2C).
+// The bridge indexes of setelement/3 (OPT0.2C) and make_tuple/2, which have inline forms.
 constexpr auto SETELEMENT = abi::v1::find_bridge_builtin("erlang", "setelement", 3).value_or(0);
 static_assert(abi::v1::find_bridge_builtin("erlang", "setelement", 3));
+constexpr auto MAKE_TUPLE = abi::v1::find_bridge_builtin("erlang", "make_tuple", 2).value_or(0);
+static_assert(abi::v1::find_bridge_builtin("erlang", "make_tuple", 2));
 
 // Lower services with lowerings of their own: apply/2,3, bridge builtins and compound guard tests; null for others.
 llvm::Value *special_service(ExpressionLowering &state, const ast::Expression &expression,
@@ -134,6 +136,9 @@ llvm::Value *special_service(ExpressionLowering &state, const ast::Expression &e
         const auto builtin = [&] { return lower_builtin(state, *service.builtin, values); };
         if (auto *math = inline_math(state, *service.builtin, values, builtin)) {
             return math;
+        }
+        if (*service.builtin == MAKE_TUPLE) {
+            return lower_make_tuple(state, *service.builtin, values);
         }
         return *service.builtin == SETELEMENT ? lower_setelement(state, *service.builtin, values) : builtin();
     }

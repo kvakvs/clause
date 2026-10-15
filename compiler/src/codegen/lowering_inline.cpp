@@ -447,6 +447,40 @@ llvm::Value *lower_setelement(ExpressionLowering &state, const std::size_t built
         [&] { return lower_builtin(state, builtin, values); });
 }
 
+llvm::Value *lower_make_tuple(ExpressionLowering &state, const std::size_t builtin,
+                              const std::span<llvm::Value *const> values) {
+    auto *size = values[0];
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    auto *count = decode(state, size);
+    // 1..64 elements: an unsigned count - 1 below 64.
+    auto *valid =
+        builder.CreateAnd(small(state, size), compare(state, llvm::CmpInst::ICMP_ULT,
+                                                      builder.CreateSub(count, word(state, 1)), word(state, 64)));
+    auto *room = split(
+        state, builder.getInt1Ty(), valid,
+        [&] { return heap_room(state, builder.CreateAdd(count, word(state, 1))).fits; },
+        [&] { return builder.getFalse(); });
+    return split(
+        state, state.word, room,
+        [&] {
+            const auto target = heap_room(state, builder.CreateAdd(count, word(state, 1)));
+            builder.CreateAlignedStore(builder.CreateShl(count, word(state, abi::v1::header_count_shift)), target.top,
+                                       align);
+            auto *fill = llvm::Intrinsic::getOrInsertDeclaration(state.entry.getParent(),
+                                                                 llvm::Intrinsic::experimental_memset_pattern,
+                                                                 {builder.getPtrTy(), state.word, state.word});
+            builder.CreateCall(
+                fill, {builder.CreateConstGEP1_64(state.word, target.top, 1), values[1], count, builder.getFalse()});
+            heap_commit(state, target);
+            auto *made =
+                builder.CreateOr(builder.CreatePtrToInt(target.top, state.word), word(state, abi::v1::boxed_tag));
+            mark_term(state, made);
+            return made;
+        },
+        [&] { return lower_builtin(state, builtin, values); });
+}
+
 llvm::Value *inline_bitstring_test(ExpressionLowering &state, llvm::Value *value) {
     return bitstring_test(state, value);
 }
