@@ -1,44 +1,35 @@
 # Compilation
 
-`clau` compiles Erlang/OTP 29 modules through LLVM to verified IR, bitcode
-or native objects. `-o/--output` links positional inputs (or one selected
-project target), their [entry](executables.md) startup object and the runtime
-into an executable ([linking](executables.md#linking)); project builds link
-executable targets to their manifest outputs ([projects](projects.md#executables)). Emitted
+`clau` compiles Erlang/OTP 29 modules through LLVM to verified IR, bitcode or
+native objects. `-o/--output` links positional inputs (or one selected project
+target), their [entry](executables.md) startup object and the runtime into an
+executable ([linking](executables.md#linking)); project builds link executable
+targets to their manifest outputs ([projects](projects.md#executables)). Emitted
 objects can also run through a C++ harness linked with the runtime (see the
 example below).
 
 ## Accepted source subset
 
-Named modules with exports and ordered function clauses. Heads and body matches
-accept variables, `_`, aliases, repeated names and patterns over atoms,
-arbitrary integers, finite floats, tuples, lists/strings, maps, bitstrings and
-ordinary tuple records. Bodies are sequences of matches, constructors, checked
-operators/guard BIFs, `erlang:display/1` ([printing](terms.md#printing)),
-`halt/0,1` ([exit status](executables.md#exit-status)), the raising
-`error/1,2,3`, `exit/1`, `throw/1` and `erlang:raise/3`
-([ABI](abi.md#failure-channel-revision-2)), the other
-[bridge builtins](builtins.md) (`erlang:function_exported/3`) and funs of
-builtins, `case`/`if`, `catch Expr`,
-`try ... of ... catch Class:Reason:Stack ... after` with
-[stack traces](abi.md#stack-traces), `maybe ... else ... end`, list, binary and map comprehensions
-([patterns](patterns.md#comprehensions)) and direct local or
-literal remote calls within the batch, including self, mutual and cross-module
-recursion on explicit process frames with proper tail calls
-([execution model](execution-model.md#implementation)); body recursion is bounded
-by the process stack (uncapped by default), not the native stack. Guards support the full admitted
-catalog. See [patterns](patterns.md), [guards](guards.md) and [terms](terms.md).
+Named modules of the ordinary OTP 29 language: ordered function clauses with
+[patterns](patterns.md) and [guards](guards.md); matches, constructors,
+operators and builtins ([builtins](builtins.md)); `case`, `if`, `receive`,
+`catch`, `try ... of ... catch Class:Reason:Stack ... after` with
+[stack traces](abi.md#stack-traces), `maybe ... else ... end`; list, binary and
+map comprehensions ([patterns](patterns.md#comprehensions)); tuple and
+[native records](native-records.md); [funs](funs.md), local, remote and dynamic
+calls (`M:F(...)`, `apply/2,3`); [processes](processes.md) and
+[ports](ports.md). Calls run on explicit process frames with proper tail calls
+([execution model](execution-model.md#implementation)); body recursion is
+bounded by the process stack (uncapped by default), not the native stack.
+Modules a batch names but does not declare come from the
+[library](library.md). Comprehension match qualifiers of the experimental
+`compr_assign` feature are rejected as `[heap expressions] notimpl`.
 
-Function values `fun F/A`, `fun M:F/A`, anonymous and named funs with
-captured variables, calls of funs and dynamic calls (`M:F(...)`, `apply/2,3`)
-run ([funs](funs.md)). Rejected with diagnostics even in unused functions:
-`receive`, funs of builtins,
-processes and messaging.
 Accepted attributes: `module`, `export`, `file`, tuple and native `record`,
-`export_record`, `import_record`, type/spec
-forms, `doc`/`moduledoc`, `behaviour`/`behavior` ([behaviours](semantic.md#behaviours)),
-any informational attribute (`vsn`, `author`, `copyright`, `deprecated`,
-`dialyzer`, user-defined `-name(Term)`; kept for
+`export_record`, `import_record`, type/spec forms, `doc`/`moduledoc`,
+`behaviour`/`behavior` ([behaviours](semantic.md#behaviours)), any informational
+attribute (`vsn`, `author`, `copyright`, `deprecated`, `dialyzer`, user-defined
+`-name(Term)`; kept for
 [`module_info(attributes)`](semantic.md#predefined-functions)),
 `-import(Module, [F/A, ...])` ([imports](semantic.md#imports)) and `-compile`
 with options that change nothing Clause emits: `{no_auto_import, ...}`, warning
@@ -47,14 +38,15 @@ optimization, debug and reporting hints (`inline`, `{inline, [F/A]}`,
 `{inline_size, N}`, `{inline_effort, N}`, `inline_list_funcs`, `debug_info`,
 `deterministic`, `report*`, `verbose`, ...). `{parse_transform, Module}` runs
 the transform on the host Erlang/OTP before analysis
-([parse transforms](transforms.md)). `on_load`, `nifs`, `export_all`, other `compile`
-options and parameterized modules are rejected; the diagnostic names them, for example
+([parse transforms](transforms.md)). `on_load`, `nifs`, `export_all`, other
+`compile` options and parameterized modules are rejected; the diagnostic names
+them, for example
 `[behavior-changing attributes] notimpl [module="m" operation="-compile option export_all"]`.
-Every module gets `module_info/0,1`.
-Sources starting with `#!` follow [escript rules](executables.md#escripts)
-(implicit module and `main/1` export, `-mode` accepted).
-Type/spec forms are analyzed but never change generated code. Syntax-only modes
-(`--parse-check`, `--print-ast`, `--print-source`, ...) accept the full grammar.
+Every module gets `module_info/0,1`. Sources starting with `#!` follow
+[escript rules](executables.md#escripts) (implicit module and `main/1` export,
+`-mode` accepted). Type/spec forms are analyzed but never change generated code.
+Syntax-only modes (`--parse-check`, `--print-ast`, `--print-source`, ...) accept
+the full grammar.
 
 ## Run the compiled-module example
 
@@ -79,8 +71,9 @@ cmake --build build/example-native
 It prints `42`, `-7`, `record`, `map`, `binary`, `list`, `integer`, `other`, one
 per line. The harness registers modules explicitly, creates a context and
 decodes results; it is an example host, not a production entry point. On Unix
-use `build/debug/bin/clau`, `clang++` and `-DGENERATED_DIR="$PWD/build/example-aot"`
-(native runs there are not yet validated).
+use `build/debug/bin/clau`, `clang++` and
+`-DGENERATED_DIR="$PWD/build/example-aot"`. CTest `codegen_examples` runs these
+commands at every policy.
 
 Other actions on the same sources:
 
@@ -94,33 +87,33 @@ Other actions on the same sources:
 ## Abstract format printing
 
 `--print-abstr` (a frontend action) prints each parsed module as the OTP
-[abstract format](https://www.erlang.org/doc/apps/erts/absform.html) forms
-`epp` would hand a parse transform, one `file:consult/1` term per line, the
-same terms `erlc +to_abstr` writes ([transforms](transforms.md)).
+[abstract format](https://www.erlang.org/doc/apps/erts/absform.html) forms `epp`
+would hand a parse transform, one `file:consult/1` term per line, the same terms
+`erlc +to_abstr` writes ([transforms](transforms.md)).
 
 ## Source printing
 
 `--print-source` (a frontend action, like `--print-ast`) prints each parsed
 module as Erlang source; `--print-types` prints the same text with type
-annotations. The printer (`print_source`, `expression_source`, `type_source`
-in `printing.hpp`; `compiler/src/printing/source_*`) is reusable:
+annotations. The printer (`print_source`, `expression_source`, `type_source` in
+`printing.hpp`; `compiler/src/printing/source_*`) is reusable:
 
 - Forms follow each other in source order, a blank line around each function;
   the `-file` form the preprocessor adds before a module is left out, those
   around included files are kept.
 - The text is the parsed syntax: macros are expanded, includes inlined, and
-  comments, original spelling and layout are gone. Clauses and block
-  expressions (`case`, `if`, `receive`, `try`, `maybe`, `begin`, funs with
-  more than one line) take indented lines of four columns; everything else is
-  on one line. Parentheses come only from the source's own groups.
-- Printed text parses back to the same syntax tree, and printing it again
-  gives the same text (CTest `printing_source` over the parseable fixtures).
-- `SourceNotes` adds a note to an expression, printed as a trailing
-  `% Text` comment after the punctuation of the line where the expression
-  ends, and comment lines above a form. Only whole-line expressions carry
-  notes (body expressions and a `case`'s scrutinee; one per line, the
-  outermost), so long nested expressions stay readable and the text stays
-  Erlang. Patterns and guards carry none.
+  comments, original spelling and layout are gone. Clauses and block expressions
+  (`case`, `if`, `receive`, `try`, `maybe`, `begin`, funs with more than one
+  line) take indented lines of four columns; everything else is on one line.
+  Parentheses come only from the source's own groups.
+- Printed text parses back to the same syntax tree, and printing it again gives
+  the same text (CTest `printing_source` over the parseable fixtures).
+- `SourceNotes` adds a note to an expression, printed as a trailing `% Text`
+  comment after the punctuation of the line where the expression ends, and
+  comment lines above a form. Only whole-line expressions carry notes (body
+  expressions and a `case`'s scrutinee; one per line, the outermost), so long
+  nested expressions stay readable and the text stays Erlang. Patterns and
+  guards carry none.
 
 ## Options
 
@@ -155,10 +148,11 @@ in `printing.hpp`; `compiler/src/printing/source_*`) is reusable:
   manifest directory. Explicit roots are invocation-relative.
 - Names are reversible hex: `answer` → `clausev1_616e73776572__0.obj` (`.o` for
   ELF/Mach-O, `.ll`, `.bc`); the startup object is `clausev1_start.obj`.
-- All batches compile and stage before publication. Failures publish nothing
-  and keep earlier outputs; replacement is atomic per file, not per batch.
+- All batches compile and stage before publication. Failures publish nothing and
+  keep earlier outputs; replacement is atomic per file, not per batch.
 - `--emit` conflicts with `-o`; compilation switches conflict with frontend-only
-  actions and `--new-project`. `--print-types` rejects target/optimization options.
+  actions and `--new-project`. `--print-types` rejects target/optimization
+  options.
 - IR snapshots are LLVM assembly; multiple snapshots are separated by escaped
   comment headers and are not one parseable module. Use `--emit llvm-ir` for
   tool input. Source-line comments show original text (unexpanded macros) and
@@ -186,14 +180,14 @@ objects, one module at a time. Comments use the target's marker (`#` on x86,
   comments, when the line changes within a function. Instructions lowering
   located nowhere (wrappers, frame setup) have none.
 - The listing compiles a copy whose line table numbers IR instructions instead
-  of Erlang lines; that line table's directives, debug sections and labels
-  are left out. Reassembled, it gives the object `--emit obj` writes.
-- With other inspections, each module prints `before`, `after` and
-  `assembly` in turn, each after a header (`stage=assembly`). Like IR
-  inspection it rejects `--emit`, `--artifact-dir`, `--output` and
-  `--print-types`. x86 listings use AT&T syntax.
-- With `--entry`, IR and assembly inspections leave out the functions the
-  entry cannot reach, as the executable does (`--keep-exports` keeps them).
+  of Erlang lines; that line table's directives, debug sections and labels are
+  left out. Reassembled, it gives the object `--emit obj` writes.
+- With other inspections, each module prints `before`, `after` and `assembly` in
+  turn, each after a header (`stage=assembly`). Like IR inspection it rejects
+  `--emit`, `--artifact-dir`, `--output` and `--print-types`. x86 listings use
+  AT&T syntax.
+- With `--entry`, IR and assembly inspections leave out the functions the entry
+  cannot reach, as the executable does (`--keep-exports` keeps them).
 
 ## Environment report
 
@@ -239,45 +233,44 @@ artifact_dir = "/work/build/aot"
 (Arrays print one item per line.) `actions` lists the frontend actions
 (`print-pp`, `parse-check`, `print-ast`, `print-source`, `print-abstr`, else
 `preprocess-check`; `print-inputs` alone replaces them), else the inspections
-(`print-types`, `print-ir`, `print-optimized-ir`, `print-asm`), else `emit`, `link` (`-o`) or
-`compile`. In a project build, targets with an `output` link too. Modules found
-later by name (through `source_search_paths` or the library) are not listed:
-finding them needs parsing (`--print-inputs` does that). `--print-env` cannot be combined with
-`--new-project`.
+(`print-types`, `print-ir`, `print-optimized-ir`, `print-asm`), else `emit`,
+`link` (`-o`) or `compile`. In a project build, targets with an `output` link
+too. Modules found later by name (through `source_search_paths` or the library)
+are not listed: finding them needs parsing (`--print-inputs` does that).
+`--print-env` cannot be combined with `--new-project`.
 
 ## Compile cache
 
 A batch with a build directory (every project target, positional inputs with
 `--build-dir`) keeps its compile outcome in the
-[build cache](projects.md#build-caches) (plan 11 step 62D4): the diagnostics in
-order, failure, and, when an executable or `--emit` needs them, the objects
-(or bitcode) of every module and the startup module. A later build of the same
-batch with the same options replays the diagnostics and links or publishes the
-kept objects exactly like fresh ones; `--print-stage-times` then shows
-`[time] compile ... (cached)`. `--print-ir`, `--print-optimized-ir`,
-`--print-asm` and `--print-types` always recompute, and `--no-cache` neither reads nor writes.
+[build cache](projects.md#build-caches): the diagnostics in order, failure, and,
+when an executable or `--emit` needs them, the objects (or bitcode) of every
+module and the startup module. A later build of the same batch with the same
+options replays the diagnostics and links or publishes the kept objects exactly
+like fresh ones; `--print-stage-times` then shows `[time] compile ... (cached)`.
+`--print-ir`, `--print-optimized-ir`, `--print-asm` and `--print-types` always
+recompute, and `--no-cache` neither reads nor writes.
 
 - **Reuse unit: the whole batch.** Analysis, type inference, specialization
   budgets (per target), export liveness and the startup module span every
   module, so one module's object depends on facts of others (callee types,
-  records, behaviours, which functions stay live). Those facts have no
-  canonical form to hash per module today, so a per-module key could not be
-  proven sound; any change to any module of the batch recompiles the batch.
-  Inference results alone are kept per module for covered library
-  directories ([inference cache](projects.md#inference-cache)), so such a
-  recompile reuses them.
+  records, behaviours, which functions stay live). Those facts have no canonical
+  form to hash per module today, so a per-module key could not be proven sound;
+  any change to any module of the batch recompiles the batch. Inference results
+  alone are kept per module for covered library directories
+  ([inference cache](projects.md#inference-cache)), so such a recompile reuses
+  them.
 - **Key.** The `clau` version and executable identity; every input's path and
-  fingerprint (each file the frontend read for it, path and bytes, in order:
-  the source, its includes and `include_lib` files, and the reply of its parse
+  fingerprint (each file the frontend read for it, path and bytes, in order: the
+  source, its includes and `include_lib` files, and the reply of its parse
   transforms; the preprocessing options; the generated text of placeholders),
-  predefined forms and escript status; the resolved triple, optimization
-  level, `--emit`, `--no-type-specialization`, `-g`, `--lto`,
-  `--keep-exports`, whether an executable is linked, the entry selection and
-  the project target. Entries of one target with other options are kept side
-  by side.
-- **Storage.** Each output is a part of its own (step 62D5), so an object
-  larger than the store's inline limit becomes a content-addressed blob file,
-  shared when two option sets produce identical objects.
+  predefined forms and escript status; the resolved triple, optimization level,
+  `--emit`, `--no-type-specialization`, `-g`, `--lto`, `--keep-exports`, whether
+  an executable is linked, the entry selection and the project target. Entries
+  of one target with other options are kept side by side.
+- **Storage.** Each output is a part of its own, so an object larger than the
+  store's inline limit becomes a content-addressed blob file, shared when two
+  option sets produce identical objects.
 
 ## Backend
 
@@ -287,9 +280,9 @@ kept objects exactly like fresh ones; `--print-stage-times` then shows
   backends fail; there is no host fallback.
 - Verification runs before and after optimization; it checks IR validity, not
   Erlang correctness.
-- Budgets per target: 1,024 modules, 250,000 AST nodes per module, 1,000,000 per
-  batch. Serialized output: 64 MiB per module, 256 MiB per batch. Exceeding a
-  budget is an ordinary resource diagnostic.
+- Budgets per target: 16,384 modules, 1,500,000 AST nodes per module, 16,000,000
+  per batch. Serialized output: 64 MiB per module, 256 MiB per batch. Exceeding
+  a budget is an ordinary resource diagnostic.
 
 ## LLVM SDK
 
@@ -299,31 +292,30 @@ keeps exceptions/RTTI; no exception may unwind through LLVM. The runtime never
 uses LLVM.
 
 - Discovery searches standard prefixes (`/usr`, `/usr/local`, `/opt/homebrew`,
-  `/opt/local`, `/opt/llvm`, Linuxbrew, `/Library/Developer/Toolchains`,
-  Program Files on Windows), including versioned layouts. Build trees are rejected.
-- `LLVM_DIR` selects an SDK explicitly; invalid selections fail without fallback.
+  `/opt/local`, `/opt/llvm`, Linuxbrew, `/Library/Developer/Toolchains`, Program
+  Files on Windows), including versioned layouts. Build trees are rejected.
+- `LLVM_DIR` selects an SDK explicitly; invalid selections fail without
+  fallback.
 - If none is found, CMake downloads the pinned **23.1.2** archive (SHA-256
   checked) into `thirdparty/` for Windows x64/ARM64, Linux x64/ARM64 or macOS
   ARM64. `CLAUSE_DOWNLOAD_LLVM=OFF` disables downloads.
 - A configure-time link probe checks ABI compatibility.
 
-Reference Windows x64 setup (2026-09-29): host clang-cl 23.1.2 in
-`C:/Program Files/LLVM/bin`, SDK `thirdparty/clang+llvm-23.1.2-x86_64-pc-windows-msvc`,
-Visual Studio 18 x64 tools, Windows SDK 10.0.26100.0, Ninja, `/MT`,
-`_ITERATOR_DEBUG_LEVEL=0`. Automatic selection applies the `/MT` and iterator
-settings; an explicit `LLVM_DIR` does not, and the link probe then fails.
-
-Historical macOS reference: Homebrew `llvm` 23.1.1_1 (arm64, shared
-`libLLVM.23.1.dylib`, assertions off) with AppleClang 21.
+Reference Windows x64 setup: host clang-cl 23.1.2 in
+`C:/Program Files/LLVM/bin`, SDK
+`thirdparty/clang+llvm-23.1.2-x86_64-pc-windows-msvc`, Visual Studio 18 x64
+tools, Windows SDK 10.0.26100.0, Ninja, `/MT`, `_ITERATOR_DEBUG_LEVEL=0`.
+Automatic selection applies the `/MT` and iterator settings; an explicit
+`LLVM_DIR` does not, and the link probe then fails.
 
 ## PCRE2
 
-Plan 11 step 41ZA. The runtime's `re` builtins use PCRE2 **10.47**, the release
-OTP 29 bundles (`erts/emulator/pcre/vendor.info`), so pattern syntax, options and
-captures behave as OTP's: 8-bit code units, Unicode support, no JIT, stock
-`pcre2_match` (OTP's yielding patch is not carried over). PCRE2 is BSD-3-Clause
-licensed with the PCRE2 exception for compiled binaries; no PCRE2 file is
-committed. CMake (`cmake/Pcre2Dependencies.cmake`) resolves it in this order:
+The runtime's `re` builtins use PCRE2 **10.47**, the release OTP 29 bundles
+(`erts/emulator/pcre/vendor.info`), so pattern syntax, options and captures
+behave as OTP's: 8-bit code units, Unicode support, no JIT, stock `pcre2_match`
+(OTP's yielding patch is not carried over). PCRE2 is BSD-3-Clause licensed with
+the PCRE2 exception for compiled binaries; no PCRE2 file is committed. CMake
+(`cmake/Pcre2Dependencies.cmake`) resolves it in this order:
 
 1. `-DCLAUSE_PCRE2_ROOT=<source directory>` takes precedence (no download); the
    version in its `configure.ac` must be 10.47.
@@ -337,30 +329,32 @@ committed. CMake (`cmake/Pcre2Dependencies.cmake`) resolves it in this order:
    `-DCLAUSE_DOWNLOAD_PCRE2=OFF` disables the download.
 
 A source directory (1 or 3) builds the object library `clause_pcre2` from the
-listed `.c` files with the distributed `config.h.generic`, `pcre2.h.generic`
-and `pcre2_chartables.c.dist` copied into the build tree (no generation step,
-no project warning flags, outside clang-tidy and Lizard), and its objects are
-added to `clause_runtime` itself: the archive is self-contained and every
-consumer (`clau` links, nested test programs, `runtime_link`,
-`examples/compile`) gets PCRE2 with it. An installed library instead becomes
-an extra linker input recorded in `clause_runtime.link` beside the archive
-(one input per line), which `clau` adds to every link; a shared library makes
-the executables depend on it at run time. Per platform: Windows uses the
-download (no system PCRE2 is searched for in practice); Linux and macOS use an
-installed PCRE2 10.47 or newer when present, else the download. Always linked
-into the runtime for now (decided 2026-10-14); linking it only into programs
-that call `re`, or a dynamically loaded library, is deferred.
+listed `.c` files with the distributed `config.h.generic`, `pcre2.h.generic` and
+`pcre2_chartables.c.dist` copied into the build tree (no generation step, no
+project warning flags, outside clang-tidy and Lizard), and its objects are added
+to `clause_runtime` itself: the archive is self-contained and every consumer
+(`clau` links, nested test programs, `runtime_link`, `examples/compile`) gets
+PCRE2 with it. An installed library instead becomes an extra linker input
+recorded in `clause_runtime.link` beside the archive (one input per line), which
+`clau` adds to every link; a shared library makes the executables depend on it
+at run time. Per platform: Windows uses the download (no system PCRE2 is
+searched for in practice); Linux and macOS use an installed PCRE2 10.47 or newer
+when present, else the download. PCRE2 is always linked into the runtime, also
+into programs that never call `re`.
 
 ## zlib
 
-Plan 11 step 41Q. The runtime's zlib module and compressed external terms use zlib **1.3.2**, the release OTP 29
-bundles (`erts/emulator/zlib/vendor.info`), so compressed bytes equal OTP's. CMake compiles its library sources
-(`cmake/ZlibDependencies.cmake`, `clause_add_runtime_zlib`) into the object library `clause_runtime_zlib`, whose
-objects join `clause_runtime` as PCRE2's do; `-DCLAUSE_RUNTIME_ZLIB_ROOT=<source directory>` takes precedence,
-otherwise the release is downloaded into `thirdparty/zlib-1.3.2` and verified (SHA-256
-`bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16`) on every host. zlib's license is the zlib
-license. The compiler's LLVM keeps its own zlib; the two never meet in one binary.
+The runtime's zlib module and compressed external terms use
+zlib **1.3.2**, the release OTP 29 bundles (`erts/emulator/zlib/vendor.info`),
+so compressed bytes equal OTP's. CMake compiles its library sources
+(`cmake/ZlibDependencies.cmake`, `clause_add_runtime_zlib`) into the object
+library `clause_runtime_zlib`, whose objects join `clause_runtime` as PCRE2's
+do; `-DCLAUSE_RUNTIME_ZLIB_ROOT=<source directory>` takes precedence, otherwise
+the release is downloaded into `thirdparty/zlib-1.3.2` and verified (SHA-256
+`bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16`) on every
+host. zlib's license is the zlib license. The compiler's LLVM keeps its own
+zlib; the two never meet in one binary.
 
-Other prerequisites: CMake ≥ 3.28, a C++23 compiler, Boost ≥ 1.90, toml++
-3.4.0 and the quality tools. OTP is needed only for opt-in audits and fixture
+Other prerequisites: CMake ≥ 3.28, a C++23 compiler, Boost ≥ 1.90, toml++ 3.4.0
+and the quality tools. OTP is needed only for opt-in audits and fixture
 regeneration.

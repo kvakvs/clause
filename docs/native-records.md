@@ -1,11 +1,7 @@
 # Native records
 
-Decision of plan 11 step 31A (2026-10-07). It scopes the OTP 29 record forms
-beyond ordinary tuple records and fixes their representation, operations and
-errors. Step 31B implemented the runtime cells and `CLAUSE_record_v1`;
-31C compiles local native records, 31D qualified and imported forms with
-`-export_record`/`-import_record`, 31E anonymous forms. Tuple records are in
-[terms](terms.md#records).
+The OTP 29 record forms beyond ordinary tuple records: their representation,
+operations and errors. Tuple records are in [terms](terms.md#records).
 
 OTP 29 marks native records experimental. Facts below come from the pinned
 `maint-29` sources (`erl_lint`, `erl_expand_records`, `v3_core`,
@@ -14,18 +10,19 @@ OTP 29 marks native records experimental. Facts below come from the pinned
 
 ## Scope
 
-All three forms beyond tuple records are selected. They share one
-representation, so they need no separate representation decision:
+All three forms beyond tuple records are implemented and share one
+representation:
 
-| Form | Syntax | Step |
-| --- | --- | --- |
-| Native record, local | `-record #r{...}.`, `#r{...}`, `X#r.f`, `X#r{...}`, patterns, `is_record/1,2,3` | 31C |
-| Qualified and imported | `#m:r{...}`, `X#m:r.f`, `X#m:r{...}`, patterns; `-export_record`, `-import_record` | 31D |
-| Inferred (anonymous) | `X#_.f`, `X#_{...}`, pattern `#_{...}` | 31E |
+| Form | Syntax |
+| --- | --- |
+| Native record, local | `-record #r{...}.`, `#r{...}`, `X#r.f`, `X#r{...}`, patterns, `is_record/1,2,3` |
+| Qualified and imported | `#m:r{...}`, `X#m:r.f`, `X#m:r{...}`, patterns; `-export_record`, `-import_record` |
+| Inferred (anonymous) | `X#_.f`, `X#_{...}`, pattern `#_{...}` |
 
-Not selected: the `records` reflection module (a library, with step 39's
-library work), `term_to_binary` (`RECORD_EXT`) and hot code upgrade (D01).
-Calls to `records:*` stay `unknown module` diagnostics.
+Not provided: the `records` reflection module (calls to `records:*` are
+`unknown module` diagnostics), `term_to_binary` of native records
+(`error:notsup`, [external term format](builtins.md#external-term-format)) and
+hot code upgrade.
 
 ## Representation
 
@@ -33,25 +30,24 @@ Calls to `records:*` stay `unknown module` diagnostics.
   `abi::v1::RecordDescriptor` beside its module descriptor: the defining
   `ModuleDescriptor`, atom slots for the module and record names, the export
   flag (`-export_record` at compile time) and the field-name atom slots in
-  definition order. Atom slots resolve through the module's registered atoms,
-  as `FrameDescriptor` names do. Programs are static (no unloading), so a
-  descriptor lives as long as the program; another module of the batch refers
-  to it by symbol. Defaults are compiled into each construction site, never
-  stored.
+  definition order. Atom slots resolve through the module's registered atoms, as
+  `FrameDescriptor` names do. Programs are static (no unloading), so a
+  descriptor lives as long as the program; another module of the batch refers to
+  it by symbol. Defaults are compiled into each construction site, never stored.
 - **Instance.** Heap cell of kind `native_record`: header (count `1 + n`), an
-  untraced descriptor word, then `n` traced values in definition order. A
-  record with no fields is a two-word cell.
+  untraced descriptor word, then `n` traced values in definition order. A record
+  with no fields is a two-word cell.
 - The descriptor captures module, name, export flag and field list at
   construction, as OTP's captured definition does. Every operation after
   construction reads the instance's descriptor, never the code that runs it.
-- Copying, collection, walking and verification treat the cell as a tuple
-  whose first payload word is untraced. Admission requires a descriptor
-  registered by a module of the same runtime.
+- Copying, collection, walking and verification treat the cell as a tuple whose
+  first payload word is untraced. Admission requires a descriptor registered by
+  a module of the same runtime.
 
 ## Operations
 
-`M` is the current module. All errors have class `error`; badrecord payloads
-are the offending value except failed external construction.
+`M` is the current module. All errors have class `error`; badrecord payloads are
+the offending value except failed external construction.
 
 | Operation | Accepts | Failure |
 | --- | --- | --- |
@@ -68,17 +64,17 @@ are the offending value except failed external construction.
 | Anonymous pattern `#_{...}` | Any native record; exported or module `M` when a field is listed | no match |
 
 - Construction evaluates the given fields in source order (defaults are
-  literals); an update evaluates the record first, then the new values in
-  source order, unlike a tuple-record update. Empty updates still check.
+  literals); an update evaluates the record first, then the new values in source
+  order, unlike a tuple-record update. Empty updates still check.
 - Guards: only field access (a failure fails the guard) and `is_record`.
-  Construction in a guard is `creating a record in a guard is only supported
-  for tuple records`; update is `illegal guard expression`.
-- `is_record(X)` is true only for native records. `is_record(X, r)` with a
-  local native `r` tests module `M` and name `r`; with `r` imported from `m` it
-  tests module `m`. `is_record(X, m, r)` with atoms tests module
-  and name; with an integer it is the tuple test.
-- Native records are not tuples: `is_tuple` is false; element and size
-  services reject them.
+  Construction in a guard is `creating a record in a guard is only supported for
+  tuple records`; update is `illegal guard expression`.
+- `is_record(X)` is true only for native records. `is_record(X, r)` with a local
+  native `r` tests module `M` and name `r`; with `r` imported from `m` it tests
+  module `m`. `is_record(X, m, r)` with atoms tests module and name; with an
+  integer it is the tuple test.
+- Native records are not tuples: `is_tuple` is false; element and size services
+  reject them.
 
 ## Compile-time rules
 
@@ -99,27 +95,22 @@ Messages follow `erl_lint`:
 - External forms naming a module outside the batch, an undefined or a
   non-exported record compile and fail at run time like OTP. External
   construction is resolved against the batch at compile time: the importing
-  module lowers the defining module's literal defaults itself and references
-  its exported descriptor; unknown fields raise `badfield` before a missing
-  value raises `novalue` (`ErrorReason` 21).
+  module lowers the defining module's literal defaults itself and references its
+  exported descriptor; unknown fields raise `badfield` before a missing value
+  raises `novalue` (`ErrorReason` 21).
 
 ## Printing and order
 
 - `erlang:display/1` prints `#m:r{a=1,b=2}`: no spaces, fields in definition
-  order. OTP prints fields in atom-table index order, which depends on atom
-  creation order and is not reproducible; this is a recorded difference, as
-  for map keys.
+  order (OTP: atom-table index order, [differences](differences.md#maps)).
 - Term order: tuple < native record < map. Records compare by module, name,
-  export flag (false first), field count, field names in definition order,
-  then values in definition order. `=:=` additionally requires the same field
-  order; `==` compares values numerically (OTP's compiler folds some `==` on
-  records to `=:=`; the runtime rule is followed).
+  export flag (false first), field count, field names in definition order, then
+  values in definition order. `=:=` additionally requires the same field order;
+  `==` compares values numerically (OTP's compiler folds some `==` on records to
+  `=:=`, [differences](differences.md#maps); the runtime rule is followed).
 
 ## Differences kept
 
-| OTP | Clause |
-| --- | --- |
-| `display` field order follows atom indexes | Definition order |
-| External construction of a module that is not loaded fails until it is loaded | Every batch module is loaded at startup; a module outside the batch always fails |
-| Compiler may fold `==` between records to `=:=` (`#r{a=1} == #r{a=1.0}` is false) | Runtime `==` (true) |
-| Unknown fields in access/update/patterns, own-module qualified construction without values, unused or header-defined records: warnings | No warnings |
+Display field order, `==` folding, external construction of unloaded modules
+and missing record warnings are recorded in
+[differences](differences.md#maps).

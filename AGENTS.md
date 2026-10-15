@@ -41,17 +41,22 @@ separate dynamic SO/DLL modules, or dropped.
 - Implementation language: C++23 for the preprocessor, parser, compiler tool,
   and a separately built C++ runtime. Use CMake; all project targets treat
   compiler warnings as errors.
-- Project structure: compiler executable `clau`
-  and separate runtime library `clause_runtime`, in one repository. See
-  `README.md` for current usage, `.agents/00-finished.md` for completed work and
-  the outstanding compiler/runtime checklist. Stages exchange internal owned
-  data; public interchange remains deferred.
+- Project structure: compiler executable `clau` and separate runtime library
+  `clause_runtime`, in one repository. See `README.md` for current usage,
+  `.agents/00-finished.md` for completed work and the outstanding
+  compiler/runtime checklist. Stages exchange internal owned data; public
+  interchange remains deferred.
 - Future directories: `compiler/`, `runtime/`, `abi/`, `cmake/`, `tests/`,
   `examples/`, and `docs/`; see `.agents/files.md` for component locations.
   Intermediate stage readers have reserved directory locations only.
 
 Use `.agents/aimemory.md` for AI notes and memory, this file will not be read by
 humans.
+
+Delegated subagents (search, doc cleanup, review, mechanical edits) run on a
+faster model such as Sonnet; Claude Code applies this through
+`CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`. Override per task only
+when the work needs deeper reasoning.
 
 ## Artifacts Produced
 
@@ -72,15 +77,15 @@ skeleton and test migration are archived in `.agents/00-finished.md`.
   `compiler/src/codegen/runtime_symbols.hpp` as a `mangling::Function<...>`
   alias mirroring its `abi/include` declaration, and emit it via
   `services::symbol<services::X>(triple)`. Extend
-  `compiler/include/clause/compiler/mangling.hpp` when a new signature shape
-  is needed, and add the expected spellings, checked against Clang for every
-  target ABI and width, to `tests/compiler/codegen/mangling.cpp`.
+  `compiler/include/clause/compiler/mangling.hpp` when a new signature shape is
+  needed, and add the expected spellings, checked against Clang for every target
+  ABI and width, to `tests/compiler/codegen/mangling.cpp`.
 - IMPORTANT: Document class fields creation intent, what will they be doing.
   Document function creation intent. Keep comments down to 1-2 lines.
-  - (do not do the following for trivial one-line changes):
-    When implementing new features which require creating new code, tag that new
-    code with a very short comment that it was created and used for this specific
-    feature initially, prefer feature names over feature codes
+  - (do not do the following for trivial one-line changes): When implementing
+    new features which require creating new code, tag that new code with a very
+    short comment that it was created and used for this specific feature
+    initially, prefer feature names over feature codes
 - The code will be read by humans, keep it readable.
 - The cyclomatic complexity of new functions and new files must remain low
   (avoid complex code). Use both Lizard and clang-tidy.
@@ -111,7 +116,8 @@ harmless.
 ## Code Style Guide
 
 - Internal fields of classes and structs: use trailing underscore.
-  - Rename existing fields when they did not have an underscore while you're working on them.
+  - Rename existing fields when they did not have an underscore while you're
+    working on them.
 - Constants and inline constexpr constants prefer ALL_CAPS_SNAKE_CASE
 - Function names and local variables: lower_snake_case
 - Class names and struct names: public use CapitalCase, and private can go any
@@ -122,8 +128,8 @@ harmless.
 - Keep `docs/differences.md` up to date: whenever work finds or introduces an
   observable behavior that differs from Erlang/OTP (ordering, error terms, stack
   traces, limits, diagnostics, printing, edge-case semantics), add a row with
-  OTP's behavior, Clause's behavior and the owning contract document. Remove
-  or update the row when the difference is fixed. Features that are simply not
+  OTP's behavior, Clause's behavior and the owning contract document. Remove or
+  update the row when the difference is fixed. Features that are simply not
   implemented yet belong to the plan and `docs/features.md`.
 
 ## Testing Strategy
@@ -149,21 +155,22 @@ harmless.
   master data in Clause git, but not the license-protected files.- Keep test
   disk writes low. Test programs (main-build test executables and the nested
   CMake consumers under `build/*/tests`) are rebuilt by test runs and are built
-  without debug information: no PDB files unless
-  `-DCLAUSE_TEST_DEBUG_INFO=ON`. A PDB only helps to debug a crash, so when
-  a test program crashes, reconfigure with that option, rebuild and rerun the
-  test to get one, then switch it back off. `clau`, compiler and runtime
-  libraries keep their debug information.
+  without debug information: no PDB files unless `-DCLAUSE_TEST_DEBUG_INFO=ON`.
+  A PDB only helps to debug a crash, so when a test program crashes, reconfigure
+  with that option, rebuild and rerun the test to get one, then switch it back
+  off. `clau`, compiler and runtime libraries keep their debug information.
 - Nested test consumers link the runtime the parent build already compiled:
   `include("${RUNTIME_TARGETS}")` (passed by `TestHost.cmake` through
-  `host_configure_args`) provides `Clause::generated_program` and
-  `Clause::abi`. Never `add_subdirectory` the repository into a new test to
-  rebuild the runtime; only `runtime_link` does that, to prove the standalone
-  LLVM-free runtime build, and the `examples/compile` example shows it to users.
-- A successful test program should not silently exit, it should actively confirm success
-  by printing "<program name>: ok". So that there is no confusion on whether a test 
-  succeeded or silently crashed/exited. Update existing tests to this behavior.
-  - a program that is supposed to fail (non-zero exit, expected stderr) should do 
-    anything else other than printing "<program name>: ok", it can silently exit, it 
-    can crash, it can print an error - everything should not be considered a success.
-    Of course for those test steps which already adopted such behavior change
+  `host_configure_args`) provides `Clause::generated_program` and `Clause::abi`.
+  Never `add_subdirectory` the repository into a new test to rebuild the
+  runtime; only `runtime_link` does that, to prove the standalone LLVM-free
+  runtime build, and the `examples/compile` example shows it to users.
+- A successful test program should not silently exit, it should actively confirm
+  success by printing "<program name>: ok". So that there is no confusion on
+  whether a test succeeded or silently crashed/exited. Update existing tests to
+  this behavior.
+  - a program that is supposed to fail (non-zero exit, expected stderr) should
+    do anything else other than printing "<program name>: ok", it can silently
+    exit, it can crash, it can print an error - everything should not be
+    considered a success. Of course for those test steps which already adopted
+    such behavior change

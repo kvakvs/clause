@@ -33,12 +33,13 @@ Run at the start of OTP-dependent work.
 3. Generate the compiler header from the same revision (from the project root):
    `perl references/otp/erts/emulator/utils/beam_makeops -compiler -outdir references/otp/lib/compiler/src references/otp/lib/compiler/src/genop.tab`.
    On Windows normalize only the generated `beam_opcodes.hrl` to LF.
-4. Update the pin and verify every path in `tests/fixtures/parser/phase6/otp.tsv`.
-   Refresh hashes only after reviewing real upstream changes. If `erl_parse.yrl`
-   changes, review `tests/fixtures/parser/grammar.tsv`, its fixtures and
-   `phase6/coverage.tsv`; every ordinary production needs a measured witness.
-5. Configure with `CLAUSE_OTP_AUDITS=ON` and `CLAUSE_OTP_SOURCE_ROOT` set
-   to the checkout. Run the audit tests and
+4. Update the pin and verify every path in
+   `tests/fixtures/parser/phase6/otp.tsv`. Refresh hashes only after reviewing
+   real upstream changes. If `erl_parse.yrl` changes, review
+   `tests/fixtures/parser/grammar.tsv`, its fixtures and `phase6/coverage.tsv`;
+   every ordinary production needs a measured witness.
+5. Configure with `CLAUSE_OTP_AUDITS=ON` and `CLAUSE_OTP_SOURCE_ROOT` set to the
+   checkout. Run the audit tests and
    `tests/compiler/patternmatch/regenerate.py --corpus all --check`. Record the
    revision and outcomes below; report drift instead of regenerating to hide it.
 

@@ -1,21 +1,21 @@
 # Library functions luerl reaches at run time (2026-10-14)
 
 This file lists the library functions a luerl program calls, in execution order,
-that are either missing in Clause or that, when compiled from OTP source,
-behave differently from OTP. Each one is a reason the luerl executable produces
-no output or fails. Later steps reimplement them or decide what to do about
-them.
+that are either missing in Clause or that, when compiled from OTP source, behave
+differently from OTP. Each one is a reason the luerl executable produces no
+output or fails. Later steps reimplement them or decide what to do about them.
 
 ## luerl `examples/benchmark` (2026-10-15)
 
 Command: `clau.bat --project test-luerl-benchmark --entry benchmarks:run/0`
 (`test-luerl-benchmark.toml` lists luerl's `src` plus
 `references/luerl/examples/benchmark/**/*.erl`; it shares `build-clau-luerl`
-with `test-luerl-euler.toml`), run with the current directory at `references/luerl/examples/benchmark/` (it globs
-`suites/*.lua` and loads `util/extract_bench_keys.lua`).
+with `test-luerl-euler.toml`), run with the current directory at
+`references/luerl/examples/benchmark/` (it globs `suites/*.lua` and loads
+`util/extract_bench_keys.lua`).
 
-- **Entry, not a library gap:** `--entry benchmarks:run` resolved to
-  `run/1` (the argument-list entry is preferred) and called `run([])`, so
+- **Entry, not a library gap:** `--entry benchmarks:run` resolved to `run/1`
+  (the argument-list entry is preferred) and called `run([])`, so
   `luerl:dofile([], _)` returned `error` and the program stopped at once with
   `uncaught exception error: {badmatch,error}`. OTP's `-s benchmarks run` calls
   `run/0`. Fixed by the `/ARITY` entry suffix (`--entry M:F/0`,
@@ -23,41 +23,41 @@ with `test-luerl-euler.toml`), run with the current directory at `references/lue
 - **Result:** with `run/0`, all 22 suites print the same 158 lines as OTP 29
   with luerl's rebar beams, timings aside. No missing library function was
   reached.
-- **What it measures:** `luerl:call_method([<<"bench">>], Key, [], Lua)`
-  returns `{lua_error,{illegal_index,[<<"bench">>],Key},_}` on OTP too (the
-  API wants a table reference, not a path), so every timing is 1000 error
-  returns. OTP: 0.0–0.2 ms per benchmark (coarse timer), whole run 0.55 s.
-  Clause `-O0`: 2.4–3.1 ms per benchmark, whole run 1.8 s.
+- **What it measures:** `luerl:call_method([<<"bench">>], Key, [], Lua)` returns
+  `{lua_error,{illegal_index,[<<"bench">>],Key},_}` on OTP too (the API wants a
+  table reference, not a path), so every timing is 1000 error returns. OTP:
+  0.0–0.2 ms per benchmark (coarse timer), whole run 0.55 s. Clause `-O0`:
+  2.4–3.1 ms per benchmark, whole run 1.8 s.
 
 ## luerl `examples/euler` (2026-10-15)
 
 Command: `clau.bat --project test-luerl-euler --entry euler:run`
 (`test-luerl-euler.toml` lists luerl's `src` plus
-`references/luerl/examples/euler/*.erl`), run with the current
-directory at `references/luerl/examples/euler/`, because `euler:run/0` loads
-`./problem_00N.lua`. The program runs 10 Lua files through
-`luerl:loadfile/2` and `luerl:call_chunk/3`.
+`references/luerl/examples/euler/*.erl`), run with the current directory at
+`references/luerl/examples/euler/`, because `euler:run/0` loads
+`./problem_00N.lua`. The program runs 10 Lua files through `luerl:loadfile/2`
+and `luerl:call_chunk/3`.
 
-- **Missing (done in 41ZC, 2026-10-15; the repository build now prints OTP's output for all 10 problems):**
-  `io:request/2` (stub). The repository build stops at once with
-  `uncaught exception error: {not_implemented,request,2}`. It is reached from
-  `luerl_comp:file/2` → `luerl_io:with_token_file_fd/3`:
+- **Missing (done in 41ZC, 2026-10-15; the repository build now prints OTP's
+  output for all 10 problems):** `io:request/2` (stub). The repository build
+  stops at once with `uncaught exception error: {not_implemented,request,2}`. It
+  is reached from `luerl_comp:file/2` → `luerl_io:with_token_file_fd/3`:
   `io:request(Fd, {get_until,latin1,'',luerl_scan,tokens,[Line]})` on a
   `file:open/2` pid. Before that call, `io:get_line/2` and `file:position/2` on
   the same pid already work. So any `luerl:loadfile`/`dofile`/`evalfile` hits
   this, not only `io.read`.
-  - What the request must do (OTP `file_io_server`): read characters, then
-    call `M:F(Cont, Chars | eof, ExtraArgs...)`, starting with `Cont = []`.
-    `{more, Cont1}` asks for more data. `{done, Result, Rest}` returns
-    `Result` and keeps `Rest` for the next read. In list mode `Chars` is a
-    list; `Encoding` applies.
+  - What the request must do (OTP `file_io_server`): read characters, then call
+    `M:F(Cont, Chars | eof, ExtraArgs...)`, starting with `Cont = []`.
+    `{more, Cont1}` asks for more data. `{done, Result, Rest}` returns `Result`
+    and keeps `Rest` for the next read. In list mode `Chars` is a list;
+    `Encoding` applies.
 - **With a stand-in:** in scratch only, a copy of `library/stdlib/io.erl` as a
   project source, with `request(Pid, {get_until,...})` feeding 4 KiB
   `file:read/2` chunks and then `eof`, dropping `Rest`. All 10 problems then
   print exactly OTP's output, except the `~pus` timings. The `232792560.0` and
   `32.0` float returns match OTP too. No other library gap was reached.
-- **Speed (not a library gap; recorded for planning):** the results are
-  correct but much slower than OTP 29 with luerl's rebar beams.
+- **Speed (not a library gap; recorded for planning):** the results are correct
+  but much slower than OTP 29 with luerl's rebar beams.
 
   | Build | Total | problem_004 | problem_009 | problem_010 |
   | --- | --- | --- | --- | --- |
@@ -66,13 +66,13 @@ directory at `references/luerl/examples/euler/`, because `euler:run/0` loads
   | Clause `-O2` | 21 s | 3.30 s | 12.4 s | 4.32 s |
   | Clause `-O2` after plan 20 OPT0.18 (2026-10-15) | 0.62 s | 119 ms | 316 ms | 95 ms |
 
-  The OTP `cprof` count for problem_004 is about 3 M calls, so `-O2` costs
-  about 1 µs per Erlang call. The slowdown grows with run length (45× on
-  problem_008, 160× on problem_004/009, 245× on problem_010).
+  The OTP `cprof` count for problem_004 is about 3 M calls, so `-O2` costs about
+  1 µs per Erlang call. The slowdown grows with run length (45× on problem_008,
+  160× on problem_004/009, 245× on problem_010).
 
-  An LLDB stack sampler on the `-O2 -g` build took 146 samples of the
-  scheduler thread over the whole run (script kept in the session scratchpad,
-  not in the repository). Inclusive shares, which overlap:
+  An LLDB stack sampler on the `-O2 -g` build took 146 samples of the scheduler
+  thread over the whole run (script kept in the session scratchpad, not in the
+  repository). Inclusive shares, which overlap:
 
   | Share | Where | Why it is hot |
   | --- | --- | --- |
@@ -87,43 +87,42 @@ directory at `references/luerl/examples/euler/`, because `euler:run/0` loads
   | 3% | `ProcessHeap::collect` | GC is not the bottleneck |
 
   The cheap fixes are to cache the `true`/`false`/`undefined` words, cache
-  atom-literal words per module, and avoid temporary vectors. The structural
-  fix is to inline type tests, element access, small-integer arithmetic and
+  atom-literal words per module, and avoid temporary vectors. The structural fix
+  is to inline type tests, element access, small-integer arithmetic and
   comparisons into generated code instead of calling a validating service.
 
 ## Status after phases H3, H4 and H5 (2026-10-14, step 41S)
 
 Every row below is done. Rerun after 41ZB (`re`) and 41S (`prim_eval`), a cold
 `clau.bat --project drive.toml --entry luerl_drive:main` build with no
-stand-ins: 34 of the 35 snippets print exactly OTP's output, `os.date`
-included. The one left is `goto`: the same `function_clause` as OTP, with
-stack frames that carry no arguments or locations (already in
-`docs/differences.md`). Nothing open from this driver.
+stand-ins: 34 of the 35 snippets print exactly OTP's output, `os.date` included.
+The one left is `goto`: the same `function_clause` as OTP, with stack frames
+that carry no arguments or locations (already in `docs/differences.md`). Nothing
+open from this driver.
 
 ## Status after plan phase H4 and step 41L (2026-10-14)
 
-Rows 1–16 and 18–24 are implemented in the repository library and runtime
-(plan steps 41T–41Z, 41M1, 41M2, 41L; [finished work](00-finished.md)). Rerun of
-the driver (`tools/luerl-trace/drive.toml` without the `ovr/` stand-ins,
-built with `clau --project drive.toml --entry luerl_drive:main`, 6 min 18 s
-cold) against OTP 29 with luerl's rebar beams: 32 of the 35 snippets print
-exactly OTP's output, including `math.*`, `string.find`/`sub`/`format`,
-`tonumber('1e2')`, `print(1e100)`, the scanner, compiler and `io.write`.
-The other 3:
+Rows 1–16 and 18–24 are implemented in the repository library and runtime (plan
+steps 41T–41Z, 41M1, 41M2, 41L; [finished work](00-finished.md)). Rerun of the
+driver (`tools/luerl-trace/drive.toml` without the `ovr/` stand-ins, built with
+`clau --project drive.toml --entry luerl_drive:main`, 6 min 18 s cold) against
+OTP 29 with luerl's rebar beams: 32 of the 35 snippets print exactly OTP's
+output, including `math.*`, `string.find`/`sub`/`format`, `tonumber('1e2')`,
+`print(1e100)`, the scanner, compiler and `io.write`. The other 3:
 
 - `os` (`os.date`): `re:run/2` (row 17), still out of scope.
-- `syntax`: fixed by plan step 41L (2026-10-14): `init:get_arguments/0`,
-  then `lists:filtermap/2` and `lists:uniq/1` in `erl_features`; the Lua
-  syntax error now equals OTP's. Rerun after 41L: 33 of 35 snippets print
-  OTP's output; `os` and `goto` remain as below.
-- `goto`: the same `function_clause` as OTP; only the stack frames differ
-  (no argument lists or locations, already in `docs/differences.md`).
+- `syntax`: fixed by plan step 41L (2026-10-14): `init:get_arguments/0`, then
+  `lists:filtermap/2` and `lists:uniq/1` in `erl_features`; the Lua syntax error
+  now equals OTP's. Rerun after 41L: 33 of 35 snippets print OTP's output; `os`
+  and `goto` remain as below.
+- `goto`: the same `function_clause` as OTP; only the stack frames differ (no
+  argument lists or locations, already in `docs/differences.md`).
 
 
 - `test-luerl.toml` (since 2026-10-15 split into `test-luerl-euler.toml` and
-  `test-luerl-benchmark.toml`) used `--entry luerl:init`. `luerl:init/0` only builds a Lua
-  state and returns it. It prints nothing on real OTP either, so the executable
-  "doing nothing" is the expected behavior of that entry point.
+  `test-luerl-benchmark.toml`) used `--entry luerl:init`. `luerl:init/0` only
+  builds a Lua state and returns it. It prints nothing on real OTP either, so
+  the executable "doing nothing" is the expected behavior of that entry point.
 - Once luerl runs real Lua code (`luerl:do/2`), the Clause build failed on the
   first token: `luerl_scan:yypre/2` calls the stub `lists:sublist/2`, which
   raises `{not_implemented,sublist,2}`. Every Lua chunk is scanned, so every
@@ -144,8 +143,8 @@ The other 3:
   - `CLAUSE_CALL_TRACE=FILE` logs each *boundary call*: a call from a program
     module into a library module. Program modules are those named by the
     prefixes in `CLAUSE_CALL_TRACE_QUIET`, default `luerl,ttdict,ttsets`. Each
-    call is logged with its arguments and its result (`RET`) or failure
-    (`EXC`), with bounded depth and width.
+    call is logged with its arguments and its result (`RET`) or failure (`EXC`),
+    with bounded depth and width.
   - Every recorded failure is also logged as `RAISE`.
   - `CLAUSE_CALL_TRACE_FIRST=1` adds `FIRST M:F/A` at the first entry of every
     function, including calls inside OTP-compiled modules.
@@ -155,8 +154,8 @@ The other 3:
 - **OTP twin**: `tools/luerl-trace/ctrace.erl` runs the same driver on the host
   OTP 29 with call tracing (`exception_trace` + `{caller}`). It prints with the
   same rules, so the two traces can be diffed line by line.
-- **Driver**: `tools/luerl-trace/luerl_drive.erl` runs 35 Lua snippets, one
-  step each, catching errors. `drive.toml` builds it together with luerl.
+- **Driver**: `tools/luerl-trace/luerl_drive.erl` runs 35 Lua snippets, one step
+  each, catching errors. `drive.toml` builds it together with luerl.
 - **Analysis**:
   - `norm.py` / `mismatch.py` align calls with GNU diff and report calls whose
     results differ.
@@ -213,25 +212,25 @@ snippets. "Kind" values:
 | 25 | `io:request/2` (`get_until` on a file pid) | stub | `luerl_io:with_token_file_fd/3` from `luerl:loadfile` (euler example, 2026-10-15) | **every Lua file load fails** | done (41ZC) |
 
 Builtins the trace showed as fine: `io:format/1,2`, `io:put_chars/1` and
-`os:getenv/1` are runtime builtins, even though `library/*.erl` keeps stubs
-for them.
+`os:getenv/1` are runtime builtins, even though `library/*.erl` keeps stubs for
+them.
 
 The OTP-compiled modules entered were `array`, `calendar`, `epp`, `erl_anno`,
 `erl_features`, `erl_scan`, `io_lib`, `io_lib_format`, `io_lib_pretty`,
 `ordsets`, `random`, `string`, `code` and `code_server`. Wherever the two traces
-line up, their results equal OTP's, apart from time values. The only
-exceptions are the rows above and the rough `math` stand-ins. For example,
-`1e100` scanned as `1.0000000000000006e100` with the stand-in `pow`.
+line up, their results equal OTP's, apart from time values. The only exceptions
+are the rows above and the rough `math` stand-ins. For example, `1e100` scanned
+as `1.0000000000000006e100` with the stand-in `pow`.
 
 ## Still failing with the stand-ins
 
 - `os.date` (row 17): `luerl_lib_os_date` matches format directives with
   `re:run/2`. Clause has no `re` NIF.
-- Lua syntax errors (rows 18–22): `luerl_parse:yeccerror` formats the token
-  with `io_lib:format("~tp")`. That reaches `persistent_term:put/2`. The
-  failure then takes `io_lib`'s error path into `code_server`. On OTP the
-  result is `{error,[{1,luerl_parse,["syntax error before: ","')'"]}],[]}`. On
-  Clause it is `error:badarg`.
+- Lua syntax errors (rows 18–22): `luerl_parse:yeccerror` formats the token with
+  `io_lib:format("~tp")`. That reaches `persistent_term:put/2`. The failure then
+  takes `io_lib`'s error path into `code_server`. On OTP the result is
+  `{error,[{1,luerl_parse,["syntax error before: ","')'"]}],[]}`. On Clause it
+  is `error:badarg`.
 - `goto` gives `function_clause` on both. That is luerl's own limitation, not a
   library gap. The stack frames differ (Clause has no arguments, file or line);
   that belongs in `docs/differences.md`, not here.
@@ -242,39 +241,44 @@ exceptions are the rows above and the rough `math` stand-ins. For example,
 These are stubs or NIF stubs that luerl source calls directly. Expect them next:
 
 - [x] `binary:split/2,3` (41W)
-- [x] `file:read_file_info/1,2`, `file:write_file/3` (`dofile`/`loadfile`) (41Y2)
+- [x] `file:read_file_info/1,2`, `file:write_file/3` (`dofile`/`loadfile`)
+  (41Y2)
 - [x] `io:fwrite/1,2,3` (41U)
 - [x] `io:request/2` (`io.read`; also reached by `loadfile`, row 25) (41ZC)
 - [x] `lists:join/2`, `lists:keymember/3`, `lists:keysearch/3` (41T)
 - [x] `maps:is_key/2`, `maps:remove/2` (41X)
-- [x] `math:acos/1`, `asin/1`, `atan/1`, `atan2/2`, `cosh/1`, `log10/1`, `sinh/1`,
-  `tan/1`, `tanh/1` (41V)
+- [x] `math:acos/1`, `asin/1`, `atan/1`, `atan2/2`, `cosh/1`, `log10/1`,
+  `sinh/1`, `tan/1`, `tanh/1` (41V)
 - [x] `unicode:characters_to_binary/2` (41Y1)
 - [x] Indirectly: `re:replace` (pure Erlang over `re:run`) (41ZB)
 - [x] `math:floor`/`ceil` if luerl reaches them (41V)
 
 ## Suggested grouping for the follow-up work
 
-1. [x] (41T) **`lists` stubs** (rows 1–4, 6, 8–10, 14, 15, 21; also `join`, `keymember`,
-   `keysearch`): small and pure. They unblock the scanner, the compiler and
-   `io_lib_format`.
-2. [x] (41U) **`io:nl/0,1`, `io:fwrite/1,2,3`** (and `format/3`, `put_chars/2`) as thin
-   wrappers over the runtime's `io:format`/`put_chars` builtins.
-3. [x] (41V) **`math` NIFs** as runtime builtins (libm), plus OTP's float printing rules
-   for exact `pow`. This is required for numeric literals with exponents.
-4. [x] (41W) **`binary` NIFs**: `match/2,3`, `part/2,3`, `split/2,3`, `replace` as
-   runtime builtins.
+1. [x] (41T) **`lists` stubs** (rows 1–4, 6, 8–10, 14, 15, 21; also `join`,
+   `keymember`, `keysearch`): small and pure. They unblock the scanner, the
+   compiler and `io_lib_format`.
+2. [x] (41U) **`io:nl/0,1`, `io:fwrite/1,2,3`** (and `format/3`, `put_chars/2`)
+   as thin wrappers over the runtime's `io:format`/`put_chars` builtins.
+3. [x] (41V) **`math` NIFs** as runtime builtins (libm), plus OTP's float
+   printing rules for exact `pow`. This is required for numeric literals with
+   exponents.
+4. [x] (41W) **`binary` NIFs**: `match/2,3`, `part/2,3`, `split/2,3`, `replace`
+   as runtime builtins.
 5. [x] (41X) **`os:timestamp/0`** (over `erlang:timestamp/0`), **`maps:get/3`,
    `is_key/2`, `remove/2`**.
-6. [x] (41M1, 41M2) **`persistent_term:get/1,2`, `put/2`**: a runtime-wide term table (plan step
-   41M). Required by `erl_features`, so by any `io_lib` atom quoting.
-7. [x] (41Z) **`code_server` absence on `io_lib:format`'s error path**: either provide a
-   minimal `code:ensure_modules_loaded/1` (all modules are linked in), or shadow
-   `io_lib:test_modules_loaded/3`.
-8. [x] (41ZA, 41ZB) **`re`**: regex engine in the runtime, stock PCRE2 10.47 (decided 2026-10-14).
-   luerl needs it only for `os.date`, which could also be shadowed.
-9. [x] (41ZC) **`io:request/2,1` `get_until`** on file pids, with `Rest` kept in the file
-   server (row 25), so that `luerl:loadfile` works. Also `io:requests/1,2`.
-   Black-box test idea: the euler example's flow through a small project fixture.
-10. [ ] **Generated-code speed** (euler section): cache the boolean,
-    `undefined` and atom-literal words first, then inline the common services.
+6. [x] (41M1, 41M2) **`persistent_term:get/1,2`, `put/2`**: a runtime-wide term
+   table (plan step 41M). Required by `erl_features`, so by any `io_lib` atom
+   quoting.
+7. [x] (41Z) **`code_server` absence on `io_lib:format`'s error path**: either
+   provide a minimal `code:ensure_modules_loaded/1` (all modules are linked in),
+   or shadow `io_lib:test_modules_loaded/3`.
+8. [x] (41ZA, 41ZB) **`re`**: regex engine in the runtime, stock PCRE2 10.47
+   (decided 2026-10-14). luerl needs it only for `os.date`, which could also be
+   shadowed.
+9. [x] (41ZC) **`io:request/2,1` `get_until`** on file pids, with `Rest` kept in
+   the file server (row 25), so that `luerl:loadfile` works. Also
+   `io:requests/1,2`. Black-box test idea: the euler example's flow through a
+   small project fixture.
+10. [ ] **Generated-code speed** (euler section): cache the boolean, `undefined`
+    and atom-literal words first, then inline the common services.

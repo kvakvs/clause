@@ -8,13 +8,13 @@ draft with smaller, single-commit steps.
 ## How to use this plan
 
 - Steps run in numbered order by default. Each lists its backlog owners and
-  dependencies; an independent step may move earlier once its dependencies
-  pass.
-- Each single step ends with one focused commit titled `[plan11] <full step title with step number>`. A step that
-  grows beyond one reviewable change is split into lettered sub-steps (`12a`,
-  `12b`) before coding, not widened silently.
+  dependencies; an independent step may move earlier once its dependencies pass.
+- Each single step ends with one focused commit titled
+  `[plan11] <full step title with step number>`. A step that grows beyond one
+  reviewable change is split into lettered sub-steps (`12a`, `12b`) before
+  coding, not widened silently.
   - IMPORTANT: Do not add "co-authored by" in commit messages.
-- When a plan step is complete, the description has to be compacted and moved 
+- When a plan step is complete, the description has to be compacted and moved
   into `00-finished.md` and added to the all steps table as 1-2 lines of text.
 
 - **Decision** steps publish a short contract in `docs/` (plus a prototype where
@@ -30,9 +30,9 @@ draft with smaller, single-commit steps.
   [65C](00-finished.md#step-65c), not on step 73, so it may run before steps
   66–72.
 - Phases H2 (`erlang` builtins, 41A–41H), L2 (export liveness, 62C) and L3
-  (build directory and caches, 62D1–62D5 and 62E; the cache item of D07
-  selected ahead of step 77) were inserted on 2026-10-11/12 (user direction)
-  and are done.
+  (build directory and caches, 62D1–62D5 and 62E; the cache item of D07 selected
+  ahead of step 77) were inserted on 2026-10-11/12 (user direction) and are
+  done.
 - Phase H3 (steps 41I–41S) was inserted on 2026-10-12 (user direction):
   replacements for the ERTS-preloaded and build-generated modules OTP's
   `kernel`/`stdlib` call, driven by the luerl build. Its steps follow 41H
@@ -41,8 +41,8 @@ draft with smaller, single-commit steps.
   2026-10-12 (user direction); it is never part of the gate.
 - Phase I2 (steps 58O–58T, inference convergence and cost) was inserted on
   2026-10-13 (user direction), driven by the luerl build's 330 s inference.
-- Phase I3 (steps 58U–58W, inference cache for library directories) was
-  inserted on 2026-10-13 (user direction); it may run before 58T.
+- Phase I3 (steps 58U–58W, inference cache for library directories) was inserted
+  on 2026-10-13 (user direction); it may run before 58T.
 - Phase H4 (steps 41T–41Z, with 41M split into 41M1/41M2) was inserted on
   2026-10-14 (user direction) from [the luerl library ledger](21-lib.md); it
   runs before 58X and 58T. `re` stays out of it.
@@ -55,28 +55,27 @@ draft with smaller, single-commit steps.
   `BUILD_TESTING=ON`; build; run fast-mode CTest (`ctest --preset debug-fast`);
   run `cmake --build build/debug --target check-quality` (changed files and
   header dependents). When a phase or major feature completes, run full-mode
-  CTest (`ctest --preset debug -j <N>`; each test takes two slots, so N/2 run
-  at once) instead of fast mode, never both (full covers every fast run), and
-  `check-quality-all`. Lizard and clang-tidy pass
-  without raised thresholds or suppressions. Code is clang-formatted; new and
-  changed `.erl`/terms files pass erlfmt.
+  CTest (`ctest --preset debug -j <N>`; each test takes two slots, so N/2 run at
+  once) instead of fast mode, never both (full covers every fast run), and
+  `check-quality-all`. Lizard and clang-tidy pass without raised thresholds or
+  suppressions. Code is clang-formatted; new and changed `.erl`/terms files pass
+  erlfmt.
 - **Code:** project-internal C++23; document field and function intent in 1–2
   lines; keep cyclomatic complexity low; runtime stays LLVM-free.
 - **OTP:** at the start of OTP-dependent work follow
   [otp-reference.md](../docs/otp-reference.md) to check `maint-29`. OTP sources
-  and copies never enter git; commit only owned sources, observations and
-  golden results. Normal builds and tests require neither OTP nor its checkout;
-  goldens change only by explicit, reviewed regeneration.
+  and copies never enter git; commit only owned sources, observations and golden
+  results. Normal builds and tests require neither OTP nor its checkout; goldens
+  change only by explicit, reviewed regeneration.
 - **Tests:** prefer real `.erl` sources through the CLI, linked executables and
   OTP-derived goldens. Where applicable cover positional and project drivers,
   O0/O2, specialization on/off and local/remote calls. Add focused unit tests
   only for budgets, ownership, invalid handles and injected faults that source
   cannot reach. Do not remove a useful test before equivalent behavioral
   coverage exists.
-- **Representations:** a new term kind needs construction, comparison,
-  printing, tracing, copying, destruction and error ownership rules before
-  source code may produce it. Forged tagged words are never accepted as valid
-  identities.
+- **Representations:** a new term kind needs construction, comparison, printing,
+  tracing, copying, destruction and error ownership rules before source code may
+  produce it. Forged tagged words are never accepted as valid identities.
 - **Failures:** keep legality, availability and runtime failure distinct.
   Invalid source is diagnosed even when unreachable; missing services stay
   explicit unavailable-capability diagnostics.
@@ -113,8 +112,8 @@ Invariants that later steps must keep:
 - Every fallible call is checked before its output is used; errors are owned,
   first failure wins, outer cleanup runs, and retry in the same context works.
 - Shape proofs dominate extraction; specs never authorize runtime access or
-  narrow representation. Specialization limits: 3 variants per function, 32
-  per module, 128 per target, 2x generic IR growth, with generic fallback.
+  narrow representation. Specialization limits: 3 variants per function, 32 per
+  module, 128 per target, 2x generic IR growth, with generic fallback.
 - Failed compilation preserves earlier valid outputs; multi-file replacement is
   not atomic.
 
@@ -127,13 +126,15 @@ Invariants that later steps must keep:
 | Representations | [Terms](../docs/terms.md), [runtime memory](../docs/runtime.md#process-memory) |
 | Owned fixtures and history | [Validation](../docs/validation.md), [fixture instructions](../tests/fixtures/patternmatch/generated/README.md) |
 
-Last reviewed `maint-29` pin: `d199a49a01a2079afb6f2c5c9ae047cd4555e68d` (OTP 29.1.2, 2026-10-14);
-oracle OTP 29.1.1 / ERTS 17.1. Latest combined Windows x64 Debug gate (steps 63-65, 2026-10-09):
-235 full-mode CTests; `check-quality-all` clean (338 units, headers now checked); Linux x86-64 235/235.
+Last reviewed `maint-29` pin: `d199a49a01a2079afb6f2c5c9ae047cd4555e68d` (OTP
+29.1.2, 2026-10-14); oracle OTP 29.1.1 / ERTS 17.1. Latest combined Windows x64
+Debug gate (steps 63-65, 2026-10-09): 235 full-mode CTests; `check-quality-all`
+clean (338 units, headers now checked); Linux x86-64 235/235.
 
 ## Step overview
 
-Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits).
+Completed steps link to
+[the plan 11 record](00-finished.md#plan-11-step-commits).
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
@@ -147,22 +148,23 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
 | O. Final closure | [78A](#step-78a), [78B](#step-78b), [78](#step-78) | all | open |
 
----
+
 
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 41ZC, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
-evidence are in Git at those commits. The anchors below keep older links to
-this file working.
+commit for 1–68, 41A–41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2,
+41Z, 41ZC, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and evidence are
+in Git at those commits. The anchors below keep older links to this file
+working.
 
 ### Notes from completed steps that guide remaining work
 
 - Gate baseline: since commit `33481a7` raised the module limit to 16384,
   `codegen_resource_cli` still expects 1025 inputs to fail; every gate from 73B
-  to 41K ran with that one known failure. Disabled on 2026-10-12 (user) until
-  it is rewritten for the new limit (16385 inputs need a project, not a
-  command line).
+  to 41K ran with that one known failure. Disabled on 2026-10-12 (user) until it
+  is rewritten for the new limit (16385 inputs need a project, not a command
+  line).
 - 60 (for 66): Mach-O debug info needs `dsymutil`, not run yet
   (`docs/debugging.md`).
 - 63: clang-tidy runs on the Windows host only (user); `cmake/tidy_filter.py`
@@ -178,18 +180,23 @@ this file working.
 - 41H (for 71): code loading answers for linked code (`delete_module/1`
   `notsup`, `prepare_loading/2` `badfile`) until step 71 decides.
 - 62D (for 77): cache layout and limits in
-  [build caches](../docs/projects.md#build-caches); per-module compile reuse
-  and a directory scan cache stay open in D07.
+  [build caches](../docs/projects.md#build-caches); per-module compile reuse and
+  a directory scan cache stay open in D07.
 - 73A–73G (for 73H): OTP-requiring tests carry label `host_otp` and skip when
   CMake finds no `erl`; host OTP lookup is `--erl`, `PATH`, then
   `%ProgramFiles%\Erlang OTP`; `--erl none` simulates a missing host OTP.
 
 ## I2. Inference convergence and cost
 
-Added 2026-10-13 (user direction). Evidence: `clau.bat --project test-luerl --entry luerl:init
---print-stage-times` (188 modules) spends 330 s of a 399 s compile in inference: 17 passes, the 8M-step pass
-budget spent from pass 3 on. The cost is in recursive groups (strongly connected components), which `solve`
-iterates for up to `8 + 4 × members` rounds, re-walking every member each round:
+Added 2026-10-13 (user direction). Evidence: `clau.bat
+------------------------------------------------------ test-luerl
+----------------------------------------------------------------- luerl:init
+----------------------------------------------------------------------------
+(188 modules) spends 330 s of a 399 s compile in inference: 17 passes, the
+8M-step pass
+budget spent from pass 3 on. The cost is in recursive groups (strongly connected
+components), which `solve` iterates for up to `8 + 4 × members` rounds,
+re-walking every member each round:
 
 | Group | Members | Round cap | Solves capped | Walks that changed a summary | Last solve (inputs `term()`) | Time |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -199,59 +206,76 @@ iterates for up to `8 + 4 × members` rounds, re-walking every member each round
 | `luerl_parse:yeccpars1/5` | 220 | 888 | 0 / 17 | 21% | converged in 8 rounds | 15 s |
 | `io_lib:write/5` | 15 | 68 | 14 / 17 | 46% | capped, flat 9 per round | 8 s |
 
-No group is stopped by the pass budget (only `v3_core:clauses/2`, 13 of 17 solves); they stop at the round cap
-and widen every member to `term()`. Several never settle even with `term()` inputs, which points at
-non-monotone round merging (`next_round` replaces a member's function types when their inputs differ;
-`refine` overwrites `Summary::inputs`). The lattice is of finite height (`FactLimits`), so monotone rounds
-always end; the steps stop repeating known failures, make rounds monotone, and skip walks that cannot change
-anything. Each step reruns the luerl command and records inference time, passes and the `inference rounds`
-lines; `--print-types` output of the existing fixtures may change only where a step says so.
+No group is stopped by the pass budget (only `v3_core:clauses/2`, 13 of 17
+solves); they stop at the round cap and widen every member to `term()`. Several
+never settle even with `term()` inputs, which points at non-monotone round
+merging (`next_round` replaces a member's function types when their inputs
+differ; `refine` overwrites `Summary::inputs`). The lattice is of finite height
+(`FactLimits`), so monotone rounds always end; the steps stop repeating known
+failures, make rounds monotone, and skip walks that cannot change anything. Each
+step reruns the luerl command and records inference time, passes and the
+`inference rounds` lines; `--print-types` output of the existing fixtures may
+change only where a step says so.
 
-Steps 58O–58S are done ([finished work](00-finished.md#plan-11-i2-i3)): luerl inference 330 s to 107 s.
+Steps 58O–58S are done ([finished work](00-finished.md#plan-11-i2-i3)): luerl
+inference 330 s to 107 s.
 
 <a id="step-58x"></a>
 
 ### 58X. Widen integers inside containers so local inputs settle
 
-Backlog: F29. Depends on: [58S](00-finished.md#step-58s). Added 2026-10-13 from the `parsers.erl` fixture (user
-direction: an inference test shaped like yecc/leex output). Should run before 58T: it may remove most of the
+Backlog: F29. Depends on: [58S](00-finished.md#step-58s). Added 2026-10-13 from
+the `parsers.erl` fixture (user direction: an inference test shaped like
+yecc/leex output). Should run before 58T: it may remove most of the
 `inputs changed` passes 58T wants to skip.
 
-- Evidence: `tests/fixtures/inference/parsers.erl` (CTest `inference_parsers`) never settles its local inputs in 16
-  passes, so the final pass gives every local input `term()` (1 of 18 functions at its `expect:` type). The
-  smallest repro is its `count_up/2`: `count_up([A | Stack], N) -> count_up([A + 1 | Stack], N - 1)`. Cause:
-  `Lattice::widen` relaxes only the top-level integer bounds of a fact; an integer inside a list, tuple, map or
-  positional list is joined, never widened (`1..2`, `1..3`, ... one step per pass). Value stacks of yecc parsers
-  (`[A + B | Stack]`) are exactly this shape; the scanner and state stacks alone settle in 10-11 passes.
+- Evidence: `tests/fixtures/inference/parsers.erl` (CTest `inference_parsers`)
+  never settles its local inputs in 16 passes, so the final pass gives every
+  local input `term()` (1 of 18 functions at its `expect:` type). The smallest
+  repro is its `count_up/2`:
+  `count_up([A | Stack], N) -> count_up([A + 1 | Stack], N - 1)`. Cause:
+  `Lattice::widen` relaxes only the top-level integer bounds of a fact; an
+  integer inside a list, tuple, map or positional list is joined, never widened
+  (`1..2`, `1..3`, ... one step per pass). Value stacks of yecc parsers
+  (`[A + B | Stack]`) are exactly this shape; the scanner and state stacks alone
+  settle in 10-11 passes.
 - Success criteria
-  - [ ] Widening descends into containers of the same shape (list elements, tuple elements by position,
-    positional lists, map values) and relaxes their integer bounds with the same thresholds, so the lattice
-    height stays finite.
-  - [ ] `parsers.erl` settles its inputs; its `today` lines move toward `expect:`; existing fixtures change only
-    where the new widening applies, each change reviewed.
-  - [ ] luerl rerun: passes and inference time recorded against 58W (warm, cached library) and cold.
+  - [ ] Widening descends into containers of the same shape (list elements,
+    tuple elements by position, positional lists, map values) and relaxes their
+    integer bounds with the same thresholds, so the lattice height stays finite.
+  - [ ] `parsers.erl` settles its inputs; its `today` lines move toward
+    `expect:`; existing fixtures change only where the new widening applies,
+    each change reviewed.
+  - [ ] luerl rerun: passes and inference time recorded against 58W (warm,
+    cached library) and cold.
 - Tests
-  - [ ] `inference_parsers` (and `count_up/2`) reach their expected types or recorded nearer ones.
+  - [ ] `inference_parsers` (and `count_up/2`) reach their expected types or
+    recorded nearer ones.
 
 <a id="step-58t"></a>
 
 ### 58T. Re-infer only the components whose inputs changed since the last pass
 
-Backlog: F29, V05. Depends on: [58R](00-finished.md#step-58r). Added 2026-10-13 (58R decision).
+Backlog: F29, V05. Depends on: [58R](00-finished.md#step-58r). Added 2026-10-13
+(58R decision).
 
 - Success criteria
-  - [ ] A pass re-infers a component only when its inputs (`Inference::inputs` of its members), a callee summary
-    it read, or a `fun F/A` fact it read changed since its previous inference; others keep their summaries and
-    expression facts. The settling check (`settled`, `fun_reads`) stays correct for skipped components.
-  - [ ] `--print-stage-times` shows components skipped per pass; luerl rerun recorded against 58R (passes 9–16
-    each still take 7–11 s while reporting `inputs changed`).
+  - [ ] A pass re-infers a component only when its inputs (`Inference::inputs`
+    of its members), a callee summary it read, or a `fun F/A` fact it read
+    changed since its previous inference; others keep their summaries and
+    expression facts. The settling check (`settled`, `fun_reads`) stays correct
+    for skipped components.
+  - [ ] `--print-stage-times` shows components skipped per pass; luerl rerun
+    recorded against 58R (passes 9–16 each still take 7–11 s while reporting
+    `inputs changed`).
 - Tests
-  - [ ] Inference, pattern-match and type tests pass unchanged; a fixture whose inputs settle in an early pass
-    shows later passes skipping it.
+  - [ ] Inference, pattern-match and type tests pass unchanged; a fixture whose
+    inputs settle in an early pass shows later passes skipping it.
 
 ## I3. Inference cache for library directories
 
-Added and done 2026-10-13 (user direction), steps 58U–58W: [finished work](00-finished.md#plan-11-i2-i3).
+Added and done 2026-10-13 (user direction), steps 58U–58W:
+[finished work](00-finished.md#plan-11-i2-i3).
 
 ## H3. Drop-in replacements for OTP runtime modules
 
@@ -259,29 +283,28 @@ Added 2026-10-12 (user direction). Backlog: F36 (other modules), D01 for code
 loading answers. OTP's `kernel` and `stdlib` are plain Erlang, but they call
 modules that ERTS preloads and implements in C (NIFs, BIFs, port drivers).
 Clause compiles `kernel`/`stdlib` sources found through `source_search_paths`,
-so those calls fail with `unknown module`. Whatever needs the runtime and
-cannot be written in plain Erlang is decided per module, and where a module
-mixes concerns per group of functions (user direction 2026-10-12). A module
-is either **provided** — a Clause replacement with OTP 29's exact export
-list, first all stubs so it is discoverable and callers compile, then real
-groups (runtime builtin, Erlang body over existing runtime services,
-OTP-shaped refusal such as `{error, enotsup}`, or a stub raising `undef`) —
-or **missing**, possibly forever. Low-level modules such as the `prim_*`
-file and socket layers can stay missing: Clause provides the higher-level
-standard modules above them (`file`, `gen_tcp`, `gen_udp`, `inet`, and
-`socket`, `net`, `filelib` where decided), and because Clause modules win
-over OTP's, the OTP callers of a missing module never enter a batch.
+so those calls fail with `unknown module`. Whatever needs the runtime and cannot
+be written in plain Erlang is decided per module, and where a module mixes
+concerns per group of functions (user direction 2026-10-12). A module is either
+**provided** — a Clause replacement with OTP 29's exact export list, first all
+stubs so it is discoverable and callers compile, then real groups (runtime
+builtin, Erlang body over existing runtime services, OTP-shaped refusal such as
+`{error, enotsup}`, or a stub raising `undef`) — or **missing**, possibly
+forever. Low-level modules such as the `prim_*` file and socket layers can stay
+missing: Clause provides the higher-level standard modules above them (`file`,
+`gen_tcp`, `gen_udp`, `inet`, and `socket`, `net`, `filelib` where decided), and
+because Clause modules win over OTP's, the OTP callers of a missing module never
+enter a batch.
 
-Evidence, 2026-10-12 (`clau.bat --project test-luerl --entry luerl:init`,
-458 stderr lines, only the 62D5 build changed since 41H): `unknown module`
-for 12 modules, plus 3 `erlang:get_stacktrace/0` errors that OTP reports too
-(luerl source, not a gap). A scan of every `lib/kernel/src` and
-`lib/stdlib/src` module for remote calls into modules neither application
-defines adds four more ERTS modules. Calls to other applications (`compile`,
-`crypto`, `yecc`, `erl_syntax`, `erl_prettypr`) and to generated `erl_parse`
-(yecc, open since 41H) are outside this phase. The current ledger (the
-proposed direction is confirmed or changed in 41I and in each module's
-step):
+Evidence, 2026-10-12 (`clau.bat --project test-luerl --entry luerl:init`, 458
+stderr lines, only the 62D5 build changed since 41H): `unknown module` for 12
+modules, plus 3 `erlang:get_stacktrace/0` errors that OTP reports too (luerl
+source, not a gap). A scan of every `lib/kernel/src` and `lib/stdlib/src` module
+for remote calls into modules neither application defines adds four more ERTS
+modules. Calls to other applications (`compile`, `crypto`, `yecc`, `erl_syntax`,
+`erl_prettypr`) and to generated `erl_parse` (yecc, open since 41H) are outside
+this phase. The current ledger (the proposed direction is confirmed or changed
+in 41I and in each module's step):
 
 | Module | Kept by OTP in | luerl errors | kernel/stdlib callers | Functions called |
 | --- | --- | --- | --- | --- |
@@ -308,29 +331,29 @@ Proposed direction:
   (`cmp_term/2`, `map_next/3`, `list_to_integer/2`, map helpers); to decide:
   `erl_prim_loader`, `zlib`, `prim_eval`.
 - **Missing, possibly forever:** `prim_file`, `prim_buffer`, `prim_socket`,
-  `prim_net`, `prim_inet`, `socket_registry`, and the distribution and
-  `.beam` groups of `erts_internal`. Their OTP callers (`raw_file_io*`,
-  `socket`, `net`, `inet_tcp`, `gen_tcp_socket`, `net_kernel`, ...) are
-  shadowed by Clause modules or recorded as unsupported.
+  `prim_net`, `prim_inet`, `socket_registry`, and the distribution and `.beam`
+  groups of `erts_internal`. Their OTP callers (`raw_file_io*`, `socket`, `net`,
+  `inet_tcp`, `gen_tcp_socket`, `net_kernel`, ...) are shadowed by Clause
+  modules or recorded as unsupported.
 
 Two findings shape the steps:
 
 - **Precedence.** Today a module found in `source_search_paths` wins over the
   library ([library](../docs/library.md#how-programs-get-them)). With
   `references/otp/lib/**/src` on the search path, OTP's `file`, `io`, `lists`,
-  `maps`, `os`, `gen_tcp` replace Clause's library modules of the same name,
-  and a user's copy of `erts/preloaded/src` would replace the replacements.
-  Decided 2026-10-12 (user): every module Clause provides wins over OTP's
-  module of the same name. OTP is optional on the user's machine; when it is
-  present it must not change what a build compiles. Consequence: Clause's
-  library modules shadow OTP's complete ones, so each of them must also export
-  OTP 29's full list (stubs where not implemented), or OTP code calling a
-  function Clause lacks stops at `undefined function`.
+  `maps`, `os`, `gen_tcp` replace Clause's library modules of the same name, and
+  a user's copy of `erts/preloaded/src` would replace the replacements. Decided
+  2026-10-12 (user): every module Clause provides wins over OTP's module of the
+  same name. OTP is optional on the user's machine; when it is present it must
+  not change what a build compiles. Consequence: Clause's library modules shadow
+  OTP's complete ones, so each of them must also export OTP 29's full list
+  (stubs where not implemented), or OTP code calling a function Clause lacks
+  stops at `undefined function`.
 - **Kernel services.** OTP's `file`, `io`, `code`, `logger` and friends call
   registered servers (`file_server_2`, `code_server`, the group leader's io
   server, `logger`) that the `kernel` application starts at boot. A Clause
-  executable starts none of them, so making their modules compile is not
-  making them work. Which services exist at startup is decided in 41I.
+  executable starts none of them, so making their modules compile is not making
+  them work. Which services exist at startup is decided in 41I.
 
 The ledger above lives on in `docs/library.md` (41K) and is refreshed by every
 step of this phase: rerun the luerl command, classify each new error
@@ -341,22 +364,27 @@ other), and add or adjust steps here before coding the next one.
 
 ### 41M. `persistent_term`
 
-Split on 2026-10-14 (user direction) into [41M1](00-finished.md#step-41m1) (the runtime
-table) and [41M2](00-finished.md#step-41m2) (the builtins), both in phase H4.
+Split on 2026-10-14 (user direction) into [41M1](00-finished.md#step-41m1) (the
+runtime table) and [41M2](00-finished.md#step-41m2) (the builtins), both in
+phase H4.
 
 ## H4. Library functions luerl reaches
 
-Added and done 2026-10-14 (user direction) from [the luerl library ledger](21-lib.md), steps 41T–41Z with 41M split
-into 41M1/41M2 and 41Y into 41Y1/41Y2: [finished work](00-finished.md#step-41t). Library functions are C++ builtins
-of their module; fun-taking functions stay Erlang. `re` (ledger row 17) came with H5; `init:get_arguments/0` came with
-[41L](00-finished.md#step-41l). [41ZC](00-finished.md#step-41zc) (2026-10-15) added OTP's I/O protocol for the euler
-example.
+Added and done 2026-10-14 (user direction) from
+[the luerl library ledger](21-lib.md), steps 41T–41Z with 41M split into
+41M1/41M2 and 41Y into 41Y1/41Y2: [finished work](00-finished.md#step-41t).
+Library functions are C++ builtins of their module; fun-taking functions stay
+Erlang. `re` (ledger row 17) came with H5; `init:get_arguments/0` came with
+[41L](00-finished.md#step-41l). [41ZC](00-finished.md#step-41zc) (2026-10-15)
+added OTP's I/O protocol for the euler example.
 
 ## H5. Regular expressions (`re`)
 
-Inserted 2026-10-14 (user direction) for [the luerl library ledger](21-lib.md) row 17. The engine is upstream
-PCRE2, thdde library OTP itself bundles, so pattern syntax, options and captures match without translation. OTP's
-interruptible-match patch to `pcre2_match` is not carried over: Clause uses stock PCRE2.
+Inserted 2026-10-14 (user direction) for [the luerl library ledger](21-lib.md)
+row 17. The engine is upstream PCRE2, thdde library OTP itself bundles, so
+pattern syntax, options and captures match without translation. OTP's
+interruptible-match patch to `pcre2_match` is not carried over: Clause uses
+stock PCRE2.
 
 ## M. Validation closure
 
@@ -432,13 +460,13 @@ Backlog: D02. Depends on: [54](00-finished.md#step-54). **Decision.**
 Backlog: D03. Depends on: [58](00-finished.md#step-58). **Decision.**
 
 - Success criteria
-  - [ ] Per-attribute decision (`compile` options, `on_load`, others;
-    parse transforms are selected and implemented by phase N2,
+  - [ ] Per-attribute decision (`compile` options, `on_load`, others; parse
+    transforms are selected and implemented by phase N2,
     [73A](00-finished.md#step-73a)–[73H](#step-73h) (applied since 73F);
-    `behaviour` is implemented by [65A](00-finished.md#step-65a),
-    `module_info` and informational attributes by
-    [65B](00-finished.md#step-65b), imports and compile hints by
-    [65C](00-finished.md#step-65c)); rejected ones keep diagnostics.
+    `behaviour` is implemented by [65A](00-finished.md#step-65a), `module_info`
+    and informational attributes by [65B](00-finished.md#step-65b), imports and
+    compile hints by [65C](00-finished.md#step-65c)); rejected ones keep
+    diagnostics.
 - Tests
   - [ ] CLI diagnostics for each rejected attribute.
 
@@ -461,8 +489,8 @@ Backlog: D04. Depends on: [58](00-finished.md#step-58). **Decision.**
 Backlog: D05. Depends on: [74](#step-74). **Decision.**
 
 - Success criteria
-  - [ ] Directory reservations remain the only artifact per AGENTS.md, unless
-    a D04 consumer requires a reader.
+  - [ ] Directory reservations remain the only artifact per AGENTS.md, unless a
+    D04 consumer requires a reader.
 - Tests
   - [ ] None beyond the gate.
 
@@ -486,15 +514,16 @@ Backlog: D07. Depends on: [58](00-finished.md#step-58). **Decision.**
 - Success criteria
   - [ ] Demand recorded for each extension (profiles, dependencies, exclusions,
     packages, watch/cache, parallel builds); selected items get their own plan.
-    The build directory and caches are already selected as [62D](00-finished.md#step-62d).
+    The build directory and caches are already selected as
+    [62D](00-finished.md#step-62d).
 - Tests
   - [ ] None beyond the gate unless selected.
 
 ## N2. Parse transforms
 
-Added 2026-10-11 (user direction). Backlog: D03 (selected slice). Clause
-applies `{parse_transform, M}` the way `erlc` does, using Erlang/OTP on the
-host only to run the transform module:
+Added 2026-10-11 (user direction). Backlog: D03 (selected slice). Clause applies
+`{parse_transform, M}` the way `erlc` does, using Erlang/OTP on the host only to
+run the transform module:
 
 1. export the preprocessed and parsed module as OTP abstract format forms;
 2. run `M:parse_transform(Forms, Options)` through a project-owned loader
@@ -521,32 +550,30 @@ Backlog: D03. Depends on: [73G](00-finished.md#step-73g).
 
 - Success criteria
   - [ ] Real projects with parse transforms (for example a `lager`- or
-    `qlc`-style user) compile past the transform stage; result recorded,
-    not a gate.
-  - [ ] User documentation (a "Parse transforms" section in `README.md`
-    linking a user guide in `docs/transforms.md`, plus `docs/compile.md` and
+    `qlc`-style user) compile past the transform stage; result recorded, not a
+    gate.
+  - [ ] User documentation (a "Parse transforms" section in `README.md` linking
+    a user guide in `docs/transforms.md`, plus `docs/compile.md` and
     `docs/projects.md`) explains:
     - what is required: Erlang/OTP 29 installed on the host only for modules
-      that use transforms; how `clau` finds it (`--erl`, `PATH`, the
-      Windows default installation);
+      that use transforms; how `clau` finds it (`--erl`, `PATH`, the Windows
+      default installation);
     - how to invoke a transform: `-compile({parse_transform, M})` in source,
-      `include_lib` headers such as `ms_transform.hrl`, and the CLI and
-      project options equivalent to `erlc +'{parse_transform,M}'`;
-    - how to configure code paths for precompiled `.beam` files, on the CLI
-      and in the project file, with a worked example;
+      `include_lib` headers such as `ms_transform.hrl`, and the CLI and project
+      options equivalent to `erlc +'{parse_transform,M}'`;
+    - how to configure code paths for precompiled `.beam` files, on the CLI and
+      in the project file, with a worked example;
     - when precompiling is required: always for transforms from dependency
       libraries; for project transforms when host `erlc` cannot compile them
       with project settings; how to precompile with the host OTP
-      (`erlc -o DIR ...`) and that the `.beam` must match the host OTP
-      major;
-    - the lookup order, the cost of compiling project transforms on every
-      run, and the
-      diagnostics a user can meet with their remedies.
-  - [ ] Every command and example in that documentation executed as written
-    with host OTP; the CLI `--help` text names the new options.
-  - [ ] `docs/transforms.md`, `docs/differences.md`, `features.md`,
-    `01-todo.md` D03, step 73, `00-finished.md`, `arch.md`, `files.md` and
-    `aimemory.md` describe exactly what is supported.
+      (`erlc -o DIR ...`) and that the `.beam` must match the host OTP major;
+    - the lookup order, the cost of compiling project transforms on every run,
+      and the diagnostics a user can meet with their remedies.
+  - [ ] Every command and example in that documentation executed as written with
+    host OTP; the CLI `--help` text names the new options.
+  - [ ] `docs/transforms.md`, `docs/differences.md`, `features.md`, `01-todo.md`
+    D03, step 73, `00-finished.md`, `arch.md`, `files.md` and `aimemory.md`
+    describe exactly what is supported.
 - Tests
   - [ ] Full-mode CTest and `check-quality-all`, once with host OTP and once
     without (OTP-requiring tests skipped and reported).
@@ -562,18 +589,17 @@ Backlog: all. Depends on: steps 1–70 and any selected optional work. Inserted
 
 The project has never been released, so no earlier generated-code contract has
 to stay loadable. Collapse every version marker to v1: runtime service symbols
-(`CLAUSE_roots_enter_v5`, `CLAUSE_roots_leave_v4`,
-`CLAUSE_raise_v2`, `CLAUSE_call_failed_v2`,
-`CLAUSE_register_module_v4`, `CLAUSE_atom_v3`,
-`CLAUSE_exception_v2`, `CLAUSE_reraise_v2` and the rest), C++
-namespaces such as `abi::v1`/`v2`, `abi::v1::version` and descriptor revision
-numbers, the generated `clausev1_` prefixes if any other revision exists, and the
-revision tables in the docs.
+(`CLAUSE_roots_enter_v5`, `CLAUSE_roots_leave_v4`, `CLAUSE_raise_v2`,
+`CLAUSE_call_failed_v2`, `CLAUSE_register_module_v4`, `CLAUSE_atom_v3`,
+`CLAUSE_exception_v2`, `CLAUSE_reraise_v2` and the rest), C++ namespaces such as
+`abi::v1`/`v2`, `abi::v1::version` and descriptor revision numbers, the
+generated `clausev1_` prefixes if any other revision exists, and the revision
+tables in the docs.
 
 - Success criteria
-  - [ ] No `_v2`-or-later suffix, versioned namespace or revision number above
-    1 remains in sources, generated IR, tests, fixtures or docs; the ABI
-    document describes one revision 1 without a revision history.
+  - [ ] No `_v2`-or-later suffix, versioned namespace or revision number above 1
+    remains in sources, generated IR, tests, fixtures or docs; the ABI document
+    describes one revision 1 without a revision history.
   - [ ] `runtime_symbols.hpp` aliases mirror the renamed `abi/include`
     declarations; no mangled spelling is hardcoded elsewhere.
 - Tests
@@ -586,14 +612,13 @@ revision tables in the docs.
 
 ### 78B. Rename runtime builtin modules to builtin_<name>
 
-Backlog: all. Depends on: [78A](#step-78a). Added 2026-10-09 (user
-direction).
+Backlog: all. Depends on: [78A](#step-78a). Added 2026-10-09 (user direction).
 
 Rename the C++ sources and headers of `runtime/src/builtins/` to
 `builtin_<name>.cpp` / `builtin_<name>.hpp` (`erlang.cpp` to
 `builtin_erlang.cpp`, `io_format.hpp` to `builtin_io_format.hpp`, ...) and
-update includes, CMake lists, `files.md`, `arch.md` and every document
-naming them.
+update includes, CMake lists, `files.md`, `arch.md` and every document naming
+them.
 
 - Success criteria
   - [ ] Every file of `runtime/src/builtins/` is named `builtin_<name>`; no
@@ -605,7 +630,8 @@ naming them.
 
 ### 78. Publish the final implementation and validation boundary
 
-Backlog: all. Depends on: steps 1–70, [78A](#step-78a), [78B](#step-78b) and any selected optional work.
+Backlog: all. Depends on: steps 1–70, [78A](#step-78a), [78B](#step-78b) and any
+selected optional work.
 
 - Success criteria
   - [ ] `00-finished.md`, `01-todo.md`, `arch.md`, `files.md`, contracts and

@@ -2,10 +2,10 @@
 
 `--profile FILE` (a [runtime option](executables.md#runtime-options), also
 through `CLAUSE_FLAGS`) makes a program write a cost report to `FILE` when it
-ends (plan 11 step 61, backlog F31). Nothing is recompiled: every executable
-can profile, and without the option it runs, prints and writes files exactly
-as before. A report that cannot be written is reported on stderr
-(`clau: cannot write profile FILE`); the exit status stays the program's.
+ends. Nothing is recompiled: every executable can profile, and without the
+option it runs, prints and writes files exactly the same. A report that cannot
+be written is reported on stderr (`clau: cannot write profile FILE`); the exit
+status stays the program's.
 
 ## Attribution
 
@@ -47,13 +47,13 @@ The first line also counts the time slices the scheduler workers ran and the
 clock readings of the receive-timeout timer thread
 ([timer wheel](processes.md#receive-timeouts)). Functions are
 `module:function/arity` (anonymous funs by their generated names, whose arity
-counts captured values); ties sort by name, processes by time then pid. Times are in microseconds and vary between runs; entries are
-exact.
+counts captured values); ties sort by name, processes by time then pid. Times
+are in microseconds and vary between runs; entries are exact.
 
 ## Tests
 
-`linking_profiling` links `tests/fixtures/linking/profile` at O0 and O2 and
-runs it without profiling, with `--profile FILE` and with
-`CLAUSE_FLAGS=--profile=FILE`: the output is identical, `spin/2` ranks first
-by self time with exactly 2,000,001 entries, the spinning process ranks first,
-and `--profile` without a file fails with exit 70.
+`linking_profiling` links `tests/fixtures/linking/profile` at O0 and O2 and runs
+it without profiling, with `--profile FILE` and with
+`CLAUSE_FLAGS=--profile=FILE`: the output is identical, `spin/2` ranks first by
+self time with exactly 2,000,001 entries, the spinning process ranks first, and
+`--profile` without a file fails with exit 70.

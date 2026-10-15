@@ -1,13 +1,14 @@
 # Preprocessor
 
 Native C++ reimplementation of OTP `epp` for the pinned `maint-29` source.
-Boost.Parser handles character rules; shared compiler metadata supplies
-operator precedence. Expanded tokens are never turned back into source text.
+Boost.Parser handles character rules; shared compiler metadata supplies operator
+precedence. Expanded tokens are never turned back into source text.
 
 `PreprocessorSession` returns expanded forms (including implicit `-file`
 attributes), structured diagnostics and immutable per-form feature snapshots;
 `features()` exposes final session state for the parser. This is an internal
-interface, not a public stage format. `DirectiveReader` is the older syntax-only API.
+interface, not a public stage format. `DirectiveReader` is the older syntax-only
+API.
 
 ## Supported behavior
 
@@ -30,11 +31,10 @@ interface, not a public stage format. `DirectiveReader` is the older syntax-only
 - Include lookup: current file's directory, working directory, then include
   paths in API order. The CLI reverses repeated `-I` to match `erlc`. Absolute
   paths bypass search. `include_lib` tries ordinary paths, then explicitly
-  supplied application directories, then releases' `<app>-<version>`
-  directories below each searched directory (versions are dot-separated
-  digits, as OTP's code server reads them; the highest wins). Several versions
-  of one application warn once per run, naming the directory used; no code
-  server.
+  supplied application directories, then releases' `<app>-<version>` directories
+  below each searched directory (versions are dot-separated digits, as OTP's
+  code server reads them; the highest wins). Several versions of one application
+  warn once per run, naming the directory used; no code server.
 - `$VAR` path heads use an injected resolver; unset variables stay literal.
   Include operands are not macro-expanded. Files decode as UTF-8 or declared
   Latin-1; host path rules apply regardless of target CPU.
@@ -56,9 +56,9 @@ interface, not a public stage format. `DirectiveReader` is the older syntax-only
 
 Defaults (configurable through `PreprocessorLimits`): 256 expansion levels and
 1,000,000 produced tokens per form, include depth 64, expression nesting 256,
-plus fixed bounds of 4,194,240 bits for integers (OTP's limit on 64-bit hosts) and
-1,000,000 bits for bitstring values. Exhaustion is a
-resource diagnostic, never a silent false condition.
+plus fixed bounds of 4,194,240 bits for integers (OTP's limit on 64-bit hosts)
+and 1,000,000 bits for bitstring values. Exhaustion is a resource diagnostic,
+never a silent false condition.
 
 Diagnostics carry a stable category, severity, physical spans, optional logical
 coordinates and related macro/include spans. Warnings do not fail; errors latch
@@ -66,8 +66,9 @@ failure while recovery continues at the next form boundary.
 
 ## Tests
 
-Token goldens (`semantic/*.erl.tokens`) record epp token kinds, decoded values
-(floats as binary64 bits) and diagnostic order; wording need not equal OTP.
-Local `semantic/headers/*.hrl` fragments replace formerly copied OTP headers.
+Token goldens (`tests/fixtures/preprocessor/semantic/*.erl.tokens`) record epp
+token kinds, decoded values (floats as binary64 bits) and diagnostic order;
+wording need not equal OTP. Included headers (`semantic/headers/*.hrl`) are
+locally authored, not copied from OTP.
 `preprocessor_workflow` covers real include trees, option order, environment,
 Latin-1 and condition cases through the CLI.

@@ -1,17 +1,16 @@
 # Optimization Candidates from the OTP T2-Full JIT Work
 
 This file lists optimizations taken from Lukas Larsson's (garazdawi) **T2-Full**
-optimizing-tier work for BeamAsm. Each one is restated for Clause's ahead-of-time
-LLVM code generation. The plans are planning input only. This file does not
-copy any OTP source.
+optimizing-tier work for BeamAsm. Each one is restated for Clause's
+ahead-of-time LLVM code generation. The plans are planning input only. This file
+does not copy any OTP source.
 
 ## Working rules for plan 20 steps
 
 - Commit each step as soon as it is done (gate green). Don't batch several steps
   into one commit (user direction 2026-10-12).
-- Prefix the commit subject with `[plan20]`, like plan 11's `[plan11]`, then
-  the step code and title. Example:
-  `[plan20] OPT0.1. Inline frame transfers`.
+- Prefix the commit subject with `[plan20]`, like plan 11's `[plan11]`, then the
+  step code and title. Example: `[plan20] OPT0.1. Inline frame transfers`.
 - The plan 11 gate applies:
   - fast CTest
   - `check-quality` with clang-tidy and Lizard, no suppressions
@@ -19,8 +18,8 @@ copy any OTP source.
   - docs updated (`docs/`, `.agents/arch.md`, `.agents/files.md`,
     `docs/differences.md` for observable differences)
 - Mark the step done here, with its date, in the same commit.
-- Completed steps should have their instructions compacted and focus on the 
-  "what was done in this task" part, move the completed steps into 
+- Completed steps should have their instructions compacted and focus on the
+  "what was done in this task" part, move the completed steps into
   `00-finished.md` as 1-2 line table row.
 
 ## Sources
@@ -54,8 +53,8 @@ copy any OTP source.
    - writable/appendable binaries
    - a literal pool
 
-   Clause has almost none of these yet. Step 69A measured Clause O2 at
-   **20.2× slower than OTP JIT** (geometric mean). The worst cases:
+   Clause has almost none of these yet. Step 69A measured Clause O2 at **20.2×
+   slower than OTP JIT** (geometric mean). The worst cases:
 
    | Kernel | Slowdown vs OTP JIT |
    | --- | --- |
@@ -67,8 +66,8 @@ copy any OTP source.
    | `list_to_tuple` | 125× |
    | `comprehension` | 115× |
 
-   The substrate items in tier OPT0 below are therefore prerequisites. T2 treats them
-   as given and does not measure them.
+   The substrate items in tier OPT0 below are therefore prerequisites. T2 treats
+   them as given and does not measure them.
 2. **Null results depend on the baseline and do not transfer automatically.**
    Example: T2 found that inlining for call overhead alone gives 0 ± 1 %
    (experiment G3-2). That holds only because a T1 call is about 20 cycles. In
@@ -77,17 +76,17 @@ copy any OTP source.
 3. **T2's deopt, profiling and tier-up machinery does not apply.** Clause has no
    T1 to fall back to. The usable content is:
    - the *transforms*
-   - the *IR shapes* that make them legal, such as cursor IVs and raw values that
-     stay out of GC slots
+   - the *IR shapes* that make them legal, such as cursor IVs and raw values
+     that stay out of GC slots
    - the *measurements* of where the wins are
    - the *correctness invariants*
 
-   Where a T2 item depends on a runtime profile, a static fact from Clause's type
-   inference, or optionally LLVM PGO, can take its place.
+   Where a T2 item depends on a runtime profile, a static fact from Clause's
+   type inference, or optionally LLVM PGO, can take its place.
 4. **Clause is allowed to do something OTP structurally cannot.** OTP's static
    compiler never inlines across modules because of hot code loading. Clause
-   builds whole executables, and dynamic upgrade is optional (see AGENTS.md
-   "End Goal"). Cross-module inlining of `lists`, `maps` and user helpers is
+   builds whole executables, and dynamic upgrade is optional (see AGENTS.md "End
+   Goal"). Cross-module inlining of `lists`, `maps` and user helpers is
    therefore open to Clause without guards, as long as the module is not marked
    upgradable.
 5. **Methodology rules from the T2 record.** These were learned the hard way and
@@ -122,14 +121,17 @@ On OTP, about ⅓ of real time is JIT'd Erlang. The rest is C BIFs and GC:
 Clause's runtime services are the equivalent pool. Making them fast is itself an
 optimization target, not only a matter of correctness.
 
----
+
 
 ## Tier OPT0: substrate prerequisites (T1-level, assumed by every T2 result)
 
 These close the gap to BeamAsm. They come first because every later tier needs
 LLVM to *see* the operations instead of opaque service calls.
 
-Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6, OPT0.7, OPT0.5 staging, OPT0.10, OPT0.11, OPT0.12, OPT0.13, OPT0.14, OPT0.15, OPT0.16, OPT0.17, OPT0.18, OPT0.19, OPT0.20, OPT0.21, OPT0.22, OPT0.23, OPT0.24, OPT0.25): see
+Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B,
+OPT0.8, OPT0.9, OPT0.2C, OPT0.6, OPT0.7, OPT0.5 staging, OPT0.10, OPT0.11,
+OPT0.12, OPT0.13, OPT0.14, OPT0.15, OPT0.16, OPT0.17, OPT0.18, OPT0.19, OPT0.20,
+OPT0.21, OPT0.22, OPT0.23, OPT0.24, OPT0.25): see
 [00-finished.md](00-finished.md#plan-20). Open follow-ups of those steps:
 
 - ~~**OPT0.1 follow-up:** loop-head safepoints called `CLAUSE_safepoint_v1`
@@ -138,11 +140,13 @@ Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.
   - frameless leaves (no push for a function with no non-tail call and nothing
     live across a safepoint, keeping the reduction check and entry safepoint):
     **deferred 2026-10-15.** A leaf without a frame has no stack-trace entry, so
-    `erlang:raise`/error traces and `process_info(current_function)` would differ
-    from OTP, and the frame push it saves is a few stores after OPT0.1A and
-    `preserve_none`. Revisit only with a profile where leaf entry dominates.
-  - ~~a per-target parameter count K~~: done 2026-10-15 as six everywhere (ABI 17)
-  - ~~`preserve_none` where the runtime can declare it~~: done 2026-10-15 (ABI 16)
+    `erlang:raise`/error traces and `process_info(current_function)` would
+    differ from OTP, and the frame push it saves is a few stores after OPT0.1A
+    and `preserve_none`. Revisit only with a profile where leaf entry dominates.
+  - ~~a per-target parameter count K~~: done 2026-10-15 as six everywhere (ABI
+    17)
+  - ~~`preserve_none` where the runtime can declare it~~: done 2026-10-15 (ABI
+    16)
 - **OPT0.5B follow-up:** in-place updates for maps that arrive from callers
   (`maps:put/3`, accumulator parameters) need interprocedural uniqueness or
   inlining (OPT2.1).
@@ -166,31 +170,36 @@ Today all of these go through `CLAUSE_immediate_v1`, `CLAUSE_exact_v1` or
   atomic. No pass may delete the slow tail because it believes the fast path
   always succeeds.
 
-Split on 2026-10-15 (user direction to implement OPT0.2 and OPT0.3) before coding:
+Split on 2026-10-15 (user direction to implement OPT0.2 and OPT0.3) before
+coding:
 
-- **OPT0.2A Fixed boolean atoms, inline exact equality and match shapes** (done 2026-10-15,
-  [record](00-finished.md#plan-20)).
-  `false` and `true` get fixed atom words in every runtime (ABI constants), so
-  generated code and services use them without a lookup (the boolean part of
-  OPT0.8). Guard truth tests, `=:=`/`=/=` and match equality compare words
-  inline (identical words are equal; an immediate operand decides), calling
-  `CLAUSE_exact_v1` only for two distinct boxed or list words. Match plans test
-  tuple and cons shapes inline at every optimization level and then read the
-  elements inline; immediate literals compare as words at O0 too.
-- **OPT0.2B Inline immediate operations** (done 2026-10-15, [record](00-finished.md#plan-20); `is_binary/1`,
-  `self/0` and `bsl` followed in OPT0.2D; atom ordering still calls the service). `lower_immediate` emits inline
-  type tests, small-integer and atom comparisons, `element/2`, `tuple_size/1`,
-  `hd/1`, `tl/1`, `self/0` and small-integer `band`/`bor`/`bxor`/`bsr`/`bsl`/
-  `div`/`rem`, with the service as the slow tail for every other operand.
+- **OPT0.2A Fixed boolean atoms, inline exact equality and match shapes** (done
+  2026-10-15, [record](00-finished.md#plan-20)). `false` and `true` get fixed
+  atom words in every runtime (ABI constants), so generated code and services
+  use them without a lookup (the boolean part of OPT0.8). Guard truth tests,
+  `=:=`/`=/=` and match equality compare words inline (identical words are
+  equal; an immediate operand decides), calling `CLAUSE_exact_v1` only for two
+  distinct boxed or list words. Match plans test tuple and cons shapes inline at
+  every optimization level and then read the elements inline; immediate literals
+  compare as words at O0 too.
+- **OPT0.2B Inline immediate operations** (done 2026-10-15,
+  [record](00-finished.md#plan-20); `is_binary/1`, `self/0` and `bsl` followed
+  in OPT0.2D; atom ordering still calls the service). `lower_immediate` emits
+  inline type tests, small-integer and atom comparisons, `element/2`,
+  `tuple_size/1`, `hd/1`, `tl/1`, `self/0` and small-integer
+  `band`/`bor`/`bxor`/`bsr`/`bsl`/ `div`/`rem`, with the service as the slow
+  tail for every other operand.
 
-- **OPT0.2C Inline setelement/3** (added and done 2026-10-15 from the euler profile, where the
-  `setelement` builtin and its argument staging were the largest remaining share; [record](00-finished.md#plan-20)).
+- **OPT0.2C Inline setelement/3** (added and done 2026-10-15 from the euler
+  profile, where the `setelement` builtin and its argument staging were the
+  largest remaining share; [record](00-finished.md#plan-20)).
 
 ### OPT0.3 Inline bump allocation with one heap check per block
 
-Done 2026-10-15 for tuples and lists, one check per construction ([record](00-finished.md#plan-20)). OPT0.3A
-added inline map expressions with literal keys. Left open: one check per basic block (low value) and inline floats,
-which come with float unboxing (OPT1.11).
+Done 2026-10-15 for tuples and lists, one check per construction
+([record](00-finished.md#plan-20)). OPT0.3A added inline map expressions with
+literal keys. Left open: one check per basic block (low value) and inline
+floats, which come with float unboxing (OPT1.11).
 
 - Emit `HTOP += n` inline, with a single reservation per basic block or
   straight-line region, the equivalent of `test_heap`. Today every
@@ -201,23 +210,27 @@ which come with float unboxing (OPT1.11).
 
 ### OPT0.4 Literal pool
 
-Done 2026-10-15 for strings, constant lists and tuples, floats and bignums ([record](00-finished.md#plan-20));
-maps and binaries stay with their services (maps: OPT0.5).
+Done 2026-10-15 for strings, constant lists and tuples, floats and bignums
+([record](00-finished.md#plan-20)); maps and binaries stay with their services
+(maps: OPT0.5).
 
-- **Caveat from OPT0.5B:** the in-place map proof treats every map expression
-  as freshly built; constant maps moved into the pool must be excluded from it
+- **Caveat from OPT0.5B:** the in-place map proof treats every map expression as
+  freshly built; constant maps moved into the pool must be excluded from it
   (`semantic/map_ownership`).
 
 - Build compound literals (strings, tuples, maps, floats) once per module, in
   constant or literal-area memory. Today a float literal calls `CLAUSE_float_v1`
   on every evaluation, and tuple literals are rebuilt each time.
-- This is also the precondition for OPT0.5: map literals then share one keys tuple.
+- This is also the precondition for OPT0.5: map literals then share one keys
+  tuple.
 
 ### OPT0.5 Flatmap layout with a shared keys tuple
 
-Partly done 2026-10-15 ([record](00-finished.md#plan-20)): the host staging of every put is gone (word-level
-updates and lookups of classic maps). The shared-keys layout itself is deferred to OPT1.6: its value is the shape
-token that static map-shape specialization uses, and the layout change touches every map consumer at once.
+Partly done 2026-10-15 ([record](00-finished.md#plan-20)): the host staging of
+every put is gone (word-level updates and lookups of classic maps). The
+shared-keys layout itself is deferred to OPT1.6: its value is the shape token
+that static map-shape specialization uses, and the layout change touches every
+map consumer at once.
 
 - **Scope:** small maps only, up to a size threshold (OTP's
   `MAP_SMALL_MAP_LIMIT` is 32). Larger maps are off-heap trees (OPT0.5A, done).
@@ -238,15 +251,17 @@ token that static map-shape specialization uses, and the layout change touches e
 
 ### OPT0.6 Writable/appendable binaries
 
-Done 2026-10-15 at run time, as OTP's writable binaries ([record](00-finished.md#plan-20)).
+Done 2026-10-15 at run time, as OTP's writable binaries
+([record](00-finished.md#plan-20)).
 
 - OTP's `private_append` and `beam_ssa_private_append`. `<<Acc/binary, X>>` on a
-  uniquely owned accumulator must append in place, not copy.
-  `BitWriter::append` copies every segment today (`binary_append` is 462× slower).
+  uniquely owned accumulator must append in place, not copy. `BitWriter::append`
+  copies every segment today (`binary_append` is 462× slower).
 
 ### OPT0.7 Reduction accounting at loop back-edges
 
-Done 2026-10-15: one reduction per comprehension iteration, yield at zero ([record](00-finished.md#plan-20)).
+Done 2026-10-15: one reduction per comprehension iteration, yield at zero
+([record](00-finished.md#plan-20)).
 
 - Comprehension heads call only `CLAUSE_safepoint_v1` and charge nothing, which
   is a fairness gap.
@@ -261,8 +276,8 @@ Done 2026-10-15: one reduction per comprehension iteration, yield at zero ([reco
 Done 2026-10-15 ([record](00-finished.md#plan-20)).
 
 Added 2026-10-15 (user direction) from the luerl euler profile
-([21-lib.md](21-lib.md#luerl-exampleseuler-2026-10-15)): about 21% of the samples
-were atom lookups by spelling or by descriptor, under a lock.
+([21-lib.md](21-lib.md#luerl-exampleseuler-2026-10-15)): about 21% of the
+samples were atom lookups by spelling or by descriptor, under a lock.
 
 - ~~`AtomStorage::boolean`~~ looked up `"true"`/`"false"` under a lock (8%):
   done in OPT0.2A (fixed words).
@@ -270,11 +285,10 @@ were atom lookups by spelling or by descriptor, under a lock.
   (`builtins/erlang/dictionary.cpp`; luerl calls `get(luerl_itrace)` on every
   emulator step, 8%). Use the same fixed-word table for the atoms that runtime
   services return (`undefined`, `ok`, `error`, `true`, `false`).
-- `CLAUSE_atom_v3` → `CodeServer::atom_word` takes the code server's shared
-  lock and a descriptor map lookup for every atom literal (5%). Resolve the
-  module's atom slots once when the module is registered and let generated
-  code load the slot word without a lock (a per-module word array the
-  descriptor points to).
+- `CLAUSE_atom_v3` → `CodeServer::atom_word` takes the code server's shared lock
+  and a descriptor map lookup for every atom literal (5%). Resolve the module's
+  atom slots once when the module is registered and let generated code load the
+  slot word without a lock (a per-module word array the descriptor points to).
 - **Gate:** the euler example under `-O2`; the shares above must disappear from
   an LLDB sample, with no other change in output.
 
@@ -288,8 +302,8 @@ Added 2026-10-15 (user direction) from the same profile (10%).
   `BitWriter::integer(boost::multiprecision::...)` with heap allocation, even
   for small integers that fit one word.
 - Add a word-sized path for small integers (any size up to 64 bits, both
-  endiannesses, signed or unsigned) that writes the bytes directly, and keep
-  the multiprecision path for bignums and larger sizes.
+  endiannesses, signed or unsigned) that writes the bytes directly, and keep the
+  multiprecision path for bignums and larger sizes.
 - Avoid the temporary `std::vector` allocations of the service's argument and
   result staging.
 - **Gate:** bit-syntax goldens (`executables_*bits*`) unchanged; the euler
@@ -297,46 +311,56 @@ Added 2026-10-15 (user direction) from the same profile (10%).
 
 ### OPT0.10 Inline list generators and comprehension reverse
 
-Added and done 2026-10-15 from the 69A comprehension kernel ([record](00-finished.md#plan-20)): unproven list
-generators read cells inline, and the comprehension's final reverse is word-level in one reservation.
+Added and done 2026-10-15 from the 69A comprehension kernel
+([record](00-finished.md#plan-20)): unproven list generators read cells inline,
+and the comprehension's final reverse is word-level in one reservation.
 
 ### OPT0.11 Inline binary construction and appends
 
-Added and done 2026-10-15 from the 69A binary_append kernel ([record](00-finished.md#plan-20)): **OPT0.11A**
-inline heap binaries for constant whole-byte integer segments, word-level service constructions, appends as
-sub-binaries; **OPT0.11B** the append state in the buffer's refc cell (ABI 19) and inline appends.
+Added and done 2026-10-15 from the 69A binary_append kernel
+([record](00-finished.md#plan-20)): **OPT0.11A** inline heap binaries for
+constant whole-byte integer segments, word-level service constructions, appends
+as sub-binaries; **OPT0.11B** the append state in the buffer's refc cell (ABI
+19) and inline appends.
 
 ### OPT0.12 Cheap term access in builtins
 
-Added and done 2026-10-15 from the 69A string_build kernel ([record](00-finished.md#plan-20)): lifetime checks
-without `weak_ptr::lock()`, lock-free atom admission, word-level list walks, short `++`, `to_chars` integer text.
-Open follow-up: the remaining ~200 ns of a list-building builtin (typed argument conversion, `Term` copies with
-their weak pointer, per-element admission in `list_words`).
+Added and done 2026-10-15 from the 69A string_build kernel
+([record](00-finished.md#plan-20)): lifetime checks without `weak_ptr::lock()`,
+lock-free atom admission, word-level list walks, short `++`, `to_chars` integer
+text. Open follow-up: the remaining ~200 ns of a list-building builtin (typed
+argument conversion, `Term` copies with their weak pointer, per-element
+admission in `list_words`).
 
 ### OPT0.13 Inline map generators and cheaper tree-map updates
 
-Added and done 2026-10-15 from a profile of the 69A map_update kernel ([record](00-finished.md#plan-20)):
-`MapOperation::entries` (ABI 20), word-level small-integer key order, reused tree nodes.
+Added and done 2026-10-15 from a profile of the 69A map_update kernel
+([record](00-finished.md#plan-20)): `MapOperation::entries` (ABI 20), word-level
+small-integer key order, reused tree nodes.
 
 ### OPT0.14 Inline inspections and word-level comparisons
 
-Added and done 2026-10-15 from an LLDB profile of luerl euler ([record](00-finished.md#plan-20)): container
-inspections inline, float/binary ordering without Term admission.
+Added and done 2026-10-15 from an LLDB profile of luerl euler
+([record](00-finished.md#plan-20)): container inspections inline, float/binary
+ordering without Term admission.
 
 ### OPT0.25 Per-worker run queues
 
-Added and done 2026-10-15 at the user's request ([record](00-finished.md#plan-20)): processes stay on their
-worker as on ERTS and migrate by stealing and periodic neighbor balancing. Open: the queues still share the one
-executor mutex.
+Added and done 2026-10-15 at the user's request
+([record](00-finished.md#plan-20)): processes stay on their worker as on ERTS
+and migrate by stealing and periodic neighbor balancing. Open: the queues still
+share the one executor mutex.
 
 ### OPT0.24 Buffered sends to running processes
 
-Added and done 2026-10-15 from a spawning profile ([record](00-finished.md#plan-20)). Open: cheaper process
-creation and teardown, and a scheduler without one global lock.
+Added and done 2026-10-15 from a spawning profile
+([record](00-finished.md#plan-20)). Open: cheaper process creation and teardown,
+and a scheduler without one global lock.
 
 ### OPT0.23 Flat index for message copies
 
-Added and done 2026-10-15 from the 69A large_message kernel ([record](00-finished.md#plan-20)).
+Added and done 2026-10-15 from the 69A large_message kernel
+([record](00-finished.md#plan-20)).
 
 ### OPT0.22 Word-level tuple and list conversions
 
@@ -344,25 +368,30 @@ Added and done 2026-10-15 ([record](00-finished.md#plan-20)).
 
 ### OPT0.21 Literal list prefixes and word-level conversions
 
-Added and done 2026-10-15 from the 69A string kernels ([record](00-finished.md#plan-20)).
+Added and done 2026-10-15 from the 69A string kernels
+([record](00-finished.md#plan-20)).
 
 ### OPT0.20 Amortized binary collections
 
-Added and done 2026-10-15 from the 69A large_read kernel ([record](00-finished.md#plan-20)). Open: generational
-collection, so a large live heap is not copied by every collection (now ~15% of luerl euler).
+Added and done 2026-10-15 from the 69A large_read kernel
+([record](00-finished.md#plan-20)). Open: generational collection, so a large
+live heap is not copied by every collection (now ~15% of luerl euler).
 
 ### OPT0.19 Lazy worker wakeups
 
-Added and done 2026-10-15 from the 69A msg kernels ([record](00-finished.md#plan-20)).
+Added and done 2026-10-15 from the 69A msg kernels
+([record](00-finished.md#plan-20)).
 
 ### OPT0.18 Literal binaries and inline make_tuple
 
-Added and done 2026-10-15 from the euler profile ([record](00-finished.md#plan-20)).
+Added and done 2026-10-15 from the euler profile
+([record](00-finished.md#plan-20)).
 
 ### OPT0.17 Inline closures and word-level apply
 
-Added and done 2026-10-15 from the euler profile ([record](00-finished.md#plan-20)); part of OPT1.8 (closure
-allocation without a service). Sinking and closure inlining remain in OPT1.8.
+Added and done 2026-10-15 from the euler profile
+([record](00-finished.md#plan-20)); part of OPT1.8 (closure allocation without a
+service). Sinking and closure inlining remain in OPT1.8.
 
 ### OPT0.16 Inline math functions
 
@@ -370,10 +399,11 @@ Added and done 2026-10-15 ([record](00-finished.md#plan-20)).
 
 ### OPT0.15 Word-level dictionary and inline float arithmetic
 
-Added and done 2026-10-15 from the euler profile ([record](00-finished.md#plan-20)). OPT1.11 (float unboxing across
-operations) builds on it.
+Added and done 2026-10-15 from the euler profile
+([record](00-finished.md#plan-20)). OPT1.11 (float unboxing across operations)
+builds on it.
 
----
+
 
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
@@ -381,9 +411,10 @@ Ordered by measured T2 value and how well each fits an AOT compiler.
 
 ### OPT1.1 Loop recovery for self- and mutual tail recursion
 
-Status 2026-10-15: self tail calls already become LLVM loops (OPT0.1/0.1A inline transfers, `musttail` to the own
-body), and since **OPT1.1A** ([record](00-finished.md#plan-20)) they keep their frame instead of re-pushing it.
-Mutual recursion remains.
+Status 2026-10-15: self tail calls already become LLVM loops (OPT0.1/0.1A inline
+transfers, `musttail` to the own body), and since **OPT1.1A**
+([record](00-finished.md#plan-20)) they keep their frame instead of re-pushing
+it. Mutual recursion remains.
 
 - **What:** rewrite a self tail call into a branch back to a synthesized loop
   header, with phis for the parameters. Mutually tail-recursive SCCs (Tarjan)
@@ -399,7 +430,8 @@ Mutual recursion remains.
 
 ### OPT1.2 Keep loop-carried values in registers, untagged where proven
 
-Part done 2026-10-15: no eager root-slot stores ([record](00-finished.md#plan-20)); untagged raw loop values open.
+Part done 2026-10-15: no eager root-slot stores
+([record](00-finished.md#plan-20)); untagged raw loop values open.
 
 - **What:** T2 calls this "regalloc R3 register homing" and "RAW-IN-HOME":
   - keep the accumulator, induction variable and list cursor as raw machine
@@ -411,8 +443,8 @@ Part done 2026-10-15: no eager root-slot stores ([record](00-finished.md#plan-20
   - Today every value crossing a call or safepoint is demoted to a frame root
     slot (`DemoteRegToStack`), and each service result is stored to a root slot.
   - Only values that are live *at a safepoint* need a root slot.
-  - Raw values must never occupy a GC-scanned slot: retagging to spill them gives
-    back the win (`14_bs_cursor_iv.md` §6b).
+  - Raw values must never occupy a GC-scanned slot: retagging to spill them
+    gives back the win (`14_bs_cursor_iv.md` §6b).
   - Item OPT1.1 must come first.
 
 ### OPT1.3 Speculation-free small-int fast paths, with guard fusion and range-proven overflow elimination
@@ -433,9 +465,10 @@ Part done 2026-10-15: no eager root-slot stores ([record](00-finished.md#plan-20
 
 ### OPT1.4 Binary matching as a cursor induction variable
 
-OPT1.4A and OPT1.4B done 2026-10-15 (inline start/finish, aligned whole-byte reads, sub-binary cells and inline
-`Rest`, [record](00-finished.md#plan-20)). Open: **OPT1.4C** the raw cursor across iterations (no `Rest` cell per
-loop trip), unaligned and non-byte segments inline.
+OPT1.4A and OPT1.4B done 2026-10-15 (inline start/finish, aligned whole-byte
+reads, sub-binary cells and inline `Rest`, [record](00-finished.md#plan-20)).
+Open: **OPT1.4C** the raw cursor across iterations (no `Rest` cell per loop
+trip), unaligned and non-byte segments inline.
 
 This is the largest measured T2 win class (`14_bs_cursor_iv.md`).
 
@@ -449,8 +482,8 @@ This is the largest measured T2 win class (`14_bs_cursor_iv.md`).
   | `BsRead(base, cursor, size)` | Pure, non-allocating extraction of an integer up to a word, or a skip |
   | `BsSync` | Writes the cursor back to the boxed context only at sync points or exits |
 
-- **Positions:** `bs_get_position` and `bs_set_position` become plain SSA values.
-  Backtracking becomes a phi instead of heap traffic.
+- **Positions:** `bs_get_position` and `bs_set_position` become plain SSA
+  values. Backtracking becomes a phi instead of heap traffic.
 - **GC:** `base` is a raw pointer that GC can move, so reload it after any
   allocating op.
 - **Clause:** today every segment calls `CLAUSE_bits_v1` (test/extract/finish),
@@ -484,9 +517,9 @@ Builds on OPT1.4.
 ### OPT1.6 Static map-shape specialization
 
 - **What:**
-  - When type inference, or the literal/record origin of a map, proves a
-    flatmap with a known keys tuple, `#{k := V}` becomes a pointer compare plus
-    a fixed-offset load.
+  - When type inference, or the literal/record origin of a map, proves a flatmap
+    with a known keys tuple, `#{k := V}` becomes a pointer compare plus a
+    fixed-offset load.
   - Otherwise use a per-site **inline cache** `{keys_ptr → index}`: a hit is a
     direct load; a miss runs the generic lookup and refills the cache. This is
     OTP's track-A2 idea and needs no deopt.
@@ -497,22 +530,22 @@ Builds on OPT1.4.
   - Wrong shape assumptions made it 1.45× *slower*. Never assume key positions
     at codegen; guard on the keys pointer.
   - The guard cost amortizes across several fields read from one map.
-  - A pointer-guarded hit also removes the key comparisons (`eq`), which are
-    12 % of compiler time on OTP.
+  - A pointer-guarded hit also removes the key comparisons (`eq`), which are 12
+    % of compiler time on OTP.
 - **Needs:** OPT0.4 and OPT0.5.
 
 ### OPT1.7 Higher-order `lists` intrinsics and literal-fun inlining
 
 - **What:** for a call to `lists:foldl/3`, `foreach/2`, `all/2`, `any/2`
-  (tail-recursive) or `map/2`, `filter/2`, `foldr/3`, `flatmap/2`,
-  `mapfoldl/3`, `mapfoldr/3` (body-recursive) with a **literal fun**, expand the
-  helper inline and splice in the fun body. The result is a flat loop
-  (OPT1.1–OPT1.3 then apply).
+  (tail-recursive) or `map/2`, `filter/2`, `foldr/3`, `flatmap/2`, `mapfoldl/3`,
+  `mapfoldr/3` (body-recursive) with a **literal fun**, expand the helper inline
+  and splice in the fun body. The result is a flat loop (OPT1.1–OPT1.3 then
+  apply).
 - **Source of the set:** OTP's `sys_core_fold_lists.erl` set, driven by the
   `inline_list_funcs` option, which Clause currently accepts and ignores.
 - **Clause:** without hot code loading, the expansion can be generated from the
-  real `lists` source by cross-module inlining (OPT2.1) instead of from hand-ported
-  templates.
+  real `lists` source by cross-module inlining (OPT2.1) instead of from
+  hand-ported templates.
 - **Related item, `maps:fold` with a literal fun on a flatmap:**
   - turns into an indexed loop over the value slots
   - DCE removes key loads the fun does not use
@@ -527,7 +560,8 @@ Builds on OPT1.4.
     for it (T2 Stage 3d).
   - Where the target of a fun call is SSA-constant, inline the fun body, append
     the free variables as arguments, and remove the closure allocation.
-- **Clause:** today `CLAUSE_apply_v1` plus a frame entry runs for every fun call.
+- **Clause:** today `CLAUSE_apply_v1` plus a frame entry runs for every fun
+  call.
 
 ### OPT1.9 Leaf inlining scored by eliminated work
 
@@ -539,8 +573,8 @@ Builds on OPT1.4.
   - opening up loop recovery
 - **Measured:** T2's MVP fused `diff/2` into the `total/2` loop.
 - **Clause caveat:** with OPT0.1/OPT0.1A done, follow T2's rule: never inline
-  for call overhead alone. LLVM's
-  inliner can take over once calls are direct and services are inline.
+  for call overhead alone. LLVM's inliner can take over once calls are direct
+  and services are inline.
 
 ### OPT1.10 Cleanup suite across inlined boundaries
 
@@ -565,8 +599,8 @@ Builds on OPT1.4.
   box only at escapes.
 - **Measured:** float loops 2.4–3.8×. OTP's AOT already does this
   (`ssa_opt_float`), which is why T2 lists it as "compiler already does it".
-- **Clause:** floats are boxed, and every float operation is a service call. Port
-  the `ssa_opt_float` idea, a float block between `fclearerror` and
+- **Clause:** floats are boxed, and every float operation is a service call.
+  Port the `ssa_opt_float` idea, a float block between `fclearerror` and
   `fcheckerror`, on top of OPT0.3 and OPT0.4.
 
 ### OPT1.12 Tail-modulo-cons and in-place list building
@@ -578,8 +612,8 @@ Builds on OPT1.4.
     `Root` and `Dest`, and `set_cons_tail(Dest, New)` fills the hole.
   - **Front-end 2:** `f([H|T], Acc) -> f(T, [g(H)|Acc]); f([], Acc) ->
     lists:reverse(Acc)` builds the list forward and seals it with
-    `lists:reverse(Acc, Root)`. This fires only when `Acc` is used solely as
-    the prepend tail and the reverse argument.
+    `lists:reverse(Acc, Root)`. This fires only when `Acc` is used solely as the
+    prepend tail and the reverse argument.
 - **GC rule:** if the hole cell is not young (`[high_water, HTOP)`), flag a full
   sweep. Otherwise, without a remembered set, the write creates an old→young
   edge.
@@ -607,10 +641,10 @@ Builds on OPT1.4.
   - First check whether our frontend already cancels these pairs. It has no
     mid-end of its own.
   - Inlining (OPT1.7, OPT1.9, OPT2.1) manufactures new pairs.
-  - LLVM SROA does not apply to service-allocated cells, so this needs OPT0.3 plus
-    a small escape check on our side.
+  - LLVM SROA does not apply to service-allocated cells, so this needs OPT0.3
+    plus a small escape check on our side.
 
----
+
 
 ## Tier OPT2: possible because Clause compiles whole programs
 
@@ -623,7 +657,8 @@ Builds on OPT1.4.
 - **Options:**
   - inline, or LTO-visible bodies for, `lists`/`maps`/`proplists` helpers and
     user wrappers
-  - turn on `--lto` with the inline transfers (OPT0.1) to get this mostly for free
+  - turn on `--lto` with the inline transfers (OPT0.1) to get this mostly for
+    free
 - **Limits:**
   - mark modules that need code upgrade as opaque
   - preserve observable stack-trace and `function_clause` semantics; record any
@@ -641,7 +676,7 @@ Builds on OPT1.4.
   priority: T2 measured entry type-class speculation as cost-only (827 guards,
   none of which eliminated anything).
 
----
+
 
 ## Measured to have no value (do not build unless new evidence appears)
 
@@ -659,14 +694,14 @@ Builds on OPT1.4.
 | Software prefetch, "home traffic" elimination, GcTest coalescing across unrolled iterations, broad register-pool widening | measured and dropped (PR text; doc 24 unavailable) | Recheck before attempting |
 | Straight-line GVN outside loops | pool ≈0 on real code | Leave to LLVM |
 
----
+
 
 ## Suggested order for Clause
 
 1. **Substrate (tier OPT0):** OPT0.2, OPT0.3, then OPT0.4 and OPT0.5, then
    OPT0.6, then OPT0.7 (OPT0.1, OPT0.1A, OPT0.5A and OPT0.5B are done). This
-   attacks the remaining 100–600× kernels and makes everything below visible
-   to LLVM.
+   attacks the remaining 100–600× kernels and makes everything below visible to
+   LLVM.
 2. **Loops:** OPT1.1, then OPT1.2, then OPT1.3.
 3. **Binaries:** OPT1.4, then OPT1.5.
 4. **Maps:** OPT1.6, then the `maps:fold` part of OPT1.7.
