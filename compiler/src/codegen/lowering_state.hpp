@@ -148,6 +148,19 @@ HeapRoom heap_room(ExpressionLowering &state, llvm::Value *words);
 void heap_commit(ExpressionLowering &state, const HeapRoom &room);
 // setelement/3 copying a small tuple inline where the heap has room, else the builtin (OPT0.2C).
 llvm::Value *lower_setelement(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values);
+
+// The bit length, bit offset and data base address (a word, so no pointer joins blocks) of a word proven to be a
+// bitstring (OPT1.4): an inline binary's bytes follow its length word at offset 0; an off-heap view names its
+// buffer's first byte and its offset into it.
+struct BinaryView {
+    llvm::Value *bits;
+    llvm::Value *offset;
+    llvm::Value *data;
+};
+
+BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary);
+// An i1 that holds when a word is a bitstring (an inline or off-heap binary cell) (OPT1.4).
+llvm::Value *inline_bitstring_test(ExpressionLowering &state, llvm::Value *value);
 // A value and the predecessor block that computed it.
 using BlockValue = std::pair<llvm::BasicBlock *, llvm::Value *>;
 // At the start of the current block, join the values its two predecessors computed (LLVM's SSA updater, which never

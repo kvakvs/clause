@@ -55,7 +55,7 @@ pointer (below), so a cell moves by copying its words.
 | `floating` | 8 bytes: 1 word (64-bit) or 2 words (32-bit) | none |
 | `reference` | 8 bytes: the reference number ([pids and references](terms.md#pids-and-references)) | none |
 | `heap_binary` | bit length, then data bytes rounded up to words (at most 64 bytes) | none |
-| `refc_binary` | bit offset, bit length, `std::shared_ptr` (2 words), off-heap link: 5 words | none |
+| `refc_binary` | bit offset, bit length, the buffer's first byte (read by generated code, OPT1.4), `std::shared_ptr` (2 words), off-heap link: 6 words | none |
 | `filler` | n unused words | none |
 
 The `map` count is in words (entries = count / 2). Pids are immediates, admitted against the runtime's issued

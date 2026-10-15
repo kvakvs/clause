@@ -69,6 +69,7 @@ void drop_off_heap(HeapStorage &storage, const BinaryBuffer &buffer) noexcept {
 
 void link_off_heap(HeapStorage &storage, layout::RefcBinaryCell &cell,
                    std::shared_ptr<const BinaryBuffer> buffer) noexcept {
+    cell.data_ = buffer->data();
     cell.buffer_ = std::move(buffer);
     cell.next_ = storage.off_heap_;
     storage.off_heap_ = &cell;

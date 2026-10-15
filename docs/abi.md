@@ -217,6 +217,11 @@ const TermWord *)` signature as a host entry calling
   (revision 12, OPT0.3) the heap block's free words `[heap_top, heap_limit)`,
   one target word each. A body reads its frame header (`stack + frame`) and the
   registers from it on entry and switches on the header's resume word.
+- Binary patterns (OPT1.4A, 64-bit targets): the start test, the end test and
+  integer segments of a constant whole-byte width up to 56 bits at a
+  byte-aligned position read the cell inline (`abi::v1::heap_binary_*_word`,
+  `refc_*_word`: an off-heap view's `data_` is its buffer's first byte); other
+  segments and unaligned positions call `CLAUSE_bits_v1`.
 - Map expressions without a base whose keys are atom or small integer literals
   (at most 32 distinct) are written inline as classic map cells, keys sorted at
   compile time in exact term order, the last value of a repeated key kept

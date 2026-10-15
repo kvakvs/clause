@@ -446,6 +446,36 @@ llvm::Value *lower_setelement(ExpressionLowering &state, const std::size_t built
         [&] { return lower_builtin(state, builtin, values); });
 }
 
+llvm::Value *inline_bitstring_test(ExpressionLowering &state, llvm::Value *value) {
+    return bitstring_test(state, value);
+}
+
+BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary) {
+    auto &builder = state.builder;
+    auto &context = state.entry.getContext();
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    auto *cell = cell_address(state, binary, abi::v1::boxed_tag);
+    const auto at = [&](unsigned index) { return builder.CreateConstGEP1_64(state.word, cell, index); };
+    auto *inline_data = header_kind(state, header(state, binary), {HeaderKind::heap_binary});
+    auto *heap = llvm::BasicBlock::Create(context, "binary.inline", &state.entry);
+    auto *shared = llvm::BasicBlock::Create(context, "binary.shared", &state.entry);
+    auto *join = llvm::BasicBlock::Create(context, "binary.view", &state.entry);
+    builder.CreateCondBr(inline_data, heap, shared);
+    builder.SetInsertPoint(heap);
+    auto *heap_bits = builder.CreateAlignedLoad(state.word, at(abi::v1::heap_binary_bits_word), align, "binary.bits");
+    auto *heap_data = builder.CreatePtrToInt(at(abi::v1::heap_binary_data_word), state.word);
+    builder.CreateBr(join);
+    builder.SetInsertPoint(shared);
+    auto *offset = builder.CreateAlignedLoad(state.word, at(abi::v1::refc_offset_word), align, "binary.offset");
+    auto *shared_bits = builder.CreateAlignedLoad(state.word, at(abi::v1::refc_bits_word), align, "binary.bits");
+    auto *shared_data = builder.CreateAlignedLoad(state.word, at(abi::v1::refc_data_word), align, "binary.data");
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    return {join_values(state, state.word, {heap, heap_bits}, {shared, shared_bits}),
+            join_values(state, state.word, {heap, word(state, 0)}, {shared, offset}),
+            join_values(state, state.word, {heap, heap_data}, {shared, shared_data})};
+}
+
 llvm::Value *join_values(ExpressionLowering &state, llvm::Type *type, const BlockValue first, const BlockValue second) {
     auto &builder = state.builder;
     auto *join = builder.GetInsertBlock();

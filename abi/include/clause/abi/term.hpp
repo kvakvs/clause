@@ -65,6 +65,13 @@ enum class HeaderKind : std::uint8_t {
     map = 15,
     tree_map = 18
 };
+// Words of binary cells generated code reads (OPT1.4): an inline (heap) binary's bit length and the word its data
+// bytes start at; an off-heap view's bit offset into its buffer, its bit length and the buffer's first byte.
+inline constexpr unsigned heap_binary_bits_word = 1;
+inline constexpr unsigned heap_binary_data_word = 2;
+inline constexpr unsigned refc_offset_word = 1;
+inline constexpr unsigned refc_bits_word = 2;
+inline constexpr unsigned refc_data_word = 3;
 // Low four bits of local pids and ports (OPT0.2B).
 inline constexpr unsigned immediate_tag_mask = 0xf;
 inline constexpr unsigned pid_tag = 0x3;
