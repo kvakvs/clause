@@ -1,4 +1,5 @@
 #pragma once
+#include "../modules/literal_areas.hpp"
 #include "../process/identities.hpp"
 #include "heap_object.hpp"
 #include "heap_policy.hpp"
@@ -64,6 +65,13 @@ class HeapStorage final {
     std::size_t budget() const noexcept;
     // Replace the heap block and fragments by a collected block, returning the charges of the replaced areas.
     void replace(HeapArea heap) noexcept;
+    // Borrow the words from an address in the heap, a fragment or a module literal area (OPT0.4) to its area's end,
+    // read-only; empty for any other address.
+    std::span<const Word> readable(std::uintptr_t address) noexcept;
+
+    // Whether an address lies in a literal area of the runtime (OPT0.4).
+    bool literal(std::uintptr_t address) const noexcept { return literals_ && !literals_->find(address).empty(); }
+
     // Borrow the used words from an address to the end of its area; empty unless the address is
     // word-aligned below the top of the heap or a fragment. Process pointers only name object starts.
     // The words are writable for the collector, which forwards objects in place.
@@ -125,6 +133,8 @@ class HeapStorage final {
         }
     }
 
+    // The runtime's module literal areas (OPT0.4); null for storage without a runtime.
+    const LiteralAreas *literals_ = nullptr;
     // Borrow the runtime atom table only while the process lifetime token remains alive.
     AtomStorage *atoms_;
     // Borrow the runtime's issued pid and port numbers, under the same lifetime rule as atoms_.

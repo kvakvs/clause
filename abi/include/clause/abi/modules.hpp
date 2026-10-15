@@ -50,6 +50,10 @@ struct ModuleDescriptor {
     // every atom slot. The first runtime to register the module fills them, so its generated code loads atom
     // literals without a call; others call CLAUSE_atom_v3 (OPT0.8). Null for a descriptor without one.
     TermWord *atom_cache = nullptr;
+    // The module's constant literal area (OPT0.4): compound literals laid out as heap cells, which terms of every
+    // process of the runtime may point into; registration publishes it. Null with zero words for none.
+    const TermWord *literals = nullptr;
+    std::size_t literal_words = 0;
 };
 
 struct FrameDescriptor {
@@ -73,7 +77,7 @@ static_assert(std::is_standard_layout_v<ModuleDescriptor>);
 static_assert(sizeof(ExportDescriptor) == 5 * sizeof(TermWord));
 static_assert(offsetof(ExportDescriptor, entry) == 3 * sizeof(TermWord));
 static_assert(sizeof(AtomDescriptor) == 2 * sizeof(TermWord));
-static_assert(sizeof(ModuleDescriptor) == 8 + 11 * sizeof(TermWord));
+static_assert(sizeof(ModuleDescriptor) == 8 + 13 * sizeof(TermWord));
 static_assert(std::is_standard_layout_v<FrameDescriptor>);
 static_assert(sizeof(FrameDescriptor) == 7 * sizeof(TermWord));
 static_assert(offsetof(ModuleDescriptor, name) == 8);

@@ -72,22 +72,16 @@ class GraphCopy final {
                 continue;
             }
             const auto area = source_.owned(address(value));
-            if (area.empty()) {
-                return false;
+            // A literal is shared by every process of the runtime: the copy keeps pointing at it (OPT0.4).
+            if (area.empty() && source_.literal(address(value))) {
+                continue;
             }
             const auto cell = parse_cell(area);
             if (!cell) {
                 return false;
             }
             add(*cell);
-            pending.insert(pending.end(), cell->slots.begin(), cell->slots.end());
-            if (tree(*cell)) {
-                // An off-heap map's keys and values are its slots (OPT0.5A).
-                map_tree_entries(stub(cell->words)->root_, [&](MapWords words) {
-                    pending.push_back(words.first);
-                    pending.push_back(words.second);
-                });
-            }
+            push_slots(*cell, pending);
         }
         return true;
     }
@@ -153,6 +147,17 @@ class GraphCopy final {
     std::size_t trees() const noexcept { return trees_.size(); }
 
   private:
+    // Queue the slots of a found cell; an off-heap map's keys and values are its slots (OPT0.5A).
+    static void push_slots(const HeapCell &cell, std::vector<Word> &pending) {
+        pending.insert(pending.end(), cell.slots.begin(), cell.slots.end());
+        if (tree(cell)) {
+            map_tree_entries(stub(cell.words)->root_, [&](MapWords words) {
+                pending.push_back(words.first);
+                pending.push_back(words.second);
+            });
+        }
+    }
+
     // Report whether a cell is an off-heap map stub, whose copy gets a tree of its own (OPT0.5A).
     static bool tree(const HeapCell &cell) noexcept {
         return cell.shape == HeapCell::Shape::boxed && BoxHeader::kind(cell.words[0]) == BoxedKind::tree_map;
@@ -198,10 +203,12 @@ class GraphCopy final {
 
     // Map a source word to the word naming its copy; immediates and atoms stay as they are.
     Word translate(Word value, std::span<Word> out) const noexcept {
-        if (!compound(value)) {
+        const auto found = compound(value) ? index_.find(address(value)) : index_.end();
+        // Immediates, atoms and literals (OPT0.4) stay as they are.
+        if (found == index_.end()) {
             return value;
         }
-        const auto &object = objects_[index_.find(address(value))->second];
+        const auto &object = objects_[found->second];
         return reinterpret_cast<Word>(out.data() + object.offset) | (value & static_cast<Word>(abi::v1::primary_mask));
     }
 
@@ -256,6 +263,10 @@ TermResult<Term> ProcessHeap::copy(detail::HeapStorage &source, Word root) noexc
 }
 
 TermResult<Term> ProcessHeap::publish_copy(const detail::GraphCopy &graph, Word root) noexcept {
+    // A literal root needs no copy (OPT0.4).
+    if (graph.words() == 0) {
+        return detail::TermAccess::admit(root, *storage_);
+    }
     const std::span binaries = graph.binaries();
     for (std::size_t held = 0; held < binaries.size(); ++held) {
         if (const auto charged = hold_off_heap(*binaries[held]->buffer_); !charged) {
@@ -311,9 +322,14 @@ TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Te
         if (!graph.discover(value.word())) {
             return std::unexpected(TermError::wrong_owner);
         }
+        // A literal root is shared, like an immediate one (OPT0.4).
+        if (graph.words() == 0) {
+            return buffer;
+        }
         buffer->lifetime_ = std::shared_ptr<ContextLifetime>(new ContextLifetime());
         buffer->storage_ = std::make_shared<HeapStorage>(source->options_, buffer->lifetime_, *source->atoms_,
                                                          source->memory_, *source->identities_);
+        buffer->storage_->literals_ = source->literals_;
         auto &storage = *buffer->storage_;
         const std::span binaries = graph.binaries();
         for (std::size_t held = 0; held < binaries.size(); ++held) {

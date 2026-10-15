@@ -1,15 +1,23 @@
+#include "literals.hpp"
 #include "lowering_state.hpp"
 #include <clause/abi/equality.hpp>
 #include <clause/abi/term.hpp>
 
 namespace clause::codegen {
-namespace {
-// The address a list or boxed word points at, its primary tag removed; used only right after a proof, with no call
-// in between, so the pointer never lives across a collection.
-llvm::Value *cell(ExpressionLowering &state, llvm::Value *value, const unsigned tag) {
+llvm::Value *cell_address(ExpressionLowering &state, llvm::Value *value, const unsigned tag) {
+    if (auto *constant = llvm::dyn_cast<llvm::Constant>(value)) {
+        if (auto *literal = literal_address(constant, tag)) {
+            return literal;
+        }
+    }
     auto &builder = state.builder;
     return builder.CreateIntToPtr(builder.CreateSub(value, llvm::ConstantInt::get(state.word, tag)), builder.getPtrTy(),
                                   "proven.cell");
+}
+
+namespace {
+llvm::Value *cell(ExpressionLowering &state, llvm::Value *value, const unsigned tag) {
+    return cell_address(state, value, tag);
 }
 
 // Word `index` of the cell a proven word points at, rooted like a service output: kept in a term slot, so

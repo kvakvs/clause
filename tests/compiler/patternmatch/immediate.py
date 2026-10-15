@@ -77,7 +77,8 @@ def widths(tool, work):
         run([tool, "--target-triple", triple, "--emit", "obj", "--artifact-dir", str(work / f"width{bits}"), str(path)])
         path.write_text(f"-module(width).\nf({bound}) -> ok.\n", encoding="utf-8")
         ir = run([tool, "--target-triple", triple, "--print-ir", str(path)])
-        assert "integer.outcome" in ir
+        # A promoted literal is a cell of the module literal area (OPT0.4).
+        assert "integer.outcome" not in ir and ".literals" in ir
         run([tool, "--target-triple", triple, "--emit", "obj", "--artifact-dir", str(work / f"promoted{bits}"), str(path)])
         records.append({"bits": bits, "triple": triple, "execution": "not attempted", "endpoints": "accepted", "overflow": "promoted"})
     return records

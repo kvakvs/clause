@@ -12,6 +12,7 @@ class SchedulerService;
 namespace detail {
 class Executor;
 class PersistentTerms;
+class LiteralAreas;
 } // namespace detail
 
 // Most scheduler workers a runtime runs processes on, OTP's +S limit.
@@ -84,6 +85,8 @@ class Runtime final {
     OutputSink standard_output() const noexcept;
     // Borrow the runtime-wide persistent term table; only active runtimes have one. Added for step 41M1.
     detail::PersistentTerms &persistent_terms() noexcept;
+    // Borrow the literal areas of the registered modules (OPT0.4); only active runtimes have them.
+    detail::LiteralAreas &literal_areas() noexcept;
     // The command line of RuntimeOptions::program. Added for step 41L.
     const ProgramArguments &program_arguments() const noexcept;
 

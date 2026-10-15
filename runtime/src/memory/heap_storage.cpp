@@ -100,6 +100,13 @@ std::expected<void, HeapError> validate(const HeapStorage &storage, std::size_t 
 }
 } // namespace
 
+std::span<const Word> HeapStorage::readable(std::uintptr_t address) noexcept {
+    if (const auto found = owned(address); !found.empty()) {
+        return found;
+    }
+    return literals_ ? literals_->find(address) : std::span<const Word>{};
+}
+
 std::span<Word> HeapStorage::owned(std::uintptr_t address) noexcept {
     absorb();
     if (const auto found = heap_.from(address); !found.empty()) {

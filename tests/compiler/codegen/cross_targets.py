@@ -54,7 +54,7 @@ def inspect(tool, readobj, nm, work, triple, bits, format_name, architecture):
         ir = (root / "llvm-ir/clausev1_616e73776572__0.ll").read_text(encoding="utf-8")
         assert f"store i{bits} {minimum * 16 + 15}" in ir, ir
         assert f"store i{bits} {maximum * 16 + 15}" in ir, ir
-        assert f"i32 13, i32 {bits}" in ir and f"define i{bits} @clausev1_" in ir, ir
+        assert f"i32 14, i32 {bits}" in ir and f"define i{bits} @clausev1_" in ir, ir
         assert ("optsize" in ir) == (level == "-Os"), ir
         # Calls, tail calls and returns leave a body by a guaranteed tail call of the code an inline transfer or
         # its service chose (OPT0.1).
@@ -66,7 +66,8 @@ def inspect(tool, readobj, nm, work, triple, bits, format_name, architecture):
     promoted = work / triple / "promoted"
     run([tool, "--target-triple", triple, "--emit", "obj", "--artifact-dir", str(promoted), str(answer)])
     imports = run([nm, "--undefined-only", str(next(promoted.iterdir()))]).stdout
-    assert "CLAUSE_integer_v1" in imports, imports
+    # A bignum literal is a cell of the module literal area, built by no service (OPT0.4).
+    assert "CLAUSE_integer_v1" not in imports, imports
 
 
 def main():

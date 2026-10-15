@@ -150,6 +150,17 @@ A map with more than 32 entries (OTP's `MAP_SMALL_MAP_LIMIT`) is a 4-word
   before any heap operation (reservation, admission, collection, verification,
   usage queries) and `expose` shows the free words again after one. Inline
   allocation never makes a fragment and stays off under a per-process budget.
+- **Literal areas** (OPT0.4). Each module's compound literals — strings and
+  constant lists, tuples of constants, floats and bignum literals — are laid
+  out by the compiler as heap cells in one read-only global
+  (`ModuleDescriptor::literals`), registered runtime-wide
+  (`detail::LiteralAreas`, a lock-free sorted snapshot) when the module is
+  registered. Terms of every process may point into them: admission and
+  `TermAccess::object` read cells through `HeapStorage::readable` (heap,
+  fragments, then literals); the collector leaves literal words as they are
+  (`owned` stays heap-only); copies between heaps and into message buffers keep
+  pointing at them (a literal root needs no copy); the verifier accepts them.
+  Literals hold only immediates (fixed atoms only) and other literals' words.
 - **Fragments.** When a request does not fit and the heap may not move, it
   goes into the newest fragment if it fits there, else into a new fragment
   sized to fit (at least the minimum heap size) and chained to the process. The

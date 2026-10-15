@@ -1,4 +1,6 @@
 #include "lowering.hpp"
+#include "../semantic/symbols.hpp"
+#include "literals.hpp"
 #include "llvm_state.hpp"
 #include "lowering_expressions.hpp"
 #include "lowering_roots.hpp"
@@ -11,6 +13,7 @@
 #include "target.hpp"
 #include "term_abi.hpp"
 #include "verification.hpp"
+#include <clause/compiler/source.hpp>
 #include <llvm/IR/IRBuilder.h>
 #include <stdexcept>
 
@@ -135,6 +138,9 @@ bool lower(Compilation &compilation, const std::span<const std::unique_ptr<seman
         detail::state(compilation).specializations = analyze_specializations(compilation, modules, inferred);
         for (auto &output : outputs) {
             lower_specializations(*output, detail::state(compilation).specializations);
+        }
+        for (std::size_t i = 0; i < modules.size(); ++i) {
+            finish_literals(*outputs[i], word, semantic::encode_symbol({utf8(modules[i]->name), "", 0}));
         }
         const auto &plan = detail::state(compilation).specializations;
         progress_modules(compilation, "specialization",

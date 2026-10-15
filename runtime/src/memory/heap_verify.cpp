@@ -72,6 +72,11 @@ class Verifier final {
     }
 
     // Find the shape of the object starting exactly at a term's address; filler means none.
+    // The address a list or boxed word names.
+    static std::uintptr_t address_of(Word value) {
+        return static_cast<std::uintptr_t>(value & ~static_cast<Word>(abi::v1::primary_mask));
+    }
+
     Shape shape_at(Word value) const {
         const auto address = static_cast<std::uintptr_t>(value & ~static_cast<Word>(abi::v1::primary_mask));
         const auto found = std::ranges::lower_bound(starts_, address, {}, &Start::address);
@@ -82,9 +87,9 @@ class Verifier final {
     bool slot_valid(Word value) const {
         switch (TermTag{value}.get_kind()) {
         case TermKind::list:
-            return shape_at(value) == Shape::cons;
+            return shape_at(value) == Shape::cons || storage_.literal(address_of(value));
         case TermKind::boxed:
-            return shape_at(value) == Shape::boxed;
+            return shape_at(value) == Shape::boxed || storage_.literal(address_of(value));
         case TermKind::atom:
             return storage_.atoms_->lookup(value).has_value();
         case TermKind::local_pid:

@@ -2,6 +2,7 @@
 #include "off_heap.hpp"
 #include <algorithm>
 #include <clause/runtime/process_context.hpp>
+#include <clause/runtime/runtime.hpp>
 #include <new>
 #include <stdexcept>
 
@@ -37,6 +38,7 @@ ProcessHeap::ProcessHeap(ProcessContext &owner, HeapOptions options)
                                                                     owner.memory(), owner.identity_numbers())) {
     storage_->collection_signal_ = &static_cast<abi::v1::FrameState &>(owner).slow;
     storage_->inline_ = &static_cast<abi::v1::FrameState &>(owner);
+    storage_->literals_ = &owner.runtime().literal_areas();
 }
 
 // The storage may outlive this heap (host Terms keep it); it must no longer reach the context (OPT0.3).

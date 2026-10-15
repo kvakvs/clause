@@ -132,7 +132,7 @@ void emit_registration(llvm::Module &output, const semantic::Module &module, llv
     llvm::IRBuilder<> builder(output.getContext());
     auto *ptr = builder.getPtrTy();
     auto *type = llvm::StructType::get(builder.getInt32Ty(), builder.getInt32Ty(), ptr, word, ptr, word, ptr, word, ptr,
-                                       word, ptr, word, ptr);
+                                       word, ptr, word, ptr, ptr, word);
     const auto name = utf8(module.name);
     std::size_t count = 0;
     auto *table = exports(output, module, word, count);
@@ -149,7 +149,8 @@ void emit_registration(llvm::Module &output, const semantic::Module &module, llv
         type, builder.getInt32(abi::v1::version), builder.getInt32(word->getBitWidth()), spelling(output, name),
         llvm::ConstantInt::get(word, name.size()), table, llvm::ConstantInt::get(word, count), atoms,
         llvm::ConstantInt::get(word, atom_count), record_table, llvm::ConstantInt::get(word, record_count), fun_table,
-        llvm::ConstantInt::get(word, module.funs.size()), emit_atom_cache(output, prefix, word, atom_count)));
+        llvm::ConstantInt::get(word, module.funs.size()), emit_atom_cache(output, prefix, word, atom_count),
+        llvm::ConstantPointerNull::get(ptr), llvm::ConstantInt::get(word, 0)));
     auto *entry = llvm::Function::Create(llvm::FunctionType::get(builder.getInt8Ty(), {ptr}, false),
                                          llvm::GlobalValue::ExternalLinkage, prefix + ".register", output);
     builder.SetInsertPoint(llvm::BasicBlock::Create(output.getContext(), "entry", entry));

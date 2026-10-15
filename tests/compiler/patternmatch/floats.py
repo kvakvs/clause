@@ -15,7 +15,8 @@ def main():
     records = load(source, "floats", work)
     native(tool,cmake,source,work,settings,config,suffix)
     ir = run([tool,'--print-ir',str(work/'answer.erl'),str(work/'client.erl')])
-    assert 'float.outcome' in ir
+    # Float literals are cells of the module literal area (OPT0.4).
+    assert 'float.outcome' not in ir and '.literals' in ir
     assert not re.search(r'\b(fast|nnan|ninf|nsz|arcp|reassoc|afn)\b',ir)
     for bits,triple in [(32,'i686-pc-windows-msvc'),(64,'x86_64-pc-windows-msvc')]:
         run([tool,'--target-triple',triple,'--emit','obj','--artifact-dir',str(work/f'width{bits}'),str(work/'answer.erl'),str(work/'client.erl')])

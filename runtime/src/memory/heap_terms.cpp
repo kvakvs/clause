@@ -93,7 +93,7 @@ TermResult<Term> TermAccess::admit(Word value, HeapStorage &storage) noexcept {
     if (kind != TermKind::boxed && kind != TermKind::list) {
         return Term::from_word(value);
     }
-    const auto area = storage.owned(address(value));
+    const auto area = storage.readable(address(value));
     if (area.empty() || !shaped(kind, area)) {
         return std::unexpected(TermError::wrong_owner);
     }
@@ -116,7 +116,7 @@ TermResult<HeapObject> TermAccess::object(const Term &value) noexcept {
     if (value.collections_ != value.heap_->collections_) {
         return std::unexpected(TermError::stale_term);
     }
-    return decode(value.value_, value.heap_->owned(address(value.value_)));
+    return decode(value.value_, value.heap_->readable(address(value.value_)));
 }
 
 TermResult<Term> TermAccess::child(const Term &parent, Word value) noexcept {

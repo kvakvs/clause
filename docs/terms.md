@@ -48,6 +48,10 @@ records; native records ([native records](native-records.md)); funs
   the storage, found without the lock and counted neither by `size()` nor
   toward `max_atoms`; generated code uses them as constants. Every other atom
   word is runtime-private.
+- Compound literals of constants (strings, lists and tuples of immediates and
+  other literals, floats, bignums) are cells of the module literal area,
+  built at compile time and shared ([literal areas](runtime-heap.md#areas),
+  OPT0.4); integer literals in the small range are immediates.
 - Other atom literals load from the module's atom cache
   (`ModuleDescriptor::atom_cache`: the claiming runtime's identity, then one
   word per slot), which the first runtime to register the module fills; a

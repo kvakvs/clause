@@ -1,6 +1,7 @@
 #pragma once
 #include "memory/persistent_terms.hpp"
 #include "memory/runtime_memory.hpp"
+#include "modules/literal_areas.hpp"
 #include "process/identities.hpp"
 #include "process/profile.hpp"
 #include "scheduler/executor.hpp"
@@ -21,6 +22,8 @@ class Runtime::Impl final {
     AtomStorage atom_storage;
     // Own one host-serialized lifecycle record service; the executor below runs the processes.
     SchedulerService scheduler;
+    // The literal areas of registered modules (OPT0.4), outliving every context that admits literal terms.
+    detail::LiteralAreas literals;
     // Own one server and destroy registrations before the future atom table.
     CodeServer code_server;
     // Retain admission policy and the runtime portion of each immutable process identity.

@@ -87,6 +87,10 @@ std::optional<Known> known_expression(const ExpressionLowering &state, const ast
 std::optional<Known> known_argument(const ExpressionLowering &state, std::size_t index);
 // The small integers an expression is proven to be one of.
 std::optional<SmallRange> small_expression(const ExpressionLowering &state, const ast::ExprId &id);
+// The address a list or boxed word points at, its primary tag removed: an instruction named proven.cell, or the
+// constant address of a literal cell (OPT0.4). Used only right after a proof or a tag test, with no call in between,
+// so the pointer never lives across a collection.
+llvm::Value *cell_address(ExpressionLowering &state, llvm::Value *value, unsigned tag);
 // An i1 that holds when a word is a cons cell (its primary tag); any word may be tested.
 llvm::Value *inline_cons_test(ExpressionLowering &state, llvm::Value *value);
 // Branch to `success` when any word is a tuple of `arity` elements, else to `mismatch`; the header is read only after

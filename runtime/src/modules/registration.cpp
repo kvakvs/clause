@@ -1,10 +1,17 @@
 #include "atoms.hpp"
+#include "literal_areas.hpp"
 #include <array>
 #include <clause/runtime/modules.hpp>
 
 namespace clause::runtime {
 namespace {
 // Validate the fixed prefix before inspecting target-width-dependent descriptor fields.
+// Every table a descriptor names has its pointer: atoms within the hard limit, and the literal area (OPT0.4).
+bool tables_valid(const abi::v1::ModuleDescriptor &descriptor) {
+    return (descriptor.atom_count == 0 || descriptor.atoms) && descriptor.atom_count <= AtomStorage::hard_limit &&
+           (descriptor.literal_words == 0 || descriptor.literals);
+}
+
 CodeResult<void> validate(const abi::v1::ModuleDescriptor &descriptor) {
     if (descriptor.abi_version != abi::v1::version || descriptor.term_bits != sizeof(Word) * 8) {
         return std::unexpected(CodeError::abi_mismatch);
@@ -12,10 +19,7 @@ CodeResult<void> validate(const abi::v1::ModuleDescriptor &descriptor) {
     if (!descriptor.name || descriptor.name_size == 0 || (descriptor.export_count && !descriptor.exports)) {
         return std::unexpected(CodeError::invalid_module);
     }
-    if ((descriptor.atom_count && !descriptor.atoms) || descriptor.atom_count > AtomStorage::hard_limit) {
-        return std::unexpected(CodeError::invalid_module);
-    }
-    return {};
+    return tables_valid(descriptor) ? CodeResult<void>{} : std::unexpected(CodeError::invalid_module);
 }
 
 // Contain native entry exceptions while the invocation channel still owns its first failure.
@@ -116,6 +120,8 @@ register_module(Runtime &runtime, const abi::v1::ModuleDescriptor &descriptor, s
             return std::unexpected(atoms.error());
         }
         definition.atoms = *atoms;
+        // Published first: an area a failed load leaves behind is never pointed into.
+        runtime.literal_areas().add({descriptor.literals, descriptor.literal_words});
         return server->load(std::move(definition));
     } catch (const std::bad_alloc &) {
         return std::unexpected(CodeError::resource_limit);

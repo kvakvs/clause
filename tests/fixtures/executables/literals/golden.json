@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "literals",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "\"literal text\"\n-0.0025 123456789012345678901234567890123 -98765432109876543210\ntrue true true\n[-98765432109876543210,-0.0025,7,123456789012345678901234567890123,\n {1,\n  [2,3.0],\n  \"four\",\n  {5,[],{}},\n  [true|false],\n  -340282366920938463463374607431768211456},\n \"literal text\"]\necho true true\nafter gc true 50\npersistent true\nencoded 74 true\nupdated {one,[2,3.0],\n             \"four\",\n             {5,[],{}},\n             [true|false],\n             -340282366920938463463374607431768211456}\nmatched 3.0 \"four\" -340282366920938463463374607431768211456 \"trtxt\"\nliterals: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "literals.erl": "ccb0fe4d33453c836d396470139286016ae2c60126daaa79f56ea0b60abc11b3"
+  }
+}

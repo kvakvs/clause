@@ -1,12 +1,27 @@
+#include "literals.hpp"
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
 #include <array>
 #include <bit>
+#include <clause/abi/term.hpp>
+#include <cmath>
 #include <llvm/IR/Module.h>
+#include <vector>
 
 namespace clause::codegen {
 llvm::Value *lower_float(ExpressionLowering &state, const double value) {
     const auto bits = std::bit_cast<std::uint64_t>(value);
+    // A float literal is a cell of the module literal area: a header and the binary64 bits in target words (OPT0.4).
+    if (std::isfinite(value)) {
+        const auto width = state.word->getBitWidth();
+        std::vector<llvm::Constant *> words{llvm::ConstantInt::get(
+            state.word, ((64 / width) << abi::v1::header_count_shift) |
+                            (static_cast<std::uint64_t>(abi::v1::HeaderKind::floating) << abi::v1::header_kind_shift))};
+        for (unsigned shift = 0; shift < 64; shift += width) {
+            words.push_back(llvm::ConstantInt::get(state.word, (bits >> shift) & (~std::uint64_t{0} >> (64 - width))));
+        }
+        return literal_cell(*state.entry.getParent(), state.word, words, abi::v1::boxed_tag);
+    }
     std::array<char, 8> encoded{};
     for (std::size_t i = 0; i < encoded.size(); ++i) {
         encoded[i] = static_cast<char>((bits >> ((7 - i) * 8)) & 255);

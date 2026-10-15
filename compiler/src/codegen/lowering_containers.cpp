@@ -1,3 +1,4 @@
+#include "literals.hpp"
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
 #include <array>
@@ -5,6 +6,7 @@
 #include <clause/abi/frames.hpp>
 #include <clause/abi/term.hpp>
 #include <llvm/IR/Module.h>
+#include <vector>
 
 namespace clause::codegen {
 namespace {
@@ -65,12 +67,45 @@ llvm::Value *write_cells(ExpressionLowering &state, abi::v1::ContainerConstructi
     return builder.CreateOr(address, llvm::ConstantInt::get(state.word, abi::v1::list_tag));
 }
 
+// A tuple or list of constants (immediates and other literals) as a cell of the module literal area (OPT0.4): a
+// list's cons cells are built from its tail, so equal tails are shared. Null when a value is not constant.
+llvm::Value *literal_container(ExpressionLowering &state, abi::v1::ContainerConstruction operation,
+                               const std::span<llvm::Value *const> values) {
+    std::vector<llvm::Constant *> constants;
+    constants.reserve(values.size() + 1);
+    for (auto *value : values) {
+        auto *constant = llvm::dyn_cast<llvm::Constant>(value);
+        if (!constant || llvm::isa<llvm::UndefValue>(constant)) {
+            return nullptr;
+        }
+        constants.push_back(constant);
+    }
+    auto &output = *state.entry.getParent();
+    if (operation == abi::v1::ContainerConstruction::tuple) {
+        constants.insert(constants.begin(),
+                         llvm::ConstantInt::get(state.word, values.size() << abi::v1::header_count_shift));
+        return literal_cell(output, state.word, constants, abi::v1::boxed_tag);
+    }
+    auto *list = constants.back();
+    for (auto element = constants.size() - 1; element-- > 0;) {
+        const std::array cell{constants[element], list};
+        list = literal_cell(output, state.word, cell, abi::v1::list_tag);
+    }
+    return list;
+}
+
 // Bump-allocate a small tuple or list in the heap block's free words that FrameState shows (OPT0.3); the service
 // builds it when they do not suffice. The term is rooted like a service output.
 llvm::Value *construct(ExpressionLowering &state, abi::v1::ContainerConstruction operation,
                        const std::span<llvm::Value *const> values) {
+    if (operation == abi::v1::ContainerConstruction::reverse) {
+        return construct_service(state, operation, values);
+    }
+    if (auto *literal = literal_container(state, operation, values)) {
+        return literal;
+    }
     const auto words = container_words(operation, values.size());
-    if (operation == abi::v1::ContainerConstruction::reverse || words > INLINE_WORDS) {
+    if (words > INLINE_WORDS) {
         return construct_service(state, operation, values);
     }
     auto &builder = state.builder;

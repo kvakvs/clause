@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 13)
+# Generated-code ABI (revision 14)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -340,3 +340,4 @@ success.
 | 11 | Fixed words of `false` and `true` (OPT0.2A) |
 | 12 | Inline heap fields `heap_top`/`heap_limit` in `FrameState` (OPT0.3) |
 | 13 | Fixed `undefined`, `ok`, `error`; `ModuleDescriptor::atom_cache` and `FrameState::runtime` (OPT0.8) |
+| 14 | Module literal areas: `ModuleDescriptor::literals`, `literal_words` (OPT0.4) |

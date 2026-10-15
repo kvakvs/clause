@@ -73,26 +73,25 @@ llvm::Value *split(ExpressionLowering &state, llvm::Type *type, llvm::Value *con
     return join_values(state, type, {fast_end, fast_value}, {slow_end, slow_value});
 }
 
-// The header word of a boxed word, read only where a boxed tag test dominates. A constant word is an immediate, so
-// its tag test never passes: no pointer is formed for it.
+// The header word of a boxed word, read only where a boxed tag test dominates. An integer constant is an immediate,
+// so its tag test never passes: no pointer is formed for it.
 llvm::Value *header(ExpressionLowering &state, llvm::Value *value) {
-    if (llvm::isa<llvm::Constant>(value)) {
+    if (llvm::isa<llvm::ConstantInt>(value)) {
         return llvm::PoisonValue::get(state.word);
     }
     auto &builder = state.builder;
-    auto *cell = builder.CreateIntToPtr(builder.CreateSub(value, word(state, abi::v1::boxed_tag)), builder.getPtrTy(),
-                                        "proven.cell");
+    auto *cell = cell_address(state, value, abi::v1::boxed_tag);
     return builder.CreateAlignedLoad(state.word, cell, llvm::Align(state.word->getBitWidth() / 8), "inline.header");
 }
 
 // Word `index` (a word value) of the cell a boxed or list word points at, rooted like a service output.
 llvm::Value *cell_word(ExpressionLowering &state, llvm::Value *value, const unsigned tag, llvm::Value *index) {
-    if (llvm::isa<llvm::Constant>(value)) {
+    if (llvm::isa<llvm::ConstantInt>(value)) {
         return llvm::PoisonValue::get(state.word);
     }
     auto &builder = state.builder;
     const llvm::Align align(state.word->getBitWidth() / 8);
-    auto *cell = builder.CreateIntToPtr(builder.CreateSub(value, word(state, tag)), builder.getPtrTy(), "proven.cell");
+    auto *cell = cell_address(state, value, tag);
     auto *loaded =
         builder.CreateAlignedLoad(state.word, builder.CreateGEP(state.word, cell, index), align, "proven.word");
     builder.CreateAlignedStore(loaded, root_slot(state), align);
@@ -359,8 +358,8 @@ llvm::Value *lower_setelement(ExpressionLowering &state, const std::size_t built
                               const std::span<llvm::Value *const> values) {
     auto *index = values[0];
     auto *tuple = values[1];
-    // A constant tuple word is an immediate: never a boxed tuple, so only the builtin applies.
-    if (llvm::isa<llvm::Constant>(tuple)) {
+    // An integer constant is an immediate: never a boxed tuple, so only the builtin applies.
+    if (llvm::isa<llvm::ConstantInt>(tuple)) {
         return lower_builtin(state, builtin, values);
     }
     auto &builder = state.builder;
@@ -387,8 +386,7 @@ llvm::Value *lower_setelement(ExpressionLowering &state, const std::size_t built
         [&] {
             auto *words = builder.CreateAdd(arity(), word(state, 1));
             const auto target = heap_room(state, words);
-            auto *source = builder.CreateIntToPtr(builder.CreateSub(tuple, word(state, abi::v1::boxed_tag)),
-                                                  builder.getPtrTy(), "proven.cell");
+            auto *source = cell_address(state, tuple, abi::v1::boxed_tag);
             builder.CreateMemCpy(target.top, align, source, align,
                                  builder.CreateMul(words, word(state, state.word->getBitWidth() / 8)));
             builder.CreateAlignedStore(values[2], builder.CreateGEP(state.word, target.top, position), align);
