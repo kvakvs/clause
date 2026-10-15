@@ -359,7 +359,8 @@ Ordered by measured T2 value and how well each fits an AOT compiler.
 ### OPT1.1 Loop recovery for self- and mutual tail recursion
 
 Status 2026-10-15: self tail calls already become LLVM loops (OPT0.1/0.1A inline transfers, `musttail` to the own
-body); mutual recursion and skipping the per-iteration frame re-entry remain.
+body), and since **OPT1.1A** ([record](00-finished.md#plan-20)) they keep their frame instead of re-pushing it.
+Mutual recursion remains.
 
 - **What:** rewrite a self tail call into a branch back to a synthesized loop
   header, with phis for the parameters. Mutually tail-recursive SCCs (Tarjan)

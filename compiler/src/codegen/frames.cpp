@@ -690,6 +690,10 @@ class FrameLowering {
     void enter(llvm::IRBuilder<> &builder, llvm::Value *descriptor, const Parameters &values, bool tail) {
         auto *context = body_.getArg(0);
         const auto callee = load_callee(builder, descriptor);
+        if (tail && descriptor == services_.descriptor_of(native_)) {
+            enter_self(builder, descriptor, callee, values);
+            return;
+        }
         auto *at =
             services_.state(builder, context, tail ? StateField::frame : StateField::top, services_.word, "enter.at");
         auto *need = builder.CreateAdd(
@@ -711,6 +715,47 @@ class FrameLowering {
         llvm::Value *code = nullptr;
         const auto loaded =
             through_registers(builder, values, code, tail ? services_.tail : services_.enter, {context, descriptor});
+        transfer(builder, code, loaded);
+        discard(*rest);
+    }
+
+    // A self tail call (OPT1.1): this frame stays where it is, with its descriptor and caller link, so only a reduction
+    // is spent, the resume and handler words and the live count are reset and the arguments past the registers are
+    // copied before the body runs again. Its slots need no zeroing: each holds zero or a term word that collections
+    // rewrite, and the body writes a slot before it reads it. Wanted collections, profiling and an empty slice take
+    // the tail service.
+    void enter_self(llvm::IRBuilder<> &builder, llvm::Value *descriptor, const Callee &callee,
+                    const Parameters &values) {
+        auto *context = body_.getArg(0);
+        auto *word = services_.word;
+        auto *zero = llvm::ConstantInt::get(word, 0);
+        auto *reductions = services_.state(builder, context, StateField::reductions, word, "self.reds");
+        auto *slow = services_.state(builder, context, StateField::slow, word, "self.slow");
+        auto *fast = builder.CreateAnd(compare(builder, llvm::CmpInst::ICMP_EQ, slow, zero),
+                                       compare(builder, llvm::CmpInst::ICMP_NE, reductions, zero));
+        auto *rest = diamond(builder, fast, "self");
+        services_.set_state(builder, context, StateField::reductions,
+                            builder.CreateSub(reductions, llvm::ConstantInt::get(word, 1)));
+        auto *stack = services_.state(builder, context, StateField::stack, builder.getPtrTy(), "self.stack");
+        auto *at = services_.state(builder, context, StateField::frame, word, "self.at");
+        auto *header = builder.CreateInBoundsGEP(word, stack, at, "self.header");
+        for (const std::size_t field : {std::size_t{2}, std::size_t{3}}) {
+            builder.CreateAlignedStore(zero, builder.CreateConstInBoundsGEP1_64(word, header, field),
+                                       services_.align());
+        }
+        const auto unit = llvm::ConstantInt::get(word, word->getBitWidth() / 8);
+        auto *slots = builder.CreateConstInBoundsGEP1_64(word, header, frame_header_words, "self.slots");
+        auto *passed = llvm::ConstantInt::get(word, register_arguments);
+        auto *extra =
+            builder.CreateSub(builder.CreateBinaryIntrinsic(llvm::Intrinsic::umax, callee.arity, passed), passed);
+        builder.CreateMemCpy(builder.CreateConstGEP1_64(word, slots, register_arguments), services_.align(),
+                             builder.CreateConstGEP1_64(word, prologue_.registers, register_arguments),
+                             services_.align(), builder.CreateMul(extra, unit));
+        services_.set_state(builder, context, StateField::live, zero);
+        transfer(builder, callee.body, values);
+        builder.SetInsertPoint(rest->getPrevNode());
+        llvm::Value *code = nullptr;
+        const auto loaded = through_registers(builder, values, code, services_.tail, {context, descriptor});
         transfer(builder, code, loaded);
         discard(*rest);
     }

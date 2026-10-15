@@ -72,6 +72,14 @@
       "stderr": "^$",
       "exit_status": 0,
       "stdout": "{branches,500000}\n"
+    },
+    {
+      "args": [
+        "self"
+      ],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "{self,28,500000,15}\n{guarded,750000}\n"
     }
   ],
   "oracle_version": [
@@ -83,7 +91,7 @@
     "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
   },
   "inputs": {
-    "tail_calls.erl": "0af33465c5007948551fdf44d356d2cb0571e7090c601f23a81e547b73dfb52d",
+    "tail_calls.erl": "b071a1283c394e57932ec9608cb74b4b59eb25b1d0ae9914ddf4ef1e11d0f4e4",
     "tail_peer.erl": "a1b6b247197bbcaffae0c19caf2223ea4d788060f544b6d5d95513d909554cdd"
   }
 }

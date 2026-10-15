@@ -173,7 +173,12 @@ Step 19 (2026-10-05) implements the model with these choices and gaps:
   falls back to `CLAUSE_enter_v1`, `CLAUSE_tail_v1` or `CLAUSE_return_v1` when
   the heap wants a collection, the process profiles, no reduction is left,
   the stack must grow or reach its limit, or the callee is a builtin. The
-  failure check after a call reads the state's `failed` word.
+  failure check after a call reads the state's `failed` word. A self tail call
+  keeps its frame where it is (OPT1.1A): it spends a reduction, resets the
+  frame's resume and handler words and the live count and copies the
+  arguments past the registers, without rewriting the header or zeroing the
+  slots (each holds zero or a term word that collections rewrite, and the body
+  writes a slot before reading it).
 - **Register parameters** (OPT0.1A, ABI revision 10). Code is
   `void(void *, TermWord x0, TermWord x1, TermWord x2)`: every transfer
   passes the first three X registers as C parameters, so a call's leading

@@ -15,7 +15,10 @@ main(["mutual"]) ->
 main(["remote"]) ->
     show(tail_peer:bounce(id(?STEPS), 0));
 main(["branches"]) ->
-    show(branch(id(?BRANCH_STEPS), 0)).
+    show(branch(id(?BRANCH_STEPS), 0));
+main(["self"]) ->
+    show(wide(id(?BRANCH_STEPS), 1, 2, 3, 4, 5, 6, 7, [])),
+    show(guarded(id(?BRANCH_STEPS), 0)).
 
 show(Value) -> erlang:display(Value).
 
@@ -34,6 +37,27 @@ pong(N) -> ping(N - 1).
 
 %% Remote tail calls bouncing between two modules.
 back(N, Acc) -> tail_peer:bounce(N, Acc).
+
+%% A self tail call with more arguments than registers, keeping a list built in a slot across collections.
+wide(0, A, B, C, D, E, F, G, Acc) ->
+    {self, A + B + C + D + E + F + G, length(Acc), lists:sum(lists:sublist(Acc, 5))};
+wide(N, A, B, C, D, E, F, G, Acc) ->
+    wide(N - 1, B, C, D, E, F, G, A, [N rem 7 | Acc]).
+
+%% A self tail call after a non-tail call and a try in the same body, which reset its frame's resume and handler.
+guarded(0, Acc) ->
+    {guarded, Acc};
+guarded(N, Acc) ->
+    Step =
+        try
+            checked(N)
+        catch
+            error:odd -> 1
+        end,
+    guarded(N - 1, Acc + id(Step)).
+
+checked(N) when N rem 2 =:= 1 -> error(odd);
+checked(_) -> 2.
 
 %% Tail calls from case, if and begin/end clause bodies.
 branch(0, Acc) ->
