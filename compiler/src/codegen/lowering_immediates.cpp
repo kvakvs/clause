@@ -29,6 +29,14 @@ llvm::BasicBlock *bad_argument_exit(ExpressionLowering &state, llvm::Value *payl
 
 llvm::Value *lower_immediate(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,
                              llvm::Value *right) {
+    if (auto *value = lower_inline_immediate(state, operation, left, right)) {
+        return value;
+    }
+    return lower_immediate_service(state, operation, left, right);
+}
+
+llvm::Value *lower_immediate_service(ExpressionLowering &state, abi::v1::ImmediateOperation operation,
+                                     llvm::Value *left, llvm::Value *right) {
     auto &builder = state.builder;
     auto &output = *state.entry.getParent();
     auto *slot = root_slot(state);

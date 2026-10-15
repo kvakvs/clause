@@ -186,6 +186,21 @@ static_assert(BoxHeader::kind(BoxHeader::make(BoxedKind::refc_binary, 5)) == Box
 static_assert(BoxHeader::count(BoxHeader::make(BoxedKind::map, 6)) == 6);
 // Generated code reads tuple headers and cons cells inline after a proof (abi/term.hpp).
 static_assert(BoxHeader::CONTENT_SHIFT == abi::v1::header_count_shift);
+// The header kinds and identity tags generated code tests inline (OPT0.2B).
+static_assert(BoxHeader::CONTENT_SHIFT - BoxHeader::BOXED_KIND_BITS == abi::v1::header_kind_shift &&
+              (Word{1} << BoxHeader::BOXED_KIND_BITS) - 1 == abi::v1::header_kind_mask);
+static_assert([] {
+    using abi::v1::HeaderKind;
+    const auto same = [](BoxedKind runtime, HeaderKind abi) {
+        return static_cast<unsigned>(runtime) == static_cast<unsigned>(abi);
+    };
+    return same(BoxedKind::tuple, HeaderKind::tuple) && same(BoxedKind::native_record, HeaderKind::native_record) &&
+           same(BoxedKind::bignum, HeaderKind::bignum) && same(BoxedKind::reference, HeaderKind::reference) &&
+           same(BoxedKind::fun_closure, HeaderKind::fun_closure) && same(BoxedKind::floating, HeaderKind::floating) &&
+           same(BoxedKind::refc_binary, HeaderKind::refc_binary) &&
+           same(BoxedKind::heap_binary, HeaderKind::heap_binary) && same(BoxedKind::map, HeaderKind::map) &&
+           same(BoxedKind::tree_map, HeaderKind::tree_map);
+}());
 static_assert(BoxHeader::make(BoxedKind::tuple, 3) == Word{3} << abi::v1::header_count_shift);
 static_assert(static_cast<unsigned>(TermKindPrimary::list) == abi::v1::list_tag &&
               static_cast<unsigned>(TermKindPrimary::boxed) == abi::v1::boxed_tag);

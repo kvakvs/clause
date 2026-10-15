@@ -36,19 +36,19 @@
     range_body/1
 ]).
 -record(fault_record, {a}).
-head(X) when is_integer(X); true -> ok.
-body(X) -> is_integer(X).
-head_mismatch(0) when is_integer(0); true -> ok.
-skipped(X) -> true orelse is_integer(X).
-reached(X) when (is_integer(X) orelse true); true -> ok.
-strict(X) -> true or is_integer(X).
-fallback(X) when is_integer(X) -> ok;
+head(X) when is_integer(abs(X)); true -> ok.
+body(X) -> is_integer(abs(X)).
+head_mismatch(0) when is_integer(abs(0)); true -> ok.
+skipped(X) -> true orelse is_integer(abs(X)).
+reached(X) when (is_integer(abs(X)) orelse true); true -> ok.
+strict(X) -> true or is_integer(abs(X)).
+fallback(X) when is_integer(abs(X)) -> ok;
 fallback(_) -> recovered.
 match_once(X) ->
-    Y = is_integer(X),
+    Y = is_integer(abs(X)),
     Y.
 match_stop(X) ->
-    false = is_integer(X),
+    false = is_integer(abs(X)),
     hd([]).
 construct(X) -> {X, [X], {X}}.
 inspect({X}) -> X;
@@ -88,6 +88,6 @@ record_guard(_) -> recovered.
 record_body(X) -> #fault_record{a = X}.
 record_inspect(X) -> X#fault_record.a.
 record_error(X) -> ({other, X})#fault_record.a.
-range_guard(X) when is_integer(X, 0, 100); true -> ok;
+range_guard(X) when is_integer(abs(X), 0, 100); true -> ok;
 range_guard(_) -> recovered.
-range_body(X) -> is_integer(X, 0, 100).
+range_body(X) -> is_integer(abs(X), 0, 100).

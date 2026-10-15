@@ -50,4 +50,23 @@ inline constexpr unsigned list_tag = 0x1;
 inline constexpr unsigned boxed_tag = 0x2;
 // A header holds its kind from bit 2 and the count of following words from this bit; a tuple's kind is 0.
 inline constexpr unsigned header_count_shift = 7;
+// Header kinds generated code tests inline (OPT0.2B); the runtime's BoxedKind asserts them.
+inline constexpr unsigned header_kind_shift = 2;
+inline constexpr unsigned header_kind_mask = 0x1f;
+enum class HeaderKind : std::uint8_t {
+    tuple = 0,
+    native_record = 1,
+    bignum = 2,
+    reference = 4,
+    fun_closure = 5,
+    floating = 6,
+    refc_binary = 8,
+    heap_binary = 9,
+    map = 15,
+    tree_map = 18
+};
+// Low four bits of local pids and ports (OPT0.2B).
+inline constexpr unsigned immediate_tag_mask = 0xf;
+inline constexpr unsigned pid_tag = 0x3;
+inline constexpr unsigned port_tag = 0x7;
 } // namespace clause::abi::v1

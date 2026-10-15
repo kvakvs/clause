@@ -355,7 +355,7 @@ example.
 ## H5. Regular expressions (`re`)
 
 Inserted 2026-10-14 (user direction) for [the luerl library ledger](21-lib.md) row 17. The engine is upstream
-PCRE2, the library OTP itself bundles, so pattern syntax, options and captures match without translation. OTP's
+PCRE2, thdde library OTP itself bundles, so pattern syntax, options and captures match without translation. OTP's
 interruptible-match patch to `pcre2_match` is not carried over: Clause uses stock PCRE2.
 
 ## M. Validation closure

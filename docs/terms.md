@@ -59,7 +59,9 @@ records; native records ([native records](native-records.md)); funs
   result range skips the overflow check and fallback too
   ([proofs](specialization.md#proofs)).
 - Generated `+`, `-`, `*` try an inline fast path on two immediates (double-width
-  compute with explicit bounds), otherwise call the runtime service.
+  compute with explicit bounds), otherwise call the runtime service; so do
+  `band`, `bor`, `bxor`, `bsr`, `div`, `rem` and comparisons of two small
+  integers (OPT0.2B, [inline forms](abi.md#runtime-services)).
 - `div` truncates toward zero; `rem` takes the dividend's sign; bitwise ops use
   infinite two's complement; negative shift counts reverse direction; huge right
   shifts saturate to 0 or -1.

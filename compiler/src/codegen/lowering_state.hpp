@@ -122,9 +122,16 @@ llvm::Value *lower_body_match(ExpressionLowering &state, const ast::MatchExpress
 void raise_function_clause(ExpressionLowering &state);
 // Raise a typed Erlang error; payload ownership remains with the existing checked service.
 void raise_reason(ExpressionLowering &state, abi::v1::ErrorReason reason, llvm::Value *payload = nullptr);
-// Evaluate only authorized immediate service operations with success-only outputs.
+// Evaluate only authorized immediate service operations with success-only outputs: inline where an inline form exists
+// (OPT0.2B), else through CLAUSE_immediate_v1.
 llvm::Value *lower_immediate(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,
                              llvm::Value *right = nullptr);
+// The CLAUSE_immediate_v1 call alone: the slow tail of the inline forms.
+llvm::Value *lower_immediate_service(ExpressionLowering &state, abi::v1::ImmediateOperation operation,
+                                     llvm::Value *left, llvm::Value *right);
+// The inline form of an operation (lowering_inline, OPT0.2B), or null when it has none.
+llvm::Value *lower_inline_immediate(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,
+                                    llvm::Value *right);
 // Print one term through erlang:display/1; the rooted result is the atom true after the channel check.
 llvm::Value *lower_display(ExpressionLowering &state, llvm::Value *value);
 // Stop the program through erlang:halt/0,1 (null `status` means halt/0); the dead continuation yields [].

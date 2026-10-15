@@ -272,6 +272,17 @@ prints one `erlang:display/1` line and yields `true`; it has no semantic error.
 (`CallError::halted` with the exit status) or `badarg`, so the caller unwinds.
 Linker spellings follow the target's Itanium or Microsoft C++ mangling.
 
+Inline forms (OPT0.2B, `codegen/lowering_inline.cpp`): type tests (`is_atom`,
+`is_integer`, `is_number`, `is_boolean`, `is_tuple`, `is_list`, `is_bitstring`,
+`is_float`, `is_map`, `is_pid`, `is_port`, `is_reference`, `is_function/1`,
+native `is_record/1`) read tags and, after a boxed tag test, the header kind
+(`abi::v1::HeaderKind`); they never call a service. Comparisons of two
+immediates (`==`, `/=`) or two small integers (`<`, `=<`, `>`, `>=`),
+`element/2`, `tuple_size/1`, `hd/1`, `tl/1`, the boolean operators, `band`,
+`bor`, `bxor`, `bsr` and small `div`/`rem` run inline where their operands
+allow and call `CLAUSE_immediate_v1` otherwise, which keeps every error and
+bignum case.
+
 `CLAUSE_builtin_frame_v1(context, builtin)` ([builtins.hpp](../abi/include/clause/abi/builtins.hpp))
 returns the `FrameDescriptor` of the production builtin with index `builtin` in
 `abi::v1::bridge_builtins` (append-only); generated code enters it like a

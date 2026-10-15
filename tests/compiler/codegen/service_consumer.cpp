@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #include <terms.hpp>
 
 using namespace clause;
@@ -54,8 +55,9 @@ void failures(ProcessContext &context, std::string_view module, std::string_view
         fault = status;
         calls = 0;
         const auto result = entry.call(context, arguments);
+        const auto message = "service failure became semantic rejection or success: " + std::string(name);
         require(!result && result.error().code == CallError::runtime_failure && result.error().status == status,
-                "service failure became semantic rejection or success");
+                message.c_str());
         require(calls == 1 && !context.generated_calls().failure(), "service did not run or stale channel");
         require(context.stack().depth() == 0 && context.stack().words() == 0, "service failure leaked roots");
         fault = abi::v1::Status::ok;
@@ -326,7 +328,8 @@ std::uint8_t injected_inspect(void *opaque, std::uint8_t operation, Word value, 
 // This native seam changes only the service outcome and deliberately leaves success output untouched on faults.
 std::uint8_t injected(void *context, std::uint8_t operation, Word left, Word right, Word *output) noexcept {
     ++calls;
-    const bool predicate = operation == static_cast<std::uint8_t>(abi::v1::ImmediateOperation::is_integer);
+    // Type tests are inline since OPT0.2B; the fixture's predicates reach the service through abs/1.
+    const bool predicate = operation == static_cast<std::uint8_t>(abi::v1::ImmediateOperation::absolute);
     auto &roots = static_cast<ProcessContext *>(context)->stack();
     if (roots.depth() == 0 || (predicate && !roots.contains(left))) {
         static_cast<ProcessContext *>(context)->generated_calls().fail_service(abi::v1::Status::internal_error);

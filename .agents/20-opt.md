@@ -129,7 +129,7 @@ optimization target, not only a matter of correctness.
 These close the gap to BeamAsm. They come first because every later tier needs
 LLVM to *see* the operations instead of opaque service calls.
 
-Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.5A, OPT0.5B): see
+Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.5A, OPT0.5B): see
 [00-finished.md](00-finished.md#plan-20). Open follow-ups of those steps:
 
 - **OPT0.1 follow-up:** comprehension loop-head safepoints still call
@@ -175,7 +175,8 @@ Split on 2026-10-15 (user direction to implement OPT0.2 and OPT0.3) before codin
   `CLAUSE_exact_v1` only for two distinct boxed or list words. Match plans test
   tuple and cons shapes inline at every optimization level and then read the
   elements inline; immediate literals compare as words at O0 too.
-- **OPT0.2B Inline immediate operations.** `lower_immediate` emits inline
+- **OPT0.2B Inline immediate operations** (done 2026-10-15, [record](00-finished.md#plan-20); `is_binary/1`,
+  `self/0`, `bsl` and atom ordering still call the service). `lower_immediate` emits inline
   type tests, small-integer and atom comparisons, `element/2`, `tuple_size/1`,
   `hd/1`, `tl/1`, `self/0` and small-integer `band`/`bor`/`bxor`/`bsr`/`bsl`/
   `div`/`rem`, with the service as the slow tail for every other operand.
