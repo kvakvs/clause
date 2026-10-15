@@ -172,23 +172,17 @@ void heap_lifetimes(ProcessContext &context) {
     require(context.stack().depth() == 0 && context.stack().words() == 0, "heap calls leaked roots");
 }
 
-// A real backing ceiling reached inside generated construction terminates guards and cleans frames.
+// Record access tests and reads its tuple inline (inline inspections), so no inspection service can fail; a
+// mismatching record keeps its owned badrecord payload.
 void record_failures(ProcessContext &context) {
     TermFactory factory(context);
     const auto number = factory.integer(42).value();
     const auto child = factory.tuple(std::array{number}).value();
     const auto record = factory.tuple(std::array{context.atom_storage().intern("fault_record").value(), child}).value();
     const auto entry = context.code_server().resolve({"service_answer", "record_inspect", 1}).value();
-    for (const auto status : {abi::v1::Status::out_of_memory, abi::v1::Status::wrong_owner,
-                              abi::v1::Status::resource_limit, abi::v1::Status::internal_error}) {
-        fault = status;
-        calls = 0;
-        const auto result = entry.call(context, std::array{record});
-        require(!result && result.error().status == status && calls == 1, "record access fault became badrecord");
-        require(context.stack().depth() == 0 && !context.generated_calls().failure(), "record access leaked state");
-        fault = abi::v1::Status::ok;
-        require(entry.call(context, std::array{record})->word() == child.word(), "record access retry failed");
-    }
+    calls = 0;
+    require(entry.call(context, std::array{record})->word() == child.word() && calls == 0,
+            "record access did not read inline");
     const auto error =
         context.code_server().resolve({"service_answer", "record_error", 1}).value().call(context, std::array{child});
     require(!error && error.error().reason == abi::v1::ErrorReason::badrecord && error.error().value,

@@ -100,6 +100,10 @@ void inline_tuple_shape(ExpressionLowering &state, llvm::Value *value, std::size
 // Word `index` (head 0, tail 1) of a proven cons cell, and element `index` (zero-based) of a proven tuple.
 llvm::Value *inline_cons_word(ExpressionLowering &state, llvm::Value *value, std::size_t index);
 llvm::Value *inline_tuple_element(ExpressionLowering &state, llvm::Value *value, std::size_t index);
+// A container inspection tested and read inline (inline inspections): shapes return the value itself, fields their
+// word; anything else goes to `mismatch`, as CLAUSE_inspect_v1's bad argument did.
+llvm::Value *inline_inspection(ExpressionLowering &state, abi::v1::ContainerInspection operation, llvm::Value *value,
+                               std::size_t index, llvm::BasicBlock *mismatch);
 
 // Branch to the shared failure exit before consuming a fallible service result.
 void propagate_failure(ExpressionLowering &state);

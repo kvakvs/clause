@@ -3,7 +3,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/Pcre2Dependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/ZlibDependencies.cmake)
 
 add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
-    src/terms/bit_factory.cpp src/terms/bit_access.cpp src/terms/bit_float.cpp src/terms/bit_numeric.cpp src/terms/bit_utf.cpp src/terms/bit_services.cpp
+    src/terms/bit_factory.cpp src/terms/bit_access.cpp src/terms/word_order.cpp src/terms/bit_float.cpp src/terms/bit_numeric.cpp src/terms/bit_utf.cpp src/terms/bit_services.cpp
     src/terms/map_factory.cpp src/terms/map_access.cpp src/terms/map_services.cpp src/terms/map_tree.cpp
     src/terms/records.cpp src/terms/record_services.cpp src/terms/funs.cpp src/terms/fun_services.cpp src/terms/identities.cpp src/terms/dynamic_calls.cpp
     src/terms/float_factory.cpp src/terms/float_literal.cpp src/terms/float_operations.cpp src/terms/numeric_conversions.cpp src/terms/numeric_order.cpp src/terms/numeric_service.cpp

@@ -128,6 +128,15 @@ TermResult<Term> TermAccess::child(const Term &parent, Word value) noexcept {
     return admit(value, *parent.heap_);
 }
 
+std::span<const Word> TermAccess::boxed_words(ProcessHeap &heap, Word value) noexcept {
+    const auto area = heap.storage_->readable(address(value));
+    if (area.empty() || !is_header(area[0])) {
+        return {};
+    }
+    const auto count = 1 + BoxHeader::count(area[0]);
+    return count > area.size() ? std::span<const Word>{} : area.first(count);
+}
+
 std::span<const Word> TermAccess::cons_cell(HeapStorage &storage, Word value) noexcept {
     const auto area = storage.readable(address(value));
     return area.size() < 2 ? std::span<const Word>{} : area.first(2);

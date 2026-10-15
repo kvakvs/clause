@@ -2,11 +2,13 @@
 #include "immediate_order.hpp"
 #include "service_errors.hpp"
 #include "structural_order.hpp"
+#include "word_order.hpp"
 #include <array>
 #include <clause/abi/immediate_services.hpp>
 #include <clause/runtime/atoms.hpp>
 #include <clause/runtime/process_context.hpp>
 #include <new>
+#include <optional>
 #include <stdexcept>
 
 namespace clause::runtime::detail {
@@ -238,6 +240,24 @@ Result invoke(ProcessContext &context, Op operation, Word left, Word right) {
 } // namespace
 
 // Publish only checked results and preserve first infrastructure failure under native fault/reentry seams.
+namespace {
+// ==, /=, <, =<, >, >= of two words word_order decides, with no Term admission (cheap comparisons).
+std::optional<Word> word_comparison(ProcessContext &context, Op operation, Word left, Word right) noexcept {
+    if (operation < Op::equal || operation > Op::greater_equal) {
+        return std::nullopt;
+    }
+    const auto order = word_order(context.heap(), left, right);
+    if (!order) {
+        return std::nullopt;
+    }
+    constexpr std::array holds{+[](int o) { return o == 0; }, +[](int o) { return o != 0; },
+                               +[](int o) { return o < 0; },  +[](int o) { return o <= 0; },
+                               +[](int o) { return o > 0; },  +[](int o) { return o >= 0; }};
+    const auto truth = holds.at(static_cast<std::size_t>(operation) - static_cast<std::size_t>(Op::equal))(*order);
+    return truth ? abi::v1::true_atom : abi::v1::false_atom;
+}
+} // namespace
+
 std::uint8_t immediate_service(ProcessContext &context, std::uint8_t operation, Word left, Word right,
                                Word *output) noexcept {
     auto &state = context.generated_calls();
@@ -247,6 +267,10 @@ std::uint8_t immediate_service(ProcessContext &context, std::uint8_t operation, 
     if (!output || operation > static_cast<std::uint8_t>(Op::byte_size)) {
         state.fail_service(abi::v1::Status::invalid_argument);
         return static_cast<std::uint8_t>(Outcome::failure);
+    }
+    if (const auto compared = word_comparison(context, static_cast<Op>(operation), left, right)) {
+        *output = *compared;
+        return static_cast<std::uint8_t>(Outcome::success);
     }
     try {
         const auto result = invoke(context, static_cast<Op>(operation), left, right);

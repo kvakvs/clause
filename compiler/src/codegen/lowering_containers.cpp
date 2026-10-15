@@ -217,18 +217,6 @@ llvm::Value *lower_container(ExpressionLowering &state, const ast::ExprValue &va
 
 llvm::Value *lower_inspection(ExpressionLowering &state, abi::v1::ContainerInspection operation, llvm::Value *value,
                               const std::size_t index, llvm::BasicBlock *mismatch) {
-    auto &builder = state.builder;
-    auto &output = *state.entry.getParent();
-    auto *slot = root_slot(state);
-    auto service = output.getOrInsertFunction(
-        services::symbol<services::Inspect>(output.getTargetTriple()),
-        llvm::FunctionType::get(builder.getInt8Ty(),
-                                {builder.getPtrTy(), builder.getInt8Ty(), state.word, state.word, builder.getPtrTy()},
-                                false));
-    auto *outcome = builder.CreateCall(service,
-                                       {state.entry.getArg(0), builder.getInt8(static_cast<std::uint8_t>(operation)),
-                                        value, llvm::ConstantInt::get(state.word, index), slot},
-                                       "inspect.outcome");
-    return checked_value(state, {outcome, slot}, mismatch);
+    return inline_inspection(state, operation, value, index, mismatch);
 }
 } // namespace clause::codegen

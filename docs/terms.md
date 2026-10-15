@@ -229,6 +229,9 @@ comparison, map key searches included, and identical words are equal without
 a walk. Byte-aligned bitstrings compare whole bytes at once. Order: numbers < atoms < references < funs < pids < tuples < native records < maps < nil < lists <
 bitstrings ([funs](funs.md#comparison-and-printing) order among themselves). Atoms compare by UTF-8 spelling (code-point order); tuples by arity
 then fields; maps by size, then keys, then values; bitstrings by logical bits.
+Two small integers, two floats or two whole-byte binaries are ordered straight
+from their words or cells (`detail::word_order`), with no term admission
+(OPT0.13, OPT0.14).
 
 ## Printing
 

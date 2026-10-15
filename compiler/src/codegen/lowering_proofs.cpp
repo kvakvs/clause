@@ -92,4 +92,53 @@ llvm::Value *inline_cons_word(ExpressionLowering &state, llvm::Value *value, con
 llvm::Value *inline_tuple_element(ExpressionLowering &state, llvm::Value *value, const std::size_t index) {
     return word_at(state, value, abi::v1::boxed_tag, index + 1);
 }
+
+namespace {
+// Continue in a new block when `condition` holds, else go to `mismatch`.
+void continue_if(ExpressionLowering &state, llvm::Value *condition, const char *name, llvm::BasicBlock *mismatch) {
+    auto *next = llvm::BasicBlock::Create(state.entry.getContext(), name, &state.entry);
+    state.builder.CreateCondBr(condition, next, mismatch);
+    state.builder.SetInsertPoint(next);
+}
+
+// Continue when a word is a tuple with more than `index` elements, else go to `mismatch`; the header is read only
+// for a boxed word.
+void tuple_with(ExpressionLowering &state, llvm::Value *value, const std::size_t index, llvm::BasicBlock *mismatch) {
+    auto &builder = state.builder;
+    const auto compare = [&](llvm::CmpInst::Predicate predicate, llvm::Value *left, const std::uint64_t right) {
+        return builder.Insert(
+            llvm::CmpInst::Create(llvm::Instruction::ICmp, predicate, left, llvm::ConstantInt::get(state.word, right)));
+    };
+    auto *tag = builder.CreateAnd(value, llvm::ConstantInt::get(state.word, abi::v1::primary_mask));
+    continue_if(state, compare(llvm::CmpInst::ICMP_EQ, tag, abi::v1::boxed_tag), "inspect.boxed", mismatch);
+    auto *header = builder.CreateAlignedLoad(state.word, cell(state, value, abi::v1::boxed_tag),
+                                             llvm::Align(state.word->getBitWidth() / 8), "inspect.header");
+    // A tuple header is its element count past the kind bits, with kind 0.
+    constexpr std::uint64_t low = (std::uint64_t{1} << abi::v1::header_count_shift) - 1;
+    auto *kind = compare(llvm::CmpInst::ICMP_EQ, builder.CreateAnd(header, low), 0);
+    auto *count = builder.CreateLShr(header, abi::v1::header_count_shift);
+    continue_if(state, builder.CreateAnd(kind, compare(llvm::CmpInst::ICMP_UGT, count, index)), "inspect.element",
+                mismatch);
+}
+} // namespace
+
+llvm::Value *inline_inspection(ExpressionLowering &state, const abi::v1::ContainerInspection operation,
+                               llvm::Value *value, const std::size_t index, llvm::BasicBlock *mismatch) {
+    using Inspect = abi::v1::ContainerInspection;
+    if (operation == Inspect::tuple_shape) {
+        auto *success = llvm::BasicBlock::Create(state.entry.getContext(), "inspect.tuple", &state.entry);
+        inline_tuple_shape(state, value, index, success, mismatch);
+        state.builder.SetInsertPoint(success);
+        return value;
+    }
+    if (operation == Inspect::tuple_element) {
+        tuple_with(state, value, index, mismatch);
+        return inline_tuple_element(state, value, index);
+    }
+    continue_if(state, inline_cons_test(state, value), "inspect.cons", mismatch);
+    if (operation == Inspect::cons_shape) {
+        return value;
+    }
+    return inline_cons_word(state, value, operation == Inspect::cons_head ? 0 : 1);
+}
 } // namespace clause::codegen

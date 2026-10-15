@@ -305,7 +305,9 @@ const TermWord *)` signature as a host entry calling
 
 Generated code calls checked C++ services: `CLAUSE_exact_v1` (exact
 equality), `CLAUSE_immediate_v1` (immediate predicates/queries),
-`CLAUSE_construct_v1`, `CLAUSE_inspect_v1`, `CLAUSE_integer_v1`,
+`CLAUSE_construct_v1`, `CLAUSE_inspect_v1` (no longer called by generated code:
+tuple and cons shapes and fields are tested and read inline, OPT0.14),
+`CLAUSE_integer_v1`,
 `CLAUSE_float_v1`, `CLAUSE_map_v1`, `CLAUSE_bits_v1`,
 `CLAUSE_record_v1` (native record make/get/update/match/test under a
 `RecordCheck`; outcomes `bad_record`, `bad_field`, `no_match`),
