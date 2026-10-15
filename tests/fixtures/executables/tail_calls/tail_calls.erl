@@ -18,7 +18,10 @@ main(["branches"]) ->
     show(branch(id(?BRANCH_STEPS), 0));
 main(["self"]) ->
     show(wide(id(?BRANCH_STEPS), 1, 2, 3, 4, 5, 6, 7, [])),
-    show(guarded(id(?BRANCH_STEPS), 0)).
+    show(guarded(id(?BRANCH_STEPS), 0));
+main(["peers"]) ->
+    show(left(id(?BRANCH_STEPS), [], 0)),
+    show(failing_peer(id(1001))).
 
 show(Value) -> erlang:display(Value).
 
@@ -58,6 +61,44 @@ guarded(N, Acc) ->
 
 checked(N) when N rem 2 =:= 1 -> error(odd);
 checked(_) -> 2.
+
+%% A tail-call cycle whose members keep different numbers of terms: right/3 keeps more across a try and a
+%% non-tail call, so each tail call grows or shrinks the frame in place while the list built in a slot survives
+%% collections. The list restarts every 64 steps, so the old ones are garbage.
+left(0, Acc, Sum) ->
+    {left, length(Acc), Sum};
+left(N, _Acc, Sum) when N rem 64 =:= 0 ->
+    right(N - 1, [N], Sum + 1);
+left(N, Acc, Sum) ->
+    right(N - 1, [N | Acc], Sum + 1).
+
+right(0, Acc, Sum) ->
+    {right, length(Acc), Sum};
+right(N, Acc, Sum) ->
+    Kept = {N, Acc},
+    Step =
+        try
+            checked(N)
+        catch
+            error:odd -> 1
+        end,
+    Extra = id([Step, element(1, Kept)]),
+    left(N - 1, element(2, Kept), Sum + Step + length(Extra)).
+
+%% An error raised inside a tail-call cycle names the member that raised it.
+failing_peer(N) ->
+    try
+        up(N)
+    catch
+        error:Reason:Stack ->
+            [{Module, Function, Arity, _} | _] = Stack,
+            {Reason, Module, Function, Arity}
+    end.
+
+up(N) -> down(N - 1).
+
+down(0) -> error(peer_failed);
+down(N) -> up(N - 1).
 
 %% Tail calls from case, if and begin/end clause bodies.
 branch(0, Acc) ->

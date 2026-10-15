@@ -196,7 +196,10 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   (backend, before inspection) moves bodies to `<sym>.body`, builds prologue
   (frame header/registers from `abi::v1::FrameState` + resume switch), splits
   after non-tail calls, spills crossing values (terms to term slots, raw to raw
-  slots), emits only `musttail` transfers.
+  slots), emits only `musttail` transfers. Self tail calls keep their frame;
+  tail calls between members of one tail-call cycle (`TailCycles`, Tarjan
+  over each module's tail-call graph) keep the caller link and the shared term
+  slots and zero only the extra ones (OPT1.1B).
 - `Code` = `void(ctx, x0..x5)` (`register_arguments` = 6): leading
   arguments/results pass as parameters. Enter/tail/return run inline, falling
   back to

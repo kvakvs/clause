@@ -31,6 +31,7 @@ using Parameters = std::array<llvm::Value *, register_arguments>;
 constexpr unsigned DESCRIPTOR_ARITY = 3;
 constexpr unsigned DESCRIPTOR_BODY = 4;
 constexpr unsigned DESCRIPTOR_SLOTS = 5;
+constexpr unsigned DESCRIPTOR_ROOTS = 6;
 
 // Arity recorded on a native-form Erlang function; empty for every other function.
 std::optional<std::size_t> erlang_arity(const llvm::Function *function) {
@@ -144,6 +145,8 @@ struct ErlangCall {
     // The stores of a direct call's leading argument words into its array: their values become the transfer's
     // parameters instead (OPT0.1A). Null for a fun call or past the arity.
     std::array<llvm::StoreInst *, register_arguments> stores{};
+    // The native-form function a direct call enters, to find tail-call peers (OPT1.1B); null for a fun call.
+    const llvm::Function *callee = nullptr;
 };
 
 using ArgumentStores = std::array<llvm::StoreInst *, register_arguments>;
@@ -182,7 +185,9 @@ struct Continuation {
 };
 
 struct Callee {
-    // The FrameDescriptor fields an inline entry needs: arity (words copied from the registers), body and slots.
+    // The callee's FrameDescriptor and the fields an inline entry needs: arity (words copied from the registers),
+    // body and slots.
+    llvm::Value *descriptor;
     llvm::Value *arity;
     llvm::Value *body;
     llvm::Value *slots;
@@ -202,12 +207,19 @@ bool reads_in(const llvm::Use &use, const llvm::BasicBlock *definition,
     });
 }
 
+// The native-form functions of one tail-call cycle (OPT1.1B): each reaches every other through tail calls only.
+using TailPeers = std::set<const llvm::Function *>;
+
+// How an inline entry places the callee's frame: pushed above this one by a call, or in this frame's place by a
+// tail call; a tail call to a peer of this function's tail-call cycle keeps more of the frame (OPT1.1B).
+enum class Entry : std::uint8_t { call, tail, peer };
+
 // Lower one native-form function into the body its descriptor names.
 class FrameLowering {
   public:
-    // Borrow the module services and the native-form function; its body is created empty.
-    FrameLowering(const Services &services, llvm::Function &native)
-        : services_(services), native_(native),
+    // Borrow the module services, the native-form function and its tail-call peers; its body is created empty.
+    FrameLowering(const Services &services, llvm::Function &native, const TailPeers &peers)
+        : services_(services), native_(native), peers_(peers),
           body_(*llvm::Function::Create(services.code, llvm::GlobalValue::InternalLinkage, native.getName() + ".body",
                                         services.output)),
           arity_(erlang_arity(&native).value_or(0)), roots_(arity_) {
@@ -510,8 +522,8 @@ class FrameLowering {
         for (auto &callee : services_.output) {
             if (const auto arity = erlang_arity(&callee)) {
                 for (auto *call : calls_to(&callee)) {
-                    calls.push_back(
-                        {call, services_.descriptor_of(callee), *arity, argument_stores(call->getArgOperand(1))});
+                    calls.push_back({call, services_.descriptor_of(callee), *arity,
+                                     argument_stores(call->getArgOperand(1)), &callee});
                 }
             }
         }
@@ -540,7 +552,8 @@ class FrameLowering {
     void lower_tail(const ErlangCall &call) {
         llvm::IRBuilder<> builder(call.call);
         copy_arguments(builder, call);
-        enter(builder, call.descriptor, parameters(builder, call), true);
+        const auto entry = peers_.contains(call.callee) ? Entry::peer : Entry::tail;
+        enter(builder, call.descriptor, parameters(builder, call), entry);
     }
 
     // The parameters of a call's transfer (OPT0.1A): a direct call's leading argument values, whose stores into the
@@ -681,15 +694,16 @@ class FrameLowering {
         llvm::IRBuilder<> builder(continuation.call.call);
         builder.CreateAlignedStore(llvm::ConstantInt::get(services_.word, index), prologue_.resume, services_.align());
         copy_arguments(builder, continuation.call);
-        enter(builder, continuation.call.descriptor, parameters(builder, continuation.call), false);
+        enter(builder, continuation.call.descriptor, parameters(builder, continuation.call), Entry::call);
     }
 
     // Enter `descriptor` with its arguments in the registers, replacing the call at the builder: pushed inline
     // (OPT0.1) unless the entry needs the service (a wanted collection, profiling, no reductions left, stack growth
     // or a builtin); a tail entry first releases this frame.
-    void enter(llvm::IRBuilder<> &builder, llvm::Value *descriptor, const Parameters &values, bool tail) {
+    void enter(llvm::IRBuilder<> &builder, llvm::Value *descriptor, const Parameters &values, Entry entry) {
         auto *context = body_.getArg(0);
         const auto callee = load_callee(builder, descriptor);
+        const bool tail = entry != Entry::call;
         if (tail && descriptor == services_.descriptor_of(native_)) {
             enter_self(builder, descriptor, callee, values);
             return;
@@ -700,16 +714,15 @@ class FrameLowering {
             at, builder.CreateAdd(callee.slots, llvm::ConstantInt::get(services_.word, frame_header_words)),
             "enter.need");
         auto *reductions = services_.state(builder, context, StateField::reductions, services_.word, "enter.reds");
-        auto *limit = services_.state(builder, context, StateField::limit, services_.word, "enter.limit");
         auto *slow = services_.state(builder, context, StateField::slow, services_.word, "enter.slow");
         auto *zero = llvm::ConstantInt::get(services_.word, 0);
         auto *fast = builder.CreateAnd(
             {compare(builder, llvm::CmpInst::ICMP_EQ, slow, zero),
              compare(builder, llvm::CmpInst::ICMP_NE, reductions, zero),
              compare(builder, llvm::CmpInst::ICMP_NE, callee.body, llvm::ConstantPointerNull::get(builder.getPtrTy())),
-             compare(builder, llvm::CmpInst::ICMP_ULE, need, limit)});
+             room(builder, entry, callee, need)});
         auto *rest = diamond(builder, fast, "enter");
-        push_inline(builder, descriptor, callee, {at, need, reductions}, tail);
+        push_inline(builder, callee, {at, need, reductions}, entry);
         transfer(builder, callee.body, values);
         builder.SetInsertPoint(rest->getPrevNode());
         llvm::Value *code = nullptr;
@@ -770,7 +783,7 @@ class FrameLowering {
     // The arity, body and slot count of the descriptor an entry pushes.
     Callee load_callee(llvm::IRBuilder<> &builder, llvm::Value *descriptor) const {
         auto *word = services_.word;
-        return {services_.descriptor_field(builder, descriptor, DESCRIPTOR_ARITY, word, "callee.arity"),
+        return {descriptor, services_.descriptor_field(builder, descriptor, DESCRIPTOR_ARITY, word, "callee.arity"),
                 services_.descriptor_field(builder, descriptor, DESCRIPTOR_BODY, builder.getPtrTy(), "callee.body"),
                 services_.descriptor_field(builder, descriptor, DESCRIPTOR_SLOTS, word, "callee.slots")};
     }
@@ -782,38 +795,77 @@ class FrameLowering {
         llvm::Value *reductions;
     };
 
+    // Whether the callee's frame stays below the stack limit. A peer's frame that is no larger than this one always
+    // does; the test folds once the peer's descriptor is known (OPT1.1B).
+    llvm::Value *room(llvm::IRBuilder<> &builder, Entry entry, const Callee &callee, llvm::Value *need) {
+        auto *limit = services_.state(builder, body_.getArg(0), StateField::limit, services_.word, "enter.limit");
+        auto *below = compare(builder, llvm::CmpInst::ICMP_ULE, need, limit);
+        if (entry != Entry::peer) {
+            return below;
+        }
+        peer_slots_ = roots_ + raw_;
+        auto *own = llvm::ConstantInt::get(services_.word, *peer_slots_);
+        return builder.CreateOr(compare(builder, llvm::CmpInst::ICMP_ULE, callee.slots, own), below);
+    }
+
     // ProcessStack::enter inline: spend a reduction, write the header, zero the slots, copy the arguments past the
     // parameters from the registers and make the frame current. A tail entry reuses this frame's place and its
     // caller link. The callee stores its parameters itself where it keeps them (OPT0.1A).
-    void push_inline(llvm::IRBuilder<> &builder, llvm::Value *descriptor, const Callee &callee, const Push &push,
-                     bool tail) const {
+    void push_inline(llvm::IRBuilder<> &builder, const Callee &callee, const Push &push, Entry entry) const {
         auto *context = body_.getArg(0);
         auto *word = services_.word;
-        auto *zero = llvm::ConstantInt::get(word, 0);
         services_.set_state(builder, context, StateField::reductions,
                             builder.CreateSub(push.reductions, llvm::ConstantInt::get(word, 1)));
         auto *stack = services_.state(builder, context, StateField::stack, builder.getPtrTy(), "push.stack");
         auto *header = builder.CreateInBoundsGEP(word, stack, push.at, "push.header");
-        auto *previous = tail ? builder.CreateAlignedLoad(word, header, services_.align(), "push.previous")
-                              : services_.state(builder, context, StateField::frame, word, "push.previous");
-        // The descriptor word is stored as a pointer of the same width, so no pointer conversion appears.
-        const std::array<llvm::Value *, frame_header_words> words{previous, descriptor, zero, zero};
-        for (std::size_t i = 0; i < words.size(); ++i) {
-            builder.CreateAlignedStore(words.at(i), builder.CreateConstInBoundsGEP1_64(word, header, i),
-                                       services_.align());
-        }
+        write_header(builder, header, callee, entry);
         const auto unit = llvm::ConstantInt::get(word, word->getBitWidth() / 8);
         auto *slots = builder.CreateConstInBoundsGEP1_64(word, header, frame_header_words, "push.slots");
-        builder.CreateMemSet(slots, builder.getInt8(0), builder.CreateMul(callee.slots, unit), services_.align());
+        zero_slots(builder, slots, callee, entry);
         auto *passed = llvm::ConstantInt::get(word, register_arguments);
         auto *rest =
             builder.CreateSub(builder.CreateBinaryIntrinsic(llvm::Intrinsic::umax, callee.arity, passed), passed);
         builder.CreateMemCpy(builder.CreateConstGEP1_64(word, slots, register_arguments), services_.align(),
                              builder.CreateConstGEP1_64(word, prologue_.registers, register_arguments),
                              services_.align(), builder.CreateMul(rest, unit));
-        services_.set_state(builder, context, StateField::frame, push.at);
+        if (entry == Entry::call) {
+            services_.set_state(builder, context, StateField::frame, push.at);
+        }
         services_.set_state(builder, context, StateField::top, push.top);
-        services_.set_state(builder, context, StateField::live, zero);
+        services_.set_state(builder, context, StateField::live, llvm::ConstantInt::get(word, 0));
+    }
+
+    // The frame header: a call links the new frame to the current one; a tail entry keeps this frame's caller link.
+    // The descriptor word is stored as a pointer of the same width, so no pointer conversion appears.
+    void write_header(llvm::IRBuilder<> &builder, llvm::Value *header, const Callee &callee, Entry entry) const {
+        auto *word = services_.word;
+        auto *zero = llvm::ConstantInt::get(word, 0);
+        if (entry == Entry::call) {
+            auto *previous = services_.state(builder, body_.getArg(0), StateField::frame, word, "push.previous");
+            builder.CreateAlignedStore(previous, header, services_.align());
+        }
+        const std::array<llvm::Value *, frame_header_words - 1> words{callee.descriptor, zero, zero};
+        for (std::size_t i = 0; i < words.size(); ++i) {
+            builder.CreateAlignedStore(words.at(i), builder.CreateConstInBoundsGEP1_64(word, header, i + 1),
+                                       services_.align());
+        }
+    }
+
+    // Zero the callee's slots. A peer keeps the term slots both frames have (OPT1.1B): like a self tail call's, each
+    // holds zero or a term word that collections rewrite, and the peer writes a slot before it reads it. Only its term
+    // slots past this frame's are zeroed, which folds once the peer's descriptor is known.
+    void zero_slots(llvm::IRBuilder<> &builder, llvm::Value *slots, const Callee &callee, Entry entry) const {
+        auto *word = services_.word;
+        const auto unit = llvm::ConstantInt::get(word, word->getBitWidth() / 8);
+        if (entry != Entry::peer) {
+            builder.CreateMemSet(slots, builder.getInt8(0), builder.CreateMul(callee.slots, unit), services_.align());
+            return;
+        }
+        auto *own = llvm::ConstantInt::get(word, roots_);
+        auto *wanted = services_.descriptor_field(builder, callee.descriptor, DESCRIPTOR_ROOTS, word, "callee.roots");
+        auto *count = builder.CreateSub(builder.CreateBinaryIntrinsic(llvm::Intrinsic::umax, wanted, own), own);
+        builder.CreateMemSet(builder.CreateConstInBoundsGEP1_64(word, slots, roots_), builder.getInt8(0),
+                             builder.CreateMul(count, unit), services_.align());
     }
 
     // Return `result` in the first register to the caller's body, replacing the return at the builder: popped
@@ -958,6 +1010,9 @@ class FrameLowering {
     llvm::Constant *descriptor_value() {
         auto *ptr = llvm::PointerType::get(body_.getContext(), 0);
         auto *word = services_.word;
+        if (peer_slots_ && *peer_slots_ != roots_ + raw_) {
+            throw std::logic_error("lower_frames: slots added after a peer entry");
+        }
         if (!names_[0]) {
             names_ = {llvm::ConstantPointerNull::get(ptr), llvm::ConstantInt::get(word, 0),
                       llvm::ConstantInt::get(word, 0), llvm::ConstantInt::get(word, arity_)};
@@ -970,6 +1025,8 @@ class FrameLowering {
     // Module services and the function being moved from native form into its body.
     const Services &services_;
     llvm::Function &native_;
+    // This function's tail-call cycle (OPT1.1B).
+    const TailPeers &peers_;
     llvm::Function &body_;
     std::size_t arity_;
     Prologue prologue_{};
@@ -978,6 +1035,8 @@ class FrameLowering {
     std::size_t roots_;
     std::size_t spilled_terms_ = 0;
     std::size_t raw_ = 0;
+    // The slot count a peer entry's room test assumed (OPT1.1B); the descriptor must keep it.
+    std::optional<std::size_t> peer_slots_;
     std::vector<std::pair<llvm::GetElementPtrInst *, std::size_t>> raw_addresses_;
     // Stack-trace fields copied from the marker's name descriptor; empty without a marker.
     std::array<llvm::Constant *, 4> names_{};
@@ -1020,6 +1079,128 @@ void erase_unused(llvm::Module &output) {
     }
 }
 
+// The functions whose tail calls enter `callee`, found through its uses as native form passes functions only as
+// callees (OPT1.1B).
+std::vector<const llvm::Function *> tail_callers(const llvm::Function &callee) {
+    std::vector<const llvm::Function *> callers;
+    for (const auto *user : callee.users()) {
+        const auto *call = llvm::dyn_cast<llvm::CallInst>(user);
+        const auto *next = call ? llvm::dyn_cast_or_null<llvm::ReturnInst>(call->getNextNode()) : nullptr;
+        if (next && next->getReturnValue() == call) {
+            callers.push_back(call->getFunction());
+        }
+    }
+    return callers;
+}
+
+// The tail-call cycles of one module (OPT1.1B): Tarjan's strongly connected components of its tail-call graph,
+// found without recursion. A function outside every cycle of two or more has no peers.
+class TailCycles {
+  public:
+    explicit TailCycles(const std::vector<llvm::Function *> &natives) : nodes_(natives.size()) {
+        link(natives);
+        for (std::size_t i = 0; i < natives.size(); ++i) {
+            if (!nodes_[i].index) {
+                visit(i);
+            }
+        }
+        cycles_.resize(sizes_.size());
+        for (std::size_t i = 0; i < natives.size(); ++i) {
+            if (sizes_[nodes_[i].cycle] > 1) {
+                cycles_[nodes_[i].cycle].insert(natives[i]);
+            }
+        }
+    }
+
+    // The members of function `index`'s cycle, empty outside every cycle of two or more.
+    [[nodiscard]] const TailPeers &peers(std::size_t index) const { return cycles_[nodes_[index].cycle]; }
+
+  private:
+    struct Node {
+        // Tail callees, Tarjan's visit order and low link, and the cycle found for it.
+        std::vector<std::size_t> next;
+        std::optional<std::size_t> index;
+        std::size_t low = 0;
+        bool open = false;
+        std::size_t cycle = 0;
+    };
+
+    // Record each tail call between two of the module's native-form functions as an edge.
+    void link(const std::vector<llvm::Function *> &natives) {
+        std::map<const llvm::Function *, std::size_t> ids;
+        for (std::size_t i = 0; i < natives.size(); ++i) {
+            ids.emplace(natives[i], i);
+        }
+        for (std::size_t i = 0; i < natives.size(); ++i) {
+            for (const auto *caller : tail_callers(*natives[i])) {
+                if (const auto found = ids.find(caller); found != ids.end()) {
+                    nodes_[found->second].next.push_back(i);
+                }
+            }
+        }
+    }
+
+    using Work = std::vector<std::pair<std::size_t, std::size_t>>;
+
+    // Depth-first search from `root` with an explicit stack of (node, next edge) pairs.
+    void visit(std::size_t root) {
+        Work work{{root, 0}};
+        enter(root);
+        while (!work.empty()) {
+            const auto node = work.back().first;
+            if (work.back().second < nodes_[node].next.size()) {
+                follow(work, nodes_[node].next[work.back().second++]);
+                continue;
+            }
+            work.pop_back();
+            if (!work.empty()) {
+                auto &parent = nodes_[work.back().first];
+                parent.low = std::min(parent.low, nodes_[node].low);
+            }
+            if (nodes_[node].low == *nodes_[node].index) {
+                close(node);
+            }
+        }
+    }
+
+    // Follow one edge of the node on top of `work`: descend into a new node, or take an open node's index.
+    void follow(Work &work, std::size_t next) {
+        auto &node = nodes_[work.back().first];
+        if (!nodes_[next].index) {
+            enter(next);
+            work.emplace_back(next, 0);
+        } else if (nodes_[next].open) {
+            node.low = std::min(node.low, *nodes_[next].index);
+        }
+    }
+
+    // Number a node and push it on the open stack.
+    void enter(std::size_t node) {
+        nodes_[node].index = nodes_[node].low = counter_++;
+        nodes_[node].open = true;
+        stack_.push_back(node);
+    }
+
+    // Pop the cycle rooted at `root` and count its members.
+    void close(std::size_t root) {
+        auto &size = sizes_.emplace_back(0);
+        for (bool more = true; more; ++size) {
+            const auto node = stack_.back();
+            stack_.pop_back();
+            nodes_[node].open = false;
+            nodes_[node].cycle = sizes_.size() - 1;
+            more = node != root;
+        }
+    }
+
+    std::vector<Node> nodes_;
+    std::vector<std::size_t> stack_;
+    std::size_t counter_ = 0;
+    // Member count of each cycle, then the members of every cycle of two or more.
+    std::vector<std::size_t> sizes_;
+    std::vector<TailPeers> cycles_;
+};
+
 // Create every descriptor first so calls between functions of the module resolve to them.
 void lower_module(llvm::Module &output) {
     std::vector<llvm::Function *> natives;
@@ -1043,8 +1224,9 @@ void lower_module(llvm::Module &output) {
                                                          : llvm::GlobalValue::ExternalLinkage);
         descriptors.push_back(descriptor);
     }
+    const TailCycles cycles(natives);
     for (std::size_t i = 0; i < natives.size(); ++i) {
-        descriptors[i]->setInitializer(FrameLowering(services, *natives[i]).lower());
+        descriptors[i]->setInitializer(FrameLowering(services, *natives[i], cycles.peers(i)).lower());
     }
     for (std::size_t i = 0; i < natives.size(); ++i) {
         finish_native(services, *natives[i], descriptors[i]);

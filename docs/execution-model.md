@@ -84,7 +84,13 @@ in the first register and ends the native call.
   keeps its frame where it is: it spends a reduction, resets the frame's resume
   and handler words and the live count and copies the arguments past the
   parameters, without rewriting the header or zeroing the slots; LLVM turns it
-  into a loop.
+  into a loop. A tail call to another member of the caller's tail-call cycle
+  (functions of one module that reach each other through tail calls) keeps the
+  caller link and the term slots both frames have: it writes the callee's
+  descriptor, zeroes only the callee's term slots past the caller's and skips
+  the stack limit test when the callee's frame is no larger. Like a self tail
+  call, a kept slot may hold a term of an earlier member until the callee
+  writes it, so collections can keep such a term alive a little longer.
 - **Yield.** With no reduction left, an entry does not push: it records itself
   in `ProcessStack::resume_`, keeps its arguments as register roots
   (`ProcessStack::keep_registers`) and returns code that ends the time slice, so

@@ -387,6 +387,9 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   `f6fcb95a`
 - **OPT1.1A** self tail calls keep their frame; counting loop 35% faster, euler
   O2 0.62 to 0.59 s — `cb5b54fb`
+- **OPT1.1B** tail calls between members of a tail-call cycle keep the caller
+  link and shared term slots; even/odd 16%, euler O2 0.565 to 0.540 s —
+  `[plan20] OPT1.1B ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

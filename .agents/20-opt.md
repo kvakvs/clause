@@ -123,9 +123,12 @@ Ordered by measured T2 value and how well each fits an AOT compiler.
 
 ### OPT1.1 Loop recovery for self- and mutual tail recursion
 
-Status 2026-10-15: self tail calls already become LLVM loops and, since
-OPT1.1A, keep their frame instead of re-pushing it (done). Mutual recursion
-remains.
+Status 2026-10-16: self tail calls become LLVM loops and keep their frame
+(OPT1.1A); tail calls within a tail-call cycle keep the caller link and the
+shared term slots (OPT1.1B, even/odd 16% faster). Open: **OPT1.1C** one LLVM
+function per cycle with a dispatch on the frame descriptor, so peers become
+loop branches (even/odd is still 1.45 ns per step against 1.19 ns for a self
+loop: callee prologue, argument stores and descriptor store per transfer).
 
 - **What:** rewrite a self tail call into a branch back to a synthesized loop
   header, with phis for the parameters. Mutually tail-recursive SCCs (Tarjan)
