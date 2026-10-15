@@ -58,8 +58,7 @@ struct MapAccess {
     static TermResult<Term> make(ProcessHeap &heap, std::span<const MapEntry> entries);
     // Apply updates to a temporary canonical table; failure publishes no partial map. An owned update may change an
     // off-heap source map in place (OPT0.5B).
-    static MapResult update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> updates,
-                            bool owned = false);
+    static MapResult update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> updates, bool owned = false);
     // Publish only an already validated canonical table, using stable owner-indexed backing; above
     // MAP_TREE_THRESHOLD entries as an off-heap tree (OPT0.5A).
     static TermResult<Term> publish(ProcessHeap &heap, std::span<const MapEntry> entries);
@@ -70,5 +69,8 @@ struct MapAccess {
                                  std::span<const MapUpdate> updates, bool owned);
     // Publish a stub that takes over one reference to root, a tree of size entries; failure releases the tree.
     static TermResult<Term> publish_stub(ProcessHeap &heap, MapNode *root, std::size_t size);
+    // Publish key and value words already in exact key order: a classic map cell, or above MAP_TREE_THRESHOLD
+    // entries an off-heap tree (OPT0.5).
+    static TermResult<Term> publish_words(ProcessHeap &heap, std::span<const MapWords> entries);
 };
 } // namespace clause::runtime::detail

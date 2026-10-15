@@ -80,20 +80,24 @@ TermResult<std::optional<Term>> find(const Term &map, const Term &key, std::size
     if (!admitted) {
         return std::unexpected(admitted.error());
     }
-    if (const auto *tree = tree_of(TermAccess::object(map).value())) {
+    const auto object = TermAccess::object(map).value();
+    if (const auto *tree = tree_of(object)) {
         return find_in_tree(map, *admitted, *tree);
     }
+    // Probe the stored key words; only the found value becomes a term (OPT0.5).
+    const TermProbe probe({.map = map, .key = *admitted});
     std::size_t first = 0;
     std::size_t last = size;
     while (first < last) {
         const auto middle = first + (last - first) / 2;
-        const auto entry = map_entry(map, middle).value();
-        const auto order = structural_order(entry.first, *admitted, true);
+        const auto order = probe.order(object.words[1 + 2 * middle]);
         if (!order) {
             return std::unexpected(order.error());
         }
         if (*order == 0) {
-            return entry.second;
+            return TermAccess::child(map, object.words[2 + 2 * middle]).transform([](const Term &value) {
+                return std::optional<Term>(value);
+            });
         }
         if (*order < 0) {
             first = middle + 1;

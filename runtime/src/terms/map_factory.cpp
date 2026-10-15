@@ -4,6 +4,7 @@
 #include "term_layout.hpp"
 #include "terms.hpp"
 #include <algorithm>
+#include <boost/container/small_vector.hpp>
 #include <exception>
 #include <new>
 #include <stdexcept>
@@ -50,23 +51,6 @@ void canonical(MapEntries &entries) {
         ++kept;
     }
     entries.erase(entries.begin() + static_cast<std::ptrdiff_t>(kept), entries.end());
-}
-
-// Insert or replace one association at its exact-order slot; an exact update requires the key.
-TermResult<void> associate(MapEntries &entries, const MapUpdate &update) {
-    const auto position = map_position(entries, update.key);
-    if (!position) {
-        return std::unexpected(position.error());
-    }
-    if (position->found) {
-        entries[position->index].second = update.value;
-        return {};
-    }
-    if (update.exact) {
-        return std::unexpected(TermError::missing_key);
-    }
-    entries.insert(entries.begin() + static_cast<std::ptrdiff_t>(position->index), {update.key, update.value});
-    return {};
 }
 
 // Every child belongs to this heap/runtime before it can enter immutable map storage.
@@ -148,6 +132,70 @@ TermError heap_fault(HeapError error) {
     return error == HeapError::out_of_memory ? TermError::out_of_memory : TermError::resource_limit;
 }
 
+// The slot of `key` among word entries in exact key order, by binary search with a probe of the map's heap.
+TermResult<MapPosition> word_position(std::span<const MapWords> entries, const Term &map, const Term &key) {
+    const TermProbe probe({.map = map, .key = key});
+    std::size_t first = 0;
+    std::size_t last = entries.size();
+    while (first < last) {
+        const auto middle = first + (last - first) / 2;
+        const auto order = probe.order(entries[middle].first);
+        if (!order) {
+            return std::unexpected(order.error());
+        }
+        if (*order == 0) {
+            return MapPosition{middle, true};
+        }
+        if (*order < 0) {
+            first = middle + 1;
+        } else {
+            last = middle;
+        }
+    }
+    return MapPosition{first, false};
+}
+
+// Word entries of a classic map, with room for a few new keys without allocating (OPT0.5).
+using WordEntries = boost::container::small_vector<MapWords, 40>;
+
+// Insert or replace one association at its exact-order slot among word entries; an exact update needs the key.
+std::expected<void, MapFault> associate_word(WordEntries &entries, const Term &map, const MapUpdate &update) {
+    const auto position = word_position({entries.data(), entries.size()}, map, update.key);
+    if (!position) {
+        return std::unexpected(MapFault{position.error(), update.key});
+    }
+    if (position->found) {
+        entries[position->index].second = update.value.word();
+    } else if (update.exact) {
+        return std::unexpected(MapFault{TermError::missing_key, update.key});
+    } else {
+        entries.insert(entries.begin() + static_cast<std::ptrdiff_t>(position->index),
+                       MapWords{update.key.word(), update.value.word()});
+    }
+    return {};
+}
+
+// Apply updates to a classic map's key and value words, never staging terms (OPT0.5); the heap does not move until
+// the result is published, so the words stay valid.
+MapResult update_words(ProcessHeap &heap, const Term &map, std::span<const Word> cell,
+                       std::span<const MapUpdate> updates) {
+    WordEntries entries;
+    for (std::size_t slot = 1; slot + 1 < cell.size(); slot += 2) {
+        entries.emplace_back(cell[slot], cell[slot + 1]);
+    }
+    for (const auto &entry : updates) {
+        if (const auto checked = validate(heap, entry.key, entry.value); !checked) {
+            return std::unexpected(MapFault{checked.error(), entry.key});
+        }
+        if (const auto added = associate_word(entries, map, entry); !added) {
+            return std::unexpected(added.error());
+        }
+    }
+    return MapAccess::publish_words(heap, {entries.data(), entries.size()}).transform_error([&](TermError error) {
+        return MapFault{error, map};
+    });
+}
+
 // Keep the source map immutable while exact updates see preceding associations from the same expression, unless the
 // compiler proved it unread afterwards (owned, OPT0.5B).
 MapResult update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> updates, bool owned) {
@@ -163,21 +211,10 @@ MapResult update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> 
         // The stub is this heap's own cell (retained above), so an owned update may consume it.
         return MapAccess::update_tree(heap, map, const_cast<layout::TreeMapCell &>(*tree), updates, owned);
     }
-    auto entries = map.map_entries();
-    if (!entries) {
-        return std::unexpected(MapFault{entries.error(), map});
+    if (layout::BoxHeader::kind(object->words[0]) != BoxedKind::map) {
+        return std::unexpected(MapFault{TermError::wrong_type, map});
     }
-    for (const auto &entry : updates) {
-        const auto checked = validate(heap, entry.key, entry.value);
-        if (!checked) {
-            return std::unexpected(MapFault{checked.error(), entry.key});
-        }
-        const auto added = associate(*entries, entry);
-        if (!added) {
-            return std::unexpected(MapFault{added.error(), entry.key});
-        }
-    }
-    return MapAccess::publish(heap, *entries).transform_error([&](TermError error) { return MapFault{error, map}; });
+    return update_words(heap, map, object->words, updates);
 }
 } // namespace
 
@@ -208,6 +245,29 @@ TermResult<Term> MapAccess::publish(ProcessHeap &heap, std::span<const MapEntry>
     for (std::size_t i = 0; i < entries.size(); ++i) {
         words[1 + 2 * i] = entries[i].first.word();
         words[2 + 2 * i] = entries[i].second.word();
+    }
+    return detail::publish(heap.storage_, *reserved,
+                           reinterpret_cast<Word>(words) | static_cast<Word>(TermKindPrimary::boxed));
+}
+
+TermResult<Term> MapAccess::publish_words(ProcessHeap &heap, std::span<const MapWords> entries) {
+    if (entries.size() > MAP_TREE_THRESHOLD) {
+        const auto root = map_tree_build(*heap.storage_, entries);
+        if (!root) {
+            return std::unexpected(heap_fault(root.error()));
+        }
+        return publish_stub(heap, *root, entries.size());
+    }
+    const auto count = 1 + entries.size() * 2;
+    auto reserved = heap.reserve(count);
+    if (!reserved) {
+        return std::unexpected(heap_fault(reserved.error()));
+    }
+    auto *words = ::new (reserved->bytes().data()) Word[count]{};
+    words[0] = layout::BoxHeader::make(BoxedKind::map, count - 1);
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        words[1 + 2 * i] = entries[i].first;
+        words[2 + 2 * i] = entries[i].second;
     }
     return detail::publish(heap.storage_, *reserved,
                            reinterpret_cast<Word>(words) | static_cast<Word>(TermKindPrimary::boxed));
@@ -253,7 +313,8 @@ MapResult MapAccess::update_tree(ProcessHeap &heap, const Term &map, layout::Tre
     }
     const auto edit = map_edit(storage);
     for (const auto &entry : updates) {
-        auto inserted = insert_entry(heap, map, entry, {.storage = storage, .root = root, .edit = edit, .owned = owned});
+        auto inserted =
+            insert_entry(heap, map, entry, {.storage = storage, .root = root, .edit = edit, .owned = owned});
         if (!inserted) {
             give_back(storage, stub, root, owned);
             return std::unexpected(inserted.error());
