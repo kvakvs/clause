@@ -130,6 +130,20 @@ llvm::Value *lower_immediate(ExpressionLowering &state, abi::v1::ImmediateOperat
 // The CLAUSE_immediate_v1 call alone: the slow tail of the inline forms.
 llvm::Value *lower_immediate_service(ExpressionLowering &state, abi::v1::ImmediateOperation operation,
                                      llvm::Value *left, llvm::Value *right);
+
+// The heap block's free words for an inline allocation (OPT0.3): its start, its end after `words` words, and whether
+// they fit below FrameState::heap_limit (never while the fields are null).
+struct HeapRoom {
+    llvm::Value *top;
+    llvm::Value *end;
+    llvm::Value *fits;
+};
+
+HeapRoom heap_room(ExpressionLowering &state, llvm::Value *words);
+// Take the words of an inline allocation: FrameState::heap_top becomes its end.
+void heap_commit(ExpressionLowering &state, const HeapRoom &room);
+// setelement/3 copying a small tuple inline where the heap has room, else the builtin (OPT0.2C).
+llvm::Value *lower_setelement(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values);
 // A value and the predecessor block that computed it.
 using BlockValue = std::pair<llvm::BasicBlock *, llvm::Value *>;
 // At the start of the current block, join the values its two predecessors computed (LLVM's SSA updater, which never

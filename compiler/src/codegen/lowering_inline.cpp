@@ -355,6 +355,52 @@ template <class Table> auto entry(const Table &table, const Op operation) {
 }
 } // namespace
 
+llvm::Value *lower_setelement(ExpressionLowering &state, const std::size_t builtin,
+                              const std::span<llvm::Value *const> values) {
+    auto *index = values[0];
+    auto *tuple = values[1];
+    // A constant tuple word is an immediate: never a boxed tuple, so only the builtin applies.
+    if (llvm::isa<llvm::Constant>(tuple)) {
+        return lower_builtin(state, builtin, values);
+    }
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    const auto arity = [&] {
+        return builder.CreateLShr(header(state, tuple), word(state, abi::v1::header_count_shift));
+    };
+    auto *position = decode(state, index);
+    auto *shaped = split(
+        state, builder.getInt1Ty(),
+        builder.CreateAnd(small(state, index), tagged(state, tuple, abi::v1::primary_mask, abi::v1::boxed_tag)),
+        [&] {
+            auto *in_range =
+                compare(state, llvm::CmpInst::ICMP_ULT, builder.CreateSub(position, word(state, 1)), arity());
+            return builder.CreateAnd(header_kind(state, header(state, tuple), {HeaderKind::tuple}), in_range);
+        },
+        [&] { return builder.getFalse(); });
+    auto *room = split(
+        state, builder.getInt1Ty(), shaped,
+        [&] { return heap_room(state, builder.CreateAdd(arity(), word(state, 1))).fits; },
+        [&] { return builder.getFalse(); });
+    return split(
+        state, state.word, room,
+        [&] {
+            auto *words = builder.CreateAdd(arity(), word(state, 1));
+            const auto target = heap_room(state, words);
+            auto *source = builder.CreateIntToPtr(builder.CreateSub(tuple, word(state, abi::v1::boxed_tag)),
+                                                  builder.getPtrTy(), "proven.cell");
+            builder.CreateMemCpy(target.top, align, source, align,
+                                 builder.CreateMul(words, word(state, state.word->getBitWidth() / 8)));
+            builder.CreateAlignedStore(values[2], builder.CreateGEP(state.word, target.top, position), align);
+            heap_commit(state, target);
+            auto *copy =
+                builder.CreateOr(builder.CreatePtrToInt(target.top, state.word), word(state, abi::v1::boxed_tag));
+            builder.CreateAlignedStore(copy, root_slot(state), align);
+            return copy;
+        },
+        [&] { return lower_builtin(state, builtin, values); });
+}
+
 llvm::Value *join_values(ExpressionLowering &state, llvm::Type *type, const BlockValue first, const BlockValue second) {
     auto &builder = state.builder;
     auto *join = builder.GetInsertBlock();

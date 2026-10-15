@@ -39,10 +39,6 @@ std::size_t container_words(abi::v1::ContainerConstruction operation, std::size_
     return operation == abi::v1::ContainerConstruction::tuple ? values + 1 : 2 * (values - 1);
 }
 
-llvm::Value *state_address(ExpressionLowering &state, abi::v1::StateField field) {
-    return state.builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0), static_cast<unsigned>(field));
-}
-
 // Write a tuple or the cons cells of a list at `top`; its term word: the address tagged boxed or list.
 llvm::Value *write_cells(ExpressionLowering &state, abi::v1::ContainerConstruction operation, llvm::Value *top,
                          const std::span<llvm::Value *const> values) {
@@ -80,21 +76,14 @@ llvm::Value *construct(ExpressionLowering &state, abi::v1::ContainerConstruction
     auto &builder = state.builder;
     auto &context = state.entry.getContext();
     const llvm::Align align(state.word->getBitWidth() / 8);
-    auto *top_field = state_address(state, abi::v1::StateField::heap_top);
-    auto *top = builder.CreateAlignedLoad(builder.getPtrTy(), top_field, align, "heap.top");
-    auto *limit = builder.CreateAlignedLoad(builder.getPtrTy(), state_address(state, abi::v1::StateField::heap_limit),
-                                            align, "heap.limit");
-    auto *end = builder.CreateConstGEP1_64(state.word, top, words, "heap.end");
-    auto *fits = builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_ULE,
-                                                      builder.CreatePtrToInt(end, state.word),
-                                                      builder.CreatePtrToInt(limit, state.word)));
+    const auto room = heap_room(state, llvm::ConstantInt::get(state.word, words));
     auto *direct = llvm::BasicBlock::Create(context, "heap.inline", &state.entry);
     auto *service = llvm::BasicBlock::Create(context, "heap.service", &state.entry);
     auto *join = llvm::BasicBlock::Create(context, "heap.join", &state.entry);
-    builder.CreateCondBr(fits, direct, service);
+    builder.CreateCondBr(room.fits, direct, service);
     builder.SetInsertPoint(direct);
-    auto *built = write_cells(state, operation, top, values);
-    builder.CreateAlignedStore(end, top_field, align);
+    auto *built = write_cells(state, operation, room.top, values);
+    heap_commit(state, room);
     builder.CreateAlignedStore(built, root_slot(state), align);
     builder.CreateBr(join);
     builder.SetInsertPoint(service);
@@ -130,6 +119,30 @@ llvm::Value *string(ExpressionLowering &state, const ast::StringLiteral &literal
     return construct(state, abi::v1::ContainerConstruction::list, values);
 }
 } // namespace
+
+HeapRoom heap_room(ExpressionLowering &state, llvm::Value *words) {
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    const auto field = [&](abi::v1::StateField at) {
+        return builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0), static_cast<unsigned>(at));
+    };
+    auto *top = builder.CreateAlignedLoad(builder.getPtrTy(), field(abi::v1::StateField::heap_top), align, "heap.top");
+    auto *limit =
+        builder.CreateAlignedLoad(builder.getPtrTy(), field(abi::v1::StateField::heap_limit), align, "heap.limit");
+    auto *end = builder.CreateGEP(state.word, top, words, "heap.end");
+    auto *fits = builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_ULE,
+                                                      builder.CreatePtrToInt(end, state.word),
+                                                      builder.CreatePtrToInt(limit, state.word)));
+    return {top, end, fits};
+}
+
+void heap_commit(ExpressionLowering &state, const HeapRoom &room) {
+    state.builder.CreateAlignedStore(
+        room.end,
+        state.builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0),
+                                                 static_cast<unsigned>(abi::v1::StateField::heap_top)),
+        llvm::Align(state.word->getBitWidth() / 8));
+}
 
 llvm::Value *lower_tuple(ExpressionLowering &state, const std::span<llvm::Value *const> values) {
     return construct(state, abi::v1::ContainerConstruction::tuple, values);

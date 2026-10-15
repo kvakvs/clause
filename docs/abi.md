@@ -289,7 +289,9 @@ immediates (`==`, `/=`) or two small integers (`<`, `=<`, `>`, `>=`),
 `element/2`, `tuple_size/1`, `hd/1`, `tl/1`, the boolean operators, `band`,
 `bor`, `bxor`, `bsr` and small `div`/`rem` run inline where their operands
 allow and call `CLAUSE_immediate_v1` otherwise, which keeps every error and
-bignum case.
+bignum case. `setelement/3` of a small index within a boxed tuple copies the
+tuple into the heap block's free words and replaces the slot inline
+(OPT0.2C); otherwise, or without room, it enters the bridge builtin.
 
 `CLAUSE_builtin_frame_v1(context, builtin)` ([builtins.hpp](../abi/include/clause/abi/builtins.hpp))
 returns the `FrameDescriptor` of the production builtin with index `builtin` in

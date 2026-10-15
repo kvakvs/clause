@@ -181,6 +181,9 @@ Split on 2026-10-15 (user direction to implement OPT0.2 and OPT0.3) before codin
   `hd/1`, `tl/1`, `self/0` and small-integer `band`/`bor`/`bxor`/`bsr`/`bsl`/
   `div`/`rem`, with the service as the slow tail for every other operand.
 
+- **OPT0.2C Inline setelement/3** (added and done 2026-10-15 from the euler profile, where the
+  `setelement` builtin and its argument staging were the largest remaining share; [record](00-finished.md#plan-20)).
+
 ### OPT0.3 Inline bump allocation with one heap check per block
 
 Done 2026-10-15 for tuples and lists, one check per construction ([record](00-finished.md#plan-20)). Open follow-up

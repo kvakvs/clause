@@ -119,6 +119,10 @@ std::vector<llvm::Value *> call_arguments(ExpressionLowering &state, const ast::
     return arguments;
 }
 
+// The bridge index of setelement/3, which has an inline form (OPT0.2C).
+constexpr auto SETELEMENT = abi::v1::find_bridge_builtin("erlang", "setelement", 3).value_or(0);
+static_assert(abi::v1::find_bridge_builtin("erlang", "setelement", 3));
+
 // Lower services with lowerings of their own: apply/2,3, bridge builtins and compound guard tests; null for others.
 llvm::Value *special_service(ExpressionLowering &state, const ast::Expression &expression,
                              const semantic::ServiceResolution &service, const ast::CallExpression &call) {
@@ -126,7 +130,9 @@ llvm::Value *special_service(ExpressionLowering &state, const ast::Expression &e
         return lower_apply(state, expression, call);
     }
     if (service.builtin) {
-        return lower_builtin(state, *service.builtin, call_arguments(state, call));
+        const auto values = call_arguments(state, call);
+        return *service.builtin == SETELEMENT ? lower_setelement(state, *service.builtin, values)
+                                              : lower_builtin(state, *service.builtin, values);
     }
     if (service.operation == abi::v1::ImmediateOperation::is_integer_range) {
         return lower_integer_range(state, call);
