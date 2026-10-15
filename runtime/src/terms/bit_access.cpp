@@ -88,7 +88,7 @@ TermResult<std::vector<std::byte>> Term::bitstring_bytes() const {
         if (!copied) {
             return std::unexpected(copied.error());
         }
-        return std::move(writer.bytes);
+        return std::vector<std::byte>(writer.bytes.begin(), writer.bytes.end());
     } catch (const std::bad_alloc &) {
         return std::unexpected(TermError::out_of_memory);
     }

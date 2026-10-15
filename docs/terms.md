@@ -127,7 +127,10 @@ records; native records ([native records](native-records.md)); funs
   There is no size cap beyond an optional process heap budget; integer
   segments are written without building an integer as wide as the segment.
 - Construction stages all segments before publishing. Integer segments truncate;
-  native endianness comes from the target data layout.
+  native endianness comes from the target data layout. An integer segment of a
+  small value and a width of at most 64 bits is written from its machine word
+  (whole bytes at once on a byte boundary); others take the multiprecision path
+  (OPT0.9).
 - Float segments: widths 16/32/64; construction may encode infinity, but
   matching rejects infinite/NaN fields. Zero-width float matches extract `0.0`.
 - UTF-8/16/32 segments validate scalars, surrogates and truncation.

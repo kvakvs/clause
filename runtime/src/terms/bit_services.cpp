@@ -1,6 +1,7 @@
 #include "bitstrings.hpp"
 #include "service_errors.hpp"
 #include "terms.hpp"
+#include <boost/container/small_vector.hpp>
 #include <clause/runtime/process_context.hpp>
 #include <new>
 #include <stdexcept>
@@ -148,9 +149,12 @@ TermResult<BitExtract> evaluate(ProcessContext &context, Op operation, std::span
     return pattern(context, operation, values);
 }
 
+// Admitted service arguments: a construction of up to five segments needs no allocation for them (OPT0.9).
+using Terms = boost::container::small_vector<Term, 15>;
+
 // Admission failures are infrastructure errors even in a guard or failed pattern candidate.
-TermResult<std::vector<Term>> admit(ProcessContext &context, std::span<const Word> words) {
-    std::vector<Term> terms;
+TermResult<Terms> admit(ProcessContext &context, std::span<const Word> words) {
+    Terms terms;
     terms.reserve(words.size());
     for (const auto word : words) {
         const auto term = Term::from_word(word, context);
@@ -205,8 +209,8 @@ std::uint8_t bits_service(ProcessContext &context, std::uint8_t operation, const
             context.generated_calls().fail_service(term_status(terms.error()));
             return static_cast<std::uint8_t>(Outcome::failure);
         }
-        return static_cast<std::uint8_t>(
-            publish_result(context, evaluate(context, static_cast<Op>(operation), *terms), output));
+        return static_cast<std::uint8_t>(publish_result(
+            context, evaluate(context, static_cast<Op>(operation), {terms->data(), terms->size()}), output));
     } catch (const std::bad_alloc &) {
         context.generated_calls().fail_service(abi::v1::Status::out_of_memory);
     } catch (const std::length_error &) {

@@ -1,5 +1,6 @@
 #pragma once
 #include "integers.hpp"
+#include <boost/container/small_vector.hpp>
 #include <clause/abi/bits.hpp>
 #include <process_heap.hpp>
 
@@ -42,8 +43,9 @@ bool bit_at(const BitView &view, std::size_t index) noexcept;
 TermResult<int> bit_order(const Term &left, const Term &right);
 
 struct BitWriter {
-    // Stage packed bytes privately until every segment has succeeded.
-    std::vector<std::byte> bytes;
+    // Stage packed bytes privately until every segment has succeeded; short constructions need no allocation
+    // (OPT0.9).
+    boost::container::small_vector<std::byte, 64> bytes;
     std::size_t length = 0;
     // Append bounded bits with checked growth; no heap Term is published during construction.
     TermResult<void> append(const BitView &source);

@@ -6,6 +6,7 @@
 #include <clause/runtime/process_context.hpp>
 #include <cmath>
 #include <limits>
+#include <optional>
 
 namespace clause::runtime::detail {
 namespace {
@@ -61,6 +62,63 @@ TermResult<void> binary_construct(BitWriter &writer, const BitSegment &segment) 
     return writer.append({source->bytes, source->offset, *width});
 }
 
+// The value of a small integer term; none for any other term (OPT0.9).
+std::optional<std::int64_t> small_value(const Term &term) {
+    if (term.kind() != TermKind::smallint) {
+        return std::nullopt;
+    }
+    const auto value = decode_integer(term.word());
+    return value ? std::optional{*value} : std::nullopt;
+}
+
+// An integer segment of at most one word: the two's complement bits of its value, its width and its byte order.
+struct WordSegment {
+    std::uint64_t bits;
+    std::size_t count;
+    bool little;
+};
+
+// The word form of an integer segment whose value and size are small integers and whose width is at most 64 bits;
+// none for every other segment, which takes the multiprecision path (OPT0.9).
+std::optional<WordSegment> word_segment(const BitSegment &segment) {
+    const auto size = small_value(segment.size);
+    const auto value = small_value(segment.value);
+    if (segment.type != abi::v1::BitType::integer || !size || !value || *size < 0 ||
+        static_cast<std::uint64_t>(*size) > 64 / segment.unit) {
+        return std::nullopt;
+    }
+    return WordSegment{static_cast<std::uint64_t>(*value), static_cast<std::size_t>(*size) * segment.unit,
+                       segment.little};
+}
+
+// Whole bytes at a byte boundary, most significant first unless little.
+void word_bytes(BitWriter &writer, const WordSegment &word) {
+    const auto bytes = word.count / 8;
+    for (std::size_t i = 0; i < bytes; ++i) {
+        const auto shift = 8 * (word.little ? i : bytes - 1 - i);
+        writer.bytes[writer.length / 8 + i] = static_cast<std::byte>(word.bits >> shift);
+    }
+    writer.length += word.count;
+}
+
+// Write the low bits of a word segment in the endian groups of BitWriter::integer (OPT0.9).
+TermResult<void> word_bits(BitWriter &writer, const WordSegment &word) {
+    const auto grown = grow(writer, word.count);
+    if (!grown) {
+        return grown;
+    }
+    if (writer.length % 8 == 0 && word.count % 8 == 0) {
+        word_bytes(writer, word);
+        return {};
+    }
+    const auto count = word.count;
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto group = i / 8 * 8;
+        const auto index = word.little ? group + std::min(std::size_t{8}, count - group) - 1 - i % 8 : count - 1 - i;
+        put(writer, ((word.bits >> index) & 1U) != 0);
+    }
+    return {};
+}
 } // namespace
 
 TermResult<void> BitWriter::append(const BitView &source) {
@@ -147,6 +205,9 @@ TermResult<void> bit_construct(BitWriter &writer, const BitSegment &segment) {
     }
     if (segment.type == Type::binary) {
         return binary_construct(writer, segment);
+    }
+    if (const auto word = word_segment(segment)) {
+        return word_bits(writer, *word);
     }
     const auto width = bit_width(segment, 0);
     if (!width) {

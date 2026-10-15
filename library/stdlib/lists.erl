@@ -21,7 +21,8 @@
     seq/2,
     seq/3,
     sort/1,
-    splitwith/2
+    splitwith/2,
+    sum/1
 ]).
 %% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
 %% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
@@ -75,7 +76,6 @@
     sublist/3,
     subtract/2,
     suffix/2,
-    sum/1,
     takewhile/2,
     ukeymerge/3,
     ukeysort/2,
@@ -262,6 +262,13 @@ partition(_, [], Satisfying, Others) ->
     {reverse(Satisfying), reverse(Others)}.
 
 %% The longest prefix whose elements satisfy Pred, and the rest (plan step 41T).
+% Sum of a list of numbers, added in order as OTP does: badarith for a non-number, function_clause for an improper
+% list (OPT0.9 bit_integers fixture).
+sum(List) -> sum(List, 0).
+
+sum([Head | Tail], Sum) -> sum(Tail, Sum + Head);
+sum([], Sum) -> Sum.
+
 splitwith(Pred, List) when is_function(Pred, 1) -> split_while(Pred, List, []).
 
 split_while(Pred, [Element | Rest] = List, Prefix) ->
@@ -436,7 +443,6 @@ subtract(_, _) -> erlang:error({not_implemented, subtract, 2}).
 suffix(Suffix, List) ->
     Delta = length(List) - length(Suffix),
     Delta >= 0 andalso lists:nthtail(Delta, List) =:= Suffix.
-sum(_) -> erlang:error({not_implemented, sum, 1}).
 ukeymerge(_, _, _) -> erlang:error({not_implemented, ukeymerge, 3}).
 ukeysort(_, _) -> erlang:error({not_implemented, ukeysort, 2}).
 umerge(_) -> erlang:error({not_implemented, umerge, 1}).
