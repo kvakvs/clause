@@ -219,6 +219,43 @@ Today all of these go through `CLAUSE_immediate_v1`, `CLAUSE_exact_v1` or
     single decrements)
   - yield only at chunk granularity
 
+### OPT0.8 Cached atom words in runtime services and literals
+
+Added 2026-10-15 (user direction) from the luerl euler profile
+([21-lib.md](21-lib.md#luerl-exampleseuler-2026-10-15)): about 21% of the samples
+were atom lookups by spelling or by descriptor, under a lock.
+
+- `AtomStorage::boolean` (`runtime/src/terms/atoms.cpp`) looks up `"true"` or
+  `"false"` in the name map under a shared lock for every comparison and
+  type-test result (8%). Keep both words fixed: they are interned when the
+  table is created and never move.
+- `erlang:get/1` interns `"undefined"` by spelling on every miss
+  (`builtins/erlang/dictionary.cpp`; luerl calls `get(luerl_itrace)` on every
+  emulator step, 8%). Use the same fixed-word table for the atoms that runtime
+  services return (`undefined`, `ok`, `error`, `true`, `false`).
+- `CLAUSE_atom_v3` → `CodeServer::atom_word` takes the code server's shared
+  lock and a descriptor map lookup for every atom literal (5%). Resolve the
+  module's atom slots once when the module is registered and let generated
+  code load the slot word without a lock (a per-module word array the
+  descriptor points to).
+- **Gate:** the euler example under `-O2`; the shares above must disappear from
+  an LLDB sample, with no other change in output.
+
+### OPT0.9 Binary construction of integer segments without multiprecision
+
+Added 2026-10-15 (user direction) from the same profile (10%).
+
+- `CLAUSE_bits_v1` builds each integer segment through
+  `BitWriter::integer(boost::multiprecision::...)` with heap allocation, even
+  for small integers that fit one word.
+- Add a word-sized path for small integers (any size up to 64 bits, both
+  endiannesses, signed or unsigned) that writes the bytes directly, and keep
+  the multiprecision path for bignums and larger sizes.
+- Avoid the temporary `std::vector` allocations of the service's argument and
+  result staging.
+- **Gate:** bit-syntax goldens (`executables_*bits*`) unchanged; the euler
+  example's `bits_service` share falls under 2% of samples.
+
 ---
 
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)

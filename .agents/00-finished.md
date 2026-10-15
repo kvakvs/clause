@@ -174,7 +174,7 @@ Windows x64 Debug 124/124 CTests and 258 quality units. Descriptors use ABI
 revision 4; the revision-2 failure channel is unchanged. Normal builds and tests
 need no OTP.
 
-## Plan 11 (steps 1–68, 41A–41S, 41ZA, 41ZB, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–14)
+## Plan 11 (steps 1–68, 41A–41S, 41ZA, 41ZB, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 41ZC, 58O–58S, 58U–58W, 62C–62E, 65A–65C, 69A, 73A–73G, 2026-10-03–15)
 
 Per-step commits are in [the step list](#plan-11-step-commits); full step text,
 criteria and evidence are in Git at those commits. Contracts in the linked
@@ -366,6 +366,12 @@ criteria and evidence are in Git at those commits. Contracts in the linked
   path (`init:get_arguments/0`, 41L), `goto` stack-frame detail ([21-lib](21-lib.md)). Test
   `executables_code_module`. Phase gate: full CTest 289/290 (known `codegen_measurements` IR size bound),
   `check-quality-all` clean.
+- **41ZC (H4):** 2026-10-15, OTP's I/O protocol ([ports](../docs/ports.md#standard-io-and-files)): the standard
+  input server and every open file's server answer `{io_request, From, ReplyAs, Request}` (`get_until` with the
+  unused rest kept: buffered on standard input, the file position moved back for a file; `get_line`, `get_chars`,
+  `put_chars`, old latin1 forms, unknown requests, OTP's exit of a file server whose function fails, opener kept);
+  `io:request/1,2`, `io:requests/1,2`. The luerl euler example (`clau.bat --project test-luerl --entry euler:run`)
+  prints OTP's output for all 10 problems. Test `executables_io_requests` (OTP golden).
 - **69A (M):** 2026-10-12, manual benchmarks against OTP ([validation](../docs/validation.md)): `benchmarks/` (6
   programs, 29 kernels, `run.py`), `make benchmark`, `make-benchmark.bat`, local history; never part of the gate.
   First run: Clause O2 20.2x slower than OTP JIT (geometric mean), sockets at par, quadratic binary appends and map
@@ -473,6 +479,7 @@ criteria and evidence are in Git at those commits. Contracts in the linked
 - <a id="step-41y1"></a>**41Y1.** `unicode` conversions — commit `[plan11] 41Y1 ...`
 - <a id="step-41y2"></a>**41Y2.** `file` gaps — commit `[plan11] 41Y2 ...`
 - <a id="step-41z"></a>**41Z.** `code` without a code server, and the luerl rerun — commit `[plan11] 41Z ...`
+- <a id="step-41zc"></a>**41ZC.** `io:request/1,2` and `io:requests/1,2` — commit `[plan11] 41ZC ...`
 - <a id="step-42"></a>**42.** Implement pid and reference identities — `59064bf`
 - <a id="step-43"></a>**43.** Run spawned processes on a cooperative executor — `f092504`
 - <a id="step-43a"></a>**43A.** Make long-running builtins interruptible — `0682b54`

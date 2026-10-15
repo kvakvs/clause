@@ -389,21 +389,91 @@ serve(Opener, Name, Modes) ->
     case reply(port_control(Port, ?OPEN, [mode_byte(Modes), Name])) of
         {ok, _} ->
             Opener ! {self(), opened, {ok, self()}},
-            loop(Port, lists:member(binary, Modes));
+            loop(Opener, Port, lists:member(binary, Modes));
         Error ->
             unlink(Opener),
             Opener ! {self(), opened, Error}
     end.
 
-loop(Port, Binary) ->
+loop(Opener, Port, Binary) ->
     receive
         {file_request, From, Ref, close} ->
             port_close(Port),
             From ! {file_reply, Ref, ok};
         {file_request, From, Ref, Request} ->
             From ! {file_reply, Ref, request(Port, Binary, Request)},
-            loop(Port, Binary)
+            loop(Opener, Port, Binary);
+        {io_request, From, ReplyAs, Request} ->
+            case io_request(Port, Binary, Request) of
+                {stop, Reason, Reply} ->
+                    % OTP's file server is not linked to the opener, so the opener outlives this exit.
+                    From ! {io_reply, ReplyAs, Reply},
+                    unlink(Opener),
+                    exit(Reason);
+                Reply ->
+                    From ! {io_reply, ReplyAs, Reply},
+                    loop(Opener, Port, Binary)
+            end
     end.
+
+% --- OTP's I/O protocol on an open file (step 41ZC) ---
+
+% Answer one I/O request as OTP's file I/O server does: the reply, or {stop, Reason, Reply} when the server must exit
+% after replying (a failing get_until function, an untranslatable put_chars).
+io_request(Port, Binary, {get_line, _, _}) ->
+    request(Port, Binary, get_line);
+io_request(Port, Binary, {get_chars, _, _, Count}) when is_integer(Count), Count >= 0 ->
+    case request(Port, Binary, {read, Count}) of
+        {ok, Data} -> Data;
+        Other -> Other
+    end;
+io_request(Port, Binary, {get_until, Encoding, _, M, F, Args}) ->
+    until(Port, Binary, {Encoding, M, F, Args}, []);
+io_request(Port, Binary, {put_chars, Encoding, M, F, A}) ->
+    case catch apply(M, F, A) of
+        {'EXIT', Reason} -> {stop, Reason, {error, F}};
+        Chars -> io_request(Port, Binary, {put_chars, Encoding, Chars})
+    end;
+io_request(Port, _, {put_chars, Encoding, Chars}) ->
+    case unicode:characters_to_binary(Chars, Encoding, latin1) of
+        Bytes when is_binary(Bytes) ->
+            ok_reply(reply(port_control(Port, ?WRITE, Bytes)));
+        _ ->
+            {stop, no_translation, {error, {no_translation, Encoding, latin1}}}
+    end;
+io_request(_, _, Request) ->
+    {error, {request, Request}}.
+
+% Feed 4 KiB chunks and then eof to M:F until it is done; the characters it leaves over are read again next.
+until(Port, Binary, Until, Cont) ->
+    case reply(port_control(Port, ?READ, <<4096:64>>)) of
+        {ok, Bytes} -> apply_until(Port, Binary, Until, Cont, binary_to_list(Bytes));
+        eof -> apply_until(Port, Binary, Until, Cont, eof);
+        {error, Reason} = Error -> {stop, Reason, Error}
+    end.
+
+apply_until(Port, Binary, {Encoding, M, F, Args} = Until, Cont, Data) ->
+    case catch apply(M, F, [Cont, Data | Args]) of
+        {done, Result, Rest} ->
+            unread(Port, Rest),
+            until_result(Binary, Encoding, Result);
+        {more, NewCont} ->
+            until(Port, Binary, Until, NewCont);
+        {'EXIT', Reason} ->
+            {stop, Reason, {error, F}}
+    end.
+
+% A list result of a file in binary mode is returned as a binary, as OTP's io_lib:get_until casts it.
+until_result(true, unicode, Result) when is_list(Result) -> unicode:characters_to_binary(Result);
+until_result(true, _, Result) when is_list(Result) -> iolist_to_binary(Result);
+until_result(_, _, Result) -> Result.
+
+% Move the file position back over the bytes of the characters M:F did not use.
+unread(Port, Rest) when is_list(Rest), Rest =/= [] ->
+    Size = byte_size(unicode:characters_to_binary(Rest, latin1)),
+    port_control(Port, ?POSITION, <<1, (-Size):64/signed>>);
+unread(_, _) ->
+    ok.
 
 % Answer one request of an open file.
 request(Port, Binary, {read, Size}) ->

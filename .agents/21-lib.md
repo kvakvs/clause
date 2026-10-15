@@ -6,6 +6,66 @@ behave differently from OTP. Each one is a reason the luerl executable produces
 no output or fails. Later steps reimplement them or decide what to do about
 them.
 
+## luerl `examples/euler` (2026-10-15)
+
+Command: `clau.bat --project test-luerl --entry euler:run` (`test-luerl.toml`
+now also lists `references/luerl/examples/euler/*.erl`), run with the current
+directory at `references/luerl/examples/euler/`, because `euler:run/0` loads
+`./problem_00N.lua`. The program runs 10 Lua files through
+`luerl:loadfile/2` and `luerl:call_chunk/3`.
+
+- **Missing (done in 41ZC, 2026-10-15; the repository build now prints OTP's output for all 10 problems):**
+  `io:request/2` (stub). The repository build stops at once with
+  `uncaught exception error: {not_implemented,request,2}`. It is reached from
+  `luerl_comp:file/2` → `luerl_io:with_token_file_fd/3`:
+  `io:request(Fd, {get_until,latin1,'',luerl_scan,tokens,[Line]})` on a
+  `file:open/2` pid. Before that call, `io:get_line/2` and `file:position/2` on
+  the same pid already work. So any `luerl:loadfile`/`dofile`/`evalfile` hits
+  this, not only `io.read`.
+  - What the request must do (OTP `file_io_server`): read characters, then
+    call `M:F(Cont, Chars | eof, ExtraArgs...)`, starting with `Cont = []`.
+    `{more, Cont1}` asks for more data. `{done, Result, Rest}` returns
+    `Result` and keeps `Rest` for the next read. In list mode `Chars` is a
+    list; `Encoding` applies.
+- **With a stand-in:** in scratch only, a copy of `library/stdlib/io.erl` as a
+  project source, with `request(Pid, {get_until,...})` feeding 4 KiB
+  `file:read/2` chunks and then `eof`, dropping `Rest`. All 10 problems then
+  print exactly OTP's output, except the `~pus` timings. The `232792560.0` and
+  `32.0` float returns match OTP too. No other library gap was reached.
+- **Speed (not a library gap; recorded for planning):** the results are
+  correct but much slower than OTP 29 with luerl's rebar beams.
+
+  | Build | Total | problem_004 | problem_009 | problem_010 |
+  | --- | --- | --- | --- | --- |
+  | OTP 29 (JIT) | 0.35 s | 20.8 ms | 77 ms | 17.6 ms |
+  | Clause `-O0` (default) | 78 s | 7.28 s | 49.6 s | 17.7 s |
+  | Clause `-O2` | 21 s | 3.30 s | 12.4 s | 4.32 s |
+
+  The OTP `cprof` count for problem_004 is about 3 M calls, so `-O2` costs
+  about 1 µs per Erlang call. The slowdown grows with run length (45× on
+  problem_008, 160× on problem_004/009, 245× on problem_010).
+
+  An LLDB stack sampler on the `-O2 -g` build took 146 samples of the
+  scheduler thread over the whole run (script kept in the session scratchpad,
+  not in the repository). Inclusive shares, which overlap:
+
+  | Share | Where | Why it is hot |
+  | --- | --- | --- |
+  | 23% | `CLAUSE_inspect_v1` → `TermAccess::admit` (`HeapStorage::alive`, `AtomStorage::lookup`) | type tests and element reads go through a runtime call that fully validates the term |
+  | 21% | `CLAUSE_immediate_v1` (comparisons, arithmetic) | 8% is `AtomStorage::boolean` (`runtime/src/terms/atoms.cpp:29`), which looks up `"true"`/`"false"` in the name map under a shared lock for every comparison result |
+  | 13% | `CLAUSE_construct_v1` | tuple/list building through a `std::vector` plus `malloc` per call |
+  | 11% | `structural_order` | `ttdict:find` key comparisons (`==`, `<`) on binaries and atoms, through `TermAccess::object` |
+  | 10% | `CLAUSE_bits_v1` | binary construction with integer segments goes through `boost::multiprecision` `BitWriter::integer` plus heap allocation |
+  | 9% | `enter_builtin` → `call_builtin_portion` | mostly `erlang:get/1`: luerl's `?ITRACE_DO` evaluates `get(luerl_itrace)` on every emulator step, and the miss path interns `"undefined"` by spelling (`runtime/src/builtins/erlang/dictionary.cpp:36`) |
+  | 5% | `CLAUSE_atom_v3` → `CodeServer::atom_word` | every atom literal takes a shared lock and a descriptor map lookup |
+  | 8% | `operator new` / `RtlAllocateHeap` | temporaries inside the services above |
+  | 3% | `ProcessHeap::collect` | GC is not the bottleneck |
+
+  The cheap fixes are to cache the `true`/`false`/`undefined` words, cache
+  atom-literal words per module, and avoid temporary vectors. The structural
+  fix is to inline type tests, element access, small-integer arithmetic and
+  comparisons into generated code instead of calling a validating service.
+
 ## Status after phases H3, H4 and H5 (2026-10-14, step 41S)
 
 Every row below is done. Rerun after 41ZB (`re`) and 41S (`prim_eval`), a cold
@@ -124,6 +184,7 @@ snippets. "Kind" values:
 | 22 | `code_server:call/1` | otp-path | same error path: `code` sends to the registered `code_server`, which Clause never starts → `badarg` | any `io_lib:format` error becomes `badarg` | done (41Z) |
 | 23 | `init:get_arguments/0` | stub | `erl_features:init_features/0` (same chain as 18) | Lua syntax-error message fails | done (41L) |
 | 24 | `lists:filtermap/2`, `lists:uniq/1` | stub | `erl_features:init_features/0` after row 23 | Lua syntax-error message fails | done (41L) |
+| 25 | `io:request/2` (`get_until` on a file pid) | stub | `luerl_io:with_token_file_fd/3` from `luerl:loadfile` (euler example, 2026-10-15) | **every Lua file load fails** | done (41ZC) |
 
 Builtins the trace showed as fine: `io:format/1,2`, `io:put_chars/1` and
 `os:getenv/1` are runtime builtins, even though `library/*.erl` keeps stubs
@@ -157,7 +218,7 @@ These are stubs or NIF stubs that luerl source calls directly. Expect them next:
 - [x] `binary:split/2,3` (41W)
 - [x] `file:read_file_info/1,2`, `file:write_file/3` (`dofile`/`loadfile`) (41Y2)
 - [x] `io:fwrite/1,2,3` (41U)
-- [ ] `io:request/2` (`io.read`)
+- [x] `io:request/2` (`io.read`; also reached by `loadfile`, row 25) (41ZC)
 - [x] `lists:join/2`, `lists:keymember/3`, `lists:keysearch/3` (41T)
 - [x] `maps:is_key/2`, `maps:remove/2` (41X)
 - [x] `math:acos/1`, `asin/1`, `atan/1`, `atan2/2`, `cosh/1`, `log10/1`, `sinh/1`,
@@ -184,5 +245,10 @@ These are stubs or NIF stubs that luerl source calls directly. Expect them next:
 7. [x] (41Z) **`code_server` absence on `io_lib:format`'s error path**: either provide a
    minimal `code:ensure_modules_loaded/1` (all modules are linked in), or shadow
    `io_lib:test_modules_loaded/3`.
-8. [ ] (41ZA, 41ZB) **`re`**: regex engine in the runtime, stock PCRE2 10.47 (decided 2026-10-14).
+8. [x] (41ZA, 41ZB) **`re`**: regex engine in the runtime, stock PCRE2 10.47 (decided 2026-10-14).
    luerl needs it only for `os.date`, which could also be shadowed.
+9. [x] (41ZC) **`io:request/2,1` `get_until`** on file pids, with `Rest` kept in the file
+   server (row 25), so that `luerl:loadfile` works. Also `io:requests/1,2`.
+   Black-box test idea: the euler example's flow through a small project fixture.
+10. [ ] **Generated-code speed** (euler section): cache the boolean,
+    `undefined` and atom-literal words first, then inline the common services.

@@ -141,7 +141,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 | I3. Inference cache for library directories | [58U](00-finished.md#step-58u)–[58W](00-finished.md#step-58w) | F29, D07 | done |
 | H3. Drop-in replacements for OTP runtime modules | [41I](00-finished.md#step-41i)–[41S](00-finished.md#step-41s) (41K1, 41K2 added) | F36, D01 | done |
 | H5. Regular expressions (`re`) | [41ZA](00-finished.md#step-41za), [41ZB](00-finished.md#step-41zb) | F36 | done |
-| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](00-finished.md#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2) | F36, F05 | done |
+| H4. Library functions luerl reaches | [41T](00-finished.md#step-41t)–[41Z](00-finished.md#step-41z), [41M1](00-finished.md#step-41m1), [41M2](00-finished.md#step-41m2), [41ZC](00-finished.md#step-41zc) | F36, F05 | done |
 | M. Validation closure | [63](00-finished.md#step-63)–[70](#step-70), [65A](00-finished.md#step-65a), [65B](00-finished.md#step-65b), [65C](00-finished.md#step-65c), [69A](00-finished.md#step-69a) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
 | N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
 | N2. Parse transforms | [73A](00-finished.md#step-73a)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
@@ -152,7 +152,7 @@ Completed steps link to [the plan 11 record](00-finished.md#plan-11-step-commits
 ## Completed steps
 
 Moved to [00-finished.md](00-finished.md#plan-11-step-commits) (step, title and
-commit for 1–68, 41A–41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
+commit for 1–68, 41A–41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 41ZC, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and
 evidence are in Git at those commits. The anchors below keep older links to
 this file working.
 
@@ -349,7 +349,8 @@ table) and [41M2](00-finished.md#step-41m2) (the builtins), both in phase H4.
 Added and done 2026-10-14 (user direction) from [the luerl library ledger](21-lib.md), steps 41T–41Z with 41M split
 into 41M1/41M2 and 41Y into 41Y1/41Y2: [finished work](00-finished.md#step-41t). Library functions are C++ builtins
 of their module; fun-taking functions stay Erlang. `re` (ledger row 17) came with H5; `init:get_arguments/0` came with
-[41L](00-finished.md#step-41l).
+[41L](00-finished.md#step-41l). [41ZC](00-finished.md#step-41zc) (2026-10-15) added OTP's I/O protocol for the euler
+example.
 
 ## H5. Regular expressions (`re`)
 

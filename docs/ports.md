@@ -307,6 +307,23 @@ Step 57E.
   `read/2`, `read_line/1`, `write/2`, `position/2` and `io:get_line/2`,
   `io:get_chars/3` on it are requests to that server; after `close/1`
   requests return `{error, terminated}` and `close/1` stays `ok`.
+- OTP's I/O protocol (plan step 41ZC): the standard input server and every
+  open file's server answer `{io_request, From, ReplyAs, Request}` with
+  `{io_reply, ReplyAs, Reply}`, which `io:request/1,2` and `io:requests/1,2`
+  send (`standard_io` and `user` name the standard input server, another
+  atom a registered process; `{error, arguments}` when it is not registered,
+  `{error, calling_self}` for the caller itself). Requests: `get_until`
+  (`M:F(Cont, Chars | eof, Extra...)` from `Cont = []`, fed what is buffered
+  or 4 KiB file chunks until `{done, Result, Rest}`; `Rest` is read again by
+  the next request: kept in the buffer, or for a file the position moves
+  back over it), `get_line`, `get_chars`, `put_chars` (characters or `M:F(A)`),
+  the old forms without an encoding (latin1), and `{requests, List}` (in
+  order, stopping at the first `{error, _}`). Characters are bytes, as above;
+  a binary-mode file returns a `get_until` list result as a binary. Others get
+  `{error, {request, Request}}`. A failing `get_until` or `put_chars`
+  function makes a file's server reply `{error, Function}` and exit with the
+  failure, as OTP's does; the opener lives on (OTP's file server is not
+  linked to it). Input requests on standard input write their prompt.
 - Directories, links and copies (plan step 41P): `get_cwd/0` spells the current directory as OTP does (forward
   slashes, a lowercase drive letter), `get_cwd/1` takes a Windows drive (`enotsup` elsewhere); `set_cwd/1` changes
   it for the whole program; `read_link/1`, `read_link_all/1` (`einval` for a path that is not a link),

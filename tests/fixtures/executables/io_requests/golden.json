@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "entry": "io_requests",
+  "runs": [
+    {
+      "args": [
+        "file"
+      ],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "get_until {dot,\"one.\"}\nget_line \" two.\\n\"\nget_until across lines {line,\"three\\nfour.\"}\nget_chars \" t\"\nold get_until {eof,\"ail\"}\nget_until at eof {eof,[]}\nget_line at eof eof\nunknown {error,{request,{no_such_request,1}}}\nrequests eof\nbinary get_until {dot,\"one.\"}\nbinary get_line <<\" two.\\n\">>\nput_chars ok\nput_chars mfa ok\nold put_chars ok\nrequests stop at error {error,{request,{bad}}}\nwritten {ok,<<\"written\\nput by mfa\\nold\\na\\n\">>}\nfailing get_until {error,fail}\nfile server exit failed\nread after exit {error,terminated}\nio_requests: ok\n"
+    },
+    {
+      "args": [
+        "stdin"
+      ],
+      "stdin": "alpha. beta\ngamma.rest of line\nnext line\nxyzw tail",
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "get_until {dot,\"alpha.\"}\nget_line \" beta\\n\"\nget_until again {dot,\"gamma.\"}\nio:get_line \"rest of line\\n\"\nget_chars \"nex\"\nget_until at eof {eof,\"t line\\nxyzw tail\"}\nout\nput_chars ok\nunregistered {error,arguments}\ncalling self {error,calling_self}\nio_requests: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "io_requests.erl": "4cbfb9ba6270ce4612e2772ee5b7d2cfe28a86bb8430a759a91f49576142c7e6"
+  }
+}

@@ -1,5 +1,7 @@
 -module(io).
--export([get_line/1, get_line/2, get_chars/2, get_chars/3]).
+-export([
+    get_line/1, get_line/2, get_chars/2, get_chars/3, request/1, request/2, requests/1, requests/2
+]).
 %% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
 %% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
 -export([
@@ -34,10 +36,6 @@
     read/2,
     read/3,
     read/4,
-    request/1,
-    request/2,
-    requests/1,
-    requests/2,
     rows/0,
     rows/1,
     scan_erl_exprs/1,
@@ -57,14 +55,15 @@
 
 % Input functions of the project-owned io module (docs/library.md, docs/ports.md#standard-io-and-files); io:format/1,2
 % and io:put_chars/1 are builtins of the runtime. Standard input is read by one server process, registered as
-% clause_stdin, which owns an {fd, 0, 1} port.
+% clause_stdin, which owns an {fd, 0, 1} port. It and every open file's server also answer OTP's I/O protocol
+% ({io_request, From, ReplyAs, Request}), which io:request/1,2 and io:requests/1,2 send.
 
 % Write Prompt, then read a line of standard input with its newline; the rest without one at the end, then eof.
 get_line(Prompt) -> get_line(standard_io, Prompt).
 
 get_line(standard_io, Prompt) ->
     prompt(Prompt),
-    request(get_line);
+    stdin_request(get_line);
 get_line(File, Prompt) when is_pid(File) ->
     prompt(Prompt),
     file_request(File, get_line).
@@ -74,7 +73,7 @@ get_chars(Prompt, Count) -> get_chars(standard_io, Prompt, Count).
 
 get_chars(standard_io, Prompt, Count) when is_integer(Count), Count >= 0 ->
     prompt(Prompt),
-    request({get_chars, Count});
+    stdin_request({get_chars, Count});
 get_chars(File, Prompt, Count) when is_pid(File), is_integer(Count), Count >= 0 ->
     prompt(Prompt),
     case file:read(File, Count) of
@@ -98,7 +97,7 @@ file_request(File, Request) ->
     end.
 
 % Ask the standard input server, starting it on first use.
-request(Request) ->
+stdin_request(Request) ->
     Server = server(),
     Ref = monitor(process, Server),
     Server ! {stdin_request, self(), Ref, Request},
@@ -109,6 +108,59 @@ request(Request) ->
         {'DOWN', Ref, process, Server, _} ->
             {error, terminated}
     end.
+
+% --- OTP's I/O protocol (step 41ZC) ---
+
+% Send one I/O request, in OTP's request format, to an I/O server: standard_io and user name the standard input
+% server, other names are looked up as registered processes. {requests, List} runs its requests in order.
+request(Request) -> request(standard_io, Request).
+
+request(standard_io, Request) ->
+    request(server(), Request);
+request(user, Request) ->
+    request(server(), Request);
+request(Pid, _) when Pid =:= self() -> {error, calling_self};
+request(Pid, {requests, Requests}) when is_pid(Pid) -> requests(Pid, Requests);
+request(Pid, Request) when is_pid(Pid) -> execute(Pid, io_request(Request));
+request(Name, Request) when is_atom(Name) ->
+    case whereis(Name) of
+        undefined -> {error, arguments};
+        Pid -> request(Pid, Request)
+    end.
+
+% Run I/O requests in order, stopping at the first {error, _} reply; the last reply.
+requests(Requests) -> requests(standard_io, Requests).
+
+requests(Io, [Request]) ->
+    request(Io, Request);
+requests(Io, [Request | Rest]) ->
+    case request(Io, Request) of
+        {error, _} = Error -> Error;
+        _ -> requests(Io, Rest)
+    end;
+requests(_, []) ->
+    ok.
+
+execute(Pid, Request) ->
+    Ref = monitor(process, Pid),
+    Pid ! {io_request, self(), Ref, Request},
+    receive
+        {io_reply, Ref, Reply} ->
+            demonitor(Ref, [flush]),
+            Reply;
+        {'DOWN', Ref, process, Pid, _} ->
+            {error, terminated}
+    end.
+
+% Requests without an encoding are latin1 requests, as OTP's I/O servers read them.
+io_request({put_chars, Chars}) -> {put_chars, latin1, Chars};
+io_request({put_chars, M, F, A}) -> {put_chars, latin1, M, F, A};
+io_request({get_chars, Prompt, Count}) -> {get_chars, latin1, Prompt, Count};
+io_request({get_line, Prompt}) -> {get_line, latin1, Prompt};
+io_request({get_until, Prompt, M, F, Args}) -> {get_until, latin1, Prompt, M, F, Args};
+io_request(Request) -> Request.
+
+% --- The standard input server ---
 
 % The standard input server; two first users race to register it, the loser's server stops.
 server() ->
@@ -139,6 +191,7 @@ serve(Port, Buffer, Ended, Pending) ->
         {Waiting, NewBuffer} -> wait(Port, NewBuffer, Ended, Waiting)
     end.
 
+% Pending requests are {From, Ref, ReplyTag, Request}; ReplyTag is stdin_reply or io_reply.
 wait(Port, Buffer, Ended, Pending) ->
     receive
         {Port, {data, Data}} ->
@@ -146,22 +199,50 @@ wait(Port, Buffer, Ended, Pending) ->
         {Port, eof} ->
             serve(Port, Buffer, true, Pending);
         {stdin_request, From, Ref, Request} ->
-            serve(Port, Buffer, Ended, Pending ++ [{From, Ref, Request}])
+            serve(Port, Buffer, Ended, Pending ++ [{From, Ref, stdin_reply, Request}]);
+        {io_request, From, Ref, Request} ->
+            serve(Port, Buffer, Ended, Pending ++ [{From, Ref, io_reply, accept(Request)}])
     end.
 
-% Answer the oldest requests the buffer can; the rest wait.
+% Answer the oldest requests the buffer can; the rest wait. A get_until request that consumed the buffer but needs
+% more input stays first with its new continuation, and gets eof at once when input already ended.
 answer([], Buffer, _) ->
     {[], Buffer};
-answer([{From, Ref, Request} | Rest] = Pending, Buffer, Ended) ->
+answer([{From, Ref, Tag, Request} | Rest] = Pending, Buffer, Ended) ->
     case take(Request, Buffer, Ended) of
         wait ->
             {Pending, Buffer};
+        {more, Continued, NewBuffer} ->
+            answer([{From, Ref, Tag, Continued} | Rest], NewBuffer, Ended);
         {Reply, NewBuffer} ->
-            From ! {stdin_reply, Ref, Reply},
+            From ! {Tag, Ref, Reply},
             answer(Rest, NewBuffer, Ended)
     end.
 
+% An I/O protocol request as the server's own request: input requests write their prompt now, once.
+accept({get_line, _, Prompt}) ->
+    prompt(Prompt),
+    get_line;
+accept({get_chars, _, Prompt, Count}) when is_integer(Count), Count >= 0 ->
+    prompt(Prompt),
+    {get_chars, Count};
+accept({get_until, _, Prompt, M, F, Args}) ->
+    prompt(Prompt),
+    {get_until, M, F, Args, []};
+accept({put_chars, _, Chars}) ->
+    {put_chars, Chars};
+accept({put_chars, _, M, F, A}) ->
+    {put_chars, {M, F, A}};
+accept(Request) ->
+    {unknown, Request}.
+
 % The reply to one request from the buffer, or wait for more input.
+take({put_chars, Chars}, Buffer, _) ->
+    {put(Chars), Buffer};
+take({unknown, Request}, Buffer, _) ->
+    {{error, {request, Request}}, Buffer};
+take({get_until, M, F, Args, Cont}, Buffer, Ended) ->
+    until(M, F, Args, Cont, Buffer, Ended);
 take(_, <<>>, true) ->
     {eof, <<>>};
 take(get_line, Buffer, Ended) ->
@@ -174,6 +255,46 @@ take({get_chars, Count}, Buffer, Ended) when byte_size(Buffer) >= Count; Ended -
     split(Buffer, min(Count, byte_size(Buffer)));
 take({get_chars, _}, _, _) ->
     wait.
+
+% Feed the whole buffer, or eof once input ended, to M:F; its rest characters go back in front of the buffer.
+until(_, _, _, _, <<>>, false) ->
+    wait;
+until(M, F, Args, Cont, Buffer, Ended) ->
+    Data =
+        case Buffer of
+            <<>> when Ended -> eof;
+            _ -> binary_to_list(Buffer)
+        end,
+    try apply(M, F, [Cont, Data | Args]) of
+        {done, Result, Rest} -> {Result, rest_bytes(Rest)};
+        {more, NewCont} -> {more, {get_until, M, F, Args, NewCont}, <<>>}
+    catch
+        _:_ -> {{error, F}, <<>>}
+    end.
+
+% Bytes of the characters a get_until function left over; eof leaves none.
+rest_bytes(Rest) when is_list(Rest); is_binary(Rest) ->
+    try
+        iolist_to_binary(Rest)
+    catch
+        error:badarg -> unicode:characters_to_binary(Rest)
+    end;
+rest_bytes(_) ->
+    <<>>.
+
+% Write a put_chars request's characters: chardata, or the result of M:F(A...).
+put({M, F, A}) ->
+    try apply(M, F, A) of
+        Chars -> put(Chars)
+    catch
+        _:_ -> {error, F}
+    end;
+put(Chars) ->
+    try io:put_chars(Chars) of
+        ok -> ok
+    catch
+        error:badarg -> {error, put_chars}
+    end.
 
 split(Buffer, Size) ->
     <<Taken:Size/binary, Rest/binary>> = Buffer,
@@ -218,9 +339,6 @@ read(_) -> erlang:error({not_implemented, read, 1}).
 read(_, _) -> erlang:error({not_implemented, read, 2}).
 read(_, _, _) -> erlang:error({not_implemented, read, 3}).
 read(_, _, _, _) -> erlang:error({not_implemented, read, 4}).
-request(_, _) -> erlang:error({not_implemented, request, 2}).
-requests(_) -> erlang:error({not_implemented, requests, 1}).
-requests(_, _) -> erlang:error({not_implemented, requests, 2}).
 rows() -> erlang:error({not_implemented, rows, 0}).
 rows(_) -> erlang:error({not_implemented, rows, 1}).
 scan_erl_exprs(_) -> erlang:error({not_implemented, scan_erl_exprs, 1}).
