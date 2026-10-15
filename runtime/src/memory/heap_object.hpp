@@ -23,6 +23,9 @@ struct TermAccess {
     static TermResult<HeapObject> object(const Term &value) noexcept;
     // Retain the parent's backing when resolving a checked child slot.
     static TermResult<Term> child(const Term &parent, Word value) noexcept;
+    // The head and tail words of the cons cell a list word names in `storage`; empty when it names none there. A
+    // spine walk reads cells this way after validating the list once (word-level walks).
+    static std::span<const Word> cons_cell(HeapStorage &storage, Word value) noexcept;
     // Check that value is a live, current term or an immediate; expiration and staleness stay distinct.
     static TermResult<void> validate(const Term &value) noexcept;
 

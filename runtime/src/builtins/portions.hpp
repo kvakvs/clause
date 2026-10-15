@@ -1,5 +1,7 @@
 #pragma once
+#include "../memory/heap_object.hpp"
 #include "support.hpp"
+#include <clause/abi/v1.hpp>
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
@@ -24,14 +26,28 @@ inline Term term_of(ProcessContext &context, Word word) { return need(Term::from
 Word count_word(ProcessContext &context, std::size_t count);
 std::size_t count_of(ProcessContext &context, Word word);
 
-// Walk at most `budget` cells of `list`, passing each head to `visit`; `list` stops at the first cell not walked.
-// Returns the cells walked.
+// Walk at most `budget` cells of `list`, passing each head word to `visit`; `list` stops at the first cell not
+// walked. Returns the cells walked. The list is validated once and its cells are read as words, with no Term per
+// cell (word-level walks).
 template <typename Visit> std::size_t walk(Term &list, std::size_t budget, Visit visit) {
-    std::size_t walked = 0;
-    for (; walked < budget && list.is_cons(); ++walked) {
-        visit(need(list.head()));
-        list = need(list.tail());
+    if (!list.is_cons()) {
+        return 0;
     }
+    if (const auto valid = detail::TermAccess::validate(list); !valid) {
+        throw BuiltinFailure{.term = valid.error()};
+    }
+    auto &storage = *detail::TermAccess::storage(list);
+    auto rest = list.word();
+    std::size_t walked = 0;
+    for (; walked < budget && (rest & abi::v1::primary_mask) == abi::v1::list_tag; ++walked) {
+        const auto cell = detail::TermAccess::cons_cell(storage, rest);
+        if (cell.empty()) {
+            throw BuiltinFailure{.term = TermError::wrong_owner};
+        }
+        visit(cell[0]);
+        rest = cell[1];
+    }
+    list = need(detail::TermAccess::admit(rest, storage));
     return walked;
 }
 

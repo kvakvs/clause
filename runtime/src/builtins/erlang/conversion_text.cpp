@@ -1,10 +1,12 @@
 #include "conversion_text.hpp"
 #include "../float_text.hpp"
+#include "../portions.hpp"
 #include "../text.hpp"
 #include <algorithm>
 #include <charconv>
 #include <clause/abi/equality.hpp>
 #include <cmath>
+#include <limits>
 
 namespace clause::runtime::builtins {
 namespace {
@@ -213,12 +215,10 @@ double magnitude(std::span<const unsigned char> text) {
 } // namespace
 
 TermResult<Term> char_list(ProcessContext &context, std::u32string_view codes) {
-    std::vector<Term> items;
-    items.reserve(codes.size());
-    for (const auto code : codes) {
-        items.push_back(*Term::from_word(*abi::v1::NativeIntegerEncoding::encode(code)));
-    }
-    return TermFactory(context).list(items);
+    std::vector<Word> items(codes.size());
+    std::ranges::transform(codes, items.begin(),
+                           [](char32_t code) { return *abi::v1::NativeIntegerEncoding::encode(code); });
+    return TermFactory(context).list_words(items, Term::from_word(abi::v1::empty_list).value());
 }
 
 TermResult<Term> byte_list(ProcessContext &context, std::string_view text) {
@@ -235,18 +235,19 @@ Term next(Term &list) {
 
 std::expected<std::string, NameError> atom_name(Term list) {
     std::string text;
-    for (std::size_t count = 0; !list.is_nil(); ++count) {
-        if (!list.is_cons()) {
-            return std::unexpected(NameError::badarg);
+    bool characters = true;
+    walk(list, MAX_ATOM_CHARACTERS, [&](Word head) {
+        const auto code = small(head);
+        characters = characters && code && unicode_character(*code);
+        if (characters) {
+            encode(static_cast<char32_t>(*code), text);
         }
-        if (count == MAX_ATOM_CHARACTERS) {
-            return std::unexpected(NameError::too_long);
-        }
-        const auto code = small(next(list).word());
-        if (!code || !unicode_character(*code)) {
-            return std::unexpected(NameError::badarg);
-        }
-        encode(static_cast<char32_t>(*code), text);
+    });
+    if (!characters || !(list.is_nil() || list.is_cons())) {
+        return std::unexpected(NameError::badarg);
+    }
+    if (list.is_cons()) {
+        return std::unexpected(NameError::too_long);
     }
     return text;
 }
@@ -265,14 +266,15 @@ unsigned base_of(std::int64_t base) {
 
 std::optional<std::vector<unsigned char>> byte_codes(Term list) {
     std::vector<unsigned char> codes;
-    while (list.is_cons()) {
-        const auto code = small(next(list).word());
-        if (!code || *code < 0 || *code > 255) {
-            return std::nullopt;
+    bool bytes = true;
+    walk(list, std::numeric_limits<std::size_t>::max(), [&](Word head) {
+        const auto code = small(head);
+        bytes = bytes && code && *code >= 0 && *code <= 255;
+        if (bytes) {
+            codes.push_back(static_cast<unsigned char>(*code));
         }
-        codes.push_back(static_cast<unsigned char>(*code));
-    }
-    return list.is_nil() ? std::optional{std::move(codes)} : std::nullopt;
+    });
+    return bytes && list.is_nil() ? std::optional{std::move(codes)} : std::nullopt;
 }
 
 TermResult<Term> integer_term(ProcessContext &context, std::span<const unsigned char> text, unsigned base) {

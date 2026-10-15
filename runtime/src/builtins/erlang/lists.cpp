@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <boost/container/small_vector.hpp>
 #include <clause/abi/equality.hpp>
+#include <optional>
 #include <span>
 
 // The list builtins that run in bounded portions (docs/builtins.md#portions): length/1, '++'/2 and '--'/2. Each
@@ -27,7 +29,7 @@ constexpr BuiltinFrame SUBTRACT_SCAN_FRAME = continuation_frame(&guarded<subtrac
 // Count the cells of `rest` in portions, `counted` already counted; an improper list is badarg.
 Word count(ProcessContext &context, Term rest, std::size_t counted) {
     auto &stack = context.stack();
-    const auto walked = walk(rest, stack.budget(), [](const Term &) {});
+    const auto walked = walk(rest, stack.budget(), [](Word) {});
     stack.spend(walked);
     counted += walked;
     if (rest.is_cons()) {
@@ -57,7 +59,7 @@ Word length_continue(ProcessContext &context, Arguments state) {
 Word append_portion(ProcessContext &context, Term rest, const Term &right) {
     auto &stack = context.stack();
     auto &words = trap_state<ListState>(context).words();
-    const auto walked = walk(rest, stack.budget(), [&](const Term &head) { words.push_back(head.word()); });
+    const auto walked = walk(rest, stack.budget(), [&](Word head) { words.push_back(head); });
     stack.spend(walked);
     if (rest.is_cons()) {
         stack.trap(APPEND_FRAME.frame, std::array{rest.word(), right.word()});
@@ -69,6 +71,23 @@ Word append_portion(ProcessContext &context, Term rest, const Term &right) {
     return build_list(context, right);
 }
 
+// Left lists up to this many cells are copied at once, without portion state (short appends).
+constexpr std::size_t SHORT_APPEND = 64;
+
+// A short Left copied onto Right in one step; none when Left is longer and needs portions.
+std::optional<Word> short_append(ProcessContext &context, Term rest, const Word right) {
+    boost::container::small_vector<Word, SHORT_APPEND> words;
+    const auto walked = walk(rest, SHORT_APPEND, [&](Word head) { words.push_back(head); });
+    if (rest.is_cons()) {
+        return std::nullopt;
+    }
+    if (!rest.is_nil()) {
+        bad_argument();
+    }
+    context.stack().spend(2 * walked);
+    return need(TermFactory(context).list_words(words, term_of(context, right))).word();
+}
+
 // Left ++ Right: Left must be a proper list; [] ++ Right is Right whatever it is.
 Word append(ProcessContext &context, Arguments arguments) {
     const auto left = term_of(context, arguments[0]);
@@ -78,6 +97,9 @@ Word append(ProcessContext &context, Arguments arguments) {
     }
     if (!left.is_cons()) {
         bad_argument();
+    }
+    if (const auto copied = short_append(context, left, right.word())) {
+        return *copied;
     }
     context.stack().keep_trap_state(std::make_unique<ListState>());
     return append_portion(context, left, right);
@@ -191,11 +213,11 @@ Word scan(ProcessContext &context, const Term &left, Term rest) {
     auto &state = trap_state<SubtractState>(context);
     // Each element costs the comparisons of a binary search among Right's elements.
     const auto cost = state.size == 0 ? 1 : 1 + static_cast<std::size_t>(std::bit_width(state.size));
-    const auto walked = walk(rest, std::max<std::size_t>(stack.budget() / cost, 1), [&](const Term &head) {
-        if (state.size != 0 && consume(context, state, head.word())) {
+    const auto walked = walk(rest, std::max<std::size_t>(stack.budget() / cost, 1), [&](Word head) {
+        if (state.size != 0 && consume(context, state, head)) {
             state.changed = true;
         } else {
-            state.words().push_back(head.word());
+            state.words().push_back(head);
         }
     });
     stack.spend(walked * cost);
@@ -240,7 +262,7 @@ Word collect(ProcessContext &context, const Term &left, Term rest) {
     auto &stack = context.stack();
     auto &state = trap_state<SubtractState>(context);
     auto &words = state.words();
-    const auto walked = walk(rest, stack.budget(), [&](const Term &head) { words.push_back(head.word()); });
+    const auto walked = walk(rest, stack.budget(), [&](Word head) { words.push_back(head); });
     stack.spend(walked);
     if (rest.is_cons()) {
         stack.trap(SUBTRACT_COLLECT_FRAME.frame, std::array{left.word(), rest.word()});

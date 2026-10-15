@@ -1,10 +1,13 @@
 #pragma once
 #include "terms.hpp"
 #include <array>
+#include <atomic>
 #include <clause/abi/v1.hpp>
 #include <map>
+#include <memory>
 #include <optional>
 #include <shared_mutex>
+#include <vector>
 
 namespace clause::runtime {
 // Immutable host pin; spellings survive runtime teardown without retaining a process or code image.
@@ -19,7 +22,8 @@ struct AtomValue final {
 };
 
 // Runtime-owned table shared by every scheduler worker; entries are retained until runtime teardown.
-// Lookups take a shared lock, interning a new spelling an exclusive one (docs/terms.md#atoms).
+// Spelling lookups take a shared lock, interning a new spelling an exclusive one; admitting an atom word reads a
+// lock-free index by atom number (docs/terms.md#atoms).
 class AtomStorage final {
   public:
     static constexpr std::uint32_t hard_limit = std::uint32_t{1} << 26;
@@ -59,6 +63,17 @@ class AtomStorage final {
     std::map<Word, std::shared_ptr<const AtomValue>> words_;
     // The fixed entries in number order, found without the lock (OPT0.2A, OPT0.8).
     std::array<std::shared_ptr<const AtomValue>, fixed_atoms> fixed_;
+    // The entries of this runtime by atom number, for admission without the lock (cheap term access): chunks of
+    // slots naming the stable records in words_, each chunk and slot published once under the exclusive lock.
+    // Numbers past the index are admitted through words_ under the shared lock.
+    static constexpr std::size_t INDEX_CHUNK = 4096;
+    static constexpr std::size_t INDEX_CHUNKS = 4096;
+    using IndexSlot = std::atomic<const std::shared_ptr<const AtomValue> *>;
+    std::array<std::atomic<IndexSlot *>, INDEX_CHUNKS> index_{};
+    std::vector<std::unique_ptr<IndexSlot[]>> index_chunks_;
+
+    // Publish a new entry in the index; one numbered past it stays in words_ alone.
+    void index(const std::shared_ptr<const AtomValue> &entry);
 
     // The fixed entry of a spelling, or null.
     const std::shared_ptr<const AtomValue> *fixed(std::string_view spelling) const noexcept;

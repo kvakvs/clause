@@ -95,8 +95,8 @@ std::optional<std::size_t> proper_length(detail::HeapStorage &storage, Word list
 } // namespace
 
 TermResult<ProcessHeap *> TermFactory::heap() const noexcept {
-    const auto lifetime = lifetime_.lock();
-    if (!lifetime || !lifetime->alive()) {
+    // An unexpired token keeps heap_ valid (cheap term access).
+    if (lifetime_.expired() || !heap_->storage_->alive()) {
         return std::unexpected(TermError::expired_context);
     }
     return heap_;

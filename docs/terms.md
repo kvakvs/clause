@@ -20,6 +20,8 @@ records; native records ([native records](native-records.md)); funs
   next collection ([roots](runtime-heap.md#roots-and-safe-points)); it does not
   pin heap storage. After context teardown, access returns `expired_context`;
   after a later collection, `stale_term`. Terms are always safe to destroy.
+  The teardown check reads the context's lifetime token without locking it: a
+  context and its terms are used by one thread at a time (OPT0.12).
 - Construction validates children, reserves, initializes, then publishes in one
   step; failure rolls back backing and counters.
 - `Term::from_word(word)` admits only owner-independent immediates;
@@ -40,6 +42,9 @@ records; native records ([native records](native-records.md)); funs
   malformed/overlong/surrogate UTF-8 rejected.
 - Payloads come from a process-wide counter so a foreign runtime's atom word is
   detectable. 32-bit processes have 2^26 lifetime identities in total.
+- Admitting an atom word reads a lock-free index by atom number (the fixed
+  atoms directly, then chunks of 4,096 entries published once under the
+  interning lock); numbers past 2^24 fall back to the locked table (OPT0.12).
 - Host atom Terms pin the spelling, surviving runtime teardown. Moving an atom
   between runtimes means interning `atom_utf8()` in the destination.
 - Booleans are the atoms `true`/`false`. The fixed atoms `false`, `true`,

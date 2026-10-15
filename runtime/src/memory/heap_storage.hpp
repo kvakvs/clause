@@ -80,6 +80,9 @@ class HeapStorage final {
     // Retain bounded backing independently of future host pins.
     HeapOptions options_;
     std::weak_ptr<const ContextLifetime> lifetime_;
+    // The token lifetime_ names, read while lifetime_ has not expired: a context and its terms are used by one
+    // thread at a time, so checks read it instead of locking the weak pointer (cheap term access).
+    const ContextLifetime *token_ = nullptr;
     // Runtime-wide account charged with capacity_words_ and by each buffer created here; collections force their
     // to-space.
     std::shared_ptr<RuntimeMemory> memory_;

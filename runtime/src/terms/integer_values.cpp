@@ -1,12 +1,21 @@
 #include "../memory/heap_object.hpp"
 #include "integers.hpp"
 #include <algorithm>
+#include <array>
 #include <bit>
+#include <charconv>
 #include <limits>
 #include <sstream>
 
 namespace clause::runtime::detail {
 std::string integer_text(const Integer &value) {
+    // Machine-word integers print without a stream (conversion builtins call this for every integer).
+    if (value >= std::numeric_limits<std::int64_t>::min() && value <= std::numeric_limits<std::int64_t>::max()) {
+        std::array<char, 24> digits{};
+        const auto written =
+            std::to_chars(digits.data(), digits.data() + digits.size(), value.convert_to<std::int64_t>());
+        return {digits.data(), written.ptr};
+    }
     std::ostringstream output;
     output.exceptions(std::ios_base::badbit | std::ios_base::failbit);
     output << value;

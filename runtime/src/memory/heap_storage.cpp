@@ -28,8 +28,8 @@ std::span<Word> HeapArea::bump(std::size_t words) noexcept {
 
 HeapStorage::HeapStorage(HeapOptions options, std::weak_ptr<const ContextLifetime> lifetime, AtomStorage &atoms,
                          std::shared_ptr<RuntimeMemory> memory, const IdentityNumbers &identities)
-    : options_(options), lifetime_(std::move(lifetime)), memory_(std::move(memory)), atoms_(&atoms),
-      identities_(&identities) {}
+    : options_(options), lifetime_(std::move(lifetime)), token_(lifetime_.lock().get()), memory_(std::move(memory)),
+      atoms_(&atoms), identities_(&identities) {}
 
 HeapStorage::~HeapStorage() {
     release_off_heap(*this);
@@ -54,10 +54,7 @@ void HeapStorage::expose() noexcept {
     inline_->heap_limit = shown ? heap_.words_.get() + heap_.capacity_ : nullptr;
 }
 
-bool HeapStorage::alive() const noexcept {
-    const auto token = lifetime_.lock();
-    return token && token->alive();
-}
+bool HeapStorage::alive() const noexcept { return !lifetime_.expired() && token_->alive(); }
 
 HeapMark HeapStorage::mark() const noexcept {
     return {heap_.capacity_, heap_.top_,     fragments_.size(), fragments_.empty() ? 0 : fragments_.back().top_,

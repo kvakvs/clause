@@ -110,8 +110,8 @@ TermResult<HeapObject> TermAccess::object(const Term &value) noexcept {
     if (!value.heap_) {
         return std::unexpected(TermError::wrong_type);
     }
-    const auto lifetime = value.lifetime_.lock();
-    if (!lifetime || !lifetime->alive()) {
+    // An unexpired token keeps heap_ valid; the storage then reads the token's flag (cheap term access).
+    if (value.lifetime_.expired() || !value.heap_->alive()) {
         return std::unexpected(TermError::expired_context);
     }
     if (value.collections_ != value.heap_->collections_) {
@@ -126,6 +126,11 @@ TermResult<Term> TermAccess::child(const Term &parent, Word value) noexcept {
         return std::unexpected(checked.error());
     }
     return admit(value, *parent.heap_);
+}
+
+std::span<const Word> TermAccess::cons_cell(HeapStorage &storage, Word value) noexcept {
+    const auto area = storage.readable(address(value));
+    return area.size() < 2 ? std::span<const Word>{} : area.first(2);
 }
 
 TermResult<void> TermAccess::validate(const Term &value) noexcept {

@@ -76,9 +76,11 @@ TermResult<Term> AtomStorage::intern(std::string_view spelling) noexcept {
         auto value = std::make_shared<const AtomValue>(*word, spelling);
         const auto entry = names_.emplace(value->spelling, value).first;
         try {
-            words_.emplace(*word, value);
+            const auto indexed = words_.emplace(*word, value).first;
+            index(indexed->second);
         } catch (...) {
             names_.erase(entry);
+            words_.erase(*word);
             throw;
         }
         return atom_term(value);
@@ -96,7 +98,34 @@ std::optional<Term> AtomStorage::existing(std::string_view spelling) const noexc
     return found == names_.end() ? std::nullopt : std::optional{atom_term(found->second)};
 }
 
+void AtomStorage::index(const std::shared_ptr<const AtomValue> &entry) {
+    const auto number = static_cast<std::size_t>(entry->word >> abi::v1::atom_tag_bits);
+    if (number / INDEX_CHUNK >= INDEX_CHUNKS) {
+        return;
+    }
+    auto &chunk = index_[number / INDEX_CHUNK];
+    auto *slots = chunk.load(std::memory_order_relaxed);
+    if (!slots) {
+        index_chunks_.push_back(std::make_unique<IndexSlot[]>(INDEX_CHUNK));
+        slots = index_chunks_.back().get();
+        chunk.store(slots, std::memory_order_release);
+    }
+    slots[number % INDEX_CHUNK].store(&entry, std::memory_order_release);
+}
+
 TermResult<Term> AtomStorage::lookup(Word word) const noexcept {
+    const auto number = static_cast<std::size_t>(word >> abi::v1::atom_tag_bits);
+    if (number < fixed_atoms) {
+        return atom_term(fixed_[number]);
+    }
+    if (number / INDEX_CHUNK < INDEX_CHUNKS) {
+        const auto *slots = index_[number / INDEX_CHUNK].load(std::memory_order_acquire);
+        const auto *entry = slots ? slots[number % INDEX_CHUNK].load(std::memory_order_acquire) : nullptr;
+        if (!entry || (*entry)->word != word) {
+            return std::unexpected(TermError::wrong_owner);
+        }
+        return atom_term(*entry);
+    }
     const std::shared_lock lock(mutex_);
     const auto found = words_.find(word);
     if (found == words_.end()) {
