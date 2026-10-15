@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 15)
+# Generated-code ABI (revision 16)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -203,7 +203,11 @@ Each function has a `<symbol>.frame` descriptor (`FrameDescriptor`: module
 descriptor, module and function atom slots, arity, body code, slot count, term
 slot count; external for exported functions) and an internal `<symbol>.body`
 of type `abi::v1::Code`, `void(void *context, TermWord x0, TermWord x1, TermWord x2)`
-(revision 10, OPT0.1A). An exported `<symbol>` keeps the `TermWord(Context *,
+(revision 10, OPT0.1A); with a Clang-built runtime on x86-64 and AArch64 the
+bodies and every transfer use the `preserve_none` convention, as
+`abi::v1::Code` does there (revision 16): bodies never return normally, so
+they save no callee-saved registers; registration rejects a module whose
+`code_convention` (0 none, 1 C, 2 `preserve_none`) is not the runtime's. An exported `<symbol>` keeps the `TermWord(Context *,
 const TermWord *)` signature as a host entry calling
 `CLAUSE_invoke_v1(context, frame, arguments)`.
 
@@ -266,8 +270,8 @@ const TermWord *)` signature as a host entry calling
   `CLAUSE_safepoint_v1(context)` at each comprehension loop head collects
   in place; the head calls it only while `FrameState::slow` has
   `slow_collect` (OPT0.1), then spends one reduction and, with none left,
-  enters `erlang:yield/0`, so long call-free loops share the scheduler
-  (OPT0.7). Every other service is a critical
+  enters `erlang:self/0` (the entry suspends the process), so long call-free
+  loops share the scheduler (OPT0.7). Every other service is a critical
   section that never moves the heap
   ([collection in generated code](runtime-heap.md#collection-in-generated-code)).
 
@@ -350,3 +354,4 @@ success.
 | 13 | Fixed `undefined`, `ok`, `error`; `ModuleDescriptor::atom_cache` and `FrameState::runtime` (OPT0.8) |
 | 14 | Module literal areas: `ModuleDescriptor::literals`, `literal_words` (OPT0.4) |
 | 15 | `FrameState::self`, the context's pid word (OPT0.2D) |
+| 16 | `Code` uses `preserve_none` on x86-64 and AArch64 with a Clang-built runtime; `ModuleDescriptor::code_convention` (OPT0.1A follow-up) |

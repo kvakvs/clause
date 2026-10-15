@@ -1,4 +1,5 @@
 #include "frames.hpp"
+#include "code_convention.hpp"
 #include "llvm_state.hpp"
 #include "lowering_roots.hpp"
 #include "runtime_symbols.hpp"
@@ -56,6 +57,8 @@ struct Services {
     llvm::IntegerType *word;
     llvm::StructType *descriptor;
     llvm::FunctionType *code;
+    // The calling convention of Code bodies and transfers (preserve_none where the runtime uses it).
+    llvm::CallingConv::ID convention;
     llvm::FunctionCallee enter;
     llvm::FunctionCallee tail;
     llvm::FunctionCallee leave;
@@ -93,6 +96,19 @@ struct Services {
     }
 };
 
+} // namespace
+
+llvm::CallingConv::ID code_convention(const llvm::Triple &target) {
+#if defined(__clang__)
+    if (target.getArch() == llvm::Triple::x86_64 || target.getArch() == llvm::Triple::aarch64) {
+        return llvm::CallingConv::PreserveNone;
+    }
+#endif
+    static_cast<void>(target);
+    return llvm::CallingConv::C;
+}
+
+namespace {
 // Declare the services and descriptor layout once per output module.
 Services frame_services(llvm::Module &output, llvm::IntegerType *word) {
     auto *ptr = llvm::PointerType::get(output.getContext(), 0);
@@ -104,6 +120,7 @@ Services frame_services(llvm::Module &output, llvm::IntegerType *word) {
             word,
             descriptor,
             llvm::FunctionType::get(llvm::Type::getVoidTy(output.getContext()), code, false),
+            code_convention(llvm::Triple(output.getTargetTriple())),
             declare<services::Enter>(output, ptr, {ptr, ptr}),
             declare<services::Tail>(output, ptr, {ptr, ptr}),
             declare<services::Return>(output, ptr, {ptr, word}),
@@ -193,7 +210,9 @@ class FrameLowering {
         : services_(services), native_(native),
           body_(*llvm::Function::Create(services.code, llvm::GlobalValue::InternalLinkage, native.getName() + ".body",
                                         services.output)),
-          arity_(erlang_arity(&native).value_or(0)), roots_(arity_) {}
+          arity_(erlang_arity(&native).value_or(0)), roots_(arity_) {
+        body_.setCallingConv(services.convention);
+    }
 
     // Run every step and return the descriptor contents.
     llvm::Constant *lower() {
@@ -846,6 +865,7 @@ class FrameLowering {
         std::vector<llvm::Value *> arguments{body_.getArg(0)};
         arguments.insert(arguments.end(), values.begin(), values.end());
         auto *call = builder.CreateCall(services_.code, code, arguments);
+        call->setCallingConv(services_.convention);
         call->setTailCallKind(llvm::CallInst::TCK_MustTail);
         builder.CreateRetVoid();
     }

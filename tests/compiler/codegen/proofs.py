@@ -15,7 +15,7 @@ def bodies(*options):
                             encoding="utf-8", timeout=60)
     assert result.returncode == 0, (options, result.stderr)
     found = {}
-    for match in re.finditer(r"^define internal void @clausev1_70726f6f6673_([0-9a-f]+)_(\d+)\.body.*?^}$",
+    for match in re.finditer(r"^define internal (?:preserve_nonecc )?void @clausev1_70726f6f6673_([0-9a-f]+)_(\d+)\.body.*?^}$",
                              result.stdout, re.MULTILINE | re.DOTALL):
         name = bytes.fromhex(match.group(1)).decode("utf-8")
         found[f"{name}/{match.group(2)}"] = match.group(0)

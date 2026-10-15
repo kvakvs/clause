@@ -425,7 +425,8 @@ void check_bitstrings(bool extraction, bool large) {
 }
 
 // Body of the frame pushed under allocation faults: return the argument.
-void identity_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord) {
+CLAUSE_CODE_CONVENTION void identity_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
+                                          clause::abi::v1::TermWord) {
     auto &stack = static_cast<clause::runtime::ProcessContext *>(context)->stack();
     stack.run_code(stack.leave(stack.frame()[clause::abi::v1::frame_header_words]));
 }

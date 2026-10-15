@@ -12,8 +12,15 @@ bool tables_valid(const abi::v1::ModuleDescriptor &descriptor) {
            (descriptor.literal_words == 0 || descriptor.literals);
 }
 
+// The descriptor's version, word width and Code convention (none, or the runtime's) are this runtime's.
+bool abi_matches(const abi::v1::ModuleDescriptor &descriptor) {
+    const auto convention = abi::v1::code_preserve_none ? 2U : 1U;
+    return descriptor.abi_version == abi::v1::version && descriptor.term_bits == sizeof(Word) * 8 &&
+           (descriptor.code_convention == 0 || descriptor.code_convention == convention);
+}
+
 CodeResult<void> validate(const abi::v1::ModuleDescriptor &descriptor) {
-    if (descriptor.abi_version != abi::v1::version || descriptor.term_bits != sizeof(Word) * 8) {
+    if (!abi_matches(descriptor)) {
         return std::unexpected(CodeError::abi_mismatch);
     }
     if (!descriptor.name || descriptor.name_size == 0 || (descriptor.export_count && !descriptor.exports)) {

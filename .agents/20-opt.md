@@ -139,7 +139,7 @@ Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.
     live across a safepoint, keeping the reduction check and entry safepoint)
   - a per-target parameter count K (SysV x86-64 and AArch64 have more argument
     registers than the 3 used everywhere now)
-  - `preserve_none` where the runtime can declare it
+  - ~~`preserve_none` where the runtime can declare it~~: done 2026-10-15 (ABI 16)
 - **OPT0.5B follow-up:** in-place updates for maps that arrive from callers
   (`maps:put/3`, accumulator parameters) need interprocedural uniqueness or
   inlining (OPT2.1).

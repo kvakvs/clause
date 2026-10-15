@@ -16,12 +16,12 @@ using abi::v1::FrameDescriptor;
 
 // Body of the runtime-owned bottom frame: returning into it ends the host invocation's native call. The result
 // arrives as the first parameter (OPT0.1A) and stays in the first register for the host.
-void finish(void *context, const Word result, Word, Word) noexcept {
+CLAUSE_CODE_CONVENTION void finish(void *context, const Word result, Word, Word) noexcept {
     static_cast<ProcessContext *>(context)->stack().registers()[0] = result;
 }
 
 // Code a suspended entry returns: it ends the time slice, so control returns to whoever ran the process.
-void pause(void *, Word, Word, Word) noexcept {}
+CLAUSE_CODE_CONVENTION void pause(void *, Word, Word, Word) noexcept {}
 
 // Descriptor of the bottom frame under each host invocation; it has no slots and no name.
 constexpr FrameDescriptor bottom{nullptr, 0, 0, 0, &finish, 0, 0};

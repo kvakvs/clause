@@ -309,7 +309,8 @@ std::size_t root_count(std::span<Word> explicit_roots) {
 // Collect repeatedly at a declared safe point while frames, registers, the failure channel and explicit
 // roots share one graph: pair and first in the caller's slots, second and map in this frame's slots, big
 // and pair in live registers, first, real and map in the failure channel, large and second as explicit roots.
-void collecting_body(void *, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord) {
+CLAUSE_CODE_CONVENTION void collecting_body(void *, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
+                                            clause::abi::v1::TermWord) {
     auto &context = *owners.context;
     auto &stack = context.stack();
     auto &calls = context.generated_calls();
@@ -349,7 +350,8 @@ void collecting_body(void *, clause::abi::v1::TermWord, clause::abi::v1::TermWor
 const FrameDescriptor collecting{nullptr, 0, 0, 1, &collecting_body, 2, 2};
 
 // Hold pair and first in term slots and a stale copy of pair in a raw slot across the collecting call.
-void holding_body(void *, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord) {
+CLAUSE_CODE_CONVENTION void holding_body(void *, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
+                                         clause::abi::v1::TermWord) {
     auto &stack = owners.context->stack();
     auto *header = stack.frame();
     auto *slots = header + frame_header_words;
@@ -394,7 +396,8 @@ void root_owners(Runtime &runtime) {
 }
 
 // Record the argument slot after the entry safepoint, then after a loop-head safepoint that follows garbage.
-void safepoint_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord, clause::abi::v1::TermWord) {
+CLAUSE_CODE_CONVENTION void safepoint_body(void *context, clause::abi::v1::TermWord, clause::abi::v1::TermWord,
+                                           clause::abi::v1::TermWord) {
     auto &stack = owners.context->stack();
     auto *slots = stack.frame() + frame_header_words;
     owners.current = {slots[0]};
