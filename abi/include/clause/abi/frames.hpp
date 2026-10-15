@@ -36,14 +36,32 @@ struct FrameState {
     std::size_t slow;
     // Nonzero while the failure channel holds a failure or no host invocation is active (CLAUSE_call_failed_v2).
     std::size_t failed;
+    // Free words of the heap block that generated code may bump-allocate inline: [heap_top, heap_limit). The runtime
+    // takes inline allocations into its accounting before any heap operation and resets both after one; both are
+    // null while no block exists or a heap budget applies (OPT0.3).
+    TermWord *heap_top;
+    TermWord *heap_limit;
 };
 
-// Word index of each FrameState field, as generated code addresses them (OPT0.1).
-enum class StateField : std::uint8_t { stack, top, limit, frame, reductions, registers, live, slow, failed };
+// Word index of each FrameState field, as generated code addresses them (OPT0.1, heap fields OPT0.3).
+enum class StateField : std::uint8_t {
+    stack,
+    top,
+    limit,
+    frame,
+    reductions,
+    registers,
+    live,
+    slow,
+    failed,
+    heap_top,
+    heap_limit
+};
 static_assert(sizeof(TermWord *) == sizeof(TermWord) && sizeof(std::size_t) == sizeof(TermWord));
 static_assert(offsetof(FrameState, registers) == static_cast<unsigned>(StateField::registers) * sizeof(TermWord));
 static_assert(offsetof(FrameState, failed) == static_cast<unsigned>(StateField::failed) * sizeof(TermWord));
-static_assert(sizeof(FrameState) == (static_cast<unsigned>(StateField::failed) + 1) * sizeof(TermWord));
+static_assert(offsetof(FrameState, heap_limit) == static_cast<unsigned>(StateField::heap_limit) * sizeof(TermWord));
+static_assert(sizeof(FrameState) == (static_cast<unsigned>(StateField::heap_limit) + 1) * sizeof(TermWord));
 } // namespace clause::abi::v1
 
 // Generated code moves between functions only by tail transfers to the Code these services return.

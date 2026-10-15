@@ -70,18 +70,7 @@ llvm::Value *split(ExpressionLowering &state, llvm::Type *type, llvm::Value *con
     auto *slow_end = builder.GetInsertBlock();
     builder.CreateBr(join);
     builder.SetInsertPoint(join);
-    auto *boundary = builder.CreateUnreachable();
-    llvm::SmallVector<llvm::PHINode *, 2> phis;
-    llvm::SSAUpdater updater(&phis);
-    updater.Initialize(type, "inline.value");
-    updater.AddAvailableValue(fast_end, fast_value);
-    updater.AddAvailableValue(slow_end, slow_value);
-    auto *value = updater.GetValueInMiddleOfBlock(join);
-    for (auto *phi : phis) {
-        phi->setDebugLoc(builder.getCurrentDebugLocation());
-    }
-    boundary->eraseFromParent();
-    return value;
+    return join_values(state, type, {fast_end, fast_value}, {slow_end, slow_value});
 }
 
 // The header word of a boxed word, read only where a boxed tag test dominates. A constant word is an immediate, so
@@ -365,6 +354,23 @@ template <class Table> auto entry(const Table &table, const Op operation) {
     return std::ranges::find(table, operation, &Table::value_type::first);
 }
 } // namespace
+
+llvm::Value *join_values(ExpressionLowering &state, llvm::Type *type, const BlockValue first, const BlockValue second) {
+    auto &builder = state.builder;
+    auto *join = builder.GetInsertBlock();
+    auto *boundary = builder.CreateUnreachable();
+    llvm::SmallVector<llvm::PHINode *, 2> phis;
+    llvm::SSAUpdater updater(&phis);
+    updater.Initialize(type, "joined.value");
+    updater.AddAvailableValue(first.first, first.second);
+    updater.AddAvailableValue(second.first, second.second);
+    auto *value = updater.GetValueInMiddleOfBlock(join);
+    for (auto *phi : phis) {
+        phi->setDebugLoc(builder.getCurrentDebugLocation());
+    }
+    boundary->eraseFromParent();
+    return value;
+}
 
 llvm::Value *lower_inline_immediate(ExpressionLowering &state, const abi::v1::ImmediateOperation operation,
                                     llvm::Value *left, llvm::Value *right) {

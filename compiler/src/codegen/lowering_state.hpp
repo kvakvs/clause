@@ -16,6 +16,7 @@
 #include <set>
 #include <stdexcept>
 #include <string_view>
+#include <utility>
 
 namespace clause::codegen {
 using BindingReads = std::map<const ast::Expression *, semantic::BindingId>;
@@ -129,6 +130,11 @@ llvm::Value *lower_immediate(ExpressionLowering &state, abi::v1::ImmediateOperat
 // The CLAUSE_immediate_v1 call alone: the slow tail of the inline forms.
 llvm::Value *lower_immediate_service(ExpressionLowering &state, abi::v1::ImmediateOperation operation,
                                      llvm::Value *left, llvm::Value *right);
+// A value and the predecessor block that computed it.
+using BlockValue = std::pair<llvm::BasicBlock *, llvm::Value *>;
+// At the start of the current block, join the values its two predecessors computed (LLVM's SSA updater, which never
+// reads PHI operands; OPT0.2B).
+llvm::Value *join_values(ExpressionLowering &state, llvm::Type *type, BlockValue first, BlockValue second);
 // The inline form of an operation (lowering_inline, OPT0.2B), or null when it has none.
 llvm::Value *lower_inline_immediate(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,
                                     llvm::Value *right);

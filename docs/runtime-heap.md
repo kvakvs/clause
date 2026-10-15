@@ -144,7 +144,12 @@ A map with more than 32 entries (OTP's `MAP_SMALL_MAP_LIMIT`) is a 4-word
 - **Heap.** One block `[start, top, end)` per process with bump allocation
   (8G). It is created by the process's first allocation, sized
   `max(min_heap_words, request)` so that request always fits, and owned by
-  that process alone.
+  that process alone. Generated code bump-allocates small tuples and lists in
+  it directly through `FrameState::heap_top`/`heap_limit` (OPT0.3):
+  `HeapStorage::absorb` takes those words into the top and `used_words_`
+  before any heap operation (reservation, admission, collection, verification,
+  usage queries) and `expose` shows the free words again after one. Inline
+  allocation never makes a fragment and stays off under a per-process budget.
 - **Fragments.** When a request does not fit and the heap may not move, it
   goes into the newest fragment if it fits there, else into a new fragment
   sized to fit (at least the minimum heap size) and chained to the process. The

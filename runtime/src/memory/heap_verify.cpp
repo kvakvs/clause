@@ -164,6 +164,7 @@ std::expected<HeapCensus, HeapError> ProcessHeap::verify() const noexcept {
     if (!storage_->alive()) {
         return std::unexpected(HeapError::expired_context);
     }
+    storage_->absorb();
     try {
         return detail::Verifier(*storage_).run();
     } catch (const std::bad_alloc &) {

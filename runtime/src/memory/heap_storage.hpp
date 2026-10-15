@@ -109,6 +109,15 @@ class HeapStorage final {
     // a message buffer's storage.
     std::size_t *collection_signal_ = nullptr;
 
+    // The owning context's FrameState, whose heap fields show generated code the heap block's free words (OPT0.3);
+    // null for a message buffer's storage.
+    abi::v1::FrameState *inline_ = nullptr;
+
+    // Take the words generated code bump-allocated inline into the heap block's top and the accounting (OPT0.3).
+    void absorb() noexcept;
+    // Show generated code the heap block's free words; none without a block or under a per-process budget (OPT0.3).
+    void expose() noexcept;
+
     // Mark a collection as wanted for the owner's generated entries (OPT0.1).
     void signal_collection() noexcept {
         if (collection_signal_) {

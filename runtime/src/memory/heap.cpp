@@ -36,13 +36,20 @@ ProcessHeap::ProcessHeap(ProcessContext &owner, HeapOptions options)
     : owner_(owner), storage_(std::make_shared<detail::HeapStorage>(options, owner.lifetime(), owner.atom_storage(),
                                                                     owner.memory(), owner.identity_numbers())) {
     storage_->collection_signal_ = &static_cast<abi::v1::FrameState &>(owner).slow;
+    storage_->inline_ = &static_cast<abi::v1::FrameState &>(owner);
 }
 
-ProcessHeap::~ProcessHeap() = default;
+// The storage may outlive this heap (host Terms keep it); it must no longer reach the context (OPT0.3).
+ProcessHeap::~ProcessHeap() {
+    storage_->absorb();
+    storage_->inline_ = nullptr;
+    storage_->collection_signal_ = nullptr;
+}
 
 std::expected<HeapReservation, HeapError> ProcessHeap::reserve(std::size_t words) noexcept {
     auto failure = HeapError::out_of_memory;
     try {
+        storage_->absorb();
         const auto mark = storage_->mark();
         const auto words_reserved = storage_->reserve(words);
         if (words_reserved) {
@@ -84,6 +91,7 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect(std::span<Word> r
         return std::unexpected(HeapError::unsafe_point);
     }
     storage.collection_requested_ = false;
+    storage.absorb();
     CollectionStats stats{.words_before = storage.used_words_,
                           .fragment_words = storage.capacity_words_ - storage.heap_.capacity_};
     if (storage.heap_.capacity_ != 0) {
@@ -151,7 +159,10 @@ void ProcessHeap::shrink(std::span<Word> roots) noexcept {
     }
 }
 
-std::size_t ProcessHeap::used_words() const noexcept { return storage_->used_words_; }
+std::size_t ProcessHeap::used_words() const noexcept {
+    storage_->absorb();
+    return storage_->used_words_;
+}
 
 std::size_t ProcessHeap::capacity_words() const noexcept { return storage_->capacity_words_; }
 

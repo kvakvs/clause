@@ -37,6 +37,23 @@ HeapStorage::~HeapStorage() {
     memory_->release(capacity_words_);
 }
 
+void HeapStorage::absorb() noexcept {
+    if (inline_ && inline_->heap_top) {
+        const auto top = static_cast<std::size_t>(inline_->heap_top - heap_.words_.get());
+        used_words_ += top - heap_.top_;
+        heap_.top_ = top;
+    }
+}
+
+void HeapStorage::expose() noexcept {
+    if (!inline_) {
+        return;
+    }
+    const bool shown = heap_.capacity_ != 0 && options_.limit_bytes == UNLIMITED_HEAP_BYTES;
+    inline_->heap_top = shown ? heap_.words_.get() + heap_.top_ : nullptr;
+    inline_->heap_limit = shown ? heap_.words_.get() + heap_.capacity_ : nullptr;
+}
+
 bool HeapStorage::alive() const noexcept {
     const auto token = lifetime_.lock();
     return token && token->alive();
@@ -64,6 +81,7 @@ void HeapStorage::rollback(HeapMark mark) noexcept {
     memory_->release(capacity_words_ - mark.capacity_words);
     capacity_words_ = mark.capacity_words;
     pending_ = false;
+    expose();
 }
 
 namespace {
@@ -83,6 +101,7 @@ std::expected<void, HeapError> validate(const HeapStorage &storage, std::size_t 
 } // namespace
 
 std::span<Word> HeapStorage::owned(std::uintptr_t address) noexcept {
+    absorb();
     if (const auto found = heap_.from(address); !found.empty()) {
         return found;
     }
@@ -137,6 +156,7 @@ std::expected<HeapArea *, HeapError> HeapStorage::area_for(std::size_t words) {
 }
 
 std::expected<std::span<Word>, HeapError> HeapStorage::reserve(std::size_t words) {
+    absorb();
     if (const auto valid = validate(*this, words); !valid) {
         return std::unexpected(valid.error());
     }
@@ -147,7 +167,9 @@ std::expected<std::span<Word>, HeapError> HeapStorage::reserve(std::size_t words
     }
     used_words_ += words;
     pending_ = true;
-    return (*area)->bump(words);
+    const auto reserved = (*area)->bump(words);
+    expose();
+    return reserved;
 }
 
 std::size_t HeapStorage::room() const noexcept {
@@ -166,5 +188,6 @@ void HeapStorage::replace(HeapArea heap) noexcept {
     ranges_ = std::vector<FragmentRange>{};
     used_words_ = heap_.top_;
     capacity_words_ = heap_.capacity_;
+    expose();
 }
 } // namespace clause::runtime::detail

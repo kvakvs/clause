@@ -2,14 +2,15 @@
 #include "runtime_symbols.hpp"
 #include <array>
 #include <clause/abi/equality.hpp>
+#include <clause/abi/frames.hpp>
 #include <clause/abi/term.hpp>
 #include <llvm/IR/Module.h>
 
 namespace clause::codegen {
 namespace {
 // Large constructors use bounded runtime scratch roots, keeping source width off the native stack.
-llvm::Value *construct(ExpressionLowering &state, abi::v1::ContainerConstruction operation,
-                       const std::span<llvm::Value *const> values) {
+llvm::Value *construct_service(ExpressionLowering &state, abi::v1::ContainerConstruction operation,
+                               const std::span<llvm::Value *const> values) {
     auto &builder = state.builder;
     auto &output = *state.entry.getParent();
     auto *arguments = builder.CreateGEP(state.word, state.roots->buffer,
@@ -28,6 +29,80 @@ llvm::Value *construct(ExpressionLowering &state, abi::v1::ContainerConstruction
                                         arguments, llvm::ConstantInt::get(state.word, values.size()), slot},
                                        "container.outcome");
     return checked_value(state, {outcome, slot}, bad_argument_exit(state));
+}
+
+// Containers of at most this many words are built inline (OPT0.3); larger ones only through the service.
+constexpr std::size_t INLINE_WORDS = 64;
+
+// The words a tuple or a list of `values` (its tail last) takes on the heap.
+std::size_t container_words(abi::v1::ContainerConstruction operation, std::size_t values) {
+    return operation == abi::v1::ContainerConstruction::tuple ? values + 1 : 2 * (values - 1);
+}
+
+llvm::Value *state_address(ExpressionLowering &state, abi::v1::StateField field) {
+    return state.builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0), static_cast<unsigned>(field));
+}
+
+// Write a tuple or the cons cells of a list at `top`; its term word: the address tagged boxed or list.
+llvm::Value *write_cells(ExpressionLowering &state, abi::v1::ContainerConstruction operation, llvm::Value *top,
+                         const std::span<llvm::Value *const> values) {
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    const auto at = [&](std::size_t index) { return builder.CreateConstGEP1_64(state.word, top, index); };
+    auto *address = builder.CreatePtrToInt(top, state.word);
+    if (operation == abi::v1::ContainerConstruction::tuple) {
+        builder.CreateAlignedStore(llvm::ConstantInt::get(state.word, values.size() << abi::v1::header_count_shift),
+                                   at(0), align);
+        for (std::size_t i = 0; i < values.size(); ++i) {
+            builder.CreateAlignedStore(values[i], at(i + 1), align);
+        }
+        return builder.CreateOr(address, llvm::ConstantInt::get(state.word, abi::v1::boxed_tag));
+    }
+    const auto cells = values.size() - 1;
+    for (std::size_t i = 0; i < cells; ++i) {
+        builder.CreateAlignedStore(values[i], at(2 * i), align);
+        auto *tail = i + 1 < cells ? builder.CreateOr(builder.CreatePtrToInt(at(2 * i + 2), state.word),
+                                                      llvm::ConstantInt::get(state.word, abi::v1::list_tag))
+                                   : values[cells];
+        builder.CreateAlignedStore(tail, at(2 * i + 1), align);
+    }
+    return builder.CreateOr(address, llvm::ConstantInt::get(state.word, abi::v1::list_tag));
+}
+
+// Bump-allocate a small tuple or list in the heap block's free words that FrameState shows (OPT0.3); the service
+// builds it when they do not suffice. The term is rooted like a service output.
+llvm::Value *construct(ExpressionLowering &state, abi::v1::ContainerConstruction operation,
+                       const std::span<llvm::Value *const> values) {
+    const auto words = container_words(operation, values.size());
+    if (operation == abi::v1::ContainerConstruction::reverse || words > INLINE_WORDS) {
+        return construct_service(state, operation, values);
+    }
+    auto &builder = state.builder;
+    auto &context = state.entry.getContext();
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    auto *top_field = state_address(state, abi::v1::StateField::heap_top);
+    auto *top = builder.CreateAlignedLoad(builder.getPtrTy(), top_field, align, "heap.top");
+    auto *limit = builder.CreateAlignedLoad(builder.getPtrTy(), state_address(state, abi::v1::StateField::heap_limit),
+                                            align, "heap.limit");
+    auto *end = builder.CreateConstGEP1_64(state.word, top, words, "heap.end");
+    auto *fits = builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_ULE,
+                                                      builder.CreatePtrToInt(end, state.word),
+                                                      builder.CreatePtrToInt(limit, state.word)));
+    auto *direct = llvm::BasicBlock::Create(context, "heap.inline", &state.entry);
+    auto *service = llvm::BasicBlock::Create(context, "heap.service", &state.entry);
+    auto *join = llvm::BasicBlock::Create(context, "heap.join", &state.entry);
+    builder.CreateCondBr(fits, direct, service);
+    builder.SetInsertPoint(direct);
+    auto *built = write_cells(state, operation, top, values);
+    builder.CreateAlignedStore(end, top_field, align);
+    builder.CreateAlignedStore(built, root_slot(state), align);
+    builder.CreateBr(join);
+    builder.SetInsertPoint(service);
+    auto *serviced = construct_service(state, operation, values);
+    auto *service_end = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    return join_values(state, state.word, {direct, built}, {service_end, serviced});
 }
 
 // Values already exist in SSA after the common iterative expression walk visits every child.

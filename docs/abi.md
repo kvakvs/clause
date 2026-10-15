@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 11)
+# Generated-code ABI (revision 12)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -209,9 +209,17 @@ const TermWord *)` signature as a host entry calling
 
 - Every context starts with an `abi::v1::FrameState` (revision 9, OPT0.1):
   stack block, top, push limit, current frame offset, reductions left,
-  register pointer, live register count, slow bits and the failed word, one
-  target word each. A body reads its frame header (`stack + frame`) and the
+  register pointer, live register count, slow bits, the failed word and
+  (revision 12, OPT0.3) the heap block's free words `[heap_top, heap_limit)`,
+  one target word each. A body reads its frame header (`stack + frame`) and the
   registers from it on entry and switches on the header's resume word.
+- Tuples and lists of at most 64 words are bump-allocated inline in
+  `[heap_top, heap_limit)` (header or cons cells written in place, `heap_top`
+  advanced), else built by `CLAUSE_construct_v1`; the result is rooted like a
+  service output. The runtime takes inline words into its accounting before
+  every heap operation and resets both fields after one; they are null while no
+  heap block exists or a per-process heap budget applies, so every allocation
+  then reaches the service ([heap](runtime-heap.md#areas)).
   `CLAUSE_frame_v1` and `CLAUSE_registers_v1` remain for other consumers.
 - A body leaves only by `musttail` calls. Calls, tail calls and returns run
   inline when they can: an entry spends a reduction, pushes the zeroed frame
@@ -328,3 +336,4 @@ success.
 | 9 | Every context starts with `abi::v1::FrameState`; inline transfers (OPT0.1) |
 | 10 | Leading X registers passed as code parameters (OPT0.1A) |
 | 11 | Fixed words of `false` and `true` (OPT0.2A) |
+| 12 | Inline heap fields `heap_top`/`heap_limit` in `FrameState` (OPT0.3) |

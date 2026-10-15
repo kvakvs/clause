@@ -351,7 +351,10 @@ int main() {
         require(register_answer(runtime.get()) == 0 && register_client(runtime.get()) == 0,
                 "service registration failed");
         // Host Terms stay valid across calls only while no safepoint collects: a large heap never fills here.
-        auto &context = *runtime->create_context(HeapOptions{std::size_t{1} << 16}).value();
+        // A heap budget keeps inline allocation off (OPT0.3), so construction still reaches its faulted service.
+        auto &context =
+            *runtime->create_context(HeapOptions{.min_heap_words = std::size_t{1} << 16, .limit_bytes = 64U << 20})
+                 .value();
         failures(context, "service_answer", "head");
         failures(context, "service_answer", "fallback");
         failures(context, "service_answer", "body");
