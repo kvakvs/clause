@@ -73,6 +73,10 @@ inline constexpr unsigned heap_binary_data_word = 2;
 inline constexpr unsigned refc_offset_word = 1;
 inline constexpr unsigned refc_bits_word = 2;
 inline constexpr unsigned refc_data_word = 3;
+// The bits in use of an appendable buffer and its capacity in bits, set only in the cell of the process that may
+// append to it in place; zero in every other cell (OPT0.11B).
+inline constexpr unsigned refc_append_end_word = 4;
+inline constexpr unsigned refc_append_limit_word = 5;
 // A sub-binary (OPT1.4B): a bit range of an inline or off-heap binary, the original's word last.
 inline constexpr unsigned sub_offset_word = 1;
 inline constexpr unsigned sub_bits_word = 2;

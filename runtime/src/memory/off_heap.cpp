@@ -63,7 +63,6 @@ void drop_off_heap(HeapStorage &storage, const BinaryBuffer &buffer) noexcept {
     if (--entry->second == 0) {
         storage.off_heap_words_ -= buffer_words(buffer);
         storage.buffers_.erase(entry);
-        storage.appendable_.erase(&buffer);
     }
 }
 
@@ -108,7 +107,6 @@ void release_off_heap(HeapStorage &storage) noexcept {
         cell = next;
     }
     storage.buffers_.clear();
-    storage.appendable_.clear();
     storage.off_heap_words_ = 0;
 }
 } // namespace clause::runtime::detail

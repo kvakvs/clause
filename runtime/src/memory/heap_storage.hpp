@@ -98,9 +98,6 @@ class HeapStorage final {
     // Cells of this process per referenced off-heap buffer (layout::BinaryBuffer); a buffer stays in off_heap_words_
     // while its count is nonzero.
     std::unordered_map<const std::vector<std::byte> *, std::size_t> buffers_;
-    // Buffers this process may append to in place, with the bits in use (OPT0.6): an append whose accumulator view
-    // ends there writes into the spare bytes no view covers. An entry leaves with the buffer's last cell here.
-    std::unordered_map<const std::vector<std::byte> *, std::size_t> appendable_;
     // Off-heap words at which a safepoint collects: twice the survivors of the last collection, at least the minimum.
     std::size_t binary_limit_words_ = MIN_BINARY_HEAP_WORDS;
     // Head of this process's off-heap binary cells, newest first; the only route to their C++ state.

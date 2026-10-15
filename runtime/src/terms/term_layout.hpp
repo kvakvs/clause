@@ -107,8 +107,9 @@ constexpr std::size_t float_payload_words(std::size_t word_bytes) noexcept { ret
 // Words after the header of a reference cell on a target with word_bytes-wide words.
 constexpr std::size_t reference_payload_words(std::size_t word_bytes) noexcept { return 8 / word_bytes; }
 
-// Words after the header of an off-heap binary: offset, bits, two-pointer shared_ptr, list link.
-constexpr std::size_t refc_payload_words(std::size_t) noexcept { return 6; }
+// Words after the header of an off-heap binary: offset, bits, data, append end and limit, two-pointer shared_ptr,
+// list link.
+constexpr std::size_t refc_payload_words(std::size_t) noexcept { return 8; }
 
 // Words after the header of an off-heap map stub: size, tree root, list link (OPT0.5A).
 constexpr std::size_t tree_map_payload_words(std::size_t) noexcept { return 3; }
@@ -129,7 +130,7 @@ constexpr bool off_heap_cell(Word header) noexcept {
 static_assert(float_payload_words(4) == 2 && float_payload_words(8) == 1);
 static_assert(heap_binary_payload_words(512, 4) == 17 && heap_binary_payload_words(512, 8) == 9);
 static_assert(heap_binary_payload_words(0, 4) == 1 && heap_binary_payload_words(9, 8) == 2);
-static_assert(refc_payload_words(4) == 6 && refc_payload_words(8) == 6);
+static_assert(refc_payload_words(4) == 8 && refc_payload_words(8) == 8);
 
 // Packed MSB-first binary data shared by off-heap cells; immutable once published.
 using BinaryBuffer = std::vector<std::byte>;
@@ -154,13 +155,17 @@ struct alignas(Word) HeapBinaryCell final {
 };
 
 struct alignas(Word) RefcBinaryCell final {
-    // Identify an off-heap binary view (BEAM ProcBin); the header count is 5 on every word width.
+    // Identify an off-heap binary view (BEAM ProcBin); the header count is 8 on every word width.
     BoxHeader header_;
     // Select this view's bits within the shared buffer.
     Word offset_;
     Word bits_;
     // The buffer's first byte, which generated code reads matches from (OPT1.4); buffers never move or resize.
     const std::byte *data_ = nullptr;
+    // The bits in use of the buffer and its capacity in bits when this process may append to it in place, which
+    // only the buffer's first cell does (OPT0.11B); both zero otherwise, and in every copy to another heap.
+    Word append_end_ = 0;
+    Word append_limit_ = 0;
     // Hold one reference to the buffer; only the off-heap list sweep, teardown or relocation touches it.
     std::shared_ptr<const BinaryBuffer> buffer_;
     // Link the owning process's off-heap list, newest cell first; null ends the list.
@@ -238,7 +243,9 @@ static_assert(sizeof(RefcBinaryCell) == (1 + refc_payload_words(sizeof(Word))) *
 // Generated code reads binary lengths and data inline (OPT1.4, abi/term.hpp).
 static_assert(offsetof(RefcBinaryCell, offset_) == abi::v1::refc_offset_word * sizeof(Word) &&
               offsetof(RefcBinaryCell, bits_) == abi::v1::refc_bits_word * sizeof(Word) &&
-              offsetof(RefcBinaryCell, data_) == abi::v1::refc_data_word * sizeof(Word));
+              offsetof(RefcBinaryCell, data_) == abi::v1::refc_data_word * sizeof(Word) &&
+              offsetof(RefcBinaryCell, append_end_) == abi::v1::refc_append_end_word * sizeof(Word) &&
+              offsetof(RefcBinaryCell, append_limit_) == abi::v1::refc_append_limit_word * sizeof(Word));
 static_assert(offsetof(SubBinaryCell, offset_) == abi::v1::sub_offset_word * sizeof(Word) &&
               offsetof(SubBinaryCell, bits_) == abi::v1::sub_bits_word * sizeof(Word) &&
               offsetof(SubBinaryCell, original_) == abi::v1::sub_original_word * sizeof(Word));

@@ -55,7 +55,7 @@ pointer (below), so a cell moves by copying its words.
 | `floating` | 8 bytes: 1 word (64-bit) or 2 words (32-bit) | none |
 | `reference` | 8 bytes: the reference number ([pids and references](terms.md#pids-and-references)) | none |
 | `heap_binary` | bit length, then data bytes rounded up to words (at most 64 bytes) | none |
-| `refc_binary` | bit offset, bit length, the buffer's first byte (read by generated code, OPT1.4), `std::shared_ptr` (2 words), off-heap link: 6 words | none |
+| `refc_binary` | bit offset, bit length, the buffer's first byte (read by generated code, OPT1.4), append end and limit (OPT0.11B), `std::shared_ptr` (2 words), off-heap link: 8 words | none |
 | `sub_binary` | bit offset into the original, bit length, the original `heap_binary` or `refc_binary` (never a sub-binary): 3 words (OPT1.4B) | the original |
 | `filler` | n unused words | none |
 
@@ -87,7 +87,7 @@ process heap, shared by reference count (BEAM ProcBin and `Binary`).
   virtual binary heap of ERTS) until that process's last cell for it dies, and
   once to the runtime-wide account from creation until the buffer is freed.
 - `std::shared_ptr` is two pointers on every supported STL; a `static_assert`
-  keeps the cell size fixed at six words after the header on both widths.
+  keeps the cell size fixed at eight words after the header on both widths.
 
 ### Handle references
 
@@ -95,7 +95,7 @@ Plan 11 step 41N. A handle reference is a reference that also holds one
 off-heap buffer, as an OTP magic reference holds a resource; `atomics` arrays
 live in them ([atomics and counters](builtins.md#atomics-and-counters)).
 
-- Its cell has kind `reference` and the `refc_binary` layout: five words after
+- Its cell has kind `reference` and the `refc_binary` layout: eight words after
   the header, the 64-bit reference number in the offset and bit-length words
   (where a plain reference cell keeps it), then the `shared_ptr` and the link
   word. Every reference service reads only the number, so it compares, hashes,

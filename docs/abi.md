@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 18)
+# Generated-code ABI (revision 19)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -232,6 +232,12 @@ const TermWord *)` signature as a host entry calling
   all, are bump-allocated inline as `heap_binary` cells (header, bit length,
   zeroed data words, then each segment's bytes) when every value is a small
   integer and the heap has room; otherwise `CLAUSE_bits_v1` builds them.
+  The same segments after a whole-binary accumulator (`<<Acc/binary, ...>>`)
+  are written into the accumulator's buffer when it is a `refc_binary` (or a
+  `sub_binary` of one) ending, byte-aligned, at the cell's
+  `refc_append_end_word` with room below `refc_append_limit_word`: the bytes go
+  past the end, the end advances, and the result is a 4-word `sub_binary` of
+  that cell (OPT0.11B).
 - Map expressions without a base whose keys are atom or small integer literals
   (at most 32 distinct) are written inline as classic map cells, keys sorted at
   compile time in exact term order, the last value of a repeated key kept
@@ -373,3 +379,4 @@ success.
 | 16 | `Code` uses `preserve_none` on x86-64 and AArch64 with a Clang-built runtime; `ModuleDescriptor::code_convention` (OPT0.1A follow-up) |
 | 17 | Six X registers as `Code` parameters (`register_arguments`, OPT0.1A follow-up) |
 | 18 | `sub_binary` cells (`HeaderKind::sub_binary`, `sub_*_word`) and inline `Rest` extraction (OPT1.4B) |
+| 19 | Append end and limit words in `refc_binary` cells (`refc_append_*_word`, 8 payload words) and inline appends (OPT0.11B) |

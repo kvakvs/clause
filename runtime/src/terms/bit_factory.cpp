@@ -25,10 +25,15 @@ TermError heap_error(HeapError error) {
 // within the buffer. A sub-binary of an appendable binary may reach past its original's own bits (appends).
 struct AppendSource {
     Word original;
-    const RefcBinaryCell *cell;
+    RefcBinaryCell *cell;
     std::size_t start;
     std::size_t bits;
 };
+
+// The refc cell of a published heap object, whose append state words this process may update (OPT0.11B).
+RefcBinaryCell *refc_cell(std::span<const Word> words) {
+    return reinterpret_cast<RefcBinaryCell *>(const_cast<Word *>(words.data()));
+}
 
 // The refc cell under a refc binary or a sub-binary of one; none for any other term.
 std::optional<AppendSource> append_source(const Term &accumulator) {
@@ -38,7 +43,7 @@ std::optional<AppendSource> append_source(const Term &accumulator) {
     }
     const auto kind = BoxHeader::kind(object->words[0]);
     if (kind == BoxedKind::refc_binary) {
-        const auto *cell = reinterpret_cast<const RefcBinaryCell *>(object->words.data());
+        auto *cell = refc_cell(object->words);
         return AppendSource{accumulator.word(), cell, cell->offset_, cell->bits_};
     }
     if (kind != BoxedKind::sub_binary) {
@@ -49,7 +54,7 @@ std::optional<AppendSource> append_source(const Term &accumulator) {
     if (!inner || BoxHeader::kind(inner->words[0]) != BoxedKind::refc_binary) {
         return std::nullopt;
     }
-    const auto *cell = reinterpret_cast<const RefcBinaryCell *>(inner->words.data());
+    auto *cell = refc_cell(inner->words);
     return AppendSource{sub.original_, cell, cell->offset_ + sub.offset_, sub.bits_};
 }
 
@@ -150,10 +155,12 @@ TermResult<Term> BitAccess::appendable(ProcessHeap &heap, std::span<const std::b
         return std::unexpected(heap_error(buffer.error()));
     }
     clear_padding(**buffer, count);
-    const auto *key = buffer->get();
+    const auto limit = (*buffer)->size() * 8;
     auto made = refc_binary(heap, std::move(*buffer), {0, count});
     if (made) {
-        heap.storage_->appendable_[key] = count;
+        auto *cell = refc_cell(TermAccess::object(*made)->words);
+        cell->append_end_ = count;
+        cell->append_limit_ = limit;
     }
     return made;
 }
@@ -163,15 +170,13 @@ std::optional<TermResult<Term>> BitAccess::append(ProcessHeap &heap, const Term 
     if (!source) {
         return std::nullopt;
     }
-    const auto &cell = *source->cell;
-    auto &storage = *heap.storage_;
+    auto &cell = *source->cell;
     const auto end = source->start + source->bits;
-    const auto found = storage.appendable_.find(cell.buffer_.get());
-    if (found == storage.appendable_.end() || found->second != end || end % 8 != 0 || source->start % 8 != 0) {
+    if (cell.append_end_ == 0 || cell.append_end_ != end || end % 8 != 0 || source->start % 8 != 0) {
         return std::nullopt;
     }
     const auto total = source->bits + rest.length;
-    if ((end + rest.length + 7) / 8 > cell.buffer_->size()) {
+    if (end + rest.length > cell.append_limit_) {
         BitWriter joined;
         joined.bytes.assign(cell.buffer_->begin() + static_cast<std::ptrdiff_t>(source->start / 8),
                             cell.buffer_->begin() + static_cast<std::ptrdiff_t>(end / 8));
@@ -187,7 +192,7 @@ std::optional<TermResult<Term>> BitAccess::append(ProcessHeap &heap, const Term 
     std::ranges::copy(std::span(rest.bytes.data(), (rest.length + 7) / 8), spare);
     auto made = sub_binary(heap, source->original, {source->start - cell.offset_, total});
     if (made) {
-        found->second = end + rest.length;
+        cell.append_end_ = end + rest.length;
     }
     return made;
 }

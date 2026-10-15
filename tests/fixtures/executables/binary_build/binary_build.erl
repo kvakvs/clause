@@ -42,4 +42,31 @@ main(_) ->
     receive
         {built, Other} -> io:format("~p~n", [{byte_size(Other), binary:part(Other, 64, 8)}])
     end,
+    % Appends to an older view, to a slice ending where the buffer's bits in use do, and to a copy received back
+    % from another process all leave every earlier view unchanged.
+    Base = append(30, <<>>),
+    Longer = <<Base/binary, 1:8>>,
+    Fork = <<Base/binary, 2:8>>,
+    Tail = binary:part(Longer, 4, byte_size(Longer) - 4),
+    Extended = <<Tail/binary, 3:16>>,
+    Self = self(),
+    spawn(fun() -> Self ! {echo, Longer} end),
+    Echoed =
+        receive
+            {echo, Copy} -> <<Copy/binary, 4:8>>
+        end,
+    Again = <<Longer/binary, 5:8>>,
+    io:format("~p~n", [
+        {
+            byte_size(Base),
+            binary:last(Longer),
+            binary:last(Fork),
+            byte_size(Extended),
+            binary:last(Extended),
+            binary:last(Echoed),
+            binary:last(Again),
+            binary:last(Longer),
+            erlang:md5(<<Base/binary, Again/binary>>)
+        }
+    ]),
     io:format("binary_build: ok~n").

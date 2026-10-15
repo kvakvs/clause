@@ -141,12 +141,14 @@ records; native records ([native records](native-records.md)); funs
   segments from their argument words (OPT0.11A).
 - Appends (OPT0.6, as OTP's writable binaries): a construction starting with a
   whole binary (`<<Acc/binary, ...>>`) builds its result in a buffer with
-  spare room (twice its size, at least 256 bytes) that the creating process
-  records with its used bits. A later append whose accumulator view ends
+  spare room (twice its size, at least 256 bytes) whose off-heap cell in the
+  creating process records its bits in use and capacity (OPT0.11B; zero in
+  every other cell, copies included). A later append whose accumulator view ends
   exactly there writes the new bytes into the spare room, which no view
   covers, and returns a longer view of the same buffer: a sub-binary of the
   buffer's own off-heap cell, which may reach past that cell's bits
-  (OPT0.11A); any other accumulator
+  (OPT0.11A). Generated code does this inline for whole-byte constant-width
+  integer segments of small values (OPT0.11B); any other accumulator
   (an older view, another process's, an unaligned one, a full buffer) is
   copied into a new doubled buffer. Other views of the buffer never change.
 - Float segments: widths 16/32/64; construction may encode infinity, but
