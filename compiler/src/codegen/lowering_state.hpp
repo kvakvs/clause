@@ -210,6 +210,10 @@ struct OperandProofs {
     std::optional<SmallRange> right;
 };
 
+// + - * / with a float operand (any numbers for /) computed inline into a new float cell on 64-bit targets, with
+// `service` for every other case (inline float arithmetic).
+llvm::Value *inline_float_operation(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,
+                                    llvm::Value *right, llvm::function_ref<llvm::Value *()> service);
 // Use checked small arithmetic where safe, retaining the common runtime fallback for all other values; proven
 // operands skip their tag checks, and a proven result range also skips the overflow check and the fallback.
 llvm::Value *lower_operation(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,

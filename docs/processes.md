@@ -323,6 +323,8 @@ dictionary, keys match with exact equality (`1` and `1.0` are two keys).
   they are released with the process.
 - The order of `get/0` and `get_keys/0,1` is unspecified, as in OTP.
   Lookup scans the entries linearly; immediate keys compare by word.
+  `put/2`, `get/1` and `erase/1` take and return the entry words as they
+  are, admitting no term (OPT0.15).
 
 ## Timers
 

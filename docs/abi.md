@@ -242,6 +242,13 @@ const TermWord *)` signature as a host entry calling
   `refc_append_end_word` with room below `refc_append_limit_word`: the bytes go
   past the end, the end advances, and the result is a 4-word `sub_binary` of
   that cell (OPT0.11B).
+- `+ - * /` (OPT0.15, 64-bit targets) with a float operand, and `/` of any two
+  numbers, read each operand as a double (a small integer converted, a float
+  cell's value read through a select of its cell or a constant stand-in cell,
+  so no load depends on a branch), compute in registers and bump-allocate the
+  2-word float cell when the result is finite, the divisor nonzero and the
+  heap has room; otherwise `CLAUSE_immediate_v1` raises `badarith` or
+  promotes.
 - Map expressions without a base whose keys are atom or small integer literals
   (at most 32 distinct) are written inline as classic map cells, keys sorted at
   compile time in exact term order, the last value of a repeated key kept

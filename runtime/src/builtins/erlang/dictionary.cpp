@@ -1,7 +1,9 @@
+#include "../portions.hpp"
 #include "../typed.hpp"
 #include "terms.hpp"
 #include <algorithm>
 #include <array>
+#include <utility>
 #include <vector>
 
 // The process dictionary builtins (plan step 41C, docs/processes.md#process-dictionary): put/2, get/0,1,
@@ -28,15 +30,9 @@ bool same(ProcessContext &context, Word left, Word right) {
 }
 
 // The entry of `key`, or the end of the entries.
-Entries::iterator find(ProcessContext &context, Entries &entries, const Term &key) {
-    return std::ranges::find_if(entries, [&](const auto &entry) { return same(context, entry.key, key.word()); });
+Entries::iterator find(ProcessContext &context, Entries &entries, Word key) {
+    return std::ranges::find_if(entries, [&](const auto &entry) { return same(context, entry.key, key); });
 }
-
-// The atom undefined, which reports an absent key.
-TermResult<Term> undefined(ProcessContext &context) { return TermFactory(context).atom("undefined"); }
-
-// The term of a dictionary word.
-TermResult<Term> term(ProcessContext &context, Word word) { return Term::from_word(word, context); }
 
 // A list of {Key, Value} tuples of the entries.
 TermResult<Term> pairs(ProcessContext &context, const Entries &entries) {
@@ -50,24 +46,23 @@ TermResult<Term> pairs(ProcessContext &context, const Entries &entries) {
     return factory.list_words(items, need(factory.nil()));
 }
 
-// put(Key, Value): the previous value, or undefined.
-TermResult<Term> put(ProcessContext &context, const Term &key, const Term &value) {
+// put(Key, Value): the previous value, or undefined. put/2, get/1 and erase/1 work on the argument and entry words,
+// which are this process's terms already, admitting none (cheap dictionary access).
+Word put(ProcessContext &context, Arguments arguments) {
     auto &entries = context.dictionary().entries();
-    const auto found = find(context, entries, key);
+    const auto found = find(context, entries, arguments[0]);
     if (found == entries.end()) {
-        entries.push_back({key.word(), value.word()});
-        return undefined(context);
+        entries.push_back({arguments[0], arguments[1]});
+        return abi::v1::undefined_atom;
     }
-    const auto previous = found->value;
-    found->value = value.word();
-    return term(context, previous);
+    return std::exchange(found->value, arguments[1]);
 }
 
 // get(Key): the value, or undefined.
-TermResult<Term> get(ProcessContext &context, const Term &key) {
+Word get(ProcessContext &context, Arguments arguments) {
     auto &entries = context.dictionary().entries();
-    const auto found = find(context, entries, key);
-    return found == entries.end() ? undefined(context) : term(context, found->value);
+    const auto found = find(context, entries, arguments[0]);
+    return found == entries.end() ? abi::v1::undefined_atom : found->value;
 }
 
 // get(): every {Key, Value}.
@@ -96,16 +91,16 @@ TermResult<Term> get_keys_of(ProcessContext &context, const Term &value) {
 }
 
 // erase(Key): the value it had, or undefined.
-TermResult<Term> erase(ProcessContext &context, const Term &key) {
+Word erase(ProcessContext &context, Arguments arguments) {
     auto &entries = context.dictionary().entries();
-    const auto found = find(context, entries, key);
+    const auto found = find(context, entries, arguments[0]);
     if (found == entries.end()) {
-        return undefined(context);
+        return abi::v1::undefined_atom;
     }
     const auto previous = found->value;
     *found = entries.back();
     entries.pop_back();
-    return term(context, previous);
+    return previous;
 }
 
 // erase(): every {Key, Value}, leaving the dictionary empty.
@@ -119,12 +114,9 @@ TermResult<Term> erase_all(ProcessContext &context) {
 }
 
 constexpr std::array DICTIONARY_BUILTINS{
-    typed_entry<put>("erlang", "put"),
-    typed_entry<get>("erlang", "get"),
-    typed_entry<get_all>("erlang", "get"),
-    typed_entry<get_keys>("erlang", "get_keys"),
-    typed_entry<get_keys_of>("erlang", "get_keys"),
-    typed_entry<erase>("erlang", "erase"),
+    BuiltinEntry{"erlang", "put", 2, &guarded<put>}, BuiltinEntry{"erlang", "get", 1, &guarded<get>},
+    typed_entry<get_all>("erlang", "get"),           typed_entry<get_keys>("erlang", "get_keys"),
+    typed_entry<get_keys_of>("erlang", "get_keys"),  BuiltinEntry{"erlang", "erase", 1, &guarded<erase>},
     typed_entry<erase_all>("erlang", "erase"),
 };
 } // namespace

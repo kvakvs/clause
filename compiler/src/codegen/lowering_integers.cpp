@@ -233,8 +233,12 @@ llvm::Value *lower_operation(ExpressionLowering &state, const Op operation, llvm
         return map;
     }
     const auto checked = arithmetic(operation);
+    const auto service = [&] { return lower_immediate(state, operation, left, right); };
+    if (operation == Op::divide) {
+        return inline_float_operation(state, operation, left, right, service);
+    }
     if (!checked) {
-        return lower_immediate(state, operation, left, right);
+        return service();
     }
     if (proofs.left && proofs.right && fits(state, *checked, *proofs.left, *proofs.right)) {
         return direct(state, *checked, left, right);
@@ -259,7 +263,7 @@ llvm::Value *lower_operation(ExpressionLowering &state, const Op operation, llvm
                                      llvm::ConstantInt::get(state.word, 15));
     builder.CreateBr(join);
     builder.SetInsertPoint(fallback);
-    auto *promoted = lower_immediate(state, operation, left, right);
+    auto *promoted = inline_float_operation(state, operation, left, right, service);
     auto *slow = builder.GetInsertBlock();
     builder.CreateBr(join);
     builder.SetInsertPoint(join);
