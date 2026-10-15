@@ -2,12 +2,12 @@
 -module(bench_util).
 -export([run/3, random_list/2, bytes/1, done/1]).
 
-%% Time Iterations calls of Fun after one warm-up call and print one "BENCH Name Microseconds" line.
+%% Time Iterations calls of Fun after one warm-up call and print one "BENCH Name Nanoseconds" line.
 run(Name, Iterations, Fun) ->
     _ = Fun(),
-    Start = erlang:monotonic_time(microsecond),
+    Start = erlang:monotonic_time(nanosecond),
     repeat(Iterations, Fun),
-    Elapsed = erlang:monotonic_time(microsecond) - Start,
+    Elapsed = erlang:monotonic_time(nanosecond) - Start,
     io:format("BENCH ~s ~w~n", [Name, Elapsed]).
 
 repeat(0, _Fun) ->

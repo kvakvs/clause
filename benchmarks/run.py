@@ -4,7 +4,8 @@
 Builds every benchmarks/bench_*.erl program with OTP (JIT, and the emu flavor when installed),
 Clause at HEAD (O2, with and without --lto) and a previous Clause commit, runs them on this host,
 prints a text report and keeps a 6-month history per host under benchmarks/history/, one run per day.
-Next to the reports it writes each program's annotated assembly and IR (clau --print-asm, --print-ir) at O0 and O2.
+With --listings it also writes each program's annotated assembly and IR (clau --print-asm, --print-ir) at O0 and
+O2 next to the reports. Kernel times are measured in nanoseconds and reported in milliseconds with six decimals.
 """
 
 import argparse
@@ -50,6 +51,7 @@ def parse_args():
     parser.add_argument("--host", default=platform.node().lower(), help="host label of the history records")
     parser.add_argument("--jobs", default="", help="parallel jobs for building the baseline")
     parser.add_argument("--no-history", action="store_true", help="do not write history or report files")
+    parser.add_argument("--listings", action="store_true", help="also write --print-asm and --print-ir listings")
     return parser.parse_args()
 
 
@@ -202,7 +204,7 @@ def build_baseline(info, config, jobs):
 
 
 def parse_results(output):
-    """Kernel times in microseconds from the BENCH lines of one program run."""
+    """Kernel times in nanoseconds from the BENCH lines of one program run."""
     results = {}
     for line in output.splitlines():
         parts = line.split()
@@ -237,7 +239,7 @@ def commands_for(systems, otp_dir, erl, clause_builds, name):
 
 def measure(names, commands_of, repeat, timeout):
     """Run every program `repeat` times on every system, interleaving systems to spread host noise."""
-    samples = {}  # (system, kernel) -> [microseconds]
+    samples = {}  # (system, kernel) -> [nanoseconds]
     walls = {}  # (system, program) -> [seconds]
     failures = {}  # (system, program) -> last failure status
     for round_index in range(repeat):
@@ -248,8 +250,8 @@ def measure(names, commands_of, repeat, timeout):
                     continue
                 print(f"benchmark: round {round_index + 1}/{repeat} {system} {name}", file=sys.stderr)
                 results, seconds, status = run_once(command, timeout)
-                for kernel, micros in results.items():
-                    samples.setdefault((system, kernel), []).append(micros)
+                for kernel, nanos in results.items():
+                    samples.setdefault((system, kernel), []).append(nanos)
                 walls.setdefault((system, name), []).append(seconds)
                 if status != "ok":
                     failures[(system, name)] = status
@@ -279,7 +281,7 @@ def millis(entry):
     """Median milliseconds with spread, or n/a."""
     if entry is None:
         return "n/a"
-    return f"{entry[0] / 1000:.1f} +/-{entry[1] * 100:.0f}%"
+    return f"{entry[0] / 1e6:.6f} +/-{entry[1] * 100:.0f}%"
 
 
 def table(header, rows):
@@ -349,7 +351,7 @@ def build_report(context, summary, walls, failures, systems, kernels):
 
 
 def _median(summary, system, kernel):
-    """Median microseconds of one system and kernel, or None."""
+    """Median nanoseconds of one system and kernel, or None."""
     entry = summary.get((system, kernel))
     return entry[0] if entry else None
 
@@ -383,8 +385,8 @@ def save_history(path, records):
 
 
 def medians_of(summary, system):
-    """Rounded kernel medians (microseconds) of one system."""
-    return {k: round(v[0]) for (s, k), v in summary.items() if s == system}
+    """Kernel medians in microseconds of one system, with nanosecond fractions (the history's unit)."""
+    return {k: round(v[0] / 1000, 3) for (s, k), v in summary.items() if s == system}
 
 
 def history_record(context, summary):
@@ -403,7 +405,7 @@ def trend_table(records, kernels):
     """Kernel medians (ms) of Clause O2 across the kept history of this host, newest runs last."""
     shown = records[-8:]
     header = ["benchmark", *[f"{r['run_date'][:10]} {r['commit'][:7]}" for r in shown]]
-    rows = [[k, *[f"{r['clause_us'][k] / 1000:.1f}" if k in r["clause_us"] else "n/a" for r in shown]]
+    rows = [[k, *[f"{r['clause_us'][k] / 1000:.6f}" if k in r["clause_us"] else "n/a" for r in shown]]
             for k in kernels]
     return table(header, rows)
 
@@ -490,7 +492,8 @@ def main():
     build_otp(erl, otp_dir)
     head_dir = (REPO / args.build_dir).resolve()
     builds, base = prepare_clause(args, head_dir)
-    write_listings(clau_path(head_dir, args.config), report_directory(args.host))
+    if args.listings:
+        write_listings(clau_path(head_dir, args.config), report_directory(args.host))
     head = commit_info("HEAD")
     head["dirty"] = bool(git("status", "--porcelain", "--", *SOURCE_PATHS))
     names = programs(args.only)

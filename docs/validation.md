@@ -184,7 +184,7 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
 - Programs: `benchmarks/bench_*.erl` with `bench_util.erl`, built unchanged by
   `erlc` and `clau -O2`. Each times its kernels with
   `erlang:monotonic_time/1` after one warm-up call and prints
-  `BENCH <name> <microseconds>`: data generation, data processing, garbage
+  `BENCH <name> <nanoseconds>`: data generation, data processing, garbage
   collection, message passing, file I/O (in an empty temporary working
   directory) and loopback sockets.
 - Systems, on the same host in one run, interleaved: OTP with its default
@@ -193,7 +193,8 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
   with `--lto`, and a previous Clause commit (default: the newest commit at
   least one day older than HEAD; `--baseline REV`, `--no-baseline`) built in a
   cached worktree under `build/bench-base/<hash>` that shares `thirdparty/`.
-- Report: per kernel the median of `--repeat` runs (default 5) with spread,
+- Report: per kernel the median of `--repeat` runs (default 5) in milliseconds
+  with six decimals and its spread,
   the change of Clause O2 against each system (`+N%`: Clause faster, the
   other takes N% longer; `-N%`: Clause takes N% longer; `(Fx)` the time
   ratio) with a geometric mean, `--lto` against OTP and O2, program wall
@@ -207,7 +208,7 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
   183 days before the newest are pruned; a run with uncommitted source
   changes is reported but not recorded. The history directory is
   gitignored: it stays on the host that ran it.
-- Listings: before measuring, every run writes each program's
+- Listings: with `--listings`, before measuring, a run writes each program's
   [`--print-asm`](compile.md#assembly-listings) and `--print-ir` listings
   (with `bench_util`, `--entry <program>` so unreachable library code is
   left out as in the executable) beside the reports as `<program>.debug.asm` /
