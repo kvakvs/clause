@@ -27,8 +27,9 @@ struct BitAccess {
     static TermResult<Term> make(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count);
     // Share an off-heap source's buffer for a checked view; slices of heap binaries are copied.
     static TermResult<Term> slice(ProcessHeap &heap, const Term &source, std::size_t offset, std::size_t count);
-    // The binary `accumulator` followed by `rest` (OPT0.6): written in place when the accumulator is this process's
-    // appendable view ending at its buffer's used bits and the spare bytes suffice; none when it is not such a view.
+    // The binary `accumulator` followed by `rest` (OPT0.6): written in place, as a sub-binary of the buffer's refc
+    // cell, when the accumulator is this process's appendable view (or a sub-binary of one) ending at its buffer's
+    // used bits and the spare bytes suffice; none when it is not such a view.
     static std::optional<TermResult<Term>> append(ProcessHeap &heap, const Term &accumulator, const BitWriter &rest);
     // Publish constructed bits as an appendable binary: a buffer with spare room, registered for appends (OPT0.6).
     static TermResult<Term> appendable(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count);
@@ -85,6 +86,8 @@ struct BitExtract {
 TermResult<std::size_t> bit_width(const BitSegment &segment, std::size_t remaining);
 // Construct one numeric/binary/UTF segment into a private writer.
 TermResult<void> bit_construct(BitWriter &writer, const BitSegment &segment);
+// Write the low `count` (at most 64) bits of an integer segment's two's complement value (word constructions).
+TermResult<void> bit_word_construct(BitWriter &writer, std::uint64_t bits, std::size_t count, bool little);
 // Extract checked numeric/binary/UTF segments, separating mismatch from infrastructure failures.
 TermResult<BitExtract> bit_extract(ProcessContext &context, const Term &source, std::size_t cursor,
                                    const BitSegment &segment);

@@ -14,10 +14,43 @@ using layout::BinaryBuffer;
 using layout::BoxHeader;
 using layout::HeapBinaryCell;
 using layout::RefcBinaryCell;
+using layout::SubBinaryCell;
 
 // Keep allocation failures distinct from the configured backing ceiling.
 TermError heap_error(HeapError error) {
     return error == HeapError::out_of_memory ? TermError::out_of_memory : TermError::resource_limit;
+}
+
+// What an accumulator views of an off-heap buffer: the refc cell (and its word) owning the buffer and the bit range
+// within the buffer. A sub-binary of an appendable binary may reach past its original's own bits (appends).
+struct AppendSource {
+    Word original;
+    const RefcBinaryCell *cell;
+    std::size_t start;
+    std::size_t bits;
+};
+
+// The refc cell under a refc binary or a sub-binary of one; none for any other term.
+std::optional<AppendSource> append_source(const Term &accumulator) {
+    const auto object = TermAccess::object(accumulator);
+    if (!object) {
+        return std::nullopt;
+    }
+    const auto kind = BoxHeader::kind(object->words[0]);
+    if (kind == BoxedKind::refc_binary) {
+        const auto *cell = reinterpret_cast<const RefcBinaryCell *>(object->words.data());
+        return AppendSource{accumulator.word(), cell, cell->offset_, cell->bits_};
+    }
+    if (kind != BoxedKind::sub_binary) {
+        return std::nullopt;
+    }
+    const auto &sub = *reinterpret_cast<const SubBinaryCell *>(object->words.data());
+    const auto inner = TermAccess::child(accumulator, sub.original_).and_then(TermAccess::object);
+    if (!inner || BoxHeader::kind(inner->words[0]) != BoxedKind::refc_binary) {
+        return std::nullopt;
+    }
+    const auto *cell = reinterpret_cast<const RefcBinaryCell *>(inner->words.data());
+    return AppendSource{sub.original_, cell, cell->offset_ + sub.offset_, sub.bits_};
 }
 
 // Zero the bits after the last valid one so equal values carry equal padding.
@@ -126,34 +159,35 @@ TermResult<Term> BitAccess::appendable(ProcessHeap &heap, std::span<const std::b
 }
 
 std::optional<TermResult<Term>> BitAccess::append(ProcessHeap &heap, const Term &accumulator, const BitWriter &rest) {
-    const auto object = TermAccess::object(accumulator);
-    if (!object || BoxHeader::kind(object->words[0]) != BoxedKind::refc_binary) {
+    const auto source = append_source(accumulator);
+    if (!source) {
         return std::nullopt;
     }
-    const auto &cell = *reinterpret_cast<const RefcBinaryCell *>(object->words.data());
+    const auto &cell = *source->cell;
     auto &storage = *heap.storage_;
-    const auto end = static_cast<std::size_t>(cell.offset_ + cell.bits_);
+    const auto end = source->start + source->bits;
     const auto found = storage.appendable_.find(cell.buffer_.get());
-    if (found == storage.appendable_.end() || found->second != end || end % 8 != 0 || cell.offset_ % 8 != 0) {
+    if (found == storage.appendable_.end() || found->second != end || end % 8 != 0 || source->start % 8 != 0) {
         return std::nullopt;
     }
-    const auto total = static_cast<std::size_t>(cell.bits_) + rest.length;
+    const auto total = source->bits + rest.length;
     if ((end + rest.length + 7) / 8 > cell.buffer_->size()) {
         BitWriter joined;
-        joined.bytes.assign(cell.buffer_->begin() + static_cast<std::ptrdiff_t>(cell.offset_ / 8),
+        joined.bytes.assign(cell.buffer_->begin() + static_cast<std::ptrdiff_t>(source->start / 8),
                             cell.buffer_->begin() + static_cast<std::ptrdiff_t>(end / 8));
-        joined.length = cell.bits_;
+        joined.length = source->bits;
         if (const auto added = joined.append({{rest.bytes.data(), rest.bytes.size()}, 0, rest.length}); !added) {
             return std::unexpected(added.error());
         }
         return appendable(heap, {joined.bytes.data(), joined.bytes.size()}, joined.length);
     }
-    // The bytes past `end` belong to no view, so writing them changes no term.
+    // The bytes past `end` belong to no view, so writing them changes no term. The result is a sub-binary of the
+    // buffer's refc cell: no buffer reference or off-heap cell per append.
     auto *spare = const_cast<std::byte *>(cell.buffer_->data()) + end / 8;
     std::ranges::copy(std::span(rest.bytes.data(), (rest.length + 7) / 8), spare);
-    auto made = refc_binary(heap, cell.buffer_, {cell.offset_, total});
+    auto made = sub_binary(heap, source->original, {source->start - cell.offset_, total});
     if (made) {
-        found->second = cell.offset_ + total;
+        found->second = end + rest.length;
     }
     return made;
 }

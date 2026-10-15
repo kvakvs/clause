@@ -129,7 +129,7 @@ optimization target, not only a matter of correctness.
 These close the gap to BeamAsm. They come first because every later tier needs
 LLVM to *see* the operations instead of opaque service calls.
 
-Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6, OPT0.7, OPT0.5 staging, OPT0.10): see
+Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6, OPT0.7, OPT0.5 staging, OPT0.10, OPT0.11A): see
 [00-finished.md](00-finished.md#plan-20). Open follow-ups of those steps:
 
 - ~~**OPT0.1 follow-up:** loop-head safepoints called `CLAUSE_safepoint_v1`
@@ -295,6 +295,14 @@ Added 2026-10-15 (user direction) from the same profile (10%).
 
 Added and done 2026-10-15 from the 69A comprehension kernel ([record](00-finished.md#plan-20)): unproven list
 generators read cells inline, and the comprehension's final reverse is word-level in one reservation.
+
+### OPT0.11 Inline binary construction and appends
+
+Added 2026-10-15 from the 69A binary_append kernel. **OPT0.11A** done ([record](00-finished.md#plan-20)): inline
+heap binaries for constant whole-byte integer segments, word-level service constructions, appends as sub-binaries.
+Open: **OPT0.11B** inline `<<Acc/binary, Segments...>>`: keep the append state (used end, capacity) in the
+buffer's refc cell instead of `HeapStorage::appendable_` so generated code can test it, write the bytes into the
+spare room and bump a sub-binary cell; a copied cell never carries the state (ABI change).
 
 ---
 

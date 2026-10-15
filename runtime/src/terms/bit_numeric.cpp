@@ -192,6 +192,10 @@ TermResult<std::size_t> bit_width(const BitSegment &segment, std::size_t remaini
     return size->convert_to<std::size_t>() * segment.unit;
 }
 
+TermResult<void> bit_word_construct(BitWriter &writer, std::uint64_t bits, std::size_t count, bool little) {
+    return word_bits(writer, {bits, count, little});
+}
+
 TermResult<void> bit_construct(BitWriter &writer, const BitSegment &segment) {
     using Type = abi::v1::BitType;
     if (segment.empty) {

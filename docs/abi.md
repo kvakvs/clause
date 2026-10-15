@@ -227,6 +227,11 @@ const TermWord *)` signature as a host entry calling
   subject (`sub_*_word`) is read through its original. A trailing
   `Rest/binary` or `Rest/bits` of unit 1 is bump-allocated inline as a 4-word
   `sub_binary` cell of the original (OPT1.4B).
+- Binary constructions (OPT0.11A, 64-bit targets) whose segments are all
+  integers of constant whole-byte widths up to 64 bits, at most 64 bytes in
+  all, are bump-allocated inline as `heap_binary` cells (header, bit length,
+  zeroed data words, then each segment's bytes) when every value is a small
+  integer and the heap has room; otherwise `CLAUSE_bits_v1` builds them.
 - Map expressions without a base whose keys are atom or small integer literals
   (at most 32 distinct) are written inline as classic map cells, keys sorted at
   compile time in exact term order, the last value of a repeated key kept

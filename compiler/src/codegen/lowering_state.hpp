@@ -231,6 +231,10 @@ struct BitLowering {
 
 // Construct complete bitstrings and checked byte parts through shared rooted services.
 llvm::Value *lower_bits(ExpressionLowering &state, const ast::Bitstring &binary);
+// A binary of whole-byte constant-width integer segments written inline, with `service` building it when a value
+// is no small integer or the heap has no room; null when the binary has other segments (inline construction).
+llvm::Value *inline_binary(ExpressionLowering &state, const ast::Bitstring &binary,
+                           llvm::function_ref<llvm::Value *()> service);
 llvm::Value *lower_binary_part(ExpressionLowering &state, std::span<llvm::Value *const> values);
 // Reject malformed/truncated segments without publishing tentative bindings or advancing their cursor.
 BitLowering lower_bit_pattern(ExpressionLowering &state, const semantic::MatchNode &node,

@@ -301,12 +301,18 @@ llvm::Value *lower_bits_operation(ExpressionLowering &state, const Op operation,
 }
 
 llvm::Value *lower_bits(ExpressionLowering &state, const ast::Bitstring &binary) {
-    std::vector<llvm::Value *> values;
-    values.reserve(3 * binary.segments.size());
-    for (const auto &segment : binary.segments) {
-        segment_values(state, segment, values);
+    const auto build = [&] {
+        std::vector<llvm::Value *> values;
+        values.reserve(3 * binary.segments.size());
+        for (const auto &segment : binary.segments) {
+            segment_values(state, segment, values);
+        }
+        return service(state, Op::make, values).value;
+    };
+    if (auto *made = inline_binary(state, binary, build)) {
+        return made;
     }
-    return service(state, Op::make, values).value;
+    return build();
 }
 
 BitLowering lower_bit_pattern(ExpressionLowering &state, const semantic::MatchNode &node,

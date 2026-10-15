@@ -2,7 +2,9 @@
 #include "service_errors.hpp"
 #include "term_layout.hpp"
 #include "terms.hpp"
+#include <array>
 #include <boost/container/small_vector.hpp>
+#include <clause/abi/bits.hpp>
 #include <clause/runtime/process_context.hpp>
 #include <new>
 #include <stdexcept>
@@ -54,6 +56,80 @@ TermResult<BitExtract> extract(TermResult<Term> value) {
         const auto bits = made.bit_size().value_or(0);
         return BitExtract{std::move(made), bits};
     });
+}
+
+// The decoded descriptor of a segment's argument words; none when it is no valid small descriptor.
+std::optional<unsigned> descriptor_of(Word word) {
+    const auto descriptor = decode_integer(word);
+    if (!descriptor || *descriptor < 256 || *descriptor > 65'663 || (*descriptor & 7) > 5 || (*descriptor & 128) != 0) {
+        return std::nullopt;
+    }
+    return static_cast<unsigned>(*descriptor);
+}
+
+// An integer segment of small size and value whose width is at most a word, read from its three argument words;
+// none for any other segment (word constructions).
+std::optional<std::array<std::uint64_t, 2>> word_argument(std::span<const Word> triple, bool &little) {
+    const auto descriptor = descriptor_of(triple[0]);
+    const auto size = decode_integer(triple[1]);
+    const auto value = decode_integer(triple[2]);
+    if (!descriptor || !size || !value || static_cast<abi::v1::BitType>(*descriptor & 7) != abi::v1::BitType::integer ||
+        (*descriptor & (abi::v1::bit_all | abi::v1::bit_empty)) != 0) {
+        return std::nullopt;
+    }
+    const auto unit = *descriptor >> 8;
+    if (*size < 0 || static_cast<std::uint64_t>(*size) > 64 / unit) {
+        return std::nullopt;
+    }
+    little = (*descriptor & abi::v1::bit_little) != 0;
+    return std::array{static_cast<std::uint64_t>(*value), static_cast<std::uint64_t>(*size) * unit};
+}
+
+// Whether a segment's argument words are a whole binary, as the accumulator of <<Acc/binary, ...>> is.
+bool accumulator_words(std::span<const Word> values) {
+    const auto descriptor = values.size() > 3 ? descriptor_of(values[0]) : std::nullopt;
+    return descriptor && static_cast<abi::v1::BitType>(*descriptor & 7) == abi::v1::BitType::binary &&
+           (*descriptor & abi::v1::bit_all) != 0;
+}
+
+// Write segments given as argument words into `writer`; none when one is no word-sized integer segment.
+std::optional<TermResult<void>> word_segments(BitWriter &writer, std::span<const Word> values) {
+    for (std::size_t i = 0; i < values.size(); i += 3) {
+        bool little = false;
+        const auto word = word_argument(values.subspan(i, 3), little);
+        if (!word) {
+            return std::nullopt;
+        }
+        if (const auto added = bit_word_construct(writer, (*word)[0], (*word)[1], little); !added) {
+            return added;
+        }
+    }
+    return TermResult<void>{};
+}
+
+// A construction of word-sized integer segments, optionally after an appendable accumulator, built from the
+// argument words with no Term per argument (word constructions); none when the general path must build it.
+std::optional<TermResult<BitExtract>> word_make(ProcessContext &context, std::span<const Word> values) {
+    if (values.empty() || values.size() % 3 != 0) {
+        return std::nullopt;
+    }
+    const bool accumulator = accumulator_words(values);
+    BitWriter writer;
+    const auto written = word_segments(writer, values.subspan(accumulator ? 3 : 0));
+    if (!written) {
+        return std::nullopt;
+    }
+    if (!*written) {
+        return std::unexpected(written->error());
+    }
+    if (!accumulator) {
+        return BitAccess::make(context.heap(), writer.bytes, writer.length).transform([&](Term value) {
+            return BitExtract{std::move(value), writer.length};
+        });
+    }
+    const auto start = Term::from_word(values[2], context);
+    auto appended = start ? BitAccess::append(context.heap(), *start, writer) : std::nullopt;
+    return appended ? std::optional{extract(std::move(*appended))} : std::nullopt;
 }
 
 // Stage all segments privately; only successful complete construction reserves process heap storage. A
@@ -240,6 +316,11 @@ std::uint8_t bits_service(ProcessContext &context, std::uint8_t operation, const
         return static_cast<std::uint8_t>(Outcome::failure);
     }
     try {
+        if (operation == static_cast<std::uint8_t>(Op::make)) {
+            if (const auto made = word_make(context, {values, count})) {
+                return static_cast<std::uint8_t>(publish_result(context, *made, output));
+            }
+        }
         const auto terms = admit(context, {values, count});
         if (!terms) {
             context.generated_calls().fail_service(term_status(terms.error()));
