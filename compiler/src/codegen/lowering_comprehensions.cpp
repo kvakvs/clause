@@ -66,9 +66,11 @@ void require(ExpressionLowering &state, llvm::Value *test, llvm::BasicBlock *oth
     state.builder.SetInsertPoint(next);
 }
 
-// The bridge index of erlang:yield/0, which a loop head enters when the time slice is spent (OPT0.7).
-constexpr auto YIELD = abi::v1::find_bridge_builtin("erlang", "yield", 0).value_or(0);
-static_assert(abi::v1::find_bridge_builtin("erlang", "yield", 0));
+// The bridge index of erlang:self/0, which a loop head enters when the time slice is spent (OPT0.7): entering any
+// function with no reductions left suspends the process, and on resumption self/0 just runs. erlang:yield/0 would
+// spend the new slice at once and yield again on the next iteration.
+constexpr auto YIELD = abi::v1::find_bridge_builtin("erlang", "self", 0).value_or(0);
+static_assert(abi::v1::find_bridge_builtin("erlang", "self", 0));
 
 llvm::Value *state_field(ExpressionLowering &state, abi::v1::StateField field) {
     return state.builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0), static_cast<unsigned>(field));
@@ -87,7 +89,7 @@ template <class Taken> void when(ExpressionLowering &state, llvm::Value *conditi
 
 // Every iteration starts at a loop head. It collects only when the heap wants a collection (FrameState::slow,
 // OPT0.1): the heap may move there, so lower_frames reloads values read after it. It spends one reduction and,
-// with none left, yields through erlang:yield/0 (OPT0.7).
+// with none left, yields by entering erlang:self/0 (OPT0.7).
 void safepoint(ExpressionLowering &state) {
     auto &builder = state.builder;
     const llvm::Align align(state.word->getBitWidth() / 8);
