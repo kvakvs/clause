@@ -528,7 +528,8 @@ of the destination heap (step 28, BEAM `size_object` and `copy_struct`):
 - One walk with an explicit stack (no recursion) finds every distinct object
   reachable from the value, keyed by address, so internal sharing survives:
   `{T, T}` copies `T` once, unlike ERTS's default `copy_struct`, which
-  flattens sharing. The copy is one reservation of the sum of their words, in
+  flattens sharing. The addresses go into an open-addressing map
+  (`boost::unordered_flat_map`, OPT0.23). The copy is one reservation of the sum of their words, in
   the heap block or a fragment, filled in walk order with pointers rewritten
   to the copies.
 - An off-heap binary's copy is a new cell sharing the buffer; the destination

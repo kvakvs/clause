@@ -6,9 +6,9 @@
 #include "off_heap.hpp"
 #include "process_heap.hpp"
 #include <algorithm>
+#include <boost/unordered/unordered_flat_map.hpp>
 #include <clause/runtime/process_context.hpp>
 #include <new>
-#include <unordered_map>
 #include <vector>
 
 // Copy a term graph between process heaps of one runtime (docs/runtime-heap.md#copying-between-heaps).
@@ -216,8 +216,9 @@ class GraphCopy final {
     HeapStorage &source_;
     // Distinct objects in discovery order, with their destination offsets.
     std::vector<Object> objects_;
-    // Source object address to its index in objects_; it detects sharing and cycles alike.
-    std::unordered_map<std::uintptr_t, std::size_t> index_;
+    // Source object address to its index in objects_; it detects sharing and cycles alike. An open-addressing map,
+    // since a large message has one entry per cell (cheap message copies).
+    boost::unordered_flat_map<std::uintptr_t, std::size_t> index_;
     // Source cells of the off-heap binaries among objects_.
     std::vector<const RefcBinaryCell *> binaries_;
     // Indexes of the off-heap map stubs among objects_ (OPT0.5A).
