@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "entry": "loop_fairness",
+  "workers": [
+    1
+  ],
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "257143 during\nloop_fairness: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "loop_fairness.erl": "db554695b267abe5ff664949ab13d245acd98db9e297cc023797778565ced29e"
+  }
+}

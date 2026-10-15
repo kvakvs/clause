@@ -129,12 +129,11 @@ optimization target, not only a matter of correctness.
 These close the gap to BeamAsm. They come first because every later tier needs
 LLVM to *see* the operations instead of opaque service calls.
 
-Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6): see
+Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6, OPT0.7): see
 [00-finished.md](00-finished.md#plan-20). Open follow-ups of those steps:
 
-- **OPT0.1 follow-up:** comprehension loop-head safepoints still call
-  `CLAUSE_safepoint_v1` unconditionally; test `FrameState::slow_collect` inline
-  first.
+- ~~**OPT0.1 follow-up:** loop-head safepoints called `CLAUSE_safepoint_v1`
+  unconditionally~~: done with OPT0.7 (inline `slow_collect` test).
 - **OPT0.1A follow-ups:**
   - frameless leaves (no push for a function with no non-tail call and nothing
     live across a safepoint, keeping the reduction check and entry safepoint)
@@ -238,6 +237,8 @@ Done 2026-10-15 at run time, as OTP's writable binaries ([record](00-finished.md
   `BitWriter::append` copies every segment today (`binary_append` is 462× slower).
 
 ### OPT0.7 Reduction accounting at loop back-edges
+
+Done 2026-10-15: one reduction per comprehension iteration, yield at zero ([record](00-finished.md#plan-20)).
 
 - Comprehension heads call only `CLAUSE_safepoint_v1` and charge nothing, which
   is a fairness gap.

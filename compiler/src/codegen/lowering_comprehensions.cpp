@@ -2,7 +2,9 @@
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
 #include "source_locations.hpp"
+#include <clause/abi/builtins.hpp>
 #include <clause/abi/equality.hpp>
+#include <clause/abi/frames.hpp>
 #include <clause/abi/term.hpp>
 #include <llvm/IR/Module.h>
 #include <utility>
@@ -64,13 +66,59 @@ void require(ExpressionLowering &state, llvm::Value *test, llvm::BasicBlock *oth
     state.builder.SetInsertPoint(next);
 }
 
-// Every iteration starts at a safepoint: the heap may move there, so lower_frames reloads values read after it.
+// The bridge index of erlang:yield/0, which a loop head enters when the time slice is spent (OPT0.7).
+constexpr auto YIELD = abi::v1::find_bridge_builtin("erlang", "yield", 0).value_or(0);
+static_assert(abi::v1::find_bridge_builtin("erlang", "yield", 0));
+
+llvm::Value *state_field(ExpressionLowering &state, abi::v1::StateField field) {
+    return state.builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0), static_cast<unsigned>(field));
+}
+
+// Continue in `next` after `taken`'s code where `condition` holds, directly elsewhere.
+template <class Taken> void when(ExpressionLowering &state, llvm::Value *condition, const char *name, Taken taken) {
+    auto *then = block(state, name);
+    auto *next = block(state, "loop.continue");
+    state.builder.CreateCondBr(condition, then, next);
+    state.builder.SetInsertPoint(then);
+    taken();
+    state.builder.CreateBr(next);
+    state.builder.SetInsertPoint(next);
+}
+
+// Every iteration starts at a loop head. It collects only when the heap wants a collection (FrameState::slow,
+// OPT0.1): the heap may move there, so lower_frames reloads values read after it. It spends one reduction and,
+// with none left, yields through erlang:yield/0 (OPT0.7).
 void safepoint(ExpressionLowering &state) {
-    auto &output = *state.entry.getParent();
-    auto service = output.getOrInsertFunction(
-        services::symbol<services::Safepoint>(output.getTargetTriple()),
-        llvm::FunctionType::get(state.builder.getVoidTy(), {state.builder.getPtrTy()}, false));
-    state.builder.CreateCall(service, {state.entry.getArg(0)});
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    auto *slow =
+        builder.CreateAlignedLoad(state.word, state_field(state, abi::v1::StateField::slow), align, "loop.slow");
+    auto *collect = builder.Insert(
+        llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_NE,
+                              builder.CreateAnd(slow, llvm::ConstantInt::get(state.word, abi::v1::slow_collect)),
+                              llvm::ConstantInt::get(state.word, 0)));
+    when(state, collect, "loop.collect", [&] {
+        auto &output = *state.entry.getParent();
+        auto service =
+            output.getOrInsertFunction(services::symbol<services::Safepoint>(output.getTargetTriple()),
+                                       llvm::FunctionType::get(builder.getVoidTy(), {builder.getPtrTy()}, false));
+        builder.CreateCall(service, {state.entry.getArg(0)});
+    });
+    auto *field = state_field(state, abi::v1::StateField::reductions);
+    auto *reductions = builder.CreateAlignedLoad(state.word, field, align, "loop.reductions");
+    auto *spent = builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, reductions,
+                                                       llvm::ConstantInt::get(state.word, 0)));
+    auto *yield = block(state, "loop.yield");
+    auto *spend = block(state, "loop.spend");
+    auto *next = block(state, "loop.body");
+    builder.CreateCondBr(spent, yield, spend);
+    builder.SetInsertPoint(yield);
+    lower_builtin(state, YIELD, {});
+    builder.CreateBr(next);
+    builder.SetInsertPoint(spend);
+    builder.CreateAlignedStore(builder.CreateSub(reductions, llvm::ConstantInt::get(state.word, 1)), field, align);
+    builder.CreateBr(next);
+    builder.SetInsertPoint(next);
 }
 
 // The kind of input a generator walks.

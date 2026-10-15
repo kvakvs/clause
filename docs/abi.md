@@ -260,7 +260,10 @@ const TermWord *)` signature as a host entry calling
   the `slow_collect` bit whenever it wants a collection, so inline entries
   never skip one. And
   `CLAUSE_safepoint_v1(context)` at each comprehension loop head collects
-  in place, when the heap asks for it. Every other service is a critical
+  in place; the head calls it only while `FrameState::slow` has
+  `slow_collect` (OPT0.1), then spends one reduction and, with none left,
+  enters `erlang:yield/0`, so long call-free loops share the scheduler
+  (OPT0.7). Every other service is a critical
   section that never moves the heap
   ([collection in generated code](runtime-heap.md#collection-in-generated-code)).
 
