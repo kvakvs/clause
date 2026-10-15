@@ -92,9 +92,8 @@ round_trip(run('--print-ir', 'space å.erl').stdout)
 annotated = run('-O2', '--print-ir', '--print-optimized-ir', 'source_comments.erl', 'answer.erl')
 source_parts = round_trip(annotated.stdout)[:2]
 before, after = [assembly for _, assembly in source_parts]
-# Arguments arrive as transfer parameters (plan 20 step OPT0.1A): the read is the argument's rooting store, and the
-# call's line names the inline entry that passes it on.
-assert re.search(r'store [^\n]*%argument[^\n]*;         Value\)\.', before)
+# Arguments arrive as transfer parameters (plan 20 step OPT0.1A) and are no longer stored into root slots when read
+# (OPT1.2): the call's line names the inline entry that passes them on.
 assert re.search(r'callee\.arity = load [^\n]*;     \?OUTER\(', before)
 assert re.search(r'callee\.arity = load [^\n]*;     answer:identity\(', before)
 assert re.search(r'  [^\n]+ ;     7\. % original literal line', after)

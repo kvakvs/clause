@@ -49,6 +49,12 @@ void root_value(ExpressionLowering &state, llvm::Value *value) {
     state.builder.CreateAlignedStore(value, slot, llvm::Align(state.word->getBitWidth() / 8));
 }
 
+void mark_term(ExpressionLowering &state, llvm::Value *value) {
+    if (auto *instruction = llvm::dyn_cast<llvm::Instruction>(value)) {
+        instruction->setMetadata(TERM_METADATA, llvm::MDNode::get(state.entry.getContext(), {}));
+    }
+}
+
 void root_arguments(ExpressionLowering &state) {
     for (std::size_t i = 0; i < state.roots->arguments; ++i) {
         auto *slot = state.builder.CreateGEP(state.word, state.entry.getArg(1), llvm::ConstantInt::get(state.word, i));

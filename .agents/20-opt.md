@@ -299,6 +299,9 @@ Ordered by measured T2 value and how well each fits an AOT compiler.
 
 ### OPT1.1 Loop recovery for self- and mutual tail recursion
 
+Status 2026-10-15: self tail calls already become LLVM loops (OPT0.1/0.1A inline transfers, `musttail` to the own
+body); mutual recursion and skipping the per-iteration frame re-entry remain.
+
 - **What:** rewrite a self tail call into a branch back to a synthesized loop
   header, with phis for the parameters. Mutually tail-recursive SCCs (Tarjan)
   become one loop with a dispatch. Loop structure stays side data (`LoopInfo`).
@@ -312,6 +315,8 @@ Ordered by measured T2 value and how well each fits an AOT compiler.
   - Collection happens only at the safepoint.
 
 ### OPT1.2 Keep loop-carried values in registers, untagged where proven
+
+Part done 2026-10-15: no eager root-slot stores ([record](00-finished.md#plan-20)); untagged raw loop values open.
 
 - **What:** T2 calls this "regalloc R3 register homing" and "RAW-IN-HOME":
   - keep the accumulator, induction variable and list cursor as raw machine

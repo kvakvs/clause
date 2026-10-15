@@ -148,7 +148,7 @@ llvm::Value *inline_map(ExpressionLowering &state, std::span<llvm::Value *const>
     heap_commit(state, room);
     auto *built = builder.CreateOr(builder.CreatePtrToInt(room.top, state.word),
                                    llvm::ConstantInt::get(state.word, abi::v1::boxed_tag));
-    builder.CreateAlignedStore(built, root_slot(state), align);
+    mark_term(state, built);
     builder.CreateBr(join);
     builder.SetInsertPoint(fallback);
     auto *serviced = service(state, Op::make, values);

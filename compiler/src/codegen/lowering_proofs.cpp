@@ -27,7 +27,7 @@ llvm::Value *word_at(ExpressionLowering &state, llvm::Value *value, const unsign
     const llvm::Align align(state.word->getBitWidth() / 8);
     auto *slot = builder.CreateGEP(state.word, cell(state, value, tag), llvm::ConstantInt::get(state.word, index));
     auto *word = builder.CreateAlignedLoad(state.word, slot, align, "proven.word");
-    builder.CreateAlignedStore(word, root_slot(state), align);
+    mark_term(state, word);
     return word;
 }
 } // namespace

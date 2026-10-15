@@ -119,7 +119,7 @@ llvm::Value *construct(ExpressionLowering &state, abi::v1::ContainerConstruction
     builder.SetInsertPoint(direct);
     auto *built = write_cells(state, operation, room.top, values);
     heap_commit(state, room);
-    builder.CreateAlignedStore(built, root_slot(state), align);
+    mark_term(state, built);
     builder.CreateBr(join);
     builder.SetInsertPoint(service);
     auto *serviced = construct_service(state, operation, values);

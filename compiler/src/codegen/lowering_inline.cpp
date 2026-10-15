@@ -95,7 +95,7 @@ llvm::Value *cell_word(ExpressionLowering &state, llvm::Value *value, const unsi
     auto *cell = cell_address(state, value, tag);
     auto *loaded =
         builder.CreateAlignedLoad(state.word, builder.CreateGEP(state.word, cell, index), align, "proven.word");
-    builder.CreateAlignedStore(loaded, root_slot(state), align);
+    mark_term(state, loaded);
     return loaded;
 }
 
@@ -440,7 +440,7 @@ llvm::Value *lower_setelement(ExpressionLowering &state, const std::size_t built
             heap_commit(state, target);
             auto *copy =
                 builder.CreateOr(builder.CreatePtrToInt(target.top, state.word), word(state, abi::v1::boxed_tag));
-            builder.CreateAlignedStore(copy, root_slot(state), align);
+            mark_term(state, copy);
             return copy;
         },
         [&] { return lower_builtin(state, builtin, values); });

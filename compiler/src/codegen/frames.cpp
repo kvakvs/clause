@@ -436,25 +436,29 @@ class FrameLowering {
         return raw_slot(body_.getParent()->getDataLayout().getTypeStoreSize(value.getType()).getFixedValue());
     }
 
-    // Find every term word of the body: loaded from the registers or a term slot, stored into a term slot, or a
-    // PHI merging one. Only use lists are walked: operand accessors trip clang-analyzer in LLVM headers.
+    // Find every term word of the body: loaded from the registers or a term slot, stored into a term slot, marked
+    // as a term by lowering (OPT1.2), or a PHI, freeze or select passing one on. Only use lists are walked: operand
+    // accessors trip clang-analyzer in LLVM headers.
     void find_terms() {
         const auto accesses = term_accesses();
         std::vector<const llvm::Value *> pending;
         for (const auto &instruction : llvm::instructions(body_)) {
             if (instruction.getType() == services_.word &&
-                (accesses.contains(&instruction) ||
+                (accesses.contains(&instruction) || instruction.getMetadata(TERM_METADATA) != nullptr ||
                  std::ranges::any_of(instruction.users(),
                                      [&](const llvm::User *user) { return accesses.contains(user); }))) {
                 pending.push_back(&instruction);
             }
         }
+        const auto passes_on = [](const llvm::User *user) {
+            return llvm::isa<llvm::PHINode>(user) || llvm::isa<llvm::FreezeInst>(user) ||
+                   llvm::isa<llvm::SelectInst>(user);
+        };
         while (!pending.empty()) {
             const auto *value = pending.back();
             pending.pop_back();
             if (terms_.insert(value).second) {
-                std::ranges::copy_if(value->users(), std::back_inserter(pending),
-                                     [](const llvm::User *user) { return llvm::isa<llvm::PHINode>(user); });
+                std::ranges::copy_if(value->users(), std::back_inserter(pending), passes_on);
             }
         }
     }
@@ -585,7 +589,10 @@ class FrameLowering {
         llvm::IRBuilder<> builder(resume, resume->getFirstInsertionPt());
         builder.SetCurrentDebugLocation(call.call->getDebugLoc());
         // The result arrives as the first parameter when the body resumes here (OPT0.1A).
-        call.call->replaceAllUsesWith(builder.CreateFreeze(body_.getArg(1), "call.result"));
+        // An Erlang call's result is a term (OPT1.2: lowering no longer stores every value into a root slot).
+        auto *result = llvm::cast<llvm::Instruction>(builder.CreateFreeze(body_.getArg(1), "call.result"));
+        result->setMetadata(TERM_METADATA, llvm::MDNode::get(body_.getContext(), {}));
+        call.call->replaceAllUsesWith(result);
         continuations_.push_back({call, resume});
     }
 

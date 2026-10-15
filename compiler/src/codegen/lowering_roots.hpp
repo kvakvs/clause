@@ -33,6 +33,11 @@ FunctionRoots begin_roots(ExpressionLowering &state);
 void root_arguments(ExpressionLowering &state);
 // Publish a produced term after its fallible operation succeeds and before another allocation.
 void root_value(ExpressionLowering &state, llvm::Value *value);
+// Metadata naming an instruction whose value is a term, so frame lowering keeps it in a term slot wherever it
+// crosses a call or safepoint (OPT1.2); values that cross none stay in registers.
+inline constexpr const char *TERM_METADATA = "clause.term";
+// Mark a computed term instead of storing it into a root slot eagerly (OPT1.2); constants and arguments need none.
+void mark_term(ExpressionLowering &state, llvm::Value *value);
 // Reserve a zero-initialized runtime slot for a service's success-only output or constructor argument.
 llvm::Value *root_slot(ExpressionLowering &state);
 // Drop rejected-candidate temporaries while retaining the original argument roots.

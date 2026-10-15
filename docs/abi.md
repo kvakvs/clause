@@ -247,9 +247,10 @@ const TermWord *)` signature as a host entry calling
   stores `x0` into the first register for the host.
 - An entry zeroes the frame and copies only the arguments past the parameters
   into their slots; a body keeps a parameter argument in its slot only where
-  `lower_frames` spills it across a call or safepoint (the codegen also roots
-  arguments it reads). Every evaluated value is stored in a term slot before
-  the next expression or call. Failed candidates clear their slots. Values a
+  `lower_frames` spills it across a call or safepoint. Evaluated values are
+  not stored eagerly (OPT1.2): lowering marks computed terms (`clause.term`
+  metadata) and `lower_frames` gives a term slot only to a value that crosses
+  a call or safepoint; service argument arrays still go through root slots. Failed candidates clear their slots. Values a
   body still needs after a call or a loop-head safepoint are spilled: terms to
   term slots (counted in the descriptor's `roots`), other words to raw slots
   after them; raw slots are not roots.

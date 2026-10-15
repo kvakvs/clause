@@ -842,7 +842,7 @@ struct Walk {
         boundary->eraseFromParent();
         state.builder.SetInsertPoint(join.merge);
         state.values.insert_or_assign(&expression, result);
-        root_value(state, result);
+        mark_term(state, result);
     }
 
     // Every action either emits a visited value or schedules the next source-ordered operand.
@@ -855,7 +855,7 @@ struct Walk {
         case Action::value: {
             auto *value = lower_value(state, visit.id);
             state.values.insert_or_assign(&expression, value);
-            root_value(state, value);
+            mark_term(state, value);
             break;
         }
         case Action::lazy_left: {
@@ -868,7 +868,7 @@ struct Walk {
         case Action::lazy_right: {
             auto *value = right(state, expression, joins.at(&expression));
             state.values.insert_or_assign(&expression, value);
-            root_value(state, value);
+            mark_term(state, value);
             joins.erase(&expression);
             break;
         }
