@@ -213,6 +213,10 @@ const TermWord *)` signature as a host entry calling
   (revision 12, OPT0.3) the heap block's free words `[heap_top, heap_limit)`,
   one target word each. A body reads its frame header (`stack + frame`) and the
   registers from it on entry and switches on the header's resume word.
+- Map expressions without a base whose keys are atom or small integer literals
+  (at most 32 distinct) are written inline as classic map cells, keys sorted at
+  compile time in exact term order, the last value of a repeated key kept
+  (OPT0.3A); otherwise `CLAUSE_map_v1` builds them.
 - Tuples and lists of at most 64 words are bump-allocated inline in
   `[heap_top, heap_limit)` (header or cons cells written in place, `heap_top`
   advanced), else built by `CLAUSE_construct_v1`; the result is rooted like a

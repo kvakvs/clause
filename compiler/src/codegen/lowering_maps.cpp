@@ -1,11 +1,18 @@
+#include "../semantic/capabilities.hpp"
 #include "../semantic/match_plan.hpp"
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
+#include <algorithm>
 #include <array>
+#include <charconv>
 #include <clause/abi/maps.hpp>
 #include <clause/abi/term.hpp>
+#include <compare>
 #include <llvm/IR/Module.h>
+#include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace clause::codegen {
 namespace {
@@ -58,6 +65,107 @@ llvm::Value *service(ExpressionLowering &state, Op operation, const std::span<ll
     const ServiceOutput result{outcome, slot};
     return checked_value(state, result, rejection(state, result));
 }
+
+// The exact-order rank of a key known at compile time (OPT0.3A): integer literals (numbers sort before atoms) and
+// atom literals (by their characters); none for any other key.
+struct KeyRank {
+    bool atom;
+    std::int64_t number;
+    std::u32string name;
+
+    auto operator<=>(const KeyRank &) const = default;
+};
+
+std::optional<KeyRank> key_rank(const ExpressionLowering &state, const ast::ExprId &key) {
+    const auto &value = state.module.syntax->expression(semantic::ungroup(*state.module.syntax, key)).value;
+    if (const auto *atom = std::get_if<ast::Atom>(&value)) {
+        return KeyRank{true, 0, atom->name};
+    }
+    std::int64_t number = 0;
+    if (const auto *character = std::get_if<ast::CharacterLiteral>(&value)) {
+        return KeyRank{false, character->value, {}};
+    }
+    if (const auto *integer = std::get_if<ast::IntegerLiteral>(&value)) {
+        const auto &digits = integer->value.decimal;
+        const auto parsed = std::from_chars(digits.data(), digits.data() + digits.size(), number);
+        // Keys within 32-bit small integers rank the same on every target width.
+        if (parsed.ec == std::errc{} && parsed.ptr == digits.data() + digits.size() && number >= -(1 << 27) &&
+            number < (1 << 27)) {
+            return KeyRank{false, number, {}};
+        }
+    }
+    return std::nullopt;
+}
+
+// The fields of a map expression in exact key order with the last value of each key, when every key ranks at
+// compile time; none otherwise.
+std::optional<std::vector<std::size_t>> ordered_fields(const ExpressionLowering &state, const ast::MapExpression &map) {
+    std::vector<std::pair<KeyRank, std::size_t>> ranks;
+    ranks.reserve(map.fields.size());
+    for (std::size_t i = 0; i < map.fields.size(); ++i) {
+        auto rank = key_rank(state, map.fields[i].key);
+        if (!rank) {
+            return std::nullopt;
+        }
+        ranks.emplace_back(std::move(*rank), i);
+    }
+    std::ranges::stable_sort(ranks, {}, &std::pair<KeyRank, std::size_t>::first);
+    std::vector<std::size_t> fields;
+    for (std::size_t i = 0; i < ranks.size(); ++i) {
+        if (i + 1 < ranks.size() && ranks[i + 1].first == ranks[i].first) {
+            continue;
+        }
+        fields.push_back(ranks[i].second);
+    }
+    return fields;
+}
+
+// A map expression without a base whose keys rank at compile time, written inline in the heap block's free words
+// (OPT0.3A): a classic map cell of its sorted key and value words. The service builds it when the heap has no room.
+llvm::Value *inline_map(ExpressionLowering &state, std::span<llvm::Value *const> values,
+                        const std::vector<std::size_t> &fields) {
+    auto &builder = state.builder;
+    auto &context = state.entry.getContext();
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    const auto words = 1 + 2 * fields.size();
+    const auto room = heap_room(state, llvm::ConstantInt::get(state.word, words));
+    auto *direct = llvm::BasicBlock::Create(context, "map.inline", &state.entry);
+    auto *fallback = llvm::BasicBlock::Create(context, "map.service", &state.entry);
+    auto *join = llvm::BasicBlock::Create(context, "map.join", &state.entry);
+    builder.CreateCondBr(room.fits, direct, fallback);
+    builder.SetInsertPoint(direct);
+    builder.CreateAlignedStore(
+        llvm::ConstantInt::get(
+            state.word, ((words - 1) << abi::v1::header_count_shift) |
+                            (static_cast<std::uint64_t>(abi::v1::HeaderKind::map) << abi::v1::header_kind_shift)),
+        room.top, align);
+    for (std::size_t i = 0; i < fields.size(); ++i) {
+        builder.CreateAlignedStore(values[2 * fields[i]], builder.CreateConstGEP1_64(state.word, room.top, 1 + 2 * i),
+                                   align);
+        builder.CreateAlignedStore(values[2 * fields[i] + 1],
+                                   builder.CreateConstGEP1_64(state.word, room.top, 2 + 2 * i), align);
+    }
+    heap_commit(state, room);
+    auto *built = builder.CreateOr(builder.CreatePtrToInt(room.top, state.word),
+                                   llvm::ConstantInt::get(state.word, abi::v1::boxed_tag));
+    builder.CreateAlignedStore(built, root_slot(state), align);
+    builder.CreateBr(join);
+    builder.SetInsertPoint(fallback);
+    auto *serviced = service(state, Op::make, values);
+    auto *fallback_end = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    return join_values(state, state.word, {direct, built}, {fallback_end, serviced});
+}
+
+// A map expression without a base: inline when its keys rank at compile time and fit a classic map, else the service.
+llvm::Value *new_map(ExpressionLowering &state, const ast::MapExpression &map, std::span<llvm::Value *const> values) {
+    const auto fields = ordered_fields(state, map);
+    if (fields && !fields->empty() && fields->size() <= 32) {
+        return inline_map(state, values, *fields);
+    }
+    return service(state, Op::make, values);
+}
 } // namespace
 
 llvm::Value *lower_map_operation(ExpressionLowering &state, const Op operation,
@@ -81,7 +189,7 @@ llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map,
         }
     }
     if (!map.base) {
-        return service(state, Op::make, values);
+        return new_map(state, map, values);
     }
     return service(state, owned ? Op::update_owned : Op::update, values);
 }

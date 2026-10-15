@@ -185,8 +185,9 @@ Split on 2026-10-15 (user direction to implement OPT0.2 and OPT0.3) before codin
 
 ### OPT0.3 Inline bump allocation with one heap check per block
 
-Done 2026-10-15 for tuples and lists, one check per construction ([record](00-finished.md#plan-20)). Open follow-up
-**OPT0.3A**: one check per basic block or straight-line region, and inline floats and small maps.
+Done 2026-10-15 for tuples and lists, one check per construction ([record](00-finished.md#plan-20)). OPT0.3A
+added inline map expressions with literal keys. Left open: one check per basic block (low value) and inline floats,
+which come with float unboxing (OPT1.11).
 
 - Emit `HTOP += n` inline, with a single reservation per basic block or
   straight-line region, the equivalent of `test_heap`. Today every
