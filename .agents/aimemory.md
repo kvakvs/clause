@@ -81,6 +81,8 @@ Plan history: .agents/11-plan.md (compact step records), .agents/00-finished.md 
     getOrInsertGlobal. No int-to-ptr casts: typed pointer fields. -Wmissing-designated-field-initializers: static
     factory helpers. Lizard/tidy complexity: dispatch tables for op switches.
 - ADL traps: local `advance`/`quoted`/`accumulate` resolve to std::/llvm:: -> rename.
+- check-quality's changed scope is `git diff HEAD`: `git add` new files first or they are skipped. abi/ header edits do
+  not pull their runtime dependents into the tidy scope; CMakeLists edits select all units.
 
 ## OTP oracle, goldens and fixtures
 - OTP pin and refresh: docs/otp-reference.md. Pin d199a49a (29.1.2), oracle install 29.1.1 / ERTS 17.1. Pin change
@@ -137,6 +139,12 @@ Plan history: .agents/11-plan.md (compact step records), .agents/00-finished.md 
 - Build cache: SQLite build/cache/v2 (lazy open; only put creates the db). Tests running manifests inside
   tests/fixtures pass --build-dir into their work dir; --verbose compile checks use --no-cache; a rebuilt clau misses
   every entry (warm up Release timing runs).
+- Inline codegen (OPT0.2/0.3): join values with `join_values` (SSAUpdater; PHI addIncoming trips clang-analyzer).
+  Block/value names must avoid float-flag words (`fast`, `nnan`, ...: patternmatch_floats greps IR). Every inttoptr
+  must be an instruction named `proven.cell*` (facts.py): never form pointers from constant words (they fold into
+  constant expressions); constant words are immediates anyway. Inline pointer results go through a root-slot store.
+- `codegen_service_*` fault tests reach services only where codegen still calls them: their fixtures route type
+  tests through `abs/1` and the consumer runs under a heap budget (inline allocation off).
 
 ## Runtime internals
 - Term::bit_slice, is_function, list_elements, with_tuple_element, without_map_entry, with_existing_map_entry are
@@ -161,6 +169,9 @@ Plan history: .agents/11-plan.md (compact step records), .agents/00-finished.md 
 - Call tracing: CLAUSE_CALL_TRACE=FILE (+ _FIRST=1, _ALL=1, _QUIET=prefixes); OTP twin tools/luerl-trace/ctrace.erl;
   sink allocated only when set (lifecycle_failure counts allocations). See .agents/21-lib.md.
 - Profiling: runtime-only `--profile FILE`.
+- false/true are fixed atom words 0x0b/0x4b in every runtime (ABI 11); AtomStorage::size()/max_atoms exclude them,
+  so cross-runtime atom tests must use another atom. HeapStorage::absorb/expose keep FrameState heap_top/heap_limit
+  in sync (ABI 12): any new runtime path reading heap_.top_/used_words_ of a running process must absorb first.
 
 ## Library and builtins
 - Bridge catalog abi::v1::bridge_builtins (index = CLAUSE_builtin_v1 arg) may be reordered freely: no release, no
