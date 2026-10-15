@@ -46,6 +46,8 @@ class ProcessIdentity final {
     friend class SchedulerService;
     friend class Runtime;
     friend class TermFactory;
+    // Publishes its own pid word in FrameState::self (OPT0.2D).
+    friend class ProcessContext;
 
     struct RuntimeKey {
         // Keep runtime identity distinct from the per-runtime process serial at construction.

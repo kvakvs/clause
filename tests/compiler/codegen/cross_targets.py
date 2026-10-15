@@ -54,7 +54,7 @@ def inspect(tool, readobj, nm, work, triple, bits, format_name, architecture):
         ir = (root / "llvm-ir/clausev1_616e73776572__0.ll").read_text(encoding="utf-8")
         assert f"store i{bits} {minimum * 16 + 15}" in ir, ir
         assert f"store i{bits} {maximum * 16 + 15}" in ir, ir
-        assert f"i32 14, i32 {bits}" in ir and f"define i{bits} @clausev1_" in ir, ir
+        assert f"i32 15, i32 {bits}" in ir and f"define i{bits} @clausev1_" in ir, ir
         assert ("optsize" in ir) == (level == "-Os"), ir
         # Calls, tail calls and returns leave a body by a guaranteed tail call of the code an inline transfer or
         # its service chose (OPT0.1).

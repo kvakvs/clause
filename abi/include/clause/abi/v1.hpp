@@ -13,9 +13,9 @@ namespace clause::abi::v1 {
 // Revision 7 adds fun descriptors to modules; revision 9 starts every context with abi::v1::FrameState (OPT0.1);
 // revision 10 passes the leading X registers as code parameters (OPT0.1A); revision 11 fixes the words of false and
 // true (OPT0.2A); revision 12 adds the inline heap fields to FrameState (OPT0.3); revision 13 fixes more atoms and adds
-// the module atom cache and FrameState::runtime (OPT0.8); revision 14 adds module literal areas (OPT0.4); v1 names the
-// unchanged term encoding.
-inline constexpr std::uint32_t version = 14;
+// the module atom cache and FrameState::runtime (OPT0.8); revision 14 adds module literal areas (OPT0.4); revision 15
+// adds FrameState::self (OPT0.2D); v1 names the unchanged term encoding.
+inline constexpr std::uint32_t version = 15;
 // Decode the shared immediate-term representation without preprocessor constants.
 inline constexpr unsigned primary_mask = 0x3;
 inline constexpr unsigned small_integer_tag = 0xf;

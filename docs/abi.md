@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 14)
+# Generated-code ABI (revision 15)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -286,11 +286,12 @@ Linker spellings follow the target's Itanium or Microsoft C++ mangling.
 Inline forms (OPT0.2B, `codegen/lowering_inline.cpp`): type tests (`is_atom`,
 `is_integer`, `is_number`, `is_boolean`, `is_tuple`, `is_list`, `is_bitstring`,
 `is_float`, `is_map`, `is_pid`, `is_port`, `is_reference`, `is_function/1`,
-native `is_record/1`) read tags and, after a boxed tag test, the header kind
+native `is_record/1`, `is_binary/1` by the bit length word) read tags and, after a boxed tag test, the header kind
 (`abi::v1::HeaderKind`); they never call a service. Comparisons of two
 immediates (`==`, `/=`) or two small integers (`<`, `=<`, `>`, `>=`),
 `element/2`, `tuple_size/1`, `hd/1`, `tl/1`, the boolean operators, `band`,
-`bor`, `bxor`, `bsr` and small `div`/`rem` run inline where their operands
+`bor`, `bxor`, `bsr`, `bsl` (while the result stays small) and small
+`div`/`rem` run inline; `self/0` reads `FrameState::self` (OPT0.2D). They run inline where their operands
 allow and call `CLAUSE_immediate_v1` otherwise, which keeps every error and
 bignum case. `setelement/3` of a small index within a boxed tuple copies the
 tuple into the heap block's free words and replaces the slot inline
@@ -344,3 +345,4 @@ success.
 | 12 | Inline heap fields `heap_top`/`heap_limit` in `FrameState` (OPT0.3) |
 | 13 | Fixed `undefined`, `ok`, `error`; `ModuleDescriptor::atom_cache` and `FrameState::runtime` (OPT0.8) |
 | 14 | Module literal areas: `ModuleDescriptor::literals`, `literal_words` (OPT0.4) |
+| 15 | `FrameState::self`, the context's pid word (OPT0.2D) |

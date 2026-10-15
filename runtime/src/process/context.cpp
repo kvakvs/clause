@@ -1,3 +1,4 @@
+#include "identities.hpp"
 #include <clause/runtime/runtime.hpp>
 #include <exception>
 #include <utility>
@@ -38,6 +39,8 @@ ProcessContext::ProcessContext(Runtime &runtime, ProcessIdentity identity, const
     }
     // Atom caches of modules this runtime registered name it (OPT0.8).
     abi::v1::FrameState::runtime = static_cast<std::size_t>(runtime.identity());
+    // self/0 reads the pid word inline (OPT0.2D).
+    abi::v1::FrameState::self = detail::pid_word(static_cast<Word>(identity.serial_));
 }
 
 ProcessContext::~ProcessContext() { impl_->lifetime->alive_ = false; }

@@ -44,6 +44,8 @@ struct FrameState {
     // The identity of the context's runtime, which a module atom cache names when its words are this runtime's
     // (OPT0.8).
     std::size_t runtime;
+    // The context's own pid word, which self/0 reads (OPT0.2D).
+    TermWord self;
 };
 
 // Word index of each FrameState field, as generated code addresses them (OPT0.1, heap fields OPT0.3).
@@ -59,14 +61,15 @@ enum class StateField : std::uint8_t {
     failed,
     heap_top,
     heap_limit,
-    runtime
+    runtime,
+    self
 };
 static_assert(sizeof(TermWord *) == sizeof(TermWord) && sizeof(std::size_t) == sizeof(TermWord));
 static_assert(offsetof(FrameState, registers) == static_cast<unsigned>(StateField::registers) * sizeof(TermWord));
 static_assert(offsetof(FrameState, failed) == static_cast<unsigned>(StateField::failed) * sizeof(TermWord));
 static_assert(offsetof(FrameState, heap_limit) == static_cast<unsigned>(StateField::heap_limit) * sizeof(TermWord));
-static_assert(offsetof(FrameState, runtime) == static_cast<unsigned>(StateField::runtime) * sizeof(TermWord));
-static_assert(sizeof(FrameState) == (static_cast<unsigned>(StateField::runtime) + 1) * sizeof(TermWord));
+static_assert(offsetof(FrameState, self) == static_cast<unsigned>(StateField::self) * sizeof(TermWord));
+static_assert(sizeof(FrameState) == (static_cast<unsigned>(StateField::self) + 1) * sizeof(TermWord));
 } // namespace clause::abi::v1
 
 // Generated code moves between functions only by tail transfers to the Code these services return.

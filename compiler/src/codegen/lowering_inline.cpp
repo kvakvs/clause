@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <clause/abi/equality.hpp>
+#include <clause/abi/frames.hpp>
 #include <clause/abi/term.hpp>
 #include <initializer_list>
 #include <llvm/Transforms/Utils/SSAUpdater.h>
@@ -175,7 +176,23 @@ llvm::Value *native_record_test(ExpressionLowering &state, llvm::Value *value) {
     return boxed(state, value, {HeaderKind::native_record});
 }
 
-constexpr std::array<std::pair<Op, TypeTest>, 14> TYPE_TESTS{{
+// A binary: a bitstring whose bit length (word 1 of a heap binary, word 2 of an off-heap view) is whole bytes.
+llvm::Value *binary_test(ExpressionLowering &state, llvm::Value *value) {
+    auto &builder = state.builder;
+    return split(
+        state, builder.getInt1Ty(), bitstring_test(state, value),
+        [&] {
+            auto *inline_data = header_kind(state, header(state, value), {HeaderKind::heap_binary});
+            auto *index = builder.CreateSelect(inline_data, word(state, 1), word(state, 2));
+            auto *bits = builder.CreateAlignedLoad(
+                state.word, builder.CreateGEP(state.word, cell_address(state, value, abi::v1::boxed_tag), index),
+                llvm::Align(state.word->getBitWidth() / 8), "binary.bits");
+            return tagged(state, bits, 7, 0);
+        },
+        [&] { return builder.getFalse(); });
+}
+
+constexpr std::array<std::pair<Op, TypeTest>, 15> TYPE_TESTS{{
     {Op::is_atom, atom_test},
     {Op::is_integer, integer_test},
     {Op::is_number, number_test},
@@ -190,6 +207,7 @@ constexpr std::array<std::pair<Op, TypeTest>, 14> TYPE_TESTS{{
     {Op::is_reference, reference_test},
     {Op::is_function, function_test},
     {Op::is_native_record, native_record_test},
+    {Op::is_binary, binary_test},
 }};
 
 // --- Operations with a slow tail: the inline value where `condition` holds, the service's elsewhere ---
@@ -331,9 +349,37 @@ llvm::Value *division(ExpressionLowering &state, const Operands &in) {
     });
 }
 
+// self/0: the context's pid word (OPT0.2D).
+llvm::Value *self_word(ExpressionLowering &state, const Operands &) {
+    auto *field = state.builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0),
+                                                           static_cast<unsigned>(abi::v1::StateField::self));
+    return state.builder.CreateAlignedLoad(state.word, field, llvm::Align(state.word->getBitWidth() / 8), "self");
+}
+
+// bsl of a small integer by a small count below the payload width, computed at twice the width: inline while the
+// result stays small (OPT0.2D). The count is clamped to zero for other operands, so no shift is poison.
+llvm::Value *shift_left(ExpressionLowering &state, const Operands &in) {
+    auto &builder = state.builder;
+    const auto bits = state.word->getBitWidth();
+    const auto payload_bits = bits - abi::v1::small_integer_bits;
+    auto *wide = builder.getIntNTy(2 * bits);
+    auto *right = decode(state, in.right);
+    auto *usable = builder.CreateAnd(both_small(state, in.left, in.right),
+                                     compare(state, llvm::CmpInst::ICMP_ULT, right, word(state, payload_bits)));
+    auto *count = builder.CreateSelect(usable, right, word(state, 0));
+    auto *shifted =
+        builder.CreateShl(builder.CreateSExt(decode(state, in.left), wide), builder.CreateZExt(count, wide));
+    const auto limit = std::int64_t{1} << (payload_bits - 1);
+    auto *fits =
+        builder.CreateAnd(compare(state, llvm::CmpInst::ICMP_SGE, shifted, llvm::ConstantInt::getSigned(wide, -limit)),
+                          compare(state, llvm::CmpInst::ICMP_SLT, shifted, llvm::ConstantInt::getSigned(wide, limit)));
+    return with_service(state, in, builder.CreateAnd(usable, fits),
+                        [&] { return encode(state, builder.CreateTrunc(shifted, state.word)); });
+}
+
 using Inline = llvm::Value *(*)(ExpressionLowering &, const Operands &);
 
-constexpr std::array<std::pair<Op, Inline>, 21> OPERATIONS{{
+constexpr std::array<std::pair<Op, Inline>, 23> OPERATIONS{{
     {Op::exact_equal, comparison}, {Op::exact_not_equal, comparison},
     {Op::equal, comparison},       {Op::not_equal, comparison},
     {Op::less, comparison},        {Op::less_equal, comparison},
@@ -344,7 +390,8 @@ constexpr std::array<std::pair<Op, Inline>, 21> OPERATIONS{{
     {Op::logical_or, logical},     {Op::logical_xor, logical},
     {Op::boolean_check, logical},  {Op::bit_and, bitwise},
     {Op::bit_or, bitwise},         {Op::bit_xor, bitwise},
-    {Op::shift_right, division},
+    {Op::shift_right, division},   {Op::shift_left, shift_left},
+    {Op::self, self_word},
 }};
 
 constexpr std::array<std::pair<Op, Inline>, 2> DIVISIONS{{{Op::integer_divide, division}, {Op::remainder, division}}};

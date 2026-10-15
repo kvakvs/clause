@@ -175,7 +175,7 @@ Split on 2026-10-15 (user direction to implement OPT0.2 and OPT0.3) before codin
   tuple and cons shapes inline at every optimization level and then read the
   elements inline; immediate literals compare as words at O0 too.
 - **OPT0.2B Inline immediate operations** (done 2026-10-15, [record](00-finished.md#plan-20); `is_binary/1`,
-  `self/0`, `bsl` and atom ordering still call the service). `lower_immediate` emits inline
+  `self/0` and `bsl` followed in OPT0.2D; atom ordering still calls the service). `lower_immediate` emits inline
   type tests, small-integer and atom comparisons, `element/2`, `tuple_size/1`,
   `hd/1`, `tl/1`, `self/0` and small-integer `band`/`bor`/`bxor`/`bsr`/`bsl`/
   `div`/`rem`, with the service as the slow tail for every other operand.
