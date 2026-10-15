@@ -227,7 +227,12 @@ void Executor::push(ProcessContext &process, bool front) {
     } else {
         queue_.push_back(&process);
     }
-    work_.notify_one();
+    // Lazy wakeups, as ERTS keeps processes that talk to each other on one scheduler: a worker queues work it takes
+    // itself after the current slice, so another worker is woken only for more than that one process. Other threads
+    // (timers, I/O) always wake a worker.
+    if (!worker_ || queue_.size() > 1) {
+        work_.notify_one();
+    }
 }
 
 TermResult<void> Executor::wake(ProcessContext &receiver) {
@@ -317,6 +322,7 @@ void Executor::time() noexcept {
 }
 
 void Executor::work() noexcept {
+    worker_ = true;
     std::unique_lock lock(mutex_);
     while (!finished_) {
         try {
@@ -345,6 +351,7 @@ void Executor::work() noexcept {
             std::terminate();
         }
     }
+    worker_ = false;
     work_.notify_all();
 }
 

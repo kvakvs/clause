@@ -61,6 +61,12 @@ the default is one worker per logical processor, as OTP's `+S`.
   keeps OTP's first-in, first-out order and needs no stealing). Idle workers
   sleep until a process is queued; the timer thread queues processes whose
   receive timeout expires ([receive timeouts](#receive-timeouts)).
+- Wakeups are lazy (OPT0.19), as ERTS keeps processes that talk to each other
+  on one scheduler: a worker that queues a process wakes another worker only
+  when the queue then holds more than that one process, since it takes the
+  queue's next process itself when its slice ends; the timer and I/O threads
+  always wake one. A second runnable process thus gets its own worker at the
+  next slice end, when the queue holds two.
 - One executor mutex guards the queue, the waiting processes, the timers, the
   registered names, the links and monitors of every process, and every
   process that is not running. A running process's heap, stack, mailbox and

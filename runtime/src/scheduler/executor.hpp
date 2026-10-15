@@ -599,6 +599,9 @@ class Executor final {
     ProcessContext *main_ = nullptr;
     // The process this thread runs; an exit signal ending it records its exit and lets it unwind.
     static inline thread_local ProcessContext *running_ = nullptr;
+    // Whether the calling thread is a scheduler worker, which takes the next queued process itself when its current
+    // slice ends (lazy wakeups).
+    static inline thread_local bool worker_ = false;
     // The process whose outcome ends the program, once one ended; run() returns it.
     ProcessContext *finished_ = nullptr;
     // Registered names (atom words) and their pid or port words; a name is released when its owner ends.
