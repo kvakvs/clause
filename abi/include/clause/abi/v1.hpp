@@ -15,8 +15,8 @@ namespace clause::abi::v1 {
 // true (OPT0.2A); revision 12 adds the inline heap fields to FrameState (OPT0.3); revision 13 fixes more atoms and adds
 // the module atom cache and FrameState::runtime (OPT0.8); revision 14 adds module literal areas (OPT0.4); revision 15
 // adds FrameState::self (OPT0.2D); revision 16 records the Code convention in module descriptors; revision 17 passes
-// six X registers as Code parameters; v1 names the unchanged term encoding.
-inline constexpr std::uint32_t version = 17;
+// six X registers as Code parameters; revision 18 adds sub-binary cells (OPT1.4B); v1 names the unchanged term encoding.
+inline constexpr std::uint32_t version = 18;
 // Decode the shared immediate-term representation without preprocessor constants.
 inline constexpr unsigned primary_mask = 0x3;
 inline constexpr unsigned small_integer_tag = 0xf;

@@ -133,7 +133,7 @@ void repeated(Runtime &runtime) {
     require(runtime.destroy_context(&context) == Status::ok, "teardown failed");
 }
 
-// Dead binary cells release their buffer reference once; a buffer shared by a live tail stays.
+// Dead binary cells release their buffer reference once; a binary a live tail (a sub-binary, OPT1.4B) names stays.
 void binaries(Runtime &runtime) {
     auto &context = *runtime.create_context().value();
     TermFactory factory(context);
@@ -142,7 +142,7 @@ void binaries(Runtime &runtime) {
     const auto tail = slice(context, kept, 8, 700);
     const std::weak_ptr<const BinaryBuffer> kept_buffer = buffer(kept);
     const std::weak_ptr<const BinaryBuffer> dropped_buffer = buffer(dropped);
-    require(kept_buffer.use_count() == 2 && context.heap().off_heap_words() == charge(100) + charge(200),
+    require(kept_buffer.use_count() == 1 && context.heap().off_heap_words() == charge(100) + charge(200),
             "binary fixture wrong");
     std::array roots{tail.word()};
     const auto stats = context.heap().collect(roots).value();

@@ -14,6 +14,15 @@ TermResult<BitView> bit_view(const Term &term) {
         return std::unexpected(TermError::wrong_type);
     }
     const auto words = object->words;
+    if (layout::BoxHeader::kind(words[0]) == BoxedKind::sub_binary) {
+        // A range of its original's bits (OPT1.4B).
+        const auto &cell = *reinterpret_cast<const layout::SubBinaryCell *>(words.data());
+        const auto original = TermAccess::child(term, cell.original_).and_then(bit_view);
+        if (!original) {
+            return std::unexpected(original.error());
+        }
+        return BitView{original->bytes, original->offset + cell.offset_, cell.bits_};
+    }
     if (layout::BoxHeader::kind(words[0]) == BoxedKind::refc_binary) {
         const auto &cell = *reinterpret_cast<const layout::RefcBinaryCell *>(words.data());
         return BitView{*cell.buffer_, cell.offset_, cell.bits_};

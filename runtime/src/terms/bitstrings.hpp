@@ -38,6 +38,8 @@ struct BitAccess {
     static TermResult<Term> heap_binary(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count);
     // Copy the bits into a new buffer charged to this process, then publish a view of all of it.
     static TermResult<Term> shared_binary(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count);
+    // Publish a sub-binary: a range of an inline or off-heap binary's bits (OPT1.4B).
+    static TermResult<Term> sub_binary(ProcessHeap &heap, Word original, BitRange range);
     // Publish an off-heap view; only a published cell receives the buffer reference and joins the list.
     static TermResult<Term> refc_binary(ProcessHeap &heap, std::shared_ptr<const std::vector<std::byte>> buffer,
                                         BitRange range);

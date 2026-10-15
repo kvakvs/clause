@@ -27,6 +27,11 @@ const RefcBinaryCell &cell(const Term &value) {
     return *reinterpret_cast<const RefcBinaryCell *>(value.word() & ~Word{3});
 }
 
+// Read the sub-binary behind a slice (OPT1.4B).
+const detail::layout::SubBinaryCell &range(const Term &value) {
+    return *reinterpret_cast<const detail::layout::SubBinaryCell *>(value.word() & ~Word{3});
+}
+
 // Count the owner's off-heap list from its newest cell.
 std::size_t list_length(const RefcBinaryCell *newest) {
     std::size_t count = 0;
@@ -50,7 +55,8 @@ Term slice(ProcessContext &context, const Term &value, std::size_t offset, std::
     return Term::from_word(output[0], context).value();
 }
 
-// Tails share one buffer charged once; context teardown drops every reference even while host Terms remain.
+// Tails are sub-binaries of the original's cell, so its buffer has one reference, charged once; a tail of a tail
+// still names the original (OPT1.4B). Context teardown drops every reference even while host Terms remain.
 void tails_and_teardown() {
     auto runtime = Runtime::start().value();
     auto &context = *runtime->create_context().value();
@@ -60,9 +66,10 @@ void tails_and_teardown() {
     const auto first = slice(context, original, 8, 700);
     const auto second = slice(context, first, 3, 600);
     std::weak_ptr<const BinaryBuffer> buffer = cell(original).buffer_;
-    require(buffer.use_count() == 3, "tails do not share the buffer");
-    require(cell(second).buffer_ == cell(original).buffer_ && cell(second).offset_ == 11, "tail lost its offset");
-    require(list_length(&cell(second)) == 3, "off-heap list does not hold exactly the three cells");
+    require(buffer.use_count() == 1, "tails took buffer references");
+    require(range(second).original_ == original.word() && range(second).offset_ == 11 && range(second).bits_ == 600,
+            "tail lost its original or offset");
+    require(list_length(&cell(original)) == 1, "off-heap list does not hold exactly the original's cell");
     require(context.heap().off_heap_words() == (100 + sizeof(Word) - 1) / sizeof(Word), "buffer charged per tail");
     require(small.bit_size() == 80 && small.word() != 0, "inline binary failed");
     require(runtime->destroy_context(&context) == Status::ok, "teardown failed");

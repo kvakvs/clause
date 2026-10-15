@@ -70,6 +70,20 @@ TermResult<Term> BitAccess::refc_binary(ProcessHeap &heap, std::shared_ptr<const
     return published;
 }
 
+TermResult<Term> BitAccess::sub_binary(ProcessHeap &heap, Word original, BitRange range) {
+    constexpr auto total = sizeof(layout::SubBinaryCell) / sizeof(Word);
+    auto reserved = heap.reserve(total);
+    if (!reserved) {
+        return std::unexpected(heap_error(reserved.error()));
+    }
+    auto *cell = std::construct_at(reinterpret_cast<layout::SubBinaryCell *>(reserved->bytes().data()));
+    cell->header_ = {BoxHeader::make(BoxedKind::sub_binary, total - 1)};
+    cell->offset_ = static_cast<Word>(range.offset);
+    cell->bits_ = static_cast<Word>(range.length);
+    cell->original_ = original;
+    return publish(heap.storage_, *reserved, reinterpret_cast<Word>(cell) | static_cast<Word>(TermKindPrimary::boxed));
+}
+
 TermResult<Term> BitAccess::shared_binary(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count) {
     auto buffer = heap.off_heap_buffer(bytes.first((count + 7) / 8));
     if (!buffer) {
@@ -157,9 +171,13 @@ TermResult<Term> BitAccess::slice(ProcessHeap &heap, const Term &source, std::si
         return std::unexpected(TermError::out_of_range);
     }
     const auto words = TermAccess::object(source).value().words;
+    if (BoxHeader::kind(words[0]) == BoxedKind::sub_binary) {
+        const auto &range = *reinterpret_cast<const layout::SubBinaryCell *>(words.data());
+        return sub_binary(heap, range.original_, {range.offset_ + offset, count});
+    }
     if (BoxHeader::kind(words[0]) == BoxedKind::refc_binary) {
-        const auto &original = *reinterpret_cast<const RefcBinaryCell *>(words.data());
-        return refc_binary(heap, original.buffer_, {original.offset_ + offset, count});
+        // A range of a shared binary is a sub-binary of its view: no buffer reference to take (OPT1.4B).
+        return sub_binary(heap, source.word(), {offset, count});
     }
     BitWriter writer;
     const auto copied = writer.append({view->bytes, view->offset + offset, count});

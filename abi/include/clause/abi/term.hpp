@@ -62,6 +62,7 @@ enum class HeaderKind : std::uint8_t {
     floating = 6,
     refc_binary = 8,
     heap_binary = 9,
+    sub_binary = 10,
     map = 15,
     tree_map = 18
 };
@@ -72,6 +73,10 @@ inline constexpr unsigned heap_binary_data_word = 2;
 inline constexpr unsigned refc_offset_word = 1;
 inline constexpr unsigned refc_bits_word = 2;
 inline constexpr unsigned refc_data_word = 3;
+// A sub-binary (OPT1.4B): a bit range of an inline or off-heap binary, the original's word last.
+inline constexpr unsigned sub_offset_word = 1;
+inline constexpr unsigned sub_bits_word = 2;
+inline constexpr unsigned sub_original_word = 3;
 // Low four bits of local pids and ports (OPT0.2B).
 inline constexpr unsigned immediate_tag_mask = 0xf;
 inline constexpr unsigned pid_tag = 0x3;

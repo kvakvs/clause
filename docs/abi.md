@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 17)
+# Generated-code ABI (revision 18)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -221,7 +221,10 @@ const TermWord *)` signature as a host entry calling
   integer segments of a constant whole-byte width up to 56 bits at a
   byte-aligned position read the cell inline (`abi::v1::heap_binary_*_word`,
   `refc_*_word`: an off-heap view's `data_` is its buffer's first byte); other
-  segments and unaligned positions call `CLAUSE_bits_v1`.
+  segments and unaligned positions call `CLAUSE_bits_v1`. A `sub_binary`
+  subject (`sub_*_word`) is read through its original. A trailing
+  `Rest/binary` or `Rest/bits` of unit 1 is bump-allocated inline as a 4-word
+  `sub_binary` cell of the original (OPT1.4B).
 - Map expressions without a base whose keys are atom or small integer literals
   (at most 32 distinct) are written inline as classic map cells, keys sorted at
   compile time in exact term order, the last value of a repeated key kept
@@ -362,3 +365,4 @@ success.
 | 15 | `FrameState::self`, the context's pid word (OPT0.2D) |
 | 16 | `Code` uses `preserve_none` on x86-64 and AArch64 with a Clang-built runtime; `ModuleDescriptor::code_convention` (OPT0.1A follow-up) |
 | 17 | Six X registers as `Code` parameters (`register_arguments`, OPT0.1A follow-up) |
+| 18 | `sub_binary` cells (`HeaderKind::sub_binary`, `sub_*_word`) and inline `Rest` extraction (OPT1.4B) |

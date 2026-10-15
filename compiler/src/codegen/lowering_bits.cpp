@@ -2,8 +2,10 @@
 #include "../semantic/capabilities.hpp"
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
+#include <charconv>
 #include <clause/abi/bits.hpp>
 #include <clause/abi/term.hpp>
+#include <cstdint>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Module.h>
 #include <optional>
@@ -107,14 +109,36 @@ llvm::Value *compare(ExpressionLowering &state, llvm::CmpInst::Predicate predica
     return state.builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, predicate, left, right));
 }
 
+// The size of a segment known at compile time: its default, or a size written as an integer literal.
+std::optional<std::uint64_t> literal_size(const ExpressionLowering &state, const semantic::MatchNode &node,
+                                          const semantic::BinaryOptions &options) {
+    if (!node.key) {
+        return options.size;
+    }
+    const auto &syntax = *state.module.syntax;
+    const auto *integer =
+        std::get_if<ast::IntegerLiteral>(&syntax.expression(semantic::ungroup(syntax, *node.key)).value);
+    std::uint64_t size = 0;
+    if (!integer) {
+        return std::nullopt;
+    }
+    const auto &digits = integer->value.decimal;
+    const auto parsed = std::from_chars(digits.data(), digits.data() + digits.size(), size);
+    return parsed.ec == std::errc{} && parsed.ptr == digits.data() + digits.size() ? std::optional{size} : std::nullopt;
+}
+
 // The width of an integer segment the matcher reads inline (OPT1.4): a constant number of whole bytes that fits a
 // small integer unsigned, at most 7 bytes; none otherwise.
-std::optional<unsigned> inline_width(const semantic::MatchNode &node) {
-    if (node.key || node.literal || !node.bits) {
+std::optional<unsigned> inline_width(const ExpressionLowering &state, const semantic::MatchNode &node) {
+    if (node.literal || !node.bits) {
         return std::nullopt;
     }
     const auto &options = *node.bits;
-    const auto width = options.size * options.unit;
+    const auto size = literal_size(state, node, options);
+    if (!size || *size > 64) {
+        return std::nullopt;
+    }
+    const auto width = static_cast<unsigned>(*size) * options.unit;
     if (options.type != abi::v1::BitType::integer || options.all || width == 0 || width % 8 != 0 || width > 56) {
         return std::nullopt;
     }
@@ -143,9 +167,8 @@ BitLowering finish(ExpressionLowering &state, llvm::Value *input, llvm::Value *c
 // unaligned load, swapped into the segment byte order and extended to a small integer; a position with too few
 // bits left mismatches, as the service does; an unaligned one takes the service.
 BitLowering extract(ExpressionLowering &state, const semantic::MatchNode &node, std::span<llvm::Value *const> values,
-                    llvm::BasicBlock *mismatch) {
+                    const unsigned width, llvm::BasicBlock *mismatch) {
     auto &builder = state.builder;
-    const auto width = *inline_width(node);
     const auto &options = *node.bits;
     auto *input = values[node.input];
     auto *cursor = values[node.index];
@@ -172,7 +195,9 @@ BitLowering extract(ExpressionLowering &state, const semantic::MatchNode &node, 
     const auto host_little = state.entry.getParent()->getDataLayout().isLittleEndian();
     const bool little = options.native ? host_little : options.little;
     if (width > 8 && little != host_little) {
-        raw = builder.CreateUnaryIntrinsic(llvm::Intrinsic::bswap, raw);
+        // bswap needs an even number of bytes: swap the word and shift the bytes back down.
+        auto *swapped = builder.CreateUnaryIntrinsic(llvm::Intrinsic::bswap, builder.CreateZExt(raw, state.word));
+        raw = builder.CreateTrunc(builder.CreateLShr(swapped, state.word->getBitWidth() - width), raw->getType());
     }
     auto *payload = options.signed_value ? builder.CreateSExt(raw, state.word) : builder.CreateZExt(raw, state.word);
     auto *value = encode_small(state, payload);
@@ -188,6 +213,62 @@ BitLowering extract(ExpressionLowering &state, const semantic::MatchNode &node, 
             join_values(state, state.word, {read_end, next}, {unaligned_end, serviced.cursor})};
 }
 
+// Whether a node extracts the rest of a binary (`Rest/binary` or `Rest/bits`) (OPT1.4B).
+bool rest_extraction(const semantic::MatchNode &node) {
+    return node.operation == semantic::MatchOperation::binary_extract && node.bits && !node.key && !node.literal &&
+           node.bits->type == abi::v1::BitType::binary && node.bits->all;
+}
+
+// The rest of a binary as an inline sub-binary of its original (OPT1.4B): offset, length and the original word; a
+// binary rest that is not whole bytes mismatches. Without heap room the service extracts it.
+BitLowering rest(ExpressionLowering &state, const semantic::MatchNode &node, std::span<llvm::Value *const> values,
+                 const unsigned unit, llvm::BasicBlock *mismatch) {
+    auto &builder = state.builder;
+    auto &context = state.entry.getContext();
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    const auto view = inline_binary_view(state, values[node.input]);
+    auto *position = decode_small(state, values[node.index]);
+    auto *left = builder.CreateSub(view.bits, position);
+    if (unit != 1) {
+        auto *whole = llvm::BasicBlock::Create(context, "binary.rest.whole", &state.entry);
+        builder.CreateCondBr(compare(state, llvm::CmpInst::ICMP_EQ,
+                                     builder.CreateURem(left, llvm::ConstantInt::get(state.word, unit)),
+                                     llvm::ConstantInt::get(state.word, 0)),
+                             whole, mismatch);
+        builder.SetInsertPoint(whole);
+    }
+    const auto room = heap_room(state, llvm::ConstantInt::get(state.word, 4));
+    auto *direct = llvm::BasicBlock::Create(context, "binary.rest", &state.entry);
+    auto *fallback = llvm::BasicBlock::Create(context, "binary.rest.service", &state.entry);
+    auto *join = llvm::BasicBlock::Create(context, "binary.rest.join", &state.entry);
+    builder.CreateCondBr(room.fits, direct, fallback);
+    builder.SetInsertPoint(direct);
+    const auto at = [&](unsigned index) { return builder.CreateConstGEP1_64(state.word, room.top, index); };
+    builder.CreateAlignedStore(
+        llvm::ConstantInt::get(state.word, (std::uint64_t{3} << abi::v1::header_count_shift) |
+                                               (static_cast<std::uint64_t>(abi::v1::HeaderKind::sub_binary)
+                                                << abi::v1::header_kind_shift)),
+        at(0), align);
+    // The offset counts from the original's own first bit: the view's offset past the original's, plus the cursor.
+    builder.CreateAlignedStore(builder.CreateAdd(builder.CreateSub(view.offset, view.base), position),
+                               at(abi::v1::sub_offset_word), align);
+    builder.CreateAlignedStore(left, at(abi::v1::sub_bits_word), align);
+    builder.CreateAlignedStore(view.original, at(abi::v1::sub_original_word), align);
+    heap_commit(state, room);
+    auto *made = builder.CreateOr(builder.CreatePtrToInt(room.top, state.word),
+                                  llvm::ConstantInt::get(state.word, abi::v1::boxed_tag));
+    mark_term(state, made);
+    auto *end = encode_small(state, view.bits);
+    builder.CreateBr(join);
+    builder.SetInsertPoint(fallback);
+    const auto serviced = service_pattern(state, node, values, mismatch);
+    auto *fallback_end = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    return {join_values(state, state.word, {direct, made}, {fallback_end, serviced.value}),
+            join_values(state, state.word, {direct, end}, {fallback_end, serviced.cursor})};
+}
+
 // The match nodes a binary pattern lowers inline (OPT1.4); none for the others, which use the bits service.
 std::optional<BitLowering> inline_pattern(ExpressionLowering &state, const semantic::MatchNode &node,
                                           const std::span<llvm::Value *> values, llvm::BasicBlock *mismatch) {
@@ -201,8 +282,14 @@ std::optional<BitLowering> inline_pattern(ExpressionLowering &state, const seman
     if (node.operation == MatchOperation::binary_finish) {
         return finish(state, values[node.input], values[node.index], mismatch);
     }
-    if (node.operation == MatchOperation::binary_extract && inline_width(node)) {
-        return extract(state, node, values, mismatch);
+    if (node.operation != MatchOperation::binary_extract || !node.bits) {
+        return std::nullopt;
+    }
+    if (const auto width = inline_width(state, node)) {
+        return extract(state, node, values, *width, mismatch);
+    }
+    if (rest_extraction(node)) {
+        return rest(state, node, values, node.bits->unit, mismatch);
     }
     return std::nullopt;
 }

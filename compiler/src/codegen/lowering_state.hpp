@@ -156,6 +156,10 @@ struct BinaryView {
     llvm::Value *bits;
     llvm::Value *offset;
     llvm::Value *data;
+    // The inline or off-heap binary the bits belong to: the word itself, or a sub-binary's original, and that
+    // binary's own offset into the data (OPT1.4B).
+    llvm::Value *original;
+    llvm::Value *base;
 };
 
 BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary);

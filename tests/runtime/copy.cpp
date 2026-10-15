@@ -158,7 +158,8 @@ void shared_buffers(Runtime &runtime) {
     const auto capacity = destination.heap().capacity_words();
     const auto first = graph.copy_to(destination.heap()).value();
     const auto second = graph.copy_to(destination.heap()).value();
-    require(observed.use_count() == 6 && destination.heap().verify()->off_heap_cells == 4,
+    // Each copy has one off-heap cell: the large binary, which its tail, a sub-binary, names (OPT1.4B).
+    require(observed.use_count() == 3 && destination.heap().verify()->off_heap_cells == 2,
             "copies did not share the buffer cell by cell");
     require(destination.heap().off_heap_words() == charge(1000), "destination charged the buffer more than once");
     require(runtime.memory_bytes() - before == (destination.heap().capacity_words() - capacity) * sizeof(Word),

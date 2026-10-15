@@ -55,6 +55,9 @@ std::expected<std::size_t, WalkError> untraced(BoxedKind kind, std::span<const W
         return sized(payload.size() >= 2, all);
     case BoxedKind::heap_binary:
         return sized(heap_binary_sized(payload), all);
+    case BoxedKind::sub_binary:
+        // Offset and length, then the original binary (OPT1.4B).
+        return sized(all == 3, 2);
     default:
         return std::unexpected(WalkError::unknown_kind);
     }

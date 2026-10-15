@@ -50,6 +50,7 @@ HeapObject boxed(Word value, std::span<const Word> words) {
     case BoxedKind::heap_binary:
         return {value, TermKind::bitstring, words, payload[0]};
     case BoxedKind::refc_binary:
+    case BoxedKind::sub_binary:
         return {value, TermKind::bitstring, words, payload[1]};
     default:
         return map_object(value, words);

@@ -350,9 +350,9 @@ Part done 2026-10-15: no eager root-slot stores ([record](00-finished.md#plan-20
 
 ### OPT1.4 Binary matching as a cursor induction variable
 
-OPT1.4A done 2026-10-15 (inline start/finish and aligned whole-byte reads, [record](00-finished.md#plan-20)). Open:
-**OPT1.4B** sub-binary cells so `Rest/binary` is an inline 4-word cell instead of a service call, then the raw
-cursor across iterations.
+OPT1.4A and OPT1.4B done 2026-10-15 (inline start/finish, aligned whole-byte reads, sub-binary cells and inline
+`Rest`, [record](00-finished.md#plan-20)). Open: **OPT1.4C** the raw cursor across iterations (no `Rest` cell per
+loop trip), unaligned and non-byte segments inline.
 
 This is the largest measured T2 win class (`14_bs_cursor_iv.md`).
 

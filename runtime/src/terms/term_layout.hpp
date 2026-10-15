@@ -137,6 +137,15 @@ using BinaryBuffer = std::vector<std::byte>;
 // Binaries up to this many bytes live inline on the heap; larger ones use a shared off-heap buffer.
 inline constexpr std::size_t heap_binary_bytes = HEAP_BINARY_THRESHOLD_WORDS * sizeof(Word);
 
+struct alignas(Word) SubBinaryCell final {
+    // A bit range of another binary (OPT1.4B): its offset into the original's bits and its length; the original, an
+    // inline or off-heap binary (never another sub-binary), is the one traced word.
+    BoxHeader header_;
+    Word offset_;
+    Word bits_;
+    Word original_;
+};
+
 struct alignas(Word) HeapBinaryCell final {
     // Identify untraced trailing data words; the header count is 1 plus the rounded-up data words.
     BoxHeader header_;
@@ -200,7 +209,8 @@ static_assert([] {
            same(BoxedKind::bignum, HeaderKind::bignum) && same(BoxedKind::reference, HeaderKind::reference) &&
            same(BoxedKind::fun_closure, HeaderKind::fun_closure) && same(BoxedKind::floating, HeaderKind::floating) &&
            same(BoxedKind::refc_binary, HeaderKind::refc_binary) &&
-           same(BoxedKind::heap_binary, HeaderKind::heap_binary) && same(BoxedKind::map, HeaderKind::map) &&
+           same(BoxedKind::heap_binary, HeaderKind::heap_binary) &&
+           same(BoxedKind::sub_binary, HeaderKind::sub_binary) && same(BoxedKind::map, HeaderKind::map) &&
            same(BoxedKind::tree_map, HeaderKind::tree_map);
 }());
 static_assert(BoxHeader::make(BoxedKind::tuple, 3) == Word{3} << abi::v1::header_count_shift);
@@ -229,6 +239,9 @@ static_assert(sizeof(RefcBinaryCell) == (1 + refc_payload_words(sizeof(Word))) *
 static_assert(offsetof(RefcBinaryCell, offset_) == abi::v1::refc_offset_word * sizeof(Word) &&
               offsetof(RefcBinaryCell, bits_) == abi::v1::refc_bits_word * sizeof(Word) &&
               offsetof(RefcBinaryCell, data_) == abi::v1::refc_data_word * sizeof(Word));
+static_assert(offsetof(SubBinaryCell, offset_) == abi::v1::sub_offset_word * sizeof(Word) &&
+              offsetof(SubBinaryCell, bits_) == abi::v1::sub_bits_word * sizeof(Word) &&
+              offsetof(SubBinaryCell, original_) == abi::v1::sub_original_word * sizeof(Word));
 static_assert(offsetof(HeapBinaryCell, bits_) == abi::v1::heap_binary_bits_word * sizeof(Word) &&
               sizeof(HeapBinaryCell) == abi::v1::heap_binary_data_word * sizeof(Word));
 // A handle reference keeps its number where a reference cell does (step 41N).

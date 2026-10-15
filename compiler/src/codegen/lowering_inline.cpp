@@ -145,7 +145,7 @@ llvm::Value *list_test(ExpressionLowering &state, llvm::Value *value) {
 }
 
 llvm::Value *bitstring_test(ExpressionLowering &state, llvm::Value *value) {
-    return boxed(state, value, {HeaderKind::refc_binary, HeaderKind::heap_binary});
+    return boxed(state, value, {HeaderKind::refc_binary, HeaderKind::heap_binary, HeaderKind::sub_binary});
 }
 
 llvm::Value *float_test(ExpressionLowering &state, llvm::Value *value) {
@@ -176,7 +176,8 @@ llvm::Value *native_record_test(ExpressionLowering &state, llvm::Value *value) {
     return boxed(state, value, {HeaderKind::native_record});
 }
 
-// A binary: a bitstring whose bit length (word 1 of a heap binary, word 2 of an off-heap view) is whole bytes.
+// A binary: a bitstring whose bit length (word 1 of a heap binary, word 2 of an off-heap view or sub-binary) is
+// whole bytes.
 llvm::Value *binary_test(ExpressionLowering &state, llvm::Value *value) {
     auto &builder = state.builder;
     return split(
@@ -450,7 +451,9 @@ llvm::Value *inline_bitstring_test(ExpressionLowering &state, llvm::Value *value
     return bitstring_test(state, value);
 }
 
-BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary) {
+namespace {
+// The view of an inline or off-heap binary (never a sub-binary).
+BinaryView direct_view(ExpressionLowering &state, llvm::Value *binary) {
     auto &builder = state.builder;
     auto &context = state.entry.getContext();
     const llvm::Align align(state.word->getBitWidth() / 8);
@@ -473,7 +476,42 @@ BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary) {
     builder.SetInsertPoint(join);
     return {join_values(state, state.word, {heap, heap_bits}, {shared, shared_bits}),
             join_values(state, state.word, {heap, word(state, 0)}, {shared, offset}),
-            join_values(state, state.word, {heap, heap_data}, {shared, shared_data})};
+            join_values(state, state.word, {heap, heap_data}, {shared, shared_data}), binary, nullptr};
+}
+} // namespace
+
+BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary) {
+    auto &builder = state.builder;
+    auto &context = state.entry.getContext();
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    auto *sub = header_kind(state, header(state, binary), {HeaderKind::sub_binary});
+    auto *range = llvm::BasicBlock::Create(context, "binary.sub", &state.entry);
+    auto *whole = llvm::BasicBlock::Create(context, "binary.whole", &state.entry);
+    auto *join = llvm::BasicBlock::Create(context, "binary.resolved", &state.entry);
+    builder.CreateCondBr(sub, range, whole);
+    builder.SetInsertPoint(range);
+    auto *cell = cell_address(state, binary, abi::v1::boxed_tag);
+    const auto at = [&](unsigned index) { return builder.CreateConstGEP1_64(state.word, cell, index); };
+    auto *sub_offset = builder.CreateAlignedLoad(state.word, at(abi::v1::sub_offset_word), align, "sub.offset");
+    auto *sub_bits = builder.CreateAlignedLoad(state.word, at(abi::v1::sub_bits_word), align, "sub.bits");
+    auto *original = builder.CreateAlignedLoad(state.word, at(abi::v1::sub_original_word), align, "sub.original");
+    mark_term(state, original);
+    const auto under = direct_view(state, original);
+    auto *range_offset = builder.CreateAdd(under.offset, sub_offset);
+    auto *range_end = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(whole);
+    const auto direct = direct_view(state, binary);
+    auto *whole_end = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    const auto joined = [&](llvm::Value *from_range, llvm::Value *from_whole) {
+        return join_values(state, state.word, {range_end, from_range}, {whole_end, from_whole});
+    };
+    auto *root = joined(original, binary);
+    mark_term(state, root);
+    return {joined(sub_bits, direct.bits), joined(range_offset, direct.offset), joined(under.data, direct.data), root,
+            joined(under.offset, direct.offset)};
 }
 
 llvm::Value *join_values(ExpressionLowering &state, llvm::Type *type, const BlockValue first, const BlockValue second) {

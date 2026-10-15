@@ -56,6 +56,7 @@ pointer (below), so a cell moves by copying its words.
 | `reference` | 8 bytes: the reference number ([pids and references](terms.md#pids-and-references)) | none |
 | `heap_binary` | bit length, then data bytes rounded up to words (at most 64 bytes) | none |
 | `refc_binary` | bit offset, bit length, the buffer's first byte (read by generated code, OPT1.4), `std::shared_ptr` (2 words), off-heap link: 6 words | none |
+| `sub_binary` | bit offset into the original, bit length, the original `heap_binary` or `refc_binary` (never a sub-binary): 3 words (OPT1.4B) | the original |
 | `filler` | n unused words | none |
 
 The `map` count is in words (entries = count / 2). Pids are immediates, admitted against the runtime's issued
@@ -69,10 +70,11 @@ A binary larger than 64 bytes is an immutable buffer that floats outside every
 process heap, shared by reference count (BEAM ProcBin and `Binary`).
 
 - Its boxed `refc_binary` cell holds a `std::shared_ptr` to the buffer, a bit
-  offset and a bit length; slices of a large binary are new `refc_binary` cells
-  sharing the buffer (ERTS sub-binaries are not used). Copying a cell to another
-  process copies the `shared_ptr` ([copying between heaps](#copying-between-heaps)),
-  never the bytes.
+  offset and a bit length. Slices of a large binary (and slices of those) are
+  `sub_binary` cells naming the original cell, as ERTS sub-binaries do (OPT1.4B):
+  a slice takes no buffer reference and keeps the original alive. Copying a
+  cell to another process copies the `shared_ptr`
+  ([copying between heaps](#copying-between-heaps)), never the bytes.
 - Each cell is linked into its process's off-heap list through its link word.
   The list is the only way to find these cells' C++ state.
 - Moving a cell copies its other words and move-constructs the `shared_ptr` into
@@ -85,7 +87,7 @@ process heap, shared by reference count (BEAM ProcBin and `Binary`).
   virtual binary heap of ERTS) until that process's last cell for it dies, and
   once to the runtime-wide account from creation until the buffer is freed.
 - `std::shared_ptr` is two pointers on every supported STL; a `static_assert`
-  keeps the cell size fixed at five words after the header on both widths.
+  keeps the cell size fixed at six words after the header on both widths.
 
 ### Handle references
 
