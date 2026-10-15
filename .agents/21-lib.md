@@ -40,6 +40,7 @@ directory at `references/luerl/examples/euler/`, because `euler:run/0` loads
   | OTP 29 (JIT) | 0.35 s | 20.8 ms | 77 ms | 17.6 ms |
   | Clause `-O0` (default) | 78 s | 7.28 s | 49.6 s | 17.7 s |
   | Clause `-O2` | 21 s | 3.30 s | 12.4 s | 4.32 s |
+  | Clause `-O2` after plan 20 OPT0.18 (2026-10-15) | 0.62 s | 119 ms | 316 ms | 95 ms |
 
   The OTP `cprof` count for problem_004 is about 3 M calls, so `-O2` costs
   about 1 µs per Erlang call. The slowdown grows with run length (45× on
