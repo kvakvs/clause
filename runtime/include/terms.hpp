@@ -57,6 +57,8 @@ class TermFactory final {
     TermResult<Term> list(std::span<const Term> elements, const Term &tail);
     // The same from ABI words, admitting each like Term::from_word; builtins building long lists avoid a Term each.
     TermResult<Term> list_words(std::span<const Word> elements, const Term &tail);
+    // Prepend a proper list's elements to tail in reverse order, reading its cells as words (comprehension results).
+    TermResult<Term> reverse(const Term &list, const Term &tail);
     // Construct a tuple, including the zero-element tuple, of at most MAX_TUPLE_ARITY elements.
     TermResult<Term> tuple(std::span<const Term> elements);
     // Construct a tuple from ABI words, admitting each like Term::from_word; generated services avoid a Term per field.

@@ -3,7 +3,9 @@
 #include "terms.hpp"
 #include <clause/abi/equality.hpp>
 #include <clause/abi/term.hpp>
+#include <clause/abi/v1.hpp>
 #include <new>
+#include <optional>
 #include <stdexcept>
 
 namespace clause::runtime {
@@ -69,6 +71,26 @@ TermResult<Term> list(ProcessHeap &heap, const std::shared_ptr<detail::HeapStora
     }
     return detail::publish(storage, *reserved,
                            reinterpret_cast<Word>(words) | static_cast<Word>(TermKindPrimary::list));
+}
+
+// The head and tail words of the cons cell a list word points to, as the storage that admitted the list reads them.
+std::span<const Word> cell_of(detail::HeapStorage &storage, Word list) {
+    const auto cell = storage.readable(static_cast<std::uintptr_t>(list & ~static_cast<Word>(abi::v1::primary_mask)));
+    return cell.size() < 2 ? std::span<const Word>{} : cell.first(2);
+}
+
+// The number of cells of a proper list; none for an improper one.
+std::optional<std::size_t> proper_length(detail::HeapStorage &storage, Word list) {
+    std::size_t count = 0;
+    while ((list & abi::v1::primary_mask) == abi::v1::list_tag) {
+        const auto cell = cell_of(storage, list);
+        if (cell.empty()) {
+            return std::nullopt;
+        }
+        list = cell[1];
+        ++count;
+    }
+    return list == abi::v1::empty_list ? std::optional{count} : std::nullopt;
 }
 } // namespace
 
@@ -154,6 +176,43 @@ TermResult<Term> TermFactory::list_words(std::span<const Word> elements, const T
     } catch (const std::bad_alloc &) {
         return std::unexpected(TermError::out_of_memory);
     }
+}
+
+TermResult<Term> TermFactory::reverse(const Term &list, const Term &tail) {
+    const auto owner = heap();
+    if (!owner) {
+        return std::unexpected(owner.error());
+    }
+    const auto checked_list = (*owner)->retain(list);
+    const auto checked_tail = (*owner)->retain(tail);
+    if (!checked_list || !checked_tail) {
+        return checked_list ? checked_tail : checked_list;
+    }
+    auto &storage = *(*owner)->storage_;
+    const auto count = proper_length(storage, list.word());
+    if (!count) {
+        return std::unexpected(TermError::wrong_type);
+    }
+    if (*count == 0) {
+        return checked_tail;
+    }
+    auto reserved = (*owner)->reserve(*count * 2);
+    if (!reserved) {
+        return std::unexpected(heap_error(reserved.error()));
+    }
+    // The first element of the list becomes the last cell, which links to tail.
+    auto *words = ::new (reserved->bytes().data()) Word[*count * 2]{};
+    auto previous = tail.word();
+    auto rest = list.word();
+    for (auto index = *count; index-- > 0;) {
+        const auto from = cell_of(storage, rest);
+        auto *cell = words + index * 2;
+        cell[0] = from[0];
+        cell[1] = previous;
+        previous = reinterpret_cast<Word>(cell) | static_cast<Word>(TermKindPrimary::list);
+        rest = from[1];
+    }
+    return detail::publish((*owner)->storage_, *reserved, previous);
 }
 
 TermResult<Term> TermFactory::cons(const Term &head, const Term &tail) { return list_tail(std::array{head}, tail); }

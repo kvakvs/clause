@@ -25,8 +25,6 @@ struct Generator {
     // What this step reads: the rest of a list or bitstring, or a map and its position.
     llvm::Value *input = nullptr;
     llvm::Value *map = nullptr;
-    // A list input inference proved a proper list: every rest is one, so cells are tested and read inline.
-    bool proven = false;
 };
 
 // A new block of the function being lowered.
@@ -151,8 +149,6 @@ Generator start(ExpressionLowering &state, const ast::Qualifier &part) {
     const auto &syntax = state.module.syntax->expression(semantic::qualifier_expression(part));
     auto *input = state.values.at(&syntax);
     store(state, input, generator.slot);
-    const auto known = known_expression(state, syntax);
-    generator.proven = generator.source == Source::list && known && state.proofs->list(*known) != ListShape::unknown;
     if (generator.source == Source::map) {
         start_map(state, generator, input);
     }
@@ -211,7 +207,8 @@ llvm::Value *take_entry(ExpressionLowering &state, const Generator &generator, c
     return lower_operation(state, abi::v1::ImmediateOperation::add, generator.input, lower_integer(state, "1"));
 }
 
-// Take the head of a proven list's cons cell inline, matching it unless `skip`; return the tail.
+// Take the head of a list's cons cell inline, matching it unless `skip`; return the tail. Anything but a cons
+// mismatches, as the inspection service did before cells were read inline for unproven inputs too.
 llvm::Value *take_cell(ExpressionLowering &state, const Generator &generator, const bool skip,
                        llvm::BasicBlock *mismatch) {
     require(state, inline_cons_test(state, generator.input), mismatch);
@@ -231,15 +228,7 @@ llvm::Value *take(ExpressionLowering &state, const Generator &generator, const b
     if (generator.source == Source::map) {
         return take_entry(state, generator, skip, mismatch);
     }
-    if (generator.proven) {
-        return take_cell(state, generator, skip, mismatch);
-    }
-    auto *rest = lower_inspection(state, abi::v1::ContainerInspection::cons_tail, generator.input, 0, mismatch);
-    if (!skip) {
-        auto *head = lower_inspection(state, abi::v1::ContainerInspection::cons_head, generator.input, 0, mismatch);
-        match(state, semantic::generator_patterns(*generator.part).front(), head, mismatch);
-    }
-    return rest;
+    return take_cell(state, generator, skip, mismatch);
 }
 
 // Take an element of every generator in step (matching only the strict ones when `skip_relaxed`) and advance them

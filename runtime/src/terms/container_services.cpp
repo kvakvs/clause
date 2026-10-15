@@ -33,28 +33,18 @@ std::uint8_t publish_result(ProcessContext &context, const TermResult<Term> &res
     return static_cast<std::uint8_t>(Outcome::failure);
 }
 
-// Prepend the elements of a proper list (`terms[0]`) to a tail (`terms[1]`) in reverse order; an improper list is a
+// Prepend the elements of a proper list (`values[0]`) to a tail (`values[1]`) in reverse order; an improper list is a
 // bad argument.
-TermResult<Term> reverse(ProcessContext &context, std::span<const Term> terms) {
-    if (terms.size() != 2) {
+TermResult<Term> reverse(ProcessContext &context, std::span<const Word> values) {
+    if (values.size() != 2) {
         return std::unexpected(TermError::invalid_argument);
     }
-    std::vector<Term> elements;
-    auto rest = terms[0];
-    while (rest.is_cons()) {
-        const auto head = rest.head();
-        const auto next = rest.tail();
-        if (!head || !next) {
-            return std::unexpected(TermError::invalid_argument);
-        }
-        elements.push_back(*head);
-        rest = *next;
+    const auto list = Term::from_word(values[0], context);
+    const auto tail = Term::from_word(values[1], context);
+    if (!list || !tail) {
+        return std::unexpected(list ? tail.error() : list.error());
     }
-    if (!rest.is_nil()) {
-        return std::unexpected(TermError::wrong_type);
-    }
-    std::ranges::reverse(elements);
-    return TermFactory(context).list(elements, terms[1]);
+    return TermFactory(context).reverse(*list, *tail);
 }
 
 // Validate all input ownership before invoking a transactional factory; the tuple factory checks the arity.
@@ -62,6 +52,9 @@ TermResult<Term> construct(ProcessContext &context, Construct operation, std::sp
     TermFactory factory(context);
     if (operation == Construct::tuple) {
         return factory.tuple_words(values);
+    }
+    if (operation == Construct::reverse) {
+        return reverse(context, values);
     }
     std::vector<Term> terms;
     terms.reserve(values.size());
@@ -71,9 +64,6 @@ TermResult<Term> construct(ProcessContext &context, Construct operation, std::sp
             return std::unexpected(term.error());
         }
         terms.push_back(*term);
-    }
-    if (operation == Construct::reverse) {
-        return reverse(context, terms);
     }
     if (terms.empty()) {
         return std::unexpected(TermError::invalid_argument);

@@ -456,7 +456,7 @@
   facts and expression facts (`ExpressionLowering::proofs`): proven small operands
   skip tag tests (proven result ranges also the overflow fallback), proven or
   shape-tested tuples/cons cells are read inline (`lowering_proofs`, stored to root
-  slots), immediate literals compare words, proven list generators walk inline.
+  slots), immediate literals compare words, list generators walk cons cells inline (proven or not, OPT0.10).
   Variants keep actual profiles (small-integer ranges) and guarded generic fallback:
   3 variants per function, 32/module, 128/target and at most 2x measured generic IR;
   one argument tag test rarely pays for a dispatcher, so source variants are rare.

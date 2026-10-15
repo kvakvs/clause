@@ -129,7 +129,7 @@ optimization target, not only a matter of correctness.
 These close the gap to BeamAsm. They come first because every later tier needs
 LLVM to *see* the operations instead of opaque service calls.
 
-Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6, OPT0.7, OPT0.5 staging): see
+Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6, OPT0.7, OPT0.5 staging, OPT0.10): see
 [00-finished.md](00-finished.md#plan-20). Open follow-ups of those steps:
 
 - ~~**OPT0.1 follow-up:** loop-head safepoints called `CLAUSE_safepoint_v1`
@@ -290,6 +290,11 @@ Added 2026-10-15 (user direction) from the same profile (10%).
   result staging.
 - **Gate:** bit-syntax goldens (`executables_*bits*`) unchanged; the euler
   example's `bits_service` share falls under 2% of samples.
+
+### OPT0.10 Inline list generators and comprehension reverse
+
+Added and done 2026-10-15 from the 69A comprehension kernel ([record](00-finished.md#plan-20)): unproven list
+generators read cells inline, and the comprehension's final reverse is word-level in one reservation.
 
 ---
 

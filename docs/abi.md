@@ -143,7 +143,9 @@ like `case` clauses and raise `{else_clause, Value}`
 
 Comprehensions use the existing services with a few operations: the
 accumulated elements are reversed by the construction `reverse`
-(`ContainerConstruction::reverse = 2`, values `{List, Tail}`); a binary
+(`ContainerConstruction::reverse = 2`, values `{List, Tail}`), which builds the
+result in one heap reservation; list generators test and read cons cells
+inline (OPT0.10); a binary
 comprehension joins its pieces with `BitOperation::concat` (`{List}`) and a map
 comprehension builds its map with `MapOperation::from_list` (`{Pairs}`, later
 keys win). Map generators read `MapOperation::key_at`/`value_at`
