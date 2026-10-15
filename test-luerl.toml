@@ -14,7 +14,8 @@ build_dir = "build-clau-luerl"
 sources = [
   # "C:/Program Files/Erlang OTP/lib/kernel*/src/application.erl",
   # "C:/Program Files/Erlang OTP/lib/stdlib*/src/supervisor.erl",
-  "references/luerl/src/**/*.erl"
+  "references/luerl/src/**/*.erl",
+  "references/luerl/examples/euler/*.erl"
 ]
 # Recursively collect .erl files. Create/populate src or edit these selections.
 # Set source_dirs = [] when selecting files exclusively through sources.
