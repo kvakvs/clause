@@ -104,8 +104,11 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect(std::span<Word> r
         }
         shrink(roots);
     }
-    // Surviving buffers double the virtual binary heap, but half of the free budget stays for heap fragments.
-    const auto doubled = std::max(detail::MIN_BINARY_HEAP_WORDS, 2 * storage.off_heap_words_);
+    // Surviving buffers double the virtual binary heap, but half of the free budget stays for heap fragments. It also
+    // leaves room for as many new buffer words as the heap holds live words: a collection for binary garbage copies
+    // them all, so its cost stays proportional to the binaries allocated (amortized binary collections).
+    const auto doubled = std::max(
+        {detail::MIN_BINARY_HEAP_WORDS, 2 * storage.off_heap_words_, storage.off_heap_words_ + storage.used_words_});
     const auto room = (budget_words() - storage.capacity_words_) / 2;
     storage.binary_limit_words_ = std::min(doubled, storage.off_heap_words_ + room);
     stats.live_words = storage.used_words_;

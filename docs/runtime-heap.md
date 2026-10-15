@@ -327,7 +327,7 @@ A safepoint collects when the heap asks for it; otherwise it costs one check.
 | Trigger | Condition at the safepoint | ERTS counterpart |
 | --- | --- | --- |
 | Heap full | Any fragment exists: an allocation did not fit the heap block since the last collection | Heap top reaches the heap end |
-| Off-heap binary pressure | Off-heap words reach the virtual binary heap limit: 46,422 words at first, after each collection twice the surviving off-heap words, never less than that, but at most the survivors plus half of the budget left free after the heap block (step 27) | `bin_vheap_sz` / binary virtual heap |
+| Off-heap binary pressure | Off-heap words reach the virtual binary heap limit: 46,422 words at first, after each collection twice the surviving off-heap words or the survivors plus the live heap words, whichever is more (never less than 46,422; amortized binary collections, OPT0.20), but at most the survivors plus half of the budget left free after the heap block (step 27) | `bin_vheap_sz` / binary virtual heap |
 | `erlang:garbage_collect/0` | Always; arrives with the builtin families (steps 36-37) as a forced safepoint | Explicit full sweep |
 
 The new block is sized for the live words **plus the stack words in use**
