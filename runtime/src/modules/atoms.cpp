@@ -131,8 +131,8 @@ CodeResult<void> bind_funs(ModuleAtoms &bindings, const abi::v1::ModuleDescripto
 } // namespace
 
 namespace {
-// Claim the descriptor's atom cache for this runtime and fill it with the slot words; a cache another runtime
-// claimed stays its (OPT0.8).
+// Claim the descriptor's atom cache for this runtime and fill it with the slot words, and its fun cache with the fun
+// definitions (inline closures); a cache another runtime claimed stays its (OPT0.8).
 void claim_cache(ModuleAtoms &bindings, const abi::v1::ModuleDescriptor &descriptor, const std::uint64_t runtime) {
     if (!descriptor.atom_cache || runtime == 0) {
         return;
@@ -144,6 +144,11 @@ void claim_cache(ModuleAtoms &bindings, const abi::v1::ModuleDescriptor &descrip
     }
     for (std::size_t slot = 0; slot < bindings.slots.size(); ++slot) {
         descriptor.atom_cache[slot + 1] = bindings.slots[slot].word();
+    }
+    if (descriptor.fun_cache) {
+        for (std::size_t fun = 0; fun < bindings.funs.size(); ++fun) {
+            descriptor.fun_cache[fun] = reinterpret_cast<Word>(&bindings.funs[fun]);
+        }
     }
     bindings.claimed_cache = descriptor.atom_cache;
 }

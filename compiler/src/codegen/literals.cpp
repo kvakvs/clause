@@ -87,9 +87,10 @@ void finish_literals(llvm::Module &output, llvm::IntegerType *word, const std::s
     for (unsigned i = 0; i < fields->getNumOperands(); ++i) {
         operands.push_back(fields->getAggregateElement(i));
     }
-    // The literal fields come before the Code convention, the descriptor's last field.
-    operands[operands.size() - 3] = area;
-    operands[operands.size() - 2] = llvm::ConstantInt::get(word, pool.words.size());
+    // The literal fields come after the atom cache (abi::v1::ModuleDescriptor field order).
+    constexpr unsigned LITERALS = 13;
+    operands[LITERALS] = area;
+    operands[LITERALS + 1] = llvm::ConstantInt::get(word, pool.words.size());
     descriptor->setInitializer(llvm::ConstantStruct::get(fields->getType(), operands));
 }
 } // namespace clause::codegen

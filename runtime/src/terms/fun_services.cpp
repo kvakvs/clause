@@ -1,5 +1,7 @@
+#include "../memory/heap_object.hpp"
 #include "funs.hpp"
 #include "service_errors.hpp"
+#include "term_layout.hpp"
 #include "terms.hpp"
 #include <algorithm>
 #include <array>
@@ -105,10 +107,33 @@ std::uint8_t make_service(ProcessContext &context, const void *descriptor, const
     return static_cast<std::uint8_t>(status);
 }
 
+} // namespace
+
+const void *word_apply(ProcessContext &context, Word fun, Word *arguments, std::size_t arity) noexcept {
+    if ((fun & abi::v1::primary_mask) != abi::v1::boxed_tag || !arguments) {
+        return nullptr;
+    }
+    const auto words = TermAccess::boxed_words(context.heap(), fun);
+    if (words.empty() || layout::BoxHeader::kind(words[0]) != BoxedKind::fun_closure) {
+        return nullptr;
+    }
+    const auto &definition = *reinterpret_cast<const layout::FunCell *>(words.data())->definition_;
+    const auto captures = words.subspan(2);
+    if (definition.arity != arity || !definition.frame || arity + captures.size() > abi::v1::register_count) {
+        return nullptr;
+    }
+    std::ranges::copy(captures, arguments + arity);
+    return definition.frame;
+}
+
+namespace {
 // Admit the called value and check the register bounds before reading any argument.
 const void *apply(ProcessContext &context, Word fun, Word *arguments, std::size_t arity) noexcept {
     if (!service_ready(context)) {
         return nullptr;
+    }
+    if (const auto *frame = word_apply(context, fun, arguments, arity)) {
+        return frame;
     }
     auto &calls = context.generated_calls();
     try {

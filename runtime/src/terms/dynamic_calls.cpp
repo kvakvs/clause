@@ -1,9 +1,12 @@
+#include "../memory/heap_object.hpp"
 #include "funs.hpp"
 #include "service_errors.hpp"
 #include "terms.hpp"
 #include <array>
+#include <clause/abi/equality.hpp>
 #include <clause/abi/frames.hpp>
 #include <clause/abi/funs.hpp>
+#include <clause/abi/term.hpp>
 #include <clause/runtime/process_context.hpp>
 #include <new>
 
@@ -68,6 +71,38 @@ TermResult<std::optional<std::size_t>> unpack(Term list, Word *registers) {
         list = std::move(*tail);
     }
     return list.is_nil() ? std::optional{count} : std::nullopt;
+}
+
+// Copy a proper list's elements into the registers from its cons cells, with no Term per cell; its length, or none
+// for an improper list, one with more elements than registers, or a cell this process does not hold (cheap fun
+// calls), which the checked path then reports.
+std::optional<std::size_t> unpack_words(ProcessContext &context, Word list, Word *registers) noexcept {
+    std::size_t count = 0;
+    for (; (list & abi::v1::primary_mask) == abi::v1::list_tag; ++count) {
+        const auto cell = TermAccess::cons_words(context.heap(), list);
+        if (cell.empty() || count == abi::v1::register_count) {
+            return std::nullopt;
+        }
+        registers[count] = cell[0];
+        list = cell[1];
+    }
+    return list == abi::v1::empty_list ? std::optional{count} : std::nullopt;
+}
+
+// The operands of apply(Fun, Args).
+struct ApplyOperands {
+    Word fun;
+    Word list;
+};
+
+// apply(Fun, Args) of a fun of the right arity and a proper list that fit the registers, from words alone; null
+// for the checked path.
+const void *word_apply_list(ProcessContext &context, const ApplyOperands operands, Word *registers) noexcept {
+    if (!registers || !service_ready(context)) {
+        return nullptr;
+    }
+    const auto count = unpack_words(context, operands.list, registers);
+    return count ? word_apply(context, operands.fun, registers, *count) : nullptr;
 }
 
 // The frame Module:Function/Arity enters: badarg for a non-atom name, undef when neither a module exports it nor
@@ -141,6 +176,9 @@ const void *call_service(ProcessContext &context, Word module, Word function, st
 }
 
 const void *apply_list_service(ProcessContext &context, Word fun, Word list, Word *registers) noexcept {
+    if (const auto *frame = word_apply_list(context, {fun, list}, registers)) {
+        return frame;
+    }
     return contained(context, [&]() -> const void * {
         std::array<Term, 2> terms;
         if (!present(context, registers) || !admit(context, std::array{fun, list}, terms)) {

@@ -1,4 +1,4 @@
-# Generated-code ABI (revision 20)
+# Generated-code ABI (revision 21)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
@@ -394,3 +394,4 @@ success.
 | 18 | `sub_binary` cells (`HeaderKind::sub_binary`, `sub_*_word`) and inline `Rest` extraction (OPT1.4B) |
 | 19 | Append end and limit words in `refc_binary` cells (`refc_append_*_word`, 8 payload words) and inline appends (OPT0.11B) |
 | 20 | `MapOperation::entries` and inline map generators (OPT0.13) |
+| 21 | `ModuleDescriptor::fun_cache` and inline closures (OPT0.17) |

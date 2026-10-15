@@ -26,6 +26,9 @@ struct TermAccess {
     // The words of the boxed object a word names in this process's heap or literal areas, its header first and as
     // many words as the header counts; empty when it names none (cheap comparisons).
     static std::span<const Word> boxed_words(ProcessHeap &heap, Word value) noexcept;
+    // The head and tail words of the cons cell a list word names in this process's heap or literal areas; empty when it
+    // names none (cheap fun calls).
+    static std::span<const Word> cons_words(ProcessHeap &heap, Word value) noexcept;
     // The head and tail words of the cons cell a list word names in `storage`; empty when it names none there. A
     // spine walk reads cells this way after validating the list once (word-level walks).
     static std::span<const Word> cons_cell(HeapStorage &storage, Word value) noexcept;

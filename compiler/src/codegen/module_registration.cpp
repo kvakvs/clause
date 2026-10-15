@@ -129,11 +129,22 @@ llvm::GlobalVariable *funs(llvm::Module &output, const semantic::Module &module,
 }
 } // namespace
 
+// The module's fun cache (ModuleDescriptor::fun_cache): one zeroed word per fun; null without funs.
+llvm::Constant *emit_fun_cache(llvm::Module &output, const std::string &prefix, llvm::IntegerType *word,
+                               const std::size_t count) {
+    if (count == 0) {
+        return llvm::ConstantPointerNull::get(llvm::PointerType::getUnqual(output.getContext()));
+    }
+    auto *type = llvm::ArrayType::get(word, count);
+    return new llvm::GlobalVariable(output, type, false, llvm::GlobalValue::PrivateLinkage,
+                                    llvm::ConstantAggregateZero::get(type), prefix + ".fun_cache");
+}
+
 void emit_registration(llvm::Module &output, const semantic::Module &module, llvm::IntegerType *word) {
     llvm::IRBuilder<> builder(output.getContext());
     auto *ptr = builder.getPtrTy();
     auto *type = llvm::StructType::get(builder.getInt32Ty(), builder.getInt32Ty(), ptr, word, ptr, word, ptr, word, ptr,
-                                       word, ptr, word, ptr, ptr, word, word);
+                                       word, ptr, word, ptr, ptr, word, word, ptr);
     const auto name = utf8(module.name);
     std::size_t count = 0;
     auto *table = exports(output, module, word, count);
@@ -153,7 +164,8 @@ void emit_registration(llvm::Module &output, const semantic::Module &module, llv
         llvm::ConstantInt::get(word, module.funs.size()), emit_atom_cache(output, prefix, word, atom_count),
         llvm::ConstantPointerNull::get(ptr), llvm::ConstantInt::get(word, 0),
         llvm::ConstantInt::get(
-            word, code_convention(llvm::Triple(output.getTargetTriple())) == llvm::CallingConv::PreserveNone ? 2 : 1)));
+            word, code_convention(llvm::Triple(output.getTargetTriple())) == llvm::CallingConv::PreserveNone ? 2 : 1),
+        emit_fun_cache(output, prefix, word, module.funs.size())));
     auto *entry = llvm::Function::Create(llvm::FunctionType::get(builder.getInt8Ty(), {ptr}, false),
                                          llvm::GlobalValue::ExternalLinkage, prefix + ".register", output);
     builder.SetInsertPoint(llvm::BasicBlock::Create(output.getContext(), "entry", entry));

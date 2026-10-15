@@ -129,7 +129,7 @@ optimization target, not only a matter of correctness.
 These close the gap to BeamAsm. They come first because every later tier needs
 LLVM to *see* the operations instead of opaque service calls.
 
-Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6, OPT0.7, OPT0.5 staging, OPT0.10, OPT0.11, OPT0.12, OPT0.13, OPT0.14, OPT0.15, OPT0.16): see
+Done (OPT0.1, OPT0.1A, OPT0.2A, OPT0.2B, OPT0.3, OPT0.4, OPT0.5A, OPT0.5B, OPT0.8, OPT0.9, OPT0.2C, OPT0.6, OPT0.7, OPT0.5 staging, OPT0.10, OPT0.11, OPT0.12, OPT0.13, OPT0.14, OPT0.15, OPT0.16, OPT0.17): see
 [00-finished.md](00-finished.md#plan-20). Open follow-ups of those steps:
 
 - ~~**OPT0.1 follow-up:** loop-head safepoints called `CLAUSE_safepoint_v1`
@@ -322,6 +322,11 @@ Added and done 2026-10-15 from a profile of the 69A map_update kernel ([record](
 
 Added and done 2026-10-15 from an LLDB profile of luerl euler ([record](00-finished.md#plan-20)): container
 inspections inline, float/binary ordering without Term admission.
+
+### OPT0.17 Inline closures and word-level apply
+
+Added and done 2026-10-15 from the euler profile ([record](00-finished.md#plan-20)); part of OPT1.8 (closure
+allocation without a service). Sinking and closure inlining remain in OPT1.8.
 
 ### OPT0.16 Inline math functions
 

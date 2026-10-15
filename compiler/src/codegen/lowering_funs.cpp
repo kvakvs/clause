@@ -149,11 +149,9 @@ llvm::Value *dynamic_fun(ExpressionLowering &state, const ast::Expression &expre
 }
 } // namespace
 
-llvm::Value *lower_fun(ExpressionLowering &state, const ast::Expression &expression) {
-    if (const auto *reference = std::get_if<ast::RemoteFunReference>(&expression.value);
-        reference && semantic::dynamic_fun(*reference)) {
-        return dynamic_fun(state, expression, *reference);
-    }
+namespace {
+// The fun from CLAUSE_make_fun_v1, its captured values in consecutive rooted slots.
+llvm::Value *fun_service(ExpressionLowering &state, const ast::Expression &expression) {
     auto &builder = state.builder;
     auto &output = *state.entry.getParent();
     auto *ptr = builder.getPtrTy();
@@ -175,6 +173,78 @@ llvm::Value *lower_fun(ExpressionLowering &state, const ast::Expression &express
                                  llvm::ConstantInt::get(state.word, captures.size()), slot});
     propagate_failure(state);
     return builder.CreateAlignedLoad(state.word, slot, llvm::Align(state.word->getBitWidth() / 8), "fun.value");
+}
+
+// An i1 that holds when this context's runtime claimed the module's caches (OPT0.8, inline closures).
+llvm::Value *claimed(ExpressionLowering &state, llvm::GlobalVariable *atom_cache) {
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    auto *claim = builder.CreateAlignedLoad(state.word, atom_cache, align, "fun.claim");
+    claim->setAtomic(llvm::AtomicOrdering::Monotonic);
+    auto *runtime = builder.CreateAlignedLoad(
+        state.word,
+        builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0),
+                                           static_cast<unsigned>(abi::v1::StateField::runtime)),
+        align, "context.runtime");
+    return builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, claim, runtime));
+}
+
+// Write the fun cell at `top`: header, the definition from the fun cache, then the captured values.
+llvm::Value *write_fun(ExpressionLowering &state, const ast::Expression &expression, llvm::Value *definition,
+                       llvm::Value *top) {
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    const auto &captures = state.module.funs.at(state.module.fun_entries.at(&expression)).captures;
+    const auto header = (static_cast<std::uint64_t>(1 + captures.size()) << abi::v1::header_count_shift) |
+                        (static_cast<std::uint64_t>(abi::v1::HeaderKind::fun_closure) << abi::v1::header_kind_shift);
+    builder.CreateAlignedStore(llvm::ConstantInt::get(state.word, header), top, align);
+    builder.CreateAlignedStore(definition, builder.CreateConstGEP1_64(state.word, top, 1), align);
+    for (std::size_t i = 0; i < captures.size(); ++i) {
+        builder.CreateAlignedStore(state.bindings.at(captures[i]), builder.CreateConstGEP1_64(state.word, top, 2 + i),
+                                   align);
+    }
+    auto *made = builder.CreateOr(builder.CreatePtrToInt(top, state.word),
+                                  llvm::ConstantInt::get(state.word, abi::v1::boxed_tag));
+    mark_term(state, made);
+    return made;
+}
+} // namespace
+
+llvm::Value *lower_fun(ExpressionLowering &state, const ast::Expression &expression) {
+    if (const auto *reference = std::get_if<ast::RemoteFunReference>(&expression.value);
+        reference && semantic::dynamic_fun(*reference)) {
+        return dynamic_fun(state, expression, *reference);
+    }
+    auto &output = *state.entry.getParent();
+    const auto prefix = semantic::encode_symbol({utf8(state.module.name), "", 0});
+    auto *atom_cache = output.getNamedGlobal(prefix + ".atom_cache");
+    auto *fun_cache = output.getNamedGlobal(prefix + ".fun_cache");
+    if (!atom_cache || !fun_cache) {
+        return fun_service(state, expression);
+    }
+    // Inline closures: the cell is bump-allocated when this runtime filled the fun cache and the heap has room.
+    auto &builder = state.builder;
+    auto &context = state.entry.getContext();
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    const auto index = state.module.fun_entries.at(&expression);
+    const auto captures = state.module.funs.at(index).captures.size();
+    auto *definition = builder.CreateAlignedLoad(state.word, builder.CreateConstGEP1_64(state.word, fun_cache, index),
+                                                 align, "fun.definition");
+    const auto room = heap_room(state, llvm::ConstantInt::get(state.word, 2 + captures));
+    auto *direct = llvm::BasicBlock::Create(context, "fun.inline", &state.entry);
+    auto *fallback = llvm::BasicBlock::Create(context, "fun.service", &state.entry);
+    auto *join = llvm::BasicBlock::Create(context, "fun.join", &state.entry);
+    builder.CreateCondBr(builder.CreateAnd(claimed(state, atom_cache), room.fits), direct, fallback);
+    builder.SetInsertPoint(direct);
+    auto *made = write_fun(state, expression, definition, room.top);
+    heap_commit(state, room);
+    builder.CreateBr(join);
+    builder.SetInsertPoint(fallback);
+    auto *serviced = fun_service(state, expression);
+    auto *fallback_end = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    return join_values(state, state.word, {direct, made}, {fallback_end, serviced});
 }
 
 llvm::Value *lower_fun_call(ExpressionLowering &state, const ast::Expression &expression,

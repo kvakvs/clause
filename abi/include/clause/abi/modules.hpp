@@ -57,6 +57,10 @@ struct ModuleDescriptor {
     // The convention of the module's Code: 1 C, 2 preserve_none (abi::v1::code_preserve_none); 0 for a descriptor
     // without generated Code. Registration rejects a module whose Code convention differs from the runtime's.
     std::size_t code_convention = 0;
+    // Writable words beside the descriptor, one per fun: the address of the runtime's definition of the fun, filled
+    // by the runtime that claims atom_cache, so its generated code builds closures inline while the claim is its own
+    // (inline closures). Null for a descriptor without one.
+    TermWord *fun_cache = nullptr;
 };
 
 struct FrameDescriptor {
@@ -80,7 +84,7 @@ static_assert(std::is_standard_layout_v<ModuleDescriptor>);
 static_assert(sizeof(ExportDescriptor) == 5 * sizeof(TermWord));
 static_assert(offsetof(ExportDescriptor, entry) == 3 * sizeof(TermWord));
 static_assert(sizeof(AtomDescriptor) == 2 * sizeof(TermWord));
-static_assert(sizeof(ModuleDescriptor) == 8 + 14 * sizeof(TermWord));
+static_assert(sizeof(ModuleDescriptor) == 8 + 15 * sizeof(TermWord));
 static_assert(std::is_standard_layout_v<FrameDescriptor>);
 static_assert(sizeof(FrameDescriptor) == 7 * sizeof(TermWord));
 static_assert(offsetof(ModuleDescriptor, name) == 8);

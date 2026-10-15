@@ -15,6 +15,10 @@ struct FunView {
     std::span<const Word> captures;
 };
 
+// The code a call of `fun` with `arity` arguments enters, read straight from the fun's cell, its captured values
+// placed after the arguments; null when `fun` is no fun of that arity with code, for the checked path (cheap fun
+// calls).
+const void *word_apply(ProcessContext &context, Word fun, Word *arguments, std::size_t arity) noexcept;
 // Decode a fun; wrong_type for any other term.
 TermResult<FunView> fun_view(const Term &value) noexcept;
 // Print `fun M:F/A` for an external fun and #Fun<M.Index.Uniq> for a local one.
