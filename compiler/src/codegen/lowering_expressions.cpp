@@ -131,8 +131,11 @@ llvm::Value *special_service(ExpressionLowering &state, const ast::Expression &e
     }
     if (service.builtin) {
         const auto values = call_arguments(state, call);
-        return *service.builtin == SETELEMENT ? lower_setelement(state, *service.builtin, values)
-                                              : lower_builtin(state, *service.builtin, values);
+        const auto builtin = [&] { return lower_builtin(state, *service.builtin, values); };
+        if (auto *math = inline_math(state, *service.builtin, values, builtin)) {
+            return math;
+        }
+        return *service.builtin == SETELEMENT ? lower_setelement(state, *service.builtin, values) : builtin();
     }
     if (service.operation == abi::v1::ImmediateOperation::is_integer_range) {
         return lower_integer_range(state, call);

@@ -190,7 +190,11 @@ result that is not a finite float (a domain error such as `sqrt(-1)`,
 `log(0)`, `acos(2)`, or an overflow such as `pow(10, 400)`, `exp(1000)`) is
 `badarith`. `floor/1` and `ceil/1` return floats. Results are the host C
 library's, which can differ from OTP's in the last bit
-([differences](differences.md)).
+([differences](differences.md)). On 64-bit targets generated code computes
+`sqrt`, `floor`, `ceil` (LLVM intrinsics) and `exp`, `log`, `log2`, `log10`,
+`sin`, `cos`, `pow` (the same C library functions, called without LLVM's
+substitutions) of number arguments inline into a float cell; other operands and
+non-finite results call the builtin, which raises (OPT0.16).
 
 ## Binary module
 
