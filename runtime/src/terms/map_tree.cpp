@@ -528,6 +528,21 @@ void sweep_tree_maps(HeapStorage &storage, const Survivors &survivors) noexcept 
     storage.tree_maps_ = newest;
 }
 
+void splice_tree_maps(HeapStorage &to, HeapStorage &from) noexcept {
+    if (from.tree_maps_ != nullptr) {
+        auto *last = from.tree_maps_;
+        while (last->next_ != nullptr) {
+            last = last->next_;
+        }
+        last->next_ = to.tree_maps_;
+        to.tree_maps_ = std::exchange(from.tree_maps_, nullptr);
+    }
+    // Nodes keep the message's edit tokens: later tokens of `to` must stay above them.
+    to.map_edits_ = std::max(to.map_edits_, from.map_edits_);
+    to.off_heap_words_ += from.map_words_;
+    to.map_words_ += std::exchange(from.map_words_, 0);
+}
+
 void release_tree_maps(HeapStorage &storage) noexcept {
     for (auto *cell = std::exchange(storage.tree_maps_, nullptr); cell != nullptr; cell = cell->next_) {
         map_tree_release(storage, cell->root_);

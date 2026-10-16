@@ -424,7 +424,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   `3a50cd77`
 - **OPT0.29** message copies queue only compound slots (the copy carries
   immediates), compound tested by its primary tag; large_message 39 to ~25 ms —
-  `[plan20] OPT0.29 ...`
+  `ef64ba45`
+- **OPT0.30** message hand-off: a message of 512 words or more is built before
+  the executor lock and its block becomes a fragment of the receiver
+  (`HeapStorage::adopt`), with no second copy for busy receivers; adopted
+  fragments collect only past the young block —
+  `[plan20] OPT0.30 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

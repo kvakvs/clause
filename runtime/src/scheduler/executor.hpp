@@ -553,6 +553,9 @@ class Executor final {
     void fire(MessageTimer &timer);
     // Deliver a timer message: at once to a process not running, else when its slice ends.
     void post(ProcessContext &receiver, const std::shared_ptr<const MessageBuffer> &message);
+    // Deliver a large message built before the lock: queued for a busy receiver, else taken over now (message
+    // hand-off). Called with the executor locked.
+    TermResult<void> hand_over(ProcessContext &receiver, const std::shared_ptr<const MessageBuffer> &message);
     // Drop the message timers whose destination is the pid of an ending process.
     void drop_timers(Word pid) noexcept;
     // Record an alias; lock held. Allocation failure throws.

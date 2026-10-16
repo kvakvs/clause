@@ -173,7 +173,8 @@ std::expected<void, HeapError> ProcessHeap::copy_generation(std::span<Word> root
 
 bool ProcessHeap::wants_collection() const noexcept {
     const auto &storage = *storage_;
-    return storage.collection_requested_ || !storage.fragments_.empty() ||
+    return storage.collection_requested_ || storage.fragments_.size() > storage.adopted_fragments_ ||
+           (storage.adopted_words_ != 0 && storage.adopted_words_ >= storage.heap_.capacity_) ||
            storage.off_heap_words_ >= storage.binary_limit_words_;
 }
 

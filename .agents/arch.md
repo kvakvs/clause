@@ -279,7 +279,9 @@ Compact map of how Clause works. History lives in `00-finished.md`,
 - `memory/copy` `GraphCopy`: iterative flat copy (as OTP copy_struct) between
   same-runtime heaps; refc buffers shared, charged once per process
   (`HeapStorage::buffers_`). `memory/MessageBuffer` holds terms outside
-  processes (messages, persistent terms `memory/persistent_terms`).
+  processes (messages, persistent terms `memory/persistent_terms`); a message of
+  512+ words is built before the executor lock and its block adopted as a
+  receiver fragment (`HeapStorage::adopt`, `MessageBuffer::take`).
 
 ## Builtins (`docs/builtins.md`)
 

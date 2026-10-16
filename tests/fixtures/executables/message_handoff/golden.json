@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "message_handoff",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[{1,10459100},\n {2,10690660},\n {3,10924220},\n {4,11159780},\n {5,11397340},\n {6,11636900},\n {7,11878460},\n {8,12122020}]\nechoed 160\ntrue\nmessage_handoff: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "message_handoff.erl": "7434278a1539ccc269a78a7bfc6579e322a42c7d8e0d14ea71fc0637020aa1fc"
+  }
+}

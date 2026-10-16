@@ -142,6 +142,9 @@ void link_tree_map(HeapStorage &storage, layout::TreeMapCell &cell) noexcept;
 // After a collection, relink the copies of forwarded stubs in list order, keep stubs of the old area a minor
 // collection left in place, and release dead stubs' trees.
 void sweep_tree_maps(HeapStorage &storage, const Survivors &survivors) noexcept;
+// Move the off-heap map stubs of an adopted message's storage to the front of `to`'s list, with their node words and
+// edit tokens (message hand-off).
+void splice_tree_maps(HeapStorage &to, HeapStorage &from) noexcept;
 // Release every listed stub's tree at teardown.
 void release_tree_maps(HeapStorage &storage) noexcept;
 } // namespace clause::runtime::detail

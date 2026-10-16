@@ -194,7 +194,55 @@ std::size_t HeapStorage::budget() const noexcept {
     return std::min(options_.limit_bytes / sizeof(Word), owned + memory_->available());
 }
 
+bool HeapStorage::adopt(HeapStorage &message) {
+    absorb();
+    if (pending_ || heap_.capacity_ == 0 || message.pending_) {
+        return false;
+    }
+    // Everything that may allocate comes first: the merged buffer counts and room for the new fragments.
+    auto buffers = buffers_;
+    std::size_t charged = 0;
+    for (const auto &[buffer, cells] : message.buffers_) {
+        const auto [entry, fresh] = buffers.try_emplace(buffer, 0);
+        entry->second += cells;
+        charged += fresh ? (buffer->size() + sizeof(Word) - 1) / sizeof(Word) : 0;
+    }
+    const auto added = message.fragments_.size() + (message.heap_.capacity_ != 0 ? 1 : 0);
+    fragments_.reserve(fragments_.size() + added);
+    ranges_.reserve(ranges_.size() + added);
+    // Then nothing fails: the blocks keep their addresses, so every word of the message stays valid.
+    const auto take = [&](HeapArea &area) {
+        const auto begin = reinterpret_cast<std::uintptr_t>(area.words_.get());
+        ranges_.insert(std::ranges::upper_bound(ranges_, begin, {}, &FragmentRange::begin_),
+                       {begin, fragments_.size()});
+        adopted_words_ += area.top_;
+        fragments_.push_back(std::move(area));
+    };
+    if (message.heap_.capacity_ != 0) {
+        take(message.heap_);
+        message.heap_ = {};
+    }
+    std::ranges::for_each(message.fragments_, take);
+    adopted_fragments_ += added;
+    used_words_ += std::exchange(message.used_words_, 0);
+    capacity_words_ += std::exchange(message.capacity_words_, 0);
+    buffers_ = std::move(buffers);
+    message.buffers_.clear();
+    off_heap_words_ += charged;
+    splice_off_heap(*this, message);
+    splice_tree_maps(*this, message);
+    message.off_heap_words_ = 0;
+    message.fragments_.clear();
+    message.ranges_.clear();
+    if (adopted_words_ >= heap_.capacity_) {
+        signal_collection();
+    }
+    return true;
+}
+
 void HeapStorage::replace(HeapArea heap, bool full) noexcept {
+    adopted_fragments_ = 0;
+    adopted_words_ = 0;
     memory_->release(capacity_words_);
     if (full) {
         old_ = {};

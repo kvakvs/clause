@@ -295,10 +295,24 @@ outside every process: `copy_of` copies the graph from its process heap into a
 `HeapStorage` of its own (its own lifetime token, the runtime's atoms and memory
 account, off-heap binaries shared and held), with the same `GraphCopy` a send
 uses; `copy_to` copies it into a receiver's heap. Immediates need no storage.
-The buffer is never collected and is freed with its last owner. Messages to a
+The buffer is never collected and is freed with its last owner; its block is
+exactly the term's words, whatever the sender's minimum heap. Messages to a
 process running on another worker ([workers](processes.md#workers)), timer
 messages, monitor tags and [persistent terms](runtime.md#persistent-terms) use
 it, so they are never re-encoded.
+
+**Message hand-off.** A send whose message takes at least
+`MessageBuffer::ADOPTED_WORDS` (512) words, counted by a bounded walk that stops
+there, builds the buffer before taking the executor lock, so the sender holds
+no lock while copying. The receiver then takes the buffer over instead of
+copying it (`MessageBuffer::take`, `HeapStorage::adopt`), when the buffer has
+no other owner and the receiver has a heap block and no budget: the block joins
+its fragments at the same addresses, the buffer's off-heap binary and map lists
+join its own with their charges, and the buffer is left empty. Nobody else can
+reach the block before or after, so no word is copied twice. Adopted fragments
+ask for a collection only once their words reach the young block's, as ERTS's
+message fragments do, and the next collection treats them as young data.
+Smaller messages are copied, as before: cheaper than a fragment each.
 
 ## Collection in generated code
 

@@ -18,6 +18,19 @@ class MessageBuffer final {
 
     // Copy `value`, a term of its process (or an immediate), into a new buffer; the source heap is only read.
     static TermResult<std::shared_ptr<const MessageBuffer>> copy_of(const Term &value) noexcept;
+    // Whether copying `value` takes at least `minimum` words; it stops counting there and allocates nothing for a
+    // small value, so a send can afford it before every copy (message hand-off).
+    static bool large(const Term &value, std::size_t minimum) noexcept;
+    // Words from which a message is taken over instead of copied: a send builds it before the lock, and its block
+    // becomes a fragment of the receiver; smaller ones are cheaper to copy than to keep as fragments (message
+    // hand-off).
+    static constexpr std::size_t ADOPTED_WORDS = 512;
+    // The buffered value as a term of `destination`: its block taken over as a heap fragment when it holds at least
+    // ADOPTED_WORDS, this is the buffer's only owner and the destination has a heap block and no budget, else copied
+    // (message hand-off).
+    // The caller's reference must be the only one for the block to be taken over.
+    static TermResult<Term> take(const std::shared_ptr<const MessageBuffer> &buffer,
+                                 ProcessContext &destination) noexcept;
     // The buffered value as a term of `destination`, copied into its heap.
     TermResult<Term> copy_to(ProcessContext &destination) const noexcept;
     // The buffered value as a term to read in place (an immediate as a term of `reader`), for comparing and hashing

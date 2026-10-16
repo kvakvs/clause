@@ -6,6 +6,7 @@
 #include "off_heap.hpp"
 #include "process_heap.hpp"
 #include <algorithm>
+#include <boost/container/small_vector.hpp>
 #include <clause/runtime/process_context.hpp>
 #include <new>
 #include <vector>
@@ -336,6 +337,49 @@ TermResult<Term> MessageBuffer::value(ProcessContext &reader) const noexcept {
 
 std::size_t MessageBuffer::words() const noexcept { return storage_ ? storage_->used_words_ : 0; }
 
+bool MessageBuffer::large(const Term &value, std::size_t minimum) noexcept {
+    auto *source = TermAccess::storage(value);
+    if (source == nullptr || !TermAccess::validate(value)) {
+        return false;
+    }
+    try {
+        boost::container::small_vector<Word, 32> pending{value.word()};
+        std::size_t words = 0;
+        while (!pending.empty() && words < minimum) {
+            const auto word = pending.back();
+            pending.pop_back();
+            // Literals are shared, not copied (OPT0.4).
+            const auto area = source->owned(address(word));
+            if (area.empty()) {
+                continue;
+            }
+            if (const auto cell = parse_cell(area)) {
+                words += cell->words.size();
+                std::ranges::copy_if(cell->slots, std::back_inserter(pending), compound);
+            }
+        }
+        return words >= minimum;
+    } catch (const std::exception &) {
+        return false; // Counting failed: the message is copied the ordinary way.
+    }
+}
+
+TermResult<Term> MessageBuffer::take(const std::shared_ptr<const MessageBuffer> &buffer,
+                                     ProcessContext &destination) noexcept {
+    auto &to = *destination.heap().storage_;
+    if (buffer.use_count() == 1 && buffer->words() >= ADOPTED_WORDS &&
+        to.options_.limit_bytes == UNLIMITED_HEAP_BYTES) {
+        try {
+            if (to.adopt(*buffer->storage_)) {
+                return TermAccess::admit(buffer->root_, to);
+            }
+        } catch (const std::bad_alloc &) {
+            return buffer->copy_to(destination); // Nothing was taken over.
+        }
+    }
+    return buffer->copy_to(destination);
+}
+
 TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Term &value) noexcept {
     if (const auto checked = TermAccess::validate(value); !checked) {
         return std::unexpected(checked.error());
@@ -356,8 +400,11 @@ TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Te
             return buffer;
         }
         buffer->lifetime_ = std::shared_ptr<ContextLifetime>(new ContextLifetime());
-        buffer->storage_ = std::make_shared<HeapStorage>(source->options_, buffer->lifetime_, *source->atoms_,
-                                                         source->memory_, *source->identities_);
+        // The buffer's one block is exactly the message, whatever the sender's minimum heap (message hand-off).
+        auto options = source->options_;
+        options.min_heap_words = 1;
+        buffer->storage_ = std::make_shared<HeapStorage>(options, buffer->lifetime_, *source->atoms_, source->memory_,
+                                                         *source->identities_);
         buffer->storage_->literals_ = source->literals_;
         auto &storage = *buffer->storage_;
         const std::span binaries = graph.binaries();

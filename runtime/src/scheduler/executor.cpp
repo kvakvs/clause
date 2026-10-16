@@ -192,12 +192,22 @@ bool Executor::alive(ProcessContext &context, Word pid) noexcept {
 
 TermResult<void> Executor::send(ProcessContext &sender, Word pid, const Term &message) {
     auto &executor = of(sender);
+    // A large message is copied into a buffer of its own before the lock, then handed over (message hand-off).
+    auto large = MessageBuffer::large(message, MessageBuffer::ADOPTED_WORDS)
+                     ? MessageBuffer::copy_of(message)
+                     : TermResult<std::shared_ptr<const MessageBuffer>>{nullptr};
+    if (!large) {
+        return std::unexpected(large.error());
+    }
     const std::scoped_lock lock(executor.mutex_);
     auto *found = find(sender, pid);
     if (!found) {
         return {};
     }
     auto &receiver = *found;
+    if (*large) {
+        return executor.hand_over(receiver, *large);
+    }
     if (executor.busy(&receiver)) {
         // Buffered sends: a message to a process running on another worker waits in a buffer of its own and is
         // delivered, in order, when that slice ends, instead of blocking the sender until then.
@@ -214,6 +224,19 @@ TermResult<void> Executor::send(ProcessContext &sender, Word pid, const Term &me
     }
     receiver.mailbox().deliver(copy->word());
     return executor.wake(receiver);
+}
+
+TermResult<void> Executor::hand_over(ProcessContext &receiver, const std::shared_ptr<const MessageBuffer> &message) {
+    if (busy(&receiver)) {
+        post(receiver, message);
+        return {};
+    }
+    const auto taken = MessageBuffer::take(message, receiver);
+    if (!taken) {
+        return std::unexpected(taken.error());
+    }
+    receiver.mailbox().deliver(taken->word());
+    return wake(receiver);
 }
 
 Executor::Schedule &Executor::schedule(ProcessContext &process) { return schedules_[&process]; }
@@ -497,7 +520,7 @@ void Executor::after(ProcessContext &process, bool ended) {
             apply(process, event);
         }
         for (const auto &message : std::exchange(state.messages, {})) {
-            deliver(process, message->copy_to(process));
+            deliver(process, MessageBuffer::take(message, process));
         }
     }
     resume(blockers);

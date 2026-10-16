@@ -103,6 +103,18 @@ void sweep_off_heap(HeapStorage &storage, const Survivors &survivors) noexcept {
     storage.off_heap_ = newest;
 }
 
+void splice_off_heap(HeapStorage &to, HeapStorage &from) noexcept {
+    if (from.off_heap_ == nullptr) {
+        return;
+    }
+    auto *last = from.off_heap_;
+    while (last->next_ != nullptr) {
+        last = last->next_;
+    }
+    last->next_ = to.off_heap_;
+    to.off_heap_ = std::exchange(from.off_heap_, nullptr);
+}
+
 void release_off_heap(HeapStorage &storage) noexcept {
     for (auto *cell = std::exchange(storage.off_heap_, nullptr); cell != nullptr;) {
         auto *next = cell->next_;

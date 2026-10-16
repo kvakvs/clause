@@ -38,6 +38,9 @@ layout::RefcBinaryCell &relocate_off_heap(layout::RefcBinaryCell &from, std::byt
 // collection left in place, and destroy dead cells; a buffer's process charge returns when the process's last cell
 // for it dies.
 void sweep_off_heap(HeapStorage &storage, const Survivors &survivors) noexcept;
+// Move the off-heap binary cells of an adopted message's storage to the front of `to`'s list; the caller merges the
+// per-buffer counts (message hand-off).
+void splice_off_heap(HeapStorage &to, HeapStorage &from) noexcept;
 // Drop every reference held by the owner's cells at teardown, newest first.
 void release_off_heap(HeapStorage &storage) noexcept;
 } // namespace clause::runtime::detail

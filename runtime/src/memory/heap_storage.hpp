@@ -65,6 +65,11 @@ class HeapStorage final {
     std::size_t room() const noexcept;
     // Words this process may own in all, its own storage included: the budget seen by the sizing policy.
     std::size_t budget() const noexcept;
+    // Take over the storage of a message built for this process (message hand-off): its blocks become fragments, its
+    // off-heap binaries and maps join this storage's lists and charges, and `message` is left empty. False, with
+    // nothing changed, when this storage cannot take it (an open reservation or no heap block). May throw
+    // std::bad_alloc before changing anything.
+    bool adopt(HeapStorage &message);
     // Replace the heap block and fragments by a collected block, returning the charges of the replaced areas; a full
     // sweep also empties the old area, whose objects it copied (generational collection).
     void replace(HeapArea heap, bool full) noexcept;
@@ -98,8 +103,13 @@ class HeapStorage final {
     HeapArea old_;
     // Words of heap_ below which every object survived one collection; the next minor collection promotes them.
     std::size_t high_water_ = 0;
-    // Overflow blocks allocated while the heap may not move, oldest first; a collection merges them.
+    // Overflow blocks allocated while the heap may not move, and the blocks of adopted messages, oldest first; a
+    // collection merges them.
     std::vector<HeapArea> fragments_;
+    // The adopted message blocks among fragments_ and their words since the last collection (message hand-off): they
+    // ask for a collection only once their words reach the young block's, as ERTS's message fragments do.
+    std::size_t adopted_fragments_ = 0;
+    std::size_t adopted_words_ = 0;
     // Fragment ranges sorted by address; rollback drops entries of removed fragments.
     std::vector<FragmentRange> ranges_;
     // Words below the tops of all areas, and words of all areas' capacity.

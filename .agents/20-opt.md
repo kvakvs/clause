@@ -100,9 +100,9 @@ the kernels furthest behind OTP JIT (Release runtime with symbols,
    shared-pointer refcounts and `malloc` per call; word-level paths are the fix
    (the external term codec is done, OPT0.26; each `TermFactory` binding costs a
    lifetime check, so one per call).
-3. **Message copy** (large_message 9.3x): flat copies are done (OPT0.28); a send
-   still copies twice (sender into a message buffer, buffer into the receiver),
-   where OTP attaches its heap fragment to the receiver.
+3. **Message copy** (large_message 9.3x): flat copies, compound-only walks and
+   hand-off of large messages are done (OPT0.28-OPT0.30); small messages to busy
+   receivers still copy twice.
 4. **Map trees** (map_put 3-10x, map_update 9.5x): `insert_entry` re-admits terms
    per update; small-map lookups through `map_service` cost ~460 ns against 2.4
    ns on OTP (no 69A kernel uses small maps).

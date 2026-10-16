@@ -186,7 +186,7 @@ process does not write one: its uncaught exception is the program's
 
 | `Dest` | Effect |
 | --- | --- |
-| A pid of a live process | `Msg` is copied flat into the receiver's heap ([copying between heaps](runtime-heap.md#copying-between-heaps)), as OTP copies messages, and appended to its signal inbox |
+| A pid of a live process | `Msg` is copied flat into the receiver's heap ([copying between heaps](runtime-heap.md#copying-between-heaps)), as OTP copies messages, a large one into a block the receiver takes over ([message hand-off](runtime-heap.md#message-buffers)), and appended to its signal inbox |
 | A pid of a process that has ended | Nothing; the send succeeds |
 | A [registered name](#registered-names) | As for its pid; `badarg` when no live process has the name |
 | `{Name, nonode@nohost}` of two atoms | As for the pid registered as `Name`; nothing when there is none |

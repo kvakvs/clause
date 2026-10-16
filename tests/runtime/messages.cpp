@@ -7,7 +7,8 @@
 
 // Messages (docs/processes.md#messages) between contexts of one runtime: each sender's messages arrive in order,
 // self-sends and sends to ended processes behave as in OTP, messages are roots of the receiver until received, the
-// receive position survives arrivals, and a copy the receiver's heap refuses delivers nothing.
+// receive position survives arrivals, a large message's block is taken over, and a copy the receiver's heap refuses
+// delivers nothing.
 namespace {
 using namespace clause::runtime;
 using Status = clause::abi::v1::Status;
@@ -82,6 +83,28 @@ void positions(Runtime &runtime) {
             "teardown failed");
 }
 
+// A large message's block becomes a fragment of an idle receiver (message hand-off): the receiver's own block keeps
+// its free words, the fragment asks for no collection while smaller than that block, and a collection keeps the
+// message.
+void handoff(Runtime &runtime) {
+    auto &sender = *runtime.create_context().value();
+    auto &receiver = *runtime.create_context({20'000, UNLIMITED_HEAP_BYTES}).value();
+    require(send(receiver, receiver, 0).has_value() && receiver.mailbox().peek(), "self-send failed");
+    receiver.mailbox().take();
+    const auto before = receiver.heap().capacity_words();
+    // {7, [1..1000]}: a 3-word tuple and 1,000 cons cells, above MessageBuffer::ADOPTED_WORDS.
+    require(send(sender, receiver, 7, 1000).has_value(), "large send failed");
+    require(receiver.heap().capacity_words() - before == 2003, "the message block was not taken over");
+    require(!receiver.heap().wants_collection(), "an adopted message asked for a collection");
+    require(receiver.heap().verify().has_value(), "the adopted block broke the heap");
+    require(receiver.heap().collect().has_value(), "collection with an adopted message failed");
+    const auto message = Term::from_word(*receiver.mailbox().peek(), receiver).value();
+    require(tag(receiver, message.word()) == 7 && message.tuple_element(1)->list_length() == 1000,
+            "a collection lost the adopted message");
+    require(runtime.destroy_context(&sender) == Status::ok && runtime.destroy_context(&receiver) == Status::ok,
+            "teardown failed");
+}
+
 // A send to an ended process succeeds and delivers nothing; a receiver whose heap cap refuses the copy gets nothing.
 void refused(Runtime &runtime) {
     auto &sender = *runtime.create_context().value();
@@ -106,6 +129,7 @@ int main() {
         auto runtime = Runtime::start().value();
         ordering(*runtime);
         positions(*runtime);
+        handoff(*runtime);
         refused(*runtime);
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
