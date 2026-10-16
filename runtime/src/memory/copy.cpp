@@ -22,10 +22,10 @@ std::uintptr_t address(Word value) {
     return static_cast<std::uintptr_t>(value & ~static_cast<Word>(abi::v1::primary_mask));
 }
 
-// Report whether a word points at a heap object; only those are copied.
+// Report whether a word points at a heap object, by its primary tag alone; only those are copied.
 bool compound(Word value) {
-    const auto kind = TermTag{value}.get_kind();
-    return kind == TermKind::list || kind == TermKind::boxed;
+    const auto primary = value & static_cast<Word>(abi::v1::primary_mask);
+    return primary == abi::v1::list_tag || primary == abi::v1::boxed_tag;
 }
 
 // Keep allocation failures distinct from the configured backing ceiling.
@@ -106,10 +106,7 @@ class GraphCopy final {
             if (!binary(cell)) {
                 std::ranges::copy(cell.words, copy.begin());
             }
-            const auto first = static_cast<std::size_t>(cell.slots.data() - cell.words.data());
-            for (auto &child : copy.subspan(first, cell.slots.size())) {
-                pending.emplace_back(child, &child);
-            }
+            queue_copy(cell, copy, pending);
             if (tree(cell)) {
                 tree_slots(cell, entries_[tree_index++], pending);
             }
@@ -177,14 +174,29 @@ class GraphCopy final {
         return *cell;
     }
 
-    // Queue the slots of a found cell; an off-heap map's keys and values are its slots (OPT0.5A).
+    // Queue the compound slots of a found cell, the only ones that can name an object; an off-heap map's keys and
+    // values are its slots (OPT0.5A).
     static void push_slots(const HeapCell &cell, std::vector<Word> &pending) {
-        pending.insert(pending.end(), cell.slots.begin(), cell.slots.end());
+        std::ranges::copy_if(cell.slots, std::back_inserter(pending), compound);
         if (tree(cell)) {
             map_tree_entries(stub(cell.words)->root_, [&](MapWords words) {
-                pending.push_back(words.first);
-                pending.push_back(words.second);
+                for (const auto word : {words.first, words.second}) {
+                    if (compound(word)) {
+                        pending.push_back(word);
+                    }
+                }
             });
+        }
+    }
+
+    // Queue the compound slots of a cell's copy, as discover() queued the source's: the copy already holds
+    // immediates, atoms and literal pointers.
+    static void queue_copy(const HeapCell &cell, std::span<Word> copy, std::vector<std::pair<Word, Word *>> &pending) {
+        const auto first = static_cast<std::size_t>(cell.slots.data() - cell.words.data());
+        for (auto &child : copy.subspan(first, cell.slots.size())) {
+            if (compound(child)) {
+                pending.emplace_back(child, &child);
+            }
         }
     }
 
@@ -194,8 +206,11 @@ class GraphCopy final {
         entries.reserve(stub(cell.words)->size_);
         map_tree_entries(stub(cell.words)->root_, [&](MapWords words) { entries.push_back(words); });
         for (auto &entry : entries) {
-            pending.emplace_back(entry.first, &entry.first);
-            pending.emplace_back(entry.second, &entry.second);
+            for (auto *word : {&entry.first, &entry.second}) {
+                if (compound(*word)) {
+                    pending.emplace_back(*word, word);
+                }
+            }
         }
     }
 

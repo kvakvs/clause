@@ -421,7 +421,10 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT0.28** flat message copies as OTP (`size_object`/`copy_struct`): a
   shared subterm is copied once per reach, no address map or per-object records;
   large_message 1.5x; runtime tests get a 120 s timeout —
-  `[plan20] OPT0.28 ...`
+  `3a50cd77`
+- **OPT0.29** message copies queue only compound slots (the copy carries
+  immediates), compound tested by its primary tag; large_message 39 to ~25 ms —
+  `[plan20] OPT0.29 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`
