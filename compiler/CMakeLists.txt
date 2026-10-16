@@ -1,4 +1,12 @@
 include(${PROJECT_SOURCE_DIR}/cmake/CompilerDependencies.cmake)
+# Optimized compiler (CLAUSE_OPTIMIZED_COMPILER): Debug keeps its debug information, the later flag wins over /Od.
+if(CLAUSE_OPTIMIZED_COMPILER)
+    if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        add_compile_options("$<$<CONFIG:Debug>:/O2;/Ob2>")
+    else()
+        add_compile_options("$<$<CONFIG:Debug>:-O2>")
+    endif()
+endif()
 add_library(clause_frontend STATIC src/parsing/probe.cpp src/parsing/token_cursor.cpp
     src/parsing/token_syntax.cpp src/parsing/operator_info.cpp
     src/parsing/delimiters.cpp src/parser/diagnostics.cpp

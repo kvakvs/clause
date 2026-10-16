@@ -38,8 +38,17 @@ cmake --build build/debug --target check-quality-all  # whole tree
   runner (60 s) and the semantic case runner (15 s) for instrumented builds.
 - `check-quality`, `make format` and `make-format.bat` cover files changed since
   `HEAD` plus untracked files; `cmake/quality_scope.py` adds translation units
-  that include a changed header. Changes to `.clang-tidy`, `cmake/` or
-  production CMake select everything.
+  that include a changed header (from Ninja's dependency data of any
+  configuration) and, for clang-tidy, units whose compile command differs from
+  the one the last passing run recorded (`build/debug/quality/tidy-commands.json`),
+  so a build rule edit rechecks only the units it changes. Changes to
+  `.clang-tidy` or the tidy scripts select everything, as do build rule edits
+  before the first recorded run.
+- `CLAUSE_OPTIMIZED_COMPILER` (default ON) compiles `clau` and the compiler
+  libraries optimized in Debug builds too, keeping their debug information and
+  the Debug inference budgets; tests spend most of their time in `clau`. When a
+  compiler crash needs stepping through, configure with
+  `-DCLAUSE_OPTIMIZED_COMPILER=OFF`, rebuild and rerun the failing test.
 - Test programs carry no debug information (no PDBs); configure with
   `-DCLAUSE_TEST_DEBUG_INFO=ON` to rebuild them for a debugger. Nested native
   consumers link the parent build's runtime through `ClauseRuntimeTargets.cmake`

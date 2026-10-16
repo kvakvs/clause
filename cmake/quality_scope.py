@@ -1,11 +1,15 @@
 """Select project files for scoped quality checks from git changes and Ninja header dependencies."""
 import argparse
+import hashlib
 import json
 import os
 import subprocess
 
 PRODUCTION = ("compiler/", "runtime/", "abi/")
 CPP = (".cpp", ".cc", ".cxx", ".hpp", ".h", ".hh", ".hxx")
+# The analyzer's own configuration: a change can alter any finding, so every unit is checked again.
+TIDY_CONFIG = (".clang-tidy", "cmake/CheckClangTidy.cmake", "cmake/QualityScope.cmake",
+               "cmake/QualityToolchain.cmake.in", "cmake/quality_scope.py", "cmake/tidy_filter.py")
 
 
 def norm(path):
@@ -29,14 +33,22 @@ def changed_files(root, base):
 
 
 def affects_everything(path):
-    """Analyzer settings and production build rules can change every translation unit."""
-    if path in (".clang-tidy", "CMakeLists.txt") or path.startswith("cmake/"):
+    """Production build rules can change every translation unit's command."""
+    if path == "CMakeLists.txt" or path.startswith("cmake/"):
         return True
     return path.startswith(PRODUCTION) and path.endswith("CMakeLists.txt")
 
 
+class Unit:
+    """One production translation unit: its objects in every configuration and its first (analyzed) command."""
+
+    def __init__(self, command):
+        self.outputs = set()
+        self.digest = hashlib.sha1(command.encode("utf-8")).hexdigest()
+
+
 def production_units(root, build):
-    """Map each production translation unit to its object path, as both appear in the database."""
+    """Map each production translation unit to its objects and command digest, as the database lists them."""
     with open(os.path.join(build, "compile_commands.json"), encoding="utf-8") as stream:
         commands = json.load(stream)
     units = {}
@@ -44,8 +56,31 @@ def production_units(root, build):
         source = os.path.join(entry["directory"], entry["file"])
         relative = os.path.relpath(source, root).replace(os.sep, "/")
         if relative.startswith(PRODUCTION):
-            units[relative] = norm(os.path.join(entry["directory"], entry.get("output", "")))
+            command = entry.get("command") or " ".join(entry.get("arguments", []))
+            unit = units.setdefault(relative, Unit(entry["directory"] + "\n" + command))
+            unit.outputs.add(norm(os.path.join(entry["directory"], entry.get("output", ""))))
     return units
+
+
+def record_path(build):
+    """Command digests of the units the last passing clang-tidy run covered."""
+    return os.path.join(build, "quality", "tidy-commands.json")
+
+
+def read_record(build):
+    """The recorded digests by unit, or None before the first passing run."""
+    try:
+        with open(record_path(build), encoding="utf-8") as stream:
+            return json.load(stream)
+    except (OSError, ValueError):
+        return None
+
+
+def write_record(root, build):
+    """Record every unit's current command digest after a passing run."""
+    units = production_units(root, build)
+    with open(record_path(build), "w", encoding="utf-8", newline="\n") as stream:
+        json.dump({path: unit.digest for path, unit in sorted(units.items())}, stream, indent=0)
 
 
 def header_users(build, ninja, headers):
@@ -66,10 +101,14 @@ def header_users(build, ninja, headers):
 
 
 def tidy_scope(root, build, ninja, changed):
-    """Changed units plus units including changed production headers, or every unit when unknown."""
+    """Changed units, units including changed production headers and units whose command changed since the last
+    passing run; every unit when the analyzer configuration changed or nothing tells which commands changed."""
     units = production_units(root, build)
-    if any(affects_everything(path) for path in changed):
-        return sorted(units), "analyzer or build configuration changed"
+    if any(path in TIDY_CONFIG for path in changed):
+        return sorted(units), "analyzer configuration changed"
+    recorded = read_record(build)
+    if recorded is None and any(affects_everything(path) for path in changed):
+        return sorted(units), "build configuration changed, no record of analyzed commands"
     selected = {path for path in changed if path in units}
     headers = [os.path.join(root, path) for path in changed
                if path.startswith(PRODUCTION) and path.endswith(CPP) and path not in units]
@@ -77,19 +116,24 @@ def tidy_scope(root, build, ninja, changed):
         users = header_users(build, ninja, headers)
         if users is None:
             return sorted(units), "header dependencies unavailable"
-        selected |= {path for path, output in units.items() if output in users}
-    return sorted(selected), "changed files and their header dependents"
+        selected |= {path for path, unit in units.items() if unit.outputs & users}
+    if recorded is not None:
+        selected |= {path for path, unit in units.items() if recorded.get(path) != unit.digest}
+    return sorted(selected), "changed files, their header dependents and units with changed commands"
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--kind", choices=["tidy", "lizard"], required=True)
+    parser.add_argument("--kind", choices=["tidy", "lizard", "record"], required=True)
     parser.add_argument("--root", required=True)
     parser.add_argument("--build")
     parser.add_argument("--ninja", default="")
     parser.add_argument("--base", default="HEAD")
-    parser.add_argument("--output", required=True)
+    parser.add_argument("--output")
     args = parser.parse_args()
+    if args.kind == "record":
+        write_record(args.root, args.build)
+        return
     changed = changed_files(args.root, args.base)
     if args.kind == "lizard":
         files = [path for path in changed if path.startswith(PRODUCTION) and path.endswith(CPP)]

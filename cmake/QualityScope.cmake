@@ -33,3 +33,20 @@ function(clause_quality_scope kind output)
     file(STRINGS "${list_file}" files)
     set(${output} "${files}" PARENT_SCOPE)
 endfunction()
+
+# Record every unit's compile command after a passing clang-tidy run, so a later changed scope adds only units
+# whose command differs (a build rule edit no longer selects the whole tree). Partial (sharded) runs record nothing.
+function(clause_quality_record)
+    if(DEFINED QUALITY_SHARD AND NOT QUALITY_SHARD STREQUAL "")
+        return()
+    endif()
+    file(MAKE_DIRECTORY "${QUALITY_BUILD_DIR}/quality")
+    execute_process(
+        COMMAND "${QUALITY_PYTHON}" "${project_root}/cmake/quality_scope.py" --kind record
+            --root "${project_root}" --build "${QUALITY_BUILD_DIR}"
+        RESULT_VARIABLE record_result
+    )
+    if(NOT record_result STREQUAL "0")
+        message(FATAL_ERROR "Recording the analyzed compile commands failed.")
+    endif()
+endfunction()

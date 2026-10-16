@@ -159,6 +159,9 @@ harmless.
   A PDB only helps to debug a crash, so when a test program crashes, reconfigure
   with that option, rebuild and rerun the test to get one, then switch it back
   off. `clau`, compiler and runtime libraries keep their debug information.
+  `clau` and the compiler libraries are optimized even in Debug
+  (`CLAUSE_OPTIMIZED_COMPILER=ON`); when `clau` crashes, reconfigure with
+  `-DCLAUSE_OPTIMIZED_COMPILER=OFF` to investigate, then switch it back on.
 - Nested test consumers link the runtime the parent build already compiled:
   `include("${RUNTIME_TARGETS}")` (passed by `TestHost.cmake` through
   `host_configure_args`) provides `Clause::generated_program` and `Clause::abi`.

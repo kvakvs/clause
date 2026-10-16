@@ -17,6 +17,8 @@ option(BUILD_TESTING "Build test executables and register CTest tests" OFF)
 # Test programs are rebuilt by every run; debug information (PDBs) only helps to debug a crash, so it is
 # off unless this is set and the build or test is run again.
 option(CLAUSE_TEST_DEBUG_INFO "Build test programs with debug information" OFF)
+# Tests drive clau thousands of times; an optimized one halves their compile time. Turn OFF to step through a crash.
+option(CLAUSE_OPTIMIZED_COMPILER "Optimize clau and the compiler libraries in Debug builds too" ON)
 
 if(WIN32)
     message(STATUS "Windows development build; remaining platform work is tracked in abi/plan-windows.md.")
