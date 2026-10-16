@@ -2,7 +2,7 @@
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_test(NAME programs_compile COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/programs.py"
     "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/compile/$<CONFIG>")
-set_tests_properties(programs_compile PROPERTIES TIMEOUT 120)
+set_tests_properties(programs_compile PROPERTIES TIMEOUT 120 COST 13)
 
 # Every program fixture linked through its own manifest under the policy matrix and run against its OTP golden on
 # one and several workers (plan step 58), by the executable golden runner.

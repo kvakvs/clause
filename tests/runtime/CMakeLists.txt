@@ -28,7 +28,8 @@ add_test(NAME runtime_generated_link COMMAND "${CMAKE_COMMAND}"
     "-DHOST_SETTINGS=${PROJECT_BINARY_DIR}/TestHost.cmake"
     "-DHOST_CONFIG=$<CONFIG>" "-DHOST_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/link.cmake")
-set_tests_properties(runtime_generated_link PROPERTIES TIMEOUT 120)
+# A separate consumer that rebuilds the whole runtime: full mode only, like the other consumer projects.
+set_tests_properties(runtime_generated_link PROPERTIES TIMEOUT 120 LABELS full_only)
 
 # Off-heap binary ownership needs private layout headers; source cannot observe buffer references.
 add_executable(runtime_off_heap off_heap.cpp)

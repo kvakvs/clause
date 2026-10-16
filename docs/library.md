@@ -207,7 +207,7 @@ All live in `tests/compiler/library/`:
   `not_implemented` stub, an `implemented`/`refused` entry without a body or a
   catalog builtin.
   `library_rejects` proves it on a deliberately inconsistent fixture library.
-- CTest `library_freshness` (label `host_otp`) re-observes every inventory and
+- CTest `library_freshness` (labels `host_otp`, `full_only`) re-observes every inventory and
   requires it unchanged, then observes, generates, checks and compiles a new
   module end to end. `library_report` runs `clau` on a fixture program and
   checks the report's rows.

@@ -14,7 +14,8 @@ add_test(NAME library_report COMMAND "${Python3_EXECUTABLE}" "${library_modules}
     "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/report/$<CONFIG>")
 set_tests_properties(library_report PROPERTIES TIMEOUT 120 PASS_REGULAR_EXPRESSION "library_report: ok")
 
-# Inventories match the host OTP; a new one goes through observe, generate, check and clau. Skipped without OTP.
+# Inventories match the host OTP; a new one goes through observe, generate, check and clau. Skipped without OTP;
+# full mode only, since it boots the host OTP once per module and matters only when library/ changes.
 find_program(CLAUSE_TEST_ERL erl HINTS "$ENV{ProgramFiles}/Erlang OTP/bin" DOC "Host Erlang/OTP 29 erl")
 set(test_erl "-")
 if(CLAUSE_TEST_ERL)
@@ -22,7 +23,7 @@ if(CLAUSE_TEST_ERL)
 endif()
 add_test(NAME library_freshness COMMAND "${Python3_EXECUTABLE}" "${library_modules}" freshness "${PROJECT_SOURCE_DIR}"
     "${test_erl}" "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/freshness/$<CONFIG>")
-set_tests_properties(library_freshness PROPERTIES TIMEOUT 300 LABELS host_otp
+set_tests_properties(library_freshness PROPERTIES TIMEOUT 300 LABELS "host_otp;full_only"
     PASS_REGULAR_EXPRESSION "library_freshness: ok" SKIP_REGULAR_EXPRESSION "SKIP: no host Erlang/OTP")
 
 # Linked programs (plan step 41K): every provided module's stub raises undef in each call form; Clause modules win

@@ -252,7 +252,7 @@ if(CLAUSE_BUILD_RUNTIME)
         "${PROJECT_SOURCE_DIR}/tests/compiler/patternmatch/patterns.py"
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}"
         "${CMAKE_CURRENT_BINARY_DIR}/patterns/$<CONFIG>")
-    set_tests_properties(patternmatch_patterns PROPERTIES TIMEOUT 300)
+    set_tests_properties(patternmatch_patterns PROPERTIES TIMEOUT 300 COST 11)
     add_test(NAME patternmatch_immediate COMMAND "${Python3_EXECUTABLE}"
         "${PROJECT_SOURCE_DIR}/tests/compiler/patternmatch/immediate.py"
         "$<TARGET_FILE:clau>" "${CMAKE_COMMAND}" "${PROJECT_SOURCE_DIR}"

@@ -79,6 +79,8 @@ add_test(NAME printing_roundtrip COMMAND "${CMAKE_COMMAND}"
     "-DWORK=${CMAKE_CURRENT_BINARY_DIR}/printing-roundtrip"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/compiler/printing_roundtrip.cmake")
 set_tests_properties(frontend_cli printing_roundtrip PROPERTIES TIMEOUT 90)
+# CTest learns a wrapper script's cost from its own little CPU time; a fixed COST starts this long test first.
+set_tests_properties(frontend_cli PROPERTIES COST 40)
 add_test(NAME preprocessor_workflow COMMAND "${CMAKE_COMMAND}"
     "-DTOOL=$<TARGET_FILE:clau>" "-DWORK=${CMAKE_CURRENT_BINARY_DIR}/preprocessor-workflow"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/compiler/preprocessor/workflow.cmake")

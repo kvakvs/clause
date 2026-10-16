@@ -28,8 +28,12 @@ cmake --build build/debug --target check-quality-all  # whole tree
 ```
 
 - `CLAUSE_TEST_MODE=fast` runs golden corpora at O0 positional plus O2
-  specialization-off project, runs mutations once and skips `full_only` tests.
-  Full mode (default) runs all driver/policy combinations.
+  specialization-off project, runs mutations once and skips `full_only` tests
+  (separate consumer projects such as `runtime_generated_link`, measurements,
+  the host-OTP `library_freshness` audit). Full mode (default) runs all
+  driver/policy combinations.
+- Long tests driven by a Python or CMake script carry a fixed CTest `COST`: CTest
+  learns a wrapper's cost from its own small CPU time and would start them last.
 - `CLAUSE_TEST_TIMEOUT_SCALE=N` multiplies the per-run limits of the golden
   runner (60 s) and the semantic case runner (15 s) for instrumented builds.
 - `check-quality`, `make format` and `make-format.bat` cover files changed since
