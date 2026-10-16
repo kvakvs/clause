@@ -417,7 +417,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT0.27** short builtin lists (`++` up to 64 cells, character lists of
   `integer_to_list`/`atom_to_list`) bumped into the heap block's free words;
   collector copies skip zero-filling; string_build 1.8x, int_to_list 1.6x —
-  `[plan20] OPT0.27 ...`
+  `a996c552`
+- **OPT0.28** flat message copies as OTP (`size_object`/`copy_struct`): a
+  shared subterm is copied once per reach, no address map or per-object records;
+  large_message 1.5x; runtime tests get a 120 s timeout —
+  `[plan20] OPT0.28 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

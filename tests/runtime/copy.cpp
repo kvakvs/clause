@@ -11,8 +11,8 @@
 #include <vector>
 
 // Copying term graphs between process heaps of one runtime (docs/runtime-heap.md#copying-between-heaps): copies
-// compare equal, keep internal sharing, share off-heap buffers, outlive the source process, and a failed copy
-// leaves both heaps and every charge unchanged.
+// compare equal, copy shared subterms once per reach (flat, as OTP), share off-heap buffers, outlive the source
+// process, and a failed copy leaves both heaps and every charge unchanged.
 namespace {
 using namespace clause::runtime;
 using detail::layout::BinaryBuffer;
@@ -108,10 +108,10 @@ void layouts_survive(Runtime &runtime) {
             "teardown kept charges");
 }
 
-// Shared subterms are copied once: a 64-level tuple tower over one shared child copies in 3 words per level, and a
-// deeply nested list needs no recursion.
+// Copies are flat, as OTP copies messages: a 12-level tuple tower over one shared child copies every reach of it, 3
+// words per tuple, and a deeply nested list needs no recursion.
 void sharing(Runtime &runtime) {
-    constexpr std::size_t levels = 64;
+    constexpr std::size_t levels = 12;
     constexpr std::size_t depth = 100'000;
     auto &source = *runtime.create_context().value();
     auto &destination = *runtime.create_context().value();
@@ -122,15 +122,11 @@ void sharing(Runtime &runtime) {
     }
     auto used = destination.heap().used_words();
     const auto tower_copy = tower.copy_to(destination.heap()).value();
-    require(destination.heap().used_words() - used == 3 * levels, "shared subterms copied more than once");
-    // Comparing the towers would walk 2^64 pairs; each copied level names one child twice instead.
-    auto level = tower_copy;
-    for (std::size_t remaining = levels; remaining > 0; --remaining) {
-        const auto left = level.tuple_element(0).value();
-        require(level.tuple_element(1)->word() == left.word(), "copied level lost its sharing");
-        level = left;
-    }
-    require(level.is_nil(), "tower copy differs");
+    require(destination.heap().used_words() - used == 3 * ((std::size_t{1} << levels) - 1),
+            "a shared subterm was not copied once per reach");
+    require(tower_copy.exactly_equal(tower).value(), "tower copy differs");
+    require(tower_copy.tuple_element(0)->word() != tower_copy.tuple_element(1)->word(),
+            "copied children still share one copy");
     auto nested = factory.nil().value();
     for (std::size_t level = 0; level < depth; ++level) {
         nested = factory.cons(nested, factory.nil().value()).value();
@@ -158,8 +154,9 @@ void shared_buffers(Runtime &runtime) {
     const auto capacity = destination.heap().capacity_words();
     const auto first = graph.copy_to(destination.heap()).value();
     const auto second = graph.copy_to(destination.heap()).value();
-    // Each copy has one off-heap cell: the large binary, which its tail, a sub-binary, names (OPT1.4B).
-    require(observed.use_count() == 3 && destination.heap().verify()->off_heap_cells == 2,
+    // A flat copy makes one off-heap cell per reach of the large binary: two elements and the original of its tail, a
+    // sub-binary (OPT1.4B); all of them share its buffer.
+    require(observed.use_count() == 7 && destination.heap().verify()->off_heap_cells == 6,
             "copies did not share the buffer cell by cell");
     require(destination.heap().off_heap_words() == charge(1000), "destination charged the buffer more than once");
     require(runtime.memory_bytes() - before == (destination.heap().capacity_words() - capacity) * sizeof(Word),

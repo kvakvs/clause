@@ -276,7 +276,7 @@ Compact map of how Clause works. History lives in `00-finished.md`,
 - Limits: no default cap; opt-in `--max-heap/--max-stack/--max-memory`,
   runtime-wide `detail::RuntimeMemory` (atomic); host refusal = `out_of_memory`,
   exit 70.
-- `memory/copy` `GraphCopy`: iterative sharing-preserving copy between
+- `memory/copy` `GraphCopy`: iterative flat copy (as OTP copy_struct) between
   same-runtime heaps; refc buffers shared, charged once per process
   (`HeapStorage::buffers_`). `memory/MessageBuffer` holds terms outside
   processes (messages, persistent terms `memory/persistent_terms`).

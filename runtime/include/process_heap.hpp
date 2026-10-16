@@ -138,8 +138,8 @@ class ProcessHeap final {
     // Reserve one unpublished allocation; another allocation requires commit/rollback of the current one.
     std::expected<HeapReservation, HeapError> reserve(std::size_t words) noexcept;
     // Return value as a term of this heap: immediates and same-runtime atoms as they are, this heap's own terms
-    // unchanged, and a graph of another process of the same runtime copied with its sharing (BEAM copy_struct).
-    // A failed copy changes neither heap; another runtime's graph is wrong_owner.
+    // unchanged, and a graph of another process of the same runtime copied flat, a shared subterm once per reach (BEAM
+    // copy_struct). A failed copy changes neither heap; another runtime's graph is wrong_owner.
     TermResult<Term> add(const Term &value) noexcept;
     // Admit value only if it needs no copy: an immediate, a same-runtime atom or a term of this heap; factories use it
     // to refuse foreign inputs with wrong_owner.
@@ -192,10 +192,10 @@ class ProcessHeap final {
     off_heap_buffer(std::span<const std::byte> bytes) noexcept;
     // Count one more cell of this process referencing an off-heap buffer; the first charges the process budget.
     std::expected<void, HeapError> hold_off_heap(const std::vector<std::byte> &buffer) noexcept;
-    // Copy the graph at root from another heap of the same runtime into this one, keeping its sharing.
+    // Copy the graph at root from another heap of the same runtime into this one, flat as OTP copies messages.
     TermResult<Term> copy(detail::HeapStorage &source, Word root) noexcept;
     // Hold the graph's binary buffers, reserve its words and publish the copy; any failure undoes every step.
-    TermResult<Term> publish_copy(const detail::GraphCopy &graph, Word root) noexcept;
+    TermResult<Term> publish_copy(detail::GraphCopy &graph, Word root) noexcept;
     // Words of the budget left after off-heap buffers, shared by the heap block and fragments.
     std::size_t budget_words() const noexcept;
     // Largest block for live_words: half of the budget left after them stays free for fragments and off-heap buffers,

@@ -186,3 +186,13 @@ target_link_libraries(runtime_persistent_terms PRIVATE Clause::generated_program
 target_include_directories(runtime_persistent_terms PRIVATE "${PROJECT_SOURCE_DIR}/runtime/src")
 add_test(NAME runtime_persistent_terms COMMAND runtime_persistent_terms)
 set_tests_properties(runtime_persistent_terms PROPERTIES PASS_REGULAR_EXPRESSION "runtime_persistent_terms: ok")
+
+# A runtime test that runs past two minutes has hung (the slowest takes about 20 s under a loaded gate); without its
+# own TIMEOUT it would hold the gate for CTest's default 1,500 s.
+get_property(runtime_tests DIRECTORY PROPERTY TESTS)
+foreach(runtime_test IN LISTS runtime_tests)
+    get_test_property(${runtime_test} TIMEOUT runtime_timeout)
+    if(NOT runtime_timeout)
+        set_tests_properties(${runtime_test} PROPERTIES TIMEOUT 120)
+    endif()
+endforeach()

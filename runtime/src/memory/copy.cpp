@@ -6,7 +6,6 @@
 #include "off_heap.hpp"
 #include "process_heap.hpp"
 #include <algorithm>
-#include <boost/unordered/unordered_flat_map.hpp>
 #include <clause/runtime/process_context.hpp>
 #include <new>
 #include <vector>
@@ -34,12 +33,6 @@ TermError term_error(HeapError error) {
     return error == HeapError::out_of_memory ? TermError::out_of_memory : TermError::resource_limit;
 }
 
-// One distinct object of the source graph and where its copy starts in the destination reservation.
-struct Object {
-    HeapCell cell;
-    std::size_t offset;
-};
-
 // The off-heap map stub starting a cell's words, in the source or in the copy (OPT0.5A).
 const TreeMapCell *stub(std::span<const Word> words) noexcept {
     return reinterpret_cast<const TreeMapCell *>(words.data());
@@ -55,30 +48,27 @@ void drop_binaries(HeapStorage &storage, std::span<const RefcBinaryCell *const> 
 }
 } // namespace
 
-// The distinct objects reachable from a root, each found once so the copy keeps their sharing (BEAM size_object).
+// The objects reachable from a root, each reachable occurrence once, as OTP copies messages (BEAM size_object and
+// copy_struct, without its optional sharing-preserving variant): a shared subterm is copied as often as it is reached,
+// and no table maps source objects to copies (flat message copies).
 class GraphCopy final {
   public:
     // Borrow the source heap; it must not change until the copy is published.
     explicit GraphCopy(HeapStorage &source) : source_(source) {}
 
-    // Find every object reachable from root without recursion; false when a pointer leaves the source heap.
-    // May throw std::bad_alloc.
+    // Find every object occurrence reachable from root without recursion, in the order copy() visits them; false when
+    // a pointer leaves the source heap. May throw std::bad_alloc.
     bool discover(Word root) {
         std::vector<Word> pending{root};
         while (!pending.empty()) {
             const auto value = pending.back();
             pending.pop_back();
-            if (!compound(value) || index_.contains(address(value))) {
-                continue;
-            }
-            const auto area = source_.owned(address(value));
-            // A literal is shared by every process of the runtime: the copy keeps pointing at it (OPT0.4).
-            if (area.empty() && source_.literal(address(value))) {
-                continue;
-            }
-            const auto cell = parse_cell(area);
+            const auto cell = source_cell(value);
             if (!cell) {
-                return false;
+                if (cell.error() == Found::foreign) {
+                    return false;
+                }
+                continue;
             }
             add(*cell);
             push_slots(*cell, pending);
@@ -86,60 +76,80 @@ class GraphCopy final {
         return true;
     }
 
-    // Words of every distinct object: the size of the destination reservation.
+    // Words of every object occurrence: the size of the destination reservation.
     std::size_t words() const noexcept { return words_; }
 
-    // The source cells of off-heap binaries, one per distinct binary object.
+    // The source cells of off-heap binaries, one per copied binary cell.
     const std::vector<const RefcBinaryCell *> &binaries() const noexcept { return binaries_; }
 
-    // Copy every object except binary cells into out, rewriting pointers to the copies; return the root's copy.
-    Word copy(Word root, std::span<Word> out) const noexcept {
-        for (const auto &[cell, offset] : objects_) {
+    // Copy every object except binary cells into out in discovery order, reading each cell again, pointing each slot
+    // at its child's copy, and collect each copied stub's tree entries; return the root's copy. May throw
+    // std::bad_alloc.
+    Word copy(Word root, std::span<Word> out) {
+        Word result = root;
+        std::vector<std::pair<Word, Word *>> pending{{root, &result}};
+        std::size_t offset = 0;
+        std::size_t tree_index = 0;
+        entries_.assign(trees_.size(), {});
+        while (!pending.empty()) {
+            const auto [value, slot] = pending.back();
+            pending.pop_back();
+            const auto found = source_cell(value);
+            if (!found) {
+                *slot = value;
+                continue;
+            }
+            const auto &cell = *found;
+            const auto copy = out.subspan(offset, cell.words.size());
+            offset += cell.words.size();
+            *slot = reinterpret_cast<Word>(copy.data()) | (value & static_cast<Word>(abi::v1::primary_mask));
             if (!binary(cell)) {
-                const auto copy = out.subspan(offset, cell.words.size());
                 std::ranges::copy(cell.words, copy.begin());
-                const auto first = static_cast<std::size_t>(cell.slots.data() - cell.words.data());
-                for (auto &slot : copy.subspan(first, cell.slots.size())) {
-                    slot = translate(slot, out);
-                }
+            }
+            const auto first = static_cast<std::size_t>(cell.slots.data() - cell.words.data());
+            for (auto &child : copy.subspan(first, cell.slots.size())) {
+                pending.emplace_back(child, &child);
+            }
+            if (tree(cell)) {
+                tree_slots(cell, entries_[tree_index++], pending);
             }
         }
-        return translate(root, out);
+        return result;
     }
 
     // Construct the published copies of binary cells, sharing their buffers, and list them in destination.
     void link(HeapStorage &destination, std::span<Word> out) const noexcept {
-        for (const auto &[cell, offset] : objects_) {
-            if (binary(cell)) {
-                const auto &from = *reinterpret_cast<const RefcBinaryCell *>(cell.words.data());
-                auto *to = std::construct_at(reinterpret_cast<RefcBinaryCell *>(out.data() + offset));
-                to->header_ = from.header_;
-                to->offset_ = from.offset_;
-                to->bits_ = from.bits_;
-                link_off_heap(destination, *to, from.buffer_);
-            }
+        for (std::size_t index = 0; index < binaries_.size(); ++index) {
+            const auto &from = *binaries_[index];
+            auto *to = std::construct_at(reinterpret_cast<RefcBinaryCell *>(out.data() + binary_offsets_[index]));
+            to->header_ = from.header_;
+            to->offset_ = from.offset_;
+            to->bits_ = from.bits_;
+            link_off_heap(destination, *to, from.buffer_);
         }
-        for (const auto index : trees_) {
-            link_tree_map(destination, *stub(out.subspan(objects_[index].offset)));
+        for (const auto offset : trees_) {
+            link_tree_map(destination, *stub(out.subspan(offset)));
         }
     }
 
-    // Give every copied off-heap map stub a tree of its translated entries in destination; on failure the trees
-    // built so far are released (OPT0.5A).
+    // Give every copied off-heap map stub a tree of its copied entries in destination; on failure the trees built so
+    // far are released (OPT0.5A).
     std::expected<void, HeapError> build_trees(HeapStorage &destination, std::span<Word> out) const {
         for (std::size_t built = 0; built < trees_.size(); ++built) {
-            if (const auto root = build_tree(destination, objects_[trees_[built]], out); !root) {
+            const auto root = map_tree_build(destination, entries_[built]);
+            if (!root) {
                 release_trees(destination, out, built);
                 return std::unexpected(root.error());
             }
+            stub(out.subspan(trees_[built]))->root_ = *root;
         }
         return {};
     }
 
     // Release the trees of the first `count` copied stubs, for a copy that is not published.
     void release_trees(HeapStorage &destination, std::span<Word> out, std::size_t count) const noexcept {
-        for (const auto index : std::span(trees_).first(count)) {
-            map_tree_release(destination, stub(out.subspan(objects_[index].offset))->root_);
+        for (const auto offset : std::span(trees_).first(count)) {
+            map_tree_release(destination, stub(out.subspan(offset))->root_);
         }
     }
 
@@ -147,6 +157,26 @@ class GraphCopy final {
     std::size_t trees() const noexcept { return trees_.size(); }
 
   private:
+    // Why a word names no object to copy: an immediate, atom or literal (none), or a pointer outside the heap.
+    enum class Found : std::uint8_t { none, foreign };
+
+    // The source object a word names, when it is copied: literals are shared by every process of the runtime and stay
+    // as they are (OPT0.4).
+    std::expected<HeapCell, Found> source_cell(Word value) const {
+        if (!compound(value)) {
+            return std::unexpected(Found::none);
+        }
+        const auto area = source_.owned(address(value));
+        if (area.empty() && source_.literal(address(value))) {
+            return std::unexpected(Found::none);
+        }
+        const auto cell = parse_cell(area);
+        if (!cell) {
+            return std::unexpected(Found::foreign);
+        }
+        return *cell;
+    }
+
     // Queue the slots of a found cell; an off-heap map's keys and values are its slots (OPT0.5A).
     static void push_slots(const HeapCell &cell, std::vector<Word> &pending) {
         pending.insert(pending.end(), cell.slots.begin(), cell.slots.end());
@@ -158,29 +188,20 @@ class GraphCopy final {
         }
     }
 
+    // Queue a copied stub's tree entries in the order push_slots queued them, each written into `entries` (OPT0.5A).
+    static void tree_slots(const HeapCell &cell, std::vector<MapWords> &entries,
+                           std::vector<std::pair<Word, Word *>> &pending) {
+        entries.reserve(stub(cell.words)->size_);
+        map_tree_entries(stub(cell.words)->root_, [&](MapWords words) { entries.push_back(words); });
+        for (auto &entry : entries) {
+            pending.emplace_back(entry.first, &entry.first);
+            pending.emplace_back(entry.second, &entry.second);
+        }
+    }
+
     // Report whether a cell is an off-heap map stub, whose copy gets a tree of its own (OPT0.5A).
     static bool tree(const HeapCell &cell) noexcept {
         return cell.shape == HeapCell::Shape::boxed && BoxHeader::kind(cell.words[0]) == BoxedKind::tree_map;
-    }
-
-    // Build the tree of one copied stub from its source tree's translated entries.
-    std::expected<void, HeapError> build_tree(HeapStorage &destination, const Object &object,
-                                              std::span<Word> out) const noexcept {
-        try {
-            std::vector<MapWords> entries;
-            entries.reserve(stub(object.cell.words)->size_);
-            map_tree_entries(stub(object.cell.words)->root_, [&](MapWords words) {
-                entries.emplace_back(translate(words.first, out), translate(words.second, out));
-            });
-            const auto root = map_tree_build(destination, entries);
-            if (!root) {
-                return std::unexpected(root.error());
-            }
-            stub(out.subspan(object.offset))->root_ = *root;
-            return {};
-        } catch (const std::bad_alloc &) {
-            return std::unexpected(HeapError::out_of_memory);
-        }
     }
 
     // Report whether a cell is an off-heap binary, whose copy needs its C++ reference built in place.
@@ -188,42 +209,28 @@ class GraphCopy final {
         return cell.shape == HeapCell::Shape::boxed && layout::off_heap_cell(cell.words[0]);
     }
 
-    // Record a newly found object after every object found before it.
+    // Count a newly found object occurrence after every one found before it; only binary cells and map stubs keep
+    // their offsets, for link() and build_trees().
     void add(const HeapCell &cell) {
-        index_.emplace(reinterpret_cast<std::uintptr_t>(cell.words.data()), objects_.size());
-        objects_.push_back({cell, words_});
-        words_ += cell.words.size();
         if (binary(cell)) {
             binaries_.push_back(reinterpret_cast<const RefcBinaryCell *>(cell.words.data()));
+            binary_offsets_.push_back(words_);
         }
         if (tree(cell)) {
-            trees_.push_back(objects_.size() - 1);
+            trees_.push_back(words_);
         }
-    }
-
-    // Map a source word to the word naming its copy; immediates and atoms stay as they are.
-    Word translate(Word value, std::span<Word> out) const noexcept {
-        const auto found = compound(value) ? index_.find(address(value)) : index_.end();
-        // Immediates, atoms and literals (OPT0.4) stay as they are.
-        if (found == index_.end()) {
-            return value;
-        }
-        const auto &object = objects_[found->second];
-        return reinterpret_cast<Word>(out.data() + object.offset) | (value & static_cast<Word>(abi::v1::primary_mask));
+        words_ += cell.words.size();
     }
 
     // The heap the graph is read from.
     HeapStorage &source_;
-    // Distinct objects in discovery order, with their destination offsets.
-    std::vector<Object> objects_;
-    // Source object address to its index in objects_; it detects sharing and cycles alike. An open-addressing map,
-    // since a large message has one entry per cell (cheap message copies).
-    boost::unordered_flat_map<std::uintptr_t, std::size_t> index_;
-    // Source cells of the off-heap binaries among objects_.
+    // Source cells of the copied off-heap binaries and the offsets of their copies.
     std::vector<const RefcBinaryCell *> binaries_;
-    // Indexes of the off-heap map stubs among objects_ (OPT0.5A).
+    std::vector<std::size_t> binary_offsets_;
+    // Offsets of the copied off-heap map stubs, and each one's copied entries (OPT0.5A).
     std::vector<std::size_t> trees_;
-    // Sum of the words of objects_.
+    std::vector<std::vector<MapWords>> entries_;
+    // Words of every object occurrence found.
     std::size_t words_ = 0;
 };
 } // namespace clause::runtime::detail
@@ -263,7 +270,7 @@ TermResult<Term> ProcessHeap::copy(detail::HeapStorage &source, Word root) noexc
     }
 }
 
-TermResult<Term> ProcessHeap::publish_copy(const detail::GraphCopy &graph, Word root) noexcept {
+TermResult<Term> ProcessHeap::publish_copy(detail::GraphCopy &graph, Word root) noexcept {
     // A literal root needs no copy (OPT0.4).
     if (graph.words() == 0) {
         return detail::TermAccess::admit(root, *storage_);
@@ -281,7 +288,13 @@ TermResult<Term> ProcessHeap::publish_copy(const detail::GraphCopy &graph, Word 
         return std::unexpected(detail::term_error(reserved.error()));
     }
     const std::span out{reinterpret_cast<Word *>(reserved->bytes().data()), graph.words()};
-    const auto copied = graph.copy(root, out);
+    Word copied = 0;
+    try {
+        copied = graph.copy(root, out);
+    } catch (const std::bad_alloc &) {
+        detail::drop_binaries(*storage_, binaries);
+        return std::unexpected(TermError::out_of_memory);
+    }
     if (const auto trees = graph.build_trees(*storage_, out); !trees) {
         detail::drop_binaries(*storage_, binaries);
         return std::unexpected(detail::term_error(trees.error()));

@@ -509,13 +509,15 @@ the destination heap (BEAM `size_object` and `copy_struct`):
   `expired_context`, a source handle older than its heap's last collection
   `stale_term`. Factories still refuse foreign inputs (`ProcessHeap::retain`),
   so only an explicit copy moves a graph.
-- One walk with an explicit stack (no recursion) finds every distinct object
-  reachable from the value, keyed by address, so internal sharing survives:
-  `{T, T}` copies `T` once, unlike ERTS's default `copy_struct`, which flattens
-  sharing. The addresses go into an open-addressing map
-  (`boost::unordered_flat_map`). The copy is one reservation of the sum of their
-  words, in the heap block or a fragment, filled in walk order with pointers
-  rewritten to the copies.
+- Copies are flat, as ERTS's default `copy_struct` (without its optional
+  sharing-preserving variant): a subterm is copied once per reach, so `{T, T}`
+  copies `T` twice, and a term whose sharing doubles at every level grows
+  exponentially, as on OTP. One walk with an explicit stack (no recursion) sums
+  the words of every reached object; the copy is one reservation of that sum,
+  in the heap block or a fragment, filled by a second walk in the same order
+  that reads each cell again and points each slot at its child's copy. No table
+  maps source objects to copies, and only binary cells and map stubs keep their
+  offsets.
 - An off-heap binary's copy is a new cell sharing the buffer; the destination
   holds the buffer (charging its own off-heap words if it held none of it)
   before reserving, and lists the cell only after the reservation commits.
