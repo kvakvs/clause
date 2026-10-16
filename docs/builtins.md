@@ -397,7 +397,7 @@ builtin:
   `next/1`, ...) are Erlang in `library/stdlib/maps.erl`; iterators use
   [`erts_internal:map_next/3`](#erts-internal).
 - Map cursors (`runtime/src/terms/map_cursor.hpp`) walk a flat map cell and an
-  off-heap tree alike, as words in key order, with no `Term` per entry. The
+  map tree alike, as words in key order, with no `Term` per entry. The
   private builtin `clause_maps:entries/1` returns `{K1, V1, K2, V2, ...}` from
   one, so `maps:fold/3` reads the associations in place with `element/2`
   instead of building a list of pairs; `map_next/3` steps with one too.

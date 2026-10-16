@@ -119,9 +119,9 @@ in [abi.md](abi.md#terms).
 - Immutable tables sorted by exact key order. Duplicate construction keys keep
   the last value. Construction sorts the keys (O(n log n) comparisons; already
   ascending keys are only checked). Up to 32 entries a map is one heap cell and
-  an update inserts by binary search into a copy; above that it is an off-heap
-  B+ tree updated by path copying in O(log n)
-  ([off-heap maps](runtime-heap.md#off-heap-maps)). No size or work cap beyond
+  an update inserts by binary search into a copy; above that it is a B+ tree
+  of heap cells updated by path copying in O(log n)
+  ([map trees](runtime-heap.md#map-trees)). No size or work cap beyond
   memory, as in OTP. Integer and float keys differ (also `0.0` vs `-0.0`, also
   nested).
 - `K := V` updates require the key; `K => V` inserts or replaces. Updates stage

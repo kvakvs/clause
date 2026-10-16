@@ -18,7 +18,7 @@ bool shaped(TermKind tag, std::span<const Word> area) {
     return cell && cell->shape == (tag == TermKind::list ? HeapCell::Shape::cons : HeapCell::Shape::boxed);
 }
 
-// A map cell counts its entries: two words each, or the entry count word of an off-heap map's stub (OPT0.5A).
+// A map cell counts its entries: two words each, or the entry count word of a map tree stub (on-heap map trees).
 HeapObject map_object(Word value, std::span<const Word> words) {
     const auto payload = words.subspan(1);
     switch (BoxHeader::kind(words[0])) {

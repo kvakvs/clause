@@ -17,10 +17,6 @@ struct RecordDefinition;
 struct FunDefinition;
 } // namespace clause::runtime
 
-namespace clause::runtime::detail {
-struct MapNode;
-} // namespace clause::runtime::detail
-
 namespace clause::runtime::detail::layout {
 using Bignum = boost::multiprecision::cpp_int;
 
@@ -111,8 +107,15 @@ constexpr std::size_t reference_payload_words(std::size_t word_bytes) noexcept {
 // list link.
 constexpr std::size_t refc_payload_words(std::size_t) noexcept { return 8; }
 
-// Words after the header of an off-heap map stub: size, tree root, list link (OPT0.5A).
+// Words after the header of a map tree stub: size, edit word, root (on-heap map trees).
 constexpr std::size_t tree_map_payload_words(std::size_t) noexcept { return 3; }
+
+// Words after the header of a map tree node of `count` entries or children: size, edit word, keys, items.
+constexpr std::size_t map_node_payload_words(std::size_t count) noexcept { return 2 + 2 * count; }
+
+// The edit word of a map tree stub or node: its edit token above the leaf bit (on-heap map trees). A copy to another
+// heap clears the token, which no update there holds.
+constexpr Word map_edit_word(std::size_t edit, bool leaf) noexcept { return Word{edit} << 1 | Word{leaf}; }
 
 // Words after the header of a heap binary holding bits: the bit length, then data rounded up to words.
 constexpr std::size_t heap_binary_payload_words(std::size_t bits, std::size_t word_bytes) noexcept {
@@ -173,14 +176,14 @@ struct alignas(Word) RefcBinaryCell final {
 };
 
 struct alignas(Word) TreeMapCell final {
-    // Identify an off-heap map (OPT0.5A); the header count is 3 on every word width.
+    // Identify a map above 32 entries (on-heap map trees); the header count is 3 on every word width.
     BoxHeader header_;
-    // Entries of the map.
+    // Entries of the map, untraced.
     Word size_;
-    // One reference to the root of its tree (map_tree.hpp); only builders, sweeps and teardown touch it.
-    MapNode *root_;
-    // Link the owning process's off-heap map list, newest stub first; null ends the list.
-    TreeMapCell *next_;
+    // The edit word (map_edit_word) of the update that created the root, untraced: an owned update reuses it.
+    Word edit_;
+    // The boxed pointer to the root map_node cell (map_tree.hpp), the stub's one traced slot; [] once consumed.
+    Word root_;
 };
 
 struct alignas(Word) FunCell final {

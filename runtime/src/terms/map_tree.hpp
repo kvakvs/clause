@@ -1,54 +1,67 @@
 #pragma once
-#include "../memory/heap_object.hpp"
 #include "process_heap.hpp"
 #include "term_layout.hpp"
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <expected>
 #include <optional>
 #include <span>
 #include <utility>
 
-// Off-heap maps (OPT0.5A): a map above MAP_TREE_THRESHOLD entries is a heap stub (layout::TreeMapCell) naming the
-// root of a process-private persistent B+ tree in exact key order. Leaves hold the key and value words, which point
-// into the owner's heap; the collector rewrites them through the stub (docs/runtime-heap.md#off-heap-maps).
+// Map trees (on-heap map trees): a map above MAP_TREE_THRESHOLD entries is a tree_map stub naming the root of a
+// persistent B+ tree in exact key order whose nodes are map_node cells of the owner's heap, so collections move,
+// promote and free them like any cell (docs/runtime-heap.md#map-trees).
 namespace clause::runtime::detail {
 class HeapStorage;
-struct HeapArea;
-struct Survivors;
 
 // Entries up to which a map stays a classic heap cell (OTP's MAP_SMALL_MAP_LIMIT).
 inline constexpr std::size_t MAP_TREE_THRESHOLD = 32;
-// Entries per leaf and children per branch.
-inline constexpr std::size_t MAP_FANOUT = 32;
-
-struct MapNode {
-    // Stubs and branches referencing this node; it is freed with its last reference.
-    std::size_t references_ = 1;
-    // The update that created it: that update alone may change it in place while it is unshared.
-    std::size_t edit_ = 0;
-    // Collection that last rewrote its term words, so a node shared by several stubs is visited once.
-    std::size_t epoch_ = 0;
-    // Entries below this node, and slots used: entries of a leaf or children of a branch.
-    std::size_t size_ = 0;
-    std::size_t count_ = 0;
-    // Leaves hold entries; branches hold children.
-    bool leaf_ = true;
-};
-
-struct MapLeaf final : MapNode {
-    // Key and value words of count_ entries in exact key order.
-    std::array<Word, MAP_FANOUT> keys_{};
-    std::array<Word, MAP_FANOUT> values_{};
-};
-
-struct MapBranch final : MapNode {
-    // The first key below each child, for the search, and the children in key order.
-    std::array<Word, MAP_FANOUT> keys_{};
-    std::array<MapNode *, MAP_FANOUT> children_{};
-};
+// Entries per leaf and children per branch: a path copy writes about 35 words per level.
+inline constexpr std::size_t MAP_FANOUT = 16;
+// Levels a tree can have: every node but the root holds at least half of MAP_FANOUT, more levels than memory holds.
+inline constexpr std::size_t MAP_MAX_DEPTH = 24;
 
 using MapWords = std::pair<Word, Word>;
+
+// Read access to one map_node cell: header, entries below, edit word (token and leaf bit, layout::map_edit_word),
+// then `count` keys and `count` values (a leaf) or child pointers (a branch), in exact key order.
+class MapNode final {
+  public:
+    MapNode() noexcept = default;
+
+    explicit MapNode(const Word *words) noexcept : words_(words) {}
+
+    // The node a tree word (a boxed pointer to a map_node cell) names.
+    static MapNode at(Word pointer) noexcept {
+        return MapNode(std::bit_cast<const Word *>(pointer & ~static_cast<Word>(abi::v1::primary_mask)));
+    }
+
+    std::size_t count() const noexcept { return (layout::BoxHeader::count(words_[0]) - 2) / 2; }
+
+    std::size_t size() const noexcept { return static_cast<std::size_t>(words_[1]); }
+
+    bool leaf() const noexcept { return (words_[2] & 1) != 0; }
+
+    std::size_t edit() const noexcept { return static_cast<std::size_t>(words_[2] >> 1); }
+
+    std::span<const Word> keys() const noexcept { return {words_ + 3, count()}; }
+
+    // A leaf's values, or a branch's child pointers.
+    std::span<const Word> items() const noexcept { return {words_ + 3 + count(), count()}; }
+
+    MapNode child(std::size_t index) const noexcept { return at(items()[index]); }
+
+    const Word *words() const noexcept { return words_; }
+
+  private:
+    const Word *words_ = nullptr;
+};
+
+// Whether a stub's root word names a tree: a consumed stub's (OPT0.5B) holds [] instead.
+constexpr bool map_tree_present(Word root) noexcept {
+    return (root & static_cast<Word>(abi::v1::primary_mask)) == abi::v1::boxed_tag;
+}
 
 // Orders stored keys against one probe key: negative, zero or positive as the stored key sorts before, equal to
 // or after it, or the comparison failure.
@@ -73,78 +86,40 @@ struct TreeFailure {
     TermError error = TermError::invalid_encoding;
 };
 
-struct InsertFlags {
-    // Whether the update consumed its source stub, so the nodes it holds exclusively may change in place (OPT0.5B).
-    bool owned;
-    // Set when the key was new.
-    bool &added;
+struct TreeEdit {
+    // The storage new nodes are allocated in, and the edit token whose nodes may change in place: nodes created by
+    // this update, or by the consumed source of an owned update (OPT0.5B); 0 allows none.
+    HeapStorage &storage;
+    std::size_t edit;
 };
 
-// A new edit token: nodes created under it may change in place until their tree is published.
+// A new edit token: nodes created under it may change in place until the next collection.
 std::size_t map_edit(HeapStorage &storage) noexcept;
-// Build a tree of sorted, distinct entries under a fresh edit; null for none.
-std::expected<MapNode *, HeapError> map_tree_build(HeapStorage &storage, std::span<const MapWords> entries) noexcept;
-// Insert or replace one association under `edit`, replacing `root` (one owned reference) by the new root; nodes
-// shared with other trees are copied first. On failure `root` is unchanged.
-std::expected<void, TreeFailure> map_tree_insert(HeapStorage &storage, MapNode *&root, std::size_t edit, MapWords entry,
-                                                 bool exact, const MapProbe &probe, InsertFlags flags) noexcept;
+// Whether a stub's token still allows its nodes to change in place: no collection moved them since it was handed out.
+bool map_edit_current(const HeapStorage &storage, std::size_t edit) noexcept;
+// The root word of a new tree of sorted, distinct entries (more than MAP_TREE_THRESHOLD) created under `edit`.
+std::expected<Word, HeapError> map_tree_build(const TreeEdit &edit, std::span<const MapWords> entries) noexcept;
+// Insert or replace one association, replacing `root` by the new tree's root word; the source tree stays unchanged
+// apart from nodes of `edit.edit`. True when the key was new; on failure `root` is unchanged.
+std::expected<bool, TreeFailure> map_tree_insert(const TreeEdit &edit, Word &root, MapWords entry, bool exact,
+                                                 const MapProbe &probe) noexcept;
 // The value of the probed key, if present.
-TermResult<std::optional<Word>> map_tree_find(const MapNode *root, const MapProbe &probe) noexcept;
-// The entry at canonical position `index` < size.
-MapWords map_tree_at(const MapNode *root, std::size_t index) noexcept;
+TermResult<std::optional<Word>> map_tree_find(Word root, const MapProbe &probe) noexcept;
+// The entry at canonical position `index` < size of the tree under `root`.
+MapWords map_tree_at(MapNode root, std::size_t index) noexcept;
 
 // Every entry in key order.
-template <typename Visit> void map_tree_entries(const MapNode *node, Visit &&visit) {
-    if (node == nullptr) {
-        return; // A consumed stub's (OPT0.5B).
-    }
-    if (node->leaf_) {
-        const auto &leaf = static_cast<const MapLeaf &>(*node);
-        for (std::size_t i = 0; i < leaf.count_; ++i) {
-            visit(MapWords{leaf.keys_.at(i), leaf.values_.at(i)});
-        }
+template <typename Visit> void map_tree_entries(Word root, Visit &&visit) {
+    if (!map_tree_present(root)) {
         return;
     }
-    const auto &branch = static_cast<const MapBranch &>(*node);
-    for (std::size_t i = 0; i < branch.count_; ++i) {
-        map_tree_entries(branch.children_.at(i), visit);
+    const auto node = MapNode::at(root);
+    for (std::size_t i = 0; i < node.count(); ++i) {
+        if (node.leaf()) {
+            visit(MapWords{node.keys()[i], node.items()[i]});
+        } else {
+            map_tree_entries(node.items()[i], visit);
+        }
     }
 }
-
-// Visit every term word of the tree once per `epoch` (a collection), so the collector can rewrite it.
-template <typename Visit> void map_tree_words(MapNode *node, std::size_t epoch, Visit &&visit) {
-    if (node == nullptr || node->epoch_ == epoch) {
-        return;
-    }
-    node->epoch_ = epoch;
-    if (node->leaf_) {
-        auto &leaf = static_cast<MapLeaf &>(*node);
-        for (std::size_t i = 0; i < leaf.count_; ++i) {
-            visit(leaf.keys_.at(i));
-            visit(leaf.values_.at(i));
-        }
-        return;
-    }
-    auto &branch = static_cast<MapBranch &>(*node);
-    for (std::size_t i = 0; i < branch.count_; ++i) {
-        visit(branch.keys_.at(i));
-        map_tree_words(branch.children_.at(i), epoch, visit);
-    }
-}
-
-// Add a reference to a node, as a new stub or branch does.
-void map_tree_retain(MapNode *node) noexcept;
-// Drop one reference; the last frees the node, its words return to the storage and its children are released.
-void map_tree_release(HeapStorage &storage, MapNode *node) noexcept;
-
-// Link a just-published stub as the newest entry of the owner's off-heap map list.
-void link_tree_map(HeapStorage &storage, layout::TreeMapCell &cell) noexcept;
-// After a collection, relink the copies of forwarded stubs in list order, keep stubs of the old area a minor
-// collection left in place, and release dead stubs' trees.
-void sweep_tree_maps(HeapStorage &storage, const Survivors &survivors) noexcept;
-// Move the off-heap map stubs of an adopted message's storage to the front of `to`'s list, with their node words and
-// edit tokens (message hand-off).
-void splice_tree_maps(HeapStorage &to, HeapStorage &from) noexcept;
-// Release every listed stub's tree at teardown.
-void release_tree_maps(HeapStorage &storage) noexcept;
 } // namespace clause::runtime::detail

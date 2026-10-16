@@ -1,4 +1,3 @@
-#include "../terms/map_tree.hpp"
 #include "heap_object.hpp"
 #include "heap_storage.hpp"
 #include "heap_walk.hpp"
@@ -16,7 +15,6 @@ namespace clause::runtime::detail {
 namespace {
 using layout::BoxHeader;
 using layout::RefcBinaryCell;
-using layout::TreeMapCell;
 
 // Strip the primary tag; the mask is narrower than a 64-bit Word, so widen it first.
 std::uintptr_t address(Word value) {
@@ -34,12 +32,13 @@ TermError term_error(HeapError error) {
     return error == HeapError::out_of_memory ? TermError::out_of_memory : TermError::resource_limit;
 }
 
-// The off-heap map stub starting a cell's words, in the source or in the copy (OPT0.5A).
-const TreeMapCell *stub(std::span<const Word> words) noexcept {
-    return reinterpret_cast<const TreeMapCell *>(words.data());
+// Clear the edit token of a copied map tree stub or node: no update of the destination holds it (on-heap map trees).
+void clear_edit(std::span<Word> copy) noexcept {
+    const auto kind = BoxHeader::kind(copy[0]);
+    if (is_header(copy[0]) && (kind == BoxedKind::tree_map || kind == BoxedKind::map_node)) {
+        copy[2] &= 1;
+    }
 }
-
-TreeMapCell *stub(std::span<Word> words) noexcept { return reinterpret_cast<TreeMapCell *>(words.data()); }
 
 // Undo the holds of binary cells after a failed copy.
 void drop_binaries(HeapStorage &storage, std::span<const RefcBinaryCell *const> cells) noexcept {
@@ -83,15 +82,12 @@ class GraphCopy final {
     // The source cells of off-heap binaries, one per copied binary cell.
     const std::vector<const RefcBinaryCell *> &binaries() const noexcept { return binaries_; }
 
-    // Copy every object except binary cells into out in discovery order, reading each cell again, pointing each slot
-    // at its child's copy, and collect each copied stub's tree entries; return the root's copy. May throw
-    // std::bad_alloc.
+    // Copy every object except binary cells into out in discovery order, reading each cell again and pointing each
+    // slot at its child's copy; return the root's copy. May throw std::bad_alloc.
     Word copy(Word root, std::span<Word> out) {
         Word result = root;
         std::vector<std::pair<Word, Word *>> pending{{root, &result}};
         std::size_t offset = 0;
-        std::size_t tree_index = 0;
-        entries_.assign(trees_.size(), {});
         while (!pending.empty()) {
             const auto [value, slot] = pending.back();
             pending.pop_back();
@@ -106,11 +102,9 @@ class GraphCopy final {
             *slot = reinterpret_cast<Word>(copy.data()) | (value & static_cast<Word>(abi::v1::primary_mask));
             if (!binary(cell)) {
                 std::ranges::copy(cell.words, copy.begin());
+                clear_edit(copy);
             }
             queue_copy(cell, copy, pending);
-            if (tree(cell)) {
-                tree_slots(cell, entries_[tree_index++], pending);
-            }
         }
         return result;
     }
@@ -125,34 +119,7 @@ class GraphCopy final {
             to->bits_ = from.bits_;
             link_off_heap(destination, *to, from.buffer_);
         }
-        for (const auto offset : trees_) {
-            link_tree_map(destination, *stub(out.subspan(offset)));
-        }
     }
-
-    // Give every copied off-heap map stub a tree of its copied entries in destination; on failure the trees built so
-    // far are released (OPT0.5A).
-    std::expected<void, HeapError> build_trees(HeapStorage &destination, std::span<Word> out) const {
-        for (std::size_t built = 0; built < trees_.size(); ++built) {
-            const auto root = map_tree_build(destination, entries_[built]);
-            if (!root) {
-                release_trees(destination, out, built);
-                return std::unexpected(root.error());
-            }
-            stub(out.subspan(trees_[built]))->root_ = *root;
-        }
-        return {};
-    }
-
-    // Release the trees of the first `count` copied stubs, for a copy that is not published.
-    void release_trees(HeapStorage &destination, std::span<Word> out, std::size_t count) const noexcept {
-        for (const auto offset : std::span(trees_).first(count)) {
-            map_tree_release(destination, stub(out.subspan(offset))->root_);
-        }
-    }
-
-    // Copied off-heap map stubs, which a failed publication must release.
-    std::size_t trees() const noexcept { return trees_.size(); }
 
   private:
     // Why a word names no object to copy: an immediate, atom or literal (none), or a pointer outside the heap.
@@ -175,19 +142,9 @@ class GraphCopy final {
         return *cell;
     }
 
-    // Queue the compound slots of a found cell, the only ones that can name an object; an off-heap map's keys and
-    // values are its slots (OPT0.5A).
+    // Queue the compound slots of a found cell, the only ones that can name an object.
     static void push_slots(const HeapCell &cell, std::vector<Word> &pending) {
         std::ranges::copy_if(cell.slots, std::back_inserter(pending), compound);
-        if (tree(cell)) {
-            map_tree_entries(stub(cell.words)->root_, [&](MapWords words) {
-                for (const auto word : {words.first, words.second}) {
-                    if (compound(word)) {
-                        pending.push_back(word);
-                    }
-                }
-            });
-        }
     }
 
     // Queue the compound slots of a cell's copy, as discover() queued the source's: the copy already holds
@@ -201,39 +158,17 @@ class GraphCopy final {
         }
     }
 
-    // Queue a copied stub's tree entries in the order push_slots queued them, each written into `entries` (OPT0.5A).
-    static void tree_slots(const HeapCell &cell, std::vector<MapWords> &entries,
-                           std::vector<std::pair<Word, Word *>> &pending) {
-        entries.reserve(stub(cell.words)->size_);
-        map_tree_entries(stub(cell.words)->root_, [&](MapWords words) { entries.push_back(words); });
-        for (auto &entry : entries) {
-            for (auto *word : {&entry.first, &entry.second}) {
-                if (compound(*word)) {
-                    pending.emplace_back(*word, word);
-                }
-            }
-        }
-    }
-
-    // Report whether a cell is an off-heap map stub, whose copy gets a tree of its own (OPT0.5A).
-    static bool tree(const HeapCell &cell) noexcept {
-        return cell.shape == HeapCell::Shape::boxed && BoxHeader::kind(cell.words[0]) == BoxedKind::tree_map;
-    }
-
     // Report whether a cell is an off-heap binary, whose copy needs its C++ reference built in place.
     static bool binary(const HeapCell &cell) noexcept {
         return cell.shape == HeapCell::Shape::boxed && layout::off_heap_cell(cell.words[0]);
     }
 
-    // Count a newly found object occurrence after every one found before it; only binary cells and map stubs keep
-    // their offsets, for link() and build_trees().
+    // Count a newly found object occurrence after every one found before it; only binary cells keep their offsets,
+    // for link().
     void add(const HeapCell &cell) {
         if (binary(cell)) {
             binaries_.push_back(reinterpret_cast<const RefcBinaryCell *>(cell.words.data()));
             binary_offsets_.push_back(words_);
-        }
-        if (tree(cell)) {
-            trees_.push_back(words_);
         }
         words_ += cell.words.size();
     }
@@ -243,9 +178,6 @@ class GraphCopy final {
     // Source cells of the copied off-heap binaries and the offsets of their copies.
     std::vector<const RefcBinaryCell *> binaries_;
     std::vector<std::size_t> binary_offsets_;
-    // Offsets of the copied off-heap map stubs, and each one's copied entries (OPT0.5A).
-    std::vector<std::size_t> trees_;
-    std::vector<std::vector<MapWords>> entries_;
     // Words of every object occurrence found.
     std::size_t words_ = 0;
 };
@@ -311,12 +243,7 @@ TermResult<Term> ProcessHeap::publish_copy(detail::GraphCopy &graph, Word root) 
         detail::drop_binaries(*storage_, binaries);
         return std::unexpected(TermError::out_of_memory);
     }
-    if (const auto trees = graph.build_trees(*storage_, out); !trees) {
-        detail::drop_binaries(*storage_, binaries);
-        return std::unexpected(detail::term_error(trees.error()));
-    }
     if (const auto committed = reserved->commit(); !committed) {
-        graph.release_trees(*storage_, out, graph.trees());
         detail::drop_binaries(*storage_, binaries);
         return std::unexpected(TermError::expired_context);
     }
@@ -420,10 +347,6 @@ TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Te
             return std::unexpected(term_error(out.error()));
         }
         buffer->root_ = graph.copy(value.word(), *out);
-        if (const auto trees = graph.build_trees(storage, *out); !trees) {
-            drop_binaries(storage, binaries);
-            return std::unexpected(term_error(trees.error()));
-        }
         storage.pending_ = false;
         graph.link(storage, *out);
         return buffer;

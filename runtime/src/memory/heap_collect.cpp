@@ -1,5 +1,4 @@
 #include "heap_collect.hpp"
-#include "../terms/map_tree.hpp"
 #include "heap_walk.hpp"
 #include "off_heap.hpp"
 #include <algorithm>
@@ -138,7 +137,6 @@ bool Copier::scan(HeapArea &area, std::size_t &scanned) noexcept {
             return found; // Unreachable: copies of verified objects always parse.
         }
         evacuate_slots(rest, *cell);
-        evacuate_tree(*cell);
         scanned += cell->words.size();
         found = true;
     }
@@ -155,14 +153,6 @@ void Copier::evacuate_slots(std::span<Word> object, const HeapCell &cell) noexce
     }
 }
 
-void Copier::evacuate_tree(const HeapCell &cell) noexcept {
-    if (cell.shape != HeapCell::Shape::boxed || BoxHeader::kind(cell.words[0]) != BoxedKind::tree_map) {
-        return;
-    }
-    const auto &stub = *reinterpret_cast<const layout::TreeMapCell *>(cell.words.data());
-    map_tree_words(stub.root_, storage_.collections_, [&](Word &word) { word = evacuate(word); });
-}
-
 void Copier::finish() noexcept {
     // Copies land in the new block and, when promoted, in the old area: scan both until neither grows.
     std::size_t young = 0;
@@ -172,7 +162,6 @@ void Copier::finish() noexcept {
     const bool full = generation_ == Generation::full;
     const Survivors survivors{to_, full ? nullptr : &storage_.old_};
     sweep_off_heap(storage_, survivors);
-    sweep_tree_maps(storage_, survivors);
     storage_.replace(std::move(to_), full);
 }
 } // namespace clause::runtime::detail

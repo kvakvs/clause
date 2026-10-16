@@ -27,8 +27,22 @@ std::optional<std::size_t> fixed_payload(BoxedKind kind, std::size_t all) {
         return all == layout::refc_payload_words(sizeof(Word)) ? all : layout::reference_payload_words(sizeof(Word));
     case BoxedKind::refc_binary:
         return layout::refc_payload_words(sizeof(Word));
+    default:
+        return std::nullopt;
+    }
+}
+
+// Whether the payload size suits a kind whose two untraced words precede its terms: a sub-binary's offset and length,
+// then its original (OPT1.4B); a map tree stub's or node's size and edit word, then its root, or keys and values or
+// children (on-heap map trees). None for any other kind.
+std::optional<bool> prefixed_size(BoxedKind kind, std::size_t all) {
+    switch (kind) {
+    case BoxedKind::sub_binary:
+        return all == 3;
     case BoxedKind::tree_map:
-        return layout::tree_map_payload_words(sizeof(Word));
+        return all == layout::tree_map_payload_words(sizeof(Word));
+    case BoxedKind::map_node:
+        return all >= layout::map_node_payload_words(1) && all % 2 == 0;
     default:
         return std::nullopt;
     }
@@ -40,6 +54,9 @@ std::expected<std::size_t, WalkError> untraced(BoxedKind kind, std::span<const W
     const auto all = payload.size();
     if (const auto words = fixed_payload(kind, all)) {
         return sized(all == *words, all);
+    }
+    if (const auto valid = prefixed_size(kind, all)) {
+        return sized(*valid, 2);
     }
     switch (kind) {
     case BoxedKind::tuple:
@@ -55,9 +72,6 @@ std::expected<std::size_t, WalkError> untraced(BoxedKind kind, std::span<const W
         return sized(payload.size() >= 2, all);
     case BoxedKind::heap_binary:
         return sized(heap_binary_sized(payload), all);
-    case BoxedKind::sub_binary:
-        // Offset and length, then the original binary (OPT1.4B).
-        return sized(all == 3, 2);
     default:
         return std::unexpected(WalkError::unknown_kind);
     }

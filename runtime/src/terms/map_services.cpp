@@ -173,7 +173,7 @@ MapResult evaluate(ProcessContext &context, Op operation, std::span<const Term> 
     return query(context, operation, terms);
 }
 
-// `Map#{Key => Value}` or `Map#{Key := Value}` of one small-integer key on an off-heap map, decided by words alone
+// `Map#{Key => Value}` or `Map#{Key := Value}` of one small-integer key on a map tree, decided by words alone
 // (word-level map updates); none when the general path must run. The value must be this process's term.
 std::optional<Word> small_key_update(ProcessContext &context, Op operation, std::span<const Word> values) {
     using abi::v1::NativeIntegerEncoding;

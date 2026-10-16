@@ -1,122 +1,183 @@
 #include "map_tree.hpp"
-#include "../memory/heap_collect.hpp"
 #include "../memory/heap_storage.hpp"
-#include "../memory/heap_walk.hpp"
 #include <algorithm>
-#include <memory>
 #include <new>
-#include <type_traits>
 #include <vector>
 
 namespace clause::runtime::detail {
 namespace {
-// Words a node is charged: its bytes rounded up to words.
-template <typename Node> constexpr std::size_t node_words() { return (sizeof(Node) + sizeof(Word) - 1) / sizeof(Word); }
+using layout::BoxHeader;
 
-// Charge new node words to the process and runtime accounts; enough garbage triggers a collection as binaries do.
-void charge(HeapStorage &storage, std::size_t words) noexcept {
-    storage.memory_->force(words);
-    storage.off_heap_words_ += words;
-    storage.map_words_ += words;
-    if (storage.off_heap_words_ >= storage.binary_limit_words_) {
-        storage.signal_collection();
-    }
-}
+// Words of a node of `count` entries or children, its header included.
+constexpr std::size_t node_words(std::size_t count) noexcept { return 1 + layout::map_node_payload_words(count); }
 
-// Return a freed node's words.
-void refund(HeapStorage &storage, std::size_t words) noexcept {
-    storage.memory_->release(words);
-    storage.off_heap_words_ -= words;
-    storage.map_words_ -= words;
-}
-
-// Freed nodes of each kind a process keeps for reuse (OPT0.13).
-constexpr std::size_t NODE_CACHE = 1024;
-
-// The free list of a node kind.
-template <typename Node> std::vector<void *> &free_nodes(HeapStorage &storage) noexcept {
-    if constexpr (std::is_same_v<Node, MapLeaf>) {
-        return storage.free_map_leaves_;
-    } else {
-        return storage.free_map_branches_;
-    }
-}
-
-// An empty node from the free list, or a new one; null when memory runs out. The list's room is reserved with the
-// first node, so recycling never allocates.
-template <typename Node> Node *fresh_node(HeapStorage &storage) noexcept {
-    auto &cache = free_nodes<Node>(storage);
-    if (cache.empty()) {
-        if (cache.capacity() == 0) {
-            try {
-                cache.reserve(NODE_CACHE);
-            } catch (const std::bad_alloc &) {
-                return nullptr;
-            }
-        }
-        return new (std::nothrow) Node();
-    }
-    auto *node = static_cast<Node *>(cache.back());
-    cache.pop_back();
-    std::destroy_at(node);
-    return std::construct_at(node);
-}
-
-// Keep a dead node for reuse while its free list has reserved room, else delete it.
-template <typename Node> void recycle(HeapStorage &storage, Node *node) noexcept {
-    auto &cache = free_nodes<Node>(storage);
-    if (cache.size() < cache.capacity()) {
-        cache.push_back(node);
-    } else {
-        delete node;
-    }
-}
-
-// A new empty node created by `edit`, charged to the storage; no exception escapes.
-template <typename Node> std::expected<Node *, HeapError> allocate(HeapStorage &storage, std::size_t edit) noexcept {
-    constexpr auto words = node_words<Node>();
-    if (words > storage.room()) {
-        return std::unexpected(HeapError::limit_exceeded);
-    }
-    auto *node = fresh_node<Node>(storage);
-    if (node == nullptr) {
-        return std::unexpected(HeapError::out_of_memory);
-    }
-    node->edit_ = edit;
-    node->leaf_ = std::is_same_v<Node, MapLeaf>;
-    charge(storage, words);
-    return node;
-}
-
-// Free one node whose last reference is gone, without touching its children.
-void free_node(HeapStorage &storage, MapNode *node) noexcept {
-    if (node->leaf_) {
-        recycle(storage, static_cast<MapLeaf *>(node));
-        refund(storage, node_words<MapLeaf>());
-    } else {
-        recycle(storage, static_cast<MapBranch *>(node));
-        refund(storage, node_words<MapBranch>());
-    }
-}
-
-// The first key stored below a node.
-Word first_key(const MapNode &node) noexcept {
-    return node.leaf_ ? static_cast<const MapLeaf &>(node).keys_.front()
-                      : static_cast<const MapBranch &>(node).keys_.front();
-}
+// Entries or children of the left node when `count` of them split into two.
+constexpr std::size_t left_half(std::size_t count) noexcept { return (count + 1) / 2; }
 
 // A tree failure for an allocation error.
 TreeFailure memory_failure(HeapError error) noexcept {
     return {error == HeapError::out_of_memory ? TreeFault::out_of_memory : TreeFault::limit_exceeded};
 }
 
+// Words for new nodes, not zeroed: each is written before the heap is walked again.
+std::expected<std::span<Word>, HeapError> claim(HeapStorage &storage, std::size_t words) noexcept {
+    try {
+        return storage.claim(words);
+    } catch (const std::bad_alloc &) {
+        return std::unexpected(HeapError::out_of_memory);
+    }
+}
+
+struct Piece {
+    // A node written for the new tree (its boxed pointer, 0 while counting), its first key and the entries below it;
+    // or a leaf entry: its value, key and size 0.
+    Word word;
+    Word first;
+    std::size_t size;
+};
+
+struct Pieces {
+    // The node replacing a rewritten one, and its new right sibling when it split.
+    std::array<Piece, 2> nodes;
+    std::size_t count;
+};
+
+struct Range {
+    // Items [begin, end) of a node: those an update replaces, or those one new node takes.
+    std::size_t begin;
+    std::size_t end;
+};
+
+// A node as an update rewrites it, read in place: its `replaced` items give way to up to two pieces. With no node
+// it holds the pieces alone (a new root).
+class Edited final {
+  public:
+    Edited() noexcept = default;
+
+    Edited(MapNode node, Range replaced) noexcept
+        : node_(node), old_(node.count()), index_(replaced.begin), removed_(replaced.end - replaced.begin) {}
+
+    void add(const Piece &piece) noexcept { pieces_.at(added_++) = piece; }
+
+    std::size_t count() const noexcept { return old_ - removed_ + added_; }
+
+    Word key(std::size_t at) const noexcept { return from_node(at) ? node_.keys()[old(at)] : piece(at).first; }
+
+    Word item(std::size_t at) const noexcept { return from_node(at) ? node_.items()[old(at)] : piece(at).word; }
+
+    // Write the node, or two halves when it holds more than MAP_FANOUT; `size` counts its entries.
+    template <typename Sink> Pieces emit(Sink &sink, bool leaf, std::size_t size) const noexcept {
+        const auto all = count();
+        if (all <= MAP_FANOUT) {
+            return {{sink.node(leaf, size, *this, {0, all})}, 1};
+        }
+        const auto half = left_half(all);
+        const auto left = leaf ? half : below(half);
+        return {{sink.node(leaf, left, *this, {0, half}), sink.node(leaf, size - left, *this, {half, all})}, 2};
+    }
+
+  private:
+    // Whether item `at` is the node's own, and its index there.
+    bool from_node(std::size_t at) const noexcept { return at < index_ || at >= index_ + added_; }
+
+    std::size_t old(std::size_t at) const noexcept { return at < index_ ? at : at - added_ + removed_; }
+
+    const Piece &piece(std::size_t at) const noexcept { return pieces_.at(at - index_); }
+
+    // Entries below the first `count` children: a piece's recorded size, else the child's own.
+    std::size_t below(std::size_t count) const noexcept {
+        std::size_t entries = 0;
+        for (std::size_t at = 0; at < count; ++at) {
+            entries += from_node(at) ? MapNode::at(item(at)).size() : piece(at).size;
+        }
+        return entries;
+    }
+
+    MapNode node_;
+    std::size_t old_ = 0;
+    std::size_t index_ = 0;
+    std::size_t removed_ = 0;
+    std::array<Piece, 2> pieces_{};
+    std::size_t added_ = 0;
+};
+
+// Counts the words of the nodes an insertion writes, so it allocates once and exactly.
+class WordCounter final {
+  public:
+    Piece node(bool, std::size_t size, const Edited &source, Range range) noexcept {
+        words_ += node_words(range.end - range.begin);
+        return {0, source.key(range.begin), size};
+    }
+
+    // Nothing changes in place while counting.
+    std::span<Word> patch(MapNode) noexcept { return {}; }
+
+    std::size_t words() const noexcept { return words_; }
+
+  private:
+    std::size_t words_ = 0;
+};
+
+// Writes nodes into words allocated for one insertion or build, under one edit token.
+class NodeWriter final {
+  public:
+    NodeWriter(HeapStorage &storage, std::span<Word> words, std::size_t edit) noexcept
+        : storage_(storage), words_(words), edit_(edit) {}
+
+    Piece node(bool leaf, std::size_t size, const Edited &source, Range range) noexcept {
+        const auto count = range.end - range.begin;
+        const auto out = start(count, leaf, size);
+        for (std::size_t i = 0; i < count; ++i) {
+            out[3 + i] = source.key(range.begin + i);
+            out[3 + count + i] = source.item(range.begin + i);
+        }
+        return {tagged(out), out[3], size};
+    }
+
+    Piece node(bool leaf, std::size_t size, std::span<const Word> keys, std::span<const Word> items) noexcept {
+        const auto out = start(keys.size(), leaf, size);
+        std::ranges::copy(keys, out.begin() + 3);
+        std::ranges::copy(items, out.begin() + 3 + static_cast<std::ptrdiff_t>(keys.size()));
+        return {tagged(out), keys.front(), size};
+    }
+
+    // The words of a node this edit created, to change in place.
+    std::span<Word> patch(MapNode node) noexcept {
+        const auto words = storage_.owned(reinterpret_cast<std::uintptr_t>(node.words()));
+        return words.size() < node_words(node.count()) ? std::span<Word>{} : words.first(node_words(node.count()));
+    }
+
+  private:
+    // The next node's words for `count` items, with its header, size and edit word written.
+    std::span<Word> start(std::size_t count, bool leaf, std::size_t size) noexcept {
+        const auto out = words_.subspan(used_, node_words(count));
+        used_ += out.size();
+        out[0] = BoxHeader::make(BoxedKind::map_node, layout::map_node_payload_words(count));
+        out[1] = static_cast<Word>(size);
+        out[2] = layout::map_edit_word(edit_, leaf);
+        return out;
+    }
+
+    static Word tagged(std::span<Word> out) noexcept {
+        return reinterpret_cast<Word>(out.data()) | static_cast<Word>(TermKindPrimary::boxed);
+    }
+
+    HeapStorage &storage_;
+    std::span<Word> words_;
+    std::size_t used_ = 0;
+    std::size_t edit_;
+};
+
+// Whether a node may change in place: the update's edit token created it.
+bool writable(MapNode node, std::size_t edit) noexcept { return edit != 0 && node.edit() == edit; }
+
 struct Slot {
-    // Lower bound of the probe among count keys, and whether the key there equals it.
+    // Lower bound of the probe among the keys, and whether the key there equals it.
     std::size_t index;
     bool found;
 };
 
-// Binary search for the probe's lower bound among the first count keys.
+// Binary search for the probe's lower bound among sorted keys.
 TermResult<Slot> search(std::span<const Word> keys, const MapProbe &probe) noexcept {
     std::size_t first = 0;
     std::size_t last = keys.size();
@@ -139,419 +200,255 @@ TermResult<Slot> search(std::span<const Word> keys, const MapProbe &probe) noexc
 }
 
 // The child of a branch whose key range holds the probe: the last child whose first key is not after it.
-TermResult<std::size_t> child_index(const MapBranch &branch, const MapProbe &probe) noexcept {
-    return search(std::span(branch.keys_).first(branch.count_), probe).transform([](Slot slot) {
-        return slot.found || slot.index == 0 ? slot.index : slot.index - 1;
-    });
+std::size_t child_of(Slot slot) noexcept { return slot.found || slot.index == 0 ? slot.index : slot.index - 1; }
+
+struct Step {
+    // A node on the path and the child (a branch) or entry slot (the leaf) the key leads to.
+    MapNode node;
+    std::size_t index;
+};
+
+struct Path {
+    // The nodes from the root to the leaf of the key, and whether the leaf holds it.
+    std::array<Step, MAP_MAX_DEPTH> steps;
+    std::size_t depth = 0;
+    bool found = false;
+};
+
+// The path from the root to the leaf where the probed key is or belongs.
+std::expected<Path, TreeFailure> descend(Word root, const MapProbe &probe) noexcept {
+    Path path;
+    auto node = MapNode::at(root);
+    while (path.depth < MAP_MAX_DEPTH) {
+        const auto slot = search(node.keys(), probe);
+        if (!slot) {
+            return std::unexpected(TreeFailure{TreeFault::compare, slot.error()});
+        }
+        if (node.leaf()) {
+            path.steps.at(path.depth++) = {node, slot->index};
+            path.found = slot->found;
+            return path;
+        }
+        path.steps.at(path.depth++) = {node, child_of(*slot)};
+        node = node.child(child_of(*slot));
+    }
+    return std::unexpected(TreeFailure{TreeFault::limit_exceeded});
 }
 
-// The node itself when nothing else shares it and this edit created it or holds it exclusively (an owned update's
-// path of unshared nodes, OPT0.5B), else a copy owned by the edit whose children gain a reference.
-template <typename Node>
-std::expected<Node *, HeapError> writable(HeapStorage &storage, Node &node, std::size_t edit, bool exclusive) noexcept {
-    if ((node.edit_ == edit || exclusive) && node.references_ == 1) {
-        node.edit_ = edit;
-        return &node;
+// Change a branch in place to hold the piece at `index`, one more entry below when the key was new.
+void patch_branch(std::span<Word> words, std::size_t index, const Piece &piece, bool added) noexcept {
+    if (words.empty()) {
+        return;
     }
-    auto copy = allocate<Node>(storage, edit);
-    if (!copy) {
-        return copy;
-    }
-    **copy = node;
-    (*copy)->references_ = 1;
-    (*copy)->edit_ = edit;
-    if constexpr (std::is_same_v<Node, MapBranch>) {
-        std::ranges::for_each(std::span((*copy)->children_).first(node.count_), map_tree_retain);
-    }
-    return copy;
+    const auto count = (words.size() - 3) / 2;
+    words[3 + index] = piece.first;
+    words[3 + count + index] = piece.word;
+    words[1] += added ? 1 : 0;
 }
 
-// Open a gap at index among the first count of items, moving the rest one place right; count < MAP_FANOUT.
-template <typename Item> void open_gap(std::array<Item, MAP_FANOUT> &items, std::size_t count, std::size_t index) {
-    const auto moved = std::span(items).subspan(index, count + 1 - index);
-    std::shift_right(moved.begin(), moved.end(), 1);
-}
-
-struct Insertion {
-    // The storage, the edit allowed to change nodes in place, the entry and its probe; `added` reports a new key.
-    HeapStorage &storage;
-    std::size_t edit;
+struct Rewrite {
+    // One insertion: the path to its leaf, the entry, the edit token whose nodes change in place and the old root.
+    const Path &path;
     MapWords entry;
-    bool exact;
-    const MapProbe &probe;
-    bool added = false;
+    std::size_t edit;
+    Word root;
 };
 
-// Whether a node the descent reaches is held only through unshared nodes from a consumed stub (OPT0.5B).
-bool exclusive_below(bool exclusive, const MapNode &node) noexcept { return exclusive && node.references_ == 1; }
-
-struct Grown {
-    // The node replacing the one inserted into, and a new right sibling when it split (else null).
-    MapNode *node;
-    MapNode *split;
-};
-
-using Grow = std::expected<Grown, TreeFailure>;
-
-// Drop a node made for a failed insertion; the original node is left alone.
-void discard(HeapStorage &storage, MapNode *made, const MapNode &original) noexcept {
-    if (made != &original) {
-        map_tree_release(storage, made);
-    }
-}
-
-// Move the upper half of a full leaf, with the new entry at index, into a new right leaf.
-Grow split_leaf(Insertion &insertion, MapLeaf &left, std::size_t index) noexcept {
-    auto right = allocate<MapLeaf>(insertion.storage, insertion.edit);
-    if (!right) {
-        return std::unexpected(memory_failure(right.error()));
-    }
-    std::vector<MapWords> all;
-    try {
-        all.reserve(MAP_FANOUT + 1);
-    } catch (const std::bad_alloc &) {
-        map_tree_release(insertion.storage, *right);
-        return std::unexpected(TreeFailure{TreeFault::out_of_memory});
-    }
-    for (std::size_t i = 0; i < left.count_; ++i) {
-        all.emplace_back(left.keys_.at(i), left.values_.at(i));
-    }
-    all.insert(all.begin() + static_cast<std::ptrdiff_t>(index), insertion.entry);
-    const auto half = all.size() / 2 + all.size() % 2;
-    for (std::size_t i = 0; i < all.size(); ++i) {
-        auto &leaf = i < half ? left : **right;
-        const auto at = i < half ? i : i - half;
-        leaf.keys_.at(at) = all[i].first;
-        leaf.values_.at(at) = all[i].second;
-    }
-    left.count_ = left.size_ = half;
-    (*right)->count_ = (*right)->size_ = all.size() - half;
-    return Grown{&left, *right};
-}
-
-// Insert into a leaf: replace a present key, add an absent one unless the update is exact, split when full.
-Grow insert_leaf(Insertion &insertion, MapLeaf &leaf, bool exclusive) noexcept {
-    const auto slot = search(std::span(leaf.keys_).first(leaf.count_), insertion.probe);
-    if (!slot) {
-        return std::unexpected(TreeFailure{TreeFault::compare, slot.error()});
-    }
-    if (!slot->found && insertion.exact) {
-        return std::unexpected(TreeFailure{TreeFault::missing_key});
-    }
-    auto target = writable(insertion.storage, leaf, insertion.edit, exclusive);
-    if (!target) {
-        return std::unexpected(memory_failure(target.error()));
-    }
-    auto &out = **target;
-    if (slot->found) {
-        out.values_.at(slot->index) = insertion.entry.second;
-        return Grown{&out, nullptr};
-    }
-    insertion.added = true;
-    if (out.count_ == MAP_FANOUT) {
-        auto grown = split_leaf(insertion, out, slot->index);
-        if (!grown) {
-            discard(insertion.storage, &out, leaf);
+// The pieces replacing the leaf of the path, or none when its value changed in place.
+template <typename Sink> std::optional<Pieces> rewrite_leaf(Sink &sink, const Rewrite &rewrite) noexcept {
+    const auto &path = rewrite.path;
+    const auto &[leaf, slot] = path.steps.at(path.depth - 1);
+    if (path.found && writable(leaf, rewrite.edit)) {
+        if (const auto words = sink.patch(leaf); !words.empty()) {
+            words[3 + leaf.count() + slot] = rewrite.entry.second;
         }
-        return grown;
+        return std::nullopt;
     }
-    open_gap(out.keys_, out.count_, slot->index);
-    open_gap(out.values_, out.count_, slot->index);
-    out.keys_.at(slot->index) = insertion.entry.first;
-    out.values_.at(slot->index) = insertion.entry.second;
-    ++out.count_;
-    ++out.size_;
-    return Grown{&out, nullptr};
+    Edited edited(leaf, {slot, slot + (path.found ? 1 : 0)});
+    edited.add({rewrite.entry.second, rewrite.entry.first, 0});
+    return edited.emit(sink, true, leaf.size() + (path.found ? 0 : 1));
 }
 
-Grow insert(Insertion &insertion, MapNode &node, bool exclusive) noexcept;
-
-// Move the upper half of a full branch, with the new child at index, into a new right branch.
-Grow split_branch(Insertion &insertion, MapBranch &left, std::size_t index, MapNode *child) noexcept {
-    auto right = allocate<MapBranch>(insertion.storage, insertion.edit);
-    if (!right) {
-        return std::unexpected(memory_failure(right.error()));
-    }
-    std::array<MapNode *, MAP_FANOUT + 1> all{};
-    std::ranges::copy(std::span(left.children_).first(left.count_), all.begin());
-    std::shift_right(all.begin() + static_cast<std::ptrdiff_t>(index), all.end(), 1);
-    all.at(index) = child;
-    constexpr auto half = (MAP_FANOUT + 1) / 2 + (MAP_FANOUT + 1) % 2;
-    left.count_ = left.size_ = (*right)->size_ = 0;
-    for (std::size_t i = 0; i < all.size(); ++i) {
-        auto &branch = i < half ? left : **right;
-        branch.children_.at(branch.count_) = all.at(i);
-        branch.keys_.at(branch.count_++) = first_key(*all.at(i));
-        branch.size_ += all.at(i)->size_;
-    }
-    return Grown{&left, *right};
-}
-
-// Put a child's replacement and its new right sibling into a writable branch at the child's place.
-Grow adopt(Insertion &insertion, MapBranch &out, std::size_t index, const Grown &grown) noexcept {
-    if (grown.node != out.children_.at(index)) {
-        map_tree_release(insertion.storage, out.children_.at(index));
-        out.children_.at(index) = grown.node;
-    }
-    out.keys_.at(index) = first_key(*grown.node);
-    out.size_ += insertion.added ? 1 : 0;
-    if (grown.split == nullptr) {
-        return Grown{&out, nullptr};
-    }
-    if (out.count_ == MAP_FANOUT) {
-        return split_branch(insertion, out, index + 1, grown.split);
-    }
-    open_gap(out.children_, out.count_, index + 1);
-    open_gap(out.keys_, out.count_, index + 1);
-    out.children_.at(index + 1) = grown.split;
-    out.keys_.at(index + 1) = first_key(*grown.split);
-    ++out.count_;
-    return Grown{&out, nullptr};
-}
-
-// Insert below a branch, then replace the child it went into, copying the branch first when it is shared.
-Grow insert_branch(Insertion &insertion, MapBranch &branch, bool exclusive) noexcept {
-    const auto index = child_index(branch, insertion.probe);
-    if (!index) {
-        return std::unexpected(TreeFailure{TreeFault::compare, index.error()});
-    }
-    auto *child = branch.children_.at(*index);
-    auto grown = insert(insertion, *child, exclusive_below(exclusive, *child));
-    if (!grown) {
-        return grown;
-    }
-    auto target = writable(insertion.storage, branch, insertion.edit, exclusive);
-    if (!target) {
-        discard(insertion.storage, grown->node, *child);
-        map_tree_release(insertion.storage, grown->split);
-        return std::unexpected(memory_failure(target.error()));
-    }
-    auto adopted = adopt(insertion, **target, *index, *grown);
-    if (!adopted) {
-        map_tree_release(insertion.storage, grown->split);
-        discard(insertion.storage, *target, branch);
-    }
-    return adopted;
-}
-
-Grow insert(Insertion &insertion, MapNode &node, bool exclusive) noexcept {
-    return node.leaf_ ? insert_leaf(insertion, static_cast<MapLeaf &>(node), exclusive)
-                      : insert_branch(insertion, static_cast<MapBranch &>(node), exclusive);
-}
-
-// A branch over the given children, created by edit.
-std::expected<MapBranch *, HeapError> branch_of(HeapStorage &storage, std::size_t edit,
-                                                std::span<MapNode *const> children) noexcept {
-    auto branch = allocate<MapBranch>(storage, edit);
-    if (!branch) {
-        return branch;
-    }
-    for (auto *child : children) {
-        (*branch)->children_.at((*branch)->count_) = child;
-        (*branch)->keys_.at((*branch)->count_++) = first_key(*child);
-        (*branch)->size_ += child->size_;
-    }
-    return branch;
-}
-
-// A leaf holding the given entries, created by edit.
-std::expected<MapLeaf *, HeapError> leaf_of(HeapStorage &storage, std::size_t edit,
-                                            std::span<const MapWords> entries) noexcept {
-    auto leaf = allocate<MapLeaf>(storage, edit);
-    if (!leaf) {
-        return leaf;
-    }
-    for (const auto &[key, value] : entries) {
-        (*leaf)->keys_.at((*leaf)->count_) = key;
-        (*leaf)->values_.at((*leaf)->count_++) = value;
-    }
-    (*leaf)->size_ = (*leaf)->count_;
-    return leaf;
-}
-
-// Release every node of a partly built level.
-void release_all(HeapStorage &storage, std::span<MapNode *const> nodes) noexcept {
-    for (auto *node : nodes) {
-        map_tree_release(storage, node);
-    }
-}
-
-// Group one level of nodes into the branches of the level above.
-std::expected<std::vector<MapNode *>, HeapError> parents(HeapStorage &storage, std::size_t edit,
-                                                         std::span<MapNode *const> level) {
-    std::vector<MapNode *> above;
-    above.reserve((level.size() + MAP_FANOUT - 1) / MAP_FANOUT);
-    for (std::size_t first = 0; first < level.size(); first += MAP_FANOUT) {
-        const auto children = level.subspan(first, std::min(MAP_FANOUT, level.size() - first));
-        auto branch = branch_of(storage, edit, children);
-        if (!branch) {
-            release_all(storage, above);
-            release_all(storage, level.subspan(first));
-            return std::unexpected(branch.error());
+// The pieces replacing a branch of the path whose child became `below`, or none when nothing above it changes.
+template <typename Sink>
+std::optional<Pieces> rewrite_branch(Sink &sink, const Rewrite &rewrite, const Step &step,
+                                     const Pieces &below) noexcept {
+    const bool added = !rewrite.path.found;
+    const auto &[node, index] = step;
+    if (below.count == 1 && writable(node, rewrite.edit)) {
+        patch_branch(sink.patch(node), index, below.nodes[0], added);
+        if (!added) {
+            return std::nullopt; // The branch's own pointer and size are unchanged above it.
         }
-        above.push_back(*branch);
+        const auto self = reinterpret_cast<Word>(node.words()) | static_cast<Word>(TermKindPrimary::boxed);
+        const auto first = index == 0 ? below.nodes[0].first : node.keys()[0];
+        return Pieces{{Piece{self, first, node.size() + 1}}, 1};
     }
-    return above;
+    Edited edited(node, {index, index + 1});
+    for (std::size_t i = 0; i < below.count; ++i) {
+        edited.add(below.nodes.at(i));
+    }
+    return edited.emit(sink, false, node.size() + (added ? 1 : 0));
 }
 
-// Build the leaves of sorted entries, then their branches level by level.
-std::expected<MapNode *, HeapError> build(HeapStorage &storage, std::span<const MapWords> entries) {
-    const auto edit = map_edit(storage);
-    std::vector<MapNode *> level;
-    level.reserve((entries.size() + MAP_FANOUT - 1) / MAP_FANOUT);
-    for (std::size_t first = 0; first < entries.size(); first += MAP_FANOUT) {
-        auto leaf = leaf_of(storage, edit, entries.subspan(first, std::min(MAP_FANOUT, entries.size() - first)));
-        if (!leaf) {
-            release_all(storage, level);
-            return std::unexpected(leaf.error());
+// The root word over the pieces that replaced the old root: a new root when it split.
+template <typename Sink> Word root_of(Sink &sink, const Pieces &pieces) noexcept {
+    if (pieces.count == 1) {
+        return pieces.nodes[0].word;
+    }
+    Edited root;
+    root.add(pieces.nodes[0]);
+    root.add(pieces.nodes[1]);
+    return sink.node(false, pieces.nodes[0].size + pieces.nodes[1].size, root, {0, 2}).word;
+}
+
+// Rebuild the path bottom-up into `sink`: copy each node the update changes unless its edit created it, and share
+// every other node; returns the new root word (meaningless while counting).
+template <typename Sink> Word rebuild(Sink &sink, const Rewrite &rewrite) noexcept {
+    auto pieces = rewrite_leaf(sink, rewrite);
+    for (auto level = rewrite.path.depth - 1; pieces && level-- > 0;) {
+        pieces = rewrite_branch(sink, rewrite, rewrite.path.steps.at(level), *pieces);
+    }
+    return pieces ? root_of(sink, *pieces) : rewrite.root;
+}
+
+// Nodes in a level of `count` items: each holds at most MAP_FANOUT, and at least half that unless it is the only one.
+std::size_t nodes_for(std::size_t count) noexcept { return (count + MAP_FANOUT - 1) / MAP_FANOUT; }
+
+// Items [begin, end) of node `node` among `nodes` sharing `count` items evenly.
+Range share(std::size_t node, std::size_t nodes, std::size_t count) noexcept {
+    return {node * count / nodes, (node + 1) * count / nodes};
+}
+
+// Words of the tree map_tree_build writes for `count` entries.
+std::size_t build_words(std::size_t count) noexcept {
+    std::size_t words = 0;
+    for (auto items = count;; items = nodes_for(items)) {
+        words += nodes_for(items) * node_words(0) + 2 * items;
+        if (nodes_for(items) == 1) {
+            return words;
         }
-        level.push_back(*leaf);
+    }
+}
+
+// Group one level of pieces into the nodes of the level above, written into `above` (sized for them).
+void group(NodeWriter &writer, std::span<const Piece> level, std::span<Piece> above) noexcept {
+    std::array<Word, MAP_FANOUT> keys{};
+    std::array<Word, MAP_FANOUT> items{};
+    for (std::size_t node = 0; node < above.size(); ++node) {
+        const auto [begin, end] = share(node, above.size(), level.size());
+        std::size_t size = 0;
+        for (auto i = begin; i < end; ++i) {
+            keys.at(i - begin) = level[i].first;
+            items.at(i - begin) = level[i].word;
+            size += level[i].size;
+        }
+        above[node] = writer.node(false, size, std::span(keys).first(end - begin), std::span(items).first(end - begin));
+    }
+}
+
+// Write the leaves of sorted entries, then their branches level by level into the two reserved levels; return the
+// root.
+Word build(NodeWriter &writer, std::span<const MapWords> entries, std::vector<Piece> &level,
+           std::vector<Piece> &above) noexcept {
+    std::array<Word, MAP_FANOUT> keys{};
+    std::array<Word, MAP_FANOUT> items{};
+    level.resize(nodes_for(entries.size()));
+    for (std::size_t node = 0; node < level.size(); ++node) {
+        const auto [begin, end] = share(node, level.size(), entries.size());
+        for (auto i = begin; i < end; ++i) {
+            keys.at(i - begin) = entries[i].first;
+            items.at(i - begin) = entries[i].second;
+        }
+        level[node] =
+            writer.node(true, end - begin, std::span(keys).first(end - begin), std::span(items).first(end - begin));
     }
     while (level.size() > 1) {
-        auto above = parents(storage, edit, level);
-        if (!above) {
-            return std::unexpected(above.error());
-        }
-        level = std::move(*above);
+        above.resize(nodes_for(level.size()));
+        group(writer, level, above);
+        std::swap(level, above);
     }
-    return level.empty() ? nullptr : level.front();
+    return level.front().word;
 }
 } // namespace
 
 std::size_t map_edit(HeapStorage &storage) noexcept { return ++storage.map_edits_; }
 
-std::expected<MapNode *, HeapError> map_tree_build(HeapStorage &storage, std::span<const MapWords> entries) noexcept {
+bool map_edit_current(const HeapStorage &storage, std::size_t edit) noexcept {
+    return edit > storage.map_edit_floor_ && edit <= storage.map_edits_;
+}
+
+std::expected<Word, HeapError> map_tree_build(const TreeEdit &edit, std::span<const MapWords> entries) noexcept {
+    // Both levels are reserved first: nothing may fail once the unzeroed words are claimed.
+    std::vector<Piece> level;
+    std::vector<Piece> above;
     try {
-        return build(storage, entries);
+        level.reserve(nodes_for(entries.size()));
+        above.reserve(nodes_for(nodes_for(entries.size())));
     } catch (const std::bad_alloc &) {
         return std::unexpected(HeapError::out_of_memory);
     }
+    const auto words = build_words(entries.size());
+    const auto claimed = claim(edit.storage, words);
+    if (!claimed) {
+        return std::unexpected(claimed.error());
+    }
+    NodeWriter writer(edit.storage, *claimed, edit.edit);
+    return build(writer, entries, level, above);
 }
 
-std::expected<void, TreeFailure> map_tree_insert(HeapStorage &storage, MapNode *&root, std::size_t edit, MapWords entry,
-                                                 bool exact, const MapProbe &probe, InsertFlags flags) noexcept {
-    Insertion insertion{storage, edit, entry, exact, probe};
-    auto grown = insert(insertion, *root, exclusive_below(flags.owned, *root));
-    if (!grown) {
-        return std::unexpected(grown.error());
+std::expected<bool, TreeFailure> map_tree_insert(const TreeEdit &edit, Word &root, MapWords entry, bool exact,
+                                                 const MapProbe &probe) noexcept {
+    const auto path = descend(root, probe);
+    if (!path) {
+        return std::unexpected(path.error());
     }
-    auto *top = grown->node;
-    if (grown->split != nullptr) {
-        const std::array<MapNode *, 2> children{grown->node, grown->split};
-        auto branch = branch_of(storage, edit, children);
-        if (!branch) {
-            map_tree_release(storage, grown->split);
-            discard(storage, grown->node, *root);
-            return std::unexpected(memory_failure(branch.error()));
+    if (!path->found && exact) {
+        return std::unexpected(TreeFailure{TreeFault::missing_key});
+    }
+    const Rewrite rewrite{.path = *path, .entry = entry, .edit = edit.edit, .root = root};
+    WordCounter counter;
+    rebuild(counter, rewrite);
+    std::span<Word> words;
+    if (counter.words() != 0) {
+        const auto claimed = claim(edit.storage, counter.words());
+        if (!claimed) {
+            return std::unexpected(memory_failure(claimed.error()));
         }
-        top = *branch;
+        words = *claimed;
     }
-    if (top != root && grown->node != root) {
-        map_tree_release(storage, root);
-    }
-    root = top;
-    flags.added = insertion.added;
-    return {};
+    NodeWriter writer(edit.storage, words, edit.edit);
+    root = rebuild(writer, rewrite);
+    return !path->found;
 }
 
-TermResult<std::optional<Word>> map_tree_find(const MapNode *root, const MapProbe &probe) noexcept {
-    if (root == nullptr) {
+TermResult<std::optional<Word>> map_tree_find(Word root, const MapProbe &probe) noexcept {
+    if (!map_tree_present(root)) {
         return std::nullopt; // A consumed stub's (OPT0.5B).
     }
-    const auto *node = root;
-    while (!node->leaf_) {
-        const auto &branch = static_cast<const MapBranch &>(*node);
-        const auto index = child_index(branch, probe);
-        if (!index) {
-            return std::unexpected(index.error());
+    auto node = MapNode::at(root);
+    for (std::size_t depth = 0; depth < MAP_MAX_DEPTH; ++depth) {
+        const auto slot = search(node.keys(), probe);
+        if (!slot) {
+            return std::unexpected(slot.error());
         }
-        node = branch.children_.at(*index);
+        if (node.leaf()) {
+            return slot->found ? std::optional(node.items()[slot->index]) : std::nullopt;
+        }
+        node = node.child(child_of(*slot));
     }
-    const auto &leaf = static_cast<const MapLeaf &>(*node);
-    return search(std::span(leaf.keys_).first(leaf.count_), probe).transform([&](Slot slot) -> std::optional<Word> {
-        return slot.found ? std::optional<Word>(leaf.values_.at(slot.index)) : std::nullopt;
-    });
+    return std::nullopt;
 }
 
-MapWords map_tree_at(const MapNode *root, std::size_t index) noexcept {
-    const auto *node = root;
-    while (!node->leaf_) {
-        const auto &branch = static_cast<const MapBranch &>(*node);
+MapWords map_tree_at(MapNode root, std::size_t index) noexcept {
+    auto node = root;
+    while (!node.leaf()) {
         std::size_t child = 0;
-        for (; index >= branch.children_.at(child)->size_; ++child) {
-            index -= branch.children_.at(child)->size_;
+        for (; index >= node.child(child).size(); ++child) {
+            index -= node.child(child).size();
         }
-        node = branch.children_.at(child);
+        node = node.child(child);
     }
-    const auto &leaf = static_cast<const MapLeaf &>(*node);
-    return {leaf.keys_.at(index), leaf.values_.at(index)};
-}
-
-void map_tree_retain(MapNode *node) noexcept { ++node->references_; }
-
-void map_tree_release(HeapStorage &storage, MapNode *node) noexcept {
-    if (node == nullptr || --node->references_ != 0) {
-        return;
-    }
-    if (!node->leaf_) {
-        const auto &branch = static_cast<const MapBranch &>(*node);
-        release_all(storage, std::span(branch.children_).first(branch.count_));
-    }
-    free_node(storage, node);
-}
-
-void link_tree_map(HeapStorage &storage, layout::TreeMapCell &cell) noexcept {
-    cell.next_ = storage.tree_maps_;
-    storage.tree_maps_ = &cell;
-}
-
-void sweep_tree_maps(HeapStorage &storage, const Survivors &survivors) noexcept {
-    layout::TreeMapCell *newest = nullptr;
-    auto **link = &newest;
-    for (auto *cell = std::exchange(storage.tree_maps_, nullptr); cell != nullptr;) {
-        auto *next = cell->next_;
-        const auto first = cell->header_.value_;
-        if (survivors.kept(cell)) {
-            *link = cell;
-            link = &cell->next_;
-        } else if (is_header(first)) {
-            map_tree_release(storage, cell->root_);
-        } else {
-            // A forwarded stub's first word is the boxed pointer to its copy, which kept the root reference.
-            const auto copy = survivors.copy(first);
-            *link = reinterpret_cast<layout::TreeMapCell *>(copy.data());
-            link = &(*link)->next_;
-        }
-        cell = next;
-    }
-    *link = nullptr;
-    storage.tree_maps_ = newest;
-}
-
-void splice_tree_maps(HeapStorage &to, HeapStorage &from) noexcept {
-    if (from.tree_maps_ != nullptr) {
-        auto *last = from.tree_maps_;
-        while (last->next_ != nullptr) {
-            last = last->next_;
-        }
-        last->next_ = to.tree_maps_;
-        to.tree_maps_ = std::exchange(from.tree_maps_, nullptr);
-    }
-    // Nodes keep the message's edit tokens: later tokens of `to` must stay above them.
-    to.map_edits_ = std::max(to.map_edits_, from.map_edits_);
-    to.off_heap_words_ += from.map_words_;
-    to.map_words_ += std::exchange(from.map_words_, 0);
-}
-
-void release_tree_maps(HeapStorage &storage) noexcept {
-    for (auto *cell = std::exchange(storage.tree_maps_, nullptr); cell != nullptr; cell = cell->next_) {
-        map_tree_release(storage, cell->root_);
-    }
-    for (auto *leaf : std::exchange(storage.free_map_leaves_, {})) {
-        delete static_cast<MapLeaf *>(leaf);
-    }
-    for (auto *branch : std::exchange(storage.free_map_branches_, {})) {
-        delete static_cast<MapBranch *>(branch);
-    }
+    return {node.keys()[index], node.items()[index]};
 }
 } // namespace clause::runtime::detail

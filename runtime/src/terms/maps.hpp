@@ -1,4 +1,5 @@
 #pragma once
+#include "../memory/heap_object.hpp"
 #include "map_tree.hpp"
 #include <clause/runtime/terms.hpp>
 
@@ -31,7 +32,7 @@ struct MapPosition {
 TermResult<MapPosition> map_position(std::span<const MapEntry> entries, const Term &key);
 // Read one canonical pair after the owning map's shape and lifetime have been proved.
 TermResult<MapEntry> map_entry(const Term &map, std::size_t index);
-// The off-heap stub of an admitted map object, or null for a classic map cell (OPT0.5A).
+// The tree stub of an admitted map object, or null for a classic map cell (on-heap map trees).
 const layout::TreeMapCell *tree_of(const HeapObject &object) noexcept;
 
 struct ProbeTarget {
@@ -40,7 +41,7 @@ struct ProbeTarget {
     const Term &key;
 };
 
-// Orders the stored keys of one map's tree against an admitted probe key, in exact order (OPT0.5A).
+// Orders the stored keys of one map's tree against an admitted probe key, in exact order (on-heap map trees).
 class TermProbe final : public MapProbe {
   public:
     explicit TermProbe(ProbeTarget target) : map_(target.map), key_(target.key) {}
@@ -53,6 +54,13 @@ class TermProbe final : public MapProbe {
     const Term &key_;
 };
 
+struct TreeRoot {
+    // A map tree's root word, its entries and the edit token that created the root (on-heap map trees).
+    Word root;
+    std::size_t size;
+    std::size_t edit;
+};
+
 struct MapAccess {
     // Validate and normalize all associations before publishing a single immutable map.
     static TermResult<Term> make(ProcessHeap &heap, std::span<const MapEntry> entries);
@@ -60,24 +68,25 @@ struct MapAccess {
     // off-heap source map in place (OPT0.5B).
     static MapResult update(ProcessHeap &heap, const Term &map, std::span<const MapUpdate> updates, bool owned = false);
     // Publish only an already validated canonical table, using stable owner-indexed backing; above
-    // MAP_TREE_THRESHOLD entries as an off-heap tree (OPT0.5A).
+    // MAP_TREE_THRESHOLD entries as a map tree (on-heap map trees).
     static TermResult<Term> publish(ProcessHeap &heap, std::span<const MapEntry> entries);
-    // Apply updates to an off-heap map by path copying its tree; the source map stays unchanged (OPT0.5A). An owned
-    // update takes over the stub's tree and changes its exclusively held nodes in place, leaving the stub consumed
-    // (OPT0.5B).
+    // Apply updates to a map tree by path copying; the source map stays unchanged. An owned update (OPT0.5B) takes
+    // over the stub's tree and changes the nodes its source's update created in place, leaving the stub consumed.
     static MapResult update_tree(ProcessHeap &heap, const Term &map, layout::TreeMapCell &stub,
                                  std::span<const MapUpdate> updates, bool owned);
-    // Publish a stub that takes over one reference to root, a tree of size entries; failure releases the tree.
-    static TermResult<Term> publish_stub(ProcessHeap &heap, MapNode *root, std::size_t size);
-    // One update of an off-heap map of this heap at a small-integer key, read and written as words with no Term per
+    // Build and publish a map tree of sorted, distinct entries (on-heap map trees).
+    static TermResult<Term> publish_tree(ProcessHeap &heap, std::span<const MapWords> entries);
+    // Publish the stub of a tree.
+    static TermResult<Term> publish_stub(ProcessHeap &heap, const TreeRoot &tree);
+    // One update of a map tree of this heap at a small-integer key, read and written as words with no Term per
     // argument (word-level map updates); none, with nothing changed, when the words do not decide it (another key
     // kind met, a missing exact key, no memory), and the caller takes the general path.
     static std::optional<Word> update_small_key(ProcessHeap &heap, Word map, MapWords entry, bool exact);
     // Publish key and value words already in exact key order: a classic map cell, or above MAP_TREE_THRESHOLD
-    // entries an off-heap tree (OPT0.5).
+    // entries a map tree (OPT0.5).
     static TermResult<Term> publish_words(ProcessHeap &heap, std::span<const MapWords> entries);
     // The map's key and value words readable by index (MapOperation::entries, OPT0.13): a classic map itself, or a
-    // copy of an off-heap map's entries in a tuple-shaped cell, which may pass the tuple arity limit because Erlang
+    // copy of a map tree's entries in a tuple-shaped cell, which may pass the tuple arity limit because Erlang
     // code never sees it.
     static TermResult<Term> entries(ProcessHeap &heap, const Term &map);
 };

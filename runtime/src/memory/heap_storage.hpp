@@ -13,7 +13,6 @@
 namespace clause::runtime::detail {
 namespace layout {
 struct RefcBinaryCell;
-struct TreeMapCell;
 } // namespace layout
 
 struct HeapArea {
@@ -60,6 +59,9 @@ class HeapStorage final {
     void rollback(HeapMark mark) noexcept;
     // Bump-allocate in the heap, else the newest fragment, else a new fragment; nothing ever moves.
     std::expected<std::span<Word>, HeapError> reserve(std::size_t words);
+    // Bump-allocate as reserve does, but committed at once and not zeroed, for a builder that writes every word before
+    // the heap is walked again (on-heap map trees).
+    std::expected<std::span<Word>, HeapError> claim(std::size_t words);
     // Words that new blocks and off-heap buffers may still add: the rest of the process budget, at most what the
     // runtime-wide limit leaves.
     std::size_t room() const noexcept;
@@ -125,15 +127,10 @@ class HeapStorage final {
     std::size_t binary_limit_words_ = MIN_BINARY_HEAP_WORDS;
     // Head of this process's off-heap binary cells, newest first; the only route to their C++ state.
     layout::RefcBinaryCell *off_heap_ = nullptr;
-    // Head of this process's off-heap map stubs, newest first, the words of their tree nodes (part of
-    // off_heap_words_) and the last edit token handed out (OPT0.5A, map_tree.hpp).
-    layout::TreeMapCell *tree_maps_ = nullptr;
-    std::size_t map_words_ = 0;
+    // The last map tree edit token handed out, and the last one before the latest collection: older tokens no longer
+    // let an update change nodes in place, since the collection may have promoted them (on-heap map trees).
     std::size_t map_edits_ = 0;
-    // Freed map leaves and branches kept for reuse (OPT0.13): a path-copying update allocates one node per tree
-    // level. Bounded by map_tree.cpp; released with the trees.
-    std::vector<void *> free_map_leaves_;
-    std::vector<void *> free_map_branches_;
+    std::size_t map_edit_floor_ = 0;
     // Set while a reservation is open; one reservation at a time.
     bool pending_ = false;
     // Completed collections; host Terms admitted before the latest one are stale.
@@ -168,6 +165,8 @@ class HeapStorage final {
     const IdentityNumbers *identities_;
 
   private:
+    // Allocate words for reserve or claim, zeroed or not.
+    std::expected<std::span<Word>, HeapError> take(std::size_t words, bool zeroed);
     // Choose the area for a validated request, creating the heap block or a fragment when needed.
     std::expected<HeapArea *, HeapError> area_for(std::size_t words);
     // Allocate a block of at least words and minimum words, capped by the remaining budget.

@@ -57,8 +57,8 @@ TermResult<MapEntry> map_entry(const Term &map, std::size_t index) {
     }
     const auto object = TermAccess::object(map).value();
     const auto *tree = tree_of(object);
-    const auto words =
-        tree ? map_tree_at(tree->root_, index) : MapWords{object.words[1 + 2 * index], object.words[2 + 2 * index]};
+    const auto words = tree ? map_tree_at(MapNode::at(tree->root_), index)
+                            : MapWords{object.words[1 + 2 * index], object.words[2 + 2 * index]};
     const auto key = TermAccess::child(map, words.first);
     const auto value = TermAccess::child(map, words.second);
     if (!key || !value) {
@@ -68,7 +68,7 @@ TermResult<MapEntry> map_entry(const Term &map, std::size_t index) {
 }
 
 namespace {
-// Search an off-heap map's tree (OPT0.5A).
+// Search a map tree (on-heap map trees).
 TermResult<std::optional<Term>> find_in_tree(const Term &map, const Term &key, const layout::TreeMapCell &tree) {
     const TermProbe probe({.map = map, .key = key});
     const auto found = map_tree_find(tree.root_, probe);
@@ -148,7 +148,7 @@ TermResult<std::vector<std::pair<Term, Term>>> Term::map_entries() const {
         detail::MapEntries entries;
         entries.reserve(*size);
         if (const auto *tree = detail::tree_of(detail::TermAccess::object(*this).value())) {
-            // An in-order walk instead of one descent per entry (OPT0.5A).
+            // An in-order walk instead of one descent per entry (on-heap map trees).
             detail::map_tree_entries(tree->root_, [&](detail::MapWords words) {
                 entries.emplace_back(detail::TermAccess::child(*this, words.first).value(),
                                      detail::TermAccess::child(*this, words.second).value());

@@ -1,5 +1,4 @@
 #include "heap_storage.hpp"
-#include "../terms/map_tree.hpp"
 #include "off_heap.hpp"
 #include <algorithm>
 #include <limits>
@@ -39,7 +38,6 @@ HeapStorage::HeapStorage(HeapOptions options, std::weak_ptr<const ContextLifetim
 
 HeapStorage::~HeapStorage() {
     release_off_heap(*this);
-    release_tree_maps(*this);
     memory_->release(capacity_words_);
 }
 
@@ -169,6 +167,14 @@ std::expected<HeapArea *, HeapError> HeapStorage::area_for(std::size_t words) {
 }
 
 std::expected<std::span<Word>, HeapError> HeapStorage::reserve(std::size_t words) {
+    auto reserved = take(words, true);
+    pending_ = reserved.has_value();
+    return reserved;
+}
+
+std::expected<std::span<Word>, HeapError> HeapStorage::claim(std::size_t words) { return take(words, false); }
+
+std::expected<std::span<Word>, HeapError> HeapStorage::take(std::size_t words, bool zeroed) {
     absorb();
     if (const auto valid = validate(*this, words); !valid) {
         return std::unexpected(valid.error());
@@ -179,10 +185,9 @@ std::expected<std::span<Word>, HeapError> HeapStorage::reserve(std::size_t words
         return std::unexpected(area.error());
     }
     used_words_ += words;
-    pending_ = true;
-    const auto reserved = (*area)->bump(words);
+    const auto taken = zeroed ? (*area)->bump(words) : (*area)->claim(words);
     expose();
-    return reserved;
+    return taken;
 }
 
 std::size_t HeapStorage::room() const noexcept {
@@ -230,7 +235,6 @@ bool HeapStorage::adopt(HeapStorage &message) {
     message.buffers_.clear();
     off_heap_words_ += charged;
     splice_off_heap(*this, message);
-    splice_tree_maps(*this, message);
     message.off_heap_words_ = 0;
     message.fragments_.clear();
     message.ranges_.clear();

@@ -446,7 +446,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   `d7f90ad9`
 - **OPT0.34** `atom_to_list` of an atom literal folded at compile time into a
   literal string, as OTP's `sys_core_fold`; string_build ~25% —
-  `[plan20] OPT0.34 ...`
+  `54f12529`
+- **OPT3.1** on-heap map trees: tree nodes are `map_node` heap cells (fanout 16)
+  that collections move and free like any cell, with no reference counts, list
+  sweeps or off-heap charge forcing full sweeps; map_update 3.6x (4.2 to 1.19 ms),
+  69A geomean +3.6% (heap-sizing side effects in OPT3.10) —
+  `[plan20] OPT3.1 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

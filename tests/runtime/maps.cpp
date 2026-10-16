@@ -160,8 +160,8 @@ void large_maps() {
 // The admitted term of a root word after a collection rewrote it.
 Term rooted(ProcessContext &context, Word word) { return Term::from_word(word, context).value(); }
 
-// Maps above 32 entries are off-heap trees (plan 20 step OPT0.5A): an update copies one path and leaves its source
-// intact, a failed update releases what it built, and collections rewrite shared trees and free dead versions.
+// Maps above 32 entries are trees of heap cells (on-heap map trees): an update copies one path and leaves its source
+// intact, a failed update leaves no words, and collections move shared nodes and free dead versions.
 void tree_maps() {
     auto runtime = Runtime::start().value();
     auto &context = *runtime->create_context().value();
@@ -171,21 +171,19 @@ void tree_maps() {
         const auto boxed = factory.tuple(std::array{factory.integer(key).value()}).value();
         entries.emplace_back(factory.integer(key).value(), boxed);
     }
+    const auto before = context.heap().used_words();
     const auto map = factory.map(entries).value();
-    const auto built = context.heap().off_heap_words();
-    require(map.map_size() == 100 && built > 0, "large map stayed on the heap");
+    const auto built = context.heap().used_words() - before;
+    require(map.map_size() == 100 && built > 200 && context.heap().off_heap_words() == 0, "large map left the heap");
     const auto key = factory.integer(7).value();
     const auto one = factory.integer(1).value();
     const auto updated = invoke(context, Op::update, std::array{map, key, factory.atom("one").value(), one});
     require(updated.first == Outcome::success && updated.second.map_size() == 100, "tree update failed");
-    const auto grown = context.heap().off_heap_words();
-    require(grown > built && grown < 2 * built, "update did not share the unchanged nodes");
     const auto used = context.heap().used_words();
+    require(used - before - built < built / 2, "update did not share the unchanged nodes");
     const auto failed =
         invoke(context, Op::update, std::array{map, key, one, one, factory.atom("absent").value(), one, one});
-    require(failed.first == Outcome::bad_key && context.heap().used_words() == used &&
-                context.heap().off_heap_words() == grown,
-            "failed tree update kept storage");
+    require(failed.first == Outcome::bad_key && context.heap().used_words() == used, "failed tree update kept words");
 
     std::vector<Word> roots{map.word(), updated.second.word()};
     require(context.heap().collect(roots).has_value() && context.heap().verify().has_value(), "collection failed");
@@ -195,16 +193,17 @@ void tree_maps() {
     require(new_value && new_value->atom_spelling() == "one", "updated map lost its value");
     require(rooted(context, roots[1]).map_entries()->size() == 100, "tree walk lost entries");
 
+    const auto both = context.heap().used_words();
     roots.pop_back();
-    require(context.heap().collect(roots).has_value() && context.heap().off_heap_words() == built,
+    require(context.heap().collect(roots).has_value() && context.heap().used_words() < both,
             "dead version kept its nodes");
     roots.clear();
-    require(context.heap().collect(roots).has_value() && context.heap().off_heap_words() == 0,
-            "dead map kept its tree");
+    require(context.heap().collect(roots).has_value() && context.heap().used_words() == 0, "dead map kept its tree");
 }
 
-// An owned update (plan 20 step OPT0.5B) changes the tree of a map nothing else reads in place: no node is copied, its
-// source stub is consumed, a failed owned update leaves the stub holding the tree, and collections stay consistent.
+// An owned update (plan 20 step OPT0.5B) changes the nodes its source's update created in place: only a new stub is
+// written, its source stub is consumed, a failed owned update leaves the stub holding the tree, and after a
+// collection, which may promote the nodes, an owned update copies its path again.
 void owned_updates() {
     auto runtime = Runtime::start().value();
     auto &context = *runtime->create_context().value();
@@ -214,23 +213,26 @@ void owned_updates() {
         entries.emplace_back(factory.integer(key).value(), factory.integer(key).value());
     }
     const auto map = factory.map(entries).value();
-    const auto built = context.heap().off_heap_words();
     const auto one = factory.integer(1).value();
     const auto key = factory.integer(7).value();
+    const auto used = context.heap().used_words();
     const auto updated = invoke(context, Op::update_owned, std::array{map, key, factory.atom("seven").value(), one});
     require(updated.first == Outcome::success && updated.second.map_find(key)->value().atom_spelling() == "seven",
             "owned update failed");
-    require(context.heap().off_heap_words() == built && map.map_size() == 0, "owned update copied its tree");
+    require(context.heap().used_words() - used == 4 && map.map_size() == 0, "owned update copied its tree");
 
     const auto missing = factory.atom("missing").value();
     const auto failed = invoke(context, Op::update_owned, std::array{updated.second, missing, one, one});
     require(failed.first == Outcome::bad_key && updated.second.map_size() == 100, "failed owned update lost the tree");
     std::vector<Word> roots{updated.second.word()};
-    require(context.heap().collect(roots).has_value() && context.heap().verify().has_value() &&
-                context.heap().off_heap_words() == built,
+    require(context.heap().collect(roots).has_value() && context.heap().verify().has_value(),
             "collection after owned updates failed");
+    const auto collected = context.heap().used_words();
+    const auto again = invoke(context, Op::update_owned, std::array{rooted(context, roots[0]), key, one, one});
+    require(again.first == Outcome::success && context.heap().used_words() - collected > 4,
+            "an owned update changed nodes a collection moved");
     roots.clear();
-    require(context.heap().collect(roots).has_value() && context.heap().off_heap_words() == 0, "tree not freed");
+    require(context.heap().collect(roots).has_value() && context.heap().used_words() == 0, "tree not freed");
 }
 } // namespace
 

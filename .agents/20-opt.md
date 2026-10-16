@@ -5,7 +5,8 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1A/B, parts of OPT1.2 and OPT1.3,
-OPT1.4A-C): see [00-finished.md](00-finished.md). This file keeps open work only.
+OPT1.4A-C, OPT3.1): see [00-finished.md](00-finished.md). This file keeps open
+work only.
 
 ## Working rules for plan 20 steps
 
@@ -103,11 +104,52 @@ the kernels furthest behind OTP JIT (Release runtime with symbols,
 3. **Message copy** (large_message 9.3x): flat copies, compound-only walks and
    hand-off of large messages are done (OPT0.28-OPT0.30); small messages to busy
    receivers still copy twice.
-4. **Map trees** (map_put 3-10x, map_update 9.5x): `insert_entry` re-admits terms
-   per update; small-map lookups through `map_service` cost ~460 ns against 2.4
-   ns on OTP (no 69A kernel uses small maps).
+4. **Map trees** (map_put 3-10x, map_update 9.5x): word-level updates, cursors
+   and on-heap trees are done (OPT0.32, OPT0.33, OPT3.1); small-map lookups
+   through `map_service` cost ~460 ns against 2.4 ns on OTP (no 69A kernel uses
+   small maps).
 5. **Lists with funs** (map_foldl 3.9x): `lists:map` builds through
    `construct_service`, then `apply` per element (OPT1.7, OPT1.8).
+
+## Tier OPT3: runtime gaps of the 69A kernels
+
+Steps by the gap to OTP JIT in the 2026-10-16 69A run (after OPT0.34). Profile
+each kernel with the cdb sampler (`build/prof`) before building; map_foldl
+(3.8x) belongs to OPT1.7 and OPT1.8.
+
+- **OPT3.2 string_build (4.8x):** `integer_to_list(N) ++ "-" ++ "item"` per
+  element. Candidates: `++` with a literal right operand copies its left list
+  inline (no service call), a word-level `integer_to_list`, and the collections
+  of the growing result list.
+- **OPT3.3 term_to_binary round trip (4.1x):** the codec is word-level
+  (OPT0.26); profile what is left (list and tuple building in `binary_to_term`,
+  the output buffer's growth, atom lookups).
+- **OPT3.4 file I/O (large_read 4.0x, large_write 3.3x, read_line 2.8x):** per
+  request port overhead, buffer allocation and copies against the OS time; OTP
+  reads and writes through `prim_file` NIFs.
+- **OPT3.5 process creation and teardown (short_processes 3.6x):** the OPT0.24 /
+  OPT0.25 follow-up: context, heap block and stack setup per spawn, the exit
+  path, and the executor lock.
+- **OPT3.6 binary_append (3.6x):** `<<Bin/binary, N:32>>` 10,000 times: one
+  service call per append on the appendable buffer, and collections of the
+  growing binary.
+- **OPT3.7 sort (3.1x):** `lists:sort/1` of 20,000 integers: the merge passes'
+  list building and comparisons; collections were 65% of it before
+  generational collection.
+- **OPT3.8 int_to_list (2.8x):** `list_to_integer(integer_to_list(X))`, the
+  OPT0.12 follow-up (typed argument conversion and `Term` copies per call).
+- **OPT3.9 large_message (2.8x):** small messages to busy receivers still copy
+  twice (into a buffer, then into the receiver).
+- **OPT3.10 heap block reuse:** each collection allocates its new block from the
+  C++ heap and frees the old one; large blocks map fresh pages, so page faults
+  and `VirtualFree` show in profiles and a kernel's first iterations run 2-3x
+  slower than later ones. Keep and reuse released blocks per scheduler, as
+  ERTS's carriers do. Kernels sharing one process also pay for heaps an earlier
+  kernel grew: since OPT3.1 no off-heap map charge forces early full sweeps, so
+  the first sweep after list_of_tuples (a 3M-word old area) lands in
+  binary_append (0.84x vs HEAD) and bigint (0.89x), and comprehension runs in a
+  75k-word young block sized from the old area (0.71x); each is unchanged run
+  alone.
 
 ## Open follow-ups of finished tier OPT0 steps
 

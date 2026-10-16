@@ -236,9 +236,9 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   References are heap cells with a 64-bit number; handle references (atomics,
   re patterns, zlib streams) use the `refc_binary` layout with shared buffers,
   weak registry, optional finalizer (`HandleAccess::make`).
-- Maps: canonical exact keys, staged updates; > 32 entries are per-process
-  persistent B+ trees (`terms/map_tree`, fanout 32, path copying, recycled
-  nodes).
+- Maps: canonical exact keys, staged updates; > 32 entries are persistent B+
+  trees of `map_node` heap cells (`terms/map_tree`, fanout 16, path copying,
+  edit tokens for in-place writes until the next collection).
 - Bitstrings: MSB-first with zero padding; small inline cells, large refc
   buffers; `sub_binary` 3-word cells over a never-nested original;
   appendable refc buffers grow in place (`BitAccess::append`). Binary loops

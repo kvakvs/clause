@@ -10,35 +10,34 @@ MapCursor::MapCursor(std::span<const Word> words, std::size_t first) noexcept {
     }
     const auto &stub = *reinterpret_cast<const layout::TreeMapCell *>(words.data());
     size_ = static_cast<std::size_t>(stub.size_);
-    if (stub.root_ != nullptr && first < size_) {
-        descend(stub.root_, first);
+    if (map_tree_present(stub.root_) && first < size_) {
+        descend(MapNode::at(stub.root_), first);
     }
 }
 
-void MapCursor::descend(const MapNode *node, std::size_t skip) noexcept {
-    while (!node->leaf_ && depth_ < MAX_DEPTH) {
-        const auto &branch = static_cast<const MapBranch &>(*node);
+void MapCursor::descend(MapNode node, std::size_t skip) noexcept {
+    while (!node.leaf() && depth_ < MAP_MAX_DEPTH) {
         std::size_t child = 0;
-        for (; child + 1 < branch.count_ && skip >= branch.children_.at(child)->size_; ++child) {
-            skip -= branch.children_.at(child)->size_;
+        for (; child + 1 < node.count() && skip >= node.child(child).size(); ++child) {
+            skip -= node.child(child).size();
         }
-        path_.at(depth_++) = {&branch, child};
-        node = branch.children_.at(child);
+        path_.at(depth_++) = {node, child};
+        node = node.child(child);
     }
-    leaf_ = node->leaf_ ? static_cast<const MapLeaf *>(node) : nullptr;
+    leaf_ = node.leaf() ? std::optional(node) : std::nullopt;
     position_ = skip;
 }
 
 bool MapCursor::advance() noexcept {
     while (depth_ > 0) {
         auto &[branch, child] = path_.at(depth_ - 1);
-        if (++child < branch->count_) {
-            descend(branch->children_.at(child), 0);
-            return leaf_ != nullptr;
+        if (++child < branch.count()) {
+            descend(branch.child(child), 0);
+            return leaf_.has_value();
         }
         --depth_;
     }
-    leaf_ = nullptr;
+    leaf_.reset();
     return false;
 }
 
@@ -50,15 +49,15 @@ std::optional<MapWords> MapCursor::next() noexcept {
         const auto at = 1 + 2 * position_++;
         return MapWords{flat_[at], flat_[at + 1]};
     }
-    while (leaf_ != nullptr && position_ >= leaf_->count_) {
+    while (leaf_ && position_ >= leaf_->count()) {
         if (!advance()) {
             return std::nullopt;
         }
     }
-    if (leaf_ == nullptr) {
+    if (!leaf_) {
         return std::nullopt;
     }
     const auto at = position_++;
-    return MapWords{leaf_->keys_.at(at), leaf_->values_.at(at)};
+    return MapWords{leaf_->keys()[at], leaf_->items()[at]};
 }
 } // namespace clause::runtime::detail

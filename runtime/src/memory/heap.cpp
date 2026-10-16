@@ -113,6 +113,8 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect(std::span<Word> r
     }
     storage.collection_requested_ = false;
     storage.absorb();
+    // A collection may promote map tree nodes, which then must not change in place (on-heap map trees).
+    storage.map_edit_floor_ = storage.map_edits_;
     CollectionStats stats{.words_before = storage.used_words_,
                           .fragment_words = storage.capacity_words_ - storage.heap_.capacity_ - storage.old_.capacity_};
     if (storage.heap_.capacity_ != 0) {

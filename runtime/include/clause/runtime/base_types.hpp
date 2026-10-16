@@ -95,8 +95,10 @@ enum class BoxedKind : std::uint8_t {
     // Tuple value of {} is an immediate like NIL is
     empty_tuple = 16,
     empty_list = 17,
-    // A map above 32 entries: a stub naming an off-heap tree of its entries (OPT0.5A).
+    // A map above 32 entries: a stub naming the root node of its tree of entries (on-heap map trees).
     tree_map = 18,
+    // A node of a map's tree, never a term of its own (on-heap map trees).
+    map_node = 19,
     // This must fit in the five kind bits reserved by BoxHeader.
 };
 
