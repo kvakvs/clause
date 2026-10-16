@@ -193,8 +193,9 @@ uses double width; range-proven elimination beyond `codegen/proofs`.
 
 OPT1.4A-C done 2026-10-15/16 (inline start/finish, aligned whole-byte reads,
 sub-binary cells, inline `Rest`; a binary loop updates one sub-binary cell in
-place, `binary_match` 8.5x faster). Open: the raw cursor as an SSA phi with no
-cell store per trip, loops whose rest is also read elsewhere, unaligned and
+place, `binary_match` 8.5x faster, its view read once per step, sum_binary
+3.7 ms against OTP 2.7). Open: the raw cursor as an SSA phi with no cell store
+per trip, loops whose rest is also read elsewhere, unaligned and
 non-byte segments inline, 32-bit targets.
 
 This is the largest measured T2 win class (`14_bs_cursor_iv.md`).

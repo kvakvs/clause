@@ -145,8 +145,23 @@ std::optional<unsigned> inline_width(const ExpressionLowering &state, const sema
     return width;
 }
 
-// binary_start inline: a bitstring matches with its cursor at 0 (OPT1.4).
-BitLowering start(ExpressionLowering &state, llvm::Value *input, llvm::BasicBlock *mismatch) {
+// Whether a pattern node reads the parameter of the binary loop variant being lowered, whose view is read once.
+bool loop_parameter(const ExpressionLowering &state, const semantic::MatchNode &node) {
+    const auto *loop = state.binary_loop;
+    return loop && loop->in_variant && loop->view && node.input == loop->parameter;
+}
+
+// The view of a pattern node's input binary: the loop parameter's view, or one resolved here.
+BinaryView view_of(ExpressionLowering &state, const semantic::MatchNode &node, llvm::Value *input) {
+    return loop_parameter(state, node) ? *state.binary_loop->view : inline_binary_view(state, input);
+}
+
+// binary_start inline: a bitstring matches with its cursor at 0 (OPT1.4); a loop parameter is always one.
+BitLowering start(ExpressionLowering &state, const semantic::MatchNode &node, llvm::Value *input,
+                  llvm::BasicBlock *mismatch) {
+    if (loop_parameter(state, node)) {
+        return {input, encode_small(state, llvm::ConstantInt::get(state.word, 0))};
+    }
     auto *matched = llvm::BasicBlock::Create(state.entry.getContext(), "binary.started", &state.entry);
     state.builder.CreateCondBr(inline_bitstring_test(state, input), matched, mismatch);
     state.builder.SetInsertPoint(matched);
@@ -154,8 +169,9 @@ BitLowering start(ExpressionLowering &state, llvm::Value *input, llvm::BasicBloc
 }
 
 // binary_finish inline: the cursor is at the end of the bitstring (OPT1.4).
-BitLowering finish(ExpressionLowering &state, llvm::Value *input, llvm::Value *cursor, llvm::BasicBlock *mismatch) {
-    const auto view = inline_binary_view(state, input);
+BitLowering finish(ExpressionLowering &state, const semantic::MatchNode &node, llvm::Value *input, llvm::Value *cursor,
+                   llvm::BasicBlock *mismatch) {
+    const auto view = view_of(state, node, input);
     auto *matched = llvm::BasicBlock::Create(state.entry.getContext(), "binary.finished", &state.entry);
     state.builder.CreateCondBr(compare(state, llvm::CmpInst::ICMP_EQ, cursor, encode_small(state, view.bits)), matched,
                                mismatch);
@@ -172,7 +188,7 @@ BitLowering extract(ExpressionLowering &state, const semantic::MatchNode &node, 
     const auto &options = *node.bits;
     auto *input = values[node.input];
     auto *cursor = values[node.index];
-    const auto view = inline_binary_view(state, input);
+    const auto view = view_of(state, node, input);
     auto *position = decode_small(state, cursor);
     auto *absolute = builder.CreateAdd(view.offset, position);
     auto *room = compare(state, llvm::CmpInst::ICMP_ULE,
@@ -232,7 +248,7 @@ BitLowering rest(ExpressionLowering &state, const semantic::MatchNode &node, std
     auto &builder = state.builder;
     auto &context = state.entry.getContext();
     const llvm::Align align(state.word->getBitWidth() / 8);
-    const auto view = inline_binary_view(state, values[node.input]);
+    const auto view = view_of(state, node, values[node.input]);
     auto *position = decode_small(state, values[node.index]);
     auto *left = builder.CreateSub(view.bits, position);
     if (unit != 1) {
@@ -292,10 +308,10 @@ std::optional<BitLowering> inline_pattern(ExpressionLowering &state, const seman
         return std::nullopt;
     }
     if (node.operation == MatchOperation::binary_start) {
-        return start(state, values[node.input], mismatch);
+        return start(state, node, values[node.input], mismatch);
     }
     if (node.operation == MatchOperation::binary_finish) {
-        return finish(state, values[node.input], values[node.index], mismatch);
+        return finish(state, node, values[node.input], values[node.index], mismatch);
     }
     if (node.operation != MatchOperation::binary_extract || !node.bits) {
         return std::nullopt;

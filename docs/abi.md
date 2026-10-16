@@ -243,8 +243,9 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   shared, re-enters the function instead). The variant makes no rest cell: each
   self tail call stores the new offset and bit length into the parameter's
   cell, which only this loop references, and passes the same cell on, so a
-  loop over a binary allocates once. The variant has the function's name and
-  arity in stack traces.
+  loop over a binary allocates once. The variant reads the cell's view once
+  per step, before its clauses, and skips the bitstring test of the parameter.
+  The variant has the function's name and arity in stack traces.
 - A binary construction whose every byte is known at compile time (small integer
   constants and string literals at constant whole-byte widths, at most 64 bytes)
   is an inline binary cell of the module literal area, like other compound

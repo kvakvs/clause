@@ -397,7 +397,10 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   `93981174`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh
   sub-binary cell in place across self tail calls; binary_match 8.5x —
-  `[plan20] OPT1.4C ...`
+  `c45402af`
+- **OPT1.4C (part 2)** the variant reads its parameter's view once per step and
+  skips its bitstring test; sum_binary 5.2 to 3.7 ms (OTP 2.7) —
+  `[plan20] OPT1.4C (part 2) ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

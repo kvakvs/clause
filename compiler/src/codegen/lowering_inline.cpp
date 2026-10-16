@@ -514,16 +514,9 @@ BinaryView direct_view(ExpressionLowering &state, llvm::Value *binary) {
 }
 } // namespace
 
-BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary) {
+BinaryView sub_view(ExpressionLowering &state, llvm::Value *binary) {
     auto &builder = state.builder;
-    auto &context = state.entry.getContext();
     const llvm::Align align(state.word->getBitWidth() / 8);
-    auto *sub = header_kind(state, header(state, binary), {HeaderKind::sub_binary});
-    auto *range = llvm::BasicBlock::Create(context, "binary.sub", &state.entry);
-    auto *whole = llvm::BasicBlock::Create(context, "binary.whole", &state.entry);
-    auto *join = llvm::BasicBlock::Create(context, "binary.resolved", &state.entry);
-    builder.CreateCondBr(sub, range, whole);
-    builder.SetInsertPoint(range);
     auto *cell = cell_address(state, binary, abi::v1::boxed_tag);
     const auto at = [&](unsigned index) { return builder.CreateConstGEP1_64(state.word, cell, index); };
     auto *sub_offset = builder.CreateAlignedLoad(state.word, at(abi::v1::sub_offset_word), align, "sub.offset");
@@ -531,7 +524,19 @@ BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary) {
     auto *original = builder.CreateAlignedLoad(state.word, at(abi::v1::sub_original_word), align, "sub.original");
     mark_term(state, original);
     const auto under = direct_view(state, original);
-    auto *range_offset = builder.CreateAdd(under.offset, sub_offset);
+    return {sub_bits, builder.CreateAdd(under.offset, sub_offset), under.data, original, under.offset};
+}
+
+BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary) {
+    auto &builder = state.builder;
+    auto &context = state.entry.getContext();
+    auto *sub = header_kind(state, header(state, binary), {HeaderKind::sub_binary});
+    auto *range = llvm::BasicBlock::Create(context, "binary.sub", &state.entry);
+    auto *whole = llvm::BasicBlock::Create(context, "binary.whole", &state.entry);
+    auto *join = llvm::BasicBlock::Create(context, "binary.resolved", &state.entry);
+    builder.CreateCondBr(sub, range, whole);
+    builder.SetInsertPoint(range);
+    const auto ranged = sub_view(state, binary);
     auto *range_end = builder.GetInsertBlock();
     builder.CreateBr(join);
     builder.SetInsertPoint(whole);
@@ -542,10 +547,10 @@ BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary) {
     const auto joined = [&](llvm::Value *from_range, llvm::Value *from_whole) {
         return join_values(state, state.word, {range_end, from_range}, {whole_end, from_whole});
     };
-    auto *root = joined(original, binary);
+    auto *root = joined(ranged.original, binary);
     mark_term(state, root);
-    return {joined(sub_bits, direct.bits), joined(range_offset, direct.offset), joined(under.data, direct.data), root,
-            joined(under.offset, direct.offset)};
+    return {joined(ranged.bits, direct.bits), joined(ranged.offset, direct.offset), joined(ranged.data, direct.data),
+            root, joined(ranged.base, direct.offset)};
 }
 
 llvm::Value *join_values(ExpressionLowering &state, llvm::Type *type, const BlockValue first, const BlockValue second) {

@@ -39,6 +39,19 @@ template <typename Value> Value analyzed(std::optional<Value> &&value) {
 
 // A function whose binary parameter passes the rest of the binary back to itself in tail calls (binary loops,
 // OPT1.4C): `variant` loops on one sub-binary cell that its self tail calls update in place.
+// The bit length, bit offset and data base address (a word, so no pointer joins blocks) of a word proven to be a
+// bitstring (OPT1.4): an inline binary's bytes follow its length word at offset 0; an off-heap view names its
+// buffer's first byte and its offset into it.
+struct BinaryView {
+    llvm::Value *bits;
+    llvm::Value *offset;
+    llvm::Value *data;
+    // The inline or off-heap binary the bits belong to: the word itself, or a sub-binary's original, and that
+    // binary's own offset into the data (OPT1.4B).
+    llvm::Value *original;
+    llvm::Value *base;
+};
+
 struct BinaryLoop {
     // The parameter matched as a binary, the variant function, and whether the variant is being lowered.
     std::size_t parameter;
@@ -48,6 +61,8 @@ struct BinaryLoop {
     std::map<const llvm::Value *, llvm::Value *> fresh = {};
     // In the variant: the original-relative bit offset and bit length a tail call stores into the parameter's cell.
     std::map<const llvm::Value *, std::pair<llvm::Value *, llvm::Value *>> updates = {};
+    // In the variant: the parameter's view, read once before the clauses, since the parameter is always its cell.
+    std::optional<BinaryView> view = {};
 };
 
 struct ExpressionLowering {
@@ -170,20 +185,9 @@ llvm::Value *lower_make_tuple(ExpressionLowering &state, std::size_t builtin, st
 // setelement/3 copying a small tuple inline where the heap has room, else the builtin (OPT0.2C).
 llvm::Value *lower_setelement(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values);
 
-// The bit length, bit offset and data base address (a word, so no pointer joins blocks) of a word proven to be a
-// bitstring (OPT1.4): an inline binary's bytes follow its length word at offset 0; an off-heap view names its
-// buffer's first byte and its offset into it.
-struct BinaryView {
-    llvm::Value *bits;
-    llvm::Value *offset;
-    llvm::Value *data;
-    // The inline or off-heap binary the bits belong to: the word itself, or a sub-binary's original, and that
-    // binary's own offset into the data (OPT1.4B).
-    llvm::Value *original;
-    llvm::Value *base;
-};
-
 BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary);
+// The view of a word known to be a sub-binary cell (binary loops).
+BinaryView sub_view(ExpressionLowering &state, llvm::Value *binary);
 // An i1 that holds when a word is a bitstring (an inline or off-heap binary cell) (OPT1.4).
 llvm::Value *inline_bitstring_test(ExpressionLowering &state, llvm::Value *value);
 // A value and the predecessor block that computed it.

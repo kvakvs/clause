@@ -121,6 +121,20 @@ void name_self(ExpressionLowering &initial) {
     initial.roots->arguments = initial.roots->next;
 }
 
+// In a binary loop's variant, read the parameter's view once before the clauses: it is always the loop's own
+// sub-binary cell, and no collection runs before the heads read it.
+void read_loop_view(ExpressionLowering &initial) {
+    auto *loop = initial.binary_loop;
+    if (!loop || !loop->in_variant) {
+        return;
+    }
+    auto *slot = initial.builder.CreateGEP(initial.word, initial.entry.getArg(1),
+                                           llvm::ConstantInt::get(initial.word, loop->parameter));
+    auto *cell = initial.builder.CreateAlignedLoad(initial.word, slot, llvm::Align(initial.word->getBitWidth() / 8),
+                                                   "binary.loop.cell");
+    loop->view = sub_view(initial, cell);
+}
+
 // Lower every candidate of `clauses` into the entry `initial` names, each seeing the captured values; exhaustion
 // raises function_clause.
 void lower_candidates(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses,
@@ -132,6 +146,7 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
     root_arguments(initial);
     initial.bindings = captured(initial);
     name_self(initial);
+    read_loop_view(initial);
     const auto captures = initial.bindings;
     auto *exhausted = llvm::BasicBlock::Create(entry.getContext(), "match.mismatch", &entry);
     llvm::BasicBlock *failure = initial.failure;
