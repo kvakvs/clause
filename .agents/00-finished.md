@@ -473,7 +473,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   64 KB read-ahead buffer instead of a read and a seek per line, and every other
   operation first seeks back over what it has not returned; read_line 75 to
   41 ms per 20,000 lines (OTP 29) —
-  `[plan20] OPT3.4 ...`
+  `301e1bc4`
+- **OPT3.7** `lists:sort/1` as an alternating merge sort from sorted pairs: no
+  merge reverses a run, so a pass allocates one copy instead of two (results
+  identical to OTP's, ties included); sort 5.25 to 3.4 ms (OTP 2.1). Also a real
+  `lists:merge/3` —
+  `[plan20] OPT3.7 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

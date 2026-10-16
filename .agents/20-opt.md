@@ -5,7 +5,7 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1A/B, parts of OPT1.2 and OPT1.3,
-OPT1.4A-C, OPT3.1-3.3, OPT3.10, read-ahead lines of OPT3.4): see
+OPT1.4A-C, OPT3.1-3.3, OPT3.7, OPT3.10, read-ahead lines of OPT3.4): see
 [00-finished.md](00-finished.md). This file keeps open work only.
 
 ## Working rules for plan 20 steps
@@ -128,9 +128,6 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
 - **OPT3.6 binary_append (3.6x):** `<<Bin/binary, N:32>>` 10,000 times: one
   service call per append on the appendable buffer, and collections of the
   growing binary.
-- **OPT3.7 sort (3.1x):** `lists:sort/1` of 20,000 integers: the merge passes'
-  list building and comparisons; collections were 65% of it before
-  generational collection.
 - **OPT3.8 int_to_list (2.8x):** `list_to_integer(integer_to_list(X))`, the
   OPT0.12 follow-up (typed argument conversion and `Term` copies per call).
 - **OPT3.9 large_message (2.8x):** small messages to busy receivers still copy

@@ -315,36 +315,62 @@ count_down(From, To, Step, Acc) when Step > 0, From >= To; Step < 0, From =< To 
 count_down(_, _, _, Acc) ->
     Acc.
 
-%% The elements in ascending term order; equal elements keep their order.
+%% The elements in ascending term order; equal elements keep their order. Passes alternate ascending and descending
+%% runs, so a merge never reverses a run: ascending runs in order merge into descending runs in reverse order, and
+%% those merge back into ascending runs in order (alternating merge sort).
 sort([_, _ | _] = List) ->
-    merge_all(runs(List, []));
+    sort_pass(pairs(List, []), ascending);
 sort([_] = List) ->
     List;
 sort([] = List) ->
     List.
 
-%% Split into one-element runs, in order.
-runs([Element | Rest], Acc) -> runs(Rest, [[Element] | Acc]);
-runs([], Acc) -> reverse(Acc, []).
+%% Ascending runs of two elements (the last may hold one), in order.
+pairs([X, Y | Rest], Acc) when X =< Y -> pairs(Rest, [[X, Y] | Acc]);
+pairs([X, Y | Rest], Acc) -> pairs(Rest, [[Y, X] | Acc]);
+pairs([X], Acc) -> reverse(Acc, [[X]]);
+pairs([], Acc) -> reverse(Acc, []).
 
-%% Merge runs pairwise until one remains.
-merge_all([Run]) -> Run;
-merge_all(Runs) -> merge_all(merge_pairs(Runs, [])).
+%% Merge runs pairwise until one remains, then make it ascending.
+sort_pass([Run], ascending) -> Run;
+sort_pass([Run], descending) -> reverse(Run, []);
+sort_pass(Runs, ascending) -> sort_pass(descend_pairs(Runs, []), descending);
+sort_pass(Runs, descending) -> sort_pass(ascend_pairs(Runs, []), ascending).
 
-merge_pairs([A, B | Rest], Acc) -> merge_pairs(Rest, [merge(A, B, []) | Acc]);
-merge_pairs([A], Acc) -> reverse(Acc, [A]);
-merge_pairs([], Acc) -> reverse(Acc, []).
+%% Ascending runs in order: each adjacent pair merged into a descending run, the results in reverse order.
+descend_pairs([A, B | Rest], Acc) -> descend_pairs(Rest, [merge_down(A, B, []) | Acc]);
+descend_pairs([A], Acc) -> [reverse(A, []) | Acc];
+descend_pairs([], Acc) -> Acc.
 
-%% Merge two sorted runs; on ties the left run comes first.
-merge([X | Xs] = Left, [Y | Ys] = Right, Acc) ->
+%% Descending runs in reverse order: each adjacent pair (the later run first) merged into an ascending run, the
+%% results in order.
+ascend_pairs([B, A | Rest], Acc) -> ascend_pairs(Rest, [merge_up(B, A, []) | Acc]);
+ascend_pairs([A], Acc) -> [reverse(A, []) | Acc];
+ascend_pairs([], Acc) -> Acc.
+
+%% Merge ascending runs A (the earlier) and B into a descending run on Acc; on ties A's element goes first, so in
+%% a descending run equal elements stand latest first.
+merge_down([X | Xs] = A, [Y | Ys] = B, Acc) ->
     case X =< Y of
-        true -> merge(Xs, Right, [X | Acc]);
-        false -> merge(Left, Ys, [Y | Acc])
+        true -> merge_down(Xs, B, [X | Acc]);
+        false -> merge_down(A, Ys, [Y | Acc])
     end;
-merge([], Right, Acc) ->
-    reverse(Acc, Right);
-merge(Left, [], Acc) ->
-    reverse(Acc, Left).
+merge_down([], B, Acc) ->
+    reverse(B, Acc);
+merge_down(A, [], Acc) ->
+    reverse(A, Acc).
+
+%% Merge descending runs B (the later) and A into an ascending run on Acc; on ties B's element goes first, so the
+%% earlier one ends up first.
+merge_up([X | Xs] = B, [Y | Ys] = A, Acc) ->
+    case X >= Y of
+        true -> merge_up(Xs, A, [X | Acc]);
+        false -> merge_up(B, Ys, [Y | Acc])
+    end;
+merge_up([], A, Acc) ->
+    reverse(A, Acc);
+merge_up(B, [], Acc) ->
+    reverse(B, Acc).
 
 concat(_) -> erlang:error({not_implemented, concat, 1}).
 delete(_, _) -> erlang:error({not_implemented, delete, 2}).
@@ -384,6 +410,16 @@ last(_) -> erlang:error({not_implemented, last, 1}).
 max(_) -> erlang:error({not_implemented, max, 1}).
 merge(_) -> erlang:error({not_implemented, merge, 1}).
 merge(_, _) -> erlang:error({not_implemented, merge, 2}).
+%% Merge List1 and List2, both sorted by Fun(A, B) (true when A sorts before or with B); on ties List1 comes first.
+merge(Fun, [A | As] = List1, [B | Bs] = List2) when is_function(Fun, 2) ->
+    case Fun(A, B) of
+        true -> [A | merge(Fun, As, List2)];
+        false -> [B | merge(Fun, List1, Bs)]
+    end;
+merge(Fun, [], List2) when is_function(Fun, 2), is_list(List2) ->
+    List2;
+merge(Fun, List1, []) when is_function(Fun, 2), is_list(List1) ->
+    List1.
 merge3(_, _, _) -> erlang:error({not_implemented, merge3, 3}).
 min(_) -> erlang:error({not_implemented, min, 1}).
 nthtail(_, _) -> erlang:error({not_implemented, nthtail, 2}).
