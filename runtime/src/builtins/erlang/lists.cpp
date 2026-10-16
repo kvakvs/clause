@@ -85,7 +85,11 @@ std::optional<Word> short_append(ProcessContext &context, Term rest, const Word 
         bad_argument();
     }
     context.stack().spend(2 * walked);
-    return need(TermFactory(context).list_words(words, term_of(context, right))).word();
+    // The heads are this process's terms, read from its cells: they need no admission.
+    if (const auto bumped = detail::TermAccess::bump_list(context.heap(), words, right)) {
+        return *bumped;
+    }
+    return need(TermFactory(context).list_of_words(words, term_of(context, right))).word();
 }
 
 // Left ++ Right: Left must be a proper list; [] ++ Right is Right whatever it is.

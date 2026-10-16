@@ -19,6 +19,12 @@ std::span<Word> HeapArea::from(std::uintptr_t address) noexcept {
 
 bool HeapArea::fits(std::size_t words) const noexcept { return words <= capacity_ - top_; }
 
+std::span<Word> HeapArea::claim(std::size_t words) noexcept {
+    const std::span<Word> claimed{words_.get() + top_, words};
+    top_ += words;
+    return claimed;
+}
+
 std::span<Word> HeapArea::bump(std::size_t words) noexcept {
     const std::span<Word> reserved{words_.get() + top_, words};
     std::ranges::fill(reserved, Word{0});

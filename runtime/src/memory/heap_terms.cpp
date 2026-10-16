@@ -146,6 +146,26 @@ std::span<const Word> TermAccess::cons_cell(HeapStorage &storage, Word value) no
     return area.size() < 2 ? std::span<const Word>{} : area.first(2);
 }
 
+std::optional<Word> TermAccess::bump_list(ProcessHeap &heap, std::span<const Word> elements, Word tail) noexcept {
+    auto &storage = *heap.storage_;
+    storage.absorb();
+    const auto words = 2 * elements.size();
+    if (words == 0 || storage.pending_ || storage.options_.limit_bytes != UNLIMITED_HEAP_BYTES ||
+        !storage.heap_.fits(words)) {
+        return std::nullopt;
+    }
+    const auto cells = storage.heap_.claim(words);
+    storage.used_words_ += words;
+    auto next = tail;
+    for (auto index = elements.size(); index-- > 0;) {
+        cells[2 * index] = elements[index];
+        cells[2 * index + 1] = next;
+        next = reinterpret_cast<Word>(&cells[2 * index]) | abi::v1::list_tag;
+    }
+    storage.expose();
+    return next;
+}
+
 TermResult<void> TermAccess::validate(const Term &value) noexcept {
     if (value.heap_) {
         return object(value).transform([](const HeapObject &) {});

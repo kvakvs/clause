@@ -217,6 +217,9 @@ template <bool Pid> TermResult<Term> identity_to_list(ProcessContext &context, c
 
 // The word of a list of character words onto [], built in one step.
 Word char_words(ProcessContext &context, std::span<const Word> characters) {
+    if (const auto bumped = detail::TermAccess::bump_list(context.heap(), characters, abi::v1::empty_list)) {
+        return *bumped;
+    }
     TermFactory factory(context);
     return need(factory.list_of_words(characters, need(factory.nil()))).word();
 }

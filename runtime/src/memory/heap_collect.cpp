@@ -107,7 +107,7 @@ HeapArea &Copier::target(std::span<const Word> from) noexcept {
 }
 
 Word Copier::copy_cons(std::span<Word> from, HeapArea &area) noexcept {
-    const auto copy = area.bump(2);
+    const auto copy = area.claim(2);
     std::ranges::copy(from.first(2), copy.begin());
     const auto moved = tagged(copy.data(), TermKindPrimary::list);
     from[0] = 0;
@@ -117,7 +117,7 @@ Word Copier::copy_cons(std::span<Word> from, HeapArea &area) noexcept {
 
 Word Copier::copy_boxed(std::span<Word> from, HeapArea &area) noexcept {
     const auto size = 1 + BoxHeader::count(from[0]);
-    const auto copy = area.bump(size);
+    const auto copy = area.claim(size);
     if (layout::off_heap_cell(from[0])) {
         relocate_off_heap(*reinterpret_cast<layout::RefcBinaryCell *>(from.data()),
                           reinterpret_cast<std::byte *>(copy.data()));

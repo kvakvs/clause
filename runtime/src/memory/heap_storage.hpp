@@ -30,6 +30,8 @@ struct HeapArea {
     bool fits(std::size_t words) const noexcept;
     // Advance top by words that fit and zero them, so unused reserved words parse as filler.
     std::span<Word> bump(std::size_t words) noexcept;
+    // Advance top by words that fit without zeroing them: the collector writes every claimed word at once.
+    std::span<Word> claim(std::size_t words) noexcept;
 };
 
 struct FragmentRange {

@@ -1,5 +1,6 @@
 #pragma once
 #include <clause/runtime/terms.hpp>
+#include <optional>
 
 namespace clause::runtime::detail {
 class HeapStorage;
@@ -32,6 +33,10 @@ struct TermAccess {
     // The head and tail words of the cons cell a list word names in `storage`; empty when it names none there. A
     // spine walk reads cells this way after validating the list once (word-level walks).
     static std::span<const Word> cons_cell(HeapStorage &storage, Word value) noexcept;
+    // The list of `elements` onto `tail`, its cells bumped into the heap block's free words like generated code's, when
+    // they fit and no budget applies; none otherwise. The words must be immediates or this process's terms
+    // (short builtin lists).
+    static std::optional<Word> bump_list(ProcessHeap &heap, std::span<const Word> elements, Word tail) noexcept;
     // Check that value is a live, current term or an immediate; expiration and staleness stay distinct.
     static TermResult<void> validate(const Term &value) noexcept;
 
