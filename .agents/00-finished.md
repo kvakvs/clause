@@ -434,7 +434,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   reads straight into it, `read` reads into its reply, and `port_control` takes
   a large reply over as the binary's buffer (`TermFactory::owned_binary`);
   read_file 23.8 to 6.2 ms (OTP 4.4), large_read 9.2 to 7.8 ms —
-  `[plan20] OPT0.31 ...`
+  `0a8410db`
+- **OPT0.32** word-level map update at a small-integer key on an off-heap map
+  (`MapAccess::update_small_key`, no `Term` per argument); map_update and
+  map_put 13-15% —
+  `[plan20] OPT0.32 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

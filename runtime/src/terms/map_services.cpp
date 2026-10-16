@@ -173,6 +173,21 @@ MapResult evaluate(ProcessContext &context, Op operation, std::span<const Term> 
     return query(context, operation, terms);
 }
 
+// `Map#{Key => Value}` or `Map#{Key := Value}` of one small-integer key on an off-heap map, decided by words alone
+// (word-level map updates); none when the general path must run. The value must be this process's term.
+std::optional<Word> small_key_update(ProcessContext &context, Op operation, std::span<const Word> values) {
+    using abi::v1::NativeIntegerEncoding;
+    constexpr Word small_tag = abi::v1::small_integer_tag;
+    if (operation != Op::update || values.size() != 4 || (values[1] & small_tag) != small_tag) {
+        return std::nullopt;
+    }
+    const auto exact = values[3] == *NativeIntegerEncoding::encode(1);
+    if ((!exact && values[3] != *NativeIntegerEncoding::encode(0)) || !Term::from_word(values[2], context)) {
+        return std::nullopt;
+    }
+    return MapAccess::update_small_key(context.heap(), values[0], {values[1], values[2]}, exact);
+}
+
 // Only semantic rejection may publish an error payload; resource/owner errors never modify output.
 Outcome result(ProcessContext &context, const MapResult &value, Word *output) {
     if (value) {
@@ -209,6 +224,10 @@ std::uint8_t map_service(ProcessContext &context, std::uint8_t operation, const 
         return static_cast<std::uint8_t>(Outcome::failure);
     }
     try {
+        if (const auto updated = small_key_update(context, static_cast<Op>(operation), {values, count})) {
+            *output = *updated;
+            return static_cast<std::uint8_t>(Outcome::success);
+        }
         const auto terms = admit(context, {values, count});
         if (!terms) {
             context.generated_calls().fail_service(term_status(terms.error()));

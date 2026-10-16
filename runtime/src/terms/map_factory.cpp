@@ -298,6 +298,48 @@ TermResult<Term> MapAccess::publish_words(ProcessHeap &heap, std::span<const Map
                            reinterpret_cast<Word>(words) | static_cast<Word>(TermKindPrimary::boxed));
 }
 
+namespace {
+// Orders stored keys against a small-integer key by their words alone; any other stored key is undecided, which ends
+// a word-level update (word-level map updates).
+class SmallKeyProbe final : public MapProbe {
+  public:
+    explicit SmallKeyProbe(Word key) : key_(key) {}
+
+    TermResult<int> order(Word stored) const override {
+        if (const auto order = small_order(stored, key_)) {
+            return *order;
+        }
+        return std::unexpected(TermError::invalid_encoding);
+    }
+
+  private:
+    Word key_;
+};
+} // namespace
+
+std::optional<Word> MapAccess::update_small_key(ProcessHeap &heap, Word map, MapWords entry, bool exact) {
+    auto &storage = *heap.storage_;
+    const auto words = TermAccess::boxed_words(heap, map);
+    const auto address = static_cast<std::uintptr_t>(map & ~static_cast<Word>(abi::v1::primary_mask));
+    if (words.empty() || layout::BoxHeader::kind(words[0]) != BoxedKind::tree_map || storage.owned(address).empty()) {
+        return std::nullopt;
+    }
+    const auto &stub = *reinterpret_cast<const layout::TreeMapCell *>(words.data());
+    auto *root = stub.root_;
+    if (root == nullptr) {
+        return std::nullopt;
+    }
+    map_tree_retain(root);
+    bool added = false;
+    const SmallKeyProbe probe(entry.first);
+    if (!map_tree_insert(storage, root, map_edit(storage), entry, exact, probe, {.owned = false, .added = added})) {
+        map_tree_release(storage, root);
+        return std::nullopt;
+    }
+    const auto published = publish_stub(heap, root, static_cast<std::size_t>(stub.size_) + (added ? 1 : 0));
+    return published ? std::optional{published->word()} : std::nullopt;
+}
+
 TermResult<Term> MapAccess::publish_stub(ProcessHeap &heap, MapNode *root, std::size_t size) {
     constexpr auto total = sizeof(layout::TreeMapCell) / sizeof(Word);
     auto reserved = heap.reserve(total);
