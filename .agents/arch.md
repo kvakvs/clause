@@ -254,7 +254,8 @@ Compact map of how Clause works. History lives in `00-finished.md`,
 
 ## Heap and GC (`docs/runtime-heap.md`)
 
-- `HeapStorage`: one heap block (lazy, min 233 words) + `fragments_` + off-heap
+- `HeapStorage`: one young heap block (lazy, min 233 words) + `fragments_` +
+  `old_` area with `high_water_` (generational) + off-heap
   lists (refc binaries `memory/off_heap`, tree-map stubs); `HeapMark` rollback;
   `absorb`/`expose` sync with inline bump allocation; `token_` lifetime checks.
 - Admission = owned range + header shape (`memory/heap_walk`,
@@ -262,10 +263,13 @@ Compact map of how Clause works. History lives in `00-finished.md`,
 - Roots: frame term slots, live X registers, failure payload/args/stack,
   explicit spans (`ProcessContext::visit_roots`), `TrapState::words()`,
   mailbox words; raw slots never roots.
-- `memory/heap_collect` `Copier`: Cheney copy into one block at safepoints
-  (function entry via `ProcessStack::enter`, comprehension heads
-  `CLAUSE_safepoint_v1`) when `wants_collection()`; services are critical
-  sections. Shrink below 25% live; budgets leave half after survivors.
+- `memory/heap_collect` `Copier`: Cheney copy at safepoints (function entry via
+  `ProcessStack::enter`, comprehension heads `CLAUSE_safepoint_v1`) when
+  `wants_collection()`; services are critical sections. Safepoints run minor
+  collections (promote below the high-water mark, old area untouched; Debug
+  checks no old→young pointer) unless a full sweep is due (`garbage_collect`,
+  binary pressure, budget, old area full); `ProcessHeap::collect` is always a
+  full sweep. Shrink below 25% live; budgets leave half after survivors.
   Non-running processes are never collected; resumed ones collect at their
   resume safepoint.
 - Limits: no default cap; opt-in `--max-heap/--max-stack/--max-memory`,

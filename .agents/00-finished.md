@@ -400,7 +400,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and
   skips its bitstring test; sum_binary 5.2 to 3.7 ms (OTP 2.7) —
-  `[plan20] OPT1.4C (part 2) ...`
+  `5fa0c26c`
+- **OPT0.20B** generational collection: safepoints run minor collections that
+  promote objects below the high-water mark into an old area and leave it in
+  place (ERTS sizing rules, Debug old→young check); 69A geomean 1.15x (sort
+  1.29x, binary_append 1.6x, map_put 1.25x, comprehension 3.3x) —
+  `[plan20] OPT0.20B ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

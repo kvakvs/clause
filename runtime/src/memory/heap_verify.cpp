@@ -1,4 +1,5 @@
 #include "../terms/map_tree.hpp"
+#include "heap_collect.hpp"
 #include "heap_storage.hpp"
 #include "heap_walk.hpp"
 #include "off_heap.hpp"
@@ -23,6 +24,39 @@ bool plain_immediate(Word value) {
     return kind && (*kind == TermKind::smallint || *kind == TermKind::empty_tuple || *kind == TermKind::empty_list);
 }
 
+// Whether a pointer word names an object of an area's used words.
+bool within(const HeapArea &area, Word value) {
+    const auto used = area.used();
+    const auto object = static_cast<std::uintptr_t>(value & ~static_cast<Word>(abi::v1::primary_mask));
+    const auto begin = reinterpret_cast<std::uintptr_t>(used.data());
+    return !used.empty() && object >= begin && object < begin + used.size_bytes();
+}
+
+// Whether a word points into the young heap or a fragment (generational collection).
+bool young(const HeapStorage &storage, Word value) {
+    const auto kind = TermTag{value}.get_kind();
+    if (kind != TermKind::list && kind != TermKind::boxed) {
+        return false;
+    }
+    return within(storage.heap_, value) ||
+           std::ranges::any_of(storage.fragments_, [&](const HeapArea &area) { return within(area, value); });
+}
+
+// Whether an old-area object, or the tree of an old map stub, names a young object.
+bool points_young(const HeapStorage &storage, const HeapCell &cell) {
+    if (std::ranges::any_of(cell.slots, [&](Word value) { return young(storage, value); })) {
+        return true;
+    }
+    if (cell.shape != Shape::boxed || layout::BoxHeader::kind(cell.words[0]) != BoxedKind::tree_map) {
+        return false;
+    }
+    bool found = false;
+    map_tree_entries(reinterpret_cast<const layout::TreeMapCell *>(cell.words.data())->root_, [&](MapWords words) {
+        found = found || young(storage, words.first) || young(storage, words.second);
+    });
+    return found;
+}
+
 // Check one heap: parse every area, then resolve every term slot and off-heap link against the parsed starts.
 class Verifier final {
   public:
@@ -32,7 +66,7 @@ class Verifier final {
     // Run both passes; any parse or pointer fault is corrupt_heap.
     std::expected<HeapCensus, HeapError> run() {
         if (!collect() || !std::ranges::all_of(slots_, [&](auto slots) { return slots_valid(slots); }) ||
-            !off_heap_valid() || !tree_maps_valid()) {
+            !off_heap_valid() || !tree_maps_valid() || !generations_valid(storage_)) {
             return std::unexpected(HeapError::corrupt_heap);
         }
         return census_;
@@ -41,7 +75,7 @@ class Verifier final {
   private:
     // Pass 1: parse the heap and every fragment, counting objects and remembering starts and traced slots.
     bool collect() {
-        if (!parse(storage_.heap_) ||
+        if (!parse(storage_.heap_) || !parse(storage_.old_) ||
             !std::ranges::all_of(storage_.fragments_, [&](auto &area) { return parse(area); })) {
             return false;
         }
@@ -162,6 +196,13 @@ class Verifier final {
     HeapCensus census_;
 };
 } // namespace
+
+bool generations_valid(const HeapStorage &storage) noexcept {
+    bool valid = true;
+    const auto walked =
+        walk(storage.old_.used(), [&](const HeapCell &cell) { valid = valid && !points_young(storage, cell); });
+    return valid && walked.has_value();
+}
 } // namespace clause::runtime::detail
 
 namespace clause::runtime {

@@ -166,8 +166,9 @@ A map with more than 32 entries (OTP's `MAP_SMALL_MAP_LIMIT`) is a 4-word
   It has no cap by default; an optional per-process `StackOptions::limit_words`
   bounds it separately from the heap.
 - **Off-heap list.** As above.
-- **Old heap.** None: every collection is a full sweep. Immutable terms never
-  point from older to newer data, so an old heap would need no change of cells.
+- **Old area.** Objects that survived two collections
+  ([generations](#generations)); minor collections leave it in place, a full
+  sweep copies it into the new block and frees it.
 
 ## Sizing and budget
 
@@ -309,6 +310,11 @@ otherwise it costs one check.
 | Off-heap binary pressure | Off-heap words reach the virtual binary heap limit: 46,422 words at first, after each collection twice the surviving off-heap words or the survivors plus the live heap words, whichever is more (never less than 46,422), but at most the survivors plus half of the budget left free after the heap block | `bin_vheap_sz` / binary virtual heap |
 | `erlang:garbage_collect/0,1,2` | A request of the builtin ([introspection](processes.md#introspection)), taken at the target's next safepoint | Explicit full sweep |
 
+A safepoint runs a **minor collection** unless a full sweep is due: a
+`garbage_collect` request, off-heap binary pressure, a heap budget, or an old
+area without room for the mature words ([generations](#generations)). The
+public `ProcessHeap::collect` is always a full sweep.
+
 The new block is sized for the live words **plus the stack words in use** (ERTS
 keeps the stack inside the heap block): a deep stack gets a larger heap, so a
 long recursion collects in proportion to its allocation rather than rescanning
@@ -438,7 +444,8 @@ register that held `Y`.
 
 ## Collection
 
-A full-sweep Cheney copy (`memory/heap_collect`): allocate the new block first
+A Cheney copy (`memory/heap_collect`), a full sweep or a minor collection
+([generations](#generations)): allocate the new block first
 (failure is `out_of_memory` and leaves the heap untouched), then mark host
 `Term`s stale, copy the object behind every root word and scan the new block
 left to right, copying the children of each copy. A moved boxed object's header
@@ -449,6 +456,40 @@ dead cells destroyed), and the old block and fragments are freed. A heap that
 was never allocated is not collected. `CollectionStats` reports words before,
 live words, the new heap block, the merged fragments, stack slot capacity and
 off-heap words.
+
+## Generations
+
+Generational collection, as ERTS does it, without its write barrier:
+
+- **High-water mark.** After a collection every object in the new block has
+  survived one; the block's top becomes the high-water mark. The next minor
+  collection copies the young block and fragments, **promoting** objects below
+  the mark into the old area and the rest into a new young block.
+- **Old area.** One block that never moves between full sweeps; a minor
+  collection neither copies nor scans it. Created by the first minor collection
+  that promotes, sized twice the mature words. When it cannot take the mature
+  words, the safepoint runs a full sweep instead, which leaves everything in
+  the new block below its high-water mark and frees the old area.
+- **Invariant.** An immutable object only points at objects older than itself,
+  so promoting by address never leaves an old object pointing at a young one.
+  The runtime's in-place writes keep it: binary loops and appendable binaries
+  write integers, and an owned off-heap map update changes only nodes its tree
+  holds alone, published under a new (young) stub. Debug builds check after
+  every minor collection that no old object, nor an old stub's tree, points into
+  the young block or a fragment.
+- **Sweeps.** The off-heap binary and map lists keep cells of the old area,
+  relink forwarded ones and release dead young ones; dead old cells wait for the
+  next full sweep.
+- **Young sizing.** A minor collection keeps the young block's size, as ERTS
+  does, and at least an eighth of the old area (ERTS). Generated code collects
+  only at safepoints, so allocation between two of them (the returns of a body
+  recursion) may overflow far into fragments; when they hold a quarter of the
+  block or more, the next block grows by them and is not shrunk. Otherwise a
+  young block over 8,000 words less than 25% live is copied into three times its
+  live words (ERTS's minor rule).
+- **Off-heap limit.** After a minor collection the virtual binary heap limit
+  counts the young live words only: the old area may hold dead words, which must
+  not postpone the full sweep that frees dead old binaries and map trees.
 
 ## Copying between heaps
 

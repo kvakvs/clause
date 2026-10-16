@@ -63,8 +63,9 @@ class HeapStorage final {
     std::size_t room() const noexcept;
     // Words this process may own in all, its own storage included: the budget seen by the sizing policy.
     std::size_t budget() const noexcept;
-    // Replace the heap block and fragments by a collected block, returning the charges of the replaced areas.
-    void replace(HeapArea heap) noexcept;
+    // Replace the heap block and fragments by a collected block, returning the charges of the replaced areas; a full
+    // sweep also empties the old area, whose objects it copied (generational collection).
+    void replace(HeapArea heap, bool full) noexcept;
     // Borrow the words from an address in the heap, a fragment or a module literal area (OPT0.4) to its area's end,
     // read-only; empty for any other address.
     std::span<const Word> readable(std::uintptr_t address) noexcept;
@@ -88,6 +89,11 @@ class HeapStorage final {
     std::shared_ptr<RuntimeMemory> memory_;
     // The process heap block; empty until the first reservation.
     HeapArea heap_;
+    // Generational collection: objects that survived two collections, which minor collections leave in place and
+    // never scan; empty until a minor collection promotes into it, emptied by every full sweep.
+    HeapArea old_;
+    // Words of heap_ below which every object survived one collection; the next minor collection promotes them.
+    std::size_t high_water_ = 0;
     // Overflow blocks allocated while the heap may not move, oldest first; a collection merges them.
     std::vector<HeapArea> fragments_;
     // Fragment ranges sorted by address; rollback drops entries of removed fragments.

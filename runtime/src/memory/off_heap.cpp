@@ -1,4 +1,5 @@
 #include "off_heap.hpp"
+#include "heap_collect.hpp"
 #include "heap_storage.hpp"
 #include "heap_walk.hpp"
 #include <algorithm>
@@ -78,19 +79,21 @@ layout::RefcBinaryCell &relocate_off_heap(layout::RefcBinaryCell &from, std::byt
     return *std::construct_at(reinterpret_cast<layout::RefcBinaryCell *>(to), std::move(from));
 }
 
-void sweep_off_heap(HeapStorage &storage, HeapArea &copies) noexcept {
+void sweep_off_heap(HeapStorage &storage, const Survivors &survivors) noexcept {
     layout::RefcBinaryCell *newest = nullptr;
     auto **link = &newest;
     for (auto *cell = std::exchange(storage.off_heap_, nullptr); cell != nullptr;) {
         auto *next = cell->next_;
         const auto first = cell->header_.value_;
-        if (is_header(first)) {
+        if (survivors.kept(cell)) {
+            *link = cell;
+            link = &cell->next_;
+        } else if (is_header(first)) {
             drop_off_heap(storage, *cell->buffer_);
             std::destroy_at(cell);
         } else {
             // A forwarded cell's first word is the boxed pointer to its copy.
-            const auto copy =
-                copies.from(static_cast<std::uintptr_t>(first & ~static_cast<Word>(abi::v1::primary_mask)));
+            const auto copy = survivors.copy(first);
             *link = reinterpret_cast<layout::RefcBinaryCell *>(copy.data());
             link = &(*link)->next_;
         }

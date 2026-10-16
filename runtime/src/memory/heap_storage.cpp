@@ -109,6 +109,9 @@ std::span<Word> HeapStorage::owned(std::uintptr_t address) noexcept {
     if (const auto found = heap_.from(address); !found.empty()) {
         return found;
     }
+    if (const auto found = old_.from(address); !found.empty()) {
+        return found;
+    }
     const auto range = std::ranges::upper_bound(ranges_, address, {}, &FragmentRange::begin_);
     return range == ranges_.begin() ? std::span<Word>{} : fragments_[std::prev(range)->fragment_].from(address);
 }
@@ -185,13 +188,20 @@ std::size_t HeapStorage::budget() const noexcept {
     return std::min(options_.limit_bytes / sizeof(Word), owned + memory_->available());
 }
 
-void HeapStorage::replace(HeapArea heap) noexcept {
+void HeapStorage::replace(HeapArea heap, bool full) noexcept {
     memory_->release(capacity_words_);
+    if (full) {
+        old_ = {};
+    }
     heap_ = std::move(heap);
     fragments_ = std::vector<HeapArea>{};
     ranges_ = std::vector<FragmentRange>{};
-    used_words_ = heap_.top_;
-    capacity_words_ = heap_.capacity_;
+    // Every survivor has now lived through a collection: the next minor collection promotes them (generational).
+    high_water_ = heap_.top_;
+    used_words_ = heap_.top_ + old_.top_;
+    capacity_words_ = heap_.capacity_ + old_.capacity_;
+    // The old area's words stay charged: release took every area's charge, so the runtime account is forced back up.
+    memory_->force(old_.capacity_);
     expose();
 }
 } // namespace clause::runtime::detail

@@ -69,6 +69,8 @@ struct HeapOptions final {
 namespace detail {
 class HeapStorage;
 class GraphCopy;
+// The part of the heap one collection copies (heap_collect.hpp).
+enum class Generation : std::uint8_t;
 struct IntegerAccess;
 struct FloatAccess;
 struct MapAccess;
@@ -145,6 +147,9 @@ class ProcessHeap final {
     std::expected<CollectionStats, HeapError> collect() noexcept;
     // Collect with host-held words as extra roots; the caller reads the rewritten words back afterwards.
     std::expected<CollectionStats, HeapError> collect(std::span<Word> roots) noexcept;
+    // Collect at a generated-code safepoint: a minor collection, which copies only the young heap and promotes its
+    // mature objects, unless a full sweep is due (docs/runtime-heap.md#generations).
+    std::expected<CollectionStats, HeapError> collect_at_safepoint() noexcept;
     // Whether a generated-code safepoint should collect: a fragment exists (the heap block filled up) or
     // off-heap binaries reached the virtual binary heap limit (docs/runtime-heap.md#triggers).
     bool wants_collection() const noexcept;
@@ -189,11 +194,25 @@ class ProcessHeap final {
     // Size a new heap block so live and stack words stay below 75% of it, at least the minimum heap, within the
     // block limit.
     std::size_t collected_size(std::size_t live_words) const noexcept;
-    // Copy everything reachable from the process roots and the host's roots into a new block of capacity words.
-    void copy_live(std::span<Word> roots, std::size_t capacity);
-    // Copy a block less than 25% live, or above the block limit of its live words, into the policy size; failing to
-    // allocate keeps the larger block.
-    void shrink(std::span<Word> roots) noexcept;
+    // Collect the given generation with host-held words as extra roots.
+    std::expected<CollectionStats, HeapError> collect(std::span<Word> roots, detail::Generation generation) noexcept;
+    // Size the new block for the generation, copy into it and shrink it by the policy (generational collection).
+    std::expected<void, HeapError> copy_generation(std::span<Word> roots, detail::Generation generation) noexcept;
+    // Whether a safepoint collection must sweep everything: garbage_collect asked for it, off-heap binaries reached
+    // their limit, a heap budget applies, or the old area cannot take the mature objects (generational collection).
+    bool wants_full_sweep() const noexcept;
+    // Copy everything of the generation reachable from the process roots and the host's roots into a new block of
+    // capacity words.
+    void copy_live(std::span<Word> roots, std::size_t capacity, detail::Generation generation);
+    // After a full sweep, copy a block less than 25% live, or above the block limit of its live words, into the
+    // policy size; after a minor collection, copy a young block over 8,000 words and less than 25% live into three
+    // times its live words, as ERTS does. Failing to allocate keeps the larger block.
+    void shrink(std::span<Word> roots, detail::Generation generation) noexcept;
+    void shrink_young(std::span<Word> roots) noexcept;
+    // The smallest young block for the old area: an eighth of it, as ERTS keeps; none without an old area.
+    std::size_t young_floor() const noexcept;
+    // Young blocks this small are never shrunk after a minor collection: promotion often leaves them sparse (ERTS).
+    static constexpr std::size_t YOUNG_SHRINK_WORDS = 8000;
     // Keep this lazy heap bound to exactly one live process; never transfer it between contexts.
     ProcessContext &owner_;
     // Pin stable backing independently of the context address; liveness still controls admission.

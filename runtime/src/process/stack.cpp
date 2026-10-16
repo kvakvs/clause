@@ -124,7 +124,7 @@ bool ProcessStack::safepoint(const std::size_t live) const noexcept {
     }
     keep_registers(live);
     const SafePoint safe(owner_.generated_calls());
-    const auto collected = heap.collect().has_value();
+    const auto collected = heap.collect_at_safepoint().has_value();
     state_.live = 0;
     update_slow();
     return collected;

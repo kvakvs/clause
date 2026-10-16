@@ -1,4 +1,5 @@
 #include "map_tree.hpp"
+#include "../memory/heap_collect.hpp"
 #include "../memory/heap_storage.hpp"
 #include "../memory/heap_walk.hpp"
 #include <algorithm>
@@ -504,18 +505,20 @@ void link_tree_map(HeapStorage &storage, layout::TreeMapCell &cell) noexcept {
     storage.tree_maps_ = &cell;
 }
 
-void sweep_tree_maps(HeapStorage &storage, HeapArea &copies) noexcept {
+void sweep_tree_maps(HeapStorage &storage, const Survivors &survivors) noexcept {
     layout::TreeMapCell *newest = nullptr;
     auto **link = &newest;
     for (auto *cell = std::exchange(storage.tree_maps_, nullptr); cell != nullptr;) {
         auto *next = cell->next_;
         const auto first = cell->header_.value_;
-        if (is_header(first)) {
+        if (survivors.kept(cell)) {
+            *link = cell;
+            link = &cell->next_;
+        } else if (is_header(first)) {
             map_tree_release(storage, cell->root_);
         } else {
             // A forwarded stub's first word is the boxed pointer to its copy, which kept the root reference.
-            const auto copy =
-                copies.from(static_cast<std::uintptr_t>(first & ~static_cast<Word>(abi::v1::primary_mask)));
+            const auto copy = survivors.copy(first);
             *link = reinterpret_cast<layout::TreeMapCell *>(copy.data());
             link = &(*link)->next_;
         }

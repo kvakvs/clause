@@ -7,6 +7,7 @@
 namespace clause::runtime::detail {
 class HeapStorage;
 struct HeapArea;
+struct Survivors;
 
 // Words an off-heap buffer is charged: its bytes rounded up to words.
 inline std::size_t buffer_words(const layout::BinaryBuffer &buffer) noexcept {
@@ -33,9 +34,10 @@ void link_off_heap(HeapStorage &storage, layout::RefcBinaryCell &cell,
 // Move a cell into fresh storage, transferring its buffer reference; the source keeps none.
 // List links are the caller's to repair, as a collector sweep rebuilds them.
 layout::RefcBinaryCell &relocate_off_heap(layout::RefcBinaryCell &from, std::byte *to) noexcept;
-// After a copy into copies, relink the copies of forwarded cells in list order and destroy dead cells; a buffer's
-// process charge returns when the process's last cell for it dies.
-void sweep_off_heap(HeapStorage &storage, HeapArea &copies) noexcept;
+// After a collection, relink the copies of forwarded cells in list order, keep cells of the old area a minor
+// collection left in place, and destroy dead cells; a buffer's process charge returns when the process's last cell
+// for it dies.
+void sweep_off_heap(HeapStorage &storage, const Survivors &survivors) noexcept;
 // Drop every reference held by the owner's cells at teardown, newest first.
 void release_off_heap(HeapStorage &storage) noexcept;
 } // namespace clause::runtime::detail

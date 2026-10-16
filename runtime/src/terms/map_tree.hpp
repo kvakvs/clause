@@ -15,6 +15,7 @@
 namespace clause::runtime::detail {
 class HeapStorage;
 struct HeapArea;
+struct Survivors;
 
 // Entries up to which a map stays a classic heap cell (OTP's MAP_SMALL_MAP_LIMIT).
 inline constexpr std::size_t MAP_TREE_THRESHOLD = 32;
@@ -85,9 +86,8 @@ std::size_t map_edit(HeapStorage &storage) noexcept;
 std::expected<MapNode *, HeapError> map_tree_build(HeapStorage &storage, std::span<const MapWords> entries) noexcept;
 // Insert or replace one association under `edit`, replacing `root` (one owned reference) by the new root; nodes
 // shared with other trees are copied first. On failure `root` is unchanged.
-std::expected<void, TreeFailure> map_tree_insert(HeapStorage &storage, MapNode *&root, std::size_t edit,
-                                                 MapWords entry, bool exact, const MapProbe &probe,
-                                                 InsertFlags flags) noexcept;
+std::expected<void, TreeFailure> map_tree_insert(HeapStorage &storage, MapNode *&root, std::size_t edit, MapWords entry,
+                                                 bool exact, const MapProbe &probe, InsertFlags flags) noexcept;
 // The value of the probed key, if present.
 TermResult<std::optional<Word>> map_tree_find(const MapNode *root, const MapProbe &probe) noexcept;
 // The entry at canonical position `index` < size.
@@ -139,8 +139,9 @@ void map_tree_release(HeapStorage &storage, MapNode *node) noexcept;
 
 // Link a just-published stub as the newest entry of the owner's off-heap map list.
 void link_tree_map(HeapStorage &storage, layout::TreeMapCell &cell) noexcept;
-// After a copy into copies, relink the copies of forwarded stubs in list order and release dead stubs' trees.
-void sweep_tree_maps(HeapStorage &storage, HeapArea &copies) noexcept;
+// After a collection, relink the copies of forwarded stubs in list order, keep stubs of the old area a minor
+// collection left in place, and release dead stubs' trees.
+void sweep_tree_maps(HeapStorage &storage, const Survivors &survivors) noexcept;
 // Release every listed stub's tree at teardown.
 void release_tree_maps(HeapStorage &storage) noexcept;
 } // namespace clause::runtime::detail

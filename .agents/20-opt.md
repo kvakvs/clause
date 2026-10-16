@@ -83,6 +83,30 @@ On OTP about ⅓ of real time is JIT'd Erlang; the rest is C BIFs and GC
 (`erts_maps_put`, `eq`, `erts_cmp_compound`, `do_minor`). Clause's runtime
 services are the equivalent pool, so making them fast is itself a target.
 
+## Measured priorities (2026-10-16 profile of the 69A kernels)
+
+Pick work by benchmark impact (user direction 2026-10-16). cdb stack samples of
+the kernels furthest behind OTP JIT (Release runtime with symbols,
+`build/prof`) group the cost into:
+
+1. **Collection** (sort 65%, binary_append 50%, int_to_list 31%, map_put 25%,
+   map_update 22%, string_build 21%, euler ~15%): every collection was a full
+   sweep re-copying long-lived data; generational collection is the fix (done,
+   see `00-finished.md`). Left: off-heap binary and map pressure still force
+   full sweeps; dead old cells wait for the next full sweep.
+2. **`Term`-object overhead in builtins** (term_to_binary 14x: 85% in
+   encode/decode; string_build: `atom_to_list`, `++`; int_to_list:
+   `integer_to_list`/`list_to_integer`): `TermAccess::admit`, `get_kind`,
+   shared-pointer refcounts and `malloc` per call; word-level paths are the fix.
+3. **Message copy** (large_message 9.3x): `GraphCopy::discover` keeps sharing
+   through a hash table per object; OTP copies flat (`size_object` +
+   `copy_struct`).
+4. **Map trees** (map_put 3-10x, map_update 9.5x): `insert_entry` re-admits terms
+   per update; small-map lookups through `map_service` cost ~460 ns against 2.4
+   ns on OTP (no 69A kernel uses small maps).
+5. **Lists with funs** (map_foldl 3.9x): `lists:map` builds through
+   `construct_service`, then `apply` per element (OPT1.7, OPT1.8).
+
 ## Open follow-ups of finished tier OPT0 steps
 
 - **OPT0.1A frameless leaves** (no push for a function with no non-tail call and
@@ -112,8 +136,6 @@ services are the equivalent pool, so making them fast is itself a target.
   conversion, `Term` copies with their weak pointer, per-element admission in
   `list_words`).
 - **OPT0.17:** closure sinking and closure inlining remain in OPT1.8.
-- **OPT0.20:** generational collection, so a large live heap is not copied by
-  every collection (~15% of luerl euler).
 - **OPT0.24 / OPT0.25:** cheaper process creation and teardown; queues still
   share one executor mutex, so a scheduler without one global lock.
 

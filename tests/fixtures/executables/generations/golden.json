@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "generations",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "170100\n1250025000\n35050\n{200,32000}\n900030000\n5150\ngenerations: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "generations.erl": "3f733f09d6947e6ff8c4b2ba8d0cd88e4bfd1bfb9526e8e9bc625813f43d764a"
+  }
+}

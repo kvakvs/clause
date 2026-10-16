@@ -40,10 +40,43 @@ std::size_t heap_size_at_least(std::size_t words) noexcept {
     return size;
 }
 
-Copier::Copier(HeapStorage &storage, std::size_t capacity)
-    : storage_(storage), to_{std::make_unique_for_overwrite<Word[]>(capacity), capacity} {
+bool Survivors::kept(const void *object) const noexcept {
+    return old != nullptr && !old->from(reinterpret_cast<std::uintptr_t>(object)).empty();
+}
+
+std::span<Word> Survivors::copy(Word forwarded) const noexcept {
+    const auto at = address(forwarded);
+    if (const auto found = young.from(at); !found.empty() || old == nullptr) {
+        return found;
+    }
+    return old->from(at);
+}
+
+namespace {
+// The old area a minor collection promotes into: the current one, or a new block twice the mature words.
+HeapArea old_area(const HeapStorage &storage) {
+    if (storage.old_.capacity_ != 0 || storage.high_water_ == 0) {
+        return {};
+    }
+    const auto capacity = std::max(storage.options_.min_heap_words, heap_size_at_least(2 * storage.high_water_));
+    return {std::make_unique_for_overwrite<Word[]>(capacity), capacity};
+}
+} // namespace
+
+Copier::Copier(HeapStorage &storage, std::size_t capacity, Generation generation)
+    : storage_(storage), generation_(generation), to_{std::make_unique_for_overwrite<Word[]>(capacity), capacity} {
+    auto old = generation == Generation::minor ? old_area(storage) : HeapArea{};
     // The to-space may pass the runtime-wide limit until finish() releases the blocks it replaces.
-    storage_.memory_->force(capacity);
+    storage_.memory_->force(capacity + old.capacity_);
+    if (old.capacity_ != 0) {
+        storage_.capacity_words_ += old.capacity_;
+        storage_.old_ = std::move(old);
+    }
+    if (generation == Generation::minor) {
+        mature_ =
+            std::span<const Word>{storage_.heap_.words_.get(), std::min(storage_.high_water_, storage_.heap_.top_)};
+    }
+    old_start_ = storage_.old_.top_;
     ++storage_.collections_;
 }
 
@@ -52,19 +85,29 @@ Word Copier::evacuate(Word value) noexcept {
     if (kind != TermKind::list && kind != TermKind::boxed) {
         return value;
     }
+    // A minor collection neither moves nor scans the old area: no old object points at a younger one.
+    if (generation_ != Generation::full && !storage_.old_.from(address(value)).empty()) {
+        return value;
+    }
     const auto from = storage_.owned(address(value));
     if (from.empty()) {
         return value;
     }
     // A forwarded cons has a zero head and its copy in the tail; a forwarded box has a pointer for a header.
     if (kind == TermKind::list) {
-        return from[0] == 0 ? from[1] : copy_cons(from);
+        return from[0] == 0 ? from[1] : copy_cons(from, target(from));
     }
-    return is_header(from[0]) ? copy_boxed(from) : from[0];
+    return is_header(from[0]) ? copy_boxed(from, target(from)) : from[0];
 }
 
-Word Copier::copy_cons(std::span<Word> from) noexcept {
-    const auto copy = to_.bump(2);
+HeapArea &Copier::target(std::span<const Word> from) noexcept {
+    const auto *object = from.data();
+    const bool mature = !mature_.empty() && object >= mature_.data() && object < mature_.data() + mature_.size();
+    return mature ? storage_.old_ : to_;
+}
+
+Word Copier::copy_cons(std::span<Word> from, HeapArea &area) noexcept {
+    const auto copy = area.bump(2);
     std::ranges::copy(from.first(2), copy.begin());
     const auto moved = tagged(copy.data(), TermKindPrimary::list);
     from[0] = 0;
@@ -72,9 +115,9 @@ Word Copier::copy_cons(std::span<Word> from) noexcept {
     return moved;
 }
 
-Word Copier::copy_boxed(std::span<Word> from) noexcept {
+Word Copier::copy_boxed(std::span<Word> from, HeapArea &area) noexcept {
     const auto size = 1 + BoxHeader::count(from[0]);
-    const auto copy = to_.bump(size);
+    const auto copy = area.bump(size);
     if (layout::off_heap_cell(from[0])) {
         relocate_off_heap(*reinterpret_cast<layout::RefcBinaryCell *>(from.data()),
                           reinterpret_cast<std::byte *>(copy.data()));
@@ -86,17 +129,20 @@ Word Copier::copy_boxed(std::span<Word> from) noexcept {
     return moved;
 }
 
-void Copier::scan() noexcept {
-    for (std::size_t scanned = 0; scanned < to_.top_;) {
-        const std::span<Word> rest{to_.words_.get() + scanned, to_.top_ - scanned};
+bool Copier::scan(HeapArea &area, std::size_t &scanned) noexcept {
+    bool found = false;
+    while (scanned < area.top_) {
+        const std::span<Word> rest{area.words_.get() + scanned, area.top_ - scanned};
         const auto cell = parse_cell(rest);
         if (!cell) {
-            return; // Unreachable: copies of verified objects always parse.
+            return found; // Unreachable: copies of verified objects always parse.
         }
         evacuate_slots(rest, *cell);
         evacuate_tree(*cell);
         scanned += cell->words.size();
+        found = true;
     }
+    return found;
 }
 
 void Copier::evacuate_slots(std::span<Word> object, const HeapCell &cell) noexcept {
@@ -118,9 +164,15 @@ void Copier::evacuate_tree(const HeapCell &cell) noexcept {
 }
 
 void Copier::finish() noexcept {
-    scan();
-    sweep_off_heap(storage_, to_);
-    sweep_tree_maps(storage_, to_);
-    storage_.replace(std::move(to_));
+    // Copies land in the new block and, when promoted, in the old area: scan both until neither grows.
+    std::size_t young = 0;
+    std::size_t old = old_start_;
+    while (scan(to_, young) || scan(storage_.old_, old)) {
+    }
+    const bool full = generation_ == Generation::full;
+    const Survivors survivors{to_, full ? nullptr : &storage_.old_};
+    sweep_off_heap(storage_, survivors);
+    sweep_tree_maps(storage_, survivors);
+    storage_.replace(std::move(to_), full);
 }
 } // namespace clause::runtime::detail
