@@ -9,6 +9,7 @@
 #include <charconv>
 #include <clause/abi/frames.hpp>
 #include <iterator>
+#include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/Transforms/Utils/Local.h>
@@ -193,18 +194,15 @@ struct Callee {
     llvm::Value *slots;
 };
 
-// Whether a use reads its value in a `reached` block other than the definition's. A PHI reads at the end of
-// an incoming block; any predecessor of its block counts, which can only spill more than needed.
-bool reads_in(const llvm::Use &use, const llvm::BasicBlock *definition,
-              const std::set<const llvm::BasicBlock *> &reached) {
+// The blocks a use reads its value in: the user's block, or for a PHI, which reads at the end of an incoming
+// block, every predecessor of its block, which can only spill more than needed.
+void read_blocks(const llvm::Use &use, std::vector<const llvm::BasicBlock *> &blocks) {
     const auto *user = llvm::cast<llvm::Instruction>(use.getUser());
-    const auto *block = user->getParent();
-    if (!llvm::isa<llvm::PHINode>(user)) {
-        return block != definition && reached.contains(block);
+    if (llvm::isa<llvm::PHINode>(user)) {
+        std::ranges::copy(llvm::predecessors(user->getParent()), std::back_inserter(blocks));
+    } else {
+        blocks.push_back(user->getParent());
     }
-    return std::ranges::any_of(llvm::predecessors(block), [&](const llvm::BasicBlock *from) {
-        return from != definition && reached.contains(from);
-    });
 }
 
 // The native-form functions of one tail-call cycle (OPT1.1B): each reaches every other through tail calls only.
@@ -623,6 +621,7 @@ class FrameLowering {
             return;
         }
         find_terms();
+        find_resumes();
         std::vector<llvm::Instruction *> crossing;
         for (auto &block : body_) {
             for (auto &instruction : block) {
@@ -636,36 +635,36 @@ class FrameLowering {
         }
     }
 
-    // A use outside the defining block that some resume point reaches without passing the definition.
-    bool crosses(const llvm::Instruction &value) {
-        const auto &reached = resumed(value.getParent());
-        return std::ranges::any_of(value.uses(),
-                                   [&](const llvm::Use &use) { return reads_in(use, value.getParent(), reached); });
+    // Collect the blocks execution resumes in: after each non-tail call and each safepoint.
+    void find_resumes() {
+        for (const auto &continuation : continuations_) {
+            resumes_.insert(continuation.resume);
+        }
+        resumes_.insert(safepoints_.begin(), safepoints_.end());
     }
 
-    // Blocks reachable from a resume point without entering `definition`, cached per defining block.
-    const std::set<const llvm::BasicBlock *> &resumed(const llvm::BasicBlock *definition) {
-        auto [found, fresh] = resumed_.try_emplace(definition);
-        if (!fresh) {
-            return found->second;
-        }
+    // A use outside the defining block that some resume point reaches without passing the definition: a walk back
+    // from the reading blocks, stopped at the definition, meets a resume point. It covers only the value's live
+    // range, where a forward flood per defining block grew with the square of the function's blocks.
+    bool crosses(const llvm::Instruction &value) {
+        const auto *definition = value.getParent();
         std::vector<const llvm::BasicBlock *> pending;
-        for (const auto &continuation : continuations_) {
-            if (continuation.resume != definition) {
-                pending.push_back(continuation.resume);
-            }
+        for (const auto &use : value.uses()) {
+            read_blocks(use, pending);
         }
-        std::ranges::copy_if(safepoints_, std::back_inserter(pending),
-                             [&](const llvm::BasicBlock *block) { return block != definition; });
+        llvm::SmallPtrSet<const llvm::BasicBlock *, 32> seen;
         while (!pending.empty()) {
             const auto *block = pending.back();
             pending.pop_back();
-            if (found->second.insert(block).second) {
-                std::ranges::copy_if(llvm::successors(block), std::back_inserter(pending),
-                                     [&](const llvm::BasicBlock *next) { return next != definition; });
+            if (block == definition || !seen.insert(block).second) {
+                continue;
             }
+            if (resumes_.contains(block)) {
+                return true;
+            }
+            std::ranges::copy(llvm::predecessors(block), std::back_inserter(pending));
         }
-        return found->second;
+        return false;
     }
 
     // Store the value after its definition and load it before each use (LLVM's register demotion), in a raw slot.
@@ -1040,11 +1039,12 @@ class FrameLowering {
     std::vector<std::pair<llvm::GetElementPtrInst *, std::size_t>> raw_addresses_;
     // Stack-trace fields copied from the marker's name descriptor; empty without a marker.
     std::array<llvm::Constant *, 4> names_{};
-    // Non-tail calls in resume-index order and the blocks each resume point reaches.
+    // Non-tail calls in resume-index order.
     std::vector<Continuation> continuations_;
     // Blocks continuing after each loop-head safepoint call.
     std::vector<const llvm::BasicBlock *> safepoints_;
-    std::map<const llvm::BasicBlock *, std::set<const llvm::BasicBlock *>> resumed_;
+    // The blocks execution resumes in after a call or safepoint, where a value read later must sit in a slot.
+    llvm::SmallPtrSet<const llvm::BasicBlock *, 16> resumes_;
     // Constant prologue addresses by element type and operands.
     using Address = std::pair<llvm::Type *, std::vector<llvm::Value *>>;
     std::map<Address, std::vector<llvm::Value *>> hoisted_;
