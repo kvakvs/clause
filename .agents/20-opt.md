@@ -128,8 +128,9 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
 - **OPT3.6 binary_append (3.6x):** `<<Bin/binary, N:32>>` 10,000 times: one
   service call per append on the appendable buffer, and collections of the
   growing binary.
-- **OPT3.8 int_to_list (2.8x):** `list_to_integer(integer_to_list(X))`, the
-  OPT0.12 follow-up (typed argument conversion and `Term` copies per call).
+- **OPT3.8 int_to_list:** done for list_to_integer's short text (OPT3.8); run
+  alone the round trip is 835 against OTP's 444 us per 20,000, now the two
+  bodies' digit work (`to_chars`, `from_chars`, a staging vector).
 - **OPT3.9 large_message (2.8x):** small messages to busy receivers still copy
   twice (into a buffer, then into the receiver).
 - **OPT3.10B young heap sizing:** block reuse is done (OPT3.10). ERTS sizes a

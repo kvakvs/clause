@@ -484,7 +484,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   geometrically, instead of calling the construct service per cell between
   safepoints; map_foldl 1.52x (`lists:map` returns), term_to_binary 1.13x,
   binary_append 1.10x —
-  `[plan20] OPT3.11 ...`
+  `c86bb60a`
+- **OPT3.8** `list_to_integer/1` reads a short list in place into a fixed
+  buffer (trusted walk) instead of admitting a `Term` and walking it; the
+  int_to_list round trip run alone 1688 to 835 us (OTP 444) —
+  `[plan20] OPT3.8 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

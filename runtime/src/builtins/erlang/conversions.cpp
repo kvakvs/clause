@@ -243,19 +243,31 @@ Word integer_to_list_word(ProcessContext &context, Arguments arguments) {
     return need(integer_to_list1(context, need(detail::integer_read(term)))).word();
 }
 
-// Up to 20 ASCII characters of a proper list read from its cells; none for a longer, improper or non-ASCII list.
-std::optional<std::string> short_text(ProcessContext &context, Word list) {
-    std::string text;
-    auto rest = term_of(context, list);
-    bool ascii = true;
-    walk(rest, 20, [&](Word head) {
-        const auto code = small(head);
-        ascii = ascii && code && *code >= 0 && *code < 128;
-        if (ascii) {
-            text.push_back(static_cast<char>(*code));
+// Up to 20 ASCII characters of a proper list.
+struct ShortText {
+    std::array<char, 20> characters;
+    std::size_t size;
+
+    std::string_view view() const noexcept { return {characters.data(), size}; }
+};
+
+// The text of a proper list of at most 20 ASCII characters, its cells read in place (trusted walks: an argument is
+// a validated term of this process); none for a longer, improper or non-ASCII list.
+std::optional<ShortText> short_text(Word list) {
+    ShortText text{};
+    for (auto rest = list;; rest = detail::TermAccess::trusted(rest)[1]) {
+        if (rest == abi::v1::empty_list) {
+            return text;
         }
-    });
-    return ascii && rest.is_nil() ? std::optional{std::move(text)} : std::nullopt;
+        if ((rest & abi::v1::primary_mask) != abi::v1::list_tag || text.size == text.characters.size()) {
+            return std::nullopt;
+        }
+        const auto code = small(detail::TermAccess::trusted(rest)[0]);
+        if (!code || *code < 0 || *code >= 128) {
+            return std::nullopt;
+        }
+        text.characters.at(text.size++) = static_cast<char>(*code);
+    }
 }
 
 // The small integer a short decimal text spells, with an optional sign; none for any other text, which takes the
@@ -275,8 +287,8 @@ std::optional<std::int64_t> small_decimal(std::string_view text) {
 // list_to_integer(String): a short decimal string from its words (word-level conversions); others take the general
 // path, which also reports every error.
 Word list_to_integer_word(ProcessContext &context, Arguments arguments) {
-    const auto text = short_text(context, arguments[0]);
-    if (const auto value = text ? small_decimal(*text) : std::nullopt) {
+    const auto text = short_text(arguments[0]);
+    if (const auto value = text ? small_decimal(text->view()) : std::nullopt) {
         return *abi::v1::NativeIntegerEncoding::encode(*value);
     }
     return need(list_to_integer1(context, term_of(context, arguments[0]))).word();
