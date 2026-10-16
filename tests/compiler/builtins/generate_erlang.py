@@ -46,7 +46,7 @@ def parse(root):
 def catalog(root):
     """The erlang functions of the bridge catalog."""
     text = (root / "abi/include/clause/abi/builtins.hpp").read_text(encoding="utf-8")
-    return {(f, int(a)) for f, a in re.findall(r'BuiltinName\{"erlang", "([^"]+)", (\d+)\}', text)}
+    return {(f, int(a)) for f, a in re.findall(r'BuiltinName\{"erlang", "([^"]+)", (\d+)(?:, DIRECT)?\}', text)}
 
 
 def problems(entries, builtins):

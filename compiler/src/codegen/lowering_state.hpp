@@ -297,6 +297,8 @@ llvm::Value *lower_tuple(ExpressionLowering &state, std::span<llvm::Value *const
 llvm::Value *lower_list(ExpressionLowering &state, std::span<llvm::Value *const> values);
 // Reverse a proper list built by a comprehension.
 llvm::Value *lower_reverse(ExpressionLowering &state, llvm::Value *list);
+// `Left ++ Right`: a short proper Left copied inline, anything else through the builtin (inline appends).
+llvm::Value *lower_append(ExpressionLowering &state, llvm::Value *left, llvm::Value *right);
 
 struct Comprehension {
     // The list, binary or map comprehension being lowered.

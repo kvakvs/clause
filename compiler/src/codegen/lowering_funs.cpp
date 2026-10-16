@@ -4,6 +4,7 @@
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
 #include <algorithm>
+#include <clause/abi/builtins.hpp>
 #include <clause/abi/equality.hpp>
 #include <clause/abi/frames.hpp>
 #include <clause/abi/messages.hpp>
@@ -269,7 +270,35 @@ llvm::Value *lower_dynamic_call(ExpressionLowering &state, const ast::Expression
                     {state.entry.getArg(0), module, function, count}, array);
 }
 
+namespace {
+// A direct builtin's call (direct builtins): its body runs at once on an argument array, with no frame transfer, and a
+// failure leaves through the failure channel as a service's does.
+llvm::Value *direct_builtin(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values) {
+    auto &builder = state.builder;
+    const llvm::Align alignment(state.word->getBitWidth() / 8);
+    auto *array = builder.CreateAlloca(
+        state.word, llvm::ConstantInt::get(state.word, std::max<std::size_t>(1, values.size())), "direct.arguments");
+    array->setAlignment(alignment);
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        builder.CreateAlignedStore(
+            values[i], builder.CreateGEP(state.word, array, llvm::ConstantInt::get(state.word, i)), alignment);
+    }
+    auto &output = *state.entry.getParent();
+    auto service = output.getOrInsertFunction(
+        services::symbol<services::BuiltinCall>(output.getTargetTriple()),
+        llvm::FunctionType::get(state.word, {builder.getPtrTy(), state.word, builder.getPtrTy()}, false));
+    auto *result = builder.CreateCall(
+        service, {state.entry.getArg(0), llvm::ConstantInt::get(state.word, builtin), array}, "direct.result");
+    propagate_failure(state);
+    mark_term(state, result);
+    return result;
+}
+} // namespace
+
 llvm::Value *lower_builtin(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values) {
+    if (abi::v1::bridge_builtins.at(builtin).direct) {
+        return direct_builtin(state, builtin, values);
+    }
     auto &builder = state.builder;
     auto *array = registers(state, values.size());
     const llvm::Align alignment(state.word->getBitWidth() / 8);

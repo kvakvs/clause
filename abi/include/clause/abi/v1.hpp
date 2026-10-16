@@ -18,7 +18,7 @@ namespace clause::abi::v1 {
 // six X registers as Code parameters; revision 18 adds sub-binary cells (OPT1.4B); revision 19 keeps the append state
 // in off-heap binary cells (OPT0.11B); revision 20 adds MapOperation::entries (OPT0.13); revision 21 adds
 // ModuleDescriptor::fun_cache (inline closures); v1 names the unchanged term encoding.
-inline constexpr std::uint32_t version = 21;
+inline constexpr std::uint32_t version = 22;
 // Decode the shared immediate-term representation without preprocessor constants.
 inline constexpr unsigned primary_mask = 0x3;
 inline constexpr unsigned small_integer_tag = 0xf;

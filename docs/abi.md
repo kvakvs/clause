@@ -252,7 +252,10 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   literals.
 - `Left ++ Right` where `Left` is written as a proper list (a string literal, or
   a list without a tail) is built as `[E1, ..., En | Right]`, as OTP's compiler
-  does, without calling `erlang:'++'/2`.
+  does, without calling `erlang:'++'/2`. Any other `Left ++ Right` walks `Left`
+  inline (`codegen/lowering_append`): a proper list of at most 32 cells is copied
+  onto `Right` in the heap block's free words; a longer or improper `Left`, or a
+  block without room, enters the builtin, which keeps every error and portion.
 - A pure builtin of literal arguments is evaluated at compile time, as OTP's
   `sys_core_fold` does: `atom_to_list(Atom)` of an atom literal is that name's
   literal string, with no call.
@@ -371,6 +374,14 @@ is a builtin: entering it runs the builtin on the registers and returns into the
 caller, or suspends the process at the builtin's continuation when it trapped
 ([portions](builtins.md#portions)).
 
+A direct builtin (`BuiltinName::direct`: pure conversions such as
+`integer_to_list/1`, `atom_to_list/1`, `list_to_tuple/1`, `setelement/3`,
+`phash2/1`) never traps, waits or acts on another process. Generated code calls
+it with `CLAUSE_builtin_call_v1(context, builtin, arguments)`, which runs its
+body at once and returns the result, with no frame transfer, no resume point and
+no entry safepoint; it spends one reduction, and a failure goes to the checked
+channel as a service's does.
+
 `abi::v1::dispatch_builtin` calls host-registered builtins by module/function
 bytes, argument array and arity, returning a `Status`; output is written only on
 success.
@@ -417,3 +428,4 @@ success.
 | 19 | Append end and limit words in `refc_binary` cells (`refc_append_*_word`, 8 payload words) and inline appends |
 | 20 | `MapOperation::entries` and inline map generators |
 | 21 | `ModuleDescriptor::fun_cache` and inline closures |
+| 22 | Direct builtins: `BuiltinName::direct`, `CLAUSE_builtin_call_v1` |

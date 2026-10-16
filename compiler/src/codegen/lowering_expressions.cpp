@@ -250,6 +250,7 @@ llvm::Value *binary_value(ExpressionLowering &state, const ast::BinaryExpression
         if (auto *prefixed = literal_prefix(state, binary, values[1])) {
             return prefixed;
         }
+        return lower_append(state, values[0], values[1]);
     }
     if (const auto builtin = operator_builtin(binary.operation)) {
         return lower_builtin(state, *builtin, values);

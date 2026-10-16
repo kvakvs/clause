@@ -50,7 +50,9 @@ the bridge. Every other `erlang` function reaches the
 | Source | Path |
 | --- | --- |
 | `abs(X)`, `X + Y`, `erlang:display(X)`, `halt()`, `error(R)` | Inline code or a dedicated runtime service |
-| `erlang:function_exported(M, F, A)`, `setelement(I, T, V)`, `A ++ B`, `A -- B`, `length(L)` in a body (catalog builtins without an inline service) | Entered like a function: `CLAUSE_builtin_frame_v1(context, index)` gives the builtin's frame, the arguments go in the registers ([portions](#portions)) |
+| `erlang:function_exported(M, F, A)`, `A -- B`, `length(L)` in a body (catalog builtins without an inline service) | Entered like a function: `CLAUSE_builtin_frame_v1(context, index)` gives the builtin's frame, the arguments go in the registers ([portions](#portions)) |
+| `integer_to_list(I)`, `atom_to_list(A)`, `setelement(I, T, V)`, ... (direct builtins: never trap, wait or act on another process) | Called at once: `CLAUSE_builtin_call_v1(context, index, arguments)` returns the result ([ABI](abi.md#runtime-services)) |
+| `A ++ B` | A short proper `A` is copied inline; otherwise entered like a function ([ABI](abi.md#frames-and-transfers)) |
 | `fun abs/1`, `fun erlang:'+'/2` | External fun `erlang:F/A`; registration binds it to the builtin |
 | `M:F(Args)`, `apply(M, F, Args)`, runtime `fun M:F/A` | The code server finds a module's export first, then a builtin |
 

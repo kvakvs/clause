@@ -84,6 +84,10 @@ class ProcessStack final {
     // Note that the heap wants a collection, so entries take the service path to their safepoint (OPT0.1).
     void signal_collection() const noexcept { state_.slow |= abi::v1::slow_collect; }
 
+    // Run the direct builtin `function` at once on `arguments` (direct builtins): it spends one reduction and enters
+    // no frame and no safepoint; the portions a direct builtin never leaves would run to the end.
+    Word call_direct(const abi::v1::FrameDescriptor &function, const Word *arguments) noexcept;
+
     // Run `function` to completion above a bottom frame, resuming it after every yield; frames left by native
     // exceptions are released.
     Word invoke(const abi::v1::FrameDescriptor &function, const Word *arguments) noexcept;

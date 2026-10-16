@@ -84,6 +84,9 @@ int main() {
         check<services::BuiltinFrame>({"?CLAUSE_builtin_frame_v1@@YAPEBXPEAX_K@Z",
                                        "?CLAUSE_builtin_frame_v1@@YAPBXPAXI@Z", "_Z23CLAUSE_builtin_frame_v1Pvm",
                                        "_Z23CLAUSE_builtin_frame_v1Pvj"});
+        check<services::BuiltinCall>({"?CLAUSE_builtin_call_v1@@YA_KPEAX_KPEB_K@Z",
+                                      "?CLAUSE_builtin_call_v1@@YAIPAXIPBI@Z", "_Z22CLAUSE_builtin_call_v1PvmPKm",
+                                      "_Z22CLAUSE_builtin_call_v1PvjPKj"});
         check<services::Receive>({"?CLAUSE_receive_v1@@YAEPEAXEPEA_K@Z", "?CLAUSE_receive_v1@@YAEPAXEPAI@Z",
                                   "_Z17CLAUSE_receive_v1PvhPm", "_Z17CLAUSE_receive_v1PvhPj"});
         check<services::WaitFrame>({"?CLAUSE_wait_frame_v1@@YAPEBXPEAX@Z", "?CLAUSE_wait_frame_v1@@YAPBXPAX@Z",

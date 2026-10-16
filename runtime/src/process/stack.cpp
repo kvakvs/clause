@@ -182,6 +182,19 @@ abi::v1::Code *ProcessStack::enter_builtin(const FrameDescriptor *caller, const 
     return descriptor(state_.frame).body;
 }
 
+Word ProcessStack::call_direct(const FrameDescriptor &function, const Word *arguments) noexcept {
+    state_.reductions -= state_.reductions == 0 ? 0 : 1;
+    if (!trace_) {
+        return call_builtin(owner_, builtin_frame(function), arguments);
+    }
+    // A traced call reports its entry and result as a builtin entered through the registers does.
+    std::copy_n(arguments, function.arity, registers_.begin());
+    trace_->enter(state_.frame == none ? nullptr : &descriptor(state_.frame), function, none, none, registers_.data());
+    const auto result = call_builtin(owner_, builtin_frame(function), arguments);
+    trace_->builtin_done(result, owner_.generated_calls().failure().has_value(), false);
+    return result;
+}
+
 void ProcessStack::trap(const FrameDescriptor &continuation, std::span<const Word> state) noexcept {
     std::ranges::copy(state, registers_.begin());
     trap_ = &continuation;

@@ -20,7 +20,13 @@ struct BuiltinName {
     std::string_view module;
     std::string_view function;
     std::size_t arity;
+    // A direct builtin never traps, waits or acts on another process: generated code calls it through
+    // CLAUSE_builtin_call_v1 with no frame transfer (direct builtins).
+    bool direct = false;
 };
+
+// Marks a direct builtin's entry.
+inline constexpr bool DIRECT = true;
 
 // Every bridge builtin. An entry's index is the `builtin` argument of CLAUSE_builtin_frame_v1; compiler and runtime
 // are built together, so entries may be reordered (no released ABI to keep). Group comments name the runtime
@@ -105,22 +111,22 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "raise", 3},
     BuiltinName{"erlang", "function_exported", 3},
     // Term access (plan step 37; erlang/term_access.cpp).
-    BuiltinName{"erlang", "setelement", 3},
-    BuiltinName{"erlang", "make_tuple", 2},
-    BuiltinName{"erlang", "make_tuple", 3},
-    BuiltinName{"erlang", "tuple_to_list", 1},
-    BuiltinName{"erlang", "list_to_tuple", 1},
+    BuiltinName{"erlang", "setelement", 3, DIRECT},
+    BuiltinName{"erlang", "make_tuple", 2, DIRECT},
+    BuiltinName{"erlang", "make_tuple", 3, DIRECT},
+    BuiltinName{"erlang", "tuple_to_list", 1, DIRECT},
+    BuiltinName{"erlang", "list_to_tuple", 1, DIRECT},
     BuiltinName{"erlang", "++", 2},
     BuiltinName{"erlang", "--", 2},
     // Conversions (plan step 38; erlang/conversions.cpp).
-    BuiltinName{"erlang", "atom_to_list", 1},
-    BuiltinName{"erlang", "list_to_atom", 1},
-    BuiltinName{"erlang", "integer_to_list", 1},
-    BuiltinName{"erlang", "integer_to_list", 2},
-    BuiltinName{"erlang", "list_to_integer", 1},
-    BuiltinName{"erlang", "list_to_integer", 2},
-    BuiltinName{"erlang", "float_to_list", 1},
-    BuiltinName{"erlang", "float_to_list", 2},
+    BuiltinName{"erlang", "atom_to_list", 1, DIRECT},
+    BuiltinName{"erlang", "list_to_atom", 1, DIRECT},
+    BuiltinName{"erlang", "integer_to_list", 1, DIRECT},
+    BuiltinName{"erlang", "integer_to_list", 2, DIRECT},
+    BuiltinName{"erlang", "list_to_integer", 1, DIRECT},
+    BuiltinName{"erlang", "list_to_integer", 2, DIRECT},
+    BuiltinName{"erlang", "float_to_list", 1, DIRECT},
+    BuiltinName{"erlang", "float_to_list", 2, DIRECT},
     BuiltinName{"erlang", "binary_to_list", 1},
     BuiltinName{"erlang", "list_to_binary", 1},
     BuiltinName{"erlang", "iolist_to_binary", 1},
@@ -189,17 +195,17 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "erase", 1},
     BuiltinName{"erlang", "erase", 0},
     // Binary, atom and number conversions (plan step 41D; erlang/binary_conversions.cpp).
-    BuiltinName{"erlang", "atom_to_binary", 1},
-    BuiltinName{"erlang", "atom_to_binary", 2},
-    BuiltinName{"erlang", "binary_to_atom", 1},
-    BuiltinName{"erlang", "binary_to_atom", 2},
+    BuiltinName{"erlang", "atom_to_binary", 1, DIRECT},
+    BuiltinName{"erlang", "atom_to_binary", 2, DIRECT},
+    BuiltinName{"erlang", "binary_to_atom", 1, DIRECT},
+    BuiltinName{"erlang", "binary_to_atom", 2, DIRECT},
     BuiltinName{"erlang", "binary_to_existing_atom", 1},
     BuiltinName{"erlang", "binary_to_existing_atom", 2},
-    BuiltinName{"erlang", "list_to_existing_atom", 1},
-    BuiltinName{"erlang", "integer_to_binary", 1},
-    BuiltinName{"erlang", "integer_to_binary", 2},
-    BuiltinName{"erlang", "binary_to_integer", 1},
-    BuiltinName{"erlang", "binary_to_integer", 2},
+    BuiltinName{"erlang", "list_to_existing_atom", 1, DIRECT},
+    BuiltinName{"erlang", "integer_to_binary", 1, DIRECT},
+    BuiltinName{"erlang", "integer_to_binary", 2, DIRECT},
+    BuiltinName{"erlang", "binary_to_integer", 1, DIRECT},
+    BuiltinName{"erlang", "binary_to_integer", 2, DIRECT},
     BuiltinName{"erlang", "float_to_binary", 1},
     BuiltinName{"erlang", "float_to_binary", 2},
     BuiltinName{"erlang", "binary_to_float", 1},
@@ -287,8 +293,8 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "fun_to_list", 1},
     BuiltinName{"erlang", "is_builtin", 3},
     BuiltinName{"erlang", "phash", 2},
-    BuiltinName{"erlang", "phash2", 1},
-    BuiltinName{"erlang", "phash2", 2},
+    BuiltinName{"erlang", "phash2", 1, DIRECT},
+    BuiltinName{"erlang", "phash2", 2, DIRECT},
     BuiltinName{"erlang", "md5", 1},
     BuiltinName{"erlang", "md5_init", 0},
     BuiltinName{"erlang", "md5_update", 2},
@@ -509,3 +515,7 @@ constexpr std::optional<std::size_t> find_bridge_builtin(std::string_view module
 // The FrameDescriptor of bridge builtin `builtin` (an index into bridge_builtins), which generated code enters like
 // a function with the builtin's arguments in the registers; null after recording an unknown index as a failure.
 const void *CLAUSE_builtin_frame_v1(void *context, std::size_t builtin) noexcept;
+// Run direct bridge builtin `builtin` at once on its argument words and return its result (direct builtins); a failure
+// is recorded in the failure channel, as a service's, and the result is then 0.
+clause::abi::v1::TermWord CLAUSE_builtin_call_v1(void *context, std::size_t builtin,
+                                                 const clause::abi::v1::TermWord *arguments) noexcept;

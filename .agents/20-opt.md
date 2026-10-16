@@ -117,10 +117,6 @@ Steps by the gap to OTP JIT in the 2026-10-16 69A run (after OPT0.34). Profile
 each kernel with the cdb sampler (`build/prof`) before building; map_foldl
 (3.8x) belongs to OPT1.7 and OPT1.8.
 
-- **OPT3.2 string_build (4.8x):** `integer_to_list(N) ++ "-" ++ "item"` per
-  element. Candidates: `++` with a literal right operand copies its left list
-  inline (no service call), a word-level `integer_to_list`, and the collections
-  of the growing result list.
 - **OPT3.3 term_to_binary round trip (4.1x):** the codec is word-level
   (OPT0.26); profile what is left (list and tuple building in `binary_to_term`,
   the output buffer's growth, atom lookups).
@@ -149,7 +145,9 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
   the first sweep after list_of_tuples (a 3M-word old area) lands in
   binary_append (0.84x vs HEAD) and bigint (0.89x), and comprehension runs in a
   75k-word young block sized from the old area (0.71x); each is unchanged run
-  alone.
+  alone. string_build after OPT3.2 is collection-bound: 6.5 collections per
+  iteration (0.8 of them full sweeps) against OTP's one, whose young heap
+  settles at 514,838 words while Clause's shrinks to 121,536 after each sweep.
 
 ## Open follow-ups of finished tier OPT0 steps
 

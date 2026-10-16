@@ -155,7 +155,7 @@ def read_module(path):
 def catalog(root, module):
     """The functions of `module` that the runtime's bridge catalog implements."""
     text = (root / "abi/include/clause/abi/builtins.hpp").read_text(encoding="utf-8")
-    return {(f, int(a)) for f, a in re.findall(rf'BuiltinName\{{"{re.escape(module)}", "([^"]+)", (\d+)\}}', text)}
+    return {(f, int(a)) for f, a in re.findall(rf'BuiltinName\{{"{re.escape(module)}", "([^"]+)", (\d+)(?:, DIRECT)?\}}', text)}
 
 
 def check_module(root, source, inventory, problems):

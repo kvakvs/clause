@@ -451,7 +451,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   that collections move and free like any cell, with no reference counts, list
   sweeps or off-heap charge forcing full sweeps; map_update 3.6x (4.2 to 1.19 ms),
   69A geomean +3.6% (heap-sizing side effects in OPT3.10) —
-  `[plan20] OPT3.1 ...`
+  `bca659ab`
+- **OPT3.2** inline `++` (`codegen/lowering_append`: a proper left list of up
+  to 32 cells copied in generated code, 145 to 13 ns, OTP 12) and direct
+  builtins (`CLAUSE_builtin_call_v1`, ABI 22: pure conversions run with no
+  frame transfer); string_build 1.81x, int_to_list 1.08x, 69A geomean +2.8% —
+  `[plan20] OPT3.2 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

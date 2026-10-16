@@ -35,6 +35,7 @@ using Record = Function<"CLAUSE_record_v1", UInt8, Context, UInt8, UInt8, Descri
 using Display = Function<"CLAUSE_display_v1", UInt8, Context, Size, Slot>;
 // Bridge builtins (abi/builtins.hpp): the FrameDescriptor of a bridge index, entered like a function.
 using BuiltinFrame = Function<"CLAUSE_builtin_frame_v1", Descriptor, Context, Size>;
+using BuiltinCall = Function<"CLAUSE_builtin_call_v1", Size, Context, Size, Words>;
 using Halt = Function<"CLAUSE_halt_v1", UInt8, Context, Size>;
 using Exact = Function<"CLAUSE_exact_v1", UInt8, Context, Size, Size>;
 using CallFailed = Function<"CLAUSE_call_failed_v2", UInt8, Context>;
