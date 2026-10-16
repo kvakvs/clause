@@ -100,7 +100,11 @@ class GraphCopy final {
             const auto copy = out.subspan(offset, cell.words.size());
             offset += cell.words.size();
             *slot = reinterpret_cast<Word>(copy.data()) | (value & static_cast<Word>(abi::v1::primary_mask));
-            if (!binary(cell)) {
+            if (cell.shape == HeapCell::Shape::cons) {
+                // Two words: no copy loop for the commonest cell.
+                copy[0] = cell.words[0];
+                copy[1] = cell.words[1];
+            } else if (!binary(cell)) {
                 std::ranges::copy(cell.words, copy.begin());
                 clear_edit(copy);
             }
@@ -127,19 +131,34 @@ class GraphCopy final {
 
     // The source object a word names, when it is copied: literals are shared by every process of the runtime and stay
     // as they are (OPT0.4).
-    std::expected<HeapCell, Found> source_cell(Word value) const {
+    std::expected<HeapCell, Found> source_cell(Word value) {
         if (!compound(value)) {
             return std::unexpected(Found::none);
         }
-        const auto area = source_.owned(address(value));
+        const auto area = source_area(address(value));
         if (area.empty() && source_.literal(address(value))) {
             return std::unexpected(Found::none);
+        }
+        // A cons cell has no header: it needs no parse (the commonest cell).
+        if (area.size() >= 2 && !is_header(area[0])) {
+            return HeapCell{area.first(2), area.first(2), HeapCell::Shape::cons};
         }
         const auto cell = parse_cell(area);
         if (!cell) {
             return std::unexpected(Found::foreign);
         }
         return *cell;
+    }
+
+    // The source words from `at` to the end of its area: the area the last lookup found holds the next cells of a
+    // list or tuple far more often than not, so it is checked first (cached source areas).
+    std::span<Word> source_area(std::uintptr_t at) {
+        const auto begin = reinterpret_cast<std::uintptr_t>(area_.data());
+        if (at >= begin && at < begin + area_.size_bytes() && (at - begin) % sizeof(Word) == 0) {
+            return area_.subspan((at - begin) / sizeof(Word));
+        }
+        area_ = source_.area_of(at);
+        return area_.empty() ? area_ : source_area(at);
     }
 
     // Queue the compound slots of a found cell, the only ones that can name an object.
@@ -173,8 +192,9 @@ class GraphCopy final {
         words_ += cell.words.size();
     }
 
-    // The heap the graph is read from.
+    // The heap the graph is read from, and the used words of the area its last cell was found in.
     HeapStorage &source_;
+    std::span<Word> area_;
     // Source cells of the copied off-heap binaries and the offsets of their copies.
     std::vector<const RefcBinaryCell *> binaries_;
     std::vector<std::size_t> binary_offsets_;

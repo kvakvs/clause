@@ -116,6 +116,21 @@ std::span<const Word> HeapStorage::readable(std::uintptr_t address) noexcept {
     return literals_ ? literals_->find(address) : std::span<const Word>{};
 }
 
+std::span<Word> HeapStorage::area_of(std::uintptr_t address) noexcept {
+    absorb();
+    for (auto *area : {&heap_, &old_}) {
+        if (!area->from(address).empty()) {
+            return {area->words_.get(), area->top_};
+        }
+    }
+    const auto range = std::ranges::upper_bound(ranges_, address, {}, &FragmentRange::begin_);
+    if (range == ranges_.begin()) {
+        return {};
+    }
+    auto &fragment = fragments_[std::prev(range)->fragment_];
+    return fragment.from(address).empty() ? std::span<Word>{} : std::span{fragment.words_.get(), fragment.top_};
+}
+
 std::span<Word> HeapStorage::owned(std::uintptr_t address) noexcept {
     absorb();
     if (const auto found = heap_.from(address); !found.empty()) {

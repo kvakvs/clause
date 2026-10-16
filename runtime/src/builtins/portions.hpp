@@ -27,8 +27,8 @@ Word count_word(ProcessContext &context, std::size_t count);
 std::size_t count_of(ProcessContext &context, Word word);
 
 // Walk at most `budget` cells of `list`, passing each head word to `visit`; `list` stops at the first cell not
-// walked. Returns the cells walked. The list is validated once and its cells are read as words, with no Term per
-// cell (word-level walks).
+// walked. Returns the cells walked. The list is validated once and its cells are read in place, with no Term or
+// address lookup per cell (word-level walks, trusted walks).
 template <typename Visit> std::size_t walk(Term &list, std::size_t budget, Visit visit) {
     if (!list.is_cons()) {
         return 0;
@@ -40,10 +40,7 @@ template <typename Visit> std::size_t walk(Term &list, std::size_t budget, Visit
     auto rest = list.word();
     std::size_t walked = 0;
     for (; walked < budget && (rest & abi::v1::primary_mask) == abi::v1::list_tag; ++walked) {
-        const auto cell = detail::TermAccess::cons_cell(storage, rest);
-        if (cell.empty()) {
-            throw BuiltinFailure{.term = TermError::wrong_owner};
-        }
+        const auto *cell = detail::TermAccess::trusted(rest);
         visit(cell[0]);
         rest = cell[1];
     }

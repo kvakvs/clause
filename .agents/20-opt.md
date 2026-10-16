@@ -131,8 +131,10 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
 - **OPT3.8 int_to_list:** done for list_to_integer's short text (OPT3.8); run
   alone the round trip is 835 against OTP's 444 us per 20,000, now the two
   bodies' digit work (`to_chars`, `from_chars`, a staging vector).
-- **OPT3.9 large_message (2.8x):** small messages to busy receivers still copy
-  twice (into a buffer, then into the receiver).
+- **OPT3.9 large_message:** the copy walks are cheaper (OPT3.9); run alone a
+  100,000-element echo is 3.6 against OTP's 1.95 ms: two flat copies (discover
+  and copy each read every cell) and the receivers' collections. Small messages
+  to busy receivers still copy twice (into a buffer, then into the receiver).
 - **OPT3.10B young heap sizing:** block reuse is done (OPT3.10). ERTS sizes a
   minor collection's new block from the young words plus the stack, which
   shares the block, so a full young block often grows a size step; trying that

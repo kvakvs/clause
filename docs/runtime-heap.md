@@ -534,7 +534,8 @@ Generational collection, as ERTS does it, without its write barrier:
 ## Copying between heaps
 
 `ProcessHeap::add(value)`, equivalently `value.copy_to(heap)`, returns a term of
-the destination heap (BEAM `size_object` and `copy_struct`):
+the destination heap (BEAM `size_object` and `copy_struct`). Each source cell is
+looked up in the area of the previous one first, and a cons cell needs no parse:
 
 - Immediates and atoms of the same runtime need no storage, and a term of the
   destination heap keeps its identity. A graph of another process of the same

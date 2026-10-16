@@ -87,6 +87,8 @@ class HeapStorage final {
     // word-aligned below the top of the heap or a fragment. Process pointers only name object starts.
     // The words are writable for the collector, which forwards objects in place.
     std::span<Word> owned(std::uintptr_t address) noexcept;
+    // All used words of the area holding an address owned() accepts; empty for any other address.
+    std::span<Word> area_of(std::uintptr_t address) noexcept;
 
     // Retain bounded backing independently of future host pins.
     HeapOptions options_;

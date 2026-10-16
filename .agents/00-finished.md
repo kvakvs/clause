@@ -488,7 +488,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT3.8** `list_to_integer/1` reads a short list in place into a fixed
   buffer (trusted walk) instead of admitting a `Term` and walking it; the
   int_to_list round trip run alone 1688 to 835 us (OTP 444) —
-  `[plan20] OPT3.8 ...`
+  `6823705f`
+- **OPT3.9** message copies cache the source area of the last cell (one range
+  check instead of a storage lookup per cell) and copy cons cells without a
+  parse or copy loop; list builtins' `walk` reads cells in place (trusted
+  walks); large_message echo run alone 4.37 to 3.62 ms (OTP 1.95) —
+  `[plan20] OPT3.9 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`
