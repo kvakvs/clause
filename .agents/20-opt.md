@@ -168,6 +168,13 @@ less (a heap-sizing artifact, not code).
 
 ### OPT1.3 Speculation-free small-int fast paths, with guard fusion and range-proven overflow elimination
 
+Part done 2026-10-16: `+`/`-` add the tagged words (`a + (b ^ 15)`, the
+one-untag trick) and test word overflow with a sign test; both tag tests
+already fuse into one mask. Open: the flag form (`llvm.s*.with.overflow`,
+`add; jo`, a further 5-15% on the arithmetic kernels) is blocked only by a
+clang-analyzer false positive in LLVM's `ExtractValueInst` headers; `*` still
+uses double width; range-proven elimination beyond `codegen/proofs`.
+
 - **Overflow check:** compute with flag-setting instructions and branch on
   overflow to the bignum service ("check before commit").
 - **One-untag trick:** untag one operand and add it to the tagged other.

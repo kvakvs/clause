@@ -72,10 +72,13 @@ in [abi.md](abi.md#terms).
 - At `-O2`, operands inference proves small skip their tag tests, and a proven
   result range skips the overflow check and fallback too
   ([proofs](specialization.md#proofs)).
-- Generated `+`, `-`, `*` try an inline fast path on two immediates
-  (double-width compute with explicit bounds), otherwise call the runtime
-  service; so do `band`, `bor`, `bxor`, `bsr`, `div`, `rem` and comparisons of
-  two small integers ([inline forms](abi.md#runtime-services)).
+- Generated `+`, `-`, `*` try an inline fast path on two immediates, otherwise
+  call the runtime service: `+` and `-` add or subtract the tagged words
+  directly (`a + (b ^ 15)`) and fall back when the word overflows, which is
+  exactly when the result leaves the small range; `*` computes in double
+  width with explicit bounds. So do `band`, `bor`, `bxor`, `bsr`, `div`, `rem`
+  and comparisons of two small integers
+  ([inline forms](abi.md#runtime-services)).
 - `div` truncates toward zero; `rem` takes the dividend's sign; bitwise ops use
   infinite two's complement; negative shift counts reverse direction; huge right
   shifts saturate to 0 or -1.

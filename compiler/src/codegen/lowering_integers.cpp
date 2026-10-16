@@ -41,27 +41,41 @@ llvm::Value *small(ExpressionLowering &state, llvm::Value *value) {
 }
 
 struct Arithmetic {
-    // Carry the checked decoded result and its combined word/payload overflow proof.
+    // Carry the tagged result and whether it stayed a small integer.
     llvm::Value *value;
     llvm::Value *valid;
 };
 
-// Compute without wrap in a double-width integer, then prove payload bounds before truncation and encoding.
-Arithmetic calculate(ExpressionLowering &state, const llvm::Instruction::BinaryOps operation, llvm::Value *left,
-                     llvm::Value *right) {
+// Add or subtract the tagged words (OPT1.3): with both tags 0xF, `a + (b ^ 15)` and `a - (b ^ 15)` are the tagged
+// sum and difference, and the word overflows exactly when the result leaves the small payload range. The sign test
+// of that overflow becomes the overflow flag of the add or subtract in the backend.
+Arithmetic tagged_sum(ExpressionLowering &state, const llvm::Instruction::BinaryOps operation, llvm::Value *left,
+                      llvm::Value *right) {
+    auto &builder = state.builder;
+    auto *rhs = builder.CreateXor(right, llvm::ConstantInt::get(state.word, 15));
+    auto *result = builder.CreateBinOp(operation, left, rhs, "integer.checked");
+    auto *signs = operation == llvm::Instruction::Add
+                      ? builder.CreateAnd(builder.CreateXor(left, result), builder.CreateXor(rhs, result))
+                      : builder.CreateAnd(builder.CreateXor(left, rhs), builder.CreateXor(left, result));
+    return {result, compare(state, llvm::CmpInst::ICMP_SGE, signs, llvm::ConstantInt::get(state.word, 0))};
+}
+
+// Multiply in a double-width integer, then prove the payload bounds before truncation and encoding.
+Arithmetic product(ExpressionLowering &state, llvm::Value *left, llvm::Value *right) {
     auto &builder = state.builder;
     auto *wide = builder.getIntNTy(state.word->getBitWidth() * 2);
     auto *shift = llvm::ConstantInt::get(state.word, 4);
     auto *lhs = builder.CreateSExt(builder.CreateAShr(left, shift), wide);
     auto *rhs = builder.CreateSExt(builder.CreateAShr(right, shift), wide);
-    auto *number = builder.CreateBinOp(operation, lhs, rhs, "integer.checked");
+    auto *number = builder.CreateMul(lhs, rhs, "integer.checked");
     const auto minimum =
         state.word->getBitWidth() == 32 ? abi::v1::IntegerEncoding<32>::minimum : abi::v1::IntegerEncoding<64>::minimum;
     const auto maximum = -minimum - 1;
     auto *fits =
         builder.CreateAnd(compare(state, llvm::CmpInst::ICMP_SGE, number, llvm::ConstantInt::getSigned(wide, minimum)),
                           compare(state, llvm::CmpInst::ICMP_SLE, number, llvm::ConstantInt::getSigned(wide, maximum)));
-    return {number, fits};
+    auto *payload = builder.CreateTrunc(number, state.word);
+    return {builder.CreateOr(builder.CreateShl(payload, shift), llvm::ConstantInt::get(state.word, 15)), fits};
 }
 
 // Share LLVM's SSA formation utility with lazy joins, preserving locations on its inserted PHI.
@@ -255,12 +269,11 @@ llvm::Value *lower_operation(ExpressionLowering &state, const Op operation, llvm
         builder.CreateBr(attempt);
     }
     builder.SetInsertPoint(attempt);
-    const auto result = calculate(state, *checked, left, right);
+    const auto result =
+        *checked == llvm::Instruction::Mul ? product(state, left, right) : tagged_sum(state, *checked, left, right);
     builder.CreateCondBr(result.valid, fast, fallback);
     builder.SetInsertPoint(fast);
-    auto *payload = builder.CreateTrunc(result.value, state.word);
-    auto *encoded = builder.CreateOr(builder.CreateShl(payload, llvm::ConstantInt::get(state.word, 4)),
-                                     llvm::ConstantInt::get(state.word, 15));
+    auto *encoded = result.value;
     builder.CreateBr(join);
     builder.SetInsertPoint(fallback);
     auto *promoted = inline_float_operation(state, operation, left, right, service);
