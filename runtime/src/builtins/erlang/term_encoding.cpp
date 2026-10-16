@@ -1,3 +1,4 @@
+#include "../../memory/heap_walk.hpp"
 #include "../../process/identities.hpp"
 #include "../../terms/funs.hpp"
 #include "../../terms/identities.hpp"
@@ -156,12 +157,16 @@ class Encoder {
         atom(found->second);
     }
 
-    // A tuple's header and its elements; false when the word names no tuple.
+    // A tuple's header and its elements, read in place (trusted walks); false when the word names no tuple.
     bool tuple(Word word) {
-        const auto words = detail::TermAccess::boxed_words(context_.heap(), word);
-        if (words.empty() || detail::layout::BoxHeader::kind(words[0]) != BoxedKind::tuple) {
+        if ((word & abi::v1::primary_mask) != abi::v1::boxed_tag) {
             return false;
         }
+        const auto *cell = detail::TermAccess::trusted(word);
+        if (!detail::is_header(cell[0]) || detail::layout::BoxHeader::kind(cell[0]) != BoxedKind::tuple) {
+            return false;
+        }
+        const std::span words(cell, 1 + detail::layout::BoxHeader::count(cell[0]));
         writer_.tuple(words.size() - 1);
         pending_.insert(pending_.end(), words.rbegin(), std::prev(words.rend()));
         return true;
@@ -205,7 +210,7 @@ class Encoder {
         elements_.clear();
         auto rest = word;
         while (TermTag{rest}.get_kind() == TermKind::list) {
-            const auto cell = detail::TermAccess::cons_words(context_.heap(), rest);
+            const auto *cell = detail::TermAccess::trusted(rest);
             elements_.push_back(cell[0]);
             rest = cell[1];
         }

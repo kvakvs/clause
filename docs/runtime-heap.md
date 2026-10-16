@@ -338,7 +338,7 @@ otherwise it costs one check.
 | Trigger | Condition at the safepoint | ERTS counterpart |
 | --- | --- | --- |
 | Heap full | Any fragment exists: an allocation did not fit the heap block since the last collection | Heap top reaches the heap end |
-| Off-heap binary pressure | Off-heap words reach the virtual binary heap limit: 46,422 words at first, after each collection twice the surviving off-heap words or the survivors plus the live heap words, whichever is more (never less than 46,422), but at most the survivors plus half of the budget left free after the heap block | `bin_vheap_sz` / binary virtual heap |
+| Off-heap binary pressure (a minor collection unless the last one freed less than half, [binary pressure](#generations)) | Off-heap words reach the virtual binary heap limit: 46,422 words at first, after each collection twice the surviving off-heap words or the survivors plus the live heap words, whichever is more (never less than 46,422), but at most the survivors plus half of the budget left free after the heap block | `bin_vheap_sz` / binary virtual heap |
 | `erlang:garbage_collect/0,1,2` | A request of the builtin ([introspection](processes.md#introspection)), taken at the target's next safepoint | Explicit full sweep |
 
 A safepoint runs a **minor collection** unless a full sweep is due: a
@@ -520,6 +520,11 @@ Generational collection, as ERTS does it, without its write barrier:
 - **Off-heap limit.** After a minor collection the virtual binary heap limit
   counts the young live words only: the old area may hold dead words, which must
   not postpone the full sweep that frees dead old binaries.
+- **Binary pressure.** Reaching the limit collects the young generation, as
+  ERTS's binary virtual heap does, which frees the binaries of dead young
+  cells. When such a minor collection frees less than half of the off-heap
+  words, the next one for binary pressure is a full sweep, which also frees the
+  binaries of dead old cells (`binary_sweep_due_`).
 
 ## Copying between heaps
 

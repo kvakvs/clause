@@ -126,6 +126,9 @@ class HeapStorage final {
     std::unordered_map<const std::vector<std::byte> *, std::size_t> buffers_;
     // Off-heap words at which a safepoint collects: twice the survivors of the last collection, at least the minimum.
     std::size_t binary_limit_words_ = MIN_BINARY_HEAP_WORDS;
+    // Set when a minor collection for binary pressure freed less than half of the off-heap words: the next one is a
+    // full sweep, which also frees the binaries of dead old cells (binary pressure).
+    bool binary_sweep_due_ = false;
     // Head of this process's off-heap binary cells, newest first; the only route to their C++ state.
     layout::RefcBinaryCell *off_heap_ = nullptr;
     // The last map tree edit token handed out, and the last one before the latest collection: older tokens no longer

@@ -461,7 +461,14 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   with their thread for its next collections instead of fresh OS pages; 69A
   geomean +9.3% (large_write 2.98x, grow_shrink 2.06x, binary_append 1.42x),
   1.45x behind OTP JIT —
-  `[plan20] OPT3.10 ...`
+  `58d545cb`
+- **OPT3.3** codec walks and binary pressure: the encoder reads cells in place,
+  the decoder claims each container's words once from one children stack, and
+  binary pressure collects the young generation first (a full sweep only after a
+  minor that freed less than half); 69A geomean +7.2% (comprehension 2.13x,
+  large_read 1.90x, term_to_binary 1.43x, string_build 1.36x), 1.42x behind OTP
+  JIT —
+  `[plan20] OPT3.3 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

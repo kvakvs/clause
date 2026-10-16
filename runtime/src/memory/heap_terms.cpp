@@ -2,6 +2,7 @@
 #include "heap_storage.hpp"
 #include "heap_walk.hpp"
 #include <clause/runtime/atoms.hpp>
+#include <new>
 
 namespace clause::runtime::detail {
 namespace {
@@ -164,6 +165,15 @@ std::optional<Word> TermAccess::bump_list(ProcessHeap &heap, std::span<const Wor
     }
     storage.expose();
     return next;
+}
+
+std::span<Word> TermAccess::claim(ProcessHeap &heap, std::size_t words) noexcept {
+    try {
+        const auto claimed = heap.storage_->claim(words);
+        return claimed ? *claimed : std::span<Word>{};
+    } catch (const std::bad_alloc &) {
+        return {};
+    }
 }
 
 TermResult<void> TermAccess::validate(const Term &value) noexcept {

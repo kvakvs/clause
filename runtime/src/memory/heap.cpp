@@ -96,8 +96,8 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect_at_safepoint() no
 bool ProcessHeap::wants_full_sweep() const noexcept {
     const auto &storage = *storage_;
     const auto room = storage.old_.capacity_ - storage.old_.top_;
-    return storage.collection_requested_ || storage.off_heap_words_ >= storage.binary_limit_words_ ||
-           storage.options_.limit_bytes != UNLIMITED_HEAP_BYTES ||
+    const bool binaries = storage.off_heap_words_ >= storage.binary_limit_words_ && storage.binary_sweep_due_;
+    return storage.collection_requested_ || binaries || storage.options_.limit_bytes != UNLIMITED_HEAP_BYTES ||
            (storage.old_.capacity_ != 0 && room < storage.high_water_);
 }
 
@@ -115,6 +115,10 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect(std::span<Word> r
     storage.absorb();
     // A collection may promote map tree nodes, which then must not change in place (on-heap map trees).
     storage.map_edit_floor_ = storage.map_edits_;
+    // Binary pressure frees dead young binaries with a minor collection, as ERTS's does; one that frees less than half
+    // of the off-heap words makes the next one a full sweep, which frees the old area's (binary pressure).
+    const bool pressure = storage.off_heap_words_ >= storage.binary_limit_words_;
+    const auto off_heap_before = storage.off_heap_words_;
     CollectionStats stats{.words_before = storage.used_words_,
                           .fragment_words = storage.capacity_words_ - storage.heap_.capacity_ - storage.old_.capacity_};
     if (storage.heap_.capacity_ != 0) {
@@ -126,6 +130,11 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect(std::span<Word> r
     // leaves room for as many new buffer words as the heap holds live words: a collection for binary garbage copies
     // them all, so its cost stays proportional to the binaries allocated (amortized binary collections). A minor
     // collection copied only the young words; the old area may hold dead words, which must not delay the next sweep.
+    if (generation == detail::Generation::full) {
+        storage.binary_sweep_due_ = false;
+    } else if (pressure) {
+        storage.binary_sweep_due_ = 2 * storage.off_heap_words_ > off_heap_before;
+    }
     const auto live = generation == detail::Generation::full ? storage.used_words_ : storage.heap_.top_;
     const auto doubled =
         std::max({detail::MIN_BINARY_HEAP_WORDS, 2 * storage.off_heap_words_, storage.off_heap_words_ + live});

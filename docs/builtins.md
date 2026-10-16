@@ -245,7 +245,10 @@ Calls:
 `erlang/term_encoding.cpp`, `erlang/term_decoding.cpp`. Both directions share
 the codec of [external_term.hpp](../abi/include/clause/abi/external_term.hpp)
 with the compiler, and walk terms with explicit stacks, so nesting depth costs
-no native stack.
+no native stack. The encoder reads the cells of its validated argument in place
+(`TermAccess::trusted`, no per-cell address lookup); the decoder collects
+children on one shared stack and writes tuples, lists and strings straight into
+heap words it claims once per container (`TermAccess::claim`).
 
 - `term_to_binary/1,2` writes OTP's bytes for a non-distributed node
   (`nonode@nohost`, creation 0): UTF-8 atoms, `NEW_FLOAT`, `STRING_EXT` for

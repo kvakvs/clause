@@ -1,11 +1,14 @@
+#include "../../memory/heap_object.hpp"
 #include "../../process/identities.hpp"
 #include "../../terms/identities.hpp"
 #include "../../terms/integers.hpp"
+#include "../../terms/term_layout.hpp"
 #include "../text.hpp"
 #include "../typed.hpp"
 #include "terms.hpp"
 #include <algorithm>
 #include <array>
+#include <clause/abi/equality.hpp>
 #include <clause/abi/external_term.hpp>
 #include <clause/runtime/atoms.hpp>
 #include <clause/runtime/code_server.hpp>
@@ -50,11 +53,12 @@ DecodeOptions decode_options(const ListArgument &list) {
     return options;
 }
 
-// A container being decoded: its kind, how many children it still needs and the children so far.
+// A container being decoded: its kind, how many children it still needs and where its children start on the
+// decoder's shared stack of children.
 struct Open {
     external::ItemKind kind_;
     std::size_t remaining_;
-    std::vector<Word> children_;
+    std::size_t first_;
 };
 
 class Decoder {
@@ -104,38 +108,66 @@ class Decoder {
             return item.kind_ == external::ItemKind::tuple ? need(factory_.tuple({})).word()
                                                            : need(factory_.map({})).word();
         }
-        open_.push_back({item.kind_, children, {}});
-        open_.back().children_.reserve(std::min<std::size_t>(children, 4096));
+        open_.push_back({item.kind_, children, children_.size()});
         return std::nullopt;
     }
 
     // Give a finished term to the innermost container; returns that container once it is finished.
     std::optional<Word> add(Word value) {
+        children_.push_back(value);
         auto &top = open_.back();
-        top.children_.push_back(value);
         if (--top.remaining_ != 0) {
             return std::nullopt;
         }
-        auto finished = close(top);
+        const auto first = top.first_;
+        const auto finished = close(top.kind_, std::span(children_).subspan(first));
+        children_.resize(first);
         open_.pop_back();
         return finished;
     }
 
     // Build a finished container from children this decoder made, so they are not admitted again.
-    Word close(const Open &open) {
-        if (open.kind_ == external::ItemKind::tuple) {
-            return need(factory_.tuple_of_words(open.children_)).word();
+    Word close(external::ItemKind kind, std::span<const Word> children) {
+        if (kind == external::ItemKind::tuple) {
+            return tuple(children);
         }
-        if (open.kind_ == external::ItemKind::list) {
-            const auto tail = need(Term::from_word(open.children_.back(), context_));
-            return need(factory_.list_of_words(std::span(open.children_).first(open.children_.size() - 1), tail))
-                .word();
+        if (kind == external::ItemKind::list) {
+            return list(children.first(children.size() - 1), children.back());
         }
-        return map(open.children_).word();
+        return map(children).word();
+    }
+
+    // A tuple of element words, written straight into claimed heap words (decoded containers).
+    Word tuple(std::span<const Word> elements) {
+        const auto words = detail::TermAccess::claim(context_.heap(), elements.size() + 1);
+        if (words.empty()) {
+            return need(factory_.tuple_of_words(elements)).word();
+        }
+        words[0] = detail::layout::BoxHeader::make(BoxedKind::tuple, elements.size());
+        std::ranges::copy(elements, words.begin() + 1);
+        return reinterpret_cast<Word>(words.data()) | static_cast<Word>(TermKindPrimary::boxed);
+    }
+
+    // A list of element words onto `tail`, its cells written straight into claimed heap words (decoded containers).
+    Word list(std::span<const Word> elements, Word tail) {
+        if (elements.empty()) {
+            return tail;
+        }
+        const auto words = detail::TermAccess::claim(context_.heap(), 2 * elements.size());
+        if (words.empty()) {
+            return need(factory_.list_of_words(elements, need(Term::from_word(tail, context_)))).word();
+        }
+        for (std::size_t i = 0; i < elements.size(); ++i) {
+            words[2 * i] = elements[i];
+            words[2 * i + 1] = i + 1 == elements.size() ? tail
+                                                        : reinterpret_cast<Word>(&words[2 * i + 2]) |
+                                                              static_cast<Word>(TermKindPrimary::list);
+        }
+        return reinterpret_cast<Word>(words.data()) | static_cast<Word>(TermKindPrimary::list);
     }
 
     // A map of alternating keys and values; a repeated key is malformed.
-    Term map(const std::vector<Word> &words) {
+    Term map(std::span<const Word> words) {
         std::vector<std::pair<Term, Term>> entries;
         for (std::size_t i = 0; i < words.size(); i += 2) {
             entries.emplace_back(need(Term::from_word(words[i], context_)),
@@ -159,7 +191,7 @@ class Decoder {
         case external::ItemKind::floating:
             return floating(item.float_).word();
         case external::ItemKind::string:
-            return string(item.bytes_).word();
+            return string(item.bytes_);
         case external::ItemKind::binary:
             return need(factory_.bitstring(std::as_bytes(std::span(item.bytes_)), item.count_)).word();
         default:
@@ -241,12 +273,27 @@ class Decoder {
         return need(detail::IntegerAccess::make(context_.heap(), item.negative_ ? -value : value));
     }
 
-    Term string(std::string_view bytes) {
-        std::vector<Word> words(bytes.size());
-        std::ranges::transform(bytes, words.begin(), [](char byte) {
-            return *abi::v1::NativeIntegerEncoding::encode(static_cast<unsigned char>(byte));
-        });
-        return need(factory_.list_of_words(words, need(factory_.nil())));
+    // STRING_EXT: a list of byte values, its cells written straight into claimed heap words (decoded containers).
+    Word string(std::string_view bytes) {
+        const auto byte = [](char value) {
+            return *abi::v1::NativeIntegerEncoding::encode(static_cast<unsigned char>(value));
+        };
+        if (bytes.empty()) {
+            return abi::v1::empty_list;
+        }
+        const auto words = detail::TermAccess::claim(context_.heap(), 2 * bytes.size());
+        if (words.empty()) {
+            std::vector<Word> elements(bytes.size());
+            std::ranges::transform(bytes, elements.begin(), byte);
+            return list(elements, abi::v1::empty_list);
+        }
+        for (std::size_t i = 0; i < bytes.size(); ++i) {
+            words[2 * i] = byte(bytes[i]);
+            words[2 * i + 1] = i + 1 == bytes.size() ? abi::v1::empty_list
+                                                     : reinterpret_cast<Word>(&words[2 * i + 2]) |
+                                                           static_cast<Word>(TermKindPrimary::list);
+        }
+        return reinterpret_cast<Word>(words.data()) | static_cast<Word>(TermKindPrimary::list);
     }
 
     // A pid, port or reference of the local node; another node's is badarg.
@@ -296,8 +343,9 @@ class Decoder {
     TermFactory factory_;
     external::Reader reader_;
     DecodeOptions options_;
-    // Containers still collecting children, the innermost last.
+    // Containers still collecting children, the innermost last, and their children so far in one stack.
     std::vector<Open> open_;
+    std::vector<Word> children_;
     // Atom words by encoding ('L' or 'U', then the name bytes), interned once per decoding.
     std::unordered_map<std::string, Word> atoms_;
 };

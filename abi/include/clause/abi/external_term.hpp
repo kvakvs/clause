@@ -237,11 +237,14 @@ class Writer {
 
     void tag(const Tag value) { out_.push_back(static_cast<char>(value)); }
 
-    // Append a big-endian unsigned value of BYTES bytes.
+    // Append a big-endian unsigned value of BYTES bytes, in one append.
     template <int BYTES> void put(const std::uint64_t value) {
-        for (int shift = (BYTES - 1) * 8; shift >= 0; shift -= 8) {
-            out_.push_back(static_cast<char>((value >> static_cast<unsigned>(shift)) & 0xFFU));
+        std::array<char, BYTES> bytes{};
+        for (int at = 0; at < BYTES; ++at) {
+            bytes[static_cast<std::size_t>(at)] =
+                static_cast<char>((value >> static_cast<unsigned>((BYTES - 1 - at) * 8)) & 0xFFU);
         }
+        out_.append(bytes.data(), bytes.size());
     }
 };
 

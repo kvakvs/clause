@@ -1,6 +1,8 @@
 #pragma once
+#include <bit>
 #include <clause/runtime/terms.hpp>
 #include <optional>
+#include <span>
 
 namespace clause::runtime::detail {
 class HeapStorage;
@@ -37,6 +39,16 @@ struct TermAccess {
     // they fit and no budget applies; none otherwise. The words must be immediates or this process's terms
     // (short builtin lists).
     static std::optional<Word> bump_list(ProcessHeap &heap, std::span<const Word> elements, Word tail) noexcept;
+    // Committed words that are not zeroed, for a builder that writes every one before the heap is walked again; empty
+    // when the heap refuses them (decoded containers).
+    static std::span<Word> claim(ProcessHeap &heap, std::size_t words) noexcept;
+
+    // The words from the object a compound word of a validated term names (trusted walks): the heap invariant makes
+    // every pointer inside a validated term name a cell of its heap or of a literal area, so nothing is looked up.
+    static const Word *trusted(Word value) noexcept {
+        return std::bit_cast<const Word *>(value & ~static_cast<Word>(abi::v1::primary_mask));
+    }
+
     // Check that value is a live, current term or an immediate; expiration and staleness stay distinct.
     static TermResult<void> validate(const Term &value) noexcept;
 
