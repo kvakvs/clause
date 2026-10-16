@@ -128,10 +128,10 @@ Term priority(const Inspection &inspection) { return atom(inspection.caller, "no
 Term error_handler(const Inspection &inspection) { return atom(inspection.caller, "error_handler"); }
 
 Term garbage_collection(const Inspection &inspection) {
-    const std::array settings{
-        pair(inspection, atom(inspection.caller, "min_heap_size"), integer(inspection, HeapOptions{}.min_heap_words)),
-        pair(inspection, atom(inspection.caller, "fullsweep_after"), integer(inspection, 65535)),
-        pair(inspection, atom(inspection.caller, "minor_gcs"), integer(inspection, 0))};
+    const std::array settings{pair(inspection, atom(inspection.caller, "min_heap_size"),
+                                   integer(inspection, inspection.target.heap().min_heap_words())),
+                              pair(inspection, atom(inspection.caller, "fullsweep_after"), integer(inspection, 65535)),
+                              pair(inspection, atom(inspection.caller, "minor_gcs"), integer(inspection, 0))};
     return list(inspection, {settings.begin(), settings.end()});
 }
 

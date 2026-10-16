@@ -381,7 +381,9 @@ Sources: `builtins/erlang/spawning.cpp`, `scheduler/aliases.cpp`.
 - `spawn_opt/2..5` take `link`, `monitor`, `{monitor, MonitorOptions}` and the
   tuning options `{priority, P}`, `{fullsweep_after, N}`, `{min_heap_size, N}`,
   `{min_bin_vheap_size, N}`, `{max_heap_size, S}`, `{message_queue_data, M}`,
-  `{async_dist, B}`; tuning options are checked and accepted, not applied. A
+  `{async_dist, B}`; `{min_heap_size, N}` sets the child's
+  [minimum heap](runtime-heap.md#sizing-and-budget), the other tuning options
+  are checked and accepted, not applied. A
   node other than `nonode@nohost` is `badarg`.
 - `spawn_request/1..5` spawns at once and sends `{Tag, ReqId, ok, Pid}`
   (`{Tag, ReqId, error, Reason}` on failure, `badopt` for an invalid option) as
@@ -432,7 +434,9 @@ process by process without recursion.
 | Any other reason, including `kill` from a link | Ends with that reason | `{'EXIT', From, Reason}` message |
 
 - `process_flag(trap_exit, Bool)` sets trapping and returns the previous setting
-  (initially `false`).
+  (initially `false`); `process_flag(min_heap_size, N)` sets the
+  [minimum heap](runtime-heap.md#sizing-and-budget) from the next collection and
+  returns the previous one.
 - A process ended by a signal it sent itself (`exit(self(), kill)`) unwinds past
   every `catch`, `try` handler and `after` body: the signal is not an exception
   (`CallError::exited` in the failure channel).
@@ -464,7 +468,7 @@ talks to its connected process with messages.
 | `register(Name, Pid)`, `unregister(Name)`, `whereis(Name)`, `registered()` | See [registered names](#registered-names); `Name` must be an atom |
 | `demonitor(Ref)`, `demonitor(Ref, Options)` | `badarg` unless `Ref` is a reference and `Options` a proper list of `flush` and `info` |
 | `exit(Dest, Reason)`, `exit_signal(Dest, Reason)` | `badarg` unless `Dest` is a pid or reference; `true` after the [exit signal](#exit-signals) |
-| `process_flag(trap_exit, Bool)` | The previous setting; `badarg` for another flag or a non-boolean |
+| `process_flag(trap_exit, Bool)`, `process_flag(min_heap_size, N)` | The previous setting; `badarg` for another flag, a non-boolean or a negative or non-integer size |
 | `erlang:send(Dest, Msg)`, `Dest ! Msg` | `Msg`, after sending it ([messages](#messages)); `send/2` is not auto-imported |
 
 The new process joins the end of its parent's worker queue

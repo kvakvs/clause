@@ -405,7 +405,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   promote objects below the high-water mark into an old area and leave it in
   place (ERTS sizing rules, Debug old→young check); 69A geomean 1.15x (sort
   1.29x, binary_append 1.6x, map_put 1.25x, comprehension 3.3x) —
-  `[plan20] OPT0.20B ...`
+  `4635bb64`
+- **OPT0.20C** `min_heap_size` applied (`spawn_opt`, `process_flag`,
+  `--min-heap-size` as `+hms`): the first block and every collection floor, so
+  a process trades memory for fewer collections the OTP way —
+  `[plan20] OPT0.20C ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

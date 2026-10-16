@@ -135,7 +135,8 @@ A map with more than 32 entries (OTP's `MAP_SMALL_MAP_LIMIT`) is a 4-word
 
 - **Heap.** One block `[start, top, end)` per process with bump allocation. It
   is created by the process's first allocation, sized
-  `max(min_heap_words, request)` so that request always fits, and owned by that
+  `max(min_heap_words, request)` so that request always fits (fragments start
+  at the minimum, at most 233 words), and owned by that
   process alone. Generated code bump-allocates small tuples, lists, floats and
   closures in it directly through `FrameState::heap_top`/`heap_limit`:
   `HeapStorage::absorb` takes those words into the top and `used_words_` before
@@ -172,7 +173,13 @@ A map with more than 32 entries (OTP's `MAP_SMALL_MAP_LIMIT`) is a 4-word
 
 ## Sizing and budget
 
-- The heap starts at `min_heap_words` (233 words, as ERTS) and grows along the
+- `min_heap_words` is the process's `min_heap_size`: 233 words by default (as
+  ERTS), `--min-heap-size` for every process (ERTS `+hms`), `{min_heap_size, N}`
+  in `spawn_opt` or `process_flag(min_heap_size, N)` for one; a setting is
+  rounded up to a heap size and never below the runtime default, and
+  `process_flag` takes effect at the next collection. Since no block is smaller,
+  a process does not collect before it has allocated that many words.
+- The heap starts at `min_heap_words` and grows along the
   ERTS size sequence: 12, 38, then each size is the sum of the previous two plus
   one up to 833,026 words, then 20% steps (`heap_size_at_least`).
 - A collection's new block is the smallest such size that keeps the words it may

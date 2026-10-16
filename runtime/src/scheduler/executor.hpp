@@ -52,6 +52,8 @@ struct SpawnOptions final {
     // Options of the spawn's monitor, and the reference it uses (spawn_request/1..5 reuses its request id).
     MonitorOptions monitor_options = {};
     std::optional<ReferenceIdentity> monitor_reference = std::nullopt;
+    // {min_heap_size, Size} in words: the child's first heap block and collection floor (min_heap_size).
+    std::optional<std::size_t> min_heap_words = std::nullopt;
 };
 
 // A request sent to a port as a message (docs/ports.md#builtins-and-port-messages): {From, close},

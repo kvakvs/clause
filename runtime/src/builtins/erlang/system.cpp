@@ -153,6 +153,19 @@ std::optional<std::string_view> atom_item(std::string_view name) {
     return found == ITEMS.end() ? std::nullopt : std::optional{found->second};
 }
 
+// The system_info items answered by a number or a tagged number: compat_rel, and min_heap_size as
+// {min_heap_size, Words} (the --min-heap-size default); badarg for any other item.
+TermResult<Term> numbered_item(ProcessContext &context, std::string_view name) {
+    if (name == "compat_rel") {
+        return integer(context, 29);
+    }
+    if (name != "min_heap_size") {
+        bad_argument();
+    }
+    return pair(context, atom(context, name),
+                integer(context, static_cast<std::int64_t>(context.heap().default_min_heap_words())));
+}
+
 // system_info(Item): an atom item, or {wordsize, internal | external}.
 TermResult<Term> system_info(ProcessContext &context, const Term &item) {
     if (item.is_tuple() && need(item.tuple_size()) == 2 && need(item.tuple_element(0)).is_atom() &&
@@ -169,10 +182,7 @@ TermResult<Term> system_info(ProcessContext &context, const Term &item) {
     if (const auto value = atom_item(name)) {
         return atom(context, *value);
     }
-    if (name == "compat_rel") {
-        return integer(context, 29);
-    }
-    bad_argument();
+    return numbered_item(context, name);
 }
 
 // The memory/0 sizes in bytes: processes from the runtime-wide account, atoms by their table size.

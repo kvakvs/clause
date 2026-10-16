@@ -28,8 +28,8 @@ std::span<Word> HeapArea::bump(std::size_t words) noexcept {
 
 HeapStorage::HeapStorage(HeapOptions options, std::weak_ptr<const ContextLifetime> lifetime, AtomStorage &atoms,
                          std::shared_ptr<RuntimeMemory> memory, const IdentityNumbers &identities)
-    : options_(options), lifetime_(std::move(lifetime)), token_(lifetime_.lock().get()), memory_(std::move(memory)),
-      atoms_(&atoms), identities_(&identities) {}
+    : options_(options), default_min_heap_words_(options.min_heap_words), lifetime_(std::move(lifetime)),
+      token_(lifetime_.lock().get()), memory_(std::move(memory)), atoms_(&atoms), identities_(&identities) {}
 
 HeapStorage::~HeapStorage() {
     release_off_heap(*this);
@@ -116,12 +116,12 @@ std::span<Word> HeapStorage::owned(std::uintptr_t address) noexcept {
     return range == ranges_.begin() ? std::span<Word>{} : fragments_[std::prev(range)->fragment_].from(address);
 }
 
-std::expected<HeapArea, HeapError> HeapStorage::block(std::size_t words) const {
+std::expected<HeapArea, HeapError> HeapStorage::block(std::size_t words, std::size_t minimum) const {
     const auto remaining = room();
     if (words > remaining) {
         return std::unexpected(HeapError::limit_exceeded);
     }
-    const auto capacity = std::min(remaining, std::max(words, options_.min_heap_words));
+    const auto capacity = std::min(remaining, std::max(words, minimum));
     return HeapArea{std::make_unique_for_overwrite<Word[]>(capacity), capacity};
 }
 
@@ -131,7 +131,7 @@ std::expected<HeapArea *, HeapError> HeapStorage::add_fragment(std::size_t words
         fragments_.reserve(2 * fragments_.size() + 1);
     }
     ranges_.reserve(fragments_.capacity());
-    auto fresh = block(words);
+    auto fresh = block(words, std::min(options_.min_heap_words, DEFAULT_MIN_HEAP_WORDS));
     if (!fresh) {
         return std::unexpected(fresh.error());
     }
@@ -145,7 +145,7 @@ std::expected<HeapArea *, HeapError> HeapStorage::add_fragment(std::size_t words
 
 std::expected<HeapArea *, HeapError> HeapStorage::area_for(std::size_t words) {
     if (heap_.capacity_ == 0) {
-        auto fresh = block(words);
+        auto fresh = block(words, options_.min_heap_words);
         if (!fresh) {
             return std::unexpected(fresh.error());
         }

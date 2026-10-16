@@ -59,9 +59,13 @@ inline constexpr std::size_t UNLIMITED_HEAP_BYTES =
     std::numeric_limits<std::size_t>::max() / sizeof(Word) * sizeof(Word);
 
 // Size the process heap and optionally bound all of its storage (docs/runtime-heap.md#sizing-and-budget).
+// ERTS's default min_heap_size in words, and the smallest heap fragment.
+inline constexpr std::size_t DEFAULT_MIN_HEAP_WORDS = 233;
+
 struct HeapOptions final {
-    // Words of the heap block created by the first allocation (ERTS min_heap_size) and of the smallest fragment.
-    std::size_t min_heap_words = 233;
+    // Words of the heap block created by the first allocation and the floor of every collection's new block (ERTS
+    // min_heap_size), so a process does not collect before it has allocated that many words.
+    std::size_t min_heap_words = DEFAULT_MIN_HEAP_WORDS;
     // Optional per-process cap on heap block, fragments (including unused tails) and created off-heap buffers.
     std::size_t limit_bytes = UNLIMITED_HEAP_BYTES;
 };
@@ -155,6 +159,12 @@ class ProcessHeap final {
     bool wants_collection() const noexcept;
     // Ask for a collection at the next safepoint (garbage_collect/0,1,2, step 41G1).
     void request_collection() noexcept;
+    // The process's min_heap_size in words, and the runtime default it started with (min_heap_size).
+    std::size_t min_heap_words() const noexcept;
+    std::size_t default_min_heap_words() const noexcept;
+    // Set min_heap_size as ERTS does: at least the default, rounded up to a heap size; the current block keeps its
+    // size until the next collection (spawn_opt, process_flag; min_heap_size).
+    void set_min_heap_words(std::size_t words) noexcept;
     // Report consumed words and exact retained capacity of the heap block and fragments.
     std::size_t used_words() const noexcept;
     std::size_t capacity_words() const noexcept;

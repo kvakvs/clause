@@ -269,7 +269,8 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   collections (promote below the high-water mark, old area untouched; Debug
   checks no old→young pointer) unless a full sweep is due (`garbage_collect`,
   binary pressure, budget, old area full); `ProcessHeap::collect` is always a
-  full sweep. Shrink below 25% live; budgets leave half after survivors.
+  full sweep. `min_heap_size` (`spawn_opt`, `process_flag`, `--min-heap-size`)
+  floors the first block and every collection. Shrink below 25% live; budgets leave half after survivors.
   Non-running processes are never collected; resumed ones collect at their
   resume safepoint.
 - Limits: no default cap; opt-in `--max-heap/--max-stack/--max-memory`,

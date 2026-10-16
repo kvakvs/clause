@@ -8,7 +8,8 @@
 #include <clause/runtime/code_server.hpp>
 
 // spawn_opt/2..5, spawn_request/1..5, spawn_request_abandon/1, alias/0,1, unalias/1 and hibernate/3 (plan step 41G2,
-// docs/processes.md#spawn-options). Heap and scheduling tuning options are checked and accepted, not applied.
+// docs/processes.md#spawn-options). min_heap_size is applied; other heap and scheduling tuning options are checked and
+// accepted, not applied.
 namespace clause::runtime::builtins {
 namespace {
 using detail::Executor;
@@ -37,7 +38,7 @@ bool tuning_option(std::string_view name, const Term &value) {
     if (name == "priority") {
         return one_of<4>(value, {"low", "normal", "high", "max"});
     }
-    if (name == "fullsweep_after" || name == "min_heap_size" || name == "min_bin_vheap_size") {
+    if (name == "fullsweep_after" || name == "min_bin_vheap_size") {
         return count(value);
     }
     if (name == "message_queue_data") {
@@ -59,6 +60,10 @@ bool pair_option(const Term &option, SpawnOptions &options) {
     if (name == "monitor") {
         options.monitor = true;
         options.monitor_options = monitor_options(value);
+        return true;
+    }
+    if (name == "min_heap_size" && count(value)) {
+        options.min_heap_words = static_cast<std::size_t>(*small(value.word()));
         return true;
     }
     return tuning_option(name, value);

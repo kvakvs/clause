@@ -186,6 +186,25 @@ void policy(Runtime &runtime) {
     require(runtime.destroy_context(&context) == Status::ok, "teardown failed");
 }
 
+// min_heap_size: no collection is wanted before the minimum is allocated, and none leaves a smaller block; a setting
+// below the runtime default falls back to it.
+void minimum(Runtime &runtime) {
+    auto &context = *runtime.create_context().value();
+    auto &heap = context.heap();
+    heap.set_min_heap_words(10000);
+    require(heap.min_heap_words() == 10958 && heap.default_min_heap_words() == DEFAULT_MIN_HEAP_WORDS,
+            "min_heap_size was not rounded up to a heap size");
+    garbage(context, 5000);
+    require(!heap.wants_collection(), "a collection was wanted below min_heap_size");
+    garbage(context, 1000);
+    require(heap.wants_collection(), "a full minimum heap did not ask for a collection");
+    const auto collected = heap.collect().value();
+    require(collected.live_words == 0 && collected.heap_words == 10958, "a collection shrank below min_heap_size");
+    heap.set_min_heap_words(10);
+    require(heap.min_heap_words() == DEFAULT_MIN_HEAP_WORDS, "a low min_heap_size did not fall back to the default");
+    require(runtime.destroy_context(&context) == Status::ok, "teardown failed");
+}
+
 // Allocate unrooted off-heap binaries of `words` words each until the heap asks for a collection; each must fit.
 void binary_garbage_until_due(ProcessContext &context, std::size_t words) {
     TermFactory factory(context);
@@ -444,6 +463,7 @@ int main() {
         repeated(*runtime);
         binaries(*runtime);
         policy(*runtime);
+        minimum(*runtime);
         near_budget(*runtime);
         shared_limit();
         unsafe(*runtime);

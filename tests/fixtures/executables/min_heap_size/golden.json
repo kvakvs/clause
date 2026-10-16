@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "entry": "min_heap_size",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "0 -> 233\n10 -> 233\n233 -> 233\n300 -> 376\n1000 -> 1598\n10000 -> 10958\nself 233\nflag 233\nflag 6772\nafter 233\n{min_heap_size,233}\n{error,badarg}\n{error,badarg}\n10000100000\nmin_heap_size: ok\n"
+    },
+    {
+      "args": [
+        "--min-heap-size",
+        "5000"
+      ],
+      "authored": true,
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "0 -> 6772\n10 -> 6772\n233 -> 6772\n300 -> 6772\n1000 -> 6772\n10000 -> 10958\nself 6772\nflag 6772\nflag 6772\nafter 6772\n{min_heap_size,6772}\n{error,badarg}\n{error,badarg}\n10000100000\nmin_heap_size: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "min_heap_size.erl": "156de81b09ecd5885fc5c8a4e0dfb83bdb3e855023ec91633d1b4ae0d81f5b48"
+  }
+}

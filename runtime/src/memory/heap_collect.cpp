@@ -58,7 +58,7 @@ HeapArea old_area(const HeapStorage &storage) {
     if (storage.old_.capacity_ != 0 || storage.high_water_ == 0) {
         return {};
     }
-    const auto capacity = std::max(storage.options_.min_heap_words, heap_size_at_least(2 * storage.high_water_));
+    const auto capacity = std::max(DEFAULT_MIN_HEAP_WORDS, heap_size_at_least(2 * storage.high_water_));
     return {std::make_unique_for_overwrite<Word[]>(capacity), capacity};
 }
 } // namespace

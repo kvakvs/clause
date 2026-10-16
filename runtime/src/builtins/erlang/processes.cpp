@@ -193,10 +193,26 @@ TermResult<Term> exit_signal(ProcessContext &context, const Term &destination, c
     return atom(context, "true");
 }
 
-// process_flag(trap_exit, Bool): the previous setting; every other flag is badarg.
+// process_flag(min_heap_size, Size): the previous min_heap_size; it applies from the next collection.
+TermResult<Term> min_heap_size(ProcessContext &context, const Term &value) {
+    const auto size = small(value.word());
+    if (!size || *size < 0) {
+        bad_argument();
+    }
+    auto &heap = context.heap();
+    const auto previous = heap.min_heap_words();
+    heap.set_min_heap_words(static_cast<std::size_t>(*size));
+    return TermFactory(context).integer(static_cast<std::int64_t>(previous));
+}
+
+// process_flag(trap_exit, Bool) or (min_heap_size, Size): the previous setting; every other flag is badarg.
 TermResult<Term> process_flag(ProcessContext &context, const AtomArgument &flag, const Term &value) {
+    const auto name = flag.term.atom_spelling().value_or("");
+    if (name == "min_heap_size") {
+        return min_heap_size(context, value);
+    }
     const auto spelling = value.is_atom() ? value.atom_spelling().value_or("") : "";
-    if (flag.term.atom_spelling().value_or("") != "trap_exit" || (spelling != "true" && spelling != "false")) {
+    if (name != "trap_exit" || (spelling != "true" && spelling != "false")) {
         bad_argument();
     }
     return TermFactory(context).boolean(context.signals().set_trap_exit(spelling == "true"));

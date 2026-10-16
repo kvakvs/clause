@@ -221,6 +221,14 @@ void ProcessHeap::shrink(std::span<Word> roots, detail::Generation generation) n
     }
 }
 
+std::size_t ProcessHeap::min_heap_words() const noexcept { return storage_->options_.min_heap_words; }
+
+std::size_t ProcessHeap::default_min_heap_words() const noexcept { return storage_->default_min_heap_words_; }
+
+void ProcessHeap::set_min_heap_words(std::size_t words) noexcept {
+    storage_->options_.min_heap_words = std::max(default_min_heap_words(), detail::heap_size_at_least(words));
+}
+
 std::size_t ProcessHeap::young_floor() const noexcept {
     const auto old = storage_->old_.capacity_;
     return old == 0 ? 0 : detail::heap_size_at_least(old / 8);

@@ -80,6 +80,8 @@ class HeapStorage final {
 
     // Retain bounded backing independently of future host pins.
     HeapOptions options_;
+    // The runtime's default min_heap_size, which a lower process setting falls back to (min_heap_size).
+    std::size_t default_min_heap_words_;
     std::weak_ptr<const ContextLifetime> lifetime_;
     // The token lifetime_ names, read while lifetime_ has not expired: a context and its terms are used by one
     // thread at a time, so checks read it instead of locking the weak pointer (cheap term access).
@@ -156,8 +158,8 @@ class HeapStorage final {
   private:
     // Choose the area for a validated request, creating the heap block or a fragment when needed.
     std::expected<HeapArea *, HeapError> area_for(std::size_t words);
-    // Allocate a block of at least words and min_heap_words, capped by the remaining budget.
-    std::expected<HeapArea, HeapError> block(std::size_t words) const;
+    // Allocate a block of at least words and minimum words, capped by the remaining budget.
+    std::expected<HeapArea, HeapError> block(std::size_t words, std::size_t minimum) const;
     // Chain a new fragment that fits words and index its address range.
     std::expected<HeapArea *, HeapError> add_fragment(std::size_t words);
 };

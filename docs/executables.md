@@ -79,6 +79,7 @@ a value goes in the next argument or after `=`.
 | `--max-atoms N` | Atom table size, 1 to 2^26 (67,108,864); default 2^20 (1,048,576), like OTP's `+t` |
 | `--max-heap BYTES` | Cap on each process's heap block, fragments and off-heap binaries, at least the minimum heap (233 words); default uncapped |
 | `--max-stack BYTES` | Cap on each process's frame stack; default uncapped |
+| `--min-heap-size WORDS` | Default `min_heap_size` of every process, at least 1, rounded up to a heap size, like OTP's `+hms`; at most `--max-heap`; default 233 ([sizing](runtime-heap.md#sizing-and-budget)) |
 | `--max-memory BYTES` | Cap on the memory of all processes together (heaps, off-heap binaries, stacks); default uncapped |
 | `--schedulers N` | Scheduler workers running processes, 1 to 1,024; default one per logical processor, like OTP's `+S` ([workers](processes.md#workers)) |
 | `--profile FILE` | Write a report of entries and self time per function and per process to `FILE` when the program ends ([profiling](profiling.md)); off by default |

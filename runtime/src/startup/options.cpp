@@ -1,3 +1,4 @@
+#include "../memory/heap_collect.hpp"
 #include "startup.hpp"
 #include <algorithm>
 #include <array>
@@ -88,6 +89,19 @@ std::size_t default_schedulers() noexcept {
     return std::clamp<std::size_t>(std::thread::hardware_concurrency(), 1, MAX_SCHEDULERS);
 }
 
+// Largest --min-heap-size in words, far beyond any host memory, so the size sequence never overflows.
+constexpr std::uint64_t MAX_MIN_HEAP_WORDS = std::uint64_t{1} << 40;
+
+// Parse --min-heap-size (ERTS +hms): words from 1, rounded up to a heap size as ERTS does (min_heap_size).
+std::expected<std::size_t, std::string> min_heap_words(std::string_view text) {
+    std::uint64_t value = 0;
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
+    if (error != std::errc{} || end != text.data() + text.size() || value == 0 || value > MAX_MIN_HEAP_WORDS) {
+        return std::unexpected("invalid --min-heap-size value '" + std::string(text) + "' (words, at least 1)");
+    }
+    return heap_size_at_least(static_cast<std::size_t>(value));
+}
+
 // A memory cap given in bytes: its option name, smallest accepted value and the setting it writes.
 struct ByteOption {
     std::string_view name;
@@ -118,9 +132,18 @@ std::expected<std::size_t, std::string> byte_count(const ByteOption &option, std
     return static_cast<std::size_t>(value) / sizeof(Word) * sizeof(Word);
 }
 
-// Apply a memory cap at `at` and return how many arguments it used; 0 when it is not one.
-std::expected<std::size_t, std::string> apply_bytes(std::span<const std::string> args, std::size_t at,
+// Apply a memory size option at `at` (the minimum heap or a cap) and return how many arguments it used; 0 when it is
+// not one.
+std::expected<std::size_t, std::string> apply_sizes(std::span<const std::string> args, std::size_t at,
                                                     RuntimeOptions &options) {
+    if (const auto heap = match(args, at, "--min-heap-size")) {
+        const auto words = min_heap_words(heap->value);
+        if (!words) {
+            return std::unexpected(words.error());
+        }
+        options.process_heap.min_heap_words = *words;
+        return heap->used;
+    }
     for (const auto &option : BYTE_OPTIONS) {
         if (const auto found = match(args, at, option.name)) {
             const auto bytes = byte_count(option, found->value);
@@ -164,7 +187,7 @@ std::expected<std::size_t, std::string> apply(std::span<const std::string> args,
     if (match(args, at, "--args-file")) {
         return std::unexpected(std::string("runtime option --args-file is not implemented"));
     }
-    return apply_bytes(args, at, options);
+    return apply_sizes(args, at, options);
 }
 
 // Apply leading runtime options until another argument; `--` ends them and is used too.
@@ -205,6 +228,11 @@ std::expected<ProgramOptions, std::string> program_options(int argc, char **argv
         return std::unexpected(used.error());
     }
     result.consumed = *used;
+    // A process heap must fit its budget (valid_heap_options).
+    const auto &heap = result.runtime.process_heap;
+    if (heap.min_heap_words > heap.limit_bytes / sizeof(Word)) {
+        return std::unexpected(std::string("--min-heap-size exceeds --max-heap"));
+    }
     return result;
 }
 } // namespace clause::runtime::detail
