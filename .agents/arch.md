@@ -241,7 +241,11 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   nodes).
 - Bitstrings: MSB-first with zero padding; small inline cells, large refc
   buffers; `sub_binary` 3-word cells over a never-nested original;
-  appendable refc buffers grow in place (`BitAccess::append`).
+  appendable refc buffers grow in place (`BitAccess::append`). Binary loops
+  (`codegen/binary_loops`, OPT1.4C): a function passing a binary parameter's
+  rest back to itself in tail calls gets a `<sym>.loop` variant that updates
+  one owned `sub_binary` cell in place per step (`BinaryLoop` in
+  `ExpressionLowering`, rest in `lowering_bits`, calls in `lowering_calls`).
 - Native records: `native_record` cells (header, untraced
   `RecordDefinition *`, values); registration binds
   `abi::v1::RecordDescriptor`s.

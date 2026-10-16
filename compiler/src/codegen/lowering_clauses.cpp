@@ -1,5 +1,6 @@
 #include "../semantic/capabilities.hpp"
 #include "../semantic/funs.hpp"
+#include "binary_loops.hpp"
 #include "lowering_state.hpp"
 #include "source_locations.hpp"
 #include <algorithm>
@@ -122,10 +123,10 @@ void name_self(ExpressionLowering &initial) {
 
 // Lower every candidate of `clauses` into the entry `initial` names, each seeing the captured values; exhaustion
 // raises function_clause.
-void lower_clauses(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses) {
+void lower_candidates(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses,
+                      const std::set<const ast::Expression *> &tails) {
     auto &builder = initial.builder;
     auto &entry = initial.entry;
-    const auto tails = tail_calls(initial, clauses);
     auto roots = begin_roots(initial);
     initial.roots = &roots;
     root_arguments(initial);
@@ -145,6 +146,7 @@ void lower_clauses(ExpressionLowering &initial, const std::vector<ast::FunctionC
         state.failure = failure;
         state.lambda = initial.lambda;
         state.proofs = initial.proofs;
+        state.binary_loop = initial.binary_loop;
         reset_candidate_roots(state);
         candidate(state, clauses[index], next);
         failure = state.failure;
@@ -157,6 +159,32 @@ void lower_clauses(ExpressionLowering &initial, const std::vector<ast::FunctionC
         raise_function_clause(initial);
     }
     finish_roots(initial);
+}
+
+// A binary loop (OPT1.4C): the function enters its variant with each rest cell it makes, and the variant, lowered
+// from the same clauses, keeps updating that one cell.
+void lower_loop(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses,
+                const std::set<const ast::Expression *> &tails, const std::size_t parameter) {
+    auto *variant = declare_binary_loop(initial);
+    BinaryLoop outer{parameter, variant, false};
+    initial.binary_loop = &outer;
+    lower_candidates(initial, clauses, tails);
+    llvm::IRBuilder<> builder(llvm::BasicBlock::Create(variant->getContext(), "entry", variant));
+    ExpressionLowering inner{builder, *variant, initial.module, initial.function, initial.inferred, initial.word, {}};
+    inner.reads = initial.reads;
+    inner.proofs = initial.proofs;
+    BinaryLoop looping{parameter, variant, true};
+    inner.binary_loop = &looping;
+    lower_candidates(inner, clauses, tails);
+}
+
+void lower_clauses(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses) {
+    const auto tails = tail_calls(initial, clauses);
+    if (const auto parameter = binary_loop_parameter(initial, clauses.size(), tails)) {
+        lower_loop(initial, clauses, tails, *parameter);
+    } else {
+        lower_candidates(initial, clauses, tails);
+    }
 }
 } // namespace
 

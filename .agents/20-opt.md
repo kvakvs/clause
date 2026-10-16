@@ -4,8 +4,8 @@ This file lists optimizations taken from Lukas Larsson's (garazdawi) **T2-Full**
 optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
-Completed steps (all of tier OPT0 plus OPT1.1A, part of OPT1.2, OPT1.4A and
-OPT1.4B): see [00-finished.md](00-finished.md). This file keeps open work only.
+Completed steps (all of tier OPT0 plus OPT1.1A/B, parts of OPT1.2 and OPT1.3,
+OPT1.4A-C): see [00-finished.md](00-finished.md). This file keeps open work only.
 
 ## Working rules for plan 20 steps
 
@@ -191,9 +191,11 @@ uses double width; range-proven elimination beyond `codegen/proofs`.
 
 ### OPT1.4 Binary matching as a cursor induction variable
 
-OPT1.4A and OPT1.4B done 2026-10-15 (inline start/finish, aligned whole-byte
-reads, sub-binary cells, inline `Rest`). Open: **OPT1.4C** the raw cursor across iterations (no `Rest` cell per loop
-trip), unaligned and non-byte segments inline.
+OPT1.4A-C done 2026-10-15/16 (inline start/finish, aligned whole-byte reads,
+sub-binary cells, inline `Rest`; a binary loop updates one sub-binary cell in
+place, `binary_match` 8.5x faster). Open: the raw cursor as an SSA phi with no
+cell store per trip, loops whose rest is also read elsewhere, unaligned and
+non-byte segments inline, 32-bit targets.
 
 This is the largest measured T2 win class (`14_bs_cursor_iv.md`).
 

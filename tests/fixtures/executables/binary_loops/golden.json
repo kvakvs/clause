@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "binary_loops",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "1250025000\n{106836645257395,199996,<<1,0,0,0>>}\n{101190156,<<1,2,3,4,5,6,7,8>>}\n{\"abc\",[1,2,2,3,3,3]}\n18\n303\n[<<>>,<<3>>,<<2,3>>]\n{badarith,binary_loops,failing,2}\n{function_clause,binary_loops,pairs,2}\ndone\nbinary_loops: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "binary_loops.erl": "484c759abb6153f7362c98f579ec8f06500dc1c466be3a66e85584830f8ddf81"
+  }
+}

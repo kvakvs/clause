@@ -37,6 +37,19 @@ template <typename Value> Value analyzed(std::optional<Value> &&value) {
     return std::move(*value);
 }
 
+// A function whose binary parameter passes the rest of the binary back to itself in tail calls (binary loops,
+// OPT1.4C): `variant` loops on one sub-binary cell that its self tail calls update in place.
+struct BinaryLoop {
+    // The parameter matched as a binary, the variant function, and whether the variant is being lowered.
+    std::size_t parameter;
+    llvm::Function *variant;
+    bool in_variant;
+    // In the function: whether a rest value is a sub-binary cell just made, which only the variant may take over.
+    std::map<const llvm::Value *, llvm::Value *> fresh = {};
+    // In the variant: the original-relative bit offset and bit length a tail call stores into the parameter's cell.
+    std::map<const llvm::Value *, std::pair<llvm::Value *, llvm::Value *>> updates = {};
+};
+
 struct ExpressionLowering {
     // Borrow the current generic entry, immutable source/analysis and target-word builder.
     llvm::IRBuilder<> &builder;
@@ -79,6 +92,8 @@ struct ExpressionLowering {
     // Inferred facts and dominating shape tests replace checks (O2 with type specialization, step 59); null keeps
     // every check generic.
     const Proofs *proofs = nullptr;
+    // The binary loop of the function being lowered (OPT1.4C); null for every other function.
+    BinaryLoop *binary_loop = nullptr;
 };
 
 // The fact inference recorded for an expression, or the fact of argument `index` joined from the function's callers;
@@ -250,6 +265,8 @@ llvm::Value *lower_bits(ExpressionLowering &state, const ast::Bitstring &binary)
 llvm::Value *inline_binary(ExpressionLowering &state, const ast::Bitstring &binary,
                            llvm::function_ref<llvm::Value *()> service);
 llvm::Value *lower_binary_part(ExpressionLowering &state, std::span<llvm::Value *const> values);
+// Whether a node extracts the rest of a binary (`Rest/binary` or `Rest/bits`) (OPT1.4B).
+bool rest_extraction(const semantic::MatchNode &node);
 // Reject malformed/truncated segments without publishing tentative bindings or advancing their cursor.
 BitLowering lower_bit_pattern(ExpressionLowering &state, const semantic::MatchNode &node,
                               std::span<llvm::Value *> values, llvm::BasicBlock *mismatch);

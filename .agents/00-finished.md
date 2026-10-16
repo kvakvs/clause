@@ -394,7 +394,10 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   a call or safepoint; self loop 8%, list sum 7% — `3d23d818`
 - **OPT1.3 (part)** inline `+`/`-` on tagged words with a sign-test overflow
   check, no double width; hash 22%, count_up 19%, fib 15% —
-  `[plan20] OPT1.3 ...`
+  `93981174`
+- **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh
+  sub-binary cell in place across self tail calls; binary_match 8.5x —
+  `[plan20] OPT1.4C ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

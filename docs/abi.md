@@ -235,6 +235,16 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   (`sub_*_word`) is read through its original. A trailing `Rest/binary` or
   `Rest/bits` of unit 1 is bump-allocated inline as a 4-word `sub_binary` cell
   of the original.
+- Binary loops: when every clause of a function matches one parameter as a
+  binary (or ignores it), never keeps the whole binary, and reads the rests it
+  binds only as that parameter of self tail calls, the function gets a private
+  variant `<symbol>.loop`. The function's own step makes the rest cell as above
+  and enters the variant with it (a rest the service made, which may be
+  shared, re-enters the function instead). The variant makes no rest cell: each
+  self tail call stores the new offset and bit length into the parameter's
+  cell, which only this loop references, and passes the same cell on, so a
+  loop over a binary allocates once. The variant has the function's name and
+  arity in stack traces.
 - A binary construction whose every byte is known at compile time (small integer
   constants and string literals at constant whole-byte widths, at most 64 bytes)
   is an inline binary cell of the module literal area, like other compound

@@ -213,10 +213,16 @@ BitLowering extract(ExpressionLowering &state, const semantic::MatchNode &node, 
             join_values(state, state.word, {read_end, next}, {unaligned_end, serviced.cursor})};
 }
 
-// Whether a node extracts the rest of a binary (`Rest/binary` or `Rest/bits`) (OPT1.4B).
-bool rest_extraction(const semantic::MatchNode &node) {
-    return node.operation == semantic::MatchOperation::binary_extract && node.bits && !node.key && !node.literal &&
-           node.bits->type == abi::v1::BitType::binary && node.bits->all;
+// The rest of the parameter of a binary loop's variant (OPT1.4C): no cell is made; the value is the parameter's own
+// sub-binary cell, and the tail call passing it on first stores the rest's offset and length into that cell.
+BitLowering context_rest(ExpressionLowering &state, BinaryLoop &loop, llvm::Value *input, const BinaryView &view,
+                         llvm::Value *position, llvm::Value *left) {
+    auto &builder = state.builder;
+    auto *value = builder.CreateFreeze(input, "binary.context");
+    mark_term(state, value);
+    loop.updates.emplace(value,
+                         std::pair{builder.CreateAdd(builder.CreateSub(view.offset, view.base), position), left});
+    return {value, encode_small(state, view.bits)};
 }
 
 // The rest of a binary as an inline sub-binary of its original (OPT1.4B): offset, length and the original word; a
@@ -236,6 +242,10 @@ BitLowering rest(ExpressionLowering &state, const semantic::MatchNode &node, std
                                      llvm::ConstantInt::get(state.word, 0)),
                              whole, mismatch);
         builder.SetInsertPoint(whole);
+    }
+    auto *loop = state.binary_loop && node.input == state.binary_loop->parameter ? state.binary_loop : nullptr;
+    if (loop && loop->in_variant) {
+        return context_rest(state, *loop, values[node.input], view, position, left);
     }
     const auto room = heap_room(state, llvm::ConstantInt::get(state.word, 4));
     auto *direct = llvm::BasicBlock::Create(context, "binary.rest", &state.entry);
@@ -265,8 +275,13 @@ BitLowering rest(ExpressionLowering &state, const semantic::MatchNode &node, std
     auto *fallback_end = builder.GetInsertBlock();
     builder.CreateBr(join);
     builder.SetInsertPoint(join);
-    return {join_values(state, state.word, {direct, made}, {fallback_end, serviced.value}),
-            join_values(state, state.word, {direct, end}, {fallback_end, serviced.cursor})};
+    auto *value = join_values(state, state.word, {direct, made}, {fallback_end, serviced.value});
+    if (loop) {
+        // Only a cell made here belongs to this loop alone; a serviced rest may be shared (OPT1.4C).
+        loop->fresh.emplace(value, join_values(state, builder.getInt1Ty(), {direct, builder.getTrue()},
+                                               {fallback_end, builder.getFalse()}));
+    }
+    return {value, join_values(state, state.word, {direct, end}, {fallback_end, serviced.cursor})};
 }
 
 // The match nodes a binary pattern lowers inline (OPT1.4); none for the others, which use the bits service.
@@ -294,6 +309,11 @@ std::optional<BitLowering> inline_pattern(ExpressionLowering &state, const seman
     return std::nullopt;
 }
 } // namespace
+
+bool rest_extraction(const semantic::MatchNode &node) {
+    return node.operation == semantic::MatchOperation::binary_extract && node.bits && !node.key && !node.literal &&
+           node.bits->type == abi::v1::BitType::binary && node.bits->all;
+}
 
 llvm::Value *lower_bits_operation(ExpressionLowering &state, const Op operation,
                                   const std::span<llvm::Value *const> values) {

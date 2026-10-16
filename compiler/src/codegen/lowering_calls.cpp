@@ -2,6 +2,7 @@
 #include "runtime_symbols.hpp"
 #include <clause/abi/equality.hpp>
 #include <clause/abi/frames.hpp>
+#include <clause/abi/term.hpp>
 #include <llvm/IR/Module.h>
 #include <stdexcept>
 
@@ -86,6 +87,58 @@ llvm::Function *callee_declaration(ExpressionLowering &state, const semantic::Fu
     entry->addFnAttr(ARITY_ATTRIBUTE, std::to_string(callee.function->key.arity));
     return entry;
 }
+
+// Enter `target` with the call's arguments as this function's result: lower_frames makes it a tail transfer.
+void tail_enter(ExpressionLowering &state, llvm::Function *target, const ast::CallExpression &call) {
+    auto *result = state.builder.CreateCall(target, {state.entry.getArg(0), arguments(state, call)}, "call.result");
+    result->setCallingConv(llvm::CallingConv::C);
+    state.builder.CreateRet(result);
+}
+
+// Store a binary loop rest's offset and length into the parameter's sub-binary cell (OPT1.4C).
+void update_context(ExpressionLowering &state, llvm::Value *cell, const std::pair<llvm::Value *, llvm::Value *> &rest) {
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    auto *address = builder.CreateIntToPtr(
+        builder.CreateSub(cell, llvm::ConstantInt::get(state.word, abi::v1::boxed_tag)), builder.getPtrTy());
+    builder.CreateAlignedStore(rest.first, builder.CreateConstGEP1_64(state.word, address, abi::v1::sub_offset_word),
+                               align);
+    builder.CreateAlignedStore(rest.second, builder.CreateConstGEP1_64(state.word, address, abi::v1::sub_bits_word),
+                               align);
+}
+
+// A self tail call passing a binary loop's rest as the looping parameter (OPT1.4C): the variant updates its cell and
+// loops; the function enters the variant with a cell it just made, else itself. False for any other call.
+bool binary_loop_call(ExpressionLowering &state, const ast::Expression &expression, const ast::CallExpression &call,
+                      llvm::Function *target) {
+    auto *loop = state.binary_loop;
+    if (!loop || !state.tail_calls || !state.tail_calls->contains(&expression) ||
+        target != state.entry.getParent()->getFunction(state.function.symbol)) {
+        return false;
+    }
+    auto *argument = state.values.at(&state.module.syntax->expression(call.arguments.at(loop->parameter)));
+    if (loop->in_variant) {
+        const auto found = loop->updates.find(argument);
+        if (found == loop->updates.end()) {
+            return false;
+        }
+        update_context(state, argument, found->second);
+        tail_enter(state, loop->variant, call);
+        return true;
+    }
+    const auto found = loop->fresh.find(argument);
+    if (found == loop->fresh.end()) {
+        return false;
+    }
+    auto *variant = llvm::BasicBlock::Create(state.entry.getContext(), "binary.loop", &state.entry);
+    auto *generic = llvm::BasicBlock::Create(state.entry.getContext(), "binary.shared", &state.entry);
+    state.builder.CreateCondBr(found->second, variant, generic);
+    state.builder.SetInsertPoint(variant);
+    tail_enter(state, loop->variant, call);
+    state.builder.SetInsertPoint(generic);
+    tail_enter(state, target, call);
+    return true;
+}
 } // namespace
 
 llvm::Value *lower_call(ExpressionLowering &state, const ast::Expression &expression, const ast::CallExpression &call) {
@@ -96,6 +149,10 @@ llvm::Value *lower_call(ExpressionLowering &state, const ast::Expression &expres
         throw std::invalid_argument("lowering: inconsistent resolved call arity");
     }
     auto *target = callee_declaration(state, callee);
+    if (binary_loop_call(state, expression, call, target)) {
+        state.builder.SetInsertPoint(llvm::BasicBlock::Create(state.entry.getContext(), "tail.dead", &state.entry));
+        return llvm::ConstantInt::get(state.word, abi::v1::empty_list);
+    }
     auto *result = state.builder.CreateCall(target, {state.entry.getArg(0), arguments(state, call)}, "call.result");
     result->setCallingConv(llvm::CallingConv::C);
     if (state.tail_calls && state.tail_calls->contains(&expression)) {
