@@ -5,8 +5,8 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1A/B, parts of OPT1.2 and OPT1.3,
-OPT1.4A-C, OPT3.1-3.3, OPT3.7, OPT3.10, read-ahead lines of OPT3.4): see
-[00-finished.md](00-finished.md). This file keeps open work only.
+OPT1.4A-C, OPT3.1-3.3, OPT3.7, OPT3.10, OPT3.11, read-ahead lines of OPT3.4):
+see [00-finished.md](00-finished.md). This file keeps open work only.
 
 ## Working rules for plan 20 steps
 

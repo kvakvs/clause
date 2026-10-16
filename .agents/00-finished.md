@@ -478,7 +478,13 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   merge reverses a run, so a pass allocates one copy instead of two (results
   identical to OTP's, ties included); sort 5.25 to 3.4 ms (OTP 2.1). Also a real
   `lists:merge/3` —
-  `[plan20] OPT3.7 ...`
+  `d514e6f4`
+- **OPT3.11** fragment windows: once the heap block is nearly full, generated
+  code bump-allocates in the process's newest own fragment, which grows
+  geometrically, instead of calling the construct service per cell between
+  safepoints; map_foldl 1.52x (`lists:map` returns), term_to_binary 1.13x,
+  binary_append 1.10x —
+  `[plan20] OPT3.11 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

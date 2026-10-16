@@ -134,13 +134,18 @@ heap. Smaller maps stay `map` cells.
 - **Heap.** One block `[start, top, end)` per process with bump allocation. It
   is created by the process's first allocation, sized
   `max(min_heap_words, request)` so that request always fits (fragments start
-  at the minimum, at most 233 words), and owned by that
+  at the minimum, at most 233 words, then grow, below), and owned by that
   process alone. Generated code bump-allocates small tuples, lists, floats and
   closures in it directly through `FrameState::heap_top`/`heap_limit`:
   `HeapStorage::absorb` takes those words into the top and `used_words_` before
   any heap operation (reservation, admission, collection, verification, usage
   queries) and `expose` shows the free words again after one. Inline allocation
-  never makes a fragment and stays off under a per-process budget.
+  never makes a fragment and stays off under a per-process budget. Once the
+  block has fewer than 64 free words, `expose` shows the process's newest own
+  fragment instead (never an adopted message block), so allocation between two
+  safepoints, such as the returns of a body recursion, stays inline after the
+  first fragment opens (fragment windows). Without a budget each new fragment is
+  at least as large as the fragments before it.
 - **Literal areas.** Each module's compound literals — strings and constant
   lists, tuples of constants, floats, bignum literals and constant binaries —
   are laid out by the compiler as heap cells in one read-only global

@@ -41,11 +41,14 @@ HeapStorage::~HeapStorage() {
     memory_->release(capacity_words_);
 }
 
+HeapArea &HeapStorage::window() noexcept { return window_ == NO_FRAGMENT ? heap_ : fragments_[window_]; }
+
 void HeapStorage::absorb() noexcept {
     if (inline_ && inline_->heap_top) {
-        const auto top = static_cast<std::size_t>(inline_->heap_top - heap_.words_.get());
-        used_words_ += top - heap_.top_;
-        heap_.top_ = top;
+        auto &area = window();
+        const auto top = static_cast<std::size_t>(inline_->heap_top - area.words_.get());
+        used_words_ += top - area.top_;
+        area.top_ = top;
     }
 }
 
@@ -53,9 +56,13 @@ void HeapStorage::expose() noexcept {
     if (!inline_) {
         return;
     }
-    const bool shown = heap_.capacity_ != 0 && options_.limit_bytes == UNLIMITED_HEAP_BYTES;
-    inline_->heap_top = shown ? heap_.words_.get() + heap_.top_ : nullptr;
-    inline_->heap_limit = shown ? heap_.words_.get() + heap_.capacity_ : nullptr;
+    // A heap block nearly full shows this storage's own newest fragment instead, so allocation between safepoints (a
+    // body recursion's returns) stays inline (fragment windows).
+    window_ = !heap_.fits(WINDOW_WORDS) && own_fragment_ < fragments_.size() ? own_fragment_ : NO_FRAGMENT;
+    const auto &area = window();
+    const bool shown = area.capacity_ != 0 && options_.limit_bytes == UNLIMITED_HEAP_BYTES;
+    inline_->heap_top = shown ? area.words_.get() + area.top_ : nullptr;
+    inline_->heap_limit = shown ? area.words_.get() + area.capacity_ : nullptr;
 }
 
 bool HeapStorage::alive() const noexcept { return !lifetime_.expired() && token_->alive(); }
@@ -69,6 +76,7 @@ void HeapStorage::rollback(HeapMark mark) noexcept {
     while (fragments_.size() > mark.fragments) {
         fragments_.pop_back();
     }
+    own_fragment_ = own_fragment_ < fragments_.size() ? own_fragment_ : NO_FRAGMENT;
     std::erase_if(ranges_, [&](const FragmentRange &range) { return range.fragment_ >= fragments_.size(); });
     if (!fragments_.empty()) {
         fragments_.back().top_ = mark.fragment_top;
@@ -135,7 +143,12 @@ std::expected<HeapArea *, HeapError> HeapStorage::add_fragment(std::size_t words
         fragments_.reserve(2 * fragments_.size() + 1);
     }
     ranges_.reserve(fragments_.capacity());
-    auto fresh = block(words, std::min(options_.min_heap_words, DEFAULT_MIN_HEAP_WORDS));
+    // Without a budget, at least as large as the fragments so far, so a long run of allocation between safepoints
+    // needs few of them (fragment windows); a budget keeps the minimum.
+    const auto minimum = std::min(options_.min_heap_words, DEFAULT_MIN_HEAP_WORDS);
+    const auto grown =
+        options_.limit_bytes == UNLIMITED_HEAP_BYTES ? capacity_words_ - heap_.capacity_ - old_.capacity_ : 0;
+    auto fresh = block(words, std::max(minimum, grown));
     if (!fresh) {
         return std::unexpected(fresh.error());
     }
@@ -144,6 +157,7 @@ std::expected<HeapArea *, HeapError> HeapStorage::add_fragment(std::size_t words
     capacity_words_ += fresh->capacity_;
     memory_->force(fresh->capacity_);
     signal_collection();
+    own_fragment_ = fragments_.size();
     return &fragments_.emplace_back(std::move(*fresh));
 }
 
@@ -254,6 +268,8 @@ void HeapStorage::replace(HeapArea heap, bool full) noexcept {
     heap_ = std::move(heap);
     fragments_ = std::vector<HeapArea>{};
     ranges_ = std::vector<FragmentRange>{};
+    own_fragment_ = NO_FRAGMENT;
+    window_ = NO_FRAGMENT;
     // Every survivor has now lived through a collection: the next minor collection promotes them (generational).
     high_water_ = heap_.top_;
     used_words_ = heap_.top_ + old_.top_;

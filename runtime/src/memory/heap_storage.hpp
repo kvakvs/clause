@@ -149,10 +149,19 @@ class HeapStorage final {
     // null for a message buffer's storage.
     abi::v1::FrameState *inline_ = nullptr;
 
-    // Take the words generated code bump-allocated inline into the heap block's top and the accounting (OPT0.3).
+    // Take the words generated code bump-allocated inline into the shown area's top and the accounting (OPT0.3).
     void absorb() noexcept;
-    // Show generated code the heap block's free words; none without a block or under a per-process budget (OPT0.3).
+    // Show generated code the heap block's free words, or the newest own fragment's once the block is nearly full;
+    // none without a block or under a per-process budget (OPT0.3, fragment windows).
     void expose() noexcept;
+
+    // The index of the newest fragment this storage allocated itself (adopted message blocks never are), and of the
+    // fragment generated code bump-allocates in; NO_FRAGMENT for none and for the heap block (fragment windows).
+    static constexpr std::size_t NO_FRAGMENT = static_cast<std::size_t>(-1);
+    std::size_t own_fragment_ = NO_FRAGMENT;
+    std::size_t window_ = NO_FRAGMENT;
+    // Free heap block words below which expose() shows a fragment: the largest inline allocation (fragment windows).
+    static constexpr std::size_t WINDOW_WORDS = 64;
 
     // Mark a collection as wanted for the owner's generated entries (OPT0.1).
     void signal_collection() noexcept {
@@ -169,6 +178,8 @@ class HeapStorage final {
     const IdentityNumbers *identities_;
 
   private:
+    // The area generated code allocates in: the heap block or the window fragment.
+    HeapArea &window() noexcept;
     // Allocate words for reserve or claim, zeroed or not.
     std::expected<std::span<Word>, HeapError> take(std::size_t words, bool zeroed);
     // Choose the area for a validated request, creating the heap block or a fragment when needed.
