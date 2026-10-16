@@ -443,7 +443,10 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   and tree maps; `clause_maps:entries/1` gives `maps:fold` an entries tuple
   instead of a list of pairs, and `map_next` stops building every entry per
   step; map_update 15% —
-  `[plan20] OPT0.33 ...`
+  `d7f90ad9`
+- **OPT0.34** `atom_to_list` of an atom literal folded at compile time into a
+  literal string, as OTP's `sys_core_fold`; string_build ~25% —
+  `[plan20] OPT0.34 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

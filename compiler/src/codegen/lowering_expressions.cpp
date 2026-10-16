@@ -125,6 +125,36 @@ static_assert(abi::v1::find_bridge_builtin("erlang", "setelement", 3));
 constexpr auto MAKE_TUPLE = abi::v1::find_bridge_builtin("erlang", "make_tuple", 2).value_or(0);
 static_assert(abi::v1::find_bridge_builtin("erlang", "make_tuple", 2));
 
+constexpr auto ATOM_TO_LIST = abi::v1::find_bridge_builtin("erlang", "atom_to_list", 1).value_or(0);
+static_assert(abi::v1::find_bridge_builtin("erlang", "atom_to_list", 1));
+
+// A pure builtin of literal arguments evaluated at compile time, as OTP's compiler does (sys_core_fold): the name of
+// atom_to_list(Atom) as a literal string; null when the call is not one (folded builtins).
+llvm::Value *folded_builtin(ExpressionLowering &state, std::size_t builtin, const ast::CallExpression &call) {
+    if (builtin != ATOM_TO_LIST || call.arguments.size() != 1) {
+        return nullptr;
+    }
+    const auto &syntax = *state.module.syntax;
+    const auto *atom = std::get_if<ast::Atom>(&syntax.expression(semantic::ungroup(syntax, call.arguments[0])).value);
+    return atom ? lower_container(state, ast::StringLiteral{atom->name}) : nullptr;
+}
+
+// A bridge builtin call: folded at compile time, inline (math, make_tuple/2, setelement/3) or entered.
+llvm::Value *bridge_value(ExpressionLowering &state, std::size_t index, const ast::CallExpression &call) {
+    if (auto *folded = folded_builtin(state, index, call)) {
+        return folded;
+    }
+    const auto values = call_arguments(state, call);
+    const auto builtin = [&] { return lower_builtin(state, index, values); };
+    if (auto *math = inline_math(state, index, values, builtin)) {
+        return math;
+    }
+    if (index == MAKE_TUPLE) {
+        return lower_make_tuple(state, index, values);
+    }
+    return index == SETELEMENT ? lower_setelement(state, index, values) : builtin();
+}
+
 // Lower services with lowerings of their own: apply/2,3, bridge builtins and compound guard tests; null for others.
 llvm::Value *special_service(ExpressionLowering &state, const ast::Expression &expression,
                              const semantic::ServiceResolution &service, const ast::CallExpression &call) {
@@ -132,15 +162,7 @@ llvm::Value *special_service(ExpressionLowering &state, const ast::Expression &e
         return lower_apply(state, expression, call);
     }
     if (service.builtin) {
-        const auto values = call_arguments(state, call);
-        const auto builtin = [&] { return lower_builtin(state, *service.builtin, values); };
-        if (auto *math = inline_math(state, *service.builtin, values, builtin)) {
-            return math;
-        }
-        if (*service.builtin == MAKE_TUPLE) {
-            return lower_make_tuple(state, *service.builtin, values);
-        }
-        return *service.builtin == SETELEMENT ? lower_setelement(state, *service.builtin, values) : builtin();
+        return bridge_value(state, *service.builtin, call);
     }
     if (service.operation == abi::v1::ImmediateOperation::is_integer_range) {
         return lower_integer_range(state, call);

@@ -253,6 +253,9 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
 - `Left ++ Right` where `Left` is written as a proper list (a string literal, or
   a list without a tail) is built as `[E1, ..., En | Right]`, as OTP's compiler
   does, without calling `erlang:'++'/2`.
+- A pure builtin of literal arguments is evaluated at compile time, as OTP's
+  `sys_core_fold` does: `atom_to_list(Atom)` of an atom literal is that name's
+  literal string, with no call.
 - `erlang:make_tuple(N, V)` with a small `N` in 1..64 bump-allocates the tuple
   and fills it with `llvm.experimental.memset.pattern` where the heap has room;
   otherwise the builtin runs.
