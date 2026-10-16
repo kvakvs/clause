@@ -429,7 +429,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   the executor lock and its block becomes a fragment of the receiver
   (`HeapStorage::adopt`), with no second copy for busy receivers; adopted
   fragments collect only past the young block —
-  `[plan20] OPT0.30 ...`
+  `97295c84`
+- **OPT0.31** file reads copy once: `read_file` sizes its reply by `fstat` and
+  reads straight into it, `read` reads into its reply, and `port_control` takes
+  a large reply over as the binary's buffer (`TermFactory::owned_binary`);
+  read_file 23.8 to 6.2 ms (OTP 4.4), large_read 9.2 to 7.8 ms —
+  `[plan20] OPT0.31 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

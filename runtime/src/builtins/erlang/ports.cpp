@@ -387,14 +387,13 @@ TermResult<Term> control(ProcessContext &context, Word port, std::optional<std::
     if (!code || *code < 0 || *code > 0xffffffff || !bytes) {
         bad_argument();
     }
-    const auto answer =
-        detail::Executor::of(context).control_port(context, port, *bytes, static_cast<std::uint32_t>(*code));
+    auto answer = detail::Executor::of(context).control_port(context, port, *bytes, static_cast<std::uint32_t>(*code));
     if (!answer) {
         bad_argument();
     }
     TermFactory factory(context);
     if (answer->second) {
-        return factory.binary(answer->first);
+        return factory.owned_binary(std::move(answer->first));
     }
     std::vector<Word> list;
     for (const auto byte : answer->first) {

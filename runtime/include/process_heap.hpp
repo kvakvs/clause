@@ -192,6 +192,9 @@ class ProcessHeap final {
     // Create an off-heap buffer holding bytes, charged to the runtime-wide account until its last reference dies.
     std::expected<std::shared_ptr<std::vector<std::byte>>, HeapError>
     off_heap_buffer(std::span<const std::byte> bytes) noexcept;
+    // The same taking over `bytes` without copying them (owned binaries).
+    std::expected<std::shared_ptr<std::vector<std::byte>>, HeapError>
+    off_heap_buffer(std::vector<std::byte> &&bytes) noexcept;
     // Count one more cell of this process referencing an off-heap buffer; the first charges the process budget.
     std::expected<void, HeapError> hold_off_heap(const std::vector<std::byte> &buffer) noexcept;
     // Copy the graph at root from another heap of the same runtime into this one, flat as OTP copies messages.

@@ -71,6 +71,8 @@ class TermFactory final {
     TermResult<Term> map(std::span<const std::pair<Term, Term>> entries);
     // Copy bytes or an explicitly sized MSB-first sequence of bits.
     TermResult<Term> binary(std::span<const std::byte> bytes);
+    // A binary of `bytes`, taking a large vector over as its buffer instead of copying it (owned binaries).
+    TermResult<Term> owned_binary(std::vector<std::byte> &&bytes);
     TermResult<Term> bitstring(std::span<const std::byte> bytes, std::size_t bit_count);
 
     // Wrap runtime-issued identities; constructing a term does not spawn/open a resource.

@@ -22,6 +22,9 @@ std::expected<std::shared_ptr<layout::BinaryBuffer>, HeapError> make_buffer(Heap
 // without moving (OPT0.6).
 std::expected<std::shared_ptr<layout::BinaryBuffer>, HeapError>
 make_buffer(HeapStorage &storage, std::span<const std::byte> bytes, std::size_t capacity);
+// The same taking over `bytes` without copying them: a large reply read straight into its vector (owned binaries).
+std::expected<std::shared_ptr<layout::BinaryBuffer>, HeapError> make_buffer(HeapStorage &storage,
+                                                                            layout::BinaryBuffer &&bytes);
 // Count one more cell of this process referencing buffer; the first charges its words to the process budget.
 // May throw std::bad_alloc, changing nothing.
 std::expected<void, HeapError> hold_off_heap(HeapStorage &storage, const layout::BinaryBuffer &buffer);

@@ -147,6 +147,19 @@ TermResult<Term> BitAccess::make(ProcessHeap &heap, std::span<const std::byte> b
     }
 }
 
+TermResult<Term> BitAccess::owned(ProcessHeap &heap, std::vector<std::byte> &&bytes) {
+    const auto count = bytes.size() * 8;
+    if (bytes.size() <= layout::heap_binary_bytes) {
+        return heap_binary(heap, bytes, count);
+    }
+    auto buffer = heap.off_heap_buffer(std::move(bytes));
+    if (!buffer) {
+        return std::unexpected(heap_error(buffer.error()));
+    }
+    // A failed publication drops the last reference, which returns the buffer's charge.
+    return refc_binary(heap, std::move(*buffer), {0, count});
+}
+
 TermResult<Term> BitAccess::appendable(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count) {
     const auto size = (count + 7) / 8;
     // Double the room each time, so a loop of appends copies each byte a constant number of times.
@@ -234,6 +247,13 @@ TermResult<Term> TermFactory::binary(std::span<const std::byte> bytes) {
         return std::unexpected(TermError::resource_limit);
     }
     return bitstring(bytes, bytes.size() * 8);
+}
+
+TermResult<Term> TermFactory::owned_binary(std::vector<std::byte> &&bytes) {
+    if (bytes.size() > std::numeric_limits<std::size_t>::max() / 8) {
+        return std::unexpected(TermError::resource_limit);
+    }
+    return heap().and_then([&](ProcessHeap *owner) { return detail::BitAccess::owned(*owner, std::move(bytes)); });
 }
 
 TermResult<Term> TermFactory::bitstring(std::span<const std::byte> bytes, std::size_t count) {

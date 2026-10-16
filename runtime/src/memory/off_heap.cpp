@@ -42,6 +42,17 @@ make_buffer(HeapStorage &storage, std::span<const std::byte> bytes, const std::s
     return std::shared_ptr<BinaryBuffer>(buffer.release(), BufferCharge{storage.memory_, words});
 }
 
+std::expected<std::shared_ptr<BinaryBuffer>, HeapError> make_buffer(HeapStorage &storage, BinaryBuffer &&bytes) {
+    const auto words = (bytes.size() + sizeof(Word) - 1) / sizeof(Word);
+    if (words > storage.room()) {
+        return std::unexpected(HeapError::limit_exceeded);
+    }
+    auto buffer = std::make_unique<BinaryBuffer>(std::move(bytes));
+    storage.memory_->force(words);
+    // A throwing control block allocation runs the deleter, which returns the charge.
+    return std::shared_ptr<BinaryBuffer>(buffer.release(), BufferCharge{storage.memory_, words});
+}
+
 std::expected<void, HeapError> hold_off_heap(HeapStorage &storage, const BinaryBuffer &buffer) {
     const auto [entry, fresh] = storage.buffers_.try_emplace(&buffer, 0);
     if (fresh) {

@@ -280,6 +280,22 @@ ProcessHeap::off_heap_buffer(std::span<const std::byte> bytes) noexcept {
     return std::unexpected(failure);
 }
 
+std::expected<std::shared_ptr<std::vector<std::byte>>, HeapError>
+ProcessHeap::off_heap_buffer(std::vector<std::byte> &&bytes) noexcept {
+    auto failure = HeapError::out_of_memory;
+    try {
+        auto buffer = detail::make_buffer(*storage_, std::move(bytes));
+        if (buffer) {
+            return buffer;
+        }
+        failure = buffer.error();
+    } catch (const std::bad_alloc &) {
+        failure = HeapError::out_of_memory;
+    }
+    report(failure);
+    return std::unexpected(failure);
+}
+
 std::expected<void, HeapError> ProcessHeap::hold_off_heap(const std::vector<std::byte> &buffer) noexcept {
     auto failure = HeapError::out_of_memory;
     try {

@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #else
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #endif
 
@@ -172,7 +173,8 @@ int open_file(const std::filesystem::path &path, int flags) {
 // The C runtime's read, write, seek and close of a descriptor.
 std::int64_t read_fd(int fd, std::span<std::byte> buffer) {
 #ifdef _WIN32
-    return _read(fd, buffer.data(), static_cast<unsigned>(buffer.size()));
+    // One call reads at most 1 GiB: the count is an unsigned int here.
+    return _read(fd, buffer.data(), static_cast<unsigned>(std::min<std::size_t>(buffer.size(), std::size_t{1} << 30)));
 #else
     return ::read(fd, buffer.data(), buffer.size());
 #endif
@@ -214,19 +216,39 @@ bool write_all(int fd, std::span<const std::byte> bytes) {
     return true;
 }
 
-// Read the whole of an open descriptor.
+// The size of an open descriptor's file, 0 when it has none to report.
+std::size_t file_size(int fd) {
+#ifdef _WIN32
+    struct _stat64 status{};
+    return _fstat64(fd, &status) == 0 ? static_cast<std::size_t>(status.st_size) : 0;
+#else
+    struct stat status{};
+    return fstat(fd, &status) == 0 ? static_cast<std::size_t>(status.st_size) : 0;
+#endif
+}
+
+// The success reply of the whole of an open descriptor, read straight into the reply after its status byte: sized
+// from the file's size and grown only when the file grew, so the bytes are copied once (owned binaries).
 std::optional<Bytes> read_all(int fd) {
-    Bytes content;
-    std::array<std::byte, CHUNK> buffer{};
+    Bytes reply(1 + std::max<std::size_t>(file_size(fd), CHUNK));
+    reply[0] = std::byte{0};
+    std::size_t filled = 1;
     for (;;) {
-        const auto read = read_fd(fd, buffer);
+        // A full reply probes for the end with a small read before growing: a file of the expected size never moves.
+        std::array<std::byte, CHUNK> probe{};
+        const auto full = filled == reply.size();
+        const auto read = full ? read_fd(fd, probe) : read_fd(fd, std::span(reply).subspan(filled));
         if (read < 0) {
             return std::nullopt;
         }
         if (read == 0) {
-            return content;
+            reply.resize(filled);
+            return reply;
         }
-        content.insert(content.end(), buffer.begin(), buffer.begin() + read);
+        if (full) {
+            reply.insert(reply.end(), probe.begin(), probe.begin() + read);
+        }
+        filled += static_cast<std::size_t>(read);
     }
 }
 
@@ -246,10 +268,9 @@ Bytes read_file(std::span<const std::byte> bytes) {
     if (fd < 0) {
         return errno_failure();
     }
-    const auto content = read_all(fd);
-    const auto reply = content ? ok(*content) : errno_failure();
+    auto content = read_all(fd);
     close_fd(fd);
-    return reply;
+    return content ? std::move(*content) : errno_failure();
 }
 
 // write_file: replace the file's content.
@@ -464,13 +485,17 @@ class FileDriver final : public PortDriver {
         if (!mode_allows(MODE_READ)) {
             return failure("ebadf");
         }
-        Bytes buffer(size);
-        const auto read = read_fd(fd_, buffer);
+        // The bytes go straight into the reply after its status byte (owned binaries).
+        Bytes reply(1 + size);
+        const auto read = read_fd(fd_, std::span(reply).subspan(1));
         if (read < 0) {
             return errno_failure();
         }
-        buffer.resize(static_cast<std::size_t>(read));
-        return read == 0 && size > 0 ? end_of_file() : ok(buffer);
+        if (read == 0 && size > 0) {
+            return end_of_file();
+        }
+        reply.resize(1 + static_cast<std::size_t>(read));
+        return reply;
     }
 
     // read_line: the next line with its newline, the rest of the file without one, or end of file. The file
