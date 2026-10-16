@@ -5,8 +5,8 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1A/B, parts of OPT1.2 and OPT1.3,
-OPT1.4A-C, OPT3.1-3.3, OPT3.10): see [00-finished.md](00-finished.md). This
-file keeps open work only.
+OPT1.4A-C, OPT3.1-3.3, OPT3.10, read-ahead lines of OPT3.4): see
+[00-finished.md](00-finished.md). This file keeps open work only.
 
 ## Working rules for plan 20 steps
 
@@ -117,9 +117,11 @@ Steps by the gap to OTP JIT in the 2026-10-16 69A run (after OPT0.34). Profile
 each kernel with the cdb sampler (`build/prof`) before building; map_foldl
 (3.8x) belongs to OPT1.7 and OPT1.8.
 
-- **OPT3.4 file I/O (large_read 4.0x, large_write 3.3x, read_line 2.8x):** per
-  request port overhead, buffer allocation and copies against the OS time; OTP
-  reads and writes through `prim_file` NIFs.
+- **OPT3.4 file I/O:** read_line reads ahead (done); run alone, large_read is at
+  parity with OTP (4.1 against 4.0 ms, two thirds in `ReadFile`), so its 69A gap
+  and large_write's are heaps left by earlier kernels (OPT3.10B). read_line is
+  still 41 against 29 ms per 20,000 lines: the I/O server round trip (monitor,
+  send, receive, demonitor) per line.
 - **OPT3.5 process creation and teardown (short_processes 3.6x):** the OPT0.24 /
   OPT0.25 follow-up: context, heap block and stack setup per spawn, the exit
   path, and the executor lock.

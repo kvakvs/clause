@@ -468,7 +468,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   minor that freed less than half); 69A geomean +7.2% (comprehension 2.13x,
   large_read 1.90x, term_to_binary 1.43x, string_build 1.36x), 1.42x behind OTP
   JIT —
-  `[plan20] OPT3.3 ...`
+  `708d9414`
+- **OPT3.4** read-ahead lines: the file driver's read_line returns lines from a
+  64 KB read-ahead buffer instead of a read and a seek per line, and every other
+  operation first seeks back over what it has not returned; read_line 75 to
+  41 ms per 20,000 lines (OTP 29) —
+  `[plan20] OPT3.4 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

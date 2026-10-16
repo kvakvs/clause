@@ -273,7 +273,9 @@ stdout are pipes of the port:
   read_link_info, make_link and make_symlink, `ports/file_paths.cpp`) are
   synchronous system calls on the caller's worker, outside the executor mutex;
   their replies start with a status byte (0 ok, 1 error and its POSIX reason, 2
-  end of file). The protocol is Clause's own.
+  end of file). The protocol is Clause's own. read_line reads 64 KB ahead and
+  returns lines from that buffer; any other operation on the file first seeks
+  back over the bytes it has not returned, so positions stay exact.
 - `file:open/2` returns an I/O server pid that owns a file port and is linked to
   the opener (modes `read`, `write`, `append`, `exclusive`, `binary`; other
   modes are ignored, as OTP ignores options it does not use; `write` truncates

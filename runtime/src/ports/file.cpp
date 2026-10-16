@@ -62,6 +62,8 @@ constexpr unsigned MODE_EXCLUSIVE = 8;
 
 // Bytes one read of a whole file or of a line asks for.
 constexpr std::size_t CHUNK = 4096;
+// Bytes read_line reads ahead at a time (read-ahead lines).
+constexpr std::size_t LINE_AHEAD = 65536;
 
 // A reply of success with `result`.
 Bytes ok(std::span<const std::byte> result = {}) {
@@ -409,6 +411,10 @@ class FileDriver final : public PortDriver {
             return path_operation(kind, bytes);
         }
         const Turn turn(*this);
+        // Any operation but read_line first gives the file back the bytes read_line read ahead.
+        if (kind != FileOperation::read_line) {
+            give_back();
+        }
         return file_operation(kind, bytes);
     }
 
@@ -498,18 +504,18 @@ class FileDriver final : public PortDriver {
         return reply;
     }
 
-    // read_line: the next line with its newline, the rest of the file without one, or end of file. The file
-    // position moves to just past the line.
+    // read_line: the next line with its newline, the rest of the file without one, or end of file. Lines come out
+    // of a read-ahead buffer, refilled a chunk at a time, so consecutive lines cost no system call each (read-ahead
+    // lines); the file position as other operations see it is just past the line.
     Bytes read_line() {
         Bytes line;
-        std::array<std::byte, CHUNK> buffer{};
         for (;;) {
-            const auto read = read_fd(fd_, buffer);
+            if (take_line(line)) {
+                return ok(line);
+            }
+            const auto read = refill();
             if (read < 0) {
                 return errno_failure();
-            }
-            if (append_line(line, std::span(buffer).first(static_cast<std::size_t>(read)))) {
-                return ok(line);
             }
             if (read == 0) {
                 return line.empty() ? end_of_file() : ok(line);
@@ -517,17 +523,32 @@ class FileDriver final : public PortDriver {
         }
     }
 
-    // Append `chunk` to `line` up to and including a newline; true once the line ended, giving back to the file what
-    // was read past it.
-    bool append_line(Bytes &line, std::span<const std::byte> chunk) {
-        const auto newline = std::ranges::find(chunk, std::byte{'\n'});
-        if (newline == chunk.end()) {
-            line.insert(line.end(), chunk.begin(), chunk.end());
-            return false;
+    // Read the next chunk ahead; the bytes read, or a negative count after an error.
+    std::int64_t refill() {
+        ahead_.resize(LINE_AHEAD);
+        const auto read = read_fd(fd_, ahead_);
+        ahead_.resize(read < 0 ? 0 : static_cast<std::size_t>(read));
+        ahead_at_ = 0;
+        return read;
+    }
+
+    // Move buffered bytes to `line` up to and including a newline; true once the line ended.
+    bool take_line(Bytes &line) {
+        const auto rest = std::span(ahead_).subspan(ahead_at_);
+        const auto newline = std::ranges::find(rest, std::byte{'\n'});
+        const auto end = newline == rest.end() ? rest.end() : newline + 1;
+        line.insert(line.end(), rest.begin(), end);
+        ahead_at_ += static_cast<std::size_t>(end - rest.begin());
+        return newline != rest.end();
+    }
+
+    // Seek back over the bytes read_line read ahead but did not return, so the file is where its caller expects.
+    void give_back() {
+        if (ahead_at_ < ahead_.size() && fd_ >= 0) {
+            seek_fd(fd_, -static_cast<std::int64_t>(ahead_.size() - ahead_at_), SEEK_CUR);
         }
-        line.insert(line.end(), chunk.begin(), newline + 1);
-        seek_fd(fd_, -static_cast<std::int64_t>(chunk.end() - newline - 1), SEEK_CUR);
-        return true;
+        ahead_.clear();
+        ahead_at_ = 0;
     }
 
     // position: the whence byte (0 from the start, 1 from the current position, 2 from the end) and a signed
@@ -566,6 +587,9 @@ class FileDriver final : public PortDriver {
     // The open file, or -1, and the mode byte it was opened with.
     int fd_ = -1;
     unsigned mode_ = 0;
+    // Bytes read_line read past the lines it returned, and the next one to return (read-ahead lines).
+    std::vector<std::byte> ahead_;
+    std::size_t ahead_at_ = 0;
 };
 } // namespace
 
