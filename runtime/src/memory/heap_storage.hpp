@@ -1,6 +1,7 @@
 #pragma once
 #include "../modules/literal_areas.hpp"
 #include "../process/identities.hpp"
+#include "heap_blocks.hpp"
 #include "heap_object.hpp"
 #include "heap_policy.hpp"
 #include "process_heap.hpp"
@@ -17,7 +18,7 @@ struct RefcBinaryCell;
 
 struct HeapArea {
     // One block that never moves: the heap or a fragment, bump-allocated in [0, top_) of capacity_ words.
-    std::unique_ptr<Word[]> words_;
+    BlockWords words_;
     std::size_t capacity_ = 0;
     std::size_t top_ = 0;
 

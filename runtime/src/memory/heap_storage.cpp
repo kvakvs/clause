@@ -126,7 +126,7 @@ std::expected<HeapArea, HeapError> HeapStorage::block(std::size_t words, std::si
         return std::unexpected(HeapError::limit_exceeded);
     }
     const auto capacity = std::min(remaining, std::max(words, minimum));
-    return HeapArea{std::make_unique_for_overwrite<Word[]>(capacity), capacity};
+    return HeapArea{allocate_block(capacity), capacity};
 }
 
 std::expected<HeapArea *, HeapError> HeapStorage::add_fragment(std::size_t words) {

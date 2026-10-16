@@ -205,6 +205,19 @@ heap. Smaller maps stay `map` cells.
   `StackOptions::limit_words`. Programs set both caps with `--max-heap` and
   `--max-stack` ([runtime options](executables.md#runtime-options)).
 
+## Heap blocks
+
+Heap blocks, fragments and old areas come from `memory/heap_blocks`. A block a
+collection releases stays with its thread for that thread's next collections
+(OPT3.10, as ERTS's carriers keep memory): a new block takes the smallest cached
+block of at least its size and at most twice it, else fresh memory. Each thread
+keeps at most 8 blocks and 4M words (32 MB on 64-bit targets); blocks below
+4,096 words are not kept, since the C++ heap's free lists serve them cheaply.
+Without this, every collection's to-space took fresh pages from the operating
+system and paid a page fault per page it touched, and freeing a large block
+returned its pages. Cached blocks are not charged to any process or to the
+runtime-wide account; a thread frees its cache when it ends.
+
 ## Runtime memory limit
 
 - An optional runtime-wide limit, `RuntimeOptions::memory_limit_bytes` (default

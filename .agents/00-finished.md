@@ -456,7 +456,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   to 32 cells copied in generated code, 145 to 13 ns, OTP 12) and direct
   builtins (`CLAUSE_builtin_call_v1`, ABI 22: pure conversions run with no
   frame transfer); string_build 1.81x, int_to_list 1.08x, 69A geomean +2.8% —
-  `[plan20] OPT3.2 ...`
+  `91cc2e10`
+- **OPT3.10** heap block reuse (`memory/heap_blocks`): released heap blocks stay
+  with their thread for its next collections instead of fresh OS pages; 69A
+  geomean +9.3% (large_write 2.98x, grow_shrink 2.06x, binary_append 1.42x),
+  1.45x behind OTP JIT —
+  `[plan20] OPT3.10 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

@@ -42,7 +42,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 | --- | --- |
 | `.` | Runtime lifecycle, shared state |
 | `terms/` | Words/terms, atoms, integers, floats, maps (incl. trees, cursors), bitstrings, funs, records, identities, dynamic calls, equality/order, text |
-| `memory/` | Process heap, budgets, off-heap, walker/verifier, collector, graph copy, message buffers, persistent terms |
+| `memory/` | Process heap, budgets, block reuse (`heap_blocks`), off-heap, walker/verifier, collector, graph copy, message buffers, persistent terms |
 | `process/` | Context, stack/frames, exceptions, exits, mailbox storage, receive, identities, profiling |
 | `scheduler/` | Executor/workers, signals, ports table, timers/timer wheel, aliases, introspection |
 | `modules/` | Code server, registration, atom bindings/caches, literal areas |

@@ -5,8 +5,8 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1A/B, parts of OPT1.2 and OPT1.3,
-OPT1.4A-C, OPT3.1): see [00-finished.md](00-finished.md). This file keeps open
-work only.
+OPT1.4A-C, OPT3.1, OPT3.2, OPT3.10): see [00-finished.md](00-finished.md). This
+file keeps open work only.
 
 ## Working rules for plan 20 steps
 
@@ -136,12 +136,15 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
   OPT0.12 follow-up (typed argument conversion and `Term` copies per call).
 - **OPT3.9 large_message (2.8x):** small messages to busy receivers still copy
   twice (into a buffer, then into the receiver).
-- **OPT3.10 heap block reuse:** each collection allocates its new block from the
-  C++ heap and frees the old one; large blocks map fresh pages, so page faults
-  and `VirtualFree` show in profiles and a kernel's first iterations run 2-3x
-  slower than later ones. Keep and reuse released blocks per scheduler, as
-  ERTS's carriers do. Kernels sharing one process also pay for heaps an earlier
-  kernel grew: since OPT3.1 no off-heap map charge forces early full sweeps, so
+- **OPT3.10B young heap sizing:** block reuse is done (OPT3.10). ERTS sizes a
+  minor collection's new block from the young words plus the stack, which
+  shares the block, so a full young block often grows a size step; trying that
+  rule (`heap_size_at_least(young + stack)`) cut string_build's collections from
+  6.5 to 1 per iteration (1.24x) and helped list_of_tuples and large_write, but
+  sort lost 29% (its young block oscillated 121k/197k words with 40k survivors
+  each time) and the 69A geomean gained less than block reuse alone; find when
+  ERTS grows (it kept 75,113 words full in sort). Kernels sharing one process
+  also pay for heaps an earlier kernel grew: since OPT3.1 no off-heap map charge forces early full sweeps, so
   the first sweep after list_of_tuples (a 3M-word old area) lands in
   binary_append (0.84x vs HEAD) and bigint (0.89x), and comprehension runs in a
   75k-word young block sized from the old area (0.71x); each is unchanged run

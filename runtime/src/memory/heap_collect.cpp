@@ -58,12 +58,12 @@ HeapArea old_area(const HeapStorage &storage) {
         return {};
     }
     const auto capacity = std::max(DEFAULT_MIN_HEAP_WORDS, heap_size_at_least(2 * storage.high_water_));
-    return {std::make_unique_for_overwrite<Word[]>(capacity), capacity};
+    return {allocate_block(capacity), capacity};
 }
 } // namespace
 
 Copier::Copier(HeapStorage &storage, std::size_t capacity, Generation generation)
-    : storage_(storage), generation_(generation), to_{std::make_unique_for_overwrite<Word[]>(capacity), capacity} {
+    : storage_(storage), generation_(generation), to_{allocate_block(capacity), capacity} {
     auto old = generation == Generation::minor ? old_area(storage) : HeapArea{};
     // The to-space may pass the runtime-wide limit until finish() releases the blocks it replaces.
     storage_.memory_->force(capacity + old.capacity_);
