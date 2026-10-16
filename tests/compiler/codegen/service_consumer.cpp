@@ -323,9 +323,11 @@ std::uint8_t injected_inspect(void *opaque, std::uint8_t operation, Word value, 
 std::uint8_t injected(void *context, std::uint8_t operation, Word left, Word right, Word *output) noexcept {
     ++calls;
     // Type tests are inline since OPT0.2B; the fixture's predicates reach the service through abs/1.
+    // Services are critical sections (docs/runtime-heap.md#safepoints): their inputs need no root, so only the
+    // generated frame is required; an argument stays in a register until it crosses a call (OPT1.2).
     const bool predicate = operation == static_cast<std::uint8_t>(abi::v1::ImmediateOperation::absolute);
     auto &roots = static_cast<ProcessContext *>(context)->stack();
-    if (roots.depth() == 0 || (predicate && !roots.contains(left))) {
+    if (roots.depth() == 0) {
         static_cast<ProcessContext *>(context)->generated_calls().fail_service(abi::v1::Status::internal_error);
         return 2;
     }

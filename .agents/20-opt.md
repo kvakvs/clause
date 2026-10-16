@@ -144,7 +144,13 @@ loop: callee prologue, argument stores and descriptor store per transfer).
 
 ### OPT1.2 Keep loop-carried values in registers, untagged where proven
 
-Part done 2026-10-15: no eager root-slot stores. Untagged raw loop values open.
+Part done 2026-10-15/16: no eager root-slot stores, and arguments are stored
+into their slots only where they cross a call or safepoint. Untagged raw loop
+values open. Note: 69A's two-iteration `dataproc.sort`/`map_foldl` read up to
+1.3x slower after the argument change while 20-iteration runs of the same
+kernels on the same live data are equal or faster; with fewer stale words in
+argument slots the live set at a collection is smaller, so the heap grows
+less (a heap-sizing artifact, not code).
 
 - **What:** T2 calls this "regalloc R3 register homing" and "RAW-IN-HOME":
   - keep the accumulator, induction variable and list cursor as raw machine

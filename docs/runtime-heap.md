@@ -406,8 +406,11 @@ safepoint, and no native pointer crosses one at all (already an error in
 - Comprehension lowering emits the loop-head check at the head of every
   generator loop (`lowering_comprehensions`).
 - `lower_frames` splits each body after a safepoint call and spills crossing
-  values as after a call. `home()` keeps the argument slot or a same-block term
-  slot when one holds the value; otherwise a term value (`term_value`: loaded
+  values as after a call. Arguments arrive in registers and are not stored on
+  entry: an argument that crosses a call or safepoint is stored into its own
+  argument slot after it arrives. `home()` keeps the argument slot or a
+  same-block term slot when one holds the value; otherwise a term value
+  (`term_value`: loaded
   from a term slot or register, stored into a term slot, or a PHI of those) gets
   a new term slot, which `place_slots` appends to the leading term slots before
   the raw slots, and any other value a raw slot.

@@ -56,11 +56,11 @@ void mark_term(ExpressionLowering &state, llvm::Value *value) {
 }
 
 void root_arguments(ExpressionLowering &state) {
-    for (std::size_t i = 0; i < state.roots->arguments; ++i) {
-        auto *slot = state.builder.CreateGEP(state.word, state.entry.getArg(1), llvm::ConstantInt::get(state.word, i));
-        auto *value = state.builder.CreateAlignedLoad(state.word, slot, llvm::Align(state.word->getBitWidth() / 8));
-        root_value(state, value);
-    }
+    // The argument slots are the first frame slots. They are not stored on entry (OPT1.2): frame lowering keeps an
+    // argument in its own slot only where it crosses a call or safepoint.
+    auto &roots = *state.roots;
+    roots.next = roots.arguments;
+    roots.capacity = std::max(roots.capacity, roots.next);
 }
 
 void reset_candidate_roots(ExpressionLowering &state) {

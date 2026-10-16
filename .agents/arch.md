@@ -199,7 +199,8 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   slots), emits only `musttail` transfers. Self tail calls keep their frame;
   tail calls between members of one tail-call cycle (`TailCycles`, Tarjan
   over each module's tail-call graph) keep the caller link and the shared term
-  slots and zero only the extra ones (OPT1.1B).
+  slots and zero only the extra ones (OPT1.1B). Arguments are stored into
+  their slots only when they cross a call or safepoint (OPT1.2).
 - `Code` = `void(ctx, x0..x5)` (`register_arguments` = 6): leading
   arguments/results pass as parameters. Enter/tail/return run inline, falling
   back to

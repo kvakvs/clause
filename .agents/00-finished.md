@@ -389,7 +389,9 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   O2 0.62 to 0.59 s — `cb5b54fb`
 - **OPT1.1B** tail calls between members of a tail-call cycle keep the caller
   link and shared term slots; even/odd 16%, euler O2 0.565 to 0.540 s —
-  `[plan20] OPT1.1B ...`
+  `9dfdc244`
+- **OPT1.2 (part 2)** arguments stored into their slots only where they cross
+  a call or safepoint; self loop 8%, list sum 7% — `[plan20] OPT1.2 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`
