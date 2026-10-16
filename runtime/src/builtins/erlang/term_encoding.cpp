@@ -3,6 +3,8 @@
 #include "../../terms/identities.hpp"
 #include "../../terms/integers.hpp"
 #include "../../terms/structural_order.hpp"
+#include "../../terms/term_layout.hpp"
+#include "../portions.hpp"
 #include "../text.hpp"
 #include "../typed.hpp"
 #include "terms.hpp"
@@ -12,6 +14,7 @@
 #include <clause/runtime/atoms.hpp>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <zlib.h>
@@ -91,27 +94,48 @@ class Encoder {
     // Encode `root` after the version byte.
     void encode(const Term &root) {
         writer_.version();
-        pending_.push_back(root);
+        pending_.push_back(root.word());
         while (!pending_.empty()) {
-            const auto term = pending_.back();
+            const auto word = pending_.back();
             pending_.pop_back();
-            one(term);
+            one(word);
         }
     }
 
   private:
-    // Write one term's tag; its children are pushed to be written next, in order.
-    void one(const Term &term) {
+    // Write one term's tag; its children are pushed to be written next, in order. Small integers, atoms, lists and
+    // tuples are read as words: a builtin is a critical section, so no collection moves them (word-level encoding).
+    void one(Word word) {
+        if (const auto value = small(word)) {
+            writer_.integer(*value);
+            return;
+        }
+        switch (TermTag{word}.get_kind()) {
+        case TermKind::atom:
+            atom_word(word);
+            return;
+        case TermKind::empty_list:
+            writer_.nil();
+            return;
+        case TermKind::empty_tuple:
+            writer_.tuple(0);
+            return;
+        case TermKind::list:
+            list(word);
+            return;
+        default:
+            if (!tuple(word)) {
+                term(term_of(context_, word));
+            }
+        }
+    }
+
+    // The terms read through Term: big integers, floats, maps, bitstrings and identities.
+    void term(const Term &term) {
         if (term.is_integer()) {
             integer(term);
         } else if (term.is_float()) {
             floating(need(term.float_value()));
-        } else if (term.is_atom()) {
-            atom(need(term.atom_spelling()));
-        } else if (term.is_list()) {
-            list(term);
-        } else if (term.is_tuple()) {
-            children(need(term.tuple_elements()));
         } else if (term.is_map()) {
             map(term);
         } else if (term.is_bitstring()) {
@@ -120,6 +144,27 @@ class Encoder {
         } else {
             identity(term);
         }
+    }
+
+    // An atom by its word, its spelling looked up once per encoding (word-level encoding).
+    void atom_word(Word word) {
+        auto found = atoms_.find(word);
+        if (found == atoms_.end()) {
+            const auto atom = need(context_.atom_storage().lookup(word));
+            found = atoms_.emplace(word, std::string(need(atom.atom_spelling()))).first;
+        }
+        atom(found->second);
+    }
+
+    // A tuple's header and its elements; false when the word names no tuple.
+    bool tuple(Word word) {
+        const auto words = detail::TermAccess::boxed_words(context_.heap(), word);
+        if (words.empty() || detail::layout::BoxHeader::kind(words[0]) != BoxedKind::tuple) {
+            return false;
+        }
+        writer_.tuple(words.size() - 1);
+        pending_.insert(pending_.end(), words.rbegin(), std::prev(words.rend()));
+        return true;
     }
 
     void integer(const Term &term) {
@@ -155,36 +200,30 @@ class Encoder {
         writer_.atom_latin1(latin1);
     }
 
-    // STRING_EXT for a proper list of at most 65535 bytes, else LIST_EXT and its tail.
-    void list(Term term) {
-        if (term.is_nil()) {
-            writer_.nil();
-            return;
+    // STRING_EXT for a proper list of at most 65535 bytes, else LIST_EXT and its tail, its cells read as words.
+    void list(Word word) {
+        elements_.clear();
+        auto rest = word;
+        while (TermTag{rest}.get_kind() == TermKind::list) {
+            const auto cell = detail::TermAccess::cons_words(context_.heap(), rest);
+            elements_.push_back(cell[0]);
+            rest = cell[1];
         }
-        std::vector<Term> elements;
-        for (; term.is_cons(); term = need(term.tail())) {
-            elements.push_back(need(term.head()));
-        }
-        const auto byte = [](const Term &element) {
-            const auto value = small(element.word());
+        const auto byte = [](Word element) {
+            const auto value = small(element);
             return value && *value >= 0 && *value <= 255;
         };
-        if (term.is_nil() && elements.size() <= external::STRING_LIMIT && std::ranges::all_of(elements, byte)) {
+        if (TermTag{rest}.get_kind() == TermKind::empty_list && elements_.size() <= external::STRING_LIMIT &&
+            std::ranges::all_of(elements_, byte)) {
             std::string bytes;
-            std::ranges::transform(elements, std::back_inserter(bytes),
-                                   [](const Term &element) { return static_cast<char>(*small(element.word())); });
+            std::ranges::transform(elements_, std::back_inserter(bytes),
+                                   [](Word element) { return static_cast<char>(*small(element)); });
             writer_.string(bytes);
             return;
         }
-        writer_.list(elements.size());
-        pending_.push_back(term);
-        push_reversed(elements);
-    }
-
-    // A tuple's header and its elements.
-    void children(const std::vector<Term> &elements) {
-        writer_.tuple(elements.size());
-        push_reversed(elements);
+        writer_.list(elements_.size());
+        pending_.push_back(rest);
+        pending_.insert(pending_.end(), elements_.rbegin(), elements_.rend());
     }
 
     // A map's pairs in key order, as OTP writes maps of up to 32 keys.
@@ -195,8 +234,8 @@ class Encoder {
         });
         writer_.map(entries.size());
         for (auto entry = entries.rbegin(); entry != entries.rend(); ++entry) {
-            pending_.push_back(entry->second);
-            pending_.push_back(entry->first);
+            pending_.push_back(entry->second.word());
+            pending_.push_back(entry->first.word());
         }
     }
 
@@ -244,15 +283,15 @@ class Encoder {
         writer_.integer(static_cast<std::int64_t>(view->definition->arity));
     }
 
-    void push_reversed(const std::vector<Term> &elements) {
-        pending_.insert(pending_.end(), elements.rbegin(), elements.rend());
-    }
-
     ProcessContext &context_;
     EncodeOptions options_;
     external::Writer writer_;
-    // Terms still to write, the next one last.
-    std::vector<Term> pending_;
+    // Words still to write, the next one last; this process's terms, unmoved while the builtin runs.
+    std::vector<Word> pending_;
+    // The elements of the list being written, reused across lists.
+    std::vector<Word> elements_;
+    // Atom spellings by word, looked up once per encoding.
+    std::unordered_map<Word, std::string> atoms_;
 };
 
 // The compressed form <<131, 80, Size:32, Zlib/binary>> of an encoding when zlib fits it in five bytes fewer than the

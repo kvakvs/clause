@@ -409,7 +409,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT0.20C** `min_heap_size` applied (`spawn_opt`, `process_flag`,
   `--min-heap-size` as `+hms`): the first block and every collection floor, so
   a process trades memory for fewer collections the OTP way —
-  `[plan20] OPT0.20C ...`
+  `0afd29b1`
+- **OPT0.26** word-level `term_to_binary`/`binary_to_term`: small integers,
+  atoms (cached), lists and tuples as words, one factory per decoding; encode
+  3,066 to 558 us, decode 1,084 to 550 us on the 69A term —
+  `[plan20] OPT0.26 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

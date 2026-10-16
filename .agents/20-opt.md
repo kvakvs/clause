@@ -97,7 +97,9 @@ the kernels furthest behind OTP JIT (Release runtime with symbols,
 2. **`Term`-object overhead in builtins** (term_to_binary 14x: 85% in
    encode/decode; string_build: `atom_to_list`, `++`; int_to_list:
    `integer_to_list`/`list_to_integer`): `TermAccess::admit`, `get_kind`,
-   shared-pointer refcounts and `malloc` per call; word-level paths are the fix.
+   shared-pointer refcounts and `malloc` per call; word-level paths are the fix
+   (the external term codec is done, OPT0.26; each `TermFactory` binding costs a
+   lifetime check, so one per call).
 3. **Message copy** (large_message 9.3x): `GraphCopy::discover` keeps sharing
    through a hash table per object; OTP copies flat (`size_object` +
    `copy_struct`).

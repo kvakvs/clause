@@ -11,6 +11,7 @@
 #include <clause/runtime/code_server.hpp>
 #include <cmath>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <zlib.h>
@@ -59,16 +60,17 @@ struct Open {
 class Decoder {
   public:
     Decoder(ProcessContext &context, std::string_view bytes, DecodeOptions options)
-        : context_(context), reader_(bytes), options_(options) {}
+        : context_(context), factory_(context), reader_(bytes), options_(options) {}
 
-    // The decoded term; malformed input throws external::FormatError.
+    // The decoded term; malformed input throws external::FormatError. Terms pass between items as words: they are
+    // this process's own, and nothing collects while the builtin runs (word-level decoding).
     Term decode() {
         reader_.version();
         while (true) {
             auto value = item(reader_.next());
             while (value) {
                 if (open_.empty()) {
-                    return *value;
+                    return need(Term::from_word(*value, context_));
                 }
                 value = add(*value);
             }
@@ -79,28 +81,28 @@ class Decoder {
 
   private:
     // A finished term, or none when the item opened a container.
-    std::optional<Term> item(const external::Item &item) {
+    std::optional<Word> item(const external::Item &item) {
         using Kind = external::ItemKind;
         if (item.kind_ == Kind::tuple || item.kind_ == Kind::list || item.kind_ == Kind::map) {
             return open(item);
         }
         if (item.kind_ == Kind::pid || item.kind_ == Kind::port || item.kind_ == Kind::reference) {
-            return identity(item);
+            return identity(item).word();
         }
         if (item.kind_ == Kind::export_fun) {
-            return export_fun();
+            return export_fun().word();
         }
         return leaf(item);
     }
 
     // Start a container; an empty tuple or map is finished at once. A list also needs its tail.
-    std::optional<Term> open(const external::Item &item) {
+    std::optional<Word> open(const external::Item &item) {
         const auto children = item.kind_ == external::ItemKind::map    ? item.count_ * 2
                               : item.kind_ == external::ItemKind::list ? item.count_ + 1
                                                                        : item.count_;
         if (children == 0) {
-            return item.kind_ == external::ItemKind::tuple ? need(TermFactory(context_).tuple({}))
-                                                           : need(TermFactory(context_).map({}));
+            return item.kind_ == external::ItemKind::tuple ? need(factory_.tuple({})).word()
+                                                           : need(factory_.map({})).word();
         }
         open_.push_back({item.kind_, children, {}});
         open_.back().children_.reserve(std::min<std::size_t>(children, 4096));
@@ -108,9 +110,9 @@ class Decoder {
     }
 
     // Give a finished term to the innermost container; returns that container once it is finished.
-    std::optional<Term> add(const Term &value) {
+    std::optional<Word> add(Word value) {
         auto &top = open_.back();
-        top.children_.push_back(value.word());
+        top.children_.push_back(value);
         if (--top.remaining_ != 0) {
             return std::nullopt;
         }
@@ -119,17 +121,17 @@ class Decoder {
         return finished;
     }
 
-    // Build a finished container.
-    Term close(const Open &open) {
-        TermFactory factory(context_);
+    // Build a finished container from children this decoder made, so they are not admitted again.
+    Word close(const Open &open) {
         if (open.kind_ == external::ItemKind::tuple) {
-            return need(factory.tuple_words(open.children_));
+            return need(factory_.tuple_of_words(open.children_)).word();
         }
         if (open.kind_ == external::ItemKind::list) {
             const auto tail = need(Term::from_word(open.children_.back(), context_));
-            return need(factory.list_words(std::span(open.children_).first(open.children_.size() - 1), tail));
+            return need(factory_.list_of_words(std::span(open.children_).first(open.children_.size() - 1), tail))
+                .word();
         }
-        return map(open.children_);
+        return map(open.children_).word();
     }
 
     // A map of alternating keys and values; a repeated key is malformed.
@@ -139,31 +141,49 @@ class Decoder {
             entries.emplace_back(need(Term::from_word(words[i], context_)),
                                  need(Term::from_word(words[i + 1], context_)));
         }
-        const auto result = need(TermFactory(context_).map(entries));
+        const auto result = need(factory_.map(entries));
         if (need(result.map_size()) != entries.size()) {
             reader_.fail("repeated map key");
         }
         return result;
     }
 
-    Term leaf(const external::Item &item) {
-        TermFactory factory(context_);
+    Word leaf(const external::Item &item) {
         switch (item.kind_) {
         case external::ItemKind::atom:
-            return atom(item);
+            return atom_word(item);
         case external::ItemKind::integer:
-            return need(factory.integer(item.integer_));
+            return integer(item.integer_);
         case external::ItemKind::big_integer:
-            return big(item);
+            return big(item).word();
         case external::ItemKind::floating:
-            return floating(item.float_);
+            return floating(item.float_).word();
         case external::ItemKind::string:
-            return string(item.bytes_);
+            return string(item.bytes_).word();
         case external::ItemKind::binary:
-            return need(factory.bitstring(std::as_bytes(std::span(item.bytes_)), item.count_));
+            return need(factory_.bitstring(std::as_bytes(std::span(item.bytes_)), item.count_)).word();
         default:
-            return need(factory.nil());
+            return need(factory_.nil()).word();
         }
+    }
+
+    // A small integer as its word, a larger one on the heap (word-level decoding).
+    Word integer(std::int64_t value) {
+        if (const auto word = abi::v1::NativeIntegerEncoding::encode(value)) {
+            return *word;
+        }
+        return need(factory_.integer(value)).word();
+    }
+
+    // An atom by its encoded name, decoded and interned once per decoding (word-level decoding).
+    Word atom_word(const external::Item &item) {
+        auto key = std::string(1, item.latin1_ ? 'L' : 'U');
+        key += item.bytes_;
+        auto found = atoms_.find(key);
+        if (found == atoms_.end()) {
+            found = atoms_.emplace(std::move(key), atom(item).word()).first;
+        }
+        return found->second;
     }
 
     // A float; NaN and the infinities are malformed, as in OTP.
@@ -171,7 +191,7 @@ class Decoder {
         if (!std::isfinite(value)) {
             reader_.fail("non-finite float");
         }
-        return need(TermFactory(context_).floating(value));
+        return need(factory_.floating(value));
     }
 
     // The UTF-8 name of an atom item: invalid UTF-8 or more than 255 characters is malformed.
@@ -226,8 +246,7 @@ class Decoder {
         std::ranges::transform(bytes, words.begin(), [](char byte) {
             return *abi::v1::NativeIntegerEncoding::encode(static_cast<unsigned char>(byte));
         });
-        TermFactory factory(context_);
-        return need(factory.list_words(words, need(factory.nil())));
+        return need(factory_.list_of_words(words, need(factory_.nil())));
     }
 
     // A pid, port or reference of the local node; another node's is badarg.
@@ -269,14 +288,18 @@ class Decoder {
         }
         const auto &definition =
             context_.code_server().external_fun(module, function, static_cast<std::size_t>(arity.integer_));
-        return need(TermFactory(context_).fun(definition, {}));
+        return need(factory_.fun(definition, {}));
     }
 
     ProcessContext &context_;
+    // One factory for the whole decoding: binding one costs a lifetime check (word-level decoding).
+    TermFactory factory_;
     external::Reader reader_;
     DecodeOptions options_;
     // Containers still collecting children, the innermost last.
     std::vector<Open> open_;
+    // Atom words by encoding ('L' or 'U', then the name bytes), interned once per decoding.
+    std::unordered_map<std::string, Word> atoms_;
 };
 
 // The size OTP accepts for decompressed term data, against corrupt sizes.
