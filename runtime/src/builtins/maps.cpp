@@ -1,3 +1,5 @@
+#include "../memory/heap_object.hpp"
+#include "../terms/map_cursor.hpp"
 #include "typed.hpp"
 #include <array>
 #include <terms.hpp>
@@ -152,6 +154,24 @@ TermResult<Term> from_keys(ProcessContext &context, const KeyList &keys, const T
     return TermFactory(context).map(entries);
 }
 
+// clause_maps:entries(Map): {K1, V1, K2, V2, ...} in key order, read by a map cursor, so maps:fold walks one tuple
+// instead of a list of pairs (map cursors).
+TermResult<Term> entries(ProcessContext &context, const MapOperand &map) {
+    const auto cell = detail::TermAccess::boxed_words(context.heap(), map.map().word());
+    // The empty map is an immediate: it has no cell to walk.
+    if (cell.empty()) {
+        return TermFactory(context).tuple_of_words({});
+    }
+    detail::MapCursor cursor(cell);
+    std::vector<Word> words;
+    words.reserve(2 * cursor.size());
+    while (const auto entry = cursor.next()) {
+        words.push_back(entry->first);
+        words.push_back(entry->second);
+    }
+    return TermFactory(context).tuple_of_words(words);
+}
+
 constexpr std::array MAPS_BUILTINS{
     typed_entry<get3>("maps", "get"),
     typed_entry<is_key>("maps", "is_key"),
@@ -164,6 +184,7 @@ constexpr std::array MAPS_BUILTINS{
     typed_entry<with>("maps", "with"),
     typed_entry<without>("maps", "without"),
     typed_entry<from_keys>("maps", "from_keys"),
+    typed_entry<entries>("clause_maps", "entries"),
 };
 } // namespace
 } // namespace clause::runtime::builtins

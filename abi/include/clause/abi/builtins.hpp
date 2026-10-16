@@ -409,6 +409,8 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"maps", "with", 2},
     BuiltinName{"maps", "without", 2},
     BuiltinName{"maps", "from_keys", 2},
+    // Map cursors: the entries tuple maps:fold walks (runtime/src/builtins/maps.cpp).
+    BuiltinName{"clause_maps", "entries", 1},
     // Persistent terms (plan step 41M2; runtime/src/builtins/persistent_term.cpp).
     BuiltinName{"persistent_term", "put", 2},
     BuiltinName{"persistent_term", "put_new", 2},

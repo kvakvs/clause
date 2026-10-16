@@ -1,3 +1,5 @@
+#include "../memory/heap_object.hpp"
+#include "../terms/map_cursor.hpp"
 #include "../terms/structural_order.hpp"
 #include "typed.hpp"
 #include <array>
@@ -18,38 +20,39 @@ Term cmp_term(ProcessContext &, const Term &left, const Term &right) {
     return need(Term::from_word(need(encode_integer(order < 0 ? -1 : (order > 0 ? 1 : 0)))));
 }
 
-// A pair {First, Second}.
-Term pair(ProcessContext &context, const Term &first, const Term &second) {
-    const std::array parts{first, second};
-    return need(TermFactory(context).tuple(parts));
-}
-
 // {Key, Value, [Keys | Map]}: one association and the iterator over the keys after it.
 TermResult<Term> step(ProcessContext &context, const std::pair<Term, Term> &entry, const Term &keys, const Term &map) {
     const std::array parts{entry.first, entry.second, need(TermFactory(context).cons(keys, map))};
     return TermFactory(context).tuple(parts);
 }
 
-// The remaining keys of an iterator over `entries` that starts after position `at`.
-Term keys_after(ProcessContext &context, const std::vector<std::pair<Term, Term>> &entries, std::size_t at) {
-    std::vector<Term> keys;
-    for (std::size_t index = at + 1; index < entries.size(); ++index) {
-        keys.push_back(entries[index].first);
-    }
-    return need(TermFactory(context).list(keys));
-}
-
-// The next association of an iterator at position `at`: none past the last entry.
-TermResult<Term> next_at(ProcessContext &context, const Term &map, std::int64_t at) {
-    const auto entries = need(map.map_entries());
+// A cursor over a map's entries from position `at` (map cursors); none for the empty map, an immediate.
+std::optional<detail::MapCursor> cursor(ProcessContext &context, const Term &map, std::int64_t at) {
     if (at < 0) {
         bad_argument();
     }
-    if (static_cast<std::size_t>(at) >= entries.size()) {
+    const auto cell = detail::TermAccess::boxed_words(context.heap(), map.word());
+    if (cell.empty()) {
+        return std::nullopt;
+    }
+    return detail::MapCursor(cell, static_cast<std::size_t>(at));
+}
+
+// The next association of an iterator at position `at`, then the keys after it, read by a map cursor: none past the
+// last entry.
+TermResult<Term> next_at(ProcessContext &context, const Term &map, std::int64_t at) {
+    auto entries = cursor(context, map, at);
+    const auto entry = entries ? entries->next() : std::nullopt;
+    if (!entry) {
         return atom(context, "none");
     }
-    const auto index = static_cast<std::size_t>(at);
-    return step(context, entries[index], keys_after(context, entries, index), map);
+    std::vector<Word> keys;
+    while (const auto later = entries->next()) {
+        keys.push_back(later->first);
+    }
+    TermFactory factory(context);
+    const auto rest = need(factory.list_of_words(keys, need(factory.nil())));
+    return factory.tuple_of_words(std::array{entry->first, entry->second, need(factory.cons(rest, map)).word()});
 }
 
 // The next association of an iterator over a key list: none when it is empty, badarg for a key the map lacks.
@@ -68,17 +71,15 @@ TermResult<Term> next_key(ProcessContext &context, const Term &map, const Term &
     return step(context, {key, *value}, need(keys.tail()), map);
 }
 
-// Every association from position `at`, in key order, followed by `accumulated`.
+// Every association from position `at`, in key order, followed by `accumulated`, read by a map cursor.
 TermResult<Term> collect(ProcessContext &context, const Term &map, std::int64_t at, const Term &accumulated) {
-    const auto entries = need(map.map_entries());
-    if (at < 0) {
-        bad_argument();
+    auto entries = cursor(context, map, at);
+    TermFactory factory(context);
+    std::vector<Word> pairs;
+    while (const auto entry = entries ? entries->next() : std::nullopt) {
+        pairs.push_back(need(factory.tuple_of_words(std::array{entry->first, entry->second})).word());
     }
-    std::vector<Term> pairs;
-    for (std::size_t index = static_cast<std::size_t>(at); index < entries.size(); ++index) {
-        pairs.push_back(pair(context, entries[index].first, entries[index].second));
-    }
-    return TermFactory(context).list(pairs, accumulated);
+    return factory.list_of_words(pairs, accumulated);
 }
 
 // map_next(Path, Map, iterator | Acc): the next association and iterator, or none; with a list accumulator, every

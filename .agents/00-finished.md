@@ -438,7 +438,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT0.32** word-level map update at a small-integer key on an off-heap map
   (`MapAccess::update_small_key`, no `Term` per argument); map_update and
   map_put 13-15% —
-  `[plan20] OPT0.32 ...`
+  `289336a8`
+- **OPT0.33** map cursors (`terms/map_cursor`): one word-level walk over flat
+  and tree maps; `clause_maps:entries/1` gives `maps:fold` an entries tuple
+  instead of a list of pairs, and `map_next` stops building every entry per
+  step; map_update 15% —
+  `[plan20] OPT0.33 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

@@ -133,7 +133,7 @@ warning, since nothing is replaced.
   application that owns the module in OTP: `erts` (preloaded counterparts and
   `erlang`), `kernel`, `stdlib`. Clause's private helper modules
   (`clause_socket`, `clause_re`, `clause_unicode`, `clause_zlib`,
-  `clause_receive`) sit beside the modules they serve. The library lookup
+  `clause_receive`, `clause_maps`) sit beside the modules they serve. The library lookup
   searches every application directory; a module name exists in at most one
   of them.
 - `library/modules.terms` lists every module Clause decides about:

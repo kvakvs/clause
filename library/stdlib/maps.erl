@@ -47,14 +47,20 @@ find(_, Map) ->
 
 %% Fun(Key, Value, Acc) over every association, in key order.
 fold(Fun, Init, Map) when is_function(Fun, 3), is_map(Map) ->
-    fold_pairs(Fun, Init, to_list(Map));
+    Entries = clause_maps:entries(Map),
+    fold_entries(Fun, Init, Entries, 1, tuple_size(Entries));
 fold(Fun, _, Map) when is_function(Fun, 3) ->
     erlang:error({badmap, Map});
 fold(_, _, _) ->
     erlang:error(badarg).
 
-fold_pairs(Fun, Acc, [{Key, Value} | Rest]) -> fold_pairs(Fun, Fun(Key, Value, Acc), Rest);
-fold_pairs(_, Acc, []) -> Acc.
+%% The associations of a {K1, V1, K2, V2, ...} tuple from position At, read in place (map cursors).
+fold_entries(Fun, Acc, Entries, At, Size) when At < Size ->
+    fold_entries(
+        Fun, Fun(element(At, Entries), element(At + 1, Entries), Acc), Entries, At + 2, Size
+    );
+fold_entries(_, Acc, _, _, _) ->
+    Acc.
 
 %% A map of {Key, Value} pairs; a later pair replaces an earlier one with an equal key.
 from_list(List) ->
