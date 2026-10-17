@@ -30,6 +30,7 @@ main([]) ->
         ]
     ]),
     readers(Key, Big),
+    shared(Key, Big),
     replaced(Key),
     io:format("persistent_terms: ok~n").
 
@@ -53,7 +54,32 @@ readers(Key, Big) ->
         ]
     ]).
 
-%% A reader keeps its copy after the key is replaced and erased.
+%% A stored value sent to another process, wrapped in new terms across
+%% collections, and stored again under another key stays the same value.
+shared(Key, Big) ->
+    Self = self(),
+    Echo = spawn(fun() ->
+        receive
+            {From, Value} ->
+                garbage_collect(),
+                From ! {self(), {wrapped, Value}}
+        end
+    end),
+    Echo ! {Self, persistent_term:get(Key)},
+    Wrapped =
+        receive
+            {Echo, Reply} -> Reply
+        end,
+    Built = [persistent_term:get(Key) || _ <- lists:seq(1, 3)],
+    garbage_collect(),
+    ok = persistent_term:put({?MODULE, again}, {again, persistent_term:get(Key)}),
+    Again = persistent_term:get({?MODULE, again}),
+    true = persistent_term:erase({?MODULE, again}),
+    io:format("~w~n", [
+        [Wrapped =:= {wrapped, Big}, Built =:= [Big, Big, Big], Again =:= {again, Big}]
+    ]).
+
+%% A reader keeps its value after the key is replaced and erased.
 replaced(Key) ->
     Old = persistent_term:get(Key),
     ok = persistent_term:put(Key, new),

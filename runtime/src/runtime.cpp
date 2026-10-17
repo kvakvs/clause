@@ -33,6 +33,7 @@ bool valid_options(const RuntimeOptions &options) noexcept {
 Runtime::Impl::Impl(const RuntimeOptions &options, std::uint64_t identity)
     : atom_storage(options.max_atoms), scheduler(identity), options(options), identity(identity),
       memory(std::make_shared<detail::RuntimeMemory>(options.memory_limit_bytes / sizeof(Word))),
+      persistent_terms(literals),
       profile(options.profile.empty() ? nullptr : std::make_unique<detail::RuntimeProfile>()), executor(*this) {
     for (const auto family : production_builtins()) {
         if (!code_server.builtins().add(family)) {

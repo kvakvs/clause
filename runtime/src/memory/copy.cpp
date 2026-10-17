@@ -310,6 +310,46 @@ TermResult<Term> MessageBuffer::take(const std::shared_ptr<const MessageBuffer> 
     return buffer->copy_to(destination);
 }
 
+namespace {
+// A heap of its own for buffered terms, with the sender's runtime bindings; the lifetime token must outlive it.
+std::shared_ptr<HeapStorage> buffer_storage(const HeapStorage &source, HeapOptions options,
+                                            const std::shared_ptr<ContextLifetime> &lifetime) {
+    auto storage =
+        std::make_shared<HeapStorage>(options, lifetime, *source.atoms_, source.memory_, *source.identities_);
+    storage->literals_ = source.literals_;
+    return storage;
+}
+
+// Publish a discovered graph into a buffer's heap, sharing off-heap buffers; the copy's root word. Any failure
+// leaves the storage as it was.
+TermResult<Word> publish_graph(HeapStorage &storage, GraphCopy &graph, Word root) {
+    const std::span binaries = graph.binaries();
+    for (std::size_t held = 0; held < binaries.size(); ++held) {
+        if (const auto charged = hold_off_heap(storage, *binaries[held]->buffer_); !charged) {
+            drop_binaries(storage, binaries.first(held));
+            return std::unexpected(term_error(charged.error()));
+        }
+    }
+    const auto out = storage.reserve(graph.words());
+    if (!out) {
+        drop_binaries(storage, binaries);
+        return std::unexpected(term_error(out.error()));
+    }
+    Word copied = 0;
+    try {
+        copied = graph.copy(root, *out);
+    } catch (const std::bad_alloc &) {
+        // The zeroed reservation stays behind as filler.
+        storage.pending_ = false;
+        drop_binaries(storage, binaries);
+        return std::unexpected(TermError::out_of_memory);
+    }
+    storage.pending_ = false;
+    graph.link(storage, *out);
+    return copied;
+}
+} // namespace
+
 TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Term &value,
                                                                         ProcessContext &sender) noexcept {
     if (const auto checked = TermAccess::validate(value); !checked) {
@@ -321,8 +361,8 @@ TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Te
         if (!compound(value.word())) {
             return buffer;
         }
-        const auto *source = sender.heap().storage_.get();
-        GraphCopy graph(*source);
+        const auto &source = *sender.heap().storage_;
+        GraphCopy graph(source);
         if (!graph.discover(value.word())) {
             return std::unexpected(TermError::wrong_owner);
         }
@@ -332,32 +372,52 @@ TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Te
         }
         buffer->lifetime_ = std::shared_ptr<ContextLifetime>(new ContextLifetime());
         // The buffer's one block is exactly the message, whatever the sender's minimum heap (message hand-off).
-        auto options = source->options_;
+        auto options = source.options_;
         options.min_heap_words = 1;
-        buffer->storage_ = std::make_shared<HeapStorage>(options, buffer->lifetime_, *source->atoms_, source->memory_,
-                                                         *source->identities_);
-        buffer->storage_->literals_ = source->literals_;
-        auto &storage = *buffer->storage_;
-        const std::span binaries = graph.binaries();
-        for (std::size_t held = 0; held < binaries.size(); ++held) {
-            if (const auto charged = hold_off_heap(storage, *binaries[held]->buffer_); !charged) {
-                drop_binaries(storage, binaries.first(held));
-                return std::unexpected(term_error(charged.error()));
-            }
+        buffer->storage_ = buffer_storage(source, options, buffer->lifetime_);
+        const auto root = publish_graph(*buffer->storage_, graph, value.word());
+        if (!root) {
+            return std::unexpected(root.error());
         }
-        const auto out = storage.reserve(graph.words());
-        if (!out) {
-            drop_binaries(storage, binaries);
-            return std::unexpected(term_error(out.error()));
-        }
-        buffer->root_ = graph.copy(value.word(), *out);
-        storage.pending_ = false;
-        graph.link(storage, *out);
+        buffer->root_ = *root;
         return buffer;
     } catch (const std::bad_alloc &) {
         return std::unexpected(TermError::out_of_memory);
     }
 }
+
+TermResult<std::shared_ptr<MessageBuffer>> MessageBuffer::area(ProcessContext &sender) noexcept {
+    try {
+        std::shared_ptr<MessageBuffer> buffer(new MessageBuffer());
+        buffer->lifetime_ = std::shared_ptr<ContextLifetime>(new ContextLifetime());
+        // No process budget applies; the runtime-wide account still does.
+        const auto &source = *sender.heap().storage_;
+        auto options = source.options_;
+        options.limit_bytes = UNLIMITED_HEAP_BYTES;
+        buffer->storage_ = buffer_storage(source, options, buffer->lifetime_);
+        return buffer;
+    } catch (const std::bad_alloc &) {
+        return std::unexpected(TermError::out_of_memory);
+    }
+}
+
+TermResult<Word> MessageBuffer::append(const Term &value) noexcept {
+    try {
+        // Literals, this area's own words among them once registered, are shared rather than copied.
+        GraphCopy graph(*storage_);
+        if (!compound(value.word())) {
+            return value.word();
+        }
+        if (!graph.discover(value.word())) {
+            return std::unexpected(TermError::wrong_owner);
+        }
+        return graph.words() == 0 ? value.word() : publish_graph(*storage_, graph, value.word());
+    } catch (const std::bad_alloc &) {
+        return std::unexpected(TermError::out_of_memory);
+    }
+}
+
+std::vector<std::span<const Word>> MessageBuffer::blocks() const { return storage_->blocks(); }
 
 TermResult<Term> MessageBuffer::copy_to(ProcessContext &destination) const noexcept {
     if (!storage_) {

@@ -672,8 +672,8 @@ builtin:
 `badarg`); `get/1` of a key not stored is `badarg`, `get/2` returns the
 default; `get/0` lists every `{Key, Value}`; `erase/1` says whether the key
 was stored; `info/0` is `#{count => N, memory => Bytes}` (the words of the
-stored copies). Keys match exactly (`1` and `1.0` differ). Every read copies
-the value into the caller's heap.
+stored copies). Keys match exactly (`1` and `1.0` differ). Reads return the
+stored term in place, without a copy.
 
 ## Unicode module
 

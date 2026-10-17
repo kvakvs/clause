@@ -1,6 +1,8 @@
 #pragma once
 #include <clause/runtime/process_context.hpp>
 #include <memory>
+#include <span>
+#include <vector>
 
 // A term kept outside every process heap (plan step 41F: the messages of start_timer/send_after): its graph copied
 // into a heap block of its own that shares the runtime's atoms and off-heap binaries, then copied again into the
@@ -38,6 +40,14 @@ class MessageBuffer final {
     TermResult<Term> value(ProcessContext &reader) const noexcept;
     // The words the buffer's heap holds. Added for persistent terms (step 41M1).
     std::size_t words() const noexcept;
+    // An empty buffer whose heap grows as values are appended, outside any process budget: the shared area of
+    // persistent terms (persistent terms in place).
+    static TermResult<std::shared_ptr<MessageBuffer>> area(ProcessContext &sender) noexcept;
+    // Copy `value`, a live term of one process of the runtime, into this buffer's heap; the copy's root word. Words
+    // already in a literal area are kept as they are (persistent terms in place).
+    TermResult<Word> append(const Term &value) noexcept;
+    // Every block of the buffer's heap, unused words included (persistent terms in place).
+    std::vector<std::span<const Word>> blocks() const;
 
   private:
     MessageBuffer() = default;

@@ -67,6 +67,19 @@ void HeapStorage::expose() noexcept {
 
 bool HeapStorage::alive() const noexcept { return !lifetime_.expired() && token_->alive(); }
 
+std::vector<std::span<const Word>> HeapStorage::blocks() const {
+    std::vector<std::span<const Word>> result;
+    for (const auto *area : {&heap_, &old_}) {
+        if (area->capacity_ != 0) {
+            result.emplace_back(area->words_.get(), area->capacity_);
+        }
+    }
+    for (const auto &fragment : fragments_) {
+        result.emplace_back(fragment.words_.get(), fragment.capacity_);
+    }
+    return result;
+}
+
 HeapMark HeapStorage::mark() const noexcept {
     return {heap_.capacity_, heap_.top_,     fragments_.size(), fragments_.empty() ? 0 : fragments_.back().top_,
             used_words_,     capacity_words_};

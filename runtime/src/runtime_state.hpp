@@ -34,12 +34,13 @@ class Runtime::Impl final {
     std::shared_ptr<detail::RuntimeMemory> memory;
     // Pid numbers of every context created here, from the process-wide sequence; never reused.
     detail::IdentityNumbers identity_numbers;
+    // The persistent terms every process shares (step 41M1), read in place from literal areas, so it outlives every
+    // context (persistent terms in place).
+    detail::PersistentTerms persistent_terms;
     // Destroy process owners before the above service bindings; no signals or workers exist yet.
     std::unordered_map<const ProcessContext *, std::unique_ptr<ProcessContext>> contexts;
     // Live processes by pid number, for is_process_alive/1 and later routing.
     std::unordered_map<Word, ProcessContext *> processes;
-    // The persistent terms every process shares (step 41M1); no process refers into it, since readers copy values out.
-    detail::PersistentTerms persistent_terms;
     // Costs of ended processes when RuntimeOptions::profile names a report; null otherwise.
     std::unique_ptr<detail::RuntimeProfile> profile;
     // Run processes on the scheduler workers (RuntimeOptions::schedulers) while the program runs.

@@ -212,11 +212,12 @@ cells by pointer; `MessageBuffer::copy_of`/`large` take the sender context.
 Only the collector and copy ask whose term a word is, by address range.
 
 Remainder, in order:
-- **OPTM.2B persistent terms in place:** `persistent_term:get` returns the
-  stored word instead of copying; the buffer areas join the literal registry so
-  collection and copying skip them; erase/replace must keep an area alive while
-  any process may hold its words (OTP: a literal-area collection copies them
-  into the holders first).
+- **OPTM.2B persistent terms in place:** done 2026-10-17. Keys and values are
+  copied into one growing `MessageBuffer` area whose blocks join the runtime's
+  literal areas; `get` returns the stored word, sends and re-puts share it.
+  Replaced and erased values stay until runtime teardown (differences row).
+  Open: reclaiming them, as OTP's literal-area collection does (copy the value
+  into every process still holding it, then free the block once dead).
 - **OPTM.2C trusted words in builtins:** builtins and services that re-admit
   slot words of terms they already hold (`need(TermAccess::admit(...))` per
   element) can wrap them with `TermAccess::make`; external words (generated

@@ -327,8 +327,9 @@ a Term read from a buffer pins nothing and must not outlive its backing.
 The buffer is never collected and is freed with its last owner; its block is
 exactly the term's words, whatever the sender's minimum heap. Messages to a
 process running on another worker ([workers](processes.md#workers)), timer
-messages, monitor tags and [persistent terms](runtime.md#persistent-terms) use
-it, so they are never re-encoded.
+messages and monitor tags use it, so they are never re-encoded;
+[persistent terms](runtime.md#persistent-terms) share one growing buffer whose
+blocks are literal areas.
 
 **Message hand-off.** A send whose message takes at least
 `MessageBuffer::ADOPTED_WORDS` (512) words, counted by

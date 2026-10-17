@@ -54,6 +54,8 @@ class HeapStorage final {
     HeapStorage &operator=(const HeapStorage &) = delete;
     // Check lifetime before admitting a surviving reservation or future heap Term.
     bool alive() const noexcept;
+    // Every heap block and fragment with all its words, used or not (persistent terms in place).
+    std::vector<std::span<const Word>> blocks() const;
     // Capture exact accounting before an unpublished reservation changes a top.
     HeapMark mark() const noexcept;
     // Restore a reservation without touching any previously published words.

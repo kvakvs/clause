@@ -137,23 +137,25 @@ One table per runtime (`memory/persistent_terms`), owned by `Runtime::Impl` and
 reached through `ProcessContext::persistent_terms()`, keeps the terms of
 `persistent_term` ([builtins](builtins.md#persistent-terms)).
 
-- A key and its value are each copied into a `MessageBuffer`
-  ([message buffers](runtime-heap.md#message-buffers)) outside every process, so
-  they outlive the process that stored them and no collection moves them.
-- Entries are found by a hash of the key (the builtins use the term hash of
-  `phash2`) and exact equality, compared in place in the buffer
-  (`MessageBuffer::value`).
-- A read copies the value into the reader's heap, where OTP hands out a
-  reference into a literal area and pays with a global collection on replace or
-  erase ([differences](differences.md)). Every process heap stays
-  self-contained: a replaced or erased value is freed when the last reader still
-  copying it drops its buffer reference, and no global collection is needed.
-  Future work could return the stored term in place as a read-only, literal-like
-  area instead of copying on reads.
+- Keys and values are copied into one shared area, a growing `MessageBuffer`
+  ([message buffers](runtime-heap.md#message-buffers)) outside every process
+  (`MessageBuffer::area`, `append`), so they outlive the process that stored
+  them and no collection moves them. Each block of the area joins the runtime's
+  literal areas before any word in it is stored (OPTM.2B).
+- Entries are root words found by a hash of the key (the builtins use the term
+  hash of `phash2`) and exact equality, compared in place.
+- A read returns the stored word in place, as OTP's literal persistent terms:
+  any process may hold it, send it (copies share literals) or store it again
+  (already in a literal area, not copied); collections leave it alone, and
+  admission accepts it as a literal. A replaced or erased value stays in the
+  area until the runtime is torn down instead of being reclaimed by OTP's
+  global literal collection ([differences](differences.md)); `info/0` counts
+  only current entries.
 - A shared lock serves readers on any number of workers; put and erase take it
-  alone and never copy while holding it. CTest `runtime_persistent_terms` covers
-  values outliving their writer, replaced values held by readers, concurrent
-  readers and writers, and released charges.
+  alone, and put copies under it. CTest `runtime_persistent_terms` covers values
+  outliving their writer, in-place reads across collections and between
+  processes, replaced and erased values held by readers, and concurrent readers
+  and writers.
 
 ## Scheduler bookkeeping
 

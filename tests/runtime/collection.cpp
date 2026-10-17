@@ -422,9 +422,10 @@ CLAUSE_CODE_CONVENTION void safepoint_body(void *context, clause::abi::v1::TermW
     auto *slots = stack.frame() + frame_header_words;
     owners.current = {slots[0]};
     garbage(*owners.context, 1000);
-    const auto before = current(*owners.context, slots[0]);
+    // The garbage left fragments behind; a loop-head collection merges them.
+    const bool wanted = owners.context->heap().wants_collection();
     CLAUSE_safepoint_v1(context);
-    owners.visited_inside = before.word() != slots[0] ? 1 : 0;
+    owners.visited_inside = wanted && !owners.context->heap().wants_collection() ? 1 : 0;
     owners.current.push_back(slots[0]);
     run(stack.leave(slots[0]), context);
 }
