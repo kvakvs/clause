@@ -28,7 +28,7 @@ implementing source file:
   [`binary`](#binary-module), [`maps` and `os`](#maps-module),
   [`ordsets`, `orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets`,
   `queue` and `array`](#collections), [`base64` and `json`](#encodings),
-  [`calendar`](#calendar), [`filename`](#filename), [`uri_string`](#uri-string),
+  [`calendar`](#calendar), [`filename`](#filename), [`uri_string`](#uri-string), [`string`](#string),
   [`rand` and `random`](#random-numbers),
   [`persistent_term`](#persistent-terms), [`unicode`](#unicode-module),
   [`code`](#code-module), [`init`](#init-module),
@@ -560,6 +560,41 @@ builtin:
   `function_clause` where a clause meets a non-character.
 - `absname/1,2` (the current directory and a drive's own) and
   `basedir/2,3` (the environment) are Erlang over them.
+
+## String
+
+`runtime/src/builtins/string/` (plan 21 step LIB4A): every function of `string`.
+
+- The walks follow `string.erl` clause for clause over `unicode_util:cp/1` and
+  `gc/1`, which `unicode/code_points.cpp` ports to terms in OTP's shapes:
+  nested lists opened as far as OTP opens them (up to three more code points
+  flattened after the first), binaries kept as slices sharing their buffer,
+  `{error, Rest}` at invalid UTF-8. So `trim`, `take`, `lexemes`, `split`,
+  `find`, `slice` and `prefix` return tails of the input, sub-binaries and the
+  mixed lists OTP builds (`[Keep | Cont]`, `[Token, Bin]`, `stack/2`'s
+  nesting), and raise OTP's errors (`{badarg, Rest}`, `function_clause`,
+  `case_clause` and `badmatch` where its clauses meet an unexpected answer,
+  `badarg` from `binary:compile_pattern([])` when `nth_lexeme/3` compiles an
+  empty separator set).
+- The trailing walks (`trim/3`, `take/4` with `trailing`), body-recursive in
+  OTP, run as loops recording one frame per step and fold the frames at the
+  end, so long strings cannot overflow the C++ stack.
+- `uppercase/1`, `lowercase/1`, `casefold/1` return the input itself when no
+  character changes, as OTP does; `titlecase/1` maps the first code point.
+  `equal/4` normalizes through `unicode/normalize.cpp`, the port of
+  `unicode_util`'s `nfc/nfd/nfkc/nfkd` (decomposition tables, canonical
+  ordering, pairwise composition, Hangul jamo), and rechecks identical rests
+  each step as OTP's `equal_nocase(A, A)` clause does.
+- `to_integer/1` and `to_float/1` take the number's characters with `take/2`
+  and parse them as `string:list_to_integer/1` (erts' `{Int, Rest}` with
+  `no_integer`, `not_a_list`, `system_limit`) and `list_to_float/1` (Erlang's
+  float syntax, a comma allowed as the point, an exponent only with digits);
+  any error inside is `{error, badarg}`.
+- The Latin-1 API (`len`, `chr`, `tokens`, `strip`, `left`, `centre`, ...) is
+  ported with its errors: `function_clause` where a clause walks to `[]`,
+  `badarg` from `erlang:length/1`, `++` and `lists:reverse/2`.
+- `jaro_similarity/2` matches grapheme clusters within OTP's distance and
+  counts transpositions in OTP's order.
 
 ## URI string
 

@@ -569,7 +569,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB5G** `filename` in C++ (`builtins/filename/`), OTP's clause walks and
   shapes; `absname`, `basedir` Erlang — `19896937`; `uri_string` in C++
   (`builtins/uri/`, grapheme clusters in `unicode/graphemes.cpp`) —
-  `[plan21] LIB5G uri_string`
+  `17cf492d`
+- **LIB4A** `string`: every function in C++ (`builtins/string/`) over
+  `unicode/code_points.cpp` (cp/gc in OTP's shapes) and
+  `unicode/normalize.cpp`; `strings` golden — `[plan21] LIB4A`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

@@ -314,3 +314,21 @@ gotchas and user directions not recorded elsewhere.
   the heap (json.cpp Input). Term::binary_bytes() copies every call. OTP's
   json shapes (iodata nesting, continuation tuples with #decode{}) are matched
   exactly; the json_codec golden prints ~w shapes.
+- LIB5G (2026-10-17): user directions: prefer C++ builtins whenever viable
+  (no switch cost); C++ must reproduce OTP's exact result shapes for every
+  input form (deep chardata, embedded binaries). Builtins may raise OTP's
+  escaping throws via ErrorReason::raised_throw. Lizard CCN<=10 and tidy
+  cognitive complexity<=10 bite on clause-table ports: write small helpers
+  from the start; Named<Role> args for same-typed builtin parameters;
+  thrown structs need nothrow copy (string_view, not std::string).
+  heredoc python mangles backslashes in C++ string literals: use Write.
+- LIB4A (2026-10-17): porting an OTP module clause-for-clause: write the
+  golden fixture first (OTP decides shapes), strip -doc/-spec from the OTP
+  source into scratch for reading (regexes can eat functions whose spec
+  precedes them: grep the original when one is missing), then C++ over
+  term-level cp/gc (unicode/code_points.cpp). Body-recursive OTP walks become
+  a loop + frame vector folded at the end. OTP raises badarg where it calls
+  binary:compile_pattern([]) (empty separator sets): mirror the call sites.
+  Erlang-implemented lists:reverse/1 gives function_clause for a non-list;
+  the BIFs (length, ++, member) give badarg. Only two OTP quirks needed
+  probing; everything else came from the golden diff.

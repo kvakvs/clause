@@ -48,6 +48,11 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     # Module uri_string and grapheme clusters (plan 21 step LIB5G).
     src/builtins/uri/uri_common.cpp src/builtins/uri/uri_parse.cpp src/builtins/uri/uri_compose.cpp
     src/builtins/uri/uri_codec.cpp src/builtins/unicode/graphemes.cpp
+    # Module string (plan 21 step LIB4): chardata code points and clusters in OTP's shapes.
+    src/builtins/unicode/code_points.cpp src/builtins/unicode/normalize.cpp
+    src/builtins/string/string_common.cpp src/builtins/string/string_text.cpp
+    src/builtins/string/string_search.cpp src/builtins/string/string_lexemes.cpp
+    src/builtins/string/string_numbers.cpp src/builtins/string/string_latin1.cpp
     # Modules rand and random (plan 21 step LIB6).
     src/builtins/rand/generators.cpp src/builtins/rand/rand.cpp src/builtins/rand/tables.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp

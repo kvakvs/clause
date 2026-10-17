@@ -48,5 +48,6 @@
 {filename, stdlib, provided}.
 {uri_string, stdlib, provided}.
 {json, stdlib, provided}.
+{string, stdlib, provided}.
 {rand, stdlib, provided}.
 {random, stdlib, provided}.

@@ -158,6 +158,12 @@ std::span<const BuiltinEntry> filename_join_builtins() noexcept;
 std::span<const BuiltinEntry> uri_parse_builtins() noexcept;
 std::span<const BuiltinEntry> uri_compose_builtins() noexcept;
 std::span<const BuiltinEntry> uri_codec_builtins() noexcept;
+// Module string (plan 21 step LIB4; runtime/src/builtins/string/): the text functions.
+std::span<const BuiltinEntry> string_text_builtins() noexcept;
+std::span<const BuiltinEntry> string_search_builtins() noexcept;
+std::span<const BuiltinEntry> string_lexeme_builtins() noexcept;
+std::span<const BuiltinEntry> string_number_builtins() noexcept;
+std::span<const BuiltinEntry> string_latin1_builtins() noexcept;
 // json's default encoder and formatter (plan 21 step LIB5F; runtime/src/builtins/encoding/json_encode.cpp).
 std::span<const BuiltinEntry> json_encode_builtins() noexcept;
 // Modules rand and random and the private clause_rand generators (plan 21 step LIB6; runtime/src/builtins/rand/).

@@ -104,11 +104,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ### LIB4. Text: `string`, `unicode` remainder, `io_lib`
 
-- `string` (69): C++ over the grapheme and case tables Clause already generates
-  for `unicode_util`. That covers lexemes, `split/2,3`, `trim/1,2,3`,
-  `pad/2,3,4`, `find/2,3`, `replace/3,4`, `equal/2,3,4`, `casefold/1`,
-  `to_integer/1`, `to_float/1` and `jaro_similarity/2`, plus the obsolete
-  Latin-1 API (`substr/2,3`, `tokens/2`, `strip/1,2,3`, ...).
+- `string` (69): done as LIB4A, see `00-finished.md`.
 - `unicode`: the normalization forms (`characters_to_nf*`), `category/1`,
   `is_whitespace/1` and `is_id_start/1`, `is_id_continue/1`, in C++ over tables
   generated from the pinned UCD.
@@ -815,14 +811,6 @@ functions are listed separately and are optional.
   restriction/2,3, set/1,2, specification/2, strict_relation/1, substitution/2,
   symdiff/2, symmetric_partition/2, to_external/1, to_sets/1, type/1, union/1,2,
   union_of_family/1, weak_relation/1
-- `string` (stdlib, 69): casefold/1, centre/2,3, chars/2,3, chomp/1, chr/2,
-  concat/2, copies/2, cspan/2, equal/2,3,4, find/2,3, is_empty/1,
-  jaro_similarity/2, join/2, left/2,3, len/1, length/1, lexemes/2, lowercase/1,
-  next_codepoint/1, next_grapheme/1, nth_lexeme/3, pad/2,3,4, prefix/2, rchr/2,
-  replace/3,4, reverse/1, right/2,3, rstr/2, slice/2,3, span/2, split/2,3,
-  str/2, strip/1,2,3, sub_string/2,3, sub_word/2,3, substr/2,3, take/2,3,4,
-  titlecase/1, to_float/1, to_graphemes/1, to_integer/1, to_lower/1, to_upper/1,
-  tokens/2, trim/1,2,3, uppercase/1, words/1,2
 - `supervisor` (stdlib, 14; 1 callbacks): check_childspecs/1,2,
   count_children/1, delete_child/2, get_childspec/2, restart_child/2,
   start_child/2, start_link/2,3, stop/1,3, terminate_child/2, which_child/2,
