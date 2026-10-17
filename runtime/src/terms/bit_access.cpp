@@ -66,6 +66,31 @@ std::optional<BitView> trusted_bit_view(Word word) noexcept {
     return BitView{original->bytes, original->offset + sub.offset_, sub.bits_};
 }
 
+std::optional<std::span<const std::byte>> trusted_binary_bytes(Word word) noexcept {
+    const auto view = trusted_bit_view(word);
+    if (!view || view->offset % 8 != 0 || view->length % 8 != 0) {
+        return std::nullopt;
+    }
+    return view->bytes.subspan(view->offset / 8, view->length / 8);
+}
+
+std::optional<Word> claim_binary(ProcessHeap &heap, std::span<const std::byte> bytes) noexcept {
+    if (bytes.size() > layout::heap_binary_bytes) {
+        return std::nullopt;
+    }
+    const auto payload = layout::heap_binary_payload_words(bytes.size() * 8, sizeof(Word));
+    const auto words = TermAccess::claim(heap, 1 + payload);
+    if (words.empty()) {
+        return std::nullopt;
+    }
+    words[0] = layout::BoxHeader::make(BoxedKind::heap_binary, payload);
+    words[1] = bytes.size() * 8;
+    const auto data = std::as_writable_bytes(words.subspan(2));
+    std::ranges::fill(data, std::byte{0});
+    std::ranges::copy(bytes, data.begin());
+    return reinterpret_cast<Word>(words.data()) | static_cast<Word>(TermKindPrimary::boxed);
+}
+
 bool bit_at(const BitView &view, std::size_t index) noexcept {
     const auto position = view.offset + index;
     return (std::to_integer<unsigned>(view.bytes[position / 8]) & (1U << (7 - position % 8))) != 0;

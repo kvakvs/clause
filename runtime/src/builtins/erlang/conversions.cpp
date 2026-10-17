@@ -1,7 +1,6 @@
 #include "../../memory/heap_object.hpp"
 #include "../../terms/bitstrings.hpp"
 #include "../../terms/integers.hpp"
-#include "../../terms/term_layout.hpp"
 #include "../portions.hpp"
 #include "../text.hpp"
 #include "../typed.hpp"
@@ -215,19 +214,10 @@ Word iolist_to_binary(ProcessContext &context, Arguments arguments) {
 constexpr std::size_t QUICK_WORK = 256;
 constexpr std::size_t QUICK_BYTES = 4096;
 
-// The bytes of a binary word's whole-byte content, read in place (quick builtins); none for other words.
-std::optional<std::span<const std::byte>> trusted_bytes(Word word) {
-    const auto view = detail::trusted_bit_view(word);
-    if (!view || view->offset % 8 != 0 || view->length % 8 != 0) {
-        return std::nullopt;
-    }
-    return view->bytes.subspan(view->offset / 8, view->length / 8);
-}
-
 // binary_to_list(Binary) of at most QUICK_WORK bytes, built at once from the bytes read in place (quick builtins); 0
 // declines, also for every error, which the portion path reports.
 Word binary_to_list_quick(ProcessContext &context, Arguments arguments) {
-    const auto bytes = trusted_bytes(arguments[0]);
+    const auto bytes = detail::trusted_binary_bytes(arguments[0]);
     if (!bytes || bytes->size() > QUICK_WORK) {
         return 0;
     }
@@ -298,7 +288,7 @@ class QuickIolist {
     }
 
     bool binary(Word word) {
-        const auto content = trusted_bytes(word);
+        const auto content = detail::trusted_binary_bytes(word);
         if (!content || bytes_.size() + content->size() > QUICK_BYTES) {
             return false;
         }
@@ -310,26 +300,6 @@ class QuickIolist {
     std::size_t elements_ = 0;
 };
 
-// A heap binary of at most heap_binary_bytes bytes written straight into claimed heap words (quick builtins); none
-// for more bytes or when the heap refuses the words.
-std::optional<Word> claimed_binary(ProcessContext &context, std::span<const std::byte> bytes) {
-    namespace layout = detail::layout;
-    if (bytes.size() > layout::heap_binary_bytes) {
-        return std::nullopt;
-    }
-    const auto payload = layout::heap_binary_payload_words(bytes.size() * 8, sizeof(Word));
-    const auto words = detail::TermAccess::claim(context.heap(), 1 + payload);
-    if (words.empty()) {
-        return std::nullopt;
-    }
-    words[0] = layout::BoxHeader::make(BoxedKind::heap_binary, payload);
-    words[1] = bytes.size() * 8;
-    const auto data = std::as_writable_bytes(words.subspan(2));
-    std::ranges::fill(data, std::byte{0});
-    std::ranges::copy(bytes, data.begin());
-    return reinterpret_cast<Word>(words.data()) | static_cast<Word>(TermKindPrimary::boxed);
-}
-
 // list_to_binary(IoList) of a short iolist, built at once (quick builtins); 0 declines, also for every error, which the
 // portion path reports.
 Word list_to_binary_quick(ProcessContext &context, Arguments arguments) {
@@ -340,7 +310,7 @@ Word list_to_binary_quick(ProcessContext &context, Arguments arguments) {
         return 0;
     }
     context.stack().spend(iolist.elements());
-    if (const auto claimed = claimed_binary(context, iolist.bytes())) {
+    if (const auto claimed = detail::claim_binary(context.heap(), iolist.bytes())) {
         return *claimed;
     }
     return need(TermFactory(context).binary(iolist.bytes())).word();
@@ -348,7 +318,7 @@ Word list_to_binary_quick(ProcessContext &context, Arguments arguments) {
 
 // iolist_to_binary(IoListOrBinary): a binary as it is, else as list_to_binary/1 (quick builtins).
 Word iolist_to_binary_quick(ProcessContext &context, Arguments arguments) {
-    return trusted_bytes(arguments[0]) ? arguments[0] : list_to_binary_quick(context, arguments);
+    return detail::trusted_binary_bytes(arguments[0]) ? arguments[0] : list_to_binary_quick(context, arguments);
 }
 
 // The ~w text of an identity as a list: pid_to_list/1 accepts only pids, ref_to_list/1 only references.

@@ -176,21 +176,22 @@ llvm::Value *native_record_test(ExpressionLowering &state, llvm::Value *value) {
     return boxed(state, value, {HeaderKind::native_record});
 }
 
-// A binary: a bitstring whose bit length (word 1 of a heap binary, word 2 of an off-heap view or sub-binary) is
-// whole bytes.
+// The bit length of a word proven a bitstring: word 1 of a heap binary, word 2 of an off-heap view or sub-binary.
+llvm::Value *bit_length(ExpressionLowering &state, llvm::Value *value) {
+    auto &builder = state.builder;
+    auto *inline_data = header_kind(state, header(state, value), {HeaderKind::heap_binary});
+    auto *index = builder.CreateSelect(inline_data, word(state, 1), word(state, 2));
+    return builder.CreateAlignedLoad(
+        state.word, builder.CreateGEP(state.word, cell_address(state, value, abi::v1::boxed_tag), index),
+        llvm::Align(state.word->getBitWidth() / 8), "binary.bits");
+}
+
+// A binary: a bitstring whose bit length is whole bytes.
 llvm::Value *binary_test(ExpressionLowering &state, llvm::Value *value) {
     auto &builder = state.builder;
     return split(
         state, builder.getInt1Ty(), bitstring_test(state, value),
-        [&] {
-            auto *inline_data = header_kind(state, header(state, value), {HeaderKind::heap_binary});
-            auto *index = builder.CreateSelect(inline_data, word(state, 1), word(state, 2));
-            auto *bits = builder.CreateAlignedLoad(
-                state.word, builder.CreateGEP(state.word, cell_address(state, value, abi::v1::boxed_tag), index),
-                llvm::Align(state.word->getBitWidth() / 8), "binary.bits");
-            return tagged(state, bits, 7, 0);
-        },
-        [&] { return builder.getFalse(); });
+        [&] { return tagged(state, bit_length(state, value), 7, 0); }, [&] { return builder.getFalse(); });
 }
 
 constexpr std::array<std::pair<Op, TypeTest>, 15> TYPE_TESTS{{
@@ -267,6 +268,26 @@ llvm::Value *tuple_size(ExpressionLowering &state, const Operands &in) {
     return with_service(state, in, boxed(state, in.left, {HeaderKind::tuple}), [&] {
         auto *arity = builder.CreateLShr(header(state, in.left), word(state, abi::v1::header_count_shift));
         return builder.CreateOr(builder.CreateShl(arity, word(state, abi::v1::small_integer_bits)),
+                                word(state, abi::v1::small_integer_tag));
+    });
+}
+
+// bit_size/1 and byte_size/1 of a bitstring whose size is a small integer (inline bitstring sizes); a size past the
+// small range, possible on 32-bit targets, and any other operand take the service.
+llvm::Value *bitstring_size(ExpressionLowering &state, const Operands &in) {
+    auto &builder = state.builder;
+    const auto largest = (std::uint64_t{1} << (state.word->getBitWidth() - abi::v1::small_integer_bits - 1)) - 1;
+    // A non-bitstring gets a size past the small range, so only the service handles it.
+    auto *size = split(
+        state, state.word, bitstring_test(state, in.left),
+        [&] {
+            auto *bits = bit_length(state, in.left);
+            return in.operation == Op::byte_size ? builder.CreateLShr(builder.CreateAdd(bits, word(state, 7)), 3)
+                                                 : bits;
+        },
+        [&] { return word(state, largest + 1); });
+    return with_service(state, in, compare(state, llvm::CmpInst::ICMP_ULE, size, word(state, largest)), [&] {
+        return builder.CreateOr(builder.CreateShl(size, word(state, abi::v1::small_integer_bits)),
                                 word(state, abi::v1::small_integer_tag));
     });
 }
@@ -380,19 +401,32 @@ llvm::Value *shift_left(ExpressionLowering &state, const Operands &in) {
 
 using Inline = llvm::Value *(*)(ExpressionLowering &, const Operands &);
 
-constexpr std::array<std::pair<Op, Inline>, 23> OPERATIONS{{
-    {Op::exact_equal, comparison}, {Op::exact_not_equal, comparison},
-    {Op::equal, comparison},       {Op::not_equal, comparison},
-    {Op::less, comparison},        {Op::less_equal, comparison},
-    {Op::greater, comparison},     {Op::greater_equal, comparison},
-    {Op::element, element},        {Op::tuple_size, tuple_size},
-    {Op::hd, cons_word},           {Op::tl, cons_word},
-    {Op::logical_not, logical},    {Op::logical_and, logical},
-    {Op::logical_or, logical},     {Op::logical_xor, logical},
-    {Op::boolean_check, logical},  {Op::bit_and, bitwise},
-    {Op::bit_or, bitwise},         {Op::bit_xor, bitwise},
-    {Op::shift_right, division},   {Op::shift_left, shift_left},
+constexpr std::array<std::pair<Op, Inline>, 25> OPERATIONS{{
+    {Op::exact_equal, comparison},
+    {Op::exact_not_equal, comparison},
+    {Op::equal, comparison},
+    {Op::not_equal, comparison},
+    {Op::less, comparison},
+    {Op::less_equal, comparison},
+    {Op::greater, comparison},
+    {Op::greater_equal, comparison},
+    {Op::element, element},
+    {Op::tuple_size, tuple_size},
+    {Op::hd, cons_word},
+    {Op::tl, cons_word},
+    {Op::logical_not, logical},
+    {Op::logical_and, logical},
+    {Op::logical_or, logical},
+    {Op::logical_xor, logical},
+    {Op::boolean_check, logical},
+    {Op::bit_and, bitwise},
+    {Op::bit_or, bitwise},
+    {Op::bit_xor, bitwise},
+    {Op::shift_right, division},
+    {Op::shift_left, shift_left},
     {Op::self, self_word},
+    {Op::bit_size, bitstring_size},
+    {Op::byte_size, bitstring_size},
 }};
 
 constexpr std::array<std::pair<Op, Inline>, 2> DIVISIONS{{{Op::integer_divide, division}, {Op::remainder, division}}};

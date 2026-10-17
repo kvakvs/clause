@@ -1,3 +1,7 @@
+#include "../../memory/heap_object.hpp"
+#include "../../terms/bitstrings.hpp"
+#include "../../terms/term_layout.hpp"
+#include "../portions.hpp"
 #include "binary_search.hpp"
 #include <algorithm>
 #include <array>
@@ -21,15 +25,44 @@ Range part_tuple(const TupleArgument &range, std::size_t size) {
     return part(*start, *length, size);
 }
 
-// part(Subject, Start, Length).
-TermResult<Term> part3(ProcessContext &context, const BinaryArgument &subject, std::int64_t start,
-                       std::int64_t length) {
-    return slice(context, subject.bytes, part(start, length, subject.bytes.size()));
+// The bytes of a binary argument, read in place (word-level builtin arguments); badarg for any other term.
+std::span<const std::byte> subject_bytes(Word word) {
+    const auto bytes = detail::trusted_binary_bytes(word);
+    if (!bytes) {
+        bad_argument();
+    }
+    return *bytes;
 }
 
-// part(Subject, {Start, Length}).
-TermResult<Term> part2(ProcessContext &context, const BinaryArgument &subject, const TupleArgument &range) {
-    return slice(context, subject.bytes, part_tuple(range, subject.bytes.size()));
+// The part of a binary argument from its start and length words; badarg for anything but small integers in range.
+Word part_of(ProcessContext &context, Word subject, std::span<const Word, 2> range_words) {
+    const auto bytes = subject_bytes(subject);
+    const auto from = small(range_words[0]);
+    const auto count = small(range_words[1]);
+    if (!from || !count) {
+        bad_argument();
+    }
+    const auto range = part(*from, *count, bytes.size());
+    if (const auto claimed = detail::claim_binary(context.heap(), bytes.subspan(range.start, range.size))) {
+        return *claimed;
+    }
+    return need(slice(context, bytes, range)).word();
+}
+
+// part(Subject, Start, Length).
+Word part3(ProcessContext &context, Arguments arguments) {
+    return part_of(context, arguments[0], arguments.subspan<1, 2>());
+}
+
+// part(Subject, {Start, Length}): the tuple's cell read in place.
+Word part2(ProcessContext &context, Arguments arguments) {
+    const auto *cell = (arguments[1] & abi::v1::primary_mask) == abi::v1::boxed_tag
+                           ? detail::TermAccess::trusted(arguments[1])
+                           : nullptr;
+    if (!cell || cell[0] != detail::layout::BoxHeader::make(BoxedKind::tuple, 2)) {
+        bad_argument();
+    }
+    return part_of(context, arguments[0], std::span<const Word, 2>(cell + 1, 2));
 }
 
 // The byte at `position` as an integer; badarg outside the subject.
@@ -148,8 +181,8 @@ TermResult<Term> join(ProcessContext &context, const ListArgument &list, const B
 }
 
 constexpr std::array PART_BUILTINS{
-    typed_entry<part2>("binary", "part"),
-    typed_entry<part3>("binary", "part"),
+    BuiltinEntry{"binary", "part", 2, &guarded<part2>},
+    BuiltinEntry{"binary", "part", 3, &guarded<part3>},
     typed_entry<at>("binary", "at"),
     typed_entry<first>("binary", "first"),
     typed_entry<last>("binary", "last"),

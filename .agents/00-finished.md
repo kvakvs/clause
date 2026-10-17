@@ -508,7 +508,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   through `CLAUSE_builtin_call_v1`, 0 declining to the frame entry; length 92 to
   18 ns (OTP 17), list_to_binary 654 to 34 (9), iolist_to_binary 840 to 37 (43),
   binary_to_list 270 to 31 (9) —
-  `[plan20] OPT3.13B ...`
+  `361f00da`
+- **OPT3.13C** inline `bit_size/1`/`byte_size/1` (45 to 11 ns, OTP 8);
+  `binary:part/2,3` direct and word-level, short results claimed straight into
+  heap words (175 to 31 ns, OTP 20) —
+  `[plan20] OPT3.13C ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

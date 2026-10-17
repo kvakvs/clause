@@ -175,7 +175,9 @@ Builtins that check their own arguments are C++ functions of typed parameters
   code also calls. Hot conversions read their arguments' cells in place
   (`TermAccess::trusted`) instead of admitting `Term`s: `tuple_to_list/1`,
   `phash2/1` (lists, tuples and small integers), and `list_to_atom/1`,
-  `list_to_integer/1` of short ASCII strings (word-level builtin arguments).
+  `list_to_integer/1` of short ASCII strings, and `binary:part/2,3`, a direct
+  builtin whose short result is written straight into heap words (word-level
+  builtin arguments).
 
 ## Registration
 

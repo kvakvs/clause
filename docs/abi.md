@@ -363,7 +363,8 @@ Inline forms (`codegen/lowering_inline.cpp`): type tests (`is_atom`,
 native `is_record/1`, `is_binary/1` by the bit length word) read tags and, after
 a boxed tag test, the header kind (`abi::v1::HeaderKind`); they never call a
 service. Comparisons of two immediates (`==`, `/=`) or two small integers (`<`,
-`=<`, `>`, `>=`), `element/2`, `tuple_size/1`, `hd/1`, `tl/1`, the boolean
+`=<`, `>`, `>=`), `element/2`, `tuple_size/1`, `bit_size/1` and `byte_size/1`
+(from the bit length word, while the size is a small integer), `hd/1`, `tl/1`, the boolean
 operators, `band`, `bor`, `bxor`, `bsr`, `bsl` (while the result stays small)
 and small `div`/`rem` run inline; `self/0` reads `FrameState::self`. They run
 inline where their operands allow and call `CLAUSE_immediate_v1` otherwise,

@@ -53,6 +53,12 @@ struct BitAccess {
 TermResult<BitView> bit_view(const Term &term);
 // The view of a bitstring word of a validated term, its cells read in place (quick builtins); none for other words.
 std::optional<BitView> trusted_bit_view(Word word) noexcept;
+// The bytes of a binary word of a validated term, read in place (quick builtins); none for other words, including
+// bitstrings that are not whole bytes.
+std::optional<std::span<const std::byte>> trusted_binary_bytes(Word word) noexcept;
+// A heap binary of at most heap_binary_bytes bytes written straight into claimed heap words, with no Term (quick
+// builtins); none for more bytes or when the heap refuses the words.
+std::optional<Word> claim_binary(ProcessHeap &heap, std::span<const std::byte> bytes) noexcept;
 // Read one proved in-range bit in logical MSB-first order.
 bool bit_at(const BitView &view, std::size_t index) noexcept;
 // Compare logical sequences independently of backing identity, offsets and padding.

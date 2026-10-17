@@ -63,6 +63,25 @@ main(_) ->
             reason(fun() -> iolist_to_binary(id(42)) end)
         ]
     ]),
+    %% binary:part/2,3 read their arguments in place; bit_size/1 and byte_size/1 are inline.
+    io:format("~p~n", [
+        [
+            binary:part(<<"abcdef">>, 1, 3),
+            binary:part(<<"abcdef">>, {6, -2}),
+            binary:part(Sub, 2, 3),
+            byte_size(binary:part(Big, 10, 80)),
+            binary:part(<<"abc">>, 3, 0),
+            reason(fun() -> binary:part(id(<<"abc">>), 2, 5) end),
+            reason(fun() -> binary:part(id(<<"abc">>), {1}) end),
+            reason(fun() -> binary:part(id(Unaligned), 0, 1) end),
+            reason(fun() -> binary:part(id("abc"), 0, 1) end),
+            [bit_size(B) || B <- [<<>>, <<"ab">>, Sub, Big, Unaligned]],
+            [byte_size(B) || B <- [<<>>, <<"ab">>, Sub, Big, Unaligned]],
+            reason(fun() -> byte_size(id(atom)) end),
+            reason(fun() -> bit_size(id([])) end),
+            [sized(V) || V <- [<<"abc">>, Unaligned, <<>>, 7]]
+        ]
+    ]),
     %% The same builtins as funs and applied dynamically take the frame entry.
     Funs = [
         {fun erlang:length/1, "fun"},
@@ -73,6 +92,10 @@ main(_) ->
         [F(id(A)) || {F, A} <- Funs] ++ [apply(erlang, iolist_to_binary, [id(["ap", $p])])]
     ]),
     io:format("quick_builtins: ok~n").
+
+sized(B) when byte_size(B) > 2 -> {large, bit_size(B)};
+sized(B) when is_bitstring(B) -> {small, byte_size(B)};
+sized(_) -> other.
 
 deep(0) -> <<"bottom">>;
 deep(N) -> [deep(N - 1)].
