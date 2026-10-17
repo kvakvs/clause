@@ -1,0 +1,21 @@
+%% OTP 29 filename exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{absname, 1, default, implemented}.
+{absname, 2, default, implemented}.
+{absname_join, 2, default, implemented}.
+{append, 2, default, implemented}.
+{basedir, 2, default, implemented}.
+{basedir, 3, default, implemented}.
+{basename, 1, default, implemented}.
+{basename, 2, default, implemented}.
+{dirname, 1, default, implemented}.
+{extension, 1, default, implemented}.
+{flatten, 1, default, implemented}.
+{join, 1, default, implemented}.
+{join, 2, default, implemented}.
+{nativename, 1, default, implemented}.
+{pathtype, 1, default, implemented}.
+{rootname, 1, default, implemented}.
+{rootname, 2, default, implemented}.
+{split, 1, default, implemented}.
+{validate, 1, default, implemented}.

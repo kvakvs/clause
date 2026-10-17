@@ -86,9 +86,10 @@ create a new API that's for the end user to choose
 
 | Kind | Implement in | Examples |
 | --- | --- | --- |
-| Pure data transforms, no funs | C++ builtin | `ordsets:union/2`, `proplists:get_value/3`, `string:split/3`, `base64:encode/1`, `calendar:*`, `filename:*`, `json:decode/1`, `uri_string:parse/1` |
+| Pure data transforms, no funs | C++ builtin | `ordsets:union/2`, `proplists:get_value/3`, `string:split/3`, `base64:encode/1`, `calendar:*`, `json:decode/1`, `uri_string:parse/1` |
 | Tables, shared state, OS access | C++ runtime object plus builtins | ETS, `file:pread/3`, `os:find_executable/1`, `net:getaddrinfo/1`, `win32reg` |
 | Takes funs | Erlang over C++ helpers | `ordsets:filter/2`, `gb_trees:map/2`, `json:decode/3`, `queue:filter/2`, `ets:foldl/3` |
+| Walks whose result shapes and quirks are the algorithm (OS rules, chardata continuations) | Erlang, own structure, same algorithm | `filename:*`, `string:*` over `unicode_util` |
 | Processes, protocols, behaviours | Erlang | `proc_lib`, `gen_server`, `supervisor`, `logger`, `timer:apply_interval/4`, `application` |
 | Front-end terms (tokens, forms) | C++ over Clause's lexer and parser | `erl_scan:string/1`, `erl_parse:parse_form/1`, `epp:parse_file/2` |
 | Interpreters over forms | Erlang | `erl_eval`, `ms_transform`, `qlc` |
@@ -112,11 +113,10 @@ create a new API that's for the end user to choose
   `fread/2,3` (a format-directed scanner), plus `nl/0`.
 - Fix `io:format("~.2f")`, which raises `badarg` today.
 
-### LIB5. Encodings and formats: `uri_string`, `json`, `filename`
+### LIB5. Encodings and formats: `uri_string`, `json`
 
 - C++:
-  - `uri_string` (15) and `filename` (17: Unix and Windows path rules,
-    `basedir/2,3` from the environment).
+  - `uri_string` (15).
   - `json`: `decode/1`, `encode/1`, `format/1,2` and the leaf encoders
     `encode_integer`, `encode_float`, `encode_binary`, `encode_atom`, ...
 - Erlang: `json:decode/3`, `decode_start/3` and `decode_continue/2` (callback
@@ -708,9 +708,6 @@ functions are listed separately and are optional.
 - `filelib` (stdlib, 16): ensure_dir/1, ensure_path/1, file_size/1,
   find_file/2,3, find_source/1,2,3, fold_files/5, is_dir/1, is_file/1,
   is_regular/1, last_modified/1, safe_relative_path/2, wildcard/1,2
-- `filename` (stdlib, 17): absname/1,2, absname_join/2, basedir/2,3,
-  basename/1,2, dirname/1, extension/1, flatten/1, join/1,2, nativename/1,
-  pathtype/1, rootname/1,2, split/1
 - `gen_event` (stdlib, 33; 8 callbacks): add_handler/3, add_sup_handler/3,
   call/3,4, check_response/2,3, delete_handler/3, notify/2,
   receive_response/2,3, reqids_add/3, reqids_new/0, reqids_size/1,

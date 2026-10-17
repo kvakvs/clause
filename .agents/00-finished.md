@@ -551,7 +551,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB5A** `base64`: C++ encoders and OTP's strict and mime decoding state
   machines, errors included (`encoding/base64`) — `547ae828`
 - **LIB5B** `calendar`: Gregorian arithmetic in C++ (`builtins/calendar.cpp`),
-  local time and RFC 3339 Erlang — `[plan21] LIB5B`
+  local time and RFC 3339 Erlang — `a70297a6`
+- **LIB5C** `filename`: Erlang walks by OTP's Unix and Windows rules, golden
+  checks both families' tables (`fixtures/executables/filenames`) — `[plan21] LIB5C`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
