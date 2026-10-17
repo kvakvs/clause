@@ -5,7 +5,8 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1A/B, parts of OPT1.2 and OPT1.3,
-OPT1.4A-C, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, read-ahead lines of OPT3.4):
+OPT1.4A-C, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.13A-C, OPT3.14 service path,
+read-ahead lines of OPT3.4):
 see [00-finished.md](00-finished.md). This file keeps open work only.
 
 ## Working rules for plan 20 steps
@@ -160,9 +161,10 @@ order, one commit each.
   builtins (`lists:reverse/2`, `'--'/2`) and more binary-module builtins direct;
   list_to_atom stays at 70 ns against OTP 9 in `AtomStorage::intern` (a shared
   lock and a `std::map` of spellings).
-- **OPT3.14 inline atom ordering** (from OPT0.2): atom `<`/`>`/`==` ordering and
-  sorting atom lists still call the service; an order rank per atom makes it a
-  word compare.
+- **OPT3.14 remainder** (service path done): atom `<` still pays the
+  comparison service call (27 ns against OTP 10); an order rank per atom
+  readable from generated code would make it a word compare, and compound terms
+  holding atoms (tuple keys) still take `structural_order` with `Term`s.
 
 ## Invariants of finished tier OPT0 steps
 
@@ -497,7 +499,7 @@ Builds on OPT1.4.
 6. **Funs and floats:** OPT1.8 and OPT1.11.
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
-8. **Outside 69A:** OPT3.13 builtin arguments and OPT3.14 atom ordering (2026-10-17 review); next after them, by 69A impact:
+8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact:
    OPT3.10B, OPT3.5, a term_to_binary profile, OPT1.7/OPT1.8.
 
 **Gate for every item:**

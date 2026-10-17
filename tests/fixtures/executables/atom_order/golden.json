@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "atom_order",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[[],[65,108,112,104,97],[90],[95,120],[97,32,98],[97,98],[97,98,99],[97,98,100],[97,108,112,104,97],[98,101,116,97],[101,114,114,111,114],[102,97,108,115,101],[111,107],[116,114,117,101],[117,110,100,101,102,105,110,101,100],[122,101,116,97],[228],[8364]]\n[true,true,true,true,true,true,true,true,true,true,alpha,zeta,false,true,true,\n true]\n[less,greater,same,greater]\n[{a,2},{a,0},{b,3},{c,1}]\natom_order: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "atom_order.erl": "3dd7b8582b2c0c50ae70f8d88d3e40ddf78ccc84f388a6798417595d4f81d94f"
+  }
+}

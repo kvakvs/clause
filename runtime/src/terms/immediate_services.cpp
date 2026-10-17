@@ -241,12 +241,34 @@ Result invoke(ProcessContext &context, Op operation, Word left, Word right) {
 
 // Publish only checked results and preserve first infrastructure failure under native fault/reentry seams.
 namespace {
-// ==, /=, <, =<, >, >= of two words word_order decides, with no Term admission (cheap comparisons).
+// The order of two atom words by their spellings, read from the atom table with no Term (atom ordering); none for
+// any other pair.
+std::optional<int> atom_order(const AtomStorage &atoms, Word left, Word right) noexcept {
+    constexpr Word mask = (Word{1} << abi::v1::atom_tag_bits) - 1;
+    if ((left & mask) != abi::v1::atom_tag || (right & mask) != abi::v1::atom_tag) {
+        return std::nullopt;
+    }
+    if (left == right) {
+        return 0;
+    }
+    const auto a = atoms.spelling(left);
+    const auto b = a ? atoms.spelling(right) : std::nullopt;
+    if (!b) {
+        return std::nullopt;
+    }
+    // Distinct atoms have distinct spellings.
+    return *a < *b ? -1 : 1;
+}
+
+// ==, /=, <, =<, >, >= of two words atom_order or word_order decides, with no Term admission (cheap comparisons).
 std::optional<Word> word_comparison(ProcessContext &context, Op operation, Word left, Word right) noexcept {
     if (operation < Op::equal || operation > Op::greater_equal) {
         return std::nullopt;
     }
-    const auto order = word_order(context.heap(), left, right);
+    auto order = atom_order(context.atom_storage(), left, right);
+    if (!order) {
+        order = word_order(context.heap(), left, right);
+    }
     if (!order) {
         return std::nullopt;
     }

@@ -113,25 +113,32 @@ void AtomStorage::index(const std::shared_ptr<const AtomValue> &entry) {
     slots[number % INDEX_CHUNK].store(&entry, std::memory_order_release);
 }
 
-TermResult<Term> AtomStorage::lookup(Word word) const noexcept {
+const std::shared_ptr<const AtomValue> *AtomStorage::find(Word word) const noexcept {
     const auto number = static_cast<std::size_t>(word >> abi::v1::atom_tag_bits);
     if (number < fixed_atoms) {
-        return atom_term(fixed_[number]);
+        return &fixed_[number];
     }
     if (number / INDEX_CHUNK < INDEX_CHUNKS) {
         const auto *slots = index_[number / INDEX_CHUNK].load(std::memory_order_acquire);
         const auto *entry = slots ? slots[number % INDEX_CHUNK].load(std::memory_order_acquire) : nullptr;
-        if (!entry || (*entry)->word != word) {
-            return std::unexpected(TermError::wrong_owner);
-        }
-        return atom_term(*entry);
+        return entry && (*entry)->word == word ? entry : nullptr;
     }
     const std::shared_lock lock(mutex_);
     const auto found = words_.find(word);
-    if (found == words_.end()) {
+    return found == words_.end() ? nullptr : &found->second;
+}
+
+TermResult<Term> AtomStorage::lookup(Word word) const noexcept {
+    const auto *entry = find(word);
+    if (!entry) {
         return std::unexpected(TermError::wrong_owner);
     }
-    return atom_term(found->second);
+    return atom_term(*entry);
+}
+
+std::optional<std::string_view> AtomStorage::spelling(Word word) const noexcept {
+    const auto *entry = find(word);
+    return entry ? std::optional<std::string_view>{(*entry)->spelling} : std::nullopt;
 }
 
 std::size_t AtomStorage::size() const noexcept {

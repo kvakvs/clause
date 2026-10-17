@@ -35,6 +35,9 @@ class AtomStorage final {
     std::optional<Term> existing(std::string_view spelling) const noexcept;
     // Admit only words issued by this runtime, without allocating or interning.
     TermResult<Term> lookup(Word word) const noexcept;
+    // The spelling of an atom word issued by this runtime, borrowed until runtime teardown, with no Term (atom
+    // ordering); none for any other word.
+    std::optional<std::string_view> spelling(Word word) const noexcept;
     // Read a preinitialized canonical boolean; expression services never intern atoms.
     TermResult<Term> boolean(bool value) const noexcept;
 
@@ -77,6 +80,8 @@ class AtomStorage final {
 
     // The fixed entry of a spelling, or null.
     const std::shared_ptr<const AtomValue> *fixed(std::string_view spelling) const noexcept;
+    // The entry of an atom word issued by this runtime, or null; entries stay until runtime teardown.
+    const std::shared_ptr<const AtomValue> *find(Word word) const noexcept;
 };
 
 // Erlang atoms contain at most 255 Unicode scalar values, including the empty spelling and NUL.

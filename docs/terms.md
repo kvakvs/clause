@@ -228,7 +228,9 @@ themselves).
 Atoms compare by UTF-8 spelling (code-point order); tuples by arity then fields;
 maps by size, then keys, then values; bitstrings by logical bits. Two small
 integers, two floats or two whole-byte binaries are ordered straight from their
-words or cells (`detail::word_order`), with no term admission.
+words or cells (`detail::word_order`), and two atoms from their spellings in the
+atom table (`AtomStorage::spelling`, through the lock-free number index), with
+no term admission.
 
 ## Printing
 

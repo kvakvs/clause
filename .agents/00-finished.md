@@ -512,7 +512,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT3.13C** inline `bit_size/1`/`byte_size/1` (45 to 11 ns, OTP 8);
   `binary:part/2,3` direct and word-level, short results claimed straight into
   heap words (175 to 31 ns, OTP 20) —
-  `[plan20] OPT3.13C ...`
+  `24588568`
+- **OPT3.14** atom ordering: two atoms compare by their spellings read from the
+  atom table's lock-free index in the comparison service, with no `Term`; atom
+  `<` 142 to 27 ns (OTP 10), sorting 1000 atoms 1.56 to 0.26 ms (OTP 0.06) —
+  `[plan20] OPT3.14 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

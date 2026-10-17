@@ -231,7 +231,8 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   limits, shared-mutex `AtomStorage`, lock-free number index), tuples, lists,
   binary64 float cells, maps, bitstrings, funs, pids, refs, ports.
 - Order: numbers < atoms < refs < funs < ports < pids < tuples < maps < lists <
-  bitstrings; iterative, no work cap (`terms/word_order`). Exact equality
+  bitstrings; iterative, no work cap (`terms/word_order`; two atoms by
+  `AtomStorage::spelling` in the comparison service). Exact equality
   compares words first.
 - Pids/ports are immediates (tag 0x3 / 0x7) from never-reused sequences
   (`IdentityNumbers`); admission rejects forged words; exited pids stay valid.
