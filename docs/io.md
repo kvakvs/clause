@@ -2,10 +2,10 @@
 
 `io:format/1,2,3`, `io:fwrite/1,2,3`, `io:put_chars/1,2` and `io:nl/0,1` are
 runtime builtins of module `io` in the bridge catalog
-([builtins](builtins.md)); the runtime implements OTP's `io_lib_format` and
-`io_lib_pretty` rules in C++
-([io_format.cpp](../runtime/src/builtins/io_format.cpp),
-[io_pretty.cpp](../runtime/src/builtins/io_pretty.cpp)). The input functions
+([builtins](builtins.md)); the text is `io_lib:format/2`'s, built by
+[io_lib's engine](builtins.md#io_lib) and flattened, with `~p` laid out by
+OTP's `io_lib_pretty` rules
+([io_pretty.cpp](../runtime/src/builtins/io_pretty.cpp)). The input functions
 of `io` are Erlang in the [library](library.md#contents).
 
 ## Calls
@@ -40,22 +40,23 @@ of `io` are Erlang in the [library](library.md#contents).
   (OTP's quirk).
 - Control sequences `~F.P.PadModC`: field width `F` (negative or `-`: left
   adjusted), precision `P`, pad character, `*` taking an integer (or the pad)
-  from the arguments, modifiers `t` (Unicode), `l` (no string detection) and `k`
-  (ordered maps; Clause always prints maps in key order).
-- Supported `C`: `~w`, `~p`, `~s`, `~c`, `~b`, `~B`, `~i`, `~n`, `~~`, with
-  OTP's field rules: `~s` truncates or pads to `P` within `F`; `~w` and `~b`
-  print `*` characters when the text does not fit `F`; `~c` repeats the
-  character; `~b`/`~B` take the base from `P` (2..36); `~n` with `F` writes `F`
-  newlines.
+  from the arguments, modifiers `t` (Unicode), `l` (no string detection), `k`
+  (ordered maps) and `K` (the order from the arguments: `ordered`,
+  `reversed`; comparison funs are `badarg`). Maps print in key order.
+- Every control of OTP 29 with its field rules: `~w ~W ~p ~P ~s ~e ~f ~g ~b
+  ~B ~x ~X ~+ ~# ~c ~i ~n ~~`. `~s` truncates or pads to `P` within `F`; `~w`,
+  integers and floats print `*` characters when the text does not fit `F`;
+  `~c` repeats the character; integer bases come from `P` (2..36); `~n` with
+  `F` writes `F` newlines; widths count as `io_lib:chars_length/1` does.
 - Without `t`, `~s` takes Latin-1 characters only and `~c` writes the low byte
   of its integer; `~w`/`~p` escape atom characters beyond Latin-1 as `\x{...}`.
   With `t`, `~s` reads binaries as UTF-8 (falling back to Latin-1) and `~p`
   writes `<<"..."/utf8>>` for printable UTF-8 binaries.
-- `badarg`: an unknown control character, missing or extra arguments, an
-  argument of the wrong type, `F` smaller than `P` for `~s`/`~c`, a left
-  adjusted `~p` or `~n`, a base outside 2..36, output that is not Unicode.
-- Not implemented (`badarg`, see [differences](differences.md#io)): `~e`, `~f`,
-  `~g`, `~x`, `~X`, `~+`, `~#`, `~W`, `~P` and the `K` modifier.
+- `badarg`: anything `io_lib:format/2` fails on (an unknown control
+  character, missing or extra arguments, an argument of the wrong type, `F`
+  smaller than `P`, a left adjusted `~p` or `~n`, a base outside 2..36), and
+  output that is not Unicode. `~P` with a depth is `badarg` until plan 21 step
+  LIB4D.
 
 ## Pretty printing (`~p`)
 

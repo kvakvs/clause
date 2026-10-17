@@ -574,7 +574,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `unicode/code_points.cpp` (cp/gc in OTP's shapes) and
   `unicode/normalize.cpp`; `strings` golden — `fc6022ce`
 - **LIB4B** `unicode` forms and properties, `unicode_util` walks as builtins
-  (`unicode/forms.cpp`); `unicode_forms` golden — `[plan21] LIB4B`
+  (`unicode/forms.cpp`); `unicode_forms` golden — `c25f8153`
+- **LIB4C** `io_lib` in C++ (`builtins/io_lib/`): writers, checks, collect
+  functions and the format engine in OTP's deep shapes, `io:format` on it;
+  `io_lib_text` golden — `[plan21] LIB4C`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

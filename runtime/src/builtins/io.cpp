@@ -113,17 +113,19 @@ Word emit_to(ProcessContext &context, const Device &target, std::u32string_view 
 }
 
 // io:format(Format): io:format(Format, []).
-Word format1(ProcessContext &context, const Term &format) { return emit(context, format_text(format, std::nullopt)); }
+Word format1(ProcessContext &context, const Term &format) {
+    return emit(context, format_text(context, format, std::nullopt));
+}
 
 // io:format(Format, Args).
 Word format2(ProcessContext &context, const Term &format, const Term &arguments) {
-    return emit(context, format_text(format, arguments));
+    return emit(context, format_text(context, format, arguments));
 }
 
 // io:format(IoDevice, Format, Args) (step 41U).
 Word format3(ProcessContext &context, const IoDevice &io_device, const Term &format, const Term &arguments) {
     const auto target = device(context, io_device);
-    return emit_to(context, target, format_text(format, arguments));
+    return emit_to(context, target, format_text(context, format, arguments));
 }
 
 // io:put_chars(Chardata).

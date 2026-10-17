@@ -17,8 +17,6 @@ main([]) ->
     put_chars(),
     values(),
     large();
-main(["unsupported"]) ->
-    [show(F, A) || {F, A} <- id(unsupported())];
 main(["nesting", Depth]) ->
     io:format("~0p~n", [nest(list_to_integer(Depth))]).
 
@@ -145,20 +143,6 @@ errors() ->
     ].
 
 %% Valid OTP control sequences Clause does not implement (docs/io.md).
-unsupported() ->
-    [
-        {"~e", [1.0]},
-        {"~f", [1.0]},
-        {"~g", [1.0]},
-        {"~x", [255, "0x"]},
-        {"~X", [255, "0x"]},
-        {"~+", [255]},
-        {"~#", [255]},
-        {"~W", [a, 1]},
-        {"~P", [a, 1]},
-        {"~Kp", [ordered, #{}]}
-    ].
-
 %% Tuples nested `Depth` deep around an atom.
 nest(0) -> leaf;
 nest(Depth) -> {Depth, nest(Depth - 1)}.

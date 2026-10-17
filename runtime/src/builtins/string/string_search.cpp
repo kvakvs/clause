@@ -1071,6 +1071,8 @@ constexpr std::array STRING_SEARCH_BUILTINS{
 Halves take_leading(ProcessContext &context, const Term &str, const PatternArg &clusters) {
     return take_l(context, str, clusters);
 }
+
+Term trim_of(ProcessContext &context, const Term &data) { return trim1(context, {data}); }
 } // namespace clause::runtime::builtins::string
 
 namespace clause::runtime {

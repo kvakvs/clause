@@ -106,12 +106,16 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 - `string` (69): done as LIB4A, see `00-finished.md`.
 - `unicode`: done as LIB4B, see `00-finished.md`.
-- `io_lib` (36): C++ on the existing `io_format` engine. That covers
-  `format/2,3`, `fwrite`, `bformat`, `bfwrite`, `write/1,2`, `print/1,4`,
-  `write_string`, `write_atom`, `write_char`, the printable checks,
-  `scan_format/2`, `unscan_format/1`, `build_text/1`, `indentation/2` and
-  `fread/2,3` (a format-directed scanner), plus `nl/0`.
-- Fix `io:format("~.2f")`, which raises `badarg` today.
+- `io_lib`: done as LIB4C (writers, checks, collect, format engine with OTP's
+  deep shapes; `io:format` on the same engine), see `00-finished.md`.
+- LIB4D: `io_lib_pretty` ported with its deep shapes: `print/1,4`, `~p`/`~P`
+  (depth), `write/5` and `~w` with `chars_limit` above 0 (`intermediate` +
+  `write`); replaces `io_pretty.cpp`. Fixture cases parked in the scratchpad:
+  `format/3` with `chars_limit`, `build_text/2`, `format_prompt({x})`.
+- LIB4E: `fread/2,3` (`io_lib_fread`, a format-directed scanner) and
+  `io:fread/2,3`.
+- Later: `maps_order` comparison funs (Erlang sorts each map's keys and passes
+  them to the writer).
 
 ### LIB7. Set algebra and graphs: `sofs`, `graph`
 

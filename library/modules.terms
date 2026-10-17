@@ -31,6 +31,7 @@
 {gb_sets, stdlib, provided}.
 {gb_trees, stdlib, provided}.
 {io, stdlib, provided}.
+{io_lib, stdlib, provided}.
 {lists, stdlib, provided}.
 {dict, stdlib, provided}.
 {maps, stdlib, provided}.

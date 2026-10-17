@@ -105,6 +105,12 @@ std::optional<std::pair<char32_t, std::size_t>> utf8_head(const Term &binary);
 // The same for a binary known to start with a character; badarg otherwise.
 std::pair<char32_t, std::size_t> first_char(const Term &binary);
 
+// string:length/1 and string:slice(Data, 0, Length), for io_lib's field widths (plan 21 step LIB4C).
+Term length_of(ProcessContext &context, const Term &data);
+Term prefix_of(ProcessContext &context, const Term &data, std::int64_t length);
+// string:trim/1, for io_lib:collect_line_no_eol/4.
+Term trim_of(ProcessContext &context, const Term &data);
+
 // error({badarg, Rest}).
 [[noreturn]] void badarg_rest(ProcessContext &context, const Term &rest);
 // error({badarg, Rest}) for a cp or gc result that is {error, Rest}.

@@ -188,6 +188,10 @@ std::span<const BuiltinEntry> erts_internal_builtins() noexcept;
 std::span<const BuiltinEntry> unicode_table_builtins() noexcept;
 // unicode_util's walks and unicode's forms and properties (plan 21 step LIB4B; runtime/src/builtins/unicode/forms.cpp).
 std::span<const BuiltinEntry> unicode_form_builtins() noexcept;
+// io_lib's format engine, writers and checks, and collect functions (plan 21 step LIB4C; runtime/src/builtins/io_lib/).
+std::span<const BuiltinEntry> io_lib_format_builtins() noexcept;
+std::span<const BuiltinEntry> io_lib_write_builtins() noexcept;
+std::span<const BuiltinEntry> io_lib_collect_builtins() noexcept;
 // The re module over PCRE2 of step 41ZA: version/0.
 std::span<const BuiltinEntry> re_builtins() noexcept;
 // The zlib streams of step 41Q: clause_zlib:open/0, close/1, set_controller/2, deflate_init/2, inflate_init/2,

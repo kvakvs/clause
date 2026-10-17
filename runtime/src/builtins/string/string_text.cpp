@@ -731,6 +731,13 @@ bool equal_terms(ProcessContext &context, const Term &a, const Term &b) {
     }
     return equal_points(context, a, b);
 }
+
+Term length_of(ProcessContext &context, const Term &data) { return length1(context, data); }
+
+Term prefix_of(ProcessContext &context, const Term &data, std::int64_t length) {
+    const Terms terms(context);
+    return slice3(context, {data}, terms.integer(0), {terms.integer(length)});
+}
 } // namespace clause::runtime::builtins::string
 
 namespace clause::runtime {

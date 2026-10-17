@@ -19,15 +19,6 @@
     },
     {
       "args": [
-        "unsupported"
-      ],
-      "authored": true,
-      "stderr": "^$",
-      "exit_status": 0,
-      "stdout": "error:badarg\nerror:badarg\nerror:badarg\nerror:badarg\nerror:badarg\nerror:badarg\nerror:badarg\nerror:badarg\nerror:badarg\nerror:badarg\n"
-    },
-    {
-      "args": [
         "nesting",
         "257"
       ],
@@ -46,6 +37,6 @@
     "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
   },
   "inputs": {
-    "console.erl": "f572525913702a9b57214dbfa05e14555936fc24f07ab62100c671b43237fe4e"
+    "console.erl": "d95671e8bb8cf4b116ab9bee15263b721ef112634cb272a60d46c49a1e60b80a"
   }
 }

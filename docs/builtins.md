@@ -822,6 +822,45 @@ neither OTP nor the data files. `executables_unicode_tables` and
 `executables_unicode_clusters` compare answers, clusters and normal forms
 with OTP's, `executables_unicode_forms` the `unicode` forms and properties.
 
+## io_lib
+
+`library/stdlib/io_lib.erl`, `runtime/src/builtins/io_lib/` (plan 21 step
+LIB4C). Results are OTP's deep character lists, nested exactly as
+`io_lib`, `io_lib_format` build them: text is first built as cells of a C++
+arena (`io_lib/deep.cpp`), then becomes a term (`io_lib`) or flat characters
+(`io:format/1,2,3`, which runs the same engine).
+
+- Writers (`io_lib/write.cpp`): `write/1,2,5` follow `write1/4` with depth
+  limits (`[...]`, `|...`, `,...`), atoms by encoding (`latin1` escapes
+  characters beyond Latin-1), maps in Clause's key order, `ordered` or
+  `reversed`; `write_bin/5` reports OTP's sizes, quirks included.
+  `write_string/1,2` and its Latin-1 and `as_latin1` forms, `write_char/1`
+  and kin, `write_atom/1`, `quote_atom/2`, `write_binary/3` and the binary
+  forms escape as `string_char/4` and `needs_escape/2` do.
+- Format engine (`io_lib/format_scan.cpp`, `format_build.cpp`): `scan` turns
+  the format into literals and `format_spec()` maps (`scan_format/2`,
+  `unscan_format/1`, `build_text/1,2`); `build_small` flattens the small
+  controls (`~e ~f ~g ~b ~B ~x ~X ~+ ~# ~c ~~ ~n ~i`, `~s` of an atom) into
+  the result; `build_limited` shares `chars_limit` between `~w ~W ~s ~p ~P`
+  and writes them through `string/6`, `term/6` and `chars/2`'s balanced
+  padding. `~e`, `~f`, `~g` round the 21 digits of `float_to_list/1` as
+  `float_man/3` does (`format_float.cpp`). Errors inside are `badarg`, as
+  `io_lib`'s catch makes them; `unscan_format/1` raises its own.
+  `bformat/2,3` and `bfwrite/2,3` are the same text as UTF-8.
+- Checks and helpers: `char_list/1`, `deep_char_list/1`, the printable checks
+  (`printable_list/1` is Latin-1: `io:printable_range/0` is `latin1`),
+  `chars_length/1`, `indentation/2` (with OTP's binary offsets after a tab),
+  `limit_term/2`, `nl/0`, and the I/O server states `collect_chars/1,3,4`,
+  `collect_chars_eager/4`, `collect_line/1,3,4`, `collect_line_no_eol/4`
+  (`io_lib/collect.cpp`).
+- Erlang: `get_until/1,3,4` (it applies the caller's scanner),
+  `format_prompt/1,2` and `write/3`. Stubs until plan 21 LIB4D and LIB4E:
+  `print/1,4`, `~w` and `write/5` with `chars_limit` above 0, `~P` with a
+  depth (`io_lib_pretty`), and `fread/2,3`.
+- Containers nested more than 256 deep raise `system_limit`, and `maps_order`
+  comparison funs are `badarg` ([differences](differences.md#io)).
+  `executables_io_lib_text` compares every function's shapes with OTP's.
+
 ## Zlib module
 
 `runtime/src/builtins/zlib/streams.cpp`, `library/erts/zlib.erl`. The runtime

@@ -174,6 +174,12 @@ order, one commit each.
   expression as freshly built; constant maps moved into the literal pool must be
   excluded. Maps and binaries stay with their services.
 
+## OPTM.1: Manual Optimization Step: Improve Search
+
+Search code for std::ranges::find() usage on static arrays, and if they can be
+guaranteed to be sorted, change search call to binary search with a static assert 
+on is_sorted.
+
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
 Ordered by measured T2 value and how well each fits an AOT compiler.

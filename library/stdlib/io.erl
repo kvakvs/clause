@@ -332,7 +332,8 @@ parse_erl_form(_) -> erlang:error({not_implemented, parse_erl_form, 1}).
 parse_erl_form(_, _) -> erlang:error({not_implemented, parse_erl_form, 2}).
 parse_erl_form(_, _, _) -> erlang:error({not_implemented, parse_erl_form, 3}).
 parse_erl_form(_, _, _, _) -> erlang:error({not_implemented, parse_erl_form, 4}).
-printable_range() -> erlang:error({not_implemented, printable_range, 0}).
+%% Clause has no +pc flag: printable characters are Latin-1 (plan 21 step LIB4C).
+printable_range() -> latin1.
 put_chars(_) -> clause_builtin_placeholder.
 put_chars(_, _) -> clause_builtin_placeholder.
 read(_) -> erlang:error({not_implemented, read, 1}).
