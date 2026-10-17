@@ -95,18 +95,6 @@ create a new API that's for the end user to choose
 
 ## Tier A: data modules without processes
 
-### LIB3B. `array`
-
-- OTP 29's `array` record (`size`, `zero`, `fix`, `default`, `cache`,
-  `cache_index`, `elements`, `bits`): a tuple tree of 16-element leaves with
-  a cached leaf and a zero offset for `shift/2`, `slice/3` and `prepend/2`.
-  C++ builds the same records as OTP's `set/3`, `get/2`, `resize/1,2`,
-  `from_list/1,2`, `from/2,3`, `from_orddict/1,2`, `concat/1,2`,
-  `sparse_size/1`, `fix/1`, `relax/1` and the `to_list`/`orddict` families;
-  the golden checks them through `erlang:phash2/1`.
-- Erlang: `map/2`, `sparse_map/2`, the `foldl`/`foldr`/`mapfold*` families
-  and their `sparse_*` forms (3 and 5 arguments).
-
 ### LIB4. Text: `string`, `unicode` remainder, `io_lib`
 
 - `string` (69): C++ over the grapheme and case tables Clause already generates
@@ -503,7 +491,7 @@ Ranked by what real programs need first and by dependencies:
 2. LIB10 and LIB11 (ETS and match specs).
 3. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
 4. LIB23 and LIB24 (`logger`, `application`).
-5. LIB3, LIB5 and LIB6 (trees, queues, encodings, `rand`).
+5. LIB5 and LIB6 (encodings, `rand`).
 6. LIB9, LIB50, LIB60 and LIB61 (`erlang`, `file`, `inet`, `os`, `code` gaps).
 7. LIB30–LIB34 (the front end, `consult`, `io:read`).
 8. LIB25 (local-node services) and LIB12 (`digraph`).
@@ -650,12 +638,6 @@ functions are listed separately and are optional.
   recv/3, send/3, session_create/3, session_destroy/1, session_info/1, system/3
 - `wrap_log_reader` (kernel, 5): chunk/1,2, close/1, open/1,2
 - `argparse` (stdlib, 6): format_error/1, help/1,2, parse/2,3, run/3
-- `array` (stdlib, 49): append/2, concat/1,2, default/1, fix/1, foldl/3,5,
-  foldr/3,5, from/2,3, from_list/1,2, from_orddict/1,2, get/2, is_array/1,
-  is_fix/1, map/2, mapfoldl/3,5, mapfoldr/3,5, new/0,1,2, prepend/2, relax/1,
-  reset/2, resize/1,2, set/3, shift/2, size/1, slice/3, sparse_foldl/3,5,
-  sparse_foldr/3,5, sparse_map/2, sparse_mapfoldl/3,5, sparse_mapfoldr/3,5,
-  sparse_size/1, sparse_to_list/1, sparse_to_orddict/1, to_list/1, to_orddict/1
 - `base64` (stdlib, 12): decode/1,2, decode_to_string/1,2, encode/1,2,
   encode_to_string/1,2, mime_decode/1,2, mime_decode_to_string/1,2
 - `beam_lib` (stdlib, 19): all_chunks/1, build_module/1, chunks/2,3,

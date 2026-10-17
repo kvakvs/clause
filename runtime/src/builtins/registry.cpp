@@ -189,6 +189,7 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      gb_trees_builtins(),
                                      gb_sets_builtins(),
                                      queue_builtins(),
+                                     array_builtins(),
                                      persistent_term_builtins(),
                                      unicode_builtins(),
                                      code_module_builtins(),

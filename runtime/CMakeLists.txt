@@ -35,6 +35,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/collections/linear_hash.cpp src/builtins/collections/dict.cpp src/builtins/collections/sets.cpp
     # Modules gb_trees, gb_sets and queue (plan 21 step LIB3).
     src/builtins/collections/balanced_tree.cpp src/builtins/collections/gb_trees.cpp src/builtins/collections/gb_sets.cpp src/builtins/collections/queue.cpp
+    # Module array (plan 21 step LIB3B).
+    src/builtins/collections/array.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp
     src/startup/halt.cpp
     src/modules/atoms.cpp src/modules/services.cpp src/modules/code_server.cpp src/modules/registration.cpp src/modules/literal_areas.cpp)

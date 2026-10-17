@@ -26,8 +26,8 @@ implementing source file:
 - other modules: `io` output ([io](io.md)), the data functions of
   [`lists`](#lists-module), [`math`](#math-module),
   [`binary`](#binary-module), [`maps` and `os`](#maps-module),
-  [`ordsets`, `orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets` and
-  `queue`](#collections),
+  [`ordsets`, `orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets`,
+  `queue` and `array`](#collections),
   [`persistent_term`](#persistent-terms), [`unicode`](#unicode-module),
   [`code`](#code-module), [`init`](#init-module),
   [`atomics`](#atomics-and-counters), [`erts_internal`](#erts-internal),
@@ -451,9 +451,9 @@ builtin:
 
 ## Collections
 
-`runtime/src/builtins/collections/` (plan 21 steps LIB1–LIB3): `ordsets`,
-`orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets` and `queue`, every
-documented function.
+`runtime/src/builtins/collections/` (plan 21 steps LIB1–LIB3B): `ordsets`,
+`orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets`, `queue` and
+`array`, every documented function.
 
 - The walks over lists are builtins: `ordsets` membership, insertion,
   deletion and the set algebra (`union/2`, `intersection/1,2`,
@@ -501,6 +501,14 @@ documented function.
   alone splits in half), so queues equal OTP's. A term that is not a pair of
   lists is `badarg`, an empty queue's `get`, `drop`, `head` the error
   `empty`. The functions taking funs and the Okasaki names are Erlang.
+- `array` (plan 21 step LIB3B): OTP 29's `#array{}` record, a tuple tree of
+  16-entry leaves (`[]` for an empty subtree) with one cached leaf and a zero
+  offset; `set`, `append`, `shift`, `prepend`, `slice`, `reset`, `resize` and
+  the builders (`from_list`, `from_orddict` with its gap markers, `from`)
+  change the record exactly as OTP does. The folds and mapfolds are Erlang
+  over the private builtins `clause_array:values/3`, `sparse/3` and
+  `replace/4`, the last rebuilding a mapped range as OTP's mapfolds do (empty
+  subtrees unfolded unless the map is sparse) and reading the cache again.
 
 ## Persistent terms
 

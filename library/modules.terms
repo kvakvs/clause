@@ -26,6 +26,7 @@
 {gen_udp, kernel, provided}.
 {inet, kernel, provided}.
 {os, kernel, provided}.
+{array, stdlib, provided}.
 {binary, stdlib, provided}.
 {gb_sets, stdlib, provided}.
 {gb_trees, stdlib, provided}.

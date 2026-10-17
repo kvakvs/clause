@@ -143,6 +143,8 @@ std::span<const BuiltinEntry> sets_builtins() noexcept;
 std::span<const BuiltinEntry> gb_trees_builtins() noexcept;
 std::span<const BuiltinEntry> gb_sets_builtins() noexcept;
 std::span<const BuiltinEntry> queue_builtins() noexcept;
+// The arrays of plan 21 step LIB3B: array and the private clause_array helpers.
+std::span<const BuiltinEntry> array_builtins() noexcept;
 // The persistent_term builtins of step 41M2: put/2, put_new/2, get/0,1,2, erase/1, info/0.
 std::span<const BuiltinEntry> persistent_term_builtins() noexcept;
 // The unicode builtins of step 41Y1: characters_to_binary/1,2,3, characters_to_list/1,2, bin_is_7bit/1,

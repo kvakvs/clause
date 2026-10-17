@@ -545,7 +545,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   values — `162eab2f`
 - **LIB3** `gb_trees`, `gb_sets`, `queue`: OTP's shapes from a shared balanced
   tree engine (`collections/balanced_tree`) and `{Rear, Front}` moves —
-  `[plan21] LIB3`
+  `66e0ab0c`
+- **LIB3B** `array`: OTP 29's cached tuple tree record in C++ (`collections/array`),
+  folds and mapfolds Erlang over `clause_array` helpers — `[plan21] LIB3B`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
