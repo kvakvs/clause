@@ -46,3 +46,4 @@
 {base64, stdlib, provided}.
 {calendar, stdlib, provided}.
 {filename, stdlib, provided}.
+{uri_string, stdlib, provided}.

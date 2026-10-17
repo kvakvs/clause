@@ -86,10 +86,10 @@ create a new API that's for the end user to choose
 
 | Kind | Implement in | Examples |
 | --- | --- | --- |
-| Pure data transforms, no funs | C++ builtin | `ordsets:union/2`, `proplists:get_value/3`, `string:split/3`, `base64:encode/1`, `calendar:*`, `json:decode/1`, `uri_string:parse/1` |
+| Pure data transforms, no funs | C++ builtin | `ordsets:union/2`, `proplists:get_value/3`, `string:split/3`, `base64:encode/1`, `calendar:*`, `json:decode/1` |
 | Tables, shared state, OS access | C++ runtime object plus builtins | ETS, `file:pread/3`, `os:find_executable/1`, `net:getaddrinfo/1`, `win32reg` |
 | Takes funs | Erlang over C++ helpers | `ordsets:filter/2`, `gb_trees:map/2`, `json:decode/3`, `queue:filter/2`, `ets:foldl/3` |
-| Walks whose result shapes and quirks are the algorithm (OS rules, chardata continuations) | Erlang, own structure, same algorithm | `filename:*`, `string:*` over `unicode_util` |
+| Walks whose result shapes and quirks are the algorithm (OS rules, chardata continuations) | Erlang, own structure, same algorithm | `filename:*`, `uri_string:*`, `string:*` over `unicode_util` |
 | Processes, protocols, behaviours | Erlang | `proc_lib`, `gen_server`, `supervisor`, `logger`, `timer:apply_interval/4`, `application` |
 | Front-end terms (tokens, forms) | C++ over Clause's lexer and parser | `erl_scan:string/1`, `erl_parse:parse_form/1`, `epp:parse_file/2` |
 | Interpreters over forms | Erlang | `erl_eval`, `ms_transform`, `qlc` |
@@ -113,12 +113,10 @@ create a new API that's for the end user to choose
   `fread/2,3` (a format-directed scanner), plus `nl/0`.
 - Fix `io:format("~.2f")`, which raises `badarg` today.
 
-### LIB5. Encodings and formats: `uri_string`, `json`
+### LIB5. Encodings and formats: `json`
 
-- C++:
-  - `uri_string` (15).
-  - `json`: `decode/1`, `encode/1`, `format/1,2` and the leaf encoders
-    `encode_integer`, `encode_float`, `encode_binary`, `encode_atom`, ...
+- C++: `json`: `decode/1`, `encode/1`, `format/1,2` and the leaf encoders
+  `encode_integer`, `encode_float`, `encode_binary`, `encode_atom`, ...
 - Erlang: `json:decode/3`, `decode_start/3` and `decode_continue/2` (callback
   decoders), and `encode/2`, `format/2,3` with an encoder fun, over the C++ leaf
   encoders.
@@ -868,9 +866,6 @@ functions are listed separately and are optional.
   characters_to_nfd_list/1, characters_to_nfkc_binary/1,
   characters_to_nfkc_list/1, characters_to_nfkd_binary/1,
   characters_to_nfkd_list/1, is_id_continue/1, is_id_start/1, is_whitespace/1
-- `uri_string` (stdlib, 15): allowed_characters/0, compose_query/1,2,
-  dissect_query/1, normalize/1,2, parse/1, percent_decode/1, quote/1,2,
-  recompose/1, resolve/2,3, transcode/2, unquote/1
 - `win32reg` (stdlib, 13): change_key/2, change_key_create/2, close/1,
   current_key/1, delete_key/1, delete_value/2, expand/1, format_error/1, open/1,
   set_value/3, sub_keys/1, value/2, values/1

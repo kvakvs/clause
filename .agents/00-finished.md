@@ -553,7 +553,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB5B** `calendar`: Gregorian arithmetic in C++ (`builtins/calendar.cpp`),
   local time and RFC 3339 Erlang — `a70297a6`
 - **LIB5C** `filename`: Erlang walks by OTP's Unix and Windows rules, golden
-  checks both families' tables (`fixtures/executables/filenames`) — `[plan21] LIB5C`
+  checks both families' tables (`fixtures/executables/filenames`) — `fa6d4a3c`
+- **LIB5D** `uri_string`: Erlang walker over RFC 3986 driven by a delimiter
+  table, OTP's error fragments and retries (`fixtures/executables/uri_strings`)
+  — `[plan21] LIB5D`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

@@ -1,0 +1,19 @@
+%% OTP 29 uri_string exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{allowed_characters, 0, default, implemented}.
+{compose_query, 1, default, implemented}.
+{compose_query, 2, default, implemented}.
+{dissect_query, 1, default, implemented}.
+{is_host, 1, default, implemented}.
+{is_path, 1, default, implemented}.
+{normalize, 1, default, implemented}.
+{normalize, 2, default, implemented}.
+{parse, 1, default, implemented}.
+{percent_decode, 1, default, implemented}.
+{quote, 1, default, implemented}.
+{quote, 2, default, implemented}.
+{recompose, 1, default, implemented}.
+{resolve, 2, default, implemented}.
+{resolve, 3, default, implemented}.
+{transcode, 2, default, implemented}.
+{unquote, 1, default, implemented}.

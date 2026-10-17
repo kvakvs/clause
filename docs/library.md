@@ -18,6 +18,7 @@ implemented and which are stubs.
 | [`ordsets`](../library/stdlib/ordsets.erl), [`orddict`](../library/stdlib/orddict.erl), [`proplists`](../library/stdlib/proplists.erl) | Every documented function; the walks over lists are runtime builtins, the functions taking funs Erlang ([collections](builtins.md#collections)) |
 | [`calendar`](../library/stdlib/calendar.erl) | Every documented function; the Gregorian arithmetic as runtime builtins, local time and RFC 3339 Erlang ([calendar](builtins.md#calendar)) |
 | [`filename`](../library/stdlib/filename.erl) | Every documented function, Erlang walks over names by OTP's Unix and Windows rules for the host's `os:type()`; `basedir/2,3` from `HOME`, the XDG variables and `APPDATA` |
+| [`uri_string`](../library/stdlib/uri_string.erl) | Every documented function, Erlang walks over RFC 3986's grammar with OTP's error fragments, normalization, resolution and form-urlencoded queries |
 | [`base64`](../library/stdlib/base64.erl) | Every documented function as a runtime builtin ([encodings](builtins.md#encodings)) |
 | [`array`](../library/stdlib/array.erl) | Every documented function over OTP 29's record; the record operations are runtime builtins, the folds and mapfolds Erlang ([collections](builtins.md#collections)) |
 | [`gb_trees`](../library/stdlib/gb_trees.erl), [`gb_sets`](../library/stdlib/gb_sets.erl), [`queue`](../library/stdlib/queue.erl) | Every documented function over OTP's tree and queue shapes; the operations without funs are runtime builtins ([collections](builtins.md#collections)) |
