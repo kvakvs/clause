@@ -6,7 +6,7 @@ generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1A/B, parts of OPT1.2 and OPT1.3,
 OPT1.4A-C, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.13A-C, OPT3.14 service path,
-read-ahead lines of OPT3.4):
+read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3):
 see [00-finished.md](00-finished.md). This file keeps open work only.
 
 ## Working rules for plan 20 steps
@@ -174,91 +174,13 @@ order, one commit each.
   expression as freshly built; constant maps moved into the literal pool must be
   excluded. Maps and binaries stay with their services.
 
-## OPTM.1: Manual Optimization Step: Improve Search
+## OPTM.1 remainder: binary search over static tables
 
-Search code for std::ranges::find() usage on static arrays, and if they can be
-guaranteed to be sorted, change search call to binary search with a static assert 
-on is_sorted.
-
-Status 2026-10-17: done for the tables already sorted whose order means nothing
-else (reserved words in the compiler and runtime, built-in type names, paired
-attributes, string's normal forms, unicode's low whitespace). Open: the small
-tables that would need reordering first (re flags and newlines, time units,
-port options, the importers' handler tables); not the index-bearing ones
-(`fixed_atom_spellings`, preprocessor directive names, compile cache output
-kinds) or process_info/system_info item lists.
-
-## OPTM.2: Manual Optimization - Term Size
-
-Term class should be hard limited to a single Word of size. There should be no other
-fields, all extra data is encoded in tag bits 0..1 (or 0..3 or 0..5 depending on tag
-bits value) and if even more extra data is necessary, the term becomes a Boxed value
-and is storing all extra data on the heap.
-Atom should not be a field in Term.
-heap_ should not be a field in Term.
-lifetime_ should not be a field in Term.
-
-This is a **hard requirement**, Term is one word in size.
-
-Status 2026-10-17 (OPTM.2A): done. `Term` holds only `value_`, with
-`static_assert(sizeof(Term) == sizeof(Word))` and trivially copyable. Atom
-spellings come from the process-wide `terms/atom_table` indexed by atom number
-(atom words were already never reused); `AtomStorage` stays per runtime for
-interning, limits and admission and retires its slots at teardown. Compound
-words are trusted pointers (ERTS model): admission still checks range and shape,
-nothing is checked per handle, `stale_term` and the heap collection count are
-gone. `copy_to` copies any graph its destination cannot read, reading source
-cells by pointer; `MessageBuffer::copy_of`/`large` take the sender context.
-Only the collector and copy ask whose term a word is, by address range.
-Measured (69A suite, Release, 5 rounds, against fb53eba9 with OPTM.2B):
-geomean 1.06x faster; msg.fan_in 2.09x, ping_pong 1.16x, gc.grow_shrink 1.46x;
-the slower kernels (large_message, long_lived_churn) sit inside +/-45% noise.
-
-Remainder, in order:
-- **OPTM.2B persistent terms in place:** done 2026-10-17. Keys and values are
-  copied into one growing `MessageBuffer` area whose blocks join the runtime's
-  literal areas; `get` returns the stored word, sends and re-puts share it.
-  Reclamation done 2026-10-17 (OPTM.2E): per-term areas in a reserved address
-  range (`memory/persistent_region`, one range compare); a replaced or erased
-  area retires under an epoch, copies stop sharing it, every registered process
-  copies what it holds at an evacuating full sweep (slice start, or at once for
-  parked processes under the executor lock), then the area is freed. 2,000
-  replacements of a 16 KB value grow memory by 0.3 MB instead of 32 MB.
-- **OPTM.2C trusted words at boundaries:** done 2026-10-17.
-  `TermAccess::admit` (behind `Term::from_word(word, context)`, factory
-  `retain`, typed builtin and service arguments) keeps its range, shape and
-  owner checks in Debug builds only (`CHECKED_ADMISSION`); Release trusts
-  compound, atom, pid and port words and still classifies other immediates.
-  Foreign-word tests are guarded by the constant.
-- **OPTM.2D atom table readers:** done 2026-10-17. `term_to_binary` (no
-  per-encoding spelling map), the atom comparison service and phash/phash2 of
-  fun names read `atom_table::spelling` directly. Still open from OPT3.14: atom
-  `<` as a word compare would need an order rank per atom.
-
-## OPTM.3: Manual Optimization - Unchecked Term Operations
-
-When the calling code knows that the term is exactly known type, mirror all
-read/write accessor functions to new functions, operating on specific term
-subtypes. These functions will not check the term type, and will not be able to
-return a type error, and will operate fully trusting the term type is correct.
-
-For example: `TermResult<ProcessIdentity> pid_value() const;`
-becomes `ProcessIdentity pid_value_unchecked() const;` and will not check whether
-the term is a pid, just giving the decoded identity value.
-
-Status 2026-10-17: done. `Term` has `small_integer_unchecked`,
-`float_value_unchecked`, `atom_spelling_unchecked`, `atom_id_unchecked`,
-`boolean_value_unchecked`, `port_value_unchecked`, `reference_value_unchecked`,
-`head_unchecked`/`tail_unchecked`, `tuple_size_unchecked`,
-`tuple_element_unchecked`, `map_size_unchecked` and `bit_size_unchecked`
-(`terms/term_unchecked.cpp`); Debug builds abort on a term of another kind, so
-the test suite checks every proof it reaches. 769 call sites in 91 runtime files
-use them where a dominating check proves the kind (CTest `runtime_unchecked`
-compares each with its checked mirror). `pid_value` has no unchecked mirror: the
-checked one is not implemented either (a `ProcessIdentity` needs its runtime).
-Not mirrored: accessors whose remaining failures are semantic (`integer_value`
-range, `list_length` properness, `record_field` names, `map_find` comparisons).
-`is_tuple` decodes the header once instead of twice.
+Sorted tables done (see `00-finished.md`). Open: the small tables that would
+need reordering first (re flags and newlines, time units, port options, the
+importers' handler tables); not the index-bearing ones (`fixed_atom_spellings`,
+preprocessor directive names, compile cache output kinds) or
+process_info/system_info item lists.
 
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 

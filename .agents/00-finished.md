@@ -313,7 +313,7 @@ lives in `docs/`, architecture and file ownership in [arch.md](arch.md) and
 - **73F** transforms applied before lint in the compile pipeline — `1c92c5c`
 - **73G** precompiled and project transform modules — `d1ce36a`
 
-## Plan 20 (2026-10-12 to 2026-10-15)
+## Plan 20 (2026-10-12 to 2026-10-17)
 
 Optimizations from OTP T2-Full ideas; open steps are in [20-opt.md](20-opt.md).
 Speedups are against the previous step unless noted; the luerl euler run went
@@ -517,6 +517,28 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   atom table's lock-free index in the comparison service, with no `Term`; atom
   `<` 142 to 27 ns (OTP 10), sorting 1000 atoms 1.56 to 0.26 ms (OTP 0.06) —
   `267ae39d`
+- **OPTM.1** binary search with a `static_assert` on sortedness over sorted
+  static tables (reserved words, type names, paired attributes, normal forms);
+  one reserved-word table for compiler and runtime — `d98cafa4`, `fb53eba9`
+- **OPTM.2A** one-word `Term` (`static_assert`, trivially copyable): spellings
+  from the process-wide `terms/atom_table`, compound words trusted pointers,
+  `stale_term` gone, copies read source cells by pointer; 69A geomean 1.06x
+  (fan_in 2.09x, grow_shrink 1.46x) — `b4924c01`
+- **OPTM.2B** persistent terms read in place: `get` returns the stored word,
+  sends and re-puts share it — `fa795339`
+- **OPTM.2C** `TermAccess::admit` range, shape and owner checks in Debug only
+  (`CHECKED_ADMISSION`); Release trusts compound, atom, pid and port words —
+  `ef467893`
+- **OPTM.2D** `term_to_binary`, atom comparison and fun-name hashes read
+  `atom_table::spelling` directly — `aa056b93`
+- **OPTM.3** `*_unchecked` term accessors (`terms/term_unchecked.cpp`, Debug
+  aborts on a wrong kind) at 769 call sites with a dominating kind check; no
+  `pid_value` mirror, semantic-failure accessors not mirrored — `8889f450`
+- **OPTM.2E** persistent term reclamation: per-term areas in a reserved range
+  (`memory/persistent_region`), replaced/erased areas retire under an epoch,
+  processes copy them out at an evacuating sweep (slice start, parked ones under
+  the executor lock), then the area is freed; 2,000 replacements of 16 KB grow
+  0.3 MB instead of 32 MB — `24f053bb`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`
