@@ -4,8 +4,8 @@
 %% Iteration follows the map's key order (see docs/differences.md).
 -module(maps).
 -export([find/2, fold/3, from_list/1, get/2, keys/1, put/3, to_list/1, values/1]).
-%% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
-%% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
+%% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
 -export([
     filter/2,
     filtermap/2,
@@ -93,14 +93,14 @@ values(Map) when is_map(Map) -> [Value || _ := Value <- Map];
 values(Map) -> erlang:error({badmap, Map}).
 
 filtermap(_, _) -> erlang:error({not_implemented, filtermap, 2}).
-from_keys(_, _) -> erlang:error({not_implemented, from_keys, 2}).
-get(_, _, _) -> erlang:error({not_implemented, get, 3}).
+from_keys(_, _) -> clause_builtin_placeholder.
+get(_, _, _) -> clause_builtin_placeholder.
 groups_from_list(_, _) -> erlang:error({not_implemented, groups_from_list, 2}).
 groups_from_list(_, _, _) -> erlang:error({not_implemented, groups_from_list, 3}).
 intersect(_, _) -> erlang:error({not_implemented, intersect, 2}).
 intersect_with(_, _, _) -> erlang:error({not_implemented, intersect_with, 3}).
 is_iterator_valid(_) -> erlang:error({not_implemented, is_iterator_valid, 1}).
-is_key(_, _) -> erlang:error({not_implemented, is_key, 2}).
+is_key(_, _) -> clause_builtin_placeholder.
 %% Iterators (plan step 41N): [Position | Map] walks the map in its exact key order, [Keys | Map] a key list.
 iterator(Map) when is_map(Map) -> [0 | Map];
 iterator(Map) -> erlang:error({badmap, Map}, [Map]).
@@ -112,9 +112,9 @@ iterator(Map, Order) when is_map(Map), is_function(Order, 2) ->
     [lists:sort(Order, maps:keys(Map)) | Map];
 iterator(Map, Order) ->
     erlang:error(badarg, [Map, Order]).
-merge(_, _) -> erlang:error({not_implemented, merge, 2}).
+merge(_, _) -> clause_builtin_placeholder.
 merge_with(_, _, _) -> erlang:error({not_implemented, merge_with, 3}).
-new() -> erlang:error({not_implemented, new, 0}).
+new() -> clause_builtin_placeholder.
 next({Key, Value, Iterator}) ->
     {Key, Value, Iterator};
 next([Path | Map] = Iterator) when (is_integer(Path) orelse is_list(Path)), is_map(Map) ->
@@ -127,12 +127,12 @@ next(none) ->
     none;
 next(Iterator) ->
     erlang:error(badarg, [Iterator]).
-remove(_, _) -> erlang:error({not_implemented, remove, 2}).
-size(_) -> erlang:error({not_implemented, size, 1}).
-take(_, _) -> erlang:error({not_implemented, take, 2}).
-update(_, _, _) -> erlang:error({not_implemented, update, 3}).
-with(_, _) -> erlang:error({not_implemented, with, 2}).
-without(_, _) -> erlang:error({not_implemented, without, 2}).
+remove(_, _) -> clause_builtin_placeholder.
+size(_) -> clause_builtin_placeholder.
+take(_, _) -> clause_builtin_placeholder.
+update(_, _, _) -> clause_builtin_placeholder.
+with(_, _) -> clause_builtin_placeholder.
+without(_, _) -> clause_builtin_placeholder.
 
 %% The associations for which Pred(Key, Value) is true; anything but a boolean is a case_clause (plan step 41X).
 filter(Pred, Map) when is_function(Pred, 2), is_map(Map) ->

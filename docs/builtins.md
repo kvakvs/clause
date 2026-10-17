@@ -191,7 +191,8 @@ Builtins that check their own arguments are C++ functions of typed parameters
   (`builtins/registry.cpp`), which together cover the catalog.
 - Builtins are sticky: when a module registers, the code server skips every
   export that has the name of a registered builtin, so `M:F(Args)`,
-  `apply/3` and external funs bind the builtin, never a library stub or a
+  `apply/3` and external funs bind the builtin, never a library module's
+  `clause_builtin_placeholder` body ([placeholders](library.md#provided-or-missing)) or a
   same-named user function.
 - A body reads exactly its arity of argument words and records errors in the
   checked channel; host exceptions become `out_of_memory` or `internal_error`
@@ -226,7 +227,8 @@ never from runtime code:
   `tests/compiler/builtins/observe_erlang.escript` observes the host OTP and
   keeps the statuses, which are maintained by hand.
 - `tests/compiler/builtins/generate_erlang.py` turns it into
-  `library/erts/erlang.erl` (Clause's own stub module) and
+  `library/erts/erlang.erl` (Clause's own stub module, a placeholder body for
+  each catalog builtin) and
   `compiler/src/semantic/erlang_auto_imports.inc` (OTP's auto-import list).
   CTest `builtins_erlang_inventory` checks both are current and that
   `implemented` means a catalog builtin, a function the compiler handles
@@ -351,7 +353,7 @@ BIFs), so Clause's builtins raise what OTP's clauses raise:
 - `zipwith/3,4` and `zipwith3/4,5` are Erlang over the `zip` builtins, which
   pair the elements first; `flatmap/2`, `keymap/3`, `search/2`, `umerge/3`
   and `usort/2` are Erlang too. Inside `lists.erl` a builtin is called
-  qualified (`lists:zip(...)`): a local call would reach the stub. The
+  qualified (`lists:zip(...)`): a local call would reach its placeholder. The
   undocumented `rmerge/2,3`, `rmerge3/3`, `rumerge/2,3`, `rumerge3/3`,
   `rkeymerge/3` and `rukeymerge/3` (OTP's sort helpers) stay stubs.
 - `keymember/3` and `keysearch/3` are BIFs in OTP: `badarg` for a position

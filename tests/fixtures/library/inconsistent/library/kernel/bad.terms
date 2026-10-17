@@ -3,4 +3,5 @@
 {beta, 0, default, implemented}.
 {gamma, 2, default, implemented}.
 {delta, 1, default, stub}.
+{zeta, 1, default, implemented}.
 this is not a term

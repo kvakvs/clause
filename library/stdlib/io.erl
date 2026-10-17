@@ -2,8 +2,8 @@
 -export([
     get_line/1, get_line/2, get_chars/2, get_chars/3, request/1, request/2, requests/1, requests/2
 ]).
-%% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
-%% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
+%% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
 -export([
     columns/0,
     columns/1,
@@ -310,20 +310,20 @@ line_size(Buffer, At) ->
 
 columns() -> erlang:error({not_implemented, columns, 0}).
 columns(_) -> erlang:error({not_implemented, columns, 1}).
-format(_) -> erlang:error({not_implemented, format, 1}).
-format(_, _) -> erlang:error({not_implemented, format, 2}).
-format(_, _, _) -> erlang:error({not_implemented, format, 3}).
+format(_) -> clause_builtin_placeholder.
+format(_, _) -> clause_builtin_placeholder.
+format(_, _, _) -> clause_builtin_placeholder.
 fread(_, _) -> erlang:error({not_implemented, fread, 2}).
 fread(_, _, _) -> erlang:error({not_implemented, fread, 3}).
-fwrite(_) -> erlang:error({not_implemented, fwrite, 1}).
-fwrite(_, _) -> erlang:error({not_implemented, fwrite, 2}).
-fwrite(_, _, _) -> erlang:error({not_implemented, fwrite, 3}).
+fwrite(_) -> clause_builtin_placeholder.
+fwrite(_, _) -> clause_builtin_placeholder.
+fwrite(_, _, _) -> clause_builtin_placeholder.
 get_password() -> erlang:error({not_implemented, get_password, 0}).
 get_password(_) -> erlang:error({not_implemented, get_password, 1}).
 getopts() -> erlang:error({not_implemented, getopts, 0}).
 getopts(_) -> erlang:error({not_implemented, getopts, 1}).
-nl() -> erlang:error({not_implemented, nl, 0}).
-nl(_) -> erlang:error({not_implemented, nl, 1}).
+nl() -> clause_builtin_placeholder.
+nl(_) -> clause_builtin_placeholder.
 parse_erl_exprs(_) -> erlang:error({not_implemented, parse_erl_exprs, 1}).
 parse_erl_exprs(_, _) -> erlang:error({not_implemented, parse_erl_exprs, 2}).
 parse_erl_exprs(_, _, _) -> erlang:error({not_implemented, parse_erl_exprs, 3}).
@@ -333,8 +333,8 @@ parse_erl_form(_, _) -> erlang:error({not_implemented, parse_erl_form, 2}).
 parse_erl_form(_, _, _) -> erlang:error({not_implemented, parse_erl_form, 3}).
 parse_erl_form(_, _, _, _) -> erlang:error({not_implemented, parse_erl_form, 4}).
 printable_range() -> erlang:error({not_implemented, printable_range, 0}).
-put_chars(_) -> erlang:error({not_implemented, put_chars, 1}).
-put_chars(_, _) -> erlang:error({not_implemented, put_chars, 2}).
+put_chars(_) -> clause_builtin_placeholder.
+put_chars(_, _) -> clause_builtin_placeholder.
 read(_) -> erlang:error({not_implemented, read, 1}).
 read(_, _) -> erlang:error({not_implemented, read, 2}).
 read(_, _, _) -> erlang:error({not_implemented, read, 3}).

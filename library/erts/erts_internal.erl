@@ -129,7 +129,7 @@ breakpoint(_, _, _, _) -> erlang:error({not_implemented, breakpoint, 4}).
 check_dirty_process_code(_, _) -> erlang:error({not_implemented, check_dirty_process_code, 2}).
 check_process_code(_) -> erlang:error({not_implemented, check_process_code, 1}).
 check_process_code(_, _, _) -> erlang:error({not_implemented, check_process_code, 3}).
-cmp_term(_, _) -> erlang:error({not_implemented, cmp_term, 2}).
+cmp_term(_, _) -> clause_builtin_placeholder.
 %% Write-concurrency counters: a signed atomics array, as atomics counters are.
 counters_add(Ref, Ix, Incr) -> atomics:add(Ref, Ix, Incr).
 counters_get(Ref, Ix) -> atomics:get(Ref, Ix).
@@ -236,7 +236,7 @@ small_or_big(Integer) ->
 
 %% No map has hashmap nodes: every map is one sorted table.
 map_hashmap_children(_) -> erlang:error(badarg).
-map_next(_, _, _) -> erlang:error({not_implemented, map_next, 3}).
+map_next(_, _, _) -> clause_builtin_placeholder.
 %% The sorted keys of any map, as of OTP's flatmaps.
 map_to_tuple_keys(Map) when is_map(Map) -> list_to_tuple(maps:keys(Map)).
 mc_iterator(_) -> erlang:error({not_implemented, mc_iterator, 1}).

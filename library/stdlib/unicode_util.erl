@@ -137,8 +137,8 @@ get_case(CP) when ?IS_CP(CP) ->
     #{upper => Upper, lower => Lower, title => Title, fold => Fold}.
 
 %% The functions with runtime builtins: spec_version/0 and pattern_whitespace/0.
-spec_version() -> erlang:error({not_implemented, spec_version, 0}).
-pattern_whitespace() -> erlang:error({not_implemented, pattern_whitespace, 0}).
+spec_version() -> clause_builtin_placeholder.
+pattern_whitespace() -> clause_builtin_placeholder.
 
 %% Case of the first code point
 

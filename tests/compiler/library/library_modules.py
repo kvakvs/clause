@@ -26,6 +26,9 @@ ATOM = r"'(?:[^'\\]|\\.)*'|[a-z][a-zA-Z0-9_@]*"
 INVENTORY_ENTRY = re.compile(rf"^\{{({ATOM}), (\d+), ([a-z][a-zA-Z0-9_]*), (implemented|refused|stub|declined)\}}\.$")
 PROVIDED = re.compile(rf"^\{{({ATOM}), ([a-z][a-z_]*), provided\}}\.$")
 MISSING = re.compile(rf'^\{{({ATOM}), ([a-z][a-z_]*), missing, "([^"]+)"\}}\.$')
+# The body of a function a runtime catalog builtin implements: registration puts the builtin in its place, so the body
+# never runs (builtin placeholders).
+PLACEHOLDER = "clause_builtin_placeholder"
 RESERVED = set(
     "after and andalso band begin bnot bor bsl bsr bxor case catch cond div else end fun if let maybe not of or "
     "orelse receive rem try when xor".split()
@@ -135,7 +138,8 @@ def arity_at(text, start):
 
 
 def read_module(path):
-    """A module source's exports, defined functions and stub functions, as sets of (name, arity)."""
+    """A module source's exports, defined functions, stub functions and builtin placeholders, as sets of
+    (name, arity)."""
     text = strip_comments(path.read_text(encoding="utf-8"))
     exports = set()
     for attribute in re.finditer(r"-export\(\[(.*?)\]\)\.", text, re.S):
@@ -149,7 +153,24 @@ def read_module(path):
                              rf"(\d+)\}}\)\.$", text)
         if m[1] == m[3] and m[2].count("_") == int(m[4])
     }
-    return exports, defined, stubs
+    placeholders = {
+        (unquote(m[1]), m[2].count("_"))
+        for m in re.finditer(rf"(?m)^({ATOM})\(((?:_(?:, _)*)?)\) ->\s+{PLACEHOLDER}\.$", text)
+    }
+    return exports, defined, stubs, placeholders
+
+
+def local_calls(path, functions):
+    """The unqualified calls in a module source of the given (name, arity) functions: they would run the
+    placeholder's body, not the builtin (builtin placeholders)."""
+    text = strip_comments(path.read_text(encoding="utf-8"))
+    calls = set()
+    for m in re.finditer(rf"(?<![\w:'@/])({ATOM})\(", text):
+        line_start = text.rfind("\n", 0, m.start()) + 1
+        key = (unquote(m[1]), arity_at(text, m.end()))
+        if key in functions and m.start() != line_start:
+            calls.add(key)
+    return calls
 
 
 def catalog(root, module):
@@ -162,11 +183,17 @@ def check_module(root, source, inventory, problems):
     """An inventory and its module source agree: same exports, stub entries are stubs, the others are not."""
     module = source.stem
     entries = read_inventory(inventory, problems)
-    exports, defined, stubs = read_module(source)
+    exports, defined, stubs, placeholders = read_module(source)
     listed = {(name, arity) for name, arity, _, _ in entries}
     problems += [f"{module}:{f}/{a} is exported but not in {inventory.name}" for f, a in sorted(exports - listed)]
     problems += [f"{module}:{f}/{a} is in {inventory.name} but not exported" for f, a in sorted(listed - exports)]
     builtins = catalog(root, module)
+    problems += [f"{module}:{f}/{a} has a {PLACEHOLDER} body but is no catalog builtin"
+                 for f, a in sorted(placeholders - builtins)]
+    problems += [f"{module}:{f}/{a} is a catalog builtin; its stub should be a {PLACEHOLDER} body"
+                 for f, a in sorted(stubs & builtins)]
+    problems += [f"{module}:{f}/{a} is called unqualified, which runs its {PLACEHOLDER} body; call {module}:{f}"
+                 for f, a in sorted(local_calls(source, placeholders))]
     for name, arity, _, status in entries:
         key, label = (name, arity), f"{module}:{name}/{arity}"
         if status in ("stub", "declined") and key not in stubs:
@@ -206,10 +233,11 @@ def check(root, library):
     return problems
 
 
-def stub_clause(name, arity):
-    """A stub: raises error({not_implemented, Name, Arity}) (docs/library.md#provided-or-missing)."""
+def stub_clause(name, arity, builtin=False):
+    """A stub: raises error({not_implemented, Name, Arity}) (docs/library.md#provided-or-missing); a catalog
+    builtin's placeholder instead."""
     head = f"{atom(name)}({', '.join(['_'] * arity)}) ->"
-    body = f"erlang:error({{not_implemented, {atom(name)}, {arity}}})."
+    body = f"{PLACEHOLDER}." if builtin else f"erlang:error({{not_implemented, {atom(name)}, {arity}}})."
     # erlfmt breaks a clause longer than 100 columns after its arrow.
     return f"{head} {body}\n" if len(head) + len(body) < 100 else f"{head}\n    {body}\n"
 
@@ -221,12 +249,14 @@ def generate(library, app, module):
     target = library / app / f"{module}.erl"
     if problems or target.exists():
         raise SystemExit("\n".join(problems) or f"{target} exists; edit it by hand")
+    builtins = catalog(pathlib.Path(__file__).resolve().parents[3], module)
     exports = ",\n".join(f"    {atom(name)}/{arity}" for name, arity, _, _ in entries)
-    clauses = "".join(stub_clause(name, arity) for name, arity, _, _ in entries)
+    clauses = "".join(stub_clause(name, arity, (name, arity) in builtins) for name, arity, _, _ in entries)
     target.write_bytes(
         f"%% Clause's replacement for OTP's {module} (docs/library.md#runtime-module-replacements), generated from\n"
         f"%% {module}.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises\n"
-        f"%% error({{not_implemented, Name, Arity}}).\n-module({atom(module)}).\n-export([\n{exports}\n]).\n\n{clauses}".encode("utf-8"))
+        f"%% error({{not_implemented, Name, Arity}}); a catalog builtin replaces its {PLACEHOLDER} body.\n"
+        f"-module({atom(module)}).\n-export([\n{exports}\n]).\n\n{clauses}".encode("utf-8"))
     include_types(target)
     print(f"{target}: {len(entries)} stubs")
 
@@ -261,7 +291,7 @@ def complete(root, library, app, module):
     entries = read_inventory(inventory, problems)
     if problems:
         raise SystemExit("\n".join(problems))
-    exports, defined, stubs = read_module(source)
+    exports, defined, stubs, _ = read_module(source)
     builtins = catalog(root, module)
     working = {key for key in defined if key not in stubs} | builtins
     absent_exports = [(n, a) for n, a, _, _ in entries if (n, a) not in exports]
@@ -270,11 +300,11 @@ def complete(root, library, app, module):
     if absent_exports:
         last = list(re.finditer(r"-export\(\[.*?\]\)\.", text, re.S))[-1]
         listing = ",\n".join(f"    {atom(n)}/{a}" for n, a in absent_exports)
-        text = (f"{text[: last.end()]}\n%% OTP 29 exports Clause does not implement yet: stubs raising error({{not_implemented, F, A}}),\n"
-                f"%% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).\n"
+        text = (f"{text[: last.end()]}\n%% OTP 29 exports implemented natively or not yet: catalog builtins, whose {PLACEHOLDER} body the runtime's\n"
+                f"%% builtin replaces, and stubs raising error({{not_implemented, F, A}}) (docs/library.md#runtime-module-replacements).\n"
                 f"-export([\n{listing}\n]).{text[last.end():]}")
     if absent_bodies:
-        text = text.rstrip("\n") + "\n\n" + "".join(stub_clause(n, a) for n, a in absent_bodies)
+        text = text.rstrip("\n") + "\n\n" + "".join(stub_clause(n, a, (n, a) in builtins) for n, a in absent_bodies)
     source.write_bytes(text.encode("utf-8"))
     include_types(source)
     write_inventory(inventory, [(n, a, g, "implemented" if (n, a) in working else "stub") for n, a, g, _ in entries])

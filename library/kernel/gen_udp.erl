@@ -1,7 +1,7 @@
 -module(gen_udp).
 -export([open/1, open/2, send/4, recv/2, recv/3, controlling_process/2, close/1]).
-%% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
-%% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
+%% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
 -export([
     connect/2,
     connect/3,

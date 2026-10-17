@@ -1,7 +1,7 @@
 -module(os).
 -export([cmd/1]).
-%% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
-%% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
+%% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
 -export([
     cmd/2,
     env/0,
@@ -62,18 +62,18 @@ collect(Port, Monitor, Parts) ->
     end.
 
 cmd(_, _) -> erlang:error({not_implemented, cmd, 2}).
-env() -> erlang:error({not_implemented, env, 0}).
+env() -> clause_builtin_placeholder.
 find_executable(_) -> erlang:error({not_implemented, find_executable, 1}).
 find_executable(_, _) -> erlang:error({not_implemented, find_executable, 2}).
-getenv() -> erlang:error({not_implemented, getenv, 0}).
-getenv(_) -> erlang:error({not_implemented, getenv, 1}).
-getpid() -> erlang:error({not_implemented, getpid, 0}).
+getenv() -> clause_builtin_placeholder.
+getenv(_) -> clause_builtin_placeholder.
+getpid() -> clause_builtin_placeholder.
 internal_init_cmd_shell() -> erlang:error({not_implemented, internal_init_cmd_shell, 0}).
-putenv(_, _) -> erlang:error({not_implemented, putenv, 2}).
+putenv(_, _) -> clause_builtin_placeholder.
 set_signal(_, _) -> erlang:error({not_implemented, set_signal, 2}).
-type() -> erlang:error({not_implemented, type, 0}).
-unsetenv(_) -> erlang:error({not_implemented, unsetenv, 1}).
-version() -> erlang:error({not_implemented, version, 0}).
+type() -> clause_builtin_placeholder.
+unsetenv(_) -> clause_builtin_placeholder.
+version() -> clause_builtin_placeholder.
 
 %% The time functions over the erlang ones (plan step 41X): OS system time, the {MegaSecs, Secs, MicroSecs}
 %% timestamp and the performance counter, whose native unit is nanoseconds.

@@ -1,6 +1,6 @@
 %% Clause's replacement for OTP's math (docs/library.md#runtime-module-replacements), generated from
 %% math.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
-%% error({not_implemented, Name, Arity}). Every function is a runtime builtin that replaces its stub (plan step 41V,
+%% error({not_implemented, Name, Arity}). Every function is a runtime builtin that replaces its placeholder (plan step 41V,
 %% docs/builtins.md#math-module).
 -module(math).
 -export([
@@ -32,29 +32,29 @@
     tau/0
 ]).
 
-acos(_) -> erlang:error({not_implemented, acos, 1}).
-acosh(_) -> erlang:error({not_implemented, acosh, 1}).
-asin(_) -> erlang:error({not_implemented, asin, 1}).
-asinh(_) -> erlang:error({not_implemented, asinh, 1}).
-atan(_) -> erlang:error({not_implemented, atan, 1}).
-atan2(_, _) -> erlang:error({not_implemented, atan2, 2}).
-atanh(_) -> erlang:error({not_implemented, atanh, 1}).
-ceil(_) -> erlang:error({not_implemented, ceil, 1}).
-cos(_) -> erlang:error({not_implemented, cos, 1}).
-cosh(_) -> erlang:error({not_implemented, cosh, 1}).
-erf(_) -> erlang:error({not_implemented, erf, 1}).
-erfc(_) -> erlang:error({not_implemented, erfc, 1}).
-exp(_) -> erlang:error({not_implemented, exp, 1}).
-floor(_) -> erlang:error({not_implemented, floor, 1}).
-fmod(_, _) -> erlang:error({not_implemented, fmod, 2}).
-log(_) -> erlang:error({not_implemented, log, 1}).
-log10(_) -> erlang:error({not_implemented, log10, 1}).
-log2(_) -> erlang:error({not_implemented, log2, 1}).
-pi() -> erlang:error({not_implemented, pi, 0}).
-pow(_, _) -> erlang:error({not_implemented, pow, 2}).
-sin(_) -> erlang:error({not_implemented, sin, 1}).
-sinh(_) -> erlang:error({not_implemented, sinh, 1}).
-sqrt(_) -> erlang:error({not_implemented, sqrt, 1}).
-tan(_) -> erlang:error({not_implemented, tan, 1}).
-tanh(_) -> erlang:error({not_implemented, tanh, 1}).
-tau() -> erlang:error({not_implemented, tau, 0}).
+acos(_) -> clause_builtin_placeholder.
+acosh(_) -> clause_builtin_placeholder.
+asin(_) -> clause_builtin_placeholder.
+asinh(_) -> clause_builtin_placeholder.
+atan(_) -> clause_builtin_placeholder.
+atan2(_, _) -> clause_builtin_placeholder.
+atanh(_) -> clause_builtin_placeholder.
+ceil(_) -> clause_builtin_placeholder.
+cos(_) -> clause_builtin_placeholder.
+cosh(_) -> clause_builtin_placeholder.
+erf(_) -> clause_builtin_placeholder.
+erfc(_) -> clause_builtin_placeholder.
+exp(_) -> clause_builtin_placeholder.
+floor(_) -> clause_builtin_placeholder.
+fmod(_, _) -> clause_builtin_placeholder.
+log(_) -> clause_builtin_placeholder.
+log10(_) -> clause_builtin_placeholder.
+log2(_) -> clause_builtin_placeholder.
+pi() -> clause_builtin_placeholder.
+pow(_, _) -> clause_builtin_placeholder.
+sin(_) -> clause_builtin_placeholder.
+sinh(_) -> clause_builtin_placeholder.
+sqrt(_) -> clause_builtin_placeholder.
+tan(_) -> clause_builtin_placeholder.
+tanh(_) -> clause_builtin_placeholder.
+tau() -> clause_builtin_placeholder.

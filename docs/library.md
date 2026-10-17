@@ -27,7 +27,7 @@ implemented and which are stubs.
 | [`os`](../library/kernel/os.erl) | `cmd/1` over a port, environment, time and version queries ([maps module](builtins.md#maps-module)) |
 | [`code`](../library/kernel/code.erl) | Loaded-module queries without a code server ([code module](builtins.md#code-module)); paths and loading are stubs |
 | [`application_controller`](../library/kernel/application_controller.erl) | All stubs; shadows OTP's, which calls `prim_file` (luerl reaches it through OTP's `application`) |
-| [`erlang`](../library/erts/erlang.erl) | Generated stubs of every OTP 29 `erlang` export; builtins replace theirs, `nif_error/1,2` have bodies, others raise `{not_implemented, F, A}` when called ([erlang module](builtins.md#erlang-module)) |
+| [`erlang`](../library/erts/erlang.erl) | Generated stubs of every OTP 29 `erlang` export; catalog builtins have placeholder bodies, `nif_error/1,2` have bodies, others raise `{not_implemented, F, A}` when called ([erlang module](builtins.md#erlang-module)) |
 | [`init`](../library/erts/init.erl) | A started system's answers; `boot/1`, `restart/0,1` and `make_permanent/2` refused ([init module](builtins.md#init-module)) |
 | [`persistent_term`](../library/erts/persistent_term.erl) | Every function as a runtime builtin ([persistent terms](builtins.md#persistent-terms)) |
 | [`atomics`](../library/erts/atomics.erl), [`counters`](../library/erts/counters.erl) | Every function ([atomics and counters](builtins.md#atomics-and-counters)) |
@@ -93,6 +93,14 @@ module, and per group of functions where a module mixes concerns:
   [step 71](../.agents/11-plan.md#step-71)). A new module starts with every
   function a stub, so it is discoverable and its callers compile; groups then
   move to their decided status.
+- **Builtin placeholders:** a function a catalog builtin implements keeps its
+  export and the body `F(_, ...) -> clause_builtin_placeholder.`, which never
+  runs: registration binds the builtin in its place, and a qualified call
+  `M:F(...)` compiles to the bridge. Only an unqualified call inside the module
+  would reach the placeholder, so the module calls its own builtins qualified;
+  `library_inventory` rejects a placeholder that names no catalog builtin, a
+  catalog builtin left as a `not_implemented` stub and an unqualified call of a
+  placeholder.
 - **Missing:** Clause ships no module at all, possibly forever, and records why
   and which higher-level Clause modules take its callers' place
   (`library/modules.terms`). The low-level `prim_*` file and socket layers

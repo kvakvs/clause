@@ -16,13 +16,13 @@
 ]).
 -include("atomics.types.hrl").
 
-add(_, _, _) -> erlang:error({not_implemented, add, 3}).
-add_get(_, _, _) -> erlang:error({not_implemented, add_get, 3}).
-compare_exchange(_, _, _, _) -> erlang:error({not_implemented, compare_exchange, 4}).
-exchange(_, _, _) -> erlang:error({not_implemented, exchange, 3}).
-get(_, _) -> erlang:error({not_implemented, get, 2}).
-info(_) -> erlang:error({not_implemented, info, 1}).
-new(_, _) -> erlang:error({not_implemented, new, 2}).
-put(_, _, _) -> erlang:error({not_implemented, put, 3}).
-sub(_, _, _) -> erlang:error({not_implemented, sub, 3}).
-sub_get(_, _, _) -> erlang:error({not_implemented, sub_get, 3}).
+add(_, _, _) -> clause_builtin_placeholder.
+add_get(_, _, _) -> clause_builtin_placeholder.
+compare_exchange(_, _, _, _) -> clause_builtin_placeholder.
+exchange(_, _, _) -> clause_builtin_placeholder.
+get(_, _) -> clause_builtin_placeholder.
+info(_) -> clause_builtin_placeholder.
+new(_, _) -> clause_builtin_placeholder.
+put(_, _, _) -> clause_builtin_placeholder.
+sub(_, _, _) -> clause_builtin_placeholder.
+sub_get(_, _, _) -> clause_builtin_placeholder.

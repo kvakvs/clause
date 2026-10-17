@@ -4,10 +4,12 @@
     alpha/1,
     beta/0,
     gamma/2,
-    epsilon/0
+    epsilon/0,
+    zeta/1
 ]).
 
 alpha(X) -> X.
 beta() -> erlang:error({not_implemented, beta, 0}).
-gamma(_, _) -> ok.
+gamma(_, X) -> zeta(X).
 epsilon() -> ok.
+zeta(_) -> clause_builtin_placeholder.

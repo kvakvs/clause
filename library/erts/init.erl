@@ -43,13 +43,13 @@ ensure_loaded(_) -> not_allowed.
 %% The code server has already fetched the boot-loaded modules.
 fetch_loaded() -> [].
 
-get_argument(_) -> erlang:error({not_implemented, get_argument, 1}).
-get_arguments() -> erlang:error({not_implemented, get_arguments, 0}).
+get_argument(_) -> clause_builtin_placeholder.
+get_arguments() -> clause_builtin_placeholder.
 
 %% The -configfd values set_configfd/2 stored, none for others.
 get_configfd(ConfigFdId) -> persistent_term:get({init, configfd, ConfigFdId}, none).
 
-get_plain_arguments() -> erlang:error({not_implemented, get_plain_arguments, 0}).
+get_plain_arguments() -> clause_builtin_placeholder.
 
 get_status() -> {started, started}.
 
@@ -82,7 +82,7 @@ run_on_load_handlers() -> ok.
 
 script_id() -> {"Clause", "29"}.
 
-script_name() -> erlang:error({not_implemented, script_name, 0}).
+script_name() -> clause_builtin_placeholder.
 
 set_configfd(ConfigFdId, Config) ->
     persistent_term:put({init, configfd, ConfigFdId}, Config).

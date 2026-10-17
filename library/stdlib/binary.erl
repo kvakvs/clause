@@ -1,6 +1,6 @@
 %% Clause's replacement for OTP's binary (docs/library.md#runtime-module-replacements), generated from
 %% binary.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
-%% error({not_implemented, Name, Arity}). The other functions are runtime builtins that replace their stubs
+%% error({not_implemented, Name, Arity}). The other functions are runtime builtins that replace their placeholders
 %% (plan step 41W, docs/builtins.md#binary-module); replace/3,4 and list_to_bin/1 are Erlang over them.
 -module(binary).
 -export([
@@ -38,34 +38,34 @@
 ]).
 -include("binary.types.hrl").
 
-at(_, _) -> erlang:error({not_implemented, at, 2}).
-bin_to_list(_) -> erlang:error({not_implemented, bin_to_list, 1}).
-bin_to_list(_, _) -> erlang:error({not_implemented, bin_to_list, 2}).
-bin_to_list(_, _, _) -> erlang:error({not_implemented, bin_to_list, 3}).
-compile_pattern(_) -> erlang:error({not_implemented, compile_pattern, 1}).
-copy(_) -> erlang:error({not_implemented, copy, 1}).
-copy(_, _) -> erlang:error({not_implemented, copy, 2}).
-decode_hex(_) -> erlang:error({not_implemented, decode_hex, 1}).
-decode_unsigned(_) -> erlang:error({not_implemented, decode_unsigned, 1}).
-decode_unsigned(_, _) -> erlang:error({not_implemented, decode_unsigned, 2}).
-encode_hex(_) -> erlang:error({not_implemented, encode_hex, 1}).
-encode_hex(_, _) -> erlang:error({not_implemented, encode_hex, 2}).
-encode_unsigned(_) -> erlang:error({not_implemented, encode_unsigned, 1}).
-encode_unsigned(_, _) -> erlang:error({not_implemented, encode_unsigned, 2}).
-first(_) -> erlang:error({not_implemented, first, 1}).
-join(_, _) -> erlang:error({not_implemented, join, 2}).
-last(_) -> erlang:error({not_implemented, last, 1}).
-longest_common_prefix(_) -> erlang:error({not_implemented, longest_common_prefix, 1}).
-longest_common_suffix(_) -> erlang:error({not_implemented, longest_common_suffix, 1}).
-match(_, _) -> erlang:error({not_implemented, match, 2}).
-match(_, _, _) -> erlang:error({not_implemented, match, 3}).
-matches(_, _) -> erlang:error({not_implemented, matches, 2}).
-matches(_, _, _) -> erlang:error({not_implemented, matches, 3}).
-part(_, _) -> erlang:error({not_implemented, part, 2}).
-part(_, _, _) -> erlang:error({not_implemented, part, 3}).
-referenced_byte_size(_) -> erlang:error({not_implemented, referenced_byte_size, 1}).
-split(_, _) -> erlang:error({not_implemented, split, 2}).
-split(_, _, _) -> erlang:error({not_implemented, split, 3}).
+at(_, _) -> clause_builtin_placeholder.
+bin_to_list(_) -> clause_builtin_placeholder.
+bin_to_list(_, _) -> clause_builtin_placeholder.
+bin_to_list(_, _, _) -> clause_builtin_placeholder.
+compile_pattern(_) -> clause_builtin_placeholder.
+copy(_) -> clause_builtin_placeholder.
+copy(_, _) -> clause_builtin_placeholder.
+decode_hex(_) -> clause_builtin_placeholder.
+decode_unsigned(_) -> clause_builtin_placeholder.
+decode_unsigned(_, _) -> clause_builtin_placeholder.
+encode_hex(_) -> clause_builtin_placeholder.
+encode_hex(_, _) -> clause_builtin_placeholder.
+encode_unsigned(_) -> clause_builtin_placeholder.
+encode_unsigned(_, _) -> clause_builtin_placeholder.
+first(_) -> clause_builtin_placeholder.
+join(_, _) -> clause_builtin_placeholder.
+last(_) -> clause_builtin_placeholder.
+longest_common_prefix(_) -> clause_builtin_placeholder.
+longest_common_suffix(_) -> clause_builtin_placeholder.
+match(_, _) -> clause_builtin_placeholder.
+match(_, _, _) -> clause_builtin_placeholder.
+matches(_, _) -> clause_builtin_placeholder.
+matches(_, _, _) -> clause_builtin_placeholder.
+part(_, _) -> clause_builtin_placeholder.
+part(_, _, _) -> clause_builtin_placeholder.
+referenced_byte_size(_) -> clause_builtin_placeholder.
+split(_, _) -> clause_builtin_placeholder.
+split(_, _, _) -> clause_builtin_placeholder.
 
 %% Subject with the first match of Pattern replaced (plan step 41W).
 replace(Subject, Pattern, Replacement) -> replace(Subject, Pattern, Replacement, []).

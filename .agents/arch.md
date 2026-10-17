@@ -292,7 +292,7 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   runtime. `CodeServer::builtins()` (`BuiltinRegistry`, `production_builtins()`)
   maps names to `BuiltinFrame`s (null-body `FrameDescriptor` + `BuiltinBody`).
   `CodeServer::function_frame` = exports, then builtins; registration replaces
-  library stubs with builtins. Code server: shared mutex, hash indexes, modules
+  library `clause_builtin_placeholder` bodies with builtins. Code server: shared mutex, hash indexes, modules
   never unloaded.
 - Body bridge builtins lower to `CLAUSE_builtin_frame_v1` + apply marker;
   direct ones (`BuiltinCall::direct`) to a plain `CLAUSE_builtin_call_v1`;

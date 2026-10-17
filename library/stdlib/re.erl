@@ -629,5 +629,5 @@ split_values(Parts, _, _) -> Parts.
 %% --- Builtins ---
 
 %% Replaced at registration by the PCRE2 builtins (docs/builtins.md#re-module).
-inspect(_, _) -> erlang:error({not_implemented, inspect, 2}).
-version() -> erlang:error({not_implemented, version, 0}).
+inspect(_, _) -> clause_builtin_placeholder.
+version() -> clause_builtin_placeholder.

@@ -34,8 +34,8 @@
     zipwith3/4,
     zipwith3/5
 ]).
-%% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
-%% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
+%% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
 -export([
     all/2,
     any/2,
@@ -372,13 +372,13 @@ merge_up([], A, Acc) ->
 merge_up(B, [], Acc) ->
     reverse(B, Acc).
 
-concat(_) -> erlang:error({not_implemented, concat, 1}).
-delete(_, _) -> erlang:error({not_implemented, delete, 2}).
-droplast(_) -> erlang:error({not_implemented, droplast, 1}).
-duplicate(_, _) -> erlang:error({not_implemented, duplicate, 2}).
-enumerate(_) -> erlang:error({not_implemented, enumerate, 1}).
-enumerate(_, _) -> erlang:error({not_implemented, enumerate, 2}).
-enumerate(_, _, _) -> erlang:error({not_implemented, enumerate, 3}).
+concat(_) -> clause_builtin_placeholder.
+delete(_, _) -> clause_builtin_placeholder.
+droplast(_) -> clause_builtin_placeholder.
+duplicate(_, _) -> clause_builtin_placeholder.
+enumerate(_) -> clause_builtin_placeholder.
+enumerate(_, _) -> clause_builtin_placeholder.
+enumerate(_, _, _) -> clause_builtin_placeholder.
 %% The elements Fun keeps, as themselves (true) or replaced ({true, Value}); erl_features needs it (step 41L).
 filtermap(Fun, List) when is_function(Fun, 1) -> filtermap_1(Fun, List).
 
@@ -390,7 +390,7 @@ filtermap_1(Fun, [Head | Tail]) ->
     end;
 filtermap_1(_, []) ->
     [].
-flatlength(_) -> erlang:error({not_implemented, flatlength, 1}).
+flatlength(_) -> clause_builtin_placeholder.
 %% Fun applied to every element, the lists it returns appended in order.
 flatmap(Fun, List) when is_function(Fun, 1) -> flatmap_onto(Fun, List, []).
 
@@ -398,10 +398,10 @@ flatmap_onto(Fun, [Element | Rest], Done) ->
     flatmap_onto(Fun, Rest, lists:reverse(Fun(Element), Done));
 flatmap_onto(_, [], Done) ->
     lists:reverse(Done).
-flatten(_) -> erlang:error({not_implemented, flatten, 1}).
-flatten(_, _) -> erlang:error({not_implemented, flatten, 2}).
-join(_, _) -> erlang:error({not_implemented, join, 2}).
-keydelete(_, _, _) -> erlang:error({not_implemented, keydelete, 3}).
+flatten(_) -> clause_builtin_placeholder.
+flatten(_, _) -> clause_builtin_placeholder.
+join(_, _) -> clause_builtin_placeholder.
+keydelete(_, _, _) -> clause_builtin_placeholder.
 %% Every tuple with its N-th element replaced by Fun of that element.
 keymap(Fun, N, List) when is_function(Fun, 1), is_integer(N), N >= 1 -> keymap_each(Fun, N, List).
 
@@ -409,19 +409,19 @@ keymap_each(Fun, N, [Tuple | Rest]) ->
     [setelement(N, Tuple, Fun(element(N, Tuple))) | keymap_each(Fun, N, Rest)];
 keymap_each(_, _, []) ->
     [].
-keymember(_, _, _) -> erlang:error({not_implemented, keymember, 3}).
-keymerge(_, _, _) -> erlang:error({not_implemented, keymerge, 3}).
-keyreplace(_, _, _, _) -> erlang:error({not_implemented, keyreplace, 4}).
-keysearch(_, _, _) -> erlang:error({not_implemented, keysearch, 3}).
+keymember(_, _, _) -> clause_builtin_placeholder.
+keymerge(_, _, _) -> clause_builtin_placeholder.
+keyreplace(_, _, _, _) -> clause_builtin_placeholder.
+keysearch(_, _, _) -> clause_builtin_placeholder.
 %% A stable sort by the N-th element of tuples (step 41O2).
 keysort(N, List) when is_integer(N), N > 0 ->
     lists:sort(fun(A, B) -> element(N, A) =< element(N, B) end, List).
-keystore(_, _, _, _) -> erlang:error({not_implemented, keystore, 4}).
-keytake(_, _, _) -> erlang:error({not_implemented, keytake, 3}).
-last(_) -> erlang:error({not_implemented, last, 1}).
-max(_) -> erlang:error({not_implemented, max, 1}).
-merge(_) -> erlang:error({not_implemented, merge, 1}).
-merge(_, _) -> erlang:error({not_implemented, merge, 2}).
+keystore(_, _, _, _) -> clause_builtin_placeholder.
+keytake(_, _, _) -> clause_builtin_placeholder.
+last(_) -> clause_builtin_placeholder.
+max(_) -> clause_builtin_placeholder.
+merge(_) -> clause_builtin_placeholder.
+merge(_, _) -> clause_builtin_placeholder.
 %% Merge List1 and List2, both sorted by Fun(A, B) (true when A sorts before or with B); on ties List1 comes first.
 merge(Fun, [A | As] = List1, [B | Bs] = List2) when is_function(Fun, 2) ->
     case Fun(A, B) of
@@ -432,9 +432,9 @@ merge(Fun, [], List2) when is_function(Fun, 2), is_list(List2) ->
     List2;
 merge(Fun, List1, []) when is_function(Fun, 2), is_list(List1) ->
     List1.
-merge3(_, _, _) -> erlang:error({not_implemented, merge3, 3}).
-min(_) -> erlang:error({not_implemented, min, 1}).
-nthtail(_, _) -> erlang:error({not_implemented, nthtail, 2}).
+merge3(_, _, _) -> clause_builtin_placeholder.
+min(_) -> clause_builtin_placeholder.
+nthtail(_, _) -> clause_builtin_placeholder.
 %% Whether List starts with Prefix; function_clause unless both are lists (step 41L).
 prefix([X | PrefixTail], [X | Tail]) -> prefix(PrefixTail, Tail);
 prefix([], List) when is_list(List) -> true;
@@ -489,18 +489,18 @@ split(N, List) ->
 split_at(0, Rest, Front) -> {lists:reverse(Front), Rest};
 split_at(N, [Head | Tail], Front) -> split_at(N - 1, Tail, [Head | Front]);
 split_at(_, _, _) -> badarg.
-sublist(_, _) -> erlang:error({not_implemented, sublist, 2}).
-sublist(_, _, _) -> erlang:error({not_implemented, sublist, 3}).
+sublist(_, _) -> clause_builtin_placeholder.
+sublist(_, _, _) -> clause_builtin_placeholder.
 %% List1 -- List2.
 subtract(List1, List2) -> List1 -- List2.
 %% Whether List ends with Suffix (step 41L); nthtail/2 is a builtin, so the call is qualified.
 suffix(Suffix, List) ->
     Delta = length(List) - length(Suffix),
     Delta >= 0 andalso lists:nthtail(Delta, List) =:= Suffix.
-ukeymerge(_, _, _) -> erlang:error({not_implemented, ukeymerge, 3}).
-ukeysort(_, _) -> erlang:error({not_implemented, ukeysort, 2}).
-umerge(_) -> erlang:error({not_implemented, umerge, 1}).
-umerge(_, _) -> erlang:error({not_implemented, umerge, 2}).
+ukeymerge(_, _, _) -> clause_builtin_placeholder.
+ukeysort(_, _) -> clause_builtin_placeholder.
+umerge(_) -> clause_builtin_placeholder.
+umerge(_, _) -> clause_builtin_placeholder.
 %% Merge List1 and List2, both sorted by Fun and free of duplicates; of two elements comparing equal (Fun true both
 %% ways) the one from List1 stays.
 umerge(Fun, List1, List2) when is_function(Fun, 2) -> unique_merge(Fun, List1, List2).
@@ -521,7 +521,7 @@ unique_merge(_, [], Right) when is_list(Right) ->
     Right;
 unique_merge(_, Left, []) when is_list(Left) ->
     Left.
-umerge3(_, _, _) -> erlang:error({not_implemented, umerge3, 3}).
+umerge3(_, _, _) -> clause_builtin_placeholder.
 %% The list without repeated elements, first occurrences kept in order; erl_features needs it (step 41L).
 uniq(List) -> uniq_1(List, #{}).
 
@@ -544,9 +544,9 @@ uniq_2([Head | Tail], Fun, Seen) ->
     end;
 uniq_2([], _, _) ->
     [].
-unzip(_) -> erlang:error({not_implemented, unzip, 1}).
-unzip3(_) -> erlang:error({not_implemented, unzip3, 1}).
-usort(_) -> erlang:error({not_implemented, usort, 1}).
+unzip(_) -> clause_builtin_placeholder.
+unzip3(_) -> clause_builtin_placeholder.
+usort(_) -> clause_builtin_placeholder.
 %% Sorted by Fun, keeping the first of the elements comparing equal (Fun true both ways).
 usort(Fun, List) when is_function(Fun, 2) -> drop_equal(Fun, sort(Fun, List)).
 
@@ -558,10 +558,10 @@ drop_equal(Fun, [Kept, Next | Rest]) ->
 drop_equal(_, Short) ->
     Short.
 zf(Fun, List) -> filtermap(Fun, List).
-zip(_, _) -> erlang:error({not_implemented, zip, 2}).
-zip(_, _, _) -> erlang:error({not_implemented, zip, 3}).
-zip3(_, _, _) -> erlang:error({not_implemented, zip3, 3}).
-zip3(_, _, _, _) -> erlang:error({not_implemented, zip3, 4}).
+zip(_, _) -> clause_builtin_placeholder.
+zip(_, _, _) -> clause_builtin_placeholder.
+zip3(_, _, _) -> clause_builtin_placeholder.
+zip3(_, _, _, _) -> clause_builtin_placeholder.
 %% Combine applied to the elements at each position, the lengths treated as zip/3 and zip3/4 say (the builtins pair
 %% the elements first).
 zipwith(Combine, List1, List2) -> zipwith(Combine, List1, List2, fail).

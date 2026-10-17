@@ -90,7 +90,7 @@ add_pathsz(_, _) -> erlang:error({not_implemented, add_pathsz, 2}).
 add_pathz(_) -> erlang:error({not_implemented, add_pathz, 1}).
 add_pathz(_, _) -> erlang:error({not_implemented, add_pathz, 2}).
 all_available() -> erlang:error({not_implemented, all_available, 0}).
-all_loaded() -> erlang:error({not_implemented, all_loaded, 0}).
+all_loaded() -> clause_builtin_placeholder.
 atomic_load(_) -> erlang:error({not_implemented, atomic_load, 1}).
 clash() -> erlang:error({not_implemented, clash, 0}).
 clear_cache() -> erlang:error({not_implemented, clear_cache, 0}).
@@ -99,8 +99,8 @@ coverage_support() -> erlang:error({not_implemented, coverage_support, 0}).
 del_path(_) -> erlang:error({not_implemented, del_path, 1}).
 del_paths(_) -> erlang:error({not_implemented, del_paths, 1}).
 delete(_) -> erlang:error({not_implemented, delete, 1}).
-ensure_loaded(_) -> erlang:error({not_implemented, ensure_loaded, 1}).
-ensure_modules_loaded(_) -> erlang:error({not_implemented, ensure_modules_loaded, 1}).
+ensure_loaded(_) -> clause_builtin_placeholder.
+ensure_modules_loaded(_) -> clause_builtin_placeholder.
 finish_loading(_) -> erlang:error({not_implemented, finish_loading, 1}).
 get_chunk(_, _) -> erlang:error({not_implemented, get_chunk, 2}).
 get_coverage(_, _) -> erlang:error({not_implemented, get_coverage, 2}).
@@ -112,8 +112,8 @@ get_doc(_, _) -> erlang:error({not_implemented, get_doc, 2}).
 get_mode() -> erlang:error({not_implemented, get_mode, 0}).
 get_object_code(_) -> erlang:error({not_implemented, get_object_code, 1}).
 get_path() -> erlang:error({not_implemented, get_path, 0}).
-is_loaded(_) -> erlang:error({not_implemented, is_loaded, 1}).
-is_sticky(_) -> erlang:error({not_implemented, is_sticky, 1}).
+is_loaded(_) -> clause_builtin_placeholder.
+is_sticky(_) -> clause_builtin_placeholder.
 lib_dir() -> erlang:error({not_implemented, lib_dir, 0}).
 lib_dir(_) -> erlang:error({not_implemented, lib_dir, 1}).
 lib_dir(_, _) -> erlang:error({not_implemented, lib_dir, 2}).
@@ -123,8 +123,8 @@ load_binary(_, _, _) -> erlang:error({not_implemented, load_binary, 3}).
 load_file(_) -> erlang:error({not_implemented, load_file, 1}).
 modified_modules() -> erlang:error({not_implemented, modified_modules, 0}).
 module_md5(_) -> erlang:error({not_implemented, module_md5, 1}).
-module_status() -> erlang:error({not_implemented, module_status, 0}).
-module_status(_) -> erlang:error({not_implemented, module_status, 1}).
+module_status() -> clause_builtin_placeholder.
+module_status(_) -> clause_builtin_placeholder.
 objfile_extension() -> erlang:error({not_implemented, objfile_extension, 0}).
 prepare_loading(_) -> erlang:error({not_implemented, prepare_loading, 1}).
 priv_dir(_) -> erlang:error({not_implemented, priv_dir, 1}).
@@ -145,4 +145,4 @@ unstick_dir(_) -> erlang:error({not_implemented, unstick_dir, 1}).
 unstick_mod(_) -> erlang:error({not_implemented, unstick_mod, 1}).
 where_is_file(_) -> erlang:error({not_implemented, where_is_file, 1}).
 where_is_file(_, _) -> erlang:error({not_implemented, where_is_file, 2}).
-which(_) -> erlang:error({not_implemented, which, 1}).
+which(_) -> clause_builtin_placeholder.
