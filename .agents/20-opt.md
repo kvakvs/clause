@@ -124,7 +124,8 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
   send, receive, demonitor) per line.
 - **OPT3.5 process creation and teardown (short_processes 3.6x):** the OPT0.24 /
   OPT0.25 follow-up: context, heap block and stack setup per spawn, the exit
-  path, and the executor lock.
+  path, and the executor lock (queues still share one executor mutex, so a
+  scheduler without one global lock).
 - **OPT3.6 binary_append (3.6x):** `<<Bin/binary, N:32>>` 10,000 times: one
   service call per append on the appendable buffer, and collections of the
   growing binary.
@@ -151,37 +152,32 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
   iteration (0.8 of them full sweeps) against OTP's one, whose young heap
   settles at 514,838 words while Clause's shrinks to 121,536 after each sweep.
 
-## Open follow-ups of finished tier OPT0 steps
+## Steps outside the 69A metric (review of parked OPT0 follow-ups, 2026-10-17)
 
-- **OPT0.1A frameless leaves** (no push for a function with no non-tail call and
-  nothing live across a safepoint): **deferred 2026-10-15.** A frameless leaf has
-  no stack-trace entry, so `erlang:raise`/error traces and
-  `process_info(current_function)` would differ from OTP, and the saved push is
-  a few stores. Revisit only with a profile where leaf entry dominates.
-- **OPT0.2 invariant:** a split fast/slow lowering (`length/1`, bignum
-  comparison) is atomic; no pass may delete the slow tail. Atom ordering still
-  calls the service.
-- **OPT0.3 / 0.3A:** one heap check per basic block (low value, measured
-  negligible) and inline floats, which come with float unboxing (OPT1.11).
-- **OPT0.4 caveat:** the in-place map proof (`semantic/map_ownership`) treats
-  every map expression as freshly built; constant maps moved into the literal
-  pool must be excluded. Maps and binaries stay with their services.
-- **OPT0.5 shared-keys flatmap layout** (deferred to OPT1.6, where its shape
-  token is used; it touches every map consumer): small maps (≤ 32, OTP's
-  `MAP_SMALL_MAP_LIMIT`) become `header, size, keys→tuple, v0..vn`; the current
-  sorted-pairs cell stays as the **classic map** for literals. Shape-preserving
-  updates (`M#{k := V}`, `maps:put` on an existing key) copy only values and
-  keep the keys pointer, whose identity is the shape token (same literal,
-  constructors and chained updates share it; only `from_list` and new-key puts
-  make a fresh one).
-- **OPT0.5B:** in-place updates of maps that arrive from callers (`maps:put/3`,
-  accumulator parameters) need interprocedural uniqueness or inlining (OPT2.1).
-- **OPT0.12:** the remaining ~200 ns of a list-building builtin (typed argument
-  conversion, `Term` copies with their weak pointer, per-element admission in
-  `list_words`).
-- **OPT0.17:** closure sinking and closure inlining remain in OPT1.8.
-- **OPT0.24 / OPT0.25:** cheaper process creation and teardown; queues still
-  share one executor mutex, so a scheduler without one global lock.
+Real Erlang programs lean on these, though no 69A kernel shows them. Run in this
+order, one commit each.
+
+- **OPT3.12 small-map lookups:** `#{k := V}` patterns, `map_get/2`,
+  `is_map_key/2` and `maps:get/2` go through `map_service`, which admits every
+  argument as a `Term` (~460 ns against OTP's 2.4 ns). Read the classic map cell
+  by words, inline in generated code for a literal atom or small-integer key,
+  with the service as fallback for trees and other keys. Add a small-map kernel
+  to 69A (state-record style: 4-8 atom keys, read and updated in a loop).
+- **OPT3.13 word-level builtin arguments** (from OPT0.12): the remaining ~200 ns
+  of a list-building builtin (typed argument conversion, `Term` copies with
+  their weak pointer, per-element admission in `list_words`); OPT3.2's direct
+  calls removed only the frame switch.
+- **OPT3.14 inline atom ordering** (from OPT0.2): atom `<`/`>`/`==` ordering and
+  sorting atom lists still call the service; an order rank per atom makes it a
+  word compare.
+
+## Invariants of finished tier OPT0 steps
+
+- **OPT0.2:** a split fast/slow lowering (`length/1`, bignum comparison) is
+  atomic; no pass may delete the slow tail.
+- **OPT0.4:** the in-place map proof (`semantic/map_ownership`) treats every map
+  expression as freshly built; constant maps moved into the literal pool must be
+  excluded. Maps and binaries stay with their services.
 
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
@@ -326,7 +322,14 @@ Builds on OPT1.4.
   - The guard cost amortizes across several fields read from one map.
   - A pointer-guarded hit also removes the key comparisons (`eq`), which are 12
     % of compiler time on OTP.
-- **Needs:** OPT0.4 and OPT0.5.
+- **Needs:** OPT0.4 and the shared-keys flatmap layout (moved here from OPT0.5;
+  it touches every map consumer): small maps (≤ 32, OTP's
+  `MAP_SMALL_MAP_LIMIT`) become `header, size, keys→tuple, v0..vn`; the current
+  sorted-pairs cell stays as the **classic map** for literals. Shape-preserving
+  updates (`M#{k := V}`, `maps:put` on an existing key) copy only values and
+  keep the keys pointer, whose identity is the shape token (same literal,
+  constructors and chained updates share it; only `from_list` and new-key puts
+  make a fresh one).
 
 ### OPT1.7 Higher-order `lists` intrinsics and literal-fun inlining
 
@@ -355,7 +358,7 @@ Builds on OPT1.4.
   - Where the target of a fun call is SSA-constant, inline the fun body, append
     the free variables as arguments, and remove the closure allocation.
 - **Clause:** today `CLAUSE_apply_v1` plus a frame entry runs for every fun
-  call.
+  call. Takes over OPT0.17 (closure sinking and inlining).
 
 ### OPT1.9 Leaf inlining scored by eliminated work
 
@@ -366,7 +369,7 @@ Builds on OPT1.4.
   - a construct/deconstruct pair (`{ok,X}` returned and immediately matched)
   - opening up loop recovery
 - **Measured:** T2's MVP fused `diff/2` into the `total/2` loop.
-- **Clause caveat:** with OPT0.1/OPT0.1A done, follow T2's rule: never inline
+- **Clause caveat:** with OPT0.1 done (OPT0.1A dropped), follow T2's rule: never inline
   for call overhead alone. LLVM's inliner can take over once calls are direct
   and services are inline.
 
@@ -395,7 +398,8 @@ Builds on OPT1.4.
   (`ssa_opt_float`), which is why T2 lists it as "compiler already does it".
 - **Clause:** floats are boxed, and every float operation is a service call.
   Port the `ssa_opt_float` idea, a float block between `fclearerror` and
-  `fcheckerror`, on top of OPT0.3 and OPT0.4.
+  `fcheckerror`, on top of OPT0.3 and OPT0.4. Inline float arithmetic (the
+  OPT0.3A remainder) belongs here: it pays only once floats stay unboxed.
 
 ### OPT1.12 Tail-modulo-cons and in-place list building
 
@@ -455,6 +459,9 @@ Builds on OPT1.4.
   - mark modules that need code upgrade as opaque
   - preserve observable stack-trace and `function_clause` semantics; record any
     divergence in `docs/differences.md`
+- **Unlocks OPT0.5B:** in-place updates of maps that arrive from callers
+  (`maps:put/3`, accumulator parameters) need interprocedural uniqueness or this
+  inlining.
 
 ### OPT2.2 Optional: profile-guided specialization through LLVM PGO
 
@@ -483,6 +490,8 @@ Builds on OPT1.4.
 | Reimplementing map/binary BIFs in Erlang to inline them | moves the cost, does not remove it | Make the C++ services fast instead |
 | Software prefetch, "home traffic" elimination, GcTest coalescing across unrolled iterations, broad register-pool widening | measured and dropped (PR text; doc 24 unavailable) | Recheck before attempting |
 | Straight-line GVN outside loops | pool ≈0 on real code | Leave to LLVM |
+| Frameless leaves (OPT0.1A) | — | Saves a few stores per call; loses the stack-trace entry and `process_info(current_function)` (dropped 2026-10-17) |
+| One heap check per basic block (OPT0.3) | — | Measured negligible in Clause (dropped 2026-10-17) |
 
 ## Suggested order for Clause
 
@@ -495,6 +504,9 @@ Builds on OPT1.4.
 6. **Funs and floats:** OPT1.8 and OPT1.11.
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
+8. **Outside 69A:** OPT3.12 small-map lookups, OPT3.13 builtin arguments and
+   OPT3.14 atom ordering (2026-10-17 review); next after them, by 69A impact:
+   OPT3.10B, OPT3.5, a term_to_binary profile, OPT1.7/OPT1.8.
 
 **Gate for every item:**
 

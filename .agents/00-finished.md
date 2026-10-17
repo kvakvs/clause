@@ -493,7 +493,7 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   check instead of a storage lookup per cell) and copy cons cells without a
   parse or copy loop; list builtins' `walk` reads cells in place (trusted
   walks); large_message echo run alone 4.37 to 3.62 ms (OTP 1.95) —
-  `[plan20] OPT3.9 ...`
+  `a8c3f8f6`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`
