@@ -45,6 +45,9 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/encoding/json.cpp src/builtins/encoding/json_encode.cpp
     # Module filename (plan 21 step LIB5G).
     src/builtins/filename/filename.cpp src/builtins/filename/filename_join.cpp
+    # Module uri_string and grapheme clusters (plan 21 step LIB5G).
+    src/builtins/uri/uri_common.cpp src/builtins/uri/uri_parse.cpp src/builtins/uri/uri_compose.cpp
+    src/builtins/uri/uri_codec.cpp src/builtins/unicode/graphemes.cpp
     # Modules rand and random (plan 21 step LIB6).
     src/builtins/rand/generators.cpp src/builtins/rand/rand.cpp src/builtins/rand/tables.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp

@@ -102,14 +102,6 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ## Tier A: data modules without processes
 
-### LIB5G. `filename` and `uri_string` in C++
-
-- LIB5C and LIB5D wrote both as Erlang walks; per the C++ preference they move
-  to builtins with the same result shapes, error terms and thrown errors, the
-  `filenames` and `uri_strings` goldens unchanged. `filename` is done; the
-  `filenames` golden gained unusual names (nested and improper lists,
-  binaries and big integers inside lists).
-
 ### LIB4. Text: `string`, `unicode` remainder, `io_lib`
 
 - `string` (69): C++ over the grapheme and case tables Clause already generates

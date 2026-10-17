@@ -28,7 +28,8 @@ implementing source file:
   [`binary`](#binary-module), [`maps` and `os`](#maps-module),
   [`ordsets`, `orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets`,
   `queue` and `array`](#collections), [`base64` and `json`](#encodings),
-  [`calendar`](#calendar), [`filename`](#filename), [`rand` and `random`](#random-numbers),
+  [`calendar`](#calendar), [`filename`](#filename), [`uri_string`](#uri-string),
+  [`rand` and `random`](#random-numbers),
   [`persistent_term`](#persistent-terms), [`unicode`](#unicode-module),
   [`code`](#code-module), [`init`](#init-module),
   [`atomics`](#atomics-and-counters), [`erts_internal`](#erts-internal),
@@ -559,6 +560,30 @@ builtin:
   `function_clause` where a clause meets a non-character.
 - `absname/1,2` (the current directory and a drive's own) and
   `basedir/2,3` (the environment) are Erlang over them.
+
+## URI string
+
+`runtime/src/builtins/uri/` (plan 21 step LIB5G).
+
+- `parse/1` is one walker over RFC 3986's grammar driven by a delimiter
+  table, keeping OTP's order so its answers include where OTP's parser
+  stopped: a URI with a scheme first (a failure after the scheme's colon is
+  final), else a relative reference; `userinfo@host` when the userinfo walk
+  succeeds, else the authority as a host; a host of digits that is not a
+  strict IPv4 address walked again as a registered name; `{error,
+  invalid_uri, Fragment}` with OTP's fragment. Hosts are checked with
+  `inet`'s strict IPv4 and IPv6 forms.
+- `recompose/1`, `normalize/1,2` and `resolve/2,3` work on the map's
+  components as `uri_string.erl` does: each component's list or binary form
+  decides the result's, OTP's `{error, ...}` answers are returned, raised or
+  thrown where OTP's are, and `resolve` merges a relative path after the base
+  path's last slash (a grapheme walk, as OTP's `string:split/3`).
+- `percent_decode/1`, `quote/1,2`, `unquote/1`, `transcode/2`,
+  `compose_query/1,2`, `dissect_query/1` and the character classes follow
+  OTP's byte walks, including a binary's errors thrown and a list's
+  answered, HTML numeric references and `+` in form queries.
+- `unicode/graphemes.cpp` segments code points into grapheme clusters by
+  `unicode_util:gc/1`'s rules for the builtins that need cluster boundaries.
 
 ## Random numbers
 
