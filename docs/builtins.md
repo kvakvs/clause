@@ -26,7 +26,8 @@ implementing source file:
 - other modules: `io` output ([io](io.md)), the data functions of
   [`lists`](#lists-module), [`math`](#math-module),
   [`binary`](#binary-module), [`maps` and `os`](#maps-module),
-  [`ordsets`, `orddict`, `proplists`, `dict` and `sets`](#collections),
+  [`ordsets`, `orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets` and
+  `queue`](#collections),
   [`persistent_term`](#persistent-terms), [`unicode`](#unicode-module),
   [`code`](#code-module), [`init`](#init-module),
   [`atomics`](#atomics-and-counters), [`erts_internal`](#erts-internal),
@@ -450,8 +451,9 @@ builtin:
 
 ## Collections
 
-`runtime/src/builtins/collections/` (plan 21 steps LIB1, LIB2): `ordsets`,
-`orddict`, `proplists`, `dict` and `sets`, every documented function.
+`runtime/src/builtins/collections/` (plan 21 steps LIB1–LIB3): `ordsets`,
+`orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets` and `queue`, every
+documented function.
 
 - The walks over lists are builtins: `ordsets` membership, insertion,
   deletion and the set algebra (`union/2`, `intersection/1,2`,
@@ -486,6 +488,19 @@ builtin:
   builtins `clause_hashed:entries/1` (storage order), `with_values/2` and
   `keep/2`. A term that is not a dict raises `{badrecord, Term}` (`size/1`,
   `is_empty/1` `function_clause`), one that is not a set `function_clause`.
+- `gb_trees` and `gb_sets` (plan 21 step LIB3) share a balanced tree engine
+  (`collections/balanced_tree.cpp`): insertion checks Andersson's weight rule
+  on the way back up and rebuilds a subtree from its sorted entries as OTP
+  does, deletion lifts the bigger side's smallest node, and `gb_sets`' union,
+  intersection and difference merge the sorted lists or insert and look up by
+  OTP's size rule (`N2 < 10` or `N2 < N1 * round(1.46 ln N2)`), building
+  merged trees right-heavy as OTP's `balance_revlist`, so every tree equals
+  OTP's. `map`, `fold`, `filter`, `filtermap` and the constants are Erlang.
+- `queue` (plan 21 step LIB3): OTP's `{Rear, Front}`; every operation moves
+  items between the lists as OTP's does (a one-item side moves, a list left
+  alone splits in half), so queues equal OTP's. A term that is not a pair of
+  lists is `badarg`, an empty queue's `get`, `drop`, `head` the error
+  `empty`. The functions taking funs and the Okasaki names are Erlang.
 
 ## Persistent terms
 

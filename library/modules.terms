@@ -27,6 +27,8 @@
 {inet, kernel, provided}.
 {os, kernel, provided}.
 {binary, stdlib, provided}.
+{gb_sets, stdlib, provided}.
+{gb_trees, stdlib, provided}.
 {io, stdlib, provided}.
 {lists, stdlib, provided}.
 {dict, stdlib, provided}.
@@ -37,5 +39,6 @@
 {math, stdlib, provided}.
 {unicode, stdlib, provided}.
 {unicode_util, stdlib, provided}.
+{queue, stdlib, provided}.
 {re, stdlib, provided}.
 {sets, stdlib, provided}.

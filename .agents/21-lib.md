@@ -95,18 +95,17 @@ create a new API that's for the end user to choose
 
 ## Tier A: data modules without processes
 
-### LIB3. Trees and queues: `gb_trees`, `gb_sets`, `queue`, `array`
+### LIB3B. `array`
 
-- C++ builds the same shapes as OTP, so results compare equal and print alike.
-  The goldens print the internal structures.
-  - `gb_trees` and `gb_sets` follow Andersson's general balanced trees (the
-    published algorithm): insert, delete, balance, `from_orddict/1`, iterators,
-    `smaller/2`, `larger/2`, ...
-  - `queue`'s `{Rear, Front}` lists with OTP's rebalancing rules.
-  - `array`'s record and tuple tree: `get/2`, `set/3`, `resize/1,2`,
-    `from_list/1,2`, the `sparse_*` lists, `shift/2`, `slice/3`, ...
-- Erlang: `map/2`, `filter/2`, `filtermap/2`, `fold/3`, the `foldl`/`foldr`/
-  `mapfold*` families, `queue:all/2`, `any/2`, `delete_with/2`.
+- OTP 29's `array` record (`size`, `zero`, `fix`, `default`, `cache`,
+  `cache_index`, `elements`, `bits`): a tuple tree of 16-element leaves with
+  a cached leaf and a zero offset for `shift/2`, `slice/3` and `prepend/2`.
+  C++ builds the same records as OTP's `set/3`, `get/2`, `resize/1,2`,
+  `from_list/1,2`, `from/2,3`, `from_orddict/1,2`, `concat/1,2`,
+  `sparse_size/1`, `fix/1`, `relax/1` and the `to_list`/`orddict` families;
+  the golden checks them through `erlang:phash2/1`.
+- Erlang: `map/2`, `sparse_map/2`, the `foldl`/`foldr`/`mapfold*` families
+  and their `sparse_*` forms (3 and 5 arguments).
 
 ### LIB4. Text: `string`, `unicode` remainder, `io_lib`
 
@@ -746,18 +745,6 @@ functions are listed separately and are optional.
 - `filename` (stdlib, 17): absname/1,2, absname_join/2, basedir/2,3,
   basename/1,2, dirname/1, extension/1, flatten/1, join/1,2, nativename/1,
   pathtype/1, rootname/1,2, split/1
-- `gb_sets` (stdlib, 42): add/2, add_element/2, balance/1, del_element/2,
-  delete/2, delete_any/2, difference/2, empty/0, filter/2, filtermap/2, fold/3,
-  from_list/1, from_ordset/1, insert/2, intersection/1,2, is_disjoint/2,
-  is_element/2, is_empty/1, is_equal/2, is_member/2, is_set/1, is_subset/2,
-  iterator/1,2, iterator_from/2,3, larger/2, largest/1, map/2, new/0, next/1,
-  singleton/1, size/1, smaller/2, smallest/1, subtract/2, take_largest/1,
-  take_smallest/1, to_list/1, union/1,2
-- `gb_trees` (stdlib, 31): balance/1, delete/2, delete_any/2, empty/0, enter/3,
-  from_list/1, from_orddict/1, get/2, insert/3, is_defined/2, is_empty/1,
-  iterator/1,2, iterator_from/2,3, keys/1, larger/2, largest/1, lookup/2, map/2,
-  next/1, size/1, smaller/2, smallest/1, take/2, take_any/2, take_largest/1,
-  take_smallest/1, to_list/1, update/3, values/1
 - `gen_event` (stdlib, 33; 8 callbacks): add_handler/3, add_sup_handler/3,
   call/3,4, check_response/2,3, delete_handler/3, notify/2,
   receive_response/2,3, reqids_add/3, reqids_new/0, reqids_size/1,
@@ -856,12 +843,6 @@ functions are listed separately and are optional.
 - `qlc` (stdlib, 26): append/1,2, cursor/1,2, delete_cursor/1, e/1,2, eval/1,2,
   fold/3,4, format_error/1, info/1,2, keysort/2,3, next_answers/1,2, q/1,2,
   sort/1,2, string_to_handle/1,2,3, table/2
-- `queue` (stdlib, 37): all/2, any/2, cons/2, daeh/1, delete/2, delete_r/2,
-  delete_with/2, delete_with_r/2, drop/1, drop_r/1, filter/2, filtermap/2,
-  fold/3, from_list/1, get/1, get_r/1, head/1, in/2, in_r/2, init/1, is_empty/1,
-  is_queue/1, join/2, last/1, len/1, liat/1, member/2, new/0, out/1, out_r/1,
-  peek/1, peek_r/1, reverse/1, snoc/2, split/2, tail/1, to_list/1; deprecated:
-  lait/1
 - `rand` (stdlib, 31): bytes/1, bytes_s/2, export_seed/0, export_seed_s/1,
   exsp_jump/1, exsp_next/1, jump/0,1, mwc59/1, mwc59_float/1, mwc59_seed/0,1,
   mwc59_value/1, mwc59_value32/1, normal/0,2, normal_s/1,3, seed/1,2,

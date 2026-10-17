@@ -542,7 +542,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   Erlang; `Named<Role>` typed arguments — `04329156`
 - **LIB2** `dict`, `sets`: OTP's linear hash records (`collections/linear_hash`)
   and version 2 maps; `phash/2`, `phash2/1,2` now OTP's `make_hash`/`make_hash2`
-  values — `[plan21] LIB2`
+  values — `162eab2f`
+- **LIB3** `gb_trees`, `gb_sets`, `queue`: OTP's shapes from a shared balanced
+  tree engine (`collections/balanced_tree`) and `{Rear, Front}` moves —
+  `[plan21] LIB3`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
