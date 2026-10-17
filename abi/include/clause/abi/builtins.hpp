@@ -441,6 +441,10 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"maps", "with", 2},
     BuiltinName{"maps", "without", 2},
     BuiltinName{"maps", "from_keys", 2},
+    // Maps completion: the maps functions without funs, and the grouping of maps:groups_from_list/2,3.
+    BuiltinName{"maps", "intersect", 2},
+    BuiltinName{"maps", "is_iterator_valid", 1},
+    BuiltinName{"clause_maps", "groups", 1},
     // Map cursors: the entries tuple maps:fold walks (runtime/src/builtins/maps.cpp).
     BuiltinName{"clause_maps", "entries", 1},
     // Persistent terms (plan step 41M2; runtime/src/builtins/persistent_term.cpp).

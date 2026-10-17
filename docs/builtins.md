@@ -412,13 +412,19 @@ builtin:
 
 `runtime/src/builtins/maps.cpp`, `runtime/src/builtins/os.cpp`.
 
-- `maps:get/3`, `is_key/2`, `remove/2`, `new/0`, `size/1`, `merge/2`,
-  `take/2`, `update/3`, `with/2`, `without/2` and `from_keys/2` are builtins
-  with OTP's errors: a non-map is `{badmap, Map}`, a missing key of
+- Every documented `maps` function works. `maps:get/3`, `is_key/2`,
+  `remove/2`, `new/0`, `size/1`, `merge/2`, `take/2`, `update/3`, `with/2`,
+  `without/2`, `from_keys/2`, `intersect/2` and `is_iterator_valid/1` are
+  builtins with OTP's errors: a non-map is `{badmap, Map}`, a missing key of
   `update/3` `{badkey, Key}`, a key list that is not a proper list `badarg`.
-  Keys match exactly (`1` and `1.0` are different keys). The other
-  implemented functions (`filter/2`, `map/2`, `fold/3`, `iterator/1,2`,
-  `next/1`, ...) are Erlang in `library/stdlib/maps.erl`; iterators use
+  Keys match exactly (`1` and `1.0` are different keys).
+- The functions taking funs are Erlang in `library/stdlib/maps.erl`:
+  `filter/2`, `filtermap/2`, `map/2`, `fold/3` and `foreach/2` take a map or
+  an iterator (anything else is `{badmap, MapOrIter}`), `intersect_with/3`
+  combines over `intersect/2` and `merge_with/3` over `merge/2`.
+  `groups_from_list/2,3` call the funs last element first, as OTP does, and
+  the private builtin `clause_maps:groups/1` groups the `{Key, Value}`
+  pairs. Iterators (`iterator/1,2`, `next/1`) use
   [`erts_internal:map_next/3`](#erts-internal).
 - Map cursors (`runtime/src/terms/map_cursor.hpp`) walk a flat map cell and an
   map tree alike, as words in key order, with no `Term` per entry. The

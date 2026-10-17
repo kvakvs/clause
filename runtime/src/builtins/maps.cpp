@@ -1,11 +1,14 @@
 #include "../memory/heap_object.hpp"
 #include "../terms/map_cursor.hpp"
+#include "../terms/structural_order.hpp"
 #include "typed.hpp"
+#include <algorithm>
 #include <array>
+#include <ranges>
 #include <terms.hpp>
 
 // The maps builtins (plan step 41X, docs/builtins.md#maps-module): get/3, is_key/2, remove/2, new/0, size/1, merge/2,
-// take/2, update/3, with/2, without/2 and from_keys/2, OTP's BIFs and NIF-backed functions, with their errors: a
+// take/2, update/3, with/2, without/2, from_keys/2, intersect/2 and is_iterator_valid/1, with their errors: a
 // non-map is {badmap, Map}, a missing key of update/3 {badkey, Key}, a key list that is not a proper list badarg.
 namespace clause::runtime::builtins {
 namespace {
@@ -154,6 +157,79 @@ TermResult<Term> from_keys(ProcessContext &context, const KeyList &keys, const T
     return TermFactory(context).map(entries);
 }
 
+// intersect(Map1, Map2): the associations of Map2 whose keys Map1 has, walking the smaller map (maps completion).
+TermResult<Term> intersect(ProcessContext &context, const MapOperand &first, const MapOperand &second) {
+    const auto left = first.map();
+    const auto right = second.map();
+    const bool walk_left = need(left.map_size()) <= need(right.map_size());
+    const auto &probed = walk_left ? right : left;
+    Entries kept;
+    for (const auto &[key, value] : need((walk_left ? left : right).map_entries())) {
+        if (const auto found = need(probed.map_find(key))) {
+            kept.emplace_back(key, walk_left ? *found : value);
+        }
+    }
+    return TermFactory(context).map(kept);
+}
+
+// Whether `iterator` is a [Path | Map] that map_next/3 walks to its end: a position from 0, or a proper list of
+// Map's keys (maps completion).
+bool valid_path(const Term &iterator) {
+    if (!iterator.is_cons() || !need(iterator.tail()).is_map()) {
+        return false;
+    }
+    const auto map = need(iterator.tail());
+    auto keys = need(iterator.head());
+    if (const auto position = small(keys.word())) {
+        return *position >= 0;
+    }
+    for (; keys.is_cons(); keys = need(keys.tail())) {
+        if (!need(map.map_contains(need(keys.head())))) {
+            return false;
+        }
+    }
+    return keys.is_nil();
+}
+
+// is_iterator_valid(MaybeIter): whether maps:next/1 walks MaybeIter to none; a {Key, Value, Next} step is valid when
+// Next is (maps completion).
+TermResult<Term> is_iterator_valid(ProcessContext &context, const Term &maybe) {
+    auto iterator = maybe;
+    while (iterator.is_tuple() && need(iterator.tuple_size()) == 3) {
+        iterator = need(iterator.tuple_element(2));
+    }
+    const bool none = iterator.is_atom() && need(iterator.atom_spelling()) == "none";
+    return TermFactory(context).boolean(none || valid_path(iterator));
+}
+
+// The values of a run of {Key, Value} pairs listed last element first, in source order (maps completion).
+std::vector<Term> run_values(std::span<const Term> run) {
+    std::vector<Term> values;
+    values.reserve(run.size());
+    for (const auto &pair : run | std::views::reverse) {
+        values.push_back(need(pair.tuple_element(1)));
+    }
+    return values;
+}
+
+// clause_maps:groups(Pairs): the map of maps:groups_from_list/2,3 from the {Key, Value} pairs of the list's elements,
+// last element first, so the funs run in OTP's order: each key with its values in source order (maps completion).
+TermResult<Term> groups(ProcessContext &context, const KeyList &list) {
+    auto pairs = list.keys();
+    const auto key_order = [](const Term &left, const Term &right) {
+        return need(detail::structural_order(need(left.tuple_element(0)), need(right.tuple_element(0)), true));
+    };
+    std::ranges::stable_sort(pairs, [&](const Term &left, const Term &right) { return key_order(left, right) < 0; });
+    TermFactory factory(context);
+    Entries entries;
+    for (auto run = pairs.begin(); run != pairs.end();) {
+        const auto end = std::find_if(run, pairs.end(), [&](const Term &pair) { return key_order(pair, *run) != 0; });
+        entries.emplace_back(need(run->tuple_element(0)), need(factory.list(run_values({run, end}))));
+        run = end;
+    }
+    return factory.map(entries);
+}
+
 // clause_maps:entries(Map): {K1, V1, K2, V2, ...} in key order, read by a map cursor, so maps:fold walks one tuple
 // instead of a list of pairs (map cursors).
 TermResult<Term> entries(ProcessContext &context, const MapOperand &map) {
@@ -184,7 +260,10 @@ constexpr std::array MAPS_BUILTINS{
     typed_entry<with>("maps", "with"),
     typed_entry<without>("maps", "without"),
     typed_entry<from_keys>("maps", "from_keys"),
+    typed_entry<intersect>("maps", "intersect"),
+    typed_entry<is_iterator_valid>("maps", "is_iterator_valid"),
     typed_entry<entries>("clause_maps", "entries"),
+    typed_entry<groups>("clause_maps", "groups"),
 };
 } // namespace
 } // namespace clause::runtime::builtins
