@@ -308,9 +308,18 @@ Word atom_to_list_word(ProcessContext &context, Arguments arguments) {
     return char_words(context, characters);
 }
 
+// list_to_atom(String): a short ASCII string interned from its cells read in place (word-level builtin arguments);
+// others, and every error, through the typed path.
+Word list_to_atom_word(ProcessContext &context, Arguments arguments) {
+    if (const auto text = short_text(arguments[0])) {
+        return need(context.atom_storage().intern(text->view())).word();
+    }
+    return typed<list_to_atom>(context, arguments);
+}
+
 constexpr std::array CONVERSION_BUILTINS{
     BuiltinEntry{"erlang", "atom_to_list", 1, &guarded<atom_to_list_word>},
-    typed_entry<list_to_atom>("erlang", "list_to_atom"),
+    BuiltinEntry{"erlang", "list_to_atom", 1, &guarded<list_to_atom_word>},
     BuiltinEntry{"erlang", "integer_to_list", 1, &guarded<integer_to_list_word>},
     typed_entry<integer_to_list2>("erlang", "integer_to_list"),
     BuiltinEntry{"erlang", "list_to_integer", 1, &guarded<list_to_integer_word>},

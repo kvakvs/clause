@@ -64,17 +64,22 @@ TermResult<Term> make_tuple_list(ProcessContext &context, std::int64_t size, con
 
 // tuple_to_list(Tuple): the elements read from the tuple's cell as words (word-level conversions).
 Word tuple_to_list(ProcessContext &context, Arguments arguments) {
-    TermFactory factory(context);
     if (arguments[0] == abi::v1::empty_tuple) {
-        return need(factory.nil()).word();
+        return abi::v1::empty_list;
     }
-    const auto words = (arguments[0] & abi::v1::primary_mask) == abi::v1::boxed_tag
-                           ? detail::TermAccess::boxed_words(context.heap(), arguments[0])
-                           : std::span<const Word>{};
-    if (words.empty() || detail::layout::BoxHeader::kind(words[0]) != BoxedKind::tuple) {
+    // An argument is a validated term of this process, so its cell is read in place (word-level builtin arguments).
+    const auto *cell = (arguments[0] & abi::v1::primary_mask) == abi::v1::boxed_tag
+                           ? detail::TermAccess::trusted(arguments[0])
+                           : nullptr;
+    if (!cell || detail::layout::BoxHeader::kind(cell[0]) != BoxedKind::tuple) {
         bad_argument();
     }
-    return need(factory.list_of_words(words.subspan(1), need(factory.nil()))).word();
+    const std::span elements(cell + 1, detail::layout::BoxHeader::count(cell[0]));
+    if (const auto bumped = detail::TermAccess::bump_list(context.heap(), elements, abi::v1::empty_list)) {
+        return *bumped;
+    }
+    TermFactory factory(context);
+    return need(factory.list_of_words(elements, need(factory.nil()))).word();
 }
 
 // list_to_tuple(List): a proper list of at most MAX_TUPLE_ARITY elements, read from its cells as words (word-level

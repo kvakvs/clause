@@ -1,14 +1,20 @@
 #include "hashing.hpp"
+#include "../../memory/heap_object.hpp"
 #include "../../process/identities.hpp"
 #include "../../terms/funs.hpp"
 #include "../../terms/identities.hpp"
 #include "../../terms/integers.hpp"
 #include "../../terms/structural_order.hpp"
+#include "../../terms/term_layout.hpp"
+#include "../portions.hpp"
 #include "../typed.hpp"
 #include "terms.hpp"
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <boost/container/small_vector.hpp>
+#include <charconv>
+#include <clause/abi/equality.hpp>
 #include <clause/runtime/atoms.hpp>
 #include <vector>
 
@@ -17,16 +23,19 @@
 // own, not OTP's.
 namespace clause::runtime::builtins {
 namespace {
+// Words still to hash, the next one last.
+using Pending = boost::container::small_vector<Word, 32>;
+
 // FNV-1a over 64-bit words with a final avalanche.
 class TermHash {
   public:
-    // Hash `root` iteratively.
-    std::uint64_t of(ProcessContext &context, const Term &root) {
-        std::vector<Term> pending{root};
+    // Hash `root`, a validated term of this process, iteratively.
+    std::uint64_t of(ProcessContext &context, Word root) {
+        Pending pending{root};
         while (!pending.empty()) {
-            const auto term = pending.back();
+            const auto word = pending.back();
             pending.pop_back();
-            one(context, term, pending);
+            one(context, word, pending);
         }
         auto value = state_;
         value ^= value >> 33U;
@@ -56,8 +65,47 @@ class TermHash {
 
     void text(std::uint64_t kind, std::string_view data) { bytes(kind, std::as_bytes(std::span(data))); }
 
-    // Add one term, pushing its children to be hashed next.
-    void one(ProcessContext &context, const Term &term, std::vector<Term> &pending) {
+    // Add one word: small integers, lists and tuples read in place (word-level builtin arguments), others as terms.
+    void one(ProcessContext &context, Word word, Pending &pending) {
+        if (const auto value = small(word)) {
+            std::array<char, 24> digits{};
+            const auto written = std::to_chars(digits.data(), digits.data() + digits.size(), *value);
+            text(1, std::string_view(digits.data(), written.ptr));
+        } else if (word == abi::v1::empty_list) {
+            mix(5);
+        } else if ((word & abi::v1::primary_mask) == abi::v1::list_tag) {
+            const auto *cell = detail::TermAccess::trusted(word);
+            mix(6);
+            pending.push_back(cell[1]);
+            pending.push_back(cell[0]);
+        } else if (!tuple(word, pending)) {
+            term(context, need(Term::from_word(word, context)), pending);
+        }
+    }
+
+    // A tuple's elements pushed in place; false for any other word.
+    bool tuple(Word word, Pending &pending) {
+        if (word == abi::v1::empty_tuple) {
+            mix(7);
+            mix(0);
+            return true;
+        }
+        if ((word & abi::v1::primary_mask) != abi::v1::boxed_tag) {
+            return false;
+        }
+        const auto *cell = detail::TermAccess::trusted(word);
+        if (detail::layout::BoxHeader::kind(cell[0]) != BoxedKind::tuple) {
+            return false;
+        }
+        const std::span elements(cell + 1, detail::layout::BoxHeader::count(cell[0]));
+        mix(7);
+        mix(elements.size());
+        pending.insert(pending.end(), elements.rbegin(), elements.rend());
+        return true;
+    }
+
+    // Add one term of the other kinds, pushing its children to be hashed next.
+    void term(ProcessContext &context, const Term &term, Pending &pending) {
         if (term.is_integer()) {
             text(1, need(term.integer_decimal()));
         } else if (term.is_float()) {
@@ -74,30 +122,16 @@ class TermHash {
     }
 
     // Lists, tuples, maps, native records, identities and funs.
-    void container(ProcessContext &context, const Term &term, std::vector<Term> &pending) {
-        if (term.is_nil()) {
-            mix(5);
-        } else if (term.is_cons()) {
-            mix(6);
-            pending.push_back(need(term.tail()));
-            pending.push_back(need(term.head()));
-        } else if (term.is_tuple()) {
-            children(7, need(term.tuple_elements()), pending);
-        } else if (term.is_map()) {
+    void container(ProcessContext &context, const Term &term, Pending &pending) {
+        if (term.is_map()) {
             map(term, pending);
         } else {
             identity(context, term, pending);
         }
     }
 
-    void children(std::uint64_t kind, const std::vector<Term> &items, std::vector<Term> &pending) {
-        mix(kind);
-        mix(items.size());
-        pending.insert(pending.end(), items.rbegin(), items.rend());
-    }
-
     // A map's pairs in key order, so equal maps hash equally whatever their layout.
-    void map(const Term &term, std::vector<Term> &pending) {
+    void map(const Term &term, Pending &pending) {
         auto entries = need(term.map_entries());
         std::ranges::sort(entries, [](const auto &left, const auto &right) {
             return need(detail::structural_order(left.first, right.first, true)) < 0;
@@ -105,8 +139,8 @@ class TermHash {
         mix(8);
         mix(entries.size());
         for (auto entry = entries.rbegin(); entry != entries.rend(); ++entry) {
-            pending.push_back(entry->second);
-            pending.push_back(entry->first);
+            pending.push_back(entry->second.word());
+            pending.push_back(entry->first.word());
         }
     }
 
@@ -121,7 +155,7 @@ class TermHash {
         }
     }
 
-    void identity(ProcessContext &context, const Term &term, std::vector<Term> &pending) {
+    void identity(ProcessContext &context, const Term &term, Pending &pending) {
         if (term.is_pid() || term.is_port()) {
             process_or_port(term);
         } else if (term.is_reference()) {
@@ -132,23 +166,21 @@ class TermHash {
         } else {
             mix(12);
             for (const auto &[name, value] : need(term.record_fields())) {
-                pending.push_back(value);
-                pending.push_back(name);
+                pending.push_back(value.word());
+                pending.push_back(name.word());
             }
         }
     }
 
     // A fun by module, name, arity and captured values.
-    void fun(ProcessContext &context, const Term &term, std::vector<Term> &pending) {
+    void fun(ProcessContext &context, const Term &term, Pending &pending) {
         const auto view = need(detail::fun_view(term));
         const auto &atoms = context.atom_storage();
         mix(13);
         text(3, need(need(atoms.lookup(view.definition->module)).atom_spelling()));
         text(3, need(need(atoms.lookup(view.definition->function)).atom_spelling()));
         mix(view.definition->arity);
-        for (const auto word : view.captures) {
-            pending.push_back(need(Term::from_word(word, context)));
-        }
+        pending.insert(pending.end(), view.captures.begin(), view.captures.end());
     }
 
     std::uint64_t state_ = 0xcbf29ce484222325ULL;
@@ -164,8 +196,10 @@ std::uint64_t range_of(const detail::Integer &range) {
     return range.convert_to<std::uint64_t>();
 }
 
-TermResult<Term> phash2_1(ProcessContext &context, const Term &term) {
-    return TermFactory(context).integer(static_cast<std::int64_t>(hash(context, term) % (std::uint64_t{1} << 27)));
+// phash2/1: 0..2^27-1, a small integer on every target, from the argument's words (word-level builtin arguments).
+Word phash2_1(ProcessContext &context, Arguments arguments) {
+    const auto value = TermHash{}.of(context, arguments[0]) % (std::uint64_t{1} << 27);
+    return *abi::v1::NativeIntegerEncoding::encode(static_cast<std::int64_t>(value));
 }
 
 TermResult<Term> phash2_2(ProcessContext &context, const Term &term, const detail::Integer &range) {
@@ -180,13 +214,13 @@ TermResult<Term> phash(ProcessContext &context, const Term &term, const detail::
 }
 
 constexpr std::array HASHING_BUILTINS{
-    typed_entry<phash2_1>("erlang", "phash2"),
+    BuiltinEntry{"erlang", "phash2", 1, &guarded<phash2_1>},
     typed_entry<phash2_2>("erlang", "phash2"),
     typed_entry<phash>("erlang", "phash"),
 };
 } // namespace
 
-std::uint64_t term_hash(ProcessContext &context, const Term &term) { return TermHash{}.of(context, term); }
+std::uint64_t term_hash(ProcessContext &context, const Term &term) { return TermHash{}.of(context, term.word()); }
 } // namespace clause::runtime::builtins
 
 namespace clause::runtime {

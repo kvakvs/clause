@@ -171,7 +171,10 @@ Builtins that check their own arguments are C++ functions of typed parameters
 - Most families are typed. The guard BIFs and operators (`erlang/core.cpp`),
   the trapping list builtins and a few others are word-level `BuiltinBody`
   adapters, which pass their argument words to the inline services generated
-  code also calls.
+  code also calls. Hot conversions read their arguments' cells in place
+  (`TermAccess::trusted`) instead of admitting `Term`s: `tuple_to_list/1`,
+  `phash2/1` (lists, tuples and small integers), and `list_to_atom/1`,
+  `list_to_integer/1` of short ASCII strings (word-level builtin arguments).
 
 ## Registration
 

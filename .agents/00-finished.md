@@ -498,7 +498,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
   to 11 ns (OTP 13); 69A kernel `dataproc.small_map` added —
-  `[plan20] OPT3.12 ...`
+  `9be0f412`
+- **OPT3.13A** word-level builtin arguments: `tuple_to_list/1` 84 to 26 ns
+  (OTP 8), `phash2/1` 92 to 26 ns (13), short `list_to_atom/1` 143 to 70 ns
+  (9), hash values unchanged —
+  `[plan20] OPT3.13A ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`
