@@ -1,6 +1,7 @@
 #include "hashing.hpp"
 #include "../../memory/heap_object.hpp"
 #include "../../process/identities.hpp"
+#include "../../terms/atom_table.hpp"
 #include "../../terms/funs.hpp"
 #include "../../terms/identities.hpp"
 #include "../../terms/integers.hpp"
@@ -80,8 +81,8 @@ std::uint32_t atom_hash(std::string_view spelling) {
     return hash;
 }
 
-std::uint32_t atom_hash(ProcessContext &context, Word atom) {
-    return atom_hash(context.atom_storage().spelling(atom).value_or(std::string_view{}));
+std::uint32_t atom_hash_word(Word atom) {
+    return atom_hash(detail::atom_table::spelling(atom).value_or(std::string_view{}));
 }
 
 bool is_cons(Word word) { return (word & abi::v1::primary_mask) == abi::v1::list_tag; }
@@ -240,7 +241,7 @@ class Hash2 final {
         } else if (is_cons(word)) {
             list(word);
         } else if (!tuple(word)) {
-            boxed(context, need(Term::from_word(word, context)));
+            boxed(need(Term::from_word(word, context)));
         }
     }
 
@@ -313,7 +314,7 @@ class Hash2 final {
         return true;
     }
 
-    void boxed(ProcessContext &context, const Term &term) {
+    void boxed(const Term &term) {
         if (term.is_atom()) {
             const auto value = atom_hash(need(term.atom_spelling()));
             first_or(value, value, HCONST_3);
@@ -329,7 +330,7 @@ class Hash2 final {
         } else if (term.is_map()) {
             map(term);
         } else {
-            identity(context, term);
+            identity(term);
         }
     }
 
@@ -363,7 +364,7 @@ class Hash2 final {
         }
     }
 
-    void identity(ProcessContext &context, const Term &term) {
+    void identity(const Term &term) {
         if (term.is_pid()) {
             one(static_cast<std::uint32_t>(detail::pid_number(term.word())), HCONST_5);
         } else if (term.is_port()) {
@@ -372,7 +373,7 @@ class Hash2 final {
         } else if (term.is_reference()) {
             one(static_cast<std::uint32_t>(need(detail::reference_number(term))), HCONST_7);
         } else if (term.is_function()) {
-            fun(context, term);
+            fun(term);
         } else {
             record(term);
         }
@@ -380,13 +381,13 @@ class Hash2 final {
 
     // A fun by its module, arity or captures, name or index, and captured values (OTP's index and unique number of
     // a local fun are its compiler's own).
-    void fun(ProcessContext &context, const Term &term) {
+    void fun(const Term &term) {
         const auto view = need(detail::fun_view(term));
         const auto &definition = *view.definition;
-        const auto module = atom_hash(context, definition.module);
+        const auto module = atom_hash_word(definition.module);
         if (definition.external) {
             two(static_cast<std::uint32_t>(definition.arity), module, HCONST);
-            one(atom_hash(context, definition.function), HCONST_14);
+            one(atom_hash_word(definition.function), HCONST_14);
             return;
         }
         two(static_cast<std::uint32_t>(view.captures.size()), module, HCONST);
@@ -531,7 +532,7 @@ class Hash1 final {
         } else if (term.is_map()) {
             hash_ = hash_ * PRIME_13 + PRIME_14 + Hash2{}.of(context, term.word());
         } else {
-            identity(context, term);
+            identity(term);
         }
     }
 
@@ -546,7 +547,7 @@ class Hash1 final {
         hash_ = hash_ * PRIME_4 + static_cast<std::uint32_t>(bits.whole);
     }
 
-    void identity(ProcessContext &context, const Term &term) {
+    void identity(const Term &term) {
         if (term.is_pid()) {
             bytes(static_cast<std::uint32_t>(detail::pid_number(term.word())), PRIME_5);
             hash_ *= PRIME_6;
@@ -561,7 +562,7 @@ class Hash1 final {
             bytes(static_cast<std::uint32_t>(need(detail::reference_number(term))), PRIME_9);
             hash_ *= PRIME_10;
         } else if (term.is_function()) {
-            fun(context, term);
+            fun(term);
         } else {
             const auto fields = need(term.record_fields());
             stack_.push_back({Step::record_end, 0, static_cast<std::uint32_t>(fields.size())});
@@ -571,17 +572,17 @@ class Hash1 final {
         }
     }
 
-    void fun(ProcessContext &context, const Term &term) {
+    void fun(const Term &term) {
         const auto view = need(detail::fun_view(term));
         const auto &definition = *view.definition;
         if (definition.external) {
             hash_ = hash_ * PRIME_11 + static_cast<std::uint32_t>(definition.arity);
-            hash_ = hash_ * PRIME_1 + atom_hash(context, definition.module);
-            hash_ = hash_ * PRIME_1 + atom_hash(context, definition.function);
+            hash_ = hash_ * PRIME_1 + atom_hash_word(definition.module);
+            hash_ = hash_ * PRIME_1 + atom_hash_word(definition.function);
             return;
         }
         hash_ = hash_ * PRIME_10 + static_cast<std::uint32_t>(view.captures.size());
-        hash_ = hash_ * PRIME_1 + atom_hash(context, definition.module);
+        hash_ = hash_ * PRIME_1 + atom_hash_word(definition.module);
         hash_ = hash_ * PRIME_2 + static_cast<std::uint32_t>(definition.index);
         hash_ = hash_ * PRIME_2;
         for (auto capture = view.captures.rbegin(); capture != view.captures.rend(); ++capture) {

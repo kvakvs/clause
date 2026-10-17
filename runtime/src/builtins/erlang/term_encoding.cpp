@@ -1,5 +1,6 @@
 #include "../../memory/heap_walk.hpp"
 #include "../../process/identities.hpp"
+#include "../../terms/atom_table.hpp"
 #include "../../terms/funs.hpp"
 #include "../../terms/identities.hpp"
 #include "../../terms/integers.hpp"
@@ -147,14 +148,13 @@ class Encoder {
         }
     }
 
-    // An atom by its word, its spelling looked up once per encoding (word-level encoding).
+    // An atom by its word, its spelling read from the atom table (word-level encoding, atom table readers).
     void atom_word(Word word) {
-        auto found = atoms_.find(word);
-        if (found == atoms_.end()) {
-            const auto atom = need(context_.atom_storage().lookup(word));
-            found = atoms_.emplace(word, std::string(need(atom.atom_spelling()))).first;
+        const auto spelling = detail::atom_table::spelling(word);
+        if (!spelling) {
+            throw BuiltinFailure{.term = TermError::expired_context};
         }
-        atom(found->second);
+        atom(*spelling);
     }
 
     // A tuple's header and its elements, read in place (trusted walks); false when the word names no tuple.
@@ -295,8 +295,6 @@ class Encoder {
     std::vector<Word> pending_;
     // The elements of the list being written, reused across lists.
     std::vector<Word> elements_;
-    // Atom spellings by word, looked up once per encoding.
-    std::unordered_map<Word, std::string> atoms_;
 };
 
 // The compressed form <<131, 80, Size:32, Zlib/binary>> of an encoding when zlib fits it in five bytes fewer than the

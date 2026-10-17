@@ -227,9 +227,10 @@ Remainder, in order:
   owner checks in Debug builds only (`CHECKED_ADMISSION`); Release trusts
   compound, atom, pid and port words and still classifies other immediates.
   Foreign-word tests are guarded by the constant.
-- **OPTM.2D atom table readers:** `term_to_binary`'s per-encoding spelling cache
-  and the atom comparison service can read `atom_table::find` directly
-  (OPT3.14 remainder: atom `<` without the `AtomStorage` call).
+- **OPTM.2D atom table readers:** done 2026-10-17. `term_to_binary` (no
+  per-encoding spelling map), the atom comparison service and phash/phash2 of
+  fun names read `atom_table::spelling` directly. Still open from OPT3.14: atom
+  `<` as a word compare would need an order rank per atom.
 
 ## OPTM.3: Manual Optimization - Unchecked Term Operations
 
