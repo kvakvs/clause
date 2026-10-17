@@ -98,9 +98,9 @@ keys(Map) -> erlang:error({badmap, Map}).
 %% Map with Key associated to Value.
 put(Key, Value, Map) -> Map#{Key => Value}.
 
-%% The {Key, Value} pairs, in key order.
+%% The {Key, Value} pairs, in key order, or the rest of an iterator's in its order (json's ordered members).
 to_list(Map) when is_map(Map) -> [{Key, Value} || Key := Value <- Map];
-to_list(Map) -> erlang:error({badmap, Map}).
+to_list(Iterator) -> associations(Iterator).
 
 %% The values, in key order.
 values(Map) when is_map(Map) -> [Value || _ := Value <- Map];

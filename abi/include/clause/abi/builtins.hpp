@@ -634,6 +634,12 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"base64", "mime_decode", 2},
     BuiltinName{"base64", "mime_decode_to_string", 1},
     BuiltinName{"base64", "mime_decode_to_string", 2},
+    // Module json (plan 21 step LIB5E; runtime/src/builtins/encoding/json.cpp).
+    BuiltinName{"json", "decode", 1},
+    BuiltinName{"json", "encode_binary", 1},
+    BuiltinName{"json", "encode_binary_escape_all", 1},
+    BuiltinName{"clause_json", "number", 2},
+    BuiltinName{"clause_json", "string", 2},
     // Module calendar (plan 21 step LIB5; runtime/src/builtins/calendar.cpp).
     BuiltinName{"calendar", "date_to_gregorian_days", 1},
     BuiltinName{"calendar", "date_to_gregorian_days", 3},

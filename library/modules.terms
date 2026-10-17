@@ -47,3 +47,4 @@
 {calendar, stdlib, provided}.
 {filename, stdlib, provided}.
 {uri_string, stdlib, provided}.
+{json, stdlib, provided}.

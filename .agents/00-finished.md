@@ -556,7 +556,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   checks both families' tables (`fixtures/executables/filenames`) — `fa6d4a3c`
 - **LIB5D** `uri_string`: Erlang walker over RFC 3986 driven by a delimiter
   table, OTP's error fragments and retries (`fixtures/executables/uri_strings`)
-  — `[plan21] LIB5D`
+  — `f91bbcb6`
+- **LIB5E** `json`: C++ `decode/1` and escapers with OTP's iodata; encoders,
+  formatters and callback decoders Erlang over `clause_json` scanners —
+  `[plan21] LIB5E`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

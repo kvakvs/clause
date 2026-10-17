@@ -192,6 +192,7 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      array_builtins(),
                                      calendar_builtins(),
                                      base64_builtins(),
+                                     json_builtins(),
                                      persistent_term_builtins(),
                                      unicode_builtins(),
                                      code_module_builtins(),

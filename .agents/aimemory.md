@@ -308,3 +308,9 @@ gotchas and user directions not recorded elsewhere.
   (references/otp/lib/stdlib/src/re.erl) is the spec for edge cases:
   retry-after-empty uses the original offset, duplicate matches are dropped.
   lists:all/any/dropwhile/takewhile became implemented for it.
+- LIB5E (2026-10-17): builtins reading big binaries repeatedly use
+  detail::trusted_binary_bytes in place only above layout::heap_binary_bytes
+  (off-heap, stable); copy heap binaries, since TermFactory allocation may move
+  the heap (json.cpp Input). Term::binary_bytes() copies every call. OTP's
+  json shapes (iodata nesting, continuation tuples with #decode{}) are matched
+  exactly; the json_codec golden prints ~w shapes.

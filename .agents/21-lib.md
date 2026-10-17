@@ -113,14 +113,6 @@ create a new API that's for the end user to choose
   `fread/2,3` (a format-directed scanner), plus `nl/0`.
 - Fix `io:format("~.2f")`, which raises `badarg` today.
 
-### LIB5. Encodings and formats: `json`
-
-- C++: `json`: `decode/1`, `encode/1`, `format/1,2` and the leaf encoders
-  `encode_integer`, `encode_float`, `encode_binary`, `encode_atom`, ...
-- Erlang: `json:decode/3`, `decode_start/3` and `decode_continue/2` (callback
-  decoders), and `encode/2`, `format/2,3` with an encoder fun, over the C++ leaf
-  encoders.
-
 ### LIB6. Random numbers: `rand`, `random`
 
 - `rand` (31): the generators in C++ (`exsss`, the default, plus `exro928ss`,
@@ -487,7 +479,7 @@ Ranked by what real programs need first and by dependencies:
 2. LIB10 and LIB11 (ETS and match specs).
 3. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
 4. LIB23 and LIB24 (`logger`, `application`).
-5. LIB5 and LIB6 (encodings, `rand`).
+5. LIB6 (`rand`).
 6. LIB9, LIB50, LIB60 and LIB61 (`erlang`, `file`, `inet`, `os`, `code` gaps).
 7. LIB30–LIB34 (the front end, `consult`, `io:read`).
 8. LIB25 (local-node services) and LIB12 (`digraph`).
@@ -784,12 +776,6 @@ functions are listed separately and are optional.
   write_atom/1, write_atom_as_latin1/1, write_char/1, write_char_as_latin1/1,
   write_latin1_char/1, write_latin1_string/1, write_string/1,
   write_string_as_latin1/1
-- `json` (stdlib, 23): decode/1,3, decode_continue/2, decode_start/3,
-  encode/1,2, encode_atom/2, encode_binary/1, encode_binary_escape_all/1,
-  encode_float/1, encode_integer/1, encode_key_value_list/2,
-  encode_key_value_list_checked/2, encode_list/2, encode_map/2,
-  encode_map_checked/2, encode_value/2, format/1,2,3, format_key_value_list/3,
-  format_key_value_list_checked/3, format_value/3
 - `log_mf_h` (stdlib, 2): init/3,4
 - `ms_transform` (stdlib, 3): format_error/1, parse_transform/2,
   transform_from_shell/3

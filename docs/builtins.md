@@ -27,7 +27,7 @@ implementing source file:
   [`lists`](#lists-module), [`math`](#math-module),
   [`binary`](#binary-module), [`maps` and `os`](#maps-module),
   [`ordsets`, `orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets`,
-  `queue` and `array`](#collections), [`base64`](#encodings),
+  `queue` and `array`](#collections), [`base64` and `json`](#encodings),
   [`calendar`](#calendar),
   [`persistent_term`](#persistent-terms), [`unicode`](#unicode-module),
   [`code`](#code-module), [`init`](#init-module),
@@ -525,6 +525,19 @@ builtin:
   group is built (`badarith` inside OTP's shifts), anything but whitespace
   after the padding `{case_clause, Symbol}`. `mime_decode` skips every
   character outside the alphabet and data after a misplaced `=`.
+- `json` (plan 21 step LIB5E, `encoding/json.cpp`): `decode/1` is a builtin
+  walking OTP's decoder states over an explicit stack of open containers, so
+  values (an object keeps a key's first value), the rest after the value and
+  the errors agree: `unexpected_end` where more input could complete the
+  text, `{invalid_byte, Byte}` at the byte OTP rejects (for a cut literal the
+  byte after its first), `{unexpected_sequence, Bytes}` for a bad `\u`
+  escape or a float `binary_to_float/1` rejects. `encode_binary/1` and
+  `encode_binary_escape_all/1` are builtins building OTP's nested iodata.
+  The encoders and formatters taking funs, `encode/1` (`encode/2` with
+  `encode_value/2`) and the callback decoders `decode/3`, `decode_start/3`,
+  `decode_continue/2` are Erlang; the decoders walk OTP's states over the
+  private scanners `clause_json:string/2` and `number/2`, so callbacks run in
+  OTP's order and continuation states are OTP's tuples.
 
 ## Calendar
 

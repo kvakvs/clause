@@ -1,0 +1,25 @@
+%% OTP 29 json exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{decode, 1, default, implemented}.
+{decode, 3, default, implemented}.
+{decode_continue, 2, default, implemented}.
+{decode_start, 3, default, implemented}.
+{encode, 1, default, implemented}.
+{encode, 2, default, implemented}.
+{encode_atom, 2, default, implemented}.
+{encode_binary, 1, default, implemented}.
+{encode_binary_escape_all, 1, default, implemented}.
+{encode_float, 1, default, implemented}.
+{encode_integer, 1, default, implemented}.
+{encode_key_value_list, 2, default, implemented}.
+{encode_key_value_list_checked, 2, default, implemented}.
+{encode_list, 2, default, implemented}.
+{encode_map, 2, default, implemented}.
+{encode_map_checked, 2, default, implemented}.
+{encode_value, 2, default, implemented}.
+{format, 1, default, implemented}.
+{format, 2, default, implemented}.
+{format, 3, default, implemented}.
+{format_key_value_list, 3, default, implemented}.
+{format_key_value_list_checked, 3, default, implemented}.
+{format_value, 3, default, implemented}.

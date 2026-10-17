@@ -41,6 +41,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/calendar.cpp
     # Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
     src/builtins/encoding/base64.cpp
+    # Module json (plan 21 step LIB5E).
+    src/builtins/encoding/json.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp
     src/startup/halt.cpp
     src/modules/atoms.cpp src/modules/services.cpp src/modules/code_server.cpp src/modules/registration.cpp src/modules/literal_areas.cpp)
