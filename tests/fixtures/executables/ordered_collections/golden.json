@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ordered_collections",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "ordsets_basic: [[a,b,c],[],3,false,true,[a,b,c],true,false,false,false,false,true,true,false,true,false,[a,b,c],[a,b,c,d],[0,a,b,c],[1,2],[a,c],[a,b,c],[2],true,false]\nordsets_algebra: [[1,2,3,4,5],[1,2.0,3,4],[1,2,3,5.0,6],not_a_set,[1|tail],[1,2,3,4],[2,3],[1,2.0,3],[5,7],[],[3],[a,b],single,true,false,true,[1,3],[1],[1,2|tail],[1,2],true,false,true,true]\nordsets_funs: [[c,b,a],[a,c],[0,1,2],[-4,-3]]\nordsets_errors: [function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,badarg]\norddict_basic: [[{a,10},{b,2},{c,3}],[],[{x,1}],[{0,c},{1.0,b}],[],3,false,true,[{a,10},{b,2},{c,3}],true,false,true,2,one,{ok,3},error,error,[a,b,c],[{a,10},{c,3}],[{a,10},{b,2},{c,3}],[{2,b}],{2,[{a,10},{c,3}]},error,error]\norddict_updates: [[{a,10},{b,new},{c,3}],[{0,new},{a,10},{b,2},{c,3}],[{a,10},{b,2},{c,3},{z,new}],[{1.0,new}],[{a,[1,x]},{b,[]}],[{a,10},{b,2},{c,3},{z,[x]}],[{a,[1,x,y]}],[{a,[1|tail]}],[{a,10},{b,2},{c,3},{z,[x]}],[{a,15},{b,2},{c,3}],[{a,10},{b,2},{c,3},{z,5}],[{a,1.5}],[{a,10},{b,200},{c,3}],[{a,10},{b,2},{c,3},{z,init}],[{a,11},{b,2},{c,3}]]\norddict_funs: [[{3,c},{2,b},{10,a}],[{a,{a,10}},{b,{b,2}},{c,{c,3}}],[{a,10},{c,3}],[{a,11},{b,20},{c,3}],[{x,1}],[{x,1}]]\norddict_errors: [function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,badarg,badarith,function_clause,{badfun,not_fun},function_clause,function_clause,function_clause,{case_clause,other},function_clause]\nproplists_lookups: [a,{[97],true},{a,x},a,{a,false},{[97],true},{a,true},{b,1},{c,2,3},none,[{a,true},{a,false}],[{b,1},{b,2}],true,false,true,1,undefined,dflt,undefined,dflt,int,[true,false],[1,2],[],[true,false],[1,2,true,3,4],true,false,true,false,[a,b,c,d],[],[{b,1},{c,2,3},[115,116,114],{b,2},{d,true},d,{}],[a,{c,2,3},{a,false},[115,116,114],{d,true},d,{}]]\nproplists_forms: [[{a,true},{b,1},[115],{c,true}],[a,{b,true,x},{[115],true},{c,false},d],[alpha,{alpha,1},beta,c,{beta,2,3}],[{[97,108,112,104,97],true}],[{a,false},{a,false},a,a,b],[fie,bar,baz,fum],[fie,bar,baz,fum],[bar,baz,fie,fum],[foo,fie,foo,fum],[x,b],[1,2,3],[a,bee,{c,false},{e,1}],[a],{[[a],[{b,5},b],[{c,2},{c,3,4}]],[{e,1},d]},{[[a],[a]],[b]},{[],[]},[{a,true},{b,1},{c,2}],[{b,1}],[{a,false},{b,1}],[{a,1},{b,2}]]\nproplists_errors: [function_clause,function_clause,function_clause,{bad_generator,x},{bad_generator,x},function_clause,badarg,function_clause,{value,[]},function_clause,{bad_generator,x},function_clause,{bad_generator,x},function_clause,function_clause,function_clause]\nordered_collections: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "ordered_collections.erl": "343f7ab3d8fde05db7e9ad78bc2ba8d767dda4167f4283aeb5bccc2d1de53ab1"
+  }
+}

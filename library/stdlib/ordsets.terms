@@ -1,0 +1,23 @@
+%% OTP 29 ordsets exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{add_element, 2, default, implemented}.
+{del_element, 2, default, implemented}.
+{filter, 2, default, implemented}.
+{filtermap, 2, default, implemented}.
+{fold, 3, default, implemented}.
+{from_list, 1, default, implemented}.
+{intersection, 1, default, implemented}.
+{intersection, 2, default, implemented}.
+{is_disjoint, 2, default, implemented}.
+{is_element, 2, default, implemented}.
+{is_empty, 1, default, implemented}.
+{is_equal, 2, default, implemented}.
+{is_set, 1, default, implemented}.
+{is_subset, 2, default, implemented}.
+{map, 2, default, implemented}.
+{new, 0, default, implemented}.
+{size, 1, default, implemented}.
+{subtract, 2, default, implemented}.
+{to_list, 1, default, implemented}.
+{union, 1, default, implemented}.
+{union, 2, default, implemented}.

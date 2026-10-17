@@ -1,0 +1,23 @@
+%% OTP 29 orddict exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{append, 3, default, implemented}.
+{append_list, 3, default, implemented}.
+{erase, 2, default, implemented}.
+{fetch, 2, default, implemented}.
+{fetch_keys, 1, default, implemented}.
+{filter, 2, default, implemented}.
+{find, 2, default, implemented}.
+{fold, 3, default, implemented}.
+{from_list, 1, default, implemented}.
+{is_empty, 1, default, implemented}.
+{is_key, 2, default, implemented}.
+{map, 2, default, implemented}.
+{merge, 3, default, implemented}.
+{new, 0, default, implemented}.
+{size, 1, default, implemented}.
+{store, 3, default, implemented}.
+{take, 2, default, implemented}.
+{to_list, 1, default, implemented}.
+{update, 3, default, implemented}.
+{update, 4, default, implemented}.
+{update_counter, 3, default, implemented}.

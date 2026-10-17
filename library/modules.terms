@@ -30,6 +30,9 @@
 {io, stdlib, provided}.
 {lists, stdlib, provided}.
 {maps, stdlib, provided}.
+{orddict, stdlib, provided}.
+{ordsets, stdlib, provided}.
+{proplists, stdlib, provided}.
 {math, stdlib, provided}.
 {unicode, stdlib, provided}.
 {unicode_util, stdlib, provided}.

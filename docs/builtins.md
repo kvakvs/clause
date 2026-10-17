@@ -26,6 +26,7 @@ implementing source file:
 - other modules: `io` output ([io](io.md)), the data functions of
   [`lists`](#lists-module), [`math`](#math-module),
   [`binary`](#binary-module), [`maps` and `os`](#maps-module),
+  [`ordsets`, `orddict` and `proplists`](#collections),
   [`persistent_term`](#persistent-terms), [`unicode`](#unicode-module),
   [`code`](#code-module), [`init`](#init-module),
   [`atomics`](#atomics-and-counters), [`erts_internal`](#erts-internal),
@@ -163,7 +164,10 @@ Builtins that check their own arguments are C++ functions of typed parameters
   not own is the failure it is, never `badarg`), then converts each to its
   parameter type (`Term`, a small or any integer, `double`, list, tuple,
   binary, atom, map or local pid arguments; see `typed.hpp`); a mismatch
-  raises `badarg` and the function does not run.
+  raises `badarg` and the function does not run. `Named<Role>` is any term
+  under a role type of its own (`collections::Key`, `Value`, `List`, ...), so
+  a builtin of several term parameters cannot have two swapped; the builtin
+  checks the term.
 - A function returns a term, a `BuiltinResult` (`std::expected` with a
   `BuiltinFailure`) or a raw `Word` it published itself, or throws
   `BuiltinFailure` (an Erlang error or a term access failure);
@@ -439,6 +443,32 @@ builtin:
   `os:perf_counter/0,1` and `os:getenv/2` are Erlang over the `erlang` time
   builtins and `getenv/1`; `os:cmd/1` runs over a port
   ([subprocesses](ports.md#subprocesses)).
+
+## Collections
+
+`runtime/src/builtins/collections/` (plan 21 step LIB1): `ordsets`, `orddict`
+and `proplists`, every documented function.
+
+- The walks over lists are builtins: `ordsets` membership, insertion,
+  deletion and the set algebra (`union/2`, `intersection/1,2`,
+  `subtract/2`, `is_subset/2`, `is_disjoint/2`, `is_set/1`); `orddict`'s
+  lookups and updates without funs (`store/3`, `append/3`, `append_list/3`,
+  `update_counter/3`, `take/2`, `from_list/1`, ...); all `proplists`
+  functions but `property/1,2`, `get_value/2`, `normalize/2`, `to_map/2` and
+  `from_map/1`, which are Erlang glue in `library/stdlib/`.
+- The functions taking funs (`ordsets:fold/3`, `filter/2`, `map/2`,
+  `filtermap/2`, `orddict:update/3,4`, `fold/3`, `map/2`, `filter/2`,
+  `merge/3`) are Erlang.
+- Each builtin walks its lists as OTP's clauses do, so results and errors
+  agree for any input: elements and keys compare with `<` and `==` (of `1`
+  and `1.0` the representative OTP keeps is kept, including after `union/2`
+  swaps its sets), a rest OTP returns unchecked (`ordsets:union([], X)` is
+  `X`) is returned as it is, a shape no clause accepts is `function_clause`,
+  a comprehension's non-list input `{bad_generator, Rest}`, `Old ++ New` of
+  an improper `Old` `badarg` and `update_counter/3` of a non-number
+  `badarith`. `proplists` keys match with `=:=`.
+- `proplists:get_keys/1` lists the keys in the order of a map's keys, as
+  OTP's set of keys does ([differences](differences.md)).
 
 ## Persistent terms
 

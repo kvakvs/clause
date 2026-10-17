@@ -48,6 +48,12 @@ struct MapArgument {
     Term term;
 };
 
+// Any term under the name of its role (plan 21): a builtin whose arguments are all terms gives each its own role
+// type, so adjacent parameters cannot be swapped by mistake; the builtin checks the term itself.
+template <typename Role> struct Named {
+    Term term;
+};
+
 // The result of a typed builtin: its value, or the Erlang error or term access failure it ends with.
 template <typename T> using BuiltinResult = std::expected<T, BuiltinFailure>;
 
@@ -94,6 +100,10 @@ template <> struct Argument<MapArgument> {
     static TermResult<std::optional<MapArgument>> convert(const Term &term) {
         return term.is_map() ? std::optional{MapArgument{term}} : std::nullopt;
     }
+};
+
+template <typename Role> struct Argument<Named<Role>> {
+    static TermResult<std::optional<Named<Role>>> convert(const Term &term) { return Named<Role>{term}; }
 };
 
 template <> struct Argument<PidArgument> {

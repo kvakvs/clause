@@ -1,0 +1,24 @@
+%% OTP 29 proplists exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{append_values, 2, default, implemented}.
+{compact, 1, default, implemented}.
+{delete, 2, default, implemented}.
+{expand, 2, default, implemented}.
+{from_map, 1, default, implemented}.
+{get_all_values, 2, default, implemented}.
+{get_bool, 2, default, implemented}.
+{get_keys, 1, default, implemented}.
+{get_value, 2, default, implemented}.
+{get_value, 3, default, implemented}.
+{is_defined, 2, default, implemented}.
+{lookup, 2, default, implemented}.
+{lookup_all, 2, default, implemented}.
+{normalize, 2, default, implemented}.
+{property, 1, default, implemented}.
+{property, 2, default, implemented}.
+{split, 2, default, implemented}.
+{substitute_aliases, 2, default, implemented}.
+{substitute_negations, 2, default, implemented}.
+{to_map, 1, default, implemented}.
+{to_map, 2, default, implemented}.
+{unfold, 1, default, implemented}.

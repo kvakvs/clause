@@ -536,7 +536,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB0** `library/documented.terms`: 2,888 documented functions observed from
   OTP's doc chunks (`observe_docs.escript`); `library_inventory` rejects a
   documented stub outside the partial modules; `library_modules.py coverage` —
-  `[plan21] LIB0`
+  `e3e44460`
+- **LIB1** `ordsets`, `orddict`, `proplists`: list walks as C++ builtins
+  (`builtins/collections/`) mirroring OTP's clauses, fun-taking functions
+  Erlang; `Named<Role>` typed arguments — `[plan21] LIB1`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

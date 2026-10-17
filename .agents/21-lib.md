@@ -95,19 +95,6 @@ create a new API that's for the end user to choose
 
 ## Tier A: data modules without processes
 
-### LIB1. Ordered lists: `ordsets`, `orddict`, `proplists`
-
-- C++:
-  - `ordsets`: everything without funs, as merges over sorted lists
-    (`union/1,2`, `intersection/1,2`, `subtract/2`, `is_subset/2`,
-    `is_disjoint/2`, `from_list/1`, ...).
-  - `orddict`: everything without funs (`store/3`, `fetch/2`, `find/2`,
-    `append/3`, `update_counter/3`, `take/2`, ...).
-  - `proplists`: all 22 functions (`get_value/2,3`, `get_bool/2`,
-    `lookup_all/2`, `expand/2`, `normalize/2`, `split/2`, `to_map/1,2`, ...).
-- Erlang: `filter/2`, `filtermap/2`, `map/2`, `fold/3`, `orddict:merge/3`,
-  `orddict:update/3,4`.
-
 ### LIB2. Hashed collections: `sets`, `dict`
 
 - `sets`: version 2 (map-backed, the OTP 29 default) in C++.
@@ -523,7 +510,7 @@ missing, so programs that probe for them keep working.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB1 and LIB2 (`proplists`, `ordsets`, `orddict`, `sets`, `dict`).
+1. LIB2 (`sets`, `dict`).
 2. LIB4 text (`string`, `io_lib`, `unicode`).
 3. LIB10 and LIB11 (ETS and match specs).
 4. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
@@ -872,14 +859,6 @@ functions are listed separately and are optional.
 - `log_mf_h` (stdlib, 2): init/3,4
 - `ms_transform` (stdlib, 3): format_error/1, parse_transform/2,
   transform_from_shell/3
-- `orddict` (stdlib, 21): append/3, append_list/3, erase/2, fetch/2,
-  fetch_keys/1, filter/2, find/2, fold/3, from_list/1, is_empty/1, is_key/2,
-  map/2, merge/3, new/0, size/1, store/3, take/2, to_list/1, update/3,4,
-  update_counter/3
-- `ordsets` (stdlib, 21): add_element/2, del_element/2, filter/2, filtermap/2,
-  fold/3, from_list/1, intersection/1,2, is_disjoint/2, is_element/2,
-  is_empty/1, is_equal/2, is_set/1, is_subset/2, map/2, new/0, size/1,
-  subtract/2, to_list/1, union/1,2
 - `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3,
   start/1, start_link/0,1, stop/1
 - `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3,
@@ -888,10 +867,6 @@ functions are listed separately and are optional.
   init_fail/2,3, initial_call/1, set_label/1, spawn/1,2,3,4, spawn_link/1,2,3,4,
   spawn_opt/2,3,4,5, start/3,4,5, start_link/3,4,5, start_monitor/3,4,5,
   stop/1,3, translate_initial_call/1
-- `proplists` (stdlib, 22): append_values/2, compact/1, delete/2, expand/2,
-  from_map/1, get_all_values/2, get_bool/2, get_keys/1, get_value/2,3,
-  is_defined/2, lookup/2, lookup_all/2, normalize/2, property/1,2, split/2,
-  substitute_aliases/2, substitute_negations/2, to_map/1,2, unfold/1
 - `qlc` (stdlib, 26): append/1,2, cursor/1,2, delete_cursor/1, e/1,2, eval/1,2,
   fold/3,4, format_error/1, info/1,2, keysort/2,3, next_answers/1,2, q/1,2,
   sort/1,2, string_to_handle/1,2,3, table/2
