@@ -104,7 +104,9 @@ ast::FormValue FormParser::checked_attribute(ast::Atom name, const std::vector<a
         return documentation(name.name == U"moduledoc", arguments.front());
     }
     constexpr std::u32string_view paired[]{U"file", U"import", U"import_record", U"native_record"};
-    if (std::ranges::find(paired, name.name) != std::end(paired)) {
+    // Kept sorted for the binary search (optimization step OPTM.1).
+    static_assert(std::ranges::is_sorted(paired));
+    if (std::ranges::binary_search(paired, name.name)) {
         throw EvaluationFailure();
     }
     return ast::GenericAttribute{.name = std::move(name), .value = term(arguments.front())};

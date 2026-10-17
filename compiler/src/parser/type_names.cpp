@@ -52,7 +52,9 @@ bool predefined(std::u32string_view name, std::size_t arity) {
                                                                          {U"term", 0},
                                                                          {U"timeout", 0},
                                                                          {U"tuple", 0}};
-    return std::ranges::find(types, std::pair{name, arity}) != std::end(types);
+    // Kept sorted for the binary search (optimization step OPTM.1).
+    static_assert(std::ranges::is_sorted(types));
+    return std::ranges::binary_search(types, std::pair{name, arity});
 }
 } // namespace
 

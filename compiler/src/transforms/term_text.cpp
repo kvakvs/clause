@@ -26,7 +26,9 @@ bool latin1_upper(const char32_t code) {
 
 // Whether an atom can be written without quotes.
 bool bare_atom(const std::u32string_view name) {
-    if (name.empty() || !latin1_lower(name.front()) || std::ranges::find(RESERVED, name) != RESERVED.end()) {
+    // RESERVED is kept sorted for the binary search (optimization step OPTM.1).
+    static_assert(std::ranges::is_sorted(RESERVED));
+    if (name.empty() || !latin1_lower(name.front()) || std::ranges::binary_search(RESERVED, name)) {
         return false;
     }
     return std::ranges::all_of(name, [](const char32_t code) {

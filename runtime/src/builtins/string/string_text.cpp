@@ -554,8 +554,11 @@ std::optional<unicode::Form> form_of(const Term &norm) {
                                                                                {"nfkc", unicode::Form::nfkc},
                                                                                {"nfkd", unicode::Form::nfkd}}};
     const auto name = norm.is_atom() ? need(norm.atom_spelling()) : std::string_view{};
-    const auto found = std::ranges::find(FORMS, name, &std::pair<std::string_view, unicode::Form>::first);
-    return found == FORMS.end() ? std::nullopt : std::optional{found->second};
+    constexpr auto key = &std::pair<std::string_view, unicode::Form>::first;
+    // Kept sorted by name for the binary search (optimization step OPTM.1).
+    static_assert(std::ranges::is_sorted(FORMS, {}, key));
+    const auto found = std::ranges::lower_bound(FORMS, name, {}, key);
+    return found == FORMS.end() || found->first != name ? std::nullopt : std::optional{found->second};
 }
 
 Term equal4(ProcessContext &context, const TextArg &a, const OtherArg &b, const Term &ignore_case,

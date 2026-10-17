@@ -180,6 +180,14 @@ Search code for std::ranges::find() usage on static arrays, and if they can be
 guaranteed to be sorted, change search call to binary search with a static assert 
 on is_sorted.
 
+Status 2026-10-17: done for the tables already sorted whose order means nothing
+else (reserved words in the compiler and runtime, built-in type names, paired
+attributes, string's normal forms, unicode's low whitespace). Open: the small
+tables that would need reordering first (re flags and newlines, time units,
+port options, the importers' handler tables); not the index-bearing ones
+(`fixed_atom_spellings`, preprocessor directive names, compile cache output
+kinds) or process_info/system_info item lists.
+
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
 Ordered by measured T2 value and how well each fits an AOT compiler.

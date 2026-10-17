@@ -200,7 +200,7 @@ bool reserved_word(std::string_view spelling) {
         "after", "and",   "andalso", "band",   "begin",   "bnot", "bor", "bsl",  "bsr", "bxor",
         "case",  "catch", "cond",    "div",    "else",    "end",  "fun", "if",   "let", "maybe",
         "not",   "of",    "or",      "orelse", "receive", "rem",  "try", "when", "xor"};
-    // Kept sorted for the binary search.
+    // Kept sorted for the binary search (optimization step OPTM.1).
     static_assert(std::ranges::is_sorted(words));
     return std::ranges::binary_search(words, spelling);
 }

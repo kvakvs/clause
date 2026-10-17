@@ -113,7 +113,9 @@ bool ascii_letter(char32_t code) { return (code >= 'a' && code <= 'z') || (code 
 // unicode:is_whitespace/1: OTP's low code points first, nothing else below 5001, then the table.
 bool whitespace(char32_t code) {
     constexpr std::array<char32_t, 8> LOW{9, 10, 11, 12, 13, 32, 133, 160};
-    if (std::ranges::find(LOW, code) != LOW.end()) {
+    // Kept sorted for the binary search (optimization step OPTM.1).
+    static_assert(std::ranges::is_sorted(LOW));
+    if (std::ranges::binary_search(LOW, code)) {
         return true;
     }
     return code > 5000 && has(code, WHITESPACE);
