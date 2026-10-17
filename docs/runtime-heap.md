@@ -336,8 +336,8 @@ The buffer is never collected and is freed with its last owner; its block is
 exactly the term's words, whatever the sender's minimum heap. Messages to a
 process running on another worker ([workers](processes.md#workers)), timer
 messages and monitor tags use it, so they are never re-encoded;
-[persistent terms](runtime.md#persistent-terms) share one growing buffer whose
-blocks are literal areas.
+[persistent terms](runtime.md#persistent-terms) live in their own address range
+and are copied, not shared, into buffers.
 
 **Message hand-off.** A send whose message takes at least
 `MessageBuffer::ADOPTED_WORDS` (512) words, counted by

@@ -218,9 +218,12 @@ Remainder, in order:
 - **OPTM.2B persistent terms in place:** done 2026-10-17. Keys and values are
   copied into one growing `MessageBuffer` area whose blocks join the runtime's
   literal areas; `get` returns the stored word, sends and re-puts share it.
-  Replaced and erased values stay until runtime teardown (differences row).
-  Open: reclaiming them, as OTP's literal-area collection does (copy the value
-  into every process still holding it, then free the block once dead).
+  Reclamation done 2026-10-17 (OPTM.2E): per-term areas in a reserved address
+  range (`memory/persistent_region`, one range compare); a replaced or erased
+  area retires under an epoch, copies stop sharing it, every registered process
+  copies what it holds at an evacuating full sweep (slice start, or at once for
+  parked processes under the executor lock), then the area is freed. 2,000
+  replacements of a 16 KB value grow memory by 0.3 MB instead of 32 MB.
 - **OPTM.2C trusted words at boundaries:** done 2026-10-17.
   `TermAccess::admit` (behind `Term::from_word(word, context)`, factory
   `retain`, typed builtin and service arguments) keeps its range, shape and

@@ -20,6 +20,12 @@ void LiteralAreas::add(const std::span<const Word> area) {
 }
 
 std::span<const Word> LiteralAreas::find(const std::uintptr_t address) const noexcept {
+    return persistent_.contains(address) ? persistent_.words_from(address) : module_words(address);
+}
+
+bool LiteralAreas::module(const std::uintptr_t address) const noexcept { return !module_words(address).empty(); }
+
+std::span<const Word> LiteralAreas::module_words(const std::uintptr_t address) const noexcept {
     const auto *ranges = current_.load(std::memory_order_acquire);
     if (!ranges || address % sizeof(Word) != 0) {
         return {};

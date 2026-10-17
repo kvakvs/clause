@@ -67,19 +67,6 @@ void HeapStorage::expose() noexcept {
 
 bool HeapStorage::alive() const noexcept { return !lifetime_.expired() && token_->alive(); }
 
-std::vector<std::span<const Word>> HeapStorage::blocks() const {
-    std::vector<std::span<const Word>> result;
-    for (const auto *area : {&heap_, &old_}) {
-        if (area->capacity_ != 0) {
-            result.emplace_back(area->words_.get(), area->capacity_);
-        }
-    }
-    for (const auto &fragment : fragments_) {
-        result.emplace_back(fragment.words_.get(), fragment.capacity_);
-    }
-    return result;
-}
-
 HeapMark HeapStorage::mark() const noexcept {
     return {heap_.capacity_, heap_.top_,     fragments_.size(), fragments_.empty() ? 0 : fragments_.back().top_,
             used_words_,     capacity_words_};
@@ -115,7 +102,8 @@ std::expected<void, HeapError> validate(const HeapStorage &storage, std::size_t 
     if (storage.pending_) {
         return std::unexpected(HeapError::unsafe_point);
     }
-    if (words > storage.options_.limit_bytes / sizeof(Word) - storage.used_words_ - storage.off_heap_words_) {
+    if (words >
+        words_left(storage.options_.limit_bytes / sizeof(Word), storage.used_words_ + storage.off_heap_words_)) {
         return std::unexpected(HeapError::limit_exceeded);
     }
     return {};
@@ -233,7 +221,8 @@ std::expected<std::span<Word>, HeapError> HeapStorage::take(std::size_t words, b
 }
 
 std::size_t HeapStorage::room() const noexcept {
-    return std::min(options_.limit_bytes / sizeof(Word) - capacity_words_ - off_heap_words_, memory_->available());
+    return std::min(words_left(options_.limit_bytes / sizeof(Word), capacity_words_ + off_heap_words_),
+                    memory_->available());
 }
 
 std::size_t HeapStorage::budget() const noexcept {

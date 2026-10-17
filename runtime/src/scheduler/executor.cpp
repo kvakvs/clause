@@ -38,6 +38,32 @@ bool ends_program(ProcessContext &process) noexcept {
 
 Executor &Executor::of(ProcessContext &context) noexcept { return context.runtime().impl_->executor; }
 
+void Executor::evacuate_parked() {
+    const std::scoped_lock lock(mutex_);
+    for (auto *process : parked_) {
+        evacuate(*process);
+    }
+    // A process suspended on a busy port is neither queued nor parked, and may stay so.
+    for (auto &[process, state] : schedules_) {
+        if (state.port_wait != 0 && !state.running) {
+            evacuate(*process);
+        }
+    }
+}
+
+void Executor::evacuate(ProcessContext &process) {
+    if (!runtime_.persistent_terms.behind(process)) {
+        return;
+    }
+    process.heap().request_evacuation();
+    // Between slices every word of the process is in its roots.
+    const SafePoint safe(process.generated_calls());
+    if (!process.heap().collect()) {
+        // Tried again when it next runs, or at the next put or erase.
+        process.heap().request_evacuation();
+    }
+}
+
 bool Executor::start(ProcessContext &process, const FrameDescriptor &function) noexcept {
     const std::scoped_lock lock(mutex_);
     process.generated_calls().enter();
@@ -413,6 +439,8 @@ std::uint64_t Executor::tick_of(const std::chrono::steady_clock::time_point dead
 
 void Executor::park(ProcessContext &process) {
     parked_.insert(&process);
+    // A retirement may have come while it ran, after evacuate_parked last looked (persistent term reclamation).
+    evacuate(process);
     if (const auto deadline = process.mailbox().deadline()) {
         auto &timer = schedule(process).timer;
         timer.owner = &process;
@@ -483,6 +511,7 @@ void Executor::work(const std::size_t index) noexcept {
             ++slices_;
             lock.unlock();
             running_ = &process;
+            prepare(process);
             const bool ended = process.stack().run(SLICE_REDUCTIONS);
             running_ = nullptr;
             lock.lock();
@@ -496,6 +525,24 @@ void Executor::work(const std::size_t index) noexcept {
     }
     worker_ = false;
     wake_all();
+}
+
+void Executor::prepare(ProcessContext &process) const {
+    // A process that may hold retiring persistent terms copies them out at this slice's first safepoint (persistent
+    // term reclamation).
+    if (runtime_.persistent_terms.behind(process)) {
+        process.heap().request_evacuation();
+    }
+}
+
+void Executor::settle(ProcessContext &process, ProcessContext *blocked_on) {
+    // A process suspended on a busy port stays out of the queue until the port lets it go.
+    if (schedule(process).port_wait == 0) {
+        place(process, blocked_on);
+    } else {
+        // A retirement may have come while it ran (persistent term reclamation).
+        evacuate(process);
+    }
 }
 
 void Executor::after(ProcessContext &process, bool ended) {
@@ -512,10 +559,7 @@ void Executor::after(ProcessContext &process, bool ended) {
         finish(process);
     } else {
         hold(blockers, process);
-        // A process suspended on a busy port stays out of the queue until the port lets it go.
-        if (state.port_wait == 0) {
-            place(process, blocked_on);
-        }
+        settle(process, blocked_on);
         for (const auto &event : std::exchange(state.events, {})) {
             apply(process, event);
         }

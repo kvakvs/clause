@@ -28,6 +28,9 @@ std::expected<std::shared_ptr<layout::BinaryBuffer>, HeapError> make_buffer(Heap
 // Count one more cell of this process referencing buffer; the first charges its words to the process budget.
 // May throw std::bad_alloc, changing nothing.
 std::expected<void, HeapError> hold_off_heap(HeapStorage &storage, const layout::BinaryBuffer &buffer);
+// The same with no budget check, for binaries a collection copies out of retiring persistent terms (persistent term
+// reclamation); may throw std::bad_alloc.
+void hold_off_heap_unbudgeted(HeapStorage &storage, const layout::BinaryBuffer &buffer);
 // Undo one hold, for a cell that died or was never published; the last returns the process charge.
 void drop_off_heap(HeapStorage &storage, const layout::BinaryBuffer &buffer) noexcept;
 // Give a just-published cell its buffer reference and make it the newest entry of the owner's list; the cell's

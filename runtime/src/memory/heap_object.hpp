@@ -85,6 +85,8 @@ struct TermAccess {
         return std::bit_cast<const Word *>(value & ~static_cast<Word>(abi::v1::primary_mask));
     }
 
+    // The storage of a process heap (persistent term reclamation).
+    static HeapStorage &storage(ProcessHeap &heap) noexcept;
     // Check that value is an admitted term or a canonical immediate; a default slot is invalid.
     static TermResult<void> validate(const Term &value) noexcept;
 };

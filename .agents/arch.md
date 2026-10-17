@@ -292,8 +292,9 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   same-runtime heaps, source cells read by trusted pointer, literals recognised
   by the runtime's literal registry; refc buffers shared, charged once per process
   (`HeapStorage::buffers_`). `memory/MessageBuffer` holds terms outside
-  processes (messages; persistent terms `memory/persistent_terms` share one
-  growing buffer whose blocks are literal areas, read in place); a message of
+  processes (messages); persistent terms (`memory/persistent_terms`) live in
+  per-term areas of a reserved range (`memory/persistent_region`), read in
+  place, reclaimed after every process evacuated a retired area; a message of
   512+ words is built before the executor lock and its block adopted as a
   receiver fragment (`HeapStorage::adopt`, `MessageBuffer::take`).
 

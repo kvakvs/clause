@@ -6,7 +6,7 @@
       "args": [],
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "[default,true,{error,badarg},ok,ok,{error,badarg},ok,1,true,false,true,true,[count,memory],ok,int_default,float]\n[true,true,true,true,true,true,true,true]\n[true,true,true]\n[#{a => 1},gone]\npersistent_terms: ok\n"
+      "stdout": "[default,true,{error,badarg},ok,ok,{error,badarg},ok,1,true,false,true,true,[count,memory],ok,int_default,float]\n[true,true,true,true,true,true,true,true]\n[true,true,true]\n[first,1000]\n[#{a => 1},gone]\npersistent_terms: ok\n"
     }
   ],
   "oracle_version": [
@@ -18,6 +18,6 @@
     "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
   },
   "inputs": {
-    "persistent_terms.erl": "3a6a6f86172c8d2b3f18abea9cb86f1272f16314dd837f1ad97aaabd85534f7a"
+    "persistent_terms.erl": "e100627ef76e89b8646aa448cd8c8aa1cf26ffaf325918fc92575a659d8bb4a1"
   }
 }

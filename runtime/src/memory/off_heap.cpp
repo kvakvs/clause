@@ -57,7 +57,8 @@ std::expected<void, HeapError> hold_off_heap(HeapStorage &storage, const BinaryB
     const auto [entry, fresh] = storage.buffers_.try_emplace(&buffer, 0);
     if (fresh) {
         const auto words = buffer_words(buffer);
-        if (words > storage.options_.limit_bytes / sizeof(Word) - storage.capacity_words_ - storage.off_heap_words_) {
+        if (words > words_left(storage.options_.limit_bytes / sizeof(Word),
+                               storage.capacity_words_ + storage.off_heap_words_)) {
             storage.buffers_.erase(entry);
             return std::unexpected(HeapError::limit_exceeded);
         }
@@ -68,6 +69,14 @@ std::expected<void, HeapError> hold_off_heap(HeapStorage &storage, const BinaryB
     }
     ++entry->second;
     return {};
+}
+
+void hold_off_heap_unbudgeted(HeapStorage &storage, const BinaryBuffer &buffer) {
+    const auto [entry, fresh] = storage.buffers_.try_emplace(&buffer, 0);
+    if (fresh) {
+        storage.off_heap_words_ += buffer_words(buffer);
+    }
+    ++entry->second;
 }
 
 void drop_off_heap(HeapStorage &storage, const BinaryBuffer &buffer) noexcept {

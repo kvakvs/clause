@@ -9,6 +9,7 @@
 #include <expected>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -73,6 +74,7 @@ struct HeapOptions final {
 namespace detail {
 class HeapStorage;
 class GraphCopy;
+class RetiringRanges;
 // The part of the heap one collection copies (heap_collect.hpp).
 enum class Generation : std::uint8_t;
 struct IntegerAccess;
@@ -161,6 +163,9 @@ class ProcessHeap final {
     bool wants_collection() const noexcept;
     // Ask for a collection at the next safepoint (garbage_collect/0,1,2, step 41G1).
     void request_collection() noexcept;
+    // Ask for a full sweep at the next safepoint that also copies the retiring persistent terms this process holds
+    // into its heap (persistent term reclamation).
+    void request_evacuation() noexcept;
     // The process's min_heap_size in words, and the runtime default it started with (min_heap_size).
     std::size_t min_heap_words() const noexcept;
     std::size_t default_min_heap_words() const noexcept;
@@ -213,13 +218,30 @@ class ProcessHeap final {
     // Collect the given generation with host-held words as extra roots.
     std::expected<CollectionStats, HeapError> collect(std::span<Word> roots, detail::Generation generation) noexcept;
     // Size the new block for the generation, copy into it and shrink it by the policy (generational collection).
-    std::expected<void, HeapError> copy_generation(std::span<Word> roots, detail::Generation generation) noexcept;
+    // An evacuating sweep also copies the retiring persistent terms the roots reach (persistent term reclamation).
+    std::expected<void, HeapError> copy_generation(std::span<Word> roots, detail::Generation generation,
+                                                   bool evacuating) noexcept;
     // Whether a safepoint collection must sweep everything: garbage_collect asked for it, off-heap binaries reached
     // their limit, a heap budget applies, or the old area cannot take the mature objects (generational collection).
     bool wants_full_sweep() const noexcept;
     // Copy everything of the generation reachable from the process roots and the host's roots into a new block of
     // capacity words.
-    void copy_live(std::span<Word> roots, std::size_t capacity, detail::Generation generation);
+    // copy_live with an allocation failure as out_of_memory.
+    std::expected<void, HeapError> copy_checked(std::span<Word> roots, std::size_t capacity,
+                                                detail::Generation generation) noexcept;
+    // Hold the buffers of retiring binaries, then copy the live words and the retiring persistent terms they reach
+    // into a block of capacity words plus room for those (persistent term reclamation).
+    std::expected<void, HeapError> evacuate_live(std::span<Word> roots, std::size_t capacity) noexcept;
+    // Clear an evacuation request; whether this collection evacuates (persistent term reclamation).
+    bool evacuation(detail::Generation generation) noexcept;
+    // Set the virtual binary heap limit after a collection of `generation` (binary pressure).
+    void limit_binaries(detail::Generation generation, bool pressure, std::size_t off_heap_before) noexcept;
+    // Report a finished evacuating sweep that began at `epoch` to the persistent term table.
+    void evacuated(std::uint64_t epoch) noexcept;
+    // Given `retiring`, a full sweep also copies retiring persistent terms; it then drops the holds taken first on
+    // the buffers of `held` cells it did not copy (persistent term reclamation).
+    void copy_live(std::span<Word> roots, std::size_t capacity, detail::Generation generation,
+                   const detail::RetiringRanges *retiring = nullptr, std::span<const void *const> held = {});
     // After a full sweep, copy a block less than 25% live, or above the block limit of its live words, into the
     // policy size; after a minor collection, copy a young block over 8,000 words and less than 25% live into three
     // times its live words, as ERTS does. Failing to allocate keeps the larger block.

@@ -1,4 +1,5 @@
 #pragma once
+#include "../memory/persistent_region.hpp"
 #include <atomic>
 #include <clause/runtime/base_types.hpp>
 #include <cstdint>
@@ -20,11 +21,28 @@ class LiteralAreas final {
 
     // Add the words of one module's literal area; an empty area adds nothing. May throw std::bad_alloc.
     void add(std::span<const Word> area);
-    // The words from a word-aligned address inside an area to that area's end; empty for any other address.
-    // Lock-free: readers see an immutable snapshot.
+    // The words from a word-aligned address inside a module area to that area's end, or inside the persistent term
+    // range to its committed end; empty for any other address. Lock-free: readers see an immutable snapshot.
     std::span<const Word> find(std::uintptr_t address) const noexcept;
 
+    // Whether a copy may keep a word naming this address instead of copying its object: a module literal, or a
+    // persistent term that is not retiring (persistent term reclamation).
+    bool shared(std::uintptr_t address) const noexcept {
+        return persistent_.contains(address) ? !persistent_.retiring(address) : module(address);
+    }
+
+    // Whether an address lies in a module's literal area; persistent terms are not module literals.
+    bool module(std::uintptr_t address) const noexcept;
+
+    // The address range persistent terms are copied into (persistent term reclamation).
+    PersistentRegion &persistent() noexcept { return persistent_; }
+
+    const PersistentRegion &persistent() const noexcept { return persistent_; }
+
   private:
+    // The words from an address inside a module area to that area's end; empty for any other address.
+    std::span<const Word> module_words(std::uintptr_t address) const noexcept;
+
     struct Range {
         // First and one-past-last word addresses of an area, and its words.
         std::uintptr_t begin;
@@ -38,5 +56,7 @@ class LiteralAreas final {
     std::vector<std::unique_ptr<const std::vector<Range>>> snapshots_;
     // Serializes writers.
     std::mutex mutex_;
+    // The persistent term range; its areas come and go, so they are not entered in the snapshots.
+    PersistentRegion persistent_;
 };
 } // namespace clause::runtime::detail

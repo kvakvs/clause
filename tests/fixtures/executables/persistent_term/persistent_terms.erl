@@ -31,6 +31,7 @@ main([]) ->
     ]),
     readers(Key, Big),
     shared(Key, Big),
+    churn(),
     replaced(Key),
     io:format("persistent_terms: ok~n").
 
@@ -78,6 +79,32 @@ shared(Key, Big) ->
     io:format("~w~n", [
         [Wrapped =:= {wrapped, Big}, Built =:= [Big, Big, Big], Again =:= {again, Big}]
     ]).
+
+%% A process parked in receive keeps the value it read while the key is
+%% replaced many times.
+churn() ->
+    Key = {?MODULE, churn},
+    ok = persistent_term:put(Key, {first, lists:seq(1, 1000)}),
+    Self = self(),
+    Holder = spawn(fun() ->
+        Held = persistent_term:get(Key),
+        Self ! ready,
+        receive
+            {check, From} -> From ! {held, Held}
+        end
+    end),
+    receive
+        ready -> ok
+    end,
+    [ok = persistent_term:put(Key, {N, lists:seq(1, 1000)}) || N <- lists:seq(1, 2000)],
+    true = persistent_term:erase(Key),
+    garbage_collect(),
+    Holder ! {check, Self},
+    Held =
+        receive
+            {held, Value} -> Value
+        end,
+    io:format("~w~n", [[element(1, Held), length(element(2, Held))]]).
 
 %% A reader keeps its value after the key is replaced and erased.
 replaced(Key) ->

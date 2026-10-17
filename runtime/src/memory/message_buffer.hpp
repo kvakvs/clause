@@ -35,19 +35,8 @@ class MessageBuffer final {
                                  ProcessContext &destination) noexcept;
     // The buffered value as a term of `destination`, copied into its heap.
     TermResult<Term> copy_to(ProcessContext &destination) const noexcept;
-    // The buffered value as a term to read in place (an immediate as a term of `reader`), for comparing and hashing
-    // without a copy. Added for persistent terms (step 41M1).
-    TermResult<Term> value(ProcessContext &reader) const noexcept;
-    // The words the buffer's heap holds. Added for persistent terms (step 41M1).
+    // The words the buffer's heap holds.
     std::size_t words() const noexcept;
-    // An empty buffer whose heap grows as values are appended, outside any process budget: the shared area of
-    // persistent terms (persistent terms in place).
-    static TermResult<std::shared_ptr<MessageBuffer>> area(ProcessContext &sender) noexcept;
-    // Copy `value`, a live term of one process of the runtime, into this buffer's heap; the copy's root word. Words
-    // already in a literal area are kept as they are (persistent terms in place).
-    TermResult<Word> append(const Term &value) noexcept;
-    // Every block of the buffer's heap, unused words included (persistent terms in place).
-    std::vector<std::span<const Word>> blocks() const;
 
   private:
     MessageBuffer() = default;

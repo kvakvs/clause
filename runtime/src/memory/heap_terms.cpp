@@ -125,6 +125,8 @@ std::span<const Word> TermAccess::boxed_words(ProcessHeap &heap, Word value) noe
     return count > area.size() ? std::span<const Word>{} : area.first(count);
 }
 
+HeapStorage &TermAccess::storage(ProcessHeap &heap) noexcept { return *heap.storage_; }
+
 std::span<const Word> TermAccess::cons_words(ProcessHeap &heap, Word value) noexcept {
     return cons_cell(*heap.storage_, value);
 }

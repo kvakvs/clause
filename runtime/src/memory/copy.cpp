@@ -3,6 +3,7 @@
 #include "heap_walk.hpp"
 #include "message_buffer.hpp"
 #include "off_heap.hpp"
+#include "persistent_terms.hpp"
 #include "process_heap.hpp"
 #include <algorithm>
 #include <boost/container/small_vector.hpp>
@@ -54,7 +55,13 @@ void drop_binaries(HeapStorage &storage, std::span<const RefcBinaryCell *const> 
 class GraphCopy final {
   public:
     // Borrow a heap of the runtime for its literal areas; the source graph must not change until the copy is published.
-    explicit GraphCopy(const HeapStorage &runtime) : runtime_(runtime) {}
+    // A copy into a process keeps live persistent terms as they are; one outside every process (a message buffer, a
+    // persistent term) copies them too, so no retired persistent term is left behind there (persistent term
+    // reclamation).
+    // The retiring areas are read once: both passes decide alike even while another worker retires more.
+    explicit GraphCopy(const HeapStorage &runtime, bool keep_persistent = true)
+        : runtime_(runtime), keep_persistent_(keep_persistent),
+          retiring_(keep_persistent ? runtime.retiring_ranges() : RetiringRanges{}) {}
 
     // Find every object occurrence reachable from root without recursion, in the order copy() visits them; false when
     // a cell is malformed. May throw std::bad_alloc.
@@ -113,6 +120,24 @@ class GraphCopy final {
         return result;
     }
 
+    // Construct the copies of binary cells in a persistent term's area, sharing their buffers; they belong to no heap's
+    // off-heap list, the area's owner destroys them (persistent term reclamation).
+    std::vector<RefcBinaryCell *> link_shared(std::span<Word> out) const {
+        std::vector<RefcBinaryCell *> cells;
+        cells.reserve(binaries_.size());
+        for (std::size_t index = 0; index < binaries_.size(); ++index) {
+            const auto &from = *binaries_[index];
+            auto *to = std::construct_at(reinterpret_cast<RefcBinaryCell *>(out.data() + binary_offsets_[index]));
+            to->header_ = from.header_;
+            to->offset_ = from.offset_;
+            to->bits_ = from.bits_;
+            to->data_ = from.buffer_->data();
+            to->buffer_ = from.buffer_;
+            cells.push_back(to);
+        }
+        return cells;
+    }
+
     // Construct the published copies of binary cells, sharing their buffers, and list them in destination.
     void link(HeapStorage &destination, std::span<Word> out) const noexcept {
         for (std::size_t index = 0; index < binaries_.size(); ++index) {
@@ -132,7 +157,7 @@ class GraphCopy final {
     // The source object a word names, when it is copied: literals are shared by every process of the runtime and stay
     // as they are (OPT0.4). Cells are read by trusted pointer, as BEAM's copy_struct does (one-word terms).
     std::expected<HeapCell, Found> source_cell(Word value) const {
-        if (!compound(value) || runtime_.literal(address(value))) {
+        if (!compound(value) || kept(address(value))) {
             return std::unexpected(Found::none);
         }
         const auto words = TermAccess::trusted_cell(value);
@@ -178,8 +203,19 @@ class GraphCopy final {
         words_ += cell.words.size();
     }
 
+    // Whether a copy keeps the word naming an address instead of copying its object.
+    bool kept(std::uintptr_t at) const noexcept {
+        if (runtime_.persistent(at)) {
+            return keep_persistent_ && !retiring_.contains(at);
+        }
+        return runtime_.module_literal(at);
+    }
+
     // A heap of the copy's runtime, whose literal areas are shared rather than copied.
     const HeapStorage &runtime_;
+    // Whether live persistent terms are kept like module literals, and the retiring ones this copy copies anyway.
+    bool keep_persistent_;
+    RetiringRanges retiring_;
     // Source cells of the copied off-heap binaries and the offsets of their copies.
     std::vector<const RefcBinaryCell *> binaries_;
     std::vector<std::size_t> binary_offsets_;
@@ -194,7 +230,8 @@ TermResult<Term> ProcessHeap::add(const Term &value) noexcept {
         return std::unexpected(checked.error());
     }
     const auto word = value.word();
-    if (!detail::compound(word) || !storage_->readable(detail::address(word)).empty()) {
+    const auto at = detail::address(word);
+    if (!detail::compound(word) || (!storage_->retiring(at) && !storage_->readable(at).empty())) {
         return retain(value);
     }
     if (!storage_->alive()) {
@@ -262,10 +299,6 @@ TermResult<Term> Term::copy_to(ProcessHeap &destination) const noexcept { return
 namespace clause::runtime::detail {
 MessageBuffer::~MessageBuffer() = default;
 
-TermResult<Term> MessageBuffer::value(ProcessContext &reader) const noexcept {
-    return storage_ ? TermAccess::admit(root_, *storage_) : Term::from_word(root_, reader);
-}
-
 std::size_t MessageBuffer::words() const noexcept { return storage_ ? storage_->used_words_ : 0; }
 
 bool MessageBuffer::large(const Term &value, ProcessContext &sender, std::size_t minimum) noexcept {
@@ -279,8 +312,8 @@ bool MessageBuffer::large(const Term &value, ProcessContext &sender, std::size_t
         while (!pending.empty() && words < minimum) {
             const auto word = pending.back();
             pending.pop_back();
-            // Literals are shared, not copied (OPT0.4).
-            if (source.literal(address(word))) {
+            // Module literals are shared, not copied (OPT0.4); persistent terms are copied into buffers.
+            if (source.module_literal(address(word))) {
                 continue;
             }
             if (const auto cell = parse_cell(TermAccess::trusted_cell(word))) {
@@ -362,11 +395,11 @@ TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Te
             return buffer;
         }
         const auto &source = *sender.heap().storage_;
-        GraphCopy graph(source);
+        GraphCopy graph(source, false);
         if (!graph.discover(value.word())) {
             return std::unexpected(TermError::wrong_owner);
         }
-        // A literal root is shared, like an immediate one (OPT0.4).
+        // A module literal root is shared, like an immediate one (OPT0.4).
         if (graph.words() == 0) {
             return buffer;
         }
@@ -386,38 +419,53 @@ TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Te
     }
 }
 
-TermResult<std::shared_ptr<MessageBuffer>> MessageBuffer::area(ProcessContext &sender) noexcept {
-    try {
-        std::shared_ptr<MessageBuffer> buffer(new MessageBuffer());
-        buffer->lifetime_ = std::shared_ptr<ContextLifetime>(new ContextLifetime());
-        // No process budget applies; the runtime-wide account still does.
-        const auto &source = *sender.heap().storage_;
-        auto options = source.options_;
-        options.limit_bytes = UNLIMITED_HEAP_BYTES;
-        buffer->storage_ = buffer_storage(source, options, buffer->lifetime_);
-        return buffer;
-    } catch (const std::bad_alloc &) {
-        return std::unexpected(TermError::out_of_memory);
+TermResult<PersistentCopy> copy_persistent(ProcessContext &writer, PersistentRegion &region,
+                                           const Term &value) noexcept {
+    PersistentCopy result;
+    result.root = value.word();
+    if (!compound(value.word())) {
+        return result;
     }
-}
-
-TermResult<Word> MessageBuffer::append(const Term &value) noexcept {
+    const auto &source = TermAccess::storage(writer.heap());
     try {
-        // Literals, this area's own words among them once registered, are shared rather than copied.
-        GraphCopy graph(*storage_);
-        if (!compound(value.word())) {
-            return value.word();
-        }
+        GraphCopy graph(source, false);
         if (!graph.discover(value.word())) {
             return std::unexpected(TermError::wrong_owner);
         }
-        return graph.words() == 0 ? value.word() : publish_graph(*storage_, graph, value.word());
+        // A module literal is shared, like an immediate (OPT0.4).
+        if (graph.words() == 0) {
+            return result;
+        }
+        if (!source.memory_->charge(graph.words())) {
+            return std::unexpected(TermError::resource_limit);
+        }
+        result.memory = source.memory_;
+        try {
+            result.area = region.allocate(graph.words());
+            result.root = graph.copy(value.word(), result.area);
+            // The binary cells are copied last: nothing can fail once they hold their buffers.
+            result.binaries = graph.link_shared(result.area);
+        } catch (const std::bad_alloc &) {
+            region.release(result.area);
+            source.memory_->release(graph.words());
+            throw;
+        }
+        return result;
     } catch (const std::bad_alloc &) {
         return std::unexpected(TermError::out_of_memory);
     }
 }
 
-std::vector<std::span<const Word>> MessageBuffer::blocks() const { return storage_->blocks(); }
+void free_persistent(PersistentRegion &region, const PersistentCopy &copy) noexcept {
+    if (copy.area.empty()) {
+        return;
+    }
+    for (auto *cell : copy.binaries) {
+        std::destroy_at(cell);
+    }
+    region.release(copy.area);
+    copy.memory->release(copy.area.size());
+}
 
 TermResult<Term> MessageBuffer::copy_to(ProcessContext &destination) const noexcept {
     if (!storage_) {

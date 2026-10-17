@@ -1,5 +1,6 @@
 #include "../memory/heap_object.hpp"
 #include "../memory/persistent_terms.hpp"
+#include "../scheduler/executor.hpp"
 #include "erlang/hashing.hpp"
 #include "typed.hpp"
 #include <array>
@@ -39,12 +40,21 @@ std::optional<Term> lookup(ProcessContext &context, const Term &key) {
     return stored ? std::optional{TermAccess::make(*stored)} : std::nullopt;
 }
 
+// Have the parked processes copy out what a put or erase retired; running and queued ones do at their next slice
+// (persistent term reclamation).
+void evacuate(ProcessContext &context) {
+    if (context.persistent_terms().waiting()) {
+        detail::Executor::of(context).evacuate_parked();
+    }
+}
+
 // Store `value` under `key`.
 void store(ProcessContext &context, const Term &key, const Term &value) {
     const auto stored = context.persistent_terms().store(context, term_hash(context, key), key, value, same_key(key));
     if (!stored) {
         throw BuiltinFailure{.term = stored.error()};
     }
+    evacuate(context);
 }
 
 // put(Key, Value).
@@ -93,7 +103,9 @@ TermResult<Term> get0(ProcessContext &context) {
 
 // erase(Key): whether Key was stored.
 TermResult<Term> erase(ProcessContext &context, const Term &key) {
-    return TermFactory(context).boolean(context.persistent_terms().erase(term_hash(context, key), same_key(key)));
+    const auto erased = context.persistent_terms().erase(term_hash(context, key), same_key(key));
+    evacuate(context);
+    return TermFactory(context).boolean(erased);
 }
 
 // info(): #{count => Entries, memory => Bytes}.

@@ -1,5 +1,7 @@
+#include "../terms/term_layout.hpp"
 #include "heap_collect.hpp"
 #include "off_heap.hpp"
+#include "persistent_terms.hpp"
 #include <algorithm>
 #include <clause/runtime/process_context.hpp>
 #include <clause/runtime/runtime.hpp>
@@ -97,7 +99,8 @@ bool ProcessHeap::wants_full_sweep() const noexcept {
     const auto &storage = *storage_;
     const auto room = storage.old_.capacity_ - storage.old_.top_;
     const bool binaries = storage.off_heap_words_ >= storage.binary_limit_words_ && storage.binary_sweep_due_;
-    return storage.collection_requested_ || binaries || storage.options_.limit_bytes != UNLIMITED_HEAP_BYTES ||
+    return storage.collection_requested_ || storage.evacuation_requested_ || binaries ||
+           storage.options_.limit_bytes != UNLIMITED_HEAP_BYTES ||
            (storage.old_.capacity_ != 0 && room < storage.high_water_);
 }
 
@@ -112,6 +115,7 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect(std::span<Word> r
         return std::unexpected(HeapError::unsafe_point);
     }
     storage.collection_requested_ = false;
+    const bool evacuating = evacuation(generation);
     storage.absorb();
     // A collection may promote map tree nodes, which then must not change in place (on-heap map trees).
     storage.map_edit_floor_ = storage.map_edits_;
@@ -121,11 +125,27 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect(std::span<Word> r
     const auto off_heap_before = storage.off_heap_words_;
     CollectionStats stats{.words_before = storage.used_words_,
                           .fragment_words = storage.capacity_words_ - storage.heap_.capacity_ - storage.old_.capacity_};
-    if (storage.heap_.capacity_ != 0) {
-        if (const auto copied = copy_generation(roots, generation); !copied) {
+    // A process with no heap block yet may still hold a retiring persistent term in a root.
+    if (storage.heap_.capacity_ != 0 || evacuating) {
+        if (const auto copied = copy_generation(roots, generation, evacuating); !copied) {
             return std::unexpected(copied.error());
         }
     }
+    limit_binaries(generation, pressure, off_heap_before);
+    stats.live_words = storage.used_words_;
+    stats.heap_words = storage.capacity_words_;
+    stats.stack_words = owner_.stack().capacity();
+    stats.off_heap_words = storage.off_heap_words_;
+    return stats;
+}
+
+bool ProcessHeap::evacuation(detail::Generation generation) noexcept {
+    // Only a full sweep copies retiring persistent terms (persistent term reclamation).
+    return std::exchange(storage_->evacuation_requested_, false) && generation == detail::Generation::full;
+}
+
+void ProcessHeap::limit_binaries(detail::Generation generation, bool pressure, std::size_t off_heap_before) noexcept {
+    auto &storage = *storage_;
     // Surviving buffers double the virtual binary heap, but half of the free budget stays for heap fragments. It also
     // leaves room for as many new buffer words as the heap holds live words: a collection for binary garbage copies
     // them all, so its cost stays proportional to the binaries allocated (amortized binary collections). A minor
@@ -138,17 +158,12 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect(std::span<Word> r
     const auto live = generation == detail::Generation::full ? storage.used_words_ : storage.heap_.top_;
     const auto doubled =
         std::max({detail::MIN_BINARY_HEAP_WORDS, 2 * storage.off_heap_words_, storage.off_heap_words_ + live});
-    const auto room = (budget_words() - storage.capacity_words_) / 2;
+    const auto room = detail::words_left(budget_words(), storage.capacity_words_) / 2;
     storage.binary_limit_words_ = std::min(doubled, storage.off_heap_words_ + room);
-    stats.live_words = storage.used_words_;
-    stats.heap_words = storage.capacity_words_;
-    stats.stack_words = owner_.stack().capacity();
-    stats.off_heap_words = storage.off_heap_words_;
-    return stats;
 }
 
-std::expected<void, HeapError> ProcessHeap::copy_generation(std::span<Word> roots,
-                                                            detail::Generation generation) noexcept {
+std::expected<void, HeapError> ProcessHeap::copy_generation(std::span<Word> roots, detail::Generation generation,
+                                                            bool evacuating) noexcept {
     auto &storage = *storage_;
     // A minor collection's new block receives at most the young words above the high-water mark.
     const auto young = storage.used_words_ - storage.old_.top_;
@@ -163,11 +178,12 @@ std::expected<void, HeapError> ProcessHeap::copy_generation(std::span<Word> root
     // the young block at least an eighth of the old area (ERTS), so a growing live set does not collect every few
     // thousand words.
     const auto wanted = std::max({storage.heap_.capacity_, grown, collected_size(young - mature), young_floor()});
-    const auto capacity = minor ? wanted : collected_size(storage.used_words_);
-    try {
-        copy_live(roots, capacity, generation);
-    } catch (const std::bad_alloc &) {
-        return std::unexpected(HeapError::out_of_memory);
+    // Never smaller than the words it copies: an evacuation may have left more live words than the budget allows.
+    const auto capacity =
+        minor ? std::max(wanted, young) : std::max(collected_size(storage.used_words_), storage.used_words_);
+    if (const auto copied = evacuating ? evacuate_live(roots, capacity) : copy_checked(roots, capacity, generation);
+        !copied) {
+        return copied;
     }
     if (!minor || !overflowed) {
         shrink(roots, generation);
@@ -194,6 +210,11 @@ void ProcessHeap::request_collection() noexcept {
     storage_->signal_collection();
 }
 
+void ProcessHeap::request_evacuation() noexcept {
+    storage_->evacuation_requested_ = true;
+    request_collection();
+}
+
 std::size_t ProcessHeap::collected_size(std::size_t live_words) const noexcept {
     const auto &storage = *storage_;
     // ERTS keeps the stack in the heap block: a deep stack gets a larger heap, so collections stay proportional.
@@ -202,17 +223,70 @@ std::size_t ProcessHeap::collected_size(std::size_t live_words) const noexcept {
     return std::min(wanted, block_limit(live_words));
 }
 
-std::size_t ProcessHeap::budget_words() const noexcept { return storage_->budget() - storage_->off_heap_words_; }
+std::size_t ProcessHeap::budget_words() const noexcept {
+    return detail::words_left(storage_->budget(), storage_->off_heap_words_);
+}
 
 std::size_t ProcessHeap::block_limit(std::size_t live_words) const noexcept {
     const auto budget = budget_words();
-    return std::min(budget, std::max(storage_->options_.min_heap_words, live_words + (budget - live_words) / 2));
+    return std::min(
+        budget, std::max(storage_->options_.min_heap_words, live_words + detail::words_left(budget, live_words) / 2));
 }
 
-void ProcessHeap::copy_live(std::span<Word> roots, std::size_t capacity, detail::Generation generation) {
-    detail::Copier copier(*storage_, capacity, generation);
+void ProcessHeap::copy_live(std::span<Word> roots, std::size_t capacity, detail::Generation generation,
+                            const detail::RetiringRanges *retiring, std::span<const void *const> held) {
+    detail::Copier copier(*storage_, capacity, generation, retiring);
     owner_.visit_roots(roots, [&](Word &word) { word = copier.evacuate(word); });
     copier.finish();
+    for (const auto *cell : held) {
+        if (!copier.copied_external(cell)) {
+            detail::drop_off_heap(*storage_, *static_cast<const detail::layout::RefcBinaryCell *>(cell)->buffer_);
+        }
+    }
+}
+
+std::expected<void, HeapError> ProcessHeap::copy_checked(std::span<Word> roots, std::size_t capacity,
+                                                         detail::Generation generation) noexcept {
+    try {
+        copy_live(roots, capacity, generation);
+        return {};
+    } catch (const std::bad_alloc &) {
+        return std::unexpected(HeapError::out_of_memory);
+    }
+}
+
+std::expected<void, HeapError> ProcessHeap::evacuate_live(std::span<Word> roots, std::size_t capacity) noexcept {
+    std::vector<const void *> held;
+    std::size_t holds = 0;
+    try {
+        // The retirements this process still holds stay allocated until it reports their epoch. Every binary of them
+        // is held first, so the sweep never allocates; those it does not copy are dropped after.
+        const auto evacuation = owner_.persistent_terms().evacuation(owner_);
+        held.assign(evacuation.binaries.begin(), evacuation.binaries.end());
+        for (; holds < evacuation.binaries.size(); ++holds) {
+            detail::hold_off_heap_unbudgeted(*storage_, *evacuation.binaries[holds]->buffer_);
+        }
+        copy_live(roots, capacity + evacuation.ranges.words(), detail::Generation::full, &evacuation.ranges, held);
+        evacuated(evacuation.epoch);
+        return {};
+    } catch (const std::bad_alloc &) {
+        for (std::size_t index = 0; index < holds; ++index) {
+            detail::drop_off_heap(*storage_,
+                                  *static_cast<const detail::layout::RefcBinaryCell *>(held[index])->buffer_);
+        }
+        // The process stays behind; its next collection tries again.
+        storage_->evacuation_requested_ = true;
+        return std::unexpected(HeapError::out_of_memory);
+    }
+}
+
+void ProcessHeap::evacuated(std::uint64_t epoch) noexcept {
+    try {
+        owner_.persistent_terms().evacuated(owner_, epoch);
+    } catch (...) {
+        // The process counts as behind; its next slice asks again.
+        storage_->evacuation_requested_ = true;
+    }
 }
 
 void ProcessHeap::shrink(std::span<Word> roots, detail::Generation generation) noexcept {
@@ -223,11 +297,13 @@ void ProcessHeap::shrink(std::span<Word> roots, detail::Generation generation) n
     const auto used = storage_->used_words_;
     const auto capacity = storage_->heap_.capacity_;
     const auto sparse = 4 * (used + owner_.stack().words()) < capacity;
-    if (collected_size(used) >= capacity || (!sparse && capacity <= block_limit(used))) {
+    // A budget may cap the policy size below the live words an evacuation left; the block then stays.
+    const auto wanted = collected_size(used);
+    if (wanted >= capacity || wanted < used || (!sparse && capacity <= block_limit(used))) {
         return;
     }
     try {
-        copy_live(roots, collected_size(used), detail::Generation::full);
+        copy_live(roots, wanted, detail::Generation::full);
     } catch (const std::bad_alloc &) {
         return; // The larger block stays; it already holds every live word.
     }

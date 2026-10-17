@@ -137,25 +137,33 @@ One table per runtime (`memory/persistent_terms`), owned by `Runtime::Impl` and
 reached through `ProcessContext::persistent_terms()`, keeps the terms of
 `persistent_term` ([builtins](builtins.md#persistent-terms)).
 
-- Keys and values are copied into one shared area, a growing `MessageBuffer`
-  ([message buffers](runtime-heap.md#message-buffers)) outside every process
-  (`MessageBuffer::area`, `append`), so they outlive the process that stored
-  them and no collection moves them. Each block of the area joins the runtime's
-  literal areas before any word in it is stored (OPTM.2B).
+- Each key and value is copied into an area of its own in the runtime's
+  persistent term range (`memory/persistent_region`): one address reservation
+  (64 GiB of address space on 64-bit hosts, 256 MiB on 32-bit ones) whose pages
+  are committed as areas are allocated, so whether a word names a persistent
+  term is one range comparison. Copies share only module literals, so every area
+  stands alone; its binaries share their buffers.
 - Entries are root words found by a hash of the key (the builtins use the term
   hash of `phash2`) and exact equality, compared in place.
 - A read returns the stored word in place, as OTP's literal persistent terms:
-  any process may hold it, send it (copies share literals) or store it again
-  (already in a literal area, not copied); collections leave it alone, and
-  admission accepts it as a literal. A replaced or erased value stays in the
-  area until the runtime is torn down instead of being reclaimed by OTP's
-  global literal collection ([differences](differences.md)); `info/0` counts
-  only current entries.
+  any process may hold it and send it (a copy into another process keeps the
+  word); collections leave it alone, and admission accepts it like a literal.
+  Message buffers and new persistent terms copy persistent words.
+- **Reclamation.** A replaced or erased value's area retires under a new epoch.
+  From then on every copy copies its words, and each process registered when it
+  retired copies the retiring objects it holds into its own heap at an
+  evacuating full sweep (`Copier` with the region, each object once, binary
+  buffers held before the sweep): a running or queued process at the start of
+  its next slice, a parked one at once, by the put or erase that retired it
+  (`Executor::evacuate_parked`, under the executor lock). Once every such
+  process has done so or ended, the area is freed. `info/0` counts only current
+  entries.
 - A shared lock serves readers on any number of workers; put and erase take it
-  alone, and put copies under it. CTest `runtime_persistent_terms` covers values
-  outliving their writer, in-place reads across collections and between
-  processes, replaced and erased values held by readers, and concurrent readers
-  and writers.
+  alone (copies are made before it). CTest `runtime_persistent_terms` covers
+  values outliving their writer, in-place reads across collections and between
+  processes, replaced and erased values held by readers, concurrent readers and
+  writers, and reclamation (retiring copies, evacuation, freed areas and
+  charges).
 
 ## Scheduler bookkeeping
 

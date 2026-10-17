@@ -37,8 +37,10 @@ std::expected<ProcessContext *, Status> Runtime::create_context(const HeapOption
         }
         const auto process = impl_->processes.emplace(static_cast<Word>(*number), borrowed).first;
         try {
+            impl_->persistent_terms.enter(*borrowed);
             impl_->contexts.emplace(borrowed, std::move(context));
         } catch (...) {
+            impl_->persistent_terms.leave(*borrowed);
             impl_->processes.erase(process);
             throw;
         }
@@ -71,6 +73,7 @@ Status Runtime::destroy_context(ProcessContext *context) const noexcept {
     if (impl_->profile && context->stack().profile()) {
         impl_->profile->add(static_cast<Word>(context->identity().serial_), *context->stack().profile());
     }
+    impl_->persistent_terms.leave(*context);
     impl_->contexts.erase(found);
     return Status::ok;
 }

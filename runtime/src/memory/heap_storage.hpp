@@ -54,8 +54,6 @@ class HeapStorage final {
     HeapStorage &operator=(const HeapStorage &) = delete;
     // Check lifetime before admitting a surviving reservation or future heap Term.
     bool alive() const noexcept;
-    // Every heap block and fragment with all its words, used or not (persistent terms in place).
-    std::vector<std::span<const Word>> blocks() const;
     // Capture exact accounting before an unpublished reservation changes a top.
     HeapMark mark() const noexcept;
     // Restore a reservation without touching any previously published words.
@@ -82,8 +80,28 @@ class HeapStorage final {
     // read-only; empty for any other address.
     std::span<const Word> readable(std::uintptr_t address) noexcept;
 
-    // Whether an address lies in a literal area of the runtime (OPT0.4).
-    bool literal(std::uintptr_t address) const noexcept { return literals_ && !literals_->find(address).empty(); }
+    // Whether a copy keeps a word naming this address instead of copying its object: a module literal (OPT0.4) or a
+    // persistent term that is not retiring (persistent term reclamation).
+    bool literal(std::uintptr_t address) const noexcept { return literals_ && literals_->shared(address); }
+
+    // Whether an address lies in a module's literal area: the only words a copy outside every process may keep
+    // (persistent term reclamation).
+    bool module_literal(std::uintptr_t address) const noexcept { return literals_ && literals_->module(address); }
+
+    // Whether an address lies in a retiring persistent term, which every copy copies (persistent term reclamation).
+    bool retiring(std::uintptr_t address) const noexcept {
+        return literals_ && literals_->persistent().retiring(address);
+    }
+
+    // Whether an address lies in the persistent term range (persistent term reclamation).
+    bool persistent(std::uintptr_t address) const noexcept {
+        return literals_ && literals_->persistent().contains(address);
+    }
+
+    // The retiring persistent terms now, for one copy to decide consistently (persistent term reclamation).
+    RetiringRanges retiring_ranges() const {
+        return literals_ ? literals_->persistent().retiring_ranges() : RetiringRanges{};
+    }
 
     // Borrow the used words from an address to the end of its area; empty unless the address is
     // word-aligned below the top of the heap or a fragment. Process pointers only name object starts.
@@ -143,6 +161,9 @@ class HeapStorage final {
     bool pending_ = false;
     // garbage_collect/0,1,2 asked for a collection at the next safepoint (step 41G1).
     bool collection_requested_ = false;
+    // The next collection is a full sweep that copies the retiring persistent terms it reaches (persistent term
+    // reclamation).
+    bool evacuation_requested_ = false;
     // The owning context's FrameState::slow word, so generated entries see a wanted collection (OPT0.1); null for
     // a message buffer's storage.
     std::size_t *collection_signal_ = nullptr;

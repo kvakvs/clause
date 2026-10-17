@@ -1,5 +1,6 @@
 #include "memory/persistent_terms.hpp"
 #include "memory/heap_object.hpp"
+#include "memory/persistent_region.hpp"
 #include "terms.hpp"
 #include <array>
 #include <atomic>
@@ -16,7 +17,8 @@
 // The runtime-wide persistent term table (plan step 41M1, docs/runtime.md#persistent-terms): values outlive the
 // process that stored them, readers hold them in place across their collections and pass them on without a copy
 // (persistent terms in place), a value replaced or erased while a reader holds it stays readable, and concurrent
-// readers and writers agree.
+// readers and writers agree; a retired value is copied out by the processes holding it and then freed (persistent
+// term reclamation).
 namespace {
 using clause::abi::v1::Status;
 using clause::runtime::ProcessContext;
@@ -146,6 +148,51 @@ void concurrent(Runtime &runtime, PersistentTerms &table) {
     }
     require(runtime.destroy_context(&writer) == Status::ok, "writer teardown failed");
 }
+
+// The persistent term range reuses freed areas first fit, merges neighbouring free runs and lowers its top again.
+void region() {
+    clause::runtime::detail::PersistentRegion range;
+    const auto first = range.allocate(10);
+    const auto second = range.allocate(3);
+    const auto third = range.allocate(7);
+    require(range.contains(reinterpret_cast<std::uintptr_t>(third.data())) && first.data() < second.data(),
+            "areas outside the range");
+    range.release(second);
+    require(range.allocate(2).data() == second.data(), "a freed area was not reused");
+    range.release({second.data(), 2});
+    range.release(first);
+    // first and second merged: a request for both fits where first began.
+    const auto merged = range.allocate(14);
+    require(merged.data() == first.data(), "neighbouring free runs did not merge");
+    range.release(merged);
+    range.release(third);
+    require(range.allocate(30).data() == first.data(), "the top did not come back down");
+}
+
+// An erased value retires: copies of it are no longer shared, each registered process copies what it holds at an
+// evacuating collection, and the area is freed once all of them have.
+void reclaim(Runtime &runtime, PersistentTerms &table) {
+    auto &writer = *runtime.create_context().value();
+    auto &holder = *runtime.create_context().value();
+    const auto key = TermFactory(writer).atom("retiring").value();
+    const auto expected = text(sample(writer, 7));
+    put(table, writer, key, sample(writer, 7));
+    const auto held = stored_value(table, holder, key).value();
+    require(held.copy_to(writer.heap())->word() == held.word(), "a live value was copied");
+    require(table.erase(hash_of(key), same_as(key)) && table.retired() == 1, "erased value did not retire");
+    const auto sent = held.copy_to(writer.heap()).value();
+    require(sent.word() != held.word() && text(sent) == expected, "a retiring value was shared");
+    writer.heap().request_evacuation();
+    require(writer.heap().collect().has_value() && table.retired() == 1, "freed while the holder still holds it");
+    std::array roots{held.word()};
+    holder.heap().request_evacuation();
+    require(holder.heap().collect(roots).has_value() && holder.heap().verify().has_value(), "evacuation failed");
+    require(roots[0] != held.word() && text(Term::from_word(roots[0], holder).value()) == expected,
+            "the held value was not copied out");
+    require(table.retired() == 0, "retired area not freed after every process copied it out");
+    require(runtime.destroy_context(&writer) == Status::ok && runtime.destroy_context(&holder) == Status::ok,
+            "teardown failed");
+}
 } // namespace
 
 int main() {
@@ -155,8 +202,10 @@ int main() {
         outlives_writer(*runtime, table);
         replace_and_erase(*runtime, table);
         concurrent(*runtime, table);
-        // Erased values stay in the shared area until the runtime is torn down.
-        require(table.count() == 0 && table.words() == 0 && runtime->memory_bytes() > 0, "wrong area accounting");
+        reclaim(*runtime, table);
+        region();
+        require(table.count() == 0 && table.retired() == 0 && runtime->memory_bytes() == 0,
+                "erased values stay charged");
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;

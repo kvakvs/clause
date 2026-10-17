@@ -176,6 +176,17 @@ class Executor final {
     // The executor of a context's runtime.
     static Executor &of(ProcessContext &context) noexcept;
 
+    // Ready a process for the slice it is about to run (persistent term reclamation).
+    void prepare(ProcessContext &process) const;
+    // Place a process whose slice ended unfinished: queued or parked, or left suspended on a busy port.
+    void settle(ProcessContext &process, ProcessContext *blocked_on);
+    // Evacuate a process that is not running and may hold retiring persistent terms; the executor lock is held.
+    void evacuate(ProcessContext &process);
+    // Copy retiring persistent terms out of every parked process that may hold some, with an evacuating collection
+    // under the executor lock: a parked process's heap changes only under it, and it would otherwise hold the areas
+    // until it next runs (persistent term reclamation).
+    void evacuate_parked();
+
     // Queue `process` to start with a call of `function` on the arguments already in its registers; false after
     // recording the failure in its channel.
     bool start(ProcessContext &process, const abi::v1::FrameDescriptor &function) noexcept;

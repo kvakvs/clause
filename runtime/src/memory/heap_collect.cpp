@@ -62,8 +62,19 @@ HeapArea old_area(const HeapStorage &storage) {
 }
 } // namespace
 
-Copier::Copier(HeapStorage &storage, std::size_t capacity, Generation generation)
-    : storage_(storage), generation_(generation), to_{allocate_block(capacity), capacity} {
+Copier::Copier(HeapStorage &storage, std::size_t capacity, Generation generation, const RetiringRanges *retiring)
+    : storage_(storage), generation_(generation), to_{allocate_block(capacity), capacity},
+      retiring_(generation == Generation::full ? retiring : nullptr) {
+    if (retiring_ != nullptr) {
+        // Each object takes two words at least; twice as many slots keep probes short. Allocated before anything
+        // changes, so a throw still leaves the heap untouched.
+        auto slots = std::size_t{16};
+        while (slots < retiring_->words()) {
+            slots *= 2;
+        }
+        forwarded_.assign(slots, {0, 0});
+        external_binaries_.reserve(retiring_->words() / 2);
+    }
     auto old = generation == Generation::minor ? old_area(storage) : HeapArea{};
     // The to-space may pass the runtime-wide limit until finish() releases the blocks it replaces.
     storage_.memory_->force(capacity + old.capacity_);
@@ -89,8 +100,12 @@ Word Copier::evacuate(Word value) noexcept {
     }
     const auto from = storage_.owned(address(value));
     if (from.empty()) {
-        return value;
+        return retiring_ != nullptr && retiring_->contains(address(value)) ? copy_external(value) : value;
     }
+    return forward(from, kind);
+}
+
+Word Copier::forward(std::span<Word> from, TermKind kind) noexcept {
     // A forwarded cons has a zero head and its copy in the tail; a forwarded box has a pointer for a header.
     if (kind == TermKind::list) {
         return from[0] == 0 ? from[1] : copy_cons(from, target(from));
@@ -127,6 +142,49 @@ Word Copier::copy_boxed(std::span<Word> from, HeapArea &area) noexcept {
     return moved;
 }
 
+std::size_t Copier::slot_of(std::uintptr_t object) const noexcept {
+    const auto mask = forwarded_.size() - 1;
+    auto slot = (object / sizeof(Word)) & mask;
+    while (forwarded_[slot].first != object && forwarded_[slot].first != 0) {
+        slot = (slot + 1) & mask;
+    }
+    return slot;
+}
+
+Word Copier::copy_external(Word value) noexcept {
+    auto &entry = forwarded_[slot_of(address(value))];
+    if (entry.first != 0) {
+        return entry.second;
+    }
+    const auto from = TermAccess::trusted_cell(value);
+    const auto copy = to_.claim(from.size());
+    const auto list = (value & static_cast<Word>(abi::v1::primary_mask)) == abi::v1::list_tag;
+    if (!list && layout::off_heap_cell(from[0])) {
+        // A binary cell shares its buffer; the cell joins the off-heap list after the sweep.
+        const auto &original = *reinterpret_cast<const layout::RefcBinaryCell *>(from.data());
+        auto *cell = std::construct_at(reinterpret_cast<layout::RefcBinaryCell *>(copy.data()));
+        cell->header_ = original.header_;
+        cell->offset_ = original.offset_;
+        cell->bits_ = original.bits_;
+        cell->data_ = original.data_;
+        cell->buffer_ = original.buffer_;
+        external_binaries_.push_back(cell);
+    } else {
+        std::ranges::copy(from, copy.begin());
+        // No update of this process holds the edit token of a copied map tree stub or node (on-heap map trees).
+        const auto kind = list ? BoxedKind::tuple : BoxHeader::kind(copy[0]);
+        if (kind == BoxedKind::tree_map || kind == BoxedKind::map_node) {
+            copy[2] &= 1;
+        }
+    }
+    entry = {address(value), tagged(copy.data(), list ? TermKindPrimary::list : TermKindPrimary::boxed)};
+    return entry.second;
+}
+
+bool Copier::copied_external(const void *object) const noexcept {
+    return retiring_ != nullptr && forwarded_[slot_of(reinterpret_cast<std::uintptr_t>(object))].first != 0;
+}
+
 bool Copier::scan(HeapArea &area, std::size_t &scanned) noexcept {
     bool found = false;
     while (scanned < area.top_) {
@@ -161,6 +219,11 @@ void Copier::finish() noexcept {
     const bool full = generation_ == Generation::full;
     const Survivors survivors{to_, full ? nullptr : &storage_.old_};
     sweep_off_heap(storage_, survivors);
+    // Binary cells copied out of persistent terms were never in the list the sweep walked.
+    for (auto *cell : external_binaries_) {
+        cell->next_ = storage_.off_heap_;
+        storage_.off_heap_ = cell;
+    }
     storage_.replace(std::move(to_), full);
 }
 } // namespace clause::runtime::detail

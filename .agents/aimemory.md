@@ -349,3 +349,10 @@ gotchas and user directions not recorded elsewhere.
   handles. A runtime test counting allocations must warm the process-wide atom
   index first (its chunks live for the process). clang-tidy flags std::move of
   Term (trivially copyable) as performance-move-const-arg.
+- Persistent term reclamation (OPTM.2E): anything that copies a term must keep
+  "share or copy" decisions stable (RetiringRanges snapshot per copy); copies
+  outside processes (message buffers, persistent areas) never share persistent
+  words; direct copies into a process heap must run under the executor lock with
+  the receiver not running. A process not scheduled (parked, port-suspended)
+  must be evacuated by the executor. Budget arithmetic uses words_left (live
+  words may exceed a limit after an evacuation).
