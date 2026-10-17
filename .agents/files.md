@@ -55,7 +55,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 
 | Location | Lookup |
 | --- | --- |
-| `library/{erts,kernel,stdlib}/` | Erlang library modules; `<m>.terms` inventories, `*.types.hrl`; `modules.terms` registry (`docs/library.md`) |
+| `library/{erts,kernel,stdlib}/` | Erlang library modules; `<m>.terms` inventories, `*.types.hrl`; `modules.terms` registry, `documented.terms` (OTP-documented functions) (`docs/library.md`) |
 | Root | `CMakeLists.txt`, `CMakePresets.json`, `Makefile`, `make-*.bat`, `run-macos.sh`, `clau.bat`, `decompile-*.bat`, `.clang-{format,tidy}` |
 | `cmake/` | Options, dependencies, toolchains, quality checks (Lizard/tidy scope) |
 | `tools/` | Windows toolchain script, `asm.py`, `unicode/` table generator, quality requirements, `luerl-trace/` |

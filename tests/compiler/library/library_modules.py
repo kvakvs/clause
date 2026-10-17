@@ -5,6 +5,7 @@
   library_modules.py generate LIBRARY APP MODULE   write the all-stub module of an inventory, once
   library_modules.py complete ROOT APP MODULE      bring a hand-written library module to its inventory
   library_modules.py include ROOT                  include each observed types header in its module
+  library_modules.py coverage ROOT                 documented functions per provided or missing module (plan 21)
   library_modules.py freshness ROOT ERL CLAU WORK  inventories match the host OTP; observe, generate, check, compile
   library_modules.py report STDERR                 classify clau errors for the ledger (docs/library.md#ledger)
   library_modules.py reporting ROOT CLAU WORK      report classifies a real clau run over the fixture program
@@ -35,6 +36,19 @@ RESERVED = set(
 )
 # Inventories with their own format and generator (docs/builtins.md#erlang-module), and the module list itself.
 OWN_FORMAT = {"erlang.terms", "modules.terms"}
+DOCUMENTED_ENTRY = re.compile(rf"^\{{({ATOM}), ([a-z]+), ({ATOM}), (\d+)\}}\.$")
+# Provided modules whose documented functions may still be stubs, with the plan 21 step that completes each
+# (docs/library.md#documented-functions); every other provided module implements, refuses or declines them all.
+PARTIAL = {
+    "code": "LIB61",
+    "file": "LIB33, LIB50",
+    "gen_tcp": "LIB60",
+    "gen_udp": "LIB60",
+    "inet": "LIB60",
+    "io": "LIB33, LIB63",
+    "os": "LIB61",
+    "unicode": "LIB4",
+}
 
 
 def unquote(name):
@@ -81,6 +95,53 @@ def read_modules(library, problems):
         else:
             problems.append(f"modules.terms: malformed entry: {line}")
     return modules
+
+
+def read_documented(library, problems):
+    """library/documented.terms: {module: (application, [(name, arity)])}, the functions OTP documents."""
+    path = library / "documented.terms"
+    documented = {}
+    if not path.exists():
+        return documented
+    for line in term_lines(path):
+        match = DOCUMENTED_ENTRY.match(line)
+        if match:
+            app, functions = documented.setdefault(unquote(match[1]), (match[2], []))
+            functions.append((unquote(match[3]), int(match[4])))
+        else:
+            problems.append(f"documented.terms: malformed entry: {line}")
+    return documented
+
+
+def check_documented(library, modules, problems):
+    """Every documented function of a provided module is in its inventory and, unless the module is PARTIAL, not a
+    stub (plan 21 step LIB0)."""
+    for module, (app, functions) in sorted(read_documented(library, problems).items()):
+        inventory = library / app / f"{module}.terms"
+        if modules.get(module, (None, ""))[1] is not None or inventory.name in OWN_FORMAT or not inventory.exists():
+            continue
+        status = {(name, arity): state for name, arity, _, state in read_inventory(inventory, problems)}
+        for key in functions:
+            label = f"{module}:{key[0]}/{key[1]}"
+            if key not in status:
+                problems.append(f"{label} is documented but not in {inventory.name}")
+            elif status[key] == "stub" and module not in PARTIAL:
+                problems.append(f"{label} is documented but a stub; finish it or list {module} as PARTIAL")
+
+
+def coverage(library):
+    """Print each documented module's implemented and documented function counts."""
+    problems = []
+    modules = read_modules(library, problems)
+    for module, (app, functions) in sorted(read_documented(library, problems).items(), key=lambda m: (m[1][0], m[0])):
+        inventory = library / app / f"{module}.terms"
+        if module in modules and modules[module][1] is None and inventory.name not in OWN_FORMAT:
+            status = {(n, a): s for n, a, _, s in read_inventory(inventory, problems)}
+            done = sum(status.get(key) != "stub" for key in functions)
+            state = f"{done}/{len(functions)}" + (f" (partial: {PARTIAL[module]})" if module in PARTIAL else "")
+        else:
+            state = "provided, own format" if module in modules else "not provided"
+        print(f"{app:7} {module:24} {state}")
 
 
 def strip_comments(text):
@@ -226,6 +287,7 @@ def check(root, library):
         source = inventory.with_suffix(".erl")
         if source.exists():
             check_module(root, source, inventory, problems)
+    check_documented(library, modules, problems)
     for header in sorted(library.glob("*/*.types.hrl")):
         source = header.parent / header.name.replace(".types.hrl", ".erl")
         if not source.exists() or include_line(source) not in source.read_text(encoding="utf-8"):
@@ -447,6 +509,8 @@ def main(arguments):
     elif action == "complete" and len(arguments) == 4:
         root = pathlib.Path(arguments[1])
         complete(root, root / "library", arguments[2], arguments[3])
+    elif action == "coverage" and len(arguments) == 2:
+        coverage(pathlib.Path(arguments[1]) / "library")
     elif action == "include" and len(arguments) == 2:
         for source in sorted(pathlib.Path(arguments[1]).glob("library/*/*.erl")):
             include_types(source)

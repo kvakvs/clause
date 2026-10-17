@@ -529,6 +529,15 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT0.25** per-worker run queues with stealing and neighbor balancing; fan_in
   1.7-3.8x — `904e9cd1`
 
+## Plan 21 (from 2026-10-17)
+
+Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
+
+- **LIB0** `library/documented.terms`: 2,888 documented functions observed from
+  OTP's doc chunks (`observe_docs.escript`); `library_inventory` rejects a
+  documented stub outside the partial modules; `library_modules.py coverage` —
+  `[plan21] LIB0`
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found

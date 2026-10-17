@@ -158,6 +158,22 @@ warning, since nothing is replaced.
   OTP source is copied. Results and error terms of implemented functions match
   OTP 29; deliberate differences go to [differences](differences.md).
 
+### Documented functions
+
+`library/documented.terms` lists the public functions OTP 29 documents for
+`erts`, `kernel` and `stdlib`: `{Module, Application, Name, Arity}.` per
+function whose module and function docs are not hidden and which is not
+deprecated, observed from the host OTP's doc chunks by
+`tests/compiler/library/observe_docs.escript` (run explicitly). Undocumented
+exports stay in the inventories but may remain stubs.
+
+- `library_inventory` checks that every documented function of a provided
+  module is in its inventory and is not a stub, except in the modules
+  `library_modules.py` lists as partial with the plan step that completes them
+  ([plan 21](../.agents/21-lib.md)).
+- `python tests/compiler/library/library_modules.py coverage .` prints each
+  documented module's implemented and documented counts.
+
 ### Types
 
 Because Clause's modules win over OTP's, OTP code naming `file:filename()` or

@@ -17,8 +17,10 @@ create a new API that's for the end user to choose
 - **Source of truth:** the doc chunks of the installed OTP 29.1.1
   (`code:get_doc/1`). A module counts when its module doc is not `hidden`, a
   function when its doc is not `hidden` and it is not deprecated. The OTP
-  checkout (pin `d199a49a01`) gave line counts and NIF use. The scratch scripts
-  (`docs.escript`, `survey.py`, `merge.py`, `compact.py`) are recreated in LIB0.
+  checkout (pin `d199a49a01`) gave line counts and NIF use.
+  `tests/compiler/library/observe_docs.escript` records the documented
+  functions in `library/documented.terms`; `library_modules.py coverage .`
+  prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888
   documented functions; 2,308 are still to do (erts 65, kernel 639, stdlib
   1,604). Appendix A lists them per module.
@@ -92,17 +94,6 @@ create a new API that's for the end user to choose
 | Interpreters over forms | Erlang | `erl_eval`, `ms_transform`, `qlc` |
 
 ## Tier A: data modules without processes
-
-### LIB0. Inventory of documented functions
-
-- Commit `tests/compiler/library/observe_docs.escript`. It reads the installed
-  OTP's doc chunks and writes `library/documented.terms`: one
-  `{Module, App, [{Name, Arity}]}` per documented module, non-deprecated
-  functions only.
-- `library_inventory` checks each provided module: every documented function is
-  `implemented`, `refused` or `{declined, Reason}`. `modules.terms` gains a
-  `planned` status (with its step) for each of the 97 missing modules.
-- Refresh the `maint-29` pin first (`docs/otp-reference.md`).
 
 ### LIB1. Ordered lists: `ordsets`, `orddict`, `proplists`
 
@@ -532,19 +523,18 @@ missing, so programs that probe for them keep working.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB0 inventory.
-2. LIB1 and LIB2 (`proplists`, `ordsets`, `orddict`, `sets`, `dict`).
-3. LIB4 text (`string`, `io_lib`, `unicode`).
-4. LIB10 and LIB11 (ETS and match specs).
-5. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
-6. LIB23 and LIB24 (`logger`, `application`).
-7. LIB3, LIB5 and LIB6 (trees, queues, encodings, `rand`).
-8. LIB9, LIB50, LIB60 and LIB61 (`erlang`, `file`, `inet`, `os`, `code` gaps).
-9. LIB30–LIB34 (the front end, `consult`, `io:read`).
-10. LIB25 (local-node services) and LIB12 (`digraph`).
-11. LIB51–LIB55 (files, logs, archives).
-12. LIB7, LIB8, LIB70, LIB62 and LIB63.
-13. LIB71–LIB74, then the declined modules' answer stubs.
+1. LIB1 and LIB2 (`proplists`, `ordsets`, `orddict`, `sets`, `dict`).
+2. LIB4 text (`string`, `io_lib`, `unicode`).
+3. LIB10 and LIB11 (ETS and match specs).
+4. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
+5. LIB23 and LIB24 (`logger`, `application`).
+6. LIB3, LIB5 and LIB6 (trees, queues, encodings, `rand`).
+7. LIB9, LIB50, LIB60 and LIB61 (`erlang`, `file`, `inet`, `os`, `code` gaps).
+8. LIB30–LIB34 (the front end, `consult`, `io:read`).
+9. LIB25 (local-node services) and LIB12 (`digraph`).
+10. LIB51–LIB55 (files, logs, archives).
+11. LIB7, LIB8, LIB70, LIB62 and LIB63.
+12. LIB71–LIB74, then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 
