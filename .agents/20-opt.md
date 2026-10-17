@@ -5,7 +5,7 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1A/B, parts of OPT1.2 and OPT1.3,
-OPT1.4A-C, OPT3.1-3.3, OPT3.7, OPT3.10, OPT3.11, read-ahead lines of OPT3.4):
+OPT1.4A-C, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, read-ahead lines of OPT3.4):
 see [00-finished.md](00-finished.md). This file keeps open work only.
 
 ## Working rules for plan 20 steps
@@ -105,9 +105,8 @@ the kernels furthest behind OTP JIT (Release runtime with symbols,
    hand-off of large messages are done (OPT0.28-OPT0.30); small messages to busy
    receivers still copy twice.
 4. **Map trees** (map_put 3-10x, map_update 9.5x): word-level updates, cursors
-   and on-heap trees are done (OPT0.32, OPT0.33, OPT3.1); small-map lookups
-   through `map_service` cost ~460 ns against 2.4 ns on OTP (no 69A kernel uses
-   small maps).
+   and on-heap trees are done (OPT0.32, OPT0.33, OPT3.1); small-map reads and
+   present-key updates are inline (OPT3.12).
 5. **Lists with funs** (map_foldl 3.9x): `lists:map` builds through
    `construct_service`, then `apply` per element (OPT1.7, OPT1.8).
 
@@ -157,12 +156,6 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
 Real Erlang programs lean on these, though no 69A kernel shows them. Run in this
 order, one commit each.
 
-- **OPT3.12 small-map lookups:** `#{k := V}` patterns, `map_get/2`,
-  `is_map_key/2` and `maps:get/2` go through `map_service`, which admits every
-  argument as a `Term` (~460 ns against OTP's 2.4 ns). Read the classic map cell
-  by words, inline in generated code for a literal atom or small-integer key,
-  with the service as fallback for trees and other keys. Add a small-map kernel
-  to 69A (state-record style: 4-8 atom keys, read and updated in a loop).
 - **OPT3.13 word-level builtin arguments** (from OPT0.12): the remaining ~200 ns
   of a list-building builtin (typed argument conversion, `Term` copies with
   their weak pointer, per-element admission in `list_words`); OPT3.2's direct
@@ -504,8 +497,7 @@ Builds on OPT1.4.
 6. **Funs and floats:** OPT1.8 and OPT1.11.
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
-8. **Outside 69A:** OPT3.12 small-map lookups, OPT3.13 builtin arguments and
-   OPT3.14 atom ordering (2026-10-17 review); next after them, by 69A impact:
+8. **Outside 69A:** OPT3.13 builtin arguments and OPT3.14 atom ordering (2026-10-17 review); next after them, by 69A impact:
    OPT3.10B, OPT3.5, a term_to_binary profile, OPT1.7/OPT1.8.
 
 **Gate for every item:**

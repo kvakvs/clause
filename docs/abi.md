@@ -282,6 +282,13 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   (at most 32 distinct) are written inline as classic map cells, keys sorted at
   compile time in exact term order, the last value of a repeated key kept;
   otherwise `CLAUSE_map_v1` builds them.
+- Map patterns (`#{K := V}`, `#{}`), `map_get/2`, `is_map_key/2`, `map_size/1`
+  and updates (`M#{K := V}`, `M#{K => V}`, at most 8 fields) read a classic map
+  cell inline when every key is an atom or a small integer, whose term equality
+  is word equality: a scan of the key words, then the value word, or a copy of
+  the cell with the new values when it already holds every key and the heap has
+  room. A missing key fails a pattern at once; map trees, other keys, a missing
+  key elsewhere and errors take `CLAUSE_map_v1` (small-map lookups).
 - Tuples and lists of at most 64 words are bump-allocated inline in
   `[heap_top, heap_limit)` (header or cons cells written in place, `heap_top`
   advanced), else built by `CLAUSE_construct_v1`; the result is rooted like a

@@ -195,6 +195,10 @@ using BlockValue = std::pair<llvm::BasicBlock *, llvm::Value *>;
 // At the start of the current block, join the values its two predecessors computed (LLVM's SSA updater, which never
 // reads PHI operands; OPT0.2B).
 llvm::Value *join_values(ExpressionLowering &state, llvm::Type *type, BlockValue first, BlockValue second);
+// A stand-in for a loop-carried word at a loop head, used by the body before the latch value exists (inline appends).
+llvm::Instruction *loop_placeholder(ExpressionLowering &state, const char *name);
+// Replace a loop head's placeholder by the join of its value on entry and its value from the latch; the join.
+llvm::Value *close_loop(llvm::Instruction *value, llvm::BasicBlock *head, BlockValue entry, BlockValue latch);
 // The inline form of an operation (lowering_inline, OPT0.2B), or null when it has none.
 llvm::Value *lower_inline_immediate(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,
                                     llvm::Value *right);
@@ -286,6 +290,28 @@ llvm::Value *lower_bits_operation(ExpressionLowering &state, abi::v1::BitOperati
 // Resolve map BIFs separately from the two-operand numeric service; return null for other operations.
 llvm::Value *lower_map_query(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,
                              llvm::Value *right);
+
+struct MapKey {
+    // A map operand and the key looked up in it (small-map lookups).
+    llvm::Value *map;
+    llvm::Value *key;
+};
+
+// Small-map lookups: the map's value for an atom or small-integer key read from a classic map cell inline; a missing
+// key branches to `miss` when given, and every other case runs `service`.
+llvm::Value *inline_map_get(ExpressionLowering &state, MapKey operands, llvm::BasicBlock *miss,
+                            llvm::function_ref<llvm::Value *()> service);
+// is_map_key/2 answered from a classic map cell inline, `service` for every other case (small-map lookups).
+llvm::Value *inline_map_contains(ExpressionLowering &state, MapKey operands,
+                                 llvm::function_ref<llvm::Value *()> service);
+// map_size/1 of a classic map cell inline, `service` for every other case (small-map lookups).
+llvm::Value *inline_map_size(ExpressionLowering &state, llvm::Value *map, llvm::function_ref<llvm::Value *()> service);
+// Continue where `map` is any map, else branch to `mismatch`; false (nothing emitted) for an immediate constant.
+bool inline_map_shape(ExpressionLowering &state, llvm::Value *map, llvm::BasicBlock *mismatch);
+// An update's service values (the map, then key, value and exact flag per field) applied inline to a classic map
+// cell that holds every key: the cell copied with the new values; `service` for every other case (small-map lookups).
+llvm::Value *inline_map_update(ExpressionLowering &state, std::span<llvm::Value *const> values,
+                               llvm::function_ref<llvm::Value *()> service);
 // Evaluate scoped keys with semantic errors routed to the enclosing pattern mismatch.
 llvm::Value *lower_map_pattern(ExpressionLowering &state, const semantic::MatchNode &node, llvm::Value *input,
                                llvm::BasicBlock *mismatch);

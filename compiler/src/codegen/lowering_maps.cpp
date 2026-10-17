@@ -191,7 +191,8 @@ llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map,
     if (!map.base) {
         return new_map(state, map, values);
     }
-    return service(state, owned ? Op::update_owned : Op::update, values);
+    return inline_map_update(state, values,
+                             [&] { return service(state, owned ? Op::update_owned : Op::update, values); });
 }
 
 llvm::Value *lower_map_query(ExpressionLowering &state, const abi::v1::ImmediateOperation operation, llvm::Value *left,
@@ -199,11 +200,13 @@ llvm::Value *lower_map_query(ExpressionLowering &state, const abi::v1::Immediate
     using Query = abi::v1::ImmediateOperation;
     switch (operation) {
     case Query::map_size:
-        return service(state, Op::size, std::array{left});
+        return inline_map_size(state, left, [&] { return service(state, Op::size, std::array{left}); });
     case Query::map_get:
-        return service(state, Op::get, std::array{right, left});
+        return inline_map_get(state, {right, left}, nullptr,
+                              [&] { return service(state, Op::get, std::array{right, left}); });
     case Query::is_map_key:
-        return service(state, Op::contains, std::array{right, left});
+        return inline_map_contains(state, {right, left},
+                                   [&] { return service(state, Op::contains, std::array{right, left}); });
     default:
         return nullptr;
     }
@@ -214,10 +217,11 @@ llvm::Value *lower_map_pattern(ExpressionLowering &state, const semantic::MatchN
     auto *saved = std::exchange(state.rejection, mismatch);
     llvm::Value *value = nullptr;
     if (node.operation == semantic::MatchOperation::map_shape) {
-        value = service(state, Op::test, std::array{input});
+        value = inline_map_shape(state, input, mismatch) ? input : service(state, Op::test, std::array{input});
     } else {
         auto *key = lower_body(state, analyzed(node.key));
-        value = service(state, Op::get, std::array{input, key});
+        value = inline_map_get(state, {input, key}, mismatch,
+                               [&] { return service(state, Op::get, std::array{input, key}); });
     }
     state.rejection = saved;
     return value;

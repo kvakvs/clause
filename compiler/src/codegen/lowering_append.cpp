@@ -8,6 +8,21 @@
 // Inline appends: `Left ++ Right` copies a short proper Left onto Right in generated code, bump-allocated like an
 // inline list (OPT0.3); a longer or improper Left, or a full heap block, goes to the erlang:'++'/2 builtin.
 namespace clause::codegen {
+llvm::Instruction *loop_placeholder(ExpressionLowering &state, const char *name) {
+    return llvm::cast<llvm::Instruction>(state.builder.CreateFreeze(llvm::PoisonValue::get(state.word), name));
+}
+
+llvm::Value *close_loop(llvm::Instruction *value, llvm::BasicBlock *head, BlockValue entry, BlockValue latch) {
+    llvm::SSAUpdater updater;
+    updater.Initialize(value->getType(), value->getName());
+    updater.AddAvailableValue(entry.first, entry.second);
+    updater.AddAvailableValue(latch.first, latch.second);
+    auto *joined = updater.GetValueInMiddleOfBlock(head);
+    value->replaceAllUsesWith(joined);
+    value->eraseFromParent();
+    return joined;
+}
+
 namespace {
 // Cells of Left copied inline; a longer Left goes to the builtin, which works in portions.
 constexpr std::uint64_t INLINE_APPEND = 32;
@@ -33,23 +48,6 @@ llvm::Value *compare(ExpressionLowering &state, llvm::CmpInst::Predicate predica
     return state.builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, predicate, left, right));
 }
 
-// A stand-in for a loop-carried value at the loop head, used by the body before the latch value exists.
-llvm::Instruction *placeholder(ExpressionLowering &state, const char *name) {
-    return llvm::cast<llvm::Instruction>(state.builder.CreateFreeze(llvm::PoisonValue::get(state.word), name));
-}
-
-// Replace a loop head's placeholder by the join of its value on entry and its value from the latch; the join.
-llvm::Value *close_loop(llvm::Instruction *value, llvm::BasicBlock *head, BlockValue entry, BlockValue latch) {
-    llvm::SSAUpdater updater;
-    updater.Initialize(value->getType(), value->getName());
-    updater.AddAvailableValue(entry.first, entry.second);
-    updater.AddAvailableValue(latch.first, latch.second);
-    auto *joined = updater.GetValueInMiddleOfBlock(head);
-    value->replaceAllUsesWith(joined);
-    value->eraseFromParent();
-    return joined;
-}
-
 // Walk Left's spine while it is a cons cell, up to INLINE_APPEND cells.
 Counted count_cells(ExpressionLowering &state, llvm::Value *left) {
     auto &builder = state.builder;
@@ -61,8 +59,8 @@ Counted count_cells(ExpressionLowering &state, llvm::Value *left) {
     auto *done = llvm::BasicBlock::Create(context, "append.counted", &state.entry);
     builder.CreateBr(loop);
     builder.SetInsertPoint(loop);
-    auto *cell = placeholder(state, "append.cell");
-    auto *cells = placeholder(state, "append.cells");
+    auto *cell = loop_placeholder(state, "append.cell");
+    auto *cells = loop_placeholder(state, "append.cells");
     auto *cons = compare(state, llvm::CmpInst::ICMP_EQ, builder.CreateAnd(cell, abi::v1::primary_mask),
                          llvm::ConstantInt::get(word, abi::v1::list_tag));
     auto *short_enough = compare(state, llvm::CmpInst::ICMP_ULT, cells, llvm::ConstantInt::get(word, INLINE_APPEND));
@@ -88,8 +86,8 @@ llvm::Value *copy_cells(ExpressionLowering &state, const Append &append, const C
     auto *done = llvm::BasicBlock::Create(context, "append.copied", &state.entry);
     builder.CreateBr(loop);
     builder.SetInsertPoint(loop);
-    auto *index = placeholder(state, "append.index");
-    auto *source = placeholder(state, "append.source");
+    auto *index = loop_placeholder(state, "append.index");
+    auto *source = loop_placeholder(state, "append.source");
     auto *target = builder.CreateGEP(word, top, builder.CreateShl(index, 1));
     builder.CreateAlignedStore(inline_cons_word(state, source, 0), target, align);
     auto *next = builder.CreateAdd(index, llvm::ConstantInt::get(word, 1));

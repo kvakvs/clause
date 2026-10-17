@@ -1,4 +1,4 @@
-%% Data processing benchmarks (plan step 69A): sorting, folds, map updates, binary matching, conversions.
+%% Data processing benchmarks (plan step 69A): sorting, folds, map updates, binary matching, conversions, small maps.
 -module(bench_dataproc).
 -export([main/1]).
 
@@ -15,6 +15,8 @@ main(_Args) ->
     bench_util:run("dataproc.int_to_list", 10, fun() -> int_round_trip(Seq, 0) end),
     bench_util:run("dataproc.term_to_binary", 10, fun() -> binary_to_term(term_to_binary(Term)) end),
     bench_util:run("dataproc.comprehension", 20, fun() -> [X * 2 || X <- Seq, X rem 3 =:= 0] end),
+    State = #{count => 0, total => 0, last => 0, limit => 20000, name => <<"state">>, flags => []},
+    bench_util:run("dataproc.small_map", 10, fun() -> small_map(State, 20000) end),
     bench_util:done("bench_dataproc").
 
 map_foldl(List) ->
@@ -25,6 +27,12 @@ map_update(Map, 0) ->
     maps:fold(fun(_K, V, Acc) -> V + Acc end, 0, Map);
 map_update(Map, Rounds) ->
     map_update(maps:fold(fun(K, V, Acc) -> Acc#{K := V + 1} end, Map, Map), Rounds - 1).
+
+%% A state-record loop over a small map: pattern reads, map_get and an exact update per step.
+small_map(State, 0) ->
+    State;
+small_map(#{count := C, total := T} = State, N) ->
+    small_map(State#{count := C + 1, total := T + N + map_get(limit, State), last := N}, N - 1).
 
 sum_binary(<<X:32, Rest/binary>>, Acc) -> sum_binary(Rest, Acc + X);
 sum_binary(<<>>, Acc) -> Acc.

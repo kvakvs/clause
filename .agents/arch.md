@@ -180,7 +180,9 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   `+ - * /`, common `math`, `make_tuple/2`, put/get/erase, binary match
   start/finish/aligned reads, constant binaries, map entries, container
   inspections; immediate service as slow tail. Small tuples/lists/floats/
-  closures bump-allocate in `FrameState::heap_top/heap_limit`.
+  closures bump-allocate in `FrameState::heap_top/heap_limit`. Classic-map
+  patterns, `map_get`/`is_map_key`/`map_size` and present-key updates with
+  atom/small-int keys scan and copy the cell inline (`lowering_map_access`).
 - Constants: fixed atoms false/true/undefined/ok/error = 0-4; other atoms read
   `ModuleDescriptor::atom_cache` when claimed by `FrameState::runtime`, else
   `CLAUSE_atom_v3`. Compound literals and constant binaries live in a per-module

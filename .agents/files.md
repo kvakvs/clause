@@ -29,7 +29,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 | `project/` | Manifest TOML/schema, discovery, ignore rules, directory index, plan/execution |
 | `semantic/` | Symbols, calls, bindings, patterns/match plans, guards/services, records, funs, imports, behaviours, liveness, map ownership |
 | `semantic/types/` | Declared types, lattice, inference, contracts, type printing, inference store |
-| `codegen/` | LLVM state/target, lowering (`lowering_*`, inline appends in `lowering_append`), binary loops, frames, funs, literals, proofs/specialization, startup, verify/optimize/emit, asm listing, runtime symbols |
+| `codegen/` | LLVM state/target, lowering (`lowering_*`, inline appends in `lowering_append`, small-map lookups in `lowering_map_access`), binary loops, frames, funs, literals, proofs/specialization, startup, verify/optimize/emit, asm listing, runtime symbols |
 | `transforms/` | Parse transforms: term arena, ETF, abstract-form export/import, `erl` loader, pipeline |
 | `cache/` | Build cache store (SQLite + blobs) |
 | `artifacts/` | Staged writes, safe names, file replacement |

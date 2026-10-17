@@ -494,6 +494,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   parse or copy loop; list builtins' `walk` reads cells in place (trusted
   walks); large_message echo run alone 4.37 to 3.62 ms (OTP 1.95) —
   `a8c3f8f6`
+- **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
+  `map_size` and present-key updates with atom/small-int keys scan and copy
+  classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
+  to 11 ns (OTP 13); 69A kernel `dataproc.small_map` added —
+  `[plan20] OPT3.12 ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

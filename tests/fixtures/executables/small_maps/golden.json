@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "small_maps",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "{0,seven,<<\"s\">>,0,2,true,false,false,true,tuple,int,float,5,0,40,1600}\n[{state,0,none},\n {literal,1},\n empty_or_other,empty_or_other,\n {tree,1600},\n not_a_map]\n[counted,small,empty,tree,other,other]\n[[{7,seven},{count,1},{last,first},{name,<<\"s\">>},{total,0}],\n [{7,seven},{count,3},{last,first},{name,<<\"s\">>},{total,0}],\n [{7,seven},{count,0},{last,none},{name,<<\"s\">>},{total,10}],\n [{7,seven},{count,0},{last,none},{name,<<\"s\">>},{new,added},{total,0}],\n [{a,10},{b,2}],\n [{a,1},{b,2}],\n [{7,sept},{count,0},{last,none},{name,<<\"s\">>},{total,0},{{tuple},key}],\n [{7,seven},{count,0},{last,none},{name,<<\"s\">>},{total,0}],\n forty]\n[{badkey,missing},\n {badmap,not_a_map},\n {badkey,missing},\n {badmap,[]},\n {badkey,missing},\n {badmap,{}}]\n[{7,seven},{count,1000},{last,1},{name,<<\"s\">>},{total,500500}]\nsmall_maps: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "small_maps.erl": "1bc90a7722ead191c65fd5ccbdf1fc7f95425bb802a807be0f3389ed4f48f401"
+  }
+}
