@@ -43,3 +43,4 @@
 {queue, stdlib, provided}.
 {re, stdlib, provided}.
 {sets, stdlib, provided}.
+{base64, stdlib, provided}.

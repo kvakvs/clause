@@ -27,7 +27,7 @@ implementing source file:
   [`lists`](#lists-module), [`math`](#math-module),
   [`binary`](#binary-module), [`maps` and `os`](#maps-module),
   [`ordsets`, `orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets`,
-  `queue` and `array`](#collections),
+  `queue` and `array`](#collections), [`base64`](#encodings),
   [`persistent_term`](#persistent-terms), [`unicode`](#unicode-module),
   [`code`](#code-module), [`init`](#init-module),
   [`atomics`](#atomics-and-counters), [`erts_internal`](#erts-internal),
@@ -509,6 +509,21 @@ builtin:
   over the private builtins `clause_array:values/3`, `sparse/3` and
   `replace/4`, the last rebuilding a mapped range as OTP's mapfolds do (empty
   subtrees unfolded unless the map is sparse) and reading the cache again.
+
+## Encodings
+
+`runtime/src/builtins/encoding/` (plan 21 step LIB5).
+
+- `base64`: every documented function is a builtin. Encoding takes a binary
+  or a list of integers (OTP's arithmetic on them: `badarith` for a
+  non-integer, `badarg` past the alphabet table); decoding walks its input as
+  OTP's state machines do, so the errors agree for any input: whitespace is
+  skipped, input ending after one character of a group is
+  `function_clause`, after two or three `missing_padding` unless
+  `padding => false`, a character outside the alphabet `badarg` when its
+  group is built (`badarith` inside OTP's shifts), anything but whitespace
+  after the padding `{case_clause, Symbol}`. `mime_decode` skips every
+  character outside the alphabet and data after a misplaced `=`.
 
 ## Persistent terms
 

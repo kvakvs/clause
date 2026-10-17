@@ -1,0 +1,15 @@
+%% OTP 29 base64 exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{decode, 1, default, implemented}.
+{decode, 2, default, implemented}.
+{decode_to_string, 1, default, implemented}.
+{decode_to_string, 2, default, implemented}.
+{encode, 1, default, implemented}.
+{encode, 2, default, implemented}.
+{encode_to_string, 1, default, implemented}.
+{encode_to_string, 2, default, implemented}.
+{format_error, 2, default, stub}.
+{mime_decode, 1, default, implemented}.
+{mime_decode, 2, default, implemented}.
+{mime_decode_to_string, 1, default, implemented}.
+{mime_decode_to_string, 2, default, implemented}.

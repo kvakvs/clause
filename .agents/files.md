@@ -46,7 +46,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 | `process/` | Context, stack/frames, exceptions, exits, mailbox storage, receive, identities, profiling |
 | `scheduler/` | Executor/workers, signals, ports table, timers/timer wheel, aliases, introspection |
 | `modules/` | Code server, registration, atom bindings/caches, literal areas |
-| `builtins/` | Registry, bridge, typed adapters, portions, text/format; per-module subdirs (`erlang/`, `lists/`, `binary/`, `unicode/`, `re/`, `zlib/`, `collections/`: ordsets, orddict, proplists, dict, sets over `linear_hash`, gb_trees, gb_sets over `balanced_tree`, queue, array) and module TUs |
+| `builtins/` | Registry, bridge, typed adapters, portions, text/format; per-module subdirs (`erlang/`, `lists/`, `binary/`, `unicode/`, `re/`, `zlib/`, `collections/`: ordsets, orddict, proplists, dict, sets over `linear_hash`, gb_trees, gb_sets over `balanced_tree`, queue, array; `encoding/`: base64) and module TUs |
 | `ports/` | Port drivers (fd, spawn, file, sockets), reactor, I/O service |
 | `startup/` | `CLAUSE_main_v1`, argv, runtime options, halt |
 | `diagnostics/` | Runtime feature reporting |

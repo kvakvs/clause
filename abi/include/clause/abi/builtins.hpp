@@ -621,6 +621,19 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"clause_array", "replace", 4},
     BuiltinName{"clause_array", "sparse", 3},
     BuiltinName{"clause_array", "values", 3},
+    // Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
+    BuiltinName{"base64", "decode", 1},
+    BuiltinName{"base64", "decode", 2},
+    BuiltinName{"base64", "decode_to_string", 1},
+    BuiltinName{"base64", "decode_to_string", 2},
+    BuiltinName{"base64", "encode", 1},
+    BuiltinName{"base64", "encode", 2},
+    BuiltinName{"base64", "encode_to_string", 1},
+    BuiltinName{"base64", "encode_to_string", 2},
+    BuiltinName{"base64", "mime_decode", 1},
+    BuiltinName{"base64", "mime_decode", 2},
+    BuiltinName{"base64", "mime_decode_to_string", 1},
+    BuiltinName{"base64", "mime_decode_to_string", 2},
     // Map cursors: the entries tuple maps:fold walks (runtime/src/builtins/maps.cpp).
     BuiltinName{"clause_maps", "entries", 1},
     // Persistent terms (plan step 41M2; runtime/src/builtins/persistent_term.cpp).

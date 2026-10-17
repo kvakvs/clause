@@ -112,11 +112,11 @@ create a new API that's for the end user to choose
   `fread/2,3` (a format-directed scanner), plus `nl/0`.
 - Fix `io:format("~.2f")`, which raises `badarg` today.
 
-### LIB5. Encodings and formats: `base64`, `uri_string`, `json`, `filename`, `calendar`
+### LIB5. Encodings and formats: `uri_string`, `json`, `filename`, `calendar`
 
 - C++:
-  - `base64` (12), `uri_string` (15), `filename` (17: Unix and Windows path
-    rules, `basedir/2,3` from the environment) and `calendar` (34: Gregorian
+  - `uri_string` (15), `filename` (17: Unix and Windows path rules,
+    `basedir/2,3` from the environment) and `calendar` (34: Gregorian
     arithmetic, RFC 3339, local time through the existing `erlang:localtime`
     services).
   - `json`: `decode/1`, `encode/1`, `format/1,2` and the leaf encoders
@@ -638,8 +638,6 @@ functions are listed separately and are optional.
   recv/3, send/3, session_create/3, session_destroy/1, session_info/1, system/3
 - `wrap_log_reader` (kernel, 5): chunk/1,2, close/1, open/1,2
 - `argparse` (stdlib, 6): format_error/1, help/1,2, parse/2,3, run/3
-- `base64` (stdlib, 12): decode/1,2, decode_to_string/1,2, encode/1,2,
-  encode_to_string/1,2, mime_decode/1,2, mime_decode_to_string/1,2
 - `beam_lib` (stdlib, 19): all_chunks/1, build_module/1, chunks/2,3,
   clear_crypto_key_fun/0, cmp/2, cmp_dirs/2, crypto_key_fun/1, diff_dirs/2,
   format_error/1, info/1, md5/1, strip/1,2, strip_files/1,2, strip_release/1,2,
