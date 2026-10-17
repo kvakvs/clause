@@ -87,6 +87,8 @@ create a new API that's for the end user to choose
 Whenever a C++ implementation is viable, prefer it (user direction 2026-10-17):
 calls between Erlang and builtins cost nothing notable, and C++ is much faster.
 Erlang only where a function calls funs, runs a process protocol or is glue.
+C++ reproduces OTP's exact result shapes for every input form (deep chardata,
+embedded binaries, io_lib's nested char lists), not just equal content.
 
 | Kind | Implement in | Examples |
 | --- | --- | --- |
@@ -104,7 +106,9 @@ Erlang only where a function calls funs, runs a process protocol or is glue.
 
 - LIB5C and LIB5D wrote both as Erlang walks; per the C++ preference they move
   to builtins with the same result shapes, error terms and thrown errors, the
-  `filenames` and `uri_strings` goldens unchanged.
+  `filenames` and `uri_strings` goldens unchanged. `filename` is done; the
+  `filenames` golden gained unusual names (nested and improper lists,
+  binaries and big integers inside lists).
 
 ### LIB4. Text: `string`, `unicode` remainder, `io_lib`
 

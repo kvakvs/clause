@@ -151,6 +151,9 @@ std::span<const BuiltinEntry> calendar_builtins() noexcept;
 std::span<const BuiltinEntry> base64_builtins() noexcept;
 // Module json and its private clause_json scanners (plan 21 step LIB5E; runtime/src/builtins/encoding/json.cpp).
 std::span<const BuiltinEntry> json_builtins() noexcept;
+// Module filename's walks over one name, and its joins and splits (plan 21 step LIB5G; runtime/src/builtins/filename/).
+std::span<const BuiltinEntry> filename_builtins() noexcept;
+std::span<const BuiltinEntry> filename_join_builtins() noexcept;
 // json's default encoder and formatter (plan 21 step LIB5F; runtime/src/builtins/encoding/json_encode.cpp).
 std::span<const BuiltinEntry> json_encode_builtins() noexcept;
 // Modules rand and random and the private clause_rand generators (plan 21 step LIB6; runtime/src/builtins/rand/).

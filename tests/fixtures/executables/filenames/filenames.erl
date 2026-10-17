@@ -108,7 +108,57 @@ main(_) ->
         reason(fun() -> filename:basedir(foo, "a", #{os => windows}) end),
         reason(fun() -> filename:basedir(user_data, id(a)) end)
     ]),
+    odd(),
     io:format("filenames: ok~n").
+
+%% Unusual names, answered alike on both families: nested lists and atoms, improper tails, binaries and big
+%% integers inside lists.
+odd() ->
+    Names = [
+        [["a", [$/]], b, ".c"],
+        ['a/b', [[]], "c"],
+        ["a" | b],
+        ["a" | 5],
+        ["a", <<"b">>],
+        [<<"a/b">>],
+        [1 bsl 70, $/, $x],
+        [[$a | b], "c"],
+        "a/.b.c",
+        ".a.b",
+        "a.b/.c",
+        "a/"
+    ],
+    Functions = [basename, dirname, extension, rootname, split, pathtype],
+    show(odd, [[reason(fun() -> filename:F(N) end) || F <- Functions] || N <- Names]),
+    show(odd_join, [reason(fun() -> filename:join(N) end) || N <- Names ++ [[N || N <- Names]]]),
+    show(odd_two, [
+        reason(fun() -> F() end)
+     || F <- [
+            fun() -> filename:join("a", 5) end,
+            fun() -> filename:join(["a", <<"b">>, c]) end,
+            fun() -> filename:join([["a"], ["/b"]]) end,
+            fun() -> filename:join(["a" | b]) end,
+            fun() -> filename:join([[$a | b]]) end,
+            fun() -> filename:append(a, "b") end,
+            fun() -> filename:append("a", 5) end,
+            fun() -> filename:basename("a/b/c", [$c]) end,
+            fun() -> filename:basename(<<"x">>, x) end,
+            fun() -> filename:basename(x, x) end,
+            fun() -> filename:basename("a/b.erl", [[$.], erl]) end,
+            fun() -> filename:rootname("a.b", [$., <<"b">>]) end,
+            fun() -> filename:rootname(<<"a.b.c">>, <<".c">>) end,
+            fun() -> filename:rootname(<<"a.b">>, b) end,
+            fun() -> filename:validate(["a" | $b]) end,
+            fun() -> filename:validate(['', ""]) end,
+            fun() -> filename:validate([<<"a">>]) end,
+            fun() -> filename:validate(["a" | 5.0]) end,
+            fun() -> filename:flatten(["a" | 5]) end,
+            fun() -> filename:flatten(5) end,
+            fun() -> filename:absname_join(<<"/b">>, <<"x">>) end,
+            fun() -> filename:pathtype([[], "x"]) end,
+            fun() -> filename:pathtype([<<"/">>]) end
+        ]
+    ]).
 
 %% basedir/3 for every type and system, under a fixed HOME, XDG and APPDATA environment.
 basedirs() ->

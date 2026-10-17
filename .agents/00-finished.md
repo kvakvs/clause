@@ -565,7 +565,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   observed from OTP (`tools/rand/`) — `a543519e`
 - **LIB5F** `json` default `encode/1`, `format/1,2` in C++ with OTP's iodata
   (`encoding/json_encode.cpp`), Erlang fallback past 256 levels —
-  `[plan21] LIB5F`
+  `084ed9f9`
+- **LIB5G** `filename` in C++ (`builtins/filename/`), OTP's clause walks and
+  shapes; `absname`, `basedir` Erlang — `[plan21] LIB5G`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

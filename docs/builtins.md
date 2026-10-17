@@ -28,7 +28,7 @@ implementing source file:
   [`binary`](#binary-module), [`maps` and `os`](#maps-module),
   [`ordsets`, `orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets`,
   `queue` and `array`](#collections), [`base64` and `json`](#encodings),
-  [`calendar`](#calendar), [`rand` and `random`](#random-numbers),
+  [`calendar`](#calendar), [`filename`](#filename), [`rand` and `random`](#random-numbers),
   [`persistent_term`](#persistent-terms), [`unicode`](#unicode-module),
   [`code`](#code-module), [`init`](#init-module),
   [`atomics`](#atomics-and-counters), [`erts_internal`](#erts-internal),
@@ -542,6 +542,23 @@ builtin:
   Erlang; the decoders walk OTP's states over the private scanners
   `clause_json:string/2` and `number/2`, so callbacks run in OTP's order and
   continuation states are OTP's tuples.
+
+## Filename
+
+`runtime/src/builtins/filename/` (plan 21 step LIB5G).
+
+- `flatten/1`, `join/1,2`, `absname_join/2`, `append/2`, `basename/1,2`,
+  `dirname/1`, `extension/1`, `rootname/1,2`, `split/1`, `pathtype/1`,
+  `nativename/1` and `validate/1` are builtins following OTP's clauses for
+  the host's family: Unix `/`, or Windows `/` and `\`, drive letters (an
+  upper-case one lowered by `join` and `split`) and `//` network names. Lists
+  are walked as OTP's clauses open them (nested lists and atoms where a
+  clause opens them, `List ++ Rest` raising `badarg` for an improper one),
+  so results keep OTP's shapes: the elements of the name, binaries kept as
+  elements by `flatten/1`, sub-lists and sub-binaries, and OTP's
+  `function_clause` where a clause meets a non-character.
+- `absname/1,2` (the current directory and a drive's own) and
+  `basedir/2,3` (the environment) are Erlang over them.
 
 ## Random numbers
 
