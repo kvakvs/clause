@@ -6,10 +6,12 @@
     append/1,
     append/2,
     filter/2,
+    flatmap/2,
     foldl/3,
     foldr/3,
     foreach/2,
     keyfind/3,
+    keymap/3,
     map/2,
     mapfoldl/3,
     mapfoldr/3,
@@ -18,11 +20,19 @@
     partition/2,
     reverse/1,
     reverse/2,
+    search/2,
     seq/2,
     seq/3,
     sort/1,
     splitwith/2,
-    sum/1
+    subtract/2,
+    sum/1,
+    umerge/3,
+    usort/2,
+    zipwith/3,
+    zipwith/4,
+    zipwith3/4,
+    zipwith3/5
 ]).
 %% OTP 29 exports Clause does not implement yet: stubs raising error({not_implemented, F, A}),
 %% or catalog builtins the runtime puts in their place (docs/library.md#runtime-module-replacements).
@@ -39,12 +49,10 @@
     enumerate/3,
     filtermap/2,
     flatlength/1,
-    flatmap/2,
     flatten/1,
     flatten/2,
     join/2,
     keydelete/3,
-    keymap/3,
     keymember/3,
     keymerge/3,
     keyreplace/4,
@@ -69,35 +77,27 @@
     rumerge/2,
     rumerge/3,
     rumerge3/3,
-    search/2,
     sort/2,
     split/2,
     sublist/2,
     sublist/3,
-    subtract/2,
     suffix/2,
     takewhile/2,
     ukeymerge/3,
     ukeysort/2,
     umerge/1,
     umerge/2,
-    umerge/3,
     umerge3/3,
     uniq/1,
     uniq/2,
     unzip/1,
     unzip3/1,
     usort/1,
-    usort/2,
     zf/2,
     zip/2,
     zip/3,
     zip3/3,
-    zip3/4,
-    zipwith/3,
-    zipwith/4,
-    zipwith3/4,
-    zipwith3/5
+    zip3/4
 ]).
 
 %% The concatenation of a list of lists.
@@ -391,12 +391,24 @@ filtermap_1(Fun, [Head | Tail]) ->
 filtermap_1(_, []) ->
     [].
 flatlength(_) -> erlang:error({not_implemented, flatlength, 1}).
-flatmap(_, _) -> erlang:error({not_implemented, flatmap, 2}).
+%% Fun applied to every element, the lists it returns appended in order.
+flatmap(Fun, List) when is_function(Fun, 1) -> flatmap_onto(Fun, List, []).
+
+flatmap_onto(Fun, [Element | Rest], Done) ->
+    flatmap_onto(Fun, Rest, lists:reverse(Fun(Element), Done));
+flatmap_onto(_, [], Done) ->
+    lists:reverse(Done).
 flatten(_) -> erlang:error({not_implemented, flatten, 1}).
 flatten(_, _) -> erlang:error({not_implemented, flatten, 2}).
 join(_, _) -> erlang:error({not_implemented, join, 2}).
 keydelete(_, _, _) -> erlang:error({not_implemented, keydelete, 3}).
-keymap(_, _, _) -> erlang:error({not_implemented, keymap, 3}).
+%% Every tuple with its N-th element replaced by Fun of that element.
+keymap(Fun, N, List) when is_function(Fun, 1), is_integer(N), N >= 1 -> keymap_each(Fun, N, List).
+
+keymap_each(Fun, N, [Tuple | Rest]) ->
+    [setelement(N, Tuple, Fun(element(N, Tuple))) | keymap_each(Fun, N, Rest)];
+keymap_each(_, _, []) ->
+    [].
 keymember(_, _, _) -> erlang:error({not_implemented, keymember, 3}).
 keymerge(_, _, _) -> erlang:error({not_implemented, keymerge, 3}).
 keyreplace(_, _, _, _) -> erlang:error({not_implemented, keyreplace, 4}).
@@ -435,7 +447,12 @@ rukeymerge(_, _, _) -> erlang:error({not_implemented, rukeymerge, 3}).
 rumerge(_, _) -> erlang:error({not_implemented, rumerge, 2}).
 rumerge(_, _, _) -> erlang:error({not_implemented, rumerge, 3}).
 rumerge3(_, _, _) -> erlang:error({not_implemented, rumerge3, 3}).
-search(_, _) -> erlang:error({not_implemented, search, 2}).
+%% {value, Element} for the first element Pred holds for, or false.
+search(Pred, List) when is_function(Pred, 1) ->
+    case lists:dropwhile(fun(Element) -> not Pred(Element) end, List) of
+        [Found | _] -> {value, Found};
+        [] -> false
+    end.
 %% A stable merge sort by Fun(A, B), true when A sorts before or with B; maps:iterator/2 needs it (step 41N).
 sort(Fun, List) when is_function(Fun, 2) ->
     case List of
@@ -474,7 +491,8 @@ split_at(N, [Head | Tail], Front) -> split_at(N - 1, Tail, [Head | Front]);
 split_at(_, _, _) -> badarg.
 sublist(_, _) -> erlang:error({not_implemented, sublist, 2}).
 sublist(_, _, _) -> erlang:error({not_implemented, sublist, 3}).
-subtract(_, _) -> erlang:error({not_implemented, subtract, 2}).
+%% List1 -- List2.
+subtract(List1, List2) -> List1 -- List2.
 %% Whether List ends with Suffix (step 41L); nthtail/2 is a builtin, so the call is qualified.
 suffix(Suffix, List) ->
     Delta = length(List) - length(Suffix),
@@ -483,7 +501,26 @@ ukeymerge(_, _, _) -> erlang:error({not_implemented, ukeymerge, 3}).
 ukeysort(_, _) -> erlang:error({not_implemented, ukeysort, 2}).
 umerge(_) -> erlang:error({not_implemented, umerge, 1}).
 umerge(_, _) -> erlang:error({not_implemented, umerge, 2}).
-umerge(_, _, _) -> erlang:error({not_implemented, umerge, 3}).
+%% Merge List1 and List2, both sorted by Fun and free of duplicates; of two elements comparing equal (Fun true both
+%% ways) the one from List1 stays.
+umerge(Fun, List1, List2) when is_function(Fun, 2) -> unique_merge(Fun, List1, List2).
+
+unique_merge(Fun, [A | As] = Left, [B | Bs] = Right) ->
+    case Fun(A, B) of
+        true ->
+            Others =
+                case Fun(B, A) of
+                    true -> Bs;
+                    false -> Right
+                end,
+            [A | unique_merge(Fun, As, Others)];
+        false ->
+            [B | unique_merge(Fun, Left, Bs)]
+    end;
+unique_merge(_, [], Right) when is_list(Right) ->
+    Right;
+unique_merge(_, Left, []) when is_list(Left) ->
+    Left.
 umerge3(_, _, _) -> erlang:error({not_implemented, umerge3, 3}).
 %% The list without repeated elements, first occurrences kept in order; erl_features needs it (step 41L).
 uniq(List) -> uniq_1(List, #{}).
@@ -510,13 +547,29 @@ uniq_2([], _, _) ->
 unzip(_) -> erlang:error({not_implemented, unzip, 1}).
 unzip3(_) -> erlang:error({not_implemented, unzip3, 1}).
 usort(_) -> erlang:error({not_implemented, usort, 1}).
-usort(_, _) -> erlang:error({not_implemented, usort, 2}).
+%% Sorted by Fun, keeping the first of the elements comparing equal (Fun true both ways).
+usort(Fun, List) when is_function(Fun, 2) -> drop_equal(Fun, sort(Fun, List)).
+
+drop_equal(Fun, [Kept, Next | Rest]) ->
+    case Fun(Next, Kept) of
+        true -> drop_equal(Fun, [Kept | Rest]);
+        false -> [Kept | drop_equal(Fun, [Next | Rest])]
+    end;
+drop_equal(_, Short) ->
+    Short.
 zf(Fun, List) -> filtermap(Fun, List).
 zip(_, _) -> erlang:error({not_implemented, zip, 2}).
 zip(_, _, _) -> erlang:error({not_implemented, zip, 3}).
 zip3(_, _, _) -> erlang:error({not_implemented, zip3, 3}).
 zip3(_, _, _, _) -> erlang:error({not_implemented, zip3, 4}).
-zipwith(_, _, _) -> erlang:error({not_implemented, zipwith, 3}).
-zipwith(_, _, _, _) -> erlang:error({not_implemented, zipwith, 4}).
-zipwith3(_, _, _, _) -> erlang:error({not_implemented, zipwith3, 4}).
-zipwith3(_, _, _, _, _) -> erlang:error({not_implemented, zipwith3, 5}).
+%% Combine applied to the elements at each position, the lengths treated as zip/3 and zip3/4 say (the builtins pair
+%% the elements first).
+zipwith(Combine, List1, List2) -> zipwith(Combine, List1, List2, fail).
+
+zipwith(Combine, List1, List2, How) when is_function(Combine, 2) ->
+    [Combine(X, Y) || {X, Y} <- lists:zip(List1, List2, How)].
+
+zipwith3(Combine, List1, List2, List3) -> zipwith3(Combine, List1, List2, List3, fail).
+
+zipwith3(Combine, List1, List2, List3, How) when is_function(Combine, 3) ->
+    [Combine(X, Y, Z) || {X, Y, Z} <- lists:zip3(List1, List2, List3, How)].

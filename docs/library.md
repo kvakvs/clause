@@ -13,7 +13,7 @@ implemented and which are stubs.
 
 | Module | Contents |
 | --- | --- |
-| [`lists`](../library/stdlib/lists.erl) | The common functions; data functions such as `sublist/2,3`, `flatten/1,2`, `usort/1`, `keymember/3` are runtime builtins ([lists module](builtins.md#lists-module)) |
+| [`lists`](../library/stdlib/lists.erl) | The common functions; data functions such as `sublist/2,3`, `flatten/1,2`, `usort/1`, `keymember/3`, `zip/2,3`, `merge/2` are runtime builtins; every documented function is implemented ([lists module](builtins.md#lists-module)) |
 | [`maps`](../library/stdlib/maps.erl) | The common functions and iterators; `get/3`, `merge/2`, `update/3`, `with/2`, ... are runtime builtins ([maps module](builtins.md#maps-module)) |
 | [`io`](../library/stdlib/io.erl) | `get_line/1,2`, `get_chars/2,3` (standard input server or an open file), `request/1,2`, `requests/1,2` (OTP's I/O protocol, [files](ports.md#standard-io-and-files)); `format/1,2,3`, `fwrite/1,2,3`, `put_chars/1,2` and `nl/0,1` are runtime builtins ([io](io.md)) |
 | [`binary`](../library/stdlib/binary.erl) | Every function; `replace/3,4` and `list_to_bin/1` in Erlang, the others runtime builtins ([binary module](builtins.md#binary-module)) |

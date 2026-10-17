@@ -129,7 +129,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `module_info(compile)` | `version` of OTP's compiler application, `options` given to it | Clause's version; `options` always `[]` | [semantic](semantic.md#predefined-functions) |
 | `module_info(functions)` | Also lists the functions OTP generates for funs (`'-f/0-fun-0-'/0`) | Source functions and the predefined ones only | [semantic](semantic.md#predefined-functions) |
 | `-nominal` in `module_info(attributes)` | Kept as `{nominal,[{Name,AbstractType,Params}]}` with abstract format | Left out | [semantic](semantic.md#predefined-functions) |
-| A function of a Clause library module that Clause has not implemented (an `erlang` BIF, `lists:ukeysort/2`, ...) | Runs | Compiles; raises `error({not_implemented, F, A})` when called, with `M:F/A` on top of the stack ([statuses](../library/modules.terms)) | [library](library.md#provided-or-missing), [builtins](builtins.md#erlang-module) |
+| A function of a Clause library module that Clause has not implemented (an `erlang` BIF, `lists:rmerge/2`, ...) | Runs | Compiles; raises `error({not_implemented, F, A})` when called, with `M:F/A` on top of the stack ([statuses](../library/modules.terms)) | [library](library.md#provided-or-missing), [builtins](builtins.md#erlang-module) |
 | Import of a module outside the batch | Compiles; the call raises `undef` at run time if the module is missing | `unknown module M` compile error when the import is called (unused imports need no module) | [semantic](semantic.md#imports) |
 | `import directive overrides auto-imported BIF` warning | For every auto-imported BIF of `erl_internal:bif/2` | Only for the auto-imported BIFs Clause implements | [semantic](semantic.md#imports) |
 

@@ -1,9 +1,14 @@
+#include "../../terms/integers.hpp"
+#include "../../terms/structural_order.hpp"
+#include "../erlang/conversion_text.hpp"
+#include "../text.hpp"
 #include "list_walk.hpp"
 #include <array>
 #include <terms.hpp>
 
 // The lists builtins that take or build parts of one list (plan step 41T, docs/builtins.md#lists-module):
-// sublist/2,3, droplast/1, nthtail/2, last/1, duplicate/2, join/2 and flatten/1,2. They run to completion.
+// sublist/2,3, droplast/1, nthtail/2, last/1, duplicate/2, join/2, flatten/1,2, flatlength/1, delete/2 and
+// concat/1. They run to completion.
 namespace clause::runtime::builtins::lists {
 namespace {
 // The first `limit` elements of `rest`, or all of a shorter proper list; function_clause at an improper tail reached
@@ -153,6 +158,62 @@ TermResult<Term> flatten_onto(ProcessContext &context, const Term &list, const T
     return TermFactory(context).list(flat(list), tail);
 }
 
+// flatlength(DeepList): the length of its flattened version.
+TermResult<Term> flatlength(ProcessContext &context, const Term &list) {
+    return TermFactory(context).integer(static_cast<std::int64_t>(flat(list).size()));
+}
+
+// delete(Elem, List1): List1 without its first element matching Elem (=:=); the rest after it is kept as is.
+TermResult<Term> delete_first(ProcessContext &context, const Term &item, const ListTerm &list) {
+    std::vector<Term> kept;
+    auto rest = list.term;
+    for (; rest.is_cons(); rest = need(rest.tail())) {
+        const auto element = need(rest.head());
+        if (need(detail::structural_order(element, item, true)) == 0) {
+            return TermFactory(context).list(kept, need(rest.tail()));
+        }
+        kept.push_back(element);
+    }
+    if (!rest.is_nil()) {
+        no_clause();
+    }
+    return list.term;
+}
+
+// The characters of one concat/1 element other than a string: an integer's or float's text or an atom's name;
+// function_clause for any other term.
+std::u32string thing_text(ProcessContext &context, const Term &thing) {
+    if (thing.is_integer()) {
+        const auto text = detail::integer_text(need(detail::integer_read(thing)));
+        return {text.begin(), text.end()};
+    }
+    if (thing.is_float()) {
+        const auto text = float_with_options(need(thing.float_value()), need(TermFactory(context).nil()));
+        return {text.begin(), text.end()};
+    }
+    if (thing.is_atom()) {
+        return code_points(need(thing.atom_spelling()));
+    }
+    no_clause();
+}
+
+// concat(Things): the text representations of the elements concatenated; a string element is taken as it is.
+TermResult<Term> concat(ProcessContext &context, const Term &things) {
+    TermFactory factory(context);
+    std::vector<Term> characters;
+    for (const auto &thing : proper(things)) {
+        if (thing.is_list()) {
+            const auto elements = proper(thing);
+            characters.insert(characters.end(), elements.begin(), elements.end());
+            continue;
+        }
+        for (const auto code : thing_text(context, thing)) {
+            characters.push_back(need(factory.integer(static_cast<std::int64_t>(code))));
+        }
+    }
+    return factory.list(characters);
+}
+
 constexpr std::array SUBLIST_BUILTINS{
     typed_entry<sublist>("lists", "sublist"),
     typed_entry<sublist_from>("lists", "sublist"),
@@ -163,6 +224,9 @@ constexpr std::array SUBLIST_BUILTINS{
     typed_entry<join>("lists", "join"),
     typed_entry<flatten>("lists", "flatten"),
     typed_entry<flatten_onto>("lists", "flatten"),
+    typed_entry<flatlength>("lists", "flatlength"),
+    typed_entry<delete_first>("lists", "delete"),
+    typed_entry<concat>("lists", "concat"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::lists

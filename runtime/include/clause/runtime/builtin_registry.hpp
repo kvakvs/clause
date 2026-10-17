@@ -123,6 +123,10 @@ std::span<const BuiltinEntry> os_builtins() noexcept;
 std::span<const BuiltinEntry> lists_sublist_builtins() noexcept;
 std::span<const BuiltinEntry> lists_ordering_builtins() noexcept;
 std::span<const BuiltinEntry> lists_key_builtins() noexcept;
+// The lists merges and zips: merge/1,2, merge3/3, umerge3/3, keymerge/3, ukeymerge/3, ukeysort/2; zip/2,3,
+// zip3/3,4, unzip/1, unzip3/1, enumerate/1,2,3.
+std::span<const BuiltinEntry> lists_merge_builtins() noexcept;
+std::span<const BuiltinEntry> lists_zip_builtins() noexcept;
 // The math module of step 41V: every OTP 29 math function over the C library.
 std::span<const BuiltinEntry> math_builtins() noexcept;
 // The maps builtins of step 41X: get/3, is_key/2, remove/2, new/0, size/1, merge/2, take/2, update/3, with/2,

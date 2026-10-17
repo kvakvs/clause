@@ -338,11 +338,22 @@ as `M:module_info(...)`.
 BIFs), so Clause's builtins raise what OTP's clauses raise:
 
 - `sublist/2,3`, `droplast/1`, `nthtail/2`, `last/1`, `duplicate/2`,
-  `join/2`, `flatten/1,2`, `max/1`, `min/1`, `usort/1`, `umerge/1,2` and
-  `keydelete/3` raise `function_clause` for an argument no OTP clause
+  `join/2`, `flatten/1,2`, `flatlength/1`, `delete/2`, `concat/1`, `max/1`,
+  `min/1`, `usort/1`, `umerge/1,2`, `merge/1,2`, `merge3/3`, `umerge3/3`,
+  `keymerge/3`, `ukeymerge/3`, `ukeysort/2`, `keydelete/3`, `keyreplace/4`,
+  `keystore/4`, `keytake/3`, `zip/2,3`, `zip3/3,4`, `unzip/1`, `unzip3/1` and
+  `enumerate/1,2,3` raise `function_clause` for an argument no OTP clause
   accepts, and walk lists as lazily as OTP: `sublist([a | b], 1)` is `[a]`,
   `nthtail(1, [a | b])` is `b`, `flatten/2` does not check its tail beyond
-  `is_list`.
+  `is_list`, a merge returns the other list as it is when one is `[]` and
+  raises `badarg` for an improper rest it appends, and a key merge raises
+  `badarg` for an element that is no tuple of the key's size, as `element/2`.
+- `zipwith/3,4` and `zipwith3/4,5` are Erlang over the `zip` builtins, which
+  pair the elements first; `flatmap/2`, `keymap/3`, `search/2`, `umerge/3`
+  and `usort/2` are Erlang too. Inside `lists.erl` a builtin is called
+  qualified (`lists:zip(...)`): a local call would reach the stub. The
+  undocumented `rmerge/2,3`, `rmerge3/3`, `rumerge/2,3`, `rumerge3/3`,
+  `rkeymerge/3` and `rukeymerge/3` (OTP's sort helpers) stay stubs.
 - `keymember/3` and `keysearch/3` are BIFs in OTP: `badarg` for a position
   that is not a positive small integer or an improper tail reached before a
   match.

@@ -19,6 +19,12 @@ struct Count {
     std::optional<std::size_t> natural() const;
 };
 
+// A list argument, which the builtin checks itself (a wrong one is function_clause, not badarg); a parameter type of
+// its own, so it is not mistaken for the term arguments beside it.
+struct ListTerm {
+    Term term;
+};
+
 // The elements of a proper list; function_clause for anything else.
 std::vector<Term> proper(const Term &list);
 
@@ -31,5 +37,10 @@ namespace clause::runtime::builtins {
 // Any term as a lists count; the builtin checks it.
 template <> struct Argument<lists::Count> {
     static TermResult<std::optional<lists::Count>> convert(const Term &term) { return lists::Count{term}; }
+};
+
+// Any term as a lists list argument; the builtin checks it.
+template <> struct Argument<lists::ListTerm> {
+    static TermResult<std::optional<lists::ListTerm>> convert(const Term &term) { return lists::ListTerm{term}; }
 };
 } // namespace clause::runtime::builtins

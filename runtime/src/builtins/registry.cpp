@@ -174,6 +174,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      lists_sublist_builtins(),
                                      lists_ordering_builtins(),
                                      lists_key_builtins(),
+                                     lists_merge_builtins(),
+                                     lists_zip_builtins(),
                                      math_builtins(),
                                      binary_search_builtins(),
                                      binary_part_builtins(),

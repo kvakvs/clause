@@ -3,7 +3,8 @@
 #include <terms.hpp>
 
 // The lists builtins over lists of key tuples (plan step 41T, docs/builtins.md#lists-module): keymember/3 and
-// keysearch/3, which are BIFs in OTP (badarg), and keydelete/3, which is Erlang (function_clause). A key matches when
+// keysearch/3, which are BIFs in OTP (badarg), and keydelete/3, keyreplace/4, keystore/4 and keytake/3, which are
+// Erlang (function_clause). A key matches when
 // element N of a tuple element compares equal (==); other elements are skipped.
 namespace clause::runtime::builtins::lists {
 namespace {
@@ -68,10 +69,77 @@ TermResult<Term> keydelete(ProcessContext &context, const Term &key, const Count
     return TermFactory(context).list(kept);
 }
 
+// A key position argument: a positive integer, else function_clause.
+std::size_t key_position(const Count &position) {
+    const auto index = position.natural();
+    if (!index || *index == 0) {
+        no_clause();
+    }
+    return *index;
+}
+
+struct Found {
+    // The tuples before the first one with the key, that tuple and the list after it; no tuple when none matched in
+    // a proper list.
+    std::vector<Term> before;
+    std::optional<Term> tuple;
+    Term after;
+};
+
+// The first tuple of `list` with `key` at `position`; function_clause for an improper list without one.
+Found find(const Term &key, std::size_t position, const Term &list) {
+    Found found{{}, std::nullopt, list};
+    for (; found.after.is_cons(); found.after = need(found.after.tail())) {
+        const auto element = need(found.after.head());
+        if (has_key(element, key, position)) {
+            found.tuple = element;
+            found.after = need(found.after.tail());
+            return found;
+        }
+        found.before.push_back(element);
+    }
+    if (!found.after.is_nil()) {
+        no_clause();
+    }
+    return found;
+}
+
+// keyreplace(Key, N, TupleList1, NewTuple) and keystore(Key, N, TupleList1, NewTuple): the first tuple with Key at N
+// replaced by NewTuple; without one keyreplace returns the list as it is and keystore appends NewTuple.
+template <bool Store>
+TermResult<Term> keyreplace(ProcessContext &context, const Term &key, const Count &position, const ListTerm &list,
+                            const Term &replacement) {
+    const auto index = key_position(position);
+    if (!replacement.is_tuple()) {
+        no_clause();
+    }
+    auto found = find(key, index, list.term);
+    TermFactory factory(context);
+    if (found.tuple) {
+        return factory.list(found.before, need(factory.cons(replacement, found.after)));
+    }
+    if (!Store) {
+        return list.term;
+    }
+    found.before.push_back(replacement);
+    return factory.list(found.before);
+}
+
+// keytake(Key, N, TupleList1): {value, Tuple, TupleList2} without the first tuple with Key at N, or false.
+TermResult<Term> keytake(ProcessContext &context, const Term &key, const Count &position, const Term &list) {
+    const auto found = find(key, key_position(position), list);
+    TermFactory factory(context);
+    if (!found.tuple) {
+        return factory.boolean(false);
+    }
+    const std::array parts{need(factory.atom("value")), *found.tuple, need(factory.list(found.before, found.after))};
+    return factory.tuple(parts);
+}
+
 constexpr std::array KEY_BUILTINS{
-    typed_entry<keymember>("lists", "keymember"),
-    typed_entry<keysearch>("lists", "keysearch"),
-    typed_entry<keydelete>("lists", "keydelete"),
+    typed_entry<keymember>("lists", "keymember"),       typed_entry<keysearch>("lists", "keysearch"),
+    typed_entry<keydelete>("lists", "keydelete"),       typed_entry<keyreplace<false>>("lists", "keyreplace"),
+    typed_entry<keyreplace<true>>("lists", "keystore"), typed_entry<keytake>("lists", "keytake"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::lists

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "lists_completion",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "zips: [[{a,1},{b,2}],[{a,1},{b,2}],[{a,1},{b,2}],[{a,1},{b,2},{x,3}],[{a,1},{b,2},{c,0}],[],[{a,1,[120]},{b,2,[121]}],[{a,1,17}],[{a,1,17},{z,2,19},{z,3,0}],[{p,1,r}],{[1,2],[a,b]},{[],[]},{[a,b],[1,777],[2,999]}]\nzipwith: [[5,7,9],[{1,a},{2,b}],[5,20,30],[9,12],[[a,b,d],[x,c,z]]]\nenumerate: [[{1,a},{2,b},{3,c}],[{10,a},{11,b},{12,c}],[{0,a},{-2,b},{-4,c}],[{1180591620717411303424,a},{1180591620717411303425,b}],[]]\nkeys: [[{a,1},{b,new},{c,3},{b,4}],[{a,1},{b,2},{c,3},{b,4}],[{a,1},{b,new},{c,3},{b,4}],[{a,1},{b,2},{c,3},{b,4},{z,new}],{value,{b,2},[{a,1},{c,3},{b,4}]},false,{value,{b,2},[{a,1},{c,3},{b,4}]},[x,{y},{r}],[{a,10},{b,20},{c,30},{b,40}],[{[97],1},{[98],2}]]\nmerges: [[1,2,3,3,4,5],[1.0,1,2,2.0],[0,1,2,3,4,5],[1,1.0,2,3,4,4.0],[1,2,3,5],[5,4,3,2,1],[1,2,3],[{a,1},{a,2},{b,2},{c,1}],[{a,1},{b,2},{c,1}],[b],[x]]\nsorts: [[{a,2},{b,1},{c,5}],[{z,0},{x,1.0}],[single],[0,-1,2,3],[5,3,1],[]]\nothers: [[a,c,b],[1.0,2],[a,b],5,0,[100,111,99,47,102,105,108,101,46,51],[49,46,53,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,101,43,48,48,45,55,115,116,114,228],[a,a,b,b,c,c],[],{value,3},false,[b,a]]\nerrors: [function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,function_clause,badarg,badarg,function_clause,function_clause,function_clause,function_clause,badarg]\nlists_completion: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "lists_completion.erl": "ffbfc7ac94ea2103818efab566d71a1a97416b4ca6858e6247b48534faea62f4"
+  }
+}

@@ -28,7 +28,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     # Module zlib streams (plan step 41Q).
     src/builtins/zlib/streams.cpp
     # Module lists (plan step 41T).
-    src/builtins/lists/list_walk.cpp src/builtins/lists/sublists.cpp src/builtins/lists/ordering.cpp src/builtins/lists/keys.cpp
+    src/builtins/lists/list_walk.cpp src/builtins/lists/sublists.cpp src/builtins/lists/ordering.cpp src/builtins/lists/keys.cpp src/builtins/lists/merges.cpp src/builtins/lists/zips.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp
     src/startup/halt.cpp
     src/modules/atoms.cpp src/modules/services.cpp src/modules/code_server.cpp src/modules/registration.cpp src/modules/literal_areas.cpp)
