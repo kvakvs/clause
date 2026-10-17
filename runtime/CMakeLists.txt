@@ -16,7 +16,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/scheduler/services.cpp src/scheduler/registry.cpp src/scheduler/transitions.cpp src/scheduler/executor.cpp src/scheduler/timer_wheel.cpp src/scheduler/timers.cpp src/scheduler/introspection.cpp src/scheduler/aliases.cpp src/scheduler/signals.cpp src/scheduler/ports.cpp src/ports/fd.cpp src/ports/input.cpp src/ports/io.cpp src/ports/spawn.cpp src/ports/file.cpp src/ports/file_info.cpp src/ports/file_paths.cpp src/ports/value.cpp src/ports/sockets.cpp src/ports/reactor.cpp
     src/terms/term_text.cpp src/terms/term_text_scalars.cpp
     src/terms/atoms.cpp src/terms/atom_spelling.cpp src/terms/factory.cpp src/terms/immediate.cpp src/terms/term.cpp src/terms/equality.cpp src/terms/immediate_order.cpp src/terms/immediate_services.cpp
-    src/builtins/registry.cpp src/builtins/invocation.cpp src/builtins/bridge.cpp src/builtins/portions.cpp src/builtins/float_text.cpp src/builtins/text.cpp src/builtins/typed.cpp src/builtins/io.cpp src/builtins/io_format.cpp src/builtins/io_pretty.cpp src/builtins/os.cpp src/builtins/math.cpp src/builtins/maps.cpp src/builtins/persistent_term.cpp src/builtins/code.cpp src/builtins/init.cpp src/builtins/atomics.cpp src/builtins/erts_internal.cpp src/builtins/output.cpp
+    src/builtins/registry.cpp src/builtins/invocation.cpp src/builtins/bridge.cpp src/builtins/portions.cpp src/builtins/float_text.cpp src/builtins/text.cpp src/builtins/typed.cpp src/builtins/io.cpp src/builtins/io_format.cpp src/builtins/os.cpp src/builtins/math.cpp src/builtins/maps.cpp src/builtins/persistent_term.cpp src/builtins/code.cpp src/builtins/init.cpp src/builtins/atomics.cpp src/builtins/erts_internal.cpp src/builtins/output.cpp
     # Module erlang: one translation unit per builtin family (docs/builtins.md#source-layout).
     src/builtins/erlang/core.cpp src/builtins/erlang/term_access.cpp src/builtins/erlang/lists.cpp src/builtins/erlang/conversions.cpp src/builtins/erlang/conversion_text.cpp src/builtins/erlang/binary_conversions.cpp src/builtins/erlang/term_encoding.cpp src/builtins/erlang/term_decoding.cpp src/builtins/erlang/time.cpp src/builtins/erlang/timers.cpp src/builtins/erlang/introspection.cpp src/builtins/erlang/system.cpp src/builtins/erlang/spawning.cpp src/builtins/erlang/fun_info.cpp src/builtins/erlang/hashing.cpp src/builtins/erlang/md5.cpp src/builtins/erlang/node.cpp src/builtins/erlang/code.cpp src/builtins/erlang/processes.cpp src/builtins/erlang/ports.cpp src/builtins/erlang/dictionary.cpp
     # Module binary (plan step 41W).
@@ -53,10 +53,11 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/string/string_common.cpp src/builtins/string/string_text.cpp
     src/builtins/string/string_search.cpp src/builtins/string/string_lexemes.cpp
     src/builtins/string/string_numbers.cpp src/builtins/string/string_latin1.cpp
-    # Module io_lib (plan 21 step LIB4C): deep character lists, writers and the format engine.
+    # Module io_lib (plan 21 steps LIB4C, LIB4D): deep character lists, writers, the format engine and io_lib_pretty.
     src/builtins/io_lib/deep.cpp src/builtins/io_lib/write.cpp src/builtins/io_lib/write_builtins.cpp
     src/builtins/io_lib/format_scan.cpp src/builtins/io_lib/format_build.cpp src/builtins/io_lib/format_float.cpp
-    src/builtins/io_lib/format_builtins.cpp src/builtins/io_lib/collect.cpp
+    src/builtins/io_lib/format_builtins.cpp src/builtins/io_lib/collect.cpp src/builtins/io_lib/pretty.cpp
+    src/builtins/io_lib/pretty_length.cpp src/builtins/io_lib/pretty_layout.cpp src/builtins/io_lib/pretty_bin.cpp
     # Modules rand and random (plan 21 step LIB6).
     src/builtins/rand/generators.cpp src/builtins/rand/rand.cpp src/builtins/rand/tables.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp

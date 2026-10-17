@@ -108,10 +108,8 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 - `unicode`: done as LIB4B, see `00-finished.md`.
 - `io_lib`: done as LIB4C (writers, checks, collect, format engine with OTP's
   deep shapes; `io:format` on the same engine), see `00-finished.md`.
-- LIB4D: `io_lib_pretty` ported with its deep shapes: `print/1,4`, `~p`/`~P`
-  (depth), `write/5` and `~w` with `chars_limit` above 0 (`intermediate` +
-  `write`); replaces `io_pretty.cpp`. Fixture cases parked in the scratchpad:
-  `format/3` with `chars_limit`, `build_text/2`, `format_prompt({x})`.
+- `io_lib_pretty`: done as LIB4D (`print/1,4`, `~p`/`~P`, `chars_limit`
+  writes, `bformat`'s `print_bin`), see `00-finished.md`.
 - LIB4E: `fread/2,3` (`io_lib_fread`, a format-directed scanner) and
   `io:fread/2,3`.
 - Later: `maps_order` comparison funs (Erlang sorts each map's keys and passes

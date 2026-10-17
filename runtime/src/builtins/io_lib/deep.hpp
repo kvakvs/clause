@@ -3,6 +3,7 @@
 #include "../support.hpp"
 #include <cstdint>
 #include <initializer_list>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -70,6 +71,8 @@ class Deep final {
 
     const Cell &cell(Ref ref) const { return cells_[static_cast<std::size_t>(ref)]; }
 
+    // A character cell's code, or a small integer kept as a term (string_char/4's printable characters).
+    std::optional<std::int64_t> character_of(Ref ref) const;
     // The iolist size of the cell, none when it is not an iolist of bytes.
     std::optional<std::int64_t> iolist_size(Ref ref) const;
     // The iolist size of one list element: one for a byte.

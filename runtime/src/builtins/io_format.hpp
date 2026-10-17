@@ -15,18 +15,4 @@ std::u32string format_text(ProcessContext &context, const Term &format, std::opt
 // throws BuiltinFailure for anything else.
 std::u32string characters(const Term &chardata);
 
-// The options of one ~p control sequence.
-struct PrettyOptions {
-    // Column of the first character, from 1; the field's precision or the current column.
-    std::int64_t column = 1;
-    // Line length the layout tries to stay within; the field width, 80 by default, 0 for one line.
-    std::int64_t line_length = 80;
-    // The t modifier: atoms keep characters beyond Latin-1 and UTF-8 binaries print as "..."/utf8.
-    bool unicode = false;
-    // Without the l modifier, printable lists and binaries print as strings.
-    bool strings = true;
-};
-
-// io_lib_pretty:print/2 of `term`; throws BuiltinFailure.
-std::u32string pretty(const Term &term, const PrettyOptions &options);
 } // namespace clause::runtime::builtins

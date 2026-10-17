@@ -895,6 +895,8 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"io_lib", "latin1_char_list", 1},
     BuiltinName{"io_lib", "limit_term", 2},
     BuiltinName{"io_lib", "nl", 0},
+    BuiltinName{"io_lib", "print", 1},
+    BuiltinName{"io_lib", "print", 4},
     BuiltinName{"io_lib", "printable_latin1_list", 1},
     BuiltinName{"io_lib", "printable_list", 1},
     BuiltinName{"io_lib", "printable_unicode_list", 1},

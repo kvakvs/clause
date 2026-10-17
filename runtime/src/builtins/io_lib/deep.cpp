@@ -1,6 +1,7 @@
 #include "deep.hpp"
 #include "../io_format.hpp"
 #include "../string/string.hpp"
+#include "../text.hpp"
 #include <optional>
 
 namespace clause::runtime::builtins::io_lib {
@@ -214,7 +215,16 @@ void Deep::flatten(Ref ref, std::u32string &out) const {
     if (kind(ref) == Kind::code) {
         out.push_back(code_of(ref));
     } else if (kind(ref) == Kind::term) {
-        out += characters(term_of(ref));
+        // A character kept as its term (string_char/4's printable characters) is one code point.
+        const auto code = character_of(ref);
+        if (term_of(ref).is_integer() && (!code || !unicode_character(*code))) {
+            bad_argument();
+        }
+        if (code) {
+            out.push_back(static_cast<char32_t>(*code));
+        } else {
+            out += characters(term_of(ref));
+        }
     }
 }
 
@@ -224,11 +234,18 @@ std::u32string Deep::flat(Ref ref) const {
     return out;
 }
 
-std::optional<std::int64_t> Deep::item_size(Ref item) const {
-    if (kind(item) != Kind::code) {
-        return iolist_size(item);
+std::optional<std::int64_t> Deep::character_of(Ref ref) const {
+    if (kind(ref) == Kind::code) {
+        return code_of(ref);
     }
-    return code_of(item) <= 255 ? std::optional<std::int64_t>{1} : std::nullopt;
+    return kind(ref) == Kind::term && term_of(ref).is_integer() ? small_of(term_of(ref)) : std::nullopt;
+}
+
+std::optional<std::int64_t> Deep::item_size(Ref item) const {
+    if (const auto c = character_of(item)) {
+        return *c >= 0 && *c <= 255 ? std::optional<std::int64_t>{1} : std::nullopt;
+    }
+    return kind(item) == Kind::term && term_of(item).is_integer() ? std::nullopt : iolist_size(item);
 }
 
 std::optional<std::int64_t> Deep::iolist_size(Ref ref) const {
@@ -257,7 +274,8 @@ std::int64_t Deep::chars_length(ProcessContext &context, Ref ref) const {
 std::int64_t Deep::indentation(ProcessContext &context, Ref ref, std::int64_t column) const {
     for (; kind(ref) == Kind::cons; ref = tail(ref)) {
         const auto item = head(ref);
-        column = kind(item) == Kind::code ? next_column(code_of(item), column) : indentation(context, item, column);
+        const auto c = character_of(item);
+        column = c ? next_column(static_cast<char32_t>(*c), column) : indentation(context, item, column);
     }
     if (kind(ref) == Kind::term) {
         return term_indentation(context, term_of(ref), column);

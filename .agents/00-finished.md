@@ -577,7 +577,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (`unicode/forms.cpp`); `unicode_forms` golden — `c25f8153`
 - **LIB4C** `io_lib` in C++ (`builtins/io_lib/`): writers, checks, collect
   functions and the format engine in OTP's deep shapes, `io:format` on it;
-  `io_lib_text` golden — `[plan21] LIB4C`
+  `io_lib_text` golden — `d1c64893`
+- **LIB4D** `io_lib_pretty` in C++ (`io_lib/pretty*.cpp`): intermediate format,
+  `chars_limit` deepening, `cind`/`pp` in OTP's deep shapes and `pp_bin` for
+  `bformat`; `print/1,4`, `~p`/`~P`, limited `write`/`bwrite`, crash reports;
+  `pretty_print` golden — `[plan21] LIB4D`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

@@ -3,6 +3,7 @@
 #include "../text.hpp"
 #include "../unicode/code_points.hpp"
 #include "format.hpp"
+#include "pretty.hpp"
 #include "write.hpp"
 #include <algorithm>
 
@@ -81,7 +82,7 @@ class Builder final {
         Limits limits{.remaining = remaining, .count = counts.limited, .prints = counts.prints};
         for (const auto &item : items) {
             if (const auto *const *spec = std::get_if<const Spec *>(&item)) {
-                out.push_back(limited_spec(**spec, limits));
+                out.push_back(binary && is_print(**spec) ? printed_bin(**spec, limits) : limited_spec(**spec, limits));
             } else {
                 const auto ref = std::get<Deep::Ref>(item);
                 limits.column = literal_column(ref, limits.column, binary);
@@ -130,6 +131,24 @@ class Builder final {
         if (limits.prints > 0) {
             limits.column = deep_.indentation(context_, text, limits.column);
         }
+        return text;
+    }
+
+    // build_limited_bin/5 at ~p or ~P: print_bin/2's bytes, its size taken off chars_limit and its column (or the
+    // indentation of its text, for a negative one) carried to the next ~p.
+    Deep::Ref printed_bin(const Spec &spec, Limits &limits) {
+        const auto max_chars = limits.remaining < 0 ? limits.remaining : limits.remaining / limits.count;
+        const auto depth = spec.control == 'P' ? depth_of(arg(spec, 1)) : -1;
+        const auto result = pretty_print_bin(
+            context_, arg(spec, 0), print_options(spec, {.depth = depth, .limit = max_chars, .column = limits.column}));
+        const auto column = result.column > 0 ? result.column : limits.column - result.column;
+        const auto text = deep_.term(terms_.binary(std::as_bytes(std::span(result.bytes))));
+        --limits.prints;
+        --limits.count;
+        if (limits.remaining >= 0) {
+            limits.remaining = limit_sub(limits.remaining, result.size);
+        }
+        limits.column = limits.prints > 0 && column < 0 ? deep_.indentation(context_, text, limits.column) : column;
         return text;
     }
 
@@ -492,31 +511,41 @@ class Builder final {
         return *value;
     }
 
-    // io_lib:write/5 with the control's encoding and order.
+    // io_lib:write/5 with the control's encoding and order: write1/4, or intermediate/7 with a chars_limit share.
     Deep::Ref written(const Spec &spec, const Term &term, const Bounds &bounds) {
         if (bounds.depth == 0 || bounds.limit == 0) {
             return deep_.ascii("...");
         }
+        const auto encoding = spec.unicode ? Encoding::unicode : Encoding::latin1;
         if (bounds.limit > 0) {
-            bad_argument();
+            return limited_write(context_, deep_, term,
+                                 {.encoding = encoding,
+                                  .order = order_of(spec.order),
+                                  .depth = bounds.depth,
+                                  .chars_limit = bounds.limit});
         }
-        Writer writer(context_, deep_, spec.unicode ? Encoding::unicode : Encoding::latin1, order_of(spec.order));
+        Writer writer(context_, deep_, encoding, order_of(spec.order));
         return writer.write(term, bounds.depth);
     }
 
-    // print/12: ~p with the line length F (80), the column P (the current one) and right adjustment.
-    Deep::Ref printed(const Spec &spec, const Bounds &bounds) {
+    // print/12's io_lib_pretty options: the line length F (80), the column P (the current one), the depth and the
+    // control's share of chars_limit.
+    static PrettyOptions print_options(const Spec &spec, const Bounds &bounds) {
         if (spec.left) {
             no_clause();
         }
-        if (bounds.depth != -1 || bounds.limit > 0) {
-            bad_argument();
-        }
-        const PrettyOptions options{.column = spec.precision.value_or(bounds.column + 1),
-                                    .line_length = spec.width.value_or(80),
-                                    .unicode = spec.unicode,
-                                    .strings = spec.strings};
-        return deep_.text(pretty(arg(spec, 0), options));
+        return {.column = spec.precision.value_or(bounds.column + 1),
+                .line_length = spec.width.value_or(80),
+                .depth = bounds.depth,
+                .chars_limit = bounds.limit,
+                .encoding = spec.unicode ? Encoding::unicode : Encoding::latin1,
+                .strings = spec.strings,
+                .order = order_of(spec.order)};
+    }
+
+    // print/12: ~p and ~P as io_lib_pretty:print/2 lays them out (pad characters are ignored).
+    Deep::Ref printed(const Spec &spec, const Bounds &bounds) {
+        return pretty_print(context_, deep_, arg(spec, 0), print_options(spec, bounds));
     }
 
     // ~s: the chardata as characters, limited to the share of chars_limit, within the field.

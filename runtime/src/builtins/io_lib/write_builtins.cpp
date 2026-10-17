@@ -2,6 +2,7 @@
 #include "../text.hpp"
 #include "../typed.hpp"
 #include "format.hpp"
+#include "pretty.hpp"
 #include "write.hpp"
 #include <array>
 #include <terms.hpp>
@@ -20,6 +21,8 @@ using DepthArg = Named<DepthRole>;
 using LimitArg = Named<LimitRole>;
 struct ColumnRole;
 using ColumnArg = Named<ColumnRole>;
+struct LineRole;
+using LineArg = Named<LineRole>;
 
 // write1/4's encoding: latin1 escapes atoms, anything else keeps them.
 Encoding encoding_of(const Term &encoding) {
@@ -29,24 +32,36 @@ Encoding encoding_of(const Term &encoding) {
 // A small integer argument, or none.
 std::optional<std::int64_t> small_value(const Term &term) { return string::small_of(term); }
 
-// io_lib:write/5's choice: "..." for depth or chars_limit 0, write1/4 without a limit; none with a limit, which
-// needs io_lib_pretty (not supported yet, badarg) and if_clause otherwise.
-std::optional<std::int64_t> unlimited_depth(const Term &depth, const Term &limit) {
+// io_lib:write/5's choice: "..." for depth or chars_limit 0 (depth 0), write1/4 with a depth when chars_limit is
+// negative, intermediate/7 when it is above 0 (any other depth than an integer counts as unlimited there).
+struct WriteChoice {
+    std::int64_t depth = -1;
+    bool limited = false;
+    std::int64_t limit = -1;
+};
+
+WriteChoice write_choice(const Term &depth, const Term &limit) {
     if (string::is_char(depth, 0) || string::is_char(limit, 0)) {
-        return 0;
+        return {.depth = 0};
     }
     if (!limit.is_integer()) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::if_clause};
     }
     const auto chars = small_value(limit);
-    if (chars && *chars < 0 && !depth.is_integer()) {
+    if (!chars) {
+        bad_argument();
+    }
+    if (*chars > 0) {
+        return {.depth = small_value(depth).value_or(-1), .limited = true, .limit = *chars};
+    }
+    if (!depth.is_integer()) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::if_clause};
     }
     const auto value = small_value(depth);
-    if (!chars || *chars > 0 || !value) {
+    if (!value) {
         bad_argument();
     }
-    return value;
+    return {.depth = *value};
 }
 
 // The options of io_lib:write/2 and bwrite/2: depth, encoding (utf8 by default), chars_limit and maps_order.
@@ -67,12 +82,20 @@ WriteOptions options_of(ProcessContext &context, const Term &options) {
 
 Term written(ProcessContext &context, const Term &term, const WriteOptions &options) {
     Deep deep;
-    const auto depth = unlimited_depth(options.depth, options.limit);
-    if (depth == 0) {
+    const auto choice = write_choice(options.depth, options.limit);
+    if (choice.depth == 0) {
         return deep.to_term(context, deep.ascii("..."));
     }
-    Writer writer(context, deep, encoding_of(options.encoding), order_of(options.order));
-    return deep.to_term(context, writer.write(term, *depth));
+    const auto encoding = encoding_of(options.encoding);
+    const auto order = order_of(options.order);
+    if (choice.limited) {
+        return deep.to_term(
+            context,
+            limited_write(context, deep, term,
+                          {.encoding = encoding, .order = order, .depth = choice.depth, .chars_limit = choice.limit}));
+    }
+    Writer writer(context, deep, encoding, order);
+    return deep.to_term(context, writer.write(term, choice.depth));
 }
 
 Term write1(ProcessContext &context, const Term &term) {
@@ -106,13 +129,20 @@ Term write5(ProcessContext &context, const Term &term, const DepthArg &depth, co
 // write_bin/5's {Utf8Binary, Size}.
 std::pair<Term, std::int64_t> written_bin(ProcessContext &context, const Term &term, const WriteOptions &options) {
     const Terms terms(context);
-    const auto depth = unlimited_depth(options.depth, options.limit);
-    if (depth == 0) {
+    const auto choice = write_choice(options.depth, options.limit);
+    if (choice.depth == 0) {
         return {terms.utf8(U"..."), 3};
     }
+    const auto encoding = encoding_of(options.encoding);
+    const auto order = order_of(options.order);
+    if (choice.limited) {
+        const auto [bytes, size] = limited_write_bin(
+            context, term, {.encoding = encoding, .order = order, .depth = choice.depth, .chars_limit = choice.limit});
+        return {terms.binary(std::as_bytes(std::span(bytes))), size};
+    }
     Deep deep;
-    Writer writer(context, deep, encoding_of(options.encoding), order_of(options.order));
-    const auto text = writer.write(term, *depth);
+    Writer writer(context, deep, encoding, order);
+    const auto text = writer.write(term, choice.depth);
     return {terms.utf8(deep.flat(text)), writer.size_of(text)};
 }
 
@@ -435,6 +465,25 @@ class Limiter final {
     std::size_t level_ = 0;
 };
 
+// io_lib:print/4: io_lib_pretty:print/4 with Latin-1 atoms and strings; arithmetic on a column, line length or
+// depth that is not an integer raises badarith.
+Term print4(ProcessContext &context, const Term &term, const ColumnArg &column, const LineArg &line,
+            const DepthArg &depth) {
+    const auto at = small_value(column.term);
+    const auto length = small_value(line.term);
+    const PrettyOptions options{.column = at.value_or(1),
+                                .line_length = length.value_or(-1),
+                                .depth = small_value(depth.term).value_or(NON_INTEGER_DEPTH),
+                                .numeric = at && length};
+    Deep deep;
+    return deep.to_term(context, pretty_print(context, deep, term, options));
+}
+
+Term print1(ProcessContext &context, const Term &term) {
+    Deep deep;
+    return deep.to_term(context, pretty_print(context, deep, term, {}));
+}
+
 Term limit_term2(ProcessContext &context, const Term &term, const DepthArg &depth) {
     const auto value = small_value(depth.term);
     if (!value || *value < -1) {
@@ -448,6 +497,8 @@ Term limit_term2(ProcessContext &context, const Term &term, const DepthArg &dept
 }
 
 constexpr std::array IO_LIB_WRITE_BUILTINS{
+    typed_entry<print1>("io_lib", "print"),
+    typed_entry<print4>("io_lib", "print"),
     typed_entry<write1>("io_lib", "write"),
     typed_entry<write2>("io_lib", "write"),
     typed_entry<write5>("io_lib", "write"),

@@ -853,13 +853,21 @@ arena (`io_lib/deep.cpp`), then becomes a term (`io_lib`) or flat characters
   `limit_term/2`, `nl/0`, and the I/O server states `collect_chars/1,3,4`,
   `collect_chars_eager/4`, `collect_line/1,3,4`, `collect_line_no_eol/4`
   (`io_lib/collect.cpp`).
+- Pretty printer (`io_lib/pretty*.cpp`, plan 21 step LIB4D): OTP's
+  `io_lib_pretty` for `print/1,4`, `~p`/`~P` (depth and `chars_limit`),
+  `write/2,5`, `bwrite/2` and `write_bin/5` with `chars_limit` above 0, and
+  crash reports. `print_length/7` builds the intermediate format in an arena
+  (each value with its one-line length, dots carrying what to print deeper);
+  `intermediate/7` deepens it within `chars_limit` (`expand/3`,
+  `find_upper`, `search_depth`); `cind/7` picks the tag indentation and
+  `pp/8` breaks lines in OTP's deep list shapes. `bformat/2,3` lay `~p` out as
+  `print_bin/2` does, with its binary line breaks, size and column.
 - Erlang: `get_until/1,3,4` (it applies the caller's scanner),
-  `format_prompt/1,2` and `write/3`. Stubs until plan 21 LIB4D and LIB4E:
-  `print/1,4`, `~w` and `write/5` with `chars_limit` above 0, `~P` with a
-  depth (`io_lib_pretty`), and `fread/2,3`.
+  `format_prompt/1,2` and `write/3`. Stub until plan 21 LIB4E: `fread/2,3`.
 - Containers nested more than 256 deep raise `system_limit`, and `maps_order`
   comparison funs are `badarg` ([differences](differences.md#io)).
-  `executables_io_lib_text` compares every function's shapes with OTP's.
+  `executables_io_lib_text` compares every function's shapes with OTP's,
+  `executables_pretty_print` the pretty printer's.
 
 ## Zlib module
 

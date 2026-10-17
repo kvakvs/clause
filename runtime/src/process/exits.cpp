@@ -1,5 +1,5 @@
 #include "exits.hpp"
-#include "../builtins/io_format.hpp"
+#include "../builtins/io_lib/pretty.hpp"
 #include "../builtins/text.hpp"
 #include "exceptions.hpp"
 #include <array>
@@ -39,9 +39,9 @@ std::string report_header() {
 }
 
 // A term as ~p prints it at the start of a line, or as ~w when the layout refuses it (nesting too deep).
-std::string pretty_text(const Term &term) {
+std::string pretty_text(ProcessContext &process, const Term &term) {
     try {
-        return builtins::utf8(builtins::pretty(term, {}));
+        return builtins::utf8(builtins::io_lib::pretty_text(process, term));
     } catch (const builtins::BuiltinFailure &) {
         return format_term(term, TermStyle::write).value_or("");
     }
@@ -55,7 +55,7 @@ std::string report_text(ProcessContext &process) {
         return {};
     }
     return report_header() + "Error in process " + format_term(*pid, TermStyle::write).value_or("") +
-           " with exit value:\n" + pretty_text(*reason) + "\n\n";
+           " with exit value:\n" + pretty_text(process, *reason) + "\n\n";
 }
 } // namespace
 

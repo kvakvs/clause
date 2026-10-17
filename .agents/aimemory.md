@@ -332,3 +332,12 @@ gotchas and user directions not recorded elsewhere.
   Erlang-implemented lists:reverse/1 gives function_clause for a non-list;
   the BIFs (length, ++, member) give badarg. Only two OTP quirks needed
   probing; everything else came from the golden diff.
+- LIB4D (2026-10-17): io_lib_pretty ported clause-for-clause (io_lib/pretty*.cpp):
+  arena of intermediate nodes, More funs as {kind, term, index, depth, depth0}
+  reruns, if_list ends as NONE/dots/improper node. Golden passed first try by
+  porting OTP's quirks verbatim (record fields subtract 1 on the LAST field,
+  cind_fields_tail Col + FW, pp_map W = PW, map pairs rerun keep D0, chars/2
+  of 1 is [$\s, []], cind map W + 2 vs pp map W + 1). A fixture module must
+  not be named io_lib_pretty (it replaces OTP's module in the oracle). Codex
+  CLI subagents: gpt-5.6-sol works; its sandbox cannot write build/ (ACL), so
+  regenerate goldens yourself.

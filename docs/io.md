@@ -5,7 +5,7 @@ runtime builtins of module `io` in the bridge catalog
 ([builtins](builtins.md)); the text is `io_lib:format/2`'s, built by
 [io_lib's engine](builtins.md#io_lib) and flattened, with `~p` laid out by
 OTP's `io_lib_pretty` rules
-([io_pretty.cpp](../runtime/src/builtins/io_pretty.cpp)). The input functions
+([io_lib/pretty.cpp](../runtime/src/builtins/io_lib/pretty.cpp)). The input functions
 of `io` are Erlang in the [library](library.md#contents).
 
 ## Calls
@@ -55,13 +55,15 @@ of `io` are Erlang in the [library](library.md#contents).
 - `badarg`: anything `io_lib:format/2` fails on (an unknown control
   character, missing or extra arguments, an argument of the wrong type, `F`
   smaller than `P`, a left adjusted `~p` or `~n`, a base outside 2..36), and
-  output that is not Unicode. `~P` with a depth is `badarg` until plan 21 step
-  LIB4D.
+  output that is not Unicode.
 
 ## Pretty printing (`~p`)
 
 - Line length is `F` (default 80, 0 writes one line); the first column is `P`,
   else the column the output has reached on its line (tabs to multiples of 8).
+- `~P` cuts the term at its depth argument and `chars_limit` (`io:format/3`
+  and `io_lib:format/3` options) at the control's share of the characters,
+  printing `...` where parts were left out, as OTP does.
 - The term becomes OTP's intermediate form: each value with its one-line length;
   strings (flat lists of printable Latin-1 characters, the default
   `io:printable_range()`), printable binaries, atoms and numbers are text.

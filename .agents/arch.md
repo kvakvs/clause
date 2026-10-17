@@ -310,8 +310,9 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   per-process in `ProcessContext`: `ProcessDictionary`, group leader), module
   builtins `builtins/<module>` (lists, io, math, binary, os, maps,
   persistent_term, unicode, code); fun-taking functions stay Erlang.
-- Text: `builtins/io_format`, `builtins/io_pretty` (OTP layout, nesting cap
-  256), `builtins/text`, `builtins/float_text` (OTP rounding, Ryu notation).
+- Text: `builtins/io_format`, `builtins/io_lib/pretty*` (io_lib_pretty's
+  intermediate format arena, cind/pp layout, pp_bin; nesting cap 256),
+  `builtins/text`, `builtins/float_text` (OTP rounding, Ryu notation).
   `docs/io.md`.
 - unicode_util: generated `builtins/unicode/tables.cpp`
   (`tools/unicode/generate.py`) behind private `clause_unicode` builtins.
