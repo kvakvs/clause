@@ -93,12 +93,18 @@ Erlang only where a function calls funs, runs a process protocol or is glue.
 | Pure data transforms, no funs | C++ builtin | `ordsets:union/2`, `proplists:get_value/3`, `string:split/3`, `base64:encode/1`, `calendar:*`, `json:decode/1` |
 | Tables, shared state, OS access | C++ runtime object plus builtins | ETS, `file:pread/3`, `os:find_executable/1`, `net:getaddrinfo/1`, `win32reg` |
 | Takes funs | Erlang over C++ helpers | `ordsets:filter/2`, `gb_trees:map/2`, `json:decode/3`, `queue:filter/2`, `ets:foldl/3` |
-| Walks whose result shapes and quirks are the algorithm (OS rules, chardata continuations) | Erlang, own structure, same algorithm | `filename:*`, `uri_string:*`, `string:*` over `unicode_util` |
+| Walks whose result shapes and quirks are the algorithm (OS rules, chardata continuations) | C++, own structure, same algorithm and result shapes | `filename:*`, `uri_string:*`, `string:*` |
 | Processes, protocols, behaviours | Erlang | `proc_lib`, `gen_server`, `supervisor`, `logger`, `timer:apply_interval/4`, `application` |
 | Front-end terms (tokens, forms) | C++ over Clause's lexer and parser | `erl_scan:string/1`, `erl_parse:parse_form/1`, `epp:parse_file/2` |
 | Interpreters over forms | Erlang | `erl_eval`, `ms_transform`, `qlc` |
 
 ## Tier A: data modules without processes
+
+### LIB5G. `filename` and `uri_string` in C++
+
+- LIB5C and LIB5D wrote both as Erlang walks; per the C++ preference they move
+  to builtins with the same result shapes, error terms and thrown errors, the
+  `filenames` and `uri_strings` goldens unchanged.
 
 ### LIB4. Text: `string`, `unicode` remainder, `io_lib`
 
