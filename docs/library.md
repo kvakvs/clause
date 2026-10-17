@@ -189,8 +189,8 @@ Booting the whole `kernel` application is not planned.
 
 ### Ledger
 
-Real programs drive this work; the luerl project is the current driver
-([21-lib](../.agents/21-lib.md)). Compile and run it, classify every error
+[Plan 21](../.agents/21-lib.md) schedules every documented `erts`, `kernel`
+and `stdlib` module; real programs (luerl first) set priorities. Compile and run it, classify every error
 (`unknown module`, `undefined function M:F/A`, unsupported syntax or feature,
 other), and assign each to a plan step, another backlog item, or a recorded
 decline. With the run's stderr saved to a file,
