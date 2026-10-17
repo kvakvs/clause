@@ -151,7 +151,10 @@ int main() {
         BuiltinRegistry registry;
         require(registry.add(ENTRIES).has_value(), "typed entries rejected");
         check_conversions(*context, registry);
-        check_handles(*runtime, *context, registry);
+        // Release builds trust the words handed to builtins (CHECKED_ADMISSION).
+        if (clause::runtime::CHECKED_ADMISSION) {
+            check_handles(*runtime, *context, registry);
+        }
         check_throwing(*context, registry);
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';

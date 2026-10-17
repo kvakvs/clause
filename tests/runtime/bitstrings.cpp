@@ -49,7 +49,8 @@ void ownership() {
     require(second.is_binary() && second.exactly_equal(independent) == true, "nonaligned view value mismatch");
     original = Term{};
     auto &foreign = *runtime->create_context().value();
-    require(Term::from_word(first.word(), foreign) == std::unexpected(TermError::wrong_owner),
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                Term::from_word(first.word(), foreign) == std::unexpected(TermError::wrong_owner),
             "foreign slice admitted");
     for (unsigned i = 0; i < 100; ++i) {
         require(factory.binary(bytes).has_value(), "later buffer allocation failed");

@@ -72,6 +72,10 @@ void equality_failures(ProcessContext &context) {
     auto &foreign = *other->create_context().value();
     const auto atom = foreign.atom_storage().intern("owned").value();
     for (const auto invalid : {Word{0}, Word{0x6b}, atom.word()}) {
+        // Another runtime's atom is trusted in Release builds (CHECKED_ADMISSION).
+        if (invalid == atom.word() && !clause::runtime::CHECKED_ADMISSION) {
+            continue;
+        }
         GeneratedInvocation scope(context.generated_calls());
         require(CLAUSE_exact_v1(&context, invalid, invalid) == 2, "invalid equality fabricated success");
         require(context.generated_calls().failure().has_value(), "invalid equality lost failure");

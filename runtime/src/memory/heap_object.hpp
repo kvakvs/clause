@@ -18,8 +18,33 @@ struct HeapObject {
 };
 
 struct TermAccess {
-    // Admit immediates/atoms, or a word inside this process's used heap whose object matches its tag.
-    static TermResult<Term> admit(Word value, HeapStorage &storage) noexcept;
+    // Admit immediates/atoms, or a word inside this process's used heap whose object matches its tag; Release builds
+    // trust the word (CHECKED_ADMISSION).
+    static TermResult<Term> admit(Word value, HeapStorage &storage) noexcept {
+        if constexpr (CHECKED_ADMISSION) {
+            return checked(value, storage);
+        } else {
+            return trusted_term(value);
+        }
+    }
+
+    // A word as Release admission takes it: compound words, atoms, pids and ports are trusted, other immediates are
+    // still classified (CHECKED_ADMISSION).
+    static TermResult<Term> trusted_term(Word value) noexcept {
+        switch (TermTag{value}.get_kind()) {
+        case TermKind::boxed:
+        case TermKind::list:
+        case TermKind::atom:
+        case TermKind::local_pid:
+        case TermKind::local_port:
+            return make(value);
+        default:
+            return Term::from_word(value);
+        }
+    }
+
+    // The checks of admit.
+    static TermResult<Term> checked(Word value, HeapStorage &storage) noexcept;
     // Admit a pid or port word whose number the storage's runtime issued; others are forged or foreign (wrong_owner).
     static TermResult<Term> identity(Word value, const HeapStorage &storage) noexcept;
     // Decode a compound term's object from its header; wrong_type for any other term.

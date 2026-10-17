@@ -229,7 +229,8 @@ Compact map of how Clause works. History lives in `00-finished.md`,
 - Host `Term` = exactly one Word (static_assert, trivially copyable), OPTM.2:
   compound words are trusted pointers (ERTS Eterm); contextual admission
   (`Term::from_word(word, context)`, factories via `retain`) checks range/shape/
-  ownership; no per-handle staleness/expiry check, roots are rewritten by GC.
+  ownership in Debug only (`CHECKED_ADMISSION`, Release trusts words); no
+  per-handle staleness/expiry check, roots are rewritten by GC.
 - Terms: arbitrary integers (immediates, else heap sign/magnitude up to ERTS
   `BIG_ARITY_MAX`, beyond = `system_limit`), atoms (validated UTF-8, deduped,
   limits, shared-mutex per-runtime `AtomStorage`; spellings via the

@@ -61,7 +61,8 @@ void ownership(Runtime &runtime, ProcessContext &context, const Term &value) {
         require(factory.tuple(std::array{value, value}).has_value(), "backing growth failed");
     }
     auto &foreign = *runtime.create_context().value();
-    require(Term::from_word(value.word(), foreign) == std::unexpected(TermError::wrong_owner),
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                Term::from_word(value.word(), foreign) == std::unexpected(TermError::wrong_owner),
             "foreign bignum admitted");
     require(value.integer_decimal() == "1361129467683753853853498429727072845824", "growth damaged magnitude");
     require(runtime.destroy_context(&context) == Status::ok, "owner teardown failed");

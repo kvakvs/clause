@@ -268,6 +268,14 @@ After admission, `TermAccess::object` decodes kind, count and payload through
 `trusted_cell`, without a heap lookup; `child` wraps the stored word and
 `validate` checks representation only. Factories still re-admit inputs through
 `ProcessHeap::retain`, rejecting foreign compound inputs with `wrong_owner`.
+
+These checks run in Debug builds only (`CHECKED_ADMISSION`, OPTM.2C). A
+Release build trusts every compound, atom, pid and port word handed to a
+builtin, service or factory, as ERTS trusts its Eterms: generated code only
+produces words of its own process, literal areas and the runtime's atoms, so
+the range and owner lookups bought nothing but cost on every argument. Other
+immediates are still classified. Tests that feed forged or foreign words
+expect rejection only when `CHECKED_ADMISSION` holds.
 `map_find` may compare another process's key read-only without that rejection.
 `verify()` remains the full check that every slot names an object start, for tests.
 

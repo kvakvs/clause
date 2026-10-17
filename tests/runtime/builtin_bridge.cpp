@@ -76,6 +76,10 @@ void check_bridge(ProcessContext &context) {
     }
     // An atom number no runtime issued here (false and true have the fixed numbers 0 and 1).
     for (Word invalid : {Word{0}, Word{1}, Word{2}, (Word{0xffffff} << 6) | 0xb, Word{0x7}, Word{0x3}}) {
+        // Release builds trust pointer, atom, pid and port words (CHECKED_ADMISSION); only Word{0} stays invalid.
+        if (invalid != 0 && !clause::runtime::CHECKED_ADMISSION) {
+            continue;
+        }
         require(dispatch_builtin(&context, "test", 4, "id", 2, &invalid, 1, &output) == Status::invalid_argument,
                 "unsupported term crossed bridge");
         require(output == 123, "invalid argument overwrote output");

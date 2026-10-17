@@ -19,7 +19,9 @@ void require(bool condition, const char *message) {
 
 // The word must not be admitted by context.
 void rejects(ProcessContext &context, Word word, const char *message) {
-    require(Term::from_word(word, context) == std::unexpected(TermError::wrong_owner), message);
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                Term::from_word(word, context) == std::unexpected(TermError::wrong_owner),
+            message);
 }
 
 // Every object start of every layout is admitted, including later cells of a list.

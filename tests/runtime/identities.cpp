@@ -58,14 +58,17 @@ void forged_pids(Runtime &runtime) {
     const auto mine = pid(context);
     const auto theirs = pid(foreign);
     const Word unissued = mine.word() + (Word{1} << 30);
-    require(Term::from_word(unissued, context) == std::unexpected(TermError::wrong_owner) &&
-                Term::from_word(Word{0x3}, context) == std::unexpected(TermError::wrong_owner),
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                (Term::from_word(unissued, context) == std::unexpected(TermError::wrong_owner) &&
+                 Term::from_word(Word{0x3}, context) == std::unexpected(TermError::wrong_owner)),
             "forged pid admitted");
-    require(Term::from_word(theirs.word(), context) == std::unexpected(TermError::wrong_owner) &&
-                TermFactory(context).pid(foreign.identity()) == std::unexpected(TermError::wrong_owner),
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                (Term::from_word(theirs.word(), context) == std::unexpected(TermError::wrong_owner) &&
+                 TermFactory(context).pid(foreign.identity()) == std::unexpected(TermError::wrong_owner)),
             "foreign pid admitted");
     const std::array fields{theirs};
-    require(TermFactory(context).tuple(fields) == std::unexpected(TermError::wrong_owner),
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                TermFactory(context).tuple(fields) == std::unexpected(TermError::wrong_owner),
             "foreign pid stored in a tuple");
     require(Term::from_word(mine.word()) == std::unexpected(TermError::not_implemented),
             "a pid admitted without its runtime");
@@ -90,8 +93,9 @@ void ports(Runtime &runtime) {
     require(port.port_value().has_value() &&
                 TermFactory(context).port(*port.port_value()).value().word() == port.word(),
             "port identity round trip");
-    require(Term::from_word(port.word() + (Word{1} << 30), context) == std::unexpected(TermError::wrong_owner) &&
-                Term::from_word(theirs.word(), context) == std::unexpected(TermError::wrong_owner),
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                (Term::from_word(port.word() + (Word{1} << 30), context) == std::unexpected(TermError::wrong_owner) &&
+                 Term::from_word(theirs.word(), context) == std::unexpected(TermError::wrong_owner)),
             "forged or foreign port admitted");
     require(peer.heap().add(port).value().word() == port.word() && before(port, pid(context)) &&
                 before(TermFactory(context).make_reference().value(), port),
@@ -119,7 +123,8 @@ void references(Runtime &runtime) {
     require(before(factory.atom("zzz").value(), first) && before(first, pid(context)) &&
                 before(pid(context), factory.tuple({}).value()),
             "atoms < references < pids < tuples");
-    require(Term::from_word(first.word(), peer) == std::unexpected(TermError::wrong_owner),
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                Term::from_word(first.word(), peer) == std::unexpected(TermError::wrong_owner),
             "another process's reference admitted");
     const auto copy = first.copy_to(peer.heap()).value();
     require(copy.exactly_equal(first).value() && text(copy) == text(first), "a copied reference changed");

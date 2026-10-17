@@ -11,7 +11,8 @@ in [abi.md](abi.md#terms).
 
 - Compound values live in their process heap ([heap contract](runtime-heap.md))
   or in a module's read-only literal area ([areas](runtime-heap.md#areas)).
-  Process pointers always name object starts. Admission checks the owned range
+  Process pointers always name object starts. Admission (Debug builds only;
+  Release trusts words, `CHECKED_ADMISSION`) checks the owned range
   and the header shape, rejecting foreign addresses and invalid shapes
   ([admission](runtime-heap.md#admission)); kind and extent are decoded from
   the header.

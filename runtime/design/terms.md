@@ -12,7 +12,8 @@ alone does not establish implementation. Graphs copy between heaps of one runtim
 Host [Term](../include/clause/runtime/terms.hpp) is exactly one `Word` and trivially
 copyable; its only field is `value_`. It carries no atom pin, heap pointer, lifetime
 token or collection count. Private layouts use target Word slots that a walker
-parses from headers; contextual admission checks owned range and header shape.
+parses from headers; contextual admission checks owned range and header shape
+in Debug builds (`CHECKED_ADMISSION`); Release builds trust the word.
 
 ## Class boundary and immediate ABI
 

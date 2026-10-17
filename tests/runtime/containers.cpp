@@ -138,9 +138,13 @@ void tuple_arity(Runtime &runtime) {
 // allocates nothing.
 void ownership(Runtime &runtime, ProcessContext &context, const Term &value) {
     auto &other = *runtime.create_context().value();
-    require(Term::from_word(value.word(), other) == std::unexpected(TermError::wrong_owner), "foreign heap admitted");
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                Term::from_word(value.word(), other) == std::unexpected(TermError::wrong_owner),
+            "foreign heap admitted");
     require(value.copy_to(other.heap())->exactly_equal(value) == true, "foreign graph not copied");
-    require(Term::from_word(Word{1}, context) == std::unexpected(TermError::wrong_owner), "forged cons admitted");
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                Term::from_word(Word{1}, context) == std::unexpected(TermError::wrong_owner),
+            "forged cons admitted");
     TermFactory factory(context);
     require(runtime.destroy_context(&context) == Status::ok, "context removal failed");
     require(factory.tuple({}) == std::unexpected(TermError::expired_context), "expired factory accessed");

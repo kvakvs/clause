@@ -184,7 +184,8 @@ void retained(Runtime &runtime) {
     require(atom.copy_to(other.heap())->word() == atom.word() && other.heap().used_words() == 0, "atom used storage");
     require(factory.integer(5)->copy_to(other.heap())->integer_value() == 5, "immediate copy failed");
     // Factories still refuse foreign inputs; only add/copy_to copies.
-    require(TermFactory(other).tuple(std::array{value}) == std::unexpected(TermError::wrong_owner),
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                TermFactory(other).tuple(std::array{value}) == std::unexpected(TermError::wrong_owner),
             "factory accepted a foreign graph");
     require(runtime.destroy_context(&context) == Status::ok && runtime.destroy_context(&other) == Status::ok,
             "teardown failed");

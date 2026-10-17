@@ -60,7 +60,8 @@ void rollback(ProcessContext &context, const std::vector<Term> &values) {
         abandoned = reinterpret_cast<Word>(reservation.bytes().data()) | 2U;
     }
     require(heap.capacity_words() == 17 && heap.used_words() == 17, "fragment rollback kept accounting");
-    require(Term::from_word(abandoned, context) == std::unexpected(TermError::wrong_owner),
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                Term::from_word(abandoned, context) == std::unexpected(TermError::wrong_owner),
             "dropped fragment word admitted");
     require(tuple(context, 70, 0) == std::unexpected(TermError::resource_limit), "budget ignored");
     require(heap.capacity_words() == 17 && heap.used_words() == 17, "failed construction kept accounting");

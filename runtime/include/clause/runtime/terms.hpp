@@ -125,6 +125,14 @@ struct TermAccess;
 struct BitAccess;
 } // namespace detail
 
+// Whether contextual admission (Term::from_word with a context, factory and service inputs) checks a word's range,
+// shape and owner: Debug builds only. Release builds trust every word, as ERTS does (OPTM.2C).
+#ifdef NDEBUG
+inline constexpr bool CHECKED_ADMISSION = false;
+#else
+inline constexpr bool CHECKED_ADMISSION = true;
+#endif
+
 // Identify an atom within its runtime; word-sized IDs remain stable across future storage compaction.
 using AtomId = std::uintptr_t;
 

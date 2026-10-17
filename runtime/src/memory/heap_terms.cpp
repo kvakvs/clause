@@ -79,7 +79,7 @@ TermResult<Term> TermAccess::identity(Word value, const HeapStorage &storage) no
     return make(value);
 }
 
-TermResult<Term> TermAccess::admit(Word value, HeapStorage &storage) noexcept {
+TermResult<Term> TermAccess::checked(Word value, HeapStorage &storage) noexcept {
     if (!storage.alive()) {
         return std::unexpected(TermError::expired_context);
     }

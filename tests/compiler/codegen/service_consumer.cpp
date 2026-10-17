@@ -135,6 +135,10 @@ void checked_arguments(ProcessContext &context) {
     auto &foreign = *other->create_context().value();
     const auto atom = foreign.atom_storage().intern("foreign").value();
     for (Word value : {Word{0}, atom.word()}) {
+        // Another runtime's atom is trusted in Release builds (CHECKED_ADMISSION).
+        if (value != 0 && !clause::runtime::CHECKED_ADMISSION) {
+            continue;
+        }
         GeneratedInvocation invocation(context.generated_calls());
         Word output = 123;
         require(CLAUSE_immediate_v1(&context, static_cast<std::uint8_t>(abi::v1::ImmediateOperation::is_atom), value, 0,

@@ -35,7 +35,8 @@ void ownership() {
         require(context.heap().used_words() == used, "invalid float reserved storage");
     }
     auto &foreign = *runtime->create_context().value();
-    require(Term::from_word(value.word(), foreign) == std::unexpected(TermError::wrong_owner),
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                Term::from_word(value.word(), foreign) == std::unexpected(TermError::wrong_owner),
             "foreign float admitted");
     for (unsigned i = 0; i < 100; ++i) {
         require(factory.tuple(std::array{value, second}).has_value(), "growth failed");

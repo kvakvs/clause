@@ -72,7 +72,9 @@ void ownership() {
     const auto nested = factory.map(std::array{std::pair{map, map}}).value();
     const auto child = nested.map_find(map)->value();
     auto &foreign = *runtime->create_context().value();
-    require(Term::from_word(map.word(), foreign) == std::unexpected(TermError::wrong_owner), "foreign map admitted");
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                Term::from_word(map.word(), foreign) == std::unexpected(TermError::wrong_owner),
+            "foreign map admitted");
     const auto foreign_key = TermFactory(foreign).map({}).value();
     // Another process's key is only read, as any live term may be (one-word terms).
     require(nested.map_find(foreign_key).has_value(), "foreign key not compared");

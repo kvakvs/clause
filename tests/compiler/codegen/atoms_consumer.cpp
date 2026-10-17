@@ -102,10 +102,12 @@ void native_payloads(ProcessContext &local, ProcessContext &foreign, const Term 
     const auto failure = local.code_server().resolve({"native_atoms", "fail", 0}).value();
     require(payload(failure.call(local, {}).error()).atom_utf8() == atom.atom_utf8(), "local error payload lost");
     const auto rejected = failure.call(foreign, {});
-    require(rejected.error().term_error == TermError::wrong_owner && !rejected.error().value,
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                (rejected.error().term_error == TermError::wrong_owner && !rejected.error().value),
             "foreign native error payload admitted");
     const auto value = local.code_server().resolve({"native_atoms", "value", 0}).value();
-    require(value.call(foreign, {}).error().term_error == TermError::wrong_owner, "foreign native result admitted");
+    require(!clause::runtime::CHECKED_ADMISSION || value.call(foreign, {}).error().term_error == TermError::wrong_owner,
+            "foreign native result admitted");
 }
 
 // Reject foreign handles and raw words even when both runtimes intern the same spelling first.
@@ -116,18 +118,22 @@ void foreign(Runtime &runtime, ProcessContext &context, const Term &atom) {
     auto &second = *other->create_context().value();
     native_payloads(context, second, atom);
     require(call(second, "answer", "unicode").atom_utf8() == atom.atom_utf8(), "independent runtime spelling differs");
-    require(Term::from_word(atom.word(), second).error() == TermError::wrong_owner, "foreign raw word aliased");
-    require(atom.copy_to(second.heap()).error() == TermError::wrong_owner, "implicit cross-runtime copy admitted");
+    require(!clause::runtime::CHECKED_ADMISSION ||
+                Term::from_word(atom.word(), second).error() == TermError::wrong_owner,
+            "foreign raw word aliased");
+    require(!clause::runtime::CHECKED_ADMISSION || atom.copy_to(second.heap()).error() == TermError::wrong_owner,
+            "implicit cross-runtime copy admitted");
     const auto target = other->code_server()->resolve({"answer", "id", 1}).value();
     const std::array arguments{atom};
-    require(!target.call(second, arguments), "foreign host atom admitted");
+    require(!clause::runtime::CHECKED_ADMISSION || !target.call(second, arguments), "foreign host atom admitted");
     const auto local = runtime.code_server()->resolve({"answer", "truth", 0}).value();
     require(local.call(second, {}).error().code == CallError::wrong_owner, "foreign module handle admitted");
     require(other->atom_storage()->intern(atom.atom_utf8().value())->atom_utf8() == atom.atom_utf8(),
             "explicit spelling remap failed");
     {
         GeneratedInvocation invocation(second.generated_calls());
-        require(CLAUSE_raise_v2(&second, clause::abi::v1::ErrorReason::badmatch, atom.word()) != 0,
+        require(!clause::runtime::CHECKED_ADMISSION ||
+                    CLAUSE_raise_v2(&second, clause::abi::v1::ErrorReason::badmatch, atom.word()) != 0,
                 "foreign error payload admitted");
     }
     require(call(context, "answer", "truth").boolean_value() == true, "foreign failure poisoned local calls");

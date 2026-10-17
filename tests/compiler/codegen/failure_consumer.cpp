@@ -148,6 +148,10 @@ int main() {
         auto *context = runtime->create_context().value();
         const auto entry = runtime->code_server()->resolve({"failure_client", "run", 0}).value();
         for (unsigned selected = 1; selected <= 10; ++selected) {
+            // A forged payload word is trusted in Release builds (CHECKED_ADMISSION).
+            if (selected == 4 && !clause::runtime::CHECKED_ADMISSION) {
+                continue;
+            }
             failure_case(*context, entry, selected);
         }
         require(runtime->destroy_context(context) == abi::v1::Status::ok && runtime->shutdown() == abi::v1::Status::ok,
