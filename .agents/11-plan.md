@@ -53,8 +53,8 @@ draft with smaller, single-commit steps.
 
 - **Gate:** freshly configure `build/debug` with compiler, runtime and
   `BUILD_TESTING=ON`; build; run fast-mode CTest (`ctest --preset debug-fast`);
-  run `cmake --build build/debug --target check-quality` (changed files and
-  header dependents). When a phase or major feature completes, run full-mode
+  run `cmake --build build/debug --target check-quality` (changed files and one
+  unit per changed header). When a phase or major feature completes, run full-mode
   CTest (`ctest --preset debug -j <N>`; each test takes two slots, so N/2 run at
   once) instead of fast mode, never both (full covers every fast run), and
   `check-quality-all`. Lizard and clang-tidy pass without raised thresholds or

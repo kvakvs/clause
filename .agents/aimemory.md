@@ -20,7 +20,9 @@ gotchas and user directions not recorded elsewhere.
   step 43A).
 - Test iteration counts: just large enough to prove the property.
 - Test/gate time: per step fast CTest + check-quality; full CTest only at
-  phase/major completion, INSTEAD of fast. Tidy default jobs = half the logical
+  phase/major completion, INSTEAD of fast. Fast gate must stay fast (user
+  2026-10-17): slow workflows are full_only, check-quality tidies one unit per
+  changed header (dependents in check-quality-all); fast CTest ~75 s at -j 16. Tidy default jobs = half the logical
   cores. Keep slow tests parallel. Keep 20-25% CPUs free.
 - Tidy/Lizard run on the Windows dev host only; other platforms build+test.
 - All ABI symbol/namespace versions collapse to v1 in plan step 78A (never

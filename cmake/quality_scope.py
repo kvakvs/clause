@@ -84,25 +84,35 @@ def write_record(root, build):
 
 
 def header_users(build, ninja, headers):
-    """Objects whose recorded dependencies include a changed header; None when Ninja data is missing."""
+    """The objects whose recorded dependencies include each changed header; None when Ninja data is missing."""
     if not ninja or not os.path.exists(os.path.join(build, ".ninja_deps")):
         return None
     result = subprocess.run([ninja, "-C", build, "-t", "deps"], capture_output=True, text=True,
                             encoding="utf-8", errors="replace")
     if result.returncode:
         return None
-    wanted, users, current = {norm(header) for header in headers}, set(), None
+    users, current = {norm(header): set() for header in headers}, None
     for line in result.stdout.splitlines():
         if line and not line[0].isspace():
             current = norm(os.path.join(build, line.split(": #deps", 1)[0]))
-        elif current and norm(os.path.join(build, line.strip())) in wanted:
-            users.add(current)
+        elif current and (header := norm(os.path.join(build, line.strip()))) in users:
+            users[header].add(current)
     return users
 
 
+def representative(header, units, objects):
+    """The one unit that analyzes a changed header in the changed scope: its own source when that includes it, else
+    its first user. Every other dependent is left to the full scope (check-quality-all, the full gate)."""
+    users = sorted(path for path, unit in units.items() if unit.outputs & objects)
+    stem = os.path.splitext(os.path.basename(header))[0]
+    own = [path for path in users if os.path.splitext(os.path.basename(path))[0] == stem]
+    return (own or users)[:1]
+
+
 def tidy_scope(root, build, ninja, changed):
-    """Changed units, units including changed production headers and units whose command changed since the last
-    passing run; every unit when the analyzer configuration changed or nothing tells which commands changed."""
+    """Changed units, one unit per changed production header and units whose command changed since the last passing
+    run; every unit when the analyzer configuration changed or nothing tells which commands changed. A header's other
+    dependents are checked by the full scope (check-quality-all) in the full gate."""
     units = production_units(root, build)
     if any(path in TIDY_CONFIG for path in changed):
         return sorted(units), "analyzer configuration changed"
@@ -116,10 +126,11 @@ def tidy_scope(root, build, ninja, changed):
         users = header_users(build, ninja, headers)
         if users is None:
             return sorted(units), "header dependencies unavailable"
-        selected |= {path for path, unit in units.items() if unit.outputs & users}
+        for header, objects in users.items():
+            selected.update(representative(header, units, objects))
     if recorded is not None:
         selected |= {path for path, unit in units.items() if recorded.get(path) != unit.digest}
-    return sorted(selected), "changed files, their header dependents and units with changed commands"
+    return sorted(selected), "changed files, one unit per changed header and units with changed commands"
 
 
 def main():

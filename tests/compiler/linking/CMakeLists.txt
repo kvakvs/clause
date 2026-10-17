@@ -51,15 +51,16 @@ if(CLAUSE_BUILD_RUNTIME)
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/lto/$<CONFIG>"
         "${CMAKE_EXECUTABLE_SUFFIX}")
     # CTest learns a wrapper script's cost from its own little CPU time; a fixed COST starts these long tests first.
-    set_tests_properties(linking_lto PROPERTIES TIMEOUT 900 COST 18)
+    # The slow linking workflows below run in the full gate only (label full_only), keeping the fast gate fast.
+    set_tests_properties(linking_lto PROPERTIES TIMEOUT 900 COST 18 LABELS full_only)
     # Export liveness: unreachable exports left out, --keep-exports and keep_exports keep them; sizes recorded (62C).
     add_test(NAME linking_exports COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/exports.py"
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/exports/$<CONFIG>"
         "${CMAKE_EXECUTABLE_SUFFIX}")
-    set_tests_properties(linking_exports PROPERTIES TIMEOUT 900 COST 30)
+    set_tests_properties(linking_exports PROPERTIES TIMEOUT 900 COST 30 LABELS full_only)
     # Compile cache: warm project builds reuse the whole batch; edits and options miss (62D4).
     add_test(NAME linking_compile_cache COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compile_cache.py"
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/compile_cache/$<CONFIG>"
         "${CMAKE_EXECUTABLE_SUFFIX}")
-    set_tests_properties(linking_compile_cache PROPERTIES TIMEOUT 900 COST 18)
+    set_tests_properties(linking_compile_cache PROPERTIES TIMEOUT 900 COST 18 LABELS full_only)
 endif()

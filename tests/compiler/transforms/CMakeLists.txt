@@ -66,5 +66,6 @@ set_tests_properties(transforms_build_dir PROPERTIES TIMEOUT 600 LABELS host_otp
 # Added for build caches (62D2): transform results reused, rebuilt after each kind of edit, damaged entries rebuilt.
 add_test(NAME transforms_cache COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/cache.py"
     "$<TARGET_FILE:clau>" "${test_erl}" "${CMAKE_CURRENT_BINARY_DIR}/cache/$<CONFIG>")
-set_tests_properties(transforms_cache PROPERTIES TIMEOUT 600 COST 12 LABELS host_otp
+# Slow cache workflow: full gate only (label full_only).
+set_tests_properties(transforms_cache PROPERTIES TIMEOUT 600 COST 12 LABELS "host_otp;full_only"
     PASS_REGULAR_EXPRESSION "cache: ok" SKIP_REGULAR_EXPRESSION "SKIP: no host Erlang/OTP")

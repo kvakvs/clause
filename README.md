@@ -268,7 +268,8 @@ cmake --build build/debug --target check-quality-all   # whole tree
 ```
 
 `check-quality` checks files changed since `HEAD` (or `CLAUSE_QUALITY_BASE`)
-plus translation units including a changed header, and needs a build with both
+plus one translation unit per changed header (`check-quality-all` covers every
+dependent, in the full gate), and needs a build with both
 compiler and runtime enabled; `check-complexity-all` and `check-clang-tidy-all`
 run one tool. `cmake/CheckClangTidy.cmake` accepts
 `QUALITY_SHARD=K/N` to split a long run.
