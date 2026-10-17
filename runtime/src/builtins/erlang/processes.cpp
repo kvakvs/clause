@@ -63,15 +63,15 @@ TermResult<Term> spawn_monitor_call(ProcessContext &context, const AtomArgument 
 
 // A {Name, Node} pair of two atoms, as sends and monitors accept.
 bool remote_name(const Term &destination) {
-    if (!destination.is_tuple() || destination.tuple_size().value_or(0) != 2) {
+    if (!destination.is_tuple() || destination.tuple_size_unchecked() != 2) {
         return false;
     }
-    return need(destination.tuple_element(0)).is_atom() && need(destination.tuple_element(1)).is_atom();
+    return destination.tuple_element_unchecked(0).is_atom() && destination.tuple_element_unchecked(1).is_atom();
 }
 
 // Whether {Name, Node} names a process of this node.
 bool local_name(const Term &destination) {
-    return need(destination.tuple_element(1)).atom_spelling().value_or("") == detail::LOCAL_NODE;
+    return destination.tuple_element_unchecked(1).atom_spelling_unchecked() == detail::LOCAL_NODE;
 }
 
 // The name (an atom word) a monitor item gives: an atom or {Name, nonode@nohost}; badarg for anything else.
@@ -82,7 +82,7 @@ Word monitored_name(const Term &item) {
     if (!remote_name(item) || !local_name(item)) {
         bad_argument();
     }
-    return need(item.tuple_element(0)).word();
+    return item.tuple_element_unchecked(0).word();
 }
 
 // monitor(process | port, Item[, Options]): a reference; the caller gets {'DOWN', Ref, Type, Item, Reason} (or
@@ -120,7 +120,7 @@ struct DemonitorOptions {
 DemonitorOptions demonitor_options(const ListArgument &options) {
     DemonitorOptions parsed;
     for (const auto &option : options.elements) {
-        const auto spelling = option.is_atom() ? option.atom_spelling().value_or("") : "";
+        const auto spelling = option.is_atom() ? option.atom_spelling_unchecked() : "";
         if (spelling != "flush" && spelling != "info") {
             bad_argument();
         }
@@ -132,25 +132,24 @@ DemonitorOptions demonitor_options(const ListArgument &options) {
 // Whether `message` is a 5-tuple whose second element is the reference `reference`, as a 'DOWN' message is.
 bool monitor_message(ProcessContext &context, Word message, const ReferenceIdentity &reference) {
     const auto term = Term::from_word(message, context);
-    if (!term || !term->is_tuple() || term->tuple_size().value_or(0) != 5) {
+    if (!term || !term->is_tuple() || term->tuple_size_unchecked() != 5) {
         return false;
     }
-    const auto element = term->tuple_element(1);
-    return element && element->is_reference() && element->reference_value() == reference;
+    const auto element = term->tuple_element_unchecked(1);
+    return element.is_reference() && element.reference_value_unchecked() == reference;
 }
 
 // demonitor(Ref, Options): stop the monitor; with flush, remove one {_, Ref, _, _, _} message when the monitor
 // was no longer active; with info, whether it was.
 TermResult<Term> demonitor_options_call(ProcessContext &context, const Term &reference, const ListArgument &options) {
     const auto parsed = demonitor_options(options);
-    const auto identity =
-        reference.is_reference() ? reference.reference_value() : std::unexpected(TermError::wrong_type);
-    if (!identity) {
+    if (!reference.is_reference()) {
         bad_argument();
     }
-    const bool active = detail::Executor::demonitor(context, *identity);
+    const auto identity = reference.reference_value_unchecked();
+    const bool active = detail::Executor::demonitor(context, identity);
     if (!active && parsed.flush) {
-        context.mailbox().remove([&](Word message) { return monitor_message(context, message, *identity); });
+        context.mailbox().remove([&](Word message) { return monitor_message(context, message, identity); });
     }
     return TermFactory(context).boolean(active || !parsed.info);
 }
@@ -207,11 +206,11 @@ TermResult<Term> min_heap_size(ProcessContext &context, const Term &value) {
 
 // process_flag(trap_exit, Bool) or (min_heap_size, Size): the previous setting; every other flag is badarg.
 TermResult<Term> process_flag(ProcessContext &context, const AtomArgument &flag, const Term &value) {
-    const auto name = flag.term.atom_spelling().value_or("");
+    const auto name = flag.term.atom_spelling_unchecked();
     if (name == "min_heap_size") {
         return min_heap_size(context, value);
     }
-    const auto spelling = value.is_atom() ? value.atom_spelling().value_or("") : "";
+    const auto spelling = value.is_atom() ? value.atom_spelling_unchecked() : "";
     if (name != "trap_exit" || (spelling != "true" && spelling != "false")) {
         bad_argument();
     }
@@ -244,7 +243,7 @@ Word destination_pid(ProcessContext &context, const Term &destination) {
     if (!remote_name(destination)) {
         bad_argument();
     }
-    return local_name(destination) ? executor.whereis(context, need(destination.tuple_element(0)).word()) : 0;
+    return local_name(destination) ? executor.whereis(context, destination.tuple_element_unchecked(0).word()) : 0;
 }
 
 // Deliver `message` to the process of `pid` unless it is 0; returns the message.
@@ -264,7 +263,7 @@ Term send_to(ProcessContext &context, Word pid, const Term &message) {
 TermResult<Term> send(ProcessContext &context, const Term &destination, const Term &message) {
     // A reference sends through an alias, or nowhere when it is none (step 41G2).
     if (destination.is_reference()) {
-        if (const auto sent = detail::Executor::send_alias(context, need(destination.reference_value()), message);
+        if (const auto sent = detail::Executor::send_alias(context, destination.reference_value_unchecked(), message);
             !sent) {
             throw BuiltinFailure{.term = sent.error()};
         }
@@ -275,7 +274,7 @@ TermResult<Term> send(ProcessContext &context, const Term &destination, const Te
 
 // register(Name, Pid): true; badarg for the name undefined, a name in use, a process that has a name or has ended.
 TermResult<Term> register_name(ProcessContext &context, const AtomArgument &name, const Term &pid) {
-    if (name.term.atom_spelling().value_or("") == "undefined" || (!pid.is_pid() && !pid.is_port()) ||
+    if (name.term.atom_spelling_unchecked() == "undefined" || (!pid.is_pid() && !pid.is_port()) ||
         !detail::Executor::of(context).register_name(context, name.term.word(), pid.word())) {
         bad_argument();
     }

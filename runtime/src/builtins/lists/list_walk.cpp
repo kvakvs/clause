@@ -17,8 +17,8 @@ std::optional<std::size_t> Count::natural() const {
 std::vector<Term> proper(const Term &list) {
     std::vector<Term> elements;
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        elements.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        elements.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         no_clause();

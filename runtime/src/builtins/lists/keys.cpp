@@ -10,8 +10,8 @@ namespace clause::runtime::builtins::lists {
 namespace {
 // Whether `element` is a tuple whose element `position` (1-based) compares equal to `key`.
 bool has_key(const Term &element, const Term &key, std::size_t position) {
-    return element.is_tuple() && need(element.tuple_size()) >= position &&
-           equal(need(element.tuple_element(position - 1)), key);
+    return element.is_tuple() && element.tuple_size_unchecked() >= position &&
+           equal(element.tuple_element_unchecked(position - 1), key);
 }
 
 // The first tuple of `list` with `key` at `position`, as the BIFs search: badarg for a position that is not a
@@ -20,8 +20,8 @@ std::optional<Term> search(const Term &key, std::int64_t position, Term list) {
     if (position < 1) {
         bad_argument();
     }
-    for (; list.is_cons(); list = need(list.tail())) {
-        auto element = need(list.head());
+    for (; list.is_cons(); list = list.tail_unchecked()) {
+        auto element = list.head_unchecked();
         if (has_key(element, key, static_cast<std::size_t>(position))) {
             return element;
         }
@@ -56,10 +56,10 @@ TermResult<Term> keydelete(ProcessContext &context, const Term &key, const Count
     }
     std::vector<Term> kept;
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto element = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto element = rest.head_unchecked();
         if (has_key(element, key, *index)) {
-            return TermFactory(context).list(kept, need(rest.tail()));
+            return TermFactory(context).list(kept, rest.tail_unchecked());
         }
         kept.push_back(element);
     }
@@ -89,11 +89,11 @@ struct Found {
 // The first tuple of `list` with `key` at `position`; function_clause for an improper list without one.
 Found find(const Term &key, std::size_t position, const Term &list) {
     Found found{{}, std::nullopt, list};
-    for (; found.after.is_cons(); found.after = need(found.after.tail())) {
-        const auto element = need(found.after.head());
+    for (; found.after.is_cons(); found.after = found.after.tail_unchecked()) {
+        const auto element = found.after.head_unchecked();
         if (has_key(element, key, position)) {
             found.tuple = element;
-            found.after = need(found.after.tail());
+            found.after = found.after.tail_unchecked();
             return found;
         }
         found.before.push_back(element);

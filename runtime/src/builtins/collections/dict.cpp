@@ -174,8 +174,8 @@ Term take(ProcessContext &context, const Key &key, const List &dict) {
 std::vector<Term> elements_of(const Term &list) {
     std::vector<Term> elements;
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        elements.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        elements.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         no_clause();
@@ -244,7 +244,7 @@ std::vector<Term> kept_of(const std::vector<Term> &bucket, Term &flags, std::siz
     for (const auto &entry : bucket) {
         const auto flag = need(flags.head());
         flags = need(flags.tail());
-        if (flag.is_atom() && need(flag.atom_spelling()) == "true") {
+        if (flag.is_atom() && flag.atom_spelling_unchecked() == "true") {
             kept.push_back(entry);
         } else {
             ++removed;

@@ -19,15 +19,17 @@ struct Policy {
 };
 
 // Whether `term` is the atom `name`.
-bool is_atom(const Term &term, std::string_view name) { return term.is_atom() && need(term.atom_spelling()) == name; }
+bool is_atom(const Term &term, std::string_view name) {
+    return term.is_atom() && term.atom_spelling_unchecked() == name;
+}
 
 // The defaults of {pad, Defaults} with one default per list; none for any other term.
 std::optional<std::vector<Term>> pad_defaults(const Term &how, std::size_t lists) {
-    if (!how.is_tuple() || need(how.tuple_size()) != 2) {
+    if (!how.is_tuple() || how.tuple_size_unchecked() != 2) {
         return std::nullopt;
     }
     const auto parts = need(how.tuple_elements());
-    if (!is_atom(parts[0], "pad") || !parts[1].is_tuple() || need(parts[1].tuple_size()) != lists) {
+    if (!is_atom(parts[0], "pad") || !parts[1].is_tuple() || parts[1].tuple_size_unchecked() != lists) {
         return std::nullopt;
     }
     return need(parts[1].tuple_elements());
@@ -65,8 +67,8 @@ Term next_tuple(TermFactory &factory, std::vector<Term> &rests, const Policy &po
     row.reserve(rests.size());
     for (std::size_t i = 0; i < rests.size(); ++i) {
         const bool more = rests[i].is_cons();
-        row.push_back(more ? need(rests[i].head()) : policy.defaults[i]);
-        rests[i] = more ? need(rests[i].tail()) : rests[i];
+        row.push_back(more ? rests[i].head_unchecked() : policy.defaults[i]);
+        rests[i] = more ? rests[i].tail_unchecked() : rests[i];
     }
     return need(factory.tuple(row));
 }
@@ -104,7 +106,7 @@ TermResult<Term> zip3(ProcessContext &context, const Term &first, const Term &se
 TermResult<Term> unzip_tuples(ProcessContext &context, const Term &list, std::size_t arity) {
     std::vector<std::vector<Term>> columns(arity);
     for (const auto &element : proper(list)) {
-        if (!element.is_tuple() || need(element.tuple_size()) != arity) {
+        if (!element.is_tuple() || element.tuple_size_unchecked() != arity) {
             no_clause();
         }
         const auto fields = need(element.tuple_elements());

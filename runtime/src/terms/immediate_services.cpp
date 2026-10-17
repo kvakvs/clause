@@ -110,9 +110,9 @@ Result container_query(const Term &left, Op operation, const Term &right) {
     case Op::tuple_size:
         return checked(left.tuple_size().and_then(count));
     case Op::size:
-        return checked((left.is_bitstring() ? left.bit_size().transform([](std::size_t size) { return size / 8; })
-                                            : left.tuple_size())
-                           .and_then(count));
+        return checked(
+            (left.is_bitstring() ? TermResult<std::size_t>{left.bit_size_unchecked() / 8} : left.tuple_size())
+                .and_then(count));
     default:
         return std::unexpected(Fault{Outcome::bad_argument});
     }
@@ -173,14 +173,14 @@ Result logical(ProcessContext &context, Op operation, const Term &left, const Te
     if (operation == Op::boolean_check) {
         return left.word();
     }
-    const bool lhs = left.atom_spelling() == "true";
+    const bool lhs = left.atom_spelling_unchecked() == "true";
     if (operation == Op::logical_not) {
         return boolean(context, !lhs);
     }
     if (!right.is_boolean()) {
         return std::unexpected(Fault{Outcome::bad_argument});
     }
-    const bool rhs = right.atom_spelling() == "true";
+    const bool rhs = right.atom_spelling_unchecked() == "true";
     const std::array results{lhs && rhs, lhs || rhs, lhs != rhs};
     return boolean(context, results.at(static_cast<unsigned>(operation) - static_cast<unsigned>(Op::logical_and)));
 }

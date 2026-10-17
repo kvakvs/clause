@@ -25,11 +25,11 @@ Term tuple_of(ProcessContext &context, std::span<const Term> parts) { return nee
 } // namespace
 
 bool LinearHash::is_record(const Term &term, Kind kind) {
-    if (!term.is_tuple() || need(term.tuple_size()) != FIELDS) {
+    if (!term.is_tuple() || term.tuple_size_unchecked() != FIELDS) {
         return false;
     }
-    const auto tag = need(term.tuple_element(0));
-    return tag.is_atom() && need(tag.atom_spelling()) == tag_of(kind);
+    const auto tag = term.tuple_element_unchecked(0);
+    return tag.is_atom() && tag.atom_spelling_unchecked() == tag_of(kind);
 }
 
 LinearHash::LinearHash(ProcessContext &context, const Term &record, Kind kind) : context_(&context), kind_(kind) {

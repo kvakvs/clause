@@ -59,16 +59,13 @@ bool admit(ProcessContext &context, const std::array<Word, N> &words, std::array
 TermResult<std::optional<std::size_t>> unpack(Term list, Word *registers) {
     std::size_t count = 0;
     while (list.is_cons()) {
-        const auto head = list.head();
-        auto tail = list.tail();
-        if (!head || !tail) {
-            return std::unexpected(head ? tail.error() : head.error());
-        }
+        const auto head = list.head_unchecked();
+        auto tail = list.tail_unchecked();
         if (count < abi::v1::register_count) {
-            registers[count] = head->word();
+            registers[count] = head.word();
         }
         ++count;
-        list = *tail;
+        list = tail;
     }
     return list.is_nil() ? std::optional{count} : std::nullopt;
 }

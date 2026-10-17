@@ -15,8 +15,8 @@ bool same(const Term &left, const Term &right) { return need(left.exactly_equal(
 Term append(ProcessContext &context, const List &list, const Term &tail) {
     std::vector<Term> elements;
     auto rest = list.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        elements.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        elements.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -32,16 +32,16 @@ Term add(ProcessContext &context, const Term &left, const Term &right) {
 }
 
 std::optional<std::pair<Term, Term>> pair_of(const Term &term) {
-    if (!term.is_tuple() || need(term.tuple_size()) != 2) {
+    if (!term.is_tuple() || term.tuple_size_unchecked() != 2) {
         return std::nullopt;
     }
-    return std::pair{need(term.tuple_element(0)), need(term.tuple_element(1))};
+    return std::pair{term.tuple_element_unchecked(0), term.tuple_element_unchecked(1)};
 }
 
 std::optional<Term> first_element(const Term &term) {
-    if (!term.is_tuple() || need(term.tuple_size()) == 0) {
+    if (!term.is_tuple() || term.tuple_size_unchecked() == 0) {
         return std::nullopt;
     }
-    return need(term.tuple_element(0));
+    return term.tuple_element_unchecked(0);
 }
 } // namespace clause::runtime::builtins::collections

@@ -128,14 +128,14 @@ bool float_flag(std::string_view name, FloatFormat &format) {
 // Apply one float_to_list/2 option; false for anything OTP rejects.
 bool float_option(const Term &option, FloatFormat &format) {
     if (option.is_atom()) {
-        const auto name = option.atom_spelling();
-        return name && float_flag(*name, format);
+        const auto name = option.atom_spelling_unchecked();
+        return float_flag(name, format);
     }
-    if (!option.is_tuple() || option.tuple_size().value_or(0) != 2) {
+    if (!option.is_tuple() || option.tuple_size_unchecked() != 2) {
         return false;
     }
-    const auto kind = option.tuple_element(0).value().atom_spelling();
-    const auto digits = small(option.tuple_element(1).value().word());
+    const auto kind = option.tuple_element_unchecked(0).atom_spelling();
+    const auto digits = small(option.tuple_element_unchecked(1).word());
     if (!kind || !digits || (*kind != "decimals" && *kind != "scientific")) {
         return false;
     }

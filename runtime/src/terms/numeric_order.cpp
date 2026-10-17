@@ -34,7 +34,7 @@ TermResult<int> numeric_order(const Term &left, const Term &right, bool exact) {
         return integers(left, right);
     }
     if (left.is_float() && right.is_float()) {
-        return reals(left.float_value().value(), right.float_value().value(), exact);
+        return reals(left.float_value_unchecked(), right.float_value_unchecked(), exact);
     }
     if (exact) {
         return left.is_integer() ? -1 : 1;

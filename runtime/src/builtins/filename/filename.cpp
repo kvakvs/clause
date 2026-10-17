@@ -29,7 +29,7 @@ bool separator_byte(std::byte b) { return b == SLASH || (WINDOWS && b == BACKSLA
 
 std::vector<Term> chars_of_atom(ProcessContext &context, const Term &atom) {
     std::vector<Term> chars;
-    for (const auto code : code_points(need(atom.atom_spelling()))) {
+    for (const auto code : code_points(atom.atom_spelling_unchecked())) {
         chars.push_back(need(TermFactory(context).integer(static_cast<std::int64_t>(code))));
     }
     return chars;
@@ -407,8 +407,8 @@ Term append2(ProcessContext &context, const Term &dir, const Term &name) {
         bad_argument();
     }
     std::vector<Term> items;
-    for (Term list = left; list.is_cons(); list = need(list.tail())) {
-        items.push_back(need(list.head()));
+    for (Term list = left; list.is_cons(); list = list.tail_unchecked()) {
+        items.push_back(list.head_unchecked());
     }
     items.push_back(need(TermFactory(context).integer('/')));
     return need(TermFactory(context).list(items, right));
@@ -433,8 +433,8 @@ bool valid_chars(ProcessContext &context, const Term &name, std::size_t &count) 
         const auto term = pending.back();
         pending.pop_back();
         if (term.is_cons()) {
-            pending.push_back(need(term.tail()));
-            pending.push_back(need(term.head()));
+            pending.push_back(term.tail_unchecked());
+            pending.push_back(term.head_unchecked());
         } else if (term.is_atom()) {
             const auto chars = chars_of_atom(context, term);
             pending.insert(pending.end(), chars.rbegin(), chars.rend());
@@ -499,8 +499,8 @@ void append_atom(ProcessContext &context, Elements &elements, const Term &atom) 
 // A list cell: its tail walked after its head; a nested list head walked next, an atom spelled out, anything else
 // kept.
 void flatten_cell(ProcessContext &context, Elements &elements, std::vector<Term> &pending, const Term &cell) {
-    pending.push_back(need(cell.tail()));
-    const auto head = need(cell.head());
+    pending.push_back(cell.tail_unchecked());
+    const auto head = cell.head_unchecked();
     if (head.is_list()) {
         pending.push_back(head);
     } else if (head.is_atom()) {
@@ -558,8 +558,8 @@ std::vector<std::byte> bytes_of(const Term &binary) { return need(binary.binary_
 
 Walk::Walk(ProcessContext &context, const Term &list) : context_(context), tail_(list) {
     std::vector<Term> items;
-    for (; tail_.is_cons(); tail_ = need(tail_.tail())) {
-        items.push_back(need(tail_.head()));
+    for (; tail_.is_cons(); tail_ = tail_.tail_unchecked()) {
+        items.push_back(tail_.head_unchecked());
     }
     items_.assign(items.rbegin(), items.rend());
 }
@@ -578,8 +578,8 @@ std::vector<Term> Walk::spread(const Term &term) const {
     }
     std::vector<Term> items;
     Term list = term;
-    for (; list.is_cons(); list = need(list.tail())) {
-        items.push_back(need(list.head()));
+    for (; list.is_cons(); list = list.tail_unchecked()) {
+        items.push_back(list.head_unchecked());
     }
     if (!list.is_nil()) {
         bad_argument();

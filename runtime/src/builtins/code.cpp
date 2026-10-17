@@ -18,7 +18,7 @@ std::string_view module_name(const Term &module) {
     if (!module.is_atom()) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::function_clause};
     }
-    return need(module.atom_spelling());
+    return module.atom_spelling_unchecked();
 }
 
 // Whether the program has the module: compiled code or runtime builtins.
@@ -43,8 +43,8 @@ TermResult<Term> ensure_loaded(ProcessContext &context, const Term &module) {
 TermResult<Term> ensure_modules_loaded(ProcessContext &context, const Term &modules) {
     std::vector<Term> missing;
     auto rest = modules;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto module = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto module = rest.head_unchecked();
         if (!loaded(context, module_name(module))) {
             missing.push_back(need(pair(context, module, atom(context, "nofile"))));
         }

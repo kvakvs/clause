@@ -67,7 +67,7 @@ bool compatible(const StartupDescriptor &startup) {
 // Whether the entry process was ended by an exit signal with reason normal, which exits like a return.
 bool exited_normally(const CallFailure &failure) {
     return failure.code == CallError::exited && failure.value && failure.value->is_atom() &&
-           failure.value->atom_spelling().value_or("") == "normal";
+           failure.value->atom_spelling_unchecked() == "normal";
 }
 
 // Map a failed entry call to its report and exit status: halt request, uncaught exception, exit signal (reported as

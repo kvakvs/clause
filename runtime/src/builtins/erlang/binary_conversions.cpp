@@ -18,11 +18,11 @@ using detail::Integer;
 
 // Whether an encoding argument is latin1; the atoms utf8 and unicode are UTF-8, anything else badarg.
 bool latin1(const Term &encoding) {
-    const auto name = encoding.is_atom() ? encoding.atom_spelling() : std::unexpected(TermError::wrong_type);
-    if (name && *name == "latin1") {
+    const auto name = encoding.is_atom() ? encoding.atom_spelling_unchecked() : std::string_view{};
+    if (name == "latin1") {
         return true;
     }
-    if (!name || (*name != "utf8" && *name != "unicode")) {
+    if (name != "utf8" && name != "unicode") {
         bad_argument();
     }
     return false;
@@ -176,7 +176,7 @@ TermResult<Term> bitstring_to_list(ProcessContext &context, const Term &value) {
     if (!value.is_bitstring()) {
         bad_argument();
     }
-    const auto bits = need(value.bit_size());
+    const auto bits = value.bit_size_unchecked();
     auto bytes = need(value.bitstring_bytes());
     bytes.resize(bits / 8);
     auto tail = need(Term::from_word(abi::v1::empty_list));
@@ -217,17 +217,17 @@ bool append_element(const Term &element, BitBuffer &buffer, bool bitstrings) {
     if (!accepted) {
         return false;
     }
-    buffer.append(need(element.bitstring_bytes()), need(element.bit_size()));
+    buffer.append(need(element.bitstring_bytes()), element.bit_size_unchecked());
     return true;
 }
 
 // Read one list until a nested list (queued before the rest of this list) or its end; its tail must be [] or a
 // binary (a bitstring for bitstring lists). False for anything else.
 bool read_list(Term list, std::vector<Term> &pending, BitBuffer &buffer, bool bitstrings) {
-    for (; list.is_cons(); list = need(list.tail())) {
-        const auto element = need(list.head());
+    for (; list.is_cons(); list = list.tail_unchecked()) {
+        const auto element = list.head_unchecked();
         if (element.is_list()) {
-            pending.push_back(need(list.tail()));
+            pending.push_back(list.tail_unchecked());
             pending.push_back(element);
             return true;
         }
@@ -263,7 +263,7 @@ TermResult<Term> list_to_bitstring(ProcessContext &context, const Term &list) {
 // iolist_size(IoListOrBinary): the bytes iolist_to_binary/1 would hold.
 TermResult<Term> iolist_size(ProcessContext &context, const Term &value) {
     if (value.is_binary()) {
-        return TermFactory(context).integer(static_cast<std::int64_t>(need(value.bit_size()) / 8));
+        return TermFactory(context).integer(static_cast<std::int64_t>(value.bit_size_unchecked() / 8));
     }
     BitBuffer buffer;
     if (!value.is_list() || !flatten(value, buffer, false)) {
@@ -274,7 +274,7 @@ TermResult<Term> iolist_size(ProcessContext &context, const Term &value) {
 
 // split_binary(Bin, Pos): the first Pos bytes and the rest.
 TermResult<Term> split_binary(ProcessContext &context, const Term &value, std::int64_t position) {
-    const auto bits = value.is_bitstring() ? need(value.bit_size()) : 0;
+    const auto bits = value.is_bitstring() ? value.bit_size_unchecked() : 0;
     if (!value.is_bitstring() || position < 0 || static_cast<std::size_t>(position) * 8 > bits) {
         bad_argument();
     }

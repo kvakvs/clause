@@ -28,7 +28,7 @@ void check(const Term &set) {
 
 std::size_t count(ProcessContext &context, const Term &set) {
     check(set);
-    return set.is_map() ? need(set.map_size()) : LinearHash(context, set, Kind::set).size();
+    return set.is_map() ? set.map_size_unchecked() : LinearHash(context, set, Kind::set).size();
 }
 
 // The elements in the order OTP's fold visits them: a map's keys, a record's fold order.
@@ -184,8 +184,8 @@ Term to_list(ProcessContext &context, const List &set) {
 Term from_list(ProcessContext &context, const List &list) {
     std::vector<Term> elements;
     auto rest = list.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        elements.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        elements.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -223,8 +223,8 @@ Term union2(ProcessContext &context, const List &set1, const Other &set2) {
 std::vector<Term> set_list(const Term &list) {
     std::vector<Term> sets;
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        sets.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        sets.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         no_clause();
@@ -256,9 +256,9 @@ Term common(ProcessContext &context, const Term &walked, const Other &other, std
 // intersection(Set1, Set2).
 Term intersection2(ProcessContext &context, const List &set1, const Other &set2) {
     if (set1.term.is_map() && set2.term.is_map()) {
-        const auto first_smaller = need(set1.term.map_size()) < need(set2.term.map_size());
+        const auto first_smaller = set1.term.map_size_unchecked() < set2.term.map_size_unchecked();
         const auto &walked = first_smaller ? set1.term : set2.term;
-        const auto threshold = need(walked.map_size()) * 3 / 4;
+        const auto threshold = walked.map_size_unchecked() * 3 / 4;
         return common(context, walked, {first_smaller ? set2.term : set1.term}, threshold);
     }
     const auto first_smaller = count(context, set1.term) < count(context, set2.term);
@@ -283,7 +283,7 @@ Term intersection1(ProcessContext &context, const List &list) {
 // is_disjoint(Set1, Set2): the smaller set's elements tested in the other until one is common.
 Term is_disjoint(ProcessContext &context, const List &set1, const Other &set2) {
     const auto both_maps = set1.term.is_map() && set2.term.is_map();
-    const auto first_smaller = both_maps ? need(set1.term.map_size()) < need(set2.term.map_size())
+    const auto first_smaller = both_maps ? set1.term.map_size_unchecked() < set2.term.map_size_unchecked()
                                          : count(context, set1.term) < count(context, set2.term);
     const auto &walked = first_smaller ? set1.term : set2.term;
     const auto &other = first_smaller ? set2.term : set1.term;
@@ -302,8 +302,8 @@ Term difference(ProcessContext &context, const Term &map, const Other &other, st
 // filtered.
 Term subtract(ProcessContext &context, const List &set1, const Other &set2) {
     if (set1.term.is_map() && set2.term.is_map()) {
-        const auto left = need(set1.term.map_size());
-        const auto right = need(set2.term.map_size());
+        const auto left = set1.term.map_size_unchecked();
+        const auto right = set2.term.map_size_unchecked();
         return difference(context, set1.term, set2, right <= left / 4 ? 0 : left * 3 / 4);
     }
     return filtered(context, set1.term, [&](const Term &element) { return !contains(context, set2.term, element); });
@@ -311,7 +311,7 @@ Term subtract(ProcessContext &context, const List &set1, const Other &set2) {
 
 // is_subset(Set1, Set2): Set1's elements tested in Set2 until one is missing.
 Term is_subset(ProcessContext &context, const List &set1, const Other &set2) {
-    if (set1.term.is_map() && set2.term.is_map() && need(set1.term.map_size()) > need(set2.term.map_size())) {
+    if (set1.term.is_map() && set2.term.is_map() && set1.term.map_size_unchecked() > set2.term.map_size_unchecked()) {
         return boolean(context, false);
     }
     const auto elements = folded(context, set1.term);

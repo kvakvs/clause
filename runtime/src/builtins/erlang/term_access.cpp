@@ -39,16 +39,16 @@ TermResult<Term> make_tuple(ProcessContext &context, std::int64_t size, const Te
 
 // One {Index, Value} entry of make_tuple/3's list: true after storing Value at Index in `words`.
 bool place(const Term &entry, std::vector<Word> &words) {
-    if (!entry.is_tuple() || entry.tuple_size().value_or(0) != 2) {
+    if (!entry.is_tuple() || entry.tuple_size_unchecked() != 2) {
         return false;
     }
-    const auto index = entry.tuple_element(0);
-    const auto value = entry.tuple_element(1);
-    const auto position = index ? small(index->word()) : std::nullopt;
-    if (!value || !position || *position < 1 || static_cast<std::uint64_t>(*position) > words.size()) {
+    const auto index = entry.tuple_element_unchecked(0);
+    const auto value = entry.tuple_element_unchecked(1);
+    const auto position = small(index.word());
+    if (!position || *position < 1 || static_cast<std::uint64_t>(*position) > words.size()) {
         return false;
     }
-    words[static_cast<std::size_t>(*position - 1)] = value->word();
+    words[static_cast<std::size_t>(*position - 1)] = value.word();
     return true;
 }
 

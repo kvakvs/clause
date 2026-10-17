@@ -58,7 +58,7 @@ Device device(ProcessContext &context, const IoDevice &argument) {
     const auto &device = argument.term;
     Word server = device.word();
     if (device.is_atom()) {
-        const auto name = need(device.atom_spelling());
+        const auto name = device.atom_spelling_unchecked();
         if (name == "standard_io" || name == "user" || name == "standard_error") {
             return {.error_stream = name == "standard_error"};
         }

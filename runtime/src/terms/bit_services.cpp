@@ -177,7 +177,7 @@ TermResult<BitExtract> part(ProcessContext &context, std::span<const Term> value
         offset += length;
         length = -length;
     }
-    const auto bytes = values[0].bit_size().value() / 8;
+    const auto bytes = values[0].bit_size_unchecked() / 8;
     if (offset < 0 || length < 0 || offset + length > bytes) {
         return std::unexpected(TermError::invalid_argument);
     }
@@ -194,17 +194,17 @@ TermResult<BitExtract> concat(ProcessContext &context, std::span<const Term> val
     BitWriter writer;
     auto rest = values[0];
     while (rest.is_cons()) {
-        const auto head = rest.head();
-        const auto next = rest.tail();
-        const auto view = head.and_then(bit_view);
-        if (!view || !next) {
+        const auto head = rest.head_unchecked();
+        const auto next = rest.tail_unchecked();
+        const auto view = bit_view(head);
+        if (!view) {
             return std::unexpected(TermError::wrong_type);
         }
         const auto added = writer.append(*view);
         if (!added) {
             return std::unexpected(added.error());
         }
-        rest = *next;
+        rest = next;
     }
     if (!rest.is_nil()) {
         return std::unexpected(TermError::wrong_type);

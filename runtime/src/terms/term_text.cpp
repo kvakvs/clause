@@ -99,12 +99,9 @@ class Renderer final {
             return open_list(term);
         }
         if (term.is_tuple()) {
-            const auto size = term.tuple_size();
-            if (!size) {
-                return std::unexpected(size.error());
-            }
+            const auto size = term.tuple_size_unchecked();
             out_.append("{");
-            frames_.push_back(Frame{term, {}, 0, *size, FrameKind::tuple});
+            frames_.push_back(Frame{term, {}, 0, size, FrameKind::tuple});
             return {};
         }
         if (term.is_native_record()) {
@@ -187,7 +184,7 @@ class Renderer final {
     // Tuple fields are comma separated.
     Child advance_tuple(Frame &frame) {
         out_.append(frame.next == 0 ? "" : ",");
-        return frame.rest.tuple_element(frame.next++);
+        return frame.rest.tuple_element_unchecked(frame.next++);
     }
 
     // Keys and values alternate; io_lib pads the arrow with spaces, the emulator does not.
@@ -214,13 +211,10 @@ class Renderer final {
             return std::exchange(frame.rest, Term::from_word(abi::v1::empty_list).value());
         }
         out_.append(frame.next++ == 0 ? "" : ",");
-        auto head = frame.rest.head();
-        auto tail = frame.rest.tail();
-        if (!head || !tail) {
-            return std::unexpected(head ? tail.error() : head.error());
-        }
-        frame.rest = *tail;
-        return *head;
+        auto head = frame.rest.head_unchecked();
+        auto tail = frame.rest.tail_unchecked();
+        frame.rest = tail;
+        return head;
     }
 
     // Selects io_lib or emulator rules for every printed value.

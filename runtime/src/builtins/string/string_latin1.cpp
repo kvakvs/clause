@@ -51,8 +51,8 @@ template <bool Last> Term chr2(ProcessContext &context, const TextArg &string, c
     std::int64_t found = 0;
     std::int64_t index = 1;
     Term rest = string.term;
-    for (; rest.is_cons(); rest = need(rest.tail()), ++index) {
-        if (same(need(rest.head()), character)) {
+    for (; rest.is_cons(); rest = rest.tail_unchecked(), ++index) {
+        if (same(rest.head_unchecked(), character)) {
             found = index;
             if (!Last) {
                 break;
@@ -67,9 +67,9 @@ template <bool Last> Term chr2(ProcessContext &context, const TextArg &string, c
 
 // l_prefix: whether the list starts with the prefix's elements (both proper lists).
 bool list_prefix(Term prefix, Term string) {
-    while (prefix.is_cons() && string.is_cons() && same(need(prefix.head()), need(string.head()))) {
-        prefix = need(prefix.tail());
-        string = need(string.tail());
+    while (prefix.is_cons() && string.is_cons() && same(prefix.head_unchecked(), string.head_unchecked())) {
+        prefix = prefix.tail_unchecked();
+        string = string.tail_unchecked();
     }
     if (prefix.is_nil() && string.is_list()) {
         return true;
@@ -82,8 +82,8 @@ bool list_prefix(Term prefix, Term string) {
 
 // Whether the substring starts at the head of the string's rest.
 bool starts_here(const PatternArg &sub, const Term &rest) {
-    return sub.term.is_cons() && same(need(rest.head()), need(sub.term.head())) &&
-           list_prefix(need(sub.term.tail()), need(rest.tail()));
+    return sub.term.is_cons() && same(rest.head_unchecked(), sub.term.head_unchecked()) &&
+           list_prefix(sub.term.tail_unchecked(), rest.tail_unchecked());
 }
 
 // str/2 and rstr/2: the first or last position of a substring, 0 when absent.
@@ -94,7 +94,7 @@ template <bool Last> Term str2(ProcessContext &context, const TextArg &string, c
     std::int64_t found = 0;
     std::int64_t index = 1;
     Term rest = string.term;
-    for (; rest.is_cons() && (Last || found == 0); rest = need(rest.tail()), ++index) {
+    for (; rest.is_cons() && (Last || found == 0); rest = rest.tail_unchecked(), ++index) {
         if (starts_here(sub, rest)) {
             found = index;
         }
@@ -107,8 +107,8 @@ template <bool Last> Term str2(ProcessContext &context, const TextArg &string, c
 
 bool member_of(const PatternArg &list, const Term &item) {
     Term rest = list.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        if (same(need(rest.head()), item)) {
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        if (same(rest.head_unchecked(), item)) {
             return true;
         }
     }
@@ -125,8 +125,8 @@ template <bool Inside> Term span2(ProcessContext &context, const TextArg &string
     }
     std::int64_t count = 0;
     Term rest = string.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        if (member_of(chars, need(rest.head())) != Inside) {
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        if (member_of(chars, rest.head_unchecked()) != Inside) {
             return Terms(context).integer(count);
         }
         ++count;
@@ -144,7 +144,7 @@ Term from_position(const Term &string, std::int64_t start) {
         if (!rest.is_cons()) {
             no_clause();
         }
-        rest = need(rest.tail());
+        rest = rest.tail_unchecked();
     }
     if (!rest.is_list()) {
         no_clause();
@@ -156,8 +156,8 @@ Term from_position(const Term &string, std::int64_t start) {
 Term first_elements(ProcessContext &context, Term string, std::int64_t length) {
     std::vector<Term> items;
     for (; length > 0 && string.is_cons(); --length) {
-        items.push_back(need(string.head()));
-        string = need(string.tail());
+        items.push_back(string.head_unchecked());
+        string = string.tail_unchecked();
     }
     if (!string.is_list()) {
         no_clause();
@@ -259,8 +259,8 @@ Term copies2(ProcessContext &context, const TextArg &string, const Term &number)
 
 // strip_left: the list after its leading run of the character; function_clause for anything but a list.
 Term strip_left(Term string, const Term &character) {
-    while (string.is_cons() && same(need(string.head()), character)) {
-        string = need(string.tail());
+    while (string.is_cons() && same(string.head_unchecked(), character)) {
+        string = string.tail_unchecked();
     }
     if (!string.is_list() || !character.is_integer()) {
         no_clause();
@@ -282,7 +282,7 @@ Term strip_right(ProcessContext &context, const TextArg &string, const Term &cha
 }
 
 Term strip3(ProcessContext &context, const TextArg &string, const DirArg &dir, const Term &character) {
-    const auto direction = dir.term.is_atom() ? need(dir.term.atom_spelling()) : std::string_view{};
+    const auto direction = dir.term.is_atom() ? dir.term.atom_spelling_unchecked() : std::string_view{};
     if (direction == "left") {
         return strip_left(string.term, character);
     }
@@ -309,11 +309,11 @@ std::int64_t word_count(ProcessContext &context, const Term &string, const Term 
     auto rest = strip3(context, {string}, {terms.atom("both")}, character);
     std::int64_t count = 0;
     while (rest.is_cons()) {
-        if (same(need(rest.head()), character)) {
+        if (same(rest.head_unchecked(), character)) {
             ++count;
-            rest = strip_left(need(rest.tail()), character);
+            rest = strip_left(rest.tail_unchecked(), character);
         } else {
-            rest = need(rest.tail());
+            rest = rest.tail_unchecked();
         }
     }
     return count + 1;
@@ -334,11 +334,11 @@ Term words1(ProcessContext &context, const TextArg &string) {
 Term skip_words(Term rest, std::int64_t stop, const Term &character) {
     std::int64_t index = 1;
     while (rest.is_cons() && index < stop) {
-        if (same(need(rest.head()), character)) {
-            rest = strip_left(need(rest.tail()), character);
+        if (same(rest.head_unchecked(), character)) {
+            rest = strip_left(rest.tail_unchecked(), character);
             ++index;
         } else {
-            rest = need(rest.tail());
+            rest = rest.tail_unchecked();
         }
     }
     return rest;
@@ -351,9 +351,9 @@ Term nth_word(ProcessContext &context, const Term &string, std::int64_t stop, co
     }
     auto rest = skip_words(string, stop, character);
     std::vector<Term> word;
-    while (rest.is_cons() && !same(need(rest.head()), character)) {
-        word.push_back(need(rest.head()));
-        rest = need(rest.tail());
+    while (rest.is_cons() && !same(rest.head_unchecked(), character)) {
+        word.push_back(rest.head_unchecked());
+        rest = rest.tail_unchecked();
     }
     if (!rest.is_list()) {
         no_clause();
@@ -464,8 +464,8 @@ Term join2(ProcessContext &context, const TextArg &strings, const PatternArg &se
     if (!strings.term.is_cons()) {
         no_clause();
     }
-    std::vector<Term> all = items_or_badarg(need(strings.term.head()));
-    for (const auto &string : items_or_badarg(need(strings.term.tail()))) {
+    std::vector<Term> all = items_or_badarg(strings.term.head_unchecked());
+    for (const auto &string : items_or_badarg(strings.term.tail_unchecked())) {
         const auto sep = items_or_badarg(separator.term);
         all.insert(all.end(), sep.begin(), sep.end());
         const auto items = items_or_badarg(string);

@@ -26,7 +26,7 @@ using LineArg = Named<LineRole>;
 
 // write1/4's encoding: latin1 escapes atoms, anything else keeps them.
 Encoding encoding_of(const Term &encoding) {
-    return encoding.is_atom() && need(encoding.atom_spelling()) == "latin1" ? Encoding::latin1 : Encoding::unicode;
+    return encoding.is_atom() && encoding.atom_spelling_unchecked() == "latin1" ? Encoding::latin1 : Encoding::unicode;
 }
 
 // A small integer argument, or none.
@@ -206,7 +206,7 @@ Term write_atom_as_latin1_1(ProcessContext &context, const Term &atom) {
 }
 
 Term quote_atom2(ProcessContext &context, const Term &atom, const Term &chars) {
-    return Terms(context).boolean(quote_atom(atom.is_atom() ? need(atom.atom_spelling()) : "", chars));
+    return Terms(context).boolean(quote_atom(atom.is_atom() ? atom.atom_spelling_unchecked() : "", chars));
 }
 
 // write_string/2 and its encodings.
@@ -265,8 +265,8 @@ bool printable_unicode(std::int64_t c) {
 // A flat list whose elements all pass `accept`.
 template <bool (*ACCEPT)(std::int64_t)> bool flat_list(const Term &term) {
     Term rest = term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto value = small_value(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto value = small_value(rest.head_unchecked());
         if (!value || !ACCEPT(*value)) {
             return false;
         }
@@ -328,7 +328,7 @@ class Limiter final {
         if (term.is_map()) {
             return limit_map(term, depth);
         }
-        return term.is_tuple() && need(term.tuple_size()) > 0 ? limit_tuple(term, depth) : term;
+        return term.is_tuple() && term.tuple_size_unchecked() > 0 ? limit_tuple(term, depth) : term;
     }
 
   private:
@@ -380,10 +380,10 @@ class Limiter final {
 
     // test_limit_tail/2 after the head.
     bool list_fits(const Term &term, std::int64_t depth) {
-        if (!fits(need(term.head()), depth - 1)) {
+        if (!fits(term.head_unchecked(), depth - 1)) {
             return false;
         }
-        Term rest = need(term.tail());
+        Term rest = term.tail_unchecked();
         for (auto at = depth - 1; !rest.is_nil(); --at) {
             if (at == 1) {
                 return false;
@@ -391,10 +391,10 @@ class Limiter final {
             if (!rest.is_cons()) {
                 return fits(rest, at - 1);
             }
-            if (!fits(need(rest.head()), at - 1)) {
+            if (!fits(rest.head_unchecked(), at - 1)) {
                 return false;
             }
-            rest = need(rest.tail());
+            rest = rest.tail_unchecked();
         }
         return true;
     }
@@ -427,8 +427,8 @@ class Limiter final {
         if (flat_list<printable_latin1>(term)) {
             return term;
         }
-        std::vector<Term> items{limit(need(term.head()), depth - 1)};
-        Term rest = need(term.tail());
+        std::vector<Term> items{limit(term.head_unchecked(), depth - 1)};
+        Term rest = term.tail_unchecked();
         Term tail = terms_.nil();
         for (auto at = depth - 1; !rest.is_nil(); --at) {
             if (at == 1) {
@@ -439,8 +439,8 @@ class Limiter final {
                 tail = limit(rest, at - 1);
                 break;
             }
-            items.push_back(limit(need(rest.head()), at - 1));
-            rest = need(rest.tail());
+            items.push_back(limit(rest.head_unchecked(), at - 1));
+            rest = rest.tail_unchecked();
         }
         return terms_.list(items, tail);
     }

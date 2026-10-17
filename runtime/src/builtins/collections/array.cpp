@@ -53,11 +53,11 @@ bool is_empty(const Term &node) { return node.is_nil(); }
 
 // The record of an array; none for anything else.
 std::optional<Record> decode(const Term &term) {
-    if (!term.is_tuple() || need(term.tuple_size()) != 9) {
+    if (!term.is_tuple() || term.tuple_size_unchecked() != 9) {
         return std::nullopt;
     }
     const auto parts = need(term.tuple_elements());
-    if (!parts[0].is_atom() || need(parts[0].atom_spelling()) != "array") {
+    if (!parts[0].is_atom() || parts[0].atom_spelling_unchecked() != "array") {
         return std::nullopt;
     }
     const auto size = small(parts[1].word());
@@ -86,7 +86,7 @@ std::int64_t integer_of(const Term &term) {
     return *value;
 }
 
-bool is_true(const Term &term) { return term.is_atom() && need(term.atom_spelling()) == "true"; }
+bool is_true(const Term &term) { return term.is_atom() && term.atom_spelling_unchecked() == "true"; }
 
 // Tuple tree operations of one array (the default fills new leaves).
 class Tree final {
@@ -330,8 +330,8 @@ std::vector<Term> option_list(const Term &options) {
     }
     std::vector<Term> listed;
     auto rest = options;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        listed.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        listed.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -347,12 +347,13 @@ std::optional<std::int64_t> natural(const Term &term) {
 
 // One option of new/1,2: fixed, {fixed, Bool}, {default, Value}, {size, N} or N; badarg for anything else.
 void apply_option(Options &settings, const Term &option) {
-    if (option.is_atom() && need(option.atom_spelling()) == "fixed") {
+    if (option.is_atom() && option.atom_spelling_unchecked() == "fixed") {
         settings.fixed = true;
         return;
     }
     const auto parts = pair_of(option).value_or(std::pair{option, option});
-    const auto key = pair_of(option) && parts.first.is_atom() ? need(parts.first.atom_spelling()) : std::string_view{};
+    const auto key =
+        pair_of(option) && parts.first.is_atom() ? parts.first.atom_spelling_unchecked() : std::string_view{};
     const auto sized = key == "size" ? natural(parts.second) : natural(option);
     if (key == "fixed" && parts.second.is_boolean()) {
         settings.fixed = is_true(parts.second);
@@ -661,8 +662,8 @@ Term from_values_list(ProcessContext &context, const Term &list, const Value &fa
     }
     std::vector<Term> values;
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        values.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        values.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -801,13 +802,13 @@ bool orddict_value(ProcessContext &context, const Tree &tree, Term &rest, std::i
         leaf.push_back(tree.fallback());
         return false;
     }
-    const auto parts = pair_of(need(rest.head()));
+    const auto parts = pair_of(rest.head_unchecked());
     const auto key = parts ? small(parts->first.word()) : std::nullopt;
     if (!parts || !key || *key < at) {
         bad_orddict(context, rest);
     }
     leaf.push_back(*key == at ? parts->second : tree.fallback());
-    rest = *key == at ? need(rest.tail()) : rest;
+    rest = *key == at ? rest.tail_unchecked() : rest;
     return true;
 }
 
@@ -828,7 +829,7 @@ std::pair<Pieces, std::int64_t> orddict_pieces(ProcessContext &context, const Tr
     Pieces pieces;
     std::int64_t index = 0;
     while (!rest.is_nil()) {
-        const auto parts = rest.is_cons() ? pair_of(need(rest.head())) : std::nullopt;
+        const auto parts = rest.is_cons() ? pair_of(rest.head_unchecked()) : std::nullopt;
         if (!parts) {
             bad_orddict(context, rest);
         }

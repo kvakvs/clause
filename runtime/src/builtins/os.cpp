@@ -95,8 +95,8 @@ std::vector<std::string> environment_entries() {
 std::string text_argument(const Term &list) {
     std::u32string codes;
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto value = small(need(rest.head()).word());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto value = small(rest.head_unchecked().word());
         if (!value || !unicode_character(*value)) {
             bad_argument();
         }

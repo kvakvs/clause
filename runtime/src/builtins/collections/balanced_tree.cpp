@@ -13,7 +13,7 @@ std::uint64_t product(std::uint64_t a, std::uint64_t b) {
 } // namespace
 
 bool BalancedTree::is_node(const Term &node) const {
-    return node.is_tuple() && need(node.tuple_size()) == (values_ ? 4U : 3U);
+    return node.is_tuple() && node.tuple_size_unchecked() == (values_ ? 4U : 3U);
 }
 
 NodeParts BalancedTree::parts(const Term &node) const {
@@ -40,7 +40,7 @@ Term BalancedTree::node(const NodeParts &parts) const {
 Term BalancedTree::nil() const { return need(TermFactory(*context_).atom("nil")); }
 
 namespace {
-bool is_nil_atom(const Term &term) { return term.is_atom() && need(term.atom_spelling()) == "nil"; }
+bool is_nil_atom(const Term &term) { return term.is_atom() && term.atom_spelling_unchecked() == "nil"; }
 } // namespace
 
 bool BalancedTree::is_end(const Term &node) { return is_nil_atom(node); }
@@ -222,15 +222,15 @@ void BalancedTree::spine_from(const Key &from, const Term &node, bool reversed, 
 }
 
 TreeParts tree_parts(const Term &tree, bool sized) {
-    if (!tree.is_tuple() || need(tree.tuple_size()) != 2) {
+    if (!tree.is_tuple() || tree.tuple_size_unchecked() != 2) {
         no_clause();
     }
-    const auto size_term = need(tree.tuple_element(0));
+    const auto size_term = tree.tuple_element_unchecked(0);
     const auto size = small(size_term.word());
     if (sized && (!size || *size < 0)) {
         no_clause();
     }
-    return {size_term, size.value_or(0), need(tree.tuple_element(1))};
+    return {size_term, size.value_or(0), tree.tuple_element_unchecked(1)};
 }
 
 Term sized_tree(ProcessContext &context, std::int64_t size, const Term &root) {

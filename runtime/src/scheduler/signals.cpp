@@ -30,7 +30,7 @@ TermResult<Term> monitored_item(ProcessContext &process, const Signals::Monitor 
 } // namespace
 
 bool is_atom(const Term &term, std::string_view name) {
-    return term.is_atom() && term.atom_spelling().value_or("") == name;
+    return term.is_atom() && term.atom_spelling_unchecked() == name;
 }
 
 Term atom(ProcessContext &process, std::string_view name) {
@@ -106,7 +106,7 @@ Term Executor::monitor(ProcessContext &watcher, Word pid, Word name, bool port, 
     const std::scoped_lock lock(mutex_);
     pid = name != 0 ? lookup(watcher, name) : pid;
     const auto reference = TermFactory(watcher).make_reference();
-    const auto identity = reference.and_then([](const Term &term) { return term.reference_value(); });
+    const auto identity = reference.transform([](const Term &term) { return term.reference_value_unchecked(); });
     if (!identity) {
         throw std::bad_alloc();
     }

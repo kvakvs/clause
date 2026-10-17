@@ -67,13 +67,13 @@ std::optional<std::string> slogan_text(const Term &value) {
     std::string text;
     auto current = value;
     for (std::size_t count = 0; current.is_cons(); ++count) {
-        const auto head = current.head();
-        const auto point = head ? head->integer_value() : TermResult<std::int64_t>{std::unexpected(head.error())};
-        auto tail = current.tail();
-        if (count == slogan_limit || !point || !tail || !append_utf8(text, *point)) {
+        const auto head = current.head_unchecked();
+        const auto point = head.integer_value();
+        auto tail = current.tail_unchecked();
+        if (count == slogan_limit || !point || !append_utf8(text, *point)) {
             return std::nullopt;
         }
-        current = *tail;
+        current = tail;
     }
     return current.is_nil() ? std::optional{text} : std::nullopt;
 }

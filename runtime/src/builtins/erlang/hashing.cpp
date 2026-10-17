@@ -157,7 +157,7 @@ struct Bits {
 
 Bits bits_of(const Term &term) {
     auto bytes = need(term.bitstring_bytes());
-    const auto size = need(term.bit_size());
+    const auto size = term.bit_size_unchecked();
     const auto whole = size / 8;
     const auto tail_bits = static_cast<std::uint32_t>(size % 8);
     const auto tail = tail_bits == 0 ? 0U : std::to_integer<std::uint32_t>(bytes[whole]) >> (8U - tail_bits);
@@ -316,13 +316,13 @@ class Hash2 final {
 
     void boxed(const Term &term) {
         if (term.is_atom()) {
-            const auto value = atom_hash(need(term.atom_spelling()));
+            const auto value = atom_hash(term.atom_spelling_unchecked());
             first_or(value, value, HCONST_3);
         } else if (term.is_integer()) {
             const auto value = need(detail::integer_read(term));
             magnitude(limbs(value), value < 0);
         } else if (term.is_float()) {
-            const auto value = need(term.float_value());
+            const auto value = term.float_value_unchecked();
             const auto bits = std::bit_cast<std::uint64_t>(value == 0.0 ? 0.0 : value);
             two(static_cast<std::uint32_t>(bits >> 32U), static_cast<std::uint32_t>(bits), HCONST_12);
         } else if (term.is_bitstring()) {
@@ -519,12 +519,12 @@ class Hash1 final {
 
     void boxed(ProcessContext &context, const Term &term) {
         if (term.is_atom()) {
-            hash_ = hash_ * PRIME_1 + atom_hash(need(term.atom_spelling()));
+            hash_ = hash_ * PRIME_1 + atom_hash(term.atom_spelling_unchecked());
         } else if (term.is_integer()) {
             const auto value = need(detail::integer_read(term));
             integer(limbs(value), value < 0);
         } else if (term.is_float()) {
-            const auto value = need(term.float_value());
+            const auto value = term.float_value_unchecked();
             const auto bits = std::bit_cast<std::uint64_t>(value == 0.0 ? 0.0 : value);
             hash_ = hash_ * PRIME_6 + (static_cast<std::uint32_t>(bits) ^ static_cast<std::uint32_t>(bits >> 32U));
         } else if (term.is_bitstring()) {

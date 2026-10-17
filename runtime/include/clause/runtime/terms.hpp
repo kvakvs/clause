@@ -259,6 +259,27 @@ class Term final {
     // Compare values using Erlang exact equality, not C++ handle identity.
     TermResult<bool> exactly_equal(const Term &other) const;
 
+    // Unchecked accessors (OPTM.3): the caller has already proved the kind (and an index in range), so nothing is
+    // checked and no error is possible; any other term is undefined behavior. Each mirrors the checked accessor named
+    // without the suffix.
+    // A small integer's value (Term::integer_value of a non-bignum).
+    std::int64_t small_integer_unchecked() const noexcept;
+    double float_value_unchecked() const noexcept;
+    // A live atom's spelling and number, and true/false as a bool.
+    std::string_view atom_spelling_unchecked() const noexcept;
+    AtomId atom_id_unchecked() const noexcept;
+    bool boolean_value_unchecked() const noexcept;
+    PortIdentity port_value_unchecked() const noexcept;
+    ReferenceIdentity reference_value_unchecked() const noexcept;
+    // A cons cell's fields.
+    Term head_unchecked() const noexcept;
+    Term tail_unchecked() const noexcept;
+    // A tuple's arity and zero-based element (the empty tuple included).
+    std::size_t tuple_size_unchecked() const noexcept;
+    Term tuple_element_unchecked(std::size_t index) const noexcept;
+    std::size_t map_size_unchecked() const noexcept;
+    std::size_t bit_size_unchecked() const noexcept;
+
   private:
     friend class TermFactory;
     friend class AtomStorage;

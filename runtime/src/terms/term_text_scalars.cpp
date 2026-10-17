@@ -165,15 +165,12 @@ bool display_element(const Term &value) {
 TermResult<bool> printable(const Term &list) {
     auto cursor = list;
     while (cursor.is_cons()) {
-        auto head = cursor.head();
-        auto tail = cursor.tail();
-        if (!head || !tail) {
-            return std::unexpected(head ? tail.error() : head.error());
-        }
-        if (!display_element(*head)) {
+        auto head = cursor.head_unchecked();
+        auto tail = cursor.tail_unchecked();
+        if (!display_element(head)) {
             return false;
         }
-        cursor = *tail;
+        cursor = tail;
     }
     return cursor.is_nil();
 }
@@ -264,8 +261,8 @@ TermResult<bool> print_display_string(const Term &list, TextOutput &out) {
         return check;
     }
     out.append("\"");
-    for (auto cursor = list; cursor.is_cons(); cursor = cursor.tail().value()) {
-        const auto c = static_cast<char>(static_cast<unsigned char>(cursor.head().value().integer_value().value()));
+    for (auto cursor = list; cursor.is_cons(); cursor = cursor.tail_unchecked()) {
+        const auto c = static_cast<char>(static_cast<unsigned char>(cursor.head_unchecked().integer_value().value()));
         out.append(c == '\n' ? std::string_view("\\n") : c == '"' ? std::string_view("\\\"") : std::string_view(&c, 1));
     }
     out.append("\"");

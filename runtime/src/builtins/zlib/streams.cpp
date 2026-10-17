@@ -139,13 +139,13 @@ template <std::size_t N> struct Integers {
 
 template <std::size_t N> struct Argument<Integers<N>> {
     static TermResult<std::optional<Integers<N>>> convert(const Term &term) {
-        if (!term.is_tuple() || term.tuple_size().value_or(0) != N) {
+        if (!term.is_tuple() || term.tuple_size_unchecked() != N) {
             return std::optional<Integers<N>>{};
         }
         Integers<N> integers{};
         for (std::size_t index = 0; index < N; ++index) {
-            const auto element = term.tuple_element(index);
-            const auto value = element ? small(element->word()) : std::nullopt;
+            const auto element = term.tuple_element_unchecked(index);
+            const auto value = small(element.word());
             if (!value) {
                 return std::optional<Integers<N>>{};
             }

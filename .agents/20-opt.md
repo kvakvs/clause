@@ -243,6 +243,20 @@ For example: `TermResult<ProcessIdentity> pid_value() const;`
 becomes `ProcessIdentity pid_value_unchecked() const;` and will not check whether
 the term is a pid, just giving the decoded identity value.
 
+Status 2026-10-17: done. `Term` has `small_integer_unchecked`,
+`float_value_unchecked`, `atom_spelling_unchecked`, `atom_id_unchecked`,
+`boolean_value_unchecked`, `port_value_unchecked`, `reference_value_unchecked`,
+`head_unchecked`/`tail_unchecked`, `tuple_size_unchecked`,
+`tuple_element_unchecked`, `map_size_unchecked` and `bit_size_unchecked`
+(`terms/term_unchecked.cpp`); Debug builds abort on a term of another kind, so
+the test suite checks every proof it reaches. 769 call sites in 91 runtime files
+use them where a dominating check proves the kind (CTest `runtime_unchecked`
+compares each with its checked mirror). `pid_value` has no unchecked mirror: the
+checked one is not implemented either (a `ProcessIdentity` needs its runtime).
+Not mirrored: accessors whose remaining failures are semantic (`integer_value`
+range, `list_length` properness, `record_field` names, `map_find` comparisons).
+`is_tuple` decodes the header once instead of twice.
+
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
 Ordered by measured T2 value and how well each fits an AOT compiler.

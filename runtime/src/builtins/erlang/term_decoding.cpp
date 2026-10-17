@@ -41,7 +41,7 @@ struct DecodeOptions {
 DecodeOptions decode_options(const ListArgument &list) {
     DecodeOptions options;
     for (const auto &option : list.elements) {
-        const auto name = option.is_atom() ? need(option.atom_spelling()) : std::string_view{};
+        const auto name = option.is_atom() ? option.atom_spelling_unchecked() : std::string_view{};
         if (name == "safe") {
             options.safe = true;
         } else if (name == "used") {

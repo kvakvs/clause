@@ -79,8 +79,8 @@ Term words_term(ProcessContext &context, const std::vector<std::uint64_t> &words
 // A proper list's words, in order.
 std::vector<std::uint64_t> words_of(Term list) {
     std::vector<std::uint64_t> words;
-    for (; list.is_cons(); list = need(list.tail())) {
-        words.push_back(word_of(need(list.head())));
+    for (; list.is_cons(); list = list.tail_unchecked()) {
+        words.push_back(word_of(list.head_unchecked()));
     }
     if (!list.is_nil()) {
         no_clause();
@@ -108,10 +108,11 @@ bool polynomial_bit(const std::uint64_t *polynomial, std::size_t step) {
 
 // The integers of a 3-tuple seed: badarith for a non-integer (OTP computes with them), none for another shape.
 std::optional<std::array<Term, 3>> tuple_seed(const Term &seed) {
-    if (!seed.is_tuple() || need(seed.tuple_size()) != 3) {
+    if (!seed.is_tuple() || seed.tuple_size_unchecked() != 3) {
         return std::nullopt;
     }
-    std::array<Term, 3> parts{need(seed.tuple_element(0)), need(seed.tuple_element(1)), need(seed.tuple_element(2))};
+    std::array<Term, 3> parts{seed.tuple_element_unchecked(0), seed.tuple_element_unchecked(1),
+                              seed.tuple_element_unchecked(2)};
     for (const auto &part : parts) {
         if (!part.is_integer()) {
             throw BuiltinFailure{.reason = abi::v1::ErrorReason::badarith};
@@ -138,11 +139,11 @@ std::uint64_t seed_word(ProcessContext &context, const Term &element, unsigned b
 // zero, too_many_seed_integers and non_integer_seed as OTP raises them.
 std::vector<std::uint64_t> list_words(ProcessContext &context, Term list, Shape shape) {
     std::vector<std::uint64_t> words;
-    for (; list.is_cons(); list = need(list.tail())) {
+    for (; list.is_cons(); list = list.tail_unchecked()) {
         if (words.size() == shape.count) {
             raise_atom(context, "too_many_seed_integers");
         }
-        words.push_back(seed_word(context, need(list.head()), shape.bits));
+        words.push_back(seed_word(context, list.head_unchecked(), shape.bits));
     }
     if (!list.is_nil()) {
         no_clause();
@@ -322,7 +323,7 @@ std::optional<Spec> spec_of(std::string_view name) {
 }
 
 Spec spec_of_term(const Term &alg) {
-    const auto spec = alg.is_atom() ? spec_of(need(alg.atom_spelling())) : std::nullopt;
+    const auto spec = alg.is_atom() ? spec_of(alg.atom_spelling_unchecked()) : std::nullopt;
     if (!spec) {
         no_clause();
     }
@@ -381,15 +382,15 @@ Generator::Generator(const Spec &spec, const Term &state) : spec_(spec) {
         if (!state.is_cons()) {
             no_clause();
         }
-        first_ = word_of(need(state.head()));
-        second_ = word_of(need(state.tail()));
+        first_ = word_of(state.head_unchecked());
+        second_ = word_of(state.tail_unchecked());
         return;
     case Layout::ring: {
-        if (!state.is_tuple() || need(state.tuple_size()) != 2) {
+        if (!state.is_tuple() || state.tuple_size_unchecked() != 2) {
             no_clause();
         }
-        const auto left = words_of(need(state.tuple_element(0)));
-        auto right = words_of(need(state.tuple_element(1)));
+        const auto left = words_of(state.tuple_element_unchecked(0));
+        auto right = words_of(state.tuple_element_unchecked(1));
         left_.assign(left.begin(), left.end());
         std::ranges::reverse(right);
         right_ = std::move(right);

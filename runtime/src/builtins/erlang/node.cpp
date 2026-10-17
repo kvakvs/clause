@@ -15,7 +15,7 @@ Term atom(ProcessContext &context, std::string_view name) { return need(TermFact
 // Whether a node type of nodes/1,2 includes this node: this or known; any other valid type has no members.
 bool includes_local(const Term &type) {
     static constexpr std::array<std::string_view, 5> TYPES{"visible", "hidden", "connected", "this", "known"};
-    const auto name = type.is_atom() ? need(type.atom_spelling()) : std::string_view{};
+    const auto name = type.is_atom() ? type.atom_spelling_unchecked() : std::string_view{};
     if (!std::ranges::contains(TYPES, name)) {
         bad_argument();
     }
@@ -28,11 +28,11 @@ bool local_listed(const Term &types) {
         return includes_local(types);
     }
     bool listed = false;
-    for (auto rest = types; !rest.is_nil(); rest = need(rest.tail())) {
+    for (auto rest = types; !rest.is_nil(); rest = rest.tail_unchecked()) {
         if (!rest.is_cons()) {
             bad_argument();
         }
-        listed = includes_local(need(rest.head())) || listed;
+        listed = includes_local(rest.head_unchecked()) || listed;
     }
     return listed;
 }
@@ -54,11 +54,11 @@ TermResult<Term> nodes1(ProcessContext &context, const Term &types) { return loc
 // when the option is false. Badarg for any other key or a value that is not a boolean.
 std::optional<std::pair<Term, Term>> info_entry(ProcessContext &context, const std::pair<Term, Term> &option) {
     const auto &[key, value] = option;
-    const auto name = key.is_atom() ? need(key.atom_spelling()) : std::string_view{};
+    const auto name = key.is_atom() ? key.atom_spelling_unchecked() : std::string_view{};
     if ((name != "connection_id" && name != "node_type") || !value.is_boolean()) {
         bad_argument();
     }
-    if (!need(value.boolean_value())) {
+    if (!value.boolean_value_unchecked()) {
         return std::nullopt;
     }
     return std::pair{key, atom(context, name == "node_type" ? "this" : "undefined")};
@@ -96,7 +96,7 @@ TermResult<Term> monitor_node(ProcessContext &context, const AtomArgument &, con
     }
     if (options) {
         for (const auto &option : options->elements) {
-            if (!option.is_atom() || need(option.atom_spelling()) != "allow_passive_connect") {
+            if (!option.is_atom() || option.atom_spelling_unchecked() != "allow_passive_connect") {
                 bad_argument();
             }
         }

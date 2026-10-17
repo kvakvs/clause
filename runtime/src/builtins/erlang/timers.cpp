@@ -18,11 +18,11 @@ constexpr std::int64_t MAX_TIMER_MS = (std::int64_t{1} << 49) - 1;
 
 // The {Name, Bool} value of a two-element option tuple, or none for another shape.
 std::optional<std::pair<std::string_view, bool>> flag_option(const Term &option) {
-    if (!option.is_tuple() || need(option.tuple_size()) != 2) {
+    if (!option.is_tuple() || option.tuple_size_unchecked() != 2) {
         return std::nullopt;
     }
-    const auto name = need(option.tuple_element(0)).atom_spelling();
-    const auto value = need(option.tuple_element(1)).boolean_value();
+    const auto name = option.tuple_element_unchecked(0).atom_spelling();
+    const auto value = option.tuple_element_unchecked(1).boolean_value();
     return name && value ? std::optional{std::pair{*name, *value}} : std::nullopt;
 }
 

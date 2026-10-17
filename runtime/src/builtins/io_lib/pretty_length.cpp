@@ -25,8 +25,8 @@ bool printable_latin1(const Term &element) {
 
 // io_lib:printable_list/1 with the latin1 printable range: a flat proper list of printable characters.
 bool printable_list(Term list) {
-    for (; list.is_cons(); list = need(list.tail())) {
-        if (!printable_latin1(need(list.head()))) {
+    for (; list.is_cons(); list = list.tail_unchecked()) {
+        if (!printable_latin1(list.head_unchecked())) {
             return false;
         }
     }
@@ -44,11 +44,11 @@ bool printable_byte(std::uint32_t c) {
 constexpr std::int64_t ALL = -1;
 
 std::int64_t printable_count(Term list, std::int64_t n) {
-    for (;; list = need(list.tail()), --n) {
+    for (;; list = list.tail_unchecked(), --n) {
         if (list.is_cons() && n == 0) {
             return 0;
         }
-        if (!list.is_cons() || !printable_latin1(need(list.head()))) {
+        if (!list.is_cons() || !printable_latin1(list.head_unchecked())) {
             return list.is_nil() ? ALL : n;
         }
     }
@@ -66,8 +66,8 @@ Term list_prefix(ProcessContext &context, Term list, std::int64_t n) {
 // lists:flatlength/1.
 std::int64_t flat_length(const Term &list) {
     std::int64_t count = 0;
-    for (Term rest = list; rest.is_cons(); rest = need(rest.tail())) {
-        const auto head = need(rest.head());
+    for (Term rest = list; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto head = rest.head_unchecked();
         count += head.is_list() ? flat_length(head) : 1;
     }
     return count;
@@ -75,8 +75,8 @@ std::int64_t flat_length(const Term &list) {
 
 // is_flat/2 and the rest after those elements: the first `n` elements are integers.
 std::optional<Term> flat_rest(Term list, std::int64_t n) {
-    for (; n > 0; --n, list = need(list.tail())) {
-        if (!list.is_cons() || !need(list.head()).is_integer()) {
+    for (; n > 0; --n, list = list.tail_unchecked()) {
+        if (!list.is_cons() || !list.head_unchecked().is_integer()) {
             return std::nullopt;
         }
     }
@@ -88,11 +88,11 @@ bool empty_chardata(const Term &data) {
     if (data.is_binary()) {
         return string::binary_bytes(data).empty();
     }
-    for (Term rest = data; rest.is_list(); rest = need(rest.tail())) {
+    for (Term rest = data; rest.is_list(); rest = rest.tail_unchecked()) {
         if (rest.is_nil()) {
             return true;
         }
-        if (!empty_chardata(need(rest.head()))) {
+        if (!empty_chardata(rest.head_unchecked())) {
             return false;
         }
     }
@@ -105,13 +105,13 @@ std::string_view empty_text(const Term &term) {
         return "[]";
     }
     if (term.is_tuple()) {
-        return need(term.tuple_size()) == 0 ? "{}" : "";
+        return term.tuple_size_unchecked() == 0 ? "{}" : "";
     }
     if (term.is_map()) {
-        return need(term.map_size()) == 0 ? "#{}" : "";
+        return term.map_size_unchecked() == 0 ? "#{}" : "";
     }
     if (term.is_bitstring()) {
-        return need(term.bit_size()) == 0 ? "<<>>" : "";
+        return term.bit_size_unchecked() == 0 ? "<<>>" : "";
     }
     return "";
 }
@@ -436,9 +436,9 @@ Seq Arena::list_rest(const Term &rest_term, std::int64_t depth, std::int64_t lim
             seq.end = length(rest, below, limit);
             return seq;
         }
-        const auto tail = need(rest.tail());
+        const auto tail = rest.tail_unchecked();
         const auto room = tail.is_nil() ? limit : tsub(limit, 1);
-        const auto element = length(need(rest.head()), below, room);
+        const auto element = length(rest.head_unchecked(), below, room);
         seq.items.push_back(element);
         limit = tsub(room, nodes_[element].length);
         depth = below;
@@ -454,13 +454,13 @@ Index Arena::tuple(const Term &tuple, std::int64_t depth, std::int64_t limit) {
     Node node;
     node.shape = Shape::tuple;
     node.seq = tuple_rest(tuple, 1, depth, tsub(limit, 2));
-    node.tagged = need(tuple.tuple_element(0)).is_atom() && need(tuple.tuple_size()) > 1;
+    node.tagged = tuple.tuple_element_unchecked(0).is_atom() && tuple.tuple_size_unchecked() > 1;
     return container(std::move(node), 2);
 }
 
 Seq Arena::tuple_rest(const Term &tuple, std::size_t at, std::int64_t depth, std::int64_t limit) {
     Seq seq;
-    const auto size = need(tuple.tuple_size());
+    const auto size = tuple.tuple_size_unchecked();
     for (; at <= size; ++at) {
         if (depth == 1 || limit == 0) {
             seq.end = dots(More{.kind = More::Kind::tuple_rest, .term = tuple, .index = at, .depth = depth});
@@ -468,7 +468,7 @@ Seq Arena::tuple_rest(const Term &tuple, std::size_t at, std::int64_t depth, std
         }
         const auto room = at == size ? limit : tsub(limit, 1);
         depth = depth_minus(depth, 1);
-        const auto element = length(need(tuple.tuple_element(at - 1)), depth, room);
+        const auto element = length(tuple.tuple_element_unchecked(at - 1), depth, room);
         seq.items.push_back(element);
         limit = tsub(room, nodes_[element].length);
     }
@@ -566,7 +566,7 @@ Seq Arena::record_fields(const Term &record, std::size_t at, std::int64_t depth,
 // print_length_binary/7: a printable binary as a string (perhaps a prefix), else its bytes.
 Index Arena::binary(const Term &binary, std::int64_t depth, std::int64_t limit) {
     static_cast<void>(depth_minus(depth, 1));
-    if (options_.strings && need(binary.bit_size()) % 8 == 0) {
+    if (options_.strings && binary.bit_size_unchecked() % 8 == 0) {
         if (const auto index = printable_binary(binary, {.depth = depth, .limit = limit}); index != NONE) {
             return index;
         }

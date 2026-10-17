@@ -119,8 +119,8 @@ Term from_list(ProcessContext &context, const List &list) {
 Term from_ordset(ProcessContext &context, const List &list) {
     auto rest = list.term;
     std::vector<Term> keys;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        keys.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        keys.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -355,7 +355,7 @@ Term intersection1(ProcessContext &context, const List &list) {
 
 // Whether an order argument is reversed; function_clause unless ordered or reversed.
 bool is_reversed(const Order &order) {
-    const auto spelling = order.term.is_atom() ? need(order.term.atom_spelling()) : std::string_view{};
+    const auto spelling = order.term.is_atom() ? order.term.atom_spelling_unchecked() : std::string_view{};
     if (spelling != "ordered" && spelling != "reversed") {
         no_clause();
     }
@@ -400,9 +400,9 @@ Term next(ProcessContext &context, const List &iterator) {
         no_clause();
     }
     const auto engine = sets(context);
-    const auto top = engine.parts(need(parts.root.head()));
+    const auto top = engine.parts(parts.root.head_unchecked());
     std::vector<Term> stack;
-    for (const auto &node : lists::proper(need(parts.root.tail())) | std::views::reverse) {
+    for (const auto &node : lists::proper(parts.root.tail_unchecked()) | std::views::reverse) {
         stack.push_back(node);
     }
     engine.spine(reversed ? top.left : top.right, reversed, stack);

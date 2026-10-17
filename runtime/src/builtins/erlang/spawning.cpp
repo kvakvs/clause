@@ -17,14 +17,14 @@ using detail::SpawnOptions;
 
 // The node a spawn on this node names; anything else is badarg.
 void local_node(const Term &node) {
-    if (!node.is_atom() || need(node.atom_spelling()) != "nonode@nohost") {
+    if (!node.is_atom() || node.atom_spelling_unchecked() != "nonode@nohost") {
         bad_argument();
     }
 }
 
 // Whether an atom option value is one of `allowed`.
 template <std::size_t N> bool one_of(const Term &value, const std::array<std::string_view, N> &allowed) {
-    return value.is_atom() && std::ranges::contains(allowed, need(value.atom_spelling()));
+    return value.is_atom() && std::ranges::contains(allowed, value.atom_spelling_unchecked());
 }
 
 // Whether a value is a non-negative small integer.
@@ -52,11 +52,11 @@ bool tuning_option(std::string_view name, const Term &value) {
 
 // Apply one {Name, Value} spawn option; false for an unknown one.
 bool pair_option(ProcessContext &context, const Term &option, SpawnOptions &options) {
-    if (!option.is_tuple() || need(option.tuple_size()) != 2) {
+    if (!option.is_tuple() || option.tuple_size_unchecked() != 2) {
         return false;
     }
-    const auto name = need(option.tuple_element(0)).atom_spelling().value_or("");
-    const auto value = need(option.tuple_element(1));
+    const auto name = option.tuple_element_unchecked(0).atom_spelling().value_or("");
+    const auto value = option.tuple_element_unchecked(1);
     if (name == "monitor") {
         options.monitor = true;
         options.monitor_options = monitor_options(context, value);
@@ -71,7 +71,7 @@ bool pair_option(ProcessContext &context, const Term &option, SpawnOptions &opti
 
 // Apply the atom option link or monitor; false for anything else.
 bool flag_option(const Term &option, SpawnOptions &options) {
-    const auto name = option.is_atom() ? need(option.atom_spelling()) : std::string_view{};
+    const auto name = option.is_atom() ? option.atom_spelling_unchecked() : std::string_view{};
     if (name != "link" && name != "monitor") {
         return false;
     }
@@ -143,16 +143,16 @@ struct Reply {
 
 // Apply {reply_tag, Tag} or {reply, yes | no | error_only | success_only}; false for anything else.
 bool reply_option(const Term &option, Reply &reply) {
-    if (!option.is_tuple() || need(option.tuple_size()) != 2) {
+    if (!option.is_tuple() || option.tuple_size_unchecked() != 2) {
         return false;
     }
-    const auto name = need(option.tuple_element(0)).atom_spelling().value_or("");
-    const auto value = need(option.tuple_element(1));
+    const auto name = option.tuple_element_unchecked(0).atom_spelling().value_or("");
+    const auto value = option.tuple_element_unchecked(1);
     if (name == "reply_tag") {
         reply.tag = value;
         return true;
     }
-    const auto mode = value.is_atom() ? need(value.atom_spelling()) : std::string_view{};
+    const auto mode = value.is_atom() ? value.atom_spelling_unchecked() : std::string_view{};
     if (name != "reply" ||
         !std::ranges::contains(std::array<std::string_view, 4>{"yes", "no", "error_only", "success_only"}, mode)) {
         return false;
@@ -200,7 +200,7 @@ template <typename Spawn> TermResult<Term> request(ProcessContext &context, cons
         send_reply(context, reply, id, false, need(factory.atom("badopt")));
         return id;
     }
-    options->monitor_reference = need(id.reference_value());
+    options->monitor_reference = id.reference_value_unchecked();
     const auto spawned = spawn(*options);
     send_reply(context, reply, id, spawned.has_value(), spawned ? *spawned : need(factory.atom("system_limit")));
     return id;
@@ -282,7 +282,7 @@ TermResult<Term> spawn_request_abandon(ProcessContext &context, const Term &requ
 // alias() and alias(Options): explicit_unalias (the default) or reply.
 TermResult<Term> make_alias(ProcessContext &context, detail::AliasMode mode) {
     auto reference = need(TermFactory(context).make_reference());
-    Executor::alias(context, need(reference.reference_value()), mode);
+    Executor::alias(context, reference.reference_value_unchecked(), mode);
     return reference;
 }
 
@@ -291,7 +291,7 @@ TermResult<Term> alias0(ProcessContext &context) { return make_alias(context, de
 TermResult<Term> alias1(ProcessContext &context, const ListArgument &options) {
     auto mode = detail::AliasMode::explicit_unalias;
     for (const auto &option : options.elements) {
-        const auto name = option.is_atom() ? need(option.atom_spelling()) : std::string_view{};
+        const auto name = option.is_atom() ? option.atom_spelling_unchecked() : std::string_view{};
         if (name == "reply") {
             mode = detail::AliasMode::reply;
         } else if (name != "explicit_unalias") {
@@ -306,7 +306,7 @@ TermResult<Term> unalias(ProcessContext &context, const Term &alias) {
     if (!alias.is_reference()) {
         bad_argument();
     }
-    return TermFactory(context).boolean(Executor::unalias(context, need(alias.reference_value())));
+    return TermFactory(context).boolean(Executor::unalias(context, alias.reference_value_unchecked()));
 }
 
 // hibernate(Module, Function, Args): wait until a message is in the mailbox, then call Module:Function(Args...)
@@ -352,7 +352,7 @@ constexpr std::array SPAWNING_BUILTINS{
 
 // The mode of a monitor's {alias, Mode}: explicit_unalias, demonitor or reply_demonitor; badarg otherwise.
 detail::AliasMode alias_mode(const Term &value) {
-    const auto mode = value.is_atom() ? need(value.atom_spelling()) : std::string_view{};
+    const auto mode = value.is_atom() ? value.atom_spelling_unchecked() : std::string_view{};
     if (mode == "explicit_unalias") {
         return detail::AliasMode::explicit_unalias;
     }
@@ -373,11 +373,11 @@ detail::MonitorOptions monitor_options(ProcessContext &context, const Term &list
     }
     detail::MonitorOptions result;
     for (const auto &option : options->elements) {
-        if (!option.is_tuple() || need(option.tuple_size()) != 2) {
+        if (!option.is_tuple() || option.tuple_size_unchecked() != 2) {
             bad_argument();
         }
-        const auto name = need(option.tuple_element(0)).atom_spelling().value_or("");
-        const auto value = need(option.tuple_element(1));
+        const auto name = option.tuple_element_unchecked(0).atom_spelling().value_or("");
+        const auto value = option.tuple_element_unchecked(1);
         if (name == "tag") {
             result.tag = need(detail::MessageBuffer::copy_of(value, context));
         } else if (name == "alias") {

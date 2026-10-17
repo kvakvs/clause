@@ -59,17 +59,17 @@ bool pair_option(std::string_view name, std::int64_t value, EncodeOptions &optio
 // One term_to_binary/2 option, applied to `options`; false for anything OTP rejects.
 bool encode_option(const Term &option, EncodeOptions &options) {
     if (option.is_atom()) {
-        const auto name = need(option.atom_spelling());
+        const auto name = option.atom_spelling_unchecked();
         if (name == "compressed") {
             options.compression = Z_DEFAULT_LEVEL;
         }
         return name == "compressed" || name == "deterministic";
     }
-    if (!option.is_tuple() || need(option.tuple_size()) != 2) {
+    if (!option.is_tuple() || option.tuple_size_unchecked() != 2) {
         return false;
     }
-    const auto name = need(option.tuple_element(0)).atom_spelling();
-    const auto value = small(need(option.tuple_element(1)).word());
+    const auto name = option.tuple_element_unchecked(0).atom_spelling();
+    const auto value = small(option.tuple_element_unchecked(1).word());
     return name && value && pair_option(*name, *value, options);
 }
 
@@ -137,12 +137,12 @@ class Encoder {
         if (term.is_integer()) {
             integer(term);
         } else if (term.is_float()) {
-            floating(need(term.float_value()));
+            floating(term.float_value_unchecked());
         } else if (term.is_map()) {
             map(term);
         } else if (term.is_bitstring()) {
             const auto bytes = need(term.bitstring_bytes());
-            writer_.binary({reinterpret_cast<const char *>(bytes.data()), bytes.size()}, need(term.bit_size()));
+            writer_.binary({reinterpret_cast<const char *>(bytes.data()), bytes.size()}, term.bit_size_unchecked());
         } else {
             identity(term);
         }

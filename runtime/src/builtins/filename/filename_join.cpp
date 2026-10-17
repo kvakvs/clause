@@ -375,10 +375,10 @@ Term join1(ProcessContext &context, const Term &components) {
     if (!components.is_cons()) {
         no_clause();
     }
-    auto joined = need(components.head());
-    Term rest = need(components.tail());
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        joined = join2(context, joined, need(rest.head()));
+    auto joined = components.head_unchecked();
+    Term rest = components.tail_unchecked();
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        joined = join2(context, joined, rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         no_clause();

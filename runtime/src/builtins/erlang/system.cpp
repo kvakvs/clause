@@ -168,11 +168,11 @@ TermResult<Term> numbered_item(ProcessContext &context, std::string_view name) {
 
 // system_info(Item): an atom item, or {wordsize, internal | external}.
 TermResult<Term> system_info(ProcessContext &context, const Term &item) {
-    if (item.is_tuple() && need(item.tuple_size()) == 2 && need(item.tuple_element(0)).is_atom() &&
-        need(need(item.tuple_element(0)).atom_spelling()) == "wordsize") {
+    if (item.is_tuple() && item.tuple_size_unchecked() == 2 && item.tuple_element_unchecked(0).is_atom() &&
+        item.tuple_element_unchecked(0).atom_spelling_unchecked() == "wordsize") {
         return integer(context, static_cast<std::int64_t>(sizeof(Word)));
     }
-    const auto name = item.is_atom() ? need(item.atom_spelling()) : std::string_view{};
+    const auto name = item.is_atom() ? item.atom_spelling_unchecked() : std::string_view{};
     if (const auto text = text_item(name)) {
         return string(context, *text);
     }
@@ -210,7 +210,7 @@ TermResult<Term> memory0(ProcessContext &context) {
 
 // The size of one memory/1 type; badarg for an unknown one.
 std::int64_t memory_size(ProcessContext &context, const Term &type) {
-    const auto name = type.is_atom() ? need(type.atom_spelling()) : std::string_view{};
+    const auto name = type.is_atom() ? type.atom_spelling_unchecked() : std::string_view{};
     const auto sizes = memory_sizes(context);
     const auto found = std::ranges::find(sizes, name, &std::pair<std::string_view, std::int64_t>::first);
     if (found == sizes.end()) {
@@ -225,11 +225,11 @@ TermResult<Term> memory1(ProcessContext &context, const Term &types) {
         return integer(context, memory_size(context, types));
     }
     std::vector<Term> items;
-    for (auto rest = types; !rest.is_nil(); rest = need(rest.tail())) {
+    for (auto rest = types; !rest.is_nil(); rest = rest.tail_unchecked()) {
         if (!rest.is_cons()) {
             bad_argument();
         }
-        const auto type = need(rest.head());
+        const auto type = rest.head_unchecked();
         items.push_back(pair(context, type, integer(context, memory_size(context, type))));
     }
     return TermFactory(context).list(items);

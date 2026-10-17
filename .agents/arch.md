@@ -230,7 +230,9 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   compound words are trusted pointers (ERTS Eterm); contextual admission
   (`Term::from_word(word, context)`, factories via `retain`) checks range/shape/
   ownership in Debug only (`CHECKED_ADMISSION`, Release trusts words); no
-  per-handle staleness/expiry check, roots are rewritten by GC.
+  per-handle staleness/expiry check, roots are rewritten by GC. Unchecked
+  accessors (`*_unchecked`, OPTM.3) skip kind checks where callers proved the
+  kind; Debug aborts on misuse.
 - Terms: arbitrary integers (immediates, else heap sign/magnitude up to ERTS
   `BIG_ARITY_MAX`, beyond = `system_limit`), atoms (validated UTF-8, deduped,
   limits, shared-mutex per-runtime `AtomStorage`; spellings via the

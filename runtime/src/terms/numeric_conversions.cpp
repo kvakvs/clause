@@ -38,7 +38,7 @@ TermResult<double> integer_float(const Integer &value) {
 
 TermResult<double> number_float(const Term &value) {
     if (value.is_float()) {
-        return value.float_value();
+        return value.float_value_unchecked();
     }
     return integer_read(value).and_then(integer_float);
 }

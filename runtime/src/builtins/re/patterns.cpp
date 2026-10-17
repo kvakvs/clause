@@ -71,16 +71,16 @@ Term pattern(ProcessContext &context, pcre2_code *code, bool unicode) {
 namespace {
 // Whether a term has the {re_pattern, Integer, Integer, Integer, _} shape of a compiled pattern.
 bool pattern_shape(const Term &term) {
-    if (!term.is_tuple() || term.tuple_size().value_or(0) != 5) {
+    if (!term.is_tuple() || term.tuple_size_unchecked() != 5) {
         return false;
     }
-    const auto tag = term.tuple_element(0);
-    if (!tag || !tag->is_atom() || tag->atom_spelling().value_or("") != "re_pattern") {
+    const auto tag = term.tuple_element_unchecked(0);
+    if (!tag.is_atom() || tag.atom_spelling_unchecked() != "re_pattern") {
         return false;
     }
     for (std::size_t index = 1; index < 4; ++index) {
-        const auto element = term.tuple_element(index);
-        if (!element || !small(element->word())) {
+        const auto element = term.tuple_element_unchecked(index);
+        if (!small(element.word())) {
             return false;
         }
     }
@@ -92,7 +92,7 @@ const pcre2_code *pattern_code(const Term &term) {
     if (!pattern_shape(term)) {
         return nullptr;
     }
-    const auto buffer = detail::HandleAccess::buffer(need(term.tuple_element(4)));
+    const auto buffer = detail::HandleAccess::buffer(term.tuple_element_unchecked(4));
     if (!buffer || (*buffer)->size() != sizeof(Owned)) {
         return nullptr;
     }

@@ -411,12 +411,12 @@ Word list_to_integer_word(ProcessContext &context, Arguments arguments) {
 // atom_to_list(Atom): its characters decoded straight into list words (word-level conversions).
 Word atom_to_list_word(ProcessContext &context, Arguments arguments) {
     const auto atom = term_of(context, arguments[0]);
-    const auto spelling = atom.is_atom() ? atom.atom_spelling() : std::unexpected(TermError::wrong_type);
-    if (!spelling) {
+    if (!atom.is_atom()) {
         bad_argument();
     }
+    const auto spelling = atom.atom_spelling_unchecked();
     boost::container::small_vector<Word, 64> characters;
-    for (const auto code : code_points(*spelling)) {
+    for (const auto code : code_points(spelling)) {
         characters.push_back(*abi::v1::NativeIntegerEncoding::encode(code));
     }
     return char_words(context, characters);

@@ -37,8 +37,8 @@ struct KeyList {
     std::vector<Term> keys() const {
         std::vector<Term> result;
         auto rest = term;
-        for (; rest.is_cons(); rest = need(rest.tail())) {
-            result.push_back(need(rest.head()));
+        for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+            result.push_back(rest.head_unchecked());
         }
         if (!rest.is_nil()) {
             bad_argument();
@@ -89,7 +89,7 @@ TermResult<Term> new_map(ProcessContext &context) { return TermFactory(context).
 
 // size(Map).
 TermResult<Term> size(ProcessContext &context, const MapOperand &map) {
-    return TermFactory(context).integer(static_cast<std::int64_t>(need(map.map().map_size())));
+    return TermFactory(context).integer(static_cast<std::int64_t>(map.map().map_size_unchecked()));
 }
 
 // merge(Map1, Map2): the associations of both, Map2's winning for keys in both.
@@ -161,7 +161,7 @@ TermResult<Term> from_keys(ProcessContext &context, const KeyList &keys, const T
 TermResult<Term> intersect(ProcessContext &context, const MapOperand &first, const MapOperand &second) {
     const auto left = first.map();
     const auto right = second.map();
-    const bool walk_left = need(left.map_size()) <= need(right.map_size());
+    const bool walk_left = left.map_size_unchecked() <= right.map_size_unchecked();
     const auto &probed = walk_left ? right : left;
     Entries kept;
     for (const auto &[key, value] : need((walk_left ? left : right).map_entries())) {
@@ -175,16 +175,16 @@ TermResult<Term> intersect(ProcessContext &context, const MapOperand &first, con
 // Whether `iterator` is a [Path | Map] that map_next/3 walks to its end: a position from 0, or a proper list of
 // Map's keys (maps completion).
 bool valid_path(const Term &iterator) {
-    if (!iterator.is_cons() || !need(iterator.tail()).is_map()) {
+    if (!iterator.is_cons() || !iterator.tail_unchecked().is_map()) {
         return false;
     }
-    const auto map = need(iterator.tail());
-    auto keys = need(iterator.head());
+    const auto map = iterator.tail_unchecked();
+    auto keys = iterator.head_unchecked();
     if (const auto position = small(keys.word())) {
         return *position >= 0;
     }
-    for (; keys.is_cons(); keys = need(keys.tail())) {
-        if (!need(map.map_contains(need(keys.head())))) {
+    for (; keys.is_cons(); keys = keys.tail_unchecked()) {
+        if (!need(map.map_contains(keys.head_unchecked()))) {
             return false;
         }
     }
@@ -195,10 +195,10 @@ bool valid_path(const Term &iterator) {
 // Next is (maps completion).
 TermResult<Term> is_iterator_valid(ProcessContext &context, const Term &maybe) {
     auto iterator = maybe;
-    while (iterator.is_tuple() && need(iterator.tuple_size()) == 3) {
-        iterator = need(iterator.tuple_element(2));
+    while (iterator.is_tuple() && iterator.tuple_size_unchecked() == 3) {
+        iterator = iterator.tuple_element_unchecked(2);
     }
-    const bool none = iterator.is_atom() && need(iterator.atom_spelling()) == "none";
+    const bool none = iterator.is_atom() && iterator.atom_spelling_unchecked() == "none";
     return TermFactory(context).boolean(none || valid_path(iterator));
 }
 

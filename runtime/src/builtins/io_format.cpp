@@ -31,8 +31,8 @@ void append_binary(const Term &binary, std::u32string &out) {
 // Read one list until its end or a nested list, which is queued to be read before the rest of this one.
 void read_chardata(Term list, std::u32string &out, std::vector<Term> &pending) {
     while (list.is_cons()) {
-        auto element = need(list.head());
-        list = need(list.tail());
+        auto element = list.head_unchecked();
+        list = list.tail_unchecked();
         if (element.is_list()) {
             pending.push_back(list);
             pending.push_back(element);

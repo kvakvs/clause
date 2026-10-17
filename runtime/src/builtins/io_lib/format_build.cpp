@@ -164,7 +164,7 @@ class Builder final {
         if (literal.is_binary()) {
             return column - 1 + static_cast<std::int64_t>(string::binary_bytes(literal).size());
         }
-        if (literal.is_cons() && string::is_char(need(literal.head()), '\n')) {
+        if (literal.is_cons() && string::is_char(literal.head_unchecked(), '\n')) {
             return 0;
         }
         if (!literal.is_integer()) {
@@ -210,8 +210,8 @@ class Builder final {
             return;
         }
         Term rest = term;
-        for (; rest.is_cons(); rest = need(rest.tail())) {
-            flatten_term(need(rest.head()), out);
+        for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+            flatten_term(rest.head_unchecked(), out);
         }
         if (!rest.is_nil()) {
             bad_argument();
@@ -358,7 +358,7 @@ class Builder final {
     // The prefix of ~x and ~X: an atom's characters, or a deep character list as it is.
     Deep::Ref prefix_of(const Term &prefix) {
         if (prefix.is_atom()) {
-            return deep_.text(code_points(need(prefix.atom_spelling())));
+            return deep_.text(code_points(prefix.atom_spelling_unchecked()));
         }
         if (!deep_list_of(prefix, unicode_char)) {
             throw BuiltinFailure{.reason = abi::v1::ErrorReason::badmatch, .payload = terms_.boolean(false).word()};
@@ -586,8 +586,8 @@ class Builder final {
         }
         std::vector<Deep::Ref> items;
         Term rest = data;
-        for (; rest.is_cons(); rest = need(rest.tail())) {
-            const auto head = need(rest.head());
+        for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+            const auto head = rest.head_unchecked();
             const auto code = string::small_of(head);
             items.push_back(code && *code >= 0 && *code <= 0xFF ? deep_.code(static_cast<char32_t>(*code))
                                                                 : iolist_chars(head, level + 1));
@@ -608,8 +608,8 @@ class Builder final {
         }
         std::vector<Deep::Ref> items;
         Term rest = data;
-        for (; rest.is_cons(); rest = need(rest.tail())) {
-            const auto head = need(rest.head());
+        for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+            const auto head = rest.head_unchecked();
             const bool character = head.is_integer() && need(detail::integer_read(head)) >= 0;
             items.push_back(character ? cell(head) : cdata_chars(head, level + 1));
         }
@@ -655,14 +655,14 @@ class Builder final {
     bool iolist_step(IolistWalk &walk) {
         auto &cs = walk.cs;
         if (cs.is_cons()) {
-            const auto head = need(cs.head());
+            const auto head = cs.head_unchecked();
             const auto code = string::small_of(head);
             if (code && *code >= 0 && *code <= 0xFF) {
                 walk.items.push_back(deep_.code(static_cast<char32_t>(*code)));
                 --walk.limit;
-                cs = need(cs.tail());
+                cs = cs.tail_unchecked();
             } else {
-                walk.stack.push_back(need(cs.tail()));
+                walk.stack.push_back(cs.tail_unchecked());
                 cs = head;
             }
             return true;
@@ -736,8 +736,8 @@ class Builder final {
             items.push_back(deep_.code(std::to_integer<char32_t>(string::binary_bytes(rest)[0])));
             cs = Terms(context_).slice(rest, 1, string::binary_bytes(rest).size() - 1);
         } else if (rest.is_cons()) {
-            items.push_back(cell(need(rest.head())));
-            cs = need(rest.tail());
+            items.push_back(cell(rest.head_unchecked()));
+            cs = rest.tail_unchecked();
         } else {
             throw BuiltinFailure{.reason = abi::v1::ErrorReason::case_clause, .payload = next.word()};
         }
@@ -751,7 +751,7 @@ class Builder final {
 } // namespace
 
 MapsOrder order_of(const Term &order) {
-    const auto name = order.is_atom() ? need(order.atom_spelling()) : std::string_view{};
+    const auto name = order.is_atom() ? order.atom_spelling_unchecked() : std::string_view{};
     return name == "undefined"  ? MapsOrder::undefined
            : name == "ordered"  ? MapsOrder::ordered
            : name == "reversed" ? MapsOrder::reversed

@@ -99,14 +99,17 @@ TermResult<Term> value_term(ProcessContext &context, const Array &values, std::u
 }
 
 // The spelling of an atom; empty for any other term.
-std::string_view spelling(const Term &term) { return term.is_atom() ? need(term.atom_spelling()) : std::string_view{}; }
+std::string_view spelling(const Term &term) {
+    return term.is_atom() ? term.atom_spelling_unchecked() : std::string_view{};
+}
 
 // The flag of one {signed, Bool} option; badarg for anything else.
 bool signed_option(const Term &option) {
-    if (!option.is_tuple() || need(option.tuple_size()) != 2 || spelling(need(option.tuple_element(0))) != "signed") {
+    if (!option.is_tuple() || option.tuple_size_unchecked() != 2 ||
+        spelling(option.tuple_element_unchecked(0)) != "signed") {
         bad_argument();
     }
-    const auto flag = spelling(need(option.tuple_element(1)));
+    const auto flag = spelling(option.tuple_element_unchecked(1));
     if (flag != "true" && flag != "false") {
         bad_argument();
     }
@@ -117,8 +120,8 @@ bool signed_option(const Term &option) {
 std::uint64_t signedness(const Term &options) {
     auto kind = SIGNED_ARRAY;
     auto rest = options;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto option = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto option = rest.head_unchecked();
         kind = signed_option(option) ? SIGNED_ARRAY : UNSIGNED_ARRAY;
     }
     if (!rest.is_nil()) {

@@ -349,8 +349,8 @@ void shuffle_onto(Bits &bits, const std::vector<Term> &list, std::vector<Term> &
 
 std::vector<Term> elements_of(Term list) {
     std::vector<Term> elements;
-    for (; list.is_cons(); list = need(list.tail())) {
-        elements.push_back(need(list.head()));
+    for (; list.is_cons(); list = list.tail_unchecked()) {
+        elements.push_back(list.head_unchecked());
     }
     if (!list.is_nil()) {
         no_clause();
@@ -508,7 +508,7 @@ Term mwc59_seed1(ProcessContext &context, const Term &seed) {
 
 // random:uniform_s({A1, A2, A3}): one Wichmann-Hill (AS183) step.
 Term random_uniform_s1(ProcessContext &context, const Term &state) {
-    if (!state.is_tuple() || need(state.tuple_size()) != 3) {
+    if (!state.is_tuple() || state.tuple_size_unchecked() != 3) {
         no_clause();
     }
     constexpr std::array<std::int64_t, 3> PRIMES{30269, 30307, 30323};
@@ -516,7 +516,7 @@ Term random_uniform_s1(ProcessContext &context, const Term &state) {
     std::array<Term, 3> next{state, state, state};
     double sum = 0;
     for (std::size_t index = 0; index < 3; ++index) {
-        const auto part = need(state.tuple_element(index));
+        const auto part = state.tuple_element_unchecked(index);
         if (!part.is_integer()) {
             throw BuiltinFailure{.reason = abi::v1::ErrorReason::badarith};
         }

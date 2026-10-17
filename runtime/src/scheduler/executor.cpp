@@ -116,7 +116,7 @@ TermResult<Term> Executor::adopt(ProcessContext &parent, ProcessContext &child, 
     std::optional<ReferenceIdentity> monitor;
     if (options.monitor) {
         const auto reference = monitor_reference(parent, options);
-        const auto identity = reference.and_then([](const Term &term) { return term.reference_value(); });
+        const auto identity = reference.transform([](const Term &term) { return term.reference_value_unchecked(); });
         if (!identity) {
             return std::unexpected(identity.error());
         }

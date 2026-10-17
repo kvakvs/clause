@@ -27,7 +27,7 @@ Term atom(ProcessContext &context, std::string_view name) { return need(TermFact
 Term small_term(std::int64_t value) { return need(Term::from_word(need(encode_integer(value)))); }
 
 std::string_view spelling(const Term &term) {
-    return term.is_atom() ? term.atom_spelling().value_or(std::string_view{}) : std::string_view{};
+    return term.is_atom() ? term.atom_spelling_unchecked() : std::string_view{};
 }
 
 // The groups a name stands for: one index, or a duplicated name's run; -1 for an unknown name.
@@ -67,8 +67,8 @@ std::optional<std::string> name_of(const Term &value) {
     }
     if (value.is_list()) {
         std::string name;
-        for (auto rest = value; rest.is_cons(); rest = need(rest.tail())) {
-            const auto c = small(need(rest.head()).word());
+        for (auto rest = value; rest.is_cons(); rest = rest.tail_unchecked()) {
+            const auto c = small(rest.head_unchecked().word());
             if (!c || *c < 0 || *c > 255) {
                 return std::nullopt;
             }
@@ -82,8 +82,8 @@ std::optional<std::string> name_of(const Term &value) {
 // A list of group numbers and names.
 bool listed(const pcre2_code *code, const Term &list, Selection &selection) {
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto value = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto value = rest.head_unchecked();
         if (const auto number = small(value.word())) {
             selection.groups.push_back(static_cast<int>(*number));
             continue;

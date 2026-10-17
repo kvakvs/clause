@@ -14,7 +14,9 @@ namespace clause::runtime::builtins::uri {
 namespace {
 using lists::no_clause;
 
-bool atom_is(const Term &term, std::string_view name) { return term.is_atom() && need(term.atom_spelling()) == name; }
+bool atom_is(const Term &term, std::string_view name) {
+    return term.is_atom() && term.atom_spelling_unchecked() == name;
+}
 
 std::string text_of(const Bytes &bytes) { return {reinterpret_cast<const char *>(bytes.data()), bytes.size()}; }
 
@@ -87,9 +89,10 @@ Term decode_map(ProcessContext &context, const Term &map) {
         } catch (const Failure &failure) {
             return error_tuple(context, failure);
         }
-        if (value.is_tuple() && need(value.tuple_size()) == 3 && atom_is(need(value.tuple_element(0)), "error")) {
+        if (value.is_tuple() && value.tuple_size_unchecked() == 3 &&
+            atom_is(value.tuple_element_unchecked(0), "error")) {
             TermFactory factory(context);
-            const std::array detail{need(value.tuple_element(1)), need(value.tuple_element(2))};
+            const std::array detail{value.tuple_element_unchecked(1), value.tuple_element_unchecked(2)};
             const std::array field{key, need(factory.tuple(detail))};
             const std::array invalid{atom(context, "invalid"), need(factory.tuple(field))};
             const std::array reason{atom(context, "error"), need(factory.tuple(invalid))};
@@ -127,8 +130,8 @@ Term quote1(ProcessContext &context, const Term &text) { return quoted(context, 
 Term quote2(ProcessContext &context, const Term &text, const SafeArg &safe) {
     std::u32string codes;
     Term rest = safe.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto c = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto c = rest.head_unchecked();
         const auto code = c.is_integer() ? c.integer_value() : std::unexpected(TermError::wrong_type);
         if (code && *code >= 0 && *code < 0x110000) {
             codes.push_back(static_cast<char32_t>(*code));
@@ -143,13 +146,13 @@ Term quote2(ProcessContext &context, const Term &text, const SafeArg &safe) {
 // proplists:get_value(Key, Options): none where the default applies.
 std::optional<Term> option(ProcessContext &context, const Term &options, std::string_view key) {
     Term rest = options;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto entry = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto entry = rest.head_unchecked();
         if (atom_is(entry, key)) {
             return need(TermFactory(context).boolean(true));
         }
-        if (entry.is_tuple() && need(entry.tuple_size()) >= 1 && atom_is(need(entry.tuple_element(0)), key)) {
-            return need(entry.tuple_size()) == 2 ? std::optional{need(entry.tuple_element(1))} : std::nullopt;
+        if (entry.is_tuple() && entry.tuple_size_unchecked() >= 1 && atom_is(entry.tuple_element_unchecked(0), key)) {
+            return entry.tuple_size_unchecked() == 2 ? std::optional{entry.tuple_element_unchecked(1)} : std::nullopt;
         }
     }
     if (!rest.is_nil()) {
@@ -302,8 +305,8 @@ std::vector<Term> flatten_input(ProcessContext &context, const Term &list, const
         if (!term.is_cons()) {
             throw_failure(context, {.reason = "invalid_input", .term = term});
         }
-        pending.push_back(need(term.tail()));
-        flatten_head(context, need(term.head()), encodings.in, pending, chars);
+        pending.push_back(term.tail_unchecked());
+        flatten_head(context, term.head_unchecked(), encodings.in, pending, chars);
     }
     return chars;
 }
@@ -373,14 +376,14 @@ std::string numeric_references(const Bytes &bytes) {
 
 // The encoding of a [{encoding, E}] option list for a list or binary text; {error, invalid_input, Text} otherwise.
 Term query_encoding(ProcessContext &context, const Term &text, const OptionsArg &options) {
-    const bool single = options.term.is_cons() && need(options.term.tail()).is_nil();
-    const auto entry = single ? need(options.term.head()) : options.term;
-    const bool shaped = single && entry.is_tuple() && need(entry.tuple_size()) == 2 &&
-                        atom_is(need(entry.tuple_element(0)), "encoding");
+    const bool single = options.term.is_cons() && options.term.tail_unchecked().is_nil();
+    const auto entry = single ? options.term.head_unchecked() : options.term;
+    const bool shaped = single && entry.is_tuple() && entry.tuple_size_unchecked() == 2 &&
+                        atom_is(entry.tuple_element_unchecked(0), "encoding");
     if (!shaped || (!text.is_list() && !text.is_binary())) {
         fail(context, "invalid_input", text);
     }
-    return need(entry.tuple_element(1));
+    return entry.tuple_element_unchecked(1);
 }
 
 // A text's bytes: a binary's, or a list's in `encoding` (OTP's to_binary(Text, utf8, Encoding)).
@@ -404,11 +407,11 @@ std::string form_encode(ProcessContext &context, const Term &text, const Options
 
 // One {Key, Value} of compose_query: "Key=Value", or "Key" for a true value; whether either is a list.
 std::string compose_pair(ProcessContext &context, const Term &pair, const OptionsArg &options, bool &lists) {
-    if (!pair.is_tuple() || need(pair.tuple_size()) != 2) {
+    if (!pair.is_tuple() || pair.tuple_size_unchecked() != 2) {
         no_clause();
     }
-    const auto key = need(pair.tuple_element(0));
-    const auto value = need(pair.tuple_element(1));
+    const auto key = pair.tuple_element_unchecked(0);
+    const auto value = pair.tuple_element_unchecked(1);
     auto text = form_encode(context, key, options);
     if (!atom_is(value, "true")) {
         text += "=" + form_encode(context, value, options);
@@ -425,9 +428,9 @@ Term compose_query2(ProcessContext &context, const PairsArg &list, const Options
         std::string query;
         bool lists = false;
         Term rest = list.term;
-        for (; rest.is_cons(); rest = need(rest.tail())) {
-            query += compose_pair(context, need(rest.head()), options, lists);
-            if (!need(rest.tail()).is_nil()) {
+        for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+            query += compose_pair(context, rest.head_unchecked(), options, lists);
+            if (!rest.tail_unchecked().is_nil()) {
                 query += "&";
             }
         }

@@ -30,7 +30,7 @@ std::size_t integer_bits(const Integer &value) noexcept {
 
 TermResult<Integer> integer_read(const Term &value) {
     if (value.kind() == TermKind::smallint) {
-        return Integer(value.integer_value().value());
+        return Integer(value.small_integer_unchecked());
     }
     const auto object = TermAccess::object(value);
     if (!object) {

@@ -8,8 +8,8 @@ namespace {
 std::vector<Term> elements_of(const Term &list) {
     std::vector<Term> elements;
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        elements.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        elements.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -44,15 +44,17 @@ std::vector<Bytes> pattern_list(const Term &list) {
 }
 
 // Whether `term` is the atom `name`.
-bool is_atom(const Term &term, std::string_view name) { return term.is_atom() && need(term.atom_spelling()) == name; }
+bool is_atom(const Term &term, std::string_view name) {
+    return term.is_atom() && term.atom_spelling_unchecked() == name;
+}
 
 // The scope {Start, Length} of a {scope, ...} option.
 Range scope_option(const Term &value, std::size_t size) {
-    if (!value.is_tuple() || need(value.tuple_size()) != 2) {
+    if (!value.is_tuple() || value.tuple_size_unchecked() != 2) {
         bad_argument();
     }
-    const auto start = small(need(value.tuple_element(0)).word());
-    const auto length = small(need(value.tuple_element(1)).word());
+    const auto start = small(value.tuple_element_unchecked(0).word());
+    const auto length = small(value.tuple_element_unchecked(1).word());
     if (!start || !length) {
         bad_argument();
     }
@@ -61,8 +63,9 @@ Range scope_option(const Term &value, std::size_t size) {
 
 // Apply one option to `options`.
 void apply_option(const Term &option, std::size_t size, bool split, SearchOptions &options) {
-    if (option.is_tuple() && need(option.tuple_size()) == 2 && is_atom(need(option.tuple_element(0)), "scope")) {
-        options.scope = scope_option(need(option.tuple_element(1)), size);
+    if (option.is_tuple() && option.tuple_size_unchecked() == 2 &&
+        is_atom(option.tuple_element_unchecked(0), "scope")) {
+        options.scope = scope_option(option.tuple_element_unchecked(1), size);
     } else if (split && is_atom(option, "global")) {
         options.global = true;
     } else if (split && is_atom(option, "trim")) {
@@ -92,12 +95,12 @@ std::vector<Bytes> patterns(const Term &pattern) {
     if (pattern.is_binary()) {
         return {pattern_bytes(pattern)};
     }
-    if (pattern.is_tuple() && need(pattern.tuple_size()) == 2) {
-        const auto tag = need(pattern.tuple_element(0));
+    if (pattern.is_tuple() && pattern.tuple_size_unchecked() == 2) {
+        const auto tag = pattern.tuple_element_unchecked(0);
         if (!is_atom(tag, "bm") && !is_atom(tag, "ac")) {
             bad_argument();
         }
-        return pattern_list(need(pattern.tuple_element(1)));
+        return pattern_list(pattern.tuple_element_unchecked(1));
     }
     return pattern_list(pattern);
 }

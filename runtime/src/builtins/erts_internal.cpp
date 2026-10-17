@@ -63,12 +63,12 @@ TermResult<Term> next_key(ProcessContext &context, const Term &map, const Term &
     if (!keys.is_cons()) {
         bad_argument();
     }
-    const auto key = need(keys.head());
+    const auto key = keys.head_unchecked();
     const auto value = need(map.map_find(key));
     if (!value) {
         bad_argument();
     }
-    return step(context, {key, *value}, need(keys.tail()), map);
+    return step(context, {key, *value}, keys.tail_unchecked(), map);
 }
 
 // Every association from position `at`, in key order, followed by `accumulated`, read by a map cursor.
@@ -95,7 +95,7 @@ TermResult<Term> map_next(ProcessContext &context, const Term &path, const Term 
         }
         return collect(context, map, *position, mode);
     }
-    if (!mode.is_atom() || need(mode.atom_spelling()) != "iterator") {
+    if (!mode.is_atom() || mode.atom_spelling_unchecked() != "iterator") {
         bad_argument();
     }
     return position ? next_at(context, map, *position) : next_key(context, map, path);

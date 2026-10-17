@@ -53,7 +53,8 @@ TermResult<Term> get_arguments(ProcessContext &context) {
 
 // get_argument(Flag): {ok, [[Home]]} for home (one value list per occurrence), error for every other term.
 TermResult<Term> get_argument(ProcessContext &context, const Term &flag) {
-    const auto values = flag.is_atom() && need(flag.atom_spelling()) == "home" ? home_values(context) : std::nullopt;
+    const auto values =
+        flag.is_atom() && flag.atom_spelling_unchecked() == "home" ? home_values(context) : std::nullopt;
     if (!values) {
         return atom(context, "error");
     }

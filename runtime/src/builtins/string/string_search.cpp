@@ -49,8 +49,8 @@ Term tail_from(const Terms &terms, const Term &binary, std::size_t from) {
 
 // Whether a cluster from the start of `bin` continues: the rest is a binary followed by the same `cont`.
 std::optional<Term> continues_in(const Term &rest, const Term &cont) {
-    if (rest.is_cons() && need(rest.head()).is_binary() && same(need(rest.tail()), cont)) {
-        return need(rest.head());
+    if (rest.is_cons() && rest.head_unchecked().is_binary() && same(rest.tail_unchecked(), cont)) {
+        return rest.head_unchecked();
     }
     return std::nullopt;
 }
@@ -92,7 +92,7 @@ Seps seps_of(ProcessContext &context, const Term &list) {
             if (!next.is_cons()) {
                 throw BuiltinFailure{.reason = abi::v1::ErrorReason::badmatch, .payload = next.word()};
             }
-            point = need(next.head());
+            point = next.head_unchecked();
         }
         seps.clusters.push_back(item);
         seps.points.push_back(point);
@@ -115,8 +115,8 @@ bool member(const std::vector<Term> &items, const Term &item) {
 
 bool member(const PatternArg &list, const Term &item) {
     Term rest = list.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        if (same(need(rest.head()), item)) {
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        if (same(rest.head_unchecked(), item)) {
             return true;
         }
     }
@@ -129,8 +129,8 @@ bool member(const PatternArg &list, const Term &item) {
 std::optional<std::vector<Term>> proper_list(const Term &list) {
     std::vector<Term> items;
     Term rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        items.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        items.push_back(rest.head_unchecked());
     }
     return rest.is_nil() ? std::optional{items} : std::nullopt;
 }
@@ -227,22 +227,22 @@ class InverseSearch final {
     // A cluster of a lone binary read with gc.
     std::optional<Found> cluster_alone(Term &bin0) const {
         const auto next = gc_term(context_, bin0);
-        if (!next.is_cons() || !member(clusters_, need(next.head()))) {
+        if (!next.is_cons() || !member(clusters_, next.head_unchecked())) {
             return matched(bin0);
         }
-        bin0 = need(next.tail());
+        bin0 = next.tail_unchecked();
         return std::nullopt;
     }
 
     // A cluster that may continue into Cont: the walk goes on only while the rest is the binary's tail before Cont.
     std::optional<Found> cluster_continued(Term &bin0) const {
         const auto next = gc_term(context_, terms_.cons(bin0, cont_));
-        if (!next.is_cons() || !member(clusters_, need(next.head()))) {
+        if (!next.is_cons() || !member(clusters_, next.head_unchecked())) {
             return matched(bin0);
         }
-        const auto more = continues_in(need(next.tail()), cont_);
+        const auto more = continues_in(next.tail_unchecked(), cont_);
         if (!more) {
-            return Found{.matched = false, .rest = need(next.tail())};
+            return Found{.matched = false, .rest = next.tail_unchecked()};
         }
         bin0 = *more;
         return std::nullopt;
@@ -286,11 +286,11 @@ Term cp_prefix(ProcessContext &context, const Term &orig, const ContArg &after) 
 namespace {
 // The chardata after one code point of a needle that is not its last; none when another starts it.
 std::optional<Term> after_point(ProcessContext &context, const Term &data, const Term &pre) {
-    if (data.is_cons() && need(data.head()).is_integer()) {
-        return same(need(data.head()), pre) ? std::optional{need(data.tail())} : std::nullopt;
+    if (data.is_cons() && data.head_unchecked().is_integer()) {
+        return same(data.head_unchecked(), pre) ? std::optional{data.tail_unchecked()} : std::nullopt;
     }
     const auto next = cp_term(context, data);
-    return next.is_cons() && same(need(next.head()), pre) ? std::optional{need(next.tail())} : std::nullopt;
+    return next.is_cons() && same(next.head_unchecked(), pre) ? std::optional{next.tail_unchecked()} : std::nullopt;
 }
 } // namespace
 
@@ -307,7 +307,8 @@ std::optional<Term> after_prefix(ProcessContext &context, Term data, const std::
     }
     // The last code point is matched as a whole cluster.
     const auto next = gc_term(context, data);
-    return next.is_cons() && same(need(next.head()), needle.back()) ? std::optional{need(next.tail())} : std::nullopt;
+    return next.is_cons() && same(next.head_unchecked(), needle.back()) ? std::optional{next.tail_unchecked()}
+                                                                        : std::nullopt;
 }
 
 namespace {
@@ -398,25 +399,25 @@ std::optional<Term> trim_leading_list(ProcessContext &context, Term &str, const 
     if (!next.is_cons()) {
         case_clause(next);
     }
-    if (!member(clusters, need(next.head()))) {
+    if (!member(clusters, next.head_unchecked())) {
         return str;
     }
-    str = need(next.tail());
+    str = next.tail_unchecked();
     return std::nullopt;
 }
 
 // trim_l over the first of an ASCII pair: a separator is skipped.
 std::optional<Term> trim_leading_point(Term &str, const PatternArg &clusters) {
-    if (!member(clusters, need(str.head()))) {
+    if (!member(clusters, str.head_unchecked())) {
         return str;
     }
-    str = need(str.tail());
+    str = str.tail_unchecked();
     return std::nullopt;
 }
 
 // trim_l over a binary list head: its separators skipped, into the list after it when it holds only those.
 std::optional<Term> trim_leading_binary_head(ProcessContext &context, Term &str, const PatternArg &clusters) {
-    auto found = bin_search_inv(context, need(str.head()), {need(str.tail())}, {clusters});
+    auto found = bin_search_inv(context, str.head_unchecked(), {str.tail_unchecked()}, {clusters});
     if (found.matched) {
         return found.rest;
     }
@@ -605,7 +606,7 @@ Term trim_trailing(ProcessContext &context, const Term &str, const Seps &seps) {
 }
 
 std::string_view direction_of(const Term &dir) {
-    const auto name = dir.is_atom() ? need(dir.atom_spelling()) : std::string_view{};
+    const auto name = dir.is_atom() ? dir.atom_spelling_unchecked() : std::string_view{};
     if (name != "leading" && name != "trailing" && name != "both") {
         no_clause();
     }
@@ -725,21 +726,21 @@ std::optional<Pair> take_list_cluster(ProcessContext &context, Term &str, Acc &a
     if (!next.is_cons()) {
         case_clause(next);
     }
-    if (stops(need(next.head()))) {
+    if (stops(next.head_unchecked())) {
         return Pair{.head = acc.rev(), .tail = str};
     }
-    acc.cluster(need(next.head()));
-    str = need(next.tail());
+    acc.cluster(next.head_unchecked());
+    str = next.tail_unchecked();
     return std::nullopt;
 }
 
 // take_l over the first of an ASCII pair: a separator joins the token, another character ends the run.
 std::optional<Pair> take_l_point(Term &str, Acc &acc, const PatternArg &clusters) {
-    if (!member(clusters, need(str.head()))) {
+    if (!member(clusters, str.head_unchecked())) {
         return Pair{.head = acc.rev(), .tail = str};
     }
-    acc.point(need(str.head()));
-    str = need(str.tail());
+    acc.point(str.head_unchecked());
+    str = str.tail_unchecked();
     return std::nullopt;
 }
 
@@ -752,7 +753,7 @@ std::optional<Pair> take_l_step(ProcessContext &context, Term &str, Acc &acc, co
     switch (form_of(str)) {
     case Form::binary_head:
         return take_binary_head(context, str, acc,
-                                bin_search_inv(context, need(str.head()), {need(str.tail())}, {clusters}));
+                                bin_search_inv(context, str.head_unchecked(), {str.tail_unchecked()}, {clusters}));
     case Form::point:
     case Form::list:
         return take_list_cluster(context, str, acc, stops);
@@ -776,10 +777,10 @@ Pair take_l(ProcessContext &context, Term str, const PatternArg &clusters) {
 
 // take_lc at a code point: a separator cluster ends the run; else the point or its cluster joins the token.
 std::optional<Pair> take_lc_point(ProcessContext &context, Term &str, Acc &acc, const Seps &seps) {
-    const auto cp1 = need(str.head());
+    const auto cp1 = str.head_unchecked();
     if (!member(seps.points, cp1)) {
         acc.point(cp1);
-        str = need(str.tail());
+        str = str.tail_unchecked();
         return std::nullopt;
     }
     const auto [gc, rest] = cluster_of(context, str);
@@ -798,7 +799,8 @@ std::optional<Pair> take_lc_step(ProcessContext &context, Term &str, Acc &acc, c
     case Form::point:
         return take_lc_point(context, str, acc, seps);
     case Form::binary_head:
-        return take_binary_head(context, str, acc, bin_search(context, need(str.head()), {need(str.tail())}, seps));
+        return take_binary_head(context, str, acc,
+                                bin_search(context, str.head_unchecked(), {str.tail_unchecked()}, seps));
     case Form::list:
         return take_list_cluster(context, str, acc, stops);
     case Form::binary:
@@ -1023,11 +1025,11 @@ struct TakeOptions {
 };
 
 TakeOptions take_options(const Term &complement, const DirArg &dir) {
-    const auto direction = dir.term.is_atom() ? need(dir.term.atom_spelling()) : std::string_view{};
+    const auto direction = dir.term.is_atom() ? dir.term.atom_spelling_unchecked() : std::string_view{};
     if (!complement.is_boolean() || (direction != "leading" && direction != "trailing")) {
         no_clause();
     }
-    return {.inverted = need(complement.boolean_value()), .leading = direction == "leading"};
+    return {.inverted = complement.boolean_value_unchecked(), .leading = direction == "leading"};
 }
 
 // take(Str, [], Complement, Dir): the string and its empty counterpart, in the order the options give.

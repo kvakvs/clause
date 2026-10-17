@@ -34,8 +34,8 @@ std::optional<std::vector<Term>> items(const Term &term) {
     }
     std::vector<Term> elements;
     auto rest = term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        elements.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        elements.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -45,11 +45,11 @@ std::optional<std::vector<Term>> items(const Term &term) {
 
 // A queue's lists; badarg for anything else.
 Lists lists_of(const Queue &queue) {
-    if (!queue.term.is_tuple() || need(queue.term.tuple_size()) != 2) {
+    if (!queue.term.is_tuple() || queue.term.tuple_size_unchecked() != 2) {
         bad_argument();
     }
-    auto rear = items(need(queue.term.tuple_element(0)));
-    auto front = items(need(queue.term.tuple_element(1)));
+    auto rear = items(queue.term.tuple_element_unchecked(0));
+    auto front = items(queue.term.tuple_element_unchecked(1));
     if (!rear || !front) {
         bad_argument();
     }

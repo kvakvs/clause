@@ -147,15 +147,15 @@ void encode_utf8(char32_t code, Bytes &out) {
 }
 
 // The atom spelling of a term, or empty for a non-atom.
-std::string_view spelling(const Term &term) { return term.is_atom() ? need(term.atom_spelling()) : ""; }
+std::string_view spelling(const Term &term) { return term.is_atom() ? term.atom_spelling_unchecked() : ""; }
 
 // A {utf16 | utf32, big | little} encoding.
 Encoding endian_encoding(const Term &argument) {
-    if (need(argument.tuple_size()) != 2) {
+    if (argument.tuple_size_unchecked() != 2) {
         bad_argument();
     }
-    const auto name = spelling(need(argument.tuple_element(0)));
-    const auto order = spelling(need(argument.tuple_element(1)));
+    const auto name = spelling(argument.tuple_element_unchecked(0));
+    const auto order = spelling(argument.tuple_element_unchecked(1));
     if ((name != "utf16" && name != "utf32") || (order != "big" && order != "little")) {
         bad_argument();
     }

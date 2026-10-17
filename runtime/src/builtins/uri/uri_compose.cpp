@@ -14,7 +14,9 @@ using lists::no_clause;
 
 constexpr std::array<std::string_view, 7> COMPONENTS{"scheme", "userinfo", "host", "port", "path", "query", "fragment"};
 
-bool atom_is(const Term &term, std::string_view name) { return term.is_atom() && need(term.atom_spelling()) == name; }
+bool atom_is(const Term &term, std::string_view name) {
+    return term.is_atom() && term.atom_spelling_unchecked() == name;
+}
 
 // The components holding text normalize/1 decodes.
 bool text_key(const Term &key) {
@@ -37,8 +39,8 @@ bool code_in(const Term &c, bool (*test)(char32_t)) {
 std::vector<Term> elements(const Term &list) {
     std::vector<Term> items;
     Term rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        items.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        items.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -105,8 +107,8 @@ bool scheme_valid(const Term &scheme) {
     }
     bool valid = true;
     Term rest = scheme;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        valid = valid && code_in(need(rest.head()), is_scheme);
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        valid = valid && code_in(rest.head_unchecked(), is_scheme);
     }
     if (!rest.is_nil()) {
         no_clause();
@@ -126,8 +128,8 @@ Term scheme_text(ProcessContext &context, const Term &scheme) {
 std::optional<std::u32string> flat_codes(const Term &list) {
     std::u32string codes;
     Term rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto code = small_code(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto code = small_code(rest.head_unchecked());
         if (!code || *code < 0 || *code >= 0x110000) {
             return std::nullopt;
         }
@@ -139,8 +141,8 @@ std::optional<std::u32string> flat_codes(const Term &list) {
 // OTP's registered_name/1: whether every character is in reg-name, up to the first that is not.
 bool registered_name(const Term &list) {
     Term rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        if (!code_in(need(rest.head()), is_reg_name)) {
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        if (!code_in(rest.head_unchecked(), is_reg_name)) {
             return false;
         }
     }
@@ -174,7 +176,7 @@ Term absolute_path(ProcessContext &context, const Term &path) {
         const auto bytes = bytes_of(flat);
         return bytes.empty() || bytes[0] == std::byte{'/'} ? flat : prefixed(context, "/", flat);
     }
-    if (flat.is_nil() || (flat.is_cons() && small_code(need(flat.head())) == '/')) {
+    if (flat.is_nil() || (flat.is_cons() && small_code(flat.head_unchecked()) == '/')) {
         return flat;
     }
     if (!flat.is_cons()) {
@@ -456,7 +458,7 @@ Term normalized_map(ProcessContext &context, const Term &map) {
 }
 
 bool return_map(const Term &options) {
-    return options.is_cons() && atom_is(need(options.head()), "return_map") && need(options.tail()).is_nil();
+    return options.is_cons() && atom_is(options.head_unchecked(), "return_map") && options.tail_unchecked().is_nil();
 }
 
 // parse/1 of a string: the map, or none with its {error, ...} answer in `error`.

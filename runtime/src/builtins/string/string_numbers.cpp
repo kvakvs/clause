@@ -18,13 +18,13 @@ Term error_tuple(const Terms &terms, std::string_view reason) {
 }
 
 // A list element that is the character `c`.
-bool starts_with(const Term &list, char c) { return list.is_cons() && is_char(need(list.head()), c); }
+bool starts_with(const Term &list, char c) { return list.is_cons() && is_char(list.head_unchecked(), c); }
 
 bool digit_head(const Term &list) {
     if (!list.is_cons()) {
         return false;
     }
-    const auto code = small_of(need(list.head()));
+    const auto code = small_of(list.head_unchecked());
     return code && *code >= '0' && *code <= '9';
 }
 
@@ -32,8 +32,8 @@ bool digit_head(const Term &list) {
 std::pair<std::string, Term> digits_of(Term list) {
     std::string digits;
     while (digit_head(list)) {
-        digits.push_back(static_cast<char>(*small_of(need(list.head()))));
-        list = need(list.tail());
+        digits.push_back(static_cast<char>(*small_of(list.head_unchecked())));
+        list = list.tail_unchecked();
     }
     return {digits, list};
 }
@@ -50,7 +50,7 @@ Term list_to_integer1(ProcessContext &context, const Term &string) {
     Term rest = string;
     const bool negative = starts_with(rest, '-');
     if (negative || starts_with(rest, '+')) {
-        rest = need(rest.tail());
+        rest = rest.tail_unchecked();
     }
     auto [digits, after] = digits_of(rest);
     if (digits.empty()) {
@@ -74,8 +74,8 @@ Term list_to_integer1(ProcessContext &context, const Term &string) {
 std::pair<std::string, Term> sign_of(Term list) {
     std::string sign;
     if (starts_with(list, '-') || starts_with(list, '+')) {
-        sign.push_back(static_cast<char>(*small_of(need(list.head()))));
-        list = need(list.tail());
+        sign.push_back(static_cast<char>(*small_of(list.head_unchecked())));
+        list = list.tail_unchecked();
     }
     return {sign, list};
 }
@@ -86,7 +86,7 @@ std::pair<std::string, Term> exponent_of(const Term &list) {
     if (!starts_with(list, 'e') && !starts_with(list, 'E')) {
         return {"", list};
     }
-    const auto [sign, after_sign] = sign_of(need(list.tail()));
+    const auto [sign, after_sign] = sign_of(list.tail_unchecked());
     const auto [power, after_power] = digits_of(after_sign);
     if (power.empty()) {
         return {"", list};
@@ -102,7 +102,7 @@ std::optional<std::pair<std::string, Term>> float_text_of(const Term &list) {
     if (whole.empty() || !(starts_with(after_whole, '.') || starts_with(after_whole, ','))) {
         return std::nullopt;
     }
-    const auto [fraction, after_fraction] = digits_of(need(after_whole.tail()));
+    const auto [fraction, after_fraction] = digits_of(after_whole.tail_unchecked());
     if (fraction.empty()) {
         return std::nullopt;
     }

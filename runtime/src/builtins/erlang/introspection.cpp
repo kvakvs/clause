@@ -171,7 +171,7 @@ Term pair_term(ProcessContext &context, std::string_view first, const Term &seco
 
 // The reader of an item atom: badarg for an unknown one, notsup for one Clause does not keep.
 ItemReader reader(ProcessContext &context, const Term &item) {
-    const auto name = item.is_atom() ? need(item.atom_spelling()) : std::string_view{};
+    const auto name = item.is_atom() ? item.atom_spelling_unchecked() : std::string_view{};
     if (name == "memory") {
         return memory;
     }
@@ -202,11 +202,11 @@ Term item_pair(const Inspection &inspection, const Term &item, ItemReader read) 
 // The readers of an item list, in order; badarg for an improper list or an invalid item.
 std::vector<std::pair<Term, ItemReader>> readers(ProcessContext &context, const Term &items) {
     std::vector<std::pair<Term, ItemReader>> result;
-    for (auto rest = items; !rest.is_nil(); rest = need(rest.tail())) {
+    for (auto rest = items; !rest.is_nil(); rest = rest.tail_unchecked()) {
         if (!rest.is_cons()) {
             bad_argument();
         }
-        const auto item = need(rest.head());
+        const auto item = rest.head_unchecked();
         result.emplace_back(item, reader(context, item));
     }
     return result;
@@ -295,7 +295,7 @@ TermResult<Term> garbage_collect1(ProcessContext &context, const Term &pid) {
 
 // Whether a garbage_collect/2 option is {type, major} or {type, minor}.
 bool type_option(std::string_view name, const Term &value) {
-    const auto kind = value.is_atom() ? need(value.atom_spelling()) : std::string_view{};
+    const auto kind = value.is_atom() ? value.atom_spelling_unchecked() : std::string_view{};
     return name == "type" && (kind == "major" || kind == "minor");
 }
 
@@ -303,11 +303,11 @@ bool type_option(std::string_view name, const Term &value) {
 std::optional<Term> gc_request(const ListArgument &options) {
     std::optional<Term> request;
     for (const auto &option : options.elements) {
-        if (!option.is_tuple() || need(option.tuple_size()) != 2) {
+        if (!option.is_tuple() || option.tuple_size_unchecked() != 2) {
             bad_argument();
         }
-        const auto name = need(option.tuple_element(0)).atom_spelling().value_or("");
-        const auto value = need(option.tuple_element(1));
+        const auto name = option.tuple_element_unchecked(0).atom_spelling().value_or("");
+        const auto value = option.tuple_element_unchecked(1);
         if (name == "async") {
             request = value;
         } else if (!type_option(name, value)) {

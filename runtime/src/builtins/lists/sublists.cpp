@@ -15,8 +15,8 @@ namespace {
 // before the limit.
 std::vector<Term> prefix(Term rest, std::size_t limit) {
     std::vector<Term> elements;
-    for (; elements.size() < limit && rest.is_cons(); rest = need(rest.tail())) {
-        elements.push_back(need(rest.head()));
+    for (; elements.size() < limit && rest.is_cons(); rest = rest.tail_unchecked()) {
+        elements.push_back(rest.head_unchecked());
     }
     if (elements.size() < limit && !rest.is_nil()) {
         no_clause();
@@ -47,7 +47,7 @@ TermResult<Term> sublist_from(ProcessContext &context, const Term &list, const C
         if (!rest.is_cons()) {
             no_clause();
         }
-        rest = need(rest.tail());
+        rest = rest.tail_unchecked();
     }
     return sublist(context, rest, Count{length});
 }
@@ -73,7 +73,7 @@ Term nthtail(ProcessContext &, const Count &count, const Term &list) {
         if (!rest.is_cons()) {
             no_clause();
         }
-        rest = need(rest.tail());
+        rest = rest.tail_unchecked();
     }
     return rest;
 }
@@ -131,8 +131,8 @@ std::vector<Term> flat(const Term &list) {
         if (!rest.is_cons()) {
             no_clause();
         }
-        const auto head = need(rest.head());
-        rest = need(rest.tail());
+        const auto head = rest.head_unchecked();
+        rest = rest.tail_unchecked();
         if (head.is_list()) {
             pending.push_back(head);
         } else {
@@ -167,10 +167,10 @@ TermResult<Term> flatlength(ProcessContext &context, const Term &list) {
 TermResult<Term> delete_first(ProcessContext &context, const Term &item, const ListTerm &list) {
     std::vector<Term> kept;
     auto rest = list.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto element = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto element = rest.head_unchecked();
         if (need(detail::structural_order(element, item, true)) == 0) {
-            return TermFactory(context).list(kept, need(rest.tail()));
+            return TermFactory(context).list(kept, rest.tail_unchecked());
         }
         kept.push_back(element);
     }
@@ -188,11 +188,11 @@ std::u32string thing_text(ProcessContext &context, const Term &thing) {
         return {text.begin(), text.end()};
     }
     if (thing.is_float()) {
-        const auto text = float_with_options(need(thing.float_value()), need(TermFactory(context).nil()));
+        const auto text = float_with_options(thing.float_value_unchecked(), need(TermFactory(context).nil()));
         return {text.begin(), text.end()};
     }
     if (thing.is_atom()) {
-        return code_points(need(thing.atom_spelling()));
+        return code_points(thing.atom_spelling_unchecked());
     }
     no_clause();
 }

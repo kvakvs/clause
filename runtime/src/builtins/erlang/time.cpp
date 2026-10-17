@@ -34,7 +34,7 @@ Integer unit_rate(const Term &unit) {
         {"micro_seconds", 1'000'000},
         {"nano_seconds", 1'000'000'000},
     }};
-    const auto name = unit.is_atom() ? need(unit.atom_spelling()) : std::string_view{};
+    const auto name = unit.is_atom() ? unit.atom_spelling_unchecked() : std::string_view{};
     const auto found = std::ranges::find(UNITS, name, &std::pair<std::string_view, std::int64_t>::first);
     if (found == UNITS.end()) {
         bad_argument();
@@ -120,7 +120,7 @@ TermResult<Term> now(ProcessContext &context) {
 // The unique_integer/1 options: positive and monotonic; badarg for others.
 void unique_options(const ListArgument &options) {
     for (const auto &option : options.elements) {
-        const auto name = option.is_atom() ? need(option.atom_spelling()) : std::string_view{};
+        const auto name = option.is_atom() ? option.atom_spelling_unchecked() : std::string_view{};
         if (name != "positive" && name != "monotonic") {
             bad_argument();
         }
@@ -140,12 +140,12 @@ TermResult<Term> unique_integer1(ProcessContext &context, const ListArgument &op
 
 // The small integers of a tuple of 3 elements; badarg otherwise.
 std::array<std::int64_t, 3> triple_of(const Term &tuple) {
-    if (!tuple.is_tuple() || need(tuple.tuple_size()) != 3) {
+    if (!tuple.is_tuple() || tuple.tuple_size_unchecked() != 3) {
         bad_argument();
     }
     std::array<std::int64_t, 3> values{};
     for (std::size_t i = 0; i < values.size(); ++i) {
-        const auto value = small(need(tuple.tuple_element(i)).word());
+        const auto value = small(tuple.tuple_element_unchecked(i).word());
         if (!value) {
             bad_argument();
         }
@@ -176,11 +176,11 @@ std::chrono::year_month_day calendar_date(const std::array<std::int64_t, 3> &dat
 // Seconds since 1970-01-01 00:00:00 of {{Y, M, D}, {H, Mi, S}}, read without a time zone; badarg for an invalid
 // date or time.
 std::int64_t calendar_seconds(const Term &value) {
-    if (!value.is_tuple() || need(value.tuple_size()) != 2) {
+    if (!value.is_tuple() || value.tuple_size_unchecked() != 2) {
         bad_argument();
     }
-    const auto date = triple_of(need(value.tuple_element(0)));
-    const auto time = triple_of(need(value.tuple_element(1)));
+    const auto date = triple_of(value.tuple_element_unchecked(0));
+    const auto time = triple_of(value.tuple_element_unchecked(1));
     if (!valid_time(time)) {
         bad_argument();
     }
@@ -263,9 +263,9 @@ TermResult<Term> universaltime(ProcessContext &context) { return calendar_term(c
 TermResult<Term> localtime(ProcessContext &context) { return calendar_term(context, to_local(system_seconds())); }
 
 // date/0 and time/0: the parts of localtime/0.
-TermResult<Term> date(ProcessContext &context) { return need(localtime(context)).tuple_element(0); }
+TermResult<Term> date(ProcessContext &context) { return need(localtime(context)).tuple_element_unchecked(0); }
 
-TermResult<Term> time(ProcessContext &context) { return need(localtime(context)).tuple_element(1); }
+TermResult<Term> time(ProcessContext &context) { return need(localtime(context)).tuple_element_unchecked(1); }
 
 TermResult<Term> universaltime_to_localtime(ProcessContext &context, const Term &value) {
     return calendar_term(context, to_local(calendar_seconds(value)));

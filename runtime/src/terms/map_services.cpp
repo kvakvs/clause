@@ -100,13 +100,13 @@ MapResult from_list(ProcessContext &context, std::span<const Term> terms) {
     MapEntries entries;
     auto rest = terms[0];
     while (rest.is_cons()) {
-        const auto pair = rest.head().and_then([](const Term &tuple) { return tuple.tuple_elements(); });
-        const auto next = rest.tail();
-        if (!pair || pair->size() != 2 || !next) {
+        const auto pair = rest.head_unchecked().tuple_elements();
+        const auto next = rest.tail_unchecked();
+        if (!pair || pair->size() != 2) {
             return std::unexpected(MapFault{TermError::invalid_encoding, {}});
         }
         entries.emplace_back((*pair)[0], (*pair)[1]);
-        rest = *next;
+        rest = next;
     }
     return TermFactory(context).map(entries).transform_error([](TermError error) { return MapFault{error, {}}; });
 }
@@ -115,7 +115,7 @@ MapResult from_list(ProcessContext &context, std::span<const Term> terms) {
 MapResult chain(ProcessContext &context, const Term &map, const std::size_t position) {
     TermFactory factory(context);
     auto result = factory.atom("none");
-    for (auto index = map.map_size().value_or(0); result && index > position; --index) {
+    for (auto index = map.map_size_unchecked(); result && index > position; --index) {
         result = map_entry(map, index - 1).and_then([&](const MapEntry &entry) {
             return factory.tuple(std::array{entry.first, entry.second, *result});
         });

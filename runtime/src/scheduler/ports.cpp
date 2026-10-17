@@ -738,7 +738,7 @@ void Executor::unlink_port(ProcessContext &process, Word port) noexcept {
 }
 
 Term Executor::monitor_port(ProcessContext &watcher, Word port, Word name, const Term &reference) {
-    const auto identity = reference.reference_value().value();
+    const auto identity = reference.reference_value_unchecked();
     auto *open_port = open(port);
     if (!open_port) {
         const Running running(watcher);

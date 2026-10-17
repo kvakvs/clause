@@ -62,8 +62,8 @@ std::optional<std::int64_t> element_size(const Term &element) {
 // The iolist size of a list, none when it is not an iolist.
 std::optional<std::int64_t> list_iolist_size(Term list) {
     std::int64_t size = 0;
-    for (; list.is_cons(); list = need(list.tail())) {
-        const auto part = element_size(need(list.head()));
+    for (; list.is_cons(); list = list.tail_unchecked()) {
+        const auto part = element_size(list.head_unchecked());
         if (!part) {
             return std::nullopt;
         }
@@ -78,8 +78,8 @@ std::optional<std::int64_t> list_iolist_size(Term list) {
 
 // One list level of deep_list_of/2: nested lists queued, false at an integer `accept` refuses or an improper end.
 bool list_level(Term rest, bool (*accept)(std::int64_t), std::vector<Term> &pending) {
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto head = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto head = rest.head_unchecked();
         if (head.is_list()) {
             pending.push_back(head);
             continue;
@@ -128,8 +128,8 @@ std::int64_t term_chars_length(ProcessContext &context, const Term &data) {
 
 std::int64_t term_indentation(ProcessContext &context, const Term &data, std::int64_t column) {
     Term rest = data;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto head = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto head = rest.head_unchecked();
         if (const auto code = small_of(head)) {
             column = next_column(static_cast<char32_t>(*code), column);
         } else if (head.is_integer()) {

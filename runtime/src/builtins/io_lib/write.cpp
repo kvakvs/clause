@@ -56,8 +56,8 @@ bool name_char(std::int64_t c) {
 // name_chars/1: whether the characters up to the first that is not a name character are all name characters; no
 // clause for a non-integer before it or an improper end.
 bool name_chars(Term rest) {
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto head = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto head = rest.head_unchecked();
         if (!head.is_integer()) {
             no_clause();
         }
@@ -96,14 +96,14 @@ bool quote_atom(std::string_view atom, const Term &chars) {
     if (abi::v1::reserved_word(atom)) {
         return true;
     }
-    if (!chars.is_list() || (chars.is_cons() && !need(chars.head()).is_integer())) {
+    if (!chars.is_list() || (chars.is_cons() && !chars.head_unchecked().is_integer())) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::case_clause, .payload = chars.word()};
     }
     if (chars.is_nil()) {
         return true;
     }
-    const auto first = string::small_of(need(chars.head()));
-    return !first || !latin1_lower(*first) || !name_chars(need(chars.tail()));
+    const auto first = string::small_of(chars.head_unchecked());
+    return !first || !latin1_lower(*first) || !name_chars(chars.tail_unchecked());
 }
 
 namespace {
@@ -162,8 +162,8 @@ Deep::Ref string_char(Deep &deep, const Term &code, Escape escape, std::int64_t 
 Deep::Ref string_text(Deep &deep, const Term &string, Escape escape, const Term &quote) {
     std::vector<Term> codes;
     Term rest = string;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto head = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto head = rest.head_unchecked();
         if (!head.is_integer()) {
             no_clause();
         }
@@ -264,7 +264,7 @@ std::pair<Term, std::int64_t> string_bin(ProcessContext &context, const Term &st
     if (string.is_list()) {
         return list_bin(context, string, quote);
     }
-    const auto spelling = encoding.is_atom() ? need(encoding.atom_spelling()) : std::string_view{};
+    const auto spelling = encoding.is_atom() ? encoding.atom_spelling_unchecked() : std::string_view{};
     if (!string.is_binary() || (spelling != "latin1" && spelling != "unicode")) {
         no_clause();
     }
@@ -301,7 +301,7 @@ Deep::Ref Writer::node(const Term &term, Place place) {
         return list(term, place);
     }
     if (term.is_tuple()) {
-        return need(term.tuple_size()) == 0 ? deep_.ascii("{}") : tuple(term, place);
+        return term.tuple_size_unchecked() == 0 ? deep_.ascii("{}") : tuple(term, place);
     }
     if (term.is_map()) {
         return map(term, place);
@@ -318,8 +318,8 @@ Deep::Ref Writer::list(const Term &term, Place place) {
         return deep_.ascii("[...]");
     }
     // write_tail/4 from its end: [], "|...", or [$|, Other].
-    std::vector<Deep::Ref> elements{node(need(term.head()), {.depth = depth - 1, .level = level + 1})};
-    Term rest = need(term.tail());
+    std::vector<Deep::Ref> elements{node(term.head_unchecked(), {.depth = depth - 1, .level = level + 1})};
+    Term rest = term.tail_unchecked();
     auto at = depth - 1;
     Deep::Ref tail = Deep::NIL;
     for (; !rest.is_nil(); --at) {
@@ -332,8 +332,8 @@ Deep::Ref Writer::list(const Term &term, Place place) {
             tail = deep_.list({deep_.code('|'), node(rest, {.depth = at - 1, .level = level + 1})});
             break;
         }
-        elements.push_back(node(need(rest.head()), {.depth = at - 1, .level = level + 1}));
-        rest = need(rest.tail());
+        elements.push_back(node(rest.head_unchecked(), {.depth = at - 1, .level = level + 1}));
+        rest = rest.tail_unchecked();
     }
     for (auto it = elements.rbegin(); it + 1 != elements.rend(); ++it) {
         tail = deep_.cons(deep_.code(','), deep_.cons(*it, tail));
@@ -422,7 +422,7 @@ Deep::Ref Writer::record(const Term &term, Place place) {
 
 std::pair<Deep::Ref, Term> Writer::binary(const Term &bits, Cut cut) {
     const auto [depth, limit] = cut;
-    const auto size = need(bits.bit_size());
+    const auto size = bits.bit_size_unchecked();
     const auto bytes = need(bits.bitstring_bytes());
     std::vector<Deep::Ref> parts;
     auto at = depth;

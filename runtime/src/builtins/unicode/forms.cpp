@@ -37,8 +37,8 @@ void append_cluster(std::u32string &codes, const Term &cluster) {
         codes.push_back(static_cast<char32_t>(*cluster.integer_value()));
         return;
     }
-    for (Term rest = cluster; rest.is_cons(); rest = need(rest.tail())) {
-        codes.push_back(static_cast<char32_t>(*need(rest.head()).integer_value()));
+    for (Term rest = cluster; rest.is_cons(); rest = rest.tail_unchecked()) {
+        codes.push_back(static_cast<char32_t>(*rest.head_unchecked().integer_value()));
     }
 }
 
@@ -66,8 +66,8 @@ Term normalized_text(ProcessContext &context, const Term &data, Form form, bool 
     Term rest = data;
     auto next = normalized_term(context, rest, form);
     while (next.is_cons()) {
-        append_cluster(codes, need(next.head()));
-        rest = need(next.tail());
+        append_cluster(codes, next.head_unchecked());
+        rest = next.tail_unchecked();
         next = normalized_term(context, rest, form);
     }
     auto converted = text_term(context, codes, binary);

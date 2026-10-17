@@ -220,7 +220,7 @@ Term slice3(ProcessContext &context, const TextArg &data, const Term &start, con
         return data.term.is_binary() ? terms.binary({}) : terms.nil();
     }
     const auto from = non_negative(start);
-    if (length.is_atom() && need(length.atom_spelling()) == "infinity") {
+    if (length.is_atom() && length.atom_spelling_unchecked() == "infinity") {
         return empty_as(context, data.term, slice_from(context, data.term, from));
     }
     const auto count = small_of(length);
@@ -238,7 +238,7 @@ Term slice3(ProcessContext &context, const TextArg &data, const Term &start, con
 Term pad4(ProcessContext &context, const TextArg &data, const Term &length, const DirArg &dir, const Term &fill) {
     const Terms terms(context);
     const auto wanted = small_of(length);
-    const auto direction = dir.term.is_atom() ? need(dir.term.atom_spelling()) : std::string_view{};
+    const auto direction = dir.term.is_atom() ? dir.term.atom_spelling_unchecked() : std::string_view{};
     if (!wanted || (direction != "leading" && direction != "trailing" && direction != "both")) {
         no_clause();
     }
@@ -315,11 +315,11 @@ class Cased final {
 
 // The case walks' ASCII fast path over a list: the first code point when it is ASCII and a Latin-1 one follows.
 std::optional<std::int64_t> ascii_before_latin1(const Term &rest) {
-    if (!rest.is_cons() || !need(rest.tail()).is_cons()) {
+    if (!rest.is_cons() || !rest.tail_unchecked().is_cons()) {
         return std::nullopt;
     }
-    const auto first = small_of(need(rest.head()));
-    const auto second = small_of(need(need(rest.tail()).head()));
+    const auto first = small_of(rest.head_unchecked());
+    const auto second = small_of(rest.tail_unchecked().head_unchecked());
     const bool ascii = first && *first >= 0 && *first < 128;
     const bool latin1 = second && *second >= 0 && *second < 256;
     return ascii && latin1 ? first : std::nullopt;
@@ -332,7 +332,7 @@ std::optional<Term> cased_list(ProcessContext &context, const Term &data, const 
     while (true) {
         if (const auto first = ascii_before_latin1(rest)) {
             cased.ascii(*first);
-            rest = need(rest.tail());
+            rest = rest.tail_unchecked();
             continue;
         }
         const auto next = cased.map_first(rest);
@@ -340,7 +340,7 @@ std::optional<Term> cased_list(ProcessContext &context, const Term &data, const 
             break;
         }
         const auto [mapped, more] = split(next);
-        cased.mapped(mapped, !(rest.is_cons() && same(mapped, need(rest.head()))));
+        cased.mapped(mapped, !(rest.is_cons() && same(mapped, rest.head_unchecked())));
         rest = more;
     }
     if (!cased.changed()) {
@@ -459,8 +459,8 @@ Term prefix2(ProcessContext &context, const TextArg &data, const PatternArg &pre
         no_clause();
     }
     std::vector<Term> codes;
-    for (Term rest = chars; rest.is_cons(); rest = need(rest.tail())) {
-        codes.push_back(need(rest.head()));
+    for (Term rest = chars; rest.is_cons(); rest = rest.tail_unchecked()) {
+        codes.push_back(rest.head_unchecked());
     }
     Term result = data.term;
     if (!codes.empty()) {
@@ -502,10 +502,10 @@ template <typename Read> std::optional<bool> compare_step(ProcessContext &contex
     const auto ca = read(sides.a);
     const auto cb = read(sides.b);
     if (ca.is_cons() && cb.is_cons()) {
-        if (!same(need(ca.head()), need(cb.head()))) {
+        if (!same(ca.head_unchecked(), cb.head_unchecked())) {
             return false;
         }
-        sides = {.a = need(ca.tail()), .b = need(cb.tail())};
+        sides = {.a = ca.tail_unchecked(), .b = cb.tail_unchecked()};
         return std::nullopt;
     }
     if (ca.is_list() && cb.is_list()) {
@@ -538,7 +538,7 @@ bool boolean_of(const Term &term) {
     if (!term.is_boolean()) {
         no_clause();
     }
-    return need(term.boolean_value());
+    return term.boolean_value_unchecked();
 }
 
 Term equal3(ProcessContext &context, const TextArg &a, const OtherArg &b, const Term &ignore_case) {
@@ -553,7 +553,7 @@ std::optional<unicode::Form> form_of(const Term &norm) {
                                                                                {"nfd", unicode::Form::nfd},
                                                                                {"nfkc", unicode::Form::nfkc},
                                                                                {"nfkd", unicode::Form::nfkd}}};
-    const auto name = norm.is_atom() ? need(norm.atom_spelling()) : std::string_view{};
+    const auto name = norm.is_atom() ? norm.atom_spelling_unchecked() : std::string_view{};
     constexpr auto key = &std::pair<std::string_view, unicode::Form>::first;
     // Kept sorted by name for the binary search (optimization step OPTM.1).
     static_assert(std::ranges::is_sorted(FORMS, {}, key));
@@ -564,7 +564,7 @@ std::optional<unicode::Form> form_of(const Term &norm) {
 Term equal4(ProcessContext &context, const TextArg &a, const OtherArg &b, const Term &ignore_case,
             const OptionArg &norm_arg) {
     const auto &norm = norm_arg.term;
-    if (norm.is_atom() && need(norm.atom_spelling()) == "none") {
+    if (norm.is_atom() && norm.atom_spelling_unchecked() == "none") {
         return equal3(context, a, b, ignore_case);
     }
     const bool fold = boolean_of(ignore_case);
@@ -703,7 +703,7 @@ constexpr std::array STRING_TEXT_BUILTINS{
 namespace {
 // Two lists starting with code points: the fast clause of equal_1.
 bool point_heads(const Term &a, const Term &b) {
-    return a.is_cons() && b.is_cons() && need(a.head()).is_integer() && need(b.head()).is_integer();
+    return a.is_cons() && b.is_cons() && a.head_unchecked().is_integer() && b.head_unchecked().is_integer();
 }
 
 // The answer once equal_1 reads both with cp, as compare_step gives it.
@@ -715,10 +715,10 @@ bool equal_points(ProcessContext &context, const Term &a, const Term &b) {
     Sides sides{.a = a, .b = b};
     while (true) {
         if (point_heads(sides.a, sides.b)) {
-            if (!same(need(sides.a.head()), need(sides.b.head()))) {
+            if (!same(sides.a.head_unchecked(), sides.b.head_unchecked())) {
                 return false;
             }
-            sides = {.a = need(sides.a.tail()), .b = need(sides.b.tail())};
+            sides = {.a = sides.a.tail_unchecked(), .b = sides.b.tail_unchecked()};
         } else if (sides.a.is_nil()) {
             return is_empty(sides.b);
         } else if (const auto answer = compare_points(context, sides)) {

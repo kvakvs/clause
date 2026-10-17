@@ -22,14 +22,16 @@ using EncodingArg = Named<EncodingRole>;
 // What a request collected so far, most recent first (OTP's Stack); the atom start before anything.
 using Stack = Named<StackRole>;
 
-bool is_atom(const Term &term, std::string_view name) { return term.is_atom() && need(term.atom_spelling()) == name; }
+bool is_atom(const Term &term, std::string_view name) {
+    return term.is_atom() && term.atom_spelling_unchecked() == name;
+}
 
 // The elements of a proper list.
 std::vector<Term> elements(const Term &list) {
     std::vector<Term> out;
     Term rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        out.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        out.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -151,8 +153,8 @@ class Collector final {
     // collect_chars1/3.
     Term chars1(std::int64_t n, const DataArg &chars, Stack stack) const {
         Term rest = chars.term;
-        for (; n > 0 && rest.is_cons(); --n, rest = need(rest.tail())) {
-            stack.term = terms_.cons(need(rest.head()), stack.term);
+        for (; n > 0 && rest.is_cons(); --n, rest = rest.tail_unchecked()) {
+            stack.term = terms_.cons(rest.head_unchecked(), stack.term);
         }
         if (n <= 0) {
             return tuple({atom("done"), reversed(terms_, stack, terms_.nil()), rest});
@@ -192,14 +194,14 @@ class Collector final {
     // collect_line_list/2.
     Term line_list(const DataArg &data, Stack stack) const {
         Term rest = data.term;
-        for (; rest.is_cons(); rest = need(rest.tail())) {
-            const auto head = need(rest.head());
+        for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+            const auto head = rest.head_unchecked();
             if (string::is_char(head, '\n')) {
-                if (stack.term.is_cons() && string::is_char(need(stack.term.head()), '\r')) {
-                    stack.term = need(stack.term.tail());
+                if (stack.term.is_cons() && string::is_char(stack.term.head_unchecked(), '\r')) {
+                    stack.term = stack.term.tail_unchecked();
                 }
                 const auto line = reversed(terms_, stack, terms_.list(std::array{head}));
-                return tuple({atom("stop"), line, need(rest.tail())});
+                return tuple({atom("stop"), line, rest.tail_unchecked()});
             }
             stack.term = terms_.cons(head, stack.term);
         }
@@ -281,8 +283,8 @@ class Collector final {
                                        : tuple({atom("stop"), reversed(terms_, stack, terms_.nil()), atom("eof")});
         }
         Term rest = data.term;
-        for (; rest.is_cons() && n != 0; rest = need(rest.tail()), --n) {
-            stack.term = terms_.cons(need(rest.head()), stack.term);
+        for (; rest.is_cons() && n != 0; rest = rest.tail_unchecked(), --n) {
+            stack.term = terms_.cons(rest.head_unchecked(), stack.term);
         }
         if (n == 0) {
             return tuple({atom("stop"), reversed(terms_, stack, terms_.nil()), rest});
@@ -337,27 +339,28 @@ Term collect_chars3(ProcessContext &context, const StateArg &state, const DataAr
 
 // collect_chars/1: the N of a 3-tuple state.
 Term collect_chars1(ProcessContext & /*context*/, const Term &state) {
-    if (!state.is_tuple() || need(state.tuple_size()) != 3) {
+    if (!state.is_tuple() || state.tuple_size_unchecked() != 3) {
         no_clause();
     }
-    return need(state.tuple_element(2));
+    return state.tuple_element_unchecked(2);
 }
 
 Term collect_chars_eager4(ProcessContext &context, const StateArg &state, const DataArg &data,
                           const EncodingArg &encoding, const Term &count) {
     auto result = collect_chars4(context, state, data, encoding, count);
     const Terms terms(context);
-    if (!result.is_tuple() || need(result.tuple_size()) != 3) {
+    if (!result.is_tuple() || result.tuple_size_unchecked() != 3) {
         return result;
     }
-    const auto tag = need(result.tuple_element(0));
-    const Stack stack{need(result.tuple_element(1))};
+    const auto tag = result.tuple_element_unchecked(0);
+    const Stack stack{result.tuple_element_unchecked(1)};
     if (is_atom(tag, "list") && !stack.term.is_nil()) {
         return terms.tuple(std::array{terms.atom("stop"), reversed(terms, stack, terms.nil()), terms.nil()});
     }
     const auto &items = stack.term;
-    const bool empty_binary = items.is_cons() && need(items.tail()).is_nil() && need(items.head()).is_binary() &&
-                              string::binary_bytes(need(items.head())).empty();
+    const bool empty_binary = items.is_cons() && items.tail_unchecked().is_nil() &&
+                              items.head_unchecked().is_binary() &&
+                              string::binary_bytes(items.head_unchecked()).empty();
     if (is_atom(tag, "binary") && !empty_binary) {
         return terms.tuple(std::array{terms.atom("stop"), binrev(terms, stack, terms.nil()), terms.nil()});
     }
@@ -383,7 +386,7 @@ Term collect_line4(ProcessContext &context, const StateArg &state, const DataArg
     if (start) {
         return collect.at_eof();
     }
-    if (stack.term.is_cons() && need(stack.term.head()).is_binary()) {
+    if (stack.term.is_cons() && stack.term.head_unchecked().is_binary()) {
         return collect.tuple({collect.atom("stop"), binrev(terms, stack, terms.nil()), collect.atom("eof")});
     }
     return collect.tuple({collect.atom("stop"), reversed(terms, stack, terms.nil()), collect.atom("eof")});
@@ -399,13 +402,13 @@ Term collect_line1(ProcessContext &context, const Term & /*state*/) { return Ter
 Term collect_line_no_eol4(ProcessContext &context, const StateArg &state, const DataArg &data,
                           const EncodingArg &encoding, const Term &any) {
     auto result = collect_line4(context, state, data, encoding, any);
-    if (!result.is_tuple() || need(result.tuple_size()) != 3 || !is_atom(need(result.tuple_element(0)), "stop") ||
-        is_atom(need(result.tuple_element(1)), "eof")) {
+    if (!result.is_tuple() || result.tuple_size_unchecked() != 3 ||
+        !is_atom(result.tuple_element_unchecked(0), "stop") || is_atom(result.tuple_element_unchecked(1), "eof")) {
         return result;
     }
     const Terms terms(context);
-    const auto line = string::trim_of(context, need(result.tuple_element(1)));
-    return terms.tuple(std::array{need(result.tuple_element(0)), line, need(result.tuple_element(2))});
+    const auto line = string::trim_of(context, result.tuple_element_unchecked(1));
+    return terms.tuple(std::array{result.tuple_element_unchecked(0), line, result.tuple_element_unchecked(2)});
 }
 
 constexpr std::array IO_LIB_COLLECT_BUILTINS{

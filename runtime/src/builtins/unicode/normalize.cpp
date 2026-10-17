@@ -180,8 +180,8 @@ Codes cluster_codes(const Term &cluster) {
         codes.push_back(static_cast<char32_t>(*cluster.integer_value()));
         return codes;
     }
-    for (Term list = cluster; list.is_cons(); list = need(list.tail())) {
-        codes.push_back(static_cast<char32_t>(*need(list.head()).integer_value()));
+    for (Term list = cluster; list.is_cons(); list = list.tail_unchecked()) {
+        codes.push_back(static_cast<char32_t>(*list.head_unchecked().integer_value()));
     }
     return codes;
 }

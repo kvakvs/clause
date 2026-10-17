@@ -46,8 +46,8 @@ Term Terms::rev(const Term &term) const {
     }
     std::vector<Term> items;
     Term rest = term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        items.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        items.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -60,7 +60,7 @@ Term Terms::rev(const Term &term) const {
 }
 
 Term Terms::append(const Term &cluster, const Term &str) const {
-    const bool empty_binary = str.is_binary() && need(str.bit_size()) == 0;
+    const bool empty_binary = str.is_binary() && str.bit_size_unchecked() == 0;
     if (empty_binary) {
         if (cluster.is_integer()) {
             const std::array one{cluster};
@@ -77,8 +77,8 @@ Term Terms::append(const Term &cluster, const Term &str) const {
     }
     std::vector<Term> items;
     Term rest = cluster;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        items.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        items.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -90,7 +90,7 @@ Term Terms::stack(const Term &bin, const Term &st) const {
     if (st.is_nil()) {
         return bin;
     }
-    if ((bin.is_binary() && need(bin.bit_size()) == 0) || bin.is_nil()) {
+    if ((bin.is_binary() && bin.bit_size_unchecked() == 0) || bin.is_nil()) {
         return st;
     }
     return cons(bin, st);
@@ -101,9 +101,9 @@ Term Terms::btoken(const Term &part, const TokenArg &reversed) const {
     if (token.is_nil()) {
         return part;
     }
-    if (token.is_cons() && need(token.head()).is_integer() && need(token.tail()).is_nil()) {
+    if (token.is_cons() && token.head_unchecked().is_integer() && token.tail_unchecked().is_nil()) {
         std::string text;
-        encode(static_cast<char32_t>(*small_of(need(token.head()))), text);
+        encode(static_cast<char32_t>(*small_of(token.head_unchecked())), text);
         auto bytes =
             std::vector<std::byte>(std::as_bytes(std::span(text)).begin(), std::as_bytes(std::span(text)).end());
         const auto tail = need(part.binary_bytes());
@@ -112,8 +112,8 @@ Term Terms::btoken(const Term &part, const TokenArg &reversed) const {
     }
     std::vector<Term> items;
     Term rest = token;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        items.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        items.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -155,7 +155,7 @@ Term Terms::characters_to_binary(const Term &data) const {
 
 Form form_of(const Term &data) {
     if (data.is_cons()) {
-        const auto head = need(data.head());
+        const auto head = data.head_unchecked();
         return head.is_integer() ? Form::point : head.is_binary() ? Form::binary_head : Form::list;
     }
     if (data.is_nil()) {
@@ -168,8 +168,8 @@ bool ascii_pair_at(const Term &data) {
     if (!data.is_cons()) {
         return false;
     }
-    const auto tail = need(data.tail());
-    return tail.is_cons() && ascii_pair(need(data.head()), need(tail.head()));
+    const auto tail = data.tail_unchecked();
+    return tail.is_cons() && ascii_pair(data.head_unchecked(), tail.head_unchecked());
 }
 
 std::optional<std::int64_t> small_of(const Term &term) {
@@ -192,14 +192,14 @@ bool is_empty(const Term &data) {
     while (!pending.empty()) {
         const auto term = pending.back();
         pending.pop_back();
-        if (term.is_nil() || (term.is_binary() && need(term.bit_size()) == 0)) {
+        if (term.is_nil() || (term.is_binary() && term.bit_size_unchecked() == 0)) {
             continue;
         }
         if (!term.is_cons()) {
             return false;
         }
-        pending.push_back(need(term.tail()));
-        pending.push_back(need(term.head()));
+        pending.push_back(term.tail_unchecked());
+        pending.push_back(term.head_unchecked());
     }
     return true;
 }
@@ -210,8 +210,8 @@ std::u32string cluster_codes(const Term &cluster) {
         codes.push_back(static_cast<char32_t>(*small_of(cluster)));
         return codes;
     }
-    for (Term rest = cluster; rest.is_cons(); rest = need(rest.tail())) {
-        codes.push_back(static_cast<char32_t>(*small_of(need(rest.head()))));
+    for (Term rest = cluster; rest.is_cons(); rest = rest.tail_unchecked()) {
+        codes.push_back(static_cast<char32_t>(*small_of(rest.head_unchecked())));
     }
     return codes;
 }

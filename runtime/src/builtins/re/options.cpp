@@ -48,7 +48,7 @@ constexpr std::array<std::pair<std::string_view, std::uint32_t>, 6> NEWLINES{{
 }};
 
 std::string_view spelling(const Term &term) {
-    return term.is_atom() ? term.atom_spelling().value_or(std::string_view{}) : std::string_view{};
+    return term.is_atom() ? term.atom_spelling_unchecked() : std::string_view{};
 }
 
 // A non-negative small integer that fits a C int, as OTP's term_to_int takes them.
@@ -113,8 +113,8 @@ bool limit_option(std::string_view name, const Term &value, Options &options) {
 
 // Apply {capture, Values} or {capture, Values, Type} of `size` elements.
 void capture_option(const Term &option, std::size_t size, Options &options) {
-    options.capture_values = need(option.tuple_element(1));
-    options.capture_type = size == 3 ? std::optional{need(option.tuple_element(2))} : std::nullopt;
+    options.capture_values = option.tuple_element_unchecked(1);
+    options.capture_type = size == 3 ? std::optional{option.tuple_element_unchecked(2)} : std::nullopt;
     options.exec_only = true;
 }
 
@@ -139,22 +139,22 @@ bool valued_option(std::string_view name, const Term &value, Options &options) {
 
 // Apply one tuple option; false for anything OTP rejects.
 bool tuple_option(const Term &option, Options &options) {
-    const auto size = option.tuple_size().value_or(0);
+    const auto size = option.tuple_size_unchecked();
     const auto first = option.tuple_element(0);
     const auto name = first ? spelling(*first) : std::string_view{};
     if (name == "capture" && (size == 2 || size == 3)) {
         capture_option(option, size, options);
         return true;
     }
-    return size == 2 && valued_option(name, need(option.tuple_element(1)), options);
+    return size == 2 && valued_option(name, option.tuple_element_unchecked(1), options);
 }
 } // namespace
 
 std::optional<Options> parse(const Term &list) {
     Options options;
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto option = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto option = rest.head_unchecked();
         const bool valid = option.is_tuple() ? tuple_option(option, options) : atom_option(spelling(option), options);
         if (!valid) {
             return std::nullopt;

@@ -47,8 +47,8 @@ std::optional<std::vector<std::byte>> iodata_bytes(const Term &data) {
             const auto part = need(item.binary_bytes());
             bytes.insert(bytes.end(), part.begin(), part.end());
         } else if (item.is_cons()) {
-            pending.emplace_back(need(item.tail()), false);
-            pending.emplace_back(need(item.head()), true);
+            pending.emplace_back(item.tail_unchecked(), false);
+            pending.emplace_back(item.head_unchecked(), true);
         } else if (!item.is_nil()) {
             return std::nullopt;
         }
@@ -78,8 +78,8 @@ std::optional<std::string> text_of(const Term &value) {
         return text;
     }
     auto list = value;
-    for (; list.is_cons(); list = need(list.tail())) {
-        const auto code = small(need(list.head()).word());
+    for (; list.is_cons(); list = list.tail_unchecked()) {
+        const auto code = small(list.head_unchecked().word());
         if (!code || !unicode_character(*code)) {
             return std::nullopt;
         }
@@ -122,8 +122,8 @@ bool atom_option(std::string_view name, PortOptions &options) {
 // A list of strings, as {args, List} takes; none for anything else.
 std::optional<std::vector<std::string>> strings(const Term &list) {
     std::vector<std::string> result;
-    for (auto rest = list; !rest.is_nil(); rest = need(rest.tail())) {
-        const auto text = rest.is_cons() ? text_of(need(rest.head())) : std::nullopt;
+    for (auto rest = list; !rest.is_nil(); rest = rest.tail_unchecked()) {
+        const auto text = rest.is_cons() ? text_of(rest.head_unchecked()) : std::nullopt;
         if (!text) {
             return std::nullopt;
         }
@@ -134,15 +134,15 @@ std::optional<std::vector<std::string>> strings(const Term &list) {
 
 // One {Name, Value} pair of {env, Env}: an unset variable when Value is false.
 std::optional<std::pair<std::string, std::optional<std::string>>> variable(const Term &pair) {
-    if (!pair.is_tuple() || pair.tuple_size().value_or(0) != 2) {
+    if (!pair.is_tuple() || pair.tuple_size_unchecked() != 2) {
         return std::nullopt;
     }
-    const auto name = text_of(need(pair.tuple_element(0)));
-    const auto value = need(pair.tuple_element(1));
+    const auto name = text_of(pair.tuple_element_unchecked(0));
+    const auto value = pair.tuple_element_unchecked(1);
     if (!name || name->empty()) {
         return std::nullopt;
     }
-    if (value.is_atom() && value.atom_spelling().value_or("") == "false") {
+    if (value.is_atom() && value.atom_spelling_unchecked() == "false") {
         return std::pair{*name, std::optional<std::string>{}};
     }
     const auto text = text_of(value);
@@ -151,8 +151,8 @@ std::optional<std::pair<std::string, std::optional<std::string>>> variable(const
 
 // Apply {env, Env}; false when Env is not a list of {Name, Value | false}.
 bool environment(const Term &list, PortOptions &options) {
-    for (auto rest = list; !rest.is_nil(); rest = need(rest.tail())) {
-        const auto item = rest.is_cons() ? variable(need(rest.head())) : std::nullopt;
+    for (auto rest = list; !rest.is_nil(); rest = rest.tail_unchecked()) {
+        const auto item = rest.is_cons() ? variable(rest.head_unchecked()) : std::nullopt;
         if (!item) {
             return false;
         }
@@ -180,15 +180,15 @@ bool framing_option(std::string_view name, const Term &value, PortOptions &optio
 // Apply {busy_limits_port, {Low, High} | disabled} (docs/ports.md#busy-ports): limits of at least 1, a low limit
 // above the high one lowered to it; disabled never makes the port busy. False for another value.
 bool busy_limits(const Term &value, PortOptions &options) {
-    if (value.is_atom() && value.atom_spelling().value_or("") == "disabled") {
+    if (value.is_atom() && value.atom_spelling_unchecked() == "disabled") {
         options.busy_low = options.busy_high = SIZE_MAX;
         return true;
     }
-    if (!value.is_tuple() || value.tuple_size().value_or(0) != 2) {
+    if (!value.is_tuple() || value.tuple_size_unchecked() != 2) {
         return false;
     }
-    const auto low = small(need(value.tuple_element(0)).word());
-    const auto high = small(need(value.tuple_element(1)).word());
+    const auto low = small(value.tuple_element_unchecked(0).word());
+    const auto high = small(value.tuple_element_unchecked(1).word());
     if (!low || !high || *low < 1 || *high < 1) {
         return false;
     }
@@ -224,12 +224,13 @@ bool pair_option(std::string_view name, const Term &value, PortOptions &options)
 // Apply one option of open_port/2; false when it is none.
 bool option(const Term &item, PortOptions &options) {
     if (item.is_atom()) {
-        return atom_option(item.atom_spelling().value_or(""), options);
+        return atom_option(item.atom_spelling_unchecked(), options);
     }
-    if (!item.is_tuple() || item.tuple_size().value_or(0) != 2 || !need(item.tuple_element(0)).is_atom()) {
+    if (!item.is_tuple() || item.tuple_size_unchecked() != 2 || !item.tuple_element_unchecked(0).is_atom()) {
         return false;
     }
-    return pair_option(need(item.tuple_element(0)).atom_spelling().value_or(""), need(item.tuple_element(1)), options);
+    return pair_option(item.tuple_element_unchecked(0).atom_spelling_unchecked(), item.tuple_element_unchecked(1),
+                       options);
 }
 
 // The options of open_port/2; badarg for any unknown or invalid one.
@@ -356,7 +357,7 @@ TermResult<Term> port_command2(ProcessContext &context, const Term &port, const 
 CommandOptions command_options(const ListArgument &options) {
     CommandOptions result;
     for (const auto &option : options.elements) {
-        const auto spelling = option.is_atom() ? option.atom_spelling().value_or("") : "";
+        const auto spelling = option.is_atom() ? option.atom_spelling_unchecked() : "";
         if (spelling != "force" && spelling != "nosuspend") {
             bad_argument();
         }
@@ -553,10 +554,10 @@ TermResult<Term> list_to_port(ProcessContext &context, const ListArgument &text)
 
 // The element of a 2-tuple, or none for another term.
 std::optional<std::pair<Term, Term>> pair_of(const Term &value) {
-    if (!value.is_tuple() || value.tuple_size().value_or(0) != 2) {
+    if (!value.is_tuple() || value.tuple_size_unchecked() != 2) {
         return std::nullopt;
     }
-    return std::pair{need(value.tuple_element(0)), need(value.tuple_element(1))};
+    return std::pair{value.tuple_element_unchecked(0), value.tuple_element_unchecked(1)};
 }
 
 // ports(): the open ports.
@@ -588,7 +589,7 @@ detail::PortRequest tagged_request(Word from, const Term &request) {
         return {};
     }
     const auto &[name, value] = *inner;
-    const auto tag = name.is_atom() ? name.atom_spelling().value_or("") : "";
+    const auto tag = name.is_atom() ? name.atom_spelling_unchecked() : "";
     auto result = detail::PortRequest::of(tag == "connect" ? Kind::connect : Kind::command, from);
     if (tag == "connect" && value.is_pid()) {
         result.owner = value.word();
@@ -609,7 +610,7 @@ detail::PortRequest port_request(const Term &message) {
         return {};
     }
     const auto &request = outer->second;
-    if (request.is_atom() && request.atom_spelling().value_or("") == "close") {
+    if (request.is_atom() && request.atom_spelling_unchecked() == "close") {
         return detail::PortRequest::of(detail::PortRequest::Kind::close, outer->first.word());
     }
     return tagged_request(outer->first.word(), request);

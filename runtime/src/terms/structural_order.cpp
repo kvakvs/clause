@@ -71,29 +71,29 @@ TermResult<int> scalar(const Pair &values) {
 
 // Tuple arity precedes lexicographic fields; reverse scheduling visits the first field first.
 TermResult<int> tuples(const Pair &values, std::vector<Pair> &pending) {
-    const auto lhs = values.left.tuple_size().value();
-    const auto rhs = values.right.tuple_size().value();
+    const auto lhs = values.left.tuple_size_unchecked();
+    const auto rhs = values.right.tuple_size_unchecked();
     if (lhs != rhs) {
         return lhs < rhs ? -1 : 1;
     }
     for (std::size_t i = lhs; i > 0; --i) {
         pending.push_back(
-            {values.left.tuple_element(i - 1).value(), values.right.tuple_element(i - 1).value(), values.exact});
+            {values.left.tuple_element_unchecked(i - 1), values.right.tuple_element_unchecked(i - 1), values.exact});
     }
     return 0;
 }
 
 // Cons comparison checks heads before arbitrary tails, preserving proper and improper list semantics.
 TermResult<int> lists(const Pair &values, std::vector<Pair> &pending) {
-    pending.push_back({values.left.tail().value(), values.right.tail().value(), values.exact});
-    pending.push_back({values.left.head().value(), values.right.head().value(), values.exact});
+    pending.push_back({values.left.tail_unchecked(), values.right.tail_unchecked(), values.exact});
+    pending.push_back({values.left.head_unchecked(), values.right.head_unchecked(), values.exact});
     return 0;
 }
 
 // Canonical storage orders exact keys; compare all keys before any values, after comparing map sizes.
 TermResult<int> maps(const Pair &values, std::vector<Pair> &pending) {
-    const auto lhs = values.left.map_size().value();
-    const auto rhs = values.right.map_size().value();
+    const auto lhs = values.left.map_size_unchecked();
+    const auto rhs = values.right.map_size_unchecked();
     if (lhs != rhs) {
         return lhs < rhs ? -1 : 1;
     }

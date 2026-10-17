@@ -100,8 +100,8 @@ class CodePoints final {
     // cp(Chardata).
     Term cp(const Term &data) {
         if (data.is_cons()) {
-            const auto head = need(data.head());
-            const auto tail = need(data.tail());
+            const auto head = data.head_unchecked();
+            const auto tail = data.tail_unchecked();
             if (is_cp(head)) {
                 return data;
             }
@@ -127,8 +127,8 @@ class CodePoints final {
     // cpl(List, R): the first code point of List with R after it.
     Term cpl(const Term &list, const Term &rest) {
         if (list.is_cons()) {
-            const auto head = need(list.head());
-            const auto tail = need(list.tail());
+            const auto head = list.head_unchecked();
+            const auto tail = list.tail_unchecked();
             if (is_cp(head)) {
                 return b_.cons(head, after(tail, rest));
             }
@@ -155,8 +155,8 @@ class CodePoints final {
         if (!list.is_cons()) {
             return b_.cons(list, rest);
         }
-        const auto head = need(list.head());
-        const auto tail = need(list.tail());
+        const auto head = list.head_unchecked();
+        const auto tail = list.tail_unchecked();
         if (head.is_integer()) {
             if (level < 3) {
                 return b_.cons(head, cont(level + 1, tail, rest));
@@ -171,8 +171,8 @@ class CodePoints final {
         if (!list.is_cons()) {
             return list;
         }
-        const auto head = need(list.head());
-        const auto tail = need(list.tail());
+        const auto head = list.head_unchecked();
+        const auto tail = list.tail_unchecked();
         if (head.is_integer()) {
             return level < 3 ? b_.cons(head, one_cont(level + 1, tail)) : list;
         }
@@ -228,14 +228,14 @@ class Clusters final {
     }
 
     Term gc_list(const Term &data) {
-        const auto head = need(data.head());
-        const auto tail = need(data.tail());
+        const auto head = data.head_unchecked();
+        const auto tail = data.tail_unchecked();
         if (is_cp(head) && tail.is_nil()) {
             return data;
         }
         if (is(head, '\r')) {
             const auto next = cp(tail);
-            return next.is_cons() && is(need(next.head()), '\n') ? crlf(need(next.tail())) : data;
+            return next.is_cons() && is(next.head_unchecked(), '\n') ? crlf(next.tail_unchecked()) : data;
         }
         if (is_latin1(head)) {
             return gc_latin1_list(data, {.item = head, .rest = tail});
@@ -247,14 +247,14 @@ class Clusters final {
     Term gc_latin1_list(const Term &data, const Next &parts) {
         const auto &head = parts.item;
         const auto &tail = parts.rest;
-        if (tail.is_cons() && is_latin1(need(tail.head()))) {
+        if (tail.is_cons() && is_latin1(tail.head_unchecked())) {
             return data;
         }
         const auto next = cp_no_bin(tail);
         if (!next) {
             return gc_1(tail, head);
         }
-        if (next->is_cons() && is_latin1(need(next->head()))) {
+        if (next->is_cons() && is_latin1(next->head_unchecked())) {
             return b_.cons(head, *next);
         }
         return gc_1(*next, head);
@@ -264,8 +264,8 @@ class Clusters final {
     // be decoded.
     std::optional<Term> cp_no_bin(const Term &data) {
         if (data.is_cons()) {
-            const auto head = need(data.head());
-            const auto tail = need(data.tail());
+            const auto head = data.head_unchecked();
+            const auto tail = data.tail_unchecked();
             if (head.is_integer()) {
                 return data;
             }
@@ -276,8 +276,8 @@ class Clusters final {
 
     std::optional<Term> cp_no_binl(const Term &list, const Term &rest) {
         if (list.is_cons()) {
-            const auto head = need(list.head());
-            const auto tail = need(list.tail());
+            const auto head = list.head_unchecked();
+            const auto tail = list.tail_unchecked();
             if (head.is_integer()) {
                 return b_.cons(head, cps_.after(tail, rest));
             }
@@ -295,7 +295,7 @@ class Clusters final {
     Term gc_1(const Term &rest, const Term &cp) {
         if (is(cp, '\r')) {
             const auto next = this->cp(rest);
-            return next.is_cons() && is(need(next.head()), '\n') ? crlf(need(next.tail())) : b_.cons(cp, rest);
+            return next.is_cons() && is(next.head_unchecked(), '\n') ? crlf(next.tail_unchecked()) : b_.cons(cp, rest);
         }
         if (!is_cp(cp)) {
             TermFactory factory(context_);
@@ -307,7 +307,7 @@ class Clusters final {
     }
 
     Term gc_latin1(const Term &rest, const Term &cp, std::uint32_t bits) {
-        if ((bits & CONTROL) != 0 || (rest.is_cons() && is_latin1(need(rest.head())) && (bits & EXT_PICT) == 0)) {
+        if ((bits & CONTROL) != 0 || (rest.is_cons() && is_latin1(rest.head_unchecked()) && (bits & EXT_PICT) == 0)) {
             return b_.cons(cp, rest);
         }
         if ((bits & EXT_PICT) != 0) {
@@ -435,8 +435,8 @@ class Clusters final {
         }
         std::vector<Term> items;
         Term list = result;
-        for (; list.is_cons(); list = need(list.tail())) {
-            items.push_back(need(list.head()));
+        for (; list.is_cons(); list = list.tail_unchecked()) {
+            items.push_back(list.head_unchecked());
         }
         if (!list.is_nil()) {
             bad_argument();

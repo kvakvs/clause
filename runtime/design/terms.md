@@ -21,7 +21,9 @@ in Debug builds (`CHECKED_ADMISSION`); Release builds trust the word.
 `TermFactory` construction. Compound words are trusted pointers, as ERTS Eterms
 are: accessors decode cells directly and child handles wrap stored slot words.
 `TermAccess::validate` checks representation only, not ownership or liveness.
-The default zero word is invalid. Registered roots are rewritten by moving GC;
+Unchecked mirrors (`tuple_element_unchecked`, `head_unchecked`, ...; OPTM.3)
+skip the kind check for callers that proved it and cannot fail; Debug builds
+abort on a term of another kind. The default zero word is invalid. Registered roots are rewritten by moving GC;
 unrooted heap Terms are valid only until the next collection or process exit.
 
 The implemented term representation retains [v1 names](../../abi/include/clause/abi/v1.hpp)

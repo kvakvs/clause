@@ -16,7 +16,7 @@ struct Step {
 
 // The head of a dictionary rest as a step for `key`; function_clause unless it is a pair.
 Step step(const Key &key, const Term &rest) {
-    const auto pair = need(rest.head());
+    const auto pair = rest.head_unchecked();
     const auto parts = pair_of(pair);
     if (!parts) {
         no_clause();
@@ -41,7 +41,7 @@ Term pair(ProcessContext &context, const Key &key, const Term &value) {
 // is_key(Key, Orddict).
 Term is_key(ProcessContext &context, const Key &key, const List &dict) {
     auto rest = dict.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
         const auto found = step(key, rest);
         if (found.order <= 0) {
             return need(TermFactory(context).boolean(found.order == 0));
@@ -53,7 +53,7 @@ Term is_key(ProcessContext &context, const Key &key, const List &dict) {
 
 // fetch(Key, Orddict): the value; function_clause when Key is absent.
 Term fetch(ProcessContext &, const Key &key, const List &dict) {
-    for (auto rest = dict.term; rest.is_cons(); rest = need(rest.tail())) {
+    for (auto rest = dict.term; rest.is_cons(); rest = rest.tail_unchecked()) {
         const auto found = step(key, rest);
         if (found.order == 0) {
             return found.value;
@@ -68,7 +68,7 @@ Term fetch(ProcessContext &, const Key &key, const List &dict) {
 // find(Key, Orddict): {ok, Value} or error.
 Term find(ProcessContext &context, const Key &key, const List &dict) {
     auto rest = dict.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
         const auto found = step(key, rest);
         if (found.order == 0) {
             const std::array parts{atom(context, "ok"), found.value};
@@ -86,8 +86,8 @@ Term find(ProcessContext &context, const Key &key, const List &dict) {
 Term fetch_keys(ProcessContext &context, const List &dict) {
     Prefix keys;
     auto rest = dict.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto parts = pair_of(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto parts = pair_of(rest.head_unchecked());
         if (!parts) {
             no_clause();
         }
@@ -101,8 +101,8 @@ Term fetch_keys(ProcessContext &context, const List &dict) {
 TermResult<Term> from_list(ProcessContext &context, const List &list) {
     std::vector<Term> pairs;
     auto rest = list.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        pairs.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        pairs.push_back(rest.head_unchecked());
         if (!pair_of(pairs.back())) {
             no_clause();
         }
@@ -112,7 +112,7 @@ TermResult<Term> from_list(ProcessContext &context, const List &list) {
         return list.term;
     }
     std::ranges::reverse(pairs);
-    const auto key = [](const Term &pair) { return need(pair.tuple_element(0)); };
+    const auto key = [](const Term &pair) { return pair.tuple_element_unchecked(0); };
     std::ranges::stable_sort(pairs, [&](const Term &a, const Term &b) { return compare(key(a), key(b)) < 0; });
     const auto [first, last] =
         std::ranges::unique(pairs, [&](const Term &a, const Term &b) { return compare(key(a), key(b)) == 0; });
@@ -124,10 +124,10 @@ TermResult<Term> from_list(ProcessContext &context, const List &list) {
 Term erase(ProcessContext &context, const Key &key, const List &dict) {
     Prefix passed;
     auto rest = dict.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
         const auto found = step(key, rest);
         if (found.order <= 0) {
-            return passed.then(context, found.order == 0 ? need(rest.tail()) : rest);
+            return passed.then(context, found.order == 0 ? rest.tail_unchecked() : rest);
         }
         passed.push(found.pair);
     }
@@ -139,10 +139,10 @@ Term erase(ProcessContext &context, const Key &key, const List &dict) {
 Term take(ProcessContext &context, const Key &key, const List &dict) {
     Prefix passed;
     auto rest = dict.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
         const auto found = step(key, rest);
         if (found.order == 0) {
-            const std::array parts{found.value, passed.then(context, need(rest.tail()))};
+            const std::array parts{found.value, passed.then(context, rest.tail_unchecked())};
             return need(TermFactory(context).tuple(parts));
         }
         if (found.order < 0) {
@@ -160,11 +160,11 @@ template <typename Existing>
 Term changed(ProcessContext &context, const Key &key, const List &dict, const Value &missing, Existing existing) {
     Prefix passed;
     auto rest = dict.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
         const auto found = step(key, rest);
         if (found.order == 0) {
             passed.push(pair(context, key, existing(found.value)));
-            return passed.then(context, need(rest.tail()));
+            return passed.then(context, rest.tail_unchecked());
         }
         if (found.order < 0) {
             passed.push(pair(context, key, missing.term));

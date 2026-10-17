@@ -46,7 +46,7 @@ Term tuple(ProcessContext &context, std::span<const Term> parts) { return need(T
 
 // The parts of a tuple of `size`; function_clause for anything else.
 std::vector<Term> parts_of(const Term &term, std::size_t size) {
-    if (!term.is_tuple() || need(term.tuple_size()) != size) {
+    if (!term.is_tuple() || term.tuple_size_unchecked() != size) {
         no_clause();
     }
     return need(term.tuple_elements());
@@ -233,7 +233,7 @@ Term valid_date1(ProcessContext &context, const Moment &date) {
 // seconds_to_time(Secs): function_clause unless 0 =< Secs < 86400; a float in range is badarith (OTP's rem).
 Term seconds_to_time(ProcessContext &context, const Moment &seconds) {
     const auto &term = seconds.term;
-    const auto value = term.is_float() ? need(term.float_value()) : 0.0;
+    const auto value = term.is_float() ? term.float_value_unchecked() : 0.0;
     const auto in_float_range = term.is_float() && value >= 0.0 && value < SECONDS_PER_DAY;
     const auto integer = small(term.word());
     if (in_float_range) {
@@ -276,7 +276,7 @@ Integer week_one(const Integer &year) {
 // iso_week_number(Date): {Year, Week} of the ISO week of a date.
 Term iso_week_number(ProcessContext &context, const Moment &date) {
     const auto days = days_of_date(date.term);
-    const auto year = arith(need(date.term.tuple_element(0)));
+    const auto year = arith(date.term.tuple_element_unchecked(0));
     const auto start = week_one(year);
     const auto next = week_one(year + 1);
     if (start <= days && days < next) {

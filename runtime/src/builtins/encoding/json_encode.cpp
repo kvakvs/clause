@@ -68,13 +68,13 @@ class Pieces {
 std::string integer_text(const Term &value) { return detail::integer_text(need(detail::integer_read(value))); }
 
 std::string float_short(const Term &value) {
-    return *float_text(need(value.float_value()), FloatFormat{.kind = FloatFormat::Kind::shortest});
+    return *float_text(value.float_value_unchecked(), FloatFormat{.kind = FloatFormat::Kind::shortest});
 }
 
 // A scalar's encoding: the literals, a string for other atoms and binaries, a number's text; none for a container.
 std::optional<Piece> scalar(const Pieces &pieces, const Term &value) {
     if (value.is_atom()) {
-        const auto name = need(value.atom_spelling());
+        const auto name = value.atom_spelling_unchecked();
         if (name == "null" || name == "true" || name == "false") {
             return pieces.binary(name);
         }
@@ -101,7 +101,7 @@ Piece key(const Pieces &pieces, const Term &key) {
         return escaped(pieces.context(), key, false);
     }
     if (key.is_atom()) {
-        return escaped(pieces.context(), pieces.binary(need(key.atom_spelling())).term, false);
+        return escaped(pieces.context(), pieces.binary(key.atom_spelling_unchecked()).term, false);
     }
     if (!key.is_integer() && !key.is_float()) {
         no_clause();
@@ -114,8 +114,8 @@ Piece key(const Pieces &pieces, const Term &key) {
 
 // A list's elements in order; function_clause at an improper tail, as json.erl reaches it.
 template <typename Visit> void each_element(Term list, Visit visit) {
-    for (; list.is_cons(); list = need(list.tail())) {
-        visit(need(list.head()));
+    for (; list.is_cons(); list = list.tail_unchecked()) {
+        visit(list.head_unchecked());
     }
     if (!list.is_nil()) {
         no_clause();
@@ -244,7 +244,7 @@ class Formatter final {
         if (list.is_nil()) {
             return pieces_.binary("[]");
         }
-        const auto first = need(list.head());
+        const auto first = list.head_unchecked();
         const auto inner = nested(layout);
         const auto indent = line_break(inner);
         if (first.is_list() || first.is_map() || first.is_binary() || layout.column > layout.max) {

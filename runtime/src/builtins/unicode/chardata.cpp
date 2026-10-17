@@ -48,8 +48,8 @@ class Walk final {
         if (!current.is_cons()) {
             bad_argument();
         }
-        auto head = need(current.head());
-        auto tail = need(current.tail());
+        auto head = current.head_unchecked();
+        auto tail = current.tail_unchecked();
         if (head.is_integer()) {
             integer(current);
         } else if (head.is_binary()) {
@@ -65,7 +65,7 @@ class Walk final {
 
     // The integer element at the start of `list`.
     void integer(const Term &list) {
-        const auto head = need(list.head());
+        const auto head = list.head_unchecked();
         const auto code = small(head.word());
         if (!carry_.empty()) {
             // OTP puts the unfinished bytes in front of the whole rest.
@@ -74,7 +74,7 @@ class Walk final {
         } else if (!code || !scalar(*code) || (input_.kind == Encoding::Kind::latin1 && *code > 255)) {
             fail(list);
         } else if (latin1_output_ && *code > 255) {
-            fail(need(factory_.cons(need(factory_.list(std::array{head})), need(list.tail()))));
+            fail(need(factory_.cons(need(factory_.list(std::array{head})), list.tail_unchecked())));
         } else {
             result_.codes.push_back(static_cast<char32_t>(*code));
         }

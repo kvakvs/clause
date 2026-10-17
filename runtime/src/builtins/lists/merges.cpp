@@ -27,10 +27,10 @@ class Ordering final {
   private:
     // The key of a tuple element; badarg for anything else, as element/2 raises in OTP's clauses.
     Term keyed(const Term &element) const {
-        if (!element.is_tuple() || need(element.tuple_size()) < key_) {
+        if (!element.is_tuple() || element.tuple_size_unchecked() < key_) {
             bad_argument();
         }
-        return need(element.tuple_element(key_ - 1));
+        return element.tuple_element_unchecked(key_ - 1);
     }
 
     std::size_t key_;
@@ -39,8 +39,8 @@ class Ordering final {
 // The elements of the rest a merge appends; badarg for an improper list, as lists:reverse/2 raises in OTP's merges.
 std::vector<Term> appended(Term rest) {
     std::vector<Term> elements;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        elements.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        elements.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -65,19 +65,19 @@ struct Walk {
 
 // Take the smaller head of two non-empty rests: the left one on equal heads, dropping the right one with `unique`.
 void step(Walk &walk, const Ordering &ordering, bool unique) {
-    const auto a = need(walk.left.head());
-    const auto b = need(walk.right.head());
+    const auto a = walk.left.head_unchecked();
+    const auto b = walk.right.head_unchecked();
     const auto order = ordering.compare(a, b);
     if (order > 0) {
         walk.result.push_back(b);
-        walk.right = need(walk.right.tail());
+        walk.right = walk.right.tail_unchecked();
         return;
     }
     if (unique && order == 0) {
-        walk.right = need(walk.right.tail());
+        walk.right = walk.right.tail_unchecked();
     }
     walk.result.push_back(a);
-    walk.left = need(walk.left.tail());
+    walk.left = walk.left.tail_unchecked();
 }
 
 // `first` and `second` merged, walked as OTP's clauses walk them: an empty list gives the other one as it is, the

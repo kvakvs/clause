@@ -38,7 +38,7 @@ Term atom(ProcessContext &context, std::string_view name) { return need(TermFact
 
 Term boolean(ProcessContext &context, bool value) { return need(TermFactory(context).boolean(value)); }
 
-bool is_true(const Term &term) { return term.is_atom() && need(term.atom_spelling()) == "true"; }
+bool is_true(const Term &term) { return term.is_atom() && term.atom_spelling_unchecked() == "true"; }
 
 // {Key, true} for a key found as an atom.
 Term with_true(ProcessContext &context, const Key &key) {
@@ -57,8 +57,8 @@ void ended(const Term &rest) {
 std::vector<Term> elements_of(const Term &list) {
     std::vector<Term> elements;
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        elements.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        elements.push_back(rest.head_unchecked());
     }
     ended(rest);
     return elements;
@@ -68,8 +68,8 @@ std::vector<Term> elements_of(const Term &list) {
 std::vector<Term> generated(const Term &list) {
     std::vector<Term> elements;
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        elements.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        elements.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::bad_generator, .payload = rest.word()};
@@ -95,8 +95,8 @@ Term property_short(ProcessContext &context, const Term &property) {
 // The first element matching `key` and how it matches; none past the end, function_clause at an improper tail.
 std::optional<std::pair<Term, Match>> first_match(const Key &key, const List &list) {
     auto rest = list.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto element = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto element = rest.head_unchecked();
         if (const auto how = match(element, key); how != Match::none) {
             return std::pair{element, how};
         }
@@ -239,8 +239,8 @@ Term delete_key(ProcessContext &context, const Key &key, const List &list) {
 // list ends; function_clause at an element that is not a pair or an improper tail.
 std::optional<std::pair<Term, Match>> substitution(const Pairs &substitutions, const Term &element) {
     auto rest = substitutions.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto parts = pair_of(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto parts = pair_of(rest.head_unchecked());
         if (!parts) {
             no_clause();
         }
@@ -321,8 +321,8 @@ Term expand_one(ProcessContext &context, const Expansion &expansion, const Term 
     }
     Prefix passed;
     auto rest = list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto element = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto element = rest.head_unchecked();
         const auto how = match(element, {*key});
         if (how == Match::none) {
             passed.push(element);
@@ -331,10 +331,10 @@ Term expand_one(ProcessContext &context, const Expansion &expansion, const Term 
         const auto found = how == Match::atom ? element : property_short(context, element);
         if (!same(found, expansion.property)) {
             passed.push(found);
-            return passed.then(context, need(rest.tail()));
+            return passed.then(context, rest.tail_unchecked());
         }
         passed.push(expansion.replacement);
-        return passed.then(context, delete_key(context, {*key}, {need(rest.tail())}));
+        return passed.then(context, delete_key(context, {*key}, {rest.tail_unchecked()}));
     }
     ended(rest);
     return passed.done(context);

@@ -27,7 +27,10 @@ TermResult<Term> cons_field(const Term &value, std::size_t index) {
 }
 } // namespace
 
-bool Term::is_tuple() const { return kind() == TermKind::tuple || kind() == TermKind::empty_tuple; }
+bool Term::is_tuple() const {
+    const auto found = kind();
+    return found == TermKind::tuple || found == TermKind::empty_tuple;
+}
 
 bool Term::is_nil() const { return kind() == TermKind::empty_list; }
 

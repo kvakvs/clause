@@ -24,7 +24,7 @@ constexpr BuiltinFrame WAIT_FRAME = continuation_frame(&builtins::guarded<wait>,
 // receive starts at the oldest message.
 std::optional<std::int64_t> milliseconds(ProcessContext &context, const Word word) {
     const auto timeout = builtins::term_of(context, word);
-    if (timeout.is_atom() && timeout.atom_spelling().value_or("") == "infinity") {
+    if (timeout.is_atom() && timeout.atom_spelling_unchecked() == "infinity") {
         return std::nullopt;
     }
     const auto value = timeout.is_integer() ? timeout.integer_value() : std::unexpected(TermError::wrong_type);

@@ -60,13 +60,13 @@ std::optional<std::vector<Term>> stack_entries(const Term &stack) {
     std::vector<Term> entries;
     auto rest = stack;
     while (rest.is_cons()) {
-        const auto head = rest.head();
-        const auto tail = rest.tail();
-        if (!head || !tail || entry_shape(*head) == EntryShape::invalid) {
+        const auto head = rest.head_unchecked();
+        const auto tail = rest.tail_unchecked();
+        if (entry_shape(head) == EntryShape::invalid) {
             return std::nullopt;
         }
-        entries.push_back(*head);
-        rest = *tail;
+        entries.push_back(head);
+        rest = tail;
     }
     return rest.is_nil() ? std::optional{std::move(entries)} : std::nullopt;
 }
@@ -179,17 +179,14 @@ std::optional<ErrorReason> raised_reason(const Term &name) {
     if (!name.is_atom()) {
         return {};
     }
-    const auto spelling = name.atom_spelling();
-    if (!spelling) {
-        return {};
-    }
-    if (*spelling == "error") {
+    const auto spelling = name.atom_spelling_unchecked();
+    if (spelling == "error") {
         return ErrorReason::raised_error;
     }
-    if (*spelling == "exit") {
+    if (spelling == "exit") {
         return ErrorReason::raised_exit;
     }
-    return *spelling == "throw" ? std::optional{ErrorReason::raised_throw} : std::nullopt;
+    return spelling == "throw" ? std::optional{ErrorReason::raised_throw} : std::nullopt;
 }
 
 // Record Class:Reason with a given stack as the pending exception (erlang:raise/3); an invalid class or stack

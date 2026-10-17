@@ -45,7 +45,7 @@ Coding coding_of(const Options &options) {
     Coding coding;
     for (const auto &[key, value] : need(options.term.map_entries())) {
         if (key.is_atom() && value.is_atom()) {
-            apply_setting(coding, need(key.atom_spelling()), need(value.atom_spelling()));
+            apply_setting(coding, key.atom_spelling_unchecked(), value.atom_spelling_unchecked());
         }
     }
     return coding;
@@ -101,8 +101,8 @@ class Input final {
         if (!rest_.is_cons()) {
             no_clause();
         }
-        const auto element = need(rest_.head());
-        rest_ = need(rest_.tail());
+        const auto element = rest_.head_unchecked();
+        rest_ = rest_.tail_unchecked();
         if (!element.is_integer()) {
             throw BuiltinFailure{.reason = abi::v1::ErrorReason::badarith};
         }
@@ -351,8 +351,8 @@ class Bytes final {
     // OTP's clauses match a group's shape before computing with its elements.
     std::vector<detail::Integer> take_list() {
         std::vector<Term> cells;
-        for (; cells.size() < 3 && rest_.is_cons(); rest_ = need(rest_.tail())) {
-            cells.push_back(need(rest_.head()));
+        for (; cells.size() < 3 && rest_.is_cons(); rest_ = rest_.tail_unchecked()) {
+            cells.push_back(rest_.head_unchecked());
         }
         if (cells.size() < 3 && !rest_.is_nil()) {
             no_clause();

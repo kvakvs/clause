@@ -18,7 +18,7 @@ std::vector<Term> format_elements(ProcessContext &context, const Term &format) {
     const Terms terms(context);
     std::vector<Term> elements;
     if (format.is_atom()) {
-        for (const auto code : code_points(need(format.atom_spelling()))) {
+        for (const auto code : code_points(format.atom_spelling_unchecked())) {
             elements.push_back(terms.integer(code));
         }
         return elements;
@@ -30,8 +30,8 @@ std::vector<Term> format_elements(ProcessContext &context, const Term &format) {
         return elements;
     }
     Term rest = format;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        elements.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        elements.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         no_clause();
@@ -73,14 +73,14 @@ class Collector final {
         if (!arguments_.is_cons()) {
             no_clause();
         }
-        auto head = need(arguments_.head());
-        arguments_ = need(arguments_.tail());
+        auto head = arguments_.head_unchecked();
+        arguments_ = arguments_.tail_unchecked();
         return head;
     }
 
     // field_value/2: '*' with an integer argument, decimal digits, or none.
     std::optional<std::int64_t> field_value() {
-        if (next_is('*') && arguments_.is_cons() && need(arguments_.head()).is_integer()) {
+        if (next_is('*') && arguments_.is_cons() && arguments_.head_unchecked().is_integer()) {
             ++at_;
             const auto value = string::small_of(argument());
             if (!value || *value < -MAX_FIELD || *value > MAX_FIELD) {
@@ -189,7 +189,7 @@ class Collector final {
         if (count == 0) {
             return arguments_.is_list();
         }
-        return arguments_.is_cons() && (count == 1 || need(arguments_.tail()).is_cons());
+        return arguments_.is_cons() && (count == 1 || arguments_.tail_unchecked().is_cons());
     }
 
     // collect_cseq/2: one control sequence after its '~'.
@@ -227,7 +227,7 @@ Term required(ProcessContext &context, const Term &map, std::string_view key) {
 
 // none or a count.
 std::optional<std::int64_t> count_of(const Term &term) {
-    if (term.is_atom() && need(term.atom_spelling()) == "none") {
+    if (term.is_atom() && term.atom_spelling_unchecked() == "none") {
         return std::nullopt;
     }
     const auto value = string::small_of(term);
@@ -238,7 +238,9 @@ std::optional<std::int64_t> count_of(const Term &term) {
 }
 
 // Whether `term` is the atom `name`.
-bool is_atom(const Term &term, std::string_view name) { return term.is_atom() && need(term.atom_spelling()) == name; }
+bool is_atom(const Term &term, std::string_view name) {
+    return term.is_atom() && term.atom_spelling_unchecked() == name;
+}
 
 // A format_spec() map as a spec (io_lib:build_text/1's input).
 Spec spec_of(ProcessContext &context, const Term &map) {
@@ -249,8 +251,8 @@ Spec spec_of(ProcessContext &context, const Term &map) {
     }
     spec.control = static_cast<char32_t>(*control);
     Term args = required(context, map, "args");
-    for (; args.is_cons(); args = need(args.tail())) {
-        spec.args.push_back(need(args.head()));
+    for (; args.is_cons(); args = args.tail_unchecked()) {
+        spec.args.push_back(args.head_unchecked());
     }
     if (!args.is_nil()) {
         bad_argument();
@@ -380,8 +382,8 @@ void spec_args(ProcessContext &context, const Term &element, std::vector<Term> &
         out.push_back(*order);
     }
     Term rest = *args;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        out.push_back(need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        out.push_back(rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         bad_argument();
@@ -396,8 +398,8 @@ std::vector<Element> scan(ProcessContext &context, const Term &format, const Ter
 std::vector<Element> elements_of(ProcessContext &context, const Term &format_list) {
     std::vector<Element> elements;
     Term rest = format_list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto element = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto element = rest.head_unchecked();
         if (element.is_map()) {
             elements.emplace_back(spec_of(context, element));
         } else {
@@ -431,8 +433,8 @@ Term unscan(ProcessContext &context, const Term &format_list) {
     std::vector<Term> text;
     std::vector<Term> args;
     Term rest = format_list;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto element = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto element = rest.head_unchecked();
         if (element.is_map()) {
             const auto part = spec_text(context, element);
             text.insert(text.end(), part.begin(), part.end());
@@ -445,18 +447,18 @@ Term unscan(ProcessContext &context, const Term &format_list) {
     if (!rest.is_nil()) {
         no_clause();
     }
-    for (rest = format_list; rest.is_cons(); rest = need(rest.tail())) {
-        spec_args(context, need(rest.head()), args);
+    for (rest = format_list; rest.is_cons(); rest = rest.tail_unchecked()) {
+        spec_args(context, rest.head_unchecked(), args);
     }
     return terms.tuple(std::array{terms.list(text), terms.list(args)});
 }
 
 Term option_of(const Term &options, std::string_view key, const Term &fallback) {
     Term rest = options;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto option = need(rest.head());
-        if (option.is_tuple() && need(option.tuple_size()) > 0 && is_atom(need(option.tuple_element(0)), key)) {
-            return need(option.tuple_size()) == 2 ? need(option.tuple_element(1)) : fallback;
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto option = rest.head_unchecked();
+        if (option.is_tuple() && option.tuple_size_unchecked() > 0 && is_atom(option.tuple_element_unchecked(0), key)) {
+            return option.tuple_size_unchecked() == 2 ? option.tuple_element_unchecked(1) : fallback;
         }
     }
     if (!rest.is_nil()) {

@@ -244,8 +244,8 @@ std::optional<Term> lexemes_list(ProcessContext &context, Term &cs0, const Seps 
     if (!next.is_cons()) {
         case_clause(next);
     }
-    if (member(seps.clusters, need(next.head()))) {
-        cs0 = need(next.tail());
+    if (member(seps.clusters, next.head_unchecked())) {
+        cs0 = next.tail_unchecked();
     } else {
         take_lexeme(context, cs0, seps, tokens);
     }
@@ -332,12 +332,12 @@ std::optional<Term> nth_list(ProcessContext &context, Term &cs0, const Seps &sep
     if (!next.is_cons()) {
         case_clause(next);
     }
-    if (member(seps.clusters, need(next.head()))) {
-        cs0 = need(next.tail());
+    if (member(seps.clusters, next.head_unchecked())) {
+        cs0 = next.tail_unchecked();
         return std::nullopt;
     }
     if (n > 1) {
-        cs0 = lexeme_skip(context, need(next.tail()), seps);
+        cs0 = lexeme_skip(context, next.tail_unchecked(), seps);
         --n;
         return std::nullopt;
     }
@@ -394,7 +394,7 @@ Term nth_lexeme3(ProcessContext &context, const TextArg &str, const Term &n, con
 enum class Where : std::uint8_t { leading, trailing, all };
 
 Where where_of(const Term &where) {
-    const auto name = where.is_atom() ? need(where.atom_spelling()) : std::string_view{};
+    const auto name = where.is_atom() ? where.atom_spelling_unchecked() : std::string_view{};
     if (name == "leading") {
         return Where::leading;
     }
@@ -432,10 +432,10 @@ class Split final {
     enum class Step : std::uint8_t { more, pair, leading };
 
     Step next(Term &cs) {
-        if (cs.is_cons() && need(cs.head()).is_integer()) {
+        if (cs.is_cons() && cs.head_unchecked().is_integer()) {
             return at_point(cs, split(cs));
         }
-        if (cs.is_cons() && need(cs.head()).is_binary()) {
+        if (cs.is_cons() && cs.head_unchecked().is_binary()) {
             return at_binary_head(cs);
         }
         if (cs.is_list()) {
@@ -616,7 +616,7 @@ std::optional<Term> find_point(ProcessContext &context, Term &cs, const unicode:
 
 // find_l/find_r over a plain list: the code point at its start, none at [].
 std::optional<unicode::Next> list_point(ProcessContext &context, const Term &cs) {
-    return cs.is_cons() && need(cs.head()).is_integer() ? std::optional{split(cs)} : point_of(context, cs);
+    return cs.is_cons() && cs.head_unchecked().is_integer() ? std::optional{split(cs)} : point_of(context, cs);
 }
 
 // find_l over a binary list head: the chardata from the needle found in it, else the walk moved on.
@@ -740,7 +740,7 @@ Term find3(ProcessContext &context, const TextArg &str, const PatternArg &patter
     if (pattern.term.is_nil() || empty_binary(pattern.term)) {
         return str.term;
     }
-    const auto direction = dir.term.is_atom() ? need(dir.term.atom_spelling()) : std::string_view{};
+    const auto direction = dir.term.is_atom() ? dir.term.atom_spelling_unchecked() : std::string_view{};
     if (direction != "leading" && direction != "trailing") {
         no_clause();
     }

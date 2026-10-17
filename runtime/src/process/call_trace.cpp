@@ -249,8 +249,8 @@ class Printer final {
                 return;
             }
             out_ += count++ == 0 ? "" : ",";
-            term(value.head().value(), depth - 1);
-            value = value.tail().value();
+            term(value.head_unchecked(), depth - 1);
+            value = value.tail_unchecked();
         }
         if (!value.is_nil()) {
             out_ += "|";
@@ -260,7 +260,7 @@ class Printer final {
     }
 
     void tuple(const Term &value, const int depth) {
-        const auto size = value.tuple_size().value_or(0);
+        const auto size = value.tuple_size_unchecked();
         out_ += "{";
         for (std::size_t at = 0; at < size; ++at) {
             if (at == PRINT_WIDTH) {
@@ -268,13 +268,13 @@ class Printer final {
                 break;
             }
             out_ += at == 0 ? "" : ",";
-            term(value.tuple_element(at).value(), depth - 1);
+            term(value.tuple_element_unchecked(at), depth - 1);
         }
         out_ += "}";
     }
 
     void map(const Term &value, const int depth) {
-        const auto size = value.map_size().value_or(0);
+        const auto size = value.map_size_unchecked();
         if (size > PRINT_MAP_SIZE) {
             out_ += "#{" + std::to_string(size) + "}";
             return;

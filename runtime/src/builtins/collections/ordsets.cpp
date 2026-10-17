@@ -17,19 +17,19 @@ struct Rests {
     bool both() const { return first.is_cons() && second.is_cons(); }
 
     // The order of the two heads.
-    int order() const { return compare(need(first.head()), need(second.head())); }
+    int order() const { return compare(first.head_unchecked(), second.head_unchecked()); }
 
     // Drop the head of the second set, which becomes the first: OTP's "switch arguments".
     void swap_after_second() {
-        auto rest = need(second.tail());
+        auto rest = second.tail_unchecked();
         second = first;
         first = rest;
     }
 
     // Drop both heads.
     void advance_both() {
-        first = need(first.tail());
-        second = need(second.tail());
+        first = first.tail_unchecked();
+        second = second.tail_unchecked();
     }
 };
 
@@ -40,10 +40,10 @@ Term is_set(ProcessContext &context, const Term &set) {
     if (!set.is_cons()) {
         return boolean(context, set.is_nil());
     }
-    auto previous = need(set.head());
-    auto rest = need(set.tail());
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto element = need(rest.head());
+    auto previous = set.head_unchecked();
+    auto rest = set.tail_unchecked();
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto element = rest.head_unchecked();
         if (compare(previous, element) >= 0) {
             return boolean(context, false);
         }
@@ -58,8 +58,8 @@ Term is_set(ProcessContext &context, const Term &set) {
 // is_element(Element, Ordset).
 Term is_element(ProcessContext &context, const Element &element, const List &set) {
     auto rest = set.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto order = compare(element.term, need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto order = compare(element.term, rest.head_unchecked());
         if (order <= 0) {
             return boolean(context, order == 0);
         }
@@ -75,8 +75,8 @@ Term is_element(ProcessContext &context, const Element &element, const List &set
 Term add_element(ProcessContext &context, const Element &element, const List &set) {
     Prefix passed;
     auto rest = set.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto head = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto head = rest.head_unchecked();
         const auto order = compare(element.term, head);
         if (order == 0) {
             return passed.then(context, rest);
@@ -97,11 +97,11 @@ Term add_element(ProcessContext &context, const Element &element, const List &se
 Term del_element(ProcessContext &context, const Element &element, const List &set) {
     Prefix passed;
     auto rest = set.term;
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        const auto head = need(rest.head());
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        const auto head = rest.head_unchecked();
         const auto order = compare(element.term, head);
         if (order <= 0) {
-            return passed.then(context, order == 0 ? need(rest.tail()) : rest);
+            return passed.then(context, order == 0 ? rest.tail_unchecked() : rest);
         }
         passed.push(head);
     }
@@ -118,15 +118,15 @@ Term union2(ProcessContext &context, const Term &set1, const Term &set2) {
     while (rests.both()) {
         const auto order = rests.order();
         if (order > 0) {
-            merged.push(need(rests.second.head()));
+            merged.push(rests.second.head_unchecked());
             rests.swap_after_second();
             continue;
         }
-        merged.push(need(rests.first.head()));
+        merged.push(rests.first.head_unchecked());
         if (order == 0) {
             rests.advance_both();
         } else {
-            rests.first = need(rests.first.tail());
+            rests.first = rests.first.tail_unchecked();
         }
     }
     if (rests.first.is_nil() || rests.second.is_nil()) {
@@ -144,9 +144,9 @@ Term intersection2(ProcessContext &context, const Term &set1, const Term &set2) 
         if (order > 0) {
             rests.swap_after_second();
         } else if (order < 0) {
-            rests.first = need(rests.first.tail());
+            rests.first = rests.first.tail_unchecked();
         } else {
-            common.push(need(rests.first.head()));
+            common.push(rests.first.head_unchecked());
             rests.advance_both();
         }
     }
@@ -161,13 +161,13 @@ Term intersection1(ProcessContext &context, const Term &sets) {
     if (!sets.is_cons()) {
         no_clause();
     }
-    auto result = need(sets.head());
-    auto rest = need(sets.tail());
+    auto result = sets.head_unchecked();
+    auto rest = sets.tail_unchecked();
     if (!rest.is_cons() && !rest.is_nil()) {
         no_clause();
     }
-    for (; rest.is_cons(); rest = need(rest.tail())) {
-        result = intersection2(context, result, need(rest.head()));
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        result = intersection2(context, result, rest.head_unchecked());
     }
     if (!rest.is_nil()) {
         no_clause();
@@ -186,7 +186,7 @@ Term is_disjoint(ProcessContext &context, const Term &set1, const Term &set2) {
         if (order > 0) {
             rests.swap_after_second();
         } else {
-            rests.first = need(rests.first.tail());
+            rests.first = rests.first.tail_unchecked();
         }
     }
     if (!rests.first.is_nil() && !rests.second.is_nil()) {
@@ -202,10 +202,10 @@ Term subtract(ProcessContext &context, const Term &set1, const Term &set2) {
     while (rests.both()) {
         const auto order = rests.order();
         if (order < 0) {
-            kept.push(need(rests.first.head()));
-            rests.first = need(rests.first.tail());
+            kept.push(rests.first.head_unchecked());
+            rests.first = rests.first.tail_unchecked();
         } else if (order > 0) {
-            rests.second = need(rests.second.tail());
+            rests.second = rests.second.tail_unchecked();
         } else {
             rests.advance_both();
         }
@@ -228,7 +228,7 @@ Term is_subset(ProcessContext &context, const Term &set1, const Term &set2) {
             return boolean(context, false);
         }
         if (order > 0) {
-            rests.second = need(rests.second.tail());
+            rests.second = rests.second.tail_unchecked();
         } else {
             rests.advance_both();
         }
