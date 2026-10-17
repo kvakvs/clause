@@ -210,6 +210,9 @@ nothing is checked per handle, `stale_term` and the heap collection count are
 gone. `copy_to` copies any graph its destination cannot read, reading source
 cells by pointer; `MessageBuffer::copy_of`/`large` take the sender context.
 Only the collector and copy ask whose term a word is, by address range.
+Measured (69A suite, Release, 5 rounds, against fb53eba9 with OPTM.2B):
+geomean 1.06x faster; msg.fan_in 2.09x, ping_pong 1.16x, gc.grow_shrink 1.46x;
+the slower kernels (large_message, long_lived_churn) sit inside +/-45% noise.
 
 Remainder, in order:
 - **OPTM.2B persistent terms in place:** done 2026-10-17. Keys and values are
@@ -218,13 +221,26 @@ Remainder, in order:
   Replaced and erased values stay until runtime teardown (differences row).
   Open: reclaiming them, as OTP's literal-area collection does (copy the value
   into every process still holding it, then free the block once dead).
-- **OPTM.2C trusted words in builtins:** builtins and services that re-admit
-  slot words of terms they already hold (`need(TermAccess::admit(...))` per
-  element) can wrap them with `TermAccess::make`; external words (generated
-  code arguments, host `from_word`) keep admission.
+- **OPTM.2C trusted words at boundaries:** done 2026-10-17.
+  `TermAccess::admit` (behind `Term::from_word(word, context)`, factory
+  `retain`, typed builtin and service arguments) keeps its range, shape and
+  owner checks in Debug builds only (`CHECKED_ADMISSION`); Release trusts
+  compound, atom, pid and port words and still classifies other immediates.
+  Foreign-word tests are guarded by the constant.
 - **OPTM.2D atom table readers:** `term_to_binary`'s per-encoding spelling cache
   and the atom comparison service can read `atom_table::find` directly
   (OPT3.14 remainder: atom `<` without the `AtomStorage` call).
+
+## OPTM.3: Manual Optimization - Unchecked Term Operations
+
+When the calling code knows that the term is exactly known type, mirror all
+read/write accessor functions to new functions, operating on specific term
+subtypes. These functions will not check the term type, and will not be able to
+return a type error, and will operate fully trusting the term type is correct.
+
+For example: `TermResult<ProcessIdentity> pid_value() const;`
+becomes `ProcessIdentity pid_value_unchecked() const;` and will not check whether
+the term is a pid, just giving the decoded identity value.
 
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
