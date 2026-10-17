@@ -11,7 +11,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 | --- | --- |
 | Compiler API / AST | `compiler/include/clause/compiler/` (`ast/`, `mangling.hpp`) |
 | Runtime API | `runtime/include/clause/runtime/` |
-| Generated-code ABI | `abi/include/clause/abi/` (one header per service family, `external_term.hpp` ETF codec) |
+| Generated-code ABI | `abi/include/clause/abi/` (one header per service family, `external_term.hpp` ETF codec, `keywords.hpp` the reserved words the lexer and atom printers share) |
 | Private headers | Beside owning source; runtime stays LLVM-free |
 | Sketches / legacy forwarders | `runtime/include/*.hpp`, `runtime/include/unverified/` |
 | New sources / tests | Register in owning `CMakeLists.txt` |

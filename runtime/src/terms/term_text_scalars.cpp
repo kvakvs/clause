@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <clause/abi/keywords.hpp>
 #include <cstdint>
 #include <span>
 
@@ -30,7 +31,7 @@ bool name_char(char32_t c, TermStyle style) {
 
 // Unquoted atoms start with a Latin-1 lowercase letter and continue with name characters.
 bool needs_quotes(std::string_view spelling, TermStyle style) {
-    if (spelling.empty() || (style != TermStyle::display && reserved_word(spelling))) {
+    if (spelling.empty() || (style != TermStyle::display && abi::v1::reserved_word(spelling))) {
         return true;
     }
     std::size_t position = 0;
@@ -193,17 +194,6 @@ void numeric_bits(std::span<const std::byte> bytes, std::size_t size, TextOutput
     out.append(">>");
 }
 } // namespace
-
-// io_lib quotes erl_scan reserved words plus the keywords of features enabled by default (maybe_expr).
-bool reserved_word(std::string_view spelling) {
-    static constexpr std::array<std::string_view, 29> words{
-        "after", "and",   "andalso", "band",   "begin",   "bnot", "bor", "bsl",  "bsr", "bxor",
-        "case",  "catch", "cond",    "div",    "else",    "end",  "fun", "if",   "let", "maybe",
-        "not",   "of",    "or",      "orelse", "receive", "rem",  "try", "when", "xor"};
-    // Kept sorted for the binary search (optimization step OPTM.1).
-    static_assert(std::ranges::is_sorted(words));
-    return std::ranges::binary_search(words, spelling);
-}
 
 TermResult<void> print_atom(const Term &value, TermStyle style, TextOutput &out) {
     const auto spelling = value.atom_spelling();

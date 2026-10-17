@@ -4,17 +4,12 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <clause/abi/keywords.hpp>
 #include <clause/compiler/lexer.hpp>
 #include <cmath>
 
 namespace clause::transforms {
 namespace {
-// Words io_lib quotes when they are atoms.
-constexpr std::array<std::u32string_view, 29> RESERVED{
-    U"after", U"and",   U"andalso", U"band",   U"begin",   U"bnot", U"bor", U"bsl",  U"bsr", U"bxor",
-    U"case",  U"catch", U"cond",    U"div",    U"else",    U"end",  U"fun", U"if",   U"let", U"maybe",
-    U"not",   U"of",    U"or",      U"orelse", U"receive", U"rem",  U"try", U"when", U"xor"};
-
 // Latin-1 letters io_lib accepts unquoted: lowercase may start an atom, both may continue it.
 bool latin1_lower(const char32_t code) {
     return (code >= U'a' && code <= U'z') || (code >= 0xDF && code <= 0xFF && code != 0xF7);
@@ -26,9 +21,7 @@ bool latin1_upper(const char32_t code) {
 
 // Whether an atom can be written without quotes.
 bool bare_atom(const std::u32string_view name) {
-    // RESERVED is kept sorted for the binary search (optimization step OPTM.1).
-    static_assert(std::ranges::is_sorted(RESERVED));
-    if (name.empty() || !latin1_lower(name.front()) || std::ranges::binary_search(RESERVED, name)) {
+    if (name.empty() || !latin1_lower(name.front()) || abi::v1::reserved_word(name)) {
         return false;
     }
     return std::ranges::all_of(name, [](const char32_t code) {

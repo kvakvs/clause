@@ -26,9 +26,6 @@ class TextOutput final {
     bool overflowed_ = false;
 };
 
-// erl_scan:reserved_word/1 for an atom's spelling, as io_lib quotes atoms.
-bool reserved_word(std::string_view spelling);
-
 // Scalar printers append one value in the selected style or return the term access failure.
 TermResult<void> print_atom(const Term &value, TermStyle style, TextOutput &out);
 TermResult<void> print_float(const Term &value, TermStyle style, TextOutput &out);

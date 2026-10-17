@@ -1,6 +1,7 @@
 #include "parsing/boost_parser.hpp"
 #include <algorithm>
 #include <array>
+#include <clause/abi/keywords.hpp>
 #include <clause/compiler/lexer.hpp>
 #include <utility>
 
@@ -31,12 +32,20 @@ std::u32string_view Token::text() const {
     return text ? std::u32string_view(*text) : std::u32string_view();
 }
 
+namespace {
+// The reserved words, the lexer's keywords until features change them.
+std::vector<std::u32string> default_keywords() {
+    std::vector<std::u32string> keywords;
+    keywords.reserve(abi::v1::RESERVED_WORDS.size());
+    for (const auto word : abi::v1::RESERVED_WORDS) {
+        keywords.emplace_back(word.begin(), word.end());
+    }
+    return keywords;
+}
+} // namespace
+
 Lexer::Lexer(SourcePtr source, const bool comments)
-    : source_(std::move(source)), comments_(comments),
-      keywords_{U"after", U"begin", U"case", U"try",     U"cond", U"catch", U"andalso", U"orelse", U"end", U"fun",
-                U"if",    U"let",   U"of",   U"receive", U"when", U"bnot",  U"not",     U"div",    U"rem", U"band",
-                U"and",   U"bor",   U"bxor", U"bsl",     U"bsr",  U"or",    U"xor",     U"maybe",  U"else"},
-      logical_file_(source_->name) {}
+    : source_(std::move(source)), comments_(comments), keywords_(default_keywords()), logical_file_(source_->name) {}
 
 std::u32string_view Lexer::rest() const { return std::u32string_view(source_->text).substr(cursor_); }
 

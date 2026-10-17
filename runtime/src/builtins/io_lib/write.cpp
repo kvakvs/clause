@@ -5,6 +5,7 @@
 #include "../text.hpp"
 #include <algorithm>
 #include <array>
+#include <clause/abi/keywords.hpp>
 #include <clause/runtime/output.hpp>
 #include <terms.hpp>
 
@@ -92,7 +93,7 @@ Deep::Ref atom_text(Deep &deep, const Term &atom, Encoding encoding) {
 }
 
 bool quote_atom(std::string_view atom, const Term &chars) {
-    if (detail::reserved_word(atom)) {
+    if (abi::v1::reserved_word(atom)) {
         return true;
     }
     if (!chars.is_list() || (chars.is_cons() && !need(chars.head()).is_integer())) {

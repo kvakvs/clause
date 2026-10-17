@@ -35,7 +35,7 @@ add_library(clause_frontend STATIC src/parsing/probe.cpp src/parsing/token_curso
     src/preprocessor/builtins.cpp src/preprocessor/features.cpp src/preprocessor/applications.cpp)
 clause_project_options(clause_frontend)
 target_include_directories(clause_frontend PUBLIC include PRIVATE src)
-target_link_libraries(clause_frontend PRIVATE clause_parser_dependency)
+target_link_libraries(clause_frontend PRIVATE clause_parser_dependency clause_abi)
 
 # Added for parse transforms: abstract-format terms and their codecs, the host OTP loader and form import.
 add_library(clause_transforms STATIC src/transforms/terms.cpp src/transforms/etf.cpp src/transforms/term_text.cpp
