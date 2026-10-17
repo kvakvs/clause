@@ -105,9 +105,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 ### LIB4. Text: `string`, `unicode` remainder, `io_lib`
 
 - `string` (69): done as LIB4A, see `00-finished.md`.
-- `unicode`: the normalization forms (`characters_to_nf*`), `category/1`,
-  `is_whitespace/1` and `is_id_start/1`, `is_id_continue/1`, in C++ over tables
-  generated from the pinned UCD.
+- `unicode`: done as LIB4B, see `00-finished.md`.
 - `io_lib` (36): C++ on the existing `io_format` engine. That covers
   `format/2,3`, `fwrite`, `bformat`, `bfwrite`, `write/1,2`, `print/1,4`,
   `write_string`, `write_atom`, `write_char`, the printable checks,

@@ -212,6 +212,7 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      atomics_builtins(),
                                      erts_internal_builtins(),
                                      unicode_table_builtins(),
+                                     unicode_form_builtins(),
                                      re_builtins(),
                                      zlib_builtins(),
                                      re_pattern_builtins(),

@@ -186,6 +186,8 @@ std::span<const BuiltinEntry> erts_internal_builtins() noexcept;
 // The Unicode table queries of step 41O1: clause_unicode:table/1, class/1, cases/1, flags/1, compose_pair/2 and
 // unicode_util:spec_version/0, pattern_whitespace/0.
 std::span<const BuiltinEntry> unicode_table_builtins() noexcept;
+// unicode_util's walks and unicode's forms and properties (plan 21 step LIB4B; runtime/src/builtins/unicode/forms.cpp).
+std::span<const BuiltinEntry> unicode_form_builtins() noexcept;
 // The re module over PCRE2 of step 41ZA: version/0.
 std::span<const BuiltinEntry> re_builtins() noexcept;
 // The zlib streams of step 41Q: clause_zlib:open/0, close/1, set_controller/2, deflate_init/2, inflate_init/2,

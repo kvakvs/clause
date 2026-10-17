@@ -603,6 +603,17 @@ Next split(const Term &result) { return {.item = need(result.head()), .rest = ne
 
 std::uint32_t flags_of(char32_t code) { return tables::lookup(tables::flag_ranges(), code, 0); }
 
+std::pair<std::string_view, std::string_view> category_names(char32_t code) {
+    return tables::CATEGORIES.at(tables::lookup(tables::category_ranges(), code, tables::NOT_ASSIGNED));
+}
+
+Term category_term(ProcessContext &context, char32_t code) {
+    const auto [group, name] = category_names(code);
+    TermFactory factory(context);
+    const std::array parts{need(factory.atom(group)), need(factory.atom(name))};
+    return need(factory.tuple(parts));
+}
+
 Term mapped_first(ProcessContext &context, const Term &data, Case which) {
     auto next = cp_term(context, data);
     if (next.is_nil()) {

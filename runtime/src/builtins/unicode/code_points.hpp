@@ -1,6 +1,8 @@
 #pragma once
 #include "../support.hpp"
 #include <cstdint>
+#include <string_view>
+#include <utility>
 
 // unicode_util:cp/1 and gc/1 over chardata terms (plan 21 step LIB4, docs/builtins.md#unicode-util), in OTP's result
 // shapes: [CodePoint | Rest] or [Cluster | Rest] with Rest the chardata left as OTP leaves it (nested lists opened
@@ -22,6 +24,10 @@ Next split(const Term &result);
 
 // The property bits of unicode_util.erl for a code point (0 outside the tables).
 std::uint32_t flags_of(char32_t code);
+
+// The general category of a code point as OTP's {Group, Name} names, and as that tuple.
+std::pair<std::string_view, std::string_view> category_names(char32_t code);
+Term category_term(ProcessContext &context, char32_t code);
 
 // The case mappings of unicode_util:get_case/1, in its field order.
 enum class Case : std::uint8_t { upper, lower, title, fold };

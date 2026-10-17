@@ -29,8 +29,8 @@ implemented and which are stubs.
 | [`io`](../library/stdlib/io.erl) | `get_line/1,2`, `get_chars/2,3` (standard input server or an open file), `request/1,2`, `requests/1,2` (OTP's I/O protocol, [files](ports.md#standard-io-and-files)); `format/1,2,3`, `fwrite/1,2,3`, `put_chars/1,2` and `nl/0,1` are runtime builtins ([io](io.md)) |
 | [`binary`](../library/stdlib/binary.erl) | Every function; `replace/3,4` and `list_to_bin/1` in Erlang, the others runtime builtins ([binary module](builtins.md#binary-module)) |
 | [`math`](../library/stdlib/math.erl) | Every function as a runtime builtin ([math module](builtins.md#math-module)) |
-| [`unicode`](../library/stdlib/unicode.erl) | Conversions, `bin_is_7bit/1` and byte order marks as runtime builtins ([unicode module](builtins.md#unicode-module)); normalization and properties are stubs |
-| [`unicode_util`](../library/stdlib/unicode_util.erl) | Every function over generated tables ([unicode_util](builtins.md#unicode-util)) |
+| [`unicode`](../library/stdlib/unicode.erl) | Every function as a runtime builtin: conversions, `bin_is_7bit/1`, byte order marks, normalization forms, categories and identifier properties ([unicode module](builtins.md#unicode-module)) |
+| [`unicode_util`](../library/stdlib/unicode_util.erl) | Every function over generated tables, the chardata walks as runtime builtins ([unicode_util](builtins.md#unicode-util)) |
 | [`re`](../library/stdlib/re.erl) | Every function but `import/1`, over PCRE2 ([re module](builtins.md#re-module)) |
 | [`file`](../library/kernel/file.erl) | Open, read, write, position and close files, whole-file reads and writes, file information and directory operations over the file driver ([files](ports.md#standard-io-and-files)) |
 | [`gen_tcp`](../library/kernel/gen_tcp.erl), [`gen_udp`](../library/kernel/gen_udp.erl), [`inet`](../library/kernel/inet.erl) | Sockets over socket ports ([sockets](ports.md#sockets)) |

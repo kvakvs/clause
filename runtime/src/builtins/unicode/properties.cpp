@@ -1,4 +1,5 @@
 #include "../typed.hpp"
+#include "code_points.hpp"
 #include "tables.hpp"
 #include <algorithm>
 #include <array>
@@ -11,6 +12,7 @@
 namespace clause::runtime::builtins {
 namespace {
 namespace tables = unicode_tables;
+using unicode::category_term;
 
 // The atom `name`.
 Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
@@ -49,14 +51,6 @@ Term run_term(ProcessContext &context, std::uint32_t offset, std::uint8_t size) 
         codes.push_back(small_term(code));
     }
     return need(TermFactory(context).list(codes));
-}
-
-// The category tuple of a code point.
-Term category_term(ProcessContext &context, char32_t code) {
-    const auto &[group, name] =
-        tables::CATEGORIES[tables::lookup(tables::category_ranges(), code, tables::NOT_ASSIGNED)];
-    const std::array parts{atom(context, group), atom(context, name)};
-    return need(TermFactory(context).tuple(parts));
 }
 
 // The compatibility decomposition: [] or {Tag, [{CCC, CP}]}.

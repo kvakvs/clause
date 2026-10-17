@@ -218,18 +218,28 @@ Codes compose_compat(ProcessContext &context, const Codes &codes) {
     }
 }
 
-Codes normalized_codes(ProcessContext &context, const Codes &cluster, Form form) {
+// The normalized cluster as OTP's term: one code point bare, except that nfkc keeps a list for a cluster whose
+// decomposition has several code points (compose_compat_0 builds a list there).
+Term normalized_cluster(ProcessContext &context, const Codes &cluster, Form form) {
     switch (form) {
     case Form::nfd:
-        return decomposed(cluster, false);
+        return cluster_term(context, decomposed(cluster, false));
     case Form::nfkd:
-        return decomposed(cluster, true);
+        return cluster_term(context, decomposed(cluster, true));
     case Form::nfc:
-        return compose(decomposed(cluster, false));
+        return cluster_term(context, compose(decomposed(cluster, false)));
     case Form::nfkc:
-        return compose_compat(context, decomposed(cluster, true));
+        break;
     }
-    return cluster;
+    const auto codes = decomposed(cluster, true);
+    if (codes.size() <= 1) {
+        return cluster_term(context, codes);
+    }
+    std::vector<Term> items;
+    for (const auto code : compose_compat(context, codes)) {
+        items.push_back(need(TermFactory(context).integer(static_cast<std::int64_t>(code))));
+    }
+    return need(TermFactory(context).list(items));
 }
 
 // The clusters each form leaves as they are: ASCII, and for nfc all of Latin-1.
@@ -248,7 +258,6 @@ Term normalized_term(ProcessContext &context, const Term &data, Form form) {
     if (unchanged(cluster, form)) {
         return next;
     }
-    const auto codes = normalized_codes(context, cluster_codes(cluster), form);
-    return need(TermFactory(context).cons(cluster_term(context, codes), rest));
+    return need(TermFactory(context).cons(normalized_cluster(context, cluster_codes(cluster), form), rest));
 }
 } // namespace clause::runtime::builtins::unicode

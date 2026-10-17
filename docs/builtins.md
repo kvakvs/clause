@@ -677,10 +677,12 @@ the value into the caller's heap.
 
 ## Unicode module
 
-`runtime/src/builtins/unicode/`. `characters_to_binary/1,2,3`,
-`characters_to_list/1,2`, `bin_is_7bit/1`, `bom_to_encoding/1` and
-`encoding_to_bom/1` are builtins; the normalization, category and identifier
-functions of `library/stdlib/unicode.erl` are stubs.
+`runtime/src/builtins/unicode/`. Every function is a builtin:
+`characters_to_binary/1,2,3`, `characters_to_list/1,2` (also under OTP's
+internal names `characters_to_binary_int/2` and `characters_to_list_int/2`),
+`bin_is_7bit/1`, `bom_to_encoding/1`, `encoding_to_bom/1`, and (plan 21 step
+LIB4B, `unicode/forms.cpp`) the normalization forms, `category/1`,
+`is_whitespace/1`, `is_id_start/1` and `is_id_continue/1`.
 
 - Encodings: `latin1`, `unicode`/`utf8`, `utf16` and `utf32`, big endian by
   default or `{utf16 | utf32, big | little}`; anything else is `badarg`
@@ -698,6 +700,13 @@ functions of `library/stdlib/unicode.erl` are stubs.
   tail of every enclosing list; unfinished bytes carried from a binary come
   first, and with `latin1` output a failing integer is wrapped in a list.
 - `bin_is_7bit/1` is false for anything but a binary of bytes below 128.
+- `characters_to_nfc_list/1` and its siblings run OTP's loop over
+  `unicode_util`'s normal forms: the code points as a list or a UTF-8
+  binary, `{error, Converted, Rest}` at invalid UTF-8 and `badarg` for
+  anything else. The property functions take a code point (else `badarg`)
+  and keep OTP's shortcuts: `is_whitespace/1` is false below 5001 outside its
+  ASCII and Latin-1 list, and the identifier tests decide ASCII directly and
+  the rest by category, Other_ID_Start, Other_ID_Continue and pattern syntax.
 
 ## Code module
 
@@ -794,9 +803,14 @@ generates `unicode_util` while it builds (900 KB of Erlang); Clause keeps the
 data in generated C++ tables (`unicode/tables.cpp`) queried by the builtins of
 its private `clause_unicode` module, and `unicode_util.erl` answers every OTP
 function over them with OTP's result shapes (`{error, Rest}` or
-`{badarg, Rest}` at invalid UTF-8). `gc/1` splits extended grapheme clusters by
-UAX #29 in OTP's rule order; `nfd/1`, `nfc/1`, `nfkd/1`, `nfkc/1` normalize
-the first cluster; `spec_version/0` is `{17, 0}`.
+`{badarg, Rest}` at invalid UTF-8). The chardata walks are builtins (plan 21
+step LIB4B): `cp/1` (`unicode/code_points.cpp`) opens nested lists as far as
+OTP does and keeps a binary's rest as a slice of it; `gc/1` splits extended
+grapheme clusters by UAX #29 in OTP's rule order; `nfd/1`, `nfc/1`, `nfkd/1`,
+`nfkc/1` (`unicode/normalize.cpp`) normalize the first cluster, `nfkc/1`
+keeping a list where its decomposition had several code points as OTP's
+`compose_compat_0` does; `uppercase/1`, `lowercase/1`, `titlecase/1` and
+`casefold/1` map the first code point. `spec_version/0` is `{17, 0}`.
 
 `tools/unicode/generate.py` writes the tables once per Unicode update: case
 mappings, categories, decompositions and the property predicates from the
@@ -806,7 +820,7 @@ Database files OTP 29 pins (Unicode 17.0). Only the generated tables are
 committed, with the notice the Unicode License v3 asks for; builds need
 neither OTP nor the data files. `executables_unicode_tables` and
 `executables_unicode_clusters` compare answers, clusters and normal forms
-with OTP's.
+with OTP's, `executables_unicode_forms` the `unicode` forms and properties.
 
 ## Zlib module
 

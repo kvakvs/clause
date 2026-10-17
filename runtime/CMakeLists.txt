@@ -49,7 +49,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/uri/uri_common.cpp src/builtins/uri/uri_parse.cpp src/builtins/uri/uri_compose.cpp
     src/builtins/uri/uri_codec.cpp src/builtins/unicode/graphemes.cpp
     # Module string (plan 21 step LIB4): chardata code points and clusters in OTP's shapes.
-    src/builtins/unicode/code_points.cpp src/builtins/unicode/normalize.cpp
+    src/builtins/unicode/code_points.cpp src/builtins/unicode/normalize.cpp src/builtins/unicode/forms.cpp
     src/builtins/string/string_common.cpp src/builtins/string/string_text.cpp
     src/builtins/string/string_search.cpp src/builtins/string/string_lexemes.cpp
     src/builtins/string/string_numbers.cpp src/builtins/string/string_latin1.cpp

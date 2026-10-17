@@ -127,6 +127,9 @@ constexpr std::array UNICODE_BUILTINS{
     typed_entry<to_binary3>("unicode", "characters_to_binary"),
     typed_entry<to_list1>("unicode", "characters_to_list"),
     typed_entry<to_list2>("unicode", "characters_to_list"),
+    // OTP's internal helpers (plan 21 step LIB4B): characters_to_list/2 and characters_to_binary/2 under their names.
+    typed_entry<to_list2>("unicode", "characters_to_list_int"),
+    typed_entry<to_binary2>("unicode", "characters_to_binary_int"),
     typed_entry<bin_is_7bit>("unicode", "bin_is_7bit"),
     typed_entry<bom_to_encoding>("unicode", "bom_to_encoding"),
     typed_entry<encoding_to_bom>("unicode", "encoding_to_bom"),

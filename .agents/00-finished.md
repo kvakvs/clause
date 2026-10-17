@@ -572,7 +572,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `17cf492d`
 - **LIB4A** `string`: every function in C++ (`builtins/string/`) over
   `unicode/code_points.cpp` (cp/gc in OTP's shapes) and
-  `unicode/normalize.cpp`; `strings` golden — `[plan21] LIB4A`
+  `unicode/normalize.cpp`; `strings` golden — `fc6022ce`
+- **LIB4B** `unicode` forms and properties, `unicode_util` walks as builtins
+  (`unicode/forms.cpp`); `unicode_forms` golden — `[plan21] LIB4B`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
