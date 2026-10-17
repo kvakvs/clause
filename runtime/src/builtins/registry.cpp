@@ -75,7 +75,8 @@ BuiltinFrame builtin(const BuiltinEntry &entry) {
                       .body = nullptr,
                       .slots = 0,
                       .roots = 0},
-            .body = entry.body};
+            .body = entry.body,
+            .quick = entry.quick};
 }
 } // namespace
 

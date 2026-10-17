@@ -139,8 +139,13 @@ Word call_builtin(ProcessContext &context, const BuiltinFrame &builtin, const Wo
 clause::abi::v1::TermWord CLAUSE_builtin_call_v1(void *context, std::size_t builtin,
                                                  const clause::abi::v1::TermWord *arguments) noexcept {
     auto &process = *static_cast<clause::runtime::ProcessContext *>(context);
+    using clause::abi::v1::BuiltinCall;
     const auto *frame = process.code_server().builtins().bridge(builtin);
-    if (!frame || !clause::abi::v1::bridge_builtins.at(builtin).direct) {
+    const auto call = frame ? clause::abi::v1::bridge_builtins.at(builtin).call : BuiltinCall::frame;
+    if (call == BuiltinCall::quick) {
+        return process.stack().call_quick(*frame, arguments);
+    }
+    if (call != BuiltinCall::direct) {
         process.generated_calls().fail_service(clause::abi::v1::Status::invalid_argument);
         return 0;
     }

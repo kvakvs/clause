@@ -195,6 +195,14 @@ Word ProcessStack::call_direct(const FrameDescriptor &function, const Word *argu
     return result;
 }
 
+Word ProcessStack::call_quick(const BuiltinFrame &builtin, const Word *arguments) noexcept {
+    if (trace_ || !builtin.quick) {
+        return 0;
+    }
+    state_.reductions -= state_.reductions == 0 ? 0 : 1;
+    return call_builtin_portion(owner_, {.frame = builtin.frame, .body = builtin.quick}, arguments);
+}
+
 void ProcessStack::trap(const FrameDescriptor &continuation, std::span<const Word> state) noexcept {
     std::ranges::copy(state, registers_.begin());
     trap_ = &continuation;

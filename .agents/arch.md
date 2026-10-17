@@ -294,7 +294,9 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   library stubs with builtins. Code server: shared mutex, hash indexes, modules
   never unloaded.
 - Body bridge builtins lower to `CLAUSE_builtin_frame_v1` + apply marker;
-  direct ones (`BuiltinName::direct`) to a plain `CLAUSE_builtin_call_v1`;
+  direct ones (`BuiltinCall::direct`) to a plain `CLAUSE_builtin_call_v1`;
+  quick ones (`BuiltinCall::quick`, `BuiltinEntry::quick`) to that call, then
+  the frame entry when the bounded fast path returns 0;
   `++` copies a short proper left list inline (`codegen/lowering_append`);
   `typed<Function>` (`builtins/typed.hpp`)
   adapts typed C++ to `BuiltinBody` (mismatch -> badarg).

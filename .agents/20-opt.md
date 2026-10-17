@@ -156,14 +156,10 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
 Real Erlang programs lean on these, though no 69A kernel shows them. Run in this
 order, one commit each.
 
-- **OPT3.13 word-level builtin arguments** (from OPT0.12; 13A done): the frame
-  entry of a portion builtin costs ~60 ns and its `Term` walks the rest
-  (length 92 ns against OTP 17, list_to_binary 654/9, iolist_to_binary 840/43,
-  binary_to_list 270/9). **13B:** quick builtins, a bounded word-level fast
-  path through `CLAUSE_builtin_call_v1` that returns 0 to decline, with the
-  frame call as fallback (ABI 23). **13C:** byte_size 40/8 and binary:part
-  178/20. list_to_atom stays at 70 ns in `AtomStorage::intern` (a shared lock
-  and a `std::map` of spellings).
+- **OPT3.13C** (13A and 13B done): byte_size 40 ns against OTP 8 and
+  binary:part 178/20; other portion builtins can become quick builtins
+  (`lists:reverse/2`, `'--'/2`, `atom_to_binary`). list_to_atom stays at 70 ns
+  in `AtomStorage::intern` (a shared lock and a `std::map` of spellings).
 - **OPT3.14 inline atom ordering** (from OPT0.2): atom `<`/`>`/`==` ordering and
   sorting atom lists still call the service; an order rank per atom makes it a
   word compare.

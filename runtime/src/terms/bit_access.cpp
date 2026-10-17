@@ -32,6 +32,40 @@ TermResult<BitView> bit_view(const Term &term) {
     return BitView{data.first((cell.bits_ + 7) / 8), 0, cell.bits_};
 }
 
+namespace {
+// The view of an inline or off-heap binary cell; none for any other cell.
+std::optional<BitView> stored_view(const Word *cell) noexcept {
+    const auto kind = layout::BoxHeader::kind(cell[0]);
+    if (kind == BoxedKind::refc_binary) {
+        const auto &refc = *reinterpret_cast<const layout::RefcBinaryCell *>(cell);
+        return BitView{std::span(refc.data_, (refc.offset_ + refc.bits_ + 7) / 8), refc.offset_, refc.bits_};
+    }
+    if (kind == BoxedKind::heap_binary) {
+        const auto &heap = *reinterpret_cast<const layout::HeapBinaryCell *>(cell);
+        const auto *data = reinterpret_cast<const std::byte *>(cell + sizeof(layout::HeapBinaryCell) / sizeof(Word));
+        return BitView{std::span(data, (heap.bits_ + 7) / 8), 0, heap.bits_};
+    }
+    return std::nullopt;
+}
+} // namespace
+
+std::optional<BitView> trusted_bit_view(Word word) noexcept {
+    if ((word & abi::v1::primary_mask) != abi::v1::boxed_tag) {
+        return std::nullopt;
+    }
+    const auto *cell = TermAccess::trusted(word);
+    if (layout::BoxHeader::kind(cell[0]) != BoxedKind::sub_binary) {
+        return stored_view(cell);
+    }
+    // A range of its original's bits; the original is never another sub-binary (OPT1.4B).
+    const auto &sub = *reinterpret_cast<const layout::SubBinaryCell *>(cell);
+    const auto original = stored_view(TermAccess::trusted(sub.original_));
+    if (!original) {
+        return std::nullopt;
+    }
+    return BitView{original->bytes, original->offset + sub.offset_, sub.bits_};
+}
+
 bool bit_at(const BitView &view, std::size_t index) noexcept {
     const auto position = view.offset + index;
     return (std::to_integer<unsigned>(view.bytes[position / 8]) & (1U << (7 - position % 8))) != 0;

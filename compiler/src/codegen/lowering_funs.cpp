@@ -293,10 +293,47 @@ llvm::Value *direct_builtin(ExpressionLowering &state, std::size_t builtin, std:
     mark_term(state, result);
     return result;
 }
+
+// Enter a bridge builtin like a function on the arguments in `array`, so it spends a reduction and may yield in
+// portions.
+llvm::Value *framed_builtin(ExpressionLowering &state, std::size_t builtin, llvm::Value *array) {
+    auto &output = *state.entry.getParent();
+    auto service = output.getOrInsertFunction(
+        services::symbol<services::BuiltinFrame>(output.getTargetTriple()),
+        llvm::FunctionType::get(state.builder.getPtrTy(), {state.builder.getPtrTy(), state.word}, false));
+    return transfer(state, false, service, {state.entry.getArg(0), llvm::ConstantInt::get(state.word, builtin)}, array);
+}
+
+// A quick builtin's call (quick builtins): its fast path runs at once on the argument array, and the frame entry runs
+// only when the fast path declines with 0.
+llvm::Value *quick_builtin(ExpressionLowering &state, std::size_t builtin, llvm::Value *array) {
+    auto &builder = state.builder;
+    auto &output = *state.entry.getParent();
+    auto service = output.getOrInsertFunction(
+        services::symbol<services::BuiltinCall>(output.getTargetTriple()),
+        llvm::FunctionType::get(state.word, {builder.getPtrTy(), state.word, builder.getPtrTy()}, false));
+    auto *quick = builder.CreateCall(
+        service, {state.entry.getArg(0), llvm::ConstantInt::get(state.word, builtin), array}, "quick.result");
+    propagate_failure(state);
+    mark_term(state, quick);
+    auto *quick_end = builder.GetInsertBlock();
+    auto *framed = llvm::BasicBlock::Create(state.entry.getContext(), "quick.frame", &state.entry);
+    auto *join = llvm::BasicBlock::Create(state.entry.getContext(), "quick.join", &state.entry);
+    builder.CreateCondBr(builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, quick,
+                                                              llvm::ConstantInt::get(state.word, 0))),
+                         framed, join);
+    builder.SetInsertPoint(framed);
+    auto *entered = framed_builtin(state, builtin, array);
+    auto *framed_end = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    return join_values(state, state.word, {quick_end, quick}, {framed_end, entered});
+}
 } // namespace
 
 llvm::Value *lower_builtin(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values) {
-    if (abi::v1::bridge_builtins.at(builtin).direct) {
+    const auto call = abi::v1::bridge_builtins.at(builtin).call;
+    if (call == abi::v1::BuiltinCall::direct) {
         return direct_builtin(state, builtin, values);
     }
     auto &builder = state.builder;
@@ -306,12 +343,8 @@ llvm::Value *lower_builtin(ExpressionLowering &state, std::size_t builtin, std::
         builder.CreateAlignedStore(
             values[i], builder.CreateGEP(state.word, array, llvm::ConstantInt::get(state.word, i)), alignment);
     }
-    auto &output = *state.entry.getParent();
-    auto service = output.getOrInsertFunction(
-        services::symbol<services::BuiltinFrame>(output.getTargetTriple()),
-        llvm::FunctionType::get(builder.getPtrTy(), {builder.getPtrTy(), state.word}, false));
-    // The builtin is entered like a function, so it spends a reduction and may yield in portions.
-    return transfer(state, false, service, {state.entry.getArg(0), llvm::ConstantInt::get(state.word, builtin)}, array);
+    return call == abi::v1::BuiltinCall::quick ? quick_builtin(state, builtin, array)
+                                               : framed_builtin(state, builtin, array);
 }
 
 llvm::Value *lower_receive(ExpressionLowering &state, abi::v1::ReceiveOperation operation, llvm::Value *slot) {

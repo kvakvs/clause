@@ -502,7 +502,13 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT3.13A** word-level builtin arguments: `tuple_to_list/1` 84 to 26 ns
   (OTP 8), `phash2/1` 92 to 26 ns (13), short `list_to_atom/1` 143 to 70 ns
   (9), hash values unchanged —
-  `[plan20] OPT3.13A ...`
+  `b29a23d8`
+- **OPT3.13B** quick builtins (ABI 23): `length/1`, `binary_to_list/1`,
+  `list_to_binary/1`, `iolist_to_binary/1` run a bounded word-level fast path
+  through `CLAUSE_builtin_call_v1`, 0 declining to the frame entry; length 92 to
+  18 ns (OTP 17), list_to_binary 654 to 34 (9), iolist_to_binary 840 to 37 (43),
+  binary_to_list 270 to 31 (9) —
+  `[plan20] OPT3.13B ...`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

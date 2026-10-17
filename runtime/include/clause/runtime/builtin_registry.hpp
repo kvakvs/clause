@@ -21,6 +21,9 @@ struct BuiltinEntry final {
     std::string_view function;
     std::size_t arity = 0;
     BuiltinBody body = nullptr;
+    // A bounded fast path generated code runs first for a quick builtin; it returns 0 to leave the call to `body`
+    // (quick builtins).
+    BuiltinBody quick = nullptr;
 };
 
 // A registered builtin as calls enter it: a FrameDescriptor with a null body, which marks a builtin, then its
@@ -28,6 +31,8 @@ struct BuiltinEntry final {
 struct BuiltinFrame final {
     abi::v1::FrameDescriptor frame{};
     BuiltinBody body = nullptr;
+    // The entry's quick fast path, or null (quick builtins).
+    BuiltinBody quick = nullptr;
 };
 
 static_assert(std::is_standard_layout_v<BuiltinFrame>);

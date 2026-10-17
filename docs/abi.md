@@ -381,13 +381,17 @@ is a builtin: entering it runs the builtin on the registers and returns into the
 caller, or suspends the process at the builtin's continuation when it trapped
 ([portions](builtins.md#portions)).
 
-A direct builtin (`BuiltinName::direct`: pure conversions such as
+A direct builtin (`BuiltinCall::direct`: pure conversions such as
 `integer_to_list/1`, `atom_to_list/1`, `list_to_tuple/1`, `setelement/3`,
 `phash2/1`) never traps, waits or acts on another process. Generated code calls
 it with `CLAUSE_builtin_call_v1(context, builtin, arguments)`, which runs its
 body at once and returns the result, with no frame transfer, no resume point and
 no entry safepoint; it spends one reduction, and a failure goes to the checked
-channel as a service's does.
+channel as a service's does. A quick builtin (`BuiltinCall::quick`: `length/1`,
+`binary_to_list/1`, `list_to_binary/1`, `iolist_to_binary/1`) is called the
+same way first; its bounded fast path returns 0 when it declines (longer
+inputs, other shapes, every error, and always while calls are traced), and the
+generated code then enters the builtin's frame as for any bridge builtin.
 
 `abi::v1::dispatch_builtin` calls host-registered builtins by module/function
 bytes, argument array and arity, returning a `Status`; output is written only on
@@ -436,3 +440,4 @@ success.
 | 20 | `MapOperation::entries` and inline map generators |
 | 21 | `ModuleDescriptor::fun_cache` and inline closures |
 | 22 | Direct builtins: `BuiltinName::direct`, `CLAUSE_builtin_call_v1` |
+| 23 | Quick builtins: `BuiltinName::call` (`BuiltinCall`), 0 from `CLAUSE_builtin_call_v1` declines |

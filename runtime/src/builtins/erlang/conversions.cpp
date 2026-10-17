@@ -1,4 +1,7 @@
+#include "../../memory/heap_object.hpp"
+#include "../../terms/bitstrings.hpp"
 #include "../../terms/integers.hpp"
+#include "../../terms/term_layout.hpp"
 #include "../portions.hpp"
 #include "../text.hpp"
 #include "../typed.hpp"
@@ -207,6 +210,147 @@ Word iolist_to_binary(ProcessContext &context, Arguments arguments) {
     return term_of(context, arguments[0]).is_binary() ? arguments[0] : list_to_binary(context, arguments);
 }
 
+// Elements of an iolist, and bytes of binary_to_list/1 and of an iolist's result, a quick builtin handles at once;
+// larger inputs take the portion path (quick builtins).
+constexpr std::size_t QUICK_WORK = 256;
+constexpr std::size_t QUICK_BYTES = 4096;
+
+// The bytes of a binary word's whole-byte content, read in place (quick builtins); none for other words.
+std::optional<std::span<const std::byte>> trusted_bytes(Word word) {
+    const auto view = detail::trusted_bit_view(word);
+    if (!view || view->offset % 8 != 0 || view->length % 8 != 0) {
+        return std::nullopt;
+    }
+    return view->bytes.subspan(view->offset / 8, view->length / 8);
+}
+
+// binary_to_list(Binary) of at most QUICK_WORK bytes, built at once from the bytes read in place (quick builtins); 0
+// declines, also for every error, which the portion path reports.
+Word binary_to_list_quick(ProcessContext &context, Arguments arguments) {
+    const auto bytes = trusted_bytes(arguments[0]);
+    if (!bytes || bytes->size() > QUICK_WORK) {
+        return 0;
+    }
+    boost::container::small_vector<Word, QUICK_WORK> words;
+    for (const auto byte : *bytes) {
+        words.push_back(*abi::v1::NativeIntegerEncoding::encode(std::to_integer<std::int64_t>(byte)));
+    }
+    context.stack().spend(words.size());
+    return detail::TermAccess::bump_list(context.heap(), words, abi::v1::empty_list).value_or(0);
+}
+
+// The bytes of a short iolist, its cells read in place (quick builtins).
+class QuickIolist {
+  public:
+    // Read the iolist `root`; false when it is longer than QUICK_WORK elements, its bytes exceed QUICK_BYTES or it is
+    // no iolist, all left to the portion path.
+    bool read(Word root) {
+        Tails tails{root};
+        while (!tails.empty()) {
+            const auto rest = tails.back();
+            tails.pop_back();
+            if (!list(rest, tails)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    std::span<const std::byte> bytes() const noexcept { return bytes_; }
+
+    std::size_t elements() const noexcept { return elements_; }
+
+  private:
+    // Rests of the lists still to read, the next one last.
+    using Tails = boost::container::small_vector<Word, 16>;
+
+    // Read one list until its end or a nested list, which is read before the rest of this one (queued in `tails`);
+    // false for an element or end that is no iolist part.
+    bool list(Word rest, Tails &tails) {
+        for (; (rest & abi::v1::primary_mask) == abi::v1::list_tag; ++elements_) {
+            const auto *cell = detail::TermAccess::trusted(rest);
+            if (elements_ == QUICK_WORK) {
+                return false;
+            }
+            if (cell[0] == abi::v1::empty_list || (cell[0] & abi::v1::primary_mask) == abi::v1::list_tag) {
+                tails.push_back(cell[1]);
+                rest = cell[0];
+            } else if (leaf(cell[0])) {
+                rest = cell[1];
+            } else {
+                return false;
+            }
+        }
+        // A list ends in [] or a binary.
+        return rest == abi::v1::empty_list || binary(rest);
+    }
+
+    // Append a byte or a binary element.
+    bool leaf(Word word) {
+        if (const auto value = small(word)) {
+            const bool byte = *value >= 0 && *value <= 255;
+            if (byte) {
+                bytes_.push_back(static_cast<std::byte>(*value));
+            }
+            return byte;
+        }
+        return binary(word);
+    }
+
+    bool binary(Word word) {
+        const auto content = trusted_bytes(word);
+        if (!content || bytes_.size() + content->size() > QUICK_BYTES) {
+            return false;
+        }
+        bytes_.insert(bytes_.end(), content->begin(), content->end());
+        return true;
+    }
+
+    boost::container::small_vector<std::byte, QUICK_WORK> bytes_;
+    std::size_t elements_ = 0;
+};
+
+// A heap binary of at most heap_binary_bytes bytes written straight into claimed heap words (quick builtins); none
+// for more bytes or when the heap refuses the words.
+std::optional<Word> claimed_binary(ProcessContext &context, std::span<const std::byte> bytes) {
+    namespace layout = detail::layout;
+    if (bytes.size() > layout::heap_binary_bytes) {
+        return std::nullopt;
+    }
+    const auto payload = layout::heap_binary_payload_words(bytes.size() * 8, sizeof(Word));
+    const auto words = detail::TermAccess::claim(context.heap(), 1 + payload);
+    if (words.empty()) {
+        return std::nullopt;
+    }
+    words[0] = layout::BoxHeader::make(BoxedKind::heap_binary, payload);
+    words[1] = bytes.size() * 8;
+    const auto data = std::as_writable_bytes(words.subspan(2));
+    std::ranges::fill(data, std::byte{0});
+    std::ranges::copy(bytes, data.begin());
+    return reinterpret_cast<Word>(words.data()) | static_cast<Word>(TermKindPrimary::boxed);
+}
+
+// list_to_binary(IoList) of a short iolist, built at once (quick builtins); 0 declines, also for every error, which the
+// portion path reports.
+Word list_to_binary_quick(ProcessContext &context, Arguments arguments) {
+    const bool list =
+        arguments[0] == abi::v1::empty_list || (arguments[0] & abi::v1::primary_mask) == abi::v1::list_tag;
+    QuickIolist iolist;
+    if (!list || !iolist.read(arguments[0])) {
+        return 0;
+    }
+    context.stack().spend(iolist.elements());
+    if (const auto claimed = claimed_binary(context, iolist.bytes())) {
+        return *claimed;
+    }
+    return need(TermFactory(context).binary(iolist.bytes())).word();
+}
+
+// iolist_to_binary(IoListOrBinary): a binary as it is, else as list_to_binary/1 (quick builtins).
+Word iolist_to_binary_quick(ProcessContext &context, Arguments arguments) {
+    return trusted_bytes(arguments[0]) ? arguments[0] : list_to_binary_quick(context, arguments);
+}
+
 // The ~w text of an identity as a list: pid_to_list/1 accepts only pids, ref_to_list/1 only references.
 template <bool Pid> TermResult<Term> identity_to_list(ProcessContext &context, const Term &value) {
     if (Pid ? !value.is_pid() : !value.is_reference()) {
@@ -326,9 +470,9 @@ constexpr std::array CONVERSION_BUILTINS{
     typed_entry<list_to_integer2>("erlang", "list_to_integer"),
     typed_entry<float_to_list1>("erlang", "float_to_list"),
     typed_entry<float_to_list2>("erlang", "float_to_list"),
-    BuiltinEntry{"erlang", "binary_to_list", 1, &guarded<binary_to_list>},
-    BuiltinEntry{"erlang", "list_to_binary", 1, &guarded<list_to_binary>},
-    BuiltinEntry{"erlang", "iolist_to_binary", 1, &guarded<iolist_to_binary>},
+    BuiltinEntry{"erlang", "binary_to_list", 1, &guarded<binary_to_list>, &guarded<binary_to_list_quick>},
+    BuiltinEntry{"erlang", "list_to_binary", 1, &guarded<list_to_binary>, &guarded<list_to_binary_quick>},
+    BuiltinEntry{"erlang", "iolist_to_binary", 1, &guarded<iolist_to_binary>, &guarded<iolist_to_binary_quick>},
     typed_entry<identity_to_list<true>>("erlang", "pid_to_list"),
     typed_entry<identity_to_list<false>>("erlang", "ref_to_list"),
 };

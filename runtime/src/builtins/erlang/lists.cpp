@@ -42,6 +42,23 @@ Word count(ProcessContext &context, Term rest, std::size_t counted) {
     return count_word(context, counted);
 }
 
+// Cells length/1 counts at once; a longer list takes the portion path (quick builtins).
+constexpr std::size_t QUICK_LENGTH = 256;
+
+// length(List) of a proper list of at most QUICK_LENGTH cells, counted in place (quick builtins); 0 declines, also
+// for every error, which the portion path reports.
+Word length_quick(ProcessContext &context, Arguments arguments) {
+    std::size_t cells = 0;
+    for (auto rest = arguments[0]; rest != abi::v1::empty_list; rest = detail::TermAccess::trusted(rest)[1]) {
+        if ((rest & abi::v1::primary_mask) != abi::v1::list_tag || cells == QUICK_LENGTH) {
+            return 0;
+        }
+        ++cells;
+    }
+    context.stack().spend(cells);
+    return *abi::v1::NativeIntegerEncoding::encode(static_cast<std::int64_t>(cells));
+}
+
 // length(List).
 Word length(ProcessContext &context, Arguments arguments) {
     const auto list = term_of(context, arguments[0]);
@@ -302,7 +319,7 @@ Word subtract_scan(ProcessContext &context, Arguments state) {
 }
 
 constexpr std::array LIST_BUILTINS{
-    BuiltinEntry{"erlang", "length", 1, &guarded<length>},
+    BuiltinEntry{"erlang", "length", 1, &guarded<length>, &guarded<length_quick>},
     BuiltinEntry{"erlang", "++", 2, &guarded<append>},
     BuiltinEntry{"erlang", "--", 2, &guarded<subtract>},
 };

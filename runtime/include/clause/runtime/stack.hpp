@@ -9,6 +9,8 @@
 #include <utility>
 
 namespace clause::runtime {
+struct BuiltinFrame;
+
 namespace detail {
 class ProcessProfile;
 class CallTrace;
@@ -87,6 +89,9 @@ class ProcessStack final {
     // Run the direct builtin `function` at once on `arguments` (direct builtins): it spends one reduction and enters
     // no frame and no safepoint; the portions a direct builtin never leaves would run to the end.
     Word call_direct(const abi::v1::FrameDescriptor &function, const Word *arguments) noexcept;
+    // Run a quick builtin's fast path at once (quick builtins): one reduction, like a direct builtin; 0 when it
+    // declines, and always while calls are traced, so the trace sees the frame entry.
+    Word call_quick(const BuiltinFrame &builtin, const Word *arguments) noexcept;
 
     // Run `function` to completion above a bottom frame, resuming it after every yield; frames left by native
     // exceptions are released.

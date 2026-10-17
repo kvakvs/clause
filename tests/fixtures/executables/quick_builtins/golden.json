@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "quick_builtins",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[0,1,256,257,1000]\n[[],\"abc\",100,true,255,300]\n[<<>>,<<\"plain\">>,<<\"abcdef\">>,<<\"abcdef\">>,<<\"as is\">>,true,300,2000,6000,\n 5000,4200,<<\"bottom\">>,260]\n[badarg,badarg,badarg,badarg,badarg,badarg,badarg,badarg,badarg,badarg,badarg,\n badarg,badarg]\n[3,<<\"fun\">>,\"fun\",<<\"app\">>]\nquick_builtins: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "quick_builtins.erl": "7080a150156ec36ff83cf523ccf4cc1d02feb4bd007adb00984441d1843fd555"
+  }
+}

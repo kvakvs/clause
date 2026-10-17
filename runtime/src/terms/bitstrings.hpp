@@ -51,6 +51,8 @@ struct BitAccess {
 
 // Establish kind and lifetime before accessing any bit buffer or cursor.
 TermResult<BitView> bit_view(const Term &term);
+// The view of a bitstring word of a validated term, its cells read in place (quick builtins); none for other words.
+std::optional<BitView> trusted_bit_view(Word word) noexcept;
 // Read one proved in-range bit in logical MSB-first order.
 bool bit_at(const BitView &view, std::size_t index) noexcept;
 // Compare logical sequences independently of backing identity, offsets and padding.

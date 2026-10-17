@@ -15,18 +15,22 @@ Status dispatch_builtin(Context *context, const char *module, std::size_t module
                         std::size_t function_size, const TermWord *arguments, std::size_t arity,
                         TermWord *result) noexcept;
 
+// How generated code calls a bridge builtin. A direct builtin never traps, waits or acts on another process: it runs
+// through CLAUSE_builtin_call_v1 with no frame transfer (direct builtins). A quick builtin first runs a bounded fast
+// path through CLAUSE_builtin_call_v1, which returns 0 when the call needs the frame entry instead (quick builtins).
+enum class BuiltinCall : std::uint8_t { frame, direct, quick };
+
 // One production builtin generated code reaches through the bridge (docs/builtins.md).
 struct BuiltinName {
     std::string_view module;
     std::string_view function;
     std::size_t arity;
-    // A direct builtin never traps, waits or acts on another process: generated code calls it through
-    // CLAUSE_builtin_call_v1 with no frame transfer (direct builtins).
-    bool direct = false;
+    BuiltinCall call = BuiltinCall::frame;
 };
 
-// Marks a direct builtin's entry.
-inline constexpr bool DIRECT = true;
+// Mark a direct and a quick builtin's entry.
+inline constexpr BuiltinCall DIRECT = BuiltinCall::direct;
+inline constexpr BuiltinCall QUICK = BuiltinCall::quick;
 
 // Every bridge builtin. An entry's index is the `builtin` argument of CLAUSE_builtin_frame_v1; compiler and runtime
 // are built together, so entries may be reordered (no released ABI to keep). Group comments name the runtime
@@ -58,7 +62,7 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "float", 1},
     BuiltinName{"erlang", "floor", 1},
     BuiltinName{"erlang", "hd", 1},
-    BuiltinName{"erlang", "length", 1},
+    BuiltinName{"erlang", "length", 1, QUICK},
     BuiltinName{"erlang", "map_get", 2},
     BuiltinName{"erlang", "map_size", 1},
     BuiltinName{"erlang", "is_map_key", 2},
@@ -127,9 +131,9 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "list_to_integer", 2, DIRECT},
     BuiltinName{"erlang", "float_to_list", 1, DIRECT},
     BuiltinName{"erlang", "float_to_list", 2, DIRECT},
-    BuiltinName{"erlang", "binary_to_list", 1},
-    BuiltinName{"erlang", "list_to_binary", 1},
-    BuiltinName{"erlang", "iolist_to_binary", 1},
+    BuiltinName{"erlang", "binary_to_list", 1, QUICK},
+    BuiltinName{"erlang", "list_to_binary", 1, QUICK},
+    BuiltinName{"erlang", "iolist_to_binary", 1, QUICK},
     // Console output (plan step 40; runtime/src/builtins/io.cpp).
     BuiltinName{"io", "format", 1},
     BuiltinName{"io", "format", 2},
@@ -516,6 +520,7 @@ constexpr std::optional<std::size_t> find_bridge_builtin(std::string_view module
 // a function with the builtin's arguments in the registers; null after recording an unknown index as a failure.
 const void *CLAUSE_builtin_frame_v1(void *context, std::size_t builtin) noexcept;
 // Run direct bridge builtin `builtin` at once on its argument words and return its result (direct builtins); a failure
-// is recorded in the failure channel, as a service's, and the result is then 0.
+// is recorded in the failure channel, as a service's, and the result is then 0. For a quick builtin, run its fast
+// path: 0 with no failure means the call must enter the builtin's frame instead (quick builtins).
 clause::abi::v1::TermWord CLAUSE_builtin_call_v1(void *context, std::size_t builtin,
                                                  const clause::abi::v1::TermWord *arguments) noexcept;
