@@ -43,7 +43,7 @@ std::vector<Term> format_elements(ProcessContext &context, const Term &format) {
 class Collector final {
   public:
     Collector(ProcessContext &context, std::vector<Term> format, Term arguments)
-        : context_(context), format_(std::move(format)), arguments_(std::move(arguments)) {}
+        : context_(context), format_(std::move(format)), arguments_(arguments) {}
 
     // Every element; badarg unless the arguments are all consumed.
     std::vector<Element> run() {

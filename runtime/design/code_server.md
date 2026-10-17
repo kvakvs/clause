@@ -131,9 +131,10 @@ library discovery remain deferred. Registry locks protect publication/removal on
 no callable body or capture destructor executes while a server lock is held.
 
 Compiled atom constants are initialized through runtime AtomStorage before module
-publication and then stay read-only. Each loaded instance retains its metadata
-roots while handles pin the code, as described in the
-[compiled atom constant contract](atom_storage.md#compiled-atom-constants).
+publication and then stay read-only. Each loaded instance keeps atom words in
+compiler slot order, including duplicates; these one-word Terms pin no spellings.
+Handles pin the code, while the runtime owns atom records and retires their global
+slots at teardown ([atoms](../../docs/terms.md#atoms)).
 
 ## Illustrative API usage
 

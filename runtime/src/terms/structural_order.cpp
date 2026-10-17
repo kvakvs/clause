@@ -258,7 +258,7 @@ TermResult<int> compare(const Term &left, const Term &right, bool exact) {
         return initial;
     }
     while (!pending.empty()) {
-        auto values = std::move(pending.back());
+        auto values = pending.back();
         pending.pop_back();
         const auto result = step(values, pending);
         if (!result || *result != 0) {

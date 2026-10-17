@@ -16,11 +16,11 @@ class MessageBuffer final {
     MessageBuffer &operator=(MessageBuffer &&) = delete;
     ~MessageBuffer();
 
-    // Copy `value`, a term of its process (or an immediate), into a new buffer; the source heap is only read.
-    static TermResult<std::shared_ptr<const MessageBuffer>> copy_of(const Term &value) noexcept;
+    // Copy `value`, a term of `sender` (or an immediate), into a new buffer; the sender's heap is only read.
+    static TermResult<std::shared_ptr<const MessageBuffer>> copy_of(const Term &value, ProcessContext &sender) noexcept;
     // Whether copying `value` takes at least `minimum` words; it stops counting there and allocates nothing for a
     // small value, so a send can afford it before every copy (message hand-off).
-    static bool large(const Term &value, std::size_t minimum) noexcept;
+    static bool large(const Term &value, ProcessContext &sender, std::size_t minimum) noexcept;
     // Words from which a message is taken over instead of copied: a send builds it before the lock, and its block
     // becomes a fragment of the receiver; smaller ones are cheaper to copy than to keep as fragments (message
     // hand-off).

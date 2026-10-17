@@ -108,7 +108,7 @@ TermResult<std::vector<std::pair<Term, Term>>> Term::record_fields() const {
         if (!name || !value) {
             return std::unexpected(name ? value.error() : name.error());
         }
-        result.emplace_back(std::move(*name), std::move(*value));
+        result.emplace_back(*name, *value);
     }
     return result;
 }
@@ -136,7 +136,7 @@ TermResult<std::pair<Term, Term>> record_identity(const Term &value) noexcept {
     if (!module || !name) {
         return std::unexpected(module ? name.error() : module.error());
     }
-    return std::pair{std::move(*module), std::move(*name)};
+    return std::pair{*module, *name};
 }
 
 std::optional<std::size_t> record_position(const RecordDefinition &definition, Word field) noexcept {

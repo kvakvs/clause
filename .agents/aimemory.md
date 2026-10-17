@@ -339,5 +339,11 @@ gotchas and user directions not recorded elsewhere.
   cind_fields_tail Col + FW, pp_map W = PW, map pairs rerun keep D0, chars/2
   of 1 is [$\s, []], cind map W + 2 vs pp map W + 1). A fixture module must
   not be named io_lib_pretty (it replaces OTP's module in the oracle). Codex
-  CLI subagents: gpt-5.6-sol works; its sandbox cannot write build/ (ACL), so
-  regenerate goldens yourself.
+  CLI subagents use gpt-6.1-sol (CLI 0.151 hid it; 0.163 lists it); its sandbox
+  cannot write build/ (ACL) or .agents/, so regenerate goldens and edit plan
+  files yourself.
+- OPTM.2 (one-word Term): a Term held past its heap's next collection or its
+  process's exit is undefined (no stale_term); tests must not dereference such
+  handles. A runtime test counting allocations must warm the process-wide atom
+  index first (its chunks live for the process). clang-tidy flags std::move of
+  Term (trivially copyable) as performance-move-const-arg.

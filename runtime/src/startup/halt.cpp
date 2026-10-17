@@ -73,7 +73,7 @@ std::optional<std::string> slogan_text(const Term &value) {
         if (count == slogan_limit || !point || !tail || !append_utf8(text, *point)) {
             return std::nullopt;
         }
-        current = std::move(*tail);
+        current = *tail;
     }
     return current.is_nil() ? std::optional{text} : std::nullopt;
 }

@@ -41,7 +41,7 @@ std::optional<PersistentTerms::Buffer> lookup(ProcessContext &context, const Ter
 void store(ProcessContext &context, const Term &key, const Term &value) {
     static_cast<void>(context.persistent_terms().store(
         term_hash(context, key),
-        {.key = need(MessageBuffer::copy_of(key)), .value = need(MessageBuffer::copy_of(value))},
+        {.key = need(MessageBuffer::copy_of(key, context)), .value = need(MessageBuffer::copy_of(value, context))},
         same_key(context, key)));
 }
 

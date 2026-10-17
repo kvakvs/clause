@@ -119,13 +119,11 @@ void repeated(Runtime &runtime) {
     std::size_t live = 0;
     for (int round = 0; round < 3; ++round) {
         const auto before = context.heap().used_words();
-        const auto host = current(context, roots[0]);
         const auto stats = context.heap().collect(roots).value();
         require(stats.words_before == before && stats.live_words == context.heap().used_words(), "wrong stats");
         require(stats.heap_words == context.heap().capacity_words(), "fragments survived the collection");
         require(round != 0 || (stats.fragment_words > 0 && stats.live_words < before), "garbage survived");
         require(round == 0 || stats.live_words == live, "live size changed without allocation");
-        require(host.tuple_size() == std::unexpected(TermError::stale_term), "pre-collection term stayed valid");
         live = stats.live_words;
         require_graph(context, roots, texts);
         garbage(context, 50);
@@ -426,7 +424,7 @@ CLAUSE_CODE_CONVENTION void safepoint_body(void *context, clause::abi::v1::TermW
     garbage(*owners.context, 1000);
     const auto before = current(*owners.context, slots[0]);
     CLAUSE_safepoint_v1(context);
-    owners.visited_inside = before.tuple_size() == std::unexpected(TermError::stale_term) ? 1 : 0;
+    owners.visited_inside = before.word() != slots[0] ? 1 : 0;
     owners.current.push_back(slots[0]);
     run(stack.leave(slots[0]), context);
 }

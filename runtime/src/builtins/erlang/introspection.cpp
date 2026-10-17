@@ -224,7 +224,7 @@ TermResult<Term> process_info_list(ProcessContext &context, const PidArgument &p
         }
         return list(inspection, values);
     });
-    return result ? std::move(*result) : atom(context, "undefined");
+    return result ? *result : atom(context, "undefined");
 }
 
 // process_info(Pid, Item | [Item]): undefined for a process that is not alive.
@@ -239,7 +239,7 @@ TermResult<Term> process_info2(ProcessContext &context, const PidArgument &pid, 
         // An unregistered process answers registered_name with [] rather than a pair, as in OTP.
         return read == registered_name && value.is_nil() ? value : item_pair(inspection, items, read);
     });
-    return result ? std::move(*result) : atom(context, "undefined");
+    return result ? *result : atom(context, "undefined");
 }
 
 // process_info(Pid): the default items.
@@ -252,7 +252,7 @@ TermResult<Term> process_info1(ProcessContext &context, const PidArgument &pid) 
         }
         return list(inspection, values);
     });
-    return result ? std::move(*result) : atom(context, "undefined");
+    return result ? *result : atom(context, "undefined");
 }
 
 TermResult<Term> processes(ProcessContext &context) {

@@ -32,7 +32,7 @@ Term slice(ProcessContext &context, const Term &value, std::size_t offset, std::
     return Term::from_word(output[0], context).value();
 }
 
-// Inline padding and nonaligned shared views compare by value, survive growth, then reject expired access.
+// Inline padding and nonaligned shared views compare by value, and survive growth.
 void ownership() {
     auto runtime = Runtime::start().value();
     auto &context = *runtime->create_context().value();
@@ -56,8 +56,6 @@ void ownership() {
     }
     require(second.exactly_equal(independent) == true && first.bit_size() == 790, "retained tail damaged by growth");
     require(runtime->destroy_context(&context) == Status::ok, "binary context teardown failed");
-    require(first.bit_size() == std::unexpected(TermError::expired_context), "expired shared view accessed");
-    require(small.binary_bytes() == std::unexpected(TermError::expired_context), "expired inline bytes accessed");
     require(factory.binary({}) == std::unexpected(TermError::expired_context), "expired factory allocated bits");
 }
 

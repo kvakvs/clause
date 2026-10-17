@@ -12,21 +12,22 @@ in [abi.md](abi.md#terms).
 - Compound values live in their process heap ([heap contract](runtime-heap.md))
   or in a module's read-only literal area ([areas](runtime-heap.md#areas)).
   Process pointers always name object starts. Admission checks the owned range
-  and the header shape, rejecting foreign and stale words
+  and the header shape, rejecting foreign addresses and invalid shapes
   ([admission](runtime-heap.md#admission)); kind and extent are decoded from
   the header.
-- A host `Term` for a heap value is a raw tagged word, valid until its heap's
-  next collection ([roots](runtime-heap.md#roots-and-safe-points)); it does not
-  pin heap storage. After context teardown, access returns `expired_context`;
-  after a later collection, `stale_term`. Terms are always safe to destroy. The
-  teardown check reads the context's lifetime token without locking it: a
-  context and its terms are used by one thread at a time.
+- A host `Term` is exactly one `Word`, trivially copyable, with only `value_`.
+  A heap Term is valid until its heap's next collection or process exit
+  ([roots](runtime-heap.md#roots-and-safe-points)); it pins nothing and carries
+  no heap, lifetime token or collection count. Access then reads moved or freed
+  memory and is undefined; there is no `stale_term` error. Destruction is safe.
+  Factories, reservations and message buffers retain their own lifetime checks
+  and still report `expired_context`.
 - Construction validates children, reserves, initializes, then publishes in one
   step; failure rolls back backing and counters.
 - `Term::from_word(word)` admits only owner-independent immediates;
   `Term::from_word(word, context)` also admits atoms and heap terms of that
   context. Same-heap handoff keeps identity. `copy_to`/`ProcessHeap::add` copy a
-  graph of another process of the same runtime with its sharing; term factories
+  graph of another process under a same-runtime caller contract; term factories
   refuse foreign inputs with `wrong_owner`
   ([copying between heaps](runtime-heap.md#copying-between-heaps)).
 - Cells live until a collection finds them unreachable, or until heap teardown
@@ -39,18 +40,23 @@ in [abi.md](abi.md#terms).
   module/export names count. Existing spellings succeed at capacity.
 - Up to 255 Unicode scalars; empty, NUL and supplementary characters allowed;
   malformed/overlong/surrogate UTF-8 rejected.
-- Payloads come from a process-wide counter so a foreign runtime's atom word is
-  detectable. 32-bit processes have 2^26 lifetime identities in total.
-- Admitting an atom word reads a lock-free index by atom number (the fixed atoms
-  directly, then chunks of 4,096 entries published once under the interning
-  lock); numbers past 2^24 fall back to the locked table.
-- Host atom Terms pin the spelling, surviving runtime teardown. Moving an atom
-  between runtimes means interning `atom_utf8()` in the destination.
+- Payloads come from a process-wide counter and are never reused, even across
+  runtimes. The global index holds 2^28 numbers, bounded by the word's atom
+  payload on 32-bit targets (2^26 lifetime identities). Per-runtime limits are
+  unchanged. Atom numbers never leave a node: ETF and disk forms use spellings.
+- `detail::atom_table` provides lock-free reads by atom number: fixed records
+  directly, then chunks of 4,096 slots kept for the process lifetime. Each
+  `AtomStorage` owns its records by spelling, publishes them in this index,
+  and admits only records it owns or fixed records. Teardown retires its slots.
+- Atom Terms pin nothing. `atom_spelling()` borrows until runtime teardown;
+  it and `atom_utf8()` report `expired_context` after a non-fixed atom's runtime
+  is torn down. Moving an atom between runtimes means interning its spelling
+  in the destination while the source runtime is live.
 - Booleans are the atoms `true`/`false`. The fixed atoms `false`, `true`,
   `undefined`, `ok` and `error` (`abi::v1::fixed_atom_spellings`) have the words
-  of atom numbers 0–4 in every runtime, entered with the storage, found without
-  the lock and counted neither by `size()` nor toward `max_atoms`; generated
-  code uses them as constants. Every other atom word is runtime-private.
+  of atom numbers 0–4 in every runtime, with immortal static records, found
+  without the lock and counted neither by `size()` nor toward `max_atoms`;
+  generated code uses them as constants. Every other atom word is runtime-private.
 - Compound literals of constants (strings, lists and tuples of immediates and
   other literals, floats, bignums) are cells of the module literal area, built
   at compile time and shared ([literal areas](runtime-heap.md#areas)); integer
@@ -204,9 +210,10 @@ in [abi.md](abi.md#terms).
   own never-reused sequence, admitted like a pid; it prints as `#Port<0.N>` and
   orders between funs and pids ([ports](ports.md#identity)).
 - A reference is a heap cell (`reference`: header plus an untraced 64-bit
-  number) admitted like every heap term: only in its own process, stale after a
-  collection of a host `Term`, copied by value between processes. Numbers come
-  from one process-wide counter, so every reference of a program run is unique.
+  number) admitted like every heap term: only in its own process, copied by
+  value between processes. An unrooted host `Term` cannot be accessed after
+  collection or process exit. Numbers come from one process-wide counter, so
+  every reference of a program run is unique.
 - A handle reference (an OTP magic reference) is a reference cell that also
   holds an off-heap buffer; it is the same reference to every service
   and shares its buffer with every copy

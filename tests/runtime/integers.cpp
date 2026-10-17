@@ -54,7 +54,7 @@ Term canonical(ProcessContext &context) {
     return huge;
 }
 
-// Retained bignums and error payloads remain owned across backing growth and reject foreign/expired use.
+// Retained bignums and error payloads remain owned across backing growth and reject foreign admission.
 void ownership(Runtime &runtime, ProcessContext &context, const Term &value) {
     TermFactory factory(context);
     for (unsigned i = 0; i < 100; ++i) {
@@ -65,7 +65,6 @@ void ownership(Runtime &runtime, ProcessContext &context, const Term &value) {
             "foreign bignum admitted");
     require(value.integer_decimal() == "1361129467683753853853498429727072845824", "growth damaged magnitude");
     require(runtime.destroy_context(&context) == Status::ok, "owner teardown failed");
-    require(value.integer_decimal() == std::unexpected(TermError::expired_context), "expired integer dereferenced");
     require(factory.integer(1) == std::unexpected(TermError::expired_context), "expired factory admitted integer");
 }
 } // namespace

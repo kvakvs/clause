@@ -1,29 +1,30 @@
 #pragma once
 #include "terms.hpp"
-#include <array>
-#include <atomic>
 #include <clause/abi/v1.hpp>
 #include <map>
 #include <memory>
 #include <optional>
 #include <shared_mutex>
-#include <vector>
+#include <string>
 
 namespace clause::runtime {
-// Immutable host pin; spellings survive runtime teardown without retaining a process or code image.
+// An interned atom: its word and spelling, immutable until its runtime is torn down.
 struct AtomValue final {
     // Copy directly into stable storage so allocation failures remain catchable on Debug STL hosts.
-    AtomValue(const Word word, const std::string_view spelling) : word(word), spelling(spelling) {}
+    AtomValue(const Word word, const std::string_view spelling, const AtomStorage *owner = nullptr)
+        : word(word), spelling(spelling), owner(owner) {}
 
     // Preserve the globally non-recycled word used to reject foreign raw atom words.
     Word word;
     // Own validated UTF-8 bytes, without Unicode normalization.
     std::string spelling;
+    // The runtime that issued the word, for admission; null for the fixed atoms every runtime shares.
+    const AtomStorage *owner;
 };
 
 // Runtime-owned table shared by every scheduler worker; entries are retained until runtime teardown.
-// Spelling lookups take a shared lock, interning a new spelling an exclusive one; admitting an atom word reads a
-// lock-free index by atom number (docs/terms.md#atoms).
+// Spelling lookups take a shared lock, interning a new spelling an exclusive one; admitting an atom word reads the
+// process-wide lock-free index by atom number (docs/terms.md#atoms).
 class AtomStorage final {
   public:
     static constexpr std::uint32_t hard_limit = std::uint32_t{1} << 26;
@@ -41,6 +42,11 @@ class AtomStorage final {
     // Read a preinitialized canonical boolean; expression services never intern atoms.
     TermResult<Term> boolean(bool value) const noexcept;
 
+    // Retire this runtime's atoms from the process-wide index before freeing them.
+    ~AtomStorage();
+    AtomStorage(const AtomStorage &) = delete;
+    AtomStorage &operator=(const AtomStorage &) = delete;
+
     // Observe retained entries for capacity accounting and registration diagnostics; the fixed entries count neither
     // here nor toward the limit (OPT0.2A, OPT0.8).
     std::size_t size() const noexcept;
@@ -54,34 +60,21 @@ class AtomStorage final {
     // entered first, with their fixed words (OPT0.2A).
     explicit AtomStorage(std::uint32_t limit);
 
-    // The atom Term of a stored entry, pinning its spelling.
-    static Term atom_term(const std::shared_ptr<const AtomValue> &value) noexcept;
+    // The atom Term of a stored entry.
+    static Term atom_term(const AtomValue &value) noexcept;
 
     // Bound entries independently of the process-wide non-recycled word namespace.
     std::uint32_t limit_;
-    // Guards both indexes: concurrent readers, one writer publishing a new entry.
+    // Guards names_: concurrent readers, one writer publishing a new entry.
     mutable std::shared_mutex mutex_;
-    // Both indexes share immutable records; failed insertion rolls back the other index.
-    std::map<std::string, std::shared_ptr<const AtomValue>, std::less<>> names_;
-    std::map<Word, std::shared_ptr<const AtomValue>> words_;
-    // The fixed entries in number order, found without the lock (OPT0.2A, OPT0.8).
-    std::array<std::shared_ptr<const AtomValue>, fixed_atoms> fixed_;
-    // The entries of this runtime by atom number, for admission without the lock (cheap term access): chunks of
-    // slots naming the stable records in words_, each chunk and slot published once under the exclusive lock.
-    // Numbers past the index are admitted through words_ under the shared lock.
-    static constexpr std::size_t INDEX_CHUNK = 4096;
-    static constexpr std::size_t INDEX_CHUNKS = 4096;
-    using IndexSlot = std::atomic<const std::shared_ptr<const AtomValue> *>;
-    std::array<std::atomic<IndexSlot *>, INDEX_CHUNKS> index_{};
-    std::vector<std::unique_ptr<IndexSlot[]>> index_chunks_;
+    // This runtime's interned atoms by spelling, the key viewing its record's own spelling; the fixed atoms are not
+    // entered here (OPT0.2A, OPT0.8).
+    std::map<std::string_view, std::unique_ptr<const AtomValue>> names_;
 
-    // Publish a new entry in the index; one numbered past it stays in words_ alone.
-    void index(const std::shared_ptr<const AtomValue> &entry);
-
-    // The fixed entry of a spelling, or null.
-    const std::shared_ptr<const AtomValue> *fixed(std::string_view spelling) const noexcept;
-    // The entry of an atom word issued by this runtime, or null; entries stay until runtime teardown.
-    const std::shared_ptr<const AtomValue> *find(Word word) const noexcept;
+    // The fixed atom number of a spelling, or none.
+    static std::optional<std::size_t> fixed(std::string_view spelling) noexcept;
+    // The record of an atom word issued by this runtime or fixed, or null; entries stay until runtime teardown.
+    const AtomValue *find(Word word) const noexcept;
 };
 
 // Erlang atoms contain at most 255 Unicode scalar values, including the empty spelling and NUL.

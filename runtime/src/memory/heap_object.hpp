@@ -8,7 +8,7 @@ namespace clause::runtime::detail {
 class HeapStorage;
 
 struct HeapObject {
-    // Decoded view of one admitted object, read from its header; borrows words while a Term pins the heap.
+    // Decoded view of one admitted object, read from its header; borrows words until the heap's next collection.
     Word value;
     TermKind kind;
     // Every word of the object; count is tuple arity, record fields, map entries, cons fields, limbs, 1 for floats
@@ -22,10 +22,21 @@ struct TermAccess {
     static TermResult<Term> admit(Word value, HeapStorage &storage) noexcept;
     // Admit a pid or port word whose number the storage's runtime issued; others are forged or foreign (wrong_owner).
     static TermResult<Term> identity(Word value, const HeapStorage &storage) noexcept;
-    // Check host lifetime and collection count, then decode a heap term's object from its header.
+    // Decode a compound term's object from its header; wrong_type for any other term.
     static TermResult<HeapObject> object(const Term &value) noexcept;
-    // Retain the parent's backing when resolving a checked child slot.
-    static TermResult<Term> child(const Term &parent, Word value) noexcept;
+
+    // A slot word of an admitted term, itself a term of the same heap (one-word terms).
+    static TermResult<Term> child(const Term &, Word value) noexcept { return make(value); }
+
+    // The Term of a word already known to be a term of the heap at hand: nothing is checked (one-word terms).
+    static Term make(Word value) noexcept {
+        Term result;
+        result.value_ = value;
+        return result;
+    }
+
+    // Every word of the object a compound word names, read by its header (trusted walks).
+    static std::span<const Word> trusted_cell(Word value) noexcept;
     // The words of the boxed object a word names in this process's heap or literal areas, its header first and as
     // many words as the header counts; empty when it names none (cheap comparisons).
     static std::span<const Word> boxed_words(ProcessHeap &heap, Word value) noexcept;
@@ -49,10 +60,7 @@ struct TermAccess {
         return std::bit_cast<const Word *>(value & ~static_cast<Word>(abi::v1::primary_mask));
     }
 
-    // Check that value is a live, current term or an immediate; expiration and staleness stay distinct.
+    // Check that value is an admitted term or a canonical immediate; a default slot is invalid.
     static TermResult<void> validate(const Term &value) noexcept;
-
-    // The heap holding a compound term's object; null for immediates and atoms.
-    static HeapStorage *storage(const Term &value) noexcept { return value.heap_; }
 };
 } // namespace clause::runtime::detail

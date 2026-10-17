@@ -122,7 +122,6 @@ TermResult<BitExtract> bit_utf_extract(ProcessContext &context, const BitView &v
     if (!value || !scalar(*value)) {
         return std::unexpected(TermError::invalid_argument);
     }
-    return TermFactory(context).integer(*value).transform(
-        [&](Term term) { return BitExtract{std::move(term), cursor}; });
+    return TermFactory(context).integer(*value).transform([&](Term term) { return BitExtract{term, cursor}; });
 }
 } // namespace clause::runtime::detail

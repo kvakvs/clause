@@ -34,8 +34,8 @@ void read_chardata(Term list, std::u32string &out, std::vector<Term> &pending) {
         auto element = need(list.head());
         list = need(list.tail());
         if (element.is_list()) {
-            pending.push_back(std::move(list));
-            pending.push_back(std::move(element));
+            pending.push_back(list);
+            pending.push_back(element);
             return;
         }
         element.is_binary() ? append_binary(element, out) : append_character(element, out);
@@ -54,9 +54,9 @@ std::u32string characters(const Term &chardata_term) {
     }
     std::vector<Term> pending{chardata_term};
     while (!pending.empty()) {
-        auto list = std::move(pending.back());
+        auto list = pending.back();
         pending.pop_back();
-        read_chardata(std::move(list), out, pending);
+        read_chardata(list, out, pending);
     }
     return out;
 }

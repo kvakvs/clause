@@ -68,7 +68,7 @@ TermResult<std::optional<std::size_t>> unpack(Term list, Word *registers) {
             registers[count] = head->word();
         }
         ++count;
-        list = std::move(*tail);
+        list = *tail;
     }
     return list.is_nil() ? std::optional{count} : std::nullopt;
 }

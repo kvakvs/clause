@@ -43,7 +43,7 @@ ProcessHeap::ProcessHeap(ProcessContext &owner, HeapOptions options)
     storage_->literals_ = &owner.runtime().literal_areas();
 }
 
-// The storage may outlive this heap (host Terms keep it); it must no longer reach the context (OPT0.3).
+// The storage may outlive this heap (factories and buffers keep it); it must no longer reach the context (OPT0.3).
 ProcessHeap::~ProcessHeap() {
     storage_->absorb();
     storage_->inline_ = nullptr;

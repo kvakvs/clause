@@ -54,7 +54,7 @@ bool accumulates(std::span<const Term> values) {
 TermResult<BitExtract> extract(TermResult<Term> value) {
     return value.transform([](Term made) {
         const auto bits = made.bit_size().value_or(0);
-        return BitExtract{std::move(made), bits};
+        return BitExtract{made, bits};
     });
 }
 
@@ -124,7 +124,7 @@ std::optional<TermResult<BitExtract>> word_make(ProcessContext &context, std::sp
     }
     if (!accumulator) {
         return BitAccess::make(context.heap(), writer.bytes, writer.length).transform([&](Term value) {
-            return BitExtract{std::move(value), writer.length};
+            return BitExtract{value, writer.length};
         });
     }
     const auto start = Term::from_word(values[2], context);
@@ -157,7 +157,7 @@ TermResult<BitExtract> make(ProcessContext &context, std::span<const Term> value
             BitAccess::appendable(context.heap(), {writer.bytes.data(), writer.bytes.size()}, writer.length));
     }
     return BitAccess::make(context.heap(), writer.bytes, writer.length).transform([&](Term value) {
-        return BitExtract{std::move(value), writer.length};
+        return BitExtract{value, writer.length};
     });
 }
 
@@ -183,7 +183,7 @@ TermResult<BitExtract> part(ProcessContext &context, std::span<const Term> value
     }
     return BitAccess::slice(context.heap(), values[0], offset.convert_to<std::size_t>() * 8,
                             length.convert_to<std::size_t>() * 8)
-        .transform([](Term value) { return BitExtract{std::move(value), 0}; });
+        .transform([](Term value) { return BitExtract{value, 0}; });
 }
 
 // Join a proper list of bitstrings in order into one bitstring.
@@ -210,7 +210,7 @@ TermResult<BitExtract> concat(ProcessContext &context, std::span<const Term> val
         return std::unexpected(TermError::wrong_type);
     }
     return BitAccess::make(context.heap(), writer.bytes, writer.length).transform([&](Term value) {
-        return BitExtract{std::move(value), writer.length};
+        return BitExtract{value, writer.length};
     });
 }
 

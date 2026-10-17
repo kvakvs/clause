@@ -193,8 +193,8 @@ bool Executor::alive(ProcessContext &context, Word pid) noexcept {
 TermResult<void> Executor::send(ProcessContext &sender, Word pid, const Term &message) {
     auto &executor = of(sender);
     // A large message is copied into a buffer of its own before the lock, then handed over (message hand-off).
-    auto large = MessageBuffer::large(message, MessageBuffer::ADOPTED_WORDS)
-                     ? MessageBuffer::copy_of(message)
+    auto large = MessageBuffer::large(message, sender, MessageBuffer::ADOPTED_WORDS)
+                     ? MessageBuffer::copy_of(message, sender)
                      : TermResult<std::shared_ptr<const MessageBuffer>>{nullptr};
     if (!large) {
         return std::unexpected(large.error());
@@ -211,7 +211,7 @@ TermResult<void> Executor::send(ProcessContext &sender, Word pid, const Term &me
     if (executor.busy(&receiver)) {
         // Buffered sends: a message to a process running on another worker waits in a buffer of its own and is
         // delivered, in order, when that slice ends, instead of blocking the sender until then.
-        const auto buffered = MessageBuffer::copy_of(message);
+        const auto buffered = MessageBuffer::copy_of(message, sender);
         if (!buffered) {
             return std::unexpected(buffered.error());
         }

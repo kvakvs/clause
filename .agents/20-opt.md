@@ -188,6 +188,43 @@ port options, the importers' handler tables); not the index-bearing ones
 (`fixed_atom_spellings`, preprocessor directive names, compile cache output
 kinds) or process_info/system_info item lists.
 
+## OPTM.2: Manual Optimization - Term Size
+
+Term class should be hard limited to a single Word of size. There should be no other
+fields, all extra data is encoded in tag bits 0..1 (or 0..3 or 0..5 depending on tag
+bits value) and if even more extra data is necessary, the term becomes a Boxed value
+and is storing all extra data on the heap.
+Atom should not be a field in Term.
+heap_ should not be a field in Term.
+lifetime_ should not be a field in Term.
+
+This is a **hard requirement**, Term is one word in size.
+
+Status 2026-10-17 (OPTM.2A): done. `Term` holds only `value_`, with
+`static_assert(sizeof(Term) == sizeof(Word))` and trivially copyable. Atom
+spellings come from the process-wide `terms/atom_table` indexed by atom number
+(atom words were already never reused); `AtomStorage` stays per runtime for
+interning, limits and admission and retires its slots at teardown. Compound
+words are trusted pointers (ERTS model): admission still checks range and shape,
+nothing is checked per handle, `stale_term` and the heap collection count are
+gone. `copy_to` copies any graph its destination cannot read, reading source
+cells by pointer; `MessageBuffer::copy_of`/`large` take the sender context.
+Only the collector and copy ask whose term a word is, by address range.
+
+Remainder, in order:
+- **OPTM.2B persistent terms in place:** `persistent_term:get` returns the
+  stored word instead of copying; the buffer areas join the literal registry so
+  collection and copying skip them; erase/replace must keep an area alive while
+  any process may hold its words (OTP: a literal-area collection copies them
+  into the holders first).
+- **OPTM.2C trusted words in builtins:** builtins and services that re-admit
+  slot words of terms they already hold (`need(TermAccess::admit(...))` per
+  element) can wrap them with `TermAccess::make`; external words (generated
+  code arguments, host `from_word`) keep admission.
+- **OPTM.2D atom table readers:** `term_to_binary`'s per-encoding spelling cache
+  and the atom comparison service can read `atom_table::find` directly
+  (OPT3.14 remainder: atom `<` without the `AtomStorage` call).
+
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
 Ordered by measured T2 value and how well each fits an AOT compiler.

@@ -53,11 +53,11 @@ void drop_binaries(HeapStorage &storage, std::span<const RefcBinaryCell *const> 
 // and no table maps source objects to copies (flat message copies).
 class GraphCopy final {
   public:
-    // Borrow the source heap; it must not change until the copy is published.
-    explicit GraphCopy(HeapStorage &source) : source_(source) {}
+    // Borrow a heap of the runtime for its literal areas; the source graph must not change until the copy is published.
+    explicit GraphCopy(const HeapStorage &runtime) : runtime_(runtime) {}
 
     // Find every object occurrence reachable from root without recursion, in the order copy() visits them; false when
-    // a pointer leaves the source heap. May throw std::bad_alloc.
+    // a cell is malformed. May throw std::bad_alloc.
     bool discover(Word root) {
         std::vector<Word> pending{root};
         while (!pending.empty()) {
@@ -126,39 +126,25 @@ class GraphCopy final {
     }
 
   private:
-    // Why a word names no object to copy: an immediate, atom or literal (none), or a pointer outside the heap.
+    // Why a word names no object to copy: an immediate, atom or literal (none), or a malformed cell.
     enum class Found : std::uint8_t { none, foreign };
 
     // The source object a word names, when it is copied: literals are shared by every process of the runtime and stay
-    // as they are (OPT0.4).
-    std::expected<HeapCell, Found> source_cell(Word value) {
-        if (!compound(value)) {
+    // as they are (OPT0.4). Cells are read by trusted pointer, as BEAM's copy_struct does (one-word terms).
+    std::expected<HeapCell, Found> source_cell(Word value) const {
+        if (!compound(value) || runtime_.literal(address(value))) {
             return std::unexpected(Found::none);
         }
-        const auto area = source_area(address(value));
-        if (area.empty() && source_.literal(address(value))) {
-            return std::unexpected(Found::none);
-        }
+        const auto words = TermAccess::trusted_cell(value);
         // A cons cell has no header: it needs no parse (the commonest cell).
-        if (area.size() >= 2 && !is_header(area[0])) {
-            return HeapCell{area.first(2), area.first(2), HeapCell::Shape::cons};
+        if ((value & static_cast<Word>(abi::v1::primary_mask)) == abi::v1::list_tag) {
+            return HeapCell{words, words, HeapCell::Shape::cons};
         }
-        const auto cell = parse_cell(area);
+        const auto cell = parse_cell(words);
         if (!cell) {
             return std::unexpected(Found::foreign);
         }
         return *cell;
-    }
-
-    // The source words from `at` to the end of its area: the area the last lookup found holds the next cells of a
-    // list or tuple far more often than not, so it is checked first (cached source areas).
-    std::span<Word> source_area(std::uintptr_t at) {
-        const auto begin = reinterpret_cast<std::uintptr_t>(area_.data());
-        if (at >= begin && at < begin + area_.size_bytes() && (at - begin) % sizeof(Word) == 0) {
-            return area_.subspan((at - begin) / sizeof(Word));
-        }
-        area_ = source_.area_of(at);
-        return area_.empty() ? area_ : source_area(at);
     }
 
     // Queue the compound slots of a found cell, the only ones that can name an object.
@@ -192,9 +178,8 @@ class GraphCopy final {
         words_ += cell.words.size();
     }
 
-    // The heap the graph is read from, and the used words of the area its last cell was found in.
-    HeapStorage &source_;
-    std::span<Word> area_;
+    // A heap of the copy's runtime, whose literal areas are shared rather than copied.
+    const HeapStorage &runtime_;
     // Source cells of the copied off-heap binaries and the offsets of their copies.
     std::vector<const RefcBinaryCell *> binaries_;
     std::vector<std::size_t> binary_offsets_;
@@ -208,15 +193,14 @@ TermResult<Term> ProcessHeap::add(const Term &value) noexcept {
     if (const auto checked = detail::TermAccess::validate(value); !checked) {
         return std::unexpected(checked.error());
     }
-    auto *source = detail::TermAccess::storage(value);
-    if (source == nullptr || source == storage_.get()) {
+    const auto word = value.word();
+    if (!detail::compound(word) || !storage_->readable(detail::address(word)).empty()) {
         return retain(value);
     }
-    // Atoms of the graph are shared, so both heaps must belong to one runtime.
-    if (source->atoms_ != storage_->atoms_ || !storage_->alive()) {
-        return std::unexpected(storage_->alive() ? TermError::wrong_owner : TermError::expired_context);
+    if (!storage_->alive()) {
+        return std::unexpected(TermError::expired_context);
     }
-    return copy(*source, value.word());
+    return copy(word);
 }
 
 TermResult<Term> ProcessHeap::retain(const Term &value) noexcept {
@@ -226,9 +210,9 @@ TermResult<Term> ProcessHeap::retain(const Term &value) noexcept {
     return Term::from_word(value.word(), owner_);
 }
 
-TermResult<Term> ProcessHeap::copy(detail::HeapStorage &source, Word root) noexcept {
+TermResult<Term> ProcessHeap::copy(Word root) noexcept {
     try {
-        detail::GraphCopy graph(source);
+        detail::GraphCopy graph(*storage_);
         if (!graph.discover(root)) {
             return std::unexpected(TermError::wrong_owner);
         }
@@ -284,11 +268,11 @@ TermResult<Term> MessageBuffer::value(ProcessContext &reader) const noexcept {
 
 std::size_t MessageBuffer::words() const noexcept { return storage_ ? storage_->used_words_ : 0; }
 
-bool MessageBuffer::large(const Term &value, std::size_t minimum) noexcept {
-    auto *source = TermAccess::storage(value);
-    if (source == nullptr || !TermAccess::validate(value)) {
+bool MessageBuffer::large(const Term &value, ProcessContext &sender, std::size_t minimum) noexcept {
+    if (!compound(value.word())) {
         return false;
     }
+    const auto &source = *sender.heap().storage_;
     try {
         boost::container::small_vector<Word, 32> pending{value.word()};
         std::size_t words = 0;
@@ -296,11 +280,10 @@ bool MessageBuffer::large(const Term &value, std::size_t minimum) noexcept {
             const auto word = pending.back();
             pending.pop_back();
             // Literals are shared, not copied (OPT0.4).
-            const auto area = source->owned(address(word));
-            if (area.empty()) {
+            if (source.literal(address(word))) {
                 continue;
             }
-            if (const auto cell = parse_cell(area)) {
+            if (const auto cell = parse_cell(TermAccess::trusted_cell(word))) {
                 words += cell->words.size();
                 std::ranges::copy_if(cell->slots, std::back_inserter(pending), compound);
             }
@@ -327,17 +310,18 @@ TermResult<Term> MessageBuffer::take(const std::shared_ptr<const MessageBuffer> 
     return buffer->copy_to(destination);
 }
 
-TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Term &value) noexcept {
+TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Term &value,
+                                                                        ProcessContext &sender) noexcept {
     if (const auto checked = TermAccess::validate(value); !checked) {
         return std::unexpected(checked.error());
     }
     try {
         std::shared_ptr<MessageBuffer> buffer(new MessageBuffer());
         buffer->root_ = value.word();
-        auto *source = TermAccess::storage(value);
-        if (source == nullptr) {
+        if (!compound(value.word())) {
             return buffer;
         }
+        const auto *source = sender.heap().storage_.get();
         GraphCopy graph(*source);
         if (!graph.discover(value.word())) {
             return std::unexpected(TermError::wrong_owner);

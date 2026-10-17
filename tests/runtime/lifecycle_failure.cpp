@@ -591,8 +591,16 @@ void check_integer_arithmetic() {
 }
 
 // An isolated allocator override verifies real failure cleanup without adding production test switches.
+// The process-wide atom index keeps its chunks of slots for the life of the process, outside any runtime; add the
+// first one before the baselines are taken (one-word terms).
+void warm_atom_index() {
+    auto runtime = clause::runtime::Runtime::start().value();
+    require(runtime->atom_storage()->intern("warm_atom_index").has_value(), "atom index warm-up failed");
+}
+
 int main() {
     try {
+        warm_atom_index();
         check_startup();
         check_context_creation();
         check_registry_creation();

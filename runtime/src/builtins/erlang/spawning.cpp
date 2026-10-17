@@ -51,7 +51,7 @@ bool tuning_option(std::string_view name, const Term &value) {
 }
 
 // Apply one {Name, Value} spawn option; false for an unknown one.
-bool pair_option(const Term &option, SpawnOptions &options) {
+bool pair_option(ProcessContext &context, const Term &option, SpawnOptions &options) {
     if (!option.is_tuple() || need(option.tuple_size()) != 2) {
         return false;
     }
@@ -59,7 +59,7 @@ bool pair_option(const Term &option, SpawnOptions &options) {
     const auto value = need(option.tuple_element(1));
     if (name == "monitor") {
         options.monitor = true;
-        options.monitor_options = monitor_options(value);
+        options.monitor_options = monitor_options(context, value);
         return true;
     }
     if (name == "min_heap_size" && count(value)) {
@@ -80,18 +80,18 @@ bool flag_option(const Term &option, SpawnOptions &options) {
 }
 
 // The spawn_opt options of a list; `extra` accepts spawn_request's own options. Badarg for anything else.
-template <typename Extra> SpawnOptions spawn_options(const ListArgument &list, Extra extra) {
+template <typename Extra> SpawnOptions spawn_options(ProcessContext &context, const ListArgument &list, Extra extra) {
     SpawnOptions options;
     for (const auto &option : list.elements) {
-        if (!flag_option(option, options) && !pair_option(option, options) && !extra(option)) {
+        if (!flag_option(option, options) && !pair_option(context, option, options) && !extra(option)) {
             bad_argument();
         }
     }
     return options;
 }
 
-SpawnOptions spawn_options(const ListArgument &list) {
-    return spawn_options(list, [](const Term &) { return false; });
+SpawnOptions spawn_options(ProcessContext &context, const ListArgument &list) {
+    return spawn_options(context, list, [](const Term &) { return false; });
 }
 
 // spawn(Fun) with options; badarg unless Fun is a fun of arity 0.
@@ -103,7 +103,7 @@ TermResult<Term> spawn_fun(ProcessContext &context, const Term &fun, const Spawn
 }
 
 TermResult<Term> spawn_opt2(ProcessContext &context, const Term &fun, const ListArgument &options) {
-    return spawn_fun(context, fun, spawn_options(options));
+    return spawn_fun(context, fun, spawn_options(context, options));
 }
 
 TermResult<Term> spawn_opt3(ProcessContext &context, const AtomArgument &node, const Term &fun,
@@ -125,7 +125,7 @@ TermResult<Term> spawn_call(ProcessContext &context, const Call &call, const Spa
 
 TermResult<Term> spawn_opt4(ProcessContext &context, const AtomArgument &module, const AtomArgument &function,
                             const ListArgument &arguments, const ListArgument &options) {
-    return spawn_call(context, {module, function, arguments}, spawn_options(options));
+    return spawn_call(context, {module, function, arguments}, spawn_options(context, options));
 }
 
 TermResult<Term> spawn_opt5(ProcessContext &context, const Term &node, const AtomArgument &module,
@@ -178,12 +178,12 @@ void send_reply(ProcessContext &context, const Reply &reply, const Term &request
 }
 
 // The options of a spawn_request option list; none when one is invalid (the request then replies badopt).
-std::optional<SpawnOptions> request_options(const ListArgument *list, Reply &reply) {
+std::optional<SpawnOptions> request_options(ProcessContext &context, const ListArgument *list, Reply &reply) {
     if (!list) {
         return SpawnOptions{};
     }
     try {
-        return spawn_options(*list, [&](const Term &option) { return reply_option(option, reply); });
+        return spawn_options(context, *list, [&](const Term &option) { return reply_option(option, reply); });
     } catch (const BuiltinFailure &) {
         return std::nullopt;
     }
@@ -194,7 +194,7 @@ std::optional<SpawnOptions> request_options(const ListArgument *list, Reply &rep
 template <typename Spawn> TermResult<Term> request(ProcessContext &context, const ListArgument *list, Spawn spawn) {
     TermFactory factory(context);
     Reply reply{.tag = need(factory.atom("spawn_reply"))};
-    auto options = request_options(list, reply);
+    auto options = request_options(context, list, reply);
     auto id = need(factory.make_reference());
     if (!options) {
         send_reply(context, reply, id, false, need(factory.atom("badopt")));
@@ -366,7 +366,7 @@ detail::AliasMode alias_mode(const Term &value) {
 }
 } // namespace
 
-detail::MonitorOptions monitor_options(const Term &list) {
+detail::MonitorOptions monitor_options(ProcessContext &context, const Term &list) {
     const auto options = need(Argument<ListArgument>::convert(list));
     if (!options) {
         bad_argument();
@@ -379,7 +379,7 @@ detail::MonitorOptions monitor_options(const Term &list) {
         const auto name = need(option.tuple_element(0)).atom_spelling().value_or("");
         const auto value = need(option.tuple_element(1));
         if (name == "tag") {
-            result.tag = need(detail::MessageBuffer::copy_of(value));
+            result.tag = need(detail::MessageBuffer::copy_of(value, context));
         } else if (name == "alias") {
             result.alias = alias_mode(value);
         } else {

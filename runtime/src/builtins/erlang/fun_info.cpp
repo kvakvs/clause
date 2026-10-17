@@ -84,7 +84,7 @@ Term identity_item(ProcessContext &context, const FunDefinition &definition, std
 Term item_value(ProcessContext &context, const Term &fun, std::string_view item) {
     const auto view = fun_of(fun);
     if (auto common = common_item(context, view, item)) {
-        return std::move(*common);
+        return *common;
     }
     if (item == "pid") {
         return atom(context, "undefined");

@@ -36,7 +36,6 @@ template <typename Visit> std::size_t walk(Term &list, std::size_t budget, Visit
     if (const auto valid = detail::TermAccess::validate(list); !valid) {
         throw BuiltinFailure{.term = valid.error()};
     }
-    auto &storage = *detail::TermAccess::storage(list);
     auto rest = list.word();
     std::size_t walked = 0;
     for (; walked < budget && (rest & abi::v1::primary_mask) == abi::v1::list_tag; ++walked) {
@@ -44,7 +43,7 @@ template <typename Visit> std::size_t walk(Term &list, std::size_t budget, Visit
         visit(cell[0]);
         rest = cell[1];
     }
-    list = need(detail::TermAccess::admit(rest, storage));
+    list = detail::TermAccess::make(rest);
     return walked;
 }
 

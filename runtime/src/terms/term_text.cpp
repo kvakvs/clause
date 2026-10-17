@@ -219,8 +219,8 @@ class Renderer final {
         if (!head || !tail) {
             return std::unexpected(head ? tail.error() : head.error());
         }
-        frame.rest = std::move(*tail);
-        return std::move(*head);
+        frame.rest = *tail;
+        return *head;
     }
 
     // Selects io_lib or emulator rules for every printed value.

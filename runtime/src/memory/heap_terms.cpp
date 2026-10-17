@@ -76,9 +76,7 @@ TermResult<Term> TermAccess::identity(Word value, const HeapStorage &storage) no
     if (pid ? !numbers.issued_pid(pid_number(value)) : !numbers.issued_port(port_number(value))) {
         return std::unexpected(TermError::wrong_owner);
     }
-    Term result;
-    result.value_ = value;
-    return result;
+    return make(value);
 }
 
 TermResult<Term> TermAccess::admit(Word value, HeapStorage &storage) noexcept {
@@ -99,34 +97,23 @@ TermResult<Term> TermAccess::admit(Word value, HeapStorage &storage) noexcept {
     if (area.empty() || !shaped(kind, area)) {
         return std::unexpected(TermError::wrong_owner);
     }
-    Term result;
-    result.value_ = value;
-    result.heap_ = &storage;
-    result.lifetime_ = storage.lifetime_;
-    result.collections_ = storage.collections_;
-    return result;
+    return make(value);
+}
+
+std::span<const Word> TermAccess::trusted_cell(Word value) noexcept {
+    const auto *words = trusted(value);
+    if (TermTag{value}.get_kind() == TermKind::list) {
+        return {words, 2};
+    }
+    return {words, 1 + BoxHeader::count(words[0])};
 }
 
 TermResult<HeapObject> TermAccess::object(const Term &value) noexcept {
-    if (!value.heap_) {
+    const auto kind = TermTag{value.value_}.get_kind();
+    if (kind != TermKind::boxed && kind != TermKind::list) {
         return std::unexpected(TermError::wrong_type);
     }
-    // An unexpired token keeps heap_ valid; the storage then reads the token's flag (cheap term access).
-    if (value.lifetime_.expired() || !value.heap_->alive()) {
-        return std::unexpected(TermError::expired_context);
-    }
-    if (value.collections_ != value.heap_->collections_) {
-        return std::unexpected(TermError::stale_term);
-    }
-    return decode(value.value_, value.heap_->readable(address(value.value_)));
-}
-
-TermResult<Term> TermAccess::child(const Term &parent, Word value) noexcept {
-    const auto checked = object(parent);
-    if (!checked) {
-        return std::unexpected(checked.error());
-    }
-    return admit(value, *parent.heap_);
+    return decode(value.value_, trusted_cell(value.value_));
 }
 
 std::span<const Word> TermAccess::boxed_words(ProcessHeap &heap, Word value) noexcept {
@@ -177,13 +164,16 @@ std::span<Word> TermAccess::claim(ProcessHeap &heap, std::size_t words) noexcept
 }
 
 TermResult<void> TermAccess::validate(const Term &value) noexcept {
-    if (value.heap_) {
-        return object(value).transform([](const HeapObject &) {});
-    }
-    // Atoms, pids and ports were admitted against their runtime; a destination re-admits them (ProcessHeap::retain).
-    if (value.is_atom() || value.is_pid() || value.is_port()) {
+    // Compound words, atoms, pids and ports were admitted; a destination re-admits them (ProcessHeap::retain).
+    switch (TermTag{value.value_}.get_kind()) {
+    case TermKind::boxed:
+    case TermKind::list:
+    case TermKind::atom:
+    case TermKind::local_pid:
+    case TermKind::local_port:
         return {};
+    default:
+        return Term::from_word(value.value_).transform([](const Term &) {});
     }
-    return Term::from_word(value.word()).transform([](const Term &) {});
 }
 } // namespace clause::runtime::detail

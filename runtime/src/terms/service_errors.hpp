@@ -12,8 +12,7 @@ inline abi::v1::Status term_status(TermError error) noexcept {
                                         std::pair{TermError::wrong_owner, Status::wrong_owner},
                                         std::pair{TermError::expired_context, Status::stopped},
                                         std::pair{TermError::not_implemented, Status::not_implemented},
-                                        std::pair{TermError::diagnostic_failure, Status::diagnostic_failure},
-                                        std::pair{TermError::stale_term, Status::internal_error}};
+                                        std::pair{TermError::diagnostic_failure, Status::diagnostic_failure}};
     for (const auto &[term, status] : entries) {
         if (term == error) {
             return status;

@@ -247,10 +247,10 @@ TermResult<BitExtract> bit_extract(ProcessContext &context, const Term &source, 
     }
     if (segment.type == Type::binary) {
         return BitAccess::slice(context.heap(), source, cursor, *width).transform([&](Term value) {
-            return BitExtract{std::move(value), cursor + *width};
+            return BitExtract{value, cursor + *width};
         });
     }
     const auto result = numeric_extract(context, *view, cursor, *width, segment);
-    return result.transform([&](Term value) { return BitExtract{std::move(value), cursor + *width}; });
+    return result.transform([&](Term value) { return BitExtract{value, cursor + *width}; });
 }
 } // namespace clause::runtime::detail

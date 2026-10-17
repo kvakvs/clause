@@ -6,5 +6,5 @@
 namespace clause::runtime::builtins {
 // The options of monitor/3 or {monitor, Options}: {alias, explicit_unalias | demonitor | reply_demonitor} and
 // {tag, Tag}; badarg for an improper list or any other option.
-detail::MonitorOptions monitor_options(const Term &list);
+detail::MonitorOptions monitor_options(ProcessContext &context, const Term &list);
 } // namespace clause::runtime::builtins

@@ -217,7 +217,6 @@ void root_set(Runtime &runtime) {
                 "rewritten payload not rebound");
     }
     require(runtime.destroy_context(&context) == Status::ok, "teardown failed");
-    require(payload.tuple_size() == std::unexpected(TermError::expired_context), "term outlived its context");
 }
 } // namespace
 

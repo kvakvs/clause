@@ -43,7 +43,7 @@ void canonical(MapEntries &entries) {
     std::size_t kept = 0;
     for (std::size_t i = 0; i < entries.size(); ++i) {
         if (kept != 0 && key_order(entries[kept - 1], entries[i]) == 0) {
-            entries[kept - 1].second = std::move(entries[i].second);
+            entries[kept - 1].second = entries[i].second;
             continue;
         }
         if (kept != i) {

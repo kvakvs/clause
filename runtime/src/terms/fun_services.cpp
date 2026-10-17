@@ -23,7 +23,7 @@ bool service_ready(ProcessContext &context) {
 }
 
 void raise_call_error(ProcessContext &context, ErrorReason reason, std::optional<Term> value) {
-    context.generated_calls().fail({.code = CallError::erlang_exception, .reason = reason, .value = std::move(value)});
+    context.generated_calls().fail({.code = CallError::erlang_exception, .reason = reason, .value = value});
 }
 
 namespace {
@@ -52,7 +52,7 @@ TermResult<Term> bad_arity(ProcessContext &context, const Term &fun, std::span<c
         if (!item) {
             return item;
         }
-        items.push_back(std::move(*item));
+        items.push_back(*item);
     }
     const auto list = factory.list(items);
     return list.and_then([&](const Term &args) { return factory.tuple(std::array{fun, args}); });

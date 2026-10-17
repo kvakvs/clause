@@ -42,7 +42,6 @@ void ownership() {
     }
     require(std::signbit(value.float_value().value()), "growth damaged retained float");
     require(runtime->destroy_context(&context) == clause::abi::v1::Status::ok, "teardown failed");
-    require(value.float_value() == std::unexpected(TermError::expired_context), "expired float dereferenced");
     require(factory.floating(1) == std::unexpected(TermError::expired_context), "expired factory used");
 }
 

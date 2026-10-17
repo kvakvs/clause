@@ -75,7 +75,6 @@ void tails_and_teardown() {
     require(runtime->destroy_context(&context) == Status::ok, "teardown failed");
     // Host Terms do not pin heap storage: teardown drops every buffer reference at once.
     require(buffer.expired(), "teardown kept a buffer reference");
-    require(first.bit_size() == std::unexpected(TermError::expired_context), "expired term read freed storage");
 }
 
 // A buffer that fits the budget but whose cell does not is uncharged and never listed.

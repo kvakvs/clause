@@ -81,7 +81,7 @@ TermResult<Term> start(ProcessContext &context, const TimerArguments &arguments)
     detail::Executor::start_timer(context, {.reference = need(detail::reference_number(reference)),
                                             .destination = arguments.destination.word(),
                                             .deadline = when,
-                                            .message = need(detail::MessageBuffer::copy_of(sent))});
+                                            .message = need(detail::MessageBuffer::copy_of(sent, context))});
     return reference;
 }
 

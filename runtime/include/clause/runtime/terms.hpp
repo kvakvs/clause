@@ -8,6 +8,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -27,8 +28,6 @@ enum class TermError : std::uint8_t {
     out_of_memory,
     not_implemented,
     diagnostic_failure,
-    // A host Term taken before its heap's latest collection; its word may name moved memory.
-    stale_term,
     // An integer beyond the ERTS size limit; Erlang code sees error:system_limit.
     system_limit
 };
@@ -129,20 +128,18 @@ struct BitAccess;
 // Identify an atom within its runtime; word-sized IDs remain stable across future storage compaction.
 using AtomId = std::uintptr_t;
 
-// Host value: one tagged word, valid until its heap's next collection (ERTS Eterm held by C code).
-// Atoms pin their spelling; heap words do not pin storage and are checked against lifetime and collection count.
+// Host value: one tagged word, valid until its heap's next collection or its process's exit (ERTS Eterm held by C
+// code). Nothing is pinned or checked per handle; a Term held past either reads freed or moved memory.
 class Term final {
   public:
     // Reserve zero as an invalid slot until checked immediate construction supplies a value.
     Term() : value_(0) {}
 
-    // Copy/move a checked handle and its ownership pin without rebuilding the underlying value.
+    // Copy the word; rebinding a handle leaves every other alias unchanged.
     Term(const Term &other) = default;
     Term(Term &&other) noexcept = default;
-    // Rebind only this host handle, leaving every other alias unchanged.
     Term &operator=(const Term &other) = default;
     Term &operator=(Term &&other) noexcept = default;
-    // Release this handle's atom spelling pin; heap storage is never pinned.
     ~Term() = default;
 
     // Admit only small integers and canonical empty containers; identities/heap values remain unavailable.
@@ -194,7 +191,7 @@ class Term final {
     TermResult<double> float_value() const;
     // Copy the atom's Unicode spelling as UTF-8, or extract true/false.
     TermResult<std::string> atom_utf8() const;
-    // Borrow validated UTF-8 bytes while this Term retains its immutable spelling pin.
+    // Borrow validated UTF-8 bytes from the atom table, valid until the runtime is torn down.
     TermResult<std::string_view> atom_spelling() const noexcept;
     // Extract the atom's stable runtime-local number, not an integer Term or a storage address.
     TermResult<AtomId> atom_id() const;
@@ -260,19 +257,20 @@ class Term final {
     friend class GeneratedCallState;
     friend struct detail::TermAccess;
 
-    // Replace a process-root Term's word after a collection moved it, and mark it current again.
+    // Replace a process-root Term's word after a collection moved it.
     void rebind(Word value) noexcept;
 
-    // Store the ABI word; atom_ supplies spelling lifetime while destination admission checks membership.
+    //=============================================================
+    // This is a **hard requirement**, Term is one word in size.
+    // The user must explicitly confirm that growing the size of Term is intended.
+    // Usually it never is.
+    //=============================================================
+
+    // Store the ABI word; an atom's spelling is read from the process-wide atom table by its number. This is the
+    // only field: a Term is exactly one Word, any further data lives in its tag bits or in a boxed object (OPTM.2).
     Word value_;
-    // Pin immutable atom spelling independently of process, module and runtime lifetimes.
-    std::shared_ptr<const AtomValue> atom_;
-    // Borrow the owning heap of an admitted heap word; dereference only while lifetime_ is alive.
-    detail::HeapStorage *heap_ = nullptr;
-    // Detect context teardown without keeping heap storage alive.
-    std::weak_ptr<const ContextLifetime> lifetime_;
-    // The heap's collection count at admission; a later collection makes this Term stale.
-    std::size_t collections_ = 0;
 };
+
+static_assert(sizeof(Term) == sizeof(Word) && std::is_trivially_copyable_v<Term>, "a Term is exactly one Word");
 
 } // namespace clause::runtime

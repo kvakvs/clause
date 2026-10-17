@@ -93,11 +93,11 @@ TermResult<ReferenceIdentity> Term::reference_value() const {
     return detail::reference_number(*this).transform([](std::uint64_t number) { return ReferenceIdentity(number); });
 }
 
-bool Term::is_pid() const { return !heap_ && !atom_ && TermTag{value_}.get_kind() == TermKind::local_pid; }
+bool Term::is_pid() const { return TermTag{value_}.get_kind() == TermKind::local_pid; }
 
 bool Term::is_reference() const { return kind() == TermKind::local_reference; }
 
-bool Term::is_port() const { return !heap_ && !atom_ && TermTag{value_}.get_kind() == TermKind::local_port; }
+bool Term::is_port() const { return TermTag{value_}.get_kind() == TermKind::local_port; }
 
 namespace detail {
 TermResult<std::uint64_t> reference_number(const Term &value) noexcept {

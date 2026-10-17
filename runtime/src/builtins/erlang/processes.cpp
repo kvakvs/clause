@@ -107,7 +107,7 @@ TermResult<Term> monitor(ProcessContext &context, const AtomArgument &type, cons
 }
 
 TermResult<Term> monitor3(ProcessContext &context, const AtomArgument &type, const Term &item, const Term &options) {
-    return monitor_with(context, type, item, monitor_options(options));
+    return monitor_with(context, type, item, monitor_options(context, options));
 }
 
 // The options of demonitor/2: a proper list of flush and info.

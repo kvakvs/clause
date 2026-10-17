@@ -30,7 +30,7 @@ inline std::optional<Term> admit(ProcessContext &context, Word word) {
         context.generated_calls().fail_service(detail::term_status(term.error()));
         return std::nullopt;
     }
-    return std::move(*term);
+    return *term;
 }
 
 // The result word of a constructed term, or 0 after recording why construction failed.

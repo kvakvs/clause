@@ -92,7 +92,7 @@ class ProcessContext final : private abi::v1::FrameState {
     // Keep context addresses stable for the full continuation/heap lifetime.
     ProcessContext(const ProcessContext &) = delete;
     ProcessContext &operator=(const ProcessContext &) = delete;
-    // Invalidate host handles before releasing process-owned terms and heap storage.
+    // Invalidate factories before releasing process-owned terms and heap storage; host Terms are not tracked.
     ~ProcessContext();
     // Borrow a token that expires/is invalidated before process-owned resources are released.
     std::weak_ptr<const ContextLifetime> lifetime() const noexcept;

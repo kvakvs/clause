@@ -59,7 +59,8 @@ Term sample(ProcessContext &context, std::int64_t tag) {
 // Store `value` under `key`, both terms of `writer`.
 void put(PersistentTerms &table, ProcessContext &writer, const Term &key, const Term &value) {
     static_cast<void>(table.store(
-        hash_of(key), {.key = MessageBuffer::copy_of(key).value(), .value = MessageBuffer::copy_of(value).value()},
+        hash_of(key),
+        {.key = MessageBuffer::copy_of(key, writer).value(), .value = MessageBuffer::copy_of(value, writer).value()},
         same_as(writer, key)));
 }
 

@@ -134,8 +134,8 @@ void tuple_arity(Runtime &runtime) {
     require(runtime.destroy_context(&context) == Status::ok, "tuple context teardown failed");
 }
 
-// Foreign or out-of-heap words never reach a header read, though add copies a foreign graph; expiration denies
-// access while safely pinning storage.
+// Foreign or out-of-heap words never reach a header read, though add copies a foreign graph; an expired factory
+// allocates nothing.
 void ownership(Runtime &runtime, ProcessContext &context, const Term &value) {
     auto &other = *runtime.create_context().value();
     require(Term::from_word(value.word(), other) == std::unexpected(TermError::wrong_owner), "foreign heap admitted");
@@ -143,7 +143,6 @@ void ownership(Runtime &runtime, ProcessContext &context, const Term &value) {
     require(Term::from_word(Word{1}, context) == std::unexpected(TermError::wrong_owner), "forged cons admitted");
     TermFactory factory(context);
     require(runtime.destroy_context(&context) == Status::ok, "context removal failed");
-    require(value.tuple_element(0) == std::unexpected(TermError::expired_context), "expired graph accessed");
     require(factory.tuple({}) == std::unexpected(TermError::expired_context), "expired factory accessed");
 }
 } // namespace

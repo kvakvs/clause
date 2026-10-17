@@ -48,8 +48,9 @@ It brings the archive, ABI/runtime headers and C++23, but not LLVM.
 
 Teardown order: close scheduler records → destroy contexts → release code
 registrations → destroy scheduler service → atom table last. Resolved function
-handles keep code and atom spellings alive after runtime teardown but never a
-process.
+handles keep code alive after runtime teardown, but their atom slot words pin no
+spellings. Atom storage retires its global slots before freeing records; spelling
+access through a surviving non-fixed atom Term reports `expired_context`.
 
 ## Process memory
 
@@ -82,6 +83,10 @@ sizing, admission, roots and collection are specified in
   ([roots and safe points](runtime-heap.md#roots-and-safe-points)); generated
   code collects at its own safepoints
   ([collection in generated code](runtime-heap.md#collection-in-generated-code)).
+  Host Terms are unrooted one-word values; rebuild them from rewritten roots
+  after collection. They have no lifetime or stale checks and cannot be read
+  after collection or process exit. Factories and reservations keep their own
+  lifetime tokens and still report `expired_context`.
 
 ## Code server and builtins
 
@@ -143,6 +148,8 @@ reached through `ProcessContext::persistent_terms()`, keeps the terms of
   erase ([differences](differences.md)). Every process heap stays
   self-contained: a replaced or erased value is freed when the last reader still
   copying it drops its buffer reference, and no global collection is needed.
+  Future work could return the stored term in place as a read-only, literal-like
+  area instead of copying on reads.
 - A shared lock serves readers on any number of workers; put and erase take it
   alone and never copy while holding it. CTest `runtime_persistent_terms` covers
   values outliving their writer, replaced values held by readers, concurrent
@@ -171,12 +178,14 @@ threads of one runtime. Services they share are synchronized; everything else
 stays confined to the thread running its process or guarded by the executor's
 mutex.
 
-- Atoms: `AtomStorage` guards both indexes with a shared mutex. Lookups
-  (`lookup`, `boolean`, `size`) share it; `intern` looks up under the shared
-  lock and only a new spelling takes the exclusive lock, checks again and
-  publishes the entry, so racing interns of one spelling get one word. Words
-  stay stable: an entry is never changed or removed before teardown. Admission
-  of atom words reads a lock-free index ([atoms](terms.md#atoms)).
+- Atoms: `AtomStorage` guards its spelling map and owned records with a shared
+  mutex. `existing` and `size` share it; `intern` first looks up under the shared
+  lock, then takes the exclusive lock for a new spelling and checks again, so
+  racing interns get one word. Publication uses the process-wide
+  `detail::atom_table`; admission and spelling reads use its lock-free number
+  index (`lookup` also checks the record's owner). Fixed atoms need no lock.
+  Records stay unchanged until teardown retires their slots
+  ([atoms](terms.md#atoms)).
 - Code: `CodeServer` guards its modules and external fun definitions with a
   shared mutex. Lookups (`find_module`, `resolve`, `atom_word`,
   `record_definition`, `fun_definition`, `export_frame`, `function_frame`,
@@ -189,7 +198,7 @@ mutex.
   destroyed after every context, so definitions, frames and atom slots it
   returned stay valid for every invocation and every fun cell.
   `ResolvedFunction` and `find_module` handles also keep their module after the
-  runtime is gone.
+  runtime is gone; their atom slots retain words, not spelling pins.
 - Pid and port numbers: `IdentityNumbers` issues numbers under an exclusive
   lock and admits pid and port words under a shared one.
 - Memory: the runtime-wide account (`RuntimeMemory`) charges and releases with

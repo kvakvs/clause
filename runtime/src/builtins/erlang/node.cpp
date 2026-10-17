@@ -69,7 +69,7 @@ Term local_info(ProcessContext &context, const MapArgument &options) {
     std::vector<std::pair<Term, Term>> entries;
     for (const auto &option : need(options.term.map_entries())) {
         if (auto entry = info_entry(context, option)) {
-            entries.push_back(std::move(*entry));
+            entries.push_back(*entry);
         }
     }
     return need(TermFactory(context).map(entries));

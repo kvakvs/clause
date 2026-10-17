@@ -1,7 +1,7 @@
 # Runtime term API — implemented containers and future families
 
 Status: small integers, atoms/booleans, tuples and proper/improper lists are
-implemented with checked contextual admission and retained host ownership.
+implemented with checked contextual admission and one-word host Terms.
 See [containers](../../docs/terms.md#tuples-lists-strings), [runtime atoms](../../docs/terms.md#atoms),
 [process memory](../../docs/runtime.md#process-memory), and [generated roots](../../docs/abi.md#root-scopes).
 The table below also reserves future numeric/map/binary/identity APIs; a declaration
@@ -9,19 +9,19 @@ alone does not establish implementation. Graphs copy between heaps of one runtim
 (`copy_to`); collection runs at safepoints or on host request
 ([heap contract](../../docs/runtime-heap.md)).
 
-Host [Term](../include/clause/runtime/terms.hpp) contains an ABI word, an optional
-atom spelling pin and a borrowed heap with a lifetime token and collection count.
-It is not a generated or heap layout. Private layouts use target Word slots that a
-walker parses from headers; admission checks owned range and header shape.
+Host [Term](../include/clause/runtime/terms.hpp) is exactly one `Word` and trivially
+copyable; its only field is `value_`. It carries no atom pin, heap pointer, lifetime
+token or collection count. Private layouts use target Word slots that a walker
+parses from headers; contextual admission checks owned range and header shape.
 
 ## Class boundary and immediate ABI
 
 `Term` is a final host value API with private storage and process-bound
-`TermFactory` construction. Its Word is an admitted value; immutable atom
-records add spelling lifetime independently of processes and runtime teardown.
-Compound handles pin stable backing but deny access after context expiration.
-The default zero word is invalid. Root scopes preserve allocating call lifetimes;
-moving GC remains future work.
+`TermFactory` construction. Compound words are trusted pointers, as ERTS Eterms
+are: accessors decode cells directly and child handles wrap stored slot words.
+`TermAccess::validate` checks representation only, not ownership or liveness.
+The default zero word is invalid. Registered roots are rewritten by moving GC;
+unrooted heap Terms are valid only until the next collection or process exit.
 
 The implemented term representation retains [v1 names](../../abi/include/clause/abi/v1.hpp)
 with checked C++ integer helpers in [term.hpp](../../abi/include/clause/abi/term.hpp).
@@ -57,8 +57,9 @@ Superseded by the classic heap contract in
 reservations below remain until steps 8B–8D replace them.
 
 `Word` is the runtime target's unsigned pointer-width type, aligned to 4 or 8 bytes.
-`TermTag` and `BoxHeader` are each one word; host `Term` includes ownership pins. The private header reserves low
-two bits 00, five kind bits at bits 2–6, and a content-word count starting at bit 7.
+`TermTag`, `BoxHeader` and host `Term` are each one word. The private header
+reserves low two bits 00, five kind bits at bits 2–6, and a content-word count
+starting at bit 7.
 That count excludes the header and includes all remaining prefix, trailing payload
 and allocation padding. Tuple construction initializes its header before publication; other boxed families below remain reserved.
 Cons cells have no header; they contain exactly a head term and a tail term.
@@ -126,30 +127,30 @@ Distribution and serialization, including imports of remote identities, are defe
 ## Values, ownership and errors
 
 The following contracts apply to admitted atoms and containers; future categories
-must satisfy equivalent ownership rules before admission. Context teardown clears
-liveness before releasing its storage pin. Compound Terms retain that backing for
-safe destruction and return `expired_context` from checked accessors thereafter.
+must satisfy equivalent ownership rules before admission. Contextual admission
+checks storage liveness, readable ranges, cell shape, and atom/pid/port ownership.
+Ordinary Term access trusts the admitted word; it has no per-handle lifetime check.
 
-- Factories bind to one process context. Every returned term is a rooted host
-  handle; copying retains the value, assigning rebinds only that C++ handle.
-  The current sketch permits an invalid default slot; it must be initialized before use.
-  Moved-from handles support only
-  destruction or assignment; all inspection requires a live handle.
+- Factories bind to one process context. Returned Terms are unrooted words;
+  copying copies only the word, assigning rebinds only that C++ handle.
+  The invalid default slot must be initialized before use. A Term is trivially
+  copyable and safe to destroy without accessing its backing.
 - Input spans and strings are borrowed only for the duration of a call. Extraction
-  returns owned text/bytes, copied opaque identities or rooted child handles.
-  No borrowed view survives heap movement or collection.
+  returns owned text/bytes, copied opaque identities or unrooted child Terms.
+  Heap borrows and unrooted heap Terms do not survive movement or collection.
 - Composite construction and updates accept terms from the same process context.
   Foreign compound inputs return `wrong_owner`; immediates are owner-independent
   and atoms are shared within one runtime. `copy_to`/`ProcessHeap::add` retain
-  same-heap values and copy foreign graphs of the same runtime;
-  ordinary C++ handle copies never transfer process ownership.
+  values readable by the destination (its heap or literals) and copy other
+  graphs under a same-runtime caller contract. Ordinary C++ handle copies
+  never transfer process ownership.
   Runtime-issued identities/descriptors must belong to the same runtime instance.
-- Scheduler-mediated process exit invalidates term/factory lifetime tokens before
-  freeing heap storage; surviving handles report `expired_context` for checked
-  operations. Unchecked predicates require a live context. Identity values retain
-  runtime identity independently of process liveness; no raw context pointer may dangle.
-  Handles are confined to their owning process execution thread until a scheduler
-  handoff contract exists; smart-pointer ownership does not imply thread safety.
+- Heap Terms held past the next collection or process exit read moved or freed
+  memory: access is undefined, with no `stale_term` error. Factories, reservations
+  and message buffers keep their own lifetime tokens and still report
+  `expired_context`. Non-fixed atom spelling access reports `expired_context`
+  after runtime teardown; fixed atom records are immortal. Terms stay on their
+  process execution thread; another process may only read them while stable.
 - Semantic failures use `TermResult<T>`. Wrong accessors return `wrong_type`;
   narrowing/index/slice errors return `out_of_range`. Invalid atoms, decimal text
   and bit encodings are rejected. Allocation/traversal budgets return
@@ -168,22 +169,23 @@ safe destruction and return `expired_context` from checked accessors thereafter.
 `ProcessContext` owns one `ProcessHeap` as an explicit member, and `TermFactory`
 allocates there. The heap's `add(value)` and `value.copy_to(destination)` are the
 same operation (step 28): immediates and same-runtime atoms transfer as they
-are, a term of the destination heap keeps its identity, and a graph of another
-process of the same runtime is copied with its sharing, sharing off-heap binary
-buffers ([copying between heaps](../../docs/runtime-heap.md#copying-between-heaps)).
+are, a term readable by the destination keeps its identity, and a graph of another
+process of the same runtime is copied flat, sharing literal areas and off-heap
+binary buffers ([copying between heaps](../../docs/runtime-heap.md#copying-between-heaps)).
 Factories accept only inputs `retain` admits, so foreign graphs there stay
 `wrong_owner`. Copying a future pid/reference/fun preserves identity, not liveness.
 
-Both heaps must belong to the same runtime, be live, and be exclusively accessible
-to the caller on their owner thread; the source is only read and must not change
-until the copy returns. Calling from one worker into another worker's heap will be
-forbidden once workers exist; messaging copies into receiver fragments
-([step 45](../../.agents/11-plan.md#step-45)). Cross-runtime copies are `wrong_owner`
-and remote serialization stays outside this API. An expired source reports
-`expired_context`, a source handle older than its heap's last collection
-`stale_term`; destination budget or runtime-limit exhaustion reports
-`resource_limit` and host allocation failure `out_of_memory`, with both heaps and
-every charge unchanged. A copy survives the source's collection and teardown.
+Both heaps must belong to the same runtime and be live; this is a caller contract,
+not a compound-copy ownership check. Source cells are read through trusted pointers,
+with literals recognized by the destination runtime's registry. The source must
+remain stable until copying returns; cross-worker messaging uses buffers
+([message buffers](../../docs/runtime-heap.md#message-buffers)). Invalid source
+lifetimes are undefined, not detected errors. Root atoms, pids and ports are
+re-admitted by the destination. An expired destination reports `expired_context`;
+destination budget or runtime-limit exhaustion reports `resource_limit` and host
+allocation failure `out_of_memory`, with both heaps and every charge unchanged.
+A copied graph survives the source's collection and teardown; remote serialization
+stays outside this API.
 
 `ProcessHeap::collect(roots)` is the explicit GC boundary: at a safe point it
 copies the live graph and rewrites roots, otherwise it returns
@@ -219,7 +221,8 @@ generated code may collect.
   values; integer access never silently coerces a float. Atoms validate UTF-8,
   preserve spelling without Unicode normalization, and enforce OTP-compatible
   length limits plus runtime AtomStorage budgets. New names receive sequential
-  runtime-local IDs wrapped as atom Terms; existing names retain their IDs.
+  process-wide, never-reused IDs wrapped as atom Terms; existing names retain
+  their IDs.
   The startup cap defaults to 2^20 entries and cannot exceed the hard limit of 2^26.
 - Bitstrings use exactly `ceil(bit_count / 8)` bytes with MSB-first significant
   bits; unused low bits in the last byte must be zero on input and output. Empty

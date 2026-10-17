@@ -82,7 +82,7 @@ RecordResult make(ProcessContext &context, const void *descriptor, std::span<con
     }
     return TermFactory(context)
         .native_record(*definition, terms)
-        .transform([](Term value) { return std::vector{std::move(value)}; })
+        .transform([](Term value) { return std::vector{value}; })
         .transform_error(fault);
 }
 
@@ -97,7 +97,7 @@ RecordResult get(ProcessContext &context, std::span<const Term> terms, Check che
         return std::unexpected(bad_field(context, terms, 3));
     }
     return TermAccess::child(terms[0], view->values[*position])
-        .transform([](Term value) { return std::vector{std::move(value)}; })
+        .transform([](Term value) { return std::vector{value}; })
         .transform_error(fault);
 }
 
@@ -117,7 +117,7 @@ RecordResult update(ProcessContext &context, std::span<const Term> terms, Check 
     }
     return TermFactory(context)
         .native_record_words(*view->definition, values)
-        .transform([](Term value) { return std::vector{std::move(value)}; })
+        .transform([](Term value) { return std::vector{value}; })
         .transform_error(fault);
 }
 
@@ -139,7 +139,7 @@ RecordResult match(std::span<const Term> terms, Check check) {
         if (!value) {
             return std::unexpected(fault(value.error()));
         }
-        fields.push_back(std::move(*value));
+        fields.push_back(*value);
     }
     return fields;
 }
@@ -189,7 +189,7 @@ TermResult<std::vector<Term>> admit(ProcessContext &context, std::span<const Wor
         if (!term) {
             return std::unexpected(term.error());
         }
-        terms.push_back(std::move(*term));
+        terms.push_back(*term);
     }
     return terms;
 }

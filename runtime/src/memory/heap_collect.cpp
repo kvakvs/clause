@@ -76,7 +76,6 @@ Copier::Copier(HeapStorage &storage, std::size_t capacity, Generation generation
             std::span<const Word>{storage_.heap_.words_.get(), std::min(storage_.high_water_, storage_.heap_.top_)};
     }
     old_start_ = storage_.old_.top_;
-    ++storage_.collections_;
 }
 
 Word Copier::evacuate(Word value) noexcept {

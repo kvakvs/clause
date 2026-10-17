@@ -24,8 +24,8 @@ TermResult<std::optional<ListArgument>> Argument<ListArgument>::convert(const Te
         if (!head || !tail) {
             return std::unexpected(head ? tail.error() : head.error());
         }
-        result.elements.push_back(std::move(*head));
-        list = std::move(*tail);
+        result.elements.push_back(*head);
+        list = *tail;
     }
     return list.is_nil() ? std::optional{std::move(result)} : std::nullopt;
 }

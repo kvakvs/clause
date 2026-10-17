@@ -139,8 +139,6 @@ class HeapStorage final {
     std::size_t map_edit_floor_ = 0;
     // Set while a reservation is open; one reservation at a time.
     bool pending_ = false;
-    // Completed collections; host Terms admitted before the latest one are stale.
-    std::size_t collections_ = 0;
     // garbage_collect/0,1,2 asked for a collection at the next safepoint (step 41G1).
     bool collection_requested_ = false;
     // The owning context's FrameState::slow word, so generated entries see a wanted collection (OPT0.1); null for

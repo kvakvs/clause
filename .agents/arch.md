@@ -226,10 +226,16 @@ Compact map of how Clause works. History lives in `00-finished.md`,
 
 ## Runtime terms
 
+- Host `Term` = exactly one Word (static_assert, trivially copyable), OPTM.2:
+  compound words are trusted pointers (ERTS Eterm); contextual admission
+  (`Term::from_word(word, context)`, factories via `retain`) checks range/shape/
+  ownership; no per-handle staleness/expiry check, roots are rewritten by GC.
 - Terms: arbitrary integers (immediates, else heap sign/magnitude up to ERTS
   `BIG_ARITY_MAX`, beyond = `system_limit`), atoms (validated UTF-8, deduped,
-  limits, shared-mutex `AtomStorage`, lock-free number index), tuples, lists,
-  binary64 float cells, maps, bitstrings, funs, pids, refs, ports.
+  limits, shared-mutex per-runtime `AtomStorage`; spellings via the
+  process-wide lock-free `terms/atom_table` indexed by never-reused atom
+  number), tuples, lists, binary64 float cells, maps, bitstrings, funs, pids,
+  refs, ports.
 - Order: numbers < atoms < refs < funs < ports < pids < tuples < maps < lists <
   bitstrings; iterative, no work cap (`terms/word_order`; two atoms by
   `AtomStorage::spelling` in the comparison service). Exact equality
@@ -280,7 +286,8 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   runtime-wide `detail::RuntimeMemory` (atomic); host refusal = `out_of_memory`,
   exit 70.
 - `memory/copy` `GraphCopy`: iterative flat copy (as OTP copy_struct) between
-  same-runtime heaps; refc buffers shared, charged once per process
+  same-runtime heaps, source cells read by trusted pointer, literals recognised
+  by the runtime's literal registry; refc buffers shared, charged once per process
   (`HeapStorage::buffers_`). `memory/MessageBuffer` holds terms outside
   processes (messages, persistent terms `memory/persistent_terms`); a message of
   512+ words is built before the executor lock and its block adopted as a

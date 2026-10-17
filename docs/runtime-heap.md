@@ -151,10 +151,11 @@ heap. Smaller maps stay `map` cells.
   are laid out by the compiler as heap cells in one read-only global
   (`ModuleDescriptor::literals`), registered runtime-wide
   (`detail::LiteralAreas`, a lock-free sorted snapshot) when the module is
-  registered. Terms of every process may point into them: admission and
-  `TermAccess::object` read cells through `HeapStorage::readable` (heap,
-  fragments, then literals); the collector leaves literal words as they are
-  (`owned` stays heap-only); copies between heaps and into message buffers keep
+  registered. Terms of every process may point into them: admission checks
+  `HeapStorage::readable` (heap, fragments, then literals), while
+  `TermAccess::object` reads trusted pointers. The collector leaves literal
+  words as they are (`owned` stays heap-only); copies between heaps and into
+  message buffers keep
   pointing at them (a literal root needs no copy); the verifier accepts them.
   Literals hold only immediates (fixed atoms only) and other literals' words.
 - **Fragments.** When a request does not fit and the heap may not move, it goes
@@ -252,17 +253,23 @@ runtime-wide account; a thread frees its cache when it ends.
 Pointers into a process heap are created only by the compiler and the runtime
 inside that process, and always name an object start; there are no interior
 pointers to detect. Admission is an ownership check for words handed back to a
-process:
+process. `Term::from_word(word, context)` / `TermAccess::admit` first check
+storage liveness (`expired_context`); atoms and pids/ports must belong to that
+runtime (fixed atoms are shared). For compound words:
 
 1. The address is word-aligned inside one of the process's areas, below its
    `top`: the heap block is checked first, then fragments sorted by address,
-   then the literal areas ([areas](#areas)). Foreign and stale words fail here
-   without any load.
+   then the literal areas ([areas](#areas)). Addresses outside these ranges
+   fail without a load; this does not detect old words at reused addresses.
 2. A boxed word names a header of an admitted kind (not filler); a list word
    names a cons cell (a word that is not a header).
 
-Accessors decode kind, count and payload from the header itself. `verify()`
-remains the full check that every slot names an object start, for tests.
+After admission, `TermAccess::object` decodes kind, count and payload through
+`trusted_cell`, without a heap lookup; `child` wraps the stored word and
+`validate` checks representation only. Factories still re-admit inputs through
+`ProcessHeap::retain`, rejecting foreign compound inputs with `wrong_owner`.
+`map_find` may compare another process's key read-only without that rejection.
+`verify()` remains the full check that every slot names an object start, for tests.
 
 ## Roots and safe points
 
@@ -274,7 +281,7 @@ a safe point nothing else holds heap words of the process:
 | Frame term slots | The first `roots` slots of every frame on the stack | Bottom frames have none; resume and handler indices are integers |
 | Raw frame slots | None | Spilled native values; generated code keeps no heap word there at a safe point ([reload rule](#reload-rule)) |
 | Registers | `x[0..live)` (`ProcessStack::keep_registers`) | A suspended entry's arguments; every push and pop clears `live` |
-| Failure channel | Error payload (BEAM `fvalue`), `erlang:error/2,3` argument list, stack trace term | Rebound in place; captured trace frames are descriptor pointers into code |
+| Failure channel | Error payload (BEAM `fvalue`), `erlang:error/2,3` argument list, stack trace term | `GeneratedCallState` Terms rewritten by `Term::rebind`, which stores only the new word; captured trace frames are descriptor pointers into code |
 | Trap state | The term words of a trapping builtin's `TrapState` ([portions](builtins.md#portions)) | Released when the builtin finishes or fails |
 | Process dictionary | Every key and value | Until erased or the process ends |
 | Mailbox | Every message in the signal inbox and the message queue, including `'EXIT'` and `'DOWN'` messages | Until a receive takes it; rewritten in place, so the receive cursor (a list position) and timeout deadline stay valid |
@@ -286,10 +293,13 @@ collected. Fun cells name code through their untraced `FunDefinition`, which
 lives as long as the runtime; loaded modules are never unloaded, so neither funs
 nor trace descriptors need a pin. Small immediates are not roots.
 
-As in ERTS C code, a host `Term` is a raw tagged word valid until the next safe
-point of its heap; it does not pin heap storage
-([ownership](terms.md#ownership)). A `Term` is only valid inside its own
-process; other processes may only read it.
+As in ERTS C code, a host `Term` is exactly one trivially copyable word, valid
+until its heap's next collection or process exit; it has no pin, heap pointer,
+lifetime token or collection epoch ([ownership](terms.md#ownership)). Access
+after either boundary reads moved or freed memory and is undefined, with no
+`stale_term` check. Registered roots are rewritten; an unregistered host Term
+must be rebuilt from its rewritten root word. A Term belongs to its process;
+other processes may only read it while the source stays stable.
 
 The heap moves only at a safe point, and never while a reservation is open:
 
@@ -306,10 +316,14 @@ request that does not fit creates a fragment.
 
 A `MessageBuffer`
 ([message_buffer.hpp](../runtime/src/memory/message_buffer.hpp)) keeps a term
-outside every process: `copy_of` copies the graph from its process heap into a
-`HeapStorage` of its own (its own lifetime token, the runtime's atoms and memory
-account, off-heap binaries shared and held), with the same `GraphCopy` a send
-uses; `copy_to` copies it into a receiver's heap. Immediates need no storage.
+outside every process: `copy_of(value, sender)` copies the graph from the
+sender's process heap into a `HeapStorage` of its own. The sender's
+`ProcessContext` supplies heap options, literal areas, atoms, identities and the
+runtime memory account; the buffer keeps its own lifetime token and shares
+off-heap binaries. It uses the same `GraphCopy` as a send; `copy_to` copies it
+into a receiver's heap. Immediates and literal roots need no storage. Factories,
+reservations and message buffers keep their lifetime checks (`expired_context`);
+a Term read from a buffer pins nothing and must not outlive its backing.
 The buffer is never collected and is freed with its last owner; its block is
 exactly the term's words, whatever the sender's minimum heap. Messages to a
 process running on another worker ([workers](processes.md#workers)), timer
@@ -317,7 +331,8 @@ messages, monitor tags and [persistent terms](runtime.md#persistent-terms) use
 it, so they are never re-encoded.
 
 **Message hand-off.** A send whose message takes at least
-`MessageBuffer::ADOPTED_WORDS` (512) words, counted by a bounded walk that stops
+`MessageBuffer::ADOPTED_WORDS` (512) words, counted by
+`MessageBuffer::large(value, sender, minimum)` with a bounded walk that stops
 there, builds the buffer before taking the executor lock, so the sender holds
 no lock while copying. The receiver then takes the buffer over instead of
 copying it (`MessageBuffer::take`, `HeapStorage::adopt`), when the buffer has
@@ -482,9 +497,9 @@ register that held `Y`.
 
 A Cheney copy (`memory/heap_collect`), a full sweep or a minor collection
 ([generations](#generations)): allocate the new block first
-(failure is `out_of_memory` and leaves the heap untouched), then mark host
-`Term`s stale, copy the object behind every root word and scan the new block
-left to right, copying the children of each copy. A moved boxed object's header
+(failure is `out_of_memory` and leaves the heap untouched), then copy the
+object behind every root word and scan the new block left to right, copying
+the children of each copy. A moved boxed object's header
 is replaced by a boxed pointer to its copy; a moved cons cell gets a zero head
 and a tail pointing to its copy. Forwarding preserves sharing. Roots are
 rewritten in place, the off-heap list is swept (copies relinked in list order,
@@ -534,15 +549,18 @@ Generational collection, as ERTS does it, without its write barrier:
 ## Copying between heaps
 
 `ProcessHeap::add(value)`, equivalently `value.copy_to(heap)`, returns a term of
-the destination heap (BEAM `size_object` and `copy_struct`). Each source cell is
-looked up in the area of the previous one first, and a cons cell needs no parse:
+the destination heap (BEAM `size_object` and `copy_struct`). Source cells are
+read through trusted pointers, and a cons cell needs no parse:
 
-- Immediates and atoms of the same runtime need no storage, and a term of the
-  destination heap keeps its identity. A graph of another process of the same
-  runtime is copied; another runtime's graph is `wrong_owner`, an expired source
-  `expired_context`, a source handle older than its heap's last collection
-  `stale_term`. Factories still refuse foreign inputs (`ProcessHeap::retain`),
-  so only an explicit copy moves a graph.
+- A term the destination can read (its own heap or a literal area, checked by
+  `storage_->readable(address)`) keeps its identity; other graphs are copied.
+  Literal areas recognized by the destination runtime's registry stay shared.
+  Both heaps must be live and belong to one runtime: a caller contract, with no
+  cross-runtime check on compound copies or per-handle source lifetime check.
+  Reading a source after collection or exit is undefined. Root atoms, pids and
+  ports still go through destination admission; an expired destination reports
+  `expired_context`. Factories still refuse foreign compound inputs
+  (`ProcessHeap::retain`), so only an explicit copy moves a graph.
 - Copies are flat, as ERTS's default `copy_struct` (without its optional
   sharing-preserving variant): a subterm is copied once per reach, so `{T, T}`
   copies `T` twice, and a term whose sharing doubles at every level grows

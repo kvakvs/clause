@@ -148,7 +148,8 @@ class ProcessHeap final {
     // Copy everything reachable from the process roots into a new heap block, sized by the growth policy.
     // Only a safe point collects: no generated code running outside a SafePoint and no open reservation, else
     // unsafe_point.
-    // Failing to allocate the new block is out_of_memory with nothing changed; host Terms become stale.
+    // Failing to allocate the new block is out_of_memory with nothing changed; host Terms other than the rewritten
+    // roots name moved memory.
     std::expected<CollectionStats, HeapError> collect() noexcept;
     // Collect with host-held words as extra roots; the caller reads the rewritten words back afterwards.
     std::expected<CollectionStats, HeapError> collect(std::span<Word> roots) noexcept;
@@ -198,7 +199,7 @@ class ProcessHeap final {
     // Count one more cell of this process referencing an off-heap buffer; the first charges the process budget.
     std::expected<void, HeapError> hold_off_heap(const std::vector<std::byte> &buffer) noexcept;
     // Copy the graph at root from another heap of the same runtime into this one, flat as OTP copies messages.
-    TermResult<Term> copy(detail::HeapStorage &source, Word root) noexcept;
+    TermResult<Term> copy(Word root) noexcept;
     // Hold the graph's binary buffers, reserve its words and publish the copy; any failure undoes every step.
     TermResult<Term> publish_copy(detail::GraphCopy &graph, Word root) noexcept;
     // Words of the budget left after off-heap buffers, shared by the heap block and fragments.

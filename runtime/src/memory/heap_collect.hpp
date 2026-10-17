@@ -31,7 +31,7 @@ bool generations_valid(const HeapStorage &storage) noexcept;
 // One Cheney copy: the caller evacuates every root word, then finish() copies the rest and swaps the heap.
 class Copier final {
   public:
-    // Allocate the to-space block of capacity words, then mark host Terms stale; a throw leaves the heap untouched.
+    // Allocate the to-space block of capacity words, a throw leaves the heap untouched.
     // A minor collection also creates the old area when it has none, sized for the words it may promote.
     Copier(HeapStorage &storage, std::size_t capacity, Generation generation = Generation::full);
     // Return the word naming the to-space copy of value's object, copying it once; other words come back unchanged.

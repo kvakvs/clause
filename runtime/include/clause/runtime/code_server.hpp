@@ -95,7 +95,7 @@ struct ModuleAtoms final {
 
     // Use the image-owned descriptor address solely as a stable lookup key, never dereference it at use sites.
     const void *descriptor = nullptr;
-    // Pin every initialized spelling in compiler slot order, including duplicate slots.
+    // Every initialized atom in compiler slot order, including duplicate slots.
     std::vector<Term> slots;
     // The module's native record definitions in descriptor order; never resized after registration.
     std::vector<RecordDefinition> records;
