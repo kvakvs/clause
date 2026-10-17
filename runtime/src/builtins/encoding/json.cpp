@@ -1,3 +1,4 @@
+#include "json.hpp"
 #include "../../terms/bitstrings.hpp"
 #include "../../terms/term_layout.hpp"
 #include "../collections/collections.hpp"
@@ -645,6 +646,9 @@ class Escaper final {
         return finish();
     }
 
+    // The bytes of the iodata run/1 built.
+    std::size_t size() const { return bytes_.size() + 2 + extra_; }
+
   private:
     Term chars(std::string_view text) const {
         std::vector<Term> codes;
@@ -674,7 +678,9 @@ class Escaper final {
 
     // An escaped ASCII byte: [Acc | Escape], or [Acc, Run | Escape] after a run.
     void ascii(std::uint8_t byte) {
-        const auto escape = binary_of(context_, ascii_escape(byte));
+        const auto text = ascii_escape(byte);
+        extra_ += text.size() - 1;
+        const auto escape = binary_of(context_, text);
         acc_ = at_ == skip_ ? cons(acc_, escape) : cons(acc_, cons(run_part(), escape));
         skip_ = ++at_;
     }
@@ -700,6 +706,7 @@ class Escaper final {
         const auto code = code_point(bytes_, at_, sequence.at);
         const auto base = at_ == skip_ ? acc_ : cons(acc_, run_part());
         acc_ = code > 0xFFFF ? cons(base, pair(code - 0x10000)) : cons(base, cons(chars(prefix(code)), hex(code)));
+        extra_ += (code > 0xFFFF ? 12 : 6) - sequence.at;
         at_ += sequence.at;
         skip_ = at_;
     }
@@ -752,8 +759,19 @@ class Escaper final {
     // The start of the current run and the next byte.
     std::size_t skip_ = 0;
     std::size_t at_ = 0;
+    // The bytes the escapes add to the binary's.
+    std::size_t extra_ = 0;
 };
 
+} // namespace
+
+Piece escaped(ProcessContext &context, const Term &binary, bool all) {
+    Escaper escaper(context, binary);
+    auto term = escaper.run(all);
+    return {.term = term, .size = escaper.size()};
+}
+
+namespace {
 // decode(Binary).
 Term decode1(ProcessContext &context, const Term &binary) {
     if (!binary.is_binary()) {
@@ -767,7 +785,7 @@ template <bool All> Term escape1(ProcessContext &context, const Term &binary) {
     if (!binary.is_binary()) {
         no_clause();
     }
-    return Escaper(context, binary).run(All);
+    return escaped(context, binary, All).term;
 }
 
 // clause_json:string(Binary, Skip): {Text, Next} for the string from `Skip` (after its quote), or `more`.

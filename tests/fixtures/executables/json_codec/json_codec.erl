@@ -270,6 +270,23 @@ format_cases() ->
         deep => #{only => [1]},
         flags => [true, false, null]
     },
+    Deep = nest(300, #{<<"leaf">> => [1, <<"x">>]}),
+    show(deep, [
+        digest(json:encode(Deep)),
+        digest(json:format(Deep)),
+        digest(json:format(Deep, #{indent => 1}))
+    ]),
+    Wide = #{
+        <<"rows">> => [lists:seq(1, 30), [<<"a">>, 2], #{k => lists:seq(1, 12)}],
+        <<"n">> => lists:seq(1, 25)
+    },
+    io:put_chars(json:format(Wide, #{indent => 3, max => 20})),
+    io:put_chars(json:format(Wide, #{max => 0, level => 1, col => 7})),
+    show(format_options, [
+        reason(fun() -> json:format([1, [2]], #{indent => 1.5}) end),
+        reason(fun() -> json:format([1, [2]], #{max => x}) end),
+        reason(fun() -> json:format(#{a => [1]}, #{indent => -2}) end)
+    ]),
     io:put_chars(json:format(Doc)),
     io:put_chars(json:format(Doc, #{indent => 4})),
     io:put_chars(json:format(lists:seq(1, 40), #{max => 20})),
@@ -311,6 +328,17 @@ format_cases() ->
         reason(fun() -> json:format(1, id(x)) end),
         reason(fun() -> json:format(#{a => x}, fun(_, _, _) -> [] end) end)
     ]).
+
+nest(0, Leaf) -> Leaf;
+nest(N, Leaf) when N rem 2 =:= 0 -> [nest(N - 1, Leaf)];
+nest(N, Leaf) -> #{N => nest(N - 1, Leaf)}.
+
+digest(Iodata) ->
+    {
+        iolist_size(Iodata),
+        binary:encode_hex(erlang:md5(Iodata)),
+        erlang:md5(term_to_binary(Iodata))
+    }.
 
 formatter({posix, Seconds}, Encode, State) ->
     json:format_value(integer_to_binary(Seconds * 1000), Encode, State);

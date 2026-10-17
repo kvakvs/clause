@@ -638,6 +638,8 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"json", "decode", 1},
     BuiltinName{"json", "encode_binary", 1},
     BuiltinName{"json", "encode_binary_escape_all", 1},
+    BuiltinName{"clause_json", "encode", 1},
+    BuiltinName{"clause_json", "format", 2},
     BuiltinName{"clause_json", "number", 2},
     BuiltinName{"clause_json", "string", 2},
     // Modules rand and random (plan 21 step LIB6; runtime/src/builtins/rand/).

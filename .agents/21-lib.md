@@ -100,12 +100,6 @@ Erlang only where a function calls funs, runs a process protocol or is glue.
 
 ## Tier A: data modules without processes
 
-### LIB5F. `json` default paths in C++
-
-- `encode/1` and `format/1,2` (default encoder and formatter, no funs) as
-  builtins building OTP's iodata, without deep recursion on the C++ stack;
-  the fun-taking functions stay Erlang over them.
-
 ### LIB4. Text: `string`, `unicode` remainder, `io_lib`
 
 - `string` (69): C++ over the grapheme and case tables Clause already generates

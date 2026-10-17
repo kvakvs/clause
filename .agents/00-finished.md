@@ -562,7 +562,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `28f84686`
 - **LIB6** `rand`, `random`: OTP's algorithms and generic functions in C++
   (`builtins/rand/`), plug-in handlers Erlang; ziggurat and jump constants
-  observed from OTP (`tools/rand/`) — `[plan21] LIB6`
+  observed from OTP (`tools/rand/`) — `a543519e`
+- **LIB5F** `json` default `encode/1`, `format/1,2` in C++ with OTP's iodata
+  (`encoding/json_encode.cpp`), Erlang fallback past 256 levels —
+  `[plan21] LIB5F`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

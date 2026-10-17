@@ -42,7 +42,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     # Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
     src/builtins/encoding/base64.cpp
     # Module json (plan 21 step LIB5E).
-    src/builtins/encoding/json.cpp
+    src/builtins/encoding/json.cpp src/builtins/encoding/json_encode.cpp
     # Modules rand and random (plan 21 step LIB6).
     src/builtins/rand/generators.cpp src/builtins/rand/rand.cpp src/builtins/rand/tables.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp

@@ -49,7 +49,12 @@
 
 %% Encoding
 
-encode(Term) -> encode(Term, fun encode_value/2).
+%% The default encoder in C++; json.erl's own for deeply nested terms.
+encode(Term) ->
+    case clause_json:encode(Term) of
+        {ok, Iodata} -> Iodata;
+        fallback -> encode(Term, fun encode_value/2)
+    end.
 
 encode(Term, Encoder) when is_function(Encoder, 2) -> Encoder(Term, Encoder).
 
@@ -133,10 +138,17 @@ encode_binary_escape_all(_) -> clause_builtin_placeholder.
 
 %% Formatting
 
-format(Term) -> format(Term, fun format_value/3, #{}).
+format(Term) -> format(Term, #{}).
 
-format(Term, Options) when is_map(Options) -> format(Term, fun format_value/3, Options);
-format(Term, Encoder) when is_function(Encoder, 3) -> format(Term, Encoder, #{}).
+%% The default formatter in C++; json.erl's own for deeply nested terms or options it does not take.
+format(Term, Options) when is_map(Options) ->
+    State = maps:merge(#{level => 0, col => 0, indent => 2, max => 100}, Options),
+    case clause_json:format(Term, State) of
+        {ok, Iodata} -> [Iodata, $\n];
+        fallback -> [format_value(Term, fun format_value/3, State), $\n]
+    end;
+format(Term, Encoder) when is_function(Encoder, 3) ->
+    format(Term, Encoder, #{}).
 
 format(Term, Encoder, Options) when is_function(Encoder, 3) ->
     State = maps:merge(#{level => 0, col => 0, indent => 2, max => 100}, Options),
@@ -250,10 +262,26 @@ format_object([[_Comma, Indent | First] | Rest], Closing) ->
 
 %% The first character of a value that is not a space or a newline.
 first_character(Value) ->
-    [Character | _] = lists:dropwhile(
-        fun(C) -> C =:= $\s orelse C =:= $\n end, unicode:characters_to_list(Value)
-    ),
-    Character.
+    case first_in(Value) of
+        none -> error({badmatch, []});
+        Character -> Character
+    end.
+
+%% The first character of iodata that is not a space or a newline, walked from the front; none if there is none.
+first_in(C) when C =:= $\s; C =:= $\n -> none;
+first_in(C) when is_integer(C) -> C;
+first_in(<<C, Rest/binary>>) when C =:= $\s; C =:= $\n -> first_in(Rest);
+first_in(<<C, _/binary>>) ->
+    C;
+first_in(<<>>) ->
+    none;
+first_in([]) ->
+    none;
+first_in([Head | Tail]) ->
+    case first_in(Head) of
+        none -> first_in(Tail);
+        Character -> Character
+    end.
 
 %% The column and the line break of a nesting level.
 indent(#{level := Level, indent := Indent}) ->

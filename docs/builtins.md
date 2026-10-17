@@ -532,12 +532,16 @@ builtin:
   text, `{invalid_byte, Byte}` at the byte OTP rejects (for a cut literal the
   byte after its first), `{unexpected_sequence, Bytes}` for a bad `\u`
   escape or a float `binary_to_float/1` rejects. `encode_binary/1` and
-  `encode_binary_escape_all/1` are builtins building OTP's nested iodata.
-  The encoders and formatters taking funs, `encode/1` (`encode/2` with
-  `encode_value/2`) and the callback decoders `decode/3`, `decode_start/3`,
-  `decode_continue/2` are Erlang; the decoders walk OTP's states over the
-  private scanners `clause_json:string/2` and `number/2`, so callbacks run in
-  OTP's order and continuation states are OTP's tuples.
+  `encode_binary_escape_all/1` are builtins building OTP's nested iodata, and
+  so are the default paths `encode/1` and `format/1,2` (step LIB5F,
+  `encoding/json_encode.cpp`, through `clause_json:encode/1` and
+  `format/2`); past 256 levels of nesting, or for format options other than
+  small non-negative integers, they answer `fallback` and `json.erl` builds
+  the same iodata itself. The encoders and formatters taking funs and the
+  callback decoders `decode/3`, `decode_start/3`, `decode_continue/2` are
+  Erlang; the decoders walk OTP's states over the private scanners
+  `clause_json:string/2` and `number/2`, so callbacks run in OTP's order and
+  continuation states are OTP's tuples.
 
 ## Random numbers
 
