@@ -581,7 +581,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB4D** `io_lib_pretty` in C++ (`io_lib/pretty*.cpp`): intermediate format,
   `chars_limit` deepening, `cind`/`pp` in OTP's deep shapes and `pp_bin` for
   `bformat`; `print/1,4`, `~p`/`~P`, limited `write`/`bwrite`, crash reports;
-  `pretty_print` golden — `[plan21] LIB4D`
+  `pretty_print` golden — `c8d01d0d`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
