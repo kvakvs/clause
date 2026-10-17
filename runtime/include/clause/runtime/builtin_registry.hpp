@@ -145,6 +145,8 @@ std::span<const BuiltinEntry> gb_sets_builtins() noexcept;
 std::span<const BuiltinEntry> queue_builtins() noexcept;
 // The arrays of plan 21 step LIB3B: array and the private clause_array helpers.
 std::span<const BuiltinEntry> array_builtins() noexcept;
+// Module calendar (plan 21 step LIB5; runtime/src/builtins/calendar.cpp).
+std::span<const BuiltinEntry> calendar_builtins() noexcept;
 // Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
 std::span<const BuiltinEntry> base64_builtins() noexcept;
 // The persistent_term builtins of step 41M2: put/2, put_new/2, get/0,1,2, erase/1, info/0.

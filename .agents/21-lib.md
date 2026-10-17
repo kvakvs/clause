@@ -112,13 +112,11 @@ create a new API that's for the end user to choose
   `fread/2,3` (a format-directed scanner), plus `nl/0`.
 - Fix `io:format("~.2f")`, which raises `badarg` today.
 
-### LIB5. Encodings and formats: `uri_string`, `json`, `filename`, `calendar`
+### LIB5. Encodings and formats: `uri_string`, `json`, `filename`
 
 - C++:
-  - `uri_string` (15), `filename` (17: Unix and Windows path rules,
-    `basedir/2,3` from the environment) and `calendar` (34: Gregorian
-    arithmetic, RFC 3339, local time through the existing `erlang:localtime`
-    services).
+  - `uri_string` (15) and `filename` (17: Unix and Windows path rules,
+    `basedir/2,3` from the environment).
   - `json`: `decode/1`, `encode/1`, `format/1,2` and the leaf encoders
     `encode_integer`, `encode_float`, `encode_binary`, `encode_atom`, ...
 - Erlang: `json:decode/3`, `decode_start/3` and `decode_continue/2` (callback
@@ -646,18 +644,6 @@ functions are listed separately and are optional.
   hcb/1,2,3, help/0, ht/1,2,3, i/0,3, l/1, lc/1, lm/0, ls/0,1, m/0,1,
   memory/0,1, mm/0, nc/1,2, ni/0, nl/1, nregs/0, pi/1,3, pid/3, pwd/0, q/0,
   regs/0, uptime/0, xm/1, y/1,2
-- `calendar` (stdlib, 34): date_to_gregorian_days/1,3,
-  datetime_to_gregorian_seconds/1, day_of_the_week/1,3,
-  gregorian_days_to_date/1, gregorian_seconds_to_datetime/1, is_leap_year/1,
-  iso_week_number/0,1, last_day_of_the_month/2, local_time/0,
-  local_time_to_system_time/1,2, local_time_to_universal_time_dst/1,
-  now_to_datetime/1, now_to_local_time/1, now_to_universal_time/1,
-  rfc3339_to_system_time/1,2, seconds_to_daystime/1, seconds_to_time/1,
-  system_time_to_local_time/2, system_time_to_rfc3339/1,2,
-  system_time_to_universal_time/2, time_difference/2, time_to_seconds/1,
-  universal_time/0, universal_time_to_local_time/1,
-  universal_time_to_system_time/1,2, valid_date/1,3; deprecated:
-  local_time_to_universal_time/1
 - `dets` (stdlib, 44): all/0, bchunk/2, close/1, delete/2, delete_all_objects/1,
   delete_object/2, first/1, foldl/3, foldr/3, from_ets/2, info/1,2,
   init_table/2,3, insert/2, insert_new/2, is_compatible_bchunk_format/2,

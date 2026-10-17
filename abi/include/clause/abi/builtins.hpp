@@ -634,6 +634,23 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"base64", "mime_decode", 2},
     BuiltinName{"base64", "mime_decode_to_string", 1},
     BuiltinName{"base64", "mime_decode_to_string", 2},
+    // Module calendar (plan 21 step LIB5; runtime/src/builtins/calendar.cpp).
+    BuiltinName{"calendar", "date_to_gregorian_days", 1},
+    BuiltinName{"calendar", "date_to_gregorian_days", 3},
+    BuiltinName{"calendar", "datetime_to_gregorian_seconds", 1},
+    BuiltinName{"calendar", "day_of_the_week", 1},
+    BuiltinName{"calendar", "day_of_the_week", 3},
+    BuiltinName{"calendar", "gregorian_days_to_date", 1},
+    BuiltinName{"calendar", "gregorian_seconds_to_datetime", 1},
+    BuiltinName{"calendar", "is_leap_year", 1},
+    BuiltinName{"calendar", "iso_week_number", 1},
+    BuiltinName{"calendar", "last_day_of_the_month", 2},
+    BuiltinName{"calendar", "seconds_to_daystime", 1},
+    BuiltinName{"calendar", "seconds_to_time", 1},
+    BuiltinName{"calendar", "time_difference", 2},
+    BuiltinName{"calendar", "time_to_seconds", 1},
+    BuiltinName{"calendar", "valid_date", 1},
+    BuiltinName{"calendar", "valid_date", 3},
     // Map cursors: the entries tuple maps:fold walks (runtime/src/builtins/maps.cpp).
     BuiltinName{"clause_maps", "entries", 1},
     // Persistent terms (plan step 41M2; runtime/src/builtins/persistent_term.cpp).

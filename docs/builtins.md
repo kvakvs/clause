@@ -28,6 +28,7 @@ implementing source file:
   [`binary`](#binary-module), [`maps` and `os`](#maps-module),
   [`ordsets`, `orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets`,
   `queue` and `array`](#collections), [`base64`](#encodings),
+  [`calendar`](#calendar),
   [`persistent_term`](#persistent-terms), [`unicode`](#unicode-module),
   [`code`](#code-module), [`init`](#init-module),
   [`atomics`](#atomics-and-counters), [`erts_internal`](#erts-internal),
@@ -524,6 +525,24 @@ builtin:
   group is built (`badarith` inside OTP's shifts), anything but whitespace
   after the padding `{case_clause, Symbol}`. `mime_decode` skips every
   character outside the alphabet and data after a misplaced `=`.
+
+## Calendar
+
+`runtime/src/builtins/calendar.cpp` (plan 21 step LIB5).
+
+- The Gregorian arithmetic is builtins over integers of any size with
+  Erlang's truncating `div` and `rem`, by OTP's era formulas:
+  `date_to_gregorian_days/1,3`, `gregorian_days_to_date/1`,
+  `datetime_to_gregorian_seconds/1`, `gregorian_seconds_to_datetime/1`,
+  `day_of_the_week/1,3`, `is_leap_year/1`, `last_day_of_the_month/2`,
+  `valid_date/1,3`, `seconds_to_time/1`, `seconds_to_daystime/1`,
+  `time_to_seconds/1`, `time_difference/2`, `iso_week_number/1`. A shape OTP's
+  clauses reject is `function_clause`, a non-integer it computes with
+  `badarith`; out-of-range dates are computed as OTP computes them.
+- Local and universal time, system time and RFC 3339 parsing and formatting
+  are Erlang in `library/stdlib/calendar.erl` over the `erlang` time builtins
+  and `proplists`, with OTP's errors (`{badarg, [Arg, Options]}` out of range,
+  `{badmatch, _}` and `{case_clause, _}` for a malformed offset).
 
 ## Persistent terms
 

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "calendar_dates",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "days: [730485,730544,730484,719528,0,-1,-146037,4509076]\nround_trip: [true,true,true,true,true,true,true,true]\narithmetic: [739656,3652425000000000000000000,{-1,12,31},{2737907006,12,28},63876470399,{{2023,12,17},{2,40,0}},{{-1,12,31},{23,59,55}},[6,2,5,4,6,5,3,4],4,[false,true,false,true,true,true],[31,28,31,30,31,30,31,31,30,31,30,31],29,[false,true,false,false,false],false,{0,0,0},{23,59,59},{-1,{23,59,59}},{11,{13,46,40}},45296,{-1,{23,0,1}},{60,{12,0,0}},[{2020,53},{2020,53},{2025,1},{2026,25},{2015,53}],{{2023,11,16},{8,30,56}},{{1970,1,1},{0,0,0}},1704067200,1704067200000,{{2024,1,1},{0,0,0}},{{1969,12,31},{23,59,59}}]\nrfc3339: [1517498278,1517501878123456,1483228800,-62198735400,946684800500,946677600,[50,48,49,56,45,48,50,45,48,49,84,49,54,58,49,55,58,53,56,43,48,49,58,48,48],<<50,48,49,56,45,48,50,45,48,49,84,49,53,58,49,55,58,53,56,90>>,[50,48,49,56,45,48,50,45,48,49,84,49,54,58,49,55,58,53,56,46,49,50,51,43,48,49,58,48,48],[49,57,54,57,45,49,50,45,51,49,32,50,50,58,53,57,58,53,57,46,57,57,57,57,57,57,45,48,49,58,48,48],[45,48,48,48,49,45,49,50,45,51,49,84,50,50,58,48,48,58,48,48,45,48,50,58,48,48],[49,57,55,48,45,48,49,45,48,49,84,48,48,58,48,48,58,48,48,46,48,48,48,48,48,48,48,48,53,43,48,48,58,48,48]]\nlocal_shapes: [true,true,true,true,true,1,true,true,true]\nerrors: [function_clause,badarith,badarith,function_clause,badarith,function_clause,function_clause,function_clause,function_clause,function_clause,badarith,badarith,function_clause,function_clause,{badmatch,[]},function_clause,badarg,function_clause,{case_clause,[48,48]},{case_clause,47},function_clause,{badarg,[1099511627776,[{offset,[90]}]]},{case_clause,other},function_clause,function_clause,function_clause]\ncalendar_dates: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "calendar_dates.erl": "3154f57f6b1fcbafda3d27f37f183af721b07e83d39c6b0f26f589866d218f07"
+  }
+}

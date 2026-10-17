@@ -37,6 +37,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/collections/balanced_tree.cpp src/builtins/collections/gb_trees.cpp src/builtins/collections/gb_sets.cpp src/builtins/collections/queue.cpp
     # Module array (plan 21 step LIB3B).
     src/builtins/collections/array.cpp
+    # Module calendar (plan 21 step LIB5; runtime/src/builtins/calendar.cpp).
+    src/builtins/calendar.cpp
     # Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
     src/builtins/encoding/base64.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp

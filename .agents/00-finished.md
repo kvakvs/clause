@@ -549,7 +549,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB3B** `array`: OTP 29's cached tuple tree record in C++ (`collections/array`),
   folds and mapfolds Erlang over `clause_array` helpers — `5f197abb`
 - **LIB5A** `base64`: C++ encoders and OTP's strict and mime decoding state
-  machines, errors included (`encoding/base64`) — `[plan21] LIB5A`
+  machines, errors included (`encoding/base64`) — `547ae828`
+- **LIB5B** `calendar`: Gregorian arithmetic in C++ (`builtins/calendar.cpp`),
+  local time and RFC 3339 Erlang — `[plan21] LIB5B`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
