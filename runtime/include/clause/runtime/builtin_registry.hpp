@@ -151,6 +151,8 @@ std::span<const BuiltinEntry> calendar_builtins() noexcept;
 std::span<const BuiltinEntry> base64_builtins() noexcept;
 // Module json and its private clause_json scanners (plan 21 step LIB5E; runtime/src/builtins/encoding/json.cpp).
 std::span<const BuiltinEntry> json_builtins() noexcept;
+// Modules rand and random and the private clause_rand generators (plan 21 step LIB6; runtime/src/builtins/rand/).
+std::span<const BuiltinEntry> rand_builtins() noexcept;
 // The persistent_term builtins of step 41M2: put/2, put_new/2, get/0,1,2, erase/1, info/0.
 std::span<const BuiltinEntry> persistent_term_builtins() noexcept;
 // The unicode builtins of step 41Y1: characters_to_binary/1,2,3, characters_to_list/1,2, bin_is_7bit/1,

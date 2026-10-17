@@ -28,7 +28,7 @@ implementing source file:
   [`binary`](#binary-module), [`maps` and `os`](#maps-module),
   [`ordsets`, `orddict`, `proplists`, `dict`, `sets`, `gb_trees`, `gb_sets`,
   `queue` and `array`](#collections), [`base64` and `json`](#encodings),
-  [`calendar`](#calendar),
+  [`calendar`](#calendar), [`rand` and `random`](#random-numbers),
   [`persistent_term`](#persistent-terms), [`unicode`](#unicode-module),
   [`code`](#code-module), [`init`](#init-module),
   [`atomics`](#atomics-and-counters), [`erts_internal`](#erts-internal),
@@ -538,6 +538,32 @@ builtin:
   `decode_continue/2` are Erlang; the decoders walk OTP's states over the
   private scanners `clause_json:string/2` and `number/2`, so callbacks run in
   OTP's order and continuation states are OTP's tuples.
+
+## Random numbers
+
+`runtime/src/builtins/rand/` (plan 21 step LIB6).
+
+- `rand`: states are OTP's `{AlgHandler, AlgState}` with OTP's handler maps
+  (their funs are `rand`'s own) and OTP's state layouts, so exported seeds,
+  sequences and jumped states equal OTP's for every algorithm (`exsss`,
+  `exro928ss`, `exrop`, `exs1024s`, `exsp` and the deprecated `exs64`,
+  `exsplus`, `exs1024`, and `dummy`). For a handler equal to OTP's own the
+  private builtins `clause_rand:seed/2`, `next/2`, `uniform/2,3`,
+  `uniform_real/2`, `bytes/3`, `normal/2`, `shuffle/3` and `jump/2` do the
+  work in C++: seeding (SplitMix64, lists, OTP's 3-tuple hashes and seed
+  errors), ranges past the generator's bits, dense floats, bytes, the normal
+  ziggurat and the shuffle's bit stream. Any other handler is a plug-in:
+  `rand.erl` runs OTP's generic algorithms over its funs.
+- `splitmix64_next/1`, `exsp_next/1`, `exsp_jump/1` and the `mwc59` functions
+  are builtins; `mwc59_seed/0` hashes `rand`'s default seed.
+- `tools/rand/observe.escript` observes OTP's constants through `rand`'s
+  plug-in API: the ziggurat's strip widths (fast-path products) and bounds
+  (where a strip's words reach the slow path), and jumped states, from which
+  `tools/rand/generate.py` solves each jump polynomial over GF(2) (checked on
+  a second state) and writes `tables.cpp`; strip heights are computed at high
+  precision ([differences](differences.md#random-numbers)).
+- `random` (deprecated): `uniform_s/1` is a builtin of the Wichmann-Hill
+  generator; the seeding and process dictionary functions are Erlang.
 
 ## Calendar
 

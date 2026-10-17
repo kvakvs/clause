@@ -46,7 +46,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 | `process/` | Context, stack/frames, exceptions, exits, mailbox storage, receive, identities, profiling |
 | `scheduler/` | Executor/workers, signals, ports table, timers/timer wheel, aliases, introspection |
 | `modules/` | Code server, registration, atom bindings/caches, literal areas |
-| `builtins/` | Registry, bridge, typed adapters, portions, text/format; per-module subdirs (`erlang/`, `lists/`, `binary/`, `unicode/`, `re/`, `zlib/`, `collections/`: ordsets, orddict, proplists, dict, sets over `linear_hash`, gb_trees, gb_sets over `balanced_tree`, queue, array; `encoding/`: base64, json) and module TUs |
+| `builtins/` | Registry, bridge, typed adapters, portions, text/format; per-module subdirs (`erlang/`, `lists/`, `binary/`, `unicode/`, `re/`, `zlib/`, `collections/`: ordsets, orddict, proplists, dict, sets over `linear_hash`, gb_trees, gb_sets over `balanced_tree`, queue, array; `encoding/`: base64, json; `rand/`: generators, generic algorithms, observed tables) and module TUs |
 | `ports/` | Port drivers (fd, spawn, file, sockets), reactor, I/O service |
 | `startup/` | `CLAUSE_main_v1`, argv, runtime options, halt |
 | `diagnostics/` | Runtime feature reporting |
@@ -58,7 +58,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 | `library/{erts,kernel,stdlib}/` | Erlang library modules; `<m>.terms` inventories, `*.types.hrl`; `modules.terms` registry, `documented.terms` (OTP-documented functions) (`docs/library.md`) |
 | Root | `CMakeLists.txt`, `CMakePresets.json`, `Makefile`, `make-*.bat`, `run-macos.sh`, `clau.bat`, `decompile-*.bat`, `.clang-{format,tidy}` |
 | `cmake/` | Options, dependencies, toolchains, quality checks (Lizard/tidy scope) |
-| `tools/` | Windows toolchain script, `asm.py`, `unicode/` table generator, quality requirements, `luerl-trace/` |
+| `tools/` | Windows toolchain script, `asm.py`, `unicode/` and `rand/` table generators, quality requirements, `luerl-trace/` |
 | `docs/` | Reference notes, index `docs/README.md` |
 | `runtime/design/` | Runtime design contracts |
 | `references/` | `otp-pin.cmake`; ignored `otp/` checkout (`docs/otp-reference.md`) |

@@ -1,0 +1,10 @@
+%% OTP 29 random exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{seed, 0, default, implemented}.
+{seed, 1, default, implemented}.
+{seed, 3, default, implemented}.
+{seed0, 0, default, implemented}.
+{uniform, 0, default, implemented}.
+{uniform, 1, default, implemented}.
+{uniform_s, 1, default, implemented}.
+{uniform_s, 2, default, implemented}.

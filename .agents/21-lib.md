@@ -84,6 +84,10 @@ create a new API that's for the end user to choose
 
 ## Choosing C++ or Erlang
 
+Whenever a C++ implementation is viable, prefer it (user direction 2026-10-17):
+calls between Erlang and builtins cost nothing notable, and C++ is much faster.
+Erlang only where a function calls funs, runs a process protocol or is glue.
+
 | Kind | Implement in | Examples |
 | --- | --- | --- |
 | Pure data transforms, no funs | C++ builtin | `ordsets:union/2`, `proplists:get_value/3`, `string:split/3`, `base64:encode/1`, `calendar:*`, `json:decode/1` |
@@ -95,6 +99,12 @@ create a new API that's for the end user to choose
 | Interpreters over forms | Erlang | `erl_eval`, `ms_transform`, `qlc` |
 
 ## Tier A: data modules without processes
+
+### LIB5F. `json` default paths in C++
+
+- `encode/1` and `format/1,2` (default encoder and formatter, no funs) as
+  builtins building OTP's iodata, without deep recursion on the C++ stack;
+  the fun-taking functions stay Erlang over them.
 
 ### LIB4. Text: `string`, `unicode` remainder, `io_lib`
 
@@ -112,15 +122,6 @@ create a new API that's for the end user to choose
   `scan_format/2`, `unscan_format/1`, `build_text/1`, `indentation/2` and
   `fread/2,3` (a format-directed scanner), plus `nl/0`.
 - Fix `io:format("~.2f")`, which raises `badarg` today.
-
-### LIB6. Random numbers: `rand`, `random`
-
-- `rand` (31): the generators in C++ (`exsss`, the default, plus `exro928ss`,
-  `exrop`, `exs1024s`, `exsp`, `mwc59`, `splitmix64`), with OTP's state tuples
-  and the process dictionary seed key. Seeded sequences equal OTP's: the golden
-  prints sequences from fixed seeds. `normal/0,2`, `shuffle/1`, `bytes/1` and
-  the jump functions are C++ too.
-- `random` (deprecated, 8): C++ (AS183) for programs that still call it.
 
 ### LIB7. Set algebra and graphs: `sofs`, `graph`
 
@@ -479,13 +480,12 @@ Ranked by what real programs need first and by dependencies:
 2. LIB10 and LIB11 (ETS and match specs).
 3. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
 4. LIB23 and LIB24 (`logger`, `application`).
-5. LIB6 (`rand`).
-6. LIB9, LIB50, LIB60 and LIB61 (`erlang`, `file`, `inet`, `os`, `code` gaps).
-7. LIB30–LIB34 (the front end, `consult`, `io:read`).
-8. LIB25 (local-node services) and LIB12 (`digraph`).
-9. LIB51–LIB55 (files, logs, archives).
-10. LIB7, LIB8, LIB70, LIB62 and LIB63.
-11. LIB71–LIB74, then the declined modules' answer stubs.
+5. LIB9, LIB50, LIB60 and LIB61 (`erlang`, `file`, `inet`, `os`, `code` gaps).
+6. LIB30–LIB34 (the front end, `consult`, `io:read`).
+7. LIB25 (local-node services) and LIB12 (`digraph`).
+8. LIB51–LIB55 (files, logs, archives).
+9. LIB7, LIB8, LIB70, LIB62 and LIB63.
+10. LIB71–LIB74, then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 
@@ -790,13 +790,7 @@ functions are listed separately and are optional.
 - `qlc` (stdlib, 26): append/1,2, cursor/1,2, delete_cursor/1, e/1,2, eval/1,2,
   fold/3,4, format_error/1, info/1,2, keysort/2,3, next_answers/1,2, q/1,2,
   sort/1,2, string_to_handle/1,2,3, table/2
-- `rand` (stdlib, 31): bytes/1, bytes_s/2, export_seed/0, export_seed_s/1,
-  exsp_jump/1, exsp_next/1, jump/0,1, mwc59/1, mwc59_float/1, mwc59_seed/0,1,
-  mwc59_value/1, mwc59_value32/1, normal/0,2, normal_s/1,3, seed/1,2,
-  seed_s/1,2, shuffle/1, shuffle_s/2, splitmix64_next/1, uniform/0,1,
-  uniform_real/0, uniform_real_s/1, uniform_s/1,2
-- `random` (stdlib, 0): none; deprecated: seed/0,1,3, seed0/0, uniform/0,1,
-  uniform_s/1,2
+
 - `re` (stdlib, 1, 10 done): import/1
 - `records` (stdlib, 8): create/4, get/2, get_definition/2, get_field_names/1,
   get_module/1, get_name/1, is_exported/1, update/4

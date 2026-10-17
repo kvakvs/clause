@@ -14,7 +14,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `bad_generators` payload of a map generator in a zip group | Its iterator: `{K, V, Next}` chain ending in `none`, in OTP's order | The same chain, built in canonical key order | [patterns](patterns.md#comprehensions) |
 | `maps:iterator/1,2`, `maps:next/1`, `erts_internal:map_next/3`, the order `maps` funs run in (`intersect_with/3`, `merge_with/3`, ...), `proplists:get_keys/1`, `sets` of version 2 (`to_list/1`, `fold/3`) | Internal order (atom-table order for atom keys, hash order above 32 keys); an iterator is a position or a `{K, V, Next}` chain | Canonical key order; an iterator continues over a key list | [builtins](builtins.md#erts-internal) |
 | Map printing (`erlang:display/1`, `~w`, `~p`) | Internal layout order (atom-table order for atom keys, hash order above 32 keys) | Map-key order, as OTP's `~kw` | [terms](terms.md#printing) |
-| Order of `maps:keys/1`, `values/1`, `to_list/1`, `fold/3` | The map's internal order (atom-table order for atom keys, hash order above 32 keys) | Key order | [library](library.md) |
+| Order of `maps:keys/1`, `values/1`, `to_list/1`, `fold/3`, and of the members `json:encode/1` writes | The map's internal order (atom-table order for atom keys, hash order above 32 keys) | Key order | [library](library.md) |
 | Native record printing (`erlang:display/1`) | Fields in atom-table index order | Definition order, as `~w` | [native records](native-records.md#printing-and-order) |
 | `==` between native records whose fields differ only as integer/float | The compiler may fold it to `=:=` (false) | Numeric comparison (true) | [native records](native-records.md#printing-and-order) |
 | External native record construction of a module that is not loaded | Fails until the defining module is loaded | Every batch module is loaded at startup; a module outside the batch always fails | [native records](native-records.md#differences-kept) |
@@ -155,6 +155,12 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `~p` of containers nested more than 256 deep | Printed | `system_limit` | [io](io.md#pretty-printing-p) |
 | Field widths and `~ts` precision with combining characters or `\r\n` | Count grapheme clusters | Count code points | [io](io.md#formats) |
 | Negative precision or pad count (`~.*c` with -1) | Loops forever | `badarg` | [io](io.md#formats) |
+
+## Random numbers
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Strip heights of `rand`'s normal ziggurat | Tabled constants | Computed to the nearest double from the ziggurat's constants; a height may differ in its last bit, which changes a slow-path accept only for a draw within that bit of the bound (odds near 2^-53 per slow-path draw). Strip widths and bounds are observed from OTP and equal | [builtins](builtins.md#random-numbers) |
 
 ## Parse transforms
 
