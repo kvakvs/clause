@@ -12,7 +12,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | --- | --- | --- | --- |
 | Map generator order (`K := V <- M`) | Flat maps (up to 32 keys) iterate in key order, but atom keys in atom-table order, which varies between VM runs; larger maps in hash order | Always canonical key order (term order) | [patterns](patterns.md#comprehensions) |
 | `bad_generators` payload of a map generator in a zip group | Its iterator: `{K, V, Next}` chain ending in `none`, in OTP's order | The same chain, built in canonical key order | [patterns](patterns.md#comprehensions) |
-| `maps:iterator/1,2`, `maps:next/1`, `erts_internal:map_next/3`, the order `maps` funs run in (`intersect_with/3`, `merge_with/3`, ...), `proplists:get_keys/1` | Internal order (atom-table order for atom keys, hash order above 32 keys); an iterator is a position or a `{K, V, Next}` chain | Canonical key order; an iterator continues over a key list | [builtins](builtins.md#erts-internal) |
+| `maps:iterator/1,2`, `maps:next/1`, `erts_internal:map_next/3`, the order `maps` funs run in (`intersect_with/3`, `merge_with/3`, ...), `proplists:get_keys/1`, `sets` of version 2 (`to_list/1`, `fold/3`) | Internal order (atom-table order for atom keys, hash order above 32 keys); an iterator is a position or a `{K, V, Next}` chain | Canonical key order; an iterator continues over a key list | [builtins](builtins.md#erts-internal) |
 | Map printing (`erlang:display/1`, `~w`, `~p`) | Internal layout order (atom-table order for atom keys, hash order above 32 keys) | Map-key order, as OTP's `~kw` | [terms](terms.md#printing) |
 | Order of `maps:keys/1`, `values/1`, `to_list/1`, `fold/3` | The map's internal order (atom-table order for atom keys, hash order above 32 keys) | Key order | [library](library.md) |
 | Native record printing (`erlang:display/1`) | Fields in atom-table index order | Definition order, as `~w` | [native records](native-records.md#printing-and-order) |
@@ -76,7 +76,8 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `monitor(port, Item, Options)` with options | Accepted | `badarg` | [processes](processes.md#aliases) |
 | `spawn_request_abandon/1` | `true` while the reply is pending | Always `false`: the reply is sent before `spawn_request` returns | [processes](processes.md#spawn-options) |
 | `math:log2/1` last bit (Windows) | OTP's Windows build divides `log(X)` by `log(2)` (`math:log2(1.0e308)` is `1023.1538532253077`) | The C library's `log2` (`1023.1538532253076`) | [builtins](builtins.md#math-module) |
-| `phash/2`, `phash2/1,2` values | OTP's hash function | Clause's own stable hash with the same ranges and equality guarantee | [builtins](builtins.md#hashing) |
+| `phash/2`, `phash2/1,2` of pids, ports, references, funs and native records | Hashes of OTP's process, port and reference numbers, a fun's index and unique number, a record definition's hash | Hashes of Clause's numbers, a fun's module, arity or index and captures, a record's field values; every other term hashes to OTP's value | [builtins](builtins.md#hashing) |
+| `dict:fold/3`, `map/2`, `filter/2` with a non-fun | `function_clause`, or `{badfun, F}` when the first bucket OTP visits holds an entry | `function_clause` | [builtins](builtins.md#collections) |
 | `erlang:is_builtin/3` of `lists:reverse/2` and other C-implemented library functions | `true` | `false`: only the runtime's builtins and `apply/2,3` | [funs](funs.md#fun-information) |
 | `fun_info/1,2` `pid`, `uniq`, `new_uniq` of a local fun | Creator pid, compiler checksums | `undefined`, MD5 of the module name | [funs](funs.md#fun-information) |
 | `md5_init/0` context | OTP's 92-byte state | Clause's 96-byte state; digests are equal | [builtins](builtins.md#hashing) |

@@ -31,6 +31,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/lists/list_walk.cpp src/builtins/lists/sublists.cpp src/builtins/lists/ordering.cpp src/builtins/lists/keys.cpp src/builtins/lists/merges.cpp src/builtins/lists/zips.cpp
     # Modules ordsets, orddict and proplists (plan 21 step LIB1).
     src/builtins/collections/collections.cpp src/builtins/collections/ordsets.cpp src/builtins/collections/orddict.cpp src/builtins/collections/proplists.cpp
+    # Modules dict and sets (plan 21 step LIB2).
+    src/builtins/collections/linear_hash.cpp src/builtins/collections/dict.cpp src/builtins/collections/sets.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp
     src/startup/halt.cpp
     src/modules/atoms.cpp src/modules/services.cpp src/modules/code_server.cpp src/modules/registration.cpp src/modules/literal_areas.cpp)

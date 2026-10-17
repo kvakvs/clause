@@ -29,6 +29,7 @@
 {binary, stdlib, provided}.
 {io, stdlib, provided}.
 {lists, stdlib, provided}.
+{dict, stdlib, provided}.
 {maps, stdlib, provided}.
 {orddict, stdlib, provided}.
 {ordsets, stdlib, provided}.
@@ -37,3 +38,4 @@
 {unicode, stdlib, provided}.
 {unicode_util, stdlib, provided}.
 {re, stdlib, provided}.
+{sets, stdlib, provided}.

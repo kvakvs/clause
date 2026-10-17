@@ -26,7 +26,7 @@ implementing source file:
 - other modules: `io` output ([io](io.md)), the data functions of
   [`lists`](#lists-module), [`math`](#math-module),
   [`binary`](#binary-module), [`maps` and `os`](#maps-module),
-  [`ordsets`, `orddict` and `proplists`](#collections),
+  [`ordsets`, `orddict`, `proplists`, `dict` and `sets`](#collections),
   [`persistent_term`](#persistent-terms), [`unicode`](#unicode-module),
   [`code`](#code-module), [`init`](#init-module),
   [`atomics`](#atomics-and-counters), [`erts_internal`](#erts-internal),
@@ -317,11 +317,15 @@ use the C library's local time zone. Timers:
 
 `erlang/hashing.cpp`, `erlang/md5.cpp`.
 
-- `phash2/1,2` and `phash/2` hash a term's structure: exactly equal terms
-  hash equally in every program run (atoms by spelling, maps in key order,
-  `1` and `1.0` apart). `phash2/1` is in 0..2^27-1, `phash2/2` in
-  0..Range-1, `phash/2` in 1..Range; Range is 1..2^32, else `badarg`. The
-  values are Clause's own, not OTP's.
+- `phash2/1,2` is OTP's `make_hash2` and `phash/2` its `make_hash` (plan 21
+  step LIB2), walking list and tuple cells in place: atoms (by OTP's hash of
+  their spelling), integers, floats, binaries and bitstrings, lists, tuples
+  and maps (order-independent) hash to OTP's values, so `dict` and version 1
+  `sets` lay out their buckets as OTP does. Pids, ports and references hash
+  by Clause's numbers, funs by module, arity or index and captures, native
+  records by field values ([differences](differences.md)). `phash2/1` is in
+  0..2^27-1, `phash2/2` in 0..Range-1, `phash/2` in 1..Range; Range is
+  1..2^32, else `badarg`.
 - `md5/1` and `md5_init/0`, `md5_update/2`, `md5_final/1` give RFC 1321's
   digests (OTP's bytes) of iodata. The context is an opaque 96-byte binary
   of Clause's own layout; another binary is `badarg`.
@@ -446,8 +450,8 @@ builtin:
 
 ## Collections
 
-`runtime/src/builtins/collections/` (plan 21 step LIB1): `ordsets`, `orddict`
-and `proplists`, every documented function.
+`runtime/src/builtins/collections/` (plan 21 steps LIB1, LIB2): `ordsets`,
+`orddict`, `proplists`, `dict` and `sets`, every documented function.
 
 - The walks over lists are builtins: `ordsets` membership, insertion,
   deletion and the set algebra (`union/2`, `intersection/1,2`,
@@ -469,6 +473,19 @@ and `proplists`, every documented function.
   `badarith`. `proplists` keys match with `=:=`.
 - `proplists:get_keys/1` lists the keys in the order of a map's keys, as
   OTP's set of keys does ([differences](differences.md)).
+- `dict` and `sets` (plan 21 step LIB2): a dict and a version 1 set are OTP's
+  records over a linear hash table (`collections/linear_hash.cpp`), segments
+  of 16 bucket lists with slots from `erlang:phash/2`, expanded and
+  contracted exactly as OTP does, so the records, `to_list/1` and fold orders
+  equal OTP's. A version 2 set (the default) is a map with `[]` values; two
+  maps intersect and subtract with OTP's values (a map's own values once
+  enough keys are kept, else `[]`). A dict's lookups and updates, `sets`
+  operations without funs, `new/0` and `from_list/1` are builtins; `update`,
+  `fold`, `map`, `filter`, `merge` and `sets:new/1`, `from_list/2`, `fold`,
+  `filter`, `map`, `filtermap` are Erlang, the hashed ones over the private
+  builtins `clause_hashed:entries/1` (storage order), `with_values/2` and
+  `keep/2`. A term that is not a dict raises `{badrecord, Term}` (`size/1`,
+  `is_empty/1` `function_clause`), one that is not a set `function_clause`.
 
 ## Persistent terms
 

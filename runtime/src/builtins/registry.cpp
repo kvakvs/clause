@@ -184,6 +184,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      ordsets_builtins(),
                                      orddict_builtins(),
                                      proplists_builtins(),
+                                     dict_builtins(),
+                                     sets_builtins(),
                                      persistent_term_builtins(),
                                      unicode_builtins(),
                                      code_module_builtins(),

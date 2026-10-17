@@ -95,16 +95,6 @@ create a new API that's for the end user to choose
 
 ## Tier A: data modules without processes
 
-### LIB2. Hashed collections: `sets`, `dict`
-
-- `sets`: version 2 (map-backed, the OTP 29 default) in C++.
-  `new/1`/`from_list/2` with `{version, 1}` build OTP's v1 record; v1 is
-  implemented as well, so `is_set/1` and `=:=` agree.
-- `dict`: OTP's `dict` record of hashed segments, in C++ (`store/3`, `fetch/2`,
-  `append/3`, `update_counter/3`, `merge/3` without fun ...). It needs
-  `erlang:phash/2` (LIB16), because the bucket layout must match OTP's.
-- Erlang: the fun-taking functions.
-
 ### LIB3. Trees and queues: `gb_trees`, `gb_sets`, `queue`, `array`
 
 - C++ builds the same shapes as OTP, so results compare equal and print alike.
@@ -510,18 +500,17 @@ missing, so programs that probe for them keep working.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB2 (`sets`, `dict`).
-2. LIB4 text (`string`, `io_lib`, `unicode`).
-3. LIB10 and LIB11 (ETS and match specs).
-4. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
-5. LIB23 and LIB24 (`logger`, `application`).
-6. LIB3, LIB5 and LIB6 (trees, queues, encodings, `rand`).
-7. LIB9, LIB50, LIB60 and LIB61 (`erlang`, `file`, `inet`, `os`, `code` gaps).
-8. LIB30–LIB34 (the front end, `consult`, `io:read`).
-9. LIB25 (local-node services) and LIB12 (`digraph`).
-10. LIB51–LIB55 (files, logs, archives).
-11. LIB7, LIB8, LIB70, LIB62 and LIB63.
-12. LIB71–LIB74, then the declined modules' answer stubs.
+1. LIB4 text (`string`, `io_lib`, `unicode`).
+2. LIB10 and LIB11 (ETS and match specs).
+3. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
+4. LIB23 and LIB24 (`logger`, `application`).
+5. LIB3, LIB5 and LIB6 (trees, queues, encodings, `rand`).
+6. LIB9, LIB50, LIB60 and LIB61 (`erlang`, `file`, `inet`, `os`, `code` gaps).
+7. LIB30–LIB34 (the front end, `consult`, `io:read`).
+8. LIB25 (local-node services) and LIB12 (`digraph`).
+9. LIB51–LIB55 (files, logs, archives).
+10. LIB7, LIB8, LIB70, LIB62 and LIB63.
+11. LIB71–LIB74, then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 
@@ -697,9 +686,6 @@ functions are listed separately and are optional.
   member/2, next/2, open_file/1,2, pid2name/1, repair_continuation/2,
   safe_fixtable/2, select/1,2,3, select_delete/2, slot/2, sync/1, table/1,2,
   to_ets/2, traverse/2, update_counter/3
-- `dict` (stdlib, 21): append/3, append_list/3, erase/2, fetch/2, fetch_keys/1,
-  filter/2, find/2, fold/3, from_list/1, is_empty/1, is_key/2, map/2, merge/3,
-  new/0, size/1, store/3, take/2, to_list/1, update/3,4, update_counter/3
 - `digraph` (stdlib, 34): add_edge/3,4,5, add_vertex/1,2,3, del_edge/2,
   del_edges/2, del_path/3, del_vertex/2, del_vertices/2, delete/1, edge/2,
   edges/1,2, get_cycle/2, get_path/3, get_short_cycle/2, get_short_path/3,
@@ -886,10 +872,6 @@ functions are listed separately and are optional.
 - `re` (stdlib, 1, 10 done): import/1
 - `records` (stdlib, 8): create/4, get/2, get_definition/2, get_field_names/1,
   get_module/1, get_name/1, is_exported/1, update/4
-- `sets` (stdlib, 23): add_element/2, del_element/2, filter/2, filtermap/2,
-  fold/3, from_list/1,2, intersection/1,2, is_disjoint/2, is_element/2,
-  is_empty/1, is_equal/2, is_set/1, is_subset/2, map/2, new/0,1, size/1,
-  subtract/2, to_list/1, union/1,2
 - `shell` (stdlib, 18): catch_exception/1, default_multiline_prompt/1,
   erl_pp_format_func/1, format_shell_func/1, hints/1, history/1,
   inverted_space_prompt/1, multiline_prompt_func/1, prompt_func/1,

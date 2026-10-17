@@ -16,6 +16,7 @@ implemented and which are stubs.
 | [`lists`](../library/stdlib/lists.erl) | The common functions; data functions such as `sublist/2,3`, `flatten/1,2`, `usort/1`, `keymember/3`, `zip/2,3`, `merge/2` are runtime builtins; every documented function is implemented ([lists module](builtins.md#lists-module)) |
 | [`maps`](../library/stdlib/maps.erl) | Every documented function; `get/3`, `merge/2`, `intersect/2`, `with/2`, ... are runtime builtins, the functions taking funs Erlang ([maps module](builtins.md#maps-module)) |
 | [`ordsets`](../library/stdlib/ordsets.erl), [`orddict`](../library/stdlib/orddict.erl), [`proplists`](../library/stdlib/proplists.erl) | Every documented function; the walks over lists are runtime builtins, the functions taking funs Erlang ([collections](builtins.md#collections)) |
+| [`dict`](../library/stdlib/dict.erl), [`sets`](../library/stdlib/sets.erl) | Every documented function over OTP's records (version 1 sets) and maps (version 2); operations without funs are runtime builtins ([collections](builtins.md#collections)) |
 | [`io`](../library/stdlib/io.erl) | `get_line/1,2`, `get_chars/2,3` (standard input server or an open file), `request/1,2`, `requests/1,2` (OTP's I/O protocol, [files](ports.md#standard-io-and-files)); `format/1,2,3`, `fwrite/1,2,3`, `put_chars/1,2` and `nl/0,1` are runtime builtins ([io](io.md)) |
 | [`binary`](../library/stdlib/binary.erl) | Every function; `replace/3,4` and `list_to_bin/1` in Erlang, the others runtime builtins ([binary module](builtins.md#binary-module)) |
 | [`math`](../library/stdlib/math.erl) | Every function as a runtime builtin ([math module](builtins.md#math-module)) |
@@ -143,7 +144,7 @@ warning, since nothing is replaced.
   application that owns the module in OTP: `erts` (preloaded counterparts and
   `erlang`), `kernel`, `stdlib`. Clause's private helper modules
   (`clause_socket`, `clause_re`, `clause_unicode`, `clause_zlib`,
-  `clause_receive`, `clause_maps`) sit beside the modules they serve. The library lookup
+  `clause_receive`, `clause_maps`, `clause_hashed`) sit beside the modules they serve. The library lookup
   searches every application directory; a module name exists in at most one
   of them.
 - `library/modules.terms` lists every module Clause decides about:

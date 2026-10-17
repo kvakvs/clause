@@ -539,7 +539,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `e3e44460`
 - **LIB1** `ordsets`, `orddict`, `proplists`: list walks as C++ builtins
   (`builtins/collections/`) mirroring OTP's clauses, fun-taking functions
-  Erlang; `Named<Role>` typed arguments — `[plan21] LIB1`
+  Erlang; `Named<Role>` typed arguments — `04329156`
+- **LIB2** `dict`, `sets`: OTP's linear hash records (`collections/linear_hash`)
+  and version 2 maps; `phash/2`, `phash2/1,2` now OTP's `make_hash`/`make_hash2`
+  values — `[plan21] LIB2`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
