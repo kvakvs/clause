@@ -95,8 +95,8 @@ TermResult<Term> Executor::create(ProcessContext &parent, Prepare prepare, const
     const auto leader = parent.signals().group_leader();
     child.signals().set_group_leader(leader != 0 ? leader : pid_of(parent));
     child.generated_calls().enter();
-    if (options.min_heap_words) {
-        child.heap().set_min_heap_words(*options.min_heap_words);
+    if (const auto words = options.min_heap_words ? options.min_heap_words : min_heap_words_) {
+        child.heap().set_min_heap_words(*words);
     }
     const auto frame = prepare(child);
     if (!frame) {

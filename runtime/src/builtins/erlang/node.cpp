@@ -2,9 +2,9 @@
 #include "terms.hpp"
 #include <array>
 
-// nodes/0,1,2, is_alive/0, monitor_node/2,3 and disconnect_node/1 (plan step 41H, docs/processes.md#nodes): the
-// answers of an OTP node that is not distributed. Only the local node, nonode@nohost, exists; monitoring another
-// node raises notalive, disconnecting returns ignored.
+// nodes/0,1,2, is_alive/0, monitor_node/2,3, disconnect_node/1 and the cookies (plan step 41H,
+// docs/processes.md#nodes): the answers of an OTP node that is not distributed. Only the local node, nonode@nohost,
+// exists; monitoring another node raises notalive, disconnecting returns ignored.
 namespace clause::runtime::builtins {
 namespace {
 // The name of the only node.
@@ -113,6 +113,29 @@ TermResult<Term> monitor_node3(ProcessContext &context, const AtomArgument &node
     return monitor_node(context, node, flag, &options);
 }
 
+// get_cookie() and get_cookie(Node): nocookie, since this node is not alive (plan 21 step LIB9A).
+TermResult<Term> get_cookie0(ProcessContext &context) { return TermFactory(context).atom("nocookie"); }
+
+TermResult<Term> get_cookie1(ProcessContext &context, const AtomArgument & /*node*/) {
+    return TermFactory(context).atom("nocookie");
+}
+
+// set_cookie(Cookie) and set_cookie(Node, Cookie): error:distribution_not_started for atoms, badarg otherwise.
+[[noreturn]] void not_started(ProcessContext &context) {
+    throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
+                         .payload = atom(context, "distribution_not_started").word()};
+}
+
+TermResult<Term> set_cookie1(ProcessContext &context, const AtomArgument & /*cookie*/) { not_started(context); }
+
+// set_cookie(Node, Cookie): the local node's cookie is set with set_cookie/1, so naming it here is badarg.
+TermResult<Term> set_cookie2(ProcessContext &context, const AtomArgument &node, const AtomArgument & /*cookie*/) {
+    if (node.spelling == LOCAL_NODE) {
+        bad_argument();
+    }
+    not_started(context);
+}
+
 // disconnect_node(Node): ignored, since this node is not alive.
 TermResult<Term> disconnect_node(ProcessContext &context, const Term &) { return TermFactory(context).atom("ignored"); }
 
@@ -124,6 +147,10 @@ constexpr std::array NODE_BUILTINS{
     typed_entry<monitor_node2>("erlang", "monitor_node"),
     typed_entry<monitor_node3>("erlang", "monitor_node"),
     typed_entry<disconnect_node>("erlang", "disconnect_node"),
+    typed_entry<get_cookie0>("erlang", "get_cookie"),
+    typed_entry<get_cookie1>("erlang", "get_cookie"),
+    typed_entry<set_cookie1>("erlang", "set_cookie"),
+    typed_entry<set_cookie2>("erlang", "set_cookie"),
 };
 } // namespace
 } // namespace clause::runtime::builtins

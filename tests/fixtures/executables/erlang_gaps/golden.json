@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "erlang_gaps",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "checksums: [38600999,38600999,38600999,38600999,1,891568578,891568578,891568578,0,2703296241,{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg}]\ntuples: [{a,b},{b},{b,a},{a,b},{b},{a},{},true,false,false,false,true,true,[5],true,{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg}]\niovecs: [[<<97,98,99>>],[],[],[<<97,98,99,100,101>>],[605],[70000],true,{error,badarg},{error,badarg},{error,badarg}]\ncookies: [nocookie,nocookie,nocookie,{error,badarg},{error,distribution_not_started},{error,badarg},{error,distribution_not_started},{error,badarg},{error,badarg}]\nsends: [ok,ok,ok,ok,noconnect,ok,true,true,false,true,{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},[m1,m2,m3,m4,m5,m6]]\nsignals: [true,true,true,killed,true,true,normal,shutdown,{error,badarg},{error,badarg},{error,badarg},{error,badarg}]\nspawns: [[normal,done],true,true,{error,badarg},{error,badarg},{error,badarg}]\niterator: [true,true,{error,badarg}]\nflags: [0,5,0,{error,badarg},{error,badarg},{error,badarg},true,true,{error,badarg},{error,badarg},8,10,65535,{error,badarg},{error,badarg},{error,badarg},{error,badarg},[first,second]]\nerlang_gaps: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "erlang_gaps.erl": "ff663f7458efe341bfe19ddb108eeb4771c773697c52f23a23d111ef3ab9c7d8"
+  }
+}

@@ -197,6 +197,12 @@ std::span<const BuiltinEntry> io_lib_fread_builtins() noexcept;
 // Modules erl_anno and erl_internal (plan 21 step LIB8; runtime/src/builtins/front_end/).
 std::span<const BuiltinEntry> erl_anno_builtins() noexcept;
 std::span<const BuiltinEntry> erl_internal_builtins() noexcept;
+// The erlang gaps of plan 21 step LIB9A: checksums and iovecs, tuple edits, option-taking process builtins and
+// system flags.
+std::span<const BuiltinEntry> checksum_builtins() noexcept;
+std::span<const BuiltinEntry> tuple_edit_builtins() noexcept;
+std::span<const BuiltinEntry> process_option_builtins() noexcept;
+std::span<const BuiltinEntry> system_flag_builtins() noexcept;
 // Modules erl_features and records (plan 21 step LIB8B).
 std::span<const BuiltinEntry> erl_features_builtins() noexcept;
 std::span<const BuiltinEntry> records_builtins() noexcept;

@@ -394,11 +394,11 @@
 
 abs(_) -> clause_builtin_placeholder.
 
-adler32(_) -> erlang:error({not_implemented, adler32, 1}).
+adler32(_) -> clause_builtin_placeholder.
 
-adler32(_, _) -> erlang:error({not_implemented, adler32, 2}).
+adler32(_, _) -> clause_builtin_placeholder.
 
-adler32_combine(_, _, _) -> erlang:error({not_implemented, adler32_combine, 3}).
+adler32_combine(_, _, _) -> clause_builtin_placeholder.
 
 alias() -> clause_builtin_placeholder.
 
@@ -412,7 +412,7 @@ alloc_sizes(_) -> erlang:error({not_implemented, alloc_sizes, 1}).
 
 append(_, _) -> erlang:error({not_implemented, append, 2}).
 
-append_element(_, _) -> erlang:error({not_implemented, append_element, 2}).
+append_element(_, _) -> clause_builtin_placeholder.
 
 apply(_, _) -> erlang:error({not_implemented, apply, 2}).
 
@@ -464,7 +464,7 @@ bitstring_to_list(_) -> clause_builtin_placeholder.
 
 'bsr'(_, _) -> clause_builtin_placeholder.
 
-bump_reductions(_) -> erlang:error({not_implemented, bump_reductions, 1}).
+bump_reductions(_) -> clause_builtin_placeholder.
 
 'bxor'(_, _) -> clause_builtin_placeholder.
 
@@ -486,11 +486,11 @@ check_process_code(_, _, _) -> erlang:error({not_implemented, check_process_code
 
 convert_time_unit(_, _, _) -> clause_builtin_placeholder.
 
-crc32(_) -> erlang:error({not_implemented, crc32, 1}).
+crc32(_) -> clause_builtin_placeholder.
 
-crc32(_, _) -> erlang:error({not_implemented, crc32, 2}).
+crc32(_, _) -> clause_builtin_placeholder.
 
-crc32_combine(_, _, _) -> erlang:error({not_implemented, crc32_combine, 3}).
+crc32_combine(_, _, _) -> clause_builtin_placeholder.
 
 date() -> clause_builtin_placeholder.
 
@@ -498,7 +498,7 @@ decode_packet(_, _, _) -> erlang:error({not_implemented, decode_packet, 3}).
 
 delay_trap(_, _) -> erlang:error({not_implemented, delay_trap, 2}).
 
-delete_element(_, _) -> erlang:error({not_implemented, delete_element, 2}).
+delete_element(_, _) -> clause_builtin_placeholder.
 
 delete_module(_) -> clause_builtin_placeholder.
 
@@ -563,11 +563,11 @@ exit(_) -> clause_builtin_placeholder.
 
 exit(_, _) -> clause_builtin_placeholder.
 
-exit(_, _, _) -> erlang:error({not_implemented, exit, 3}).
+exit(_, _, _) -> clause_builtin_placeholder.
 
 exit_signal(_, _) -> clause_builtin_placeholder.
 
-exit_signal(_, _, _) -> erlang:error({not_implemented, exit_signal, 3}).
+exit_signal(_, _, _) -> clause_builtin_placeholder.
 
 external_size(_) -> clause_builtin_placeholder.
 
@@ -615,9 +615,9 @@ get() -> clause_builtin_placeholder.
 
 get(_) -> clause_builtin_placeholder.
 
-get_cookie() -> erlang:error({not_implemented, get_cookie, 0}).
+get_cookie() -> clause_builtin_placeholder.
 
-get_cookie(_) -> erlang:error({not_implemented, get_cookie, 1}).
+get_cookie(_) -> clause_builtin_placeholder.
 
 get_keys() -> clause_builtin_placeholder.
 
@@ -635,17 +635,17 @@ halt() -> clause_builtin_placeholder.
 
 halt(_) -> clause_builtin_placeholder.
 
-halt(_, _) -> erlang:error({not_implemented, halt, 2}).
+halt(_, _) -> clause_builtin_placeholder.
 
 has_prepared_code_on_load(_) -> erlang:error({not_implemented, has_prepared_code_on_load, 1}).
 
 hd(_) -> clause_builtin_placeholder.
 
-hibernate() -> erlang:error({not_implemented, hibernate, 0}).
+hibernate() -> _ = erlang:hibernate(erlang, self, []), ok.
 
 hibernate(_, _, _) -> clause_builtin_placeholder.
 
-insert_element(_, _, _) -> erlang:error({not_implemented, insert_element, 3}).
+insert_element(_, _, _) -> clause_builtin_placeholder.
 
 integer_to_binary(_) -> clause_builtin_placeholder.
 
@@ -659,7 +659,7 @@ iolist_size(_) -> clause_builtin_placeholder.
 
 iolist_to_binary(_) -> clause_builtin_placeholder.
 
-iolist_to_iovec(_) -> erlang:error({not_implemented, iolist_to_iovec, 1}).
+iolist_to_iovec(_) -> clause_builtin_placeholder.
 
 is_alive() -> clause_builtin_placeholder.
 
@@ -681,7 +681,7 @@ is_function(_, _) -> clause_builtin_placeholder.
 
 is_integer(_) -> clause_builtin_placeholder.
 
-is_integer(_, _, _) -> erlang:error({not_implemented, is_integer, 3}).
+is_integer(_, _, _) -> clause_builtin_placeholder.
 
 is_list(_) -> clause_builtin_placeholder.
 
@@ -711,7 +711,7 @@ length(_) -> clause_builtin_placeholder.
 
 link(_) -> clause_builtin_placeholder.
 
-link(_, _) -> erlang:error({not_implemented, link, 2}).
+link(_, _) -> clause_builtin_placeholder.
 
 list_to_atom(_) -> clause_builtin_placeholder.
 
@@ -857,7 +857,7 @@ process_display(_, _) -> erlang:error({not_implemented, process_display, 2}).
 
 process_flag(_, _) -> clause_builtin_placeholder.
 
-process_flag(_, _, _) -> erlang:error({not_implemented, process_flag, 3}).
+process_flag(_, _, _) -> clause_builtin_placeholder.
 
 process_info(_) -> clause_builtin_placeholder.
 
@@ -865,9 +865,9 @@ process_info(_, _) -> clause_builtin_placeholder.
 
 processes() -> clause_builtin_placeholder.
 
-processes_iterator() -> erlang:error({not_implemented, processes_iterator, 0}).
+processes_iterator() -> clause_builtin_placeholder.
 
-processes_next(_) -> erlang:error({not_implemented, processes_next, 1}).
+processes_next(_) -> clause_builtin_placeholder.
 
 purge_module(_) -> erlang:error({not_implemented, purge_module, 1}).
 
@@ -895,15 +895,15 @@ self() -> clause_builtin_placeholder.
 
 send(_, _) -> clause_builtin_placeholder.
 
-send(_, _, _) -> erlang:error({not_implemented, send, 3}).
+send(_, _, _) -> clause_builtin_placeholder.
 
 send_after(_, _, _) -> clause_builtin_placeholder.
 
 send_after(_, _, _, _) -> clause_builtin_placeholder.
 
-send_nosuspend(_, _) -> erlang:error({not_implemented, send_nosuspend, 2}).
+send_nosuspend(_, _) -> clause_builtin_placeholder.
 
-send_nosuspend(_, _, _) -> erlang:error({not_implemented, send_nosuspend, 3}).
+send_nosuspend(_, _, _) -> clause_builtin_placeholder.
 
 seq_trace(_, _) -> erlang:error({not_implemented, seq_trace, 2}).
 
@@ -913,9 +913,9 @@ seq_trace_print(_) -> erlang:error({not_implemented, seq_trace_print, 1}).
 
 seq_trace_print(_, _) -> erlang:error({not_implemented, seq_trace_print, 2}).
 
-set_cookie(_) -> erlang:error({not_implemented, set_cookie, 1}).
+set_cookie(_) -> clause_builtin_placeholder.
 
-set_cookie(_, _) -> erlang:error({not_implemented, set_cookie, 2}).
+set_cookie(_, _) -> clause_builtin_placeholder.
 
 set_cpu_topology(_) -> erlang:error({not_implemented, set_cpu_topology, 1}).
 
@@ -929,27 +929,27 @@ size(_) -> clause_builtin_placeholder.
 
 spawn(_) -> clause_builtin_placeholder.
 
-spawn(_, _) -> erlang:error({not_implemented, spawn, 2}).
+spawn(_, _) -> clause_builtin_placeholder.
 
 spawn(_, _, _) -> clause_builtin_placeholder.
 
-spawn(_, _, _, _) -> erlang:error({not_implemented, spawn, 4}).
+spawn(_, _, _, _) -> clause_builtin_placeholder.
 
 spawn_link(_) -> clause_builtin_placeholder.
 
-spawn_link(_, _) -> erlang:error({not_implemented, spawn_link, 2}).
+spawn_link(_, _) -> clause_builtin_placeholder.
 
 spawn_link(_, _, _) -> clause_builtin_placeholder.
 
-spawn_link(_, _, _, _) -> erlang:error({not_implemented, spawn_link, 4}).
+spawn_link(_, _, _, _) -> clause_builtin_placeholder.
 
 spawn_monitor(_) -> clause_builtin_placeholder.
 
-spawn_monitor(_, _) -> erlang:error({not_implemented, spawn_monitor, 2}).
+spawn_monitor(_, _) -> clause_builtin_placeholder.
 
 spawn_monitor(_, _, _) -> clause_builtin_placeholder.
 
-spawn_monitor(_, _, _, _) -> erlang:error({not_implemented, spawn_monitor, 4}).
+spawn_monitor(_, _, _, _) -> clause_builtin_placeholder.
 
 spawn_opt(_, _) -> clause_builtin_placeholder.
 
@@ -985,7 +985,7 @@ suspend_process(_) -> erlang:error({not_implemented, suspend_process, 1}).
 
 suspend_process(_, _) -> erlang:error({not_implemented, suspend_process, 2}).
 
-system_flag(_, _) -> erlang:error({not_implemented, system_flag, 2}).
+system_flag(_, _) -> clause_builtin_placeholder.
 
 system_info(_) -> clause_builtin_placeholder.
 

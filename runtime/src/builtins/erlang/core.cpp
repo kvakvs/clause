@@ -102,6 +102,45 @@ Word halt(ProcessContext &context, Arguments arguments) {
     return 0;
 }
 
+// Whether one halt/2 option is {flush, Boolean} or {flush_timeout, Timeout} (plan 21 step LIB9A).
+bool halt_option(const Term &option) {
+    if (!option.is_tuple() || option.tuple_size_unchecked() != 2 || !option.tuple_element_unchecked(0).is_atom()) {
+        return false;
+    }
+    const auto name = option.tuple_element_unchecked(0).atom_spelling_unchecked();
+    const auto value = option.tuple_element_unchecked(1);
+    if (name == "flush") {
+        return value.is_boolean();
+    }
+    const bool timeout = value.is_atom() ? value.atom_spelling_unchecked() == "infinity"
+                                         : builtins::small(value.word()).value_or(-1) >= 0;
+    return name == "flush_timeout" && timeout;
+}
+
+// Whether halt/2's Options are a proper list of halt options.
+bool halt_options(ProcessContext &context, Word options) {
+    const auto list = Term::from_word(options, context);
+    if (!list) {
+        return false;
+    }
+    auto rest = *list;
+    for (; rest.is_cons(); rest = rest.tail_unchecked()) {
+        if (!halt_option(rest.head_unchecked())) {
+            return false;
+        }
+    }
+    return rest.is_nil();
+}
+
+// halt(Status, Options): halt/1 once the options are valid; Clause flushes output either way.
+Word halt2(ProcessContext &context, Arguments arguments) {
+    if (!halt_options(context, arguments[1])) {
+        return raise(context, ErrorReason::badarg, 0);
+    }
+    CLAUSE_halt_v1(&context, arguments[0]);
+    return 0;
+}
+
 // error/1, exit/1 and throw/1: the argument is the whole reason.
 template <ErrorReason reason> Word raise_reason(ProcessContext &context, Arguments arguments) {
     return raise(context, reason, arguments[0]);
@@ -206,6 +245,7 @@ constexpr std::array ERLANG_BUILTINS{
     BuiltinEntry{"erlang", "display", 1, display},
     BuiltinEntry{"erlang", "halt", 0, halt},
     BuiltinEntry{"erlang", "halt", 1, halt},
+    BuiltinEntry{"erlang", "halt", 2, halt2},
     BuiltinEntry{"erlang", "error", 1, raise_reason<ErrorReason::raised_error>},
     BuiltinEntry{"erlang", "error", 2, error_arguments},
     BuiltinEntry{"erlang", "error", 3, error_arguments},

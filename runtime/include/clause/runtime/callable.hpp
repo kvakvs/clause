@@ -28,11 +28,17 @@ enum class CallError : std::uint8_t {
 
 // Generated frames live when an Erlang exception was raised, innermost first (BEAM's raw StackTrace).
 struct StackTrace final {
-    // Bound the captured frames like BEAM's default backtrace_depth.
-    static constexpr std::size_t limit = 8;
+    // The most frames a trace holds: OTP's largest backtrace_depth; backtrace_depth() picks how many are captured.
+    static constexpr std::size_t limit = 64;
     std::array<const abi::v1::FrameDescriptor *, limit> frames = {};
     std::size_t depth = 0;
 };
+
+// The frames stack traces keep, BEAM's backtrace_depth: 8 until system_flag(backtrace_depth, N) changes it, for
+// every runtime of the program (plan 21 step LIB9A).
+std::size_t backtrace_depth() noexcept;
+// Set backtrace_depth, at most StackTrace::limit; returns the previous depth.
+std::size_t set_backtrace_depth(std::size_t depth) noexcept;
 
 struct CallFailure final {
     // Preserve the operation failure without manufacturing an Erlang exception term.

@@ -3,6 +3,7 @@
 #include "profile.hpp"
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <bit>
 #include <clause/runtime/builtin_registry.hpp>
 #include <clause/runtime/process_context.hpp>
@@ -322,9 +323,21 @@ bool ProcessStack::contains(const Word value) const noexcept {
     return false;
 }
 
+namespace {
+// system_flag(backtrace_depth, N) of the whole program (plan 21 step LIB9A).
+std::atomic<std::size_t> backtrace_frames{8};
+} // namespace
+
+std::size_t backtrace_depth() noexcept { return backtrace_frames.load(std::memory_order_relaxed); }
+
+std::size_t set_backtrace_depth(std::size_t depth) noexcept {
+    return backtrace_frames.exchange(std::min(depth, StackTrace::limit), std::memory_order_relaxed);
+}
+
 StackTrace ProcessStack::trace() const noexcept {
     StackTrace result;
-    for (auto at = state_.frame; at != none && result.depth < StackTrace::limit; at = state_.stack[at]) {
+    const auto depth = backtrace_depth();
+    for (auto at = state_.frame; at != none && result.depth < depth; at = state_.stack[at]) {
         if (descriptor(at).module) {
             result.frames.at(result.depth++) = &descriptor(at);
         }

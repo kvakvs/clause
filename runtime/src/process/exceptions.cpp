@@ -85,11 +85,12 @@ TermResult<Term> completed_entry(TermFactory &factory, const Term &entry) {
 // The stack raise/3 records: the given term, or a copy cut to the trace limit with short entries completed.
 TermResult<Term> recorded_stack(ProcessContext &context, const Term &stack, const std::span<const Term> entries) {
     const auto short_entry = [](const Term &entry) { return entry_shape(entry) == EntryShape::short_form; };
-    if (entries.size() <= StackTrace::limit && std::ranges::none_of(entries, short_entry)) {
+    const auto depth = backtrace_depth();
+    if (entries.size() <= depth && std::ranges::none_of(entries, short_entry)) {
         return stack;
     }
     TermFactory factory(context);
-    const auto limited = entries.first(std::min(entries.size(), StackTrace::limit));
+    const auto limited = entries.first(std::min(entries.size(), depth));
     std::vector<Term> kept;
     kept.reserve(limited.size());
     for (const auto &entry : limited) {

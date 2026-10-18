@@ -15,6 +15,8 @@ COMPILER_IMPLEMENTED = {("apply", 2), ("apply", 3), ("is_record", 1), ("is_recor
 ERLANG_BODIES = {
     ("nif_error", 1): ("Reason", "erlang:error(Reason)"),
     ("nif_error", 2): ("Reason, Arguments", "erlang:error(Reason, Arguments)"),
+    # hibernate/0 (plan 21 step LIB9A): hibernate/3 waits for a message, then calls erlang:self() in its place.
+    ("hibernate", 0): ("", "_ = erlang:hibernate(erlang, self, []), ok"),
 }
 RESERVED = set(
     "after and andalso band begin bnot bor bsl bsr bxor case catch cond div else end fun if let maybe not of or "

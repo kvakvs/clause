@@ -1,3 +1,4 @@
+#include "processes.hpp"
 #include "../typed.hpp"
 #include "ports.hpp"
 #include "spawning.hpp"
@@ -204,11 +205,25 @@ TermResult<Term> min_heap_size(ProcessContext &context, const Term &value) {
     return TermFactory(context).integer(static_cast<std::int64_t>(previous));
 }
 
-// process_flag(trap_exit, Bool) or (min_heap_size, Size): the previous setting; every other flag is badarg.
+// process_flag(save_calls, N): the previous setting, kept though no calls are saved (plan 21 step LIB9A).
+TermResult<Term> save_calls(ProcessContext &context, const Term &value) {
+    const auto calls = small(value.word());
+    if (!calls || *calls < 0 || *calls > 10000) {
+        bad_argument();
+    }
+    const auto previous = context.signals().set_save_calls(static_cast<std::size_t>(*calls));
+    return TermFactory(context).integer(static_cast<std::int64_t>(previous));
+}
+
+// process_flag(trap_exit, Bool), (min_heap_size, Size) or (save_calls, N): the previous setting; every other flag is
+// badarg.
 TermResult<Term> process_flag(ProcessContext &context, const AtomArgument &flag, const Term &value) {
     const auto name = flag.term.atom_spelling_unchecked();
     if (name == "min_heap_size") {
         return min_heap_size(context, value);
+    }
+    if (name == "save_calls") {
+        return save_calls(context, value);
     }
     const auto spelling = value.is_atom() ? value.atom_spelling_unchecked() : "";
     if (name != "trap_exit" || (spelling != "true" && spelling != "false")) {
@@ -329,6 +344,19 @@ constexpr std::array PROCESS_BUILTINS{
     typed_entry<send>("erlang", "send"),
 };
 } // namespace
+
+TermResult<Term> send_message(ProcessContext &context, const Term &destination, const Term &message) {
+    return send(context, destination, message);
+}
+
+bool remote_destination(const Term &destination) { return remote_name(destination) && !local_name(destination); }
+
+TermResult<Term> link_process(ProcessContext &context, const Term &pid) { return link(context, pid); }
+
+TermResult<Term> send_exit(ProcessContext &context, const Term &destination, const Term &reason, bool self_normal) {
+    return self_normal ? exit_signal<true>(context, destination, reason)
+                       : exit_signal<false>(context, destination, reason);
+}
 } // namespace clause::runtime::builtins
 
 namespace clause::runtime {

@@ -18,16 +18,16 @@
 {'>', 2, [], implemented}.
 {'>=', 2, [], implemented}.
 {abs, 1, [auto_import, guard], implemented}.
-{adler32, 1, [], {unavailable, not_selected}}.
-{adler32, 2, [], {unavailable, not_selected}}.
-{adler32_combine, 3, [], {unavailable, not_selected}}.
+{adler32, 1, [], implemented}.
+{adler32, 2, [], implemented}.
+{adler32_combine, 3, [], implemented}.
 {alias, 0, [auto_import], implemented}.
 {alias, 1, [auto_import], implemented}.
 {alloc_info, 1, [], {unavailable, not_selected}}.
 {alloc_sizes, 1, [], {unavailable, not_selected}}.
 {'and', 2, [], implemented}.
 {append, 2, [], {unavailable, not_selected}}.
-{append_element, 2, [], {unavailable, not_selected}}.
+{append_element, 2, [], implemented}.
 {apply, 2, [auto_import], implemented}.
 {apply, 3, [auto_import], implemented}.
 {atom_to_binary, 1, [auto_import], implemented}.
@@ -53,7 +53,7 @@
 {'bor', 2, [], implemented}.
 {'bsl', 2, [], implemented}.
 {'bsr', 2, [], implemented}.
-{bump_reductions, 1, [], {unavailable, not_selected}}.
+{bump_reductions, 1, [], implemented}.
 {'bxor', 2, [], implemented}.
 {byte_size, 1, [auto_import, guard], implemented}.
 {call_on_load_function, 1, [], {unavailable, code_loading}}.
@@ -64,13 +64,13 @@
 {check_process_code, 2, [auto_import], {unavailable, code_loading}}.
 {check_process_code, 3, [auto_import], {unavailable, code_loading}}.
 {convert_time_unit, 3, [], implemented}.
-{crc32, 1, [], {unavailable, not_selected}}.
-{crc32, 2, [], {unavailable, not_selected}}.
-{crc32_combine, 3, [], {unavailable, not_selected}}.
+{crc32, 1, [], implemented}.
+{crc32, 2, [], implemented}.
+{crc32_combine, 3, [], implemented}.
 {date, 0, [auto_import], implemented}.
 {decode_packet, 3, [], {unavailable, not_selected}}.
 {delay_trap, 2, [], {unavailable, not_selected}}.
-{delete_element, 2, [], {unavailable, not_selected}}.
+{delete_element, 2, [], implemented}.
 {delete_module, 1, [auto_import], implemented}.
 {demonitor, 1, [auto_import], implemented}.
 {demonitor, 2, [auto_import], implemented}.
@@ -102,9 +102,9 @@
 {error, 3, [auto_import], implemented}.
 {exit, 1, [auto_import], implemented}.
 {exit, 2, [auto_import], implemented}.
-{exit, 3, [auto_import], {unavailable, not_selected}}.
+{exit, 3, [auto_import], implemented}.
 {exit_signal, 2, [auto_import], implemented}.
-{exit_signal, 3, [auto_import], {unavailable, not_selected}}.
+{exit_signal, 3, [auto_import], implemented}.
 {external_size, 1, [], implemented}.
 {external_size, 2, [], implemented}.
 {finish_after_on_load, 2, [], {unavailable, not_selected}}.
@@ -128,8 +128,8 @@
 {gather_gc_info_result, 1, [], {unavailable, not_selected}}.
 {get, 0, [auto_import], implemented}.
 {get, 1, [auto_import], implemented}.
-{get_cookie, 0, [], {unavailable, distribution}}.
-{get_cookie, 1, [], {unavailable, distribution}}.
+{get_cookie, 0, [], implemented}.
+{get_cookie, 1, [], implemented}.
 {get_keys, 0, [auto_import], implemented}.
 {get_keys, 1, [auto_import], implemented}.
 {get_module_info, 1, [], implemented}.
@@ -138,19 +138,19 @@
 {group_leader, 2, [auto_import], implemented}.
 {halt, 0, [auto_import], implemented}.
 {halt, 1, [auto_import], implemented}.
-{halt, 2, [auto_import], {unavailable, not_selected}}.
+{halt, 2, [auto_import], implemented}.
 {has_prepared_code_on_load, 1, [], {unavailable, code_loading}}.
 {hd, 1, [auto_import, guard], implemented}.
-{hibernate, 0, [], {unavailable, not_selected}}.
+{hibernate, 0, [], implemented}.
 {hibernate, 3, [], implemented}.
-{insert_element, 3, [], {unavailable, not_selected}}.
+{insert_element, 3, [], implemented}.
 {integer_to_binary, 1, [auto_import], implemented}.
 {integer_to_binary, 2, [auto_import], implemented}.
 {integer_to_list, 1, [auto_import], implemented}.
 {integer_to_list, 2, [auto_import], implemented}.
 {iolist_size, 1, [auto_import], implemented}.
 {iolist_to_binary, 1, [auto_import], implemented}.
-{iolist_to_iovec, 1, [], {unavailable, not_selected}}.
+{iolist_to_iovec, 1, [], implemented}.
 {is_alive, 0, [auto_import], implemented}.
 {is_atom, 1, [auto_import, guard], implemented}.
 {is_binary, 1, [auto_import, guard], implemented}.
@@ -161,7 +161,7 @@
 {is_function, 1, [auto_import, guard], implemented}.
 {is_function, 2, [auto_import, guard], implemented}.
 {is_integer, 1, [auto_import, guard], implemented}.
-{is_integer, 3, [auto_import, guard], {unavailable, not_selected}}.
+{is_integer, 3, [auto_import, guard], implemented}.
 {is_list, 1, [auto_import, guard], implemented}.
 {is_map, 1, [auto_import, guard], implemented}.
 {is_map_key, 2, [auto_import, guard], implemented}.
@@ -176,7 +176,7 @@
 {is_tuple, 1, [auto_import, guard], implemented}.
 {length, 1, [auto_import, guard], implemented}.
 {link, 1, [auto_import], implemented}.
-{link, 2, [auto_import], {unavailable, not_selected}}.
+{link, 2, [auto_import], implemented}.
 {list_to_atom, 1, [auto_import], implemented}.
 {list_to_binary, 1, [auto_import], implemented}.
 {list_to_bitstring, 1, [auto_import], implemented}.
@@ -249,12 +249,12 @@
 {prepare_loading, 2, [], implemented}.
 {process_display, 2, [], {unavailable, tracing}}.
 {process_flag, 2, [auto_import], implemented}.
-{process_flag, 3, [auto_import], {unavailable, not_selected}}.
+{process_flag, 3, [auto_import], implemented}.
 {process_info, 1, [auto_import], implemented}.
 {process_info, 2, [auto_import], implemented}.
 {processes, 0, [auto_import], implemented}.
-{processes_iterator, 0, [], {unavailable, not_selected}}.
-{processes_next, 1, [], {unavailable, not_selected}}.
+{processes_iterator, 0, [], implemented}.
+{processes_next, 1, [], implemented}.
 {purge_module, 1, [auto_import], {unavailable, code_loading}}.
 {put, 2, [auto_import], implemented}.
 {raise, 3, [], implemented}.
@@ -268,34 +268,34 @@
 {round, 1, [auto_import, guard], implemented}.
 {self, 0, [auto_import, guard], implemented}.
 {send, 2, [], implemented}.
-{send, 3, [], {unavailable, not_selected}}.
+{send, 3, [], implemented}.
 {send_after, 3, [], implemented}.
 {send_after, 4, [], implemented}.
-{send_nosuspend, 2, [], {unavailable, not_selected}}.
-{send_nosuspend, 3, [], {unavailable, not_selected}}.
+{send_nosuspend, 2, [], implemented}.
+{send_nosuspend, 3, [], implemented}.
 {seq_trace, 2, [], {unavailable, tracing}}.
 {seq_trace_info, 1, [], {unavailable, tracing}}.
 {seq_trace_print, 1, [], {unavailable, tracing}}.
 {seq_trace_print, 2, [], {unavailable, tracing}}.
-{set_cookie, 1, [], {unavailable, distribution}}.
-{set_cookie, 2, [], {unavailable, distribution}}.
+{set_cookie, 1, [], implemented}.
+{set_cookie, 2, [], implemented}.
 {set_cpu_topology, 1, [], {unavailable, not_selected}}.
 {setelement, 3, [auto_import], implemented}.
 {setnode, 2, [], {unavailable, distribution}}.
 {setnode, 3, [], {unavailable, distribution}}.
 {size, 1, [auto_import, guard], implemented}.
 {spawn, 1, [auto_import], implemented}.
-{spawn, 2, [auto_import], {unavailable, distribution}}.
+{spawn, 2, [auto_import], implemented}.
 {spawn, 3, [auto_import], implemented}.
-{spawn, 4, [auto_import], {unavailable, distribution}}.
+{spawn, 4, [auto_import], implemented}.
 {spawn_link, 1, [auto_import], implemented}.
-{spawn_link, 2, [auto_import], {unavailable, distribution}}.
+{spawn_link, 2, [auto_import], implemented}.
 {spawn_link, 3, [auto_import], implemented}.
-{spawn_link, 4, [auto_import], {unavailable, distribution}}.
+{spawn_link, 4, [auto_import], implemented}.
 {spawn_monitor, 1, [auto_import], implemented}.
-{spawn_monitor, 2, [auto_import], {unavailable, distribution}}.
+{spawn_monitor, 2, [auto_import], implemented}.
 {spawn_monitor, 3, [auto_import], implemented}.
-{spawn_monitor, 4, [auto_import], {unavailable, distribution}}.
+{spawn_monitor, 4, [auto_import], implemented}.
 {spawn_opt, 2, [auto_import], implemented}.
 {spawn_opt, 3, [auto_import], implemented}.
 {spawn_opt, 4, [auto_import], implemented}.
@@ -313,7 +313,7 @@
 {subtract, 2, [], {unavailable, not_selected}}.
 {suspend_process, 1, [], {unavailable, tracing}}.
 {suspend_process, 2, [], {unavailable, tracing}}.
-{system_flag, 2, [], {unavailable, not_selected}}.
+{system_flag, 2, [], implemented}.
 {system_info, 1, [], implemented}.
 {system_monitor, 0, [], {unavailable, tracing}}.
 {system_monitor, 1, [], {unavailable, tracing}}.

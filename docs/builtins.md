@@ -255,6 +255,25 @@ Calls:
   `fun put/2`) that the module neither defines, imports nor suppresses with
   `-compile({no_auto_import, ...})` reaches `erlang:F/A` the same way.
 
+Plan 21 step LIB9A (`executables_erlang_gaps`):
+
+- `adler32/1,2`, `adler32_combine/3`, `crc32/1,2`, `crc32_combine/3` over the
+  pinned zlib (`erlang/checksums.cpp`); `iolist_to_iovec/1` keeps binaries
+  above 512 bytes as their own elements and copies the rest together, as
+  OTP's iol2v does, and returns a binary or `[Binary]` as it is.
+- `append_element/2`, `insert_element/3`, `delete_element/2`, and
+  `is_integer/3` when called rather than inlined (`erlang/tuple_edits.cpp`).
+- `get_cookie/0,1` answer `nocookie` and `set_cookie/1,2`
+  `error:distribution_not_started` (badarg for this node in `set_cookie/2`),
+  as on a node that is not alive; `halt/2` checks its options and halts as
+  `halt/1`.
+- `send/3`, `send_nosuspend/2,3`, `link/2`, `exit/3`, `exit_signal/3`,
+  `spawn/2,4`, `spawn_link/2,4`, `spawn_monitor/2,4`, `process_flag/3`,
+  `bump_reductions/1` and `processes_iterator/0`, `processes_next/1`
+  ([processes](processes.md#builtins)); `system_flag/2`
+  ([system information](#system-information)); `hibernate/0` is an Erlang
+  body over `hibernate/3`.
+
 ## External term format
 
 `erlang/term_encoding.cpp`, `erlang/term_decoding.cpp`. Both directions share
@@ -315,6 +334,16 @@ use the C library's local time zone. Timers:
   process memory, `atom` an estimate from the atom count, `binary`, `code`
   and `ets` are 0.
 - Other items are `badarg`.
+- `system_flag/2` (`erlang/system_flags.cpp`, step LIB9A) returns each flag's
+  previous value: `backtrace_depth` bounds the frames of every stack trace
+  (at most 64), `min_heap_size` the first heap of processes spawned later;
+  `fullsweep_after`, `min_bin_vheap_size`, `max_heap_size`,
+  `microstate_accounting`, `scheduler_wall_time`, `trace_control_word`,
+  `outstanding_system_requests_limit`, `schedulers_online`,
+  `dirty_cpu_schedulers_online`, `multi_scheduling`, `system_logger` and
+  `time_offset` (always `final`: no time warp) are checked and read back
+  without an effect ([differences](differences.md#pids-references-and-processes)).
+  Other flags (`cpu_topology`, `erts_alloc`, ...) are `badarg`.
 
 ## Hashing
 

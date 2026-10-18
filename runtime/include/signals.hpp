@@ -32,6 +32,10 @@ class Signals final {
     // Set exit trapping; returns the previous setting.
     bool set_trap_exit(bool trap) noexcept { return std::exchange(trap_exit_, trap); }
 
+    // process_flag(save_calls, N), kept for reading back only: Clause saves no calls (plan 21 step LIB9A). Changed
+    // under the executor's lock when another process sets it.
+    std::size_t set_save_calls(std::size_t calls) noexcept { return std::exchange(save_calls_, calls); }
+
     // Link to the process of `pid`; nothing when already linked. Allocation failure throws.
     void link(Word pid) {
         if (!std::ranges::contains(links_, pid)) {
@@ -114,5 +118,7 @@ class Signals final {
     bool trap_exit_ = false;
     // The group leader inherited from the spawning process; 0 means the process leads itself. Added for 41G1.
     Word group_leader_ = 0;
+    // process_flag(save_calls, N); nothing is saved (plan 21 step LIB9A).
+    std::size_t save_calls_ = 0;
 };
 } // namespace clause::runtime

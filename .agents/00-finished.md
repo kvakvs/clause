@@ -616,7 +616,13 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   time (`semantic/record_definitions.cpp`, also OTP's legality rule) into
   `RecordDescriptor::definition` ETF bytes, `ModuleDescriptor::features`;
   run-time definitions interned by the code server for `create/4`;
-  `records_reflection` golden
+  `records_reflection` golden — `3847ccb6`
+- **LIB9A** `erlang` gaps: checksums and `iolist_to_iovec/1` (OTP's 512-byte
+  copy threshold), tuple edits, `is_integer/3` builtin, cookies, `halt/2`,
+  option-taking sends and signals, node-naming spawns (useless pids end with
+  `noconnection`), `process_flag/3`, process iterator, `system_flag/2`
+  (`backtrace_depth` now bounds traces, up to 64), `hibernate/0`;
+  `erlang_gaps` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

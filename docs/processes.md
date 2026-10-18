@@ -468,8 +468,15 @@ talks to its connected process with messages.
 | `register(Name, Pid)`, `unregister(Name)`, `whereis(Name)`, `registered()` | See [registered names](#registered-names); `Name` must be an atom |
 | `demonitor(Ref)`, `demonitor(Ref, Options)` | `badarg` unless `Ref` is a reference and `Options` a proper list of `flush` and `info` |
 | `exit(Dest, Reason)`, `exit_signal(Dest, Reason)` | `badarg` unless `Dest` is a pid or reference; `true` after the [exit signal](#exit-signals) |
-| `process_flag(trap_exit, Bool)`, `process_flag(min_heap_size, N)` | The previous setting; `badarg` for another flag, a non-boolean or a negative or non-integer size |
+| `process_flag(trap_exit, Bool)`, `process_flag(min_heap_size, N)`, `process_flag(save_calls, N)` | The previous setting; `badarg` for another flag, a non-boolean or a negative or non-integer size |
 | `erlang:send(Dest, Msg)`, `Dest ! Msg` | `Msg`, after sending it ([messages](#messages)); `send/2` is not auto-imported |
+| `spawn(Node, ...)`, `spawn_link(Node, ...)`, `spawn_monitor(Node, ...)` (`/2`, `/4`) | This node (`nonode@nohost`): as without `Node`. Another node: OTP's useless pid of a node that is not alive, a process that ends at once with reason `noconnection`, so a link or monitor reports `noconnection`; `badarg` for a non-atom node (plan 21 step LIB9A) |
+| `erlang:send(Dest, Msg, Options)` | `ok`, or `noconnect` for a message to another node with the `noconnect` option; options `nosuspend`, `noconnect`, `priority` (an ordinary message) |
+| `send_nosuspend(Dest, Msg)`, `send_nosuspend(Dest, Msg, [noconnect])` | `true`; `false` for another node with `noconnect` |
+| `link(Pid, Options)`, `exit(Dest, Reason, Options)`, `exit_signal(Dest, Reason, Options)` | As without options; `Options` is `[]` or `[priority]` (an ordinary signal) |
+| `process_flag(Pid, save_calls, N)` | The previous setting of another process (0..10000); kept, but Clause saves no calls; other flags `badarg` |
+| `processes_iterator()`, `processes_next(Iter)` | Iterate the live processes: `{Pid, Iter1}` or `none`; a process spawned during the walk may appear |
+| `bump_reductions(N)` | `true` for a non-negative integer; Clause counts no reductions |
 
 The new process joins the end of its parent's worker queue
 ([workers](#workers)); `spawn` returns its pid at once.

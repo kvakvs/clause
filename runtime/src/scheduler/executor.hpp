@@ -229,6 +229,9 @@ class Executor final {
 
     // A snapshot of the counts (introspection.cpp).
     static Counts counts(ProcessContext &context) noexcept;
+    // system_flag(min_heap_size, Words): the minimum heap of processes spawned from now on, rounded up to a heap
+    // size; returns the previous one (plan 21 step LIB9A).
+    static std::size_t set_min_heap_words(ProcessContext &context, std::size_t words);
     // The pid words of every live process, ascending. Allocation failure throws.
     static std::vector<Word> pids(ProcessContext &context);
 
@@ -618,6 +621,8 @@ class Executor final {
     Runtime::Impl &runtime_;
     // Guards everything below and every process that is not running.
     mutable std::mutex mutex_;
+    // system_flag(min_heap_size, Words) for new processes; none until it is set (plan 21 step LIB9A).
+    std::optional<std::size_t> min_heap_words_;
     // Wakes the timer thread: an earlier timer was armed, or run() ends.
     std::condition_variable timer_signal_;
     // Tick 0 of the wheel.

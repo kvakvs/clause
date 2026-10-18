@@ -123,25 +123,21 @@ embedded binaries, io_lib's nested char lists), not just equal content.
   (`topsort/1`, `components/1`, `strong_components/1`, `reachable/2`,
   `get_short_path/3`, ...) and the updates; Erlang for `fold_vertices/3`.
 
-### LIB9. `erlang` gaps (62)
+### LIB9. `erlang` gaps
 
-- C++:
-  - Checksums: `adler32/1,2`, `adler32_combine/3`, `crc32/1,2`,
-    `crc32_combine/3` (pinned zlib).
-  - Tuples and iovecs: `append_element/2`, `insert_element/3`,
-    `delete_element/2`, `iolist_to_iovec/1`.
-  - Packets: `decode_packet/3`, shared with the socket packet modes.
-  - Small builtins: `is_integer/3`, `halt/2`, `hibernate/0`,
-    `bump_reductions/1`, `process_display/2`.
-  - Processes: `processes_iterator/0`, `processes_next/1`,
-    `suspend_process/1,2`, `resume_process/1`, `process_flag/3`.
-  - Signals: `send/3`, `send_nosuspend/2,3`, `link/2`, `exit/3`,
-    `exit_signal/3`.
-  - Spawning: `spawn*/2,4` for the local node.
-  - System flags: `system_flag/2`, the documented flags that apply.
-  - Deprecated `phash/2`, needed by `dict`.
+- LIB9A done (checksums, tuple edits, `is_integer/3`, `iolist_to_iovec/1`,
+  cookies, `halt/2`, option-taking sends and signals, node-naming spawns,
+  `process_flag/3`, the process iterator, `system_flag/2`, `hibernate/0`),
+  see `00-finished.md`.
+- LIB9B (C++, executor): `suspend_process/1,2`, `resume_process/1` (suspend
+  counts, `asynchronous` and `unless_suspending` options, badarg for the
+  caller itself) and `process_display/2` (`backtrace` to standard error).
+- LIB9C (C++): `decode_packet/3` for every packet type OTP's
+  `packet_parser.c` decodes (`raw`, `0`/`1`/`2`/`4`, `asn1`, `cdr`, `sunrm`,
+  `fcgi`, `tpkt`, `line`, `http`, `httph`, `http_bin`, `httph_bin`) with its
+  options (`packet_size`, `line_length`), shared with the socket packet
+  modes.
 - `match_spec_test/3` comes with LIB11.
-- Non-distributed answers: `get_cookie/0,1` (`nocookie`), `set_cookie/1,2`.
 - Declined:
   - D01: `load_module/2`, `load_nif/2`, `purge_module/1`, `check_*code`.
   - Distribution: `dist_ctrl_*`.
@@ -475,19 +471,13 @@ Ranked by what real programs need first and by dependencies:
 Format: `module` (application, functions to do, ...): name/arities. Deprecated
 functions are listed separately and are optional.
 
-- `erlang` (erts, 62, 218 done): adler32/1,2, adler32_combine/3,
-  append_element/2, bump_reductions/1, check_old_code/1, check_process_code/2,3,
-  crc32/1,2, crc32_combine/3, decode_packet/3, delete_element/2,
-  dist_ctrl_get_data/1, dist_ctrl_get_data_notification/1, dist_ctrl_get_opt/2,
-  dist_ctrl_input_handler/2, dist_ctrl_put_data/2, dist_ctrl_set_opt/3, exit/3,
-  exit_signal/3, get_cookie/0,1, halt/2, hibernate/0, insert_element/3,
-  iolist_to_iovec/1, is_integer/3, link/2, load_module/2, load_nif/2,
-  match_spec_test/3, process_display/2, process_flag/3, processes_iterator/0,
-  processes_next/1, purge_module/1, resume_process/1, send/3,
-  send_nosuspend/2,3, set_cookie/1,2, spawn/2,4, spawn_link/2,4,
-  spawn_monitor/2,4, suspend_process/1,2, system_flag/2, system_monitor/0,1,2,
-  system_profile/0,2, trace/3, trace_delivered/1, trace_info/2,
-  trace_pattern/2,3; deprecated: now/0, phash/2
+- `erlang` (erts, 26 left after LIB9A): check_old_code/1, check_process_code/2,3,
+  decode_packet/3, dist_ctrl_get_data/1, dist_ctrl_get_data_notification/1,
+  dist_ctrl_get_opt/2, dist_ctrl_input_handler/2, dist_ctrl_put_data/2,
+  dist_ctrl_set_opt/3, load_module/2, load_nif/2, match_spec_test/3,
+  process_display/2, purge_module/1, resume_process/1, suspend_process/1,2,
+  system_monitor/0,1,2, system_profile/0,2, trace/3, trace_delivered/1,
+  trace_info/2, trace_pattern/2,3
 - `init` (erts, 3, 8 done): boot/1, restart/0,1
 - `application` (kernel, 35; 5 callbacks): ensure_all_started/1,2,3,
   ensure_started/1,2, get_all_env/0,1, get_all_key/0,1, get_application/0,1,
