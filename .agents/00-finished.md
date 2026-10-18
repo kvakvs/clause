@@ -632,7 +632,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `e1d597d2`
 - **LIB7B** `graph`: queries and traversals in C++ (`builtins/graph/`, OTP's
   walks with explicit stacks and OTP's list orders), updates, subgraphs and
-  condensation in Erlang; `graph_module` golden
+  condensation in Erlang; `graph_module` golden — `424e0a2a`
+- **LIB7A** `sofs`: typed sets, relations, products, selectors and families in
+  C++ (`builtins/sofs/`, OTP's sorted merges), fun-taking functions in Erlang
+  over `clause_sofs` builtins, digraph conversions stubbed until LIB12; bridge
+  catalog built with `std::to_array` (over 1024 entries); `sofs_sets` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

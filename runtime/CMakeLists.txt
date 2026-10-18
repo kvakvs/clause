@@ -64,6 +64,11 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/erlang/checksums.cpp src/builtins/erlang/tuple_edits.cpp src/builtins/erlang/process_options.cpp
     src/builtins/erlang/system_flags.cpp src/builtins/erlang/packets.cpp src/builtins/erlang/packet_http.cpp
     src/builtins/erlang/suspension.cpp
+    # Module sofs (plan 21 step LIB7A).
+    src/builtins/sofs/callbacks.cpp src/builtins/sofs/common.cpp src/builtins/sofs/constructors.cpp
+    src/builtins/sofs/families.cpp src/builtins/sofs/family_ops.cpp src/builtins/sofs/normalize.cpp
+    src/builtins/sofs/products.cpp src/builtins/sofs/relations.cpp src/builtins/sofs/selectors.cpp
+    src/builtins/sofs/sets.cpp src/builtins/sofs/set_ops.cpp src/builtins/sofs/types.cpp
     # Module graph (plan 21 step LIB7B).
     src/builtins/graph/traversal.cpp src/builtins/graph/paths.cpp src/builtins/graph/queries.cpp
     src/builtins/graph/traversal_builtins.cpp

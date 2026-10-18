@@ -47,6 +47,7 @@ PARTIAL = {
     "inet": "LIB60",
     "io": "LIB33, LIB63",
     "os": "LIB61",
+    "sofs": "LIB12",
 }
 
 

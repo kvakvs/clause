@@ -207,6 +207,14 @@ std::span<const BuiltinEntry> system_flag_builtins() noexcept;
 std::span<const BuiltinEntry> packet_builtins() noexcept;
 // suspend_process/1,2, resume_process/1 and process_display/2 of plan 21 step LIB9B.
 std::span<const BuiltinEntry> suspension_builtins() noexcept;
+// Module sofs and its clause_sofs helpers (plan 21 step LIB7A; runtime/src/builtins/sofs/).
+std::span<const BuiltinEntry> sofs_callbacks_builtins() noexcept;
+std::span<const BuiltinEntry> sofs_constructors_builtins() noexcept;
+std::span<const BuiltinEntry> sofs_families_builtins() noexcept;
+std::span<const BuiltinEntry> sofs_products_builtins() noexcept;
+std::span<const BuiltinEntry> sofs_relations_builtins() noexcept;
+std::span<const BuiltinEntry> sofs_selectors_builtins() noexcept;
+std::span<const BuiltinEntry> sofs_sets_builtins() noexcept;
 // Module graph (plan 21 step LIB7B; runtime/src/builtins/graph/).
 std::span<const BuiltinEntry> graph_query_builtins() noexcept;
 std::span<const BuiltinEntry> graph_traversal_builtins() noexcept;

@@ -12,7 +12,7 @@ IMPORTANT: Prefer compatibility with Erlang/OTP at all times, if something can
 be faster at the cost of compatibility, add that as a future task and we will
 create a new API that's for the end user to choose
 
-## Discovery (2026-10-17)
+## Discovery (2026-10-17, counts refreshed 2026-10-18)
 
 - **Source of truth:** the doc chunks of the installed OTP 29.1.1
   (`code:get_doc/1`). A module counts when its module doc is not `hidden`, a
@@ -22,16 +22,20 @@ create a new API that's for the end user to choose
   functions in `library/documented.terms`; `library_modules.py coverage .`
   prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888
-  documented functions; 2,308 are still to do (erts 65, kernel 639, stdlib
-  1,604). Appendix A lists them per module.
+  documented functions; 1,471 are still to do (erts 23, kernel 545, stdlib
+  903). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined):
   `atomics`, `counters`, `erl_prim_loader`, `persistent_term`, `prim_eval`,
   `zlib`, `binary`, `lists`, `maps`, `math`, `re` (`import/1` declined), `init`
-  (`boot/1`, `restart/0,1` refused).
-- **Partial:** `erlang` (62 left), `code` (51), `file` (30), `io` (34), `inet`
-  (19), `unicode` (12), `gen_udp` (5), `os` (4), `gen_tcp` (1).
-- **Missing:** 97 modules. Today a program gets the plain-Erlang ones (gen
-  servers, `proplists`, `string`, ...) only by compiling OTP's sources from a
+  (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`, `dict`,
+  `erl_anno`, `erl_features`, `erl_internal`, `filename`, `gb_sets`, `gb_trees`,
+  `graph`, `io_lib`, `json`, `orddict`, `ordsets`, `proplists`, `queue`, `rand`,
+  `records`, `sets`, `string`, `unicode`, `uri_string`.
+- **Partial:** `erlang` (23 left, all unavailable: code loading, distribution,
+  tracing, `match_spec_test/3`), `code` (51), `io` (31), `file` (30), `inet`
+  (19), `gen_udp` (5), `os` (4), `sofs` (4, LIB12), `gen_tcp` (1).
+- **Missing:** 68 modules. Today a program gets the plain-Erlang ones (gen
+  servers, `supervisor`, `timer`, ...) only by compiling OTP's sources from a
   search path; ETS has no implementation at all.
 - **Callback-only modules** (no functions to implement, only behaviours to
   honour): `erl_tracer`, `logger_handler`.
@@ -117,11 +121,8 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 ### LIB7. Set algebra and graphs: `sofs`, `graph`
 
 - `graph` (63): done as LIB7B, see `00-finished.md`.
-- LIB7A `sofs` (81): C++ for typed sets, relations and families, which are sorted
-  lists under OTP's `{Set, Type}` records. Erlang for `specification/2`,
-  `substitution/2`, `partition/2` and `image/2` with funs;
-  `family_to_digraph/1,2` and `digraph_to_family/1,2` Erlang over `digraph`
-  (working once LIB12 provides it).
+- `sofs` (77 of 81): done as LIB7A, see `00-finished.md`; the digraph
+  conversions wait for LIB12.
 
 ### LIB9. `erlang` gaps
 
@@ -179,6 +180,8 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 - `digraph` (34): OTP's `{digraph, V, E, N, Cyclic}` over three ETS tables, with
   the updates and queries in C++ reading the tables directly.
 - `digraph_utils` (18): C++ traversals over the same tables.
+- `sofs:family_to_digraph/1,2` and `digraph_to_family/1,2` (stubs since LIB7A)
+  in Erlang over `digraph`.
 
 ## Tier C: processes and behaviours (Erlang)
 
@@ -740,21 +743,7 @@ functions are listed separately and are optional.
   render_callback/2,3,4,5, render_type/2,3,4,5, supported_tags/0, validate/1
 - `slave` (stdlib, 0): none; deprecated: pseudo/1,2, relay/1, start/1,2,3,
   start_link/1,2,3, stop/1
-- `sofs` (stdlib, 81): a_function/1,2, canonical_relation/1, composite/2,
-  constant_function/2, converse/1, difference/2, digraph_to_family/1,2,
-  domain/1, drestriction/2,3, empty_set/0, extension/3, family/1,2,
-  family_difference/2, family_domain/1, family_field/1, family_intersection/1,2,
-  family_projection/2, family_range/1, family_specification/2,
-  family_to_digraph/1,2, family_to_relation/1, family_union/1,2, field/1,
-  from_external/2, from_sets/1, from_term/1,2, image/2, intersection/1,2,
-  intersection_of_family/1, inverse/1, inverse_image/2, is_a_function/1,
-  is_disjoint/2, is_empty_set/1, is_equal/2, is_set/1, is_sofs_set/1,
-  is_subset/2, is_type/1, join/4, multiple_relative_product/2, no_elements/1,
-  partition/1,2,3, partition_family/2, product/1,2, projection/2, range/1,
-  relation/1,2, relation_to_family/1, relative_product/1,2, relative_product1/2,
-  restriction/2,3, set/1,2, specification/2, strict_relation/1, substitution/2,
-  symdiff/2, symmetric_partition/2, to_external/1, to_sets/1, type/1, union/1,2,
-  union_of_family/1, weak_relation/1
+- `sofs` (stdlib, 4): digraph_to_family/1,2, family_to_digraph/1,2
 - `supervisor` (stdlib, 14; 1 callbacks): check_childspecs/1,2,
   count_children/1, delete_child/2, get_childspec/2, restart_child/2,
   start_child/2, start_link/2,3, stop/1,3, terminate_child/2, which_child/2,

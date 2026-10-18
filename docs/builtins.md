@@ -552,6 +552,21 @@ builtin:
   `replace/4`, the last rebuilding a mapped range as OTP's mapfolds do (empty
   subtrees unfolded unless the map is sparse) and reading the cache again.
 
+## Sets of sets
+
+`sofs` (plan 21 step LIB7A, `builtins/sofs/`, `executables_sofs_sets`): OTP
+29's typed sets, relations, functions and families, the sorted lists under
+OTP's `{'Set', Data, Type}` and `{'OrdSet', Data, Type}` records. Type checks,
+construction from terms and external data, the set algebra, relations,
+products, selectors and families are builtins merging the sorted lists the way
+OTP does (on equal elements the first operand's is kept, so `2.0` and `2` stay
+as OTP leaves them). The functions taking funs (`specification/2`,
+`substitution/2`, `projection/2`, `partition/2,3`, `restriction/3`,
+`family_projection/2`, ...) are Erlang over `clause_sofs` builtins that sort,
+check and wrap the results.
+`family_to_digraph/1,2` and `digraph_to_family/1,2` are stubs until `digraph`
+(LIB12).
+
 ## Graph
 
 `graph` (plan 21 step LIB7B, `builtins/graph/`, `executables_graph_module`):
