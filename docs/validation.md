@@ -207,12 +207,19 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
   with six decimals and its spread, the change of Clause O2 against each system
   (`+N%`: Clause faster, the other takes N% longer; `-N%`: Clause takes N%
   longer; `(Fx)` the time ratio) with a geometric mean, `--lto` against OTP and
-  O2, program wall times including startup, failures and timeouts (`--timeout`,
-  600 s per run). Iteration counts keep a default run under 10 minutes; Clause,
+  O2, program wall times including startup, executable sizes, failures and
+  timeouts (`--timeout`, 600 s per run). Iteration counts keep a default run under 10 minutes; Clause,
   the slowest system, sets the sizes, so some OTP kernels last only a few
   milliseconds.
+- Executable sizes, in bytes: every program at `-O2`, with `--lto` and at `-O0`
+  (an extra build only measured, never run; both skipped by `--no-lto`) and the
+  baseline at `-O2`, with a total row and the changes O2 vs O0, `--lto` vs O2,
+  `--lto` vs O0 and O2 vs baseline (`-N%` smaller); and `clau` at HEAD and the
+  baseline. The history keeps them as `sizes_bytes` (`programs`:
+  program → column → bytes, `clau`: `head`/`baseline` → bytes; `null` where a
+  build failed).
 - History: `benchmarks/history/<host>.json` keeps one record per run day (run
-  date, HEAD hash and commit date, Clause, OTP and baseline medians),
+  date, HEAD hash and commit date, Clause, OTP and baseline medians, sizes),
   `benchmarks/history/reports/<host>/<day>-<hash>.txt` the text reports; a rerun
   on the same day replaces both. Records and reports run more than 183 days
   before the newest are pruned; a run with uncommitted source changes is

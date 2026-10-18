@@ -3,7 +3,9 @@
 
 Builds every benchmarks/bench_*.erl program with OTP (JIT, and the emu flavor when installed),
 Clause at HEAD (O2, with and without --lto) and a previous Clause commit, runs them on this host,
-prints a text report and keeps a 6-month history per host under benchmarks/history/, one run per day.
+prints a text report and keeps a 6-month history per host under benchmarks/history/, one run per day. Reports and
+history also hold executable sizes: every benchmark program at O2, --lto (with an extra O0 build that is never run)
+and the baseline, and clau itself at HEAD and the baseline.
 With --listings it also writes each program's annotated assembly and IR (clau --print-asm, --print-ir) at O0 and
 O2 next to the reports. Kernel times are measured in nanoseconds and reported in milliseconds with six decimals.
 """
@@ -34,6 +36,10 @@ SECONDS_PER_DAY = 86400
 # kind; every run replaces the previous run's listings.
 LISTING_CONFIGS = (("debug", "-O0"), ("release", "-O2"))
 LISTING_KINDS = (("--print-asm", "asm"), ("--print-ir", "ll"))
+# Executable size columns in report order, and the (measured, reference) column pairs compared; o0 is built only to
+# be measured, never run, and baseline is the previous Clause commit at O2 (the clause-base system).
+SIZE_COLUMNS = ("o0", "o2", "lto", "baseline")
+SIZE_RATIOS = (("o2", "o0"), ("lto", "o2"), ("lto", "o0"), ("o2", "baseline"))
 
 
 def parse_args():
@@ -144,14 +150,14 @@ def build_otp(erl, out_dir):
         sys.exit(f"benchmark: erlc failed\n{out}{err}")
 
 
-def build_clause(clau, out_dir, extra):
+def build_clause(clau, out_dir, extra, level="-O2"):
     """Link one executable per program with clau; returns {program: path or None when it fails}."""
     out_dir.mkdir(parents=True, exist_ok=True)
     built = {}
     for name in programs(None):
         target = out_dir / (name + EXE)
         sources = [str(BENCH_DIR / f"{name}.erl"), str(BENCH_DIR / "bench_util.erl")]
-        code, out, err, _ = run_command([str(clau), "-O2", *extra, "-o", str(target), *sources])
+        code, out, err, _ = run_command([str(clau), level, *extra, "-o", str(target), *sources])
         if code != 0:
             print(f"benchmark: {out_dir.name} cannot build {name}:\n{(out + err).strip()[:2000]}", file=sys.stderr)
         built[name] = target if code == 0 else None
@@ -335,8 +341,51 @@ def compare_table(summary, kernels, system, references):
     return table(header, rows)
 
 
+def file_size(path):
+    """Bytes of a built file, or None when it was not built."""
+    return path.stat().st_size if path and path.exists() else None
+
+
+def executable_sizes(size_builds, claus):
+    """Bytes of every program per size column, and of clau per commit, for the report and the history.
+
+    Added for benchmark executable sizes.
+    """
+    programs_bytes = {name: {column: file_size(built.get(name)) for column, built in size_builds.items()}
+                      for name in programs(None)}
+    return {"programs": programs_bytes, "clau": {commit: file_size(path) for commit, path in claus.items()}}
+
+
+def size_change(reference, value):
+    """Percent size change of `value` against `reference`: -N% smaller, +N% larger, with the size ratio."""
+    if not reference or not value:
+        return "n/a"
+    return f"{(value / reference - 1) * 100:+.1f}% ({value / reference:.2f}x)"
+
+
+def program_size_table(programs_bytes):
+    """Program bytes per size column and the SIZE_RATIOS changes, with a total over fully built columns."""
+    columns = [c for c in SIZE_COLUMNS if any(c in entry for entry in programs_bytes.values())]
+    ratios = [(value, ref) for value, ref in SIZE_RATIOS if value in columns and ref in columns]
+    totals = {c: sum(entry.get(c) or 0 for entry in programs_bytes.values()) for c in columns
+              if all(entry.get(c) for entry in programs_bytes.values())}
+    rows = []
+    for name, entry in [*sorted(programs_bytes.items()), ("total", totals)]:
+        rows.append([name, *[entry.get(c) or "n/a" for c in columns],
+                     *[size_change(entry.get(ref), entry.get(value)) for value, ref in ratios]])
+    header = ["program", *[f"{c} bytes" for c in columns], *[f"{value} vs {ref}" for value, ref in ratios]]
+    return table(header, rows)
+
+
+def clau_size_table(clau_bytes):
+    """clau bytes at HEAD and at the baseline, and the change of HEAD."""
+    head, base = clau_bytes.get("head"), clau_bytes.get("baseline")
+    row = ["clau" + EXE, head or "n/a", base or "n/a", size_change(base, head)]
+    return table(["executable", "head bytes", "baseline bytes", "head vs baseline"], [row])
+
+
 def build_report(context, summary, walls, failures, systems, kernels):
-    """The full text report: times, changes, wall times and failures."""
+    """The full text report: times, changes, wall times, executable sizes and failures."""
     time_rows = [[k, *[millis(summary.get((s, k))) for s in systems]] for k in kernels]
     references = [s for s in systems if s not in ("clause-o2", "clause-lto")]
     sections = [report_header(context), "Kernel times (ms)", table(["benchmark", *systems], time_rows),
@@ -345,6 +394,10 @@ def build_report(context, summary, walls, failures, systems, kernels):
         sections += ["Clause --lto compared to OTP and to plain O2",
                      compare_table(summary, kernels, "clause-lto", [references[0], "clause-o2"])]
     sections += ["Program wall times (s, startup included, median)", wall_table(walls, systems)]
+    sizes = context["sizes"]
+    sections += ["Executable sizes (bytes; o0/o2/lto: HEAD, baseline: previous commit at O2; "
+                 "-N% = smaller, +N% = larger)",
+                 program_size_table(sizes["programs"]), clau_size_table(sizes["clau"])]
     if failures:
         sections += ["Failures", "\n".join(f"{s} {p}: {why}" for (s, p), why in sorted(failures.items()))]
     return "\n\n".join(sections) + "\n"
@@ -395,6 +448,7 @@ def history_record(context, summary):
     record = {"commit": head["hash"], "commit_date": head["date"], "run_date": context["run_date"],
               "otp_release": context["otp"]["release"], "clause_us": medians_of(summary, "clause-o2"),
               "otp_us": medians_of(summary, context["otp_reference"])}
+    record["sizes_bytes"] = context["sizes"]
     if base:
         record["baseline"] = {"commit": base["hash"], "commit_date": base["date"],
                               "clause_us": medians_of(summary, "clause-base")}
@@ -465,14 +519,16 @@ def write_report(context, report):
 
 
 def prepare_clause(args, head_dir):
-    """Clause builds of HEAD (O2, optionally --lto) and the baseline; returns builds and baseline info."""
+    """Clause builds of HEAD (O2, optionally --lto) and the baseline; returns builds, baseline info and sizes."""
     clau = clau_path(head_dir, args.config)
     if clau is None:
         sys.exit(f"benchmark: clau was not found in {head_dir}; build it first (make-benchmark.bat)")
     out = REPO / "build" / "bench" / "programs"
     builds = {"clause-o2": build_clause(clau, out / "clause-o2", [])}
+    size_builds, claus = {"o2": builds["clause-o2"]}, {"head": clau}
     if not args.no_lto:
-        builds["clause-lto"] = build_clause(clau, out / "clause-lto", ["--lto"])
+        builds["clause-lto"] = size_builds["lto"] = build_clause(clau, out / "clause-lto", ["--lto"])
+        size_builds["o0"] = build_clause(clau, out / "clause-o0", [], level="-O0")
     base = None
     rev = None if args.no_baseline else (args.baseline or default_baseline())
     if rev:
@@ -480,7 +536,8 @@ def prepare_clause(args, head_dir):
         base_clau = build_baseline(base, args.config, args.jobs)
         empty = {name: None for name in programs(None)}
         builds["clause-base"] = build_clause(base_clau, out / "clause-base", []) if base_clau else empty
-    return builds, base
+        size_builds["baseline"], claus["baseline"] = builds["clause-base"], base_clau
+    return builds, base, executable_sizes(size_builds, claus)
 
 
 def main():
@@ -491,7 +548,7 @@ def main():
     otp_dir = REPO / "build" / "bench" / "programs" / "otp"
     build_otp(erl, otp_dir)
     head_dir = (REPO / args.build_dir).resolve()
-    builds, base = prepare_clause(args, head_dir)
+    builds, base, sizes = prepare_clause(args, head_dir)
     if args.listings:
         write_listings(clau_path(head_dir, args.config), report_directory(args.host))
     head = commit_info("HEAD")
@@ -504,7 +561,7 @@ def main():
     systems = [*otp, *builds]
     context = {"run_date": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
                "host": args.host, "head": head, "base": base, "otp": otp_facts, "repeat": args.repeat,
-               "otp_reference": next(iter(otp))}
+               "otp_reference": next(iter(otp)), "sizes": sizes}
     report = build_report(context, summary, walls, failures, systems, kernels)
     if args.no_history or head["dirty"]:
         report += "\nNot recorded in the history (--no-history or uncommitted source changes).\n"
