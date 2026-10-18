@@ -116,12 +116,12 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ### LIB7. Set algebra and graphs: `sofs`, `graph`
 
-- `sofs` (81): C++ for typed sets, relations and families, which are sorted
+- `graph` (63): done as LIB7B, see `00-finished.md`.
+- LIB7A `sofs` (81): C++ for typed sets, relations and families, which are sorted
   lists under OTP's `{Set, Type}` records. Erlang for `specification/2`,
-  `substitution/2`, `partition/2` and `image/2` with funs.
-- `graph` (63, new in OTP 29, functional and map-backed): C++ for the traversals
-  (`topsort/1`, `components/1`, `strong_components/1`, `reachable/2`,
-  `get_short_path/3`, ...) and the updates; Erlang for `fold_vertices/3`.
+  `substitution/2`, `partition/2` and `image/2` with funs;
+  `family_to_digraph/1,2` and `digraph_to_family/1,2` Erlang over `digraph`
+  (working once LIB12 provides it).
 
 ### LIB9. `erlang` gaps
 
@@ -675,18 +675,6 @@ functions are listed separately and are optional.
   enter_loop/4,5,6, receive_response/1,2,3, reply/1,2, reqids_add/3,
   reqids_new/0, reqids_size/1, reqids_to_list/1, send_request/2,4, start/3,4,
   start_link/3,4, start_monitor/3,4, stop/1,3, wait_response/1,2,3
-- `graph` (stdlib, 63): add_edge/3,4, add_vertex/1,2,3, arborescence_root/1,
-  components/1, condensation/1, cyclic_strong_components/1, del_edge/2,
-  del_edges/2,3, del_path/3, del_vertex/2, del_vertices/2, edges/1,2,3,
-  fold_vertices/3, get_cycle/2, get_path/3, get_short_cycle/2, get_short_path/3,
-  has_edge/2,3, has_path/3, has_vertex/2, in_degree/2, in_edges/2,
-  in_neighbours/2, info/1, is_acyclic/1, is_arborescence/1, is_tree/1,
-  loop_vertices/1, new/0,1, no_edges/1, no_vertices/1, out_degree/2,
-  out_edges/2, out_neighbours/2, postorder/1,2, preorder/1,2, reachable/2,
-  reachable_via_neighbours/2, reaching/2, reaching_via_neighbours/2,
-  reverse_postorder/1,2, roots/1, sink_vertices/1, source_vertices/1,
-  strong_components/1, subgraph/2,3, topsort/1, vertex/2,3, vertices/1,
-  vertices_with_labels/1
 - `io` (stdlib, 32, 16 done): columns/0,1, get_password/0,
   getopts/0,1, parse_erl_exprs/1,2,3,4, parse_erl_form/1,2,3,4,
   printable_range/0, read/1,2,3,4, rows/0,1, scan_erl_exprs/1,2,3,4,

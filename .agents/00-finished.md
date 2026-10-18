@@ -628,7 +628,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `packet_decoding` golden — `e4f1081c`
 - **LIB9B** `suspend_process/1,2`, `resume_process/1` as executor holds
   (`scheduler/suspension.cpp`: suspend counts per suspender, released when it
-  ends, `suspended` status), `process_display/2`; `suspension` golden
+  ends, `suspended` status), `process_display/2`; `suspension` golden —
+  `e1d597d2`
+- **LIB7B** `graph`: queries and traversals in C++ (`builtins/graph/`, OTP's
+  walks with explicit stacks and OTP's list orders), updates, subgraphs and
+  condensation in Erlang; `graph_module` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

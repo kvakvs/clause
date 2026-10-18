@@ -552,6 +552,18 @@ builtin:
   `replace/4`, the last rebuilding a mapped range as OTP's mapfolds do (empty
   subtrees unfolded unless the map is sparse) and reading the cache again.
 
+## Graph
+
+`graph` (plan 21 step LIB7B, `builtins/graph/`, `executables_graph_module`):
+OTP 29's functional graphs over OTP's `#graph{}` record (vertex labels and
+each vertex's edge ordsets in maps). The queries and traversals are builtins
+that port OTP's walks with explicit stacks: `revpreorders/4` (components,
+reachability), `posttraverse/4` (orderings, `topsort/1`, strong components),
+`one_path/8` with its prune counter (`get_path/3`, `get_cycle/2`) and the
+breadth-first `get_short_path/3`; lists built by folds over the maps come in
+reverse map order as in OTP. The updates (`add_*`, `del_*`), `fold_vertices/3`,
+`subgraph/2,3` and `condensation/1` are Erlang.
+
 ## Encodings
 
 `runtime/src/builtins/encoding/` (plan 21 step LIB5).

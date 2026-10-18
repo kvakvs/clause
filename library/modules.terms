@@ -56,3 +56,4 @@
 {erl_anno, stdlib, provided}.
 {records, stdlib, provided}.
 {erl_features, stdlib, provided}.
+{graph, stdlib, provided}.

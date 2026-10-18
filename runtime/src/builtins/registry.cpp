@@ -220,6 +220,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      erl_anno_builtins(),
                                      erl_internal_builtins(),
                                      erl_features_builtins(),
+                                     graph_query_builtins(),
+                                     graph_traversal_builtins(),
                                      checksum_builtins(),
                                      tuple_edit_builtins(),
                                      process_option_builtins(),

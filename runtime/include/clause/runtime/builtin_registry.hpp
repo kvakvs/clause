@@ -207,6 +207,9 @@ std::span<const BuiltinEntry> system_flag_builtins() noexcept;
 std::span<const BuiltinEntry> packet_builtins() noexcept;
 // suspend_process/1,2, resume_process/1 and process_display/2 of plan 21 step LIB9B.
 std::span<const BuiltinEntry> suspension_builtins() noexcept;
+// Module graph (plan 21 step LIB7B; runtime/src/builtins/graph/).
+std::span<const BuiltinEntry> graph_query_builtins() noexcept;
+std::span<const BuiltinEntry> graph_traversal_builtins() noexcept;
 // Modules erl_features and records (plan 21 step LIB8B).
 std::span<const BuiltinEntry> erl_features_builtins() noexcept;
 std::span<const BuiltinEntry> records_builtins() noexcept;
