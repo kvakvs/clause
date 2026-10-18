@@ -1,4 +1,5 @@
 #include "module_registration.hpp"
+#include "../semantic/record_definitions.hpp"
 #include "../semantic/records.hpp"
 #include "../semantic/services.hpp"
 #include "../semantic/symbols.hpp"
@@ -56,7 +57,7 @@ llvm::Constant *exports(llvm::Module &output, const semantic::Module &module, ll
 llvm::GlobalVariable *records(llvm::Module &output, const semantic::Module &module, llvm::IntegerType *word,
                               llvm::GlobalVariable *descriptor, const std::string &prefix) {
     auto *ptr = llvm::PointerType::get(output.getContext(), 0);
-    auto *type = llvm::StructType::get(ptr, word, word, word, ptr, word);
+    auto *type = llvm::StructType::get(ptr, word, word, word, ptr, word, ptr, word);
     const auto slot = [&](const ast::Atom &atom) { return atom_slot(output, utf8(atom.name)); };
     const auto layouts = semantic::native_layouts(module);
     std::vector<llvm::Constant *> entries;
@@ -71,14 +72,34 @@ llvm::GlobalVariable *records(llvm::Module &output, const semantic::Module &modu
         auto *fields = new llvm::GlobalVariable(output, array->getType(), true, llvm::GlobalValue::PrivateLinkage,
                                                 array, "record.fields");
         const bool exported = module.exported_records.contains(layout->name.name);
-        entries.push_back(llvm::ConstantStruct::get(type, descriptor, slot(ast::Atom{module.name}), slot(layout->name),
-                                                    llvm::ConstantInt::get(word, exported ? 1 : 0), fields,
-                                                    llvm::ConstantInt::get(word, slots.size())));
+        // Added for records:get_definition/2: the field list with folded defaults as term_to_binary bytes.
+        const auto definition = semantic::record_definition_etf(*module.syntax, *layout);
+        entries.push_back(llvm::ConstantStruct::get(
+            type, descriptor, slot(ast::Atom{module.name}), slot(layout->name),
+            llvm::ConstantInt::get(word, exported ? 1 : 0), fields, llvm::ConstantInt::get(word, slots.size()),
+            spelling(output, definition), llvm::ConstantInt::get(word, definition.size())));
     }
     auto *array = llvm::ConstantArray::get(llvm::ArrayType::get(type, entries.size()), entries);
     // Other modules of the batch construct exported records from this table.
     return new llvm::GlobalVariable(output, array->getType(), true, llvm::GlobalValue::ExternalLinkage, array,
                                     prefix + ".records");
+}
+
+// Added for erl_features:used/1: the atom slots of the features enabled when the module was compiled.
+llvm::Constant *features(llvm::Module &output, const semantic::Module &module, llvm::IntegerType *word,
+                         std::size_t &count) {
+    const auto snapshot = module.syntax->features();
+    std::vector<llvm::Constant *> slots;
+    for (const auto &name : snapshot ? snapshot->enabled : std::vector<std::string>{}) {
+        slots.push_back(atom_slot(output, name));
+    }
+    count = slots.size();
+    if (slots.empty()) {
+        return llvm::ConstantPointerNull::get(llvm::PointerType::get(output.getContext(), 0));
+    }
+    auto *array = llvm::ConstantArray::get(llvm::ArrayType::get(word, slots.size()), slots);
+    return new llvm::GlobalVariable(output, array->getType(), true, llvm::GlobalValue::PrivateLinkage, array,
+                                    "module.features");
 }
 
 // The exported function of a batch module an external fun names; null when the batch exports none or a builtin has
@@ -144,7 +165,7 @@ void emit_registration(llvm::Module &output, const semantic::Module &module, llv
     llvm::IRBuilder<> builder(output.getContext());
     auto *ptr = builder.getPtrTy();
     auto *type = llvm::StructType::get(builder.getInt32Ty(), builder.getInt32Ty(), ptr, word, ptr, word, ptr, word, ptr,
-                                       word, ptr, word, ptr, ptr, word, word, ptr);
+                                       word, ptr, word, ptr, ptr, word, word, ptr, ptr, word);
     const auto name = utf8(module.name);
     std::size_t count = 0;
     auto *table = exports(output, module, word, count);
@@ -157,6 +178,8 @@ void emit_registration(llvm::Module &output, const semantic::Module &module, llv
     auto *record_table = records(output, module, word, descriptor, prefix);
     const auto record_count = semantic::native_layouts(module).size();
     auto *fun_table = funs(output, module, word, descriptor, prefix);
+    std::size_t feature_count = 0;
+    auto *feature_table = features(output, module, word, feature_count);
     descriptor->setInitializer(llvm::ConstantStruct::get(
         type, builder.getInt32(abi::v1::version), builder.getInt32(word->getBitWidth()), spelling(output, name),
         llvm::ConstantInt::get(word, name.size()), table, llvm::ConstantInt::get(word, count), atoms,
@@ -165,7 +188,8 @@ void emit_registration(llvm::Module &output, const semantic::Module &module, llv
         llvm::ConstantPointerNull::get(ptr), llvm::ConstantInt::get(word, 0),
         llvm::ConstantInt::get(
             word, code_convention(llvm::Triple(output.getTargetTriple())) == llvm::CallingConv::PreserveNone ? 2 : 1),
-        emit_fun_cache(output, prefix, word, module.funs.size())));
+        emit_fun_cache(output, prefix, word, module.funs.size()), feature_table,
+        llvm::ConstantInt::get(word, feature_count)));
     auto *entry = llvm::Function::Create(llvm::FunctionType::get(builder.getInt8Ty(), {ptr}, false),
                                          llvm::GlobalValue::ExternalLinkage, prefix + ".register", output);
     builder.SetInsertPoint(llvm::BasicBlock::Create(output.getContext(), "entry", entry));

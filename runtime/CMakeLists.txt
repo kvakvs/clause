@@ -60,6 +60,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/io_lib/pretty_length.cpp src/builtins/io_lib/pretty_layout.cpp src/builtins/io_lib/pretty_bin.cpp
     # Modules erl_anno and erl_internal (plan 21 step LIB8).
     src/builtins/front_end/erl_anno.cpp src/builtins/front_end/erl_internal.cpp
+    # Modules erl_features and records (plan 21 step LIB8B).
+    src/builtins/front_end/features.cpp src/builtins/records.cpp
     # Modules rand and random (plan 21 step LIB6).
     src/builtins/rand/generators.cpp src/builtins/rand/rand.cpp src/builtins/rand/tables.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp

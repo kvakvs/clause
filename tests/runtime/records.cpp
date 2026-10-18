@@ -39,9 +39,10 @@ constexpr std::array<std::size_t, 2> OTHER_XY{2, 3};
 extern const abi::v1::ModuleDescriptor geo;
 extern const abi::v1::ModuleDescriptor other;
 // geo exports pt and keeps hidden private; other defines its own private pt.
-const std::array<RecordDescriptor, 3> GEO_RECORDS{
-    {{&geo, 0, 1, 1, XY.data(), XY.size()}, {&geo, 0, 4, 0, Z.data(), Z.size()}, {&geo, 0, 6, 1, nullptr, 0}}};
-const std::array<RecordDescriptor, 1> OTHER_RECORDS{{{&other, 0, 1, 0, OTHER_XY.data(), OTHER_XY.size()}}};
+const std::array<RecordDescriptor, 3> GEO_RECORDS{{{&geo, 0, 1, 1, XY.data(), XY.size(), nullptr, 0},
+                                                   {&geo, 0, 4, 0, Z.data(), Z.size(), nullptr, 0},
+                                                   {&geo, 0, 6, 1, nullptr, 0, nullptr, 0}}};
+const std::array<RecordDescriptor, 1> OTHER_RECORDS{{{&other, 0, 1, 0, OTHER_XY.data(), OTHER_XY.size(), nullptr, 0}}};
 const abi::v1::ModuleDescriptor geo{
     abi::v1::version,   sizeof(Word) * 8,  "geo", 3, nullptr, 0, GEO_ATOMS.data(), GEO_ATOMS.size(),
     GEO_RECORDS.data(), GEO_RECORDS.size()};
@@ -251,7 +252,7 @@ int main() {
         require(register_module(*runtime, geo).has_value() && register_module(*runtime, other).has_value(),
                 "record modules rejected");
         auto bad = geo;
-        const RecordDescriptor stray{&other, 0, 1, 0, nullptr, 0};
+        const RecordDescriptor stray{&other, 0, 1, 0, nullptr, 0, nullptr, 0};
         bad.name = "bad";
         bad.name_size = 3;
         bad.records = &stray;

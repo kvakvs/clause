@@ -3,9 +3,13 @@
 #include "callable.hpp"
 #include "features.hpp"
 #include <compare>
+#include <map>
 #include <memory>
+#include <optional>
 #include <shared_mutex>
+#include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace clause::runtime {
 enum class CodeError : std::uint8_t {
@@ -42,6 +46,25 @@ struct RecordDefinition final {
     bool exported = false;
     // Field-name atom words in definition order.
     std::vector<Word> fields;
+    // records:get_definition/2's field list as External Term Format bytes, borrowed from the compiled descriptor;
+    // empty for a definition records:create/4 built (plan 21 step LIB8B).
+    std::string_view definition;
+};
+
+// A native record's module and name atom words (records:get_definition/2, plan 21 step LIB8B).
+struct RecordName final {
+    Word module = 0;
+    Word name = 0;
+};
+
+// The identity of a native record records:create/4 builds at run time: module and name atom words, export flag and
+// field-name atom words in the given order (plan 21 step LIB8B).
+struct CreatedRecordKey final {
+    Word module = 0;
+    Word name = 0;
+    bool exported = false;
+    std::vector<Word> fields;
+    auto operator<=>(const CreatedRecordKey &) const = default;
 };
 
 // A function value's identity bound to runtime atoms; fun cells point at it (docs/funs.md).
@@ -101,6 +124,8 @@ struct ModuleAtoms final {
     std::vector<RecordDefinition> records;
     // The module's fun definitions in descriptor order; never resized after registration.
     std::vector<FunDefinition> funs;
+    // Atom words of the features the module was compiled with (erl_features:used/1, plan 21 step LIB8B).
+    std::vector<Word> features;
     // Atom word of the module name and its exports, which dynamic calls look up.
     Word module = 0;
     std::vector<ExportFrame> exports;
@@ -208,6 +233,13 @@ class CodeServer final {
     const FunDefinition &external_fun(const Term &module, const Term &function, std::size_t arity);
     // Whether `definition` is a registered module's fun definition or an external fun this server built.
     bool owns(const FunDefinition &definition) const noexcept;
+    // The definition of a native record records:create/4 builds, created on first use and kept for the server's
+    // lifetime, so equal creations share it; may throw std::bad_alloc (plan 21 step LIB8B).
+    const RecordDefinition &created_record(const CreatedRecordKey &key);
+    // The definition of the record a registered module compiled (records:get_definition/2); null when none.
+    const RecordDefinition *module_record(const RecordName &name) const noexcept;
+    // The features registered module `module` was compiled with (erl_features:used/1); none for no such module.
+    std::optional<std::vector<Word>> module_features(Word module) const;
 
     // The production builtins calls reach besides the modules' exports; registered at runtime startup, before any
     // worker runs, and read-only afterwards.
@@ -241,6 +273,10 @@ class CodeServer final {
     std::map<std::string, std::shared_ptr<const LoadedModule>, std::less<>> modules_;
     // External funs built from runtime operands, by module, function and arity; fun cells point at them.
     std::map<FunctionAtoms, std::unique_ptr<FunDefinition>> external_funs_;
+    // Native record definitions records:create/4 built; indexed in records_ under their own addresses.
+    std::map<CreatedRecordKey, std::unique_ptr<RecordDefinition>> created_records_;
+    // Find a registered module's bindings by its module atom word.
+    const ModuleAtoms *find_module_atoms(Word module) const noexcept;
     // Indexes built at registration (plan step 62A), so lookups take constant expected time in the number of
     // modules and exports: module descriptors to their bindings, record and fun descriptors to their definitions,
     // and Module:Function/Arity atoms to export frames. Entries point into modules_, which never shrinks.

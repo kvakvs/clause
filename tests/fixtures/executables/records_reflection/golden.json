@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "entry": "reflection",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "reflect: [5,{a,[115]},reflection,point,[x,y],true,[a,b],false,[],{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,{badrecord,{x}}},{error,{badrecord,[]}}]\ncreate: [#test:a{z = 3,x = 1,y = 2},[z,x,y],true,test,a,1,true,false,false,true,true,false,false,#m:a{},[#a:z{},#m:a{x = 0},#m:a{x = 1},#m:b{}],{error,{badrecord,a}},{error,{badrecord,1}},{error,{badrecord,2}},{error,{badmap,y}},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,{badfield,{{m,a},1}}},{error,badarg},{error,{badfield,{{m,a},1}}},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,{badfield,{{m,a},1}}},{error,badarg},{error,{badfield,{{m,a},[120]}}}]\nupdate: [#reflection:point{x = 10,y = {a,[115]}},#reflection:point{x = 5,y = {a,[115]}},#reflection:bare{a = 5,b = 6},#m:a{y = 2,x = 10},7,{error,{badfield,{{reflection,point},w}}},{error,{badfield,{{reflection,point},1}}},{error,{badrecord,other}},{error,{badrecord,point}},{error,{badrecord,point}},{error,{badrecord,2}},{error,{badmap,x}},{error,{badrecord,other}},{error,{badrecord,{a}}},{error,{badrecord,x}}]\ndefinitions: [{#{is_exported => true},[{x,0},{y,{a,[115]}}]},{#{is_exported => false},[a,{b,1}]},{#{is_exported => false},[]},{#{is_exported => false},[{a,3},{b,-3},{c,6.0},{d,1180591620717411303424},{e,false},{f,true},{g,2.5},{h,<<98,105,110>>},{i,97},{j,6},{k,#{k => {1,<<122>>}}},{l,[x|y]},{m,<<0,97,0,98>>},{n,true},{o,-1},{p,1}]},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg}]\nfeatures: [[compr_assign,maybe_expr],[compr_assign,maybe_expr],[maybe_expr],[{approved,27},{description,[73,109,112,108,101,109,101,110,116,97,116,105,111,110,32,111,102,32,116,104,101,32,109,97,121,98,101,32,101,120,112,114,101,115,115,105,111,110,32,112,114,111,112,111,115,101,100,32,105,110,32,69,69,80,52,57,32,45,45,32,86,97,108,117,101,32,98,97,115,101,100,32,101,114,114,111,114,32,104,97,110,100,108,105,110,103,46]},{experimental,25},{keywords,['maybe','else']},{short,[86,97,108,117,101,32,98,97,115,101,100,32,101,114,114,111,114,32,104,97,110,100,108,105,110,103,32,40,69,69,80,52,57,41]},{status,approved},{type,extension}],[{description,[73,109,112,108,101,109,101,110,116,97,116,105,111,110,32,111,102,32,39,61,39,32,97,115,115,105,103,110,109,101,110,116,115,32,105,110,32,99,111,109,112,114,101,104,101,110,115,105,111,110,115,32,112,114,111,112,111,115,101,100,32,105,110,32,69,69,80,55,55,46]},{experimental,29},{keywords,[]},{short,[65,115,115,105,103,110,109,101,110,116,32,105,110,32,99,111,109,112,114,101,104,101,110,115,105,111,110,115,32,40,69,69,80,55,55,41]},{status,experimental},{type,extension}],{error,invalid_feature},{error,invalid_feature},['maybe','else'],['maybe','else'],[],{error,invalid_feature},not_found,not_found,not_found,{error,function_clause},{error,function_clause},[86,97,108,117,101,32,98,97,115,101,100,32,101,114,114,111,114,32,104,97,110,100,108,105,110,103,32,40,69,69,80,52,57,41,32,32,32,32,32,32,32,97,112,112,114,111,118,101,100,32,32,32,32,32,40,50,55,41],[{1,10},{2,20}]]\nreflection: ok\n"
+    },
+    {
+      "args": [
+        "used"
+      ],
+      "authored": true,
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "used: [[maybe_expr],[compr_assign,maybe_expr]]\nreflection: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "featured.erl": "424371e697d34e187dc4d277366af02d85e501eebdd22b9f405633a9df407cb1",
+    "reflection.erl": "b594e9eaec6648f6130191e6120ffe0ca9a22b86eddaefbb9bbd5f7ec0262709"
+  }
+}

@@ -610,7 +610,13 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `fread_scanning` golden — `6bc5b45f`
 - **LIB8A** `erl_internal` and `erl_anno` in C++ (`builtins/front_end/`):
   OTP's tables (BIFs generated from `erlang.terms`), predefined functions,
-  annotation reads and updates with OTP's errors; `compiler_tables` golden
+  annotation reads and updates with OTP's errors; `compiler_tables` golden —
+  `6c9447df`
+- **LIB8B** `records` and `erl_features` (ABI 24): defaults folded at compile
+  time (`semantic/record_definitions.cpp`, also OTP's legality rule) into
+  `RecordDescriptor::definition` ETF bytes, `ModuleDescriptor::features`;
+  run-time definitions interned by the code server for `create/4`;
+  `records_reflection` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

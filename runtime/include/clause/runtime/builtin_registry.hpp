@@ -197,6 +197,9 @@ std::span<const BuiltinEntry> io_lib_fread_builtins() noexcept;
 // Modules erl_anno and erl_internal (plan 21 step LIB8; runtime/src/builtins/front_end/).
 std::span<const BuiltinEntry> erl_anno_builtins() noexcept;
 std::span<const BuiltinEntry> erl_internal_builtins() noexcept;
+// Modules erl_features and records (plan 21 step LIB8B).
+std::span<const BuiltinEntry> erl_features_builtins() noexcept;
+std::span<const BuiltinEntry> records_builtins() noexcept;
 // The re module over PCRE2 of step 41ZA: version/0.
 std::span<const BuiltinEntry> re_builtins() noexcept;
 // The zlib streams of step 41Q: clause_zlib:open/0, close/1, set_controller/2, deflate_init/2, inflate_init/2,

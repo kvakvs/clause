@@ -1,3 +1,4 @@
+#include "term_decoding.hpp"
 #include "../../memory/heap_object.hpp"
 #include "../../process/identities.hpp"
 #include "../../terms/identities.hpp"
@@ -418,6 +419,15 @@ constexpr std::array TERM_DECODING_BUILTINS{
     typed_entry<binary_to_term2>("erlang", "binary_to_term"),
 };
 } // namespace
+
+Term decode_external(ProcessContext &context, std::string_view bytes) {
+    try {
+        Decoder decoder(context, bytes, {});
+        return decoder.decode();
+    } catch (const external::FormatError &) {
+        bad_argument();
+    }
+}
 } // namespace clause::runtime::builtins
 
 namespace clause::runtime {

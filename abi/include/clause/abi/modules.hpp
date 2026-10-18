@@ -61,6 +61,10 @@ struct ModuleDescriptor {
     // by the runtime that claims atom_cache, so its generated code builds closures inline while the claim is its own
     // (inline closures). Null for a descriptor without one.
     TermWord *fun_cache = nullptr;
+    // The language features enabled when the module was compiled (erl_features:used/1), as atom slots of this
+    // module in the compiler's order (plan 21 step LIB8B). Null with zero for none.
+    const std::size_t *features = nullptr;
+    std::size_t feature_count = 0;
 };
 
 struct FrameDescriptor {
@@ -84,7 +88,7 @@ static_assert(std::is_standard_layout_v<ModuleDescriptor>);
 static_assert(sizeof(ExportDescriptor) == 5 * sizeof(TermWord));
 static_assert(offsetof(ExportDescriptor, entry) == 3 * sizeof(TermWord));
 static_assert(sizeof(AtomDescriptor) == 2 * sizeof(TermWord));
-static_assert(sizeof(ModuleDescriptor) == 8 + 15 * sizeof(TermWord));
+static_assert(sizeof(ModuleDescriptor) == 8 + 17 * sizeof(TermWord));
 static_assert(std::is_standard_layout_v<FrameDescriptor>);
 static_assert(sizeof(FrameDescriptor) == 7 * sizeof(TermWord));
 static_assert(offsetof(ModuleDescriptor, name) == 8);

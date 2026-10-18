@@ -219,6 +219,12 @@ std::set<std::string> spellings(const semantic::Module &module) {
             result.insert(utf8(field.name.name));
         }
     }
+    // The module descriptor names the features it was compiled with by slot (erl_features:used/1).
+    if (const auto features = module.syntax->features()) {
+        for (const auto &feature : features->enabled) {
+            result.insert(feature);
+        }
+    }
     // Fun descriptors name their module and function by slot.
     for (const auto &fun : module.funs) {
         result.insert(utf8(fun.module));

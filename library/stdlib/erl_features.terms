@@ -1,0 +1,17 @@
+%% OTP 29 erl_features exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{all, 0, default, implemented}.
+{configurable, 0, default, implemented}.
+{enabled, 0, default, implemented}.
+{format_error, 1, default, stub}.
+{format_error, 2, default, stub}.
+{info, 1, default, implemented}.
+{init_parse_state, 2, default, stub}.
+{keyword_fun, 2, default, stub}.
+{keyword_fun, 4, default, stub}.
+{keywords, 0, default, implemented}.
+{keywords, 1, default, implemented}.
+{long, 1, default, stub}.
+{short, 1, default, implemented}.
+{update_parse_state, 4, default, stub}.
+{used, 1, default, implemented}.

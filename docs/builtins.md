@@ -879,8 +879,9 @@ arena (`io_lib/deep.cpp`), then becomes a term (`io_lib`) or flat characters
 
 ## Compiler tables
 
-`erl_internal` and `erl_anno` (plan 21 step LIB8, `builtins/front_end/`) are
-runtime builtins following OTP's clauses:
+`erl_internal`, `erl_anno` and `erl_features` (plan 21 step LIB8,
+`builtins/front_end/`) are runtime builtins following OTP's clauses; `records`
+is in [native records](native-records.md#reflection):
 
 - `erl_internal`: `bif/2,3` answers from the auto-import flags of
   `library/erts/erlang.terms` (`front_end/erlang_bifs.inc`, generated with
@@ -900,7 +901,16 @@ runtime builtins following OTP's clauses:
   `function_clause` where OTP's `lists:keydelete/3` or `keyreplace/4` meets an
   improper tail, `badarith` when `end_location/1` counts lines from a location
   that is not a number.
-- `executables_compiler_tables` compares both with OTP.
+- `erl_features` (step LIB8B): `all/0`, `configurable/0`, `enabled/0`,
+  `info/1`, `keywords/0,1` answer from Clause's compiler (`maybe_expr` approved
+  and enabled, `compr_assign` experimental; `error:invalid_feature` for another
+  name). `used(Module)` reads the features each module of the program was
+  compiled with from its descriptor (`not_found` for others); `used(FileName)`
+  reads the `Meta` chunk of `FileName.beam` (`clause_features:beam_meta/1`,
+  gzip-compressed files included). The parse-state functions OTP's compiler
+  calls stay stubs.
+- `executables_compiler_tables` compares `erl_internal` and `erl_anno` with
+  OTP, `executables_records_reflection` `records` and `erl_features`.
 
 ## Zlib module
 

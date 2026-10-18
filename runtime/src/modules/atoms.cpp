@@ -73,12 +73,29 @@ CodeResult<void> bind_records(ModuleAtoms &bindings, const abi::v1::ModuleDescri
         if (!valid_record(descriptor, record)) {
             return std::unexpected(CodeError::invalid_module);
         }
-        RecordDefinition bound{&record, word(record.module_atom), word(record.name_atom), record.exported != 0, {}};
+        RecordDefinition bound{&record, word(record.module_atom), word(record.name_atom), record.exported != 0, {}, {}};
+        if (record.definition_size != 0) {
+            bound.definition = std::string_view(record.definition, record.definition_size);
+        }
         bound.fields.reserve(record.field_count);
         for (const auto slot : std::span(record.fields, record.field_count)) {
             bound.fields.push_back(word(slot));
         }
         bindings.records.push_back(std::move(bound));
+    }
+    return {};
+}
+
+// Bind the atom slots of the features the module was compiled with (plan 21 step LIB8B).
+CodeResult<void> bind_features(ModuleAtoms &bindings, const abi::v1::ModuleDescriptor &descriptor) {
+    if (descriptor.feature_count != 0 && descriptor.features == nullptr) {
+        return std::unexpected(CodeError::invalid_module);
+    }
+    for (const auto slot : std::span(descriptor.features, descriptor.feature_count)) {
+        if (slot >= descriptor.atom_count) {
+            return std::unexpected(CodeError::invalid_module);
+        }
+        bindings.features.push_back(bindings.slots[slot].word());
     }
     return {};
 }
@@ -186,6 +203,9 @@ CodeResult<std::shared_ptr<const ModuleAtoms>> bind_atoms(AtomStorage &storage,
     }
     if (const auto funs = bind_funs(*bindings, descriptor, builtins); !funs) {
         return std::unexpected(funs.error());
+    }
+    if (const auto features = bind_features(*bindings, descriptor); !features) {
+        return std::unexpected(features.error());
     }
     claim_cache(*bindings, descriptor, runtime);
     return bindings;

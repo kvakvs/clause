@@ -199,6 +199,10 @@ semantic_case(native_default "-module(a). -record #r{a = foo()}. f() -> 1." 1
     "native_default.erl:1:[0-9]+: illegal default value for field a in native record r")
 semantic_case(native_default_binary "-module(a). -record #r{a = <<1>>}. f() -> 1." 1
     "illegal default value for field a in native record r")
+semantic_case(native_default_append "-module(a). -record #r{a = [1] ++ [2]}. f() -> 1." 1
+    "illegal default value for field a in native record r")
+semantic_case(native_default_failing "-module(a). -record #r{a = 1 / 0}. f() -> 1." 1
+    "illegal default value for field a in native record r")
 semantic_case(native_uninitialized "-module(a). -record #r{a, b}. f() -> #r{b = 1}." 1
     "field a is not initialized in native record r")
 semantic_case(native_unknown_field "-module(a). -record #r{a}. f() -> #r{a = 1, zz = 2}." 1 "undefined record field zz")

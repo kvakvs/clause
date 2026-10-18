@@ -260,7 +260,9 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   `ExpressionLowering`, rest in `lowering_bits`, calls in `lowering_calls`).
 - Native records: `native_record` cells (header, untraced
   `RecordDefinition *`, values); registration binds
-  `abi::v1::RecordDescriptor`s.
+  `abi::v1::RecordDescriptor`s (with the folded field list as ETF bytes for
+  `records:get_definition/2`); `records:create/4` definitions are interned by
+  `CodeServer::created_record` (ABI 24, plan 21 LIB8B).
 - Printing: `format_term` renders `~w`/display iteratively under a byte cap;
   goldens in `tests/fixtures/printing/`.
 

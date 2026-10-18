@@ -77,7 +77,7 @@ llvm::Constant *descriptor(ExpressionLowering &state, const semantic::Module &ow
     auto &output = *state.entry.getParent();
     const auto name = semantic::encode_symbol({utf8(owner.name), "", 0}) + ".records";
     auto *ptr = state.builder.getPtrTy();
-    auto *entry = llvm::StructType::get(ptr, state.word, state.word, state.word, ptr, state.word);
+    auto *entry = llvm::StructType::get(ptr, state.word, state.word, state.word, ptr, state.word, ptr, state.word);
     // This module's own table exists already; another module's is declared as an external constant.
     auto *table =
         llvm::cast<llvm::GlobalVariable>(output.getOrInsertGlobal(name, llvm::ArrayType::get(entry, layouts.size())));

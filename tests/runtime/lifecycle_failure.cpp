@@ -68,7 +68,7 @@ void require_walkable(clause::runtime::ProcessContext &context) {
 void check_startup() {
     bool succeeded = false;
     // Each registered builtin adds registry allocations, so the sweep bound grows with the catalog.
-    for (std::size_t ordinal = 0; ordinal < 1024 && !succeeded; ++ordinal) {
+    for (std::size_t ordinal = 0; ordinal < 2048 && !succeeded; ++ordinal) {
         const auto baseline = live_allocations;
         remaining = ordinal;
         auto runtime = Runtime::start();

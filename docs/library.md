@@ -29,6 +29,7 @@ implemented and which are stubs.
 | [`io`](../library/stdlib/io.erl) | `get_line/1,2`, `get_chars/2,3` (standard input server or an open file), `fread/2,3` (a `get_until` request over `io_lib:fread/3`), `request/1,2`, `requests/1,2` (OTP's I/O protocol, [files](ports.md#standard-io-and-files)); `format/1,2,3`, `fwrite/1,2,3`, `put_chars/1,2` and `nl/0,1` are runtime builtins ([io](io.md)) |
 | [`io_lib`](../library/stdlib/io_lib.erl) | Writers, checks, collect functions, the format engine, the pretty printer (`print/1,4`, `~p`, `chars_limit`) and the scanner (`fread/2,3`) as runtime builtins in OTP's deep list shapes; `get_until`, `format_prompt` and `write/3` Erlang ([io_lib](builtins.md#io_lib)) |
 | [`erl_internal`](../library/stdlib/erl_internal.erl), [`erl_anno`](../library/stdlib/erl_anno.erl) | Every function as a runtime builtin: OTP's BIF, guard, type test and operator tables, predefined functions, and annotations ([compiler tables](builtins.md#compiler-tables)) |
+| [`records`](../library/stdlib/records.erl), [`erl_features`](../library/stdlib/erl_features.erl) | Native record reflection, run-time definitions and compiled definitions with folded defaults ([native records](native-records.md#reflection)); OTP 29's features and those each module was compiled with ([compiler tables](builtins.md#compiler-tables)) |
 | [`binary`](../library/stdlib/binary.erl) | Every function; `replace/3,4` and `list_to_bin/1` in Erlang, the others runtime builtins ([binary module](builtins.md#binary-module)) |
 | [`math`](../library/stdlib/math.erl) | Every function as a runtime builtin ([math module](builtins.md#math-module)) |
 | [`unicode`](../library/stdlib/unicode.erl) | Every function as a runtime builtin: conversions, `bin_is_7bit/1`, byte order marks, normalization forms, categories and identifier properties ([unicode module](builtins.md#unicode-module)) |
@@ -155,7 +156,7 @@ warning, since nothing is replaced.
   application that owns the module in OTP: `erts` (preloaded counterparts and
   `erlang`), `kernel`, `stdlib`. Clause's private helper modules
   (`clause_socket`, `clause_re`, `clause_unicode`, `clause_zlib`,
-  `clause_receive`, `clause_maps`, `clause_hashed`, `clause_array`) sit beside the modules they serve. The library lookup
+  `clause_receive`, `clause_maps`, `clause_hashed`, `clause_array`, `clause_features`) sit beside the modules they serve. The library lookup
   searches every application directory; a module name exists in at most one
   of them.
 - `library/modules.terms` lists every module Clause decides about:

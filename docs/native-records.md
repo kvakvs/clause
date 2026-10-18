@@ -19,8 +19,8 @@ representation:
 | Qualified and imported | `#m:r{...}`, `X#m:r.f`, `X#m:r{...}`, patterns; `-export_record`, `-import_record` |
 | Inferred (anonymous) | `X#_.f`, `X#_{...}`, pattern `#_{...}` |
 
-Not provided: the `records` reflection module (calls to `records:*` are
-`unknown module` diagnostics), `term_to_binary` of native records
+The `records` reflection module is provided ([reflection](#reflection)).
+Not provided: `term_to_binary` of native records
 (`error:notsup`, [external term format](builtins.md#external-term-format)) and
 hot code upgrade.
 
@@ -30,7 +30,9 @@ hot code upgrade.
   `abi::v1::RecordDescriptor` beside its module descriptor: the defining
   `ModuleDescriptor`, atom slots for the module and record names, the export
   flag (`-export_record` at compile time) and the field-name atom slots in
-  definition order. Atom slots resolve through the module's registered atoms, as
+  definition order, and the field list `records:get_definition/2` returns as
+  External Term Format bytes (`{Field, Default}` with the folded default, or
+  the bare `Field`). Atom slots resolve through the module's registered atoms, as
   `FrameDescriptor` names do. Programs are static (no unloading), so a
   descriptor lives as long as the program; another module of the batch refers to
   it by symbol. Defaults are compiled into each construction site, never stored.
@@ -81,7 +83,10 @@ the offending value except failed external construction.
 Messages follow `erl_lint`:
 
 - Defaults must be literal after constant folding (numbers, atoms, strings,
-  `[]`, conses/tuples/maps of those, string-only binaries):
+  `[]`, conses/tuples/maps of those, string-only binaries, and the arithmetic,
+  comparison and `not`/`and`/`or`/`xor` operators over them, folded as OTP's
+  compiler folds them); `++`, `--`, `andalso`, `orelse` and an operator that
+  fails (`1 / 0`) are illegal:
   `illegal default value for field a in native record r`.
 - Local construction without a value for a field without default:
   `field a is not initialized in native record r`; unknown field:
@@ -98,6 +103,27 @@ Messages follow `erl_lint`:
   module lowers the defining module's literal defaults itself and references its
   exported descriptor; unknown fields raise `badfield` before a missing value
   raises `novalue` (`ErrorReason` 21).
+
+## Reflection
+
+`records` (plan 21 step LIB8B) answers from the definition a record captured:
+
+- `get/2`, `get_module/1`, `get_name/1` (`badarg` for a non-record or a missing
+  field), `get_field_names/1`, `is_exported/1` (`{badrecord, X}`).
+- `create(Module, Name, Fields, #{is_exported => Boolean})` builds a definition
+  at run time in the given field order, interned by the code server, so equal
+  creations share it; a compiled record and a created one with the same module,
+  name, export flag and field order are `=:=`. Errors in OTP's order:
+  `{badrecord, Name}` for non-atom names, `{badmap, Options}`, `badarg` for
+  other options, then one pass over the fields (`badarg` for a non-pair,
+  `{badfield, {{Module, Name}, Field}}` for a non-atom name), then `badarg` for
+  a repeated field.
+- `update(Src, Module, Name, Map)` keeps Src's definition: `{badrecord, Src}`,
+  `{badrecord, Name}` when Module and Name do not match, `{badmap, Map}`, then
+  `{badfield, ...}` in key order.
+- `get_definition(Module, Name)` decodes the descriptor's field list:
+  `{#{is_exported => Boolean}, Fields}`, `badarg` for a record no module of the
+  program defines.
 
 ## Printing and order
 

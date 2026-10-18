@@ -54,3 +54,5 @@
 {random, stdlib, provided}.
 {erl_internal, stdlib, provided}.
 {erl_anno, stdlib, provided}.
+{records, stdlib, provided}.
+{erl_features, stdlib, provided}.

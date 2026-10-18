@@ -123,19 +123,6 @@ embedded binaries, io_lib's nested char lists), not just equal content.
   (`topsort/1`, `components/1`, `strong_components/1`, `reachable/2`,
   `get_short_path/3`, ...) and the updates; Erlang for `fold_vertices/3`.
 
-### LIB8. Records and compiler tables: `records`, `erl_internal`, `erl_anno`, `erl_features`
-
-- `erl_internal` (10) and `erl_anno` (18): done as LIB8A, see `00-finished.md`.
-- LIB8B `records` (8, OTP 29 native records): C++ over Clause's native records
-  (F17). Needs the field defaults in `abi::v1::RecordDescriptor` (literal
-  words, a marker for fields without one) for `get_definition/2`, a runtime
-  lookup of definitions by module and name, and definitions `create/4` interns
-  at run time (any module, name, export flag and field order).
-- LIB8B `erl_features` (5): C++, answered from Clause's feature set
-  (`maybe_expr` approved and enabled, `compr_assign` experimental). `used/1`
-  needs each module's enabled features in its `ModuleDescriptor`; file names
-  answer as without `beam_lib` until LIB54.
-
 ### LIB9. `erlang` gaps (62)
 
 - C++:
@@ -480,7 +467,7 @@ Ranked by what real programs need first and by dependencies:
 6. LIB30–LIB34 (the front end, `consult`, `io:read`).
 7. LIB25 (local-node services) and LIB12 (`digraph`).
 8. LIB51–LIB55 (files, logs, archives).
-9. LIB7, LIB8, LIB70, LIB62 and LIB63.
+9. LIB7, LIB70, LIB62 and LIB63.
 10. LIB71–LIB74, then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
@@ -658,7 +645,6 @@ functions are listed separately and are optional.
 - `erl_eval` (stdlib, 15): add_binding/3, binding/2, bindings/1, del_binding/2,
   expr/2,3,4,5, expr_list/2,3,4, exprs/2,3,4, new_bindings/0
 - `erl_expand_records` (stdlib, 1): module/2
-- `erl_features` (stdlib, 5): all/0, configurable/0, enabled/0, info/1, used/1
 - `erl_lint` (stdlib, 5): format_error/1, is_guard_test/1, module/1,2,3
 - `erl_parse` (stdlib, 15): abstract/1,2, anno_from_term/1, anno_to_term/1,
   fold_anno/3, format_error/1, map_anno/2, mapfold_anno/3, new_anno/1,
@@ -773,8 +759,6 @@ functions are listed separately and are optional.
   sort/1,2, string_to_handle/1,2,3, table/2
 
 - `re` (stdlib, 1, 10 done): import/1
-- `records` (stdlib, 8): create/4, get/2, get_definition/2, get_field_names/1,
-  get_module/1, get_name/1, is_exported/1, update/4
 - `shell` (stdlib, 18): catch_exception/1, default_multiline_prompt/1,
   erl_pp_format_func/1, format_shell_func/1, hints/1, history/1,
   inverted_space_prompt/1, multiline_prompt_func/1, prompt_func/1,

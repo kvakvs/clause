@@ -442,3 +442,4 @@ success.
 | 21 | `ModuleDescriptor::fun_cache` and inline closures |
 | 22 | Direct builtins: `BuiltinName::direct`, `CLAUSE_builtin_call_v1` |
 | 23 | Quick builtins: `BuiltinName::call` (`BuiltinCall`), 0 from `CLAUSE_builtin_call_v1` declines |
+| 24 | `RecordDescriptor::definition` (the field list as External Term Format bytes, for `records:get_definition/2`) and `ModuleDescriptor::features` (atom slots of the enabled features, for `erl_features:used/1`) |

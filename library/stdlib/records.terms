@@ -1,0 +1,10 @@
+%% OTP 29 records exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{create, 4, default, implemented}.
+{get, 2, default, implemented}.
+{get_definition, 2, default, implemented}.
+{get_field_names, 1, default, implemented}.
+{get_module, 1, default, implemented}.
+{get_name, 1, default, implemented}.
+{is_exported, 1, default, implemented}.
+{update, 4, default, implemented}.

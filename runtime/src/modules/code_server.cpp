@@ -183,6 +183,54 @@ const FunDefinition &CodeServer::external_fun(const Term &module, const Term &fu
     return *definition;
 }
 
+const RecordDefinition &CodeServer::created_record(const CreatedRecordKey &key) {
+    {
+        const std::shared_lock lock(mutex_);
+        if (const auto found = created_records_.find(key); found != created_records_.end()) {
+            return *found->second;
+        }
+    }
+    const std::unique_lock lock(mutex_);
+    // Another worker may have built the definition between the two locks.
+    auto &definition = created_records_[key];
+    if (!definition) {
+        definition = std::make_unique<RecordDefinition>();
+        definition->module = key.module;
+        definition->name = key.name;
+        definition->exported = key.exported;
+        definition->fields = key.fields;
+        definition->descriptor = definition.get();
+        records_.emplace(definition->descriptor, definition.get());
+    }
+    return *definition;
+}
+
+const ModuleAtoms *CodeServer::find_module_atoms(Word module) const noexcept {
+    for (const auto &[name, loaded] : modules_) {
+        const auto *atoms = loaded->atoms();
+        if (atoms != nullptr && atoms->module == module) {
+            return atoms;
+        }
+    }
+    return nullptr;
+}
+
+const RecordDefinition *CodeServer::module_record(const RecordName &name) const noexcept {
+    const std::shared_lock lock(mutex_);
+    const auto *atoms = find_module_atoms(name.module);
+    if (atoms == nullptr) {
+        return nullptr;
+    }
+    const auto found = std::ranges::find(atoms->records, name.name, &RecordDefinition::name);
+    return found == atoms->records.end() ? nullptr : &*found;
+}
+
+std::optional<std::vector<Word>> CodeServer::module_features(Word module) const {
+    const std::shared_lock lock(mutex_);
+    const auto *atoms = find_module_atoms(module);
+    return atoms == nullptr ? std::nullopt : std::optional{atoms->features};
+}
+
 bool CodeServer::owns(const FunDefinition &definition) const noexcept {
     const std::shared_lock lock(mutex_);
     if (definition.descriptor) {

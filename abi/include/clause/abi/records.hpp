@@ -19,6 +19,10 @@ struct RecordDescriptor {
     // Field-name atom slots in definition order.
     const std::size_t *fields;
     std::size_t field_count;
+    // records:get_definition/2's field list as External Term Format bytes: {Field, Default} for a field with a
+    // default, else the bare Field, in definition order (plan 21 step LIB8B).
+    const char *definition;
+    std::size_t definition_size;
 };
 
 // make: values are every field in definition order. get: record, module, name, field. update: record, module, name,
@@ -45,7 +49,7 @@ enum class RecordCheck : std::uint8_t {
 enum class RecordOutcome : std::uint8_t { success, bad_record, bad_field, no_match, failure };
 
 static_assert(std::is_standard_layout_v<RecordDescriptor>);
-static_assert(sizeof(RecordDescriptor) == 6 * sizeof(TermWord));
+static_assert(sizeof(RecordDescriptor) == 8 * sizeof(TermWord));
 } // namespace clause::abi::v1
 
 // Borrow rooted words; make reads descriptor (a registered RecordDescriptor) and ignores check. Results go to
