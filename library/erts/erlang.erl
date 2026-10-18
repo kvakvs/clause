@@ -494,7 +494,7 @@ crc32_combine(_, _, _) -> clause_builtin_placeholder.
 
 date() -> clause_builtin_placeholder.
 
-decode_packet(_, _, _) -> erlang:error({not_implemented, decode_packet, 3}).
+decode_packet(_, _, _) -> clause_builtin_placeholder.
 
 delay_trap(_, _) -> erlang:error({not_implemented, delay_trap, 2}).
 

@@ -62,7 +62,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/front_end/erl_anno.cpp src/builtins/front_end/erl_internal.cpp
     # The erlang gaps of plan 21 step LIB9A.
     src/builtins/erlang/checksums.cpp src/builtins/erlang/tuple_edits.cpp src/builtins/erlang/process_options.cpp
-    src/builtins/erlang/system_flags.cpp
+    src/builtins/erlang/system_flags.cpp src/builtins/erlang/packets.cpp src/builtins/erlang/packet_http.cpp
     # Modules erl_features and records (plan 21 step LIB8B).
     src/builtins/front_end/features.cpp src/builtins/records.cpp
     # Modules rand and random (plan 21 step LIB6).

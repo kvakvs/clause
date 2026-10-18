@@ -68,7 +68,7 @@
 {crc32, 2, [], implemented}.
 {crc32_combine, 3, [], implemented}.
 {date, 0, [auto_import], implemented}.
-{decode_packet, 3, [], {unavailable, not_selected}}.
+{decode_packet, 3, [], implemented}.
 {delay_trap, 2, [], {unavailable, not_selected}}.
 {delete_element, 2, [], implemented}.
 {delete_module, 1, [auto_import], implemented}.

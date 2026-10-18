@@ -273,6 +273,14 @@ Plan 21 step LIB9A (`executables_erlang_gaps`):
   ([processes](processes.md#builtins)); `system_flag/2`
   ([system information](#system-information)); `hibernate/0` is an Erlang
   body over `hibernate/3`.
+- `decode_packet/3` (step LIB9C, `erlang/packets.cpp`, `erlang/packet_http.cpp`,
+  `executables_packet_decoding`): OTP's packet_parser rules for every type
+  (`raw`, `0`, `1`, `2`, `4`, `asn1`, `sunrm`, `cdr`, `fcgi`, `tpkt`, `line`,
+  `http`, `httph`, `http_bin`, `httph_bin`, `ssl_tls`) and options
+  (`packet_size`, `line_length`, `line_delimiter`): `{ok, Packet, Rest}` with
+  sub-binaries of the input, `{more, Length | undefined}` or
+  `{error, invalid}`; http lines give OTP's request, response, header (known
+  headers as atoms with their bit, names in OTP's case) and `http_error` terms.
 
 ## External term format
 

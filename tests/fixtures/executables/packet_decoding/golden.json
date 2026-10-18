@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "packet_decoding",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "lengths: [{ok,<<97,98,99>>,<<>>},{more,undefined},{ok,<<97,98,99>>,<<100,101>>},{more,6},{more,undefined},{ok,<<120,121>>,<<122>>},{more,undefined},{ok,<<113>>,<<>>},{more,260},{ok,<<128,0,0,2,104,105>>,<<33>>},{ok,<<48,3,1,2,3>>,<<4>>},{ok,<<48,129,2,9,9>>,<<7>>},{ok,<<48,130,0,1,5>>,<<>>},{ok,<<31,129,1,2,7,7>>,<<>>},{error,invalid},{more,undefined},{more,undefined},{ok,<<71,73,79,80,1,2,0,0,0,0,0,2,97,98>>,<<122>>},{ok,<<71,73,79,80,1,2,1,0,2,0,0,0,97,98>>,<<>>},{error,invalid},{ok,<<1,1,0,1,0,3,2,0,97,98,99>>,<<114,101,115,116>>},{error,invalid},{ok,<<3,0,0,6,97,98>>,<<120>>},{error,invalid},{error,invalid}]\nlines: [{ok,<<111,110,101,10>>,<<116,119,111,10>>},{more,undefined},{ok,<<10>>,<<>>},{ok,<<97,98,99>>,<<100,101,102,10>>},{ok,<<97,98>>,<<>>},{error,invalid},{error,invalid},{ok,<<97,59>>,<<98,59,99>>},{more,undefined}]\noptions: [{error,invalid},{ok,<<97,98,99>>,<<100,101>>},{error,invalid},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg}]\nhttp: [{ok,{http_request,'GET',{abs_path,[47,105,110,100,101,120,46,104,116,109,108]},{1,1}},<<72,111,115,116,58,32,120,13,10>>},{ok,{http_request,'GET',{abs_path,<<47,105,110,100,101,120,46,104,116,109,108>>},{1,1}},<<>>},{ok,{http_request,'POST',{absoluteURI,http,[101,120,97,109,112,108,101,46,99,111,109],8080,[47,97,63,98]},{1,0}},<<>>},{ok,{http_request,[103,101,116],{abs_path,[47]},{1,1}},<<>>},{ok,{http_request,'OPTIONS','*',{1,1}},<<>>},{ok,{http_request,'GET',{abs_path,[47,111,108,100]},{0,9}},<<>>},{ok,{http_request,[66,82,69,87],{abs_path,[47,112,111,116]},{2,0}},<<>>},{ok,{http_response,{1,1},200,[79,75]},<<>>},{ok,{http_response,{1,0},404,<<78,111,116,32,70,111,117,110,100>>},<<>>},{ok,{http_response,{1,1},204,[]},<<>>},{ok,{http_response,{1,1},301,[77,111,118,101,100,32,80,101,114,109,97,110,101,110,116,108,121]},<<114,101,115,116>>},{more,undefined},{ok,{http_error,[13,10]},<<>>},{ok,{http_request,[103,97,114,98,97,103,101],[108,105,110,101],{0,9}},<<>>},{ok,{http_error,[72,84,84,80,47,120,46,49,32,50,48,48,32,79,75,13,10]},<<>>},{ok,{http_error,[71,69,84,32,47,32,72,84,84,80,47,49,13,10]},<<>>},{ok,{http_error,<<98,97,100,13,10>>},<<>>},{error,invalid},{error,invalid}]\nheaders: [{more,undefined},{ok,{http_header,38,'Content-Length',[99,111,110,116,101,110,116,45,108,101,110,103,116,104],[49,50]},<<13,10>>},{more,undefined},{more,undefined},{ok,{http_header,47,'Set-Cookie',[83,101,116,45,67,111,111,107,105,101],[97,61,49,13,10,32,99,111,110,116,105,110,117,101,100]},<<78,101,120,116,58,32,50,13,10>>},{more,undefined},{ok,http_eoh,<<>>},{ok,http_eoh,<<>>},{more,undefined},{more,undefined},{more,undefined},{more,undefined},{more,undefined},{more,undefined}]\nuris: [{abs_path,[47,112,97,116,104]},{abs_path,[120]},{absoluteURI,http,[104,111,115,116],undefined,[47]},{absoluteURI,http,[72,111,115,116],80,[47,112]},{absoluteURI,https,[104],undefined,[47,112]},{absoluteURI,http,[104],undefined,[47,112]},{absoluteURI,http,[91,58,58,49,93],4000,[47,112]},{absoluteURI,http,[91,58,58,49,93],undefined,[47,112]},{absoluteURI,http,[91,58,58,49,93],undefined,[47,112]},{scheme,[109,97,105,108,116,111],[109,101,64,116,104,101,114,101]},[112,108,97,105,110]]\nssl: [{ok,{ssl_tls,[],22,{3,1},<<104,105>>},<<114,101,115,116>>},{ok,{ssl_tls,[],22,{3,0},<<1,0,0,6,3,0,97,98,99,100>>},<<>>},{more,undefined},{more,10}]\nerrors: [{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg}]\npacket_decoding: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "packet_decoding.erl": "c6914f62cbcd9a963f90cadbb403247dda1f492a073637cf366b6c160d3e6655"
+  }
+}

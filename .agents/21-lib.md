@@ -132,11 +132,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 - LIB9B (C++, executor): `suspend_process/1,2`, `resume_process/1` (suspend
   counts, `asynchronous` and `unless_suspending` options, badarg for the
   caller itself) and `process_display/2` (`backtrace` to standard error).
-- LIB9C (C++): `decode_packet/3` for every packet type OTP's
-  `packet_parser.c` decodes (`raw`, `0`/`1`/`2`/`4`, `asn1`, `cdr`, `sunrm`,
-  `fcgi`, `tpkt`, `line`, `http`, `httph`, `http_bin`, `httph_bin`) with its
-  options (`packet_size`, `line_length`), shared with the socket packet
-  modes.
+- LIB9C done (`decode_packet/3`), see `00-finished.md`.
 - `match_spec_test/3` comes with LIB11.
 - Declined:
   - D01: `load_module/2`, `load_nif/2`, `purge_module/1`, `check_*code`.
@@ -471,7 +467,7 @@ Ranked by what real programs need first and by dependencies:
 Format: `module` (application, functions to do, ...): name/arities. Deprecated
 functions are listed separately and are optional.
 
-- `erlang` (erts, 26 left after LIB9A): check_old_code/1, check_process_code/2,3,
+- `erlang` (erts, 25 left after LIB9C): check_old_code/1, check_process_code/2,3,
   decode_packet/3, dist_ctrl_get_data/1, dist_ctrl_get_data_notification/1,
   dist_ctrl_get_opt/2, dist_ctrl_input_handler/2, dist_ctrl_put_data/2,
   dist_ctrl_set_opt/3, load_module/2, load_nif/2, match_spec_test/3,

@@ -622,7 +622,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   option-taking sends and signals, node-naming spawns (useless pids end with
   `noconnection`), `process_flag/3`, process iterator, `system_flag/2`
   (`backtrace_depth` now bounds traces, up to 64), `hibernate/0`;
-  `erlang_gaps` golden
+  `erlang_gaps` golden — `d24cdb75`
+- **LIB9C** `decode_packet/3` in C++ (`erlang/packets.cpp` length rules as a
+  table per type, `erlang/packet_http.cpp` OTP's http line parser and terms);
+  `packet_decoding` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
