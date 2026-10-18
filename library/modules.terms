@@ -52,3 +52,5 @@
 {string, stdlib, provided}.
 {rand, stdlib, provided}.
 {random, stdlib, provided}.
+{erl_internal, stdlib, provided}.
+{erl_anno, stdlib, provided}.

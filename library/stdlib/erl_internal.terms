@@ -1,0 +1,16 @@
+%% OTP 29 erl_internal exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{add_predefined_functions, 1, default, implemented}.
+{arith_op, 2, default, implemented}.
+{bif, 2, default, implemented}.
+{bif, 3, default, implemented}.
+{bool_op, 2, default, implemented}.
+{comp_op, 2, default, implemented}.
+{guard_bif, 2, default, implemented}.
+{is_type, 2, default, implemented}.
+{list_op, 2, default, implemented}.
+{new_type_test, 2, default, implemented}.
+{old_type_test, 2, default, implemented}.
+{op_type, 2, default, implemented}.
+{send_op, 2, default, implemented}.
+{type_test, 2, default, implemented}.

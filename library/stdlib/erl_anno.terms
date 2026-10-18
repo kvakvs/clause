@@ -1,0 +1,21 @@
+%% OTP 29 erl_anno exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{column, 1, default, implemented}.
+{end_location, 1, default, implemented}.
+{file, 1, default, implemented}.
+{from_term, 1, default, implemented}.
+{generated, 1, default, implemented}.
+{is_anno, 1, default, implemented}.
+{line, 1, default, implemented}.
+{location, 1, default, implemented}.
+{new, 1, default, implemented}.
+{record, 1, default, implemented}.
+{set_end_location, 2, default, implemented}.
+{set_file, 2, default, implemented}.
+{set_generated, 2, default, implemented}.
+{set_line, 2, default, implemented}.
+{set_location, 2, default, implemented}.
+{set_record, 2, default, implemented}.
+{set_text, 2, default, implemented}.
+{text, 1, default, implemented}.
+{to_term, 1, default, implemented}.

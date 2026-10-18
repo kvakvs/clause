@@ -877,6 +877,31 @@ arena (`io_lib/deep.cpp`), then becomes a term (`io_lib`) or flat characters
   `executables_pretty_print` the pretty printer's, `executables_fread_scanning`
   the scanner's.
 
+## Compiler tables
+
+`erl_internal` and `erl_anno` (plan 21 step LIB8, `builtins/front_end/`) are
+runtime builtins following OTP's clauses:
+
+- `erl_internal`: `bif/2,3` answers from the auto-import flags of
+  `library/erts/erlang.terms` (`front_end/erlang_bifs.inc`, generated with
+  the compiler's own auto-import table by
+  `tests/compiler/builtins/generate_erlang.py`) plus OTP's leftover
+  `bitsize/1`; `guard_bif/2` from their guard flags; `type_test/2`,
+  `new_type_test/2`, `old_type_test/2`, `is_type/2` and the operator tables
+  (`arith_op/2` ... `op_type/2`) are fixed tables. A name that is not an atom
+  or an arity that is not an integer is `function_clause`, as OTP's guarded
+  last clauses make it. `add_predefined_functions/1` appends the export
+  attribute, `behaviour_info/1` (when the forms have callbacks) and
+  `module_info/0,1` with anno 0.
+- `erl_anno`: annotations are a location or a list of `{Item, Value}` pairs;
+  reads and `set_*` updates keep OTP's shapes (a list holding only a location
+  becomes the location) and errors: `badarg` from `lists:keyfind/3` on a list
+  it cannot walk, `try_clause` for a tuple found that is not a pair,
+  `function_clause` where OTP's `lists:keydelete/3` or `keyreplace/4` meets an
+  improper tail, `badarith` when `end_location/1` counts lines from a location
+  that is not a number.
+- `executables_compiler_tables` compares both with OTP.
+
 ## Zlib module
 
 `runtime/src/builtins/zlib/streams.cpp`, `library/erts/zlib.erl`. The runtime

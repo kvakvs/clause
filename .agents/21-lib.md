@@ -125,11 +125,16 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ### LIB8. Records and compiler tables: `records`, `erl_internal`, `erl_anno`, `erl_features`
 
-- `records` (8, OTP 29 native records): C++ over Clause's native records (F17).
-- `erl_internal` (10): C++, answered from the compiler's own operator tables and
-  the builtin catalog.
-- `erl_anno` (18): C++ (annotations are integers, tuples or lists).
-- `erl_features` (5): C++, answered from Clause's feature set.
+- `erl_internal` (10) and `erl_anno` (18): done as LIB8A, see `00-finished.md`.
+- LIB8B `records` (8, OTP 29 native records): C++ over Clause's native records
+  (F17). Needs the field defaults in `abi::v1::RecordDescriptor` (literal
+  words, a marker for fields without one) for `get_definition/2`, a runtime
+  lookup of definitions by module and name, and definitions `create/4` interns
+  at run time (any module, name, export flag and field order).
+- LIB8B `erl_features` (5): C++, answered from Clause's feature set
+  (`maybe_expr` approved and enabled, `compr_assign` experimental). `used/1`
+  needs each module's enabled features in its `ModuleDescriptor`; file names
+  answer as without `beam_lib` until LIB54.
 
 ### LIB9. `erlang` gaps (62)
 
@@ -649,18 +654,11 @@ functions are listed separately and are optional.
   format_error/1, open/1,2,3, parse_erl_form/1, parse_file/2,3,
   read_encoding/1,2, read_encoding_from_binary/1,2, scan_erl_form/1,
   scan_file/2, set_encoding/1,2
-- `erl_anno` (stdlib, 18): column/1, end_location/1, file/1, from_term/1,
-  generated/1, is_anno/1, line/1, location/1, new/1, set_end_location/2,
-  set_file/2, set_generated/2, set_line/2, set_location/2, set_record/2,
-  set_text/2, text/1, to_term/1
 - `erl_error` (stdlib, 2; 1 callbacks): format_exception/3,4
 - `erl_eval` (stdlib, 15): add_binding/3, binding/2, bindings/1, del_binding/2,
   expr/2,3,4,5, expr_list/2,3,4, exprs/2,3,4, new_bindings/0
 - `erl_expand_records` (stdlib, 1): module/2
 - `erl_features` (stdlib, 5): all/0, configurable/0, enabled/0, info/1, used/1
-- `erl_internal` (stdlib, 10): add_predefined_functions/1, arith_op/2, bif/2,
-  bool_op/2, comp_op/2, guard_bif/2, list_op/2, op_type/2, send_op/2,
-  type_test/2
 - `erl_lint` (stdlib, 5): format_error/1, is_guard_test/1, module/1,2,3
 - `erl_parse` (stdlib, 15): abstract/1,2, anno_from_term/1, anno_to_term/1,
   fold_anno/3, format_error/1, map_anno/2, mapfold_anno/3, new_anno/1,
@@ -720,7 +718,7 @@ functions are listed separately and are optional.
   reverse_postorder/1,2, roots/1, sink_vertices/1, source_vertices/1,
   strong_components/1, subgraph/2,3, topsort/1, vertex/2,3, vertices/1,
   vertices_with_labels/1
-- `io` (stdlib, 34, 14 done): columns/0,1, fread/2,3, get_password/0,
+- `io` (stdlib, 32, 16 done): columns/0,1, get_password/0,
   getopts/0,1, parse_erl_exprs/1,2,3,4, parse_erl_form/1,2,3,4,
   printable_range/0, read/1,2,3,4, rows/0,1, scan_erl_exprs/1,2,3,4,
   scan_erl_form/1,2,3,4, setopts/1,2, write/1,2
@@ -759,14 +757,6 @@ functions are listed separately and are optional.
   tigetnum/1, tinfo/0, tput/1,2, underline/0, underline_color/1,3,
   underline_off/0, white/0, white_background/0, white_underline/0, yellow/0,
   yellow_background/0, yellow_underline/0
-- `io_lib` (stdlib, 36): bformat/2,3, bfwrite/2,3, build_text/1, bwrite/2,
-  bwrite_string/3, char_list/1, deep_char_list/1, deep_latin1_char_list/1,
-  format/2,3, fread/2,3, fwrite/2,3, indentation/2, latin1_char_list/1, nl/0,
-  print/1,4, printable_latin1_list/1, printable_list/1,
-  printable_unicode_list/1, scan_format/2, unscan_format/1, write/1,2,
-  write_atom/1, write_atom_as_latin1/1, write_char/1, write_char_as_latin1/1,
-  write_latin1_char/1, write_latin1_string/1, write_string/1,
-  write_string_as_latin1/1
 - `log_mf_h` (stdlib, 2): init/3,4
 - `ms_transform` (stdlib, 3): format_error/1, parse_transform/2,
   transform_from_shell/3

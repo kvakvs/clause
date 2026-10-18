@@ -217,6 +217,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      io_lib_write_builtins(),
                                      io_lib_collect_builtins(),
                                      io_lib_fread_builtins(),
+                                     erl_anno_builtins(),
+                                     erl_internal_builtins(),
                                      re_builtins(),
                                      zlib_builtins(),
                                      re_pattern_builtins(),

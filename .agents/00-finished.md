@@ -607,7 +607,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB4E** `io_lib:fread/2,3` in C++ (`io_lib/fread.cpp`): OTP's scanner over
   the line as a list, line collection into OTP's continuation, `~#`'s `try`
   covering the rest; `io:fread/2,3` as a `get_until` request;
-  `fread_scanning` golden
+  `fread_scanning` golden — `6bc5b45f`
+- **LIB8A** `erl_internal` and `erl_anno` in C++ (`builtins/front_end/`):
+  OTP's tables (BIFs generated from `erlang.terms`), predefined functions,
+  annotation reads and updates with OTP's errors; `compiler_tables` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
