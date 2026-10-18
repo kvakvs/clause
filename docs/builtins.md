@@ -281,6 +281,9 @@ Plan 21 step LIB9A (`executables_erlang_gaps`):
   sub-binaries of the input, `{more, Length | undefined}` or
   `{error, invalid}`; http lines give OTP's request, response, header (known
   headers as atoms with their bit, names in OTP's case) and `http_error` terms.
+- `suspend_process/1,2`, `resume_process/1` and `process_display/2` (step
+  LIB9B, `erlang/suspension.cpp`, `executables_suspension`):
+  [suspending processes](processes.md#suspending-processes).
 
 ## External term format
 

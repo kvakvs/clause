@@ -328,6 +328,11 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"erlang", "system_flag", 2},
     // decode_packet/3 (plan 21 step LIB9C; erlang/packets.cpp, erlang/packet_http.cpp).
     BuiltinName{"erlang", "decode_packet", 3},
+    // Suspension and process_display/2 (plan 21 step LIB9B; erlang/suspension.cpp).
+    BuiltinName{"erlang", "suspend_process", 1},
+    BuiltinName{"erlang", "suspend_process", 2},
+    BuiltinName{"erlang", "resume_process", 1},
+    BuiltinName{"erlang", "process_display", 2},
     // Fun information, hashing and MD5 (plan step 41G3; erlang/fun_info.cpp, erlang/hashing.cpp, erlang/md5.cpp).
     BuiltinName{"erlang", "fun_info", 1},
     BuiltinName{"erlang", "fun_info", 2},

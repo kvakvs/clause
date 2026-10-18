@@ -853,7 +853,7 @@ pre_loaded() -> clause_builtin_placeholder.
 
 prepare_loading(_, _) -> clause_builtin_placeholder.
 
-process_display(_, _) -> erlang:error({not_implemented, process_display, 2}).
+process_display(_, _) -> clause_builtin_placeholder.
 
 process_flag(_, _) -> clause_builtin_placeholder.
 
@@ -887,7 +887,7 @@ registered() -> clause_builtin_placeholder.
 
 'rem'(_, _) -> clause_builtin_placeholder.
 
-resume_process(_) -> erlang:error({not_implemented, resume_process, 1}).
+resume_process(_) -> clause_builtin_placeholder.
 
 round(_) -> clause_builtin_placeholder.
 
@@ -981,9 +981,9 @@ statistics(_) -> clause_builtin_placeholder.
 
 subtract(_, _) -> erlang:error({not_implemented, subtract, 2}).
 
-suspend_process(_) -> erlang:error({not_implemented, suspend_process, 1}).
+suspend_process(_) -> clause_builtin_placeholder.
 
-suspend_process(_, _) -> erlang:error({not_implemented, suspend_process, 2}).
+suspend_process(_, _) -> clause_builtin_placeholder.
 
 system_flag(_, _) -> clause_builtin_placeholder.
 

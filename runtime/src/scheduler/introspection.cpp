@@ -49,6 +49,9 @@ std::string_view Executor::status(const ProcessContext &caller, ProcessContext &
     if (&caller == &target) {
         return "running";
     }
+    if (const auto found = schedules_.find(&target); found != schedules_.end() && found->second.suspends > 0) {
+        return "suspended";
+    }
     return parked_.contains(&target) ? "waiting" : "runnable";
 }
 } // namespace clause::runtime::detail

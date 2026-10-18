@@ -225,6 +225,7 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      process_option_builtins(),
                                      system_flag_builtins(),
                                      packet_builtins(),
+                                     suspension_builtins(),
                                      records_builtins(),
                                      re_builtins(),
                                      zlib_builtins(),

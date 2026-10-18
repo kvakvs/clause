@@ -205,6 +205,8 @@ std::span<const BuiltinEntry> process_option_builtins() noexcept;
 std::span<const BuiltinEntry> system_flag_builtins() noexcept;
 // decode_packet/3 of plan 21 step LIB9C.
 std::span<const BuiltinEntry> packet_builtins() noexcept;
+// suspend_process/1,2, resume_process/1 and process_display/2 of plan 21 step LIB9B.
+std::span<const BuiltinEntry> suspension_builtins() noexcept;
 // Modules erl_features and records (plan 21 step LIB8B).
 std::span<const BuiltinEntry> erl_features_builtins() noexcept;
 std::span<const BuiltinEntry> records_builtins() noexcept;

@@ -625,7 +625,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `erlang_gaps` golden — `d24cdb75`
 - **LIB9C** `decode_packet/3` in C++ (`erlang/packets.cpp` length rules as a
   table per type, `erlang/packet_http.cpp` OTP's http line parser and terms);
-  `packet_decoding` golden
+  `packet_decoding` golden — `e4f1081c`
+- **LIB9B** `suspend_process/1,2`, `resume_process/1` as executor holds
+  (`scheduler/suspension.cpp`: suspend counts per suspender, released when it
+  ends, `suspended` status), `process_display/2`; `suspension` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

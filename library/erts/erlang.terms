@@ -247,7 +247,7 @@
 {posixtime_to_universaltime, 1, [], implemented}.
 {pre_loaded, 0, [auto_import], implemented}.
 {prepare_loading, 2, [], implemented}.
-{process_display, 2, [], {unavailable, tracing}}.
+{process_display, 2, [], implemented}.
 {process_flag, 2, [auto_import], implemented}.
 {process_flag, 3, [auto_import], implemented}.
 {process_info, 1, [auto_import], implemented}.
@@ -264,7 +264,7 @@
 {register, 2, [auto_import], implemented}.
 {registered, 0, [auto_import], implemented}.
 {'rem', 2, [], implemented}.
-{resume_process, 1, [], {unavailable, tracing}}.
+{resume_process, 1, [], implemented}.
 {round, 1, [auto_import, guard], implemented}.
 {self, 0, [auto_import, guard], implemented}.
 {send, 2, [], implemented}.
@@ -311,8 +311,8 @@
 {start_timer, 4, [], implemented}.
 {statistics, 1, [auto_import], implemented}.
 {subtract, 2, [], {unavailable, not_selected}}.
-{suspend_process, 1, [], {unavailable, tracing}}.
-{suspend_process, 2, [], {unavailable, tracing}}.
+{suspend_process, 1, [], implemented}.
+{suspend_process, 2, [], implemented}.
 {system_flag, 2, [], implemented}.
 {system_info, 1, [], implemented}.
 {system_monitor, 0, [], {unavailable, tracing}}.

@@ -227,6 +227,7 @@ void Executor::withdraw(ProcessContext &process) {
 }
 
 void Executor::finish(ProcessContext &process) {
+    release_suspends(process);
     if (&process == main_ || ends_program(process)) {
         stop(process);
         return;

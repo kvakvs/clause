@@ -129,9 +129,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
   cookies, `halt/2`, option-taking sends and signals, node-naming spawns,
   `process_flag/3`, the process iterator, `system_flag/2`, `hibernate/0`),
   see `00-finished.md`.
-- LIB9B (C++, executor): `suspend_process/1,2`, `resume_process/1` (suspend
-  counts, `asynchronous` and `unless_suspending` options, badarg for the
-  caller itself) and `process_display/2` (`backtrace` to standard error).
+- LIB9B done (suspension, `process_display/2`), see `00-finished.md`.
 - LIB9C done (`decode_packet/3`), see `00-finished.md`.
 - `match_spec_test/3` comes with LIB11.
 - Declined:
@@ -467,12 +465,11 @@ Ranked by what real programs need first and by dependencies:
 Format: `module` (application, functions to do, ...): name/arities. Deprecated
 functions are listed separately and are optional.
 
-- `erlang` (erts, 25 left after LIB9C): check_old_code/1, check_process_code/2,3,
-  decode_packet/3, dist_ctrl_get_data/1, dist_ctrl_get_data_notification/1,
+- `erlang` (erts, 21 left, all declined or LIB11/LIB71): check_old_code/1, check_process_code/2,3,
+  dist_ctrl_get_data/1, dist_ctrl_get_data_notification/1,
   dist_ctrl_get_opt/2, dist_ctrl_input_handler/2, dist_ctrl_put_data/2,
   dist_ctrl_set_opt/3, load_module/2, load_nif/2, match_spec_test/3,
-  process_display/2, purge_module/1, resume_process/1, suspend_process/1,2,
-  system_monitor/0,1,2, system_profile/0,2, trace/3, trace_delivered/1,
+  purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3, trace_delivered/1,
   trace_info/2, trace_pattern/2,3
 - `init` (erts, 3, 8 done): boot/1, restart/0,1
 - `application` (kernel, 35; 5 callbacks): ensure_all_started/1,2,3,

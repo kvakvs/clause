@@ -229,6 +229,19 @@ class Executor final {
 
     // A snapshot of the counts (introspection.cpp).
     static Counts counts(ProcessContext &context) noexcept;
+
+    // How suspend_process/2 suspends: without waiting for a target running elsewhere, and not twice by one caller.
+    struct SuspendRequest final {
+        bool asynchronous = false;
+        bool unless_suspending = false;
+    };
+
+    // suspend_process/2 of `caller`: whether the suspend count of `pid` grew; none when no live process has the pid.
+    // A synchronous suspend of a process running on another worker blocks the caller until its slice ends
+    // (suspension.cpp, plan 21 step LIB9B).
+    static std::optional<bool> suspend(ProcessContext &caller, Word pid, SuspendRequest request);
+    // resume_process/1 of `caller`: false when the caller does not suspend `pid`, none when no live process has it.
+    static std::optional<bool> resume(ProcessContext &caller, Word pid);
     // system_flag(min_heap_size, Words): the minimum heap of processes spawned from now on, rounded up to a heap
     // size; returns the previous one (plan 21 step LIB9A).
     static std::size_t set_min_heap_words(ProcessContext &context, std::size_t words);
@@ -349,8 +362,12 @@ class Executor final {
         bool ending = false;
         // Runnable but held: queued once its last hold is released.
         bool ready = false;
-        // Holds of blockers woken to act on it before it runs again.
+        // Holds of blockers woken to act on it before it runs again, and of the suspends below.
         std::size_t holds = 0;
+        // suspend_process/1,2 calls not yet resumed, by every suspender (plan 21 step LIB9B).
+        std::size_t suspends = 0;
+        // Pids this process suspends, once per suspend; resumed when it ends (plan 21 step LIB9B).
+        std::vector<Word> suspending;
         // The running process whose slice this one waits for, while it is among that process's blockers.
         ProcessContext *blocked_on = nullptr;
         // Blocked processes, and ended ones to finish, that wait for this running process's slice to end.
@@ -530,6 +547,12 @@ class Executor final {
     void place(ProcessContext &process, ProcessContext *blocked_on);
     // Release the holds of `process`, queueing held processes whose last hold it was.
     void release(ProcessContext &process);
+    // Undo one suspend of `target`, queueing it when that was its last hold (plan 21 step LIB9B).
+    void unsuspend(ProcessContext &target);
+    // Undo every suspend an ended process made (plan 21 step LIB9B).
+    void release_suspends(ProcessContext &process);
+    // Take a queued process out of its run queue until its holds are released.
+    void dequeue(ProcessContext &process);
     // The scheduling state of a started process.
     Schedule &schedule(ProcessContext &process);
     // Whether `process` runs on a worker other than the calling thread.

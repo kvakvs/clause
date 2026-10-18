@@ -454,6 +454,21 @@ Ports are specified in [ports](ports.md): a port is linked to its opener, takes
 part in links, monitors, exit signals and registered names like a process, and
 talks to its connected process with messages.
 
+## Suspending processes
+
+`erlang:suspend_process/1,2` and `erlang:resume_process/1` (plan 21 step LIB9B,
+`scheduler/suspension.cpp`): each suspend is one hold of the target in the
+executor, so a suspended process runs again only when every suspend of every
+suspender is resumed; messages and signals still reach it (an exit signal
+still ends it), and `process_info(Pid, status)` reports `suspended`. The end
+of a suspender resumes its suspends. A synchronous suspend of a process running
+on another worker waits for its time slice to end; `asynchronous` returns at
+once, `{asynchronous, Tag}` also sends the caller `{Tag, suspended}`, and
+`unless_suspending` answers `false` when the caller already suspends the
+process. Suspending or resuming the caller itself, a process that has ended, a
+non-pid or bad options are `badarg`, as is resuming a process the caller does
+not suspend.
+
 ## Builtins
 
 | Builtin | Behavior |
@@ -477,6 +492,8 @@ talks to its connected process with messages.
 | `process_flag(Pid, save_calls, N)` | The previous setting of another process (0..10000); kept, but Clause saves no calls; other flags `badarg` |
 | `processes_iterator()`, `processes_next(Iter)` | Iterate the live processes: `{Pid, Iter1}` or `none`; a process spawned during the walk may appear |
 | `bump_reductions(N)` | `true` for a non-negative integer; Clause counts no reductions |
+| `erlang:suspend_process(Pid)`, `erlang:suspend_process(Pid, Options)`, `erlang:resume_process(Pid)` | See [suspending processes](#suspending-processes) |
+| `erlang:process_display(Pid, backtrace)` | `true` after writing the call stack of the live process `Pid` on standard error, one `Module:Function/Arity` per line, the current function first; `badarg` for another type or a process that has ended |
 
 The new process joins the end of its parent's worker queue
 ([workers](#workers)); `spawn` returns its pid at once.
