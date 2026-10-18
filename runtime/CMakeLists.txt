@@ -53,10 +53,10 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/string/string_common.cpp src/builtins/string/string_text.cpp
     src/builtins/string/string_search.cpp src/builtins/string/string_lexemes.cpp
     src/builtins/string/string_numbers.cpp src/builtins/string/string_latin1.cpp
-    # Module io_lib (plan 21 steps LIB4C, LIB4D): deep character lists, writers, the format engine and io_lib_pretty.
+    # Module io_lib (plan 21 steps LIB4C, LIB4D, LIB4E): deep character lists, writers, the format engine and io_lib_pretty.
     src/builtins/io_lib/deep.cpp src/builtins/io_lib/write.cpp src/builtins/io_lib/write_builtins.cpp
     src/builtins/io_lib/format_scan.cpp src/builtins/io_lib/format_build.cpp src/builtins/io_lib/format_float.cpp
-    src/builtins/io_lib/format_builtins.cpp src/builtins/io_lib/collect.cpp src/builtins/io_lib/pretty.cpp
+    src/builtins/io_lib/format_builtins.cpp src/builtins/io_lib/collect.cpp src/builtins/io_lib/fread.cpp src/builtins/io_lib/pretty.cpp
     src/builtins/io_lib/pretty_length.cpp src/builtins/io_lib/pretty_layout.cpp src/builtins/io_lib/pretty_bin.cpp
     # Modules rand and random (plan 21 step LIB6).
     src/builtins/rand/generators.cpp src/builtins/rand/rand.cpp src/builtins/rand/tables.cpp

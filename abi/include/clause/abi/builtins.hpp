@@ -865,7 +865,7 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"unicode", "is_whitespace", 1},
     BuiltinName{"unicode", "is_id_start", 1},
     BuiltinName{"unicode", "is_id_continue", 1},
-    // The io_lib module (plan 21 step LIB4C; runtime/src/builtins/io_lib/).
+    // The io_lib module (plan 21 steps LIB4C, LIB4E; runtime/src/builtins/io_lib/).
     BuiltinName{"io_lib", "bformat", 2},
     BuiltinName{"io_lib", "bformat", 3},
     BuiltinName{"io_lib", "bfwrite", 2},
@@ -889,6 +889,8 @@ inline constexpr std::array bridge_builtins{
     BuiltinName{"io_lib", "deep_unicode_char_list", 1},
     BuiltinName{"io_lib", "format", 2},
     BuiltinName{"io_lib", "format", 3},
+    BuiltinName{"io_lib", "fread", 2},
+    BuiltinName{"io_lib", "fread", 3},
     BuiltinName{"io_lib", "fwrite", 2},
     BuiltinName{"io_lib", "fwrite", 3},
     BuiltinName{"io_lib", "indentation", 2},

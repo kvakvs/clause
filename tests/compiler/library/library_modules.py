@@ -46,7 +46,6 @@ PARTIAL = {
     "gen_udp": "LIB60",
     "inet": "LIB60",
     "io": "LIB33, LIB63",
-    "io_lib": "LIB4D, LIB4E",
     "os": "LIB61",
 }
 

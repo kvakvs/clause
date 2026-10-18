@@ -1,6 +1,6 @@
 -module(io).
 -export([
-    get_line/1, get_line/2, get_chars/2, get_chars/3, request/1, request/2, requests/1, requests/2
+    fread/2, fread/3, get_line/1, get_line/2, get_chars/2, get_chars/3, request/1, request/2, requests/1, requests/2
 ]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
 %% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
@@ -10,8 +10,6 @@
     format/1,
     format/2,
     format/3,
-    fread/2,
-    fread/3,
     fwrite/1,
     fwrite/2,
     fwrite/3,
@@ -80,6 +78,12 @@ get_chars(File, Prompt, Count) when is_pid(File), is_integer(Count), Count >= 0 
         {ok, Data} -> Data;
         Other -> Other
     end.
+
+% Write Prompt, then read the fields of Format (io_lib:fread/2) from the next lines of standard input or an I/O
+% server, as OTP's get_until request (plan 21 step LIB4E).
+fread(Prompt, Format) -> fread(standard_io, Prompt, Format).
+
+fread(Io, Prompt, Format) -> request(Io, {get_until, unicode, Prompt, io_lib, fread, [Format]}).
 
 prompt(Prompt) when is_atom(Prompt) -> io:put_chars(atom_to_list(Prompt));
 prompt(Prompt) -> io:put_chars(Prompt).
@@ -313,8 +317,6 @@ columns(_) -> erlang:error({not_implemented, columns, 1}).
 format(_) -> clause_builtin_placeholder.
 format(_, _) -> clause_builtin_placeholder.
 format(_, _, _) -> clause_builtin_placeholder.
-fread(_, _) -> erlang:error({not_implemented, fread, 2}).
-fread(_, _, _) -> erlang:error({not_implemented, fread, 3}).
 fwrite(_) -> clause_builtin_placeholder.
 fwrite(_, _) -> clause_builtin_placeholder.
 fwrite(_, _, _) -> clause_builtin_placeholder.

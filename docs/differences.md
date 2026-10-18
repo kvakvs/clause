@@ -155,6 +155,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `~p`, `~w` and `io_lib` writers of containers nested more than 256 deep | Printed | `system_limit` | [io](io.md#pretty-printing-p) |
 | `io_lib:print/4` with a column or line length that is not an integer | Depends on the term: printed (guards fail quietly), `function_clause` or `badarith` | `badarith` for any container term | [io_lib](builtins.md#io_lib) |
 | Negative precision or pad count (`~.*c` with -1) | Loops forever | `badarg` | [io](io.md#formats) |
+| `io:fread/2,3` (any `get_until` request) on standard input or a file with characters above 127 | The I/O server decodes the device's encoding into characters | The scanner sees the input's bytes | [ports](ports.md#standard-io-and-files) |
 
 ## Random numbers
 

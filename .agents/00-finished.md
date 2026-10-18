@@ -604,6 +604,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `chars_limit` deepening, `cind`/`pp` in OTP's deep shapes and `pp_bin` for
   `bformat`; `print/1,4`, `~p`/`~P`, limited `write`/`bwrite`, crash reports;
   `pretty_print` golden — `c8d01d0d`
+- **LIB4E** `io_lib:fread/2,3` in C++ (`io_lib/fread.cpp`): OTP's scanner over
+  the line as a list, line collection into OTP's continuation, `~#`'s `try`
+  covering the rest; `io:fread/2,3` as a `get_until` request;
+  `fread_scanning` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

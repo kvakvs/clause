@@ -862,12 +862,20 @@ arena (`io_lib/deep.cpp`), then becomes a term (`io_lib`) or flat characters
   `find_upper`, `search_depth`); `cind/7` picks the tag indentation and
   `pp/8` breaks lines in OTP's deep list shapes. `bformat/2,3` lay `~p` out as
   `print_bin/2` does, with its binary line breaks, size and column.
+- Scanner (`io_lib/fread.cpp`, plan 21 step LIB4E): `fread/2` reads the
+  controls `~d ~u ~- ~f ~s ~a ~c ~l ~~ ~#` with widths, `~*` and `~t` over the
+  line as a list, so its rest is the input's own tail; `fread/3` gathers lines
+  (LF, CRLF or a CR before the end) into OTP's `{Format, Stack, N, Results}`
+  continuation, which `io:fread/2,3` feeds through a `get_until` request.
+  Malformed input and formats give OTP's `{error, {fread, What}}`, and OTP's
+  `try` around `~#` turns every later error into `{fread, based}`.
 - Erlang: `get_until/1,3,4` (it applies the caller's scanner),
-  `format_prompt/1,2` and `write/3`. Stub until plan 21 LIB4E: `fread/2,3`.
+  `format_prompt/1,2` and `write/3`.
 - Containers nested more than 256 deep raise `system_limit`, and `maps_order`
   comparison funs are `badarg` ([differences](differences.md#io)).
   `executables_io_lib_text` compares every function's shapes with OTP's,
-  `executables_pretty_print` the pretty printer's.
+  `executables_pretty_print` the pretty printer's, `executables_fread_scanning`
+  the scanner's.
 
 ## Zlib module
 

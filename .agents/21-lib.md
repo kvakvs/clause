@@ -110,8 +110,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
   deep shapes; `io:format` on the same engine), see `00-finished.md`.
 - `io_lib_pretty`: done as LIB4D (`print/1,4`, `~p`/`~P`, `chars_limit`
   writes, `bformat`'s `print_bin`), see `00-finished.md`.
-- LIB4E: `fread/2,3` (`io_lib_fread`, a format-directed scanner) and
-  `io:fread/2,3`.
+- `io_lib:fread/2,3` and `io:fread/2,3`: done as LIB4E, see `00-finished.md`.
 - Later: `maps_order` comparison funs (Erlang sorts each map's keys and passes
   them to the writer).
 
@@ -408,7 +407,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ### LIB63. `io` remainder and terminal output
 
-- `io`: `write/1,2`, `fread/2,3` (over `io_lib:fread`), `columns/0,1`,
+- `io`: `write/1,2`, `columns/0,1`,
   `rows/0,1`, `getopts/0,1`, `setopts/1,2`, `printable_range/0`,
   `get_password/0`. The read and parse family is in LIB33.
 - `io_ansi` (153, new in OTP 29): C++ escape-sequence builders and `enabled/0,1`

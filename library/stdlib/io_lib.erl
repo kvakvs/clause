@@ -1,7 +1,7 @@
-% Clause's io_lib (plan 21 steps LIB4C, LIB4D, docs/builtins.md#io-lib): the writers, checks, collect functions,
-% format engine and pretty printer (print/1,4) are runtime builtins with clause_builtin_placeholder bodies, building
-% OTP's deep lists; get_until (which applies a callback), write/3 and format_prompt are Erlang; fread/2,3 are stubs
-% raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
+% Clause's io_lib (plan 21 steps LIB4C, LIB4D, LIB4E, docs/builtins.md#io-lib): the writers, checks, collect
+% functions, format engine, pretty printer (print/1,4) and scanner (fread/2,3) are runtime builtins with
+% clause_builtin_placeholder bodies, building OTP's deep lists; get_until (which applies a callback), write/3 and
+% format_prompt are Erlang.
 -module(io_lib).
 -export([
     bformat/2,
@@ -96,8 +96,8 @@ deep_latin1_char_list(_) -> clause_builtin_placeholder.
 deep_unicode_char_list(_) -> clause_builtin_placeholder.
 format(_, _) -> clause_builtin_placeholder.
 format(_, _, _) -> clause_builtin_placeholder.
-fread(_, _) -> erlang:error({not_implemented, fread, 2}).
-fread(_, _, _) -> erlang:error({not_implemented, fread, 3}).
+fread(_, _) -> clause_builtin_placeholder.
+fread(_, _, _) -> clause_builtin_placeholder.
 fwrite(_, _) -> clause_builtin_placeholder.
 fwrite(_, _, _) -> clause_builtin_placeholder.
 indentation(_, _) -> clause_builtin_placeholder.

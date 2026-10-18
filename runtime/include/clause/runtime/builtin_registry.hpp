@@ -192,6 +192,8 @@ std::span<const BuiltinEntry> unicode_form_builtins() noexcept;
 std::span<const BuiltinEntry> io_lib_format_builtins() noexcept;
 std::span<const BuiltinEntry> io_lib_write_builtins() noexcept;
 std::span<const BuiltinEntry> io_lib_collect_builtins() noexcept;
+// io_lib's format-directed scanner fread/2,3 (plan 21 step LIB4E; runtime/src/builtins/io_lib/fread.cpp).
+std::span<const BuiltinEntry> io_lib_fread_builtins() noexcept;
 // The re module over PCRE2 of step 41ZA: version/0.
 std::span<const BuiltinEntry> re_builtins() noexcept;
 // The zlib streams of step 41Q: clause_zlib:open/0, close/1, set_controller/2, deflate_init/2, inflate_init/2,

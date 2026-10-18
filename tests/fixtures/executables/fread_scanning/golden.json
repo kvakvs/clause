@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "entry": "fread_scanning",
+  "runs": [
+    {
+      "args": [],
+      "stdin": "10 apple\nword 5\n2.5\nxyz\n",
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "controls: [{ok,[42],[]},{ok,[-17],[32,114,101,115,116]},{ok,[1,2],[]},{ok,[1,2],[]},{ok,[3.25],[]},{ok,[-1.5e3],[120]},{ok,[0.02],[]},{error,{fread,float}},{error,{fread,float}},{ok,[123],[97,98,99]},{ok,[255],[122]},{error,{fread,unsigned}},{ok,[46629],[]},{error,{fread,unsigned}},{ok,[-1,5],[]},{ok,[1,5],[]},{ok,[1,5],[]},{ok,[hello],[32,119,111,114,108,100]},{ok,[x,y],[]},{ok,[[119,111,114,100]],[10]},{ok,[[97]],[98,99]},{ok,[[32],[120]],[121]},{ok,[0,12,4],[]},{ok,[2],[]},{ok,[[107,101,101,112]],[]},{ok,[9],[]},{ok,[3],[]},{ok,[],[108,101,102,116]},{ok,[],[]}]\nwidths: [{ok,[123],[52,53]},{ok,[12],[120]},{error,{fread,integer}},{ok,[15.0],[120]},{ok,[2.5],[]},{ok,[[97,98,99]],[100,101,102]},{ok,[[97,98]],[99]},{ok,[xyz],[119]},{ok,[[97,98,99]],[100]},{ok,[[]],[97,98,99]},{error,{fread,character}},{error,{fread,character}},{ok,[12,34],[]},{error,{fread,string}},{ok,[[100]],[]}]\nbased: [{ok,[255],[]},{ok,[-255],[32]},{ok,[5],[32,120]},{ok,[1295],[]},{error,{fread,based}},{error,{fread,based}},{error,{fread,based}},{error,{fread,based}},{error,{fread,based}},{error,{fread,based}},{ok,[15],[]},{error,{fread,based}},{error,{fread,based}},{ok,[7,9],[]},{error,{fread,float}},{ok,[4],[]}]\nstrings: [{ok,[[945,946]],[32,120]},{error,{fread,string}},{ok,[[97]],[945,120]},{ok,['\\x{3B1}'],[]},{ok,[a],[945]},{ok,[[945]],[98]},{error,{fread,character}},{ok,[[945,946]],[947]},{ok,[[945,32,98]],[]},{error,function_clause},{error,{fread,input}},{error,{fread,string}},{error,{fread,string}},{error,{fread,string}},{more,[126,115],0,[]}]\nliterals: [{ok,[5],[]},{error,{fread,input}},{ok,[],[33]},{ok,[],[]},{ok,[3],[]},{error,{fread,format}},{ok,[1,2],[]},{more,[44,126,100],1,[1]},{more,[126,100],2,[1]},{more,[99],2,[]},{more,[126,100],0,[]},eof,eof,eof,{ok,[],[120]}]\nerrors: [{error,{fread,integer}},{error,{fread,integer}},{error,{fread,float}},{error,{fread,unsigned}},{error,{fread,format}},{error,{fread,format}},{error,{fread,format}},{error,{fread,format}},{error,{fread,format}},{error,{fread,format}},{error,{fread,format}},{ok,[[]],[]},{error,{fread,character}},{error,{fread,integer}},{error,{fread,input}},{error,{fread,integer}},{error,{fread,integer}},{error,function_clause},{error,function_clause},{value,{ok,[1],[32|tail]}},{error,function_clause},{error,system_limit},{value,{error,{fread,based}}},{error,system_limit},{error,function_clause}]\ncontinuations: [{[126,100,32,126,100],[32,50,49],0,[]},{[126,100,32,126,100],[51,32,50,49],0,[]},{done,{ok,[12,34]},[110,101,120,116]},{done,{ok,[12,3]},[]},{done,{ok,[5]},[114,101,115,116,10]},{done,{ok,[5]},[32,54,10,114,101,115,116]},{done,{ok,[1,2]},[]},{done,{ok,[1,2]},[122]},{more,{[126,100],[50],2,[1]}},{done,{error,{fread,integer}},[]},{done,eof,eof},{more,{[126,100],[55],0,[]}},{done,{ok,[1,2,3]},[]},{done,{ok,[[97,98,99]]},[]},{done,{ok,[[97,98,99]]},[]},{done,{error,{fread,input}},eof},{done,{ok,[8]},[]},{done,{error,{fread,input}},eof},{done,{ok,[1,2]},[]},{done,{ok,[1]},[]},{done,{ok,[1]},[32,50,10,120]},{error,function_clause},{value,{done,eof,<<49,10>>}}]\nfirst> third> \nstandard_input: [{ok,[10,apple]},{ok,[[119,111,114,100],5]},{ok,[2.5]},{error,{fread,integer}},eof]\nfread_scanning: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "fread_scanning.erl": "eb9f546ec01c71cf412d25c678d39bbf6233720181a3265e780a016a69f0cc8a"
+  }
+}
