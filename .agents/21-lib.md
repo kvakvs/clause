@@ -109,7 +109,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 ### LIB4. Text: `string`, `unicode` remainder, `io_lib`
 
 - `string` (69): done as LIB4A, see `00-finished.md`.
-- `unicode`: done as LIB4B, see `00-finished.md`.
+- `uni code`: done as LIB4B, see `00-finished.md`.
 - `io_lib`: done as LIB4C (writers, checks, collect, format engine with OTP's
   deep shapes; `io:format` on the same engine), see `00-finished.md`.
 - `io_lib_pretty`: done as LIB4D (`print/1,4`, `~p`/`~P`, `chars_limit`
