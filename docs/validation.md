@@ -268,6 +268,7 @@ skips.
 | 2026-10-13 | Steps 58U–58W inference cache | 278/279 | all | Full CTest, known `codegen_measurements` failure; `check-quality-all` clean |
 | 2026-10-14 | Step 41S `prim_eval` and the luerl rerun (H3 closed) | 299/300 | all | See current baseline |
 | 2026-10-17 | Plan 20 OPTM.2 (one-word Term, persistent terms in place and reclaimed) and OPTM.3 (unchecked accessors) | 330/332 | all | Full CTest: known `codegen_measurements` failure, and `library_freshness` (host OTP) still expects the `not_implemented` stub bodies that `b0e62a38` replaced; `check-quality-all` clean |
+| 2026-10-19 | Plan 21 LIB10F ThreadSanitizer (Linux x86-64): ETS and digraph goldens, `runtime_concurrency` | 10 | — | No report; `ets_portions` on one worker showed a delete freed in two portions, fixed by costing a freed object as a walked one |
 
 PG = pattern/guard plan step; plan 11 step records are archived in
 `.agents/00-finished.md`.

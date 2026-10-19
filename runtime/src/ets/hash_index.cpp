@@ -167,6 +167,20 @@ class HashIndex final : public Index {
 
     std::size_t kept() const noexcept override { return kept_; }
 
+    bool shed(std::size_t &budget) override {
+        while (!buckets_.empty() && budget > 0) {
+            auto &bucket = buckets_.back();
+            while (!bucket.empty() && budget > 0) {
+                budget -= std::min(budget, bucket.back().objects.size());
+                bucket.pop_back();
+            }
+            if (bucket.empty()) {
+                buckets_.pop_back();
+            }
+        }
+        return buckets_.empty();
+    }
+
   private:
     // The objects of one key, or a removed key kept while fixed, holding one object for its key.
     struct Entry {

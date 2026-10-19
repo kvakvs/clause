@@ -1,4 +1,4 @@
-#include "ets.hpp"
+#include "select.hpp"
 #include <array>
 #include <chrono>
 #include <terms.hpp>
@@ -88,18 +88,9 @@ Term lookup_element4(ProcessContext &context, const TableArgument &argument, con
     return elements(context, argument, term, position(at)).value_or(fallback);
 }
 
-// tab2list(Table): every object, in walk order.
-Term tab2list(ProcessContext &context, const TableArgument &argument) {
-    const auto found = table(context, argument, Access::read);
-    std::vector<Term> objects;
-    need_table(found->read_parts([&](const Index &index) {
-        index.each([&](const Objects &stored) {
-            for (const auto &object : stored) {
-                objects.push_back(copy_out(context, object.word()));
-            }
-        });
-    }));
-    return need(TermFactory(context).list(objects));
+// tab2list(Table): every object, in walk order, in portions (plan 21 step LIB10F).
+Word tab2list(ProcessContext &context, const TableArgument &argument) {
+    return walk_table(context, table(context, argument, Access::read), nullptr, Gather::objects, false);
 }
 
 // slot(Table, I): the objects of slot I, '$end_of_table' just past the last slot, badarg beyond it.

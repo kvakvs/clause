@@ -50,6 +50,15 @@ void each_candidate(ProcessContext &context, const Table &table, const Program &
     }));
 }
 
+// What a whole-table walk in portions gathers (table_walks.cpp, plan 21 step LIB10F): every object (tab2list/1), a
+// program's results (select/2 and kin) or the count of its results that are true (select_count/2).
+enum class Gather : std::uint8_t { objects, results, count };
+
+// Walk a whole table in portions, in walk order or, for an ordered_set, backwards; the list in that order or the
+// count, or 0 after trapping.
+Word walk_table(ProcessContext &context, std::shared_ptr<Table> table, std::shared_ptr<const Program> program,
+                Gather gather, bool reverse);
+
 // The result of a program on one stored object, if a clause matches.
 std::optional<Term> run_stored(ProcessContext &context, const Program &program, Word object);
 } // namespace clause::runtime::builtins::ets

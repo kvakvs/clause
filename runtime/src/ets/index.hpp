@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <utility>
 #include <vector>
 
 // The object indexes of ETS tables (plan 21 step LIB10A, docs/runtime.md#ets-tables): a hash index for set, bag and
@@ -61,6 +62,10 @@ class Index {
 
     // The live objects of a key, if any.
     virtual const Objects *find(const Key &key) const = 0;
+
+    // The same objects for their owner to change in place, under the part's lock held alone (plan 21 step LIB10F).
+    Objects *find_stored(const Key &key) { return const_cast<Objects *>(std::as_const(*this).find(key)); }
+
     // Store an object under its key.
     virtual void insert(const Key &key, DetachedTerm object) = 0;
     // Replace the one object of a live key of a set or ordered_set.
@@ -97,6 +102,11 @@ class Index {
 
     // Removed keys kept for walks while fixed.
     virtual std::size_t kept() const noexcept { return 0; }
+
+    // Free at most `budget` objects of an index a table no longer uses (a deleted or emptied table's old contents,
+    // freed in portions; plan 21 step LIB10F), taking what it freed off the budget; whether none is left. The counts
+    // are not kept up to date.
+    virtual bool shed(std::size_t &budget) = 0;
 
     // Live objects and the words of every held copy.
     std::size_t size() const noexcept { return objects_; }

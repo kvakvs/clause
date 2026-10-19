@@ -304,7 +304,10 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   copied out); hash index (own power-of-two buckets, tombstones and no resize
   while fixed) or `std::set` tree per part; 64 parts for hash tables with
   write_concurrency; table lock shared by single-key ops, alone for whole-table
-  ones. Registry `ets::Tables` in `Runtime::Impl` (numbers, names, holdings);
+  ones; long reads walk in portions (`table_walks.cpp`, hash tables fixed from
+  the first trap), deletes and empties free the old indexes in portions
+  (`disposal.cpp`) or, at an owner's end, outside the executor lock
+  (`Executor::retired_tables_`). Registry `ets::Tables` in `Runtime::Impl` (numbers, names, holdings);
   owner end in `Executor::release_tables` before links/monitors. Lock order:
   executor, registry, table. Selects walk slots (`Table::visit_slot`) or keys,
   edits go part by part (`Table::edit_parts`, `Index::edit`).

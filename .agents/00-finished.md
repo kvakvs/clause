@@ -667,7 +667,14 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB12B** `ets:tab2file/2,3`, `file2tab/1,2`, `tabfile_info/1`: disk_log
   halt logs in OTP's format written with `file` and split by
   `clause_disk_log:items/1` (C++, read-only chunk rules), OTP's options,
-  verification and errors; files pass both ways; `ets_table_files` golden
+  verification and errors; files pass both ways; `ets_table_files` golden —
+  `4bf10136`
+- **LIB10F** ETS in portions: `tab2list/1` and whole-table selects walk in
+  portions (hash tables fixed from the first trap); `delete/1` and
+  `delete_all_objects/1` take the indexes out and free them in portions
+  (`Index::shed`); an ended owner's tables are freed outside the executor
+  lock; small `update_counter` values change in place; `ets_portions`
+  golden (one and four workers); Linux TSan over the ETS goldens clean
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

@@ -105,6 +105,13 @@ class TreeIndex final : public Index {
         return changed;
     }
 
+    bool shed(std::size_t &budget) override {
+        for (; budget > 0 && !nodes_.empty(); --budget) {
+            nodes_.erase(nodes_.begin());
+        }
+        return nodes_.empty();
+    }
+
     void fix() override {}
 
     void unfix() override {}

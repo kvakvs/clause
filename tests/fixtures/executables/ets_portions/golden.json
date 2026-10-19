@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "entry": "ets_portions",
+  "workers": [
+    1,
+    4
+  ],
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "results: [[100000,5000050000,14286,714307143,14285,14285,[1,2,3],true,0,[]],[100000,5000050000,14286,714307143,14285,14285,[3,2,1],true,0,[]],[100000,5000050000,14286,714307143,14285,14285,[1,2,3],true,0,[]]]\ninterleaved: [{100000,true},{100000,true},{100000,true},{true,true},{true,true}]\ncounters: [[{shared,20000}],[576460752303423487,576460752303423488,576460752303423489,576460752303423486,[576460752303423487,5,4],0,-1,9,11,{literal,7},41,42],[{literal,11},{missing,42},{shared,20000},{big,0,-1}]]\nowner_end: [100000,undefined,false]\nets_portions: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "ets_portions.erl": "d486fa9a35439b4fe23ebd9e3d2ef0c9e7e4128dc5edca5143caba771d0b9df1"
+  }
+}

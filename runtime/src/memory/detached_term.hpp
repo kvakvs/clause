@@ -2,6 +2,7 @@
 #include <clause/runtime/process_context.hpp>
 #include <clause/runtime/terms.hpp>
 #include <cstddef>
+#include <span>
 
 // A term copied outside every heap into one block of its own (ETS objects, plan 21 step LIB10A,
 // docs/runtime.md#ets-tables): a flat copy, as a message buffer holds one, whose binary cells share their buffers.
@@ -32,6 +33,9 @@ class DetachedTerm final {
     Term term() const noexcept;
     // Words of the block; 0 without one.
     std::size_t words() const noexcept;
+    // The elements of the root tuple when the block holds it, which its owner may change in place (ETS counters,
+    // plan 21 step LIB10F); empty for a shared literal or any other term.
+    std::span<Word> own_tuple() noexcept;
 
   private:
     // The block's header, followed by the word offsets of its binary cells and then its words.

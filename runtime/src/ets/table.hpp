@@ -235,8 +235,14 @@ class Table final {
     // Whether the table is fixed; none when deleted.
     std::optional<bool> fixed() const;
 
-    // Mark the table deleted and free its objects; every later operation fails.
-    void destroy();
+    // The indexes of a deleted or emptied table, to be freed outside its locks (in portions by Index::shed).
+    using Contents = std::vector<std::unique_ptr<Index>>;
+
+    // Mark the table deleted and hand its objects over; every later operation fails.
+    Contents destroy();
+    // Empty the table, handing its objects over (delete_all_objects/1); a fixed hash table instead keeps its
+    // removed keys as tombstones in place, so walks over it go on. False when deleted.
+    std::optional<Contents> empty();
 
     // The heir and its data, changed by the registry under its lock.
     void set_heir(Word heir, std::shared_ptr<const DetachedTerm> data) noexcept;
@@ -256,6 +262,9 @@ class Table final {
     }
 
     const Part &part_of(const Key &key) const noexcept { return parts_[part_number(key)]; }
+
+    // A new, empty index of the table's type.
+    std::unique_ptr<Index> fresh_index() const;
 
     Part &part_of(const Key &key) noexcept { return parts_[part_number(key)]; }
 

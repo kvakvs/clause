@@ -110,7 +110,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ## Tier A: data modules without processes
 
-LIB0–LIB11, LIB4F, LIB12A and LIB12B are done (`00-finished.md`); their open remainders follow.
+LIB0–LIB11, LIB4F, LIB10F, LIB12A and LIB12B are done (`00-finished.md`); their open remainders follow.
 
 ### LIB9 remainder: declined `erlang` functions
 
@@ -121,14 +121,10 @@ LIB0–LIB11, LIB4F, LIB12A and LIB12B are done (`00-finished.md`); their open r
 
 ## Tier B: ETS and what needs it
 
-### LIB10F. ETS portions and TSan (later)
-
-- `ets` ships with the LIB12 functions as stubs (`PARTIAL` in
+- `ets` ships with the LIB12C functions as stubs (`PARTIAL` in
   `library_modules.py`).
-- Run long operations in portions (`tab2list/1` and `delete_all_objects/1` of
-  large tables, deleting a table, an owner's end under the executor lock),
-  small-integer `update_counter` in place, and a Linux TSan run over the ETS
-  goldens (V02).
+- Later: `select_delete/2` and `select_replace/2` over a whole table in
+  portions (they run in one piece, each part under its lock).
 
 ### LIB12C (later): `ets` conversions
 
@@ -413,7 +409,6 @@ Ranked by what real programs need first and by dependencies:
 6. LIB51–LIB55 (files, logs, archives), then LIB12C.
 7. LIB70, LIB62 and LIB63.
 8. LIB71–LIB74, then the declined modules' answer stubs.
-9. Later: LIB10F.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 

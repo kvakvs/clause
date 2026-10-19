@@ -1,4 +1,5 @@
 #pragma once
+#include "../ets/index.hpp"
 #include "../memory/message_buffer.hpp"
 #include "../ports/io.hpp"
 #include "../ports/port.hpp"
@@ -627,8 +628,10 @@ class Executor final {
     void notify(ProcessContext &process, const Term &reason, const std::vector<Word> &links,
                 const Signals::Monitors &watchers);
     // Release the ETS tables of an ended process: its fixations end, and each table it owned passes to a live heir,
-    // told by an 'ETS-TRANSFER' message, or is deleted (plan 21 step LIB10B).
+    // told by an 'ETS-TRANSFER' message, or is deleted (plan 21 step LIB10B), its objects freed outside the lock.
     void release_tables(ProcessContext &process);
+    // Free the objects of the tables ended owners left, if any, with the lock released meanwhile (plan 21 step LIB10F).
+    void free_retired(std::unique_lock<std::mutex> &lock);
     // Send a heir the 'ETS-TRANSFER' message built in the ended owner's heap, buffered while the heir runs.
     void announce(ProcessContext &heir, const TermResult<Term> &message, ProcessContext &owner);
     // Keep an ended process that ends the program: the first one is the program's outcome; wake every worker.
@@ -701,6 +704,9 @@ class Executor final {
     std::unique_ptr<SocketService> sockets_;
     // Further ended processes that would have ended the program, released by clear().
     std::vector<ProcessContext *> stopped_;
+    // The objects of tables deleted with their ended owners, freed by a worker once it leaves the lock (plan 21
+    // step LIB10F).
+    std::vector<std::unique_ptr<ets::Index>> retired_tables_;
     // The executor ran out of memory while the main process ran elsewhere; it fails when its slice ends.
     bool failed_ = false;
 };

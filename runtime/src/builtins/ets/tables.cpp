@@ -1,5 +1,6 @@
 #include "../../scheduler/executor.hpp"
 #include "../../terms/identities.hpp"
+#include "disposal.hpp"
 #include "options.hpp"
 #include <array>
 #include <terms.hpp>
@@ -39,14 +40,13 @@ Term new_table(ProcessContext &context, const AtomArgument &name, const Term &op
     return read.table.named ? name.term : identifier;
 }
 
-// delete(Table): the table and its objects are gone.
-Term delete_table(ProcessContext &context, const TableArgument &argument) {
+// delete(Table): the table is gone at once; its objects are freed in portions.
+Word delete_table(ProcessContext &context, const TableArgument &argument) {
     const auto found = table(context, argument, Access::write);
     if (!context.ets_tables().remove(*found)) {
         bad_argument();
     }
-    found->destroy();
-    return atom(context, "true");
+    return dispose(context, found->destroy());
 }
 
 // whereis(Name): the identifier of the named table, or undefined.
@@ -77,7 +77,7 @@ Term rename(ProcessContext &context, const TableArgument &argument, const AtomAr
 void drop_orphans(ProcessContext &context, Word pid) {
     const auto released = context.ets_tables().release(pid, [](Word) { return false; });
     for (const auto &table : released.dropped) {
-        table->destroy();
+        static_cast<void>(table->destroy());
     }
 }
 

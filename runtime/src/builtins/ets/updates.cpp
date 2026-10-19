@@ -1,6 +1,9 @@
+#include "../../memory/heap_object.hpp"
 #include "../../terms/integers.hpp"
 #include "ets.hpp"
+#include <algorithm>
 #include <array>
+#include <iterator>
 #include <terms.hpp>
 
 // The ets update builtins (plan 21 step LIB10C, docs/builtins.md#ets): update_counter/3,4 and update_element/3,4
@@ -195,12 +198,52 @@ std::optional<Term> update(ProcessContext &context, Table &found, const Term &te
     return result;
 }
 
+// Whether every operation's field holds a small integer word.
+bool small_fields(const Fields &fields, const CounterOps &ops) {
+    return std::ranges::all_of(ops.ops, [&](const CounterOp &op) {
+        return op.position <= fields.size() && small(fields[op.position - 1].word()).has_value();
+    });
+}
+
+// Apply the operations to a stored tuple's fields where they are, if its counters are and stay small integers; the
+// update_counter value, or none when the general path must run.
+std::optional<Term> count_stored(ProcessContext &context, std::span<Word> stored, const CounterOps &ops) {
+    Fields fields;
+    std::ranges::transform(stored, std::back_inserter(fields), [](Word word) { return detail::TermAccess::make(word); });
+    if (stored.empty() || !small_fields(fields, ops)) {
+        return std::nullopt;
+    }
+    const auto values = count(context, fields, ops);
+    if (!small_fields(fields, ops)) {
+        return std::nullopt;
+    }
+    for (const auto &op : ops.ops) {
+        stored[op.position - 1] = fields[op.position - 1].word();
+    }
+    return ops.listed ? need(TermFactory(context).list(values)) : values.front();
+}
+
+// update_counter in place (plan 21 step LIB10F): when the key's object is the table's own copy and its counters stay
+// small integers, the stored fields change where they are, as OTP's do; none when the general path must run.
+std::optional<Term> count_in_place(ProcessContext &context, Table &found, const Term &term, const CounterOps &ops) {
+    const auto at = key(context, found, term);
+    std::optional<Term> result;
+    need_table(found.write(at, [&](Index &index) {
+        auto *objects = index.find_stored(at);
+        result = count_stored(context, objects == nullptr ? std::span<Word>{} : objects->front().own_tuple(), ops);
+    }));
+    return result;
+}
+
 // update_counter/3,4: the new value, or their list for a list of operations; badarg for a missing key without a
 // default.
 Term counter(ProcessContext &context, const TableArgument &argument, const Term &term, const Operations &ops,
              const std::optional<Term> &fallback) {
     const auto found = updated_table(context, argument);
     const auto parsed = counter_ops(ops.term, found->options().keypos);
+    if (const auto in_place = count_in_place(context, *found, term, parsed)) {
+        return *in_place;
+    }
     const auto result = update(context, *found, term, fallback, [&](Fields &fields) {
         auto values = count(context, fields, parsed);
         return parsed.listed ? need(TermFactory(context).list(values)) : values.front();

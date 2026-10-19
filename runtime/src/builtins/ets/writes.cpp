@@ -1,3 +1,4 @@
+#include "disposal.hpp"
 #include "ets.hpp"
 #include <algorithm>
 #include <array>
@@ -91,15 +92,12 @@ Term delete_object(ProcessContext &context, const TableArgument &argument, const
     return yes(context);
 }
 
-// delete_all_objects(Table).
-Term delete_all_objects(ProcessContext &context, const TableArgument &argument) {
+// delete_all_objects(Table): the table is empty at once (atomic, as in OTP); the old objects are freed in portions.
+Word delete_all_objects(ProcessContext &context, const TableArgument &argument) {
     const auto found = table(context, argument, Access::write);
-    need_table(found->exclusive([](Table &locked) {
-        for (std::size_t part = 0; part < locked.part_count(); ++part) {
-            locked.part(part).clear();
-        }
-    }));
-    return yes(context);
+    auto contents = found->empty();
+    need_table(contents.has_value());
+    return dispose(context, std::move(*contents));
 }
 
 // take(Table, Key): the objects of Key, removed.

@@ -34,10 +34,14 @@ Term list_of(ProcessContext &context, std::span<const Term> terms) { return need
 
 Term small_integer(ProcessContext &context, std::int64_t value) { return need(TermFactory(context).integer(value)); }
 
-// Every result of a program on a table, in walk order (reversed for select_reverse on an ordered_set).
-Term all_results(ProcessContext &context, const TableArgument &argument, const Term &spec, bool reverse) {
-    const auto found = table(context, argument, Access::read);
-    const auto program = compiled(context, spec);
+// Every result of a program on a table, in walk order (reversed for select_reverse on an ordered_set): the bound
+// keys' objects at once, else a walk in portions.
+Word all_results(ProcessContext &context, const TableArgument &argument, const Term &spec, bool reverse) {
+    auto found = table(context, argument, Access::read);
+    auto program = compiled(context, spec);
+    if (!bound_keys(*found, *program)) {
+        return walk_table(context, std::move(found), std::move(program), Gather::results, reverse);
+    }
     std::vector<Term> results;
     each_candidate(context, *found, *program, [&](Word object) {
         if (const auto result = run_stored(context, *program, object)) {
@@ -47,7 +51,7 @@ Term all_results(ProcessContext &context, const TableArgument &argument, const T
     if (reverse && !found->hashed()) {
         std::ranges::reverse(results);
     }
-    return list_of(context, results);
+    return list_of(context, results).word();
 }
 
 // Run the program on the objects of a slot, gathering the results.
@@ -253,19 +257,19 @@ Term next_chunk(ProcessContext &context, const Term &continuation) {
     return reply(context, select, gathered);
 }
 
-Term select2(ProcessContext &context, const TableArgument &argument, const Term &spec) {
+Word select2(ProcessContext &context, const TableArgument &argument, const Term &spec) {
     return all_results(context, argument, spec, false);
 }
 
-Term select_reverse2(ProcessContext &context, const TableArgument &argument, const Term &spec) {
+Word select_reverse2(ProcessContext &context, const TableArgument &argument, const Term &spec) {
     return all_results(context, argument, spec, true);
 }
 
-Term match2(ProcessContext &context, const TableArgument &argument, const Term &pattern) {
+Word match2(ProcessContext &context, const TableArgument &argument, const Term &pattern) {
     return all_results(context, argument, pattern_spec(context, pattern, "$$"), false);
 }
 
-Term match_object2(ProcessContext &context, const TableArgument &argument, const Term &pattern) {
+Word match_object2(ProcessContext &context, const TableArgument &argument, const Term &pattern) {
     return all_results(context, argument, pattern_spec(context, pattern, "$_"), false);
 }
 
@@ -298,15 +302,18 @@ Term select1(ProcessContext &context, const Term &continuation) {
 }
 
 // select_count(Table, MatchSpec): the objects for which the specification gives true.
-Term select_count(ProcessContext &context, const TableArgument &argument, const Term &spec) {
-    const auto found = table(context, argument, Access::read);
-    const auto program = compiled(context, spec);
+Word select_count(ProcessContext &context, const TableArgument &argument, const Term &spec) {
+    auto found = table(context, argument, Access::read);
+    auto program = compiled(context, spec);
+    if (!bound_keys(*found, *program)) {
+        return walk_table(context, std::move(found), std::move(program), Gather::count, false);
+    }
     std::int64_t count = 0;
     each_candidate(context, *found, *program, [&](Word object) {
         const auto result = run_stored(context, *program, object);
         count += result && result->word() == abi::v1::true_atom ? 1 : 0;
     });
-    return small_integer(context, count);
+    return small_integer(context, count).word();
 }
 
 constexpr std::array ETS_SELECT_BUILTINS{

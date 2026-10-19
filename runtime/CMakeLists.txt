@@ -84,6 +84,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/match_spec/run.cpp src/match_spec/actions.cpp src/match_spec/handles.cpp
     src/builtins/ets/select_common.cpp src/builtins/ets/select.cpp src/builtins/ets/select_edits.cpp
     src/builtins/ets/match_specs.cpp
+    # ETS operations in portions (plan 21 step LIB10F).
+    src/builtins/ets/disposal.cpp src/builtins/ets/table_walks.cpp
     # Modules digraph and digraph_utils (plan 21 step LIB12).
     src/builtins/digraph/view.cpp src/builtins/digraph/builtins.cpp
     # Halt log files of disk_log's internal format for ets table files (plan 21 step LIB12).

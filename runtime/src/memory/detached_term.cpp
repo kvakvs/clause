@@ -33,6 +33,18 @@ Term DetachedTerm::term() const noexcept { return TermAccess::make(root_); }
 
 std::size_t DetachedTerm::words() const noexcept { return block_ == nullptr ? 0 : block_->words; }
 
+std::span<Word> DetachedTerm::own_tuple() noexcept {
+    if (block_ == nullptr || !TermAccess::make(root_).is_tuple()) {
+        return {};
+    }
+    auto *cell = const_cast<Word *>(TermAccess::trusted(root_));
+    auto *start = block_->data();
+    if (cell < start || cell >= start + block_->words) {
+        return {};
+    }
+    return {cell + 1, TermAccess::make(root_).tuple_size_unchecked()};
+}
+
 void DetachedTerm::release() noexcept {
     if (block_ == nullptr) {
         return;

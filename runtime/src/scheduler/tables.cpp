@@ -5,6 +5,7 @@
 #include <array>
 #include <new>
 #include <terms.hpp>
+#include <utility>
 
 // The end of an ETS table owner (plan 21 step LIB10B, docs/runtime.md#ets-tables), run by the executor under its
 // lock before the owner's links and monitors are signalled.
@@ -42,7 +43,9 @@ void Executor::release_tables(ProcessContext &process) {
         return found != nullptr && found != &process && !found->generated_calls().failure();
     });
     for (const auto &table : released.dropped) {
-        table->destroy();
+        for (auto &index : table->destroy()) {
+            retired_tables_.push_back(std::move(index));
+        }
     }
     for (const auto &transfer : released.transfers) {
         // A heir set without data ({heir, Pid}) inherits without a message, as in OTP.
@@ -50,6 +53,16 @@ void Executor::release_tables(ProcessContext &process) {
             announce(*heir, transfer_message(process, transfer), process);
         }
     }
+}
+
+void Executor::free_retired(std::unique_lock<std::mutex> &lock) {
+    if (retired_tables_.empty()) {
+        return;
+    }
+    auto retired = std::exchange(retired_tables_, {});
+    lock.unlock();
+    retired.clear();
+    lock.lock();
 }
 
 void Executor::announce(ProcessContext &heir, const TermResult<Term> &message, ProcessContext &owner) {

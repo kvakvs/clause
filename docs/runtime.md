@@ -208,11 +208,27 @@ through `ProcessContext::ets_tables()`, keeps the tables of `ets`
   executor's, the registry's, a table's; builtins never take the executor lock
   while they hold an ETS lock, and `give_away/3` sends its message after
   releasing them.
-- Long operations (`tab2list/1` of a large table, `delete_all_objects/1`,
-  selects over a whole table, deleting a table, an owner's end) run in one
-  piece rather than in portions; CTest `executables_ets_concurrency` covers
-  counters, inserts and walks from many processes on one and four workers, and
-  the end of owners of many tables.
+- **Portions** (plan 21 step LIB10F). `tab2list/1` and the selects of every
+  object (`select/2`, `select_reverse/2`, `match/2`, `match_object/2`,
+  `select_count/2`) walk the table as many objects a portion as the process's
+  budget allows, then trap (`builtins/ets/table_walks.cpp`); a hash table is
+  fixed by the walking process from its first trap to its end, as OTP fixes
+  it, so its slots stay put. `delete_all_objects/1` and `delete/1` empty or
+  delete the table at once by taking its indexes out (`Table::empty`,
+  `Table::destroy`), then free the old objects in portions
+  (`builtins/ets/disposal.cpp`, `Index::shed`); a fixed hash table is emptied
+  in place instead, keeping its tombstones. The tables an ended owner leaves
+  are freed by the worker after it releases the executor lock.
+  `select_delete/2` and `select_replace/2` still run in one piece.
+- **Counters in place.** `update_counter/3,4` on a key whose object is the
+  table's own copy and whose counters stay small integers changes the stored
+  fields where they are, under the part's lock, as OTP's does; a bignum, a
+  module literal object or a default object takes the general path, which
+  stores a new copy.
+- CTest `executables_ets_concurrency` covers counters, inserts and walks from
+  many processes on one and four workers, and the end of owners of many tables;
+  `executables_ets_portions` shows other processes running during long
+  operations on one worker.
 - **Selects** ([match specifications](#match-specifications)). A whole-table
   select reads every part under its locks; one whose heads all bind the key
   looks the keys up. A chunked select walks a hash table slot by slot (each

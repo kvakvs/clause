@@ -33,8 +33,12 @@ Table::Table(const TableIdentity &identity, const TableOptions &options)
       protection_(options.protection), heir_(0), part_count_(parts(options)),
       parts_(std::make_unique<Part[]>(part_count_)) {
     for (std::size_t at = 0; at < part_count_; ++at) {
-        parts_[at].index = hashed() ? hash_index(options.keypos, insertion(options.type)) : tree_index(options.keypos);
+        parts_[at].index = fresh_index();
     }
+}
+
+std::unique_ptr<Index> Table::fresh_index() const {
+    return hashed() ? hash_index(options_.keypos, insertion(options_.type)) : tree_index(options_.keypos);
 }
 
 Reached Table::slot(std::size_t index, std::vector<Word> &objects) const {
@@ -124,13 +128,31 @@ std::optional<bool> Table::fixed() const {
     return !fixers_.empty();
 }
 
-void Table::destroy() {
+Table::Contents Table::destroy() {
+    Contents contents;
     const std::unique_lock table(mutex_);
     deleted_ = true;
     fixers_.clear();
     for (std::size_t at = 0; at < part_count_; ++at) {
-        parts_[at].index.reset();
+        contents.push_back(std::move(parts_[at].index));
     }
+    return contents;
+}
+
+std::optional<Table::Contents> Table::empty() {
+    Contents contents;
+    const std::unique_lock table(mutex_);
+    if (deleted_) {
+        return std::nullopt;
+    }
+    for (std::size_t at = 0; at < part_count_; ++at) {
+        if (fixers_.empty() || !hashed()) {
+            contents.push_back(std::exchange(parts_[at].index, fresh_index()));
+        } else {
+            parts_[at].index->clear();
+        }
+    }
+    return contents;
 }
 
 void Table::set_heir(Word heir, std::shared_ptr<const DetachedTerm> data) noexcept {

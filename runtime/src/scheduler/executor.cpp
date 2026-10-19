@@ -516,6 +516,7 @@ void Executor::work(const std::size_t index) noexcept {
             running_ = nullptr;
             lock.lock();
             after(process, ended);
+            free_retired(lock);
         } catch (const std::bad_alloc &) {
             fail_program();
         } catch (...) {
