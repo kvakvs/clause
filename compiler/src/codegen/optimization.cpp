@@ -1,10 +1,12 @@
 #include "optimization.hpp"
 #include "frames.hpp"
 #include "llvm_state.hpp"
+#include "lowering_roots.hpp"
 #include "progress.hpp"
 #include "verification.hpp"
 #include <exception>
 #include <llvm/Passes/PassBuilder.h>
+#include <llvm/Transforms/Scalar/GVN.h>
 
 namespace clause::codegen {
 namespace {
@@ -23,6 +25,18 @@ llvm::ModulePassManager pipeline(llvm::PassBuilder &builder, llvm::Module &modul
     return builder.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
 }
 
+// One more GVN over binary loops once the pipeline made their trips loops: the cursor a trip stores into the loop's
+// cell becomes a register value of the next trip (SSA binary cursors, OPT1.4F).
+struct LoopCursors : llvm::PassInfoMixin<LoopCursors> {
+    // Run GVN on a function marked as a binary loop; keep every other one.
+    llvm::PreservedAnalyses run(llvm::Function &function, llvm::FunctionAnalysisManager &analyses) {
+        if (!function.hasFnAttribute(BINARY_LOOP_ATTRIBUTE)) {
+            return llvm::PreservedAnalyses::all();
+        }
+        return llvm::GVNPass().run(function, analyses);
+    }
+};
+
 // Analysis managers are local to a module and destroyed in reverse dependency order.
 void optimize_module(llvm::Module &module, llvm::TargetMachine &machine, const OptimizationLevel level) {
     llvm::LoopAnalysisManager loops;
@@ -30,6 +44,10 @@ void optimize_module(llvm::Module &module, llvm::TargetMachine &machine, const O
     llvm::CGSCCAnalysisManager call_graph;
     llvm::ModuleAnalysisManager modules;
     llvm::PassBuilder builder(&machine);
+    builder.registerOptimizerLastEPCallback(
+        [](llvm::ModulePassManager &passes, llvm::OptimizationLevel, llvm::ThinOrFullLTOPhase) {
+            passes.addPass(llvm::createModuleToFunctionPassAdaptor(LoopCursors()));
+        });
     builder.registerModuleAnalyses(modules);
     builder.registerCGSCCAnalyses(call_graph);
     builder.registerFunctionAnalyses(functions);

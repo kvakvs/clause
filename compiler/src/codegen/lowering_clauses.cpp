@@ -149,7 +149,7 @@ void read_loop_view(ExpressionLowering &initial) {
     auto *cell = initial.builder.CreateAlignedLoad(initial.word, slot, llvm::Align(initial.word->getBitWidth() / 8),
                                                    "binary.loop.cell");
     mark_term(initial, cell);
-    loop->view = sub_view(initial, cell);
+    loop->view = sub_view(initial, cell, true);
     loop->whole = whole_rest(initial, cell, *loop->view);
 }
 
@@ -224,6 +224,7 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
 void lower_loop(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses,
                 const std::set<const ast::Expression *> &tails, const LoopReads &reads) {
     auto *variant = declare_loop_variant(initial, ".loop");
+    variant->addFnAttr(BINARY_LOOP_ATTRIBUTE);
     BinaryLoop outer{reads, variant, false};
     initial.binary_loop = &outer;
     lower_candidates(initial, clauses, tails);
@@ -234,6 +235,7 @@ void lower_loop(ExpressionLowering &initial, const std::vector<ast::FunctionClau
     BinaryLoop looping{reads, variant, true};
     inner.binary_loop = &looping;
     lower_candidates(inner, clauses, tails);
+    keep_invariants_alone(*variant);
 }
 
 // A float loop (OPT1.2): the function and the variant, lowered from the same clauses, enter the variant with the

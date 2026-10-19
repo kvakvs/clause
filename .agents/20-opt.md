@@ -5,7 +5,7 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
-OPT1.4A-E, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.13A-C, OPT3.14 service path,
+OPT1.4, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.13A-C, OPT3.14 service path,
 read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
 
@@ -210,36 +210,6 @@ width; range-proven elimination beyond `codegen/proofs`.
   - comparisons and `band`/`bsl`
   - fused multi-operand guards
   - integer range facts from F34 inference, the equivalent of `ssa_opt_ranges`
-
-### OPT1.4 Binary matching as a cursor induction variable
-
-OPT1.4A-E done 2026-10-15/19 (inline start/finish, sub-binary cells, inline
-`Rest`; a binary loop updates one sub-binary cell in place, `binary_match` 8.5x
-faster, its view read once per step, sum_binary 3.7 ms against OTP 2.7; integer
-segments of any width up to the word less 8 bits at any position, 32-bit
-targets too; rests read elsewhere get copies). Open: the raw cursor as an SSA
-phi with no cell store per trip.
-
-This is the largest measured T2 win class (`14_bs_cursor_iv.md`).
-
-- **Context:** keep a match context as loop-invariant `base` and `limit` plus a
-  raw **bit cursor** SSA value.
-- **Ops:**
-
-  | Op | Role |
-  | --- | --- |
-  | `BsEnsure(cursor, limit, need)` | Bounds check, separate from extraction, so it can be hoisted and widened |
-  | `BsRead(base, cursor, size)` | Pure, non-allocating extraction of an integer up to a word, or a skip |
-  | `BsSync` | Writes the cursor back to the boxed context only at sync points or exits |
-
-- **Positions:** `bs_get_position` and `bs_set_position` become plain SSA
-  values. Backtracking becomes a phi instead of heap traffic.
-- **GC:** `base` is a raw pointer that GC can move, so reload it after any
-  allocating op.
-- **Clause:** today every segment calls `CLAUSE_bits_v1` (test/extract/finish),
-  and the cursor is a tagged small in a root slot (`binary_match` is 492×
-  slower). Inline `BsEnsure`/`BsRead` LLVM IR is enough for LLVM's
-  LICM/GVN/unroll to start working.
 
 ### OPT1.5 Unrolling plus SWAR byte-class recipes for scan loops
 
@@ -459,7 +429,7 @@ Builds on OPT1.4.
 1. **Substrate (tier OPT0):** done (open follow-ups above); it made services
    visible to LLVM and cut the 100–600× kernels.
 2. **Loops:** OPT1.1 and OPT1.2 done; OPT1.3 next.
-3. **Binaries:** OPT1.4, then OPT1.5.
+3. **Binaries:** OPT1.5 (OPT1.4 done).
 4. **Maps:** OPT1.6, then the `maps:fold` part of OPT1.7.
 5. **Lists:** OPT1.12, then OPT1.7 together with OPT2.1.
 6. **Funs and floats:** OPT1.8 and OPT1.11.

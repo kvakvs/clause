@@ -122,7 +122,8 @@ test need no OTP (`docs/validation.md`).
   variants/function, 32/module, ≤ 2x generic IR. Binary loops
   (`codegen/binary_loops`): self tail calls on a binary rest get a `<sym>.loop`
   variant updating one owned `sub_binary` in place; other body reads of a
-  rest or the whole binary get a copy. Raw floats: float literals
+  rest or the whole binary get a copy; TBAA tags (`codegen/alias_tags`),
+  invariant view loads and a late GVN keep the cursor in registers. Raw floats: float literals
   and float-only results keep their double in a register (`raw_floats`), their
   cell dropped when no word use remains. Float loops (`codegen/float_loops`):
   a `<sym>.float` variant takes float parameters as double bits in its

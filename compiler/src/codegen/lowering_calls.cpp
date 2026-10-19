@@ -101,10 +101,11 @@ void update_context(ExpressionLowering &state, llvm::Value *cell, const LoopRest
     const llvm::Align align(state.word->getBitWidth() / 8);
     auto *address = builder.CreateIntToPtr(
         builder.CreateSub(cell, llvm::ConstantInt::get(state.word, abi::v1::boxed_tag)), builder.getPtrTy());
-    builder.CreateAlignedStore(rest.offset, builder.CreateConstGEP1_64(state.word, address, abi::v1::sub_offset_word),
-                               align);
-    builder.CreateAlignedStore(rest.bits, builder.CreateConstGEP1_64(state.word, address, abi::v1::sub_bits_word),
-                               align);
+    for (const auto [index, value] :
+         {std::pair{abi::v1::sub_offset_word, rest.offset}, std::pair{abi::v1::sub_bits_word, rest.bits}}) {
+        tag_memory(builder.CreateAlignedStore(value, builder.CreateConstGEP1_64(state.word, address, index), align),
+                   MemoryKind::sub_binary);
+    }
 }
 
 // A self tail call passing a binary loop's rest as the looping parameter (OPT1.4C): the variant updates its cell and

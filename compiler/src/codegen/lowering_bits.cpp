@@ -292,15 +292,16 @@ BitLowering extract(ExpressionLowering &state, const semantic::MatchNode &node, 
 llvm::Value *sub_cell(ExpressionLowering &state, const HeapRoom &room, const LoopRest &rest) {
     auto &builder = state.builder;
     const llvm::Align align(state.word->getBitWidth() / 8);
-    const auto at = [&](unsigned index) { return builder.CreateConstGEP1_64(state.word, room.top, index); };
-    builder.CreateAlignedStore(
-        llvm::ConstantInt::get(state.word, (std::uint64_t{3} << abi::v1::header_count_shift) |
-                                               (static_cast<std::uint64_t>(abi::v1::HeaderKind::sub_binary)
-                                                << abi::v1::header_kind_shift)),
-        at(0), align);
-    builder.CreateAlignedStore(rest.offset, at(abi::v1::sub_offset_word), align);
-    builder.CreateAlignedStore(rest.bits, at(abi::v1::sub_bits_word), align);
-    builder.CreateAlignedStore(rest.original, at(abi::v1::sub_original_word), align);
+    const auto store = [&](unsigned index, llvm::Value *value) {
+        tag_memory(builder.CreateAlignedStore(value, builder.CreateConstGEP1_64(state.word, room.top, index), align),
+                   MemoryKind::sub_binary);
+    };
+    store(0, llvm::ConstantInt::get(state.word, (std::uint64_t{3} << abi::v1::header_count_shift) |
+                                                    (static_cast<std::uint64_t>(abi::v1::HeaderKind::sub_binary)
+                                                     << abi::v1::header_kind_shift)));
+    store(abi::v1::sub_offset_word, rest.offset);
+    store(abi::v1::sub_bits_word, rest.bits);
+    store(abi::v1::sub_original_word, rest.original);
     heap_commit(state, room);
     auto *made = builder.CreateOr(builder.CreatePtrToInt(room.top, state.word),
                                   llvm::ConstantInt::get(state.word, abi::v1::boxed_tag));

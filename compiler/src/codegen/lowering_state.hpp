@@ -1,6 +1,7 @@
 #pragma once
 #include "../semantic/match_plan.hpp"
 #include "../semantic/records.hpp"
+#include "alias_tags.hpp"
 #include "lowering_expressions.hpp"
 #include "lowering_roots.hpp"
 #include "proofs.hpp"
@@ -229,8 +230,9 @@ llvm::Value *lower_make_tuple(ExpressionLowering &state, std::size_t builtin, st
 llvm::Value *lower_setelement(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values);
 
 BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary);
-// The view of a word known to be a sub-binary cell (binary loops).
-BinaryView sub_view(ExpressionLowering &state, llvm::Value *binary);
+// The view of a word known to be a sub-binary cell (binary loops); `invariant` when the cell and its original
+// exist before the function runs and only the cell's offset and length change (SSA binary cursors, OPT1.4F).
+BinaryView sub_view(ExpressionLowering &state, llvm::Value *binary, bool invariant);
 // An i1 that holds when a word is a bitstring (an inline or off-heap binary cell) (OPT1.4).
 llvm::Value *inline_bitstring_test(ExpressionLowering &state, llvm::Value *value);
 // A value and the predecessor block that computed it.

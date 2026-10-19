@@ -9,6 +9,9 @@ namespace clause::codegen {
 // is passed back as that parameter of a self tail call; none when no parameter does.
 std::optional<LoopReads> binary_loop_reads(const ExpressionLowering &state, std::size_t clauses,
                                            const std::set<const ast::Expression *> &tails);
+// Drop the variant's invariant loads (SSA binary cursors, OPT1.4F) when it calls another Erlang function: frame
+// lowering may then merge it into one function with code that writes its cell.
+void keep_invariants_alone(llvm::Function &variant);
 // The head plan of every clause of the function being lowered; empty when one has none.
 std::vector<semantic::MatchPlan> head_plans(const ExpressionLowering &state, std::size_t clauses);
 // Declare a private loop variant (binary or float loops) of the function being lowered, named `suffix` after it, with

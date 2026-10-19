@@ -68,9 +68,10 @@ void reset_candidate_roots(ExpressionLowering &state) {
     if (roots.next > roots.arguments) {
         auto *start =
             state.builder.CreateGEP(roots.word, roots.buffer, llvm::ConstantInt::get(roots.word, roots.arguments));
-        state.builder.CreateMemSet(start, state.builder.getInt8(0),
-                                   (roots.next - roots.arguments) * (roots.word->getBitWidth() / 8),
-                                   llvm::Align(roots.word->getBitWidth() / 8));
+        tag_memory(state.builder.CreateMemSet(start, state.builder.getInt8(0),
+                                              (roots.next - roots.arguments) * (roots.word->getBitWidth() / 8),
+                                              llvm::Align(roots.word->getBitWidth() / 8)),
+                   MemoryKind::frame);
     }
     roots.next = roots.arguments;
 }

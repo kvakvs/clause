@@ -37,6 +37,7 @@ main(_) ->
         ]
     ]),
     io:format("~p~n", [copies(100)]),
+    io:format("~p~n", [collected(<<1, 2, 3, 4, 5>>, 0)]),
     io:format("binary_loops: ok~n").
 
 %% The sum of the 32-bit words.
@@ -124,6 +125,13 @@ sent(<<_, Rest/binary>>) ->
     sent(Rest);
 sent(<<>>) ->
     ok.
+
+%% A call inside the loop collects garbage while the loop's cell is in use.
+collected(<<X, Rest/binary>>, Acc) ->
+    erlang:garbage_collect(),
+    collected(Rest, Acc + X);
+collected(<<>>, Acc) ->
+    Acc.
 
 %% Copies of rests made while collections run, checked after the loop moved on.
 copies(0) ->

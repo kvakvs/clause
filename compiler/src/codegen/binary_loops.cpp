@@ -2,9 +2,11 @@
 #include "../semantic/capabilities.hpp"
 #include "lowering_expressions.hpp"
 #include "source_locations.hpp"
+#include <algorithm>
 #include <clause/compiler/source.hpp>
 #include <llvm/IR/DIBuilder.h>
 #include <llvm/IR/DebugInfoMetadata.h>
+#include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Module.h>
 
 namespace clause::codegen {
@@ -131,6 +133,24 @@ llvm::Value *binary_loop_read(ExpressionLowering &state, const semantic::Binding
     }
     const auto rest = loop->rests.find(value);
     return rest == loop->rests.end() ? value : loop_copy(state, rest->second, value);
+}
+
+void keep_invariants_alone(llvm::Function &variant) {
+    // Walk the uses of each Erlang function: an instruction of the variant using one calls it.
+    const auto used_here = [&](const llvm::User *user) {
+        const auto *instruction = llvm::dyn_cast<llvm::Instruction>(user);
+        return instruction && instruction->getFunction() == &variant;
+    };
+    const auto called = [&](const llvm::Function &function) {
+        return &function != &variant && function.hasFnAttribute(ARITY_ATTRIBUTE) &&
+               std::ranges::any_of(function.users(), used_here);
+    };
+    if (std::ranges::none_of(*variant.getParent(), called)) {
+        return;
+    }
+    for (auto &instruction : llvm::instructions(variant)) {
+        instruction.setMetadata(llvm::LLVMContext::MD_invariant_load, nullptr);
+    }
 }
 
 llvm::Function *declare_loop_variant(const ExpressionLowering &state, const std::string_view suffix) {

@@ -1,4 +1,5 @@
 #include "frames.hpp"
+#include "alias_tags.hpp"
 #include "code_convention.hpp"
 #include "llvm_state.hpp"
 #include "lowering_roots.hpp"
@@ -100,12 +101,14 @@ struct Services {
     // context (OPT0.1).
     llvm::Value *state(llvm::IRBuilder<> &builder, llvm::Value *context, StateField field, llvm::Type *type,
                        const char *name) const {
-        return builder.CreateAlignedLoad(type, state_address(builder, context, field), align(), name);
+        return tag_memory(builder.CreateAlignedLoad(type, state_address(builder, context, field), align(), name),
+                          MemoryKind::state);
     }
 
     // Store a word into one FrameState field of `context`.
     void set_state(llvm::IRBuilder<> &builder, llvm::Value *context, StateField field, llvm::Value *value) const {
-        builder.CreateAlignedStore(value, state_address(builder, context, field), align());
+        tag_memory(builder.CreateAlignedStore(value, state_address(builder, context, field), align()),
+                   MemoryKind::state);
     }
 
     // Address of one FrameState field; every field is one target word.
@@ -283,6 +286,13 @@ struct Cycle {
 // tail call; a tail call to a peer of this function's tail-call cycle keeps more of the frame (OPT1.1B).
 enum class Entry : std::uint8_t { call, tail, peer };
 
+// Mark the function that takes over the code of a binary loop variant as one (SSA binary cursors, OPT1.4F).
+void copy_loop_mark(const llvm::Function &from, llvm::Function &to) {
+    if (from.hasFnAttribute(BINARY_LOOP_ATTRIBUTE)) {
+        to.addFnAttr(BINARY_LOOP_ATTRIBUTE);
+    }
+}
+
 // Lower one native-form function into the body its descriptor names.
 class FrameLowering {
   public:
@@ -293,6 +303,7 @@ class FrameLowering {
                                         services.output)),
           arity_(erlang_arity(&native).value_or(0)), resume_base_(cycle.merged ? cycle.resumes : 0), roots_(arity_) {
         body_.setCallingConv(services.convention);
+        copy_loop_mark(native, body_);
     }
 
     // Run every step and return the descriptor contents.
@@ -831,18 +842,19 @@ class FrameLowering {
         auto *stack = services_.state(builder, context, StateField::stack, builder.getPtrTy(), "self.stack");
         auto *at = services_.state(builder, context, StateField::frame, word, "self.at");
         auto *header = builder.CreateInBoundsGEP(word, stack, at, "self.header");
-        for (const std::size_t field : {std::size_t{2}, std::size_t{3}}) {
-            builder.CreateAlignedStore(zero, builder.CreateConstInBoundsGEP1_64(word, header, field),
-                                       services_.align());
-        }
+        // The resume and handler words, cleared as one tagged write (SSA binary cursors, OPT1.4F).
+        tag_memory(builder.CreateMemSet(builder.CreateConstInBoundsGEP1_64(word, header, 2), builder.getInt8(0),
+                                        2 * word->getBitWidth() / 8, services_.align()),
+                   MemoryKind::frame);
         const auto unit = llvm::ConstantInt::get(word, word->getBitWidth() / 8);
         auto *slots = builder.CreateConstInBoundsGEP1_64(word, header, frame_header_words, "self.slots");
         auto *passed = llvm::ConstantInt::get(word, register_arguments);
         auto *extra =
             builder.CreateSub(builder.CreateBinaryIntrinsic(llvm::Intrinsic::umax, callee.arity, passed), passed);
-        builder.CreateMemCpy(builder.CreateConstGEP1_64(word, slots, register_arguments), services_.align(),
-                             builder.CreateConstGEP1_64(word, prologue_.registers, register_arguments),
-                             services_.align(), builder.CreateMul(extra, unit));
+        tag_memory(builder.CreateMemCpy(builder.CreateConstGEP1_64(word, slots, register_arguments), services_.align(),
+                                        builder.CreateConstGEP1_64(word, prologue_.registers, register_arguments),
+                                        services_.align(), builder.CreateMul(extra, unit)),
+                   MemoryKind::frame);
         services_.set_state(builder, context, StateField::live, zero);
         record_transfer(transfer(builder, callee.body, values), &native_);
         builder.SetInsertPoint(rest->getPrevNode());
@@ -1328,6 +1340,9 @@ class CycleMerge {
                                          members.front().native->getName() + ".cycle", services.output)),
           incoming_(members.size()) {
         cycle_.setCallingConv(services.convention);
+        for (const auto &member : members) {
+            copy_loop_mark(*member.native, cycle_);
+        }
         cycle_.getArg(0)->setName("context");
         for (unsigned i = 0; i < register_arguments; ++i) {
             cycle_.getArg(i + 1)->setName("x" + std::to_string(i));

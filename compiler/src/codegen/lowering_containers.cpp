@@ -161,9 +161,12 @@ HeapRoom heap_room(ExpressionLowering &state, llvm::Value *words) {
     const auto field = [&](abi::v1::StateField at) {
         return builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0), static_cast<unsigned>(at));
     };
-    auto *top = builder.CreateAlignedLoad(builder.getPtrTy(), field(abi::v1::StateField::heap_top), align, "heap.top");
-    auto *limit =
-        builder.CreateAlignedLoad(builder.getPtrTy(), field(abi::v1::StateField::heap_limit), align, "heap.limit");
+    auto *top = tag_memory(
+        builder.CreateAlignedLoad(builder.getPtrTy(), field(abi::v1::StateField::heap_top), align, "heap.top"),
+        MemoryKind::state);
+    auto *limit = tag_memory(
+        builder.CreateAlignedLoad(builder.getPtrTy(), field(abi::v1::StateField::heap_limit), align, "heap.limit"),
+        MemoryKind::state);
     auto *end = builder.CreateGEP(state.word, top, words, "heap.end");
     auto *fits = builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_ULE,
                                                       builder.CreatePtrToInt(end, state.word),
@@ -172,11 +175,12 @@ HeapRoom heap_room(ExpressionLowering &state, llvm::Value *words) {
 }
 
 void heap_commit(ExpressionLowering &state, const HeapRoom &room) {
-    state.builder.CreateAlignedStore(
-        room.end,
-        state.builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0),
-                                                 static_cast<unsigned>(abi::v1::StateField::heap_top)),
-        llvm::Align(state.word->getBitWidth() / 8));
+    tag_memory(state.builder.CreateAlignedStore(
+                   room.end,
+                   state.builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0),
+                                                            static_cast<unsigned>(abi::v1::StateField::heap_top)),
+                   llvm::Align(state.word->getBitWidth() / 8)),
+               MemoryKind::state);
 }
 
 llvm::Value *lower_tuple(ExpressionLowering &state, const std::span<llvm::Value *const> values) {

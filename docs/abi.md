@@ -240,14 +240,21 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   of the original.
 - Binary loops: when no clause head of a function compares one parameter
   with a binding, and some clause passes a rest of it back as that parameter
-  of a self tail call, the function gets a private variant `<symbol>.loop`. The function's own step makes the rest cell as above
-  and enters the variant with it (a rest the service made, which may be
-  shared, re-enters the function instead). The variant makes no rest cell: each
-  self tail call stores the new offset and bit length into the parameter's
-  cell, which only this loop references, and passes the same cell on, so a
-  loop over a binary allocates once. The variant reads the cell's view once
-  per step, before its clauses, and skips the bitstring test of the parameter.
-  Any other body read of a rest, or in the variant of the whole parameter,
+  of a self tail call, the function gets a private variant `<symbol>.loop`.
+  The function's own step makes the rest cell as above and enters the variant
+  with it (a rest the service made, which may be shared, re-enters the
+  function instead). The variant makes no rest cell: each self tail call
+  stores the new offset and bit length into the parameter's cell, which only
+  this loop references, and passes the same cell on, so a loop over a binary
+  allocates once. The variant reads the cell's view once per step, before its
+  clauses, and skips the bitstring test of the parameter. Loads and stores of
+  process state, frames, `sub_binary` words and inline/off-heap binary words
+  carry disjoint LLVM TBAA tags; a variant that calls no other Erlang function
+  marks the loads of its cell's original and of the original's header, offset
+  and data address `!invariant.load`, and gets one more GVN after the
+  pipeline (function attribute `clause-binary-loop`), so the view leaves the
+  loop and the offset and length a trip stores are register values of the
+  next trip. Any other body read of a rest, or in the variant of the whole parameter,
   and every fun capturing one, gets a new `sub_binary` cell with the same bits
   (the service makes it without heap room), so nothing else ever holds the
   loop's cell; guards read the value itself.

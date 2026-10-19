@@ -90,6 +90,8 @@ gotchas and user directions not recorded elsewhere.
   -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded (default MDd fails every exe with exit 3 and pops CRT assert
   dialogs); then cross.py --target-triple i686-pc-windows-msvc --suffix .exe. 2026-10-19: bit_map_comprehensions
   (negative map key order) and ets_match_specs fail on x86 at HEAD 64b19ee9 already.
+- erlang_gaps O0 hangs ~1/40 runs with the Debug runtime (also with a0f77e08 codegen; Release runtime 0/80):
+  an existing runtime race, seen as a 60 s fast-gate timeout under load (2026-10-20).
 - MSVC cl (non-clang-cl): Boost.Parser C4702 and LLVM-header C4244/C4267
   disabled on clause_parser_dependency / clause_llvm_sdk for cl only; C4554
   false positive on static_cast<Word>(n - 1) << shift: hoist to a local.

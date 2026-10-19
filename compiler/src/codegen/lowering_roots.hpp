@@ -19,6 +19,9 @@ inline constexpr std::string_view ARITY_ATTRIBUTE = "erlang-arity";
 inline constexpr std::string_view FLOAT_PARAMETERS_ATTRIBUTE = "clause-float-parameters";
 inline constexpr std::string_view FLOAT_GENERIC_ATTRIBUTE = "clause-float-generic";
 inline constexpr std::string_view FLOAT_BOX = "clause.float.box";
+// Binary loops (OPT1.4C): marks a variant, then its body or merged cycle, which gets one more GVN after the pipeline
+// so its cursor stays in registers across trips (SSA binary cursors, OPT1.4F).
+inline constexpr std::string_view BINARY_LOOP_ATTRIBUTE = "clause-binary-loop";
 
 struct FunctionRoots {
     // Patch the frame's term slot count after all emitted candidate values have assigned their slots.

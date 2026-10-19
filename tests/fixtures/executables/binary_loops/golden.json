@@ -6,7 +6,7 @@
       "args": [],
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "1250025000\n{106836645257395,199996,<<1,0,0,0>>}\n{101190156,<<1,2,3,4,5,6,7,8>>}\n{\"abc\",[1,2,2,3,3,3]}\n18\n303\n[<<>>,<<3>>,<<2,3>>]\n{badarith,binary_loops,failing,2}\n{function_clause,binary_loops,pairs,2}\ndone\n[\"abc\",[],\"h\"]\n{<<0,9>>,[<<3,0,9>>,<<2,3,0,9>>,<<1,2,3,0,9>>]}\n[<<>>,<<3>>,<<2,3>>]\n[<<\"c\">>,<<\",c\">>,<<\"b,,c\">>]\n[<<2,3>>,<<3>>,<<>>]\ndone\nbinary_loops: ok\n"
+      "stdout": "1250025000\n{106836645257395,199996,<<1,0,0,0>>}\n{101190156,<<1,2,3,4,5,6,7,8>>}\n{\"abc\",[1,2,2,3,3,3]}\n18\n303\n[<<>>,<<3>>,<<2,3>>]\n{badarith,binary_loops,failing,2}\n{function_clause,binary_loops,pairs,2}\ndone\n[\"abc\",[],\"h\"]\n{<<0,9>>,[<<3,0,9>>,<<2,3,0,9>>,<<1,2,3,0,9>>]}\n[<<>>,<<3>>,<<2,3>>]\n[<<\"c\">>,<<\",c\">>,<<\"b,,c\">>]\n[<<2,3>>,<<3>>,<<>>]\ndone\n15\nbinary_loops: ok\n"
     }
   ],
   "oracle_version": [
@@ -18,6 +18,6 @@
     "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
   },
   "inputs": {
-    "binary_loops.erl": "e84e910661dc6593d7797c94eb58311b269292edcd0f9c746327d0f05ff01be2"
+    "binary_loops.erl": "829778293e1ccd858915bd4f4b45a2d5c87c70219b0849fc55d136c26ac811b3"
   }
 }

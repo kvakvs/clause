@@ -5,6 +5,7 @@
 #include <clause/abi/frames.hpp>
 #include <clause/abi/term.hpp>
 #include <initializer_list>
+#include <llvm/IR/Module.h>
 #include <llvm/Transforms/Utils/SSAUpdater.h>
 #include <utility>
 
@@ -520,44 +521,67 @@ llvm::Value *inline_bitstring_test(ExpressionLowering &state, llvm::Value *value
 }
 
 namespace {
-// The view of an inline or off-heap binary (never a sub-binary).
-BinaryView direct_view(ExpressionLowering &state, llvm::Value *binary) {
+// A constant zero cell an inline binary's view reads the off-heap words from instead of its own, so no load depends
+// on a branch: its offset is 0, its data address is never selected (SSA binary cursors, OPT1.4F).
+llvm::Value *binary_stand_in(ExpressionLowering &state) {
+    auto &module = *state.entry.getParent();
+    constexpr auto name = "clause.binary.stand_in";
+    if (auto *existing = module.getNamedGlobal(name)) {
+        return existing;
+    }
+    auto *type = llvm::ArrayType::get(state.word, abi::v1::refc_data_word + 1);
+    return new llvm::GlobalVariable(module, type, true, llvm::GlobalValue::PrivateLinkage,
+                                    llvm::ConstantAggregateZero::get(type), name);
+}
+
+// The view of an inline or off-heap binary (never a sub-binary), read without branches; its words are direct binary
+// memory. With `invariant`, the binary exists before the function runs, so its header, offset and data address are
+// fixed for the whole run and may leave a loop (SSA binary cursors, OPT1.4F).
+BinaryView direct_view(ExpressionLowering &state, llvm::Value *binary, const bool invariant) {
     auto &builder = state.builder;
-    auto &context = state.entry.getContext();
     const llvm::Align align(state.word->getBitWidth() / 8);
     auto *cell = cell_address(state, binary, abi::v1::boxed_tag);
-    const auto at = [&](unsigned index) { return builder.CreateConstGEP1_64(state.word, cell, index); };
-    auto *inline_data = header_kind(state, header(state, binary), {HeaderKind::heap_binary});
-    auto *heap = llvm::BasicBlock::Create(context, "binary.inline", &state.entry);
-    auto *shared = llvm::BasicBlock::Create(context, "binary.shared", &state.entry);
-    auto *join = llvm::BasicBlock::Create(context, "binary.view", &state.entry);
-    builder.CreateCondBr(inline_data, heap, shared);
-    builder.SetInsertPoint(heap);
-    auto *heap_bits = builder.CreateAlignedLoad(state.word, at(abi::v1::heap_binary_bits_word), align, "binary.bits");
-    auto *heap_data = builder.CreatePtrToInt(at(abi::v1::heap_binary_data_word), state.word);
-    builder.CreateBr(join);
-    builder.SetInsertPoint(shared);
-    auto *offset = builder.CreateAlignedLoad(state.word, at(abi::v1::refc_offset_word), align, "binary.offset");
-    auto *shared_bits = builder.CreateAlignedLoad(state.word, at(abi::v1::refc_bits_word), align, "binary.bits");
-    auto *shared_data = builder.CreateAlignedLoad(state.word, at(abi::v1::refc_data_word), align, "binary.data");
-    builder.CreateBr(join);
-    builder.SetInsertPoint(join);
-    return {join_values(state, state.word, {heap, heap_bits}, {shared, shared_bits}),
-            join_values(state, state.word, {heap, word(state, 0)}, {shared, offset}),
-            join_values(state, state.word, {heap, heap_data}, {shared, shared_data}), binary, nullptr};
+    const auto at = [&](llvm::Value *base, unsigned index) {
+        return builder.CreateConstGEP1_64(state.word, base, index);
+    };
+    const auto load = [&](llvm::Value *address, const char *name, bool fixed) {
+        auto *loaded =
+            tag_memory(builder.CreateAlignedLoad(state.word, address, align, name), MemoryKind::direct_binary);
+        if (fixed && invariant) {
+            loaded->setMetadata(llvm::LLVMContext::MD_invariant_load, llvm::MDNode::get(state.entry.getContext(), {}));
+        }
+        return loaded;
+    };
+    auto *inline_data = header_kind(state, load(cell, "inline.header", true), {HeaderKind::heap_binary});
+    auto *shared = builder.CreateSelect(inline_data, binary_stand_in(state), cell, "binary.shared");
+    auto *offset = load(at(shared, abi::v1::refc_offset_word), "binary.offset", true);
+    auto *data =
+        builder.CreateSelect(inline_data, builder.CreatePtrToInt(at(cell, abi::v1::heap_binary_data_word), state.word),
+                             load(at(shared, abi::v1::refc_data_word), "binary.data", true), "binary.data");
+    auto *bits = load(
+        builder.CreateSelect(inline_data, at(cell, abi::v1::heap_binary_bits_word), at(cell, abi::v1::refc_bits_word)),
+        "binary.bits", false);
+    return {bits, offset, data, binary, nullptr};
 }
 } // namespace
 
-BinaryView sub_view(ExpressionLowering &state, llvm::Value *binary) {
+BinaryView sub_view(ExpressionLowering &state, llvm::Value *binary, const bool invariant) {
     auto &builder = state.builder;
     const llvm::Align align(state.word->getBitWidth() / 8);
     auto *cell = cell_address(state, binary, abi::v1::boxed_tag);
-    const auto at = [&](unsigned index) { return builder.CreateConstGEP1_64(state.word, cell, index); };
-    auto *sub_offset = builder.CreateAlignedLoad(state.word, at(abi::v1::sub_offset_word), align, "sub.offset");
-    auto *sub_bits = builder.CreateAlignedLoad(state.word, at(abi::v1::sub_bits_word), align, "sub.bits");
-    auto *original = builder.CreateAlignedLoad(state.word, at(abi::v1::sub_original_word), align, "sub.original");
+    const auto load = [&](unsigned index, const char *name) {
+        return tag_memory(
+            builder.CreateAlignedLoad(state.word, builder.CreateConstGEP1_64(state.word, cell, index), align, name),
+            MemoryKind::sub_binary);
+    };
+    auto *sub_offset = load(abi::v1::sub_offset_word, "sub.offset");
+    auto *sub_bits = load(abi::v1::sub_bits_word, "sub.bits");
+    auto *original = load(abi::v1::sub_original_word, "sub.original");
+    if (invariant) {
+        original->setMetadata(llvm::LLVMContext::MD_invariant_load, llvm::MDNode::get(state.entry.getContext(), {}));
+    }
     mark_term(state, original);
-    const auto under = direct_view(state, original);
+    const auto under = direct_view(state, original, invariant);
     return {sub_bits, builder.CreateAdd(under.offset, sub_offset), under.data, original, under.offset};
 }
 
@@ -570,11 +594,11 @@ BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary) {
     auto *join = llvm::BasicBlock::Create(context, "binary.resolved", &state.entry);
     builder.CreateCondBr(sub, range, whole);
     builder.SetInsertPoint(range);
-    const auto ranged = sub_view(state, binary);
+    const auto ranged = sub_view(state, binary, false);
     auto *range_end = builder.GetInsertBlock();
     builder.CreateBr(join);
     builder.SetInsertPoint(whole);
-    const auto direct = direct_view(state, binary);
+    const auto direct = direct_view(state, binary, false);
     auto *whole_end = builder.GetInsertBlock();
     builder.CreateBr(join);
     builder.SetInsertPoint(join);

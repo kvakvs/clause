@@ -416,7 +416,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT1.4E** escaping rests: binary loops whose rests (or whole binary) are
   also kept, returned, sent or captured stay loops; those reads get a copy
   cell; JSON-like string scan 2.6 to 1.25 ms (OTP 1.2-1.6), comma fields kept
-  5.3 to 2.0 ms (OTP 2.3) — `[plan20] OPT1.4E. Binary loops copy ...`
+  5.3 to 2.0 ms (OTP 2.3) — `428520c0`
+- **OPT1.4F** SSA binary cursors: TBAA memory kinds, invariant view loads in
+  binary loop variants that call nothing else, branch-free binary views and a
+  late GVN on them; 69A binary_match 1.64x (2.28x faster than OTP JIT), byte
+  sum 14.4 to 8.0 ms (OTP 12.4), 1-bit loop 4.7 to 1.67 ms (OTP 3.2) —
+  `[plan20] OPT1.4F. Binary loop cursors ...`
 - **OPT0.20B** generational collection: safepoints run minor collections that
   promote objects below the high-water mark into an old area and leave it in
   place (ERTS sizing rules, Debug old→young check); 69A geomean 1.15x (sort
