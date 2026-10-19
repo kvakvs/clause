@@ -32,6 +32,17 @@ struct Step {
     bool missing = false;
 };
 
+// What an edit does with one object (select_delete/2, select_replace/2; plan 21 step LIB11): keeps it, erases it, or
+// replaces it with an object of the same key.
+struct Edit {
+    enum class Action : std::uint8_t { keep, erase, replace };
+    Action action = Action::keep;
+    DetachedTerm replacement{};
+};
+
+// Decides the edit of one stored object.
+using EditDecision = std::function<Edit(Word object)>;
+
 // The key word of an object stored at 1-based position `keypos`.
 Word key_of(Word object, std::size_t keypos) noexcept;
 // Whether two keys are one key of a hash table: exactly equal (=:=).
@@ -74,6 +85,10 @@ class Index {
     virtual std::size_t slots() const = 0;
     // Append the objects of one slot.
     virtual void slot(std::size_t index, std::vector<Word> &objects) const = 0;
+
+    // Edit every live object, or only those of `only`, as `decide` says; the objects erased or replaced. A hash index
+    // keeps its buckets while it edits, and removed keys stay kept while fixed.
+    virtual std::size_t edit(const Key *only, const EditDecision &decide) = 0;
 
     // The first fixation began or the last one ended: while fixed, a hash index neither moves keys between buckets
     // nor forgets removed keys, so a walk visits every key once (safe_fixtable/2).

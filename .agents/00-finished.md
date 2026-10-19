@@ -649,7 +649,15 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   a fun records it and continues in `clause_io_lib:sort_maps/6`, which sorts
   the keys and reruns the call through `apply_ordered/4` (`io:format` writes
   only then); `semantic/builtin_continuations.hpp` brings continuation modules
-  into the batch; `io_lib_text` golden
+  into the batch; `io_lib_text` golden — `595c9574`
+- **LIB11** match specifications (`runtime/src/match_spec/`): compiled to
+  pattern and expression nodes with OTP's checks and lint messages, heads bound
+  and guards read in place, bodies copied out ('EXIT' for a raising call);
+  ets `select*`, `match*`, `select_count`, `select_delete`, `select_replace`
+  (OTP's keeps-key rule), `match_spec_*`, `is_compiled_ms`,
+  `erlang:match_spec_test/3` (trace dialect, fake actions) as builtins;
+  continuations in OTP's shapes; `test_ms`, `repair_continuation`,
+  `match_delete`, `init_table` Erlang; `ets_match_specs` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

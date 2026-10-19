@@ -1,5 +1,6 @@
 #include "index.hpp"
 #include <algorithm>
+#include <optional>
 #include <utility>
 
 // The hash index of set, bag and duplicate_bag tables (plan 21 step LIB10A, docs/runtime.md#ets-tables): a
@@ -128,6 +129,22 @@ class HashIndex final : public Index {
         }
     }
 
+    std::size_t edit(const Key *only, const EditDecision &decide) override {
+        std::size_t changed = 0;
+        if (only != nullptr) {
+            if (auto *entry = locate(*only); entry != nullptr && !entry->erased) {
+                auto &holder = bucket(only->hash);
+                changed = edit_entry(holder, static_cast<std::size_t>(entry - holder.data()), decide);
+            }
+        } else {
+            for (auto &holder : buckets_) {
+                changed += edit_bucket(holder, decide);
+            }
+        }
+        resize();
+        return changed;
+    }
+
     void fix() override { fixed_ = true; }
 
     void unfix() override {
@@ -248,6 +265,57 @@ class HashIndex final : public Index {
             entry.erased = true;
             ++kept_;
         }
+    }
+
+    // Edit the live entries of one bucket; an entry that goes leaves its place to the next one (select edits, plan 21
+    // step LIB11).
+    std::size_t edit_bucket(Bucket &holder, const EditDecision &decide) {
+        std::size_t changed = 0;
+        for (std::size_t at = 0; at < holder.size();) {
+            const auto before = holder.size();
+            if (!holder[at].erased) {
+                changed += edit_entry(holder, at, decide);
+            }
+            at += holder.size() == before ? 1 : 0;
+        }
+        return changed;
+    }
+
+    // Edit the objects of the entry at `at`: kept and replacing objects stay in order; with none left the entry goes,
+    // or stays as a tombstone of its first erased object while fixed.
+    std::size_t edit_entry(Bucket &holder, std::size_t at, const EditDecision &decide) {
+        auto &entry = holder[at];
+        std::size_t changed = 0;
+        Objects kept;
+        std::optional<DetachedTerm> erased;
+        for (auto &object : entry.objects) {
+            auto edit = decide(object.word());
+            if (edit.action == Edit::Action::keep) {
+                kept.push_back(std::move(object));
+                continue;
+            }
+            ++changed;
+            removed(object);
+            if (edit.action == Edit::Action::replace) {
+                added(edit.replacement);
+                kept.push_back(std::move(edit.replacement));
+            } else if (!erased) {
+                erased = std::move(object);
+            }
+        }
+        if (!kept.empty()) {
+            entry.objects = std::move(kept);
+        } else if (fixed_) {
+            entry.objects.clear();
+            entry.objects.push_back(std::move(*erased));
+            held(entry.objects.front().words());
+            entry.erased = true;
+            ++kept_;
+        } else {
+            holder.erase(holder.begin() + static_cast<std::ptrdiff_t>(at));
+            --keys_;
+        }
+        return changed;
     }
 
     // Double or halve the buckets when the keys outgrow or underuse them; never while fixed.

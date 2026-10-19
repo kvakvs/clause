@@ -209,9 +209,49 @@ through `ProcessContext::ets_tables()`, keeps the tables of `ets`
   while they hold an ETS lock, and `give_away/3` sends its message after
   releasing them.
 - Long operations (`tab2list/1` of a large table, `delete_all_objects/1`,
-  deleting a table, an owner's end) run in one piece rather than in portions;
-  CTest `executables_ets_concurrency` covers counters, inserts and walks from
-  many processes on one and four workers, and the end of owners of many tables.
+  selects over a whole table, deleting a table, an owner's end) run in one
+  piece rather than in portions; CTest `executables_ets_concurrency` covers
+  counters, inserts and walks from many processes on one and four workers, and
+  the end of owners of many tables.
+- **Selects** ([match specifications](#match-specifications)). A whole-table
+  select reads every part under its locks; one whose heads all bind the key
+  looks the keys up. A chunked select walks a hash table slot by slot (each
+  slot under its part's lock) and an ordered_set by keys from the last one, so
+  a continuation names a slot or a key. `select_delete/2` and
+  `select_replace/2` edit each part under its own lock (`Index::edit`); a fixed
+  hash table keeps the tombstones of removed keys meanwhile.
+
+## Match specifications
+
+`runtime/src/match_spec/` (plan 21 step LIB11) compiles and runs match
+specifications as OTP's `erl_db_util.c` does, for `ets` and
+`erlang:match_spec_test/3` ([builtins](builtins.md#ets)).
+
+- **Programs.** `compile` turns a specification into a `Program`: per clause a
+  head pattern, guard and body expressions over numbered variable slots, and
+  the variables the head binds (`'$$'`). Constants fold as OTP folds them
+  (`{{...}}` and `{const, X}` into values; a constant map keeps its keys as
+  written) and are kept as `DetachedTerm` copies, so a program belongs to no
+  process. Two dialects: `table` (ets) and `trace` (heads are argument lists,
+  a list ending in `'_'` matches a prefix, `'$N'` or `'_'` the whole list;
+  bodies may run trace actions).
+- **Checks.** The compiler applies OTP's checks in OTP's order and, when
+  linting (`erlang:match_spec_test/3`), gives OTP's messages for the first
+  clause that has any, operands of calls and tuples compiled last to first as
+  OTP compiles them; a message is cut at 99 bytes as OTP's buffer cuts it.
+  Guard functions are OTP's table (`match_spec/functions.cpp`), with the
+  contexts each may be called in; nesting past 1000 levels is `system_limit`.
+- **Running** (`match_spec/run.cpp`). Clauses are tried in order. A head binds
+  parts of the object in place (exact equality for constants and repeated
+  variables, maps holding at least the pattern's keys); guards read them in
+  place and must give exactly `true`; a body copies every value it gives into
+  the caller's heap. A guard function that raises fails the clause; in a body
+  it gives `'EXIT'` in its place and the body goes on, as do `and`, `or`,
+  `andalso` and `orelse` of a term that is no boolean. Most guard functions
+  are the immediate service's operations on terms (`terms/immediate_terms.hpp`).
+- **Compiled specifications** are handle references holding the program
+  (`match_spec/handles.cpp`), so they survive `term_to_binary/1` within the
+  program as OTP 20+ magic references do.
 
 ## Scheduler bookkeeping
 

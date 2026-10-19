@@ -200,7 +200,7 @@
 {make_tuple, 3, [], implemented}.
 {map_get, 2, [auto_import, guard], implemented}.
 {map_size, 1, [auto_import, guard], implemented}.
-{match_spec_test, 3, [], {unavailable, not_selected}}.
+{match_spec_test, 3, [], implemented}.
 {max, 2, [auto_import, guard], implemented}.
 {md5, 1, [], implemented}.
 {md5_final, 1, [], implemented}.

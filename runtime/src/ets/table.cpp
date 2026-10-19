@@ -38,21 +38,7 @@ Table::Table(const TableIdentity &identity, const TableOptions &options)
 }
 
 Reached Table::slot(std::size_t index, std::vector<Word> &objects) const {
-    const std::shared_lock table(mutex_);
-    if (deleted_) {
-        return Reached::deleted;
-    }
-    auto rest = index;
-    for (std::size_t at = 0; at < part_count_; ++at) {
-        const std::shared_lock lock(parts_[at].mutex);
-        const auto slots = parts_[at].index->slots();
-        if (rest < slots) {
-            parts_[at].index->slot(rest, objects);
-            return Reached::objects;
-        }
-        rest -= slots;
-    }
-    return rest == 0 ? Reached::end : Reached::missing;
+    return visit_slot(index, [&objects](std::span<const Word> found) { objects.assign(found.begin(), found.end()); });
 }
 
 std::optional<std::size_t> Table::size() const {

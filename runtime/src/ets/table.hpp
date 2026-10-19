@@ -8,6 +8,7 @@
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
+#include <span>
 #include <vector>
 
 // An ETS table (plan 21 step LIB10A, docs/runtime.md#ets-tables): its options, owner and heir, its objects in one
@@ -182,6 +183,43 @@ class Table final {
 
     // The objects of slot `index`, added to `objects`; end just past the last slot, missing beyond it.
     Reached slot(std::size_t index, std::vector<Word> &objects) const;
+
+    // Run f(objects) on the objects of slot `index` (numbered over the parts as slot/2 numbers them) while its part
+    // is locked; end just past the last slot, missing beyond it (select walks, plan 21 step LIB11).
+    template <typename F> Reached visit_slot(std::size_t index, F &&f) const {
+        const std::shared_lock table(mutex_);
+        if (deleted_) {
+            return Reached::deleted;
+        }
+        auto rest = index;
+        for (std::size_t at = 0; at < part_count_; ++at) {
+            const std::shared_lock lock(parts_[at].mutex);
+            const auto slots = parts_[at].index->slots();
+            if (rest < slots) {
+                std::vector<Word> objects;
+                parts_[at].index->slot(rest, objects);
+                f(std::span<const Word>(objects));
+                return Reached::objects;
+            }
+            rest -= slots;
+        }
+        return rest == 0 ? Reached::end : Reached::missing;
+    }
+
+    // Run f(index) on every part in order, each locked alone under the table lock shared (select edits); false when
+    // deleted.
+    template <typename F> bool edit_parts(F &&f) {
+        const std::shared_lock table(mutex_);
+        if (deleted_) {
+            return false;
+        }
+        for (std::size_t at = 0; at < part_count_; ++at) {
+            const std::unique_lock lock(parts_[at].mutex);
+            f(*parts_[at].index);
+        }
+        return true;
+    }
+
     // Live objects and the words the table takes (ets:info/2 size and memory); none when deleted.
     std::optional<std::size_t> size() const;
     std::optional<std::size_t> words() const;

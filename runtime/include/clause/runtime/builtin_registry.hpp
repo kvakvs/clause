@@ -228,6 +228,10 @@ std::span<const BuiltinEntry> ets_write_builtins() noexcept;
 std::span<const BuiltinEntry> ets_read_builtins() noexcept;
 std::span<const BuiltinEntry> ets_walk_builtins() noexcept;
 std::span<const BuiltinEntry> ets_update_builtins() noexcept;
+// Match specifications in ets and erlang:match_spec_test/3 (plan 21 step LIB11; runtime/src/builtins/ets/).
+std::span<const BuiltinEntry> ets_select_builtins() noexcept;
+std::span<const BuiltinEntry> ets_select_edit_builtins() noexcept;
+std::span<const BuiltinEntry> ets_match_spec_builtins() noexcept;
 // Modules erl_features and records (plan 21 step LIB8B).
 std::span<const BuiltinEntry> erl_features_builtins() noexcept;
 std::span<const BuiltinEntry> records_builtins() noexcept;

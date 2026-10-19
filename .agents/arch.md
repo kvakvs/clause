@@ -306,7 +306,14 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   write_concurrency; table lock shared by single-key ops, alone for whole-table
   ones. Registry `ets::Tables` in `Runtime::Impl` (numbers, names, holdings);
   owner end in `Executor::release_tables` before links/monitors. Lock order:
-  executor, registry, table.
+  executor, registry, table. Selects walk slots (`Table::visit_slot`) or keys,
+  edits go part by part (`Table::edit_parts`, `Index::edit`).
+- Match specifications (`runtime/src/match_spec/`, docs/runtime.md#match-specifications):
+  `compile` -> `Program` (pattern/expression node arrays, constants detached,
+  table or trace dialect, OTP's lint messages); `Run` interprets: heads bind
+  in place, guards read in place, bodies copy into the caller's heap; guard
+  BIFs mostly the immediate service on Terms (`terms/immediate_terms.hpp`).
+  Compiled specs are handle references (`handles.cpp`).
 
 ## Builtins (`docs/builtins.md`)
 

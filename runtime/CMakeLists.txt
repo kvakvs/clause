@@ -79,6 +79,11 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/scheduler/tables.cpp src/memory/detached_term.cpp
     src/builtins/ets/common.cpp src/builtins/ets/options.cpp src/builtins/ets/tables.cpp src/builtins/ets/info.cpp
     src/builtins/ets/writes.cpp src/builtins/ets/reads.cpp src/builtins/ets/walks.cpp src/builtins/ets/updates.cpp
+    # Match specifications and the ets select family (plan 21 step LIB11).
+    src/match_spec/compile.cpp src/match_spec/patterns.cpp src/match_spec/expressions.cpp src/match_spec/functions.cpp
+    src/match_spec/run.cpp src/match_spec/actions.cpp src/match_spec/handles.cpp
+    src/builtins/ets/select_common.cpp src/builtins/ets/select.cpp src/builtins/ets/select_edits.cpp
+    src/builtins/ets/match_specs.cpp
     # Modules erl_features and records (plan 21 step LIB8B).
     src/builtins/front_end/features.cpp src/builtins/records.cpp
     # Modules rand and random (plan 21 step LIB6).

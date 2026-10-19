@@ -1,3 +1,4 @@
+#include "system_flags.hpp"
 #include "../../scheduler/executor.hpp"
 #include "../typed.hpp"
 #include <array>
@@ -256,6 +257,11 @@ constexpr std::array SYSTEM_FLAG_BUILTINS{
     typed_entry<system_flag>("erlang", "system_flag"),
 };
 } // namespace
+
+std::int64_t system_trace_control_word() noexcept {
+    const std::scoped_lock lock(settings_mutex);
+    return settings.trace_control_word;
+}
 } // namespace clause::runtime::builtins
 
 namespace clause::runtime {

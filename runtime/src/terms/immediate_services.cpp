@@ -1,6 +1,7 @@
 #include "atom_table.hpp"
 #include "floats.hpp"
 #include "immediate_order.hpp"
+#include "immediate_terms.hpp"
 #include "service_errors.hpp"
 #include "structural_order.hpp"
 #include "word_order.hpp"
@@ -239,6 +240,18 @@ Result invoke(ProcessContext &context, Op operation, Word left, Word right) {
     return evaluate(context, operation, *lhs, *rhs);
 }
 } // namespace
+
+std::expected<std::optional<Word>, abi::v1::Status> immediate_terms(ProcessContext &context, Op operation,
+                                                                    const Term &left, const Term &right) {
+    const auto result = evaluate(context, operation, left, right);
+    if (result) {
+        return std::optional<Word>{*result};
+    }
+    if (result.error().status != abi::v1::Status::ok) {
+        return std::unexpected(result.error().status);
+    }
+    return std::optional<Word>{};
+}
 
 // Publish only checked results and preserve first infrastructure failure under native fault/reentry seams.
 namespace {

@@ -607,11 +607,32 @@ Erlang: `foldl/3`, `foldr/3` (the table fixed meanwhile), `i/0` and the
   highest pid down), `stats` (OTP's tuple for hash tables, `false` for an
   ordered_set), and `data` and `binary` (`true` and `[]`). `memory` counts the
   stored words and Clause's own overheads.
-- Match specifications (`match*`, `select*`, `match_spec_*`, `test_ms/2`,
-  `is_compiled_ms/1`, `repair_continuation/2`) are stubs until LIB11; table
-  files, `dets` conversions and `table/1,2` until LIB12.
-- CTests `executables_ets_tables`, `_owner`, `_update`, `_walk` and
-  `_concurrency` run OTP goldens.
+- Match specifications (plan 21 step LIB11, `builtins/ets/select*.cpp`,
+  `match_specs.cpp`, over [runtime](runtime.md#match-specifications)):
+  `select/1,2,3`, `select_reverse/1,2,3`, `match/1,2,3`, `match_object/1,2,3`,
+  `select_count/2`, `select_delete/2`, `select_replace/2`,
+  `match_spec_compile/1`, `match_spec_run_r/3`, `is_compiled_ms/1` and
+  `erlang:match_spec_test/3` are builtins; `match_spec_run/2`, `test_ms/2`,
+  `repair_continuation/2`, `match_delete/2` and `init_table/2` Erlang.
+  - Results come in walk order: an ordered_set's in key order
+    (`select_reverse` reversed), a hash table's by part and bucket.
+  - Chunks: a hash table returns `Limit` results a time, keeping the rest of
+    the last slot it read in its continuation `{Tid, NextSlot, Limit,
+    MatchSpec, Rest, RestCount}`; an ordered_set stops at the `Limit`th result
+    and goes on after that key, `{Tid, LastKey, [], Limit, MatchSpec, [],
+    Reverse, 0}`. Heads that all bind the key look its objects up (an
+    ordered_set returns a single key's results in one chunk, as OTP does).
+  - `select_replace/2` checks first that every clause keeps the key (OTP's
+    rule: `'$_'`, or a built or constant tuple with the head's key, or
+    `{element, KeyPos, '$_'}`, in the key position) and refuses bags.
+  - `erlang:match_spec_test/3` lints as OTP does (its messages and their
+    order), runs table specifications on a term and trace ones on an argument
+    list, and reports `return_trace` and `exception_trace`; trace actions
+    that would change tracing check their arguments only
+    ([differences](differences.md#ets)).
+- Table files, `dets` conversions and `table/1,2` are stubs until LIB12.
+- CTests `executables_ets_tables`, `_owner`, `_update`, `_walk`,
+  `_concurrency` and `_match_specs` run OTP goldens.
 
 ## Encodings
 

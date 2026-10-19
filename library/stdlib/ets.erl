@@ -1,7 +1,9 @@
 %% Clause's ets (plan 21 step LIB10, docs/builtins.md#ets): OTP 29's ETS tables over the runtime's tables
 %% (docs/runtime.md#ets-tables). Table, read, write, walk and update functions are runtime builtins with
 %% clause_builtin_placeholder bodies; the folds and the i/0..3 table viewers, which call funs or the io server,
-%% are Erlang over them. Match specifications come with plan 21 step LIB11 and table files with LIB12.
+%% are Erlang over them. Match specifications (plan 21 step LIB11) run in the runtime too: the select, match and
+%% match_spec builtins, with match_spec_run/2, test_ms/2, repair_continuation/2, match_delete/2 and init_table/2
+%% Erlang over them. Table files come with LIB12.
 -module(ets).
 -export([
     all/0,
@@ -96,28 +98,25 @@ from_dets(_, _) -> erlang:error({not_implemented, from_dets, 2}).
 give_away(_, _, _) -> clause_builtin_placeholder.
 info(_) -> clause_builtin_placeholder.
 info(_, _) -> clause_builtin_placeholder.
-init_table(_, _) -> erlang:error({not_implemented, init_table, 2}).
 insert(_, _) -> clause_builtin_placeholder.
 insert_new(_, _) -> clause_builtin_placeholder.
 internal_delete_all(_, _) -> erlang:error({not_implemented, internal_delete_all, 2}).
 internal_request_all() -> erlang:error({not_implemented, internal_request_all, 0}).
-internal_select_delete(_, _) -> erlang:error({not_implemented, internal_select_delete, 2}).
-is_compiled_ms(_) -> erlang:error({not_implemented, is_compiled_ms, 1}).
+internal_select_delete(_, _) -> clause_builtin_placeholder.
+is_compiled_ms(_) -> clause_builtin_placeholder.
 last(_) -> clause_builtin_placeholder.
 last_lookup(_) -> clause_builtin_placeholder.
 lookup(_, _) -> clause_builtin_placeholder.
 lookup_element(_, _, _) -> clause_builtin_placeholder.
 lookup_element(_, _, _, _) -> clause_builtin_placeholder.
-match(_) -> erlang:error({not_implemented, match, 1}).
-match(_, _) -> erlang:error({not_implemented, match, 2}).
-match(_, _, _) -> erlang:error({not_implemented, match, 3}).
-match_delete(_, _) -> erlang:error({not_implemented, match_delete, 2}).
-match_object(_) -> erlang:error({not_implemented, match_object, 1}).
-match_object(_, _) -> erlang:error({not_implemented, match_object, 2}).
-match_object(_, _, _) -> erlang:error({not_implemented, match_object, 3}).
-match_spec_compile(_) -> erlang:error({not_implemented, match_spec_compile, 1}).
-match_spec_run(_, _) -> erlang:error({not_implemented, match_spec_run, 2}).
-match_spec_run_r(_, _, _) -> erlang:error({not_implemented, match_spec_run_r, 3}).
+match(_) -> clause_builtin_placeholder.
+match(_, _) -> clause_builtin_placeholder.
+match(_, _, _) -> clause_builtin_placeholder.
+match_object(_) -> clause_builtin_placeholder.
+match_object(_, _) -> clause_builtin_placeholder.
+match_object(_, _, _) -> clause_builtin_placeholder.
+match_spec_compile(_) -> clause_builtin_placeholder.
+match_spec_run_r(_, _, _) -> clause_builtin_placeholder.
 member(_, _) -> clause_builtin_placeholder.
 new(_, _) -> clause_builtin_placeholder.
 next(_, _) -> clause_builtin_placeholder.
@@ -125,17 +124,16 @@ next_lookup(_, _) -> clause_builtin_placeholder.
 prev(_, _) -> clause_builtin_placeholder.
 prev_lookup(_, _) -> clause_builtin_placeholder.
 rename(_, _) -> clause_builtin_placeholder.
-repair_continuation(_, _) -> erlang:error({not_implemented, repair_continuation, 2}).
 safe_fixtable(_, _) -> clause_builtin_placeholder.
-select(_) -> erlang:error({not_implemented, select, 1}).
-select(_, _) -> erlang:error({not_implemented, select, 2}).
-select(_, _, _) -> erlang:error({not_implemented, select, 3}).
-select_count(_, _) -> erlang:error({not_implemented, select_count, 2}).
-select_delete(_, _) -> erlang:error({not_implemented, select_delete, 2}).
-select_replace(_, _) -> erlang:error({not_implemented, select_replace, 2}).
-select_reverse(_) -> erlang:error({not_implemented, select_reverse, 1}).
-select_reverse(_, _) -> erlang:error({not_implemented, select_reverse, 2}).
-select_reverse(_, _, _) -> erlang:error({not_implemented, select_reverse, 3}).
+select(_) -> clause_builtin_placeholder.
+select(_, _) -> clause_builtin_placeholder.
+select(_, _, _) -> clause_builtin_placeholder.
+select_count(_, _) -> clause_builtin_placeholder.
+select_delete(_, _) -> clause_builtin_placeholder.
+select_replace(_, _) -> clause_builtin_placeholder.
+select_reverse(_) -> clause_builtin_placeholder.
+select_reverse(_, _) -> clause_builtin_placeholder.
+select_reverse(_, _, _) -> clause_builtin_placeholder.
 setopts(_, _) -> clause_builtin_placeholder.
 slot(_, _) -> clause_builtin_placeholder.
 tab2file(_, _) -> erlang:error({not_implemented, tab2file, 2}).
@@ -145,13 +143,87 @@ tabfile_info(_) -> erlang:error({not_implemented, tabfile_info, 1}).
 table(_) -> erlang:error({not_implemented, table, 1}).
 table(_, _) -> erlang:error({not_implemented, table, 2}).
 take(_, _) -> clause_builtin_placeholder.
-test_ms(_, _) -> erlang:error({not_implemented, test_ms, 2}).
 to_dets(_, _) -> erlang:error({not_implemented, to_dets, 2}).
 update_counter(_, _, _) -> clause_builtin_placeholder.
 update_counter(_, _, _, _) -> clause_builtin_placeholder.
 update_element(_, _, _) -> clause_builtin_placeholder.
 update_element(_, _, _, _) -> clause_builtin_placeholder.
 whereis(_) -> clause_builtin_placeholder.
+
+%% match_spec_run(List, CompiledMatchSpec): the results for the list's terms in order (plan 21 step LIB11).
+match_spec_run(List, CompiledMatchSpec) ->
+    lists:reverse(ets:match_spec_run_r(List, CompiledMatchSpec, [])).
+
+%% test_ms(Tuple, MatchSpec): the result of the specification on the tuple, or its errors.
+test_ms(Term, MatchSpec) ->
+    case erlang:match_spec_test(Term, MatchSpec, table) of
+        {ok, Result, _Flags, _Messages} -> {ok, Result};
+        {error, _Errors} = Error -> Error
+    end.
+
+%% repair_continuation(Continuation, MatchSpec): a continuation whose compiled specification no longer lives gets it
+%% again; ordered_set and hash continuations have OTP's shapes.
+repair_continuation('$end_of_table', _MatchSpec) ->
+    '$end_of_table';
+repair_continuation(
+    {Table, LastKey, EndCondition, Limit, Compiled, Rest, Reverse, Count} = Continuation, MatchSpec
+) when
+    is_integer(Limit), is_list(Rest), is_integer(Reverse), is_integer(Count)
+->
+    case ets:is_compiled_ms(Compiled) of
+        true ->
+            Continuation;
+        false ->
+            {Table, LastKey, EndCondition, Limit, ets:match_spec_compile(MatchSpec), Rest, Reverse,
+                Count}
+    end;
+repair_continuation({Table, Slot, Limit, Compiled, Rest, Count} = Continuation, MatchSpec) when
+    is_integer(Slot), is_integer(Limit), is_list(Rest), is_integer(Count)
+->
+    case ets:is_compiled_ms(Compiled) of
+        true -> Continuation;
+        false -> {Table, Slot, Limit, ets:match_spec_compile(MatchSpec), Rest, Count}
+    end.
+
+%% match_delete(Table, Pattern): every object matching the pattern goes.
+match_delete(Table, Pattern) ->
+    ets:select_delete(Table, [{Pattern, [], [true]}]),
+    true.
+
+%% init_table(Table, InitFun): the table emptied, then filled with the objects InitFun gives until end_of_input; a
+%% failing insert calls InitFun(close) and exits, any other answer of InitFun exits.
+init_table(Table, InitFun) ->
+    Tid = soft_whereis(Table),
+    ets:delete_all_objects(Tid),
+    init_continue(Tid, InitFun(read)).
+
+init_continue(_Tid, end_of_input) ->
+    true;
+init_continue(Tid, {Objects, InitFun}) when is_list(Objects), is_function(InitFun) ->
+    case catch insert_each(Tid, Objects) of
+        {'EXIT', Reason} ->
+            catch InitFun(close),
+            exit(Reason);
+        true ->
+            init_continue(Tid, InitFun(read))
+    end;
+init_continue(_Tid, Other) ->
+    exit(Other).
+
+insert_each(_Tid, []) ->
+    true;
+insert_each(Tid, [Object | Objects]) ->
+    ets:insert(Tid, Object),
+    insert_each(Tid, Objects).
+
+%% The identifier of a named table, or the argument as it is (an identifier, or a name of no table).
+soft_whereis(Table) when is_atom(Table) ->
+    case ets:whereis(Table) of
+        undefined -> Table;
+        Tid -> Tid
+    end;
+soft_whereis(Table) ->
+    Table.
 
 %% fun2ms(LiteralFun): without the ms_transform parse transform, only a fun of the shell's evaluator could be
 %% translated at run time; Clause has no such funs yet, so every fun exits as a compiled fun does in OTP.

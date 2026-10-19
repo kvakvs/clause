@@ -83,6 +83,28 @@ class TreeIndex final : public Index {
         objects.push_back(std::next(nodes_.begin(), static_cast<std::ptrdiff_t>(index))->objects.front().word());
     }
 
+    std::size_t edit(const Key *only, const EditDecision &decide) override {
+        std::size_t changed = 0;
+        auto at = only != nullptr ? nodes_.find(*only) : nodes_.begin();
+        const auto end = only != nullptr && at != nodes_.end() ? std::next(at) : nodes_.end();
+        while (at != end) {
+            auto edit = decide(at->objects.front().word());
+            if (edit.action == Edit::Action::keep) {
+                ++at;
+                continue;
+            }
+            ++changed;
+            if (edit.action == Edit::Action::replace) {
+                replace_front(*at, std::move(edit.replacement));
+                ++at;
+            } else {
+                removed(at->objects.front());
+                at = nodes_.erase(at);
+            }
+        }
+        return changed;
+    }
+
     void fix() override {}
 
     void unfix() override {}

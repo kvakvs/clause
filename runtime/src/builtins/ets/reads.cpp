@@ -109,16 +109,17 @@ Term slot(ProcessContext &context, const TableArgument &argument, const Term &in
     if (!number || *number < 0) {
         bad_argument();
     }
-    std::vector<Word> stored;
-    const auto reached = found->slot(static_cast<std::size_t>(*number), stored);
+    // The objects are copied while their part is locked, so no other process frees them meanwhile.
+    std::vector<Term> objects;
+    const auto reached = found->visit_slot(static_cast<std::size_t>(*number), [&](std::span<const Word> stored) {
+        objects.reserve(stored.size());
+        for (const auto word : stored) {
+            objects.push_back(copy_out(context, word));
+        }
+    });
     need_table(reached != Reached::deleted && reached != Reached::missing);
     if (reached == Reached::end) {
         return end_of_table(context);
-    }
-    std::vector<Term> objects;
-    objects.reserve(stored.size());
-    for (const auto word : stored) {
-        objects.push_back(copy_out(context, word));
     }
     return need(TermFactory(context).list(objects));
 }

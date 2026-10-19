@@ -34,10 +34,9 @@ create a new API that's for the end user to choose
   `erl_anno`, `erl_features`, `erl_internal`, `filename`, `gb_sets`, `gb_trees`,
   `graph`, `io_lib`, `json`, `orddict`, `ordsets`, `proplists`, `queue`, `rand`,
   `records`, `sets`, `string`, `unicode`, `uri_string`.
-- **Partial:** `erlang` (23 left, all unavailable: code loading, distribution,
-  tracing, `match_spec_test/3`), `code` (51), `io` (31), `file` (30), `inet`
-  (19), `gen_udp` (5), `os` (4), `sofs` (4, LIB12), `gen_tcp` (1), `ets` (31,
-  LIB11 and LIB12).
+- **Partial:** `erlang` (22 left, all unavailable: code loading, distribution,
+  tracing), `code` (51), `io` (31), `file` (30), `inet` (19), `gen_udp` (5),
+  `os` (4), `sofs` (4, LIB12), `gen_tcp` (1), `ets` (8, LIB12).
 - **Missing:** 68 modules. Today a program gets the plain-Erlang ones (gen
   servers, `supervisor`, `timer`, ...) only by compiling OTP's sources from a
   search path.
@@ -110,11 +109,10 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ## Tier A: data modules without processes
 
-LIB0–LIB10 and LIB4F are done (`00-finished.md`); their open remainders follow.
+LIB0–LIB11 and LIB4F are done (`00-finished.md`); their open remainders follow.
 
 ### LIB9 remainder: declined `erlang` functions
 
-- `match_spec_test/3` comes with LIB11.
 - D01: `load_module/2`, `load_nif/2`, `purge_module/1`, `check_*code`.
 - Distribution: `dist_ctrl_*`.
 - Tracing: `trace*`, `system_monitor/0,1,2`, `system_profile/0,2`. LIB71
@@ -124,30 +122,20 @@ LIB0–LIB10 and LIB4F are done (`00-finished.md`); their open remainders follow
 
 ### LIB10F. ETS portions and TSan (later)
 
-- `ets` ships with the LIB11 and LIB12 functions as stubs (`PARTIAL` in
+- `ets` ships with the LIB12 functions as stubs (`PARTIAL` in
   `library_modules.py`).
 - Run long operations in portions (`tab2list/1` and `delete_all_objects/1` of
   large tables, deleting a table, an owner's end under the executor lock),
   small-integer `update_counter` in place, and a Linux TSan run over the ETS
   goldens (V02).
 
-### LIB11. Match specifications (C++)
-
-- One compiler and interpreter of match specs serves:
-  - `ets:match/1,2,3`, `match_object/1,2,3` and `select/1,2,3`, with
-    continuations.
-  - `select_count/2`, `select_delete/2`, `select_replace/2`,
-    `select_reverse/1,2,3`, `match_delete/2`, `repair_continuation/2`.
-  - `match_spec_compile/1`, `match_spec_run/2`, `is_compiled_ms/1`, `test_ms/2`
-    and `erlang:match_spec_test/3`.
-- `ets:fun2ms/1` raises as OTP's does without the transform; it works once LIB72
-  (`ms_transform`) and D03 parse transforms exist.
-
 ### LIB12. Table files and graphs: `ets` file functions, `digraph`, `digraph_utils`
 
 - `ets:tab2file/2,3`, `file2tab/1,2`, `tabfile_info/1` in OTP's file format
-  (over `disk_log`, LIB52); `to_dets/2`, `from_dets/2` and `init_table/2` after
-  LIB53, and `table/1,2` after `qlc` (LIB73).
+  (over `disk_log`, LIB52); `to_dets/2`, `from_dets/2` after LIB53, and
+  `table/1,2` after `qlc` (LIB73).
+- `ets:fun2ms/1` raises as OTP's does without the transform; it works once
+  LIB72 (`ms_transform`) and D03 parse transforms exist.
 - `digraph` (34): OTP's `{digraph, V, E, N, Cyclic}` over three ETS tables, with
   the updates and queries in C++ reading the tables directly.
 - `digraph_utils` (18): C++ traversals over the same tables.
@@ -423,12 +411,12 @@ missing, so programs that probe for them keep working.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB11 (match specs).
+1. LIB12 (`digraph`, `sofs` conversions, table files).
 2. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
 3. LIB23 and LIB24 (`logger`, `application`).
 4. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
 5. LIB30–LIB34 (the front end, `consult`, `io:read`).
-6. LIB25 (local-node services) and LIB12 (`digraph`, `sofs` conversions).
+6. LIB25 (local-node services).
 7. LIB51–LIB55 (files, logs, archives).
 8. LIB70, LIB62 and LIB63.
 9. LIB71–LIB74, then the declined modules' answer stubs.
@@ -439,11 +427,11 @@ Ranked by what real programs need first and by dependencies:
 Format: `module` (application, functions to do, ...): name/arities. Deprecated
 functions are listed separately and are optional.
 
-- `erlang` (erts, 21 left, all declined or LIB11/LIB71): check_old_code/1, check_process_code/2,3,
-  dist_ctrl_get_data/1, dist_ctrl_get_data_notification/1,
-  dist_ctrl_get_opt/2, dist_ctrl_input_handler/2, dist_ctrl_put_data/2,
-  dist_ctrl_set_opt/3, load_module/2, load_nif/2, match_spec_test/3,
-  purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3, trace_delivered/1,
+- `erlang` (erts, 20 left, all declined or LIB71): check_old_code/1,
+  check_process_code/2,3, dist_ctrl_get_data/1,
+  dist_ctrl_get_data_notification/1, dist_ctrl_get_opt/2,
+  dist_ctrl_input_handler/2, dist_ctrl_put_data/2, dist_ctrl_set_opt/3,
+  load_module/2, load_nif/2, purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3, trace_delivered/1,
   trace_info/2, trace_pattern/2,3
 - `init` (erts, 3, 8 done): boot/1, restart/0,1
 - `application` (kernel, 35; 5 callbacks): ensure_all_started/1,2,3,
@@ -614,11 +602,8 @@ functions are listed separately and are optional.
 - `erl_tar` (stdlib, 14): add/3,4, close/1, create/2,3, extract/1,2,
   format_error/1, init/3, open/2, t/1, table/1,2, tt/1
 - `escript` (stdlib, 3): create/2, extract/2, script_name/0
-- `ets` (stdlib, 31, 39 done): file2tab/1,2, from_dets/2, init_table/2,
-  is_compiled_ms/1, match/1,2,3, match_delete/2, match_object/1,2,3,
-  match_spec_compile/1, match_spec_run/2, repair_continuation/2, select/1,2,3,
-  select_count/2, select_delete/2, select_replace/2, select_reverse/1,2,3,
-  tab2file/2,3, tabfile_info/1, table/1,2, test_ms/2, to_dets/2
+- `ets` (stdlib, 8, 62 done): file2tab/1,2, from_dets/2, tab2file/2,3,
+  tabfile_info/1, table/1,2, to_dets/2
 - `file_sorter` (stdlib, 14): check/1,2, keycheck/2,3, keymerge/3,4,
   keysort/2,3,4, merge/2,3, sort/1,2,3
 - `filelib` (stdlib, 16): ensure_dir/1, ensure_path/1, file_size/1,

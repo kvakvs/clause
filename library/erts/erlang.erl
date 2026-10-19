@@ -759,7 +759,7 @@ map_get(_, _) -> clause_builtin_placeholder.
 
 map_size(_) -> clause_builtin_placeholder.
 
-match_spec_test(_, _, _) -> erlang:error({not_implemented, match_spec_test, 3}).
+match_spec_test(_, _, _) -> clause_builtin_placeholder.
 
 max(_, _) -> clause_builtin_placeholder.
 
