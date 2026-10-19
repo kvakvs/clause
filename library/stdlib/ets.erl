@@ -3,7 +3,7 @@
 %% clause_builtin_placeholder bodies; the folds and the i/0..3 table viewers, which call funs or the io server,
 %% are Erlang over them. Match specifications (plan 21 step LIB11) run in the runtime too: the select, match and
 %% match_spec builtins, with match_spec_run/2, test_ms/2, repair_continuation/2, match_delete/2 and init_table/2
-%% Erlang over them. Table files come with LIB12.
+%% Erlang over them. Table files (tab2file/2,3, file2tab/1,2, tabfile_info/1) are Erlang over file.
 -module(ets).
 -export([
     all/0,
@@ -90,8 +90,6 @@ delete(_) -> clause_builtin_placeholder.
 delete(_, _) -> clause_builtin_placeholder.
 delete_all_objects(_) -> clause_builtin_placeholder.
 delete_object(_, _) -> clause_builtin_placeholder.
-file2tab(_) -> erlang:error({not_implemented, file2tab, 1}).
-file2tab(_, _) -> erlang:error({not_implemented, file2tab, 2}).
 first(_) -> clause_builtin_placeholder.
 first_lookup(_) -> clause_builtin_placeholder.
 from_dets(_, _) -> erlang:error({not_implemented, from_dets, 2}).
@@ -136,10 +134,7 @@ select_reverse(_, _) -> clause_builtin_placeholder.
 select_reverse(_, _, _) -> clause_builtin_placeholder.
 setopts(_, _) -> clause_builtin_placeholder.
 slot(_, _) -> clause_builtin_placeholder.
-tab2file(_, _) -> erlang:error({not_implemented, tab2file, 2}).
-tab2file(_, _, _) -> erlang:error({not_implemented, tab2file, 3}).
 tab2list(_) -> clause_builtin_placeholder.
-tabfile_info(_) -> erlang:error({not_implemented, tabfile_info, 1}).
 table(_) -> erlang:error({not_implemented, table, 1}).
 table(_, _) -> erlang:error({not_implemented, table, 2}).
 take(_, _) -> clause_builtin_placeholder.
@@ -224,6 +219,383 @@ soft_whereis(Table) when is_atom(Table) ->
     end;
 soft_whereis(Table) ->
     Table.
+
+%% Table files (plan 21 step LIB12): disk_log halt logs in OTP's internal format, written here with file and read
+%% with clause_disk_log:items/1, so files are exchangeable with OTP. The first item is the table's information as a
+%% tuple (ets:info/1 and the file format's version and extended information), then the objects, then, with
+%% extended information, ['$end_of_table', [{count, N}, {md5, Digest}]].
+-define(LOG_OPENED, <<1, 2, 3, 4, 6, 7, 8, 9>>).
+-define(LOG_CLOSED, <<99, 88, 77, 11>>).
+-define(MIN_MD5_TERM, 65528).
+
+%% tab2file(Table, File [, Options]): options {extended_info, [object_count | md5sum]} and {sync, boolean()}.
+tab2file(Table, File) ->
+    tab2file(Table, File, []).
+
+tab2file(Table, File, Options) ->
+    try
+        Info =
+            case ets:info(Table) of
+                undefined -> throw(badtab);
+                TableInfo -> TableInfo
+            end,
+        {id, Tid} = lists:keyfind(id, 1, Info),
+        Extended = file_options(Options),
+        _ = file:delete(File),
+        case file:read_file_info(File) of
+            {error, enoent} -> ok;
+            _ -> throw(eaccess)
+        end,
+        Fd = open_log(File),
+        try
+            write_table(Fd, Tid, Info, Extended)
+        catch
+            Class:Reason:Stack ->
+                _ = file:close(Fd),
+                _ = file:delete(File),
+                erlang:raise(Class, Reason, Stack)
+        end
+    catch
+        throw:Error -> {error, Error};
+        exit:Error -> {error, Error}
+    end.
+
+%% The extended information to write: {ObjectCount, Md5sum}.
+file_options(Options) when is_list(Options) ->
+    file_options(Options, {false, false}, false).
+
+file_options([], Extended, _) ->
+    Extended;
+file_options([{sync, Sync} | Rest], Extended, Seen) when is_boolean(Sync) ->
+    file_options(Rest, Extended, Seen);
+file_options([{extended_info, List} | Rest], Extended, false) ->
+    file_options(Rest, extended_options(List, Extended), true);
+file_options([Other | _], _, _) ->
+    throw({unknown_option, Other});
+file_options(Malformed, _, _) ->
+    throw({malformed_option, Malformed}).
+
+extended_options([], Extended) ->
+    Extended;
+extended_options([object_count | Rest], {_, Md5}) ->
+    extended_options(Rest, {true, Md5});
+extended_options([md5sum | Rest], {Count, _}) ->
+    extended_options(Rest, {Count, true});
+extended_options([Unexpected | _], _) ->
+    throw({unknown_option, [{extended_info, [Unexpected]}]});
+extended_options(Malformed, _) ->
+    throw({malformed_option, Malformed}).
+
+extended_list({Count, Md5}) ->
+    [object_count || Count] ++ [md5sum || Md5].
+
+%% A new log file, its head marked opened until it is closed; disk_log's errors for bad names and files.
+open_log(File) when is_list(File); is_atom(File) ->
+    case file:open(File, [write, binary]) of
+        {ok, Fd} ->
+            write_log(Fd, ?LOG_OPENED),
+            Fd;
+        {error, Reason} ->
+            throw({file_error, File, Reason})
+    end;
+open_log(File) ->
+    throw({badarg, [{file, File}, {repair, truncate}]}).
+
+write_log(Fd, Data) ->
+    case file:write(Fd, Data) of
+        ok -> ok;
+        {error, Reason} -> throw(Reason)
+    end.
+
+%% The information tuple, the objects 100 at a time with the table fixed, the end information, then the closed mark.
+write_table(Fd, Tid, Info, {Count, Md5} = Extended) ->
+    Header = list_to_tuple(
+        Info ++ [{major_version, 1}, {minor_version, 0}, {extended_info, extended_list(Extended)}]
+    ),
+    Digest0 =
+        case Md5 of
+            true -> erlang:md5_init();
+            false -> none
+        end,
+    Digest1 = log_terms(Fd, [Header], Digest0),
+    try
+        ets:safe_fixtable(Tid, true)
+    catch
+        error:badarg -> throw(badtab)
+    end,
+    {Digest2, Objects} =
+        try
+            dump_objects(Fd, ets:select(Tid, [{'_', [], ['$_']}], 100), Digest1, 0)
+        after
+            unfix(Tid)
+        end,
+    End = [{count, Objects} || Count] ++ [{md5, erlang:md5_final(Digest2)} || Md5],
+    case End of
+        [] -> ok;
+        _ -> log_terms(Fd, [['$end_of_table', End]], Digest2)
+    end,
+    {ok, _} = file:position(Fd, 4),
+    write_log(Fd, ?LOG_CLOSED),
+    file:close(Fd).
+
+unfix(Tid) ->
+    try
+        ets:safe_fixtable(Tid, false)
+    catch
+        _:_ -> ok
+    end.
+
+dump_objects(_Fd, '$end_of_table', Digest, Count) ->
+    {Digest, Count};
+dump_objects(Fd, {Objects, Continuation}, Digest, Count) ->
+    Next = log_terms(Fd, Objects, Digest),
+    dump_objects(Fd, ets:select(Continuation), Next, Count + length(Objects)).
+
+%% Write terms as log items, adding each one's external format to the digest (none without md5sum).
+log_terms(Fd, Terms, Digest) ->
+    Binaries = [term_to_binary(Term) || Term <- Terms],
+    write_log(Fd, [log_item(Binary) || Binary <- Binaries]),
+    case Digest of
+        none ->
+            none;
+        _ ->
+            lists:foldl(
+                fun(Binary, State) -> erlang:md5_update(State, Binary) end, Digest, Binaries
+            )
+    end.
+
+log_item(Binary) when byte_size(Binary) < ?MIN_MD5_TERM ->
+    Size = byte_size(Binary),
+    [<<Size:32, 98, 87, 76, 65>>, Binary];
+log_item(Binary) ->
+    Size = byte_size(Binary),
+    [<<Size:32, 98, 87, 76, 65>>, erlang:md5(<<Size:32>>), Binary].
+
+%% file2tab(File [, Options]): a new table of a file's information and objects; options {verify, boolean()} and
+%% {table, Table} (load into an existing table).
+file2tab(File) ->
+    file2tab(File, []).
+
+file2tab(File, Options) ->
+    try
+        {Verify, Target} = load_options(Options, false, []),
+        {Items, Bad} = read_log(File),
+        {{Major, Minor}, _, _, Header} = Head = log_head(Items, Bad, Verify),
+        Major > 1 andalso throw({unsupported_file_version, {Major, Minor}}),
+        {Table, HeadCount} = create_table(Header, Target),
+        try
+            load_table(Table, Head, tl(Items), HeadCount, Verify)
+        catch
+            Class:Reason:Stack ->
+                ets:delete(Table),
+                erlang:raise(Class, Reason, Stack)
+        end
+    catch
+        throw:Error -> {error, Error};
+        exit:Error -> {error, Error}
+    end.
+
+load_options([], Verify, Target) ->
+    {Verify, Target};
+load_options([{verify, true} | Rest], _, Target) ->
+    load_options(Rest, true, Target);
+load_options([{verify, false} | Rest], Verify, Target) ->
+    load_options(Rest, Verify, Target);
+load_options([{table, Table} | Rest], Verify, []) ->
+    load_options(Rest, Verify, Table);
+load_options([Unexpected | _], _, _) ->
+    throw({unknown_option, Unexpected});
+load_options(Malformed, _, _) ->
+    throw({malformed_option, Malformed}).
+
+%% The items of a log file and the bytes that framed none; disk_log's read errors otherwise.
+read_log(File) when is_list(File); is_atom(File) ->
+    case file:read_file(File) of
+        {ok, Bytes} -> log_items(clause_disk_log:items(Bytes), File);
+        {error, Reason} -> throw({read_error, {file_error, File, Reason}})
+    end;
+read_log(File) ->
+    throw({read_error, {badarg, [{file, File}, {mode, read_only}]}}).
+
+log_items({_Status, Items, Bad}, _File) -> {Items, Bad};
+log_items(not_a_log_file, File) -> throw({read_error, {not_a_log_file, File}}).
+
+%% The head of a table file: {{Major, Minor}, {ObjectCount, Md5sum}, Digest, Information}; badfile unless the first
+%% item is a tuple of the six mandatory items (or, verifying, when any byte frames no item). Verifying reads the
+%% version under the names major and minor, as OTP does.
+log_head([First | _], Bad, Verify) when not Verify; Bad =:= 0 ->
+    Header = header_items(First, Verify),
+    mandatory(Header) =:= 6 orelse throw(badfile),
+    Extended =
+        case lists:keyfind(extended_info, 1, Header) of
+            {extended_info, List} when is_list(List) ->
+                {lists:member(object_count, List), lists:member(md5sum, List)};
+            _ ->
+                {false, false}
+        end,
+    Digest =
+        case Verify andalso element(2, Extended) of
+            true -> erlang:md5_update(erlang:md5_init(), First);
+            false -> none
+        end,
+    {version(Header, Verify), Extended, Digest, Header};
+log_head(_, _, _) ->
+    throw(badfile).
+
+%% The information items; a damaged item is badfile, as disk_log's read_only chunks skip it, but raises from
+%% binary_to_term/1 when verifying, as OTP reads the binary then.
+header_items(Binary, true) ->
+    header_tuple(binary_to_term(Binary));
+header_items(Binary, false) ->
+    try binary_to_term(Binary) of
+        Term -> header_tuple(Term)
+    catch
+        error:_ -> throw(badfile)
+    end.
+
+header_tuple(Tuple) when is_tuple(Tuple) -> tuple_to_list(Tuple);
+header_tuple(_) -> throw(badfile).
+
+mandatory(Header) ->
+    length([
+        Tag
+     || {Tag, _} <- Header, lists:member(Tag, [name, type, protection, named_table, keypos, size])
+    ]).
+
+version(Header, true) -> {version_of(major, Header), version_of(minor, Header)};
+version(Header, false) -> {version_of(major_version, Header), version_of(minor_version, Header)}.
+
+version_of(Key, Header) ->
+    case lists:keyfind(Key, 1, Header) of
+        {Key, Version} -> Version;
+        false -> 0
+    end.
+
+%% The table to load into: a new one of the file's name, type, protection, key position and concurrency, or the one
+%% given; and the size the file's information records.
+create_table(Header, Target) ->
+    {name, Name} = lists:keyfind(name, 1, Header),
+    {type, Type} = lists:keyfind(type, 1, Header),
+    {protection, Protection} = lists:keyfind(protection, 1, Header),
+    {keypos, _} = Keypos = lists:keyfind(keypos, 1, Header),
+    {size, Size} = lists:keyfind(size, 1, Header),
+    Options =
+        [Option || {read_concurrency, _} = Option <- [lists:keyfind(read_concurrency, 1, Header)]] ++
+            [
+                Option
+             || {write_concurrency, _} = Option <- [lists:keyfind(write_concurrency, 1, Header)]
+            ] ++
+            [compressed || lists:keyfind(compressed, 1, Header) =:= {compressed, true}] ++
+            [named_table || named(Header)] ++ [Type, Protection, Keypos],
+    case Target of
+        [] -> {new_table(Name, Options), Size};
+        _ -> {Target, Size}
+    end.
+
+new_table(Name, Options) ->
+    try
+        ets:new(Name, Options)
+    catch
+        _:_ -> throw(cannot_create_table)
+    end.
+
+named(Header) ->
+    case lists:keyfind(named_table, 1, Header) of
+        {named_table, true} -> true;
+        {named_table, false} -> false
+    end.
+
+%% Insert the objects 100 at a time and check what the file's end information and the options ask for; without
+%% {verify, true} the file's extended information is not checked.
+load_table(Table, {_, Extended, Digest, _}, Items, HeadCount, Verify) ->
+    {Count, Md5} =
+        case Verify of
+            true -> Extended;
+            false -> {false, false}
+        end,
+    {Objects, End, Final} =
+        case Md5 of
+            true -> digested(Items, Digest, []);
+            false -> decoded(Items, Verify)
+        end,
+    insert_chunks(Table, Objects),
+    check_load(End, Final, length(Objects), HeadCount, {Verify, Count, Md5}),
+    {ok, Table}.
+
+%% The objects of the items and the end information, if the last item is it; items that do not decode are skipped,
+%% as disk_log's read_only chunks skip them, or badfile when verifying.
+decoded(Items, Verify) ->
+    Terms = lists:filtermap(fun(Item) -> decode_item(Item, Verify) end, Items),
+    case lists:reverse(Terms) of
+        [['$end_of_table', End] | Objects] -> {lists:reverse(Objects), End, none};
+        _ -> {Terms, none, none}
+    end.
+
+decode_item(Item, Verify) ->
+    try
+        {true, binary_to_term(Item)}
+    catch
+        error:_ when Verify -> throw(badfile);
+        error:_ -> false
+    end.
+
+%% With md5sum verified: items that do not decode are skipped, and the first end information ends the objects.
+digested([Item | Items], Digest, Objects) ->
+    try binary_to_term(Item) of
+        ['$end_of_table', End] -> {lists:reverse(Objects), End, Digest};
+        Term -> digested(Items, erlang:md5_update(Digest, Item), [Term | Objects])
+    catch
+        error:_ -> digested(Items, Digest, Objects)
+    end;
+digested([], Digest, Objects) ->
+    {lists:reverse(Objects), none, Digest}.
+
+check_load(none, _Digest, Loaded, HeadCount, {Verify, Count, Md5}) ->
+    (Count orelse Md5) andalso throw(badfile),
+    Verify andalso Loaded =/= HeadCount andalso throw(invalid_object_count),
+    ok;
+check_load(End, Digest, Loaded, HeadCount, {Verify, Count, Md5}) ->
+    Md5 andalso erlang:md5_final(Digest) =/= end_value(md5, End) andalso throw(checksum_error),
+    case Count of
+        true ->
+            Loaded =/= end_value(count, End) andalso throw(invalid_object_count);
+        false ->
+            Verify andalso not Md5 andalso Loaded =/= HeadCount andalso throw(invalid_object_count)
+    end,
+    ok.
+
+end_value(Key, End) ->
+    case lists:keyfind(Key, 1, End) of
+        {Key, Value} -> Value;
+        _ -> false
+    end.
+
+insert_chunks(Table, Objects) when length(Objects) > 100 ->
+    {Chunk, Rest} = lists:split(100, Objects),
+    ets:insert(Table, Chunk),
+    insert_chunks(Table, Rest);
+insert_chunks(Table, Objects) ->
+    ets:insert(Table, Objects).
+
+%% tabfile_info(File): what a table file's information records.
+tabfile_info(File) when is_list(File); is_atom(File) ->
+    try
+        {Items, Bad} = read_log(File),
+        {{Major, Minor}, _, _, Header} = log_head(Items, Bad, false),
+        Extended =
+            case lists:keyfind(extended_info, 1, Header) of
+                false -> {extended_info, []};
+                Found -> Found
+            end,
+        Fields = [
+            lists:keyfind(Key, 1, Header)
+         || Key <- [name, type, protection, named_table, keypos, size]
+        ],
+        {ok, Fields ++ [Extended, {version, {Major, Minor}}]}
+    catch
+        throw:Error -> {error, Error};
+        exit:Error -> {error, Error}
+    end.
 
 %% fun2ms(LiteralFun): without the ms_transform parse transform, only a fun of the shell's evaluator could be
 %% translated at run time; Clause has no such funs yet, so every fun exits as a compiled fun does in OTP.

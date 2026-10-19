@@ -240,6 +240,7 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      ets_select_edit_builtins(),
                                      ets_match_spec_builtins(),
                                      digraph_builtins(),
+                                     disk_log_builtins(),
                                      checksum_builtins(),
                                      tuple_edit_builtins(),
                                      process_option_builtins(),

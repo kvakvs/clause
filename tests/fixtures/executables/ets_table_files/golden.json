@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ets_table_files",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "round_trips: [[ok,true,set,251,protected,false,1,true],[ok,true,ordered_set,251,protected,false,1,true],[ok,true,bag,252,protected,false,1,true],[ok,true,duplicate_bag,252,protected,false,1,true]]\nheader: [<<1,2,3,4,99,88,77,11>>,<<98,87,76,65>>,[id,decentralized_counters,read_concurrency,write_concurrency,compressed,memory,owner,heir,name,size,node,named_table,type,keypos,protection,major_version,minor_version,extended_info],[{decentralized_counters,false},{read_concurrency,false},{write_concurrency,false},{compressed,false},{heir,none},{name,h},{size,2},{node,nonode@nohost},{named_table,false},{type,set},{keypos,2},{protection,public},{major_version,1},{minor_version,0},{extended_info,[]}],{ok,[{name,h},{type,set},{protection,public},{named_table,false},{keypos,2},{size,2},{extended_info,[]},{version,{1,0}}]}]\nextended: [[{{extended_info,[]},true},{{extended_info,[object_count]},true},{{extended_info,[md5sum]},true},{{extended_info,[object_count,md5sum]},true},{{extended_info,[]},true}]]\nnamed: [{error,cannot_create_table},file_table,[{k,v}],private,[{k,v},{old,1}],{error,{read_error,{file_error,n_atom_is_no_file,enoent}}}]\ndamaged: [[{ok,[{a,1},{b,2}]},{error,badfile},{ok,[{name,d},{type,set},{protection,protected},{named_table,false},{keypos,1},{extended_info,[object_count]},{version,{1,0}}]}],[{ok,[{a,1},{b,2}]},{ok,[{a,1},{b,2}]},{ok,[{name,d},{type,set},{protection,protected},{named_table,false},{keypos,1},{extended_info,[object_count]},{version,{1,0}}]}],[{error,{read_error,{not_a_log_file,[116,101,120,116,46,116,97,98]}}},{error,{read_error,{not_a_log_file,[116,101,120,116,46,116,97,98]}}},{error,{read_error,{not_a_log_file,[116,101,120,116,46,116,97,98]}}}],[{error,{read_error,{not_a_log_file,[115,104,111,114,116,46,116,97,98]}}},{error,{read_error,{not_a_log_file,[115,104,111,114,116,46,116,97,98]}}},{error,{read_error,{not_a_log_file,[115,104,111,114,116,46,116,97,98]}}}],[{error,{read_error,{not_a_log_file,[101,109,112,116,121,46,116,97,98]}}},{error,{read_error,{not_a_log_file,[101,109,112,116,121,46,116,97,98]}}},{error,{read_error,{not_a_log_file,[101,109,112,116,121,46,116,97,98]}}}],[{error,badfile},{error,badfile},{error,badfile}],[{error,badfile},{raised,badarg},{error,badfile}],[{error,{read_error,{file_error,[109,105,115,115,105,110,103,46,116,97,98],enoent}}},{error,{read_error,{file_error,[109,105,115,115,105,110,103,46,116,97,98],enoent}}},{error,{read_error,{file_error,[109,105,115,115,105,110,103,46,116,97,98],enoent}}}]]\nerrors: [{error,badtab},{error,{file_error,[110,111,95,115,117,99,104,95,100,105,114,101,99,116,111,114,121,47,120,46,116,97,98],enoent}},{error,{badarg,[{file,<<120,46,116,97,98>>},{repair,truncate}]}},ok,true,{error,{read_error,{badarg,[{file,<<120,46,116,97,98>>},{mode,read_only}]}}},{error,function_clause},{error,function_clause},{error,{read_error,{file_error,[109,105,115,115,105,110,103,46,116,97,98],enoent}}},{{error,badtab},true}]\noptions: [{error,{unknown_option,bogus}},{error,{unknown_option,[{extended_info,[bogus]}]}},{error,{malformed_option,bogus}},{error,{unknown_option,{extended_info,[]}}},{error,{unknown_option,{sync,'maybe'}}},{error,{unknown_option,ok}},{error,{unknown_option,bogus}},{error,{malformed_option,bogus}},{error,{unknown_option,{verify,'maybe'}}},{ok,[]}]\notp_file: [[{name,otp_made},{type,ordered_set},{protection,public},{named_table,true},{keypos,1},{size,4},{extended_info,[object_count,md5sum]},{version,{1,0}}],[{1,one},{2,[116,119,111]},{3,<<116,104,114,101,101>>},{{four},[4.0]}],true]\nlarge: [true,2]\nets_table_files: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "ets_table_files.erl": "d56fcacabb87031b0175cf6c2d04b5893aac97b19d7f16a6068bfa9b3b78aaa5"
+  }
+}

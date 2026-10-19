@@ -662,7 +662,12 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   and reads Erlang over `ets`, path searches and digraph_utils' traversals C++
   (`builtins/digraph/`: `DigraphView` reads the tables in place for module
   graph's walks, now over `graph::View`); `subgraph`, `condensation` and
-  `sofs:family_to_digraph/digraph_to_family` Erlang; `digraph_tables` golden
+  `sofs:family_to_digraph/digraph_to_family` Erlang; `digraph_tables` golden —
+  `663405e0`
+- **LIB12B** `ets:tab2file/2,3`, `file2tab/1,2`, `tabfile_info/1`: disk_log
+  halt logs in OTP's format written with `file` and split by
+  `clause_disk_log:items/1` (C++, read-only chunk rules), OTP's options,
+  verification and errors; files pass both ways; `ets_table_files` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

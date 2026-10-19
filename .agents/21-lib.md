@@ -37,7 +37,7 @@ create a new API that's for the end user to choose
   `unicode`, `uri_string`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution,
   tracing), `code` (51), `io` (31), `file` (30), `inet` (19), `gen_udp` (5),
-  `os` (4), `gen_tcp` (1), `ets` (8, LIB12B, LIB53, LIB73).
+  `os` (4), `gen_tcp` (1), `ets` (3, LIB53, LIB73).
 - **Missing:** 66 modules. Today a program gets the plain-Erlang ones (gen
   servers, `supervisor`, `timer`, ...) only by compiling OTP's sources from a
   search path.
@@ -110,7 +110,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ## Tier A: data modules without processes
 
-LIB0–LIB11, LIB4F and LIB12A are done (`00-finished.md`); their open remainders follow.
+LIB0–LIB11, LIB4F, LIB12A and LIB12B are done (`00-finished.md`); their open remainders follow.
 
 ### LIB9 remainder: declined `erlang` functions
 
@@ -130,11 +130,9 @@ LIB0–LIB11, LIB4F and LIB12A are done (`00-finished.md`); their open remainder
   small-integer `update_counter` in place, and a Linux TSan run over the ETS
   goldens (V02).
 
-### LIB12B. Table files: `ets` file functions
+### LIB12C (later): `ets` conversions
 
-- `ets:tab2file/2,3`, `file2tab/1,2`, `tabfile_info/1` in OTP's file format
-  (over `disk_log`, LIB52); `to_dets/2`, `from_dets/2` after LIB53, and
-  `table/1,2` after `qlc` (LIB73).
+- `to_dets/2`, `from_dets/2` after LIB53, and `table/1,2` after `qlc` (LIB73).
 - `ets:fun2ms/1` raises as OTP's does without the transform; it works once
   LIB72 (`ms_transform`) and D03 parse transforms exist.
 
@@ -407,16 +405,15 @@ missing, so programs that probe for them keep working.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB12B (table files).
-2. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
-3. LIB23 and LIB24 (`logger`, `application`).
-4. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
-5. LIB30–LIB34 (the front end, `consult`, `io:read`).
-6. LIB25 (local-node services).
-7. LIB51–LIB55 (files, logs, archives).
-8. LIB70, LIB62 and LIB63.
-9. LIB71–LIB74, then the declined modules' answer stubs.
-10. Later: LIB10F.
+1. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
+2. LIB23 and LIB24 (`logger`, `application`).
+3. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
+4. LIB30–LIB34 (the front end, `consult`, `io:read`).
+5. LIB25 (local-node services).
+6. LIB51–LIB55 (files, logs, archives), then LIB12C.
+7. LIB70, LIB62 and LIB63.
+8. LIB71–LIB74, then the declined modules' answer stubs.
+9. Later: LIB10F.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 
@@ -587,8 +584,7 @@ functions are listed separately and are optional.
 - `erl_tar` (stdlib, 14): add/3,4, close/1, create/2,3, extract/1,2,
   format_error/1, init/3, open/2, t/1, table/1,2, tt/1
 - `escript` (stdlib, 3): create/2, extract/2, script_name/0
-- `ets` (stdlib, 8, 62 done): file2tab/1,2, from_dets/2, tab2file/2,3,
-  tabfile_info/1, table/1,2, to_dets/2
+- `ets` (stdlib, 3, 67 done): from_dets/2, table/1,2, to_dets/2
 - `file_sorter` (stdlib, 14): check/1,2, keycheck/2,3, keymerge/3,4,
   keysort/2,3,4, merge/2,3, sort/1,2,3
 - `filelib` (stdlib, 16): ensure_dir/1, ensure_path/1, file_size/1,

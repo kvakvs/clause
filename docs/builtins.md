@@ -647,9 +647,19 @@ Erlang: `foldl/3`, `foldr/3` (the table fixed meanwhile), `i/0` and the
     list, and reports `return_trace` and `exception_trace`; trace actions
     that would change tracing check their arguments only
     ([differences](differences.md#ets)).
-- Table files, `dets` conversions and `table/1,2` are stubs until LIB12.
+- Table files (plan 21 step LIB12): `tab2file/2,3`, `file2tab/1,2` and
+  `tabfile_info/1` are Erlang over `file`, writing and reading disk_log halt
+  logs in OTP's internal format (head `LOGMAGIC` with `OPENED` until closed,
+  `BIGMAGIC` items with an MD5 of the size from 65528 bytes on), so files
+  pass both ways between Clause and OTP. `clause_disk_log:items/1`
+  (`builtins/disk_log/halt_log.cpp`) splits a file's bytes as disk_log reads
+  them read-only: undecodable items and bytes framing none are skipped
+  (`badfile` when verifying). Options, extended information
+  (`object_count`, `md5sum`), verification and the error terms are OTP's;
+  CTest `executables_ets_table_files` also reads a file OTP 29.1.1 wrote.
+- `to_dets/2`, `from_dets/2` (LIB53) and `table/1,2` (LIB73) are stubs.
 - CTests `executables_ets_tables`, `_owner`, `_update`, `_walk`,
-  `_concurrency` and `_match_specs` run OTP goldens.
+  `_concurrency`, `_match_specs` and `_table_files` run OTP goldens.
 
 ## Encodings
 

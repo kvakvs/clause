@@ -1113,6 +1113,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"ets", "is_compiled_ms", 1},
     BuiltinName{"ets", "match_spec_run_r", 3},
     BuiltinName{"erlang", "match_spec_test", 3},
+    // Halt log files for ets table files (plan 21 step LIB12; runtime/src/builtins/disk_log/halt_log.cpp).
+    BuiltinName{"clause_disk_log", "items", 1},
     // Modules digraph and digraph_utils (plan 21 step LIB12; runtime/src/builtins/digraph/).
     BuiltinName{"digraph", "get_path", 3},
     BuiltinName{"digraph", "get_cycle", 2},
