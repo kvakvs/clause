@@ -674,7 +674,12 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `delete_all_objects/1` take the indexes out and free them in portions
   (`Index::shed`); an ended owner's tables are freed outside the executor
   lock; small `update_counter` values change in place; `ets_portions`
-  golden (one and four workers); Linux TSan over the ETS goldens clean
+  golden (one and four workers); Linux TSan over the ETS goldens clean —
+  `d4d63f2c`
+- **LIB72** `ms_transform`: `parse_transform/2`, `transform_from_shell/3`,
+  `format_error/1` in Erlang over the abstract format, OTP's match
+  specifications, warnings and error codes; state threaded instead of the
+  process dictionary; `ms_transform_forms` golden over literal forms
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

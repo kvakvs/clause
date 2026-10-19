@@ -1,0 +1,6 @@
+%% OTP 29 ms_transform exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{format_error, 1, default, implemented}.
+{parse_transform, 2, default, implemented}.
+{parse_transform_info, 0, default, implemented}.
+{transform_from_shell, 3, default, implemented}.

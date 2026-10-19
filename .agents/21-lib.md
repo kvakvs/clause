@@ -32,7 +32,7 @@ create a new API that's for the end user to choose
   `zlib`, `binary`, `lists`, `maps`, `math`, `re` (`import/1` declined), `init`
   (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`, `dict`,
   `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`,
-  `filename`, `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `orddict`,
+  `filename`, `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `orddict`,
   `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
   `unicode`, `uri_string`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution,
@@ -110,7 +110,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ## Tier A: data modules without processes
 
-LIB0–LIB11, LIB4F, LIB10F, LIB12A and LIB12B are done (`00-finished.md`); their open remainders follow.
+LIB0–LIB11, LIB4F, LIB10F, LIB12A, LIB12B and LIB72 are done (`00-finished.md`); their open remainders follow.
 
 ### LIB9 remainder: declined `erlang` functions
 
@@ -129,8 +129,6 @@ LIB0–LIB11, LIB4F, LIB10F, LIB12A and LIB12B are done (`00-finished.md`); thei
 ### LIB12C (later): `ets` conversions
 
 - `to_dets/2`, `from_dets/2` after LIB53, and `table/1,2` after `qlc` (LIB73).
-- `ets:fun2ms/1` raises as OTP's does without the transform; it works once
-  LIB72 (`ms_transform`) and D03 parse transforms exist.
 
 ## Tier C: processes and behaviours (Erlang)
 
@@ -362,11 +360,7 @@ LIB0–LIB11, LIB4F, LIB10F, LIB12A and LIB12B are done (`00-finished.md`); thei
 - Selected or declined as one decision. The call tracer of plan 11 is the
   starting point.
 
-### LIB72. `ms_transform`
-
-- `parse_transform/2`, `transform_from_shell/3` and `format_error/1` in Erlang
-  over the abstract format (LIB31).
-- Enables `ets:fun2ms/1` once D03 parse transforms run.
+>>>>
 
 ### LIB73. `qlc`
 
@@ -644,8 +638,8 @@ functions are listed separately and are optional.
   underline_off/0, white/0, white_background/0, white_underline/0, yellow/0,
   yellow_background/0, yellow_underline/0
 - `log_mf_h` (stdlib, 2): init/3,4
-- `ms_transform` (stdlib, 3): format_error/1, parse_transform/2,
-  transform_from_shell/3
+>>>>
+
 - `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3,
   start/1, start_link/0,1, stop/1
 - `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3,
