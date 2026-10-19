@@ -3,7 +3,8 @@
 
 %% Functions that match a binary parameter and pass its rest back to themselves in tail calls loop on one
 %% sub-binary cell. Each case checks that the caller's binaries stay intact, that a failed guard or clause sees the
-%% unchanged binary, and that errors and collections inside such a loop behave as on OTP.
+%% unchanged binary, that rests and whole binaries kept, captured, sent or returned stay intact while the loop goes
+%% on, and that errors and collections inside such a loop behave as on OTP.
 main(_) ->
     Big = <<<<X:32>> || X <- lists:seq(1, 50000)>>,
     io:format("~p~n", [sum(Big, 0)]),
@@ -22,6 +23,20 @@ main(_) ->
     io:format("~p~n", [caught(fun() -> failing(<<1, 2, 3, 0, 4>>, 10) end)]),
     io:format("~p~n", [caught(fun() -> pairs(<<1, 2, 3>>, 0) end)]),
     io:format("~p~n", [garbage(200)]),
+    io:format("~p~n", [strings(<<"\"abc\"def\"\"g\"h\"">>, [])]),
+    io:format("~p~n", [wholes(<<1, 2, 3, 0, 9>>, [])]),
+    io:format("~p~n", [[F() || F <- captured(<<1, 2, 3>>, [])]]),
+    io:format("~p~n", [commas(<<"a,b,,c">>, [])]),
+    sent(<<1, 2, 3>>),
+    io:format("~p~n", [
+        [
+            receive
+                {rest, R} -> R
+            end
+         || _ <- [1, 2, 3]
+        ]
+    ]),
+    io:format("~p~n", [copies(100)]),
     io:format("binary_loops: ok~n").
 
 %% The sum of the 32-bit words.
@@ -73,6 +88,60 @@ pairs(<<>>, Acc) -> Acc.
 
 arity(Arity) when is_integer(Arity) -> Arity;
 arity(Arguments) -> length(Arguments).
+
+%% A rest returned by a clause that ends the loop, as a JSON string scanner does.
+strings(<<$", Rest/binary>>, Strings) ->
+    {String, After} = string(Rest, []),
+    strings(After, [String | Strings]);
+strings(<<>>, Strings) ->
+    lists:reverse(Strings);
+strings(<<_, Rest/binary>>, Strings) ->
+    strings(Rest, Strings).
+
+string(<<$", Rest/binary>>, Acc) -> {lists:reverse(Acc), Rest};
+string(<<C, Rest/binary>>, Acc) -> string(Rest, [C | Acc]).
+
+%% The whole binary is kept each step, and a clause binds it without matching it.
+wholes(<<X, Rest/binary>> = Binary, Kept) when X > 0 -> wholes(Rest, [Binary | Kept]);
+wholes(Binary, Kept) -> {Binary, Kept}.
+
+%% Funs capture the rest of each step.
+captured(<<_, Rest/binary>>, Funs) -> captured(Rest, [fun() -> Rest end | Funs]);
+captured(<<>>, Funs) -> Funs.
+
+%% The rest is kept on one branch and passed on by both.
+commas(<<X, Rest/binary>>, Kept) ->
+    case X of
+        $, -> commas(Rest, [Rest | Kept]);
+        _ -> commas(Rest, Kept)
+    end;
+commas(<<>>, Kept) ->
+    Kept.
+
+%% Each rest is sent before the loop goes on.
+sent(<<_, Rest/binary>>) ->
+    self() ! {rest, Rest},
+    sent(Rest);
+sent(<<>>) ->
+    ok.
+
+%% Copies of rests made while collections run, checked after the loop moved on.
+copies(0) ->
+    done;
+copies(N) ->
+    Binary = <<<<X:8>> || X <- lists:seq(1, 200)>>,
+    Kept = keep_every(Binary, 0, []),
+    case [byte_size(K) || K <- Kept] =:= lists:seq(0, 195, 5) of
+        true -> copies(N - 1);
+        false -> {wrong, N, Kept}
+    end.
+
+keep_every(<<_, Rest/binary>>, I, Kept) when I rem 5 =:= 4 ->
+    keep_every(Rest, I + 1, [Rest | Kept]);
+keep_every(<<_, Rest/binary>>, I, Kept) ->
+    keep_every(Rest, I + 1, Kept);
+keep_every(<<>>, _, Kept) ->
+    Kept.
 
 %% Many loops over fresh binaries, so collections move the loop cell while it is in use.
 garbage(0) ->

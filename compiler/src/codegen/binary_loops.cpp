@@ -9,7 +9,7 @@
 
 namespace clause::codegen {
 namespace {
-// The arguments at `parameter` of the self calls in tail position: the only places a loop's rest may be read.
+// The arguments at `parameter` of the self calls in tail position: where a loop passes its rest on.
 std::set<const ast::Expression *> looping_arguments(const ExpressionLowering &state, std::size_t parameter,
                                                     const std::set<const ast::Expression *> &tails) {
     std::set<const ast::Expression *> arguments;
@@ -58,48 +58,36 @@ bool parameter_use(const semantic::MatchPlan &plan, std::size_t parameter, Param
     return true;
 }
 
-// How a non-defining binding event bears on a loop: it reads the whole binary or a rest anywhere but a looping
-// argument (stop), passes a rest on (passed), or concerns another binding (other).
-enum class Event : std::uint8_t { other, passed, stop };
-
-Event event(const ExpressionLowering &state, const semantic::Binding &binding, const ParameterUse &use,
-            const std::set<const ast::Expression *> &arguments) {
-    if (use.wholes.contains(binding.identity)) {
-        return Event::stop;
-    }
-    if (!use.rests.contains(binding.identity)) {
-        return Event::other;
-    }
-    const bool looping = binding.use == semantic::BindingUse::read &&
-                         arguments.contains(&state.module.syntax->expression(binding.expression));
-    return looping ? Event::passed : Event::stop;
-}
-
-// Whether the parameter loops: the whole binary is never read, and its rests are read only as looping arguments.
-bool loops(const ExpressionLowering &state, const ParameterUse &use,
-           const std::set<const ast::Expression *> &arguments) {
-    bool passed = false;
+// Sort the reads of the parameter's rests and of the whole parameter (escaping rests, OPT1.4E): a rest read as a
+// looping argument is passed on; any other body read gets a copy, while guards only inspect the value.
+void sort_reads(const ExpressionLowering &state, const ParameterUse &use,
+                const std::set<const ast::Expression *> &arguments, LoopReads &reads) {
     for (const auto &binding : state.function.bindings) {
-        const auto kind =
-            binding.use == semantic::BindingUse::definition ? Event::other : event(state, binding, use, arguments);
-        if (kind == Event::stop) {
-            return false;
+        const bool rest = use.rests.contains(binding.identity);
+        if (binding.use != semantic::BindingUse::read || (!rest && !use.wholes.contains(binding.identity))) {
+            continue;
         }
-        passed = passed || kind == Event::passed;
+        const auto *read = &state.module.syntax->expression(binding.expression);
+        if (rest && arguments.contains(read)) {
+            reads.passed.insert(read);
+        } else if (binding.context == semantic::BindingContext::body) {
+            reads.copied.insert(read);
+        }
     }
-    return passed;
 }
 
-// Whether every clause's head lets `parameter` loop.
-bool qualifies(const ExpressionLowering &state, std::span<const semantic::MatchPlan> plans, std::size_t parameter,
-               const std::set<const ast::Expression *> &tails) {
+// How the parameter loops, when every clause's head lets it and some rest is passed back to the function.
+std::optional<LoopReads> loop_reads(const ExpressionLowering &state, std::span<const semantic::MatchPlan> plans,
+                                    std::size_t parameter, const std::set<const ast::Expression *> &tails) {
     ParameterUse use;
     for (const auto &plan : plans) {
         if (!parameter_use(plan, parameter, use)) {
-            return false;
+            return std::nullopt;
         }
     }
-    return loops(state, use, looping_arguments(state, parameter, tails));
+    LoopReads reads{.parameter = parameter, .passed = {}, .copied = {}, .wholes = use.wholes};
+    sort_reads(state, use, looping_arguments(state, parameter, tails), reads);
+    return reads.passed.empty() ? std::nullopt : std::optional{std::move(reads)};
 }
 
 } // namespace
@@ -118,18 +106,31 @@ std::vector<semantic::MatchPlan> head_plans(const ExpressionLowering &state, std
     return plans;
 }
 
-std::optional<std::size_t> binary_loop_parameter(const ExpressionLowering &state, std::size_t clauses,
-                                                 const std::set<const ast::Expression *> &tails) {
+std::optional<LoopReads> binary_loop_reads(const ExpressionLowering &state, std::size_t clauses,
+                                           const std::set<const ast::Expression *> &tails) {
     if (state.lambda) {
         return std::nullopt;
     }
     const auto plans = head_plans(state, clauses);
     for (std::size_t parameter = 0; !plans.empty() && parameter < state.function.key.arity; ++parameter) {
-        if (qualifies(state, plans, parameter, tails)) {
-            return parameter;
+        if (auto reads = loop_reads(state, plans, parameter, tails)) {
+            return reads;
         }
     }
     return std::nullopt;
+}
+
+llvm::Value *binary_loop_read(ExpressionLowering &state, const semantic::BindingId identity, llvm::Value *value,
+                              const ast::Expression *read) {
+    auto *loop = state.binary_loop;
+    if (!loop || (read && !loop->reads.copied.contains(read))) {
+        return value;
+    }
+    if (loop->in_variant && loop->whole && loop->reads.wholes.contains(identity)) {
+        return loop_copy(state, *loop->whole, value);
+    }
+    const auto rest = loop->rests.find(value);
+    return rest == loop->rests.end() ? value : loop_copy(state, rest->second, value);
 }
 
 llvm::Function *declare_loop_variant(const ExpressionLowering &state, const std::string_view suffix) {

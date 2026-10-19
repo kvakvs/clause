@@ -96,14 +96,14 @@ void tail_enter(ExpressionLowering &state, llvm::Function *target, const ast::Ca
 }
 
 // Store a binary loop rest's offset and length into the parameter's sub-binary cell (OPT1.4C).
-void update_context(ExpressionLowering &state, llvm::Value *cell, const std::pair<llvm::Value *, llvm::Value *> &rest) {
+void update_context(ExpressionLowering &state, llvm::Value *cell, const LoopRest &rest) {
     auto &builder = state.builder;
     const llvm::Align align(state.word->getBitWidth() / 8);
     auto *address = builder.CreateIntToPtr(
         builder.CreateSub(cell, llvm::ConstantInt::get(state.word, abi::v1::boxed_tag)), builder.getPtrTy());
-    builder.CreateAlignedStore(rest.first, builder.CreateConstGEP1_64(state.word, address, abi::v1::sub_offset_word),
+    builder.CreateAlignedStore(rest.offset, builder.CreateConstGEP1_64(state.word, address, abi::v1::sub_offset_word),
                                align);
-    builder.CreateAlignedStore(rest.second, builder.CreateConstGEP1_64(state.word, address, abi::v1::sub_bits_word),
+    builder.CreateAlignedStore(rest.bits, builder.CreateConstGEP1_64(state.word, address, abi::v1::sub_bits_word),
                                align);
 }
 
@@ -116,23 +116,19 @@ bool binary_loop_call(ExpressionLowering &state, const ast::Expression &expressi
         target != state.entry.getParent()->getFunction(state.function.symbol)) {
         return false;
     }
-    auto *argument = state.values.at(&state.module.syntax->expression(call.arguments.at(loop->parameter)));
+    auto *argument = state.values.at(&state.module.syntax->expression(call.arguments.at(loop->reads.parameter)));
+    const auto found = loop->rests.find(argument);
+    if (found == loop->rests.end()) {
+        return false;
+    }
     if (loop->in_variant) {
-        const auto found = loop->updates.find(argument);
-        if (found == loop->updates.end()) {
-            return false;
-        }
         update_context(state, argument, found->second);
         tail_enter(state, loop->variant, call);
         return true;
     }
-    const auto found = loop->fresh.find(argument);
-    if (found == loop->fresh.end()) {
-        return false;
-    }
     auto *variant = llvm::BasicBlock::Create(state.entry.getContext(), "binary.loop", &state.entry);
     auto *generic = llvm::BasicBlock::Create(state.entry.getContext(), "binary.shared", &state.entry);
-    state.builder.CreateCondBr(found->second, variant, generic);
+    state.builder.CreateCondBr(found->second.fresh, variant, generic);
     state.builder.SetInsertPoint(variant);
     tail_enter(state, loop->variant, call);
     state.builder.SetInsertPoint(generic);

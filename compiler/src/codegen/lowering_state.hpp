@@ -53,17 +53,44 @@ struct BinaryView {
     llvm::Value *base;
 };
 
-struct BinaryLoop {
-    // The parameter matched as a binary, the variant function, and whether the variant is being lowered.
+// A rest of a binary loop's parameter (OPT1.4C) and what a copy of it needs (escaping rests, OPT1.4E).
+struct LoopRest {
+    // Whether the value is a sub-binary cell only this loop holds (an i1): made here in the function, always in the
+    // variant. Only such a cell can enter the variant, and a read that may keep it gets a copy.
+    llvm::Value *fresh;
+    // The original-relative bit offset and bit length a variant's tail call stores into the parameter's cell, and
+    // the original the bits belong to.
+    llvm::Value *offset;
+    llvm::Value *bits;
+    llvm::Value *original;
+    // The matched binary and the cursor the rest starts at, from which the bits service makes a copy without room.
+    llvm::Value *input;
+    llvm::Value *cursor;
+};
+
+// How a binary loop's clauses read its parameter (OPT1.4C, escaping rests OPT1.4E).
+struct LoopReads {
+    // The parameter matched as a binary.
     std::size_t parameter;
+    // The reads of a rest that pass it on as that parameter of a self tail call: they keep the cell.
+    std::set<const ast::Expression *> passed;
+    // Body reads of a rest or of the whole parameter elsewhere: they may keep the value, so they get a copy.
+    std::set<const ast::Expression *> copied;
+    // The bindings of the whole parameter.
+    std::set<semantic::BindingId> wholes;
+};
+
+struct BinaryLoop {
+    // How the clauses read the parameter, the variant function, and whether the variant is being lowered.
+    LoopReads reads;
     llvm::Function *variant;
     bool in_variant;
-    // In the function: whether a rest value is a sub-binary cell just made, which only the variant may take over.
-    std::map<const llvm::Value *, llvm::Value *> fresh = {};
-    // In the variant: the original-relative bit offset and bit length a tail call stores into the parameter's cell.
-    std::map<const llvm::Value *, std::pair<llvm::Value *, llvm::Value *>> updates = {};
-    // In the variant: the parameter's view, read once before the clauses, since the parameter is always its cell.
+    // Each rest of the parameter the clause being lowered made.
+    std::map<const llvm::Value *, LoopRest> rests = {};
+    // In the variant: the parameter's view, read once before the clauses, since the parameter is always its cell,
+    // and the parameter as a rest at bit 0, which a read of the whole parameter copies.
     std::optional<BinaryView> view = {};
+    std::optional<LoopRest> whole = {};
 };
 
 // A function whose float parameters loop through self tail calls (float loops, OPT1.2): its `variant` takes each such
@@ -306,6 +333,15 @@ llvm::Value *inline_binary(ExpressionLowering &state, const ast::Bitstring &bina
 llvm::Value *lower_binary_part(ExpressionLowering &state, std::span<llvm::Value *const> values);
 // Whether a node extracts the rest of a binary (`Rest/binary` or `Rest/bits`) (OPT1.4B).
 bool rest_extraction(const semantic::MatchNode &node);
+// A binary loop variant's parameter `cell` with `view` as a rest at bit 0, which reads of the whole parameter copy.
+LoopRest whole_rest(ExpressionLowering &state, llvm::Value *cell, const BinaryView &view);
+// A copy of a binary loop's rest `value` for a read that may keep it, when the loop holds the cell (escaping rests,
+// OPT1.4E); `value` itself otherwise.
+llvm::Value *loop_copy(ExpressionLowering &state, const LoopRest &rest, llvm::Value *value);
+// The value of a read of `identity` in a binary loop: a copy where the loop's cell may be kept (escaping rests,
+// OPT1.4E); `read` is the reading expression, or null for a fun capturing the value.
+llvm::Value *binary_loop_read(ExpressionLowering &state, semantic::BindingId identity, llvm::Value *value,
+                              const ast::Expression *read);
 // Reject malformed/truncated segments without publishing tentative bindings or advancing their cursor.
 BitLowering lower_bit_pattern(ExpressionLowering &state, const semantic::MatchNode &node,
                               std::span<llvm::Value *> values, llvm::BasicBlock *mismatch);

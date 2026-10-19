@@ -32,8 +32,9 @@ llvm::Value *binding(ExpressionLowering &state, const ast::ExprId &expression) {
     if (!state.reads) {
         throw std::invalid_argument("lowering: binding read index is unavailable");
     }
-    const auto identity = state.reads->at(&state.module.syntax->expression(expression));
-    auto *value = state.bindings.at(identity);
+    const auto *read = &state.module.syntax->expression(expression);
+    const auto identity = state.reads->at(read);
+    auto *value = binary_loop_read(state, identity, state.bindings.at(identity), read);
     // A float loop variant's parameter gets a cell where it is read, so steps reading only its double make none (float
     // loops, OPT1.2).
     const auto *loop = state.float_loop;

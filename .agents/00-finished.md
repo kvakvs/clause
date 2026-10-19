@@ -411,8 +411,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   `5fa0c26c`
 - **OPT1.4D** integer segments of any constant width up to the word less 8 bits
   read inline at any bit position (whole-byte aligned: one load), 32-bit targets
-  included; 1-bit loop 182 to 5.0 ms (OTP 3.2), 12-bit fields 16.2 to 0.25 ms
-  (OTP 0.41) — `[plan20] OPT1.4D. Inline unaligned ...`
+  included; 1-bit loop 182 to 6.5 ms (OTP 3.2), 12-bit fields 16.3 to 0.40 ms
+  (OTP 0.41), unaligned 16-bit 11.8 to 0.27 ms — `8e3f483d`
+- **OPT1.4E** escaping rests: binary loops whose rests (or whole binary) are
+  also kept, returned, sent or captured stay loops; those reads get a copy
+  cell; JSON-like string scan 2.6 to 1.25 ms (OTP 1.2-1.6), comma fields kept
+  5.3 to 2.0 ms (OTP 2.3) — `[plan20] OPT1.4E. Binary loops copy ...`
 - **OPT0.20B** generational collection: safepoints run minor collections that
   promote objects below the high-water mark into an old area and leave it in
   place (ERTS sizing rules, Debug old→young check); 69A geomean 1.15x (sort

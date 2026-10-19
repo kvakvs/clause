@@ -238,16 +238,19 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   (`sub_*_word`) is read through its original. A trailing `Rest/binary` or
   `Rest/bits` of unit 1 is bump-allocated inline as a 4-word `sub_binary` cell
   of the original.
-- Binary loops: when every clause of a function matches one parameter as a
-  binary (or ignores it), never keeps the whole binary, and reads the rests it
-  binds only as that parameter of self tail calls, the function gets a private
-  variant `<symbol>.loop`. The function's own step makes the rest cell as above
+- Binary loops: when no clause head of a function compares one parameter
+  with a binding, and some clause passes a rest of it back as that parameter
+  of a self tail call, the function gets a private variant `<symbol>.loop`. The function's own step makes the rest cell as above
   and enters the variant with it (a rest the service made, which may be
   shared, re-enters the function instead). The variant makes no rest cell: each
   self tail call stores the new offset and bit length into the parameter's
   cell, which only this loop references, and passes the same cell on, so a
   loop over a binary allocates once. The variant reads the cell's view once
   per step, before its clauses, and skips the bitstring test of the parameter.
+  Any other body read of a rest, or in the variant of the whole parameter,
+  and every fun capturing one, gets a new `sub_binary` cell with the same bits
+  (the service makes it without heap room), so nothing else ever holds the
+  loop's cell; guards read the value itself.
   The variant has the function's name and arity in stack traces.
 - Float loops (64-bit targets): a parameter among the first six (those passed
   in registers) that every clause binds to a variable (or ignores), that some

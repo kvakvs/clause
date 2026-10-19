@@ -5,10 +5,10 @@ namespace clause::codegen {
 // Binary loops (OPT1.4C): a function that matches one parameter as a binary in every clause and passes the binary's
 // rest back to itself in tail calls gets a variant that keeps one sub-binary cell for the whole loop.
 
-// The parameter that qualifies: no clause keeps the whole binary, and every rest it binds is read only as that
-// parameter of a self tail call; none when no parameter does.
-std::optional<std::size_t> binary_loop_parameter(const ExpressionLowering &state, std::size_t clauses,
-                                                 const std::set<const ast::Expression *> &tails);
+// How the first parameter that qualifies is read: no clause head compares it with a binding, and some rest it binds
+// is passed back as that parameter of a self tail call; none when no parameter does.
+std::optional<LoopReads> binary_loop_reads(const ExpressionLowering &state, std::size_t clauses,
+                                           const std::set<const ast::Expression *> &tails);
 // The head plan of every clause of the function being lowered; empty when one has none.
 std::vector<semantic::MatchPlan> head_plans(const ExpressionLowering &state, std::size_t clauses);
 // Declare a private loop variant (binary or float loops) of the function being lowered, named `suffix` after it, with

@@ -166,7 +166,7 @@ llvm::Value *fun_service(ExpressionLowering &state, const ast::Expression &expre
         values = builder.CreateGEP(state.word, state.roots->buffer,
                                    llvm::ConstantInt::get(state.word, state.roots->next), "fun.captures");
         for (const auto &identity : captures) {
-            root_value(state, state.bindings.at(identity));
+            root_value(state, binary_loop_read(state, identity, state.bindings.at(identity), nullptr));
         }
     }
     auto *slot = root_slot(state);
@@ -191,18 +191,16 @@ llvm::Value *claimed(ExpressionLowering &state, llvm::GlobalVariable *atom_cache
 }
 
 // Write the fun cell at `top`: header, the definition from the fun cache, then the captured values.
-llvm::Value *write_fun(ExpressionLowering &state, const ast::Expression &expression, llvm::Value *definition,
+llvm::Value *write_fun(ExpressionLowering &state, llvm::Value *definition, std::span<llvm::Value *const> captured,
                        llvm::Value *top) {
     auto &builder = state.builder;
     const llvm::Align align(state.word->getBitWidth() / 8);
-    const auto &captures = state.module.funs.at(state.module.fun_entries.at(&expression)).captures;
-    const auto header = (static_cast<std::uint64_t>(1 + captures.size()) << abi::v1::header_count_shift) |
+    const auto header = (static_cast<std::uint64_t>(1 + captured.size()) << abi::v1::header_count_shift) |
                         (static_cast<std::uint64_t>(abi::v1::HeaderKind::fun_closure) << abi::v1::header_kind_shift);
     builder.CreateAlignedStore(llvm::ConstantInt::get(state.word, header), top, align);
     builder.CreateAlignedStore(definition, builder.CreateConstGEP1_64(state.word, top, 1), align);
-    for (std::size_t i = 0; i < captures.size(); ++i) {
-        builder.CreateAlignedStore(state.bindings.at(captures[i]), builder.CreateConstGEP1_64(state.word, top, 2 + i),
-                                   align);
+    for (std::size_t i = 0; i < captured.size(); ++i) {
+        builder.CreateAlignedStore(captured[i], builder.CreateConstGEP1_64(state.word, top, 2 + i), align);
     }
     auto *made = builder.CreateOr(builder.CreatePtrToInt(top, state.word),
                                   llvm::ConstantInt::get(state.word, abi::v1::boxed_tag));
@@ -228,16 +226,20 @@ llvm::Value *lower_fun(ExpressionLowering &state, const ast::Expression &express
     auto &context = state.entry.getContext();
     const llvm::Align align(state.word->getBitWidth() / 8);
     const auto index = state.module.fun_entries.at(&expression);
-    const auto captures = state.module.funs.at(index).captures.size();
+    // Captured values are read before the room is taken: a binary loop's copies allocate (OPT1.4E).
+    std::vector<llvm::Value *> captured;
+    for (const auto &identity : state.module.funs.at(index).captures) {
+        captured.push_back(binary_loop_read(state, identity, state.bindings.at(identity), nullptr));
+    }
     auto *definition = builder.CreateAlignedLoad(state.word, builder.CreateConstGEP1_64(state.word, fun_cache, index),
                                                  align, "fun.definition");
-    const auto room = heap_room(state, llvm::ConstantInt::get(state.word, 2 + captures));
+    const auto room = heap_room(state, llvm::ConstantInt::get(state.word, 2 + captured.size()));
     auto *direct = llvm::BasicBlock::Create(context, "fun.inline", &state.entry);
     auto *fallback = llvm::BasicBlock::Create(context, "fun.service", &state.entry);
     auto *join = llvm::BasicBlock::Create(context, "fun.join", &state.entry);
     builder.CreateCondBr(builder.CreateAnd(claimed(state, atom_cache), room.fits), direct, fallback);
     builder.SetInsertPoint(direct);
-    auto *made = write_fun(state, expression, definition, room.top);
+    auto *made = write_fun(state, definition, captured, room.top);
     heap_commit(state, room);
     builder.CreateBr(join);
     builder.SetInsertPoint(fallback);

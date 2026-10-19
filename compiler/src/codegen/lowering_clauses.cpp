@@ -138,17 +138,19 @@ void name_self(ExpressionLowering &initial) {
 }
 
 // In a binary loop's variant, read the parameter's view once before the clauses: it is always the loop's own
-// sub-binary cell, and no collection runs before the heads read it.
+// sub-binary cell, and no collection runs before the heads read it. Reads of the whole parameter copy it (OPT1.4E).
 void read_loop_view(ExpressionLowering &initial) {
     auto *loop = initial.binary_loop;
     if (!loop || !loop->in_variant) {
         return;
     }
     auto *slot = initial.builder.CreateGEP(initial.word, initial.entry.getArg(1),
-                                           llvm::ConstantInt::get(initial.word, loop->parameter));
+                                           llvm::ConstantInt::get(initial.word, loop->reads.parameter));
     auto *cell = initial.builder.CreateAlignedLoad(initial.word, slot, llvm::Align(initial.word->getBitWidth() / 8),
                                                    "binary.loop.cell");
+    mark_term(initial, cell);
     loop->view = sub_view(initial, cell);
+    loop->whole = whole_rest(initial, cell, *loop->view);
 }
 
 // In a float loop's variant, read each float parameter's double from the bits of its argument word once before the
@@ -220,16 +222,16 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
 // A binary loop (OPT1.4C): the function enters its variant with each rest cell it makes, and the variant, lowered
 // from the same clauses, keeps updating that one cell.
 void lower_loop(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses,
-                const std::set<const ast::Expression *> &tails, const std::size_t parameter) {
+                const std::set<const ast::Expression *> &tails, const LoopReads &reads) {
     auto *variant = declare_loop_variant(initial, ".loop");
-    BinaryLoop outer{parameter, variant, false};
+    BinaryLoop outer{reads, variant, false};
     initial.binary_loop = &outer;
     lower_candidates(initial, clauses, tails);
     llvm::IRBuilder<> builder(llvm::BasicBlock::Create(variant->getContext(), "entry", variant));
     ExpressionLowering inner{builder, *variant, initial.module, initial.function, initial.inferred, initial.word, {}};
     inner.reads = initial.reads;
     inner.proofs = initial.proofs;
-    BinaryLoop looping{parameter, variant, true};
+    BinaryLoop looping{reads, variant, true};
     inner.binary_loop = &looping;
     lower_candidates(inner, clauses, tails);
 }
@@ -262,8 +264,8 @@ void lower_float_loop(ExpressionLowering &initial, const std::vector<ast::Functi
 void lower_clauses(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses) {
     const auto leaves = tail_leaves(initial, clauses);
     const auto tails = tail_calls(initial, leaves);
-    if (const auto parameter = binary_loop_parameter(initial, clauses.size(), tails)) {
-        lower_loop(initial, clauses, tails, *parameter);
+    if (const auto reads = binary_loop_reads(initial, clauses.size(), tails)) {
+        lower_loop(initial, clauses, tails, *reads);
     } else if (auto floats = float_loop_parameters(initial, clauses.size(), {.calls = tails, .leaves = leaves})) {
         lower_float_loop(initial, clauses, tails, std::move(*floats));
     } else {
