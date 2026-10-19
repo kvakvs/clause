@@ -61,4 +61,5 @@
 {graph, stdlib, provided}.
 {sofs, stdlib, provided}.
 {ets, stdlib, provided}.
+{dets, stdlib, provided}.
 {ms_transform, stdlib, provided}.

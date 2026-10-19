@@ -41,7 +41,8 @@ DOCUMENTED_ENTRY = re.compile(rf"^\{{({ATOM}), ([a-z]+), ({ATOM}), (\d+)\}}\.$")
 # (docs/library.md#documented-functions); every other provided module implements, refuses or declines them all.
 PARTIAL = {
     "code": "LIB61",
-    "ets": "LIB12, LIB53, LIB73",
+    "dets": "LIB73",
+    "ets": "LIB73",
     "file": "LIB33, LIB50",
     "gen_tcp": "LIB60",
     "gen_udp": "LIB60",

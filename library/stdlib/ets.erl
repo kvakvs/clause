@@ -92,7 +92,6 @@ delete_all_objects(_) -> clause_builtin_placeholder.
 delete_object(_, _) -> clause_builtin_placeholder.
 first(_) -> clause_builtin_placeholder.
 first_lookup(_) -> clause_builtin_placeholder.
-from_dets(_, _) -> erlang:error({not_implemented, from_dets, 2}).
 give_away(_, _, _) -> clause_builtin_placeholder.
 info(_) -> clause_builtin_placeholder.
 info(_, _) -> clause_builtin_placeholder.
@@ -138,7 +137,6 @@ tab2list(_) -> clause_builtin_placeholder.
 table(_) -> erlang:error({not_implemented, table, 1}).
 table(_, _) -> erlang:error({not_implemented, table, 2}).
 take(_, _) -> clause_builtin_placeholder.
-to_dets(_, _) -> erlang:error({not_implemented, to_dets, 2}).
 update_counter(_, _, _) -> clause_builtin_placeholder.
 update_counter(_, _, _, _) -> clause_builtin_placeholder.
 update_element(_, _, _) -> clause_builtin_placeholder.
@@ -848,3 +846,32 @@ search_objects(View, Key, [Object | Rest], Re, Line, Number) ->
 
 matches(Object, Re) ->
     re:run(printed(Object), Re, [{capture, none}]) =:= match.
+
+%% from_dets(EtsTable, DetsTable) and to_dets(EtsTable, DetsTable) (plan 21 step LIB12C): dets:to_ets/2 and
+%% dets:from_ets/2, their errors raised as OTP's catch of them raises them.
+from_dets(EtsTable, DetsTable) ->
+    case dets_result(fun() -> dets:to_ets(DetsTable, EtsTable) end) of
+        {value, EtsTable} -> true;
+        Other -> dets_error(Other, [EtsTable, DetsTable])
+    end.
+
+to_dets(EtsTable, DetsTable) ->
+    case dets_result(fun() -> dets:from_ets(DetsTable, EtsTable) end) of
+        {value, ok} -> DetsTable;
+        Other -> dets_error(Other, [EtsTable, DetsTable])
+    end.
+
+%% A dets call's value or its exception's reason, as `catch` gives them: a throw is a value.
+dets_result(Call) ->
+    try Call() of
+        Value -> {value, Value}
+    catch
+        throw:Thrown -> {value, Thrown};
+        error:Reason -> {reason, Reason};
+        exit:{Reason, _} -> {reason, Reason};
+        exit:Reason -> {reason, Reason}
+    end.
+
+dets_error({value, {error, Reason}}, Arguments) -> erlang:error(Reason, Arguments);
+dets_error({value, Unexpected}, Arguments) -> erlang:error(Unexpected, Arguments);
+dets_error({reason, Reason}, Arguments) -> erlang:error(Reason, Arguments).

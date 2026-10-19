@@ -13,7 +13,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/terms/container_access.cpp src/terms/container_factory.cpp src/terms/container_services.cpp src/terms/structural_order.cpp
     src/process/generated_calls.cpp src/process/exceptions.cpp src/process/exits.cpp src/process/receive.cpp src/process/stack.cpp src/process/profile.cpp src/process/call_trace.cpp src/process/context.cpp src/process/identities.cpp src/process/ownership.cpp src/process/storage.cpp
     src/memory/heap.cpp src/memory/heap_storage.cpp src/memory/heap_blocks.cpp src/memory/heap_reservation.cpp src/memory/off_heap.cpp src/memory/heap_collect.cpp src/memory/heap_walk.cpp src/memory/heap_verify.cpp src/memory/copy.cpp src/memory/persistent_region.cpp src/memory/persistent_terms.cpp
-    src/scheduler/services.cpp src/scheduler/registry.cpp src/scheduler/transitions.cpp src/scheduler/executor.cpp src/scheduler/timer_wheel.cpp src/scheduler/timers.cpp src/scheduler/introspection.cpp src/scheduler/suspension.cpp src/scheduler/aliases.cpp src/scheduler/signals.cpp src/scheduler/ports.cpp src/ports/fd.cpp src/ports/input.cpp src/ports/io.cpp src/ports/spawn.cpp src/ports/file.cpp src/ports/file_info.cpp src/ports/file_paths.cpp src/ports/value.cpp src/ports/sockets.cpp src/ports/reactor.cpp
+    src/scheduler/services.cpp src/scheduler/registry.cpp src/scheduler/transitions.cpp src/scheduler/executor.cpp src/scheduler/timer_wheel.cpp src/scheduler/timers.cpp src/scheduler/introspection.cpp src/scheduler/suspension.cpp src/scheduler/aliases.cpp src/scheduler/signals.cpp src/scheduler/ports.cpp src/ports/fd.cpp src/ports/input.cpp src/ports/io.cpp src/ports/spawn.cpp src/ports/file.cpp src/ports/posix_reason.cpp src/ports/file_info.cpp src/ports/file_paths.cpp src/ports/value.cpp src/ports/sockets.cpp src/ports/reactor.cpp
     src/terms/term_text.cpp src/terms/term_text_scalars.cpp
     src/terms/atoms.cpp src/terms/atom_table.cpp src/terms/atom_spelling.cpp src/terms/factory.cpp src/terms/immediate.cpp src/terms/term.cpp src/terms/term_unchecked.cpp src/terms/equality.cpp src/terms/immediate_order.cpp src/terms/immediate_services.cpp
     src/builtins/registry.cpp src/builtins/invocation.cpp src/builtins/bridge.cpp src/builtins/portions.cpp src/builtins/float_text.cpp src/builtins/text.cpp src/builtins/typed.cpp src/builtins/io.cpp src/builtins/io_format.cpp src/builtins/os.cpp src/builtins/math.cpp src/builtins/maps.cpp src/builtins/persistent_term.cpp src/builtins/code.cpp src/builtins/init.cpp src/builtins/atomics.cpp src/builtins/erts_internal.cpp src/builtins/output.cpp
@@ -90,6 +90,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/digraph/view.cpp src/builtins/digraph/builtins.cpp
     # Halt log files of disk_log's internal format for ets table files (plan 21 step LIB12).
     src/builtins/disk_log/halt_log.cpp
+    # The dets file engine (plan 21 step LIB53).
+    src/builtins/dets/format.cpp src/builtins/dets/file.cpp src/builtins/dets/free_lists.cpp src/builtins/dets/header.cpp src/builtins/dets/objects.cpp src/builtins/dets/table.cpp src/builtins/dets/growth.cpp src/builtins/dets/work_list.cpp src/builtins/dets/scan.cpp src/builtins/dets/bulk.cpp src/builtins/dets/open.cpp src/builtins/dets/builtins.cpp
     # Modules erl_features and records (plan 21 step LIB8B).
     src/builtins/front_end/features.cpp src/builtins/records.cpp
     # Modules rand and random (plan 21 step LIB6).

@@ -657,9 +657,57 @@ Erlang: `foldl/3`, `foldr/3` (the table fixed meanwhile), `i/0` and the
   (`badfile` when verifying). Options, extended information
   (`object_count`, `md5sum`), verification and the error terms are OTP's;
   CTest `executables_ets_table_files` also reads a file OTP 29.1.1 wrote.
-- `to_dets/2`, `from_dets/2` (LIB53) and `table/1,2` (LIB73) are stubs.
+- `to_dets/2` and `from_dets/2` (plan 21 step LIB12C) are Erlang over
+  `dets:from_ets/2` and `dets:to_ets/2`, raising their errors as OTP does;
+  `table/1,2` (LIB73) are stubs.
 - CTests `executables_ets_tables`, `_owner`, `_update`, `_walk`,
   `_concurrency`, `_match_specs` and `_table_files` run OTP goldens.
+
+## Dets
+
+`dets` (plan 21 step LIB53, `library/stdlib/dets.erl` over `clause_dets`, the
+file engine in `builtins/dets/`) keeps OTP's version 9 file format byte for
+byte: for the same operations Clause writes the files OTP writes, so files pass
+both ways and every order that depends on the file (`match`, `select`,
+`foldl`, `traverse`, `to_ets`, `bchunk` in file order; `first`, `next` and
+`slot` in slot order) is OTP's.
+
+- **The engine** (C++, `builtins/dets/`): the header with its MD5 and buddy
+  counters (`header.cpp`), the buddy system with OTP's frozen lists while a
+  table is fixed (`free_lists.cpp`), segments, linear hashing with phash2 (and
+  the old phash of files that use it), growth by segments and the split of a
+  slot's collections (`table.cpp`, `growth.cpp`), the write cache's flush in
+  OTP's order: empty slots from the highest down, the others in batches of up
+  to 80 KB in file order, collections merged per key as `dets_v9` merges them
+  (`work_list.cpp`), the 8 KB chunks of scans and bchunk (`scan.cpp`), and
+  the bulk layouts of `init_table/2,3`, repairs and compactions: per buddy size
+  the largest first, blocks in a row, the segments rewritten
+  (`bulk.cpp`). Files are read and written with positioned I/O on the
+  worker, or in memory for `{ram_file, true}`.
+- **The processes** (Erlang): a `dets` server registered on first use with
+  OTP's `dets_registry` and `dets_owners` tables opens tables for their users,
+  closes a table when its last user closes it or ends, and answers `all/0`,
+  `pid2name/1` and `info(T, users)`. Each table has a process that holds the
+  file's handle, OTP's write cache (`{3000, 14000}` by default: flushed by a
+  lookup, past the size threshold or after the delay), the update mode
+  (`saved`, `dirty` after marking the file not properly closed), the fixes
+  (`safe_fixtable/2`, linked fixers), autosave and growth timers.
+- Opening checks the file as OTP does: a file not properly closed is repaired
+  (`{repair, false}` gives `needs_repair`), `{repair, force}` compacts a closed
+  file into the same slots, bad free lists repair; errors are OTP's
+  (`type_mismatch`, `keypos_mismatch`, `not_a_dets_file`, `access_mode`,
+  `incompatible_arguments`, `{file_error, File, Posix}`, ...).
+- Funs run where OTP runs them: `init_table/2,3` and `from_ets/2` call the
+  init fun in the table process (closing it only for invalid objects, as
+  file_sorter does), `foldl/3`, `traverse/2` and chunked matches in the caller.
+  `init_table/3` takes `term` and `bchunk` data (`bchunk/2` copies, with OTP's
+  filler bytes before large copies).
+- `table/1,2` wait for `qlc` (LIB73). The undocumented `file_info/1`,
+  `fsck/1,2`, `view/1`, `get_head_field/2`, `init/2`, `istart_link/1` and
+  the `sys` callbacks are stubs.
+- CTest `executables_dets_tables` compares every table type, option, error,
+  read, update, match, traversal, fix, bulk load, repair and compaction with
+  OTP, including the MD5 of each file written.
 
 ## Encodings
 

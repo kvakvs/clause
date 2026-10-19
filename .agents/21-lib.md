@@ -37,7 +37,7 @@ create a new API that's for the end user to choose
   `unicode`, `uri_string`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution,
   tracing), `code` (51), `io` (31), `file` (30), `inet` (19), `gen_udp` (5),
-  `os` (4), `gen_tcp` (1), `ets` (3, LIB53, LIB73).
+  `os` (4), `gen_tcp` (1), `ets` (2, LIB73), `dets` (2, LIB73).
 - **Missing:** 66 modules. Today a program gets the plain-Erlang ones (gen
   servers, `supervisor`, `timer`, ...) only by compiling OTP's sources from a
   search path.
@@ -110,7 +110,8 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ## Tier A: data modules without processes
 
-LIB0–LIB11, LIB4F, LIB10F, LIB12A, LIB12B and LIB72 are done (`00-finished.md`); their open remainders follow.
+LIB0–LIB11, LIB4F, LIB10F, LIB12A, LIB12B, LIB53 and LIB72 are done (`00-finished.md`); their open remainders
+follow.
 
 ### LIB9 remainder: declined `erlang` functions
 
@@ -121,14 +122,14 @@ LIB0–LIB11, LIB4F, LIB10F, LIB12A, LIB12B and LIB72 are done (`00-finished.md`
 
 ## Tier B: ETS and what needs it
 
-- `ets` ships with the LIB12C functions as stubs (`PARTIAL` in
+- `ets` and `dets` ship `table/1,2` as stubs until `qlc` (`PARTIAL` in
   `library_modules.py`).
 - Later: `select_delete/2` and `select_replace/2` over a whole table in
   portions (they run in one piece, each part under its lock).
 
-### LIB12C (later): `ets` conversions
+### LIB12C remainder: `ets:table/1,2`
 
-- `to_dets/2`, `from_dets/2` after LIB53, and `table/1,2` after `qlc` (LIB73).
+- `table/1,2` after `qlc` (LIB73), with `dets:table/1,2`.
 
 ## Tier C: processes and behaviours (Erlang)
 
@@ -279,11 +280,6 @@ LIB0–LIB11, LIB4F, LIB10F, LIB12A, LIB12B and LIB72 are done (`00-finished.md`
 - Erlang processes over `file`, with C++ for OTP's halt and wrap log chunk
   formats, so log files are exchangeable with OTP.
 - Unblocks `logger_disk_log_h` and the `ets` file functions.
-
-### LIB53. `dets`
-
-- `dets` (44): Erlang server with C++ for the file format.
-- Reads and writes OTP's byte-by-byte compatible version-9 files.
 
 ### LIB54. Archives: `zip`, `erl_tar`, `zstd`, `file_sorter`, `beam_lib`
 
@@ -544,13 +540,7 @@ functions are listed separately and are optional.
   hcb/1,2,3, help/0, ht/1,2,3, i/0,3, l/1, lc/1, lm/0, ls/0,1, m/0,1,
   memory/0,1, mm/0, nc/1,2, ni/0, nl/1, nregs/0, pi/1,3, pid/3, pwd/0, q/0,
   regs/0, uptime/0, xm/1, y/1,2
-- `dets` (stdlib, 44): all/0, bchunk/2, close/1, delete/2, delete_all_objects/1,
-  delete_object/2, first/1, foldl/3, foldr/3, from_ets/2, info/1,2,
-  init_table/2,3, insert/2, insert_new/2, is_compatible_bchunk_format/2,
-  is_dets_file/1, lookup/2, match/1,2,3, match_delete/2, match_object/1,2,3,
-  member/2, next/2, open_file/1,2, pid2name/1, repair_continuation/2,
-  safe_fixtable/2, select/1,2,3, select_delete/2, slot/2, sync/1, table/1,2,
-  to_ets/2, traverse/2, update_counter/3
+- `dets` (stdlib, 2, 42 done): table/1,2
 - `edlin` (stdlib, 1): keymap/0
 - `edlin_expand` (stdlib, 2): expand/1,2
 - `epp` (stdlib, 18): close/1, default_encoding/0, encoding_to_string/1,
@@ -573,7 +563,7 @@ functions are listed separately and are optional.
 - `erl_tar` (stdlib, 14): add/3,4, close/1, create/2,3, extract/1,2,
   format_error/1, init/3, open/2, t/1, table/1,2, tt/1
 - `escript` (stdlib, 3): create/2, extract/2, script_name/0
-- `ets` (stdlib, 3, 67 done): from_dets/2, table/1,2, to_dets/2
+- `ets` (stdlib, 2, 68 done): table/1,2
 - `file_sorter` (stdlib, 14): check/1,2, keycheck/2,3, keymerge/3,4,
   keysort/2,3,4, merge/2,3, sort/1,2,3
 - `filelib` (stdlib, 16): ensure_dir/1, ensure_path/1, file_size/1,

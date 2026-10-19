@@ -175,6 +175,16 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `ets:tab2file/2,3` and `file2tab/1,2` | Through a disk_log process named by a fresh reference | Written and read directly with `file` | [builtins](builtins.md#ets) |
 | `{process_dump}` and `{current_stacktrace}` in `erlang:match_spec_test/3` | The process's dump text; its stack trace | `<<>>`; `[]` | [builtins](builtins.md#ets) |
 
+## dets
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Requests waiting together at a table | Lookups, inserts and deletes queued at once share one cache update; lookups are answered before the writes are made; a fixed table makes some writers sleep 1 ms | Each request in turn, in arrival order | [builtins](builtins.md#dets) |
+| Long dets operations (repairs, `init_table/2,3`, compactions, flushes of a large cache) | Erlang code, preempted by reductions | One builtin call each; the table's worker runs nothing else meanwhile | [builtins](builtins.md#dets) |
+| `dets` processes | The `dets` server and `dets_sup` under `kernel_safe_sup`, tables under `dets_sup` | A `dets` server started on first use, unsupervised; table processes linked to it | [builtins](builtins.md#dets) |
+| `dets:all/0` order | The registry's ETS order | Clause's ETS order ([ETS](#ets)) | [builtins](builtins.md#dets) |
+| Reports | A repair is logged at info level; `verbose/0,1` and `DETS_DEBUG` log more; an internal failure is `{dets_bug, ...}` | Nothing is logged | [builtins](builtins.md#dets) |
+
 ## io
 
 | Difference | OTP | Clause | Owner |

@@ -308,6 +308,9 @@ test need no OTP (`docs/validation.md`).
   match families, match_spec functions, walks), `digraph`/`digraph_utils` over
   ETS tables (`DigraphView`, `graph::View` queries), ets table files via
   `disk_log` halt-log items.
+- Disk tables: `dets` keeps OTP's processes (registry server, one process per
+  table with the write cache and fixes) in Erlang over a C++ engine of the
+  version 9 file format (`builtins/dets/`) that writes OTP's bytes.
 - Others: `rand`/`random` (generators + observed tables), `math`, `binary`,
   `records` (native record reflection), front-end support `erl_internal`,
   `erl_anno`, `erl_features`; `ms_transform` in Erlang over abstract forms.

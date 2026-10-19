@@ -679,7 +679,15 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB72** `ms_transform`: `parse_transform/2`, `transform_from_shell/3`,
   `format_error/1` in Erlang over the abstract format, OTP's match
   specifications, warnings and error codes; state threaded instead of the
-  process dictionary; `ms_transform_forms` golden over literal forms
+  process dictionary; `ms_transform_forms` golden over literal forms —
+  `81589524`
+- **LIB53** `dets` with files byte for byte as OTP writes them: a C++ engine
+  (`builtins/dets/`: header and MD5, buddy system with frozen lists while
+  fixed, linear hashing and segment splits, the write cache's flush in OTP's
+  order, 8 KB scans and bchunks, bulk layouts of init_table, repair and
+  compaction) under OTP's `dets` server and table processes in Erlang (users,
+  write cache, fixes, timers); `ets:to_dets/2`, `from_dets/2`;
+  `dets_tables` golden compares file MD5s with OTP
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

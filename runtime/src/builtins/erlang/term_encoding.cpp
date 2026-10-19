@@ -1,3 +1,4 @@
+#include "term_encoding.hpp"
 #include "../../memory/heap_walk.hpp"
 #include "../../process/identities.hpp"
 #include "../../terms/atom_table.hpp"
@@ -371,6 +372,8 @@ constexpr std::array TERM_ENCODING_BUILTINS{
     typed_entry<external_size1>("erlang", "external_size"),   typed_entry<external_size2>("erlang", "external_size"),
 };
 } // namespace
+
+std::string encode_external(ProcessContext &context, const Term &term) { return encoding(context, term); }
 } // namespace clause::runtime::builtins
 
 namespace clause::runtime {
