@@ -4,7 +4,7 @@ This file lists optimizations taken from Lukas Larsson's (garazdawi) **T2-Full**
 optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
-Completed steps (all of tier OPT0 plus OPT1.1A/B, parts of OPT1.2 and OPT1.3,
+Completed steps (all of tier OPT0 plus OPT1.1, parts of OPT1.2 and OPT1.3,
 OPT1.4A-C, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.13A-C, OPT3.14 service path,
 read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
@@ -188,27 +188,6 @@ process_info/system_info item lists.
 
 Ordered by measured T2 value and how well each fits an AOT compiler.
 
-### OPT1.1 Loop recovery for self- and mutual tail recursion
-
-Status 2026-10-16: self tail calls become LLVM loops and keep their frame
-(OPT1.1A); tail calls within a tail-call cycle keep the caller link and the
-shared term slots (OPT1.1B, even/odd 16% faster). Open: **OPT1.1C** one LLVM
-function per cycle with a dispatch on the frame descriptor, so peers become loop
-branches (even/odd is still 1.45 ns per step against 1.19 ns for a self loop:
-callee prologue, argument stores and descriptor store per transfer).
-
-- **What:** rewrite a self tail call into a branch back to a synthesized loop
-  header, with phis for the parameters. Mutually tail-recursive SCCs (Tarjan)
-  become one loop with a dispatch. Loop structure stays side data (`LoopInfo`).
-  LLVM then sees real loops for LICM, unrolling and the vectorizer.
-- **Measured:** this is the core of the MVP's 1.97×. A tail call to an internal
-  `loop_top` instead of the public entry added another ~6 %, because it skips
-  the prologue and yield check.
-- **Clause:**
-  - Today a self tail call is `CLAUSE_tail_v1`, a full trampoline round trip.
-  - Keep a reduction check plus safepoint on the back-edge (OPT0.7).
-  - Collection happens only at the safepoint.
-
 ### OPT1.2 Keep loop-carried values in registers, untagged where proven
 
 Part done 2026-10-15/16: no eager root-slot stores, and arguments are stored
@@ -231,7 +210,6 @@ argument slots the live set at a collection is smaller, so the heap grows less
   - Only values that are live *at a safepoint* need a root slot.
   - Raw values must never occupy a GC-scanned slot: retagging to spill them
     gives back the win (`14_bs_cursor_iv.md` §6b).
-  - Item OPT1.1 must come first.
 
 ### OPT1.3 Speculation-free small-int fast paths, with guard fusion and range-proven overflow elimination
 
@@ -501,7 +479,7 @@ Builds on OPT1.4.
 
 1. **Substrate (tier OPT0):** done (open follow-ups above); it made services
    visible to LLVM and cut the 100–600× kernels.
-2. **Loops:** OPT1.1, then OPT1.2, then OPT1.3.
+2. **Loops:** OPT1.1 done; OPT1.2, then OPT1.3.
 3. **Binaries:** OPT1.4, then OPT1.5.
 4. **Maps:** OPT1.6, then the `maps:fold` part of OPT1.7.
 5. **Lists:** OPT1.12, then OPT1.7 together with OPT2.1.

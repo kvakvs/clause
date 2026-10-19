@@ -87,7 +87,7 @@
       ],
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "{left,32,1000000}\n{peer_failed,tail_calls,down,1}\n"
+      "stdout": "{left,32,1000000}\n{peer_failed,tail_calls,down,1}\n{tock,1501}\n{tick,1502}\n"
     },
     {
       "args": [
@@ -100,7 +100,7 @@
       "authored": true,
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "{left,32,1000000}\n{peer_failed,tail_calls,down,1}\n"
+      "stdout": "{left,32,1000000}\n{peer_failed,tail_calls,down,1}\n{tock,1501}\n{tick,1502}\n"
     }
   ],
   "oracle_version": [
@@ -112,7 +112,7 @@
     "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
   },
   "inputs": {
-    "tail_calls.erl": "e0992239f2096bb3626ff029883c52c6abc62f3c1d5d3e63ab31bcdee32549f3",
+    "tail_calls.erl": "c239f2d7da57b48e0c20f78062f3e32ce2400d1f0a629004042446032fc8ccd1",
     "tail_peer.erl": "a1b6b247197bbcaffae0c19caf2223ea4d788060f544b6d5d95513d909554cdd"
   }
 }

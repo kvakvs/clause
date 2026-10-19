@@ -126,8 +126,11 @@ test need no OTP (`docs/validation.md`).
   `Word f(ctx, args)` bodies move to `<sym>.body`; prologue builds the frame +
   resume switch, splits after non-tail calls, spills crossing values to term or
   raw slots, emits only `musttail` transfers. Self tail calls and tail-call
-  cycles (`TailCycles`) reuse frames; arguments spill only when crossing a call
-  or safepoint. `Code` = `void(ctx, x0..x5)`; enter/tail/return run inline with
+  cycles (`TailCycles`) reuse frames; each cycle merges into one
+  `<first>.cycle` function (`CycleMerge`: shared prologue, resume indices
+  numbered across members, start dispatch on the header's descriptor, member
+  transfers become branches, member debug scopes inlined into an artificial
+  one). Arguments spill only when crossing a call or safepoint. `Code` = `void(ctx, x0..x5)`; enter/tail/return run inline with
   `CLAUSE_enter/tail/return_v1` slow paths.
 - Runtime services are declared once in `codegen/runtime_symbols.hpp` and
   mangled per target (`mangling.hpp`).

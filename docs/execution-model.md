@@ -90,7 +90,12 @@ in the first register and ends the native call.
   descriptor, zeroes only the callee's term slots past the caller's and skips
   the stack limit test when the callee's frame is no larger. Like a self tail
   call, a kept slot may hold a term of an earlier member until the callee
-  writes it, so collections can keep such a term alive a little longer.
+  writes it, so collections can keep such a term alive a little longer. The
+  members of a cycle share one native function: every member's descriptor
+  names it as the body, its resume indices count across the members, and a
+  start (resume 0) picks the member from the frame's descriptor, so a tail
+  call between members is a branch rather than a transfer. Debuggers see the
+  members as inlined into that function.
 - **Yield.** With no reduction left, an entry does not push: it records itself
   in `ProcessStack::resume_`, keeps its arguments as register roots
   (`ProcessStack::keep_registers`) and returns code that ends the time slice, so

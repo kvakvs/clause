@@ -9,10 +9,14 @@
 #include <charconv>
 #include <clause/abi/frames.hpp>
 #include <iterator>
+#include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallPtrSet.h>
+#include <llvm/IR/DIBuilder.h>
+#include <llvm/IR/DebugInfoMetadata.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/Transforms/Utils/Local.h>
+#include <llvm/Transforms/Utils/SSAUpdater.h>
 #include <map>
 #include <optional>
 #include <set>
@@ -132,10 +136,28 @@ Services frame_services(llvm::Module &output, llvm::IntegerType *word) {
 struct Prologue {
     // Computed whenever the body is entered, so these dominate every resume point and never spill.
     llvm::BasicBlock *block;
+    llvm::Value *header;
     llvm::Value *registers;
     llvm::Value *slots;
     llvm::Value *resume;
 };
+
+// Read the frame header and register addresses from the context's FrameState where the builder is.
+Prologue load_prologue(const Services &services, llvm::IRBuilder<> &builder, llvm::Value *context) {
+    auto *stack = services.state(builder, context, StateField::stack, builder.getPtrTy(), "frame.stack");
+    auto *offset = services.state(builder, context, StateField::frame, services.word, "frame.offset");
+    auto *header = builder.CreateInBoundsGEP(services.word, stack, offset, "frame.header");
+    auto *registers = services.state(builder, context, StateField::registers, builder.getPtrTy(), "frame.registers");
+    auto *slots = builder.CreateConstInBoundsGEP1_64(services.word, header, frame_header_words, "frame.slots");
+    auto *resume = builder.CreateConstInBoundsGEP1_64(services.word, header, frame_resume_word, "frame.resume");
+    return {builder.GetInsertBlock(), header, registers, slots, resume};
+}
+
+// An integer or pointer comparison; built directly because IRBuilder's helpers trip clang-analyzer in LLVM headers.
+llvm::Value *compare(llvm::IRBuilder<> &builder, llvm::CmpInst::Predicate predicate, llvm::Value *left,
+                     llvm::Value *right) {
+    return builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, predicate, left, right));
+}
 
 struct ErlangCall {
     // A call of a native-form Erlang function, or of a fun through the apply marker, the FrameDescriptor it enters
@@ -208,6 +230,32 @@ void read_blocks(const llvm::Use &use, std::vector<const llvm::BasicBlock *> &bl
 // The native-form functions of one tail-call cycle (OPT1.1B): each reaches every other through tail calls only.
 using TailPeers = std::set<const llvm::Function *>;
 
+// A member's transfer to the start of a member of its merged cycle (OPT1.1C), which merging makes a branch.
+struct Transfer {
+    llvm::CallInst *call;
+    const llvm::Function *target;
+};
+
+// One lowered member of a merged tail-call cycle (OPT1.1C): its body, prologue and transfers within the cycle.
+struct Member {
+    const llvm::Function *native;
+    llvm::Constant *descriptor;
+    llvm::Function *body;
+    Prologue prologue;
+    std::vector<Transfer> transfers;
+};
+
+// A tail-call cycle (OPT1.1B). A merged one (OPT1.1C) becomes one function: its members number their resume
+// indices across the cycle and collect here once lowered.
+struct Cycle {
+    TailPeers members;
+    // Whether the cycle has two or more members and becomes one function.
+    bool merged = false;
+    // Resume indices the members lowered so far took, and those members.
+    std::size_t resumes = 0;
+    std::vector<Member> lowered;
+};
+
 // How an inline entry places the callee's frame: pushed above this one by a call, or in this frame's place by a
 // tail call; a tail call to a peer of this function's tail-call cycle keeps more of the frame (OPT1.1B).
 enum class Entry : std::uint8_t { call, tail, peer };
@@ -215,12 +263,12 @@ enum class Entry : std::uint8_t { call, tail, peer };
 // Lower one native-form function into the body its descriptor names.
 class FrameLowering {
   public:
-    // Borrow the module services, the native-form function and its tail-call peers; its body is created empty.
-    FrameLowering(const Services &services, llvm::Function &native, const TailPeers &peers)
-        : services_(services), native_(native), peers_(peers),
+    // Borrow the module services, the native-form function and its tail-call cycle; its body is created empty.
+    FrameLowering(const Services &services, llvm::Function &native, Cycle &cycle)
+        : services_(services), native_(native), cycle_(cycle), peers_(cycle.members),
           body_(*llvm::Function::Create(services.code, llvm::GlobalValue::InternalLinkage, native.getName() + ".body",
                                         services.output)),
-          arity_(erlang_arity(&native).value_or(0)), roots_(arity_) {
+          arity_(erlang_arity(&native).value_or(0)), resume_base_(cycle.merged ? cycle.resumes : 0), roots_(arity_) {
         body_.setCallingConv(services.convention);
     }
 
@@ -250,10 +298,15 @@ class FrameLowering {
             lower_tail(call);
         }
         for (std::size_t i = 0; i < continuations_.size(); ++i) {
-            lower_call(continuations_[i], i + 1);
+            lower_call(continuations_[i], resume_base_ + i + 1);
         }
         lower_returns();
         finish_prologue();
+        if (cycle_.merged) {
+            cycle_.resumes += continuations_.size();
+            cycle_.lowered.push_back(
+                {&native_, services_.descriptor_of(native_), &body_, prologue_, std::move(transfers_)});
+        }
         return descriptor_value();
     }
 
@@ -274,17 +327,9 @@ class FrameLowering {
         auto *entry = &body_.front();
         auto *block = llvm::BasicBlock::Create(body_.getContext(), "frame", &body_, entry);
         llvm::IRBuilder<> builder(block);
-        auto *context = body_.getArg(0);
-        auto *stack = services_.state(builder, context, StateField::stack, builder.getPtrTy(), "frame.stack");
-        auto *offset = services_.state(builder, context, StateField::frame, services_.word, "frame.offset");
-        auto *header = builder.CreateInBoundsGEP(services_.word, stack, offset, "frame.header");
-        auto *registers =
-            services_.state(builder, context, StateField::registers, builder.getPtrTy(), "frame.registers");
-        auto *slots = builder.CreateConstInBoundsGEP1_64(services_.word, header, frame_header_words, "frame.slots");
-        auto *resume = builder.CreateConstInBoundsGEP1_64(services_.word, header, frame_resume_word, "frame.resume");
+        prologue_ = load_prologue(services_, builder, body_.getArg(0));
         builder.CreateBr(entry);
-        prologue_ = {block, registers, slots, resume};
-        native_.getArg(1)->replaceAllUsesWith(slots);
+        native_.getArg(1)->replaceAllUsesWith(prologue_.slots);
         for (unsigned i = 0; i < register_arguments; ++i) {
             body_.getArg(i + 1)->setName("x" + std::to_string(i));
         }
@@ -551,7 +596,14 @@ class FrameLowering {
         llvm::IRBuilder<> builder(call.call);
         copy_arguments(builder, call);
         const auto entry = peers_.contains(call.callee) ? Entry::peer : Entry::tail;
-        enter(builder, call.descriptor, parameters(builder, call), entry);
+        enter(builder, call, parameters(builder, call), entry);
+    }
+
+    // Record a transfer to a member of this function's merged cycle; merging makes it a branch (OPT1.1C).
+    void record_transfer(llvm::CallInst *call, const llvm::Function *target) {
+        if (cycle_.merged && peers_.contains(target)) {
+            transfers_.push_back({call, target});
+        }
     }
 
     // The parameters of a call's transfer (OPT0.1A): a direct call's leading argument values, whose stores into the
@@ -693,14 +745,15 @@ class FrameLowering {
         llvm::IRBuilder<> builder(continuation.call.call);
         builder.CreateAlignedStore(llvm::ConstantInt::get(services_.word, index), prologue_.resume, services_.align());
         copy_arguments(builder, continuation.call);
-        enter(builder, continuation.call.descriptor, parameters(builder, continuation.call), Entry::call);
+        enter(builder, continuation.call, parameters(builder, continuation.call), Entry::call);
     }
 
-    // Enter `descriptor` with its arguments in the registers, replacing the call at the builder: pushed inline
-    // (OPT0.1) unless the entry needs the service (a wanted collection, profiling, no reductions left, stack growth
-    // or a builtin); a tail entry first releases this frame.
-    void enter(llvm::IRBuilder<> &builder, llvm::Value *descriptor, const Parameters &values, Entry entry) {
+    // Enter the call's descriptor with its arguments in the registers, replacing the call at the builder: pushed
+    // inline (OPT0.1) unless the entry needs the service (a wanted collection, profiling, no reductions left, stack
+    // growth or a builtin); a tail entry first releases this frame.
+    void enter(llvm::IRBuilder<> &builder, const ErlangCall &call, const Parameters &values, Entry entry) {
         auto *context = body_.getArg(0);
+        auto *descriptor = call.descriptor;
         const auto callee = load_callee(builder, descriptor);
         const bool tail = entry != Entry::call;
         if (tail && descriptor == services_.descriptor_of(native_)) {
@@ -722,7 +775,10 @@ class FrameLowering {
              room(builder, entry, callee, need)});
         auto *rest = diamond(builder, fast, "enter");
         push_inline(builder, callee, {at, need, reductions}, entry);
-        transfer(builder, callee.body, values);
+        auto *jump = transfer(builder, callee.body, values);
+        if (entry == Entry::peer) {
+            record_transfer(jump, call.callee);
+        }
         builder.SetInsertPoint(rest->getPrevNode());
         llvm::Value *code = nullptr;
         const auto loaded =
@@ -764,19 +820,12 @@ class FrameLowering {
                              builder.CreateConstGEP1_64(word, prologue_.registers, register_arguments),
                              services_.align(), builder.CreateMul(extra, unit));
         services_.set_state(builder, context, StateField::live, zero);
-        transfer(builder, callee.body, values);
+        record_transfer(transfer(builder, callee.body, values), &native_);
         builder.SetInsertPoint(rest->getPrevNode());
         llvm::Value *code = nullptr;
         const auto loaded = through_registers(builder, values, code, services_.tail, {context, descriptor});
         transfer(builder, code, loaded);
         discard(*rest);
-    }
-
-    // An integer or pointer comparison; built directly because IRBuilder's helpers trip clang-analyzer in LLVM
-    // headers.
-    static llvm::Value *compare(llvm::IRBuilder<> &builder, llvm::CmpInst::Predicate predicate, llvm::Value *left,
-                                llvm::Value *right) {
-        return builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, predicate, left, right));
     }
 
     // The arity, body and slot count of the descriptor an entry pushes.
@@ -939,7 +988,8 @@ class FrameLowering {
         }
     }
 
-    // Dispatch on the resume index: 0 starts the function, index k continues after the k-th call.
+    // Dispatch on the resume index: 0 starts the function, index k continues after the k-th call (counted from the
+    // indices earlier members of a merged cycle took).
     void finish_prologue() {
         if (continuations_.empty()) {
             return;
@@ -949,7 +999,7 @@ class FrameLowering {
         auto *resume = builder.CreateAlignedLoad(services_.word, prologue_.resume, services_.align(), "resume");
         auto *dispatch = builder.CreateSwitch(resume, terminator->getSuccessor(0), continuations_.size());
         for (std::size_t i = 0; i < continuations_.size(); ++i) {
-            dispatch->addCase(llvm::ConstantInt::get(services_.word, i + 1), continuations_[i].resume);
+            dispatch->addCase(llvm::ConstantInt::get(services_.word, resume_base_ + i + 1), continuations_[i].resume);
         }
         terminator->eraseFromParent();
     }
@@ -964,13 +1014,14 @@ class FrameLowering {
     }
 
     // Leave the body by a guaranteed tail call of `code` with the leading X registers as parameters.
-    void transfer(llvm::IRBuilder<> &builder, llvm::Value *code, const Parameters &values) const {
+    llvm::CallInst *transfer(llvm::IRBuilder<> &builder, llvm::Value *code, const Parameters &values) const {
         std::vector<llvm::Value *> arguments{body_.getArg(0)};
         arguments.insert(arguments.end(), values.begin(), values.end());
         auto *call = builder.CreateCall(services_.code, code, arguments);
         call->setCallingConv(services_.convention);
         call->setTailCallKind(llvm::CallInst::TCK_MustTail);
         builder.CreateRetVoid();
+        return call;
     }
 
     // Reserve raw words after the term slots; place_slots() fixes their index, recomputed on every entry.
@@ -1024,10 +1075,15 @@ class FrameLowering {
     // Module services and the function being moved from native form into its body.
     const Services &services_;
     llvm::Function &native_;
-    // This function's tail-call cycle (OPT1.1B).
+    // This function's tail-call cycle (OPT1.1B) and its members.
+    Cycle &cycle_;
     const TailPeers &peers_;
     llvm::Function &body_;
     std::size_t arity_;
+    // The resume indices earlier members of a merged cycle took (OPT1.1C); 0 otherwise.
+    std::size_t resume_base_;
+    // Transfers to members of a merged cycle, handed to the merge (OPT1.1C).
+    std::vector<Transfer> transfers_;
     Prologue prologue_{};
     // Term slots named by the marker (arguments first) plus spilled terms, then raw words for other spills and
     // native arrays; raw addresses are placed once the spilled term count is known.
@@ -1107,13 +1163,19 @@ class TailCycles {
         cycles_.resize(sizes_.size());
         for (std::size_t i = 0; i < natives.size(); ++i) {
             if (sizes_[nodes_[i].cycle] > 1) {
-                cycles_[nodes_[i].cycle].insert(natives[i]);
+                cycles_[nodes_[i].cycle].members.insert(natives[i]);
             }
+        }
+        for (auto &cycle : cycles_) {
+            cycle.merged = cycle.members.size() > 1;
         }
     }
 
-    // The members of function `index`'s cycle, empty outside every cycle of two or more.
-    [[nodiscard]] const TailPeers &peers(std::size_t index) const { return cycles_[nodes_[index].cycle]; }
+    // Function `index`'s cycle, without members outside every cycle of two or more.
+    [[nodiscard]] Cycle &cycle(std::size_t index) { return cycles_[nodes_[index].cycle]; }
+
+    // Every cycle, each lowered member of the merged ones collected (OPT1.1C).
+    [[nodiscard]] std::vector<Cycle> &cycles() { return cycles_; }
 
   private:
     struct Node {
@@ -1198,8 +1260,207 @@ class TailCycles {
     std::size_t counter_ = 0;
     // Member count of each cycle, then the members of every cycle of two or more.
     std::vector<std::size_t> sizes_;
-    std::vector<TailPeers> cycles_;
+    std::vector<Cycle> cycles_;
 };
+
+// Merge the lowered members of a tail-call cycle into one function (OPT1.1C). They share one prologue, which switches
+// on the resume index (numbered across the cycle) and on a start dispatches on the frame's descriptor; transfers
+// between members become branches to the callee's start, whose parameters PHIs join.
+class CycleMerge {
+  public:
+    // Borrow the module services and the members; the cycle's function is created empty.
+    CycleMerge(const Services &services, std::vector<Member> &members)
+        : services_(services), members_(members),
+          cycle_(*llvm::Function::Create(services.code, llvm::GlobalValue::InternalLinkage,
+                                         members.front().native->getName() + ".cycle", services.output)),
+          incoming_(members.size()) {
+        cycle_.setCallingConv(services.convention);
+        cycle_.getArg(0)->setName("context");
+        for (unsigned i = 0; i < register_arguments; ++i) {
+            cycle_.getArg(i + 1)->setName("x" + std::to_string(i));
+        }
+    }
+
+    // Move every member into the cycle's function, which takes the place of their bodies.
+    void merge() {
+        auto *block = llvm::BasicBlock::Create(cycle_.getContext(), "frame", &cycle_);
+        llvm::IRBuilder<> builder(block);
+        end_ = builder.CreateUnreachable();
+        builder.SetInsertPoint(end_);
+        prologue_ = load_prologue(services_, builder, cycle_.getArg(0));
+        inline_scopes();
+        for (auto &member : members_) {
+            absorb(member);
+        }
+        dispatch();
+        for (const auto &member : members_) {
+            for (const auto &transfer : member.transfers) {
+                jump(transfer);
+            }
+        }
+        for (std::size_t i = 0; i < members_.size(); ++i) {
+            join(i);
+            members_[i].body->replaceAllUsesWith(&cycle_);
+            members_[i].body->eraseFromParent();
+        }
+    }
+
+  private:
+    // A function holds only locations of its own scope: the cycle gets an artificial scope, and each member's
+    // locations become inlined into it at the member's line, as LLVM's inliner records them.
+    void inline_scopes() {
+        const auto scoped = std::ranges::find_if(
+            members_, [](const Member &member) { return member.body->getSubprogram() != nullptr; });
+        auto &output = services_.output;
+        if (scoped == members_.end() || output.debug_compile_units().empty()) {
+            return;
+        }
+        const auto *model = scoped->body->getSubprogram();
+        llvm::DIBuilder debug(output, true, *output.debug_compile_units_begin());
+        auto *scope = debug.createFunction(model->getFile(), (model->getName() + ".cycle").str(), "", model->getFile(),
+                                           model->getLine(), model->getType(), model->getScopeLine(),
+                                           model->getFlags() | llvm::DINode::FlagArtificial, model->getSPFlags());
+        debug.finalize();
+        cycle_.setSubprogram(scope);
+        llvm::DenseMap<const llvm::MDNode *, llvm::MDNode *> inlined;
+        for (const auto &member : members_) {
+            const auto *own = member.body->getSubprogram();
+            auto *site = llvm::DILocation::get(output.getContext(), own ? own->getLine() : 0, 0, scope);
+            for (auto &instruction : llvm::instructions(*member.body)) {
+                if (const auto &location = instruction.getDebugLoc()) {
+                    instruction.setDebugLoc(
+                        llvm::DebugLoc::appendInlinedAt(location, site, output.getContext(), inlined));
+                }
+            }
+            member.body->setSubprogram(nullptr);
+        }
+    }
+
+    // Move a member's blocks into the cycle: its prologue's addresses join the shared prologue, its resume cases the
+    // shared switch. Its parameters stay the cycle's after a resume; join() replaces those its start reads.
+    void absorb(const Member &member) {
+        auto *block = member.prologue.block;
+        auto *terminator = block->getTerminator();
+        auto *start = terminator->getSuccessor(0);
+        starts_.push_back(start);
+        if (auto *resumes = llvm::dyn_cast<llvm::SwitchInst>(terminator)) {
+            for (const auto &resume : resumes->cases()) {
+                cases_.emplace_back(resume.getCaseValue(), resume.getCaseSuccessor());
+            }
+        }
+        terminator->eraseFromParent();
+        member.prologue.header->replaceAllUsesWith(prologue_.header);
+        member.prologue.registers->replaceAllUsesWith(prologue_.registers);
+        member.prologue.slots->replaceAllUsesWith(prologue_.slots);
+        member.prologue.resume->replaceAllUsesWith(prologue_.resume);
+        for (auto &instruction : llvm::make_early_inc_range(llvm::reverse(*block))) {
+            if (llvm::isInstructionTriviallyDead(&instruction)) {
+                instruction.eraseFromParent();
+            }
+        }
+        for (auto &instruction : llvm::make_early_inc_range(*block)) {
+            instruction.moveBefore(end_->getIterator());
+        }
+        block->eraseFromParent();
+        member.body->getArg(0)->replaceAllUsesWith(cycle_.getArg(0));
+        for (unsigned i = 1; i <= register_arguments; ++i) {
+            member.body->getArg(i)->replaceUsesWithIf(cycle_.getArg(i), [start](const llvm::Use &use) {
+                return llvm::cast<llvm::Instruction>(use.getUser())->getParent() != start;
+            });
+        }
+        cycle_.splice(cycle_.end(), member.body);
+    }
+
+    // End the shared prologue: a nonzero resume index continues after a call; a start tests the frame's descriptor
+    // against each member's, the last member's without a test.
+    void dispatch() {
+        llvm::IRBuilder<> builder(end_);
+        auto *select =
+            llvm::BasicBlock::Create(cycle_.getContext(), "dispatch", &cycle_, end_->getParent()->getNextNode());
+        if (cases_.empty()) {
+            builder.CreateBr(select);
+        } else {
+            auto *resume = builder.CreateAlignedLoad(services_.word, prologue_.resume, services_.align(), "resume");
+            auto *resumes = builder.CreateSwitch(resume, select, cases_.size());
+            for (const auto &[index, block] : cases_) {
+                resumes->addCase(index, block);
+            }
+        }
+        end_->eraseFromParent();
+        builder.SetInsertPoint(select);
+        auto *descriptor = builder.CreateAlignedLoad(
+            builder.getPtrTy(), builder.CreateConstInBoundsGEP1_64(services_.word, prologue_.header, 1),
+            services_.align(), "frame.descriptor");
+        for (std::size_t i = 0; i + 1 < members_.size(); ++i) {
+            auto *next = llvm::BasicBlock::Create(cycle_.getContext(), "dispatch", &cycle_, select->getNextNode());
+            builder.CreateCondBr(compare(builder, llvm::CmpInst::ICMP_EQ, descriptor, members_[i].descriptor),
+                                 starts_[i], next);
+            entries_.push_back(builder.GetInsertBlock());
+            builder.SetInsertPoint(next);
+            select = next;
+        }
+        builder.CreateBr(starts_.back());
+        entries_.push_back(builder.GetInsertBlock());
+    }
+
+    // Replace a transfer to a member, a guaranteed tail call and return, by a branch to the member's start.
+    void jump(const Transfer &transfer) {
+        auto *call = transfer.call;
+        auto *block = call->getParent();
+        Parameters values{};
+        for (unsigned i = 0; i < register_arguments; ++i) {
+            values.at(i) = call->getArgOperand(i + 1);
+        }
+        auto *code = call->getCalledOperand();
+        block->getTerminator()->eraseFromParent();
+        call->eraseFromParent();
+        llvm::RecursivelyDeleteTriviallyDeadInstructions(code);
+        const auto target = static_cast<std::size_t>(
+            std::distance(members_.begin(), std::ranges::find(members_, transfer.target, &Member::native)));
+        llvm::IRBuilder<>(block).CreateBr(starts_.at(target));
+        incoming_.at(target).emplace_back(block, values);
+    }
+
+    // Replace the parameters member `index`'s start reads by their values from the dispatch and from each transfer.
+    void join(std::size_t index) {
+        for (unsigned i = 0; i < register_arguments; ++i) {
+            auto *parameter = members_[index].body->getArg(i + 1);
+            if (parameter->use_empty()) {
+                continue;
+            }
+            llvm::SSAUpdater updater;
+            updater.Initialize(services_.word, "x" + std::to_string(i));
+            updater.AddAvailableValue(entries_[index], cycle_.getArg(i + 1));
+            for (const auto &[block, values] : incoming_[index]) {
+                updater.AddAvailableValue(block, values.at(i));
+            }
+            parameter->replaceAllUsesWith(updater.GetValueInMiddleOfBlock(starts_[index]));
+        }
+    }
+
+    // Module services, the lowered members and the function taking their place.
+    const Services &services_;
+    std::vector<Member> &members_;
+    llvm::Function &cycle_;
+    // The shared prologue and its temporary end, replaced by the dispatch.
+    Prologue prologue_{};
+    llvm::Instruction *end_ = nullptr;
+    // Each member's start, the dispatch block entering it, and the transfers entering it with their parameters.
+    std::vector<llvm::BasicBlock *> starts_;
+    std::vector<llvm::BasicBlock *> entries_;
+    std::vector<std::vector<std::pair<llvm::BasicBlock *, Parameters>>> incoming_;
+    // The members' resume cases.
+    std::vector<std::pair<llvm::ConstantInt *, llvm::BasicBlock *>> cases_;
+};
+
+// Merge each lowered cycle of two or more members into one function (OPT1.1C).
+void merge_cycles(const Services &services, std::vector<Cycle> &cycles) {
+    for (auto &cycle : cycles) {
+        if (cycle.merged) {
+            CycleMerge(services, cycle.lowered).merge();
+        }
+    }
+}
 
 // Create every descriptor first so calls between functions of the module resolve to them.
 void lower_module(llvm::Module &output) {
@@ -1224,10 +1485,11 @@ void lower_module(llvm::Module &output) {
                                                          : llvm::GlobalValue::ExternalLinkage);
         descriptors.push_back(descriptor);
     }
-    const TailCycles cycles(natives);
+    TailCycles cycles(natives);
     for (std::size_t i = 0; i < natives.size(); ++i) {
-        descriptors[i]->setInitializer(FrameLowering(services, *natives[i], cycles.peers(i)).lower());
+        descriptors[i]->setInitializer(FrameLowering(services, *natives[i], cycles.cycle(i)).lower());
     }
+    merge_cycles(services, cycles.cycles());
     for (std::size_t i = 0; i < natives.size(); ++i) {
         finish_native(services, *natives[i], descriptors[i]);
     }

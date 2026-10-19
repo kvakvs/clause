@@ -21,7 +21,9 @@ main(["self"]) ->
     show(guarded(id(?BRANCH_STEPS), 0));
 main(["peers"]) ->
     show(left(id(?BRANCH_STEPS), [], 0)),
-    show(failing_peer(id(1001))).
+    show(failing_peer(id(1001))),
+    show(tick(id(1001), 0)),
+    show(tock(id(1001), 0)).
 
 show(Value) -> erlang:display(Value).
 
@@ -99,6 +101,13 @@ up(N) -> down(N - 1).
 
 down(0) -> error(peer_failed);
 down(N) -> up(N - 1).
+
+%% Both members of a tail-call cycle continue after non-tail calls, and the cycle is entered at either member.
+tick(0, Acc) -> {tick, Acc};
+tick(N, Acc) -> tock(N - 1, Acc + id(1)).
+
+tock(0, Acc) -> {tock, Acc};
+tock(N, Acc) -> tick(N - 1, Acc + id(2)).
 
 %% Tail calls from case, if and begin/end clause bodies.
 branch(0, Acc) ->

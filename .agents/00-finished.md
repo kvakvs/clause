@@ -390,6 +390,9 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT1.1B** tail calls between members of a tail-call cycle keep the caller
   link and shared term slots; even/odd 16%, euler O2 0.565 to 0.540 s —
   `9dfdc244`
+- **OPT1.1C** each tail-call cycle is one LLVM function dispatching on the
+  frame's descriptor; member tail calls are branches; even/odd 23%, 3-state
+  18% — `[plan20] OPT1.1C ...`
 - **OPT1.2 (part 2)** arguments stored into their slots only where they cross
   a call or safepoint; self loop 8%, list sum 7% — `3d23d818`
 - **OPT1.3 (part)** inline `+`/`-` on tagged words with a sign-test overflow
