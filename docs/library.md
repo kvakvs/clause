@@ -27,7 +27,7 @@ implemented and which are stubs.
 | [`gb_trees`](../library/stdlib/gb_trees.erl), [`gb_sets`](../library/stdlib/gb_sets.erl), [`queue`](../library/stdlib/queue.erl) | Every documented function over OTP's tree and queue shapes; the operations without funs are runtime builtins ([collections](builtins.md#collections)) |
 | [`dict`](../library/stdlib/dict.erl), [`sets`](../library/stdlib/sets.erl) | Every documented function over OTP's records (version 1 sets) and maps (version 2); operations without funs are runtime builtins ([collections](builtins.md#collections)) |
 | [`io`](../library/stdlib/io.erl) | `get_line/1,2`, `get_chars/2,3` (standard input server or an open file), `fread/2,3` (a `get_until` request over `io_lib:fread/3`), `request/1,2`, `requests/1,2` (OTP's I/O protocol, [files](ports.md#standard-io-and-files)); `format/1,2,3`, `fwrite/1,2,3`, `put_chars/1,2` and `nl/0,1` are runtime builtins ([io](io.md)) |
-| [`io_lib`](../library/stdlib/io_lib.erl) | Writers, checks, collect functions, the format engine, the pretty printer (`print/1,4`, `~p`, `chars_limit`) and the scanner (`fread/2,3`) as runtime builtins in OTP's deep list shapes; `get_until`, `format_prompt` and `write/3` Erlang ([io_lib](builtins.md#io_lib)) |
+| [`io_lib`](../library/stdlib/io_lib.erl) | Writers, checks, collect functions, the format engine, the pretty printer (`print/1,4`, `~p`, `chars_limit`) and the scanner (`fread/2,3`) as runtime builtins in OTP's deep list shapes, `maps_order` funs sorting keys in `clause_io_lib`; `get_until`, `format_prompt` and `write/3` Erlang ([io_lib](builtins.md#io_lib)) |
 | [`sofs`](../library/stdlib/sofs.erl), [`clause_sofs`](../library/stdlib/clause_sofs.erl) | Every function but the digraph conversions (stubs until `digraph`); data operations are runtime builtins, the fun-taking functions Erlang ([sets of sets](builtins.md#sets-of-sets)) |
 | [`ets`](../library/stdlib/ets.erl) | Tables, reads, writes, walks and updates as runtime builtins over the runtime's tables; `foldl/3`, `foldr/3`, `i/0..3` and `fun2ms/1` Erlang; match specifications (LIB11) and table files (LIB12) are stubs ([ets](builtins.md#ets)) |
 | [`graph`](../library/stdlib/graph.erl) | Every function over OTP's record; the queries and traversals are runtime builtins, the updates Erlang ([graph](builtins.md#graph)) |
@@ -159,7 +159,7 @@ warning, since nothing is replaced.
   application that owns the module in OTP: `erts` (preloaded counterparts and
   `erlang`), `kernel`, `stdlib`. Clause's private helper modules
   (`clause_socket`, `clause_re`, `clause_unicode`, `clause_zlib`,
-  `clause_receive`, `clause_maps`, `clause_hashed`, `clause_array`, `clause_features`) sit beside the modules they serve. The library lookup
+  `clause_receive`, `clause_maps`, `clause_hashed`, `clause_array`, `clause_features`, `clause_io_lib`) sit beside the modules they serve. The library lookup
   searches every application directory; a module name exists in at most one
   of them.
 - `library/modules.terms` lists every module Clause decides about:

@@ -972,8 +972,19 @@ arena (`io_lib/deep.cpp`), then becomes a term (`io_lib`) or flat characters
   `try` around `~#` turns every later error into `{fread, based}`.
 - Erlang: `get_until/1,3,4` (it applies the caller's scanner),
   `format_prompt/1,2` and `write/3`.
-- Containers nested more than 256 deep raise `system_limit`, and `maps_order`
-  comparison funs are `badarg` ([differences](differences.md#io)).
+- `maps_order` comparison funs (`~K` with a fun, the `maps_order` option of
+  `write/2`, `write/5`, `bwrite/2` and `write_bin/5`; plan 21 step LIB4F,
+  `io_lib/key_orders.cpp`): a builtin cannot call the fun, so the call writes
+  such a map in Clause's key order, records it, and at its end continues in
+  `clause_io_lib:sort_maps/6` instead of returning (or writing, for
+  `io:format`). That sorts the keys with `lists:sort(Fun, maps:keys(Map))`, as
+  `maps:iterator/2` does, and reruns the call through
+  `clause_io_lib:apply_ordered/4` with every key list sorted so far; maps
+  reached only by the new order go round again. A fun that raises or answers
+  no boolean makes the format functions and `io:format` raise `badarg`, as
+  io_lib's catch does, and `write/2` raise its error.
+- Containers nested more than 256 deep raise `system_limit`
+  ([differences](differences.md#io)).
   `executables_io_lib_text` compares every function's shapes with OTP's,
   `executables_pretty_print` the pretty printer's, `executables_fread_scanning`
   the scanner's.

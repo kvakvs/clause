@@ -3,6 +3,7 @@
 #include "../../terms/term_text.hpp"
 #include "../string/string.hpp"
 #include "../text.hpp"
+#include "key_orders.hpp"
 #include <algorithm>
 #include <array>
 #include <clause/abi/keywords.hpp>
@@ -80,6 +81,9 @@ std::int64_t wide_latin1(std::u32string_view text) {
 std::vector<std::pair<Term, Term>> map_entries(const Term &map, MapsOrder order) {
     if (order == MapsOrder::other) {
         bad_argument();
+    }
+    if (order == MapsOrder::sorted) {
+        return sorted_entries(map, order.fun);
     }
     auto entries = need(map.map_entries());
     if (order == MapsOrder::reversed) {

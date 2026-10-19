@@ -326,7 +326,10 @@ Compact map of how Clause works. History lives in `00-finished.md`,
 - Portions (`docs/builtins.md#portions`): builtins spend
   `ProcessStack::budget()`, then `trap(continuation, state)`; `TrapState` roots;
   `builtins/portions` (`walk`, `build_list`, `ListState`). Builtins may continue
-  in an Erlang export (`BUILTIN_CONTINUATIONS`, e.g. io -> `file:write/2`).
+  in an Erlang export (`semantic/builtin_continuations.hpp`, e.g. io ->
+  `file:write/2`, io_lib/io writes -> `clause_io_lib:sort_maps/6` for
+  `maps_order` funs); a call of one keeps the target live and brings its
+  module into the batch.
 - Layout: `runtime/src/builtins/erlang/` (one TU per family; process-wide
   state in executor `scheduler/timers.cpp`, `aliases.cpp`, `introspection.cpp`;
   per-process in `ProcessContext`: `ProcessDictionary`, group leader), module

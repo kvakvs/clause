@@ -58,6 +58,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/io_lib/format_scan.cpp src/builtins/io_lib/format_build.cpp src/builtins/io_lib/format_float.cpp
     src/builtins/io_lib/format_builtins.cpp src/builtins/io_lib/collect.cpp src/builtins/io_lib/fread.cpp src/builtins/io_lib/pretty.cpp
     src/builtins/io_lib/pretty_length.cpp src/builtins/io_lib/pretty_layout.cpp src/builtins/io_lib/pretty_bin.cpp
+    # maps_order comparison funs (plan 21 step LIB4F).
+    src/builtins/io_lib/key_orders.cpp
     # Modules erl_anno and erl_internal (plan 21 step LIB8).
     src/builtins/front_end/erl_anno.cpp src/builtins/front_end/erl_internal.cpp
     # The erlang gaps of plan 21 step LIB9A.

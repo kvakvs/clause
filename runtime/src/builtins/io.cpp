@@ -1,6 +1,7 @@
 #include "../scheduler/executor.hpp"
 #include "../terms/service_errors.hpp"
 #include "io_format.hpp"
+#include "io_lib/key_orders.hpp"
 #include "text.hpp"
 #include "typed.hpp"
 #include <array>
@@ -112,20 +113,26 @@ Word emit_to(ProcessContext &context, const Device &target, std::u32string_view 
     return target.error_stream ? emit_error(context, text) : emit(context, text);
 }
 
+// Write formatted text, unless the format met maps ordered by comparison funs whose keys are still to be sorted (plan
+// 21 step LIB4F): the call then runs again.
+Word emit_formatted(ProcessContext &context, const Device &target, std::u32string_view text) {
+    return io_lib::keys_missing() ? 0 : emit_to(context, target, text);
+}
+
 // io:format(Format): io:format(Format, []).
 Word format1(ProcessContext &context, const Term &format) {
-    return emit(context, format_text(context, format, std::nullopt));
+    return emit_formatted(context, {}, format_text(context, format, std::nullopt));
 }
 
 // io:format(Format, Args).
 Word format2(ProcessContext &context, const Term &format, const Term &arguments) {
-    return emit(context, format_text(context, format, arguments));
+    return emit_formatted(context, {}, format_text(context, format, arguments));
 }
 
 // io:format(IoDevice, Format, Args) (step 41U).
 Word format3(ProcessContext &context, const IoDevice &io_device, const Term &format, const Term &arguments) {
     const auto target = device(context, io_device);
-    return emit_to(context, target, format_text(context, format, arguments));
+    return emit_formatted(context, target, format_text(context, format, arguments));
 }
 
 // io:put_chars(Chardata).
@@ -147,13 +154,13 @@ Word nl1(ProcessContext &context, const IoDevice &io_device) {
 }
 
 constexpr std::array IO_BUILTINS{
-    typed_entry<format1>("io", "format"),
-    typed_entry<format2>("io", "format"),
+    io_lib::ordering_entry<format1, true>("io", "format"),
+    io_lib::ordering_entry<format2, true>("io", "format"),
     typed_entry<put_chars>("io", "put_chars"),
-    typed_entry<format3>("io", "format"),
-    typed_entry<format1>("io", "fwrite"),
-    typed_entry<format2>("io", "fwrite"),
-    typed_entry<format3>("io", "fwrite"),
+    io_lib::ordering_entry<format3, true>("io", "format"),
+    io_lib::ordering_entry<format1, true>("io", "fwrite"),
+    io_lib::ordering_entry<format2, true>("io", "fwrite"),
+    io_lib::ordering_entry<format3, true>("io", "fwrite"),
     typed_entry<put_chars2>("io", "put_chars"),
     typed_entry<nl0>("io", "nl"),
     typed_entry<nl1>("io", "nl"),

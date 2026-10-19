@@ -1,5 +1,5 @@
 -module(io_lib_text).
--export([main/1]).
+-export([main/1, id/1]).
 
 %% io_lib (plan 21 step LIB4C): the write family, the character list checks, limit_term/2, the collect functions
 %% and format/2,3 with every control sequence but ~p, each result printed with ~w so OTP's deep list shapes show.
@@ -114,6 +114,10 @@ main(_) ->
         E <- [latin1, unicode]
     ]),
     show(format_prompt1, [reason(fun() -> io_lib:format_prompt("p") end)]),
+    show(maps_order_funs, maps_order_funs()),
+    io:format("~Kw ~Kp~n", [
+        fun descending/2, #{1 => a, 2 => b}, fun descending/2, #{x => #{1 => a, 2 => b}}
+    ]),
     io:format("io_lib_text: ok~n").
 
 terms() ->
@@ -347,6 +351,38 @@ specs(Scanned) ->
     ].
 
 show(Name, Value) -> io:format("~w: ~w~n", [Name, Value]).
+
+%% maps_order comparison funs (plan 21 step LIB4F): keys sorted by the fun in the writers, formats and the pretty
+%% printer, maps nested in keys and values, depth and chars_limit, and funs that raise or return other terms.
+maps_order_funs() ->
+    Desc = fun descending/2,
+    Nested = #{
+        1 => #{b => 1, a => 2}, #{2 => x, 1 => y} => [#{3 => c, 4 => d}], 0 => {#{z => 1, y => 2}}
+    },
+    Crash = fun(_, _) -> error(boom) end,
+    [
+        reason(fun() -> io_lib:write(Nested, [{maps_order, Desc}]) end),
+        reason(fun() -> io_lib:write(Nested, [{maps_order, Desc}, {depth, 3}]) end),
+        reason(fun() -> io_lib:write(Nested, [{maps_order, Desc}, {chars_limit, 20}]) end),
+        reason(fun() -> io_lib:write(Nested, -1, unicode, Desc, -1) end),
+        reason(fun() -> io_lib:bwrite(Nested, [{maps_order, Desc}]) end),
+        reason(fun() -> io_lib:write_bin(Nested, -1, unicode, Desc, -1) end),
+        reason(fun() ->
+            io_lib:format("~Kw|~Kp|~KP", [Desc, Nested, Desc, Nested, Desc, Nested, 3])
+        end),
+        reason(fun() -> io_lib:format("~Kp", [Desc, Nested], [{chars_limit, 30}]) end),
+        reason(fun() -> io_lib:bformat("~Kp", [Desc, Nested]) end),
+        reason(fun() -> io_lib:build_text(io_lib:scan_format("~Kw", [Desc, Nested])) end),
+        reason(fun() -> io_lib:format("~Kw", [Crash, #{1 => a, 2 => b}]) end),
+        reason(fun() -> io_lib:format("~Kw", [fun(_, _) -> notbool end, #{1 => a, 2 => b}]) end),
+        reason(fun() -> io_lib:format("~Kw", [Crash, #{1 => a}]) end),
+        reason(fun() -> io_lib:write(#{1 => a, 2 => b}, [{maps_order, Crash}]) end),
+        reason(fun() -> io_lib:format(id("~Kw ~w"), [Desc, #{1 => a, 2 => b}]) end)
+    ].
+
+descending(A, B) -> A >= B.
+
+id(X) -> X.
 
 reason(Fun) ->
     try Fun() of

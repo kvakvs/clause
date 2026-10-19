@@ -170,7 +170,6 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 
 | Difference | OTP | Clause | Owner |
 | --- | --- | --- | --- |
-| `maps_order` comparison funs (`~K` with a fun, `io_lib:write/2` option) | Maps sorted by the fun | `badarg` when a map is written | [io_lib](builtins.md#io_lib) |
 | `~p`, `~w` and `io_lib` writers of containers nested more than 256 deep | Printed | `system_limit` | [io](io.md#pretty-printing-p) |
 | `io_lib:print/4` with a column or line length that is not an integer | Depends on the term: printed (guards fail quietly), `function_clause` or `badarith` | `badarith` for any container term | [io_lib](builtins.md#io_lib) |
 | Negative precision or pad count (`~.*c` with -1) | Loops forever | `badarg` | [io](io.md#formats) |

@@ -1,5 +1,6 @@
 #include "calls.hpp"
 #include "behaviours.hpp"
+#include "builtin_continuations.hpp"
 #include "capabilities.hpp"
 #include "erlang_module.hpp"
 #include "features.hpp"
@@ -384,6 +385,22 @@ void note(References &result, const std::u32string &name, const ast::NodeSource 
     }
 }
 
+// Note the library modules a call of a catalog builtin continues in (builtin_continuations.hpp), which name no
+// module themselves. Added for maps_order comparison funs (plan 21 step LIB4F).
+void note_continuations(const ast::Module &syntax, const ast::Expression &expression, References &result) {
+    const auto *call = std::get_if<ast::CallExpression>(&expression.value);
+    const auto *remote =
+        call ? std::get_if<ast::RemoteExpression>(&syntax.expression(ungroup(syntax, call->target)).value) : nullptr;
+    const auto *module = remote ? literal_atom(syntax, remote->module) : nullptr;
+    const auto *function = module ? literal_atom(syntax, remote->function) : nullptr;
+    if (function == nullptr) {
+        return;
+    }
+    each_continuation(
+        utf8(module->name), utf8(function->name), call->arguments.size(),
+        [&](const BuiltinContinuation &item) { note(result, std::u32string(item.target_module), expression.source); });
+}
+
 // Note the modules one function's expressions name. Added for --print-inputs.
 void note_function(const ast::Module &syntax, const ast::Function &function, References &result) {
     auto pending = function_roots(function);
@@ -393,6 +410,7 @@ void note_function(const ast::Module &syntax, const ast::Function &function, Ref
         if (const auto *module = named_module(syntax, expression)) {
             note(result, module->name, expression.source);
         }
+        note_continuations(syntax, expression, result);
         const auto children = expression_children(expression);
         pending.insert(pending.end(), children.begin(), children.end());
     }

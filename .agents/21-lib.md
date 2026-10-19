@@ -12,6 +12,9 @@ IMPORTANT: Prefer compatibility with Erlang/OTP at all times, if something can
 be faster at the cost of compatibility, add that as a future task and we will
 create a new API that's for the end user to choose
 
+- When a step is done, remove it from this file and add a 1-2 line bullet with
+  its commit hash and headline speedup to `00-finished.md` (Plan 21).R
+
 ## Discovery (2026-10-17, counts refreshed 2026-10-18)
 
 - **Source of truth:** the doc chunks of the installed OTP 29.1.1
@@ -107,51 +110,26 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ## Tier A: data modules without processes
 
-### LIB4. Text: `string`, `unicode` remainder, `io_lib`
+LIB0–LIB10 and LIB4F are done (`00-finished.md`); their open remainders follow.
 
-- `string` (69): done as LIB4A, see `00-finished.md`.
-- `uni code`: done as LIB4B, see `00-finished.md`.
-- `io_lib`: done as LIB4C (writers, checks, collect, format engine with OTP's
-  deep shapes; `io:format` on the same engine), see `00-finished.md`.
-- `io_lib_pretty`: done as LIB4D (`print/1,4`, `~p`/`~P`, `chars_limit`
-  writes, `bformat`'s `print_bin`), see `00-finished.md`.
-- `io_lib:fread/2,3` and `io:fread/2,3`: done as LIB4E, see `00-finished.md`.
-- Later: `maps_order` comparison funs (Erlang sorts each map's keys and passes
-  them to the writer).
+### LIB9 remainder: declined `erlang` functions
 
-### LIB7. Set algebra and graphs: `sofs`, `graph`
-
-- `graph` (63): done as LIB7B, see `00-finished.md`.
-- `sofs` (77 of 81): done as LIB7A, see `00-finished.md`; the digraph
-  conversions wait for LIB12.
-
-### LIB9. `erlang` gaps
-
-- LIB9A done (checksums, tuple edits, `is_integer/3`, `iolist_to_iovec/1`,
-  cookies, `halt/2`, option-taking sends and signals, node-naming spawns,
-  `process_flag/3`, the process iterator, `system_flag/2`, `hibernate/0`),
-  see `00-finished.md`.
-- LIB9B done (suspension, `process_display/2`), see `00-finished.md`.
-- LIB9C done (`decode_packet/3`), see `00-finished.md`.
 - `match_spec_test/3` comes with LIB11.
-- Declined:
-  - D01: `load_module/2`, `load_nif/2`, `purge_module/1`, `check_*code`.
-  - Distribution: `dist_ctrl_*`.
-  - Tracing: `trace*`, `system_monitor/0,1,2`, `system_profile/0,2`. LIB71
-    revisits these.
+- D01: `load_module/2`, `load_nif/2`, `purge_module/1`, `check_*code`.
+- Distribution: `dist_ctrl_*`.
+- Tracing: `trace*`, `system_monitor/0,1,2`, `system_profile/0,2`. LIB71
+  revisits these.
 
 ## Tier B: ETS and what needs it
 
-### LIB10. ETS tables (C++)
+### LIB10F. ETS portions and TSan (later)
 
-- LIB10A–E done (tables, ownership and heirs, bags and updates, walks and
-  fixation, write_concurrency parts), see `00-finished.md`. `ets` is provided
-  with the LIB11 and LIB12 functions as stubs (`PARTIAL` in
+- `ets` ships with the LIB11 and LIB12 functions as stubs (`PARTIAL` in
   `library_modules.py`).
-- LIB10F (later): run long operations in portions (`tab2list/1` and
-  `delete_all_objects/1` of large tables, deleting a table, an owner's end
-  under the executor lock), small-integer `update_counter` in place, and a
-  Linux TSan run over the ETS goldens (V02).
+- Run long operations in portions (`tab2list/1` and `delete_all_objects/1` of
+  large tables, deleting a table, an owner's end under the executor lock),
+  small-integer `update_counter` in place, and a Linux TSan run over the ETS
+  goldens (V02).
 
 ### LIB11. Match specifications (C++)
 
@@ -445,16 +423,16 @@ missing, so programs that probe for them keep working.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB4 text (`string`, `io_lib`, `unicode`).
-2. LIB10 and LIB11 (ETS and match specs).
-3. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
-4. LIB23 and LIB24 (`logger`, `application`).
-5. LIB9, LIB50, LIB60 and LIB61 (`erlang`, `file`, `inet`, `os`, `code` gaps).
-6. LIB30–LIB34 (the front end, `consult`, `io:read`).
-7. LIB25 (local-node services) and LIB12 (`digraph`).
-8. LIB51–LIB55 (files, logs, archives).
-9. LIB7, LIB70, LIB62 and LIB63.
-10. LIB71–LIB74, then the declined modules' answer stubs.
+1. LIB11 (match specs).
+2. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
+3. LIB23 and LIB24 (`logger`, `application`).
+4. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
+5. LIB30–LIB34 (the front end, `consult`, `io:read`).
+6. LIB25 (local-node services) and LIB12 (`digraph`, `sofs` conversions).
+7. LIB51–LIB55 (files, logs, archives).
+8. LIB70, LIB62 and LIB63.
+9. LIB71–LIB74, then the declined modules' answer stubs.
+10. Later: LIB10F.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 

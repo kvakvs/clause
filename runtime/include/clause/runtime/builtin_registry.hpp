@@ -194,6 +194,9 @@ std::span<const BuiltinEntry> io_lib_write_builtins() noexcept;
 std::span<const BuiltinEntry> io_lib_collect_builtins() noexcept;
 // io_lib's format-directed scanner fread/2,3 (plan 21 step LIB4E; runtime/src/builtins/io_lib/fread.cpp).
 std::span<const BuiltinEntry> io_lib_fread_builtins() noexcept;
+// clause_io_lib:apply_ordered/4, which reruns a write with maps_order funs' sorted keys (plan 21 step LIB4F;
+// runtime/src/builtins/io_lib/key_orders.cpp).
+std::span<const BuiltinEntry> io_lib_order_builtins() noexcept;
 // Modules erl_anno and erl_internal (plan 21 step LIB8; runtime/src/builtins/front_end/).
 std::span<const BuiltinEntry> erl_anno_builtins() noexcept;
 std::span<const BuiltinEntry> erl_internal_builtins() noexcept;

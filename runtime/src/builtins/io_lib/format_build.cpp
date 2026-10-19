@@ -751,6 +751,9 @@ class Builder final {
 } // namespace
 
 MapsOrder order_of(const Term &order) {
+    if (order.is_function(2)) {
+        return {MapsOrder::sorted, order.word()};
+    }
     const auto name = order.is_atom() ? order.atom_spelling_unchecked() : std::string_view{};
     return name == "undefined"  ? MapsOrder::undefined
            : name == "ordered"  ? MapsOrder::ordered

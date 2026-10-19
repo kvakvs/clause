@@ -68,7 +68,8 @@ output = "out/app"
 source_search_paths = ["otp/lib/stdlib/src", "vendor/pairs", "extra"]
 cache_inference_in_dirs = ["vendor/*"]
 """
-COVERED = {"seqs.erl", "texts.erl", "pairs.erl", "more.erl", "defs.erl", "recq.erl", "reci.erl"}
+# clause_io_lib.erl is Clause's library helper every program that formats text includes (plan 21 step LIB4F).
+COVERED = {"seqs.erl", "texts.erl", "pairs.erl", "more.erl", "defs.erl", "recq.erl", "reci.erl", "clause_io_lib.erl"}
 
 
 def write(path, text):
@@ -120,10 +121,10 @@ def main():
     project = Project(tool, work)
 
     cold, outcomes, reused = project.run("--print-types")
-    assert outcomes == dict.fromkeys(COVERED, "no entry") and reused == (0, 7), (outcomes, reused)
+    assert outcomes == dict.fromkeys(COVERED, "no entry") and reused == (0, 8), (outcomes, reused)
     warm, outcomes, reused = project.run("--print-types")
-    assert outcomes == dict.fromkeys(COVERED, "hit") and reused == (7, 7) and warm == cold, (outcomes, reused)
-    print("inference: a warm --print-types reuses all 7 covered modules with the same output")
+    assert outcomes == dict.fromkeys(COVERED, "hit") and reused == (8, 8) and warm == cold, (outcomes, reused)
+    print("inference: a warm --print-types reuses all 8 covered modules with the same output")
 
     _, outcomes, _ = project.run()
     assert outcomes == dict.fromkeys(COVERED, "hit"), outcomes
@@ -138,7 +139,7 @@ def main():
     write(work / "otp/lib/stdlib/src/texts.erl", TEXTS.replace("integer_to_list(N)", "{n, N}"))
     mixed, outcomes, reused = project.run("--print-types")
     changed = dict.fromkeys(COVERED, "hit") | dict.fromkeys(["seqs.erl", "texts.erl"], "inputs changed")
-    assert outcomes == changed and reused == (5, 7), (outcomes, reused)
+    assert outcomes == changed and reused == (6, 8), (outcomes, reused)
     fresh, outcomes, reused = project.run("--print-types", "--no-cache")
     assert not outcomes and reused is None and mixed == fresh and mixed != warm, outcomes
     print("inference: editing texts misses it and seqs, which reaches it; the result equals an uncached build")

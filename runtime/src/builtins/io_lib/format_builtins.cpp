@@ -3,6 +3,7 @@
 #include "../text.hpp"
 #include "../typed.hpp"
 #include "format.hpp"
+#include "key_orders.hpp"
 #include <algorithm>
 #include <array>
 
@@ -99,12 +100,18 @@ Term build_text2(ProcessContext &context, const FormatArg &format_list, const Te
 }
 
 constexpr std::array IO_LIB_FORMAT_BUILTINS{
-    typed_entry<format2>("io_lib", "format"),           typed_entry<format3>("io_lib", "format"),
-    typed_entry<format2>("io_lib", "fwrite"),           typed_entry<format3>("io_lib", "fwrite"),
-    typed_entry<bformat2>("io_lib", "bformat"),         typed_entry<bformat3>("io_lib", "bformat"),
-    typed_entry<bformat2>("io_lib", "bfwrite"),         typed_entry<bformat3>("io_lib", "bfwrite"),
-    typed_entry<scan_format2>("io_lib", "scan_format"), typed_entry<unscan_format1>("io_lib", "unscan_format"),
-    typed_entry<build_text1>("io_lib", "build_text"),   typed_entry<build_text2>("io_lib", "build_text"),
+    ordering_entry<format2, true>("io_lib", "format"),
+    ordering_entry<format3, true>("io_lib", "format"),
+    ordering_entry<format2, true>("io_lib", "fwrite"),
+    ordering_entry<format3, true>("io_lib", "fwrite"),
+    ordering_entry<bformat2, true>("io_lib", "bformat"),
+    ordering_entry<bformat3, true>("io_lib", "bformat"),
+    ordering_entry<bformat2, true>("io_lib", "bfwrite"),
+    ordering_entry<bformat3, true>("io_lib", "bfwrite"),
+    typed_entry<scan_format2>("io_lib", "scan_format"),
+    typed_entry<unscan_format1>("io_lib", "unscan_format"),
+    ordering_entry<build_text1, true>("io_lib", "build_text"),
+    ordering_entry<build_text2, true>("io_lib", "build_text"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::io_lib

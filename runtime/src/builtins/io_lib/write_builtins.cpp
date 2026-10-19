@@ -2,6 +2,7 @@
 #include "../text.hpp"
 #include "../typed.hpp"
 #include "format.hpp"
+#include "key_orders.hpp"
 #include "pretty.hpp"
 #include "write.hpp"
 #include <array>
@@ -500,10 +501,10 @@ constexpr std::array IO_LIB_WRITE_BUILTINS{
     typed_entry<print1>("io_lib", "print"),
     typed_entry<print4>("io_lib", "print"),
     typed_entry<write1>("io_lib", "write"),
-    typed_entry<write2>("io_lib", "write"),
-    typed_entry<write5>("io_lib", "write"),
-    typed_entry<bwrite2>("io_lib", "bwrite"),
-    typed_entry<write_bin5>("io_lib", "write_bin"),
+    ordering_entry<write2, false>("io_lib", "write"),
+    ordering_entry<write5, false>("io_lib", "write"),
+    ordering_entry<bwrite2, false>("io_lib", "bwrite"),
+    ordering_entry<write_bin5, false>("io_lib", "write_bin"),
     typed_entry<write_binary3>("io_lib", "write_binary"),
     typed_entry<write_binary_bin4>("io_lib", "write_binary_bin"),
     typed_entry<write_atom1>("io_lib", "write_atom"),

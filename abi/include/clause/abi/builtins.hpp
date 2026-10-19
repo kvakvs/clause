@@ -1128,6 +1128,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"erl_internal", "type_test", 2},
     // The io_lib module (plan 21 steps LIB4C, LIB4E; runtime/src/builtins/io_lib/).
     BuiltinName{"io_lib", "bformat", 2},
+    // maps_order comparison funs (plan 21 step LIB4F; runtime/src/builtins/io_lib/key_orders.cpp).
+    BuiltinName{"clause_io_lib", "apply_ordered", 4},
     BuiltinName{"io_lib", "bformat", 3},
     BuiltinName{"io_lib", "bfwrite", 2},
     BuiltinName{"io_lib", "bfwrite", 3},

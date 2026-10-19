@@ -1,4 +1,5 @@
 #include "liveness.hpp"
+#include "builtin_continuations.hpp"
 #include "capabilities.hpp"
 #include "funs.hpp"
 #include <algorithm>
@@ -46,23 +47,6 @@ constexpr std::array ATOM_PRODUCERS{BuiltinName{U"list_to_atom", 1},
                                     BuiltinName{U"process_info", 2},
                                     BuiltinName{U"loaded", 0},
                                     BuiltinName{U"pre_loaded", 0}};
-
-struct BuiltinContinuation {
-    // A library function the runtime implements as a builtin.
-    abi::v1::BuiltinName builtin;
-    // The exported function of the batch its implementation continues in.
-    std::u32string_view target_module;
-    BuiltinName target;
-};
-
-// Builtins whose runtime implementation continues in Erlang code: io output to a process device goes through
-// file:write/2 (added for io output devices, step 41U).
-constexpr std::array BUILTIN_CONTINUATIONS{
-    BuiltinContinuation{{"io", "format", 3}, U"file", {U"write", 2}},
-    BuiltinContinuation{{"io", "fwrite", 3}, U"file", {U"write", 2}},
-    BuiltinContinuation{{"io", "put_chars", 2}, U"file", {U"write", 2}},
-    BuiltinContinuation{{"io", "nl", 1}, U"file", {U"write", 2}},
-};
 
 // Whether erlang:Name/Arity is an atom-producing builtin.
 bool atom_producer(const FunctionKey &key) {
@@ -145,12 +129,9 @@ class Liveness {
     // Reach the code the builtin Module:Function/Arity continues in, if it is one that does (step 41U).
     void continue_builtin(const std::string &module, const std::string &name, const std::size_t arity,
                           const FunctionRef site) {
-        for (const auto &item : BUILTIN_CONTINUATIONS) {
-            if (item.builtin.module == module && item.builtin.function == name && item.builtin.arity == arity) {
-                reach_name(std::u32string(item.target_module), {std::u32string(item.target.name), item.target.arity},
-                           site);
-            }
-        }
+        each_continuation(module, name, arity, [&](const BuiltinContinuation &item) {
+            reach_name(std::u32string(item.target_module), {std::u32string(item.target_name), item.target_arity}, site);
+        });
     }
 
     // Reach Module:Function/Arity by name: an exported function of the batch, noting atom-producing builtins.

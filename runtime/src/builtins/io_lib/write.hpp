@@ -11,9 +11,20 @@ namespace clause::runtime::builtins::io_lib {
 // How atoms are written: latin1 escapes characters beyond Latin-1 (write_atom_as_latin1), unicode keeps them.
 enum class Encoding : std::uint8_t { latin1, unicode };
 
-// The order of map associations: Clause's key order, sorted by term order, reversed, or another term (badarg when a
-// map is written; comparison funs are not supported, docs/differences.md).
-enum class MapsOrder : std::uint8_t { undefined, ordered, reversed, other };
+// The order of map associations: Clause's key order, sorted by term order, reversed, by a comparison fun (its word;
+// plan 21 step LIB4F), or another term (badarg when a map is written).
+struct MapsOrder {
+    enum Kind : std::uint8_t { undefined, ordered, reversed, sorted, other };
+
+    MapsOrder(Kind order = undefined, Word fun = 0) noexcept : kind(order), fun(fun) {}
+
+    bool operator==(Kind order) const noexcept { return kind == order; }
+
+    Kind kind;
+    // The fun of a sorted order; 0 otherwise.
+    Word fun;
+};
+
 // The order a maps_order term names.
 MapsOrder order_of(const Term &order);
 

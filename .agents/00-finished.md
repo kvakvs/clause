@@ -644,7 +644,12 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   of names, owners and fixers, owner end and heir transfer in the executor
   before links and monitors; folds and `i/0..3` Erlang; match specs and files
   stubbed (LIB11, LIB12); `ets_tables`, `ets_owner`, `ets_update`, `ets_walk`,
-  `ets_concurrency` goldens
+  `ets_concurrency` goldens — `8a734394`
+- **LIB4F** `maps_order` comparison funs: a write that meets a map ordered by
+  a fun records it and continues in `clause_io_lib:sort_maps/6`, which sorts
+  the keys and reruns the call through `apply_ordered/4` (`io:format` writes
+  only then); `semantic/builtin_continuations.hpp` brings continuation modules
+  into the batch; `io_lib_text` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
