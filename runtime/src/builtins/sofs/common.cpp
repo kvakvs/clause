@@ -58,14 +58,14 @@ Set unordered(const Term &term) {
 }
 
 Term wrap(const Terms &terms, const Set &set) {
-    return tuple(terms, {terms.atom(set.unordered_ ? "Set" : "OrdSet"), set.data_, set.type_});
+    return tuple(terms, {terms.atom(set.unordered_ ? "Set"_atom : "OrdSet"_atom), set.data_, set.type_});
 }
 
 Term make_set(const Terms &terms, const Items &values, const Value &type) {
     return wrap(terms, {terms.list(values), type.term, true});
 }
 
-Term empty(const Terms &terms) { return make_set(terms, {}, {terms.atom("_")}); }
+Term empty(const Terms &terms) { return make_set(terms, {}, {terms.atom("_"_atom)}); }
 
 Term full_type(const Terms &terms, const Set &set) { return set.unordered_ ? terms.list(Items{set.type_}) : set.type_; }
 
@@ -76,7 +76,7 @@ std::optional<Term> list_type(const Term &term) {
     return std::nullopt;
 }
 
-[[noreturn]] void error(const Terms &terms, std::string_view reason) {
+[[noreturn]] void error(const Terms &terms, AtomName reason) {
     const auto payload = terms.atom(reason);
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = payload.word()};
 }
@@ -108,7 +108,7 @@ void check_function(const Terms &terms, const Items &pairs) {
     for (const auto &pair : pairs) {
         const auto key = at(pair, 0);
         if (previous && compare(*previous, key) == 0) {
-            error(terms, "bad_function");
+            error(terms, "bad_function"_atom);
         }
         previous = key;
     }

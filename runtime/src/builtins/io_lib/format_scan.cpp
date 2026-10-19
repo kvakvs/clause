@@ -146,7 +146,7 @@ class Collector final {
             } else if (next_is('l')) {
                 spec.strings = false;
             } else if (next_is('k')) {
-                spec.order = terms.atom("ordered");
+                spec.order = terms.atom("ordered"_atom);
             } else if (next_is('K') && arguments_.is_cons()) {
                 ++at_;
                 spec.order = argument();
@@ -195,7 +195,7 @@ class Collector final {
     // collect_cseq/2: one control sequence after its '~'.
     Spec control() {
         Spec spec;
-        spec.order = Terms(context_).atom("undefined");
+        spec.order = Terms(context_).atom("undefined"_atom);
         width(spec);
         precision_and_pad(spec);
         modifiers(spec);
@@ -212,7 +212,7 @@ class Collector final {
 };
 
 // A spec map's value under `key`; none when the key is missing.
-std::optional<Term> value_of(ProcessContext &context, const Term &map, std::string_view key) {
+std::optional<Term> value_of(ProcessContext &context, const Term &map, AtomName key) {
     return need(map.map_find(Terms(context).atom(key)));
 }
 
@@ -268,15 +268,15 @@ Spec spec_of(ProcessContext &context, const Term &map) {
     spec.left = is_atom(adjust, "left");
     spec.unicode = is_atom(encoding, "unicode");
     spec.pad = required(context, map, "pad_char");
-    spec.strings = !is_atom(value_of(context, map, "strings").value_or(Terms(context).boolean(true)), "false");
-    spec.order = value_of(context, map, "maps_order").value_or(Terms(context).atom("undefined"));
+    spec.strings = !is_atom(value_of(context, map, "strings"_atom).value_or(Terms(context).boolean(true)), "false");
+    spec.order = value_of(context, map, "maps_order"_atom).value_or(Terms(context).atom("undefined"_atom));
     return spec;
 }
 
 // none or the integer.
 Term count_term(ProcessContext &context, const std::optional<std::int64_t> &value) {
     const Terms terms(context);
-    return value ? terms.integer(*value) : terms.atom("none");
+    return value ? terms.integer(*value) : terms.atom("none"_atom);
 }
 
 // unscan's print_field_width/2, print_precision/2 and print_pad_char/1 text.
@@ -363,7 +363,7 @@ std::vector<Term> spec_text(ProcessContext &context, const Term &map) {
     width_chars(context, map, out);
     precision_chars(context, map, out);
     modifier_chars(terms, matched(context, map, "encoding"), matched(context, map, "strings"), out);
-    order_chars(terms, value_of(context, map, "maps_order").value_or(terms.atom("undefined")), out);
+    order_chars(terms, value_of(context, map, "maps_order"_atom).value_or(terms.atom("undefined"_atom)), out);
     out.push_back(control);
     return out;
 }
@@ -373,11 +373,11 @@ void spec_args(ProcessContext &context, const Term &element, std::vector<Term> &
     if (!element.is_map()) {
         return;
     }
-    const auto args = value_of(context, element, "args");
+    const auto args = value_of(context, element, "args"_atom);
     if (!args) {
         return;
     }
-    const auto order = value_of(context, element, "maps_order");
+    const auto order = value_of(context, element, "maps_order"_atom);
     if (order && (order->is_function(2) || is_atom(*order, "reversed"))) {
         out.push_back(*order);
     }
@@ -415,15 +415,15 @@ std::vector<Element> elements_of(ProcessContext &context, const Term &format_lis
 Term spec_term(ProcessContext &context, const Spec &spec) {
     const Terms terms(context);
     const std::array<std::pair<Term, Term>, 9> entries{{
-        {terms.atom("control_char"), terms.integer(spec.control)},
-        {terms.atom("args"), terms.list(spec.args)},
-        {terms.atom("width"), count_term(context, spec.width)},
-        {terms.atom("adjust"), terms.atom(spec.left ? "left" : "right")},
-        {terms.atom("precision"), count_term(context, spec.precision)},
-        {terms.atom("pad_char"), spec.pad},
-        {terms.atom("encoding"), terms.atom(spec.unicode ? "unicode" : "latin1")},
-        {terms.atom("strings"), terms.boolean(spec.strings)},
-        {terms.atom("maps_order"), spec.order},
+        {terms.atom("control_char"_atom), terms.integer(spec.control)},
+        {terms.atom("args"_atom), terms.list(spec.args)},
+        {terms.atom("width"_atom), count_term(context, spec.width)},
+        {terms.atom("adjust"_atom), terms.atom(spec.left ? "left"_atom : "right"_atom)},
+        {terms.atom("precision"_atom), count_term(context, spec.precision)},
+        {terms.atom("pad_char"_atom), spec.pad},
+        {terms.atom("encoding"_atom), terms.atom(spec.unicode ? "unicode"_atom : "latin1"_atom)},
+        {terms.atom("strings"_atom), terms.boolean(spec.strings)},
+        {terms.atom("maps_order"_atom), spec.order},
     }};
     return need(TermFactory(context).map(entries));
 }

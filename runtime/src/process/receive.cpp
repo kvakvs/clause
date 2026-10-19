@@ -59,7 +59,7 @@ Word wait(ProcessContext &context, const builtins::Arguments state) {
 
 // The receive steps behind prim_eval:'receive'/2 (plan step 41S): erl_eval's receive scans the mailbox as compiled
 // code does, with a fun for its clauses.
-Word atom_word(ProcessContext &context, std::string_view name) {
+Word atom_word(ProcessContext &context, AtomName name) {
     return builtins::need(TermFactory(context).atom(name)).word();
 }
 
@@ -67,9 +67,9 @@ Word atom_word(ProcessContext &context, std::string_view name) {
 Word peek(ProcessContext &context, builtins::Arguments) {
     const auto message = context.mailbox().peek();
     if (!message) {
-        return atom_word(context, "none");
+        return atom_word(context, "none"_atom);
     }
-    const std::array parts{builtins::term_of(context, atom_word(context, "message")),
+    const std::array parts{builtins::term_of(context, atom_word(context, "message"_atom)),
                            builtins::term_of(context, *message)};
     return builtins::need(TermFactory(context).tuple(parts)).word();
 }
@@ -78,17 +78,17 @@ Word peek(ProcessContext &context, builtins::Arguments) {
 // message, and of an expired timeout or an abandoned scan.
 Word skip(ProcessContext &context, builtins::Arguments) {
     context.mailbox().skip();
-    return atom_word(context, "ok");
+    return atom_word(context, "ok"_atom);
 }
 
 Word take(ProcessContext &context, builtins::Arguments) {
     context.mailbox().take();
-    return atom_word(context, "ok");
+    return atom_word(context, "ok"_atom);
 }
 
 Word restart(ProcessContext &context, builtins::Arguments) {
     context.mailbox().restart();
-    return atom_word(context, "ok");
+    return atom_word(context, "ok"_atom);
 }
 
 constexpr std::array RECEIVE_BUILTINS{

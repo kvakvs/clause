@@ -169,7 +169,8 @@ test need no OTP (`docs/validation.md`).
   Admission checks range/shape/ownership in Debug only; `*_unchecked` accessors
   skip proven kind checks.
 - Kinds: arbitrary integers (up to `BIG_ARITY_MAX`), atoms (per-runtime
-  `AtomStorage`, process-wide lock-free `atom_table`), tuples, lists, float
+  `AtomStorage`, process-wide lock-free `atom_table`; runtime C++ spells literal
+  atoms `"name"_atom`, which caches the word), tuples, lists, float
   cells, maps, bitstrings, funs, pids/ports (immediates from never-reused
   sequences), references (64-bit heap cells), native records.
 - Handle references (atomics, re patterns, zlib streams, compiled match specs)

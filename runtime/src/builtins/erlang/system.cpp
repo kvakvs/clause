@@ -19,8 +19,6 @@ using detail::Executor;
 // The most processes, ports and atoms Clause reports as limits.
 constexpr std::int64_t PROCESS_LIMIT = (std::int64_t{1} << 27) - 1;
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term integer(ProcessContext &context, std::int64_t value) { return need(TermFactory(context).integer(value)); }
 
 Term pair(ProcessContext &context, const Term &first, const Term &second) {
@@ -63,8 +61,8 @@ std::optional<Term> unkept_statistics(ProcessContext &context, std::string_view 
         return need(TermFactory(context).tuple(parts));
     }
     if (name == "io") {
-        return pair(context, pair(context, atom(context, "input"), integer(context, 0)),
-                    pair(context, atom(context, "output"), integer(context, 0)));
+        return pair(context, pair(context, atom(context, "input"_atom), integer(context, 0)),
+                    pair(context, atom(context, "output"_atom), integer(context, 0)));
     }
     return std::nullopt;
 }

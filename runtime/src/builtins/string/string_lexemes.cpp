@@ -576,7 +576,7 @@ Term split3(ProcessContext &context, const TextArg &str, const PatternArg &patte
 }
 
 Term split2(ProcessContext &context, const TextArg &str, const PatternArg &pattern) {
-    return split3(context, str, pattern, Terms(context).atom("leading"));
+    return split3(context, str, pattern, Terms(context).atom("leading"_atom));
 }
 
 // lists:join(Replacement, Parts).
@@ -633,7 +633,7 @@ std::optional<Term> find_in_binary_head(ProcessContext &context, Term &cs, const
 std::optional<Term> find_in_list(ProcessContext &context, Term &cs, const std::vector<Term> &needle) {
     const auto point = list_point(context, cs);
     if (!point) {
-        return Terms(context).atom("nomatch");
+        return Terms(context).atom("nomatch"_atom);
     }
     return find_point(context, cs, *point, needle);
 }
@@ -642,7 +642,7 @@ std::optional<Term> find_in_list(ProcessContext &context, Term &cs, const std::v
 Term find_in_binary(ProcessContext &context, const Term &cs, const std::vector<Term> &needle) {
     const Terms terms(context);
     const auto found = bin_search_str(context, cs, 0, terms.nil(), needle);
-    return found.matched ? need(found.at.head()) : terms.atom("nomatch");
+    return found.matched ? need(found.at.head()) : terms.atom("nomatch"_atom);
 }
 
 // One step of find_l: the answer, or none with the walk moved on.
@@ -715,7 +715,7 @@ bool find_last_in_binary(ProcessContext &context, Term &cs, const std::vector<Te
 
 // find_r: the chardata from the last occurrence of the needle, or nomatch.
 Term find_trailing(ProcessContext &context, Term cs, const std::vector<Term> &needle) {
-    Term result = Terms(context).atom("nomatch");
+    Term result = Terms(context).atom("nomatch"_atom);
     bool more = true;
     while (more) {
         switch (form_of(cs)) {
@@ -749,7 +749,7 @@ Term find3(ProcessContext &context, const TextArg &str, const PatternArg &patter
 }
 
 Term find2(ProcessContext &context, const TextArg &str, const PatternArg &pattern) {
-    return find3(context, str, pattern, {Terms(context).atom("leading")});
+    return find3(context, str, pattern, {Terms(context).atom("leading"_atom)});
 }
 
 constexpr std::array STRING_LEXEME_BUILTINS{

@@ -55,8 +55,6 @@ Term handle_of(ProcessContext &context, Table table) {
     return need(detail::HandleAccess::make(context.heap(), bytes, finalize));
 }
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term integer(ProcessContext &context, std::int64_t value) { return need(TermFactory(context).integer(value)); }
 
 Term tuple(ProcessContext &context, std::span<const Term> elements) {
@@ -69,7 +67,7 @@ Term binary(ProcessContext &context, std::span<const std::byte> bytes) {
     return need(TermFactory(context).binary(bytes));
 }
 
-Term ok(ProcessContext &context) { return atom(context, "ok"); }
+Term ok(ProcessContext &context) { return atom(context, "ok"_atom); }
 
 void append_utf8(std::string &out, std::uint32_t code) {
     if (code < 0x80) {
@@ -148,18 +146,18 @@ Term error_term(ProcessContext &context, const Failure &failure) {
         reason = tuple(context, std::array{atom(context, failure.reason), file});
         break;
     case Failure::Shape::file_error:
-        reason = tuple(context, std::array{atom(context, "file_error"), file, atom(context, failure.reason)});
+        reason = tuple(context, std::array{atom(context, "file_error"_atom), file, atom(context, failure.reason)});
         break;
     case Failure::Shape::bad_object:
-        reason = tuple(
-            context,
-            std::array{tuple(context, std::array{atom(context, "bad_object"), atom(context, failure.reason)}), file});
+        reason = tuple(context, std::array{tuple(context, std::array{atom(context, "bad_object"_atom),
+                                                                     atom(context, failure.reason)}),
+                                           file});
         break;
     case Failure::Shape::bare:
         reason = atom(context, failure.reason);
         break;
     }
-    return tuple(context, std::array{atom(context, "error"), reason});
+    return tuple(context, std::array{atom(context, "error"_atom), reason});
 }
 
 // Run an operation on the file, its failure as {error, Reason}.
@@ -242,7 +240,7 @@ Term open_file(ProcessContext &context, const TermArgument &name) {
 
 Term collections_term(ProcessContext &context, const Head &head) {
     if (!head.collections) {
-        return atom(context, "undefined");
+        return atom(context, "undefined"_atom);
     }
     std::vector<Term> counts;
     for (const auto &[size, count] : *head.collections) {
@@ -267,7 +265,7 @@ Term info(ProcessContext &context, const HandleArgument &handle) {
                                 integer(context, head.min_slots),
                                 integer(context, head.next),
                                 integer(context, head.max_slots),
-                                atom(context, head.hash == HashMethod::phash2 ? "phash2" : "phash"),
+                                atom(context, head.hash == HashMethod::phash2 ? "phash2"_atom : "phash"_atom),
                                 integer(context, head.m),
                                 integer(context, head.n),
                                 collections_term(context, head)};
@@ -349,7 +347,7 @@ Term slot(ProcessContext &context, const HandleArgument &handle, std::int64_t sl
     auto &table = table_of(handle);
     return guarded(context, [&] {
         const auto objects = table.slot_objects(Terms(context), static_cast<std::uint32_t>(slot));
-        return objects ? list(context, *objects) : atom(context, "$end_of_table");
+        return objects ? list(context, *objects) : atom(context, "$end_of_table"_atom);
     });
 }
 
@@ -359,7 +357,7 @@ Term key_from(ProcessContext &context, Table &table, std::uint32_t from) {
     for (auto at = from;; ++at) {
         const auto objects = table.slot_objects(terms, at);
         if (!objects) {
-            return atom(context, "$end_of_table");
+            return atom(context, "$end_of_table"_atom);
         }
         if (!objects->empty()) {
             return Terms::element(objects->front(), table.head().keypos);
@@ -380,7 +378,7 @@ Term next(ProcessContext &context, const HandleArgument &handle, const TermArgum
         const auto at = table.slot_of(terms, key.term);
         const auto objects = table.slot_objects(terms, at);
         if (!objects) {
-            return tuple(context, std::array{ok(context), atom(context, "$end_of_table")});
+            return tuple(context, std::array{ok(context), atom(context, "$end_of_table"_atom)});
         }
         const auto keypos = table.head().keypos;
         const auto found = std::ranges::find_if(
@@ -461,7 +459,7 @@ ScanState state_of(const Continuation &continuation) {
 std::array<Term, 2> state_terms(ProcessContext &context, const ScanState &state) {
     const auto empty = binary(context, {});
     if (state.eof) {
-        return {atom(context, "eof"), empty};
+        return {atom(context, "eof"_atom), empty};
     }
     if (!state.areas_left) {
         return {binary(context, state.leftover), empty};
@@ -573,7 +571,7 @@ Term where(ProcessContext &context, const HandleArgument &handle, const TermArgu
         const Terms terms(context);
         const auto at = table.slot_of(terms, Terms::element(object.term, table.head().keypos));
         if (at >= table.head().next) {
-            return atom(context, "false");
+            return atom(context, "false"_atom);
         }
         const auto collection = table.read_slot(table.slot_position(at), "where");
         const auto objects = table.slot_objects(terms, at);
@@ -581,11 +579,11 @@ Term where(ProcessContext &context, const HandleArgument &handle, const TermArgu
                                 return Terms::same(stored, object.term);
                             });
         return member ? tuple(context, std::array{ok(context), integer(context, collection.pointer)})
-                      : atom(context, "false");
+                      : atom(context, "false"_atom);
     } catch (const Failure &) {
-        return atom(context, "false");
+        return atom(context, "false"_atom);
     } catch (const BadObject &) {
-        return atom(context, "false");
+        return atom(context, "false"_atom);
     }
 }
 
@@ -697,7 +695,7 @@ Term bchunk_start(ProcessContext &context, const HandleArgument &handle, const T
     auto &table = table_of(handle);
     const auto head = copied_head(table.head(), record.term);
     if (!head) {
-        return atom(context, "badarg");
+        return atom(context, "badarg"_atom);
     }
     return guarded(context, [&] {
         auto previous = std::move(table.previous());

@@ -112,8 +112,8 @@ int released(Runtime &runtime, ProcessContext &context, int status) {
 // The frame of the exported entry function; null when no registered module exports it with a frame.
 const abi::v1::FrameDescriptor *entry_frame(ProcessContext &context, const StartupDescriptor &startup) {
     TermFactory factory(context);
-    const auto module_atom = factory.atom({startup.entry_module, startup.entry_module_size});
-    const auto function_atom = factory.atom({startup.entry_function, startup.entry_function_size});
+    const auto module_atom = factory.atom(std::string_view{startup.entry_module, startup.entry_module_size});
+    const auto function_atom = factory.atom(std::string_view{startup.entry_function, startup.entry_function_size});
     if (!module_atom || !function_atom) {
         return nullptr;
     }

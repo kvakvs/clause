@@ -157,7 +157,7 @@ Word raise_stack(ProcessContext &context, Arguments arguments) {
     if (CLAUSE_reraise_v2(&context, arguments[0], arguments[1], arguments[2]) == 0 || failed(context)) {
         return 0;
     }
-    const auto badarg = context.atom_storage().intern("badarg");
+    const auto badarg = context.atom_storage().intern("badarg"_atom);
     if (!badarg) {
         context.generated_calls().fail_service(abi::v1::Status::resource_limit);
         return 0;

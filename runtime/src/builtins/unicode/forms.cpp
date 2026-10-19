@@ -75,7 +75,7 @@ Term normalized_text(ProcessContext &context, const Term &data, Form form, bool 
         return converted;
     }
     TermFactory factory(context);
-    const std::array items{need(factory.atom("error")), converted, need(next.tuple_element(1))};
+    const std::array items{need(factory.atom("error"_atom)), converted, need(next.tuple_element(1))};
     return need(factory.tuple(items));
 }
 

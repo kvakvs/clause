@@ -42,8 +42,6 @@ constexpr std::int64_t ARRAY_OVERHEAD_BYTES = 40;
 constexpr std::int64_t MAX_ARITY = std::int64_t{1} << 27;
 
 // The atom `name`.
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // The array of an atomics reference; badarg for any other term.
 struct Array {
     // The values, after the signedness word.
@@ -150,14 +148,14 @@ TermResult<Term> get(ProcessContext &context, const Term &reference, std::int64_
 Term put(ProcessContext &context, const Term &reference, std::int64_t index, const Integer &value) {
     const auto values = array(reference);
     at(values, index).store(stored(values, value));
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 // add(Ref, Ix, Incr): wraps around.
 Term add(ProcessContext &context, const Term &reference, std::int64_t index, const Integer &value) {
     const auto values = array(reference);
     at(values, index).fetch_add(increment(value));
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 // add_get(Ref, Ix, Incr): the new value.
@@ -171,7 +169,7 @@ TermResult<Term> add_get(ProcessContext &context, const Term &reference, std::in
 Term sub(ProcessContext &context, const Term &reference, std::int64_t index, const Integer &value) {
     const auto values = array(reference);
     at(values, index).fetch_sub(increment(value));
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 // sub_get(Ref, Ix, Decr): the new value.
@@ -193,7 +191,7 @@ TermResult<Term> compare_exchange(ProcessContext &context, const Term &reference
     const auto values = array(reference);
     auto expected = stored(values, expected_value);
     if (at(values, index).compare_exchange_strong(expected, stored(values, desired.value))) {
-        return atom(context, "ok");
+        return atom(context, "ok"_atom);
     }
     return value_term(context, values, expected);
 }
@@ -207,10 +205,10 @@ TermResult<Term> info(ProcessContext &context, const Term &reference) {
     const auto min = values.is_signed ? Integer(std::numeric_limits<std::int64_t>::min()) : Integer(0);
     const auto integer = [&](const Integer &value) { return need(detail::IntegerAccess::make(context.heap(), value)); };
     const std::array entries{
-        std::pair{atom(context, "size"), integer(Integer(size))},
-        std::pair{atom(context, "max"), integer(max)},
-        std::pair{atom(context, "min"), integer(min)},
-        std::pair{atom(context, "memory"), integer(Integer(ARRAY_OVERHEAD_BYTES + 8 * size))},
+        std::pair{atom(context, "size"_atom), integer(Integer(size))},
+        std::pair{atom(context, "max"_atom), integer(max)},
+        std::pair{atom(context, "min"_atom), integer(min)},
+        std::pair{atom(context, "memory"_atom), integer(Integer(ARRAY_OVERHEAD_BYTES + 8 * size))},
     };
     return TermFactory(context).map(entries);
 }

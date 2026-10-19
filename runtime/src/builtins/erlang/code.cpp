@@ -10,8 +10,6 @@
 // prepared for loading, and deleting a loaded module raises notsup.
 namespace clause::runtime::builtins {
 namespace {
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // Whether a module of the program has the name: registered code or builtins.
 bool loaded_module(ProcessContext &context, std::string_view name) {
     auto &server = context.code_server();
@@ -34,9 +32,9 @@ TermResult<Term> loaded(ProcessContext &context) {
 // delete_module(Module): undefined for a module the program does not have; a linked module cannot be deleted.
 TermResult<Term> delete_module(ProcessContext &context, const AtomArgument &module) {
     if (!loaded_module(context, module.spelling)) {
-        return atom(context, "undefined");
+        return atom(context, "undefined"_atom);
     }
-    throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = atom(context, "notsup").word()};
+    throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = atom(context, "notsup"_atom).word()};
 }
 
 // prepare_loading(Module, Code): {error, badfile}, since no binary is code this program can load.
@@ -44,7 +42,7 @@ TermResult<Term> prepare_loading(ProcessContext &context, const AtomArgument &, 
     if (!code.is_binary() && !code.is_list()) {
         bad_argument();
     }
-    const std::array parts{atom(context, "error"), atom(context, "badfile")};
+    const std::array parts{atom(context, "error"_atom), atom(context, "badfile"_atom)};
     return TermFactory(context).tuple(parts);
 }
 
@@ -53,7 +51,7 @@ TermResult<Term> finish_loading(ProcessContext &context, const ListArgument &pre
     if (!prepared.elements.empty()) {
         bad_argument();
     }
-    return TermFactory(context).atom("ok");
+    return TermFactory(context).atom("ok"_atom);
 }
 
 // get_module_info(Module[, Item]): continue as Module:module_info(...), which every compiled module has; badarg
@@ -64,7 +62,7 @@ Word module_info(ProcessContext &context, Arguments arguments, std::size_t arity
         bad_argument();
     }
     const auto *frame = static_cast<const abi::v1::FrameDescriptor *>(
-        context.code_server().function_frame(module, atom(context, "module_info"), arity));
+        context.code_server().function_frame(module, atom(context, "module_info"_atom), arity));
     if (!frame) {
         bad_argument();
     }

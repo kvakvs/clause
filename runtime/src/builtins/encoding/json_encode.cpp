@@ -61,7 +61,7 @@ class Pieces {
 
 [[noreturn]] void unsupported(ProcessContext &context, const Term &value) {
     TermFactory factory(context);
-    const std::array reason{need(factory.atom("unsupported_type")), value};
+    const std::array reason{need(factory.atom("unsupported_type"_atom)), value};
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = need(factory.tuple(reason)).word()};
 }
 
@@ -183,7 +183,7 @@ struct Layout {
 };
 
 // A state field: a small integer, else json.erl takes the term (its arithmetic decides what happens).
-std::int64_t field(ProcessContext &context, const Term &state, std::string_view name) {
+std::int64_t field(ProcessContext &context, const Term &state, AtomName name) {
     const auto value = need(state.map_find(need(TermFactory(context).atom(name))));
     if (!value || !value->is_integer()) {
         throw Fallback{};
@@ -336,9 +336,9 @@ class Formatter final {
 Term answer(ProcessContext &context, const std::optional<Term> &iodata) {
     TermFactory factory(context);
     if (!iodata) {
-        return need(factory.atom("fallback"));
+        return need(factory.atom("fallback"_atom));
     }
-    const std::array items{need(factory.atom("ok")), *iodata};
+    const std::array items{need(factory.atom("ok"_atom)), *iodata};
     return need(factory.tuple(items));
 }
 
@@ -354,8 +354,8 @@ Term encode1(ProcessContext &context, const Value &value) {
 // clause_json:format(Term, State): {ok, Iodata} with the state's level, column, indent and max, or `fallback`.
 Term format2(ProcessContext &context, const Value &value, const FormatState &state) {
     try {
-        const Layout layout{field(context, state.term, "level"), field(context, state.term, "col"),
-                            field(context, state.term, "indent"), field(context, state.term, "max")};
+        const Layout layout{field(context, state.term, "level"_atom), field(context, state.term, "col"_atom),
+                            field(context, state.term, "indent"_atom), field(context, state.term, "max"_atom)};
         return answer(context, Formatter(context).value(value.term, layout, 0).term);
     } catch (const Fallback &) {
         return answer(context, std::nullopt);

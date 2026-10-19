@@ -62,7 +62,7 @@ Term product_of(const Terms &terms, const Items &sets) {
     if (sets.size() != 2 && result.empty()) {
         return empty(terms);
     }
-    return make_set(terms, result, {any ? terms.atom("_") : terms.tuple(types)});
+    return make_set(terms, result, {any ? terms.atom("_"_atom) : terms.tuple(types)});
 }
 
 // Validate a list or tuple argument for the n-ary relative product.
@@ -149,7 +149,7 @@ Term composite(ProcessContext &context, const Left &left, const Right &right) {
     check_function(terms, b);
     const auto result = relative_product(terms, left, right);
     if (elements(unordered(result).data_).size() != a.size()) {
-        error(terms, "bad_function");
+        error(terms, "bad_function"_atom);
     }
     return result;
 }
@@ -276,7 +276,7 @@ Term relative_many(const Terms &terms, const Term &relations) {
     if (inputs.empty()) {
         bad_argument();
     }
-    auto domain = terms.atom("_");
+    auto domain = terms.atom("_"_atom);
     Items ranges;
     bool is_empty = false;
     bool untyped = false;

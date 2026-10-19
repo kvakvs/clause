@@ -60,7 +60,7 @@ void store(ProcessContext &context, const Term &key, const Term &value) {
 // put(Key, Value).
 TermResult<Term> put(ProcessContext &context, const Term &key, const Term &value) {
     store(context, key, value);
-    return TermFactory(context).atom("ok");
+    return TermFactory(context).atom("ok"_atom);
 }
 
 // put_new(Key, Value): store Value unless Key is stored; ok also when it is stored with an exactly equal value.
@@ -72,7 +72,7 @@ TermResult<Term> put_new(ProcessContext &context, const Term &key, const Term &v
     } else {
         store(context, key, value);
     }
-    return TermFactory(context).atom("ok");
+    return TermFactory(context).atom("ok"_atom);
 }
 
 // get(Key): the stored value; badarg when Key is not stored.
@@ -113,8 +113,8 @@ TermResult<Term> info(ProcessContext &context) {
     TermFactory factory(context);
     const auto &table = context.persistent_terms();
     const std::array entries{
-        std::pair{need(factory.atom("count")), need(factory.integer(static_cast<std::int64_t>(table.count())))},
-        std::pair{need(factory.atom("memory")),
+        std::pair{need(factory.atom("count"_atom)), need(factory.integer(static_cast<std::int64_t>(table.count())))},
+        std::pair{need(factory.atom("memory"_atom)),
                   need(factory.integer(static_cast<std::int64_t>(table.words() * sizeof(Word))))}};
     return factory.map(entries);
 }

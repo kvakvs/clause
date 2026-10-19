@@ -52,7 +52,7 @@ Word delete_table(ProcessContext &context, const TableArgument &argument) {
 // whereis(Name): the identifier of the named table, or undefined.
 Term whereis(ProcessContext &context, const AtomArgument &name) {
     const auto found = context.ets_tables().named(name.term.word());
-    return found ? identifier(context, *found) : atom(context, "undefined");
+    return found ? identifier(context, *found) : atom(context, "undefined"_atom);
 }
 
 // all(): every table, a named one by its name.
@@ -90,7 +90,7 @@ Term give_away(ProcessContext &context, const TableArgument &argument, const Pid
     }
     context.ets_tables().give(*found, to);
     TermFactory factory(context);
-    const std::array message{atom(context, "ETS-TRANSFER"), table_term(context, *found),
+    const std::array message{atom(context, "ETS-TRANSFER"_atom), table_term(context, *found),
                              need(Term::from_word(self(context), context)), gift};
     if (const auto sent = Executor::send(context, to, need(factory.tuple(message))); !sent) {
         throw BuiltinFailure{.term = sent.error()};
@@ -98,7 +98,7 @@ Term give_away(ProcessContext &context, const TableArgument &argument, const Pid
     if (!Executor::alive(context, to)) {
         drop_orphans(context, to);
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // The changes one setopts/2 call asks for; each at most once.
@@ -168,7 +168,7 @@ Term setopts(ProcessContext &context, const TableArgument &argument, const Term 
     if (changes.protection) {
         found->set_protection(*changes.protection);
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 constexpr std::array ETS_TABLE_BUILTINS{

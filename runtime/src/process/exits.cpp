@@ -63,14 +63,14 @@ TermResult<Term> exit_reason(ProcessContext &process) {
     TermFactory factory(process);
     const auto &failure = process.generated_calls().failure();
     if (!failure) {
-        return factory.atom("normal");
+        return factory.atom("normal"_atom);
     }
     auto reason = exception_reason_term(process, *failure);
     if (!reason || failure->reason == ErrorReason::raised_exit) {
         return reason;
     }
     if (failure->reason == ErrorReason::raised_throw) {
-        const auto tag = factory.atom("nocatch");
+        const auto tag = factory.atom("nocatch"_atom);
         reason = tag ? factory.tuple(std::array{*tag, *reason}) : tag;
     }
     const auto stack = stack_term(process, *failure);

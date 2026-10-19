@@ -1,4 +1,5 @@
 #pragma once
+#include "atom_names.hpp"
 #include "terms.hpp"
 #include <clause/abi/v1.hpp>
 #include <map>
@@ -30,8 +31,9 @@ class AtomStorage final {
     static constexpr std::uint32_t hard_limit = std::uint32_t{1} << 26;
     static constexpr std::uint32_t default_limit = std::uint32_t{1} << 20;
 
-    // Validate and deduplicate a spelling; failures never publish a partial entry.
-    TermResult<Term> intern(std::string_view spelling) noexcept;
+    // Validate and deduplicate a spelling; failures never publish a partial entry. A literal's cached word of this
+    // runtime is returned without a lookup; otherwise the literal caches the interned word (cached atoms).
+    TermResult<Term> intern(AtomName name) noexcept;
     // The atom of an existing spelling, without interning; none when no atom has it (step 41D).
     std::optional<Term> existing(std::string_view spelling) const noexcept;
     // Admit only words issued by this runtime, without allocating or interning.
@@ -62,6 +64,8 @@ class AtomStorage final {
 
     // The atom Term of a stored entry.
     static Term atom_term(const AtomValue &value) noexcept;
+    // Look a spelling up, interning it when new.
+    TermResult<Term> intern_spelling(std::string_view spelling) noexcept;
 
     // Bound entries independently of the process-wide non-recycled word namespace.
     std::uint32_t limit_;

@@ -36,14 +36,14 @@ bool valid_spellings(const abi::v1::ModuleDescriptor &descriptor) {
 // are bound for dynamic calls.
 CodeResult<void> bind_metadata(AtomStorage &storage, const abi::v1::ModuleDescriptor &descriptor,
                                ModuleAtoms &bindings) {
-    const auto module = storage.intern({descriptor.name, descriptor.name_size});
+    const auto module = storage.intern(std::string_view{descriptor.name, descriptor.name_size});
     if (!module) {
         return std::unexpected(CodeError::resource_limit);
     }
     bindings.module = module->word();
     bindings.exports.reserve(descriptor.export_count);
     for (const auto &item : std::span(descriptor.exports, descriptor.export_count)) {
-        const auto name = storage.intern({item.name, item.name_size});
+        const auto name = storage.intern(std::string_view{item.name, item.name_size});
         if (!name) {
             return std::unexpected(CodeError::resource_limit);
         }
@@ -192,7 +192,7 @@ CodeResult<std::shared_ptr<const ModuleAtoms>> bind_atoms(AtomStorage &storage,
     bindings->descriptor = &descriptor;
     bindings->slots.reserve(descriptor.atom_count);
     for (const auto &atom : std::span(descriptor.atoms, descriptor.atom_count)) {
-        const auto term = storage.intern({atom.spelling ? atom.spelling : "", atom.size});
+        const auto term = storage.intern(std::string_view{atom.spelling ? atom.spelling : "", atom.size});
         if (!term) {
             return std::unexpected(CodeError::resource_limit);
         }

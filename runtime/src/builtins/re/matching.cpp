@@ -22,8 +22,6 @@ struct Selection {
     std::vector<int> groups;
 };
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term small_term(std::int64_t value) { return need(Term::from_word(need(encode_integer(value)))); }
 
 std::string_view spelling(const Term &term) {
@@ -243,13 +241,13 @@ std::vector<int> reported(const Selection &selection, const Match &match) {
 // {match, Captures} or match.
 Term matched(ProcessContext &context, const Selection &selection, const Match &match) {
     if (selection.shape == Shape::none) {
-        return atom(context, "match");
+        return atom(context, "match"_atom);
     }
     std::vector<Term> captures;
     for (const auto group : reported(selection, match)) {
         captures.push_back(capture(context, match, group, selection.shape));
     }
-    const std::array parts{atom(context, "match"), need(TermFactory(context).list(captures))};
+    const std::array parts{atom(context, "match"_atom), need(TermFactory(context).list(captures))};
     return need(TermFactory(context).tuple(parts));
 }
 
@@ -257,11 +255,12 @@ Term matched(ProcessContext &context, const Selection &selection, const Match &m
 Term unmatched(ProcessContext &context, int rc, const Options &options) {
     if (rc == PCRE2_ERROR_NOMATCH || rc == PCRE2_ERROR_RECURSELOOP || rc == PCRE2_ERROR_HEAPLIMIT ||
         ((rc == PCRE2_ERROR_MATCHLIMIT || rc == PCRE2_ERROR_DEPTHLIMIT) && !options.report_errors)) {
-        return atom(context, "nomatch");
+        return atom(context, "nomatch"_atom);
     }
     if (rc == PCRE2_ERROR_MATCHLIMIT || rc == PCRE2_ERROR_DEPTHLIMIT) {
-        const std::array parts{atom(context, "error"),
-                               atom(context, rc == PCRE2_ERROR_MATCHLIMIT ? "match_limit" : "match_limit_recursion")};
+        const std::array parts{
+            atom(context, "error"_atom),
+            atom(context, rc == PCRE2_ERROR_MATCHLIMIT ? "match_limit"_atom : "match_limit_recursion"_atom)};
         return need(TermFactory(context).tuple(parts));
     }
     bad_argument();
@@ -303,8 +302,8 @@ Code code_of(ProcessContext &context, const Term &regex, const Options &options)
         if (!options.report_errors) {
             bad_argument();
         }
-        const std::array tagged{atom(context, "compile"), compile_error(context, error)};
-        const std::array parts{atom(context, "error"), need(TermFactory(context).tuple(tagged))};
+        const std::array tagged{atom(context, "compile"_atom), compile_error(context, error)};
+        const std::array parts{atom(context, "error"_atom), need(TermFactory(context).tuple(tagged))};
         result.error = need(TermFactory(context).tuple(parts));
     }
     result.code = result.owned.get();

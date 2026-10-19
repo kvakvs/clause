@@ -3,6 +3,7 @@
 // TermFactory constructs numeric values, atoms and immutable containers with checked ownership.
 // Identity and callable constructors remain explicit reporting placeholders.
 #include <array>
+#include <clause/runtime/atom_names.hpp>
 #include <clause/runtime/features.hpp>
 #include <clause/runtime/terms.hpp>
 #include <cstddef>
@@ -45,8 +46,9 @@ class TermFactory final {
     TermResult<Term> integer_decimal(std::string_view value);
     // Construct a finite Erlang float; reject NaN and infinity.
     TermResult<Term> floating(double value);
-    // Delegate interning to the context's runtime AtomStorage; boolean uses its true/false entries.
-    TermResult<Term> atom(std::string_view utf8);
+    // Delegate interning to the context's runtime AtomStorage (a `"name"_atom` literal keeps its cached word); boolean
+    // uses its true/false entries.
+    TermResult<Term> atom(AtomName name);
     TermResult<Term> boolean(bool value);
 
     // Construct an empty list, a cons with any tail, or a proper list in input order.

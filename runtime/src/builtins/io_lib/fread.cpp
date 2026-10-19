@@ -586,9 +586,9 @@ class Scanner final {
     bool in_based_ = false;
 };
 
-Term fread_error(const Terms &terms, std::string_view what) {
-    const std::array inner{terms.atom("fread"), terms.atom(what)};
-    const std::array outer{terms.atom("error"), terms.tuple(inner)};
+Term fread_error(const Terms &terms, AtomName what) {
+    const std::array inner{terms.atom("fread"_atom), terms.atom(what)};
+    const std::array outer{terms.atom("error"_atom), terms.tuple(inner)};
     return terms.tuple(outer);
 }
 
@@ -596,15 +596,15 @@ Term fread_error(const Terms &terms, std::string_view what) {
 Term outcome_term(const Terms &terms, const Outcome &outcome) {
     switch (outcome.kind) {
     case Outcome::Kind::ok: {
-        const std::array items{terms.atom("ok"), outcome.results, outcome.rest};
+        const std::array items{terms.atom("ok"_atom), outcome.results, outcome.rest};
         return terms.tuple(items);
     }
     case Outcome::Kind::more: {
-        const std::array items{terms.atom("more"), outcome.rest, terms.integer(outcome.count), outcome.results};
+        const std::array items{terms.atom("more"_atom), outcome.rest, terms.integer(outcome.count), outcome.results};
         return terms.tuple(items);
     }
     case Outcome::Kind::eof:
-        return terms.atom("eof");
+        return terms.atom("eof"_atom);
     case Outcome::Kind::error:
         break;
     }
@@ -691,7 +691,7 @@ class Collector final {
             return std::nullopt;
         }
         // The input ended: the rest of the format meets eof, with no newline.
-        return done(scan(terms_.atom("eof")), more, "");
+        return done(scan(terms_.atom("eof"_atom)), more, "");
     }
 
     Outcome scan(const Term &line) const {
@@ -725,14 +725,14 @@ class Collector final {
     // {ok, Results}, eof or {error, {fread, What}}.
     Term outcome_result(const Outcome &outcome) const {
         if (outcome.kind == Outcome::Kind::ok) {
-            const std::array items{terms_.atom("ok"), outcome.results};
+            const std::array items{terms_.atom("ok"_atom), outcome.results};
             return terms_.tuple(items);
         }
         return outcome_term(terms_, outcome);
     }
 
     Term tagged_done(const Term &result, const Term &left) const {
-        const std::array items{terms_.atom("done"), result, left};
+        const std::array items{terms_.atom("done"_atom), result, left};
         return terms_.tuple(items);
     }
 
@@ -740,7 +740,7 @@ class Collector final {
     Term more() const {
         std::vector<Term> stack(stack_.rbegin(), stack_.rend());
         const std::array state{format_, terms_.list(stack), terms_.integer(count_), results_};
-        const std::array items{terms_.atom("more"), terms_.tuple(state)};
+        const std::array items{terms_.atom("more"_atom), terms_.tuple(state)};
         return terms_.tuple(items);
     }
 

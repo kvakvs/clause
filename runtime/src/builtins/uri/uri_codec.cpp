@@ -94,8 +94,8 @@ Term decode_map(ProcessContext &context, const Term &map) {
             TermFactory factory(context);
             const std::array detail{value.tuple_element_unchecked(1), value.tuple_element_unchecked(2)};
             const std::array field{key, need(factory.tuple(detail))};
-            const std::array invalid{atom(context, "invalid"), need(factory.tuple(field))};
-            const std::array reason{atom(context, "error"), need(factory.tuple(invalid))};
+            const std::array invalid{atom(context, "invalid"_atom), need(factory.tuple(field))};
+            const std::array reason{atom(context, "error"_atom), need(factory.tuple(invalid))};
             return need(factory.tuple(reason));
         }
     }
@@ -316,7 +316,7 @@ Term transcode2(ProcessContext &context, const UriArg &uri, const OptionsArg &op
     if (!string.is_binary() && !string.is_list()) {
         no_clause();
     }
-    const auto utf8 = atom(context, "utf8");
+    const auto utf8 = atom(context, "utf8"_atom);
     const Encodings encodings{.in = option(context, options.term, "in_encoding").value_or(utf8),
                               .out = option(context, options.term, "out_encoding").value_or(utf8)};
     if (string.is_list()) {
@@ -389,14 +389,14 @@ Term query_encoding(ProcessContext &context, const Term &text, const OptionsArg 
 // A text's bytes: a binary's, or a list's in `encoding` (OTP's to_binary(Text, utf8, Encoding)).
 Bytes text_in(ProcessContext &context, const Term &text, const Term &encoding) {
     return text.is_binary() ? bytes_of(text)
-                            : encoded(context, decoded(context, text, atom(context, "utf8")), encoding);
+                            : encoded(context, decoded(context, text, atom(context, "utf8"_atom)), encoding);
 }
 
 // form_encode/2 of a key or value under the [{encoding, E}] option.
 std::string form_encode(ProcessContext &context, const Term &text, const OptionsArg &options) {
     const auto encoding = query_encoding(context, text, options);
     if (atom_is(encoding, "latin1")) {
-        const auto references = numeric_references(text_in(context, text, atom(context, "utf8")));
+        const auto references = numeric_references(text_in(context, text, atom(context, "utf8"_atom)));
         return form_bytes(std::as_bytes(std::span(references)));
     }
     if (!atom_is(encoding, "utf8") && !atom_is(encoding, "unicode")) {
@@ -438,7 +438,7 @@ Term compose_query2(ProcessContext &context, const PairsArg &list, const Options
             no_clause();
         }
         const auto binary = binary_of(context, query);
-        return lists ? codes_list(context, decoded(context, binary, atom(context, "utf8"))) : binary;
+        return lists ? codes_list(context, decoded(context, binary, atom(context, "utf8"_atom))) : binary;
     } catch (const Failure &failure) {
         return error_tuple(context, failure);
     }
@@ -446,7 +446,7 @@ Term compose_query2(ProcessContext &context, const PairsArg &list, const Options
 
 Term compose_query1(ProcessContext &context, const PairsArg &list) {
     TermFactory factory(context);
-    const std::array option{atom(context, "encoding"), atom(context, "utf8")};
+    const std::array option{atom(context, "encoding"_atom), atom(context, "utf8"_atom)};
     const std::array options{need(factory.tuple(option))};
     return compose_query2(context, list, {need(factory.list(options))});
 }
@@ -456,7 +456,7 @@ char form_escape(ProcessContext &context, const std::string &text, std::size_t a
     const auto byte = escape_value(static_cast<std::uint8_t>(text[at + 1]), static_cast<std::uint8_t>(text[at + 2]));
     if (!byte) {
         fail(context, "invalid_percent_encoding",
-             codes_list(context, decoded(context, binary_of(context, text.substr(at)), atom(context, "utf8"))));
+             codes_list(context, decoded(context, binary_of(context, text.substr(at)), atom(context, "utf8"_atom))));
     }
     return static_cast<char>(*byte);
 }
@@ -532,7 +532,7 @@ Term form_value(ProcessContext &context, const std::optional<std::string> &text,
         return need(TermFactory(context).boolean(true));
     }
     const auto value = binary_of(context, form_decoded(context, *text));
-    return lists ? codes_list(context, decoded(context, value, atom(context, "utf8"))) : value;
+    return lists ? codes_list(context, decoded(context, value, atom(context, "utf8"_atom))) : value;
 }
 
 // OTP's query_key: the key up to '=' or a '&' that starts no "&#" reference.
@@ -582,9 +582,9 @@ Term dissect_query1(ProcessContext &context, const Term &query) {
         no_clause();
     }
     try {
-        const auto bytes =
-            query.is_binary() ? bytes_of(query)
-                              : encoded(context, decoded(context, query, atom(context, "utf8")), atom(context, "utf8"));
+        const auto bytes = query.is_binary() ? bytes_of(query)
+                                             : encoded(context, decoded(context, query, atom(context, "utf8"_atom)),
+                                                       atom(context, "utf8"_atom));
         return dissected(context, text_of(bytes), query.is_list());
     } catch (const Failure &failure) {
         return error_tuple(context, failure);

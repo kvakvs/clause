@@ -77,9 +77,10 @@ class Builder final {
         for (const auto &token : outcome.tokens) {
             tokens.push_back(this->token(token));
         }
-        const auto column = outcome.location.column ? terms_.integer(*outcome.location.column) : terms_.atom("no_col");
-        const std::array items{terms_.atom(outcome.stop == scanning::Stop::ok ? "ok" : "more"), terms_.list(tokens),
-                               rest(outcome.rest), terms_.integer(outcome.location.line), column};
+        const auto column =
+            outcome.location.column ? terms_.integer(*outcome.location.column) : terms_.atom("no_col"_atom);
+        const std::array items{terms_.atom(outcome.stop == scanning::Stop::ok ? "ok"_atom : "more"_atom),
+                               terms_.list(tokens), rest(outcome.rest), terms_.integer(outcome.location.line), column};
         return terms_.tuple(items);
     }
 
@@ -91,13 +92,13 @@ class Builder final {
         case TokenKind::reserved:
             return pair(atom(token.chars), anno);
         case TokenKind::unquoted:
-            return triple("$unquoted", anno, atom(token.chars));
+            return triple("$unquoted"_atom, anno, atom(token.chars));
         case TokenKind::atom:
-            return triple("atom", anno, atom(token.chars));
+            return triple("atom"_atom, anno, atom(token.chars));
         case TokenKind::var:
-            return triple("var", anno, atom(token.chars));
+            return triple("var"_atom, anno, atom(token.chars));
         case TokenKind::sigil_prefix:
-            return triple("sigil_prefix", anno, atom(token.chars));
+            return triple("sigil_prefix"_atom, anno, atom(token.chars));
         default:
             return valued(token, anno);
         }
@@ -107,19 +108,19 @@ class Builder final {
     Term valued(const Token &token, const Term &anno) const {
         switch (token.kind) {
         case TokenKind::integer:
-            return triple("integer", anno, integer(token.digits, token.base));
+            return triple("integer"_atom, anno, integer(token.digits, token.base));
         case TokenKind::floating:
-            return triple("float", anno, need(TermFactory(terms_.context()).floating(token.number)));
+            return triple("float"_atom, anno, need(TermFactory(terms_.context()).floating(token.number)));
         case TokenKind::character:
-            return triple("char", anno, terms_.integer(token.code));
+            return triple("char"_atom, anno, terms_.integer(token.code));
         case TokenKind::comment:
-            return triple("comment", anno, chars(token.chars));
+            return triple("comment"_atom, anno, chars(token.chars));
         case TokenKind::white_space:
-            return triple("white_space", anno, chars(token.chars));
+            return triple("white_space"_atom, anno, chars(token.chars));
         case TokenKind::sigil_suffix:
-            return triple("sigil_suffix", anno, chars(token.chars));
+            return triple("sigil_suffix"_atom, anno, chars(token.chars));
         default:
-            return triple("string", anno, chars(token.chars));
+            return triple("string"_atom, anno, chars(token.chars));
         }
     }
 
@@ -134,34 +135,35 @@ class Builder final {
             return place;
         }
         const std::u32string_view codes(input_.codes.data() + token.begin, token.end - token.begin);
-        const std::array items{pair(terms_.atom("text"), chars(codes)), pair(terms_.atom("location"), place)};
+        const std::array items{pair(terms_.atom("text"_atom), chars(codes)), pair(terms_.atom("location"_atom), place)};
         return terms_.list(items);
     }
 
     // {error, {Location, erl_scan, Descriptor}, EndLocation, Rest}.
     Term error(const ScanError &failure) const {
-        const std::array info{location(failure.start), terms_.atom("erl_scan"), descriptor(failure)};
-        const std::array items{terms_.atom("error"), terms_.tuple(info), location(failure.stop), rest(failure.rest)};
+        const std::array info{location(failure.start), terms_.atom("erl_scan"_atom), descriptor(failure)};
+        const std::array items{terms_.atom("error"_atom), terms_.tuple(info), location(failure.stop),
+                               rest(failure.rest)};
         return terms_.tuple(items);
     }
 
     Term descriptor(const ScanError &failure) const {
         switch (failure.kind) {
         case scanning::ErrorKind::illegal:
-            return pair(terms_.atom("illegal"), terms_.atom(failure.what));
+            return pair(terms_.atom("illegal"_atom), terms_.atom(failure.what));
         case scanning::ErrorKind::base:
-            return pair(terms_.atom("base"), integer(failure.digits, 10));
+            return pair(terms_.atom("base"_atom), integer(failure.digits, 10));
         case scanning::ErrorKind::unterminated_char:
-            return pair(terms_.atom("unterminated"), terms_.atom("char"));
+            return pair(terms_.atom("unterminated"_atom), terms_.atom("char"_atom));
         case scanning::ErrorKind::unterminated:
-            return triple("unterminated", unterminated(failure),
+            return triple("unterminated"_atom, unterminated(failure),
                           string::prefix_of(terms_.context(), chars(failure.head), 16));
         case scanning::ErrorKind::indentation:
-            return terms_.atom("indentation");
+            return terms_.atom("indentation"_atom);
         case scanning::ErrorKind::white_space:
-            return terms_.atom("white_space");
+            return terms_.atom("white_space"_atom);
         case scanning::ErrorKind::string_concat:
-            return terms_.atom("string_concat");
+            return terms_.atom("string_concat"_atom);
         }
         return terms_.nil();
     }
@@ -170,18 +172,18 @@ class Builder final {
     Term unterminated(const ScanError &failure) const {
         switch (failure.unterminated) {
         case scanning::Unterminated::atom:
-            return terms_.atom("atom");
+            return terms_.atom("atom"_atom);
         case scanning::Unterminated::string:
-            return terms_.atom("string");
+            return terms_.atom("string"_atom);
         case scanning::Unterminated::triple:
-            return pair(terms_.atom("string"), terms_.integer(failure.quotes));
+            return pair(terms_.atom("string"_atom), terms_.integer(failure.quotes));
         case scanning::Unterminated::sigil: {
-            const std::array items{terms_.atom("sigil"), atom(failure.sigil), terms_.integer(failure.open),
+            const std::array items{terms_.atom("sigil"_atom), atom(failure.sigil), terms_.integer(failure.open),
                                    terms_.integer(failure.close)};
             return terms_.tuple(items);
         }
         case scanning::Unterminated::triple_sigil:
-            return triple("sigil", atom(failure.sigil), terms_.integer(failure.quotes));
+            return triple("sigil"_atom, atom(failure.sigil), terms_.integer(failure.quotes));
         }
         return terms_.nil();
     }
@@ -189,7 +191,7 @@ class Builder final {
     // The input from `index` on; none is OTP's eof.
     Term rest(std::optional<std::size_t> index) const {
         if (!index) {
-            return terms_.atom("eof");
+            return terms_.atom("eof"_atom);
         }
         return *index < input_.cells.size() ? input_.cells[*index] : input_.tail;
     }
@@ -215,7 +217,7 @@ class Builder final {
         return terms_.tuple(items);
     }
 
-    Term triple(std::string_view tag, const Term &second, const Term &third) const {
+    Term triple(AtomName tag, const Term &second, const Term &third) const {
         const std::array items{terms_.atom(tag), second, third};
         return terms_.tuple(items);
     }
@@ -280,7 +282,7 @@ Location read_location(const LineArg &line, const ColumnArg &column) {
 // error({not_character, C}).
 [[noreturn]] void not_character(ProcessContext &context, const Term &element) {
     const Terms terms(context);
-    const std::array items{terms.atom("not_character"), element};
+    const std::array items{terms.atom("not_character"_atom), element};
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = terms.tuple(items).word()};
 }
 

@@ -113,9 +113,7 @@ Term identifier(ProcessContext &context, const Table &table) {
     return need(TermFactory(context).reference_number(table.number()));
 }
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
-Term end_of_table(ProcessContext &context) { return atom(context, "$end_of_table"); }
+Term end_of_table(ProcessContext &context) { return atom(context, "$end_of_table"_atom); }
 
 std::string_view spelling(const Term &term) {
     return term.is_atom() ? term.atom_spelling_unchecked() : std::string_view{};

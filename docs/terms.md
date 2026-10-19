@@ -68,6 +68,13 @@ in [abi.md](abi.md#terms).
   context whose `FrameState::runtime` matches the claim reads it without a call,
   any other calls `CLAUSE_atom_v3`. The claim is given back when the runtime's
   code server releases the module.
+- Runtime C++ writes literal atoms as `"name"_atom` (`atom_names.hpp`): one
+  static `CachedAtom` per spelling keeps the word last interned for it, and
+  `AtomStorage::intern` returns it after one lock-free index read when this
+  runtime issued it, skipping validation, the shared lock and the spelling map.
+  A word of another or a torn-down runtime fails that check and is replaced, so
+  several runtimes in one process stay correct (they only refresh the cache).
+  Builtin helpers take `AtomName`, a spelling with or without such a cache.
 - Interning and lookup are safe from concurrent scheduler workers
   ([threads](runtime.md#threads)); a spelling keeps one word.
 

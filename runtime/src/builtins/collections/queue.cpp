@@ -20,8 +20,6 @@ struct Lists {
     std::vector<Term> front;
 };
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term tuple(ProcessContext &context, std::span<const Term> parts) { return need(TermFactory(context).tuple(parts)); }
 
 Term list(ProcessContext &context, std::span<const Term> elements) { return need(TermFactory(context).list(elements)); }
@@ -87,7 +85,7 @@ Term from_rear(ProcessContext &context, std::vector<Term> rear) {
 
 // error(empty), raised by get/1, get_r/1, drop/1, drop_r/1 and head/1 of an empty queue.
 [[noreturn]] void raise_empty(ProcessContext &context) {
-    throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = atom(context, "empty").word()};
+    throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = atom(context, "empty"_atom).word()};
 }
 
 // to_list(Q): front first, then the rear reversed.
@@ -178,10 +176,10 @@ std::optional<std::pair<Term, Term>> take_rear(ProcessContext &context, Lists li
 // {{value, Item}, Q2} or {empty, Q1}.
 Term taken(ProcessContext &context, const Queue &queue, const std::optional<std::pair<Term, Term>> &result) {
     if (!result) {
-        return tuple(context, std::array{atom(context, "empty"), queue.term});
+        return tuple(context, std::array{atom(context, "empty"_atom), queue.term});
     }
     return tuple(context,
-                 std::array{tuple(context, std::array{atom(context, "value"), result->first}), result->second});
+                 std::array{tuple(context, std::array{atom(context, "value"_atom), result->first}), result->second});
 }
 
 Term out(ProcessContext &context, const Queue &queue) {
@@ -226,7 +224,7 @@ Term get_r(ProcessContext &context, const Queue &queue) {
 
 // peek(Q), peek_r(Q): {value, Item} or empty.
 Term peeked(ProcessContext &context, const std::optional<Term> &item) {
-    return item ? tuple(context, std::array{atom(context, "value"), *item}) : atom(context, "empty");
+    return item ? tuple(context, std::array{atom(context, "value"_atom), *item}) : atom(context, "empty"_atom);
 }
 
 Term peek(ProcessContext &context, const Queue &queue) { return peeked(context, first_item(lists_of(queue))); }

@@ -70,12 +70,12 @@ Term Parser::continue_expression(Operand left, Mode mode, int minimum) {
 Operand Parser::unary(Mode mode) {
     if (mode == Mode::expression && at("catch")) {
         const auto keyword = take();
-        return {tuple({atom("catch"), anno(keyword), expression()}), Shape::other};
+        return {tuple({atom("catch"_atom), anno(keyword), expression()}), Shape::other};
     }
     if (is_prefix_operator(category())) {
         const auto operation = take();
         const auto operand = expression(mode, PREFIX_OPERAND);
-        return {tuple({atom("op"), anno(operation), category_atom(operation), operand}), Shape::other};
+        return {tuple({atom("op"_atom), anno(operation), category_atom(operation), operand}), Shape::other};
     }
     return mode == Mode::pattern ? primary(mode) : postfix(primary(mode));
 }
@@ -93,18 +93,18 @@ const Operator *Parser::infix(Mode mode) const {
 Term Parser::binary(const Term &left, const Operator &operation, Mode mode) {
     if (operation.build == Build::call) {
         const auto items = arguments();
-        return tuple({atom("call"), first_anno(left), left, list(items)});
+        return tuple({atom("call"_atom), first_anno(left), left, list(items)});
     }
     const auto symbol = take();
     const auto right_minimum = operation.precedence + (operation.associativity == Associativity::right ? 0 : 1);
     const auto right = expression(mode, right_minimum);
     switch (operation.build) {
     case Build::match:
-        return tuple({atom("match"), first_anno(left), left, right});
+        return tuple({atom("match"_atom), first_anno(left), left, right});
     case Build::remote:
-        return tuple({atom("remote"), anno(symbol), left, right});
+        return tuple({atom("remote"_atom), anno(symbol), left, right});
     default:
-        return tuple({atom("op"), anno(symbol), category_atom(symbol), left, right});
+        return tuple({atom("op"_atom), anno(symbol), category_atom(symbol), left, right});
     }
 }
 
@@ -132,7 +132,7 @@ Operand Parser::hash_suffix(const Term &left, Shape shape) {
         if (shape == Shape::record) {
             fail();
         }
-        return {tuple({atom("map"), anno(hash), left, map_tuple()}), Shape::map};
+        return {tuple({atom("map"_atom), anno(hash), left, map_tuple()}), Shape::map};
     }
     if (shape == Shape::map) {
         fail();
@@ -151,12 +151,12 @@ Operand Parser::field_or_update(const Term &left, std::size_t hash, const Term &
     if (at(".")) {
         take();
         const auto field = expect("atom");
-        return {tuple({atom("record_field"), anno(hash), left, id, token(field)}), Shape::record};
+        return {tuple({atom("record_field"_atom), anno(hash), left, id, token(field)}), Shape::record};
     }
     if (!at("{")) {
         fail();
     }
-    return {tuple({atom("record"), anno(hash), left, id, record_tuple_fields()}), Shape::record};
+    return {tuple({atom("record"_atom), anno(hash), left, id, record_tuple_fields()}), Shape::record};
 }
 
 bool Parser::at_record_name() const {
@@ -175,7 +175,7 @@ Term Parser::record_name() {
         return token(name);
     }
     const auto spelling = is_category(name, "var") ? value(name) : category_atom(name);
-    return tuple({atom("atom"), anno(name), spelling});
+    return tuple({atom("atom"_atom), anno(name), spelling});
 }
 
 Term Parser::record_name_value(const Term &name) const { return name.tuple_element_unchecked(2); }

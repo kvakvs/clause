@@ -130,7 +130,7 @@ struct Shape {
 // One word of a list seed, masked; non_integer_seed for anything else.
 std::uint64_t seed_word(ProcessContext &context, const Term &element, unsigned bits) {
     if (!element.is_integer()) {
-        raise_atom(context, "non_integer_seed");
+        raise_atom(context, "non_integer_seed"_atom);
     }
     return low64(element) & mask(bits);
 }
@@ -141,7 +141,7 @@ std::vector<std::uint64_t> list_words(ProcessContext &context, Term list, Shape 
     std::vector<std::uint64_t> words;
     for (; list.is_cons(); list = list.tail_unchecked()) {
         if (words.size() == shape.count) {
-            raise_atom(context, "too_many_seed_integers");
+            raise_atom(context, "too_many_seed_integers"_atom);
         }
         words.push_back(seed_word(context, list.head_unchecked(), shape.bits));
     }
@@ -149,7 +149,7 @@ std::vector<std::uint64_t> list_words(ProcessContext &context, Term list, Shape 
         no_clause();
     }
     if (std::ranges::all_of(words, [](std::uint64_t word) { return word == 0; })) {
-        raise_atom(context, "zero_seed");
+        raise_atom(context, "zero_seed"_atom);
     }
     words.resize(shape.count, 0);
     return words;
@@ -249,14 +249,14 @@ std::uint64_t dummy_tuple(const std::array<Term, 3> &parts) {
 // dummy_seed of a list: exactly one integer.
 std::uint64_t dummy_list(ProcessContext &context, const Term &list) {
     if (list.is_nil()) {
-        raise_atom(context, "zero_seed");
+        raise_atom(context, "zero_seed"_atom);
     }
     const auto head = need(list.head());
     if (!head.is_integer()) {
-        raise_atom(context, "non_integer_seed");
+        raise_atom(context, "non_integer_seed"_atom);
     }
     if (!need(list.tail()).is_nil()) {
-        raise_atom(context, "too_many_seed_integers");
+        raise_atom(context, "too_many_seed_integers"_atom);
     }
     return low64(head) & MASK58;
 }
@@ -312,9 +312,8 @@ Term seed_ring(ProcessContext &context, const Spec &spec, const Term &seed) {
 }
 } // namespace
 
-[[noreturn]] void raise_atom(ProcessContext &context, std::string_view name) {
-    throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
-                         .payload = need(TermFactory(context).atom(name)).word()};
+[[noreturn]] void raise_atom(ProcessContext &context, const AtomName name) {
+    throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = atom(context, name).word()};
 }
 
 std::optional<Spec> spec_of(std::string_view name) {

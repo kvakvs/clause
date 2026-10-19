@@ -110,7 +110,7 @@ Term Parser::expr_max() {
 Operand Parser::hash_primary(Mode mode) {
     const auto hash = take();
     if (is_category(hash, "#_")) {
-        return {tuple({atom("record"), anno(hash), terms_.nil(), record_tuple_fields()}), Shape::record};
+        return {tuple({atom("record"_atom), anno(hash), terms_.nil(), record_tuple_fields()}), Shape::record};
     }
     if (at("{")) {
         return map_creation(hash, mode, false);
@@ -119,7 +119,7 @@ Operand Parser::hash_primary(Mode mode) {
         const auto name = take();
         take();
         const auto field = expect("atom");
-        return {tuple({atom("record_index"), anno(hash), value(name), token(field)}), Shape::record};
+        return {tuple({atom("record_index"_atom), anno(hash), value(name), token(field)}), Shape::record};
     }
     auto id = Term{};
     if (at("atom") && at(":", 1)) {
@@ -129,7 +129,7 @@ Operand Parser::hash_primary(Mode mode) {
     } else {
         id = record_name_value(record_name());
     }
-    return {tuple({atom("record"), anno(hash), id, record_tuple_fields()}), Shape::record};
+    return {tuple({atom("record"_atom), anno(hash), id, record_tuple_fields()}), Shape::record};
 }
 
 // '#' '{' ...: a map, or (in expressions) a comprehension, which is all expr_max allows.
@@ -137,7 +137,7 @@ Operand Parser::map_creation(std::size_t hash, Mode mode, bool comprehension_onl
     take();
     if (!comprehension_only && at("}")) {
         take();
-        return {tuple({atom("map"), anno(hash), terms_.nil()}), Shape::map};
+        return {tuple({atom("map"_atom), anno(hash), terms_.nil()}), Shape::map};
     }
     std::vector<Term> fields{map_field()};
     while (at(",")) {
@@ -149,13 +149,13 @@ Operand Parser::map_creation(std::size_t hash, Mode mode, bool comprehension_onl
         const auto template_term = fields.size() == 1 ? fields.front() : list(fields);
         const auto generators = qualifiers();
         expect("}");
-        return {tuple({atom("mc"), anno(hash), template_term, list(generators)}), Shape::max};
+        return {tuple({atom("mc"_atom), anno(hash), template_term, list(generators)}), Shape::max};
     }
     if (comprehension_only) {
         fail();
     }
     expect("}");
-    return {tuple({atom("map"), anno(hash), list(fields)}), Shape::map};
+    return {tuple({atom("map"_atom), anno(hash), list(fields)}), Shape::map};
 }
 
 Term Parser::map_tuple() {
@@ -204,7 +204,7 @@ Term Parser::record_field_expression() {
     }
     const auto name = take();
     expect("=");
-    return tuple({atom("record_field"), anno(name), token(name), expression()});
+    return tuple({atom("record_field"_atom), anno(name), token(name), expression()});
 }
 
 // '[' ']', '[' expr tail, or a list comprehension of one template or several.
@@ -212,7 +212,7 @@ Term Parser::list_expression(Mode mode) {
     const auto open = take();
     if (at("]")) {
         take();
-        return tuple({atom("nil"), anno(open)});
+        return tuple({atom("nil"_atom), anno(open)});
     }
     std::vector<Term> elements{expression()};
     while (at(",")) {
@@ -224,7 +224,7 @@ Term Parser::list_expression(Mode mode) {
         const auto template_term = elements.size() == 1 ? elements.front() : list(elements);
         const auto generators = qualifiers();
         expect("]");
-        return tuple({atom("lc"), anno(open), template_term, list(generators)});
+        return tuple({atom("lc"_atom), anno(open), template_term, list(generators)});
     }
     return list_tail(elements, open);
 }
@@ -237,12 +237,12 @@ Term Parser::list_tail(std::vector<Term> &elements, std::size_t open) {
         tail = expression();
         expect("]");
     } else {
-        tail = tuple({atom("nil"), anno(expect("]"))});
+        tail = tuple({atom("nil"_atom), anno(expect("]"))});
     }
     for (auto index = elements.size() - 1; index > 0; --index) {
-        tail = tuple({atom("cons"), first_anno(elements[index]), elements[index], tail});
+        tail = tuple({atom("cons"_atom), first_anno(elements[index]), elements[index], tail});
     }
-    return tuple({atom("cons"), anno(open), elements.front(), tail});
+    return tuple({atom("cons"_atom), anno(open), elements.front(), tail});
 }
 
 Term Parser::tuple_expression() {
@@ -252,7 +252,7 @@ Term Parser::tuple_expression() {
         items = exprs();
     }
     expect("}");
-    return tuple({atom("tuple"), anno(open), list(items)});
+    return tuple({atom("tuple"_atom), anno(open), list(items)});
 }
 
 // '<<' '>>', '<<' bin_elements '>>' or (in expressions) '<<' expr_max '||' lc_exprs '>>'.
@@ -267,7 +267,7 @@ Term Parser::binary_expression(Mode mode) {
                 take();
                 const auto generators = qualifiers();
                 expect(">>");
-                return tuple({atom("bc"), anno(open), *first, list(generators)});
+                return tuple({atom("bc"_atom), anno(open), *first, list(generators)});
             }
         }
         elements.push_back(bin_element(first));
@@ -278,7 +278,7 @@ Term Parser::binary_expression(Mode mode) {
     }
     expect(">>");
     binary_span_ = {open, pos_};
-    return tuple({atom("bin"), anno(open), list(elements)});
+    return tuple({atom("bin"_atom), anno(open), list(elements)});
 }
 
 // bit_expr opt_bit_size_expr opt_bit_type_list; the value may be read already.
@@ -286,21 +286,21 @@ Term Parser::bin_element(std::optional<Term> value) {
     if (!value && is_prefix_operator(category())) {
         const auto operation = take();
         const auto operand = expr_max();
-        value = tuple({atom("op"), anno(operation), category_atom(operation), operand});
+        value = tuple({atom("op"_atom), anno(operation), category_atom(operation), operand});
     } else if (!value) {
         value = expr_max();
     }
-    auto size = atom("default");
+    auto size = atom("default"_atom);
     if (at(":")) {
         take();
         size = expr_max();
     }
-    auto types = atom("default");
+    auto types = atom("default"_atom);
     if (at("/")) {
         take();
         types = bit_types();
     }
-    return tuple({atom("bin_element"), first_anno(*value), *value, size, types});
+    return tuple({atom("bin_element"_atom), first_anno(*value), *value, size, types});
 }
 
 // bit_type_list -> bit_type '-' bit_type_list | bit_type; bit_type -> atom | atom ':' integer.
@@ -335,7 +335,7 @@ Term Parser::strings() {
     for (auto part = parts.rbegin() + 1; part != parts.rend(); ++part) {
         joined = terms_.list(appended_elements(value(*part)), joined);
     }
-    return tuple({atom("string"), anno(first), joined});
+    return tuple({atom("string"_atom), anno(first), joined});
 }
 
 // build_sigil/3: ~s and ~S keep the string, ~, ~b and ~B make a UTF-8 binary; no suffix is allowed.
@@ -356,8 +356,8 @@ Term Parser::sigil() {
         return token(string);
     }
     const auto element =
-        tuple({atom("bin_element"), anno(string), token(string), atom("default"), list({atom("utf8")})});
-    return tuple({atom("bin"), anno(prefix), list({element})});
+        tuple({atom("bin_element"_atom), anno(string), token(string), atom("default"_atom), list({atom("utf8"_atom)})});
+    return tuple({atom("bin"_atom), anno(prefix), list({element})});
 }
 
 Term Parser::paren(Mode mode) {
@@ -371,7 +371,7 @@ Term Parser::block() {
     const auto keyword = take();
     const auto body = exprs();
     expect("end");
-    return tuple({atom("block"), anno(keyword), list(body)});
+    return tuple({atom("block"_atom), anno(keyword), list(body)});
 }
 
 // lc_exprs: qualifiers separated by ',', those joined by '&&' zipped.
@@ -395,7 +395,7 @@ Term Parser::zip(const Term &first) {
         zipped.push_back(qualifier());
     }
     const auto zip_anno = at(",") ? anno(pos_) : zipped.front().tuple_element_unchecked(1);
-    return tuple({atom("zip"), zip_anno, list(zipped)});
+    return tuple({atom("zip"_atom), zip_anno, list(zipped)});
 }
 
 // lc_expr: a filter, or a generator of a pattern, a map field or a binary.
@@ -404,7 +404,7 @@ Term Parser::qualifier() {
     const auto left = expression();
     if (at(":=")) {
         const auto arrow = take();
-        const auto field = tuple({atom("map_field_exact"), anno(arrow), left, expression()});
+        const auto field = tuple({atom("map_field_exact"_atom), anno(arrow), left, expression()});
         if (!at("<-") && !at("<:-")) {
             fail();
         }

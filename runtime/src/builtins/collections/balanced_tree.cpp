@@ -37,7 +37,7 @@ Term BalancedTree::node(const NodeParts &parts) const {
     return need(factory.tuple(elements));
 }
 
-Term BalancedTree::nil() const { return need(TermFactory(*context_).atom("nil")); }
+Term BalancedTree::nil() const { return need(TermFactory(*context_).atom("nil"_atom)); }
 
 namespace {
 bool is_nil_atom(const Term &term) { return term.is_atom() && term.atom_spelling_unchecked() == "nil"; }
@@ -92,14 +92,14 @@ Grown BalancedTree::insert(const NodeParts &entry, const Term &node, std::uint64
         return {leaf, budget == 0 ? std::optional{Measure{1, 1}} : std::nullopt};
     }
     if (!is_node(node)) {
-        raise_error(
-            need(TermFactory(*context_).tuple(std::array{need(TermFactory(*context_).atom("key_exists")), entry.key})));
+        raise_error(need(
+            TermFactory(*context_).tuple(std::array{need(TermFactory(*context_).atom("key_exists"_atom)), entry.key})));
     }
     auto here = parts(node);
     const auto order = compare(entry.key, here.key);
     if (order == 0) {
-        raise_error(
-            need(TermFactory(*context_).tuple(std::array{need(TermFactory(*context_).atom("key_exists")), entry.key})));
+        raise_error(need(
+            TermFactory(*context_).tuple(std::array{need(TermFactory(*context_).atom("key_exists"_atom)), entry.key})));
     }
     const auto grown = insert(entry, order < 0 ? here.left : here.right, budget >> 1U);
     (order < 0 ? here.left : here.right) = grown.tree;

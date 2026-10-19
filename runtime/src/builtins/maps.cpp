@@ -106,7 +106,7 @@ TermResult<Term> take(ProcessContext &context, const Term &key, const MapOperand
     const auto map = operand.map();
     const auto found = need(map.map_find(key));
     if (!found) {
-        return factory.atom("error");
+        return factory.atom("error"_atom);
     }
     const std::array parts{*found, need(factory.map(entries_without(need(map.map_entries()), key)))};
     return factory.tuple(parts);

@@ -15,8 +15,6 @@ namespace tables = unicode_tables;
 using unicode::category_term;
 
 // The atom `name`.
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // A small integer term.
 Term small_term(std::int64_t value) { return need(Term::from_word(need(encode_integer(value)))); }
 
@@ -124,7 +122,7 @@ Term compose_pair(ProcessContext &context, std::int64_t first, const Second &sec
     };
     const auto found = std::ranges::lower_bound(entries, key, order);
     if (found == entries.end() || found->first != key.first || found->second != key.second) {
-        return atom(context, "false");
+        return atom(context, "false"_atom);
     }
     return small_term(found->composed);
 }

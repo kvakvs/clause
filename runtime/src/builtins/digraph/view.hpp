@@ -28,7 +28,7 @@ class DigraphView final : public graph::View {
 
     std::vector<std::pair<Term, Term>> out_ends(const Term &vertex) const override;
 
-    std::size_t in_degree(const Term &vertex) const override { return edges(vertex, "in").size(); }
+    std::size_t in_degree(const Term &vertex) const override { return edges(vertex, "in"_atom).size(); }
 
     // The sizes of the vertex and edge tables (no_vertices/1, no_edges/1).
     std::size_t vertex_count() const;
@@ -36,7 +36,7 @@ class DigraphView final : public graph::View {
 
   private:
     // The edges of a vertex's {in, V} or {out, V} entries, in the bag's order.
-    Vertices edges(const Term &vertex, std::string_view side) const;
+    Vertices edges(const Term &vertex, AtomName side) const;
     // The `position`th element (2 the source, 3 the target) of each of those edges, the last edge first.
     Vertices neighbours(const Term &vertex, std::string_view side, std::size_t position) const;
     // One element of a stored edge; badarg when the edge is gone, as ets:lookup_element/3 raises.

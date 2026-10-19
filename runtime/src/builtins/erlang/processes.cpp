@@ -45,8 +45,6 @@ TermResult<Term> spawn_link_call(ProcessContext &context, const AtomArgument &mo
 }
 
 // The atom `name`.
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // spawn_monitor(Fun): {Pid, Ref} of spawn(Fun), monitored by the caller before it runs.
 TermResult<Term> spawn_monitor_fun(ProcessContext &context, const Term &fun) {
     if (!fun.is_function()) {
@@ -167,9 +165,10 @@ TermResult<Term> link(ProcessContext &context, const Term &pid) {
         bad_argument();
     }
     if (!detail::Executor::of(context).link(context, pid.word())) {
-        throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = atom(context, "noproc").word()};
+        throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
+                             .payload = atom(context, "noproc"_atom).word()};
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // unlink(Pid): true; the link, if any, has no effect from now on.
@@ -178,7 +177,7 @@ TermResult<Term> unlink(ProcessContext &context, const Term &pid) {
         bad_argument();
     }
     detail::Executor::unlink(context, pid.word());
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // exit(Dest, Reason) and exit_signal(Dest, Reason): true after sending an exit signal to the process of a pid; a
@@ -190,7 +189,7 @@ TermResult<Term> exit_signal(ProcessContext &context, const Term &destination, c
     } else if (!destination.is_reference()) {
         bad_argument();
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // process_flag(min_heap_size, Size): the previous min_heap_size; it applies from the next collection.
@@ -293,7 +292,7 @@ TermResult<Term> register_name(ProcessContext &context, const AtomArgument &name
         !detail::Executor::of(context).register_name(context, name.term.word(), pid.word())) {
         bad_argument();
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // unregister(Name): true; badarg when no process has the name.
@@ -301,13 +300,13 @@ TermResult<Term> unregister(ProcessContext &context, const AtomArgument &name) {
     if (!detail::Executor::of(context).unregister(context, name.term.word())) {
         bad_argument();
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // whereis(Name): the pid registered as Name, or undefined.
 TermResult<Term> whereis(ProcessContext &context, const AtomArgument &name) {
     const auto pid = detail::Executor::of(context).whereis(context, name.term.word());
-    return pid != 0 ? Term::from_word(pid, context) : TermFactory(context).atom("undefined");
+    return pid != 0 ? Term::from_word(pid, context) : TermFactory(context).atom("undefined"_atom);
 }
 
 // registered(): the registered names.

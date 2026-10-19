@@ -88,7 +88,7 @@ Term Parser::anno(std::size_t index) const { return element_of(tokens_[index], 1
 
 Term Parser::value(std::size_t index) const { return element_of(tokens_[index], 2); }
 
-Term Parser::atom(std::string_view name) const { return terms_.atom(name); }
+Term Parser::atom(const AtomName name) const { return terms_.atom(name); }
 
 Term Parser::tuple(std::initializer_list<Term> items) const {
     return terms_.tuple(std::span<const Term>(items.begin(), items.size()));
@@ -116,7 +116,7 @@ void Parser::error_at_node(const Term &node, std::string_view message) const {
     error_at(abstract::first_location(context_, node), message);
 }
 
-void Parser::bad_declaration(const Term &node, std::string_view what) const {
+void Parser::bad_declaration(const Term &node, AtomName what) const {
     throw FormatError{abstract::first_location(context_, node), "bad ~tw declaration", {atom(what)}};
 }
 
@@ -145,7 +145,7 @@ Term Parser::function() {
     }
     const auto &first = clauses.front();
     const auto arity = length_of(first.tuple_element_unchecked(3));
-    return tuple({atom("function"), first.tuple_element_unchecked(1), first.tuple_element_unchecked(2),
+    return tuple({atom("function"_atom), first.tuple_element_unchecked(1), first.tuple_element_unchecked(2),
                   terms_.integer(static_cast<std::int64_t>(arity)), list(checked_clauses(clauses))});
 }
 
@@ -155,7 +155,7 @@ Term Parser::function_clause() {
     const auto arguments = pattern_arguments().first;
     const auto guard = clause_guard();
     const auto body = clause_body();
-    return tuple({atom("clause"), anno(name), value(name), list(arguments), guard, list(body)});
+    return tuple({atom("clause"_atom), anno(name), value(name), list(arguments), guard, list(body)});
 }
 
 std::vector<Term> Parser::checked_clauses(const std::vector<Term> &clauses) const {
@@ -167,8 +167,9 @@ std::vector<Term> Parser::checked_clauses(const std::vector<Term> &clauses) cons
         if (!same_name || length_of(clause.tuple_element_unchecked(3)) != arity) {
             head_mismatch(clause, arity, name);
         }
-        checked.push_back(tuple({atom("clause"), clause.tuple_element_unchecked(1), clause.tuple_element_unchecked(3),
-                                 clause.tuple_element_unchecked(4), clause.tuple_element_unchecked(5)}));
+        checked.push_back(
+            tuple({atom("clause"_atom), clause.tuple_element_unchecked(1), clause.tuple_element_unchecked(3),
+                   clause.tuple_element_unchecked(4), clause.tuple_element_unchecked(5)}));
     }
     return checked;
 }

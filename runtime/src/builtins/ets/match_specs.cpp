@@ -55,7 +55,7 @@ Term messages_term(ProcessContext &context, const std::vector<match_spec::Messag
         for (const auto byte : message.text) {
             text.push_back(need(factory.integer(static_cast<unsigned char>(byte))));
         }
-        const std::array item{atom(context, message.warning ? "warning" : "error"), need(factory.list(text))};
+        const std::array item{atom(context, message.warning ? "warning"_atom : "error"_atom), need(factory.list(text))};
         items.push_back(need(factory.tuple(item)));
     }
     return need(factory.list(items));
@@ -65,10 +65,10 @@ Term messages_term(ProcessContext &context, const std::vector<match_spec::Messag
 Term flags_term(ProcessContext &context, const match_spec::TraceFlags &flags) {
     std::vector<Term> items;
     if (flags.return_trace) {
-        items.push_back(atom(context, "return_trace"));
+        items.push_back(atom(context, "return_trace"_atom));
     }
     if (flags.exception_trace) {
-        items.push_back(atom(context, "exception_trace"));
+        items.push_back(atom(context, "exception_trace"_atom));
     }
     return need(TermFactory(context).list(items));
 }
@@ -88,14 +88,14 @@ Term match_spec_test(ProcessContext &context, const AgainstArgument &against, co
     const auto messages = messages_term(context, result.messages);
     TermFactory factory(context);
     if (!result.program) {
-        return need(factory.tuple(std::array{atom(context, "error"), messages}));
+        return need(factory.tuple(std::array{atom(context, "error"_atom), messages}));
     }
     match_spec::TraceFlags flags;
     const auto value = dialect == match_spec::Dialect::table
                            ? match_spec::run(context, *result.program, against.term.word(), match_spec::Source::heap)
                            : match_spec::run_trace(context, *result.program, against.term, flags);
-    const std::array reply{atom(context, "ok"), value.value_or(atom(context, "false")), flags_term(context, flags),
-                           messages};
+    const std::array reply{atom(context, "ok"_atom), value.value_or(atom(context, "false"_atom)),
+                           flags_term(context, flags), messages};
     return need(factory.tuple(reply));
 }
 

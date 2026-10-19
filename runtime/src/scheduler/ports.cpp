@@ -27,7 +27,7 @@ TermResult<Term> input_data(ProcessContext &process, const PortEvent &event) {
     if (!data || event.input == PortInput::Kind::data) {
         return data;
     }
-    const auto tag = factory.atom(event.input == PortInput::Kind::eol ? "eol" : "noeol");
+    const auto tag = factory.atom(event.input == PortInput::Kind::eol ? "eol"_atom : "noeol"_atom);
     return tag ? factory.tuple(std::array{*tag, *data}) : tag;
 }
 
@@ -35,7 +35,7 @@ TermResult<Term> input_data(ProcessContext &process, const PortEvent &event) {
 TermResult<Term> data_message(ProcessContext &process, const PortEvent &event) {
     TermFactory factory(process);
     const auto from = Term::from_word(event.port, process);
-    const auto tag = factory.atom("data");
+    const auto tag = factory.atom("data"_atom);
     const auto data = input_data(process, event);
     if (!from || !tag || !data) {
         return !from ? from : (!tag ? tag : data);
@@ -48,7 +48,7 @@ TermResult<Term> data_message(ProcessContext &process, const PortEvent &event) {
 TermResult<Term> status_message(ProcessContext &process, const PortEvent &event) {
     TermFactory factory(process);
     const auto from = Term::from_word(event.port, process);
-    const auto tag = factory.atom("exit_status");
+    const auto tag = factory.atom("exit_status"_atom);
     const auto status = encode_integer(event.status);
     if (!from || !tag || !status) {
         return std::unexpected(!from ? from.error() : (!tag ? tag.error() : TermError::out_of_range));
@@ -58,7 +58,7 @@ TermResult<Term> status_message(ProcessContext &process, const PortEvent &event)
 }
 
 // {Port, Tag} built in the heap of `process`.
-TermResult<Term> port_message(ProcessContext &process, Word port, std::string_view tag) {
+TermResult<Term> port_message(ProcessContext &process, Word port, AtomName tag) {
     TermFactory factory(process);
     const auto from = Term::from_word(port, process);
     const auto name = factory.atom(tag);
@@ -352,7 +352,7 @@ bool Executor::finish_input(Port &port) {
         }
         return true;
     }
-    auto normal = runtime_.atom_storage.intern("normal");
+    auto normal = runtime_.atom_storage.intern("normal"_atom);
     if (!normal) {
         throw std::bad_alloc();
     }
@@ -367,7 +367,7 @@ bool Executor::close_port(ProcessContext &caller, Word port) {
         return false;
     }
     const Running running(caller);
-    close(*open_port, atom(caller, "normal"));
+    close(*open_port, atom(caller, "normal"_atom));
     drain();
     return true;
 }
@@ -523,7 +523,7 @@ void Executor::answer(ProcessContext &sender, Port &port, const PortRequest &req
     const auto word = detail::port_word(port.number);
     const auto close_request = request.kind == PortRequest::Kind::close;
     if (close_request) {
-        close(port, atom(sender, "normal"));
+        close(port, atom(sender, "normal"_atom));
     } else {
         port.connected = request.owner;
     }
@@ -535,7 +535,7 @@ void Executor::answer(ProcessContext &sender, Port &port, const PortRequest &req
 
 void Executor::badsig(ProcessContext &sender, Port &port) {
     if (auto *connected = process(port.connected)) {
-        post(*connected, PortEvent::exit(detail::port_word(port.number), atom(sender, "badsig").word()));
+        post(*connected, PortEvent::exit(detail::port_word(port.number), atom(sender, "badsig"_atom).word()));
     }
 }
 
@@ -640,7 +640,7 @@ void Executor::port_exit(Port &port, Word from, const Term &reason, SignalKind k
         return;
     }
     if (kind != SignalKind::link && is_atom(reason, "kill")) {
-        auto killed = runtime_.atom_storage.intern("killed");
+        auto killed = runtime_.atom_storage.intern("killed"_atom);
         if (!killed) {
             throw std::bad_alloc();
         }
@@ -686,13 +686,13 @@ void Executor::apply(ProcessContext &target, const PortEvent &event) {
         deliver_down(target, event, reason.value());
         break;
     case PortEvent::Kind::closed:
-        deliver(target, port_message(target, event.port, "closed"));
+        deliver(target, port_message(target, event.port, "closed"_atom));
         break;
     case PortEvent::Kind::connected:
-        deliver(target, port_message(target, event.port, "connected"));
+        deliver(target, port_message(target, event.port, "connected"_atom));
         break;
     case PortEvent::Kind::eof:
-        deliver(target, port_message(target, event.port, "eof"));
+        deliver(target, port_message(target, event.port, "eof"_atom));
         break;
     case PortEvent::Kind::exit_status:
         deliver(target, status_message(target, event));
@@ -719,7 +719,7 @@ bool Executor::link_port(ProcessContext &process, Word port) {
             return false;
         }
         const Running running(process);
-        deliver(process, exit_message(process, port, atom(process, "noproc")));
+        deliver(process, exit_message(process, port, atom(process, "noproc"_atom)));
         return true;
     }
     const auto self = pid_of(process);
@@ -744,7 +744,7 @@ Term Executor::monitor_port(ProcessContext &watcher, Word port, Word name, const
         const Running running(watcher);
         // A 'DOWN' of a port names the port, or {Name, Node}; one that names nothing is still a port monitor.
         const auto item = Signals::Monitor{.pid = port != 0 ? port : detail::port_word(0), .name = name};
-        deliver(watcher, down_message(watcher, identity, item, atom(watcher, "noproc")));
+        deliver(watcher, down_message(watcher, identity, item, atom(watcher, "noproc"_atom)));
         return reference;
     }
     watcher.signals().monitor(identity, port);

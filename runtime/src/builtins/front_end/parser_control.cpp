@@ -16,14 +16,14 @@ Term Parser::if_expression() {
         const auto guard = this->guard();
         const auto body = clause_body();
         clauses.push_back(
-            tuple({atom("clause"), first_anno(head_of(head_of(guard))), terms_.nil(), guard, list(body)}));
+            tuple({atom("clause"_atom), first_anno(head_of(head_of(guard))), terms_.nil(), guard, list(body)}));
         if (!at(";")) {
             break;
         }
         take();
     }
     expect("end");
-    return tuple({atom("if"), anno(keyword), list(clauses)});
+    return tuple({atom("if"_atom), anno(keyword), list(clauses)});
 }
 
 Term Parser::case_expression() {
@@ -32,7 +32,7 @@ Term Parser::case_expression() {
     expect("of");
     const auto clauses = cr_clauses();
     expect("end");
-    return tuple({atom("case"), anno(keyword), subject, list(clauses)});
+    return tuple({atom("case"_atom), anno(keyword), subject, list(clauses)});
 }
 
 std::vector<Term> Parser::cr_clauses() {
@@ -49,7 +49,7 @@ Term Parser::cr_clause() {
     const auto pattern = expression();
     const auto guard = clause_guard();
     const auto body = clause_body();
-    return tuple({atom("clause"), first_anno(pattern), list({pattern}), guard, list(body)});
+    return tuple({atom("clause"_atom), first_anno(pattern), list({pattern}), guard, list(body)});
 }
 
 // receive with clauses, an after, or both.
@@ -60,14 +60,14 @@ Term Parser::receive_expression() {
         clauses = cr_clauses();
         if (!at("after")) {
             expect("end");
-            return tuple({atom("receive"), anno(keyword), list(clauses)});
+            return tuple({atom("receive"_atom), anno(keyword), list(clauses)});
         }
     }
     take();
     const auto timeout = expression();
     const auto body = clause_body();
     expect("end");
-    return tuple({atom("receive"), anno(keyword), list(clauses), timeout, list(body)});
+    return tuple({atom("receive"_atom), anno(keyword), list(clauses), timeout, list(body)});
 }
 
 // try_expr: a body, of clauses, then catch clauses, an after, or both.
@@ -92,7 +92,7 @@ Term Parser::try_expression() {
         after = list(exprs());
     }
     expect("end");
-    return tuple({atom("try"), anno(keyword), list(body), of_clauses, catch_clauses, after});
+    return tuple({atom("try"_atom), anno(keyword), list(body), of_clauses, catch_clauses, after});
 }
 
 std::vector<Term> Parser::try_clauses() {
@@ -113,10 +113,10 @@ Term Parser::try_clause() {
     const auto guard = clause_guard();
     const auto body = clause_body();
     const auto first = first_anno(pattern);
-    const auto stacktrace = tuple({atom("var"), last_anno(pattern), atom("_")});
-    const auto exception =
-        tuple({atom("tuple"), first, list({tuple({atom("atom"), first, atom("throw")}), pattern, stacktrace})});
-    return tuple({atom("clause"), first, list({exception}), guard, list(body)});
+    const auto stacktrace = tuple({atom("var"_atom), last_anno(pattern), atom("_"_atom)});
+    const auto exception = tuple({atom("tuple"_atom), first,
+                                  list({tuple({atom("atom"_atom), first, atom("throw"_atom)}), pattern, stacktrace})});
+    return tuple({atom("clause"_atom), first, list({exception}), guard, list(body)});
 }
 
 // Class ':' pattern [':' Stacktrace]: a missing stacktrace is {var, last_anno(Pattern), '_'}.
@@ -132,11 +132,12 @@ Term Parser::class_clause() {
     const auto guard = clause_guard();
     const auto body = clause_body();
     if (!stacktrace) {
-        stacktrace = tuple({atom("var"), last_anno(pattern), atom("_")});
+        stacktrace = tuple({atom("var"_atom), last_anno(pattern), atom("_"_atom)});
     }
     const auto class_anno = anno(exception_class);
-    const auto exception = tuple({atom("tuple"), class_anno, list({token(exception_class), pattern, *stacktrace})});
-    return tuple({atom("clause"), class_anno, list({exception}), guard, list(body)});
+    const auto exception =
+        tuple({atom("tuple"_atom), class_anno, list({token(exception_class), pattern, *stacktrace})});
+    return tuple({atom("clause"_atom), class_anno, list({exception}), guard, list(body)});
 }
 
 // maybe ... end, or maybe ... else cr_clauses end.
@@ -145,12 +146,13 @@ Term Parser::maybe_expression() {
     const auto body = maybe_body();
     if (!at("else")) {
         expect("end");
-        return tuple({atom("maybe"), anno(keyword), list(body)});
+        return tuple({atom("maybe"_atom), anno(keyword), list(body)});
     }
     const auto otherwise = take();
     const auto clauses = cr_clauses();
     expect("end");
-    return tuple({atom("maybe"), anno(keyword), list(body), tuple({atom("else"), anno(otherwise), list(clauses)})});
+    return tuple(
+        {atom("maybe"_atom), anno(keyword), list(body), tuple({atom("else"_atom), anno(otherwise), list(clauses)})});
 }
 
 // maybe_match_exprs: expressions and Pattern ?= Expression matches.
@@ -160,7 +162,7 @@ std::vector<Term> Parser::maybe_body() {
         const auto left = expression();
         if (at("?=")) {
             const auto match = take();
-            body.push_back(tuple({atom("maybe_match"), anno(match), left, expression()}));
+            body.push_back(tuple({atom("maybe_match"_atom), anno(match), left, expression()}));
         } else {
             body.push_back(left);
         }
@@ -189,7 +191,7 @@ Term Parser::fun_expression() {
     }
     take();
     const auto arity = expect("integer");
-    return tuple({atom("fun"), anno(keyword), tuple({atom("function"), value(name), value(arity)})});
+    return tuple({atom("fun"_atom), anno(keyword), tuple({atom("function"_atom), value(name), value(arity)})});
 }
 
 // 'fun' atom_or_var ':' atom_or_var '/' integer_or_var: the tokens themselves.
@@ -205,7 +207,8 @@ Term Parser::fun_reference(std::size_t fun) {
         fail();
     }
     const auto arity = take();
-    return tuple({atom("fun"), anno(fun), tuple({atom("function"), token(module), token(name), token(arity)})});
+    return tuple(
+        {atom("fun"_atom), anno(fun), tuple({atom("function"_atom), token(module), token(name), token(arity)})});
 }
 
 // build_fun/2 after 'end': {'fun', A, {clauses, Cs}}, or {named_fun, A, Name, Cs}.
@@ -219,9 +222,9 @@ Term Parser::fun_clauses(std::size_t fun) {
     const auto name = clauses.front().tuple_element_unchecked(2);
     const auto checked = list(checked_clauses(clauses));
     if (name.is_atom() && name.atom_spelling_unchecked() == "fun") {
-        return tuple({atom("fun"), anno(fun), tuple({atom("clauses"), checked})});
+        return tuple({atom("fun"_atom), anno(fun), tuple({atom("clauses"_atom), checked})});
     }
-    return tuple({atom("named_fun"), anno(fun), name, checked});
+    return tuple({atom("named_fun"_atom), anno(fun), name, checked});
 }
 
 // fun_clause -> pat_argument_list ... ('fun' and the anno of '('), or var pat_argument_list ... (the var).
@@ -234,7 +237,7 @@ Term Parser::fun_clause() {
     const auto guard = clause_guard();
     const auto body = clause_body();
     const auto clause_anno = name ? anno(*name) : open;
-    const auto clause_name = name ? value(*name) : atom("fun");
-    return tuple({atom("clause"), clause_anno, clause_name, list(arguments), guard, list(body)});
+    const auto clause_name = name ? value(*name) : atom("fun"_atom);
+    return tuple({atom("clause"_atom), clause_anno, clause_name, list(arguments), guard, list(body)});
 }
 } // namespace clause::runtime::builtins::front_end::parsing

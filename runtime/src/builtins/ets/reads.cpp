@@ -132,7 +132,7 @@ Term safe_fixtable(ProcessContext &context, const TableArgument &argument, const
     } else {
         need_table(tables.unfix(*found, self(context)));
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 constexpr std::array ETS_READ_BUILTINS{

@@ -13,14 +13,19 @@ TermResult<Term> TermFactory::unavailable(std::string_view operation) const noex
     return deferred_service<TermError>(abi::v1::FeatureId::term_services, operation, sink_);
 }
 
-TermResult<Term> TermFactory::atom(std::string_view spelling) {
+TermResult<Term> TermFactory::atom(const AtomName name) {
     if (const auto owner = heap(); !owner) {
         return std::unexpected(owner.error());
     }
-    return atoms_->intern(spelling);
+    return atoms_->intern(name);
 }
 
-TermResult<Term> TermFactory::boolean(bool value) { return atom(value ? "true" : "false"); }
+TermResult<Term> TermFactory::boolean(bool value) {
+    if (const auto owner = heap(); !owner) {
+        return std::unexpected(owner.error());
+    }
+    return atoms_->boolean(value);
+}
 
 TermResult<Term> TermFactory::function(const FunctionIdentity &) { return unavailable("TermFactory::function"); }
 } // namespace clause::runtime

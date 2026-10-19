@@ -29,7 +29,7 @@ class Fields final {
 
     bool has(std::string_view key) const { return get(key).has_value(); }
 
-    void set(std::string_view key, const Term &value);
+    void set(AtomName key, const Term &value);
     void erase(std::string_view key);
     // maps:merge(This, maps:with(Keys, Other)).
     void merge_from(const Fields &other, std::initializer_list<std::string_view> keys);

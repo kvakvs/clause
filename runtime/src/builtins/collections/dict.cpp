@@ -10,8 +10,6 @@ namespace clause::runtime::builtins::collections {
 namespace {
 using Kind = LinearHash::Kind;
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term tuple(ProcessContext &context, const Term &first, const Term &second) {
     const std::array parts{first, second};
     return need(TermFactory(context).tuple(parts));
@@ -53,7 +51,7 @@ Term fetch(ProcessContext &context, const Key &key, const List &dict) {
 // find(Key, Dict): {ok, Value} or error.
 Term find(ProcessContext &context, const Key &key, const List &dict) {
     const auto value = lookup(context, key, dict);
-    return value ? tuple(context, atom(context, "ok"), *value) : atom(context, "error");
+    return value ? tuple(context, atom(context, "ok"_atom), *value) : atom(context, "error"_atom);
 }
 
 // The cells as OTP's fold prepends them: the reverse of the fold order.
@@ -161,7 +159,7 @@ Term take(ProcessContext &context, const Key &key, const List &dict) {
     auto bucket = table.bucket(slot);
     const auto at = position(bucket, key);
     if (!at) {
-        return atom(context, "error");
+        return atom(context, "error"_atom);
     }
     const auto value = need(bucket[*at].tail());
     bucket.erase(bucket.begin() + static_cast<std::ptrdiff_t>(*at));

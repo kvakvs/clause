@@ -37,8 +37,6 @@ struct Settings {
 std::mutex settings_mutex;
 Settings settings;
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term integer(ProcessContext &context, std::int64_t value) { return need(TermFactory(context).integer(value)); }
 
 // A non-negative small integer argument; badarg otherwise.
@@ -88,11 +86,11 @@ Term min_bin_vheap_size(ProcessContext &context, const ValueArg &value) {
 // #{size, kill, error_logger, include_shared_binaries} of the max_heap_size setting.
 Term max_heap_map(ProcessContext &context, const Settings &kept) {
     const std::array entries{
-        std::pair{atom(context, "error_logger"), need(TermFactory(context).boolean(kept.max_heap_error_logger))},
-        std::pair{atom(context, "include_shared_binaries"),
+        std::pair{atom(context, "error_logger"_atom), need(TermFactory(context).boolean(kept.max_heap_error_logger))},
+        std::pair{atom(context, "include_shared_binaries"_atom),
                   need(TermFactory(context).boolean(kept.max_heap_shared_binaries))},
-        std::pair{atom(context, "kill"), need(TermFactory(context).boolean(kept.max_heap_kill))},
-        std::pair{atom(context, "size"), integer(context, kept.max_heap_words)}};
+        std::pair{atom(context, "kill"_atom), need(TermFactory(context).boolean(kept.max_heap_kill))},
+        std::pair{atom(context, "size"_atom), integer(context, kept.max_heap_words)}};
     return need(TermFactory(context).map(entries));
 }
 
@@ -196,11 +194,11 @@ Term multi_scheduling(ProcessContext &context, const ValueArg &value) {
         bad_argument();
     }
     if (workers(context) == 1) {
-        return atom(context, "disabled");
+        return atom(context, "disabled"_atom);
     }
     const std::scoped_lock lock(settings_mutex);
     settings.multi_scheduling_blocked = block;
-    return atom(context, block ? "blocked" : "enabled");
+    return atom(context, block ? "blocked"_atom : "enabled"_atom);
 }
 
 // system_logger: logger, undefined or a pid; the previous one (undefined before any is set: there is no logger).
@@ -213,7 +211,7 @@ Term system_logger(ProcessContext &context, const ValueArg &value) {
     }
     const std::scoped_lock lock(settings_mutex);
     const auto previous = std::exchange(settings.system_logger, term.word());
-    return previous == 0 ? atom(context, "undefined") : need(Term::from_word(previous, context));
+    return previous == 0 ? atom(context, "undefined"_atom) : need(Term::from_word(previous, context));
 }
 
 // time_offset: finalize; a program runs in no_time_warp mode, so the offset is final.
@@ -221,7 +219,7 @@ Term time_offset(ProcessContext &context, const ValueArg &value) {
     if (!value.term.is_atom() || value.term.atom_spelling_unchecked() != "finalize") {
         bad_argument();
     }
-    return atom(context, "final");
+    return atom(context, "final"_atom);
 }
 
 using FlagSetter = Term (*)(ProcessContext &, const ValueArg &);

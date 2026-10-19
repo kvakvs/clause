@@ -154,7 +154,7 @@ class Builder final {
         return chars(text);
     }
 
-    Term atom(std::string_view name) const { return terms_.atom(name); }
+    Term atom(const AtomName name) const { return terms_.atom(name); }
 
     Term integer(std::int64_t value) const { return terms_.integer(value); }
 
@@ -193,53 +193,53 @@ Term port_term(const Builder &build, Bytes host, std::size_t from) {
     for (; at < host.size() && digit(char_at(host, at)); ++at) {
         port = 10 * port + (char_at(host, at) - '0');
     }
-    return at == host.size() && port != 0 ? build.integer(port) : build.atom("undefined");
+    return at == host.size() && port != 0 ? build.integer(port) : build.atom("undefined"_atom);
 }
 
 // {absoluteURI, Scheme, Host, Port, Path} of the URI after "http://" or "https://".
-Term absolute_uri(const Builder &build, std::string_view scheme, Bytes uri) {
+Term absolute_uri(const Builder &build, AtomName scheme, Bytes uri) {
     const auto slash = std::ranges::find(uri, std::byte{'/'});
     const auto path = slash == uri.end() ? build.made("/") : build.string(uri.subspan(slash - uri.begin()));
     const auto host = uri.first(static_cast<std::size_t>(slash - uri.begin()));
     const auto colon = std::ranges::find(host, std::byte{':'});
     if (colon == host.end()) {
-        return build.tuple(
-            {build.atom("absoluteURI"), build.atom(scheme), build.string(host), build.atom("undefined"), path});
+        return build.tuple({build.atom("absoluteURI"_atom), build.atom(scheme), build.string(host),
+                            build.atom("undefined"_atom), path});
     }
     const auto close = std::ranges::find(host, std::byte{']'});
     if (!host.empty() && host[0] == std::byte{'['} && close != host.end()) {
         const auto bracketed = static_cast<std::size_t>(close - host.begin()) + 1;
         const auto last_colon = std::find(host.rbegin(), host.rend(), std::byte{':'});
         const bool port_follows = static_cast<std::size_t>(host.rend() - last_colon) == bracketed + 1;
-        const auto port = port_follows ? port_term(build, host, bracketed + 1) : build.atom("undefined");
+        const auto port = port_follows ? port_term(build, host, bracketed + 1) : build.atom("undefined"_atom);
         return build.tuple(
-            {build.atom("absoluteURI"), build.atom(scheme), build.string(host.first(bracketed)), port, path});
+            {build.atom("absoluteURI"_atom), build.atom(scheme), build.string(host.first(bracketed)), port, path});
     }
     const auto at = static_cast<std::size_t>(colon - host.begin());
-    return build.tuple({build.atom("absoluteURI"), build.atom(scheme), build.string(host.first(at)),
+    return build.tuple({build.atom("absoluteURI"_atom), build.atom(scheme), build.string(host.first(at)),
                         port_term(build, host, at + 1), path});
 }
 
 // The Request-URI term: '*', {abs_path, Path}, {absoluteURI, ...}, {scheme, Scheme, Rest} or the string itself.
 Term uri_term(const Builder &build, Bytes uri) {
     if (uri.size() == 1 && uri[0] == std::byte{'*'}) {
-        return build.atom("*");
+        return build.atom("*"_atom);
     }
     if (uri.size() <= 1 || uri[0] == std::byte{'/'}) {
-        return build.tuple({build.atom("abs_path"), build.string(uri)});
+        return build.tuple({build.atom("abs_path"_atom), build.string(uri)});
     }
     if (case_prefix(uri, "http://")) {
-        return absolute_uri(build, "http", uri.subspan(7));
+        return absolute_uri(build, "http"_atom, uri.subspan(7));
     }
     if (case_prefix(uri, "https://")) {
-        return absolute_uri(build, "https", uri.subspan(8));
+        return absolute_uri(build, "https"_atom, uri.subspan(8));
     }
     const auto colon = std::ranges::find(uri, std::byte{':'});
     if (colon == uri.end()) {
         return build.string(uri);
     }
     const auto at = static_cast<std::size_t>(colon - uri.begin());
-    return build.tuple({build.atom("scheme"), build.string(uri.first(at)), build.string(uri.subspan(at + 1))});
+    return build.tuple({build.atom("scheme"_atom), build.string(uri.first(at)), build.string(uri.subspan(at + 1))});
 }
 
 // "HTTP/" Major "." Minor at the cursor; none when malformed.
@@ -274,8 +274,8 @@ std::optional<Term> response(const Builder &build, Cursor &line) {
     if (!line.spaces() && !line.done()) {
         return std::nullopt;
     }
-    return build.tuple(
-        {build.atom("http_response"), version_term(build, *parsed), build.integer(status), build.string(line.rest())});
+    return build.tuple({build.atom("http_response"_atom), version_term(build, *parsed), build.integer(status),
+                        build.string(line.rest())});
 }
 
 // The method of a Request-Line, a token followed by a space: an atom for a known one, else a string.
@@ -319,7 +319,7 @@ std::optional<Term> request(const Builder &build, Cursor &line) {
     if (!parsed) {
         return std::nullopt;
     }
-    return build.tuple({build.atom("http_request"), *method, uri_term(build, *uri), version_term(build, *parsed)});
+    return build.tuple({build.atom("http_request"_atom), *method, uri_term(build, *uri), version_term(build, *parsed)});
 }
 
 // A header name with OTP's case: upper case first and after each '-', lower case elsewhere.
@@ -343,7 +343,7 @@ std::string canonical(Bytes name) {
 // A header line: {http_header, Bit, Name, OriginalName, Value}; http_eoh for the empty line.
 std::optional<Term> header_line(const Builder &build, Cursor &line) {
     if (line.done()) {
-        return build.atom("http_eoh");
+        return build.atom("http_eoh"_atom);
     }
     while (!separator(line.peek())) {
         line.skip();
@@ -365,7 +365,7 @@ std::optional<Term> header_line(const Builder &build, Cursor &line) {
         bit = build.integer(known == HEADERS.end() ? 0 : (known - HEADERS.begin()) + 1);
         name = known == HEADERS.end() ? build.made(text) : build.atom(*known);
     }
-    return build.tuple({build.atom("http_header"), bit, name, build.string(original), build.string(line.rest())});
+    return build.tuple({build.atom("http_header"_atom), bit, name, build.string(original), build.string(line.rest())});
 }
 
 // The line without its CRLF or LF.
@@ -391,6 +391,6 @@ Term http_term(const string::Terms &terms, const Term &binary, Bytes line, bool 
     } else {
         parsed = request(build, cursor);
     }
-    return parsed ? *parsed : build.tuple({build.atom("http_error"), build.string(line)});
+    return parsed ? *parsed : build.tuple({build.atom("http_error"_atom), build.string(line)});
 }
 } // namespace clause::runtime::builtins::packets

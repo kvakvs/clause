@@ -209,7 +209,8 @@ bool small_fields(const Fields &fields, const CounterOps &ops) {
 // update_counter value, or none when the general path must run.
 std::optional<Term> count_stored(ProcessContext &context, std::span<Word> stored, const CounterOps &ops) {
     Fields fields;
-    std::ranges::transform(stored, std::back_inserter(fields), [](Word word) { return detail::TermAccess::make(word); });
+    std::ranges::transform(stored, std::back_inserter(fields),
+                           [](Word word) { return detail::TermAccess::make(word); });
     if (stored.empty() || !small_fields(fields, ops)) {
         return std::nullopt;
     }
@@ -272,9 +273,9 @@ Term elements(ProcessContext &context, const TableArgument &argument, const Term
     const auto parsed = element_ops(ops.term, found->options().keypos);
     const auto result = update(context, *found, term, fallback, [&](Fields &fields) {
         set_elements(fields, parsed);
-        return atom(context, "true");
+        return atom(context, "true"_atom);
     });
-    return result ? *result : atom(context, "false");
+    return result ? *result : atom(context, "false"_atom);
 }
 
 // update_element(Table, Key, ElementSpec).

@@ -15,8 +15,6 @@ using Order = Named<OrderRole>;
 
 BalancedTree trees(ProcessContext &context) { return BalancedTree(context, true); }
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term tuple(ProcessContext &context, std::span<const Term> parts) { return need(TermFactory(context).tuple(parts)); }
 
 Term pair(ProcessContext &context, const NodeParts &node) { return tuple(context, std::array{node.key, node.value}); }
@@ -24,7 +22,7 @@ Term pair(ProcessContext &context, const NodeParts &node) { return tuple(context
 // lookup(Key, Tree): {value, Value} or none.
 Term lookup(ProcessContext &context, const Key &key, const List &tree) {
     const auto found = trees(context).find(key, tree_parts(tree.term, false).root);
-    return found ? tuple(context, std::array{atom(context, "value"), found->value}) : atom(context, "none");
+    return found ? tuple(context, std::array{atom(context, "value"_atom), found->value}) : atom(context, "none"_atom);
 }
 
 // is_defined(Key, Tree).
@@ -99,7 +97,7 @@ Term take(ProcessContext &context, const Key &key, const List &tree) {
 // take_any(Key, Tree1): take/2, or error.
 Term take_any(ProcessContext &context, const Key &key, const List &tree) {
     const auto present = trees(context).find(key, tree_parts(tree.term, false).root).has_value();
-    return present ? take(context, key, tree) : atom(context, "error");
+    return present ? take(context, key, tree) : atom(context, "error"_atom);
 }
 
 // balance(Tree1): rebuilt from its entries.
@@ -166,7 +164,7 @@ Term from_orddict(ProcessContext &context, const List &list) {
     const auto entries = pairs_of(list.term);
     for (std::size_t i = 1; i < entries.size(); ++i) {
         if (compare(entries[i - 1].key, entries[i].key) >= 0) {
-            raise_error(tuple(context, std::array{atom(context, "badarg"), atom(context, "not_orddict")}));
+            raise_error(tuple(context, std::array{atom(context, "badarg"_atom), atom(context, "not_orddict"_atom)}));
         }
     }
     return sized_tree(context, static_cast<std::int64_t>(entries.size()), trees(context).build(entries));
@@ -199,7 +197,7 @@ Term take_largest(ProcessContext &context, const List &tree) {
 // The nearest entry before (smaller) or after (larger) Key: {Key2, Value} or none.
 Term nearest(ProcessContext &context, const Key &key, const List &tree, bool before) {
     const auto best = trees(context).nearest(key, tree_parts(tree.term, false).root, before);
-    return best ? pair(context, *best) : atom(context, "none");
+    return best ? pair(context, *best) : atom(context, "none"_atom);
 }
 
 Term smaller(ProcessContext &context, const Key &key, const List &tree) { return nearest(context, key, tree, true); }
@@ -230,7 +228,7 @@ Term iterator2(ProcessContext &context, const List &tree, const Order &order) {
 }
 
 Term iterator1(ProcessContext &context, const List &tree) {
-    return iterator2(context, tree, {atom(context, "ordered")});
+    return iterator2(context, tree, {atom(context, "ordered"_atom)});
 }
 
 // iterator_from(Key, Tree, Order) and iterator_from(Key, Tree).
@@ -242,14 +240,14 @@ Term iterator_from3(ProcessContext &context, const Key &key, const List &tree, c
 }
 
 Term iterator_from2(ProcessContext &context, const Key &key, const List &tree) {
-    return iterator_from3(context, key, tree, {atom(context, "ordered")});
+    return iterator_from3(context, key, tree, {atom(context, "ordered"_atom)});
 }
 
 // next(Iter1): {Key, Value, Iter2} or none.
 Term next(ProcessContext &context, const List &iterator) {
     const auto parts = tree_parts(iterator.term, false);
     if (parts.root.is_nil()) {
-        return atom(context, "none");
+        return atom(context, "none"_atom);
     }
     const Order order{parts.size_term};
     const auto reversed = is_reversed(order);

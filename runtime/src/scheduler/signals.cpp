@@ -33,7 +33,7 @@ bool is_atom(const Term &term, std::string_view name) {
     return term.is_atom() && term.atom_spelling_unchecked() == name;
 }
 
-Term atom(ProcessContext &process, std::string_view name) {
+Term atom(ProcessContext &process, const AtomName name) {
     auto atom = TermFactory(process).atom(name);
     if (!atom) {
         throw std::bad_alloc();
@@ -43,7 +43,7 @@ Term atom(ProcessContext &process, std::string_view name) {
 
 TermResult<Term> exit_message(ProcessContext &process, Word from, const Term &reason) {
     TermFactory factory(process);
-    const auto tag = factory.atom("EXIT");
+    const auto tag = factory.atom("EXIT"_atom);
     const auto pid = Term::from_word(from, process);
     const auto copy = reason.copy_to(process.heap());
     if (!tag || !pid || !copy) {
@@ -57,8 +57,9 @@ TermResult<Term> down_message(ProcessContext &process, const ReferenceIdentity &
     TermFactory factory(process);
     const auto type = TermTag{item.pid}.get_kind() == TermKind::local_port ? "port" : "process";
     // monitor/3's {tag, Tag} replaces 'DOWN' (step 41G2).
-    const std::array parts{item.tag ? item.tag->copy_to(process) : factory.atom("DOWN"), factory.reference(reference),
-                           factory.atom(type), monitored_item(process, item), reason.copy_to(process.heap())};
+    const std::array parts{item.tag ? item.tag->copy_to(process) : factory.atom("DOWN"_atom),
+                           factory.reference(reference), factory.atom(type), monitored_item(process, item),
+                           reason.copy_to(process.heap())};
     const auto failed = std::ranges::find_if(parts, [](const auto &part) { return !part.has_value(); });
     if (failed != parts.end()) {
         return *failed;
@@ -81,7 +82,7 @@ bool Executor::link(ProcessContext &process, Word pid) {
             return false;
         }
         const Running running(process);
-        deliver(process, exit_message(process, pid, atom(process, "noproc")));
+        deliver(process, exit_message(process, pid, atom(process, "noproc"_atom)));
         return true;
     }
     process.signals().link(pid);
@@ -124,7 +125,7 @@ Term Executor::monitor(ProcessContext &watcher, Word pid, Word name, bool port, 
     if (!target) {
         const Running running(watcher);
         deliver(watcher, down_message(watcher, *identity, {.pid = pid, .name = name, .tag = options.tag},
-                                      atom(watcher, "noproc")));
+                                      atom(watcher, "noproc"_atom)));
         forget_alias(*identity, false);
         return *reference;
     }
@@ -174,7 +175,7 @@ void Executor::signal(ProcessContext &target, Word from, const Term &reason, Sig
         return;
     }
     if (kind != SignalKind::link && is_atom(reason, "kill")) {
-        end(target, atom(target, "killed"));
+        end(target, atom(target, "killed"_atom));
     } else if (target.signals().trap_exit()) {
         deliver(target, exit_message(target, from, reason));
     } else if (!is_atom(reason, "normal") || kind == SignalKind::self_exit) {

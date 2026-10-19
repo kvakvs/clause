@@ -10,8 +10,6 @@
 namespace clause::runtime::builtins {
 namespace {
 // The atom `name`.
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // UTF-8 text as an Erlang string.
 Term string_term(ProcessContext &context, std::string_view text) {
     std::vector<Term> characters;
@@ -45,7 +43,7 @@ TermResult<Term> get_plain_arguments(ProcessContext &context) {
 TermResult<Term> get_arguments(ProcessContext &context) {
     std::vector<Term> flags;
     if (const auto values = home_values(context)) {
-        const std::array flag{atom(context, "home"), *values};
+        const std::array flag{atom(context, "home"_atom), *values};
         flags.push_back(need(TermFactory(context).tuple(flag)));
     }
     return TermFactory(context).list(flags);
@@ -56,10 +54,10 @@ TermResult<Term> get_argument(ProcessContext &context, const Term &flag) {
     const auto values =
         flag.is_atom() && flag.atom_spelling_unchecked() == "home" ? home_values(context) : std::nullopt;
     if (!values) {
-        return atom(context, "error");
+        return atom(context, "error"_atom);
     }
     const std::array occurrences{*values};
-    const std::array result{atom(context, "ok"), need(TermFactory(context).list(occurrences))};
+    const std::array result{atom(context, "ok"_atom), need(TermFactory(context).list(occurrences))};
     return TermFactory(context).tuple(result);
 }
 

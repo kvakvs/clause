@@ -243,6 +243,9 @@ gotchas and user directions not recorded elsewhere.
 - Locks: AtomStorage/CodeServer shared_mutex; locked public lookups call private
   unlocked helpers (never call a locking public method under the lock). Thread
   stress lives in tests/runtime/concurrency.cpp.
+- Runtime C++ literal atoms: write `"name"_atom` (OPTM.4), helpers that build
+  atoms take `AtomName`. Raw word 0 reads as fixed `false` in
+  `atom_table::find`; never treat 0 as "no atom" through find.
 - Debug speeds: service 0.1-0.5 us, cons ~2 us, map construction ~2.5 us,
   library call with guards ~2 us. Build long strings by binary doubling.
   Pretty-print recursion capped at 256 levels (1 MiB main stack).

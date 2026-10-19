@@ -20,7 +20,7 @@ Term Terms::list(std::span<const Term> items, const Term &tail) const {
     return need(TermFactory(context_).list(items, tail));
 }
 
-Term Terms::atom(std::string_view name) const { return need(TermFactory(context_).atom(name)); }
+Term Terms::atom(const AtomName name) const { return builtins::atom(context_, name); }
 
 Term Terms::boolean(bool value) const { return need(TermFactory(context_).boolean(value)); }
 
@@ -244,7 +244,7 @@ std::optional<std::pair<char32_t, std::size_t>> utf8_head(const Term &binary) {
 
 [[noreturn]] void badarg_rest(ProcessContext &context, const Term &rest) {
     const Terms terms(context);
-    const std::array reason{terms.atom("badarg"), rest};
+    const std::array reason{terms.atom("badarg"_atom), rest};
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = terms.tuple(reason).word()};
 }
 

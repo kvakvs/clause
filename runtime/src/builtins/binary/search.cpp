@@ -19,12 +19,12 @@ TermResult<Term> match3(ProcessContext &context, const BinaryArgument &subject, 
                         const ListArgument &options) {
     const auto searched = patterns(pattern);
     const auto found = find(subject.bytes, searched, search_options(options.term, subject.bytes.size(), false).scope);
-    return found ? match_term(context, *found) : TermFactory(context).atom("nomatch");
+    return found ? match_term(context, *found) : TermFactory(context).atom("nomatch"_atom);
 }
 
 TermResult<Term> match2(ProcessContext &context, const BinaryArgument &subject, const Term &pattern) {
     const auto found = find(subject.bytes, patterns(pattern), {.start = 0, .size = subject.bytes.size()});
-    return found ? match_term(context, *found) : TermFactory(context).atom("nomatch");
+    return found ? match_term(context, *found) : TermFactory(context).atom("nomatch"_atom);
 }
 
 // The list of matches as {Start, Length} tuples.
@@ -98,7 +98,7 @@ TermResult<Term> compile_pattern(ProcessContext &context, const Term &pattern) {
     for (const auto &bytes : searched) {
         items.push_back(need(factory.binary(bytes)));
     }
-    const std::array parts{need(factory.atom(searched.size() == 1 ? "bm" : "ac")), need(factory.list(items))};
+    const std::array parts{need(factory.atom(searched.size() == 1 ? "bm"_atom : "ac"_atom)), need(factory.list(items))};
     return factory.tuple(parts);
 }
 

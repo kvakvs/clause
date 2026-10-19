@@ -52,7 +52,7 @@ class Terms final {
     Term integer(std::int64_t value) const;
     Term list(std::span<const Term> items) const;
     Term list(std::span<const Term> items, const Term &tail) const;
-    Term atom(std::string_view name) const;
+    Term atom(AtomName name) const;
     Term boolean(bool value) const;
     Term tuple(std::span<const Term> items) const;
     Term binary(std::span<const std::byte> bytes) const;

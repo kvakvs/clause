@@ -2,6 +2,7 @@
 #include "../terms/service_errors.hpp"
 #include <clause/abi/calls.hpp>
 #include <clause/abi/term.hpp>
+#include <clause/runtime/atoms.hpp>
 #include <clause/runtime/builtin_registry.hpp>
 #include <clause/runtime/process_context.hpp>
 #include <optional>
@@ -64,6 +65,9 @@ template <typename T> T need(TermResult<T> result) {
     }
     return std::move(*result);
 }
+
+// The atom `name`; a `"name"_atom` literal reuses its cached word (cached atoms, replacing per-file copies).
+inline Term atom(ProcessContext &context, const AtomName name) { return need(context.atom_storage().intern(name)); }
 
 // Throw the badarg of a rejected argument.
 [[noreturn]] inline void bad_argument() { throw BuiltinFailure{}; }

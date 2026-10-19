@@ -66,7 +66,7 @@ class Build final {
 
     // {error, Rest}.
     Term error(const Term &rest) const {
-        const std::array items{need(TermFactory(context_).atom("error")), rest};
+        const std::array items{need(TermFactory(context_).atom("error"_atom)), rest};
         return need(TermFactory(context_).tuple(items));
     }
 
@@ -299,7 +299,7 @@ class Clusters final {
         }
         if (!is_cp(cp)) {
             TermFactory factory(context_);
-            const std::array reason{need(factory.atom("badarg")), cp};
+            const std::array reason{need(factory.atom("badarg"_atom)), cp};
             throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
                                  .payload = need(factory.tuple(reason)).word()};
         }
@@ -621,7 +621,7 @@ Term mapped_first(ProcessContext &context, const Term &data, Case which) {
     }
     if (next.is_tuple()) {
         TermFactory factory(context);
-        const std::array reason{need(factory.atom("badarg")), need(next.tuple_element(1))};
+        const std::array reason{need(factory.atom("badarg"_atom)), need(next.tuple_element(1))};
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
                              .payload = need(factory.tuple(reason)).word()};
     }

@@ -84,12 +84,12 @@ class Annotations final {
   public:
     explicit Annotations(ProcessContext &context) : terms_(context) {}
 
-    Term atom(std::string_view name) const { return terms_.atom(name); }
+    Term atom(const AtomName name) const { return terms_.atom(name); }
 
     Term boolean(bool value) const { return terms_.boolean(value); }
 
     // An item's value or the atom `fallback`.
-    Term info(const Term &anno, std::string_view item, std::string_view fallback) const {
+    Term info(const Term &anno, std::string_view item, AtomName fallback) const {
         return anno_info(anno, item).value_or(atom(fallback));
     }
 
@@ -122,7 +122,7 @@ class Annotations final {
     }
 
     // [{Item, Value} | Anno].
-    Term with(std::string_view item, const Term &value, const Term &anno) const {
+    Term with(AtomName item, const Term &value, const Term &anno) const {
         return terms_.cons(tuple(atom(item), value), anno);
     }
 
@@ -177,7 +177,7 @@ class Annotations final {
             bad_argument();
         }
         if (is_location(anno)) {
-            return set_anno(item, value, terms_.list(std::array{tuple(atom("location"), anno)}));
+            return set_anno(item, value, terms_.list(std::array{tuple(atom("location"_atom), anno)}));
         }
         if (!anno.is_cons()) {
             bad_argument();
@@ -280,7 +280,7 @@ Term from_term(ProcessContext &context, const Anno &anno) {
         const auto line = need(
             detail::numeric_service(context, abi::v1::ImmediateOperation::subtract,
                                     Term::from_word(*abi::v1::NativeIntegerEncoding::encode(0)).value(), anno.term));
-        return answer.set("generated", answer.atom("true"), line);
+        return answer.set("generated", answer.atom("true"_atom), line);
     }
     return anno.term;
 }
@@ -291,7 +291,7 @@ Term location(ProcessContext &context, const Anno &anno) { return Annotations(co
 Term column(ProcessContext &context, const Anno &anno) {
     const Annotations answer(context);
     const auto pair = pair_of(answer.location(anno.term));
-    return pair ? pair->second : answer.atom("undefined");
+    return pair ? pair->second : answer.atom("undefined"_atom);
 }
 
 // line(Anno): the line of the location.
@@ -317,14 +317,14 @@ template <std::size_t Item> Term item_of(ProcessContext &context, const Anno &an
 Term end_location(ProcessContext &context, const Anno &anno) {
     const Annotations answer(context);
     if (is_location(anno.term)) {
-        return answer.atom("undefined");
+        return answer.atom("undefined"_atom);
     }
     if (const auto end = anno_info(anno.term, "end_location"); end && !is_atom(*end, "undefined")) {
         return *end;
     }
     const auto text = anno_info(anno.term, "text");
     if (!text || is_atom(*text, "undefined")) {
-        return answer.atom("undefined");
+        return answer.atom("undefined"_atom);
     }
     return answer.walk_text(anno, *text);
 }

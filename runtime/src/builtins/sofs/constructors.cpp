@@ -5,7 +5,7 @@ namespace {
 // Infer the complete shape of an external term.
 Term from_term1(ProcessContext &context, const Term &value) {
     Terms terms(context);
-    const auto any = terms.atom("_");
+    const auto any = terms.atom("_"_atom);
     return setify(terms, {value}, {value.is_list() ? terms.list(Items{any}) : any});
 }
 
@@ -32,7 +32,7 @@ Term is_type(ProcessContext &context, const Term &value) { return Terms(context)
 // Construct an atomic set without inspecting the elements' shapes.
 Term set1(ProcessContext &context, const Term &value) {
     Terms terms(context);
-    return make_set(terms, unique(elements(value)), {terms.atom("atom")});
+    return make_set(terms, unique(elements(value)), {terms.atom("atom"_atom)});
 }
 
 // Construct an unordered set under a singleton element type.
@@ -64,7 +64,7 @@ Term from_sets(ProcessContext &context, const Term &value) {
     if (value.is_tuple()) {
         return ordered_sets(terms, value);
     }
-    auto type = terms.atom("_");
+    auto type = terms.atom("_"_atom);
     Items data;
     for (const auto &item : elements(value)) {
         if (!is_record(item)) {
@@ -112,7 +112,7 @@ Term relation2(ProcessContext &context, const Left &value, const Right &type) {
         if (!count || *count < 1 || static_cast<std::uint64_t>(*count) > MAX_TUPLE_ARITY) {
             bad_argument();
         }
-        constraint = terms.list(Items{terms.tuple(Items(static_cast<std::size_t>(*count), terms.atom("atom")))});
+        constraint = terms.list(Items{terms.tuple(Items(static_cast<std::size_t>(*count), terms.atom("atom"_atom)))});
     }
     const auto member = list_type(constraint);
     if (!member) {
@@ -156,7 +156,8 @@ Term function2(ProcessContext &context, const Left &value, const Right &type) {
 // Default function type has two atomic components.
 Term function1(ProcessContext &context, const Term &value) {
     Terms terms(context);
-    return function2(context, {value}, {terms.list(Items{tuple(terms, {terms.atom("atom"), terms.atom("atom")})})});
+    return function2(context, {value},
+                     {terms.list(Items{tuple(terms, {terms.atom("atom"_atom), terms.atom("atom"_atom)})})});
 }
 
 // Construct a family; nested member sets are normalized before checking functionality.
@@ -172,7 +173,7 @@ Term atomic_family(const Terms &terms, const Left &value, const Right &type) {
         if (result.empty() || compare(at(result.back(), 0), at(pair, 0)) != 0) {
             result.push_back(normalized);
         } else if (compare(at(result.back(), 1), at(normalized, 1)) != 0) {
-            error(terms, "bad_function");
+            error(terms, "bad_function"_atom);
         }
     }
     return make_set(terms, result, {type.term});
@@ -212,7 +213,7 @@ Term family2(ProcessContext &context, const Left &value, const Right &type) {
 // Default family type has atomic keys and atomic members.
 Term family1(ProcessContext &context, const Term &value) {
     Terms terms(context);
-    const auto type = tuple(terms, {terms.atom("atom"), terms.list(Items{terms.atom("atom")})});
+    const auto type = tuple(terms, {terms.atom("atom"_atom), terms.list(Items{terms.atom("atom"_atom)})});
     return family2(context, {value}, {terms.list(Items{type})});
 }
 

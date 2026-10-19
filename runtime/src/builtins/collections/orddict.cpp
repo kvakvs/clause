@@ -31,8 +31,6 @@ void ended(const Term &rest) {
     }
 }
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term pair(ProcessContext &context, const Key &key, const Term &value) {
     const std::array parts{key.term, value};
     return need(TermFactory(context).tuple(parts));
@@ -71,15 +69,15 @@ Term find(ProcessContext &context, const Key &key, const List &dict) {
     for (; rest.is_cons(); rest = rest.tail_unchecked()) {
         const auto found = step(key, rest);
         if (found.order == 0) {
-            const std::array parts{atom(context, "ok"), found.value};
+            const std::array parts{atom(context, "ok"_atom), found.value};
             return need(TermFactory(context).tuple(parts));
         }
         if (found.order < 0) {
-            return atom(context, "error");
+            return atom(context, "error"_atom);
         }
     }
     ended(rest);
-    return atom(context, "error");
+    return atom(context, "error"_atom);
 }
 
 // fetch_keys(Orddict): the keys in order.
@@ -146,12 +144,12 @@ Term take(ProcessContext &context, const Key &key, const List &dict) {
             return need(TermFactory(context).tuple(parts));
         }
         if (found.order < 0) {
-            return atom(context, "error");
+            return atom(context, "error"_atom);
         }
         passed.push(found.pair);
     }
     ended(rest);
-    return atom(context, "error");
+    return atom(context, "error"_atom);
 }
 
 // The dictionary with `key` changed: an existing pair replaced by {Key, existing(OldValue)}, else {Key, missing}

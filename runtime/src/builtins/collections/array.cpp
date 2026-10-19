@@ -96,7 +96,7 @@ class Tree final {
     Term encode(const Record &record) const {
         TermFactory factory(*context_);
         const auto integer = [&](std::int64_t value) { return need(factory.integer(value)); };
-        const std::array parts{need(factory.atom("array")),
+        const std::array parts{need(factory.atom("array"_atom)),
                                integer(record.size),
                                integer(record.zero),
                                record.fix,
@@ -369,7 +369,7 @@ void apply_option(Options &settings, const Term &option) {
 
 // new/1,2 from their options, starting from `size` and `fixed`.
 Term from_options(ProcessContext &context, const Term &options, std::int64_t size, bool fixed) {
-    Options settings{size, fixed, need(TermFactory(context).atom("undefined"))};
+    Options settings{size, fixed, need(TermFactory(context).atom("undefined"_atom))};
     for (const auto &option : option_list(options)) {
         apply_option(settings, option);
     }
@@ -644,7 +644,7 @@ Term from_list2(ProcessContext &context, const List &list, const Value &fallback
 }
 
 Term from_list1(ProcessContext &context, const List &list) {
-    return from_list2(context, list, {need(TermFactory(context).atom("undefined"))});
+    return from_list2(context, list, {need(TermFactory(context).atom("undefined"_atom))});
 }
 
 // clause_array:from_values(Values, Default): from_list/2's array also for no values (array:from/2,3).
@@ -710,7 +710,7 @@ using Pieces = std::deque<Piece>;
 
 // error({badarg, Rest}), from_orddict's error for an entry out of order or of the wrong shape.
 [[noreturn]] void bad_orddict(ProcessContext &context, const Term &rest) {
-    const std::array parts{need(TermFactory(context).atom("badarg")), rest};
+    const std::array parts{need(TermFactory(context).atom("badarg"_atom)), rest};
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
                          .payload = need(TermFactory(context).tuple(parts)).word()};
 }
@@ -877,7 +877,7 @@ Term from_orddict2(ProcessContext &context, const List &list, const Value &fallb
 }
 
 Term from_orddict1(ProcessContext &context, const List &list) {
-    return from_orddict2(context, list, {need(TermFactory(context).atom("undefined"))});
+    return from_orddict2(context, list, {need(TermFactory(context).atom("undefined"_atom))});
 }
 
 // The record and the index range Low..High of a fold or mapfold; badarg unless Low >= 0 and High < size.

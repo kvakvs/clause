@@ -42,7 +42,7 @@ constexpr std::uint64_t STREAM_MAGIC = 0x7A6C69625F737472; // "zlib_str"
 constexpr std::size_t CHUNK = 65536;
 
 // Raise error:Reason with the atom `reason`.
-[[noreturn]] void fail(ProcessContext &context, std::string_view reason) {
+[[noreturn]] void fail(ProcessContext &context, AtomName reason) {
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
                          .payload = need(TermFactory(context).atom(reason)).word()};
 }
@@ -74,7 +74,7 @@ Stream &stream_of(ProcessContext &context, const Term &handle) {
         bad_argument();
     }
     if (stream->owner != self_word(context)) {
-        fail(context, "not_on_controlling_process");
+        fail(context, "not_on_controlling_process"_atom);
     }
     return *stream;
 }
@@ -83,7 +83,7 @@ Stream &stream_of(ProcessContext &context, const Term &handle) {
 Stream &active(ProcessContext &context, const Term &handle, Mode mode) {
     auto &stream = stream_of(context, handle);
     if (stream.mode != mode) {
-        fail(context, "not_initialized");
+        fail(context, "not_initialized"_atom);
     }
     return stream;
 }
@@ -92,16 +92,15 @@ Stream &active(ProcessContext &context, const Term &handle, Mode mode) {
 Stream &idle(ProcessContext &context, const Term &handle) {
     auto &stream = stream_of(context, handle);
     if (stream.mode != Mode::none) {
-        fail(context, "already_initialized");
+        fail(context, "already_initialized"_atom);
     }
     return stream;
 }
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // The OTP error of a zlib status that is not progress.
 [[noreturn]] void zlib_failure(ProcessContext &context, int status) {
-    fail(context, status == Z_DATA_ERROR ? "data_error" : (status == Z_MEM_ERROR ? "mem_error" : "stream_error"));
+    fail(context,
+         status == Z_DATA_ERROR ? "data_error"_atom : (status == Z_MEM_ERROR ? "mem_error"_atom : "stream_error"_atom));
 }
 
 // open(): a new stream controlled by the caller.
@@ -118,16 +117,16 @@ TermResult<Term> open(ProcessContext &context) {
 Term close(ProcessContext &context, const Term &handle) {
     auto &stream = stream_of(context, handle);
     if (stream.mode == Mode::closed) {
-        fail(context, "not_initialized");
+        fail(context, "not_initialized"_atom);
     }
     finalize(std::span(reinterpret_cast<std::byte *>(&stream), sizeof(Stream)));
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 // set_controller(Z, Pid): hand the stream to another process.
 Term set_controller(ProcessContext &context, const Term &handle, const PidArgument &pid) {
     stream_of(context, handle).owner = pid.term.word();
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 // A tuple of N small integers that zlib.erl has checked: deflate_init's {Level, Method, WindowBits, MemLevel,
@@ -167,7 +166,7 @@ Term deflate_init(ProcessContext &context, const Term &handle, const Integers<5>
     }
     stream.mode = Mode::deflate;
     stream.input_left = false;
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 // inflate_init(Z, {WindowBits, EndOfStream}).
@@ -182,7 +181,7 @@ Term inflate_init(ProcessContext &context, const Term &handle, const Integers<2>
     stream.end_of_stream = static_cast<EndOfStream>(end_of_stream);
     stream.eos_seen = false;
     stream.input_left = false;
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 // Run deflate over all of `input` with `flush`: the output, or the error of a failed call.
@@ -201,7 +200,7 @@ TermResult<Term> deflate(ProcessContext &context, const Term &handle, const Bina
         output.resize(at + CHUNK - z.avail_out);
         if (status == Z_STREAM_ERROR || (status == Z_BUF_ERROR && z.avail_in != 0)) {
             stream.input_left = true;
-            fail(context, "stream_error");
+            fail(context, "stream_error"_atom);
         }
         const bool full = z.avail_out == 0;
         if (status == Z_STREAM_END || (!full && z.avail_in == 0) || status == Z_BUF_ERROR) {
@@ -228,7 +227,7 @@ bool continue_after_end(ProcessContext &context, Stream &stream) {
         break;
     }
     stream.input_left = true;
-    fail(context, "data_error");
+    fail(context, "data_error"_atom);
 }
 
 // {Status, Output} of inflate: finished at a stream's end, {need_dictionary, Adler} or continue for more input.
@@ -239,7 +238,7 @@ TermResult<Term> inflate_result(ProcessContext &context, const Term &status, con
 
 // {{need_dictionary, Adler}, Output, Rest}: the input not yet inflated comes back for the call after the dictionary.
 TermResult<Term> needs_dictionary(ProcessContext &context, z_stream &z, const std::vector<std::byte> &output) {
-    const std::array dictionary{atom(context, "need_dictionary"),
+    const std::array dictionary{atom(context, "need_dictionary"_atom),
                                 need(TermFactory(context).integer(static_cast<std::int64_t>(z.adler)))};
     const std::span rest(reinterpret_cast<const std::byte *>(z.next_in), z.avail_in);
     const std::array parts{need(TermFactory(context).tuple(dictionary)), need(TermFactory(context).binary(output)),
@@ -286,7 +285,7 @@ TermResult<Term> inflate(ProcessContext &context, const Term &handle, const Bina
     z.next_in = reinterpret_cast<Bytef *>(const_cast<std::byte *>(input.bytes.data()));
     z.avail_in = static_cast<uInt>(input.bytes.size());
     if (stream.eos_seen && (z.avail_in == 0 || !continue_after_end(context, stream))) {
-        return inflate_result(context, atom(context, "finished"), output);
+        return inflate_result(context, atom(context, "finished"_atom), output);
     }
     for (;;) {
         switch (inflate_step(context, stream, output)) {
@@ -295,9 +294,9 @@ TermResult<Term> inflate(ProcessContext &context, const Term &handle, const Bina
         case Step::dictionary:
             return needs_dictionary(context, z, output);
         case Step::finished:
-            return inflate_result(context, atom(context, "finished"), output);
+            return inflate_result(context, atom(context, "finished"_atom), output);
         case Step::waiting:
-            return inflate_result(context, atom(context, "continue"), output);
+            return inflate_result(context, atom(context, "continue"_atom), output);
         }
     }
 }
@@ -307,9 +306,9 @@ Term deflate_end(ProcessContext &context, const Term &handle) {
     auto &stream = active(context, handle, Mode::deflate);
     stream.mode = Mode::none;
     if (deflateEnd(&stream.zstream) == Z_DATA_ERROR || std::exchange(stream.input_left, false)) {
-        fail(context, "data_error");
+        fail(context, "data_error"_atom);
     }
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 // inflate_end(Z): data_error unless the stream's end was seen.
@@ -318,21 +317,21 @@ Term inflate_end(ProcessContext &context, const Term &handle) {
     stream.mode = Mode::none;
     inflateEnd(&stream.zstream);
     if (!stream.eos_seen || std::exchange(stream.input_left, false)) {
-        fail(context, "data_error");
+        fail(context, "data_error"_atom);
     }
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 Term deflate_reset(ProcessContext &context, const Term &handle) {
     deflateReset(&active(context, handle, Mode::deflate).zstream);
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 Term inflate_reset(ProcessContext &context, const Term &handle) {
     auto &stream = active(context, handle, Mode::inflate);
     inflateReset(&stream.zstream);
     stream.eos_seen = false;
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 // deflate_params(Z, {Level, Strategy}): the output compressed with the old parameters.
@@ -369,7 +368,7 @@ Term inflate_set_dictionary(ProcessContext &context, const Term &handle, const B
     if (status != Z_OK) {
         zlib_failure(context, status);
     }
-    return atom(context, "ok");
+    return atom(context, "ok"_atom);
 }
 
 // inflate_get_dictionary(Z): the sliding window as a binary.
@@ -378,7 +377,7 @@ TermResult<Term> inflate_get_dictionary(ProcessContext &context, const Term &han
     std::vector<std::byte> dictionary(32768);
     auto size = static_cast<uInt>(dictionary.size());
     if (inflateGetDictionary(&z, reinterpret_cast<Bytef *>(dictionary.data()), &size) != Z_OK) {
-        fail(context, "stream_error");
+        fail(context, "stream_error"_atom);
     }
     dictionary.resize(size);
     return TermFactory(context).binary(dictionary);

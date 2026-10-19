@@ -17,8 +17,6 @@ using MessageArg = Named<MessageRole>;
 using OptionsArg = Named<OptionsRole>;
 using NodeArg = Named<NodeRole>;
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // The atoms of a proper option list, each one of `allowed`; badarg for anything else.
 std::vector<std::string_view> options_of(const OptionsArg &options, std::span<const std::string_view> allowed) {
     std::vector<std::string_view> names;
@@ -45,13 +43,13 @@ Term send3(ProcessContext &context, const DestinationArg &destination, const Mes
     const auto names = options_of(options, ALLOWED);
     need(send_message(context, destination.term, message.term));
     const bool noconnect = std::ranges::contains(names, std::string_view{"noconnect"});
-    return atom(context, noconnect && remote_destination(destination.term) ? "noconnect" : "ok");
+    return atom(context, noconnect && remote_destination(destination.term) ? "noconnect"_atom : "ok"_atom);
 }
 
 // send_nosuspend(Dest, Msg): true; a local send never suspends.
 Term send_nosuspend2(ProcessContext &context, const DestinationArg &destination, const MessageArg &message) {
     need(send_message(context, destination.term, message.term));
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // send_nosuspend(Dest, Msg, [noconnect]): false for a message to another node, else true.
@@ -89,8 +87,8 @@ detail::SpawnOptions spawn_options(bool link, bool monitor) { return {.link = li
 // The useless pid of a spawn on another node: a process that ends at once with reason noconnection, so a link or a
 // monitor reports noconnection, as OTP's crasher process does on a node that is not alive.
 Term remote_spawn(ProcessContext &context, const detail::SpawnOptions &options) {
-    const std::array arguments{atom(context, "noconnection")};
-    const detail::InitialCall call{atom(context, "erlang"), atom(context, "exit"),
+    const std::array arguments{atom(context, "noconnection"_atom)};
+    const detail::InitialCall call{atom(context, "erlang"_atom), atom(context, "exit"_atom),
                                    need(TermFactory(context).list(arguments))};
     return need(detail::Executor::of(context).spawn(context, call, options));
 }
@@ -149,7 +147,7 @@ Term bump_reductions(ProcessContext &context, const MessageArg &reductions) {
     if (!count || *count < 0) {
         bad_argument();
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // processes_iterator(): {0, []}; processes_next/1 then walks the pids above the last word it scanned.
@@ -181,7 +179,7 @@ Term processes_next(ProcessContext &context, const MessageArg &iterator) {
     auto pids = detail::Executor::pids(context);
     std::erase_if(pids, [&](Word pid) { return static_cast<std::int64_t>(pid) <= *scanned; });
     if (pids.empty()) {
-        return atom(context, "none");
+        return atom(context, "none"_atom);
     }
     const auto last = static_cast<std::int64_t>(pids.back());
     const auto rest =

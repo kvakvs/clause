@@ -300,13 +300,13 @@ Term strip2(ProcessContext &context, const TextArg &string, const DirArg &dir) {
 }
 
 Term strip1(ProcessContext &context, const TextArg &string) {
-    return strip2(context, string, {Terms(context).atom("both")});
+    return strip2(context, string, {Terms(context).atom("both"_atom)});
 }
 
 // words/2: the number of words separated by runs of the character.
 std::int64_t word_count(ProcessContext &context, const Term &string, const Term &character) {
     const Terms terms(context);
-    auto rest = strip3(context, {string}, {terms.atom("both")}, character);
+    auto rest = strip3(context, {string}, {terms.atom("both"_atom)}, character);
     std::int64_t count = 0;
     while (rest.is_cons()) {
         if (same(rest.head_unchecked(), character)) {

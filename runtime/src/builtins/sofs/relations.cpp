@@ -238,7 +238,7 @@ Term extension(ProcessContext &context, const Left &relation, const Right &keys,
     const auto key_set = unordered(keys.term);
     if (!is_record(value.term)) {
         const auto inputs = tuple(terms, {set.type_, key_set.type_, terms.boolean(false)});
-        const auto payload = tuple(terms, {terms.atom("case_clause"), inputs});
+        const auto payload = tuple(terms, {terms.atom("case_clause"_atom), inputs});
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = payload.word()};
     }
     if (atom_is(set.type_, "_")) {

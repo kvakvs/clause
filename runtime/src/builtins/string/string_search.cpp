@@ -646,13 +646,13 @@ Term trim2(ProcessContext &context, const TextArg &str, const DirArg &dir) {
 }
 
 Term trim1(ProcessContext &context, const TextArg &str) {
-    return trim3(context, str, {Terms(context).atom("both")}, {pattern_whitespace(context)});
+    return trim3(context, str, {Terms(context).atom("both"_atom)}, {pattern_whitespace(context)});
 }
 
 Term chomp1(ProcessContext &context, const TextArg &str) {
     const Terms terms(context);
     const std::array seps{terms.list(std::array{terms.integer('\r'), terms.integer('\n')}), terms.integer('\n')};
-    return trim3(context, str, {terms.atom("trailing")}, {terms.list(seps)});
+    return trim3(context, str, {terms.atom("trailing"_atom)}, {terms.list(seps)});
 }
 
 using Pair = Halves;
@@ -1056,7 +1056,7 @@ Term take4(ProcessContext &context, const TextArg &str, const PatternArg &sep, c
 }
 
 Term take3(ProcessContext &context, const TextArg &str, const PatternArg &sep, const Term &complement) {
-    return take4(context, str, sep, complement, {Terms(context).atom("leading")});
+    return take4(context, str, sep, complement, {Terms(context).atom("leading"_atom)});
 }
 
 Term take2(ProcessContext &context, const TextArg &str, const PatternArg &sep) {

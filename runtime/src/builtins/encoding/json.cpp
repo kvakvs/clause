@@ -74,18 +74,18 @@ std::string_view text_of(Bytes bytes) { return {reinterpret_cast<const char *>(b
 // error({invalid_byte, Byte}) for the byte at `at`.
 [[noreturn]] void invalid_byte(ProcessContext &context, Bytes bytes, std::size_t at) {
     TermFactory factory(context);
-    const std::array reason{need(factory.atom("invalid_byte")), need(factory.integer(byte_at(bytes, at)))};
+    const std::array reason{need(factory.atom("invalid_byte"_atom)), need(factory.integer(byte_at(bytes, at)))};
     raise_reason(need(factory.tuple(reason)));
 }
 
 [[noreturn]] void unexpected_end(ProcessContext &context) {
-    raise_reason(need(TermFactory(context).atom("unexpected_end")));
+    raise_reason(need(TermFactory(context).atom("unexpected_end"_atom)));
 }
 
 // error({unexpected_sequence, Bytes}): an escape or number text OTP cannot turn into a value.
 [[noreturn]] void unexpected_sequence(ProcessContext &context, Bytes sequence) {
     TermFactory factory(context);
-    const std::array reason{need(factory.atom("unexpected_sequence")), need(factory.binary(sequence))};
+    const std::array reason{need(factory.atom("unexpected_sequence"_atom)), need(factory.binary(sequence))};
     raise_reason(need(factory.tuple(reason)));
 }
 
@@ -487,11 +487,11 @@ class Decoder final {
         case '{':
             return open(at, true);
         case 't':
-            return literal(at, "rue", need(TermFactory(context_).atom("true")));
+            return literal(at, "rue", need(TermFactory(context_).atom("true"_atom)));
         case 'f':
-            return literal(at, "alse", need(TermFactory(context_).atom("false")));
+            return literal(at, "alse", need(TermFactory(context_).atom("false"_atom)));
         case 'n':
-            return literal(at, "ull", need(TermFactory(context_).atom("null")));
+            return literal(at, "ull", need(TermFactory(context_).atom("null"_atom)));
         default:
             break;
         }
@@ -794,7 +794,7 @@ Term scan_string(ProcessContext &context, const Term &binary, std::int64_t skip)
     const auto scanned = StringScan(context, input.bytes(), static_cast<std::size_t>(skip)).run();
     TermFactory factory(context);
     if (!scanned) {
-        return need(factory.atom("more"));
+        return need(factory.atom("more"_atom));
     }
     const std::array result{binary_of(context, scanned->first),
                             need(factory.integer(static_cast<std::int64_t>(scanned->second)))};
@@ -807,9 +807,9 @@ Term scan_number(ProcessContext &context, const Term &binary, std::int64_t skip)
     const auto scanned = NumberScan(context, input.bytes(), static_cast<std::size_t>(skip)).run();
     TermFactory factory(context);
     if (!scanned) {
-        return need(factory.atom("more"));
+        return need(factory.atom("more"_atom));
     }
-    const std::array result{need(factory.atom(scanned->floating ? "float" : "integer")),
+    const std::array result{need(factory.atom(scanned->floating ? "float"_atom : "integer"_atom)),
                             binary_of(context, scanned->token),
                             need(factory.integer(static_cast<std::int64_t>(scanned->next)))};
     return need(factory.tuple(result));

@@ -174,7 +174,7 @@ class Ipv6 final {
 }
 
 Term error_tuple(ProcessContext &context, const Failure &failure) {
-    const std::array items{atom(context, "error"), atom(context, failure.reason), failure.term};
+    const std::array items{atom(context, "error"_atom), atom(context, failure.reason), failure.term};
     return need(TermFactory(context).tuple(items));
 }
 
@@ -243,8 +243,6 @@ Term binary_of(ProcessContext &context, std::string_view text) {
 }
 
 Bytes bytes_of(const Term &binary) { return need(binary.binary_bytes()); }
-
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
 
 std::optional<char32_t> code_at(std::span<const std::byte> bytes, std::size_t &at) { return next_utf8(bytes, at); }
 

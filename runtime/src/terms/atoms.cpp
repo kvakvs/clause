@@ -49,7 +49,25 @@ TermResult<Term> AtomStorage::boolean(bool value) const noexcept {
     return result;
 }
 
-TermResult<Term> AtomStorage::intern(std::string_view spelling) noexcept {
+TermResult<Term> AtomStorage::intern(const AtomName name) noexcept {
+    const auto *literal = name.literal();
+    if (literal == nullptr) {
+        return intern_spelling(name.spelling());
+    }
+    // Added for cached atoms: a word of another or a torn-down runtime fails find() and is replaced; 0 is unset.
+    if (const auto word = literal->word_.load(std::memory_order_acquire); word != 0) {
+        if (const auto *value = find(word)) {
+            return atom_term(*value);
+        }
+    }
+    auto interned = intern_spelling(name.spelling());
+    if (interned) {
+        literal->word_.store(interned->word(), std::memory_order_release);
+    }
+    return interned;
+}
+
+TermResult<Term> AtomStorage::intern_spelling(std::string_view spelling) noexcept {
     if (const auto number = fixed(spelling)) {
         return atom_term(*detail::atom_table::find(abi::v1::fixed_atom(*number)));
     }

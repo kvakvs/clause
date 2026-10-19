@@ -114,7 +114,7 @@ MapResult from_list(ProcessContext &context, std::span<const Term> terms) {
 // The {Key, Value, Next} chain of OTP's map iterator from `position` on, ending in the atom none.
 MapResult chain(ProcessContext &context, const Term &map, const std::size_t position) {
     TermFactory factory(context);
-    auto result = factory.atom("none");
+    auto result = factory.atom("none"_atom);
     for (auto index = map.map_size_unchecked(); result && index > position; --index) {
         result = map_entry(map, index - 1).and_then([&](const MapEntry &entry) {
             return factory.tuple(std::array{entry.first, entry.second, *result});

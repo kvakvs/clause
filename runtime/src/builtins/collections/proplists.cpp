@@ -34,8 +34,6 @@ std::optional<Term> key_of(const Term &element) {
     return element.is_atom() ? std::optional{element} : first_element(element);
 }
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term boolean(ProcessContext &context, bool value) { return need(TermFactory(context).boolean(value)); }
 
 bool is_true(const Term &term) { return term.is_atom() && term.atom_spelling_unchecked() == "true"; }
@@ -127,7 +125,7 @@ Term compact(ProcessContext &context, const List &list) {
 Term lookup(ProcessContext &context, const Key &key, const List &list) {
     const auto found = first_match(key, list);
     if (!found) {
-        return atom(context, "none");
+        return atom(context, "none"_atom);
     }
     return found->second == Match::atom ? with_true(context, key) : found->first;
 }

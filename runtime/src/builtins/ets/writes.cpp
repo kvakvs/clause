@@ -11,7 +11,7 @@ namespace clause::runtime::builtins::ets {
 namespace {
 using detail::ets::Index;
 
-Term yes(ProcessContext &context) { return atom(context, "true"); }
+Term yes(ProcessContext &context) { return atom(context, "true"_atom); }
 
 // The key of an object argument, checked as insert/2 checks it, without copying the object.
 Key object_key(ProcessContext &context, const Table &table, const Term &object) {

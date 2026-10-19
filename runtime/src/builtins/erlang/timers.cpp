@@ -75,7 +75,7 @@ TermResult<Term> start(ProcessContext &context, const TimerArguments &arguments)
     auto reference = need(factory.make_reference());
     auto sent = arguments.message;
     if (arguments.timeout) {
-        const std::array parts{need(factory.atom("timeout")), reference, arguments.message};
+        const std::array parts{need(factory.atom("timeout"_atom)), reference, arguments.message};
         sent = need(factory.tuple(parts));
     }
     detail::Executor::start_timer(context, {.reference = need(detail::reference_number(reference)),
@@ -120,7 +120,7 @@ TermResult<Term> timer_query(ProcessContext &context, const Term &reference, boo
     const auto left = detail::Executor::timer_left(context, need(detail::reference_number(reference)), cancel);
     TermFactory factory(context);
     if (!async) {
-        return info ? left_term(context, left) : factory.atom("ok");
+        return info ? left_term(context, left) : factory.atom("ok"_atom);
     }
     if (info) {
         const std::array parts{need(factory.atom(tag)), reference, need(left_term(context, left))};
@@ -129,7 +129,7 @@ TermResult<Term> timer_query(ProcessContext &context, const Term &reference, boo
             throw BuiltinFailure{.term = sent.error()};
         }
     }
-    return factory.atom("ok");
+    return factory.atom("ok"_atom);
 }
 
 TermResult<Term> cancel_timer1(ProcessContext &context, const Term &reference) {

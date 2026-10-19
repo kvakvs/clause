@@ -55,7 +55,7 @@ const Feature &valid(ProcessContext &context, const Term &name) {
     const auto *feature = feature_of(name);
     if (feature == nullptr) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
-                             .payload = Terms(context).atom("invalid_feature").word()};
+                             .payload = Terms(context).atom("invalid_feature"_atom).word()};
     }
     return *feature;
 }
@@ -122,15 +122,15 @@ Term info(ProcessContext &context, const Term &name) {
         return terms.list(items);
     };
     std::vector<std::pair<Term, Term>> entries{
-        {terms.atom("short"), text(feature.short_text)},
-        {terms.atom("description"), text(feature.description)},
-        {terms.atom("status"), terms.atom(feature.status)},
-        {terms.atom("experimental"), terms.integer(feature.experimental)},
-        {terms.atom("keywords"), keyword_list(terms, feature)},
-        {terms.atom("type"), terms.atom("extension")},
+        {terms.atom("short"_atom), text(feature.short_text)},
+        {terms.atom("description"_atom), text(feature.description)},
+        {terms.atom("status"_atom), terms.atom(feature.status)},
+        {terms.atom("experimental"_atom), terms.integer(feature.experimental)},
+        {terms.atom("keywords"_atom), keyword_list(terms, feature)},
+        {terms.atom("type"_atom), terms.atom("extension"_atom)},
     };
     if (feature.approved != 0) {
-        entries.emplace_back(terms.atom("approved"), terms.integer(feature.approved));
+        entries.emplace_back(terms.atom("approved"_atom), terms.integer(feature.approved));
     }
     return need(TermFactory(context).map(entries));
 }
@@ -140,7 +140,7 @@ Term module_features(ProcessContext &context, const Term &module) {
     const Terms terms(context);
     const auto features = module.is_atom() ? context.code_server().module_features(module.word()) : std::nullopt;
     if (!features) {
-        return terms.atom("not_found");
+        return terms.atom("not_found"_atom);
     }
     std::vector<Term> names;
     names.reserve(features->size());
@@ -162,7 +162,7 @@ std::uint32_t big_endian(std::span<const std::byte> bytes, std::size_t at) {
 Term beam_meta(ProcessContext &context, const Term &binary) {
     const Terms terms(context);
     if (!binary.is_binary()) {
-        return terms.atom("error");
+        return terms.atom("error"_atom);
     }
     const auto bytes = need(binary.binary_bytes());
     const auto tag = [&](std::size_t at, std::string_view name) {
@@ -171,19 +171,19 @@ Term beam_meta(ProcessContext &context, const Term &binary) {
                           [](char c, std::byte b) { return static_cast<std::byte>(c) == b; });
     };
     if (!tag(0, "FOR1") || !tag(8, "BEAM")) {
-        return terms.atom("error");
+        return terms.atom("error"_atom);
     }
     for (std::size_t at = 12; at + 8 <= bytes.size();) {
         const auto size = big_endian(bytes, at + 4);
         if (at + 8 + size > bytes.size()) {
-            return terms.atom("error");
+            return terms.atom("error"_atom);
         }
         if (tag(at, "Meta")) {
             return terms.binary(std::span(bytes).subspan(at + 8, size));
         }
         at += 8 + ((size + 3U) & ~3U);
     }
-    return terms.atom("missing");
+    return terms.atom("missing"_atom);
 }
 
 constexpr std::array FEATURES_BUILTINS{

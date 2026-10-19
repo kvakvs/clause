@@ -76,9 +76,9 @@ struct WriteOptions {
 WriteOptions options_of(ProcessContext &context, const Term &options) {
     const Terms terms(context);
     return {.depth = option_of(options, "depth", terms.integer(-1)),
-            .encoding = option_of(options, "encoding", terms.atom("utf8")),
+            .encoding = option_of(options, "encoding", terms.atom("utf8"_atom)),
             .limit = option_of(options, "chars_limit", terms.integer(-1)),
-            .order = option_of(options, "maps_order", terms.atom("undefined"))};
+            .order = option_of(options, "maps_order", terms.atom("undefined"_atom))};
 }
 
 Term written(ProcessContext &context, const Term &term, const WriteOptions &options) {
@@ -103,9 +103,9 @@ Term write1(ProcessContext &context, const Term &term) {
     const Terms terms(context);
     return written(context, term,
                    {.depth = terms.integer(-1),
-                    .encoding = terms.atom("latin1"),
+                    .encoding = terms.atom("latin1"_atom),
                     .limit = terms.integer(-1),
-                    .order = terms.atom("undefined")});
+                    .order = terms.atom("undefined"_atom)});
 }
 
 // io_lib:write/2: an options list, or a depth with Latin-1 atoms.
@@ -116,9 +116,9 @@ Term write2(ProcessContext &context, const Term &term, const Term &options) {
     }
     return written(context, term,
                    {.depth = options,
-                    .encoding = terms.atom("latin1"),
+                    .encoding = terms.atom("latin1"_atom),
                     .limit = terms.integer(-1),
-                    .order = terms.atom("undefined")});
+                    .order = terms.atom("undefined"_atom)});
 }
 
 Term write5(ProcessContext &context, const Term &term, const DepthArg &depth, const EncodingArg &encoding,
@@ -352,7 +352,7 @@ class Limiter final {
         std::size_t &level_;
     };
 
-    Term dots() const { return terms_.atom("..."); }
+    Term dots() const { return terms_.atom("..."_atom); }
 
     // test_limit_map_body/2: keys and values one level down, the depth falling per association (0 cuts, even after
     // the last).

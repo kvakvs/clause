@@ -45,14 +45,14 @@ Term protection_name(ProcessContext &context, Protection protection) {
 }
 
 Term write_concurrency(ProcessContext &context, WriteConcurrency value) {
-    return value == WriteConcurrency::automatic ? atom(context, "auto")
+    return value == WriteConcurrency::automatic ? atom(context, "auto"_atom)
                                                 : boolean(context, value == WriteConcurrency::on);
 }
 
 Term pid(ProcessContext &context, Word pid) { return need(Term::from_word(pid, context)); }
 
 Term heir(ProcessContext &context, const Table &table) {
-    return table.heir() == 0 ? atom(context, "none") : pid(context, table.heir());
+    return table.heir() == 0 ? atom(context, "none"_atom) : pid(context, table.heir());
 }
 
 // A count the table gives, raising badarg when it was deleted meanwhile.
@@ -167,7 +167,7 @@ std::optional<Term> named_item(ProcessContext &context, const Table &table, std:
         return counted(context, table.size());
     }
     if (item == "node") {
-        return atom(context, "nonode@nohost");
+        return atom(context, "nonode@nohost"_atom);
     }
     if (item == "named_table") {
         return boolean(context, options.named);
@@ -221,7 +221,7 @@ std::optional<Term> item_value(ProcessContext &context, const Table &table, std:
 Term info1(ProcessContext &context, const TableArgument &argument) {
     const auto found = table_if_any(context, argument);
     if (!found) {
-        return atom(context, "undefined");
+        return atom(context, "undefined"_atom);
     }
     TermFactory factory(context);
     std::vector<Term> items;
@@ -236,7 +236,7 @@ Term info1(ProcessContext &context, const TableArgument &argument) {
 Term info2(ProcessContext &context, const TableArgument &argument, const AtomArgument &item) {
     const auto found = table_if_any(context, argument);
     if (!found) {
-        return atom(context, "undefined");
+        return atom(context, "undefined"_atom);
     }
     const auto value = item_value(context, *found, item.spelling);
     if (!value) {

@@ -44,13 +44,12 @@ Word emit(ProcessContext &context, std::u32string_view text) {
         context.generated_calls().fail_service(abi::v1::Status::output_failure);
         return 0;
     }
-    return publish(context, context.atom_storage().intern("ok"));
+    return publish(context, context.atom_storage().intern("ok"_atom));
 }
 
 // Raise error:Reason for an atom reason, as OTP's io raises terminated and calling_self (step 41U).
-[[noreturn]] void raise_atom(ProcessContext &context, std::string_view reason) {
-    throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
-                         .payload = need(TermFactory(context).atom(reason)).word()};
+[[noreturn]] void raise_atom(ProcessContext &context, const AtomName reason) {
+    throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = atom(context, reason).word()};
 }
 
 // The device of an io call: standard_io and user are standard output, standard_error is standard error, another
@@ -71,10 +70,10 @@ Device device(ProcessContext &context, const IoDevice &argument) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::function_clause};
     }
     if (server == need(TermFactory(context).pid(context.identity())).word()) {
-        raise_atom(context, "calling_self");
+        raise_atom(context, "calling_self"_atom);
     }
     if (!detail::Executor::alive(context, server)) {
-        raise_atom(context, "terminated");
+        raise_atom(context, "terminated"_atom);
     }
     return {.server = server};
 }
@@ -88,7 +87,7 @@ Word emit_error(ProcessContext &context, std::u32string_view text) {
         return 0;
     }
     std::fflush(stderr);
-    return publish(context, context.atom_storage().intern("ok"));
+    return publish(context, context.atom_storage().intern("ok"_atom));
 }
 
 // Hand `text` to an I/O server: continue as file:write(Server, Utf8Binary), whose result the call returns.
@@ -97,7 +96,7 @@ Word emit_server(ProcessContext &context, Word server, std::u32string_view text)
     const auto bytes = utf8(text);
     const auto binary = need(factory.binary(std::as_bytes(std::span{bytes.data(), bytes.size()})));
     const auto *frame = static_cast<const abi::v1::FrameDescriptor *>(
-        context.code_server().function_frame(need(factory.atom("file")), need(factory.atom("write")), 2));
+        context.code_server().function_frame(need(factory.atom("file"_atom)), need(factory.atom("write"_atom)), 2));
     if (!frame) {
         bad_argument();
     }

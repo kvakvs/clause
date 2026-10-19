@@ -68,7 +68,7 @@ Term is_equal(ProcessContext &context, const Left &left, const Right &right) {
     const auto first = record(left.term);
     const auto second = record(right.term);
     if (first.unordered_ != second.unordered_) {
-        error(terms, "type_mismatch");
+        error(terms, "type_mismatch"_atom);
     }
     match(terms, {first.type_}, {second.type_});
     return terms.boolean(compare(first.data_, second.data_) == 0);

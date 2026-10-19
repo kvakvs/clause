@@ -22,8 +22,6 @@ extern char **environ;
 namespace clause::runtime::builtins {
 namespace {
 // The atom `name`.
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 #ifdef _WIN32
 // UTF-8 text as UTF-16 for the Windows API, and back.
 std::wstring wide(std::string_view text) {
@@ -46,11 +44,11 @@ std::string narrow(std::wstring_view text) {
 // os:type(): {win32, nt}, {unix, linux} or {unix, darwin}.
 TermResult<Term> type(ProcessContext &context) {
 #ifdef _WIN32
-    const std::array names{atom(context, "win32"), atom(context, "nt")};
+    const std::array names{atom(context, "win32"_atom), atom(context, "nt"_atom)};
 #elif defined(__APPLE__)
-    const std::array names{atom(context, "unix"), atom(context, "darwin")};
+    const std::array names{atom(context, "unix"_atom), atom(context, "darwin"_atom)};
 #else
-    const std::array names{atom(context, "unix"), atom(context, "linux")};
+    const std::array names{atom(context, "unix"_atom), atom(context, "linux"_atom)};
 #endif
     return TermFactory(context).tuple(names);
 }
@@ -130,7 +128,7 @@ TermResult<Term> string_term(ProcessContext &context, std::string_view text) {
 // string.
 TermResult<Term> getenv(ProcessContext &context, const ListArgument &name) {
     const auto value = variable(text_argument(name.term));
-    return value ? string_term(context, *value) : atom(context, "false");
+    return value ? string_term(context, *value) : atom(context, "false"_atom);
 }
 
 // os:getenv(): every variable as "Name=Value" (step 41X).

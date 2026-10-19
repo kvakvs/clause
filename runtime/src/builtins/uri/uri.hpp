@@ -71,7 +71,6 @@ bool ipv6_address(std::u32string_view chars);
 Term binary_of(ProcessContext &context, std::span<const std::byte> bytes);
 Term binary_of(ProcessContext &context, std::string_view text);
 Bytes bytes_of(const Term &binary);
-Term atom(ProcessContext &context, std::string_view name);
 
 // The UTF-8 code point at `at` of a binary, advancing `at`; none for an invalid sequence.
 std::optional<char32_t> code_at(std::span<const std::byte> bytes, std::size_t &at);

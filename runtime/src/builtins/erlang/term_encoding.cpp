@@ -86,7 +86,7 @@ EncodeOptions encode_options(const ListArgument &list) {
 // Raise error:notsup for a term this codec cannot encode.
 [[noreturn]] void unsupported(ProcessContext &context) {
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
-                         .payload = need(TermFactory(context).atom("notsup")).word()};
+                         .payload = need(TermFactory(context).atom("notsup"_atom)).word()};
 }
 
 class Encoder {

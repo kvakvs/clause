@@ -81,7 +81,7 @@ Term unified(const Terms &terms, const Left &left, const Right &right);
 // Require compatible types without choosing a more specific one.
 void match(const Terms &terms, const Left &left, const Right &right);
 // Raise a named Erlang error reason.
-[[noreturn]] void error(const Terms &terms, std::string_view reason);
+[[noreturn]] void error(const Terms &terms, AtomName reason);
 // Normalize external data using evolving and original element type constraints.
 Normalized normalize(const Terms &terms, const Value &value, const Left &type, const Right &original);
 // Normalize an unordered set, preserving explicit atomic leaf values.

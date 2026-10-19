@@ -15,7 +15,7 @@ namespace {
 // table and the identifier of any other.
 TermResult<Term> transfer_message(ProcessContext &owner, const ets::Tables::Transfer &transfer) {
     TermFactory factory(owner);
-    const auto tag = factory.atom("ETS-TRANSFER");
+    const auto tag = factory.atom("ETS-TRANSFER"_atom);
     const auto &table_of = *transfer.table;
     const auto table = table_of.options().named ? Term::from_word(table_of.name(), owner)
                                                 : factory.reference_number(table_of.number());

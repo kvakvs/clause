@@ -44,7 +44,7 @@ TermResult<Term> keysearch(ProcessContext &context, const Term &key, std::int64_
     if (!found) {
         return factory.boolean(false);
     }
-    const std::array parts{need(factory.atom("value")), *found};
+    const std::array parts{need(factory.atom("value"_atom)), *found};
     return factory.tuple(parts);
 }
 
@@ -132,7 +132,8 @@ TermResult<Term> keytake(ProcessContext &context, const Term &key, const Count &
     if (!found.tuple) {
         return factory.boolean(false);
     }
-    const std::array parts{need(factory.atom("value")), *found.tuple, need(factory.list(found.before, found.after))};
+    const std::array parts{need(factory.atom("value"_atom)), *found.tuple,
+                           need(factory.list(found.before, found.after))};
     return factory.tuple(parts);
 }
 

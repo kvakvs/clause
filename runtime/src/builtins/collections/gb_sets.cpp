@@ -18,8 +18,6 @@ using Other = Named<OtherRole>;
 
 BalancedTree sets(ProcessContext &context) { return BalancedTree(context, false); }
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term tuple(ProcessContext &context, std::span<const Term> parts) { return need(TermFactory(context).tuple(parts)); }
 
 Term boolean(ProcessContext &context, bool value) { return need(TermFactory(context).boolean(value)); }
@@ -127,7 +125,7 @@ Term from_ordset(ProcessContext &context, const List &list) {
     }
     for (std::size_t i = 1; i < keys.size(); ++i) {
         if (compare(keys[i - 1], keys[i]) >= 0) {
-            raise_error(tuple(context, std::array{atom(context, "badarg"), atom(context, "not_ordset")}));
+            raise_error(tuple(context, std::array{atom(context, "badarg"_atom), atom(context, "not_ordset"_atom)}));
         }
     }
     return sized_tree(context, static_cast<std::int64_t>(keys.size()), sets(context).build(as_entries(keys)));
@@ -160,7 +158,7 @@ Term take_largest(ProcessContext &context, const List &set) {
 // The nearest element before (smaller) or after (larger) Element: {found, Element2} or none.
 Term nearest(ProcessContext &context, const Key &element, const List &set, bool before) {
     const auto best = sets(context).nearest(element, tree_parts(set.term, false).root, before);
-    return best ? tuple(context, std::array{atom(context, "found"), best->key}) : atom(context, "none");
+    return best ? tuple(context, std::array{atom(context, "found"_atom), best->key}) : atom(context, "none"_atom);
 }
 
 Term smaller(ProcessContext &context, const Key &element, const List &set) {
@@ -375,7 +373,9 @@ Term iterator2(ProcessContext &context, const List &set, const Order &order) {
     return iterator_of(context, order, stack);
 }
 
-Term iterator1(ProcessContext &context, const List &set) { return iterator2(context, set, {atom(context, "ordered")}); }
+Term iterator1(ProcessContext &context, const List &set) {
+    return iterator2(context, set, {atom(context, "ordered"_atom)});
+}
 
 Term iterator_from3(ProcessContext &context, const Key &element, const List &set, const Order &order) {
     const auto reversed = is_reversed(order);
@@ -385,14 +385,14 @@ Term iterator_from3(ProcessContext &context, const Key &element, const List &set
 }
 
 Term iterator_from2(ProcessContext &context, const Key &element, const List &set) {
-    return iterator_from3(context, element, set, {atom(context, "ordered")});
+    return iterator_from3(context, element, set, {atom(context, "ordered"_atom)});
 }
 
 // next(Iter1): {Element, Iter2} or none.
 Term next(ProcessContext &context, const List &iterator) {
     const auto parts = tree_parts(iterator.term, false);
     if (parts.root.is_nil()) {
-        return atom(context, "none");
+        return atom(context, "none"_atom);
     }
     const Order order{parts.size_term};
     const auto reversed = is_reversed(order);

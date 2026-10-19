@@ -77,7 +77,7 @@ class Parser final {
     Term value(std::size_t index) const;
 
     // Terms of the abstract format.
-    Term atom(std::string_view name) const;
+    Term atom(AtomName name) const;
     Term tuple(std::initializer_list<Term> items) const;
     Term list(const std::vector<Term> &items) const;
     Term first_anno(const Term &node) const;
@@ -89,7 +89,7 @@ class Parser final {
     [[noreturn]] void error_at(const Term &location, std::string_view message) const;
     [[noreturn]] void error_at_node(const Term &node, std::string_view message) const;
     // error_bad_decl/2: "bad ~tw declaration".
-    [[noreturn]] void bad_declaration(const Term &node, std::string_view what) const;
+    [[noreturn]] void bad_declaration(const Term &node, AtomName what) const;
 
     // Functions and clauses.
     Term function();
@@ -142,7 +142,7 @@ class Parser final {
     static const std::array<AttributeBuilder, 8> ATTRIBUTE_BUILDERS;
     Term build_typed_attribute(std::size_t name, const Term &definition) const;
     Term build_type_definition(std::size_t name, const Term &call, const Term &type) const;
-    Term build_record(std::size_t record, std::string_view tag, const Term &name, const Term &fields) const;
+    Term build_record(std::size_t record, AtomName tag, const Term &name, const Term &fields) const;
     Term build_type_spec(std::size_t kind, const Term &function, const std::vector<Term> &specs) const;
     Term spec_arity(const Term &spec) const;
     std::vector<Term> farity_list(const Term &list) const;

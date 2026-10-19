@@ -35,7 +35,7 @@ bool shed(ProcessContext &context, Table::Contents &contents) {
 
 Word finished(ProcessContext &context) {
     context.stack().drop_trap_state();
-    return atom(context, "true").word();
+    return atom(context, "true"_atom).word();
 }
 
 Word dispose_continue(ProcessContext &context, Arguments) {
@@ -50,7 +50,7 @@ Word dispose_continue(ProcessContext &context, Arguments) {
 
 Word dispose(ProcessContext &context, Table::Contents contents) {
     if (shed(context, contents)) {
-        return atom(context, "true").word();
+        return atom(context, "true"_atom).word();
     }
     auto state = std::make_unique<Disposal>();
     state->contents = std::move(contents);

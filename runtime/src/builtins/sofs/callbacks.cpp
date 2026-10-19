@@ -23,7 +23,7 @@ Term accept(ProcessContext &context, const Left &value, const Right &type) {
     const auto set = record(value.term);
     const auto next = unified(terms, {type.term}, {full_type(terms, set)});
     if (!set.unordered_ && !same(next, set.type_)) {
-        const auto payload = tuple(terms, {terms.atom("case_clause"), next});
+        const auto payload = tuple(terms, {terms.atom("case_clause"_atom), next});
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = payload.word()};
     }
     return tuple(terms, {set.data_, next});

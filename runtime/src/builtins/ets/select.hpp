@@ -17,7 +17,7 @@ using LimitArgument = Named<struct LimitRole>;
 // The program of a match specification argument; badarg when it is none (system_limit for nesting past the limit).
 std::shared_ptr<const Program> compiled(ProcessContext &context, const Term &spec);
 // The specification [{Pattern, [], [Result]}] of match/2 ('$$') and match_object/2 ('$_').
-Term pattern_spec(ProcessContext &context, const Term &pattern, std::string_view result);
+Term pattern_spec(ProcessContext &context, const Term &pattern, AtomName result);
 
 // The keys every clause's head binds at the table's key position (a head that matches no object of the table binds
 // none); none when a clause leaves the key open, so every object must be tried. An ordered_set's keys come sorted

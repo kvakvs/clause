@@ -539,6 +539,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   processes copy them out at an evacuating sweep (slice start, parked ones under
   the executor lock), then the area is freed; 2,000 replacements of 16 KB grow
   0.3 MB instead of 32 MB — `24f053bb`
+- **OPTM.4** cached literal atoms: `"name"_atom` (`atom_names.hpp`) keeps one
+  static word per spelling, checked against the issuing runtime by one
+  lock-free index read; ~700 runtime call sites, one shared builtin `atom`
+  helper; `gb_trees:lookup` 1.23x, `lists:keysearch` 1.26x, scan+parse 1.15x,
+  69A geomean unchanged (+0.7%)
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`

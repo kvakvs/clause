@@ -247,7 +247,7 @@ class Forms final {
 
     Term list(std::initializer_list<Term> items) const { return terms_.list(std::span(items.begin(), items.size())); }
 
-    Term atom(std::string_view name) const { return terms_.atom(name); }
+    Term atom(const AtomName name) const { return terms_.atom(name); }
 
     Term zero() const { return terms_.integer(0); }
 
@@ -256,46 +256,46 @@ class Forms final {
     const Terms &terms() const { return terms_; }
 
     // {Tag, 0, Value}: an atom, integer or var form.
-    Term leaf(std::string_view tag, const Term &value) const { return tuple({atom(tag), zero(), value}); }
+    Term leaf(AtomName tag, const Term &value) const { return tuple({atom(tag), zero(), value}); }
 
     // {function, 0, Name, Arity, Clauses}.
-    Term function(std::string_view name, std::int64_t arity, const Term &clauses) const {
-        return tuple({atom("function"), zero(), atom(name), terms_.integer(arity), clauses});
+    Term function(AtomName name, std::int64_t arity, const Term &clauses) const {
+        return tuple({atom("function"_atom), zero(), atom(name), terms_.integer(arity), clauses});
     }
 
     // {clause, 0, Patterns, [], [Body]}.
     Term clause(const Term &patterns, const Term &body) const {
-        return tuple({atom("clause"), zero(), patterns, nil(), list({body})});
+        return tuple({atom("clause"_atom), zero(), patterns, nil(), list({body})});
     }
 
     // make_list/1: a cons chain of {Name, Arity} tuples.
     Term fa_list(std::span<const Term> pairs) const {
-        auto chain = tuple({atom("nil"), zero()});
+        auto chain = tuple({atom("nil"_atom), zero()});
         for (auto it = pairs.rbegin(); it != pairs.rend(); ++it) {
-            const auto elements =
-                list({leaf("atom", it->tuple_element_unchecked(0)), leaf("integer", it->tuple_element_unchecked(1))});
-            chain = tuple({atom("cons"), zero(), tuple({atom("tuple"), zero(), elements}), chain});
+            const auto elements = list({leaf("atom"_atom, it->tuple_element_unchecked(0)),
+                                        leaf("integer"_atom, it->tuple_element_unchecked(1))});
+            chain = tuple({atom("cons"_atom), zero(), tuple({atom("tuple"_atom), zero(), elements}), chain});
         }
         return chain;
     }
 
     // behaviour_info/1 answering callbacks and optional_callbacks.
     Term behaviour_info(std::span<const Term> callbacks, std::span<const Term> optional) const {
-        return function("behaviour_info", 1,
-                        list({clause(list({leaf("atom", atom("callbacks"))}), fa_list(callbacks)),
-                              clause(list({leaf("atom", atom("optional_callbacks"))}), fa_list(optional))}));
+        return function("behaviour_info"_atom, 1,
+                        list({clause(list({leaf("atom"_atom, atom("callbacks"_atom))}), fa_list(callbacks)),
+                              clause(list({leaf("atom"_atom, atom("optional_callbacks"_atom))}), fa_list(optional))}));
     }
 
     // module_info/0 and module_info/1 calling erlang:get_module_info/1,2.
     std::array<Term, 2> module_info(const Term &module) const {
-        const auto remote =
-            tuple({atom("remote"), zero(), leaf("atom", atom("erlang")), leaf("atom", atom("get_module_info"))});
-        const auto name = leaf("atom", module);
-        const auto x = leaf("var", atom("X"));
-        const auto call0 = tuple({atom("call"), zero(), remote, list({name})});
-        const auto call1 = tuple({atom("call"), zero(), remote, list({name, x})});
-        return {function("module_info", 0, list({clause(nil(), call0)})),
-                function("module_info", 1, list({clause(list({x}), call1)}))};
+        const auto remote = tuple({atom("remote"_atom), zero(), leaf("atom"_atom, atom("erlang"_atom)),
+                                   leaf("atom"_atom, atom("get_module_info"_atom))});
+        const auto name = leaf("atom"_atom, module);
+        const auto x = leaf("var"_atom, atom("X"_atom));
+        const auto call0 = tuple({atom("call"_atom), zero(), remote, list({name})});
+        const auto call1 = tuple({atom("call"_atom), zero(), remote, list({name, x})});
+        return {function("module_info"_atom, 0, list({clause(nil(), call0)})),
+                function("module_info"_atom, 1, list({clause(list({x}), call1)}))};
     }
 
   private:
@@ -389,14 +389,14 @@ Term add_predefined_functions(ProcessContext &context, const Term &forms) {
     std::vector<Term> exports;
     if (!found.callbacks.empty()) {
         functions.push_back(build.behaviour_info(callback_pairs(found.callbacks), found.optional));
-        exports.push_back(build.tuple({build.atom("behaviour_info"), build.terms().integer(1)}));
+        exports.push_back(build.tuple({build.atom("behaviour_info"_atom), build.terms().integer(1)}));
     }
     const auto info = build.module_info(*found.module);
     functions.insert(functions.end(), info.begin(), info.end());
-    exports.push_back(build.tuple({build.atom("module_info"), build.zero()}));
-    exports.push_back(build.tuple({build.atom("module_info"), build.terms().integer(1)}));
-    const auto export_form =
-        build.tuple({build.atom("attribute"), build.zero(), build.atom("export"), build.terms().list(exports)});
+    exports.push_back(build.tuple({build.atom("module_info"_atom), build.zero()}));
+    exports.push_back(build.tuple({build.atom("module_info"_atom), build.terms().integer(1)}));
+    const auto export_form = build.tuple(
+        {build.atom("attribute"_atom), build.zero(), build.atom("export"_atom), build.terms().list(exports)});
     functions.insert(functions.begin(), export_form);
     std::vector<Term> original;
     for (auto rest = forms; rest.is_cons(); rest = rest.tail_unchecked()) {

@@ -34,8 +34,8 @@ TermResult<Term> result(ProcessContext &context, const Conversion &conversion, s
         return value;
     }
     TermFactory factory(context);
-    const std::array parts{need(factory.atom(conversion.outcome == Outcome::error ? "error" : "incomplete")), value,
-                           conversion.rest};
+    const std::array parts{need(factory.atom(conversion.outcome == Outcome::error ? "error"_atom : "incomplete"_atom)),
+                           value, conversion.rest};
     return factory.tuple(parts);
 }
 
@@ -75,10 +75,10 @@ TermResult<Term> bin_is_7bit(ProcessContext &context, const Term &binary) {
 Term encoding_term(ProcessContext &context, Encoding encoding) {
     TermFactory factory(context);
     if (encoding.kind == Encoding::Kind::utf8 || encoding.kind == Encoding::Kind::latin1) {
-        return need(factory.atom(encoding.kind == Encoding::Kind::utf8 ? "utf8" : "latin1"));
+        return need(factory.atom(encoding.kind == Encoding::Kind::utf8 ? "utf8"_atom : "latin1"_atom));
     }
-    const std::array parts{need(factory.atom(encoding.kind == Encoding::Kind::utf16 ? "utf16" : "utf32")),
-                           need(factory.atom(encoding.little ? "little" : "big"))};
+    const std::array parts{need(factory.atom(encoding.kind == Encoding::Kind::utf16 ? "utf16"_atom : "utf32"_atom)),
+                           need(factory.atom(encoding.little ? "little"_atom : "big"_atom))};
     return need(factory.tuple(parts));
 }
 

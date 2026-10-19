@@ -12,8 +12,8 @@ namespace {
 using detail::Integer;
 using lists::no_clause;
 
-Term error_tuple(const Terms &terms, std::string_view reason) {
-    const std::array items{terms.atom("error"), terms.atom(reason)};
+Term error_tuple(const Terms &terms, AtomName reason) {
+    const std::array items{terms.atom("error"_atom), terms.atom(reason)};
     return terms.tuple(items);
 }
 
@@ -45,7 +45,7 @@ std::optional<Term> list_argument(const Term &term) { return term.is_list() ? st
 Term list_to_integer1(ProcessContext &context, const Term &string) {
     const Terms terms(context);
     if (!list_argument(string)) {
-        return error_tuple(terms, "not_a_list");
+        return error_tuple(terms, "not_a_list"_atom);
     }
     Term rest = string;
     const bool negative = starts_with(rest, '-');
@@ -54,14 +54,14 @@ Term list_to_integer1(ProcessContext &context, const Term &string) {
     }
     auto [digits, after] = digits_of(rest);
     if (digits.empty()) {
-        return error_tuple(terms, "no_integer");
+        return error_tuple(terms, "no_integer"_atom);
     }
     if (digits.size() > detail::integer_decimal_limit) {
-        return error_tuple(terms, "system_limit");
+        return error_tuple(terms, "system_limit"_atom);
     }
     Integer value = detail::integer_digits(digits);
     if (detail::integer_bits(value) > detail::integer_bit_limit) {
-        return error_tuple(terms, "system_limit");
+        return error_tuple(terms, "system_limit"_atom);
     }
     if (negative) {
         value = -value;
@@ -114,11 +114,11 @@ std::optional<std::pair<std::string, Term>> float_text_of(const Term &list) {
 Term list_to_float1(ProcessContext &context, const Term &string) {
     const Terms terms(context);
     if (!list_argument(string)) {
-        return error_tuple(terms, "not_a_list");
+        return error_tuple(terms, "not_a_list"_atom);
     }
     const auto parsed = float_text_of(string);
     if (!parsed) {
-        return error_tuple(terms, "no_float");
+        return error_tuple(terms, "no_float"_atom);
     }
     double value = 0;
     const std::string_view text = parsed->first;
@@ -173,7 +173,7 @@ Term to_number_of(ProcessContext &context, const TextArg &string) {
             std::as_bytes(std::span(Float ? std::string_view("+-0123456789eE.,") : std::string_view("+-0123456789")))));
         const auto taken = take_leading(context, string.term, {chars});
         if (is_empty(taken.head)) {
-            return error_tuple(terms, Float ? "no_float" : "no_integer");
+            return error_tuple(terms, Float ? "no_float"_atom : "no_integer"_atom);
         }
         const auto list = terms.characters_to_list(taken.head);
         auto parsed = Parse(context, list);
@@ -185,7 +185,7 @@ Term to_number_of(ProcessContext &context, const TextArg &string) {
         if (failure.term) {
             throw;
         }
-        return error_tuple(terms, "badarg");
+        return error_tuple(terms, "badarg"_atom);
     }
 }
 

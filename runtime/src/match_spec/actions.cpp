@@ -16,7 +16,7 @@ namespace clause::runtime::detail::match_spec {
 namespace {
 Term term_of(Word word) { return TermAccess::make(word); }
 
-Word atom_word(Run &run, std::string_view name) { return run.built(TermFactory(run.context()).atom(name)); }
+Word atom_word(Run &run, AtomName name) { return run.built(TermFactory(run.context()).atom(name)); }
 
 // The process trace flags OTP knows (erts_trace_flag2bit).
 constexpr std::array<std::string_view, 22> TRACE_FLAGS{"timestamp",
@@ -128,7 +128,7 @@ std::optional<Word> query(Run &run, Action action) {
     switch (action) {
     case Action::caller:
     case Action::caller_line:
-        return atom_word(run, "undefined");
+        return atom_word(run, "undefined"_atom);
     case Action::is_seq_trace:
         return abi::v1::false_atom;
     case Action::process_dump:

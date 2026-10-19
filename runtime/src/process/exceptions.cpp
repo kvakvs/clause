@@ -121,7 +121,7 @@ TermResult<Term> catch_value(ProcessContext &context, const CallFailure &failure
             return reason;
         }
     }
-    const auto tag = factory.atom("EXIT");
+    const auto tag = factory.atom("EXIT"_atom);
     if (!tag) {
         return tag;
     }

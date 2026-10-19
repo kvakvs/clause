@@ -87,5 +87,5 @@ std::uint64_t starstar(std::uint64_t word);
 // One step of xorshift116 (exsp_next/1's state): [S1 | S0] to its successor.
 std::pair<std::uint64_t, std::uint64_t> exsp_step(std::uint64_t s1, std::uint64_t s0);
 
-[[noreturn]] void raise_atom(ProcessContext &context, std::string_view name);
+[[noreturn]] void raise_atom(ProcessContext &context, AtomName name);
 } // namespace clause::runtime::builtins::rand

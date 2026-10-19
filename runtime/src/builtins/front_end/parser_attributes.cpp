@@ -70,14 +70,14 @@ Term Parser::attribute_values(std::size_t name, const Term &first, bool parenthe
         take();
         const auto type = top_type();
         close_attribute(parenthesized);
-        return build_typed_attribute(name, tuple({atom("type_def"), first, type}));
+        return build_typed_attribute(name, tuple({atom("type_def"_atom), first, type}));
     }
     if (at(",")) {
         take();
         auto values = values_after_comma();
         close_attribute(parenthesized);
         if (values.typed) {
-            return build_typed_attribute(name, tuple({atom("typed_record"), first, *values.typed}));
+            return build_typed_attribute(name, tuple({atom("typed_record"_atom), first, *values.typed}));
         }
         values.exprs.insert(values.exprs.begin(), first);
         return build_attribute(name, values.exprs);
@@ -121,7 +121,7 @@ std::optional<Term> Parser::typed_tuple(std::vector<Term> &untyped) {
         }
     }
     expect("}");
-    const auto result = tuple({atom("tuple"), anno(open), list(elements)});
+    const auto result = tuple({atom("tuple"_atom), anno(open), list(elements)});
     if (typed) {
         return result;
     }
@@ -137,7 +137,7 @@ Term Parser::typed_element(bool &typed) {
     }
     take();
     typed = true;
-    return tuple({atom("typed"), element, top_type()});
+    return tuple({atom("typed"_atom), element, top_type()});
 }
 
 void Parser::close_attribute(bool parenthesized) {
@@ -169,18 +169,18 @@ Term Parser::record_attribute() {
 Term Parser::record_after_name(std::size_t record, bool parenthesized) {
     const auto name = take();
     if (!parenthesized && !at(",")) {
-        bad_declaration(token(name), "record");
+        bad_declaration(token(name), "record"_atom);
     }
     expect(",");
     auto values = values_after_comma();
     close_attribute(parenthesized);
     if (values.typed) {
-        return build_record(record, "record", token(name), *values.typed);
+        return build_record(record, "record"_atom, token(name), *values.typed);
     }
     if (values.exprs.size() != 1) {
         lists::no_clause();
     }
-    return build_record(record, "record", token(name), values.exprs.front());
+    return build_record(record, "record"_atom, token(name), values.exprs.front());
 }
 
 // '#' record_name exprs, or '#' record_name typed_record_fields.
@@ -189,17 +189,17 @@ Term Parser::native_record_attribute(std::size_t record, bool parenthesized) {
     const auto name = record_name();
     // Without parentheses, OTP reduces record_spec -> '#' record_name before what no expression starts with.
     if (!parenthesized && !at_expression_start()) {
-        bad_declaration(token(hash), "record");
+        bad_declaration(token(hash), "record"_atom);
     }
     auto values = values_after_comma();
     close_attribute(parenthesized);
     if (values.typed) {
-        return build_record(record, "native_record", name, *values.typed);
+        return build_record(record, "native_record"_atom, name, *values.typed);
     }
     if (values.exprs.size() != 1) {
         lists::no_clause();
     }
-    return build_record(record, "native_record", name, values.exprs.front());
+    return build_record(record, "native_record"_atom, name, values.exprs.front());
 }
 
 // type_spec -> spec_fun type_sigs | '(' spec_fun type_sigs ')'.
@@ -224,7 +224,7 @@ Term Parser::build_type_spec(std::size_t kind, const Term &function, const std::
     const auto identity = is_node(function, "atom", 3)
                               ? tuple({element(function, 2), arity})
                               : tuple({element(element(function, 0), 2), element(element(function, 1), 2), arity});
-    return tuple({atom("attribute"), anno(kind), name, tuple({identity, list(specs)})});
+    return tuple({atom("attribute"_atom), anno(kind), name, tuple({identity, list(specs)})});
 }
 
 // find_arity_from_specs/1: the arguments of the first spec's fun type; a case_clause or badmatch for another type.
@@ -242,8 +242,8 @@ Term Parser::spec_arity(const Term &spec) const {
     return terms_.integer(static_cast<std::int64_t>(proper_elements(element(parts.front(), 3)).size()));
 }
 
-Term Parser::build_record(std::size_t record, std::string_view tag, const Term &name, const Term &fields) const {
-    return tuple({atom("attribute"), anno(record), atom(tag), tuple({element(name, 2), record_tuple(fields)})});
+Term Parser::build_record(std::size_t record, AtomName tag, const Term &name, const Term &fields) const {
+    return tuple({atom("attribute"_atom), anno(record), atom(tag), tuple({element(name, 2), record_tuple(fields)})});
 }
 
 Term Parser::record_tuple(const Term &tuple) const {
@@ -257,7 +257,8 @@ std::vector<Term> Parser::record_fields(const std::vector<Term> &fields) const {
     std::vector<Term> built;
     for (const auto &field : fields) {
         if (is_node(field, "typed", 3)) {
-            built.push_back(tuple({atom("typed_record_field"), record_field(element(field, 1)), element(field, 2)}));
+            built.push_back(
+                tuple({atom("typed_record_field"_atom), record_field(element(field, 1)), element(field, 2)}));
         } else {
             built.push_back(record_field(field));
         }
@@ -269,13 +270,14 @@ std::vector<Term> Parser::record_fields(const std::vector<Term> &fields) const {
 Term Parser::record_field(const Term &field) const {
     if (is_node(field, "atom", 3)) {
         const auto field_anno = element(field, 1);
-        return tuple({atom("record_field"), field_anno, tuple({atom("atom"), field_anno, element(field, 2)})});
+        return tuple(
+            {atom("record_field"_atom), field_anno, tuple({atom("atom"_atom), field_anno, element(field, 2)})});
     }
     if (is_node(field, "match", 4) && is_node(element(field, 2), "atom", 3)) {
         const auto name = element(field, 2);
         const auto field_anno = element(name, 1);
-        return tuple(
-            {atom("record_field"), field_anno, tuple({atom("atom"), field_anno, element(name, 2)}), element(field, 3)});
+        return tuple({atom("record_field"_atom), field_anno, tuple({atom("atom"_atom), field_anno, element(name, 2)}),
+                      element(field, 3)});
     }
     error_at_node(field, "bad record field");
 }
@@ -309,8 +311,8 @@ Term Parser::build_type_definition(std::size_t name, const Term &call, const Ter
             error_at_node(variable, "bad type variable");
         }
     }
-    return tuple(
-        {atom("attribute"), anno(name), value(name), tuple({element(element(call, 2), 2), type, element(call, 3)})});
+    return tuple({atom("attribute"_atom), anno(name), value(name),
+                  tuple({element(element(call, 2), 2), type, element(call, 3)})});
 }
 
 // The attributes build_attribute/2 has clauses for; any other takes one literal value.
@@ -344,13 +346,13 @@ Term Parser::build_attribute(std::size_t name, const std::vector<Term> &values) 
 }
 
 Term Parser::made_attribute(std::size_t name, const Term &content) const {
-    return tuple({atom("attribute"), anno(name), value(name), content});
+    return tuple({atom("attribute"_atom), anno(name), value(name), content});
 }
 
 Term Parser::module_attribute(std::size_t name, const std::vector<Term> &values) const {
     const auto &first = values.front();
     if (values.size() > 2 || !is_node(first, "atom", 3)) {
-        bad_declaration(first, "module");
+        bad_declaration(first, "module"_atom);
     }
     const auto module = element(first, 2);
     return made_attribute(name, values.size() == 1 ? module : tuple({module, list(var_list(values[1]))}));
@@ -358,7 +360,7 @@ Term Parser::module_attribute(std::size_t name, const std::vector<Term> &values)
 
 Term Parser::export_attribute(std::size_t name, const std::vector<Term> &values) const {
     if (values.size() != 1) {
-        bad_declaration(values[1], "export");
+        bad_declaration(values[1], "export"_atom);
     }
     return made_attribute(name, list(farity_list(values.front())));
 }
@@ -370,7 +372,7 @@ Term Parser::import_attribute(std::size_t name, const std::vector<Term> &values)
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::case_clause, .payload = list(values).word()};
     }
     if (values.size() != 2 || !is_node(values.front(), "atom", 3)) {
-        bad_declaration(values[1], imports ? "import" : "import_record");
+        bad_declaration(values[1], imports ? "import"_atom : "import_record"_atom);
     }
     const auto names = imports ? farity_list(values[1]) : native_record_names(values[1]);
     return made_attribute(name, tuple({element(values.front(), 2), list(names)}));
@@ -383,7 +385,7 @@ Term Parser::native_record_definition(std::size_t name, const std::vector<Term> 
 Term Parser::file_attribute(std::size_t name, const std::vector<Term> &values) const {
     const auto &first = values.front();
     if (values.size() != 2 || !is_node(first, "string", 3) || !is_node(values[1], "integer", 3)) {
-        bad_declaration(first, "file");
+        bad_declaration(first, "file"_atom);
     }
     return made_attribute(name, tuple({element(first, 2), element(values[1], 2)}));
 }
@@ -391,7 +393,7 @@ Term Parser::file_attribute(std::size_t name, const std::vector<Term> &values) c
 Term Parser::build_doc(std::size_t name, const std::vector<Term> &values) const {
     const auto &first = values.front();
     if (values.size() != 1) {
-        bad_declaration(first, "doc");
+        bad_declaration(first, "doc"_atom);
     }
     if (const auto plain = plain_doc(first)) {
         return made_attribute(name, *plain);
@@ -399,14 +401,14 @@ Term Parser::build_doc(std::size_t name, const std::vector<Term> &values) const 
     if (is_node(first, "bin", 3)) {
         const auto binary = attribute_term(first);
         if (!binary.is_binary()) {
-            bad_declaration(first, "doc");
+            bad_declaration(first, "doc"_atom);
         }
         return made_attribute(name, binary);
     }
     if (is_node(first, "map", 3)) {
         return made_attribute(name, doc_map(first, is_atom(value(name), "doc")));
     }
-    bad_declaration(first, "doc");
+    bad_declaration(first, "doc"_atom);
 }
 
 // true, false, hidden, a string or {file, String}.
@@ -417,7 +419,7 @@ std::optional<Term> Parser::plain_doc(const Term &node) const {
         return content;
     }
     if (const auto file = doc_file(node)) {
-        return tuple({atom("file"), *file});
+        return tuple({atom("file"_atom), *file});
     }
     return std::nullopt;
 }
@@ -515,13 +517,13 @@ Term Parser::attribute_farity(const Term &node) const {
         for (const auto &item : proper_elements(element(node, 2))) {
             items.push_back(attribute_farity(item));
         }
-        return tuple({atom("tuple"), element(node, 1), list(items)});
+        return tuple({atom("tuple"_atom), element(node, 1), list(items)});
     }
     if (is_node(node, "map", 3)) {
         return farity_map(node);
     }
     if (is_farity(node) && is_node(element(node, 3), "atom", 3) && is_node(element(node, 4), "integer", 3)) {
-        return tuple({atom("tuple"), element(node, 1), list({element(node, 3), element(node, 4)})});
+        return tuple({atom("tuple"_atom), element(node, 1), list({element(node, 3), element(node, 4)})});
     }
     return node;
 }
@@ -535,7 +537,7 @@ Term Parser::farity_cons(const Term &node) const {
     }
     auto built = attribute_farity(rest);
     for (auto cell = cells.rbegin(); cell != cells.rend(); ++cell) {
-        built = tuple({atom("cons"), cell->first, cell->second, built});
+        built = tuple({atom("cons"_atom), cell->first, cell->second, built});
     }
     return built;
 }
@@ -549,7 +551,7 @@ Term Parser::farity_map(const Term &node) const {
                 tuple({element(field, 0), element(field, 1), element(field, 2), attribute_farity(element(field, 3))}));
         }
     }
-    return tuple({atom("map"), element(node, 1), list(fields)});
+    return tuple({atom("map"_atom), element(node, 1), list(fields)});
 }
 
 Term Parser::attribute_term(const Term &node) const {

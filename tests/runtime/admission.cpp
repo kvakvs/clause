@@ -56,6 +56,26 @@ void ownership(ProcessContext &context, ProcessContext &other) {
     const auto foreign = TermFactory(other).tuple(std::array{Term::from_word(0x3b).value()}).value();
     rejects(context, foreign.word(), "foreign word admitted");
 }
+
+// A literal's cached word serves only the runtime that issued it: another runtime, and one started after the first
+// is torn down, intern their own word (cached atoms).
+void cached_atoms() {
+    auto first = Runtime::start().value();
+    auto &atoms = *first->atom_storage();
+    const auto word = atoms.intern("cached_atom_probe"_atom).value().word();
+    require(atoms.intern("cached_atom_probe").value().word() == word, "cached word differs from the spelling's");
+    require(atoms.intern("ok"_atom).value().word() == clause::abi::v1::fixed_atom(3), "fixed atom not shared");
+    {
+        auto second = Runtime::start().value();
+        const auto own = second->atom_storage()->intern("cached_atom_probe"_atom).value().word();
+        require(own != word && second->atom_storage()->lookup(own).has_value(), "foreign cached word served");
+        require(atoms.intern("cached_atom_probe"_atom).value().word() == word, "cache refresh lost the first word");
+    }
+    first.reset();
+    auto third = Runtime::start().value();
+    const auto fresh = third->atom_storage()->intern("cached_atom_probe"_atom).value().word();
+    require(fresh != word && third->atom_storage()->lookup(fresh).has_value(), "torn-down cached word served");
+}
 } // namespace
 
 int main() {
@@ -67,6 +87,8 @@ int main() {
         ownership(context, other);
         require(context.heap().verify().has_value() && other.heap().verify().has_value(), "heaps unparseable");
         require(runtime->destroy_context(&other) == Status::ok, "teardown failed");
+        cached_atoms();
+        std::cout << "runtime_admission: ok\n";
         return 0;
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';

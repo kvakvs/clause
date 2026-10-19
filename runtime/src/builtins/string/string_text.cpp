@@ -262,7 +262,7 @@ Term pad3(ProcessContext &context, const TextArg &data, const Term &length, cons
 }
 
 Term pad2(ProcessContext &context, const TextArg &data, const Term &length) {
-    return pad3(context, data, length, {Terms(context).atom("trailing")});
+    return pad3(context, data, length, {Terms(context).atom("trailing"_atom)});
 }
 
 // The case mappings: upper (0), lower (1), title (2), fold (3); the ASCII fast paths change a..z or A..Z.
@@ -466,7 +466,7 @@ Term prefix2(ProcessContext &context, const TextArg &data, const PatternArg &pre
     if (!codes.empty()) {
         const auto after = after_prefix(context, data.term, codes);
         if (!after) {
-            return terms.atom("nomatch");
+            return terms.atom("nomatch"_atom);
         }
         result = *after;
     }
@@ -572,7 +572,7 @@ Term equal4(ProcessContext &context, const TextArg &a, const OtherArg &b, const 
     if (!form) {
         // unicode_util:Norm/1 for another atom: undef.
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
-                             .payload = Terms(context).atom("undef").word()};
+                             .payload = Terms(context).atom("undef"_atom).word()};
     }
     return Terms(context).boolean(equal_transformed(context, a.term, b.term, {.form = form, .fold = fold}));
 }

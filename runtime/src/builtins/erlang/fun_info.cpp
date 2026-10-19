@@ -14,8 +14,6 @@
 // undefined.
 namespace clause::runtime::builtins {
 namespace {
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term integer(ProcessContext &context, std::int64_t value) { return need(TermFactory(context).integer(value)); }
 
 // A fun argument and its definition; badarg for anything else.
@@ -55,7 +53,7 @@ std::optional<Term> common_item(ProcessContext &context, const detail::FunView &
         return integer(context, static_cast<std::int64_t>(definition.arity));
     }
     if (item == "type") {
-        return atom(context, definition.external ? "external" : "local");
+        return atom(context, definition.external ? "external"_atom : "local"_atom);
     }
     if (item == "env") {
         return environment(context, view);
@@ -66,7 +64,7 @@ std::optional<Term> common_item(ProcessContext &context, const detail::FunView &
 // The identity items of a local fun (undefined for an external one): index and new_index, uniq and new_uniq.
 Term identity_item(ProcessContext &context, const FunDefinition &definition, std::string_view item) {
     if (definition.external) {
-        return atom(context, "undefined");
+        return atom(context, "undefined"_atom);
     }
     if (item == "index" || item == "new_index") {
         return integer(context, static_cast<std::int64_t>(definition.index));
@@ -87,7 +85,7 @@ Term item_value(ProcessContext &context, const Term &fun, std::string_view item)
         return *common;
     }
     if (item == "pid") {
-        return atom(context, "undefined");
+        return atom(context, "undefined"_atom);
     }
     static constexpr std::array<std::string_view, 4> IDENTITY{"index", "new_index", "uniq", "new_uniq"};
     if (!std::ranges::contains(IDENTITY, item)) {
@@ -96,8 +94,8 @@ Term item_value(ProcessContext &context, const Term &fun, std::string_view item)
     return identity_item(context, *view.definition, item);
 }
 
-Term item_pair(ProcessContext &context, const Term &fun, std::string_view item) {
-    const std::array parts{atom(context, item), item_value(context, fun, item)};
+Term item_pair(ProcessContext &context, const Term &fun, AtomName item) {
+    const std::array parts{atom(context, item), item_value(context, fun, item.spelling())};
     return need(TermFactory(context).tuple(parts));
 }
 

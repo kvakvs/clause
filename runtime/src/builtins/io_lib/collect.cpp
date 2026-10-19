@@ -112,18 +112,18 @@ class Collector final {
 
     Term tuple(std::initializer_list<Term> items) const { return terms_.tuple(std::span(items.begin(), items.size())); }
 
-    Term atom(std::string_view name) const { return terms_.atom(name); }
+    Term atom(const AtomName name) const { return terms_.atom(name); }
 
     const Terms &terms() const { return terms_; }
 
     // {stop, eof, eof}.
-    Term at_eof() const { return tuple({atom("stop"), atom("eof"), atom("eof")}); }
+    Term at_eof() const { return tuple({atom("stop"_atom), atom("eof"_atom), atom("eof"_atom)}); }
 
     // collect_chars/4 in state start.
     Term start(const DataArg &data, const EncodingArg &encoding, std::optional<std::int64_t> n) const {
         const auto unicode = unicode_of(encoding.term);
         if (data.term.is_binary() && n && unicode) {
-            return chars_binary({atom("start")}, data, *unicode, *n);
+            return chars_binary({atom("start"_atom)}, data, *unicode, *n);
         }
         if (data.term.is_list() && n) {
             return chars_list({terms_.nil()}, *n, data);
@@ -157,16 +157,16 @@ class Collector final {
             stack.term = terms_.cons(rest.head_unchecked(), stack.term);
         }
         if (n <= 0) {
-            return tuple({atom("done"), reversed(terms_, stack, terms_.nil()), rest});
+            return tuple({atom("done"_atom), reversed(terms_, stack, terms_.nil()), rest});
         }
         if (is_atom(rest, "eof")) {
-            const auto taken = stack.term.is_nil() ? atom("eof") : reversed(terms_, stack, terms_.nil());
-            return tuple({atom("done"), taken, terms_.nil()});
+            const auto taken = stack.term.is_nil() ? atom("eof"_atom) : reversed(terms_, stack, terms_.nil());
+            return tuple({atom("done"_atom), taken, terms_.nil()});
         }
         if (!rest.is_nil()) {
             no_clause();
         }
-        return tuple({atom("more"), tuple({terms_.integer(n), stack.term})});
+        return tuple({atom("more"_atom), tuple({terms_.integer(n), stack.term})});
     }
 
     // collect_line_bin/4.
@@ -181,7 +181,7 @@ class Collector final {
                 const auto line = terms_.slice(data.term, 0, i);
                 const auto rest = terms_.slice(data.term, i + 2, bytes.size() - i - 2);
                 const auto ending = terms_.list(std::array{line, terms_.integer('\n')});
-                return tuple({atom("stop"), binrev(terms_, stack, ending), rest});
+                return tuple({atom("stop"_atom), binrev(terms_, stack, ending), rest});
             }
             if (byte == '\r' && i + 1 == bytes.size()) {
                 const auto cr = terms_.binary(std::array{std::byte{'\r'}});
@@ -201,7 +201,7 @@ class Collector final {
                     stack.term = stack.term.tail_unchecked();
                 }
                 const auto line = reversed(terms_, stack, terms_.list(std::array{head}));
-                return tuple({atom("stop"), line, rest.tail_unchecked()});
+                return tuple({atom("stop"_atom), line, rest.tail_unchecked()});
             }
             stack.term = terms_.cons(head, stack.term);
         }
@@ -226,7 +226,7 @@ class Collector final {
         if (is_atom(data.term, "eof")) {
             const auto items = elements(stack.term);
             const bool empty = items.size() == 1 && items[0].is_binary() && string::binary_bytes(items[0]).empty();
-            return empty ? at_eof() : tuple({atom("stop"), binrev(terms_, stack, terms_.nil()), atom("eof")});
+            return empty ? at_eof() : tuple({atom("stop"_atom), binrev(terms_, stack, terms_.nil()), atom("eof"_atom)});
         }
         const auto unicode = unicode_of(encoding.term);
         if (!left || !unicode) {
@@ -241,13 +241,13 @@ class Collector final {
         if (split.size > split.wanted) {
             const auto first = terms_.slice(data.term, 0, split.at);
             const auto rest = terms_.slice(data.term, split.at, bytes - split.at);
-            return tuple({atom("stop"), with_stack(stack, first), rest});
+            return tuple({atom("stop"_atom), with_stack(stack, first), rest});
         }
         if (split.size < split.wanted) {
             const auto pushed = terms_.cons(data.term, stack.term.is_atom() ? terms_.nil() : stack.term);
-            return tuple({atom("binary"), pushed, terms_.integer(split.wanted - split.size)});
+            return tuple({atom("binary"_atom), pushed, terms_.integer(split.wanted - split.size)});
         }
-        return tuple({atom("stop"), with_stack(stack, data.term), terms_.binary({})});
+        return tuple({atom("stop"_atom), with_stack(stack, data.term), terms_.binary({})});
     }
 
     // The collected binary: Data alone at the start, else binrev(Stack, [Data]).
@@ -276,23 +276,24 @@ class Collector final {
     // collect_chars_list/3.
     Term chars_list(Stack stack, std::int64_t n, const DataArg &data) const {
         if (n == 0) {
-            return tuple({atom("stop"), reversed(terms_, stack, terms_.nil()), data.term});
+            return tuple({atom("stop"_atom), reversed(terms_, stack, terms_.nil()), data.term});
         }
         if (is_atom(data.term, "eof")) {
-            return stack.term.is_nil() ? at_eof()
-                                       : tuple({atom("stop"), reversed(terms_, stack, terms_.nil()), atom("eof")});
+            return stack.term.is_nil()
+                       ? at_eof()
+                       : tuple({atom("stop"_atom), reversed(terms_, stack, terms_.nil()), atom("eof"_atom)});
         }
         Term rest = data.term;
         for (; rest.is_cons() && n != 0; rest = rest.tail_unchecked(), --n) {
             stack.term = terms_.cons(rest.head_unchecked(), stack.term);
         }
         if (n == 0) {
-            return tuple({atom("stop"), reversed(terms_, stack, terms_.nil()), rest});
+            return tuple({atom("stop"_atom), reversed(terms_, stack, terms_.nil()), rest});
         }
         if (!rest.is_nil()) {
             no_clause();
         }
-        return tuple({atom("list"), stack.term, terms_.integer(n)});
+        return tuple({atom("list"_atom), stack.term, terms_.integer(n)});
     }
 
     // collect_line_bin/4 at a newline ending at byte `n`.
@@ -301,15 +302,15 @@ class Collector final {
         const auto line = terms_.slice(data.term, 0, n);
         const auto rest = terms_.slice(data.term, n, size - n);
         if (stack.term.is_nil()) {
-            return tuple({atom("stop"), line, rest});
+            return tuple({atom("stop"_atom), line, rest});
         }
         const auto top = need(stack.term.head());
         if (n == 1 && top.is_binary() && string::binary_bytes(top).size() == 1 &&
             std::to_integer<char>(string::binary_bytes(top)[0]) == '\r') {
             const auto newline = terms_.list(std::array{terms_.integer('\n')});
-            return tuple({atom("stop"), binrev(terms_, {need(stack.term.tail())}, newline), rest});
+            return tuple({atom("stop"_atom), binrev(terms_, {need(stack.term.tail())}, newline), rest});
         }
-        return tuple({atom("stop"), binrev(terms_, stack, terms_.list(std::array{line})), rest});
+        return tuple({atom("stop"_atom), binrev(terms_, stack, terms_.list(std::array{line})), rest});
     }
 
     Terms terms_;
@@ -334,7 +335,7 @@ Term collect_chars4(ProcessContext &context, const StateArg &state, const DataAr
 }
 
 Term collect_chars3(ProcessContext &context, const StateArg &state, const DataArg &data, const Term &count) {
-    return collect_chars4(context, state, data, {Terms(context).atom("latin1")}, count);
+    return collect_chars4(context, state, data, {Terms(context).atom("latin1"_atom)}, count);
 }
 
 // collect_chars/1: the N of a 3-tuple state.
@@ -355,14 +356,14 @@ Term collect_chars_eager4(ProcessContext &context, const StateArg &state, const 
     const auto tag = result.tuple_element_unchecked(0);
     const Stack stack{result.tuple_element_unchecked(1)};
     if (is_atom(tag, "list") && !stack.term.is_nil()) {
-        return terms.tuple(std::array{terms.atom("stop"), reversed(terms, stack, terms.nil()), terms.nil()});
+        return terms.tuple(std::array{terms.atom("stop"_atom), reversed(terms, stack, terms.nil()), terms.nil()});
     }
     const auto &items = stack.term;
     const bool empty_binary = items.is_cons() && items.tail_unchecked().is_nil() &&
                               items.head_unchecked().is_binary() &&
                               string::binary_bytes(items.head_unchecked()).empty();
     if (is_atom(tag, "binary") && !empty_binary) {
-        return terms.tuple(std::array{terms.atom("stop"), binrev(terms, stack, terms.nil()), terms.nil()});
+        return terms.tuple(std::array{terms.atom("stop"_atom), binrev(terms, stack, terms.nil()), terms.nil()});
     }
     return result;
 }
@@ -387,13 +388,13 @@ Term collect_line4(ProcessContext &context, const StateArg &state, const DataArg
         return collect.at_eof();
     }
     if (stack.term.is_cons() && stack.term.head_unchecked().is_binary()) {
-        return collect.tuple({collect.atom("stop"), binrev(terms, stack, terms.nil()), collect.atom("eof")});
+        return collect.tuple({collect.atom("stop"_atom), binrev(terms, stack, terms.nil()), collect.atom("eof"_atom)});
     }
-    return collect.tuple({collect.atom("stop"), reversed(terms, stack, terms.nil()), collect.atom("eof")});
+    return collect.tuple({collect.atom("stop"_atom), reversed(terms, stack, terms.nil()), collect.atom("eof"_atom)});
 }
 
 Term collect_line3(ProcessContext &context, const StateArg &state, const DataArg &data, const Term &any) {
-    return collect_line4(context, state, data, {Terms(context).atom("latin1")}, any);
+    return collect_line4(context, state, data, {Terms(context).atom("latin1"_atom)}, any);
 }
 
 Term collect_line1(ProcessContext &context, const Term & /*state*/) { return Terms(context).integer(0); }

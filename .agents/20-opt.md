@@ -6,13 +6,13 @@ generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1A/B, parts of OPT1.2 and OPT1.3,
 OPT1.4A-C, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.13A-C, OPT3.14 service path,
-read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3):
-see [00-finished.md](00-finished.md). This file keeps open work only.
+read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
+OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
 
 ## Working rules for plan 20 steps
 
-- Commit each step as soon as it is done (gate green); don't batch steps
-  (user direction 2026-10-12).
+- Commit each step as soon as it is done (gate green); don't batch steps (user
+  direction 2026-10-12).
 - Prefix the commit subject with `[plan20]`, then the step code and title, e.g.
   `[plan20] OPT0.1. Inline frame transfers`.
 - The plan 11 gate applies: fast CTest, `check-quality` (clang-tidy and Lizard,
@@ -55,15 +55,16 @@ see [00-finished.md](00-finished.md). This file keeps open work only.
    inference fact or optionally LLVM PGO.
 4. **Clause can do what OTP cannot:** OTP never inlines across modules (hot code
    loading); Clause builds whole executables, so cross-module inlining of
-   `lists`, `maps` and user helpers is open unless a module is marked upgradable.
+   `lists`, `maps` and user helpers is open unless a module is marked
+   upgradable.
 5. **Methodology from the T2 record** (`08_v1_loop_tier.md` §2.3,
    `16_retrospective.md` §3–4):
    - Size a pool with cycle samples (perf/ETW), not call counts.
    - Eligible does not mean a win: each optimization must prove it removes work,
      with a negative control.
    - Run a cheap static census of applicability before building machinery.
-   - Run a differential harness against OTP golden output (results, error
-     terms, output ordering).
+   - Run a differential harness against OTP golden output (results, error terms,
+     output ordering).
 
 ## Measured T2 results (reference numbers)
 
@@ -88,8 +89,8 @@ services are the equivalent pool, so making them fast is itself a target.
 ## Measured priorities (2026-10-16 profile of the 69A kernels)
 
 Pick work by benchmark impact (user direction 2026-10-16). cdb stack samples of
-the kernels furthest behind OTP JIT (Release runtime with symbols,
-`build/prof`) group the cost into:
+the kernels furthest behind OTP JIT (Release runtime with symbols, `build/prof`)
+group the cost into:
 
 1. **Collection** (sort 65%, binary_append 50%, int_to_list 31%, map_put 25%,
    map_update 22%, string_build 21%, euler ~15%): every collection was a full
@@ -137,20 +138,21 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
   and copy each read every cell) and the receivers' collections. Small messages
   to busy receivers still copy twice (into a buffer, then into the receiver).
 - **OPT3.10B young heap sizing:** block reuse is done (OPT3.10). ERTS sizes a
-  minor collection's new block from the young words plus the stack, which
-  shares the block, so a full young block often grows a size step; trying that
-  rule (`heap_size_at_least(young + stack)`) cut string_build's collections from
-  6.5 to 1 per iteration (1.24x) and helped list_of_tuples and large_write, but
-  sort lost 29% (its young block oscillated 121k/197k words with 40k survivors
-  each time) and the 69A geomean gained less than block reuse alone; find when
-  ERTS grows (it kept 75,113 words full in sort). Kernels sharing one process
-  also pay for heaps an earlier kernel grew: since OPT3.1 no off-heap map charge forces early full sweeps, so
-  the first sweep after list_of_tuples (a 3M-word old area) lands in
-  binary_append (0.84x vs HEAD) and bigint (0.89x), and comprehension runs in a
-  75k-word young block sized from the old area (0.71x); each is unchanged run
-  alone. string_build after OPT3.2 is collection-bound: 6.5 collections per
-  iteration (0.8 of them full sweeps) against OTP's one, whose young heap
-  settles at 514,838 words while Clause's shrinks to 121,536 after each sweep.
+  minor collection's new block from the young words plus the stack, which shares
+  the block, so a full young block often grows a size step; trying that rule
+  (`heap_size_at_least(young + stack)`) cut string_build's collections from 6.5
+  to 1 per iteration (1.24x) and helped list_of_tuples and large_write, but sort
+  lost 29% (its young block oscillated 121k/197k words with 40k survivors each
+  time) and the 69A geomean gained less than block reuse alone; find when ERTS
+  grows (it kept 75,113 words full in sort). Kernels sharing one process also
+  pay for heaps an earlier kernel grew: since OPT3.1 no off-heap map charge
+  forces early full sweeps, so the first sweep after list_of_tuples (a 3M-word
+  old area) lands in binary_append (0.84x vs HEAD) and bigint (0.89x), and
+  comprehension runs in a 75k-word young block sized from the old area (0.71x);
+  each is unchanged run alone. string_build after OPT3.2 is collection-bound:
+  6.5 collections per iteration (0.8 of them full sweeps) against OTP's one,
+  whose young heap settles at 514,838 words while Clause's shrinks to 121,536
+  after each sweep.
 
 ## Steps outside the 69A metric (review of parked OPT0 follow-ups, 2026-10-17)
 
@@ -161,10 +163,10 @@ order, one commit each.
   builtins (`lists:reverse/2`, `'--'/2`) and more binary-module builtins direct;
   list_to_atom stays at 70 ns against OTP 9 in `AtomStorage::intern` (a shared
   lock and a `std::map` of spellings).
-- **OPT3.14 remainder** (service path done): atom `<` still pays the
-  comparison service call (27 ns against OTP 10); an order rank per atom
-  readable from generated code would make it a word compare, and compound terms
-  holding atoms (tuple keys) still take `structural_order` with `Term`s.
+- **OPT3.14 remainder** (service path done): atom `<` still pays the comparison
+  service call (27 ns against OTP 10); an order rank per atom readable from
+  generated code would make it a word compare, and compound terms holding atoms
+  (tuple keys) still take `structural_order` with `Term`s.
 
 ## Invariants of finished tier OPT0 steps
 
@@ -191,9 +193,9 @@ Ordered by measured T2 value and how well each fits an AOT compiler.
 Status 2026-10-16: self tail calls become LLVM loops and keep their frame
 (OPT1.1A); tail calls within a tail-call cycle keep the caller link and the
 shared term slots (OPT1.1B, even/odd 16% faster). Open: **OPT1.1C** one LLVM
-function per cycle with a dispatch on the frame descriptor, so peers become
-loop branches (even/odd is still 1.45 ns per step against 1.19 ns for a self
-loop: callee prologue, argument stores and descriptor store per transfer).
+function per cycle with a dispatch on the frame descriptor, so peers become loop
+branches (even/odd is still 1.45 ns per step against 1.19 ns for a self loop:
+callee prologue, argument stores and descriptor store per transfer).
 
 - **What:** rewrite a self tail call into a branch back to a synthesized loop
   header, with phis for the parameters. Mutually tail-recursive SCCs (Tarjan)
@@ -214,8 +216,8 @@ into their slots only where they cross a call or safepoint. Untagged raw loop
 values open. Note: 69A's two-iteration `dataproc.sort`/`map_foldl` read up to
 1.3x slower after the argument change while 20-iteration runs of the same
 kernels on the same live data are equal or faster; with fewer stale words in
-argument slots the live set at a collection is smaller, so the heap grows
-less (a heap-sizing artifact, not code).
+argument slots the live set at a collection is smaller, so the heap grows less
+(a heap-sizing artifact, not code).
 
 - **What:** T2 calls this "regalloc R3 register homing" and "RAW-IN-HOME":
   - keep the accumulator, induction variable and list cursor as raw machine
@@ -234,11 +236,11 @@ less (a heap-sizing artifact, not code).
 ### OPT1.3 Speculation-free small-int fast paths, with guard fusion and range-proven overflow elimination
 
 Part done 2026-10-16: `+`/`-` add the tagged words (`a + (b ^ 15)`, the
-one-untag trick) and test word overflow with a sign test; both tag tests
-already fuse into one mask. Open: the flag form (`llvm.s*.with.overflow`,
-`add; jo`, a further 5-15% on the arithmetic kernels) is blocked only by a
-clang-analyzer false positive in LLVM's `ExtractValueInst` headers; `*` still
-uses double width; range-proven elimination beyond `codegen/proofs`.
+one-untag trick) and test word overflow with a sign test; both tag tests already
+fuse into one mask. Open: the flag form (`llvm.s*.with.overflow`, `add; jo`, a
+further 5-15% on the arithmetic kernels) is blocked only by a clang-analyzer
+false positive in LLVM's `ExtractValueInst` headers; `*` still uses double
+width; range-proven elimination beyond `codegen/proofs`.
 
 - **Overflow check:** compute with flag-setting instructions and branch on
   overflow to the bignum service ("check before commit").
@@ -258,10 +260,10 @@ uses double width; range-proven elimination beyond `codegen/proofs`.
 
 OPT1.4A-C done 2026-10-15/16 (inline start/finish, aligned whole-byte reads,
 sub-binary cells, inline `Rest`; a binary loop updates one sub-binary cell in
-place, `binary_match` 8.5x faster, its view read once per step, sum_binary
-3.7 ms against OTP 2.7). Open: the raw cursor as an SSA phi with no cell store
-per trip, loops whose rest is also read elsewhere, unaligned and
-non-byte segments inline, 32-bit targets.
+place, `binary_match` 8.5x faster, its view read once per step, sum_binary 3.7
+ms against OTP 2.7). Open: the raw cursor as an SSA phi with no cell store per
+trip, loops whose rest is also read elsewhere, unaligned and non-byte segments
+inline, 32-bit targets.
 
 This is the largest measured T2 win class (`14_bs_cursor_iv.md`).
 
@@ -326,13 +328,12 @@ Builds on OPT1.4.
   - A pointer-guarded hit also removes the key comparisons (`eq`), which are 12
     % of compiler time on OTP.
 - **Needs:** OPT0.4 and the shared-keys flatmap layout (moved here from OPT0.5;
-  it touches every map consumer): small maps (≤ 32, OTP's
-  `MAP_SMALL_MAP_LIMIT`) become `header, size, keys→tuple, v0..vn`; the current
-  sorted-pairs cell stays as the **classic map** for literals. Shape-preserving
-  updates (`M#{k := V}`, `maps:put` on an existing key) copy only values and
-  keep the keys pointer, whose identity is the shape token (same literal,
-  constructors and chained updates share it; only `from_list` and new-key puts
-  make a fresh one).
+  it touches every map consumer): small maps (≤ 32, OTP's `MAP_SMALL_MAP_LIMIT`)
+  become `header, size, keys→tuple, v0..vn`; the current sorted-pairs cell stays
+  as the **classic map** for literals. Shape-preserving updates (`M#{k := V}`,
+  `maps:put` on an existing key) copy only values and keep the keys pointer,
+  whose identity is the shape token (same literal, constructors and chained
+  updates share it; only `from_list` and new-key puts make a fresh one).
 
 ### OPT1.7 Higher-order `lists` intrinsics and literal-fun inlining
 
@@ -372,9 +373,9 @@ Builds on OPT1.4.
   - a construct/deconstruct pair (`{ok,X}` returned and immediately matched)
   - opening up loop recovery
 - **Measured:** T2's MVP fused `diff/2` into the `total/2` loop.
-- **Clause caveat:** with OPT0.1 done (OPT0.1A dropped), follow T2's rule: never inline
-  for call overhead alone. LLVM's inliner can take over once calls are direct
-  and services are inline.
+- **Clause caveat:** with OPT0.1 done (OPT0.1A dropped), follow T2's rule: never
+  inline for call overhead alone. LLVM's inliner can take over once calls are
+  direct and services are inline.
 
 ### OPT1.10 Cleanup suite across inlined boundaries
 

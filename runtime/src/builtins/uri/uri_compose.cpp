@@ -411,7 +411,7 @@ std::optional<int> default_port(const std::optional<std::string> &name) {
 void root_path(ProcessContext &context, Fields &fields) {
     const auto path = fields.get("path");
     if (path && (path->is_nil() || (path->is_binary() && bytes_of(*path).empty()))) {
-        fields.set("path", path->is_nil() ? chars(context, "/") : binary_of(context, "/"));
+        fields.set("path"_atom, path->is_nil() ? chars(context, "/") : binary_of(context, "/"));
     }
 }
 
@@ -432,7 +432,7 @@ void by_scheme(ProcessContext &context, Fields &fields) {
 }
 
 void remove_dots(ProcessContext &context, Fields &fields) {
-    fields.set("path", without_dots(context, fields.get("path").value_or(binary_of(context, ""))));
+    fields.set("path"_atom, without_dots(context, fields.get("path").value_or(binary_of(context, ""))));
 }
 
 // OTP's normalize_map: scheme and host lower-cased, escapes decoded, an undefined port and a default one dropped,
@@ -566,7 +566,7 @@ PathType path_type(ProcessContext &context, const Fields &uri) {
 Term resolve_against(ProcessContext &context, Fields uri, const Fields &base) {
     const auto type = path_type(context, uri);
     if (uri.has("host")) {
-        uri.set("scheme", *base.get("scheme"));
+        uri.set("scheme"_atom, *base.get("scheme"));
         remove_dots(context, uri);
         return uri.term();
     }
@@ -578,7 +578,7 @@ Term resolve_against(ProcessContext &context, Fields uri, const Fields &base) {
     case PathType::absolute:
         break;
     case PathType::relative:
-        uri.set("path", merged_path(context, *uri.get("path"), base));
+        uri.set("path"_atom, merged_path(context, *uri.get("path"), base));
         break;
     }
     uri.merge_from(base, {"scheme", "userinfo", "host", "port"});
@@ -603,7 +603,7 @@ Term resolve_map(ProcessContext &context, Fields fields, const Term &base) {
     }
     const Fields base_fields(context, base_map);
     if (!base_fields.has("scheme")) {
-        const std::array items{atom(context, "error"), atom(context, "invalid_scheme"),
+        const std::array items{atom(context, "error"_atom), atom(context, "invalid_scheme"_atom),
                                need(TermFactory(context).nil())};
         return need(TermFactory(context).tuple(items));
     }
@@ -660,8 +660,8 @@ std::optional<Term> Fields::get(std::string_view key) const {
     return index < 0 ? std::nullopt : std::optional{entries_[static_cast<std::size_t>(index)].second};
 }
 
-void Fields::set(std::string_view key, const Term &value) {
-    const auto index = find(key);
+void Fields::set(AtomName key, const Term &value) {
+    const auto index = find(key.spelling());
     if (index < 0) {
         entries_.emplace_back(atom(context_, key), value);
     } else {
@@ -695,7 +695,7 @@ Term recompose(ProcessContext &context, const Term &map) {
         return std::ranges::any_of(COMPONENTS, [&](std::string_view name) { return atom_is(entry.first, name); });
     });
     if (!fields.has("path") || !known) {
-        const std::array items{atom(context, "error"), atom(context, "invalid_map"), map};
+        const std::array items{atom(context, "error"_atom), atom(context, "invalid_map"_atom), map};
         return need(TermFactory(context).tuple(items));
     }
     try {

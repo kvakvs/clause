@@ -59,8 +59,7 @@ Term table_term(ProcessContext &context, const Table &table);
 // The identifier of a table.
 Term identifier(ProcessContext &context, const Table &table);
 
-// The atom `name` and the end-of-walk atom.
-Term atom(ProcessContext &context, std::string_view name);
+// The end-of-walk atom.
 Term end_of_table(ProcessContext &context);
 // The spelling of an atom; empty for any other term.
 std::string_view spelling(const Term &term);

@@ -163,7 +163,8 @@ Result identity(ProcessContext &context, Op operation, const Term &operand) {
     if (operation == Op::node_of && !operand.is_pid() && !operand.is_reference() && !operand.is_port()) {
         return std::unexpected(Fault{Outcome::bad_argument});
     }
-    return checked(TermFactory(context).atom("nonode@nohost").transform([](const Term &node) { return node.word(); }));
+    return checked(
+        TermFactory(context).atom("nonode@nohost"_atom).transform([](const Term &node) { return node.word(); }));
 }
 
 // Boolean operators validate admitted terms; lazy lowering checks only the reached left operand here.

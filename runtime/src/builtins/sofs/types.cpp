@@ -56,7 +56,7 @@ std::optional<Term> unify(const Terms &terms, const Left &left, const Right &rig
 Term unified(const Terms &terms, const Left &left, const Right &right) {
     const auto result = unify(terms, left, right);
     if (!result) {
-        error(terms, "type_mismatch");
+        error(terms, "type_mismatch"_atom);
     }
     return *result;
 }

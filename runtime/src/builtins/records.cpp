@@ -192,7 +192,7 @@ Term get_definition(ProcessContext &context, const ModuleArg &module, const Name
     }
     const Terms terms(context);
     const auto fields = decode_external(context, definition->definition);
-    const std::array option{std::pair{terms.atom("is_exported"), terms.boolean(definition->exported)}};
+    const std::array option{std::pair{terms.atom("is_exported"_atom), terms.boolean(definition->exported)}};
     const std::array result{need(TermFactory(context).map(option)), fields};
     return terms.tuple(result);
 }

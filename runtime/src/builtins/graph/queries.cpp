@@ -142,7 +142,8 @@ Term loop_vertices(ProcessContext &context, const GraphArg &graph_arg) {
 
 Term info(ProcessContext &context, const GraphArg &graph) {
     const Terms terms(context);
-    const std::array pair{terms.atom("cyclicity"), terms.atom(Graph(graph).cyclic() ? "cyclic" : "acyclic")};
+    const std::array pair{terms.atom("cyclicity"_atom),
+                          terms.atom(Graph(graph).cyclic() ? "cyclic"_atom : "acyclic"_atom)};
     const std::array items{terms.tuple(pair)};
     return terms.list(items);
 }

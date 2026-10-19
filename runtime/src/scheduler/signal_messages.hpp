@@ -8,7 +8,7 @@ namespace clause::runtime::detail {
 // Whether `term` is the atom spelled `name`.
 bool is_atom(const Term &term, std::string_view name);
 // The atom `name`; a full atom table fails like exhausted memory (throws std::bad_alloc).
-Term atom(ProcessContext &process, std::string_view name);
+Term atom(ProcessContext &process, AtomName name);
 // {'EXIT', From, Reason} built in the heap of `process`; From is a pid or a port.
 TermResult<Term> exit_message(ProcessContext &process, Word from, const Term &reason);
 // {'DOWN', Ref, Type, Item, Reason} built in the heap of `process`: Type is port for a monitored port, else process;

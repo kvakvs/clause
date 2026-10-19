@@ -25,8 +25,6 @@ void release(std::span<std::byte> bytes) noexcept {
     pcre2_code_free(owned.code);
 }
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Term small_term(std::int64_t value) { return need(Term::from_word(need(encode_integer(value)))); }
 } // namespace
 
@@ -63,7 +61,7 @@ Term pattern(ProcessContext &context, pcre2_code *code, bool unicode) {
         pcre2_code_free(code);
         need(handle);
     }
-    const std::array parts{atom(context, "re_pattern"), small_term(captures), small_term(unicode ? 1 : 0),
+    const std::array parts{atom(context, "re_pattern"_atom), small_term(captures), small_term(unicode ? 1 : 0),
                            small_term(crlf ? 1 : 0), *handle};
     return need(TermFactory(context).tuple(parts));
 }
@@ -134,9 +132,9 @@ TermResult<Term> compile_pattern(ProcessContext &context, const BinaryArgument &
     CompileError error{};
     auto *code = compile(regex.bytes, *options, error);
     if (code == nullptr) {
-        return pair(context, atom(context, "error"), compile_error(context, error));
+        return pair(context, atom(context, "error"_atom), compile_error(context, error));
     }
-    return pair(context, atom(context, "ok"), pattern(context, code, options->unicode));
+    return pair(context, atom(context, "ok"_atom), pattern(context, code, options->unicode));
 }
 
 // The distinct names of a pattern's name table, in its (alphabetical) order.
@@ -167,7 +165,7 @@ TermResult<Term> inspect(ProcessContext &context, const Term &term, const AtomAr
     for (const auto name : names(code)) {
         binaries.push_back(need(TermFactory(context).binary(std::as_bytes(std::span(name)))));
     }
-    return pair(context, atom(context, "namelist"), need(TermFactory(context).list(binaries)));
+    return pair(context, atom(context, "namelist"_atom), need(TermFactory(context).list(binaries)));
 }
 
 constexpr std::array PATTERN_BUILTINS{

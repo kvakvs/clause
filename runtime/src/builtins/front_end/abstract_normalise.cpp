@@ -109,7 +109,7 @@ class SpecifierReader final {
         return merged;
     }
 
-    Term atom(std::string_view name) const { return terms_.atom(name); }
+    Term atom(const AtomName name) const { return terms_.atom(name); }
 
   private:
     // type_to_record/1: one specifier, {undefined_bittype, Type} for anything else.
@@ -123,7 +123,7 @@ class SpecifierReader final {
                 return *unit;
             }
         }
-        bit_type_error(terms_.tuple(std::array{atom("undefined_bittype"), type}));
+        bit_type_error(terms_.tuple(std::array{atom("undefined_bittype"_atom), type}));
     }
 
     // {unit, undefined} sets nothing; {unit, N} needs 1 =< N =< 256.
@@ -167,13 +167,13 @@ class SpecifierReader final {
             return;
         }
         if (merged && *merged != *added) {
-            const std::array reason{atom("bittype_mismatch"), term_of(*added), term_of(*merged), chars(what)};
+            const std::array reason{atom("bittype_mismatch"_atom), term_of(*added), term_of(*merged), chars(what)};
             bit_type_error(terms_.tuple(reason));
         }
         merged = added;
     }
 
-    Term term_of(std::string_view name) const { return atom(name); }
+    Term term_of(AtomName name) const { return atom(name); }
 
     Term term_of(std::int64_t value) const { return terms_.integer(value); }
 
@@ -237,7 +237,7 @@ class Normaliser final {
   private:
     // error({badarg, Node}).
     [[noreturn]] void bad(const Term &node) const {
-        const std::array items{terms_.atom("badarg"), node};
+        const std::array items{terms_.atom("badarg"_atom), node};
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = terms_.tuple(items).word()};
     }
 
@@ -393,7 +393,7 @@ class Normaliser final {
             return settled;
         }
         if (!sized && specifiers.unit && settled.type != BitType::binary) {
-            bit_type_error(reader.atom("bittype_unit"));
+            bit_type_error(reader.atom("bittype_unit"_atom));
         }
         const auto unit = specifiers.unit ? std::optional{static_cast<unsigned>(*specifiers.unit)} : std::nullopt;
         settle_size(settled, sized ? value(size) : Term{}, sized, unit);
@@ -416,7 +416,7 @@ class Normaliser final {
         const auto undefined_size =
             (is_node(size, "atom", 3) || is_node(size, "value", 3)) && is_atom(element(size, 2), "undefined");
         if ((!is_atom(size, "default") && !undefined_size) || unit) {
-            bit_type_error(reader.atom("utf_bittype_size_or_unit"));
+            bit_type_error(reader.atom("utf_bittype_size_or_unit"_atom));
         }
     }
 

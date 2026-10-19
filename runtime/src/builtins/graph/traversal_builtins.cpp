@@ -131,9 +131,9 @@ Term arborescence_root(ProcessContext &context, const GraphArg &graph) {
     const Terms terms(context);
     const auto root = root_of(Graph(graph));
     if (!root) {
-        return terms.atom("no");
+        return terms.atom("no"_atom);
     }
-    const std::array result{terms.atom("yes"), *root};
+    const std::array result{terms.atom("yes"_atom), *root};
     return terms.tuple(result);
 }
 

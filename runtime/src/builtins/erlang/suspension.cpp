@@ -15,8 +15,6 @@ struct OptionsRole;
 using PidArg = Named<PidRole>;
 using OptionsArg = Named<OptionsRole>;
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 Word self_word(ProcessContext &context) { return need(TermFactory(context).pid(context.identity())).word(); }
 
 // A pid of another live process, else badarg.
@@ -71,7 +69,7 @@ Term suspend_process2(ProcessContext &context, const PidArg &pid, const OptionsA
         bad_argument();
     }
     if (*suspended && parsed.reply_tag) {
-        const std::array reply{*parsed.reply_tag, atom(context, "suspended")};
+        const std::array reply{*parsed.reply_tag, atom(context, "suspended"_atom)};
         const auto message = need(TermFactory(context).tuple(reply));
         if (const auto sent = detail::Executor::send(context, self_word(context), message); !sent) {
             throw BuiltinFailure{.term = sent.error()};
@@ -90,7 +88,7 @@ Term resume_process(ProcessContext &context, const PidArg &pid) {
     if (!resumed || !*resumed) {
         bad_argument();
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // "Module:Function/Arity" of one frame.
@@ -130,7 +128,7 @@ Term process_display(ProcessContext &context, const PidArg &pid, const AtomArgum
         bad_argument();
     }
     write_backtrace(context, *trace);
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 constexpr std::array SUSPENSION_BUILTINS{

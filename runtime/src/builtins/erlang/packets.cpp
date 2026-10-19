@@ -375,8 +375,8 @@ Term ssl_term(const string::Terms &terms, std::span<const std::byte> packet) {
     const auto body = packet.subspan(hello ? 3 : 5);
     data.insert(data.end(), body.begin(), body.end());
     const std::array version{terms.integer(at(hello ? 3 : 1)), terms.integer(at(hello ? 4 : 2))};
-    const std::array items{terms.atom("ssl_tls"), terms.nil(), terms.integer(hello ? 22 : at(0)), terms.tuple(version),
-                           terms.binary(data)};
+    const std::array items{terms.atom("ssl_tls"_atom), terms.nil(), terms.integer(hello ? 22 : at(0)),
+                           terms.tuple(version), terms.binary(data)};
     return terms.tuple(items);
 }
 
@@ -399,7 +399,7 @@ Term body_term(const string::Terms &terms, const Term &binary, std::span<const s
     return terms.slice(binary, skipped, packet.size() - skipped - padding);
 }
 
-Term tagged(const string::Terms &terms, std::string_view tag, const Term &value) {
+Term tagged(const string::Terms &terms, AtomName tag, const Term &value) {
     const std::array items{terms.atom(tag), value};
     return terms.tuple(items);
 }
@@ -419,14 +419,15 @@ Term decode_packet(ProcessContext &context, const TypeArg &type_arg, const Term 
     bool header = false;
     const auto length = packet_length(type, bytes, limits, header);
     if (!length) {
-        return tagged(terms, "error", terms.atom("invalid"));
+        return tagged(terms, "error"_atom, terms.atom("invalid"_atom));
     }
     if (*length == 0 || *length > bytes.size()) {
-        const auto needed = *length == 0 ? terms.atom("undefined") : terms.integer(static_cast<std::int64_t>(*length));
-        return tagged(terms, "more", needed);
+        const auto needed =
+            *length == 0 ? terms.atom("undefined"_atom) : terms.integer(static_cast<std::int64_t>(*length));
+        return tagged(terms, "more"_atom, needed);
     }
     const auto packet = std::span(bytes).first(*length);
-    const std::array items{terms.atom("ok"), body_term(terms, binary, packet, type, header),
+    const std::array items{terms.atom("ok"_atom), body_term(terms, binary, packet, type, header),
                            terms.slice(binary, *length, bytes.size() - *length)};
     return terms.tuple(items);
 }

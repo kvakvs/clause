@@ -36,7 +36,7 @@ Term end_token(const Terms &terms, const Term &tokens) {
     for (auto rest = tokens; rest.is_cons(); rest = rest.tail_unchecked()) {
         last = rest.head_unchecked();
     }
-    return last ? pair(terms, terms.atom("syntax_error_at_end"), *last) : terms.atom("syntax_error_at_end");
+    return last ? pair(terms, terms.atom("syntax_error_at_end"_atom), *last) : terms.atom("syntax_error_at_end"_atom);
 }
 
 // An ASCII format string as a character list.
@@ -61,18 +61,18 @@ Term token_at(const Term &tokens, std::size_t index) {
 Term parse(ProcessContext &context, const Term &tokens) {
     const Terms terms(context);
     try {
-        return pair(terms, terms.atom("ok"), parsing::Parser(context, tokens).form());
+        return pair(terms, terms.atom("ok"_atom), parsing::Parser(context, tokens).form());
     } catch (const parsing::SyntaxError &failure) {
         const auto count = need(tokens.is_proper_list()) ? need(tokens.list_length()) : SIZE_MAX;
         if (failure.index >= count) {
             return end_token(terms, tokens);
         }
-        return pair(terms, terms.atom("syntax_error"), token_at(tokens, failure.index));
+        return pair(terms, terms.atom("syntax_error"_atom), token_at(tokens, failure.index));
     } catch (const parsing::ActionError &failure) {
-        const std::array info{failure.location, terms.atom("erl_parse"), failure.message};
-        return pair(terms, terms.atom("error"), terms.tuple(info));
+        const std::array info{failure.location, terms.atom("erl_parse"_atom), failure.message};
+        return pair(terms, terms.atom("error"_atom), terms.tuple(info));
     } catch (const parsing::FormatError &failure) {
-        const std::array format{terms.atom("format"), failure.location, chars_of(terms, failure.format),
+        const std::array format{terms.atom("format"_atom), failure.location, chars_of(terms, failure.format),
                                 terms.list(failure.arguments)};
         return terms.tuple(format);
     }
@@ -111,7 +111,7 @@ class Abstract final {
             return encoding_ == Encoding::none ? conses(term) : list(term);
         }
         if (term.is_tuple()) {
-            return node({terms_.atom("tuple"), anno_, terms_.list(values(need(term.tuple_elements())))});
+            return node({terms_.atom("tuple"_atom), anno_, terms_.list(values(need(term.tuple_elements())))});
         }
         if (term.is_map()) {
             return map(term);
@@ -130,7 +130,7 @@ class Abstract final {
             return node({terms_.atom(tag), anno_, term});
         }
         if (term.is_nil()) {
-            return node({terms_.atom("nil"), anno_});
+            return node({terms_.atom("nil"_atom), anno_});
         }
         return std::nullopt;
     }
@@ -169,7 +169,7 @@ class Abstract final {
         }
         auto built = value(rest);
         for (auto head = heads.rbegin(); head != heads.rend(); ++head) {
-            built = node({terms_.atom("cons"), anno_, *head, built});
+            built = node({terms_.atom("cons"_atom), anno_, *head, built});
         }
         return built;
     }
@@ -198,7 +198,7 @@ class Abstract final {
         auto built = last_run(std::span(elements).subspan(runs.back().first), rest);
         for (auto run = runs.rbegin() + 1; run != runs.rend(); ++run) {
             const auto chars = std::span(elements).subspan(run->first, run->second - run->first);
-            built = wrap(chars, node({terms_.atom("cons"), anno_, value(elements[run->second]), built}));
+            built = wrap(chars, node({terms_.atom("cons"_atom), anno_, value(elements[run->second]), built}));
         }
         return built;
     }
@@ -209,7 +209,7 @@ class Abstract final {
             return value(tail);
         }
         if (tail.is_nil()) {
-            return node({terms_.atom("string"), anno_, terms_.list(chars)});
+            return node({terms_.atom("string"_atom), anno_, terms_.list(chars)});
         }
         return wrap(chars, value(tail));
     }
@@ -217,7 +217,7 @@ class Abstract final {
     // not_string/3: each character, last first, as a cons of {integer, A, C}.
     Term wrap(std::span<const Term> chars, Term built) const {
         for (auto code = chars.rbegin(); code != chars.rend(); ++code) {
-            built = node({terms_.atom("cons"), anno_, node({terms_.atom("integer"), anno_, *code}), built});
+            built = node({terms_.atom("cons"_atom), anno_, node({terms_.atom("integer"_atom), anno_, *code}), built});
         }
         return built;
     }
@@ -233,36 +233,36 @@ class Abstract final {
             const auto value = bits_left >= 8 ? byte : byte >> (8 - bits_left);
             const auto width =
                 bits_left >= 8
-                    ? terms_.atom("default")
-                    : node({terms_.atom("integer"), anno_, terms_.integer(static_cast<std::int64_t>(bits_left))});
-            elements.push_back(
-                node({terms_.atom("bin_element"), anno_, node({terms_.atom("integer"), anno_, terms_.integer(value)}),
-                      width, terms_.atom("default")}));
+                    ? terms_.atom("default"_atom)
+                    : node({terms_.atom("integer"_atom), anno_, terms_.integer(static_cast<std::int64_t>(bits_left))});
+            elements.push_back(node({terms_.atom("bin_element"_atom), anno_,
+                                     node({terms_.atom("integer"_atom), anno_, terms_.integer(value)}), width,
+                                     terms_.atom("default"_atom)}));
         }
-        return node({terms_.atom("bin"), anno_, terms_.list(elements)});
+        return node({terms_.atom("bin"_atom), anno_, terms_.list(elements)});
     }
 
     // {map, A, [{map_field_assoc, A, K, V}, ...]} in maps:to_list/1 order.
     Term map(const Term &term) const {
         std::vector<Term> fields;
         for (const auto &[key, item] : need(term.map_entries())) {
-            fields.push_back(node({terms_.atom("map_field_assoc"), anno_, value(key), value(item)}));
+            fields.push_back(node({terms_.atom("map_field_assoc"_atom), anno_, value(key), value(item)}));
         }
-        return node({terms_.atom("map"), anno_, terms_.list(fields)});
+        return node({terms_.atom("map"_atom), anno_, terms_.list(fields)});
     }
 
     // An external fun: {'fun', A, {function, M, F, Arity}}; a local fun is OTP's case_clause on {type, local}.
     Term fun(const Term &term) const {
         const auto &definition = *need(detail::fun_view(term)).definition;
         if (!definition.external) {
-            const auto type = pair(terms_, terms_.atom("type"), terms_.atom("local"));
+            const auto type = pair(terms_, terms_.atom("type"_atom), terms_.atom("local"_atom));
             throw BuiltinFailure{.reason = abi::v1::ErrorReason::case_clause, .payload = type.word()};
         }
         const auto module = need(Term::from_word(definition.module, context_));
         const auto name = need(Term::from_word(definition.function, context_));
         const auto arity = terms_.integer(static_cast<std::int64_t>(definition.arity));
-        return node(
-            {terms_.atom("fun"), anno_, node({terms_.atom("function"), value(module), value(name), value(arity)})});
+        return node({terms_.atom("fun"_atom), anno_,
+                     node({terms_.atom("function"_atom), value(module), value(name), value(arity)})});
     }
 
     ProcessContext &context_;
@@ -290,7 +290,7 @@ class Tokens final {
     }
 
   private:
-    void symbol(std::string_view name, const Term &anno) { tokens_.push_back(pair(terms_, terms_.atom(name), anno)); }
+    void symbol(AtomName name, const Term &anno) { tokens_.push_back(pair(terms_, terms_.atom(name), anno)); }
 
     void emit(const Term &node) {
         for (const auto tag : {"char", "integer", "float", "atom", "var", "string"}) {
@@ -300,20 +300,20 @@ class Tokens final {
             }
         }
         if (is_node(node, "nil", 2)) {
-            symbol("[", element(node, 1));
-            symbol("]", element(node, 1));
+            symbol("["_atom, element(node, 1));
+            symbol("]"_atom, element(node, 1));
         } else if (is_node(node, "cons", 4)) {
             cons(node);
         } else if (is_node(node, "tuple", 3)) {
-            symbol("{", element(node, 1));
+            symbol("{"_atom, element(node, 1));
             elements(node);
         } else if (is_node(node, "map", 3)) {
-            symbol("#", element(node, 1));
-            symbol("{", element(node, 1));
+            symbol("#"_atom, element(node, 1));
+            symbol("{"_atom, element(node, 1));
             elements(node);
         } else if (is_node(node, "map_field_assoc", 4)) {
             emit(element(node, 2));
-            symbol("=>", element(node, 1));
+            symbol("=>"_atom, element(node, 1));
             emit(element(node, 3));
         } else {
             no_clause();
@@ -322,24 +322,24 @@ class Tokens final {
 
     // '[' Head (',' Element)* then ']' or '|' Tail ']'.
     void cons(const Term &node) {
-        symbol("[", element(node, 1));
+        symbol("["_atom, element(node, 1));
         emit(element(node, 2));
         auto rest = element(node, 3);
         for (; is_node(rest, "cons", 4); rest = element(rest, 3)) {
-            symbol(",", element(rest, 1));
+            symbol(","_atom, element(rest, 1));
             emit(element(rest, 2));
         }
         if (is_node(rest, "nil", 2)) {
-            symbol("]", element(rest, 1));
+            symbol("]"_atom, element(rest, 1));
             return;
         }
         if (!rest.is_tuple() || rest.tuple_size_unchecked() < 2) {
             bad_argument();
         }
         const auto anno = element(rest, 1);
-        symbol("|", anno);
+        symbol("|"_atom, anno);
         emit(rest);
-        symbol("]", anno);
+        symbol("]"_atom, anno);
     }
 
     // tokens_tuple/3: each comma and the closing brace take the annotation of the element before them.
@@ -351,7 +351,7 @@ class Tokens final {
         for (; rest.is_cons(); rest = rest.tail_unchecked()) {
             const auto item = rest.head_unchecked();
             if (!first) {
-                symbol(",", previous);
+                symbol(","_atom, previous);
             }
             emit(item);
             if (!item.is_tuple() || item.tuple_size_unchecked() < 2) {
@@ -363,7 +363,7 @@ class Tokens final {
         if (!rest.is_nil()) {
             no_clause();
         }
-        symbol("}", previous);
+        symbol("}"_atom, previous);
     }
 
     Terms terms_;

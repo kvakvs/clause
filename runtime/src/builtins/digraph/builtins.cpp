@@ -8,8 +8,8 @@
 namespace clause::runtime::builtins::digraph {
 namespace {
 using graph::Direction;
-using graph::Terms;
 using graph::OtherArg;
+using graph::Terms;
 using graph::VertexArg;
 using StartsArg = Named<struct StartsRole>;
 
@@ -141,9 +141,9 @@ Term arborescence_root(ProcessContext &context, const DigraphArg &digraph) {
     const Terms terms(context);
     const auto root = root_of(DigraphView(context, digraph));
     if (!root) {
-        return terms.atom("no");
+        return terms.atom("no"_atom);
     }
-    return terms.tuple(std::array{terms.atom("yes"), *root});
+    return terms.tuple(std::array{terms.atom("yes"_atom), *root});
 }
 
 Term is_arborescence(ProcessContext &context, const DigraphArg &digraph) {

@@ -39,8 +39,8 @@ Vertices DigraphView::vertices() const {
     return found;
 }
 
-Vertices DigraphView::edges(const Term &vertex, std::string_view side) const {
-    const std::array parts{ets::atom(context_, side), vertex};
+Vertices DigraphView::edges(const Term &vertex, const AtomName side) const {
+    const std::array parts{atom(context_, side), vertex};
     const auto key_term = need(TermFactory(context_).tuple(parts));
     const auto at = ets::key(context_, *neighbours_, key_term);
     Vertices found;
@@ -81,7 +81,7 @@ Vertices DigraphView::neighbours(const Term &vertex, std::string_view side, std:
 
 std::vector<std::pair<Term, Term>> DigraphView::out_ends(const Term &vertex) const {
     std::vector<std::pair<Term, Term>> found;
-    for (const auto &edge : edges(vertex, "out")) {
+    for (const auto &edge : edges(vertex, "out"_atom)) {
         found.emplace_back(edge_element(edge, 2), edge_element(edge, 3));
     }
     return found;

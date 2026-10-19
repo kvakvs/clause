@@ -12,8 +12,6 @@
 namespace clause::runtime::builtins {
 namespace {
 // The atom `name`.
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // cmp_term(A, B): -1, 0 or 1 in exact term order, where an integer orders before an equal float.
 Term cmp_term(ProcessContext &, const Term &left, const Term &right) {
     const auto order = need(detail::structural_order(left, right, true));
@@ -44,7 +42,7 @@ TermResult<Term> next_at(ProcessContext &context, const Term &map, std::int64_t 
     auto entries = cursor(context, map, at);
     const auto entry = entries ? entries->next() : std::nullopt;
     if (!entry) {
-        return atom(context, "none");
+        return atom(context, "none"_atom);
     }
     std::vector<Word> keys;
     while (const auto later = entries->next()) {
@@ -58,7 +56,7 @@ TermResult<Term> next_at(ProcessContext &context, const Term &map, std::int64_t 
 // The next association of an iterator over a key list: none when it is empty, badarg for a key the map lacks.
 TermResult<Term> next_key(ProcessContext &context, const Term &map, const Term &keys) {
     if (keys.is_nil()) {
-        return atom(context, "none");
+        return atom(context, "none"_atom);
     }
     if (!keys.is_cons()) {
         bad_argument();

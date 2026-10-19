@@ -26,7 +26,7 @@ bool same(Word left, Word right) {
     return order && *order == 0;
 }
 
-Word atom_word(ProcessContext &context, std::string_view name) {
+Word atom_word(ProcessContext &context, AtomName name) {
     return builtins::need(TermFactory(context).atom(name)).word();
 }
 } // namespace
@@ -326,7 +326,7 @@ std::optional<Word> Run::evaluate(std::size_t index) {
     const auto value = compound(node);
     // A raising call in a body gives 'EXIT' in its place, and the body goes on.
     if (!value && !in_guard_) {
-        return atom_word(context_, "EXIT");
+        return atom_word(context_, "EXIT"_atom);
     }
     return value;
 }

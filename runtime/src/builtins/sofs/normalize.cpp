@@ -38,7 +38,7 @@ Normalized normalize_tuple(const Terms &terms, const Value &value, const Left &t
 }
 
 Normalized infer(const Terms &terms, const Term &value) {
-    const auto any = terms.atom("_");
+    const auto any = terms.atom("_"_atom);
     if (value.is_list()) {
         return normalize_list(terms, {value}, {any}, {any});
     }
@@ -55,7 +55,7 @@ Normalized infer(const Terms &terms, const Term &value) {
         }
         return {terms.tuple(values), terms.tuple(types)};
     }
-    return {value, terms.atom("atom")};
+    return {value, terms.atom("atom"_atom)};
 }
 
 // Detect explicit tuple-only types for the constructor's allocation-free leaf validation path.

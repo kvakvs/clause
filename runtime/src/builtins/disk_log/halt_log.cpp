@@ -129,7 +129,7 @@ Term items(ProcessContext &context, const Term &file) {
     const auto opened = starts_with(head.subspan(std::min<std::size_t>(4, head.size())), OPENED);
     const auto closed = starts_with(head.subspan(std::min<std::size_t>(4, head.size())), CLOSED);
     if (!starts_with(head, LOG_MAGIC) || head.size() < HEADER_BYTES || (!opened && !closed)) {
-        return need(factory.atom("not_a_log_file"));
+        return need(factory.atom("not_a_log_file"_atom));
     }
     const auto scan = Scanner(head.subspan(HEADER_BYTES)).run();
     std::vector<Term> binaries;
@@ -137,7 +137,7 @@ Term items(ProcessContext &context, const Term &file) {
     for (const auto item : scan.items) {
         binaries.push_back(need(factory.binary(item)));
     }
-    const std::array result{need(factory.atom(opened ? "opened" : "closed")), need(factory.list(binaries)),
+    const std::array result{need(factory.atom(opened ? "opened"_atom : "closed"_atom)), need(factory.list(binaries)),
                             need(factory.integer(static_cast<std::int64_t>(scan.bad)))};
     return need(factory.tuple(result));
 }

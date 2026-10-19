@@ -159,7 +159,7 @@ Term last_anno(ProcessContext &context, const Term &node) {
         }
         return Visit::next;
     });
-    const auto found = last.value_or(string::Terms(context).atom("*"));
+    const auto found = last.value_or(string::Terms(context).atom("*"_atom));
     const auto end = anno_end_location(context, found);
     return is_atom(end, "undefined") ? found : anno_set_location(context, end, found);
 }

@@ -392,7 +392,7 @@ Index Arena::list(const Term &list, std::int64_t depth, std::int64_t limit) {
 std::pair<Deep::Ref, std::int64_t> Arena::string_text(const Term &list) {
     const Terms terms(context_);
     if (options_.utf8) {
-        const auto encoding = terms.atom(options_.encoding == Encoding::latin1 ? "latin1" : "unicode");
+        const auto encoding = terms.atom(options_.encoding == Encoding::latin1 ? "latin1"_atom : "unicode"_atom);
         const auto [bin, size] = string_bin(context_, list, QuoteArg{terms.integer('"')}, EncodingArg{encoding});
         return {deep_.term(bin), size};
     }
@@ -581,8 +581,8 @@ std::pair<Deep::Ref, std::int64_t> Arena::binary_text(std::span<const std::byte>
     const Terms terms(context_);
     if (options_.utf8) {
         const auto bin = part.size() == string::binary_bytes(binary).size() ? binary : terms.binary(part);
-        const auto [utf8, length] =
-            string_bin(context_, bin, QuoteArg{terms.nil()}, EncodingArg{terms.atom(latin1 ? "latin1" : "unicode")});
+        const auto [utf8, length] = string_bin(context_, bin, QuoteArg{terms.nil()},
+                                               EncodingArg{terms.atom(latin1 ? "latin1"_atom : "unicode"_atom)});
         return {deep_.list({deep_.code('"'), deep_.term(utf8), deep_.code('"')}), length + 2};
     }
     std::u32string codes;

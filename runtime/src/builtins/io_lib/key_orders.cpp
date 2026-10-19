@@ -89,8 +89,8 @@ Word finish(ProcessContext &context, BuiltinBody body, std::span<const Word> wor
         missing_list(context, scope).word(),     scope.known == 0 ? need(factory.nil()).word() : scope.known,
         need(factory.atom(entry.module)).word(), need(factory.atom(entry.function)).word(),
         need(factory.list(arguments)).word(),    need(factory.boolean(badarg)).word()};
-    const auto *frame = static_cast<const abi::v1::FrameDescriptor *>(
-        context.code_server().function_frame(need(factory.atom("clause_io_lib")), need(factory.atom("sort_maps")), 6));
+    const auto *frame = static_cast<const abi::v1::FrameDescriptor *>(context.code_server().function_frame(
+        need(factory.atom("clause_io_lib"_atom)), need(factory.atom("sort_maps"_atom)), 6));
     if (frame == nullptr) {
         bad_argument();
     }

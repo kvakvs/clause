@@ -171,7 +171,7 @@ void send_reply(ProcessContext &context, const Reply &reply, const Term &request
     if (value.is_tuple()) {
         value = need(value.tuple_element(0));
     }
-    const std::array parts{reply.tag, request, need(factory.atom(ok ? "ok" : "error")), value};
+    const std::array parts{reply.tag, request, need(factory.atom(ok ? "ok"_atom : "error"_atom)), value};
     if (const auto sent = Executor::send(context, detail::pid_of(context), need(factory.tuple(parts))); !sent) {
         throw BuiltinFailure{.term = sent.error()};
     }
@@ -193,16 +193,16 @@ std::optional<SpawnOptions> request_options(ProcessContext &context, const ListA
 // {Tag, ReqId, error, badopt}, as in OTP.
 template <typename Spawn> TermResult<Term> request(ProcessContext &context, const ListArgument *list, Spawn spawn) {
     TermFactory factory(context);
-    Reply reply{.tag = need(factory.atom("spawn_reply"))};
+    Reply reply{.tag = need(factory.atom("spawn_reply"_atom))};
     auto options = request_options(context, list, reply);
     auto id = need(factory.make_reference());
     if (!options) {
-        send_reply(context, reply, id, false, need(factory.atom("badopt")));
+        send_reply(context, reply, id, false, need(factory.atom("badopt"_atom)));
         return id;
     }
     options->monitor_reference = id.reference_value_unchecked();
     const auto spawned = spawn(*options);
-    send_reply(context, reply, id, spawned.has_value(), spawned ? *spawned : need(factory.atom("system_limit")));
+    send_reply(context, reply, id, spawned.has_value(), spawned ? *spawned : need(factory.atom("system_limit"_atom)));
     return id;
 }
 

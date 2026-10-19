@@ -11,8 +11,6 @@
 namespace clause::runtime::builtins {
 namespace {
 // The atom `name`.
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // The spelling of a module argument; function_clause unless it is an atom.
 std::string_view module_name(const Term &module) {
     if (!module.is_atom()) {
@@ -35,8 +33,9 @@ TermResult<Term> pair(ProcessContext &context, const Term &first, const Term &se
 
 // ensure_loaded(Module): {module, Module}, or {error, nofile} for a module the program does not have.
 TermResult<Term> ensure_loaded(ProcessContext &context, const Term &module) {
-    return loaded(context, module_name(module)) ? pair(context, atom(context, "module"), module)
-                                                : pair(context, atom(context, "error"), atom(context, "nofile"));
+    return loaded(context, module_name(module))
+               ? pair(context, atom(context, "module"_atom), module)
+               : pair(context, atom(context, "error"_atom), atom(context, "nofile"_atom));
 }
 
 // ensure_modules_loaded(Modules): ok, or {error, [{Module, nofile}]} for the modules the program does not have.
@@ -46,26 +45,27 @@ TermResult<Term> ensure_modules_loaded(ProcessContext &context, const Term &modu
     for (; rest.is_cons(); rest = rest.tail_unchecked()) {
         const auto module = rest.head_unchecked();
         if (!loaded(context, module_name(module))) {
-            missing.push_back(need(pair(context, module, atom(context, "nofile"))));
+            missing.push_back(need(pair(context, module, atom(context, "nofile"_atom))));
         }
     }
     if (!rest.is_nil()) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::function_clause};
     }
     if (missing.empty()) {
-        return atom(context, "ok");
+        return atom(context, "ok"_atom);
     }
-    return pair(context, atom(context, "error"), need(TermFactory(context).list(missing)));
+    return pair(context, atom(context, "error"_atom), need(TermFactory(context).list(missing)));
 }
 
 // is_loaded(Module): {file, preloaded}, or false.
 TermResult<Term> is_loaded(ProcessContext &context, const Term &module) {
-    return loaded(context, module_name(module)) ? pair(context, atom(context, "file"), atom(context, "preloaded"))
-                                                : atom(context, "false");
+    return loaded(context, module_name(module))
+               ? pair(context, atom(context, "file"_atom), atom(context, "preloaded"_atom))
+               : atom(context, "false"_atom);
 }
 
 // [{Module, Value}] for every module of the program.
-TermResult<Term> every_module(ProcessContext &context, std::string_view value) {
+TermResult<Term> every_module(ProcessContext &context, AtomName value) {
     std::vector<Term> items;
     for (const auto &name : context.code_server().module_names()) {
         items.push_back(need(pair(context, atom(context, name), atom(context, value))));
@@ -74,25 +74,25 @@ TermResult<Term> every_module(ProcessContext &context, std::string_view value) {
 }
 
 // all_loaded(): [{Module, preloaded}].
-TermResult<Term> all_loaded(ProcessContext &context) { return every_module(context, "preloaded"); }
+TermResult<Term> all_loaded(ProcessContext &context) { return every_module(context, "preloaded"_atom); }
 
 // which(Module): preloaded, or non_existing.
 TermResult<Term> which(ProcessContext &context, const Term &module) {
-    return atom(context, loaded(context, module_name(module)) ? "preloaded" : "non_existing");
+    return atom(context, loaded(context, module_name(module)) ? "preloaded"_atom : "non_existing"_atom);
 }
 
 // module_status(Module): loaded or not_loaded; linked code is never modified or removed.
 TermResult<Term> module_status1(ProcessContext &context, const Term &module) {
-    return atom(context, loaded(context, module_name(module)) ? "loaded" : "not_loaded");
+    return atom(context, loaded(context, module_name(module)) ? "loaded"_atom : "not_loaded"_atom);
 }
 
 // module_status(): [{Module, loaded}].
-TermResult<Term> module_status0(ProcessContext &context) { return every_module(context, "loaded"); }
+TermResult<Term> module_status0(ProcessContext &context) { return every_module(context, "loaded"_atom); }
 
 // is_sticky(Module): false, since no directory of the executable is sticky.
 TermResult<Term> is_sticky(ProcessContext &context, const Term &module) {
     static_cast<void>(module_name(module));
-    return atom(context, "false");
+    return atom(context, "false"_atom);
 }
 
 constexpr std::array CODE_MODULE_BUILTINS{

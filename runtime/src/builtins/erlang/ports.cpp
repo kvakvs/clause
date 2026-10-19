@@ -15,10 +15,8 @@ using detail::Framing;
 using detail::PortOptions;
 
 // The atom `name`.
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // Raise error:Reason for an atom reason, as open_port/2 raises enoent and port_command/3 notsup.
-[[noreturn]] void raise_atom(ProcessContext &context, std::string_view reason) {
+[[noreturn]] void raise_atom(ProcessContext &context, const AtomName reason) {
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = atom(context, reason).word()};
 }
 
@@ -317,7 +315,7 @@ TermResult<Term> port_close(ProcessContext &context, const Term &port) {
     if (!detail::Executor::of(context).close_port(context, port_of(context, port))) {
         bad_argument();
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // The options of port_command/3: force and nosuspend.
@@ -331,7 +329,7 @@ struct CommandOptions final {
 // when forced (no driver allows force, as OTP's spawn and fd drivers do not).
 TermResult<Term> command(ProcessContext &context, Word word, const Term &data, CommandOptions options = {}) {
     if (options.force) {
-        raise_atom(context, "notsup");
+        raise_atom(context, "notsup"_atom);
     }
     auto bytes = iodata_bytes(data);
     if (!bytes) {
@@ -340,12 +338,12 @@ TermResult<Term> command(ProcessContext &context, Word word, const Term &data, C
     const auto outcome =
         detail::Executor::of(context).command_port(context, word, std::move(*bytes), options.nosuspend);
     if (outcome == detail::PortOutcome::busy) {
-        return atom(context, "false");
+        return atom(context, "false"_atom);
     }
     if (outcome != detail::PortOutcome::done) {
         bad_argument();
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // port_command(Port, Data): true after writing Data.
@@ -378,7 +376,7 @@ TermResult<Term> port_connect(ProcessContext &context, const Term &port, const T
     if (!pid.is_pid() || !detail::Executor::of(context).connect_port(port_of(context, port), pid)) {
         bad_argument();
     }
-    return atom(context, "true");
+    return atom(context, "true"_atom);
 }
 
 // port_control(Port, Operation, Data): the driver's answer, a binary for a binary port, else a byte list; badarg for
@@ -425,7 +423,7 @@ TermResult<Term> word_list(ProcessContext &context, const std::vector<Word> &wor
 }
 
 // {Name, Value} of port_info/2.
-TermResult<Term> item(ProcessContext &context, std::string_view name, const TermResult<Term> &value) {
+TermResult<Term> item(ProcessContext &context, AtomName name, const TermResult<Term> &value) {
     return TermFactory(context).tuple(std::array{atom(context, name), need(value)});
 }
 
@@ -449,7 +447,7 @@ std::optional<TermResult<Term>> info_constant(ProcessContext &context, std::stri
         return factory.nil();
     }
     if (name == "locking" || name == "parallelism") {
-        return factory.atom(name == "locking" ? "port_level" : "false");
+        return factory.atom(name == "locking" ? "port_level"_atom : "false"_atom);
     }
     return std::nullopt;
 }
@@ -471,7 +469,7 @@ std::optional<TermResult<Term>> info_value(ProcessContext &context, std::string_
     }
     if (name == "os_pid") {
         return info.os_pid ? Term::from_word(need(encode_integer(*info.os_pid)))
-                           : TermFactory(context).atom("undefined");
+                           : TermFactory(context).atom("undefined"_atom);
     }
     return info_constant(context, name);
 }
@@ -482,7 +480,7 @@ TermResult<Term> port_info2(ProcessContext &context, const Term &port, const Ato
     const auto info = detail::Executor::of(context).port_info(port_of(context, port));
     if (name.spelling == "registered_name") {
         if (!info) {
-            return atom(context, "undefined");
+            return atom(context, "undefined"_atom);
         }
         return info->registered != 0 ? item(context, name.spelling, Term::from_word(info->registered, context))
                                      : TermFactory(context).nil();
@@ -492,7 +490,7 @@ TermResult<Term> port_info2(ProcessContext &context, const Term &port, const Ato
         if (!info_value(context, name.spelling, detail::PortInfo{})) {
             bad_argument();
         }
-        return atom(context, "undefined");
+        return atom(context, "undefined"_atom);
     }
     const auto value = info_value(context, name.spelling, *info);
     if (!value) {
@@ -505,7 +503,7 @@ TermResult<Term> port_info2(ProcessContext &context, const Term &port, const Ato
 TermResult<Term> port_info1(ProcessContext &context, const Term &port) {
     const auto info = detail::Executor::of(context).port_info(port_of(context, port));
     if (!info) {
-        return atom(context, "undefined");
+        return atom(context, "undefined"_atom);
     }
     std::vector<Term> items;
     for (const auto name : {"name", "links", "id", "connected", "input", "output", "os_pid"}) {

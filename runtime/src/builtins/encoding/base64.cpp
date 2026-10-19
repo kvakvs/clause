@@ -185,7 +185,7 @@ class Output final {
 
 [[noreturn]] void missing_padding(ProcessContext &context) {
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
-                         .payload = need(TermFactory(context).atom("missing_padding")).word()};
+                         .payload = need(TermFactory(context).atom("missing_padding"_atom)).word()};
 }
 
 // After the padding only whitespace may follow; anything else is {case_clause, Symbol} as OTP's only_ws raises.
@@ -194,9 +194,10 @@ void only_space(ProcessContext &context, Input &input) {
         if (symbol->kind == Symbol::Kind::space) {
             continue;
         }
-        const auto value = symbol->is_value()
-                               ? need(TermFactory(context).integer(symbol->value))
-                               : need(TermFactory(context).atom(symbol->kind == Symbol::Kind::pad ? "eq" : "bad"));
+        const auto value =
+            symbol->is_value()
+                ? need(TermFactory(context).integer(symbol->value))
+                : need(TermFactory(context).atom(symbol->kind == Symbol::Kind::pad ? "eq"_atom : "bad"_atom));
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::case_clause, .payload = value.word()};
     }
 }

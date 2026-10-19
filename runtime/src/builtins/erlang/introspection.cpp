@@ -20,8 +20,6 @@ struct Inspection {
 };
 
 // An atom of the caller.
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // A word of the target copied into the caller's heap.
 Term copied(const Inspection &inspection, Word word) {
     return need(need(Term::from_word(word, inspection.target)).copy_to(inspection.caller.heap()));
@@ -82,9 +80,10 @@ Term monitors(const Inspection &inspection) {
     for (const auto &[reference, monitor] : inspection.target.signals().monitors()) {
         auto subject = immediate(inspection, monitor.pid);
         if (monitor.name != 0) {
-            subject = pair(inspection, immediate(inspection, monitor.name), atom(inspection.caller, "nonode@nohost"));
+            subject =
+                pair(inspection, immediate(inspection, monitor.name), atom(inspection.caller, "nonode@nohost"_atom));
         }
-        items.push_back(pair(inspection, atom(inspection.caller, "process"), subject));
+        items.push_back(pair(inspection, atom(inspection.caller, "process"_atom), subject));
     }
     return list(inspection, items);
 }
@@ -123,15 +122,16 @@ Term memory(const Inspection &inspection) {
     return integer(inspection, words * sizeof(Word) + sizeof(ProcessContext));
 }
 
-Term priority(const Inspection &inspection) { return atom(inspection.caller, "normal"); }
+Term priority(const Inspection &inspection) { return atom(inspection.caller, "normal"_atom); }
 
-Term error_handler(const Inspection &inspection) { return atom(inspection.caller, "error_handler"); }
+Term error_handler(const Inspection &inspection) { return atom(inspection.caller, "error_handler"_atom); }
 
 Term garbage_collection(const Inspection &inspection) {
-    const std::array settings{pair(inspection, atom(inspection.caller, "min_heap_size"),
-                                   integer(inspection, inspection.target.heap().min_heap_words())),
-                              pair(inspection, atom(inspection.caller, "fullsweep_after"), integer(inspection, 65535)),
-                              pair(inspection, atom(inspection.caller, "minor_gcs"), integer(inspection, 0))};
+    const std::array settings{
+        pair(inspection, atom(inspection.caller, "min_heap_size"_atom),
+             integer(inspection, inspection.target.heap().min_heap_words())),
+        pair(inspection, atom(inspection.caller, "fullsweep_after"_atom), integer(inspection, 65535)),
+        pair(inspection, atom(inspection.caller, "minor_gcs"_atom), integer(inspection, 0))};
     return list(inspection, {settings.begin(), settings.end()});
 }
 
@@ -164,7 +164,7 @@ constexpr std::array<std::string_view, 12> UNKEPT{
     "last_calls",       "sequential_trace_token", "suspending",         "trace",        "parent", "memory_info"};
 
 // {First, Second} with an atom first, in the caller's heap.
-Term pair_term(ProcessContext &context, std::string_view first, const Term &second) {
+Term pair_term(ProcessContext &context, AtomName first, const Term &second) {
     const std::array parts{atom(context, first), second};
     return need(TermFactory(context).tuple(parts));
 }
@@ -181,7 +181,7 @@ ItemReader reader(ProcessContext &context, const Term &item) {
     }
     if (std::ranges::contains(UNKEPT, name)) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
-                             .payload = pair_term(context, "notsup", item).word()};
+                             .payload = pair_term(context, "notsup"_atom, item).word()};
     }
     bad_argument();
 }
@@ -224,7 +224,7 @@ TermResult<Term> process_info_list(ProcessContext &context, const PidArgument &p
         }
         return list(inspection, values);
     });
-    return result ? *result : atom(context, "undefined");
+    return result ? *result : atom(context, "undefined"_atom);
 }
 
 // process_info(Pid, Item | [Item]): undefined for a process that is not alive.
@@ -239,7 +239,7 @@ TermResult<Term> process_info2(ProcessContext &context, const PidArgument &pid, 
         // An unregistered process answers registered_name with [] rather than a pair, as in OTP.
         return read == registered_name && value.is_nil() ? value : item_pair(inspection, items, read);
     });
-    return result ? *result : atom(context, "undefined");
+    return result ? *result : atom(context, "undefined"_atom);
 }
 
 // process_info(Pid): the default items.
@@ -252,7 +252,7 @@ TermResult<Term> process_info1(ProcessContext &context, const PidArgument &pid) 
         }
         return list(inspection, values);
     });
-    return result ? *result : atom(context, "undefined");
+    return result ? *result : atom(context, "undefined"_atom);
 }
 
 TermResult<Term> processes(ProcessContext &context) {
@@ -326,11 +326,11 @@ TermResult<Term> garbage_collect2(ProcessContext &context, const Term &pid, cons
         return result;
     }
     TermFactory factory(context);
-    const std::array parts{atom(context, "garbage_collect"), *request, result};
+    const std::array parts{atom(context, "garbage_collect"_atom), *request, result};
     if (const auto sent = Executor::send(context, detail::pid_of(context), need(factory.tuple(parts))); !sent) {
         throw BuiltinFailure{.term = sent.error()};
     }
-    return factory.atom("async");
+    return factory.atom("async"_atom);
 }
 
 // yield/0: end the time slice at the next function entry.

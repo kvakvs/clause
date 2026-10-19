@@ -10,8 +10,6 @@ namespace {
 // The name of the only node.
 constexpr std::string_view LOCAL_NODE = "nonode@nohost";
 
-Term atom(ProcessContext &context, std::string_view name) { return need(TermFactory(context).atom(name)); }
-
 // Whether a node type of nodes/1,2 includes this node: this or known; any other valid type has no members.
 bool includes_local(const Term &type) {
     static constexpr std::array<std::string_view, 5> TYPES{"visible", "hidden", "connected", "this", "known"};
@@ -61,7 +59,7 @@ std::optional<std::pair<Term, Term>> info_entry(ProcessContext &context, const s
     if (!value.boolean_value_unchecked()) {
         return std::nullopt;
     }
-    return std::pair{key, atom(context, name == "node_type" ? "this" : "undefined")};
+    return std::pair{key, atom(context, name == "node_type" ? "this"_atom : "undefined"_atom)};
 }
 
 // The info map of nodes/2 for this node, for the keys asked.
@@ -101,7 +99,8 @@ TermResult<Term> monitor_node(ProcessContext &context, const AtomArgument &, con
             }
         }
     }
-    throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = atom(context, "notalive").word()};
+    throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
+                         .payload = atom(context, "notalive"_atom).word()};
 }
 
 TermResult<Term> monitor_node2(ProcessContext &context, const AtomArgument &node, const Term &flag) {
@@ -114,16 +113,16 @@ TermResult<Term> monitor_node3(ProcessContext &context, const AtomArgument &node
 }
 
 // get_cookie() and get_cookie(Node): nocookie, since this node is not alive (plan 21 step LIB9A).
-TermResult<Term> get_cookie0(ProcessContext &context) { return TermFactory(context).atom("nocookie"); }
+TermResult<Term> get_cookie0(ProcessContext &context) { return TermFactory(context).atom("nocookie"_atom); }
 
 TermResult<Term> get_cookie1(ProcessContext &context, const AtomArgument & /*node*/) {
-    return TermFactory(context).atom("nocookie");
+    return TermFactory(context).atom("nocookie"_atom);
 }
 
 // set_cookie(Cookie) and set_cookie(Node, Cookie): error:distribution_not_started for atoms, badarg otherwise.
 [[noreturn]] void not_started(ProcessContext &context) {
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
-                         .payload = atom(context, "distribution_not_started").word()};
+                         .payload = atom(context, "distribution_not_started"_atom).word()};
 }
 
 TermResult<Term> set_cookie1(ProcessContext &context, const AtomArgument & /*cookie*/) { not_started(context); }
@@ -137,7 +136,9 @@ TermResult<Term> set_cookie2(ProcessContext &context, const AtomArgument &node, 
 }
 
 // disconnect_node(Node): ignored, since this node is not alive.
-TermResult<Term> disconnect_node(ProcessContext &context, const Term &) { return TermFactory(context).atom("ignored"); }
+TermResult<Term> disconnect_node(ProcessContext &context, const Term &) {
+    return TermFactory(context).atom("ignored"_atom);
+}
 
 constexpr std::array NODE_BUILTINS{
     typed_entry<nodes0>("erlang", "nodes"),

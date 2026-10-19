@@ -266,11 +266,11 @@ Word select_reverse2(ProcessContext &context, const TableArgument &argument, con
 }
 
 Word match2(ProcessContext &context, const TableArgument &argument, const Term &pattern) {
-    return all_results(context, argument, pattern_spec(context, pattern, "$$"), false);
+    return all_results(context, argument, pattern_spec(context, pattern, "$$"_atom), false);
 }
 
 Word match_object2(ProcessContext &context, const TableArgument &argument, const Term &pattern) {
-    return all_results(context, argument, pattern_spec(context, pattern, "$_"), false);
+    return all_results(context, argument, pattern_spec(context, pattern, "$_"_atom), false);
 }
 
 Term select3(ProcessContext &context, const TableArgument &argument, const SpecArgument &spec,
@@ -285,12 +285,12 @@ Term select_reverse3(ProcessContext &context, const TableArgument &argument, con
 
 Term match3(ProcessContext &context, const TableArgument &argument, const SpecArgument &pattern,
             const LimitArgument &limit) {
-    return first_chunk(context, argument, {pattern_spec(context, pattern.term, "$$")}, limit, false);
+    return first_chunk(context, argument, {pattern_spec(context, pattern.term, "$$"_atom)}, limit, false);
 }
 
 Term match_object3(ProcessContext &context, const TableArgument &argument, const SpecArgument &pattern,
                    const LimitArgument &limit) {
-    return first_chunk(context, argument, {pattern_spec(context, pattern.term, "$_")}, limit, false);
+    return first_chunk(context, argument, {pattern_spec(context, pattern.term, "$_"_atom)}, limit, false);
 }
 
 // select/1, select_reverse/1, match/1 and match_object/1 of a continuation.

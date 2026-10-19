@@ -69,7 +69,7 @@ std::shared_ptr<const Program> compiled(ProcessContext &context, const Term &spe
     return std::move(result.program);
 }
 
-Term pattern_spec(ProcessContext &context, const Term &pattern, std::string_view result) {
+Term pattern_spec(ProcessContext &context, const Term &pattern, AtomName result) {
     TermFactory factory(context);
     const auto body = need(factory.list(std::array{atom(context, result)}));
     const auto clause = need(factory.tuple(std::array{pattern, need(factory.nil()), body}));

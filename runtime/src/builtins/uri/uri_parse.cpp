@@ -317,7 +317,7 @@ class Parser final {
         auto [tail, found] = walk(Kind::port, pos, uri);
         const auto digits = bytes_of(parsed(pos, ":?#/", tail));
         if (digits.empty()) {
-            found.port = atom(context_, "undefined");
+            found.port = atom(context_, "undefined"_atom);
         } else if (digits.size() <= 5) {
             std::string text(reinterpret_cast<const char *>(digits.data()), digits.size());
             found.port = need(TermFactory(context_).integer(std::stoll(text)));
