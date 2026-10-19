@@ -626,6 +626,11 @@ class Executor final {
     // Signal the links and monitors of an ended process with its exit reason.
     void notify(ProcessContext &process, const Term &reason, const std::vector<Word> &links,
                 const Signals::Monitors &watchers);
+    // Release the ETS tables of an ended process: its fixations end, and each table it owned passes to a live heir,
+    // told by an 'ETS-TRANSFER' message, or is deleted (plan 21 step LIB10B).
+    void release_tables(ProcessContext &process);
+    // Send a heir the 'ETS-TRANSFER' message built in the ended owner's heap, buffered while the heir runs.
+    void announce(ProcessContext &heir, const TermResult<Term> &message, ProcessContext &owner);
     // Keep an ended process that ends the program: the first one is the program's outcome; wake every worker.
     void stop(ProcessContext &process);
     // Finish the processes exit signals ended, oldest first.

@@ -299,6 +299,14 @@ Compact map of how Clause works. History lives in `00-finished.md`,
   place, reclaimed after every process evacuated a retired area; a message of
   512+ words is built before the executor lock and its block adopted as a
   receiver fragment (`HeapStorage::adopt`, `MessageBuffer::take`).
+- ETS (`runtime/src/ets/`, `docs/runtime.md#ets-tables`): objects are
+  `memory/detached_term` blocks (graph copy outside every heap, read in place,
+  copied out); hash index (own power-of-two buckets, tombstones and no resize
+  while fixed) or `std::set` tree per part; 64 parts for hash tables with
+  write_concurrency; table lock shared by single-key ops, alone for whole-table
+  ones. Registry `ets::Tables` in `Runtime::Impl` (numbers, names, holdings);
+  owner end in `Executor::release_tables` before links/monitors. Lock order:
+  executor, registry, table.
 
 ## Builtins (`docs/builtins.md`)
 

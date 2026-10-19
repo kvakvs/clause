@@ -21,6 +21,10 @@ class IdentityNumbers;
 class Executor;
 class MessageBuffer;
 class PersistentTerms;
+
+namespace ets {
+class Tables;
+} // namespace ets
 } // namespace detail
 
 // Keep control/creation failures separate from Erlang exceptions and exit reasons.
@@ -117,6 +121,8 @@ class ProcessContext final : private abi::v1::FrameState {
     OutputSink standard_output() const noexcept;
     // The runtime-wide persistent term table (persistent_term builtins). Added for step 41M1.
     detail::PersistentTerms &persistent_terms() const noexcept;
+    // The runtime-wide ETS table registry (ets builtins). Added for plan 21 step LIB10A.
+    detail::ets::Tables &ets_tables() const noexcept;
     // The command line the program started with (init builtins). Added for step 41L.
     const ProgramArguments &program_arguments() const noexcept;
 

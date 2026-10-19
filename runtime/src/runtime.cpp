@@ -90,6 +90,8 @@ OutputSink Runtime::standard_output() const noexcept { return impl_ ? impl_->opt
 
 detail::PersistentTerms &Runtime::persistent_terms() noexcept { return impl_->persistent_terms; }
 
+detail::ets::Tables &Runtime::ets_tables() noexcept { return impl_->ets_tables; }
+
 detail::LiteralAreas &Runtime::literal_areas() noexcept { return impl_->literals; }
 
 const ProgramArguments &Runtime::program_arguments() const noexcept { return impl_->options.program; }

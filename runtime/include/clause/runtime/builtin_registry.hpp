@@ -218,6 +218,13 @@ std::span<const BuiltinEntry> sofs_sets_builtins() noexcept;
 // Module graph (plan 21 step LIB7B; runtime/src/builtins/graph/).
 std::span<const BuiltinEntry> graph_query_builtins() noexcept;
 std::span<const BuiltinEntry> graph_traversal_builtins() noexcept;
+// Module ets (plan 21 step LIB10; runtime/src/builtins/ets/).
+std::span<const BuiltinEntry> ets_table_builtins() noexcept;
+std::span<const BuiltinEntry> ets_info_builtins() noexcept;
+std::span<const BuiltinEntry> ets_write_builtins() noexcept;
+std::span<const BuiltinEntry> ets_read_builtins() noexcept;
+std::span<const BuiltinEntry> ets_walk_builtins() noexcept;
+std::span<const BuiltinEntry> ets_update_builtins() noexcept;
 // Modules erl_features and records (plan 21 step LIB8B).
 std::span<const BuiltinEntry> erl_features_builtins() noexcept;
 std::span<const BuiltinEntry> records_builtins() noexcept;

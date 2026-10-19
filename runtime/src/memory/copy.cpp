@@ -1,3 +1,4 @@
+#include "detached_term.hpp"
 #include "heap_object.hpp"
 #include "heap_storage.hpp"
 #include "heap_walk.hpp"
@@ -449,6 +450,43 @@ TermResult<PersistentCopy> copy_persistent(ProcessContext &writer, PersistentReg
             region.release(result.area);
             source.memory_->release(graph.words());
             throw;
+        }
+        return result;
+    } catch (const std::bad_alloc &) {
+        return std::unexpected(TermError::out_of_memory);
+    }
+}
+
+TermResult<DetachedTerm> DetachedTerm::copy(ProcessContext &writer, const Term &value) noexcept {
+    if (!compound(value.word())) {
+        return DetachedTerm(value.word());
+    }
+    const auto &source = TermAccess::storage(writer.heap());
+    try {
+        GraphCopy graph(source, false);
+        if (!graph.discover(value.word())) {
+            return std::unexpected(TermError::wrong_owner);
+        }
+        // A module literal is shared, like an immediate (OPT0.4).
+        if (graph.words() == 0) {
+            return DetachedTerm(value.word());
+        }
+        if (!source.memory_->charge(graph.words())) {
+            return std::unexpected(TermError::resource_limit);
+        }
+        DetachedTerm result;
+        try {
+            result.block_ = allocate(*source.memory_, graph.words(), graph.binaries().size());
+        } catch (const std::bad_alloc &) {
+            source.memory_->release(graph.words());
+            throw;
+        }
+        const std::span out{result.block_->data(), graph.words()};
+        result.root_ = graph.copy(value.word(), out);
+        // The binary cells are built last, so the destructor finds every one it destroys.
+        for (const auto *cell : graph.link_shared(out)) {
+            result.block_->offsets()[result.block_->cells++] =
+                static_cast<std::size_t>(reinterpret_cast<const Word *>(cell) - out.data());
         }
         return result;
     } catch (const std::bad_alloc &) {

@@ -33,10 +33,11 @@ create a new API that's for the end user to choose
   `records`, `sets`, `string`, `unicode`, `uri_string`.
 - **Partial:** `erlang` (23 left, all unavailable: code loading, distribution,
   tracing, `match_spec_test/3`), `code` (51), `io` (31), `file` (30), `inet`
-  (19), `gen_udp` (5), `os` (4), `sofs` (4, LIB12), `gen_tcp` (1).
+  (19), `gen_udp` (5), `os` (4), `sofs` (4, LIB12), `gen_tcp` (1), `ets` (31,
+  LIB11 and LIB12).
 - **Missing:** 68 modules. Today a program gets the plain-Erlang ones (gen
   servers, `supervisor`, `timer`, ...) only by compiling OTP's sources from a
-  search path; ETS has no implementation at all.
+  search path.
 - **Callback-only modules** (no functions to implement, only behaviours to
   honour): `erl_tracer`, `logger_handler`.
 
@@ -143,22 +144,14 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ### LIB10. ETS tables (C++)
 
-- Tables are a runtime object with off-heap term storage (copied in and out, as
-  for `persistent_term`), in `set`, `ordered_set`, `bag` and `duplicate_bag`
-  types.
-- Table rules: owner, `heir`, `give_away/3`, named tables,
-  `public`/`protected`/`private`, deletion when the owner dies, and safe access
-  from every scheduler worker (TSan, V02).
-- Builtins:
-  - Tables: `new/2`, `delete/1`, `info/1,2`, `rename/2`, `setopts/2`, `all/0`,
-    `whereis/1`, `i/0,1`.
-  - Writes: `insert/2`, `insert_new/2`, `delete/2`, `delete_object/2`,
-    `delete_all_objects/1`.
-  - Reads: `lookup/2`, `lookup_element/3,4`, `member/2`, `take/2`, `tab2list/1`,
-    `slot/2`, `safe_fixtable/2`.
-  - Walking: `first/1`, `next/2`, `last/1`, `prev/2` and their `*_lookup` forms.
-  - Updates: `update_counter/3,4`, `update_element/3,4`.
-- Erlang: `foldl/3`, `foldr/3`.
+- LIB10A–E done (tables, ownership and heirs, bags and updates, walks and
+  fixation, write_concurrency parts), see `00-finished.md`. `ets` is provided
+  with the LIB11 and LIB12 functions as stubs (`PARTIAL` in
+  `library_modules.py`).
+- LIB10F (later): run long operations in portions (`tab2list/1` and
+  `delete_all_objects/1` of large tables, deleting a table, an owner's end
+  under the executor lock), small-integer `update_counter` in place, and a
+  Linux TSan run over the ETS goldens (V02).
 
 ### LIB11. Match specifications (C++)
 
@@ -643,17 +636,11 @@ functions are listed separately and are optional.
 - `erl_tar` (stdlib, 14): add/3,4, close/1, create/2,3, extract/1,2,
   format_error/1, init/3, open/2, t/1, table/1,2, tt/1
 - `escript` (stdlib, 3): create/2, extract/2, script_name/0
-- `ets` (stdlib, 70): all/0, delete/1,2, delete_all_objects/1, delete_object/2,
-  file2tab/1,2, first/1, first_lookup/1, foldl/3, foldr/3, from_dets/2,
-  fun2ms/1, give_away/3, i/0,1, info/1,2, init_table/2, insert/2, insert_new/2,
-  is_compiled_ms/1, last/1, last_lookup/1, lookup/2, lookup_element/3,4,
-  match/1,2,3, match_delete/2, match_object/1,2,3, match_spec_compile/1,
-  match_spec_run/2, member/2, new/2, next/2, next_lookup/2, prev/2,
-  prev_lookup/2, rename/2, repair_continuation/2, safe_fixtable/2, select/1,2,3,
+- `ets` (stdlib, 31, 39 done): file2tab/1,2, from_dets/2, init_table/2,
+  is_compiled_ms/1, match/1,2,3, match_delete/2, match_object/1,2,3,
+  match_spec_compile/1, match_spec_run/2, repair_continuation/2, select/1,2,3,
   select_count/2, select_delete/2, select_replace/2, select_reverse/1,2,3,
-  setopts/2, slot/2, tab2file/2,3, tab2list/1, tabfile_info/1, table/1,2,
-  take/2, test_ms/2, to_dets/2, update_counter/3,4, update_element/3,4,
-  whereis/1
+  tab2file/2,3, tabfile_info/1, table/1,2, test_ms/2, to_dets/2
 - `file_sorter` (stdlib, 14): check/1,2, keycheck/2,3, keymerge/3,4,
   keysort/2,3,4, merge/2,3, sort/1,2,3
 - `filelib` (stdlib, 16): ensure_dir/1, ensure_path/1, file_size/1,

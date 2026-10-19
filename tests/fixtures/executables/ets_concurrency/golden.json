@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "entry": "ets_concurrency",
+  "workers": [
+    1,
+    4
+  ],
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "counters: [set,[],{4000,18000},8]\ncounters: [set,[{write_concurrency,true}],{4000,18000},8]\ncounters: [set,[{write_concurrency,auto}],{4000,18000},8]\ncounters: [set,[{read_concurrency,true},{write_concurrency,true}],{4000,18000},8]\ncounters: [set,[{decentralized_counters,true},{write_concurrency,true}],{4000,18000},8]\ncounters: [ordered_set,[],{4000,18000},8]\ncounters: [ordered_set,[{write_concurrency,true}],{4000,18000},8]\ncounters: [ordered_set,[{write_concurrency,auto}],{4000,18000},8]\ncounters: [ordered_set,[{read_concurrency,true},{write_concurrency,true}],{4000,18000},8]\ncounters: [ordered_set,[{decentralized_counters,true},{write_concurrency,true}],{4000,18000},8]\ninserts: [set,[true,true,true,true,true,true],1200,1]\ninserts: [ordered_set,[true,true,true,true,true,true],1200,1]\ninserts: [bag,[true,true,true,true,true,true],1200,6]\ninserts: [duplicate_bag,[true,true,true,true,true,true],1200,6]\nlarge: [set,60000,1800030000,60000,0,undefined]\nlarge: [ordered_set,60000,1800030000,60000,0,undefined]\nowners: [100,20000,[undefined]]\nets_concurrency: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "ets_concurrency.erl": "d6518a176d2207d217c9fae41df8d2996c14cb62a92ff4dd23452eb32ad1d5a2"
+  }
+}

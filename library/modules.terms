@@ -58,3 +58,4 @@
 {erl_features, stdlib, provided}.
 {graph, stdlib, provided}.
 {sofs, stdlib, provided}.
+{ets, stdlib, provided}.

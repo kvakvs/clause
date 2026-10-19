@@ -636,7 +636,15 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB7A** `sofs`: typed sets, relations, products, selectors and families in
   C++ (`builtins/sofs/`, OTP's sorted merges), fun-taking functions in Erlang
   over `clause_sofs` builtins, digraph conversions stubbed until LIB12; bridge
-  catalog built with `std::to_array` (over 1024 entries); `sofs_sets` golden
+  catalog built with `std::to_array` (over 1024 entries); `sofs_sets` golden —
+  `67ee4fe9`
+- **LIB10A–E** `ets` in C++ (`runtime/src/ets/`, `builtins/ets/`): objects as
+  detached blocks (`memory/detached_term`), own hash index with tombstones while
+  fixed and a `std::set` tree, 64 locked parts with write_concurrency, registry
+  of names, owners and fixers, owner end and heir transfer in the executor
+  before links and monitors; folds and `i/0..3` Erlang; match specs and files
+  stubbed (LIB11, LIB12); `ets_tables`, `ets_owner`, `ets_update`, `ets_walk`,
+  `ets_concurrency` goldens
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ets_owner",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "crashed",
+      "exit_status": 0,
+      "stdout": "owner_exit: [normal,[1,[],true],normal,undefined,undefined,undefined,{error,badarg},true]\nowner_exit: [kill,[1,[],true],killed,undefined,undefined,undefined,{error,badarg},true]\nowner_exit: [crash,[1,[],true],crashed,undefined,undefined,undefined,{error,badarg},true]\ninherit: [normal,normal,true,true,{my,data},true,true,[{a,1},{b,2}],true,3]\ninherit: [kill,killed,true,true,{my,data},true,true,[{a,1},{b,2}],true,3]\ndead_heir: [none,undefined,none]\nself_heir: [true,undefined]\ngive_away: [[{error,badarg},{error,badarg},{error,badarg},{error,badarg}],true,[true,present,true,[{k,v}],true],[true,true,{error,badarg},{error,badarg},[{k,receiver}]],true,true,returned,true,true]\nsetopts: [true,true,true,none,true,public,{ok,true},true,private,true,true,{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},private]\nchain: [true,true,true,true]\nets_owner: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "ets_owner.erl": "ad0299a2df4bb42f0a3ff5f7b6b4c909df2bf1e4766c33e969d8ec4f0f59ebf7"
+  }
+}

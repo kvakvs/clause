@@ -57,6 +57,8 @@ OutputSink ProcessContext::standard_output() const noexcept { return impl_->runt
 
 detail::PersistentTerms &ProcessContext::persistent_terms() const noexcept { return impl_->runtime.persistent_terms(); }
 
+detail::ets::Tables &ProcessContext::ets_tables() const noexcept { return impl_->runtime.ets_tables(); }
+
 const ProgramArguments &ProcessContext::program_arguments() const noexcept {
     return impl_->runtime.program_arguments();
 }

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ets_update",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "bag: [true,true,true,[{k,1},{k,2}],true,[{k,1},{k,2},{k,3}],true,[{k,1},{k,2},{k,3},{k,1.0}],5,false,true,[{m,1},{m,2}],true,true,[],5,[{j,1},{k,1},{k,1.0},{k,2},{k,3}]]\nduplicate_bag: [true,true,true,[{k,1},{k,2},{k,1}],true,[{k,1},{k,2},{k,1},{k,3},{k,1},{k,3}],true,[{k,1},{k,2},{k,1},{k,3},{k,1},{k,3},{k,1.0}],8,false,true,[{m,1},{m,2},{m,1}],true,true,[],8,[{j,1},{k,1},{k,1},{k,1},{k,1.0},{k,2},{k,3},{k,3}]]\nobjects: [set,true,[{a,2}],true,[{b,1}],true,true,[{a,2}],{error,badarg},{error,badarg},[{b,1}],[],[],2,true,0,[],true,[{after_clear,1}]]\nobjects: [ordered_set,true,[{a,2}],true,[{b,1}],true,true,[{a,2}],{error,badarg},{error,badarg},[{b,1}],[],[],2,true,0,[],true,[{after_clear,1}]]\nobjects: [bag,true,[{a,2}],true,[{b,1}],true,true,[{a,2}],{error,badarg},{error,badarg},[{b,1}],[],[],2,true,0,[],true,[{after_clear,1}]]\nobjects: [duplicate_bag,true,[{a,2}],true,[{b,1}],true,true,[{a,2}],{error,badarg},{error,badarg},[{b,1}],[],[],2,true,0,[],true,[{after_clear,1}]]\nelements: [set,{ok,a},{ok,1},{ok,x},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{ok,1},{error,badarg},{ok,default},{ok,1},{error,badarg},{error,badarg}]\nelements: [ordered_set,{ok,a},{ok,1},{ok,x},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{ok,1},{error,badarg},{ok,default},{ok,1},{error,badarg},{error,badarg}]\nelements: [bag,{ok,[a,a]},{ok,[1,2]},{ok,[x,y]},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{ok,[1,2]},{error,badarg},{ok,default},{ok,[1,2]},{error,badarg},{error,badarg}]\nelements: [duplicate_bag,{ok,[a,a]},{ok,[1,1]},{ok,[x,x]},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{ok,[1,2]},{error,badarg},{ok,default},{ok,[1,1]},{error,badarg},{error,badarg}]\nupdate_element: [set,{ok,true},[{a,k,three,2}],{ok,true},[{again,k,three,four}],{ok,false},{error,badarg},{error,badarg},{error,badarg},{error,badarg},[{again,k,three,four}],{error,badarg},{ok,true},{ok,true},[{d,zz,x}],{ok,true},[{d,yy,x,0}],{error,badarg},{ok,true},[{again,k,x,four}]]\nupdate_element: [ordered_set,{ok,true},[{a,k,three,2}],{ok,true},[{again,k,three,four}],{ok,false},{error,badarg},{error,badarg},{error,badarg},{error,badarg},[{again,k,three,four}],{error,badarg},{ok,true},{ok,true},[{d,zz,x}],{ok,true},[{d,yy,x,0}],{error,badarg},{ok,true},[{again,k,x,four}]]\nupdate_element: [bag,{error,badarg},[{a,k,1,2}],{error,badarg},[{a,k,1,2}],{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},[{a,k,1,2}],{error,badarg},{error,badarg},{error,badarg},[],{error,badarg},[],{error,badarg},{error,badarg},[{a,k,1,2}]]\nupdate_counter: [set,{ok,1},{ok,-4},{ok,15},{ok,[-3,14,7]},{ok,[]},[{c,7,14,x}],{ok,7},{ok,-7},{ok,0},{ok,1},[{c,-7,1,x}],{ok,9223372036854775808},{ok,-9223372036854775808},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},[{c,-7,1,x}],{error,badarg},{error,badarg},{error,badarg}]\nupdate_counter: [ordered_set,{ok,1},{ok,-4},{ok,15},{ok,[-3,14,7]},{ok,[]},[{c,7,14,x}],{ok,7},{ok,-7},{ok,0},{ok,1},[{c,-7,1,x}],{ok,9223372036854775808},{ok,-9223372036854775808},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},[{c,-7,1,x}],{error,badarg},{error,badarg},{error,badarg}]\nupdate_counter: [bag,{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},[{c,0,10,x}],{error,badarg},{error,badarg},{error,badarg},{error,badarg},[{c,0,10,x}],{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg},[{c,0,10,x}],{error,badarg},{error,badarg},{error,badarg}]\ndefaults: [{ok,11},[{x,k,11}],{ok,12},{ok,12},[{x,j,12}],{error,badarg},{error,badarg},{error,badarg},{error,badarg},[],{ok,1},{ok,2},[{1.0,2}]]\nets_update: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "ets_update.erl": "bb60c08cf01f59c6900c48e35d8b6712038b7792d88db1bb8a6f6f5991e7a11f"
+  }
+}

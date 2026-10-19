@@ -154,6 +154,18 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `include_lib` of an application found in several `<app>-<version>` directories | The code path holds one version (boot picks the highest); no diagnostic | The highest version below each searched directory, with one warning per run listing them | [preprocessor](preprocessor.md#compatibility-policies) |
 | A `-spec` whose types share no value with the inferred result, entry domain or a call's arguments | Compiles; Dialyzer may warn | A contradicted argument entry domain is a compile error naming the declared and inferred types; a contradicted result or call is a warning, and the inferred types are used | [semantic analysis](semantic.md#inference) |
 
+## ETS
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Order of `first/1`, `next/2`, `tab2list/1`, `foldl/3` and `i/1` over `set`, `bag` and `duplicate_bag` tables, and what `slot/2` numbers | Linear hash slots visited lock by lock; the order changes as the table grows | Parts, then buckets in order, then keys in insertion order within a bucket; a slot is one bucket | [runtime](runtime.md#ets-tables) |
+| `ets:all/0` | Includes the tables of OTP's `kernel` and `stdlib`; order of the scheduler replies | Only the program's tables, in no particular order | [builtins](builtins.md#ets) |
+| `info/2` `memory` | Allocated words of the table and its objects | Stored object words plus Clause's own overheads | [builtins](builtins.md#ets) |
+| `{write_concurrency, auto}` | Lock count adapts to contention (64 to 8192) | 64 fixed parts, as for `true`; `stats` reports 64 locks | [runtime](runtime.md#ets-tables) |
+| `compressed` | Stores elements other than the key in external format | Accepted and reported; objects are stored as they are | [builtins](builtins.md#ets) |
+| `info/2` `stats` of an `ordered_set` with `write_concurrency`; `data`; `binary` | CA tree `{RouteNodes, BaseNodes, MaxDepth}`; prints the table; the table's off-heap binaries | `false`; `true` without printing; `[]` | [builtins](builtins.md#ets) |
+| `badarg` of an `ets` builtin | Carries `error_info` with a cause (`id`, `access`, `type`, ...) | Plain `badarg` | [builtins](builtins.md#ets) |
+
 ## io
 
 | Difference | OTP | Clause | Owner |

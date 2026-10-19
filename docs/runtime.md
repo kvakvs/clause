@@ -165,6 +165,54 @@ reached through `ProcessContext::persistent_terms()`, keeps the terms of
   writers, and reclamation (retiring copies, evacuation, freed areas and
   charges).
 
+## ETS tables
+
+One registry per runtime (`ets/tables`), owned by `Runtime::Impl` and reached
+through `ProcessContext::ets_tables()`, keeps the tables of `ets`
+([builtins](builtins.md#ets), plan 21 step LIB10).
+
+- **Objects.** Each stored object (and a heir's data) is a `DetachedTerm`
+  (`memory/detached_term`): a flat copy in one block of its own, made by the
+  graph copy, outside every heap. Module literals stay shared; persistent
+  terms are copied, because their areas may retire; binary cells share their
+  buffers. Blocks never move and belong to no process, so readers compare and
+  hash them in place and copy them into their own heap. Their words are charged
+  to the runtime's memory account.
+- **Indexes** (`ets/index`). `set`, `bag` and `duplicate_bag` tables use a
+  hash index: a power-of-two array of buckets, each a small vector of entries
+  (one per key, its objects in insertion order), doubling above two keys per
+  bucket and halving below one in eight. Keys are found by the 64-bit spread of
+  their `phash2` hash and exact equality. `ordered_set` tables use a
+  `std::set` of one node per key in term order, where keys that compare equal
+  (`1`, `1.0`) are one key; replacing an object keeps its node.
+- **Parts and locks** (`ets/table`). A hash table with `write_concurrency`
+  (`true` or `auto`) splits its keys into 64 parts by the hash's top bits, each
+  an index with its own `shared_mutex`; any other table has one part. The table
+  lock is shared by single-key operations and taken alone by whole-table ones
+  (lists of objects, `delete_all_objects/1`, fixation, deletion), so a list
+  insert is atomic and isolated as in OTP. Reads copy objects out while their
+  part is locked shared.
+- **Walks and fixation.** A hash table walks part by part and bucket by bucket,
+  backwards as forwards; `next/2` from a key it does not hold is `badarg`. While
+  the table is fixed (`safe_fixtable/2`, `foldl/3`) its indexes never resize, a
+  removed key stays as a tombstone holding one object for its key, and new keys
+  join the end of their bucket, so a walk sees every key that stayed once. The
+  last unfixation drops the tombstones and resizes. An ordered_set walks from
+  any key to the nearest one.
+- **Registry.** Tables by identifier number (a plain reference from the program
+  sequence) and by name, and the tables each process owns or fixes. A process's
+  end (`Executor::release_tables`, under the executor lock before links and
+  monitors are signalled) releases its fixations and passes each table it owned
+  to a live heir other than itself, which gets `{'ETS-TRANSFER', Table, From,
+  HeirData}` (none for a heir set without data), or deletes it. Lock order: the
+  executor's, the registry's, a table's; builtins never take the executor lock
+  while they hold an ETS lock, and `give_away/3` sends its message after
+  releasing them.
+- Long operations (`tab2list/1` of a large table, `delete_all_objects/1`,
+  deleting a table, an owner's end) run in one piece rather than in portions;
+  CTest `executables_ets_concurrency` covers counters, inserts and walks from
+  many processes on one and four workers, and the end of owners of many tables.
+
 ## Scheduler bookkeeping
 
 `SchedulerService`

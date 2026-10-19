@@ -72,6 +72,11 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     # Module graph (plan 21 step LIB7B).
     src/builtins/graph/traversal.cpp src/builtins/graph/paths.cpp src/builtins/graph/queries.cpp
     src/builtins/graph/traversal_builtins.cpp
+    # ETS tables and module ets (plan 21 step LIB10).
+    src/ets/index.cpp src/ets/hash_index.cpp src/ets/tree_index.cpp src/ets/table.cpp src/ets/tables.cpp
+    src/scheduler/tables.cpp src/memory/detached_term.cpp
+    src/builtins/ets/common.cpp src/builtins/ets/options.cpp src/builtins/ets/tables.cpp src/builtins/ets/info.cpp
+    src/builtins/ets/writes.cpp src/builtins/ets/reads.cpp src/builtins/ets/walks.cpp src/builtins/ets/updates.cpp
     # Modules erl_features and records (plan 21 step LIB8B).
     src/builtins/front_end/features.cpp src/builtins/records.cpp
     # Modules rand and random (plan 21 step LIB6).

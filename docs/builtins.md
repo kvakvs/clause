@@ -579,6 +579,40 @@ breadth-first `get_short_path/3`; lists built by folds over the maps come in
 reverse map order as in OTP. The updates (`add_*`, `del_*`), `fold_vertices/3`,
 `subgraph/2,3` and `condensation/1` are Erlang.
 
+## ETS
+
+`ets` (plan 21 step LIB10, `builtins/ets/`, over the runtime's tables:
+[runtime](runtime.md#ets-tables)). Builtins: `new/2`, `delete/1,2`,
+`whereis/1`, `all/0`, `rename/2`, `give_away/3`, `setopts/2`, `info/1,2`,
+`insert/2`, `insert_new/2`, `delete_object/2`, `delete_all_objects/1`,
+`take/2`, `lookup/2`, `member/2`, `lookup_element/3,4`, `tab2list/1`,
+`slot/2`, `safe_fixtable/2`, `first/1`, `next/2`, `last/1`, `prev/2` and
+their `*_lookup` forms, `update_counter/3,4` and `update_element/3,4`.
+Erlang: `foldl/3`, `foldr/3` (the table fixed meanwhile), `i/0` and the
+`i/1,2,3` pager, and `fun2ms/1`, which exits as OTP does for a fun the
+`ms_transform` parse transform did not translate.
+
+- Options read as OTP reads them: the last type and access option win, but
+  `set` and `protected` change nothing (`[bag, set]` is a bag); `{heir, Pid}`
+  without data inherits without a message; a heir that is not alive is no heir.
+  `write_concurrency`, `read_concurrency` and `decentralized_counters` take
+  effect, and `info/2` reports them, only for tables that are not private.
+- Access: `public` tables are read and written by anyone, `protected` ones
+  read by anyone and written by the owner, `private` ones used only by the
+  owner; `info/1,2` work for anyone, `give_away/3` and `setopts/2` only for the
+  owner. Every failure is `badarg`; `info/1,2` of a name or identifier that
+  names no table is `undefined`.
+- `info/1` lists OTP's items in OTP's order. `info/2` also gives `fixed`,
+  `safe_fixed`, `safe_fixed_monotonic_time` (the fixing processes from the
+  highest pid down), `stats` (OTP's tuple for hash tables, `false` for an
+  ordered_set), and `data` and `binary` (`true` and `[]`). `memory` counts the
+  stored words and Clause's own overheads.
+- Match specifications (`match*`, `select*`, `match_spec_*`, `test_ms/2`,
+  `is_compiled_ms/1`, `repair_continuation/2`) are stubs until LIB11; table
+  files, `dets` conversions and `table/1,2` until LIB12.
+- CTests `executables_ets_tables`, `_owner`, `_update`, `_walk` and
+  `_concurrency` run OTP goldens.
+
 ## Encodings
 
 `runtime/src/builtins/encoding/` (plan 21 step LIB5).

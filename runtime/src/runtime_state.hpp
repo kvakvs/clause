@@ -1,4 +1,5 @@
 #pragma once
+#include "ets/tables.hpp"
 #include "memory/persistent_terms.hpp"
 #include "memory/runtime_memory.hpp"
 #include "modules/literal_areas.hpp"
@@ -37,6 +38,9 @@ class Runtime::Impl final {
     // The persistent terms every process shares (step 41M1), read in place from the persistent term range of
     // `literals`, so it outlives every context (persistent terms in place, persistent term reclamation).
     detail::PersistentTerms persistent_terms;
+    // The ETS tables every process shares (plan 21 step LIB10A); their objects are detached copies charged to
+    // `memory`, so the registry outlives every context.
+    detail::ets::Tables ets_tables;
     // Destroy process owners before the above service bindings; no signals or workers exist yet.
     std::unordered_map<const ProcessContext *, std::unique_ptr<ProcessContext>> contexts;
     // Live processes by pid number, for is_process_alive/1 and later routing.

@@ -273,6 +273,8 @@ ProcessContext *Executor::busy_peer(ProcessContext &process) noexcept {
 bool Executor::notify(ProcessContext &process) {
     auto &signals = process.signals();
     names_.erase(signals.name());
+    // Tables go first, as in OTP: a monitor's 'DOWN' message finds them deleted or inherited.
+    release_tables(process);
     for (const auto &[reference, monitored] : signals.take_monitors()) {
         if (auto *port = open(monitored.pid)) {
             port->watchers.erase(reference);
