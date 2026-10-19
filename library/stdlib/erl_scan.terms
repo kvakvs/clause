@@ -1,0 +1,18 @@
+%% OTP 29 erl_scan exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{category, 1, default, implemented}.
+{column, 1, default, implemented}.
+{continuation_location, 1, default, implemented}.
+{end_location, 1, default, implemented}.
+{f_reserved_word, 1, default, implemented}.
+{format_error, 1, default, implemented}.
+{line, 1, default, implemented}.
+{location, 1, default, implemented}.
+{reserved_word, 1, default, implemented}.
+{string, 1, default, implemented}.
+{string, 2, default, implemented}.
+{string, 3, default, implemented}.
+{symbol, 1, default, implemented}.
+{text, 1, default, implemented}.
+{tokens, 3, default, implemented}.
+{tokens, 4, default, implemented}.

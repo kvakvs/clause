@@ -32,13 +32,13 @@ create a new API that's for the end user to choose
   `zlib`, `binary`, `lists`, `maps`, `math`, `re` (`import/1` declined), `init`
   (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`, `dict`,
   `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`,
-  `filename`, `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `orddict`,
+  `filename`, `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `orddict`,
   `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
   `unicode`, `uri_string`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution,
   tracing), `code` (51), `io` (31), `file` (30), `inet` (19), `gen_udp` (5),
   `os` (4), `gen_tcp` (1), `ets` (2, LIB73), `dets` (2, LIB73).
-- **Missing:** 66 modules. Today a program gets the plain-Erlang ones (gen
+- **Missing:** 65 modules. Today a program gets the plain-Erlang ones (gen
   servers, `supervisor`, `timer`, ...) only by compiling OTP's sources from a
   search path.
 - **Callback-only modules** (no functions to implement, only behaviours to
@@ -105,7 +105,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 | Takes funs | Erlang over C++ helpers | `ordsets:filter/2`, `gb_trees:map/2`, `json:decode/3`, `queue:filter/2`, `ets:foldl/3` |
 | Walks whose result shapes and quirks are the algorithm (OS rules, chardata continuations) | C++, own structure, same algorithm and result shapes | `filename:*`, `uri_string:*`, `string:*` |
 | Processes, protocols, behaviours | Erlang | `proc_lib`, `gen_server`, `supervisor`, `logger`, `timer:apply_interval/4`, `application` |
-| Front-end terms (tokens, forms) | C++ over Clause's lexer and parser | `erl_scan:string/1`, `erl_parse:parse_form/1`, `epp:parse_file/2` |
+| Front-end terms (tokens, forms) | C++ (the runtime's own scanner and parser) | `erl_scan:string/1`, `erl_parse:parse_form/1`, `epp:parse_file/2` |
 | Interpreters over forms | Erlang | `erl_eval`, `ms_transform`, `qlc` |
 
 ## Tier A: data modules without processes
@@ -220,13 +220,6 @@ follow.
 
 ## Tier D: Erlang front end as library modules
 
-### LIB30. `erl_scan` (C++)
-
-- `string/1,2,3` and `tokens/3,4` (with OTP's continuation protocol) over
-  Clause's C++ lexer, producing OTP's token tuples and annotations.
-- `category/1`, `symbol/1`, `text/1`, `location/1`, `line/1`, `column/1`,
-  `end_location/1`, `reserved_word/1`, `format_error/1`.
-
 ### LIB31. `erl_parse` (C++)
 
 - `parse_form/1`, `parse_exprs/1` and `parse_term/1` over Clause's parser,
@@ -258,6 +251,12 @@ follow.
 - `erl_lint` (5): `is_guard_test/1` and `format_error/1` first; `module/1,2,3`
   later, from Clause's semantic checks mapped to OTP's warning terms.
 
+LIB34A (qlc chain) takes from this step what `qlc` and `qlc_pt` need: `erl_pp`
+whole (16), `erl_expand_records:module/2`, `erl_lint:is_guard_test/1`,
+`format_error/1` and the `module/2` errors a query expression can raise
+(unbound and unsafe variables, illegal guards, undefined records), with OTP's
+error terms.
+
 ## Tier E: files, archives and logs
 
 ### LIB50. `file` remainder (C++ driver operations)
@@ -287,6 +286,10 @@ follow.
   with an Erlang API (`foldl/3`, options).
 - `zstd` (17): C++ over a pinned zstd under `thirdparty/`, like zlib.
 - `file_sorter` (14): a C++ external merge sort; Erlang for user order funs.
+  Split out as LIB54A, first step of the qlc chain: all 14 functions, OTP's
+  `binary_term` (4-byte size prefix plus `term_to_binary`) and `term` file
+  formats, input and output funs, `tmpdir`, `compressed`, `size`, `no_files`,
+  `order` (with funs), `unique`, `header`, and OTP's error tuples.
 - `beam_lib` (19): a C++ chunk reader and writer for `.beam` files (Clause makes
   none, but programs inspect them).
 
@@ -360,9 +363,31 @@ follow.
 
 ### LIB73. `qlc`
 
+Dependencies first (user direction 2026-10-19), in this order: LIB30
+`erl_scan` (done), LIB31 `erl_parse`, LIB54A `file_sorter`, LIB32 `erl_eval`, LIB34A
+(`erl_pp`, `erl_expand_records`, `erl_lint`'s checks for `qlc_pt`). See
+[the qlc chain](#qlc-chain-user-direction-2026-10-19).
+
 - `qlc` (26): Erlang query handles and evaluation over `ets`, `dets` and lists.
-- The `qlc` parse transform needs D03; `string_to_handle/1,2,3` works through
-  `erl_eval`.
+  Compiled queries come from the host's `qlc_pt` (`qlc.hrl` names
+  `{parse_transform, qlc}`, D03), so Clause's `qlc:q/1,2` interprets OTP's
+  generated `{qlc_lc, Fun, Opt}` / `{qlc_v1, QFun, CodeF, Qdata, QOpt}` (or
+  `{simple_v1, ...}`) handles exactly: generator and filter numbering, the
+  `QOpt` fun's `size`, `template`, `constants`, `equal_constants`,
+  `n_leading_constant_columns`, `constant_columns`, `match_specs` and join
+  answers, and `CodeF`'s `term_to_binary` abstract code for `info/1,2`.
+- Lookup and match-spec use of `table/2` callbacks, merge and lookup joins,
+  `cache` (`ets`, `list`), `unique`, `sort`/`keysort` through `file_sorter`
+  above `max_list_size` with `tmpdir` and `tmpdir_usage` (its message levels
+  need `error_logger`, LIB23: ask before landing without it), cursors as
+  processes, OTP's error terms and `format_error/1`.
+- `info/1,2`: OTP's abstract code printed by `erl_pp:expr/3`, table
+  descriptions parsed with `erl_scan` and `erl_eval:extended_parse_exprs/1`,
+  `erl_eval:fun_data/1` for interpreted funs.
+- `string_to_handle/1,2,3`: `erl_scan:string/3`, `erl_eval` and a Clause
+  `qlc_pt` (internal module, not copied) that does at run time what the host
+  transform does at compile time, with `erl_lint`'s errors for bad queries.
+- `ets:table/1,2` and `dets:table/1,2` (LIB12C) land with it.
 
 ### LIB74. Interactive modules (last; optional)
 
@@ -388,6 +413,21 @@ These still get small modules answering as OTP does where the feature is
 missing, so programs that probe for them keep working.
 
 ## Suggested order
+
+### qlc chain (user direction 2026-10-19)
+
+Runs now, before the list below: LIB30 `erl_scan` (done), LIB31 `erl_parse`, LIB54A
+`file_sorter` (its `term` format reads with `io:read/2`, so `io:read/1,2` of
+LIB33 come with it), LIB32 `erl_eval` (with the undocumented
+`extended_parse_exprs/1`, `fun_data/1` and `partial_eval/1` that `qlc` and
+`qlc_pt` call), LIB34A, then LIB73 `qlc` with LIB12C. Each is its own commit.
+The runtime cannot link the compiler's `clause_frontend` (a separate,
+LLVM-free build; the compiler lexer throws Clause diagnostics and has no
+`erl_scan` continuations), so `erl_scan` and `erl_parse` get their own C++
+scanner and parser in `runtime/src/builtins/front_end/`, written to OTP's
+documented behavior and grammar.
+
+### General order
 
 Ranked by what real programs need first and by dependencies:
 
@@ -557,9 +597,6 @@ functions are listed separately and are optional.
   normalise/1, parse_exprs/1, parse_form/1, parse_term/1, tokens/1,2
 - `erl_pp` (stdlib, 16): attribute/1,2, expr/1,2,3,4, exprs/1,2,3, form/1,2,
   function/1,2, guard/1,2, legalize_vars/1
-- `erl_scan` (stdlib, 14): category/1, column/1, end_location/1, format_error/1,
-  line/1, location/1, reserved_word/1, string/1,2,3, symbol/1, text/1,
-  tokens/3,4
 - `erl_tar` (stdlib, 14): add/3,4, close/1, create/2,3, extract/1,2,
   format_error/1, init/3, open/2, t/1, table/1,2, tt/1
 - `escript` (stdlib, 3): create/2, extract/2, script_name/0

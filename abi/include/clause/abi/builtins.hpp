@@ -1197,6 +1197,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"erl_internal", "op_type", 2},
     BuiltinName{"erl_internal", "send_op", 2},
     BuiltinName{"erl_internal", "type_test", 2},
+    // erl_scan's scanner (plan 21 step LIB30; runtime/src/builtins/front_end/erl_scan.cpp).
+    BuiltinName{"clause_erl_scan", "scan", 6},
     // The io_lib module (plan 21 steps LIB4C, LIB4E; runtime/src/builtins/io_lib/).
     BuiltinName{"io_lib", "bformat", 2},
     // maps_order comparison funs (plan 21 step LIB4F; runtime/src/builtins/io_lib/key_orders.cpp).

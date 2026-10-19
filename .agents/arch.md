@@ -313,4 +313,6 @@ test need no OTP (`docs/validation.md`).
   version 9 file format (`builtins/dets/`) that writes OTP's bytes.
 - Others: `rand`/`random` (generators + observed tables), `math`, `binary`,
   `records` (native record reflection), front-end support `erl_internal`,
-  `erl_anno`, `erl_features`; `ms_transform` in Erlang over abstract forms.
+  `erl_anno`, `erl_features`; `erl_scan` over a C++ scanner of OTP's rules
+  (re-entrant by rescanning the unfinished token); `ms_transform` in Erlang
+  over abstract forms.

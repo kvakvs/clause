@@ -1120,6 +1120,37 @@ is in [native records](native-records.md#reflection):
 - `executables_compiler_tables` compares `erl_internal` and `erl_anno` with
   OTP, `executables_records_reflection` `records` and `erl_features`.
 
+## Erl scan
+
+`erl_scan` (plan 21 step LIB30) scans with the runtime builtin
+`clause_erl_scan:scan/6` (`builtins/front_end/scanner*.cpp`, `erl_scan.cpp`), a
+scanner of its own: the runtime cannot link the compiler's lexer, which throws
+Clause diagnostics and has no continuations. It follows OTP's `scan1/5` and its
+helpers clause for clause, giving OTP's tokens, `{Line, Column}` or `Line`
+annotations (with `[{text, T}, {location, L}]` for `text`), white space runs
+(16 spaces, 10 tabs, a newline with what follows it), sigils, triple-quoted
+strings with their indentation rules, digit separators and based floats, and
+OTP's error descriptors, error and end locations and rests, down to the
+reversed head of a string that ends in a backslash.
+
+- `library/stdlib/erl_scan.erl` reads the options. The default
+  `reserved_word_fun` passes `erl_features:keywords()` to the builtin; with a
+  fun of the caller's, the builtin leaves unquoted atoms as
+  `{'$unquoted', Anno, Atom}` and the module asks the fun for each, in token
+  order. A `text_fun` (without `text`) gets every token's text and category
+  the same way.
+- The re-entrant `tokens/3,4` keeps the tokens done and the characters from
+  the start of the unfinished token: the builtin asks for more input exactly
+  where OTP's scanner does and scans that token again with the new characters.
+  Characters after a form, and after an error, are the rest of the input
+  (`Chars ++ eof` once it has ended, as OTP appends it).
+- Errors OTP raises are raised: `{not_character, C}` for an element that is not
+  a character, `badarg` from `erl_anno:new/1` for a negative line,
+  `function_clause` for bad arguments.
+- `executables_erl_scan_tokens` compares tokens, options, errors,
+  `format_error/1`, the accessors and character-by-character continuations
+  with OTP.
+
 ## Zlib module
 
 `runtime/src/builtins/zlib/streams.cpp`, `library/erts/zlib.erl`. The runtime

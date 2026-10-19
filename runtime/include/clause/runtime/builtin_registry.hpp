@@ -200,6 +200,8 @@ std::span<const BuiltinEntry> io_lib_order_builtins() noexcept;
 // Modules erl_anno and erl_internal (plan 21 step LIB8; runtime/src/builtins/front_end/).
 std::span<const BuiltinEntry> erl_anno_builtins() noexcept;
 std::span<const BuiltinEntry> erl_internal_builtins() noexcept;
+// clause_erl_scan:scan/6, erl_scan's scanner (plan 21 step LIB30; runtime/src/builtins/front_end/erl_scan.cpp).
+std::span<const BuiltinEntry> erl_scan_builtins() noexcept;
 // The erlang gaps of plan 21 step LIB9A: checksums and iovecs, tuple edits, option-taking process builtins and
 // system flags.
 std::span<const BuiltinEntry> checksum_builtins() noexcept;

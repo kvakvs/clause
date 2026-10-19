@@ -194,6 +194,15 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Negative precision or pad count (`~.*c` with -1) | Loops forever | `badarg` | [io](io.md#formats) |
 | `io:fread/2,3` (any `get_until` request) on standard input or a file with characters above 127 | The I/O server decodes the device's encoding into characters | The scanner sees the input's bytes | [ports](ports.md#standard-io-and-files) |
 
+## erl_scan
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Location of a `tokens/3,4` continuation (`continuation_location/1`, undocumented) | Where the scanner stopped, inside the unfinished token | The start of the unfinished token, which is scanned again with the next characters | [erl_scan](builtins.md#erl-scan) |
+| `{compiler_internal, [ssa_checks]}` | Scans `%ssa%` check comments into tokens | Ignored: they stay comments | [erl_scan](builtins.md#erl-scan) |
+| A based float (`16#1.8#e1`, base other than 10) whose digits exceed 53 bits | The mantissa converted as ERTS converts big integers | Accumulated in a double; the last bit may differ | [erl_scan](builtins.md#erl-scan) |
+| A list element that is not a character inside a string, quoted atom or escape | `function_clause`, `case_clause` or `if_clause`, depending on the clause | `function_clause` | [erl_scan](builtins.md#erl-scan) |
+
 ## Random numbers
 
 | Difference | OTP | Clause | Owner |

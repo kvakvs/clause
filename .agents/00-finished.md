@@ -688,6 +688,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   compaction) under OTP's `dets` server and table processes in Erlang (users,
   write cache, fixes, timers); `ets:to_dets/2`, `from_dets/2`;
   `dets_tables` golden compares file MD5s with OTP
+- **LIB30** `erl_scan` (first step of the qlc chain): a runtime scanner of its
+  own (`builtins/front_end/scanner*.cpp`) clause for clause with OTP's
+  `scan1/5`, re-entrant by rescanning the unfinished token; options and
+  callbacks in `erl_scan.erl`; `erl_scan_tokens` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
