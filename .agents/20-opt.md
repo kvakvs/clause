@@ -188,28 +188,50 @@ process_info/system_info item lists.
 
 Ordered by measured T2 value and how well each fits an AOT compiler.
 
-### OPT1.2 Keep loop-carried values in registers, untagged where proven
+### OPT1.2 Float loops: keep loop-carried floats unboxed
 
-Part done 2026-10-15/16: no eager root-slot stores, and arguments are stored
-into their slots only where they cross a call or safepoint. Untagged raw loop
-values open. Note: 69A's two-iteration `dataproc.sort`/`map_foldl` read up to
-1.3x slower after the argument change while 20-iteration runs of the same
-kernels on the same live data are equal or faster; with fewer stale words in
-argument slots the live set at a collection is smaller, so the heap grows less
-(a heap-sizing artifact, not code).
+Scope (user direction 2026-10-19): float loops only. Integer loops need no
+untagging: they already match or beat OTP JIT (2026-10-19: count 26 vs 31 ms,
+hash 13.5 vs 14, digits 34 vs 55); untagging would save only the per-step tag
+tests (about 6 of 30 instructions). The earlier register work of this step
+(no eager root-slot stores, arguments spilled only across a call or safepoint)
+is done, see `00-finished.md`.
 
-- **What:** T2 calls this "regalloc R3 register homing" and "RAW-IN-HOME":
-  - keep the accumulator, induction variable and list cursor as raw machine
-    words in SSA registers across the back-edge
-  - tag only at exits and safepoints
-- **Measured:** 1.3–3.8× on integer/float tail loops. Pressured loops went from
-  1.6× slower to 1.6–1.8× faster.
-- **Clause:**
-  - Today every value crossing a call or safepoint is demoted to a frame root
-    slot (`DemoteRegToStack`), and each service result is stored to a root slot.
-  - Only values that are live *at a safepoint* need a root slot.
-  - Raw values must never occupy a GC-scanned slot: retagging to spill them
-    gives back the win (`14_bs_cursor_iv.md` §6b).
+- **Gap (2026-10-19, HEAD a0f77e08):** every float op boxes its result, so
+  `floop(N - 1, X * 0.999999 + 0.000001)` allocates two cells per step and is
+  bound by collections: 21 ms per 3M steps against OTP 2 ms. A float
+  accumulator over a list (`fsum(T, Acc + H * 0.5)`) takes 7-12 ms per 1M
+  elements (55 ms runs when a sweep lands in it) against OTP 5.4 ms.
+- **What:** keep a float parameter of a self tail loop as a raw double across
+  the back-edge; box only where the value escapes (exit, other calls, term
+  uses), and keep intermediate results of a float expression unboxed.
+- **T2 measured:** 1.3–3.8× on integer/float tail loops, about 2.4× with a
+  single accumulator; OTP's AOT already keeps float blocks unboxed
+  (`ssa_opt_float`, see OPT1.11).
+- **Constraints:**
+  - Raw values must never occupy a GC-scanned slot or X register: a transfer's
+    slow path (the tail service) and the registers it passes are scanned, so a
+    raw double must be boxed (or kept in a raw slot) before any of them.
+  - A float literal lives in the read-only literal area: never write into it.
+  - Erlang floats have no identity, but a cell written in place must be
+    referenced by nothing that outlives the step.
+- **Attempted and reverted 2026-10-19** (patch kept out of git):
+  - Raw floats: results of `/`, inline math and ops with a float operand kept
+    their double in a register; the cell was built only where the word was read
+    (unused cells dropped after lowering; service fallbacks boxed their own).
+    Alone: floop 21 to 12.6 ms (one cell per step instead of two).
+  - Float loop variant: an OPT1.4C-style `<sym>.float` kept one fresh cell per
+    float parameter and wrote each step's double into it in place. A parameter
+    qualified only when read as an arithmetic/comparison/`math` operand, at its
+    own position of a self tail call, or inside the final result (a cell passed
+    to another position of a self call is overwritten under it).
+  - Results: fsum 2.5-3 ms (2x faster than OTP), floop 6.4 ms (OTP 2: the cell
+    store and the next step's load stay in the carried chain; TBAA on the self
+    call's bookkeeping stores did not let GVN forward it). 69A and luerl euler
+    neutral (no kernel does float loops), so the lowering paths were not kept.
+- **Next attempt:** carry the raw double itself across the back-edge (the
+  remaining floop gap), which the cell variant could not; size the work by a
+  real float-heavy workload first (69A and luerl euler show none).
 
 ### OPT1.3 Speculation-free small-int fast paths, with guard fusion and range-proven overflow elimination
 
@@ -374,14 +396,15 @@ Builds on OPT1.4.
 
 ### OPT1.11 Float unboxing and FP-register residency
 
-- **What:** keep float-typed values and loop accumulators in FP registers, and
-  box only at escapes.
+- **What:** keep float-typed values in FP registers within a function, and box
+  only at escapes. Loop-carried floats (accumulators across self tail calls)
+  are OPT1.2.
 - **Measured:** float loops 2.4–3.8×. OTP's AOT already does this
   (`ssa_opt_float`), which is why T2 lists it as "compiler already does it".
-- **Clause:** floats are boxed, and every float operation is a service call.
+- **Clause:** float arithmetic is inline (OPT0.15) but boxes every result.
   Port the `ssa_opt_float` idea, a float block between `fclearerror` and
-  `fcheckerror`, on top of OPT0.3 and OPT0.4. Inline float arithmetic (the
-  OPT0.3A remainder) belongs here: it pays only once floats stay unboxed.
+  `fcheckerror`: intermediate results stay doubles. The reverted OPT1.2 attempt
+  did this with lazily built cells (floop 21 to 12.6 ms alone).
 
 ### OPT1.12 Tail-modulo-cons and in-place list building
 
