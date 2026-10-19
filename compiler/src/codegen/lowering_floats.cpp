@@ -20,7 +20,10 @@ llvm::Value *lower_float(ExpressionLowering &state, const double value) {
         for (unsigned shift = 0; shift < 64; shift += width) {
             words.push_back(llvm::ConstantInt::get(state.word, (bits >> shift) & (~std::uint64_t{0} >> (64 - width))));
         }
-        return literal_cell(*state.entry.getParent(), state.word, words, abi::v1::boxed_tag);
+        auto *literal = literal_cell(*state.entry.getParent(), state.word, words, abi::v1::boxed_tag);
+        // Float operations read the literal's double as a constant (raw floats, OPT1.2).
+        state.raw_floats.emplace(literal, llvm::ConstantFP::get(state.builder.getDoubleTy(), value));
+        return literal;
     }
     std::array<char, 8> encoded{};
     for (std::size_t i = 0; i < encoded.size(); ++i) {

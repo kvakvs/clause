@@ -121,7 +121,12 @@ test need no OTP (`docs/validation.md`).
 - Specialization (O2, `codegen/proofs`): proven operands skip tag tests; ≤ 3
   variants/function, 32/module, ≤ 2x generic IR. Binary loops
   (`codegen/binary_loops`): self tail calls on a binary rest get a `<sym>.loop`
-  variant updating one owned `sub_binary` in place.
+  variant updating one owned `sub_binary` in place. Raw floats: float literals
+  and float-only results keep their double in a register (`raw_floats`), their
+  cell dropped when no word use remains. Float loops (`codegen/float_loops`):
+  a `<sym>.float` variant takes float parameters as double bits in its
+  argument words; `lower_frames` boxes them (`clause.float.box`) and enters the
+  function on service paths.
 - Frames (`codegen/frames lower_frames`, `docs/execution-model.md`): native
   `Word f(ctx, args)` bodies move to `<sym>.body`; prologue builds the frame +
   resume switch, splits after non-tail calls, spills crossing values to term or

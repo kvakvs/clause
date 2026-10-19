@@ -139,6 +139,45 @@ bool binary_loop_call(ExpressionLowering &state, const ast::Expression &expressi
     tail_enter(state, target, call);
     return true;
 }
+
+// The raw doubles of a call's float loop arguments, or none when one has no raw double (float loops, OPT1.2).
+std::optional<std::vector<llvm::Value *>> raw_arguments(ExpressionLowering &state, const ast::CallExpression &call) {
+    std::vector<llvm::Value *> raws;
+    for (const auto parameter : state.float_loop->parameters) {
+        const auto raw =
+            state.raw_floats.find(state.values.at(&state.module.syntax->expression(call.arguments.at(parameter))));
+        if (raw == state.raw_floats.end()) {
+            return std::nullopt;
+        }
+        raws.push_back(raw->second);
+    }
+    return raws;
+}
+
+// A self tail call passing a raw double as every float parameter of a float loop (float loops, OPT1.2): the function
+// and its variant both enter the variant with the bits of those doubles as the argument words, so their cells go
+// unread and are dropped. False for any other call.
+bool float_loop_call(ExpressionLowering &state, const ast::Expression &expression, const ast::CallExpression &call,
+                     llvm::Function *target) {
+    auto *loop = state.float_loop;
+    if (!loop || !state.tail_calls || !state.tail_calls->contains(&expression) ||
+        target != state.entry.getParent()->getFunction(state.function.symbol)) {
+        return false;
+    }
+    const auto raws = raw_arguments(state, call);
+    if (!raws) {
+        return false;
+    }
+    const auto saved = state.values;
+    for (std::size_t i = 0; i < raws->size(); ++i) {
+        const auto parameter = loop->parameters[i];
+        state.values.at(&state.module.syntax->expression(call.arguments.at(parameter))) =
+            state.builder.CreateBitCast(raws->at(i), state.word, "float.bits");
+    }
+    tail_enter(state, loop->variant, call);
+    state.values = saved;
+    return true;
+}
 } // namespace
 
 llvm::Value *lower_call(ExpressionLowering &state, const ast::Expression &expression, const ast::CallExpression &call) {
@@ -149,7 +188,7 @@ llvm::Value *lower_call(ExpressionLowering &state, const ast::Expression &expres
         throw std::invalid_argument("lowering: inconsistent resolved call arity");
     }
     auto *target = callee_declaration(state, callee);
-    if (binary_loop_call(state, expression, call, target)) {
+    if (binary_loop_call(state, expression, call, target) || float_loop_call(state, expression, call, target)) {
         state.builder.SetInsertPoint(llvm::BasicBlock::Create(state.entry.getContext(), "tail.dead", &state.entry));
         return llvm::ConstantInt::get(state.word, abi::v1::empty_list);
     }

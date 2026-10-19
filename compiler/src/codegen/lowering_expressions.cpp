@@ -9,6 +9,7 @@
 #include <clause/abi/builtins.hpp>
 #include <clause/abi/equality.hpp>
 #include <clause/abi/term.hpp>
+#include <iterator>
 #include <stdexcept>
 
 namespace clause::codegen {
@@ -32,7 +33,11 @@ llvm::Value *binding(ExpressionLowering &state, const ast::ExprId &expression) {
         throw std::invalid_argument("lowering: binding read index is unavailable");
     }
     const auto identity = state.reads->at(&state.module.syntax->expression(expression));
-    return state.bindings.at(identity);
+    auto *value = state.bindings.at(identity);
+    // A float loop variant's parameter gets a cell where it is read, so steps reading only its double make none (float
+    // loops, OPT1.2).
+    const auto *loop = state.float_loop;
+    return loop && loop->in_variant && loop->bindings.contains(identity) ? materialized(state, value) : value;
 }
 
 // Resolve leaves through existing parameter bindings, preserving every input term unchanged.
@@ -146,7 +151,14 @@ llvm::Value *bridge_value(ExpressionLowering &state, std::size_t index, const as
     }
     const auto values = call_arguments(state, call);
     const auto builtin = [&] { return lower_builtin(state, index, values); };
-    if (auto *math = inline_math(state, index, values, builtin)) {
+    // Inline math's fallback gives raw float arguments cells of their own (raw floats, OPT1.2).
+    const auto fallback = [&] {
+        std::vector<llvm::Value *> words;
+        std::ranges::transform(values, std::back_inserter(words),
+                               [&](llvm::Value *value) { return materialized(state, value); });
+        return lower_builtin(state, index, words);
+    };
+    if (auto *math = inline_math(state, index, values, fallback)) {
         return math;
     }
     if (index == MAKE_TUPLE) {

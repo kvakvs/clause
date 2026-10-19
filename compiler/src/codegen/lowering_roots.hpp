@@ -14,6 +14,11 @@ inline constexpr std::string_view FRAME_MARKER = "clause.frame";
 inline constexpr std::string_view APPLY_MARKER = "clause.apply";
 // Marks native-form Erlang function definitions and declarations with their arity.
 inline constexpr std::string_view ARITY_ATTRIBUTE = "erlang-arity";
+// Float loops (OPT1.2): a variant's parameters holding the bits of a double (a bit mask, in decimal) and the function
+// its service transfers enter instead, with those doubles boxed by FLOAT_BOX: (context, double) -> word, 0 on failure.
+inline constexpr std::string_view FLOAT_PARAMETERS_ATTRIBUTE = "clause-float-parameters";
+inline constexpr std::string_view FLOAT_GENERIC_ATTRIBUTE = "clause-float-generic";
+inline constexpr std::string_view FLOAT_BOX = "clause.float.box";
 
 struct FunctionRoots {
     // Patch the frame's term slot count after all emitted candidate values have assigned their slots.

@@ -49,6 +49,29 @@ std::optional<std::size_t> erlang_arity(const llvm::Function *function) {
     return value;
 }
 
+// A float loop variant taking doubles as the bits of some parameter words (float loops, OPT1.2): those parameters,
+// as a bit mask, and the function its service transfers enter instead, with cells made of the doubles.
+struct RawEntry {
+    std::uint64_t parameters;
+    llvm::Function *generic;
+};
+
+// The raw entry of `callee`; none for every other function.
+std::optional<RawEntry> raw_entry(const llvm::Function *callee) {
+    if (!callee || !callee->hasFnAttribute(FLOAT_PARAMETERS_ATTRIBUTE)) {
+        return {};
+    }
+    const auto text = callee->getFnAttribute(FLOAT_PARAMETERS_ATTRIBUTE).getValueAsString();
+    std::uint64_t parameters = 0;
+    std::from_chars(text.begin(), text.end(), parameters);
+    auto *generic =
+        callee->getParent()->getFunction(callee->getFnAttribute(FLOAT_GENERIC_ATTRIBUTE).getValueAsString());
+    if (!generic) {
+        throw std::logic_error("lower_frames: a float loop variant without its function");
+    }
+    return RawEntry{parameters, generic};
+}
+
 // Declare one frame service of abi/frames.hpp with its target spelling.
 template <typename Service>
 llvm::FunctionCallee declare(llvm::Module &output, llvm::Type *result, llvm::ArrayRef<llvm::Type *> parameters) {
@@ -780,9 +803,10 @@ class FrameLowering {
             record_transfer(jump, call.callee);
         }
         builder.SetInsertPoint(rest->getPrevNode());
+        const auto [boxed, entered] = service_entry(builder, call.callee, values, descriptor);
         llvm::Value *code = nullptr;
         const auto loaded =
-            through_registers(builder, values, code, tail ? services_.tail : services_.enter, {context, descriptor});
+            through_registers(builder, boxed, code, tail ? services_.tail : services_.enter, {context, entered});
         transfer(builder, code, loaded);
         discard(*rest);
     }
@@ -822,10 +846,39 @@ class FrameLowering {
         services_.set_state(builder, context, StateField::live, zero);
         record_transfer(transfer(builder, callee.body, values), &native_);
         builder.SetInsertPoint(rest->getPrevNode());
+        const auto [boxed, entered] = service_entry(builder, &native_, values, descriptor);
         llvm::Value *code = nullptr;
-        const auto loaded = through_registers(builder, values, code, services_.tail, {context, descriptor});
+        const auto loaded = through_registers(builder, boxed, code, services_.tail, {context, entered});
         transfer(builder, code, loaded);
         discard(*rest);
+    }
+
+    // The parameters and descriptor a transfer service enters `callee` with: unchanged, but a float loop variant
+    // (OPT1.2) gets cells of the doubles its parameters hold, so the registers the service reads hold terms, and its
+    // function's descriptor; a failure to make a cell returns the failure.
+    std::pair<Parameters, llvm::Value *> service_entry(llvm::IRBuilder<> &builder, const llvm::Function *callee,
+                                                       Parameters values, llvm::Value *descriptor) {
+        const auto raw = raw_entry(callee);
+        if (!raw) {
+            return {values, descriptor};
+        }
+        auto *context = body_.getArg(0);
+        auto *box = services_.output.getFunction(FLOAT_BOX);
+        for (std::size_t i = 0; i < register_arguments; ++i) {
+            if (((raw->parameters >> i) & 1U) != 0) {
+                values.at(i) = builder.CreateCall(
+                    box, {context, builder.CreateBitCast(values.at(i), builder.getDoubleTy())}, "float.cell");
+            }
+        }
+        auto *failed = services_.state(builder, context, StateField::failed, services_.word, "float.failed");
+        auto *failure = llvm::BasicBlock::Create(body_.getContext(), "float.cell.failure", &body_);
+        auto *made = llvm::BasicBlock::Create(body_.getContext(), "float.cell.made", &body_);
+        builder.CreateCondBr(
+            compare(builder, llvm::CmpInst::ICMP_EQ, failed, llvm::ConstantInt::get(services_.word, 0)), made, failure);
+        // A return of 0 with the failure recorded, which lower_returns makes a return transfer.
+        llvm::ReturnInst::Create(body_.getContext(), llvm::ConstantInt::get(services_.word, 0), failure);
+        builder.SetInsertPoint(made);
+        return {values, services_.descriptor_of(*raw->generic)};
     }
 
     // The arity, body and slot count of the descriptor an entry pushes.

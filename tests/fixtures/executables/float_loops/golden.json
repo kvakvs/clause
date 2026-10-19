@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "float_loops",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "1.6323045752290357\n1.0099551197902517\n{2.995009990004998,3.0}\n{0.125,0.0625,0.1875}\n250250.0\n3.9375\n{5.0,5.0}\n{2.75,5.75}\n3.0\n1.5\n{0.5,3.0}\n129.746337890625\n2.618033988707088\n{finished,2.0}\n{4.0,[3.0,2.0,1.0]}\n4.0\n{2.5e3,5000}\n3.0e3\n{badarith,float_loops,failing,2}\n{badarith,float_loops,failing,2}\n{badarith,float_loops,overflow,2}\n[{true,false,false,true,true},\n {true,false,false,true,true},\n {false,false,false,true,true},\n {false,false,false,true,true}]\n{0.015625,9.5}\nfloat_loops: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "float_loops.erl": "1015543406c36bf43c25565875ad78e2b08decc4c6cd39b133c452184d5611d8"
+  }
+}

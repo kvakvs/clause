@@ -207,6 +207,10 @@ add_test(NAME codegen_types COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOU
 
 add_test(NAME codegen_proofs COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/proofs.py"
     "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}/tests/fixtures/executables/proofs")
+# Added for float loops (plan 20 OPT1.2).
+add_test(NAME codegen_float_loops COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/float_loops.py"
+    "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}/tests/fixtures/executables/float_loops")
+set_tests_properties(codegen_float_loops PROPERTIES PASS_REGULAR_EXPRESSION "float_loops: ok")
 
 if(CLAUSE_BUILD_RUNTIME)
     foreach(level IN ITEMS O0 O2)

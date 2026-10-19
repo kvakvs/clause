@@ -395,6 +395,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   18% — `[plan20] OPT1.1C ...`
 - **OPT1.2 (part 2)** arguments stored into their slots only where they cross
   a call or safepoint; self loop 8%, list sum 7% — `3d23d818`
+- **OPT1.2** raw floats (doubles kept in registers, cells only where a word is
+  read) and float loops (a `<sym>.float` variant takes float parameters as
+  double bits); 3M-step float loop 20.8 to 6.8 ms (at the fmul+fadd latency,
+  OTP 2.7x slower on a growing value), 1M float sum 9.1 to 2.6 ms (OTP 4.3);
+  69A and luerl euler neutral — `[plan20] OPT1.2. Float loops ...`
 - **OPT1.3 (part)** inline `+`/`-` on tagged words with a sign-test overflow
   check, no double width; hash 22%, count_up 19%, fib 15% —
   `93981174`

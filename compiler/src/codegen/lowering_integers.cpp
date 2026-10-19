@@ -140,6 +140,13 @@ llvm::Value *unproven_tags(ExpressionLowering &state, llvm::Value *left, llvm::V
     return left_tag ? left_tag : right_tag;
 }
 
+// Whether an operation takes the float path at once: a division, or + - * with a float operand, which never takes
+// the small-integer path (raw floats, OPT1.2).
+bool float_first(const ExpressionLowering &state, const Op operation, llvm::Value *left, llvm::Value *right) {
+    return operation == Op::divide ||
+           (arithmetic(operation) && (state.raw_floats.contains(left) || state.raw_floats.contains(right)));
+}
+
 // Integer literals of at most this many limbs become literal-area cells (OPT0.4); larger ones (and those the ERTS size
 // limit rejects) keep the service.
 constexpr std::size_t LITERAL_LIMBS = 64;
@@ -247,9 +254,14 @@ llvm::Value *lower_operation(ExpressionLowering &state, const Op operation, llvm
         return map;
     }
     const auto checked = arithmetic(operation);
-    const auto service = [&] { return lower_immediate(state, operation, left, right); };
-    if (operation == Op::divide) {
+    const auto service = [&] {
+        return lower_immediate(state, operation, materialized(state, left), materialized(state, right));
+    };
+    if (float_first(state, operation, left, right)) {
         return inline_float_operation(state, operation, left, right, service);
+    }
+    if (auto *compared = raw_comparison(state, operation, left, right)) {
+        return compared;
     }
     if (!checked) {
         return service();

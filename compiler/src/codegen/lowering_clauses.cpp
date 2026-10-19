@@ -1,9 +1,12 @@
 #include "../semantic/capabilities.hpp"
 #include "../semantic/funs.hpp"
 #include "binary_loops.hpp"
+#include "float_loops.hpp"
 #include "lowering_state.hpp"
 #include "source_locations.hpp"
 #include <algorithm>
+#include <cstdint>
+#include <string>
 
 namespace clause::codegen {
 namespace {
@@ -31,9 +34,10 @@ bool transfers(const ExpressionLowering &state, const ast::Expression &expressio
     return semantic::fun_call(syntax, call) || semantic::dynamic_call(syntax, call);
 }
 
-// Follow one tail position: blocks and groups end in their last expression, case, if and receive in each clause's.
-void tail_position(const ExpressionLowering &state, const ast::Expression &expression,
-                   std::vector<ast::ExprId> &pending, std::set<const ast::Expression *> &calls) {
+// Follow one tail position: blocks and groups end in their last expression, case, if and receive in each clause's;
+// any other expression is a tail leaf.
+void tail_position(const ast::Expression &expression, std::vector<ast::ExprId> &pending,
+                   std::set<const ast::Expression *> &leaves) {
     if (const auto *group = std::get_if<ast::Group>(&expression.value)) {
         pending.push_back(group->expression);
     } else if (const auto *block = std::get_if<ast::BlockExpression>(&expression.value)) {
@@ -44,16 +48,15 @@ void tail_position(const ExpressionLowering &state, const ast::Expression &expre
         for (const auto &clause : semantic::branch_clauses(expression.value)) {
             pending.push_back(clause.body->back());
         }
-    } else if (const auto *call = std::get_if<ast::CallExpression>(&expression.value);
-               call && transfers(state, expression, *call)) {
-        calls.insert(&expression);
+    } else {
+        leaves.insert(&expression);
     }
 }
 
-// Calls in tail position of any clause, outside every catch and try; their callee's result is the function's.
-std::set<const ast::Expression *> tail_calls(const ExpressionLowering &state,
-                                             const std::vector<ast::FunctionClause> &clauses) {
-    std::set<const ast::Expression *> calls;
+// The expressions in tail position of any clause, outside every catch and try: their value is the function's result.
+std::set<const ast::Expression *> tail_leaves(const ExpressionLowering &state,
+                                              const std::vector<ast::FunctionClause> &clauses) {
+    std::set<const ast::Expression *> leaves;
     std::vector<ast::ExprId> pending;
     pending.reserve(clauses.size());
     for (const auto &clause : clauses) {
@@ -62,7 +65,20 @@ std::set<const ast::Expression *> tail_calls(const ExpressionLowering &state,
     while (!pending.empty()) {
         const auto &expression = state.module.syntax->expression(pending.back());
         pending.pop_back();
-        tail_position(state, expression, pending, calls);
+        tail_position(expression, pending, leaves);
+    }
+    return leaves;
+}
+
+// The tail leaves that are calls transferring to Erlang code: they become tail transfers.
+std::set<const ast::Expression *> tail_calls(const ExpressionLowering &state,
+                                             const std::set<const ast::Expression *> &leaves) {
+    std::set<const ast::Expression *> calls;
+    for (const auto *expression : leaves) {
+        const auto *call = std::get_if<ast::CallExpression>(&expression->value);
+        if (call && transfers(state, *expression, *call)) {
+            calls.insert(expression);
+        }
     }
     return calls;
 }
@@ -135,6 +151,27 @@ void read_loop_view(ExpressionLowering &initial) {
     loop->view = sub_view(initial, cell);
 }
 
+// In a float loop's variant, read each float parameter's double from the bits of its argument word once before the
+// clauses: every head binds the parameter to a cell of it, which reads make anew (float loops, OPT1.2).
+void read_float_parameters(ExpressionLowering &initial) {
+    auto *loop = initial.float_loop;
+    if (!loop || !loop->in_variant) {
+        return;
+    }
+    std::map<std::size_t, llvm::Value *> cells;
+    for (const auto parameter : loop->parameters) {
+        auto *slot = initial.builder.CreateGEP(initial.word, initial.entry.getArg(1),
+                                               llvm::ConstantInt::get(initial.word, parameter));
+        auto *bits = initial.builder.CreateAlignedLoad(initial.word, slot, llvm::Align(initial.word->getBitWidth() / 8),
+                                                       "float.loop.bits");
+        cells.emplace(parameter,
+                      float_box(initial, initial.builder.CreateBitCast(bits, initial.builder.getDoubleTy())));
+    }
+    for (const auto &[binding, parameter] : loop->bindings) {
+        initial.bindings.emplace(binding, cells.at(parameter));
+    }
+}
+
 // Lower every candidate of `clauses` into the entry `initial` names, each seeing the captured values; exhaustion
 // raises function_clause.
 void lower_candidates(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses,
@@ -147,6 +184,7 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
     initial.bindings = captured(initial);
     name_self(initial);
     read_loop_view(initial);
+    read_float_parameters(initial);
     const auto captures = initial.bindings;
     auto *exhausted = llvm::BasicBlock::Create(entry.getContext(), "match.mismatch", &entry);
     llvm::BasicBlock *failure = initial.failure;
@@ -162,6 +200,8 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
         state.lambda = initial.lambda;
         state.proofs = initial.proofs;
         state.binary_loop = initial.binary_loop;
+        state.float_loop = initial.float_loop;
+        state.raw_floats = initial.raw_floats;
         reset_candidate_roots(state);
         candidate(state, clauses[index], next);
         failure = state.failure;
@@ -174,13 +214,14 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
         raise_function_clause(initial);
     }
     finish_roots(initial);
+    drop_unused_floats(entry);
 }
 
 // A binary loop (OPT1.4C): the function enters its variant with each rest cell it makes, and the variant, lowered
 // from the same clauses, keeps updating that one cell.
 void lower_loop(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses,
                 const std::set<const ast::Expression *> &tails, const std::size_t parameter) {
-    auto *variant = declare_binary_loop(initial);
+    auto *variant = declare_loop_variant(initial, ".loop");
     BinaryLoop outer{parameter, variant, false};
     initial.binary_loop = &outer;
     lower_candidates(initial, clauses, tails);
@@ -193,10 +234,38 @@ void lower_loop(ExpressionLowering &initial, const std::vector<ast::FunctionClau
     lower_candidates(inner, clauses, tails);
 }
 
+// A float loop (OPT1.2): the function and the variant, lowered from the same clauses, enter the variant with the
+// bits of the new doubles; the variant's service transfers enter the function with cells made of them instead.
+void lower_float_loop(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses,
+                      const std::set<const ast::Expression *> &tails, FloatLoop loop) {
+    loop.variant = declare_loop_variant(initial, ".float");
+    std::uint64_t mask = 0;
+    for (const auto parameter : loop.parameters) {
+        mask |= std::uint64_t{1} << parameter;
+    }
+    loop.variant->addFnAttr(FLOAT_PARAMETERS_ATTRIBUTE, std::to_string(mask));
+    loop.variant->addFnAttr(FLOAT_GENERIC_ATTRIBUTE, initial.entry.getName());
+    define_float_box(initial);
+    FloatLoop outer = loop;
+    initial.float_loop = &outer;
+    lower_candidates(initial, clauses, tails);
+    llvm::IRBuilder<> builder(llvm::BasicBlock::Create(loop.variant->getContext(), "entry", loop.variant));
+    ExpressionLowering inner{builder, *loop.variant, initial.module, initial.function, initial.inferred, initial.word,
+                             {}};
+    inner.reads = initial.reads;
+    inner.proofs = initial.proofs;
+    loop.in_variant = true;
+    inner.float_loop = &loop;
+    lower_candidates(inner, clauses, tails);
+}
+
 void lower_clauses(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses) {
-    const auto tails = tail_calls(initial, clauses);
+    const auto leaves = tail_leaves(initial, clauses);
+    const auto tails = tail_calls(initial, leaves);
     if (const auto parameter = binary_loop_parameter(initial, clauses.size(), tails)) {
         lower_loop(initial, clauses, tails, *parameter);
+    } else if (auto floats = float_loop_parameters(initial, clauses.size(), {.calls = tails, .leaves = leaves})) {
+        lower_float_loop(initial, clauses, tails, std::move(*floats));
     } else {
         lower_candidates(initial, clauses, tails);
     }

@@ -17,6 +17,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace clause::codegen {
 using BindingReads = std::map<const ast::Expression *, semantic::BindingId>;
@@ -65,6 +66,16 @@ struct BinaryLoop {
     std::optional<BinaryView> view = {};
 };
 
+// A function whose float parameters loop through self tail calls (float loops, OPT1.2): its `variant` takes each such
+// parameter as the bits of a double in its argument word, so a loop passes new floats on without making cells.
+struct FloatLoop {
+    // The float parameters, each head binding of one of them, the variant and whether the variant is being lowered.
+    std::vector<std::size_t> parameters;
+    std::map<semantic::BindingId, std::size_t> bindings;
+    llvm::Function *variant;
+    bool in_variant;
+};
+
 struct ExpressionLowering {
     // Borrow the current generic entry, immutable source/analysis and target-word builder.
     llvm::IRBuilder<> &builder;
@@ -109,6 +120,11 @@ struct ExpressionLowering {
     const Proofs *proofs = nullptr;
     // The binary loop of the function being lowered (OPT1.4C); null for every other function.
     BinaryLoop *binary_loop = nullptr;
+    // The float loop of the function being lowered (float loops, OPT1.2); null for every other function.
+    FloatLoop *float_loop = nullptr;
+    // The double each float word holds, where lowering has it in a register (raw floats, OPT1.2): float literals,
+    // results of float arithmetic and cells of a float loop variant's parameters. Float operations read it instead.
+    std::map<const llvm::Value *, llvm::Value *> raw_floats = {};
 };
 
 // The fact inference recorded for an expression, or the fact of argument `index` joined from the function's callers;
@@ -243,6 +259,21 @@ llvm::Value *inline_float_operation(ExpressionLowering &state, abi::v1::Immediat
 // other operands and non-finite results; null for builtins without an inline form (inline math).
 llvm::Value *inline_math(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values,
                          llvm::function_ref<llvm::Value *()> service);
+// A new float cell holding `raw`, whose double stays known as raw (raw floats, OPT1.2). Lowering drops the cell where
+// nothing reads the word itself (drop_unused_floats).
+llvm::Value *float_box(ExpressionLowering &state, llvm::Value *raw);
+// The word a service reads: a raw float gets a cell of its own where the builder is, so the cell float_box made for it
+// stays unread on the fast path (raw floats, OPT1.2).
+llvm::Value *materialized(ExpressionLowering &state, llvm::Value *word);
+// Remove the float cells of float_box whose word nothing reads, once a function is lowered.
+void drop_unused_floats(llvm::Function &function);
+// A comparison of two words whose doubles lowering holds, as the true or false word (raw floats, OPT1.2); null when
+// either has none.
+llvm::Value *raw_comparison(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,
+                            llvm::Value *right);
+// Define FLOAT_BOX in the module being lowered once: the slow paths of transfers into a float loop variant make
+// cells of their doubles with it (float loops, OPT1.2).
+void define_float_box(ExpressionLowering &state);
 // Use checked small arithmetic where safe, retaining the common runtime fallback for all other values; proven
 // operands skip their tag checks, and a proven result range also skips the overflow check and the fallback.
 llvm::Value *lower_operation(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,

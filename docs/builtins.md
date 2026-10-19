@@ -433,8 +433,9 @@ the host C library's, which can differ from OTP's in the last bit
 ([differences](differences.md)). On 64-bit targets generated code computes
 `sqrt`, `floor`, `ceil` (LLVM intrinsics) and `exp`, `log`, `log2`, `log10`,
 `sin`, `cos`, `pow` (the same C library functions, called without LLVM's
-substitutions) of number arguments inline into a float cell; other operands
-and non-finite results call the builtin, which raises.
+substitutions) of number arguments inline, keeping the double in a register
+for later float arithmetic ([raw floats](abi.md)); other operands and
+non-finite results call the builtin, which raises.
 
 ## Binary module
 

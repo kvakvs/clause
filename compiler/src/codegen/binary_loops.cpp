@@ -102,7 +102,8 @@ bool qualifies(const ExpressionLowering &state, std::span<const semantic::MatchP
     return loops(state, use, looping_arguments(state, parameter, tails));
 }
 
-// The head plan of every clause; empty when one has none.
+} // namespace
+
 std::vector<semantic::MatchPlan> head_plans(const ExpressionLowering &state, std::size_t clauses) {
     const auto out = [](const Diagnostic &diagnostic) { throw std::invalid_argument(render(diagnostic)); };
     std::vector<semantic::MatchPlan> plans;
@@ -116,7 +117,6 @@ std::vector<semantic::MatchPlan> head_plans(const ExpressionLowering &state, std
     }
     return plans;
 }
-} // namespace
 
 std::optional<std::size_t> binary_loop_parameter(const ExpressionLowering &state, std::size_t clauses,
                                                  const std::set<const ast::Expression *> &tails) {
@@ -133,11 +133,11 @@ std::optional<std::size_t> binary_loop_parameter(const ExpressionLowering &state
     return std::nullopt;
 }
 
-llvm::Function *declare_binary_loop(const ExpressionLowering &state) {
+llvm::Function *declare_loop_variant(const ExpressionLowering &state, const std::string_view suffix) {
     auto &entry = state.entry;
     auto &output = *entry.getParent();
     auto *variant = llvm::Function::Create(entry.getFunctionType(), llvm::GlobalValue::InternalLinkage,
-                                           entry.getName() + ".loop", output);
+                                           entry.getName() + llvm::StringRef(suffix), output);
     variant->setCallingConv(entry.getCallingConv());
     variant->addFnAttr(entry.getFnAttribute(ARITY_ATTRIBUTE));
     variant->getArg(0)->setName("context");

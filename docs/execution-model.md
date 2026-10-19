@@ -179,7 +179,10 @@ unchanged. No required target needs it.
   and reload them after it.
 - **Parameters.** A body reads its leading arguments from the parameters when it
   starts and the call result from `x0` when it resumes; `lower_frames` spills
-  either to a slot only when it is live across a call or safepoint.
+  either to a slot only when it is live across a call or safepoint. A float
+  loop variant ([abi](abi.md)) takes some parameters as the bits of doubles:
+  only its inline transfers pass them, and its service paths enter the
+  function with cells instead, so registers a service reads hold terms.
 - **Tail positions** are the last expression of a clause body, followed through
   blocks, parentheses and the clause bodies of `case`, `if` and `receive`. Calls
   in `catch`, `try`, `maybe` and `andalso`/`orelse` operands are not tail calls.

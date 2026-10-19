@@ -246,6 +246,26 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   loop over a binary allocates once. The variant reads the cell's view once
   per step, before its clauses, and skips the bitstring test of the parameter.
   The variant has the function's name and arity in stack traces.
+- Float loops (64-bit targets): a parameter among the first six (those passed
+  in registers) that every clause binds to a variable (or ignores), that some
+  self tail call passes a float-only expression (a float literal, `/`, a
+  `math` call, or `+ - *` with such an operand), and whose value is read only
+  as an operand of arithmetic, comparisons or `math` calls, as the same
+  parameter of a self tail call, or within the result or a tail call of
+  another function (never in a fun) is a float parameter. The function gets a
+  private variant `<symbol>.float` taking each float parameter as the bits of
+  its double in the argument word (function attributes
+  `clause-float-parameters`, a bit mask, and `clause-float-generic`, the
+  function). A self tail call of either whose new value of every float
+  parameter is a double in a register enters the variant with those bits, so
+  a float loop makes no cell per step; the variant makes a cell of a parameter
+  only where it reads the word itself. Raw bits never reach a place a
+  collection reads: the variant's other self tail calls re-enter the function,
+  and a transfer into the variant that takes its service path (a wanted
+  collection, profiling, no reductions left, stack growth) boxes the doubles
+  with the module's `clause.float.box` helper and enters the function's
+  descriptor instead. The variant has the function's name and arity in stack
+  traces.
 - A binary construction whose every byte is known at compile time (small integer
   constants and string literals at constant whole-byte widths, at most 64 bytes)
   is an inline binary cell of the module literal area, like other compound
@@ -277,7 +297,14 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   read through a select of its cell or a constant stand-in cell, so no load
   depends on a branch), compute in registers and bump-allocate the 2-word float
   cell when the result is finite, the divisor nonzero and the heap has room;
-  otherwise `CLAUSE_immediate_v1` raises `badarith` or promotes.
+  otherwise `CLAUSE_immediate_v1` raises `badarith` or promotes. A float
+  literal, and the result of `/`, of inline math or of an operation with such
+  an operand (always a float when it succeeds), also keeps its double in a
+  register: operations reading it take the register, and its cell is made only
+  where something reads the word itself (`CLAUSE_float_v1` when the heap has
+  no room); a service fallback that reads it gets a cell of its own. A
+  comparison of two such floats compares the doubles, exact equality their
+  bits (so `0.0 =:= -0.0` stays false).
 - Map expressions without a base whose keys are atom or small integer literals
   (at most 32 distinct) are written inline as classic map cells, keys sorted at
   compile time in exact term order, the last value of a repeated key kept;
