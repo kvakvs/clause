@@ -502,8 +502,78 @@ project_family([{Key, Values} | Rest], Fun, Type, Previous) ->
     {Tail, FinalType} = project_family(Rest, Fun, Type, NewType),
     {[{Key, External} | Tail], FinalType}.
 
-% The digraph conversions wait for module digraph (plan 21 step LIB12).
-family_to_digraph(_) -> erlang:error({not_implemented, family_to_digraph, 1}).
-family_to_digraph(_, _) -> erlang:error({not_implemented, family_to_digraph, 2}).
-digraph_to_family(_) -> erlang:error({not_implemented, digraph_to_family, 1}).
-digraph_to_family(_, _) -> erlang:error({not_implemented, digraph_to_family, 2}).
+% family_to_digraph(Family [, GraphType]): a digraph of the family's indices and members as vertices and an edge from
+% each index to each of its members (plan 21 step LIB12); a cycle in an acyclic graph is error:cyclic.
+family_to_digraph({'Set', _, Type} = F) ->
+    case family_type(Type) of
+        true -> family_edges(F, digraph:new());
+        false -> erlang:error(badarg)
+    end.
+
+family_to_digraph({'Set', _, Type} = F, GraphType) ->
+    case family_type(Type) of
+        true -> ok;
+        false -> erlang:error(badarg)
+    end,
+    try digraph:new(GraphType) of
+        G ->
+            try
+                family_edges(F, G)
+            catch
+                throw:{error, Reason} ->
+                    true = digraph:delete(G),
+                    erlang:error(Reason)
+            end
+    catch
+        error:badarg -> erlang:error(badarg)
+    end.
+
+% Whether a type is a family's ({Index, [Member]}) or '_' (an empty set of any type).
+family_type({_, [_]}) -> true;
+family_type('_') -> true;
+family_type(_) -> false.
+
+family_edges(F, G) ->
+    lists:foreach(
+        fun({From, Members}) ->
+            digraph:add_vertex(G, From),
+            lists:foreach(fun(To) -> family_edge(G, From, To) end, Members)
+        end,
+        sofs:to_external(F)
+    ),
+    G.
+
+family_edge(G, From, To) ->
+    digraph:add_vertex(G, To),
+    case digraph:add_edge(G, From, To) of
+        {error, {bad_edge, _}} -> throw({error, cyclic});
+        _ -> true
+    end.
+
+% digraph_to_family(Graph [, Type]): each vertex with its sorted out-neighbours, the vertices sorted; badarg when Graph
+% is no digraph, has two vertices that compare equal, or Type is no family type.
+digraph_to_family(G) ->
+    family_of(G, {atom, [atom]}).
+
+digraph_to_family(G, Type) ->
+    case {sofs:is_type(Type), Type} of
+        {true, [{_, [_]} = Family]} -> family_of(G, Family);
+        _ -> erlang:error(badarg)
+    end.
+
+family_of(G, Family) ->
+    try graph_family(G) of
+        Pairs -> {'Set', Pairs, Family}
+    catch
+        _:_ -> erlang:error(badarg)
+    end.
+
+graph_family(G) ->
+    Vertices = lists:sort(digraph:vertices(G)),
+    graph_family(Vertices, Vertices, G, []).
+
+% Each vertex must differ (/=) from the one before it, as OTP requires: two equal vertices (1 and 1.0) are badarg.
+graph_family([V | Vs], Previous, G, Pairs) when V /= Previous ->
+    graph_family(Vs, V, G, [{V, lists:sort(digraph:out_neighbours(G, V))} | Pairs]);
+graph_family([], _, _, Pairs) ->
+    lists:reverse(Pairs).

@@ -30,13 +30,34 @@ using VertexArg = Named<VertexRole>;
 // A second vertex, or a list of vertices.
 using OtherArg = Named<OtherRole>;
 
+// The graph OTP's traversals walk: a #graph{} record (Graph) or a digraph's tables (digraph/view.hpp, plan 21 step
+// LIB12). Each lists vertices and neighbours in the order its module's own functions list them.
+class View {
+  public:
+    View() = default;
+    View(const View &) = delete;
+    View &operator=(const View &) = delete;
+    virtual ~View() = default;
+
+    virtual Vertices vertices() const = 0;
+    virtual Vertices in_neighbours(const Term &vertex) const = 0;
+    virtual Vertices out_neighbours(const Term &vertex) const = 0;
+    // The {From, To} ends of each edge leaving a vertex, in out_edges/2 order (breadth-first path searches).
+    virtual std::vector<std::pair<Term, Term>> out_ends(const Term &vertex) const = 0;
+    // The number of edges into a vertex.
+    virtual std::size_t in_degree(const Term &vertex) const = 0;
+
+    // Whether a vertex has an edge to itself.
+    bool reflexive(const Term &vertex) const;
+};
+
 // One #graph{} record; function_clause for anything else, as OTP's clause heads raise.
-class Graph final {
+class Graph final : public View {
   public:
     explicit Graph(const GraphArg &graph);
 
     // The vertices in map order (maps:keys/1).
-    Vertices vertices() const;
+    Vertices vertices() const override;
 
     // The edges of a vertex: in_es or out_es entries, [] for a vertex without any.
     Vertices in_edges(const Term &vertex) const { return edges_of(in_es_, vertex); }
@@ -44,12 +65,13 @@ class Graph final {
     Vertices out_edges(const Term &vertex) const { return edges_of(out_es_, vertex); }
 
     // The other ends of those edges, in edge order.
-    Vertices in_neighbours(const Term &vertex) const { return ends(in_edges(vertex), 0); }
+    Vertices in_neighbours(const Term &vertex) const override { return ends(in_edges(vertex), 0); }
 
-    Vertices out_neighbours(const Term &vertex) const { return ends(out_edges(vertex), 1); }
+    Vertices out_neighbours(const Term &vertex) const override { return ends(out_edges(vertex), 1); }
 
-    // Whether a vertex has an edge to itself.
-    bool reflexive(const Term &vertex) const;
+    std::vector<std::pair<Term, Term>> out_ends(const Term &vertex) const override;
+
+    std::size_t in_degree(const Term &vertex) const override { return in_edges(vertex).size(); }
 
     Term labels() const { return vs_; }
 
@@ -79,18 +101,18 @@ Vertices elements(const Term &list);
 // The neighbour functions of OTP's traversals: in/3, out/3 and inout/3.
 enum class Direction : std::uint8_t { in, out, both };
 // The next vertices to visit from `vertex`, in front of `rest`.
-Vertices next_of(const Graph &graph, Direction direction, const Term &vertex, const Vertices &rest);
+Vertices next_of(const View &graph, Direction direction, const Term &vertex, const Vertices &rest);
 
 // revpreorders/4: one reversed preorder per traversal from each vertex of `starts` not seen yet; with `first` the
 // start vertex itself counts as reached, else only its neighbours (the *_via_neighbours functions).
-std::vector<Vertices> revpreorders(const Graph &graph, Direction direction, const Vertices &starts, bool first);
+std::vector<Vertices> revpreorders(const View &graph, Direction direction, const Vertices &starts, bool first);
 // posttraverse/4 from `starts`: every reached vertex, the last finished first (reverse_postorder/2).
-Vertices reverse_postorder(const Graph &graph, const Vertices &starts);
+Vertices reverse_postorder(const View &graph, const Vertices &starts);
 // strong_components/1 and cyclic_strong_components/1.
-std::vector<Vertices> strong_components(const Graph &graph);
-std::vector<Vertices> cyclic_strong_components(const Graph &graph);
+std::vector<Vertices> strong_components(const View &graph);
+std::vector<Vertices> cyclic_strong_components(const View &graph);
 // roots/1: the vertices without incoming edges, then the first vertex of each cyclic strong component.
-Vertices roots(const Graph &graph);
+Vertices roots(const View &graph);
 
 // The two ends of a path search: where it starts and the vertex it looks for.
 struct Ends {
@@ -99,9 +121,9 @@ struct Ends {
 };
 
 // one_path/8: depth first to `ends.to`; a sink met fewer than `prune` levels deep is skipped.
-std::optional<Vertices> one_path(const Graph &graph, const Ends &ends, std::size_t prune);
+std::optional<Vertices> one_path(const View &graph, const Ends &ends, std::size_t prune);
 // has_path/3.
-bool has_path(const Graph &graph, const Ends &ends);
+bool has_path(const View &graph, const Ends &ends);
 // get_short_path/3: breadth first over the edges.
-std::optional<Vertices> short_path(const Graph &graph, const Ends &ends);
+std::optional<Vertices> short_path(const View &graph, const Ends &ends);
 } // namespace clause::runtime::builtins::graph

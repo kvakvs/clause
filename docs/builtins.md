@@ -579,6 +579,23 @@ breadth-first `get_short_path/3`; lists built by folds over the maps come in
 reverse map order as in OTP. The updates (`add_*`, `del_*`), `fold_vertices/3`,
 `subgraph/2,3` and `condensation/1` are Erlang.
 
+## Digraph
+
+`digraph` and `digraph_utils` (plan 21 step LIB12, `builtins/digraph/`,
+`executables_digraph_tables`): OTP 29's `#digraph{}` record over three ETS
+tables (a set of `{V, Label}`, a set of `{E, V1, V2, Label}` and a bag of
+`{{out, V1}, E}` and `{{in, V2}, E}` that also holds the `'$vid'` and `'$eid'`
+counters). The updates and reads are Erlang over the `ets` builtins, as
+OTP's; the path searches (`get_path/3`, `get_cycle/2`, `get_short_path/3`,
+`get_short_cycle/2`) and digraph_utils' traversals, orderings, components and
+tree tests are builtins that read the tables in place (`DigraphView`) and run
+module graph's walks over them (`graph::View`), composed as digraph_utils
+composes them (`topsort/1` through the reverse postorder of all vertices,
+`is_acyclic/1` through loops and topsort). Vertices come in the vertex
+table's walk order and neighbours last edge first, as OTP lists them;
+`subgraph/2,3` and `condensation/1` are Erlang. `sofs:family_to_digraph/1,2`
+and `digraph_to_family/1,2` are Erlang over `digraph`.
+
 ## ETS
 
 `ets` (plan 21 step LIB10, `builtins/ets/`, over the runtime's tables:

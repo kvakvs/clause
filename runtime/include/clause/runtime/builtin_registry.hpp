@@ -232,6 +232,8 @@ std::span<const BuiltinEntry> ets_update_builtins() noexcept;
 std::span<const BuiltinEntry> ets_select_builtins() noexcept;
 std::span<const BuiltinEntry> ets_select_edit_builtins() noexcept;
 std::span<const BuiltinEntry> ets_match_spec_builtins() noexcept;
+// digraph's path searches and digraph_utils' traversals (plan 21 step LIB12; runtime/src/builtins/digraph/).
+std::span<const BuiltinEntry> digraph_builtins() noexcept;
 // Modules erl_features and records (plan 21 step LIB8B).
 std::span<const BuiltinEntry> erl_features_builtins() noexcept;
 std::span<const BuiltinEntry> records_builtins() noexcept;

@@ -31,13 +31,14 @@ create a new API that's for the end user to choose
   `atomics`, `counters`, `erl_prim_loader`, `persistent_term`, `prim_eval`,
   `zlib`, `binary`, `lists`, `maps`, `math`, `re` (`import/1` declined), `init`
   (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`, `dict`,
-  `erl_anno`, `erl_features`, `erl_internal`, `filename`, `gb_sets`, `gb_trees`,
-  `graph`, `io_lib`, `json`, `orddict`, `ordsets`, `proplists`, `queue`, `rand`,
-  `records`, `sets`, `string`, `unicode`, `uri_string`.
+  `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`,
+  `filename`, `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `orddict`,
+  `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
+  `unicode`, `uri_string`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution,
   tracing), `code` (51), `io` (31), `file` (30), `inet` (19), `gen_udp` (5),
-  `os` (4), `sofs` (4, LIB12), `gen_tcp` (1), `ets` (8, LIB12).
-- **Missing:** 68 modules. Today a program gets the plain-Erlang ones (gen
+  `os` (4), `gen_tcp` (1), `ets` (8, LIB12B, LIB53, LIB73).
+- **Missing:** 66 modules. Today a program gets the plain-Erlang ones (gen
   servers, `supervisor`, `timer`, ...) only by compiling OTP's sources from a
   search path.
 - **Callback-only modules** (no functions to implement, only behaviours to
@@ -109,7 +110,7 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ## Tier A: data modules without processes
 
-LIB0–LIB11 and LIB4F are done (`00-finished.md`); their open remainders follow.
+LIB0–LIB11, LIB4F and LIB12A are done (`00-finished.md`); their open remainders follow.
 
 ### LIB9 remainder: declined `erlang` functions
 
@@ -129,18 +130,13 @@ LIB0–LIB11 and LIB4F are done (`00-finished.md`); their open remainders follow
   small-integer `update_counter` in place, and a Linux TSan run over the ETS
   goldens (V02).
 
-### LIB12. Table files and graphs: `ets` file functions, `digraph`, `digraph_utils`
+### LIB12B. Table files: `ets` file functions
 
 - `ets:tab2file/2,3`, `file2tab/1,2`, `tabfile_info/1` in OTP's file format
   (over `disk_log`, LIB52); `to_dets/2`, `from_dets/2` after LIB53, and
   `table/1,2` after `qlc` (LIB73).
 - `ets:fun2ms/1` raises as OTP's does without the transform; it works once
   LIB72 (`ms_transform`) and D03 parse transforms exist.
-- `digraph` (34): OTP's `{digraph, V, E, N, Cyclic}` over three ETS tables, with
-  the updates and queries in C++ reading the tables directly.
-- `digraph_utils` (18): C++ traversals over the same tables.
-- `sofs:family_to_digraph/1,2` and `digraph_to_family/1,2` (stubs since LIB7A)
-  in Erlang over `digraph`.
 
 ## Tier C: processes and behaviours (Erlang)
 
@@ -411,7 +407,7 @@ missing, so programs that probe for them keep working.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB12 (`digraph`, `sofs` conversions, table files).
+1. LIB12B (table files).
 2. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
 3. LIB23 and LIB24 (`logger`, `application`).
 4. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
@@ -569,17 +565,6 @@ functions are listed separately and are optional.
   member/2, next/2, open_file/1,2, pid2name/1, repair_continuation/2,
   safe_fixtable/2, select/1,2,3, select_delete/2, slot/2, sync/1, table/1,2,
   to_ets/2, traverse/2, update_counter/3
-- `digraph` (stdlib, 34): add_edge/3,4,5, add_vertex/1,2,3, del_edge/2,
-  del_edges/2, del_path/3, del_vertex/2, del_vertices/2, delete/1, edge/2,
-  edges/1,2, get_cycle/2, get_path/3, get_short_cycle/2, get_short_path/3,
-  in_degree/2, in_edges/2, in_neighbours/2, info/1, new/0,1, no_edges/1,
-  no_vertices/1, out_degree/2, out_edges/2, out_neighbours/2, sink_vertices/1,
-  source_vertices/1, vertex/2, vertices/1
-- `digraph_utils` (stdlib, 18): arborescence_root/1, components/1,
-  condensation/1, cyclic_strong_components/1, is_acyclic/1, is_arborescence/1,
-  is_tree/1, loop_vertices/1, postorder/1, preorder/1, reachable/2,
-  reachable_neighbours/2, reaching/2, reaching_neighbours/2,
-  strong_components/1, subgraph/2,3, topsort/1
 - `edlin` (stdlib, 1): keymap/0
 - `edlin_expand` (stdlib, 2): expand/1,2
 - `epp` (stdlib, 18): close/1, default_encoding/0, encoding_to_string/1,
@@ -693,7 +678,6 @@ functions are listed separately and are optional.
   render_callback/2,3,4,5, render_type/2,3,4,5, supported_tags/0, validate/1
 - `slave` (stdlib, 0): none; deprecated: pseudo/1,2, relay/1, start/1,2,3,
   start_link/1,2,3, stop/1
-- `sofs` (stdlib, 4): digraph_to_family/1,2, family_to_digraph/1,2
 - `supervisor` (stdlib, 14; 1 callbacks): check_childspecs/1,2,
   count_children/1, delete_child/2, get_childspec/2, restart_child/2,
   start_child/2, start_link/2,3, stop/1,3, terminate_child/2, which_child/2,

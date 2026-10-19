@@ -1,0 +1,20 @@
+%% OTP 29 digraph_utils exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{arborescence_root, 1, default, implemented}.
+{components, 1, default, implemented}.
+{condensation, 1, default, implemented}.
+{cyclic_strong_components, 1, default, implemented}.
+{is_acyclic, 1, default, implemented}.
+{is_arborescence, 1, default, implemented}.
+{is_tree, 1, default, implemented}.
+{loop_vertices, 1, default, implemented}.
+{postorder, 1, default, implemented}.
+{preorder, 1, default, implemented}.
+{reachable, 2, default, implemented}.
+{reachable_neighbours, 2, default, implemented}.
+{reaching, 2, default, implemented}.
+{reaching_neighbours, 2, default, implemented}.
+{strong_components, 1, default, implemented}.
+{subgraph, 2, default, implemented}.
+{subgraph, 3, default, implemented}.
+{topsort, 1, default, implemented}.

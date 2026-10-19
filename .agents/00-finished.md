@@ -657,7 +657,12 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (OTP's keeps-key rule), `match_spec_*`, `is_compiled_ms`,
   `erlang:match_spec_test/3` (trace dialect, fake actions) as builtins;
   continuations in OTP's shapes; `test_ms`, `repair_continuation`,
-  `match_delete`, `init_table` Erlang; `ets_match_specs` golden
+  `match_delete`, `init_table` Erlang; `ets_match_specs` golden — `2998c62e`
+- **LIB12A** `digraph`, `digraph_utils` over OTP's three ETS tables: updates
+  and reads Erlang over `ets`, path searches and digraph_utils' traversals C++
+  (`builtins/digraph/`: `DigraphView` reads the tables in place for module
+  graph's walks, now over `graph::View`); `subgraph`, `condensation` and
+  `sofs:family_to_digraph/digraph_to_family` Erlang; `digraph_tables` golden
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

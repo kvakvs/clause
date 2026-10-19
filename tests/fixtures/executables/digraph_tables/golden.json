@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "digraph_tables",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "build: [['$v'|0],['$v'|1],x,y,y,['$e'|0],['$e'|1],named,4,3,[x,y,['$v'|0],['$v'|1]],[named,['$e'|0],['$e'|1]],{y,relabel},false,{named,x,y,lab2},false,[{cyclicity,cyclic},{protection,protected}],true,[{cyclicity,acyclic},{protection,private}],[{cyclicity,cyclic},{protection,protected}],digraph,5,true,{ok,undefined}]\nedges: [[c,b],[a,b],[f],[],2,2,2,2,0,3,[a,e],[e],[b,a],{error,{bad_vertex,nope}},{error,{bad_vertex,nope}},{error,{bad_edge,[c,d]}},['$e'|0],{['$e'|0],a,b,relabelled}]\ndeletes: [true,5,true,4,true,[b,c,d,e,f],2,true,1,true,false,[c]]\nacyclic: [true,true,{error,{bad_edge,[a,b,c]}},{error,{bad_edge,[a,a]}},true,3]\npaths: [[a,c,d],false,[b,c,d,b],[b,c,d,b],[f],false,false,[a,c,d],false,[c,d,b],[b,c,d,b],[f,f],false,false]\nutils: [[[a,b,c,d],[e],[f]],[[a],[b,c,d],[e],[f]],[[b,c,d],[f]],[a,b,c,d],[b,c,d],[b,c,d],[a,b,c,d],[],[f],[f],false,false,[],[e]]\norders: [true,[a,b,c,d],a,[a,b,c,d],a,[a,b,c,d],true,[a,b,d],[a,c,d]]\ntrees: [{yes,r},true,true,no,false,no,false,[],[],[],[],true]\nsubgraphs: [[a,b,d],{a,{label,a}},[{{['$e'|0],a,b,{a,b}}},{{['$e'|3],a,d,{a,d}}}],{a,[]},[{['$e'|0],a,b,[]}],[{cyclicity,acyclic},{protection,protected}],[{cyclicity,cyclic},{protection,protected}],{error,badarg},{error,badarg},{error,badarg}]\ncondensation: [[[a],[b,c,d],[e],[f]],[{[a],[b,c,d]}],true]\nsofs: [[a,b,c,d],[{a,[b,c]},{b,[c]},{c,[]},{d,[a]}],[{atom,[atom]}],[{a,[b,c]},{b,[c]},{c,[]},{d,[a]}],0,4,{error,cyclic},{error,badarg},{error,badarg},{error,badarg},{error,badarg},{error,badarg}]\nerrors: [{error,badarg},{error,badarg},{error,{badrecord,not_a_graph}},{error,badarg},{error,function_clause},{error,badarg}]\ndigraph_tables: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "digraph_tables.erl": "b978f70e38ab346a1148e597a5c376989863cf1cf307315fcaf879e1af72cc67"
+  }
+}

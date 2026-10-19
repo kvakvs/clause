@@ -62,12 +62,20 @@ Vertices Graph::ends(const Vertices &edges, std::size_t element) {
     return vertices;
 }
 
-bool Graph::reflexive(const Term &vertex) const {
+std::vector<std::pair<Term, Term>> Graph::out_ends(const Term &vertex) const {
+    std::vector<std::pair<Term, Term>> found;
+    for (const auto &edge : out_edges(vertex)) {
+        found.emplace_back(edge.tuple_element_unchecked(0), edge.tuple_element_unchecked(1));
+    }
+    return found;
+}
+
+bool View::reflexive(const Term &vertex) const {
     const auto neighbours = out_neighbours(vertex);
     return std::ranges::any_of(neighbours, [&](const Term &other) { return exact(other, vertex); });
 }
 
-Vertices next_of(const Graph &graph, Direction direction, const Term &vertex, const Vertices &rest) {
+Vertices next_of(const View &graph, Direction direction, const Term &vertex, const Vertices &rest) {
     Vertices next;
     if (direction != Direction::out) {
         next = graph.in_neighbours(vertex);
@@ -83,7 +91,7 @@ Vertices next_of(const Graph &graph, Direction direction, const Term &vertex, co
 namespace {
 // pretraverse_1/6: visit a list of vertices depth first, each unseen one marked and its neighbours visited before the
 // rest; the vertices reached, the last reached first.
-Vertices pretraverse(const Graph &graph, Direction direction, Vertices pending, Seen &seen) {
+Vertices pretraverse(const View &graph, Direction direction, Vertices pending, Seen &seen) {
     Vertices reached;
     // The vertices still to visit, the next one last.
     std::ranges::reverse(pending);
@@ -102,7 +110,7 @@ Vertices pretraverse(const Graph &graph, Direction direction, Vertices pending, 
 }
 } // namespace
 
-std::vector<Vertices> revpreorders(const Graph &graph, Direction direction, const Vertices &starts, bool first) {
+std::vector<Vertices> revpreorders(const View &graph, Direction direction, const Vertices &starts, bool first) {
     Seen seen;
     std::vector<Vertices> found;
     for (const auto &start : starts) {
@@ -128,7 +136,7 @@ struct Visit {
 };
 } // namespace
 
-Vertices reverse_postorder(const Graph &graph, const Vertices &starts) {
+Vertices reverse_postorder(const View &graph, const Vertices &starts) {
     Seen seen;
     Vertices finished;
     std::vector<Visit> stack;
@@ -154,11 +162,11 @@ Vertices reverse_postorder(const Graph &graph, const Vertices &starts) {
     return finished;
 }
 
-std::vector<Vertices> strong_components(const Graph &graph) {
+std::vector<Vertices> strong_components(const View &graph) {
     return revpreorders(graph, Direction::in, reverse_postorder(graph, graph.vertices()), true);
 }
 
-std::vector<Vertices> cyclic_strong_components(const Graph &graph) {
+std::vector<Vertices> cyclic_strong_components(const View &graph) {
     std::vector<Vertices> cyclic;
     for (auto &component : strong_components(graph)) {
         if (component.size() != 1 || graph.reflexive(component.front())) {
@@ -169,10 +177,10 @@ std::vector<Vertices> cyclic_strong_components(const Graph &graph) {
     return cyclic;
 }
 
-Vertices roots(const Graph &graph) {
+Vertices roots(const View &graph) {
     Vertices found;
     for (const auto &vertex : graph.vertices()) {
-        if (graph.in_edges(vertex).empty()) {
+        if (graph.in_degree(vertex) == 0) {
             found.push_back(vertex);
         }
     }

@@ -84,6 +84,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/match_spec/run.cpp src/match_spec/actions.cpp src/match_spec/handles.cpp
     src/builtins/ets/select_common.cpp src/builtins/ets/select.cpp src/builtins/ets/select_edits.cpp
     src/builtins/ets/match_specs.cpp
+    # Modules digraph and digraph_utils (plan 21 step LIB12).
+    src/builtins/digraph/view.cpp src/builtins/digraph/builtins.cpp
     # Modules erl_features and records (plan 21 step LIB8B).
     src/builtins/front_end/features.cpp src/builtins/records.cpp
     # Modules rand and random (plan 21 step LIB6).

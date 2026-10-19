@@ -26,7 +26,7 @@ Vertices found_path(const Vertices &path, const Term &sink) {
 }
 
 // One step of one_path/8 on a vertex that is not the sink: descend into an unvisited one.
-void descend(const Graph &graph, std::vector<Pending> &stack, Vertices &visited, const Term &vertex) {
+void descend(const View &graph, std::vector<Pending> &stack, Vertices &visited, const Term &vertex) {
     if (contains(visited, vertex)) {
         return;
     }
@@ -37,7 +37,7 @@ void descend(const Graph &graph, std::vector<Pending> &stack, Vertices &visited,
 }
 } // namespace
 
-std::optional<Vertices> one_path(const Graph &graph, const Ends &ends, std::size_t prune) {
+std::optional<Vertices> one_path(const View &graph, const Ends &ends, std::size_t prune) {
     const auto &sink = ends.to;
     std::vector<Pending> stack{{graph.out_neighbours(ends.from), 0, {ends.from}}};
     Vertices visited{ends.from};
@@ -59,7 +59,7 @@ std::optional<Vertices> one_path(const Graph &graph, const Ends &ends, std::size
     return std::nullopt;
 }
 
-bool has_path(const Graph &graph, const Ends &ends) {
+bool has_path(const View &graph, const Ends &ends) {
     const auto &to = ends.to;
     Seen seen;
     Vertices pending{ends.from};
@@ -77,23 +77,21 @@ bool has_path(const Graph &graph, const Ends &ends) {
     return false;
 }
 
-std::optional<Vertices> short_path(const Graph &graph, const Ends &ends) {
+std::optional<Vertices> short_path(const View &graph, const Ends &ends) {
     const auto &source = ends.from;
     const auto &sink = ends.to;
     // Each reached vertex and the vertex it was reached from; the source has none.
     std::map<Term, std::optional<Term>, ExactLess> parents{{source, std::nullopt}};
-    std::deque<Term> queue;
+    std::deque<std::pair<Term, Term>> queue;
     const auto enqueue = [&](const Term &vertex) {
-        for (const auto &edge : graph.out_edges(vertex)) {
+        for (const auto &edge : graph.out_ends(vertex)) {
             queue.push_back(edge);
         }
     };
     enqueue(source);
     while (!queue.empty()) {
-        const auto edge = queue.front();
+        const auto [from, to] = queue.front();
         queue.pop_front();
-        const auto from = edge.tuple_element_unchecked(0);
-        const auto to = edge.tuple_element_unchecked(1);
         if (exact(to, sink)) {
             Vertices path{to};
             for (std::optional<Term> at = from; at; at = parents.at(*at)) {
