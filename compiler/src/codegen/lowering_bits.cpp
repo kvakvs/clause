@@ -20,9 +20,17 @@ llvm::Value *integer(ExpressionLowering &state, const unsigned value) {
     return llvm::ConstantInt::get(state.word, *abi::v1::IntegerEncoding<32>::encode(value));
 }
 
-// Resolve native endian from the LLVM data layout, including foreign object emission.
+// Whether the target stores the low byte of a word first.
+bool host_little(const ExpressionLowering &state) { return state.entry.getParent()->getDataLayout().isLittleEndian(); }
+
+// Whether a segment holds its low byte first, native endian resolved from the LLVM data layout, including foreign
+// object emission.
+bool little_segment(const ExpressionLowering &state, const semantic::BinaryOptions &options) {
+    return options.native ? host_little(state) : options.little;
+}
+
 llvm::Value *descriptor(ExpressionLowering &state, const semantic::BinaryOptions &options, const bool empty = false) {
-    const bool little = options.native ? state.entry.getParent()->getDataLayout().isLittleEndian() : options.little;
+    const bool little = little_segment(state, options);
     const auto flags = (empty ? abi::v1::bit_empty : 0) | (little ? abi::v1::bit_little : 0) |
                        (options.signed_value ? abi::v1::bit_signed : 0) | (options.all ? abi::v1::bit_all : 0);
     return integer(state, (options.unit << 8) | flags | static_cast<unsigned>(options.type));
@@ -127,8 +135,18 @@ std::optional<std::uint64_t> literal_size(const ExpressionLowering &state, const
     return parsed.ec == std::errc{} && parsed.ptr == digits.data() + digits.size() ? std::optional{size} : std::nullopt;
 }
 
-// The width of an integer segment the matcher reads inline (OPT1.4): a constant number of whole bytes that fits a
-// small integer unsigned, at most 7 bytes; none otherwise.
+// Whether an integer segment of `width` bits is read inline: with one more byte its bytes fit a word (so it fits a
+// small integer unsigned: 56 bits on 64-bit targets, 24 on 32-bit ones); a width of whole bytes may be little-endian,
+// any other one is big-endian (OPT1.4D).
+bool inline_integer(const ExpressionLowering &state, const semantic::BinaryOptions &options, const unsigned width) {
+    if (options.type != abi::v1::BitType::integer || options.all || width == 0 ||
+        width > state.word->getBitWidth() - 8) {
+        return false;
+    }
+    return width % 8 == 0 || !little_segment(state, options);
+}
+
+// The width of an integer segment the matcher reads inline (OPT1.4), a constant; none otherwise.
 std::optional<unsigned> inline_width(const ExpressionLowering &state, const semantic::MatchNode &node) {
     if (node.literal || !node.bits) {
         return std::nullopt;
@@ -139,10 +157,7 @@ std::optional<unsigned> inline_width(const ExpressionLowering &state, const sema
         return std::nullopt;
     }
     const auto width = static_cast<unsigned>(*size) * options.unit;
-    if (options.type != abi::v1::BitType::integer || options.all || width == 0 || width % 8 != 0 || width > 56) {
-        return std::nullopt;
-    }
-    return width;
+    return inline_integer(state, options, width) ? std::optional{width} : std::nullopt;
 }
 
 // Whether a pattern node reads the parameter of the binary loop variant being lowered, whose view is read once.
@@ -179,54 +194,98 @@ BitLowering finish(ExpressionLowering &state, const semantic::MatchNode &node, l
     return {input, cursor};
 }
 
-// An integer segment read inline (OPT1.4): at a byte-aligned position with `width` bits left, its bytes are one
-// unaligned load, swapped into the segment byte order and extended to a small integer; a position with too few
-// bits left mismatches, as the service does; an unaligned one takes the service.
+// The address of the byte holding bit `absolute` of a view's data.
+llvm::Value *byte_address(ExpressionLowering &state, const BinaryView &view, llvm::Value *absolute) {
+    auto &builder = state.builder;
+    return builder.CreateIntToPtr(
+        builder.CreateAdd(view.data, builder.CreateLShr(absolute, llvm::ConstantInt::get(state.word, 3))),
+        builder.getPtrTy(), "proven.cell.bytes");
+}
+
+// The low `width` bits of a word (whole bytes) with their bytes in reverse order: bswap reverses the whole word, so
+// the bytes are shifted back down.
+llvm::Value *swap_bytes(ExpressionLowering &state, llvm::Value *value, const unsigned width) {
+    auto *swapped = state.builder.CreateUnaryIntrinsic(llvm::Intrinsic::bswap, value);
+    return state.builder.CreateLShr(swapped, state.word->getBitWidth() - width);
+}
+
+// A segment of whole bytes at a byte-aligned bit `absolute` (OPT1.4A): one load in target order, swapped into the
+// segment's order.
+llvm::Value *aligned_value(ExpressionLowering &state, const BinaryView &view, llvm::Value *absolute,
+                           const unsigned width, const bool little) {
+    auto &builder = state.builder;
+    auto *raw =
+        builder.CreateZExt(builder.CreateAlignedLoad(builder.getIntNTy(width), byte_address(state, view, absolute),
+                                                     llvm::Align(1), "binary.bytes"),
+                           state.word);
+    return width > 8 && little != host_little(state) ? swap_bytes(state, raw, width) : raw;
+}
+
+// A segment at any bit `absolute` (unaligned reads, OPT1.4D): the whole bytes from its first byte, first byte most
+// significant, then the byte holding its last bit make one word that shifts down to the field. Only bytes the
+// field touches are read; a field within the first bytes reads its last byte twice and shifts that copy out.
+llvm::Value *unaligned_value(ExpressionLowering &state, const BinaryView &view, llvm::Value *absolute,
+                             const unsigned width, const bool little) {
+    auto &builder = state.builder;
+    const auto constant = [&](std::uint64_t value) { return llvm::ConstantInt::get(state.word, value); };
+    const auto bytes = (width + 7) / 8 * 8;
+    auto *head =
+        builder.CreateZExt(builder.CreateAlignedLoad(builder.getIntNTy(bytes), byte_address(state, view, absolute),
+                                                     llvm::Align(1), "binary.head"),
+                           state.word);
+    if (bytes > 8 && host_little(state)) {
+        head = swap_bytes(state, head, bytes);
+    }
+    auto *last = byte_address(state, view, builder.CreateAdd(absolute, constant(width - 1)));
+    auto *tail = builder.CreateZExt(builder.CreateAlignedLoad(builder.getInt8Ty(), last, llvm::Align(1), "binary.tail"),
+                                    state.word);
+    auto *joined = builder.CreateOr(builder.CreateShl(head, constant(8)), tail);
+    auto *shift = builder.CreateSub(constant(bytes + 8 - width), builder.CreateAnd(absolute, constant(7)));
+    auto *field = builder.CreateAnd(builder.CreateLShr(joined, shift), constant((std::uint64_t{1} << width) - 1));
+    return little && width > 8 ? swap_bytes(state, field, width) : field;
+}
+
+// An integer segment read inline (OPT1.4): with `width` bits left, a byte-aligned segment of whole bytes is one load
+// and any other is an unaligned read (OPT1.4D), extended to a small integer; a position with too few bits left
+// mismatches, as the service does.
 BitLowering extract(ExpressionLowering &state, const semantic::MatchNode &node, std::span<llvm::Value *const> values,
                     const unsigned width, llvm::BasicBlock *mismatch) {
     auto &builder = state.builder;
+    auto &context = state.entry.getContext();
     const auto &options = *node.bits;
-    auto *input = values[node.input];
-    auto *cursor = values[node.index];
-    const auto view = view_of(state, node, input);
-    auto *position = decode_small(state, cursor);
+    const bool little = little_segment(state, options);
+    const auto view = view_of(state, node, values[node.input]);
+    auto *position = decode_small(state, values[node.index]);
     auto *absolute = builder.CreateAdd(view.offset, position);
-    auto *room = compare(state, llvm::CmpInst::ICMP_ULE,
-                         builder.CreateAdd(position, llvm::ConstantInt::get(state.word, width)), view.bits);
-    auto *aligned =
-        compare(state, llvm::CmpInst::ICMP_EQ, builder.CreateAnd(absolute, llvm::ConstantInt::get(state.word, 7)),
-                llvm::ConstantInt::get(state.word, 0));
-    auto *checked = llvm::BasicBlock::Create(state.entry.getContext(), "binary.room", &state.entry);
-    builder.CreateCondBr(room, checked, mismatch);
+    auto *next = builder.CreateAdd(position, llvm::ConstantInt::get(state.word, width));
+    auto *checked = llvm::BasicBlock::Create(context, "binary.room", &state.entry);
+    builder.CreateCondBr(compare(state, llvm::CmpInst::ICMP_ULE, next, view.bits), checked, mismatch);
     builder.SetInsertPoint(checked);
-    auto *read = llvm::BasicBlock::Create(state.entry.getContext(), "binary.read", &state.entry);
-    auto *unaligned = llvm::BasicBlock::Create(state.entry.getContext(), "binary.unaligned", &state.entry);
-    auto *join = llvm::BasicBlock::Create(state.entry.getContext(), "binary.read.join", &state.entry);
-    builder.CreateCondBr(aligned, read, unaligned);
-    builder.SetInsertPoint(read);
-    auto *bytes = builder.CreateIntToPtr(
-        builder.CreateAdd(view.data, builder.CreateLShr(absolute, llvm::ConstantInt::get(state.word, 3))),
-        builder.getPtrTy(), "proven.cell.bytes");
-    llvm::Value *raw = builder.CreateAlignedLoad(builder.getIntNTy(width), bytes, llvm::Align(1), "binary.bytes");
-    const auto host_little = state.entry.getParent()->getDataLayout().isLittleEndian();
-    const bool little = options.native ? host_little : options.little;
-    if (width > 8 && little != host_little) {
-        // bswap needs an even number of bytes: swap the word and shift the bytes back down.
-        auto *swapped = builder.CreateUnaryIntrinsic(llvm::Intrinsic::bswap, builder.CreateZExt(raw, state.word));
-        raw = builder.CreateTrunc(builder.CreateLShr(swapped, state.word->getBitWidth() - width), raw->getType());
+    llvm::Value *payload = nullptr;
+    if (width % 8 != 0) {
+        payload = unaligned_value(state, view, absolute, width, little);
+    } else {
+        auto *read = llvm::BasicBlock::Create(context, "binary.read", &state.entry);
+        auto *unaligned = llvm::BasicBlock::Create(context, "binary.unaligned", &state.entry);
+        auto *join = llvm::BasicBlock::Create(context, "binary.read.join", &state.entry);
+        builder.CreateCondBr(compare(state, llvm::CmpInst::ICMP_EQ,
+                                     builder.CreateAnd(absolute, llvm::ConstantInt::get(state.word, 7)),
+                                     llvm::ConstantInt::get(state.word, 0)),
+                             read, unaligned);
+        builder.SetInsertPoint(read);
+        auto *aligned = aligned_value(state, view, absolute, width, little);
+        builder.CreateBr(join);
+        builder.SetInsertPoint(unaligned);
+        auto *shifted = unaligned_value(state, view, absolute, width, little);
+        builder.CreateBr(join);
+        builder.SetInsertPoint(join);
+        payload = join_values(state, state.word, {read, aligned}, {unaligned, shifted});
     }
-    auto *payload = options.signed_value ? builder.CreateSExt(raw, state.word) : builder.CreateZExt(raw, state.word);
-    auto *value = encode_small(state, payload);
-    auto *next = encode_small(state, builder.CreateAdd(position, llvm::ConstantInt::get(state.word, width)));
-    auto *read_end = builder.GetInsertBlock();
-    builder.CreateBr(join);
-    builder.SetInsertPoint(unaligned);
-    const auto serviced = service_pattern(state, node, values, mismatch);
-    auto *unaligned_end = builder.GetInsertBlock();
-    builder.CreateBr(join);
-    builder.SetInsertPoint(join);
-    return {join_values(state, state.word, {read_end, value}, {unaligned_end, serviced.value}),
-            join_values(state, state.word, {read_end, next}, {unaligned_end, serviced.cursor})};
+    if (options.signed_value) {
+        auto *spare = llvm::ConstantInt::get(state.word, state.word->getBitWidth() - width);
+        payload = builder.CreateAShr(builder.CreateShl(payload, spare), spare);
+    }
+    return {encode_small(state, payload), encode_small(state, next)};
 }
 
 // The rest of the parameter of a binary loop's variant (OPT1.4C): no cell is made; the value is the parameter's own
@@ -304,9 +363,6 @@ BitLowering rest(ExpressionLowering &state, const semantic::MatchNode &node, std
 std::optional<BitLowering> inline_pattern(ExpressionLowering &state, const semantic::MatchNode &node,
                                           const std::span<llvm::Value *> values, llvm::BasicBlock *mismatch) {
     using semantic::MatchOperation;
-    if (state.word->getBitWidth() != 64) {
-        return std::nullopt;
-    }
     if (node.operation == MatchOperation::binary_start) {
         return start(state, node, values[node.input], mismatch);
     }

@@ -1,9 +1,9 @@
 -module(binary_match).
 -export([main/1]).
 
-% Binary patterns (OPT1.4): integer segments of whole-byte widths in both byte orders and signedness, read inline
-% at aligned positions and through the service at unaligned ones; rests as sub-binaries of sub-binaries, sent to
-% another process, kept across collections, sliced, compared and encoded; start and end tests.
+% Binary patterns (OPT1.4): integer segments of whole-byte widths in both byte orders and signedness, and of other
+% widths, read inline at aligned and unaligned positions; rests as sub-binaries of sub-binaries, sent to another
+% process, kept across collections, sliced, compared and encoded; start and end tests.
 
 sum(<<X:32, Rest/binary>>, Acc) -> sum(Rest, Acc + X);
 sum(<<>>, Acc) -> Acc.
@@ -20,6 +20,25 @@ fields(_) ->
     nomatch.
 
 shifted(<<_:3, X:16, Y:8/signed, _/bits>>) -> {X, Y}.
+
+unaligned(
+    <<A:1, B:5, C:12/signed, D:16/little, E:24/little-signed, F:7, G:56, H:13/signed, _/bits>>
+) ->
+    {A, B, C, D, E, F, G, H};
+unaligned(_) ->
+    short.
+
+offsets(Binary) ->
+    [
+        begin
+            <<_:Offset, X:12/signed, Y:24/little, Z:3, _/bits>> = Binary,
+            {X, Y, Z}
+        end
+     || Offset <- lists:seq(0, 8)
+    ].
+
+ends(<<X:5>>) -> X;
+ends(_) -> other.
 
 main(_) ->
     Big = list_to_binary([X rem 256 || X <- lists:seq(1, 4000)]),
@@ -59,4 +78,9 @@ main(_) ->
         )
     ]),
     io:format("~p~n", [{fields(<<1, 2, 3>>), fields(abc), shifted(<<255, 0, 129, 7, 3>>)}]),
+    Pattern =
+        <<16#A5, 16#3C, 16#F0, 16#0F, 16#81, 16#7E, 16#C3, 16#99, 16#55, 16#AA, 16#12, 16#34, 16#56,
+            16#78, 16#9A, 16#BC, 16#DE, 16#F1>>,
+    io:format("~p~n", [{unaligned(Pattern), unaligned(<<1, 2, 3>>), offsets(Pattern)}]),
+    io:format("~p~n", [{ends(<<21:5>>), ends(<<21:6>>), ends(<<>>)}]),
     io:format("binary_match: ok~n").

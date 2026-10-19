@@ -85,6 +85,11 @@ gotchas and user directions not recorded elsewhere.
   POSIX syntax check: clang++ -std=c++23 -fsyntax-only -Wall -Wextra -Werror -Iruntime/include -Iruntime/src
   -Iabi/include -isystem thirdparty/boost_1_90_0. Sanitizers: abort on impossible allocations; TSan defines operator new
   (lifecycle_failure, heap_measurements don't link); CLAUSE_TEST_TIMEOUT_SCALE 10/20.
+- Windows x86 goldens: runtime-only build/x86 under vcvarsamd64_x86 with clang-cl,
+  -DCMAKE_{C,CXX}_COMPILER_TARGET=i686-pc-windows-msvc (not -m32 flags: they drop /EHsc) and
+  -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded (default MDd fails every exe with exit 3 and pops CRT assert
+  dialogs); then cross.py --target-triple i686-pc-windows-msvc --suffix .exe. 2026-10-19: bit_map_comprehensions
+  (negative map key order) and ets_match_specs fail on x86 at HEAD 64b19ee9 already.
 - MSVC cl (non-clang-cl): Boost.Parser C4702 and LLVM-header C4244/C4267
   disabled on clause_parser_dependency / clause_llvm_sdk for cl only; C4554
   false positive on static_cast<Word>(n - 1) << shift: hoist to a local.

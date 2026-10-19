@@ -5,7 +5,7 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
-OPT1.4A-C, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.13A-C, OPT3.14 service path,
+OPT1.4A-D, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.13A-C, OPT3.14 service path,
 read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
 
@@ -213,12 +213,12 @@ width; range-proven elimination beyond `codegen/proofs`.
 
 ### OPT1.4 Binary matching as a cursor induction variable
 
-OPT1.4A-C done 2026-10-15/16 (inline start/finish, aligned whole-byte reads,
-sub-binary cells, inline `Rest`; a binary loop updates one sub-binary cell in
-place, `binary_match` 8.5x faster, its view read once per step, sum_binary 3.7
-ms against OTP 2.7). Open: the raw cursor as an SSA phi with no cell store per
-trip, loops whose rest is also read elsewhere, unaligned and non-byte segments
-inline, 32-bit targets.
+OPT1.4A-D done 2026-10-15/19 (inline start/finish, sub-binary cells, inline
+`Rest`; a binary loop updates one sub-binary cell in place, `binary_match` 8.5x
+faster, its view read once per step, sum_binary 3.7 ms against OTP 2.7; integer
+segments of any width up to the word less 8 bits at any position, 32-bit
+targets too). Open: the raw cursor as an SSA phi with no cell store per trip,
+loops whose rest is also read elsewhere.
 
 This is the largest measured T2 win class (`14_bs_cursor_iv.md`).
 

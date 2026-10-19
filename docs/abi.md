@@ -227,11 +227,14 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   context's pid word (`self`), one target word each. A body reads its frame
   header (`stack + frame`) and the registers from it on entry and switches on
   the header's resume word.
-- Binary patterns (64-bit targets): the start test, the end test and integer
-  segments of a constant whole-byte width up to 56 bits at a byte-aligned
-  position read the cell inline (`abi::v1::heap_binary_*_word`, `refc_*_word`:
-  an off-heap view's `data_` is its buffer's first byte); other segments and
-  unaligned positions call `CLAUSE_bits_v1`. A `sub_binary` subject
+- Binary patterns: the start test, the end test and integer segments of a
+  constant width up to the word size less 8 bits (56 on 64-bit targets, 24 on
+  32-bit ones) read the cell inline (`abi::v1::heap_binary_*_word`,
+  `refc_*_word`: an off-heap view's `data_` is its buffer's first byte), at any
+  bit position. A segment of whole bytes at a byte-aligned position is one
+  load; any other reads the bytes the field touches and shifts it out. Widths
+  that are not whole bytes are inline only big-endian. Other segments call
+  `CLAUSE_bits_v1`. A `sub_binary` subject
   (`sub_*_word`) is read through its original. A trailing `Rest/binary` or
   `Rest/bits` of unit 1 is bump-allocated inline as a 4-word `sub_binary` cell
   of the original.

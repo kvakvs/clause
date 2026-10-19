@@ -120,8 +120,7 @@ std::vector<semantic::MatchPlan> head_plans(const ExpressionLowering &state, std
 
 std::optional<std::size_t> binary_loop_parameter(const ExpressionLowering &state, std::size_t clauses,
                                                  const std::set<const ast::Expression *> &tails) {
-    // Rests are extracted inline only on 64-bit targets.
-    if (state.lambda || state.word->getBitWidth() != 64) {
+    if (state.lambda) {
         return std::nullopt;
     }
     const auto plans = head_plans(state, clauses);

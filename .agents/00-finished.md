@@ -409,6 +409,10 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and
   skips its bitstring test; sum_binary 5.2 to 3.7 ms (OTP 2.7) —
   `5fa0c26c`
+- **OPT1.4D** integer segments of any constant width up to the word less 8 bits
+  read inline at any bit position (whole-byte aligned: one load), 32-bit targets
+  included; 1-bit loop 182 to 5.0 ms (OTP 3.2), 12-bit fields 16.2 to 0.25 ms
+  (OTP 0.41) — `[plan20] OPT1.4D. Inline unaligned ...`
 - **OPT0.20B** generational collection: safepoints run minor collections that
   promote objects below the high-water mark into an old area and leave it in
   place (ERTS sizing rules, Debug old→young check); 69A geomean 1.15x (sort
