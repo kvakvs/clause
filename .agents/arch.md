@@ -314,5 +314,6 @@ test need no OTP (`docs/validation.md`).
 - Others: `rand`/`random` (generators + observed tables), `math`, `binary`,
   `records` (native record reflection), front-end support `erl_internal`,
   `erl_anno`, `erl_features`; `erl_scan` over a C++ scanner of OTP's rules
-  (re-entrant by rescanning the unfinished token); `ms_transform` in Erlang
+  (re-entrant by rescanning the unfinished token); `erl_parse` over a C++
+  recursive-descent parser building OTP's abstract format and errors; `ms_transform` in Erlang
   over abstract forms.

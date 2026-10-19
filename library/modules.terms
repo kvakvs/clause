@@ -57,6 +57,7 @@
 {records, stdlib, provided}.
 {erl_features, stdlib, provided}.
 {erl_scan, stdlib, provided}.
+{erl_parse, stdlib, provided}.
 {digraph, stdlib, provided}.
 {digraph_utils, stdlib, provided}.
 {graph, stdlib, provided}.

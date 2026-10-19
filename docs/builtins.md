@@ -1151,6 +1151,44 @@ reversed head of a string that ends in a backslash.
   `format_error/1`, the accessors and character-by-character continuations
   with OTP.
 
+## Erl parse
+
+`erl_parse` (plan 21 step LIB31) parses with the runtime builtin
+`clause_erl_parse:parse/1` (`builtins/front_end/parser*.cpp`), a
+recursive-descent parser of OTP's grammar over the token terms; the runtime
+does not link the compiler's parser, whose tree, diagnostics and annotations
+are Clause's own. It builds OTP's abstract format with the tokens' own
+annotations (any term passes through), and keeps OTP's LALR behaviour where it
+shows:
+
+- A syntax error names the token OTP's parser stops at, and an action's error
+  (`bad attribute`, `head mismatch: ...`, `bad record declaration`, ...) wins
+  over a syntax error after it exactly when one of OTP's default reductions
+  would run the action first: a function's clauses are checked before its dot,
+  `-record Name` without a comma is a bad declaration whatever follows.
+- `first_anno/1` and `last_anno/1`, which the actions use for matches, calls,
+  cons tails, clauses and constraints, walk the annotations in `map_anno/2`'s
+  order (`builtins/front_end/abstract_annos.cpp`) and compare locations as OTP
+  does, so line-only and odd annotations pick the same node.
+- Errors OTP's actions raise are raised: `function_clause` for `-record`
+  with a spec or more than one value, `case_clause` for a one-value
+  `-import`, `badmatch` for a spec of `fun((...) -> T)`.
+- `library/stdlib/erl_parse.erl` rewrites the tokens of `parse_form/1`,
+  `parse_exprs/1` and `parse_term/1` as OTP does, writes yecc's
+  `syntax error before:` messages and end locations, formats the action
+  messages with `io_lib:format/2`, runs `parse_and_scan/1`'s scanner until it
+  reports the end, and walks annotations with funs (`map_anno/2`,
+  `fold_anno/3`, `mapfold_anno/3`, `new_anno/1`, `anno_to_term/1`,
+  `anno_from_term/1`).
+- `normalise/1` (`abstract_normalise.cpp`) builds binaries segment by segment
+  with `eval_bits`' defaults; `abstract/1,2` is `clause_erl_parse:abstract/3`
+  for the encodings `latin1`, `unicode`, `utf8` and `none` and Erlang for an
+  encoding fun; `tokens/1,2`, `first_anno/1` and the precedence tables are
+  builtins.
+- `executables_erl_parse_forms` compares forms, expressions, terms, types,
+  specs, syntax and action errors, `abstract`, `normalise`, `tokens`, the
+  annotation walks and `parse_and_scan/1` with OTP.
+
 ## Zlib module
 
 `runtime/src/builtins/zlib/streams.cpp`, `library/erts/zlib.erl`. The runtime

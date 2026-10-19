@@ -1,5 +1,6 @@
 #include "../lists/list_walk.hpp"
 #include "../string/string.hpp"
+#include "front_end.hpp"
 #include <array>
 #include <initializer_list>
 
@@ -421,6 +422,8 @@ constexpr std::array ERL_INTERNAL_BUILTINS{
     typed_entry<type_test>("erl_internal", "type_test"),
 };
 } // namespace
+
+bool is_predefined_type(std::string_view name, std::int64_t arity) { return listed(TYPES, Entry{name, arity}); }
 } // namespace clause::runtime::builtins::front_end
 
 namespace clause::runtime {

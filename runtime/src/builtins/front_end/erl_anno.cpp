@@ -2,6 +2,7 @@
 #include "../../terms/structural_order.hpp"
 #include "../collections/collections.hpp"
 #include "../string/string.hpp"
+#include "front_end.hpp"
 #include <array>
 #include <clause/abi/immediate_services.hpp>
 
@@ -372,6 +373,14 @@ constexpr std::array ERL_ANNO_BUILTINS{
     typed_entry<to_term>("erl_anno", "to_term"),
 };
 } // namespace
+
+Term anno_location(ProcessContext &context, const Term &anno) { return location(context, {anno}); }
+
+Term anno_end_location(ProcessContext &context, const Term &anno) { return end_location(context, {anno}); }
+
+Term anno_set_location(ProcessContext &context, const Term &location, const Term &anno) {
+    return set_location(context, {location}, {anno});
+}
 } // namespace clause::runtime::builtins::front_end
 
 namespace clause::runtime {

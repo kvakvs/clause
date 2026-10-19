@@ -15,7 +15,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `maps:iterator/1,2`, `maps:next/1`, `erts_internal:map_next/3`, the order `maps` funs run in (`intersect_with/3`, `merge_with/3`, ...), `proplists:get_keys/1`, `sets` of version 2 (`to_list/1`, `fold/3`) | Internal order (atom-table order for atom keys, hash order above 32 keys); an iterator is a position or a `{K, V, Next}` chain | Canonical key order; an iterator continues over a key list | [builtins](builtins.md#erts-internal) |
 | Map printing (`erlang:display/1`, `~w`, `~p`) | Internal layout order (atom-table order for atom keys, hash order above 32 keys) | Map-key order, as OTP's `~kw` | [terms](terms.md#printing) |
 | Order of `digraph:vertices/1`, `edges/1`, `source_vertices/1`, `sink_vertices/1` and of `digraph_utils`' orderings and components where they start from those lists | The vertex and edge tables' hash order | Clause's hash order ([ETS](#ets)); paths and neighbour lists follow edge insertion in both | [builtins](builtins.md#digraph) |
-| Order of `maps:keys/1`, `values/1`, `to_list/1`, `fold/3`, of the members `json:encode/1` writes, and of `graph`'s vertex lists and traversals | The map's internal order (atom-table order for atom keys, hash order above 32 keys) | Key order | [library](library.md) |
+| Order of `maps:keys/1`, `values/1`, `to_list/1`, `fold/3`, of the members `json:encode/1` writes, of the fields `erl_parse:abstract/1,2` gives a map, and of `graph`'s vertex lists and traversals | The map's internal order (atom-table order for atom keys, hash order above 32 keys) | Key order | [library](library.md) |
 | Native record printing (`erlang:display/1`) | Fields in atom-table index order | Definition order, as `~w` | [native records](native-records.md#printing-and-order) |
 | `==` between native records whose fields differ only as integer/float | The compiler may fold it to `=:=` (false) | Numeric comparison (true) | [native records](native-records.md#printing-and-order) |
 | External native record construction of a module that is not loaded | Fails until the defining module is loaded | Every batch module is loaded at startup; a module outside the batch always fails | [native records](native-records.md#differences-kept) |
@@ -202,6 +202,12 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `{compiler_internal, [ssa_checks]}` | Scans `%ssa%` check comments into tokens | Ignored: they stay comments | [erl_scan](builtins.md#erl-scan) |
 | A based float (`16#1.8#e1`, base other than 10) whose digits exceed 53 bits | The mantissa converted as ERTS converts big integers | Accumulated in a double; the last bit may differ | [erl_scan](builtins.md#erl-scan) |
 | A list element that is not a character inside a string, quoted atom or escape | `function_clause`, `case_clause` or `if_clause`, depending on the clause | `function_clause` | [erl_scan](builtins.md#erl-scan) |
+
+## erl_parse
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| `'%ssa%'` tokens (SSA check clauses of OTP's compiler tests) | Parsed into `ssa_check_when` clauses | A syntax error; `erl_scan` never produces the token | [erl_parse](builtins.md#erl-parse) |
 
 ## Random numbers
 

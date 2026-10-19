@@ -692,6 +692,12 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   own (`builtins/front_end/scanner*.cpp`) clause for clause with OTP's
   `scan1/5`, re-entrant by rescanning the unfinished token; options and
   callbacks in `erl_scan.erl`; `erl_scan_tokens` golden
+- **LIB31** `erl_parse` (second step of the qlc chain): a recursive-descent
+  parser of OTP's grammar over token terms (`builtins/front_end/parser*.cpp`)
+  with OTP's abstract format, annotations, error tokens and action errors
+  (default-reduction order included); `normalise/1` with `eval_bits`' rules,
+  `abstract`, `tokens`, annotation walks; `erl_parse_forms` golden, plus a
+  scratch comparison with OTP over 765 OTP sources and token mutations
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

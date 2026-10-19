@@ -1199,6 +1199,20 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"erl_internal", "type_test", 2},
     // erl_scan's scanner (plan 21 step LIB30; runtime/src/builtins/front_end/erl_scan.cpp).
     BuiltinName{"clause_erl_scan", "scan", 6},
+    // erl_parse's parser and abstract-format functions (plan 21 step LIB31;
+    // runtime/src/builtins/front_end/erl_parse.cpp).
+    BuiltinName{"clause_erl_parse", "parse", 1},
+    BuiltinName{"clause_erl_parse", "abstract", 3},
+    BuiltinName{"erl_parse", "first_anno", 1},
+    BuiltinName{"erl_parse", "func_prec", 0},
+    BuiltinName{"erl_parse", "inop_prec", 1},
+    BuiltinName{"erl_parse", "max_prec", 0},
+    BuiltinName{"erl_parse", "normalise", 1},
+    BuiltinName{"erl_parse", "preop_prec", 1},
+    BuiltinName{"erl_parse", "tokens", 1},
+    BuiltinName{"erl_parse", "tokens", 2},
+    BuiltinName{"erl_parse", "type_inop_prec", 1},
+    BuiltinName{"erl_parse", "type_preop_prec", 1},
     // The io_lib module (plan 21 steps LIB4C, LIB4E; runtime/src/builtins/io_lib/).
     BuiltinName{"io_lib", "bformat", 2},
     // maps_order comparison funs (plan 21 step LIB4F; runtime/src/builtins/io_lib/key_orders.cpp).

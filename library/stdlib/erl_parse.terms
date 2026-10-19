@@ -1,0 +1,26 @@
+%% OTP 29 erl_parse exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{abstract, 1, default, implemented}.
+{abstract, 2, default, implemented}.
+{anno_from_term, 1, default, implemented}.
+{anno_to_term, 1, default, implemented}.
+{first_anno, 1, default, implemented}.
+{fold_anno, 3, default, implemented}.
+{format_error, 1, default, implemented}.
+{func_prec, 0, default, implemented}.
+{inop_prec, 1, default, implemented}.
+{map_anno, 2, default, implemented}.
+{mapfold_anno, 3, default, implemented}.
+{max_prec, 0, default, implemented}.
+{new_anno, 1, default, implemented}.
+{normalise, 1, default, implemented}.
+{parse, 1, default, implemented}.
+{parse_and_scan, 1, default, implemented}.
+{parse_exprs, 1, default, implemented}.
+{parse_form, 1, default, implemented}.
+{parse_term, 1, default, implemented}.
+{preop_prec, 1, default, implemented}.
+{tokens, 1, default, implemented}.
+{tokens, 2, default, implemented}.
+{type_inop_prec, 1, default, implemented}.
+{type_preop_prec, 1, default, implemented}.

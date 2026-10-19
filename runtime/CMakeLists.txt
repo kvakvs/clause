@@ -65,6 +65,12 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     # Module erl_scan (plan 21 step LIB30).
     src/builtins/front_end/scanner.cpp src/builtins/front_end/scanner_numbers.cpp
     src/builtins/front_end/scanner_texts.cpp src/builtins/front_end/erl_scan.cpp
+    # Module erl_parse (plan 21 step LIB31).
+    src/builtins/front_end/abstract_annos.cpp src/builtins/front_end/abstract_normalise.cpp
+    src/builtins/front_end/parser.cpp src/builtins/front_end/parser_attributes.cpp
+    src/builtins/front_end/parser_expressions.cpp src/builtins/front_end/parser_primaries.cpp
+    src/builtins/front_end/parser_control.cpp src/builtins/front_end/parser_types.cpp
+    src/builtins/front_end/erl_parse.cpp
     # The erlang gaps of plan 21 step LIB9A.
     src/builtins/erlang/checksums.cpp src/builtins/erlang/tuple_edits.cpp src/builtins/erlang/process_options.cpp
     src/builtins/erlang/system_flags.cpp src/builtins/erlang/packets.cpp src/builtins/erlang/packet_http.cpp

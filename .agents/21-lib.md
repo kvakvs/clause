@@ -25,20 +25,20 @@ create a new API that's for the end user to choose
   functions in `library/documented.terms`; `library_modules.py coverage .`
   prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888
-  documented functions; 1,471 are still to do (erts 23, kernel 545, stdlib
-  903). Appendix A lists them per module.
+  documented functions; 1,456 are still to do (erts 23, kernel 545, stdlib
+  888). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined):
   `atomics`, `counters`, `erl_prim_loader`, `persistent_term`, `prim_eval`,
   `zlib`, `binary`, `lists`, `maps`, `math`, `re` (`import/1` declined), `init`
   (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`, `dict`,
   `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`,
-  `filename`, `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `orddict`,
+  `filename`, `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`, `orddict`,
   `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
   `unicode`, `uri_string`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution,
   tracing), `code` (51), `io` (31), `file` (30), `inet` (19), `gen_udp` (5),
   `os` (4), `gen_tcp` (1), `ets` (2, LIB73), `dets` (2, LIB73).
-- **Missing:** 65 modules. Today a program gets the plain-Erlang ones (gen
+- **Missing:** 64 modules. Today a program gets the plain-Erlang ones (gen
   servers, `supervisor`, `timer`, ...) only by compiling OTP's sources from a
   search path.
 - **Callback-only modules** (no functions to implement, only behaviours to
@@ -220,13 +220,6 @@ follow.
 
 ## Tier D: Erlang front end as library modules
 
-### LIB31. `erl_parse` (C++)
-
-- `parse_form/1`, `parse_exprs/1` and `parse_term/1` over Clause's parser,
-  emitting OTP's abstract format.
-- `tokens/1,2` and `abstract/1,2` in C++; `normalise/1`, the `*_anno` functions
-  and `format_error/1` follow.
-
 ### LIB32. `erl_eval` (Erlang)
 
 - An evaluator of abstract forms written for Clause: `exprs/2,3,4`, `expr/2..5`,
@@ -364,7 +357,7 @@ error terms.
 ### LIB73. `qlc`
 
 Dependencies first (user direction 2026-10-19), in this order: LIB30
-`erl_scan` (done), LIB31 `erl_parse`, LIB54A `file_sorter`, LIB32 `erl_eval`, LIB34A
+`erl_scan` (done), LIB31 `erl_parse` (done), LIB54A `file_sorter`, LIB32 `erl_eval`, LIB34A
 (`erl_pp`, `erl_expand_records`, `erl_lint`'s checks for `qlc_pt`). See
 [the qlc chain](#qlc-chain-user-direction-2026-10-19).
 
@@ -416,7 +409,7 @@ missing, so programs that probe for them keep working.
 
 ### qlc chain (user direction 2026-10-19)
 
-Runs now, before the list below: LIB30 `erl_scan` (done), LIB31 `erl_parse`, LIB54A
+Runs now, before the list below: LIB30 `erl_scan` (done), LIB31 `erl_parse` (done), LIB54A
 `file_sorter` (its `term` format reads with `io:read/2`, so `io:read/1,2` of
 LIB33 come with it), LIB32 `erl_eval` (with the undocumented
 `extended_parse_exprs/1`, `fun_data/1` and `partial_eval/1` that `qlc` and
@@ -425,7 +418,10 @@ The runtime cannot link the compiler's `clause_frontend` (a separate,
 LLVM-free build; the compiler lexer throws Clause diagnostics and has no
 `erl_scan` continuations), so `erl_scan` and `erl_parse` get their own C++
 scanner and parser in `runtime/src/builtins/front_end/`, written to OTP's
-documented behavior and grammar.
+documented behavior and grammar. For `erl_parse` the user chose this over
+reusing the compiler's parser with the parse-transform export (2026-10-19):
+OTP's error tokens and messages, the tokens' own annotations, and no Boost in
+the runtime.
 
 ### General order
 
@@ -592,9 +588,6 @@ functions are listed separately and are optional.
   expr/2,3,4,5, expr_list/2,3,4, exprs/2,3,4, new_bindings/0
 - `erl_expand_records` (stdlib, 1): module/2
 - `erl_lint` (stdlib, 5): format_error/1, is_guard_test/1, module/1,2,3
-- `erl_parse` (stdlib, 15): abstract/1,2, anno_from_term/1, anno_to_term/1,
-  fold_anno/3, format_error/1, map_anno/2, mapfold_anno/3, new_anno/1,
-  normalise/1, parse_exprs/1, parse_form/1, parse_term/1, tokens/1,2
 - `erl_pp` (stdlib, 16): attribute/1,2, expr/1,2,3,4, exprs/1,2,3, form/1,2,
   function/1,2, guard/1,2, legalize_vars/1
 - `erl_tar` (stdlib, 14): add/3,4, close/1, create/2,3, extract/1,2,
