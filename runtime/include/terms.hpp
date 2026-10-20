@@ -3,6 +3,7 @@
 // TermFactory constructs numeric values, atoms and immutable containers with checked ownership.
 // Identity and callable constructors remain explicit reporting placeholders.
 #include <array>
+#include <byte_buffer.hpp>
 #include <clause/runtime/atom_names.hpp>
 #include <clause/runtime/features.hpp>
 #include <clause/runtime/terms.hpp>
@@ -74,7 +75,7 @@ class TermFactory final {
     // Copy bytes or an explicitly sized MSB-first sequence of bits.
     TermResult<Term> binary(std::span<const std::byte> bytes);
     // A binary of `bytes`, taking a large vector over as its buffer instead of copying it (owned binaries).
-    TermResult<Term> owned_binary(std::vector<std::byte> &&bytes);
+    TermResult<Term> owned_binary(ByteBuffer &&bytes);
     TermResult<Term> bitstring(std::span<const std::byte> bytes, std::size_t bit_count);
 
     // Wrap runtime-issued identities; constructing a term does not spawn/open a resource.

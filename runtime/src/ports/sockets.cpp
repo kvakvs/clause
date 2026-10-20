@@ -855,6 +855,11 @@ Bytes resolve(std::span<const std::byte> data) {
     return addresses.empty() ? failure("nxdomain") : ok(addresses);
 }
 
+// A socket answer as a port_control/3 reply, whose buffer type binaries take over (small replies only, copied once).
+std::optional<ByteBuffer> reply_of(std::optional<Bytes> answer) {
+    return answer ? std::optional{ByteBuffer(answer->begin(), answer->end())} : std::nullopt;
+}
+
 // hostname: this machine's host name, from the socket layer (plan step 41R); runs on the calling worker.
 Bytes hostname() {
     std::array<char, 256> name{};
@@ -893,17 +898,18 @@ class SocketDriver final : public PortDriver {
 
     bool controllable() const noexcept override { return true; }
 
-    std::optional<Bytes> control(std::uint32_t operation, std::span<const std::byte> data, Word caller) override {
+    std::optional<ByteBuffer> control(std::uint32_t operation, std::span<const std::byte> data, Word caller) override {
         const auto kind = static_cast<SocketOperation>(operation);
         if (kind == SocketOperation::resolve) {
-            return resolve(data);
+            return reply_of(resolve(data));
         }
         if (kind == SocketOperation::hostname) {
-            return hostname();
+            return reply_of(hostname());
         }
         Bytes copy(data.begin(), data.end());
-        return on_socket_thread(socket_->context(),
-                                [socket = socket_, caller, kind, copy] { return socket->operate(caller, kind, copy); });
+        return reply_of(on_socket_thread(socket_->context(), [socket = socket_, caller, kind, copy] {
+            return socket->operate(caller, kind, copy);
+        }));
     }
 
     // Learn the port's word; an accepted connection then starts serving on the I/O thread.

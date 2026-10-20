@@ -186,7 +186,7 @@ HandleRegistry &handle_registry() {
 } // namespace
 
 TermResult<Term> HandleAccess::publish_handle(ProcessHeap &heap, std::uint64_t number,
-                                              std::shared_ptr<const std::vector<std::byte>> buffer) {
+                                              std::shared_ptr<const ByteBuffer> buffer) {
     auto &storage = *heap.storage_;
     using layout::BoxHeader;
     using layout::RefcBinaryCell;
@@ -240,7 +240,7 @@ TermResult<Term> HandleAccess::reference(ProcessContext &context, std::uint64_t 
     return TermFactory(context).reference_number(number);
 }
 
-TermResult<const std::vector<std::byte> *> HandleAccess::buffer(const Term &value) noexcept {
+TermResult<const ByteBuffer *> HandleAccess::buffer(const Term &value) noexcept {
     const auto object = TermAccess::object(value);
     if (!object) {
         return std::unexpected(object.error());

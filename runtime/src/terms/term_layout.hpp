@@ -136,7 +136,7 @@ static_assert(heap_binary_payload_words(0, 4) == 1 && heap_binary_payload_words(
 static_assert(refc_payload_words(4) == 8 && refc_payload_words(8) == 8);
 
 // Packed MSB-first binary data shared by off-heap cells; immutable once published.
-using BinaryBuffer = std::vector<std::byte>;
+using BinaryBuffer = ByteBuffer;
 
 // Binaries up to this many bytes live inline on the heap; larger ones use a shared off-heap buffer.
 inline constexpr std::size_t heap_binary_bytes = HEAP_BINARY_THRESHOLD_WORDS * sizeof(Word);

@@ -256,7 +256,8 @@ test need no OTP (`docs/validation.md`).
 ### Ports and I/O (`ports/`, `docs/ports.md`)
 
 - Executor port table; drivers fd, spawn, file (`port_control` outside the
-  mutex), tcp/udp sockets.
+  mutex; binary data passed in place, `ByteBuffer` replies taken over as
+  binaries), tcp/udp sockets.
 - One Asio `Reactor` thread per runtime serves pipes, fd input, child exits,
   sockets (Windows overlapped pipes/wait pool; POSIX `async_wait`, `SIGCHLD`
   reaper).

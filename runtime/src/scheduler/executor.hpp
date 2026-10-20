@@ -374,8 +374,8 @@ class Executor final {
     // port_control(Port, Operation, Data) of the process `caller`: the driver's answer and whether the port is in
     // binary mode; none when the port is not open or its driver has no such operation. The driver runs without the
     // executor's lock.
-    std::optional<std::pair<std::vector<std::byte>, bool>>
-    control_port(ProcessContext &caller, Word port, std::span<const std::byte> data, std::uint32_t operation);
+    std::optional<std::pair<ByteBuffer, bool>> control_port(ProcessContext &caller, Word port,
+                                                            std::span<const std::byte> data, std::uint32_t operation);
     // A new socket port's driver ({spawn_driver, "tcp_inet" | "udp_inet"}), starting the I/O thread on first use.
     std::unique_ptr<PortDriver> socket_driver(bool udp);
     // An event of a socket port from the I/O thread: a message, or a connection accepted for a process; queued for

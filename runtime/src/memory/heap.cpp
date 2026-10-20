@@ -344,7 +344,7 @@ std::size_t ProcessHeap::off_heap_words() const noexcept { return storage_->off_
 
 void ProcessHeap::report(HeapError error) noexcept { owner_.generated_calls().fail_service(status(error)); }
 
-std::expected<std::shared_ptr<std::vector<std::byte>>, HeapError>
+std::expected<std::shared_ptr<ByteBuffer>, HeapError>
 ProcessHeap::off_heap_buffer(std::span<const std::byte> bytes) noexcept {
     auto failure = HeapError::out_of_memory;
     try {
@@ -360,8 +360,7 @@ ProcessHeap::off_heap_buffer(std::span<const std::byte> bytes) noexcept {
     return std::unexpected(failure);
 }
 
-std::expected<std::shared_ptr<std::vector<std::byte>>, HeapError>
-ProcessHeap::off_heap_buffer(std::vector<std::byte> &&bytes) noexcept {
+std::expected<std::shared_ptr<ByteBuffer>, HeapError> ProcessHeap::off_heap_buffer(ByteBuffer &&bytes) noexcept {
     auto failure = HeapError::out_of_memory;
     try {
         auto buffer = detail::make_buffer(*storage_, std::move(bytes));
@@ -376,7 +375,7 @@ ProcessHeap::off_heap_buffer(std::vector<std::byte> &&bytes) noexcept {
     return std::unexpected(failure);
 }
 
-std::expected<void, HeapError> ProcessHeap::hold_off_heap(const std::vector<std::byte> &buffer) noexcept {
+std::expected<void, HeapError> ProcessHeap::hold_off_heap(const ByteBuffer &buffer) noexcept {
     auto failure = HeapError::out_of_memory;
     try {
         const auto held = detail::hold_off_heap(*storage_, buffer);

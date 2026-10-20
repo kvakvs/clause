@@ -167,7 +167,7 @@ class HeapStorage final {
     std::size_t off_heap_words_ = 0;
     // Cells of this process per referenced off-heap buffer (layout::BinaryBuffer); a buffer stays in off_heap_words_
     // while its count is nonzero.
-    std::unordered_map<const std::vector<std::byte> *, std::size_t> buffers_;
+    std::unordered_map<const ByteBuffer *, std::size_t> buffers_;
     // Off-heap words at which a safepoint collects: twice the survivors of the last collection, at least the minimum.
     std::size_t binary_limit_words_ = MIN_BINARY_HEAP_WORDS;
     // Set when a minor collection for binary pressure freed less than half of the off-heap words: the next one is a

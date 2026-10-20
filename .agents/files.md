@@ -13,7 +13,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 | Runtime API | `runtime/include/clause/runtime/` (`atom_names.hpp`: `"name"_atom` cached literal atoms, `AtomName`) |
 | Generated-code ABI | `abi/include/clause/abi/` (one header per service family, `external_term.hpp` ETF codec, `keywords.hpp` the reserved words the lexer and atom printers share) |
 | Private headers | Beside owning source; runtime stays LLVM-free |
-| Sketches / legacy forwarders | `runtime/include/*.hpp`, `runtime/include/unverified/` |
+| Sketches / legacy forwarders | `runtime/include/*.hpp` (`byte_buffer.hpp`: `ByteBuffer`, unzeroed bytes of off-heap buffers and driver replies), `runtime/include/unverified/` |
 | New sources / tests | Register in owning `CMakeLists.txt` |
 
 ## Compiler — C

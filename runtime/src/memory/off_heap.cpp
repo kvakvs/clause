@@ -82,8 +82,8 @@ struct BufferCharge {
     }
 };
 
-// A buffer of `size` bytes starting with `bytes`: a kept one of that size when there is one, its room after the
-// input left as it was, else a new one zeroed after the input. Throws std::bad_alloc.
+// A buffer of `size` bytes starting with `bytes`, its room after the input unset: a kept one of that size when there
+// is one, else a new one. Throws std::bad_alloc.
 std::unique_ptr<BinaryBuffer> new_buffer(std::span<const std::byte> bytes, std::size_t size) {
     if (size >= CACHED_MIN_BYTES && std::has_single_bit(size)) {
         if (auto kept = buffer_cache().take(size)) {

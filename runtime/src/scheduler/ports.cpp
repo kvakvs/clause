@@ -572,7 +572,7 @@ std::vector<Word> Executor::ports() const {
     return words;
 }
 
-std::optional<std::pair<std::vector<std::byte>, bool>>
+std::optional<std::pair<ByteBuffer, bool>>
 Executor::control_port(ProcessContext &caller, Word port, std::span<const std::byte> data, std::uint32_t operation) {
     std::shared_ptr<PortDriver> driver;
     bool binary = false;

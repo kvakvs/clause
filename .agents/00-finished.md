@@ -586,6 +586,13 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   8450 to ~520 (OTP 549), mixed numbers 3850 to ~610 (OTP 653), atoms 735 to
   ~250 (OTP 373); `small_order` compares signed at the word's width (32-bit
   negatives) — `09db532a`
+- **OPT3.4** file I/O: off-heap buffers and driver replies are `ByteBuffer`s
+  that grow unzeroed (a 16 MB read_file was 27% memset), `port_control/3`
+  passes a binary to the driver in place (no iodata copy), and message copies
+  keep their stacks inline (a small message allocated 3-4 times per copy).
+  Pinned, Clause / OTP ms: large_write 1150 to 850 (OTP 960), read_file 1840 to
+  1390 (1510), read_line 1740 to 1485 (1550), large_read 1320 to 1180 (1460),
+  small_files 1180 to 1120 (1300) — `[plan20] OPT3.4 ...`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576

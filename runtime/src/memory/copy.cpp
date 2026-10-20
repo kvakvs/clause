@@ -8,8 +8,10 @@
 #include "process_heap.hpp"
 #include <algorithm>
 #include <boost/container/small_vector.hpp>
+#include <boost/container/throw_exception.hpp>
 #include <clause/runtime/process_context.hpp>
 #include <new>
+#include <span>
 #include <vector>
 
 // Copy a term graph between process heaps of one runtime (docs/runtime-heap.md#copying-between-heaps).
@@ -50,6 +52,11 @@ void drop_binaries(HeapStorage &storage, std::span<const RefcBinaryCell *const> 
 }
 } // namespace
 
+// Entries the stacks and binary lists of a copy hold inline: a small message's copy allocates nothing (OPT3.4 file
+// I/O, whose every request and reply is a small message).
+constexpr std::size_t INLINE_PENDING = 32;
+constexpr std::size_t INLINE_BINARIES = 4;
+
 // The objects reachable from a root, each reachable occurrence once, as OTP copies messages (BEAM size_object and
 // copy_struct, without its optional sharing-preserving variant): a shared subterm is copied as often as it is reached,
 // and no table maps source objects to copies (flat message copies).
@@ -66,38 +73,32 @@ class GraphCopy final {
           module_span_(runtime.module_span()) {}
 
     // Find every object occurrence reachable from root without recursion, in the order copy() visits them; false when
-    // a cell is malformed. May throw std::bad_alloc.
+    // a cell is malformed. May throw std::bad_alloc, also for an inline stack the container library cannot grow.
     bool discover(Word root) {
-        std::vector<Word> pending{root};
-        while (!pending.empty()) {
-            const auto value = discover_spine(pending);
-            if (copied(value) && !discover_boxed(value, pending)) {
-                return false;
-            }
+        try {
+            return walk(root);
+        } catch (const boost::container::exception &) {
+            throw std::bad_alloc();
         }
-        // copy() queues the same slots in the same order, so its stack never outgrows this one (unzeroed copies).
-        copy_pending_.reserve(depth_);
-        return true;
     }
 
     // Words of every object occurrence: the size of the destination reservation.
     std::size_t words() const noexcept { return words_; }
 
     // The source cells of off-heap binaries, one per copied binary cell.
-    const std::vector<const RefcBinaryCell *> &binaries() const noexcept { return binaries_; }
+    std::span<const RefcBinaryCell *const> binaries() const noexcept { return binaries_; }
 
     // Copy every object except binary cells into out in discovery order, reading each cell again and pointing each
     // slot at its child's copy; return the root's copy. Allocates nothing: discover() sized its stack, so a copy
     // never leaves out partly written.
     Word copy(Word root, std::span<Word> out) noexcept {
         Word result = root;
-        copy_pending_.clear();
-        copy_pending_.emplace_back(root, &result);
+        copy_height_ = 0;
+        push_copy(root, &result);
         auto *next = out.data();
         // Every slot already holds its source word, so a word that is not copied needs no write.
-        while (!copy_pending_.empty()) {
-            const auto [value, slot] = copy_pending_.back();
-            copy_pending_.pop_back();
+        while (copy_height_ > 0) {
+            const auto [value, slot] = copy_pending_.data()[--copy_height_];
             const auto [rest, rest_slot] = copy_spine(value, slot, next);
             if (copied(rest)) {
                 next = copy_boxed(rest, rest_slot, next);
@@ -137,6 +138,26 @@ class GraphCopy final {
     }
 
   private:
+    // Compound words discover() has yet to visit.
+    using Pending = boost::container::small_vector<Word, INLINE_PENDING>;
+
+    // discover()'s walk, whose inline stacks may throw the container library's own exceptions.
+    bool walk(Word root) {
+        Pending pending{root};
+        while (!pending.empty()) {
+            const auto value = discover_spine(pending);
+            if (copied(value) && !discover_boxed(value, pending)) {
+                return false;
+            }
+        }
+        // copy() queues the same slots in the same order, so its stack never outgrows this one (unzeroed copies).
+        copy_pending_.resize(depth_);
+        return true;
+    }
+
+    // Queue a slot on copy()'s stack, which discover() sized to its deepest height, so this never allocates.
+    void push_copy(Word value, Word *slot) noexcept { copy_pending_.data()[copy_height_++] = {value, slot}; }
+
     // Whether a word names an object the copy copies: literals are shared by every process of the runtime and stay
     // as they are (OPT0.4). Cells are read by trusted pointer, as BEAM's copy_struct does (one-word terms).
     bool copied(Word value) const noexcept { return compound(value) && !kept(address(value)); }
@@ -148,7 +169,7 @@ class GraphCopy final {
 
     // Count the copied cons cells from the word on top of pending on, queuing their compound heads; the word that
     // ends the spine. Tails are followed in place, so only heads wait on the stack (list spines).
-    Word discover_spine(std::vector<Word> &pending) {
+    Word discover_spine(Pending &pending) {
         auto value = pending.back();
         pending.pop_back();
         while (cons(value) && copied(value)) {
@@ -165,7 +186,7 @@ class GraphCopy final {
 
     // Count a copied boxed object and queue its compound slots, the only ones that can name an object; false when
     // the cell is malformed.
-    bool discover_boxed(Word value, std::vector<Word> &pending) {
+    bool discover_boxed(Word value, Pending &pending) {
         const auto cell = parse_cell(TermAccess::trusted_cell(value));
         if (!cell) {
             return false;
@@ -187,7 +208,7 @@ class GraphCopy final {
             to[1] = from[1];
             *slot = reinterpret_cast<Word>(to) | static_cast<Word>(abi::v1::list_tag);
             if (compound(to[0])) {
-                copy_pending_.emplace_back(to[0], to);
+                push_copy(to[0], to);
             }
             value = to[1];
             slot = to + 1;
@@ -211,7 +232,7 @@ class GraphCopy final {
         const auto first = static_cast<std::size_t>(cell->slots.data() - cell->words.data());
         for (auto &child : copy.subspan(first, cell->slots.size())) {
             if (compound(child)) {
-                copy_pending_.emplace_back(child, &child);
+                push_copy(child, &child);
             }
         }
         return next + copy.size();
@@ -249,13 +270,14 @@ class GraphCopy final {
     // The addresses the module literal areas spanned when the copy began (cheap literal tests).
     std::pair<std::uintptr_t, std::uintptr_t> module_span_;
     // Source cells of the copied off-heap binaries and the offsets of their copies.
-    std::vector<const RefcBinaryCell *> binaries_;
-    std::vector<std::size_t> binary_offsets_;
+    boost::container::small_vector<const RefcBinaryCell *, INLINE_BINARIES> binaries_;
+    boost::container::small_vector<std::size_t, INLINE_BINARIES> binary_offsets_;
     // Words of every object occurrence found.
     std::size_t words_ = 0;
-    // The deepest stack discover() needed, and copy()'s stack reserved to it, so copy() never allocates.
+    // The deepest stack discover() needed, and copy()'s stack sized to it with its height, so copy() never allocates.
     std::size_t depth_ = 1;
-    std::vector<std::pair<Word, Word *>> copy_pending_;
+    boost::container::small_vector<std::pair<Word, Word *>, INLINE_PENDING> copy_pending_;
+    std::size_t copy_height_ = 0;
 };
 } // namespace clause::runtime::detail
 

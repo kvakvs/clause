@@ -1,5 +1,6 @@
 #pragma once
 #include "input.hpp"
+#include <byte_buffer.hpp>
 #include <clause/runtime/terms.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -65,8 +66,8 @@ class PortDriver {
 
     // Answer port_control(Port, Operation, Data) of the process `caller` (a pid word); none for an operation the
     // driver does not have (badarg). Called without the executor's lock, possibly from two workers at once.
-    virtual std::optional<std::vector<std::byte>> control(std::uint32_t /*operation*/, std::span<const std::byte>,
-                                                          Word /*caller*/) {
+    virtual std::optional<ByteBuffer> control(std::uint32_t /*operation*/, std::span<const std::byte>,
+                                              Word /*caller*/) {
         return std::nullopt;
     }
 

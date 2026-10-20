@@ -276,6 +276,10 @@ stdout are pipes of the port:
   end of file). The protocol is Clause's own. read_line reads 64 KB ahead and
   returns lines from that buffer; any other operation on the file first seeks
   back over the bytes it has not returned, so positions stay exact.
+- `port_control/3` hands a binary or `[]` to the driver in place (other iodata
+  is flattened first), and a reply becomes the result binary without a copy:
+  replies are `ByteBuffer`s (`runtime/include/byte_buffer.hpp`), byte vectors
+  that grow without zeroing, so a read fills its reply's bytes once (OPT3.4).
 - `file:open/2` returns an I/O server pid that owns a file port and is linked to
   the opener (modes `read`, `write`, `append`, `exclusive`, `binary`; other
   modes are ignored, as OTP ignores options it does not use; `write` truncates

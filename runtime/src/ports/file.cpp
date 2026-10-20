@@ -27,7 +27,7 @@
 // with 0 (ok, then the result), 1 (error, then the POSIX reason) or 2 (end of file).
 namespace clause::runtime::detail {
 namespace {
-using Bytes = std::vector<std::byte>;
+using Bytes = ByteBuffer;
 
 // The operations of port_control/3 on a file port.
 enum class FileOperation : std::uint8_t {
@@ -66,9 +66,11 @@ constexpr std::size_t CHUNK = 4096;
 // Bytes read_line reads ahead at a time (read-ahead lines).
 constexpr std::size_t LINE_AHEAD = 65536;
 
-// A reply of success with `result`.
+// A reply of success with `result`, allocated once.
 Bytes ok(std::span<const std::byte> result = {}) {
-    Bytes reply{std::byte{0}};
+    Bytes reply;
+    reply.reserve(1 + result.size());
+    reply.push_back(std::byte{0});
     reply.insert(reply.end(), result.begin(), result.end());
     return reply;
 }
@@ -212,7 +214,8 @@ std::size_t file_size(int fd) {
 }
 
 // The success reply of the whole of an open descriptor, read straight into the reply after its status byte: sized
-// from the file's size and grown only when the file grew, so the bytes are copied once (owned binaries).
+// from the file's size, never zeroed first (OPT3.4 file I/O), and grown only when the file grew, so the bytes are
+// copied once (owned binaries).
 std::optional<Bytes> read_all(int fd) {
     Bytes reply(1 + std::max<std::size_t>(file_size(fd), CHUNK));
     reply[0] = std::byte{0};
@@ -475,6 +478,7 @@ class FileDriver final : public PortDriver {
         }
         // The bytes go straight into the reply after its status byte (owned binaries).
         Bytes reply(1 + size);
+        reply[0] = std::byte{0};
         const auto read = read_fd(fd_, std::span(reply).subspan(1));
         if (read < 0) {
             return errno_failure();
@@ -490,17 +494,17 @@ class FileDriver final : public PortDriver {
     // of a read-ahead buffer, refilled a chunk at a time, so consecutive lines cost no system call each (read-ahead
     // lines); the file position as other operations see it is just past the line.
     Bytes read_line() {
-        Bytes line;
+        Bytes reply;
         for (;;) {
-            if (take_line(line)) {
-                return ok(line);
+            if (take_line(reply)) {
+                return reply;
             }
             const auto read = refill();
             if (read < 0) {
                 return errno_failure();
             }
             if (read == 0) {
-                return line.empty() ? end_of_file() : ok(line);
+                return reply.empty() ? end_of_file() : reply;
             }
         }
     }
@@ -514,13 +518,19 @@ class FileDriver final : public PortDriver {
         return read;
     }
 
-    // Move buffered bytes to `line` up to and including a newline; true once the line ended.
-    bool take_line(Bytes &line) {
+    // Move buffered bytes up to and including a newline to a line's success reply, which the first of them start with
+    // its status byte, sized to them (a line read in one piece costs one allocation); true once the line ended.
+    bool take_line(Bytes &reply) {
         const auto rest = std::span(ahead_).subspan(ahead_at_);
         const auto newline = std::ranges::find(rest, std::byte{'\n'});
         const auto end = newline == rest.end() ? rest.end() : newline + 1;
-        line.insert(line.end(), rest.begin(), end);
-        ahead_at_ += static_cast<std::size_t>(end - rest.begin());
+        const auto size = static_cast<std::size_t>(end - rest.begin());
+        if (reply.empty() && size > 0) {
+            reply.reserve(1 + size);
+            reply.push_back(std::byte{0});
+        }
+        reply.insert(reply.end(), rest.begin(), end);
+        ahead_at_ += size;
         return newline != rest.end();
     }
 
@@ -570,7 +580,7 @@ class FileDriver final : public PortDriver {
     int fd_ = -1;
     unsigned mode_ = 0;
     // Bytes read_line read past the lines it returned, and the next one to return (read-ahead lines).
-    std::vector<std::byte> ahead_;
+    Bytes ahead_;
     std::size_t ahead_at_ = 0;
 };
 } // namespace

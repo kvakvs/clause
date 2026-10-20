@@ -157,7 +157,7 @@ TermResult<Term> BitAccess::make(ProcessHeap &heap, std::span<const std::byte> b
     }
 }
 
-TermResult<Term> BitAccess::owned(ProcessHeap &heap, std::vector<std::byte> &&bytes) {
+TermResult<Term> BitAccess::owned(ProcessHeap &heap, ByteBuffer &&bytes) {
     const auto count = bytes.size() * 8;
     if (bytes.size() <= layout::heap_binary_bytes) {
         return heap_binary(heap, bytes, count);
@@ -270,7 +270,7 @@ TermResult<Term> TermFactory::binary(std::span<const std::byte> bytes) {
     return bitstring(bytes, bytes.size() * 8);
 }
 
-TermResult<Term> TermFactory::owned_binary(std::vector<std::byte> &&bytes) {
+TermResult<Term> TermFactory::owned_binary(ByteBuffer &&bytes) {
     if (bytes.size() > std::numeric_limits<std::size_t>::max() / 8) {
         return std::unexpected(TermError::resource_limit);
     }

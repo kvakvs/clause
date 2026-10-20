@@ -6,8 +6,8 @@ generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
 OPT1.4, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
-OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17,
-read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
+OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4,
+sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
 
 ## Working rules for plan 20 steps
@@ -104,18 +104,18 @@ the step that owns it (unprofiled ones say so):
 | dataproc.int_to_list | 1683 / 894 | 1.88x | done (OPT3.8: 0.59x pinned) |
 | datagen.string_build | 1549 / 1035 | 1.50x | done (OPT3.8, OPT3.16: 0.58x pinned; now mostly collection) |
 | datagen.map_put | 2305 / 1601 | 1.44x | OPT3.15 remainder (0.92x pinned after OPT3.15) |
-| file.large_write | 1219 / 961 | 1.27x | OPT3.4 |
+| file.large_write | 1219 / 961 | 1.27x | done (OPT3.4: 0.88x pinned) |
 | dataproc.map_foldl | 1557 / 1240 | 1.26x | OPT1.12 (`lists:map` builds reversed) |
 | dataproc.sort | 1337 / 1070 | 1.25x | done (OPT3.17: 0.52x pinned) |
 | datagen.list_of_tuples | 1901 / 1527 | 1.25x | OPT3.18 (unprofiled) |
-| file.read_file | 1794 / 1488 | 1.21x | OPT3.4 |
+| file.read_file | 1794 / 1488 | 1.21x | done (OPT3.4: 0.92x pinned) |
 | datagen.bigint_factorial | 1333 / 1136 | 1.17x | OPT3.19 (unprofiled) |
-| file.read_line | 1739 / 1532 | 1.14x | OPT3.4 |
+| file.read_line | 1739 / 1532 | 1.14x | done (OPT3.4: 0.96x pinned) |
 | msg.ring | 1488 / 1448 | 1.03x | OPT3.9 remainder (small messages) |
-| file.large_read | 1486 / 1500 | 0.99x | OPT3.4 |
+| file.large_read | 1486 / 1500 | 0.99x | done (OPT3.4: 0.81x pinned) |
 | msg.large_message | 1043 / 1058 | 0.99x | OPT3.9 remainder |
 | gc.short_processes | 1569 / 1597 | 0.98x | OPT3.5 remainder |
-| file.small_files | 1309 / 1396 | 0.94x | OPT3.4 |
+| file.small_files | 1309 / 1396 | 0.94x | done (OPT3.4: 0.86x pinned) |
 | dataproc.small_map | 1386 / 1497 | 0.93x | OPT1.6 |
 | gc.long_lived_churn | 1189 / 1302 | 0.91x | OPT3.20 (collector, unprofiled) |
 | datagen.binary_append | 836 / 935 | 0.89x | OPT3.6 remainder |
@@ -174,6 +174,10 @@ building.
   "pinned" ratios in the table come from kernels run alone with this mask and
   are the ones to compare steps by. Keep other heavy jobs (builds, CTest, tidy)
   off the machine while timing.
+- Run file kernels in a directory under `F:\CLAUSE` (as `benchmarks/run.py`
+  does, `build/bench/runs`): in the user's Temp folder file creation is ~5x
+  slower for Clause programs (small_files 6.1 s against 1.2 s; OTP's `erl.exe`
+  is not slowed there, likely real-time scanning of the unsigned program).
 
 ## OPTM.5 Manual Optimization - Run benchmarks on P-cores only
 
@@ -218,13 +222,6 @@ largest first; steps whose kernels are already ahead stay, ranked lower.
 Profile each kernel before building (see
 [Profiling on Windows](#profiling-on-windows)).
 
-- **OPT3.4 file I/O (large_write 1.27x, read_file 1.21x, read_line 1.14x,
-  large_read 0.99x, small_files 0.94x):** read_line reads ahead (done). Kernels
-  now run in their own processes, so large_write's gap is its own (earlier
-  blamed on heaps left by earlier kernels). read_line is 41 against 29 ms per
-  20,000 lines run alone: the I/O server round trip (monitor, send, receive,
-  demonitor) per line; large_read is two thirds `ReadFile`. OTP's file
-  timings vary 6-25% per run.
 - **OPT3.18 list_of_tuples (1.25x, unprofiled):** builds a 200,000-element list
   of `{N, N * N, [N]}`; the cost is allocation and collection of a growing live
   set (its 3M-word old area).
@@ -536,7 +533,7 @@ and every read to inline (static decisions only).
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact
-   (2026-10-20 run): OPT3.4, OPT1.12, OPT3.18,
+   (2026-10-20 run): OPT1.12, OPT3.18,
    OPT3.19, OPT3.9 remainder; then the kernels already ahead: OPT3.5
    remainder, OPT1.6, OPT3.15 remainder, OPT3.20, OPT3.6 remainder, OPT1.5,
    OPT3.21, OPT3.22, term_to_binary remainder, OPT1.3.

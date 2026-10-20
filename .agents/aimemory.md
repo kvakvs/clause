@@ -45,6 +45,10 @@ gotchas and user directions not recorded elsewhere.
   Stale IDE buffers may revert plan edits.
 
 ## Host and toolchain
+- Code layout alone moves GC-heavy kernels ~5% (OPT3.4: list_of_tuples +7%,
+  list_to_tuple +4% with byte-identical GC/generated code, only other TUs
+  changed). Before blaming a change, diff object code (llvm-objdump -d with
+  symbol names stripped) between builds.
 - Repo F:/CLAUSE/clau (uppercase F: matters for programs.py <fixture>
   substitution and expectation runners: use absolute
   F:/CLAUSE/clau/build/debug/bin/Debug/clau.exe). build/ is wiped by

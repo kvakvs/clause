@@ -1,5 +1,6 @@
 #include "ports.hpp"
 #include "../../process/identities.hpp"
+#include "../../terms/bitstrings.hpp"
 #include "../text.hpp"
 #include "../typed.hpp"
 #include <array>
@@ -29,6 +30,15 @@ TermResult<Term> char_list(ProcessContext &context, std::string_view text) {
     return TermFactory(context).list(items);
 }
 
+// Append a binary's bytes, read in place unless it starts inside a byte (OPT3.4 file I/O).
+void append_binary(std::vector<std::byte> &bytes, const Term &binary) {
+    if (const auto part = detail::trusted_binary_bytes(binary.word())) {
+        bytes.insert(bytes.end(), part->begin(), part->end());
+        return;
+    }
+    const auto copied = need(binary.binary_bytes());
+    bytes.insert(bytes.end(), copied.begin(), copied.end());
+}
 } // namespace
 
 std::optional<std::vector<std::byte>> iodata_bytes(const Term &data) {
@@ -42,8 +52,7 @@ std::optional<std::vector<std::byte>> iodata_bytes(const Term &data) {
         if (byte && *byte >= 0 && *byte <= 255) {
             bytes.push_back(static_cast<std::byte>(*byte));
         } else if (item.is_binary()) {
-            const auto part = need(item.binary_bytes());
-            bytes.insert(bytes.end(), part.begin(), part.end());
+            append_binary(bytes, item);
         } else if (item.is_cons()) {
             pending.emplace_back(item.tail_unchecked(), false);
             pending.emplace_back(item.head_unchecked(), true);
@@ -379,30 +388,45 @@ TermResult<Term> port_connect(ProcessContext &context, const Term &port, const T
     return atom(context, "true"_atom);
 }
 
-// port_control(Port, Operation, Data): the driver's answer, a binary for a binary port, else a byte list; badarg for
-// a closed port, a driver without control or an operation it does not have.
-TermResult<Term> control(ProcessContext &context, Word port, std::optional<std::int64_t> code,
-                         const std::optional<std::vector<std::byte>> &bytes) {
-    if (!code || *code < 0 || *code > 0xffffffff || !bytes) {
-        bad_argument();
-    }
-    auto answer = detail::Executor::of(context).control_port(context, port, *bytes, static_cast<std::uint32_t>(*code));
-    if (!answer) {
-        bad_argument();
-    }
+// A driver's port_control/3 answer as the call returns it: the reply taken over as a binary for a binary port, else
+// a byte list.
+TermResult<Term> answer_term(ProcessContext &context, std::pair<ByteBuffer, bool> &&answer) {
     TermFactory factory(context);
-    if (answer->second) {
-        return factory.owned_binary(std::move(answer->first));
+    if (answer.second) {
+        return factory.owned_binary(std::move(answer.first));
     }
     std::vector<Word> list;
-    for (const auto byte : answer->first) {
+    list.reserve(answer.first.size());
+    for (const auto byte : answer.first) {
         list.push_back(need(encode_integer(std::to_integer<std::int64_t>(byte))));
     }
     return factory.list_words(list, need(factory.nil()));
 }
 
+// The data of port_control/3 read in place: a binary's own bytes, or none for an empty list (OPT3.4 file I/O).
+std::optional<std::span<const std::byte>> direct_bytes(const Term &data) {
+    return data.is_nil() ? std::optional{std::span<const std::byte>{}} : detail::trusted_binary_bytes(data.word());
+}
+
+// port_control(Port, Operation, Data): the driver's answer, a binary for a binary port, else a byte list; badarg for
+// a closed port, a driver without control or an operation it does not have. A binary or [] goes to the driver in
+// place, other iodata flattened first (OPT3.4 file I/O).
+TermResult<Term> control(ProcessContext &context, Word port, std::optional<std::int64_t> code, const Term &data) {
+    const auto direct = direct_bytes(data);
+    const auto flat = direct ? std::nullopt : iodata_bytes(data);
+    if (!code || *code < 0 || *code > 0xffffffff || (!direct && !flat)) {
+        bad_argument();
+    }
+    const auto bytes = direct ? *direct : std::span<const std::byte>(*flat);
+    auto answer = detail::Executor::of(context).control_port(context, port, bytes, static_cast<std::uint32_t>(*code));
+    if (!answer) {
+        bad_argument();
+    }
+    return answer_term(context, std::move(*answer));
+}
+
 TermResult<Term> port_control(ProcessContext &context, const Term &port, const Term &operation, const Term &data) {
-    return control(context, port_of(context, port), small(operation.word()), iodata_bytes(data));
+    return control(context, port_of(context, port), small(operation.word()), data);
 }
 
 // port_call(Port, Data) and port_call(Port, Operation, Data): no driver answers calls.

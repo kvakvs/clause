@@ -27,7 +27,7 @@ struct BitAccess {
     static TermResult<Term> make(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count);
     // A binary of every byte of `bytes`: a large one takes the vector over as its buffer, with no copy (owned
     // binaries).
-    static TermResult<Term> owned(ProcessHeap &heap, std::vector<std::byte> &&bytes);
+    static TermResult<Term> owned(ProcessHeap &heap, ByteBuffer &&bytes);
     // Share an off-heap source's buffer for a checked view; slices of heap binaries are copied.
     static TermResult<Term> slice(ProcessHeap &heap, const Term &source, std::size_t offset, std::size_t count);
     // The binary `accumulator` followed by `rest` (OPT0.6): written in place, as a sub-binary of the buffer's refc
@@ -52,8 +52,7 @@ struct BitAccess {
     // Publish a sub-binary: a range of an inline or off-heap binary's bits (OPT1.4B).
     static TermResult<Term> sub_binary(ProcessHeap &heap, Word original, BitRange range);
     // Publish an off-heap view; only a published cell receives the buffer reference and joins the list.
-    static TermResult<Term> refc_binary(ProcessHeap &heap, std::shared_ptr<const std::vector<std::byte>> buffer,
-                                        BitRange range);
+    static TermResult<Term> refc_binary(ProcessHeap &heap, std::shared_ptr<const ByteBuffer> buffer, BitRange range);
 };
 
 // Establish kind and lifetime before accessing any bit buffer or cursor.

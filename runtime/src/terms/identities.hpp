@@ -1,5 +1,6 @@
 #pragma once
 #include "term_text.hpp"
+#include <byte_buffer.hpp>
 #include <clause/runtime/terms.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -28,11 +29,11 @@ struct HandleAccess {
     // The reference of `number`: a handle reference again while its buffer lives, else a plain one (binary_to_term).
     static TermResult<Term> reference(ProcessContext &context, std::uint64_t number);
     // The buffer a handle reference holds, valid while the term is; wrong_type for every other term.
-    static TermResult<const std::vector<std::byte> *> buffer(const Term &value) noexcept;
+    static TermResult<const ByteBuffer *> buffer(const Term &value) noexcept;
 
   private:
     // Publish a handle reference cell of `number` holding `buffer`, charged to this process like an off-heap binary.
     static TermResult<Term> publish_handle(ProcessHeap &heap, std::uint64_t number,
-                                           std::shared_ptr<const std::vector<std::byte>> buffer);
+                                           std::shared_ptr<const ByteBuffer> buffer);
 };
 } // namespace clause::runtime::detail

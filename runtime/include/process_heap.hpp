@@ -1,6 +1,7 @@
 #pragma once
 
 // One heap block plus heap fragments supports transactional construction and copying collection.
+#include <byte_buffer.hpp>
 #include <clause/runtime/features.hpp>
 #include <clause/runtime/terms.hpp>
 
@@ -199,13 +200,11 @@ class ProcessHeap final {
     // Record a heap failure as the failed service's status, as reservations do.
     void report(HeapError error) noexcept;
     // Create an off-heap buffer holding bytes, charged to the runtime-wide account until its last reference dies.
-    std::expected<std::shared_ptr<std::vector<std::byte>>, HeapError>
-    off_heap_buffer(std::span<const std::byte> bytes) noexcept;
+    std::expected<std::shared_ptr<ByteBuffer>, HeapError> off_heap_buffer(std::span<const std::byte> bytes) noexcept;
     // The same taking over `bytes` without copying them (owned binaries).
-    std::expected<std::shared_ptr<std::vector<std::byte>>, HeapError>
-    off_heap_buffer(std::vector<std::byte> &&bytes) noexcept;
+    std::expected<std::shared_ptr<ByteBuffer>, HeapError> off_heap_buffer(ByteBuffer &&bytes) noexcept;
     // Count one more cell of this process referencing an off-heap buffer; the first charges the process budget.
-    std::expected<void, HeapError> hold_off_heap(const std::vector<std::byte> &buffer) noexcept;
+    std::expected<void, HeapError> hold_off_heap(const ByteBuffer &buffer) noexcept;
     // Copy the graph at root from another heap of the same runtime into this one, flat as OTP copies messages.
     TermResult<Term> copy(Word root) noexcept;
     // Hold the graph's binary buffers, reserve its words and publish the copy; any failure undoes every step.

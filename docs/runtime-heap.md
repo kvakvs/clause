@@ -86,7 +86,10 @@ that thread's next buffer of exactly that size (OPT3.6, like
 the cache is freed when the thread ends. A reused buffer's bytes after the new
 binary's own are left as they were: no view covers them. Without this, binary
 append loops took fresh pages for every grown buffer (the C++ heap returns the
-pages of large freed blocks) and zeroed the spare room of each.
+pages of large freed blocks). New buffers are `ByteBuffer`s
+(`runtime/include/byte_buffer.hpp`), which never zero their room either, so a
+port driver's reply (a whole file read) is written once and taken over as it is
+(OPT3.4).
 
 ### Handle references
 
@@ -617,9 +620,10 @@ read through trusted pointers, and a cons cell needs no parse:
   walks follow a list's tails in place, so only heads wait on the stack, and
   tell shared literals from heap cells with one range test against the span of
   all module literal areas. The first walk sizes the second's stack, so the
-  second allocates nothing and a message buffer's words need no zeroing. No
-  table maps source objects to copies, and only binary cells and map stubs keep
-  their offsets.
+  second allocates nothing and a message buffer's words need no zeroing. Both
+  stacks and the binary list hold their first entries inline, so a small
+  message's copy makes no host allocation (OPT3.4). No table maps source
+  objects to copies, and only binary cells and map stubs keep their offsets.
 - An off-heap binary's copy is a new cell sharing the buffer; the destination
   holds the buffer (charging its own off-heap words if it held none of it)
   before reserving, and lists the cell only after the reservation commits.
