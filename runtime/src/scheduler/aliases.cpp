@@ -43,8 +43,7 @@ TermResult<void> Executor::send_alias(ProcessContext &sender, const ReferenceIde
     if (mode == AliasMode::reply_demonitor) {
         executor.end_monitor(owner, reference);
     }
-    receiver->mailbox().deliver(copy->word());
-    return executor.wake(*receiver);
+    return executor.arrive(*receiver, copy->word());
 }
 
 void Executor::end_monitor(Word owner, const ReferenceIdentity &reference) noexcept {

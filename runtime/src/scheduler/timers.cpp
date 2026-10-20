@@ -1,5 +1,6 @@
 #include "executor.hpp"
 #include <algorithm>
+#include <new>
 
 // start_timer/send_after timers (plan step 41F, docs/processes.md#timers): armed in the receive-timeout wheel, their
 // messages kept in a MessageBuffer and copied into the receiver's heap when they fire, as a send copies.
@@ -69,15 +70,21 @@ void Executor::fire(MessageTimer &timer) {
 }
 
 void Executor::post(ProcessContext &receiver, const std::shared_ptr<const MessageBuffer> &message) {
-    auto &state = schedule(receiver);
-    if (state.ending) {
+    auto posted = Arrivals::Owned(Arrivals::Message::make(0));
+    posted->buffer = message;
+    post(receiver, std::move(posted));
+}
+
+void Executor::post(ProcessContext &receiver, Arrivals::Owned &&message) {
+    if (schedule(receiver).ending) {
         return;
     }
-    if (state.running) {
-        state.messages.push_back(message);
-        return;
+    // The receiver takes it into its heap when it next waits for a message (arrival buffers).
+    if (receiver.mailbox().arrivals().post(std::move(message)) && receiver.schedule().parked) {
+        if (const auto woken = wake(receiver); !woken) {
+            throw std::bad_alloc();
+        }
     }
-    deliver(receiver, message->copy_to(receiver));
 }
 
 void Executor::drop_timers(Word pid) noexcept {

@@ -1,4 +1,5 @@
 #include "../builtins/portions.hpp"
+#include "../memory/message_buffer.hpp"
 #include <array>
 #include <chrono>
 #include <clause/abi/messages.hpp>
@@ -47,6 +48,8 @@ bool expired(ProcessContext &context, const std::optional<std::int64_t> timeout)
 // true once a message the receive has not examined arrived, false once the timeout expired; until then the process
 // waits, resuming here.
 Word wait(ProcessContext &context, const builtins::Arguments state) {
+    // Messages other processes posted wait in buffers until the receiver looks (arrival buffers).
+    builtins::need(detail::MessageBuffer::take_arrivals(context, detail::MessageBuffer::ARRIVAL_BATCH));
     if (context.mailbox().unexamined()) {
         return builtins::need(TermFactory(context).boolean(true)).word();
     }

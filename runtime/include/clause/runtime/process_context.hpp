@@ -19,6 +19,7 @@ namespace detail {
 class RuntimeMemory;
 class IdentityNumbers;
 class Executor;
+struct Schedule;
 class MessageBuffer;
 class PersistentTerms;
 
@@ -110,6 +111,10 @@ class ProcessContext final : private abi::v1::FrameState {
     // The process's links and exit trapping (docs/processes.md#links).
     Signals &signals() noexcept { return signals_; }
 
+    // The executor's scheduling state of this process, kept with it so the executor finds it without a lookup
+    // (process creation and teardown).
+    detail::Schedule &schedule() noexcept { return *schedule_; }
+
     // The process dictionary (put/2, get/1, erase/1). Added for step 41C.
     ProcessDictionary &dictionary() noexcept { return dictionary_; }
 
@@ -163,6 +168,8 @@ class ProcessContext final : private abi::v1::FrameState {
     ProcessHeap heap_;
     // Messages sent to this process, roots until received; released before the heap they live in.
     Mailbox mailbox_;
+    // The executor's scheduling state (process creation and teardown).
+    std::unique_ptr<detail::Schedule> schedule_;
     // Links and exit trapping; holds no heap words.
     Signals signals_;
     // Process dictionary entries, roots until erased; released before the heap they live in. Added for step 41C.

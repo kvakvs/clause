@@ -56,9 +56,16 @@ Term status(const Inspection &inspection) {
     return atom(inspection.caller, inspection.executor.status(inspection.caller, inspection.target));
 }
 
-Term message_queue_len(const Inspection &inspection) { return integer(inspection, inspection.target.mailbox().size()); }
+// Messages still in their arrival buffers count too; the target does not run (arrival buffers).
+void take_arrivals(const Inspection &inspection) { need(detail::MessageBuffer::take_arrivals(inspection.target)); }
+
+Term message_queue_len(const Inspection &inspection) {
+    take_arrivals(inspection);
+    return integer(inspection, inspection.target.mailbox().size());
+}
 
 Term messages(const Inspection &inspection) {
+    take_arrivals(inspection);
     std::vector<Word> words;
     inspection.target.mailbox().visit([&](Word &word) { words.push_back(word); });
     std::vector<Term> items;

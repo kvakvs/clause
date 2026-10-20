@@ -151,18 +151,17 @@ each kernel before building (see [Profiling on Windows](#profiling-on-windows)).
   (36 ms). Lock timing at 32 workers: spawn waits 7 us and holds 1.75 us per
   spawn; the executor mutex is busy ~56% of the run. Each child's own cost is
   GC (7 collections, ~10k words copied, 65-70% of one-worker CPU).
-  - **A (done):** spawns build and load the child outside the lock; ended
-    contexts are freed after it. 8 workers 42 to 36 ms; 32 unchanged.
-  - **B:** sends without the global lock: every message from another process
-    goes into a buffer on the receiver's per-process inbox (own small lock,
-    pid table sharded with its own locks); the receiver drains it at receive
-    waits and before its slice-end lock; deliveries under the global lock drain
-    it first (per-sender order); parking checks it under the inbox lock.
+  - **A, B (done):** spawn/teardown outside the lock; lock-free sends to
+    running receivers (arrival lists, lock-free process table, quiescent
+    reclamation), `Schedule` kept with the process. 32 workers 52 to 28 ms
+    (OTP 22), 8 workers 25 ms (OTP 29).
   - **C:** spawn and queueing without the global lock: per-queue locks and
-    condvars, `Schedule` stored with the process (no `schedules_` map); picks
-    stay under the global lock (it guards non-running heaps).
+    condvars; picks stay under the global lock (it guards non-running heaps).
+    At 32 workers the spawn loop is still 5.4 us per spawn against 2.4 at 8.
   - **D:** faster collection per word for the children (`Copier::evacuate`,
     `parse_cell`), also the 69A collection kernels.
+  - **Watch:** gc.long_lived_churn run after short_processes measured 0.91x of
+    the base (equal when run alone): allocator state after the spawn storm.
   - Later: picks and slice ends under a per-process lock (full ERTS model).
 - **OPT3.6 binary_append (3.6x):** `<<Bin/binary, N:32>>` 10,000 times: one
   service call per append on the appendable buffer, and collections of the

@@ -333,16 +333,16 @@ into a receiver's heap. Immediates and literal roots need no storage. Factories,
 reservations and message buffers keep their lifetime checks (`expired_context`);
 a Term read from a buffer pins nothing and must not outlive its backing.
 The buffer is never collected and is freed with its last owner; its block is
-exactly the term's words, whatever the sender's minimum heap. Messages to a
-process running on another worker ([workers](processes.md#workers)), timer
-messages and monitor tags use it, so they are never re-encoded;
+exactly the term's words, whatever the sender's minimum heap. Sends to other
+processes ([arrival buffers](processes.md#arrival-buffers)), timer messages
+and monitor tags use it, so they are never re-encoded;
 [persistent terms](runtime.md#persistent-terms) live in their own address range
 and are copied, not shared, into buffers.
 
 **Message hand-off.** A send whose message takes at least
 `MessageBuffer::ADOPTED_WORDS` (512) words, counted by
 `MessageBuffer::large(value, sender, minimum)` with a bounded walk that stops
-there, builds the buffer before taking the executor lock, so the sender holds
+there, always goes through a buffer, built before any lock, so the sender holds
 no lock while copying. The receiver then takes the buffer over instead of
 copying it (`MessageBuffer::take`, `HeapStorage::adopt`), when the buffer has
 no other owner and the receiver has a heap block and no budget: the block joins

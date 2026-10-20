@@ -24,6 +24,18 @@ using abi::v1::Status;
 // The first capacity of the list of contexts waiting to be freed after the lock (process creation and teardown).
 constexpr std::size_t RETIRED_CONTEXTS = 16;
 
+// The arrival message of a send to a running receiver: the large message's buffer built already, or a new message
+// (arrival messages).
+TermResult<Arrivals::Owned> arrival_of(const std::shared_ptr<const MessageBuffer> &large, const Term &message,
+                                       ProcessContext &sender) {
+    if (!large) {
+        return MessageBuffer::arrival(message, sender);
+    }
+    auto posted = Arrivals::Owned(Arrivals::Message::make(0));
+    posted->buffer = large;
+    return posted;
+}
+
 // The term error of a failed context creation.
 TermError creation_error(Status status) {
     return status == Status::out_of_memory ? TermError::out_of_memory : TermError::resource_limit;
@@ -43,13 +55,11 @@ Executor &Executor::of(ProcessContext &context) noexcept { return context.runtim
 
 void Executor::evacuate_parked() {
     const std::scoped_lock lock(mutex_);
-    for (auto *process : parked_) {
-        evacuate(*process);
-    }
-    // A process suspended on a busy port is neither queued nor parked, and may stay so.
-    for (auto &[process, state] : schedules_) {
-        if (state.port_wait != 0 && !state.running) {
-            evacuate(*process);
+    for (const auto &[process, owner] : runtime_.contexts) {
+        // A process suspended on a busy port is neither queued nor parked, and may stay so.
+        const auto &state = owner->schedule();
+        if (state.parked || (state.port_wait != 0 && !state.running)) {
+            evacuate(*owner);
         }
     }
 }
@@ -75,11 +85,13 @@ bool Executor::start(ProcessContext &process, const FrameDescriptor &function) n
     }
     try {
         // A spawned process starts on its parent's worker (run queues).
-        schedules_[&process].home = worker_ ? worker_index_ : 0;
+        auto &state = schedule(process);
+        state.started = true;
+        state.home = worker_ ? worker_index_ : 0;
         push(process);
         return true;
     } catch (const std::bad_alloc &) {
-        schedules_.erase(&process);
+        schedule(process).started = false;
         process.generated_calls().fail_service(Status::out_of_memory);
         return false;
     }
@@ -112,6 +124,7 @@ TermResult<Term> Executor::create(ProcessContext &parent, Prepare prepare, const
     if (const auto published = runtime.publish_context(std::move(*built)); !published) {
         return std::unexpected(creation_error(published.error()));
     }
+    retire_arrays();
     // A spawned process inherits its parent's group leader (step 41G1).
     const auto leader = parent.signals().group_leader();
     child.signals().set_group_leader(leader != 0 ? leader : pid_of(parent));
@@ -161,7 +174,7 @@ TermResult<Term> Executor::adopt(ProcessContext &parent, ProcessContext &child, 
         return result;
     }
     try {
-        schedules_[&child] = {};
+        schedule(child).started = true;
         if (options.link) {
             parent.signals().link(pid.word());
             child.signals().link(pid_of(parent));
@@ -214,9 +227,7 @@ ProcessContext *Executor::process(Word pid) const noexcept {
     if (TermTag{pid}.get_kind() != TermKind::local_pid) {
         return nullptr;
     }
-    const auto &processes = runtime_.processes;
-    const auto found = processes.find(pid_number(pid));
-    return found == processes.end() ? nullptr : found->second;
+    return runtime_.processes.find(pid_number(pid));
 }
 
 bool Executor::alive(ProcessContext &context, Word pid) noexcept {
@@ -226,62 +237,104 @@ bool Executor::alive(ProcessContext &context, Word pid) noexcept {
 
 TermResult<void> Executor::send(ProcessContext &sender, Word pid, const Term &message) {
     auto &executor = of(sender);
-    // A large message is copied into a buffer of its own before the lock, then handed over (message hand-off).
+    if (pid == sender.self) {
+        // The sender's own heap holds the message already.
+        sender.mailbox().deliver(message.word());
+        return {};
+    }
+    if (TermTag{pid}.get_kind() != TermKind::local_pid) {
+        return {};
+    }
+    // A large message is copied into a buffer of its own before any lock, then handed over (message hand-off).
     auto large = MessageBuffer::large(message, sender, MessageBuffer::ADOPTED_WORDS)
                      ? MessageBuffer::copy_of(message, sender)
                      : TermResult<std::shared_ptr<const MessageBuffer>>{nullptr};
     if (!large) {
         return std::unexpected(large.error());
     }
-    const std::scoped_lock lock(executor.mutex_);
+    const auto running = executor.running_arrivals(sender, pid);
+    if (!running) {
+        return {};
+    }
+    return *running != nullptr ? executor.send_running(sender, {.pid = pid, .arrivals = **running}, message, *large)
+                               : executor.send_locked(sender, pid, message, *large);
+}
+
+std::optional<Arrivals *> Executor::running_arrivals(ProcessContext &sender, Word pid) const noexcept {
+    // A receiver that was not running at the last send to it most likely still is not: no lookup then. Only workers
+    // look up without the lock, as only their slice boundaries keep what they find allocated (quiescent reclamation).
+    auto &hint = sender.mailbox().send_hint();
+    if (!worker_ || (hint.pid == pid && !hint.running)) {
+        return nullptr;
+    }
+    auto *arrivals = runtime_.processes.arrivals(pid_number(pid));
+    if (arrivals == nullptr) {
+        return std::nullopt;
+    }
+    hint = {.pid = pid, .running = arrivals->running()};
+    return hint.running ? arrivals : nullptr;
+}
+
+TermResult<void> Executor::send_running(ProcessContext &sender, RunningReceiver receiver, const Term &message,
+                                        const std::shared_ptr<const MessageBuffer> &large) {
+    // A receiver running on another worker takes the message from its arrivals; no executor lock (arrival buffers).
+    auto posted = arrival_of(large, message, sender);
+    if (!posted) {
+        return std::unexpected(posted.error());
+    }
+    if (!receiver.arrivals.post(std::move(*posted))) {
+        return {};
+    }
+    const std::scoped_lock lock(mutex_);
+    auto *parked = find(sender, receiver.pid);
+    return parked && parked->schedule().parked ? wake(*parked) : TermResult<void>{};
+}
+
+TermResult<void> Executor::send_locked(ProcessContext &sender, Word pid, const Term &message,
+                                       const std::shared_ptr<const MessageBuffer> &large) {
+    const std::scoped_lock lock(mutex_);
     auto *found = find(sender, pid);
     if (!found) {
         return {};
     }
     auto &receiver = *found;
-    if (*large) {
-        return executor.hand_over(receiver, *large);
-    }
-    if (executor.busy(&receiver)) {
-        // Buffered sends: a message to a process running on another worker waits in a buffer of its own and is
-        // delivered, in order, when that slice ends, instead of blocking the sender until then.
-        const auto buffered = MessageBuffer::copy_of(message, sender);
-        if (!buffered) {
-            return std::unexpected(buffered.error());
+    // It began a slice meanwhile, or earlier messages still wait among its arrivals: this one goes behind them, never
+    // past them, and the sender copies no backlog under the lock.
+    if (busy(&receiver) || receiver.mailbox().arrivals().pending()) {
+        sender.mailbox().send_hint().running = busy(&receiver);
+        auto posted = arrival_of(large, message, sender);
+        if (!posted) {
+            return std::unexpected(posted.error());
         }
-        executor.post(receiver, *buffered);
+        post(receiver, std::move(*posted));
         return {};
     }
-    const auto copy = message.copy_to(receiver.heap());
+    const auto copy = large ? MessageBuffer::take(large, receiver) : message.copy_to(receiver.heap());
     if (!copy) {
         return std::unexpected(copy.error());
     }
     receiver.mailbox().deliver(copy->word());
-    return executor.wake(receiver);
-}
-
-TermResult<void> Executor::hand_over(ProcessContext &receiver, const std::shared_ptr<const MessageBuffer> &message) {
-    if (busy(&receiver)) {
-        post(receiver, message);
-        return {};
-    }
-    const auto taken = MessageBuffer::take(message, receiver);
-    if (!taken) {
-        return std::unexpected(taken.error());
-    }
-    receiver.mailbox().deliver(taken->word());
     return wake(receiver);
 }
 
-Executor::Schedule &Executor::schedule(ProcessContext &process) { return schedules_[&process]; }
+TermResult<void> Executor::arrive(ProcessContext &receiver, Word message) {
+    // Arrival buffers came before it.
+    if (const auto taken = MessageBuffer::take_arrivals(receiver); !taken) {
+        return taken;
+    }
+    receiver.mailbox().deliver(message);
+    return wake(receiver);
+}
+
+Schedule &Executor::schedule(ProcessContext &process) { return process.schedule(); }
 
 bool Executor::busy(ProcessContext *process) const noexcept {
-    const auto found = schedules_.find(process);
-    return process != running_ && found != schedules_.end() && found->second.running;
+    return process != running_ && process->schedule().running;
 }
 
 void Executor::block(ProcessContext &process, ProcessContext &target) {
     schedule(process).blocked_on = &target;
+    schedule(process).blocked_pid = target.self;
     throw builtins::Blocked{};
 }
 
@@ -420,19 +473,17 @@ TermResult<void> Executor::wake(ProcessContext &receiver) {
         return std::unexpected(TermError::out_of_memory);
     }
     receiver.stack().wake();
-    parked_.erase(&receiver);
+    receiver.mailbox().arrivals().unpark();
+    schedule(receiver).parked = false;
     cancel(receiver);
     return {};
 }
 
-void Executor::cancel(ProcessContext &process) noexcept {
-    if (const auto found = schedules_.find(&process); found != schedules_.end()) {
-        wheel_.cancel(found->second.timer);
-    }
-}
+void Executor::cancel(ProcessContext &process) noexcept { wheel_.cancel(process.schedule().timer); }
 
 void Executor::expire(ProcessContext &process) {
-    parked_.erase(&process);
+    process.mailbox().arrivals().unpark();
+    schedule(process).parked = false;
     process.stack().wake();
     push(process);
 }
@@ -446,7 +497,13 @@ std::uint64_t Executor::tick_of(const std::chrono::steady_clock::time_point dead
 }
 
 void Executor::park(ProcessContext &process) {
-    parked_.insert(&process);
+    // A message that arrived since the process last looked lets it run again instead (arrival buffers).
+    if (!process.mailbox().arrivals().park()) {
+        process.stack().wake();
+        push(process);
+        return;
+    }
+    schedule(process).parked = true;
     // A retirement may have come while it ran, after evacuate_parked last looked (persistent term reclamation).
     evacuate(process);
     if (const auto deadline = process.mailbox().deadline()) {
@@ -500,6 +557,8 @@ void Executor::work(const std::size_t index) noexcept {
     worker_ = true;
     worker_index_ = index;
     std::unique_lock lock(mutex_);
+    auto &seen = queues_[index]->seen;
+    seen.store(reclaim_epoch_.load());
     while (!finished_) {
         try {
             if (const auto port = next_port()) {
@@ -510,12 +569,15 @@ void Executor::work(const std::size_t index) noexcept {
             if (!next) {
                 auto &queue = *queues_[index];
                 queue.idle = true;
+                seen.store(QUIESCENT);
                 queue.wake.wait(lock);
+                seen.store(reclaim_epoch_.load());
                 queue.idle = false;
                 continue;
             }
             auto &process = *next;
             schedule(process).running = true;
+            process.mailbox().arrivals().set_running(true);
             ++slices_;
             lock.unlock();
             running_ = &process;
@@ -523,6 +585,8 @@ void Executor::work(const std::size_t index) noexcept {
             const bool ended = process.stack().run(SLICE_REDUCTIONS);
             running_ = nullptr;
             lock.lock();
+            // A slice boundary: nothing this worker found without the lock is held any more (quiescent reclamation).
+            seen.store(reclaim_epoch_.load());
             after(process, ended);
             free_retired(lock);
         } catch (const std::bad_alloc &) {
@@ -532,8 +596,57 @@ void Executor::work(const std::size_t index) noexcept {
             std::terminate();
         }
     }
+    seen.store(QUIESCENT);
     worker_ = false;
     wake_all();
+}
+
+void Executor::retire(std::unique_ptr<Reclaimable> retired) noexcept {
+    if (!retired) {
+        return;
+    }
+    auto *last = retired.release();
+    last->stamp = reclaim_epoch_.fetch_add(1) + 1;
+    (retired_last_ != nullptr ? retired_last_->next : retired_first_) = last;
+    retired_last_ = last;
+    ++retired_count_;
+}
+
+void Executor::retire_arrays() noexcept {
+    for (auto &array : runtime_.processes.take_retired()) {
+        retire(std::move(array));
+    }
+}
+
+Reclaimable *Executor::reclaimable() noexcept {
+    // Retirements reclaimed together, so the workers' epochs are read once per batch.
+    constexpr std::size_t RECLAIM_BATCH = 64;
+    if (retired_count_ < RECLAIM_BATCH) {
+        return nullptr;
+    }
+    auto oldest = QUIESCENT;
+    for (const auto &queue : queues_) {
+        oldest = std::min(oldest, queue->seen.load());
+    }
+    Reclaimable *passed = nullptr;
+    Reclaimable *tail = nullptr;
+    while (retired_first_ != nullptr && retired_first_->stamp <= oldest) {
+        auto *next = std::exchange(retired_first_, retired_first_->next);
+        next->next = nullptr;
+        (tail != nullptr ? tail->next : passed) = next;
+        tail = next;
+        --retired_count_;
+    }
+    if (retired_first_ == nullptr) {
+        retired_last_ = nullptr;
+    }
+    return passed;
+}
+
+void Executor::free_reclaimed(Reclaimable *list) noexcept {
+    while (list != nullptr) {
+        delete std::exchange(list, list->next);
+    }
 }
 
 void Executor::prepare(ProcessContext &process) const {
@@ -557,8 +670,13 @@ void Executor::settle(ProcessContext &process, ProcessContext *blocked_on) {
 void Executor::after(ProcessContext &process, bool ended) {
     auto &state = schedule(process);
     state.running = false;
+    process.mailbox().arrivals().set_running(false);
     const auto blockers = std::exchange(state.blockers, {});
+    // The process waited for may have ended since: only its pid finds it then, and never again.
     auto *blocked_on = std::exchange(state.blocked_on, nullptr);
+    if (blocked_on != nullptr && find(process, std::exchange(state.blocked_pid, 0)) != blocked_on) {
+        blocked_on = nullptr;
+    }
     const auto throttled = std::exchange(state.throttling, {});
     release(process);
     // The process is placed before its blockers act: a message they deliver must find it parked, not mid-way.
@@ -571,9 +689,6 @@ void Executor::after(ProcessContext &process, bool ended) {
         settle(process, blocked_on);
         for (const auto &event : std::exchange(state.events, {})) {
             apply(process, event);
-        }
-        for (const auto &message : std::exchange(state.messages, {})) {
-            deliver(process, MessageBuffer::take(message, process));
         }
     }
     resume(blockers);
@@ -597,6 +712,7 @@ void Executor::resume(const std::vector<ProcessContext *> &blockers) {
         auto &blocker = **at;
         auto &state = schedule(blocker);
         state.blocked_on = nullptr;
+        state.blocked_pid = 0;
         if (std::exchange(state.ending, false)) {
             finish(blocker);
         } else {
@@ -606,10 +722,10 @@ void Executor::resume(const std::vector<ProcessContext *> &blockers) {
 }
 
 void Executor::place(ProcessContext &process, ProcessContext *blocked_on) {
-    // The process waited for may have ended since; its address is then only compared, never used.
     if (blocked_on && busy(blocked_on)) {
         schedule(*blocked_on).blockers.push_back(&process);
         schedule(process).blocked_on = blocked_on;
+        schedule(process).blocked_pid = blocked_on->self;
     } else if (process.stack().waiting()) {
         park(process);
     } else {
@@ -695,9 +811,9 @@ void Executor::destroy(ProcessContext &process) noexcept {
     cancel(process);
     drop_timers(pid_of(process));
     drop_aliases(pid_of(process));
-    schedules_.erase(&process);
     auto &runtime = process.runtime();
     auto context = runtime.unpublish_context(process);
+    retire(context->mailbox().release_arrivals());
     if (retired_contexts_.size() == retired_contexts_.capacity()) {
         try {
             retired_contexts_.reserve(std::max(RETIRED_CONTEXTS, 2 * retired_contexts_.capacity()));
@@ -714,6 +830,7 @@ Executor::~Executor() {
     if (reactor_) {
         reactor_->stop();
     }
+    free_reclaimed(retired_first_);
 }
 
 void Executor::clear() noexcept {
@@ -746,19 +863,29 @@ void Executor::clear() noexcept {
         auto &runtime = context->runtime();
         runtime.free_context(std::move(context));
     }
+    // No worker runs any more.
+    free_reclaimed(std::exchange(retired_first_, nullptr));
+    retired_last_ = nullptr;
+    retired_count_ = 0;
     // The wheel links timers embedded in the schedules: unlink them while the schedules still exist.
     wheel_.clear();
-    for (const auto &[process, state] : schedules_) {
-        if (process != finished_) {
-            process->runtime().destroy_context(process);
+    std::vector<ProcessContext *> started;
+    for (const auto &[process, owner] : runtime_.contexts) {
+        if (owner->schedule().started && owner.get() != finished_) {
+            started.push_back(owner.get());
         }
     }
-    schedules_.clear();
+    for (auto *process : started) {
+        process->runtime().destroy_context(process);
+    }
+    // The program's outcome stays with the host, unscheduled.
+    if (finished_ != nullptr) {
+        finished_->schedule() = Schedule{};
+    }
     for (const auto &queue : queues_) {
         queue->processes.clear();
     }
     port_queue_.clear();
-    parked_.clear();
     ending_.clear();
     stopped_.clear();
     names_.clear();

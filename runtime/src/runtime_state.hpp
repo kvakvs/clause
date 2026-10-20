@@ -4,6 +4,7 @@
 #include "memory/runtime_memory.hpp"
 #include "modules/literal_areas.hpp"
 #include "process/identities.hpp"
+#include "process/process_table.hpp"
 #include "process/profile.hpp"
 #include "scheduler/executor.hpp"
 #include <clause/runtime/code_server.hpp>
@@ -43,8 +44,9 @@ class Runtime::Impl final {
     detail::ets::Tables ets_tables;
     // Destroy process owners before the above service bindings; no signals or workers exist yet.
     std::unordered_map<const ProcessContext *, std::unique_ptr<ProcessContext>> contexts;
-    // Live processes by pid number, for is_process_alive/1 and later routing.
-    std::unordered_map<Word, ProcessContext *> processes;
+    // Live processes by pid number, for is_process_alive/1 and sends; sharded so a send needs no executor lock
+    // (arrival buffers).
+    detail::ProcessTable processes;
     // Costs of ended processes when RuntimeOptions::profile names a report; null otherwise.
     std::unique_ptr<detail::RuntimeProfile> profile;
     // Run processes on the scheduler workers (RuntimeOptions::schedulers) while the program runs.

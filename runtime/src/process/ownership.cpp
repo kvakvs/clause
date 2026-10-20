@@ -58,13 +58,14 @@ Runtime::build_context(const HeapOptions options, const StackOptions stack_optio
 
 std::expected<ProcessContext *, Status> Runtime::publish_context(std::unique_ptr<ProcessContext> context) noexcept {
     auto *borrowed = context.get();
+    const auto number = static_cast<Word>(borrowed->identity().serial_);
     try {
-        const auto process = impl_->processes.emplace(static_cast<Word>(borrowed->identity().serial_), borrowed).first;
+        impl_->processes.insert(number, *borrowed);
         try {
             // The owner moves in only once the entry exists, so a failed insertion leaves it here.
             impl_->contexts.emplace(borrowed, nullptr).first->second = std::move(context);
         } catch (...) {
-            impl_->processes.erase(process);
+            impl_->processes.erase(number);
             throw;
         }
         return borrowed;

@@ -56,13 +56,15 @@ void Executor::release_tables(ProcessContext &process) {
 }
 
 void Executor::free_retired(std::unique_lock<std::mutex> &lock) {
-    if (retired_tables_.empty() && retired_contexts_.empty()) {
+    auto *reclaimed = reclaimable();
+    if (retired_tables_.empty() && retired_contexts_.empty() && reclaimed == nullptr) {
         return;
     }
     auto tables = std::exchange(retired_tables_, {});
     auto contexts = std::exchange(retired_contexts_, {});
     lock.unlock();
     tables.clear();
+    free_reclaimed(reclaimed);
     for (auto &context : contexts) {
         auto &runtime = context->runtime();
         runtime.free_context(std::move(context));

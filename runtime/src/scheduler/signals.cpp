@@ -189,6 +189,12 @@ void Executor::deliver(ProcessContext &process, const TermResult<Term> &message)
         retire(process);
         return;
     }
+    // Arrival buffers came before it.
+    if (const auto taken = MessageBuffer::take_arrivals(process); !taken) {
+        process.generated_calls().fail_service(term_status(taken.error()));
+        retire(process);
+        return;
+    }
     process.mailbox().deliver(message->word());
     if (const auto woken = wake(process); !woken) {
         throw std::bad_alloc();
@@ -216,12 +222,14 @@ void Executor::withdraw(ProcessContext &process) {
     for (const auto &queue : queues_) {
         std::erase(queue->processes, &process);
     }
-    if (parked_.erase(&process) != 0) {
+    auto &state = schedule(process);
+    if (std::exchange(state.parked, false)) {
         cancel(process);
     }
-    auto &state = schedule(process);
-    if (const auto waited = schedules_.find(std::exchange(state.blocked_on, nullptr)); waited != schedules_.end()) {
-        std::erase(waited->second.blockers, &process);
+    // A process that is not running waits only for a live one, which resumes it when its slice ends.
+    state.blocked_pid = 0;
+    if (auto *waited = std::exchange(state.blocked_on, nullptr)) {
+        std::erase(schedule(*waited).blockers, &process);
     }
     state.ready = false;
     release(process);
@@ -238,6 +246,7 @@ void Executor::finish(ProcessContext &process) {
         auto &state = schedule(process);
         state.ending = true;
         state.blocked_on = peer;
+        state.blocked_pid = peer->self;
         schedule(*peer).blockers.push_back(&process);
         return;
     }

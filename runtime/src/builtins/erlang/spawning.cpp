@@ -325,6 +325,7 @@ Word hibernate(ProcessContext &context, Arguments arguments) {
     }
     std::vector<Word> state;
     std::ranges::transform(list->elements, std::back_inserter(state), &Term::word);
+    need(detail::MessageBuffer::take_arrivals(context));
     if (context.mailbox().size() == 0) {
         context.stack().wait(*frame, state);
     } else {

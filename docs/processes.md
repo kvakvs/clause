@@ -75,10 +75,9 @@ per logical processor, as OTP's `+S`.
   taking the lock, which then only publishes and queues it; ended processes'
   contexts are freed after it (process creation and teardown).
 - Links, monitors and names change under the lock at once, also for a process
-  running elsewhere. A message to a process running on another worker cannot go
-  into its heap yet: it is copied into a buffer of its own and delivered, after
-  earlier buffered ones, when the receiver's slice ends
-  ([message buffers](runtime-heap.md#message-buffers)). An exit signal of
+  running elsewhere. A message waits in a buffer among the receiver's arrivals
+  until the receiver takes it ([arrival buffers](#arrival-buffers)). An exit
+  signal of
   `exit/2` or `exit_signal/2` to such a process does nothing and its process
   ends its slice (`builtins::Blocked`); it waits until the target's slice ends,
   then runs first and repeats the builtin with the same arguments. The target is
@@ -107,6 +106,9 @@ process's scheduling state happens under the executor mutex:
   critical section that delivers it, waking a worker as above. A process that is
   still in the slice in which it began to wait cannot get a message then (its
   senders wait for the slice to end), so the delivery always finds it parked.
+  A posted message ([arrival buffers](#arrival-buffers)) is not lost either:
+  parking checks the arrivals under their lock, and a post that finds the
+  receiver parked wakes it under the executor mutex.
 - A worker that finds no runnable process sleeps until another worker, a send or
   the timer thread queues one, or the program ends. Workers never read the clock
   for timers; parking a process with a timeout earlier than every other wakes
@@ -190,7 +192,7 @@ process does not write one: its uncaught exception is the program's
 
 | `Dest` | Effect |
 | --- | --- |
-| A pid of a live process | `Msg` is copied flat into the receiver's heap ([copying between heaps](runtime-heap.md#copying-between-heaps)), as OTP copies messages, a large one into a block the receiver takes over ([message hand-off](runtime-heap.md#message-buffers)), and appended to its signal inbox |
+| A pid of a live process | `Msg` is copied flat into the receiver's heap ([copying between heaps](runtime-heap.md#copying-between-heaps)), as OTP copies messages, a large one into a block the receiver takes over ([message hand-off](runtime-heap.md#message-buffers)), and appended to its signal inbox; to a receiver running on another worker, into a buffer among its arrivals that it takes when it next looks ([arrival buffers](#arrival-buffers)) |
 | A pid of a process that has ended | Nothing; the send succeeds |
 | A [registered name](#registered-names) | As for its pid; `badarg` when no live process has the name |
 | `{Name, nonode@nohost}` of two atoms | As for the pid registered as `Name`; nothing when there is none |
@@ -206,9 +208,50 @@ process does not write one: its uncaught exception is the program's
   and a message queue that receive scans from a saved position: arrived messages
   move behind the queue when a receive examines them.
 - When the receiver's heap refuses the copy (an optional cap such as
-  `--max-heap`, or the host out of memory), nothing is delivered and the sending
-  process fails as a runtime failure (exit 70), like any process that exceeds a
-  cap.
+  `--max-heap`, or the host out of memory), nothing is delivered and the
+  sending process fails as a runtime failure (exit 70), like any process that
+  exceeds a cap; a receiver that refuses a message from its arrivals fails
+  itself.
+
+### Arrival buffers
+
+A send to a process running on another worker takes no lock at all (process
+creation and teardown, OPT3.5B):
+
+- The runtime's process table (`ProcessTable`) is an open-addressed array of
+  atomic slots that a send on a worker reads without any lock: pid numbers are
+  never reused, so an erased slot stays a tombstone until an insert rebuilds
+  the array. Inserts and erases take a writer lock and also hold the executor
+  lock, under which lookups need nothing more.
+- Each process has its arrivals (`Arrivals`): a lock-free list senders push
+  messages onto, with a copy of the executor's running state of the process.
+  The sender looks up the receiver's arrivals and reads that state; a sender
+  whose last send to the same receiver found it not running skips the lookup.
+- To a running receiver, the sender copies the message right behind a list
+  node, in one allocation (a large message or one holding off-heap binaries
+  into a `MessageBuffer`), and pushes it. Any other receiver gets the message
+  under the executor lock as before: copied into its heap, or pushed behind
+  its arrivals when it began a slice meanwhile or still has arrivals, so a
+  sender's messages never pass each other and the sender never copies a
+  backlog under the lock. Either answer of a race is correct.
+- The receiver takes its arrivals into its heap and signal inbox, oldest
+  first: 64 at a time when its receive has examined every message and would
+  wait, so a flood reaches the heap as fast as the receive consumes it (OTP
+  keeps such messages in heap fragments until they are needed); all of them
+  when it hibernates, and before anything else is delivered to it under the
+  executor lock (a message, `'EXIT'`, `'DOWN'`, port or alias message), so each
+  sender's messages keep their order relative to its other signals.
+  `process_info` takes them before it counts or lists messages. Timer messages
+  and other messages for a running process wait among the arrivals too.
+- A process parks under the executor lock only after a sequentially consistent
+  check that no arrival waits; a push that finds it parked takes the executor
+  lock and wakes it.
+- The arrivals of an ended process, and replaced table arrays, are freed only
+  once every worker has passed a slice boundary after they were retired, or
+  waits for work (quiescent reclamation): a worker records the reclamation
+  epoch at each slice boundary, and a send holds what it found only within its
+  slice.
+- A self-send goes straight into the sender's own signal inbox.
 
 ## Receive
 

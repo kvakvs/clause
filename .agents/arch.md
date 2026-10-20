@@ -226,13 +226,18 @@ test need no OTP (`docs/validation.md`).
 - `detail::Executor` (in `Runtime::Impl`): `schedulers - 1` extra workers, one
   `RunQueue` each; home affinity, wake-affine placement, stealing, balancing
   every 4 slices.
-- Per-process `Schedule` (running, blocked_on, holds, ready, ending,
-  port_wait). Touching a process running elsewhere throws `builtins::Blocked`
-  and retries after its slice; sends to running processes buffer until the
-  slice ends.
-- Spawn copies fun/args into a new context; the main process ends the run.
+- Per-process `Schedule` kept in `ProcessContext::schedule()` (started,
+  parked, running, blocked_on+pid, holds, ready, ending, port_wait). Touching a
+  process running elsewhere throws `builtins::Blocked` and retries after its
+  slice.
+- Spawn builds and loads the child outside the executor mutex, which only
+  publishes and queues it; ended contexts are freed after the mutex.
 - Messages: `Executor::send` copies into `Mailbox` (inbox, queue, saved
-  position, deadline).
+  position, deadline). To a receiver running elsewhere it takes no lock:
+  lock-free `ProcessTable` lookup (open addressing, tombstones), message node
+  pushed onto the receiver's `Arrivals` (lock-free list), taken 64 at a time
+  when receive would wait. Arrivals and old table arrays are freed by quiescent
+  reclamation (per-worker epoch at slice boundaries).
 - Timers: hierarchical timer wheel on one timer thread; workers never read the
   clock.
 - Signals (`scheduler/signals.cpp`): links, `trap_exit`, monitors, names;

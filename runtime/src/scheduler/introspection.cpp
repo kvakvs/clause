@@ -28,9 +28,9 @@ std::vector<Word> Executor::pids(ProcessContext &context) {
     auto &executor = of(context);
     const std::scoped_lock lock(executor.mutex_);
     std::vector<Word> result;
-    result.reserve(executor.runtime_.processes.size());
-    for (const auto &[number, process] : executor.runtime_.processes) {
-        if (!executor.ending(*process)) {
+    const auto &processes = executor.runtime_.processes;
+    for (const auto number : processes.numbers()) {
+        if (!executor.ending(*processes.find(number))) {
             result.push_back(pid_word(number));
         }
     }
@@ -38,18 +38,16 @@ std::vector<Word> Executor::pids(ProcessContext &context) {
     return result;
 }
 
-bool Executor::ending(ProcessContext &process) const noexcept {
-    const auto found = schedules_.find(&process);
-    return found != schedules_.end() && found->second.ending;
-}
+bool Executor::ending(ProcessContext &process) const noexcept { return process.schedule().ending; }
 
 std::string_view Executor::status(const ProcessContext &caller, ProcessContext &target) const noexcept {
     if (&caller == &target) {
         return "running";
     }
-    if (const auto found = schedules_.find(&target); found != schedules_.end() && found->second.suspends > 0) {
+    const auto &state = target.schedule();
+    if (state.suspends > 0) {
         return "suspended";
     }
-    return parked_.contains(&target) ? "waiting" : "runnable";
+    return state.parked ? "waiting" : "runnable";
 }
 } // namespace clause::runtime::detail

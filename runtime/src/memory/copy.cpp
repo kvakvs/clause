@@ -372,6 +372,72 @@ TermResult<Term> MessageBuffer::take(const std::shared_ptr<const MessageBuffer> 
     return buffer->copy_to(destination);
 }
 
+void Arrivals::push(Message *message) noexcept {
+    message->next = head_.load(std::memory_order_relaxed);
+    while (!head_.compare_exchange_weak(message->next, message)) {
+    }
+}
+
+TermResult<void> MessageBuffer::take_arrivals(ProcessContext &process, std::size_t limit) noexcept {
+    auto &arrivals = process.mailbox().arrivals();
+    if (!arrivals.pending()) {
+        return {};
+    }
+    TermResult<void> result;
+    arrivals.take(
+        [&](Arrivals::Message &message) noexcept {
+            const auto taken = message.buffer       ? take(message.buffer, process)
+                               : message.words != 0 ? process.heap().copy(message.root)
+                                                    : Term::from_word(message.root, process);
+            if (!taken) {
+                result = std::unexpected(taken.error());
+                return false;
+            }
+            try {
+                process.mailbox().deliver(taken->word());
+                return true;
+            } catch (const std::bad_alloc &) {
+                result = std::unexpected(TermError::out_of_memory);
+                return false;
+            }
+        },
+        limit);
+    return result;
+}
+
+TermResult<Arrivals::Owned> MessageBuffer::arrival(const Term &value, ProcessContext &sender) noexcept {
+    if (const auto checked = TermAccess::validate(value); !checked) {
+        return std::unexpected(checked.error());
+    }
+    try {
+        if (!compound(value.word())) {
+            auto message = Arrivals::Owned(Arrivals::Message::make(0));
+            message->root = value.word();
+            return message;
+        }
+        GraphCopy graph(*sender.heap().storage_, false);
+        if (!graph.discover(value.word())) {
+            return std::unexpected(TermError::wrong_owner);
+        }
+        // A large graph or one holding off-heap binaries keeps a heap of its own (message hand-off).
+        if (graph.words() >= ADOPTED_WORDS || !graph.binaries().empty()) {
+            const auto buffer = copy_of(value, sender);
+            if (!buffer) {
+                return std::unexpected(buffer.error());
+            }
+            auto message = Arrivals::Owned(Arrivals::Message::make(0));
+            message->buffer = *buffer;
+            return message;
+        }
+        // A module literal root is shared, like an immediate one (OPT0.4).
+        auto message = Arrivals::Owned(Arrivals::Message::make(graph.words()));
+        message->root = graph.words() == 0 ? value.word() : graph.copy(value.word(), message->graph());
+        return message;
+    } catch (const std::bad_alloc &) {
+        return std::unexpected(TermError::out_of_memory);
+    }
+}
+
 namespace {
 // A heap of its own for buffered terms, with the sender's runtime bindings; the lifetime token must outlive it.
 std::shared_ptr<HeapStorage> buffer_storage(const HeapStorage &source, HeapOptions options,
@@ -410,7 +476,7 @@ TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(const Te
         return std::unexpected(checked.error());
     }
     try {
-        std::shared_ptr<MessageBuffer> buffer(new MessageBuffer());
+        auto buffer = std::make_shared<MessageBuffer>(Private{});
         buffer->root_ = value.word();
         if (!compound(value.word())) {
             return buffer;

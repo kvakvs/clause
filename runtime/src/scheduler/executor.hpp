@@ -6,6 +6,7 @@
 #include "../ports/reactor.hpp"
 #include "../ports/sockets.hpp"
 #include "../ports/value.hpp"
+#include "../process/process_table.hpp"
 #include "timer_wheel.hpp"
 #include <atomic>
 #include <chrono>
@@ -138,6 +139,44 @@ struct PortEvent final {
     }
 };
 
+// Scheduling state of one process, kept with it (process creation and teardown); guarded by the executor's lock.
+struct Schedule final {
+    // Started by the executor, which releases it when the program ends.
+    bool started = false;
+    // Waits for a message out of every queue until a send wakes it.
+    bool parked = false;
+    // Runs on a worker: no other worker touches its heap, stack, mailbox or failure until its slice ends.
+    bool running = false;
+    // Has ended and waits among `blocked_on`'s blockers to be finished.
+    bool ending = false;
+    // Runnable but held: queued once its last hold is released.
+    bool ready = false;
+    // Holds of blockers woken to act on it before it runs again, and of the suspends below.
+    std::size_t holds = 0;
+    // suspend_process/1,2 calls not yet resumed, by every suspender (plan 21 step LIB9B).
+    std::size_t suspends = 0;
+    // Pids this process suspends, once per suspend; resumed when it ends (plan 21 step LIB9B).
+    std::vector<Word> suspending;
+    // The running process whose slice this one waits for, while it is among that process's blockers, and its pid, by
+    // which a process that ended meanwhile is told apart without reading it.
+    ProcessContext *blocked_on = nullptr;
+    Word blocked_pid = 0;
+    // Blocked processes, and ended ones to finish, that wait for this running process's slice to end.
+    std::vector<ProcessContext *> blockers;
+    // Pids of the processes this one holds until its next slice ends.
+    std::vector<Word> holding;
+    // Port signals that wait for this running process's slice to end, oldest first.
+    std::vector<PortEvent> events;
+    // The busy port this process is suspended on until it is no longer busy, or 0.
+    Word port_wait = 0;
+    // Numbers of the ports whose tasks wait until this process's slice ends to deliver more.
+    std::vector<Word> throttling;
+    // The receive timeout of this parked process in the timer wheel, armed while it waits with one.
+    TimerWheel::Timer timer;
+    // The worker whose queue it joins when runnable: the one it last ran on or was spawned by (run queues).
+    std::size_t home = 0;
+};
+
 // The outcome of port output: written, the port is not open, the data does not fit the port's packet header, or
 // the port is busy and nothing was written.
 enum class PortOutcome : std::uint8_t { done, not_open, too_long, busy };
@@ -201,8 +240,8 @@ class Executor final {
     // Whether the process of a pid word this runtime issued has not ended.
     static bool alive(ProcessContext &context, Word pid) noexcept;
     // Deliver `message` of `sender` to the process of a pid word this runtime issued: copied into the receiver's
-    // heap and appended to its signal inbox, waking it when it waits. A process that has ended gets nothing; the
-    // error is a failed copy. Throws builtins::Blocked while the receiver runs on another worker.
+    // heap and appended to its signal inbox, at once or by the receiver from its arrivals (arrival buffers), waking it
+    // when it waits. A process that has ended gets nothing; the error is a failed copy.
     static TermResult<void> send(ProcessContext &sender, Word pid, const Term &message);
 
     // A start_timer/send_after request (plan step 41F): the program-wide number of its reference, the pid or
@@ -356,42 +395,12 @@ class Executor final {
     static ProcessContext *running() noexcept { return running_; }
 
   private:
-    // Scheduling state of one process the executor started.
-    struct Schedule final {
-        // Runs on a worker: no other worker touches its heap, stack, mailbox or failure until its slice ends.
-        bool running = false;
-        // Has ended and waits among `blocked_on`'s blockers to be finished.
-        bool ending = false;
-        // Runnable but held: queued once its last hold is released.
-        bool ready = false;
-        // Holds of blockers woken to act on it before it runs again, and of the suspends below.
-        std::size_t holds = 0;
-        // suspend_process/1,2 calls not yet resumed, by every suspender (plan 21 step LIB9B).
-        std::size_t suspends = 0;
-        // Pids this process suspends, once per suspend; resumed when it ends (plan 21 step LIB9B).
-        std::vector<Word> suspending;
-        // The running process whose slice this one waits for, while it is among that process's blockers.
-        ProcessContext *blocked_on = nullptr;
-        // Blocked processes, and ended ones to finish, that wait for this running process's slice to end.
-        std::vector<ProcessContext *> blockers;
-        // Pids of the processes this one holds until its next slice ends.
-        std::vector<Word> holding;
-        // Port signals that wait for this running process's slice to end, oldest first.
-        std::vector<PortEvent> events;
-        // The busy port this process is suspended on until it is no longer busy, or 0.
-        Word port_wait = 0;
-        // Numbers of the ports whose tasks wait until this process's slice ends to deliver more.
-        std::vector<Word> throttling;
-        // The receive timeout of this parked process in the timer wheel, armed while it waits with one.
-        TimerWheel::Timer timer;
-        // Timer messages that fired while this process ran, delivered when its slice ends (step 41F).
-        std::vector<std::shared_ptr<const MessageBuffer>> messages;
-        // The worker whose queue it joins when runnable: the one it last ran on or was spawned by (run queues).
-        std::size_t home = 0;
-    };
-
     // One worker's runnable processes (run queues): a process stays with its worker, as on ERTS schedulers, and
     // moves only when another worker steals it.
+    // The seen value of a worker that holds no lock-free reference (quiescent reclamation).
+    static constexpr std::uint64_t QUIESCENT = ~std::uint64_t{0};
+    static constexpr std::size_t CACHE_LINE = 64;
+
     struct RunQueue final {
         // Runnable processes of this worker in the order they run; a running process is in none of them.
         std::deque<ProcessContext *> processes;
@@ -401,6 +410,10 @@ class Executor final {
         bool idle = false;
         // Slices run since this worker last compared its queue with its neighbor's.
         std::size_t since_balance = 0;
+        // The reclamation epoch this worker saw at its last slice boundary, or QUIESCENT while it waits for work: it
+        // holds no lock-free reference retired after that (quiescent reclamation). Written under the lock, on a cache
+        // line of its own.
+        alignas(CACHE_LINE) std::atomic<std::uint64_t> seen{QUIESCENT};
     };
 
     // A start_timer/send_after timer (plan step 41F): its message waits in a buffer of its own until it fires.
@@ -590,11 +603,29 @@ class Executor final {
     void arm(MessageTimer &timer);
     // A message timer whose tick came: send its message, or arm it again when its deadline is beyond the wheel.
     void fire(MessageTimer &timer);
-    // Deliver a timer message: at once to a process not running, else when its slice ends.
+    // Post a buffered message (a timer's, a buffered send's) among the receiver's arrivals, waking it when parked.
     void post(ProcessContext &receiver, const std::shared_ptr<const MessageBuffer> &message);
-    // Deliver a large message built before the lock: queued for a busy receiver, else taken over now (message
-    // hand-off). Called with the executor locked.
-    TermResult<void> hand_over(ProcessContext &receiver, const std::shared_ptr<const MessageBuffer> &message);
+    void post(ProcessContext &receiver, Arrivals::Owned &&message);
+
+    // A receiver of a send and its arrivals, found running on another worker (arrival buffers).
+    struct RunningReceiver {
+        Word pid;
+        Arrivals &arrivals;
+    };
+
+    // The arrivals of the receiver `pid` when it runs on another worker, null when it does not or the sender does not
+    // look without the lock; none once it ended (arrival buffers).
+    std::optional<Arrivals *> running_arrivals(ProcessContext &sender, Word pid) const noexcept;
+    // Send to a receiver running on another worker: pushed onto its arrivals, waking it if it parked meanwhile.
+    TermResult<void> send_running(ProcessContext &sender, RunningReceiver receiver, const Term &message,
+                                  const std::shared_ptr<const MessageBuffer> &large);
+    // Send to a receiver not running when the sender looked: copied (a large one taken over from `large`) into its
+    // heap under the lock, or posted among its arrivals if it began a slice meanwhile (arrival buffers).
+    TermResult<void> send_locked(ProcessContext &sender, Word pid, const Term &message,
+                                 const std::shared_ptr<const MessageBuffer> &large);
+    // Put a message built in the heap of a process that does not run into its signal inbox, after its arrival buffers,
+    // and wake it.
+    TermResult<void> arrive(ProcessContext &receiver, Word message);
     // Drop the message timers whose destination is the pid of an ending process.
     void drop_timers(Word pid) noexcept;
     // Record an alias; lock held. Allocation failure throws.
@@ -631,9 +662,19 @@ class Executor final {
     // Release the ETS tables of an ended process: its fixations end, and each table it owned passes to a live heir,
     // told by an 'ETS-TRANSFER' message, or is deleted (plan 21 step LIB10B), its objects freed outside the lock.
     void release_tables(ProcessContext &process);
-    // Free the objects of the tables ended owners left and the contexts of released processes, if any, with the lock
-    // released meanwhile (plan 21 step LIB10F).
+    // Free the objects of the tables ended owners left, the contexts of released processes and the reclaimable
+    // retirements, if any, with the lock released meanwhile (plan 21 step LIB10F).
     void free_retired(std::unique_lock<std::mutex> &lock);
+    // Keep what lock-free sends may still read (an ended process's arrivals, a replaced table array) until every worker
+    // passed a slice boundary (quiescent reclamation).
+    void retire(std::unique_ptr<Reclaimable> retired) noexcept;
+    // Retire the process table arrays replaced by inserts.
+    void retire_arrays() noexcept;
+    // Detach the retirements every worker has passed, once enough wait to make the check worthwhile; a list for
+    // free_reclaimed.
+    Reclaimable *reclaimable() noexcept;
+    // Free a detached list of retirements.
+    static void free_reclaimed(Reclaimable *list) noexcept;
     // Send a heir the 'ETS-TRANSFER' message built in the ended owner's heap, buffered while the heir runs.
     void announce(ProcessContext &heir, const TermResult<Term> &message, ProcessContext &owner);
     // Keep an ended process that ends the program: the first one is the program's outcome; wake every worker.
@@ -668,16 +709,12 @@ class Executor final {
     // Time slices run and clock readings of the timer thread, for the profile report (descriptive).
     std::uint64_t slices_ = 0;
     std::uint64_t clock_reads_ = 0;
-    // Scheduling state of every process started and not yet released.
-    std::unordered_map<ProcessContext *, Schedule> schedules_;
     // The run queue of each worker; worker 0 is the thread that called run().
     std::vector<std::unique_ptr<RunQueue>> queues_;
     // Numbers of ports whose tasks wait to run, oldest first; a closed port's number is skipped.
     std::deque<Word> port_queue_;
     // Whether the next pick goes to the port queue while both queues have work.
     bool port_turn_ = false;
-    // Processes waiting for a message.
-    std::unordered_set<ProcessContext *> parked_;
     // Processes ended by exit signals that drain() has not finished yet.
     std::deque<ProcessContext *> ending_;
     // The main process during run(): its end ends the program.
@@ -712,6 +749,11 @@ class Executor final {
     std::vector<std::unique_ptr<ets::Index>> retired_tables_;
     // Contexts of released processes, freed the same way (process creation and teardown).
     std::vector<std::unique_ptr<ProcessContext>> retired_contexts_;
+    // Retirements in stamp order, their number, and the epoch the last one took (quiescent reclamation).
+    Reclaimable *retired_first_ = nullptr;
+    Reclaimable *retired_last_ = nullptr;
+    std::size_t retired_count_ = 0;
+    std::atomic<std::uint64_t> reclaim_epoch_{0};
     // The executor ran out of memory while the main process ran elsewhere; it fails when its slice ends.
     bool failed_ = false;
 };

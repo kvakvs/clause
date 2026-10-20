@@ -538,7 +538,13 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT3.5A** spawns build and load the child outside the executor lock (it is
   only published and queued under it); ended contexts are freed after the lock;
   short_processes at 8 workers 42 to 36 ms per 5000 spawns, 32 workers
-  unchanged (lock traffic, see OPT3.5B-C) — (hash in next commit)
+  unchanged (lock traffic, see OPT3.5B-C) — `53c3f0db`
+- **OPT3.5B** sends to a receiver running on another worker take no lock: a
+  lock-free process table (open addressing, tombstones), a message node
+  pushed onto the receiver's lock-free arrivals and taken 64 at a time when its
+  receive would wait, quiescent reclamation of arrivals and table arrays;
+  `Schedule` kept with the process (no hash lookups). short_processes 1.79x,
+  ring 1.12x, ping_pong 1.07x, fan_in 0.94x — (hash in next commit)
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576

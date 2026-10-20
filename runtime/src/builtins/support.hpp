@@ -66,6 +66,13 @@ template <typename T> T need(TermResult<T> result) {
     return std::move(*result);
 }
 
+// Throw BuiltinFailure with the error of a failed term operation without a value.
+inline void need(const TermResult<void> &result) {
+    if (!result) {
+        throw BuiltinFailure{.term = result.error()};
+    }
+}
+
 // The atom `name`; a `"name"_atom` literal reuses its cached word (cached atoms, replacing per-file copies).
 inline Term atom(ProcessContext &context, const AtomName name) { return need(context.atom_storage().intern(name)); }
 
