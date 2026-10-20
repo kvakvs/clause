@@ -569,7 +569,7 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   over the entries, and fold funs returning `Acc#{...}` (`maps:fold`,
   `lists:foldl/foldr`) own the accumulator from step 2 on (update op chosen at
   run time; owned small-key updates reuse nodes and stub in place). Pinned:
-  map_update 4.4x (OTP 0.52x), map_put 1.39x (OTP 0.92x) — `HASH`
+  map_update 4.4x (OTP 0.52x), map_put 1.39x (OTP 0.92x) — `fdc7ab3c`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
