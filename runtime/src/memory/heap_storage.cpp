@@ -295,4 +295,13 @@ void HeapStorage::replace(HeapArea heap, bool full) noexcept {
     memory_->force(old_.capacity_);
     expose();
 }
+
+void HeapStorage::shrink_heap(std::size_t words) noexcept {
+    absorb();
+    const auto freed = heap_.capacity_ - words;
+    memory_->release(freed);
+    capacity_words_ -= freed;
+    heap_.capacity_ = words;
+    expose();
+}
 } // namespace clause::runtime::detail

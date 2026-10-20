@@ -421,7 +421,13 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   binary loop variants that call nothing else, branch-free binary views and a
   late GVN on them; 69A binary_match 1.64x (2.28x faster than OTP JIT), byte
   sum 14.4 to 8.0 ms (OTP 12.4), 1-bit loop 4.7 to 1.67 ms (OTP 3.2) —
-  `[plan20] OPT1.4F. Binary loop cursors ...`
+  `29c03617`
+- **OPT3.10B** young heap sizing: shrinks after minor and full collections lower
+  the block's capacity in place instead of copying the live words again; ERTS's
+  sizing (minor `young + stack`, larger old area, F_HEAP_GROW) measured worse.
+  Kernels alone 1.04x geomean (string_build 1.27x, list_of_tuples 1.16x, sort
+  1.12x); 69A sequence 1.00x —
+  `[plan20] OPT3.10B. Young heaps shrink in place`
 - **OPT0.20B** generational collection: safepoints run minor collections that
   promote objects below the high-water mark into an old area and leave it in
   place (ERTS sizing rules, Debug old→young check); 69A geomean 1.15x (sort

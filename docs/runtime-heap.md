@@ -540,12 +540,22 @@ Generational collection, as ERTS does it, without its write barrier:
   forwarded ones and releases dead young ones; dead old cells wait for the next
   full sweep.
 - **Young sizing.** A minor collection keeps the young block's size, as ERTS
-  does, and at least an eighth of the old area (ERTS). Generated code collects
+  does, and at least an eighth of the old area (ERTS). ERTS's minor block is
+  `next_heap_size(young + stack)`, but its stack fills the rest of a full
+  block, so that never grows it; Clause's stack is separate, and counting it
+  grew the block every minor collection. Clause also grows the block so the
+  young words above the high-water mark (all that can stay young) and the
+  stack fill at most 75% of it: measured, fewer collections pay off more than
+  ERTS's tighter blocks. Generated code collects
   only at safepoints, so allocation between two of them (the returns of a body
   recursion) may overflow far into fragments; when they hold a quarter of the
   block or more, the next block grows by them and is not shrunk. Otherwise a
-  young block over 8,000 words less than 25% live is copied into three times its
+  young block over 8,000 words less than 25% live shrinks to three times its
   live words (ERTS's minor rule).
+- **Shrinking in place.** Both shrinks (this one and a full sweep's) lower the
+  block's capacity in place, as ERTS reallocs it: nothing is copied again, and
+  the block's unused tail stays allocated, uncharged, until the next collection
+  releases the block.
 - **Off-heap limit.** After a minor collection the virtual binary heap limit
   counts the young live words only: the old area may hold dead words, which must
   not postpone the full sweep that frees dead old binaries.

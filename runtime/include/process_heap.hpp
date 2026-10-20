@@ -242,11 +242,11 @@ class ProcessHeap final {
     // the buffers of `held` cells it did not copy (persistent term reclamation).
     void copy_live(std::span<Word> roots, std::size_t capacity, detail::Generation generation,
                    const detail::RetiringRanges *retiring = nullptr, std::span<const void *const> held = {});
-    // After a full sweep, copy a block less than 25% live, or above the block limit of its live words, into the
-    // policy size; after a minor collection, copy a young block over 8,000 words and less than 25% live into three
-    // times its live words, as ERTS does. Failing to allocate keeps the larger block.
-    void shrink(std::span<Word> roots, detail::Generation generation) noexcept;
-    void shrink_young(std::span<Word> roots) noexcept;
+    // After a full sweep, lower a block less than 25% live, or above the block limit of its live words, to the policy
+    // size; after a minor collection, a young block over 8,000 words and less than 25% live to three times its live
+    // words, as ERTS does. Both shrink in place, copying nothing again (young heap sizing).
+    void shrink(detail::Generation generation) noexcept;
+    void shrink_young() noexcept;
     // The smallest young block for the old area: an eighth of it, as ERTS keeps; none without an old area.
     std::size_t young_floor() const noexcept;
     // Young blocks this small are never shrunk after a minor collection: promotion often leaves them sparse (ERTS).

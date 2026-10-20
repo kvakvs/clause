@@ -5,7 +5,7 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
-OPT1.4, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.13A-C, OPT3.14 service path,
+OPT1.4, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path,
 read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
 
@@ -120,7 +120,7 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
 
 - **OPT3.4 file I/O:** read_line reads ahead (done); run alone, large_read is at
   parity with OTP (4.1 against 4.0 ms, two thirds in `ReadFile`), so its 69A gap
-  and large_write's are heaps left by earlier kernels (OPT3.10B). read_line is
+  and large_write's are heaps left by earlier kernels. read_line is
   still 41 against 29 ms per 20,000 lines: the I/O server round trip (monitor,
   send, receive, demonitor) per line.
 - **OPT3.5 process creation and teardown (short_processes 3.6x):** the OPT0.24 /
@@ -137,22 +137,11 @@ each kernel with the cdb sampler (`build/prof`) before building; map_foldl
   100,000-element echo is 3.6 against OTP's 1.95 ms: two flat copies (discover
   and copy each read every cell) and the receivers' collections. Small messages
   to busy receivers still copy twice (into a buffer, then into the receiver).
-- **OPT3.10B young heap sizing:** block reuse is done (OPT3.10). ERTS sizes a
-  minor collection's new block from the young words plus the stack, which shares
-  the block, so a full young block often grows a size step; trying that rule
-  (`heap_size_at_least(young + stack)`) cut string_build's collections from 6.5
-  to 1 per iteration (1.24x) and helped list_of_tuples and large_write, but sort
-  lost 29% (its young block oscillated 121k/197k words with 40k survivors each
-  time) and the 69A geomean gained less than block reuse alone; find when ERTS
-  grows (it kept 75,113 words full in sort). Kernels sharing one process also
-  pay for heaps an earlier kernel grew: since OPT3.1 no off-heap map charge
-  forces early full sweeps, so the first sweep after list_of_tuples (a 3M-word
-  old area) lands in binary_append (0.84x vs HEAD) and bigint (0.89x), and
-  comprehension runs in a 75k-word young block sized from the old area (0.71x);
-  each is unchanged run alone. string_build after OPT3.2 is collection-bound:
-  6.5 collections per iteration (0.8 of them full sweeps) against OTP's one,
-  whose young heap settles at 514,838 words while Clause's shrinks to 121,536
-  after each sweep.
+- **Heaps left by earlier kernels** (after OPT3.10B): kernels sharing one
+  process still pay for heaps an earlier kernel grew or for a large shrunk
+  block (the first sweep after list_of_tuples' 3M-word old area; large_read
+  0.82x after OPT3.10B in sequence, unchanged run alone). ERTS's own sizing
+  measured worse in Clause (see `docs/runtime-heap.md#generations`).
 
 ## Steps outside the 69A metric (review of parked OPT0 follow-ups, 2026-10-17)
 
@@ -436,7 +425,7 @@ Builds on OPT1.4.
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact:
-   OPT3.10B, OPT3.5, a term_to_binary profile, OPT1.7/OPT1.8.
+   OPT3.5, a term_to_binary profile, OPT1.7/OPT1.8.
 
 **Gate for every item:**
 

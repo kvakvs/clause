@@ -76,6 +76,9 @@ class HeapStorage final {
     // Replace the heap block and fragments by a collected block, returning the charges of the replaced areas; a full
     // sweep also empties the old area, whose objects it copied (generational collection).
     void replace(HeapArea heap, bool full) noexcept;
+    // Lower the heap block's capacity to `words`, at least its top, without moving it, as ERTS reallocs a heap in
+    // place; the block's tail stays allocated, uncharged, until a collection releases the block (young heap sizing).
+    void shrink_heap(std::size_t words) noexcept;
     // Borrow the words from an address in the heap, a fragment or a module literal area (OPT0.4) to its area's end,
     // read-only; empty for any other address.
     std::span<const Word> readable(std::uintptr_t address) noexcept;

@@ -204,7 +204,8 @@ test need no OTP (`docs/validation.md`).
 - Collector (`heap_collect` Cheney `Copier`) runs at safepoints (function entry,
   comprehension heads) when wanted: minor by default, full on
   `garbage_collect`, binary pressure, budget or a full old area. `min_heap_size`
-  floors blocks; shrink below 25% live; idle processes never collected.
+  floors blocks; shrink below 25% live lowers the block's capacity in place
+  (no second copy); idle processes never collected.
 - Limits opt-in (`--max-heap/--max-stack/--max-memory`, `RuntimeMemory`); host
   refusal = `out_of_memory`, exit 70.
 - Copies (`GraphCopy`): iterative flat copy between heaps, literals recognised

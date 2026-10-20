@@ -10,8 +10,7 @@ std::size_t heap_size_at_least(std::size_t words) noexcept;
 // Which part of the heap a collection copies (docs/runtime-heap.md#generations): a minor collection copies the
 // young heap and fragments, promoting objects below the high-water mark into the old area and leaving old objects in
 // place; a full sweep copies everything into one new block.
-// A young collection copies the young heap again without promoting, to shrink it after a minor one.
-enum class Generation : std::uint8_t { minor, young, full };
+enum class Generation : std::uint8_t { minor, full };
 
 // Where a collection put its copies, for the off-heap and tree sweeps (generational collection).
 struct Survivors {

@@ -366,3 +366,11 @@ gotchas and user directions not recorded elsewhere.
   the receiver not running. A process not scheduled (parked, port-suspended)
   must be evacuated by the executor. Budget arithmetic uses words_left (live
   words may exceed a limit after an evacuation).
+- OPT3.10B (2026-10-20): 69A timings on this host swing 20-100% per kernel;
+  judge GC policy by words copied + collection counts (temporary stderr trace
+  in copy_generation/copy_live, env-switched variants) and by kernels run
+  alone (scratch bench_util with ONLY=<kernel>), then time min-of-N
+  interleaved. ERTS minor `next(young + stack)` never grows (stack is inside
+  its block); ERTS old heap = next_heap_size(young, 1); both measured worse in
+  Clause than the base rules. OTP gc trace: erlang:trace(Pid, true,
+  [garbage_collection]) gives heap_block_size/old_heap_block_size per GC.

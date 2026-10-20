@@ -186,7 +186,7 @@ std::expected<void, HeapError> ProcessHeap::copy_generation(std::span<Word> root
         return copied;
     }
     if (!minor || !overflowed) {
-        shrink(roots, generation);
+        shrink(generation);
     }
 #ifndef NDEBUG
     // A missed in-place write of a young word into an old object would dangle after the next minor collection.
@@ -289,9 +289,9 @@ void ProcessHeap::evacuated(std::uint64_t epoch) noexcept {
     }
 }
 
-void ProcessHeap::shrink(std::span<Word> roots, detail::Generation generation) noexcept {
+void ProcessHeap::shrink(detail::Generation generation) noexcept {
     if (generation != detail::Generation::full) {
-        shrink_young(roots);
+        shrink_young();
         return;
     }
     const auto used = storage_->used_words_;
@@ -302,11 +302,7 @@ void ProcessHeap::shrink(std::span<Word> roots, detail::Generation generation) n
     if (wanted >= capacity || wanted < used || (!sparse && capacity <= block_limit(used))) {
         return;
     }
-    try {
-        copy_live(roots, wanted, detail::Generation::full);
-    } catch (const std::bad_alloc &) {
-        return; // The larger block stays; it already holds every live word.
-    }
+    storage_->shrink_heap(wanted);
 }
 
 std::size_t ProcessHeap::min_heap_words() const noexcept { return storage_->options_.min_heap_words; }
@@ -322,7 +318,7 @@ std::size_t ProcessHeap::young_floor() const noexcept {
     return old == 0 ? 0 : detail::heap_size_at_least(old / 8);
 }
 
-void ProcessHeap::shrink_young(std::span<Word> roots) noexcept {
+void ProcessHeap::shrink_young() noexcept {
     const auto need = storage_->heap_.top_ + owner_.stack().words();
     const auto capacity = storage_->heap_.capacity_;
     if (capacity <= YOUNG_SHRINK_WORDS || 4 * need >= capacity) {
@@ -330,13 +326,8 @@ void ProcessHeap::shrink_young(std::span<Word> roots) noexcept {
     }
     const auto wanted =
         std::max({storage_->options_.min_heap_words, detail::heap_size_at_least(3 * need), young_floor()});
-    if (wanted >= capacity) {
-        return;
-    }
-    try {
-        copy_live(roots, wanted, detail::Generation::young);
-    } catch (const std::bad_alloc &) {
-        return; // The larger block stays; it already holds every young live word.
+    if (wanted < capacity) {
+        storage_->shrink_heap(wanted);
     }
 }
 
