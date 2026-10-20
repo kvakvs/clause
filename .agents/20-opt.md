@@ -86,32 +86,35 @@ On OTP about ⅓ of real time is JIT'd Erlang; the rest is C BIFs and GC
 (`erts_maps_put`, `eq`, `erts_cmp_compound`, `do_minor`). Clause's runtime
 services are the equivalent pool, so making them fast is itself a target.
 
-## Measured priorities (2026-10-16 profile of the 69A kernels)
+## Measured priorities (69A run 2026-10-20, HEAD 7d7a2f2e)
 
-Pick work by benchmark impact (user direction 2026-10-16). cdb stack samples of
-the kernels furthest behind OTP JIT (Release runtime with symbols, `build/prof`)
-group the cost into:
+Pick work by benchmark impact (user direction 2026-10-16). The 69A run of
+2026-10-20 (each kernel in its own process, kernels sized to 1 s or more,
+`benchmarks/history/reports/pekarnya/2026-10-20-7d7a2f2e.txt`) puts Clause O2
+at parity with OTP JIT: geomean 1.00x (20.2x at the start of plan 20, 1.37x
+faster than baseline 2286b1aa). Kernels still behind OTP, with the step that
+owns each gap (unprofiled ones say so):
 
-1. **Collection** (sort 65%, binary_append 50%, int_to_list 31%, map_put 25%,
-   map_update 22%, string_build 21%, euler ~15%): every collection was a full
-   sweep re-copying long-lived data; generational collection is the fix (done,
-   see `00-finished.md`). Left: off-heap binary and map pressure still force
-   full sweeps; dead old cells wait for the next full sweep.
-2. **`Term`-object overhead in builtins** (term_to_binary 14x: 85% in
-   encode/decode; string_build: `atom_to_list`, `++`; int_to_list:
-   `integer_to_list`/`list_to_integer`): `TermAccess::admit`, `get_kind`,
-   shared-pointer refcounts and `malloc` per call; word-level paths are the fix
-   (the external term codec is done, OPT0.26; each `TermFactory` binding costs a
-   lifetime check, so one per call).
-3. **Message copy** (large_message 9.3x, 1.08x after OPT3.9): flat copies,
-   compound-only walks, hand-off and spine-following walks are done
-   (OPT0.28-OPT0.30, OPT3.9); small messages to busy receivers still copy twice.
-4. **Map trees** (map_put 3-10x, map_update 9.5x): word-level updates, cursors
-   and on-heap trees are done (OPT0.32, OPT0.33, OPT3.1); small-map reads and
-   present-key updates are inline (OPT3.12).
-5. **Lists with funs** (map_foldl 3.9x): known funs are inlined into list
-   loops (OPT1.7, OPT1.8); `lists:map` and the other building loops still make
-   their list reversed and reverse it (OPT1.12).
+| Kernel | Clause / OTP (ms) | Gap | Owner |
+|---|---|---|---|
+| dataproc.map_update | 2706 / 1209 | 2.24x | OPT3.15 (tree updates in `maps:fold`), OPT1.7 `maps:fold` part |
+| dataproc.int_to_list | 1683 / 894 | 1.88x | OPT3.8 |
+| datagen.string_build | 1549 / 1035 | 1.50x | OPT3.8 (`integer_to_list`), OPT3.16 (`++`, `atom_to_list`) |
+| datagen.map_put | 2305 / 1601 | 1.44x | OPT3.15 (tree inserts) |
+| file.large_write | 1219 / 961 | 1.27x | OPT3.4 |
+| dataproc.map_foldl | 1557 / 1240 | 1.26x | OPT1.12 (`lists:map` builds reversed) |
+| dataproc.sort | 1337 / 1070 | 1.25x | OPT3.17 (unprofiled) |
+| datagen.list_of_tuples | 1901 / 1527 | 1.25x | OPT3.18 (unprofiled) |
+| file.read_file | 1794 / 1488 | 1.21x | OPT3.4 |
+| datagen.bigint_factorial | 1333 / 1136 | 1.17x | OPT3.19 (unprofiled) |
+| file.read_line | 1739 / 1532 | 1.14x | OPT3.4 |
+| msg.ring | 1488 / 1448 | 1.03x | small messages to busy receivers |
+
+Every other kernel is ahead of OTP (0.40x-0.99x): binary_append 0.89x after
+OPT3.6, term_to_binary 0.79x, short_processes 0.98x, large_message 0.99x,
+small_map 0.93x, binary_match 0.84x, comprehension 0.72x. OTP columns vary by
+up to 25-80% on the file kernels and short_processes; confirm small gaps with
+interleaved runs of the kernel alone before building.
 
 ## Profiling on Windows
 
@@ -136,47 +139,54 @@ group the cost into:
 
 ## Tier OPT3: runtime gaps of the 69A kernels
 
-Steps by the gap to OTP JIT in the 2026-10-16 69A run (after OPT0.34). Profile
-each kernel before building (see [Profiling on Windows](#profiling-on-windows)).
+Steps by the gap to OTP JIT in the 2026-10-20 69A run (see
+[Measured priorities](#measured-priorities-69a-run-2026-10-20-head-7d7a2f2e)),
+largest first. Profile each kernel before building (see
+[Profiling on Windows](#profiling-on-windows)).
 
-- **OPT3.4 file I/O:** read_line reads ahead (done); run alone, large_read is at
-  parity with OTP (4.1 against 4.0 ms, two thirds in `ReadFile`), so its 69A gap
-  and large_write's are heaps left by earlier kernels. read_line is
-  still 41 against 29 ms per 20,000 lines: the I/O server round trip (monitor,
-  send, receive, demonitor) per line.
-- **OPT3.5 process creation and teardown (short_processes 2.5x):** profiled
-  2026-10-20 (5000 spawns per round): the parent's spawn loop is ~90% of a
-  round on both systems. One worker: Clause 159 ms against OTP 129; 32
-  workers: Clause ~52 ms against OTP ~22, and Clause is best at 8 workers
-  (36 ms). Lock timing at 32 workers: spawn waits 7 us and holds 1.75 us per
-  spawn; the executor mutex is busy ~56% of the run. Each child's own cost is
-  GC (7 collections, ~10k words copied, 65-70% of one-worker CPU).
-  - **A, B (done):** spawn/teardown outside the lock; lock-free sends to
-    running receivers (arrival lists, lock-free process table, quiescent
-    reclamation), `Schedule` kept with the process. 32 workers 52 to 28 ms
-    (OTP 22), 8 workers 25 ms (OTP 29).
-  - **C (done):** run-queue lock; plain spawns skip the executor mutex.
-    Remaining at 32 workers: children's collections ~53% of CPU, locks ~9%.
-  - **D (done):** collector scans read slot layouts from a per-kind table
-    instead of `parse_cell`, copy small objects without `memmove`, and test
-    immediates inline. One worker 159 to 104 ms (OTP 129); 32 workers 22 ms
-    (OTP 22), 8 workers 17.5 ms (OTP 29).
-  - Later: picks and slice ends under a per-process lock (full ERTS model).
-- **term_to_binary remainder** (after OPT3.5E, isolated kernel 2.26 s against
-  OTP 2.38): kernel page faults are still ~13% of samples (the off-heap result
-  binary and the decoded term's heap fragments each call); the codec itself
-  is ~65% (decode loop, `Writer::integer`, `Reader::next_integer` not
-  inlined). A single-append `tag + value` write measured slower on MSVC.
-- **OPT3.8 int_to_list:** done for list_to_integer's short text (OPT3.8); run
-  alone the round trip is 835 against OTP's 444 us per 20,000, now the two
-  bodies' digit work (`to_chars`, `from_chars`, a staging vector).
-- **Small messages to busy receivers** (after OPT3.9, large_message at 1.08x):
-  still copy twice (into a buffer, then into the receiver).
-- **Heaps left by earlier kernels** (after OPT3.10B): kernels sharing one
-  process still pay for heaps an earlier kernel grew or for a large shrunk
-  block (the first sweep after list_of_tuples' 3M-word old area; large_read
-  0.82x after OPT3.10B in sequence, unchanged run alone). ERTS's own sizing
-  measured worse in Clause (see `docs/runtime-heap.md#generations`).
+- **OPT3.15 map trees (map_update 2.24x, map_put 1.44x):** both kernels work
+  on maps past 32 entries (B+ trees, `map_tree`): map_update folds a 500-entry
+  map with `Acc#{K := V + 1}` per entry (one path copy per key), map_put grows
+  a map to 2000 keys with `maps:put/3`. Word-level updates, cursors and on-heap
+  trees are done (OPT0.32, OPT0.33, OPT3.1). Not profiled since; candidates:
+  path copies of a tree owned only by the fold (edit tokens reach only until
+  the next collection), the fold's per-entry fun call, node splits on insert.
+- **OPT3.8 int_to_list (1.88x) and string_build (1.50x):** list_to_integer's
+  short text is done (OPT3.8); run alone the round trip is 835 against OTP's
+  444 us per 20,000, now the two bodies' digit work (`to_chars`, `from_chars`,
+  a staging vector). string_build pays the same `integer_to_list/1`.
+- **OPT3.16 string_build builtins (with OPT3.8):** `++` and `atom_to_list/1`
+  per item; the 2026-10-16 profile showed `Term`-object overhead
+  (`TermAccess::admit`, `get_kind`, `malloc` per call) in both, fixed elsewhere
+  by word-level paths (one `TermFactory` binding per call).
+- **OPT3.4 file I/O (large_write 1.27x, read_file 1.21x, read_line 1.14x):**
+  read_line reads ahead (done); large_read is at parity (0.99x). Kernels now run
+  in their own processes, so large_write's gap is its own (earlier blamed on
+  heaps left by earlier kernels). read_line is 41 against 29 ms per 20,000
+  lines run alone: the I/O server round trip (monitor, send, receive,
+  demonitor) per line. OTP's file timings vary 6-25% per run.
+- **OPT3.17 sort (1.25x, unprofiled):** `lists:sort/1` of 20,000 random
+  integers; collection was 65% of it on 2026-10-16, before generational
+  collection.
+- **OPT3.18 list_of_tuples (1.25x, unprofiled):** builds a 200,000-element list
+  of `{N, N * N, [N]}`; the cost is allocation and collection of a growing live
+  set (its 3M-word old area).
+- **OPT3.19 bigint_factorial (1.17x, unprofiled):** 3000! by repeated
+  bignum-by-small multiplication.
+- **Small messages to busy receivers (ring 1.03x; large_message 0.99x,
+  ping_pong 0.81x):** still copy twice (into a buffer, then into the receiver).
+- **term_to_binary remainder (0.79x, ahead of OTP):** kernel page faults are
+  still ~13% of samples (the off-heap result binary and the decoded term's heap
+  fragments each call); the codec itself is ~65% (decode loop,
+  `Writer::integer`, `Reader::next_integer` not inlined). A single-append
+  `tag + value` write measured slower on MSVC.
+- **OPT3.5 later (short_processes 0.98x):** picks and slice ends under a
+  per-process lock (full ERTS model); A-D done (see `00-finished.md`).
+- **Heaps left by earlier kernels (no 69A impact):** 69A now runs each kernel
+  in its own process (a4659943), so this shows only in programs whose phases
+  share one process: they pay for heaps an earlier phase grew or for a large
+  shrunk block. ERTS's own sizing measured worse in Clause (see
+  `docs/runtime-heap.md#generations`).
 
 ## Steps outside the 69A metric (review of parked OPT0 follow-ups, 2026-10-17)
 
@@ -210,7 +220,11 @@ process_info/system_info item lists.
 
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
-Ordered by measured T2 value and how well each fits an AOT compiler.
+Ordered by measured T2 value and how well each fits an AOT compiler. 69A
+weight on 2026-10-20: OPT1.7's `maps:fold` part (map_update 2.24x) and OPT1.12
+(map_foldl 1.26x) target kernels behind OTP; OPT1.3 (arithmetic), OPT1.5
+(binary_match 0.84x) and OPT1.6 (small_map 0.93x) target kernels already ahead,
+so their value now lies in real programs (euler, luerl, json) rather than 69A.
 
 ### OPT1.3 Speculation-free small-int fast paths, with guard fusion and range-proven overflow elimination
 
@@ -452,8 +466,9 @@ and every read to inline (static decisions only).
 6. **Funs and floats:** OPT1.11, the OPT1.8 remainder.
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
-8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact:
-   OPT3.8.
+8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact
+   (2026-10-20 run): OPT3.15, OPT3.8 with OPT3.16, OPT3.4, OPT1.12, OPT3.17,
+   OPT3.18, OPT3.19.
 
 **Gate for every item:**
 
