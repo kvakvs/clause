@@ -395,3 +395,9 @@ gotchas and user directions not recorded elsewhere.
   its block); ERTS old heap = next_heap_size(young, 1); both measured worse in
   Clause than the base rules. OTP gc trace: erlang:trace(Pid, true,
   [garbage_collection]) gives heap_block_size/old_heap_block_size per GC.
+- OPT3.5E (2026-10-20): ntoskrnl share in an xperf profile (page faults,
+  MiDecommit*) points at large per-call temporaries (>~64 KB vectors/strings):
+  the NT heap decommits freed big blocks, so reuse them (builtins/scratch.hpp).
+  MSVC: one std::string::append of tag+value (5 bytes) measured 2x slower
+  than push_back + append(4). VSDiagnostics rejects an empty /launchArgs.
+  Python edits of UTF-8 files on Windows need encoding="utf-8" (em dashes).
