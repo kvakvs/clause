@@ -131,6 +131,11 @@ gotchas and user directions not recorded elsewhere.
     factory helpers. Lizard/tidy complexity: dispatch tables for op switches.
 - ADL traps: local `advance`/`quoted`/`accumulate` resolve to std::/llvm:: ->
   rename.
+- clang-analyzer (OPT3.5B): a move-only owning handle passed BY VALUE trips
+  NewDelete "use after release" (MSVC callee-destroyed args): pass `T&&`. A
+  pointer pushed into a std::atomic list by CAS reads as a leak: do the CAS in
+  an out-of-line function (opaque to callers' TUs). bugprone-easily-swappable
+  fires when two same-type params stop appearing in one expression.
 - check-quality's changed scope is `git diff HEAD`: `git add` new files first or
   they are skipped. abi/ header edits do not pull their runtime dependents into
   the tidy scope; CMakeLists edits select all units.
@@ -372,6 +377,16 @@ gotchas and user directions not recorded elsewhere.
   the receiver not running. A process not scheduled (parked, port-suspended)
   must be evacuated by the executor. Budget arithmetic uses words_left (live
   words may exceed a limit after an evacuation).
+- OPT3.5 (2026-10-20): fair A/B = runtime-only builds of base and new with the
+  same /O2 /Ob2 /Z7 flags (git worktree in scratch + `mklink /J thirdparty`;
+  rmdir the junction BEFORE `git worktree remove --force`), link one clau
+  against both libs, run kernels interleaved; build/bench's Release lib is
+  not comparable. Symbolized ntdll/kernel: xperf -i with _NT_SYMBOL_PATH
+  srv*<cache>*https://msdl.microsoft.com/download/symbols (slow first time).
+  short_processes S1 vs S32 separates CPU cost from lock contention. Lock-free
+  sends that buffer every message regress fan_in (heap allocator contention,
+  receiver drains huge backlogs): only running receivers get arrival nodes,
+  taken in batches of 64.
 - OPT3.10B (2026-10-20): 69A timings on this host swing 20-100% per kernel;
   judge GC policy by words copied + collection counts (temporary stderr trace
   in copy_generation/copy_live, env-switched variants) and by kernels run
