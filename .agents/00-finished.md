@@ -576,7 +576,7 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   `integer_to_list(N) ++ R` writes the digits onto R (N checked where the call
   stands); `atom_to_list` of a literal was already folded (OPT0.34). Pinned:
   int_to_list 1790 to 520 ms (OTP ~880), string_build 1370 to 645 ms (OTP
-  ~1110) — `HASH`
+  ~1110) — `43a7cf87`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
