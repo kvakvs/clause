@@ -87,6 +87,44 @@ and dynamic calls (`M:F(Args)`, `apply/2,3`). Facts come from the pinned
 - An anonymous fun in a record field default is one fun for every construction
   that uses the default (OTP expands a copy per site).
 
+## Inlined funs
+
+At `-O2` (`codegen/lowering_fun_inlining.cpp`, `lowering_list_loops.cpp`) a
+call of an anonymous fun known where it is called lowers the fun's clauses in
+place of the call, much as OTP's `inline_list_funcs` option does:
+
+- **Known funs.** A fun written in the call (`(fun(X) -> ... end)(Y)`, or the
+  first argument of a list loop below), or a variable bound once to an unnamed
+  anonymous fun (`F = fun ... end`) that is read once or holds at most 40
+  expressions. Inside another fun's code, a variable's fun is inlined only when
+  everything it captures is bound there too. Inlined bodies nest at most four
+  deep; binary and float loops inline nothing.
+- **Clauses in place.** The arguments are matched against the fun's clauses and
+  guards, and the matching clause's body runs in the caller's frame. When no
+  clause matches, the fun is called, so `function_clause` comes from the fun's
+  own code as before. A fun written in the call is built only on that path and
+  the paths below that need its value (closure sinking); a variable's fun is
+  built where it is bound, as before.
+- **List loops.** `lists:map/2`, `filter/2`, `foreach/2`, `all/2`, `any/2`,
+  `flatmap/2`, `foldl/3`, `foldr/3`, `mapfoldl/3` and `mapfoldr/3` of Clause's
+  own `lists` module with a known fun of the right arity become a loop over the
+  list in the calling function. Each element's fun call is inlined; lists are
+  built reversed and reversed once at the end; `foldr/3` and `mapfoldr/3`
+  reverse their input first, so their fun still sees the elements from the
+  last, after an improper tail failed. Like the body recursion they replace,
+  list loops collect only where they yield (every 4,000 elements without
+  other calls) and in the calls their fun makes.
+- **Same results and reasons.** Values, the order the fun runs in and error
+  reasons are those of `lists`: a non-list input of `map/2`, `foldl/3`,
+  `all/2`, `any/2` and the improper tails of `filter/2`, `foreach/2`,
+  `foldr/3`, `mapfoldl/3`, `mapfoldr/3` make the real `lists` call, which
+  raises its own error; an improper tail of `map/2`, `foldl/3`, `all/2`,
+  `any/2`, `flatmap/2` raises `function_clause` in the caller. A non-boolean
+  predicate raises `{case_clause, V}` (`all/2`, `any/2`) or `{bad_filter, V}`
+  (`filter/2`), a `mapfold` fun's non-pair result `{badmatch, V}`.
+- **Stack traces** of exceptions inside inlined funs lack the fun's and the
+  `lists` helper's frames ([differences](differences.md#errors-stack-traces-and-reports)).
+
 ## Representation
 
 - **Descriptor.** Each distinct value a module creates compiles to one

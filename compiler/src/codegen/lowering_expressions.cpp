@@ -109,10 +109,14 @@ llvm::Value *body_builtin_value(ExpressionLowering &state, const semantic::Servi
 llvm::Value *generated_call(ExpressionLowering &state, const ast::Expression &expression,
                             const ast::CallExpression &call) {
     if (semantic::fun_call(*state.module.syntax, call)) {
-        return lower_fun_call(state, expression, call);
+        auto *inlined = lower_known_fun_call(state, call);
+        return inlined ? inlined : lower_fun_call(state, expression, call);
     }
-    return semantic::dynamic_call(*state.module.syntax, call) ? lower_dynamic_call(state, expression, call)
-                                                              : lower_call(state, expression, call);
+    if (semantic::dynamic_call(*state.module.syntax, call)) {
+        return lower_dynamic_call(state, expression, call);
+    }
+    auto *loop = lower_list_call(state, expression, call);
+    return loop ? loop : lower_call(state, expression, call);
 }
 
 // The evaluated values of a call's arguments, in order.

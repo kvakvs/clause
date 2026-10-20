@@ -5,7 +5,7 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
-OPT1.4, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path,
+OPT1.4, OPT1.7, OPT1.8, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path,
 read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
 
@@ -109,14 +109,14 @@ group the cost into:
 4. **Map trees** (map_put 3-10x, map_update 9.5x): word-level updates, cursors
    and on-heap trees are done (OPT0.32, OPT0.33, OPT3.1); small-map reads and
    present-key updates are inline (OPT3.12).
-5. **Lists with funs** (map_foldl 3.9x): `lists:map` builds through
-   `construct_service`, then `apply` per element (OPT1.7, OPT1.8).
+5. **Lists with funs** (map_foldl 3.9x): known funs are inlined into list
+   loops (OPT1.7, OPT1.8); `lists:map` and the other building loops still make
+   their list reversed and reverse it (OPT1.12).
 
 ## Tier OPT3: runtime gaps of the 69A kernels
 
 Steps by the gap to OTP JIT in the 2026-10-16 69A run (after OPT0.34). Profile
-each kernel with the cdb sampler (`build/prof`) before building; map_foldl
-(3.8x) belongs to OPT1.7 and OPT1.8.
+each kernel with the cdb sampler (`build/prof`) before building.
 
 - **OPT3.4 file I/O:** read_line reads ahead (done); run alone, large_read is at
   parity with OTP (4.1 against 4.0 ms, two thirds in `ReadFile`), so its 69A gap
@@ -249,34 +249,27 @@ Builds on OPT1.4.
   whose identity is the shape token (same literal, constructors and chained
   updates share it; only `from_list` and new-key puts make a fresh one).
 
-### OPT1.7 Higher-order `lists` intrinsics and literal-fun inlining
+### OPT1.7 remainder: more higher-order intrinsics
 
-- **What:** for a call to `lists:foldl/3`, `foreach/2`, `all/2`, `any/2`
-  (tail-recursive) or `map/2`, `filter/2`, `foldr/3`, `flatmap/2`, `mapfoldl/3`,
-  `mapfoldr/3` (body-recursive) with a **literal fun**, expand the helper inline
-  and splice in the fun body. The result is a flat loop (OPT1.1–OPT1.3 then
-  apply).
-- **Source of the set:** OTP's `sys_core_fold_lists.erl` set, driven by the
-  `inline_list_funcs` option, which Clause currently accepts and ignores.
-- **Clause:** without hot code loading, the expansion can be generated from the
-  real `lists` source by cross-module inlining (OPT2.1) instead of from
-  hand-ported templates.
-- **Related item, `maps:fold` with a literal fun on a flatmap:**
+List loops of `map`, `filter`, `foreach`, `all`, `any`, `flatmap`, `foldl`,
+`foldr`, `mapfoldl` and `mapfoldr` are done (see `00-finished.md`). Open:
+
+- Other fun-taking `lists` functions (`filtermap`, `partition`, `takewhile`,
+  `dropwhile`, `zipwith`, `keymap`, ...), by census of real programs.
+- **`maps:fold` with a literal fun on a flatmap:**
   - turns into an indexed loop over the value slots
   - DCE removes key loads the fun does not use
   - the map/keys base untag and the index untag are hoisted (IV strength
     reduction, pointer `+= 8`)
+- Generating the loops from the real `lists` source by cross-module inlining
+  (OPT2.1) instead of hand-written loops.
 
-### OPT1.8 Fun/closure handling: `make_fun` sinking and closure inlining
+### OPT1.8 remainder: sinking bound closures
 
-- **What:**
-  - Sink a closure allocation into the only path that needs it (the slow
-    fallback call), so the fast path neither allocates nor needs a heap check
-    for it (T2 Stage 3d).
-  - Where the target of a fun call is SSA-constant, inline the fun body, append
-    the free variables as arguments, and remove the closure allocation.
-- **Clause:** today `CLAUSE_apply_v1` plus a frame entry runs for every fun
-  call. Takes over OPT0.17 (closure sinking and inlining).
+Funs written in an inlined call are built only on fallback paths (done). Open:
+`F = fun ... end` still builds its closure where it is bound even when every
+read of `F` is an inlined call; sinking it needs the match's value to be unused
+and every read to inline (static decisions only).
 
 ### OPT1.9 Leaf inlining scored by eliminated work
 
@@ -420,12 +413,12 @@ Builds on OPT1.4.
 2. **Loops:** OPT1.1 and OPT1.2 done; OPT1.3 next.
 3. **Binaries:** OPT1.5 (OPT1.4 done).
 4. **Maps:** OPT1.6, then the `maps:fold` part of OPT1.7.
-5. **Lists:** OPT1.12, then OPT1.7 together with OPT2.1.
-6. **Funs and floats:** OPT1.8 and OPT1.11.
+5. **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
+6. **Funs and floats:** OPT1.11, the OPT1.8 remainder.
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact:
-   OPT3.5, a term_to_binary profile, OPT1.7/OPT1.8.
+   OPT3.5, a term_to_binary profile.
 
 **Gate for every item:**
 

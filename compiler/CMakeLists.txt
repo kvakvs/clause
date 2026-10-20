@@ -83,7 +83,7 @@ add_subdirectory(src/project)
 target_link_libraries(clau PRIVATE clause_project)
 
 # Keep LLVM headers and representation private behind the shared compilation backend.
-add_library(clause_codegen STATIC src/codegen/sdk.cpp src/codegen/digest.cpp src/codegen/compilation.cpp src/codegen/module_atoms.cpp src/codegen/module_registration.cpp src/codegen/startup.cpp src/codegen/lowering_match.cpp src/codegen/lowering_immediates.cpp src/codegen/lowering_walk.cpp src/codegen/lowering_comprehensions.cpp src/codegen/lowering_guards.cpp
+add_library(clause_codegen STATIC src/codegen/sdk.cpp src/codegen/digest.cpp src/codegen/compilation.cpp src/codegen/module_atoms.cpp src/codegen/module_registration.cpp src/codegen/startup.cpp src/codegen/lowering_match.cpp src/codegen/lowering_immediates.cpp src/codegen/lowering_walk.cpp src/codegen/lowering_comprehensions.cpp src/codegen/lowering_fun_inlining.cpp src/codegen/lowering_list_loops.cpp src/codegen/lowering_guards.cpp
     src/codegen/specialization.cpp src/codegen/specialization_analysis.cpp src/codegen/integer_guards.cpp
     src/codegen/specialization_cloning.cpp src/codegen/specialization_dispatch.cpp src/codegen/specialization_lowering.cpp
     src/codegen/result.cpp src/codegen/diagnostics.cpp src/codegen/target.cpp

@@ -204,6 +204,7 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
         state.binary_loop = initial.binary_loop;
         state.float_loop = initial.float_loop;
         state.raw_floats = initial.raw_floats;
+        state.lambdas = initial.lambdas;
         reset_candidate_roots(state);
         candidate(state, clauses[index], next);
         failure = state.failure;
@@ -278,21 +279,23 @@ void lower_clauses(ExpressionLowering &initial, const std::vector<ast::FunctionC
 
 void lower_function(llvm::IRBuilder<> &builder, llvm::Function &entry, const semantic::Module &module,
                     const semantic::Function &function, llvm::IntegerType *word,
-                    const semantic::types::Inference &inferred, const Proofs *proofs) {
+                    const semantic::types::Inference &inferred, const Proofs *proofs, const LambdaBindings *lambdas) {
     const auto reads = read_bindings(module, function);
     ExpressionLowering initial{builder, entry, module, function, inferred, word, {}};
     initial.reads = &reads;
     initial.proofs = proofs;
+    initial.lambdas = lambdas;
     lower_clauses(initial, std::get<ast::Function>(module.syntax->form(function.form).value).clauses);
 }
 
 void lower_lambda(llvm::IRBuilder<> &builder, llvm::Function &entry, const semantic::Module &module,
-                  const semantic::FunEntry &lambda, llvm::IntegerType *word,
-                  const semantic::types::Inference &inferred) {
+                  const semantic::FunEntry &lambda, llvm::IntegerType *word, const semantic::types::Inference &inferred,
+                  const LambdaBindings *lambdas) {
     const auto reads = read_bindings(module, *lambda.owner);
     ExpressionLowering initial{builder, entry, module, *lambda.owner, inferred, word, {}};
     initial.reads = &reads;
     initial.lambda = &lambda;
+    initial.lambdas = lambdas;
     lower_clauses(initial, *semantic::fun_clauses(lambda.expression->value));
 }
 } // namespace clause::codegen

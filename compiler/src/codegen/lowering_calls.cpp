@@ -200,4 +200,14 @@ llvm::Value *lower_call(ExpressionLowering &state, const ast::Expression &expres
     propagate_failure(state);
     return result;
 }
+
+llvm::Value *lower_named_call(ExpressionLowering &state, const semantic::FunctionRef callee,
+                              std::span<llvm::Value *const> values) {
+    auto *result = state.builder.CreateCall(callee_declaration(state, callee),
+                                            {state.entry.getArg(0), word_array(state, values)}, "call.result");
+    result->setCallingConv(llvm::CallingConv::C);
+    propagate_failure(state);
+    mark_term(state, result);
+    return result;
+}
 } // namespace clause::codegen

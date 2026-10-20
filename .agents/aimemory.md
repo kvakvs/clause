@@ -219,6 +219,12 @@ gotchas and user directions not recorded elsewhere.
   be an instruction named `proven.cell*` (facts.py): never form pointers from
   constant words (they fold into constant expressions); constant words are
   immediates anyway. Inline pointer results go through a root-slot store.
+- OPT1.7/1.8 (2026-10-20): loops building a reversed accumulator lose to body
+  recursion when a heap-check safepoint collects mid-loop (the live accumulator
+  is copied); body recursion allocates its result with no safepoint. List loops
+  use loop_reduction only (collect at yields); comprehensions still check. A/B
+  codegen with one clau via a temporary env switch; time each kernel in its own
+  process (heap state leaks between kernels), min and median of 300 runs.
 - `codegen_service_*` fault tests reach services only where codegen still calls
   them: their fixtures route type tests through `abs/1` and the consumer runs
   under a heap budget (inline allocation off).

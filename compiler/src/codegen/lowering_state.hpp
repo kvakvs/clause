@@ -153,6 +153,10 @@ struct ExpressionLowering {
     // The double each float word holds, where lowering has it in a register (raw floats, OPT1.2): float literals,
     // results of float arithmetic and cells of a float loop variant's parameters. Float operations read it instead.
     std::map<const llvm::Value *, llvm::Value *> raw_floats = {};
+    // Inline funs (OPT1.8): the variables bound once to an anonymous fun, whose calls lower its clauses in place; null
+    // when no fun is inlined (below O2). `inline_depth` counts the inlined fun bodies around the current expression.
+    const LambdaBindings *lambdas = nullptr;
+    std::size_t inline_depth = 0;
 };
 
 // The fact inference recorded for an expression, or the fact of argument `index` joined from the function's callers;
@@ -481,4 +485,40 @@ llvm::Value *lower_wait(ExpressionLowering &state, llvm::Value *timeout);
 llvm::Value *lower_builtin(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values);
 // Emit one resolved call after its arguments have been evaluated in source order.
 llvm::Value *lower_call(ExpressionLowering &state, const ast::Expression &expression, const ast::CallExpression &call);
+// Call the exported function `callee` with `values` as an ordinary (non-tail) call (list loops, OPT1.7).
+llvm::Value *lower_named_call(ExpressionLowering &state, semantic::FunctionRef callee,
+                              std::span<llvm::Value *const> values);
+// Call the fun value `fun` with `arguments` as an ordinary (non-tail) call; badfun and badarity raise (inline funs).
+llvm::Value *lower_apply_values(ExpressionLowering &state, llvm::Value *fun, std::span<llvm::Value *const> arguments);
+// The head of every comprehension iteration: collect when the heap wants it, then loop_reduction.
+void loop_safepoint(ExpressionLowering &state);
+// Spend a reduction at a loop head and yield when none are left; the yield is a safepoint, where a list loop
+// collects (list loops, OPT1.7).
+void loop_reduction(ExpressionLowering &state);
+
+// Inline funs (OPT1.8): an anonymous fun whose clauses lowering can put in place of a call, and the fun expression
+// when it is written in the call itself, so that it is built only on the paths that need its value.
+struct KnownLambda {
+    const semantic::FunEntry *lambda = nullptr;
+    const ast::Expression *literal = nullptr;
+};
+
+// The anonymous fun of arity `arity` that `value` is (written there, or read from a variable bound once to it) when
+// funs may be inlined here; none otherwise.
+KnownLambda known_lambda(const ExpressionLowering &state, const ast::ExprId &value, std::size_t arity);
+// The fun written in a call that lowering inlines, which the walk must not build; null for every other expression.
+const ast::Expression *sunk_fun(const ExpressionLowering &state, const ast::Expression &expression);
+// The fun's clauses matched against `arguments` and their body lowered in place: its result. No clause matching
+// calls the fun from `fun()`, which raises function_clause as the fun itself would (inline funs, OPT1.8).
+llvm::Value *inline_lambda(ExpressionLowering &state, const semantic::FunEntry &lambda,
+                           std::span<llvm::Value *const> arguments, llvm::function_ref<llvm::Value *()> fun);
+// F(Args) of a known anonymous fun with its clauses inlined; null when the target is no known fun (inline funs).
+llvm::Value *lower_known_fun_call(ExpressionLowering &state, const ast::CallExpression &call);
+// The literal fun argument of a lists call that lowering turns into a loop, null for other calls (list loops, OPT1.7).
+const ast::Expression *sunk_list_fun(const ExpressionLowering &state, const ast::Expression &expression,
+                                     const ast::CallExpression &call);
+// lists:map/2, filter/2, foreach/2, all/2, any/2, flatmap/2, foldl/3, foldr/3, mapfoldl/3 and mapfoldr/3 of a known
+// anonymous fun as a loop with the fun inlined; null for every other call (list loops, OPT1.7).
+llvm::Value *lower_list_call(ExpressionLowering &state, const ast::Expression &expression,
+                             const ast::CallExpression &call);
 } // namespace clause::codegen

@@ -87,10 +87,18 @@ template <class Taken> void when(ExpressionLowering &state, llvm::Value *conditi
     state.builder.SetInsertPoint(next);
 }
 
+// The kind of input a generator walks.
+Source source(const ast::Qualifier &part) {
+    if (std::holds_alternative<ast::BinaryGenerator>(part.value)) {
+        return Source::binary;
+    }
+    return std::holds_alternative<ast::MapGenerator>(part.value) ? Source::map : Source::list;
+}
+} // namespace
+
 // Every iteration starts at a loop head. It collects only when the heap wants a collection (FrameState::slow,
-// OPT0.1): the heap may move there, so lower_frames reloads values read after it. It spends one reduction and,
-// with none left, yields by entering erlang:self/0 (OPT0.7).
-void safepoint(ExpressionLowering &state) {
+// OPT0.1): the heap may move there, so lower_frames reloads values read after it. Then it spends a reduction.
+void loop_safepoint(ExpressionLowering &state) {
     auto &builder = state.builder;
     const llvm::Align align(state.word->getBitWidth() / 8);
     auto *slow =
@@ -106,6 +114,13 @@ void safepoint(ExpressionLowering &state) {
                                        llvm::FunctionType::get(builder.getVoidTy(), {builder.getPtrTy()}, false));
         builder.CreateCall(service, {state.entry.getArg(0)});
     });
+    loop_reduction(state);
+}
+
+// Spend one reduction; with none left, yield by entering erlang:self/0 (OPT0.7), itself a safepoint.
+void loop_reduction(ExpressionLowering &state) {
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
     auto *field = state_field(state, abi::v1::StateField::reductions);
     auto *reductions = builder.CreateAlignedLoad(state.word, field, align, "loop.reductions");
     auto *spent = builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, reductions,
@@ -123,14 +138,7 @@ void safepoint(ExpressionLowering &state) {
     builder.SetInsertPoint(next);
 }
 
-// The kind of input a generator walks.
-Source source(const ast::Qualifier &part) {
-    if (std::holds_alternative<ast::BinaryGenerator>(part.value)) {
-        return Source::binary;
-    }
-    return std::holds_alternative<ast::MapGenerator>(part.value) ? Source::map : Source::list;
-}
-
+namespace {
 // Before a map generator's loop: its input must be a map (else bad_generator); it starts at position 0.
 void start_map(ExpressionLowering &state, Generator &generator, llvm::Value *input) {
     auto *bad = block(state, "generator.bad_map");
@@ -403,7 +411,7 @@ void lower_generators(ExpressionLowering &state, Comprehension &comprehension,
     auto *head = block(state, "generator.next");
     state.builder.CreateBr(head);
     state.builder.SetInsertPoint(head);
-    safepoint(state);
+    loop_safepoint(state);
     for (auto &generator : generators) {
         read(state, generator);
     }

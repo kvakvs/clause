@@ -190,8 +190,12 @@ void enter(ExpressionLowering &state, const ast::ExprId &id, std::vector<Visit> 
     const auto *binary = std::get_if<ast::Bitstring>(&expression.value);
     const auto children = binary ? binary_children(*state.module.syntax, *binary)
                                  : semantic::expression_children(state.module, expression);
+    // A fun written in a call that inlines it is built only where its value is needed (inline funs, OPT1.8).
+    const auto *sunk = sunk_fun(state, expression);
     for (auto child = children.rbegin(); child != children.rend(); ++child) {
-        pending.push_back({*child});
+        if (&state.module.syntax->expression(*child) != sunk) {
+            pending.push_back({*child});
+        }
     }
 }
 

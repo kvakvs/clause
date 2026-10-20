@@ -428,6 +428,13 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   Kernels alone 1.04x geomean (string_build 1.27x, list_of_tuples 1.16x, sort
   1.12x); 69A sequence 1.00x —
   `1618e0f0`
+- **OPT1.7 + OPT1.8** known anonymous funs inlined at O2 (written in the call,
+  or `F = fun` bound once): clauses in place, the closure built only where no
+  clause matches; `lists` map/filter/foreach/all/any/flatmap/foldl/foldr/
+  mapfoldl/mapfoldr become loops in the caller that collect only at yields;
+  results and error reasons as `lists`, only stack traces differ. 69A
+  map_foldl 12.2 to 7.8 ms (OTP 3.4); foldl alone ~11x, map min 1.35x; luerl
+  euler unchanged — `PENDING`
 - **OPT0.20B** generational collection: safepoints run minor collections that
   promote objects below the high-water mark into an old area and leave it in
   place (ERTS sizing rules, Debug old→young check); 69A geomean 1.15x (sort

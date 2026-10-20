@@ -45,17 +45,26 @@ llvm::Value *registers(ExpressionLowering &state, std::size_t count) {
     return array;
 }
 
-// A register array holding the call's arguments; a fun's captured values follow them.
-llvm::Value *arguments(ExpressionLowering &state, const ast::CallExpression &call) {
+// A register array holding `values`; a fun's captured values follow them.
+llvm::Value *argument_registers(ExpressionLowering &state, std::span<llvm::Value *const> values) {
     auto &builder = state.builder;
-    auto *array = registers(state, call.arguments.size());
+    auto *array = registers(state, values.size());
     const llvm::Align alignment(state.word->getBitWidth() / 8);
-    for (std::size_t i = 0; i < call.arguments.size(); ++i) {
-        builder.CreateAlignedStore(value_of(state, call.arguments[i]),
-                                   builder.CreateGEP(state.word, array, llvm::ConstantInt::get(state.word, i)),
-                                   alignment);
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        builder.CreateAlignedStore(
+            values[i], builder.CreateGEP(state.word, array, llvm::ConstantInt::get(state.word, i)), alignment);
     }
     return array;
+}
+
+// A register array holding the call's arguments.
+llvm::Value *arguments(ExpressionLowering &state, const ast::CallExpression &call) {
+    std::vector<llvm::Value *> values;
+    values.reserve(call.arguments.size());
+    for (const auto &argument : call.arguments) {
+        values.push_back(value_of(state, argument));
+    }
+    return argument_registers(state, values);
 }
 
 // Whether a call expression is in tail position, so its callee's result is this function's.
@@ -257,6 +266,15 @@ llvm::Value *lower_fun_call(ExpressionLowering &state, const ast::Expression &ex
     auto *count = llvm::ConstantInt::get(state.word, call.arguments.size());
     return transfer(state, in_tail(state, expression), frame_service<services::Apply>(state, 2, true),
                     {state.entry.getArg(0), fun, count, array}, array);
+}
+
+llvm::Value *lower_apply_values(ExpressionLowering &state, llvm::Value *fun, std::span<llvm::Value *const> arguments) {
+    auto *array = argument_registers(state, arguments);
+    auto *count = llvm::ConstantInt::get(state.word, arguments.size());
+    auto *result = transfer(state, false, frame_service<services::Apply>(state, 2, true),
+                            {state.entry.getArg(0), fun, count, array}, array);
+    mark_term(state, result);
+    return result;
 }
 
 llvm::Value *lower_dynamic_call(ExpressionLowering &state, const ast::Expression &expression,
