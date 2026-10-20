@@ -315,62 +315,7 @@ count_down(From, To, Step, Acc) when Step > 0, From >= To; Step < 0, From =< To 
 count_down(_, _, _, Acc) ->
     Acc.
 
-%% The elements in ascending term order; equal elements keep their order. Passes alternate ascending and descending
-%% runs, so a merge never reverses a run: ascending runs in order merge into descending runs in reverse order, and
-%% those merge back into ascending runs in order (alternating merge sort).
-sort([_, _ | _] = List) ->
-    sort_pass(pairs(List, []), ascending);
-sort([_] = List) ->
-    List;
-sort([] = List) ->
-    List.
-
-%% Ascending runs of two elements (the last may hold one), in order.
-pairs([X, Y | Rest], Acc) when X =< Y -> pairs(Rest, [[X, Y] | Acc]);
-pairs([X, Y | Rest], Acc) -> pairs(Rest, [[Y, X] | Acc]);
-pairs([X], Acc) -> reverse(Acc, [[X]]);
-pairs([], Acc) -> reverse(Acc, []).
-
-%% Merge runs pairwise until one remains, then make it ascending.
-sort_pass([Run], ascending) -> Run;
-sort_pass([Run], descending) -> reverse(Run, []);
-sort_pass(Runs, ascending) -> sort_pass(descend_pairs(Runs, []), descending);
-sort_pass(Runs, descending) -> sort_pass(ascend_pairs(Runs, []), ascending).
-
-%% Ascending runs in order: each adjacent pair merged into a descending run, the results in reverse order.
-descend_pairs([A, B | Rest], Acc) -> descend_pairs(Rest, [merge_down(A, B, []) | Acc]);
-descend_pairs([A], Acc) -> [reverse(A, []) | Acc];
-descend_pairs([], Acc) -> Acc.
-
-%% Descending runs in reverse order: each adjacent pair (the later run first) merged into an ascending run, the
-%% results in order.
-ascend_pairs([B, A | Rest], Acc) -> ascend_pairs(Rest, [merge_up(B, A, []) | Acc]);
-ascend_pairs([A], Acc) -> [reverse(A, []) | Acc];
-ascend_pairs([], Acc) -> Acc.
-
-%% Merge ascending runs A (the earlier) and B into a descending run on Acc; on ties A's element goes first, so in
-%% a descending run equal elements stand latest first.
-merge_down([X | Xs] = A, [Y | Ys] = B, Acc) ->
-    case X =< Y of
-        true -> merge_down(Xs, B, [X | Acc]);
-        false -> merge_down(A, Ys, [Y | Acc])
-    end;
-merge_down([], B, Acc) ->
-    reverse(B, Acc);
-merge_down(A, [], Acc) ->
-    reverse(A, Acc).
-
-%% Merge descending runs B (the later) and A into an ascending run on Acc; on ties B's element goes first, so the
-%% earlier one ends up first.
-merge_up([X | Xs] = B, [Y | Ys] = A, Acc) ->
-    case X >= Y of
-        true -> merge_up(Xs, A, [X | Acc]);
-        false -> merge_up(B, Ys, [Y | Acc])
-    end;
-merge_up([], A, Acc) ->
-    reverse(A, Acc);
-merge_up(B, [], Acc) ->
-    reverse(B, Acc).
+sort(_) -> clause_builtin_placeholder.
 
 concat(_) -> clause_builtin_placeholder.
 delete(_, _) -> clause_builtin_placeholder.

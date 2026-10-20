@@ -31,6 +31,14 @@ std::vector<Term> proper(const Term &list);
 // Whether `left` compares equal to (==) or before (<) `right` in term order.
 bool equal(const Term &left, const Term &right);
 bool before(const Term &left, const Term &right);
+
+// The element words of a proper list, read in place (word-level walks); function_clause for anything else. Added for
+// the lists:sort builtin.
+std::vector<Word> proper_words(Term list);
+
+// Whether word `left` sorts before word `right`, both terms of the process owning `heap`: read from their cells when
+// word-level order decides, else by the structural order. Added for the lists:sort builtin.
+bool before(ProcessHeap &heap, Word left, Word right);
 } // namespace clause::runtime::builtins::lists
 
 namespace clause::runtime::builtins {

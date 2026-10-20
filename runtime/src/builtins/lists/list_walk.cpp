@@ -1,5 +1,7 @@
 #include "list_walk.hpp"
 #include "../../terms/structural_order.hpp"
+#include "../../terms/word_order.hpp"
+#include "../portions.hpp"
 #include <limits>
 
 namespace clause::runtime::builtins::lists {
@@ -29,4 +31,18 @@ std::vector<Term> proper(const Term &list) {
 bool equal(const Term &left, const Term &right) { return need(detail::structural_order(left, right)) == 0; }
 
 bool before(const Term &left, const Term &right) { return need(detail::structural_order(left, right)) < 0; }
+
+std::vector<Word> proper_words(Term list) {
+    std::vector<Word> words;
+    walk(list, std::numeric_limits<std::size_t>::max(), [&](Word head) { words.push_back(head); });
+    if (!list.is_nil()) {
+        no_clause();
+    }
+    return words;
+}
+
+bool before(ProcessHeap &heap, Word left, Word right) {
+    const auto order = detail::trusted_word_order(heap, left, right);
+    return order ? *order < 0 : before(detail::TermAccess::make(left), detail::TermAccess::make(right));
+}
 } // namespace clause::runtime::builtins::lists

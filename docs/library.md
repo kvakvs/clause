@@ -12,7 +12,7 @@ which are stubs.
 
 | Module | Contents |
 | --- | --- |
-| [`lists`](../library/stdlib/lists.erl) | The common functions; data functions such as `sublist/2,3`, `flatten/1,2`, `usort/1`, `keymember/3`, `zip/2,3`, `merge/2` are runtime builtins; every documented function is implemented ([lists module](builtins.md#lists-module)) |
+| [`lists`](../library/stdlib/lists.erl) | The common functions; data functions such as `sublist/2,3`, `flatten/1,2`, `sort/1`, `usort/1`, `keymember/3`, `zip/2,3`, `merge/2` are runtime builtins; every documented function is implemented ([lists module](builtins.md#lists-module)) |
 | [`maps`](../library/stdlib/maps.erl) | Every documented function; `get/3`, `merge/2`, `intersect/2`, `with/2`, ... are runtime builtins, the functions taking funs Erlang ([maps module](builtins.md#maps-module)) |
 | [`ordsets`](../library/stdlib/ordsets.erl), [`orddict`](../library/stdlib/orddict.erl), [`proplists`](../library/stdlib/proplists.erl) | Every documented function; the walks over lists are runtime builtins, the functions taking funs Erlang ([collections](builtins.md#collections)) |
 | [`calendar`](../library/stdlib/calendar.erl) | Every documented function; the Gregorian arithmetic as runtime builtins, local time and RFC 3339 Erlang ([calendar](builtins.md#calendar)) |
@@ -62,9 +62,9 @@ Erlang implementations (`lists:map(F, x)` is `{case_clause, x}`,
 `lists:nth(0, L)` `function_clause`, `lists:seq(1, 10, 0)` `badarg`) and of its
 BIFs (`lists:member/2`, `lists:keyfind/3`, `lists:reverse/2`, the `maps`
 functions: `badarg`, `{badmap, M}`, `{badkey, K}`). `lists:member/2` matches
-with `=:=`, `lists:keyfind/3` with `==`. `lists:sort/1` is a stable merge sort
-whose passes alternate ascending and descending runs, so no merge reverses a
-run. Stack traces name the library functions, not OTP's.
+with `=:=`, `lists:keyfind/3` with `==`. `lists:sort/1` is a stable runtime
+builtin ([comparison and order](terms.md#comparison-and-order)). Stack traces
+name the library functions, not OTP's.
 
 ## How programs get them
 

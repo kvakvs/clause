@@ -197,8 +197,9 @@ deferred.
 `builtins/lists/`. OTP's `lists` is Erlang, so builtins raise what its clauses
 raise.
 
-- Walks (`sublist`, `flatten`, merges, `key*`, `zip`, `usort`, ...) raise
-  `function_clause` like OTP and stay as lazy (`sublist([a | b], 1)` is `[a]`).
+- Walks (`sublist`, `flatten`, merges, `key*`, `zip`, `sort`, `usort`, ...)
+  raise `function_clause` like OTP and stay as lazy (`sublist([a | b], 1)` is
+  `[a]`).
 - `keymember/3`, `keysearch/3` are BIFs: `badarg` rules.
 - Equal elements: first wins (`max([1, 1.0])` is `1`).
 - Funs-taking functions and the rest are Erlang in `library/stdlib/lists.erl`;

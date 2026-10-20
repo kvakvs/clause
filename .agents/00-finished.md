@@ -577,6 +577,15 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   stands); `atom_to_list` of a literal was already folded (OPT0.34). Pinned:
   int_to_list 1790 to 520 ms (OTP ~880), string_build 1370 to 645 ms (OTP
   ~1110) — `43a7cf87`
+- **OPT3.17** `lists:sort/1` is a runtime builtin sorting element words (all
+  small integers by word, all atoms by spelling read once, otherwise stable by
+  word order), shared with `usort/1`; `word_order` now also orders atoms,
+  bignums, small/float and float/bignum pairs, and tuples and lists of these,
+  so generated comparisons of such compounds skip `structural_order` too.
+  Pinned, 600 sorts of 20,000: integers 1555 to ~535 ms (OTP 1045), 2-tuples
+  8450 to ~520 (OTP 549), mixed numbers 3850 to ~610 (OTP 653), atoms 735 to
+  ~250 (OTP 373); `small_order` compares signed at the word's width (32-bit
+  negatives) — `[plan20] OPT3.17 ...`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576

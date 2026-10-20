@@ -200,7 +200,8 @@ test need no OTP (`docs/validation.md`).
   `sub_binary` over a never-nested original, appendable buffers grow in place;
   freed power-of-two buffers are reused per thread (`off_heap`).
 - Order numbers < atoms < refs < funs < ports < pids < tuples < maps < lists <
-  bitstrings, iterative (`word_order`). `format_term` prints `~w` iteratively
+  bitstrings, iterative; numbers, atoms, whole-byte binaries and tuples/lists
+  of them order from their cells (`word_order`), the rest structurally. `format_term` prints `~w` iteratively
   under a byte cap.
 
 ### Memory and GC (`memory/`, `docs/runtime-heap.md`)

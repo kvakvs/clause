@@ -373,6 +373,7 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"lists", "flatten", 2},
     BuiltinName{"lists", "max", 1},
     BuiltinName{"lists", "min", 1},
+    BuiltinName{"lists", "sort", 1},
     BuiltinName{"lists", "usort", 1},
     BuiltinName{"lists", "umerge", 1},
     BuiltinName{"lists", "umerge", 2},

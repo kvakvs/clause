@@ -6,7 +6,7 @@ generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
 OPT1.4, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
-OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16,
+OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17,
 read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
 
@@ -106,7 +106,7 @@ the step that owns it (unprofiled ones say so):
 | datagen.map_put | 2305 / 1601 | 1.44x | OPT3.15 remainder (0.92x pinned after OPT3.15) |
 | file.large_write | 1219 / 961 | 1.27x | OPT3.4 |
 | dataproc.map_foldl | 1557 / 1240 | 1.26x | OPT1.12 (`lists:map` builds reversed) |
-| dataproc.sort | 1337 / 1070 | 1.25x | OPT3.17 (unprofiled) |
+| dataproc.sort | 1337 / 1070 | 1.25x | done (OPT3.17: 0.52x pinned) |
 | datagen.list_of_tuples | 1901 / 1527 | 1.25x | OPT3.18 (unprofiled) |
 | file.read_file | 1794 / 1488 | 1.21x | OPT3.4 |
 | datagen.bigint_factorial | 1333 / 1136 | 1.17x | OPT3.19 (unprofiled) |
@@ -225,9 +225,6 @@ Profile each kernel before building (see
   20,000 lines run alone: the I/O server round trip (monitor, send, receive,
   demonitor) per line; large_read is two thirds `ReadFile`. OTP's file
   timings vary 6-25% per run.
-- **OPT3.17 sort (1.25x, unprofiled):** `lists:sort/1` of 20,000 random
-  integers; collection was 65% of it on 2026-10-16, before generational
-  collection.
 - **OPT3.18 list_of_tuples (1.25x, unprofiled):** builds a 200,000-element list
   of `{N, N * N, [N]}`; the cost is allocation and collection of a growing live
   set (its 3M-word old area).
@@ -539,7 +536,7 @@ and every read to inline (static decisions only).
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact
-   (2026-10-20 run): OPT3.4, OPT1.12, OPT3.17, OPT3.18,
+   (2026-10-20 run): OPT3.4, OPT1.12, OPT3.18,
    OPT3.19, OPT3.9 remainder; then the kernels already ahead: OPT3.5
    remainder, OPT1.6, OPT3.15 remainder, OPT3.20, OPT3.6 remainder, OPT1.5,
    OPT3.21, OPT3.22, term_to_binary remainder, OPT1.3.
