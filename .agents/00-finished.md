@@ -554,7 +554,7 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   small objects without `memmove` and test immediates inline;
   short_processes one worker 159 to 104 ms (OTP 129), 32 workers 22 ms (OTP
   22); against 662e5c1b: short_processes 2.37x, explicit_collect 1.78x,
-  grow_shrink 1.22x, list_of_tuples 1.21x, sort 1.09x — (hash in next commit)
+  grow_shrink 1.22x, list_of_tuples 1.21x, sort 1.09x — `eb47dc06`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
