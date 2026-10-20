@@ -54,7 +54,7 @@ bool ends_program(ProcessContext &process) noexcept {
 Executor &Executor::of(ProcessContext &context) noexcept { return context.runtime().impl_->executor; }
 
 void Executor::evacuate_parked() {
-    const std::scoped_lock lock(mutex_);
+    const std::scoped_lock lock(mutex_, runtime_.contexts_mutex);
     for (const auto &[process, owner] : runtime_.contexts) {
         // A process suspended on a busy port is neither queued nor parked, and may stay so.
         const auto &state = owner->schedule();
@@ -120,8 +120,15 @@ TermResult<Term> Executor::create(ProcessContext &parent, Prepare prepare, const
     if (*frame) {
         child.stack().start(*static_cast<const FrameDescriptor *>(*frame));
     }
+    return !options.link && !options.monitor ? launch(parent, std::move(*built), *pid)
+                                             : launch_linked(parent, std::move(*built), *pid, options);
+}
+
+TermResult<Term> Executor::launch_linked(ProcessContext &parent, std::unique_ptr<ProcessContext> built, const Term &pid,
+                                         const SpawnOptions &options) noexcept {
+    auto &child = *built;
     const std::scoped_lock lock(mutex_);
-    if (const auto published = runtime.publish_context(std::move(*built)); !published) {
+    if (const auto published = parent.runtime().publish_context(std::move(built)); !published) {
         return std::unexpected(creation_error(published.error()));
     }
     retire_arrays();
@@ -129,12 +136,33 @@ TermResult<Term> Executor::create(ProcessContext &parent, Prepare prepare, const
     const auto leader = parent.signals().group_leader();
     child.signals().set_group_leader(leader != 0 ? leader : pid_of(parent));
     try {
-        auto result = adopt(parent, child, *pid, options);
+        auto result = adopt(parent, child, pid, options);
         if (!result) {
             destroy(child);
         }
         return result;
     } catch (const std::bad_alloc &) {
+        destroy(child);
+        return std::unexpected(TermError::out_of_memory);
+    }
+}
+
+TermResult<Term> Executor::launch(ProcessContext &parent, std::unique_ptr<ProcessContext> built,
+                                  const Term &pid) noexcept {
+    auto &child = *built;
+    // A spawned process inherits its parent's group leader (step 41G1); the running parent's own cannot change
+    // meanwhile, as group_leader/2 waits for its slice to end.
+    const auto leader = parent.signals().group_leader();
+    child.signals().set_group_leader(leader != 0 ? leader : pid_of(parent));
+    child.schedule().started = true;
+    if (const auto published = parent.runtime().publish_context(std::move(built)); !published) {
+        return std::unexpected(creation_error(published.error()));
+    }
+    try {
+        push(child);
+        return pid;
+    } catch (const std::bad_alloc &) {
+        const std::scoped_lock lock(mutex_);
         destroy(child);
         return std::unexpected(TermError::out_of_memory);
     }
@@ -344,6 +372,7 @@ void Executor::push(ProcessContext &process, bool front) {
         state.ready = true;
         return;
     }
+    const std::scoped_lock queues(queues_mutex_);
     const auto home = place(state.home);
     state.home = home;
     auto &queue = queues_[home]->processes;
@@ -402,12 +431,14 @@ void Executor::wake_idle(std::size_t except) {
 }
 
 void Executor::wake_all() {
+    const std::scoped_lock queues(queues_mutex_);
     for (const auto &queue : queues_) {
         queue->wake.notify_all();
     }
 }
 
 std::size_t Executor::queued() const noexcept {
+    const std::scoped_lock queues(queues_mutex_);
     std::size_t count = 0;
     for (const auto &queue : queues_) {
         count += queue->processes.size();
@@ -559,20 +590,15 @@ void Executor::work(const std::size_t index) noexcept {
     std::unique_lock lock(mutex_);
     auto &seen = queues_[index]->seen;
     seen.store(reclaim_epoch_.load());
+    Garbage garbage;
     while (!finished_) {
         try {
             if (const auto port = next_port()) {
                 run_port(*port);
                 continue;
             }
-            auto *next = next_process(index);
+            auto *next = next_or_sleep(index, lock, garbage);
             if (!next) {
-                auto &queue = *queues_[index];
-                queue.idle = true;
-                seen.store(QUIESCENT);
-                queue.wake.wait(lock);
-                seen.store(reclaim_epoch_.load());
-                queue.idle = false;
                 continue;
             }
             auto &process = *next;
@@ -580,6 +606,7 @@ void Executor::work(const std::size_t index) noexcept {
             process.mailbox().arrivals().set_running(true);
             ++slices_;
             lock.unlock();
+            garbage.free();
             running_ = &process;
             prepare(process);
             const bool ended = process.stack().run(SLICE_REDUCTIONS);
@@ -588,7 +615,7 @@ void Executor::work(const std::size_t index) noexcept {
             // A slice boundary: nothing this worker found without the lock is held any more (quiescent reclamation).
             seen.store(reclaim_epoch_.load());
             after(process, ended);
-            free_retired(lock);
+            collect(garbage);
         } catch (const std::bad_alloc &) {
             fail_program();
         } catch (...) {
@@ -597,8 +624,37 @@ void Executor::work(const std::size_t index) noexcept {
         }
     }
     seen.store(QUIESCENT);
+    // The program ends: freed under the lock.
+    garbage.free();
     worker_ = false;
     wake_all();
+}
+
+ProcessContext *Executor::next_or_sleep(std::size_t index, std::unique_lock<std::mutex> &lock, Garbage &garbage) {
+    std::unique_lock queues(queues_mutex_);
+    if (auto *next = next_process(index)) {
+        return next;
+    }
+    if (!garbage.empty()) {
+        // Freed before sleeping, outside both locks; the worker looks again after.
+        queues.unlock();
+        lock.unlock();
+        garbage.free();
+        lock.lock();
+        return nullptr;
+    }
+    // Sleeps holding only the run queues' lock, which every push takes: a spawn that queues without the executor's
+    // lock cannot slip in between the look and the wait.
+    auto &queue = *queues_[index];
+    queue.idle = true;
+    queue.seen.store(QUIESCENT);
+    lock.unlock();
+    queue.wake.wait(queues);
+    queue.idle = false;
+    queues.unlock();
+    lock.lock();
+    queue.seen.store(reclaim_epoch_.load());
+    return nullptr;
 }
 
 void Executor::retire(std::unique_ptr<Reclaimable> retired) noexcept {
@@ -768,7 +824,7 @@ ProcessContext &Executor::run(ProcessContext &main) noexcept {
     std::vector<std::thread> helpers;
     const auto workers = main.runtime().impl_->options.schedulers;
     {
-        const std::scoped_lock lock(mutex_);
+        const std::scoped_lock lock(mutex_, queues_mutex_);
         while (queues_.size() < workers) {
             try {
                 queues_.push_back(std::make_unique<RunQueue>());
@@ -814,6 +870,7 @@ void Executor::destroy(ProcessContext &process) noexcept {
     auto &runtime = process.runtime();
     auto context = runtime.unpublish_context(process);
     retire(context->mailbox().release_arrivals());
+    retire_arrays();
     if (retired_contexts_.size() == retired_contexts_.capacity()) {
         try {
             retired_contexts_.reserve(std::max(RETIRED_CONTEXTS, 2 * retired_contexts_.capacity()));
@@ -870,9 +927,12 @@ void Executor::clear() noexcept {
     // The wheel links timers embedded in the schedules: unlink them while the schedules still exist.
     wheel_.clear();
     std::vector<ProcessContext *> started;
-    for (const auto &[process, owner] : runtime_.contexts) {
-        if (owner->schedule().started && owner.get() != finished_) {
-            started.push_back(owner.get());
+    {
+        const std::scoped_lock contexts(runtime_.contexts_mutex);
+        for (const auto &[process, owner] : runtime_.contexts) {
+            if (owner->schedule().started && owner.get() != finished_) {
+                started.push_back(owner.get());
+            }
         }
     }
     for (auto *process : started) {
@@ -882,8 +942,11 @@ void Executor::clear() noexcept {
     if (finished_ != nullptr) {
         finished_->schedule() = Schedule{};
     }
-    for (const auto &queue : queues_) {
-        queue->processes.clear();
+    {
+        const std::scoped_lock queues(queues_mutex_);
+        for (const auto &queue : queues_) {
+            queue->processes.clear();
+        }
     }
     port_queue_.clear();
     ending_.clear();

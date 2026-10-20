@@ -225,6 +225,7 @@ void Executor::queue_port(Port &port) {
     }
     port_queue_.push_back(port.number);
     port.queued = true;
+    const std::scoped_lock queues(queues_mutex_);
     wake_idle(queues_.size());
 }
 
@@ -232,7 +233,7 @@ std::optional<Word> Executor::next_port() noexcept {
     if (port_queue_.empty()) {
         return std::nullopt;
     }
-    if (!queues_[worker_ ? worker_index_ : 0]->processes.empty()) {
+    if (const std::scoped_lock queues(queues_mutex_); !queues_[worker_ ? worker_index_ : 0]->processes.empty()) {
         // Processes and ports take turns, so neither can starve the other.
         port_turn_ = !port_turn_;
         if (port_turn_) {

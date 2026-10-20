@@ -67,13 +67,19 @@ per logical processor, as OTP's `+S`.
   worker is woken only when a queue then holds more than one process. The timer
   and I/O threads, port tasks and workers between slices queue a process for its
   own worker, or for an idle worker when its own one is busy.
-- One executor mutex guards the run queues, the waiting processes, the timers,
-  the registered names, the links and monitors of every process, and every
-  process that is not running. A running process's heap, stack, mailbox and
-  failure channel belong to its worker alone; Erlang code runs without the lock.
-  A spawn builds the new process's context and copies its call into it before
-  taking the lock, which then only publishes and queues it; ended processes'
-  contexts are freed after it (process creation and teardown).
+- One executor mutex guards the waiting processes, the timers, the registered
+  names, the links and monitors of every process, and every process that is not
+  running. A running process's heap, stack, mailbox and failure channel belong
+  to its worker alone; Erlang code runs without the lock. The run queues and
+  the workers' idle state have a lock of their own, taken after the executor
+  mutex; idle workers sleep on it (process creation and teardown).
+- A spawn builds the new process's context and copies its call into it without
+  any lock. One that neither links nor monitors then publishes it in the
+  process table and queues it under their own locks only, never taking the
+  executor mutex; `spawn_link`, `spawn_monitor` and the monitoring
+  `spawn_opt`/`spawn_request` forms publish, link or monitor and queue under the
+  executor mutex. A worker frees the contexts of ended processes right after it
+  leaves the mutex for its next slice.
 - Links, monitors and names change under the lock at once, also for a process
   running elsewhere. A message waits in a buffer among the receiver's arrivals
   until the receiver takes it ([arrival buffers](#arrival-buffers)). An exit
@@ -109,8 +115,9 @@ process's scheduling state happens under the executor mutex:
   A posted message ([arrival buffers](#arrival-buffers)) is not lost either:
   parking checks the arrivals under their lock, and a post that finds the
   receiver parked wakes it under the executor mutex.
-- A worker that finds no runnable process sleeps until another worker, a send or
-  the timer thread queues one, or the program ends. Workers never read the clock
+- A worker that finds no runnable process sleeps until another worker, a send, a
+  spawn or the timer thread queues one, or the program ends; it looks at the
+  queues and sleeps under the run queues' lock, which every queueing takes. Workers never read the clock
   for timers; parking a process with a timeout earlier than every other wakes
   only the timer thread.
 - A message and an expiring timeout of one receive may race: whichever comes

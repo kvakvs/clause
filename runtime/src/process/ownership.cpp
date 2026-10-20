@@ -63,6 +63,7 @@ std::expected<ProcessContext *, Status> Runtime::publish_context(std::unique_ptr
         impl_->processes.insert(number, *borrowed);
         try {
             // The owner moves in only once the entry exists, so a failed insertion leaves it here.
+            const std::scoped_lock lock(impl_->contexts_mutex);
             impl_->contexts.emplace(borrowed, nullptr).first->second = std::move(context);
         } catch (...) {
             impl_->processes.erase(number);
@@ -79,9 +80,13 @@ std::expected<ProcessContext *, Status> Runtime::publish_context(std::unique_ptr
 }
 
 std::unique_ptr<ProcessContext> Runtime::unpublish_context(ProcessContext &context) const noexcept {
-    const auto found = impl_->contexts.find(&context);
-    auto owner = std::move(found->second);
-    impl_->contexts.erase(found);
+    std::unique_ptr<ProcessContext> owner;
+    {
+        const std::scoped_lock lock(impl_->contexts_mutex);
+        const auto found = impl_->contexts.find(&context);
+        owner = std::move(found->second);
+        impl_->contexts.erase(found);
+    }
     impl_->processes.erase(static_cast<Word>(context.identity().serial_));
     if (impl_->profile && context.stack().profile()) {
         impl_->profile->add(static_cast<Word>(context.identity().serial_), *context.stack().profile());
@@ -101,9 +106,11 @@ Status Runtime::destroy_context(ProcessContext *context) const noexcept {
     if (context == nullptr) {
         return Status::invalid_argument;
     }
-    const auto found = impl_->contexts.find(context);
-    if (found == impl_->contexts.end()) {
-        return Status::wrong_owner;
+    {
+        const std::scoped_lock lock(impl_->contexts_mutex);
+        if (!impl_->contexts.contains(context)) {
+            return Status::wrong_owner;
+        }
     }
     const auto removed = impl_->scheduler.remove_process(context->identity());
     if (!removed && removed.error() != SchedulerError::unknown_process) {

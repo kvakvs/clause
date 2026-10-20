@@ -42,8 +42,10 @@ class Runtime::Impl final {
     // The ETS tables every process shares (plan 21 step LIB10A); their objects are detached copies charged to
     // `memory`, so the registry outlives every context.
     detail::ets::Tables ets_tables;
-    // Destroy process owners before the above service bindings; no signals or workers exist yet.
+    // Destroy process owners before the above service bindings; no signals or workers exist yet. Guarded by
+    // contexts_mutex: spawns publish without the executor's lock (process creation and teardown).
     std::unordered_map<const ProcessContext *, std::unique_ptr<ProcessContext>> contexts;
+    mutable std::mutex contexts_mutex;
     // Live processes by pid number, for is_process_alive/1 and sends; sharded so a send needs no executor lock
     // (arrival buffers).
     detail::ProcessTable processes;

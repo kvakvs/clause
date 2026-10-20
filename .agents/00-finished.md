@@ -544,7 +544,12 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   pushed onto the receiver's lock-free arrivals and taken 64 at a time when its
   receive would wait, quiescent reclamation of arrivals and table arrays;
   `Schedule` kept with the process (no hash lookups). short_processes 1.79x,
-  ring 1.12x, ping_pong 1.07x, fan_in 0.94x — (hash in next commit)
+  ring 1.12x, ping_pong 1.07x, fan_in 0.94x — `606ac9ce`
+- **OPT3.5C** run queues get their own lock (idle workers sleep on it); a
+  spawn without link or monitor publishes and queues its child without the
+  executor mutex; workers free ended contexts after leaving the mutex for the
+  next slice instead of relocking; short_processes 2.26x of the base (32
+  workers 25 ms, OTP 22), ring 1.15x, fan_in 1.09x — (hash in next commit)
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576

@@ -68,6 +68,7 @@ void Executor::release_suspends(ProcessContext &process) {
 
 void Executor::dequeue(ProcessContext &process) {
     bool queued = false;
+    const std::scoped_lock queues(queues_mutex_);
     for (const auto &queue : queues_) {
         queued = std::erase(queue->processes, &process) != 0 || queued;
     }

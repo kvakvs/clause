@@ -397,6 +397,18 @@ class Executor final {
   private:
     // One worker's runnable processes (run queues): a process stays with its worker, as on ERTS schedulers, and
     // moves only when another worker steals it.
+    // What a worker frees once it left the lock: the objects of tables ended owners left (plan 21 step LIB10F), the
+    // contexts of released processes and reclaimable retirements (process creation and teardown).
+    struct Garbage final {
+        std::vector<std::unique_ptr<ets::Index>> tables;
+        std::vector<std::unique_ptr<ProcessContext>> contexts;
+        Reclaimable *reclaimed = nullptr;
+
+        bool empty() const noexcept;
+        // Free everything held; the lock is not held.
+        void free() noexcept;
+    };
+
     // The seen value of a worker that holds no lock-free reference (quiescent reclamation).
     static constexpr std::uint64_t QUIESCENT = ~std::uint64_t{0};
     static constexpr std::size_t CACHE_LINE = 64;
@@ -582,6 +594,14 @@ class Executor final {
     // or null after recording the error the process ends with) and queue it.
     template <typename Prepare>
     TermResult<Term> create(ProcessContext &parent, Prepare prepare, const SpawnOptions &options) noexcept;
+    // Publish and queue a new process that neither links nor monitors, without the executor's lock; returns its pid.
+    TermResult<Term> launch(ProcessContext &parent, std::unique_ptr<ProcessContext> built, const Term &pid) noexcept;
+    // Publish, link or monitor and queue a new process under the executor's lock; its pid, or {Pid, Ref}.
+    TermResult<Term> launch_linked(ProcessContext &parent, std::unique_ptr<ProcessContext> built, const Term &pid,
+                                   const SpawnOptions &options) noexcept;
+    // The next process worker `index` runs, or null after it slept until woken or freed its garbage first; the run
+    // queues' lock is taken here.
+    ProcessContext *next_or_sleep(std::size_t index, std::unique_lock<std::mutex> &lock, Garbage &garbage);
     // Link or monitor a new process as `options` say and queue it; returns its pid, or {Pid, Ref} when monitored.
     // Allocation failure throws.
     TermResult<Term> adopt(ProcessContext &parent, ProcessContext &child, const Term &pid, const SpawnOptions &options);
@@ -662,9 +682,8 @@ class Executor final {
     // Release the ETS tables of an ended process: its fixations end, and each table it owned passes to a live heir,
     // told by an 'ETS-TRANSFER' message, or is deleted (plan 21 step LIB10B), its objects freed outside the lock.
     void release_tables(ProcessContext &process);
-    // Free the objects of the tables ended owners left, the contexts of released processes and the reclaimable
-    // retirements, if any, with the lock released meanwhile (plan 21 step LIB10F).
-    void free_retired(std::unique_lock<std::mutex> &lock);
+    // Move what waits to be freed into a worker's empty `garbage`, under the lock.
+    void collect(Garbage &garbage);
     // Keep what lock-free sends may still read (an ended process's arrivals, a replaced table array) until every worker
     // passed a slice boundary (quiescent reclamation).
     void retire(std::unique_ptr<Reclaimable> retired) noexcept;
@@ -693,8 +712,11 @@ class Executor final {
 
     // The runtime whose processes and ports this executor runs.
     Runtime::Impl &runtime_;
-    // Guards everything below and every process that is not running.
+    // Guards everything below and every process that is not running, except the run queues.
     mutable std::mutex mutex_;
+    // Guards the run queues and their workers' idle state; taken after mutex_ when both are, and alone by a spawn
+    // that queues its child (process creation and teardown). Idle workers sleep on it.
+    mutable std::mutex queues_mutex_;
     // system_flag(min_heap_size, Words) for new processes; 0 until it is set (plan 21 step LIB9A). Spawns read it
     // outside the lock (process creation and teardown).
     std::atomic<std::size_t> min_heap_words_{0};

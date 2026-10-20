@@ -219,8 +219,11 @@ void Executor::retire(ProcessContext &process) {
 }
 
 void Executor::withdraw(ProcessContext &process) {
-    for (const auto &queue : queues_) {
-        std::erase(queue->processes, &process);
+    {
+        const std::scoped_lock queues(queues_mutex_);
+        for (const auto &queue : queues_) {
+            std::erase(queue->processes, &process);
+        }
     }
     auto &state = schedule(process);
     if (std::exchange(state.parked, false)) {
@@ -420,6 +423,7 @@ void Executor::fail_main() noexcept {
         withdraw(*main_);
     } catch (const std::bad_alloc &) {
         // The main process ends the program now; queues are released by clear().
+        const std::scoped_lock queues(queues_mutex_);
         for (const auto &queue : queues_) {
             queue->processes.clear();
         }

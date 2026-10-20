@@ -230,8 +230,10 @@ test need no OTP (`docs/validation.md`).
   parked, running, blocked_on+pid, holds, ready, ending, port_wait). Touching a
   process running elsewhere throws `builtins::Blocked` and retries after its
   slice.
-- Spawn builds and loads the child outside the executor mutex, which only
-  publishes and queues it; ended contexts are freed after the mutex.
+- Spawn builds and loads the child outside the executor mutex; a plain spawn
+  publishes (contexts lock, table writer lock) and queues it under the run-queue
+  lock only. Run queues and idle state have their own lock (after the executor
+  mutex); workers free ended contexts after leaving the mutex.
 - Messages: `Executor::send` copies into `Mailbox` (inbox, queue, saved
   position, deadline). To a receiver running elsewhere it takes no lock:
   lock-free `ProcessTable` lookup (open addressing, tombstones), message node
