@@ -6,7 +6,7 @@ generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
 OPT1.4, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
-OPT3.14 service path, OPT3.15,
+OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16,
 read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
 
@@ -101,8 +101,8 @@ the step that owns it (unprofiled ones say so):
 | Kernel | Clause / OTP (ms) | Ratio | Owner |
 |---|---|---|---|
 | dataproc.map_update | 2706 / 1209 | 2.24x | done (OPT3.15 with OPT1.7 `maps:fold`: 0.52x pinned) |
-| dataproc.int_to_list | 1683 / 894 | 1.88x | OPT3.8 |
-| datagen.string_build | 1549 / 1035 | 1.50x | OPT3.8 (`integer_to_list`), OPT3.16 (`++`, `atom_to_list`) |
+| dataproc.int_to_list | 1683 / 894 | 1.88x | done (OPT3.8: 0.59x pinned) |
+| datagen.string_build | 1549 / 1035 | 1.50x | done (OPT3.8, OPT3.16: 0.58x pinned; now mostly collection) |
 | datagen.map_put | 2305 / 1601 | 1.44x | OPT3.15 remainder (0.92x pinned after OPT3.15) |
 | file.large_write | 1219 / 961 | 1.27x | OPT3.4 |
 | dataproc.map_foldl | 1557 / 1240 | 1.26x | OPT1.12 (`lists:map` builds reversed) |
@@ -164,14 +164,6 @@ largest first; steps whose kernels are already ahead stay, ranked lower.
 Profile each kernel before building (see
 [Profiling on Windows](#profiling-on-windows)).
 
-- **OPT3.8 int_to_list (1.88x) and string_build (1.50x):** list_to_integer's
-  short text is done (OPT3.8); run alone the round trip is 835 against OTP's
-  444 us per 20,000, now the two bodies' digit work (`to_chars`, `from_chars`,
-  a staging vector). string_build pays the same `integer_to_list/1`.
-- **OPT3.16 string_build builtins (with OPT3.8):** `++` and `atom_to_list/1`
-  per item; the 2026-10-16 profile showed `Term`-object overhead
-  (`TermAccess::admit`, `get_kind`, `malloc` per call) in both, fixed elsewhere
-  by word-level paths (one `TermFactory` binding per call).
 - **OPT3.4 file I/O (large_write 1.27x, read_file 1.21x, read_line 1.14x,
   large_read 0.99x, small_files 0.94x):** read_line reads ahead (done). Kernels
   now run in their own processes, so large_write's gap is its own (earlier
@@ -492,7 +484,7 @@ and every read to inline (static decisions only).
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact
-   (2026-10-20 run): OPT3.8 with OPT3.16, OPT3.4, OPT1.12, OPT3.17, OPT3.18,
+   (2026-10-20 run): OPT3.4, OPT1.12, OPT3.17, OPT3.18,
    OPT3.19, OPT3.9 remainder; then the kernels already ahead: OPT3.5
    remainder, OPT1.6, OPT3.15 remainder, OPT3.20, OPT3.6 remainder, OPT1.5,
    OPT3.21, OPT3.22, term_to_binary remainder, OPT1.3.

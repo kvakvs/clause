@@ -149,8 +149,9 @@ llvm::Value *folded_builtin(ExpressionLowering &state, std::size_t builtin, cons
     return atom ? lower_container(state, ast::StringLiteral{atom->name}) : nullptr;
 }
 
-// A bridge builtin call: folded at compile time, inline (math, make_tuple/2, setelement/3) or entered.
-llvm::Value *bridge_value(ExpressionLowering &state, std::size_t index, const ast::CallExpression &call) {
+// A bridge builtin call: folded at compile time, inline (math, integer text, make_tuple/2, setelement/3) or entered.
+llvm::Value *bridge_value(ExpressionLowering &state, const ast::Expression &expression, std::size_t index,
+                          const ast::CallExpression &call) {
     if (auto *folded = folded_builtin(state, index, call)) {
         return folded;
     }
@@ -166,6 +167,9 @@ llvm::Value *bridge_value(ExpressionLowering &state, std::size_t index, const as
     if (auto *math = inline_math(state, index, values, fallback)) {
         return math;
     }
+    if (auto *text = inline_integer_text(state, expression, index, values, builtin)) {
+        return text;
+    }
     if (index == MAKE_TUPLE) {
         return lower_make_tuple(state, index, values);
     }
@@ -179,7 +183,7 @@ llvm::Value *special_service(ExpressionLowering &state, const ast::Expression &e
         return lower_apply(state, expression, call);
     }
     if (service.builtin) {
-        return bridge_value(state, *service.builtin, call);
+        return bridge_value(state, expression, *service.builtin, call);
     }
     if (service.operation == abi::v1::ImmediateOperation::is_integer_range) {
         return lower_integer_range(state, call);
@@ -266,6 +270,11 @@ llvm::Value *binary_value(ExpressionLowering &state, const ast::BinaryExpression
     if (binary.operation == ast::BinaryOperator::append) {
         if (auto *prefixed = literal_prefix(state, binary, values[1])) {
             return prefixed;
+        }
+        const auto &syntax = *state.module.syntax;
+        if (auto *digits = lower_digit_prefix(state, syntax.expression(semantic::ungroup(syntax, binary.left)),
+                                              values[0], values[1])) {
+            return digits;
         }
         return lower_append(state, values[0], values[1]);
     }

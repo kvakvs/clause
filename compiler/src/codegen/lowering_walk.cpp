@@ -168,6 +168,16 @@ bool case_enter(ExpressionLowering &state, const ast::ExprId &id, std::vector<Vi
     return true;
 }
 
+// Record the left operand of `++`, which may be an integer_to_list/1 call whose digits the append writes (digit
+// prefixes, OPT3.16).
+void note_digit_prefix(ExpressionLowering &state, const ast::Expression &expression) {
+    const auto *binary = std::get_if<ast::BinaryExpression>(&expression.value);
+    if (binary && binary->operation == ast::BinaryOperator::append) {
+        const auto &syntax = *state.module.syntax;
+        state.digit_prefixes.insert(&syntax.expression(semantic::ungroup(syntax, binary->left)));
+    }
+}
+
 // Reverse-push eager children to preserve source order; schedule only the left operand for lazy syntax.
 void enter(ExpressionLowering &state, const ast::ExprId &id, std::vector<Visit> &pending) {
     const auto &expression = state.module.syntax->expression(id);
@@ -180,6 +190,7 @@ void enter(ExpressionLowering &state, const ast::ExprId &id, std::vector<Visit> 
         return;
     }
     pending.push_back({id, Action::value});
+    note_digit_prefix(state, expression);
     // An anonymous fun's clauses are lowered as a function of their own.
     if (std::holds_alternative<ast::FunExpression>(expression.value)) {
         return;

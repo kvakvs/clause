@@ -291,6 +291,14 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
 - A pure builtin of literal arguments is evaluated at compile time, as OTP's
   `sys_core_fold` does: `atom_to_list(Atom)` of an atom literal is that name's
   literal string, with no call.
+- `integer_to_list(N)` of a small integer writes its digit cells in the heap
+  block's free words, and `list_to_integer(L)` of a proper list of digits, after
+  an optional minus sign, short enough to be a small integer (17 digits on
+  64-bit targets, 8 on 32-bit) reads it in place
+  (`codegen/lowering_integer_text`). Any other argument, or a block without
+  room, enters the builtin, which raises every error. As the left operand of
+  `++`, `integer_to_list(N)` checks `N` where it stands and the append writes
+  the digits straight onto `Right`, with no copy.
 - `erlang:make_tuple(N, V)` with a small `N` in 1..64 bump-allocates the tuple
   and fills it with `llvm.experimental.memset.pattern` where the heap has room;
   otherwise the builtin runs.

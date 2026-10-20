@@ -117,8 +117,10 @@ test need no OTP (`docs/validation.md`).
   `maps:fold` too (`lowering_map_loops`). Fold funs returning `Acc#{...}` own
   the accumulator from step 2 on (update op chosen at run time).
 - Inline fast paths (`lowering_inline`, `lowering_map_access`,
-  `lowering_append`): type tests, small arithmetic/comparisons, tuple/list
-  access, float math, binary match reads, small map lookups/updates, short `++`;
+  `lowering_append`, `lowering_integer_text`): type tests, small
+  arithmetic/comparisons, tuple/list access, float math, binary match reads,
+  small map lookups/updates, short `++`, small-int `integer_to_list` (digits
+  written onto `++`'s right operand) and `list_to_integer`;
   small cells bump-allocate in `FrameState::heap_top/heap_limit`; the service
   is the slow tail.
 - Constants: atoms false/true/undefined/ok/error = 0–4, others via

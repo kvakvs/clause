@@ -160,6 +160,10 @@ struct ExpressionLowering {
     // Fold loops (OPT1.7, OPT3.15): the accumulator updates of the fun inlined in a fold loop, owned when the frame
     // slot each names holds true (from the loop's second step on).
     std::map<const ast::Expression *, llvm::Value *> owned_maps = {};
+    // Digit prefixes (OPT3.16): left operands of `++`, recorded by the walk, and the integer_to_list/1 calls among
+    // them whose small-integer argument the append writes as digits onto its right operand.
+    std::set<const ast::Expression *> digit_prefixes = {};
+    std::set<const ast::Expression *> deferred_digits = {};
 };
 
 // The fact inference recorded for an expression, or the fact of argument `index` joined from the function's callers;
@@ -231,6 +235,15 @@ struct HeapRoom {
 HeapRoom heap_room(ExpressionLowering &state, llvm::Value *words);
 // Take the words of an inline allocation: FrameState::heap_top becomes its end.
 void heap_commit(ExpressionLowering &state, const HeapRoom &room);
+// integer_to_list/1 of a small integer and list_to_integer/1 of a short decimal list made inline, else `call` (the
+// builtin); null for other builtins (inline integer text, OPT3.8). An integer_to_list/1 call that is the left operand
+// of `++` (digit_prefixes) yields a small integer itself, which lower_digit_prefix writes onto the right operand.
+llvm::Value *inline_integer_text(ExpressionLowering &state, const ast::Expression &expression, std::size_t builtin,
+                                 std::span<llvm::Value *const> values, llvm::function_ref<llvm::Value *()> call);
+// `integer_to_list(N) ++ Right` with the call deferred: N's digits written onto Right with no copy; null when `left`
+// was not deferred (digit prefixes, OPT3.16).
+llvm::Value *lower_digit_prefix(ExpressionLowering &state, const ast::Expression &left, llvm::Value *prefix,
+                                llvm::Value *right);
 // make_tuple/2 of 1..64 elements bump-allocated and filled inline where the heap has room, else the builtin.
 llvm::Value *lower_make_tuple(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values);
 // setelement/3 copying a small tuple inline where the heap has room, else the builtin (OPT0.2C).

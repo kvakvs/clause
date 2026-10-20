@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "integer_text",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "integer_to_list 0: {ok,\"0\"}\ninteger_to_list 7: {ok,\"7\"}\ninteger_to_list 9: {ok,\"9\"}\ninteger_to_list 10: {ok,\"10\"}\ninteger_to_list 99: {ok,\"99\"}\ninteger_to_list 100: {ok,\"100\"}\ninteger_to_list -1: {ok,\"-1\"}\ninteger_to_list -9: {ok,\"-9\"}\ninteger_to_list -10: {ok,\"-10\"}\ninteger_to_list -100: {ok,\"-100\"}\ninteger_to_list 12345: {ok,\"12345\"}\ninteger_to_list 134217727: {ok,\"134217727\"}\ninteger_to_list 134217728: {ok,\"134217728\"}\ninteger_to_list -134217728: {ok,\"-134217728\"}\ninteger_to_list -134217729: {ok,\"-134217729\"}\ninteger_to_list 576460752303423487: {ok,\"576460752303423487\"}\ninteger_to_list 576460752303423488: {ok,\"576460752303423488\"}\ninteger_to_list -576460752303423488: {ok,\"-576460752303423488\"}\ninteger_to_list -576460752303423489: {ok,\"-576460752303423489\"}\ninteger_to_list 1180591620717411303424: {ok,\"1180591620717411303424\"}\ninteger_to_list -1180591620717411303424: {ok,\"-1180591620717411303424\"}\ninteger_to_list float: {error,badarg}\ninteger_to_list atom: {error,badarg}\ninteger_to_list appended: {ok,\"-42-item\"}\nlist_to_integer [48]: {ok,0}\nlist_to_integer [55]: {ok,7}\nlist_to_integer [49,50,51]: {ok,123}\nlist_to_integer [45,48]: {ok,0}\nlist_to_integer [45,49,53]: {ok,-15}\nlist_to_integer [43,55]: {ok,7}\nlist_to_integer [48,48,55]: {ok,7}\nlist_to_integer [45,48,48,55]: {ok,-7}\nlist_to_integer []: {error,badarg}\nlist_to_integer [45]: {error,badarg}\nlist_to_integer [43]: {error,badarg}\nlist_to_integer [49,97]: {error,badarg}\nlist_to_integer [97,49]: {error,badarg}\nlist_to_integer [45,45,49]: {error,badarg}\nlist_to_integer [45,43,49]: {error,badarg}\nlist_to_integer [32,49]: {error,badarg}\nlist_to_integer [49,32]: {error,badarg}\nlist_to_integer [57,57,57,57,57,57,57,57]: {ok,99999999}\nlist_to_integer [49,51,52,50,49,55,55,50,55]: {ok,134217727}\nlist_to_integer [49,51,52,50,49,55,55,50,56]: {ok,134217728}\nlist_to_integer [45,49,51,52,50,49,55,55,50,56]: {ok,-134217728}\nlist_to_integer [45,49,51,52,50,49,55,55,50,57]: {ok,-134217729}\nlist_to_integer [49,50,51,52,53,54,55,56,57,48,49,50,51,52,53,54,55]: {ok,\n                                                                       12345678901234567}\nlist_to_integer [49,50,51,52,53,54,55,56,57,48,49,50,51,52,53,54,55,56]: {ok,\n                                                                          123456789012345678}\nlist_to_integer [53,55,54,52,54,48,55,53,50,51,48,51,52,50,51,52,56,55]: {ok,\n                                                                          576460752303423487}\nlist_to_integer [53,55,54,52,54,48,55,53,50,51,48,51,52,50,51,52,56,56]: {ok,\n                                                                          576460752303423488}\nlist_to_integer [45,53,55,54,52,54,48,55,53,50,51,48,51,52,50,51,52,56,56]: {ok,\n                                                                             -576460752303423488}\nlist_to_integer [45,53,55,54,52,54,48,55,53,50,51,48,51,52,50,51,52,56,57]: {ok,\n                                                                             -576460752303423489}\nlist_to_integer [49,50,51,52,53,54,55,56,57,48,49,50,51,52,53,54,55,56,57,48,49,50,51,52,53,54,55,56,57,48]: {ok,\n                                                                                                              123456789012345678901234567890}\nlist_to_integer [1633]: {error,badarg}\nlist_to_integer improper: {error,badarg}\nlist_to_integer float element: {error,badarg}\nlist_to_integer atom: {error,badarg}\nlist_to_integer binary: {error,badarg}\nprefix: {ok,\"12-item\"}\nprefix negative: {ok,\"-305x\"}\nprefix zero: {ok,\"0\"}\nprefix bignum: {ok,\"1180591620717411303424x\"}\nprefix improper: {ok,[53|tail]}\nprefix grouped: {ok,\"77y\"}\nprefix nested: {ok,\"1-2z\"}\nprefix other call: {ok,\"bac\"}\nprefix order: {ok,{badarg,undefined}}\nprefix strings: {ok,1178326}\nround trip: {ok,0}\nlengths: {ok,2053761}\ninteger_text: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "integer_text.erl": "720c27280b7db424594629fc970929f1c5c11d752d2a675259208d126a0e2dca"
+  }
+}

@@ -570,6 +570,13 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   `lists:foldl/foldr`) own the accumulator from step 2 on (update op chosen at
   run time; owned small-key updates reuse nodes and stub in place). Pinned:
   map_update 4.4x (OTP 0.52x), map_put 1.39x (OTP 0.92x) — `fdc7ab3c`
+- **OPT3.8 + OPT3.16** inline integer text (`codegen/lowering_integer_text`):
+  `integer_to_list/1` of a small integer writes its digit cells in generated
+  code, `list_to_integer/1` of a short digit list reads it in place, and
+  `integer_to_list(N) ++ R` writes the digits onto R (N checked where the call
+  stands); `atom_to_list` of a literal was already folded (OPT0.34). Pinned:
+  int_to_list 1790 to 520 ms (OTP ~880), string_build 1370 to 645 ms (OTP
+  ~1110) — `HASH`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
