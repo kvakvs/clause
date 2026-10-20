@@ -5,7 +5,7 @@ if(NOT DEFINED QUALITY_BUILD_DIR)
 endif()
 include("${CMAKE_CURRENT_LIST_DIR}/QualityScope.cmake")
 if(NOT EXISTS "${QUALITY_PYTHON}")
-    message(FATAL_ERROR "Install the quality tools as described in README.md, or set QUALITY_PYTHON to the environment's Python executable.")
+    message(FATAL_ERROR "Install the quality tools as described in docs/building.md, or set QUALITY_PYTHON to the environment's Python executable.")
 endif()
 
 if(NOT DEFINED COMPLEXITY_MAX_CCN)

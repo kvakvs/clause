@@ -5,6 +5,7 @@ and limits that exist today; plans and step history live in `.agents/`.
 
 | Topic | Document |
 | --- | --- |
+| Building Clause: requirements, presets, configure options, tests, quality gate, benchmarks | [building.md](building.md) |
 | Preprocessing (`epp` behavior, includes, macros, features) | [preprocessor.md](preprocessor.md) |
 | Parsing, AST ownership, syntax limits | [parser.md](parser.md) |
 | TOML projects, target selection, build directory and caches, ignored sources | [projects.md](projects.md) |

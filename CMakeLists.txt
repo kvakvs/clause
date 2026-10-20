@@ -23,7 +23,7 @@ option(CLAUSE_OPTIMIZED_COMPILER "Optimize clau and the compiler libraries in De
 if(WIN32)
     message(STATUS "Windows development build; remaining platform work is tracked in abi/plan-windows.md.")
 elseif(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    message(WARNING "Linux validation is pending. See README.md for platform status.")
+    message(WARNING "Linux validation is pending. See docs/validation.md for platform status.")
 endif()
 
 include(cmake/ProjectOptions.cmake)
