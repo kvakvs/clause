@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "map_fold_loops",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "update tree: {ok,{5150,5050,100}}\nupdate twice: {ok,{10100,20200,5050}}\nupdate small: {ok,{#{1 => 20,2 => 30,3 => 40},#{1 => 10,2 => 20,3 => 30}}}\nupdate other map: {ok,{5050,0}}\nupdate with collections: {ok,{5150,5050}}\nupdate atom keys: {ok,{1325,1275,8}}\nupdate read twice: {ok,{15050,5050}}\nbound fun: {ok,{49,4950,5050}}\ninsert: {ok,{200,10100,100,[98,99,100,1001,1002]}}\ninsert into empty: {ok,{100,5050,[-100,-99,-98]}}\nbadkey after steps: {error,{badkey,missing}}\nafter badkey: {ok,5050}\nno clause: {error,function_clause}\nnot a map: {error,{badmap,foo}}\nnon-map accumulator: {error,{badmap,acc}}\nsum: {ok,5050}\nempty: {ok,empty}\norder: {ok,[3,2,1]}\niterator: {ok,10100}\nordered iterator: {ok,[3,2,1]}\ntuple accumulator: {ok,{100,338350}}\nnested: {ok,303000}\nfoldl build: {ok,{100,338350}}\nfoldl shared: {ok,{3775,5050}}\nfoldr shared: {ok,{-2500,5050}}\nfoldl badkey: {error,{badkey,1000}}\nfoldl after badkey: {ok,5050}\nmap_fold_loops: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "map_fold_loops.erl": "9441f3a75d100d5ef39a79106cfe7fd5c4b0fd5d1506f04e19167a027d29ba0e"
+  }
+}

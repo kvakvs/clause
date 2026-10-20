@@ -202,9 +202,10 @@ void tree_maps() {
     require(context.heap().collect(roots).has_value() && context.heap().used_words() == 0, "dead map kept its tree");
 }
 
-// An owned update (plan 20 step OPT0.5B) changes the nodes its source's update created in place: only a new stub is
-// written, its source stub is consumed, a failed owned update leaves the stub holding the tree, and after a
-// collection, which may promote the nodes, an owned update copies its path again.
+// An owned update (plan 20 step OPT0.5B) changes the nodes its source's update created in place: at a small-integer
+// key it writes no words and returns its source stub, changed in place (OPT3.15); at another key it consumes the source
+// stub; a failed owned update leaves the stub holding the tree, and after a collection, which may promote the nodes,
+// an owned update copies its path again.
 void owned_updates() {
     auto runtime = Runtime::start().value();
     auto &context = *runtime->create_context().value();
@@ -220,12 +221,16 @@ void owned_updates() {
     const auto updated = invoke(context, Op::update_owned, std::array{map, key, factory.atom("seven").value(), one});
     require(updated.first == Outcome::success && updated.second.map_find(key)->value().atom_spelling() == "seven",
             "owned update failed");
-    require(context.heap().used_words() - used == 4 && map.map_size() == 0, "owned update copied its tree");
+    require(context.heap().used_words() == used && updated.second.word() == map.word(), "owned update copied its tree");
 
     const auto missing = factory.atom("missing").value();
     const auto failed = invoke(context, Op::update_owned, std::array{updated.second, missing, one, one});
     require(failed.first == Outcome::bad_key && updated.second.map_size() == 100, "failed owned update lost the tree");
-    std::vector<Word> roots{updated.second.word()};
+    const auto added =
+        invoke(context, Op::update_owned, std::array{updated.second, missing, one, factory.integer(0).value()});
+    require(added.first == Outcome::success && added.second.map_size() == 101 && updated.second.map_size() == 0,
+            "owned insert did not consume its source stub");
+    std::vector<Word> roots{added.second.word()};
     require(context.heap().collect(roots).has_value() && context.heap().verify().has_value(),
             "collection after owned updates failed");
     const auto collected = context.heap().used_words();

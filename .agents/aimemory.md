@@ -407,3 +407,11 @@ gotchas and user directions not recorded elsewhere.
   --> callee / <-- caller); this found the growth path's page faults under
   memset/memcpy. Appendable capacities are powers of two so freed buffers
   are reused exactly (off_heap.cpp BufferCache, thread_local like heap_blocks).
+- OPT3.15 (2026-10-20): this host is an i9-14900KF (8 P-cores = logical 0-15,
+  16 E-cores): an unpinned kernel swings 2x when Windows puts it on an E-core.
+  Time kernels pinned: `cmd /c start "" /b /wait /affinity 5554 X.exe` (OTP
+  too: same with erl.exe -noshell -eval). A runtime-only profiling build dir
+  must match the main build's CRT (`-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+  -DCLAUSE_MSVC_ITERATOR_DEBUG_LEVEL=0`); /MD made map kernels 2x slower.
+  Ownership of fold accumulators is decided at run time (a frame slot, false
+  on step 1): the initial accumulator may be shared, e.g. maps:fold(F, M, M).

@@ -103,6 +103,10 @@ std::expected<Word, HeapError> map_tree_build(const TreeEdit &edit, std::span<co
 // apart from nodes of `edit.edit`. True when the key was new; on failure `root` is unchanged.
 std::expected<bool, TreeFailure> map_tree_insert(const TreeEdit &edit, Word &root, MapWords entry, bool exact,
                                                  const MapProbe &probe) noexcept;
+// map_tree_insert at a small-integer key ordered by words alone; a compare failure when another key kind is met
+// (word-level map updates, OPT3.15).
+std::expected<bool, TreeFailure> map_tree_insert_small(const TreeEdit &edit, Word &root, MapWords entry,
+                                                       bool exact) noexcept;
 // The value of the probed key, if present.
 TermResult<std::optional<Word>> map_tree_find(Word root, const MapProbe &probe) noexcept;
 // The entry at canonical position `index` < size of the tree under `root`.

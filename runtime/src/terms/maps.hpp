@@ -80,8 +80,10 @@ struct MapAccess {
     static TermResult<Term> publish_stub(ProcessHeap &heap, const TreeRoot &tree);
     // One update of a map tree of this heap at a small-integer key, read and written as words with no Term per
     // argument (word-level map updates); none, with nothing changed, when the words do not decide it (another key
-    // kind met, a missing exact key, no memory), and the caller takes the general path.
-    static std::optional<Word> update_small_key(ProcessHeap &heap, Word map, MapWords entry, bool exact);
+    // kind met, a missing exact key, no memory), and the caller takes the general path. An owned update changes the
+    // map in place while no collection ran since its source's update (OPT3.15).
+    static std::optional<Word> update_small_key(ProcessHeap &heap, Word map, MapWords entry, bool exact,
+                                                bool owned = false);
     // Publish key and value words already in exact key order: a classic map cell, or above MAP_TREE_THRESHOLD
     // entries a map tree (OPT0.5).
     static TermResult<Term> publish_words(ProcessHeap &heap, std::span<const MapWords> entries);

@@ -1,5 +1,6 @@
 #include "map_tree.hpp"
 #include "../memory/heap_storage.hpp"
+#include "structural_order.hpp"
 #include <algorithm>
 #include <new>
 #include <vector>
@@ -76,6 +77,24 @@ class Edited final {
         return {{sink.node(leaf, left, *this, {0, half}), sink.node(leaf, size - left, *this, {half, all})}, 2};
     }
 
+    // Copy the keys and items of `range` in runs: the node's own before and after the pieces, then each piece
+    // (map trees, OPT3.15).
+    void copy(Range range, std::span<Word> keys, std::span<Word> items) const noexcept {
+        for (auto at = range.begin; at < range.end;) {
+            const auto out = static_cast<std::ptrdiff_t>(at - range.begin);
+            if (!from_node(at)) {
+                keys[at - range.begin] = piece(at).first;
+                items[at - range.begin] = piece(at).word;
+                ++at;
+                continue;
+            }
+            const auto end = std::min(range.end, at < index_ ? index_ : count());
+            std::copy_n(node_.keys().begin() + static_cast<std::ptrdiff_t>(old(at)), end - at, keys.begin() + out);
+            std::copy_n(node_.items().begin() + static_cast<std::ptrdiff_t>(old(at)), end - at, items.begin() + out);
+            at = end;
+        }
+    }
+
   private:
     // Whether item `at` is the node's own, and its index there.
     bool from_node(std::size_t at) const noexcept { return at < index_ || at >= index_ + added_; }
@@ -127,10 +146,7 @@ class NodeWriter final {
     Piece node(bool leaf, std::size_t size, const Edited &source, Range range) noexcept {
         const auto count = range.end - range.begin;
         const auto out = start(count, leaf, size);
-        for (std::size_t i = 0; i < count; ++i) {
-            out[3 + i] = source.key(range.begin + i);
-            out[3 + count + i] = source.item(range.begin + i);
-        }
+        source.copy(range, out.subspan(3, count), out.subspan(3 + count, count));
         return {tagged(out), out[3], size};
     }
 
@@ -177,8 +193,21 @@ struct Slot {
     bool found;
 };
 
+// Orders stored keys against a small-integer key by their words alone; any other stored key is undecided, which ends
+// a word-level update (word-level map updates).
+struct SmallKeyOrder {
+    Word key;
+
+    TermResult<int> order(Word stored) const noexcept {
+        if (const auto order = small_order(stored, key)) {
+            return *order;
+        }
+        return std::unexpected(TermError::invalid_encoding);
+    }
+};
+
 // Binary search for the probe's lower bound among sorted keys.
-TermResult<Slot> search(std::span<const Word> keys, const MapProbe &probe) noexcept {
+template <typename Probe> TermResult<Slot> search(std::span<const Word> keys, const Probe &probe) noexcept {
     std::size_t first = 0;
     std::size_t last = keys.size();
     while (first < last) {
@@ -216,7 +245,7 @@ struct Path {
 };
 
 // The path from the root to the leaf where the probed key is or belongs.
-std::expected<Path, TreeFailure> descend(Word root, const MapProbe &probe) noexcept {
+template <typename Probe> std::expected<Path, TreeFailure> descend(Word root, const Probe &probe) noexcept {
     Path path;
     auto node = MapNode::at(root);
     while (path.depth < MAP_MAX_DEPTH) {
@@ -370,6 +399,34 @@ Word build(NodeWriter &writer, std::span<const MapWords> entries, std::vector<Pi
     }
     return level.front().word;
 }
+
+// Insert or replace one association under a probe (map_tree_insert); a template, so a small-integer key's probe is
+// called directly (map trees, OPT3.15).
+template <typename Probe>
+std::expected<bool, TreeFailure> insert(const TreeEdit &edit, Word &root, MapWords entry, bool exact,
+                                        const Probe &probe) noexcept {
+    const auto path = descend(root, probe);
+    if (!path) {
+        return std::unexpected(path.error());
+    }
+    if (!path->found && exact) {
+        return std::unexpected(TreeFailure{TreeFault::missing_key});
+    }
+    const Rewrite rewrite{.path = *path, .entry = entry, .edit = edit.edit, .root = root};
+    WordCounter counter;
+    rebuild(counter, rewrite);
+    std::span<Word> words;
+    if (counter.words() != 0) {
+        const auto claimed = claim(edit.storage, counter.words());
+        if (!claimed) {
+            return std::unexpected(memory_failure(claimed.error()));
+        }
+        words = *claimed;
+    }
+    NodeWriter writer(edit.storage, words, edit.edit);
+    root = rebuild(writer, rewrite);
+    return !path->found;
+}
 } // namespace
 
 std::size_t map_edit(HeapStorage &storage) noexcept { return ++storage.map_edits_; }
@@ -399,27 +456,12 @@ std::expected<Word, HeapError> map_tree_build(const TreeEdit &edit, std::span<co
 
 std::expected<bool, TreeFailure> map_tree_insert(const TreeEdit &edit, Word &root, MapWords entry, bool exact,
                                                  const MapProbe &probe) noexcept {
-    const auto path = descend(root, probe);
-    if (!path) {
-        return std::unexpected(path.error());
-    }
-    if (!path->found && exact) {
-        return std::unexpected(TreeFailure{TreeFault::missing_key});
-    }
-    const Rewrite rewrite{.path = *path, .entry = entry, .edit = edit.edit, .root = root};
-    WordCounter counter;
-    rebuild(counter, rewrite);
-    std::span<Word> words;
-    if (counter.words() != 0) {
-        const auto claimed = claim(edit.storage, counter.words());
-        if (!claimed) {
-            return std::unexpected(memory_failure(claimed.error()));
-        }
-        words = *claimed;
-    }
-    NodeWriter writer(edit.storage, words, edit.edit);
-    root = rebuild(writer, rewrite);
-    return !path->found;
+    return insert(edit, root, entry, exact, probe);
+}
+
+std::expected<bool, TreeFailure> map_tree_insert_small(const TreeEdit &edit, Word &root, MapWords entry,
+                                                       bool exact) noexcept {
+    return insert(edit, root, entry, exact, SmallKeyOrder{entry.first});
 }
 
 TermResult<std::optional<Word>> map_tree_find(Word root, const MapProbe &probe) noexcept {

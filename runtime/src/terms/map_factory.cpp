@@ -4,6 +4,7 @@
 #include "term_layout.hpp"
 #include "terms.hpp"
 #include <algorithm>
+#include <bit>
 #include <boost/container/small_vector.hpp>
 #include <clause/abi/equality.hpp>
 #include <exception>
@@ -271,44 +272,42 @@ TermResult<Term> MapAccess::publish_words(ProcessHeap &heap, std::span<const Map
 }
 
 namespace {
-// Orders stored keys against a small-integer key by their words alone; any other stored key is undecided, which ends
-// a word-level update (word-level map updates).
-class SmallKeyProbe final : public MapProbe {
-  public:
-    explicit SmallKeyProbe(Word key) : key_(key) {}
-
-    TermResult<int> order(Word stored) const override {
-        if (const auto order = small_order(stored, key_)) {
-            return *order;
-        }
-        return std::unexpected(TermError::invalid_encoding);
-    }
-
-  private:
-    Word key_;
-};
-} // namespace
-
-std::optional<Word> MapAccess::update_small_key(ProcessHeap &heap, Word map, MapWords entry, bool exact) {
-    auto &storage = *heap.storage_;
+// The stub of a map tree in this heap's own words, which an owned update may change; null for any other word.
+layout::TreeMapCell *own_tree(ProcessHeap &heap, HeapStorage &storage, Word map) {
     const auto words = TermAccess::boxed_words(heap, map);
     const auto address = static_cast<std::uintptr_t>(map & ~static_cast<Word>(abi::v1::primary_mask));
     if (words.empty() || layout::BoxHeader::kind(words[0]) != BoxedKind::tree_map || storage.owned(address).empty()) {
+        return nullptr;
+    }
+    auto *stub = std::bit_cast<layout::TreeMapCell *>(address);
+    return map_tree_present(stub->root_) ? stub : nullptr;
+}
+} // namespace
+
+std::optional<Word> MapAccess::update_small_key(ProcessHeap &heap, Word map, MapWords entry, bool exact, bool owned) {
+    auto &storage = *heap.storage_;
+    auto *tree = own_tree(heap, storage, map);
+    if (!tree) {
         return std::nullopt;
     }
-    const auto &stub = *reinterpret_cast<const layout::TreeMapCell *>(words.data());
+    auto &stub = *tree;
     auto root = stub.root_;
-    if (!map_tree_present(root)) {
-        return std::nullopt;
-    }
-    const auto size = static_cast<std::size_t>(stub.size_);
-    const SmallKeyProbe probe(entry.first);
-    const TreeEdit edit{.storage = storage, .edit = map_edit(storage)};
-    const auto added = map_tree_insert(edit, root, entry, exact, probe);
+    // An owned update keeps changing in place the nodes and the stub its source's update made, while no collection
+    // moved them since (map trees, OPT3.15).
+    const auto source = static_cast<std::size_t>(stub.edit_ >> 1);
+    const bool reuse = owned && map_edit_current(storage, source);
+    const TreeEdit edit{.storage = storage, .edit = reuse ? source : map_edit(storage)};
+    const auto added = map_tree_insert_small(edit, root, entry, exact);
     if (!added) {
         return std::nullopt;
     }
-    const auto published = publish_stub(heap, {.root = root, .size = size + (*added ? 1 : 0), .edit = edit.edit});
+    const auto size = static_cast<std::size_t>(stub.size_) + (*added ? 1 : 0);
+    if (reuse) {
+        stub.root_ = root;
+        stub.size_ = static_cast<Word>(size);
+        return map;
+    }
+    const auto published = publish_stub(heap, {.root = root, .size = size, .edit = edit.edit});
     return published ? std::optional{published->word()} : std::nullopt;
 }
 

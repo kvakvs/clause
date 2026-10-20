@@ -5,7 +5,8 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
-OPT1.4, OPT1.7, OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path,
+OPT1.4, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
+OPT3.14 service path, OPT3.15,
 read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
 
@@ -99,10 +100,10 @@ the step that owns it (unprofiled ones say so):
 
 | Kernel | Clause / OTP (ms) | Ratio | Owner |
 |---|---|---|---|
-| dataproc.map_update | 2706 / 1209 | 2.24x | OPT3.15 (tree updates in `maps:fold`), OPT1.7 `maps:fold` part |
+| dataproc.map_update | 2706 / 1209 | 2.24x | done (OPT3.15 with OPT1.7 `maps:fold`: 0.52x pinned) |
 | dataproc.int_to_list | 1683 / 894 | 1.88x | OPT3.8 |
 | datagen.string_build | 1549 / 1035 | 1.50x | OPT3.8 (`integer_to_list`), OPT3.16 (`++`, `atom_to_list`) |
-| datagen.map_put | 2305 / 1601 | 1.44x | OPT3.15 (tree inserts) |
+| datagen.map_put | 2305 / 1601 | 1.44x | OPT3.15 remainder (0.92x pinned after OPT3.15) |
 | file.large_write | 1219 / 961 | 1.27x | OPT3.4 |
 | dataproc.map_foldl | 1557 / 1240 | 1.26x | OPT1.12 (`lists:map` builds reversed) |
 | dataproc.sort | 1337 / 1070 | 1.25x | OPT3.17 (unprofiled) |
@@ -163,13 +164,6 @@ largest first; steps whose kernels are already ahead stay, ranked lower.
 Profile each kernel before building (see
 [Profiling on Windows](#profiling-on-windows)).
 
-- **OPT3.15 map trees (map_update 2.24x, map_put 1.44x):** both kernels work
-  on maps past 32 entries (B+ trees, `map_tree`): map_update folds a 500-entry
-  map with `Acc#{K := V + 1}` per entry (one path copy per key), map_put grows
-  a map to 2000 keys with `maps:put/3`. Word-level updates, cursors and on-heap
-  trees are done (OPT0.32, OPT0.33, OPT3.1). Not profiled since; candidates:
-  path copies of a tree owned only by the fold (edit tokens reach only until
-  the next collection), the fold's per-entry fun call, node splits on insert.
 - **OPT3.8 int_to_list (1.88x) and string_build (1.50x):** list_to_integer's
   short text is done (OPT3.8); run alone the round trip is 835 against OTP's
   444 us per 20,000, now the two bodies' digit work (`to_chars`, `from_chars`,
@@ -205,6 +199,11 @@ Profile each kernel before building (see
   pay for heaps an earlier phase grew or for a large shrunk block (69A no
   longer shows it: each kernel runs in its own process since a4659943); ERTS's
   own sizing measured worse in Clause (see `docs/runtime-heap.md#generations`).
+- **OPT3.15 remainder (map_put 0.92x after OPT3.15):** `maps:put/3` in a self
+  tail loop (`map_put(N, M) -> map_put(N - 1, maps:put(N, V, M))`) copies the
+  path per insert, since the map arrives as a parameter. A map-loop variant
+  owning that parameter from the second step on (as binary loops own their
+  rest, OPT1.4C), with `maps:put/3` lowered to an update, would insert in place.
 - **OPT3.6 remainder (binary_append 0.89x):** per 4-byte append the inline path
   allocates a 4-word sub-binary (as OTP does); collection of those cells is
   ~13% and the growth service ~24% of the kernel after OPT3.6 (bits_service,
@@ -252,8 +251,7 @@ process_info/system_info item lists.
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
 Ordered by measured T2 value and how well each fits an AOT compiler. 69A
-weight on 2026-10-20: OPT1.7's `maps:fold` part (map_update 2.24x) and OPT1.12
-(map_foldl 1.26x) target kernels behind OTP; OPT1.6 (small_map 0.93x), OPT1.5
+weight on 2026-10-20: OPT1.12 (map_foldl 1.26x) targets a kernel behind OTP; OPT1.6 (small_map 0.93x), OPT1.5
 (binary_match 0.84x) and OPT1.3 (comprehension 0.72x) target kernels already
 ahead, so they rank lower but stay (the goal is beating OTP everywhere), and
 also pay off in real programs (euler, luerl, json).
@@ -337,11 +335,6 @@ List loops of `map`, `filter`, `foreach`, `all`, `any`, `flatmap`, `foldl`,
 
 - Other fun-taking `lists` functions (`filtermap`, `partition`, `takewhile`,
   `dropwhile`, `zipwith`, `keymap`, ...), by census of real programs.
-- **`maps:fold` with a literal fun on a flatmap:**
-  - turns into an indexed loop over the value slots
-  - DCE removes key loads the fun does not use
-  - the map/keys base untag and the index untag are hoisted (IV strength
-    reduction, pointer `+= 8`)
 - Generating the loops from the real `lists` source by cross-module inlining
   (OPT2.1) instead of hand-written loops.
 
@@ -493,16 +486,16 @@ and every read to inline (static decisions only).
    visible to LLVM and cut the 100–600× kernels.
 2. **Loops:** OPT1.1 and OPT1.2 done; OPT1.3 next.
 3. **Binaries:** OPT1.5 (OPT1.4 done).
-4. **Maps:** OPT1.6, then the `maps:fold` part of OPT1.7.
+4. **Maps:** OPT1.6 (the `maps:fold` part of OPT1.7 is done).
 5. **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
 6. **Funs and floats:** OPT1.11, the OPT1.8 remainder.
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact
-   (2026-10-20 run): OPT3.15, OPT3.8 with OPT3.16, OPT3.4, OPT1.12, OPT3.17,
-   OPT3.18, OPT3.19, OPT3.9 remainder; then the kernels already ahead: OPT3.5
-   remainder, OPT1.6, OPT3.20, OPT3.6 remainder, OPT1.5, OPT3.21, OPT3.22,
-   term_to_binary remainder, OPT1.3.
+   (2026-10-20 run): OPT3.8 with OPT3.16, OPT3.4, OPT1.12, OPT3.17, OPT3.18,
+   OPT3.19, OPT3.9 remainder; then the kernels already ahead: OPT3.5
+   remainder, OPT1.6, OPT3.15 remainder, OPT3.20, OPT3.6 remainder, OPT1.5,
+   OPT3.21, OPT3.22, term_to_binary remainder, OPT1.3.
 
 **Gate for every item:**
 

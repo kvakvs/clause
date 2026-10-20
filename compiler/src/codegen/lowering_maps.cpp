@@ -43,8 +43,9 @@ llvm::BasicBlock *rejection(ExpressionLowering &state, const ServiceOutput resul
     return dispatch;
 }
 
-// Marshal source values into runtime-owned scratch roots, avoiding source-width native stack allocations.
-llvm::Value *service(ExpressionLowering &state, Op operation, const std::span<llvm::Value *const> values) {
+// Marshal source values into runtime-owned scratch roots, avoiding source-width native stack allocations; the
+// operation is an i8, chosen at run time for a map fold loop's owned updates (OPT3.15).
+llvm::Value *service(ExpressionLowering &state, llvm::Value *operation, const std::span<llvm::Value *const> values) {
     auto &builder = state.builder;
     auto &output = *state.entry.getParent();
     auto *arguments = builder.CreateGEP(state.word, state.roots->buffer,
@@ -58,12 +59,15 @@ llvm::Value *service(ExpressionLowering &state, Op operation, const std::span<ll
         llvm::FunctionType::get(
             builder.getInt8Ty(),
             {builder.getPtrTy(), builder.getInt8Ty(), builder.getPtrTy(), state.word, builder.getPtrTy()}, false));
-    auto *outcome = builder.CreateCall(callee,
-                                       {state.entry.getArg(0), builder.getInt8(static_cast<std::uint8_t>(operation)),
-                                        arguments, llvm::ConstantInt::get(state.word, values.size()), slot},
-                                       "map.outcome");
+    auto *outcome = builder.CreateCall(
+        callee, {state.entry.getArg(0), operation, arguments, llvm::ConstantInt::get(state.word, values.size()), slot},
+        "map.outcome");
     const ServiceOutput result{outcome, slot};
     return checked_value(state, result, rejection(state, result));
+}
+
+llvm::Value *service(ExpressionLowering &state, Op operation, const std::span<llvm::Value *const> values) {
+    return service(state, state.builder.getInt8(static_cast<std::uint8_t>(operation)), values);
 }
 
 // The exact-order rank of a key known at compile time (OPT0.3A): integer literals (numbers sort before atoms) and
@@ -173,7 +177,7 @@ llvm::Value *lower_map_operation(ExpressionLowering &state, const Op operation,
     return service(state, operation, values);
 }
 
-llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map, bool owned) {
+llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map, llvm::Value *owned) {
     std::vector<llvm::Value *> values;
     values.reserve(1 + 3 * map.fields.size());
     const auto read = [&](const ast::ExprId &id) { return state.values.at(&state.module.syntax->expression(id)); };
@@ -191,8 +195,12 @@ llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map,
     if (!map.base) {
         return new_map(state, map, values);
     }
-    return inline_map_update(state, values,
-                             [&] { return service(state, owned ? Op::update_owned : Op::update, values); });
+    const auto code = [&](Op operation) { return state.builder.getInt8(static_cast<std::uint8_t>(operation)); };
+    return inline_map_update(state, values, [&] {
+        auto *operation =
+            owned ? state.builder.CreateSelect(owned, code(Op::update_owned), code(Op::update)) : code(Op::update);
+        return service(state, operation, values);
+    });
 }
 
 llvm::Value *lower_map_query(ExpressionLowering &state, const abi::v1::ImmediateOperation operation, llvm::Value *left,

@@ -138,7 +138,16 @@ heap. Smaller maps stay `map` cells.
   gives the tree back to the stub. The compiler marks an update owned only when
   the function built the source map itself (`M = <map expression or
   comprehension>` in the same clause body), reads `M` nowhere else and never
-  captures it in a fun (`semantic/map_ownership`).
+  captures it in a fun (`semantic/map_ownership`), and in fold loops from the
+  second step on ([owned accumulators](funs.md#inlined-funs)), where the
+  operation is chosen at run time.
+- One update at a small-integer key is decided by words alone
+  (`MapAccess::update_small_key`, no `Term` per argument, the key search calls
+  no virtual probe). Owned, it reuses the source stub too while its token is
+  current: the stub is then younger than the latest collection, so writing the
+  new root into it makes no old-to-young pointer. A fold that updates every
+  entry copies each node at most once per collection and otherwise writes one
+  value word per step.
 
 ## Areas
 

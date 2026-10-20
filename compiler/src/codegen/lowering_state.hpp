@@ -157,6 +157,9 @@ struct ExpressionLowering {
     // when no fun is inlined (below O2). `inline_depth` counts the inlined fun bodies around the current expression.
     const LambdaBindings *lambdas = nullptr;
     std::size_t inline_depth = 0;
+    // Fold loops (OPT1.7, OPT3.15): the accumulator updates of the fun inlined in a fold loop, owned when the frame
+    // slot each names holds true (from the loop's second step on).
+    std::map<const ast::Expression *, llvm::Value *> owned_maps = {};
 };
 
 // The fact inference recorded for an expression, or the fact of argument `index` joined from the function's callers;
@@ -352,8 +355,8 @@ llvm::Value *binary_loop_read(ExpressionLowering &state, semantic::BindingId ide
 BitLowering lower_bit_pattern(ExpressionLowering &state, const semantic::MatchNode &node,
                               std::span<llvm::Value *> values, llvm::BasicBlock *mismatch);
 // Stage source-ordered map construction/update through rooted checked services.
-// Construct or update a map; an owned update may change its source in place (OPT0.5B).
-llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map, bool owned);
+// Construct or update a map; an update whose i1 `owned` holds may change its source in place (OPT0.5B, OPT3.15).
+llvm::Value *lower_map(ExpressionLowering &state, const ast::MapExpression &map, llvm::Value *owned);
 // Run one map service operation; badmap/badkey raise.
 llvm::Value *lower_map_operation(ExpressionLowering &state, abi::v1::MapOperation operation,
                                  std::span<llvm::Value *const> values);
@@ -521,4 +524,23 @@ const ast::Expression *sunk_list_fun(const ExpressionLowering &state, const ast:
 // anonymous fun as a loop with the fun inlined; null for every other call (list loops, OPT1.7).
 llvm::Value *lower_list_call(ExpressionLowering &state, const ast::Expression &expression,
                              const ast::CallExpression &call);
+// The literal fun argument of a maps:fold/3 call that lowering turns into a loop, null for other calls (map fold
+// loops, OPT1.7).
+const ast::Expression *sunk_map_fun(const ExpressionLowering &state, const ast::Expression &expression,
+                                    const ast::CallExpression &call);
+// maps:fold/3 of a known anonymous fun as a loop over the map's entries with the fun inlined; null for every other
+// call (map fold loops, OPT1.7).
+llvm::Value *lower_map_fold(ExpressionLowering &state, const ast::Expression &expression,
+                            const ast::CallExpression &call);
+// A frame slot holding false: whether a fold loop's accumulator is a map only the loop holds (OPT3.15).
+llvm::Value *fold_owned_slot(ExpressionLowering &state);
+// One step of a fold loop (list loops, map fold loops): the fun inlined on `arguments`, the last its accumulator. When
+// every clause returns its accumulator parameter updated, `Acc#{...}` with Acc read nowhere else, those updates are
+// owned once the `owned` slot holds true, which the step stores after them (OPT3.15).
+llvm::Value *apply_fold(ExpressionLowering &state, const semantic::FunEntry &lambda,
+                        std::span<llvm::Value *const> arguments, llvm::Value *owned,
+                        llvm::function_ref<llvm::Value *()> fun);
+// Whether a map update may change its source in place (OPT0.5B, OPT3.15): true, an i1 decided at run time in a fold
+// loop, or null for a copying update.
+llvm::Value *owned_map_update(ExpressionLowering &state, const ast::Expression &update);
 } // namespace clause::codegen

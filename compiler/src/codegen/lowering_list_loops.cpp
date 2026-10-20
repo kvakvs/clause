@@ -39,9 +39,11 @@ struct ListLoop {
     semantic::FunctionRef reverse;
     // The fun argument's value; null for a fun written in the call, which is built only where it is needed.
     llvm::Value *fun = nullptr;
-    // Frame slots: the input left, the fold accumulator, the reversed list built so far and the result.
+    // Frame slots: the input left, the fold accumulator, whether it is a map only the loop holds (OPT3.15), the
+    // reversed list built so far and the result.
     llvm::Value *rest = nullptr;
     llvm::Value *accumulator = nullptr;
+    llvm::Value *owned = nullptr;
     llvm::Value *output = nullptr;
     llvm::Value *result = nullptr;
     // Where the loop leaves with the result in its slot.
@@ -165,7 +167,8 @@ void flatmap_step(ExpressionLowering &state, const ListLoop &loop, llvm::Value *
 }
 
 void fold_step(ExpressionLowering &state, const ListLoop &loop, llvm::Value *element, llvm::BasicBlock *next) {
-    store(state, apply(state, loop, std::array{element, load(state, loop.accumulator, "list.accumulator")}),
+    const std::array arguments{element, load(state, loop.accumulator, "list.accumulator")};
+    store(state, apply_fold(state, *loop.lambda, arguments, loop.owned, [&] { return fun_value(state, loop); }),
           loop.accumulator);
     state.builder.CreateBr(next);
 }
@@ -285,6 +288,7 @@ ListLoop begin(ExpressionLowering &state, const ListCall &found, const ast::Call
     if (call.arguments.size() == 3) {
         loop.accumulator = root_slot(state);
         store(state, value(call.arguments[1]), loop.accumulator);
+        loop.owned = fold_owned_slot(state);
     }
     loop.output = root_slot(state);
     store(state, llvm::ConstantInt::get(state.word, abi::v1::empty_list), loop.output);

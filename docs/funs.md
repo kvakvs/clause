@@ -89,7 +89,8 @@ sources (`erts/emulator/beam/utils.c` `erts_cmp`, `erl_printf_term.c`,
 
 ## Inlined funs
 
-At `-O2` (`codegen/lowering_fun_inlining.cpp`, `lowering_list_loops.cpp`) a call
+At `-O2` (`codegen/lowering_fun_inlining.cpp`, `lowering_list_loops.cpp`,
+`lowering_map_loops.cpp`) a call
 of an anonymous fun known where it is called lowers the fun's clauses in place
 of the call, much as OTP's `inline_list_funcs` option does:
 
@@ -114,6 +115,18 @@ of the call, much as OTP's `inline_list_funcs` option does:
   after an improper tail failed. Like the body recursion they replace, list
   loops collect only where they yield (every 4,000 elements without other calls)
   and in the calls their fun makes.
+- **Map fold loops.** `maps:fold/3` of Clause's own `maps` module with a known
+  fun of arity 3 becomes a loop over the map's entries (the classic map cell, or
+  a tree's entries copied once into a tuple-shaped cell, as `maps:fold/3` reads
+  them), in key order like `maps:fold/3`. A map iterator or a non-map makes the
+  real `maps` call, which handles it or raises its own error.
+- **Owned accumulators.** When every clause of a fold fun (`maps:fold/3`,
+  `lists:foldl/3`, `lists:foldr/3`) returns its accumulator parameter updated,
+  `fun(K, V, Acc) -> Acc#{K := V + 1} end` with `Acc` read nowhere else and
+  captured by no fun, the loop owns each step's result: from the second step on
+  the update is owned and changes the map in place
+  ([map trees](runtime-heap.md#map-trees)). The first step copies, since the
+  initial accumulator may be held elsewhere.
 - **Same results and reasons.** Values, the order the fun runs in and error
   reasons are those of `lists`: a non-list input of `map/2`, `foldl/3`, `all/2`,
   `any/2` and the improper tails of `filter/2`, `foreach/2`, `foldr/3`,
@@ -123,7 +136,7 @@ of the call, much as OTP's `inline_list_funcs` option does:
   `{case_clause, V}` (`all/2`, `any/2`) or `{bad_filter, V}` (`filter/2`), a
   `mapfold` fun's non-pair result `{badmatch, V}`.
 - **Stack traces** of exceptions inside inlined funs lack the fun's and the
-  `lists` helper's frames
+  `lists` or `maps` helper's frames
   ([differences](differences.md#errors-stack-traces-and-reports)).
 
 ## Representation

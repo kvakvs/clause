@@ -57,8 +57,7 @@ llvm::Value *leaf(ExpressionLowering &state, const ast::ExprId &expression) {
         return lower_bits(state, *binary);
     }
     if (const auto *map = std::get_if<ast::MapExpression>(&value)) {
-        return lower_map(state, *map,
-                         state.function.owned_map_updates.contains(&state.module.syntax->expression(expression)));
+        return lower_map(state, *map, owned_map_update(state, state.module.syntax->expression(expression)));
     }
     if (semantic::fun_value(value)) {
         return lower_fun(state, state.module.syntax->expression(expression));
@@ -116,6 +115,7 @@ llvm::Value *generated_call(ExpressionLowering &state, const ast::Expression &ex
         return lower_dynamic_call(state, expression, call);
     }
     auto *loop = lower_list_call(state, expression, call);
+    loop = loop ? loop : lower_map_fold(state, expression, call);
     return loop ? loop : lower_call(state, expression, call);
 }
 

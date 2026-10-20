@@ -113,7 +113,9 @@ test need no OTP (`docs/validation.md`).
   anonymous funs (written in the call, or `F = fun` bound once): clauses in
   place, the fun built only where no clause matches (`lowering_fun_inlining`);
   `lists` map/filter/foreach/all/any/flatmap/fold*/mapfold* of such funs become
-  loops in the caller (`lowering_list_loops`) that collect only at yields.
+  loops in the caller (`lowering_list_loops`) that collect only at yields;
+  `maps:fold` too (`lowering_map_loops`). Fold funs returning `Acc#{...}` own
+  the accumulator from step 2 on (update op chosen at run time).
 - Inline fast paths (`lowering_inline`, `lowering_map_access`,
   `lowering_append`): type tests, small arithmetic/comparisons, tuple/list
   access, float math, binary match reads, small map lookups/updates, short `++`;
@@ -190,7 +192,8 @@ test need no OTP (`docs/validation.md`).
 - Handle references (atomics, re patterns, zlib streams, compiled match specs)
   use the `refc_binary` layout with shared buffers, weak registry, finalizer.
 - Maps > 32 entries are persistent B+ trees (`map_tree`, fanout 16, path
-  copying, edit tokens until the next collection).
+  copying, edit tokens until the next collection); owned small-key updates
+  reuse current-token nodes and stub in place.
 - Bitstrings: MSB-first, small inline cells, large refc buffers, 3-word
   `sub_binary` over a never-nested original, appendable buffers grow in place;
   freed power-of-two buffers are reused per thread (`off_heap`).

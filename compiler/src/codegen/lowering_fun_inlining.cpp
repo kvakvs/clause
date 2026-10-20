@@ -174,7 +174,8 @@ const ast::Expression *sunk_fun(const ExpressionLowering &state, const ast::Expr
     if (semantic::fun_call(*state.module.syntax, *call)) {
         return known_lambda(state, call->target, call->arguments.size()).literal;
     }
-    return sunk_list_fun(state, expression, *call);
+    const auto *list = sunk_list_fun(state, expression, *call);
+    return list ? list : sunk_map_fun(state, expression, *call);
 }
 
 llvm::Value *inline_lambda(ExpressionLowering &state, const semantic::FunEntry &lambda,

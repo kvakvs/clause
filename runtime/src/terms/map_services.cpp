@@ -174,18 +174,20 @@ MapResult evaluate(ProcessContext &context, Op operation, std::span<const Term> 
 }
 
 // `Map#{Key => Value}` or `Map#{Key := Value}` of one small-integer key on a map tree, decided by words alone
-// (word-level map updates); none when the general path must run. The value must be this process's term.
+// (word-level map updates), owned or not (OPT3.15); none when the general path must run. The value must be this
+// process's term.
 std::optional<Word> small_key_update(ProcessContext &context, Op operation, std::span<const Word> values) {
     using abi::v1::NativeIntegerEncoding;
     constexpr Word small_tag = abi::v1::small_integer_tag;
-    if (operation != Op::update || values.size() != 4 || (values[1] & small_tag) != small_tag) {
+    const bool owned = operation == Op::update_owned;
+    if ((operation != Op::update && !owned) || values.size() != 4 || (values[1] & small_tag) != small_tag) {
         return std::nullopt;
     }
     const auto exact = values[3] == *NativeIntegerEncoding::encode(1);
     if ((!exact && values[3] != *NativeIntegerEncoding::encode(0)) || !Term::from_word(values[2], context)) {
         return std::nullopt;
     }
-    return MapAccess::update_small_key(context.heap(), values[0], {values[1], values[2]}, exact);
+    return MapAccess::update_small_key(context.heap(), values[0], {values[1], values[2]}, exact, owned);
 }
 
 // Only semantic rejection may publish an error payload; resource/owner errors never modify output.
