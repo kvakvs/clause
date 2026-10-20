@@ -161,20 +161,15 @@ each kernel before building (see [Profiling on Windows](#profiling-on-windows)).
     instead of `parse_cell`, copy small objects without `memmove`, and test
     immediates inline. One worker 159 to 104 ms (OTP 129); 32 workers 22 ms
     (OTP 22), 8 workers 17.5 ms (OTP 29).
-  - **E: term_to_binary after OPT3.5** (2026-10-20, investigated, not acted
-    on): the 69A A/B showed dataproc.term_to_binary at 0.90x of 662e5c1b.
-    Interleaved reruns put the medians at base ~1752, C ~1715, D ~1777 ms per
-    4300 calls; the kernel alone (8000 round trips of the 69A term in one
-    process) took base 3265-3436 against D 3349-3588 ms, C equal to D, and
-    one run of each fell to ~2.6 s: a bimodal kernel, at most ~2% slower after
-    D, within noise. Next: profile base and D side by side on the isolated
-    kernel (scratch `tb.erl`), check the two modes for heap sizing or binary
-    pressure differences (collections per round, block sizes), and the
-    small-object copy loop's branch for larger objects in copy_boxed.
   - Later: picks and slice ends under a per-process lock (full ERTS model).
 - **OPT3.6 binary_append (3.6x):** `<<Bin/binary, N:32>>` 10,000 times: one
   service call per append on the appendable buffer, and collections of the
   growing binary.
+- **term_to_binary remainder** (after OPT3.5E, isolated kernel 2.26 s against
+  OTP 2.38): kernel page faults are still ~13% of samples (the off-heap result
+  binary and the decoded term's heap fragments each call); the codec itself
+  is ~65% (decode loop, `Writer::integer`, `Reader::next_integer` not
+  inlined). A single-append `tag + value` write measured slower on MSVC.
 - **OPT3.8 int_to_list:** done for list_to_integer's short text (OPT3.8); run
   alone the round trip is 835 against OTP's 444 us per 20,000, now the two
   bodies' digit work (`to_chars`, `from_chars`, a staging vector).
@@ -461,7 +456,7 @@ and every read to inline (static decisions only).
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact:
-   OPT3.5, a term_to_binary profile.
+   OPT3.6, OPT3.8.
 
 **Gate for every item:**
 

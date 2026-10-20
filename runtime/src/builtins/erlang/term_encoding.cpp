@@ -8,6 +8,7 @@
 #include "../../terms/structural_order.hpp"
 #include "../../terms/term_layout.hpp"
 #include "../portions.hpp"
+#include "../scratch.hpp"
 #include "../text.hpp"
 #include "../typed.hpp"
 #include "terms.hpp"
@@ -97,10 +98,10 @@ class Encoder {
     // Encode `root` after the version byte.
     void encode(const Term &root) {
         writer_.version();
-        pending_.push_back(root.word());
-        while (!pending_.empty()) {
-            const auto word = pending_.back();
-            pending_.pop_back();
+        pending_->push_back(root.word());
+        while (!pending_->empty()) {
+            const auto word = pending_->back();
+            pending_->pop_back();
             one(word);
         }
     }
@@ -169,7 +170,7 @@ class Encoder {
         }
         const std::span words(cell, 1 + detail::layout::BoxHeader::count(cell[0]));
         writer_.tuple(words.size() - 1);
-        pending_.insert(pending_.end(), words.rbegin(), std::prev(words.rend()));
+        pending_->insert(pending_->end(), words.rbegin(), std::prev(words.rend()));
         return true;
     }
 
@@ -208,28 +209,44 @@ class Encoder {
 
     // STRING_EXT for a proper list of at most 65535 bytes, else LIST_EXT and its tail, its cells read as words.
     void list(Word word) {
-        elements_.clear();
+        elements_->clear();
         auto rest = word;
         while (TermTag{rest}.get_kind() == TermKind::list) {
             const auto *cell = detail::TermAccess::trusted(rest);
-            elements_.push_back(cell[0]);
+            elements_->push_back(cell[0]);
             rest = cell[1];
         }
         const auto byte = [](Word element) {
             const auto value = small(element);
             return value && *value >= 0 && *value <= 255;
         };
-        if (TermTag{rest}.get_kind() == TermKind::empty_list && elements_.size() <= external::STRING_LIMIT &&
-            std::ranges::all_of(elements_, byte)) {
+        if (TermTag{rest}.get_kind() == TermKind::empty_list && elements_->size() <= external::STRING_LIMIT &&
+            std::ranges::all_of(*elements_, byte)) {
             std::string bytes;
-            std::ranges::transform(elements_, std::back_inserter(bytes),
+            std::ranges::transform(*elements_, std::back_inserter(bytes),
                                    [](Word element) { return static_cast<char>(*small(element)); });
             writer_.string(bytes);
             return;
         }
-        writer_.list(elements_.size());
-        pending_.push_back(rest);
-        pending_.insert(pending_.end(), elements_.rbegin(), elements_.rend());
+        writer_.list(elements_->size());
+        const auto written = leading_integers();
+        pending_->push_back(rest);
+        pending_->insert(pending_->end(), elements_->rbegin(),
+                         std::prev(elements_->rend(), static_cast<std::ptrdiff_t>(written)));
+    }
+
+    // Write the small integers that start the list being written, returning their count; the rest are pushed (codec
+    // integer fast path).
+    std::size_t leading_integers() {
+        std::size_t written = 0;
+        for (; written < elements_->size(); ++written) {
+            const auto value = small((*elements_)[written]);
+            if (!value) {
+                break;
+            }
+            writer_.integer(*value);
+        }
+        return written;
     }
 
     // A map's pairs in key order, as OTP writes maps of up to 32 keys.
@@ -240,8 +257,8 @@ class Encoder {
         });
         writer_.map(entries.size());
         for (auto entry = entries.rbegin(); entry != entries.rend(); ++entry) {
-            pending_.push_back(entry->second.word());
-            pending_.push_back(entry->first.word());
+            pending_->push_back(entry->second.word());
+            pending_->push_back(entry->first.word());
         }
     }
 
@@ -293,9 +310,9 @@ class Encoder {
     EncodeOptions options_;
     external::Writer writer_;
     // Words still to write, the next one last; this process's terms, unmoved while the builtin runs.
-    std::vector<Word> pending_;
+    Scratch<std::vector<Word>, struct PendingSlot> pending_;
     // The elements of the list being written, reused across lists.
-    std::vector<Word> elements_;
+    Scratch<std::vector<Word>, struct ElementsSlot> elements_;
 };
 
 // The compressed form <<131, 80, Size:32, Zlib/binary>> of an encoding when zlib fits it in five bytes fewer than the
@@ -327,22 +344,28 @@ std::string encoding(ProcessContext &context, const Term &term, EncodeOptions op
     return bytes;
 }
 
+// The encoded bytes of term_to_binary, kept by the thread between calls (codec scratch reuse).
+using EncodedBytes = Scratch<std::string, struct EncodedSlot>;
+
 // A binary of encoded bytes.
 TermResult<Term> binary(ProcessContext &context, const std::string &bytes) {
     return TermFactory(context).binary({reinterpret_cast<const std::byte *>(bytes.data()), bytes.size()});
 }
 
 TermResult<Term> term_to_binary1(ProcessContext &context, const Term &term) {
-    return binary(context, encoding(context, term));
+    EncodedBytes bytes;
+    Encoder(context, {}, *bytes).encode(term);
+    return binary(context, *bytes);
 }
 
 TermResult<Term> term_to_binary2(ProcessContext &context, const Term &term, const ListArgument &options) {
     const auto chosen = encode_options(options);
-    auto bytes = encoding(context, term, chosen);
+    EncodedBytes bytes;
+    Encoder(context, chosen, *bytes).encode(term);
     if (chosen.compression) {
-        bytes = compressed(std::move(bytes), *chosen.compression);
+        return binary(context, compressed(*bytes, *chosen.compression));
     }
-    return binary(context, bytes);
+    return binary(context, *bytes);
 }
 
 // term_to_iovec/1,2: the encoding as a list of one binary.

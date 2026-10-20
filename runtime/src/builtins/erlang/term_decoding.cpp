@@ -4,6 +4,7 @@
 #include "../../terms/identities.hpp"
 #include "../../terms/integers.hpp"
 #include "../../terms/term_layout.hpp"
+#include "../scratch.hpp"
 #include "../text.hpp"
 #include "../typed.hpp"
 #include "terms.hpp"
@@ -72,9 +73,9 @@ class Decoder {
     Term decode() {
         reader_.version();
         while (true) {
-            auto value = item(reader_.next());
+            auto value = next();
             while (value) {
-                if (open_.empty()) {
+                if (open_->empty()) {
                     return need(Term::from_word(*value, context_));
                 }
                 value = add(*value);
@@ -85,6 +86,15 @@ class Decoder {
     std::size_t used() const { return reader_.offset(); }
 
   private:
+    // The next finished term, or none when its item opened a container; small integers skip the Item (codec integer
+    // fast path).
+    std::optional<Word> next() {
+        if (const auto value = reader_.next_integer()) {
+            return integer(*value);
+        }
+        return item(reader_.next());
+    }
+
     // A finished term, or none when the item opened a container.
     std::optional<Word> item(const external::Item &item) {
         using Kind = external::ItemKind;
@@ -109,21 +119,21 @@ class Decoder {
             return item.kind_ == external::ItemKind::tuple ? need(factory_.tuple({})).word()
                                                            : need(factory_.map({})).word();
         }
-        open_.push_back({item.kind_, children, children_.size()});
+        open_->push_back({item.kind_, children, children_->size()});
         return std::nullopt;
     }
 
     // Give a finished term to the innermost container; returns that container once it is finished.
     std::optional<Word> add(Word value) {
-        children_.push_back(value);
-        auto &top = open_.back();
+        children_->push_back(value);
+        auto &top = open_->back();
         if (--top.remaining_ != 0) {
             return std::nullopt;
         }
         const auto first = top.first_;
-        const auto finished = close(top.kind_, std::span(children_).subspan(first));
-        children_.resize(first);
-        open_.pop_back();
+        const auto finished = close(top.kind_, std::span(*children_).subspan(first));
+        children_->resize(first);
+        open_->pop_back();
         return finished;
     }
 
@@ -345,8 +355,9 @@ class Decoder {
     external::Reader reader_;
     DecodeOptions options_;
     // Containers still collecting children, the innermost last, and their children so far in one stack.
-    std::vector<Open> open_;
-    std::vector<Word> children_;
+    // Both are kept by the thread between decodings (codec scratch reuse).
+    Scratch<std::vector<Open>, struct OpenSlot> open_;
+    Scratch<std::vector<Word>, struct ChildrenSlot> children_;
     // Atom words by encoding ('L' or 'U', then the name bytes), interned once per decoding.
     std::unordered_map<std::string, Word> atoms_;
 };

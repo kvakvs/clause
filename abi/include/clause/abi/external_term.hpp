@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -108,11 +109,9 @@ class Writer {
     // An atom spelled in UTF-8 (at most 255 characters, so at most 1020 bytes).
     void atom(const std::string_view utf8) {
         if (utf8.size() <= SMALL_LIMIT) {
-            tag(SMALL_ATOM_UTF8);
-            put<1>(utf8.size());
+            tagged<1>(SMALL_ATOM_UTF8, utf8.size());
         } else {
-            tag(ATOM_UTF8);
-            put<2>(utf8.size());
+            tagged<2>(ATOM_UTF8, utf8.size());
         }
         out_ += utf8;
     }
@@ -120,12 +119,10 @@ class Writer {
     // An integer of at most 64 bits, in the smallest encoding.
     void integer(const std::int64_t value) {
         if (value >= 0 && value <= static_cast<std::int64_t>(SMALL_LIMIT)) {
-            tag(SMALL_INTEGER);
-            put<1>(static_cast<std::uint64_t>(value));
+            tagged<1>(SMALL_INTEGER, static_cast<std::uint64_t>(value));
         } else if (value >= std::numeric_limits<std::int32_t>::min() &&
                    value <= std::numeric_limits<std::int32_t>::max()) {
-            tag(INTEGER);
-            put<4>(static_cast<std::uint32_t>(static_cast<std::int32_t>(value)));
+            tagged<4>(INTEGER, static_cast<std::uint32_t>(static_cast<std::int32_t>(value)));
         } else {
             auto magnitude = value < 0 ? 0 - static_cast<std::uint64_t>(value) : static_cast<std::uint64_t>(value);
             std::string bytes;
@@ -139,20 +136,15 @@ class Writer {
     // An integer outside the 32-bit range from its little-endian magnitude bytes without trailing zero bytes.
     void big_integer(const bool negative, const std::string_view magnitude) {
         if (magnitude.size() <= SMALL_LIMIT) {
-            tag(SMALL_BIG);
-            put<1>(magnitude.size());
+            tagged<1>(SMALL_BIG, magnitude.size());
         } else {
-            tag(LARGE_BIG);
-            put<4>(magnitude.size());
+            tagged<4>(LARGE_BIG, magnitude.size());
         }
         out_.push_back(static_cast<char>(negative ? 1 : 0));
         out_ += magnitude;
     }
 
-    void floating(const double value) {
-        tag(NEW_FLOAT);
-        put<8>(std::bit_cast<std::uint64_t>(value));
-    }
+    void floating(const double value) { tagged<8>(NEW_FLOAT, std::bit_cast<std::uint64_t>(value)); }
 
     // A float as the 31-byte "%.20e" text of minor version 0, zero padded.
     void float_text(const double value) {
@@ -164,8 +156,7 @@ class Writer {
 
     // An atom spelled in Latin-1 (minor versions 0 and 1): ATOM_EXT with a two-byte length.
     void atom_latin1(const std::string_view latin1) {
-        tag(ATOM_LATIN1);
-        put<2>(latin1.size());
+        tagged<2>(ATOM_LATIN1, latin1.size());
         out_ += latin1;
     }
 
@@ -174,10 +165,7 @@ class Writer {
 
     void port() { tag(V4_PORT); }
 
-    void reference(const std::size_t words) {
-        tag(NEWER_REFERENCE);
-        put<2>(words);
-    }
+    void reference(const std::size_t words) { tagged<2>(NEWER_REFERENCE, words); }
 
     // The numbers after an identity's node atom: a pid's number and serial or a reference's words (32 bits each), a
     // port's number (64 bits), and the node's creation (32 bits, before a reference's words, after the others).
@@ -193,38 +181,28 @@ class Writer {
     // Container headers; `length` elements and then the tail follow a list header.
     void tuple(const std::size_t arity) {
         if (arity <= SMALL_LIMIT) {
-            tag(SMALL_TUPLE);
-            put<1>(arity);
+            tagged<1>(SMALL_TUPLE, arity);
         } else {
-            tag(LARGE_TUPLE);
-            put<4>(arity);
+            tagged<4>(LARGE_TUPLE, arity);
         }
     }
 
-    void list(const std::size_t length) {
-        tag(LIST);
-        put<4>(length);
-    }
+    void list(const std::size_t length) { tagged<4>(LIST, length); }
 
-    void map(const std::size_t pairs) {
-        tag(MAP);
-        put<4>(pairs);
-    }
+    void map(const std::size_t pairs) { tagged<4>(MAP, pairs); }
 
     void nil() { tag(NIL); }
 
     // A proper list of 1..65535 byte values.
     void string(const std::string_view bytes) {
-        tag(STRING);
-        put<2>(bytes.size());
+        tagged<2>(STRING, bytes.size());
         out_ += bytes;
     }
 
     // A binary, or a bitstring whose last byte holds its final bits in the high positions.
     void binary(const std::string_view bytes, const std::size_t bit_count) {
         const auto tail_bits = bit_count % 8;
-        tag(tail_bits == 0 ? BINARY : BIT_BINARY);
-        put<4>(bytes.size());
+        tagged<4>(tail_bits == 0 ? BINARY : BIT_BINARY, bytes.size());
         if (tail_bits != 0) {
             put<1>(tail_bits);
         }
@@ -246,6 +224,12 @@ class Writer {
         }
         out_.append(bytes.data(), bytes.size());
     }
+
+    // Append a tag and its big-endian value of BYTES bytes.
+    template <int BYTES> void tagged(const Tag value_tag, const std::uint64_t value) {
+        tag(value_tag);
+        put<BYTES>(value);
+    }
 };
 
 // Pulls one tag at a time from encoded bytes, checking every length against the remaining input.
@@ -263,6 +247,21 @@ class Reader {
     bool done() const { return at_ == bytes_.size(); }
 
     std::size_t offset() const { return at_; }
+
+    // The value of a SMALL_INTEGER_EXT or INTEGER_EXT next, consumed; none, with nothing consumed, for any other or a
+    // truncated tag, which next() reads (codec integer fast path).
+    std::optional<std::int64_t> next_integer() {
+        const auto left = bytes_.size() - at_;
+        if (left >= 2 && static_cast<std::uint8_t>(bytes_[at_]) == SMALL_INTEGER) {
+            at_ += 2;
+            return static_cast<std::uint8_t>(bytes_[at_ - 1]);
+        }
+        if (left >= 5 && static_cast<std::uint8_t>(bytes_[at_]) == INTEGER) {
+            ++at_;
+            return static_cast<std::int32_t>(take<4>());
+        }
+        return std::nullopt;
+    }
 
     // Decode the next tag.
     Item next() {

@@ -143,6 +143,10 @@ stacks.
 - `term_to_iovec/1,2`, `external_size/1,2`.
 - `binary_to_term/1,2`: lengths checked before allocating; `safe`, `used`;
   malformed input or foreign identities are `badarg`.
+- The codec's stacks and `term_to_binary`'s encoded bytes are per-thread
+  buffers kept between calls (up to 1 MB each, `builtins/scratch.hpp`), so a
+  large term does not take fresh pages each call; small integers skip the
+  general item path both ways.
 - CTests `executables_external_terms`, `builtins_etf_fuzz`.
 
 ## Time
