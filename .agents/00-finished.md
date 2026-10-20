@@ -434,7 +434,7 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   mapfoldl/mapfoldr become loops in the caller that collect only at yields;
   results and error reasons as `lists`, only stack traces differ. 69A
   map_foldl 12.2 to 7.8 ms (OTP 3.4); foldl alone ~11x, map min 1.35x; luerl
-  euler unchanged — `PENDING`
+  euler unchanged — `6da94982`
 - **OPT0.20B** generational collection: safepoints run minor collections that
   promote objects below the high-water mark into an old area and leave it in
   place (ERTS sizing rules, Debug old→young check); 69A geomean 1.15x (sort
