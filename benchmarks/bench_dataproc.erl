@@ -8,15 +8,17 @@ main(_Args) ->
     Map = maps:from_list([{K, 0} || K <- lists:seq(1, 500)]),
     Bin = <<<<X:32>> || X <- Seq>>,
     Term = {Seq, Map, <<"payload">>, [{K, integer_to_list(K)} || K <- lists:seq(1, 1000)]},
-    bench_util:run("dataproc.sort", 2, fun() -> lists:sort(Random) end),
-    bench_util:run("dataproc.map_foldl", 10, fun() -> map_foldl(Seq) end),
-    bench_util:run("dataproc.map_update", 5, fun() -> map_update(Map, 2) end),
-    bench_util:run("dataproc.binary_match", 10, fun() -> sum_binary(Bin, 0) end),
-    bench_util:run("dataproc.int_to_list", 10, fun() -> int_round_trip(Seq, 0) end),
-    bench_util:run("dataproc.term_to_binary", 10, fun() -> binary_to_term(term_to_binary(Term)) end),
-    bench_util:run("dataproc.comprehension", 20, fun() -> [X * 2 || X <- Seq, X rem 3 =:= 0] end),
+    bench_util:run("dataproc.sort", 600, fun() -> lists:sort(Random) end),
+    bench_util:run("dataproc.map_foldl", 6100, fun() -> map_foldl(Seq) end),
+    bench_util:run("dataproc.map_update", 12000, fun() -> map_update(Map, 2) end),
+    bench_util:run("dataproc.binary_match", 49000, fun() -> sum_binary(Bin, 0) end),
+    bench_util:run("dataproc.int_to_list", 2000, fun() -> int_round_trip(Seq, 0) end),
+    bench_util:run("dataproc.term_to_binary", 5100, fun() ->
+        binary_to_term(term_to_binary(Term))
+    end),
+    bench_util:run("dataproc.comprehension", 15000, fun() -> [X * 2 || X <- Seq, X rem 3 =:= 0] end),
     State = #{count => 0, total => 0, last => 0, limit => 20000, name => <<"state">>, flags => []},
-    bench_util:run("dataproc.small_map", 10, fun() -> small_map(State, 20000) end),
+    bench_util:run("dataproc.small_map", 4600, fun() -> small_map(State, 20000) end),
     bench_util:done("bench_dataproc").
 
 map_foldl(List) ->

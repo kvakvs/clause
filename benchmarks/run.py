@@ -11,21 +11,26 @@ O2 next to the reports. Kernel times are measured in nanoseconds and reported in
 """
 
 import argparse
+import ctypes
 import datetime
 import json
 import os
 import platform
 import shlex
 import shutil
+import signal
 import statistics
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 BENCH_DIR = Path(__file__).resolve().parent
 REPO = BENCH_DIR.parent
 HISTORY_DIR = BENCH_DIR / "history"
+# Parent of the empty working directory each program run gets.
+RUN_DIR = REPO / "build" / "bench" / "runs"
 EXE = ".exe" if os.name == "nt" else ""
 # Records run longer ago than this, relative to the newest record, are pruned.
 HISTORY_DAYS = 183
@@ -40,6 +45,11 @@ LISTING_KINDS = (("--print-asm", "asm"), ("--print-ir", "ll"))
 # be measured, never run, and baseline is the previous Clause commit at O2 (the clause-base system).
 SIZE_COLUMNS = ("o0", "o2", "lto", "baseline")
 SIZE_RATIOS = (("o2", "o0"), ("lto", "o2"), ("lto", "o0"), ("o2", "baseline"))
+# Seconds a finished benchmark program's leftover processes get to exit before they are killed.
+LEFTOVER_SECONDS = 30
+# Windows process creation flag and job information class used to track every process of one benchmark run.
+CREATE_SUSPENDED = 0x4
+JOB_BASIC_ACCOUNTING = 1
 
 
 def parse_args():
@@ -50,7 +60,7 @@ def parse_args():
     parser.add_argument("--baseline", help="previous Clause revision (default: newest commit >= 1 day older than HEAD)")
     parser.add_argument("--no-baseline", action="store_true", help="skip the previous Clause version")
     parser.add_argument("--no-lto", action="store_true", help="skip the Clause --lto build")
-    parser.add_argument("--repeat", type=int, default=5, help="runs of each program per system")
+    parser.add_argument("--repeat", type=int, default=3, help="runs of each program per system")
     parser.add_argument("--timeout", type=int, default=600, help="seconds allowed for one program run")
     parser.add_argument("--only", help="comma-separated program names, for example bench_gc,bench_msg")
     parser.add_argument("--erl", help="erl executable of the host Erlang/OTP")
@@ -219,14 +229,109 @@ def parse_results(output):
     return results
 
 
+class _JobAccounting(ctypes.Structure):
+    """JOBOBJECT_BASIC_ACCOUNTING_INFORMATION, read for its count of live processes in a job."""
+    _fields_ = [("times", ctypes.c_int64 * 4), ("page_faults", ctypes.c_uint32), ("total", ctypes.c_uint32),
+                ("active", ctypes.c_uint32), ("terminated", ctypes.c_uint32)]
+
+
+class ProcessGroup:
+    """Every process of one benchmark run: a Windows job object or a POSIX session; added for benchmark settling.
+
+    The next run starts only once the group is empty, so exiting processes never overlap another measurement.
+    """
+
+    def __init__(self, args, cwd):
+        self.windows_ = os.name == "nt"
+        flags = {"creationflags": CREATE_SUSPENDED} if self.windows_ else {"start_new_session": True}
+        self.process_ = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                         text=True, **flags)
+        # The job holds the program before it runs, so every process it starts joins the job too.
+        self.job_ = self._attach_job() if self.windows_ else None
+
+    def _attach_job(self):
+        """Put the suspended program into a new job object, then let it run."""
+        kernel32 = ctypes.windll.kernel32
+        kernel32.CreateJobObjectW.restype = ctypes.c_void_p
+        job = kernel32.CreateJobObjectW(None, None)
+        handle = ctypes.c_void_p(int(self.process_._handle))
+        if not job or not kernel32.AssignProcessToJobObject(ctypes.c_void_p(job), handle):
+            self.process_.kill()
+            sys.exit(f"benchmark: cannot track the processes of a run (Windows error {kernel32.GetLastError()})")
+        ctypes.windll.ntdll.NtResumeProcess(handle)
+        return job
+
+    def alive(self):
+        """Whether any process of the group still runs."""
+        if self.windows_:
+            info = _JobAccounting()
+            ctypes.windll.kernel32.QueryInformationJobObject(ctypes.c_void_p(self.job_), JOB_BASIC_ACCOUNTING,
+                                                             ctypes.byref(info), ctypes.sizeof(info), None)
+            return info.active > 0
+        try:
+            os.killpg(self.process_.pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+
+    def kill(self):
+        """Terminate every process of the group."""
+        if self.windows_:
+            ctypes.windll.kernel32.TerminateJobObject(ctypes.c_void_p(self.job_), 1)
+        else:
+            try:
+                os.killpg(self.process_.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+    def settle(self):
+        """Wait up to LEFTOVER_SECONDS for the group to empty, then kill it; returns whether it emptied alone."""
+        deadline = time.monotonic() + LEFTOVER_SECONDS
+        while self.alive() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        emptied = not self.alive()
+        if not emptied:
+            self.kill()
+        return emptied
+
+    def close(self):
+        """Release the job object."""
+        if self.windows_:
+            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(self.job_))
+
+
+def run_program(args, cwd, timeout):
+    """Run one benchmark program and wait for all its processes; returns (code, stdout, stderr, seconds, emptied).
+
+    A timeout returns code None; emptied is False when leftover processes had to be killed.
+    """
+    start = time.monotonic()
+    group = ProcessGroup(args, cwd)
+    try:
+        out, err = group.process_.communicate(timeout=timeout)
+        code = group.process_.returncode
+    except subprocess.TimeoutExpired:
+        group.kill()
+        out, err = group.process_.communicate()
+        code = None
+    seconds = time.monotonic() - start
+    emptied = group.settle()
+    group.close()
+    return code, out, err, seconds, emptied
+
+
 def run_once(command, timeout):
     """Run one program in an empty temporary directory; returns (kernel times, wall seconds, status)."""
-    with tempfile.TemporaryDirectory(prefix="clause-bench-") as cwd:
-        code, out, err, seconds = run_command(command, cwd=cwd, timeout=timeout)
+    # Inside the build tree, not %TEMP%: on-access antivirus scanning there slowed file I/O kernels tenfold.
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="run-", dir=RUN_DIR) as cwd:
+        code, out, err, seconds, emptied = run_program(command, cwd, timeout)
     if code is None:
         status = "timeout"
     elif code != 0:
         status = f"exit {code}: {err.strip()[:300]}"
+    elif not emptied:
+        status = f"leftover processes killed {LEFTOVER_SECONDS} s after exit"
     else:
         status = "ok"
     return parse_results(out), seconds, status
@@ -442,36 +547,50 @@ def medians_of(summary, system):
     return {k: round(v[0] / 1000, 3) for (s, k), v in summary.items() if s == system}
 
 
+def time_ratios(times, references):
+    """Per kernel time / reference time, the history's comparison that survives changes of the kernels' work.
+
+    Added for benchmark multiplier history.
+    """
+    return {k: round(v / references[k], 4) for k, v in times.items() if references.get(k, 0) > 0 and v > 0}
+
+
 def history_record(context, summary):
-    """One history record: Clause HEAD's kernel medians with the OTP and baseline medians of the same run."""
+    """One history record: Clause HEAD's kernel medians with the OTP and baseline medians of the same run, and
+    Clause's time ratios against both."""
     head, base = context["head"], context["base"]
+    clause_us, otp_us = medians_of(summary, "clause-o2"), medians_of(summary, context["otp_reference"])
     record = {"commit": head["hash"], "commit_date": head["date"], "run_date": context["run_date"],
-              "otp_release": context["otp"]["release"], "clause_us": medians_of(summary, "clause-o2"),
-              "otp_us": medians_of(summary, context["otp_reference"])}
+              "otp_release": context["otp"]["release"], "clause_us": clause_us, "otp_us": otp_us,
+              "otp_ratio": time_ratios(clause_us, otp_us)}
     record["sizes_bytes"] = context["sizes"]
     if base:
-        record["baseline"] = {"commit": base["hash"], "commit_date": base["date"],
-                              "clause_us": medians_of(summary, "clause-base")}
+        base_us = medians_of(summary, "clause-base")
+        record["baseline"] = {"commit": base["hash"], "commit_date": base["date"], "clause_us": base_us,
+                              "ratio": time_ratios(clause_us, base_us)}
     return record
 
 
-def trend_table(records, kernels):
-    """Kernel medians (ms) of Clause O2 across the kept history of this host, newest runs last."""
+def trend_table(records, kernels, ratios_of):
+    """One time ratio per kernel across the last 8 records of this host, newest runs last."""
     shown = records[-8:]
     header = ["benchmark", *[f"{r['run_date'][:10]} {r['commit'][:7]}" for r in shown]]
-    rows = [[k, *[f"{r['clause_us'][k] / 1000:.6f}" if k in r["clause_us"] else "n/a" for r in shown]]
-            for k in kernels]
+    rows = [[k, *[f"{ratios_of(r)[k]:.2f}x" if k in ratios_of(r) else "n/a" for r in shown]] for k in kernels]
     return table(header, rows)
 
 
 def update_history(context, summary, kernels):
-    """Record this run in the host history, replacing a run of the same day; returns the trend section."""
+    """Record this run in the host history, replacing a run of the same day; returns the trend sections."""
     path = HISTORY_DIR / f"{context['host']}.json"
     day = context["run_date"][:10]
     records = [r for r in load_history(path) if r["run_date"][:10] != day]
     records.append(history_record(context, summary))
     kept = save_history(path, records)
-    return "History of Clause O2 on this host (ms, last 8 run days)\n\n" + trend_table(kept, kernels) + "\n"
+    note = "time ratio, last 8 run days; below 1.00x = Clause O2 is faster"
+    return (f"History of Clause O2 vs OTP on this host ({note})\n\n"
+            + trend_table(kept, kernels, lambda r: r.get("otp_ratio", {})) + "\n\n"
+            + f"History of Clause O2 vs its baseline on this host ({note})\n\n"
+            + trend_table(kept, kernels, lambda r: r.get("baseline", {}).get("ratio", {})) + "\n")
 
 
 def report_directory(host):

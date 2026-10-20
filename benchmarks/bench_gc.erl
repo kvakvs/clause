@@ -3,10 +3,10 @@
 -export([main/1]).
 
 main(_Args) ->
-    bench_util:run("gc.short_processes", 2, fun() -> short_processes(5000) end),
-    bench_util:run("gc.grow_shrink", 2, fun() -> grow_shrink(2) end),
-    bench_util:run("gc.long_lived_churn", 2, fun() -> churn(100, []) end),
-    bench_util:run("gc.explicit_collect", 50, fun() -> collect_with_live_data() end),
+    bench_util:run("gc.short_processes", 69, fun() -> short_processes(5000) end),
+    bench_util:run("gc.grow_shrink", 150, fun() -> grow_shrink(2) end),
+    bench_util:run("gc.long_lived_churn", 370, fun() -> churn(100, []) end),
+    bench_util:run("gc.explicit_collect", 7100, fun() -> collect_with_live_data() end),
     bench_util:done("bench_gc").
 
 %% Spawn Count processes that each allocate a garbage list, and wait for all of them.

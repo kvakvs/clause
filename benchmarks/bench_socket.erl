@@ -8,9 +8,9 @@
 
 main(_Args) ->
     Payload = bench_util:bytes(1024),
-    bench_util:run("socket.tcp_echo", 3, fun() -> tcp_echo(Payload, 2000) end),
-    bench_util:run("socket.tcp_connect", 3, fun() -> tcp_connect(300) end),
-    bench_util:run("socket.udp_round_trip", 3, fun() -> udp_round_trip(Payload, 2000) end),
+    bench_util:run("socket.tcp_echo", 3, fun() -> tcp_echo(Payload, 10000) end),
+    bench_util:run("socket.tcp_connect", 3, fun() -> tcp_connect(Payload, 300, 25) end),
+    bench_util:run("socket.udp_round_trip", 3, fun() -> udp_round_trip(Payload, 9300) end),
     bench_util:done("bench_socket").
 
 %% Send Count framed messages to an echo server and wait for each reply.
@@ -44,30 +44,41 @@ echo_loop(Socket, Payload, N) ->
     {ok, Payload} = gen_tcp:recv(Socket, 0),
     echo_loop(Socket, Payload, N - 1).
 
-%% Open and close Count connections against one listening socket. The server closes first, so TIME_WAIT
-%% stays on the listening port instead of using up the client's ephemeral ports.
-tcp_connect(Count) ->
+%% Open Count short sessions of Exchanges echo round trips against one listening socket; more exchanges, not
+%% more connections, keep the socket count low. The server closes first, so TIME_WAIT stays on the listening
+%% port instead of using up the client's ephemeral ports.
+tcp_connect(Payload, Count, Exchanges) ->
     {ok, Listen} = gen_tcp:listen(0, [{backlog, 128} | ?LISTEN_OPTIONS]),
     {ok, Port} = inet:port(Listen),
-    Acceptor = spawn_link(fun() -> accept_n(Listen, Count) end),
-    connect_n(Port, Count),
+    Acceptor = spawn_link(fun() -> accept_n(Listen, Count, Exchanges) end),
+    connect_n(Port, Payload, Count, Exchanges),
     await_exit(Acceptor),
     gen_tcp:close(Listen).
 
-accept_n(_Listen, 0) ->
+accept_n(_Listen, 0, _Exchanges) ->
     ok;
-accept_n(Listen, N) ->
+accept_n(Listen, N, Exchanges) ->
     {ok, Socket} = gen_tcp:accept(Listen),
+    reply_n(Socket, Exchanges),
     ok = gen_tcp:close(Socket),
-    accept_n(Listen, N - 1).
+    accept_n(Listen, N - 1, Exchanges).
 
-connect_n(_Port, 0) ->
+%% Echo Count framed messages back to the client of one session.
+reply_n(_Socket, 0) ->
     ok;
-connect_n(Port, N) ->
+reply_n(Socket, N) ->
+    {ok, Data} = gen_tcp:recv(Socket, 0),
+    ok = gen_tcp:send(Socket, Data),
+    reply_n(Socket, N - 1).
+
+connect_n(_Port, _Payload, 0, _Exchanges) ->
+    ok;
+connect_n(Port, Payload, N, Exchanges) ->
     {ok, Socket} = gen_tcp:connect({127, 0, 0, 1}, Port, ?TCP_OPTIONS),
+    echo_loop(Socket, Payload, Exchanges),
     {error, closed} = gen_tcp:recv(Socket, 0),
     ok = gen_tcp:close(Socket),
-    connect_n(Port, N - 1).
+    connect_n(Port, Payload, N - 1, Exchanges).
 
 %% Bounce one datagram between two UDP sockets Count times.
 udp_round_trip(Payload, Count) ->

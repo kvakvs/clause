@@ -3,12 +3,12 @@
 -export([main/1]).
 
 main(_Args) ->
-    bench_util:run("datagen.list_of_tuples", 4, fun() -> tuples(200000, []) end),
-    bench_util:run("datagen.list_to_tuple", 5, fun() -> to_tuples(100, []) end),
-    bench_util:run("datagen.map_put", 2, fun() -> map_put(2000, #{}) end),
-    bench_util:run("datagen.binary_append", 5, fun() -> binary_append(10000, <<>>) end),
-    bench_util:run("datagen.bigint_factorial", 20, fun() -> factorial(3000, 1) end),
-    bench_util:run("datagen.string_build", 5, fun() -> strings(20000, []) end),
+    bench_util:run("datagen.list_of_tuples", 300, fun() -> tuples(200000, []) end),
+    bench_util:run("datagen.list_to_tuple", 2200, fun() -> to_tuples(100, []) end),
+    bench_util:run("datagen.map_put", 4900, fun() -> map_put(2000, #{}) end),
+    bench_util:run("datagen.binary_append", 23000, fun() -> binary_append(10000, <<>>) end),
+    bench_util:run("datagen.bigint_factorial", 330, fun() -> factorial(3000, 1) end),
+    bench_util:run("datagen.string_build", 1000, fun() -> strings(20000, []) end),
     bench_util:done("bench_datagen").
 
 tuples(0, Acc) -> Acc;

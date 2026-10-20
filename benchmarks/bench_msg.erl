@@ -3,10 +3,10 @@
 -export([main/1]).
 
 main(_Args) ->
-    bench_util:run("msg.ping_pong", 2, fun() -> ping_pong(50000) end),
-    bench_util:run("msg.fan_in", 2, fun() -> fan_in(100, 1000) end),
-    bench_util:run("msg.ring", 2, fun() -> ring(1000, 50) end),
-    bench_util:run("msg.large_message", 3, fun() -> large_message(lists:seq(1, 100000)) end),
+    bench_util:run("msg.ping_pong", 40, fun() -> ping_pong(50000) end),
+    bench_util:run("msg.fan_in", 25, fun() -> fan_in(100, 1000) end),
+    bench_util:run("msg.ring", 61, fun() -> ring(1000, 50) end),
+    bench_util:run("msg.large_message", 560, fun() -> large_message(lists:seq(1, 100000)) end),
     bench_util:done("bench_msg").
 
 %% Bounce one message between two processes Count times.

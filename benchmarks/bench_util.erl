@@ -2,13 +2,38 @@
 -module(bench_util).
 -export([run/3, random_list/2, bytes/1, done/1]).
 
+-define(SETTLE_MS, 10000).
+
 %% Time Iterations calls of Fun after one warm-up call and print one "BENCH Name Nanoseconds" line.
+%% Untimed, the warm-up and the timed calls each wait until the processes they spawned have exited.
 run(Name, Iterations, Fun) ->
+    Processes = erlang:system_info(process_count),
     _ = Fun(),
+    settle(Name, Processes),
     Start = erlang:monotonic_time(nanosecond),
     repeat(Iterations, Fun),
     Elapsed = erlang:monotonic_time(nanosecond) - Start,
+    settle(Name, Processes),
     io:format("BENCH ~s ~w~n", [Name, Elapsed]).
+
+%% Wait until no more than Processes processes are alive, so one kernel's exiting processes never run into the
+%% next; fails the program after SETTLE_MS milliseconds. Added for benchmark process settling.
+settle(Name, Processes) ->
+    settle(Name, Processes, erlang:monotonic_time(millisecond) + ?SETTLE_MS).
+
+settle(Name, Processes, Deadline) ->
+    Count = erlang:system_info(process_count),
+    Late = erlang:monotonic_time(millisecond) > Deadline,
+    if
+        Count =< Processes ->
+            ok;
+        Late ->
+            erlang:error({processes_left, Name, Count - Processes});
+        true ->
+            receive
+            after 1 -> settle(Name, Processes, Deadline)
+            end
+    end.
 
 repeat(0, _Fun) ->
     ok;

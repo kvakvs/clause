@@ -196,21 +196,28 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
   `erlc` and `clau -O2`. Each times its kernels with `erlang:monotonic_time/1`
   after one warm-up call and prints `BENCH <name> <nanoseconds>`: data
   generation, data processing, garbage collection, message passing, file I/O (in
-  an empty temporary working directory) and loopback sockets.
+  an empty temporary working directory under `build/bench/runs`, inside the
+  repository so that a repository antivirus exclusion covers it) and loopback sockets. Iteration counts
+  make every kernel last 1-2 s on OTP, so timer resolution and host noise stay
+  small against it; socket kernels grow the work per connection, not the
+  number of sockets. Untimed, the warm-up and the timed calls each wait until
+  the processes they spawned have exited (`processes_left` error after 10 s).
+- Every program run is its own Windows job object or POSIX session; the next
+  run starts once all its processes are gone, and leftovers still alive 30 s
+  after exit are killed and reported as a failure.
 - Systems, on the same host in one run, interleaved: OTP with its default flavor
   (JIT), OTP `-emu_flavor emu` when installed (the Windows installer ships only
   the JIT, so those columns read `n/a`), Clause HEAD at O2 and with `--lto`, and
   a previous Clause commit (default: the newest commit at least one day older
   than HEAD; `--baseline REV`, `--no-baseline`) built in a cached worktree under
   `build/bench-base/<hash>` that shares `thirdparty/`.
-- Report: per kernel the median of `--repeat` runs (default 5) in milliseconds
+- Report: per kernel the median of `--repeat` runs (default 3) in milliseconds
   with six decimals and its spread, the change of Clause O2 against each system
   (`+N%`: Clause faster, the other takes N% longer; `-N%`: Clause takes N%
   longer; `(Fx)` the time ratio) with a geometric mean, `--lto` against OTP and
   O2, program wall times including startup, executable sizes, failures and
-  timeouts (`--timeout`, 600 s per run). Iteration counts keep a default run under 10 minutes; Clause,
-  the slowest system, sets the sizes, so some OTP kernels last only a few
-  milliseconds.
+  timeouts (`--timeout`, 600 s per run). A default run measures for about
+  15 minutes.
 - Executable sizes, in bytes: every program at `-O2`, with `--lto` and at `-O0`
   (an extra build only measured, never run; both skipped by `--no-lto`) and the
   baseline at `-O2`, with a total row and the changes O2 vs O0, `--lto` vs O2,
@@ -219,12 +226,15 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
   program → column → bytes, `clau`: `head`/`baseline` → bytes; `null` where a
   build failed).
 - History: `benchmarks/history/<host>.json` keeps one record per run day (run
-  date, HEAD hash and commit date, Clause, OTP and baseline medians, sizes),
+  date, HEAD hash and commit date, Clause, OTP and baseline medians, sizes, and
+  Clause's time ratios `otp_ratio` and `baseline.ratio` per kernel),
   `benchmarks/history/reports/<host>/<day>-<hash>.txt` the text reports; a rerun
   on the same day replaces both. Records and reports run more than 183 days
   before the newest are pruned; a run with uncommitted source changes is
-  reported but not recorded. The history directory is gitignored: it stays on
-  the host that ran it.
+  reported but not recorded. The report's history tables show the ratios of
+  the last 8 run days, which stay comparable when kernels change their work;
+  records from before the 1-2 s rescaling keep only their ratios. The history
+  directory is gitignored: it stays on the host that ran it.
 - Listings: with `--listings`, before measuring, a run writes each program's
   [`--print-asm`](compile.md#assembly-listings) and `--print-ir` listings (with
   `bench_util`, `--entry <program>` so unreachable library code is left out as
