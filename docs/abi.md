@@ -59,14 +59,14 @@ and the `FrameDescriptor` dynamic calls enter), atom spellings (UTF-8
 pointer/size pairs), native record descriptors (module, name and field atom
 slots, export flag; [native records](native-records.md#representation)) in an
 external `<prefix>.records` table that other modules of a batch reference, fun
-descriptors in a private `<prefix>.funs` table ([funs](funs.md#representation)),
-the read-only literal area ([areas](runtime-heap.md#areas)), the writable atom
-and fun caches generated code reads inline, and the `code_convention` of its
-bodies. Registration calls `CLAUSE_register_module_v4(Runtime*)`, which
-validates version/width and all exports, interns atoms, builds a frozen registry
-and publishes it with the code image in one transaction. Duplicate modules never
-replace code; any failure publishes nothing (already interned atoms stay in the
-bounded table).
+descriptors in a private `<prefix>.funs` table
+([funs](funs.md#representation)), the read-only literal area
+([areas](runtime-heap.md#areas)), the writable atom and fun caches generated
+code reads inline, and the `code_convention` of its bodies. Registration calls
+`CLAUSE_register_module_v4(Runtime*)`, which validates version/width and all
+exports, interns atoms, builds a frozen registry and publishes it with the code
+image in one transaction. Duplicate modules never replace code; any failure
+publishes nothing (already interned atoms stay in the bounded table).
 
 - Call `.register` explicitly before resolving exports. There are no global
   constructors; static-archive users must reference registration entries.
@@ -87,8 +87,8 @@ bounded table).
 Errors are not encoded in term bits. After every non-tail generated call the
 caller checks the channel before using the result or evaluating the next
 argument: it reads the `failed` word of the context's `FrameState`, which the
-runtime keeps equal to `CLAUSE_call_failed_v2(context)`. On failure the
-callee returns an invalid zero word.
+runtime keeps equal to `CLAUSE_call_failed_v2(context)`. On failure the callee
+returns an invalid zero word.
 
 | Outcome | Transport |
 | --- | --- |
@@ -231,52 +231,50 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   constant width up to the word size less 8 bits (56 on 64-bit targets, 24 on
   32-bit ones) read the cell inline (`abi::v1::heap_binary_*_word`,
   `refc_*_word`: an off-heap view's `data_` is its buffer's first byte), at any
-  bit position. A segment of whole bytes at a byte-aligned position is one
-  load; any other reads the bytes the field touches and shifts it out. Widths
-  that are not whole bytes are inline only big-endian. Other segments call
-  `CLAUSE_bits_v1`. A `sub_binary` subject
-  (`sub_*_word`) is read through its original. A trailing `Rest/binary` or
-  `Rest/bits` of unit 1 is bump-allocated inline as a 4-word `sub_binary` cell
-  of the original.
-- Binary loops: when no clause head of a function compares one parameter
-  with a binding, and some clause passes a rest of it back as that parameter
-  of a self tail call, the function gets a private variant `<symbol>.loop`.
-  The function's own step makes the rest cell as above and enters the variant
-  with it (a rest the service made, which may be shared, re-enters the
-  function instead). The variant makes no rest cell: each self tail call
-  stores the new offset and bit length into the parameter's cell, which only
-  this loop references, and passes the same cell on, so a loop over a binary
-  allocates once. The variant reads the cell's view once per step, before its
-  clauses, and skips the bitstring test of the parameter. Loads and stores of
-  process state, frames, `sub_binary` words and inline/off-heap binary words
-  carry disjoint LLVM TBAA tags; a variant that calls no other Erlang function
-  marks the loads of its cell's original and of the original's header, offset
-  and data address `!invariant.load`, and gets one more GVN after the
-  pipeline (function attribute `clause-binary-loop`), so the view leaves the
-  loop and the offset and length a trip stores are register values of the
-  next trip. Any other body read of a rest, or in the variant of the whole parameter,
-  and every fun capturing one, gets a new `sub_binary` cell with the same bits
-  (the service makes it without heap room), so nothing else ever holds the
-  loop's cell; guards read the value itself.
-  The variant has the function's name and arity in stack traces.
-- Float loops (64-bit targets): a parameter among the first six (those passed
-  in registers) that every clause binds to a variable (or ignores), that some
-  self tail call passes a float-only expression (a float literal, `/`, a
-  `math` call, or `+ - *` with such an operand), and whose value is read only
-  as an operand of arithmetic, comparisons or `math` calls, as the same
-  parameter of a self tail call, or within the result or a tail call of
-  another function (never in a fun) is a float parameter. The function gets a
-  private variant `<symbol>.float` taking each float parameter as the bits of
-  its double in the argument word (function attributes
-  `clause-float-parameters`, a bit mask, and `clause-float-generic`, the
-  function). A self tail call of either whose new value of every float
-  parameter is a double in a register enters the variant with those bits, so
-  a float loop makes no cell per step; the variant makes a cell of a parameter
-  only where it reads the word itself. Raw bits never reach a place a
-  collection reads: the variant's other self tail calls re-enter the function,
-  and a transfer into the variant that takes its service path (a wanted
-  collection, profiling, no reductions left, stack growth) boxes the doubles
-  with the module's `clause.float.box` helper and enters the function's
+  bit position. A segment of whole bytes at a byte-aligned position is one load;
+  any other reads the bytes the field touches and shifts it out. Widths that are
+  not whole bytes are inline only big-endian. Other segments call
+  `CLAUSE_bits_v1`. A `sub_binary` subject (`sub_*_word`) is read through its
+  original. A trailing `Rest/binary` or `Rest/bits` of unit 1 is bump-allocated
+  inline as a 4-word `sub_binary` cell of the original.
+- Binary loops: when no clause head of a function compares one parameter with a
+  binding, and some clause passes a rest of it back as that parameter of a self
+  tail call, the function gets a private variant `<symbol>.loop`. The function's
+  own step makes the rest cell as above and enters the variant with it (a rest
+  the service made, which may be shared, re-enters the function instead). The
+  variant makes no rest cell: each self tail call stores the new offset and bit
+  length into the parameter's cell, which only this loop references, and passes
+  the same cell on, so a loop over a binary allocates once. The variant reads
+  the cell's view once per step, before its clauses, and skips the bitstring
+  test of the parameter. Loads and stores of process state, frames, `sub_binary`
+  words and inline/off-heap binary words carry disjoint LLVM TBAA tags; a
+  variant that calls no other Erlang function marks the loads of its cell's
+  original and of the original's header, offset and data address
+  `!invariant.load`, and gets one more GVN after the pipeline (function
+  attribute `clause-binary-loop`), so the view leaves the loop and the offset
+  and length a trip stores are register values of the next trip. Any other body
+  read of a rest, or in the variant of the whole parameter, and every fun
+  capturing one, gets a new `sub_binary` cell with the same bits (the service
+  makes it without heap room), so nothing else ever holds the loop's cell;
+  guards read the value itself. The variant has the function's name and arity in
+  stack traces.
+- Float loops (64-bit targets): a parameter among the first six (those passed in
+  registers) that every clause binds to a variable (or ignores), that some self
+  tail call passes a float-only expression (a float literal, `/`, a `math` call,
+  or `+ - *` with such an operand), and whose value is read only as an operand
+  of arithmetic, comparisons or `math` calls, as the same parameter of a self
+  tail call, or within the result or a tail call of another function (never in a
+  fun) is a float parameter. The function gets a private variant
+  `<symbol>.float` taking each float parameter as the bits of its double in the
+  argument word (function attributes `clause-float-parameters`, a bit mask, and
+  `clause-float-generic`, the function). A self tail call of either whose new
+  value of every float parameter is a double in a register enters the variant
+  with those bits, so a float loop makes no cell per step; the variant makes a
+  cell of a parameter only where it reads the word itself. Raw bits never reach
+  a place a collection reads: the variant's other self tail calls re-enter the
+  function, and a transfer into the variant that takes its service path (a
+  wanted collection, profiling, no reductions left, stack growth) boxes the
+  doubles with the module's `clause.float.box` helper and enters the function's
   descriptor instead. The variant has the function's name and arity in stack
   traces.
 - A binary construction whose every byte is known at compile time (small integer
@@ -286,9 +284,10 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
 - `Left ++ Right` where `Left` is written as a proper list (a string literal, or
   a list without a tail) is built as `[E1, ..., En | Right]`, as OTP's compiler
   does, without calling `erlang:'++'/2`. Any other `Left ++ Right` walks `Left`
-  inline (`codegen/lowering_append`): a proper list of at most 32 cells is copied
-  onto `Right` in the heap block's free words; a longer or improper `Left`, or a
-  block without room, enters the builtin, which keeps every error and portion.
+  inline (`codegen/lowering_append`): a proper list of at most 32 cells is
+  copied onto `Right` in the heap block's free words; a longer or improper
+  `Left`, or a block without room, enters the builtin, which keeps every error
+  and portion.
 - A pure builtin of literal arguments is evaluated at compile time, as OTP's
   `sys_core_fold` does: `atom_to_list(Atom)` of an atom literal is that name's
   literal string, with no call.
@@ -311,13 +310,13 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   depends on a branch), compute in registers and bump-allocate the 2-word float
   cell when the result is finite, the divisor nonzero and the heap has room;
   otherwise `CLAUSE_immediate_v1` raises `badarith` or promotes. A float
-  literal, and the result of `/`, of inline math or of an operation with such
-  an operand (always a float when it succeeds), also keeps its double in a
+  literal, and the result of `/`, of inline math or of an operation with such an
+  operand (always a float when it succeeds), also keeps its double in a
   register: operations reading it take the register, and its cell is made only
-  where something reads the word itself (`CLAUSE_float_v1` when the heap has
-  no room); a service fallback that reads it gets a cell of its own. A
-  comparison of two such floats compares the doubles, exact equality their
-  bits (so `0.0 =:= -0.0` stays false).
+  where something reads the word itself (`CLAUSE_float_v1` when the heap has no
+  room); a service fallback that reads it gets a cell of its own. A comparison
+  of two such floats compares the doubles, exact equality their bits (so
+  `0.0 =:= -0.0` stays false).
 - Map expressions without a base whose keys are atom or small integer literals
   (at most 32 distinct) are written inline as classic map cells, keys sorted at
   compile time in exact term order, the last value of a repeated key kept;
@@ -404,13 +403,14 @@ native `is_record/1`, `is_binary/1` by the bit length word) read tags and, after
 a boxed tag test, the header kind (`abi::v1::HeaderKind`); they never call a
 service. Comparisons of two immediates (`==`, `/=`) or two small integers (`<`,
 `=<`, `>`, `>=`), `element/2`, `tuple_size/1`, `bit_size/1` and `byte_size/1`
-(from the bit length word, while the size is a small integer), `hd/1`, `tl/1`, the boolean
-operators, `band`, `bor`, `bxor`, `bsr`, `bsl` (while the result stays small)
-and small `div`/`rem` run inline; `self/0` reads `FrameState::self`. They run
-inline where their operands allow and call `CLAUSE_immediate_v1` otherwise,
-which keeps every error and bignum case. `setelement/3` of a small index within
-a boxed tuple copies the tuple into the heap block's free words and replaces the
-slot inline; otherwise, or without room, it enters the bridge builtin.
+(from the bit length word, while the size is a small integer), `hd/1`, `tl/1`,
+the boolean operators, `band`, `bor`, `bxor`, `bsr`, `bsl` (while the result
+stays small) and small `div`/`rem` run inline; `self/0` reads
+`FrameState::self`. They run inline where their operands allow and call
+`CLAUSE_immediate_v1` otherwise, which keeps every error and bignum case.
+`setelement/3` of a small index within a boxed tuple copies the tuple into the
+heap block's free words and replaces the slot inline; otherwise, or without
+room, it enters the bridge builtin.
 
 `CLAUSE_builtin_frame_v1(context, builtin)`
 ([builtins.hpp](../abi/include/clause/abi/builtins.hpp)) returns the
@@ -429,10 +429,10 @@ it with `CLAUSE_builtin_call_v1(context, builtin, arguments)`, which runs its
 body at once and returns the result, with no frame transfer, no resume point and
 no entry safepoint; it spends one reduction, and a failure goes to the checked
 channel as a service's does. A quick builtin (`BuiltinCall::quick`: `length/1`,
-`binary_to_list/1`, `list_to_binary/1`, `iolist_to_binary/1`) is called the
-same way first; its bounded fast path returns 0 when it declines (longer
-inputs, other shapes, every error, and always while calls are traced), and the
-generated code then enters the builtin's frame as for any bridge builtin.
+`binary_to_list/1`, `list_to_binary/1`, `iolist_to_binary/1`) is called the same
+way first; its bounded fast path returns 0 when it declines (longer inputs,
+other shapes, every error, and always while calls are traced), and the generated
+code then enters the builtin's frame as for any bridge builtin.
 
 `abi::v1::dispatch_builtin` calls host-registered builtins by module/function
 bytes, argument array and arity, returning a `Status`; output is written only on

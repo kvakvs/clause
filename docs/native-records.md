@@ -19,10 +19,9 @@ representation:
 | Qualified and imported | `#m:r{...}`, `X#m:r.f`, `X#m:r{...}`, patterns; `-export_record`, `-import_record` |
 | Inferred (anonymous) | `X#_.f`, `X#_{...}`, pattern `#_{...}` |
 
-The `records` reflection module is provided ([reflection](#reflection)).
-Not provided: `term_to_binary` of native records
-(`error:notsup`, [external term format](builtins.md#external-term-format)) and
-hot code upgrade.
+The `records` reflection module is provided ([reflection](#reflection)). Not
+provided: `term_to_binary` of native records (`error:notsup`,
+[external term format](builtins.md#external-term-format)) and hot code upgrade.
 
 ## Representation
 
@@ -31,8 +30,8 @@ hot code upgrade.
   `ModuleDescriptor`, atom slots for the module and record names, the export
   flag (`-export_record` at compile time) and the field-name atom slots in
   definition order, and the field list `records:get_definition/2` returns as
-  External Term Format bytes (`{Field, Default}` with the folded default, or
-  the bare `Field`). Atom slots resolve through the module's registered atoms, as
+  External Term Format bytes (`{Field, Default}` with the folded default, or the
+  bare `Field`). Atom slots resolve through the module's registered atoms, as
   `FrameDescriptor` names do. Programs are static (no unloading), so a
   descriptor lives as long as the program; another module of the batch refers to
   it by symbol. Defaults are compiled into each construction site, never stored.
@@ -137,6 +136,5 @@ Messages follow `erl_lint`:
 
 ## Differences kept
 
-Display field order, `==` folding, external construction of unloaded modules
-and missing record warnings are recorded in
-[differences](differences.md#maps).
+Display field order, `==` folding, external construction of unloaded modules and
+missing record warnings are recorded in [differences](differences.md#maps).

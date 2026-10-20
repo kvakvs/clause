@@ -30,12 +30,12 @@ cmake --build build/debug --target check-quality-all  # whole tree
 - `CLAUSE_TEST_MODE=fast` runs golden corpora at O0 positional plus O2
   specialization-off project, runs mutations once and skips `full_only` tests
   (separate consumer projects such as `runtime_generated_link`, measurements,
-  the host-OTP `library_freshness` audit, and the slow workflows
-  `linking_lto`, `linking_exports`, `linking_compile_cache`, `programs_compile`
-  and `transforms_cache`). Full mode (default) runs all driver/policy
-  combinations.
-- Long tests driven by a Python or CMake script carry a fixed CTest `COST`: CTest
-  learns a wrapper's cost from its own small CPU time and would start them last.
+  the host-OTP `library_freshness` audit, and the slow workflows `linking_lto`,
+  `linking_exports`, `linking_compile_cache`, `programs_compile` and
+  `transforms_cache`). Full mode (default) runs all driver/policy combinations.
+- Long tests driven by a Python or CMake script carry a fixed CTest `COST`:
+  CTest learns a wrapper's cost from its own small CPU time and would start them
+  last.
 - `CLAUSE_TEST_TIMEOUT_SCALE=N` multiplies the per-run limits of the golden
   runner (60 s) and the semantic case runner (15 s) for instrumented builds.
 - `check-quality`, `make format` and `make-format.bat` cover files changed since
@@ -43,11 +43,11 @@ cmake --build build/debug --target check-quality-all  # whole tree
   header, one translation unit that includes it (its own source, else its first
   user, from Ninja's dependency data of any configuration; the header's other
   dependents are left to `check-quality-all` in the full gate) and, for
-  clang-tidy, units whose compile command differs from
-  the one the last passing run recorded (`build/debug/quality/tidy-commands.json`),
-  so a build rule edit rechecks only the units it changes. Changes to
-  `.clang-tidy` or the tidy scripts select everything, as do build rule edits
-  before the first recorded run.
+  clang-tidy, units whose compile command differs from the one the last passing
+  run recorded (`build/debug/quality/tidy-commands.json`), so a build rule edit
+  rechecks only the units it changes. Changes to `.clang-tidy` or the tidy
+  scripts select everything, as do build rule edits before the first recorded
+  run.
 - `CLAUSE_OPTIMIZED_COMPILER` (default ON) compiles `clau` and the compiler
   libraries optimized in Debug builds too, keeping their debug information and
   the Debug inference budgets; tests spend most of their time in `clau`. When a
@@ -59,12 +59,12 @@ cmake --build build/debug --target check-quality-all  # whole tree
   instead of compiling it again; only `runtime_link` builds the runtime
   standalone.
 - Thresholds and suppressions are never raised to pass the gate. Two third-party
-  exceptions are configured (user decision):
-  `cmake/tidy_filter.py` drops static analyzer reports located in Boost headers
-  (Boost.Multiprecision limb-storage false positives on Linux that rewriting the
-  calling code only moves) and counts them in the output, and
-  `bugprone-exception-escape` ignores `bad_array_new_length` (MSVC's map/set
-  move constructors allocate; allocation failure is fatal anyway).
+  exceptions are configured (user decision): `cmake/tidy_filter.py` drops static
+  analyzer reports located in Boost headers (Boost.Multiprecision limb-storage
+  false positives on Linux that rewriting the calling code only moves) and
+  counts them in the output, and `bugprone-exception-escape` ignores
+  `bad_array_new_length` (MSVC's map/set move constructors allocate; allocation
+  failure is fatal anyway).
 - clang-tidy checks project headers on every host: the header filter accepts `/`
   and `\` separators.
 
@@ -113,19 +113,19 @@ SDK exists for those hosts):
   (`tests/fixtures/patternmatch/fragments/`, preprocessor `semantic/headers/`);
   `fixture_sources` enforces isolation from OTP sources.
 - Six end-goal program fixtures (`tests/fixtures/programs/`) hold OTP
-  stdout/exit-status goldens and their compile diagnostics;
-  `programs_compile` checks them OTP-free and
-  `tests/compiler/programs/regenerate.py --check` reproduces them under OTP
+  stdout/exit-status goldens and their compile diagnostics; `programs_compile`
+  checks them OTP-free and `tests/compiler/programs/regenerate.py --check`
+  reproduces them under OTP
   ([fixture map](../tests/fixtures/programs/README.md)).
-- Term printing goldens (`tests/fixtures/printing/`) hold OTP
-  `~w` and `erlang:display/1` text for 9,542 values plus OTP stdout of compiled
-  display calls; `tests/compiler/printing/regenerate.py --check` reproduces them
+- Term printing goldens (`tests/fixtures/printing/`) hold OTP `~w` and
+  `erlang:display/1` text for 9,542 values plus OTP stdout of compiled display
+  calls; `tests/compiler/printing/regenerate.py --check` reproduces them
   ([fixture notes](../tests/fixtures/printing/README.md)).
-- Executable golden cases (`tests/fixtures/executables/`) are
-  source directories plus one `golden.json` with OTP stdout/exit status and an
-  authored stderr pattern; `tests/compiler/executables/run.py` links and runs
-  each under the policy/driver matrix (CTest `executables_<case>`), and
-  `regenerate.py --check` reproduces them under OTP
+- Executable golden cases (`tests/fixtures/executables/`) are source directories
+  plus one `golden.json` with OTP stdout/exit status and an authored stderr
+  pattern; `tests/compiler/executables/run.py` links and runs each under the
+  policy/driver matrix (CTest `executables_<case>`), and `regenerate.py --check`
+  reproduces them under OTP
   ([case notes](../tests/fixtures/executables/README.md)).
 - Regeneration and live audits are explicit: `-DCLAUSE_OTP_AUDITS=ON` and
   `tests/compiler/patternmatch/regenerate.py`
@@ -155,8 +155,8 @@ never stand in for a whole-test pass.
 - Native generated-code execution: Windows x64; Linux x86-64. 32-bit and ARM
   results (runtime tests and cross-linked goldens) are in the history.
 - Apple Silicon: not validated since the backend exists (plan 11 step 66).
-- Compiler and runtime ASan, UBSan and LeakSanitizer: Linux
-  x86-64, one combined Debug configuration
+- Compiler and runtime ASan, UBSan and LeakSanitizer: Linux x86-64, one combined
+  Debug configuration
   (`-fsanitize=address,undefined -fno-sanitize=vptr -fno-sanitize-recover=undefined`),
   full CTest with `CLAUSE_TEST_TIMEOUT_SCALE=10` (instrumented code runs several
   times slower): no sanitizer report. The compiler, the runtime and the test
@@ -180,9 +180,9 @@ never stand in for a whole-test pass.
 
 ## Benchmarks
 
-Manual performance comparison with Erlang/OTP. It is never
-part of CTest, the commit gate or `check-quality`, and only it needs a host
-Erlang/OTP; results are host-specific evidence, not gate results.
+Manual performance comparison with Erlang/OTP. It is never part of CTest, the
+commit gate or `check-quality`, and only it needs a host Erlang/OTP; results are
+host-specific evidence, not gate results.
 
 ```powershell
 make-benchmark.bat                         # Windows; set JOBS=N to cap parallel builds
@@ -197,14 +197,17 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
   after one warm-up call and prints `BENCH <name> <nanoseconds>`: data
   generation, data processing, garbage collection, message passing, file I/O (in
   an empty temporary working directory under `build/bench/runs`, inside the
-  repository so that a repository antivirus exclusion covers it) and loopback sockets. Iteration counts
-  make every kernel last 1-2 s on OTP, so timer resolution and host noise stay
-  small against it; socket kernels grow the work per connection, not the
-  number of sockets. Untimed, the warm-up and the timed calls each wait until
-  the processes they spawned have exited (`processes_left` error after 10 s).
-- Every program run is its own Windows job object or POSIX session; the next
-  run starts once all its processes are gone, and leftovers still alive 30 s
-  after exit are killed and reported as a failure.
+  repository so that a repository antivirus exclusion covers it) and loopback
+  sockets. Iteration counts make every kernel last 1-2 s on OTP, so timer
+  resolution and host noise stay small against it; socket kernels grow the work
+  per connection, not the number of sockets. Untimed, the warm-up and the timed
+  calls each wait until the processes they spawned have exited (`processes_left`
+  error after 10 s). Each kernel runs in its own fresh process, which exits
+  before the next kernel starts, so no kernel pays for heaps an earlier one
+  grew.
+- Every program run is its own Windows job object or POSIX session; the next run
+  starts once all its processes are gone, and leftovers still alive 30 s after
+  exit are killed and reported as a failure.
 - Systems, on the same host in one run, interleaved: OTP with its default flavor
   (JIT), OTP `-emu_flavor emu` when installed (the Windows installer ships only
   the JIT, so those columns read `n/a`), Clause HEAD at O2 and with `--lto`, and
@@ -216,25 +219,25 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
   (`+N%`: Clause faster, the other takes N% longer; `-N%`: Clause takes N%
   longer; `(Fx)` the time ratio) with a geometric mean, `--lto` against OTP and
   O2, program wall times including startup, executable sizes, failures and
-  timeouts (`--timeout`, 600 s per run). A default run measures for about
-  15 minutes.
+  timeouts (`--timeout`, 600 s per run). A default run measures for about 15
+  minutes.
 - Executable sizes, in bytes: every program at `-O2`, with `--lto` and at `-O0`
   (an extra build only measured, never run; both skipped by `--no-lto`) and the
   baseline at `-O2`, with a total row and the changes O2 vs O0, `--lto` vs O2,
   `--lto` vs O0 and O2 vs baseline (`-N%` smaller); and `clau` at HEAD and the
-  baseline. The history keeps them as `sizes_bytes` (`programs`:
-  program → column → bytes, `clau`: `head`/`baseline` → bytes; `null` where a
-  build failed).
+  baseline. The history keeps them as `sizes_bytes` (`programs`: program →
+  column → bytes, `clau`: `head`/`baseline` → bytes; `null` where a build
+  failed).
 - History: `benchmarks/history/<host>.json` keeps one record per run day (run
   date, HEAD hash and commit date, Clause, OTP and baseline medians, sizes, and
   Clause's time ratios `otp_ratio` and `baseline.ratio` per kernel),
   `benchmarks/history/reports/<host>/<day>-<hash>.txt` the text reports; a rerun
   on the same day replaces both. Records and reports run more than 183 days
   before the newest are pruned; a run with uncommitted source changes is
-  reported but not recorded. The report's history tables show the ratios of
-  the last 8 run days, which stay comparable when kernels change their work;
-  records from before the 1-2 s rescaling keep only their ratios. The history
-  directory is gitignored: it stays on the host that ran it.
+  reported but not recorded. The report's history tables show the ratios of the
+  last 8 run days, which stay comparable when kernels change their work; records
+  from before the 1-2 s rescaling keep only their ratios. The history directory
+  is gitignored: it stays on the host that ran it.
 - Listings: with `--listings`, before measuring, a run writes each program's
   [`--print-asm`](compile.md#assembly-listings) and `--print-ir` listings (with
   `bench_util`, `--entry <program>` so unreachable library code is left out as

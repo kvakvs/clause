@@ -69,6 +69,6 @@ failure while recovery continues at the next form boundary.
 Token goldens (`tests/fixtures/preprocessor/semantic/*.erl.tokens`) record epp
 token kinds, decoded values (floats as binary64 bits) and diagnostic order;
 wording need not equal OTP. Included headers (`semantic/headers/*.hrl`) are
-locally authored, not copied from OTP.
-`preprocessor_workflow` covers real include trees, option order, environment,
-Latin-1 and condition cases through the CLI.
+locally authored, not copied from OTP. `preprocessor_workflow` covers real
+include trees, option order, environment, Latin-1 and condition cases through
+the CLI.

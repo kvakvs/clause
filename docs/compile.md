@@ -21,9 +21,9 @@ calls (`M:F(...)`, `apply/2,3`); [processes](processes.md) and
 [ports](ports.md). Calls run on explicit process frames with proper tail calls
 ([execution model](execution-model.md#implementation)); body recursion is
 bounded by the process stack (uncapped by default), not the native stack.
-Modules a batch names but does not declare come from the
-[library](library.md). Comprehension match qualifiers of the experimental
-`compr_assign` feature are rejected as `[heap expressions] notimpl`.
+Modules a batch names but does not declare come from the [library](library.md).
+Comprehension match qualifiers of the experimental `compr_assign` feature are
+rejected as `[heap expressions] notimpl`.
 
 Accepted attributes: `module`, `export`, `file`, tuple and native `record`,
 `export_record`, `import_record`, type/spec forms, `doc`/`moduledoc`,
@@ -247,9 +247,10 @@ A batch with a build directory (every project target, positional inputs with
 when an executable or `--emit` needs them, the objects (or bitcode) of every
 module and the startup module. A later build of the same batch with the same
 options replays the diagnostics and links or publishes the kept objects exactly
-like fresh ones; `--print-stage-times` then shows `[time] compile ... (cached)`.
-`--print-ir`, `--print-optimized-ir`, `--print-asm` and `--print-types` always
-recompute, and `--no-cache` neither reads nor writes.
+like fresh ones; `--print-stage-times` then shows
+`[time] compile ... (cached)`. `--print-ir`, `--print-optimized-ir`,
+`--print-asm` and `--print-types` always recompute, and `--no-cache` neither
+reads nor writes.
 
 - **Reuse unit: the whole batch.** Analysis, type inference, specialization
   budgets (per target), export liveness and the startup module span every
@@ -344,13 +345,13 @@ into programs that never call `re`.
 
 ## zlib
 
-The runtime's zlib module and compressed external terms use
-zlib **1.3.2**, the release OTP 29 bundles (`erts/emulator/zlib/vendor.info`),
-so compressed bytes equal OTP's. CMake compiles its library sources
-(`cmake/ZlibDependencies.cmake`, `clause_add_runtime_zlib`) into the object
-library `clause_runtime_zlib`, whose objects join `clause_runtime` as PCRE2's
-do; `-DCLAUSE_RUNTIME_ZLIB_ROOT=<source directory>` takes precedence, otherwise
-the release is downloaded into `thirdparty/zlib-1.3.2` and verified (SHA-256
+The runtime's zlib module and compressed external terms use zlib **1.3.2**, the
+release OTP 29 bundles (`erts/emulator/zlib/vendor.info`), so compressed bytes
+equal OTP's. CMake compiles its library sources (`cmake/ZlibDependencies.cmake`,
+`clause_add_runtime_zlib`) into the object library `clause_runtime_zlib`, whose
+objects join `clause_runtime` as PCRE2's do;
+`-DCLAUSE_RUNTIME_ZLIB_ROOT=<source directory>` takes precedence, otherwise the
+release is downloaded into `thirdparty/zlib-1.3.2` and verified (SHA-256
 `bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16`) on every
 host. zlib's license is the zlib license. The compiler's LLVM keeps its own
 zlib; the two never meet in one binary.

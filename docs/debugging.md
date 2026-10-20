@@ -1,7 +1,7 @@
 # Debugging executables
 
-`-g` emits Erlang source line tables. They work at every optimization level
-and with `--emit`, positional `-o` linking and project targets.
+`-g` emits Erlang source line tables. They work at every optimization level and
+with `--emit`, positional `-o` linking and project targets.
 
 ## Line tables
 

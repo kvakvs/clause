@@ -5,8 +5,24 @@
 -define(SETTLE_MS, 10000).
 
 %% Time Iterations calls of Fun after one warm-up call and print one "BENCH Name Nanoseconds" line.
-%% Untimed, the warm-up and the timed calls each wait until the processes they spawned have exited.
+%% The kernel runs in a fresh process, so no kernel inherits heaps an earlier one grew; its exit frees its memory
+%% before the next kernel starts. Added for per-kernel processes.
 run(Name, Iterations, Fun) ->
+    Parent = self(),
+    {Pid, Ref} = spawn_monitor(fun() -> Parent ! {self(), measure(Name, Iterations, Fun)} end),
+    receive
+        {Pid, Elapsed} ->
+            receive
+                {'DOWN', Ref, process, Pid, normal} -> ok
+            end,
+            io:format("BENCH ~s ~w~n", [Name, Elapsed]);
+        {'DOWN', Ref, process, Pid, Reason} ->
+            erlang:error({kernel_failed, Name, Reason})
+    end.
+
+%% Nanoseconds of Iterations calls of Fun. Untimed, the warm-up and the timed calls each wait until the processes
+%% they spawned have exited.
+measure(Name, Iterations, Fun) ->
     Processes = erlang:system_info(process_count),
     _ = Fun(),
     settle(Name, Processes),
@@ -14,7 +30,7 @@ run(Name, Iterations, Fun) ->
     repeat(Iterations, Fun),
     Elapsed = erlang:monotonic_time(nanosecond) - Start,
     settle(Name, Processes),
-    io:format("BENCH ~s ~w~n", [Name, Elapsed]).
+    Elapsed.
 
 %% Wait until no more than Processes processes are alive, so one kernel's exiting processes never run into the
 %% next; fails the program after SETTLE_MS milliseconds. Added for benchmark process settling.

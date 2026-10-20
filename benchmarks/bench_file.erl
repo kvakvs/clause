@@ -9,7 +9,7 @@ main(_Args) ->
     Lines = [[integer_to_list(N), " line of text\n"] || N <- lists:seq(1, 20000)],
     ok = file:write_file("lines.txt", Lines),
     bench_util:run("file.small_files", 11, fun() -> small_files(500) end),
-    bench_util:run("file.large_write", 250, fun() -> large_write("large.bin", Chunk, 256) end),
+    bench_util:run("file.large_write", 200, fun() -> large_write("large.bin", Chunk, 256) end),
     bench_util:run("file.large_read", 370, fun() -> large_read("large.bin") end),
     bench_util:run("file.read_line", 52, fun() -> read_lines("lines.txt") end),
     bench_util:run("file.read_file", 330, fun() -> {ok, _} = file:read_file("large.bin") end),

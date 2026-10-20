@@ -61,8 +61,8 @@ tasks are in `runtime/src/scheduler/ports.cpp`, the builtins in
   ([busy ports](#busy-ports)).
 - `port_close/1`, `port_connect/2`, `port_command/2,3`; the messages
   `Port ! {Pid, {command, Data}}`, `{Pid, close}`, `{Pid, {connect, New}}`.
-- `link/1`, `unlink/1`, `monitor(port, P)`, `exit/2` on ports; `register/2` of
-  a port.
+- `link/1`, `unlink/1`, `monitor(port, P)`, `exit/2` on ports; `register/2` of a
+  port.
 - `port_control/3`, `port_call/3`: `badarg` for drivers without control; the
   `file` and socket drivers are driven by `port_control/3`.
 - `open_port({fd, In, Out}, Opts)`, `open_port({spawn, Command}, Opts)`,
@@ -145,8 +145,8 @@ every port kind, so a port costs no thread of its own:
 `runtime/src/ports/io*.cpp` hold the port I/O (`detail::IoService`): its methods
 only post work to the I/O thread, where all I/O state lives. The I/O thread
 hands input over as it was read: raw bytes, the end of input, a read error, a
-program's exit status. Socket events (messages, accepted connections) are
-handed over the same way.
+program's exit status. Socket events (messages, accepted connections) are handed
+over the same way.
 
 The prototype `tests/prototypes/poller/` (`run.py --wsl`) shows the wakeup on
 Windows (completion port) and WSL Linux (`poll()`): an idle scheduler thread
@@ -305,25 +305,25 @@ stdout are pipes of the port:
   makes a file's server reply `{error, Function}` and exit with the failure, as
   OTP's does; the opener lives on (OTP's file server is not linked to it). Input
   requests on standard input write their prompt.
-- Directories, links and copies: `get_cwd/0` spells the current directory as
-  OTP does (forward slashes, a lowercase drive letter), `get_cwd/1` takes a
-  Windows drive (`enotsup` elsewhere); `set_cwd/1` changes it for the whole
-  program; `read_link/1`, `read_link_all/1` (`einval` for a path that is not a
-  link), `read_link_info/1,2` (a final link's own status: POSIX `lstat`, on
-  Windows the target's fields with type `symlink`), `make_link/2`,
-  `make_symlink/2` (needs a privilege on Windows: `eperm`, as OTP),
-  `list_dir_all/1`, `del_dir_r/1`, `copy/2,3` (names, `{Name, Modes}` or open
-  files; `{ok, BytesCopied}`), `raw_read_file_info/1`, `read_file/2`,
-  `delete/2`, `native_name_encoding/0` (`utf8`). `del_dir/1` answers `enoent`
-  for a missing path and `enotdir` for a file. `consult/1` and the
-  `eval`/`script` family stay stubs: they need OTP's generated parser.
+- Directories, links and copies: `get_cwd/0` spells the current directory as OTP
+  does (forward slashes, a lowercase drive letter), `get_cwd/1` takes a Windows
+  drive (`enotsup` elsewhere); `set_cwd/1` changes it for the whole program;
+  `read_link/1`, `read_link_all/1` (`einval` for a path that is not a link),
+  `read_link_info/1,2` (a final link's own status: POSIX `lstat`, on Windows the
+  target's fields with type `symlink`), `make_link/2`, `make_symlink/2` (needs a
+  privilege on Windows: `eperm`, as OTP), `list_dir_all/1`, `del_dir_r/1`,
+  `copy/2,3` (names, `{Name, Modes}` or open files; `{ok, BytesCopied}`),
+  `raw_read_file_info/1`, `read_file/2`, `delete/2`, `native_name_encoding/0`
+  (`utf8`). `del_dir/1` answers `enoent` for a missing path and `enotdir` for a
+  file. `consult/1` and the `eval`/`script` family stay stubs: they need OTP's
+  generated parser.
 - Clause's `file` is the file layer; OTP's `filelib` and `filename` are plain
   Erlang that runs on it when a program's search path holds OTP's sources
-  (`filelib:fold_files/5` needs `re`); `erl_prim_loader` is provided over
-  `file` with OTP's bare `error` answers and a loader path of `["."]`
-  (`set_path/1`), its loading and archive functions declined until plan step
-  71; `prim_file` and `prim_buffer` stay missing, so OTP's `raw_file_io*`
-  callers never enter a program.
+  (`filelib:fold_files/5` needs `re`); `erl_prim_loader` is provided over `file`
+  with OTP's bare `error` answers and a loader path of `["."]` (`set_path/1`),
+  its loading and archive functions declined until plan step 71; `prim_file` and
+  `prim_buffer` stay missing, so OTP's `raw_file_io*` callers never enter a
+  program.
 - Errors follow OTP: `{error, enoent}`, `eexist`, `eisdir` (a directory opened
   or read as a file), `einval` (a negative position), `ebadf` (reading a
   write-only or writing a read-only file), `badarg` for bad names and data. File
@@ -371,19 +371,18 @@ Implementation (`runtime/src/ports/sockets.cpp`):
 - Socket ports are scheduled like other ports ([port tasks](#port-tasks)): a
   socket's messages wait in its port until the port's task delivers them.
 - Addresses and hosts: `inet:parse_address/1,2`, `parse_strict_address/1,2`,
-  `parse_ipv4_address/1`, `parse_ipv4strict_address/1`,
-  `parse_ipv6_address/1`, `parse_ipv6strict_address/1` (OTP's relaxed forms:
-  short and octal or hexadecimal IPv4 fields, `::`, IPv4 tails, `%scope` of
-  `fe80::` and `ff02::`), `ntoa/1` (OTP's spelling: lowercase hexadecimal, the
-  first longest zero run as `::`), `is_ipv4_address/1`, `is_ipv6_address/1`,
-  `is_ip_address/1` are Erlang; `gethostname/0` (a socket operation),
-  `getaddr/2`, `getaddrs/2` (the system resolver, `getaddrinfo`) and
-  `gethostbyname/1,2` (`h_name` is the name asked, no aliases) answer through a
-  socket port opened for the query.
+  `parse_ipv4_address/1`, `parse_ipv4strict_address/1`, `parse_ipv6_address/1`,
+  `parse_ipv6strict_address/1` (OTP's relaxed forms: short and octal or
+  hexadecimal IPv4 fields, `::`, IPv4 tails, `%scope` of `fe80::` and `ff02::`),
+  `ntoa/1` (OTP's spelling: lowercase hexadecimal, the first longest zero run as
+  `::`), `is_ipv4_address/1`, `is_ipv6_address/1`, `is_ip_address/1` are Erlang;
+  `gethostname/0` (a socket operation), `getaddr/2`, `getaddrs/2` (the system
+  resolver, `getaddrinfo`) and `gethostbyname/1,2` (`h_name` is the name asked,
+  no aliases) answer through a socket port opened for the query.
 - Clause's `gen_tcp`, `gen_udp` and `inet` are the network layer and grow toward
   OTP's export lists as programs need; OTP's `socket` and `net` modules (the
-  socket NIF API) are missing, so are `prim_socket`, `prim_net`, `prim_inet`
-  and `socket_registry`.
+  socket NIF API) are missing, so are `prim_socket`, `prim_net`, `prim_inet` and
+  `socket_registry`.
 
 ## Not provided
 

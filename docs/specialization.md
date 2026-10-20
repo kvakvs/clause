@@ -2,9 +2,9 @@
 
 Speed mode (`-O2`) uses [inferred facts](semantic.md#inference) to remove
 runtime checks (proofs) and may clone a function into representation variants
-guarded by runtime tag checks. `-O0` and
-`--no-type-specialization` produce generic code only: every check stays, every
-compound access goes through its runtime service.
+guarded by runtime tag checks. `-O0` and `--no-type-specialization` produce
+generic code only: every check stays, every compound access goes through its
+runtime service.
 
 ## Proofs
 

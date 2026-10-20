@@ -1,15 +1,14 @@
 # Library modules
 
 Clause ships its own versions of the OTP modules programs call, written in
-Erlang from OTP's documented behavior (not copied from OTP sources) over
-runtime [builtins](builtins.md), and compiles them with the programs that use
-them.
+Erlang from OTP's documented behavior (not copied from OTP sources) over runtime
+[builtins](builtins.md), and compiles them with the programs that use them.
 
 ## Contents
 
-Every provided module exports OTP 29's complete list for its name; its
-inventory `<module>.terms` ([files](#files)) records which functions are
-implemented and which are stubs.
+Every provided module exports OTP 29's complete list for its name; its inventory
+`<module>.terms` ([files](#files)) records which functions are implemented and
+which are stubs.
 
 | Module | Contents |
 | --- | --- |
@@ -64,8 +63,8 @@ Erlang implementations (`lists:map(F, x)` is `{case_clause, x}`,
 BIFs (`lists:member/2`, `lists:keyfind/3`, `lists:reverse/2`, the `maps`
 functions: `badarg`, `{badmap, M}`, `{badkey, K}`). `lists:member/2` matches
 with `=:=`, `lists:keyfind/3` with `==`. `lists:sort/1` is a stable merge sort
-whose passes alternate ascending and descending runs, so no merge reverses a run.
-Stack traces name the library functions, not OTP's.
+whose passes alternate ascending and descending runs, so no merge reverses a
+run. Stack traces name the library functions, not OTP's.
 
 ## How programs get them
 
@@ -76,9 +75,9 @@ Stack traces name the library functions, not OTP's.
   directories, then in the project's `source_search_paths`
   ([projects](projects.md#paths-and-discovery)), parses and compiles the first
   one found into the batch, then repeats for the modules the added files name
-  ([which module a name resolves to](#which-module-a-name-resolves-to)). A
-  call `M:F(...)` of a catalog builtin (`io:format/2`, `os:type/0`) names no
-  module. `--print-inputs` lists the inputs this adds.
+  ([which module a name resolves to](#which-module-a-name-resolves-to)). A call
+  `M:F(...)` of a catalog builtin (`io:format/2`, `os:type/0`) names no module.
+  `--print-inputs` lists the inputs this adds.
 - The library is `library/` of the build tree, found relative to `clau` like the
   runtime archive, with one directory per OTP application (`erts`, `kernel`,
   `stdlib`).
@@ -86,18 +85,18 @@ Stack traces name the library functions, not OTP's.
   warning; catalog builtins of that name still win
   ([registration](builtins.md#registration)).
 - Library modules are ordinary batch modules: they link into executables and,
-  for object or IR output, produce their own artifacts. They are Erlang code,
-  so they yield like other code.
+  for object or IR output, produce their own artifacts. They are Erlang code, so
+  they yield like other code.
 - A module reached only through runtime names (`M:F(...)` with `M` a variable)
   is not added: such a call raises `undef` unless something else names the
   module.
 
 ## Runtime module replacements
 
-Clause stands in for the OTP modules that ERTS implements in C (NIFs, BIFs,
-port drivers, the preloaded modules of `erts/preloaded/src`) and for modules
-OTP generates while it builds (`unicode_util`). OTP's `kernel` and `stdlib`
-are plain Erlang but call those modules.
+Clause stands in for the OTP modules that ERTS implements in C (NIFs, BIFs, port
+drivers, the preloaded modules of `erts/preloaded/src`) and for modules OTP
+generates while it builds (`unicode_util`). OTP's `kernel` and `stdlib` are
+plain Erlang but call those modules.
 
 ### Provided or missing
 
@@ -130,9 +129,9 @@ module, and per group of functions where a module mixes concerns:
   `socket_registry`) and `socket`, `net` are the missing modules: programs use
   Clause's `file`, `gen_tcp`, `gen_udp` and `inet` instead, and because Clause
   modules win over OTP's (below), OTP's callers of a missing module (OTP's
-  `gen_tcp_socket`, `inet_tcp`, ...) never enter a batch. A missing module
-  never gets a stub, so a reference to it is a compile-time error, never a
-  run-time surprise.
+  `gen_tcp_socket`, `inet_tcp`, ...) never enter a batch. A missing module never
+  gets a stub, so a reference to it is a compile-time error, never a run-time
+  surprise.
 
 Functions that are trivial for the runtime are implemented without a separate
 decision.
@@ -164,9 +163,10 @@ warning, since nothing is replaced.
   application that owns the module in OTP: `erts` (preloaded counterparts and
   `erlang`), `kernel`, `stdlib`. Clause's private helper modules
   (`clause_socket`, `clause_re`, `clause_unicode`, `clause_zlib`,
-  `clause_receive`, `clause_maps`, `clause_hashed`, `clause_array`, `clause_features`, `clause_io_lib`, `clause_disk_log`, `clause_dets`) sit beside the modules they serve. The library lookup
-  searches every application directory; a module name exists in at most one
-  of them.
+  `clause_receive`, `clause_maps`, `clause_hashed`, `clause_array`,
+  `clause_features`, `clause_io_lib`, `clause_disk_log`, `clause_dets`) sit
+  beside the modules they serve. The library lookup searches every application
+  directory; a module name exists in at most one of them.
 - `library/modules.terms` lists every module Clause decides about:
   `{Module, Application, provided}.` or
   `{Module, Application, missing, "reason"}.` The compiler reads it to know
@@ -189,8 +189,8 @@ deprecated, observed from the host OTP's doc chunks by
 `tests/compiler/library/observe_docs.escript` (run explicitly). Undocumented
 exports stay in the inventories but may remain stubs.
 
-- `library_inventory` checks that every documented function of a provided
-  module is in its inventory and is not a stub, except in the modules
+- `library_inventory` checks that every documented function of a provided module
+  is in its inventory and is not a stub, except in the modules
   `library_modules.py` lists as partial with the plan step that completes them
   ([plan 21](../.agents/21-lib.md)).
 - `python tests/compiler/library/library_modules.py coverage .` prints each
@@ -227,11 +227,11 @@ Booting the whole `kernel` application is not planned.
 
 ### Ledger
 
-[Plan 21](../.agents/21-lib.md) schedules every documented `erts`, `kernel`
-and `stdlib` module; real programs (luerl first) set priorities. Compile and run it, classify every error
-(`unknown module`, `undefined function M:F/A`, unsupported syntax or feature,
-other), and assign each to a plan step, another backlog item, or a recorded
-decline. With the run's stderr saved to a file,
+[Plan 21](../.agents/21-lib.md) schedules every documented `erts`, `kernel` and
+`stdlib` module; real programs (luerl first) set priorities. Compile and run it,
+classify every error (`unknown module`, `undefined function M:F/A`, unsupported
+syntax or feature, other), and assign each to a plan step, another backlog item,
+or a recorded decline. With the run's stderr saved to a file,
 `python tests/compiler/library/library_modules.py report FILE` prints the
 classification as tables: each unknown module with its error count, calling
 modules and called functions with arities; undefined functions by module; other
@@ -252,9 +252,9 @@ All live in `tests/compiler/library/`:
   module with a file, an inventory not listed as provided, an export not in the
   inventory or the reverse, a `stub`/`declined` entry that is not a
   `not_implemented` stub, an `implemented`/`refused` entry without a body or a
-  catalog builtin.
-  `library_rejects` proves it on a deliberately inconsistent fixture library.
-- CTest `library_freshness` (labels `host_otp`, `full_only`) re-observes every inventory and
-  requires it unchanged, then observes, generates, checks and compiles a new
-  module end to end. `library_report` runs `clau` on a fixture program and
-  checks the report's rows.
+  catalog builtin. `library_rejects` proves it on a deliberately inconsistent
+  fixture library.
+- CTest `library_freshness` (labels `host_otp`, `full_only`) re-observes every
+  inventory and requires it unchanged, then observes, generates, checks and
+  compiles a new module end to end. `library_report` runs `clau` on a fixture
+  program and checks the report's rows.

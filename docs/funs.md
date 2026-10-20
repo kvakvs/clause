@@ -1,10 +1,10 @@
 # Function values
 
-`fun F/A`, `fun M:F/A`, anonymous funs with captured variables (closures),
-named funs (`fun Name(...) -> ... end`), calls of function values (`F(Args)`)
-and dynamic calls (`M:F(Args)`, `apply/2,3`). Facts come from the pinned
-`maint-29` sources (`erts/emulator/beam/utils.c` `erts_cmp`,
-`erl_printf_term.c`, `erl_lint`) and probes on OTP 29.1.1.
+`fun F/A`, `fun M:F/A`, anonymous funs with captured variables (closures), named
+funs (`fun Name(...) -> ... end`), calls of function values (`F(Args)`) and
+dynamic calls (`M:F(Args)`, `apply/2,3`). Facts come from the pinned `maint-29`
+sources (`erts/emulator/beam/utils.c` `erts_cmp`, `erl_printf_term.c`,
+`erl_lint`) and probes on OTP 29.1.1.
 
 ## Values
 
@@ -47,10 +47,10 @@ and dynamic calls (`M:F(Args)`, `apply/2,3`). Facts come from the pinned
   called.
 - Lookup uses the code server's hash indexes of the program's exports
   ([runtime](runtime.md#code-server-and-builtins)), which stay registered for
-  the program's lifetime, so a found function cannot go away during the call.
-  A name no module exports is then looked up among the
-  [builtins](builtins.md), so `M:F(...)`, `apply/3` and runtime `fun M:F/A`
-  reach the builtins of the bridge catalog.
+  the program's lifetime, so a found function cannot go away during the call. A
+  name no module exports is then looked up among the [builtins](builtins.md), so
+  `M:F(...)`, `apply/3` and runtime `fun M:F/A` reach the builtins of the bridge
+  catalog.
 - **Services.** `CLAUSE_call_v1(context, module, function, arity)` checks the
   names and returns the `FrameDescriptor` of the export (from its
   `ExportDescriptor`); the arguments are already in the registers.
@@ -89,9 +89,9 @@ and dynamic calls (`M:F(Args)`, `apply/2,3`). Facts come from the pinned
 
 ## Inlined funs
 
-At `-O2` (`codegen/lowering_fun_inlining.cpp`, `lowering_list_loops.cpp`) a
-call of an anonymous fun known where it is called lowers the fun's clauses in
-place of the call, much as OTP's `inline_list_funcs` option does:
+At `-O2` (`codegen/lowering_fun_inlining.cpp`, `lowering_list_loops.cpp`) a call
+of an anonymous fun known where it is called lowers the fun's clauses in place
+of the call, much as OTP's `inline_list_funcs` option does:
 
 - **Known funs.** A fun written in the call (`(fun(X) -> ... end)(Y)`, or the
   first argument of a list loop below), or a variable bound once to an unnamed
@@ -110,20 +110,21 @@ place of the call, much as OTP's `inline_list_funcs` option does:
   own `lists` module with a known fun of the right arity become a loop over the
   list in the calling function. Each element's fun call is inlined; lists are
   built reversed and reversed once at the end; `foldr/3` and `mapfoldr/3`
-  reverse their input first, so their fun still sees the elements from the
-  last, after an improper tail failed. Like the body recursion they replace,
-  list loops collect only where they yield (every 4,000 elements without
-  other calls) and in the calls their fun makes.
+  reverse their input first, so their fun still sees the elements from the last,
+  after an improper tail failed. Like the body recursion they replace, list
+  loops collect only where they yield (every 4,000 elements without other calls)
+  and in the calls their fun makes.
 - **Same results and reasons.** Values, the order the fun runs in and error
-  reasons are those of `lists`: a non-list input of `map/2`, `foldl/3`,
-  `all/2`, `any/2` and the improper tails of `filter/2`, `foreach/2`,
-  `foldr/3`, `mapfoldl/3`, `mapfoldr/3` make the real `lists` call, which
-  raises its own error; an improper tail of `map/2`, `foldl/3`, `all/2`,
-  `any/2`, `flatmap/2` raises `function_clause` in the caller. A non-boolean
-  predicate raises `{case_clause, V}` (`all/2`, `any/2`) or `{bad_filter, V}`
-  (`filter/2`), a `mapfold` fun's non-pair result `{badmatch, V}`.
+  reasons are those of `lists`: a non-list input of `map/2`, `foldl/3`, `all/2`,
+  `any/2` and the improper tails of `filter/2`, `foreach/2`, `foldr/3`,
+  `mapfoldl/3`, `mapfoldr/3` make the real `lists` call, which raises its own
+  error; an improper tail of `map/2`, `foldl/3`, `all/2`, `any/2`, `flatmap/2`
+  raises `function_clause` in the caller. A non-boolean predicate raises
+  `{case_clause, V}` (`all/2`, `any/2`) or `{bad_filter, V}` (`filter/2`), a
+  `mapfold` fun's non-pair result `{badmatch, V}`.
 - **Stack traces** of exceptions inside inlined funs lack the fun's and the
-  `lists` helper's frames ([differences](differences.md#errors-stack-traces-and-reports)).
+  `lists` helper's frames
+  ([differences](differences.md#errors-stack-traces-and-reports)).
 
 ## Representation
 
@@ -143,14 +144,13 @@ place of the call, much as OTP's `inline_list_funcs` option does:
   checks a called value, records the errors above in the failure channel
   (`ErrorReason` 22-24) and otherwise appends the captured values after the
   arguments and returns the `FrameDescriptor` to enter.
-- **Inline closures.** The runtime that claims a module's atom cache also
-  fills `ModuleDescriptor::fun_cache` with the address of each fun's
-  definition; while the claim is its own, generated code bump-allocates the fun
-  cell (header, definition, captured values) itself and calls
-  `CLAUSE_make_fun_v1` only without heap room or in another runtime.
-  `CLAUSE_apply_v1` and `CLAUSE_apply_list_v1` read a fun of the right arity
-  (and the argument list) straight from its cells before the checked path that
-  reports errors.
+- **Inline closures.** The runtime that claims a module's atom cache also fills
+  `ModuleDescriptor::fun_cache` with the address of each fun's definition; while
+  the claim is its own, generated code bump-allocates the fun cell (header,
+  definition, captured values) itself and calls `CLAUSE_make_fun_v1` only
+  without heap room or in another runtime. `CLAUSE_apply_v1` and
+  `CLAUSE_apply_list_v1` read a fun of the right arity (and the argument list)
+  straight from its cells before the checked path that reports errors.
 - **Calls.** Native form passes the arguments in a word array and calls the
   `clause.apply` marker with the descriptor; `lower_frames` makes the array the
   process registers and the marker an enter or, in tail position, a tail
@@ -176,12 +176,12 @@ recorded in [differences](differences.md).
 
 ## Fun information
 
-`runtime/src/builtins/erlang/fun_info.cpp`. `erlang:fun_info/1` lists
-OTP's items in OTP's order: for a local fun `pid`, `module`, `new_index`,
-`new_uniq`, `index`, `uniq`, `name` (`-F/A-fun-N-` for an anonymous fun),
-`arity`, `env` (the captured values) and `type`; for `fun M:F/A` `module`,
-`name`, `arity`, `env` (`[]`) and `type`. `fun_info/2` returns one
-`{Item, Value}`; an unknown item is `badarg`. `pid` is `undefined`, `new_uniq`
-the MD5 of the module name and `uniq` its first 24 bits, so they differ from
-OTP's. `fun_to_list/1` is the `~w` text. `is_builtin/3` is true for the
-runtime's builtins and `erlang:apply/2,3`.
+`runtime/src/builtins/erlang/fun_info.cpp`. `erlang:fun_info/1` lists OTP's
+items in OTP's order: for a local fun `pid`, `module`, `new_index`, `new_uniq`,
+`index`, `uniq`, `name` (`-F/A-fun-N-` for an anonymous fun), `arity`, `env`
+(the captured values) and `type`; for `fun M:F/A` `module`, `name`, `arity`,
+`env` (`[]`) and `type`. `fun_info/2` returns one `{Item, Value}`; an unknown
+item is `badarg`. `pid` is `undefined`, `new_uniq` the MD5 of the module name
+and `uniq` its first 24 bits, so they differ from OTP's. `fun_to_list/1` is the
+`~w` text. `is_builtin/3` is true for the runtime's builtins and
+`erlang:apply/2,3`.

@@ -342,17 +342,17 @@ inferring them again.
 Lookups by name do not probe every candidate directory. One index per `clau`
 invocation, shared by all targets, keeps the entry names of each searched
 directory: listed once, non-recursively, when a lookup first needs it, or
-recorded by the recursive walks that expand `**` in `sources`,
-`source_dirs`, `source_search_paths`, `include_dirs` and `transform_paths`, so
-no directory is listed twice. It answers the misses of the module search (the
-library, then `source_search_paths`), transform sources, literal `sources` found
-through `source_search_paths`, and include resolution (the including file's
-directory, the working directory, include directories in order, then
-`include_lib` applications); a candidate the index holds is still opened or
-checked as before, so precedence, `ignore_dirs` and error reports do not change.
-Include names with directory parts (`sub/x.hrl`) are looked up in the directory
-they name; names with `..` steps, absolute names, relative directories and
-listings that fail are probed as before.
+recorded by the recursive walks that expand `**` in `sources`, `source_dirs`,
+`source_search_paths`, `include_dirs` and `transform_paths`, so no directory is
+listed twice. It answers the misses of the module search (the library, then
+`source_search_paths`), transform sources, literal `sources` found through
+`source_search_paths`, and include resolution (the including file's directory,
+the working directory, include directories in order, then `include_lib`
+applications); a candidate the index holds is still opened or checked as before,
+so precedence, `ignore_dirs` and error reports do not change. Include names with
+directory parts (`sub/x.hrl`) are looked up in the directory they name; names
+with `..` steps, absolute names, relative directories and listings that fail are
+probed as before.
 
 - File name keys fold ASCII case on Windows and macOS, whose volumes ignore case
   by default, so `Foo.hrl` still finds `foo.hrl`; elsewhere keys are exact.

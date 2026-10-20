@@ -25,8 +25,8 @@ transfer and resume later on any thread.
   `void(void *context, TermWord x0, ..., TermWord x5)`: the first
   `abi::v1::register_arguments` (6) registers also pass as parameters, so a
   call's leading arguments and a return's result stay in machine registers.
-- A failure returns through every caller, which checks the failure channel
-  after the call ([failure channel](abi.md#failure-channel-revision-2)).
+- A failure returns through every caller, which checks the failure channel after
+  the call ([failure channel](abi.md#failure-channel-revision-2)).
 
 ## Process state
 
@@ -68,8 +68,8 @@ in the first register and ends the native call.
 
 - **Call (non-tail).** Values live after the call are spilled to slots. The
   caller sets its own `resume` to the next continuation index, puts the
-  arguments in the registers and transfers to the callee. Local, remote, fun
-  and dynamic calls are the same transfer; a fun or dynamic call first asks a
+  arguments in the registers and transfers to the callee. Local, remote, fun and
+  dynamic calls are the same transfer; a fun or dynamic call first asks a
   preparation service for the callee's `FrameDescriptor`
   ([funs](funs.md#dynamic-calls)).
 - **Entry.** Spends one reduction, pushes a zeroed frame (growing the stack when
@@ -89,13 +89,13 @@ in the first register and ends the native call.
   caller link and the term slots both frames have: it writes the callee's
   descriptor, zeroes only the callee's term slots past the caller's and skips
   the stack limit test when the callee's frame is no larger. Like a self tail
-  call, a kept slot may hold a term of an earlier member until the callee
-  writes it, so collections can keep such a term alive a little longer. The
-  members of a cycle share one native function: every member's descriptor
-  names it as the body, its resume indices count across the members, and a
-  start (resume 0) picks the member from the frame's descriptor, so a tail
-  call between members is a branch rather than a transfer. Debuggers see the
-  members as inlined into that function.
+  call, a kept slot may hold a term of an earlier member until the callee writes
+  it, so collections can keep such a term alive a little longer. The members of
+  a cycle share one native function: every member's descriptor names it as the
+  body, its resume indices count across the members, and a start (resume 0)
+  picks the member from the frame's descriptor, so a tail call between members
+  is a branch rather than a transfer. Debuggers see the members as inlined into
+  that function.
 - **Yield.** With no reduction left, an entry does not push: it records itself
   in `ProcessStack::resume_`, keeps its arguments as register roots
   (`ProcessStack::keep_registers`) and returns code that ends the time slice, so
@@ -179,10 +179,10 @@ unchanged. No required target needs it.
   and reload them after it.
 - **Parameters.** A body reads its leading arguments from the parameters when it
   starts and the call result from `x0` when it resumes; `lower_frames` spills
-  either to a slot only when it is live across a call or safepoint. A float
-  loop variant ([abi](abi.md)) takes some parameters as the bits of doubles:
-  only its inline transfers pass them, and its service paths enter the
-  function with cells instead, so registers a service reads hold terms.
+  either to a slot only when it is live across a call or safepoint. A float loop
+  variant ([abi](abi.md)) takes some parameters as the bits of doubles: only its
+  inline transfers pass them, and its service paths enter the function with
+  cells instead, so registers a service reads hold terms.
 - **Tail positions** are the last expression of a clause body, followed through
   blocks, parentheses and the clause bodies of `case`, `if` and `receive`. Calls
   in `catch`, `try`, `maybe` and `andalso`/`orelse` operands are not tail calls.

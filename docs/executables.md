@@ -25,8 +25,8 @@ default (no selection) is always `main/1`.
   after `FUNCTION` is the arity and must be `0` or `1`; other slashes stay part
   of the name. Other spellings are usage errors (CLI, exit 2) or manifest errors
   (exit 1).
-- The whole manifest is decoded, so a malformed `entry` fails even in
-  unselected targets ([manifest](projects.md)).
+- The whole manifest is decoded, so a malformed `entry` fails even in unselected
+  targets ([manifest](projects.md)).
 - CLI `--entry` overrides the manifest key and requires exactly one selected
   target. It conflicts with check/print actions and `--new-project`; those
   actions ignore manifest `entry` (as they ignore `output`).
@@ -190,13 +190,13 @@ or `/OPT:REF /OPT:ICF` (MSVC), so code no entry path reaches is removed.
 
 `--lto` compiles the modules and the startup module to LLVM bitcode instead of
 objects and links with `-flto -fuse-ld=lld`, so LLD optimizes the program's
-generated code as one unit against the native runtime archive.
-Module and startup descriptors, exported entries and `main` stay referenced and
-survive; programs behave as without it. Only LLD reads this compiler's bitcode,
-so `--lto` is accepted for Windows MSVC and ELF targets; others fail before
-linking with `--lto is not supported for target <triple>: it needs LLD`. `--lto`
-needs an executable output (`-o` or a linking project build). The installed
-Clang/LLD must be the same LLVM release as `clau` (23.1).
+generated code as one unit against the native runtime archive. Module and
+startup descriptors, exported entries and `main` stay referenced and survive;
+programs behave as without it. Only LLD reads this compiler's bitcode, so
+`--lto` is accepted for Windows MSVC and ELF targets; others fail before linking
+with `--lto is not supported for target <triple>: it needs LLD`. `--lto` needs
+an executable output (`-o` or a linking project build). The installed Clang/LLD
+must be the same LLVM release as `clau` (23.1).
 
 ### Export liveness
 

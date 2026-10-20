@@ -44,8 +44,8 @@ the first process, the main process, and runs the executor until it ends:
 ## Workers
 
 The executor runs processes on `RuntimeOptions::schedulers` worker threads: the
-thread that started the program and one more thread per further worker.
-Programs take the count from `--schedulers N` (1 to 1,024,
+thread that started the program and one more thread per further worker. Programs
+take the count from `--schedulers N` (1 to 1,024,
 [runtime options](executables.md#runtime-options)); the default is one worker
 per logical processor, as OTP's `+S`.
 
@@ -61,11 +61,11 @@ per logical processor, as OTP's `+S`.
   empty queue steals one process from the longest queue holding at least two, or
   the only process of a sleeping worker, which it runs before that worker wakes.
 - Wakeups are lazy, as ERTS keeps processes that talk to each other on one
-  scheduler: a running process that wakes a process of a sleeping, empty
-  worker queues it on its own worker, which takes it when its slice ends;
-  another worker is woken only when a queue then holds more than one process.
-  The timer and I/O threads, port tasks and workers between slices queue a
-  process for its own worker, or for an idle worker when its own one is busy.
+  scheduler: a running process that wakes a process of a sleeping, empty worker
+  queues it on its own worker, which takes it when its slice ends; another
+  worker is woken only when a queue then holds more than one process. The timer
+  and I/O threads, port tasks and workers between slices queue a process for its
+  own worker, or for an idle worker when its own one is busy.
 - One executor mutex guards the run queues, the waiting processes, the timers,
   the registered names, the links and monitors of every process, and every
   process that is not running. A running process's heap, stack, mailbox and
@@ -100,8 +100,8 @@ Wakeups and shutdown need no further mechanism, because every change of a
 process's scheduling state happens under the executor mutex:
 
 - A message, `'EXIT'` or `'DOWN'` for a waiting process queues it in the same
-  critical section that delivers it, waking a worker as above. A process that
-  is still in the slice in which it began to wait cannot get a message then (its
+  critical section that delivers it, waking a worker as above. A process that is
+  still in the slice in which it began to wait cannot get a message then (its
   senders wait for the slice to end), so the delivery always finds it parked.
 - A worker that finds no runnable process sleeps until another worker, a send or
   the timer thread queues one, or the program ends. Workers never read the clock
@@ -228,13 +228,13 @@ mailbox:
 - `after T -> Body`: `T` is evaluated first, before the scan. When the receive
   would wait, `T` must be `infinity` or an integer in 0..4294967295
   (milliseconds), else `error:timeout_value`, after which the next receive scans
-  from the oldest message; a message that matches at once never
-  checks it, as in OTP. `after 0` runs `Body` as soon as every message has been
-  examined. A finite timeout starts when the receive first waits and is not
-  restarted by messages that match no clause; when it expires, `Body` runs from
-  the bindings before the receive and the next receive scans from the oldest
-  message. A message that arrives before the timeout expires is taken. A receive
-  with only `after` is a sleep (`timer:sleep/1`'s idiom).
+  from the oldest message; a message that matches at once never checks it, as in
+  OTP. `after 0` runs `Body` as soon as every message has been examined. A
+  finite timeout starts when the receive first waits and is not restarted by
+  messages that match no clause; when it expires, `Body` runs from the bindings
+  before the receive and the next receive scans from the oldest message. A
+  message that arrives before the timeout expires is taken. A receive with only
+  `after` is a sleep (`timer:sleep/1`'s idiom).
 - Generated code: a loop head peeks at the next unexamined message
   (`CLAUSE_receive_v1` `peek`, into a root slot), clause selection takes a
   matched message (`take`) before its body or skips an unmatched one (`skip`)
@@ -383,8 +383,8 @@ Sources: `builtins/erlang/spawning.cpp`, `scheduler/aliases.cpp`.
   `{min_bin_vheap_size, N}`, `{max_heap_size, S}`, `{message_queue_data, M}`,
   `{async_dist, B}`; `{min_heap_size, N}` sets the child's
   [minimum heap](runtime-heap.md#sizing-and-budget), the other tuning options
-  are checked and accepted, not applied. A
-  node other than `nonode@nohost` is `badarg`.
+  are checked and accepted, not applied. A node other than `nonode@nohost` is
+  `badarg`.
 - `spawn_request/1..5` spawns at once and sends `{Tag, ReqId, ok, Pid}`
   (`{Tag, ReqId, error, Reason}` on failure, `badopt` for an invalid option) as
   `{reply_tag, Tag}` and `{reply, yes | no | error_only | success_only}` ask;
@@ -410,8 +410,8 @@ monitors take no options.
 
 A Clause program is one node that is not distributed, `nonode@nohost`, and
 answers as such an OTP node (`builtins/erlang/node.cpp`): `nodes/0` is `[]`,
-`nodes(this | known)` `[nonode@nohost]`, other types `[]`; `nodes/2`
-gives `{nonode@nohost, #{connection_id => undefined, node_type =>
+`nodes(this | known)` `[nonode@nohost]`, other types `[]`; `nodes/2` gives
+`{nonode@nohost, #{connection_id => undefined, node_type =>
 this}}` for the keys asked. `is_alive/0` is `false`, `monitor_node/2,3` raise
 `error:notalive` and `disconnect_node/1` returns `ignored`.
 
@@ -459,11 +459,11 @@ talks to its connected process with messages.
 `erlang:suspend_process/1,2` and `erlang:resume_process/1` (plan 21 step LIB9B,
 `scheduler/suspension.cpp`): each suspend is one hold of the target in the
 executor, so a suspended process runs again only when every suspend of every
-suspender is resumed; messages and signals still reach it (an exit signal
-still ends it), and `process_info(Pid, status)` reports `suspended`. The end
-of a suspender resumes its suspends. A synchronous suspend of a process running
-on another worker waits for its time slice to end; `asynchronous` returns at
-once, `{asynchronous, Tag}` also sends the caller `{Tag, suspended}`, and
+suspender is resumed; messages and signals still reach it (an exit signal still
+ends it), and `process_info(Pid, status)` reports `suspended`. The end of a
+suspender resumes its suspends. A synchronous suspend of a process running on
+another worker waits for its time slice to end; `asynchronous` returns at once,
+`{asynchronous, Tag}` also sends the caller `{Tag, suspended}`, and
 `unless_suspending` answers `false` when the caller already suspends the
 process. Suspending or resuming the caller itself, a process that has ended, a
 non-pid or bad options are `badarg`, as is resuming a process the caller does

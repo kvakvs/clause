@@ -174,11 +174,11 @@ context. Analysis is deterministic.
 
 Walks are iterative with a module budget of 1,000,000 work units, or 32 per
 expression when that is more (generated parsers such as OTP's `erl_parse` need
-about 10 per expression). Service resolution
-has a budget of the same size; it scans the module's `-compile` and `-import`
-forms for a name's auto-import state once per name, not once per call (each of
-`erl_parse`'s thousands of clauses calls `hd/1`). Exhaustion or any semantic
-error clears the module's binding and normalization tables.
+about 10 per expression). Service resolution has a budget of the same size; it
+scans the module's `-compile` and `-import` forms for a name's auto-import state
+once per name, not once per call (each of `erl_parse`'s thousands of clauses
+calls `hd/1`). Exhaustion or any semantic error clears the module's binding and
+normalization tables.
 
 ## Types and specifications
 
@@ -257,9 +257,9 @@ Inference is separate from declared types and never trusts specs.
   always raises infers `none()`.
 - Identity/projection functions keep exact argument relations, propagated
   through nested local and remote calls with fresh variables per call.
-- Containers (`semantic/types/inference_containers`): a list `[E1, ..., En | T]`
-  joins its elements in front of the tail's fact (a proper list when the tail is
-  one, `nonempty_improper_list(H, T)` when it is no list,
+- Containers (`semantic/types/inference_containers`): a list
+  `[E1, ..., En | T]` joins its elements in front of the tail's fact (a proper
+  list when the tail is one, `nonempty_improper_list(H, T)` when it is no list,
   `nonempty_maybe_improper_list()` when it is unknown or may be improper: a cell
   is never empty, also in a pattern such as `[H | _]`); `++`, `--`, `hd/1`,
   `tl/1`, `element/2`, `setelement/3`, `tuple_to_list/1` and `map_get/2` read
@@ -330,22 +330,22 @@ Inference is separate from declared types and never trusts specs.
   join of its facts at the end of each clause that completes, so
   `case X of forever -> ...; N when is_integer(N), N >= 0 -> ... end` leaves `X`
   as `non_neg_integer() | forever`.
-- `try` and `maybe`: a `try` is the join of its `of` clauses' values
-  (its body's without `of`) and its catch clauses' values; the `after` body adds
-  nothing. `of` clauses start from the facts at the end of the body and match
-  its value like `case` clauses (an impossible clause adds nothing); catch
-  clauses and the `after` body start from the facts before the `try`, a class
-  pattern matching `error | exit | throw`. A `maybe` is the join of its body's
-  value, its `else` clauses' values and, without `else`, the values its `?=`
-  matches can fail on: the matched value's fact without the pattern's shape when
-  the pattern matches all of its shape (new variables used once, literal atoms
-  and integers, `[]`, tuples of them), else the whole fact. Each `?=` pattern
-  meets its value and publishes its variables for the rest of the body; a `?=`
-  that can never match stops the body. `else` clauses start from the facts
-  before the `maybe` and match the joined failing values like `case` clauses.
-  The facts after a `try` join those at the end of its body (without `of`) and
-  of each completing clause; after a `maybe`, those at the end of its body, of
-  each completing `else` clause and, without `else`, those before it.
+- `try` and `maybe`: a `try` is the join of its `of` clauses' values (its body's
+  without `of`) and its catch clauses' values; the `after` body adds nothing.
+  `of` clauses start from the facts at the end of the body and match its value
+  like `case` clauses (an impossible clause adds nothing); catch clauses and the
+  `after` body start from the facts before the `try`, a class pattern matching
+  `error | exit | throw`. A `maybe` is the join of its body's value, its `else`
+  clauses' values and, without `else`, the values its `?=` matches can fail on:
+  the matched value's fact without the pattern's shape when the pattern matches
+  all of its shape (new variables used once, literal atoms and integers, `[]`,
+  tuples of them), else the whole fact. Each `?=` pattern meets its value and
+  publishes its variables for the rest of the body; a `?=` that can never match
+  stops the body. `else` clauses start from the facts before the `maybe` and
+  match the joined failing values like `case` clauses. The facts after a `try`
+  join those at the end of its body (without `of`) and of each completing
+  clause; after a `maybe`, those at the end of its body, of each completing
+  `else` clause and, without `else`, those before it.
 - Uses (`semantic/types/inference_uses`): an operation that raises unless an
   operand has a type proves that type for the variable it read, after the
   operation returns: arithmetic and unary `-`/`+` a `number()`, `div`, `rem`,
@@ -577,8 +577,7 @@ their built-in names.
   cannot run.
 
 At `-O2` with type specialization, lowering uses these facts to remove checks
-([specialization](specialization.md#proofs)); specifications never become
-facts.
+([specialization](specialization.md#proofs)); specifications never become facts.
 
 ### Inference cache
 
