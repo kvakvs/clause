@@ -113,10 +113,31 @@ group the cost into:
    loops (OPT1.7, OPT1.8); `lists:map` and the other building loops still make
    their list reversed and reverse it (OPT1.12).
 
+## Profiling on Windows
+
+- **Runtime with symbols:** a runtime-only build dir, e.g. `build/prof`
+  (`-DCLAUSE_BUILD_COMPILER=OFF`, `CMAKE_CXX_FLAGS_RELEASE=/O2 /Ob2 /DNDEBUG
+  /Z7`); link the kernel with the Release `clau -O2 -g --runtime-library
+  build/prof/lib/Release/clause_runtime.lib`. Time the same kernel on OTP
+  (`erlc`, `erl -noshell -eval`) for the target.
+- **Sampler (no admin):** kernel ETW (`xperf -on`, `wpr -start`) is refused
+  without elevation even with "Profile system performance" and Performance Log
+  Users (the kernel logger is admin-only; UAC filters the token). The VS
+  Standard Collector runs as a service and works:
+  - `VSDiagnostics.exe start N /launch:<exe> /launchArgs:<args>
+    /loadConfig:<Collector>\AgentConfigs\CpuUsageHigh.json`, then
+    `VSDiagnostics.exe stop N /output:<file>.diagsession` (under
+    `<VS>\Team Tools\DiagnosticsHub\Collector`).
+  - The `.diagsession` is a zip holding `*/sc.user_aux.etl`; with
+    `_NT_SYMBOL_PATH` at the exe's folder, `xperf -i sc.user_aux.etl -o out.txt
+    -symbols -a profile -detail` lists weight per function; filter by the exe.
+- **Fallback:** a cdb sampler (`cdb -pv -p PID`, `~* kc 50` per attach) gives
+  stacks but only ~1 sample per 1.4 s; run it 90-150 s.
+
 ## Tier OPT3: runtime gaps of the 69A kernels
 
 Steps by the gap to OTP JIT in the 2026-10-16 69A run (after OPT0.34). Profile
-each kernel with the cdb sampler (`build/prof`) before building.
+each kernel before building (see [Profiling on Windows](#profiling-on-windows)).
 
 - **OPT3.4 file I/O:** read_line reads ahead (done); run alone, large_read is at
   parity with OTP (4.1 against 4.0 ms, two thirds in `ReadFile`), so its 69A gap
