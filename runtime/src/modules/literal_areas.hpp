@@ -6,6 +6,7 @@
 #include <memory>
 #include <mutex>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace clause::runtime::detail {
@@ -33,6 +34,9 @@ class LiteralAreas final {
 
     // Whether an address lies in a module's literal area; persistent terms are not module literals.
     bool module(std::uintptr_t address) const noexcept;
+    // The first and one-past-last address spanned by all module areas now; equal for none. Areas are only added, so
+    // an address outside it is no module literal of any term already reachable (cheap literal tests).
+    std::pair<std::uintptr_t, std::uintptr_t> module_span() const noexcept;
 
     // The address range persistent terms are copied into (persistent term reclamation).
     PersistentRegion &persistent() noexcept { return persistent_; }

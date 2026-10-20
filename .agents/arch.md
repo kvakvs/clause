@@ -215,7 +215,9 @@ test need no OTP (`docs/validation.md`).
 - Copies (`GraphCopy`): iterative flat copy between heaps, literals recognised
   and not copied, refc buffers shared and charged once. `MessageBuffer` holds
   terms outside processes; large messages are built before the executor lock
-  and adopted as receiver fragments. Persistent terms live in per-term areas of
+  and adopted as receiver fragments, counted toward collection only once
+  received (as ERTS). Copy walks and collector scans follow list tails in
+  place and cache the last area/literal span. Persistent terms live in per-term areas of
   a reserved range, reclaimed after every process evacuated them.
   `detached_term` blocks hold ETS objects.
 

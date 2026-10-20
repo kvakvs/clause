@@ -230,7 +230,7 @@ std::size_t HeapStorage::budget() const noexcept {
     return std::min(options_.limit_bytes / sizeof(Word), owned + memory_->available());
 }
 
-bool HeapStorage::adopt(HeapStorage &message) {
+bool HeapStorage::adopt(HeapStorage &message, Word root) {
     absorb();
     if (pending_ || heap_.capacity_ == 0 || message.pending_) {
         return false;
@@ -246,12 +246,14 @@ bool HeapStorage::adopt(HeapStorage &message) {
     const auto added = message.fragments_.size() + (message.heap_.capacity_ != 0 ? 1 : 0);
     fragments_.reserve(fragments_.size() + added);
     ranges_.reserve(ranges_.size() + added);
+    unreceived_.reserve(unreceived_.size() + 1);
     // Then nothing fails: the blocks keep their addresses, so every word of the message stays valid.
+    std::size_t words = 0;
     const auto take = [&](HeapArea &area) {
         const auto begin = reinterpret_cast<std::uintptr_t>(area.words_.get());
         ranges_.insert(std::ranges::upper_bound(ranges_, begin, {}, &FragmentRange::begin_),
                        {begin, fragments_.size()});
-        adopted_words_ += area.top_;
+        words += area.top_;
         fragments_.push_back(std::move(area));
     };
     if (message.heap_.capacity_ != 0) {
@@ -269,15 +271,26 @@ bool HeapStorage::adopt(HeapStorage &message) {
     message.off_heap_words_ = 0;
     message.fragments_.clear();
     message.ranges_.clear();
+    unreceived_.emplace_back(root, words);
+    return true;
+}
+
+void HeapStorage::received(Word message) noexcept {
+    const auto found = std::ranges::find(unreceived_, message, &std::pair<Word, std::size_t>::first);
+    if (found == unreceived_.end()) {
+        return;
+    }
+    adopted_words_ += found->second;
+    unreceived_.erase(found);
     if (adopted_words_ >= heap_.capacity_) {
         signal_collection();
     }
-    return true;
 }
 
 void HeapStorage::replace(HeapArea heap, bool full) noexcept {
     adopted_fragments_ = 0;
     adopted_words_ = 0;
+    unreceived_.clear();
     memory_->release(capacity_words_);
     if (full) {
         old_ = {};

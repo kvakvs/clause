@@ -5,7 +5,7 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
-OPT1.4, OPT1.7, OPT1.8, OPT3.1-3.3, OPT3.7, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path,
+OPT1.4, OPT1.7, OPT1.8, OPT3.1-3.3, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path,
 read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
 
@@ -103,9 +103,9 @@ group the cost into:
    shared-pointer refcounts and `malloc` per call; word-level paths are the fix
    (the external term codec is done, OPT0.26; each `TermFactory` binding costs a
    lifetime check, so one per call).
-3. **Message copy** (large_message 9.3x): flat copies, compound-only walks and
-   hand-off of large messages are done (OPT0.28-OPT0.30); small messages to busy
-   receivers still copy twice.
+3. **Message copy** (large_message 9.3x, 1.08x after OPT3.9): flat copies,
+   compound-only walks, hand-off and spine-following walks are done
+   (OPT0.28-OPT0.30, OPT3.9); small messages to busy receivers still copy twice.
 4. **Map trees** (map_put 3-10x, map_update 9.5x): word-level updates, cursors
    and on-heap trees are done (OPT0.32, OPT0.33, OPT3.1); small-map reads and
    present-key updates are inline (OPT3.12).
@@ -133,10 +133,8 @@ each kernel with the cdb sampler (`build/prof`) before building.
 - **OPT3.8 int_to_list:** done for list_to_integer's short text (OPT3.8); run
   alone the round trip is 835 against OTP's 444 us per 20,000, now the two
   bodies' digit work (`to_chars`, `from_chars`, a staging vector).
-- **OPT3.9 large_message:** the copy walks are cheaper (OPT3.9); run alone a
-  100,000-element echo is 3.6 against OTP's 1.95 ms: two flat copies (discover
-  and copy each read every cell) and the receivers' collections. Small messages
-  to busy receivers still copy twice (into a buffer, then into the receiver).
+- **Small messages to busy receivers** (after OPT3.9, large_message at 1.08x):
+  still copy twice (into a buffer, then into the receiver).
 - **Heaps left by earlier kernels** (after OPT3.10B): kernels sharing one
   process still pay for heaps an earlier kernel grew or for a large shrunk
   block (the first sweep after list_of_tuples' 3M-word old area; large_read

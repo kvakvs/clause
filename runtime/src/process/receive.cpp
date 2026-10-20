@@ -82,7 +82,9 @@ Word skip(ProcessContext &context, builtins::Arguments) {
 }
 
 Word take(ProcessContext &context, builtins::Arguments) {
-    context.mailbox().take();
+    if (const auto taken = context.mailbox().take()) {
+        context.heap().received(*taken);
+    }
     return atom_word(context, "ok"_atom);
 }
 
@@ -105,7 +107,8 @@ std::span<const BuiltinEntry> receive_builtins() noexcept { return RECEIVE_BUILT
 
 std::uint8_t CLAUSE_receive_v1(void *context, std::uint8_t operation, clause::abi::v1::TermWord *output) noexcept {
     using clause::abi::v1::ReceiveOperation;
-    auto &mailbox = static_cast<clause::runtime::ProcessContext *>(context)->mailbox();
+    auto &process = *static_cast<clause::runtime::ProcessContext *>(context);
+    auto &mailbox = process.mailbox();
     switch (static_cast<ReceiveOperation>(operation)) {
     case ReceiveOperation::peek: {
         const auto message = mailbox.peek();
@@ -118,7 +121,9 @@ std::uint8_t CLAUSE_receive_v1(void *context, std::uint8_t operation, clause::ab
         mailbox.skip();
         return 0;
     case ReceiveOperation::take:
-        mailbox.take();
+        if (const auto taken = mailbox.take()) {
+            process.heap().received(*taken);
+        }
         return 0;
     case ReceiveOperation::restart:
         mailbox.restart();

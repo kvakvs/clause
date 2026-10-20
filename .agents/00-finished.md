@@ -528,6 +528,13 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   parse or copy loop; list builtins' `walk` reads cells in place (trusted
   walks); large_message echo run alone 4.37 to 3.62 ms (OTP 1.95) —
   `a8c3f8f6`
+- **OPT3.9 (second pass)** after OPTM.2A put a literal lookup on every cell
+  (6.4 ms per echo): copy walks follow list tails in place with an inline
+  literal-span test, buffers skip zeroing, collector scans cache the from-space
+  area and skip cons parses, adopted messages count toward collection only
+  once received (as ERTS); large_message 3.5x (1.08x of OTP), sort 1.7x,
+  list_of_tuples 1.7x, string_build 1.8x, gc kernels 1.3-1.8x, geomean of 22
+  kernels 1.26x — `HASH`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576

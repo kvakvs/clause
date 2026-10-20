@@ -205,6 +205,8 @@ bool ProcessHeap::wants_collection() const noexcept {
            storage.off_heap_words_ >= storage.binary_limit_words_;
 }
 
+void ProcessHeap::received(Word message) noexcept { storage_->received(message); }
+
 void ProcessHeap::request_collection() noexcept {
     storage_->collection_requested_ = true;
     storage_->signal_collection();

@@ -105,6 +105,23 @@ void handoff(Runtime &runtime) {
             "teardown failed");
 }
 
+// An adopted message counts toward a collection only once received, as ERTS counts a message fragment (received
+// hand-off counts): a small receiver asks for none while the message is queued, and one once a receive took it.
+void received(Runtime &runtime) {
+    auto &sender = *runtime.create_context().value();
+    auto &receiver = *runtime.create_context({DEFAULT_MIN_HEAP_WORDS, UNLIMITED_HEAP_BYTES}).value();
+    require(send(receiver, receiver, 0).has_value() && receiver.mailbox().peek(), "self-send failed");
+    receiver.mailbox().take();
+    const auto before = receiver.heap().capacity_words();
+    require(send(sender, receiver, 7, 1000).has_value() && receiver.mailbox().peek(), "large send failed");
+    require(receiver.heap().capacity_words() - before == 2003, "the message block was not taken over");
+    require(!receiver.heap().wants_collection(), "a queued adopted message asked for a collection");
+    receiver.heap().received(*receiver.mailbox().take());
+    require(receiver.heap().wants_collection(), "a received adopted message asked for no collection");
+    require(runtime.destroy_context(&sender) == Status::ok && runtime.destroy_context(&receiver) == Status::ok,
+            "teardown failed");
+}
+
 // A send to an ended process succeeds and delivers nothing; a receiver whose heap cap refuses the copy gets nothing.
 void refused(Runtime &runtime) {
     auto &sender = *runtime.create_context().value();
@@ -130,7 +147,9 @@ int main() {
         ordering(*runtime);
         positions(*runtime);
         handoff(*runtime);
+        received(*runtime);
         refused(*runtime);
+        std::cout << "runtime_messages: ok\n";
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;

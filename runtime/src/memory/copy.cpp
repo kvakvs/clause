@@ -62,25 +62,21 @@ class GraphCopy final {
     // The retiring areas are read once: both passes decide alike even while another worker retires more.
     explicit GraphCopy(const HeapStorage &runtime, bool keep_persistent = true)
         : runtime_(runtime), keep_persistent_(keep_persistent),
-          retiring_(keep_persistent ? runtime.retiring_ranges() : RetiringRanges{}) {}
+          retiring_(keep_persistent ? runtime.retiring_ranges() : RetiringRanges{}),
+          module_span_(runtime.module_span()) {}
 
     // Find every object occurrence reachable from root without recursion, in the order copy() visits them; false when
     // a cell is malformed. May throw std::bad_alloc.
     bool discover(Word root) {
         std::vector<Word> pending{root};
         while (!pending.empty()) {
-            const auto value = pending.back();
-            pending.pop_back();
-            const auto cell = source_cell(value);
-            if (!cell) {
-                if (cell.error() == Found::foreign) {
-                    return false;
-                }
-                continue;
+            const auto value = discover_spine(pending);
+            if (copied(value) && !discover_boxed(value, pending)) {
+                return false;
             }
-            add(*cell);
-            push_slots(*cell, pending);
         }
+        // copy() queues the same slots in the same order, so its stack never outgrows this one (unzeroed copies).
+        copy_pending_.reserve(depth_);
         return true;
     }
 
@@ -91,32 +87,21 @@ class GraphCopy final {
     const std::vector<const RefcBinaryCell *> &binaries() const noexcept { return binaries_; }
 
     // Copy every object except binary cells into out in discovery order, reading each cell again and pointing each
-    // slot at its child's copy; return the root's copy. May throw std::bad_alloc.
-    Word copy(Word root, std::span<Word> out) {
+    // slot at its child's copy; return the root's copy. Allocates nothing: discover() sized its stack, so a copy
+    // never leaves out partly written.
+    Word copy(Word root, std::span<Word> out) noexcept {
         Word result = root;
-        std::vector<std::pair<Word, Word *>> pending{{root, &result}};
-        std::size_t offset = 0;
-        while (!pending.empty()) {
-            const auto [value, slot] = pending.back();
-            pending.pop_back();
-            const auto found = source_cell(value);
-            if (!found) {
-                *slot = value;
-                continue;
+        copy_pending_.clear();
+        copy_pending_.emplace_back(root, &result);
+        auto *next = out.data();
+        // Every slot already holds its source word, so a word that is not copied needs no write.
+        while (!copy_pending_.empty()) {
+            const auto [value, slot] = copy_pending_.back();
+            copy_pending_.pop_back();
+            const auto [rest, rest_slot] = copy_spine(value, slot, next);
+            if (copied(rest)) {
+                next = copy_boxed(rest, rest_slot, next);
             }
-            const auto &cell = *found;
-            const auto copy = out.subspan(offset, cell.words.size());
-            offset += cell.words.size();
-            *slot = reinterpret_cast<Word>(copy.data()) | (value & static_cast<Word>(abi::v1::primary_mask));
-            if (cell.shape == HeapCell::Shape::cons) {
-                // Two words: no copy loop for the commonest cell.
-                copy[0] = cell.words[0];
-                copy[1] = cell.words[1];
-            } else if (!binary(cell)) {
-                std::ranges::copy(cell.words, copy.begin());
-                clear_edit(copy);
-            }
-            queue_copy(cell, copy, pending);
         }
         return result;
     }
@@ -152,41 +137,84 @@ class GraphCopy final {
     }
 
   private:
-    // Why a word names no object to copy: an immediate, atom or literal (none), or a malformed cell.
-    enum class Found : std::uint8_t { none, foreign };
-
-    // The source object a word names, when it is copied: literals are shared by every process of the runtime and stay
+    // Whether a word names an object the copy copies: literals are shared by every process of the runtime and stay
     // as they are (OPT0.4). Cells are read by trusted pointer, as BEAM's copy_struct does (one-word terms).
-    std::expected<HeapCell, Found> source_cell(Word value) const {
-        if (!compound(value) || kept(address(value))) {
-            return std::unexpected(Found::none);
+    bool copied(Word value) const noexcept { return compound(value) && !kept(address(value)); }
+
+    // Whether a word points at a cons cell, which has no header and needs no parse (the commonest cell).
+    static bool cons(Word value) noexcept {
+        return (value & static_cast<Word>(abi::v1::primary_mask)) == abi::v1::list_tag;
+    }
+
+    // Count the copied cons cells from the word on top of pending on, queuing their compound heads; the word that
+    // ends the spine. Tails are followed in place, so only heads wait on the stack (list spines).
+    Word discover_spine(std::vector<Word> &pending) {
+        auto value = pending.back();
+        pending.pop_back();
+        while (cons(value) && copied(value)) {
+            const auto *cell = TermAccess::trusted(value);
+            words_ += 2;
+            if (compound(cell[0])) {
+                pending.push_back(cell[0]);
+                depth_ = std::max(depth_, pending.size());
+            }
+            value = cell[1];
         }
-        const auto words = TermAccess::trusted_cell(value);
-        // A cons cell has no header: it needs no parse (the commonest cell).
-        if ((value & static_cast<Word>(abi::v1::primary_mask)) == abi::v1::list_tag) {
-            return HeapCell{words, words, HeapCell::Shape::cons};
-        }
-        const auto cell = parse_cell(words);
+        return value;
+    }
+
+    // Count a copied boxed object and queue its compound slots, the only ones that can name an object; false when
+    // the cell is malformed.
+    bool discover_boxed(Word value, std::vector<Word> &pending) {
+        const auto cell = parse_cell(TermAccess::trusted_cell(value));
         if (!cell) {
-            return std::unexpected(Found::foreign);
+            return false;
         }
-        return *cell;
+        add(*cell);
+        std::ranges::copy_if(cell->slots, std::back_inserter(pending), compound);
+        depth_ = std::max(depth_, pending.size());
+        return true;
     }
 
-    // Queue the compound slots of a found cell, the only ones that can name an object.
-    static void push_slots(const HeapCell &cell, std::vector<Word> &pending) {
-        std::ranges::copy_if(cell.slots, std::back_inserter(pending), compound);
+    // Copy the cons cells of a spine to consecutive words at next, pointing slot and each tail at the next copy and
+    // queuing compound heads as discover_spine() did; the word that ends the spine and the slot holding it.
+    std::pair<Word, Word *> copy_spine(Word value, Word *slot, Word *&next) noexcept {
+        while (cons(value) && copied(value)) {
+            const auto *from = TermAccess::trusted(value);
+            auto *to = next;
+            next += 2;
+            to[0] = from[0];
+            to[1] = from[1];
+            *slot = reinterpret_cast<Word>(to) | static_cast<Word>(abi::v1::list_tag);
+            if (compound(to[0])) {
+                copy_pending_.emplace_back(to[0], to);
+            }
+            value = to[1];
+            slot = to + 1;
+        }
+        return {value, slot};
     }
 
-    // Queue the compound slots of a cell's copy, as discover() queued the source's: the copy already holds
-    // immediates, atoms and literal pointers.
-    static void queue_copy(const HeapCell &cell, std::span<Word> copy, std::vector<std::pair<Word, Word *>> &pending) {
-        const auto first = static_cast<std::size_t>(cell.slots.data() - cell.words.data());
-        for (auto &child : copy.subspan(first, cell.slots.size())) {
+    // Copy a boxed object to next, except a binary cell's words, which link() builds, and queue its compound slots;
+    // the word after the copy.
+    Word *copy_boxed(Word value, Word *slot, Word *next) noexcept {
+        const auto cell = parse_cell(TermAccess::trusted_cell(value));
+        if (!cell) {
+            return next; // discover() parsed every copied cell.
+        }
+        const std::span copy{next, cell->words.size()};
+        *slot = reinterpret_cast<Word>(next) | static_cast<Word>(abi::v1::boxed_tag);
+        if (!binary(*cell)) {
+            std::ranges::copy(cell->words, copy.begin());
+            clear_edit(copy);
+        }
+        const auto first = static_cast<std::size_t>(cell->slots.data() - cell->words.data());
+        for (auto &child : copy.subspan(first, cell->slots.size())) {
             if (compound(child)) {
-                pending.emplace_back(child, &child);
+                copy_pending_.emplace_back(child, &child);
             }
         }
+        return next + copy.size();
     }
 
     // Report whether a cell is an off-heap binary, whose copy needs its C++ reference built in place.
@@ -209,7 +237,8 @@ class GraphCopy final {
         if (runtime_.persistent(at)) {
             return keep_persistent_ && !retiring_.contains(at);
         }
-        return runtime_.module_literal(at);
+        // Heap words lie outside the span of all module areas: two comparisons spare the area search.
+        return at >= module_span_.first && at < module_span_.second && runtime_.module_literal(at);
     }
 
     // A heap of the copy's runtime, whose literal areas are shared rather than copied.
@@ -217,11 +246,16 @@ class GraphCopy final {
     // Whether live persistent terms are kept like module literals, and the retiring ones this copy copies anyway.
     bool keep_persistent_;
     RetiringRanges retiring_;
+    // The addresses the module literal areas spanned when the copy began (cheap literal tests).
+    std::pair<std::uintptr_t, std::uintptr_t> module_span_;
     // Source cells of the copied off-heap binaries and the offsets of their copies.
     std::vector<const RefcBinaryCell *> binaries_;
     std::vector<std::size_t> binary_offsets_;
     // Words of every object occurrence found.
     std::size_t words_ = 0;
+    // The deepest stack discover() needed, and copy()'s stack reserved to it, so copy() never allocates.
+    std::size_t depth_ = 1;
+    std::vector<std::pair<Word, Word *>> copy_pending_;
 };
 } // namespace clause::runtime::detail
 
@@ -278,13 +312,7 @@ TermResult<Term> ProcessHeap::publish_copy(detail::GraphCopy &graph, Word root) 
         return std::unexpected(detail::term_error(reserved.error()));
     }
     const std::span out{reinterpret_cast<Word *>(reserved->bytes().data()), graph.words()};
-    Word copied = 0;
-    try {
-        copied = graph.copy(root, out);
-    } catch (const std::bad_alloc &) {
-        detail::drop_binaries(*storage_, binaries);
-        return std::unexpected(TermError::out_of_memory);
-    }
+    const auto copied = graph.copy(root, out);
     if (const auto committed = reserved->commit(); !committed) {
         detail::drop_binaries(*storage_, binaries);
         return std::unexpected(TermError::expired_context);
@@ -334,7 +362,7 @@ TermResult<Term> MessageBuffer::take(const std::shared_ptr<const MessageBuffer> 
     if (buffer.use_count() == 1 && buffer->words() >= ADOPTED_WORDS &&
         to.options_.limit_bytes == UNLIMITED_HEAP_BYTES) {
         try {
-            if (to.adopt(*buffer->storage_)) {
+            if (to.adopt(*buffer->storage_, buffer->root_)) {
                 return TermAccess::admit(buffer->root_, to);
             }
         } catch (const std::bad_alloc &) {
@@ -364,21 +392,13 @@ TermResult<Word> publish_graph(HeapStorage &storage, GraphCopy &graph, Word root
             return std::unexpected(term_error(charged.error()));
         }
     }
-    const auto out = storage.reserve(graph.words());
+    // The copy writes every word and cannot fail, so the words need no zeroing first (unzeroed copies).
+    const auto out = storage.claim(graph.words());
     if (!out) {
         drop_binaries(storage, binaries);
         return std::unexpected(term_error(out.error()));
     }
-    Word copied = 0;
-    try {
-        copied = graph.copy(root, *out);
-    } catch (const std::bad_alloc &) {
-        // The zeroed reservation stays behind as filler.
-        storage.pending_ = false;
-        drop_binaries(storage, binaries);
-        return std::unexpected(TermError::out_of_memory);
-    }
-    storage.pending_ = false;
+    const auto copied = graph.copy(root, *out);
     graph.link(storage, *out);
     return copied;
 }

@@ -349,8 +349,10 @@ no other owner and the receiver has a heap block and no budget: the block joins
 its fragments at the same addresses, the buffer's off-heap binary and map lists
 join its own with their charges, and the buffer is left empty. Nobody else can
 reach the block before or after, so no word is copied twice. Adopted fragments
-ask for a collection only once their words reach the young block's, as ERTS's
-message fragments do, and the next collection treats them as young data.
+ask for a collection only once a receive took their message and their words
+reach the young block's, as ERTS counts a message fragment only once received
+(`HeapStorage::received`); the next collection treats them as young data, and
+copies a message still queued like any root.
 Smaller messages are copied, as before: cheaper than a fragment each.
 
 ## Collection in generated code
@@ -508,7 +510,9 @@ A Cheney copy (`memory/heap_collect`), a full sweep or a minor collection
 ([generations](#generations)): allocate the new block first
 (failure is `out_of_memory` and leaves the heap untouched), then copy the
 object behind every root word and scan the new block left to right, copying
-the children of each copy. A moved boxed object's header
+the children of each copy. A slot is first checked against the from-space area
+of the previous slot (one range test), and cons cells are scanned without a
+parse. A moved boxed object's header
 is replaced by a boxed pointer to its copy; a moved cons cell gets a zero head
 and a tail pointing to its copy. Forwarding preserves sharing. Roots are
 rewritten in place, the off-heap list is swept (copies relinked in list order,
@@ -586,9 +590,13 @@ read through trusted pointers, and a cons cell needs no parse:
   exponentially, as on OTP. One walk with an explicit stack (no recursion) sums
   the words of every reached object; the copy is one reservation of that sum,
   in the heap block or a fragment, filled by a second walk in the same order
-  that reads each cell again and points each slot at its child's copy. No table
-  maps source objects to copies, and only binary cells and map stubs keep their
-  offsets.
+  that reads each cell again and points each slot at its child's copy. Both
+  walks follow a list's tails in place, so only heads wait on the stack, and
+  tell shared literals from heap cells with one range test against the span of
+  all module literal areas. The first walk sizes the second's stack, so the
+  second allocates nothing and a message buffer's words need no zeroing. No
+  table maps source objects to copies, and only binary cells and map stubs keep
+  their offsets.
 - An off-heap binary's copy is a new cell sharing the buffer; the destination
   holds the buffer (charging its own off-heap words if it held none of it)
   before reserving, and lists the cell only after the reservation commits.

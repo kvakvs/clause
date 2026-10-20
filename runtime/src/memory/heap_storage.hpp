@@ -9,6 +9,7 @@
 #include <clause/runtime/process_context.hpp>
 #include <cstdint>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace clause::runtime::detail {
@@ -70,9 +71,12 @@ class HeapStorage final {
     std::size_t budget() const noexcept;
     // Take over the storage of a message built for this process (message hand-off): its blocks become fragments, its
     // off-heap binaries and maps join this storage's lists and charges, and `message` is left empty. False, with
-    // nothing changed, when this storage cannot take it (an open reservation or no heap block). May throw
-    // std::bad_alloc before changing anything.
-    bool adopt(HeapStorage &message);
+    // nothing changed, when this storage cannot take it (an open reservation or no heap block). `root` is the
+    // message as the mailbox will hold it. May throw std::bad_alloc before changing anything.
+    bool adopt(HeapStorage &message, Word root);
+    // Count the words of an adopted message toward the next collection once a receive took it from the mailbox, as
+    // ERTS counts a message's fragment only once received (received hand-off counts).
+    void received(Word message) noexcept;
     // Replace the heap block and fragments by a collected block, returning the charges of the replaced areas; a full
     // sweep also empties the old area, whose objects it copied (generational collection).
     void replace(HeapArea heap, bool full) noexcept;
@@ -90,6 +94,11 @@ class HeapStorage final {
     // Whether an address lies in a module's literal area: the only words a copy outside every process may keep
     // (persistent term reclamation).
     bool module_literal(std::uintptr_t address) const noexcept { return literals_ && literals_->module(address); }
+
+    // The addresses spanned by the runtime's module literal areas now (cheap literal tests).
+    std::pair<std::uintptr_t, std::uintptr_t> module_span() const noexcept {
+        return literals_ ? literals_->module_span() : std::pair<std::uintptr_t, std::uintptr_t>{};
+    }
 
     // Whether an address lies in a retiring persistent term, which every copy copies (persistent term reclamation).
     bool retiring(std::uintptr_t address) const noexcept {
@@ -110,7 +119,8 @@ class HeapStorage final {
     // word-aligned below the top of the heap or a fragment. Process pointers only name object starts.
     // The words are writable for the collector, which forwards objects in place.
     std::span<Word> owned(std::uintptr_t address) noexcept;
-    // All used words of the area holding an address owned() accepts; empty for any other address.
+    // All used words of the area holding an address owned() accepts; empty for any other address. A collection
+    // checks the area of the previous slot first (cached from-space areas).
     std::span<Word> area_of(std::uintptr_t address) noexcept;
 
     // Retain bounded backing independently of future host pins.
@@ -134,10 +144,14 @@ class HeapStorage final {
     // Overflow blocks allocated while the heap may not move, and the blocks of adopted messages, oldest first; a
     // collection merges them.
     std::vector<HeapArea> fragments_;
-    // The adopted message blocks among fragments_ and their words since the last collection (message hand-off): they
-    // ask for a collection only once their words reach the young block's, as ERTS's message fragments do.
+    // The adopted message blocks among fragments_ and the words of those received since the last collection (message
+    // hand-off): they ask for a collection only once their words reach the young block's, as ERTS's message fragments
+    // do.
     std::size_t adopted_fragments_ = 0;
     std::size_t adopted_words_ = 0;
+    // Root and words of each adopted message no receive took yet; a collection copies them like any root and clears
+    // the list (received hand-off counts).
+    std::vector<std::pair<Word, std::size_t>> unreceived_;
     // Fragment ranges sorted by address; rollback drops entries of removed fragments.
     std::vector<FragmentRange> ranges_;
     // Words below the tops of all areas, and words of all areas' capacity.

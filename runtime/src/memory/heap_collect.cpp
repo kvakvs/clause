@@ -2,6 +2,7 @@
 #include "heap_walk.hpp"
 #include "off_heap.hpp"
 #include <algorithm>
+#include <bit>
 #include <limits>
 #include <utility>
 
@@ -90,52 +91,62 @@ Copier::Copier(HeapStorage &storage, std::size_t capacity, Generation generation
 }
 
 Word Copier::evacuate(Word value) noexcept {
-    const auto kind = TermTag{value}.get_kind();
-    if (kind != TermKind::list && kind != TermKind::boxed) {
+    const auto primary = value & static_cast<Word>(abi::v1::primary_mask);
+    if (primary != abi::v1::list_tag && primary != abi::v1::boxed_tag) {
         return value;
     }
-    // A minor collection neither moves nor scans the old area: no old object points at a younger one.
-    if (generation_ != Generation::full && !storage_.old_.from(address(value)).empty()) {
-        return value;
+    const auto at = address(value);
+    if (!in_from_space(at)) {
+        return retiring_ != nullptr && retiring_->contains(at) ? copy_external(value) : value;
     }
-    const auto from = storage_.owned(address(value));
-    if (from.empty()) {
-        return retiring_ != nullptr && retiring_->contains(address(value)) ? copy_external(value) : value;
-    }
-    return forward(from, kind);
-}
-
-Word Copier::forward(std::span<Word> from, TermKind kind) noexcept {
+    auto *from = std::bit_cast<Word *>(at);
     // A forwarded cons has a zero head and its copy in the tail; a forwarded box has a pointer for a header.
-    if (kind == TermKind::list) {
+    if (primary == abi::v1::list_tag) {
         return from[0] == 0 ? from[1] : copy_cons(from, target(from));
     }
     return is_header(from[0]) ? copy_boxed(from, target(from)) : from[0];
 }
 
-HeapArea &Copier::target(std::span<const Word> from) noexcept {
-    const auto *object = from.data();
-    const bool mature = !mature_.empty() && object >= mature_.data() && object < mature_.data() + mature_.size();
+bool Copier::in_from_space(std::uintptr_t at) noexcept {
+    const auto begin = reinterpret_cast<std::uintptr_t>(from_area_.data());
+    if (at >= begin && at < begin + from_area_.size_bytes()) {
+        return true;
+    }
+    // A minor collection neither moves nor scans the old area: no old object points at a younger one.
+    if (generation_ != Generation::full && !storage_.old_.from(at).empty()) {
+        return false;
+    }
+    const auto area = storage_.area_of(at);
+    if (area.empty()) {
+        return false;
+    }
+    from_area_ = area;
+    return true;
+}
+
+HeapArea &Copier::target(const Word *from) noexcept {
+    const bool mature = !mature_.empty() && from >= mature_.data() && from < mature_.data() + mature_.size();
     return mature ? storage_.old_ : to_;
 }
 
-Word Copier::copy_cons(std::span<Word> from, HeapArea &area) noexcept {
+Word Copier::copy_cons(Word *from, HeapArea &area) noexcept {
     const auto copy = area.claim(2);
-    std::ranges::copy(from.first(2), copy.begin());
+    copy[0] = from[0];
+    copy[1] = from[1];
     const auto moved = tagged(copy.data(), TermKindPrimary::list);
     from[0] = 0;
     from[1] = moved;
     return moved;
 }
 
-Word Copier::copy_boxed(std::span<Word> from, HeapArea &area) noexcept {
+Word Copier::copy_boxed(Word *from, HeapArea &area) noexcept {
     const auto size = 1 + BoxHeader::count(from[0]);
     const auto copy = area.claim(size);
     if (layout::off_heap_cell(from[0])) {
-        relocate_off_heap(*reinterpret_cast<layout::RefcBinaryCell *>(from.data()),
+        relocate_off_heap(*reinterpret_cast<layout::RefcBinaryCell *>(from),
                           reinterpret_cast<std::byte *>(copy.data()));
     } else {
-        std::ranges::copy(from.first(size), copy.begin());
+        std::copy_n(from, size, copy.begin());
     }
     const auto moved = tagged(copy.data(), TermKindPrimary::boxed);
     from[0] = moved;
@@ -188,14 +199,22 @@ bool Copier::copied_external(const void *object) const noexcept {
 bool Copier::scan(HeapArea &area, std::size_t &scanned) noexcept {
     bool found = false;
     while (scanned < area.top_) {
-        const std::span<Word> rest{area.words_.get() + scanned, area.top_ - scanned};
+        auto *object = area.words_.get() + scanned;
+        found = true;
+        // A cons cell has no header and both its words are slots: it needs no parse (the commonest cell).
+        if (!is_header(object[0])) {
+            object[0] = evacuate(object[0]);
+            object[1] = evacuate(object[1]);
+            scanned += 2;
+            continue;
+        }
+        const std::span<Word> rest{object, area.top_ - scanned};
         const auto cell = parse_cell(rest);
         if (!cell) {
             return found; // Unreachable: copies of verified objects always parse.
         }
         evacuate_slots(rest, *cell);
         scanned += cell->words.size();
-        found = true;
     }
     return found;
 }

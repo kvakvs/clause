@@ -25,9 +25,21 @@ std::span<const Word> LiteralAreas::find(const std::uintptr_t address) const noe
 
 bool LiteralAreas::module(const std::uintptr_t address) const noexcept { return !module_words(address).empty(); }
 
+std::pair<std::uintptr_t, std::uintptr_t> LiteralAreas::module_span() const noexcept {
+    const auto *ranges = current_.load(std::memory_order_acquire);
+    if (!ranges || ranges->empty()) {
+        return {0, 0};
+    }
+    return {ranges->front().begin, ranges->back().end};
+}
+
 std::span<const Word> LiteralAreas::module_words(const std::uintptr_t address) const noexcept {
     const auto *ranges = current_.load(std::memory_order_acquire);
-    if (!ranges || address % sizeof(Word) != 0) {
+    if (!ranges || ranges->empty() || address % sizeof(Word) != 0) {
+        return {};
+    }
+    // Heap words lie outside the span of every module area: two comparisons spare the search (cheap literal tests).
+    if (address < ranges->front().begin || address >= ranges->back().end) {
         return {};
     }
     const auto after = std::ranges::upper_bound(*ranges, address, {}, &Range::begin);

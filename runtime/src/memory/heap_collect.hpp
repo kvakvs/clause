@@ -44,13 +44,14 @@ class Copier final {
     bool copied_external(const void *object) const noexcept;
 
   private:
-    // The copy of a from-space object: the one its forwarding word names, or a new one.
-    Word forward(std::span<Word> from, TermKind kind) noexcept;
+    // Whether an address lies in from-space, remembering its area for the next slots: the area of the previous slot
+    // holds the next one far more often than not, so it is checked first (cached from-space areas).
+    bool in_from_space(std::uintptr_t at) noexcept;
     // Copy one cons cell or boxed object into area and leave a forwarding word behind in from-space.
-    Word copy_cons(std::span<Word> from, HeapArea &area) noexcept;
-    Word copy_boxed(std::span<Word> from, HeapArea &area) noexcept;
+    Word copy_cons(Word *from, HeapArea &area) noexcept;
+    Word copy_boxed(Word *from, HeapArea &area) noexcept;
     // The area a from-space object goes to: the old area for a promoted one, else the new block.
-    HeapArea &target(std::span<const Word> from) noexcept;
+    HeapArea &target(const Word *from) noexcept;
     // Evacuate the term slots of every object copied into area from scanned on; true when it found any.
     bool scan(HeapArea &area, std::size_t &scanned) noexcept;
     // Evacuate the term slots of one copied object starting at the first word of object.
@@ -66,6 +67,8 @@ class Copier final {
     Generation generation_;
     // The new heap block; copies are appended at its top.
     HeapArea to_;
+    // The used words of the from-space area the last evacuated slot pointed into (cached from-space areas).
+    std::span<Word> from_area_;
     // The young words below the high-water mark, promoted by a minor collection, and the old area's top before it.
     std::span<const Word> mature_;
     std::size_t old_start_ = 0;

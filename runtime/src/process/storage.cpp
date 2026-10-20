@@ -22,11 +22,14 @@ void Mailbox::skip() noexcept {
     }
 }
 
-void Mailbox::take() noexcept {
+std::optional<Word> Mailbox::take() noexcept {
+    std::optional<Word> taken;
     if (position_ != queue_.end()) {
+        taken = *position_;
         queue_.erase(position_);
     }
     restart();
+    return taken;
 }
 
 void Mailbox::restart() noexcept {

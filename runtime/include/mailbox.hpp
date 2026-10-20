@@ -26,8 +26,9 @@ class Mailbox final {
     std::optional<Word> peek() noexcept;
     // Leave the examined message in place and move on to the next one.
     void skip() noexcept;
-    // Remove the examined message, which a receive clause matched, and start the next receive at the oldest message.
-    void take() noexcept;
+    // Remove the examined message, which a receive clause matched, and start the next receive at the oldest message;
+    // the removed message, none when every message was examined.
+    std::optional<Word> take() noexcept;
     // Start the next receive at the oldest message, as a receive that timed out does.
     void restart() noexcept;
 

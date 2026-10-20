@@ -163,6 +163,9 @@ class ProcessHeap final {
     bool wants_collection() const noexcept;
     // Ask for a collection at the next safepoint (garbage_collect/0,1,2, step 41G1).
     void request_collection() noexcept;
+    // Note that a receive took a message from the mailbox: an adopted one now counts toward a collection (received
+    // hand-off counts).
+    void received(Word message) noexcept;
     // Ask for a full sweep at the next safepoint that also copies the retiring persistent terms this process holds
     // into its heap (persistent term reclamation).
     void request_evacuation() noexcept;
