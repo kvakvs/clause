@@ -401,3 +401,9 @@ gotchas and user directions not recorded elsewhere.
   MSVC: one std::string::append of tag+value (5 bytes) measured 2x slower
   than push_back + append(4). VSDiagnostics rejects an empty /launchArgs.
   Python edits of UTF-8 files on Windows need encoding="utf-8" (em dashes).
+- OPT3.6 (2026-10-20): the VS collector's sc.user_aux.etl carries stacks:
+  `xperf -i <etl> -o s.html -symbols -a stack -butterfly` gives inclusive
+  callers/callees per function (HTML; one <tbody> per function, rows marked
+  --> callee / <-- caller); this found the growth path's page faults under
+  memset/memcpy. Appendable capacities are powers of two so freed buffers
+  are reused exactly (off_heap.cpp BufferCache, thread_local like heap_blocks).

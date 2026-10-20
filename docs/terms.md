@@ -157,15 +157,17 @@ in [abi.md](abi.md#terms).
   Generated code builds small constant-width constructions inline
   ([frames and transfers](abi.md#frames-and-transfers)).
 - Appends, as OTP's writable binaries: a construction starting with a whole
-  binary (`<<Acc/binary, ...>>`) builds its result in a buffer with spare room
-  (twice its size, at least 256 bytes) whose off-heap cell in the creating
-  process records its bits in use and capacity (zero in every other cell, copies
-  included). A later append whose accumulator view ends exactly there writes the
-  new bytes into the spare room, which no view covers, and returns a longer view
-  of the same buffer: a sub-binary of the buffer's own off-heap cell, which may
-  reach past that cell's bits. Any other accumulator (an older view, another
-  process's, an unaligned one, a full buffer) is copied into a new doubled
-  buffer. Other views of the buffer never change.
+  binary (`<<Acc/binary, ...>>`) of more than 64 bytes builds its result in a
+  buffer with spare room (its size rounded up to a power of two, at least 256
+  bytes) whose off-heap cell in the creating process records its bits in use and
+  capacity (zero in every other cell, copies included). A later append whose
+  accumulator view ends exactly there writes the new bytes into the spare room,
+  which no view covers, and returns a longer view of the same buffer: a
+  sub-binary of the buffer's own off-heap cell, which may reach past that cell's
+  bits. Any other accumulator (an older view, another process's, an unaligned
+  one, a full buffer) is copied once into a new buffer, which at least doubles a
+  full one. Other views of the buffer never change. Freed buffers are reused
+  ([buffer reuse](runtime-heap.md#buffer-reuse)).
 - Float segments: widths 16/32/64; construction may encode infinity, but
   matching rejects infinite/NaN fields. Zero-width float matches extract `0.0`.
 - UTF-8/16/32 segments validate scalars, surrogates and truncation.

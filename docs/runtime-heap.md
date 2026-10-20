@@ -77,6 +77,17 @@ process heap, shared by reference count (BEAM ProcBin and `Binary`).
 - `std::shared_ptr` is two pointers on every supported STL; a `static_assert`
   keeps the cell size fixed at eight words after the header on both widths.
 
+### Buffer reuse
+
+A freed buffer of a power-of-two size of at least 256 bytes (the capacities of
+appendable binaries) stays with the thread that dropped its last reference, for
+that thread's next buffer of exactly that size (OPT3.6, like
+[heap blocks](#heap-blocks)). Each thread keeps at most 32 buffers and 8 MB;
+the cache is freed when the thread ends. A reused buffer's bytes after the new
+binary's own are left as they were: no view covers them. Without this, binary
+append loops took fresh pages for every grown buffer (the C++ heap returns the
+pages of large freed blocks) and zeroed the spare room of each.
+
 ### Handle references
 
 A handle reference is a reference that also holds one off-heap buffer, as an OTP

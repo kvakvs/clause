@@ -560,6 +560,10 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   per-call buffers: stacks and encoded bytes are now per-thread scratch kept
   between calls, small integers skip the item path; isolated kernel 3.43 to
   2.26 s (OTP 2.38), 69A term_to_binary 1.50x — `f241c6f7`
+- **OPT3.6** binary append growth: every whole-byte accumulator takes the word
+  path, a grown buffer copies its bytes once (power-of-two capacities, no
+  zeroed copy), freed buffers are reused per thread (no page faults);
+  binary_append 1.61x (1359 to 845 ms, OTP ~1080 in the 69A history) — `HASH`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576

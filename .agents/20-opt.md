@@ -5,7 +5,7 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
-OPT1.4, OPT1.7, OPT1.8, OPT3.1-3.3, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path,
+OPT1.4, OPT1.7, OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path,
 read-ahead lines of OPT3.4, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
 
@@ -162,9 +162,6 @@ each kernel before building (see [Profiling on Windows](#profiling-on-windows)).
     immediates inline. One worker 159 to 104 ms (OTP 129); 32 workers 22 ms
     (OTP 22), 8 workers 17.5 ms (OTP 29).
   - Later: picks and slice ends under a per-process lock (full ERTS model).
-- **OPT3.6 binary_append (3.6x):** `<<Bin/binary, N:32>>` 10,000 times: one
-  service call per append on the appendable buffer, and collections of the
-  growing binary.
 - **term_to_binary remainder** (after OPT3.5E, isolated kernel 2.26 s against
   OTP 2.38): kernel page faults are still ~13% of samples (the off-heap result
   binary and the decoded term's heap fragments each call); the codec itself
@@ -456,7 +453,7 @@ and every read to inline (static decisions only).
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact:
-   OPT3.6, OPT3.8.
+   OPT3.8.
 
 **Gate for every item:**
 

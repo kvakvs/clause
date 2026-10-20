@@ -32,12 +32,19 @@ struct BitAccess {
     static TermResult<Term> slice(ProcessHeap &heap, const Term &source, std::size_t offset, std::size_t count);
     // The binary `accumulator` followed by `rest` (OPT0.6): written in place, as a sub-binary of the buffer's refc
     // cell, when the accumulator is this process's appendable view (or a sub-binary of one) ending at its buffer's
-    // used bits and the spare bytes suffice; none when it is not such a view.
+    // used bits and the spare bytes suffice; otherwise copied into an inline binary or a new appendable buffer. None
+    // when the accumulator is no binary of whole bytes.
     static std::optional<TermResult<Term>> append(ProcessHeap &heap, const Term &accumulator, const BitWriter &rest);
-    // Publish constructed bits as an appendable binary: a buffer with spare room, registered for appends (OPT0.6).
-    static TermResult<Term> appendable(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count);
 
   private:
+    // The binary `accumulator` followed by `rest` copied into a new inline binary or appendable buffer; none when the
+    // accumulator is no binary of whole bytes (binary append growth).
+    static std::optional<TermResult<Term>> append_copy(ProcessHeap &heap, const Term &accumulator,
+                                                       const BitWriter &rest);
+    // Publish `head` bytes then `tail` (`count` bits in all) as an appendable binary: a buffer with spare room,
+    // registered for appends (OPT0.6); each byte is copied once (binary append growth).
+    static TermResult<Term> appendable(ProcessHeap &heap, std::span<const std::byte> head,
+                                       std::span<const std::byte> tail, std::size_t count);
     // Publish an inline binary: header, bit length, then the data bytes rounded up to words.
     static TermResult<Term> heap_binary(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count);
     // Copy the bits into a new buffer charged to this process, then publish a view of all of it.

@@ -4,6 +4,7 @@
 #include "term_layout.hpp"
 #include "terms.hpp"
 #include <algorithm>
+#include <bit>
 #include <limits>
 #include <new>
 #include <optional>
@@ -56,6 +57,15 @@ std::optional<AppendSource> append_source(const Term &accumulator) {
     }
     auto *cell = refc_cell(inner->words);
     return AppendSource{sub.original_, cell, cell->offset_ + sub.offset_, sub.bits_};
+}
+
+// Whether `bits` more can be written after the accumulator in place: it ends at its buffer's bits in use, on byte
+// boundaries, and the spare room suffices (OPT0.6).
+bool in_place(const AppendSource &source, std::size_t bits) {
+    const auto &cell = *source.cell;
+    const auto end = source.start + source.bits;
+    return cell.append_end_ != 0 && cell.append_end_ == end && end % 8 == 0 && source.start % 8 == 0 &&
+           end + bits <= cell.append_limit_;
 }
 
 // Zero the bits after the last valid one so equal values carry equal padding.
@@ -160,13 +170,16 @@ TermResult<Term> BitAccess::owned(ProcessHeap &heap, std::vector<std::byte> &&by
     return refc_binary(heap, std::move(*buffer), {0, count});
 }
 
-TermResult<Term> BitAccess::appendable(ProcessHeap &heap, std::span<const std::byte> bytes, std::size_t count) {
+TermResult<Term> BitAccess::appendable(ProcessHeap &heap, std::span<const std::byte> head,
+                                       std::span<const std::byte> tail, std::size_t count) {
     const auto size = (count + 7) / 8;
-    // Double the room each time, so a loop of appends copies each byte a constant number of times.
-    auto buffer = make_buffer(*heap.storage_, bytes.first(size), std::max<std::size_t>(2 * size, 256));
+    // A power of two at least doubles the room each time a full buffer grows, so a loop of appends copies each byte
+    // a constant number of times, and freed buffers fit later ones exactly (buffer reuse).
+    auto buffer = make_buffer(*heap.storage_, head, std::bit_ceil(std::max<std::size_t>(size, 256)));
     if (!buffer) {
         return std::unexpected(heap_error(buffer.error()));
     }
+    std::ranges::copy(tail.first(size - head.size()), (*buffer)->begin() + static_cast<std::ptrdiff_t>(head.size()));
     clear_padding(**buffer, count);
     const auto limit = (*buffer)->size() * 8;
     auto made = refc_binary(heap, std::move(*buffer), {0, count});
@@ -180,34 +193,42 @@ TermResult<Term> BitAccess::appendable(ProcessHeap &heap, std::span<const std::b
 
 std::optional<TermResult<Term>> BitAccess::append(ProcessHeap &heap, const Term &accumulator, const BitWriter &rest) {
     const auto source = append_source(accumulator);
-    if (!source) {
-        return std::nullopt;
+    if (!source || !in_place(*source, rest.length)) {
+        return append_copy(heap, accumulator, rest);
     }
     auto &cell = *source->cell;
     const auto end = source->start + source->bits;
-    if (cell.append_end_ == 0 || cell.append_end_ != end || end % 8 != 0 || source->start % 8 != 0) {
-        return std::nullopt;
-    }
-    const auto total = source->bits + rest.length;
-    if (end + rest.length > cell.append_limit_) {
-        BitWriter joined;
-        joined.bytes.assign(cell.buffer_->begin() + static_cast<std::ptrdiff_t>(source->start / 8),
-                            cell.buffer_->begin() + static_cast<std::ptrdiff_t>(end / 8));
-        joined.length = source->bits;
-        if (const auto added = joined.append({{rest.bytes.data(), rest.bytes.size()}, 0, rest.length}); !added) {
-            return std::unexpected(added.error());
-        }
-        return appendable(heap, {joined.bytes.data(), joined.bytes.size()}, joined.length);
-    }
     // The bytes past `end` belong to no view, so writing them changes no term. The result is a sub-binary of the
     // buffer's refc cell: no buffer reference or off-heap cell per append.
     auto *spare = const_cast<std::byte *>(cell.buffer_->data()) + end / 8;
     std::ranges::copy(std::span(rest.bytes.data(), (rest.length + 7) / 8), spare);
-    auto made = sub_binary(heap, source->original, {source->start - cell.offset_, total});
+    auto made = sub_binary(heap, source->original, {source->start - cell.offset_, source->bits + rest.length});
     if (made) {
         cell.append_end_ = end + rest.length;
     }
     return made;
+}
+
+std::optional<TermResult<Term>> BitAccess::append_copy(ProcessHeap &heap, const Term &accumulator,
+                                                       const BitWriter &rest) {
+    const auto view = bit_view(accumulator);
+    if (!view || view->length % 8 != 0) {
+        return std::nullopt;
+    }
+    const auto count = view->length + rest.length;
+    const std::span tail(rest.bytes.data(), rest.bytes.size());
+    if (view->offset % 8 == 0 && (count + 7) / 8 > layout::heap_binary_bytes) {
+        return appendable(heap, view->bytes.subspan(view->offset / 8, view->length / 8), tail, count);
+    }
+    BitWriter joined;
+    if (const auto added = joined.append(*view).and_then([&] { return joined.append({tail, 0, rest.length}); });
+        !added) {
+        return std::unexpected(added.error());
+    }
+    if (joined.bytes.size() > layout::heap_binary_bytes) {
+        return appendable(heap, {joined.bytes.data(), joined.bytes.size()}, {}, count);
+    }
+    return heap_binary(heap, joined.bytes, count);
 }
 
 TermResult<Term> BitAccess::slice(ProcessHeap &heap, const Term &source, std::size_t offset, std::size_t count) {

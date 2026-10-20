@@ -192,7 +192,8 @@ test need no OTP (`docs/validation.md`).
 - Maps > 32 entries are persistent B+ trees (`map_tree`, fanout 16, path
   copying, edit tokens until the next collection).
 - Bitstrings: MSB-first, small inline cells, large refc buffers, 3-word
-  `sub_binary` over a never-nested original, appendable buffers grow in place.
+  `sub_binary` over a never-nested original, appendable buffers grow in place;
+  freed power-of-two buffers are reused per thread (`off_heap`).
 - Order numbers < atoms < refs < funs < ports < pids < tuples < maps < lists <
   bitstrings, iterative (`word_order`). `format_term` prints `~w` iteratively
   under a byte cap.

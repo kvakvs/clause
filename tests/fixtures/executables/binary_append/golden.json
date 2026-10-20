@@ -6,7 +6,7 @@
       "args": [],
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "long 20000 2546448\nviews 1 1 2 <<1,3,4>> <<1,5>>\nsent 7 8 true 201\ncollected 1000 125060 <<\"ôóò\">>\nbits 3005 73008\nslice 304 <<148,147,146,145,116,97,105,108>>\nmatch 8223 1\nbinary_append: ok\n"
+      "stdout": "long 20000 2546448\nviews 1 1 2 <<1,3,4>> <<1,5>>\nsent 7 8 true 201\ncollected 1000 125060 <<\"ôóò\">>\nbits 3005 73008\nslice 304 <<148,147,146,145,116,97,105,108>>\nmatch 8223 1\nreuse {0,true,40003}\nbinary_append: ok\n"
     }
   ],
   "oracle_version": [
@@ -18,6 +18,6 @@
     "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
   },
   "inputs": {
-    "binary_append.erl": "301eb4dbd6470a2612603659574e899d301d0b268b9052a1df602eab36ed7c32"
+    "binary_append.erl": "43e7494d2470f302e07c3e835c062e3620f76ad8e91439d9bf9c572aa7adab45"
   }
 }

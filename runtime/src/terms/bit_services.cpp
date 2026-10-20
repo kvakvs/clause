@@ -138,9 +138,7 @@ TermResult<BitExtract> make(ProcessContext &context, std::span<const Term> value
     if (values.size() % 3 != 0) {
         return std::unexpected(TermError::invalid_encoding);
     }
-    const bool accumulator = accumulates(values);
-    BitWriter writer;
-    if (accumulator) {
+    if (accumulates(values)) {
         BitWriter rest;
         if (const auto built = construct_all(rest, values.subspan(3)); !built) {
             return std::unexpected(built.error());
@@ -149,12 +147,9 @@ TermResult<BitExtract> make(ProcessContext &context, std::span<const Term> value
             return extract(std::move(*appended));
         }
     }
+    BitWriter writer;
     if (const auto built = construct_all(writer, values); !built) {
         return std::unexpected(built.error());
-    }
-    if (accumulator && writer.bytes.size() > layout::heap_binary_bytes) {
-        return extract(
-            BitAccess::appendable(context.heap(), {writer.bytes.data(), writer.bytes.size()}, writer.length));
     }
     return BitAccess::make(context.heap(), writer.bytes, writer.length).transform([&](Term value) {
         return BitExtract{value, writer.length};
