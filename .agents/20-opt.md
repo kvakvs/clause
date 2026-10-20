@@ -157,8 +157,20 @@ each kernel before building (see [Profiling on Windows](#profiling-on-windows)).
     (OTP 22), 8 workers 25 ms (OTP 29).
   - **C (done):** run-queue lock; plain spawns skip the executor mutex.
     Remaining at 32 workers: children's collections ~53% of CPU, locks ~9%.
-  - **D:** faster collection per word for the children (`Copier::evacuate`,
-    `parse_cell`), also the 69A collection kernels.
+  - **D (done):** collector scans read slot layouts from a per-kind table
+    instead of `parse_cell`, copy small objects without `memmove`, and test
+    immediates inline. One worker 159 to 104 ms (OTP 129); 32 workers 22 ms
+    (OTP 22), 8 workers 17.5 ms (OTP 29).
+  - **E: term_to_binary after OPT3.5** (2026-10-20, investigated, not acted
+    on): the 69A A/B showed dataproc.term_to_binary at 0.90x of 662e5c1b.
+    Interleaved reruns put the medians at base ~1752, C ~1715, D ~1777 ms per
+    4300 calls; the kernel alone (8000 round trips of the 69A term in one
+    process) took base 3265-3436 against D 3349-3588 ms, C equal to D, and
+    one run of each fell to ~2.6 s: a bimodal kernel, at most ~2% slower after
+    D, within noise. Next: profile base and D side by side on the isolated
+    kernel (scratch `tb.erl`), check the two modes for heap sizing or binary
+    pressure differences (collections per round, block sizes), and the
+    small-object copy loop's branch for larger objects in copy_boxed.
   - Later: picks and slice ends under a per-process lock (full ERTS model).
 - **OPT3.6 binary_append (3.6x):** `<<Bin/binary, N:32>>` 10,000 times: one
   service call per append on the appendable buffer, and collections of the

@@ -36,14 +36,22 @@ class Copier final {
     // the capacity must leave room for all of their words (persistent term reclamation).
     Copier(HeapStorage &storage, std::size_t capacity, Generation generation = Generation::full,
            const RetiringRanges *retiring = nullptr);
+
     // Return the word naming the to-space copy of value's object, copying it once; other words come back unchanged.
-    Word evacuate(Word value) noexcept;
+    // Immediates, most slots, are told apart inline (collector cell shapes).
+    Word evacuate(Word value) noexcept {
+        const auto primary = value & static_cast<Word>(abi::v1::primary_mask);
+        return primary == abi::v1::list_tag || primary == abi::v1::boxed_tag ? evacuate_pointer(value) : value;
+    }
+
     // Copy everything reachable from the copies, sweep the off-heap list, and replace the heap and fragments.
     void finish() noexcept;
     // Whether the collection copied the persistent term object at `object` (persistent term reclamation).
     bool copied_external(const void *object) const noexcept;
 
   private:
+    // evacuate() of a list or boxed pointer.
+    Word evacuate_pointer(Word value) noexcept;
     // Whether an address lies in from-space, remembering its area for the next slots: the area of the previous slot
     // holds the next one far more often than not, so it is checked first (cached from-space areas).
     bool in_from_space(std::uintptr_t at) noexcept;
@@ -54,8 +62,6 @@ class Copier final {
     HeapArea &target(const Word *from) noexcept;
     // Evacuate the term slots of every object copied into area from scanned on; true when it found any.
     bool scan(HeapArea &area, std::size_t &scanned) noexcept;
-    // Evacuate the term slots of one copied object starting at the first word of object.
-    void evacuate_slots(std::span<Word> object, const HeapCell &cell) noexcept;
     // Copy an object of a retiring persistent term into the new block once, leaving the shared original untouched.
     Word copy_external(Word value) noexcept;
     // The forwarding slot of a retiring object: the one holding its address and copy, or the empty one to fill.

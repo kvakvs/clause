@@ -22,6 +22,28 @@ std::uintptr_t address(Word value) {
 Word tagged(const Word *object, TermKindPrimary primary) {
     return reinterpret_cast<Word>(object) | static_cast<Word>(primary);
 }
+
+// Objects up to this many words are copied without a library call (collector cell shapes).
+constexpr std::size_t SMALL_OBJECT_WORDS = 4;
+
+// The payload words before the term slots of a boxed object of `kind`, or all `payload` words when it holds no terms.
+// The collector's copies are of verified objects, so no size is checked again (collector cell shapes).
+std::size_t untraced_words(BoxedKind kind, std::size_t payload) noexcept {
+    switch (kind) {
+    case BoxedKind::tuple:
+    case BoxedKind::map:
+        return 0;
+    case BoxedKind::native_record:
+    case BoxedKind::fun_closure:
+        return 1;
+    case BoxedKind::sub_binary:
+    case BoxedKind::tree_map:
+    case BoxedKind::map_node:
+        return 2;
+    default:
+        return payload;
+    }
+}
 } // namespace
 
 std::size_t heap_size_at_least(std::size_t words) noexcept {
@@ -90,11 +112,8 @@ Copier::Copier(HeapStorage &storage, std::size_t capacity, Generation generation
     old_start_ = storage_.old_.top_;
 }
 
-Word Copier::evacuate(Word value) noexcept {
+Word Copier::evacuate_pointer(Word value) noexcept {
     const auto primary = value & static_cast<Word>(abi::v1::primary_mask);
-    if (primary != abi::v1::list_tag && primary != abi::v1::boxed_tag) {
-        return value;
-    }
     const auto at = address(value);
     if (!in_from_space(at)) {
         return retiring_ != nullptr && retiring_->contains(at) ? copy_external(value) : value;
@@ -145,6 +164,13 @@ Word Copier::copy_boxed(Word *from, HeapArea &area) noexcept {
     if (layout::off_heap_cell(from[0])) {
         relocate_off_heap(*reinterpret_cast<layout::RefcBinaryCell *>(from),
                           reinterpret_cast<std::byte *>(copy.data()));
+    } else if (size <= SMALL_OBJECT_WORDS) {
+        // Small objects (tuples of a few elements, floats) are copied word by word, without a library call.
+        for (std::size_t index = 0; index < SMALL_OBJECT_WORDS; ++index) {
+            if (index < size) {
+                copy[index] = from[index];
+            }
+        }
     } else {
         std::copy_n(from, size, copy.begin());
     }
@@ -208,25 +234,14 @@ bool Copier::scan(HeapArea &area, std::size_t &scanned) noexcept {
             scanned += 2;
             continue;
         }
-        const std::span<Word> rest{object, area.top_ - scanned};
-        const auto cell = parse_cell(rest);
-        if (!cell) {
-            return found; // Unreachable: copies of verified objects always parse.
+        // A boxed object's slots follow its untraced words; the all-zero word is a one-word filler.
+        const auto payload = BoxHeader::count(object[0]);
+        for (auto index = 1 + untraced_words(BoxHeader::kind(object[0]), payload); index <= payload; ++index) {
+            object[index] = evacuate(object[index]);
         }
-        evacuate_slots(rest, *cell);
-        scanned += cell->words.size();
+        scanned += 1 + payload;
     }
     return found;
-}
-
-void Copier::evacuate_slots(std::span<Word> object, const HeapCell &cell) noexcept {
-    if (cell.slots.empty()) {
-        return;
-    }
-    const auto first = static_cast<std::size_t>(cell.slots.data() - cell.words.data());
-    for (auto &slot : object.subspan(first, cell.slots.size())) {
-        slot = evacuate(slot);
-    }
 }
 
 void Copier::finish() noexcept {

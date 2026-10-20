@@ -511,8 +511,11 @@ A Cheney copy (`memory/heap_collect`), a full sweep or a minor collection
 (failure is `out_of_memory` and leaves the heap untouched), then copy the
 object behind every root word and scan the new block left to right, copying
 the children of each copy. A slot is first checked against the from-space area
-of the previous slot (one range test), and cons cells are scanned without a
-parse. A moved boxed object's header
+of the previous slot (one range test), and immediates are told apart inline.
+Cons cells are scanned without a parse, and a boxed copy's slots are found from
+its header's kind alone (a per-kind count of untraced words, no size checks:
+the copies are of verified objects); objects of up to four words are copied
+word by word. A moved boxed object's header
 is replaced by a boxed pointer to its copy; a moved cons cell gets a zero head
 and a tail pointing to its copy. Forwarding preserves sharing. Roots are
 rewritten in place, the off-heap list is swept (copies relinked in list order,
