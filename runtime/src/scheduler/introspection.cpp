@@ -20,10 +20,8 @@ Executor::Counts Executor::counts(ProcessContext &context) noexcept {
 
 std::size_t Executor::set_min_heap_words(ProcessContext &context, std::size_t words) {
     auto &executor = of(context);
-    const std::scoped_lock lock(executor.mutex_);
-    const auto previous = executor.min_heap_words_.value_or(context.heap().default_min_heap_words());
-    executor.min_heap_words_ = detail::heap_size_at_least(words);
-    return previous;
+    const auto previous = executor.min_heap_words_.exchange(detail::heap_size_at_least(words));
+    return previous != 0 ? previous : context.heap().default_min_heap_words();
 }
 
 std::vector<Word> Executor::pids(ProcessContext &context) {

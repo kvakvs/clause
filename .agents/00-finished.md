@@ -535,6 +535,10 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   once received (as ERTS); large_message 3.5x (1.08x of OTP), sort 1.7x,
   list_of_tuples 1.7x, string_build 1.8x, gc kernels 1.3-1.8x, geomean of 22
   kernels 1.26x — `5c836ba7`
+- **OPT3.5A** spawns build and load the child outside the executor lock (it is
+  only published and queued under it); ended contexts are freed after the lock;
+  short_processes at 8 workers 42 to 36 ms per 5000 spawns, 32 workers
+  unchanged (lock traffic, see OPT3.5B-C) — (hash in next commit)
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576

@@ -144,10 +144,26 @@ each kernel before building (see [Profiling on Windows](#profiling-on-windows)).
   and large_write's are heaps left by earlier kernels. read_line is
   still 41 against 29 ms per 20,000 lines: the I/O server round trip (monitor,
   send, receive, demonitor) per line.
-- **OPT3.5 process creation and teardown (short_processes 3.6x):** the OPT0.24 /
-  OPT0.25 follow-up: context, heap block and stack setup per spawn, the exit
-  path, and the executor lock (queues still share one executor mutex, so a
-  scheduler without one global lock).
+- **OPT3.5 process creation and teardown (short_processes 2.5x):** profiled
+  2026-10-20 (5000 spawns per round): the parent's spawn loop is ~90% of a
+  round on both systems. One worker: Clause 159 ms against OTP 129; 32
+  workers: Clause ~52 ms against OTP ~22, and Clause is best at 8 workers
+  (36 ms). Lock timing at 32 workers: spawn waits 7 us and holds 1.75 us per
+  spawn; the executor mutex is busy ~56% of the run. Each child's own cost is
+  GC (7 collections, ~10k words copied, 65-70% of one-worker CPU).
+  - **A (done):** spawns build and load the child outside the lock; ended
+    contexts are freed after it. 8 workers 42 to 36 ms; 32 unchanged.
+  - **B:** sends without the global lock: every message from another process
+    goes into a buffer on the receiver's per-process inbox (own small lock,
+    pid table sharded with its own locks); the receiver drains it at receive
+    waits and before its slice-end lock; deliveries under the global lock drain
+    it first (per-sender order); parking checks it under the inbox lock.
+  - **C:** spawn and queueing without the global lock: per-queue locks and
+    condvars, `Schedule` stored with the process (no `schedules_` map); picks
+    stay under the global lock (it guards non-running heaps).
+  - **D:** faster collection per word for the children (`Copier::evacuate`,
+    `parse_cell`), also the 69A collection kernels.
+  - Later: picks and slice ends under a per-process lock (full ERTS model).
 - **OPT3.6 binary_append (3.6x):** `<<Bin/binary, N:32>>` 10,000 times: one
   service call per append on the appendable buffer, and collections of the
   growing binary.

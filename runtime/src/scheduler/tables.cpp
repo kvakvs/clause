@@ -56,13 +56,23 @@ void Executor::release_tables(ProcessContext &process) {
 }
 
 void Executor::free_retired(std::unique_lock<std::mutex> &lock) {
-    if (retired_tables_.empty()) {
+    if (retired_tables_.empty() && retired_contexts_.empty()) {
         return;
     }
-    auto retired = std::exchange(retired_tables_, {});
+    auto tables = std::exchange(retired_tables_, {});
+    auto contexts = std::exchange(retired_contexts_, {});
     lock.unlock();
-    retired.clear();
+    tables.clear();
+    for (auto &context : contexts) {
+        auto &runtime = context->runtime();
+        runtime.free_context(std::move(context));
+    }
+    contexts.clear();
     lock.lock();
+    // The list keeps its capacity, so ending processes do not allocate it again.
+    if (retired_contexts_.empty()) {
+        retired_contexts_.swap(contexts);
+    }
 }
 
 void Executor::announce(ProcessContext &heir, const TermResult<Term> &message, ProcessContext &owner) {

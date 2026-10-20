@@ -21,9 +21,10 @@ the first process, the main process, and runs the executor until it ends:
 - Each process owns its heap and stack. Arguments of a new process are copied
   into its heap
   ([copying between heaps](runtime-heap.md#copying-between-heaps)).
-- A process ends when its first call returns or raises. An ended process's
-  context, heap and stack are released at once; its pid stays a valid term and
-  `is_process_alive/1` returns false for it.
+- A process ends when its first call returns or raises. An ended process
+  leaves the process table at once; its pid stays a valid term and
+  `is_process_alive/1` returns false for it. Its context, heap and stack are
+  freed once the worker that ended it leaves the executor mutex.
 - A process waiting in a `receive` is in no queue; a send to it queues it again
   ([receive](#receive)).
 - When the main process ends, the program ends with its outcome
@@ -70,6 +71,9 @@ per logical processor, as OTP's `+S`.
   the registered names, the links and monitors of every process, and every
   process that is not running. A running process's heap, stack, mailbox and
   failure channel belong to its worker alone; Erlang code runs without the lock.
+  A spawn builds the new process's context and copies its call into it before
+  taking the lock, which then only publishes and queues it; ended processes'
+  contexts are freed after it (process creation and teardown).
 - Links, monitors and names change under the lock at once, also for a process
   running elsewhere. A message to a process running on another worker cannot go
   into its heap yet: it is copied into a buffer of its own and delivered, after

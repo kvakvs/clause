@@ -15,6 +15,15 @@ std::expected<ProcessContext *, Status> Runtime::create_context() noexcept {
 
 std::expected<ProcessContext *, Status> Runtime::create_context(const HeapOptions options,
                                                                 const StackOptions stack_options) noexcept {
+    auto built = build_context(options, stack_options);
+    if (!built) {
+        return std::unexpected(built.error());
+    }
+    return publish_context(std::move(*built));
+}
+
+std::expected<std::unique_ptr<ProcessContext>, Status>
+Runtime::build_context(const HeapOptions options, const StackOptions stack_options) noexcept {
     if (!impl_) {
         return std::unexpected(Status::stopped);
     }
@@ -31,20 +40,13 @@ std::expected<ProcessContext *, Status> Runtime::create_context(const HeapOption
         auto context = std::unique_ptr<ProcessContext>(
             new ProcessContext(*this, ProcessIdentity({impl_->identity}, *number), options, stack_options,
                                impl_->memory, impl_->identity_numbers));
-        auto *borrowed = context.get();
         if (impl_->profile) {
-            borrowed->stack().enable_profile();
+            context->stack().enable_profile();
         }
-        const auto process = impl_->processes.emplace(static_cast<Word>(*number), borrowed).first;
-        try {
-            impl_->persistent_terms.enter(*borrowed);
-            impl_->contexts.emplace(borrowed, std::move(context));
-        } catch (...) {
-            impl_->persistent_terms.leave(*borrowed);
-            impl_->processes.erase(process);
-            throw;
-        }
-        return borrowed;
+        // Registered before anything is copied into its heap, so a later retirement counts it (persistent term
+        // reclamation).
+        impl_->persistent_terms.enter(*context);
+        return context;
     } catch (const std::bad_alloc &) {
         return std::unexpected(Status::out_of_memory);
     } catch (const std::length_error &) {
@@ -52,6 +54,43 @@ std::expected<ProcessContext *, Status> Runtime::create_context(const HeapOption
     } catch (...) {
         return std::unexpected(Status::internal_error);
     }
+}
+
+std::expected<ProcessContext *, Status> Runtime::publish_context(std::unique_ptr<ProcessContext> context) noexcept {
+    auto *borrowed = context.get();
+    try {
+        const auto process = impl_->processes.emplace(static_cast<Word>(borrowed->identity().serial_), borrowed).first;
+        try {
+            // The owner moves in only once the entry exists, so a failed insertion leaves it here.
+            impl_->contexts.emplace(borrowed, nullptr).first->second = std::move(context);
+        } catch (...) {
+            impl_->processes.erase(process);
+            throw;
+        }
+        return borrowed;
+    } catch (const std::bad_alloc &) {
+        free_context(std::move(context));
+        return std::unexpected(Status::out_of_memory);
+    } catch (...) {
+        free_context(std::move(context));
+        return std::unexpected(Status::internal_error);
+    }
+}
+
+std::unique_ptr<ProcessContext> Runtime::unpublish_context(ProcessContext &context) const noexcept {
+    const auto found = impl_->contexts.find(&context);
+    auto owner = std::move(found->second);
+    impl_->contexts.erase(found);
+    impl_->processes.erase(static_cast<Word>(context.identity().serial_));
+    if (impl_->profile && context.stack().profile()) {
+        impl_->profile->add(static_cast<Word>(context.identity().serial_), *context.stack().profile());
+    }
+    return owner;
+}
+
+void Runtime::free_context(std::unique_ptr<ProcessContext> context) const noexcept {
+    impl_->persistent_terms.leave(*context);
+    context.reset();
 }
 
 Status Runtime::destroy_context(ProcessContext *context) const noexcept {
@@ -69,12 +108,7 @@ Status Runtime::destroy_context(ProcessContext *context) const noexcept {
     if (!removed && removed.error() != SchedulerError::unknown_process) {
         return Status::busy;
     }
-    impl_->processes.erase(static_cast<Word>(context->identity().serial_));
-    if (impl_->profile && context->stack().profile()) {
-        impl_->profile->add(static_cast<Word>(context->identity().serial_), *context->stack().profile());
-    }
-    impl_->persistent_terms.leave(*context);
-    impl_->contexts.erase(found);
+    free_context(unpublish_context(*context));
     return Status::ok;
 }
 } // namespace clause::runtime

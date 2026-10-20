@@ -101,6 +101,15 @@ class Runtime final {
     // Retain contexts and service reservations independently of the public C++/generated ABI layout.
     class Impl;
     std::unique_ptr<Impl> impl_;
+
+    // A spawn builds its context outside the executor lock and publishes it under the lock; an ended context is
+    // unpublished under the lock and freed after it (process creation and teardown).
+    std::expected<std::unique_ptr<ProcessContext>, abi::v1::Status> build_context(HeapOptions options,
+                                                                                  StackOptions stack_options) noexcept;
+    std::expected<ProcessContext *, abi::v1::Status> publish_context(std::unique_ptr<ProcessContext> context) noexcept;
+    std::unique_ptr<ProcessContext> unpublish_context(ProcessContext &context) const noexcept;
+    // Free a context that is not published: it no longer holds persistent term words.
+    void free_context(std::unique_ptr<ProcessContext> context) const noexcept;
     // Adopt fully constructed state so startup failures unwind before publication.
     explicit Runtime(std::unique_ptr<Impl> impl) noexcept;
 };

@@ -21,6 +21,9 @@ namespace {
 using abi::v1::FrameDescriptor;
 using abi::v1::Status;
 
+// The first capacity of the list of contexts waiting to be freed after the lock (process creation and teardown).
+constexpr std::size_t RETIRED_CONTEXTS = 16;
+
 // The term error of a failed context creation.
 TermError creation_error(Status status) {
     return status == Status::out_of_memory ? TermError::out_of_memory : TermError::resource_limit;
@@ -84,31 +87,36 @@ bool Executor::start(ProcessContext &process, const FrameDescriptor &function) n
 
 template <typename Prepare>
 TermResult<Term> Executor::create(ProcessContext &parent, Prepare prepare, const SpawnOptions &options) noexcept {
-    const std::scoped_lock lock(mutex_);
     auto &runtime = parent.runtime();
-    const auto created = runtime.create_context();
-    if (!created) {
-        return std::unexpected(creation_error(created.error()));
+    // Nothing else reaches the child before it is published, so it is built and loaded outside the lock (process
+    // creation and teardown).
+    auto built = runtime.build_context(runtime_.options.process_heap, runtime_.options.process_stack);
+    if (!built) {
+        return std::unexpected(creation_error(built.error()));
     }
-    auto &child = **created;
-    // A spawned process inherits its parent's group leader (step 41G1).
-    const auto leader = parent.signals().group_leader();
-    child.signals().set_group_leader(leader != 0 ? leader : pid_of(parent));
+    auto &child = **built;
     child.generated_calls().enter();
-    if (const auto words = options.min_heap_words ? options.min_heap_words : min_heap_words_) {
-        child.heap().set_min_heap_words(*words);
+    if (const auto words = options.min_heap_words.value_or(min_heap_words_.load(std::memory_order_relaxed))) {
+        child.heap().set_min_heap_words(words);
     }
     const auto frame = prepare(child);
-    if (!frame) {
-        runtime.destroy_context(&child);
-        return std::unexpected(frame.error());
+    const auto pid = frame ? TermFactory(parent).pid(child.identity()) : std::unexpected(frame.error());
+    if (!pid) {
+        runtime.free_context(std::move(*built));
+        return pid;
     }
     if (*frame) {
         child.stack().start(*static_cast<const FrameDescriptor *>(*frame));
     }
-    const auto pid = TermFactory(parent).pid(child.identity());
+    const std::scoped_lock lock(mutex_);
+    if (const auto published = runtime.publish_context(std::move(*built)); !published) {
+        return std::unexpected(creation_error(published.error()));
+    }
+    // A spawned process inherits its parent's group leader (step 41G1).
+    const auto leader = parent.signals().group_leader();
+    child.signals().set_group_leader(leader != 0 ? leader : pid_of(parent));
     try {
-        auto result = pid ? adopt(parent, child, *pid, options) : pid;
+        auto result = adopt(parent, child, *pid, options);
         if (!result) {
             destroy(child);
         }
@@ -688,7 +696,18 @@ void Executor::destroy(ProcessContext &process) noexcept {
     drop_timers(pid_of(process));
     drop_aliases(pid_of(process));
     schedules_.erase(&process);
-    process.runtime().destroy_context(&process);
+    auto &runtime = process.runtime();
+    auto context = runtime.unpublish_context(process);
+    if (retired_contexts_.size() == retired_contexts_.capacity()) {
+        try {
+            retired_contexts_.reserve(std::max(RETIRED_CONTEXTS, 2 * retired_contexts_.capacity()));
+        } catch (const std::bad_alloc &) {
+            // Freed under the lock instead.
+            runtime.free_context(std::move(context));
+            return;
+        }
+    }
+    retired_contexts_.push_back(std::move(context));
 }
 
 Executor::~Executor() {
@@ -723,6 +742,10 @@ void Executor::clear() noexcept {
     } services;
 
     const std::scoped_lock lock(mutex_);
+    for (auto &context : std::exchange(retired_contexts_, {})) {
+        auto &runtime = context->runtime();
+        runtime.free_context(std::move(context));
+    }
     // The wheel links timers embedded in the schedules: unlink them while the schedules still exist.
     wheel_.clear();
     for (const auto &[process, state] : schedules_) {

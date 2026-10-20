@@ -7,6 +7,7 @@
 #include "../ports/sockets.hpp"
 #include "../ports/value.hpp"
 #include "timer_wheel.hpp"
+#include <atomic>
 #include <chrono>
 #include <clause/abi/frames.hpp>
 #include <clause/runtime/process_context.hpp>
@@ -630,7 +631,8 @@ class Executor final {
     // Release the ETS tables of an ended process: its fixations end, and each table it owned passes to a live heir,
     // told by an 'ETS-TRANSFER' message, or is deleted (plan 21 step LIB10B), its objects freed outside the lock.
     void release_tables(ProcessContext &process);
-    // Free the objects of the tables ended owners left, if any, with the lock released meanwhile (plan 21 step LIB10F).
+    // Free the objects of the tables ended owners left and the contexts of released processes, if any, with the lock
+    // released meanwhile (plan 21 step LIB10F).
     void free_retired(std::unique_lock<std::mutex> &lock);
     // Send a heir the 'ETS-TRANSFER' message built in the ended owner's heap, buffered while the heir runs.
     void announce(ProcessContext &heir, const TermResult<Term> &message, ProcessContext &owner);
@@ -638,7 +640,7 @@ class Executor final {
     void stop(ProcessContext &process);
     // Finish the processes exit signals ended, oldest first.
     void drain();
-    // Release an ended process and forget its schedule.
+    // Release an ended process and forget its schedule; its context is freed once a worker leaves the lock.
     void destroy(ProcessContext &process) noexcept;
     // The live process registered as `name`, or 0.
     Word lookup(ProcessContext &context, Word name) const noexcept;
@@ -652,8 +654,9 @@ class Executor final {
     Runtime::Impl &runtime_;
     // Guards everything below and every process that is not running.
     mutable std::mutex mutex_;
-    // system_flag(min_heap_size, Words) for new processes; none until it is set (plan 21 step LIB9A).
-    std::optional<std::size_t> min_heap_words_;
+    // system_flag(min_heap_size, Words) for new processes; 0 until it is set (plan 21 step LIB9A). Spawns read it
+    // outside the lock (process creation and teardown).
+    std::atomic<std::size_t> min_heap_words_{0};
     // Wakes the timer thread: an earlier timer was armed, or run() ends.
     std::condition_variable timer_signal_;
     // Tick 0 of the wheel.
@@ -707,6 +710,8 @@ class Executor final {
     // The objects of tables deleted with their ended owners, freed by a worker once it leaves the lock (plan 21
     // step LIB10F).
     std::vector<std::unique_ptr<ets::Index>> retired_tables_;
+    // Contexts of released processes, freed the same way (process creation and teardown).
+    std::vector<std::unique_ptr<ProcessContext>> retired_contexts_;
     // The executor ran out of memory while the main process ran elsewhere; it fails when its slice ends.
     bool failed_ = false;
 };
