@@ -155,6 +155,60 @@ building.
     -symbols -a profile -detail` lists weight per function; filter by the exe.
 - **Fallback:** a cdb sampler (`cdb -pv -p PID`, `~* kc 50` per attach) gives
   stacks but only ~1 sample per 1.4 s; run it 90-150 s.
+- **Matching CRT:** the profiling build must use the main build's CRT
+  (`-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+  -DCLAUSE_MSVC_ITERATOR_DEBUG_LEVEL=0`); with /MD the map kernels ran 2x
+  slower.
+
+## Timing on P-cores and E-cores
+
+- The dev host is a hybrid i9-14900KF: 8 P-cores with hyperthreading (logical
+  CPUs 0-15) and 16 E-cores (logical 16-31). Windows may place an unpinned
+  kernel on an E-core, and that alone swings its time up to 2x between runs.
+- Time every before/after and OTP comparison pinned to P-cores, Clause and OTP
+  alike: `cmd /c start "" /b /wait /affinity 5554 kernel.exe` and the same
+  prefix for `erl.exe -noshell -eval ...`. Mask `0x5554` is logical 2, 4, ...,
+  14: one hyperthread on each of P-cores 1-7, leaving core 0 and the sibling
+  threads free.
+- The 69A runs above are unpinned, so their ratios mix core placements; the
+  "pinned" ratios in the table come from kernels run alone with this mask and
+  are the ones to compare steps by. Keep other heavy jobs (builds, CTest, tidy)
+  off the machine while timing.
+
+## OPTM.5 Manual Optimization - Run benchmarks on P-cores only
+
+Do this before any further step: until the 69A run is pinned, its ratios are
+not comparable between runs (see above).
+
+- **Runtime option:** add a program option next to `--schedulers`
+  (`runtime/src/startup/options.cpp`), e.g. `--scheduler-cpus performance|all|
+  <list>` (`0-15`, `2,4,6`), the counterpart of OTP's `+sbt`/`+sct`. The
+  executor (`Executor::run`, `scheduler/executor.cpp`) pins worker `N` to the
+  `N`-th CPU of the set, round-robin when there are more workers.
+  `performance` picks the most efficient class: Windows
+  `GetLogicalProcessorInformationEx(RelationProcessorCore)` `EfficiencyClass`
+  (highest), Linux `/sys/devices/cpu_core/cpus` or the highest `cpu_capacity`;
+  on a non-hybrid CPU it is every CPU. macOS has no thread affinity: accept
+  the option and only raise the workers' QoS class (document it).
+- **Default scheduler count:** `default_schedulers()` uses
+  `hardware_concurrency()`, which ignores the process affinity, so a program
+  started with `/affinity 5554` still runs 32 workers on 7 CPUs. Count the
+  CPUs of the process affinity mask (`GetProcessAffinityMask`,
+  `sched_getaffinity`) and, with `--scheduler-cpus`, of the chosen set. Check
+  OTP's own count under an affinity mask (`erlang:system_info(schedulers)`
+  under `start /affinity`) and note any difference in `docs/differences.md`.
+- **Benchmark runner:** `benchmarks/run.py` already starts each program
+  suspended and puts it into a job object (`ProcessGroup._attach_job`); set
+  `JOB_OBJECT_LIMIT_AFFINITY` to the P-core mask there before resuming, so
+  `erl.exe`, its children and Clause programs get the same CPUs (POSIX:
+  `os.sched_setaffinity` in a `preexec_fn`, or `taskset`). Add
+  `--cpus performance|all|<mask>` defaulting to `performance` (logical 0-15
+  here), and record the mask in the report header. The OS-level mask is the
+  fair part; the runtime option only adds per-worker binding on top.
+- **Done when:** a 69A run with the default `--cpus` repeats within ~5% per
+  kernel on two runs, the table above is replaced by that run, and
+  `docs/executables.md#runtime-options` describes the option. Cover parsing and
+  an unavailable CPU list through a black-box program test.
 
 ## Tier OPT3: runtime gaps of the 69A kernels
 
@@ -474,6 +528,7 @@ and every read to inline (static decisions only).
 
 ## Suggested order for Clause
 
+0. **Measurement:** OPTM.5 (benchmarks on P-cores) before anything below.
 1. **Substrate (tier OPT0):** done (open follow-ups above); it made services
    visible to LLVM and cut the 100–600× kernels.
 2. **Loops:** OPT1.1 and OPT1.2 done; OPT1.3 next.
