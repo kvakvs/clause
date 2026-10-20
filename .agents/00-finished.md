@@ -585,7 +585,7 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   Pinned, 600 sorts of 20,000: integers 1555 to ~535 ms (OTP 1045), 2-tuples
   8450 to ~520 (OTP 549), mixed numbers 3850 to ~610 (OTP 653), atoms 735 to
   ~250 (OTP 373); `small_order` compares signed at the word's width (32-bit
-  negatives) — `[plan20] OPT3.17 ...`
+  negatives) — `09db532a`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
