@@ -555,6 +555,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   short_processes one worker 159 to 104 ms (OTP 129), 32 workers 22 ms (OTP
   22); against 662e5c1b: short_processes 2.37x, explicit_collect 1.78x,
   grow_shrink 1.22x, list_of_tuples 1.21x, sort 1.09x — `eb47dc06`
+- **OPT3.5E** term_to_binary was not slower after OPT3.5D (same profile); its
+  kernel time (18-26% of samples, page faults) came from the codec's large
+  per-call buffers: stacks and encoded bytes are now per-thread scratch kept
+  between calls, small integers skip the item path; isolated kernel 3.43 to
+  2.26 s (OTP 2.38), 69A term_to_binary 1.50x — `f241c6f7`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
