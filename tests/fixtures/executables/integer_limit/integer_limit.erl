@@ -39,8 +39,31 @@ main(["bits"]) ->
     show(match(<<-1:4194240>>) =:= Top);
 main(["extract"]) ->
     show(over(<<-1:4194241>>));
+main(["scale"]) ->
+    Big = 1 bsl id(64),
+    [
+        show(Product)
+     || Product <- [
+            Big * id(3),
+            id(3) * Big,
+            Big * id(-3),
+            id(-3) * -Big,
+            -Big * id(0),
+            (1 bsl id(127)) * id(1 bsl 58),
+            id(1 bsl 40) * id(1 bsl 40),
+            id(-(1 bsl 40)) * id(1 bsl 40),
+            (1 bsl id(59)) * id(-1) =:= -576460752303423488,
+            id(-576460752303423488) * id(-1),
+            factorial(id(100), 1)
+        ]
+    ];
 main(["uncaught"]) ->
     show(top() + id(1)).
+
+%% A bignum times a small factor, both operand orders: 100! ends in zero
+%% limbs, and 2^59 * -1 is the smallest small integer.
+factorial(0, Acc) -> Acc;
+factorial(N, Acc) -> factorial(N - 1, Acc * N).
 
 show(Value) -> erlang:display(Value).
 

@@ -186,7 +186,8 @@ test need no OTP (`docs/validation.md`).
 - `Term` = one Word; compound words are trusted pointers (ERTS Eterm style).
   Admission checks range/shape/ownership in Debug only; `*_unchecked` accessors
   skip proven kind checks.
-- Kinds: arbitrary integers (up to `BIG_ARITY_MAX`), atoms (per-runtime
+- Kinds: arbitrary integers (up to `BIG_ARITY_MAX`; bignum times small is a
+  limb loop on heap words, other operations go through Boost cpp_int), atoms (per-runtime
   `AtomStorage`, process-wide lock-free `atom_table`; runtime C++ spells literal
   atoms `"name"_atom`, which caches the word), tuples, lists, float
   cells, maps, bitstrings, funs, pids/ports (immediates from never-reused

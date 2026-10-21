@@ -36,5 +36,10 @@ TermResult<Term> integer_service(ProcessContext &context, abi::v1::ImmediateOper
 struct IntegerAccess {
     // Normalize small values and publish larger immutable sign/magnitude words transactionally.
     static TermResult<Term> make(ProcessHeap &heap, const Integer &value);
+    // Multiply when one operand is a small integer, straight from the other's heap limbs into a new bignum (bignum
+    // scaling); empty when neither is small or the other is no integer.
+    static std::optional<TermResult<Term>> scale(ProcessHeap &heap, const Term &left, const Term &right);
+    // Multiply canonical magnitude limbs by one limb into a bignum, or a small integer when the product fits.
+    static TermResult<Term> multiply(ProcessHeap &heap, std::span<const Word> limbs, Word factor, bool negative);
 };
 } // namespace clause::runtime::detail

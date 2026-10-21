@@ -93,6 +93,9 @@ in [abi.md](abi.md#terms).
   exactly when the result leaves the small range; `*` computes in double width
   with explicit bounds. So do `band`, `bor`, `bxor`, `bsr`, `div`, `rem` and
   comparisons of two small integers ([inline forms](abi.md#runtime-services)).
+- The service multiplies a bignum (or an overflowed small product) by a small
+  integer limb by limb, from the operand's cell straight into the new one; other
+  bignum operations go through a multiprecision value.
 - `div` truncates toward zero; `rem` takes the dividend's sign; bitwise ops use
   infinite two's complement; negative shift counts reverse direction; huge right
   shifts saturate to 0 or -1.

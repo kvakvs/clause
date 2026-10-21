@@ -6,7 +6,7 @@ generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
 OPT1.4, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
-OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4, OPT3.18,
+OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4, OPT3.18, OPT3.19,
 sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4, OPTM.5): see [00-finished.md](00-finished.md). This file keeps open work only.
 
@@ -102,7 +102,6 @@ step that owns it (unprofiled ones say so):
 
 | Kernel | Clause / OTP (ms) | Ratio | Owner |
 |---|---|---|---|
-| datagen.bigint_factorial | 1369 / 1145 | 1.20x | OPT3.19 (unprofiled) |
 | file.small_files | 1256 / 1187 | 1.06x | done (OPT3.4; Clause spread 39%) |
 | dataproc.small_map | 1544 / 1501 | 1.03x | OPT1.6 |
 | file.read_line | 1514 / 1545 | 0.98x | done (OPT3.4) |
@@ -132,10 +131,11 @@ step that owns it (unprofiled ones say so):
 | dataproc.sort | 501 / 1113 | 0.45x | done (OPT3.17) |
 | msg.fan_in | 576 / 1388 | 0.42x | OPT3.9 remainder |
 | gc.explicit_collect | 594 / 1615 | 0.37x | OPT3.20 |
+| datagen.bigint_factorial | 210 / 1145 | 0.18x | done (OPT3.19 run; was 1369) |
 
 Repeatability: the bce423f3 run the same day matched within 5% on 20 of 30
 kernels for both systems. bigint_factorial's OTP time spreads 37% (1145 here,
-1651 then); its earlier runs (1.17x-1.64x) say Clause is behind. Also noisy:
+1651 then); its OPT3.19 row is a datagen-only run. Also noisy:
 file.small_files (Clause 39%), term_to_binary (OTP 19%), short_processes (OTP
 36%), map_put (1.02x then). Confirm a ratio near 1.0x with interleaved pinned
 runs of the kernel alone before building. Rows marked "OPT3.18 run" come from
@@ -195,8 +195,6 @@ largest first; steps whose kernels are already ahead stay, ranked lower.
 Profile each kernel before building (see
 [Profiling on Windows](#profiling-on-windows)).
 
-- **OPT3.19 bigint_factorial (1.20x, unprofiled):** 3000! by repeated
-  bignum-by-small multiplication.
 - **OPT3.9 remainder: small messages (large_message 0.74x, ring 0.92x,
   ping_pong 0.74x, fan_in 0.42x):** small messages to busy receivers still copy
   twice (into a buffer, then into the receiver).

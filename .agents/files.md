@@ -41,7 +41,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 | Directory | Owns |
 | --- | --- |
 | `.` | Runtime lifecycle, shared state |
-| `terms/` | Words/terms (`term_unchecked`: unchecked accessors), atoms (`atom_table`: process-wide atom index), integers, floats, maps (incl. trees, cursors), bitstrings, funs, records, identities, dynamic calls, equality/order, text |
+| `terms/` | Words/terms (`term_unchecked`: unchecked accessors), atoms (`atom_table`: process-wide atom index), integers (`integer_scale`: bignum times small, limb by limb), floats, maps (incl. trees, cursors), bitstrings, funs, records, identities, dynamic calls, equality/order, text |
 | `memory/` | Process heap, budgets, block reuse (`heap_blocks`), off-heap and buffer reuse (`off_heap`), walker/verifier, collector, graph copy, message buffers, persistent terms (`persistent_region`: their address range), `detached_term` (ETS object blocks) |
 | `ets/` | ETS tables: `index` (key comparisons, edits), `hash_index`, `tree_index`, `table` (parts, locks, fixation, slot visits), `tables` (registry, owners, heirs); owner end in `scheduler/tables.cpp` |
 | `match_spec/` | Match specifications: `program.hpp` (API), `compiler.hpp`, `compile` (clauses, lint), `patterns`, `expressions` (special forms, actions), `functions` (guard BIF table), `run` + `running.hpp` (interpreter), `actions` (trace actions), `handles` (compiled specs as handle refs) |
