@@ -79,6 +79,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `process_info/2` `reductions`; `statistics/1` `reductions`, `garbage_collection`, `io` | Counted | 0 (not kept) | [builtins](builtins.md#system-information) |
 | `garbage_collect/0,1,2` | Collects before returning | Collects at the target's next safepoint | [processes](processes.md#introspection) |
 | `erlang:system_info(machine)` | `"BEAM"` | `"Clause"` | [builtins](builtins.md#system-information) |
+| `erlang:system_info(schedulers)` of a program started with an affinity mask (`start /affinity`, `taskset`) | One scheduler per logical processor of the host (32 under a 7-CPU mask), `schedulers_online` one per CPU of the mask | Both one per CPU of the mask: Clause starts only the online workers | [processes](processes.md#workers) |
 | `spawn_opt/2..5` tuning options (`priority`, `min_heap_size`, ...) | Applied | Checked and accepted, not applied | [processes](processes.md#spawn-options) |
 | `hibernate/3` | Discards the stack; the process ends when `M:F` returns | Keeps the stack; `M:F`'s result returns to the caller of `hibernate/3` | [processes](processes.md#spawn-options) |
 | `monitor(port, Item, Options)` with options | Accepted | `badarg` | [processes](processes.md#aliases) |

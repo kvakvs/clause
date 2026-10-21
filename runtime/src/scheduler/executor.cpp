@@ -5,6 +5,7 @@
 #include "../process/identities.hpp"
 #include "../runtime_state.hpp"
 #include "../terms/funs.hpp"
+#include "cpus.hpp"
 #include <array>
 #include <chrono>
 #include <clause/abi/equality.hpp>
@@ -823,6 +824,8 @@ ProcessContext &Executor::run(ProcessContext &main) noexcept {
     }
     std::vector<std::thread> helpers;
     const auto workers = main.runtime().impl_->options.schedulers;
+    // Bound workers of --scheduler-cpus; empty leaves them unbound.
+    const std::span<const std::uint32_t> cpus = main.runtime().impl_->options.scheduler_cpus;
     {
         const std::scoped_lock lock(mutex_, queues_mutex_);
         while (queues_.size() < workers) {
@@ -835,12 +838,16 @@ ProcessContext &Executor::run(ProcessContext &main) noexcept {
     }
     for (std::size_t count = 1; count < std::min(workers, queues_.size()); ++count) {
         try {
-            helpers.emplace_back([this, count] { work(count); });
+            helpers.emplace_back([this, count, cpus] {
+                bind_worker(cpus, count);
+                work(count);
+            });
         } catch (const std::exception &) {
             // Run on the workers started so far.
             break;
         }
     }
+    bind_worker(cpus, 0);
     work(0);
     for (auto &helper : helpers) {
         helper.join();

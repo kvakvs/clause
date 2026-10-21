@@ -48,7 +48,8 @@ The executor runs processes on `RuntimeOptions::schedulers` worker threads: the
 thread that started the program and one more thread per further worker. Programs
 take the count from `--schedulers N` (1 to 1,024,
 [runtime options](executables.md#runtime-options)); the default is one worker
-per logical processor, as OTP's `+S`.
+per logical processor the program may run on (its affinity mask, as OTP's
+online schedulers), or per CPU of `--scheduler-cpus`.
 
 - Each worker has its own run queue, as each ERTS scheduler does: a process
   stays with the worker it last ran on, so its heap stays in that core's caches.
@@ -134,6 +135,27 @@ process's scheduling state happens under the executor mutex:
   monitored, monitored processes ending as their watcher wakes, a program ending
   while processes spin, wait and flood each other, and a halt in another
   process.
+
+### CPU binding
+
+Workers are unbound by default: the OS places them on any CPU of the program's
+affinity mask, as OTP's default `+sbt u`. `--scheduler-cpus SET`
+([runtime options](executables.md#runtime-options)) binds worker N to the N-th
+CPU of the set, round-robin when there are more workers, like OTP's
+`+sbt`/`+sct`; the timer and I/O threads stay unbound.
+
+- `performance` is the fastest core class: Windows cores of the highest
+  `EfficiencyClass`, Linux `/sys/devices/cpu_core/cpus` (Intel hybrid) or the
+  CPUs of the largest `cpu_capacity`; on a CPU whose cores are alike, every CPU.
+  `all` is every CPU of the affinity mask. A list (`0-15`, `2,4,6`, CPUs up to
+  1023) must name only CPUs of the affinity mask:
+  `--scheduler-cpus: CPU N is not available to the program`, exit 70.
+- Windows numbers the CPUs of the process's processor group (at most 64);
+  `performance` reads group 0.
+- macOS has no thread affinity: the option is accepted, `performance` counts the
+  first performance level (`hw.perflevel0.logicalcpu`) for the default worker
+  count, and binding only raises each worker to the `USER_INTERACTIVE` QoS
+  class, which macOS serves on the P-cores first.
 
 ### Receive timeouts
 

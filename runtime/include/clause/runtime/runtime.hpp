@@ -5,6 +5,7 @@
 #include <clause/abi/status.hpp>
 #include <expected>
 #include <string>
+#include <vector>
 
 namespace clause::runtime {
 class SchedulerService;
@@ -40,8 +41,11 @@ struct RuntimeOptions {
     // programs set it with --max-memory, uncapped by default.
     std::size_t memory_limit_bytes = UNLIMITED_HEAP_BYTES;
     // Scheduler worker threads that run processes, 1 to MAX_SCHEDULERS (docs/processes.md#workers); programs set it
-    // with --schedulers and default to one per logical processor.
+    // with --schedulers and default to one per CPU they may run on.
     std::size_t schedulers = 1;
+    // Logical CPUs the workers are bound to, worker N to the N-th round-robin (--scheduler-cpus,
+    // docs/processes.md#workers); empty leaves them to the OS. Added for --scheduler-cpus.
+    std::vector<std::uint32_t> scheduler_cpus = {};
     // File the program writes its profile report to at exit (--profile FILE, docs/profiling.md); empty disables
     // profiling. The runtime itself only collects the costs.
     std::string profile = {};

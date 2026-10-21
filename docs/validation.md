@@ -187,6 +187,7 @@ host-specific evidence, not gate results.
 ```powershell
 make-benchmark.bat                         # Windows; set JOBS=N to cap parallel builds
 make-benchmark.bat --repeat 9 --only bench_gc,bench_msg
+make-benchmark.bat --cpus all                 # unpinned set; default --cpus performance
 make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
 ```
 
@@ -208,6 +209,16 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
 - Every program run is its own Windows job object or POSIX session; the next run
   starts once all its processes are gone, and leftovers still alive 30 s after
   exit are killed and reported as a failure.
+- CPUs: every process of a run, OTP's and Clause's alike, runs on the `--cpus`
+  set: `performance` (default: the cores of the highest Windows
+  `EfficiencyClass`, Linux `/sys/devices/cpu_core/cpus` or largest
+  `cpu_capacity`, so the P-cores of a hybrid CPU and every CPU otherwise),
+  `all`, a list such as `0-15` or `2,4,6`, or a hex mask such as `0x5554`. On
+  Windows the run's job object carries the affinity limit before the program
+  resumes, on Linux the program sets it before `exec`; macOS cannot pin and
+  runs unpinned. Both OTP and Clause start one online scheduler per CPU of the
+  set, unbound to single CPUs. The report header and each history record
+  (`cpus`) name the set; ratios of runs on different sets are not comparable.
 - Systems, on the same host in one run, interleaved: OTP with its default flavor
   (JIT), OTP `-emu_flavor emu` when installed (the Windows installer ships only
   the JIT, so those columns read `n/a`), Clause HEAD at O2 and with `--lto`, and

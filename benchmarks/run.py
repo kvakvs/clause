@@ -50,6 +50,11 @@ LEFTOVER_SECONDS = 30
 # Windows process creation flag and job information class used to track every process of one benchmark run.
 CREATE_SUSPENDED = 0x4
 JOB_BASIC_ACCOUNTING = 1
+# Windows job limit class and flag that keep every process of a run on the --cpus set; added for benchmark CPU sets.
+JOB_BASIC_LIMITS = 2
+JOB_LIMIT_AFFINITY = 0x10
+# GetLogicalProcessorInformationEx relation listing one record per physical core, with its efficiency class.
+RELATION_PROCESSOR_CORE = 0
 
 
 def parse_args():
@@ -68,6 +73,9 @@ def parse_args():
     parser.add_argument("--jobs", default="", help="parallel jobs for building the baseline")
     parser.add_argument("--no-history", action="store_true", help="do not write history or report files")
     parser.add_argument("--listings", action="store_true", help="also write --print-asm and --print-ir listings")
+    parser.add_argument("--cpus", default="performance",
+                        help="CPUs every program runs on: performance (the fastest cores, default), all, "
+                             "a list such as 0-15 or 2,4,6, or a hex mask such as 0x5554")
     return parser.parse_args()
 
 
@@ -229,6 +237,124 @@ def parse_results(output):
     return results
 
 
+def mask_cpus(mask):
+    """The CPUs of an affinity bit mask, ascending."""
+    return [cpu for cpu in range(mask.bit_length()) if mask >> cpu & 1]
+
+
+def cpu_mask(cpus):
+    """The affinity bit mask of CPUs."""
+    return sum(1 << cpu for cpu in set(cpus))
+
+
+def cpu_list_text(cpus):
+    """CPUs as a compact list such as 0-15 or 2,4,6."""
+    ranges = []
+    for cpu in cpus:
+        if ranges and ranges[-1][1] == cpu - 1:
+            ranges[-1][1] = cpu
+        else:
+            ranges.append([cpu, cpu])
+    return ",".join(str(a) if a == b else f"{a}-{b}" for a, b in ranges)
+
+
+def parse_cpu_list(text):
+    """CPUs of a list such as 0-15 or 2,4,6, or of a hex mask such as 0x5554; None when malformed."""
+    try:
+        if text.lower().startswith("0x"):
+            return mask_cpus(int(text, 16))
+        cpus = set()
+        for item in text.split(","):
+            first, _, last = item.partition("-")
+            cpus.update(range(int(first), int(last or first) + 1))
+        return sorted(cpus)
+    except ValueError:
+        return None
+
+
+def available_cpus():
+    """The CPUs this process may run on, which its children inherit."""
+    if os.name == "nt":
+        kernel32 = ctypes.windll.kernel32
+        kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+        process, system = ctypes.c_size_t(0), ctypes.c_size_t(0)
+        if kernel32.GetProcessAffinityMask(ctypes.c_void_p(kernel32.GetCurrentProcess()), ctypes.byref(process),
+                                           ctypes.byref(system)):
+            return mask_cpus(process.value)
+    elif hasattr(os, "sched_getaffinity"):
+        return sorted(os.sched_getaffinity(0))
+    return list(range(os.cpu_count() or 1))
+
+
+def windows_performance_cpus():
+    """CPUs of processor group 0's cores with the highest EfficiencyClass (P-cores); None when not reported."""
+    kernel32 = ctypes.windll.kernel32
+    size = ctypes.c_uint32(0)
+    kernel32.GetLogicalProcessorInformationEx(RELATION_PROCESSOR_CORE, None, ctypes.byref(size))
+    buffer = ctypes.create_string_buffer(size.value)
+    if not size.value or not kernel32.GetLogicalProcessorInformationEx(RELATION_PROCESSOR_CORE, buffer,
+                                                                       ctypes.byref(size)):
+        return None
+    # SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX on 64 bits: Size at 4, EfficiencyClass at 9, GroupMask[0] at 32.
+    data, at, cores = buffer.raw, 0, []
+    while at < size.value:
+        if int.from_bytes(data[at + 40:at + 42], "little") == 0:
+            cores.append((data[at + 9], int.from_bytes(data[at + 32:at + 40], "little")))
+        at += int.from_bytes(data[at + 4:at + 8], "little")
+    fastest = max((efficiency for efficiency, _ in cores), default=0)
+    return mask_cpus(sum(mask for efficiency, mask in cores if efficiency == fastest)) or None
+
+
+def linux_performance_cpus():
+    """Intel hybrid P-cores (cpu_core PMU), else the CPUs of the largest cpu_capacity; None when not reported."""
+    try:
+        return parse_cpu_list(Path("/sys/devices/cpu_core/cpus").read_text().strip())
+    except OSError:
+        pass
+    capacities = {}
+    for cpu in available_cpus():
+        try:
+            capacities[cpu] = int(Path(f"/sys/devices/system/cpu/cpu{cpu}/cpu_capacity").read_text())
+        except (OSError, ValueError):
+            return None
+    largest = max(capacities.values(), default=0)
+    return [cpu for cpu, capacity in capacities.items() if capacity == largest] or None
+
+
+def benchmark_cpus(spec):
+    """The CPUs every program runs on for --cpus, or None where the host cannot pin processes (macOS).
+
+    Added for benchmark CPU sets: on a hybrid CPU an unpinned kernel may land on an E-core and run up to 2x slower.
+    """
+    if os.name != "nt" and not hasattr(os, "sched_setaffinity"):
+        return None
+    available = available_cpus()
+    if spec == "all":
+        return available
+    if spec == "performance":
+        fastest = windows_performance_cpus() if os.name == "nt" else linux_performance_cpus()
+        chosen = [cpu for cpu in (fastest or available) if cpu in available]
+    else:
+        listed = parse_cpu_list(spec)
+        if listed is None:
+            sys.exit(f"benchmark: invalid --cpus {spec!r} (performance, all, a list such as 0-15 or a hex mask)")
+        chosen = [cpu for cpu in listed if cpu in available]
+        if chosen != listed:
+            missing = cpu_list_text(sorted(set(listed) - set(chosen)))
+            sys.exit(f"benchmark: --cpus {spec}: CPUs {missing} are not available")
+    if not chosen:
+        sys.exit(f"benchmark: --cpus {spec} leaves no CPU to run on")
+    return chosen
+
+
+class _JobLimits(ctypes.Structure):
+    """JOBOBJECT_BASIC_LIMIT_INFORMATION, written for its affinity limit; added for benchmark CPU sets."""
+    _fields_ = [("user_time", ctypes.c_int64), ("job_user_time", ctypes.c_int64), ("flags", ctypes.c_uint32),
+                ("min_working_set", ctypes.c_size_t), ("max_working_set", ctypes.c_size_t),
+                ("active_processes", ctypes.c_uint32), ("affinity", ctypes.c_size_t),
+                ("priority_class", ctypes.c_uint32), ("scheduling_class", ctypes.c_uint32)]
+
+
 class _JobAccounting(ctypes.Structure):
     """JOBOBJECT_BASIC_ACCOUNTING_INFORMATION, read for its count of live processes in a job."""
     _fields_ = [("times", ctypes.c_int64 * 4), ("page_faults", ctypes.c_uint32), ("total", ctypes.c_uint32),
@@ -239,27 +365,42 @@ class ProcessGroup:
     """Every process of one benchmark run: a Windows job object or a POSIX session; added for benchmark settling.
 
     The next run starts only once the group is empty, so exiting processes never overlap another measurement.
+    Every process of the group runs on `cpus` (None: wherever the OS places it).
     """
 
-    def __init__(self, args, cwd):
+    def __init__(self, args, cwd, cpus):
         self.windows_ = os.name == "nt"
-        flags = {"creationflags": CREATE_SUSPENDED} if self.windows_ else {"start_new_session": True}
+        if self.windows_:
+            flags = {"creationflags": CREATE_SUSPENDED}
+        else:
+            pin = (lambda: os.sched_setaffinity(0, cpus)) if cpus else None
+            flags = {"start_new_session": True, "preexec_fn": pin}
         self.process_ = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                          text=True, **flags)
         # The job holds the program before it runs, so every process it starts joins the job too.
-        self.job_ = self._attach_job() if self.windows_ else None
+        self.job_ = self._attach_job(cpus) if self.windows_ else None
 
-    def _attach_job(self):
-        """Put the suspended program into a new job object, then let it run."""
+    def _attach_job(self, cpus):
+        """Put the suspended program into a new job object limited to `cpus`, then let it run."""
         kernel32 = ctypes.windll.kernel32
         kernel32.CreateJobObjectW.restype = ctypes.c_void_p
         job = kernel32.CreateJobObjectW(None, None)
         handle = ctypes.c_void_p(int(self.process_._handle))
-        if not job or not kernel32.AssignProcessToJobObject(ctypes.c_void_p(job), handle):
+        if not job or not self._limit_cpus(job, cpus) or not kernel32.AssignProcessToJobObject(ctypes.c_void_p(job),
+                                                                                                handle):
             self.process_.kill()
             sys.exit(f"benchmark: cannot track the processes of a run (Windows error {kernel32.GetLastError()})")
         ctypes.windll.ntdll.NtResumeProcess(handle)
         return job
+
+    @staticmethod
+    def _limit_cpus(job, cpus):
+        """Keep the processes of a job on `cpus`; True without a set. Added for benchmark CPU sets."""
+        if not cpus:
+            return True
+        limits = _JobLimits(flags=JOB_LIMIT_AFFINITY, affinity=cpu_mask(cpus))
+        return bool(ctypes.windll.kernel32.SetInformationJobObject(ctypes.c_void_p(job), JOB_BASIC_LIMITS,
+                                                                   ctypes.byref(limits), ctypes.sizeof(limits)))
 
     def alive(self):
         """Whether any process of the group still runs."""
@@ -300,13 +441,14 @@ class ProcessGroup:
             ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(self.job_))
 
 
-def run_program(args, cwd, timeout):
-    """Run one benchmark program and wait for all its processes; returns (code, stdout, stderr, seconds, emptied).
+def run_program(args, cwd, timeout, cpus):
+    """Run one benchmark program on `cpus` and wait for all its processes; returns (code, stdout, stderr, seconds,
+    emptied).
 
     A timeout returns code None; emptied is False when leftover processes had to be killed.
     """
     start = time.monotonic()
-    group = ProcessGroup(args, cwd)
+    group = ProcessGroup(args, cwd, cpus)
     try:
         out, err = group.process_.communicate(timeout=timeout)
         code = group.process_.returncode
@@ -320,12 +462,12 @@ def run_program(args, cwd, timeout):
     return code, out, err, seconds, emptied
 
 
-def run_once(command, timeout):
-    """Run one program in an empty temporary directory; returns (kernel times, wall seconds, status)."""
+def run_once(command, timeout, cpus):
+    """Run one program on `cpus` in an empty temporary directory; returns (kernel times, wall seconds, status)."""
     # Inside the build tree, not %TEMP%: on-access antivirus scanning there slowed file I/O kernels tenfold.
     RUN_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="run-", dir=RUN_DIR) as cwd:
-        code, out, err, seconds, emptied = run_program(command, cwd, timeout)
+        code, out, err, seconds, emptied = run_program(command, cwd, timeout, cpus)
     if code is None:
         status = "timeout"
     elif code != 0:
@@ -348,8 +490,8 @@ def commands_for(systems, otp_dir, erl, clause_builds, name):
     return commands
 
 
-def measure(names, commands_of, repeat, timeout):
-    """Run every program `repeat` times on every system, interleaving systems to spread host noise."""
+def measure(names, commands_of, repeat, timeout, cpus):
+    """Run every program `repeat` times on every system and on `cpus`, interleaving systems to spread host noise."""
     samples = {}  # (system, kernel) -> [nanoseconds]
     walls = {}  # (system, program) -> [seconds]
     failures = {}  # (system, program) -> last failure status
@@ -360,7 +502,7 @@ def measure(names, commands_of, repeat, timeout):
                     failures[(system, name)] = "n/a (does not build)"
                     continue
                 print(f"benchmark: round {round_index + 1}/{repeat} {system} {name}", file=sys.stderr)
-                results, seconds, status = run_once(command, timeout)
+                results, seconds, status = run_once(command, timeout, cpus)
                 for kernel, nanos in results.items():
                     samples.setdefault((system, kernel), []).append(nanos)
                 walls.setdefault((system, name), []).append(seconds)
@@ -418,6 +560,13 @@ def geometric_mean_change(summary, kernels, reference, system):
     return change(1.0, statistics.geometric_mean(ratios))
 
 
+def cpus_description(spec, cpus):
+    """The --cpus set of a run as the report and the history name it."""
+    if cpus is None:
+        return "unpinned (this host cannot pin processes to CPUs)"
+    return f"{spec}: {cpu_list_text(cpus)} (mask {cpu_mask(cpus):#x}), {len(cpus)} of {os.cpu_count()} logical CPUs"
+
+
 def report_header(context):
     """Report lines naming date, host, OTP and both Clause commits."""
     head, base, otp = context["head"], context.get("base"), context["otp"]
@@ -427,6 +576,7 @@ def report_header(context):
         f"{os.cpu_count()} logical CPUs | {platform.system()} {platform.release()} ({platform.version()})",
         f"OTP: {otp['release']}, ERTS {otp['erts']}; flavors found: {', '.join(otp['flavors'])}"
         + ("" if "otp-emu" in otp["flavors"] else " (emu flavor not installed: OTP emu columns are n/a)"),
+        f"CPUs: {context['cpus']}",
         f"Clause HEAD: {head['short']} {head['date']}" + (" (with uncommitted source changes)" if head["dirty"] else ""),
         f"Clause baseline: {base['short']} {base['date']}" if base else "Clause baseline: none",
         f"Runs per program and system: {context['repeat']}; times are medians of the kernel time in ms, "
@@ -562,7 +712,7 @@ def history_record(context, summary):
     clause_us, otp_us = medians_of(summary, "clause-o2"), medians_of(summary, context["otp_reference"])
     record = {"commit": head["hash"], "commit_date": head["date"], "run_date": context["run_date"],
               "otp_release": context["otp"]["release"], "clause_us": clause_us, "otp_us": otp_us,
-              "otp_ratio": time_ratios(clause_us, otp_us)}
+              "otp_ratio": time_ratios(clause_us, otp_us), "cpus": context["cpus"]}
     record["sizes_bytes"] = context["sizes"]
     if base:
         base_us = medians_of(summary, "clause-base")
@@ -673,14 +823,15 @@ def main():
     head = commit_info("HEAD")
     head["dirty"] = bool(git("status", "--porcelain", "--", *SOURCE_PATHS))
     names = programs(args.only)
+    cpus = benchmark_cpus(args.cpus)
     samples, walls, failures = measure(names, lambda n: commands_for(otp, otp_dir, erl, builds, n),
-                                       args.repeat, args.timeout)
+                                       args.repeat, args.timeout, cpus)
     summary = summarize(samples)
     kernels = sorted({k for _, k in summary})
     systems = [*otp, *builds]
     context = {"run_date": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
                "host": args.host, "head": head, "base": base, "otp": otp_facts, "repeat": args.repeat,
-               "otp_reference": next(iter(otp)), "sizes": sizes}
+               "otp_reference": next(iter(otp)), "sizes": sizes, "cpus": cpus_description(args.cpus, cpus)}
     report = build_report(context, summary, walls, failures, systems, kernels)
     if args.no_history or head["dirty"]:
         report += "\nNot recorded in the history (--no-history or uncommitted source changes).\n"

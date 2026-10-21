@@ -232,7 +232,8 @@ test need no OTP (`docs/validation.md`).
 
 - `detail::Executor` (in `Runtime::Impl`): `schedulers - 1` extra workers, one
   `RunQueue` each; home affinity, wake-affine placement, stealing, balancing
-  every 4 slices.
+  every 4 slices. Default worker count = CPUs of the process affinity mask;
+  `--scheduler-cpus` binds worker N round-robin (`scheduler/cpus.cpp`).
 - Per-process `Schedule` kept in `ProcessContext::schedule()` (started,
   parked, running, blocked_on+pid, holds, ready, ending, port_wait). Touching a
   process running elsewhere throws `builtins::Blocked` and retries after its

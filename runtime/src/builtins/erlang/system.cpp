@@ -1,3 +1,4 @@
+#include "../../scheduler/cpus.hpp"
 #include "../../scheduler/executor.hpp"
 #include "../typed.hpp"
 #include "terms.hpp"
@@ -126,7 +127,7 @@ std::optional<std::int64_t> count_item(ProcessContext &context, std::string_view
         {"schedulers", static_cast<std::int64_t>(counts.workers)},
         {"schedulers_online", static_cast<std::int64_t>(counts.workers)},
         {"logical_processors", processors},
-        {"logical_processors_available", processors},
+        {"logical_processors_available", static_cast<std::int64_t>(detail::available_cpus().size())},
         {"logical_processors_online", processors},
         {"thread_pool_size", 0},
     }};

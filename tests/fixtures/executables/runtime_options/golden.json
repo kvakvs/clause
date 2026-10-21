@@ -153,6 +153,49 @@
       "stderr": "^clau: runtime failure: entry call failed: resource_limit\n$",
       "exit_status": 70,
       "stdout": ""
+    },
+    {
+      "args": [
+        "--scheduler-cpus",
+        "all",
+        "h"
+      ],
+      "authored": true,
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[\"h\"]\n"
+    },
+    {
+      "args": [
+        "--scheduler-cpus=performance",
+        "--schedulers",
+        "3",
+        "i"
+      ],
+      "authored": true,
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[\"i\"]\n"
+    },
+    {
+      "args": [
+        "--scheduler-cpus",
+        "0,2-1"
+      ],
+      "authored": true,
+      "stderr": "^clau: runtime failure: invalid --scheduler-cpus value '0,2-1' \\(performance, all or CPUs such as 0-7,12\\)\n$",
+      "exit_status": 70,
+      "stdout": ""
+    },
+    {
+      "args": [
+        "--scheduler-cpus",
+        "0,1000-1001"
+      ],
+      "authored": true,
+      "stderr": "^clau: runtime failure: --scheduler-cpus: CPU 1000 is not available to the program\n$",
+      "exit_status": 70,
+      "stdout": ""
     }
   ],
   "oracle_version": [

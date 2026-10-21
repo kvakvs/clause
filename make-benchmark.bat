@@ -22,7 +22,8 @@ if errorlevel 1 goto finish
 set "MAKEFLAGS="
 call "%CMAKE%" --build "%BENCH_BUILD_DIR%" --config "%BUILD_TYPE%" --target clau clause_runtime --parallel %PARALLEL_JOBS%
 if errorlevel 1 goto finish
-rem Remaining arguments go to the driver, for example --baseline <rev> or --repeat 9.
+rem The driver pins every program, OTP and Clause alike, to the performance cores (--cpus performance).
+rem Remaining arguments go to the driver, for example --baseline <rev>, --repeat 9 or --cpus 0x5554.
 call "%PYTHON%" benchmarks\run.py --build-dir "%BENCH_BUILD_DIR%" --config "%BUILD_TYPE%" %BENCH_JOBS% %*
 :finish
 set "result=%errorlevel%"

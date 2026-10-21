@@ -1,13 +1,14 @@
 #include "../memory/heap_collect.hpp"
+#include "../scheduler/cpus.hpp"
 #include "startup.hpp"
 #include <algorithm>
 #include <array>
 #include <charconv>
 #include <cstdlib>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
-#include <thread>
 #include <vector>
 
 namespace clause::runtime::detail {
@@ -84,9 +85,50 @@ std::expected<std::size_t, std::string> scheduler_count(std::string_view text) {
     return static_cast<std::size_t>(value);
 }
 
-// The scheduler count of a program without --schedulers: one per logical processor, as OTP's default.
-std::size_t default_schedulers() noexcept {
-    return std::clamp<std::size_t>(std::thread::hardware_concurrency(), 1, MAX_SCHEDULERS);
+// The scheduler count of a program without --schedulers: one per CPU of --scheduler-cpus, else one per CPU the
+// program may run on, as OTP's online schedulers.
+std::size_t default_schedulers(const std::vector<std::uint32_t> &scheduler_cpus) {
+    const auto cpus = scheduler_cpus.empty() ? available_cpus().size() : scheduler_cpus.size();
+    return std::clamp<std::size_t>(cpus, 1, MAX_SCHEDULERS);
+}
+
+// The CPUs of `cpus` the program may run on; added for --scheduler-cpus.
+std::vector<std::uint32_t> available_of(const std::vector<std::uint32_t> &cpus) {
+    const auto available = available_cpus();
+    std::vector<std::uint32_t> result;
+    std::ranges::set_intersection(cpus, available, std::back_inserter(result));
+    return result;
+}
+
+// Parse a --scheduler-cpus CPU list, every CPU of which the program may run on; added for --scheduler-cpus.
+std::expected<std::vector<std::uint32_t>, std::string> listed_cpus(std::string_view text) {
+    const auto listed = parse_cpu_list(text);
+    if (!listed) {
+        return std::unexpected("invalid --scheduler-cpus value '" + std::string(text) +
+                               "' (performance, all or CPUs such as 0-7,12)");
+    }
+    auto available = available_of(*listed);
+    if (available.size() != listed->size()) {
+        const auto missing = std::ranges::mismatch(*listed, available).in1;
+        return std::unexpected("--scheduler-cpus: CPU " + std::to_string(*missing) +
+                               " is not available to the program");
+    }
+    return available;
+}
+
+// Parse --scheduler-cpus (OTP +sbt/+sct): performance, all or a CPU list; added for --scheduler-cpus.
+std::expected<std::vector<std::uint32_t>, std::string> scheduler_cpus(std::string_view text) {
+    if (text == "all") {
+        return available_cpus();
+    }
+    if (text != "performance") {
+        return listed_cpus(text);
+    }
+    auto fastest = available_of(performance_cpus());
+    if (fastest.empty()) {
+        return std::unexpected(std::string("--scheduler-cpus: no performance CPU is available to the program"));
+    }
+    return fastest;
 }
 
 // Largest --min-heap-size in words, far beyond any host memory, so the size sequence never overflows.
@@ -157,6 +199,29 @@ std::expected<std::size_t, std::string> apply_sizes(std::span<const std::string>
     return 0;
 }
 
+// Apply a scheduler option at `at` and return how many arguments it used; 0 when it is none, then the size options
+// are tried.
+std::expected<std::size_t, std::string> apply_scheduling(std::span<const std::string> args, std::size_t at,
+                                                         RuntimeOptions &options) {
+    if (const auto schedulers = match(args, at, "--schedulers")) {
+        const auto count = scheduler_count(schedulers->value);
+        if (!count) {
+            return std::unexpected(count.error());
+        }
+        options.schedulers = *count;
+        return schedulers->used;
+    }
+    if (const auto cpus = match(args, at, "--scheduler-cpus")) {
+        auto chosen = scheduler_cpus(cpus->value);
+        if (!chosen) {
+            return std::unexpected(chosen.error());
+        }
+        options.scheduler_cpus = std::move(*chosen);
+        return cpus->used;
+    }
+    return apply_sizes(args, at, options);
+}
+
 // Apply the option at `at` and return how many arguments it used; 0 when it is not a runtime option.
 std::expected<std::size_t, std::string> apply(std::span<const std::string> args, std::size_t at,
                                               RuntimeOptions &options) {
@@ -167,14 +232,6 @@ std::expected<std::size_t, std::string> apply(std::span<const std::string> args,
         }
         options.max_atoms = *limit;
         return atoms->used;
-    }
-    if (const auto schedulers = match(args, at, "--schedulers")) {
-        const auto count = scheduler_count(schedulers->value);
-        if (!count) {
-            return std::unexpected(count.error());
-        }
-        options.schedulers = *count;
-        return schedulers->used;
     }
     if (const auto profile = match(args, at, "--profile")) {
         if (profile->value.empty()) {
@@ -187,7 +244,7 @@ std::expected<std::size_t, std::string> apply(std::span<const std::string> args,
     if (match(args, at, "--args-file")) {
         return std::unexpected(std::string("runtime option --args-file is not implemented"));
     }
-    return apply_sizes(args, at, options);
+    return apply_scheduling(args, at, options);
 }
 
 // Apply leading runtime options until another argument; `--` ends them and is used too.
@@ -209,7 +266,8 @@ std::expected<std::size_t, std::string> apply_all(std::span<const std::string> a
 
 std::expected<ProgramOptions, std::string> program_options(int argc, char **argv) {
     ProgramOptions result;
-    result.runtime.schedulers = default_schedulers();
+    // 0 until --schedulers sets it; the default depends on --scheduler-cpus.
+    result.runtime.schedulers = 0;
     const auto flags = words(environment(FLAGS_VARIABLE));
     const auto from_environment = apply_all(flags, result.runtime);
     if (!from_environment) {
@@ -228,6 +286,9 @@ std::expected<ProgramOptions, std::string> program_options(int argc, char **argv
         return std::unexpected(used.error());
     }
     result.consumed = *used;
+    if (result.runtime.schedulers == 0) {
+        result.runtime.schedulers = default_schedulers(result.runtime.scheduler_cpus);
+    }
     // A process heap must fit its budget (valid_heap_options).
     const auto &heap = result.runtime.process_heap;
     if (heap.min_heap_words > heap.limit_bytes / sizeof(Word)) {
