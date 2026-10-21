@@ -603,7 +603,7 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
 - **OPT3.19** bignum scaling: `*` with one small operand multiplies the other's
   heap limbs into the new cell (was cpp_int import, multiply and export: 56% of
   samples were export bit extraction with MSVC's 32-bit limbs). bigint_factorial
-  1369 to 210 ms (OTP 1145-1694), 1.20x behind to ~5x ahead — (hash pending)
+  1369 to 210 ms (OTP 1145-1694), 1.20x behind to ~5x ahead — `a19fbed0`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
