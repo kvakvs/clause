@@ -420,3 +420,7 @@ gotchas and user directions not recorded elsewhere.
   -DCLAUSE_MSVC_ITERATOR_DEBUG_LEVEL=0`); /MD made map kernels 2x slower.
   Ownership of fold accumulators is decided at run time (a frame slot, false
   on step 1): the initial accumulator may be shared, e.g. maps:fold(F, M, M).
+- OPT3.18 (2026-10-21): count a kernel's page faults with psapi
+  GetProcessMemoryInfo on the child handle (scratch pf.py, Popen + ctypes);
+  demand-zero faults (MiResolvePrivateZeroFault) mean blocks miss the cache.
+  A temporary stderr line in allocate_block's miss path showed which sizes.

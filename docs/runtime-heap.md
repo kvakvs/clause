@@ -240,8 +240,12 @@ Heap blocks, fragments and old areas come from `memory/heap_blocks`. A block a
 collection releases stays with its thread for that thread's next collections
 (OPT3.10, as ERTS's carriers keep memory): a new block takes the smallest cached
 block of at least its size and at most twice it, else fresh memory. Each thread
-keeps at most 8 blocks and 4M words (32 MB on 64-bit targets); blocks below
+keeps at most 8 blocks and 16M words (128 MB on 64-bit targets); blocks below
 4,096 words are not kept, since the C++ heap's free lists serve them cheaply.
+A released block that does not fit frees the oldest kept blocks first (OPT3.18):
+a growing heap releases ever larger blocks, and without eviction the blocks of
+its early, small collections filled the cache, so a live set of millions of
+words took fresh pages for every young block, old area and full sweep.
 Without this, every collection's to-space took fresh pages from the operating
 system and paid a page fault per page it touched, and freeing a large block
 returned its pages. Cached blocks are not charged to any process or to the

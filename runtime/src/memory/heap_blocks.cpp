@@ -8,9 +8,10 @@ namespace clause::runtime::detail {
 namespace {
 // Blocks below this many words come from the C++ heap's own free lists cheaply and are not kept.
 constexpr std::size_t CACHED_MIN_WORDS = 4096;
-// Blocks and words one thread keeps at most: 32 MB on 64-bit targets.
+// Blocks and words one thread keeps at most: 128 MB on 64-bit targets, so a process whose live set grows to millions
+// of words still finds its young block, old area and full-sweep block again (cache eviction).
 constexpr std::size_t CACHED_BLOCKS = 8;
-constexpr std::size_t CACHED_WORDS = std::size_t{4} << 20;
+constexpr std::size_t CACHED_WORDS = std::size_t{16} << 20;
 
 struct Cached {
     // A released block and its words.
@@ -50,10 +51,17 @@ class BlockCache final {
         return found;
     }
 
-    // Keep a released block while the cache has room; false leaves it to the caller to free.
+    // Keep a released block, freeing the oldest kept blocks to make room; false leaves it to the caller to free.
     bool keep(Word *block, std::size_t words) noexcept {
-        if (words < CACHED_MIN_WORDS || blocks_.size() == CACHED_BLOCKS || held_ + words > CACHED_WORDS) {
+        if (words < CACHED_MIN_WORDS || words > CACHED_WORDS) {
             return false;
+        }
+        // A heap that grew keeps releasing larger blocks: the newest ones are the likeliest to fit the next request
+        // (cache eviction).
+        while (blocks_.size() == CACHED_BLOCKS || held_ + words > CACHED_WORDS) {
+            held_ -= blocks_.front().words;
+            delete[] blocks_.front().block;
+            blocks_.erase(blocks_.begin());
         }
         if (blocks_.capacity() == 0) {
             try {
