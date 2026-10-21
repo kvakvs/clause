@@ -599,7 +599,7 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   area and full sweep of a growing heap took fresh pages, ~31 MB faulted per
   list_of_tuples iteration). Pinned 69A: list_of_tuples 1995 to 1063 ms (OTP
   1517), map_foldl 1571 to 1122, large_message 1062 to 813, term_to_binary
-  1227 to 1053; geomean 1.28x to 1.36x ahead of OTP JIT — (hash pending)
+  1227 to 1053; geomean 1.28x to 1.36x ahead of OTP JIT — `880e567a`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
