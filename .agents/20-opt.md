@@ -8,7 +8,7 @@ Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
 OPT1.4, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
 OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4,
 sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
-OPTM.4): see [00-finished.md](00-finished.md). This file keeps open work only.
+OPTM.4, OPTM.5): see [00-finished.md](00-finished.md). This file keeps open work only.
 
 ## Working rules for plan 20 steps
 
@@ -87,53 +87,57 @@ On OTP about ⅓ of real time is JIT'd Erlang; the rest is C BIFs and GC
 (`erts_maps_put`, `eq`, `erts_cmp_compound`, `do_minor`). Clause's runtime
 services are the equivalent pool, so making them fast is itself a target.
 
-## Measured priorities (69A run 2026-10-20, HEAD 7d7a2f2e)
+## Measured priorities (pinned 69A run 2026-10-21, HEAD bce423f3)
 
 Pick work by benchmark impact (user direction 2026-10-16). The goal is to be
 faster than OTP on every kernel (user direction 2026-10-20): a kernel already
 ahead still owns a step, ranked by its ratio below the kernels behind. The 69A
-run of 2026-10-20 (each kernel in its own process, kernels sized to 1 s or
-more, `benchmarks/history/reports/pekarnya/2026-10-20-7d7a2f2e.txt`) puts
-Clause O2 at parity with OTP JIT: geomean 1.00x (20.2x at the start of plan 20,
-1.37x faster than baseline 2286b1aa). Every kernel by Clause / OTP time, with
-the step that owns it (unprofiled ones say so):
+run of 2026-10-21 (every program pinned to the P-cores, `--cpus performance` =
+logical 0-15; each kernel in its own process, kernels sized to 1 s or more,
+`benchmarks/history/reports/pekarnya/2026-10-21-bce423f3.txt`) puts Clause O2
+1.30x ahead of OTP JIT by geomean (20.2x slower at the start of plan 20, 1.68x
+faster than baseline 1618e0f0). Every kernel by Clause / OTP time, with the
+step that owns it (unprofiled ones say so):
 
 | Kernel | Clause / OTP (ms) | Ratio | Owner |
 |---|---|---|---|
-| dataproc.map_update | 2706 / 1209 | 2.24x | done (OPT3.15 with OPT1.7 `maps:fold`: 0.52x pinned) |
-| dataproc.int_to_list | 1683 / 894 | 1.88x | done (OPT3.8: 0.59x pinned) |
-| datagen.string_build | 1549 / 1035 | 1.50x | done (OPT3.8, OPT3.16: 0.58x pinned; now mostly collection) |
-| datagen.map_put | 2305 / 1601 | 1.44x | OPT3.15 remainder (0.92x pinned after OPT3.15) |
-| file.large_write | 1219 / 961 | 1.27x | done (OPT3.4: 0.88x pinned) |
-| dataproc.map_foldl | 1557 / 1240 | 1.26x | OPT1.12 (`lists:map` builds reversed) |
-| dataproc.sort | 1337 / 1070 | 1.25x | done (OPT3.17: 0.52x pinned) |
-| datagen.list_of_tuples | 1901 / 1527 | 1.25x | OPT3.18 (unprofiled) |
-| file.read_file | 1794 / 1488 | 1.21x | done (OPT3.4: 0.92x pinned) |
-| datagen.bigint_factorial | 1333 / 1136 | 1.17x | OPT3.19 (unprofiled) |
-| file.read_line | 1739 / 1532 | 1.14x | done (OPT3.4: 0.96x pinned) |
-| msg.ring | 1488 / 1448 | 1.03x | OPT3.9 remainder (small messages) |
-| file.large_read | 1486 / 1500 | 0.99x | done (OPT3.4: 0.81x pinned) |
-| msg.large_message | 1043 / 1058 | 0.99x | OPT3.9 remainder |
-| gc.short_processes | 1569 / 1597 | 0.98x | OPT3.5 remainder |
-| file.small_files | 1309 / 1396 | 0.94x | done (OPT3.4: 0.86x pinned) |
-| dataproc.small_map | 1386 / 1497 | 0.93x | OPT1.6 |
-| gc.long_lived_churn | 1189 / 1302 | 0.91x | OPT3.20 (collector, unprofiled) |
-| datagen.binary_append | 836 / 935 | 0.89x | OPT3.6 remainder |
-| dataproc.binary_match | 1073 / 1272 | 0.84x | OPT1.5 |
-| datagen.list_to_tuple | 1286 / 1527 | 0.84x | OPT3.21 (unprofiled) |
-| msg.ping_pong | 1222 / 1500 | 0.81x | OPT3.9 remainder |
-| socket.udp_round_trip | 1193 / 1496 | 0.80x | OPT3.22 (sockets, unprofiled) |
-| socket.tcp_echo | 1283 / 1615 | 0.79x | OPT3.22 |
-| dataproc.term_to_binary | 1166 / 1469 | 0.79x | term_to_binary remainder |
-| msg.fan_in | 1067 / 1386 | 0.77x | OPT3.9 remainder |
-| socket.tcp_connect | 1163 / 1522 | 0.76x | OPT3.22 |
-| gc.grow_shrink | 815 / 1072 | 0.76x | OPT3.20 |
-| dataproc.comprehension | 905 / 1253 | 0.72x | OPT1.3, OPT1.12 |
-| gc.explicit_collect | 613 / 1527 | 0.40x | OPT3.20 |
+| datagen.list_of_tuples | 2000 / 1501 | 1.33x | OPT3.18 (unprofiled) |
+| dataproc.map_foldl | 1554 / 1493 | 1.04x | OPT1.12 (`lists:map` builds reversed) |
+| dataproc.small_map | 1543 / 1497 | 1.03x | OPT1.6 |
+| datagen.map_put | 1615 / 1586 | 1.02x | OPT3.15 remainder |
+| file.read_file | 1458 / 1498 | 0.97x | done (OPT3.4) |
+| file.read_line | 1521 / 1568 | 0.97x | done (OPT3.4) |
+| msg.large_message | 1040 / 1078 | 0.96x | OPT3.9 remainder |
+| file.small_files | 1197 / 1245 | 0.96x | done (OPT3.4) |
+| msg.ring | 1355 / 1411 | 0.96x | OPT3.9 remainder (small messages) |
+| gc.long_lived_churn | 1196 / 1325 | 0.90x | OPT3.20 (collector, unprofiled) |
+| file.large_write | 849 / 955 | 0.89x | done (OPT3.4) |
+| datagen.list_to_tuple | 1355 / 1562 | 0.87x | OPT3.21 (unprofiled) |
+| file.large_read | 1225 / 1457 | 0.84x | done (OPT3.4) |
+| dataproc.binary_match | 1081 / 1297 | 0.83x | OPT1.5 |
+| datagen.bigint_factorial | 1369 / 1651 | 0.83x | OPT3.19 (unprofiled) |
+| socket.tcp_echo | 1303 / 1629 | 0.80x | OPT3.22 (sockets, unprofiled) |
+| socket.udp_round_trip | 1200 / 1512 | 0.79x | OPT3.22 |
+| gc.grow_shrink | 837 / 1060 | 0.79x | OPT3.20 |
+| dataproc.term_to_binary | 1177 / 1519 | 0.78x | term_to_binary remainder |
+| datagen.binary_append | 840 / 1097 | 0.77x | OPT3.6 remainder |
+| msg.ping_pong | 1114 / 1492 | 0.75x | OPT3.9 remainder |
+| socket.tcp_connect | 1155 / 1551 | 0.74x | OPT3.22 |
+| gc.short_processes | 1113 / 1537 | 0.72x | OPT3.5 remainder |
+| dataproc.comprehension | 904 / 1437 | 0.63x | OPT1.3, OPT1.12 |
+| datagen.string_build | 581 / 1035 | 0.56x | done (OPT3.8, OPT3.16) |
+| dataproc.map_update | 652 / 1221 | 0.53x | done (OPT3.15, OPT1.7 `maps:fold`) |
+| dataproc.sort | 499 / 1065 | 0.47x | done (OPT3.17) |
+| dataproc.int_to_list | 421 / 920 | 0.46x | done (OPT3.8) |
+| gc.explicit_collect | 605 / 1522 | 0.40x | OPT3.20 |
+| msg.fan_in | 552 / 1407 | 0.39x | OPT3.9 remainder |
 
-OTP columns vary by up to 25-80% on the file kernels and short_processes;
-confirm ratios near 1.0x with interleaved runs of the kernel alone before
-building.
+Repeatability: a second pinned run the same day matched within 5% on 20 of 30
+kernels for both systems; file.small_files (Clause 12%, OTP 8%),
+file.large_write (OTP 11%), gc.short_processes, the socket kernels,
+small_map, comprehension, long_lived_churn and explicit_collect moved 5-9%.
+Confirm a ratio near 1.0x with interleaved pinned runs of the kernel alone
+before building.
 
 ## Profiling on Windows
 
@@ -170,93 +174,59 @@ building.
   prefix for `erl.exe -noshell -eval ...`. Mask `0x5554` is logical 2, 4, ...,
   14: one hyperthread on each of P-cores 1-7, leaving core 0 and the sibling
   threads free.
-- The 69A runs above are unpinned, so their ratios mix core placements; the
-  "pinned" ratios in the table come from kernels run alone with this mask and
-  are the ones to compare steps by. Keep other heavy jobs (builds, CTest, tidy)
-  off the machine while timing.
+- `benchmarks/run.py` pins every program to the P-cores by default
+  (`--cpus performance`, logical 0-15) through its job object; 69A runs before
+  2026-10-21 were unpinned and mix core placements. Programs take
+  `--scheduler-cpus` to bind their own workers. Keep other heavy jobs (builds,
+  CTest, tidy) off the machine while timing.
 - Run file kernels in a directory under `F:\CLAUSE` (as `benchmarks/run.py`
   does, `build/bench/runs`): in the user's Temp folder file creation is ~5x
   slower for Clause programs (small_files 6.1 s against 1.2 s; OTP's `erl.exe`
   is not slowed there, likely real-time scanning of the unsigned program).
 
-## OPTM.5 Manual Optimization - Run benchmarks on P-cores only
-
-Do this before any further step: until the 69A run is pinned, its ratios are
-not comparable between runs (see above).
-
-- **Runtime option:** add a program option next to `--schedulers`
-  (`runtime/src/startup/options.cpp`), e.g. `--scheduler-cpus performance|all|
-  <list>` (`0-15`, `2,4,6`), the counterpart of OTP's `+sbt`/`+sct`. The
-  executor (`Executor::run`, `scheduler/executor.cpp`) pins worker `N` to the
-  `N`-th CPU of the set, round-robin when there are more workers.
-  `performance` picks the most efficient class: Windows
-  `GetLogicalProcessorInformationEx(RelationProcessorCore)` `EfficiencyClass`
-  (highest), Linux `/sys/devices/cpu_core/cpus` or the highest `cpu_capacity`;
-  on a non-hybrid CPU it is every CPU. macOS has no thread affinity: accept
-  the option and only raise the workers' QoS class (document it).
-- **Default scheduler count:** `default_schedulers()` uses
-  `hardware_concurrency()`, which ignores the process affinity, so a program
-  started with `/affinity 5554` still runs 32 workers on 7 CPUs. Count the
-  CPUs of the process affinity mask (`GetProcessAffinityMask`,
-  `sched_getaffinity`) and, with `--scheduler-cpus`, of the chosen set. Check
-  OTP's own count under an affinity mask (`erlang:system_info(schedulers)`
-  under `start /affinity`) and note any difference in `docs/differences.md`.
-- **Benchmark runner:** `benchmarks/run.py` already starts each program
-  suspended and puts it into a job object (`ProcessGroup._attach_job`); set
-  `JOB_OBJECT_LIMIT_AFFINITY` to the P-core mask there before resuming, so
-  `erl.exe`, its children and Clause programs get the same CPUs (POSIX:
-  `os.sched_setaffinity` in a `preexec_fn`, or `taskset`). Add
-  `--cpus performance|all|<mask>` defaulting to `performance` (logical 0-15
-  here), and record the mask in the report header. The OS-level mask is the
-  fair part; the runtime option only adds per-worker binding on top.
-- **Done when:** a 69A run with the default `--cpus` repeats within ~5% per
-  kernel on two runs, the table above is replaced by that run, and
-  `docs/executables.md#runtime-options` describes the option. Cover parsing and
-  an unavailable CPU list through a black-box program test.
-
 ## Tier OPT3: runtime gaps of the 69A kernels
 
-Steps by their kernels' ratio to OTP JIT in the 2026-10-20 69A run (see
-[Measured priorities](#measured-priorities-69a-run-2026-10-20-head-7d7a2f2e)),
+Steps by their kernels' ratio to OTP JIT in the pinned 2026-10-21 69A run (see
+[Measured priorities](#measured-priorities-pinned-69a-run-2026-10-21-head-bce423f3)),
 largest first; steps whose kernels are already ahead stay, ranked lower.
 Profile each kernel before building (see
 [Profiling on Windows](#profiling-on-windows)).
 
-- **OPT3.18 list_of_tuples (1.25x, unprofiled):** builds a 200,000-element list
+- **OPT3.18 list_of_tuples (1.33x, unprofiled):** builds a 200,000-element list
   of `{N, N * N, [N]}`; the cost is allocation and collection of a growing live
   set (its 3M-word old area).
-- **OPT3.19 bigint_factorial (1.17x, unprofiled):** 3000! by repeated
-  bignum-by-small multiplication.
-- **OPT3.9 remainder: small messages (ring 1.03x, large_message 0.99x,
-  ping_pong 0.81x, fan_in 0.77x):** small messages to busy receivers still copy
+- **OPT3.15 remainder (map_put 1.02x):** `maps:put/3` in a self
+  tail loop (`map_put(N, M) -> map_put(N - 1, maps:put(N, V, M))`) copies the
+  path per insert, since the map arrives as a parameter. A map-loop variant
+  owning that parameter from the second step on (as binary loops own their
+  rest, OPT1.4C), with `maps:put/3` lowered to an update, would insert in place.
+- **OPT3.9 remainder: small messages (large_message 0.96x, ring 0.96x,
+  ping_pong 0.75x, fan_in 0.39x):** small messages to busy receivers still copy
   twice (into a buffer, then into the receiver).
-- **OPT3.5 remainder (short_processes 0.98x):** A-D done (see `00-finished.md`);
-  picks and slice ends under a per-process lock (full ERTS model). Each child's
-  own collections were ~53% of CPU at 32 workers after C.
-- **OPT3.20 collector (long_lived_churn 0.91x, grow_shrink 0.76x,
+- **OPT3.20 collector (long_lived_churn 0.90x, grow_shrink 0.79x,
   explicit_collect 0.40x, unprofiled since OPT3.5D):** generational collection
   and per-kind scans are done. Programs whose phases share one process still
   pay for heaps an earlier phase grew or for a large shrunk block (69A no
   longer shows it: each kernel runs in its own process since a4659943); ERTS's
   own sizing measured worse in Clause (see `docs/runtime-heap.md#generations`).
-- **OPT3.15 remainder (map_put 0.92x after OPT3.15):** `maps:put/3` in a self
-  tail loop (`map_put(N, M) -> map_put(N - 1, maps:put(N, V, M))`) copies the
-  path per insert, since the map arrives as a parameter. A map-loop variant
-  owning that parameter from the second step on (as binary loops own their
-  rest, OPT1.4C), with `maps:put/3` lowered to an update, would insert in place.
-- **OPT3.6 remainder (binary_append 0.89x):** per 4-byte append the inline path
-  allocates a 4-word sub-binary (as OTP does); collection of those cells is
-  ~13% and the growth service ~24% of the kernel after OPT3.6 (bits_service,
-  `ProcessHeap::reserve` making a fragment when the young heap is full).
-- **OPT3.21 list_to_tuple (0.84x, unprofiled):** `list_to_tuple(lists:seq(1,
+- **OPT3.21 list_to_tuple (0.87x, unprofiled):** `list_to_tuple(lists:seq(1,
   1000))`; both builtins.
-- **OPT3.22 sockets (udp_round_trip 0.80x, tcp_echo 0.79x, tcp_connect 0.76x,
+- **OPT3.19 bigint_factorial (0.83x, unprofiled):** 3000! by repeated
+  bignum-by-small multiplication.
+- **OPT3.22 sockets (tcp_echo 0.80x, udp_round_trip 0.79x, tcp_connect 0.74x,
   unprofiled):** port operations on the Asio thread.
-- **term_to_binary remainder (0.79x):** kernel page faults are still ~13% of
+- **term_to_binary remainder (0.78x):** kernel page faults are still ~13% of
   samples (the off-heap result binary and the decoded term's heap fragments
   each call); the codec itself is ~65% (decode loop, `Writer::integer`,
   `Reader::next_integer` not inlined). A single-append `tag + value` write
   measured slower on MSVC.
+- **OPT3.6 remainder (binary_append 0.77x):** per 4-byte append the inline path
+  allocates a 4-word sub-binary (as OTP does); collection of those cells is
+  ~13% and the growth service ~24% of the kernel after OPT3.6 (bits_service,
+  `ProcessHeap::reserve` making a fragment when the young heap is full).
+- **OPT3.5 remainder (short_processes 0.72x):** A-D done (see `00-finished.md`);
+  picks and slice ends under a per-process lock (full ERTS model). Each child's
+  own collections were ~53% of CPU at 32 workers after C.
 
 ## Steps outside the 69A metric (review of parked OPT0 follow-ups, 2026-10-17)
 
@@ -291,10 +261,11 @@ process_info/system_info item lists.
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
 Ordered by measured T2 value and how well each fits an AOT compiler. 69A
-weight on 2026-10-20: OPT1.12 (map_foldl 1.26x) targets a kernel behind OTP; OPT1.6 (small_map 0.93x), OPT1.5
-(binary_match 0.84x) and OPT1.3 (comprehension 0.72x) target kernels already
-ahead, so they rank lower but stay (the goal is beating OTP everywhere), and
-also pay off in real programs (euler, luerl, json).
+weight on 2026-10-21 (pinned): OPT1.12 (map_foldl 1.04x) and OPT1.6 (small_map
+1.03x) target kernels behind OTP; OPT1.5 (binary_match 0.83x) and OPT1.3
+(comprehension 0.63x) target kernels already ahead, so they rank lower but stay
+(the goal is beating OTP everywhere), and also pay off in real programs (euler,
+luerl, json).
 
 ### OPT1.3 Speculation-free small-int fast paths, with guard fusion and range-proven overflow elimination
 
@@ -522,7 +493,7 @@ and every read to inline (static decisions only).
 
 ## Suggested order for Clause
 
-0. **Measurement:** OPTM.5 (benchmarks on P-cores) before anything below.
+0. **Measurement:** done (OPTM.5: 69A runs pinned to the P-cores).
 1. **Substrate (tier OPT0):** done (open follow-ups above); it made services
    visible to LLVM and cut the 100–600× kernels.
 2. **Loops:** OPT1.1 and OPT1.2 done; OPT1.3 next.
@@ -533,10 +504,10 @@ and every read to inline (static decisions only).
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact
-   (2026-10-20 run): OPT1.12, OPT3.18,
-   OPT3.19, OPT3.9 remainder; then the kernels already ahead: OPT3.5
-   remainder, OPT1.6, OPT3.15 remainder, OPT3.20, OPT3.6 remainder, OPT1.5,
-   OPT3.21, OPT3.22, term_to_binary remainder, OPT1.3.
+   (pinned 2026-10-21 run): OPT3.18, OPT1.12, OPT1.6, OPT3.15 remainder; then
+   the kernels already ahead: OPT3.9 remainder, OPT3.20, OPT3.21, OPT1.5,
+   OPT3.19, OPT3.22, term_to_binary remainder, OPT3.6 remainder, OPT3.5
+   remainder, OPT1.3.
 
 **Gate for every item:**
 

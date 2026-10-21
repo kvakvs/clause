@@ -643,6 +643,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   lock-free index read; ~700 runtime call sites, one shared builtin `atom`
   helper; `gb_trees:lookup` 1.23x, `lists:keysearch` 1.26x, scan+parse 1.15x,
   69A geomean unchanged (+0.7%)
+- **OPTM.5** pinned benchmarks: `--scheduler-cpus performance|all|<list>`
+  binds workers, the default worker count follows the affinity mask, and
+  `benchmarks/run.py --cpus` (default `performance`) pins OTP and Clause alike
+  through the job object; pinned 69A: Clause 1.30x ahead of OTP, 20 of 30
+  kernels repeat within 5% — `bce423f3`
 - **OPT0.21** literal list prefixes, raw
   `integer_to_list`/`list_to_integer`/`atom_to_list`; int_to_list 2.1x —
   `e6d4fa94`
