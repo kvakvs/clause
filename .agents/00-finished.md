@@ -887,7 +887,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   1.001-1.010 with 64-byte function alignment on both sides: layout, recorded
   in plan 22 B.2. `--print-types` identical on W5a, W1, W6, W5r.
 
-- **INS.9** solve repetition: `; N solves repeated the previous fixed point, M
+- **INS.9** (c226b524) solve repetition: `; N solves repeated the previous fixed point, M
   reached it after R rounds in total` on `inference rounds`, from a per-round
   `note_round` in `iterate()` (profile only; aligned A/B within noise). W5a:
   the `ubody_used_vars` group repeats 4 of 17 solves (48 of 197 rounds), the
