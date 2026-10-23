@@ -4,11 +4,12 @@ This file lists optimizations taken from Lukas Larsson's (garazdawi) **T2-Full**
 optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
-Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
-OPT1.4, OPT1.6 inline caches, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
-OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4 and its remainder, OPT3.18, OPT3.19,
-sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
-OPTM.4, OPTM.5): see [00-finished.md](00-finished.md). This file keeps open work only.
+Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3, OPT1.4,
+OPT1.6 inline caches, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6,
+OPT3.7, OPT3.9 and its remainder, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14
+service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4 and its remainder,
+OPT3.18, OPT3.19, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5):
+see [00-finished.md](00-finished.md). This file keeps open work only.
 
 ## Working rules for plan 20 steps
 
@@ -95,8 +96,8 @@ ahead still owns a step, ranked by its ratio below the kernels behind. The 69A
 run of 2026-10-21 07:18 (every program pinned to the P-cores, `--cpus
 performance` = logical 0-15; each kernel in its own process, kernels sized to 1
 s or more, `benchmarks/history/reports/pekarnya/2026-10-21-71ec52f8.txt`; it
-replaced the earlier bce423f3 run of the same day) puts Clause O2 1.28x ahead
-of OTP JIT by geomean (20.2x slower at the start of plan 20, 1.68x faster than
+replaced the earlier bce423f3 run of the same day) puts Clause O2 1.28x ahead of
+OTP JIT by geomean (20.2x slower at the start of plan 20, 1.68x faster than
 baseline ffcdaf12). Every kernel by Clause / OTP time, worst first, with the
 step that owns it (unprofiled ones say so):
 
@@ -135,12 +136,12 @@ step that owns it (unprofiled ones say so):
 
 Repeatability: the bce423f3 run the same day matched within 5% on 20 of 30
 kernels for both systems. bigint_factorial's OTP time spreads 37% (1145 here,
-1651 then); its OPT3.19 row is a datagen-only run. Also noisy:
-file.small_files (Clause 39%), term_to_binary (OTP 19%), short_processes (OTP
-36%), map_put (1.02x then). Confirm a ratio near 1.0x with interleaved pinned
-runs of the kernel alone before building. Rows marked "OPT3.18 run" come from
-the pinned run of the OPT3.18 working tree (block cache eviction), which moved
-them by more than the noise; geomean there 1.36x ahead.
+1651 then); its OPT3.19 row is a datagen-only run. Also noisy: file.small_files
+(Clause 39%), term_to_binary (OTP 19%), short_processes (OTP 36%), map_put
+(1.02x then). Confirm a ratio near 1.0x with interleaved pinned runs of the
+kernel alone before building. Rows marked "OPT3.18 run" come from the pinned run
+of the OPT3.18 working tree (block cache eviction), which moved them by more
+than the noise; geomean there 1.36x ahead.
 
 ## Profiling on Windows
 
@@ -191,40 +192,40 @@ them by more than the noise; geomean there 1.36x ahead.
 
 Steps by their kernels' ratio to OTP JIT in the pinned 2026-10-21 69A run (see
 [Measured priorities](#measured-priorities-pinned-69a-run-2026-10-21-head-71ec52f8)),
-largest first; steps whose kernels are already ahead stay, ranked lower.
-Profile each kernel before building (see
+largest first; steps whose kernels are already ahead stay, ranked lower. Profile
+each kernel before building (see
 [Profiling on Windows](#profiling-on-windows)).
 
 - **OPT3.23 message signals (ring 0.80x, ping_pong 0.61x, fan_in 0.27x after
   part 1, pinned 0-15 against OTP 1359/1476/1402 ms):** part 1 (lighter process
-  creation) is done, see `00-finished.md`. Ring's gap was process lifecycle,
-  not hops: `ring(1000, 500)` runs 315 ns a hop against OTP 407, while
-  `ring(1000, 1)` setup took 3.9 us a process against OTP 1.45 (2.3x; 1.8x
-  after part 1). Next for ring and short_processes: the NT heap still
-  decommits and refaults the context (3.8 KB) and first heap block (1.9 KB),
-  ~25% of setup samples, as the spawner allocates them and other workers free
-  them; a shared recycler of those blocks needs a multi-worker negative
-  control (a global lock on every small heap block). Batch stealing (half the
-  victim's queue) measured null. Messages are copied once now; a
-  send to a receiver that does not run still takes the executor mutex to copy
-  and wake it. fan_in (unpinned profile) spends 31% of samples contending for
-  it in `send_locked`; ping_pong ~15% in SRW acquire/release (send, push,
-  next_process). The file.read_line profile (a call round trip per line) shows
-  monitor plus demonitor of the call ~14% (a map node and a reference each).
-  Candidates: per-process signal locks as ERTS, or posting to a parked
-  receiver's arrivals with only the waking sender locking (sends that buffered
-  every message regressed fan_in in OPT3.5B: allocator contention).
-- **OPT3.15 remainder (map_put 0.96x):** `maps:put/3` in a self
-  tail loop (`map_put(N, M) -> map_put(N - 1, maps:put(N, V, M))`) copies the
-  path per insert, since the map arrives as a parameter. A map-loop variant
-  owning that parameter from the second step on (as binary loops own their
-  rest, OPT1.4C), with `maps:put/3` lowered to an update, would insert in place.
+  creation) is done, see `00-finished.md`. Ring's gap was process lifecycle, not
+  hops: `ring(1000, 500)` runs 315 ns a hop against OTP 407, while
+  `ring(1000, 1)` setup took 3.9 us a process against OTP 1.45 (2.3x; 1.8x after
+  part 1). Next for ring and short_processes: the NT heap still decommits and
+  refaults the context (3.8 KB) and first heap block (1.9 KB), ~25% of setup
+  samples, as the spawner allocates them and other workers free them; a shared
+  recycler of those blocks needs a multi-worker negative control (a global lock
+  on every small heap block). Batch stealing (half the victim's queue) measured
+  null. Messages are copied once now; a send to a receiver that does not run
+  still takes the executor mutex to copy and wake it. fan_in (unpinned profile)
+  spends 31% of samples contending for it in `send_locked`; ping_pong ~15% in
+  SRW acquire/release (send, push, next_process). The file.read_line profile (a
+  call round trip per line) shows monitor plus demonitor of the call ~14% (a map
+  node and a reference each). Candidates: per-process signal locks as ERTS, or
+  posting to a parked receiver's arrivals with only the waking sender locking
+  (sends that buffered every message regressed fan_in in OPT3.5B: allocator
+  contention).
+- **OPT3.15 remainder (map_put 0.96x):** `maps:put/3` in a self tail loop
+  (`map_put(N, M) -> map_put(N - 1, maps:put(N, V, M))`) copies the path per
+  insert, since the map arrives as a parameter. A map-loop variant owning that
+  parameter from the second step on (as binary loops own their rest, OPT1.4C),
+  with `maps:put/3` lowered to an update, would insert in place.
 - **OPT3.20 collector (long_lived_churn 0.90x, grow_shrink 0.81x,
   explicit_collect 0.37x, unprofiled since OPT3.5D):** generational collection
-  and per-kind scans are done. Programs whose phases share one process still
-  pay for heaps an earlier phase grew or for a large shrunk block (69A no
-  longer shows it: each kernel runs in its own process since a4659943); ERTS's
-  own sizing measured worse in Clause (see `docs/runtime-heap.md#generations`).
+  and per-kind scans are done. Programs whose phases share one process still pay
+  for heaps an earlier phase grew or for a large shrunk block (69A no longer
+  shows it: each kernel runs in its own process since a4659943); ERTS's own
+  sizing measured worse in Clause (see `docs/runtime-heap.md#generations`).
 - **File kernels (read_file 0.98x, small_files 0.81x after the OPT3.4
   remainder):** read_file is kernel copying plus faults on the fresh pages of
   its 16 MB reply (~25%); a cache of large freed binary buffers would spare
@@ -232,16 +233,16 @@ Profile each kernel before building (see
   file, both systems; runs swing bimodally).
 - **OPT3.21 list_to_tuple (0.88x, unprofiled):** `list_to_tuple(lists:seq(1,
   1000))`; both builtins.
-- **term_to_binary remainder (0.70x after OPT3.18):** before OPT3.18 kernel
-  page faults were ~13% of samples (the off-heap result binary and the decoded
-  term's heap fragments each call); the codec itself is ~65% (decode loop,
+- **term_to_binary remainder (0.70x after OPT3.18):** before OPT3.18 kernel page
+  faults were ~13% of samples (the off-heap result binary and the decoded term's
+  heap fragments each call); the codec itself is ~65% (decode loop,
   `Writer::integer`, `Reader::next_integer` not inlined). A single-append
   `tag + value` write measured slower on MSVC.
 - **OPT3.22 sockets (udp_round_trip 0.80x, tcp_echo 0.79x, tcp_connect 0.76x,
   unprofiled):** port operations on the Asio thread.
 - **OPT3.6 remainder (binary_append 0.76x):** per 4-byte append the inline path
-  allocates a 4-word sub-binary (as OTP does); collection of those cells is
-  ~13% and the growth service ~24% of the kernel after OPT3.6 (bits_service,
+  allocates a 4-word sub-binary (as OTP does); collection of those cells is ~13%
+  and the growth service ~24% of the kernel after OPT3.6 (bits_service,
   `ProcessHeap::reserve` making a fragment when the young heap is full).
 - **OPT3.5 remainder (short_processes 0.67x):** A-D done (see `00-finished.md`);
   picks and slice ends under a per-process lock (full ERTS model). Each child's
@@ -277,15 +278,23 @@ importers' handler tables); not the index-bearing ones (`fixed_atom_spellings`,
 preprocessor directive names, compile cache output kinds) or
 process_info/system_info item lists.
 
+## OPTM.6 Manual Optimization - String Builder
+
+Scan the source for loops building strings with `+=`. This is a potential
+performance loss, estimate the loss.
+
+Solution: Create a string builder class, which will collect `string_view` or
+`std::string` pieces in a list, and calculate (or store) accumulated length, and
+then join them together with one `reserve` call.
+
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
-Ordered by measured T2 value and how well each fits an AOT compiler. 69A
-weight on 2026-10-21 (pinned): OPT1.6's inline caches put small_map ahead
-(~0.84x run alone); OPT1.6 remainder, OPT1.12 (map_foldl 0.77x after OPT3.18),
-OPT1.5 (binary_match 0.86x) and OPT1.3 (comprehension 0.63x) target kernels
-already ahead, so they rank lower but stay
-(the goal is beating OTP everywhere), and also pay off in real programs (euler,
-luerl, json).
+Ordered by measured T2 value and how well each fits an AOT compiler. 69A weight
+on 2026-10-21 (pinned): OPT1.6's inline caches put small_map ahead (~0.84x run
+alone); OPT1.6 remainder, OPT1.12 (map_foldl 0.77x after OPT3.18), OPT1.5
+(binary_match 0.86x) and OPT1.3 (comprehension 0.63x) target kernels already
+ahead, so they rank lower but stay (the goal is beating OTP everywhere), and
+also pay off in real programs (euler, luerl, json).
 
 ### OPT1.3 Speculation-free small-int fast paths, with guard fusion and range-proven overflow elimination
 
@@ -336,8 +345,8 @@ Builds on OPT1.4.
 ### OPT1.6 remainder: static map shapes and the shared-keys layout
 
 Per-site inline caches over classic cells are done (see `00-finished.md`): a
-search for a literal key compares the key word at the index its site found
-last; variable keys (maps as dictionaries, luerl's tables) only scan. Open:
+search for a literal key compares the key word at the index its site found last;
+variable keys (maps as dictionaries, luerl's tables) only scan. Open:
 
 - **Static shapes:** when inference proves a map with exactly known atom keys
   (the literal or record origin, `#{k := V}` facts), the key index follows from
@@ -407,10 +416,10 @@ and every read to inline (static decisions only).
   (`ssa_opt_float`), which is why T2 lists it as "compiler already does it".
 - **Clause:** OPT1.2 did the main part: float literals and float-only results
   keep their double (`raw_floats`), cells only where a word is read, float
-  parameters of self tail loops pass as double bits. Open: comparisons of a
-  raw float with an unknown word (they make a cell), `float/1` and unary
-  minus, `is_float/1` on raw floats, and floats crossing calls between
-  functions (arguments, results).
+  parameters of self tail loops pass as double bits. Open: comparisons of a raw
+  float with an unknown word (they make a cell), `float/1` and unary minus,
+  `is_float/1` on raw floats, and floats crossing calls between functions
+  (arguments, results).
 
 ### OPT1.12 Tail-modulo-cons and in-place list building
 
@@ -520,12 +529,12 @@ and every read to inline (static decisions only).
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact
    (pinned 2026-10-21 71ec52f8 run, worst kernel of each step; OPT3.18 done):
    OPT3.19 (1.20x), OPT1.6 caches (1.03x), both done; then the kernels already
-   ahead: OPT3.23 (ring ~0.80x), OPT1.6 remainder (~0.84x), OPT3.15 remainder (0.96x), OPT3.20 (0.90x), OPT3.21
-   (0.88x), OPT1.5 (0.86x), OPT3.22 (0.80x), OPT1.12 (0.77x), OPT3.6 remainder
-   (0.76x), term_to_binary remainder (0.70x), OPT3.5 remainder (0.67x), OPT1.3
-   (0.63x). Steps with no 69A kernel (OPT3.13/3.14 remainders, OPTM.1
-   remainder, OPT1.7-1.11, OPT1.13, OPT2.x) follow; `--lto` (an OPT2.1 proxy)
-   is 1.00x overall.
+   ahead: OPT3.23 (ring ~0.80x), OPT1.6 remainder (~0.84x), OPT3.15 remainder
+   (0.96x), OPT3.20 (0.90x), OPT3.21 (0.88x), OPT1.5 (0.86x), OPT3.22 (0.80x),
+   OPT1.12 (0.77x), OPT3.6 remainder (0.76x), term_to_binary remainder (0.70x),
+   OPT3.5 remainder (0.67x), OPT1.3 (0.63x). Steps with no 69A kernel
+   (OPT3.13/3.14 remainders, OPTM.1 remainder, OPT1.7-1.11, OPT1.13, OPT2.x)
+   follow; `--lto` (an OPT2.1 proxy) is 1.00x overall.
 
 **Gate for every item:**
 

@@ -21,20 +21,20 @@ create a new API that's for the end user to choose
   (`code:get_doc/1`). A module counts when its module doc is not `hidden`, a
   function when its doc is not `hidden` and it is not deprecated. The OTP
   checkout (pin `d199a49a01`) gave line counts and NIF use.
-  `tests/compiler/library/observe_docs.escript` records the documented
-  functions in `library/documented.terms`; `library_modules.py coverage .`
-  prints the progress per module.
+  `tests/compiler/library/observe_docs.escript` records the documented functions
+  in `library/documented.terms`; `library_modules.py coverage .` prints the
+  progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888
-  documented functions; 1,456 are still to do (erts 23, kernel 545, stdlib
-  888). Appendix A lists them per module.
+  documented functions; 1,456 are still to do (erts 23, kernel 545, stdlib 888).
+  Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined):
   `atomics`, `counters`, `erl_prim_loader`, `persistent_term`, `prim_eval`,
   `zlib`, `binary`, `lists`, `maps`, `math`, `re` (`import/1` declined), `init`
   (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`, `dict`,
   `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`,
-  `filename`, `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`, `orddict`,
-  `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
-  `unicode`, `uri_string`.
+  `filename`, `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`,
+  `erl_scan`, `erl_parse`, `orddict`, `ordsets`, `proplists`, `queue`, `rand`,
+  `records`, `sets`, `sofs`, `string`, `unicode`, `uri_string`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution,
   tracing), `code` (51), `io` (31), `file` (30), `inet` (19), `gen_udp` (5),
   `os` (4), `gen_tcp` (1), `ets` (2, LIB73), `dets` (2, LIB73).
@@ -94,8 +94,8 @@ create a new API that's for the end user to choose
 
 Whenever a C++ implementation is viable, prefer it (user direction 2026-10-17):
 calls between Erlang and builtins cost nothing notable, and C++ is much faster.
-Erlang only where a function calls funs, runs a process protocol or is glue.
-C++ reproduces OTP's exact result shapes for every input form (deep chardata,
+Erlang only where a function calls funs, runs a process protocol or is glue. C++
+reproduces OTP's exact result shapes for every input form (deep chardata,
 embedded binaries, io_lib's nested char lists), not just equal content.
 
 | Kind | Implement in | Examples |
@@ -110,8 +110,8 @@ embedded binaries, io_lib's nested char lists), not just equal content.
 
 ## Tier A: data modules without processes
 
-LIB0–LIB11, LIB4F, LIB10F, LIB12A, LIB12B, LIB53 and LIB72 are done (`00-finished.md`); their open remainders
-follow.
+LIB0–LIB11, LIB4F, LIB10F, LIB12A, LIB12B, LIB53 and LIB72 are done
+(`00-finished.md`); their open remainders follow.
 
 ### LIB9 remainder: declined `erlang` functions
 
@@ -124,8 +124,8 @@ follow.
 
 - `ets` and `dets` ship `table/1,2` as stubs until `qlc` (`PARTIAL` in
   `library_modules.py`).
-- Later: `select_delete/2` and `select_replace/2` over a whole table in
-  portions (they run in one piece, each part under its lock).
+- Later: `select_delete/2` and `select_replace/2` over a whole table in portions
+  (they run in one piece, each part under its lock).
 
 ### LIB12C remainder: `ets:table/1,2`
 
@@ -246,9 +246,9 @@ follow.
 
 LIB34A (qlc chain) takes from this step what `qlc` and `qlc_pt` need: `erl_pp`
 whole (16), `erl_expand_records:module/2`, `erl_lint:is_guard_test/1`,
-`format_error/1` and the `module/2` errors a query expression can raise
-(unbound and unsafe variables, illegal guards, undefined records), with OTP's
-error terms.
+`format_error/1` and the `module/2` errors a query expression can raise (unbound
+and unsafe variables, illegal guards, undefined records), with OTP's error
+terms.
 
 ## Tier E: files, archives and logs
 
@@ -331,9 +331,8 @@ error terms.
 
 ### LIB63. `io` remainder and terminal output
 
-- `io`: `write/1,2`, `columns/0,1`,
-  `rows/0,1`, `getopts/0,1`, `setopts/1,2`, `printable_range/0`,
-  `get_password/0`. The read and parse family is in LIB33.
+- `io`: `write/1,2`, `columns/0,1`, `rows/0,1`, `getopts/0,1`, `setopts/1,2`,
+  `printable_range/0`, `get_password/0`. The read and parse family is in LIB33.
 - `io_ansi` (153, new in OTP 29): C++ escape-sequence builders and `enabled/0,1`
   terminal detection; `format/1,2,3` and `fwrite/1,2,3,4` over `io_lib`.
 
@@ -352,12 +351,12 @@ error terms.
 - Selected or declined as one decision. The call tracer of plan 11 is the
   starting point.
 
->>>>
+> > > > 
 
 ### LIB73. `qlc`
 
-Dependencies first (user direction 2026-10-19), in this order: LIB30
-`erl_scan` (done), LIB31 `erl_parse` (done), LIB54A `file_sorter`, LIB32 `erl_eval`, LIB34A
+Dependencies first (user direction 2026-10-19), in this order: LIB30 `erl_scan`
+(done), LIB31 `erl_parse` (done), LIB54A `file_sorter`, LIB32 `erl_eval`, LIB34A
 (`erl_pp`, `erl_expand_records`, `erl_lint`'s checks for `qlc_pt`). See
 [the qlc chain](#qlc-chain-user-direction-2026-10-19).
 
@@ -374,8 +373,8 @@ Dependencies first (user direction 2026-10-19), in this order: LIB30
   above `max_list_size` with `tmpdir` and `tmpdir_usage` (its message levels
   need `error_logger`, LIB23: ask before landing without it), cursors as
   processes, OTP's error terms and `format_error/1`.
-- `info/1,2`: OTP's abstract code printed by `erl_pp:expr/3`, table
-  descriptions parsed with `erl_scan` and `erl_eval:extended_parse_exprs/1`,
+- `info/1,2`: OTP's abstract code printed by `erl_pp:expr/3`, table descriptions
+  parsed with `erl_scan` and `erl_eval:extended_parse_exprs/1`,
   `erl_eval:fun_data/1` for interpreted funs.
 - `string_to_handle/1,2,3`: `erl_scan:string/3`, `erl_eval` and a Clause
   `qlc_pt` (internal module, not copied) that does at run time what the host
@@ -409,19 +408,18 @@ missing, so programs that probe for them keep working.
 
 ### qlc chain (user direction 2026-10-19)
 
-Runs now, before the list below: LIB30 `erl_scan` (done), LIB31 `erl_parse` (done), LIB54A
-`file_sorter` (its `term` format reads with `io:read/2`, so `io:read/1,2` of
-LIB33 come with it), LIB32 `erl_eval` (with the undocumented
+Runs now, before the list below: LIB30 `erl_scan` (done), LIB31 `erl_parse`
+(done), LIB54A `file_sorter` (its `term` format reads with `io:read/2`, so
+`io:read/1,2` of LIB33 come with it), LIB32 `erl_eval` (with the undocumented
 `extended_parse_exprs/1`, `fun_data/1` and `partial_eval/1` that `qlc` and
 `qlc_pt` call), LIB34A, then LIB73 `qlc` with LIB12C. Each is its own commit.
-The runtime cannot link the compiler's `clause_frontend` (a separate,
-LLVM-free build; the compiler lexer throws Clause diagnostics and has no
-`erl_scan` continuations), so `erl_scan` and `erl_parse` get their own C++
-scanner and parser in `runtime/src/builtins/front_end/`, written to OTP's
-documented behavior and grammar. For `erl_parse` the user chose this over
-reusing the compiler's parser with the parse-transform export (2026-10-19):
-OTP's error tokens and messages, the tokens' own annotations, and no Boost in
-the runtime.
+The runtime cannot link the compiler's `clause_frontend` (a separate, LLVM-free
+build; the compiler lexer throws Clause diagnostics and has no `erl_scan`
+continuations), so `erl_scan` and `erl_parse` get their own C++ scanner and
+parser in `runtime/src/builtins/front_end/`, written to OTP's documented
+behavior and grammar. For `erl_parse` the user chose this over reusing the
+compiler's parser with the parse-transform export (2026-10-19): OTP's error
+tokens and messages, the tokens' own annotations, and no Boost in the runtime.
 
 ### General order
 
@@ -445,8 +443,9 @@ functions are listed separately and are optional.
   check_process_code/2,3, dist_ctrl_get_data/1,
   dist_ctrl_get_data_notification/1, dist_ctrl_get_opt/2,
   dist_ctrl_input_handler/2, dist_ctrl_put_data/2, dist_ctrl_set_opt/3,
-  load_module/2, load_nif/2, purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3, trace_delivered/1,
-  trace_info/2, trace_pattern/2,3
+  load_module/2, load_nif/2, purge_module/1, system_monitor/0,1,2,
+  system_profile/0,2, trace/3, trace_delivered/1, trace_info/2,
+  trace_pattern/2,3
 - `init` (erts, 3, 8 done): boot/1, restart/0,1
 - `application` (kernel, 35; 5 callbacks): ensure_all_started/1,2,3,
   ensure_started/1,2, get_all_env/0,1, get_all_key/0,1, get_application/0,1,
@@ -618,10 +617,10 @@ functions are listed separately and are optional.
   enter_loop/4,5,6, receive_response/1,2,3, reply/1,2, reqids_add/3,
   reqids_new/0, reqids_size/1, reqids_to_list/1, send_request/2,4, start/3,4,
   start_link/3,4, start_monitor/3,4, stop/1,3, wait_response/1,2,3
-- `io` (stdlib, 32, 16 done): columns/0,1, get_password/0,
-  getopts/0,1, parse_erl_exprs/1,2,3,4, parse_erl_form/1,2,3,4,
-  printable_range/0, read/1,2,3,4, rows/0,1, scan_erl_exprs/1,2,3,4,
-  scan_erl_form/1,2,3,4, setopts/1,2, write/1,2
+- `io` (stdlib, 32, 16 done): columns/0,1, get_password/0, getopts/0,1,
+  parse_erl_exprs/1,2,3,4, parse_erl_form/1,2,3,4, printable_range/0,
+  read/1,2,3,4, rows/0,1, scan_erl_exprs/1,2,3,4, scan_erl_form/1,2,3,4,
+  setopts/1,2, write/1,2
 - `io_ansi` (stdlib, 153): alternate_character_set_mode/0,
   alternate_character_set_mode_off/0, alternate_screen/0,
   alternate_screen_off/0, background/1,3, black/0, black_background/0,
@@ -658,7 +657,7 @@ functions are listed separately and are optional.
   underline_off/0, white/0, white_background/0, white_underline/0, yellow/0,
   yellow_background/0, yellow_underline/0
 - `log_mf_h` (stdlib, 2): init/3,4
->>>>
+> > > > 
 
 - `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3,
   start/1, start_link/0,1, stop/1

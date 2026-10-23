@@ -27,8 +27,7 @@ draft with smaller, single-commit steps.
   steps run before step 9 and keep their letter IDs in commit titles.
 - Phase N2 (steps 73A–73H) was inserted on 2026-10-11 (user direction). It
   selects and implements the parse-transform slice of step 73 and depends on
-  [65C](00-finished.md), not on step 73, so it may run before steps
-  66–72.
+  [65C](00-finished.md), not on step 73, so it may run before steps 66–72.
 - Phases H2 (`erlang` builtins, 41A–41H), L2 (export liveness, 62C) and L3
   (build directory and caches, 62D1–62D5 and 62E; the cache item of D07 selected
   ahead of step 77) were inserted on 2026-10-11/12 (user direction) and are
@@ -54,12 +53,12 @@ draft with smaller, single-commit steps.
 - **Gate:** freshly configure `build/debug` with compiler, runtime and
   `BUILD_TESTING=ON`; build; run fast-mode CTest (`ctest --preset debug-fast`);
   run `cmake --build build/debug --target check-quality` (changed files and one
-  unit per changed header). When a phase or major feature completes, run full-mode
-  CTest (`ctest --preset debug -j <N>`; each test takes two slots, so N/2 run at
-  once) instead of fast mode, never both (full covers every fast run), and
-  `check-quality-all`. Lizard and clang-tidy pass without raised thresholds or
-  suppressions. Code is clang-formatted; new and changed `.erl`/terms files pass
-  erlfmt.
+  unit per changed header). When a phase or major feature completes, run
+  full-mode CTest (`ctest --preset debug -j <N>`; each test takes two slots, so
+  N/2 run at once) instead of fast mode, never both (full covers every fast
+  run), and `check-quality-all`. Lizard and clang-tidy pass without raised
+  thresholds or suppressions. Code is clang-formatted; new and changed
+  `.erl`/terms files pass erlfmt.
 - **Code:** project-internal C++23; document field and function intent in 1–2
   lines; keep cyclomatic complexity low; runtime stays LLVM-free.
 - **OTP:** at the start of OTP-dependent work follow
@@ -133,8 +132,7 @@ clean (338 units, headers now checked); Linux x86-64 235/235.
 
 ## Step overview
 
-Completed steps link to
-[the plan 11 record](00-finished.md).
+Completed steps link to [the plan 11 record](00-finished.md).
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
@@ -152,11 +150,10 @@ Completed steps link to
 
 ## Completed steps
 
-Moved to [00-finished.md](00-finished.md) (step, title and
-commit for 1–68, 41A–41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2,
-41Z, 41ZC, 62C–62E, 65A–65C, 69A and 73A–73G); full step text and evidence are
-in Git at those commits. The anchors below keep older links to this file
-working.
+Moved to [00-finished.md](00-finished.md) (step, title and commit for 1–68,
+41A–41R, 41ZA, 41T, 41U, 41V, 41W, 41X, 41M1, 41M2, 41Y1, 41Y2, 41Z, 41ZC,
+62C–62E, 65A–65C, 69A and 73A–73G); full step text and evidence are in Git at
+those commits. The anchors below keep older links to this file working.
 
 ### Notes from completed steps that guide remaining work
 
@@ -190,13 +187,12 @@ working.
 
 Added 2026-10-13 (user direction). Evidence: `clau.bat
 ------------------------------------------------------ test-luerl
------------------------------------------------------------------ luerl:init
-----------------------------------------------------------------------------
+luerl:init
+
 (188 modules) spends 330 s of a 399 s compile in inference: 17 passes, the
-8M-step pass
-budget spent from pass 3 on. The cost is in recursive groups (strongly connected
-components), which `solve` iterates for up to `8 + 4 × members` rounds,
-re-walking every member each round:
+8M-step pass budget spent from pass 3 on. The cost is in recursive groups
+(strongly connected components), which `solve` iterates for up to
+`8 + 4 × members` rounds, re-walking every member each round:
 
 | Group | Members | Round cap | Solves capped | Walks that changed a summary | Last solve (inputs `term()`) | Time |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -217,17 +213,17 @@ step reruns the luerl command and records inference time, passes and the
 `inference rounds` lines; `--print-types` output of the existing fixtures may
 change only where a step says so.
 
-Steps 58O–58S are done ([finished work](00-finished.md)): luerl
-inference 330 s to 107 s.
+Steps 58O–58S are done ([finished work](00-finished.md)): luerl inference 330 s
+to 107 s.
 
 <a id="step-58x"></a>
 
 ### 58X. Widen integers inside containers so local inputs settle
 
-Backlog: F29. Depends on: [58S](00-finished.md). Added 2026-10-13 from
-the `parsers.erl` fixture (user direction: an inference test shaped like
-yecc/leex output). Should run before 58T: it may remove most of the
-`inputs changed` passes 58T wants to skip.
+Backlog: F29. Depends on: [58S](00-finished.md). Added 2026-10-13 from the
+`parsers.erl` fixture (user direction: an inference test shaped like yecc/leex
+output). Should run before 58T: it may remove most of the `inputs changed`
+passes 58T wants to skip.
 
 - Evidence: `tests/fixtures/inference/parsers.erl` (CTest `inference_parsers`)
   never settles its local inputs in 16 passes, so the final pass gives every
@@ -256,8 +252,8 @@ yecc/leex output). Should run before 58T: it may remove most of the
 
 ### 58T. Re-infer only the components whose inputs changed since the last pass
 
-Backlog: F29, V05. Depends on: [58R](00-finished.md). Added 2026-10-13
-(58R decision).
+Backlog: F29, V05. Depends on: [58R](00-finished.md). Added 2026-10-13 (58R
+decision).
 
 - Success criteria
   - [ ] A pass re-infers a component only when its inputs (`Inference::inputs`
@@ -364,19 +360,18 @@ other), and add or adjust steps here before coding the next one.
 
 ### 41M. `persistent_term`
 
-Split on 2026-10-14 (user direction) into [41M1](00-finished.md) (the
-runtime table) and [41M2](00-finished.md) (the builtins), both in
-phase H4.
+Split on 2026-10-14 (user direction) into [41M1](00-finished.md) (the runtime
+table) and [41M2](00-finished.md) (the builtins), both in phase H4.
 
 ## H4. Library functions luerl reaches
 
 Added and done 2026-10-14 (user direction) from
 [the luerl library ledger](21-lib.md), steps 41T–41Z with 41M split into
-41M1/41M2 and 41Y into 41Y1/41Y2: [finished work](00-finished.md).
-Library functions are C++ builtins of their module; fun-taking functions stay
-Erlang. `re` (ledger row 17) came with H5; `init:get_arguments/0` came with
-[41L](00-finished.md). [41ZC](00-finished.md) (2026-10-15)
-added OTP's I/O protocol for the euler example.
+41M1/41M2 and 41Y into 41Y1/41Y2: [finished work](00-finished.md). Library
+functions are C++ builtins of their module; fun-taking functions stay Erlang.
+`re` (ledger row 17) came with H5; `init:get_arguments/0` came with
+[41L](00-finished.md). [41ZC](00-finished.md) (2026-10-15) added OTP's I/O
+protocol for the euler example.
 
 ## H5. Regular expressions (`re`)
 
@@ -462,11 +457,10 @@ Backlog: D03. Depends on: [58](00-finished.md). **Decision.**
 - Success criteria
   - [ ] Per-attribute decision (`compile` options, `on_load`, others; parse
     transforms are selected and implemented by phase N2,
-    [73A](00-finished.md)–[73H](#step-73h) (applied since 73F);
-    `behaviour` is implemented by [65A](00-finished.md), `module_info`
-    and informational attributes by [65B](00-finished.md), imports and
-    compile hints by [65C](00-finished.md)); rejected ones keep
-    diagnostics.
+    [73A](00-finished.md)–[73H](#step-73h) (applied since 73F); `behaviour` is
+    implemented by [65A](00-finished.md), `module_info` and informational
+    attributes by [65B](00-finished.md), imports and compile hints by
+    [65C](00-finished.md)); rejected ones keep diagnostics.
 - Tests
   - [ ] CLI diagnostics for each rejected attribute.
 
@@ -538,9 +532,9 @@ entry point from the driver. Normal builds and tests stay OTP-free: format
 coverage uses OTP-generated goldens; tests that run a transform need host OTP
 and are labeled and skipped (recorded as a gap) without it.
 
-Steps 73A–73G are done ([record](00-finished.md)). OTP's
-transform pass (order, options, return shapes, messages, column stripping,
-forms) and Clause's contract are in [transforms](../docs/transforms.md).
+Steps 73A–73G are done ([record](00-finished.md)). OTP's transform pass (order,
+options, return shapes, messages, column stripping, forms) and Clause's contract
+are in [transforms](../docs/transforms.md).
 
 <a id="step-73h"></a>
 

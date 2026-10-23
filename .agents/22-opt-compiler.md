@@ -15,9 +15,10 @@ file plans only. No compiler code has changed yet.
 - Do not take timings while another build or benchmark is running.
   `compile_times.py` (step B.1) checks for this and refuses to time when one is.
 - Commit each step on its own. The subject starts with `[plan22]`, then the step
-  code and title, e.g. `[plan22] INS.1. Pass-level inference counters`. Plan 11's
-  gate applies: fast CTest, `check-quality`, clang-format, docs (`docs/semantic.md`
-  `#inference` for any change to passes, rounds or widening).
+  code and title, e.g. `[plan22] INS.1. Pass-level inference counters`. Plan
+  11's gate applies: fast CTest, `check-quality`, clang-format, docs
+  (`docs/semantic.md` `#inference` for any change to passes, rounds or
+  widening).
 - Instrumentation is opt-in. With the profile pointer null (no
   `--print-stage-times`), the hot paths gain at most one well-predicted branch.
   An instrumentation step must show that the uninstrumented inference phase did
@@ -34,16 +35,17 @@ file plans only. No compiler code has changed yet.
 
 ## Focus workload: `beam_core_to_ssa` (W5a)
 
-Scratch project, not in git:
-`<scratchpad>/b2s/b2s.toml` with `sources = [".../compiler-10.0.6/src/beam_core_to_ssa.erl",
-"b2s_main.erl"]` against the installed OTP (`C:/Program Files/Erlang OTP/lib/**/src`
-search paths and includes, `ignore_dirs` crypto, `ignore_modules` prim_tty and
-prim_inet, defines `COMPILER_VSN=1` and `NEW_STACKTRACE`, the same as
-`test-luerl-euler.toml`). `b2s_main:main/0` calls `beam_core_to_ssa:module/2`
-and exists only to give `--entry` a 0-arity function. Recreate the project from
-this description if the scratchpad is gone.
-- Against `references/otp`, `compile.erl` fails with `unknown module core_parse`,
-  because `core_parse.erl` is generated from `.yrl`. The installed OTP ships it.
+Scratch project, not in git: `<scratchpad>/b2s/b2s.toml` with `sources =
+[".../compiler-10.0.6/src/beam_core_to_ssa.erl",
+"b2s_main.erl"]` against the installed OTP (`C:/Program Files/Erlang
+OTP/lib/**/src` search paths and includes, `ignore_dirs` crypto,
+`ignore_modules` prim_tty and prim_inet, defines `COMPILER_VSN=1` and
+`NEW_STACKTRACE`, the same as `test-luerl-euler.toml`). `b2s_main:main/0` calls
+`beam_core_to_ssa:module/2` and exists only to give `--entry` a 0-arity
+function. Recreate the project from this description if the scratchpad is gone.
+- Against `references/otp`, `compile.erl` fails with
+  `unknown module core_parse`, because `core_parse.erl` is generated from
+  `.yrl`. The installed OTP ships it.
 - The run pulls in **133 modules** (the OTP compiler, stdlib and kernel parts it
   reaches).
 - **Liveness does not trim it.** With `--entry b2s_main:main --print-ir`, every
@@ -69,7 +71,8 @@ W5a `--print-ir` (earlier, loaded): lower 10.4 s, then failed `LLVM
 serialization failed: compilation artifact byte limit exceeded`.
 
 Inference passes (W5a): work steps 1.18M → 2.48M per pass (budget 8M, never
-reached), time per pass 0.66 s → 8.4 s. W1: 1.42M → 3.29M steps, 0.84 s → 10.6 s.
+reached), time per pass 0.66 s → 8.4 s. W1: 1.42M → 3.29M steps, 0.84 s → 10.6
+s.
 
 | Pass | 1 | 4 | 8 | 12 | 16 | 17 (final, inputs `term()`) |
 |---|---|---|---|---|---|---|
@@ -100,10 +103,10 @@ fixing W5a fixes W1.
   whole-batch passes plus the forced final one. After pass 8,
   `gather_inputs(widening=true)` calls `Lattice::widen`, and that only unbounds
   integer bounds that moved. Inputs that grow in **structure**, through new
-  union members, new record and tuple shapes or deeper nesting up to the
-  depth-4 limit, are not widened. They creep for 8 more passes until the final
-  pass sets every local input to `term()`. So the batch pays 16 full passes and
-  then throws away the precision anyway.
+  union members, new record and tuple shapes or deeper nesting up to the depth-4
+  limit, are not widened. They creep for 8 more passes until the final pass sets
+  every local input to `term()`. So the batch pays 16 full passes and then
+  throws away the precision anyway.
 - **Every pass re-walks everything** (`infer_pass`): all components, including
   ones whose inputs and read summaries did not change.
 - **Every solve restarts from bottom** (`solve()` sets each member to
@@ -120,10 +123,10 @@ fixing W5a fixes W1.
 
 ## Convergence strategy (main track, steps CONV.*)
 
-Target for W5a: **inference ≤ 10 s on a quiet machine (≈10×)**, ≤ 6 passes
-whose work is mostly dirty components, and a measured, accepted precision loss
-(B.3). Soundness invariant for every step: a fact may only get wider than
-today's result, never narrower.
+Target for W5a: **inference ≤ 10 s on a quiet machine (≈10×)**, ≤ 6 passes whose
+work is mostly dirty components, and a measured, accepted precision loss (B.3).
+Soundness invariant for every step: a fact may only get wider than today's
+result, never narrower.
 
 - **CONV.0 Widen nested integer bounds** (from INS.8 finding 2). Make
   `Lattice::widen` (or the input widening in `gather_inputs`) relax integer
@@ -143,12 +146,11 @@ today's result, never narrower.
   changed. Clean components keep their summaries and expression facts (do not
   reset `expressions` for them). This needs INS.1's check to show 0
   "clean-but-changed" components over W1, W3, W5a and W6 first.
-- **CONV.3 Warm-start solves.** When a recursive component is dirty only
-  because its inputs or callees grew, start its next solve from its previous
-  fixed point instead of `bottom()`. Joins are not monotone at the depth limit
-  (58Q), so a member that would drop below its previous summary keeps the join
-  of the two. That costs some precision and keeps soundness; measure the rounds
-  saved.
+- **CONV.3 Warm-start solves.** When a recursive component is dirty only because
+  its inputs or callees grew, start its next solve from its previous fixed point
+  instead of `bottom()`. Joins are not monotone at the depth limit (58Q), so a
+  member that would drop below its previous summary keeps the join of the two.
+  That costs some precision and keeps soundness; measure the rounds saved.
 - **CONV.4 Cost-aware give-up.** Extend 58P's `failed` set: a component whose
   solve cost (lattice ops from INS.2, not syntax steps) is over its share in a
   pass, and that is dirty again in a later pass, gives up at once (`term()`
@@ -159,35 +161,34 @@ today's result, never narrower.
   recursive-member summaries harder than plain facts (fewer union members, or
   depth 3) during the join rounds.
 - **CONV.7 Inputs within the pass** (from INS.8 finding 1). Let local inputs
-  reach callees in the same pass instead of one call level per pass: for
-  example gather a non-recursive component's inputs from its callers' facts
-  just before walking it, walking components caller-first for inputs in
-  between callee-first passes, or a separate cheap input-propagation sweep.
-  Measure passes until `first` changes stop on W5a.
+  reach callees in the same pass instead of one call level per pass: for example
+  gather a non-recursive component's inputs from its callers' facts just before
+  walking it, walking components caller-first for inputs in between callee-first
+  passes, or a separate cheap input-propagation sweep. Measure passes until
+  `first` changes stop on W5a.
 - **CONV.6 Remove the fixed pass count.** Once CONV.1 bounds input changes and
-  CONV.2 makes passes cheap, `PASSES` is a safety limit only. Its final
-  `term()` pass should become rare. INS.1 reports when it still fires.
+  CONV.2 makes passes cheap, `PASSES` is a safety limit only. Its final `term()`
+  pass should become rare. INS.1 reports when it still fires.
 
 CONV.1 and CONV.2 are independent and both needed. CONV.3 and CONV.4 target the
 per-component repetition. CONV.5 targets the per-walk cost.
 
 ## Instrumentation steps (INS.*)
 
-All of these record into `InferenceProfile` (`semantic/types/profile.hpp`)
-only when `Inference::profile` is set, and print through
-`driver/compile_times.cpp` under `--print-stage-times`. Counters are plain
-`size_t` increments. Timers stay at pass and component level, because calling
-`steady_clock` inside lattice ops would distort them; the sampling profiler
-(INS.7) covers per-op time. Document every new line in `docs/compile.md`
-(`--print-stage-times` row).
+All of these record into `InferenceProfile` (`semantic/types/profile.hpp`) only
+when `Inference::profile` is set, and print through `driver/compile_times.cpp`
+under `--print-stage-times`. Counters are plain `size_t` increments. Timers stay
+at pass and component level, because calling `steady_clock` inside lattice ops
+would distort them; the sampling profiler (INS.7) covers per-op time. Document
+every new line in `docs/compile.md` (`--print-stage-times` row).
 
 ### INS.8 Input churn (done, `00-finished.md`)
 
 Lines: `; inputs: ...` on each `inference pass N`, `inference churn`, `inference
 churned` (`docs/compile.md`). The code lives in `inference_inputs.cpp`, not
 `inference.cpp`: a first version that restructured `infer()` there made the
-**uninstrumented** W5r 3.9% slower (spread 1%) by code layout alone; moved
-out, the ratio is 1.000.
+**uninstrumented** W5r 3.9% slower (spread 1%) by code layout alone; moved out,
+the ratio is 1.000.
 
 **W5a findings** (18 156 local input slots, 547 never changed):
 
@@ -207,35 +208,35 @@ Slots by changes over the batch: 1×: 11 279, 2×: 4 565, 3×: 1 100, 4×: 342,
 5-8×: 222, 9-16×: 101. W5r: 149 slots, at most 8 changes, settles in pass 11.
 
 1. **Inputs travel one call level per pass.** `first` changes (a slot leaving
-   none) never stop: 29 in pass 16. Components run callees first, so a
-   callee's inputs from this pass's callers are only gathered after the pass;
-   a chain of k local calls needs k passes before its last callee sees any
-   input. Every one of those passes re-walks the whole batch. → new **CONV.7**.
+   none) never stop: 29 in pass 16. Components run callees first, so a callee's
+   inputs from this pass's callers are only gathered after the pass; a chain of
+   k local calls needs k passes before its last callee sees any input. Every one
+   of those passes re-walks the whole batch. → new **CONV.7**.
 2. **Nested integer bounds creep by one per pass.** The 10 most changed slots
    (12-16 changes, still changing in pass 16) are all `integer bound` inside a
    record or map: `application_master` `#state{}` field `-11..0 → -12..0`,
    `io_lib_format:count_small/2` map `p := 0..14 → 0..15`; W6 shows the same
    (`parsers:count_up/2` `[0..14, ...] → [0..15, ...]`). `Lattice::widen`
    relaxes only the fact's top-level integer family (`lattice.cpp`
-   `Lattice::widen`), never integers inside tuples, maps or lists. → CONV.1
-   must widen nested bounds first.
-3. **Structure keeps moving late:** `shape` and `deeper` stay 60-260 per pass
-   at passes 12-16; union-member growth is over by pass 10.
+   `Lattice::widen`), never integers inside tuples, maps or lists. → CONV.1 must
+   widen nested bounds first.
+3. **Structure keeps moving late:** `shape` and `deeper` stay 60-260 per pass at
+   passes 12-16; union-member growth is over by pass 10.
 4. `fun_reads` that were not final drop to 0-1 after pass 10: a minor cause.
 5. `term()` is the most common change (half the changes of passes 1-4): many
-   inputs go from none straight to term() or reach it. Those slots cannot
-   change again.
+   inputs go from none straight to term() or reach it. Those slots cannot change
+   again.
 
 ### INS.1 Pass counters and incremental potential (done, `00-finished.md`)
 
 `; graph: ...; clean: ...` on each `inference pass N` and `inference
 clean-changed` lines (`docs/compile.md`), from `inference_profile.cpp`, which
-`gather_inputs` calls before gathering. Fingerprints are exact (every summary
-as numbers); a component is clean when its members' local inputs and its
-direct callees' summaries (static `calls.calls`, not the 58R reads) equal the
-previous pass's. `intern` calls and hits were measured once with temporary
-counters in `Graph::intern` and not committed: the counters alone moved W5r by
-3.8% (layout, see B.2).
+`gather_inputs` calls before gathering. Fingerprints are exact (every summary as
+numbers); a component is clean when its members' local inputs and its direct
+callees' summaries (static `calls.calls`, not the 58R reads) equal the previous
+pass's. `intern` calls and hits were measured once with temporary counters in
+`Graph::intern` and not committed: the counters alone moved W5r by 3.8% (layout,
+see B.2).
 
 **Findings (W5a; W1 alike):**
 
@@ -248,15 +249,15 @@ counters in `Graph::intern` and not committed: the counters alone moved W5r by
 | clean but changed | 1 | 30 | 4 | 1 | 1 | 0 |
 
 1. **`intern` is called ~20 times per work step** and almost always finds an
-   existing node (≥ 99.9% hits from pass 2; W5r: 11.8M calls per pass on
-   5k nodes). Every hit is a `std::map<Node>` lookup comparing strings and
-   child vectors. → OPTC.B/OPTC.C move up; INS.7 should confirm the share.
+   existing node (≥ 99.9% hits from pass 2; W5r: 11.8M calls per pass on 5k
+   nodes). Every hit is a `std::map<Node>` lookup comparing strings and child
+   vectors. → OPTC.B/OPTC.C move up; INS.7 should confirm the share.
 2. **CONV.2 potential ≈ one third of W5a**: clean components took ≈ 31.5 s of
    the ≈ 94 s of passes 2-16, rising to half of each late pass. W5r gains
    nothing (197 of 199 clean, 6% of the time: the `ubody` group is dirty in
    every pass).
-3. **Clean is not yet safe:** 0-30 clean components per pass still changed
-   (W5a: `compile:binary_passes/0` 3 times, `v3_core:map_sort_key/2`,
+3. **Clean is not yet safe:** 0-30 clean components per pass still changed (W5a:
+   `compile:binary_passes/0` 3 times, `v3_core:map_sort_key/2`,
    `rand:handler/1`, ...; W1: `luerl_comp:chunk_passes/0` 6 times and `cerl`
    constructors in pass 2). They depend on something besides local inputs and
    direct callees: fun F/A values (`*_passes/0` return lists of funs),
@@ -272,9 +273,9 @@ counters in `Graph::intern` and not committed: the counters alone moved W5r by
 total` on `inference rounds` (`docs/compile.md`), from a `note_round` call per
 round in `iterate()` (`inference.cpp`, profile only; aligned A/B 1.006-1.013,
 paired median ≈ 0). "Reached" means every member's summary **equals** the
-previous pass's: checking that the members grew past it (`Lattice::within`)
-can intern nodes, which a measurement must not do. Lattice-op cost per solve
-waits for INS.2.
+previous pass's: checking that the members grew past it (`Lattice::within`) can
+intern nodes, which a measurement must not do. Lattice-op cost per solve waits
+for INS.2.
 
 **Findings (W5a, 17 solves each):**
 
@@ -288,15 +289,15 @@ waits for INS.2.
 | `beam_core_to_ssa:body/3` + 31 | 2 257 | 115 | 3 | 18 |
 | `erl_pp:body/2` + 6 | 1 040 | 78 | 11 | 44 |
 
-W1 adds `luerl_scan:yystate/7` (4.5 s, 73 rounds): 14 repeated, 54 rounds
-until reached.
+W1 adds `luerl_scan:yystate/7` (4.5 s, 73 rounds): 14 repeated, 54 rounds until
+reached.
 
 1. **Exact repeats are rare for the heavy groups:** the `ubody` group ends on
    the previous fixed point in 4 of 17 solves, so an equal-start warm start
    saves 48 of its 197 rounds (24%). Most of its solves end above the previous
    fixed point because its inputs keep growing (INS.8), so CONV.3 must start
-   from a previous fixed point that is *below* the new one; how many rounds
-   that saves needs a non-interning `within` (INS.9b, measure with CONV.3).
+   from a previous fixed point that is *below* the new one; how many rounds that
+   saves needs a non-interning `within` (INS.9b, measure with CONV.3).
 2. Repeated solves are mostly components whose inputs did not change: CONV.2
    skips them whole, so CONV.3 matters only for dirty ones.
 3. `yystate/7` repeats 14 of 17 times: CONV.2 alone removes most of its cost.
@@ -307,13 +308,15 @@ Count calls to `Lattice::join` (with the member count), `widen`, `meet`,
 `within`, `subtract`, `truncate`/`nesting` (with the recursion count) and
 `Graph::join`. Keep a hash set of `(op, left, right)` per pass and count
 repeated pairs, which bounds a memo's hit rate from above. Build the pair set
-only under the profile. Print one line per batch: `[time] inference lattice ...`.
+only under the profile. Print one line per batch:
+`[time] inference lattice ...`.
 
 ### INS.3 Cost per step ranking
 
-Add the lattice-op count and the graph nodes created to `InferenceProfile::Cost`.
-Add a third top-10 list, `inference costliest`: components ranked by time per
-work step, with time, steps, lattice ops and nodes created.
+Add the lattice-op count and the graph nodes created to
+`InferenceProfile::Cost`. Add a third top-10 list, `inference costliest`:
+components ranked by time per work step, with time, steps, lattice ops and nodes
+created.
 
 ### INS.4 Re-analysis and fun instantiation
 
@@ -333,13 +336,13 @@ and report:
 - how many summaries hit `FUNCTION_TYPES` (32),
 - the size of `dependents`.
 
-For the 3 costliest components, also print their largest fact, truncated to
-200 characters.
+For the 3 costliest components, also print their largest fact, truncated to 200
+characters.
 
 ### INS.6 Container statistics
 
-Per pass: the size of `Inference::expressions` and the inserts and erases on
-it, the `BindingFacts` built and their `events` sizes, and the `Snapshot`
+Per pass: the size of `Inference::expressions` and the inserts and erases on it,
+the `BindingFacts` built and their `events` sizes, and the `Snapshot`
 comparisons in `next_summary`/`classify`.
 
 ### INS.7 Sampling profile of clau (no code change)
@@ -362,22 +365,22 @@ comparisons in `next_summary`/`classify`.
 
 ### BUG.1 Intermittent clau crash (side finding, investigate)
 
-`clau-base.exe` (Release, ab635294) exited with 0xC0000005 once in about 100
-W5r `--print-types --no-cache` runs, during an A/B; 4 immediate reruns were
-clean. Suspect a `const Node &` from `Graph::get` held across `Graph::intern`
-(the node vector reallocates; `domain.hpp` warns about it). Check with a Debug
-or ASan `clau` looping over W5r, and review `get` uses that intern while holding
-the reference.
+`clau-base.exe` (Release, ab635294) exited with 0xC0000005 once in about 100 W5r
+`--print-types --no-cache` runs, during an A/B; 4 immediate reruns were clean.
+Suspect a `const Node &` from `Graph::get` held across `Graph::intern` (the node
+vector reallocates; `domain.hpp` warns about it). Check with a Debug or ASan
+`clau` looping over W5r, and review `get` uses that intern while holding the
+reference.
 
 ### LIV.1 Liveness blocked by host `file.erl` (side finding, investigate only)
 
 On W5a and W1, liveness keeps every export because of the host OTP `file.erl`:
 the dynamic call in `io_request/3` and `list_to_atom/1` in `reply/1`. Check why
-the Clause `library/` copy (or a catalog builtin) does not stand in for
-`file`, and whether `--print-types` should run liveness under `--entry`. A
-working liveness would shrink the inference input of every executable build. It
-is not a substitute for CONV.*, because `--print-types` and IR inspections
-without an entry still see the whole batch.
+the Clause `library/` copy (or a catalog builtin) does not stand in for `file`,
+and whether `--print-types` should run liveness under `--entry`. A working
+liveness would shrink the inference input of every executable build. It is not a
+substitute for CONV.*, because `--print-types` and IR inspections without an
+entry still see the whole batch.
 
 ## Benchmarks
 
@@ -401,26 +404,25 @@ without an entry still see the whole batch.
   helpers, plus the `#kern{}`, `#ilet{}`, `#iletrec{}`, `#ivalues{}`, `#ifun{}`,
   `#cg_*` and `#b_*` records, into a scratch module. Replace the calls into
   `cerl`, `beam_ssa` and others with local stubs that return the same shapes,
-  and give it a 0-arity entry. Aim for the group to cost 1-5 s under the
-  current `clau`, with the same round pattern (5-13 rounds per solve, growing
-  facts).
+  and give it a 0-arity entry. Aim for the group to cost 1-5 s under the current
+  `clau`, with the same round pattern (5-13 rounds per solve, growing facts).
   - **Built 2026-10-23** (`<scratch>/w5r/w5r.erl` + `w5r.toml` with only
     `sources = ["w5r.erl"]`; recreate from this description). The second pass
     (`ubody_used_vars` … `pat_list_vars`, `make_fun`, `set_unused`,
     `get_free`/`store_free`, `internal_returns`, …) and `pre_seq`,
-    `force_atomic`/`force_variable`, `new_var*`, `new_fun_name`, `make_vars`
-    are copied verbatim. The first pass is a stub `gen_body`/`gen_expr`/
-    `gen_match`/`gen_pat`/`gen_defs` that turns tagged tuples into every
-    kernel record the second pass matches. `make_ssa_function` is a stub
-    returning a one-block `#b_function{}`. `#kern{}` keeps all 11 fields
-    (`ds = []`: the library has no `sets`). Exported `module(Term)` runs
-    `gen_body` then `ubody(B, return, St)`, so the input is `term()`;
-    `main/0` feeds it `binary_to_term` of an env var.
+    `force_atomic`/`force_variable`, `new_var*`, `new_fun_name`, `make_vars` are
+    copied verbatim. The first pass is a stub `gen_body`/`gen_expr`/
+    `gen_match`/`gen_pat`/`gen_defs` that turns tagged tuples into every kernel
+    record the second pass matches. `make_ssa_function` is a stub returning a
+    one-block `#b_function{}`. `#kern{}` keeps all 11 fields (`ds = []`: the
+    library has no `sets`). Exported `module(Term)` runs `gen_body` then
+    `ubody(B, return, St)`, so the input is `term()`; `main/0` feeds it
+    `binary_to_term` of an env var.
   - **Result** (`compile_times.py --label W5r -- --project
     <scratch>/w5r/w5r.toml --print-types`, 5 runs, HEAD 6dc21c42): inference
     **11.39 s** (spread 0.7%), 11 passes, then **settles** (W5a never does: its
-    inputs keep changing from callers W5r does not have). `ubody_used_vars` +
-    6 takes 10.47 s: 11 solves, 120 rounds (cap 36), 658 member walks (182
+    inputs keep changing from callers W5r does not have). `ubody_used_vars` + 6
+    takes 10.47 s: 11 solves, 120 rounds (cap 36), 658 member walks (182
     skipped), last solve 13 rounds, **≈22 ms per walk** (W5a ≈25). Passes 6-11
     cost 1.5 s each at an identical 57 336 work steps. Above the 1-5 s aim, but
     kept: 9× faster than W5a with the same per-walk cost, and long enough to
@@ -450,11 +452,11 @@ the baseline copy next to a `clau.exe` in `build/*/bin`).
   translation unit (or changing what `inference.cpp` instantiates) shifted the
   uninstrumented W5r by 2-4% with no change on the hot path; the same INS.1
   change measured 1.001-1.010 when both builds aligned every function of
-  `clause_semantic` to 64 bytes (`target_compile_options(clause_semantic
-  PRIVATE -mllvm -align-all-functions=6)`, local only; the alignment itself
-  costs 3.7%). For pure performance and instrumentation steps, an unaligned
-  gap under 5% is checked with aligned builds of both sides before it counts.
-  A null A/B (one build against a copy of itself) measured 0.999.
+  `clause_semantic` to 64 bytes (`target_compile_options(clause_semantic PRIVATE
+  -mllvm -align-all-functions=6)`, local only; the alignment itself costs 3.7%).
+  For pure performance and instrumentation steps, an unaligned gap under 5% is
+  checked with aligned builds of both sides before it counts. A null A/B (one
+  build against a copy of itself) measured 0.999.
 - **The deterministic counters are the primary A/B metrics:** work steps per
   pass, pass count, rounds, member walks, graph nodes and lattice ops. A pure
   performance step must leave them unchanged. A convergence step reports them
@@ -468,8 +470,8 @@ the baseline copy next to a `clau.exe` in `build/*/bin`).
   in the scratchpad, not in git.
 - **Convergence steps** (CONV.*) change precision on purpose:
   - Diff `--print-types` against the reference. Count the changed facts per
-    module and split them into wider and narrower; narrower must be 0 unless
-    the step explains why.
+    module and split them into wider and narrower; narrower must be 0 unless the
+    step explains why.
   - Report how many W5a/W1 facts became `term()` that were not before.
   - Re-record `tests/compiler/inference/expectations.py` with `--record` only
     after reviewing the diff by hand, in the same commit.
@@ -483,20 +485,20 @@ the baseline copy next to a `clau.exe` in `build/*/bin`).
 ### B.4 Baseline record
 
 When B.1 and INS.8, INS.1 and INS.9 land, record a quiet-machine baseline of
-W5a, W1, W2 and W5r (phase times and all counters) in `benchmarks/history/`
-with the commit hash. Every CONV and OPTC step reports against it.
+W5a, W1, W2 and W5r (phase times and all counters) in `benchmarks/history/` with
+the commit hash. Every CONV and OPTC step reports against it.
 
 ## Order
 
 1. ~~B.1 script, quiet re-run of W5a and W1~~ (done).
 2. ~~B.0 W5r reduced repro (scratch)~~ (done; owned fixture stays in step 6).
-3. ~~INS.8 input churn, INS.1 incremental potential, INS.9 solve
-   repetition~~ (done): the data that sizes CONV.1-CONV.4.
+3. ~~INS.8 input churn, INS.1 incremental potential, INS.9 solve repetition~~
+   (done): the data that sizes CONV.1-CONV.4.
 4. INS.7 sampling profile on W5r and W5a (no code change), plus INS.5 fact
    sizes: the per-walk cost behind CONV.5 and OPTC.*.
 5. B.4 baseline.
-6. CONV.0 → CONV.7 → CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on W5a, W1 and W6.
-   Then the owned fixture (B.0).
+6. CONV.0 → CONV.7 → CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on
+   W5a, W1 and W6. Then the owned fixture (B.0).
 7. INS.2-INS.4 and INS.6 as the profile calls for them, then OPTC.* ranked by
    measured share.
 8. LIV.1 investigation and BUG.1, whenever convenient.
@@ -520,6 +522,6 @@ Not started. Each comes with the hypothesis that would justify it.
   identity, because iteration order matters where results are printed.
 - **OPTC.E Outliers:** `yystate` (W5b) and others that INS.3-INS.5 expose, for
   example re-analysis fan-out.
-- **Later:** parallel inference of independent components at the same
-  call-graph level. This needs thread-local or sharded graphs, so it comes only
-  after CONV.* and OPTC.B-D.
+- **Later:** parallel inference of independent components at the same call-graph
+  level. This needs thread-local or sharded graphs, so it comes only after
+  CONV.* and OPTC.B-D.
