@@ -555,7 +555,7 @@ Not started. Each comes with the hypothesis that would justify it.
 - **OPTC.A2 Atom inclusion without a meet (done, timing pending a quiet machine):** `Meet::same_atoms` builds the atom
   meet (atom facts and a join) to compare Ids; compare the atom name sets
   directly. 30% of W5r inclusive, much of it the OPTC.A constants.
-- **OPTC.A3 No node copies in `Gather::add`:** read the node by reference where
+- **OPTC.A3 No node copies in `Gather::add` (done):** read the node by reference where
   no interning can happen in between, else copy only its children.
 
 - **OPTC.B Lattice memo:** many repeated `(op, a, b)` pairs (INS.2). A per-graph

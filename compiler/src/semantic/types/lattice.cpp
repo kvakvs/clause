@@ -153,10 +153,12 @@ class Gather final {
 
     // Add every member of `fact`: a union's members, or the fact itself.
     void add(Id fact) {
-        const auto node = graph_.get(fact);
+        // Read in place: only plain() below interns, after which this node is not read again; a union's members are
+        // read by index, as adding one may intern. Changed for the node copies in Gather (OPTC.A3).
+        const auto &node = graph_.get(fact);
         if (node.kind == Kind::union_type) {
-            for (const auto member : node.children) {
-                add(member);
+            for (std::size_t index = 0; index < graph_.get(fact).children.size(); ++index) {
+                add(graph_.get(fact).children[index]);
             }
             return;
         }

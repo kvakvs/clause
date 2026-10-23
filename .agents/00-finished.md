@@ -922,6 +922,10 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   nodes included) and `--print-types` of W5r, W5a, W1, W6 unchanged. Timing
   pending: machine busy.
 
+- **OPTC.A3** no node copies in `Gather::add`: the node is read in place and a
+  union's members by index (only `plain()` interns). `--print-types` of W5r,
+  W5a, W1, W6 unchanged.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found
