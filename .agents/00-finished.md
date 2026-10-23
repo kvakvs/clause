@@ -927,7 +927,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   W5a, W1, W6 unchanged. W5r 0.976 of A2; A2+A3 on W5a 56.6 → 50.8 s (1.89×
   against B.4 overall).
 
-- **OPTC.C part 1** hashed node interning: `Graph`'s identity map is an
+- **OPTC.C part 1** (fafd6d79) hashed node interning: `Graph`'s identity map is an
   `std::unordered_map` with `NodeHash` (was `std::map<Node>` comparing nodes
   field by field) and `Graph::get` is inline. Ids, counters and `--print-types`
   unchanged (W5r, W5a, W1, W6). Inference W5r 5.54 → 3.81 s, W5a 50.6 → 31.8 s,
