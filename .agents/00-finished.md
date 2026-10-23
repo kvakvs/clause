@@ -604,6 +604,11 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   heap limbs into the new cell (was cpp_int import, multiply and export: 56% of
   samples were export bit extraction with MSVC's 32-bit limbs). bigint_factorial
   1369 to 210 ms (OTP 1145-1694), 1.20x behind to ~5x ahead — `a19fbed0`
+- **OPT1.6** map-shape inline caches: a small-map search for a literal key
+  first compares the key word at the index its site found last (a shared
+  `[2 x word]` global with 8 rewrites, so polymorphic sites in many processes
+  stop writing it); variable keys only scan. small_map alone, pinned, 1500 to
+  1035 ms (OTP 1240); luerl unchanged — `7ceed350`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
