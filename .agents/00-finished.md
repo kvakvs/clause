@@ -951,7 +951,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `luerl_comp_cg:stmt/3` converge, 0 new `term()`). Time unchanged (W5a 0.994,
   W1 1.004). Fixture `tests/fixtures/inference/widening.erl`.
 
-- **CONV.1** per-input widening ladder: each local input slot counts its
+- **CONV.1** (0bf86e74) per-input widening ladder: each local input slot counts its
   changes; changes 1-4 join, 5-6 widen, 7-8 widen and coarsen (containers
   inside a container become `term()`), the next gives `term()`. Output
   identical on W5a, W1, W3, W6, still 17 passes; no slot changes more than 8
