@@ -632,7 +632,7 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   1.45), not hops (315 ns against 407). Pinned 0-15 medians, base / new:
   ring_setup 260 / 208 ms (OTP 113), ring 1134 / 1089, short_processes 1150 /
   1049; ping_pong, fan_in unchanged. Batch stealing measured null. Fixed the
-  erlang_gaps fixture race behind its occasional hang — `HASH`
+  erlang_gaps fixture race behind its occasional hang — `1b14da68`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
