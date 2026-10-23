@@ -615,7 +615,7 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   numbers from the cells (`word_exact`), and mailbox lists reuse spare nodes.
   Pinned medians, HEAD / new / OTP ms: read_line 1633 / 1427 / 1554 (1.05x to
   0.92x), small_files 1050 / 1043 / 1294; ping_pong 1118 to 1025, ring 1341 to
-  1274, fan_in 560 to 456 — `HASH`
+  1274, fan_in 560 to 456 — `389636c5`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
