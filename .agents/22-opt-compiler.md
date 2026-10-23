@@ -174,6 +174,18 @@ result, never narrower.
   walking it, walking components caller-first for inputs in between callee-first
   passes, or a separate cheap input-propagation sweep. Measure passes until
   `first` changes stop on W5a.
+  - **Tried 2026-10-24, not kept:** every other pass walked components in
+    reverse (callers first) and gathered each component's inputs from the call
+    sites walked earlier in that pass; only callee-first passes could settle.
+    W5a: still 17 passes, `--print-types` identical, inference 28.6 s (same);
+    `first` changes summed over passes 10 051 → 9 896, pass 16 29 → 13.
+    parsers.erl alone: still unsettled. So inputs are not limited by one call
+    level per pass but by result → input round trips (`{ok, X} = f(..), g(X)`:
+    `g`'s input waits for `f`'s result, which a callers-first pass reads stale),
+    one pair of passes per nesting. Patch kept in the scratchpad
+    (`conv7-alternating.patch`). Fold the idea into CONV.2: a worklist that
+    re-walks dirty components (inputs or read summaries changed) in any order
+    until stable covers both directions at the cost of the dirty ones only.
 - **CONV.6 Remove the fixed pass count.** Once CONV.1 bounds input changes and
   CONV.2 makes passes cheap, `PASSES` is a safety limit only. Its final `term()`
   pass should become rare. INS.1 reports when it still fires.
@@ -543,9 +555,9 @@ outside `semantic/types/`.
    (done): the data that sizes CONV.1-CONV.4.
 4. ~~INS.7 sampling profile on W5r and W5a, INS.5 fact sizes~~ (done).
 5. ~~B.4 baseline~~ (done).
-6. ~~OPTC.A → OPTC.A2 → OPTC.A3, OPTC.C parts 1-3, CONV.0~~ (done), then CONV.7
-   → CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on W5a, W1 and W6.
-   Then the owned fixture (B.0).
+6. ~~OPTC.A → OPTC.A2 → OPTC.A3, OPTC.C parts 1-3, CONV.0~~ (done), ~~CONV.7~~
+   (tried, folded into CONV.2), then CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6,
+   each measured on W5a, W1 and W6. Then the owned fixture (B.0).
 7. INS.2-INS.4 and INS.6 as the profile calls for them, then OPTC.* ranked by
    measured share.
 8. LIV.1 investigation and BUG.1, whenever convenient.
