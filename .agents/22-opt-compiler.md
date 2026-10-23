@@ -1,0 +1,395 @@
+# Plan 22: Compiler Performance, Type Inference First
+
+Find where `clau` spends its time on real multi-module projects, starting with
+whole-program type inference (`compiler/src/semantic/types/`). The first goal is
+that inference either **converges or gives up within a bounded, small amount of
+work**, instead of repeating whole-batch passes and recursive-component solves
+that keep almost the same facts. The next goal is a lower cost per walk. This
+file plans only. No compiler code has changed yet.
+
+## Working rules for plan 22 steps
+
+- Another agent works in `runtime/` at the same time. Plan 22 touches only
+  `compiler/src/semantic/types/`, `compiler/src/driver/` (timing output), docs,
+  tests and benchmark scripts. It never edits `runtime/` or `abi/`.
+- Do not take timings while another build or benchmark is running.
+  `compile_times.py` (step B.1) checks for this and refuses to time when one is.
+- Commit each step on its own. The subject starts with `[plan22]`, then the step
+  code and title, e.g. `[plan22] INS.1. Pass-level inference counters`. Plan 11's
+  gate applies: fast CTest, `check-quality`, clang-format, docs (`docs/semantic.md`
+  `#inference` for any change to passes, rounds or widening).
+- Instrumentation is opt-in. With the profile pointer null (no
+  `--print-stage-times`), the hot paths gain at most one well-predicted branch.
+  An instrumentation step must show that the uninstrumented inference phase did
+  not slow down and that `--print-types` output did not change (B.3).
+- Tag new code with `Added for --print-stage-times.` (instrumentation) or with
+  the step's feature name (optimizations).
+- Temporary investigation code, such as a global `operator new` counter like the
+  runtime's untracked `zz_alloc_count.cpp`, stays out of git. Keep it in the
+  scratchpad or name it `zz_*` and never stage it. OTP sources and copies of
+  them, including reduced copies, stay in the scratchpad (AGENTS.md); committed
+  fixtures are written from scratch.
+- When a step is done, move it to `00-finished.md` (Plan 22) with its commit
+  hash and headline numbers.
+
+## Focus workload: `beam_core_to_ssa` (W5a)
+
+Scratch project, not in git:
+`<scratchpad>/b2s/b2s.toml` with `sources = [".../compiler-10.0.6/src/beam_core_to_ssa.erl",
+"b2s_main.erl"]` against the installed OTP (`C:/Program Files/Erlang OTP/lib/**/src`
+search paths and includes, `ignore_dirs` crypto, `ignore_modules` prim_tty and
+prim_inet, defines `COMPILER_VSN=1` and `NEW_STACKTRACE`, the same as
+`test-luerl-euler.toml`). `b2s_main:main/0` calls `beam_core_to_ssa:module/2`
+and exists only to give `--entry` a 0-arity function. Recreate the project from
+this description if the scratchpad is gone.
+- Against `references/otp`, `compile.erl` fails with `unknown module core_parse`,
+  because `core_parse.erl` is generated from `.yrl`. The installed OTP ships it.
+- The run pulls in **133 modules** (the OTP compiler, stdlib and kernel parts it
+  reaches).
+- **Liveness does not trim it.** With `--entry b2s_main:main --print-ir`, every
+  module keeps all its exports. `--verbose` gives the reason: `a dynamic call in
+  file:io_request/3 and the atom-producing erlang:list_to_atom/1 in
+  file:reply/1`, from the host OTP `file.erl`. So `--print-types` and the
+  executable path do the same inference work (within 281 steps). That finding
+  goes into plan 22 as LIV.1 below.
+
+Measured 2026-10-23 with `build/bench/bin/Release/clau.exe --project
+<b2s.toml> --no-cache --print-stage-times --print-types`. **The machine was
+loaded** (another agent building and benchmarking), so the times are only
+indicative; step and pass counts do not depend on load.
+
+| Phase | Time (skewed) |
+|---|---|
+| index | 0.9 s |
+| inference | **103-106 s** (98% of compile) |
+| contracts | 0.3 s |
+| lower (the `--print-ir` run) | 10.4 s, then failed `LLVM serialization failed: compilation artifact byte limit exceeded` |
+
+Inference passes: work steps 1.18M → 2.48M per pass (budget 8M, never reached),
+time per pass 0.66 s → 9.2 s.
+
+| Pass | 1 | 4 | 8 | 12 | 16 | 17 (final, inputs `term()`) |
+|---|---|---|---|---|---|---|
+| ms (skewed) | 659 | 4103 | 6545 | 7408 | 9189 | 6651 |
+| M work steps | 1.18 | 1.66 | 2.04 | 2.23 | 2.44 | 2.48 |
+| ends with | inputs changed | ← | ← | ← | ← | forced |
+
+Slowest components over the 17 passes:
+
+| Component | ms (skewed) | Work steps | Rounds over 17 solves (cap per solve) | Member walks (skipped) | ms per walk |
+|---|---|---|---|---|---|
+| `beam_core_to_ssa:ubody_used_vars/2` + 6 | **27 760** | 0.48M | 197 (36) | 1097 (282) | **≈25** |
+| `core_parse:yeccpars1/5` + 522 | 9 499 | 3.70M | 70 (2100) | 15 447 (21 163) | 0.6 |
+| `erl_eval:exprs/6` + 53 | 5 532 | 1.29M | 82 (224) | 2 888 | 1.9 |
+| `v3_core:clauses/2` + 52 | 3 964 | 1.39M | 125 (220) | 3 553 | 1.1 |
+| `erl_expand_records:clauses/2` + 25 | 2 481 | 0.61M | 95 (112) | 1 692 | 1.5 |
+| `beam_core_to_ssa:body/3` + 31 | 2 305 | 0.45M | 115 (136) | 1 933 | 1.2 |
+
+The same group dominates luerl euler (174 modules, 129 s inference, the same
+17-pass pattern, `ubody_used_vars` 27.6 s), so fixing W5a fixes W1.
+
+### Why it does not converge (from the code, to be confirmed by INS.8)
+
+- **Passes:** `infer()` runs `PASSES = JOIN_ROUNDS + 2 * WIDENING_PASSES = 16`
+  whole-batch passes plus the forced final one. After pass 8,
+  `gather_inputs(widening=true)` calls `Lattice::widen`, and that only unbounds
+  integer bounds that moved. Inputs that grow in **structure**, through new
+  union members, new record and tuple shapes or deeper nesting up to the
+  depth-4 limit, are not widened. They creep for 8 more passes until the final
+  pass sets every local input to `term()`. So the batch pays 16 full passes and
+  then throws away the precision anyway.
+- **Every pass re-walks everything** (`infer_pass`): all components, including
+  ones whose inputs and read summaries did not change.
+- **Every solve restarts from bottom** (`solve()` sets each member to
+  `bottom()`). The `ubody_used_vars` group re-derives its fixed point in 17
+  solves, 5-13 rounds each, at about 25 ms per member walk.
+- **The cost per walk of this group is extreme.** `ubody/3` and `uexpr/3` thread
+  a large `#kern{}` state record and return `{Expr, Used, St}` with `Expr` a
+  union of many `#cg_*` and `#b_*` records. The facts are probably near the
+  limits: 8 union members, depth 4, 16 tuple elements. Every join, meet and
+  `within` on them is expensive, and work steps (syntax) do not count that.
+- 58P's `failed` set gives up on components that hit their **round cap or work
+  share**. This group hits neither: it converges each pass, just expensively and
+  again and again.
+
+## Convergence strategy (main track, steps CONV.*)
+
+Target for W5a: **inference ≤ 10 s on a quiet machine (≈10×)**, ≤ 6 passes
+whose work is mostly dirty components, and a measured, accepted precision loss
+(B.3). Soundness invariant for every step: a fact may only get wider than
+today's result, never narrower.
+
+- **CONV.1 Per-input widening ladder.** Count the changes of each local input
+  slot (`Inference::inputs[f][i]`) across passes, then climb a ladder: join for
+  K₁ changes, then integer widening (today's `widen`), then structural widening
+  (`within_depth`/`truncate` to depth 1, unions collapsed to their categories),
+  then `term()`. Each slot changes a bounded number of times, so the passes
+  terminate without a global pass count. Inputs that are already stable keep
+  their precision, where today the forced final pass widens every input. K₁ and
+  the ladder come from INS.8's per-slot change histogram.
+- **CONV.2 Incremental passes.** Turn the pass loop into a worklist across
+  passes. A component is dirty when one of its local inputs changed, a summary
+  it read changed (58R `reads` already lists them), or a `fun_reads` entry
+  changed. Clean components keep their summaries and expression facts (do not
+  reset `expressions` for them). This needs INS.1's check to show 0
+  "clean-but-changed" components over W1, W3, W5a and W6 first.
+- **CONV.3 Warm-start solves.** When a recursive component is dirty only
+  because its inputs or callees grew, start its next solve from its previous
+  fixed point instead of `bottom()`. Joins are not monotone at the depth limit
+  (58Q), so a member that would drop below its previous summary keeps the join
+  of the two. That costs some precision and keeps soundness; measure the rounds
+  saved.
+- **CONV.4 Cost-aware give-up.** Extend 58P's `failed` set: a component whose
+  solve cost (lattice ops from INS.2, not syntax steps) is over its share in a
+  pass, and that is dirty again in a later pass, gives up at once (`term()`
+  members) instead of solving again. The cost share comes from INS.3's
+  distribution (for example, more than 1/16 of the pass's lattice ops).
+- **CONV.5 Fact size cap on recursive results.** If INS.5 shows the
+  `ubody_used_vars` facts at the union, depth or element limits, cap the size of
+  recursive-member summaries harder than plain facts (fewer union members, or
+  depth 3) during the join rounds.
+- **CONV.6 Remove the fixed pass count.** Once CONV.1 bounds input changes and
+  CONV.2 makes passes cheap, `PASSES` is a safety limit only. Its final
+  `term()` pass should become rare. INS.1 reports when it still fires.
+
+CONV.1 and CONV.2 are independent and both needed. CONV.3 and CONV.4 target the
+per-component repetition. CONV.5 targets the per-walk cost.
+
+## Instrumentation steps (INS.*)
+
+All of these record into `InferenceProfile` (`semantic/types/profile.hpp`)
+only when `Inference::profile` is set, and print through
+`driver/compile_times.cpp` under `--print-stage-times`. Counters are plain
+`size_t` increments. Timers stay at pass and component level, because calling
+`steady_clock` inside lattice ops would distort them; the sampling profiler
+(INS.7) covers per-op time. Document every new line in `docs/compile.md`
+(`--print-stage-times` row).
+
+### INS.8 Input churn (first, for CONV.1)
+
+For each pass: how many functions and input slots changed in `gather_inputs`,
+and of what kind. The kinds are: integer bound, new union member, new
+structure/shape, deeper nesting, function types, `term()` reached. Over the
+batch: a histogram of changes per slot, and the 10 slots that changed most, each
+printed as `module:function/arity #i` with its fact before and after the last
+change (`types/printing.cpp`, truncated to 200 characters). Also count the
+`fun_reads` entries that were not final per pass, which is the other reason a
+pass does not settle.
+
+### INS.1 Pass-level counters and incremental potential
+
+For each pass, add to `[time] inference pass N`:
+- Graph nodes at the end of the pass and the nodes the pass created
+  (`Graph::nodes_.size()` delta), `intern` calls and hits, and `exhausted()`
+  widenings.
+- **Incremental potential (CONV.2):** components whose inputs, read callee
+  summaries and fun reads all equal the previous pass's ("clean"), how many of
+  those still produced a different summary (that must be 0), and the time and
+  work spent on clean components.
+  - Fingerprint each component cheaply: its input Ids and its read callees'
+    `Snapshot`s. The Ids are stable because the graph is append-only. Build it
+    from the 58R `reads` set.
+
+### INS.9 Solve repetition (for CONV.3 and CONV.4)
+
+For each recursive component, across passes:
+- the number of solves whose final summaries equal the previous pass's,
+- the rounds a warm start would have skipped (rounds until the members reach
+  the previous fixed point),
+- each solve's lattice-op cost.
+
+Add to the `inference rounds` line: `N solves repeated the previous fixed
+point`.
+
+### INS.2 Lattice operation counters
+
+Count calls to `Lattice::join` (with the member count), `widen`, `meet`,
+`within`, `subtract`, `truncate`/`nesting` (with the recursion count) and
+`Graph::join`. Keep a hash set of `(op, left, right)` per pass and count
+repeated pairs, which bounds a memo's hit rate from above. Build the pair set
+only under the profile. Print one line per batch: `[time] inference lattice ...`.
+
+### INS.3 Cost per step ranking
+
+Add the lattice-op count and the graph nodes created to `InferenceProfile::Cost`.
+Add a third top-10 list, `inference costliest`: components ranked by time per
+work step, with time, steps, lattice ops and nodes created.
+
+### INS.4 Re-analysis and fun instantiation
+
+Count `reanalyse` calls, the ones that hit the depth or work limit, and their
+work (`reanalysis_work` already exists per pass). Count `instantiate` calls (an
+anonymous fun evaluated again at its call). Put these per component in `Cost`,
+and the totals in the pass line. `ubody` folds over `#iletrec{}` defs through
+anonymous funs, so this may be part of its cost.
+
+### INS.5 Fact size statistics
+
+At the end of each pass, walk all `Summary` results, inputs and function types
+and report:
+- the maximum and average fact node count (distinct nodes reachable),
+- the maximum union member count,
+- the number of facts at the depth, member and element limits,
+- how many summaries hit `FUNCTION_TYPES` (32),
+- the size of `dependents`.
+
+For the 3 costliest components, also print their largest fact, truncated to
+200 characters.
+
+### INS.6 Container statistics
+
+Per pass: the size of `Inference::expressions` and the inserts and erases on
+it, the `BindingFacts` built and their `events` sizes, and the `Snapshot`
+comparisons in `next_summary`/`classify`.
+
+### INS.7 Sampling profile of clau (no code change)
+
+- **Build:** a dedicated compiler-only tree `build/prof-compiler`
+  (`-DCLAUSE_BUILD_RUNTIME=OFF`, Release, `CMAKE_CXX_FLAGS_RELEASE=/O2 /Ob2
+  /DNDEBUG /Z7`, `/MT`, `CLAUSE_MSVC_ITERATOR_DEBUG_LEVEL=0`). It matches the
+  Release budgets (`NDEBUG`: 8M syntax work) and carries symbols. Do not use
+  `build/debug`: its `NDEBUG` is off, so its budgets are smaller (1M) and its
+  passes differ. Build with at most 24 jobs, and only while the other agent is
+  not building.
+- **Collect:** follow the recipe in memory `profiling-recipe`.
+  `VSDiagnostics start` with `CpuUsageHigh.json`, launching `clau.exe` with the
+  W5r (then W5a) arguments, then `xperf -i ... -symbols -a profile -detail`. Pin
+  to P-cores (`/affinity 5554`).
+- **Report:** the top 30 functions by inclusive and by exclusive time, grouped
+  into intern/map, lattice ops, bindings and walk, containers and allocation.
+- **Allocation counts:** a temporary global `operator new` counter TU, never
+  committed, built only into `build/prof-compiler`.
+
+### LIV.1 Liveness blocked by host `file.erl` (side finding, investigate only)
+
+On W5a and W1, liveness keeps every export because of the host OTP `file.erl`:
+the dynamic call in `io_request/3` and `list_to_atom/1` in `reply/1`. Check why
+the Clause `library/` copy (or a catalog builtin) does not stand in for
+`file`, and whether `--print-types` should run liveness under `--entry`. A
+working liveness would shrink the inference input of every executable build. It
+is not a substitute for CONV.*, because `--print-types` and IR inspections
+without an entry still see the whole batch.
+
+## Benchmarks
+
+### Workloads
+
+| Id | Command | Purpose |
+|---|---|---|
+| **W5r** | Reduced scratch repro of `ubody`/`uexpr`/`umatch` (B.0) | **Fast loop** for CONV.3-5 and INS.7: seconds, not minutes |
+| **W5a** | `clau --project <scratch>/b2s/b2s.toml --no-cache --print-stage-times --print-types` | **Main target**, 133 modules, about 100 s today |
+| W1 | `clau --project test-luerl-euler.toml --entry euler:run --no-cache --print-stage-times --print-types` | 174 modules, confirms W5a's fixes carry over |
+| W2 | W1 with `-O2 -o <scratch>/euler.exe` and without `--print-types` | Executable path. Read only the `inference` phase line. |
+| W3 | `test-luerl-benchmark.toml`, `--entry benchmarks:run/0`, `--print-types` | Second luerl entry |
+| W4 | `test-emqx.toml`, `--print-types` | Large app, a stress check, run only if it gets through inference |
+| W5b | Scratch project with only `references/luerl/src/luerl_scan.erl` | `yystate/7` single-function outlier (≈71 ms per walk) |
+| W6 | `test-inference.toml` (`tests/fixtures/inference/*.erl`) | Small, precision regression check, with expectations below |
+
+### B.0 Reduced repro and owned fixture
+
+- **W5r (scratch only):** copy `beam_core_to_ssa.erl`'s second pass, meaning
+  `ubody_used_vars`, `ubody`, `uexpr`, `umatch`, `iletrec_funs*` and their local
+  helpers, plus the `#kern{}`, `#ilet{}`, `#iletrec{}`, `#ivalues{}`, `#ifun{}`,
+  `#cg_*` and `#b_*` records, into a scratch module. Replace the calls into
+  `cerl`, `beam_ssa` and others with local stubs that return the same shapes,
+  and give it a 0-arity entry. Aim for the group to cost 1-5 s under the
+  current `clau`, with the same round pattern (5-13 rounds per solve, growing
+  facts).
+- **Owned fixture (committed):** a Clause-written module that reproduces the
+  shape without OTP code: a state record of more than 16 fields threaded through
+  mutually recursive walkers, results that are unions of many record shapes, and
+  `ordsets` union/subtract of variables. Add it to `tests/compiler/inference/`
+  as a budget test in the style of `budgets.py`. The test asserts work steps,
+  pass count and rounds from `--print-stage-times`, which are deterministic,
+  never wall time. Add it once CONV.1 or CONV.2 lands, so it guards the
+  improvement.
+
+### B.1 Benchmark script
+
+Add `benchmarks/compile_times.py`: run a workload N times with a given
+`clau.exe`, parse the `[time]` lines (phases, the per-pass lines, the INS
+counters) and write JSON plus a summary.
+- Before every run, refuse to time if `cl.exe`, `clang*.exe`, `ninja.exe`,
+  `link.exe`, `lld-link.exe` or another `clau.exe` is running (`tasklist`),
+  unless `--force-noisy` is given. Force-noisy results are marked as such.
+- Pin to P-cores (`cmd /c start "" /b /wait /affinity 5554 ...`). Do one
+  discarded warm-up run, then 5 timed runs (3 for W5a, W1 and W4). Report the
+  median, min and spread.
+- `--baseline <clau.exe>`: interleave the baseline and candidate runs (A B A B
+  ...) and print the ratio per phase and per pass.
+- Always pass `--no-cache`.
+
+### B.2 Conditions
+
+- Machine quiet (see B.1). P-core affinity. AC power. The same `clau` build
+  flavor (Release from `build/bench`, or `make-benchmark.bat --baseline <rev>`
+  output).
+- **The deterministic counters are the primary A/B metrics:** work steps per
+  pass, pass count, rounds, member walks, graph nodes and lattice ops. A pure
+  performance step must leave them unchanged. A convergence step reports them
+  before and after. Wall-time medians are secondary and need at least 3% to
+  count, after measuring run-to-run spread on W5a.
+
+### B.3 Correctness, precision and overhead guards
+
+- **Pure performance steps** (INS.*, data-structure changes): `--print-types`
+  stdout for W5a, W1, W3 and W6 stays byte-identical. Keep the reference outputs
+  in the scratchpad, not in git.
+- **Convergence steps** (CONV.*) change precision on purpose:
+  - Diff `--print-types` against the reference. Count the changed facts per
+    module and split them into wider and narrower; narrower must be 0 unless
+    the step explains why.
+  - Report how many W5a/W1 facts became `term()` that were not before.
+  - Re-record `tests/compiler/inference/expectations.py` with `--record` only
+    after reviewing the diff by hand, in the same commit.
+- **Runtime effect:** codegen depends on facts. After a CONV step, rebuild W2
+  (luerl euler executable) and check that `benchmarks/run.py` kernels show no
+  slowdown. Specialization lost to wider facts would show up there.
+- **Instrumentation overhead:** the W5a inference phase without
+  `--print-stage-times` stays within noise of the commit before the INS step.
+- Inference expectations, `budgets.py` and fast CTest pass at every step.
+
+### B.4 Baseline record
+
+When B.1 and INS.8, INS.1 and INS.9 land, record a quiet-machine baseline of
+W5a, W1, W2 and W5r (phase times and all counters) in `benchmarks/history/`
+with the commit hash. Every CONV and OPTC step reports against it.
+
+## Order
+
+1. B.1 script. Quiet re-run of W5a and W1 with the current Release `clau` to
+   replace the skewed numbers above.
+2. B.0 W5r reduced repro (scratch).
+3. INS.8 input churn, INS.1 incremental potential, INS.9 solve repetition: the
+   data that sizes CONV.1-CONV.4.
+4. INS.7 sampling profile on W5r and W5a (no code change), plus INS.5 fact
+   sizes: the per-walk cost behind CONV.5 and OPTC.*.
+5. B.4 baseline.
+6. CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on W5a, W1 and W6.
+   Then the owned fixture (B.0).
+7. INS.2-INS.4 and INS.6 as the profile calls for them, then OPTC.* ranked by
+   measured share.
+8. LIV.1 investigation, whenever convenient.
+
+## Per-walk cost optimizations (OPTC.*, rank after measurement)
+
+Not started. Each comes with the hypothesis that would justify it.
+
+- **OPTC.B Lattice memo:** many repeated `(op, a, b)` pairs (INS.2). A per-graph
+  cache for `join` (2-member), `meet`, `within` and `truncate`, keyed by Ids.
+  The cache stays valid because the graph is append-only. Watch the memory
+  against the 1M-node limit.
+- **OPTC.C Interning:** the profile shows `std::map<Node>` compares and
+  allocation. A hash table with a precomputed `Node` hash, or a compact node
+  (atoms and integers as interned ids or small values, not `std::string`), and
+  `intern(Node&&)`. `truncate` reads a node by reference unless it must change
+  it.
+- **OPTC.D Walk containers:** map churn (INS.6). Replace the pointer-keyed
+  `std::map`s on per-walk paths (`Inference::expressions`, `BindingFacts`) with
+  vectors indexed by `ExprId`/`BindingId`, or hash maps. Check `--print-types`
+  identity, because iteration order matters where results are printed.
+- **OPTC.E Outliers:** `yystate` (W5b) and others that INS.3-INS.5 expose, for
+  example re-analysis fan-out.
+- **Later:** parallel inference of independent components at the same
+  call-graph level. This needs thread-local or sharded graphs, so it comes only
+  after CONV.* and OPTC.B-D.
