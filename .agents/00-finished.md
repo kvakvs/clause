@@ -895,12 +895,12 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   only: a growth check would intern nodes. `--print-types` identical on W5a,
   W1, W6, W5r.
 
-- **INS.7** sampling profile (no code change; `build/prof-compiler`, VSDiagnostics
+- **INS.7** (b83e9756) sampling profile (no code change; `build/prof-compiler`, VSDiagnostics
   + xperf): W5r exclusive intern/node map 52%, allocation 17%, lattice ops
   21%, the walk under 1%. `Gather::Gather` interns two constants per join (38%
   of W5r, ≈30% of sampled W5a inference) and `Meet::same_atoms` builds a meet
   to test atom inclusion (30%): plan 22 OPTC.A-A3, ahead of CONV.*.
-- **INS.5** fact sizes: `inference facts N` per pass and `inference largest`
+- **INS.5** (b83e9756) fact sizes: `inference facts N` per pass and `inference largest`
   for the 3 costliest components. W5a facts mean tree size 4, max 4236; the
   `ubody` group's largest 1509. Fact size is not the per-walk cost (CONV.5
   deprioritized). Aligned A/B 1.005; `--print-types` identical.
