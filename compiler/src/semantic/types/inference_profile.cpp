@@ -128,6 +128,26 @@ void note_component(InferenceProfile &profile, const Inference &inference, const
     }
 }
 
+// Whether every member of a component has the summary it had at the end of the previous pass.
+bool as_before(const Inference &inference, const Component &component, const Fingerprints &previous) {
+    return std::ranges::all_of(component.members, [&](const FunctionRef member) {
+        const auto found = previous.find(member.function);
+        return found != previous.end() && found->second == fingerprint(inference.functions.at(member.function));
+    });
+}
+
+// Count the recursive components whose solve in this pass ended on the previous pass's summaries. Added for the
+// solve repetition measurements of --print-stage-times.
+void note_repeated(InferenceProfile &profile, const Inference &inference) {
+    profile.repetitions_.resize(profile.costs_.size());
+    for (std::size_t index = 0; index < profile.costs_.size(); ++index) {
+        const auto &component = *profile.costs_[index].component_;
+        if (component.recursive && as_before(inference, component, profile.memory_.summaries_)) {
+            ++profile.repetitions_[index].repeated_;
+        }
+    }
+}
+
 // Keep what the next note compares against.
 void remember(InferenceProfile &profile, const Inference &inference, Fingerprints summaries) {
     auto &memory = profile.memory_;
@@ -157,7 +177,27 @@ void note_pass(Inference &inference, const CallGraph &calls) {
         for (std::size_t index = 0; index < profile.costs_.size(); ++index) {
             note_component(profile, inference, index, summaries);
         }
+        note_repeated(profile, inference);
     }
     remember(profile, inference, std::move(summaries));
+}
+
+void note_round(Inference &inference, const Component &component, const std::size_t round) {
+    auto &profile = *inference.profile;
+    // The first pass has nothing to compare with.
+    if (profile.memory_.summaries_.empty()) {
+        return;
+    }
+    profile.repetitions_.resize(profile.costs_.size());
+    auto &repetition = profile.repetitions_[static_cast<std::size_t>(&component - profile.costs_.front().component_)];
+    if (round == 0) {
+        repetition.reaching_ = false;
+    }
+    if (repetition.reaching_ || !as_before(inference, component, profile.memory_.summaries_)) {
+        return;
+    }
+    repetition.reaching_ = true;
+    ++repetition.reached_;
+    repetition.skippable_ += round + 1;
 }
 } // namespace clause::semantic::types

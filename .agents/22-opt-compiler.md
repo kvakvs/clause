@@ -266,16 +266,40 @@ counters in `Graph::intern` and not committed: the counters alone moved W5r by
 4. The graph grows little after pass 8 (≤ 2.6k nodes per pass) and widens 3
    times in total: the late passes re-derive existing facts.
 
-### INS.9 Solve repetition (for CONV.3 and CONV.4)
+### INS.9 Solve repetition (done, `00-finished.md`)
 
-For each recursive component, across passes:
-- the number of solves whose final summaries equal the previous pass's,
-- the rounds a warm start would have skipped (rounds until the members reach
-  the previous fixed point),
-- each solve's lattice-op cost.
+`; N solves repeated the previous fixed point, M reached it after R rounds in
+total` on `inference rounds` (`docs/compile.md`), from a `note_round` call per
+round in `iterate()` (`inference.cpp`, profile only; aligned A/B 1.006-1.013,
+paired median ≈ 0). "Reached" means every member's summary **equals** the
+previous pass's: checking that the members grew past it (`Lattice::within`)
+can intern nodes, which a measurement must not do. Lattice-op cost per solve
+waits for INS.2.
 
-Add to the `inference rounds` line: `N solves repeated the previous fixed
-point`.
+**Findings (W5a, 17 solves each):**
+
+| Component | ms | rounds | repeated | rounds until reached |
+|---|---|---|---|---|
+| `ubody_used_vars` + 6 | 27 191 | 197 | 4 | 48 |
+| `core_parse:yeccpars1/5` + 522 | 8 987 | 70 | 1 | 1 |
+| `erl_eval:exprs/6` + 53 | 5 364 | 82 | 6 | 24 |
+| `v3_core:clauses/2` + 52 | 3 788 | 125 | 3 | 24 |
+| `erl_expand_records:clauses/2` + 25 | 2 419 | 95 | 5 | 30 |
+| `beam_core_to_ssa:body/3` + 31 | 2 257 | 115 | 3 | 18 |
+| `erl_pp:body/2` + 6 | 1 040 | 78 | 11 | 44 |
+
+W1 adds `luerl_scan:yystate/7` (4.5 s, 73 rounds): 14 repeated, 54 rounds
+until reached.
+
+1. **Exact repeats are rare for the heavy groups:** the `ubody` group ends on
+   the previous fixed point in 4 of 17 solves, so an equal-start warm start
+   saves 48 of its 197 rounds (24%). Most of its solves end above the previous
+   fixed point because its inputs keep growing (INS.8), so CONV.3 must start
+   from a previous fixed point that is *below* the new one; how many rounds
+   that saves needs a non-interning `within` (INS.9b, measure with CONV.3).
+2. Repeated solves are mostly components whose inputs did not change: CONV.2
+   skips them whole, so CONV.3 matters only for dirty ones.
+3. `yystate/7` repeats 14 of 17 times: CONV.2 alone removes most of its cost.
 
 ### INS.2 Lattice operation counters
 
@@ -466,8 +490,8 @@ with the commit hash. Every CONV and OPTC step reports against it.
 
 1. ~~B.1 script, quiet re-run of W5a and W1~~ (done).
 2. ~~B.0 W5r reduced repro (scratch)~~ (done; owned fixture stays in step 6).
-3. ~~INS.8 input churn, INS.1 incremental potential~~ (done), INS.9 solve
-   repetition: the data that sizes CONV.1-CONV.4.
+3. ~~INS.8 input churn, INS.1 incremental potential, INS.9 solve
+   repetition~~ (done): the data that sizes CONV.1-CONV.4.
 4. INS.7 sampling profile on W5r and W5a (no code change), plus INS.5 fact
    sizes: the per-walk cost behind CONV.5 and OPTC.*.
 5. B.4 baseline.

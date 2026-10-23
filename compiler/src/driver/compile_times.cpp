@@ -160,9 +160,22 @@ std::string round_series(const std::vector<std::size_t> &changes) {
     return text;
 }
 
+// How a recursive component's solves met the previous pass's fixed point. Added for the solve repetition
+// measurements of --print-stage-times.
+std::string repetition_note(const InferenceProfile &profile, const InferenceProfile::Cost &cost) {
+    const auto index = static_cast<std::size_t>(&cost - profile.costs_.data());
+    if (index >= profile.repetitions_.size()) {
+        return {};
+    }
+    const auto &repetition = profile.repetitions_[index];
+    return std::format("; {} solves repeated the previous fixed point, {} reached it after {} rounds in total",
+                       repetition.repeated_, repetition.reached_, repetition.skippable_);
+}
+
 // One recursive component's fixed-point rounds: solves, rounds against the cap, how solves gave up, the share of
-// member walks that changed a summary, and the members changed per round of its last solve.
-void print_rounds(const InferenceProfile::Cost &cost) {
+// member walks that changed a summary, the members changed per round of its last solve, and how solves met the
+// previous pass's fixed point.
+void print_rounds(const InferenceProfile &profile, const InferenceProfile::Cost &cost) {
     const auto &rounds = cost.rounds_;
     const auto useful =
         rounds.walks_ == 0 ? 0.0 : 100.0 * static_cast<double>(rounds.changes_) / static_cast<double>(rounds.walks_);
@@ -173,7 +186,8 @@ void print_rounds(const InferenceProfile::Cost &cost) {
         rounds.solves_, rounds.rounds_, rounds.round_cap_, rounds.capped_, rounds.over_share_, rounds.remembered_,
         rounds.exhausted_, rounds.walks_, rounds.skipped_, useful, rounds.grown_, rounds.replaced_, rounds.flipped_,
         rounds.last_changes_.size(), round_series(rounds.last_changes_));
-    print_stage_time("inference rounds", component_name(*cost.component_), cost.elapsed_, note);
+    print_stage_time("inference rounds", component_name(*cost.component_), cost.elapsed_,
+                     note + repetition_note(profile, cost));
 }
 
 // The recursive components that took longest over all passes, with how their rounds went. Added for the
@@ -189,7 +203,7 @@ void print_recursive(const InferenceProfile &profile) {
     const auto slower = [](const auto *left, const auto *right) { return left->elapsed_ > right->elapsed_; };
     std::ranges::partial_sort(costs, costs.begin() + static_cast<std::ptrdiff_t>(shown), slower);
     for (const auto *cost : std::span(costs).first(shown)) {
-        print_rounds(*cost);
+        print_rounds(profile, *cost);
     }
 }
 } // namespace

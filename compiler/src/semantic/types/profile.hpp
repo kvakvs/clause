@@ -75,6 +75,16 @@ struct InferenceProfile {
         std::vector<std::vector<const Function *>> callees_;
     };
 
+    // One recursive component's solves against the previous pass's fixed point: solves that ended on it, solves
+    // that reached it on the way and the rounds they ran until then (what a warm start would skip), and whether the
+    // current solve reached it. Added for the solve repetition measurements of --print-stage-times.
+    struct Repetition {
+        std::size_t repeated_ = 0;
+        std::size_t reached_ = 0;
+        std::size_t skippable_ = 0;
+        bool reaching_ = false;
+    };
+
     // A component that was clean but whose summaries changed, and the pass it first happened in. Added for the
     // incremental-potential measurements of --print-stage-times.
     struct CleanChanged {
@@ -154,5 +164,7 @@ struct InferenceProfile {
     std::vector<Incremental> incremental_;
     PassMemory memory_;
     std::vector<CleanChanged> clean_changed_;
+    // By component index. Added for the solve repetition measurements of --print-stage-times.
+    std::vector<Repetition> repetitions_;
 };
 } // namespace clause::semantic::types

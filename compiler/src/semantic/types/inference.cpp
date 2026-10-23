@@ -10,6 +10,7 @@
 #include "inference_funs.hpp"
 #include "inference_inputs.hpp"
 #include "inference_operators.hpp"
+#include "inference_profile.hpp"
 #include "inference_scopes.hpp"
 #include "inference_uses.hpp"
 #include "inference_values.hpp"
@@ -885,6 +886,10 @@ Ending iterate(Inference &inference, const Component &component, std::size_t &wo
     RoundHistory history(component.members.size());
     for (std::size_t round = 0; round < rounds; ++round) {
         const auto changes = refine(inference, component, work, worklist, round >= JOIN_ROUNDS, &history, trace.walks_);
+        if (inference.profile) {
+            // Added for the solve repetition measurements of --print-stage-times.
+            note_round(inference, component, round);
+        }
         trace.changes_.push_back(changes.total());
         trace.kinds_.add(changes);
         if (changes.total() == 0) {
