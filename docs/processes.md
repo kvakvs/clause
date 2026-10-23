@@ -258,10 +258,13 @@ creation and teardown, OPT3.5B):
   messages onto, with a copy of the executor's running state of the process.
   The sender looks up the receiver's arrivals and reads that state; a sender
   whose last send to the same receiver found it not running skips the lookup.
-- To a running receiver, the sender copies the message right behind a list
-  node, in one allocation (a large message or one holding off-heap binaries
-  into a `MessageBuffer`), and pushes it. Any other receiver gets the message
-  under the executor lock as before: copied into its heap, or pushed behind
+- The sender walks the message once, before any lock
+  ([single message walk](runtime-heap.md#message-buffers)). To a running
+  receiver, it copies the message right behind a list node, in one allocation
+  (a large message or one holding off-heap binaries into a `MessageBuffer`),
+  and pushes it; the receiver later copies those words into its heap and
+  relocates their pointers. Any other receiver gets the message under the
+  executor lock as before: copied into its heap, or pushed behind
   its arrivals when it began a slice meanwhile or still has arrivals, so a
   sender's messages never pass each other and the sender never copies a
   backlog under the lock. Either answer of a race is correct.

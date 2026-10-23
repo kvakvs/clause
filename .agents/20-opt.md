@@ -5,7 +5,7 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
-OPT1.4, OPT1.6 inline caches, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
+OPT1.4, OPT1.6 inline caches, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
 OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4 and its remainder, OPT3.18, OPT3.19,
 sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4, OPTM.5): see [00-finished.md](00-finished.md). This file keeps open work only.
@@ -104,11 +104,11 @@ step that owns it (unprofiled ones say so):
 |---|---|---|---|
 | file.small_files | 1256 / 1187 | 1.06x | done (OPT3.4 remainder: 0.81x pinned, OS-bound); file kernels |
 | dataproc.small_map | 1544 / 1501 | 1.03x | OPT1.6 caches done (alone, pinned: 1500 to 1035, OTP 1240); OPT1.6 remainder |
-| file.read_line | 1514 / 1545 | 0.98x | done (OPT3.4 remainder: 0.92x; was 1.05x); OPT3.9 remainder |
+| file.read_line | 1514 / 1545 | 0.98x | done (OPT3.4 remainder: 0.92x; was 1.05x); OPT3.23 |
 | file.read_file | 1471 / 1514 | 0.97x | file kernels (page faults) |
 | file.large_write | 1000 / 1029 | 0.97x | done (OPT3.4 remainder run: 0.88x) |
 | datagen.map_put | 1589 / 1664 | 0.96x | OPT3.15 remainder |
-| msg.ring | 1355 / 1472 | 0.92x | OPT3.9 remainder (small messages) |
+| msg.ring | 1355 / 1472 | 0.92x | done (OPT3.9 remainder: 1324 to 1152 alone, ~0.80x); OPT3.23 |
 | gc.long_lived_churn | 1195 / 1326 | 0.90x | OPT3.20 (collector, unprofiled) |
 | datagen.list_to_tuple | 1408 / 1605 | 0.88x | OPT3.21 (unprofiled) |
 | dataproc.binary_match | 1100 / 1277 | 0.86x | OPT1.5 |
@@ -119,8 +119,8 @@ step that owns it (unprofiled ones say so):
 | datagen.binary_append | 840 / 1098 | 0.76x | OPT3.6 remainder |
 | socket.tcp_connect | 1151 / 1510 | 0.76x | OPT3.22 |
 | dataproc.map_foldl | 1122 / 1465 | 0.77x | OPT1.12 (`lists:map` builds reversed; OPT3.18 run) |
-| msg.ping_pong | 1110 / 1495 | 0.74x | OPT3.9 remainder |
-| msg.large_message | 813 / 1099 | 0.74x | OPT3.9 remainder (OPT3.18 run) |
+| msg.ping_pong | 1110 / 1495 | 0.74x | done (OPT3.9 remainder: 1096 to 975 alone); OPT3.23 |
+| msg.large_message | 813 / 1099 | 0.74x | done (OPT3.18 run; one copy per send, unprofiled since) |
 | dataproc.term_to_binary | 1053 / 1496 | 0.70x | term_to_binary remainder (OPT3.18 run) |
 | datagen.list_of_tuples | 1063 / 1517 | 0.70x | done (OPT3.18 run) |
 | gc.short_processes | 1113 / 1665 | 0.67x | OPT3.5 remainder |
@@ -129,7 +129,7 @@ step that owns it (unprofiled ones say so):
 | dataproc.map_update | 649 / 1235 | 0.53x | done (OPT3.15, OPT1.7 `maps:fold`) |
 | dataproc.int_to_list | 422 / 908 | 0.47x | done (OPT3.8) |
 | dataproc.sort | 501 / 1113 | 0.45x | done (OPT3.17) |
-| msg.fan_in | 576 / 1388 | 0.42x | OPT3.9 remainder |
+| msg.fan_in | 576 / 1388 | 0.42x | done (OPT3.9 remainder: 461 to 354 alone); OPT3.23 |
 | gc.explicit_collect | 594 / 1615 | 0.37x | OPT3.20 |
 | datagen.bigint_factorial | 210 / 1145 | 0.18x | done (OPT3.19 run; was 1369) |
 
@@ -195,13 +195,16 @@ largest first; steps whose kernels are already ahead stay, ranked lower.
 Profile each kernel before building (see
 [Profiling on Windows](#profiling-on-windows)).
 
-- **OPT3.9 remainder: small messages (large_message 0.74x, ring 0.92x,
-  ping_pong 0.74x, fan_in 0.42x):** small messages to busy receivers still copy
-  twice (into a buffer, then into the receiver). The file.read_line profile
-  (a call round trip per line, after the OPT3.4 remainder) shows the rest of a
-  small send: `ProcessHeap::reserve` into the receiver ~7%, the size walk of
-  `MessageBuffer::large` before the copy walks again ~5%, and monitor plus
-  demonitor of the call ~14% (a map node and a reference each).
+- **OPT3.23 message signals (ring ~0.80x, ping_pong ~0.66x, fan_in ~0.32x,
+  estimated from the OPT3.9 remainder A/B):** messages are copied once now; a
+  send to a receiver that does not run still takes the executor mutex to copy
+  and wake it. fan_in (unpinned profile) spends 31% of samples contending for
+  it in `send_locked`; ping_pong ~15% in SRW acquire/release (send, push,
+  next_process). The file.read_line profile (a call round trip per line) shows
+  monitor plus demonitor of the call ~14% (a map node and a reference each).
+  Candidates: per-process signal locks as ERTS, or posting to a parked
+  receiver's arrivals with only the waking sender locking (sends that buffered
+  every message regressed fan_in in OPT3.5B: allocator contention).
 - **OPT3.15 remainder (map_put 0.96x):** `maps:put/3` in a self
   tail loop (`map_put(N, M) -> map_put(N - 1, maps:put(N, V, M))`) copies the
   path per insert, since the map arrives as a parameter. A map-loop variant
@@ -508,7 +511,7 @@ and every read to inline (static decisions only).
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact
    (pinned 2026-10-21 71ec52f8 run, worst kernel of each step; OPT3.18 done):
    OPT3.19 (1.20x), OPT1.6 caches (1.03x), both done; then the kernels already
-   ahead: OPT3.9 remainder (0.92x), OPT1.6 remainder (~0.84x), OPT3.15 remainder (0.96x), OPT3.20 (0.90x), OPT3.21
+   ahead: OPT3.23 (ring ~0.80x), OPT1.6 remainder (~0.84x), OPT3.15 remainder (0.96x), OPT3.20 (0.90x), OPT3.21
    (0.88x), OPT1.5 (0.86x), OPT3.22 (0.80x), OPT1.12 (0.77x), OPT3.6 remainder
    (0.76x), term_to_binary remainder (0.70x), OPT3.5 remainder (0.67x), OPT1.3
    (0.63x). Steps with no 69A kernel (OPT3.13/3.14 remainders, OPTM.1

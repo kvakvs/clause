@@ -36,6 +36,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `binary:compile_pattern/1` result | `{bm, Ref}` or `{ac, Ref}` with an opaque reference | `{bm, [Pattern]}` or `{ac, Patterns}` | [builtins](builtins.md#binary-module) |
 | `binary:referenced_byte_size/1` of a sub-binary | The size of the binary it refers into | Its own size | [builtins](builtins.md#binary-module) |
 | Memory of replaced or erased persistent terms | Reclaimed by a literal-area collector process that has every process copy the value out, in the background | Each process copies it out at its next slice (parked ones at once, by the `put`/`erase`), then the area is freed; no collector process | [runtime](runtime.md#persistent-terms) |
+| Persistent terms sent in messages | Stay shared, like literals: the receiver's heap does not grow | Copied into the receiver's heap like any other term | [runtime](runtime.md#persistent-terms) |
 | `persistent_term:info/0` and `get/0` | Include the terms OTP's `kernel` and `stdlib` store at boot (26 on OTP 29) | Only the program's own terms | [builtins](builtins.md#persistent-terms) |
 | `code:is_loaded/1`, `code:which/1`, `code:all_loaded/0` of a compiled module | The `.beam` file it was loaded from | `preloaded`: every module is linked into the executable | [builtins](builtins.md#code-module) |
 | `priority` option of `send/3`, `link/2`, `exit/3`, `exit_signal/3` | Priority messages and signals overtake ordinary ones | Accepted; delivered as ordinary messages and signals | [processes](processes.md#builtins) |

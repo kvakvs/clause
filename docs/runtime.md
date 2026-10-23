@@ -147,9 +147,10 @@ reached through `ProcessContext::persistent_terms()`, keeps the terms of
 - Entries are root words found by a hash of the key (the builtins use the term
   hash of `phash2`) and exact equality, compared in place.
 - A read returns the stored word in place, as OTP's literal persistent terms:
-  any process may hold it and send it (a copy into another process keeps the
-  word); collections leave it alone, and admission accepts it like a literal.
-  Message buffers and new persistent terms copy persistent words.
+  any process may hold it; collections leave it alone, and admission accepts it
+  like a literal. Sends to other processes, message buffers and new persistent
+  terms copy persistent words (a send walks its message once, before the
+  executor lock, so it cannot share an area that may retire meanwhile).
 - **Reclamation.** A replaced or erased value's area retires under a new epoch.
   From then on every copy copies its words, and each process registered when it
   retired copies the retiring objects it holds into its own heap at an

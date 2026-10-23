@@ -436,3 +436,9 @@ gotchas and user directions not recorded elsewhere.
   next_vs_pairs are layout-bound (hot runtime helpers like Term::kind are
   calls): unrelated code padding with the same clau moves raw_insert 754-865
   ms, so a +-10% move there alone means nothing.
+- OPT3.9 remainder (2026-10-23): `VSDiagnostics start /launch` returns at once;
+  wait for the exe to exit (tasklist loop) before `stop`, else only startup is
+  sampled. Padding `Arrivals` flags onto their own cache line sped fan_in but
+  slowed ring ~2.5% (1000 processes' arrivals on two lines each): dropped.
+  A small message's direct copy was ~18% of ping_pong, mostly fixed cost
+  (size walk, GraphCopy setup, HeapReservation), not words.

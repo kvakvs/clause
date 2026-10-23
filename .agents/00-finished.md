@@ -616,6 +616,14 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   Pinned medians, HEAD / new / OTP ms: read_line 1633 / 1427 / 1554 (1.05x to
   0.92x), small_files 1050 / 1043 / 1294; ping_pong 1118 to 1025, ring 1341 to
   1274, fan_in 560 to 456 — `389636c5`
+- **OPT3.9 remainder** small messages copied once: a send walks its message
+  once before any lock (`OutgoingMessage`; the bounded `large()` walk is gone,
+  persistent terms are copied), copies it straight into a parked receiver with
+  an unzeroed claim (no reservation), and a receiver takes a small arrival by
+  memcpy plus pointer relocation instead of a second walk and copy; senders
+  read `parked_` before claiming it. Pinned A/B medians (alone, 7 rounds):
+  ping_pong 1096 to 975 ms, ring 1324 to 1152, fan_in 461 to 354;
+  large_message, short_processes unchanged — `HASH`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576

@@ -36,6 +36,25 @@ inline bool is_header(Word value) noexcept {
     return (value & abi::v1::primary_mask) == static_cast<Word>(TermKindPrimary::header);
 }
 
+// The payload words before the term slots of a boxed object of `kind`, or all `payload` words when it holds no terms.
+// For copies of verified objects, so no size is checked again (collector cell shapes, relocated arrivals).
+inline std::size_t untraced_words(BoxedKind kind, std::size_t payload) noexcept {
+    switch (kind) {
+    case BoxedKind::tuple:
+    case BoxedKind::map:
+        return 0;
+    case BoxedKind::native_record:
+    case BoxedKind::fun_closure:
+        return 1;
+    case BoxedKind::sub_binary:
+    case BoxedKind::tree_map:
+    case BoxedKind::map_node:
+        return 2;
+    default:
+        return payload;
+    }
+}
+
 // Parse the object starting at the first word of rest; rest must be nonempty.
 std::expected<HeapCell, WalkError> parse_cell(std::span<const Word> rest) noexcept;
 

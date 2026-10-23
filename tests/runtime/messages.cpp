@@ -7,8 +7,8 @@
 
 // Messages (docs/processes.md#messages) between contexts of one runtime: each sender's messages arrive in order,
 // self-sends and sends to ended processes behave as in OTP, messages are roots of the receiver until received, the
-// receive position survives arrivals, a large message's block is taken over, and a copy the receiver's heap refuses
-// delivers nothing.
+// receive position survives arrivals, a large message's block is taken over, messages posted to a running receiver
+// arrive intact, and a copy the receiver's heap refuses delivers nothing.
 namespace {
 using namespace clause::runtime;
 using Status = clause::abi::v1::Status;
@@ -122,6 +122,59 @@ void received(Runtime &runtime) {
             "teardown failed");
 }
 
+// A term of every kind a small message holds: integers, a bignum, a float, an improper list, nested tuples, a small
+// and a tree map, a heap binary, a bitstring, the pid of `owner` and a reference; `with_off_heap` adds an off-heap
+// binary.
+Term rich(ProcessContext &context, const ProcessContext &owner, const Term &reference, bool with_off_heap) {
+    TermFactory factory(context);
+    const auto integer = [&](std::int64_t value) { return factory.integer(value).value(); };
+    std::vector<std::pair<Term, Term>> entries;
+    for (std::int64_t key = 0; key < 40; ++key) {
+        entries.emplace_back(integer(key), factory.tuple(std::array{integer(key), integer(-key)}).value());
+    }
+    const std::array<std::byte, 10> bytes{};
+    const std::array<std::byte, 100> large{};
+    const std::array parts{integer(1),
+                           factory.integer_decimal("123456789012345678901234567890").value(),
+                           factory.floating(2.5).value(),
+                           factory.list(std::array{integer(1), integer(2)}, integer(3)).value(),
+                           factory.tuple(std::array{factory.atom("nested").value(), factory.nil().value()}).value(),
+                           factory.map(std::span{entries}.first(2)).value(),
+                           factory.map(entries).value(),
+                           factory.binary(bytes).value(),
+                           factory.bitstring(std::span{bytes}.first(2), 13).value(),
+                           factory.pid(owner.identity()).value(),
+                           reference.copy_to(context.heap()).value(),
+                           with_off_heap ? factory.binary(large).value() : factory.nil().value()};
+    return factory.tuple(parts).value();
+}
+
+// Messages to a receiver that runs wait among its arrivals: a small graph is copied behind its message and moved into
+// the receiver's heap with its pointers relocated, one with an off-heap binary in a buffer of its own; both arrive
+// equal to the sent terms, in order, and survive a collection (relocated arrivals).
+void arrivals(Runtime &runtime) {
+    auto &sender = *runtime.create_context().value();
+    auto &receiver = *runtime.create_context().value();
+    const auto reference = TermFactory(sender).make_reference().value();
+    receiver.schedule().running = true;
+    require(detail::Executor::send(sender, pid(receiver), rich(sender, sender, reference, false)).has_value() &&
+                detail::Executor::send(sender, pid(receiver), rich(sender, sender, reference, true)).has_value(),
+            "send to a running receiver failed");
+    require(receiver.mailbox().size() == 0 && receiver.mailbox().arrivals().pending(), "messages were not posted");
+    receiver.schedule().running = false;
+    require(detail::MessageBuffer::take_arrivals(receiver).has_value() && receiver.mailbox().size() == 2,
+            "arrivals were not taken");
+    require(receiver.heap().collect().has_value() && receiver.heap().verify().has_value(), "arrivals broke the heap");
+    for (const bool with_off_heap : {false, true}) {
+        const auto message = Term::from_word(*receiver.mailbox().peek(), receiver).value();
+        const auto expected = rich(receiver, sender, reference, with_off_heap);
+        require(message.exactly_equal(expected) == true, "an arrival differs from the sent term");
+        receiver.mailbox().take();
+    }
+    require(runtime.destroy_context(&sender) == Status::ok && runtime.destroy_context(&receiver) == Status::ok,
+            "teardown failed");
+}
+
 // A send to an ended process succeeds and delivers nothing; a receiver whose heap cap refuses the copy gets nothing.
 void refused(Runtime &runtime) {
     auto &sender = *runtime.create_context().value();
@@ -148,6 +201,7 @@ int main() {
         positions(*runtime);
         handoff(*runtime);
         received(*runtime);
+        arrivals(*runtime);
         refused(*runtime);
         std::cout << "runtime_messages: ok\n";
     } catch (const std::exception &error) {

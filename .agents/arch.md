@@ -222,11 +222,14 @@ test need no OTP (`docs/validation.md`).
   (no second copy); idle processes never collected.
 - Limits opt-in (`--max-heap/--max-stack/--max-memory`, `RuntimeMemory`); host
   refusal = `out_of_memory`, exit 70.
-- Copies (`GraphCopy`): iterative flat copy between heaps, literals recognised
-  and not copied, refc buffers shared and charged once. `MessageBuffer` holds
-  terms outside processes; large messages are built before the executor lock
-  and adopted as receiver fragments, counted toward collection only once
-  received (as ERTS). Copy walks and collector scans follow list tails in
+- Copies (`GraphCopy`, `memory/graph_copy.hpp`): iterative flat copy between
+  heaps, literals recognised and not copied, refc buffers shared and charged
+  once. `MessageBuffer` holds terms outside processes. A send walks its message
+  once before the executor lock (`OutgoingMessage`, persistent terms copied):
+  large messages become buffers adopted as receiver fragments, counted toward
+  collection only once received (as ERTS); small ones copy straight into a
+  parked receiver or behind an arrival node, which the receiver memcpys and
+  relocates (no second walk). Copy walks and collector scans follow list tails in
   place and cache the last area/literal span. Persistent terms live in per-term areas of
   a reserved range, reclaimed after every process evacuated them.
   `detached_term` blocks hold ETS objects.

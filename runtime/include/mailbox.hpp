@@ -102,7 +102,8 @@ class Arrivals final : public Reclaimable {
     bool post(Owned &&owned) noexcept {
         push(owned.release());
         // Sequentially consistent with park(): either the receiver sees this message or this sender sees it parked.
-        return parked_.exchange(false);
+        // Read before claiming, so senders to a receiver that is not parked write nothing more (arrival flags).
+        return parked_.load() && parked_.exchange(false);
     }
 
     // Append a buffered message. Allocation failure throws.

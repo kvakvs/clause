@@ -637,12 +637,10 @@ class Executor final {
     // look without the lock; none once it ended (arrival buffers).
     std::optional<Arrivals *> running_arrivals(ProcessContext &sender, Word pid) const noexcept;
     // Send to a receiver running on another worker: pushed onto its arrivals, waking it if it parked meanwhile.
-    TermResult<void> send_running(ProcessContext &sender, RunningReceiver receiver, const Term &message,
-                                  const std::shared_ptr<const MessageBuffer> &large);
-    // Send to a receiver not running when the sender looked: copied (a large one taken over from `large`) into its
-    // heap under the lock, or posted among its arrivals if it began a slice meanwhile (arrival buffers).
-    TermResult<void> send_locked(ProcessContext &sender, Word pid, const Term &message,
-                                 const std::shared_ptr<const MessageBuffer> &large);
+    TermResult<void> send_running(ProcessContext &sender, RunningReceiver receiver, OutgoingMessage &message);
+    // Send to a receiver not running when the sender looked: copied (a large one taken over) into its heap under the
+    // lock, or posted among its arrivals if it began a slice meanwhile (arrival buffers).
+    TermResult<void> send_locked(ProcessContext &sender, Word pid, OutgoingMessage &message);
     // Put a message built in the heap of a process that does not run into its signal inbox, after its arrival buffers,
     // and wake it.
     TermResult<void> arrive(ProcessContext &receiver, Word message);

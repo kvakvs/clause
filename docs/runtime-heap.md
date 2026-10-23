@@ -366,11 +366,15 @@ and monitor tags use it, so they are never re-encoded;
 [persistent terms](runtime.md#persistent-terms) live in their own address range
 and are copied, not shared, into buffers.
 
+**Single message walk.** A send to another process walks its message's graph
+once, before any lock (`OutgoingMessage`, with the `GraphCopy` of
+[graph_copy.hpp](../runtime/src/memory/graph_copy.hpp)); that walk sizes every
+later copy, and like any copy outside a process it copies persistent terms.
+
 **Message hand-off.** A send whose message takes at least
-`MessageBuffer::ADOPTED_WORDS` (512) words, counted by
-`MessageBuffer::large(value, sender, minimum)` with a bounded walk that stops
-there, always goes through a buffer, built before any lock, so the sender holds
-no lock while copying. The receiver then takes the buffer over instead of
+`MessageBuffer::ADOPTED_WORDS` (512) words always goes through a buffer, copied
+from that walk before any lock, so the sender holds no lock while copying. The
+receiver then takes the buffer over instead of
 copying it (`MessageBuffer::take`, `HeapStorage::adopt`), when the buffer has
 no other owner and the receiver has a heap block and no budget: the block joins
 its fragments at the same addresses, the buffer's off-heap binary and map lists
@@ -380,7 +384,12 @@ ask for a collection only once a receive took their message and their words
 reach the young block's, as ERTS counts a message fragment only once received
 (`HeapStorage::received`); the next collection treats them as young data, and
 copies a message still queued like any root.
-Smaller messages are copied, as before: cheaper than a fragment each.
+Smaller messages are copied once, cheaper than a fragment each: straight into
+the heap of a receiver that does not run, under the executor lock, or right
+behind an arrival node for a running one. The receiver takes such an arrival
+by copying its words as they are and moving the pointers between them by the
+distance of the copy, reading the objects in address order as the collector
+scans its copies (**relocated arrivals**); the graph is not walked again.
 
 ## Collection in generated code
 

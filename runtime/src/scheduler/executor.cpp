@@ -25,18 +25,6 @@ using abi::v1::Status;
 // The first capacity of the list of contexts waiting to be freed after the lock (process creation and teardown).
 constexpr std::size_t RETIRED_CONTEXTS = 16;
 
-// The arrival message of a send to a running receiver: the large message's buffer built already, or a new message
-// (arrival messages).
-TermResult<Arrivals::Owned> arrival_of(const std::shared_ptr<const MessageBuffer> &large, const Term &message,
-                                       ProcessContext &sender) {
-    if (!large) {
-        return MessageBuffer::arrival(message, sender);
-    }
-    auto posted = Arrivals::Owned(Arrivals::Message::make(0));
-    posted->buffer = large;
-    return posted;
-}
-
 // The term error of a failed context creation.
 TermError creation_error(Status status) {
     return status == Status::out_of_memory ? TermError::out_of_memory : TermError::resource_limit;
@@ -274,19 +262,17 @@ TermResult<void> Executor::send(ProcessContext &sender, Word pid, const Term &me
     if (TermTag{pid}.get_kind() != TermKind::local_pid) {
         return {};
     }
-    // A large message is copied into a buffer of its own before any lock, then handed over (message hand-off).
-    auto large = MessageBuffer::large(message, sender, MessageBuffer::ADOPTED_WORDS)
-                     ? MessageBuffer::copy_of(message, sender)
-                     : TermResult<std::shared_ptr<const MessageBuffer>>{nullptr};
-    if (!large) {
-        return std::unexpected(large.error());
+    // The message's graph is walked once, before any lock (single message walk).
+    OutgoingMessage outgoing(sender);
+    if (const auto walked = outgoing.walk(message); !walked) {
+        return walked;
     }
     const auto running = executor.running_arrivals(sender, pid);
     if (!running) {
         return {};
     }
-    return *running != nullptr ? executor.send_running(sender, {.pid = pid, .arrivals = **running}, message, *large)
-                               : executor.send_locked(sender, pid, message, *large);
+    return *running != nullptr ? executor.send_running(sender, {.pid = pid, .arrivals = **running}, outgoing)
+                               : executor.send_locked(sender, pid, outgoing);
 }
 
 std::optional<Arrivals *> Executor::running_arrivals(ProcessContext &sender, Word pid) const noexcept {
@@ -304,10 +290,9 @@ std::optional<Arrivals *> Executor::running_arrivals(ProcessContext &sender, Wor
     return hint.running ? arrivals : nullptr;
 }
 
-TermResult<void> Executor::send_running(ProcessContext &sender, RunningReceiver receiver, const Term &message,
-                                        const std::shared_ptr<const MessageBuffer> &large) {
+TermResult<void> Executor::send_running(ProcessContext &sender, RunningReceiver receiver, OutgoingMessage &message) {
     // A receiver running on another worker takes the message from its arrivals; no executor lock (arrival buffers).
-    auto posted = arrival_of(large, message, sender);
+    auto posted = message.arrival();
     if (!posted) {
         return std::unexpected(posted.error());
     }
@@ -319,8 +304,7 @@ TermResult<void> Executor::send_running(ProcessContext &sender, RunningReceiver 
     return parked && parked->schedule().parked ? wake(*parked) : TermResult<void>{};
 }
 
-TermResult<void> Executor::send_locked(ProcessContext &sender, Word pid, const Term &message,
-                                       const std::shared_ptr<const MessageBuffer> &large) {
+TermResult<void> Executor::send_locked(ProcessContext &sender, Word pid, OutgoingMessage &message) {
     const std::scoped_lock lock(mutex_);
     auto *found = find(sender, pid);
     if (!found) {
@@ -331,14 +315,14 @@ TermResult<void> Executor::send_locked(ProcessContext &sender, Word pid, const T
     // past them, and the sender copies no backlog under the lock.
     if (busy(&receiver) || receiver.mailbox().arrivals().pending()) {
         sender.mailbox().send_hint().running = busy(&receiver);
-        auto posted = arrival_of(large, message, sender);
+        auto posted = message.arrival();
         if (!posted) {
             return std::unexpected(posted.error());
         }
         post(receiver, std::move(*posted));
         return {};
     }
-    const auto copy = large ? MessageBuffer::take(large, receiver) : message.copy_to(receiver.heap());
+    const auto copy = message.copy_to(receiver);
     if (!copy) {
         return std::unexpected(copy.error());
     }

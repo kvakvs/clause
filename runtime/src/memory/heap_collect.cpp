@@ -25,25 +25,6 @@ Word tagged(const Word *object, TermKindPrimary primary) {
 
 // Objects up to this many words are copied without a library call (collector cell shapes).
 constexpr std::size_t SMALL_OBJECT_WORDS = 4;
-
-// The payload words before the term slots of a boxed object of `kind`, or all `payload` words when it holds no terms.
-// The collector's copies are of verified objects, so no size is checked again (collector cell shapes).
-std::size_t untraced_words(BoxedKind kind, std::size_t payload) noexcept {
-    switch (kind) {
-    case BoxedKind::tuple:
-    case BoxedKind::map:
-        return 0;
-    case BoxedKind::native_record:
-    case BoxedKind::fun_closure:
-        return 1;
-    case BoxedKind::sub_binary:
-    case BoxedKind::tree_map:
-    case BoxedKind::map_node:
-        return 2;
-    default:
-        return payload;
-    }
-}
 } // namespace
 
 std::size_t heap_size_at_least(std::size_t words) noexcept {
