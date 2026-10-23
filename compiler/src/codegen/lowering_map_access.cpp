@@ -4,7 +4,8 @@
 
 // Small-map lookups: generated code reads and copies a classic map cell (a header, then sorted key and value words)
 // for atom and small-integer keys, whose term equality is word equality. Map trees, other keys, errors and a full
-// heap block keep the map service as their slow tail.
+// heap block keep the map service as their slow tail. A search for a literal key first tries the index its site found
+// last.
 namespace clause::codegen {
 namespace {
 using abi::v1::HeaderKind;
@@ -65,8 +66,67 @@ ClassicMap classic_map(ExpressionLowering &state, llvm::Value *map, llvm::BasicB
     return {cell, builder.CreateLShr(header, word(state, abi::v1::header_count_shift))};
 }
 
-// The index of `key`'s value word in a classic cell, continuing where it was found; `miss` where the cell lacks it.
-llvm::Value *find_key(ExpressionLowering &state, const ClassicMap &map, llvm::Value *key, llvm::BasicBlock *miss) {
+// Times a site's cache index may be rewritten; past them the site only reads it, so a site that sees many shapes in
+// several processes stops writing a cache line their cores share (map-shape inline caches, OPT1.6).
+constexpr std::uint64_t SITE_CACHE_WRITES = 8;
+
+// A lookup site's inline cache, shared by every process: the index of the key word a scan found, starting at the
+// first key word, and the rewrites left (map-shape inline caches, OPT1.6).
+llvm::GlobalVariable *site_cache(ExpressionLowering &state) {
+    auto *type = llvm::ArrayType::get(state.word, 2);
+    auto *initial = llvm::ConstantArray::get(
+        type, {llvm::ConstantInt::get(state.word, 1), llvm::ConstantInt::get(state.word, SITE_CACHE_WRITES)});
+    return new llvm::GlobalVariable(*state.entry.getParent(), type, false, llvm::GlobalValue::InternalLinkage, initial,
+                                    "map.site");
+}
+
+// A relaxed atomic load of one word of a site cache.
+llvm::LoadInst *load_site(ExpressionLowering &state, llvm::Value *at, const char *name) {
+    auto *load = state.builder.CreateAlignedLoad(state.word, at, llvm::Align(state.word->getBitWidth() / 8), name);
+    load->setAtomic(llvm::AtomicOrdering::Monotonic);
+    return load;
+}
+
+// The cached key index when the cell holds `key` there, continuing where it does; `scan` otherwise. Map-shape inline
+// caches, OPT1.6.
+llvm::Value *probe_cache(ExpressionLowering &state, const ClassicMap &map, llvm::Value *key,
+                         llvm::GlobalVariable *cache, llvm::BasicBlock *scan) {
+    auto &builder = state.builder;
+    auto *probe = block(state, "map.probe");
+    auto *hit = block(state, "map.hit");
+    auto *cached = load_site(state, cache, "map.cached");
+    // Cached indexes are odd, so one below the word count leaves the value word inside the cell.
+    builder.CreateCondBr(compare(state, llvm::CmpInst::ICMP_ULT, cached, map.words), probe, scan);
+    builder.SetInsertPoint(probe);
+    auto *stored = builder.CreateAlignedLoad(state.word, builder.CreateGEP(state.word, map.cell, cached),
+                                             llvm::Align(state.word->getBitWidth() / 8), "map.key");
+    builder.CreateCondBr(compare(state, llvm::CmpInst::ICMP_EQ, stored, key), hit, scan);
+    builder.SetInsertPoint(hit);
+    return cached;
+}
+
+// Store a scan's key index `at` into the site cache while rewrites are left, continuing after it. Map-shape inline
+// caches, OPT1.6.
+void learn_index(ExpressionLowering &state, llvm::GlobalVariable *cache, llvm::Value *at) {
+    auto &builder = state.builder;
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    auto *learn = block(state, "map.learn");
+    auto *learned = block(state, "map.learned");
+    auto *budget_at = builder.CreateConstInBoundsGEP1_64(state.word, cache, 1);
+    auto *budget = load_site(state, budget_at, "map.writes");
+    builder.CreateCondBr(compare(state, llvm::CmpInst::ICMP_NE, budget, word(state, 0)), learn, learned);
+    builder.SetInsertPoint(learn);
+    // Racing processes may both spend one rewrite; the budget only bounds how often the line is written.
+    builder.CreateAlignedStore(builder.CreateSub(budget, word(state, 1)), budget_at, align)
+        ->setAtomic(llvm::AtomicOrdering::Monotonic);
+    builder.CreateAlignedStore(at, cache, align)->setAtomic(llvm::AtomicOrdering::Monotonic);
+    builder.CreateBr(learned);
+    builder.SetInsertPoint(learned);
+}
+
+// The index of `key`'s key word in a classic cell, scanned from the first, continuing where it was found; `miss` where
+// the cell lacks it.
+llvm::Value *scan_key(ExpressionLowering &state, const ClassicMap &map, llvm::Value *key, llvm::BasicBlock *miss) {
     auto &builder = state.builder;
     auto *before = builder.GetInsertBlock();
     auto *loop = block(state, "map.scan");
@@ -87,7 +147,35 @@ llvm::Value *find_key(ExpressionLowering &state, const ClassicMap &map, llvm::Va
     builder.CreateBr(loop);
     auto *at = close_loop(index, loop, {before, word(state, 1)}, {next_block, next});
     builder.SetInsertPoint(found);
-    return builder.CreateAdd(at, word(state, 1));
+    return at;
+}
+
+// Whether a site's key is the same word on every run: a constant or an atom literal (map-shape inline caches, OPT1.6).
+bool literal_key(const ExpressionLowering &state, const llvm::Value *key) {
+    return llvm::isa<llvm::ConstantInt>(key) || state.atom_literals.contains(key);
+}
+
+// The index of `key`'s value word in a classic cell, continuing where it was found; `miss` where the cell lacks it.
+// A literal key tries its site's cached index first, and a scan that finds it may store its index there; a variable
+// key changes between runs of a site, so it only scans.
+llvm::Value *find_key(ExpressionLowering &state, const ClassicMap &map, llvm::Value *key, llvm::BasicBlock *miss) {
+    auto &builder = state.builder;
+    if (!literal_key(state, key)) {
+        return builder.CreateAdd(scan_key(state, map, key, miss), word(state, 1));
+    }
+    auto *cache = site_cache(state);
+    auto *uncached = block(state, "map.uncached");
+    auto *known = block(state, "map.known");
+    auto *cached = probe_cache(state, map, key, cache, uncached);
+    auto *hit = builder.GetInsertBlock();
+    builder.CreateBr(known);
+    builder.SetInsertPoint(uncached);
+    auto *at = scan_key(state, map, key, miss);
+    learn_index(state, cache, at);
+    auto *scanned = builder.GetInsertBlock();
+    builder.CreateBr(known);
+    builder.SetInsertPoint(known);
+    return builder.CreateAdd(join_values(state, state.word, {hit, cached}, {scanned, at}), word(state, 1));
 }
 
 struct Lookup {

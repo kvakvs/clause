@@ -12,6 +12,7 @@ main(_) ->
     io:format("~p~n", [updates(State, Literal)]),
     io:format("~p~n", [errors(State)]),
     io:format("~p~n", [sorted(loop(State, 1000))]),
+    io:format("~p~n", [shapes()]),
     io:format("small_maps: ok~n").
 
 lookups(State, Literal) ->
@@ -91,5 +92,35 @@ loop(State, 0) ->
     State;
 loop(#{count := C, total := T} = State, N) ->
     loop(State#{count := C + 1, total := T + N, last := N}, N - 1).
+
+%% One lookup site and one update site over maps of many shapes: the key at other key slots than the site
+%% cached, maps too small for the cached slot, and more shapes than the site may relearn (map-shape inline caches).
+shapes() ->
+    Maps = [
+        #{name => 1},
+        #{a => 0, name => 2},
+        #{a => 0, b => 0, c => 0, name => 3},
+        #{name => 4, z => 0},
+        #{},
+        #{a => 0},
+        #{a => 0, b => 0, c => 0, d => 0, e => 0, f => 0, g => 0, name => 5},
+        #{name => 6, x => 0, y => 0},
+        #{a => 0, b => 0, name => 7},
+        #{1 => 0, 2 => 0, name => 8},
+        #{a => 0, b => 0, c => 0, d => 0, name => 9},
+        #{name => 10}
+    ],
+    Rounds = lists:append(lists:duplicate(3, Maps)),
+    {[name(M) || M <- Rounds], [renamed(M) || M <- Maps]}.
+
+name(#{name := Name}) -> Name;
+name(_) -> none.
+
+renamed(M) ->
+    try M#{name := renamed} of
+        Renamed -> lists:sort(maps:to_list(Renamed))
+    catch
+        error:Reason -> Reason
+    end.
 
 tree() -> maps:from_list([{K, K * K} || K <- lists:seq(1, 40)]).

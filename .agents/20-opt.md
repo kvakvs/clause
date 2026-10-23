@@ -5,7 +5,7 @@ optimizing-tier work for BeamAsm, restated for Clause's ahead-of-time LLVM code
 generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
-OPT1.4, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
+OPT1.4, OPT1.6 inline caches, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
 OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4, OPT3.18, OPT3.19,
 sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4, OPTM.5): see [00-finished.md](00-finished.md). This file keeps open work only.
@@ -103,7 +103,7 @@ step that owns it (unprofiled ones say so):
 | Kernel | Clause / OTP (ms) | Ratio | Owner |
 |---|---|---|---|
 | file.small_files | 1256 / 1187 | 1.06x | done (OPT3.4; Clause spread 39%) |
-| dataproc.small_map | 1544 / 1501 | 1.03x | OPT1.6 |
+| dataproc.small_map | 1544 / 1501 | 1.03x | OPT1.6 caches done (alone, pinned: 1500 to 1035, OTP 1240); OPT1.6 remainder |
 | file.read_line | 1514 / 1545 | 0.98x | done (OPT3.4) |
 | file.read_file | 1471 / 1514 | 0.97x | done (OPT3.4) |
 | file.large_write | 1000 / 1029 | 0.97x | done (OPT3.4) |
@@ -259,9 +259,10 @@ process_info/system_info item lists.
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
 Ordered by measured T2 value and how well each fits an AOT compiler. 69A
-weight on 2026-10-21 (pinned): OPT1.6 (small_map 1.03x) targets a kernel behind
-OTP; OPT1.12 (map_foldl 0.77x after OPT3.18), OPT1.5 (binary_match 0.86x) and
-OPT1.3 (comprehension 0.63x) target kernels already ahead, so they rank lower but stay
+weight on 2026-10-21 (pinned): OPT1.6's inline caches put small_map ahead
+(~0.84x run alone); OPT1.6 remainder, OPT1.12 (map_foldl 0.77x after OPT3.18),
+OPT1.5 (binary_match 0.86x) and OPT1.3 (comprehension 0.63x) target kernels
+already ahead, so they rank lower but stay
 (the goal is beating OTP everywhere), and also pay off in real programs (euler,
 luerl, json).
 
@@ -311,31 +312,24 @@ Builds on OPT1.4.
   - UTF-8 does not unroll, except speculating an ASCII run
 - **Measured:** about 2× on top of fused bytewise scanning. 5.6× total.
 
-### OPT1.6 Static map-shape specialization
+### OPT1.6 remainder: static map shapes and the shared-keys layout
 
-- **What:**
-  - When type inference, or the literal/record origin of a map, proves a flatmap
-    with a known keys tuple, `#{k := V}` becomes a pointer compare plus a
-    fixed-offset load.
-  - Otherwise use a per-site **inline cache** `{keys_ptr → index}`: a hit is a
-    direct load; a miss runs the generic lookup and refills the cache. This is
-    OTP's track-A2 idea and needs no deopt.
-  - Shape-preserving single-key updates do the same on write: copy the values,
-    overwrite the slot, keep the keys pointer.
-- **Measured:**
-  - 1.64× on a 2-field fold; flat ~0.67 ns per access at the ceiling.
-  - Wrong shape assumptions made it 1.45× *slower*. Never assume key positions
-    at codegen; guard on the keys pointer.
-  - The guard cost amortizes across several fields read from one map.
-  - A pointer-guarded hit also removes the key comparisons (`eq`), which are 12
-    % of compiler time on OTP.
-- **Needs:** OPT0.4 and the shared-keys flatmap layout (moved here from OPT0.5;
-  it touches every map consumer): small maps (≤ 32, OTP's `MAP_SMALL_MAP_LIMIT`)
-  become `header, size, keys→tuple, v0..vn`; the current sorted-pairs cell stays
-  as the **classic map** for literals. Shape-preserving updates (`M#{k := V}`,
-  `maps:put` on an existing key) copy only values and keep the keys pointer,
-  whose identity is the shape token (same literal, constructors and chained
-  updates share it; only `from_list` and new-key puts make a fresh one).
+Per-site inline caches over classic cells are done (see `00-finished.md`): a
+search for a literal key compares the key word at the index its site found
+last; variable keys (maps as dictionaries, luerl's tables) only scan. Open:
+
+- **Static shapes:** when inference proves a map with exactly known atom keys
+  (the literal or record origin, `#{k := V}` facts), the key index follows from
+  the keys' term order: a fixed-offset load with no probe. Inference keeps only
+  `map()` for loop parameters such as small_map's `State` (callers are joined).
+- **One guard per map:** several reads and an update of one map each repeat the
+  boxed-tag and header test and probe their own cache.
+- **Shared-keys flatmap layout** (moved here from OPT0.5; it touches every map
+  consumer): small maps (≤ 32) as `header, size, keys→tuple, v0..vn`, the
+  sorted-pairs cell kept as the classic map for literals. Shape-preserving
+  updates would copy only the values (9 words instead of 13 for 6 keys) and a
+  keys-pointer guard would cover every field. T2 measured 1.64× on a 2-field
+  fold; wrong position guesses were 1.45× slower, so always guard.
 
 ### OPT1.7 remainder: more higher-order intrinsics
 
@@ -496,15 +490,16 @@ and every read to inline (static decisions only).
    visible to LLVM and cut the 100–600× kernels.
 2. **Loops:** OPT1.1 and OPT1.2 done; OPT1.3 next.
 3. **Binaries:** OPT1.5 (OPT1.4 done).
-4. **Maps:** OPT1.6 (the `maps:fold` part of OPT1.7 is done).
+4. **Maps:** OPT1.6 remainder (inline caches and the `maps:fold` part of OPT1.7
+   are done).
 5. **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
 6. **Funs and floats:** OPT1.11, the OPT1.8 remainder.
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM
    once the IR is transparent.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact
    (pinned 2026-10-21 71ec52f8 run, worst kernel of each step; OPT3.18 done):
-   OPT3.19 (1.20x), OPT1.6 (1.03x); then the kernels already ahead: OPT3.9
-   remainder (0.92x), OPT3.15 remainder (0.96x), OPT3.20 (0.90x), OPT3.21
+   OPT3.19 (1.20x), OPT1.6 caches (1.03x), both done; then the kernels already
+   ahead: OPT3.9 remainder (0.92x), OPT1.6 remainder (~0.84x), OPT3.15 remainder (0.96x), OPT3.20 (0.90x), OPT3.21
    (0.88x), OPT1.5 (0.86x), OPT3.22 (0.80x), OPT1.12 (0.77x), OPT3.6 remainder
    (0.76x), term_to_binary remainder (0.70x), OPT3.5 remainder (0.67x), OPT1.3
    (0.63x). Steps with no 69A kernel (OPT3.13/3.14 remainders, OPTM.1

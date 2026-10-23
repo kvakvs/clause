@@ -336,6 +336,15 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   the cell with the new values when it already holds every key and the heap has
   room. A missing key fails a pattern at once; map trees, other keys, a missing
   key elsewhere and errors take `CLAUSE_map_v1` (small-map lookups).
+- Each such search for a literal key (an atom or small integer written in the
+  source) has a per-site inline cache, an internal `[2 x word]` global shared
+  by all processes: the index of the key word found last (first 1) and the
+  rewrites left (8). The search compares the key word at the cached index
+  first, so a map of the site's usual shape costs one compare; otherwise it
+  scans and, while rewrites are left, stores the index found. Both words are
+  relaxed atomics; a site that has used up its rewrites only reads, so sites
+  seeing many shapes in many processes do not bounce the cache line. Variable
+  keys (maps used as dictionaries) only scan (map-shape inline caches).
 - Tuples and lists of at most 64 words are bump-allocated inline in
   `[heap_top, heap_limit)` (header or cons cells written in place, `heap_top`
   advanced), else built by `CLAUSE_construct_v1`; the result is rooted like a

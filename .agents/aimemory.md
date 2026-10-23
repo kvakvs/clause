@@ -424,3 +424,15 @@ gotchas and user directions not recorded elsewhere.
   GetProcessMemoryInfo on the child handle (scratch pf.py, Popen + ctypes);
   demand-zero faults (MiResolvePrivateZeroFault) mean blocks miss the cache.
   A temporary stderr line in allocate_block's miss path showed which sizes.
+- OPT1.6 caches (2026-10-23): a mutable global written from generated code is
+  shared by every scheduler thread; a polymorphic site rewriting it on each
+  miss made 16 processes 6-7x slower (cache-line bouncing). Bound writes per
+  site (rewrite budget) and test such changes with a multi-process
+  polymorphic negative control. A copied clau.exe outside build/*/bin cannot
+  find library sources: put the baseline copy next to clau.exe.
+  Cache only literal keys: luerl keeps tables/envs in small maps keyed by a
+  runtime index, so a cache at such sites mostly misses (luerl benchmark ~2%
+  slower across suites; literal keys only: 1.005). luerl concat and
+  next_vs_pairs are layout-bound (hot runtime helpers like Term::kind are
+  calls): unrelated code padding with the same clau moves raw_insert 754-865
+  ms, so a +-10% move there alone means nothing.

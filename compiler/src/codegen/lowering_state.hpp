@@ -164,6 +164,9 @@ struct ExpressionLowering {
     // them whose small-integer argument the append writes as digits onto its right operand.
     std::set<const ast::Expression *> digit_prefixes = {};
     std::set<const ast::Expression *> deferred_digits = {};
+    // Map-shape inline caches (OPT1.6): words of atom literals read from the module's atoms; key searches cache their
+    // index only for such keys and constant words, whose key stays the same at a site.
+    std::set<const llvm::Value *> atom_literals = {};
 };
 
 // The fact inference recorded for an expression, or the fact of argument `index` joined from the function's callers;

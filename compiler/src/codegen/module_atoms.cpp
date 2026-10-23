@@ -341,9 +341,10 @@ llvm::Value *lower_atom(ExpressionLowering &state, const ast::Atom &atom) {
     const auto prefix = semantic::encode_symbol({utf8(owner.name), "", 0});
     auto *descriptor = output.getNamedGlobal(prefix + ".descriptor");
     // Another module's literal defaults name that module's slots, whose cache this object cannot see.
-    if (auto *cache = output.getNamedGlobal(prefix + ".atom_cache"); cache && &owner == &state.module) {
-        return cached_atom(state, cache, slot, descriptor);
-    }
-    return atom_service(state, slot, descriptor);
+    auto *cache = output.getNamedGlobal(prefix + ".atom_cache");
+    auto *word = cache && &owner == &state.module ? cached_atom(state, cache, slot, descriptor)
+                                                  : atom_service(state, slot, descriptor);
+    state.atom_literals.insert(word);
+    return word;
 }
 } // namespace clause::codegen
