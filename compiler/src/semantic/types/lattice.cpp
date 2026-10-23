@@ -132,13 +132,24 @@ std::uint64_t bit_count(std::string_view decimal) {
 
 int family_rank(const Node &node);
 
+// The facts char() and any improper list, interned by the first join and then read from the graph: the same Ids, in
+// the same interning order. Added for the Gather constants (OPTC.A).
+Graph::JoinConstants join_constants(Lattice &lattice) {
+    auto &graph = lattice.graph();
+    if (!graph.join_constants()) {
+        // Characters first, as Gather interned them before.
+        const auto characters = lattice.range({"0", CHAR_LIMIT});
+        graph.keep_join_constants({characters, lattice.improper(graph.top(), graph.top())});
+    }
+    return *graph.join_constants();
+}
+
 // Sorts the members of facts into their families. Nothing is interned while it walks the graph.
 class Gather final {
   public:
     // With `plain`, positional lists are added as their plain list facts.
     explicit Gather(Lattice &lattice, bool plain = false)
-        : lattice_(lattice), graph_(lattice.graph()), characters_(lattice.range({"0", CHAR_LIMIT})),
-          any_improper_(lattice.improper(lattice.graph().top(), lattice.graph().top())), plain_(plain) {}
+        : lattice_(lattice), graph_(lattice.graph()), constants_(join_constants(lattice)), plain_(plain) {}
 
     // Add every member of `fact`: a union's members, or the fact itself.
     void add(Id fact) {
@@ -284,8 +295,7 @@ class Gather final {
     Lattice &lattice_;
     const Graph &graph_;
     // The fact char(): 0..CHAR_LIMIT, and any improper list.
-    Id characters_;
-    Id any_improper_;
+    Graph::JoinConstants constants_;
     bool plain_;
 };
 
@@ -307,17 +317,18 @@ std::map<std::string_view, Gather::Rule> Gather::rules() {
         {"fun", [](Gather &g, const Node &) { g.families.any_fun = true; }},
         {"function", [](Gather &g, const Node &) { g.families.any_fun = true; }},
         {"list", [](Gather &g, const Node &) { g.families.lists.push_back({g.graph_.top(), false}); }},
-        {"string", [](Gather &g, const Node &) { g.families.lists.push_back({g.characters_, false}); }},
-        {"nonempty_string", [](Gather &g, const Node &) { g.families.lists.push_back({g.characters_, true}); }},
+        {"string", [](Gather &g, const Node &) { g.families.lists.push_back({g.constants_.characters, false}); }},
+        {"nonempty_string",
+         [](Gather &g, const Node &) { g.families.lists.push_back({g.constants_.characters, true}); }},
         {"maybe_improper_list",
          [](Gather &g, const Node &) {
              g.families.lists.push_back({g.graph_.top(), false});
-             g.families.improper.push_back(g.any_improper_);
+             g.families.improper.push_back(g.constants_.any_improper);
          }},
         {"nonempty_maybe_improper_list",
          [](Gather &g, const Node &) {
              g.families.lists.push_back({g.graph_.top(), true});
-             g.families.improper.push_back(g.any_improper_);
+             g.families.improper.push_back(g.constants_.any_improper);
          }},
         {"binary", [](Gather &g, const Node &) { g.families.add_bits({0, 8}); }},
         {"nonempty_binary", [](Gather &g, const Node &) { g.families.add_bits({8, 8}); }},

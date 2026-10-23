@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -101,6 +102,17 @@ class Graph {
     // The nodes interned so far. Added for --print-stage-times.
     std::size_t size() const { return nodes_.size(); }
 
+    // Facts every lattice join reads (char() and any improper list), interned by the first join and kept here so
+    // later joins do not intern them again. Added for the Gather constants (OPTC.A).
+    struct JoinConstants {
+        Id characters;
+        Id any_improper;
+    };
+
+    const std::optional<JoinConstants> &join_constants() const { return join_constants_; }
+
+    void keep_join_constants(const JoinConstants constants) { join_constants_ = constants; }
+
     const Limits &limits() const { return limits_; }
 
   private:
@@ -109,6 +121,8 @@ class Graph {
     Limits limits_;
     bool widened_ = false;
     std::size_t widenings_ = 0;
+    // Added for the Gather constants (OPTC.A).
+    std::optional<JoinConstants> join_constants_;
     std::vector<Node> nodes_;
     std::map<Node, std::size_t> identities_;
 };

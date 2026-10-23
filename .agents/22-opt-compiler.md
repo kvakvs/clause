@@ -547,7 +547,7 @@ fixed; it is outside `semantic/types/`.
 
 Not started. Each comes with the hypothesis that would justify it.
 
-- **OPTC.A Gather constants (measured, do first):** `Gather::Gather` interns
+- **OPTC.A Gather constants (done, `00-finished.md`; W5r 1.71×, W5a 1.73×):** `Gather::Gather` interns
   `range(0..CHAR_LIMIT)` and `improper(term(), term())` on every join; 38% of
   W5r (INS.7). Intern them once per `Graph` (or cache their Ids lazily) so a
   `Gather` only copies two Ids. Pure performance: counters and `--print-types`

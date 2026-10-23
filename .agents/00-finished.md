@@ -910,6 +910,13 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   which LLVM optimize 75.6 s + emit 120.8 s. `compile_times.py` no longer
   compares pass-note times between runs.
 
+- **OPTC.A** Gather constants: the graph keeps the Ids of char() and any improper
+  list from the first join (`Graph::JoinConstants`), so `Gather` no longer
+  interns them per join; same interning order, so every Id and
+  `--print-types` stay identical (W5r, W5a, W1, W6) and pass counters equal.
+  Inference: W5r 11.88 → 6.94 s, W5a 95.8 → 55.2 s, W1 114.7 → 66.7 s, W6
+  0.43 → 0.29 s.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found
