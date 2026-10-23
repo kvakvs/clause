@@ -623,7 +623,7 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   memcpy plus pointer relocation instead of a second walk and copy; senders
   read `parked_` before claiming it. Pinned A/B medians (alone, 7 rounds):
   ping_pong 1096 to 975 ms, ring 1324 to 1152, fan_in 461 to 354;
-  large_message, short_processes unchanged — `HASH`
+  large_message, short_processes unchanged — `da39d0a0`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576
