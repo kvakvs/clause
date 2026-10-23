@@ -272,8 +272,9 @@ runtime-wide account; a thread frees its cache when it ends.
   collects.
 - A collection's to-space is charged even past the limit, because it replaces
   the blocks it releases at the end of the same collection.
-- The stack doubles while the limit allows it, then grows only by the frame
-  being pushed.
+- The stack's first 64 words live inside the process context and are charged
+  by the first frame pushed. The stack then doubles while the limit allows it,
+  then grows only by the frame being pushed.
 
 ## Admission
 

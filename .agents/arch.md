@@ -247,7 +247,9 @@ test need no OTP (`docs/validation.md`).
 - Spawn builds and loads the child outside the executor mutex; a plain spawn
   publishes (contexts lock, table writer lock) and queues it under the run-queue
   lock only. Run queues and idle state have their own lock (after the executor
-  mutex); workers free ended contexts after leaving the mutex.
+  mutex); workers free ended contexts after leaving the mutex. A process
+  lifecycle makes 6 allocations (first 64 stack words and 4 mailbox nodes inside
+  the context, monitor maps made by the first monitor, flat registries).
 - Messages: `Executor::send` copies into `Mailbox` (inbox, queue, saved
   position, deadline; list nodes from a per-mailbox `NodePool`). To a receiver running elsewhere it takes no lock:
   lock-free `ProcessTable` lookup (open addressing, tombstones), message node

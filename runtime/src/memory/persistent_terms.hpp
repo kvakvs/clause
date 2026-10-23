@@ -145,7 +145,7 @@ class PersistentTerms final {
     // Retirements not freed yet, by epoch; empty most of the time, which waiting_ tells without the lock.
     std::map<std::uint64_t, Retired> retired_;
     std::atomic<bool> waiting_{false};
-    // Every registered process and the epoch its last copying collection began at (or its creation saw).
-    std::unordered_map<const ProcessContext *, std::uint64_t> seen_;
+    // Registered processes; each keeps the epoch its last copying collection began at (or its creation saw).
+    std::size_t registered_ = 0;
 };
 } // namespace clause::runtime::detail

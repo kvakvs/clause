@@ -195,8 +195,17 @@ largest first; steps whose kernels are already ahead stay, ranked lower.
 Profile each kernel before building (see
 [Profiling on Windows](#profiling-on-windows)).
 
-- **OPT3.23 message signals (ring ~0.80x, ping_pong ~0.66x, fan_in ~0.32x,
-  estimated from the OPT3.9 remainder A/B):** messages are copied once now; a
+- **OPT3.23 message signals (ring 0.80x, ping_pong 0.61x, fan_in 0.27x after
+  part 1, pinned 0-15 against OTP 1359/1476/1402 ms):** part 1 (lighter process
+  creation) is done, see `00-finished.md`. Ring's gap was process lifecycle,
+  not hops: `ring(1000, 500)` runs 315 ns a hop against OTP 407, while
+  `ring(1000, 1)` setup took 3.9 us a process against OTP 1.45 (2.3x; 1.8x
+  after part 1). Next for ring and short_processes: the NT heap still
+  decommits and refaults the context (3.8 KB) and first heap block (1.9 KB),
+  ~25% of setup samples, as the spawner allocates them and other workers free
+  them; a shared recycler of those blocks needs a multi-worker negative
+  control (a global lock on every small heap block). Batch stealing (half the
+  victim's queue) measured null. Messages are copied once now; a
   send to a receiver that does not run still takes the executor mutex to copy
   and wake it. fan_in (unpinned profile) spends 31% of samples contending for
   it in `send_locked`; ping_pong ~15% in SRW acquire/release (send, push,

@@ -30,7 +30,7 @@ constexpr FrameDescriptor bottom{nullptr, 0, 0, 0, &finish, 0, 0};
 
 ProcessStack::ProcessStack(ProcessContext &owner, const StackOptions options) noexcept
     : owner_(owner), options_(options), state_(owner) {
-    state_.stack = nullptr;
+    state_.stack = first_block_.data();
     state_.top = 0;
     state_.frame = none;
     state_.reductions = SLICE_REDUCTIONS;
@@ -47,16 +47,27 @@ ProcessStack::ProcessStack(ProcessContext &owner, const StackOptions options) no
     update_limit();
 }
 
-ProcessStack::~ProcessStack() { owner_.memory()->release(capacity_); }
+ProcessStack::~ProcessStack() { owner_.memory()->release(charged_); }
 
 bool ProcessStack::grow(const std::size_t size) noexcept {
+    if (size <= charged_) {
+        return true;
+    }
+    auto &memory = *owner_.memory();
+    // The first block is charged by the first frame pushed, as an allocated block would be (process creation cost).
     if (size <= capacity_) {
+        if (capacity_ - charged_ > memory.available()) {
+            owner_.generated_calls().fail_service(abi::v1::Status::resource_limit);
+            return false;
+        }
+        memory.force(capacity_ - charged_);
+        charged_ = capacity_;
+        update_limit();
         return true;
     }
     // Double while the runtime-wide limit allows it, else grow only to what is needed.
-    auto &memory = *owner_.memory();
-    const auto wanted = std::max(size, capacity_ + std::min(capacity_, memory.available()));
-    if (wanted - capacity_ > memory.available()) {
+    const auto wanted = std::max(size, charged_ + std::min((2 * capacity_) - charged_, memory.available()));
+    if (wanted - charged_ > memory.available()) {
         owner_.generated_calls().fail_service(abi::v1::Status::resource_limit);
         return false;
     }
@@ -68,14 +79,14 @@ bool ProcessStack::grow(const std::size_t size) noexcept {
         owner_.generated_calls().fail_service(abi::v1::Status::out_of_memory);
         return false;
     }
-    memory.force(wanted - capacity_);
-    capacity_ = wanted;
+    memory.force(wanted - charged_);
+    capacity_ = charged_ = wanted;
     state_.stack = block_.get();
     update_limit();
     return true;
 }
 
-void ProcessStack::update_limit() const noexcept { state_.limit = std::min(capacity_, options_.limit_words); }
+void ProcessStack::update_limit() const noexcept { state_.limit = std::min(charged_, options_.limit_words); }
 
 void ProcessStack::update_slow() const noexcept {
     state_.slow = (profile_ || trace_ ? abi::v1::slow_profile : 0) |

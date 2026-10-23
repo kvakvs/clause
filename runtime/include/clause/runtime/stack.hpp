@@ -229,10 +229,17 @@ class ProcessStack final {
     // The owner's frame state, shared with generated code (OPT0.1): stack block, top, limit, current frame
     // offset, reductions left, register pointer, live registers and slow bits.
     abi::v1::FrameState &state_;
-    // Frame headers and slots; state_.stack points at it and state_.top is the first free word.
+    // The words of the first block, kept inside the stack: the bottom frame and a few calls, so a short process
+    // allocates no stack (process creation cost).
+    static constexpr std::size_t FIRST_WORDS = 64;
+    // Frame headers and slots once they outgrow first_block_; state_.stack points at the block in use and state_.top
+    // is its first free word.
     std::unique_ptr<Word[]> block_;
-    // Words of block_, all charged to the runtime-wide memory account.
-    std::size_t capacity_ = 0;
+    std::array<Word, FIRST_WORDS> first_block_;
+    // Words of the block in use, and those charged to the runtime-wide memory account: all of them once a frame was
+    // pushed. Frames use only charged words (state_.limit).
+    std::size_t capacity_ = FIRST_WORDS;
+    std::size_t charged_ = 0;
     // X registers; valid only across a transfer, never roots between invocations.
     std::array<Word, abi::v1::register_count> registers_{};
     // The function a suspended process enters when it resumes; null while it runs and once it has ended.

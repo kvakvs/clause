@@ -6,9 +6,9 @@
 #include "heap_policy.hpp"
 #include "process_heap.hpp"
 #include "runtime_memory.hpp"
+#include <boost/unordered/unordered_flat_map.hpp>
 #include <clause/runtime/process_context.hpp>
 #include <cstdint>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -166,8 +166,8 @@ class HeapStorage final {
     // off_heap_words_ stays within the process budget. The runtime-wide account charges each buffer once instead.
     std::size_t off_heap_words_ = 0;
     // Cells of this process per referenced off-heap buffer (layout::BinaryBuffer); a buffer stays in off_heap_words_
-    // while its count is nonzero.
-    std::unordered_map<const ByteBuffer *, std::size_t> buffers_;
+    // while its count is nonzero. A flat map allocates nothing while empty, unlike MSVC's (process creation cost).
+    boost::unordered_flat_map<const ByteBuffer *, std::size_t> buffers_;
     // Off-heap words at which a safepoint collects: twice the survivors of the last collection, at least the minimum.
     std::size_t binary_limit_words_ = MIN_BINARY_HEAP_WORDS;
     // Set when a minor collection for binary pressure freed less than half of the off-heap words: the next one is a

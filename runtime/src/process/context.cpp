@@ -21,7 +21,9 @@ class ProcessContext::Impl final {
     // Admit pid words of this runtime only; owned by the runtime, which outlives its contexts.
     const detail::IdentityNumbers &numbers;
     // Outlive context storage when a host pins the token; invalidate before mailbox/heap destruction.
-    std::shared_ptr<ContextLifetime> lifetime{new ContextLifetime};
+    std::shared_ptr<ContextLifetime> lifetime = std::make_shared<ContextLifetime>(ContextLifetime::Key{});
+    // The executor's scheduling state, allocated with the rest of the context's bindings (process creation cost).
+    detail::Schedule schedule;
 };
 
 ProcessIdentity::ProcessIdentity(const RuntimeKey runtime, const std::uint64_t serial)
@@ -33,7 +35,7 @@ ProcessContext::ProcessContext(Runtime &runtime, ProcessIdentity identity, const
                                const StackOptions stack_options, std::shared_ptr<detail::RuntimeMemory> memory,
                                const detail::IdentityNumbers &numbers)
     : abi::v1::FrameState{}, impl_(std::make_unique<Impl>(runtime, identity, std::move(memory), numbers)),
-      heap_(*this, options), schedule_(std::make_unique<detail::Schedule>()), generated_calls_(stack_, *this),
+      heap_(*this, options), schedule_(&impl_->schedule), generated_calls_(stack_, *this),
       stack_(*this, stack_options) {
     // Generated code reads the state through the context pointer (OPT0.1).
     if (static_cast<void *>(static_cast<abi::v1::FrameState *>(this)) != static_cast<void *>(this)) {

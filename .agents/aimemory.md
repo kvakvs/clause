@@ -95,8 +95,9 @@ gotchas and user directions not recorded elsewhere.
   dialogs); then cross.py --target-triple i686-pc-windows-msvc --suffix .exe. 2026-10-19: bit_map_comprehensions
   (negative map key order) and ets_match_specs fail on x86 at HEAD 64b19ee9 already; OPT3.17 fixed small_order
   (widened 32-bit words unsigned: negatives sorted last), a likely cause (x86 rerun not done).
-- erlang_gaps O0 hangs ~1/40 runs with the Debug runtime (also with a0f77e08 codegen; Release runtime 0/80):
-  an existing runtime race, seen as a 60 s fast-gate timeout under load (2026-10-20).
+- erlang_gaps "hang" was a fixture race (fixed in OPT3.23 part 1): `receive {spawned, P}` also matched
+  P4's {spawned, linked}. Hunt hangs with scratch hang.ps1 (loop + cdb `~* kc` on timeout; build the
+  fixture with clau -g, test programs have no PDB), then bisect phases in a scratch copy.
 - MSVC cl (non-clang-cl): Boost.Parser C4702 and LLVM-header C4244/C4267
   disabled on clause_parser_dependency / clause_llvm_sdk for cl only; C4554
   false positive on static_cast<Word>(n - 1) << shift: hoist to a local.
@@ -442,3 +443,15 @@ gotchas and user directions not recorded elsewhere.
   slowed ring ~2.5% (1000 processes' arrivals on two lines each): dropped.
   A small message's direct copy was ~18% of ping_pong, mostly fixed cost
   (size walk, GraphCopy setup, HeapReservation), not words.
+- OPT3.23 part 1 (2026-10-23): ring's gap was process lifecycle, not hops
+  (ring(1000,500) hops 315 ns vs OTP 407; ring(1000,1) setup 2.3x OTP). MSVC
+  std::map/std::list/std::unordered_map allocate on default construction AND
+  on move/exchange: lazy-make or use boost::unordered_flat_map. Count
+  allocations by call stack: a temporary operator new replacement
+  (CaptureStackBackTrace + llvm-symbolizer --obj=exe, image base 0x140000000),
+  #included at the end of executor.cpp in build/prof only. VSDiagnostics
+  /launchArgs with spaces: quote the whole "/launchArgs:..." token; runtime
+  options go first (--scheduler-cpus=0-15). Batch stealing (half the victim's
+  queue) measured null/worse on ring_setup, short_processes, fan_in: dropped.
+  The embedded first stack block is charged on the first push (state limit 0
+  until then), else exact-account tests and --max-memory 64 break.

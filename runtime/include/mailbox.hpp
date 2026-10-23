@@ -5,10 +5,13 @@
 #include "terms.hpp"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
+#include <bit>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <list>
 #include <memory>
 #include <new>
@@ -200,8 +203,14 @@ class NodePool final {
         }
     }
 
-    // A block of `bytes`, a spare one when it has the size spares have. Allocation failure throws.
+    // A block of `bytes`: an embedded one when it fits and one is free, else a spare one when it has the size spares
+    // have. Allocation failure throws.
     void *take(std::size_t bytes) {
+        if (bytes <= EMBEDDED_BYTES && free_embedded_ != 0) {
+            const auto slot = static_cast<std::size_t>(std::countr_zero(free_embedded_));
+            free_embedded_ &= free_embedded_ - 1;
+            return &embedded_[slot * EMBEDDED_BYTES];
+        }
         if (spare_ == nullptr || bytes != bytes_) {
             return ::operator new(bytes);
         }
@@ -209,8 +218,14 @@ class NodePool final {
         return std::exchange(spare_, spare_->next);
     }
 
-    // Keep a block of `bytes` as a spare, or free it once enough are kept or its size differs.
+    // Free an embedded block again; keep another block of `bytes` as a spare, or free it once enough are kept or its
+    // size differs.
     void give(void *block, std::size_t bytes) noexcept {
+        const auto *byte = static_cast<const std::byte *>(block);
+        if (std::less_equal<>{}(embedded_.data(), byte) && std::less<>{}(byte, embedded_.data() + embedded_.size())) {
+            free_embedded_ |= 1U << static_cast<unsigned>((byte - embedded_.data()) / EMBEDDED_BYTES);
+            return;
+        }
         if (count_ == MAX_SPARES || (count_ != 0 && bytes != bytes_)) {
             ::operator delete(block);
             return;
@@ -228,10 +243,17 @@ class NodePool final {
 
     // Spare blocks kept at most: a burst of messages leaves no more than these behind.
     static constexpr std::size_t MAX_SPARES = 64;
+    // Blocks inside the pool, for a new mailbox's list sentinels and first messages, and the bytes each holds
+    // (process creation cost).
+    static constexpr unsigned EMBEDDED_NODES = 4;
+    static constexpr std::size_t EMBEDDED_BYTES = 4 * sizeof(void *);
     // The newest spare block, how many are kept, and their size.
     Spare *spare_ = nullptr;
     std::size_t count_ = 0;
     std::size_t bytes_ = 0;
+    // One bit per embedded block not handed out.
+    unsigned free_embedded_ = (1U << EMBEDDED_NODES) - 1;
+    alignas(std::max_align_t) std::array<std::byte, EMBEDDED_NODES * EMBEDDED_BYTES> embedded_{};
 };
 
 // The allocator of a mailbox's lists: single nodes come from its pool (pooled message nodes).

@@ -165,8 +165,9 @@ spawns() ->
     P4 = spawn_link(node(), erlang, send, [Self, {spawned, linked}]),
     show(spawns, [
         Local,
+        %% P3 only: {spawned, linked} may arrive first and would match {spawned, P}.
         receive
-            {spawned, P} -> P =:= P3
+            {spawned, P3} -> true
         end,
         receive
             {spawned, linked} -> is_pid(P4)

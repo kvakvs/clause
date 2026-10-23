@@ -93,7 +93,7 @@ bool PersistentTerms::erase(std::uint64_t hash, const SameKey &same) {
 
 PersistentTerms::Retired *PersistentTerms::prepare(std::span<const PersistentCopy *const> copies) {
     const bool areas = std::ranges::any_of(copies, [](const PersistentCopy *copy) { return !copy->area.empty(); });
-    if (!areas || seen_.empty()) {
+    if (!areas || registered_ == 0) {
         return nullptr;
     }
     auto &retired = retired_.try_emplace(epoch_.load(std::memory_order_relaxed) + 1).first->second;
@@ -111,7 +111,7 @@ PersistentTerms::Retired *PersistentTerms::prepare(std::span<const PersistentCop
         retired_.erase(epoch_.load(std::memory_order_relaxed) + 1);
         throw;
     }
-    retired.waiting = seen_.size();
+    retired.waiting = registered_;
     return &retired;
 }
 
@@ -174,18 +174,18 @@ std::size_t PersistentTerms::words() const {
 
 void PersistentTerms::enter(const ProcessContext &process) {
     const std::unique_lock lock(mutex_);
-    seen_.insert_or_assign(&process, epoch_.load(std::memory_order_relaxed));
+    registered_ += process.persistent_registered_ ? 0 : 1;
+    process.persistent_registered_ = true;
+    process.persistent_seen_ = epoch_.load(std::memory_order_relaxed);
 }
 
 void PersistentTerms::leave(const ProcessContext &process) {
     const std::unique_lock lock(mutex_);
-    const auto found = seen_.find(&process);
-    if (found == seen_.end()) {
+    if (!std::exchange(process.persistent_registered_, false)) {
         return;
     }
-    const auto seen = found->second;
-    seen_.erase(found);
-    release({.after = seen, .upto = std::numeric_limits<std::uint64_t>::max()});
+    --registered_;
+    release({.after = process.persistent_seen_, .upto = std::numeric_limits<std::uint64_t>::max()});
 }
 
 bool PersistentTerms::behind(const ProcessContext &process) const {
@@ -193,21 +193,19 @@ bool PersistentTerms::behind(const ProcessContext &process) const {
         return false;
     }
     const std::shared_lock lock(mutex_);
-    const auto found = seen_.find(&process);
-    return found != seen_.end() && found->second < epoch_.load(std::memory_order_relaxed);
+    return process.persistent_registered_ && process.persistent_seen_ < epoch_.load(std::memory_order_relaxed);
 }
 
 Evacuation PersistentTerms::evacuation(const ProcessContext &process) const {
     const std::shared_lock lock(mutex_);
     Evacuation result;
     result.epoch = epoch_.load(std::memory_order_relaxed);
-    const auto found = seen_.find(&process);
-    if (found == seen_.end()) {
+    if (!process.persistent_registered_) {
         return result;
     }
     // Only retirements after the process's last evacuation count it as waiting, which keeps their areas allocated.
     std::vector<std::pair<std::uintptr_t, std::uintptr_t>> ranges;
-    for (auto at = retired_.upper_bound(found->second); at != retired_.end(); ++at) {
+    for (auto at = retired_.upper_bound(process.persistent_seen_); at != retired_.end(); ++at) {
         for (const auto &copy : at->second.copies) {
             const auto begin = reinterpret_cast<std::uintptr_t>(copy.area.data());
             ranges.emplace_back(begin, begin + copy.area.size_bytes());
@@ -220,11 +218,10 @@ Evacuation PersistentTerms::evacuation(const ProcessContext &process) const {
 
 void PersistentTerms::evacuated(const ProcessContext &process, std::uint64_t epoch) {
     const std::unique_lock lock(mutex_);
-    const auto found = seen_.find(&process);
-    if (found == seen_.end() || epoch <= found->second) {
+    if (!process.persistent_registered_ || epoch <= process.persistent_seen_) {
         return;
     }
-    release({.after = std::exchange(found->second, epoch), .upto = epoch});
+    release({.after = std::exchange(process.persistent_seen_, epoch), .upto = epoch});
 }
 
 std::size_t PersistentTerms::retired() const {

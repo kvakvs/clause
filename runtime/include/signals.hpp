@@ -60,16 +60,56 @@ class Signals final {
         std::shared_ptr<const detail::MessageBuffer> tag = nullptr;
     };
 
-    // The monitors of one side, by reference. References order by creation.
-    using Monitors = std::map<ReferenceIdentity, Monitor>;
+    // The monitors of one side, by reference. References order by creation. The map is made by the first monitor:
+    // most processes hold none, and an MSVC map allocates even empty (process creation cost).
+    class Monitors final {
+      public:
+        using Map = std::map<ReferenceIdentity, Monitor>;
+
+        // Add a monitor unless `reference` has one. Allocation failure throws.
+        void emplace(const ReferenceIdentity &reference, const Monitor &monitor) {
+            if (!map_) {
+                map_ = std::make_unique<Map>();
+            }
+            map_->emplace(reference, monitor);
+        }
+
+        // Remove the monitor `reference` and return it; none when there is none.
+        std::optional<Monitor> extract(const ReferenceIdentity &reference) noexcept {
+            auto node = map_ ? map_->extract(reference) : Map::node_type{};
+            return node ? std::optional{std::move(node.mapped())} : std::nullopt;
+        }
+
+        void erase(const ReferenceIdentity &reference) noexcept {
+            if (map_) {
+                map_->erase(reference);
+            }
+        }
+
+        bool empty() const noexcept { return !map_ || map_->empty(); }
+
+        Map::const_iterator begin() const noexcept { return view().begin(); }
+
+        Map::const_iterator end() const noexcept { return view().end(); }
+
+      private:
+        // The monitors, or an empty map shared by every side without one.
+        const Map &view() const noexcept {
+            static const Map NONE;
+            return map_ ? *map_ : NONE;
+        }
+
+        // Made by the first monitor.
+        std::unique_ptr<Map> map_;
+    };
 
     // Monitor the process of `pid` with `reference` (monitor/2). Allocation failure throws.
     void monitor(const ReferenceIdentity &reference, Word pid) { monitors_.emplace(reference, Monitor{pid}); }
 
     // Stop the monitor `reference` this process holds; the monitored pid, or none when it is not active.
     std::optional<Word> demonitor(const ReferenceIdentity &reference) noexcept {
-        const auto node = monitors_.extract(reference);
-        return node ? std::optional{node.mapped().pid} : std::nullopt;
+        const auto monitor = monitors_.extract(reference);
+        return monitor ? std::optional{monitor->pid} : std::nullopt;
     }
 
     // Record that `watcher` monitors this process with `reference`. Allocation failure throws.
@@ -78,8 +118,8 @@ class Signals final {
     // Forget the monitor `reference` held on this process.
     void unwatch(const ReferenceIdentity &reference) noexcept { watchers_.erase(reference); }
 
-    // Remove and return the monitors this process holds, as it ends; allocation failure throws.
-    Monitors take_monitors() { return std::exchange(monitors_, {}); }
+    // Remove and return the monitors this process holds, as it ends.
+    Monitors take_monitors() noexcept { return std::exchange(monitors_, {}); }
 
     // The monitors held on this process.
     const Monitors &watchers() const noexcept { return watchers_; }
@@ -93,7 +133,7 @@ class Signals final {
     void set_group_leader(Word pid) noexcept { group_leader_ = pid; }
 
     // Remove and return the monitors held on this process, as it ends: each gets a 'DOWN' message.
-    Monitors take_watchers() { return std::exchange(watchers_, {}); }
+    Monitors take_watchers() noexcept { return std::exchange(watchers_, {}); }
 
     // The registered name of the process, an atom word, or 0 for none (register/2).
     Word name() const noexcept { return name_; }

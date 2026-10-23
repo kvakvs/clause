@@ -624,6 +624,15 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   read `parked_` before claiming it. Pinned A/B medians (alone, 7 rounds):
   ping_pong 1096 to 975 ms, ring 1324 to 1152, fan_in 461 to 354;
   large_message, short_processes unchanged — `da39d0a0`
+- **OPT3.23 part 1** lighter process creation: 26 allocations per process
+  lifecycle to 6 (monitor maps made by the first monitor, flat registries for
+  heap buffers and contexts, persistent term epochs kept in the context, first
+  64 stack words and 4 mailbox nodes embedded, `Schedule` inside `Impl`, keyed
+  `make_shared` lifetime). Ring's gap was setup (3.9 us a process against OTP
+  1.45), not hops (315 ns against 407). Pinned 0-15 medians, base / new:
+  ring_setup 260 / 208 ms (OTP 113), ring 1134 / 1089, short_processes 1150 /
+  1049; ping_pong, fan_in unchanged. Batch stealing measured null. Fixed the
+  erlang_gaps fixture race behind its occasional hang — `HASH`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576

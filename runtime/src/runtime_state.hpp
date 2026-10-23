@@ -7,6 +7,7 @@
 #include "process/process_table.hpp"
 #include "process/profile.hpp"
 #include "scheduler/executor.hpp"
+#include <boost/unordered/unordered_flat_map.hpp>
 #include <clause/runtime/code_server.hpp>
 #include <clause/runtime/runtime.hpp>
 #include <clause/runtime/scheduler.hpp>
@@ -43,8 +44,9 @@ class Runtime::Impl final {
     // `memory`, so the registry outlives every context.
     detail::ets::Tables ets_tables;
     // Destroy process owners before the above service bindings; no signals or workers exist yet. Guarded by
-    // contexts_mutex: spawns publish without the executor's lock (process creation and teardown).
-    std::unordered_map<const ProcessContext *, std::unique_ptr<ProcessContext>> contexts;
+    // contexts_mutex: spawns publish without the executor's lock (process creation and teardown). A flat map
+    // allocates no node per process (process creation cost).
+    boost::unordered_flat_map<const ProcessContext *, std::unique_ptr<ProcessContext>> contexts;
     mutable std::mutex contexts_mutex;
     // Live processes by pid number, for is_process_alive/1 and sends; sharded so a send needs no executor lock
     // (arrival buffers).

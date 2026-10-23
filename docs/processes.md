@@ -81,6 +81,12 @@ online schedulers), or per CPU of `--scheduler-cpus`.
   `spawn_opt`/`spawn_request` forms publish, link or monitor and queue under the
   executor mutex. A worker frees the contexts of ended processes right after it
   leaves the mutex for its next slice.
+- A process costs six allocations over its life (process creation cost): its
+  context, the context's runtime bindings with its scheduling state, its heap
+  storage and first heap block, its arrivals and its lifetime token. The first
+  64 stack words and four mailbox list nodes live inside the context, the
+  monitor maps are made by the first monitor, and the runtime's registries
+  (contexts, persistent term reclamation) keep no node per process.
 - Links, monitors and names change under the lock at once, also for a process
   running elsewhere. A message waits in a buffer among the receiver's arrivals
   until the receiver takes it ([arrival buffers](#arrival-buffers)). An exit

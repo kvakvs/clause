@@ -71,6 +71,16 @@ class ProcessIdentity final {
 // Access is owner-thread confined; this is not a GC root registry or a synchronization primitive.
 class ContextLifetime final {
   public:
+    // Only a real context or a message buffer may issue a lifetime token: only they can make a key.
+    class Key final {
+        friend class ProcessContext;
+        friend class detail::MessageBuffer;
+        Key() = default;
+    };
+
+    // A live token; public with its key so that std::make_shared allocates it with its count (process creation cost).
+    explicit ContextLifetime(Key /*issuer*/) noexcept {}
+
     ContextLifetime(const ContextLifetime &) = delete;
     ContextLifetime &operator=(const ContextLifetime &) = delete;
     ContextLifetime(ContextLifetime &&) = delete;
@@ -81,10 +91,6 @@ class ContextLifetime final {
 
   private:
     friend class ProcessContext;
-    // A timer message's buffer owns a heap of its own (step 41F).
-    friend class detail::MessageBuffer;
-    // Only a real context or a message buffer may issue a lifetime token.
-    ContextLifetime() = default;
     // Clear before releasing mailbox/heap state; future TermFactory bindings must retain/check this token.
     bool alive_ = true;
 };
@@ -161,6 +167,7 @@ class ProcessContext final : private abi::v1::FrameState {
     friend class ProcessStack;
     friend class Mailbox;
     friend class detail::Executor;
+    friend class detail::PersistentTerms;
     // Keep runtime binding and lifetime token alive through mailbox and heap teardown.
     class Impl;
     std::unique_ptr<Impl> impl_;
@@ -168,14 +175,18 @@ class ProcessContext final : private abi::v1::FrameState {
     ProcessHeap heap_;
     // Messages sent to this process, roots until received; released before the heap they live in.
     Mailbox mailbox_;
-    // The executor's scheduling state (process creation and teardown).
-    std::unique_ptr<detail::Schedule> schedule_;
+    // The executor's scheduling state (process creation and teardown), kept in impl_ to save an allocation.
+    detail::Schedule *schedule_;
     // Links and exit trapping; holds no heap words.
     Signals signals_;
     // Process dictionary entries, roots until erased; released before the heap they live in. Added for step 41C.
     ProcessDictionary dictionary_;
     // Retire scheduling identity on removal; successful registration may occur only once per context.
     bool scheduler_registered_once_ = false;
+    // Whether persistent term reclamation counts this process, and the epoch its last copying collection began at
+    // (or its creation saw); kept here under the table's lock instead of in a map (process creation cost).
+    mutable bool persistent_registered_ = false;
+    mutable std::uint64_t persistent_seen_ = 0;
     // Destroy pending immediate payloads with the context; host invocation scopes normally clear them first.
     GeneratedCallState generated_calls_;
     // Frames are released before pending payloads and heap storage during context teardown.

@@ -275,7 +275,7 @@ TermResult<std::shared_ptr<const MessageBuffer>> MessageBuffer::copy_of(GraphCop
         if (graph.words() == 0) {
             return buffer;
         }
-        buffer->lifetime_ = std::shared_ptr<ContextLifetime>(new ContextLifetime());
+        buffer->lifetime_ = std::make_shared<ContextLifetime>(ContextLifetime::Key{});
         // The buffer's one block is exactly the message, whatever the sender's minimum heap (message hand-off).
         auto options = source.options_;
         options.min_heap_words = 1;
