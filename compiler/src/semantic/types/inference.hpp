@@ -81,6 +81,9 @@ struct Inference {
     std::map<const ast::Expression *, FunctionRef> callees;
     // The inputs of functions entered only by direct calls of the batch, joined from those calls.
     std::map<const Function *, std::vector<Id>> inputs;
+    // How often each of those inputs changed over the passes, which picks how its next change widens. Added for the
+    // input widening ladder (CONV.1).
+    std::map<const Function *, std::vector<std::size_t>> input_changes;
     // The facts fun F/A read in the current pass, by function, to check they were final.
     std::map<const Function *, Id> fun_reads;
     // The members of the recursive component being solved: their domains are not final yet.

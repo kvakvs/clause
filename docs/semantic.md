@@ -216,9 +216,12 @@ Inference is separate from declared types and never trusts specs.
   nor named by a fun) takes the join of its call sites' argument facts as inputs
   (`semantic/types/inference_inputs`), matched by each clause's head patterns;
   recursive calls count too. Inputs start at `none()` (a function nothing calls
-  never runs and infers `none()`) and grow over passes of the batch: 8 passes
-  join, later ones widen like recursive results; inputs that have not settled
-  after 16 passes become `term()` (reported as widened).
+  never runs and infers `none()`) and grow over passes of the batch. Each input
+  climbs a ladder by how often it changed: its first 4 changes join, the next 2
+  widen like recursive results, the next 2 also cut containers inside a
+  container to `term()`, and a further change gives `term()` (reported as
+  widened). Inputs that have not settled after 16 passes become `term()`
+  (reported as widened).
 - Literals have exact facts: integers of any size and characters are singletons,
   atoms singleton atoms, floats `float()`, strings nonempty lists of their
   characters (`[]` for `""`), and `-`/`+` of a literal number keep its fact.

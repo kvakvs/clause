@@ -165,16 +165,39 @@ void note_churn(Inference &inference, const Function *function, const std::size_
     slot.after_ = after;
 }
 
-// Join the argument facts of one function's calls into its inputs; true when one changed.
+// The input changes that join, then those that also widen integer bounds, then those that also cut containers inside
+// containers; the next change gives term() (docs/semantic.md#inference). Added for the input widening ladder (CONV.1).
+constexpr std::size_t JOIN_CHANGES = 4;
+constexpr std::size_t WIDEN_CHANGES = JOIN_CHANGES + 2;
+constexpr std::size_t COARSE_CHANGES = WIDEN_CHANGES + 2;
+
+// The next fact of an input slot that changed `changes` times, now that its calls pass `seen`: the higher the slot
+// is on the ladder, the coarser its change. Added for the input widening ladder (CONV.1).
+Id next_input(Inference &inference, Lattice &lattice, const Id previous, const Id seen, const std::size_t changes) {
+    const auto joined = lattice.join(previous, seen);
+    if (joined == previous || changes < JOIN_CHANGES) {
+        return joined;
+    }
+    if (changes < WIDEN_CHANGES) {
+        return lattice.widen(previous, joined);
+    }
+    if (changes < COARSE_CHANGES) {
+        return lattice.coarsen(lattice.widen(previous, joined));
+    }
+    return inference.graph.exhausted();
+}
+
+// Join the argument facts of one function's calls into its inputs, each slot by its ladder; true when one changed.
 bool gather_function(Inference &inference, Lattice &lattice, const Function *function, std::vector<Id> &inputs,
-                     const std::vector<std::vector<Id>> &arguments, const bool widening) {
+                     const std::vector<std::vector<Id>> &arguments) {
+    auto &changes = inference.input_changes.at(function);
     bool changed = false;
     for (std::size_t index = 0; index < inputs.size(); ++index) {
-        const auto seen = lattice.join(arguments.at(index), 0);
-        const auto next = widening ? lattice.widen(inputs[index], lattice.join(inputs[index], seen))
-                                   : lattice.join(inputs[index], seen);
+        const auto next =
+            next_input(inference, lattice, inputs[index], lattice.join(arguments.at(index), 0), changes[index]);
         if (next != inputs[index]) {
             changed = true;
+            ++changes[index];
             if (inference.profile) {
                 note_churn(inference, function, index, inputs[index], next);
             }
@@ -185,15 +208,14 @@ bool gather_function(Inference &inference, Lattice &lattice, const Function *fun
 }
 
 // Join the argument facts of every call of a local function into its inputs; true when an input changed.
-bool gather_all(Inference &inference, const CallGraph &calls, const bool widening) {
+bool gather_all(Inference &inference, const CallGraph &calls) {
     const auto arguments = call_arguments(inference, calls);
     Lattice lattice(inference.graph);
     bool changed = false;
     for (auto &[function, inputs] : inference.inputs) {
         // Reused inputs stay as kept (58W).
         const auto found = inference.reused.contains(function) ? arguments.end() : arguments.find(function);
-        if (found == arguments.end() ||
-            !gather_function(inference, lattice, function, inputs, found->second, widening)) {
+        if (found == arguments.end() || !gather_function(inference, lattice, function, inputs, found->second)) {
             continue;
         }
         changed = true;
@@ -233,6 +255,9 @@ void prepare_inputs(Inference &inference, const CallGraph &calls) {
             !inference.reused.contains(function.function)) {
             inference.inputs.emplace(function.function,
                                      std::vector<Id>(function.function->key.arity, inference.graph.bottom()));
+            // Added for the input widening ladder (CONV.1).
+            inference.input_changes.emplace(function.function,
+                                            std::vector<std::size_t>(function.function->key.arity, 0));
             if (inference.profile) {
                 // Added for the input churn measurements of --print-stage-times.
                 inference.profile->slots_total_ += function.function->key.arity;
@@ -241,15 +266,15 @@ void prepare_inputs(Inference &inference, const CallGraph &calls) {
     }
 }
 
-bool gather_inputs(Inference &inference, const CallGraph &calls, const bool widening) {
+bool gather_inputs(Inference &inference, const CallGraph &calls) {
     if (!inference.profile) {
-        return gather_all(inference, calls, widening);
+        return gather_all(inference, calls);
     }
     // Added for the incremental-potential measurements of --print-stage-times: before the inputs change.
     note_pass(inference, calls);
     // Added for the input churn measurements of --print-stage-times.
     const auto started = std::chrono::steady_clock::now();
-    const bool changed = gather_all(inference, calls, widening);
+    const bool changed = gather_all(inference, calls);
     auto &churn = inference.profile->passes_.back().churn_;
     churn.gathered_ = true;
     churn.elapsed_ = std::chrono::steady_clock::now() - started;

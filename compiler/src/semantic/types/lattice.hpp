@@ -53,6 +53,10 @@ class Lattice {
     // that moved since the previous round, also inside tuples, maps and lists of one shape, become unbounded.
     Id widen(Id previous, Id next);
 
+    // The fact with containers inside a container replaced by term(): a coarse fact that changes only a few times
+    // more. Added for the input widening ladder (CONV.1).
+    Id coarsen(Id fact) { return truncate(fact, 1); }
+
     // Facts of values. An integer (canonical decimal) and an atom.
     Id integer(std::string_view decimal);
     Id atom(std::string_view name);

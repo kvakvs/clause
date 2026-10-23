@@ -6,9 +6,10 @@
 namespace clause::semantic::types {
 // Start every such function's inputs at none(), before any call is seen.
 void prepare_inputs(Inference &inference, const CallGraph &calls);
-// Join the argument facts of every call of such a function into its inputs, widening them once `widening`; true when
-// an input changed. Under a profile it also notes how inputs changed (added for --print-stage-times).
-bool gather_inputs(Inference &inference, const CallGraph &calls, bool widening);
+// Join the argument facts of every call of such a function into its inputs, each input coarser the more often it
+// changed (changed for the input widening ladder, CONV.1); true when an input changed. Under a profile it also notes
+// how inputs changed (added for --print-stage-times).
+bool gather_inputs(Inference &inference, const CallGraph &calls);
 // The inputs a function's body starts from: the gathered ones, or term() for the other functions.
 std::vector<Id> inputs_of(const Inference &inference, const Function &function);
 // The profile's most changed input slots, with their names and last facts, once inference ended. Added for the input

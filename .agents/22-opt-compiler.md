@@ -148,6 +148,16 @@ result, never narrower.
   terminate without a global pass count. Inputs that are already stable keep
   their precision, where today the forced final pass widens every input. K₁ and
   the ladder come from INS.8's per-slot change histogram.
+  - **Done (`00-finished.md`):** `Inference::input_changes` counts each slot's
+    changes; changes 1-4 join, 5-6 widen, 7-8 widen and `Lattice::coarsen`
+    (containers inside a container become `term()`), then `exhausted()`. No
+    other effect yet: `--print-types` identical on W5a, W1, W3, W6, still 17
+    passes, time within noise. W5a slots by changes: 9-16× 0 (was 87), 5-8×
+    346. **Passes are bound by late arrivals, not repeated churn:** `first`
+    changes (29 in pass 16) and the 1-3× slots that change late (11 291 slots
+    change once) keep W5a's passes going; parsers.erl alone needs more than 16
+    passes for its widened results to cross the call chains. So the ladder is
+    the termination guarantee CONV.6 needs; the speed must come from CONV.2.
 - **CONV.2 Incremental passes.** Turn the pass loop into a worklist across
   passes. A component is dirty when one of its local inputs changed, a summary
   it read changed (58R `reads` already lists them), or a `fun_reads` entry
@@ -556,7 +566,7 @@ outside `semantic/types/`.
 4. ~~INS.7 sampling profile on W5r and W5a, INS.5 fact sizes~~ (done).
 5. ~~B.4 baseline~~ (done).
 6. ~~OPTC.A → OPTC.A2 → OPTC.A3, OPTC.C parts 1-3, CONV.0~~ (done), ~~CONV.7~~
-   (tried, folded into CONV.2), then CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6,
+   (tried, folded into CONV.2), ~~CONV.1~~ (done), then CONV.2 → CONV.3/CONV.4 → CONV.6,
    each measured on W5a, W1 and W6. Then the owned fixture (B.0).
 7. INS.2-INS.4 and INS.6 as the profile calls for them, then OPTC.* ranked by
    measured share.

@@ -940,8 +940,8 @@ SolveTrace solve(Inference &inference, const Component &component, std::size_t &
     return trace;
 }
 
-// Passes over the batch that join local inputs, then passes that widen them, before inputs and fun references are
-// given up as unknown.
+// Passes over the batch before local inputs and fun references are given up as unknown: inputs climb their widening
+// ladder (inference_inputs) and usually settle earlier (changed for the input widening ladder, CONV.1).
 constexpr std::size_t PASSES = JOIN_ROUNDS + 2 * WIDENING_PASSES;
 
 // Whether a build cache kept the results of every member: the component keeps them. Added for the inference cache
@@ -1103,7 +1103,7 @@ void infer(Inference &inference, const CallGraph &calls) {
     prepare_inputs(inference, calls);
     for (std::size_t pass = 0; pass < PASSES; ++pass) {
         infer_pass(inference, calls);
-        const bool changed = gather_inputs(inference, calls, pass >= JOIN_ROUNDS);
+        const bool changed = gather_inputs(inference, calls);
         if (!changed && settled(inference)) {
             pass_outcome(inference, "settled");
             return;
