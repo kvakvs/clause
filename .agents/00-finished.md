@@ -876,7 +876,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `compile_times.py` gained `--no-stage-times` and splits the pass outcome from
   the churn note.
 
-- **INS.1** pass counters and incremental potential: `; graph: N nodes (+M),
+- **INS.1** (fc6e40c6) pass counters and incremental potential: `; graph: N nodes (+M),
   W widenings; clean: C of K components (...), X changed, T ms (P% of pass)`
   per pass and `inference clean-changed` lines, from exact summary fingerprints
   compared between passes (`semantic/types/inference_profile.cpp`). W5a: clean

@@ -28,7 +28,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 | `driver/` | CLI, frontend batch, predefined forms, entry/escript, placeholders, transforms sources, caches glue, stage times, inspections, publication; `C/main.cpp` |
 | `project/` | Manifest TOML/schema, discovery, ignore rules, directory index, plan/execution |
 | `semantic/` | Symbols, calls, bindings, patterns/match plans, guards/services, records, funs, imports, behaviours, liveness, `builtin_continuations.hpp` (builtins continuing in library Erlang), map ownership |
-| `semantic/types/` | Declared types, lattice, inference, contracts, type printing, inference store |
+| `semantic/types/` | Declared types, lattice, inference, contracts, type printing, inference store; `profile.hpp` + `inference_profile.cpp` (`--print-stage-times` inference measurements) |
 | `codegen/` | LLVM state/target, lowering (`lowering_*`, inline appends in `lowering_append`, small-map lookups in `lowering_map_access`, raw floats in `lowering_float_arithmetic`, known funs inlined in `lowering_fun_inlining`, `lists` loops of them in `lowering_list_loops`, `maps:fold` loops and owned fold accumulators in `lowering_map_loops`, inline `integer_to_list`/`list_to_integer` and digit prefixes of `++` in `lowering_integer_text`), binary loops, memory kinds for TBAA (`alias_tags`), float loops, frames, funs, literals, proofs/specialization, startup, verify/optimize/emit, asm listing, runtime symbols |
 | `transforms/` | Parse transforms: term arena, ETF, abstract-form export/import, `erl` loader, pipeline |
 | `cache/` | Build cache store (SQLite + blobs) |
