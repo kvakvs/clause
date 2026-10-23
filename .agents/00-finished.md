@@ -848,6 +848,19 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `abstract`, `tokens`, annotation walks; `erl_parse_forms` golden, plus a
   scratch comparison with OTP over 765 OTP sources and token mutations
 
+## Plan 22 (from 2026-10-23)
+
+Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
+
+- **B.1** `benchmarks/compile_times.py`: runs a compile workload (W1-W4, W6
+  built in; scratch W5a/W5r after `--`) pinned to P-cores with `--no-cache
+  --print-stage-times`, 1 warm-up + 5 (3) timed runs, median/min/spread per
+  phase and pass, slowest components with rounds, counter and stdout agreement;
+  `--baseline` alternates A B and prints ratios; refuses while builds, tests or
+  another `clau` run (`--force-noisy`, `--wait`). Quiet HEAD ab635294: W5a
+  inference 100.4 s (spread 0.5%), W1 117.0 s (1.2%), both 17 passes;
+  `ubody_used_vars` + 6 is 27.2 s / 25.5 s of them.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found

@@ -64,7 +64,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 | `docs/` | Reference notes, index `docs/README.md` |
 | `runtime/design/` | Runtime design contracts |
 | `references/` | `otp-pin.cmake`; ignored `otp/` checkout (`docs/otp-reference.md`) |
-| `benchmarks/` | Manual OTP comparison, `run.py` (job-object/`--cpus` pinning), ignored `history/` |
+| `benchmarks/` | Manual OTP comparison, `run.py` (job-object/`--cpus` pinning), `compile_times.py` (clau phase/pass timings, A/B), ignored `history/` |
 | `examples/` | `compile/`, `project/` |
 | `.agents/` | Plans, map, history, AI notes |
 | Local/generated | `build/`, `thirdparty/` (incl. `tools/erlfmt/`), `.venv-quality/` |

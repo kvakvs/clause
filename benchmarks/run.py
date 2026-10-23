@@ -375,8 +375,9 @@ class ProcessGroup:
         else:
             pin = (lambda: os.sched_setaffinity(0, cpus)) if cpus else None
             flags = {"start_new_session": True, "preexec_fn": pin}
+        # UTF-8, not the locale's code page: clau output (compile_times.py) may hold any character.
         self.process_ = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                         text=True, **flags)
+                                         encoding="utf-8", errors="replace", **flags)
         # The job holds the program before it runs, so every process it starts joins the job too.
         self.job_ = self._attach_job(cpus) if self.windows_ else None
 

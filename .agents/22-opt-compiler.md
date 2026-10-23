@@ -53,40 +53,46 @@ this description if the scratchpad is gone.
   executable path do the same inference work (within 281 steps). That finding
   goes into plan 22 as LIV.1 below.
 
-Measured 2026-10-23 with `build/bench/bin/Release/clau.exe --project
-<b2s.toml> --no-cache --print-stage-times --print-types`. **The machine was
-loaded** (another agent building and benchmarking), so the times are only
-indicative; step and pass counts do not depend on load.
+Quiet re-run 2026-10-23 (B.1, `benchmarks/compile_times.py`, 3 runs after a
+warm-up, P-cores, HEAD ab635294 Release `build/bench` `clau`): `--project
+<b2s.toml> --no-cache --print-stage-times --print-types`. Medians; spread is
+(max - min) / median. The earlier loaded-machine numbers were within 3%.
 
-| Phase | Time (skewed) |
-|---|---|
-| index | 0.9 s |
-| inference | **103-106 s** (98% of compile) |
-| contracts | 0.3 s |
-| lower (the `--print-ir` run) | 10.4 s, then failed `LLVM serialization failed: compilation artifact byte limit exceeded` |
+| Phase | W5a median | spread | W1 median | spread |
+|---|---|---|---|---|
+| index | 0.90 s | 4.5% | 1.21 s | 4.7% |
+| inference | **100.4 s** (98% of compile) | 0.5% | **117.0 s** | 1.2% |
+| contracts | 0.31 s | 1.4% | 0.32 s | 0.6% |
+| wall | 103.9 s | 0.4% | 121.1 s | 1.3% |
 
-Inference passes: work steps 1.18M → 2.48M per pass (budget 8M, never reached),
-time per pass 0.66 s → 9.2 s.
+W5a `--print-ir` (earlier, loaded): lower 10.4 s, then failed `LLVM
+serialization failed: compilation artifact byte limit exceeded`.
+
+Inference passes (W5a): work steps 1.18M → 2.48M per pass (budget 8M, never
+reached), time per pass 0.66 s → 8.4 s. W1: 1.42M → 3.29M steps, 0.84 s → 10.6 s.
 
 | Pass | 1 | 4 | 8 | 12 | 16 | 17 (final, inputs `term()`) |
 |---|---|---|---|---|---|---|
-| ms (skewed) | 659 | 4103 | 6545 | 7408 | 9189 | 6651 |
-| M work steps | 1.18 | 1.66 | 2.04 | 2.23 | 2.44 | 2.48 |
+| W5a ms | 665 | 4132 | 6522 | 7339 | 8405 | 6162 |
+| W5a M work steps | 1.18 | 1.66 | 2.04 | 2.23 | 2.44 | 2.48 |
 | ends with | inputs changed | ← | ← | ← | ← | forced |
 
-Slowest components over the 17 passes:
+Slowest components over the 17 passes (W5a; walk counts from the loaded run,
+which are deterministic):
 
-| Component | ms (skewed) | Work steps | Rounds over 17 solves (cap per solve) | Member walks (skipped) | ms per walk |
+| Component | ms | Work steps | Rounds over 17 solves (cap per solve) | Member walks (skipped) | ms per walk |
 |---|---|---|---|---|---|
-| `beam_core_to_ssa:ubody_used_vars/2` + 6 | **27 760** | 0.48M | 197 (36) | 1097 (282) | **≈25** |
-| `core_parse:yeccpars1/5` + 522 | 9 499 | 3.70M | 70 (2100) | 15 447 (21 163) | 0.6 |
-| `erl_eval:exprs/6` + 53 | 5 532 | 1.29M | 82 (224) | 2 888 | 1.9 |
-| `v3_core:clauses/2` + 52 | 3 964 | 1.39M | 125 (220) | 3 553 | 1.1 |
-| `erl_expand_records:clauses/2` + 25 | 2 481 | 0.61M | 95 (112) | 1 692 | 1.5 |
-| `beam_core_to_ssa:body/3` + 31 | 2 305 | 0.45M | 115 (136) | 1 933 | 1.2 |
+| `beam_core_to_ssa:ubody_used_vars/2` + 6 | **27 160** | 0.48M | 197 (36) | 1097 (282) | **≈25** |
+| `core_parse:yeccpars1/5` + 522 | 9 166 | 3.70M | 70 (2100) | 15 447 (21 163) | 0.6 |
+| `erl_eval:exprs/6` + 53 | 5 404 | 1.29M | 82 (224) | 2 888 | 1.9 |
+| `v3_core:clauses/2` + 52 | 3 851 | 1.39M | 125 (220) | 3 553 | 1.1 |
+| `erl_expand_records:clauses/2` + 25 | 2 426 | 0.61M | 95 (112) | 1 692 | 1.4 |
+| `beam_core_to_ssa:body/3` + 31 | 2 253 | 0.45M | 115 (136) | 1 933 | 1.2 |
 
-The same group dominates luerl euler (174 modules, 129 s inference, the same
-17-pass pattern, `ubody_used_vars` 27.6 s), so fixing W5a fixes W1.
+W1 (luerl euler, 174 modules) shows the same 17-pass pattern and the same group
+on top: `ubody_used_vars` 25.5 s, then `core_parse` 8.7 s, `luerl_parse` 6.4 s,
+`erl_eval` 4.9 s, `luerl_scan:yystate/7` 4.6 s (73 walks, ≈63 ms per walk). So
+fixing W5a fixes W1.
 
 ### Why it does not converge (from the code, to be confirmed by INS.8)
 
@@ -304,20 +310,11 @@ without an entry still see the whole batch.
   never wall time. Add it once CONV.1 or CONV.2 lands, so it guards the
   improvement.
 
-### B.1 Benchmark script
+### B.1 Benchmark script (done, `00-finished.md`)
 
-Add `benchmarks/compile_times.py`: run a workload N times with a given
-`clau.exe`, parse the `[time]` lines (phases, the per-pass lines, the INS
-counters) and write JSON plus a summary.
-- Before every run, refuse to time if `cl.exe`, `clang*.exe`, `ninja.exe`,
-  `link.exe`, `lld-link.exe` or another `clau.exe` is running (`tasklist`),
-  unless `--force-noisy` is given. Force-noisy results are marked as such.
-- Pin to P-cores (`cmd /c start "" /b /wait /affinity 5554 ...`). Do one
-  discarded warm-up run, then 5 timed runs (3 for W5a, W1 and W4). Report the
-  median, min and spread.
-- `--baseline <clau.exe>`: interleave the baseline and candidate runs (A B A B
-  ...) and print the ratio per phase and per pass.
-- Always pass `--no-cache`.
+`benchmarks/compile_times.py --help`. Example: `--runs 3 -- --project
+<scratch>/b2s/b2s.toml --print-types`; add `--baseline <clau.exe>` for A/B (keep
+the baseline copy next to a `clau.exe` in `build/*/bin`).
 
 ### B.2 Conditions
 
@@ -357,8 +354,7 @@ with the commit hash. Every CONV and OPTC step reports against it.
 
 ## Order
 
-1. B.1 script. Quiet re-run of W5a and W1 with the current Release `clau` to
-   replace the skewed numbers above.
+1. ~~B.1 script, quiet re-run of W5a and W1~~ (done).
 2. B.0 W5r reduced repro (scratch).
 3. INS.8 input churn, INS.1 incremental potential, INS.9 solve repetition: the
    data that sizes CONV.1-CONV.4.

@@ -134,6 +134,15 @@ and compare the `benchmarks/bench_*.erl` programs against the host OTP and an
 older Clause commit; `benchmarks/run.py --help` lists the options
 ([benchmarks](validation.md#benchmarks)). They are never part of the tests.
 
+`benchmarks/compile_times.py` times `clau` itself: it runs a compile workload
+(`--workload W1`, or `clau` arguments after `--`) several times on the
+performance cores with `--no-cache --print-stage-times`, and reports the median,
+minimum and spread of every phase and inference pass, the slowest inference
+components, and whether the pass counters and stdout agree between runs. With
+`--baseline <clau.exe>` the two builds alternate and the summary shows their
+ratio. It refuses to time while builds, tests or another `clau` run, unless
+given `--force-noisy`, and writes JSON to `build/bench/compile-times/`.
+
 `decompile-debug.bat <module>` and `decompile-release.bat <module>` write the
 Debug or Release assembly of one Clause C++ source to `<module>.debug.asm` /
 `<module>.release.asm`, with source lines and demangled names (`tools/asm.py`,
