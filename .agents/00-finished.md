@@ -933,7 +933,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   unchanged (W5r, W5a, W1, W6). Inference W5r 5.54 → 3.81 s, W5a 50.6 → 31.8 s,
   W1 → 42.4 s (against B.4: W5a 3.0×, W1 2.7×).
 
-- **OPTC.C part 2** family ranks and fewer allocations: `family_rank` from a
+- **OPTC.C part 2** (74f4b900) family ranks and fewer allocations: `family_rank` from a
   kind table and a hashed category map, `nesting` without child copies, atom
   inclusion over in-place names. Output identical (W5r, W5a, W1, W6).
   Inference W5r 3.67 → 2.92 s, W5a 31.3 → 28.8 s, W1 → 37.5 s.
