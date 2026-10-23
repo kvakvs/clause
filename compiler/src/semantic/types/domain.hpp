@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <compare>
 #include <cstddef>
 #include <cstdint>
@@ -127,6 +128,19 @@ class Graph {
 
     void keep_join_constants(const JoinConstants constants) { join_constants_ = constants; }
 
+    // How many containers deep a node nests counted no further than `limit` (below NESTING_LIMITS), once known: nodes
+    // never change, so the lattice keeps each answer here. Added for memoized nesting (OPTC.C).
+    static constexpr std::size_t NESTING_LIMITS = 8;
+
+    std::optional<std::size_t> nesting(const Id id, const std::size_t limit) const {
+        if (limit >= NESTING_LIMITS || id.index >= nesting_.size() || nesting_[id.index][limit] == UNKNOWN_NESTING) {
+            return std::nullopt;
+        }
+        return nesting_[id.index][limit];
+    }
+
+    void keep_nesting(Id id, std::size_t limit, std::size_t depth) const;
+
     const Limits &limits() const { return limits_; }
 
   private:
@@ -140,6 +154,9 @@ class Graph {
     std::size_t widenings_ = 0;
     // Added for the Gather constants (OPTC.A).
     std::optional<JoinConstants> join_constants_;
+    // Known nestings by node and limit; a cache, so a const graph fills it. Added for memoized nesting (OPTC.C).
+    static constexpr std::uint8_t UNKNOWN_NESTING = 0xff;
+    mutable std::vector<std::array<std::uint8_t, NESTING_LIMITS>> nesting_;
     std::vector<Node> nodes_;
     // Hashed: found by one hash and usually one comparison (changed for hashed node interning, OPTC.C).
     std::unordered_map<Node, std::size_t, NodeHash> identities_;

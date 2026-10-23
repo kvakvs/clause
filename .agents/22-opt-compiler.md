@@ -577,6 +577,12 @@ Not started. Each comes with the hypothesis that would justify it.
   children in place, `Meet::same_atoms` compares atom names in place (no
   `std::set<std::string>`). Profile before it (at fafd6d79): malloc/free 22%,
   `family_rank` 9.7%, `fact_of` 7.6%, `nesting` 5.3%, `NodeHash` 4.9%.
+- **OPTC.C part 3 (done; W5r 0.922, W5a 0.962):** `nesting` (called by
+  `truncate` for every tuple, list and improper list built) memoized per node
+  and limit in the graph; `Lattice::list` reuses the kept char() Id. Profile
+  before it (at f102dd20, W5r exclusive): malloc/free 22% (vector growth in
+  `fact_of`/`join`, `Lattice::members` copies, `improper`, string sets),
+  `fact_of` 8.9%, `nesting` 6.3%, `NodeHash` 5.9%, `Meet::within` 4%.
 - **OPTC.C Interning (rest):** the profile shows `std::map<Node>` compares and
   allocation. A hash table with a precomputed `Node` hash, or a compact node
   (atoms and integers as interned ids or small values, not `std::string`), and

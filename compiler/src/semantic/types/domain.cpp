@@ -31,6 +31,18 @@ Graph::Graph(const Limits limits) : owner_(next_owner.fetch_add(1)), limits_(lim
 
 void Graph::foreign() { throw std::invalid_argument("foreign semantic type identity"); }
 
+void Graph::keep_nesting(const Id id, const std::size_t limit, const std::size_t depth) const {
+    if (limit >= NESTING_LIMITS) {
+        return;
+    }
+    if (nesting_.size() <= id.index) {
+        std::array<std::uint8_t, NESTING_LIMITS> unknown{};
+        unknown.fill(UNKNOWN_NESTING);
+        nesting_.resize(nodes_.size(), unknown);
+    }
+    nesting_[id.index][limit] = static_cast<std::uint8_t>(depth);
+}
+
 std::size_t NodeHash::operator()(const Node &node) const noexcept {
     // Mix each part in, as boost::hash_combine does.
     std::size_t hash = static_cast<std::size_t>(node.kind);

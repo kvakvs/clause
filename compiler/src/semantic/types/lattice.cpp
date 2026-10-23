@@ -798,19 +798,25 @@ bool is_container(const Node &node) {
     return std::ranges::contains(containers, node.kind) && !node.children.empty() && !overloaded_fun(node);
 }
 
-// How many containers deep a fact nests, counted no further than `limit`.
+// How many containers deep a fact nests, counted no further than `limit`. Each answer is kept in the graph (changed
+// for memoized nesting, OPTC.C).
 std::size_t nesting(const Graph &graph, Id fact, std::size_t limit) {
+    if (const auto known = graph.nesting(fact, limit)) {
+        return *known;
+    }
     const auto &node = graph.get(fact);
     const bool container = is_container(node);
     if (limit == 0 || (!container && node.kind != Kind::union_type && !overloaded_fun(node))) {
         return 0;
     }
     std::size_t inner = 0;
-    // Read in place: nothing interns while nesting walks (changed for fewer allocations, OPTC.C).
+    // Read in place: nothing interns while nesting walks.
     for (const auto child : node.children) {
         inner = std::max(inner, nesting(graph, child, limit - 1));
     }
-    return (container ? 1 : 0) + inner;
+    const auto depth = (container ? 1 : 0) + inner;
+    graph.keep_nesting(fact, limit, depth);
+    return depth;
 }
 } // namespace
 
@@ -954,7 +960,9 @@ Id Lattice::list(Id element, bool nonempty) {
     if (element == graph_.bottom()) {
         return nonempty ? graph_.bottom() : nil();
     }
-    if (element == range({"0", CHAR_LIMIT})) {
+    // The kept char() once a join interned it (changed for fewer interns, OPTC.C).
+    const auto &constants = graph_.join_constants();
+    if (element == (constants ? constants->characters : range({"0", CHAR_LIMIT}))) {
         return category(nonempty ? "nonempty_string" : "string");
     }
     if (element == graph_.top() && !nonempty) {
