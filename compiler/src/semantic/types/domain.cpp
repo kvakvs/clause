@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <functional>
 #include <stdexcept>
 
 namespace clause::semantic::types {
@@ -28,11 +29,23 @@ Graph::Graph(const Limits limits) : owner_(next_owner.fetch_add(1)), limits_(lim
     identities_.emplace(nodes_[1], 1);
 }
 
-const Node &Graph::get(const Id id) const {
-    if (id.owner != owner_) {
-        throw std::invalid_argument("foreign semantic type identity");
+void Graph::foreign() { throw std::invalid_argument("foreign semantic type identity"); }
+
+std::size_t NodeHash::operator()(const Node &node) const noexcept {
+    // Mix each part in, as boost::hash_combine does.
+    std::size_t hash = static_cast<std::size_t>(node.kind);
+    const auto mix = [&](const std::size_t value) {
+        hash ^= value + 0x9e3779b97f4a7c15ULL + (hash << 6) + (hash >> 2);
+    };
+    mix(std::hash<std::string>{}(node.name));
+    mix(std::hash<std::string>{}(node.module));
+    for (const auto child : node.children) {
+        mix(child.index);
     }
-    return nodes_.at(id.index);
+    for (const auto &label : node.labels) {
+        mix(std::hash<std::string>{}(label));
+    }
+    return hash;
 }
 
 Id Graph::exhausted() {

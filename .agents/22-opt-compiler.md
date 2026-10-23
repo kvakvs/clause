@@ -567,7 +567,12 @@ Not started. Each comes with the hypothesis that would justify it.
   cache for `join` (2-member), `meet`, `within` and `truncate`, keyed by Ids.
   The cache stays valid because the graph is append-only. Watch the memory
   against the 1M-node limit.
-- **OPTC.C Interning:** the profile shows `std::map<Node>` compares and
+- **OPTC.C part 1 (done, `00-finished.md`; W5r 0.688, W5a 0.629):** hashed
+  identity map (`std::unordered_map<Node, std::size_t, NodeHash>`) and an
+  inline `Graph::get`. Re-profile at f37bb441 had shown `intern` 12.5%,
+  `Node::operator<=>` 11.7%, `Graph::get` 7.1% (out of line), malloc/free 15%,
+  `family_rank` 6%, `memcmp` 5.7% exclusive.
+- **OPTC.C Interning (rest):** the profile shows `std::map<Node>` compares and
   allocation. A hash table with a precomputed `Node` hash, or a compact node
   (atoms and integers as interned ids or small values, not `std::string`), and
   `intern(Node&&)`. `truncate` reads a node by reference unless it must change
