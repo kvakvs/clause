@@ -1,9 +1,8 @@
 # File lookup
 
-Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
-`runtime/src/`; **+** = planned, create only with implementation.
-[Architecture](arch.md) · [Backlog](01-todo.md) · [Plan](11-plan.md) ·
-[History](00-finished.md) · [Optimizations](20-opt.md) · [Library](21-lib.md).
+Directory map; find files inside by name. **C** = `compiler/src/`, **R** = `runtime/src/`; **+** =
+planned, create only with implementation. [Architecture](arch.md) · [Backlog](01-todo.md) ·
+[Plan](11-plan.md) · [History](00-finished.md) · [Optimizations](20-opt.md) · [Library](21-lib.md).
 
 ## Placement
 
@@ -28,7 +27,7 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 | `driver/` | CLI, frontend batch, predefined forms, entry/escript, placeholders, transforms sources, caches glue, stage times, inspections, publication; `C/main.cpp` |
 | `project/` | Manifest TOML/schema, discovery, ignore rules, directory index, plan/execution |
 | `semantic/` | Symbols, calls, bindings, patterns/match plans, guards/services, records, funs, imports, behaviours, liveness, `builtin_continuations.hpp` (builtins continuing in library Erlang), map ownership |
-| `semantic/types/` | Declared types, lattice, inference, contracts, type printing, inference store; `profile.hpp` + `inference_profile.cpp` (`--print-stage-times` inference measurements) |
+| `semantic/types/` | Declared types, lattice, inference, contracts, type printing, inference store; `profile.hpp` + `inference_profile.cpp` (`--print-stage-times` inference measurements); `inference_incremental` (passes skip components nothing they read changed for) |
 | `codegen/` | LLVM state/target, lowering (`lowering_*`, inline appends in `lowering_append`, small-map lookups in `lowering_map_access`, raw floats in `lowering_float_arithmetic`, known funs inlined in `lowering_fun_inlining`, `lists` loops of them in `lowering_list_loops`, `maps:fold` loops and owned fold accumulators in `lowering_map_loops`, inline `integer_to_list`/`list_to_integer` and digit prefixes of `++` in `lowering_integer_text`), binary loops, memory kinds for TBAA (`alias_tags`), float loops, frames, funs, literals, proofs/specialization, startup, verify/optimize/emit, asm listing, runtime symbols |
 | `transforms/` | Parse transforms: term arena, ETF, abstract-form export/import, `erl` loader, pipeline |
 | `cache/` | Build cache store (SQLite + blobs) |
@@ -71,23 +70,20 @@ Directory map; find files inside by name. **C** = `compiler/src/`, **R** =
 
 ## Tests
 
-- Runners `tests/compiler/<area>/`, data `tests/fixtures/<area>/`. Areas:
-  `preprocessor`, `parser`, `project`, `semantic`, `patternmatch`, `codegen`,
-  `executables`, `programs`, `printing`, `inference`, `lint`, `builtins`,
-  `library`, `linking`, `cache`, `transforms`.
-- `tests/runtime/`, `tests/abi/`: LLVM-free runtime/ABI tests;
-  `tests/prototypes/`: decision prototypes (not CTest).
-- Shared: `tests/cli.cmake`, `tests/compiler/{frontend_cases,printing_roundtrip}.cmake`;
-  `matrix.py` fast/full selection (`CLAUSE_TEST_MODE`); `CLAUSE_OTP_AUDITS`
-  gates live OTP audits. Corpus provenance: `docs/validation.md`.
+- Runners `tests/compiler/<area>/`, data `tests/fixtures/<area>/`. Areas: `preprocessor`, `parser`,
+  `project`, `semantic`, `patternmatch`, `codegen`, `executables`, `programs`, `printing`,
+  `inference`, `lint`, `builtins`, `library`, `linking`, `cache`, `transforms`.
+- `tests/runtime/`, `tests/abi/`: LLVM-free runtime/ABI tests; `tests/prototypes/`: decision
+  prototypes (not CTest).
+- Shared: `tests/cli.cmake`, `tests/compiler/{frontend_cases,printing_roundtrip}.cmake`; `matrix.py`
+  fast/full selection (`CLAUSE_TEST_MODE`); `CLAUSE_OTP_AUDITS` gates live OTP audits. Corpus
+  provenance: `docs/validation.md`.
 - **+** `tests/interop/`: external consumers (D06).
 
 ## Backlog → owners
 
-Validation → `C/semantic`; facts → `C/semantic/types`; LLVM → `C/codegen`;
-options → `C/driver` + `C/project`; publication → `C/artifacts`; linking →
-`C/linking`; values → `R/terms` + `R/memory`; processes → `R/process` +
-`R/scheduler`; builtins → `R/builtins`; code → `R/modules`. Tests use the
-owning area; generated-program behavior → `codegen`/`executables`, runtime →
-`tests/runtime/`. IDs in `01-todo.md`; D-items optional (D04/D05 stage dirs,
-D06 **+** `R/interop`).
+Validation → `C/semantic`; facts → `C/semantic/types`; LLVM → `C/codegen`; options → `C/driver` +
+`C/project`; publication → `C/artifacts`; linking → `C/linking`; values → `R/terms` + `R/memory`;
+processes → `R/process` + `R/scheduler`; builtins → `R/builtins`; code → `R/modules`. Tests use the
+owning area; generated-program behavior → `codegen`/`executables`, runtime → `tests/runtime/`. IDs
+in `01-todo.md`; D-items optional (D04/D05 stage dirs, D06 **+** `R/interop`).
