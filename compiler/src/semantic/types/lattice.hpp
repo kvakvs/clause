@@ -50,7 +50,7 @@ class Lattice {
     // The least fact that holds both, within the budgets: the result of two clauses or branches.
     Id join(Id left, Id right);
     // The join of a recursive result's previous and next facts that stops it from growing for ever: integer bounds
-    // that moved since the previous round become unbounded, so the result reaches its category.
+    // that moved since the previous round, also inside tuples, maps and lists of one shape, become unbounded.
     Id widen(Id previous, Id next);
 
     // Facts of values. An integer (canonical decimal) and an atom.

@@ -943,6 +943,14 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `Lattice::list` reuses the kept char() Id. Output identical (W5r, W5a, W1,
   W6). W5r 0.922, W5a 29.8 → 28.7 s.
 
+- **CONV.0** nested integer widening: `Lattice::widen` also relaxes integer
+  bounds that moved inside tuples, maps and lists of the previous fact's shape,
+  in recursive rounds and input widening. W5a output identical and still 17
+  passes, but integer-bound input changes end in pass 14 (most changed slot 11
+  changes, was 16); W1/W3 only gain precision (round-capped groups such as
+  `luerl_comp_cg:stmt/3` converge, 0 new `term()`). Time unchanged (W5a 0.994,
+  W1 1.004). Fixture `tests/fixtures/inference/widening.erl`.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found

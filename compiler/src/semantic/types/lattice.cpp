@@ -428,6 +428,13 @@ bool term_less(const Graph &graph, Id left, Id right) {
     return std::tie(a.kind, a.children, left) < std::tie(b.kind, b.children, right);
 }
 
+// The tag of a tuple: its first element's name when that is an atom, else empty. Read before the graph grows.
+std::string_view tuple_tag(const Graph &graph, Id tuple) {
+    const auto &node = graph.get(tuple);
+    const auto *first = node.children.empty() ? nullptr : &graph.get(node.children.front());
+    return first && first->kind == Kind::atom ? std::string_view(first->name) : std::string_view();
+}
+
 // The fact of an integer interval: a singleton, a range, or the category of an unbounded one.
 Id interval_fact(Lattice &lattice, const Interval &bounds) {
     if (bounds.low && bounds.high) {
@@ -564,18 +571,11 @@ class Assemble final {
         out.insert(out.end(), merged.begin(), merged.end());
     }
 
-    // The tag of a tuple: its first element's name when that is an atom, else empty.
-    std::string tag(Id tuple) const {
-        const auto &node = graph_.get(tuple);
-        const auto *first = node.children.empty() ? nullptr : &graph_.get(node.children.front());
-        return first && first->kind == Kind::atom ? first->name : std::string();
-    }
-
     // Join `tuple` into the first shape of its size and tag, or add it as a shape.
     void merge_tuple(std::vector<Id> &merged, Id tuple) {
         const auto size = graph_.get(tuple).children.size();
         for (auto &shape : merged) {
-            if (graph_.get(shape).children.size() == size && tag(shape) == tag(tuple)) {
+            if (graph_.get(shape).children.size() == size && tuple_tag(graph_, shape) == tuple_tag(graph_, tuple)) {
                 const auto left = graph_.get(shape).children;
                 const auto right = graph_.get(tuple).children;
                 std::vector<Id> elements;
@@ -818,6 +818,114 @@ std::size_t nesting(const Graph &graph, Id fact, std::size_t limit) {
     graph.keep_nesting(fact, limit, depth);
     return depth;
 }
+
+Id relax(Lattice &lattice, Id previous, Id joined);
+
+// Moves the integers of `after` on to the next threshold where a bound moved past `before`'s; whether one did.
+bool relax_bounds(const Families &before, Families &after) {
+    const auto old_bounds = before.bounds();
+    const auto new_bounds = after.bounds();
+    if (!old_bounds || !new_bounds) {
+        return false;
+    }
+    auto relaxed = *new_bounds;
+    if (lower_below(new_bounds->low, old_bounds->low)) {
+        relaxed.low = lower_threshold(new_bounds->low);
+    }
+    if (upper_above(new_bounds->high, old_bounds->high)) {
+        relaxed.high = upper_threshold(new_bounds->high);
+    }
+    if (relaxed == *new_bounds) {
+        return false;
+    }
+    after.integers.clear();
+    after.interval = relaxed;
+    return true;
+}
+
+// Whether two container facts have one shape whose children correspond by position: the same kind, name and size,
+// and for tuples the same tag, for exact maps the same keys. Added for nested integer widening (CONV.0).
+bool same_shape(const Graph &graph, Id left, Id right) {
+    const auto &a = graph.get(left);
+    const auto &b = graph.get(right);
+    if (a.kind != b.kind || a.name != b.name || a.labels != b.labels || a.children.size() != b.children.size()) {
+        return false;
+    }
+    if (a.kind == Kind::tuple) {
+        return tuple_tag(graph, left) == tuple_tag(graph, right);
+    }
+    if (a.kind == Kind::map && a.name == "exact") {
+        for (std::size_t index = 0; index < a.children.size(); index += 2) {
+            if (a.children[index] != b.children[index]) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// Relaxes each container of `after` against the container of its shape in `before`, child by child; whether one
+// changed. Added for nested integer widening (CONV.0).
+bool relax_shapes(Lattice &lattice, const std::vector<Id> &before, std::vector<Id> &after) {
+    auto &graph = lattice.graph();
+    bool changed = false;
+    for (auto &fact : after) {
+        const auto old = std::ranges::find_if(before, [&](Id candidate) { return same_shape(graph, candidate, fact); });
+        if (old == before.end() || *old == fact) {
+            continue;
+        }
+        const auto old_children = graph.get(*old).children;
+        auto node = graph.get(fact);
+        bool relaxed = false;
+        for (std::size_t index = 0; index < node.children.size(); ++index) {
+            const auto child = relax(lattice, old_children[index], node.children[index]);
+            relaxed = relaxed || child != node.children[index];
+            node.children[index] = child;
+        }
+        if (relaxed) {
+            // Relaxed integers nest no deeper, so the node keeps within the budgets as it is.
+            fact = graph.intern(std::move(node));
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+// Relaxes the element of the proper list of `after` against `before`'s, when each has one; whether it changed.
+// Added for nested integer widening (CONV.0).
+bool relax_lists(Lattice &lattice, const std::vector<ListShape> &before, std::vector<ListShape> &after) {
+    if (before.size() != 1 || after.size() != 1) {
+        return false;
+    }
+    const auto element = relax(lattice, before.front().element, after.front().element);
+    const bool changed = element != after.front().element;
+    after.front().element = element;
+    return changed;
+}
+
+// `joined` with every integer bound that moved past `previous`'s on to its next threshold, at the top and inside
+// containers of one shape at every level, so a counter inside a record stops creeping (CONV.0).
+Id relax(Lattice &lattice, Id previous, Id joined) {
+    const auto &graph = lattice.graph();
+    if (previous == graph.bottom() || joined == previous || joined == graph.top()) {
+        return joined;
+    }
+    Gather before(lattice);
+    before.add(previous);
+    Gather after(lattice);
+    after.add(joined);
+    const auto &old = before.families;
+    auto &families = after.families;
+    bool changed = relax_bounds(old, families);
+    changed = relax_lists(lattice, old.lists, families.lists) || changed;
+    for (const auto &[old_facts, facts] : {std::pair{&old.tuples, &families.tuples},
+                                           {&old.maps, &families.maps},
+                                           {&old.improper, &families.improper},
+                                           {&old.positional, &families.positional}}) {
+        changed = relax_shapes(lattice, *old_facts, *facts) || changed;
+    }
+    return changed ? fact_of(lattice, families, 0) : joined;
+}
 } // namespace
 
 Id Lattice::join(Id left, Id right) { return join(std::array{left, right}, 0); }
@@ -844,31 +952,8 @@ Id Lattice::join(std::span<const Id> members, std::size_t depth) {
     return fact_of(*this, plain.families, depth);
 }
 
-Id Lattice::widen(Id previous, Id next) {
-    const auto joined = join(previous, next);
-    if (previous == graph_.bottom() || joined == previous || joined == graph_.top()) {
-        return joined;
-    }
-    Gather before(*this);
-    before.add(previous);
-    Gather after(*this);
-    after.add(joined);
-    const auto old_bounds = before.families.bounds();
-    const auto new_bounds = after.families.bounds();
-    if (!old_bounds || !new_bounds) {
-        return joined;
-    }
-    auto relaxed = *new_bounds;
-    if (lower_below(new_bounds->low, old_bounds->low)) {
-        relaxed.low = lower_threshold(new_bounds->low);
-    }
-    if (upper_above(new_bounds->high, old_bounds->high)) {
-        relaxed.high = upper_threshold(new_bounds->high);
-    }
-    after.families.integers.clear();
-    after.families.interval = relaxed;
-    return relaxed == *new_bounds ? joined : fact_of(*this, after.families, 0);
-}
+// Relaxes nested integer bounds too (changed for nested integer widening, CONV.0).
+Id Lattice::widen(Id previous, Id next) { return relax(*this, previous, join(previous, next)); }
 
 int Lattice::family(Id fact) const { return family_rank(graph_.get(fact)); }
 

@@ -4,8 +4,8 @@ Find where `clau` spends its time on real multi-module projects, starting with
 whole-program type inference (`compiler/src/semantic/types/`). The first goal is
 that inference either **converges or gives up within a bounded, small amount of
 work**, instead of repeating whole-batch passes and recursive-component solves
-that keep almost the same facts. The next goal is a lower cost per walk. This
-file plans only. No compiler code has changed yet.
+that keep almost the same facts. The next goal is a lower cost per walk. Done
+steps move to `00-finished.md` (Plan 22).
 
 ## Working rules for plan 22 steps
 
@@ -128,10 +128,18 @@ work is mostly dirty components, and a measured, accepted precision loss (B.3).
 Soundness invariant for every step: a fact may only get wider than today's
 result, never narrower.
 
-- **CONV.0 Widen nested integer bounds** (from INS.8 finding 2). Make
-  `Lattice::widen` (or the input widening in `gather_inputs`) relax integer
-  bounds that moved anywhere inside the fact, not only at the top. Smallest
-  step; it should remove the 12-16-change slots on its own.
+- **CONV.0 Widen nested integer bounds (done, `00-finished.md`).**
+  `Lattice::widen` relaxes bounds inside tuples (same size and tag), maps (same
+  keys) and lists of the previous fact's shape too, so it covers recursive
+  rounds and input widening. W5a: `--print-types` identical, still 17 passes
+  (shape/deeper churn and one call level per pass remain: CONV.7, CONV.1);
+  integer-bound changes stop in pass 14 (pass 16: 0, was 41), the most changed
+  slot changes 11 times (was 16), 9-16×: 87 slots (was 101). W1/W3: only
+  narrower facts, 0 new `term()`: recursive groups that hit their round cap
+  (`luerl_comp_cg:stmt/3` and its group, `erl_scan`, `file`, `filelib`, `re`)
+  now converge. W5r, W6 identical. Inference time unchanged (3 runs: W5a 0.994,
+  W1 1.004). Owned fixture `tests/fixtures/inference/widening.erl` (fails
+  before the change).
 - **CONV.1 Per-input widening ladder.** Count the changes of each local input
   slot (`Inference::inputs[f][i]`) across passes, then climb a ladder: join for
   K₁ changes, then integer widening (today's `widen`), then structural widening
@@ -329,18 +337,18 @@ anonymous funs, so this may be part of its cost.
 ### INS.5 Fact size statistics (done, `00-finished.md`)
 
 `inference facts N` per noted pass and `inference largest` for the 3 costliest
-components (`docs/compile.md`), from per-node tree size, container depth,
-widest union and element-budget flags filled in one pass over the graph
+components (`docs/compile.md`), from per-node tree size, container depth, widest
+union and element-budget flags filled in one pass over the graph
 (`inference_profile.cpp`). Aligned A/B 1.005 (paired median +0.5%).
 
 **Findings:** facts are small. W5a pass 16: 152 488 facts, mean tree size 4.0,
 max 4236; 1888 (1.2%) at the depth budget, 442 with a full 8-member union, 249
-at the element budget, 47 summaries at 32 function types, 1808 dependent
-facts. W1 alike (max 10 935). The `ubody` group's largest fact has tree size
-1509 (a union of `#cg_*`/`#b_*` record shapes nested to the depth budget);
-`core_parse` and `erl_eval`'s are under 30. **CONV.5 (harder size caps) has
-little to gain**: per-walk cost comes from interning and constant work per
-join (INS.7), not from fact size.
+at the element budget, 47 summaries at 32 function types, 1808 dependent facts.
+W1 alike (max 10 935). The `ubody` group's largest fact has tree size 1509 (a
+union of `#cg_*`/`#b_*` record shapes nested to the depth budget); `core_parse`
+and `erl_eval`'s are under 30. **CONV.5 (harder size caps) has little to gain**:
+per-walk cost comes from interning and constant work per join (INS.7), not from
+fact size.
 
 ### INS.6 Container statistics
 
@@ -350,21 +358,20 @@ comparisons in `next_summary`/`classify`.
 
 ### INS.7 Sampling profile of clau (done, `00-finished.md`)
 
-`build/prof-compiler`: compiler-only Release, `/O2 /Ob2 /DNDEBUG /Z7`,
-`/MT`, iterator debug 0, linker `/DEBUG /INCREMENTAL:NO /OPT:REF /OPT:ICF`
-(without `/DEBUG` there is no PDB). Collected with `VSDiagnostics start
+`build/prof-compiler`: compiler-only Release, `/O2 /Ob2 /DNDEBUG /Z7`, `/MT`,
+iterator debug 0, linker `/DEBUG /INCREMENTAL:NO /OPT:REF /OPT:ICF` (without
+`/DEBUG` there is no PDB). Collected with `VSDiagnostics start
 /launch` (CpuUsageHigh, 4 kHz; a 500 Hz copy for W5a), processed with `xperf -i
 ... -a profile -detail` (exclusive) and `-a stack -butterfly` (inclusive,
 callers). Scratch scripts: `prof-build.cmd`, `prof-run.cmd`,
-`xperf-profile.cmd`, `butterfly.py`. **The collector keeps only about the
-first 25-30 s of a run**, so W5a covered ≈ 13 s of inference; its shares match
-W5r.
+`xperf-profile.cmd`, `butterfly.py`. **The collector keeps only about the first
+25-30 s of a run**, so W5a covered ≈ 13 s of inference; its shares match W5r.
 
-**W5r exclusive time by group:** intern and node map 52% (`Graph::intern`
-25%, `Node::operator<=>` 18%, `memcmp` 6%, `Graph::get` 4%), allocation 17%
+**W5r exclusive time by group:** intern and node map 52% (`Graph::intern` 25%,
+`Node::operator<=>` 18%, `memcmp` 6%, `Graph::get` 4%), allocation 17%
 (`malloc`/`free` 13%), lattice ops 21% (`fact_of` 4%, `family_rank` 3.5%,
-`nesting` 2.5%, `Meet::*`, `Lattice::*`), `std::set<std::string>` of atoms
-and integers in `Families` 6%, the inference walk itself under 1%.
+`nesting` 2.5%, `Meet::*`, `Lattice::*`), `std::set<std::string>` of atoms and
+integers in `Families` 6%, the inference walk itself under 1%.
 
 **Inclusive (W5r, share of clau):**
 
@@ -388,8 +395,8 @@ and integers in `Families` 6%, the inference walk itself under 1%.
 3. Every `intern` builds a `Node` by value even on a hit, and the identity map
    compares nodes field by field with strings: `intern` ≈ 50% after OPTC.A is
    still the next target (OPTC.C, OPTC.B).
-4. `Gather::add` copies each `Node` (`const auto node = graph_.get(fact)`),
-   part of the allocation share.
+4. `Gather::add` copies each `Node` (`const auto node = graph_.get(fact)`), part
+   of the allocation share.
 
 ### BUG.1 Intermittent clau crash (side finding, investigate)
 
@@ -523,10 +530,10 @@ Quiet baseline at 2af72e57 (code b83e9756), `benchmarks/history/compile-times/
 | W1 | 3 | 114.73 s (0.9%) | | | | 118.82 s |
 | W2 (`-O2 -o`) | 3 | 115.83 s (0.9%) | 10.85 s | **75.59 s** | **120.85 s** | 327.70 s |
 
-**On the executable path LLVM takes longer than inference:** `optimize` +
-`emit` are 196 s of W2's 328 s. A later plan step should profile them (module
-size, per-function pass time, `emit` single-threaded?) once inference is
-fixed; it is outside `semantic/types/`.
+**On the executable path LLVM takes longer than inference:** `optimize` + `emit`
+are 196 s of W2's 328 s. A later plan step should profile them (module size,
+per-function pass time, `emit` single-threaded?) once inference is fixed; it is
+outside `semantic/types/`.
 
 ## Order
 
@@ -536,45 +543,47 @@ fixed; it is outside `semantic/types/`.
    (done): the data that sizes CONV.1-CONV.4.
 4. ~~INS.7 sampling profile on W5r and W5a, INS.5 fact sizes~~ (done).
 5. ~~B.4 baseline~~ (done).
-6. OPTC.A → OPTC.A2 → OPTC.A3 (measured 38% and 30% of W5r, small and pure),
-   then CONV.0 → CONV.7 → CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on
-   W5a, W1 and W6. Then the owned fixture (B.0).
+6. ~~OPTC.A → OPTC.A2 → OPTC.A3, OPTC.C parts 1-3, CONV.0~~ (done), then CONV.7
+   → CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on W5a, W1 and W6.
+   Then the owned fixture (B.0).
 7. INS.2-INS.4 and INS.6 as the profile calls for them, then OPTC.* ranked by
    measured share.
 8. LIV.1 investigation and BUG.1, whenever convenient.
 
 ## Per-walk cost optimizations (OPTC.*, rank after measurement)
 
-**After OPTC.A-A3 (f37bb441), against B.4:** inference W5r 11.97 → 5.6 s
-(2.1×), W5a 96.2 → 50.8 s (1.89×); the `ubody_used_vars` group 27.2 → 10.7 s.
-Pass counts and work steps unchanged. Re-profile (INS.7 recipe) before the
-next OPTC step: interning should still lead.
+**After OPTC.A-A3 (f37bb441), against B.4:** inference W5r 11.97 → 5.6 s (2.1×),
+W5a 96.2 → 50.8 s (1.89×); the `ubody_used_vars` group 27.2 → 10.7 s. Pass
+counts and work steps unchanged. Re-profile (INS.7 recipe) before the next OPTC
+step: interning should still lead.
 
 Not started. Each comes with the hypothesis that would justify it.
 
-- **OPTC.A Gather constants (done, `00-finished.md`; W5r 1.71×, W5a 1.73×):** `Gather::Gather` interns
-  `range(0..CHAR_LIMIT)` and `improper(term(), term())` on every join; 38% of
-  W5r (INS.7). Intern them once per `Graph` (or cache their Ids lazily) so a
-  `Gather` only copies two Ids. Pure performance: counters and `--print-types`
-  unchanged. Expected W5r ≈ 1.5×.
-- **OPTC.A2 Atom inclusion without a meet (done; W5r 0.817):** `Meet::same_atoms` builds the atom
-  meet (atom facts and a join) to compare Ids; compare the atom name sets
-  directly. 30% of W5r inclusive, much of it the OPTC.A constants.
-- **OPTC.A3 No node copies in `Gather::add` (done; W5r 0.976, A2+A3 on W5a 0.897):** read the node by reference where
-  no interning can happen in between, else copy only its children.
+- **OPTC.A Gather constants (done, `00-finished.md`; W5r 1.71×, W5a 1.73×):**
+  `Gather::Gather` interns `range(0..CHAR_LIMIT)` and `improper(term(), term())`
+  on every join; 38% of W5r (INS.7). Intern them once per `Graph` (or cache
+  their Ids lazily) so a `Gather` only copies two Ids. Pure performance:
+  counters and `--print-types` unchanged. Expected W5r ≈ 1.5×.
+- **OPTC.A2 Atom inclusion without a meet (done; W5r 0.817):**
+  `Meet::same_atoms` builds the atom meet (atom facts and a join) to compare
+  Ids; compare the atom name sets directly. 30% of W5r inclusive, much of it the
+  OPTC.A constants.
+- **OPTC.A3 No node copies in `Gather::add` (done; W5r 0.976, A2+A3 on W5a
+  0.897):** read the node by reference where no interning can happen in between,
+  else copy only its children.
 
 - **OPTC.B Lattice memo:** many repeated `(op, a, b)` pairs (INS.2). A per-graph
   cache for `join` (2-member), `meet`, `within` and `truncate`, keyed by Ids.
   The cache stays valid because the graph is append-only. Watch the memory
   against the 1M-node limit.
 - **OPTC.C part 1 (done, `00-finished.md`; W5r 0.688, W5a 0.629):** hashed
-  identity map (`std::unordered_map<Node, std::size_t, NodeHash>`) and an
-  inline `Graph::get`. Re-profile at f37bb441 had shown `intern` 12.5%,
+  identity map (`std::unordered_map<Node, std::size_t, NodeHash>`) and an inline
+  `Graph::get`. Re-profile at f37bb441 had shown `intern` 12.5%,
   `Node::operator<=>` 11.7%, `Graph::get` 7.1% (out of line), malloc/free 15%,
   `family_rank` 6%, `memcmp` 5.7% exclusive.
-- **OPTC.C part 2 (done; W5r 0.796, W5a 0.922):** `family_rank` by a kind
-  table and a hashed category map (was 9.7% exclusive), `nesting` reads
-  children in place, `Meet::same_atoms` compares atom names in place (no
+- **OPTC.C part 2 (done; W5r 0.796, W5a 0.922):** `family_rank` by a kind table
+  and a hashed category map (was 9.7% exclusive), `nesting` reads children in
+  place, `Meet::same_atoms` compares atom names in place (no
   `std::set<std::string>`). Profile before it (at fafd6d79): malloc/free 22%,
   `family_rank` 9.7%, `fact_of` 7.6%, `nesting` 5.3%, `NodeHash` 4.9%.
 - **OPTC.C part 3 (done; W5r 0.922, W5a 0.962):** `nesting` (called by

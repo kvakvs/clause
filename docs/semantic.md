@@ -550,7 +550,7 @@ their built-in names.
 | Nothing | `none()` | Identity | A function that never returns stays `none()` |
 | Anything | `term()` | Absorbs every fact | `dynamic()` and `any()` are `term()` |
 | Integers | `42`, `1 \| 3 \| 7` | Union of singletons | More than 8 singletons become their range |
-| Integer range | `1..10`, `0..255` | Smallest range holding both | A bound that moved between rounds goes to the next threshold: a lower one to 1, then 0, then unbounded; an upper one to -1, then unbounded |
+| Integer range | `1..10`, `0..255` | Smallest range holding both | A bound that moved between rounds goes to the next threshold: a lower one to 1, then 0, then unbounded; an upper one to -1, then unbounded. Bounds inside containers widen too, where the previous fact has a tuple (of that size and tag), map (of those keys) or list in the same place |
 | Unbounded integers | `pos_integer()` (1 and up), `non_neg_integer()` (0 and up), `neg_integer()` (-1 and down), `integer()` | Smallest interval holding both, printed by its category | — |
 | Floats | `float()` | — | — |
 | Numbers | `number()` | A range or category of integers joined with `float()` | Singleton integers with `float()` stay `1 \| float()` |
@@ -696,7 +696,8 @@ sum() -> 1 + 2.
   `-spec` must resolve and whose body produces such a value; `clauses.erl`
   function types, call selection and evaluation per call within and past their
   budgets; `dependent.erl` [dependent facts](#dependent-facts); `trees.erl` and
-  `parsers.erl` recursions over trees and generated-parser shapes.
+  `parsers.erl` recursions over trees and generated-parser shapes;
+  `widening.erl` counters inside containers that widen and settle.
 - `tests/fixtures/inference/contracts/` holds the specification checks (CTest
   `inference_contracts`).
 

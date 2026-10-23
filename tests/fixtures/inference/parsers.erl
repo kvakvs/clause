@@ -1,8 +1,9 @@
 %% Generated-parser shapes (yecc and leex output, the slowest recursive groups of luerl): many heads of one function
 %% selected by an integer state, each calling the function again (or its dispatcher) with slightly altered arguments:
 %% the next state, a longer token, an extended stack. The grammar is E -> int | E '+' int over "1 + 22 + 3_00".
-%% Today local inputs never settle: widening relaxes only top-level integers, so the sums on the value stack (and the
-%% counter in count_up/2's list) grow in every pass, and the last pass gives every local input term().
+%% Today local inputs never settle: the sums on the value stack (and the counter in count_up/2's list) widen after 8
+%% passes, but each widened input reaches the next callee only one call level per pass, and the last pass gives every
+%% local input term().
 -module(parsers).
 -export([main/1]).
 
