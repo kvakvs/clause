@@ -1,13 +1,36 @@
 #pragma once
 // Added for --print-stage-times: where whole-program inference spends its time, recorded only when requested.
 #include "../calls.hpp"
+#include "domain.hpp"
+#include <array>
 #include <chrono>
+#include <cstdint>
+#include <map>
+#include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace clause::semantic::types {
+// How a local input slot changed between passes, from the first fact it got to term(). Added for the input churn
+// measurements of --print-stage-times.
+enum class Churn : std::uint8_t { first, integer, member, shape, deeper, function, term };
+inline constexpr std::size_t CHURN_KINDS = 7;
+
 struct InferenceProfile {
     using Duration = std::chrono::steady_clock::duration;
+
+    // Whether inputs were gathered after the pass, the local inputs that changed, the fun F/A reads of the pass that
+    // did not see their function's final facts, and the gathering's time. Added for the input churn measurements of
+    // --print-stage-times.
+    struct InputChurn {
+        bool gathered_ = false;
+        std::size_t functions_ = 0;
+        std::size_t slots_ = 0;
+        std::array<std::size_t, CHURN_KINDS> kinds_{};
+        std::size_t open_fun_reads_ = 0;
+        Duration elapsed_{};
+    };
 
     struct Pass {
         // The pass's time and work steps, how it ended, and the component running when the work budget ran out.
@@ -15,6 +38,26 @@ struct InferenceProfile {
         std::size_t work_ = 0;
         std::string_view outcome_;
         const Component *exhausted_at_ = nullptr;
+        // Added for the input churn measurements of --print-stage-times.
+        InputChurn churn_;
+    };
+
+    // One local input slot over the batch: its changes, the kind of the last one and its facts around it, printed
+    // once inference ends. Added for the input churn measurements of --print-stage-times.
+    struct Slot {
+        std::size_t changes_ = 0;
+        Churn last_ = Churn::first;
+        Id before_{};
+        Id after_{};
+    };
+
+    // A slot among the most changed, ready to print: `module:function/arity #argument` and its last change.
+    struct ChurnedSlot {
+        std::string name_;
+        std::size_t changes_ = 0;
+        Churn last_ = Churn::first;
+        std::string before_;
+        std::string after_;
     };
 
     struct Cost {
@@ -58,5 +101,10 @@ struct InferenceProfile {
     std::size_t budget_ = 0;
     std::vector<Pass> passes_;
     std::vector<Cost> costs_;
+
+    // The local input slots that changed, by function and argument, and how many local input slots there are. Added
+    // for the input churn measurements of --print-stage-times.
+    std::map<std::pair<const Function *, std::size_t>, Slot> slots_;
+    std::size_t slots_total_ = 0;
 };
 } // namespace clause::semantic::types

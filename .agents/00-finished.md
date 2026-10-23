@@ -861,6 +861,21 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   inference 100.4 s (spread 0.5%), W1 117.0 s (1.2%), both 17 passes;
   `ubody_used_vars` + 6 is 27.2 s / 25.5 s of them.
 
+- **B.0** W5r scratch repro (`<scratch>/w5r/w5r.erl`, plan 22 B.0): 11.39 s
+  inference (spread 0.7%), `ubody_used_vars` + 6 10.47 s at ≈22 ms per member
+  walk, 5-13 rounds per solve; settles in pass 11 (W5a never settles).
+- **INS.8** input churn under `--print-stage-times`: per pass the functions and
+  local input slots `gather_inputs` changed, by kind (first, integer bound,
+  union member, shape, deeper, function types, term()), and fun reads not
+  final; `inference churn` histogram and the 10 most changed slots with their
+  last facts (`inference_inputs.cpp`, printed by `driver/compile_times.cpp`).
+  Uninstrumented W5r A/B ratio 1.000; `--print-types` identical on W5a, W1, W6,
+  W5r. Findings: inputs reach callees one call level per pass (`first` changes
+  until pass 16) and nested integer bounds creep by one per pass because
+  `Lattice::widen` only relaxes top-level integers; plan 22 CONV.0, CONV.7.
+  `compile_times.py` gained `--no-stage-times` and splits the pass outcome from
+  the churn note.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found

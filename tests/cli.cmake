@@ -211,11 +211,14 @@ check_cli(verbose_multiple 0 "^$" "^\\[pp\\] first.erl\n\\[parse\\] first.erl\n\
 check_cli(verbose_opt_in 0 "^$" "^$" --app-dir demo=app trace.erl)
 
 # Stage times: preprocess and parse per file once it is done, compile per batch, all in milliseconds on stderr.
-# Before the compile total come its phases, each inference pass, the slowest inferred functions and recursive groups.
+# Before the compile total come its phases, each inference pass, input churn, the slowest inferred functions and
+# recursive groups.
 set(ms ": [0-9]+\\.[0-9][0-9][0-9] ms\n")
 set(note ": [0-9]+\\.[0-9][0-9][0-9] ms \\([0-9]+ (of [0-9]+ )?work steps, [^\n]+\\)\n")
 set(phases "\\[time\\] index 2 modules${ms}\\[time\\] calls 2 modules${ms}\\[time\\] declared-types 2 modules${ms}"
     "\\[time\\] inference 2 modules${ms}\\[time\\] inference pass 1 2 modules${note}"
+    "\\[time\\] inference churn 2 modules: [0-9]+\\.[0-9][0-9][0-9] ms \\(slots by changes [^\n]+\\)\n"
+    "(\\[time\\] inference churned [^\n]+\n)*"
     "(\\[time\\] inference slowest (first|second):module_info/[01]${note})(\\[time\\] inference (slowest|rounds) [^\n]+\n)*"
     "\\[time\\] contracts 2 modules${ms}\\[time\\] lower 2 modules${ms}\\[time\\] optimize 2 modules${ms}"
     "\\[time\\] emit 2 modules${ms}")

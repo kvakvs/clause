@@ -1,9 +1,13 @@
 // Added for the compile phases of --print-stage-times.
 #include "compile_times.hpp"
+#include "../semantic/types/inference_inputs.hpp"
 #include <algorithm>
+#include <array>
 #include <clause/compiler/source.hpp>
+#include <cstdint>
 #include <format>
 #include <span>
+#include <utility>
 
 namespace clause::cli {
 namespace {
@@ -23,7 +27,27 @@ std::string component_name(const semantic::Component &component) {
     return text;
 }
 
-// One line per inference pass: its time, work steps and how it ended.
+// The kinds of input change as printed. Added for the input churn measurements.
+constexpr std::array<std::string_view, semantic::types::CHURN_KINDS> CHURN_NAMES{
+    "first", "integer bound", "union member", "shape", "deeper", "function types", "term()"};
+
+// How the gathering after a pass changed local inputs, by kind, and the fun F/A reads that were not final. Added
+// for the input churn measurements of --print-stage-times.
+std::string churn_note(const InferenceProfile::InputChurn &churn) {
+    auto text = std::format("; inputs: {} functions, {} slots changed", churn.functions_, churn.slots_);
+    std::string kinds;
+    for (std::size_t kind = 0; kind < churn.kinds_.size(); ++kind) {
+        if (churn.kinds_.at(kind) != 0) {
+            kinds += std::format("{}{} {}", kinds.empty() ? "" : ", ", churn.kinds_.at(kind), CHURN_NAMES.at(kind));
+        }
+    }
+    if (!kinds.empty()) {
+        text += " (" + kinds + ")";
+    }
+    return text + std::format(", {} fun reads not final", churn.open_fun_reads_);
+}
+
+// One line per inference pass: its time, work steps, how it ended and how it changed local inputs.
 void print_passes(const InferenceProfile &profile, const std::string_view subject) {
     for (std::size_t index = 0; index < profile.passes_.size(); ++index) {
         const auto &pass = profile.passes_[index];
@@ -31,7 +55,42 @@ void print_passes(const InferenceProfile &profile, const std::string_view subjec
         if (pass.exhausted_at_) {
             note += ", work budget ran out in " + component_name(*pass.exhausted_at_);
         }
+        // The forced last pass gathers no inputs.
+        if (pass.churn_.gathered_) {
+            note += churn_note(pass.churn_);
+        }
         print_stage_time(std::format("inference pass {}", index + 1), subject, pass.elapsed_, note);
+    }
+}
+
+// Local input slots by how often they changed over the batch, with the time gathering inputs took, then the most
+// changed slots with their last change. Added for the input churn measurements of --print-stage-times.
+void print_churn(const Analysis &analysis, const std::string_view subject) {
+    const auto &profile = analysis.profile;
+    constexpr std::array<std::pair<std::size_t, std::string_view>, 7> BUCKETS{
+        {{1, "1"}, {2, "2"}, {3, "3"}, {4, "4"}, {8, "5-8"}, {16, "9-16"}, {SIZE_MAX, ">16"}}};
+    std::array<std::size_t, BUCKETS.size()> counts{};
+    for (const auto &[slot, churn] : profile.slots_) {
+        const auto bucket =
+            std::ranges::find_if(BUCKETS, [&](const auto &entry) { return churn.changes_ <= entry.first; });
+        ++counts.at(static_cast<std::size_t>(bucket - BUCKETS.begin()));
+    }
+    std::string note = "slots by changes";
+    for (std::size_t index = 0; index < BUCKETS.size(); ++index) {
+        note += std::format("{} {}x: {}", index == 0 ? "" : ",", BUCKETS.at(index).second, counts.at(index));
+    }
+    note += std::format("; {} of {} local input slots never changed", profile.slots_total_ - profile.slots_.size(),
+                        profile.slots_total_);
+    InferenceProfile::Duration gathering{};
+    for (const auto &pass : profile.passes_) {
+        gathering += pass.churn_.elapsed_;
+    }
+    print_stage_time("inference churn", subject, gathering, note);
+    for (const auto &slot : analysis.inferred ? semantic::types::churned_slots(*analysis.inferred, analysis.calls)
+                                              : std::vector<InferenceProfile::ChurnedSlot>{}) {
+        print_stage_time("inference churned", slot.name_, {},
+                         std::format("{} changes, last {}: {} -> {}", slot.changes_,
+                                     CHURN_NAMES.at(static_cast<std::size_t>(slot.last_)), slot.before_, slot.after_));
     }
 }
 
@@ -119,6 +178,7 @@ void print_compile_phases(const Analysis &analysis, const std::string_view subje
         print_stage_time(phase, subject, elapsed);
         if (phase == "inference") {
             print_passes(analysis.profile, subject);
+            print_churn(analysis, subject);
             print_slowest(analysis.profile);
             print_recursive(analysis.profile);
         }

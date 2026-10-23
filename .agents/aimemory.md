@@ -102,6 +102,11 @@ gotchas and user directions not recorded elsewhere.
   disabled on clause_parser_dependency / clause_llvm_sdk for cl only; C4554
   false positive on static_cast<Word>(n - 1) << shift: hoist to a local.
 
+- Plan 22 (2026-10-23): compiler timing = `benchmarks/compile_times.py` (W5r
+  scratch repro for a 11 s loop). Editing `semantic/types/inference.cpp` (holds
+  the hot body walk) moved uninstrumented W5r 3.9% by code layout alone: put
+  instrumentation in other TUs and A/B with `--no-stage-times --baseline`.
+
 ## Quality (tidy/Lizard)
 - clang-tidy may crash (0xC0000005/0xC0000409) or exit 1 silently with 2 jobs:
   rerun with one job. Check targets do not forward QUALITY_JOBS: `cmake

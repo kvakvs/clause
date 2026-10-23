@@ -50,7 +50,8 @@ TIME_LINE = re.compile(r"^\[time\] (.+?): ([0-9.]+) ms(?: \((.*)\))?$")
 # modules`.
 DETAIL = re.compile(r"^inference ([a-z][a-z-]*) (.*)$")
 PASS = re.compile(r"^(\d+) (.*)$")
-PASS_NOTE = re.compile(r"^(\d+) of (\d+) work steps, (.*)$")
+# Work steps, budget, outcome, then what gathering inputs changed (added after the first semicolon).
+PASS_NOTE = re.compile(r"^(\d+) of (\d+) work steps, ([^;]*)(?:; (.*))?$")
 ROUNDS_NOTE = re.compile(r"^(\d+) solves, (\d+) rounds .*?; (\d+) member walks \((\d+) skipped\)")
 POLL_SECONDS = 5
 # How many of the slowest inference components the summary lists.
@@ -73,6 +74,8 @@ def parse_args():
     parser.add_argument("--wait", type=int, default=0, help="seconds to wait for a quiet machine before refusing")
     parser.add_argument("--json", help="output file (default: build/bench/compile-times/<label>-<time>.json)")
     parser.add_argument("--save-output", help="directory for the stdout of each clau's first timed run")
+    parser.add_argument("--no-stage-times", action="store_true",
+                        help="time whole runs only, without --print-stage-times (instrumentation overhead checks)")
     parser.add_argument("clau_args", nargs=argparse.REMAINDER, help="-- then the clau arguments")
     args = parser.parse_args()
     args.clau_args = args.clau_args[1:] if args.clau_args[:1] == ["--"] else args.clau_args
@@ -87,8 +90,10 @@ def workload_command(args):
         clau_args, runs = WORKLOADS[args.workload]
     else:
         clau_args, runs = args.clau_args, 5
-    # Every run compiles from scratch and reports its stage times.
-    extra = [flag for flag in ("--no-cache", "--print-stage-times") if flag not in clau_args]
+    # Every run compiles from scratch and, unless --no-stage-times, reports its stage times.
+    clau_args = [arg for arg in clau_args if not (args.no_stage_times and arg == "--print-stage-times")]
+    flags = ("--no-cache",) if args.no_stage_times else ("--no-cache", "--print-stage-times")
+    extra = [flag for flag in flags if flag not in clau_args]
     return clau_args + extra, args.runs or runs, args.label or args.workload or "custom"
 
 
@@ -133,7 +138,7 @@ def parse_detail(kind, rest, ms, note):
         record.update(number=int(number), subject=subject)
         match = PASS_NOTE.match(note or "")
         if match:
-            record.update(work=int(match[1]), budget=int(match[2]), outcome=match[3])
+            record.update(work=int(match[1]), budget=int(match[2]), outcome=match[3], inputs=match[4])
     else:
         record["subject"] = rest
         if kind == "rounds":
@@ -160,7 +165,8 @@ def parse_times(stderr):
 
 def counters(details):
     """The deterministic part of a run: work steps and outcome of every pass."""
-    return [(d["subject"], d["number"], d.get("work"), d.get("outcome")) for d in details if d["kind"] == "pass"]
+    return [(d["subject"], d["number"], d.get("work"), d.get("outcome"), d.get("inputs"))
+            for d in details if d["kind"] == "pass"]
 
 
 def run_clau(clau, clau_args, args, cpus):

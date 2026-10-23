@@ -125,6 +125,10 @@ whose work is mostly dirty components, and a measured, accepted precision loss
 (B.3). Soundness invariant for every step: a fact may only get wider than
 today's result, never narrower.
 
+- **CONV.0 Widen nested integer bounds** (from INS.8 finding 2). Make
+  `Lattice::widen` (or the input widening in `gather_inputs`) relax integer
+  bounds that moved anywhere inside the fact, not only at the top. Smallest
+  step; it should remove the 12-16-change slots on its own.
 - **CONV.1 Per-input widening ladder.** Count the changes of each local input
   slot (`Inference::inputs[f][i]`) across passes, then climb a ladder: join for
   K₁ changes, then integer widening (today's `widen`), then structural widening
@@ -154,6 +158,12 @@ today's result, never narrower.
   `ubody_used_vars` facts at the union, depth or element limits, cap the size of
   recursive-member summaries harder than plain facts (fewer union members, or
   depth 3) during the join rounds.
+- **CONV.7 Inputs within the pass** (from INS.8 finding 1). Let local inputs
+  reach callees in the same pass instead of one call level per pass: for
+  example gather a non-recursive component's inputs from its callers' facts
+  just before walking it, walking components caller-first for inputs in
+  between callee-first passes, or a separate cheap input-propagation sweep.
+  Measure passes until `first` changes stop on W5a.
 - **CONV.6 Remove the fixed pass count.** Once CONV.1 bounds input changes and
   CONV.2 makes passes cheap, `PASSES` is a safety limit only. Its final
   `term()` pass should become rare. INS.1 reports when it still fires.
@@ -171,16 +181,50 @@ only when `Inference::profile` is set, and print through
 (INS.7) covers per-op time. Document every new line in `docs/compile.md`
 (`--print-stage-times` row).
 
-### INS.8 Input churn (first, for CONV.1)
+### INS.8 Input churn (done, `00-finished.md`)
 
-For each pass: how many functions and input slots changed in `gather_inputs`,
-and of what kind. The kinds are: integer bound, new union member, new
-structure/shape, deeper nesting, function types, `term()` reached. Over the
-batch: a histogram of changes per slot, and the 10 slots that changed most, each
-printed as `module:function/arity #i` with its fact before and after the last
-change (`types/printing.cpp`, truncated to 200 characters). Also count the
-`fun_reads` entries that were not final per pass, which is the other reason a
-pass does not settle.
+Lines: `; inputs: ...` on each `inference pass N`, `inference churn`, `inference
+churned` (`docs/compile.md`). The code lives in `inference_inputs.cpp`, not
+`inference.cpp`: a first version that restructured `infer()` there made the
+**uninstrumented** W5r 3.9% slower (spread 1%) by code layout alone; moved
+out, the ratio is 1.000.
+
+**W5a findings** (18 156 local input slots, 547 never changed):
+
+| Pass | 1 | 2 | 4 | 8 | 12 | 16 |
+|---|---|---|---|---|---|---|
+| slots changed | 4715 | 4078 | 3574 | 1477 | 439 | 418 |
+| first (none → fact) | 2372 | 1825 | 1350 | 356 | 115 | 29 |
+| integer bound | 0 | 14 | 135 | 171 | 26 | 41 |
+| union member | 0 | 162 | 59 | 24 | 1 | 2 |
+| shape | 0 | 153 | 445 | 389 | 74 | 257 |
+| deeper | 0 | 48 | 254 | 116 | 137 | 63 |
+| function types | 0 | 17 | 17 | 7 | 2 | 2 |
+| term() | 2343 | 1859 | 1314 | 414 | 84 | 24 |
+| fun reads not final | 0 | 59 | 14 | 3 | 1 | 0 |
+
+Slots by changes over the batch: 1×: 11 279, 2×: 4 565, 3×: 1 100, 4×: 342,
+5-8×: 222, 9-16×: 101. W5r: 149 slots, at most 8 changes, settles in pass 11.
+
+1. **Inputs travel one call level per pass.** `first` changes (a slot leaving
+   none) never stop: 29 in pass 16. Components run callees first, so a
+   callee's inputs from this pass's callers are only gathered after the pass;
+   a chain of k local calls needs k passes before its last callee sees any
+   input. Every one of those passes re-walks the whole batch. → new **CONV.7**.
+2. **Nested integer bounds creep by one per pass.** The 10 most changed slots
+   (12-16 changes, still changing in pass 16) are all `integer bound` inside a
+   record or map: `application_master` `#state{}` field `-11..0 → -12..0`,
+   `io_lib_format:count_small/2` map `p := 0..14 → 0..15`; W6 shows the same
+   (`parsers:count_up/2` `[0..14, ...] → [0..15, ...]`). `Lattice::widen`
+   relaxes only the fact's top-level integer family (`lattice.cpp`
+   `Lattice::widen`), never integers inside tuples, maps or lists. → CONV.1
+   must widen nested bounds first.
+3. **Structure keeps moving late:** `shape` and `deeper` stay 60-260 per pass
+   at passes 12-16; union-member growth is over by pass 10.
+4. `fun_reads` that were not final drop to 0-1 after pass 10: a minor cause.
+5. `term()` is the most common change (half the changes of passes 1-4): many
+   inputs go from none straight to term() or reach it. Those slots cannot
+   change again.
 
 ### INS.1 Pass-level counters and incremental potential
 
@@ -378,12 +422,12 @@ with the commit hash. Every CONV and OPTC step reports against it.
 
 1. ~~B.1 script, quiet re-run of W5a and W1~~ (done).
 2. ~~B.0 W5r reduced repro (scratch)~~ (done; owned fixture stays in step 6).
-3. INS.8 input churn, INS.1 incremental potential, INS.9 solve repetition: the
-   data that sizes CONV.1-CONV.4.
+3. ~~INS.8 input churn~~ (done), INS.1 incremental potential, INS.9 solve
+   repetition: the data that sizes CONV.1-CONV.4.
 4. INS.7 sampling profile on W5r and W5a (no code change), plus INS.5 fact
    sizes: the per-walk cost behind CONV.5 and OPTC.*.
 5. B.4 baseline.
-6. CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on W5a, W1 and W6.
+6. CONV.0 → CONV.7 → CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on W5a, W1 and W6.
    Then the owned fixture (B.0).
 7. INS.2-INS.4 and INS.6 as the profile calls for them, then OPTC.* ranked by
    measured share.
