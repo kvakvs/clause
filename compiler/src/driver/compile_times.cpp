@@ -1,6 +1,7 @@
 // Added for the compile phases of --print-stage-times.
 #include "compile_times.hpp"
 #include "../semantic/types/inference_inputs.hpp"
+#include "../semantic/types/inference_profile.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -16,6 +17,8 @@ using semantic::types::InferenceProfile;
 
 // How many of the costliest components are listed.
 constexpr std::size_t SLOWEST = 10;
+// How many of the costliest components show their largest fact. Added for the fact size measurements.
+constexpr std::size_t LARGEST = 3;
 
 // A component as module:function/arity, with the count of its other members when it is recursive.
 std::string component_name(const semantic::Component &component) {
@@ -108,6 +111,33 @@ void print_churn(const Analysis &analysis, const std::string_view subject) {
         print_stage_time("inference churned", slot.name_, {},
                          std::format("{} changes, last {}: {} -> {}", slot.changes_,
                                      CHURN_NAMES.at(static_cast<std::size_t>(slot.last_)), slot.before_, slot.after_));
+    }
+}
+
+// The sizes of the facts after each noted pass, then the largest fact of the costliest components. Added for the
+// fact size measurements of --print-stage-times.
+void print_fact_sizes(const Analysis &analysis, const std::string_view subject) {
+    const auto &profile = analysis.profile;
+    for (std::size_t index = 0; index < profile.fact_sizes_.size(); ++index) {
+        const auto &sizes = profile.fact_sizes_[index];
+        if (sizes.facts_ == 0) {
+            continue;
+        }
+        print_stage_time(std::format("inference facts {}", index + 1), subject, {},
+                         std::format("{} facts, tree size max {} mean {:.1f}, widest union {}; {} at the depth "
+                                     "budget, {} with a full union, {} at the element budget; {} summaries with "
+                                     "the most function types; {} dependent facts",
+                                     sizes.facts_, sizes.size_max_,
+                                     static_cast<double>(sizes.size_sum_) / static_cast<double>(sizes.facts_),
+                                     sizes.union_max_, sizes.at_depth_, sizes.at_members_, sizes.at_elements_,
+                                     sizes.full_types_, sizes.dependents_));
+    }
+    if (!analysis.inferred) {
+        return;
+    }
+    for (const auto &largest : semantic::types::largest_facts(*analysis.inferred, LARGEST)) {
+        print_stage_time("inference largest", component_name(*largest.component_), {},
+                         std::format("tree size {}: {}", largest.size_, largest.text_));
     }
 }
 
@@ -222,6 +252,7 @@ void print_compile_phases(const Analysis &analysis, const std::string_view subje
             print_passes(analysis.profile, subject);
             print_churn(analysis, subject);
             print_clean_changed(analysis.profile);
+            print_fact_sizes(analysis, subject);
             print_slowest(analysis.profile);
             print_recursive(analysis.profile);
         }

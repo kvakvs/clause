@@ -85,6 +85,22 @@ struct InferenceProfile {
         bool reaching_ = false;
     };
 
+    // The facts of summaries and local inputs after a pass: how many, their largest and summed tree sizes (nodes
+    // counted once per path, capped), the widest union, how many reach the depth, union-member and element budgets,
+    // the summaries with the most function types, and the dependent facts. Added for the fact size measurements of
+    // --print-stage-times.
+    struct FactSizes {
+        std::size_t facts_ = 0;
+        std::size_t size_max_ = 0;
+        std::size_t size_sum_ = 0;
+        std::size_t union_max_ = 0;
+        std::size_t at_depth_ = 0;
+        std::size_t at_members_ = 0;
+        std::size_t at_elements_ = 0;
+        std::size_t full_types_ = 0;
+        std::size_t dependents_ = 0;
+    };
+
     // A component that was clean but whose summaries changed, and the pass it first happened in. Added for the
     // incremental-potential measurements of --print-stage-times.
     struct CleanChanged {
@@ -166,5 +182,7 @@ struct InferenceProfile {
     std::vector<CleanChanged> clean_changed_;
     // By component index. Added for the solve repetition measurements of --print-stage-times.
     std::vector<Repetition> repetitions_;
+    // By pass, for the passes noted. Added for the fact size measurements of --print-stage-times.
+    std::vector<FactSizes> fact_sizes_;
 };
 } // namespace clause::semantic::types

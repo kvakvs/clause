@@ -326,18 +326,21 @@ anonymous fun evaluated again at its call). Put these per component in `Cost`,
 and the totals in the pass line. `ubody` folds over `#iletrec{}` defs through
 anonymous funs, so this may be part of its cost.
 
-### INS.5 Fact size statistics
+### INS.5 Fact size statistics (done, `00-finished.md`)
 
-At the end of each pass, walk all `Summary` results, inputs and function types
-and report:
-- the maximum and average fact node count (distinct nodes reachable),
-- the maximum union member count,
-- the number of facts at the depth, member and element limits,
-- how many summaries hit `FUNCTION_TYPES` (32),
-- the size of `dependents`.
+`inference facts N` per noted pass and `inference largest` for the 3 costliest
+components (`docs/compile.md`), from per-node tree size, container depth,
+widest union and element-budget flags filled in one pass over the graph
+(`inference_profile.cpp`). Aligned A/B 1.005 (paired median +0.5%).
 
-For the 3 costliest components, also print their largest fact, truncated to 200
-characters.
+**Findings:** facts are small. W5a pass 16: 152 488 facts, mean tree size 4.0,
+max 4236; 1888 (1.2%) at the depth budget, 442 with a full 8-member union, 249
+at the element budget, 47 summaries at 32 function types, 1808 dependent
+facts. W1 alike (max 10 935). The `ubody` group's largest fact has tree size
+1509 (a union of `#cg_*`/`#b_*` record shapes nested to the depth budget);
+`core_parse` and `erl_eval`'s are under 30. **CONV.5 (harder size caps) has
+little to gain**: per-walk cost comes from interning and constant work per
+join (INS.7), not from fact size.
 
 ### INS.6 Container statistics
 
@@ -345,23 +348,48 @@ Per pass: the size of `Inference::expressions` and the inserts and erases on it,
 the `BindingFacts` built and their `events` sizes, and the `Snapshot`
 comparisons in `next_summary`/`classify`.
 
-### INS.7 Sampling profile of clau (no code change)
+### INS.7 Sampling profile of clau (done, `00-finished.md`)
 
-- **Build:** a dedicated compiler-only tree `build/prof-compiler`
-  (`-DCLAUSE_BUILD_RUNTIME=OFF`, Release, `CMAKE_CXX_FLAGS_RELEASE=/O2 /Ob2
-  /DNDEBUG /Z7`, `/MT`, `CLAUSE_MSVC_ITERATOR_DEBUG_LEVEL=0`). It matches the
-  Release budgets (`NDEBUG`: 8M syntax work) and carries symbols. Do not use
-  `build/debug`: its `NDEBUG` is off, so its budgets are smaller (1M) and its
-  passes differ. Build with at most 24 jobs, and only while the other agent is
-  not building.
-- **Collect:** follow the recipe in memory `profiling-recipe`.
-  `VSDiagnostics start` with `CpuUsageHigh.json`, launching `clau.exe` with the
-  W5r (then W5a) arguments, then `xperf -i ... -symbols -a profile -detail`. Pin
-  to P-cores (`/affinity 5554`).
-- **Report:** the top 30 functions by inclusive and by exclusive time, grouped
-  into intern/map, lattice ops, bindings and walk, containers and allocation.
-- **Allocation counts:** a temporary global `operator new` counter TU, never
-  committed, built only into `build/prof-compiler`.
+`build/prof-compiler`: compiler-only Release, `/O2 /Ob2 /DNDEBUG /Z7`,
+`/MT`, iterator debug 0, linker `/DEBUG /INCREMENTAL:NO /OPT:REF /OPT:ICF`
+(without `/DEBUG` there is no PDB). Collected with `VSDiagnostics start
+/launch` (CpuUsageHigh, 4 kHz; a 500 Hz copy for W5a), processed with `xperf -i
+... -a profile -detail` (exclusive) and `-a stack -butterfly` (inclusive,
+callers). Scratch scripts: `prof-build.cmd`, `prof-run.cmd`,
+`xperf-profile.cmd`, `butterfly.py`. **The collector keeps only about the
+first 25-30 s of a run**, so W5a covered ≈ 13 s of inference; its shares match
+W5r.
+
+**W5r exclusive time by group:** intern and node map 52% (`Graph::intern`
+25%, `Node::operator<=>` 18%, `memcmp` 6%, `Graph::get` 4%), allocation 17%
+(`malloc`/`free` 13%), lattice ops 21% (`fact_of` 4%, `family_rank` 3.5%,
+`nesting` 2.5%, `Meet::*`, `Lattice::*`), `std::set<std::string>` of atoms
+and integers in `Families` 6%, the inference walk itself under 1%.
+
+**Inclusive (W5r, share of clau):**
+
+| Function | Share | Note |
+|---|---|---|
+| `Lattice::join` | 95% | nearly all work is joins |
+| `fact_of` | 91% | |
+| `Graph::intern` | 51% | 48% of it from `Lattice::range`, 34% from `Lattice::improper`, 9% `Lattice::tuple` |
+| `Gather::Gather` | **38%** | **constructor interns two constants per join** |
+| `Lattice::within` | 39% | `fact_of` → `Meet::contained` → `Meet::within` |
+| `Meet::same_atoms` | 30% | a full meet + `Lattice::join` to test atom inclusion |
+
+1. **`Gather`'s constructor** (`lattice.cpp`) computes `characters_ =
+   lattice.range({"0", CHAR_LIMIT})` and `any_improper_ =
+   lattice.improper(top, top)` for every `Gather`, i.e. every join: two
+   `Node` constructions (strings, vectors), two map lookups and frees, each
+   time yielding the same two Ids. ≈ 38% of W5r and ≈ 30% of sampled W5a
+   inference. → **OPTC.A**.
+2. **`Meet::same_atoms`** decides atom inclusion by building the meet (atom
+   facts, `Lattice::join`, `Gather`) and comparing Ids. → OPTC.A2.
+3. Every `intern` builds a `Node` by value even on a hit, and the identity map
+   compares nodes field by field with strings: `intern` ≈ 50% after OPTC.A is
+   still the next target (OPTC.C, OPTC.B).
+4. `Gather::add` copies each `Node` (`const auto node = graph_.get(fact)`),
+   part of the allocation share.
 
 ### BUG.1 Intermittent clau crash (side finding, investigate)
 
@@ -494,10 +522,10 @@ the commit hash. Every CONV and OPTC step reports against it.
 2. ~~B.0 W5r reduced repro (scratch)~~ (done; owned fixture stays in step 6).
 3. ~~INS.8 input churn, INS.1 incremental potential, INS.9 solve repetition~~
    (done): the data that sizes CONV.1-CONV.4.
-4. INS.7 sampling profile on W5r and W5a (no code change), plus INS.5 fact
-   sizes: the per-walk cost behind CONV.5 and OPTC.*.
+4. ~~INS.7 sampling profile on W5r and W5a, INS.5 fact sizes~~ (done).
 5. B.4 baseline.
-6. CONV.0 → CONV.7 → CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on
+6. OPTC.A → OPTC.A2 → OPTC.A3 (measured 38% and 30% of W5r, small and pure),
+   then CONV.0 → CONV.7 → CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on
    W5a, W1 and W6. Then the owned fixture (B.0).
 7. INS.2-INS.4 and INS.6 as the profile calls for them, then OPTC.* ranked by
    measured share.
@@ -506,6 +534,17 @@ the commit hash. Every CONV and OPTC step reports against it.
 ## Per-walk cost optimizations (OPTC.*, rank after measurement)
 
 Not started. Each comes with the hypothesis that would justify it.
+
+- **OPTC.A Gather constants (measured, do first):** `Gather::Gather` interns
+  `range(0..CHAR_LIMIT)` and `improper(term(), term())` on every join; 38% of
+  W5r (INS.7). Intern them once per `Graph` (or cache their Ids lazily) so a
+  `Gather` only copies two Ids. Pure performance: counters and `--print-types`
+  unchanged. Expected W5r ≈ 1.5×.
+- **OPTC.A2 Atom inclusion without a meet:** `Meet::same_atoms` builds the atom
+  meet (atom facts and a join) to compare Ids; compare the atom name sets
+  directly. 30% of W5r inclusive, much of it the OPTC.A constants.
+- **OPTC.A3 No node copies in `Gather::add`:** read the node by reference where
+  no interning can happen in between, else copy only its children.
 
 - **OPTC.B Lattice memo:** many repeated `(op, a, b)` pairs (INS.2). A per-graph
   cache for `join` (2-member), `meet`, `within` and `truncate`, keyed by Ids.
