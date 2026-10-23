@@ -9,6 +9,7 @@
 #include <set>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 
 // Joins and widening of facts (docs/semantic.md#inference-domain): the members of the joined facts are sorted into
 // families (atoms, numbers, identifiers, funs, tuples, maps, lists, bitstrings), each family is rebuilt by its rule
@@ -341,40 +342,47 @@ std::map<std::string_view, Gather::Rule> Gather::rules() {
 
 // The rank of a fact's family in Erlang term order: number < atom < reference < fun < port < pid < tuple < map
 // < nil < list < bitstring, then facts of no family.
+// The family rank of a node of a kind other than a named category, by kind (the empty list ranks 8). Changed to a
+// table for faster family lookups (OPTC.C).
+int kind_rank(const Node &node) {
+    // In the order of Kind: top, bottom, atom, integer, variable, range, application, tuple, list, map, record,
+    // bitstring, function, unary, binary, annotation, union_type, reference, positional.
+    static constexpr std::array<int, 19> RANKS{11, 11, 1, 0, 11, 0, 11, 6, 9, 7, 11, 10, 3, 11, 11, 11, 11, 11, 9};
+    const auto rank = RANKS.at(static_cast<std::size_t>(node.kind));
+    return node.kind == Kind::list && node.children.empty() ? 8 : rank;
+}
+
 int family_rank(const Node &node) {
-    static const std::map<std::string_view, int> CATEGORIES{{"integer", 0},
-                                                            {"non_neg_integer", 0},
-                                                            {"pos_integer", 0},
-                                                            {"neg_integer", 0},
-                                                            {"float", 0},
-                                                            {"number", 0},
-                                                            {"atom", 1},
-                                                            {"boolean", 1},
-                                                            {"reference", 2},
-                                                            {"fun", 3},
-                                                            {"port", 4},
-                                                            {"pid", 5},
-                                                            {"tuple", 6},
-                                                            {"map", 7},
-                                                            {"list", 9},
-                                                            {"string", 9},
-                                                            {"nonempty_string", 9},
-                                                            {"nonempty_improper_list", 9},
-                                                            {"maybe_improper_list", 9},
-                                                            {"nonempty_maybe_improper_list", 9},
-                                                            {"binary", 10},
-                                                            {"bitstring", 10},
-                                                            {"nonempty_binary", 10},
-                                                            {"nonempty_bitstring", 10}};
-    static const std::map<Kind, int> KINDS{{Kind::integer, 0},  {Kind::range, 0},      {Kind::atom, 1},
-                                           {Kind::function, 3}, {Kind::tuple, 6},      {Kind::map, 7},
-                                           {Kind::list, 9},     {Kind::bitstring, 10}, {Kind::positional, 9}};
+    // Hashed, as every meet and join asks (changed for faster family lookups, OPTC.C).
+    static const std::unordered_map<std::string_view, int> CATEGORIES{{"integer", 0},
+                                                                      {"non_neg_integer", 0},
+                                                                      {"pos_integer", 0},
+                                                                      {"neg_integer", 0},
+                                                                      {"float", 0},
+                                                                      {"number", 0},
+                                                                      {"atom", 1},
+                                                                      {"boolean", 1},
+                                                                      {"reference", 2},
+                                                                      {"fun", 3},
+                                                                      {"port", 4},
+                                                                      {"pid", 5},
+                                                                      {"tuple", 6},
+                                                                      {"map", 7},
+                                                                      {"list", 9},
+                                                                      {"string", 9},
+                                                                      {"nonempty_string", 9},
+                                                                      {"nonempty_improper_list", 9},
+                                                                      {"maybe_improper_list", 9},
+                                                                      {"nonempty_maybe_improper_list", 9},
+                                                                      {"binary", 10},
+                                                                      {"bitstring", 10},
+                                                                      {"nonempty_binary", 10},
+                                                                      {"nonempty_bitstring", 10}};
     if (node.kind == Kind::application) {
         const auto found = CATEGORIES.find(node.name);
         return found == CATEGORIES.end() ? 11 : found->second;
     }
-    const auto found = KINDS.find(node.kind);
-    return found == KINDS.end() ? 11 : (node.kind == Kind::list && node.children.empty() ? 8 : found->second);
+    return kind_rank(node);
 }
 
 bool term_less(const Graph &graph, Id left, Id right);
@@ -798,8 +806,8 @@ std::size_t nesting(const Graph &graph, Id fact, std::size_t limit) {
         return 0;
     }
     std::size_t inner = 0;
-    const auto children = node.children;
-    for (const auto child : children) {
+    // Read in place: nothing interns while nesting walks (changed for fewer allocations, OPTC.C).
+    for (const auto child : node.children) {
         inner = std::max(inner, nesting(graph, child, limit - 1));
     }
     return (container ? 1 : 0) + inner;

@@ -572,6 +572,11 @@ Not started. Each comes with the hypothesis that would justify it.
   inline `Graph::get`. Re-profile at f37bb441 had shown `intern` 12.5%,
   `Node::operator<=>` 11.7%, `Graph::get` 7.1% (out of line), malloc/free 15%,
   `family_rank` 6%, `memcmp` 5.7% exclusive.
+- **OPTC.C part 2 (done; W5r 0.796, W5a 0.922):** `family_rank` by a kind
+  table and a hashed category map (was 9.7% exclusive), `nesting` reads
+  children in place, `Meet::same_atoms` compares atom names in place (no
+  `std::set<std::string>`). Profile before it (at fafd6d79): malloc/free 22%,
+  `family_rank` 9.7%, `fact_of` 7.6%, `nesting` 5.3%, `NodeHash` 4.9%.
 - **OPTC.C Interning (rest):** the profile shows `std::map<Node>` compares and
   allocation. A hash table with a precomputed `Node` hash, or a compact node
   (atoms and integers as interned ids or small values, not `std::string`), and

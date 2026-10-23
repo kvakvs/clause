@@ -1,8 +1,10 @@
 #include "decimal.hpp"
 #include "lattice.hpp"
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <set>
+#include <span>
 
 // Narrowing of facts (docs/semantic.md#inference-domain): the meet of two facts is computed member by member; two
 // members of different families share no value, and within a family each kind of fact keeps what both hold. The
@@ -85,12 +87,23 @@ class Meet final {
         if (inner == outer) {
             return true;
         }
-        const auto a = atom_names(inner);
-        const auto b = atom_names(outer);
+        const auto a = atom_views(inner);
+        const auto b = atom_views(outer);
         if (!a || !b) {
             return a.has_value();
         }
         return std::ranges::includes(*b, *a);
+    }
+
+    // The sorted atom names of an atom or boolean() fact, read in place; none for any other atom fact. Added for
+    // fewer allocations (OPTC.C).
+    std::optional<std::span<const std::string>> atom_views(Id fact) const {
+        static const std::array<std::string, 2> BOOLEANS{"false", "true"};
+        const auto &node = graph_.get(fact);
+        if (node.kind == Kind::atom) {
+            return std::span(&node.name, 1);
+        }
+        return node.name == "boolean" ? std::optional{std::span<const std::string>(BOOLEANS)} : std::nullopt;
     }
 
     bool any_fun(Id, Id outer) { return any(outer, "fun"); }
