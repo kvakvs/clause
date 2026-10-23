@@ -852,7 +852,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 
 Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
 
-- **B.1** `benchmarks/compile_times.py`: runs a compile workload (W1-W4, W6
+- **B.1** (082dc057) `benchmarks/compile_times.py`: runs a compile workload (W1-W4, W6
   built in; scratch W5a/W5r after `--`) pinned to P-cores with `--no-cache
   --print-stage-times`, 1 warm-up + 5 (3) timed runs, median/min/spread per
   phase and pass, slowest components with rounds, counter and stdout agreement;
