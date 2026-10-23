@@ -104,8 +104,11 @@ gotchas and user directions not recorded elsewhere.
 
 - Plan 22 (2026-10-23): compiler timing = `benchmarks/compile_times.py` (W5r
   scratch repro for a 11 s loop). Editing `semantic/types/inference.cpp` (holds
-  the hot body walk) moved uninstrumented W5r 3.9% by code layout alone: put
-  instrumentation in other TUs and A/B with `--no-stage-times --baseline`.
+  the hot body walk) moved uninstrumented W5r 3.9% by code layout alone, and so
+  did code added to other inference TUs (2-4%). Tell layout from code with
+  both builds aligned: local `target_compile_options(clause_semantic PRIVATE
+  -mllvm -align-all-functions=6)`. Counters in `Graph::intern` (~40M calls per
+  W5a pass) are layout-costly: keep them temporary.
 
 ## Quality (tidy/Lizard)
 - clang-tidy may crash (0xC0000005/0xC0000409) or exit 1 silently with 2 jobs:

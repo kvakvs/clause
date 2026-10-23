@@ -98,6 +98,9 @@ class Graph {
     // How often exhaustion widened to top, so callers can tell which work caused it. Added for plan step 41K1.
     std::size_t widenings() const { return widenings_; }
 
+    // The nodes interned so far. Added for --print-stage-times.
+    std::size_t size() const { return nodes_.size(); }
+
     const Limits &limits() const { return limits_; }
 
   private:

@@ -1,5 +1,6 @@
 #include "inference_inputs.hpp"
 #include "inference_funs.hpp"
+#include "inference_profile.hpp"
 #include "lattice.hpp"
 #include "printing.hpp"
 #include <algorithm>
@@ -244,6 +245,8 @@ bool gather_inputs(Inference &inference, const CallGraph &calls, const bool wide
     if (!inference.profile) {
         return gather_all(inference, calls, widening);
     }
+    // Added for the incremental-potential measurements of --print-stage-times: before the inputs change.
+    note_pass(inference, calls);
     // Added for the input churn measurements of --print-stage-times.
     const auto started = std::chrono::steady_clock::now();
     const bool changed = gather_all(inference, calls, widening);

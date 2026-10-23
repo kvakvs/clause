@@ -226,19 +226,45 @@ Slots by changes over the batch: 1×: 11 279, 2×: 4 565, 3×: 1 100, 4×: 342,
    inputs go from none straight to term() or reach it. Those slots cannot
    change again.
 
-### INS.1 Pass-level counters and incremental potential
+### INS.1 Pass counters and incremental potential (done, `00-finished.md`)
 
-For each pass, add to `[time] inference pass N`:
-- Graph nodes at the end of the pass and the nodes the pass created
-  (`Graph::nodes_.size()` delta), `intern` calls and hits, and `exhausted()`
-  widenings.
-- **Incremental potential (CONV.2):** components whose inputs, read callee
-  summaries and fun reads all equal the previous pass's ("clean"), how many of
-  those still produced a different summary (that must be 0), and the time and
-  work spent on clean components.
-  - Fingerprint each component cheaply: its input Ids and its read callees'
-    `Snapshot`s. The Ids are stable because the graph is append-only. Build it
-    from the 58R `reads` set.
+`; graph: ...; clean: ...` on each `inference pass N` and `inference
+clean-changed` lines (`docs/compile.md`), from `inference_profile.cpp`, which
+`gather_inputs` calls before gathering. Fingerprints are exact (every summary
+as numbers); a component is clean when its members' local inputs and its
+direct callees' summaries (static `calls.calls`, not the 58R reads) equal the
+previous pass's. `intern` calls and hits were measured once with temporary
+counters in `Graph::intern` and not committed: the counters alone moved W5r by
+3.8% (layout, see B.2).
+
+**Findings (W5a; W1 alike):**
+
+| Pass | 2 | 4 | 8 | 11 | 13 | 16 |
+|---|---|---|---|---|---|---|
+| graph nodes (+created) | 44.3k (+6.5k) | 55.9k (+5.4k) | 68.7k (+2.6k) | 73.0k (+1.4k) | 74.2k (+463) | 75.1k (+279) |
+| `intern` calls (temporary) | 6.5M | 20.1M | 32.5M | 35.7M | 38.8M | 43.5M |
+| clean components of 8911 | 4521 | 6369 | 7855 | 8284 | 8608 | 8763 |
+| time on clean ones | 15% | 13% | 26% | 41% | 71% | 51% |
+| clean but changed | 1 | 30 | 4 | 1 | 1 | 0 |
+
+1. **`intern` is called ~20 times per work step** and almost always finds an
+   existing node (≥ 99.9% hits from pass 2; W5r: 11.8M calls per pass on
+   5k nodes). Every hit is a `std::map<Node>` lookup comparing strings and
+   child vectors. → OPTC.B/OPTC.C move up; INS.7 should confirm the share.
+2. **CONV.2 potential ≈ one third of W5a**: clean components took ≈ 31.5 s of
+   the ≈ 94 s of passes 2-16, rising to half of each late pass. W5r gains
+   nothing (197 of 199 clean, 6% of the time: the `ubody` group is dirty in
+   every pass).
+3. **Clean is not yet safe:** 0-30 clean components per pass still changed
+   (W5a: `compile:binary_passes/0` 3 times, `v3_core:map_sort_key/2`,
+   `rand:handler/1`, ...; W1: `luerl_comp:chunk_passes/0` 6 times and `cerl`
+   constructors in pass 2). They depend on something besides local inputs and
+   direct callees: fun F/A values (`*_passes/0` return lists of funs),
+   re-analysis of callees' bodies, `apply` to exported functions. CONV.2 must
+   fingerprint the dynamic reads (58R `reads` for every walk, `fun_reads`,
+   re-analysis) and re-measure until clean-changed is 0.
+4. The graph grows little after pass 8 (≤ 2.6k nodes per pass) and widens 3
+   times in total: the late passes re-derive existing facts.
 
 ### INS.9 Solve repetition (for CONV.3 and CONV.4)
 
@@ -309,6 +335,15 @@ comparisons in `next_summary`/`classify`.
   into intern/map, lattice ops, bindings and walk, containers and allocation.
 - **Allocation counts:** a temporary global `operator new` counter TU, never
   committed, built only into `build/prof-compiler`.
+
+### BUG.1 Intermittent clau crash (side finding, investigate)
+
+`clau-base.exe` (Release, ab635294) exited with 0xC0000005 once in about 100
+W5r `--print-types --no-cache` runs, during an A/B; 4 immediate reruns were
+clean. Suspect a `const Node &` from `Graph::get` held across `Graph::intern`
+(the node vector reallocates; `domain.hpp` warns about it). Check with a Debug
+or ASan `clau` looping over W5r, and review `get` uses that intern while holding
+the reference.
 
 ### LIV.1 Liveness blocked by host `file.erl` (side finding, investigate only)
 
@@ -387,6 +422,15 @@ the baseline copy next to a `clau.exe` in `build/*/bin`).
 - Machine quiet (see B.1). P-core affinity. AC power. The same `clau` build
   flavor (Release from `build/bench`, or `make-benchmark.bat --baseline <rev>`
   output).
+- **Code layout moves `clau` by ±4%.** Adding unrelated code to an inference
+  translation unit (or changing what `inference.cpp` instantiates) shifted the
+  uninstrumented W5r by 2-4% with no change on the hot path; the same INS.1
+  change measured 1.001-1.010 when both builds aligned every function of
+  `clause_semantic` to 64 bytes (`target_compile_options(clause_semantic
+  PRIVATE -mllvm -align-all-functions=6)`, local only; the alignment itself
+  costs 3.7%). For pure performance and instrumentation steps, an unaligned
+  gap under 5% is checked with aligned builds of both sides before it counts.
+  A null A/B (one build against a copy of itself) measured 0.999.
 - **The deterministic counters are the primary A/B metrics:** work steps per
   pass, pass count, rounds, member walks, graph nodes and lattice ops. A pure
   performance step must leave them unchanged. A convergence step reports them
@@ -422,7 +466,7 @@ with the commit hash. Every CONV and OPTC step reports against it.
 
 1. ~~B.1 script, quiet re-run of W5a and W1~~ (done).
 2. ~~B.0 W5r reduced repro (scratch)~~ (done; owned fixture stays in step 6).
-3. ~~INS.8 input churn~~ (done), INS.1 incremental potential, INS.9 solve
+3. ~~INS.8 input churn, INS.1 incremental potential~~ (done), INS.9 solve
    repetition: the data that sizes CONV.1-CONV.4.
 4. INS.7 sampling profile on W5r and W5a (no code change), plus INS.5 fact
    sizes: the per-walk cost behind CONV.5 and OPTC.*.
@@ -431,7 +475,7 @@ with the commit hash. Every CONV and OPTC step reports against it.
    Then the owned fixture (B.0).
 7. INS.2-INS.4 and INS.6 as the profile calls for them, then OPTC.* ranked by
    measured share.
-8. LIV.1 investigation, whenever convenient.
+8. LIV.1 investigation and BUG.1, whenever convenient.
 
 ## Per-walk cost optimizations (OPTC.*, rank after measurement)
 

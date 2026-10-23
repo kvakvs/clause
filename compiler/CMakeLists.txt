@@ -119,6 +119,7 @@ add_library(clause_semantic STATIC
     src/semantic/types/inference_containers.cpp
     src/semantic/types/inference_funs.cpp
     src/semantic/types/inference_inputs.cpp
+    src/semantic/types/inference_profile.cpp
     src/semantic/types/inference_narrowing.cpp src/semantic/types/inference_scopes.cpp
     src/semantic/types/meet.cpp src/semantic/types/inference_uses.cpp src/semantic/types/function_types.cpp
     src/semantic/types/dependent.cpp

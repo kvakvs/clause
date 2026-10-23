@@ -32,6 +32,26 @@ struct InferenceProfile {
         Duration elapsed_{};
     };
 
+    // The graph after a pass and what could have kept the previous pass's results, noted before the pass's inputs
+    // are gathered. Added for the incremental-potential measurements of --print-stage-times.
+    struct Incremental {
+        bool noted_ = false;
+        // Graph nodes after the pass, and nodes created and widenings to term() since the previous note.
+        std::size_t nodes_ = 0;
+        std::size_t created_ = 0;
+        std::size_t widenings_ = 0;
+        // Components, those whose member inputs or read callee summaries differ from the previous pass's (some
+        // differ in both), the clean rest, the clean ones whose summaries still changed, and the time and work spent
+        // on the clean ones.
+        std::size_t components_ = 0;
+        std::size_t inputs_differ_ = 0;
+        std::size_t callees_differ_ = 0;
+        std::size_t clean_ = 0;
+        std::size_t clean_changed_ = 0;
+        Duration clean_elapsed_{};
+        std::size_t clean_work_ = 0;
+    };
+
     struct Pass {
         // The pass's time and work steps, how it ended, and the component running when the work budget ran out.
         Duration elapsed_{};
@@ -40,6 +60,27 @@ struct InferenceProfile {
         const Component *exhausted_at_ = nullptr;
         // Added for the input churn measurements of --print-stage-times.
         InputChurn churn_;
+    };
+
+    // What the previous note saw, to compare the next pass against: graph counters, every summary as an exact
+    // fingerprint, the local inputs, each component's time and work so far, and each component's callees outside it
+    // (built at the first note). Added for the incremental-potential measurements of --print-stage-times.
+    struct PassMemory {
+        std::size_t nodes_ = 0;
+        std::size_t widenings_ = 0;
+        std::map<const Function *, std::vector<std::size_t>> summaries_;
+        std::map<const Function *, std::vector<Id>> inputs_;
+        std::vector<Duration> elapsed_;
+        std::vector<std::size_t> work_;
+        std::vector<std::vector<const Function *>> callees_;
+    };
+
+    // A component that was clean but whose summaries changed, and the pass it first happened in. Added for the
+    // incremental-potential measurements of --print-stage-times.
+    struct CleanChanged {
+        const Component *component_ = nullptr;
+        std::size_t pass_ = 0;
+        std::size_t times_ = 0;
     };
 
     // One local input slot over the batch: its changes, the kind of the last one and its facts around it, printed
@@ -106,5 +147,12 @@ struct InferenceProfile {
     // for the input churn measurements of --print-stage-times.
     std::map<std::pair<const Function *, std::size_t>, Slot> slots_;
     std::size_t slots_total_ = 0;
+
+    // Each pass's incremental potential, by pass (outside Pass: growing Pass changes the code the hot inference
+    // walk's translation unit instantiates, which alone moved its speed by 2-3%). Added for the incremental-potential
+    // measurements of --print-stage-times.
+    std::vector<Incremental> incremental_;
+    PassMemory memory_;
+    std::vector<CleanChanged> clean_changed_;
 };
 } // namespace clause::semantic::types

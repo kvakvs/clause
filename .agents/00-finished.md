@@ -876,6 +876,17 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `compile_times.py` gained `--no-stage-times` and splits the pass outcome from
   the churn note.
 
+- **INS.1** pass counters and incremental potential: `; graph: N nodes (+M),
+  W widenings; clean: C of K components (...), X changed, T ms (P% of pass)`
+  per pass and `inference clean-changed` lines, from exact summary fingerprints
+  compared between passes (`semantic/types/inference_profile.cpp`). W5a: clean
+  components take 15% → 71% of late passes (≈31.5 s of ≈94 s), but 0-30 per
+  pass change anyway (fun F/A, re-analysis), so CONV.2 needs dynamic reads.
+  Temporary `intern` counters: up to 43.5M calls per pass at ≥99.9% hits on a
+  75k-node graph (OPTC.B/C). Uninstrumented A/B 1.02-1.04 unaligned but
+  1.001-1.010 with 64-byte function alignment on both sides: layout, recorded
+  in plan 22 B.2. `--print-types` identical on W5a, W1, W6, W5r.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found

@@ -3,6 +3,7 @@
 #include "../semantic/types/inference_inputs.hpp"
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <clause/compiler/source.hpp>
 #include <cstdint>
 #include <format>
@@ -47,6 +48,19 @@ std::string churn_note(const InferenceProfile::InputChurn &churn) {
     return text + std::format(", {} fun reads not final", churn.open_fun_reads_);
 }
 
+// The graph's growth during a pass, and the components that could have kept the previous pass's results, with
+// what they cost. Added for the incremental-potential measurements of --print-stage-times.
+std::string incremental_note(const InferenceProfile::Pass &pass, const InferenceProfile::Incremental &noted) {
+    const std::chrono::duration<double, std::milli> clean = noted.clean_elapsed_;
+    const std::chrono::duration<double, std::milli> elapsed = pass.elapsed_;
+    const auto share = elapsed.count() == 0 ? 0.0 : 100.0 * clean.count() / elapsed.count();
+    return std::format("; graph: {} nodes (+{}), {} widenings; clean: {} of {} components "
+                       "({} inputs differ, {} callees differ), {} changed, {:.3f} ms ({:.1f}% of pass), {} work steps",
+                       noted.nodes_, noted.created_, noted.widenings_, noted.clean_, noted.components_,
+                       noted.inputs_differ_, noted.callees_differ_, noted.clean_changed_, clean.count(), share,
+                       noted.clean_work_);
+}
+
 // One line per inference pass: its time, work steps, how it ended and how it changed local inputs.
 void print_passes(const InferenceProfile &profile, const std::string_view subject) {
     for (std::size_t index = 0; index < profile.passes_.size(); ++index) {
@@ -58,6 +72,9 @@ void print_passes(const InferenceProfile &profile, const std::string_view subjec
         // The forced last pass gathers no inputs.
         if (pass.churn_.gathered_) {
             note += churn_note(pass.churn_);
+        }
+        if (index < profile.incremental_.size() && profile.incremental_[index].noted_) {
+            note += incremental_note(pass, profile.incremental_[index]);
         }
         print_stage_time(std::format("inference pass {}", index + 1), subject, pass.elapsed_, note);
     }
@@ -91,6 +108,17 @@ void print_churn(const Analysis &analysis, const std::string_view subject) {
         print_stage_time("inference churned", slot.name_, {},
                          std::format("{} changes, last {}: {} -> {}", slot.changes_,
                                      CHURN_NAMES.at(static_cast<std::size_t>(slot.last_)), slot.before_, slot.after_));
+    }
+}
+
+// Components whose inputs and callee summaries were unchanged but whose summaries changed all the same, with the
+// pass that first saw it. Added for the incremental-potential measurements of --print-stage-times.
+void print_clean_changed(const InferenceProfile &profile) {
+    for (const auto &entry :
+         std::span(profile.clean_changed_).first(std::min(SLOWEST, profile.clean_changed_.size()))) {
+        print_stage_time(
+            "inference clean-changed", component_name(*entry.component_), {},
+            std::format("first in pass {}, {} {}", entry.pass_, entry.times_, entry.times_ == 1 ? "pass" : "passes"));
     }
 }
 
@@ -179,6 +207,7 @@ void print_compile_phases(const Analysis &analysis, const std::string_view subje
         if (phase == "inference") {
             print_passes(analysis.profile, subject);
             print_churn(analysis, subject);
+            print_clean_changed(analysis.profile);
             print_slowest(analysis.profile);
             print_recursive(analysis.profile);
         }
