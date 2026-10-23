@@ -545,6 +545,11 @@ fixed; it is outside `semantic/types/`.
 
 ## Per-walk cost optimizations (OPTC.*, rank after measurement)
 
+**After OPTC.A-A3 (f37bb441), against B.4:** inference W5r 11.97 → 5.6 s
+(2.1×), W5a 96.2 → 50.8 s (1.89×); the `ubody_used_vars` group 27.2 → 10.7 s.
+Pass counts and work steps unchanged. Re-profile (INS.7 recipe) before the
+next OPTC step: interning should still lead.
+
 Not started. Each comes with the hypothesis that would justify it.
 
 - **OPTC.A Gather constants (done, `00-finished.md`; W5r 1.71×, W5a 1.73×):** `Gather::Gather` interns
@@ -552,10 +557,10 @@ Not started. Each comes with the hypothesis that would justify it.
   W5r (INS.7). Intern them once per `Graph` (or cache their Ids lazily) so a
   `Gather` only copies two Ids. Pure performance: counters and `--print-types`
   unchanged. Expected W5r ≈ 1.5×.
-- **OPTC.A2 Atom inclusion without a meet (done, timing pending a quiet machine):** `Meet::same_atoms` builds the atom
+- **OPTC.A2 Atom inclusion without a meet (done; W5r 0.817):** `Meet::same_atoms` builds the atom
   meet (atom facts and a join) to compare Ids; compare the atom name sets
   directly. 30% of W5r inclusive, much of it the OPTC.A constants.
-- **OPTC.A3 No node copies in `Gather::add` (done):** read the node by reference where
+- **OPTC.A3 No node copies in `Gather::add` (done; W5r 0.976, A2+A3 on W5a 0.897):** read the node by reference where
   no interning can happen in between, else copy only its children.
 
 - **OPTC.B Lattice memo:** many repeated `(op, a, b)` pairs (INS.2). A per-graph

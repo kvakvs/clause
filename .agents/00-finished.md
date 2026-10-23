@@ -917,14 +917,15 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   Inference: W5r 11.88 → 6.94 s, W5a 95.8 → 55.2 s, W1 114.7 → 66.7 s, W6
   0.43 → 0.29 s.
 
-- **OPTC.A2** atom inclusion without a meet: `Meet::same_atoms` checks the atom
+- **OPTC.A2** (936a3852) atom inclusion without a meet: `Meet::same_atoms` checks the atom
   name sets directly instead of joining their meet. W5r pass counters (graph
-  nodes included) and `--print-types` of W5r, W5a, W1, W6 unchanged. Timing
-  pending: machine busy.
+  nodes included) and `--print-types` of W5r, W5a, W1, W6 unchanged. W5r
+  inference 0.817 of OPTC.A.
 
-- **OPTC.A3** no node copies in `Gather::add`: the node is read in place and a
+- **OPTC.A3** (f37bb441) no node copies in `Gather::add`: the node is read in place and a
   union's members by index (only `plain()` interns). `--print-types` of W5r,
-  W5a, W1, W6 unchanged.
+  W5a, W1, W6 unchanged. W5r 0.976 of A2; A2+A3 on W5a 56.6 → 50.8 s (1.89×
+  against B.4 overall).
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
