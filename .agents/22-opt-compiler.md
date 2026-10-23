@@ -552,7 +552,7 @@ Not started. Each comes with the hypothesis that would justify it.
   W5r (INS.7). Intern them once per `Graph` (or cache their Ids lazily) so a
   `Gather` only copies two Ids. Pure performance: counters and `--print-types`
   unchanged. Expected W5r ≈ 1.5×.
-- **OPTC.A2 Atom inclusion without a meet:** `Meet::same_atoms` builds the atom
+- **OPTC.A2 Atom inclusion without a meet (done, timing pending a quiet machine):** `Meet::same_atoms` builds the atom
   meet (atom facts and a join) to compare Ids; compare the atom name sets
   directly. 30% of W5r inclusive, much of it the OPTC.A constants.
 - **OPTC.A3 No node copies in `Gather::add`:** read the node by reference where

@@ -79,7 +79,19 @@ class Meet final {
     // `within` by family: numbers and atoms that meet as themselves, any fun, tuple, map or list, nested sizes.
     bool same_meet(Id inner, Id outer) { return numbers(inner, outer) == inner; }
 
-    bool same_atoms(Id inner, Id outer) { return atoms(inner, outer) == inner; }
+    // Whether the atoms of `inner` are atoms of `outer`, without building their meet. Added for the atom inclusion
+    // without a meet (OPTC.A2).
+    bool same_atoms(Id inner, Id outer) {
+        if (inner == outer) {
+            return true;
+        }
+        const auto a = atom_names(inner);
+        const auto b = atom_names(outer);
+        if (!a || !b) {
+            return a.has_value();
+        }
+        return std::ranges::includes(*b, *a);
+    }
 
     bool any_fun(Id, Id outer) { return any(outer, "fun"); }
 
