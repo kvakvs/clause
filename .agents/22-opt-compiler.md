@@ -301,6 +301,28 @@ without an entry still see the whole batch.
   and give it a 0-arity entry. Aim for the group to cost 1-5 s under the
   current `clau`, with the same round pattern (5-13 rounds per solve, growing
   facts).
+  - **Built 2026-10-23** (`<scratch>/w5r/w5r.erl` + `w5r.toml` with only
+    `sources = ["w5r.erl"]`; recreate from this description). The second pass
+    (`ubody_used_vars` … `pat_list_vars`, `make_fun`, `set_unused`,
+    `get_free`/`store_free`, `internal_returns`, …) and `pre_seq`,
+    `force_atomic`/`force_variable`, `new_var*`, `new_fun_name`, `make_vars`
+    are copied verbatim. The first pass is a stub `gen_body`/`gen_expr`/
+    `gen_match`/`gen_pat`/`gen_defs` that turns tagged tuples into every
+    kernel record the second pass matches. `make_ssa_function` is a stub
+    returning a one-block `#b_function{}`. `#kern{}` keeps all 11 fields
+    (`ds = []`: the library has no `sets`). Exported `module(Term)` runs
+    `gen_body` then `ubody(B, return, St)`, so the input is `term()`;
+    `main/0` feeds it `binary_to_term` of an env var.
+  - **Result** (`compile_times.py --label W5r -- --project
+    <scratch>/w5r/w5r.toml --print-types`, 5 runs, HEAD 6dc21c42): inference
+    **11.39 s** (spread 0.7%), 11 passes, then **settles** (W5a never does: its
+    inputs keep changing from callers W5r does not have). `ubody_used_vars` +
+    6 takes 10.47 s: 11 solves, 120 rounds (cap 36), 658 member walks (182
+    skipped), last solve 13 rounds, **≈22 ms per walk** (W5a ≈25). Passes 6-11
+    cost 1.5 s each at an identical 57 336 work steps. Above the 1-5 s aim, but
+    kept: 9× faster than W5a with the same per-walk cost, and long enough to
+    profile (INS.7). Use it for CONV.3-5 and the per-walk work, W5a for
+    CONV.1/CONV.2 (input churn).
 - **Owned fixture (committed):** a Clause-written module that reproduces the
   shape without OTP code: a state record of more than 16 fields threaded through
   mutually recursive walkers, results that are unions of many record shapes, and
@@ -355,7 +377,7 @@ with the commit hash. Every CONV and OPTC step reports against it.
 ## Order
 
 1. ~~B.1 script, quiet re-run of W5a and W1~~ (done).
-2. B.0 W5r reduced repro (scratch).
+2. ~~B.0 W5r reduced repro (scratch)~~ (done; owned fixture stays in step 6).
 3. INS.8 input churn, INS.1 incremental potential, INS.9 solve repetition: the
    data that sizes CONV.1-CONV.4.
 4. INS.7 sampling profile on W5r and W5a (no code change), plus INS.5 fact
