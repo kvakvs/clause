@@ -53,6 +53,8 @@ PASS = re.compile(r"^(\d+) (.*)$")
 # Work steps, budget, outcome, then what gathering inputs changed (added after the first semicolon).
 PASS_NOTE = re.compile(r"^(\d+) of (\d+) work steps, ([^;]*)(?:; (.*))?$")
 ROUNDS_NOTE = re.compile(r"^(\d+) solves, (\d+) rounds .*?; (\d+) member walks \((\d+) skipped\)")
+# Times and shares inside pass notes, left out when runs' counters are compared.
+DECIMAL = re.compile(r"[0-9]+\.[0-9]+")
 POLL_SECONDS = 5
 # How many of the slowest inference components the summary lists.
 SLOWEST = 10
@@ -164,8 +166,8 @@ def parse_times(stderr):
 
 
 def counters(details):
-    """The deterministic part of a run: work steps and outcome of every pass."""
-    return [(d["subject"], d["number"], d.get("work"), d.get("outcome"), d.get("inputs"))
+    """The deterministic part of a run: work steps, outcome and counters of every pass, without times (decimals)."""
+    return [(d["subject"], d["number"], d.get("work"), d.get("outcome"), DECIMAL.sub("", d.get("inputs") or ""))
             for d in details if d["kind"] == "pass"]
 
 

@@ -905,6 +905,11 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `ubody` group's largest 1509. Fact size is not the per-walk cost (CONV.5
   deprioritized). Aligned A/B 1.005; `--print-types` identical.
 
+- **B.4** quiet baseline at 2af72e57 in ignored `benchmarks/history/compile-times/`:
+  inference W5r 11.97 s, W5a 96.16 s, W1 114.73 s; W2 executable 327.7 s of
+  which LLVM optimize 75.6 s + emit 120.8 s. `compile_times.py` no longer
+  compares pass-note times between runs.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found

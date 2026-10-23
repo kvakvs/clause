@@ -510,11 +510,23 @@ the baseline copy next to a `clau.exe` in `build/*/bin`).
   `--print-stage-times` stays within noise of the commit before the INS step.
 - Inference expectations, `budgets.py` and fast CTest pass at every step.
 
-### B.4 Baseline record
+### B.4 Baseline record (done, `00-finished.md`)
 
-When B.1 and INS.8, INS.1 and INS.9 land, record a quiet-machine baseline of
-W5a, W1, W2 and W5r (phase times and all counters) in `benchmarks/history/` with
-the commit hash. Every CONV and OPTC step reports against it.
+Quiet baseline at 2af72e57 (code b83e9756), `benchmarks/history/compile-times/
+<W>-2af72e57.json` (ignored, local), `build/bench` Release, P-cores; medians
+(spread):
+
+| Workload | runs | inference | lower | optimize | emit | wall |
+|---|---|---|---|---|---|---|
+| W5r | 5 | 11.97 s (2.6%) | | | | 12.05 s |
+| W5a | 3 | 96.16 s (0.7%) | | | | 99.54 s |
+| W1 | 3 | 114.73 s (0.9%) | | | | 118.82 s |
+| W2 (`-O2 -o`) | 3 | 115.83 s (0.9%) | 10.85 s | **75.59 s** | **120.85 s** | 327.70 s |
+
+**On the executable path LLVM takes longer than inference:** `optimize` +
+`emit` are 196 s of W2's 328 s. A later plan step should profile them (module
+size, per-function pass time, `emit` single-threaded?) once inference is
+fixed; it is outside `semantic/types/`.
 
 ## Order
 
@@ -523,7 +535,7 @@ the commit hash. Every CONV and OPTC step reports against it.
 3. ~~INS.8 input churn, INS.1 incremental potential, INS.9 solve repetition~~
    (done): the data that sizes CONV.1-CONV.4.
 4. ~~INS.7 sampling profile on W5r and W5a, INS.5 fact sizes~~ (done).
-5. B.4 baseline.
+5. ~~B.4 baseline~~ (done).
 6. OPTC.A → OPTC.A2 → OPTC.A3 (measured 38% and 30% of W5r, small and pure),
    then CONV.0 → CONV.7 → CONV.1 → CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on
    W5a, W1 and W6. Then the owned fixture (B.0).
