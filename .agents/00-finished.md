@@ -864,7 +864,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
 - **B.0** W5r scratch repro (`<scratch>/w5r/w5r.erl`, plan 22 B.0): 11.39 s
   inference (spread 0.7%), `ubody_used_vars` + 6 10.47 s at ≈22 ms per member
   walk, 5-13 rounds per solve; settles in pass 11 (W5a never settles).
-- **INS.8** input churn under `--print-stage-times`: per pass the functions and
+- **INS.8** (2e12b57f) input churn under `--print-stage-times`: per pass the functions and
   local input slots `gather_inputs` changed, by kind (first, integer bound,
   union member, shape, deeper, function types, term()), and fun reads not
   final; `inference churn` histogram and the 10 most changed slots with their
