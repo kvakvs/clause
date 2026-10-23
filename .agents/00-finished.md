@@ -938,7 +938,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   inclusion over in-place names. Output identical (W5r, W5a, W1, W6).
   Inference W5r 3.67 → 2.92 s, W5a 31.3 → 28.8 s, W1 → 37.5 s.
 
-- **OPTC.C part 3** memoized nesting: the graph keeps each node's nesting per
+- **OPTC.C part 3** (33595da3) memoized nesting: the graph keeps each node's nesting per
   limit (nodes never change), so `truncate` stops re-walking facts;
   `Lattice::list` reuses the kept char() Id. Output identical (W5r, W5a, W1,
   W6). W5r 0.922, W5a 29.8 → 28.7 s.
