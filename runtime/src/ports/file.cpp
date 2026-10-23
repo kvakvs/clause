@@ -144,8 +144,17 @@ int open_flags(unsigned mode) {
     return flags;
 }
 
+// The C runtime's close of a descriptor.
+void close_fd(int fd) {
+#ifdef _WIN32
+    _close(fd);
+#else
+    ::close(fd);
+#endif
+}
+
 // Open a file with C runtime flags; -1 with errno set on failure.
-int open_file(const std::filesystem::path &path, int flags) {
+int system_open(const std::filesystem::path &path, int flags) {
 #ifdef _WIN32
     int fd = -1;
     const auto error = _wsopen_s(&fd, path.c_str(), flags, _SH_DENYNO, _S_IREAD | _S_IWRITE);
@@ -156,7 +165,44 @@ int open_file(const std::filesystem::path &path, int flags) {
 #endif
 }
 
-// The C runtime's read, write, seek and close of a descriptor.
+// Whether a path names a directory; errno is kept.
+bool names_directory(const std::filesystem::path &path) {
+    const auto saved = errno;
+    std::error_code code;
+    const auto directory = std::filesystem::is_directory(path, code);
+    errno = saved;
+    return directory;
+}
+
+// Whether an open descriptor is a directory, which only POSIX opens (for reading).
+bool directory_descriptor([[maybe_unused]] int fd) {
+#ifdef _WIN32
+    return false;
+#else
+    struct stat status{};
+    return fstat(fd, &status) == 0 && S_ISDIR(status.st_mode);
+#endif
+}
+
+// Open a file, never a directory: -1 with errno set on failure, EISDIR for a directory, as OTP. The path's status is
+// read only once the open failed, or a directory opened for reading (path operation diet).
+int open_file(const std::filesystem::path &path, int flags) {
+    const auto fd = system_open(path, flags);
+    if (fd < 0) {
+        if (names_directory(path)) {
+            errno = EISDIR;
+        }
+        return -1;
+    }
+    if ((flags & (O_WRONLY | O_RDWR)) == 0 && directory_descriptor(fd)) {
+        close_fd(fd);
+        errno = EISDIR;
+        return -1;
+    }
+    return fd;
+}
+
+// The C runtime's read, write and seek of a descriptor.
 std::int64_t read_fd(int fd, std::span<std::byte> buffer) {
 #ifdef _WIN32
     // One call reads at most 1 GiB: the count is an unsigned int here.
@@ -179,14 +225,6 @@ std::int64_t seek_fd(int fd, std::int64_t offset, int whence) {
     return _lseeki64(fd, offset, whence);
 #else
     return ::lseek(fd, offset, whence);
-#endif
-}
-
-void close_fd(int fd) {
-#ifdef _WIN32
-    _close(fd);
-#else
-    ::close(fd);
 #endif
 }
 
@@ -213,44 +251,34 @@ std::size_t file_size(int fd) {
 #endif
 }
 
-// The success reply of the whole of an open descriptor, read straight into the reply after its status byte: sized
-// from the file's size, never zeroed first (OPT3.4 file I/O), and grown only when the file grew, so the bytes are
-// copied once (owned binaries).
+// The success reply of the whole of an open descriptor, read straight into the reply after its status byte, never
+// zeroed first (OPT3.4 file I/O), so the bytes are copied once (owned binaries). As OTP, a file of known size is read
+// up to that size with no read probing for its end (path operation diet); a file of no reported size is read until
+// a read gives nothing, its buffer doubling.
 std::optional<Bytes> read_all(int fd) {
-    Bytes reply(1 + std::max<std::size_t>(file_size(fd), CHUNK));
+    const auto size = file_size(fd);
+    Bytes reply(1 + (size == 0 ? CHUNK : size));
     reply[0] = std::byte{0};
     std::size_t filled = 1;
     for (;;) {
-        // A full reply probes for the end with a small read before growing: a file of the expected size never moves.
-        std::array<std::byte, CHUNK> probe{};
-        const auto full = filled == reply.size();
-        const auto read = full ? read_fd(fd, probe) : read_fd(fd, std::span(reply).subspan(filled));
+        const auto read = read_fd(fd, std::span(reply).subspan(filled));
         if (read < 0) {
             return std::nullopt;
         }
-        if (read == 0) {
+        filled += static_cast<std::size_t>(read);
+        if (read == 0 || filled == 1 + size) {
             reply.resize(filled);
             return reply;
         }
-        if (full) {
-            reply.insert(reply.end(), probe.begin(), probe.begin() + read);
+        if (filled == reply.size()) {
+            reply.resize(2 * reply.size());
         }
-        filled += static_cast<std::size_t>(read);
     }
-}
-
-// The error reply of a path that names a directory where a file is needed, if it does.
-std::optional<Bytes> directory(const std::filesystem::path &path) {
-    std::error_code code;
-    return std::filesystem::is_directory(path, code) ? std::optional{failure("eisdir")} : std::nullopt;
 }
 
 // read_file: the whole file.
 Bytes read_file(std::span<const std::byte> bytes) {
     const auto path = path_of(bytes);
-    if (auto refused = directory(path)) {
-        return *refused;
-    }
     const auto fd = open_file(path, open_flags(MODE_READ));
     if (fd < 0) {
         return errno_failure();
@@ -263,11 +291,7 @@ Bytes read_file(std::span<const std::byte> bytes) {
 // write_file: replace the file's content.
 Bytes write_file(std::span<const std::byte> bytes) {
     const auto [name, data] = split(bytes);
-    const auto path = path_of(name);
-    if (auto refused = directory(path)) {
-        return *refused;
-    }
-    const auto fd = open_file(path, open_flags(MODE_WRITE));
+    const auto fd = open_file(path_of(name), open_flags(MODE_WRITE));
     if (fd < 0) {
         return errno_failure();
     }
@@ -292,13 +316,23 @@ Bytes list_dir(std::span<const std::byte> bytes) {
     return code ? failure(reason(code)) : ok(names);
 }
 
-// delete: a file, never a directory (eperm, as OTP).
+// The C runtime's unlink of a file; 0, or -1 with errno set on failure (a directory fails).
+int unlink_file(const std::filesystem::path &path) {
+#ifdef _WIN32
+    return _wunlink(path.c_str());
+#else
+    return ::unlink(path.c_str());
+#endif
+}
+
+// delete: a file, never a directory (eperm, as OTP); the path's status is read only once the delete failed (path
+// operation diet).
 Bytes remove_file(std::span<const std::byte> bytes) {
-    std::error_code code;
-    if (std::filesystem::is_directory(path_of(bytes), code)) {
-        return failure("eperm");
+    const auto path = path_of(bytes);
+    if (unlink_file(path) == 0) {
+        return ok();
     }
-    return std::filesystem::remove(path_of(bytes), code) || code ? done(code) : failure("enoent");
+    return names_directory(path) ? failure("eperm") : errno_failure();
 }
 
 // rename: the old path, then the new one.
@@ -457,11 +491,7 @@ class FileDriver final : public PortDriver {
             return failure("einval");
         }
         mode_ = std::to_integer<unsigned>(bytes[0]);
-        const auto path = path_of(bytes.subspan(1));
-        if (auto refused = directory(path)) {
-            return *refused;
-        }
-        fd_ = open_file(path, open_flags(mode_));
+        fd_ = open_file(path_of(bytes.subspan(1)), open_flags(mode_));
         return fd_ < 0 ? errno_failure() : ok();
     }
 

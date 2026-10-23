@@ -6,7 +6,7 @@ generation. The plans are planning input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3,
 OPT1.4, OPT1.6 inline caches, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
-OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4, OPT3.18, OPT3.19,
+OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4 and its remainder, OPT3.18, OPT3.19,
 sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
 OPTM.4, OPTM.5): see [00-finished.md](00-finished.md). This file keeps open work only.
 
@@ -102,17 +102,17 @@ step that owns it (unprofiled ones say so):
 
 | Kernel | Clause / OTP (ms) | Ratio | Owner |
 |---|---|---|---|
-| file.small_files | 1256 / 1187 | 1.06x | done (OPT3.4; Clause spread 39%) |
+| file.small_files | 1256 / 1187 | 1.06x | done (OPT3.4 remainder: 0.81x pinned, OS-bound); file kernels |
 | dataproc.small_map | 1544 / 1501 | 1.03x | OPT1.6 caches done (alone, pinned: 1500 to 1035, OTP 1240); OPT1.6 remainder |
-| file.read_line | 1514 / 1545 | 0.98x | done (OPT3.4) |
-| file.read_file | 1471 / 1514 | 0.97x | done (OPT3.4) |
-| file.large_write | 1000 / 1029 | 0.97x | done (OPT3.4) |
+| file.read_line | 1514 / 1545 | 0.98x | done (OPT3.4 remainder: 0.92x; was 1.05x); OPT3.9 remainder |
+| file.read_file | 1471 / 1514 | 0.97x | file kernels (page faults) |
+| file.large_write | 1000 / 1029 | 0.97x | done (OPT3.4 remainder run: 0.88x) |
 | datagen.map_put | 1589 / 1664 | 0.96x | OPT3.15 remainder |
 | msg.ring | 1355 / 1472 | 0.92x | OPT3.9 remainder (small messages) |
 | gc.long_lived_churn | 1195 / 1326 | 0.90x | OPT3.20 (collector, unprofiled) |
 | datagen.list_to_tuple | 1408 / 1605 | 0.88x | OPT3.21 (unprofiled) |
 | dataproc.binary_match | 1100 / 1277 | 0.86x | OPT1.5 |
-| file.large_read | 1203 / 1455 | 0.83x | done (OPT3.4) |
+| file.large_read | 1203 / 1455 | 0.83x | done (OPT3.4 remainder run: 0.74x) |
 | gc.grow_shrink | 860 / 1068 | 0.81x | OPT3.20 |
 | socket.udp_round_trip | 1212 / 1511 | 0.80x | OPT3.22 (sockets, unprofiled) |
 | socket.tcp_echo | 1294 / 1636 | 0.79x | OPT3.22 |
@@ -197,7 +197,11 @@ Profile each kernel before building (see
 
 - **OPT3.9 remainder: small messages (large_message 0.74x, ring 0.92x,
   ping_pong 0.74x, fan_in 0.42x):** small messages to busy receivers still copy
-  twice (into a buffer, then into the receiver).
+  twice (into a buffer, then into the receiver). The file.read_line profile
+  (a call round trip per line, after the OPT3.4 remainder) shows the rest of a
+  small send: `ProcessHeap::reserve` into the receiver ~7%, the size walk of
+  `MessageBuffer::large` before the copy walks again ~5%, and monitor plus
+  demonitor of the call ~14% (a map node and a reference each).
 - **OPT3.15 remainder (map_put 0.96x):** `maps:put/3` in a self
   tail loop (`map_put(N, M) -> map_put(N - 1, maps:put(N, V, M))`) copies the
   path per insert, since the map arrives as a parameter. A map-loop variant
@@ -209,6 +213,11 @@ Profile each kernel before building (see
   pay for heaps an earlier phase grew or for a large shrunk block (69A no
   longer shows it: each kernel runs in its own process since a4659943); ERTS's
   own sizing measured worse in Clause (see `docs/runtime-heap.md#generations`).
+- **File kernels (read_file 0.98x, small_files 0.81x after the OPT3.4
+  remainder):** read_file is kernel copying plus faults on the fresh pages of
+  its 16 MB reply (~25%); a cache of large freed binary buffers would spare
+  them. small_files is file creation and deletion in the OS (~115 and ~50 us a
+  file, both systems; runs swing bimodally).
 - **OPT3.21 list_to_tuple (0.88x, unprofiled):** `list_to_tuple(lists:seq(1,
   1000))`; both builtins.
 - **term_to_binary remainder (0.70x after OPT3.18):** before OPT3.18 kernel

@@ -202,8 +202,9 @@ test need no OTP (`docs/validation.md`).
   `sub_binary` over a never-nested original, appendable buffers grow in place;
   freed power-of-two buffers are reused per thread (`off_heap`).
 - Order numbers < atoms < refs < funs < ports < pids < tuples < maps < lists <
-  bitstrings, iterative; numbers, atoms, whole-byte binaries and tuples/lists
-  of them order from their cells (`word_order`), the rest structurally. `format_term` prints `~w` iteratively
+  bitstrings, iterative; numbers, atoms, local refs, whole-byte binaries and
+  tuples/lists of them order from their cells (`word_order`, also `=:=` via
+  `word_exact`), the rest structurally. `format_term` prints `~w` iteratively
   under a byte cap.
 
 ### Memory and GC (`memory/`, `docs/runtime-heap.md`)
@@ -245,7 +246,7 @@ test need no OTP (`docs/validation.md`).
   lock only. Run queues and idle state have their own lock (after the executor
   mutex); workers free ended contexts after leaving the mutex.
 - Messages: `Executor::send` copies into `Mailbox` (inbox, queue, saved
-  position, deadline). To a receiver running elsewhere it takes no lock:
+  position, deadline; list nodes from a per-mailbox `NodePool`). To a receiver running elsewhere it takes no lock:
   lock-free `ProcessTable` lookup (open addressing, tombstones), message node
   pushed onto the receiver's `Arrivals` (lock-free list), taken 64 at a time
   when receive would wait. Arrivals and old table arrays are freed by quiescent

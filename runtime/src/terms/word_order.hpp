@@ -22,4 +22,9 @@ std::optional<int> word_order(ProcessHeap &heap, Word left, Word right) noexcept
 // word_order of two words of validated terms of this process, whose cells need no lookup (trusted walks). Added for
 // the lists:sort builtin.
 std::optional<int> trusted_word_order(ProcessHeap &heap, Word left, Word right) noexcept;
+
+// Whether two cell words are exactly equal (=:=), decided from word_order: pairs it orders apart are unequal, one word
+// and two references it finds equal are equal; none for any other pair or an immediate. Added for reference
+// comparisons.
+std::optional<bool> word_exact(ProcessHeap &heap, Word left, Word right) noexcept;
 } // namespace clause::runtime::detail

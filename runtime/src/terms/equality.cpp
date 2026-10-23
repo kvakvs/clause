@@ -1,5 +1,6 @@
 #include "service_errors.hpp"
 #include "structural_order.hpp"
+#include "word_order.hpp"
 #include <clause/abi/equality.hpp>
 #include <clause/runtime/process_context.hpp>
 
@@ -18,6 +19,10 @@ std::uint8_t CLAUSE_exact_v1(void *context, clause::abi::v1::TermWord left, clau
     auto &state = owner.generated_calls();
     if (!state.active() || state.failure()) {
         return static_cast<std::uint8_t>(abi::v1::Equality::failure);
+    }
+    // Words the word-level order decides need no Term admission (reference comparisons, as receive matches replies).
+    if (const auto equal = runtime::detail::word_exact(owner.heap(), left, right)) {
+        return static_cast<std::uint8_t>(*equal ? abi::v1::Equality::equal : abi::v1::Equality::unequal);
     }
     const auto lhs = runtime::Term::from_word(left, owner);
     const auto rhs = runtime::Term::from_word(right, owner);

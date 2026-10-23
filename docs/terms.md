@@ -246,11 +246,14 @@ atoms < references < funs < ports < pids < tuples < native records < maps < nil
 themselves). Atoms compare by UTF-8 spelling (code-point order); tuples by arity
 then fields; maps by size, then keys, then values; bitstrings by logical bits.
 Numbers (small integers, floats, bignums by sign and limbs), atoms (by their
-spellings in the atom table, through the lock-free number index), whole-byte
-binaries, and tuples and lists of these nested up to 8 levels are ordered
-straight from their words and cells (`detail::word_order`), with no term
-admission; any other pair, a float against a bignum of the same bit length, or
-a small integer beyond 2^53 against a float takes the structural order.
+spellings in the atom table, through the lock-free number index), local
+references (by number), whole-byte binaries, and tuples and lists of these
+nested up to 8 levels are ordered straight from their words and cells
+(`detail::word_order`), with no term admission; any other pair, a float against
+a bignum of the same bit length, or a small integer beyond 2^53 against a float
+takes the structural order. `=:=` takes the same path (`detail::word_exact`):
+pairs it orders apart are unequal, and one word or two references it finds
+equal are equal, so a receive matching a reply's reference admits no term.
 `lists:sort/1` and `lists:usort/1` sort element words in place: all-small and
 all-atom lists by word or spelling, others with a stable word-order sort.
 

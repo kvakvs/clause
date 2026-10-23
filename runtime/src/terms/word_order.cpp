@@ -98,9 +98,9 @@ std::optional<int> cell_order(ProcessHeap &heap, std::span<const Word> left, std
 // the lists:sort builtin.
 constexpr unsigned MAX_DEPTH = 8;
 
-// The term-order categories word-level order tells apart, in OTP's order (number < atom < tuple < nil < list <
-// bitstring); every other kind takes the structural order. Added for the lists:sort builtin.
-enum class Rank : std::uint8_t { number = 0, atom = 1, tuple = 6, nil = 9, list = 10, bitstring = 11 };
+// The term-order categories word-level order tells apart, in OTP's order (number < atom < reference < tuple < nil <
+// list < bitstring); every other kind takes the structural order. Added for the lists:sort builtin.
+enum class Rank : std::uint8_t { number = 0, atom = 1, reference = 2, tuple = 6, nil = 9, list = 10, bitstring = 11 };
 
 // The words of the boxed cell a word of a validated term names, its header first (trusted walks); inline, unlike
 // TermAccess::trusted_cell, since compound order reads one per field.
@@ -121,9 +121,19 @@ std::optional<Rank> boxed_rank(BoxedKind kind) noexcept {
     case BoxedKind::refc_binary:
     case BoxedKind::sub_binary:
         return Rank::bitstring;
+    case BoxedKind::reference:
+        return Rank::reference;
     default:
         return std::nullopt;
     }
+}
+
+// The number of a local reference's cell, right after its header in either reference layout. Added for reference
+// comparisons.
+std::uint64_t reference_of(Word word) noexcept {
+    std::uint64_t number = 0;
+    std::memcpy(&number, TermAccess::trusted(word) + 1, sizeof(number));
+    return number;
 }
 
 // Whether a word is a small integer.
@@ -328,6 +338,8 @@ std::optional<int> same_rank(ProcessHeap &heap, Rank rank, Word left, Word right
         return lists(heap, left, right, depth);
     case Rank::bitstring:
         return cell_order(heap, boxed_cell(left), boxed_cell(right));
+    case Rank::reference:
+        return order_of(reference_of(left), reference_of(right));
     default:
         return 0;
     }
@@ -390,5 +402,22 @@ std::optional<int> word_order(ProcessHeap &heap, Word left, Word right) noexcept
 
 std::optional<int> trusted_word_order(ProcessHeap &heap, Word left, Word right) noexcept {
     return trusted_order(heap, left, right, 0);
+}
+
+std::optional<bool> word_exact(ProcessHeap &heap, Word left, Word right) noexcept {
+    // Immediates keep their admission checks; cells are checked against this process's areas below.
+    const auto cell = [](Word word) {
+        const auto primary = word & abi::v1::primary_mask;
+        return primary == abi::v1::boxed_tag || primary == abi::v1::list_tag;
+    };
+    if (!cell(left) || !cell(right)) {
+        return std::nullopt;
+    }
+    const auto order = word_order(heap, left, right);
+    if (!order || *order != 0) {
+        return order ? std::optional{false} : std::nullopt;
+    }
+    // Equal under == is equal under =:= unless an integer met a float: certain only for one word or two references.
+    return left == right || rank_of(left) == Rank::reference ? std::optional{true} : std::nullopt;
 }
 } // namespace clause::runtime::detail

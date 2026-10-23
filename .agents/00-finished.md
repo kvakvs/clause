@@ -609,6 +609,13 @@ from 21 s (O2, before plan 20) to 0.59 s (OTP 0.35 s).
   `[2 x word]` global with 8 rewrites, so polymorphic sites in many processes
   stop writing it); variable keys only scan. small_map alone, pinned, 1500 to
   1035 ms (OTP 1240); luerl unchanged — `7ceed350`
+- **OPT3.4 remainder** file kernels: path operations read a path's status only
+  after a failed open or delete (delete unlinks), read_file reads to the
+  reported size with no end probe, `=:=` of two references compares their
+  numbers from the cells (`word_exact`), and mailbox lists reuse spare nodes.
+  Pinned medians, HEAD / new / OTP ms: read_line 1633 / 1427 / 1554 (1.05x to
+  0.92x), small_files 1050 / 1043 / 1294; ping_pong 1118 to 1025, ring 1341 to
+  1274, fan_in 560 to 456 — `HASH`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/
   `map_size` and present-key updates with atom/small-int keys scan and copy
   classic map cells inline; 4 reads 929 to 12 ns (OTP 6), a 2-field update 576

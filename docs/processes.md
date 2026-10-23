@@ -235,7 +235,9 @@ process does not write one: its uncaught exception is the program's
   ([runtime heap](runtime-heap.md#roots-and-safe-points)).
 - The receiver's mailbox (`Mailbox`) keeps a signal inbox, where sends append,
   and a message queue that receive scans from a saved position: arrived messages
-  move behind the queue when a receive examines them.
+  move behind the queue when a receive examines them. Both lists reuse up to 64
+  spare nodes of the mailbox, so a send and receive of a message allocate no
+  node from the C++ heap.
 - When the receiver's heap refuses the copy (an optional cap such as
   `--max-heap`, or the host out of memory), nothing is delivered and the
   sending process fails as a runtime failure (exit 70), like any process that

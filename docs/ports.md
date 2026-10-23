@@ -276,6 +276,10 @@ stdout are pipes of the port:
   end of file). The protocol is Clause's own. read_line reads 64 KB ahead and
   returns lines from that buffer; any other operation on the file first seeks
   back over the bytes it has not returned, so positions stay exact.
+- Path operations make OTP's system calls and no more: a path's status is read
+  only once an open or a delete failed (to answer `eisdir` or `eperm`), delete
+  unlinks a file and never removes a directory, and read_file reads a file up to
+  the size its descriptor reports, as OTP does, with no read probing for its end.
 - `port_control/3` hands a binary or `[]` to the driver in place (other iodata
   is flattened first), and a reply becomes the result binary without a copy:
   replies are `ByteBuffer`s (`runtime/include/byte_buffer.hpp`), byte vectors

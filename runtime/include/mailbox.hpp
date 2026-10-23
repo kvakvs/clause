@@ -181,6 +181,89 @@ class Arrivals final : public Reclaimable {
     // A copy of the executor's running state of the receiver, readable without its lock.
     std::atomic<bool> running_{false};
 };
+
+// Spare list nodes of one mailbox, which its next messages reuse instead of the C++ heap (pooled message nodes). Only
+// whoever may change the mailbox's lists reaches it: the owner, or a sender under the executor's lock while the owner
+// does not run.
+class NodePool final {
+  public:
+    NodePool() = default;
+    NodePool(const NodePool &) = delete;
+    NodePool &operator=(const NodePool &) = delete;
+    NodePool(NodePool &&) = delete;
+    NodePool &operator=(NodePool &&) = delete;
+
+    ~NodePool() {
+        while (spare_ != nullptr) {
+            ::operator delete(std::exchange(spare_, spare_->next));
+        }
+    }
+
+    // A block of `bytes`, a spare one when it has the size spares have. Allocation failure throws.
+    void *take(std::size_t bytes) {
+        if (spare_ == nullptr || bytes != bytes_) {
+            return ::operator new(bytes);
+        }
+        --count_;
+        return std::exchange(spare_, spare_->next);
+    }
+
+    // Keep a block of `bytes` as a spare, or free it once enough are kept or its size differs.
+    void give(void *block, std::size_t bytes) noexcept {
+        if (count_ == MAX_SPARES || (count_ != 0 && bytes != bytes_)) {
+            ::operator delete(block);
+            return;
+        }
+        bytes_ = bytes;
+        ++count_;
+        spare_ = ::new (block) Spare{spare_};
+    }
+
+  private:
+    // A spare block, linked to the next one.
+    struct Spare {
+        Spare *next;
+    };
+
+    // Spare blocks kept at most: a burst of messages leaves no more than these behind.
+    static constexpr std::size_t MAX_SPARES = 64;
+    // The newest spare block, how many are kept, and their size.
+    Spare *spare_ = nullptr;
+    std::size_t count_ = 0;
+    std::size_t bytes_ = 0;
+};
+
+// The allocator of a mailbox's lists: single nodes come from its pool (pooled message nodes).
+template <typename T> class PooledAllocator final {
+  public:
+    using value_type = T;
+
+    explicit PooledAllocator(NodePool &pool) noexcept : pool_(&pool) {}
+
+    template <typename U> explicit PooledAllocator(const PooledAllocator<U> &other) noexcept : pool_(other.pool()) {}
+
+    T *allocate(std::size_t count) {
+        return static_cast<T *>(count == 1 ? pool_->take(sizeof(T)) : ::operator new(count * sizeof(T)));
+    }
+
+    void deallocate(T *block, std::size_t count) noexcept {
+        if (count == 1) {
+            pool_->give(block, sizeof(T));
+        } else {
+            ::operator delete(block);
+        }
+    }
+
+    NodePool *pool() const noexcept { return pool_; }
+
+    friend bool operator==(const PooledAllocator &left, const PooledAllocator &right) noexcept {
+        return left.pool_ == right.pool_;
+    }
+
+  private:
+    // The pool of the mailbox whose lists allocate.
+    NodePool *pool_;
+};
 } // namespace detail
 
 class Mailbox final {
@@ -257,15 +340,19 @@ class Mailbox final {
 
   private:
     friend class ProcessContext;
+    using Messages = std::list<Word, detail::PooledAllocator<Word>>;
+
     // Start empty; the owning context holds it.
     Mailbox() = default;
 
+    // Nodes of both lists, kept for the next messages (pooled message nodes); outlives the lists.
+    detail::NodePool nodes_;
     // Messages sent but not yet seen by a receive, oldest first.
-    std::list<Word> inbox_;
+    Messages inbox_{detail::PooledAllocator<Word>(nodes_)};
     // Messages a receive has seen, oldest first; unmatched ones stay in order.
-    std::list<Word> queue_;
+    Messages queue_{detail::PooledAllocator<Word>(nodes_)};
     // The next message of the queue the current receive examines; end() when it has examined all.
-    std::list<Word>::iterator position_ = queue_.end();
+    Messages::iterator position_ = queue_.end();
     // The current receive's timeout, set when it first waits with a finite one.
     std::optional<std::chrono::steady_clock::time_point> deadline_;
     // Messages of other processes still in their buffers (arrival buffers), allocated apart so they may outlive the
