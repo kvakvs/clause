@@ -943,7 +943,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `Lattice::list` reuses the kept char() Id. Output identical (W5r, W5a, W1,
   W6). W5r 0.922, W5a 29.8 → 28.7 s.
 
-- **CONV.0** nested integer widening: `Lattice::widen` also relaxes integer
+- **CONV.0** (08384300) nested integer widening: `Lattice::widen` also relaxes integer
   bounds that moved inside tuples, maps and lists of the previous fact's shape,
   in recursive rounds and input widening. W5a output identical and still 17
   passes, but integer-bound input changes end in pass 14 (most changed slot 11
