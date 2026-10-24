@@ -111,7 +111,7 @@ open(File, Modes) when is_list(Modes) ->
             {error, badarg};
         Name ->
             Self = self(),
-            Server = spawn_link(fun() -> serve(Self, Name, Modes) end),
+            Server = spawn(fun() -> serve(Self, Name, Modes) end),
             receive
                 {Server, opened, Result} -> Result
             end
@@ -385,15 +385,15 @@ call(File, Request) when is_pid(File) ->
 call(_, _) ->
     {error, badarg}.
 
-% The I/O server of one open file.
+% The I/O server of one open file. As OTP's, it is not linked to the opener but closes when the opener ends.
 serve(Opener, Name, Modes) ->
     Port = open_port({spawn_driver, "clause_file"}, [binary]),
     case reply(port_control(Port, ?OPEN, [mode_byte(Modes), Name])) of
         {ok, _} ->
+            monitor(process, Opener),
             Opener ! {self(), opened, {ok, self()}},
             loop(Opener, Port, lists:member(binary, Modes));
         Error ->
-            unlink(Opener),
             Opener ! {self(), opened, Error}
     end.
 
@@ -408,14 +408,14 @@ loop(Opener, Port, Binary) ->
         {io_request, From, ReplyAs, Request} ->
             case io_request(Port, Binary, Request) of
                 {stop, Reason, Reply} ->
-                    % OTP's file server is not linked to the opener, so the opener outlives this exit.
                     From ! {io_reply, ReplyAs, Reply},
-                    unlink(Opener),
                     exit(Reason);
                 Reply ->
                     From ! {io_reply, ReplyAs, Reply},
                     loop(Opener, Port, Binary)
-            end
+            end;
+        {'DOWN', _, process, Opener, _} ->
+            port_close(Port)
     end.
 
 % --- OTP's I/O protocol on an open file (step 41ZC) ---
@@ -742,32 +742,11 @@ path_source(Path, File) ->
     end.
 
 source_of(Fd) ->
-    Read = read_all(Fd, []),
+    Read = clause_epp:read_all(Fd),
     _ = close(Fd),
     case Read of
-        {ok, Bytes} -> {ok, decode_source(Bytes)};
+        {ok, Bytes} -> {ok, element(2, clause_epp:source(Bytes, utf8))};
         Error -> Error
-    end.
-
-read_all(Fd, Acc) ->
-    case read(Fd, 65536) of
-        {ok, Bytes} -> read_all(Fd, [Bytes | Acc]);
-        eof -> {ok, iolist_to_binary(lists:reverse(Acc))};
-        Error -> Error
-    end.
-
-% epp reads a coding comment from the first 512 bytes of a file.
-decode_source(Bytes) ->
-    case
-        clause_epp:read_encoding_from_binary(binary:part(Bytes, 0, min(512, byte_size(Bytes))), [])
-    of
-        latin1 ->
-            {binary_to_list(Bytes), valid};
-        _ ->
-            case unicode:characters_to_list(Bytes, utf8) of
-                Chars when is_list(Chars) -> {Chars, valid};
-                {_, Chars, _} -> {Chars, invalid}
-            end
     end.
 
 consult_forms(Source, Line, Acc) ->
@@ -779,6 +758,8 @@ consult_forms(Source, Line, Acc) ->
             end;
         {{error, Error, _}, _} ->
             {error, Error};
+        {{error, _} = Error, _} ->
+            Error;
         {{eof, _}, _} ->
             {ok, lists:reverse(Acc)}
     end.
@@ -823,19 +804,8 @@ next_exprs(Source, Line) ->
             Other
     end.
 
-% The next form's scan as a get_until request with erl_scan:tokens/3 sees it: eof follows the last character. A form
-% that reaches a byte that is not UTF-8 fails as OTP's file server fails, which then ends.
-next_tokens({_, terminated} = Source, _Line) ->
-    {{error, terminated}, Source};
-next_tokens({Chars, Validity}, Line) ->
-    scan_on(erl_scan:tokens([], Chars, Line), Validity, Line).
-
-scan_on({done, Result, Rest}, Validity, _Line) ->
-    {Result, {Rest, Validity}};
-scan_on({more, Cont}, valid, Line) ->
-    scan_on(erl_scan:tokens(Cont, eof, Line), valid, Line);
-scan_on({more, _}, invalid, Line) ->
-    {{error, {Line, file_io_server, invalid_unicode}, Line}, {[], terminated}}.
+% The next form's scan as io:read/3 reads it from OTP's file server.
+next_tokens(Source, Line) -> clause_epp:scan(Source, Line, []).
 
 advise(_, _, _, _) -> erlang:error({not_implemented, advise, 4}).
 allocate(_, _, _) -> erlang:error({not_implemented, allocate, 3}).

@@ -1,0 +1,26 @@
+%% OTP 29 epp exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{close, 1, default, implemented}.
+{default_encoding, 0, default, implemented}.
+{encoding_to_string, 1, default, implemented}.
+{format_error, 1, default, implemented}.
+{interpret_file_attribute, 1, default, implemented}.
+{macro_defs, 1, default, implemented}.
+{normalize_typed_record_fields, 1, default, implemented}.
+{open, 1, default, implemented}.
+{open, 2, default, implemented}.
+{open, 3, default, implemented}.
+{parse_erl_form, 1, default, implemented}.
+{parse_file, 1, default, implemented}.
+{parse_file, 2, default, implemented}.
+{parse_file, 3, default, implemented}.
+{read_encoding, 1, default, implemented}.
+{read_encoding, 2, default, implemented}.
+{read_encoding_from_binary, 1, default, implemented}.
+{read_encoding_from_binary, 2, default, implemented}.
+{restore_typed_record_fields, 1, default, implemented}.
+{scan_erl_form, 1, default, implemented}.
+{scan_file, 1, default, implemented}.
+{scan_file, 2, default, implemented}.
+{set_encoding, 1, default, implemented}.
+{set_encoding, 2, default, implemented}.

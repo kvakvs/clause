@@ -80,7 +80,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `process_info/2` items `current_function`, `initial_call`, `current_stacktrace`, ... | Reported | `error:{notsup, Item}`; `process_info/1` omits them | [processes](processes.md#introspection) |
 | `process_info/2` `reductions`; `statistics/1` `reductions`, `garbage_collection`, `io` | Counted | 0 (not kept) | [builtins](builtins.md#system-information) |
 | `garbage_collect/0,1,2` | Collects before returning | Collects at the target's next safepoint | [processes](processes.md#introspection) |
-| `erlang:system_info(machine)` | `"BEAM"` | `"Clause"` | [builtins](builtins.md#system-information) |
+| `erlang:system_info(machine)`, and so `epp`'s `?MACHINE` and the macro it names | `"BEAM"`, `'BEAM'` | `"Clause"`, `'Clause'` | [builtins](builtins.md#system-information) |
 | `erlang:system_info(schedulers)` of a program started with an affinity mask (`start /affinity`, `taskset`) | One scheduler per logical processor of the host (32 under a 7-CPU mask), `schedulers_online` one per CPU of the mask | Both one per CPU of the mask: Clause starts only the online workers | [processes](processes.md#workers) |
 | `spawn_opt/2..5` tuning options (`priority`, `min_heap_size`, ...) | Applied | Checked and accepted, not applied | [processes](processes.md#spawn-options) |
 | `hibernate/3` | Discards the stack; the process ends when `M:F` returns | Keeps the stack; `M:F`'s result returns to the caller of `hibernate/3` | [processes](processes.md#spawn-options) |
@@ -233,6 +233,13 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | --- | --- | --- | --- |
 | Commands checked by `exprs/2`, `expr/2` and `check_command/2` | `erl_lint` reports its first error of any kind | `clause_erl_lint` reports unbound and unsafe variables, illegal patterns and guards, undefined records, stack trace variables, `=>` in map patterns, `:=` in map construction and unsized binaries before the end; other `erl_lint` errors (such as bit type errors) are raised when the code runs, or not at all for code that never runs. `erl_lint` itself comes with plan 21 step LIB34 | [erl_eval](builtins.md#erl-eval) |
 | Stack trace of an error the evaluator raises (`{badmatch, V}`, `undef` of a local call, ...) | The evaluating process's current stack (`process_info/2` `current_stacktrace`) | The stack at the evaluator's `throw` that collects it, in Clause's frames | [erl_eval](builtins.md#erl-eval) |
+
+## epp
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| `-include_lib("App/...")` not on the include path | Found in `code:lib_dir(App)` | Not found (`{include, lib, Name}`) until `code:lib_dir/1` is provided (plan 21 step LIB61) | [library](library.md#contents) |
+| `set_encoding/1,2` on an open file | Sets the device's encoding | Returns the encoding found; Clause's file servers read bytes (`io:setopts/2`, LIB63) | [library](library.md#contents) |
 
 ## erl_pp
 

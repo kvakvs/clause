@@ -729,6 +729,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   numbering (guard context in the state, not the process dictionary); `clause_erl_lint:is_guard_test/3`;
   `erl_expand_records_forms` golden, and a scratch comparison over 396 OTP sources and suites under
   four option sets found no differences — `f07983e8`
+- **LIB34 part 4** `epp` in Erlang (server per source, replies queued per step, files read whole and
+  decoded by coding comment through `clause_epp`, shared with `file:consult/1`), `erl_features`'
+  parse state; `file` servers monitor their opener instead of linking (no `EXIT` on close, as OTP);
+  `epp_files` golden, and a scratch comparison over 1,110 epp calls on OTP sources and suites found
+  no differences
 
 ## Plan 22 (from 2026-10-23)
 

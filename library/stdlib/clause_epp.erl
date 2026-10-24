@@ -1,7 +1,59 @@
-%% epp's source encoding comments (plan 21 step LIB33, docs/library.md), provided before epp itself (LIB34) for
-%% file:consult/1 and its kin.
+%% Erlang sources as epp and file:consult/1 read them (plan 21 steps LIB33, LIB34, docs/library.md): the encoding a
+%% coding comment names, a file's characters decoded by it, and the next form scanned from them as io:scan_erl_form/4
+%% reads it from OTP's file server.
 -module(clause_epp).
--export([read_encoding_from_binary/2]).
+-export([read_encoding_from_binary/2, read_all/1, source/2, scan/3]).
+
+%% A source being scanned: {Chars, valid}, {Chars, invalid} when only Chars could be decoded, or terminated once a
+%% read reached the bytes that could not (OTP's file server ends then).
+
+%% read_all(Fd): {ok, Bytes} of the rest of an open file, or its read error.
+read_all(Fd) -> read_all(Fd, []).
+
+read_all(Fd, Acc) ->
+    case file:read(Fd, 65536) of
+        {ok, Data} -> read_all(Fd, [Data | Acc]);
+        eof -> {ok, iolist_to_binary(lists:reverse(Acc))};
+        Error -> Error
+    end.
+
+%% source(Bytes, Default): {Encoding, Source}, Encoding the one a coding comment in the first 512 bytes names (or
+%% none), the bytes decoded by it or else by Default.
+source(Bytes, Default) ->
+    Named = read_encoding_from_binary(binary:part(Bytes, 0, min(512, byte_size(Bytes))), []),
+    Encoding =
+        case Named of
+            none -> Default;
+            _ -> Named
+        end,
+    {Named, decode(Bytes, Encoding)}.
+
+decode(Bytes, latin1) ->
+    {binary_to_list(Bytes), valid};
+decode(Bytes, utf8) ->
+    case unicode:characters_to_list(Bytes, utf8) of
+        Chars when is_list(Chars) -> {Chars, valid};
+        {_, Chars, _} -> {Chars, invalid}
+    end.
+
+%% scan(Source, Location, Options): {Result, Source1}, Result as io:scan_erl_form(Fd, '', Location, Options) gives
+%% it: {ok, Tokens, End}, {error, ErrorInfo, End}, {eof, End}, or {error, Reason} when the read fails.
+scan(terminated, _Location, _Options) ->
+    {{error, terminated}, terminated};
+scan({[], invalid}, _Location, _Options) ->
+    %% The read starts at the bytes that cannot be decoded: OTP's server has no scan state to locate the error by.
+    {{error, tokens}, terminated};
+scan({Chars, Validity}, Location, Options) ->
+    case erl_scan:tokens([], Chars, Location, Options) of
+        {done, Result, Rest} ->
+            {Result, {Rest, Validity}};
+        {more, Cont} when Validity =:= valid ->
+            {done, Result, Rest} = erl_scan:tokens(Cont, eof, Location, Options),
+            {Result, {Rest, valid}};
+        {more, Cont} ->
+            At = erl_scan:continuation_location(Cont),
+            {{error, {At, file_io_server, invalid_unicode}, At}, terminated}
+    end.
 
 %% read_encoding_from_binary(Binary, Options): latin1 or utf8 as a "coding: Name" (or "coding=Name") comment in the
 %% first two lines names it, or none; with {in_comment_only, false} the words need not follow a %. The search ends at

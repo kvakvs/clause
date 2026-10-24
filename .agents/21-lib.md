@@ -23,14 +23,14 @@ internal functions stay out unless a public function needs them (user direction 
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  890 are still to do (erts 23, kernel 243, stdlib 624). Appendix A lists them per module.
+  872 are still to do (erts 23, kernel 243, stdlib 606). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
   `dict`, `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`, `filename`,
   `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`,
   `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`, `timer`,
-  `unicode`, `uri_string`, `erl_eval`, `erl_error`, `erl_pp`, `erl_expand_records`, `proc_lib`,
+  `unicode`, `uri_string`, `erl_eval`, `erl_error`, `erl_pp`, `erl_expand_records`, `epp`, `proc_lib`,
   `sys`, `gen_server`, `gen_statem`, `gen_event`, `gen_fsm` (deprecated), `supervisor`,
   `supervisor_bridge`, `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`,
   `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
@@ -131,16 +131,42 @@ LIB33 (readers built on the front end) is done (`00-finished.md`).
 
 ### LIB34. Source tools
 
-- `epp` (18): C++ over Clause's preprocessor, giving forms and encodings.
+- `epp` is done (`00-finished.md`), in Erlang; its C++ core is LIB34C.
 - `erl_pp` is done (`00-finished.md`).
 - `erl_expand_records` is done (`00-finished.md`); `clause_erl_lint:is_guard_test/3` serves its
   filters.
 - `erl_error` is done (`00-finished.md`).
 - `erl_lint` (5): `is_guard_test/1` and `format_error/1` first; `module/1,2,3` later, from Clause's
-  semantic checks mapped to OTP's warning terms. `clause_erl_lint` (LIB32) already has
+  semantic checks mapped to OTP's warning terms. Write the checks in C++ from the start (LIB34C). `clause_erl_lint` (LIB32) already has
   `is_guard_test/1`, `is_guard_expr/1`, `used_vars/2` and the first-error expression checks of
   `exprs_opt/3`; `erl_lint` delegates to it and widens the checks (then drop the `erl_eval` row of
   `differences.md`).
+
+### LIB34C. C++ cores for the clause-heavy front-end modules (user direction 2026-10-24)
+
+Erlang modules made of large clause dispatches (OTP's style, like yecc's generated parsers) are heavy
+on every program that links them: inference walks big SCCs and codegen emits large functions, while
+runtime builtins come prebuilt. Measured on a debug `clau` (one call reaching each module, extra
+compile time over a hello-world, `-O0` / `-O2`): `epp` +3.0 s / +4.8 s (it pulls `erl_eval` for
+`-if`), `erl_eval` +2.0 s / +3.7 s (inference 0.5 s, 0.28 s of it the `expr/2` SCC; lower,
+optimize and emit 3 s), `erl_expand_records` +1.2 s / +0.7 s, `erl_pp` +0.9 s / +1.9 s,
+`clause_erl_lint` +0.6 s / +1.2 s, `erl_error` +0.4 s / +0.8 s. Move the data walks to C++ builtins
+(`builtins/front_end/`), keeping Erlang only where funs run or processes serve:
+
+- `erl_expand_records:module/2` whole (no funs): forms in, forms out.
+- `clause_erl_lint` (command checks, used vars, guard tests), then `erl_lint` itself.
+- `erl_pp`: item building and layout; hooks continue in Erlang the way `maps_order` funs do (LIB4F:
+  the builtin stops at a hook item and an Erlang continuation calls it and resumes).
+- `epp`: directive matching, macro definition and expansion (`expand`, `macro_arg`, `count_args`,
+  `substitute`, `stringify`) over token lists; the server, file reading and `-if` evaluation stay.
+- `erl_eval`: pattern matching (`match1` and binaries), guard tests, `partial_eval`, constant
+  folding and the comprehension generators' element walks; the evaluator loop calls handlers and
+  funs, so it stays Erlang over those builtins.
+- `erl_error`: the layout decisions over terms the format fun already printed.
+
+Acceptance: the existing goldens unchanged, and the scratch comparisons with OTP rerun (epp over
+1,110 parse/scan calls, `erl_pp` and `erl_expand_records` over the forms of OTP sources) still find
+no differences; compile time of the probes above measured again.
 
 LIB34A (qlc chain) takes from this step what `qlc` and `qlc_pt` need: `erl_pp` whole (16),
 `erl_expand_records:module/2`, `erl_lint:is_guard_test/1`, `format_error/1` and the `module/2`
@@ -379,9 +405,6 @@ separately and are optional.
 - `dets` (stdlib, 2, 42 done): table/1,2
 - `edlin` (stdlib, 1): keymap/0
 - `edlin_expand` (stdlib, 2): expand/1,2
-- `epp` (stdlib, 18): close/1, default_encoding/0, encoding_to_string/1, format_error/1, open/1,2,3,
-  parse_erl_form/1, parse_file/2,3, read_encoding/1,2, read_encoding_from_binary/1,2,
-  scan_erl_form/1, scan_file/2, set_encoding/1,2
 - `erl_lint` (stdlib, 5): format_error/1, is_guard_test/1, module/1,2,3
 - `erl_tar` (stdlib, 14): add/3,4, close/1, create/2,3, extract/1,2, format_error/1, init/3, open/2,
   t/1, table/1,2, tt/1
