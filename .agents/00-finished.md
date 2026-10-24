@@ -852,7 +852,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   Reproduces W5r's cost (group 1.0 s Release, ≈1M joins per pass, one costly give-up); counters are
   identical in Debug and Release, with or without `--print-types`.
 
-- **B.5** (pending) W5a re-profile at 0beec0a8, no code change (`build/prof-compiler`, VSDiagnostics
+- **B.5** (8c58279b) W5a re-profile at 0beec0a8, no code change (`build/prof-compiler`, VSDiagnostics
   with `clau` pinned to P-cores, raw stacks from `xperf -a dumper`, each sample attributed to its
   innermost category frame). Pinned inference 11.85 s (spread 1.3%), 78% of 57 200 samples; print
   types 6%, parse and preprocess 6%, the rest of analysis 7%. Inside inference: lattice ops 41%
