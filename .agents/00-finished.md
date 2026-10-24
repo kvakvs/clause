@@ -739,7 +739,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `clause_erl_lint:is_guard_test/1`, `is_guard_expr/1`); a program calling it compiles +0.00 s / +0.01 s
   over a hello-world (was +1.2 s / +0.7 s); golden unchanged, no differences from OTP over 347 OTP
   sources and suites under four option sets; OTP pin refreshed to `9710673e` (CI-only upstream
-  changes) — `HASH`
+  changes) — `c54f3cf4`
 
 ## Plan 22 (from 2026-10-23)
 
