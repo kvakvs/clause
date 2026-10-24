@@ -193,6 +193,8 @@ recorded elsewhere.
 - Liveness only for executables; dead functions emit name-only exports. Builtin tail-continuations
   must be listed in semantic/liveness.cpp BUILTIN_CONTINUATIONS. referenced_modules skips catalog
   builtin calls.
+- Liveness keep-all (dynamic call + atom producer) fires on every OTP-heavy batch; even without it
+  ?MODULE in error tuples keeps most OTP modules whole (LIV.1). Experiments: env-gated temp build.
 - Inference: solve 16 rounds then widened; expression facts erased per round; per-call re-analysis
   has its own work pool. Expectations: tests/compiler/inference/expectations.py <abs clau> <fixture>
   [--record].

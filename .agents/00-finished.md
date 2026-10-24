@@ -827,6 +827,23 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `codegen_options` check). W2 compile 214 → 57.8 s (optimize 11.1 s, emit 19.7 s), same run
   output. IR/asm inspections stay on one context (source scopes key on its metadata).
 
+- **LIV.1** investigation, no code change. The keep-every-export trigger on W1/W2 and W5a (with
+  `--entry b2s_main:main -o`) is Clause's own `library/kernel/file.erl` (`apply(M, F, A)` in
+  `io_request/3`, `list_to_atom/1` in `reply/1`), not the host OTP copy; fixing it would not help:
+  W1's live code has 138 runtime-module calls in 40 modules and 206 atom-producing calls in 41
+  (`gen_server`, `erl_eval`, `qlc`, `luerl_scan:binary_to_atom/2` for Lua names, ...). A
+  `hello.erl` with `io:format` and `file:read_file` batches 4 modules and keeps none whole. With the
+  trigger disabled (unsound, measured only): W1 still keeps 102 of 174 modules whole (1061 exports
+  dropped), W5a 82 of 134 (1019); `compile`, `core_parse`, `erl_lint`, `v3_core`, `qlc`, `erl_eval`
+  stay whole, mostly through `?MODULE` in their own error tuples (`{Loc, ?MODULE, Reason}` for
+  `format_error/1`). Generated `module_info/0,1` escape their keys (`compile`) and function names
+  (`{init, 1}`, `{file, 2}`) as module atoms; ignoring them gains 2 modules (35-38 exports) on
+  top, and attribute values must keep escaping (user attributes may name modules called later), so
+  not changed. A name-granular escape (keep only the `F/A` called at runtime-module sites) is
+  blocked by live `apply`/spawn calls with a runtime function name (`erl_eval`, `proc_lib`,
+  `file:io_request/3`). `--print-types` keeps inferring the whole batch under `--entry`: it is the
+  precision guard, and W1/W3 liveness keeps every export anyway (W2 inference 13.2 s, W1 13.0 s).
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions

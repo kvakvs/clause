@@ -103,14 +103,10 @@ correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation
 9. **LLVM.2 rest of W2** (after LLVM.1, W2 compile 57.8 s: inference 13.2, lower 10.9, optimize
    11.1, emit 19.7 s on 32 threads): emission is bound by `core_parse` alone (≈ 14 s of one
    thread); emit each module right after its optimization in the same job (≈ 10 s), destroy the
-   moved-out modules off the main thread, and split very large modules (`llvm::SplitModule`) only if
-   LIV.1 does not drop `core_parse`, `erl_lint`, `v3_core` and `qlc` from euler anyway. `lower`
-   (10.9 s) is serial.
+   moved-out modules off the main thread, and split very large modules (`llvm::SplitModule`):
+   liveness keeps `core_parse`, `erl_lint`, `v3_core` and `qlc` whole (LIV.1). `lower` (10.9 s) is
+   serial.
 10. **Side findings, whenever convenient:**
-    - **LIV.1:** liveness keeps every export on W5a and W1 because of the host OTP `file.erl`
-      (dynamic call in `io_request/3`, `list_to_atom/1` in `reply/1`): check why the `library/`
-      copy or a catalog builtin does not stand in, and whether `--print-types` should run liveness
-      under `--entry`.
     - **BUG.1:** `clau` (Release, ab635294) exited 0xC0000005 once in ~100 W5r runs. Suspect a
       `const Node &` from `Graph::get` held across `Graph::intern`; loop a Debug or ASan `clau`
       over W5r and review such uses.
