@@ -689,6 +689,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   tokens and action errors (default-reduction order included); `normalise/1` with `eval_bits`'
   rules, `abstract`, `tokens`, annotation walks; `erl_parse_forms` golden, plus a scratch comparison
   with OTP over 765 OTP sources and token mutations
+- **LIB22** `timer` without a timer server: local timed sends over `erlang:send_after/3`, other
+  timers as processes reached through an alias in the `TRef`, conversions in C++
+  (`builtins/timer.cpp`); `erlang:apply/2,3` builtins for dynamic calls; `timers` golden
 
 ## Plan 22 (from 2026-10-23)
 

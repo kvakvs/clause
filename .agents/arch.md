@@ -306,6 +306,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `builtins/float_text` (OTP rounding, Ryu), `string`, `unicode`/`unicode_util` (generated tables,
   cp/gc, normalization), `re` (bundled PCRE2 10.47; C++ compile/run, rest in `re.erl`), `base64`,
   `json`, `uri_string`, `filename`, `calendar`.
+- Time: `timer` without a timer server (per-timer processes reached through aliases; conversions in
+  `builtins/timer.cpp`).
 - Collections in C++ (`builtins/collections/`): `lists`, `maps`, `ordsets`, `orddict`, `proplists`,
   `dict`, `sets`, `gb_trees`, `gb_sets`, `queue`, `array`, `sofs`; fun-taking functions stay Erlang.
 - ETS-based: `ets` builtins (`builtins/ets/`: tables, reads, writes, select and match families,

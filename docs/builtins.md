@@ -352,6 +352,19 @@ byte for byte, same file orders.
 - Gregorian arithmetic builtins over any integers, OTP's formulas and errors.
 - Local/universal time and RFC 3339 are Erlang in `calendar.erl`.
 
+## Timer
+
+`builtins/timer.cpp`.
+
+- `seconds/1`, `minutes/1`, `hours/1`, `hms/3` and `now_diff/2` as Erlang
+  arithmetic over any numbers: `badarith` for a non-number, `function_clause`
+  for a `now_diff/2` argument that is not a 3-tuple.
+- The timers are Erlang in `timer.erl`, with no `timer_server`: sends to a local
+  pid use `erlang:send_after/3`; any other one-shot or interval timer is a
+  process that makes an alias, which its `TRef` carries and `cancel/1` sends
+  to. An interval timer monitors the process it works for and ends with it;
+  `apply_repeatedly` waits for each action to end before the next tick.
+
 ## Persistent terms
 
 `builtins/persistent_term.cpp` over the runtime's table

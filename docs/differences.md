@@ -29,6 +29,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 
 | Difference | OTP | Clause | Owner |
 | --- | --- | --- | --- |
+| `timer` one-shot and interval timers other than sends to local pids | Run by the `timer_server` process, started under `kernel_sup` on first use; `exit_after/2,3` signals come from it | No timer server: each timer is a process of its own, which sends `exit_after`'s signal; `cancel/1` returns before that process has seen the cancellation | [builtins](builtins.md#timer) |
 | Pid numbers | The first user process is about `<0.80.0>`; numbers are reused after the pid table wraps | The first process is `<0.1.0>`; numbers come from one sequence and are never reused | [terms](terms.md#pids-and-references) |
 | Code after `spawn(Fun)` of a fun of another arity | The compiler's type analysis may treat the code after the call as unreachable and drop it, so the caller returns the pid at once | The caller goes on; only the new process fails with `{badarity, {Fun, []}}` | [processes](processes.md#builtins) |
 | Stack of a `function_clause` raised by a `lists` builtin (`lists:sublist/2`, `lists:max/1`, ...) | The top frame is the Erlang function, often an internal helper (`lists:sublist_2/2`), with its arguments | The caller is on top: builtins push no frame | [builtins](builtins.md#lists-module) |

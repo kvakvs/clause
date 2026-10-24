@@ -147,6 +147,8 @@ std::span<const BuiltinEntry> queue_builtins() noexcept;
 std::span<const BuiltinEntry> array_builtins() noexcept;
 // Module calendar (plan 21 step LIB5; runtime/src/builtins/calendar.cpp).
 std::span<const BuiltinEntry> calendar_builtins() noexcept;
+// Module timer's conversions (plan 21 step LIB22; runtime/src/builtins/timer.cpp).
+std::span<const BuiltinEntry> timer_module_builtins() noexcept;
 // Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
 std::span<const BuiltinEntry> base64_builtins() noexcept;
 // Module json and its private clause_json scanners (plan 21 step LIB5E; runtime/src/builtins/encoding/json.cpp).
@@ -288,6 +290,8 @@ std::span<const BuiltinEntry> spawning_builtins() noexcept;
 std::span<const BuiltinEntry> fun_info_builtins() noexcept;
 std::span<const BuiltinEntry> hashing_builtins() noexcept;
 std::span<const BuiltinEntry> md5_builtins() noexcept;
+// erlang:apply/2,3 for dynamic calls (plan 21 step LIB22; runtime/src/builtins/erlang/apply.cpp).
+std::span<const BuiltinEntry> apply_builtins() noexcept;
 // The answers of a non-distributed node and of linked code (step 41H): nodes/0,1,2, is_alive/0,
 // monitor_node/2,3, disconnect_node/1; module_loaded/1, loaded/0, pre_loaded/0, delete_module/1,
 // prepare_loading/2, finish_loading/1, get_module_info/1,2.

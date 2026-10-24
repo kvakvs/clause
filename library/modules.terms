@@ -50,6 +50,7 @@
 {uri_string, stdlib, provided}.
 {json, stdlib, provided}.
 {string, stdlib, provided}.
+{timer, stdlib, provided}.
 {rand, stdlib, provided}.
 {random, stdlib, provided}.
 {erl_internal, stdlib, provided}.

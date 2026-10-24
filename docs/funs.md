@@ -42,6 +42,10 @@ sources (`erts/emulator/beam/utils.c` `erts_cmp`, `erl_printf_term.c`,
   `{badarity, {Fun, Args}}`); `apply/3` looks up `M:F/length(Args)` as above, so
   more than 255 arguments raise `undef`. Both are tail calls in tail position
   and never legal in guards.
+- `erlang:apply/2,3` reached by name at run time (`spawn(erlang, apply, [F,
+  Args])`, `M:apply(...)` with `M` bound to `erlang`, a timer's action) are
+  builtins (`builtins/erlang/apply.cpp`) that continue at the called function
+  with the same errors.
 - `fun M:F/A` with variables raises `badarg` unless `M` and `F` are atoms and
   `A` is an integer in 0..255; the function need not exist until the fun is
   called.

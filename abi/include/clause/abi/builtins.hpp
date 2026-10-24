@@ -828,6 +828,12 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"calendar", "time_to_seconds", 1},
     BuiltinName{"calendar", "valid_date", 1},
     BuiltinName{"calendar", "valid_date", 3},
+    // Module timer's conversions (plan 21 step LIB22; runtime/src/builtins/timer.cpp).
+    BuiltinName{"timer", "hms", 3},
+    BuiltinName{"timer", "hours", 1},
+    BuiltinName{"timer", "minutes", 1},
+    BuiltinName{"timer", "now_diff", 2},
+    BuiltinName{"timer", "seconds", 1},
     // Map cursors: the entries tuple maps:fold walks (runtime/src/builtins/maps.cpp).
     BuiltinName{"clause_maps", "entries", 1},
     // Persistent terms (plan step 41M2; runtime/src/builtins/persistent_term.cpp).

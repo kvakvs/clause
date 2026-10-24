@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "timers",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "conversions: [1000,120000,10800000,3723000,1.5e3,-120000,\n              4250129834582680692326400000,3.1e4,1000002000003,-1000002000003,\n              1.0000005e12]\nconversion_errors: [{error,badarith},\n                    {error,badarith},\n                    {error,badarith},\n                    {error,badarith},\n                    {error,function_clause},\n                    {error,function_clause},\n                    {error,badarith}]\ntc: [{true,forty_two},\n     {true,forty_two},\n     {true,42},\n     {true,forty_two},\n     {true,42},\n     {true,42}]\nsleep: [ok,ok]\nstart: ok\ntrefs: [{ok,send_local,true},\n        {ok,send_local,true},\n        {ok,once,true},\n        {ok,once,true},\n        {ok,instant,true},\n        {ok,instant,true},\n        {ok,instant,true},\n        {ok,instant,true},\n        {ok,once,true},\n        {ok,once,true},\n        {ok,once,true}]\nreceived: [a0,a2,a3,s0,s0_dest,s0_name,s1,s2,s3,s4,{a1,true}]\ncancel: [{ok,cancel},{ok,cancel},{ok,cancel},{ok,cancel}]\nafter_cancel: [instant,kept]\ncancel_again: [{ok,cancel},{ok,cancel},{ok,cancel}]\ncancel_bad: [{error,badarg},\n             {error,badarg},\n             {error,badarg},\n             {ok,cancel},\n             {ok,cancel}]\nquiet: true\nkill_after: [{once,true},killed]\nexit_after: shutdown\nexit_after_self: {trapped,trapped}\ntrapper_exit: killed\nkill_after_self: [true,killed]\nexit_after_name: by_name\nexit_after_missing: {ok,once,true}\nquiet: true\nsend_interval: [{interval,true},tick,tick,tick]\ncancel_interval: {ok,cancel}\nquiet: true\napply_interval: [applied,applied,applied]\napply_interval_fun: [fun_tick,fun_tick]\napply_interval_args: [arg_tick,arg_tick]\napply_repeatedly: [{interval,true},\n                   {slow,start},\n                   {slow,done},\n                   {slow,start},\n                   {slow,done},\n                   {slow,start},\n                   {slow,done}]\napply_repeatedly_fun: [repeated,repeated]\napply_repeatedly_args: [repeated_arg,repeated_arg]\nquiet: true\ntarget_pings: [{forwarded,ping},{forwarded,ping}]\ntarget_down: normal\nnext_holder: true\nunregistered: true\nowned: [owned,owned]\nowner_down: normal\nquiet: true\nbad_arguments: [{error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg},\n                {error,badarg}]\nquiet: true\ntimers: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "timers.erl": "9e8d47ce9fc212438c0840bedf2a7b9967fb64fd50be470db75bb98f60524f4d"
+  }
+}

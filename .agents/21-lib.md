@@ -21,18 +21,18 @@ choose
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  1,456 are still to do (erts 23, kernel 545, stdlib 888). Appendix A lists them per module.
+  1,427 are still to do (erts 23, kernel 545, stdlib 859). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
   `dict`, `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`, `filename`,
   `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`,
   `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
-  `unicode`, `uri_string`.
+  `timer`, `unicode`, `uri_string`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
   (51), `io` (31), `file` (30), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
-- **Missing:** 64 modules. Today a program gets the plain-Erlang ones (gen servers, `supervisor`,
+- **Missing:** 63 modules. Today a program gets the plain-Erlang ones (gen servers, `supervisor`,
   `timer`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`,
   `logger_handler`.
@@ -134,17 +134,6 @@ remainders follow.
   `send_request`, `receive_response`, `wait_response`, `check_response`).
 - `multi_call` and `abcast` work on the local node only.
 - `gen_fsm` (deprecated, 19): a thin adapter over `gen_statem`, last in this step.
-
-### LIB22. `timer`
-
-- C++: `hms/3`, `hours/1`, `minutes/1`, `seconds/1`, `now_diff/2`.
-- Erlang:
-  - `tc/1..4` and `sleep/1`.
-  - Timed sends (`send_after/2,3`, `exit_after/2,3`, `kill_after/1,2`) over `erlang:send_after`,
-    without a timer server.
-  - `apply_after/2,3,4`, `apply_interval/2,3,4`, `apply_repeatedly/2,3,4`, `send_interval/2,3` and
-    `cancel/1` through per-timer processes.
-  - `start/0` returns `ok`.
 
 ### LIB23. Logging: `logger` and friends
 
@@ -374,7 +363,7 @@ own annotations, and no Boost in the runtime.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB20–LIB22 (`proc_lib`, `sys`, behaviours, `timer`).
+1. LIB20 and LIB21 (`proc_lib`, `sys`, behaviours).
 2. LIB23 and LIB24 (`logger`, `application`).
 3. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
 4. LIB30–LIB34 (the front end, `consult`, `io:read`).
@@ -596,9 +585,6 @@ separately and are optional.
   get_status/1,2, handle_debug/4, handle_system_msg/6, install/2,3, log/2,3, log_to_file/2,3,
   no_debug/1,2, print_log/1, remove/2,3, replace_state/2,3, resume/1,2, statistics/2,3, suspend/1,2,
   terminate/2,3, trace/2,3; deprecated: get_debug/3
-- `timer` (stdlib, 29): apply_after/2,3,4, apply_interval/2,3,4, apply_repeatedly/2,3,4, cancel/1,
-  exit_after/2,3, hms/3, hours/1, kill_after/1,2, minutes/1, now_diff/2, seconds/1, send_after/2,3,
-  send_interval/2,3, sleep/1, start/0, tc/1,2,3,4
 - `unicode` (stdlib, 12, 7 done): category/1, characters_to_nfc_binary/1, characters_to_nfc_list/1,
   characters_to_nfd_binary/1, characters_to_nfd_list/1, characters_to_nfkc_binary/1,
   characters_to_nfkc_list/1, characters_to_nfkd_binary/1, characters_to_nfkd_list/1,
