@@ -6,15 +6,20 @@ bounded amount of work, then cost less per walk. Done steps, with commit hashes 
 `00-finished.md` (Plan 22).
 
 **NAMING CONVENTION** Tasks in this file have prefixes based on what they are doing.
-- CONV.<id> - convergence of the inference engine; 
-- BUG.<id>
-- LIV.<id> - liveness analysis
+- CONV.<id> - convergence of the inference engine
+- OPTC.<id> - cheaper inference work (same results)
 - INS.<id> - instrumentation
+- B.<id> - benchmarks, fixtures and profiles
+- LLVM.<id> - code generation time
+- LIV.<id> - liveness analysis
+- BUG.<id>
 
 **State after OPTC.B part 1 (memo):** inference W5a 100.4 → 7.3 s, W1 117.0 → 8.4 s (profiled
 runs); W5a, W1 and W3 settle in pass 50 (limit 64). Target for W5a (≤ 10 s) reached without
-precision loss. Soundness invariant: a fact may get wider, never narrower, than a
-correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation).
+precision loss. Shares of W5a inference (B.6 profile, pinned): body walk 48%, walk containers 21%
+(scope `restore` 11%, `BindingFacts` 8%, `set_aside`/`put_back` 2%), lattice ops 12%,
+`gather_all` 11%, pass driver 4%, interning 4%. Soundness invariant: a fact may get wider, never
+narrower, than a correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation).
 
 ## Working rules
 
@@ -29,6 +34,8 @@ correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation
   well-predicted branch, the uninstrumented phase does not slow down and `--print-types` does not
   change. Counters are `size_t` increments; timers stay at pass and component level. Tag new code
   `Added for --print-stage-times.` or with the step's feature name.
+- The owned fixture `inference_walkers` (B.0) keeps passes, work steps, joins, solves, rounds and
+  member walks under budgets; lower them when a step cuts these counters.
 - Temporary investigation code stays out of git (scratchpad, or `zz_*` never staged). OTP sources
   and reduced copies stay in the scratchpad; committed fixtures are written from scratch.
 
@@ -37,7 +44,7 @@ correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation
 | Id | Command (`clau ... --no-cache --print-stage-times`) | Purpose |
 |---|---|---|
 | **W5a** | `--project <scratch>/b2s/b2s.toml --print-types` | Main target, 134 modules |
-| W5r | `--project <scratch>/w5r/w5r.toml --print-types` | Fast loop for the `ubody` group (1.2 s) |
+| W5r | `--project <scratch>/w5r/w5r.toml --print-types` | Fast loop for the `ubody` group (0.08 s since the memo) |
 | W1 | `--project test-luerl-euler.toml --entry euler:run --print-types` | 174 modules |
 | W2 | W1 with `-O2 -o <scratch>/euler.exe`, no `--print-types` | Executable path; run from `references/luerl/examples/euler` |
 | W3 | `--project test-luerl-benchmark.toml --entry benchmarks:run/0 --print-types` | Second luerl entry |
@@ -81,44 +88,34 @@ correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation
 
 ## Steps, in suggested order
 
-1. **B.0 owned fixture:** done (`inference_walkers`); lower its budgets when a step cuts them.
-2. **B.5 re-profile W5a:** done. Shares of inference (78% of `clau`'s samples, 11.85 s pinned):
-   lattice ops 41% (OPTC.B), body walk itself 28% (no OPTC), walk containers 12% (OPTC.D), interning
-   10% (OPTC.C), input gathering 6% (OPTC.F), pass driver 2%. Order below follows it.
-3. **INS.2 rest, INS.3:** done (99.7% of 2-member joins, meets and withins repeat an earlier call;
-   joins per component and `inference costliest`).
-4. **OPTC.B part 1 (memo):** done. Re-profile after it (W5a pinned, inference 66% of samples):
-   body walk 48% (`walk` 8%, `Module::expression` 5%, `scope_step` lambdas 6%), lattice ops 12%,
-   `gather_all` 11%, `restore` 11%, `BindingFacts` 8%, pass driver 4%, interning 4%,
-   `set_aside`/`put_back` 2%. Order below follows it.
-5. **OPTC.D walk containers (21%):** `restore` in `inference_scopes.cpp` copies the whole
+1. **OPTC.D walk containers (21%):** `restore` in `inference_scopes.cpp` copies the whole
    `std::map<BindingId, Fact>` back at every scope step (11%, plus the copy pushed when the scope
    begins): an undo log or a persistent map. `BindingFacts` built/published/read 8%,
    `set_aside`/`put_back` 2%. INS.6 counts first if the shape is unclear; replace pointer-keyed
    `std::map`s on per-walk paths with vectors indexed by `ExprId`/`BindingId` or hash maps (check
    `--print-types` order).
-6. **OPTC.F input gathering (11%):** `gather_all` rebuilds every call site's argument map in all 50
+2. **OPTC.F input gathering (11%):** `gather_all` rebuilds every call site's argument map in all 50
    passes, while late passes skip ~8 900 of 8 911 components: gather only from callers walked
    again (their arguments are kept), as CONV.2 does for walks.
-7. **OPTC.B part 2, allocation-free joins (lattice ops now 12%):** `fact_of` 2.6% (union
+3. **OPTC.B part 2, allocation-free joins (lattice ops now 12%):** `fact_of` 2.6% (union
    assembly, `without_subsumed`'s pairwise `within`, vectors growing one Id at a time,
    `std::set<std::string>` atom names per join), `Answers::find` 1.5%, `Gather::add` 1.4%;
    allocation ≈ 2.4%. Joins of other than two members (5.8M on W5a) are not memoized.
    **OPTC.C rest, interning (4%):** `Node::operator==` 2%, `NodeHash` 1%, `Graph::intern` 1%:
    compact nodes (atoms and integers as ids, not `std::string`, which also serves the atom sets).
-8. **INS.4 + OPTC.E outliers:** count `reanalyse` calls (limit hits, work) and `instantiate` calls
+4. **INS.4 + OPTC.E outliers:** count `reanalyse` calls (limit hits, work) and `instantiate` calls
    per component; then `yystate` (W5b) and re-analysis fan-out.
-9. **CONV.5 harder fact caps on recursive results:** deprioritized (INS.5: facts are small, mean
+5. **CONV.5 harder fact caps on recursive results:** deprioritized (INS.5: facts are small, mean
    tree size 4; the cost is interning and constant work per join).
-10. **LLVM.2 rest of W2** (after LLVM.1, W2 compile 57.8 s: inference 13.2, lower 10.9, optimize
+6. **LLVM.2 rest of W2** (after LLVM.1, W2 compile 57.8 s: inference 13.2, lower 10.9, optimize
    11.1, emit 19.7 s on 32 threads): emission is bound by `core_parse` alone (≈ 14 s of one
    thread); emit each module right after its optimization in the same job (≈ 10 s), destroy the
    moved-out modules off the main thread, and split very large modules (`llvm::SplitModule`):
    liveness keeps `core_parse`, `erl_lint`, `v3_core` and `qlc` whole (LIV.1). `lower` (10.9 s) is
    serial.
-11. **Side findings, whenever convenient:**
+7. **Side findings, whenever convenient:**
     - **BUG.1:** `clau` (Release, ab635294) exited 0xC0000005 once in ~100 W5r runs. Suspect a
       `const Node &` from `Graph::get` held across `Graph::intern`; loop a Debug or ASan `clau`
       over W5r and review such uses.
-12. **Later:** parallel inference of independent components at one call-graph level (thread-local
-    or sharded graphs), only after OPTC.B-D and F.
+8. **Later:** parallel inference of independent components at one call-graph level (thread-local
+   or sharded graphs), only after OPTC.D, OPTC.F and OPTC.B part 2.
