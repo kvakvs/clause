@@ -844,7 +844,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `file:io_request/3`). `--print-types` keeps inferring the whole batch under `--entry`: it is the
   precision guard, and W1/W3 liveness keeps every export anyway (W2 inference 13.2 s, W1 13.0 s).
 
-- **B.0** (pending) owned fixture `tests/fixtures/inference/budgets/walkers.erl`: a free-variable pass over an
+- **B.0** (9bd4b2e2) owned fixture `tests/fixtures/inference/budgets/walkers.erl`: a free-variable pass over an
   invented tree language (state record of 18 fields, 7 mutually recursive walkers, results unions of
   many records, ordsets), written from scratch in W5r's shape; CTest `inference_walkers` compiles it
   with `-O2`, keeps passes (13), work steps (397 795), lattice joins (4 950 111) and the walker
