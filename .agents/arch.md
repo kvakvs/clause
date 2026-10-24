@@ -81,6 +81,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   at the cap or 1/8 of pass work, or when a member oscillates. Passes repeat until local inputs and
   fun reads settle, else a final pass with `term()` inputs. Later passes skip components nothing they
   read changed for, warm-start recursive solves, and give costly ones (lattice joins) `term()` inputs.
+  Walk scopes save variable facts as flat slots per definition (`BindingValues`); each function's
+  binding index is built once per inference; expression facts are hash maps.
 - `Summary::types` = one `FunctionType` per clause; non-recursive callees are re-analysed per call
   under a budget; dependent facts index interned `Dependent`s while `Fact::type` is the erased join.
 

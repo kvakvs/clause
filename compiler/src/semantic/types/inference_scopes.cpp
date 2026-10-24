@@ -466,8 +466,8 @@ std::vector<Id> argument_facts(const BindingFacts &bindings, const std::vector<a
     result.reserve(patterns.size());
     for (std::size_t position = 0; position < patterns.size(); ++position) {
         const auto identity = variable(bindings, patterns[position]);
-        const auto found = identity ? bindings.values.find(*identity) : bindings.values.end();
-        result.push_back(found == bindings.values.end() ? bindings.entry.at(position) : found->second.type);
+        const auto *found = identity ? bindings.values.find(*identity) : nullptr;
+        result.push_back(found ? found->type : bindings.entry.at(position));
     }
     return result;
 }
@@ -511,8 +511,8 @@ std::vector<Id> fun_arguments(BindingFacts &bindings, const ast::FunctionClause 
     std::vector<Id> result;
     for (const auto &pattern : argument_roots(syntax, clause)) {
         const auto identity = variable(bindings, pattern);
-        const auto found = identity ? bindings.values.find(*identity) : bindings.values.end();
-        result.push_back(found == bindings.values.end() ? pattern_shape(bindings, pattern) : found->second.type);
+        const auto *found = identity ? bindings.values.find(*identity) : nullptr;
+        result.push_back(found ? found->type : pattern_shape(bindings, pattern));
     }
     return result;
 }
@@ -595,9 +595,11 @@ void complete(BindingFacts &bindings) {
         return;
     }
     Lattice lattice(bindings.inference.graph);
-    for (auto &[identity, fact] : *merged) {
-        const auto found = bindings.values.find(identity);
-        const auto other = found == bindings.values.end() ? Fact{bindings.inference.graph.top()} : found->second;
+    const auto &current = bindings.values.slots();
+    auto &facts = merged->slots();
+    for (std::size_t slot = 0; slot < facts.size(); ++slot) {
+        auto &fact = facts[slot];
+        const auto &other = current[slot];
         fact = {lattice.join(fact.type, other.type), fact.argument == other.argument ? fact.argument : std::nullopt,
                 fact.dependent == other.dependent ? fact.dependent : std::nullopt};
     }
@@ -673,10 +675,12 @@ void leave_head(BindingFacts &bindings, const std::size_t index) {
 
 // Restore the facts saved when the scope began, keeping them saved when `keep`.
 void restore(BindingFacts &bindings, const bool keep) {
-    bindings.values = bindings.saved.back();
-    if (!keep) {
-        bindings.saved.pop_back();
+    if (keep) {
+        bindings.values = bindings.saved.back();
+        return;
     }
+    bindings.values = std::move(bindings.saved.back());
+    bindings.saved.pop_back();
 }
 
 // The clauses of a case, a try's of part or a maybe's else part, which match one value, when clause `index` is

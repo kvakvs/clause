@@ -16,13 +16,14 @@ struct BindingFacts {
     // Borrow one function's semantic identities; each clause has disjoint local slots.
     FunctionRef function;
     Inference &inference;
-    // Index syntax events once rather than scanning the complete binding table for every read.
-    std::map<const ast::Expression *, const Binding *> events;
+    // Index syntax events once rather than scanning the complete binding table for every read (kept by the inference
+    // across walks since OPTC.D).
+    const std::unordered_map<const ast::Expression *, const Binding *> &events;
     // Track the facts of successful definitions, parts of matched values included; unproved values remain top.
-    std::map<BindingId, Fact> values;
+    BindingValues values;
     // Identities defined by several clauses of a case, if, receive, try or maybe: their facts after it are the join
     // of the completed clauses' (or dependent on a case's or if's parameters).
-    std::set<BindingId> shared;
+    const std::set<BindingId> &shared;
 
     // Index validated bindings within the same batch inference ceiling.
     BindingFacts(FunctionRef function, Inference &inference, std::size_t &work);
@@ -55,19 +56,19 @@ struct BindingFacts {
     // Narrow a name and the names bound to the same value to their meet with `fact`, in `facts` (the current values or
     // a copy of them), and the parameters of a dependent one to what that proves, `depth` levels deep at most; the
     // name's new fact.
-    Id narrow_identity(std::map<BindingId, Fact> &facts, BindingId identity, Id fact, std::size_t depth = 0) const;
+    Id narrow_identity(BindingValues &facts, BindingId identity, Id fact, std::size_t depth = 0) const;
     // Record that two names are bound to the same value.
     void link(BindingId first, BindingId second);
 
     // Names bound to the same value as each name.
     std::map<BindingId, std::set<BindingId>> aliases;
     // For each case, if and receive being walked, the join of the facts at the end of each clause that completed.
-    std::vector<std::optional<std::map<BindingId, Fact>>> merged;
+    std::vector<std::optional<BindingValues>> merged;
     // Each argument's join of its facts at the normal return of every clause: the success domain.
     std::vector<Id> success;
 
     // Narrowing scopes: the facts saved when a clause, andalso operand, catch, try or comprehension began.
-    std::vector<std::map<BindingId, Fact>> saved;
+    std::vector<BindingValues> saved;
     // Clause bodies that can never run: their patterns or guard contradict the facts.
     std::set<const std::vector<ast::ExprId> *> impossible;
     // A function's inputs, each argument's fact at the current clause's entry, and the entry domain.
@@ -105,5 +106,9 @@ struct BindingFacts {
     bool stopped(const ast::Expression &maybe) const;
     // The join of the values the ?= matches of a maybe can fail on, up to the first that can never succeed.
     Id failures(const ast::Expression &maybe) const;
+
+  private:
+    // Start from the function's kept binding index. Added for walk containers (OPTC.D).
+    BindingFacts(FunctionRef function, Inference &inference, const BindingIndex &index, std::size_t &work);
 };
 } // namespace clause::semantic::types

@@ -433,7 +433,7 @@ class Decoder {
     // What install puts into the inference.
     std::map<const Function *, Summary> summaries_;
     std::map<const Function *, std::vector<Id>> inputs_;
-    std::map<const ast::Expression *, Fact> expressions_;
+    std::unordered_map<const ast::Expression *, Fact> expressions_;
 };
 } // namespace
 

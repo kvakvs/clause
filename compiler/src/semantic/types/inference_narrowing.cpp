@@ -43,12 +43,18 @@ struct Interval {
 // Narrowed facts by name, with the integer bounds proven so far in the test: a bound on one side only is no fact of
 // its own, so it waits here for the other side.
 struct Values {
-    std::map<BindingId, Fact> facts;
+    BindingValues facts;
     std::map<BindingId, Interval> bounds;
 };
 
 // Facts to narrow, starting from `facts`.
-Values narrowing(const std::map<BindingId, Fact> &facts) { return {facts, {}}; }
+Values narrowing(const BindingValues &facts) { return {facts, {}}; }
+
+// The fact of a name in `values`; term() when it has none.
+Id current_fact(Lattice &lattice, const Values &values, const BindingId identity) {
+    const auto *found = values.facts.find(identity);
+    return found ? found->type : lattice.graph().top();
+}
 
 // The larger of two lower bounds and the smaller of two upper bounds.
 std::optional<std::string> higher(const std::optional<std::string> &left, const std::optional<std::string> &right) {
@@ -76,10 +82,10 @@ std::optional<std::string> next(const std::optional<std::string> &bound, const b
 
 // Join into `into` the facts `other` gives the same variables: either of two narrowings may hold.
 void merge(Lattice &lattice, Values &into, const Values &other) {
-    const auto top = Fact{lattice.graph().top()};
-    for (auto &[identity, fact] : into.facts) {
-        const auto found = other.facts.find(identity);
-        const auto second = found == other.facts.end() ? top : found->second;
+    auto &facts = into.facts.slots();
+    for (std::size_t slot = 0; slot < facts.size(); ++slot) {
+        auto &fact = facts[slot];
+        const auto &second = other.facts.slots()[slot];
         fact = {lattice.join(fact.type, second.type), fact.argument == second.argument ? fact.argument : std::nullopt};
     }
     into.bounds.clear();
@@ -262,8 +268,7 @@ bool Assume::apply(Values &values, const Comparison &compared) {
 }
 
 std::optional<Interval> Assume::integer_bounds(const Values &values, const BindingId identity) {
-    const auto current = values.facts.contains(identity) ? values.facts.at(identity).type : lattice_.graph().top();
-    const auto numbers = lattice_.numbers(current);
+    const auto numbers = lattice_.numbers(current_fact(lattice_, values, identity));
     if (!numbers.integers || numbers.floats || numbers.others) {
         return std::nullopt;
     }
@@ -325,8 +330,7 @@ bool Assume::order(Values &values, const Ordered &ordered) {
 }
 
 bool Assume::narrow_range(Values &values, const BindingId identity, const Interval &range) {
-    const auto current = values.facts.contains(identity) ? values.facts.at(identity).type : lattice_.graph().top();
-    const auto numbers = lattice_.numbers(current);
+    const auto numbers = lattice_.numbers(current_fact(lattice_, values, identity));
     // Terms of every type compare: only a value proven to be an integer narrows to a range.
     if (!numbers.integers || numbers.floats || numbers.others) {
         return true;
@@ -342,7 +346,7 @@ bool Assume::narrow_range(Values &values, const BindingId identity, const Interv
 }
 
 bool Assume::narrow(Values &values, const BindingId identity, const Id fact) {
-    const auto current = values.facts.contains(identity) ? values.facts.at(identity).type : lattice_.graph().top();
+    const auto current = current_fact(lattice_, values, identity);
     const auto next = bindings_.narrow_identity(values.facts, identity, fact);
     return next != lattice_.graph().bottom() || current == lattice_.graph().bottom();
 }
@@ -500,8 +504,8 @@ Id Shape::variable(const ast::Expression &expression) {
         return lattice_.graph().top();
     }
     // A bound variable or a repeated one matches exactly the value it holds.
-    const auto found = bindings_.values.find(event->second->identity);
-    return found == bindings_.values.end() ? lattice_.graph().top() : found->second.type;
+    const auto *found = bindings_.values.find(event->second->identity);
+    return found ? found->type : lattice_.graph().top();
 }
 
 // Whether a pattern node matches every value of its own shape: a literal atom or integer, [], a new variable or `_`;

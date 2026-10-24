@@ -124,9 +124,9 @@ const std::vector<BindingId> &parameters_of(BindingFacts &bindings, const ast::E
 }
 
 // The current fact of a variable; term() when it has none.
-Id current(const Inference &inference, const std::map<BindingId, Fact> &values, const BindingId identity) {
-    const auto found = values.find(identity);
-    return found == values.end() ? inference.graph.top() : found->second.type;
+Id current(const Inference &inference, const BindingValues &values, const BindingId identity) {
+    const auto *found = values.find(identity);
+    return found ? found->type : inference.graph.top();
 }
 
 // The names bound to the same values as `identities`, themselves included.
@@ -433,8 +433,7 @@ Fact clause_fact(BindingFacts &bindings, const Operator construct, const std::ve
 }
 
 // The current facts of a dependent fact's parameters.
-std::vector<Fact> parameter_facts(const Inference &inference, const Dependent &dependent,
-                                  const std::map<BindingId, Fact> &values) {
+std::vector<Fact> parameter_facts(const Inference &inference, const Dependent &dependent, const BindingValues &values) {
     std::vector<Fact> result;
     result.reserve(dependent.parameters.size());
     for (const auto identity : dependent.parameters) {
@@ -584,8 +583,8 @@ void record_exit(BindingFacts &bindings, const ast::Expression &construct, const
     }
     std::map<BindingId, Fact> facts;
     for (const auto identity : exported->second) {
-        if (const auto found = bindings.values.find(identity); found != bindings.values.end()) {
-            facts.emplace(identity, found->second);
+        if (const auto *found = bindings.values.find(identity)) {
+            facts.emplace(identity, *found);
         }
     }
     bindings.exits.insert_or_assign({&construct, index}, std::move(facts));
@@ -598,10 +597,10 @@ void export_dependents(BindingFacts &bindings, const ast::Expression &construct)
     }
     const auto parameters = parameters_of(bindings, construct);
     for (const auto identity : exported->second) {
-        const auto found = bindings.values.find(identity);
-        if (found != bindings.values.end() && found->second.type != bindings.inference.graph.bottom()) {
-            found->second = clause_fact(bindings, construct_of(construct), parameters,
-                                        exit_clauses(bindings, construct, identity), found->second);
+        auto *found = bindings.values.find(identity);
+        if (found && found->type != bindings.inference.graph.bottom()) {
+            *found = clause_fact(bindings, construct_of(construct), parameters,
+                                 exit_clauses(bindings, construct, identity), *found);
         }
     }
 }
@@ -627,8 +626,7 @@ Fact lifted(BindingFacts &bindings, const std::vector<ast::ExprId> &operands, co
     return finished(bindings, construct, std::move(table), plain);
 }
 
-std::vector<std::pair<BindingId, Id>> implied(Inference &inference, const Fact &fact,
-                                              const std::map<BindingId, Fact> &values) {
+std::vector<std::pair<BindingId, Id>> implied(Inference &inference, const Fact &fact, const BindingValues &values) {
     if (!fact.dependent) {
         return {};
     }
@@ -653,7 +651,7 @@ std::vector<std::pair<BindingId, Id>> implied(Inference &inference, const Fact &
     return result;
 }
 
-Fact resolved(Inference &inference, const Fact fact, const std::map<BindingId, Fact> &values) {
+Fact resolved(Inference &inference, const Fact fact, const BindingValues &values) {
     if (!fact.dependent) {
         return fact;
     }

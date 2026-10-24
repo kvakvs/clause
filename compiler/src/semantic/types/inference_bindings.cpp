@@ -34,6 +34,38 @@ bool spend(const Inference &inference, std::size_t &work) {
     return true;
 }
 
+// Index a function's bindings: events by expression (the first one of each), its value slots, which start as
+// term() with their argument relations, and the names defined again. Added for walk containers (OPTC.D).
+BindingIndex index_bindings(const Inference &inference, const FunctionRef function) {
+    BindingIndex result;
+    result.offsets.push_back(0);
+    for (const auto &clause : function.function->clause_bindings) {
+        result.offsets.push_back(result.offsets.back() + clause.definitions.size());
+        for (const auto &definition : clause.definitions) {
+            result.initial.push_back({inference.graph.top(), definition.argument});
+        }
+    }
+    std::vector<bool> seen(result.initial.size(), false);
+    for (const auto &binding : function.function->bindings) {
+        result.events.emplace(&function.module->syntax->expression(binding.expression), &binding);
+        const auto slot = result.offsets.at(binding.identity.clause) + binding.identity.local;
+        if (seen.at(slot) && binding.use == BindingUse::definition) {
+            result.shared.insert(binding.identity);
+        }
+        seen.at(slot) = true;
+    }
+    return result;
+}
+
+// The function's binding index, built at its first walk. Added for walk containers (OPTC.D).
+const BindingIndex &binding_index(Inference &inference, const FunctionRef function) {
+    const auto found = inference.binding_indices.find(function.function);
+    if (found != inference.binding_indices.end()) {
+        return found->second;
+    }
+    return inference.binding_indices.emplace(function.function, index_bindings(inference, function)).first->second;
+}
+
 // A pattern and the fact of the value it matches.
 using Matched = std::pair<ast::ExprId, Fact>;
 
@@ -109,28 +141,24 @@ struct PatternParts {
 } // namespace
 
 BindingFacts::BindingFacts(const FunctionRef owner, Inference &facts, std::size_t &work)
-    : function(owner), inference(facts) {
-    for (const auto &binding : function.function->bindings) {
-        if (!spend(inference, work)) {
-            return;
-        }
-        const auto &expression = function.module->syntax->expression(binding.expression);
-        events.emplace(&expression, &binding);
-        const auto &definition =
-            function.function->clause_bindings.at(binding.identity.clause).definitions.at(binding.identity.local);
-        if (!values.try_emplace(binding.identity, Fact{inference.graph.top(), definition.argument}).second &&
-            binding.use == BindingUse::definition) {
-            shared.insert(binding.identity);
-        }
+    : BindingFacts(owner, facts, binding_index(facts, owner), work) {}
+
+BindingFacts::BindingFacts(const FunctionRef owner, Inference &facts, const BindingIndex &index, std::size_t &work)
+    : function(owner), inference(facts), events(index.events), values(index.offsets, index.initial),
+      shared(index.shared) {
+    // Each binding costs one work step, as indexing it did before the index was kept; a walk that ran out of work
+    // never reads it.
+    const auto limit = inference.graph.limits().syntax_work;
+    if (work < limit) {
+        work = std::min(work + function.function->bindings.size(), limit);
     }
 }
 
 Fact BindingFacts::read(const ast::ExprId &id) const {
     const auto event = events.find(&function.module->syntax->expression(id));
     if (event != events.end() && event->second->use == BindingUse::read) {
-        const auto fact = values.find(event->second->identity);
-        if (fact != values.end()) {
-            return resolved(inference, fact->second, values);
+        if (const auto *fact = values.find(event->second->identity)) {
+            return resolved(inference, *fact, values);
         }
     }
     return {inference.graph.top()};
@@ -169,12 +197,12 @@ void BindingFacts::narrow(const ast::ExprId &read, const Id fact) {
     }
 }
 
-Id BindingFacts::narrow_identity(std::map<BindingId, Fact> &facts, const BindingId identity, const Id fact,
+Id BindingFacts::narrow_identity(BindingValues &facts, const BindingId identity, const Id fact,
                                  const std::size_t depth) const {
     Lattice lattice(inference.graph);
     std::vector<std::pair<BindingId, Id>> proven;
     for (const auto name : bound_together(aliases, identity)) {
-        auto &value = facts.try_emplace(name, Fact{inference.graph.top()}).first->second;
+        auto &value = facts.at(name);
         value.type = lattice.meet(value.type, fact);
         if (depth < IMPLIED_DEPTH) {
             const auto implies = implied(inference, value, facts);
@@ -272,7 +300,7 @@ void BindingFacts::publish(const ast::ExprId &pattern, Fact fact, std::size_t &w
         const auto &expression = function.module->syntax->expression(id);
         const auto event = events.find(&expression);
         if (event != events.end() && event->second->use == BindingUse::definition) {
-            values.insert_or_assign(event->second->identity, value);
+            values.at(event->second->identity) = value;
         }
         std::visit(PatternParts{*this, lattice, value, pending}, expression.value);
     }

@@ -29,11 +29,10 @@ Fact lifted(BindingFacts &bindings, const std::vector<ast::ExprId> &operands, Fa
             const std::function<std::optional<Id>()> &again);
 // What narrowing a dependent fact to `fact` proves of its parameters (the join of the inputs of the clauses whose
 // values meet it), against their facts in `values`.
-std::vector<std::pair<BindingId, Id>> implied(Inference &inference, const Fact &fact,
-                                              const std::map<BindingId, Fact> &values);
+std::vector<std::pair<BindingId, Id>> implied(Inference &inference, const Fact &fact, const BindingValues &values);
 // A fact as read where `values` hold: a dependent fact keeps the clauses its parameters' facts enter, and its type
 // narrows to their results.
-Fact resolved(Inference &inference, Fact fact, const std::map<BindingId, Fact> &values);
+Fact resolved(Inference &inference, Fact fact, const BindingValues &values);
 // A function clause's function types from its result: one per clause of a dependent result whose parameters name
 // arguments, their facts met with the arguments'; else one.
 std::vector<FunctionType> clause_types(const BindingFacts &bindings, const std::vector<ast::ExprId> &patterns,

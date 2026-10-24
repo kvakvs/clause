@@ -222,7 +222,7 @@ void put_back(Inference &inference, const std::vector<const ast::Expression *> &
 
 // The facts of a function's walk that evaluating an anonymous fun again for a call changes, restored afterwards.
 struct Instance {
-    std::map<BindingId, Fact> values;
+    BindingValues values;
     std::map<const ast::Expression *, std::vector<Waiting>> waiting;
     std::map<std::pair<const ast::Expression *, std::size_t>, BindingFacts::Conditional> conditionals;
     Impossible impossible;
@@ -583,12 +583,12 @@ bool walk(Inference &inference, const FunctionRef function, BindingFacts &bindin
         pending.pop_back();
         const auto &expression = syntax.expression(frame.expression);
         if (frame.step == Step::ready) {
-            const auto [fact, added] = inference.expressions.emplace(
-                &expression, evaluate(inference, function, frame.expression, bindings, work));
-            (void)added;
+            const auto fact = inference.expressions
+                                  .emplace(&expression, evaluate(inference, function, frame.expression, bindings, work))
+                                  .first->second;
             recorded.push_back(&expression);
-            bindings.matched(expression, fact->second, work);
-            if (fact->second.type != inference.graph.bottom()) {
+            bindings.matched(expression, fact, work);
+            if (fact.type != inference.graph.bottom()) {
                 narrow_uses(bindings, expression);
             }
         } else if (frame.step == Step::visit) {

@@ -3,9 +3,11 @@
 #include "domain.hpp"
 #include "profile.hpp"
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <unordered_map>
 
 namespace clause::semantic::types {
 struct Fact {
@@ -15,6 +17,65 @@ struct Fact {
     // The clauses of a case or if the value depends on (Inference::dependents); `type` is their erased join.
     std::optional<std::size_t> dependent = {};
     auto operator<=>(const Fact &) const = default;
+};
+
+// The facts of a walked function's variables, one slot per definition, clause by clause in BindingId order: scopes
+// save and restore them as flat copies. Added for walk containers (OPTC.D).
+class BindingValues {
+  public:
+    BindingValues() = default;
+
+    // Slots from the first slot of each clause (and the slot count last), kept by the caller, starting as `facts`.
+    BindingValues(const std::vector<std::size_t> &offsets, std::vector<Fact> facts)
+        : offsets_(&offsets), facts_(std::move(facts)) {}
+
+    // The fact of a variable of the function; null for an identity it does not define.
+    const Fact *find(const BindingId identity) const {
+        const auto slot = slot_of(identity);
+        return slot ? &facts_[*slot] : nullptr;
+    }
+
+    Fact *find(const BindingId identity) {
+        const auto slot = slot_of(identity);
+        return slot ? &facts_[*slot] : nullptr;
+    }
+
+    // The fact of a variable the function defines.
+    Fact &at(const BindingId identity) {
+        auto *found = find(identity);
+        if (!found) {
+            throw std::out_of_range("a variable the walked function does not define");
+        }
+        return *found;
+    }
+
+    // Every slot's fact, in BindingId order.
+    std::vector<Fact> &slots() { return facts_; }
+
+    const std::vector<Fact> &slots() const { return facts_; }
+
+  private:
+    std::optional<std::size_t> slot_of(const BindingId identity) const {
+        if (!offsets_ || identity.clause + 1 >= offsets_->size()) {
+            return std::nullopt;
+        }
+        const auto slot = (*offsets_)[identity.clause] + identity.local;
+        return slot < (*offsets_)[identity.clause + 1] ? std::optional{slot} : std::nullopt;
+    }
+
+    // The first slot of each clause and the slot count, and the facts by slot.
+    const std::vector<std::size_t> *offsets_ = nullptr;
+    std::vector<Fact> facts_;
+};
+
+// What every walk of a function starts from, built at its first walk: its binding events by expression, the names
+// several clauses of a construct define, its value slots per clause and their first facts. Added for walk containers
+// (OPTC.D).
+struct BindingIndex {
+    std::unordered_map<const ast::Expression *, const Binding *> events;
+    std::set<BindingId> shared;
+    std::vector<std::size_t> offsets;
+    std::vector<Fact> initial;
 };
 
 struct FunctionType {
@@ -125,9 +186,9 @@ struct Inference {
     Graph graph;
     std::map<const Function *, Summary> functions;
     // Borrow stable AST nodes for location-aware inspection without mutating syntax.
-    std::map<const ast::Expression *, Fact> expressions;
+    std::unordered_map<const ast::Expression *, Fact> expressions;
     // Preserve validated call targets for fresh instantiation at each expression.
-    std::map<const ast::Expression *, FunctionRef> callees;
+    std::unordered_map<const ast::Expression *, FunctionRef> callees;
     // The inputs of functions entered only by direct calls of the batch, joined from those calls.
     std::map<const Function *, std::vector<Id>> inputs;
     // How often each of those inputs changed over the passes, which picks how its next change widens. Added for the
@@ -164,7 +225,7 @@ struct Inference {
     // Functions whose results a build cache kept, and the expression facts of their modules: passes keep their
     // summaries, local inputs and facts instead of walking them. Added for the inference cache (58V).
     std::set<const Function *> reused;
-    std::map<const ast::Expression *, Fact> reused_expressions;
+    std::unordered_map<const ast::Expression *, Fact> reused_expressions;
     // What the walk of the current component reads; each component's last walk; how often each summary changed; and
     // how often re-analyses asked the pass budget and were refused by it. Added for incremental passes (CONV.2).
     WalkReads *walk_reads = nullptr;
@@ -177,6 +238,8 @@ struct Inference {
     // warm solves (CONV.8).
     std::map<const Component *, std::vector<MemberWalk>> member_walks;
     std::size_t replayed_joins = 0;
+    // Each walked function's binding index, built once (elements never move). Added for walk containers (OPTC.D).
+    std::unordered_map<const Function *, BindingIndex> binding_indices;
 };
 
 // A function's summary, noting the read for the solve of its component (step 58R) and for incremental passes.

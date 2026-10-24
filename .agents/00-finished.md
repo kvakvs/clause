@@ -890,6 +890,16 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `gather_all` 11%, scope `restore` 11%, `BindingFacts` 8%, pass driver 4%, interning 4%, `set_aside`/`put_back`
   2%. Plan 22 reordered: OPTC.D, OPTC.F, then OPTC.B part 2 with OPTC.C.
 
+- **OPTC.D** (pending) walk containers: variable facts are `BindingValues`, one flat slot per definition in
+  `BindingId` order (scopes, clause joins, guard narrowing and fun instances copied `std::map<BindingId, Fact>`
+  nodes); each function's binding events, shared names and first facts are a `BindingIndex` built once per
+  inference (every definition has an event, so slots equal the old keys; the work spent per binding is unchanged);
+  `Inference::expressions`, `reused_expressions` and `callees` are hash maps (only looked up). `--print-types` and
+  pass counters identical on W5r, W6, W5a, W1, W3. Inference (3 runs, profiled): W5a 7.17 → 4.83 s (0.673), W1
+  8.21 → 5.49 s (0.668). Pinned W5a profile: scope `restore` 11% → 0.05%, `BindingFacts` 8% → 6.7% (`publish`
+  2.1%), `set_aside` 0.6%; now body walk 50% (`Module::expression` 6.8%, outside plan 22's files), lattice ops
+  17%, `gather_all` 13%, pass driver 6.6%, interning 6.5%.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions
