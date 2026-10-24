@@ -142,6 +142,7 @@ std::string request_bytes(const AbstractModule &module, const TransformRequest &
     }
     const auto body = [&terms](const TermId id) { return encode_external(terms, id).substr(1); };
     std::string out;
+    out.reserve(4096);
     abi::external::Writer writer(out);
     writer.version();
     writer.map(5);

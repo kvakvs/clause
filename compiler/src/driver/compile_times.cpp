@@ -85,6 +85,7 @@ constexpr std::array<std::string_view, semantic::types::LATTICE_OPS> LATTICE_OP_
 void print_lattice(const InferenceProfile &profile, const std::string_view subject) {
     const auto &trace = profile.lattice_;
     std::string note;
+    note.reserve(256);
     for (std::size_t op = 0; op < LATTICE_OP_NAMES.size(); ++op) {
         const auto &counts = trace.counts().at(op);
         note += std::format("{}{} {} ({} repeated in their pass, {} ever)", op == 0 ? "" : ", ",

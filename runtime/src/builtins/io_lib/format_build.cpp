@@ -567,6 +567,7 @@ class Builder final {
         }
         const auto bytes = string::binary_bytes(binary).subspan(from, count);
         std::u32string codes;
+        codes.reserve(bytes.size());
         std::ranges::transform(bytes, std::back_inserter(codes),
                                [](std::byte b) { return std::to_integer<char32_t>(b); });
         return deep_.text(codes);

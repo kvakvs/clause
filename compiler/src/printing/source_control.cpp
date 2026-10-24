@@ -54,6 +54,7 @@ std::string fun_text(const SourcePrinter &printer, const ast::FunExpression &fun
                printer.body(clause.body, indent + STEP) + '\n' + spaces(indent) + "end";
     }
     std::string clauses;
+    clauses.reserve(256);
     for (const auto &clause : fun.clauses) {
         clauses += (clauses.empty() ? "" : ";\n") +
                    clause_text(printer, fun_head(printer, fun, clause, indent + STEP), clause.body, indent + STEP);
@@ -97,6 +98,7 @@ std::string try_text(const SourcePrinter &printer, const ast::TryExpression &att
 std::string maybe_text(const SourcePrinter &printer, const ast::MaybeExpression &block, std::size_t indent) {
     const auto inner = indent + STEP;
     std::string body;
+    body.reserve(256);
     for (const auto &item : block.body) {
         const auto *match = std::get_if<ast::MaybeMatch>(&item);
         const auto text = match ? printer.pattern(match->pattern, inner) +
@@ -140,6 +142,7 @@ struct Control {
 
     std::string operator()(const ast::IfExpression &value) const {
         std::string clauses;
+        clauses.reserve(256);
         for (const auto &clause : value.clauses) {
             clauses += (clauses.empty() ? "" : ";\n") +
                        clause_text(printer, printer.guard(clause.guard, indent + STEP), clause.body, indent + STEP);

@@ -337,6 +337,9 @@ class Bytes final {
         }
     }
 
+    // The bytes of a binary still to take; 0 for a list, whose length is unknown.
+    std::size_t known_size() const { return bytes_.size() - at_; }
+
     // Up to three more bytes.
     std::vector<detail::Integer> take() { return binary_ ? take_binary() : take_list(); }
 
@@ -398,6 +401,7 @@ void encode_group(std::string &text, const std::vector<detail::Integer> &bytes, 
 Term encode_data(ProcessContext &context, const Data &data, const Coding &coding, bool listed) {
     Bytes bytes(data.term);
     std::string text;
+    text.reserve((bytes.known_size() + 2) / 3 * 4);
     for (auto group = bytes.take(); !group.empty(); group = group.size() == 3 ? bytes.take() : decltype(group){}) {
         encode_group(text, group, coding);
     }

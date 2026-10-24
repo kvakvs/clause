@@ -203,6 +203,7 @@ std::optional<std::u32string> byte_escape(std::uint8_t byte, std::int64_t quote,
 // The bytes of a binary with needs_escape/2 applied, as characters (Latin-1) or UTF-8 bytes (unicode).
 std::pair<std::string, bool> escaped_bytes(const Term &binary, std::int64_t quote, Encoding encoding) {
     std::string out;
+    out.reserve(string::binary_bytes(binary).size());
     bool any = false;
     for (const auto b : string::binary_bytes(binary)) {
         const auto byte = std::to_integer<std::uint8_t>(b);

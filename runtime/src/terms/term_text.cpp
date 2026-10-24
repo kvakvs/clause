@@ -45,6 +45,7 @@ class Renderer final {
 
     // Render the whole term, or fail with the first access error or resource_limit on overflow.
     TermResult<std::string> run(const Term &root) {
+        out_.reserve(expected_size(root));
         auto status = value(root);
         while (status && !frames_.empty() && !out_.overflowed()) {
             auto child = advance(frames_.back());
@@ -64,6 +65,11 @@ class Renderer final {
     }
 
   private:
+    // Containers usually print past the small-string buffer; scalars stay unreserved.
+    static std::size_t expected_size(const Term &root) {
+        return root.is_cons() || root.is_tuple() || root.is_map() ? 256 : 0;
+    }
+
     // Print a scalar directly or open a container frame.
     TermResult<void> value(const Term &term) {
         if (term.is_integer()) {

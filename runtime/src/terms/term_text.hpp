@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <clause/runtime/output.hpp>
 
 namespace clause::runtime::detail {
@@ -10,6 +11,9 @@ class TextOutput final {
 
     // Append exact bytes unless that would exceed the budget; overflow discards further text.
     void append(std::string_view text);
+
+    // Reserve room for an expected rendering size, never past the budget.
+    void reserve(std::size_t size) { text_.reserve(std::min(size, limit_)); }
 
     // Report whether any append was refused, so traversal stops with bounded work.
     bool overflowed() const noexcept { return overflowed_; }

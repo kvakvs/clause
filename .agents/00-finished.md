@@ -559,6 +559,12 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   worker count follows the affinity mask, and `benchmarks/run.py --cpus` (default `performance`)
   pins OTP and Clause alike through the job object; pinned 69A: Clause 1.30x ahead of OTP, 20 of 30
   kernels repeat within 5% — `bce423f3`
+- **OPTM.6** opportunistic `reserve` on string accumulators whose output is usually large: sized
+  from the input where known (uri codecs, base64, binary escapes, `pretty_bin`'s flat length),
+  otherwise 256 for printed containers (`format_term`), source printers and reports, 4096 for
+  abstract-code text and transform requests; names, atoms, digits and short joins stay unreserved
+  (a reserve under ~30 bytes gives up the small-string buffer: 2.5-8x slower). Microbench: 1.2-2.6x
+  on the concatenation above ~50 bytes; no 69A kernel formats text, so none was rerun
 - **OPT0.21** literal list prefixes, raw `integer_to_list`/`list_to_integer`/`atom_to_list`;
   int_to_list 2.1x — `e6d4fa94`
 - **OPT0.22** word-level `list_to_tuple`/`tuple_to_list`; 1000 elements 16.7 to 9.6 us — `b564c56b`

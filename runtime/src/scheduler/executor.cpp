@@ -963,6 +963,7 @@ void append_atom(std::string &text, const abi::v1::ModuleDescriptor &module, con
 // The Erlang frames of `process`, one `  module:function/arity` line each, innermost first.
 std::string erlang_stack(ProcessContext &process, std::size_t &count) {
     std::string text;
+    text.reserve(512);
     process.stack().named_frames([&](const abi::v1::FrameDescriptor &frame) {
         text += "  ";
         append_atom(text, *frame.module, frame.module_atom);

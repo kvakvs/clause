@@ -24,6 +24,7 @@ std::string text_of(const Bytes &bytes) { return {reinterpret_cast<const char *>
 // invalid_utf8, Bytes} when the result is not UTF-8.
 std::string raw_decoded(ProcessContext &context, const std::string &text) {
     std::string out;
+    out.reserve(text.size());
     for (std::size_t at = 0; at < text.size(); ++at) {
         if (text[at] != '%' || at + 2 >= text.size()) {
             out.push_back(text[at]);
@@ -343,6 +344,7 @@ Term transcode2(ProcessContext &context, const UriArg &uri, const OptionsArg &op
 // HTML5's application/x-www-form-urlencoded byte serializer.
 std::string form_bytes(std::span<const std::byte> bytes) {
     std::string out;
+    out.reserve(bytes.size());
     for (const auto b : bytes) {
         const auto c = std::to_integer<char>(b);
         if (c == ' ') {
@@ -360,6 +362,7 @@ std::string form_bytes(std::span<const std::byte> bytes) {
 // Characters past Latin-1 as HTML numeric character references "&#N;", the others as their bytes.
 std::string numeric_references(const Bytes &bytes) {
     std::string out;
+    out.reserve(bytes.size());
     for (std::size_t at = 0; at < bytes.size();) {
         const auto code = code_at(bytes, at);
         if (!code) {
@@ -426,6 +429,7 @@ Term compose_query2(ProcessContext &context, const PairsArg &list, const Options
     }
     try {
         std::string query;
+        query.reserve(256);
         bool lists = false;
         Term rest = list.term;
         for (; rest.is_cons(); rest = rest.tail_unchecked()) {
@@ -474,6 +478,7 @@ void form_character(ProcessContext &context, const std::string &text, std::size_
 // OTP's form_unescape: '+' as a space, escapes decoded.
 std::string form_unescaped(ProcessContext &context, const std::string &text) {
     std::string out;
+    out.reserve(text.size());
     for (std::size_t at = 0; at < text.size();) {
         if (text[at] == '+') {
             out.push_back(' ');

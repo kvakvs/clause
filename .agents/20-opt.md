@@ -7,8 +7,8 @@ input only; no OTP source is copied.
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3, OPT1.4, OPT1.6 inline caches,
 OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder,
 OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4
-and its remainder, OPT3.18, OPT3.19, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5):
-see [00-finished.md](00-finished.md). This file keeps open work only.
+and its remainder, OPT3.18, OPT3.19, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5,
+OPTM.6): see [00-finished.md](00-finished.md). This file keeps open work only.
 
 **NAMING CONVENTIONS** The optimization steps use prefixes based on their area of concern
 - OPT<id1>.<id2> - optimization tasks
@@ -460,7 +460,7 @@ it needs the match's value to be unused and every read to inline (static decisio
 | Straight-line GVN outside loops | pool ≈0 on real code | Leave to LLVM |
 | Frameless leaves (OPT0.1A) | — | Saves a few stores per call; loses the stack-trace entry and `process_info(current_function)` (dropped 2026-10-17) |
 | One heap check per basic block (OPT0.3) | — | Measured negligible in Clause (dropped 2026-10-17) |
-| String builder: pieces in a list, one `reserve`, then join (OPTM.6) | — | Dropped 2026-10-24. Every `+=` site appends to one growing buffer (amortized, nothing quadratic); none shows in the W5a or 69A profiles, and the compiler printers run only for `--print-*` and abstract export. Pinned microbench of 2-65536 pieces: the builder is 2-10x slower than `+=`; a known-size `reserve` is 1.8-2.3x faster on the concatenation alone. A fixed opportunistic `reserve(64/256/1024)` is 2.5-8x slower below ~30 bytes (it gives up the small-string buffer) and 1.2-2.6x faster above ~50 bytes, saving 50-500 ns per string: worth it only where output is known to be large (`io_lib:format` output buffers), measured on its own kernel |
+| String builder: pieces in a list, one `reserve`, then join (OPTM.6) | — | Dropped 2026-10-24: every `+=` site appends to one growing buffer (nothing quadratic), and in a pinned microbench of 2-65536 pieces the builder is 2-10x slower than `+=`. Opportunistic `reserve` was done instead (see `00-finished.md`) |
 
 ## Suggested order for Clause
 

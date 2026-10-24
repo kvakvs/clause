@@ -103,6 +103,7 @@ std::string frame_name(ProcessContext &context, const abi::v1::FrameDescriptor &
 // The call stack of a process, current function first, as process_display(Pid, backtrace) writes it.
 void write_backtrace(ProcessContext &context, const StackTrace &trace) {
     std::string text;
+    text.reserve(trace.depth * 64);
     for (std::size_t index = 0; index < trace.depth; ++index) {
         text += index == 0 ? "Program counter: " : "Return addr ";
         text += frame_name(context, *trace.frames.at(index));

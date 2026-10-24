@@ -52,6 +52,8 @@ std::u32string characters(const Term &chardata_term) {
         append_binary(chardata_term, out);
         return out;
     }
+    // Chardata lists are usually printed lines, past the 3-character small-string buffer.
+    out.reserve(64);
     std::vector<Term> pending{chardata_term};
     while (!pending.empty()) {
         auto list = pending.back();

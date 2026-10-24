@@ -318,6 +318,7 @@ Bytes text_bytes(ProcessContext &context, const Term &text) {
 std::string encode_bytes(ProcessContext &context, std::span<const std::byte> bytes, bool (*keep)(char32_t),
                          std::u32string_view safe) {
     std::string out;
+    out.reserve(bytes.size());
     for (std::size_t at = 0; at < bytes.size();) {
         const auto start = at;
         const auto code = code_at(bytes, at);

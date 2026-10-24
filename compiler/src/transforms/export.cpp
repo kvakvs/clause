@@ -173,6 +173,7 @@ Position end_of(const ast::Module &syntax, const std::span<const ast::FormId> fo
 
 std::string abstract_text(const AbstractModule &module) {
     std::string out;
+    out.reserve(4096);
     for (const auto form : module.forms_) {
         write_text(out, module.terms_, form);
         out += ".\n";

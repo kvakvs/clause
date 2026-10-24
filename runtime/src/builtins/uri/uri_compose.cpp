@@ -300,6 +300,7 @@ void unreserved_escape(ProcessContext &context, const std::string &text, std::si
 
 std::string decoded_unreserved(ProcessContext &context, const std::string &text) {
     std::string out;
+    out.reserve(text.size());
     for (std::size_t at = 0; at < text.size(); ++at) {
         if (text[at] != '%' || at + 2 >= text.size()) {
             out.push_back(text[at]);

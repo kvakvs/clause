@@ -216,6 +216,7 @@ std::string SourcePrinter::guard(const ast::GuardSyntax &guard, std::size_t inde
 
 std::string SourcePrinter::body(const std::vector<ast::ExprId> &body, std::size_t indent) const {
     std::string result;
+    result.reserve(256);
     for (const auto &item : body) {
         result += (result.empty() ? "" : ",\n") + spaces(indent) + expression(item, {indent, true, true});
     }

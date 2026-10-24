@@ -56,6 +56,9 @@ class BinaryBroken final {
         }
     }
 
+    // Reserve the flat layout's length; line breaks add only a little.
+    void reserve(std::int64_t length) { out_.reserve(static_cast<std::size_t>(std::max<std::int64_t>(length, 0))); }
+
     std::string take() { return std::move(out_); }
 
     std::int64_t newlines() const { return newlines_; }
@@ -410,6 +413,7 @@ class BinaryBroken final {
 
 BinaryLayout layout_bin(const Arena &arena, Index root, const Bounds &bounds, std::int64_t column) {
     BinaryBroken broken(arena, bounds);
+    broken.reserve(arena.node(root).length);
     broken.pp(root, {column, 0, 0}, column - 1);
     return {.bytes = broken.take(), .newlines = broken.newlines(), .position = broken.position()};
 }
