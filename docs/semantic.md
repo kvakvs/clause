@@ -600,6 +600,11 @@ their built-in names.
 - Narrowing (`Lattice::meet`) is the meet of facts, the values both hold (or
   more, but `none()` only when they share none). An empty meet means the path
   cannot run.
+- Facts are nodes of a graph that never change, so the graph keeps the answer
+  of every join of two facts, meet and inclusion test (`within`) for the rest
+  of the batch: nearly all of them repeat. A kept answer still counts the
+  joins it ran for [cost-aware give-up](#inference), so results do not depend
+  on it; one computed while the node budget widened a fact is not kept.
 
 At `-O2` with type specialization, lowering uses these facts to remove checks
 ([specialization](specialization.md#proofs)); specifications never become facts.

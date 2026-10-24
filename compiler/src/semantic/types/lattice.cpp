@@ -932,6 +932,28 @@ Id relax(Lattice &lattice, Id previous, Id joined) {
     return changed ? fact_of(lattice, families, 0) : joined;
 }
 
+// The join of `members` found `depth` containers deep, within the depth budget. Split from Lattice::join for memoized
+// lattice operations (OPTC.B).
+Id join_members(Lattice &lattice, const std::span<const Id> members, const std::size_t depth) {
+    const auto &graph = lattice.graph();
+    Gather gather(lattice);
+    for (const auto member : members) {
+        if (member == graph.top()) {
+            return graph.top();
+        }
+        gather.add(member);
+    }
+    if (positional_fits(graph, gather.families)) {
+        return fact_of(lattice, gather.families, depth);
+    }
+    // Positional lists that join with other list facts, or of other lengths, become plain lists.
+    Gather plain(lattice, true);
+    for (const auto member : members) {
+        plain.add(member);
+    }
+    return fact_of(lattice, plain.families, depth);
+}
+
 // Count a join for the lattice operation counts of --print-stage-times: two members by both, others only by number.
 // Added for the lattice operation counts (INS.2).
 void note_join(LatticeTrace &trace, const std::span<const Id> members, const std::size_t depth) {
@@ -953,22 +975,13 @@ Id Lattice::join(std::span<const Id> members, std::size_t depth) {
     if (depth > limits_.depth) {
         return graph_.top();
     }
-    Gather gather(*this);
-    for (const auto member : members) {
-        if (member == graph_.top()) {
-            return graph_.top();
-        }
-        gather.add(member);
+    // Joins of two facts repeat nearly always: the graph keeps their answers (changed for memoized lattice operations,
+    // OPTC.B).
+    if (members.size() == 2) {
+        return graph_.answer(Graph::Operation::join, members[0], members[1], depth,
+                             [&] { return join_members(*this, members, depth); });
     }
-    if (positional_fits(graph_, gather.families)) {
-        return fact_of(*this, gather.families, depth);
-    }
-    // Positional lists that join with other list facts, or of other lengths, become plain lists.
-    Gather plain(*this, true);
-    for (const auto member : members) {
-        plain.add(member);
-    }
-    return fact_of(*this, plain.families, depth);
+    return join_members(*this, members, depth);
 }
 
 // Relaxes nested integer bounds too (changed for nested integer widening, CONV.0).

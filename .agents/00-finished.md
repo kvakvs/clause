@@ -877,6 +877,13 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   step), `core_parse:yeccpars1` + 522 1.1M joins over 1.8M steps; W1's costliest `euler:run/0` 37 us per step (59
   joins per step). Output identical on W5a, W1.
 
+- **OPTC.B part 1** (pending) memoized lattice operations: the graph keeps the answer of every 2-member `join`
+  (by depth), `meet` and `within` (`Graph::answer`, an open-addressed table keyed by packed operation, depth and
+  operand indices), with the joins each ran nested, added again on a hit so cost-aware give-up and every counter
+  stay the same; answers computed while the node budget widened are not kept. `--print-types` and pass counters
+  (work, joins, nodes) identical on W5r, W6, W5a, W1, W3. Inference (3 runs, profiled): W5a 12.89 → 7.30 s
+  (0.567), W1 14.67 → 8.42 s (0.574), W5r 1.23 → 0.08 s.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions

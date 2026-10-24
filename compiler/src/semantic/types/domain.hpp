@@ -79,6 +79,26 @@ struct Limits {
     std::size_t type_work = DEFAULT_TYPE_WORK;
 };
 
+// The answers of lattice operations by a key packing the operation and its operands, with the joins each ran nested,
+// in an open-addressed table (key 0 marks a free slot). Added for memoized lattice operations (OPTC.B).
+class Answers {
+  public:
+    struct Answer {
+        Id result;
+        std::size_t joins = 0;
+    };
+
+    const Answer *find(std::uint64_t key) const;
+    void keep(std::uint64_t key, Answer answer);
+
+  private:
+    void grow();
+
+    std::vector<std::uint64_t> keys_;
+    std::vector<Answer> answers_;
+    std::size_t filled_ = 0;
+};
+
 class Graph {
   public:
     // Establish a fresh identity owner with permanent top/bottom nodes, even for zero budgets.
@@ -122,6 +142,30 @@ class Graph {
 
     void count_join() { ++joins_; }
 
+    // The lattice operations whose answers the graph keeps. Added for memoized lattice operations (OPTC.B).
+    enum class Operation : std::uint8_t { join = 1, meet, within };
+
+    // The answer of `operation` on `left` and `right` `depth` containers deep, from `compute` the first time: nodes
+    // never change, so it holds for the graph's life. An answer counts the joins it ran again; one computed while a
+    // budget widened to term() is not kept. Added for memoized lattice operations (OPTC.B).
+    template <typename Compute> Id answer(Operation operation, Id left, Id right, std::size_t depth, Compute compute) {
+        const auto key = answer_key(operation, left, right, depth);
+        if (key == 0) {
+            return compute();
+        }
+        if (const auto *known = answers_.find(key)) {
+            joins_ += known->joins;
+            return known->result;
+        }
+        const auto joins = joins_;
+        const auto widenings = widenings_;
+        const auto result = compute();
+        if (widenings_ == widenings) {
+            answers_.keep(key, {result, joins_ - joins});
+        }
+        return result;
+    }
+
     // Where lattice operations are counted while a profile asks for it, else null. Added for the lattice operation
     // counts of --print-stage-times (INS.2).
     LatticeTrace *trace() const { return trace_; }
@@ -160,6 +204,9 @@ class Graph {
   private:
     // Reject an identity of another graph.
     [[noreturn]] static void foreign();
+    // The key of an answer, or 0 when its operands are too large to pack. Added for memoized lattice operations
+    // (OPTC.B).
+    static std::uint64_t answer_key(Operation operation, Id left, Id right, std::size_t depth);
 
     // Stable IDs survive vector growth and cannot alias another graph's nodes.
     std::uint64_t owner_;
@@ -169,6 +216,8 @@ class Graph {
     std::size_t joins_ = 0;
     // Added for the lattice operation counts of --print-stage-times (INS.2).
     LatticeTrace *trace_ = nullptr;
+    // Added for memoized lattice operations (OPTC.B).
+    Answers answers_;
     // Added for the Gather constants (OPTC.A).
     std::optional<JoinConstants> join_constants_;
     // Known nestings by node and limit; a cache, so a const graph fills it. Added for memoized nesting (OPTC.C).

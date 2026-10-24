@@ -530,22 +530,29 @@ Id Lattice::meet(Id left, Id right) {
     if (left == graph_.top() || right == graph_.top()) {
         return left == graph_.top() ? right : left;
     }
-    Meet meet(*this);
-    std::vector<Id> results;
-    for (const auto a : members(left)) {
-        for (const auto b : members(right)) {
-            results.push_back(meet.members(a, b));
+    // The graph keeps the answers (changed for memoized lattice operations, OPTC.B).
+    return graph_.answer(Graph::Operation::meet, left, right, 0, [&] {
+        Meet meet(*this);
+        std::vector<Id> results;
+        for (const auto a : members(left)) {
+            for (const auto b : members(right)) {
+                results.push_back(meet.members(a, b));
+            }
         }
-    }
-    return join(results, 0);
+        return join(results, 0);
+    });
 }
 
 bool Lattice::within(Id inner, Id outer) {
     if (auto *trace = graph_.trace()) [[unlikely]] {
         trace->note(LatticeOp::within, inner.index, outer.index);
     }
-    Meet meet(*this);
-    return meet.contained(inner, outer);
+    // The graph keeps the answers as term() or none() (changed for memoized lattice operations, OPTC.B).
+    const auto answer = graph_.answer(Graph::Operation::within, inner, outer, 0, [&] {
+        Meet meet(*this);
+        return meet.contained(inner, outer) ? graph_.top() : graph_.bottom();
+    });
+    return answer == graph_.top();
 }
 
 Id Lattice::subtract(Id fact, Id removed) {
