@@ -789,7 +789,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   signatures change, both wider and narrower (converging before widening rounds), none newly
   `term()`.
 
-- **CONV.4** cost-aware give-up: lattice joins counted per graph; a recursive component whose solve
+- **CONV.4** (8927a4df) cost-aware give-up: lattice joins counted per graph; a recursive component whose solve
   ran more than 2^17 joins and 1/16 of the largest pass is costly, and its members' local inputs
   become `term()` when they change again (giving up results instead lost 460-600 W5a signatures to
   `_`). CONV.2's re-analysis check no longer re-solves components the budget answers alike. Output
