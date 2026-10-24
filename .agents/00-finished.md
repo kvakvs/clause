@@ -877,7 +877,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   step), `core_parse:yeccpars1` + 522 1.1M joins over 1.8M steps; W1's costliest `euler:run/0` 37 us per step (59
   joins per step). Output identical on W5a, W1.
 
-- **OPTC.B part 1** (pending) memoized lattice operations: the graph keeps the answer of every 2-member `join`
+- **OPTC.B part 1** (b0ac717e) memoized lattice operations: the graph keeps the answer of every 2-member `join`
   (by depth), `meet` and `within` (`Graph::answer`, an open-addressed table keyed by packed operation, depth and
   operand indices), with the joins each ran nested, added again on a hit so cost-aware give-up and every counter
   stay the same; answers computed while the node budget widened are not kept. `--print-types` and pass counters
