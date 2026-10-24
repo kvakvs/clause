@@ -60,6 +60,10 @@ struct InferenceProfile {
         const Component *exhausted_at_ = nullptr;
         // Added for the input churn measurements of --print-stage-times.
         InputChurn churn_;
+        // The components the pass kept from their last walk, and the work steps those walks had cost. Added for
+        // incremental passes (CONV.2).
+        std::size_t skipped_ = 0;
+        std::size_t skipped_work_ = 0;
     };
 
     // What the previous note saw, to compare the next pass against: graph counters, every summary as an exact

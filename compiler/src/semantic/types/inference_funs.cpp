@@ -24,11 +24,18 @@ Id function_fun(Inference &inference, const Function *target, const std::size_t 
     if (target && inference.reads) {
         inference.reads->insert(target);
     }
+    if (target && inference.walk_reads) {
+        // Added for incremental passes (CONV.2).
+        inference.walk_reads->summaries.insert(target);
+    }
     if (inference.opaque_funs || summary == inference.functions.end()) {
         return lattice.fun(arity, inference.graph.top());
     }
     const auto fact = summary_fun(lattice, summary->second, arity);
     inference.fun_reads.insert_or_assign(target, fact);
+    if (inference.walk_reads) {
+        inference.walk_reads->funs.insert_or_assign(target, fact);
+    }
     return fact;
 }
 

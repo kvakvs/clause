@@ -67,6 +67,32 @@ struct Summary {
     std::vector<Id> entry = {};
     // The function types of the possible clauses, in source order; none when a budget or widening gave them up.
     std::vector<FunctionType> types = {};
+    bool operator==(const Summary &) const = default;
+};
+
+// What a component's walk read of other functions: summaries (by calls, fun F/A and apply), inputs (of callees it
+// evaluated again) and the fun F/A facts it noted. Added for incremental passes (CONV.2).
+struct WalkReads {
+    std::set<const Function *> summaries;
+    std::set<const Function *> inputs;
+    std::map<const Function *, Id> funs;
+};
+
+// A component's last walk: the versions of what it read, its fun F/A facts, the work it spent, whether the pass
+// budget cut it short, and how the re-analysis budget answered it: the pass's re-analysis work at its start, how many
+// re-analyses it asked for and how many the budget refused. A later pass skips the component while all of it holds.
+// Added for incremental passes (CONV.2).
+struct ComponentWalk {
+    bool walked = false;
+    std::vector<std::pair<const Function *, std::size_t>> summaries;
+    std::vector<std::pair<const Function *, std::size_t>> inputs;
+    std::map<const Function *, Id> funs;
+    std::size_t work = 0;
+    bool exhausted = false;
+    std::size_t reanalysis_start = 0;
+    std::size_t reanalysis_work = 0;
+    std::size_t reanalysis_checks = 0;
+    std::size_t reanalysis_refusals = 0;
 };
 
 struct Inference {
@@ -113,12 +139,22 @@ struct Inference {
     // summaries, local inputs and facts instead of walking them. Added for the inference cache (58V).
     std::set<const Function *> reused;
     std::map<const ast::Expression *, Fact> reused_expressions;
+    // What the walk of the current component reads; each component's last walk; how often each summary changed; and
+    // how often re-analyses asked the pass budget and were refused by it. Added for incremental passes (CONV.2).
+    WalkReads *walk_reads = nullptr;
+    std::vector<ComponentWalk> walks;
+    std::map<const Function *, std::size_t> summary_versions;
+    std::size_t reanalysis_checks = 0;
+    std::size_t reanalysis_refusals = 0;
 };
 
-// A function's summary, noting the read for the solve that tracks them (step 58R).
+// A function's summary, noting the read for the solve that tracks them (step 58R) and for incremental passes.
 inline const Summary &summary_of(const Inference &inference, const Function *function) {
     if (inference.reads) {
         inference.reads->insert(function);
+    }
+    if (inference.walk_reads) {
+        inference.walk_reads->summaries.insert(function);
     }
     return inference.functions.at(function);
 }

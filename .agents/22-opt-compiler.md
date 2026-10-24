@@ -143,6 +143,17 @@ a fact may only get wider than today's result, never narrower.
   them), or a `fun_reads` entry changed. Clean components keep their summaries and expression facts
   (do not reset `expressions` for them). This needs INS.1's check to show 0 "clean-but-changed"
   components over W1, W3, W5a and W6 first.
+  - **Done (`00-finished.md`), as skipping rather than a worklist:** passes still walk the
+    component order, but `inference_incremental` keeps a component whose last walk read the same
+    summary versions (calls, fun F/A, apply), member and re-analysed callee input versions, and that
+    the pass and re-analysis budgets would answer alike (`PASS_WORK` runs out in every W5a pass: a
+    walk refused everything stays kept while the budget is still spent). Its work is replayed into
+    the pass budget; a dirty component erases its own body facts before walking. Output and every
+    pass's work steps identical (W5a, W1, W3, W6, W5r). 3 runs: inference W5a 27.7 → 19.6 s
+    (0.707), W1 36.3 → 23.7 s (0.654), W5r 0.925; late W5a passes skip ≈ 8 700 of 8 911
+    components (pass 16 2.2 → 1.0 s). Left per pass: the always-dirty recursive groups
+    (`ubody_used_vars`, `core_parse:yeccpars1/5` re-solve all 17 passes) and the final `term()`
+    pass (1.8 s, walks everything): CONV.3/CONV.4 and CONV.6.
 - **CONV.3 Warm-start solves.** When a recursive component is dirty only because its inputs or
   callees grew, start its next solve from its previous fixed point instead of `bottom()`. Joins are
   not monotone at the depth limit (58Q), so a member that would drop below its previous summary
@@ -498,7 +509,7 @@ single-threaded?) once inference is fixed; it is outside `semantic/types/`.
 4. ~~INS.7 sampling profile on W5r and W5a, INS.5 fact sizes~~ (done).
 5. ~~B.4 baseline~~ (done).
 6. ~~OPTC.A → OPTC.A2 → OPTC.A3, OPTC.C parts 1-3, CONV.0~~ (done), ~~CONV.7~~ (tried, folded into
-   CONV.2), ~~CONV.1~~ (done), then CONV.2 → CONV.3/CONV.4 → CONV.6, each measured on W5a, W1 and
+   CONV.2), ~~CONV.1, CONV.2~~ (done), then CONV.3/CONV.4 → CONV.6, each measured on W5a, W1 and
    W6. Then the owned fixture (B.0).
 7. INS.2-INS.4 and INS.6 as the profile calls for them, then OPTC.* ranked by measured share.
 8. LIV.1 investigation and BUG.1, whenever convenient.

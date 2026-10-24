@@ -72,6 +72,10 @@ void print_passes(const InferenceProfile &profile, const std::string_view subjec
         if (pass.exhausted_at_) {
             note += ", work budget ran out in " + component_name(*pass.exhausted_at_);
         }
+        // Added for incremental passes (CONV.2).
+        if (index > 0) {
+            note += std::format("; skipped: {} components, {} work steps", pass.skipped_, pass.skipped_work_);
+        }
         // The forced last pass gathers no inputs.
         if (pass.churn_.gathered_) {
             note += churn_note(pass.churn_);

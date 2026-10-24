@@ -8,6 +8,7 @@
 #include "inference_apply.hpp"
 #include "inference_bindings.hpp"
 #include "inference_funs.hpp"
+#include "inference_incremental.hpp"
 #include "inference_inputs.hpp"
 #include "inference_operators.hpp"
 #include "inference_profile.hpp"
@@ -385,9 +386,18 @@ void narrow_arguments(BindingFacts &bindings, const ast::CallExpression &call, c
 // Whether a call evaluates its callee again with its argument facts: a callee outside recursive components whose
 // inputs hold the arguments and are wider than one, within the depth and work budgets.
 bool reanalysable(Inference &inference, const Function &callee, const std::vector<Fact> &arguments) {
-    if (inference.recursive.contains(&callee) || inference.reanalyses >= REANALYSIS_DEPTH ||
-        inference.reanalysis_work + CALL_WORK > PASS_WORK) {
+    if (inference.recursive.contains(&callee) || inference.reanalyses >= REANALYSIS_DEPTH) {
         return false;
+    }
+    // Counted for incremental passes (CONV.2): whether a kept walk would get the same answers.
+    ++inference.reanalysis_checks;
+    if (inference.reanalysis_work + CALL_WORK > PASS_WORK) {
+        ++inference.reanalysis_refusals;
+        return false;
+    }
+    if (inference.walk_reads) {
+        // Added for incremental passes (CONV.2).
+        inference.walk_reads->inputs.insert(&callee);
     }
     const auto inputs = inputs_of(inference, callee);
     Lattice lattice(inference.graph);
@@ -1018,24 +1028,84 @@ void profiled_component(Inference &inference, const CallGraph &calls, const std:
     }
 }
 
-// Infer every component in callee-before-caller order, from fresh expression facts (besides reused ones) and its own
-// work budget.
-void infer_pass(Inference &inference, const CallGraph &calls) {
-    inference.expressions = inference.reused_expressions;
+// Remove the expression facts of a component's bodies, so walking it again records fresh ones. Added for incremental
+// passes (CONV.2).
+void forget_facts(Inference &inference, const Component &component) {
+    for (const auto member : component.members) {
+        const auto &definition = std::get<ast::Function>(member.module->syntax->form(member.function->form).value);
+        for (const auto *expression : subtree(*member.module, function_roots(definition))) {
+            inference.expressions.erase(expression);
+        }
+    }
+}
+
+// Whether the re-analysis budget would answer a component's walk as it answered its last one: it asked nothing, or
+// it was granted all and still would be, or it was refused all (nothing granted) and the budget is no less spent.
+// Added for incremental passes (CONV.2).
+bool same_reanalysis(const Inference &inference, const ComponentWalk &last) {
+    const auto now = inference.reanalysis_work;
+    if (last.reanalysis_checks == 0) {
+        return true;
+    }
+    if (last.reanalysis_refusals == 0) {
+        return now <= last.reanalysis_start || now + last.reanalysis_work + CALL_WORK <= PASS_WORK;
+    }
+    return last.reanalysis_refusals == last.reanalysis_checks && now >= last.reanalysis_start;
+}
+
+// Whether a pass keeps a component's last walk: nothing it read changed, the pass budget cannot cut it short now and
+// re-analyses get the same answers. Added for incremental passes (CONV.2).
+bool kept(const Inference &inference, const ComponentWalk &last, const std::size_t work) {
+    return last.walked && !last.exhausted && work + last.work < inference.graph.limits().syntax_work &&
+           same_reanalysis(inference, last) && unchanged(inference, last);
+}
+
+// Infer component `index`, or with `incremental` keep its last walk when nothing it read changed (changed for
+// incremental passes, CONV.2).
+void walk_component(Inference &inference, const CallGraph &calls, const std::size_t index, std::size_t &work,
+                    std::vector<const ast::Expression *> &recorded, const bool incremental) {
+    const auto &component = calls.components[index];
+    auto &last = inference.walks[index];
+    if (incremental && kept(inference, last, work)) {
+        replay(inference, last, work);
+        if (inference.profile) {
+            ++inference.profile->passes_.back().skipped_;
+            inference.profile->passes_.back().skipped_work_ += last.work;
+        }
+        return;
+    }
+    if (incremental) {
+        forget_facts(inference, component);
+    }
+    WalkTracker tracker(inference, component, work);
+    if (inference.profile) {
+        profiled_component(inference, calls, index, work, recorded);
+    } else {
+        (void)infer_component(inference, component, work, recorded);
+    }
+    last = tracker.finish(work);
+}
+
+// Infer every component in callee-before-caller order with its own work budget. An `incremental` pass keeps the
+// components nothing changed for since the previous pass, else every expression fact (besides reused ones) is fresh.
+void infer_pass(Inference &inference, const CallGraph &calls, const bool incremental) {
+    if (!incremental) {
+        inference.expressions = inference.reused_expressions;
+    }
+    inference.walks.resize(calls.components.size());
     inference.fun_reads.clear();
     inference.reanalysis_work = 0;
     std::size_t work = 0;
     std::vector<const ast::Expression *> recorded;
-    if (!inference.profile) {
-        for (const auto &component : calls.components) {
-            (void)infer_component(inference, component, work, recorded);
-        }
-        return;
-    }
     const auto started = std::chrono::steady_clock::now();
-    inference.profile->passes_.emplace_back();
+    if (inference.profile) {
+        inference.profile->passes_.emplace_back();
+    }
     for (std::size_t index = 0; index < calls.components.size(); ++index) {
-        profiled_component(inference, calls, index, work, recorded);
+        walk_component(inference, calls, index, work, recorded, incremental);
+    }
+    if (!inference.profile) {
+        return;
     }
     auto &pass = inference.profile->passes_.back();
     pass.elapsed_ = std::chrono::steady_clock::now() - started;
@@ -1102,7 +1172,8 @@ void infer(Inference &inference, const CallGraph &calls) {
     // repeat until the inputs stop changing and each fun read its function's final result.
     prepare_inputs(inference, calls);
     for (std::size_t pass = 0; pass < PASSES; ++pass) {
-        infer_pass(inference, calls);
+        // Later passes walk only the components something they read changed for (CONV.2).
+        infer_pass(inference, calls, pass > 0);
         const bool changed = gather_inputs(inference, calls);
         if (!changed && settled(inference)) {
             pass_outcome(inference, "settled");
@@ -1119,7 +1190,7 @@ void infer(Inference &inference, const CallGraph &calls) {
     inference.opaque_funs = true;
     // With every input term() a component may converge where it could not before: it gets one more solve (58P).
     inference.failed.clear();
-    infer_pass(inference, calls);
+    infer_pass(inference, calls, false);
     pass_outcome(inference, "final pass after passes did not settle: inputs widened to term()");
 }
 } // namespace clause::semantic::types

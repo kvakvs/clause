@@ -222,6 +222,13 @@ Inference is separate from declared types and never trusts specs.
   container to `term()`, and a further change gives `term()` (reported as
   widened). Inputs that have not settled after 16 passes become `term()`
   (reported as widened).
+- Passes after the first walk only the components something they read changed
+  for (`semantic/types/inference_incremental`): a component keeps its summaries
+  and expression facts while its members' inputs, every summary it read (calls,
+  `fun F/A`, `apply`) and the inputs of callees it evaluated again are
+  unchanged, and the pass and re-analysis budgets would answer it the same way;
+  its work still counts toward the pass budget. The results equal walking every
+  component. The final pass with `term()` inputs walks all of them.
 - Literals have exact facts: integers of any size and characters are singletons,
   atoms singleton atoms, floats `float()`, strings nonempty lists of their
   characters (`[]` for `""`), and `-`/`+` of a literal number keep its fact.
