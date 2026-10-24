@@ -431,8 +431,12 @@ Inference is separate from declared types and never trusts specs.
   selected function types' result.
 - A `receive` is the join of its clauses and its `after` body, which a timeout
   of `infinity` never runs.
-- A recursive component starts every member's result at `none()` and re-infers
-  all members until no result changes; each round joins the new result with the
+- A recursive component starts every member's result at `none()` in its first
+  solve, and in later passes from the summaries its last solve ended with:
+  there the first walk of each member replaces its summary with what the walk
+  found (the earlier summary only serves as the assumption of calls before
+  that), so stale function types never stay. It re-infers members until no
+  result changes; each round joins the new result with the
   previous one (widens it after the first 8 rounds,
   [inference domain](#inference-domain)), and a pending recursive call adds
   nothing to a join. A function that can never return stays `none()`. A

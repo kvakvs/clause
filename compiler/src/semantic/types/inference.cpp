@@ -681,9 +681,9 @@ struct SolveTrace {
 // so a round walks only members that read a summary changed since their last walk. Added for step 58R.
 class Worklist {
   public:
-    explicit Worklist(const Component &component)
-        : dirty_(component.members.size(), true), readers_(component.members.size()), reads_(component.members.size()),
-          recorded_(component.members.size()) {
+    Worklist(const Component &component, const bool warm)
+        : dirty_(component.members.size(), true), stale_(component.members.size(), warm),
+          readers_(component.members.size()), reads_(component.members.size()), recorded_(component.members.size()) {
         for (std::size_t index = 0; index < component.members.size(); ++index) {
             indices_.emplace(component.members[index].function, index);
         }
@@ -694,8 +694,17 @@ class Worklist {
 
     void clean(const std::size_t member) { dirty_.at(member) = false; }
 
-    // Every member needs a walk again (giving up records every member's facts).
-    void all() { std::ranges::fill(dirty_, true); }
+    // Whether the member's summary is still an earlier pass's, and note that a walk replaced it (warm-start solves,
+    // CONV.3).
+    bool stale(const std::size_t member) const { return stale_.at(member); }
+
+    void refreshed(const std::size_t member) { stale_.at(member) = false; }
+
+    // Every member needs a walk again (giving up records every member's facts), joined with its term() summary.
+    void all() {
+        std::ranges::fill(dirty_, true);
+        std::ranges::fill(stale_, false);
+    }
 
     // Note the members a member's walk read, replacing what its previous walk read.
     void read(const std::size_t member, const std::set<const Function *> &functions) {
@@ -725,6 +734,8 @@ class Worklist {
     // Member indices by function, and the members still to walk.
     std::map<const Function *, std::size_t> indices_;
     std::vector<bool> dirty_;
+    // Members whose summaries an earlier pass left, not walked in this solve yet. Added for warm-start solves.
+    std::vector<bool> stale_;
     // For each member: the members that read it, and the members it read.
     std::vector<std::set<std::size_t>> readers_;
     std::vector<std::vector<std::size_t>> reads_;
@@ -831,6 +842,18 @@ Snapshot next_summary(Inference &inference, const Summary &summary, Body evaluat
     return next;
 }
 
+// A member's first summary in a warm solve: its walk's own result and types, not joined with the earlier pass's
+// summary, whose types callers selected under older summaries; it counts as changed where it differs from that
+// summary. Added for warm-start solves (CONV.3).
+Snapshot refreshed(Inference &inference, const Summary &summary, Body evaluated, RoundHistory *history,
+                   const std::size_t member, RoundChanges &changes) {
+    const Summary empty{.inputs = summary.inputs, .result = {inference.graph.bottom()}, .entry = {}, .types = {}};
+    RoundChanges unused;
+    auto next = next_summary(inference, empty, std::move(evaluated), false, history, member, unused);
+    classify(summary, next, nullptr, member, changes);
+    return next;
+}
+
 // Walk one member from the current assumptions, replacing the expression facts of its previous walk and noting the
 // summaries it read. Added for step 58R.
 Body walk_member(Inference &inference, const FunctionRef member, const std::size_t index, std::size_t &work,
@@ -867,7 +890,10 @@ RoundChanges refine(Inference &inference, const Component &component, std::size_
         auto domain = std::move(evaluated.domain);
         auto entry = std::move(evaluated.entry);
         const auto before = changes.total();
-        auto next = next_summary(inference, summary, std::move(evaluated), widening, history, index, changes);
+        auto next = worklist.stale(index)
+                        ? refreshed(inference, summary, std::move(evaluated), history, index, changes)
+                        : next_summary(inference, summary, std::move(evaluated), widening, history, index, changes);
+        worklist.refreshed(index);
         summary.result = next.result;
         summary.inputs = std::move(domain);
         summary.entry = std::move(entry);
@@ -930,11 +956,16 @@ void give_up(Inference &inference, const Component &component, std::size_t &work
 // A component an earlier pass gave up on gives up at once (step 58P). Returns the rounds' trace for
 // --print-stage-times.
 SolveTrace solve(Inference &inference, const Component &component, std::size_t &work) {
+    // A component solved in an earlier pass starts from its last fixed point (warm-start solves, CONV.3).
+    const bool warm = std::ranges::all_of(
+        component.members, [&](const FunctionRef member) { return inference.functions.contains(member.function); });
     for (const auto member : component.members) {
-        summarize(inference, member, {inference.graph.bottom()});
+        if (!warm) {
+            summarize(inference, member, {inference.graph.bottom()});
+        }
         inference.solving.insert(member.function);
     }
-    Worklist worklist(component);
+    Worklist worklist(component, warm);
     SolveTrace trace{.round_cap_ = JOIN_ROUNDS + WIDENING_PASSES * component.members.size(),
                      .changes_ = {},
                      .kinds_ = {},

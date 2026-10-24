@@ -159,6 +159,20 @@ a fact may only get wider than today's result, never narrower.
   not monotone at the depth limit (58Q), so a member that would drop below its previous summary
   keeps the join of the two. That costs some precision and keeps soundness; measure the rounds
   saved.
+  - **Done (`00-finished.md`):** a component solved in an earlier pass keeps its summaries as the
+    starting assumptions; each member's first walk of the solve replaces its summary (result and
+    function types) with what the walk found instead of joining it, and counts as a change only
+    where it differs. Joining kept an earlier pass's function types: an exact one selected under
+    older callee summaries could settle a call alone (unsound), and dropping the types first lost
+    precision (508 W5a signatures, the widening.erl fixture). Give-up still joins with `term()`.
+    3 runs: inference W5a 19.6 → 13.6 s (0.698), W1 23.9 → 16.2 s (0.678), W5r 2.61 → 1.18 s
+    (0.451, output identical); `ubody_used_vars` + 6 4.1 → 1.9 s, `core_parse:yeccpars1/5` + 522
+    3.3 → 2.4 s. W6 identical; signatures changed W5a 98 of 9936, W1 118, W3 119, none newly
+    `term()`. Both directions: wider where transient rounds left extra function types (e.g.
+    `check_record_types` loses a `none()` type), narrower where a warm solve converges before
+    round 8 turns joins into widening (`binary_type` → `{leaf, _, [60 | 62, ...]}` for the `"<<>>"`
+    literal, cold `list()`); every result is still a post-fixed point. Not yet checked: W2
+    executable kernels (B.3, also pending for CONV.0).
 - **CONV.4 Cost-aware give-up.** Extend 58P's `failed` set: a component whose solve cost (lattice
   ops from INS.2, not syntax steps) is over its share in a pass, and that is dirty again in a later
   pass, gives up at once (`term()` members) instead of solving again. The cost share comes from
@@ -516,7 +530,7 @@ single-threaded?) once inference is fixed; it is outside `semantic/types/`.
 4. ~~INS.7 sampling profile on W5r and W5a, INS.5 fact sizes~~ (done).
 5. ~~B.4 baseline~~ (done).
 6. ~~OPTC.A → OPTC.A2 → OPTC.A3, OPTC.C parts 1-3, CONV.0~~ (done), ~~CONV.7~~ (tried, folded into
-   CONV.2), ~~CONV.1, CONV.2~~ (done), then CONV.3/CONV.4 → CONV.6, each measured on W5a, W1 and
+   CONV.2), ~~CONV.1, CONV.2, CONV.3~~ (done), then CONV.4 → CONV.6, each measured on W5a, W1 and
    W6. Then the owned fixture (B.0).
 7. INS.2-INS.4 and INS.6 as the profile calls for them, then OPTC.* ranked by measured share.
 8. LIV.1 investigation and BUG.1, whenever convenient.
