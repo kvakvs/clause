@@ -10,6 +10,10 @@ OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path, OPT3.15, OPT3.8, OPT3.
 and its remainder, OPT3.18, OPT3.19, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5):
 see [00-finished.md](00-finished.md). This file keeps open work only.
 
+**NAMING CONVENTIONS** The optimization steps use prefixes based on their area of concern
+- OPT<id1>.<id2> - optimization tasks
+- OPTM.<id2> - manual optimization tasks added by the human
+
 ## Working rules for plan 20 steps
 
 - Commit each step as soon as it is done (gate green); don't batch steps (user direction
