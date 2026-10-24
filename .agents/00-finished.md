@@ -693,6 +693,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   timers as processes reached through an alias in the `TRef`, conversions in C++
   (`builtins/timer.cpp`); `erlang:apply/2,3` builtins for dynamic calls; `timers` golden —
   `b0562967`
+- **LIB24** `application`, `application_controller` (lazy controller, OTP's `ac_tab`, errors, reports,
+  restart types, permanent ends halt) and `clause_application_master`; clau compiles `.app`/`.app.src`
+  resources into a generated `clause_applications`; kernel/stdlib virtual and running; `applications`
+  golden, `project_applications` test — `5945f7f3`
 - **LIB23** `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`, `logger_handler` over a
   `clause_logger` server started at first use (default handler on `standard_error`, synchronous
   writes); `error_logger`, `error_logger_file_h`, `log_mf_h`, `error_handler`; behaviour reports as
