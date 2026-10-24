@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "proc_libs",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "(?s)=CRASH REPORT====.*crasher:",
+      "exit_status": 0,
+      "stdout": "children: [{fun_linked,[pl_main],{proc_libs,'fun',0}},\n           {fun_opt,[pl_main],{proc_libs,'fun',0}},\n           {fun_spawn,[pl_main],{proc_libs,'fun',0}},\n           {linked,[pl_main],{proc_libs,child,1}},\n           {mfa,[pl_main],{proc_libs,child,1}},\n           {node_fun,[pl_main],{proc_libs,'fun',0}},\n           {node_mfa,[pl_main],{proc_libs,child,1}},\n           {node_opt,[pl_main],{proc_libs,child,1}},\n           {opt,[pl_main],{proc_libs,child,1}}]\ninitial_call: [{proc_libs,child,['Argument__1']},{proc_libs,child,1}]\nfun_call: [true,proc_libs]\nplain: [false,{proc_lib,init_p,5}]\ninfo_list: [{m,f,['Argument__1','Argument__2']},\n            {proc_lib,init_p,5},\n            {m,g,[]},\n            false]\ngrandchild: {grandchild,[pl_parent,pl_main],{proc_libs,child,1}}\nmonitored: normal\nstart: [started,\n        {ok,two},\n        opts,linked,linked4,linked5,\n        {error,early},\n        {error,{broken,stack}},\n        {error,timeout},\n        {error,timeout}]\nfail: [{error,failed},{error,thrown},failed3,{error,linked}]\nstart_monitor: [monitored,true]\nstart_monitor_fail: [failed,why]\nstart_monitor_died: [{error,dead},dead]\nmonitor_option: [{error,badarg},{error,badarg},{error,badarg}]\nown_label: [undefined,ok,main_label]\nother_label: {worker,1}\ndead_label: undefined\nhibernate: [{woken,{proc_libs,hibernating,1}},{got,wake},normal]\nexits: [{oops,stack},quit,{{nocatch,ball},stack},normal,{shutdown,done}]\nformat: \"  crasher:\\n    initial call: m:f/1\\n    pid: pid\\n    registered_name: []\\n    exception exit: gone\\n    ancestors: [p1,p2]\\n    message_queue_len: 0\\n    messages: []\\n    links: []\\n    dictionary: [{k,v}]\\n    trap_exit: false\\n    status: running\\n  neighbours:\\n    neighbour:\\n      pid: pid\\n      registered_name: n1\\n      message_queue_len: 0\"\nformat_unicode: \"  crasher:\\n    x: \\\"text\\\"\\n  neighbours:\\n\"\nformat_depth: \"  crasher:\\n    x: [1,2,3,4|...]\\n  neighbours:\\n\"\nreport_cb: \"crasher: x: 1; neighbours: \"\nget_state: {count,5}\nreplace_state: {count,50}\ncount: 50\nstatus_misc: 50\nstatistics: [start_time,current_time,reductions,messages_in,messages_out]\nsuspended: [suspended,{count,50}]\nchange_code: ok\nchanged: {count,1050}\nresumed_state: {count,1051}\nchange_running: {error,{unknown_system_msg,{change_code,proc_libs,old,extra}}}\nunknown: {ok,{error,{unknown_system_msg,nonsense}}}\nterminated: [{special_terminated,done,1051},done]\nsys_errors: [{exit,noproc,get_state},\n             {exit,noproc,suspend},\n             {exit,noproc,get_status},\n             {exit,noproc,change_code},\n             {exit,noproc,log},\n             {exit,noproc,terminate}]\nlog: [ok,{add,1},{add,2},3,{ok,[{in,{add,1}},{in,{add,2}},{out,3,sl_main}]}]\nlog_resize: [ok,{ok,[{in,{add,1}},{in,{add,2}},{out,3,sl_main}]}]\nprint:\n*DBG* special event = {in,{add,1}}\n*DBG* special event = {in,{add,2}}\n*DBG* special event = {out,3,sl_main}\nlog_print: ok\nlog_off: [ok,{ok,[]}]\ntrace: ok\n*DBG* special event = {in,{add,3}}\n*DBG* special event = {out,6,sl_main}\ntrace_off: ok\ninstall: ok\ninstalled_events: [{debug,1,{in,{add,4}}},{debug,2,{in,{add,5}}},true]\ninstall_id: [ok,ok,ok]\nlog_to_file: [ok,{add,7},28,ok]\nlogged: <<\"*DBG* special event = {in,{add,7}}\\n*DBG* special event = {out,28,sl_main}\\n\">>\nlog_to_bad_file: {error,open_file}\nstatistics_off: [ok,{ok,no_statistics},ok,ok,{ok,no_statistics}]\nunknown_debug: {ok,unknown_debug}\ndebug_options: [[{log,[3]},{trace,true}],3,[{log,\"\\n\"}]]\nhandle_debug: [{log,[1,{{in,x},name,'fun'}]}]\nget_log: [[a,b],[],none]\nprint_log:\n*DBG* name event = {in,x}\nstop: [ok,{special_terminated,normal,0},normal]\nstop3: [ok,{special_terminated,{shutdown,x},0}]\nstop_errors: [{exit,noproc},{exit,noproc}]\nstop_timeout: {exit,timeout}\nproc_libs: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "proc_libs.erl": "16844db46cdfbc8d6c5f69ea10c6fbb6cff112d93fb01aba8e528c3fe4d1f82c"
+  }
+}

@@ -21,19 +21,20 @@ choose
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  1,427 are still to do (erts 23, kernel 545, stdlib 859). Appendix A lists them per module.
+  1,248 are still to do (erts 23, kernel 545, stdlib 680). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
   `dict`, `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`, `filename`,
   `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`,
   `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
-  `timer`, `unicode`, `uri_string`.
+  `timer`, `unicode`, `uri_string`, `proc_lib`, `sys`, `gen_server`, `gen_statem`, `gen_event`,
+  `gen_fsm` (deprecated), `supervisor`, `supervisor_bridge`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
   (51), `io` (31), `file` (30), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
-- **Missing:** 63 modules. Today a program gets the plain-Erlang ones (gen servers, `supervisor`,
-  `timer`, ...) only by compiling OTP's sources from a search path.
+- **Missing:** 53 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
+  ones (`logger`, `application`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`,
   `logger_handler`.
 
@@ -114,29 +115,11 @@ remainders follow.
 
 ## Tier C: processes and behaviours (Erlang)
 
-### LIB20. `proc_lib` and `sys`
-
-- `proc_lib` (35):
-  - Spawning: `spawn*`, `start*` with `init_ack/1,2` and `init_fail/2,3`.
-  - Process info: `$ancestors`, `$initial_call`, `initial_call/1`, `translate_initial_call/1`,
-    `set_label/1`, `get_label/1`.
-  - Other: `hibernate/3`, `stop/1,3`, and crash reports through `logger` (a minimal `logger` front
-    first, completed in LIB23).
-- `sys` (33): the system message protocol and debug options. That covers `get_state/1,2`,
-  `replace_state/2,3`, `get_status/1,2`, `suspend/1,2`, `resume/1,2`, `statistics/2,3`, `trace/2,3`,
-  `log/2,3`, `log_to_file/2,3`, `install/2,3`, `remove/2,3`, `handle_system_msg/6` and
-  `handle_debug/4`. `change_code/4,5` answers as for a static module (D01).
-
-### LIB21. Generic behaviours
-
-- `gen_server` (32), `gen_statem` (30), `gen_event` (33), `supervisor` (14), `supervisor_bridge`
-  (2): Erlang over `proc_lib` and `sys`, including the request id collections (`reqids_*`,
-  `send_request`, `receive_response`, `wait_response`, `check_response`).
-- `multi_call` and `abcast` work on the local node only.
-- `gen_fsm` (deprecated, 19): a thin adapter over `gen_statem`, last in this step.
-
 ### LIB23. Logging: `logger` and friends
 
+- The behaviours' reports go through `clause_logger` (stderr, OTP's text) until this step: switch
+  `proc_lib`, `gen_*`, `supervisor*` and `gen:debug_options/2` to `logger` and retire
+  `clause_logger`.
 - `logger` (68) in Erlang:
   - Configuration: primary, handler and proxy config, kept in `persistent_term` plus a `logger`
     server.
@@ -172,7 +155,9 @@ remainders follow.
 - Real services, in Erlang:
   - `pg` (30), with local scopes, monitors and subscriptions.
   - `global` (21), with names, locks and `trans/2,3,4` on the local node, as on an OTP node that is
-    not distributed.
+    not distributed. `gen`, `gen_server`, `gen_statem`, `gen_event` and `gen_fsm` reach `global`
+    through `global_registry()` (a runtime name, so programs without `global` build): make those
+    literal calls when it lands.
   - `global_group` (10): no groups.
   - `rpc` (25) and `erpc` (27): calls to `node()` run locally; other nodes get OTP's non-distributed
     results.
@@ -363,14 +348,13 @@ own annotations, and no Boost in the runtime.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB20 and LIB21 (`proc_lib`, `sys`, behaviours).
-2. LIB23 and LIB24 (`logger`, `application`).
-3. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
-4. LIB30–LIB34 (the front end, `consult`, `io:read`).
-5. LIB25 (local-node services).
-6. LIB51–LIB55 (files, logs, archives), then LIB12C.
-7. LIB70, LIB62 and LIB63.
-8. LIB71–LIB74, then the declined modules' answer stubs.
+1. LIB23 and LIB24 (`logger`, `application`).
+2. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
+3. LIB30–LIB34 (the front end, `consult`, `io:read`).
+4. LIB25 (local-node services).
+5. LIB51–LIB55 (files, logs, archives), then LIB12C.
+6. LIB70, LIB62 and LIB63.
+7. LIB71–LIB74, then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 
@@ -510,21 +494,6 @@ separately and are optional.
 - `filelib` (stdlib, 16): ensure_dir/1, ensure_path/1, file_size/1, find_file/2,3,
   find_source/1,2,3, fold_files/5, is_dir/1, is_file/1, is_regular/1, last_modified/1,
   safe_relative_path/2, wildcard/1,2
-- `gen_event` (stdlib, 33; 8 callbacks): add_handler/3, add_sup_handler/3, call/3,4,
-  check_response/2,3, delete_handler/3, notify/2, receive_response/2,3, reqids_add/3, reqids_new/0,
-  reqids_size/1, reqids_to_list/1, send_request/3,5, start/0,1,2, start_link/0,1,2,
-  start_monitor/0,1,2, stop/1,3, swap_handler/3, swap_sup_handler/3, sync_notify/2,
-  wait_response/2,3, which_handlers/1
-- `gen_fsm` (stdlib, 0; 9 callbacks): none; deprecated: cancel_timer/1, enter_loop/4,5,6, reply/2,
-  send_all_state_event/2, send_event/2, send_event_after/2, start/3,4, start_link/3,4,
-  start_timer/2, stop/1,3, sync_send_all_state_event/2,3, sync_send_event/2,3
-- `gen_server` (stdlib, 32; 9 callbacks): abcast/2,3, call/2,3, cast/2, check_response/2,3,
-  enter_loop/3,4,5, multi_call/2,3,4, receive_response/2,3, reply/2, reqids_add/3, reqids_new/0,
-  reqids_size/1, reqids_to_list/1, send_request/2,4, start/3,4, start_link/3,4, start_monitor/3,4,
-  stop/1,3, wait_response/2,3
-- `gen_statem` (stdlib, 30; 8 callbacks): call/2,3, cast/2, check_response/2,3, enter_loop/4,5,6,
-  receive_response/1,2,3, reply/1,2, reqids_add/3, reqids_new/0, reqids_size/1, reqids_to_list/1,
-  send_request/2,4, start/3,4, start_link/3,4, start_monitor/3,4, stop/1,3, wait_response/1,2,3
 - `io` (stdlib, 32, 16 done): columns/0,1, get_password/0, getopts/0,1, parse_erl_exprs/1,2,3,4,
   parse_erl_form/1,2,3,4, printable_range/0, read/1,2,3,4, rows/0,1, scan_erl_exprs/1,2,3,4,
   scan_erl_form/1,2,3,4, setopts/1,2, write/1,2
@@ -561,9 +530,6 @@ separately and are optional.
 - `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3, start/1,
   start_link/0,1, stop/1
 - `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3, pspawn_link/3, start/1,2, stop/0
-- `proc_lib` (stdlib, 35): format/1,2,3, get_label/1, hibernate/3, init_ack/1,2, init_fail/2,3,
-  initial_call/1, set_label/1, spawn/1,2,3,4, spawn_link/1,2,3,4, spawn_opt/2,3,4,5, start/3,4,5,
-  start_link/3,4,5, start_monitor/3,4,5, stop/1,3, translate_initial_call/1
 - `qlc` (stdlib, 26): append/1,2, cursor/1,2, delete_cursor/1, e/1,2, eval/1,2, fold/3,4,
   format_error/1, info/1,2, keysort/2,3, next_answers/1,2, q/1,2, sort/1,2, string_to_handle/1,2,3,
   table/2
@@ -577,14 +543,6 @@ separately and are optional.
 - `shell_docs` (stdlib, 15): normalize/1, render/2,3,4,5, render_callback/2,3,4,5,
   render_type/2,3,4,5, supported_tags/0, validate/1
 - `slave` (stdlib, 0): none; deprecated: pseudo/1,2, relay/1, start/1,2,3, start_link/1,2,3, stop/1
-- `supervisor` (stdlib, 14; 1 callbacks): check_childspecs/1,2, count_children/1, delete_child/2,
-  get_childspec/2, restart_child/2, start_child/2, start_link/2,3, stop/1,3, terminate_child/2,
-  which_child/2, which_children/1
-- `supervisor_bridge` (stdlib, 2; 2 callbacks): start_link/2,3
-- `sys` (stdlib, 33; 5 callbacks): change_code/4,5, debug_options/1, get_log/1, get_state/1,2,
-  get_status/1,2, handle_debug/4, handle_system_msg/6, install/2,3, log/2,3, log_to_file/2,3,
-  no_debug/1,2, print_log/1, remove/2,3, replace_state/2,3, resume/1,2, statistics/2,3, suspend/1,2,
-  terminate/2,3, trace/2,3; deprecated: get_debug/3
 - `unicode` (stdlib, 12, 7 done): category/1, characters_to_nfc_binary/1, characters_to_nfc_list/1,
   characters_to_nfd_binary/1, characters_to_nfd_list/1, characters_to_nfkc_binary/1,
   characters_to_nfkc_list/1, characters_to_nfkd_binary/1, characters_to_nfkd_list/1,

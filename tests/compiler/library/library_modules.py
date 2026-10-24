@@ -219,6 +219,11 @@ def read_module(path):
         (unquote(m[1]), m[2].count("_"))
         for m in re.finditer(rf"(?m)^({ATOM})\(((?:_(?:, _)*)?)\) ->\s+{PLACEHOLDER}\.$", text)
     }
+    if re.search(r"(?m)^-callback\b", text):
+        # A behaviour module: the compiler defines and exports behaviour_info/1 from its -callback attributes.
+        # Added for plan 21 step LIB20.
+        exports.add(("behaviour_info", 1))
+        defined.add(("behaviour_info", 1))
     return exports, defined, stubs, placeholders
 
 

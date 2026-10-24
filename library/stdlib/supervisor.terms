@@ -1,0 +1,26 @@
+%% OTP 29 supervisor exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{behaviour_info, 1, default, implemented}.
+{check_childspecs, 1, default, implemented}.
+{check_childspecs, 2, default, implemented}.
+{code_change, 3, default, implemented}.
+{count_children, 1, default, implemented}.
+{delete_child, 2, default, implemented}.
+{format_log, 1, default, implemented}.
+{format_log, 2, default, implemented}.
+{get_callback_module, 1, default, implemented}.
+{get_childspec, 2, default, implemented}.
+{handle_call, 3, default, implemented}.
+{handle_cast, 2, default, implemented}.
+{handle_info, 2, default, implemented}.
+{init, 1, default, implemented}.
+{restart_child, 2, default, implemented}.
+{start_child, 2, default, implemented}.
+{start_link, 2, default, implemented}.
+{start_link, 3, default, implemented}.
+{stop, 1, default, implemented}.
+{stop, 3, default, implemented}.
+{terminate, 2, default, implemented}.
+{terminate_child, 2, default, implemented}.
+{which_child, 2, default, implemented}.
+{which_children, 1, default, implemented}.

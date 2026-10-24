@@ -51,6 +51,15 @@
 {json, stdlib, provided}.
 {string, stdlib, provided}.
 {timer, stdlib, provided}.
+{proc_lib, stdlib, provided}.
+{sys, stdlib, provided}.
+{gen, stdlib, provided}.
+{gen_server, stdlib, provided}.
+{gen_statem, stdlib, provided}.
+{gen_event, stdlib, provided}.
+{supervisor, stdlib, provided}.
+{supervisor_bridge, stdlib, provided}.
+{gen_fsm, stdlib, provided}.
 {rand, stdlib, provided}.
 {random, stdlib, provided}.
 {erl_internal, stdlib, provided}.

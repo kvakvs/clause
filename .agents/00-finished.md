@@ -693,6 +693,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   timers as processes reached through an alias in the `TRef`, conversions in C++
   (`builtins/timer.cpp`); `erlang:apply/2,3` builtins for dynamic calls; `timers` golden —
   `b0562967`
+- **LIB20, LIB21** `proc_lib`, `sys`, `gen`, `gen_server`, `gen_statem`, `gen_event`, `gen_fsm`,
+  `supervisor`, `supervisor_bridge` in Erlang with OTP's messages, results, error terms, debug
+  shapes and report texts (through `clause_logger` until `logger`); `gen_fsm` keeps its own loop;
+  `proc_libs`, `gen_servers`, `gen_statems`, `gen_events`, `gen_fsms`, `supervisors` goldens
 
 ## Plan 22 (from 2026-10-23)
 

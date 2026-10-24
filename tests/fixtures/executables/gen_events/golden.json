@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "gen_events",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "(?s)\\*\\* gen_event handler .* crashed",
+      "exit_status": 0,
+      "stdout": "added: [ok,ok,ok,{'EXIT',{broke,stack}},{error,refused},ok]\nreports: [{init,h1},{init,h2},{init,h3}]\nwhich_handlers: [{gen_events,e},{gen_events,b},{gen_events,a},gen_events]\ndeleted: [{terminated,hibernated},\n          {error,module_not_found},\n          {error,module_not_found}]\nreports: [{terminate,hibernated,bye,0}]\nsys_state: [{gen_events,b,{h3,0}},\n            {gen_events,a,{h2,0}},\n            {gen_events,false,{h1,0}}]\nreplaced: [{gen_events,b,{h3,100}},\n           {gen_events,a,{h2,100}},\n           {gen_events,false,{h1,100}}]\nstopped: [{terminate,h3,stop,100},\n          {terminate,h2,stop,100},\n          {terminate,h1,stop,100}]\nexit: normal\nnotify: ok\nsync_notify: ok\nnotify_remote: ok\nreports: [{event,h2,first},\n          {event,h1,first},\n          {event,h2,second},\n          {event,h1,second},\n          {event,h2,third},\n          {event,h1,third},\n          {info,h2,an_info},\n          {info,h1,an_info},\n          {event,h2,sync},\n          {event,h1,sync}]\ncounts: [{h1,4},{h2,4}]\nstopped: [{terminate,h2,stop,4},{terminate,h1,stop,4}]\ncalls: [{h1,0},\n        hibernating,\n        {error,bad_module},\n        {removed,h2},\n        [gen_events],\n        {error,{'EXIT',{call_crash,stack}}},\n        []]\nreports: [{terminate,h2,remove_handler,0},\n          {terminate,h1,{error,{'EXIT',{call_crash,stack}}},0}]\ncall_errors: [{exit,noproc,call},{exit,noproc,call}]\nafter_remove: []\nafter_crash: []\nafter_bad: []\nreports: [{removing,h_swap},\n          {terminate,h_swap,remove_handler,0},\n          {removing,h_bad},\n          {terminate,h_bad,remove_handler,0},\n          {removing,h_crash},\n          {terminate,h_crash,remove_handler,0},\n          {removing,h_remove},\n          {terminate,h_remove,remove_handler,0}]\nafter_swap: [{gen_events,swapped_id}]\nreports: [{terminate,h_swap2,{from,h_swap2},0},\n          {init,{{to,{gen_events,swapped_id}},{terminated,h_swap2}}}]\nswap_handler: ok\nswap_missing: ok\nafter_swaps: [{gen_events,n2},{gen_events,new}]\nreports: [{terminate,{{to,{gen_events,swapped_id}},{terminated,h_swap2}},\n                     again,0},\n          {init,{x,{terminated,{{to,{gen_events,swapped_id}},\n                                {terminated,h_swap2}}}}},\n          {init,{y,error}}]\ncall_swap: swapping\nafter_call_swap: [{gen_events,n2},{gen_events,from_call}]\nreports: [{terminate,\n              {x,{terminated,\n                     {{to,{gen_events,swapped_id}},{terminated,h_swap2}}}},\n              {from,\n                  {x,{terminated,\n                         {{to,{gen_events,swapped_id}},\n                          {terminated,h_swap2}}}}},\n              0},\n          {init,\n              {{to,{gen_events,from_call}},\n               {terminated,\n                   {x,{terminated,\n                          {{to,{gen_events,swapped_id}},\n                           {terminated,h_swap2}}}}}}}]\nadd_sup: ok\ndelete_sup: {terminated,h_sup}\nsup_exit: {{gen_events,sup},normal}\ncrashed_sup: {{gen_events,sup2},{'EXIT',{{crashed,h_sup2},stack}}}\nswap_sup: ok\nswapped_sup: {{gen_events,sup3},{swapped,{gen_events,sup4},pid}}\nowned: true\nowner_gone: false\nreports: [{init,h_owned},\n          {terminate,h_owned,{stop,normal},0},\n          {info,{y,{terminated,h_sup3}},{'EXIT',pid,normal}}]\nstop_exit: {{gen_events,sup4},shutdown}\nreceive_response: {reply,{h1,0}}\nerror_response: {error,bad_module}\ncheck_response: {reply,{h1,0}}\ncollection: [[{one,{reply,{h1,0}}},{two,{error,bad_module}}],0,[]]\nreqid_errors: [{error,badarg},{error,badarg},{error,function_clause}]\nmonitored: true\ndown: normal\nstart_errors: [{error,badarg},{error,badarg},{error,badarg},{error,badarg}]\nalready: already_started\ngen_events: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "gen_events.erl": "d339de1f73fd089019497f7b8809657f29a6e0b7c2c471fbd919806c72016094"
+  }
+}

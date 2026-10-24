@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "gen_fsms",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "(?s)\\*\\* State machine .* terminating",
+      "exit_status": 0,
+      "stdout": "sync: [{idle,0},{idle,0}]\nbusy: {busy,1}\ntimeout: {busy_timeout,1}\nall_state: [ok,{total,idle,6},{total,idle,6}]\ninfo: {info,hello,idle}\ntimer: {timer,tick}\nevent_after: delayed\ncancelled: {cancel,true}\nsys: [{idle,6},{idle,7}]\nstatus: [{header,\"Status for state machine fsm\"},{data,[{\"StateData\",7}]}]\nerrors: [{exit,noproc,sync_send_event},\n         {exit,timeout,sync_send_event},\n         {exit,noproc,sync_send_all_state_event}]\nstop_reply: stopping\nstopped: [{terminate,normal,idle,7},normal]\ncrash: {exit,{crashed,stack},sync_send_event}\ncrash_terminate: {terminate,{crashed,stack},idle,0}\nbad_return: {exit,{bad_return_value,nonsense},sync_send_all_state_event}\nbad_terminate: {terminate,{bad_return_value,nonsense},idle,0}\nstop: [ok,{terminate,normal,idle,0}]\ninit_results: [{error,why},\n               ignore,\n               {error,{init_crash,stack}},\n               {error,{bad_return_value,bad_init}}]\ncancel_timer: [false]\ngen_fsms: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "gen_fsms.erl": "3a1af3937392ce072a0d6b01aec54d76924886ec2ab6ef25a9313fa014fc0d7b"
+  }
+}

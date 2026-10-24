@@ -308,6 +308,11 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `json`, `uri_string`, `filename`, `calendar`.
 - Time: `timer` without a timer server (per-timer processes reached through aliases; conversions in
   `builtins/timer.cpp`).
+- Behaviours (all Erlang): `proc_lib` (ancestors, initial calls, sync starts, crash reports), `sys`
+  (system messages, OTP's debug list shapes), `gen` (starts, calls with alias tags, request ids),
+  `gen_server`, `gen_statem` (transition step record, time-out zero queue), `gen_event`, `gen_fsm`,
+  `supervisor`, `supervisor_bridge`; their reports go through `clause_logger` (stderr, OTP's text)
+  until `logger` lands; `{global, _}` names reach `global` by a runtime name until LIB25.
 - Collections in C++ (`builtins/collections/`): `lists`, `maps`, `ordsets`, `orddict`, `proplists`,
   `dict`, `sets`, `gb_trees`, `gb_sets`, `queue`, `array`, `sofs`; fun-taking functions stay Erlang.
 - ETS-based: `ets` builtins (`builtins/ets/`: tables, reads, writes, select and match families,
