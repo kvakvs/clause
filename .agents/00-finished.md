@@ -714,7 +714,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   with OTP's handlers, errors, bindings (orddicts or maps), interpreted funs over OTP's env tuple,
   strict and zip generators, native records; bit segments as `clause_erl_eval` builtins over the
   `bit_types` settling shared with `normalise/1`; `clause_erl_lint` (first-error command checks,
-  used vars, guard tests); `erlang:make_fun/3`; `erl_eval_exprs` golden
+  used vars, guard tests); `erlang:make_fun/3`; `erl_eval_exprs` golden — `428ac91b`
 
 ## Plan 22 (from 2026-10-23)
 
