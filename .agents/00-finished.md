@@ -725,6 +725,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB34 part 2** `erl_pp`: OTP's layout algorithm (items, then a layout pass) in Clause's own
   code; options, hooks, `legalize_vars/1`; `erl_pp_forms` golden, and a scratch comparison over the
   forms of 357 OTP sources found no differences — `a8d88410`
+- **LIB34 part 3** `erl_expand_records:module/2` in Erlang with OTP's traversal and variable
+  numbering (guard context in the state, not the process dictionary); `clause_erl_lint:is_guard_test/3`;
+  `erl_expand_records_forms` golden, and a scratch comparison over 396 OTP sources and suites under
+  four option sets found no differences
 
 ## Plan 22 (from 2026-10-23)
 

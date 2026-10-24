@@ -91,6 +91,7 @@
 {erl_eval, stdlib, provided}.
 {erl_error, stdlib, provided}.
 {erl_pp, stdlib, provided}.
+{erl_expand_records, stdlib, provided}.
 {digraph, stdlib, provided}.
 {digraph_utils, stdlib, provided}.
 {graph, stdlib, provided}.
