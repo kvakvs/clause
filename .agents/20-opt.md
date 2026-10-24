@@ -460,7 +460,7 @@ it needs the match's value to be unused and every read to inline (static decisio
 | Straight-line GVN outside loops | pool ≈0 on real code | Leave to LLVM |
 | Frameless leaves (OPT0.1A) | — | Saves a few stores per call; loses the stack-trace entry and `process_info(current_function)` (dropped 2026-10-17) |
 | One heap check per basic block (OPT0.3) | — | Measured negligible in Clause (dropped 2026-10-17) |
-| String builder: pieces in a list, one `reserve`, then join (OPTM.6) | — | Dropped 2026-10-24. Every `+=` site appends to one growing buffer (amortized, nothing quadratic); none shows in the W5a or 69A profiles, and the compiler printers run only for `--print-*` and abstract export. Pinned microbench of 2-65536 pieces: the builder is 2-10x slower than `+=`; a known-size `reserve` is 1.8-2.3x faster on the concatenation alone |
+| String builder: pieces in a list, one `reserve`, then join (OPTM.6) | — | Dropped 2026-10-24. Every `+=` site appends to one growing buffer (amortized, nothing quadratic); none shows in the W5a or 69A profiles, and the compiler printers run only for `--print-*` and abstract export. Pinned microbench of 2-65536 pieces: the builder is 2-10x slower than `+=`; a known-size `reserve` is 1.8-2.3x faster on the concatenation alone. A fixed opportunistic `reserve(64/256/1024)` is 2.5-8x slower below ~30 bytes (it gives up the small-string buffer) and 1.2-2.6x faster above ~50 bytes, saving 50-500 ns per string: worth it only where output is known to be large (`io_lib:format` output buffers), measured on its own kernel |
 
 ## Suggested order for Clause
 
