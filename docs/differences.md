@@ -227,6 +227,13 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | --- | --- | --- | --- |
 | `'%ssa%'` tokens (SSA check clauses of OTP's compiler tests) | Parsed into `ssa_check_when` clauses | A syntax error; `erl_scan` never produces the token | [erl_parse](builtins.md#erl-parse) |
 
+## erl_eval
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Commands checked by `exprs/2`, `expr/2` and `check_command/2` | `erl_lint` reports its first error of any kind | `clause_erl_lint` reports unbound and unsafe variables, illegal patterns and guards, undefined records, stack trace variables, `=>` in map patterns, `:=` in map construction and unsized binaries before the end; other `erl_lint` errors (such as bit type errors) are raised when the code runs, or not at all for code that never runs. `erl_lint` itself comes with plan 21 step LIB34 | [erl_eval](builtins.md#erl-eval) |
+| Stack trace of an error the evaluator raises (`{badmatch, V}`, `undef` of a local call, ...) | The evaluating process's current stack (`process_info/2` `current_stacktrace`) | The stack at the evaluator's `throw` that collects it, in Clause's frames | [erl_eval](builtins.md#erl-eval) |
+
 ## Random numbers
 
 | Difference | OTP | Clause | Owner |

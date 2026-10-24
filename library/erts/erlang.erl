@@ -747,7 +747,7 @@ localtime_to_universaltime(_) -> clause_builtin_placeholder.
 
 localtime_to_universaltime(_, _) -> clause_builtin_placeholder.
 
-make_fun(_, _, _) -> erlang:error({not_implemented, make_fun, 3}).
+make_fun(_, _, _) -> clause_builtin_placeholder.
 
 make_ref() -> clause_builtin_placeholder.
 

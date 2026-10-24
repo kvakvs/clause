@@ -194,7 +194,7 @@
 {localtime, 0, [], implemented}.
 {localtime_to_universaltime, 1, [], implemented}.
 {localtime_to_universaltime, 2, [], implemented}.
-{make_fun, 3, [], {unavailable, not_selected}}.
+{make_fun, 3, [], implemented}.
 {make_ref, 0, [auto_import], implemented}.
 {make_tuple, 2, [], implemented}.
 {make_tuple, 3, [], implemented}.

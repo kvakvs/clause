@@ -136,11 +136,22 @@ TermResult<Term> is_builtin(ProcessContext &context, const AtomArgument &module,
     return TermFactory(context).boolean(apply || builtin);
 }
 
+// make_fun(Module, Function, Arity): the external fun Module:Function/Arity, as erl_eval builds `fun M:F/A` (plan 21
+// step LIB32).
+TermResult<Term> make_fun(ProcessContext &context, const AtomArgument &module, const AtomArgument &function,
+                          std::int64_t arity) {
+    if (arity < 0 || arity > 255) {
+        bad_argument();
+    }
+    const auto &definition =
+        context.code_server().external_fun(module.term, function.term, static_cast<std::size_t>(arity));
+    return TermFactory(context).fun(definition, {});
+}
+
 constexpr std::array FUN_INFO_BUILTINS{
-    typed_entry<fun_info1>("erlang", "fun_info"),
-    typed_entry<fun_info2>("erlang", "fun_info"),
-    typed_entry<fun_to_list>("erlang", "fun_to_list"),
-    typed_entry<is_builtin>("erlang", "is_builtin"),
+    typed_entry<fun_info1>("erlang", "fun_info"),      typed_entry<fun_info2>("erlang", "fun_info"),
+    typed_entry<fun_to_list>("erlang", "fun_to_list"), typed_entry<is_builtin>("erlang", "is_builtin"),
+    typed_entry<make_fun>("erlang", "make_fun"),
 };
 } // namespace
 } // namespace clause::runtime::builtins

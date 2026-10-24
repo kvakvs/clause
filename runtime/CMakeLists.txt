@@ -72,7 +72,9 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/front_end/parser.cpp src/builtins/front_end/parser_attributes.cpp
     src/builtins/front_end/parser_expressions.cpp src/builtins/front_end/parser_primaries.cpp
     src/builtins/front_end/parser_control.cpp src/builtins/front_end/parser_types.cpp
-    src/builtins/front_end/erl_parse.cpp
+    src/builtins/front_end/erl_parse.cpp src/builtins/front_end/bit_types.cpp
+    # Module erl_eval (plan 21 step LIB32).
+    src/builtins/front_end/erl_eval.cpp
     # The erlang gaps of plan 21 step LIB9A.
     src/builtins/erlang/checksums.cpp src/builtins/erlang/tuple_edits.cpp src/builtins/erlang/process_options.cpp
     src/builtins/erlang/system_flags.cpp src/builtins/erlang/packets.cpp src/builtins/erlang/packet_http.cpp

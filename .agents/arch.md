@@ -340,4 +340,6 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   reflection), front-end support `erl_internal`, `erl_anno`, `erl_features`; `erl_scan` over a C++
   scanner of OTP's rules (re-entrant by rescanning the unfinished token); `erl_parse` over a C++
   recursive-descent parser building OTP's abstract format and errors; `ms_transform` in Erlang over
-  abstract forms.
+  abstract forms; `erl_eval` an Erlang interpreter of the abstract format (interpreted funs as
+  closures over OTP's env tuple, bit segments via `clause_erl_eval` C++ builtins, command checks in
+  `clause_erl_lint` until `erl_lint` lands).

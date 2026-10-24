@@ -21,14 +21,14 @@ choose
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  954 are still to do (erts 23, kernel 253, stdlib 678). Appendix A lists them per module.
+  939 are still to do (erts 23, kernel 253, stdlib 663). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
   `dict`, `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`, `filename`,
   `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`,
   `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
-  `timer`, `unicode`, `uri_string`, `proc_lib`, `sys`, `gen_server`, `gen_statem`, `gen_event`,
+  `timer`, `unicode`, `uri_string`, `erl_eval`, `proc_lib`, `sys`, `gen_server`, `gen_statem`, `gen_event`,
   `gen_fsm` (deprecated), `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`,
   `logger_std_h`, `logger_filters`, `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`, `global_group`, `rpc`, `erpc`,
   `net_adm`, `net_kernel` (distribution start declined), `auth`, `seq_trace` (tokens without tracing).
@@ -121,12 +121,7 @@ Done: LIB20–LIB25 (`00-finished.md`); `logger_disk_log_h` waits for LIB52.
 
 ## Tier D: Erlang front end as library modules
 
-### LIB32. `erl_eval` (Erlang)
-
-- An evaluator of abstract forms written for Clause: `exprs/2,3,4`, `expr/2..5`, `expr_list/2,3,4`
-  and the bindings API.
-- Local and non-local function handlers.
-- Funs created by `erl_eval` are interpreted closures.
+LIB32 `erl_eval` is done (`00-finished.md`).
 
 ### LIB33. Readers built on the front end
 
@@ -141,7 +136,10 @@ Done: LIB20–LIB25 (`00-finished.md`); `logger_disk_log_h` waits for LIB52.
 - `erl_expand_records` (1): Erlang.
 - `erl_error` (2): `format_exception/3,4` in Erlang over `io_lib`.
 - `erl_lint` (5): `is_guard_test/1` and `format_error/1` first; `module/1,2,3` later, from Clause's
-  semantic checks mapped to OTP's warning terms.
+  semantic checks mapped to OTP's warning terms. `clause_erl_lint` (LIB32) already has
+  `is_guard_test/1`, `is_guard_expr/1`, `used_vars/2` and the first-error expression checks of
+  `exprs_opt/3`; `erl_lint` delegates to it and widens the checks (then drop the `erl_eval` row of
+  `differences.md`).
 
 LIB34A (qlc chain) takes from this step what `qlc` and `qlc_pt` need: `erl_pp` whole (16),
 `erl_expand_records:module/2`, `erl_lint:is_guard_test/1`, `format_error/1` and the `module/2`
@@ -243,7 +241,7 @@ records), with OTP's error terms.
 ### LIB73. `qlc`
 
 Dependencies first (user direction 2026-10-19), in this order: LIB30 `erl_scan` (done), LIB31
-`erl_parse` (done), LIB54A `file_sorter`, LIB32 `erl_eval`, LIB34A (`erl_pp`, `erl_expand_records`,
+`erl_parse` (done), LIB54A `file_sorter`, LIB32 `erl_eval` (done), LIB34A (`erl_pp`, `erl_expand_records`,
 `erl_lint`'s checks for `qlc_pt`). See [the qlc chain](#qlc-chain-user-direction-2026-10-19).
 
 - `qlc` (26): Erlang query handles and evaluation over `ets`, `dets` and lists. Compiled queries
@@ -262,6 +260,8 @@ Dependencies first (user direction 2026-10-19), in this order: LIB30 `erl_scan` 
   not copied) that does at run time what the host transform does at compile time, with `erl_lint`'s
   errors for bad queries.
 - `ets:table/1,2` and `dets:table/1,2` (LIB12C) land with it.
+- `erl_eval`'s clause for `qlc:q/1,2` calls in evaluated code (`qlc:transform_from_evaluator/2`, the
+  local calls hidden from the transform), with the old `''.qlc:q` spelling.
 
 ### LIB74. Interactive modules (last; optional)
 
@@ -289,8 +289,7 @@ probe for them keep working.
 
 Runs now, before the list below: LIB30 `erl_scan` (done), LIB31 `erl_parse` (done), LIB54A
 `file_sorter` (its `term` format reads with `io:read/2`, so `io:read/1,2` of LIB33 come with it),
-LIB32 `erl_eval` (with the undocumented `extended_parse_exprs/1`, `fun_data/1` and `partial_eval/1`
-that `qlc` and `qlc_pt` call), LIB34A, then LIB73 `qlc` with LIB12C. Each is its own commit. The
+LIB32 `erl_eval` (done, with every undocumented export), LIB34A, then LIB73 `qlc` with LIB12C. Each is its own commit. The
 runtime cannot link the compiler's `clause_frontend` (a separate, LLVM-free build; the compiler
 lexer throws Clause diagnostics and has no `erl_scan` continuations), so `erl_scan` and `erl_parse`
 get their own C++ scanner and parser in `runtime/src/builtins/front_end/`, written to OTP's
@@ -384,8 +383,6 @@ separately and are optional.
   parse_erl_form/1, parse_file/2,3, read_encoding/1,2, read_encoding_from_binary/1,2,
   scan_erl_form/1, scan_file/2, set_encoding/1,2
 - `erl_error` (stdlib, 2; 1 callbacks): format_exception/3,4
-- `erl_eval` (stdlib, 15): add_binding/3, binding/2, bindings/1, del_binding/2, expr/2,3,4,5,
-  expr_list/2,3,4, exprs/2,3,4, new_bindings/0
 - `erl_expand_records` (stdlib, 1): module/2
 - `erl_lint` (stdlib, 5): format_error/1, is_guard_test/1, module/1,2,3
 - `erl_pp` (stdlib, 16): attribute/1,2, expr/1,2,3,4, exprs/1,2,3, form/1,2, function/1,2,

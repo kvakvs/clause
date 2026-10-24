@@ -489,6 +489,24 @@ recursive-descent parser of OTP's grammar.
   funs Erlang.
 - CTest `executables_erl_parse_forms`.
 
+## Erl eval
+
+`erl_eval.erl` interprets the abstract format in Erlang; `clause_erl_eval`
+builtins (`front_end/erl_eval.cpp`) handle bit syntax segments.
+
+- `bit_type/2` settles a `bin_element`'s specifiers with `erl_bits`' defaults
+  and errors (`front_end/bit_types.cpp`, shared with `normalise/1`);
+  `bit_segment/3` builds one segment (`badarg`, `system_limit`), `bit_take/3`
+  takes one from the front of a bitstring (`nomatch`).
+- Funs made by the evaluator are closures over OTP's
+  `{Anno, Bindings, Lf, Ef, UsedVars, Clauses}` environment, so `fun_data/1`
+  and `erlang:fun_info/2` answer as in OTP; `fun M:F/A` with runtime parts uses
+  `erlang:make_fun/3`.
+- `exprs/2`, `expr/2` and `check_command/2` check commands with
+  `clause_erl_lint`, the expression checks of `erl_lint` until it is provided
+  ([differences](differences.md#erl_eval)).
+- CTest `executables_erl_eval_exprs`.
+
 ## Zlib module
 
 `builtins/zlib/streams.cpp`, `library/erts/zlib.erl`.

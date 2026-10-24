@@ -207,6 +207,9 @@ std::span<const BuiltinEntry> erl_scan_builtins() noexcept;
 // clause_erl_parse:parse/1 and abstract/3, and erl_parse's normalise/1, tokens/1,2, first_anno/1 and precedence
 // tables (plan 21 step LIB31; runtime/src/builtins/front_end/erl_parse.cpp).
 std::span<const BuiltinEntry> erl_parse_builtins() noexcept;
+// clause_erl_eval:bit_type/2, bit_segment/3 and bit_take/3, erl_eval's bit syntax segments (plan 21 step LIB32;
+// runtime/src/builtins/front_end/erl_eval.cpp).
+std::span<const BuiltinEntry> erl_eval_builtins() noexcept;
 // The erlang gaps of plan 21 step LIB9A: checksums and iovecs, tuple edits, option-taking process builtins and
 // system flags.
 std::span<const BuiltinEntry> checksum_builtins() noexcept;
@@ -285,8 +288,8 @@ std::span<const BuiltinEntry> system_builtins() noexcept;
 // Spawn options, spawn requests, aliases and hibernation of step 41G2: spawn_opt/2..5, spawn_request/1..5,
 // spawn_request_abandon/1, alias/0,1, unalias/1, hibernate/3 (monitor/3 is among process_builtins()).
 std::span<const BuiltinEntry> spawning_builtins() noexcept;
-// Fun information, hashing and MD5 of step 41G3: fun_info/1,2, fun_to_list/1, is_builtin/3; phash/2,
-// phash2/1,2; md5/1, md5_init/0, md5_update/2, md5_final/1.
+// Fun information, hashing and MD5 of step 41G3: fun_info/1,2, fun_to_list/1, is_builtin/3, make_fun/3 (plan 21
+// step LIB32); phash/2, phash2/1,2; md5/1, md5_init/0, md5_update/2, md5_final/1.
 std::span<const BuiltinEntry> fun_info_builtins() noexcept;
 std::span<const BuiltinEntry> hashing_builtins() noexcept;
 std::span<const BuiltinEntry> md5_builtins() noexcept;

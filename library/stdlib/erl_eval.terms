@@ -1,0 +1,26 @@
+%% OTP 29 erl_eval exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{add_binding, 3, default, implemented}.
+{binding, 2, default, implemented}.
+{bindings, 1, default, implemented}.
+{check_command, 2, default, implemented}.
+{del_binding, 2, default, implemented}.
+{eval_str, 1, default, implemented}.
+{expr, 2, default, implemented}.
+{expr, 3, default, implemented}.
+{expr, 4, default, implemented}.
+{expr, 5, default, implemented}.
+{expr_list, 2, default, implemented}.
+{expr_list, 3, default, implemented}.
+{expr_list, 4, default, implemented}.
+{exprs, 2, default, implemented}.
+{exprs, 3, default, implemented}.
+{exprs, 4, default, implemented}.
+{extended_parse_exprs, 1, default, implemented}.
+{extended_parse_term, 1, default, implemented}.
+{fun_data, 1, default, implemented}.
+{is_constant_expr, 1, default, implemented}.
+{match_clause, 4, default, implemented}.
+{new_bindings, 0, default, implemented}.
+{new_bindings, 1, default, implemented}.
+{partial_eval, 1, default, implemented}.

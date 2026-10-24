@@ -710,6 +710,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   shapes and report texts (through `clause_logger` until `logger`); `gen_fsm` keeps its own loop;
   `proc_libs`, `gen_servers`, `gen_statems`, `gen_events`, `gen_fsms`, `supervisors` goldens —
   `37a9c223`
+- **LIB32** `erl_eval` (third step of the qlc chain): an Erlang interpreter of the abstract format
+  with OTP's handlers, errors, bindings (orddicts or maps), interpreted funs over OTP's env tuple,
+  strict and zip generators, native records; bit segments as `clause_erl_eval` builtins over the
+  `bit_types` settling shared with `normalise/1`; `clause_erl_lint` (first-error command checks,
+  used vars, guard tests); `erlang:make_fun/3`; `erl_eval_exprs` golden
 
 ## Plan 22 (from 2026-10-23)
 

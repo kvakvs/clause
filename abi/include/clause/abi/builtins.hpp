@@ -337,6 +337,7 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"erlang", "fun_info", 1},
     BuiltinName{"erlang", "fun_info", 2},
     BuiltinName{"erlang", "fun_to_list", 1},
+    BuiltinName{"erlang", "make_fun", 3},
     BuiltinName{"erlang", "is_builtin", 3},
     BuiltinName{"erlang", "phash", 2},
     BuiltinName{"erlang", "phash2", 1, DIRECT},
@@ -1220,6 +1221,10 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"erl_parse", "tokens", 2},
     BuiltinName{"erl_parse", "type_inop_prec", 1},
     BuiltinName{"erl_parse", "type_preop_prec", 1},
+    // erl_eval's bit syntax segments (plan 21 step LIB32; runtime/src/builtins/front_end/erl_eval.cpp).
+    BuiltinName{"clause_erl_eval", "bit_type", 2},
+    BuiltinName{"clause_erl_eval", "bit_segment", 3},
+    BuiltinName{"clause_erl_eval", "bit_take", 3},
     // The io_lib module (plan 21 steps LIB4C, LIB4E; runtime/src/builtins/io_lib/).
     BuiltinName{"io_lib", "bformat", 2},
     // maps_order comparison funs (plan 21 step LIB4F; runtime/src/builtins/io_lib/key_orders.cpp).
