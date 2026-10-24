@@ -900,7 +900,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   2.1%), `set_aside` 0.6%; now body walk 50% (`Module::expression` 6.8%, outside plan 22's files), lattice ops
   17%, `gather_all` 13%, pass driver 6.6%, interning 6.5%.
 
-- **OPTC.F** (pending) input gathering: each local function's calls are indexed once (`Inference::input_calls`),
+- **OPTC.F** (3e325483) input gathering: each local function's calls are indexed once (`Inference::input_calls`),
   and a gather joins again only the inputs of functions walked in the pass or called by a walked function
   (`Inference::walked`); the others read the same argument facts into the same inputs (a function whose inputs
   changed is walked in the next pass). `--print-types` and pass counters identical on W5r, W6, W5a, W1, W3.
