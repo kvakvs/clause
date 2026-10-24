@@ -253,15 +253,6 @@ Sorted tables done (see `00-finished.md`). Open: the small tables that would nee
 index-bearing ones (`fixed_atom_spellings`, preprocessor directive names, compile cache output
 kinds) or process_info/system_info item lists.
 
-## OPTM.6 Manual Optimization - String Builder
-
-Scan the source for loops building strings with `+=`. This is a potential performance loss, estimate
-the loss.
-
-Solution: Create a string builder class, which will collect `string_view` or `std::string` pieces in
-a list, and calculate (or store) accumulated length, and then join them together with one `reserve`
-call.
-
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
 Ordered by measured T2 value and how well each fits an AOT compiler. 69A weight on 2026-10-21
@@ -469,6 +460,7 @@ it needs the match's value to be unused and every read to inline (static decisio
 | Straight-line GVN outside loops | pool ≈0 on real code | Leave to LLVM |
 | Frameless leaves (OPT0.1A) | — | Saves a few stores per call; loses the stack-trace entry and `process_info(current_function)` (dropped 2026-10-17) |
 | One heap check per basic block (OPT0.3) | — | Measured negligible in Clause (dropped 2026-10-17) |
+| String builder: pieces in a list, one `reserve`, then join (OPTM.6) | — | Dropped 2026-10-24. Every `+=` site appends to one growing buffer (amortized, nothing quadratic); none shows in the W5a or 69A profiles, and the compiler printers run only for `--print-*` and abstract export. Pinned microbench of 2-65536 pieces: the builder is 2-10x slower than `+=`; a known-size `reserve` is 1.8-2.3x faster on the concatenation alone |
 
 ## Suggested order for Clause
 
