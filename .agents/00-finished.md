@@ -863,7 +863,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   10% (`Node::operator==` 4%, `NodeHash` 3%, `Graph::intern` 2%), `gather_all` 6% (rebuilds all
   call arguments every pass), pass driver 2%. Plan 22 reordered: OPTC.B, D, C, new OPTC.F.
 
-- **INS.2** (pending) lattice operation counts: `inference lattice` line (`semantic/types/lattice_trace`, graph
+- **INS.2** (a5c2b4ae) lattice operation counts: `inference lattice` line (`semantic/types/lattice_trace`, graph
   points at it only while a profiled inference runs) with calls of 2-member `join`, `widen`, `meet`, `within`,
   `subtract`, `truncate`, those repeating a call of their pass and of any pass, other joins and nesting lookups.
   W5a: join 22.58M (98.2% repeat in pass, 99.7% ever: 77K distinct), meet 6.30M (50K distinct), within 9.60M (26K),
