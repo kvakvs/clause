@@ -125,6 +125,7 @@ harmless.
 
 ## Differences from Erlang/OTP
 
+- **IMPORTANT** Minimize differences where possible try and match OTP behavior.
 - Keep `docs/differences.md` up to date: whenever work finds or introduces an
   observable behavior that differs from Erlang/OTP (ordering, error terms, stack
   traces, limits, diagnostics, printing, edge-case semantics), add a row with
