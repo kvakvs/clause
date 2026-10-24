@@ -177,6 +177,20 @@ a fact may only get wider than today's result, never narrower.
   ops from INS.2, not syntax steps) is over its share in a pass, and that is dirty again in a later
   pass, gives up at once (`term()` members) instead of solving again. The cost share comes from
   INS.3's distribution (for example, more than 1/16 of the pass's lattice ops).
+  - **Done (`00-finished.md`), as giving up inputs, not results:** `Graph::joins()` counts lattice
+    joins (nested ones too; work steps miss `ubody`'s cost: 0.1% of the work, 2.9 s). A recursive
+    component whose solve ran more than 2^17 joins and 1/16 of the largest pass so far is costly;
+    when its members' local inputs change again they become `term()`. Prototypes at `PASSES = 64`
+    (W5a, signatures returning `_`; HEAD forced at 17: 2355 in 13.5 s, settled without give-up:
+    2147 in 16.9 s): `term()` members as planned 2819-2968 (`core_parse` 8 → 534) in 11.0-11.2 s;
+    `term()` inputs 2148 in 12.4 s. Without the 2^17 floor small batches lose precision (W6
+    `yystate`). Also fixed CONV.2's re-analysis check, which re-solved `ubody` and `yeccpars1`
+    with nothing changed: a refused-all walk is kept while the budget still refuses everything,
+    and any walk while the budget is as spent as at its start (P64 W5a 19.5 → 16.6 s alone).
+    At `PASSES = 17`: output identical on W5a, W1, W3, W6; W5r loses 9 lines (`ubody`'s
+    `return | {break, _}` argument, modules `inferred=widened`) and is 1.065 slower (5 runs: its
+    `ubody` stays dirty through summaries). 3 runs: inference W5a 13.8 → 11.3 s (0.822), W1 16.1
+    → 13.4 s (0.835).
 - **CONV.5 Fact size cap on recursive results.** If INS.5 shows the `ubody_used_vars` facts at the
   union, depth or element limits, cap the size of recursive-member summaries harder than plain facts
   (fewer union members, or depth 3) during the join rounds.
@@ -534,7 +548,7 @@ single-threaded?) once inference is fixed; it is outside `semantic/types/`.
 4. ~~INS.7 sampling profile on W5r and W5a, INS.5 fact sizes~~ (done).
 5. ~~B.4 baseline~~ (done).
 6. ~~OPTC.A → OPTC.A2 → OPTC.A3, OPTC.C parts 1-3, CONV.0~~ (done), ~~CONV.7~~ (tried, folded into
-   CONV.2), ~~CONV.1, CONV.2, CONV.3~~ (done), then CONV.4 → CONV.6, each measured on W5a, W1 and
+   CONV.2), ~~CONV.1, CONV.2, CONV.3, CONV.4~~ (done), then CONV.6, each measured on W5a, W1 and
    W6. Then the owned fixture (B.0).
 7. INS.2-INS.4 and INS.6 as the profile calls for them, then OPTC.* ranked by measured share.
 8. LIV.1 investigation and BUG.1, whenever convenient.

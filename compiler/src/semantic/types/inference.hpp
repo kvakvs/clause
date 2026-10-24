@@ -123,6 +123,12 @@ struct Inference {
     // Recursive components that reached their round cap or work share in an earlier pass: later passes give their
     // members term() at once instead of iterating again. Added for step 58P.
     std::set<const Component *> failed;
+    // The lattice joins each recursive component's solve spent in the current pass, the most joins one pass spent so
+    // far, and the components whose solve cost more than a share of that: when their members' local inputs change
+    // again, those become term(). Added for cost-aware give-up (CONV.4).
+    std::map<const Component *, std::size_t> solve_joins;
+    std::size_t pass_joins = 0;
+    std::set<const Component *> costly;
     // How many callee re-analyses for a call are nested now, and the work they spent in the current pass.
     std::size_t reanalyses = 0;
     std::size_t reanalysis_work = 0;

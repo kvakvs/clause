@@ -64,6 +64,15 @@ std::string incremental_note(const InferenceProfile::Pass &pass, const Inference
                        noted.clean_work_);
 }
 
+// The lattice joins of a pass and the costly components it gave term() inputs. Added for cost-aware give-up (CONV.4).
+std::string joins_note(const InferenceProfile::Pass &pass) {
+    auto note = std::format("; {} lattice joins", pass.joins_);
+    if (pass.costly_ > 0) {
+        note += std::format(", costly: {} components given term() inputs", pass.costly_);
+    }
+    return note;
+}
+
 // One line per inference pass: its time, work steps, how it ended and how it changed local inputs.
 void print_passes(const InferenceProfile &profile, const std::string_view subject) {
     for (std::size_t index = 0; index < profile.passes_.size(); ++index) {
@@ -76,6 +85,7 @@ void print_passes(const InferenceProfile &profile, const std::string_view subjec
         if (index > 0) {
             note += std::format("; skipped: {} components, {} work steps", pass.skipped_, pass.skipped_work_);
         }
+        note += joins_note(pass);
         // The forced last pass gathers no inputs.
         if (pass.churn_.gathered_) {
             note += churn_note(pass.churn_);

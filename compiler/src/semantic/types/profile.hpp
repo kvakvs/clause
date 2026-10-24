@@ -64,6 +64,10 @@ struct InferenceProfile {
         // incremental passes (CONV.2).
         std::size_t skipped_ = 0;
         std::size_t skipped_work_ = 0;
+        // The lattice joins the pass spent, and the costly components it gave term() local inputs. Added for
+        // cost-aware give-up (CONV.4).
+        std::size_t joins_ = 0;
+        std::size_t costly_ = 0;
     };
 
     // What the previous note saw, to compare the next pass against: graph counters, every summary as an exact

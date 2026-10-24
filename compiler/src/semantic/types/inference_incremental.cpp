@@ -35,6 +35,12 @@ bool unchanged(const Inference &inference, const ComponentWalk &last) {
                                [&](const auto &read) { return input_version(inference, read.first) == read.second; });
 }
 
+bool inputs_changed(const Inference &inference, const Component &component, const ComponentWalk &last) {
+    return std::ranges::any_of(last.inputs, [&](const auto &read) {
+        return member_index(component, read.first) && input_version(inference, read.first) != read.second;
+    });
+}
+
 void replay(Inference &inference, const ComponentWalk &last, std::size_t &work) {
     work += last.work;
     inference.reanalysis_work += last.reanalysis_work;

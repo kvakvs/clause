@@ -114,6 +114,12 @@ class Graph {
     // How often exhaustion widened to top, so callers can tell which work caused it. Added for plan step 41K1.
     std::size_t widenings() const { return widenings_; }
 
+    // How many lattice joins ran on this graph, nested ones included: the deterministic cost of inference work.
+    // Added for cost-aware give-up (CONV.4).
+    std::size_t joins() const { return joins_; }
+
+    void count_join() { ++joins_; }
+
     // The nodes interned so far. Added for --print-stage-times.
     std::size_t size() const { return nodes_.size(); }
 
@@ -152,6 +158,7 @@ class Graph {
     Limits limits_;
     bool widened_ = false;
     std::size_t widenings_ = 0;
+    std::size_t joins_ = 0;
     // Added for the Gather constants (OPTC.A).
     std::optional<JoinConstants> join_constants_;
     // Known nestings by node and limit; a cache, so a const graph fills it. Added for memoized nesting (OPTC.C).

@@ -7,6 +7,9 @@
 namespace clause::semantic::types {
 // Whether nothing a component read changed since `last`, its last walk.
 bool unchanged(const Inference &inference, const ComponentWalk &last);
+// Whether the local inputs of a component's members changed since `last`, its last walk. Added for cost-aware give-up
+// (CONV.4).
+bool inputs_changed(const Inference &inference, const Component &component, const ComponentWalk &last);
 // Keep a skipped walk's effects on the pass: its work, its re-analysis work and its fun F/A facts.
 void replay(Inference &inference, const ComponentWalk &last, std::size_t &work);
 

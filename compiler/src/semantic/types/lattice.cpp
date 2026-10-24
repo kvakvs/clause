@@ -931,6 +931,7 @@ Id relax(Lattice &lattice, Id previous, Id joined) {
 Id Lattice::join(Id left, Id right) { return join(std::array{left, right}, 0); }
 
 Id Lattice::join(std::span<const Id> members, std::size_t depth) {
+    graph_.count_join();
     if (depth > limits_.depth) {
         return graph_.top();
     }

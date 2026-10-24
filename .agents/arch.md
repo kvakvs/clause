@@ -79,7 +79,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   integer-threshold widening, positional lists, map associations past the key budget.
 - `inference.cpp`: postorder walk over frames; clause joins widen after 8 rounds, give up on a group
   at the cap or 1/8 of pass work, or when a member oscillates. Passes repeat until local inputs and
-  fun reads settle, else a final pass with `term()` inputs.
+  fun reads settle, else a final pass with `term()` inputs. Later passes skip components nothing they
+  read changed for, warm-start recursive solves, and give costly ones (lattice joins) `term()` inputs.
 - `Summary::types` = one `FunctionType` per clause; non-recursive callees are re-analysed per call
   under a budget; dependent facts index interned `Dependent`s while `Fact::type` is the erased join.
 

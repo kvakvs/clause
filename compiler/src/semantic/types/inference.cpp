@@ -952,10 +952,38 @@ void give_up(Inference &inference, const Component &component, std::size_t &work
     }
 }
 
+// A recursive component whose solve spends more than this fraction of the most lattice joins one pass spent so far,
+// and more than COSTLY_JOINS (about 0.1 s), is costly: when its members' local inputs change again, they become
+// term(). Added for cost-aware give-up (CONV.4).
+constexpr std::size_t COSTLY_SHARE = 16;
+constexpr std::size_t COSTLY_JOINS = std::size_t{1} << 17U;
+
+// Give a costly component's members term() local inputs, which never change again, so its later solves stop
+// following its callers' churn; true when one changed. Added for cost-aware give-up (CONV.4).
+bool unknown_inputs(Inference &inference, const Component &component) {
+    bool changed = false;
+    for (const auto member : component.members) {
+        const auto found = inference.inputs.find(member.function);
+        if (found == inference.inputs.end()) {
+            continue;
+        }
+        auto &changes = inference.input_changes.at(member.function);
+        for (std::size_t index = 0; index < found->second.size(); ++index) {
+            if (found->second[index] != inference.graph.top()) {
+                found->second[index] = inference.graph.exhausted();
+                ++changes[index];
+                changed = true;
+            }
+        }
+    }
+    return changed;
+}
+
 // Iterate from bottom to a fixed point; non-convergence visibly widens all members to top and records final facts.
 // A component an earlier pass gave up on gives up at once (step 58P). Returns the rounds' trace for
 // --print-stage-times.
 SolveTrace solve(Inference &inference, const Component &component, std::size_t &work) {
+    const auto joins = inference.graph.joins();
     // A component solved in an earlier pass starts from its last fixed point (warm-start solves, CONV.3).
     const bool warm = std::ranges::all_of(
         component.members, [&](const FunctionRef member) { return inference.functions.contains(member.function); });
@@ -978,7 +1006,20 @@ SolveTrace solve(Inference &inference, const Component &component, std::size_t &
         give_up(inference, component, work, worklist, trace.walks_);
     }
     finish(inference, component);
+    inference.solve_joins[&component] = inference.graph.joins() - joins;
     return trace;
+}
+
+// Mark the components whose solve in the pass that spent `joins` lattice joins was costly. Added for cost-aware
+// give-up (CONV.4).
+void note_costly(Inference &inference, const std::size_t joins) {
+    inference.pass_joins = std::max(inference.pass_joins, joins);
+    for (const auto &[component, cost] : inference.solve_joins) {
+        if (cost > COSTLY_JOINS && cost * COSTLY_SHARE > inference.pass_joins) {
+            inference.costly.insert(component);
+        }
+    }
+    inference.solve_joins.clear();
 }
 
 // Passes over the batch before local inputs and fun references are given up as unknown: inputs climb their widening
@@ -1070,18 +1111,21 @@ void forget_facts(Inference &inference, const Component &component) {
     }
 }
 
-// Whether the re-analysis budget would answer a component's walk as it answered its last one: it asked nothing, or
-// it was granted all and still would be, or it was refused all (nothing granted) and the budget is no less spent.
-// Added for incremental passes (CONV.2).
+// Whether the re-analysis budget would answer a component's walk as it answered its last one: it asked nothing, the
+// budget is as spent as at its start, it was granted all and still would be, or it was refused all (nothing granted)
+// and the budget still refuses every re-analysis. Added for incremental passes (CONV.2).
 bool same_reanalysis(const Inference &inference, const ComponentWalk &last) {
     const auto now = inference.reanalysis_work;
-    if (last.reanalysis_checks == 0) {
+    // An equally spent budget answers a walk of the same reads alike (changed for cost-aware give-up, CONV.4).
+    if (last.reanalysis_checks == 0 || now == last.reanalysis_start) {
         return true;
     }
     if (last.reanalysis_refusals == 0) {
         return now <= last.reanalysis_start || now + last.reanalysis_work + CALL_WORK <= PASS_WORK;
     }
-    return last.reanalysis_refusals == last.reanalysis_checks && now >= last.reanalysis_start;
+    // A refused walk spends no re-analysis work, so each of its checks sees `now` (changed for cost-aware give-up: a
+    // less spent budget that still refuses everything kept re-solving the costliest components).
+    return last.reanalysis_refusals == last.reanalysis_checks && now + CALL_WORK > PASS_WORK;
 }
 
 // Whether a pass keeps a component's last walk: nothing it read changed, the pass budget cannot cut it short now and
@@ -1108,6 +1152,11 @@ void walk_component(Inference &inference, const CallGraph &calls, const std::siz
     if (incremental) {
         forget_facts(inference, component);
     }
+    // Added for cost-aware give-up (CONV.4).
+    if (inference.costly.contains(&component) && inputs_changed(inference, component, last) &&
+        unknown_inputs(inference, component) && inference.profile) {
+        ++inference.profile->passes_.back().costly_;
+    }
     WalkTracker tracker(inference, component, work);
     if (inference.profile) {
         profiled_component(inference, calls, index, work, recorded);
@@ -1129,18 +1178,21 @@ void infer_pass(Inference &inference, const CallGraph &calls, const bool increme
     std::size_t work = 0;
     std::vector<const ast::Expression *> recorded;
     const auto started = std::chrono::steady_clock::now();
+    const auto joins = inference.graph.joins();
     if (inference.profile) {
         inference.profile->passes_.emplace_back();
     }
     for (std::size_t index = 0; index < calls.components.size(); ++index) {
         walk_component(inference, calls, index, work, recorded, incremental);
     }
+    note_costly(inference, inference.graph.joins() - joins);
     if (!inference.profile) {
         return;
     }
     auto &pass = inference.profile->passes_.back();
     pass.elapsed_ = std::chrono::steady_clock::now() - started;
     pass.work_ = work;
+    pass.joins_ = inference.graph.joins() - joins;
 }
 
 // Record how the last pass ended. Added for --print-stage-times.
