@@ -7,7 +7,6 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace clause::semantic::types {
@@ -98,6 +97,28 @@ class Answers {
         std::uint64_t key;
         Answer answer;
     };
+
+    void grow();
+
+    std::vector<Slot> slots_;
+    std::size_t filled_ = 0;
+};
+
+// The identity map of a graph: open-addressed slots of a node's hash and its index in the graph's nodes, so each node
+// is stored once and a probe compares hashes before nodes. Added for compact interning (OPTC.C).
+class Identities {
+  public:
+    // The index of the node of `nodes` equal to `node`, whose hash is `hash`, if it was added.
+    std::optional<std::uint32_t> find(const Node &node, std::uint32_t hash, std::span<const Node> nodes) const;
+    void add(std::uint32_t hash, std::uint32_t index);
+
+  private:
+    struct Slot {
+        std::uint32_t hash;
+        std::uint32_t index;
+    };
+
+    static constexpr std::uint32_t FREE = UINT32_MAX;
 
     void grow();
 
@@ -231,7 +252,8 @@ class Graph {
     static constexpr std::uint8_t UNKNOWN_NESTING = 0xff;
     mutable std::vector<std::array<std::uint8_t, NESTING_LIMITS>> nesting_;
     std::vector<Node> nodes_;
-    // Hashed: found by one hash and usually one comparison (changed for hashed node interning, OPTC.C).
-    std::unordered_map<Node, std::size_t, NodeHash> identities_;
+    // Hashed: found by one hash and usually one comparison (changed for hashed node interning, OPTC.C, and to index
+    // `nodes_` for compact interning).
+    Identities identities_;
 };
 } // namespace clause::semantic::types

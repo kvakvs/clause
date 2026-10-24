@@ -3,6 +3,7 @@
 #include "dependent.hpp"
 #include <algorithm>
 #include <stdexcept>
+#include <unordered_map>
 
 namespace clause::semantic::types {
 namespace {

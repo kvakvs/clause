@@ -33,13 +33,56 @@ constexpr std::size_t FIRST_ANSWERS = std::size_t{1} << 12;
 std::size_t answer_slot(const std::uint64_t key, const std::size_t capacity) {
     return static_cast<std::size_t>((key * 0x9E3779B97F4A7C15ULL) >> 32) & (capacity - 1);
 }
+
+// The first capacity of a graph's identity map. Added for compact interning (OPTC.C).
+constexpr std::size_t FIRST_IDENTITIES = std::size_t{1} << 12;
 } // namespace
 
 Graph::Graph(const Limits limits) : owner_(next_owner.fetch_add(1)), limits_(limits) {
     nodes_.push_back({Kind::top});
     nodes_.push_back({Kind::bottom});
-    identities_.emplace(nodes_[0], 0);
-    identities_.emplace(nodes_[1], 1);
+    identities_.add(static_cast<std::uint32_t>(NodeHash{}(nodes_[0])), 0);
+    identities_.add(static_cast<std::uint32_t>(NodeHash{}(nodes_[1])), 1);
+}
+
+std::optional<std::uint32_t> Identities::find(const Node &node, const std::uint32_t hash,
+                                              const std::span<const Node> nodes) const {
+    if (slots_.empty()) {
+        return std::nullopt;
+    }
+    for (auto slot = answer_slot(hash, slots_.size());; slot = (slot + 1) & (slots_.size() - 1)) {
+        const auto [slot_hash, index] = slots_[slot];
+        if (index == FREE) {
+            return std::nullopt;
+        }
+        if (slot_hash == hash && nodes[index] == node) {
+            return index;
+        }
+    }
+}
+
+void Identities::add(const std::uint32_t hash, const std::uint32_t index) {
+    // Kept at most half full, so probes stay short.
+    if (2 * (filled_ + 1) > slots_.size()) {
+        grow();
+    }
+    auto slot = answer_slot(hash, slots_.size());
+    while (slots_[slot].index != FREE) {
+        slot = (slot + 1) & (slots_.size() - 1);
+    }
+    slots_[slot] = {hash, index};
+    ++filled_;
+}
+
+void Identities::grow() {
+    const auto capacity = std::max(FIRST_IDENTITIES, 2 * slots_.size());
+    auto slots = std::exchange(slots_, std::vector<Slot>(capacity, Slot{0, FREE}));
+    filled_ = 0;
+    for (const auto &slot : slots) {
+        if (slot.index != FREE) {
+            add(slot.hash, slot.index);
+        }
+    }
 }
 
 const Answers::Answer *Answers::find(const std::uint64_t key) const {
@@ -129,14 +172,15 @@ Id Graph::intern(Node node) {
     for (const auto child : node.children) {
         (void)get(child);
     }
-    if (const auto found = identities_.find(node); found != identities_.end()) {
-        return {owner_, found->second};
+    const auto hash = static_cast<std::uint32_t>(NodeHash{}(node));
+    if (const auto found = identities_.find(node, hash, nodes_)) {
+        return {owner_, *found};
     }
     if (nodes_.size() >= limits_.nodes) {
         return exhausted();
     }
     const auto index = nodes_.size();
-    identities_.emplace(node, index);
+    identities_.add(hash, static_cast<std::uint32_t>(index));
     nodes_.push_back(std::move(node));
     return {owner_, index};
 }

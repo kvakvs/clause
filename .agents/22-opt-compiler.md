@@ -14,12 +14,13 @@ bounded amount of work, then cost less per walk. Done steps, with commit hashes 
 - LIV.<id> - liveness analysis
 - BUG.<id>
 
-**State after OPTC.B part 2 (allocation-free joins):** inference W5a 100.4 → 3.9 s, W1 117.0 →
-4.5 s (profiled runs); W5a, W1 and W3 settle in pass 50 (limit 64). Target for W5a (≤ 10 s)
-reached without precision loss. Shares of W5a inference (OPTC.B part 2 profile, pinned): body walk
-60% (`walk` 12.2%, `Module::expression` 4.7%, `refine` 3.8%), lattice ops 12% (`Answers::find`
+**State after OPTC.C part 4 (identity map over the node vector):** inference W5a 100.4 → 3.7 s,
+W1 117.0 → 4.2 s (profiled runs); W5a, W1 and W3 settle in pass 50 (limit 64). Target for W5a (≤ 10
+s) reached without precision loss. Shares of W5a inference (OPTC.B part 2 profile, pinned): body
+walk 60% (`walk` 12.2%, `Module::expression` 4.7%, `refine` 3.8%), lattice ops 12% (`Answers::find`
 2.7%, `fact_of` 1.2%; its `Order::visit` 1.3% is `inference_scopes`), pass driver 8.7%
-(`unchanged` 2.9%), `BindingFacts` 7.7%, interning 6.0%, `gather_all` 4.0%. Soundness invariant: a
+(`unchanged` 2.9%), `BindingFacts` 7.7%, interning 6.0% (≈ 4.7% after OPTC.C part 4), `gather_all`
+4.0%. Soundness invariant: a
 fact may get wider, never narrower, than a correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation).
 
 ## Working rules
@@ -89,29 +90,29 @@ fact may get wider, never narrower, than a correct result. W2 compile 214 → 57
 
 ## Steps, in suggested order
 
-1. **OPTC.C rest, interning (6.0%):** `Node::operator==` 2.8%, `Graph::intern` 2.0%, `NodeHash`
-   0.9%: compact nodes (atoms and integers as ids, not `std::string`, which also serves the
-   `std::set<std::string>` atom and integer names of `Families`, the rest of OPTC.B part 2).
-   `Answers::find` (2.7%) misses the cache: ≈ 180K answers in an 8 MB table.
-2. **OPTC.F part 2, per-call arguments (`gather_all` 4.0%):** early passes walk nearly everything,
+1. **OPTC.F part 2, per-call arguments (`gather_all` 4.0%):** early passes walk nearly everything,
    and a function walked because its inputs changed re-reads every call's argument facts (hash
    lookups through out-of-line `Module::expression`): keep each call's argument facts and read
    again only calls whose caller was walked.
-3. **INS.4 + OPTC.E outliers:** count `reanalyse` calls (limit hits, work) and `instantiate` calls
+2. **INS.4 + OPTC.E outliers:** count `reanalyse` calls (limit hits, work) and `instantiate` calls
    per component; then `yystate` (W5b) and re-analysis fan-out.
-4. **CONV.5 harder fact caps on recursive results:** deprioritized (INS.5: facts are small, mean
+3. **CONV.5 harder fact caps on recursive results:** deprioritized (INS.5: facts are small, mean
    tree size 4; the cost is interning and constant work per join).
-5. **LLVM.2 rest of W2** (after LLVM.1, W2 compile 57.8 s: inference 13.2, lower 10.9, optimize
+4. **LLVM.2 rest of W2** (after LLVM.1, W2 compile 57.8 s: inference 13.2, lower 10.9, optimize
    11.1, emit 19.7 s on 32 threads): emission is bound by `core_parse` alone (≈ 14 s of one
    thread); emit each module right after its optimization in the same job (≈ 10 s), destroy the
    moved-out modules off the main thread, and split very large modules (`llvm::SplitModule`):
    liveness keeps `core_parse`, `erl_lint`, `v3_core` and `qlc` whole (LIV.1). `lower` (10.9 s) is
    serial.
-6. **Side findings, whenever convenient:**
+5. **Side findings, whenever convenient:**
     - **BUG.1:** `clau` (Release, ab635294) exited 0xC0000005 once in ~100 W5r runs. Suspect a
       `const Node &` from `Graph::get` held across `Graph::intern`; loop a Debug or ASan `clau`
       over W5r and review such uses.
     - `ast::Module::expression` is 6.8% of W5a inference (out of line, with a moved-from check),
       outside plan 22's files: inline it if the scope widens.
-7. **Later:** parallel inference of independent components at one call-graph level (thread-local
-   or sharded graphs), only after OPTC.C.
+    - **OPTC.C compact names** (deprioritized after part 4): atoms, integers and labels as ids, not
+      `std::string`, would cut only `Node::operator==` and `NodeHash` (≈ 1.9% of profiled W5a
+      inference, ≈ 1% to gain) and `Families`' `std::set<std::string>` (≈ 0.5%), across ≈ 400 uses
+      of `Node::name`/`module`/`labels`. `Answers::find` misses the cache (≈ 180K answers in 8 MB).
+6. **Later:** parallel inference of independent components at one call-graph level (thread-local
+   or sharded graphs).

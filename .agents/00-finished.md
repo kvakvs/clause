@@ -924,6 +924,14 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `Answers::find` 2.1% → 2.7% with more lookups). Not done: `Families`' `std::set<std::string>` names (≤ 1%, left
   to OPTC.C's compact nodes) and memoizing joins of more than two (112K calls).
 
+- **OPTC.C part 4** (pending) identity map over the node vector: `Graph`'s `std::unordered_map<Node, size_t>` (a full
+  node copy per list entry) became `Identities`, open-addressed 8-byte slots of a 32-bit node hash and the node's
+  index in `nodes_`; a probe compares hashes before nodes. Most interns are hits that rebuild existing nodes
+  (`constructed_fact` 37%, `fact_of` 15%, `Shape::of` 11% of interning samples). `--print-types` and pass counters
+  identical on W5a, W1, W3, W6, W5r. Inference (3 runs, profiled, both builds function-aligned): W5a 3.79 → 3.66 s
+  (0.967), W1 4.26 → 4.16 s (0.977); interning samples −21%. Compact names (atoms, integers, labels as ids) measured
+  at ≈ 1% left: deprioritized in the plan.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions
