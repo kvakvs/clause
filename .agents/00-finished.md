@@ -696,7 +696,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB20, LIB21** `proc_lib`, `sys`, `gen`, `gen_server`, `gen_statem`, `gen_event`, `gen_fsm`,
   `supervisor`, `supervisor_bridge` in Erlang with OTP's messages, results, error terms, debug
   shapes and report texts (through `clause_logger` until `logger`); `gen_fsm` keeps its own loop;
-  `proc_libs`, `gen_servers`, `gen_statems`, `gen_events`, `gen_fsms`, `supervisors` goldens
+  `proc_libs`, `gen_servers`, `gen_statems`, `gen_events`, `gen_fsms`, `supervisors` goldens —
+  `37a9c223`
 
 ## Plan 22 (from 2026-10-23)
 
