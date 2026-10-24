@@ -11,10 +11,9 @@ bounded amount of work, then cost less per walk. Done steps, with commit hashes 
 - LIV.<id> - liveness analysis
 - INS.<id> - instrumentation
 
-**State after CONV.8:** inference W5a 100.4 → 12.2 s, W1 117.0 → 13.0 s; W5a, W1 and W3 settle in
-pass 50 (limit 64), so the final `term()` pass no longer runs. Passes 1-16 take ≈ 8.6 s of W5a's
-9.7 s of passes (real input churn), passes 17-50 ≈ 1.0 s. Target for W5a: **≤ 10 s** with a
-measured, accepted precision loss. Soundness invariant: a fact may get wider, never narrower, than a
+**State after OPTC.B part 1 (memo):** inference W5a 100.4 → 7.3 s, W1 117.0 → 8.4 s (profiled
+runs); W5a, W1 and W3 settle in pass 50 (limit 64). Target for W5a (≤ 10 s) reached without
+precision loss. Soundness invariant: a fact may get wider, never narrower, than a
 correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation).
 
 ## Working rules
@@ -88,25 +87,25 @@ correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation
    10% (OPTC.C), input gathering 6% (OPTC.F), pass driver 2%. Order below follows it.
 3. **INS.2 rest, INS.3:** done (99.7% of 2-member joins, meets and withins repeat an earlier call;
    joins per component and `inference costliest`).
-4. **OPTC.B lattice ops (41%)**, two parts. Allocation-free joins regardless of INS.2: `fact_of`
-   (14%: union assembly, `without_subsumed`'s pairwise `within`, vectors growing one Id at a time,
-   `std::set<std::string>` atom names built per join), `Gather::add` 5%, `~Families` 2%; allocation
-   is a third of the bucket. Then a memo if INS.2 shows repeated pairs: a per-graph cache for
-   2-member `join`, `meet`, `within`, `truncate` keyed by Ids (the graph is append-only); watch
-   memory against the 1M-node limit.
-5. **OPTC.D walk containers (12%):** `restore` in `inference_scopes.cpp` copies the whole
-   `std::map<BindingId, Fact>` back at every scope step (6%, plus the copy pushed when the scope
-   begins): an undo log or a persistent map. `BindingFacts` built/published/read 5%,
-   `set_aside`/`put_back` 1%. INS.6 counts first if the shape is unclear; replace pointer-keyed
+4. **OPTC.B part 1 (memo):** done. Re-profile after it (W5a pinned, inference 66% of samples):
+   body walk 48% (`walk` 8%, `Module::expression` 5%, `scope_step` lambdas 6%), lattice ops 12%,
+   `gather_all` 11%, `restore` 11%, `BindingFacts` 8%, pass driver 4%, interning 4%,
+   `set_aside`/`put_back` 2%. Order below follows it.
+5. **OPTC.D walk containers (21%):** `restore` in `inference_scopes.cpp` copies the whole
+   `std::map<BindingId, Fact>` back at every scope step (11%, plus the copy pushed when the scope
+   begins): an undo log or a persistent map. `BindingFacts` built/published/read 8%,
+   `set_aside`/`put_back` 2%. INS.6 counts first if the shape is unclear; replace pointer-keyed
    `std::map`s on per-walk paths with vectors indexed by `ExprId`/`BindingId` or hash maps (check
    `--print-types` order).
-6. **OPTC.C rest, interning (10%):** `Node::operator==` 4% (string compares), `NodeHash` 3%,
-   `Graph::intern` 2%: compact nodes (atoms and integers as ids or small values, not
-   `std::string`, which also serves OPTC.B's atom sets), `intern(Node&&)`, `truncate` by reference
-   unless it changes the node.
-7. **OPTC.F input gathering (6%):** `gather_all` rebuilds every call site's argument map in all 50
+6. **OPTC.F input gathering (11%):** `gather_all` rebuilds every call site's argument map in all 50
    passes, while late passes skip ~8 900 of 8 911 components: gather only from callers walked
    again (their arguments are kept), as CONV.2 does for walks.
+7. **OPTC.B part 2, allocation-free joins (lattice ops now 12%):** `fact_of` 2.6% (union
+   assembly, `without_subsumed`'s pairwise `within`, vectors growing one Id at a time,
+   `std::set<std::string>` atom names per join), `Answers::find` 1.5%, `Gather::add` 1.4%;
+   allocation ≈ 2.4%. Joins of other than two members (5.8M on W5a) are not memoized.
+   **OPTC.C rest, interning (4%):** `Node::operator==` 2%, `NodeHash` 1%, `Graph::intern` 1%:
+   compact nodes (atoms and integers as ids, not `std::string`, which also serves the atom sets).
 8. **INS.4 + OPTC.E outliers:** count `reanalyse` calls (limit hits, work) and `instantiate` calls
    per component; then `yystate` (W5b) and re-analysis fan-out.
 9. **CONV.5 harder fact caps on recursive results:** deprioritized (INS.5: facts are small, mean
