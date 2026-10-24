@@ -13,7 +13,7 @@
   "generator_sha256": {
     "regenerate.py": "a6bfb4f663cabc77a5457b917a45b4afbfb1c59146ab0155caa260f8d4de6a04",
     "fixtures.py": "bc86ab450864270885faaeadbb7b644b8baa4f2fcc796f39bdc8db7165521f14",
-    "oracle.escript": "3af21c308e62c67e2c0bd06b1ea0a3316b7f10e37abec61288be897cae4aaa45"
+    "oracle.escript": "e4f8bce4f63d8e2c64bc6bf58a9513db43223e1018d8a614ed477e8895cbc505"
   },
   "inputs": {
     "project.toml": "79f1e52e31e3fa2ed675f249e3cfb7e8ac6939dc230b5f3640a1436fce239e6d",

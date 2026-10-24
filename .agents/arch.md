@@ -319,6 +319,11 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `error_logger` (gen_event fed by its logger handler), `error_logger_file_h`, `log_mf_h`,
   `error_handler`; `kernel/include/{logger,file}.hrl` serve `include_lib`. Default formatter and
   file handler are named by literal calls so the batch links them.
+- Applications (Erlang): `application` over `application_controller` (registered gen_server entered from a
+  proc_lib process at first use; public ETS `ac_tab` for loaded specs, env, masters) and
+  `clause_application_master` (group leader per application, start/phases/stop). Specs: clau's
+  `driver/app_resources` generates `clause_applications` (specs/0, library_modules/1) from `.app`/`.app.src`
+  files when the batch has application_controller; kernel/stdlib virtual and running.
 - Collections in C++ (`builtins/collections/`): `lists`, `maps`, `ordsets`, `orddict`, `proplists`,
   `dict`, `sets`, `gb_trees`, `gb_sets`, `queue`, `array`, `sofs`; fun-taking functions stay Erlang.
 - ETS-based: `ets` builtins (`builtins/ets/`: tables, reads, writes, select and match families,

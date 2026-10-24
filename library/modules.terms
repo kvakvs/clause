@@ -17,6 +17,7 @@
 {prim_net, erts, missing, "low-level network queries; Clause's inet is the network layer"}.
 {prim_socket, erts, missing, "socket NIF; Clause's gen_tcp, gen_udp and inet replace it"}.
 {socket_registry, erts, missing, "bookkeeping of the socket NIF, which Clause does not provide"}.
+{application, kernel, provided}.
 {application_controller, kernel, provided}.
 {net, kernel, missing, "socket NIF queries; Clause's inet answers host names and addresses"}.
 {socket, kernel, missing, "socket NIF API; Clause's gen_tcp, gen_udp and inet replace it"}.

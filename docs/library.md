@@ -54,7 +54,7 @@ which are stubs.
 | [`clause_socket`](../library/kernel/clause_socket.erl) | Clause's own: the socket driver protocol the three modules above share |
 | [`os`](../library/kernel/os.erl) | `cmd/1` over a port, environment, time and version queries ([maps module](builtins.md#maps-module)) |
 | [`code`](../library/kernel/code.erl) | Loaded-module queries without a code server ([code module](builtins.md#code-module)); paths and loading are stubs |
-| [`application_controller`](../library/kernel/application_controller.erl) | All stubs; shadows OTP's, which calls `prim_file` (luerl reaches it through OTP's `application`) |
+| [`application`](../library/kernel/application.erl), [`application_controller`](../library/kernel/application_controller.erl) | Every documented function: loading, keys, environments, starts with dependencies and start phases, stops, permissions and restart types with OTP's errors and reports, over a controller started at the first use and [`clause_application_master`](../library/kernel/clause_application_master.erl) ([applications](#applications)); release handling, boot and distributed control declined |
 | [`erlang`](../library/erts/erlang.erl) | Generated stubs of every OTP 29 `erlang` export; catalog builtins have placeholder bodies, `nif_error/1,2` have bodies, others raise `{not_implemented, F, A}` when called ([erlang module](builtins.md#erlang-module)) |
 | [`init`](../library/erts/init.erl) | A started system's answers; `boot/1`, `restart/0,1` and `make_permanent/2` refused ([init module](builtins.md#init-module)) |
 | [`persistent_term`](../library/erts/persistent_term.erl) | Every function as a runtime builtin ([persistent terms](builtins.md#persistent-terms)) |
@@ -232,6 +232,30 @@ need no server, Clause's `logger` starts its server at the first use, and an OTP
 module that does need one fails the way it fails on OTP without that server
 (`noproc`). OTP code that calls `code` at run time therefore does not work.
 Booting the whole `kernel` application is not planned.
+
+### Applications
+
+- Specifications come from the program, not a code path: clau compiles every
+  `*.app` and `*.app.src` beside the batch's sources, every `*.app` in the
+  `ebin` directory next to them, and `ebin/Name.app` or `src/Name.app.src` of
+  each `[targets.options.applications]` entry into the generated module
+  `clause_applications`, added whenever the batch has `application_controller`.
+  The first file of an application name wins. A resource that lists no modules
+  gets the batch's modules beside it. Diagnostics point into the resource file.
+- `application:load/1` also takes `{application, Name, Keys}` terms. A name with
+  no resource is `{error, {"no such file or directory", "Name.app"}}`, as OTP
+  answers for a missing file.
+- `kernel` (11.0.4) and `stdlib` (8.1) are loaded and running from the start as
+  OTP 29.1.1 lists them, without application masters; `kernel` has the default
+  environment of its `kernel.app`.
+- An application with a start module gets a master that leads its processes'
+  group (so `get_application/0`, `get_env/1` and `start_type/0` answer inside
+  it), relays their I/O requests to standard I/O, and on stop runs
+  `prep_stop/1`, shuts the top process down, runs `stop/1` and kills what is
+  left of the group. A permanent application that ends, or a transient one that
+  ends abnormally, halts the program with OTP's slogan, exit status 1.
+- `logger` and `clause_logger` reach `application` by a runtime name, so only
+  programs that use `application` link it.
 
 ### Ledger
 

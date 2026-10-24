@@ -112,7 +112,7 @@ store_level(_, _) -> ok.
 level_key(primary) -> {?MODULE, primary};
 level_key(Id) -> {?MODULE, handler, Id}.
 
-%% The kernel's (or another application's) environment, read through application when it runs; undefined before.
+%% The kernel's (or another application's) environment through application; undefined when the program lacks it.
 app_env(App, Key) ->
     try (application_module()):get_env(App, Key) of
         Result -> Result
@@ -120,7 +120,7 @@ app_env(App, Key) ->
         _:_ -> undefined
     end.
 
-%% Created for LIB23: application until LIB24, reached by a runtime name so that programs without it still build.
+%% Created for LIB23: application, reached by a runtime name so that only programs using it link it (LIB24).
 application_module() -> application.
 
 %% Requests to the server; the server's own callbacks may not change handlers or filters (they would wait on

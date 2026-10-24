@@ -8,6 +8,8 @@ main([VersionFile, SourceDir, Entry | Args]) ->
     ok = logger:remove_handler(default),
     ok = logger:add_handler(default, logger_std_h, #{config => #{type => standard_error}}),
     ok = file:write_file(VersionFile, io_lib:format("~s~n~s~n", [release(), otp_version()])),
+    % Application resources (.app) beside the sources are found on the code path.
+    true = code:add_patha(SourceDir),
     load(lists:sort(filelib:wildcard(filename:join(SourceDir, "**/*.erl"))), [], false),
     run(list_to_atom(Entry), Args).
 

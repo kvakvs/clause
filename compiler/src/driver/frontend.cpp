@@ -4,6 +4,7 @@
 #include "../linking/link.hpp"
 #include "../project/paths.hpp"
 #include "../semantic/calls.hpp"
+#include "app_resources.hpp"
 #include "backend.hpp"
 #include "escript.hpp"
 #include "library_modules.hpp"
@@ -513,6 +514,38 @@ bool add_placeholder(const std::u32string &module, const std::set<semantic::Func
     return parse_and_print(session, request, sink, source, path, false, inputs, untimed);
 }
 
+// The program's application resources as the generated clause_applications module, when the batch has
+// application_controller; true on a failure. Added for application resources (plan 21 step LIB24).
+bool add_applications(const Discovery &discovery, const FrontendRequest &shared, const DiagnosticSink &sink,
+                      Inputs &inputs) {
+    if (!defined(inputs, U"application_controller")) {
+        return false;
+    }
+    const auto absolute = [](const std::filesystem::path &path) {
+        return std::filesystem::absolute(path).lexically_normal();
+    };
+    ApplicationPlaces places;
+    for (const auto &input : inputs) {
+        const auto module = semantic::declared_module(input.syntax);
+        if (!input.library_ && module) {
+            places.modules_.emplace_back(absolute(input.source_path).parent_path(), utf8(*module));
+        }
+    }
+    for (const auto &[name, directory] : shared.preprocessing.applications) {
+        places.applications_.emplace_back(name, absolute(directory));
+    }
+    places.library_ = discovery.library.directories_;
+    FrontendRequest request;
+    request.compile = true;
+    SourceManager sources;
+    const auto path = applications_path();
+    const auto source = sources.add(project::path_text(path), applications_source(places));
+    PreprocessorSession session(source, request.preprocessing);
+    FileTimes untimed; // Generated, not a file; its stage times are not printed.
+    untimed.fingerprint.add(source->bytes);
+    return parse_and_print(session, request, sink, source, path, false, inputs, untimed);
+}
+
 // Add a placeholder module for each ignored module the batch names. Added for ignored modules.
 bool add_placeholders(const Discovery &discovery, const DiagnosticSink &sink, Inputs &inputs) {
     if (discovery.ignored.empty()) {
@@ -558,7 +591,7 @@ void list_batch(const std::span<const std::filesystem::path> paths, const Discov
 // Compile the batch together with the placeholders of the ignored modules it names. Added for ignored modules.
 bool compile_with_placeholders(Inputs inputs, const Discovery &discovery, const FrontendRequest &request,
                                const DiagnosticSink &sink) {
-    if (add_placeholders(discovery, sink, inputs)) {
+    if (add_placeholders(discovery, sink, inputs) || add_applications(discovery, request, sink, inputs)) {
         return true;
     }
     return compile_batch(std::move(inputs), request, sink);

@@ -509,7 +509,7 @@ application_modules(App) ->
         _:_ -> undefined
     end.
 
-%% Created for LIB23: application until LIB24, reached by a runtime name so that programs without it still build.
+%% Created for LIB23: application, reached by a runtime name so that only programs using it link it (LIB24).
 application_module() -> application.
 
 get_module_level(Module) when is_atom(Module) -> get_module_level([Module]);

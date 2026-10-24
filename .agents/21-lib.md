@@ -21,7 +21,7 @@ choose
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  1,146 are still to do (erts 23, kernel 445, stdlib 678). Appendix A lists them per module.
+  1,111 are still to do (erts 23, kernel 410, stdlib 678). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
@@ -30,12 +30,12 @@ choose
   `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
   `timer`, `unicode`, `uri_string`, `proc_lib`, `sys`, `gen_server`, `gen_statem`, `gen_event`,
   `gen_fsm` (deprecated), `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`,
-  `logger_std_h`, `logger_filters`, `error_logger`, `log_mf_h`, `error_handler`.
+  `logger_std_h`, `logger_filters`, `error_logger`, `log_mf_h`, `error_handler`, `application`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
   (51), `io` (31), `file` (28), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
-- **Missing:** 46 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
-  ones (`application`, ...) only by compiling OTP's sources from a search path.
+- **Missing:** 45 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
+  ones (`pg`, `rpc`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -115,22 +115,6 @@ remainders follow.
 - `table/1,2` after `qlc` (LIB73), with `dets:table/1,2`.
 
 ## Tier C: processes and behaviours (Erlang)
-
-### LIB24. `application`
-
-- `application` (35) and its controller in Erlang.
-- Application specs come from `.app` resources compiled into the executable, either from project
-  sources or from an `[targets.options.applications]` entry.
-- Functions:
-  - Lifecycle: `load/1,2`, `start/1,2`, `ensure_started`, `ensure_all_started/1,2,3`, `stop/1`,
-    `unload/1`.
-  - Environment: `get_env`, `set_env`, `unset_env`, `get_key`, `get_all_key`, `get_application/0,1`.
-  - Queries: `which_applications/0,1`, `loaded_applications/0`, `permit/2`, `start_type/0`,
-    `get_supervisor/1`, `takeover/2`.
-- `kernel` and `stdlib` load as virtual applications. The existing all-stubs
-  `application_controller` is replaced.
-- `logger` (application levels, `reconfigure/0`) and `clause_logger` (kernel environment) reach
-  `application` through `application_module()`, a runtime name: make those calls literal.
 
 ### LIB25. Local-node kernel services
 
@@ -331,13 +315,12 @@ own annotations, and no Boost in the runtime.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB24 (`application`).
-2. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
-3. LIB30–LIB34 (the front end, `consult`, `io:read`).
-4. LIB25 (local-node services).
-5. LIB51–LIB55 (files, logs, archives), then LIB12C.
-6. LIB70, LIB62 and LIB63.
-7. LIB71–LIB74, then the declined modules' answer stubs.
+1. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
+2. LIB30–LIB34 (the front end, `consult`, `io:read`).
+3. LIB25 (local-node services).
+4. LIB51–LIB55 (files, logs, archives), then LIB12C.
+5. LIB70, LIB62 and LIB63.
+6. LIB71–LIB74, then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 
@@ -350,10 +333,6 @@ separately and are optional.
   purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3, trace_delivered/1,
   trace_info/2, trace_pattern/2,3
 - `init` (erts, 3, 8 done): boot/1, restart/0,1
-- `application` (kernel, 35; 5 callbacks): ensure_all_started/1,2,3, ensure_started/1,2,
-  get_all_env/0,1, get_all_key/0,1, get_application/0,1, get_env/1,2,3, get_key/1,2,
-  get_supervisor/1, load/1,2, loaded_applications/0, permit/2, set_env/1,2,3,4, start/1,2,
-  start_type/0, stop/1, takeover/2, unload/1, unset_env/2,3, which_applications/0,1
 - `auth` (kernel, 0): none; deprecated: cookie/0,1, is_auth/1, node_cookie/1,2
 - `code` (kernel, 51, 8 done): add_path/1,2, add_patha/1,2, add_paths/1,2, add_pathsa/1,2,
   add_pathsz/1,2, add_pathz/1,2, all_available/0, atomic_load/1, clash/0, clear_cache/0,

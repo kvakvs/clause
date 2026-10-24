@@ -23,3 +23,8 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_test(NAME project_directory_index COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/index.py"
     "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/project-index")
 set_tests_properties(project_directory_index PROPERTIES TIMEOUT 120)
+
+# Application resources compile into executables (plan 21 step LIB24).
+add_test(NAME project_applications COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/applications.py"
+    "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/project-applications")
+set_tests_properties(project_applications PROPERTIES TIMEOUT 600)

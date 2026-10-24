@@ -24,7 +24,7 @@ planned, create only with implementation. [Architecture](arch.md) · [Backlog](0
 | `preprocessor/` | Directives, sessions, includes, macros, closed condition evaluator |
 | `ast/`, `parser/` | Owned arenas; Erlang grammar, attributes, types/specs |
 | `printing/` | Token/AST dumps, Erlang source printer |
-| `driver/` | CLI, frontend batch, predefined forms, entry/escript, placeholders, transforms sources, caches glue, stage times, inspections, publication; `C/main.cpp` |
+| `driver/` | CLI, frontend batch, predefined forms, entry/escript, placeholders, `app_resources` (generated `clause_applications` from `.app`/`.app.src`), transforms sources, caches glue, stage times, inspections, publication; `C/main.cpp` |
 | `project/` | Manifest TOML/schema, discovery, ignore rules, directory index, plan/execution |
 | `semantic/` | Symbols, calls, bindings, patterns/match plans, guards/services, records, funs, imports, behaviours, liveness, `builtin_continuations.hpp` (builtins continuing in library Erlang), map ownership |
 | `semantic/types/` | Declared types, lattice, inference, contracts, type printing, inference store; `profile.hpp` + `inference_profile.cpp` (`--print-stage-times` inference measurements); `lattice_trace` (lattice operation counts and repeats, profile only); `inference_incremental` (passes skip components, solves replay member walks, nothing they read changed for) |

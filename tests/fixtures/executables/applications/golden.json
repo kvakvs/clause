@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "entry": "applications",
+  "data": [
+    "tapp.app"
+  ],
+  "runs": [
+    {
+      "args": [],
+      "stderr": "(?s)application: tapp\\s+exited: stopped\\s+type: temporary.*application: temp\\s+exited: oops",
+      "exit_status": 0,
+      "stdout": "which: [{kernel,\"ERTS  CXC 138 10\",\"11.0.4\"},\n        {stdlib,\"ERTS  CXC 138 10\",\"8.1\"}]\nloaded: [{kernel,\"ERTS  CXC 138 10\",\"11.0.4\"},\n         {stdlib,\"ERTS  CXC 138 10\",\"8.1\"}]\nkernel_keys: [{description,\"ERTS  CXC 138 10\"},\n              {id,[]},\n              {vsn,\"11.0.4\"},\n              {maxP,infinity},\n              {maxT,infinity},\n              {included_applications,[]},\n              {optional_applications,[]},\n              {applications,[]},\n              {mod,{kernel,[]}},\n              {start_phases,undefined}]\nstdlib_keys: [{description,\"ERTS  CXC 138 10\"},\n              {id,[]},\n              {vsn,\"8.1\"},\n              {maxP,infinity},\n              {maxT,infinity},\n              {included_applications,[]},\n              {optional_applications,[]},\n              {applications,[kernel]},\n              {mod,[]},\n              {start_phases,undefined}]\nkernel_env: [{ok,notice},undefined]\nmodule_owner: [{ok,stdlib},undefined]\nno_application: [undefined,undefined,undefined]\nrestart_kernel: [{error,{already_started,kernel}},ok]\nload: ok\nload_again: {error,{already_loaded,tapp}}\ntapp_keys: [{description,\"Test application\"},\n            {id,[]},\n            {vsn,\"1.2.3\"},\n            {maxP,infinity},\n            {maxT,infinity},\n            {included_applications,[]},\n            {optional_applications,[]},\n            {applications,[kernel,stdlib]},\n            {mod,{tapp,normal_start}},\n            {start_phases,[{first,one},{second,two}]}]\nmodules: {ok,[tapp,tapp_sup,tapp_worker]}\nmissing_key: [undefined,undefined]\nload_term: ok\nplain_keys: [{description,\"Plain\"},\n             {id,[]},\n             {vsn,\"1.0\"},\n             {maxP,infinity},\n             {maxT,infinity},\n             {included_applications,[]},\n             {optional_applications,[]},\n             {applications,[]},\n             {mod,[]},\n             {start_phases,undefined}]\nload_errors: [{error,{\"no such file or directory\",\"nosuch.app\"}},\n              {error,{bad_application,{application,\"bad\",[]}}},\n              {error,{invalid_options,not_a_list}},\n              {error,{badstartspec,nonsense}},\n              {error,{invalid_options,\"application: bad; duplicate parameter: a\"}},\n              {error,{invalid_options,\"application: bad; invalid parameter: not_a_pair\"}},\n              {error,{\"no such file or directory\",\"not_an_application.app\"}}]\nunload: [ok,{error,{not_loaded,plain}},undefined]\nloaded_after: [kernel,stdlib,tapp]\nget_env: [{ok,blue},3,0]\nall_env: [{color,blue},{size,3}]\nset_env: [ok,{ok,red}]\nunset_env: [ok,undefined]\nset_config: ok\nafter_config: [{ok,green},{ok,1},{ok,v}]\ntimeouts: [ok,ok,ok,ok]\npersistent: [ok,ok,ok,ok,[{a,persisted},{b,spec}]]\nconfig_errors: [{error,{badarg,\"duplicate application config: tapp\"}},\n                {error,{badarg,\"application: \\\"tapp\\\"; application name must be an atom\"}},\n                {error,{badarg,\"application: tapp; parameters must be a list\"}},\n                {error,{badarg,\"application: tapp; duplicate parameter: a\"}},\n                {error,{badarg,\"application: tapp; invalid parameter name: \\\"a\\\"\"}},\n                {error,{badarg,\"application: tapp; invalid parameter: a\"}},\n                {error,{badarg,\"invalid application config: oops\"}}]\nstart: ok\ncallbacks: [{start,normal},{phase,first,normal,one},{phase,second,normal,two}]\nrunning: true\nstart_again: {error,{already_started,tapp}}\nensure_started: ok\nsupervisor: [true,undefined,undefined]\ninfo_keys: [loaded,loading,started,start_p_false,running,starting]\nworker_view: [{ok,tapp},{ok,blue},{ok,\"1.2.3\"},[{color,blue},{extra,1}],local]\nworker_application: {ok,tapp}\nmodule_application: {ok,tapp}\nstop: ok\nstop_callbacks: [{prep_stop,started_state},{stop,prepped_state}]\nafter_stop: [undefined,undefined,undefined]\nstop_again: {error,{not_started,tapp}}\nunload_running: [ok,{error,{running,tapp}},ok]\nunloaded: ok\nnot_started: {error,{not_started,middle}}\nall_started: {ok,[base,middle,top]}\nall_again: {ok,[]}\noptional: {ok,[wants_absent]}\nmissing_dependency: {error,\n                        {missing_app,\n                            {\"no such file or directory\",\"missing_app.app\"}}}\nstop_all: [ok,ok,ok,ok]\nstart_failures: [{fail_error,{error,{refused,{tapp,start,[normal,fail]}}}},\n                 {fail_odd,\n                     {error,\n                         {bad_return,{{tapp,start,[normal,odd]},odd_return}}}},\n                 {fail_crash,\n                     {error,\n                         {bad_return,\n                             {{tapp,start,[normal,crash]},\n                              {'EXIT',{start_crashed,stack}}}}}}]\nall_failed: {error,{fail_error,{refused,{tapp,start,[normal,fail]}}}}\nstill_loaded: [{ok,{tapp,fail}},{error,{invalid_restart_type,bad_type}}]\npermit_loaded: ok\nheld_start: [ok,undefined]\npermit: [ok,true]\nunpermit: [ok,undefined]\npermit_errors: [{error,{not_loaded,nobody}},\n                {exit,{badarg,{application,permit,[gated,perhaps]}}}]\ntransient_start: ok\ntransient_exited: false\ntemporary_start: ok\ntemporary_exited: false\nerrors: [{error,{\"no such file or directory\",\"nosuch.app\"}},\n         {error,{not_started,nosuch}},\n         {error,{not_loaded,nosuch}},\n         {error,{invalid_restart_type,bad}},\n         {error,{running,kernel}},\n         {error,function_clause},\n         {error,function_clause},\n         {exit,{noproc,{gen_server,call,\n                                   [dist_ac,\n                                    {load_application,d,[{d,[nonode@nohost]}]},\n                                    infinity]}}},\n         {ok,[]}]\napplications: ok\n"
+    },
+    {
+      "args": [
+        "permanent"
+      ],
+      "stderr": "(?s)application: perm\\s+exited: boom\\s+type: permanent.*Kernel pid terminated \\(application_controller\\) \\(\"\\{application_terminated,perm,boom\\}\"\\)",
+      "exit_status": 1,
+      "stdout": "permanent: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "applications.erl": "0852ae05e7988ed67e9b0e907fa035337e63fa9fae26ec8e8a813c02f54f4d47",
+    "tapp.erl": "9e8d0817b68d4bfb24b15ee7057f522e95be83a8876acc38e95fe64c6af64718",
+    "tapp_sup.erl": "34695e12120635210b9b34ffc39d30d800728eb3daacce2126181ea78d6b0ae4",
+    "tapp_worker.erl": "69ff24b24e374a03ce56076d8b17b287d44f9de619caceddde3c44f8a2ef4f4b",
+    "tapp.app": "bae5c9612ee7a3a49fd60206c8b386edfba6437378bac6e312648327ad59e51a"
+  }
+}
