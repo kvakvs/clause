@@ -807,7 +807,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   runs): W5a 11.4 → 12.9 s (1.136), W1 13.4 → 14.5 s (1.087), both below CONV.3. W2 (luerl euler
   `-O2`): build 234 → 230 s, run 660 → 644 ms, same output. `parsers.erl` today lines re-recorded.
 
-- **CONV.8** member-granular warm solves: each recursive member keeps its last walk across
+- **CONV.8** (44906d9d) member-granular warm solves: each recursive member keeps its last walk across
   solves (body, recorded facts, work, re-analysis answers, joins; members read by result and
   function types, everything else by version, `MemberWalk`), and a solve replays it while nothing it
   read changed; replayed joins still count for cost-aware give-up. Output identical on W5a, W5r, W1,
