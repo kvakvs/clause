@@ -833,6 +833,18 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `codegen_options` check). W2 compile 214 → 57.8 s (optimize 11.1 s, emit 19.7 s), same run
   output. IR/asm inspections stay on one context (source scopes key on its metadata).
 
+- **LLVM.2 part 1** (a632e6c9) literal heap. Finding: `module_info/0,1` rebuilt yecc's ~900 `-dialyzer`
+  attributes per call (atoms are runtime words, so atom-holding literals were built inline): 256K of `core_parse`'s
+  511K IR instructions; llc -O2 on `core_parse` alone: module_info 8.7 s, `yeccpars1/5` cycle 6.2 s, rest 0.7 s.
+  Compound literals are now encoded per module (`abi/literals.hpp`, BEAM compact term encoding + Clause extended tags)
+  and decoded once per runtime at registration (scratch context, pid number 0) into a never-retired persistent-range
+  area that `LiteralAreas` owns and registers as a module literal area; code reads `literal_cache` after the claim
+  check, other runtimes call `CLAUSE_literal_v1`; OPT0.4 cell area removed; ABI 25. W2 (3 interleaved runs, 16
+  threads): compile 54.9 → 39.2 s (lower 10.8 → 9.6, optimize 13.3 → 9.3, emit 23.9 → 13.7), executable 41.9 → 33.3
+  MB, same output. Tried and not kept: `optnone` on module_info (emit 19.6 → 31 s, O0 IR larger); a writable
+  atom-patched literal area (reverted for this design). Fusing optimize+emit gains nothing while `core_parse` leads
+  both phases.
+
 - **LIV.1** (c4c2378e) investigation, no code change. The keep-every-export trigger on W1/W2 and W5a (with
   `--entry b2s_main:main -o`) is Clause's own `library/kernel/file.erl` (`apply(M, F, A)` in
   `io_request/3`, `list_to_atom/1` in `reply/1`), not the host OTP copy; fixing it would not help:
