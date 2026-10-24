@@ -10,8 +10,14 @@ bool unchanged(const Inference &inference, const ComponentWalk &last);
 // Whether the local inputs of a component's members changed since `last`, its last walk. Added for cost-aware give-up
 // (CONV.4).
 bool inputs_changed(const Inference &inference, const Component &component, const ComponentWalk &last);
-// Keep a skipped walk's effects on the pass: its work, its re-analysis work and its fun F/A facts.
+// Keep a skipped walk's effects on the pass: its work, its re-analysis work and counts, and its fun F/A facts.
 void replay(Inference &inference, const ComponentWalk &last, std::size_t &work);
+// Whether the members a member walk read still have the results and function types it read. Added for
+// member-granular warm solves (CONV.8).
+bool members_unchanged(const Inference &inference, const MemberWalk &last);
+// Keep a member walk's effects when a solve takes its body again: those of `replay`, its lattice joins, and its reads
+// for the component's walk. Added for member-granular warm solves (CONV.8).
+void replay_member(Inference &inference, const MemberWalk &last, std::size_t &work);
 
 // Tracks one component's walk from its start to `finish`: what it reads, and its members' summaries before it.
 class WalkTracker {
@@ -44,6 +50,34 @@ class WalkTracker {
     // The members' summaries and versions before the walk, to tell which changed.
     std::vector<std::optional<Summary>> before_;
     std::vector<std::size_t> versions_;
+    bool finished_ = false;
+};
+
+// Tracks one walk of a recursive component's member from its start to `finish`, within the component's walk. Added for
+// member-granular warm solves (CONV.8).
+class MemberTracker {
+  public:
+    MemberTracker(Inference &inference, FunctionRef member, std::size_t work);
+    MemberTracker(const MemberTracker &) = delete;
+    MemberTracker &operator=(const MemberTracker &) = delete;
+    MemberTracker(MemberTracker &&) = delete;
+    MemberTracker &operator=(MemberTracker &&) = delete;
+    ~MemberTracker();
+
+    // Stop tracking: add the reads to the component's walk and describe them, the work and the joins in `walk`.
+    void finish(std::size_t work, MemberWalk &walk);
+
+  private:
+    Inference &inference_;
+    const Function *member_;
+    // The reads of the walk, the component walk's reads around it, and the counters before it.
+    WalkReads reads_;
+    WalkReads *outer_;
+    std::size_t work_;
+    std::size_t reanalysis_work_;
+    std::size_t checks_;
+    std::size_t refusals_;
+    std::size_t joins_;
     bool finished_ = false;
 };
 } // namespace clause::semantic::types

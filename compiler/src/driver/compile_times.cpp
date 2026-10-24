@@ -221,15 +221,17 @@ std::string repetition_note(const InferenceProfile &profile, const InferenceProf
 // previous pass's fixed point.
 void print_rounds(const InferenceProfile &profile, const InferenceProfile::Cost &cost) {
     const auto &rounds = cost.rounds_;
-    const auto useful =
-        rounds.walks_ == 0 ? 0.0 : 100.0 * static_cast<double>(rounds.changes_) / static_cast<double>(rounds.walks_);
+    // Replayed walks change summaries too (CONV.8).
+    const auto walked = rounds.walks_ + rounds.replayed_;
+    const auto useful = walked == 0 ? 0.0 : 100.0 * static_cast<double>(rounds.changes_) / static_cast<double>(walked);
     const auto note = std::format(
         "{} solves, {} rounds (cap {} per solve), {} capped, {} over work share, {} remembered, {} out "
-        "of pass budget; {} member walks ({} skipped), {:.1f}% changed a summary ({} grown, {} replaced, {} "
+        "of pass budget; {} member walks ({} skipped, {} replayed), {:.1f}% changed a summary ({} grown, {} replaced, "
+        "{} "
         "flipped); last solve: {} rounds, members changed per round (in tenths) {}",
         rounds.solves_, rounds.rounds_, rounds.round_cap_, rounds.capped_, rounds.over_share_, rounds.remembered_,
-        rounds.exhausted_, rounds.walks_, rounds.skipped_, useful, rounds.grown_, rounds.replaced_, rounds.flipped_,
-        rounds.last_changes_.size(), round_series(rounds.last_changes_));
+        rounds.exhausted_, rounds.walks_, rounds.skipped_, rounds.replayed_, useful, rounds.grown_, rounds.replaced_,
+        rounds.flipped_, rounds.last_changes_.size(), round_series(rounds.last_changes_));
     print_stage_time("inference rounds", component_name(*cost.component_), cost.elapsed_,
                      note + repetition_note(profile, cost));
 }

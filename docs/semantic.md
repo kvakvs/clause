@@ -464,7 +464,12 @@ Inference is separate from declared types and never trusts specs.
 - A round walks only members that read a summary changed since their last walk:
   each walk notes the summaries it reads (calls, call results, `fun F/A`), a
   changed summary marks its readers, and a member not marked keeps its
-  expression facts. The first round walks every member.
+  expression facts. The first round walks every member. A member keeps its
+  last walk across solves: a solve takes that walk's result again, with its
+  expression facts and work, while the members it read have the same results
+  and function types, and everything else it read is unchanged and would be
+  answered alike, as for a kept component in incremental passes. The results
+  equal walking it.
 - A shared work budget bounds inference; exhaustion loses precision and falls
   back to generic code, never rejects a program.
 - Specifications that contradict inference are diagnosed

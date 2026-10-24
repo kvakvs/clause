@@ -176,17 +176,6 @@ constexpr std::size_t CALLEE_SIZE = 256;
 constexpr std::size_t CALL_WORK = 4096;
 constexpr std::size_t PASS_WORK = 262144;
 
-// A function body's result and the entry domain of its arguments.
-struct Body {
-    Fact result;
-    // The inputs a summary shows (the success domain, or the entry domain of a function that never returns) and the
-    // entry domain.
-    std::vector<Id> domain;
-    std::vector<Id> entry;
-    // The function types of its possible clauses, merged within their budget.
-    std::vector<FunctionType> types = {};
-};
-
 bool walk(Inference &inference, FunctionRef function, BindingFacts &bindings, std::vector<Frame> pending,
           std::size_t &work, std::vector<const ast::Expression *> &recorded);
 Fact plain_fact(Inference &inference, FunctionRef function, const ast::ExprId &id, BindingFacts &bindings,
@@ -668,22 +657,24 @@ struct RoundChanges {
 };
 
 // One solve of a recursive component: its round cap, the members whose summaries changed in each round it ran, the
-// kinds of those changes, the member walks it ran (58R), and how it ended. Added for --print-stage-times.
+// kinds of those changes, the member walks it ran (58R) and took again (CONV.8), and how it ended. Added for
+// --print-stage-times.
 struct SolveTrace {
     std::size_t round_cap_ = 0;
     std::vector<std::size_t> changes_;
     RoundChanges kinds_;
     std::size_t walks_ = 0;
+    std::size_t replays_ = 0;
     Ending ending_ = Ending::converged;
 };
 
-// Which members of a solve still need a walk, which members each walk read, and the expression facts each recorded,
-// so a round walks only members that read a summary changed since their last walk. Added for step 58R.
+// Which members of a solve still need a walk, which members each walk read, and each member's last walk (kept across
+// solves), so a round walks only members that read a summary changed since their last walk. Added for step 58R.
 class Worklist {
   public:
-    Worklist(const Component &component, const bool warm)
+    Worklist(const Component &component, const bool warm, std::vector<MemberWalk> &walks)
         : dirty_(component.members.size(), true), stale_(component.members.size(), warm),
-          readers_(component.members.size()), reads_(component.members.size()), recorded_(component.members.size()) {
+          readers_(component.members.size()), reads_(component.members.size()), walks_(walks) {
         for (std::size_t index = 0; index < component.members.size(); ++index) {
             indices_.emplace(component.members[index].function, index);
         }
@@ -706,17 +697,16 @@ class Worklist {
         std::ranges::fill(stale_, false);
     }
 
-    // Note the members a member's walk read, replacing what its previous walk read.
-    void read(const std::size_t member, const std::set<const Function *> &functions) {
+    // Note the members a member's last walk read, replacing what its previous walk read.
+    void read(const std::size_t member) {
         for (const auto read : reads_.at(member)) {
             readers_.at(read).erase(member);
         }
         reads_.at(member).clear();
-        for (const auto *function : functions) {
-            if (const auto found = indices_.find(function); found != indices_.end()) {
-                reads_.at(member).push_back(found->second);
-                readers_.at(found->second).insert(member);
-            }
+        for (const auto &read : walks_.at(member).members) {
+            const auto found = indices_.at(std::get<0>(read));
+            reads_.at(member).push_back(found);
+            readers_.at(found).insert(member);
         }
     }
 
@@ -727,8 +717,8 @@ class Worklist {
         }
     }
 
-    // The expression facts the member's last walk recorded.
-    std::vector<const ast::Expression *> &recorded(const std::size_t member) { return recorded_.at(member); }
+    // The member's last walk, in this solve or an earlier one (CONV.8).
+    MemberWalk &last(const std::size_t member) { return walks_.at(member); }
 
   private:
     // Member indices by function, and the members still to walk.
@@ -739,8 +729,8 @@ class Worklist {
     // For each member: the members that read it, and the members it read.
     std::vector<std::set<std::size_t>> readers_;
     std::vector<std::vector<std::size_t>> reads_;
-    // For each member: the expressions whose facts its last walk recorded.
-    std::vector<std::vector<const ast::Expression *>> recorded_;
+    // For each member: its last walk, kept by the inference across solves (CONV.8).
+    std::vector<MemberWalk> &walks_;
 };
 
 // A member's summary as rounds compare it: its result and the function types calls select from.
@@ -854,38 +844,68 @@ Snapshot refreshed(Inference &inference, const Summary &summary, Body evaluated,
     return next;
 }
 
+// Whether the re-analysis budget would answer a component's (or member's, CONV.8) walk as it answered its last one: it
+// asked nothing, the budget is as spent as at its start, it was granted all and still would be, or it was refused all
+// (nothing granted) and the budget still refuses every re-analysis. Added for incremental passes (CONV.2).
+bool same_reanalysis(const Inference &inference, const ComponentWalk &last) {
+    const auto now = inference.reanalysis_work;
+    // An equally spent budget answers a walk of the same reads alike (changed for cost-aware give-up, CONV.4).
+    if (last.reanalysis_checks == 0 || now == last.reanalysis_start) {
+        return true;
+    }
+    if (last.reanalysis_refusals == 0) {
+        return now <= last.reanalysis_start || now + last.reanalysis_work + CALL_WORK <= PASS_WORK;
+    }
+    // A refused walk spends no re-analysis work, so each of its checks sees `now` (changed for cost-aware give-up: a
+    // less spent budget that still refuses everything kept re-solving the costliest components).
+    return last.reanalysis_refusals == last.reanalysis_checks && now + CALL_WORK > PASS_WORK;
+}
+
+// Whether a pass keeps a component's last walk (or a solve a member's, CONV.8): nothing it read changed, the pass
+// budget cannot cut it short now and re-analyses get the same answers. Added for incremental passes (CONV.2).
+bool kept(const Inference &inference, const ComponentWalk &last, const std::size_t work) {
+    return last.walked && !last.exhausted && work + last.work < inference.graph.limits().syntax_work &&
+           same_reanalysis(inference, last) && unchanged(inference, last);
+}
+
 // Walk one member from the current assumptions, replacing the expression facts of its previous walk and noting the
-// summaries it read. Added for step 58R.
+// summaries it read, or take its last walk's body again, facts kept, while nothing that walk read changed (changed for
+// member-granular warm solves, CONV.8). Added for step 58R.
 Body walk_member(Inference &inference, const FunctionRef member, const std::size_t index, std::size_t &work,
-                 Worklist &worklist) {
-    auto &recorded = worklist.recorded(index);
-    for (const auto *expression : recorded) {
+                 Worklist &worklist, SolveTrace &trace) {
+    auto &last = worklist.last(index);
+    if (kept(inference, last.outside, work) && members_unchanged(inference, last)) {
+        replay_member(inference, last, work);
+        worklist.read(index);
+        ++trace.replays_;
+        return last.body;
+    }
+    ++trace.walks_;
+    for (const auto *expression : last.recorded) {
         inference.expressions.erase(expression);
     }
-    recorded.clear();
-    std::set<const Function *> reads;
-    inference.reads = &reads;
-    auto evaluated = body(inference, member, work, recorded);
-    inference.reads = nullptr;
-    worklist.read(index, reads);
-    return evaluated;
+    last.recorded.clear();
+    MemberTracker tracker(inference, member, work);
+    last.body = body(inference, member, work, last.recorded);
+    tracker.finish(work, last);
+    worklist.read(index);
+    return last.body;
 }
 
 // Re-infer the members the worklist holds, in member order, from the current assumptions; results join with the
 // previous round's, or widen once `widening`. A changed summary puts its readers on the worklist: later members in
-// this round, earlier ones in the next (step 58R). Returns the members' changes by kind and counts walks in `walks`;
+// this round, earlier ones in the next (step 58R). Returns the members' changes by kind and counts walks in `trace`;
 // `history`, when given, keeps each member's summaries to tell flips.
 RoundChanges refine(Inference &inference, const Component &component, std::size_t &work, Worklist &worklist,
-                    bool widening, RoundHistory *history, std::size_t &walks) {
+                    bool widening, RoundHistory *history, SolveTrace &trace) {
     RoundChanges changes;
     for (std::size_t index = 0; index < component.members.size(); ++index) {
         if (!worklist.dirty(index)) {
             continue;
         }
         worklist.clean(index);
-        ++walks;
         const auto member = component.members[index];
-        auto evaluated = walk_member(inference, member, index, work, worklist);
+        auto evaluated = walk_member(inference, member, index, work, worklist, trace);
         auto &summary = inference.functions.at(member.function);
         auto domain = std::move(evaluated.domain);
         auto entry = std::move(evaluated.entry);
@@ -921,7 +941,7 @@ Ending iterate(Inference &inference, const Component &component, std::size_t &wo
     const auto started = work;
     RoundHistory history(component.members.size());
     for (std::size_t round = 0; round < rounds; ++round) {
-        const auto changes = refine(inference, component, work, worklist, round >= JOIN_ROUNDS, &history, trace.walks_);
+        const auto changes = refine(inference, component, work, worklist, round >= JOIN_ROUNDS, &history, trace);
         if (inference.profile) {
             // Added for the solve repetition measurements of --print-stage-times.
             note_round(inference, component, round);
@@ -941,12 +961,12 @@ Ending iterate(Inference &inference, const Component &component, std::size_t &wo
 // Give every member term() and walk them once to record their expression facts: the summaries of a component that
 // does not converge, which keeps only its widened union summaries.
 void give_up(Inference &inference, const Component &component, std::size_t &work, Worklist &worklist,
-             std::size_t &walks) {
+             SolveTrace &trace) {
     for (const auto member : component.members) {
         summarize(inference, member, {inference.graph.exhausted()});
     }
     worklist.all();
-    (void)refine(inference, component, work, worklist, false, nullptr, walks);
+    (void)refine(inference, component, work, worklist, false, nullptr, trace);
     for (const auto member : component.members) {
         inference.functions.at(member.function).types.clear();
     }
@@ -957,6 +977,10 @@ void give_up(Inference &inference, const Component &component, std::size_t &work
 // term(). Added for cost-aware give-up (CONV.4).
 constexpr std::size_t COSTLY_SHARE = 16;
 constexpr std::size_t COSTLY_JOINS = std::size_t{1} << 17U;
+
+// The lattice joins inference ran, with those of the member walks solves took again: the joins cost-aware give-up
+// counts. Added for member-granular warm solves (CONV.8).
+std::size_t spent_joins(const Inference &inference) { return inference.graph.joins() + inference.replayed_joins; }
 
 // Give a costly component's members term() local inputs, which never change again, so its later solves stop
 // following its callers' churn; true when one changed. Added for cost-aware give-up (CONV.4).
@@ -983,7 +1007,7 @@ bool unknown_inputs(Inference &inference, const Component &component) {
 // A component an earlier pass gave up on gives up at once (step 58P). Returns the rounds' trace for
 // --print-stage-times.
 SolveTrace solve(Inference &inference, const Component &component, std::size_t &work) {
-    const auto joins = inference.graph.joins();
+    const auto joins = spent_joins(inference);
     // A component solved in an earlier pass starts from its last fixed point (warm-start solves, CONV.3).
     const bool warm = std::ranges::all_of(
         component.members, [&](const FunctionRef member) { return inference.functions.contains(member.function); });
@@ -993,20 +1017,24 @@ SolveTrace solve(Inference &inference, const Component &component, std::size_t &
         }
         inference.solving.insert(member.function);
     }
-    Worklist worklist(component, warm);
+    // Each member's last walk, from an earlier solve too (member-granular warm solves, CONV.8).
+    auto &walks = inference.member_walks[&component];
+    walks.resize(component.members.size());
+    Worklist worklist(component, warm, walks);
     SolveTrace trace{.round_cap_ = JOIN_ROUNDS + WIDENING_PASSES * component.members.size(),
                      .changes_ = {},
                      .kinds_ = {},
                      .walks_ = 0,
+                     .replays_ = 0,
                      .ending_ = Ending::converged};
     trace.ending_ = inference.failed.contains(&component) ? Ending::remembered
                                                           : iterate(inference, component, work, worklist, trace);
     if (trace.ending_ != Ending::converged) {
         inference.failed.insert(&component);
-        give_up(inference, component, work, worklist, trace.walks_);
+        give_up(inference, component, work, worklist, trace);
     }
     finish(inference, component);
-    inference.solve_joins[&component] = inference.graph.joins() - joins;
+    inference.solve_joins[&component] = spent_joins(inference) - joins;
     return trace;
 }
 
@@ -1070,7 +1098,9 @@ void record_solve(InferenceProfile::Cost &cost, const SolveTrace &trace, const s
     rounds.remembered_ += trace.ending_ == Ending::remembered ? 1 : 0;
     rounds.exhausted_ += exhausted ? 1 : 0;
     rounds.walks_ += trace.walks_;
-    rounds.skipped_ += (trace.changes_.size() + (trace.ending_ != Ending::converged ? 1 : 0)) * members - trace.walks_;
+    rounds.replayed_ += trace.replays_;
+    rounds.skipped_ += (trace.changes_.size() + (trace.ending_ != Ending::converged ? 1 : 0)) * members - trace.walks_ -
+                       trace.replays_;
     for (const auto changed : trace.changes_) {
         rounds.changes_ += changed;
     }
@@ -1101,39 +1131,19 @@ void profiled_component(Inference &inference, const CallGraph &calls, const std:
     }
 }
 
-// Remove the expression facts of a component's bodies, so walking it again records fresh ones. Added for incremental
+// Remove the expression facts of a component's bodies, so walking it again records fresh ones; a recursive component's
+// solve removes those of each member it walks (changed for member-granular warm solves, CONV.8). Added for incremental
 // passes (CONV.2).
 void forget_facts(Inference &inference, const Component &component) {
+    if (component.recursive) {
+        return;
+    }
     for (const auto member : component.members) {
         const auto &definition = std::get<ast::Function>(member.module->syntax->form(member.function->form).value);
         for (const auto *expression : subtree(*member.module, function_roots(definition))) {
             inference.expressions.erase(expression);
         }
     }
-}
-
-// Whether the re-analysis budget would answer a component's walk as it answered its last one: it asked nothing, the
-// budget is as spent as at its start, it was granted all and still would be, or it was refused all (nothing granted)
-// and the budget still refuses every re-analysis. Added for incremental passes (CONV.2).
-bool same_reanalysis(const Inference &inference, const ComponentWalk &last) {
-    const auto now = inference.reanalysis_work;
-    // An equally spent budget answers a walk of the same reads alike (changed for cost-aware give-up, CONV.4).
-    if (last.reanalysis_checks == 0 || now == last.reanalysis_start) {
-        return true;
-    }
-    if (last.reanalysis_refusals == 0) {
-        return now <= last.reanalysis_start || now + last.reanalysis_work + CALL_WORK <= PASS_WORK;
-    }
-    // A refused walk spends no re-analysis work, so each of its checks sees `now` (changed for cost-aware give-up: a
-    // less spent budget that still refuses everything kept re-solving the costliest components).
-    return last.reanalysis_refusals == last.reanalysis_checks && now + CALL_WORK > PASS_WORK;
-}
-
-// Whether a pass keeps a component's last walk: nothing it read changed, the pass budget cannot cut it short now and
-// re-analyses get the same answers. Added for incremental passes (CONV.2).
-bool kept(const Inference &inference, const ComponentWalk &last, const std::size_t work) {
-    return last.walked && !last.exhausted && work + last.work < inference.graph.limits().syntax_work &&
-           same_reanalysis(inference, last) && unchanged(inference, last);
 }
 
 // Infer component `index`, or with `incremental` keep its last walk when nothing it read changed (changed for
@@ -1172,6 +1182,8 @@ void walk_component(Inference &inference, const CallGraph &calls, const std::siz
 void infer_pass(Inference &inference, const CallGraph &calls, const bool incremental) {
     if (!incremental) {
         inference.expressions = inference.reused_expressions;
+        // Their recorded facts are gone (CONV.8).
+        inference.member_walks.clear();
     }
     inference.walks.resize(calls.components.size());
     inference.fun_reads.clear();
@@ -1180,13 +1192,14 @@ void infer_pass(Inference &inference, const CallGraph &calls, const bool increme
     std::vector<const ast::Expression *> recorded;
     const auto started = std::chrono::steady_clock::now();
     const auto joins = inference.graph.joins();
+    const auto spent = spent_joins(inference);
     if (inference.profile) {
         inference.profile->passes_.emplace_back();
     }
     for (std::size_t index = 0; index < calls.components.size(); ++index) {
         walk_component(inference, calls, index, work, recorded, incremental);
     }
-    note_costly(inference, inference.graph.joins() - joins);
+    note_costly(inference, spent_joins(inference) - spent);
     if (!inference.profile) {
         return;
     }

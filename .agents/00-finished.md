@@ -807,6 +807,16 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   runs): W5a 11.4 → 12.9 s (1.136), W1 13.4 → 14.5 s (1.087), both below CONV.3. W2 (luerl euler
   `-O2`): build 234 → 230 s, run 660 → 644 ms, same output. `parsers.erl` today lines re-recorded.
 
+- **CONV.8** member-granular warm solves: each recursive member keeps its last walk across
+  solves (body, recorded facts, work, re-analysis answers, joins; members read by result and
+  function types, everything else by version, `MemberWalk`), and a solve replays it while nothing it
+  read changed; replayed joins still count for cost-aware give-up. Output identical on W5a, W5r, W1,
+  W3, W6 and the same pass counters. Inference vs CONV.6 (3 runs): W5a 12.8 → 12.2 s (0.957), W1
+  13.9 → 13.0 s (0.935). W2: build 214 → 216 s (LLVM phases), run 613 → 617 ms, same output. The
+  plan's premise (passes 17-50 ≈ 2-3 s) was CONV.4's; at CONV.6 they took 1.15 s and passes 1-16
+  (real input churn) 9.4 s. Tried and not kept: replayed members keeping their summary instead of
+  refreshing it (cuts round-0 cascades): W5a 11.87 → 11.73 s, 102 lines of `--print-types` differ.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions

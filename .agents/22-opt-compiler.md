@@ -5,10 +5,11 @@ inference (`compiler/src/semantic/types/`): inference must converge or give up w
 bounded amount of work, then cost less per walk. Done steps, with commit hashes and numbers, are in
 `00-finished.md` (Plan 22).
 
-**State after CONV.6 (56490e0a):** inference W5a 100.4 → 12.9 s, W1 117.0 → 14.5 s; W5a, W1 and W3
-settle in pass 50 (limit 64), so the final `term()` pass no longer runs. Target for W5a: **≤ 10 s**
-with a measured, accepted precision loss. Soundness invariant: a fact may get wider, never narrower,
-than a correct result.
+**State after CONV.8:** inference W5a 100.4 → 12.2 s, W1 117.0 → 13.0 s; W5a, W1 and W3 settle in
+pass 50 (limit 64), so the final `term()` pass no longer runs. Passes 1-16 take ≈ 8.6 s of W5a's
+9.7 s of passes (real input churn), passes 17-50 ≈ 1.0 s. Target for W5a: **≤ 10 s** with a
+measured, accepted precision loss. Soundness invariant: a fact may get wider, never narrower, than a
+correct result.
 
 ## Working rules
 
@@ -72,37 +73,31 @@ than a correct result.
 
 ## Steps, in suggested order
 
-1. **CONV.8 Member-granular warm solves** (new, from CONV.4 measurements). A warm solve still walks
-   every member in its first round: `core_parse:yeccpars1/5` + 522 re-solves in passes 17-28 at
-   330k-1.2M joins each (≈ 2-3 s of W5a) though most members read nothing that changed. Keep each
-   member's last reads (58R `Worklist` reads plus external summary and input versions) across
-   solves and mark dirty only members whose reads changed; keep the others' summaries and facts.
-   Expect W5a passes 17-50 to cost tens of ms.
-2. **B.0 owned fixture:** a Clause-written module reproducing the `ubody` shape (state record of
+1. **B.0 owned fixture:** a Clause-written module reproducing the `ubody` shape (state record of
    more than 16 fields threaded through mutually recursive walkers, results that are unions of many
    record shapes, `ordsets` of variables) in `tests/compiler/inference/` as a budget test like
    `budgets.py`, asserting work steps, joins, passes and rounds, never time.
-3. **Re-profile W5a** (sampling) at the current HEAD and rank OPTC.* by measured share.
-4. **INS.2 rest:** joins are counted (`Graph::joins`); add `widen`, `meet`, `within`, `subtract`,
+2. **Re-profile W5a** (sampling) at the current HEAD and rank OPTC.* by measured share.
+3. **INS.2 rest:** joins are counted (`Graph::joins`); add `widen`, `meet`, `within`, `subtract`,
    `truncate`/`nesting` and repeated `(op, left, right)` pairs per pass (the bound on a memo's hit
    rate), one `[time] inference lattice ...` line. **INS.3:** joins and nodes created per
    component in `InferenceProfile::Cost`, an `inference costliest` list by time per work step.
-5. **OPTC.B Lattice memo** if INS.2 shows repeated pairs: a per-graph cache for 2-member `join`,
+4. **OPTC.B Lattice memo** if INS.2 shows repeated pairs: a per-graph cache for 2-member `join`,
    `meet`, `within`, `truncate` keyed by Ids (the graph is append-only); watch memory against the
    1M-node limit.
-6. **OPTC.C rest, interning:** compact nodes (atoms and integers as ids or small values, not
+5. **OPTC.C rest, interning:** compact nodes (atoms and integers as ids or small values, not
    `std::string`), `intern(Node&&)`, `truncate` by reference unless it changes the node.
-7. **INS.6 + OPTC.D walk containers:** count `Inference::expressions` inserts/erases, `BindingFacts`
+6. **INS.6 + OPTC.D walk containers:** count `Inference::expressions` inserts/erases, `BindingFacts`
    built, `Snapshot` comparisons; then replace pointer-keyed `std::map`s on per-walk paths with
    vectors indexed by `ExprId`/`BindingId` or hash maps (check `--print-types` order).
-8. **INS.4 + OPTC.E outliers:** count `reanalyse` calls (limit hits, work) and `instantiate` calls
+7. **INS.4 + OPTC.E outliers:** count `reanalyse` calls (limit hits, work) and `instantiate` calls
    per component; then `yystate` (W5b) and re-analysis fan-out.
-9. **CONV.5 harder fact caps on recursive results:** deprioritized (INS.5: facts are small, mean
+8. **CONV.5 harder fact caps on recursive results:** deprioritized (INS.5: facts are small, mean
    tree size 4; the cost is interning and constant work per join).
-10. **LLVM phases of W2:** `optimize` + `emit` took 196 s of W2's 328 s at B.4 (W2 build now 230 s
-    in total); profile module size, per-function pass time, single-threaded `emit`. Outside
-    `semantic/types/`.
-11. **Side findings, whenever convenient:**
+9. **LLVM phases of W2:** `optimize` + `emit` took 196 s of W2's 328 s at B.4, and 73 + 117 s of
+   216 s at CONV.8; profile module size, per-function pass time, single-threaded `emit`. Outside
+   `semantic/types/`.
+10. **Side findings, whenever convenient:**
     - **LIV.1:** liveness keeps every export on W5a and W1 because of the host OTP `file.erl`
       (dynamic call in `io_request/3`, `list_to_atom/1` in `reply/1`): check why the `library/`
       copy or a catalog builtin does not stand in, and whether `--print-types` should run liveness
@@ -110,5 +105,5 @@ than a correct result.
     - **BUG.1:** `clau` (Release, ab635294) exited 0xC0000005 once in ~100 W5r runs. Suspect a
       `const Node &` from `Graph::get` held across `Graph::intern`; loop a Debug or ASan `clau`
       over W5r and review such uses.
-12. **Later:** parallel inference of independent components at one call-graph level (thread-local
-    or sharded graphs), only after CONV.8 and OPTC.B-D.
+11. **Later:** parallel inference of independent components at one call-graph level (thread-local
+    or sharded graphs), only after OPTC.B-D.

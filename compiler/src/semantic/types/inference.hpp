@@ -95,6 +95,29 @@ struct ComponentWalk {
     std::size_t reanalysis_refusals = 0;
 };
 
+// A function body's result and the entry domain of its arguments.
+struct Body {
+    Fact result;
+    // The inputs a summary shows (the success domain, or the entry domain of a function that never returns) and the
+    // entry domain.
+    std::vector<Id> domain;
+    std::vector<Id> entry;
+    // The function types of its possible clauses, merged within their budget.
+    std::vector<FunctionType> types = {};
+};
+
+// The last walk of a recursive component's member, kept across solves: what it read outside the component (versions,
+// like a component's walk), the members it read with their results and function types then, its body, the expression
+// facts it recorded and the lattice joins it ran. A solve takes its body again instead of walking while nothing it
+// read changed. Added for member-granular warm solves (CONV.8).
+struct MemberWalk {
+    ComponentWalk outside;
+    std::vector<std::tuple<const Function *, Fact, std::vector<FunctionType>>> members;
+    Body body = {};
+    std::vector<const ast::Expression *> recorded;
+    std::size_t joins = 0;
+};
+
 struct Inference {
     // Own implementation facts separately from declared contracts and their budgets.
     explicit Inference(Limits limits) : graph(limits) {}
@@ -138,9 +161,6 @@ struct Inference {
     // Where passes and components spend time, when the caller asks; it outlives the inference. Added for
     // --print-stage-times.
     InferenceProfile *profile = nullptr;
-    // The functions whose summaries the current walk reads, while a recursive component's solve tracks them so it
-    // re-walks only members whose reads changed. Added for step 58R.
-    std::set<const Function *> *reads = nullptr;
     // Functions whose results a build cache kept, and the expression facts of their modules: passes keep their
     // summaries, local inputs and facts instead of walking them. Added for the inference cache (58V).
     std::set<const Function *> reused;
@@ -152,13 +172,15 @@ struct Inference {
     std::map<const Function *, std::size_t> summary_versions;
     std::size_t reanalysis_checks = 0;
     std::size_t reanalysis_refusals = 0;
+    // Each recursive component's member walks by member index, kept across the solves of incremental passes, and the
+    // lattice joins of the walks solves took again, which cost-aware give-up still counts. Added for member-granular
+    // warm solves (CONV.8).
+    std::map<const Component *, std::vector<MemberWalk>> member_walks;
+    std::size_t replayed_joins = 0;
 };
 
-// A function's summary, noting the read for the solve that tracks them (step 58R) and for incremental passes.
+// A function's summary, noting the read for the solve of its component (step 58R) and for incremental passes.
 inline const Summary &summary_of(const Inference &inference, const Function *function) {
-    if (inference.reads) {
-        inference.reads->insert(function);
-    }
     if (inference.walk_reads) {
         inference.walk_reads->summaries.insert(function);
     }
