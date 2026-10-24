@@ -234,7 +234,10 @@ Inference is separate from declared types and never trusts specs.
   (the re-analysis budget is as spent as at its last walk's start, or would
   grant or refuse everything again); its work still counts toward the pass
   budget. The results equal walking every
-  component. The final pass with `term()` inputs walks all of them.
+  component. The final pass with `term()` inputs walks all of them. After a
+  pass, only the inputs of functions walked in it or called by a function walked
+  in it are joined again from their calls; the others' argument facts and inputs
+  are as at the last join.
 - Literals have exact facts: integers of any size and characters are singletons,
   atoms singleton atoms, floats `float()`, strings nonempty lists of their
   characters (`[]` for `""`), and `-`/`+` of a literal number keep its fact.

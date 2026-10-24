@@ -900,6 +900,13 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   2.1%), `set_aside` 0.6%; now body walk 50% (`Module::expression` 6.8%, outside plan 22's files), lattice ops
   17%, `gather_all` 13%, pass driver 6.6%, interning 6.5%.
 
+- **OPTC.F** (pending) input gathering: each local function's calls are indexed once (`Inference::input_calls`),
+  and a gather joins again only the inputs of functions walked in the pass or called by a walked function
+  (`Inference::walked`); the others read the same argument facts into the same inputs (a function whose inputs
+  changed is walked in the next pass). `--print-types` and pass counters identical on W5r, W6, W5a, W1, W3.
+  Gathering (profiled `inference churn` line): W5a 936 → 255 ms, W1 1162 → 297 ms. Inference (3 runs, profiled):
+  W5a 4.93 → 4.22 s (0.857), W1 5.56 → 4.73 s (0.850).
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions

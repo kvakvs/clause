@@ -8,6 +8,7 @@
 #include <string_view>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace clause::semantic::types {
 struct Fact {
@@ -194,6 +195,10 @@ struct Inference {
     // How often each of those inputs changed over the passes, which picks how its next change widens. Added for the
     // input widening ladder (CONV.1).
     std::map<const Function *, std::vector<std::size_t>> input_changes;
+    // Each of those functions' calls in call graph order, and the functions walked in the current pass: a gather joins
+    // again only the inputs of walked functions and of those with a walked caller. Added for input gathering (OPTC.F).
+    std::map<const Function *, std::vector<const Call *>> input_calls;
+    std::unordered_set<const Function *> walked;
     // The facts fun F/A read in the current pass, by function, to check they were final.
     std::map<const Function *, Id> fun_reads;
     // The members of the recursive component being solved: their domains are not final yet.

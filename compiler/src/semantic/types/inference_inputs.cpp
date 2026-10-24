@@ -38,24 +38,31 @@ std::set<const Function *> fun_named(const CallGraph &calls) {
     return result;
 }
 
-// The argument facts of each call of a function taking its callers' inputs, by function and argument.
-std::map<const Function *, std::vector<std::vector<Id>>> call_arguments(const Inference &inference,
-                                                                        const CallGraph &calls) {
-    std::map<const Function *, std::vector<std::vector<Id>>> result;
-    for (const auto &call : calls.calls) {
-        if (!inference.inputs.contains(call.callee.function)) {
-            continue;
-        }
-        const auto &syntax = *call.caller.module->syntax;
-        const auto &arguments = std::get<ast::CallExpression>(syntax.expression(call.expression).value).arguments;
-        auto &facts = result[call.callee.function];
-        facts.resize(arguments.size());
+// The argument facts of a function's calls, by argument.
+std::vector<std::vector<Id>> call_arguments(const Inference &inference, const std::vector<const Call *> &calls) {
+    std::vector<std::vector<Id>> result;
+    for (const auto *call : calls) {
+        const auto &syntax = *call->caller.module->syntax;
+        const auto &arguments = std::get<ast::CallExpression>(syntax.expression(call->expression).value).arguments;
+        result.resize(arguments.size());
         for (std::size_t index = 0; index < arguments.size(); ++index) {
             const auto found = inference.expressions.find(&syntax.expression(arguments[index]));
-            facts[index].push_back(found == inference.expressions.end() ? inference.graph.top() : found->second.type);
+            result[index].push_back(found == inference.expressions.end() ? inference.graph.top() : found->second.type);
         }
     }
     return result;
+}
+
+// The calls whose arguments a gather joins again into a function's inputs: none for reused inputs (58W) and for a
+// function neither walked in the pass nor called by a walked function. Its inputs changing at the last gather made it
+// walked, so the others would join the same arguments into the same inputs. Added for input gathering (OPTC.F).
+const std::vector<const Call *> *regathered(const Inference &inference, const Function *function) {
+    const auto found = inference.input_calls.find(function);
+    if (found == inference.input_calls.end() || inference.reused.contains(function)) {
+        return nullptr;
+    }
+    const auto walked = [&](const Call *call) { return inference.walked.contains(call->caller.function); };
+    return inference.walked.contains(function) || std::ranges::any_of(found->second, walked) ? &found->second : nullptr;
 }
 
 // Nodes one shape walk reads; past it, two facts count as differing in shape. Added for the input churn measurements
@@ -207,15 +214,14 @@ bool gather_function(Inference &inference, Lattice &lattice, const Function *fun
     return changed;
 }
 
-// Join the argument facts of every call of a local function into its inputs; true when an input changed.
-bool gather_all(Inference &inference, const CallGraph &calls) {
-    const auto arguments = call_arguments(inference, calls);
+// Join the argument facts of the calls of local functions into their inputs, only where they can change (changed for
+// input gathering, OPTC.F); true when an input changed.
+bool gather_all(Inference &inference) {
     Lattice lattice(inference.graph);
     bool changed = false;
     for (auto &[function, inputs] : inference.inputs) {
-        // Reused inputs stay as kept (58W).
-        const auto found = inference.reused.contains(function) ? arguments.end() : arguments.find(function);
-        if (found == arguments.end() || !gather_function(inference, lattice, function, inputs, found->second)) {
+        const auto *calls = regathered(inference, function);
+        if (!calls || !gather_function(inference, lattice, function, inputs, call_arguments(inference, *calls))) {
             continue;
         }
         changed = true;
@@ -224,6 +230,7 @@ bool gather_all(Inference &inference, const CallGraph &calls) {
             ++inference.profile->passes_.back().churn_.functions_;
         }
     }
+    inference.walked.clear();
     return changed;
 }
 
@@ -264,17 +271,23 @@ void prepare_inputs(Inference &inference, const CallGraph &calls) {
             }
         }
     }
+    // Added for input gathering (OPTC.F).
+    for (const auto &call : calls.calls) {
+        if (inference.inputs.contains(call.callee.function)) {
+            inference.input_calls[call.callee.function].push_back(&call);
+        }
+    }
 }
 
 bool gather_inputs(Inference &inference, const CallGraph &calls) {
     if (!inference.profile) {
-        return gather_all(inference, calls);
+        return gather_all(inference);
     }
     // Added for the incremental-potential measurements of --print-stage-times: before the inputs change.
     note_pass(inference, calls);
     // Added for the input churn measurements of --print-stage-times.
     const auto started = std::chrono::steady_clock::now();
-    const bool changed = gather_all(inference, calls);
+    const bool changed = gather_all(inference);
     auto &churn = inference.profile->passes_.back().churn_;
     churn.gathered_ = true;
     churn.elapsed_ = std::chrono::steady_clock::now() - started;

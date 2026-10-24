@@ -95,6 +95,8 @@ WalkTracker::WalkTracker(Inference &inference, const Component &component, const
         const auto found = inference.functions.find(member.function);
         before_.push_back(found == inference.functions.end() ? std::nullopt : std::optional{found->second});
         versions_.push_back(summary_version(inference, member.function));
+        // Their calls' argument facts may change. Added for input gathering (OPTC.F).
+        inference.walked.insert(member.function);
     }
     inference.walk_reads = &reads_;
 }

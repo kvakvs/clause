@@ -19,7 +19,8 @@ bool members_unchanged(const Inference &inference, const MemberWalk &last);
 // for the component's walk. Added for member-granular warm solves (CONV.8).
 void replay_member(Inference &inference, const MemberWalk &last, std::size_t &work);
 
-// Tracks one component's walk from its start to `finish`: what it reads, and its members' summaries before it.
+// Tracks one component's walk from its start to `finish`: what it reads, and its members' summaries before it. It notes
+// the members as walked in the pass (added for input gathering, OPTC.F).
 class WalkTracker {
   public:
     WalkTracker(Inference &inference, const Component &component, std::size_t work);
