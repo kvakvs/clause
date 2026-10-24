@@ -564,7 +564,7 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   otherwise 256 for printed containers (`format_term`), source printers and reports, 4096 for
   abstract-code text and transform requests; names, atoms, digits and short joins stay unreserved
   (a reserve under ~30 bytes gives up the small-string buffer: 2.5-8x slower). Microbench: 1.2-2.6x
-  on the concatenation above ~50 bytes; no 69A kernel formats text, so none was rerun
+  on the concatenation above ~50 bytes; no 69A kernel formats text, so none was rerun — `ed21dfca`
 - **OPT0.21** literal list prefixes, raw `integer_to_list`/`list_to_integer`/`atom_to_list`;
   int_to_list 2.1x — `e6d4fa94`
 - **OPT0.22** word-level `list_to_tuple`/`tuple_to_list`; 1000 elements 16.7 to 9.6 us — `b564c56b`
