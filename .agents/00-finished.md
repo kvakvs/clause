@@ -783,7 +783,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   work steps identical (W5a, W1, W3, W6, W5r). Inference W5a 27.7 → 19.6 s, W1 36.3 → 23.7 s, W5r
   0.925; late W5a passes skip about 8 700 of 8 911 components.
 
-- **CONV.3** warm-start solves: a recursive component solved before starts from its last summaries,
+- **CONV.3** (5c0e09b9) warm-start solves: a recursive component solved before starts from its last summaries,
   and each member's first walk replaces (not joins) its summary. Inference W5a 19.6 → 13.6 s, W1
   23.9 → 16.2 s, W5r 2.61 → 1.18 s (output identical); W6 identical; about 1% of W5a/W1/W3
   signatures change, both wider and narrower (converging before widening rounds), none newly
