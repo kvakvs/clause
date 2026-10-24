@@ -205,6 +205,10 @@ a fact may only get wider than today's result, never narrower.
     The extra cost is mostly `core_parse:yeccpars1/5` + 522 (28 solves, 147 rounds, 35 135 member
     walks, 9.3 s) and `ubody_used_vars` + 6 (16 solves, 4.2 s): do CONV.3 (warm start that
     re-walks only members whose inputs or reads changed) before raising `PASSES`.
+  - **Again at 1c814602 (after CONV.3), `PASSES = 64`, not kept:** W5a and W1 both settle in pass
+    50; inference W5a 20.1 s against 13.6 s forced at 17, W1 25.4 s against 16.2 s. Passes 39-50
+    cost 20-75 ms; the extra time is passes 17-38 (0.2-0.9 s each). Decision pending: settled
+    precision for about +50% inference time.
 
 CONV.1 and CONV.2 are independent and both needed. CONV.3 and CONV.4 target the per-component
 repetition. CONV.5 targets the per-walk cost.
