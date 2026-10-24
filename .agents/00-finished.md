@@ -777,7 +777,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   than 8 times (W5a 9-16x: 87 before). Passes stay bound by late first arrivals, so the ladder is
   CONV.6's termination guarantee and CONV.2 must bring the speed.
 
-- **CONV.2** incremental passes: a pass keeps every component whose last walk read the same summary
+- **CONV.2** (4c2bd059) incremental passes: a pass keeps every component whose last walk read the same summary
   and input versions and that the pass and re-analysis budgets would answer alike
   (`semantic/types/inference_incremental`); its work is replayed into the pass budget. Output and
   work steps identical (W5a, W1, W3, W6, W5r). Inference W5a 27.7 → 19.6 s, W1 36.3 → 23.7 s, W5r
