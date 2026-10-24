@@ -693,6 +693,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   timers as processes reached through an alias in the `TRef`, conversions in C++
   (`builtins/timer.cpp`); `erlang:apply/2,3` builtins for dynamic calls; `timers` golden —
   `b0562967`
+- **LIB23** `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`, `logger_handler` over a
+  `clause_logger` server started at first use (default handler on `standard_error`, synchronous
+  writes); `error_logger`, `error_logger_file_h`, `log_mf_h`, `error_handler`; behaviour reports as
+  `?LOG_*` events; `kernel/include/logger.hrl` for `include_lib`; `file:sync/1`, `datasync/1`;
+  `loggers` golden — `f2895564`
 - **LIB20, LIB21** `proc_lib`, `sys`, `gen`, `gen_server`, `gen_statem`, `gen_event`, `gen_fsm`,
   `supervisor`, `supervisor_bridge` in Erlang with OTP's messages, results, error terms, debug
   shapes and report texts (through `clause_logger` until `logger`); `gen_fsm` keeps its own loop;
