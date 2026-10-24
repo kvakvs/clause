@@ -133,7 +133,7 @@ recorded elsewhere.
   select all units.
 
 ## OTP oracle, goldens and fixtures
-- OTP pin and refresh: docs/otp-reference.md. Pin d199a49a (29.1.2), oracle install 29.1.1 / ERTS
+- OTP pin and refresh: docs/otp-reference.md. Pin 9710673e (29.1.2), oracle install 29.1.1 / ERTS
   17.1. Pin change needs regenerate.py of executables/lint/programs/printing (diff = revision lines
   only).
 - Escript: "C:/Program Files/Erlang OTP/erts-17.1/bin/escript.exe" is reliable (bin/escript.exe once

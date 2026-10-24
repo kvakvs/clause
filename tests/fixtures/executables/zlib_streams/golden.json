@@ -15,7 +15,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "zlib_streams.erl": "193506cc9b475647c79da97f1480428d1cfde42ed06077acdeb0439ad31fd4b9"

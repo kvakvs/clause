@@ -15,7 +15,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "maps_completion.erl": "89c6f1c552993663e133bebf2eafe7727dd6a1a8d5baa57a3f259357a0a65b09"

@@ -15,7 +15,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "map_fold_loops.erl": "9441f3a75d100d5ef39a79106cfe7fd5c4b0fd5d1506f04e19167a027d29ba0e"

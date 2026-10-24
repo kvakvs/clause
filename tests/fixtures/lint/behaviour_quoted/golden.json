@@ -27,7 +27,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "Quoted.erl": "3439c1e082254af244704fd4c238b9731affe0b1020fdfabef92bcb5311b4b7b",

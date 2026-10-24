@@ -734,6 +734,12 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   parse state; `file` servers monitor their opener instead of linking (no `EXIT` on close, as OTP);
   `epp_files` golden, and a scratch comparison over 1,110 epp calls on OTP sources and suites found
   no differences — `4a3e5b7b`
+- **LIB34C part 1** `erl_expand_records:module/2` as a C++ builtin (`front_end/expand_records.cpp`) with
+  OTP's traversal and `recN` numbering, guard tests in C++ (`front_end/guard_tests.cpp`, also
+  `clause_erl_lint:is_guard_test/1`, `is_guard_expr/1`); a program calling it compiles +0.00 s / +0.01 s
+  over a hello-world (was +1.2 s / +0.7 s); golden unchanged, no differences from OTP over 347 OTP
+  sources and suites under four option sets; OTP pin refreshed to `9710673e` (CI-only upstream
+  changes) — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

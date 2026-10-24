@@ -52,7 +52,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "deep_recursion.erl": "61975d0b11166c22d83e294cace87f34d2caf0b852239d66aba7d32707e30e7b"

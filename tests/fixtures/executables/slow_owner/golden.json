@@ -22,7 +22,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "slow_owner.erl": "77bfd1f53eff4677485f252d95d7b8b633367103c1efcee0d00c317f8774fd56",

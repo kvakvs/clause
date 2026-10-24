@@ -378,6 +378,10 @@ Term anno_location(ProcessContext &context, const Term &anno) { return location(
 
 Term anno_end_location(ProcessContext &context, const Term &anno) { return end_location(context, {anno}); }
 
+Term anno_set(ProcessContext &context, std::string_view item, const Term &value, const Term &anno) {
+    return Annotations(context).set(item, value, anno);
+}
+
 Term anno_set_location(ProcessContext &context, const Term &location, const Term &anno) {
     return set_location(context, {location}, {anno});
 }

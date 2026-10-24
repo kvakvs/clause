@@ -1225,6 +1225,11 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_erl_eval", "bit_type", 2},
     BuiltinName{"clause_erl_eval", "bit_segment", 3},
     BuiltinName{"clause_erl_eval", "bit_take", 3},
+    // erl_expand_records:module/2 and erl_lint's guard checks (plan 21 step LIB34C;
+    // runtime/src/builtins/front_end/expand_records.cpp, guard_tests.cpp).
+    BuiltinName{"erl_expand_records", "module", 2},
+    BuiltinName{"clause_erl_lint", "is_guard_expr", 1},
+    BuiltinName{"clause_erl_lint", "is_guard_test", 1},
     // The io_lib module (plan 21 steps LIB4C, LIB4E; runtime/src/builtins/io_lib/).
     BuiltinName{"io_lib", "bformat", 2},
     // maps_order comparison funs (plan 21 step LIB4F; runtime/src/builtins/io_lib/key_orders.cpp).

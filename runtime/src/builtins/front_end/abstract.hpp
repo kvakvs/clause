@@ -29,6 +29,9 @@ Term first_anno(ProcessContext &context, const Term &node);
 Term first_location(ProcessContext &context, const Term &node);
 // last_anno/1: the annotation with the largest location, set to its end location when it has one.
 Term last_anno(ProcessContext &context, const Term &node);
+// map_anno(fun(_) -> Anno end, Node): every annotation of `node` replaced by `anno`, in modify_anno1/3's clauses.
+// Added for the C++ erl_expand_records.
+Term replace_annos(ProcessContext &context, const Term &node, const Term &anno);
 // normalise/1: the term an abstract literal stands for; error({badarg, Node}) for anything else.
 Term normalise(ProcessContext &context, const Term &node);
 

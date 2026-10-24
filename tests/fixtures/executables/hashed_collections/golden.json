@@ -15,7 +15,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "hashed_collections.erl": "ae34ea4afc28a3d91cb3f26e71f8a0db541bf979c511e335a26b19f24c340d2d"

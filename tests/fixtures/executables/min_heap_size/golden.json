@@ -25,7 +25,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "min_heap_size.erl": "156de81b09ecd5885fc5c8a4e0dfb83bdb3e855023ec91633d1b4ae0d81f5b48"

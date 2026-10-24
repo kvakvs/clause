@@ -39,7 +39,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "funpeer.erl": "27358b5cd4d72d0d884fae935b7154bf9232edb00c00ee801cef1f4d19d35094",

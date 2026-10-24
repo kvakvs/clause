@@ -22,7 +22,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "busy_ports.erl": "a566a442c1df5dc7964693526cfd420dac5b5be5b72d1bad669a05b5e0a22bef",

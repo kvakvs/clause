@@ -15,7 +15,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "erl_parse_forms.erl": "c760a5f3ac198923b3d7f73ca4085220d189e45ad0e0e1c327ab3176ac22aa61"

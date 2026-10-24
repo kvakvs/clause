@@ -424,6 +424,23 @@ constexpr std::array ERL_INTERNAL_BUILTINS{
 } // namespace
 
 bool is_predefined_type(std::string_view name, std::int64_t arity) { return listed(TYPES, Entry{name, arity}); }
+
+bool is_bif(std::string_view name, std::int64_t arity) { return bif_row(Entry{name, arity}) != nullptr; }
+
+bool is_guard_bif(std::string_view name, std::int64_t arity) {
+    const auto *row = bif_row(Entry{name, arity});
+    return row != nullptr && row->guard;
+}
+
+bool is_type_test(std::string_view name, std::int64_t arity) {
+    const Entry query{name, arity};
+    return listed(NEW_TYPE_TESTS, query) || listed(OLD_TYPE_TESTS, query);
+}
+
+std::string_view operator_type(std::string_view name, std::int64_t arity) {
+    const auto *row = operator_row(Entry{name, arity});
+    return row == nullptr ? std::string_view{} : row->type;
+}
 } // namespace clause::runtime::builtins::front_end
 
 namespace clause::runtime {

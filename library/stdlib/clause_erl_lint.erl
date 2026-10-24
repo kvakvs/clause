@@ -3,7 +3,7 @@
 %% variables, illegal patterns and guards, undefined records, stack trace variables, map and binary pattern rules),
 %% used_vars/2 the variables each fun takes from its surroundings, and is_guard_test/1, is_guard_expr/1 are erl_lint's.
 -module(clause_erl_lint).
--export([exprs/2, used_vars/2, is_guard_test/1, is_guard_test/3, is_guard_expr/1]).
+-export([exprs/2, used_vars/2, is_guard_test/1, is_guard_expr/1]).
 
 %% The scope of a used_vars/2 walk: the variables of the surroundings (outer), those bound inside the fun (local), the
 %% outer ones used so far, and the {Used, Inner} tree of the funs met.
@@ -218,7 +218,7 @@ guard(Tests, Vt) ->
 
 guard_test(Test, Vt) ->
     expr(Test, Vt),
-    is_guard_test(Test) orelse lint_error(element(2, Test), illegal_guard_expr).
+    clause_erl_lint:is_guard_test(Test) orelse lint_error(element(2, Test), illegal_guard_expr).
 
 %% Qualifiers of a comprehension in order; generator patterns bind new variables.
 qualifiers(Qs, Vt) -> lists:foldl(fun qualifier/2, Vt, Qs).
@@ -420,117 +420,9 @@ bound_vars(T, Acc) when is_tuple(T) -> bound_vars(tuple_to_list(T), Acc);
 bound_vars([H | T], Acc) -> bound_vars(T, bound_vars(H, Acc));
 bound_vars(_, Acc) -> Acc.
 
-%% is_guard_test(Expr): a legal guard test (erl_lint:is_guard_test/1, no record definitions).
-is_guard_test(E) ->
-    test_in(E, {#{}, fun(_) -> false end}).
+%% is_guard_test(Expr): a legal guard test (erl_lint:is_guard_test/1, no record definitions); is_guard_expr(Expr): an
+%% expression guards may contain. Both are runtime builtins (runtime/src/builtins/front_end/guard_tests.cpp, plan 21
+%% step LIB34C).
+is_guard_test(_) -> clause_builtin_placeholder.
 
-%% is_guard_test(Expr, Forms, IsOverridden): a legal guard test with the record definitions of Forms, where a local
-%% call F/A for which IsOverridden({F, A}) holds is a call of a local or imported function, never a guard BIF.
-is_guard_test(E, Forms, IsOverridden) ->
-    Records = #{Name => Fields || {attribute, _, record, {Name, Fields}} <- Forms},
-    test_in(E, {Records, IsOverridden}).
-
-test_in({call, A, {atom, Ar, record}, [E, R]}, Info) ->
-    expr_in({call, A, {atom, Ar, is_record}, [E, R]}, Info);
-test_in({call, A, {remote, _, {atom, _, erlang}, {atom, Af, is_record}}, [E, R]}, Info) ->
-    test_in({call, A, {atom, Af, is_record}, [E, R]}, Info);
-test_in({call, _, {atom, _, Test}, As} = Call, {_, IsOverridden} = Info) ->
-    not IsOverridden({Test, length(As)}) andalso
-        case erl_internal:type_test(Test, length(As)) of
-            true when Test =:= is_record, length(As) =:= 2 ->
-                case As of
-                    [_, {atom, _, _}] -> exprs_in(As, Info);
-                    _ -> false
-                end;
-            true ->
-                exprs_in(As, Info);
-            false ->
-                expr_in(Call, Info)
-        end;
-test_in(G, Info) ->
-    expr_in(G, Info).
-
-%% is_guard_expr(Expr): an expression guards may contain.
-is_guard_expr(E) ->
-    expr_in(E, {#{}, fun(_) -> false end}).
-
-expr_in({Leaf, _, _}, _Info) when
-    Leaf =:= var; Leaf =:= char; Leaf =:= integer; Leaf =:= float; Leaf =:= atom; Leaf =:= string
-->
-    true;
-expr_in({nil, _}, _Info) ->
-    true;
-expr_in({cons, _, H, T}, Info) ->
-    exprs_in([H, T], Info);
-expr_in({tuple, _, Es}, Info) ->
-    exprs_in(Es, Info);
-expr_in({map, _, Fields}, Info) ->
-    map_fields_in(Fields, Info);
-expr_in({map, _, Src, Fields}, Info) ->
-    expr_in(Src, Info) andalso map_fields_in(Fields, Info);
-expr_in({record_index, _, _, Field}, Info) ->
-    expr_in(Field, Info);
-expr_in({record_field, _, Rec, _, Field}, Info) ->
-    exprs_in([Rec, Field], Info);
-expr_in({record, A, Name, Inits}, {Records, _} = Info) ->
-    %% The defaults of the fields not given are part of the construction.
-    Defaults =
-        case Records of
-            #{Name := Fields} -> default_inits(Inits, A, Fields);
-            #{} -> []
-        end,
-    lists:all(
-        fun
-            ({record_field, _, _, V}) -> expr_in(V, Info);
-            (_) -> false
-        end,
-        Inits ++ Defaults
-    );
-expr_in({bin, _, Segments}, Info) ->
-    lists:all(
-        fun({bin_element, _, E, Size, _}) ->
-            expr_in(E, Info) andalso (Size =:= default orelse expr_in(Size, Info))
-        end,
-        Segments
-    );
-expr_in({call, _, {atom, _, F}, As}, {_, IsOverridden} = Info) ->
-    not IsOverridden({F, length(As)}) andalso erl_internal:guard_bif(F, length(As)) andalso
-        exprs_in(As, Info);
-expr_in({call, _, {remote, _, {atom, _, erlang}, {atom, _, F}}, As}, Info) ->
-    (erl_internal:guard_bif(F, length(As)) orelse guard_op(F, length(As))) andalso
-        exprs_in(As, Info);
-expr_in({call, A, {tuple, At, [{atom, Am, erlang}, {atom, Af, F}]}, As}, Info) ->
-    expr_in({call, A, {remote, At, {atom, Am, erlang}, {atom, Af, F}}, As}, Info);
-expr_in({op, _, Op, A}, Info) ->
-    guard_op(Op, 1) andalso expr_in(A, Info);
-expr_in({op, _, Op, A1, A2}, Info) when Op =:= 'andalso'; Op =:= 'orelse' ->
-    exprs_in([A1, A2], Info);
-expr_in({op, _, Op, A1, A2}, Info) ->
-    guard_op(Op, 2) andalso exprs_in([A1, A2], Info);
-expr_in(_, _Info) ->
-    false.
-
-exprs_in(Es, Info) -> lists:all(fun(E) -> expr_in(E, Info) end, Es).
-
-%% The record definition's fields with a default that the construction does not give.
-default_inits(Inits, Anno, Fields) ->
-    Given = [F || {record_field, _, {atom, _, F}, _} <- Inits],
-    [
-        {record_field, Af, {atom, Aa, F}, erl_parse:map_anno(fun(_) -> Anno end, Default)}
-     || {record_field, Af, {atom, Aa, F}, Default} <- Fields, not lists:member(F, Given)
-    ].
-
-map_fields_in([{Tag, _, K, V} | Fs], Info) when Tag =:= map_field_assoc; Tag =:= map_field_exact ->
-    expr_in(K, Info) andalso expr_in(V, Info) andalso map_fields_in(Fs, Info);
-map_fields_in([], _Info) ->
-    true;
-map_fields_in(_, _Info) ->
-    false.
-
-%% Arithmetic, boolean and comparison operators are allowed in guards; list and send operators are not.
-guard_op(Op, Arity) ->
-    try erl_internal:op_type(Op, Arity) of
-        Type -> Type =:= arith orelse Type =:= bool orelse Type =:= comp
-    catch
-        error:_ -> false
-    end.
+is_guard_expr(_) -> clause_builtin_placeholder.

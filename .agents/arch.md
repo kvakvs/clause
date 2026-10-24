@@ -342,4 +342,6 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   recursive-descent parser building OTP's abstract format and errors; `ms_transform` in Erlang over
   abstract forms; `erl_eval` an Erlang interpreter of the abstract format (interpreted funs as
   closures over OTP's env tuple, bit segments via `clause_erl_eval` C++ builtins, command checks in
-  `clause_erl_lint` until `erl_lint` lands).
+  `clause_erl_lint` until `erl_lint` lands). Clause-heavy front-end walks move to C++ builtins
+  (LIB34C): `erl_expand_records:module/2` and the guard tests (`front_end/expand_records.cpp`,
+  `guard_tests.cpp`, node helpers in `forms.hpp`).

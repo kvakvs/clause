@@ -15,7 +15,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "ets_update.erl": "bb60c08cf01f59c6900c48e35d8b6712038b7792d88db1bb8a6f6f5991e7a11f"

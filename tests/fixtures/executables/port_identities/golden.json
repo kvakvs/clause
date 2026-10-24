@@ -19,7 +19,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
   },
   "inputs": {
     "port_identities.erl": "b1613511a79d81aac7031f82b690a2f8bda8780ae3c3fae381f84968cfdc7e9d"

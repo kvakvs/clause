@@ -75,6 +75,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/front_end/erl_parse.cpp src/builtins/front_end/bit_types.cpp
     # Module erl_eval (plan 21 step LIB32).
     src/builtins/front_end/erl_eval.cpp
+    # C++ cores of the front-end modules (plan 21 step LIB34C).
+    src/builtins/front_end/expand_records.cpp src/builtins/front_end/guard_tests.cpp
     # The erlang gaps of plan 21 step LIB9A.
     src/builtins/erlang/checksums.cpp src/builtins/erlang/tuple_edits.cpp src/builtins/erlang/process_options.cpp
     src/builtins/erlang/system_flags.cpp src/builtins/erlang/packets.cpp src/builtins/erlang/packet_http.cpp

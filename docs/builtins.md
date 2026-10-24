@@ -504,8 +504,24 @@ builtins (`front_end/erl_eval.cpp`) handle bit syntax segments.
   `erlang:make_fun/3`.
 - `exprs/2`, `expr/2` and `check_command/2` check commands with
   `clause_erl_lint`, the expression checks of `erl_lint` until it is provided
-  ([differences](differences.md#erl_eval)).
+  ([differences](differences.md#erl_eval)); its `is_guard_test/1` and
+  `is_guard_expr/1` are builtins (`front_end/guard_tests.cpp`).
 - CTest `executables_erl_eval_exprs`.
+
+## Erl expand records
+
+`erl_expand_records:module/2` is a builtin (`front_end/expand_records.cpp`,
+plan 21 step LIB34C): the expansion walks forms in C++ instead of a large
+Erlang clause dispatch, so programs that call it compile no extra code.
+
+- OTP's traversal order (binary segments last to first, match right side
+  first) and `recN` numbering; `is_record/3` guard tests become patterns.
+- Filters of comprehensions are guard tests by `erl_lint`'s rules
+  (`front_end/guard_tests.cpp`, with the module's records and local or
+  imported functions).
+- Options `dialyzer`, `expand_inits`, `[no_]strict_record_tests`, also from
+  `-compile` attributes.
+- CTest `executables_erl_expand_records_forms`.
 
 ## Zlib module
 
