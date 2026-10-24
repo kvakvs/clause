@@ -6,9 +6,11 @@ programs need no OTP sources on `source_search_paths`. Native C++ runtime builti
 Erlang is used where a function takes funs, runs a process protocol or is glue. Undocumented and
 internal functions stay out unless a public function needs them (user direction 2026-10-17).
 
-IMPORTANT: Prefer compatibility with Erlang/OTP at all times, if something can be faster at the cost
-of compatibility, add that as a future task and we will create a new API that's for the end user to
-choose
+- IMPORTANT: Prefer compatibility with Erlang/OTP at all times, if something can be faster at the
+  cost of compatibility, add that as a future task and we will create a new API that's for the end
+  user to choose
+- IMPORTANT: When implementing erlang functions with many clauses like those generated from yrl,
+  they are very heavy on inference engine, consider making C++ versions of those instead.
 
 - When a step is done, remove it from this file and add a 1-2 line bullet with its commit hash and
   headline speedup to `00-finished.md` (Plan 21).R
@@ -27,11 +29,13 @@ choose
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
   `dict`, `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`, `filename`,
   `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`,
-  `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
-  `timer`, `unicode`, `uri_string`, `erl_eval`, `erl_error`, `erl_pp`, `erl_expand_records`, `proc_lib`, `sys`, `gen_server`, `gen_statem`, `gen_event`,
-  `gen_fsm` (deprecated), `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`,
-  `logger_std_h`, `logger_filters`, `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`, `global_group`, `rpc`, `erpc`,
-  `net_adm`, `net_kernel` (distribution start declined), `auth`, `seq_trace` (tokens without tracing).
+  `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`, `timer`,
+  `unicode`, `uri_string`, `erl_eval`, `erl_error`, `erl_pp`, `erl_expand_records`, `proc_lib`,
+  `sys`, `gen_server`, `gen_statem`, `gen_event`, `gen_fsm` (deprecated), `supervisor`,
+  `supervisor_bridge`, `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`,
+  `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
+  `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
+  `seq_trace` (tokens without tracing).
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
   (51), `io` (11), `file` (18), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
@@ -129,7 +133,8 @@ LIB33 (readers built on the front end) is done (`00-finished.md`).
 
 - `epp` (18): C++ over Clause's preprocessor, giving forms and encodings.
 - `erl_pp` is done (`00-finished.md`).
-- `erl_expand_records` is done (`00-finished.md`); `clause_erl_lint:is_guard_test/3` serves its filters.
+- `erl_expand_records` is done (`00-finished.md`); `clause_erl_lint:is_guard_test/3` serves its
+  filters.
 - `erl_error` is done (`00-finished.md`).
 - `erl_lint` (5): `is_guard_test/1` and `format_error/1` first; `module/1,2,3` later, from Clause's
   semantic checks mapped to OTP's warning terms. `clause_erl_lint` (LIB32) already has
@@ -146,8 +151,7 @@ records), with OTP's error terms.
 
 ### LIB50. `file` remainder (C++ driver operations)
 
-- `pread/2,3`, `pwrite/2,3`, `truncate/1`, `advise/4`, `allocate/3`,
-  `write_file_info/2,3`.
+- `pread/2,3`, `pwrite/2,3`, `truncate/1`, `advise/4`, `allocate/3`, `write_file_info/2,3`.
 - `change_mode/2`, `change_owner/2,3`, `change_group/2`, `change_time/2,3`, `sendfile/2,5`,
   `format_error/1` (with the `{Line, file, ...}` terms of `eval/1,2` and `script/1,2`).
 
@@ -237,8 +241,9 @@ records), with OTP's error terms.
 ### LIB73. `qlc`
 
 Dependencies first (user direction 2026-10-19), in this order: LIB30 `erl_scan` (done), LIB31
-`erl_parse` (done), LIB54A `file_sorter`, LIB32 `erl_eval` (done), LIB34A (`erl_pp`, `erl_expand_records`,
-`erl_lint`'s checks for `qlc_pt`). See [the qlc chain](#qlc-chain-user-direction-2026-10-19).
+`erl_parse` (done), LIB54A `file_sorter`, LIB32 `erl_eval` (done), LIB34A (`erl_pp`,
+`erl_expand_records`, `erl_lint`'s checks for `qlc_pt`). See
+[the qlc chain](#qlc-chain-user-direction-2026-10-19).
 
 - `qlc` (26): Erlang query handles and evaluation over `ets`, `dets` and lists. Compiled queries
   come from the host's `qlc_pt` (`qlc.hrl` names `{parse_transform, qlc}`, D03), so Clause's
@@ -248,8 +253,8 @@ Dependencies first (user direction 2026-10-19), in this order: LIB30 `erl_scan` 
   `match_specs` and join answers, and `CodeF`'s `term_to_binary` abstract code for `info/1,2`.
 - Lookup and match-spec use of `table/2` callbacks, merge and lookup joins, `cache` (`ets`, `list`),
   `unique`, `sort`/`keysort` through `file_sorter` above `max_list_size` with `tmpdir` and
-  `tmpdir_usage` (its message levels go through `error_logger`),
-  cursors as processes, OTP's error terms and `format_error/1`.
+  `tmpdir_usage` (its message levels go through `error_logger`), cursors as processes, OTP's error
+  terms and `format_error/1`.
 - `info/1,2`: OTP's abstract code printed by `erl_pp:expr/3`, table descriptions parsed with
   `erl_scan` and `erl_eval:extended_parse_exprs/1`, `erl_eval:fun_data/1` for interpreted funs.
 - `string_to_handle/1,2,3`: `erl_scan:string/3`, `erl_eval` and a Clause `qlc_pt` (internal module,
@@ -284,8 +289,8 @@ probe for them keep working.
 ### qlc chain (user direction 2026-10-19)
 
 Runs now, before the list below: LIB30 `erl_scan` (done), LIB31 `erl_parse` (done), LIB54A
-`file_sorter` (its `term` format reads with `io:read/2`, done in LIB33),
-LIB32 `erl_eval` (done, with every undocumented export), LIB34A, then LIB73 `qlc` with LIB12C. Each is its own commit. The
+`file_sorter` (its `term` format reads with `io:read/2`, done in LIB33), LIB32 `erl_eval` (done,
+with every undocumented export), LIB34A, then LIB73 `qlc` with LIB12C. Each is its own commit. The
 runtime cannot link the compiler's `clause_frontend` (a separate, LLVM-free build; the compiler
 lexer throws Clause diagnostics and has no `erl_scan` continuations), so `erl_scan` and `erl_parse`
 get their own C++ scanner and parser in `runtime/src/builtins/front_end/`, written to OTP's
