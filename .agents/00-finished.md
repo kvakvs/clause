@@ -907,7 +907,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   Gathering (profiled `inference churn` line): W5a 936 → 255 ms, W1 1162 → 297 ms. Inference (3 runs, profiled):
   W5a 4.93 → 4.22 s (0.857), W1 5.56 → 4.73 s (0.850).
 
-- **OPTC.B part 2** (pending) allocation-free joins. Joins by member count on W5a (after the depth budget): 7.83M of
+- **OPTC.B part 2** (93bdc6ca) allocation-free joins. Joins by member count on W5a (after the depth budget): 7.83M of
   two, 1.14M of one (98% repeated), 158K of none, 112K of more; the memo served only joins of two, so joins of one
   were most of `fact_of`'s work. Now the graph also keeps joins of one (`Graph::Operation::join_one`), a join of none
   is `none()` without gathering, the answer table holds a key and its answer in one 16-byte slot (32-bit result index
