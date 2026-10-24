@@ -852,6 +852,17 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   Reproduces W5r's cost (group 1.0 s Release, ≈1M joins per pass, one costly give-up); counters are
   identical in Debug and Release, with or without `--print-types`.
 
+- **B.5** (pending) W5a re-profile at 0beec0a8, no code change (`build/prof-compiler`, VSDiagnostics
+  with `clau` pinned to P-cores, raw stacks from `xperf -a dumper`, each sample attributed to its
+  innermost category frame). Pinned inference 11.85 s (spread 1.3%), 78% of 57 200 samples; print
+  types 6%, parse and preprocess 6%, the rest of analysis 7%. Inside inference: lattice ops 41%
+  (`fact_of` union assembly 14%, `Gather::add` 5%, `Lattice::join` 4%, `~Families` 2%,
+  `family_rank` 2%; a third is allocation: `std::vector<Id>` growth and `std::set<std::string>` atom
+  names), body walk 28% (`walk` 4%, `Module::expression` 3%), walk containers 12% (scope `restore`
+  copying `std::map<BindingId, Fact>` 6%, `BindingFacts` 5%, `set_aside`/`put_back` 1%), interning
+  10% (`Node::operator==` 4%, `NodeHash` 3%, `Graph::intern` 2%), `gather_all` 6% (rebuilds all
+  call arguments every pass), pass driver 2%. Plan 22 reordered: OPTC.B, D, C, new OPTC.F.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions

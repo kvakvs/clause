@@ -70,7 +70,10 @@ correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation
   `target_compile_options(clause_semantic PRIVATE -mllvm -align-all-functions=6)`); counters in
   `Graph::intern` (~40M calls per W5a pass) are layout-costly, keep them temporary.
 - Sampling profile: compiler-only `build/prof-compiler` (`/O2 /Z7`, `/DEBUG /OPT:REF`), memory
-  `profiling-recipe.md`; the collector keeps only the first 25-30 s of a run.
+  `profiling-recipe.md`; the collector keeps only the first 25-30 s of a run, so pin `clau` to
+  P-cores after launch (unpinned W5a takes 25 s). Butterfly inclusives double-count recursion
+  (`join` ↔ `fact_of`) and `/OPT:ICF` folds identical map code under one name: attribute raw
+  stacks (`xperf -a dumper`) instead, each sample to its innermost category frame.
 - **Guards.** Pure performance steps: `--print-types` byte-identical on W5a, W1, W3, W6 (references
   in the scratchpad). Convergence steps: diff against the reference and count signatures returning
   `_` and facts newly `_` per module (a text heuristic counting `_` misreads `number()` →
@@ -80,32 +83,45 @@ correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation
 ## Steps, in suggested order
 
 1. **B.0 owned fixture:** done (`inference_walkers`); lower its budgets when a step cuts them.
-2. **Re-profile W5a** (sampling) at the current HEAD and rank OPTC.* by measured share.
+2. **B.5 re-profile W5a:** done. Shares of inference (78% of `clau`'s samples, 11.85 s pinned):
+   lattice ops 41% (OPTC.B), body walk itself 28% (no OPTC), walk containers 12% (OPTC.D), interning
+   10% (OPTC.C), input gathering 6% (OPTC.F), pass driver 2%. Order below follows it.
 3. **INS.2 rest:** joins are counted (`Graph::joins`); add `widen`, `meet`, `within`, `subtract`,
    `truncate`/`nesting` and repeated `(op, left, right)` pairs per pass (the bound on a memo's hit
    rate), one `[time] inference lattice ...` line. **INS.3:** joins and nodes created per
    component in `InferenceProfile::Cost`, an `inference costliest` list by time per work step.
-4. **OPTC.B Lattice memo** if INS.2 shows repeated pairs: a per-graph cache for 2-member `join`,
-   `meet`, `within`, `truncate` keyed by Ids (the graph is append-only); watch memory against the
-   1M-node limit.
-5. **OPTC.C rest, interning:** compact nodes (atoms and integers as ids or small values, not
-   `std::string`), `intern(Node&&)`, `truncate` by reference unless it changes the node.
-6. **INS.6 + OPTC.D walk containers:** count `Inference::expressions` inserts/erases, `BindingFacts`
-   built, `Snapshot` comparisons; then replace pointer-keyed `std::map`s on per-walk paths with
-   vectors indexed by `ExprId`/`BindingId` or hash maps (check `--print-types` order).
-7. **INS.4 + OPTC.E outliers:** count `reanalyse` calls (limit hits, work) and `instantiate` calls
+4. **OPTC.B lattice ops (41%)**, two parts. Allocation-free joins regardless of INS.2: `fact_of`
+   (14%: union assembly, `without_subsumed`'s pairwise `within`, vectors growing one Id at a time,
+   `std::set<std::string>` atom names built per join), `Gather::add` 5%, `~Families` 2%; allocation
+   is a third of the bucket. Then a memo if INS.2 shows repeated pairs: a per-graph cache for
+   2-member `join`, `meet`, `within`, `truncate` keyed by Ids (the graph is append-only); watch
+   memory against the 1M-node limit.
+5. **OPTC.D walk containers (12%):** `restore` in `inference_scopes.cpp` copies the whole
+   `std::map<BindingId, Fact>` back at every scope step (6%, plus the copy pushed when the scope
+   begins): an undo log or a persistent map. `BindingFacts` built/published/read 5%,
+   `set_aside`/`put_back` 1%. INS.6 counts first if the shape is unclear; replace pointer-keyed
+   `std::map`s on per-walk paths with vectors indexed by `ExprId`/`BindingId` or hash maps (check
+   `--print-types` order).
+6. **OPTC.C rest, interning (10%):** `Node::operator==` 4% (string compares), `NodeHash` 3%,
+   `Graph::intern` 2%: compact nodes (atoms and integers as ids or small values, not
+   `std::string`, which also serves OPTC.B's atom sets), `intern(Node&&)`, `truncate` by reference
+   unless it changes the node.
+7. **OPTC.F input gathering (6%):** `gather_all` rebuilds every call site's argument map in all 50
+   passes, while late passes skip ~8 900 of 8 911 components: gather only from callers walked
+   again (their arguments are kept), as CONV.2 does for walks.
+8. **INS.4 + OPTC.E outliers:** count `reanalyse` calls (limit hits, work) and `instantiate` calls
    per component; then `yystate` (W5b) and re-analysis fan-out.
-8. **CONV.5 harder fact caps on recursive results:** deprioritized (INS.5: facts are small, mean
+9. **CONV.5 harder fact caps on recursive results:** deprioritized (INS.5: facts are small, mean
    tree size 4; the cost is interning and constant work per join).
-9. **LLVM.2 rest of W2** (after LLVM.1, W2 compile 57.8 s: inference 13.2, lower 10.9, optimize
+10. **LLVM.2 rest of W2** (after LLVM.1, W2 compile 57.8 s: inference 13.2, lower 10.9, optimize
    11.1, emit 19.7 s on 32 threads): emission is bound by `core_parse` alone (≈ 14 s of one
    thread); emit each module right after its optimization in the same job (≈ 10 s), destroy the
    moved-out modules off the main thread, and split very large modules (`llvm::SplitModule`):
    liveness keeps `core_parse`, `erl_lint`, `v3_core` and `qlc` whole (LIV.1). `lower` (10.9 s) is
    serial.
-10. **Side findings, whenever convenient:**
+11. **Side findings, whenever convenient:**
     - **BUG.1:** `clau` (Release, ab635294) exited 0xC0000005 once in ~100 W5r runs. Suspect a
       `const Node &` from `Graph::get` held across `Graph::intern`; loop a Debug or ASan `clau`
       over W5r and review such uses.
-11. **Later:** parallel inference of independent components at one call-graph level (thread-local
-    or sharded graphs), only after OPTC.B-D.
+12. **Later:** parallel inference of independent components at one call-graph level (thread-local
+    or sharded graphs), only after OPTC.B-D and F.
