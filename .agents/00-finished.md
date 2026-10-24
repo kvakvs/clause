@@ -724,7 +724,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   characters-limit options; `erl_error_formats` golden over synthetic stack traces — `04a5844e`
 - **LIB34 part 2** `erl_pp`: OTP's layout algorithm (items, then a layout pass) in Clause's own
   code; options, hooks, `legalize_vars/1`; `erl_pp_forms` golden, and a scratch comparison over the
-  forms of 357 OTP sources found no differences
+  forms of 357 OTP sources found no differences — `a8d88410`
 
 ## Plan 22 (from 2026-10-23)
 
