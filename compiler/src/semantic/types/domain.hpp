@@ -83,19 +83,25 @@ struct Limits {
 // in an open-addressed table (key 0 marks a free slot). Added for memoized lattice operations (OPTC.B).
 class Answers {
   public:
+    // The result's node index and the joins its computation ran nested (changed to 32 bits each, so a key and its
+    // answer share one 16-byte slot, for allocation-free joins, OPTC.B part 2).
     struct Answer {
-        Id result;
-        std::size_t joins = 0;
+        std::uint32_t result;
+        std::uint32_t joins;
     };
 
     const Answer *find(std::uint64_t key) const;
     void keep(std::uint64_t key, Answer answer);
 
   private:
+    struct Slot {
+        std::uint64_t key;
+        Answer answer;
+    };
+
     void grow();
 
-    std::vector<std::uint64_t> keys_;
-    std::vector<Answer> answers_;
+    std::vector<Slot> slots_;
     std::size_t filled_ = 0;
 };
 
@@ -142,8 +148,9 @@ class Graph {
 
     void count_join() { ++joins_; }
 
-    // The lattice operations whose answers the graph keeps. Added for memoized lattice operations (OPTC.B).
-    enum class Operation : std::uint8_t { join = 1, meet, within };
+    // The lattice operations whose answers the graph keeps: a join of one member (added for allocation-free joins,
+    // OPTC.B part 2) or two, meet and within. Added for memoized lattice operations (OPTC.B).
+    enum class Operation : std::uint8_t { join_one, join, meet, within };
 
     // The answer of `operation` on `left` and `right` `depth` containers deep, from `compute` the first time: nodes
     // never change, so it holds for the graph's life. An answer counts the joins it ran again; one computed while a
@@ -155,13 +162,13 @@ class Graph {
         }
         if (const auto *known = answers_.find(key)) {
             joins_ += known->joins;
-            return known->result;
+            return {owner_, known->result};
         }
         const auto joins = joins_;
         const auto widenings = widenings_;
         const auto result = compute();
-        if (widenings_ == widenings) {
-            answers_.keep(key, {result, joins_ - joins});
+        if (widenings_ == widenings && result.index <= UINT32_MAX && joins_ - joins <= UINT32_MAX) {
+            answers_.keep(key, {static_cast<std::uint32_t>(result.index), static_cast<std::uint32_t>(joins_ - joins)});
         }
         return result;
     }

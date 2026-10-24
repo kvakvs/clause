@@ -907,6 +907,17 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   Gathering (profiled `inference churn` line): W5a 936 → 255 ms, W1 1162 → 297 ms. Inference (3 runs, profiled):
   W5a 4.93 → 4.22 s (0.857), W1 5.56 → 4.73 s (0.850).
 
+- **OPTC.B part 2** (pending) allocation-free joins. Joins by member count on W5a (after the depth budget): 7.83M of
+  two, 1.14M of one (98% repeated), 158K of none, 112K of more; the memo served only joins of two, so joins of one
+  were most of `fact_of`'s work. Now the graph also keeps joins of one (`Graph::Operation::join_one`), a join of none
+  is `none()` without gathering, the answer table holds a key and its answer in one 16-byte slot (32-bit result index
+  and nested joins; was two arrays of 8 and 24 bytes), and `without_subsumed` keeps members with fewer than two exact
+  tuples without its pairwise `within`. `--print-types` and pass counters identical on W5r, W6, W5a, W1, W3.
+  Inference (3 runs, profiled, both builds function-aligned): W5a 4.21 → 3.93 s (0.934), W1 4.76 → 4.48 s (0.943).
+  Pinned W5a profile: inference samples −8.4%, lattice ops 16% → 12% of inference (`fact_of` 3.7% → 1.2%,
+  `Answers::find` 2.1% → 2.7% with more lookups). Not done: `Families`' `std::set<std::string>` names (≤ 1%, left
+  to OPTC.C's compact nodes) and memoizing joins of more than two (112K calls).
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions

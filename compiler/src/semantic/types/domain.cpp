@@ -22,8 +22,8 @@ void append_member(std::vector<Id> &flat, const Id member, const Node &node) {
     }
 }
 
-// An answer key packs the operation into 2 bits, the depth into 4 and each operand's index into 29. Added for
-// memoized lattice operations (OPTC.B).
+// An answer key packs the operation into 2 bits, the depth into 4 and each operand's index into 29; only a join of
+// term() alone packs to 0, the free slot, and is computed each time. Added for memoized lattice operations (OPTC.B).
 constexpr unsigned ANSWER_OPERAND_BITS = 29;
 constexpr std::size_t ANSWER_OPERAND_LIMIT = std::size_t{1} << ANSWER_OPERAND_BITS;
 constexpr std::size_t ANSWER_DEPTH_LIMIT = 16;
@@ -43,14 +43,14 @@ Graph::Graph(const Limits limits) : owner_(next_owner.fetch_add(1)), limits_(lim
 }
 
 const Answers::Answer *Answers::find(const std::uint64_t key) const {
-    if (keys_.empty()) {
+    if (slots_.empty()) {
         return nullptr;
     }
-    for (auto slot = answer_slot(key, keys_.size());; slot = (slot + 1) & (keys_.size() - 1)) {
-        if (keys_[slot] == key) {
-            return &answers_[slot];
+    for (auto slot = answer_slot(key, slots_.size());; slot = (slot + 1) & (slots_.size() - 1)) {
+        if (slots_[slot].key == key) {
+            return &slots_[slot].answer;
         }
-        if (keys_[slot] == 0) {
+        if (slots_[slot].key == 0) {
             return nullptr;
         }
     }
@@ -58,26 +58,24 @@ const Answers::Answer *Answers::find(const std::uint64_t key) const {
 
 void Answers::keep(const std::uint64_t key, const Answer answer) {
     // Kept at most half full, so probes stay short.
-    if (2 * (filled_ + 1) > keys_.size()) {
+    if (2 * (filled_ + 1) > slots_.size()) {
         grow();
     }
-    auto slot = answer_slot(key, keys_.size());
-    while (keys_[slot] != 0 && keys_[slot] != key) {
-        slot = (slot + 1) & (keys_.size() - 1);
+    auto slot = answer_slot(key, slots_.size());
+    while (slots_[slot].key != 0 && slots_[slot].key != key) {
+        slot = (slot + 1) & (slots_.size() - 1);
     }
-    filled_ += keys_[slot] == 0 ? 1 : 0;
-    keys_[slot] = key;
-    answers_[slot] = answer;
+    filled_ += slots_[slot].key == 0 ? 1 : 0;
+    slots_[slot] = {key, answer};
 }
 
 void Answers::grow() {
-    const auto capacity = std::max(FIRST_ANSWERS, 2 * keys_.size());
-    auto keys = std::exchange(keys_, std::vector<std::uint64_t>(capacity));
-    auto answers = std::exchange(answers_, std::vector<Answer>(capacity));
+    const auto capacity = std::max(FIRST_ANSWERS, 2 * slots_.size());
+    auto slots = std::exchange(slots_, std::vector<Slot>(capacity, Slot{0, {0, 0}}));
     filled_ = 0;
-    for (std::size_t index = 0; index < keys.size(); ++index) {
-        if (keys[index] != 0) {
-            keep(keys[index], answers[index]);
+    for (const auto &slot : slots) {
+        if (slot.key != 0) {
+            keep(slot.key, slot.answer);
         }
     }
 }

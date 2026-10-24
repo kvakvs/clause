@@ -752,8 +752,13 @@ bool subsumed(Lattice &lattice, const std::vector<Id> &members, const std::size_
 }
 
 // A union's members without those another member holds, so one set of values has one union and rounds that reach
-// the same values stop changing (step 58S).
-std::vector<Id> without_subsumed(Lattice &lattice, const std::vector<Id> &members) {
+// the same values stop changing (step 58S). Members with fewer than two exact tuples stay as they are (changed for
+// allocation-free joins, OPTC.B part 2).
+std::vector<Id> without_subsumed(Lattice &lattice, std::vector<Id> members) {
+    const auto &graph = lattice.graph();
+    if (std::ranges::count_if(members, [&](const Id member) { return exact_tuple(graph, member); }) < 2) {
+        return members;
+    }
     std::vector<Id> kept;
     for (std::size_t index = 0; index < members.size(); ++index) {
         if (!subsumed(lattice, members, index)) {
@@ -976,12 +981,21 @@ Id Lattice::join(std::span<const Id> members, std::size_t depth) {
         return graph_.top();
     }
     // Joins of two facts repeat nearly always: the graph keeps their answers (changed for memoized lattice operations,
-    // OPTC.B).
-    if (members.size() == 2) {
+    // OPTC.B), and those of one fact too. Nothing joins to none(), interning the join constants as a join does
+    // (changed for allocation-free joins, OPTC.B part 2).
+    switch (members.size()) {
+    case 0:
+        (void)join_constants(*this);
+        return graph_.bottom();
+    case 1:
+        return graph_.answer(Graph::Operation::join_one, members[0], members[0], depth,
+                             [&] { return join_members(*this, members, depth); });
+    case 2:
         return graph_.answer(Graph::Operation::join, members[0], members[1], depth,
                              [&] { return join_members(*this, members, depth); });
+    default:
+        return join_members(*this, members, depth);
     }
-    return join_members(*this, members, depth);
 }
 
 // Relaxes nested integer bounds too (changed for nested integer widening, CONV.0).
