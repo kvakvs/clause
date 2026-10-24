@@ -1117,6 +1117,8 @@ void profiled_component(Inference &inference, const CallGraph &calls, const std:
     const auto started = std::chrono::steady_clock::now();
     const auto before = work;
     const auto widenings = inference.graph.widenings();
+    const auto joins = inference.graph.joins();
+    const auto nodes = inference.graph.size();
     const auto trace = infer_component(inference, calls.components[index], work, recorded);
     auto &cost = inference.profile->costs_[index];
     const auto limit = inference.graph.limits().syntax_work;
@@ -1125,6 +1127,9 @@ void profiled_component(Inference &inference, const CallGraph &calls, const std:
     cost.work_ += work - before;
     ++cost.passes_;
     cost.widened_ = cost.widened_ || inference.graph.widenings() > widenings;
+    // Added for the per-component lattice costs (INS.3).
+    cost.joins_ += inference.graph.joins() - joins;
+    cost.nodes_ += inference.graph.size() - nodes;
     auto &pass = inference.profile->passes_.back();
     if (!pass.exhausted_at_ && before < limit && work >= limit) {
         pass.exhausted_at_ = &calls.components[index];

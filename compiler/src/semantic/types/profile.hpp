@@ -144,6 +144,10 @@ struct InferenceProfile {
         std::size_t work_ = 0;
         std::size_t passes_ = 0;
         bool widened_ = false;
+        // The lattice joins its walks ran and the graph nodes they created. Added for the per-component lattice
+        // costs of --print-stage-times (INS.3).
+        std::size_t joins_ = 0;
+        std::size_t nodes_ = 0;
 
         // Recursive components only: how their fixed-point rounds went. Added for the recursive-component
         // measurements of --print-stage-times.

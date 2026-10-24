@@ -221,7 +221,7 @@ set(phases "\\[time\\] index 2 modules${ms}\\[time\\] calls 2 modules${ms}\\[tim
     "\\[time\\] inference churn 2 modules: [0-9]+\\.[0-9][0-9][0-9] ms \\(slots by changes [^\n]+\\)\n"
     "(\\[time\\] inference churned [^\n]+\n)*(\\[time\\] inference clean-changed [^\n]+\n)*"
     "(\\[time\\] inference facts [^\n]+\n)*(\\[time\\] inference largest [^\n]+\n)*"
-    "(\\[time\\] inference slowest (first|second):module_info/[01]${note})(\\[time\\] inference (slowest|rounds) [^\n]+\n)*"
+    "(\\[time\\] inference slowest (first|second):module_info/[01]${note})(\\[time\\] inference (slowest|costliest|rounds) [^\n]+\n)*"
     "\\[time\\] contracts 2 modules${ms}\\[time\\] lower 2 modules${ms}\\[time\\] optimize 2 modules${ms}"
     "\\[time\\] emit 2 modules${ms}")
 string(CONCAT phases ${phases})

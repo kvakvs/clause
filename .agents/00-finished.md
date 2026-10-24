@@ -871,6 +871,12 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   nearly all: OPTC.B starts with it. Profiled inference +7% (two hash sets); uninstrumented W5r 1.004, W5a 1.019
   (min 1.006, spread 3%). `--print-types` identical on W5a, W1, W3, W6, W5r.
 
+- **INS.3** (pending) per-component lattice costs: `InferenceProfile::Cost` sums the lattice joins and graph nodes
+  of each component's walks (on `inference slowest`), and `inference costliest` lists the 10 components of at least
+  10 ms by time per work step. W5a: `ubody_used_vars` + 6 7.2M joins over 165K work steps (43.6 per step, 11 us per
+  step), `core_parse:yeccpars1` + 522 1.1M joins over 1.8M steps; W1's costliest `euler:run/0` 37 us per step (59
+  joins per step). Output identical on W5a, W1.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions

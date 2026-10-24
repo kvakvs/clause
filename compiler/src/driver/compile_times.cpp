@@ -17,6 +17,9 @@ using semantic::types::InferenceProfile;
 
 // How many of the costliest components are listed.
 constexpr std::size_t SLOWEST = 10;
+// The time a component needs to be listed by its cost per work step: shorter ones are noise. Added for the
+// per-component lattice costs (INS.3).
+constexpr double COSTLIEST_MILLISECONDS = 10.0;
 // How many of the costliest components show their largest fact. Added for the fact size measurements.
 constexpr std::size_t LARGEST = 3;
 
@@ -198,10 +201,38 @@ void print_slowest(const InferenceProfile &profile) {
     for (const auto *cost : std::span(costs).first(shown)) {
         const auto budget = cost->passes_ * profile.budget_;
         const auto share = budget == 0 ? 0.0 : 100.0 * static_cast<double>(cost->work_) / static_cast<double>(budget);
-        const auto note = std::format("{} work steps, {:.1f}% of {} {} of {} budget{}", cost->work_, share,
-                                      cost->passes_, cost->passes_ == 1 ? "pass" : "passes", profile.budget_,
-                                      cost->widened_ ? ", widened to term()" : "");
+        const auto note =
+            std::format("{} work steps, {:.1f}% of {} {} of {} budget{}, {} lattice joins, {} nodes "
+                        "created",
+                        cost->work_, share, cost->passes_, cost->passes_ == 1 ? "pass" : "passes", profile.budget_,
+                        cost->widened_ ? ", widened to term()" : "", cost->joins_, cost->nodes_);
         print_stage_time("inference slowest", component_name(*cost->component_), cost->elapsed_, note);
+    }
+}
+
+// The components of at least 10 ms that took longest per work step: where single steps are costly, such as
+// joins of large facts. Added for the per-component lattice costs of --print-stage-times (INS.3).
+void print_costliest(const InferenceProfile &profile) {
+    using Milliseconds = std::chrono::duration<double, std::milli>;
+    std::vector<const InferenceProfile::Cost *> costs;
+    for (const auto &cost : profile.costs_) {
+        if (cost.work_ != 0 && Milliseconds(cost.elapsed_).count() >= COSTLIEST_MILLISECONDS) {
+            costs.push_back(&cost);
+        }
+    }
+    const auto per_step = [](const InferenceProfile::Cost *cost) {
+        return Milliseconds(cost->elapsed_).count() / static_cast<double>(cost->work_);
+    };
+    const auto shown = std::min(SLOWEST, costs.size());
+    const auto costlier = [&](const auto *left, const auto *right) { return per_step(left) > per_step(right); };
+    std::ranges::partial_sort(costs, costs.begin() + static_cast<std::ptrdiff_t>(shown), costlier);
+    for (const auto *cost : std::span(costs).first(shown)) {
+        const auto note =
+            std::format("{:.2f} us per work step, {} work steps, {} lattice joins ({:.1f} per work "
+                        "step), {} nodes created",
+                        1000.0 * per_step(cost), cost->work_, cost->joins_,
+                        static_cast<double>(cost->joins_) / static_cast<double>(cost->work_), cost->nodes_);
+        print_stage_time("inference costliest", component_name(*cost->component_), cost->elapsed_, note);
     }
 }
 
@@ -290,6 +321,7 @@ void print_compile_phases(const Analysis &analysis, const std::string_view subje
             print_clean_changed(analysis.profile);
             print_fact_sizes(analysis, subject);
             print_slowest(analysis.profile);
+            print_costliest(analysis.profile);
             print_recursive(analysis.profile);
         }
     }

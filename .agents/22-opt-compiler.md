@@ -86,9 +86,8 @@ correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation
 2. **B.5 re-profile W5a:** done. Shares of inference (78% of `clau`'s samples, 11.85 s pinned):
    lattice ops 41% (OPTC.B), body walk itself 28% (no OPTC), walk containers 12% (OPTC.D), interning
    10% (OPTC.C), input gathering 6% (OPTC.F), pass driver 2%. Order below follows it.
-3. **INS.2 rest:** done (99.7% of 2-member joins, meets and withins repeat an earlier call).
-   **INS.3:** joins and nodes created per
-   component in `InferenceProfile::Cost`, an `inference costliest` list by time per work step.
+3. **INS.2 rest, INS.3:** done (99.7% of 2-member joins, meets and withins repeat an earlier call;
+   joins per component and `inference costliest`).
 4. **OPTC.B lattice ops (41%)**, two parts. Allocation-free joins regardless of INS.2: `fact_of`
    (14%: union assembly, `without_subsumed`'s pairwise `within`, vectors growing one Id at a time,
    `std::set<std::string>` atom names built per join), `Gather::add` 5%, `~Families` 2%; allocation
