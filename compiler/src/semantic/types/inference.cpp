@@ -1023,8 +1023,9 @@ void note_costly(Inference &inference, const std::size_t joins) {
 }
 
 // Passes over the batch before local inputs and fun references are given up as unknown: inputs climb their widening
-// ladder (inference_inputs) and usually settle earlier (changed for the input widening ladder, CONV.1).
-constexpr std::size_t PASSES = JOIN_ROUNDS + 2 * WIDENING_PASSES;
+// ladder (inference_inputs) and settle earlier, so this is a safety limit (changed for removing the fixed pass count,
+// CONV.6: the luerl and compiler batches settle in pass 50).
+constexpr std::size_t PASSES = 64;
 
 // Whether a build cache kept the results of every member: the component keeps them. Added for the inference cache
 // (58W).

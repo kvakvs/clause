@@ -220,7 +220,7 @@ Inference is separate from declared types and never trusts specs.
   climbs a ladder by how often it changed: its first 4 changes join, the next 2
   widen like recursive results, the next 2 also cut containers inside a
   container to `term()`, and a further change gives `term()` (reported as
-  widened). Inputs that have not settled after 16 passes become `term()`
+  widened). Inputs that have not settled after 63 passes become `term()`
   (reported as widened). A recursive component is costly once one solve spends
   more than 2^17 lattice joins (nested ones counted) and more than 1/16 of the
   most joins one pass spent so far; when its members' inputs change again, they

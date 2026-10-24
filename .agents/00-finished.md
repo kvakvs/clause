@@ -796,6 +796,12 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   identical on W5a, W1, W3, W6 (W5r: 9 lines wider, 1.065 slower); inference W5a 13.8 → 11.3 s,
   W1 16.1 → 13.4 s.
 
+- **CONV.6** pass limit 17 → 64, a safety limit: W5a, W1 and W3 settle in pass 50, W6 in 24, W5r
+  in 11. Signatures returning `_`: W5a 2355 → 2148, W1/W3 2479 → 2288, W6 26 → 17; 10 W5a/W1
+  signatures newly `-> _` are clause sets that lost unreachable clauses. Inference vs CONV.4 (3
+  runs): W5a 11.4 → 12.9 s (1.136), W1 13.4 → 14.5 s (1.087), both below CONV.3. W2 (luerl euler
+  `-O2`): build 234 → 230 s, run 660 → 644 ms, same output. `parsers.erl` today lines re-recorded.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions
