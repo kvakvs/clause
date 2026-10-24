@@ -817,7 +817,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   (real input churn) 9.4 s. Tried and not kept: replayed members keeping their summary instead of
   refreshing it (cuts round-0 cascades): W5a 11.87 → 11.73 s, 102 lines of `--print-types` differ.
 
-- **LLVM.1** parallel code generation (`codegen/parallel`, `--jobs <n>`, default every hardware
+- **LLVM.1** (15181ec9) parallel code generation (`codegen/parallel`, `--jobs <n>`, default every hardware
   thread). W2 profile (serial, 175 modules): optimize 67 s, emit 113 s, IR verification 5 times
   over the batch 14.7 s; the largest module (`core_parse`) only 12%. For object output each worker
   writes a module's bitcode (use lists kept: without them one luerl object differed) under a lock on
