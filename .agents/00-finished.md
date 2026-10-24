@@ -733,7 +733,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   decoded by coding comment through `clause_epp`, shared with `file:consult/1`), `erl_features`'
   parse state; `file` servers monitor their opener instead of linking (no `EXIT` on close, as OTP);
   `epp_files` golden, and a scratch comparison over 1,110 epp calls on OTP sources and suites found
-  no differences
+  no differences — `4a3e5b7b`
 
 ## Plan 22 (from 2026-10-23)
 
