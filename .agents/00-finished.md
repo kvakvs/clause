@@ -693,6 +693,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   timers as processes reached through an alias in the `TRef`, conversions in C++
   (`builtins/timer.cpp`); `erlang:apply/2,3` builtins for dynamic calls; `timers` golden —
   `b0562967`
+- **LIB25** `pg`/`data_publisher`, `global`, `global_group`, `rpc`/`erpc` on one node (other nodes down),
+  `net_adm`/`net_kernel`/`auth` non-alive answers, `seq_trace` per-process tokens; behaviours call `global`
+  literally; `process_groups`, `rpcs` goldens — `9ae39f56`
 - **LIB24** `application`, `application_controller` (lazy controller, OTP's `ac_tab`, errors, reports,
   restart types, permanent ends halt) and `clause_application_master`; clau compiles `.app`/`.app.src`
   resources into a generated `clause_applications`; kernel/stdlib virtual and running; `applications`
