@@ -19,6 +19,16 @@
 {socket_registry, erts, missing, "bookkeeping of the socket NIF, which Clause does not provide"}.
 {application, kernel, provided}.
 {application_controller, kernel, provided}.
+{data_publisher, kernel, provided}.
+{pg, kernel, provided}.
+{global, kernel, provided}.
+{global_group, kernel, provided}.
+{rpc, kernel, provided}.
+{erpc, kernel, provided}.
+{net_adm, kernel, provided}.
+{net_kernel, kernel, provided}.
+{auth, kernel, provided}.
+{seq_trace, kernel, provided}.
 {net, kernel, missing, "socket NIF queries; Clause's inet answers host names and addresses"}.
 {socket, kernel, missing, "socket NIF API; Clause's gen_tcp, gen_udp and inet replace it"}.
 {code, kernel, provided}.

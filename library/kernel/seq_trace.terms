@@ -1,0 +1,11 @@
+%% OTP 29 seq_trace exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{get_system_tracer, 0, default, implemented}.
+{get_token, 0, default, implemented}.
+{get_token, 1, default, implemented}.
+{print, 1, default, implemented}.
+{print, 2, default, implemented}.
+{reset_trace, 0, default, implemented}.
+{set_system_tracer, 1, default, implemented}.
+{set_token, 1, default, implemented}.
+{set_token, 2, default, implemented}.

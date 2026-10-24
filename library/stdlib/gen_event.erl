@@ -193,7 +193,7 @@ request(Manager, Command) ->
     Reply.
 
 send({global, Name}, Command) ->
-    catch (global_registry()):send(Name, Command),
+    catch global:send(Name, Command),
     ok;
 send({via, Module, Name}, Command) ->
     catch Module:send(Name, Command),
@@ -201,9 +201,6 @@ send({via, Module, Name}, Command) ->
 send(Manager, Command) ->
     Manager ! Command,
     ok.
-
-%% Created for LIB21: global until LIB25, reached by a runtime name (gen.erl does the same).
-global_registry() -> global.
 
 send_request(Manager, Handler, Request) ->
     badarg_as([Manager, Handler, Request], fun() ->

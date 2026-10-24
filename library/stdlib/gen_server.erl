@@ -201,7 +201,7 @@ badarg_as(Args, Fun) ->
     end.
 
 cast({global, Name}, Request) ->
-    catch (global_registry()):send(Name, {'$gen_cast', Request}),
+    catch global:send(Name, {'$gen_cast', Request}),
     ok;
 cast({via, Module, Name}, Request) ->
     catch Module:send(Name, {'$gen_cast', Request}),
@@ -210,9 +210,6 @@ cast({Name, Node} = Dest, Request) when is_atom(Name), is_atom(Node) ->
     send(Dest, {'$gen_cast', Request});
 cast(Dest, Request) when is_atom(Dest); is_pid(Dest) ->
     send(Dest, {'$gen_cast', Request}).
-
-%% Created for LIB21: global until LIB25, reached by a runtime name (gen.erl does the same).
-global_registry() -> global.
 
 %% A send that ignores a missing name or node.
 send(Dest, Msg) ->

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "process_groups",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "(?s)global: <[0-9.]+> registered under several names: \\[gamma,beta\\]",
+      "exit_status": 0,
+      "stdout": "no_scope: [{exit,{noproc,{gen_server,call,\n                                     [pg,{update,[{group,[],[]}]},infinity]}}},\n           [],\n           {error,badarg}]\ndefault: [true,true,[]]\nstart_again: [error,error]\nscope: [true,other_scope]\njoin: [ok,ok,ok,ok]\nmembers: [[2,2,3,4],[2],[]]\nlocal: [[2,2,3,4],[g1,g2]]\nlocal_groups: [g1,g2]\nleave: [ok,[2,3,4],not_joined,ok]\nafter_leave: [[4],[2]]\njoin_errors: [{error,function_clause},\n              {error,{nolocal,x}},\n              {error,function_clause}]\nother_scope: [ok,[1]]\nscopes_apart: [[4],[g1],[1]]\nended_member: [[],[g2]]\ngroup_gone: [[],[]]\nall_gone: []\nother_empty: []\nscope_view: #{watched => [2]}\ngroup_view: [2]\nscope_events: [{join,watched,[3]},\n               {join,elsewhere,[3]},\n               {leave,watched,[2]},\n               {leave,elsewhere,[3]},\n               {leave,watched,[3]}]\ngroup_events: [{join,watched,[3]},{leave,watched,[2]},{leave,watched,[3]}]\ndemonitor: [ok,ok]\nafter_demonitor: []\nother_monitor: [ok,true]\nempty: [[],undefined,ok]\nregister: [yes,no,true]\nsend: [true,{exit,{badarg,{nobody,hello}}}]\nre_register: [yes,true]\nsecond_name: [yes,no,[alpha,beta]]\nunregister: [ok,[beta]]\nended: [undefined,[]]\nsync: [ok,[]]\nresolvers: [none,false]\nexternal: [yes,true,ok]\nglobal_server: [true,1]\ncast: 2\nagain: error\nmissing: [{exit,{noproc,{gen_server,call,[{global,nobody},get]}}},ok]\nstopped: undefined\nset_lock: [true,true,true]\nheld_elsewhere: false\ndel_lock: [true,true]\nfree_again: [true,true]\nno_nodes: [true,true]\ntrans: [inside,inner,retried,{error,failed},true]\naborted: aborted\nreleased_by_exit: now\nglobal_group: [undefined,true,ok,ok,ok]\ninfo: [{state,no_conf},\n       {own_group_name,[]},\n       {own_group_nodes,[]},\n       {synced_nodes,[]},\n       {sync_error,[]},\n       {no_contact,[]},\n       {other_groups,[]},\n       {monitoring,[]}]\ngroup_names: [[grouped],[],[]]\ngroup_where: [true,false,undefined,undefined]\ngroup_send: [true,{badarg,{nobody,hi}},{badarg,{grouped,hi}}]\nprocess_groups: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "process_groups.erl": "4e26389b91f9ec15be784cccfadcd8ae999050dad0726074dd4c4c61b8785fb0"
+  }
+}

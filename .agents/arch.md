@@ -311,8 +311,7 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - Behaviours (all Erlang): `proc_lib` (ancestors, initial calls, sync starts, crash reports), `sys`
   (system messages, OTP's debug list shapes), `gen` (starts, calls with alias tags, request ids),
   `gen_server`, `gen_statem` (transition step record, time-out zero queue), `gen_event`, `gen_fsm`,
-  `supervisor`, `supervisor_bridge`; their reports are `?LOG_*` events; `{global, _}` names reach
-  `global` by a runtime name until LIB25.
+  `supervisor`, `supervisor_bridge`; their reports are `?LOG_*` events.
 - Logging (Erlang): `logger` API over the `clause_logger` server (gen_server `logger` started at the
   first use; ETS `logger` for configs, persistent terms for levels), `logger_formatter`,
   `logger_std_h` (one synchronous process per handler: devices, files, rotation), `logger_filters`,
@@ -324,6 +323,11 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `clause_application_master` (group leader per application, start/phases/stop). Specs: clau's
   `driver/app_resources` generates `clause_applications` (specs/0, library_modules/1) from `.app`/`.app.src`
   files when the batch has application_controller; kernel/stdlib virtual and running.
+- Local-node kernel services (Erlang): `pg` over `data_publisher` (scope gen_server, ETS per scope, no peers),
+  `global` (lazy `global_name_server`, OTP's ETS names/locks), `global_group` (no groups), `erpc` (spawn_request
+  locally; other nodes get a simulated `noconnection` reply), `rpc` over erpc with lazy `rex`, `net_adm`/
+  `net_kernel`/`auth` non-alive answers, `seq_trace` tokens in the process dictionary. Behaviours call `global`
+  literally for `{global, Name}`.
 - Collections in C++ (`builtins/collections/`): `lists`, `maps`, `ordsets`, `orddict`, `proplists`,
   `dict`, `sets`, `gb_trees`, `gb_sets`, `queue`, `array`, `sofs`; fun-taking functions stay Erlang.
 - ETS-based: `ets` builtins (`builtins/ets/`: tables, reads, writes, select and match families,

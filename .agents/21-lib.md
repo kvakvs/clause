@@ -21,7 +21,7 @@ choose
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  1,111 are still to do (erts 23, kernel 410, stdlib 678). Appendix A lists them per module.
+  954 are still to do (erts 23, kernel 253, stdlib 678). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
@@ -30,12 +30,13 @@ choose
   `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
   `timer`, `unicode`, `uri_string`, `proc_lib`, `sys`, `gen_server`, `gen_statem`, `gen_event`,
   `gen_fsm` (deprecated), `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`,
-  `logger_std_h`, `logger_filters`, `error_logger`, `log_mf_h`, `error_handler`, `application`.
+  `logger_std_h`, `logger_filters`, `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`, `global_group`, `rpc`, `erpc`,
+  `net_adm`, `net_kernel` (distribution start declined), `auth`, `seq_trace` (tokens without tracing).
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
   (51), `io` (31), `file` (28), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
-- **Missing:** 45 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
-  ones (`pg`, `rpc`, ...) only by compiling OTP's sources from a search path.
+- **Missing:** 35 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
+  ones (`filelib`, `disk_log`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -116,21 +117,7 @@ remainders follow.
 
 ## Tier C: processes and behaviours (Erlang)
 
-### LIB25. Local-node kernel services
-
-- Real services, in Erlang:
-  - `pg` (30), with local scopes, monitors and subscriptions.
-  - `global` (21), with names, locks and `trans/2,3,4` on the local node, as on an OTP node that is
-    not distributed. `gen`, `gen_server`, `gen_statem`, `gen_event` and `gen_fsm` reach `global`
-    through `global_registry()` (a runtime name, so programs without `global` build): make those
-    literal calls when it lands.
-  - `global_group` (10): no groups.
-  - `rpc` (25) and `erpc` (27): calls to `node()` run locally; other nodes get OTP's non-distributed
-    results.
-  - `data_publisher` (12, new in OTP 29).
-- Non-distributed answers: `net_adm` (10: `localhost/0`, `ping/1` gives `pang`, ...), `net_kernel`
-  (13: `get_state/0`, `monitor_nodes/1,2`; `start/2` gives OTP's error without epmd), `auth`
-  (deprecated) and `seq_trace` (9: token storage per process; tracer output with LIB71).
+Done: LIB20–LIB25 (`00-finished.md`); `logger_disk_log_h` waits for LIB52.
 
 ## Tier D: Erlang front end as library modules
 
@@ -317,10 +304,9 @@ Ranked by what real programs need first and by dependencies:
 
 1. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
 2. LIB30–LIB34 (the front end, `consult`, `io:read`).
-3. LIB25 (local-node services).
-4. LIB51–LIB55 (files, logs, archives), then LIB12C.
-5. LIB70, LIB62 and LIB63.
-6. LIB71–LIB74, then the declined modules' answer stubs.
+3. LIB51–LIB55 (files, logs, archives), then LIB12C.
+4. LIB70, LIB62 and LIB63.
+5. LIB71–LIB74, then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 
@@ -333,7 +319,6 @@ separately and are optional.
   purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3, trace_delivered/1,
   trace_info/2, trace_pattern/2,3
 - `init` (erts, 3, 8 done): boot/1, restart/0,1
-- `auth` (kernel, 0): none; deprecated: cookie/0,1, is_auth/1, node_cookie/1,2
 - `code` (kernel, 51, 8 done): add_path/1,2, add_patha/1,2, add_paths/1,2, add_pathsa/1,2,
   add_pathsz/1,2, add_pathz/1,2, all_available/0, atomic_load/1, clash/0, clear_cache/0,
   compiler_dir/0, coverage_support/0, del_path/1, del_paths/1, delete/1, finish_loading/1,
@@ -342,8 +327,6 @@ separately and are optional.
   objfile_extension/0, prepare_loading/1, priv_dir/1, purge/1, replace_path/2,3, reset_coverage/1,
   root_dir/0, set_coverage_mode/1, set_path/1,2, soft_purge/1, stick_dir/1, unstick_dir/1,
   where_is_file/1; deprecated: lib_dir/2
-- `data_publisher` (kernel, 12; 11 callbacks): handle_call/3, handle_cast/2, handle_info/2, init/1,
-  start/2,3, start_link/2,3, subscribe/2, terminate/2, unsubscribe/2, update/2
 - `disk_log` (kernel, 34): all/0, alog/2, alog_terms/2, balog/2, balog_terms/2, bchunk/2,3,
   block/1,2, blog/2, blog_terms/2, breopen/3, btruncate/2, change_header/2, change_notify/3,
   change_size/2, chunk/2,3, chunk_info/1, chunk_step/3, close/1, format_error/1, info/1, log/2,
@@ -359,9 +342,6 @@ separately and are optional.
   toggle_instrumentations/1, unregister/2, whereis/0, xregs_count/1
 - `erl_epmd` (kernel, 8): address_please/3, listen_port_please/2, names/1, port_please/2,3,
   register_node/2,3, start_link/0
-- `erpc` (kernel, 27): call/2,3,4,5, cast/2,4, check_response/2,3, multicall/2,3,4,5, multicast/2,4,
-  receive_response/1,2,3, reqids_add/3, reqids_new/0, reqids_size/1, reqids_to_list/1,
-  send_request/2,4,6, wait_response/1,2,3
 - `file` (kernel, 28, 34 done): advise/4, allocate/3, change_group/2, change_mode/2,
   change_owner/2,3, change_time/2,3, consult/1, eval/1,2, format_error/1,
   path_consult/2, path_eval/2, path_open/3, path_script/2,3, pread/2,3, pwrite/2,3, script/1,2,
@@ -370,11 +350,6 @@ separately and are optional.
   controlling_process/2, eof/2, error_string/1, listen/2, open/0,1,2, peeloff/2, recv/1,2, send/3,4
 - `gen_tcp` (kernel, 1, 11 done): connect/2
 - `gen_udp` (kernel, 5, 7 done): connect/2,3, send/2,3,5
-- `global` (kernel, 21): del_lock/1,2, disconnect/0, notify_all_name/3, random_exit_name/3,
-  random_notify_name/3, re_register_name/2,3, register_name/2,3, registered_names/0, send/2,
-  set_lock/1,2,3, sync/0, trans/2,3,4, unregister_name/1, whereis_name/1
-- `global_group` (kernel, 10): global_groups/0, info/0, monitor_nodes/1, own_nodes/0,
-  registered_names/1, send/2,3, sync/0, whereis_name/1,2
 - `heart` (kernel, 8): clear_callback/0, clear_cmd/0, get_callback/0, get_cmd/0, get_options/0,
   set_callback/2, set_cmd/1, set_options/1
 - `inet` (kernel, 19, 20 done): cancel_monitor/1, format_error/1, get_rc/0, gethostbyaddr/1,
@@ -385,22 +360,7 @@ separately and are optional.
 - `logger_disk_log_h` (kernel, 1): filesync/1
 - `net` (kernel, 15): getaddrinfo/1,2, gethostname/0, getifaddrs/0,1,2, getnameinfo/1,2,
   getservbyname/1,2, getservbyport/1,2, if_index2name/1, if_name2index/1, if_names/0
-- `net_adm` (kernel, 10): dns_hostname/1, host_file/0, localhost/0, names/0,1, ping/1, world/0,1,
-  world_list/1,2
-- `net_kernel` (kernel, 13): allow/1, allowed/0, connect_node/1, get_net_ticktime/0, get_state/0,
-  getopts/2, monitor_nodes/1,2, set_net_ticktime/1,2, setopts/2, start/2, stop/0; deprecated:
-  start/1
 - `os` (kernel, 4, 15 done): cmd/2, find_executable/1,2, set_signal/2
-- `pg` (kernel, 30): data_diff/2, demonitor/1,2, get_local_members/1,2, get_members/1,2,
-  init_global_view/2, init_local_data/1, join/2,3, leave/2,3, monitor/1,2, monitor_scope/0,1,
-  new_subscription/2, start/1, start_link/0,1, stop_global_view/1, translate_local_data/3,
-  translate_message/2, translate_update/3, update_global_view_and_notify/4, update_local_data/2,
-  version/0, which_groups/0,1
-- `rpc` (kernel, 25): abcast/2,3, async_call/4, block_call/4,5, call/4,5, cast/4,
-  eval_everywhere/3,4, multi_server_call/2,3, multicall/3,4,5, nb_yield/1,2, parallel_eval/1,
-  pinfo/1,2, pmap/3, sbcast/2,3, server_call/4, yield/1
-- `seq_trace` (kernel, 9): get_system_tracer/0, get_token/0,1, print/1,2, reset_trace/0,
-  set_system_tracer/1, set_token/1,2
 - `socket` (kernel, 79): accept/1,2, bind/2,3, cancel/2, cancel_monitor/1, close/1, connect/1,2,3,
   getopt/2,3, getopt_native/3, i/0,1,2, info/0,1, ioctl/2,3,4, is_supported/1,2, listen/1,2,
   monitor/1, number_of/0, open/1,2,3,4, peeloff/2,3, peername/1, peernames/2, recv/1,2,3,4,

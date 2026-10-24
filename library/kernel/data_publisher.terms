@@ -1,0 +1,15 @@
+%% OTP 29 data_publisher exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{behaviour_info, 1, default, implemented}.
+{handle_call, 3, default, implemented}.
+{handle_cast, 2, default, implemented}.
+{handle_info, 2, default, implemented}.
+{init, 1, default, implemented}.
+{start, 2, default, implemented}.
+{start, 3, default, implemented}.
+{start_link, 2, default, implemented}.
+{start_link, 3, default, implemented}.
+{subscribe, 2, default, implemented}.
+{terminate, 2, default, implemented}.
+{unsubscribe, 2, default, implemented}.
+{update, 2, default, implemented}.

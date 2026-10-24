@@ -369,14 +369,10 @@ for_process({_, Node} = Process, Fun) when is_atom(Node) ->
 found(undefined, _) -> exit(noproc);
 found(Pid, Fun) -> Fun(Pid).
 
-where({global, Name}) -> (global_registry()):whereis_name(Name);
+where({global, Name}) -> global:whereis_name(Name);
 where({via, Module, Name}) -> Module:whereis_name(Name);
 where({local, Name}) -> whereis(Name);
 where(Name) -> error(badarg, [Name]).
-
-%% Created for LIB21: global until its module lands with LIB25, reached by a runtime name so that programs without
-%% it still build; a {global, Name} then fails with undef.
-global_registry() -> global.
 
 register_name({local, Name} = Process) ->
     try
@@ -385,7 +381,7 @@ register_name({local, Name} = Process) ->
         error:_ -> {false, where(Process)}
     end;
 register_name({global, Name} = Process) ->
-    registered((global_registry()):register_name(Name, self()), Process);
+    registered(global:register_name(Name, self()), Process);
 register_name({via, Module, Name} = Process) ->
     registered(Module:register_name(Name, self()), Process).
 
@@ -404,7 +400,7 @@ unregister_name({local, Name}) ->
         _:_ -> ok
     end;
 unregister_name({global, Name}) ->
-    _ = (global_registry()):unregister_name(Name),
+    _ = global:unregister_name(Name),
     ok;
 unregister_name({via, Module, Name}) ->
     _ = Module:unregister_name(Name),
@@ -422,7 +418,7 @@ get_proc_name({local, Name}) ->
     end;
 get_proc_name({global, Name}) ->
     Self = self(),
-    case (global_registry()):whereis_name(Name) of
+    case global:whereis_name(Name) of
         Self -> Name;
         _ -> exit(process_not_registered_globally)
     end;
@@ -443,7 +439,7 @@ get_parent() ->
 pid_of_name(Name) ->
     case whereis(Name) of
         undefined ->
-            case (global_registry()):whereis_name(Name) of
+            case global:whereis_name(Name) of
                 undefined -> exit(could_not_find_registered_name);
                 Pid -> Pid
             end;

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "rpcs",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "call: [[2,1],{badrpc,nodedown}]\ncall_errors: [{badrpc,{'EXIT',{boom,stack}}},\n              {badrpc,{'EXIT',bye}},\n              ball,\n              {badrpc,{'EXIT',returned}},\n              {badrpc,{'EXIT',{undef,stack}}}]\ntimeouts: [{badrpc,timeout},slept]\nblock_call: [3,{badrpc,{'EXIT',bye}},slept,{badrpc,nodedown}]\ncast: [true,true]\nasync: [4,\n        {badrpc,nodedown},\n        timeout,\n        {value,5},\n        {value,{badrpc,nodedown}},\n        {badrpc,{'EXIT',{boom,stack}}}]\npinfo: [{status,running},false]\ncall_badarg: {error,badarg}\nmulticall: [{[3],[other@host]},\n            {[3],[]},\n            {[{badrpc,{'EXIT',bye}}],[]},\n            {[],[nonode@nohost]}]\nparallel: [[1,two],[1,5],[a,b,c]]\neverywhere: [abcast,abcast]\nabcast: [abcast,abcast]\nsbcast: [{[nonode@nohost],[]},{[],[nonode@nohost,other@host]}]\ninbox: [[hello,hi]]\nserver_call: [{answer,q},{error,nodedown},{error,nodedown}]\nmulti_server_call: [{[{answer,all}],[]},\n                    {[{answer,two}],[other@host]},\n                    {[],[nonode@nohost]}]\nerpc_call: [[2,1],fun_result,spawned,1]\nerpc_errors: [{error,{erpc,noconnection}},\n              {error,{exception,boom,stack}},\n              {exit,{exception,bye}},\n              {throw,ball},\n              {error,{exception,boom,stack}},\n              {exit,{exception,bye}},\n              {error,{erpc,timeout}},\n              {error,{exception,undef,stack}},\n              {error,{erpc,badarg}},\n              {error,{erpc,badarg}},\n              {error,{erpc,badarg}}]\nerpc_multicall: [[{error,{exception,boom,stack}},\n                  {error,{erpc,noconnection}},\n                  {error,{exception,boom,stack}}],\n                 [{ok,1},{error,{erpc,noconnection}}],\n                 [{ok,from_fun}],\n                 [{error,{erpc,timeout}}],\n                 [{throw,ball}],\n                 {error,{erpc,badarg}}]\nerpc_cast: [ok,ok,ok,ok,{error,{erpc,badarg}}]\nreceive_response: 3\nwait_response: [no_response,{response,slept}]\ncheck_response: [no_response,no_response]\nother_node: {error,{erpc,noconnection}}\nresponse_timeout: {error,{erpc,timeout}}\ncollection: [3,[one,three,two]]\ncollected: [{one,1},{three,three},{two,two}]\nempty: [no_request,no_request,no_request]\ncollection_errors: [{error,{erpc,badarg}},\n                    {error,{erpc,badarg}},\n                    {error,{erpc,badarg}},\n                    {error,{erpc,badarg}}]\ncollection_timeout: {error,{erpc,timeout}}\ncollection_error: {error,{{erpc,noconnection},far,#{}}}\nnet_adm: [pang,pang,\n          {error,address},\n          {error,address},\n          true,[],\n          {error,\"no.such.host.invalid\"}]\nnet_kernel: [#{started => no},\n             ok,ok,\n             {error,{unknown_options,[bad]}},\n             error,ok,ignored,ignored,ignored,ignored,ignored,ignored,ignored,\n             {error,not_found}]\nauth: [no,nocookie,\n       {error,distribution_not_started},\n       {error,distribution_not_started},\n       {error,distribution_not_started}]\nnodes: [nonode@nohost,[],false]\nempty_token: [[],[],{send,false}]\nset: [0,false,false]\ncomponents: [{label,3},{send,true},{'receive',false}]\nprint: [ok,ok,false]\nclear: [3,[]]\nreset: [true,[]]\nbad_token: {error,badarg}\nrpcs: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "d199a49a01a2079afb6f2c5c9ae047cd4555e68d"
+  },
+  "inputs": {
+    "rpcs.erl": "83a8fcf59a4055783d7728263ce773f30ea4744ce19c4025181885f127ec205b"
+  }
+}

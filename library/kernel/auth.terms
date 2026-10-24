@@ -1,0 +1,20 @@
+%% OTP 29 auth exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{code_change, 3, distribution, declined}.
+{cookie, 0, default, implemented}.
+{cookie, 1, default, implemented}.
+{get_cookie, 0, default, implemented}.
+{get_cookie, 1, default, implemented}.
+{handle_call, 3, distribution, declined}.
+{handle_cast, 2, distribution, declined}.
+{handle_info, 2, distribution, declined}.
+{init, 1, distribution, declined}.
+{is_auth, 1, default, implemented}.
+{node_cookie, 1, default, implemented}.
+{node_cookie, 2, default, implemented}.
+{print, 3, default, implemented}.
+{set_cookie, 1, default, implemented}.
+{set_cookie, 2, default, implemented}.
+{start_link, 0, distribution, declined}.
+{sync_cookie, 0, default, implemented}.
+{terminate, 2, distribution, declined}.

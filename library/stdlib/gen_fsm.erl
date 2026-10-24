@@ -131,7 +131,7 @@ send_event(Name, Event) -> send(Name, {'$gen_event', Event}).
 send_all_state_event(Name, Event) -> send(Name, {'$gen_all_state_event', Event}).
 
 send({global, Name}, Msg) ->
-    catch (global_registry()):send(Name, Msg),
+    catch global:send(Name, Msg),
     ok;
 send({via, Module, Name}, Msg) ->
     catch Module:send(Name, Msg),
@@ -139,9 +139,6 @@ send({via, Module, Name}, Msg) ->
 send(Name, Msg) ->
     Name ! Msg,
     ok.
-
-%% Created for LIB21: global until LIB25, reached by a runtime name (gen.erl does the same).
-global_registry() -> global.
 
 sync_send_event(Name, Event) -> sync(Name, '$gen_sync_event', Event, [], sync_send_event).
 

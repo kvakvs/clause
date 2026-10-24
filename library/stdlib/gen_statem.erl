@@ -156,7 +156,7 @@ stop(Server, Reason, Timeout) -> gen:stop(Server, Reason, Timeout).
 cast(Server, Msg) when is_pid(Server); is_atom(Server) ->
     send(Server, {'$gen_cast', Msg});
 cast({global, Name}, Msg) ->
-    try (global_registry()):send(Name, {'$gen_cast', Msg}) of
+    try global:send(Name, {'$gen_cast', Msg}) of
         _ -> ok
     catch
         _:_ -> ok
@@ -169,9 +169,6 @@ cast({via, Module, Name}, Msg) ->
     end;
 cast({Name, Node} = Server, Msg) when is_atom(Name), is_atom(Node) ->
     send(Server, {'$gen_cast', Msg}).
-
-%% Created for LIB21: global until LIB25, reached by a runtime name (gen.erl does the same).
-global_registry() -> global.
 
 send(Dest, Msg) ->
     try
