@@ -21,7 +21,7 @@ choose
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  939 are still to do (erts 23, kernel 253, stdlib 663). Appendix A lists them per module.
+  909 are still to do (erts 23, kernel 243, stdlib 643). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
@@ -33,7 +33,7 @@ choose
   `logger_std_h`, `logger_filters`, `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`, `global_group`, `rpc`, `erpc`,
   `net_adm`, `net_kernel` (distribution start declined), `auth`, `seq_trace` (tokens without tracing).
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
-  (51), `io` (31), `file` (28), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
+  (51), `io` (11), `file` (18), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
 - **Missing:** 35 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
   ones (`filelib`, `disk_log`, ...) only by compiling OTP's sources from a search path.
@@ -123,11 +123,7 @@ Done: LIB20–LIB25 (`00-finished.md`); `logger_disk_log_h` waits for LIB52.
 
 LIB32 `erl_eval` is done (`00-finished.md`).
 
-### LIB33. Readers built on the front end
-
-- `file:consult/1`, `path_consult/2`, `eval/1,2`, `path_eval/2`, `script/1,2` and `path_script/2,3`.
-- `io:read/1..4`, `scan_erl_exprs/1..4`, `scan_erl_form/1..4`, `parse_erl_exprs/1..4`,
-  `parse_erl_form/1..4` (`get_until` with the `erl_scan` continuation).
+LIB33 (readers built on the front end) is done (`00-finished.md`).
 
 ### LIB34. Source tools
 
@@ -153,7 +149,7 @@ records), with OTP's error terms.
 - `pread/2,3`, `pwrite/2,3`, `truncate/1`, `advise/4`, `allocate/3`,
   `write_file_info/2,3`.
 - `change_mode/2`, `change_owner/2,3`, `change_group/2`, `change_time/2,3`, `sendfile/2,5`,
-  `path_open/3`, `format_error/1`.
+  `format_error/1` (with the `{Line, file, ...}` terms of `eval/1,2` and `script/1,2`).
 
 ### LIB51. `filelib`
 
@@ -219,7 +215,7 @@ records), with OTP's error terms.
 ### LIB63. `io` remainder and terminal output
 
 - `io`: `write/1,2`, `columns/0,1`, `rows/0,1`, `getopts/0,1`, `setopts/1,2`, `printable_range/0`,
-  `get_password/0`. The read and parse family is in LIB33.
+  `get_password/0`. The read and parse family is done (LIB33).
 - `io_ansi` (153, new in OTP 29): C++ escape-sequence builders and `enabled/0,1` terminal detection;
   `format/1,2,3` and `fwrite/1,2,3,4` over `io_lib`.
 
@@ -288,7 +284,7 @@ probe for them keep working.
 ### qlc chain (user direction 2026-10-19)
 
 Runs now, before the list below: LIB30 `erl_scan` (done), LIB31 `erl_parse` (done), LIB54A
-`file_sorter` (its `term` format reads with `io:read/2`, so `io:read/1,2` of LIB33 come with it),
+`file_sorter` (its `term` format reads with `io:read/2`, done in LIB33),
 LIB32 `erl_eval` (done, with every undocumented export), LIB34A, then LIB73 `qlc` with LIB12C. Each is its own commit. The
 runtime cannot link the compiler's `clause_frontend` (a separate, LLVM-free build; the compiler
 lexer throws Clause diagnostics and has no `erl_scan` continuations), so `erl_scan` and `erl_parse`
@@ -341,10 +337,9 @@ separately and are optional.
   toggle_instrumentations/1, unregister/2, whereis/0, xregs_count/1
 - `erl_epmd` (kernel, 8): address_please/3, listen_port_please/2, names/1, port_please/2,3,
   register_node/2,3, start_link/0
-- `file` (kernel, 28, 34 done): advise/4, allocate/3, change_group/2, change_mode/2,
-  change_owner/2,3, change_time/2,3, consult/1, eval/1,2, format_error/1,
-  path_consult/2, path_eval/2, path_open/3, path_script/2,3, pread/2,3, pwrite/2,3, script/1,2,
-  sendfile/2,5, truncate/1, write_file_info/2,3
+- `file` (kernel, 18, 44 done): advise/4, allocate/3, change_group/2, change_mode/2,
+  change_owner/2,3, change_time/2,3, format_error/1, pread/2,3, pwrite/2,3, sendfile/2,5,
+  truncate/1, write_file_info/2,3
 - `gen_sctp` (kernel, 23): abort/2, close/1, connect/3,4,5, connect_init/3,4,5, connectx_init/3,4,5,
   controlling_process/2, eof/2, error_string/1, listen/2, open/0,1,2, peeloff/2, recv/1,2, send/3,4
 - `gen_tcp` (kernel, 1, 11 done): connect/2
@@ -396,9 +391,8 @@ separately and are optional.
 - `filelib` (stdlib, 16): ensure_dir/1, ensure_path/1, file_size/1, find_file/2,3,
   find_source/1,2,3, fold_files/5, is_dir/1, is_file/1, is_regular/1, last_modified/1,
   safe_relative_path/2, wildcard/1,2
-- `io` (stdlib, 32, 16 done): columns/0,1, get_password/0, getopts/0,1, parse_erl_exprs/1,2,3,4,
-  parse_erl_form/1,2,3,4, printable_range/0, read/1,2,3,4, rows/0,1, scan_erl_exprs/1,2,3,4,
-  scan_erl_form/1,2,3,4, setopts/1,2, write/1,2
+- `io` (stdlib, 11, 37 done): columns/0,1, get_password/0, getopts/0,1, printable_range/0, rows/0,1,
+  setopts/1,2, write/1,2
 - `io_ansi` (stdlib, 153): alternate_character_set_mode/0, alternate_character_set_mode_off/0,
   alternate_screen/0, alternate_screen_off/0, background/1,3, black/0, black_background/0,
   black_underline/0, blink/0, blink_off/0, blue/0, blue_background/0, blue_underline/0, bold/0,

@@ -56,7 +56,7 @@ planned, create only with implementation. [Architecture](arch.md) · [Backlog](0
 
 | Location | Lookup |
 | --- | --- |
-| `library/{erts,kernel,stdlib}/` | Erlang library modules; `<m>.terms` inventories, `*.types.hrl`; `modules.terms` registry, `documented.terms` (OTP-documented functions) (`docs/library.md`); `kernel/clause_logger.erl` is the `logger` server; `stdlib/clause_erl_lint.erl` erl_lint's expression checks for erl_eval; `kernel/include/` holds `logger.hrl`, `file.hrl` |
+| `library/{erts,kernel,stdlib}/` | Erlang library modules; `<m>.terms` inventories, `*.types.hrl`; `modules.terms` registry, `documented.terms` (OTP-documented functions) (`docs/library.md`); `kernel/clause_logger.erl` is the `logger` server; `stdlib/clause_erl_lint.erl` erl_lint's expression checks for erl_eval; `stdlib/clause_epp.erl` epp's coding comments for file:consult; `kernel/include/` holds `logger.hrl`, `file.hrl` |
 | Root | `CMakeLists.txt`, `CMakePresets.json`, `Makefile`, `make-*.bat`, `run-macos.sh`, `clau.bat`, `decompile-*.bat`, `.clang-{format,tidy}` |
 | `cmake/` | Options, dependencies, toolchains, quality checks (Lizard/tidy scope) |
 | `tools/` | Windows toolchain script, `asm.py`, `unicode/` and `rand/` table generators, quality requirements, `luerl-trace/` |

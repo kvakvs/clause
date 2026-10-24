@@ -202,8 +202,8 @@ time_option(_, _) ->
 
 % The driver's status record as #file_info{}.
 file_info(
-    <<Size:64, Type, Access, ATime:64/signed, MTime:64/signed, CTime:64/signed, Mode:32, Links:32, Major:32, Minor:32,
-        Inode:64, Uid:32, Gid:32>>,
+    <<Size:64, Type, Access, ATime:64/signed, MTime:64/signed, CTime:64/signed, Mode:32, Links:32,
+        Major:32, Minor:32, Inode:64, Uid:32, Gid:32>>,
     Time
 ) ->
     #file_info{
@@ -618,6 +618,225 @@ decode(<<>>) -> [];
 decode(<<C/utf8, Rest/binary>>) -> [C | decode(Rest)];
 decode(<<C, Rest/binary>>) -> [C | decode(Rest)].
 
+% --- Erlang terms and expressions in files (plan 21 step LIB33) ---
+
+% A file is read whole and decoded as epp:set_encoding/1 sets the encoding (a coding comment in the first two lines,
+% UTF-8 by default); its forms are then scanned one by one as io:read/3 and io:parse_erl_exprs/3 read them.
+
+% consult(File): {ok, Terms} of the terms ending with a dot, or the first error.
+consult(File) ->
+    case read_source(File) of
+        {ok, Source} -> consult_forms(Source, 1, []);
+        Error -> Error
+    end.
+
+% path_consult(Path, File): consult/1 of File in the first directory of Path that has it.
+path_consult(Path, File) ->
+    case path_source(Path, File) of
+        {ok, Source, Full} ->
+            case consult_forms(Source, 1, []) of
+                {ok, Terms} -> {ok, Terms, Full};
+                Error -> Error
+            end;
+        Error ->
+            Error
+    end.
+
+% eval(File), eval(File, Bindings): evaluate every expression sequence ending with a dot; ok or the first error.
+eval(File) -> eval(File, erl_eval:new_bindings()).
+
+eval(File, Bs) ->
+    case read_source(File) of
+        {ok, Source} -> eval_forms(Source, ignore, 1, undefined, [], Bs);
+        Error -> Error
+    end.
+
+path_eval(Path, File) -> path_eval(Path, File, erl_eval:new_bindings()).
+
+path_eval(Path, File, Bs) ->
+    case path_source(Path, File) of
+        {ok, Source, Full} ->
+            case eval_forms(Source, ignore, 1, undefined, [], Bs) of
+                ok -> {ok, Full};
+                Error -> Error
+            end;
+        Error ->
+            Error
+    end.
+
+% script(File), script(File, Bindings): eval/1,2 returning {ok, Value} of the last expression sequence.
+script(File) -> script(File, erl_eval:new_bindings()).
+
+script(File, Bs) ->
+    case read_source(File) of
+        {ok, Source} -> eval_forms(Source, return, 1, undefined, [], Bs);
+        Error -> Error
+    end.
+
+path_script(Path, File) -> path_script(Path, File, erl_eval:new_bindings()).
+
+path_script(Path, File, Bs) ->
+    case path_source(Path, File) of
+        {ok, Source, Full} ->
+            case eval_forms(Source, return, 1, undefined, [], Bs) of
+                {ok, Value} -> {ok, Value, Full};
+                Error -> Error
+            end;
+        Error ->
+            Error
+    end.
+
+% path_open(Path, File, Modes): open/2 of File in the first directory of Path where it is found; an absolute File
+% ignores Path.
+path_open(Path, File, Modes) ->
+    case name(File) of
+        error ->
+            {error, badarg};
+        _ ->
+            case filename:pathtype(File) of
+                relative -> path_open_first(Path, File, Modes);
+                _ -> opened_as(open(File, Modes), File)
+            end
+    end.
+
+path_open_first([Dir | Rest], File, Modes) ->
+    case name(Dir) of
+        error ->
+            {error, badarg};
+        _ ->
+            Full = path_join(Dir, File),
+            case open(Full, Modes) of
+                {ok, Fd} ->
+                    {ok, Fd, Full};
+                {error, Reason} when Reason =:= enoent; Reason =:= enotdir ->
+                    path_open_first(Rest, File, Modes);
+                Error ->
+                    Error
+            end
+    end;
+path_open_first([], _File, _Modes) ->
+    {error, enoent}.
+
+path_join(".", File) -> File;
+path_join(Dir, File) -> filename:join(Dir, File).
+
+opened_as({ok, Fd}, Name) -> {ok, Fd, Name};
+opened_as(Error, _) -> Error.
+
+% The decoded characters of a file: {Chars, valid}, or {Chars, invalid} up to a byte that is not UTF-8.
+read_source(File) ->
+    case open(File, [read, binary]) of
+        {ok, Fd} -> source_of(Fd);
+        Error -> Error
+    end.
+
+path_source(Path, File) ->
+    case path_open(Path, File, [read, binary]) of
+        {ok, Fd, Full} ->
+            case source_of(Fd) of
+                {ok, Source} -> {ok, Source, Full};
+                Error -> Error
+            end;
+        Error ->
+            Error
+    end.
+
+source_of(Fd) ->
+    Read = read_all(Fd, []),
+    _ = close(Fd),
+    case Read of
+        {ok, Bytes} -> {ok, decode_source(Bytes)};
+        Error -> Error
+    end.
+
+read_all(Fd, Acc) ->
+    case read(Fd, 65536) of
+        {ok, Bytes} -> read_all(Fd, [Bytes | Acc]);
+        eof -> {ok, iolist_to_binary(lists:reverse(Acc))};
+        Error -> Error
+    end.
+
+% epp reads a coding comment from the first 512 bytes of a file.
+decode_source(Bytes) ->
+    case
+        clause_epp:read_encoding_from_binary(binary:part(Bytes, 0, min(512, byte_size(Bytes))), [])
+    of
+        latin1 ->
+            {binary_to_list(Bytes), valid};
+        _ ->
+            case unicode:characters_to_list(Bytes, utf8) of
+                Chars when is_list(Chars) -> {Chars, valid};
+                {_, Chars, _} -> {Chars, invalid}
+            end
+    end.
+
+consult_forms(Source, Line, Acc) ->
+    case next_tokens(Source, Line) of
+        {{ok, Tokens, End}, Rest} ->
+            case erl_parse:parse_term(Tokens) of
+                {ok, Term} -> consult_forms(Rest, End, [Term | Acc]);
+                {error, Error} -> {error, Error}
+            end;
+        {{error, Error, _}, _} ->
+            {error, Error};
+        {{eof, _}, _} ->
+            {ok, lists:reverse(Acc)}
+    end.
+
+% The forms of a file evaluated in order with the bindings each leaves; evaluation goes on after an error, which is
+% recorded at the line after its form. Handling return gives the last value.
+eval_forms(Source, Handling, Line, Last, Errors, Bs) ->
+    {Read, Rest} = next_exprs(Source, Line),
+    eval_form(Read, Rest, Handling, Last, Errors, Bs).
+
+eval_form({ok, Exprs, End}, Source, Handling, Last, Errors, Bs0) ->
+    try erl_eval:exprs(Exprs, Bs0) of
+        {value, Value, Bs} -> eval_forms(Source, Handling, End, {Value}, Errors, Bs)
+    catch
+        Class:Reason:Stack ->
+            eval_forms(
+                Source, Handling, End, Last, [{End, file, {Class, Reason, Stack}} | Errors], Bs0
+            )
+    end;
+eval_form({error, What, End}, Source, Handling, Last, Errors, Bs) ->
+    eval_forms(Source, Handling, End, Last, [What | Errors], Bs);
+eval_form({eof, End}, _Source, Handling, Last, Errors, _Bs) ->
+    eval_result(Handling, Last, lists:reverse(Errors), End).
+
+eval_result(return, {Value}, [], _End) ->
+    {ok, Value};
+eval_result(return, undefined, Errors, End) ->
+    {error, hd(Errors ++ [{End, file, undefined_script}])};
+eval_result(ignore, _, [], _End) ->
+    ok;
+eval_result(_, _, [First | _], _End) ->
+    {error, First}.
+
+next_exprs(Source, Line) ->
+    case next_tokens(Source, Line) of
+        {{ok, Tokens, End}, Rest} ->
+            case erl_parse:parse_exprs(Tokens) of
+                {ok, Exprs} -> {{ok, Exprs, End}, Rest};
+                {error, Error} -> {{error, Error, End}, Rest}
+            end;
+        Other ->
+            Other
+    end.
+
+% The next form's scan as a get_until request with erl_scan:tokens/3 sees it: eof follows the last character. A form
+% that reaches a byte that is not UTF-8 fails as OTP's file server fails, which then ends.
+next_tokens({_, terminated} = Source, _Line) ->
+    {{error, terminated}, Source};
+next_tokens({Chars, Validity}, Line) ->
+    scan_on(erl_scan:tokens([], Chars, Line), Validity, Line).
+
+scan_on({done, Result, Rest}, Validity, _Line) ->
+    {Result, {Rest, Validity}};
+scan_on({more, Cont}, valid, Line) ->
+    scan_on(erl_scan:tokens(Cont, eof, Line), valid, Line);
+scan_on({more, _}, invalid, Line) ->
+    {{error, {Line, file_io_server, invalid_unicode}, Line}, {[], terminated}}.
+
 advise(_, _, _, _) -> erlang:error({not_implemented, advise, 4}).
 allocate(_, _, _) -> erlang:error({not_implemented, allocate, 3}).
 altname(_) -> erlang:error({not_implemented, altname, 1}).
@@ -627,27 +846,16 @@ change_owner(_, _) -> erlang:error({not_implemented, change_owner, 2}).
 change_owner(_, _, _) -> erlang:error({not_implemented, change_owner, 3}).
 change_time(_, _) -> erlang:error({not_implemented, change_time, 2}).
 change_time(_, _, _) -> erlang:error({not_implemented, change_time, 3}).
-consult(_) -> erlang:error({not_implemented, consult, 1}).
 copy_opened(_, _, _) -> erlang:error({not_implemented, copy_opened, 3}).
 datasync(File) -> call(File, {sync, 1}).
-eval(_) -> erlang:error({not_implemented, eval, 1}).
-eval(_, _) -> erlang:error({not_implemented, eval, 2}).
 format_error(_) -> erlang:error({not_implemented, format_error, 1}).
 ipread_s32bu_p32bu(_, _, _) -> erlang:error({not_implemented, ipread_s32bu_p32bu, 3}).
 ipread_s32bu_p32bu_int(_, _, _) -> erlang:error({not_implemented, ipread_s32bu_p32bu_int, 3}).
-path_consult(_, _) -> erlang:error({not_implemented, path_consult, 2}).
-path_eval(_, _) -> erlang:error({not_implemented, path_eval, 2}).
-path_eval(_, _, _) -> erlang:error({not_implemented, path_eval, 3}).
-path_open(_, _, _) -> erlang:error({not_implemented, path_open, 3}).
-path_script(_, _) -> erlang:error({not_implemented, path_script, 2}).
-path_script(_, _, _) -> erlang:error({not_implemented, path_script, 3}).
 pread(_, _) -> erlang:error({not_implemented, pread, 2}).
 pread(_, _, _) -> erlang:error({not_implemented, pread, 3}).
 pwrite(_, _) -> erlang:error({not_implemented, pwrite, 2}).
 pwrite(_, _, _) -> erlang:error({not_implemented, pwrite, 3}).
 raw_write_file_info(_, _) -> erlang:error({not_implemented, raw_write_file_info, 2}).
-script(_) -> erlang:error({not_implemented, script, 1}).
-script(_, _) -> erlang:error({not_implemented, script, 2}).
 sendfile(_, _) -> erlang:error({not_implemented, sendfile, 2}).
 sendfile(_, _, _, _, _) -> erlang:error({not_implemented, sendfile, 5}).
 sync(File) -> call(File, {sync, 0}).

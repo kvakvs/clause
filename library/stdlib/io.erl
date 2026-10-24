@@ -1,6 +1,10 @@
 -module(io).
 -export([
-    fread/2, fread/3, get_line/1, get_line/2, get_chars/2, get_chars/3, request/1, request/2, requests/1, requests/2
+    fread/2, fread/3,
+    get_line/1, get_line/2,
+    get_chars/2, get_chars/3,
+    request/1, request/2,
+    requests/1, requests/2
 ]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
 %% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
@@ -312,6 +316,76 @@ line_size(Buffer, At) ->
         _ -> none
     end.
 
+% --- Erlang terms, tokens and forms (plan 21 step LIB33) ---
+
+% get_until requests scanning with erl_scan:tokens/3,4 from StartLocation (1 by default), parsed as a term, as
+% expressions or as a form. Their results carry the location after the form, but read/1,2 drop it.
+
+read(Prompt) -> read(standard_io, Prompt).
+
+read(Io, Prompt) ->
+    case request(Io, {get_until, unicode, Prompt, erl_scan, tokens, [1]}) of
+        {ok, Tokens, _} -> erl_parse:parse_term(Tokens);
+        {error, Error, _} -> {error, Error};
+        {eof, _} -> eof;
+        Other -> Other
+    end.
+
+read(Io, Prompt, Start) -> read(Io, Prompt, Start, []).
+
+read(Io, Prompt, Start, Options) ->
+    parsed(
+        request(Io, {get_until, unicode, Prompt, erl_scan, tokens, [Start, Options]}),
+        fun erl_parse:parse_term/1
+    ).
+
+scan_erl_exprs(Prompt) -> scan_erl_exprs(standard_io, Prompt, 1).
+
+scan_erl_exprs(Io, Prompt) -> scan_erl_exprs(Io, Prompt, 1).
+
+scan_erl_exprs(Io, Prompt, Start) ->
+    request(Io, {get_until, unicode, Prompt, erl_scan, tokens, [Start]}).
+
+scan_erl_exprs(Io, Prompt, Start, Options) ->
+    request(Io, {get_until, unicode, Prompt, erl_scan, tokens, [Start, Options]}).
+
+scan_erl_form(Prompt) -> scan_erl_exprs(standard_io, Prompt, 1).
+
+scan_erl_form(Io, Prompt) -> scan_erl_exprs(Io, Prompt, 1).
+
+scan_erl_form(Io, Prompt, Start) -> scan_erl_exprs(Io, Prompt, Start).
+
+scan_erl_form(Io, Prompt, Start, Options) -> scan_erl_exprs(Io, Prompt, Start, Options).
+
+parse_erl_exprs(Prompt) -> parse_erl_exprs(standard_io, Prompt, 1).
+
+parse_erl_exprs(Io, Prompt) -> parse_erl_exprs(Io, Prompt, 1).
+
+parse_erl_exprs(Io, Prompt, Start) ->
+    parsed(scan_erl_exprs(Io, Prompt, Start), fun erl_parse:parse_exprs/1).
+
+parse_erl_exprs(Io, Prompt, Start, Options) ->
+    parsed(scan_erl_exprs(Io, Prompt, Start, Options), fun erl_parse:parse_exprs/1).
+
+parse_erl_form(Prompt) -> parse_erl_form(standard_io, Prompt, 1).
+
+parse_erl_form(Io, Prompt) -> parse_erl_form(Io, Prompt, 1).
+
+parse_erl_form(Io, Prompt, Start) ->
+    parsed(scan_erl_exprs(Io, Prompt, Start), fun erl_parse:parse_form/1).
+
+parse_erl_form(Io, Prompt, Start, Options) ->
+    parsed(scan_erl_exprs(Io, Prompt, Start, Options), fun erl_parse:parse_form/1).
+
+% The parse of scanned tokens with the location after them; scan errors, eof and failed requests as they are.
+parsed({ok, Tokens, End}, Parse) ->
+    case Parse(Tokens) of
+        {ok, Parsed} -> {ok, Parsed, End};
+        {error, Error} -> {error, Error, End}
+    end;
+parsed(Other, _Parse) ->
+    Other.
+
 columns() -> erlang:error({not_implemented, columns, 0}).
 columns(_) -> erlang:error({not_implemented, columns, 1}).
 format(_) -> clause_builtin_placeholder.
@@ -326,32 +400,12 @@ getopts() -> erlang:error({not_implemented, getopts, 0}).
 getopts(_) -> erlang:error({not_implemented, getopts, 1}).
 nl() -> clause_builtin_placeholder.
 nl(_) -> clause_builtin_placeholder.
-parse_erl_exprs(_) -> erlang:error({not_implemented, parse_erl_exprs, 1}).
-parse_erl_exprs(_, _) -> erlang:error({not_implemented, parse_erl_exprs, 2}).
-parse_erl_exprs(_, _, _) -> erlang:error({not_implemented, parse_erl_exprs, 3}).
-parse_erl_exprs(_, _, _, _) -> erlang:error({not_implemented, parse_erl_exprs, 4}).
-parse_erl_form(_) -> erlang:error({not_implemented, parse_erl_form, 1}).
-parse_erl_form(_, _) -> erlang:error({not_implemented, parse_erl_form, 2}).
-parse_erl_form(_, _, _) -> erlang:error({not_implemented, parse_erl_form, 3}).
-parse_erl_form(_, _, _, _) -> erlang:error({not_implemented, parse_erl_form, 4}).
 %% Clause has no +pc flag: printable characters are Latin-1 (plan 21 step LIB4C).
 printable_range() -> latin1.
 put_chars(_) -> clause_builtin_placeholder.
 put_chars(_, _) -> clause_builtin_placeholder.
-read(_) -> erlang:error({not_implemented, read, 1}).
-read(_, _) -> erlang:error({not_implemented, read, 2}).
-read(_, _, _) -> erlang:error({not_implemented, read, 3}).
-read(_, _, _, _) -> erlang:error({not_implemented, read, 4}).
 rows() -> erlang:error({not_implemented, rows, 0}).
 rows(_) -> erlang:error({not_implemented, rows, 1}).
-scan_erl_exprs(_) -> erlang:error({not_implemented, scan_erl_exprs, 1}).
-scan_erl_exprs(_, _) -> erlang:error({not_implemented, scan_erl_exprs, 2}).
-scan_erl_exprs(_, _, _) -> erlang:error({not_implemented, scan_erl_exprs, 3}).
-scan_erl_exprs(_, _, _, _) -> erlang:error({not_implemented, scan_erl_exprs, 4}).
-scan_erl_form(_) -> erlang:error({not_implemented, scan_erl_form, 1}).
-scan_erl_form(_, _) -> erlang:error({not_implemented, scan_erl_form, 2}).
-scan_erl_form(_, _, _) -> erlang:error({not_implemented, scan_erl_form, 3}).
-scan_erl_form(_, _, _, _) -> erlang:error({not_implemented, scan_erl_form, 4}).
 setopts(_) -> erlang:error({not_implemented, setopts, 1}).
 setopts(_, _) -> erlang:error({not_implemented, setopts, 2}).
 write(_) -> erlang:error({not_implemented, write, 1}).

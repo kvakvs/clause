@@ -715,6 +715,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   strict and zip generators, native records; bit segments as `clause_erl_eval` builtins over the
   `bit_types` settling shared with `normalise/1`; `clause_erl_lint` (first-error command checks,
   used vars, guard tests); `erlang:make_fun/3`; `erl_eval_exprs` golden — `428ac91b`
+- **LIB33** readers: `io:read/1..4`, `scan_erl_*`, `parse_erl_*` as `get_until` requests;
+  `file:consult/1`, `eval/1,2`, `script/1,2`, `path_*` and `path_open/3` read the file whole, decode
+  it by its coding comment (`clause_epp`, as `epp:set_encoding/1`) and scan form by form with OTP's
+  errors, invalid UTF-8 included; `file_readers` golden
 
 ## Plan 22 (from 2026-10-23)
 
