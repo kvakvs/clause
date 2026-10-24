@@ -60,6 +60,15 @@
 {supervisor, stdlib, provided}.
 {supervisor_bridge, stdlib, provided}.
 {gen_fsm, stdlib, provided}.
+{logger, kernel, provided}.
+{logger_formatter, kernel, provided}.
+{logger_std_h, kernel, provided}.
+{logger_filters, kernel, provided}.
+{logger_handler, kernel, provided}.
+{error_logger, kernel, provided}.
+{error_handler, kernel, provided}.
+{log_mf_h, stdlib, provided}.
+{error_logger_file_h, stdlib, provided}.
 {rand, stdlib, provided}.
 {random, stdlib, provided}.
 {erl_internal, stdlib, provided}.

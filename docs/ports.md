@@ -267,7 +267,7 @@ stdout are pipes of the port:
   (one list element per byte).
 - The library's `file` module drives the runtime's file driver,
   `{spawn_driver, "clause_file"}`, with `port_control/3`. Its operations
-  (`ports/file.cpp`: open, read, write, position, read_line, close, and the path
+  (`ports/file.cpp`: open, read, write, position, read_line, sync, close, and the path
   operations read_file, write_file, delete, rename, list_dir, make_dir, del_dir
   and read_file_info, `ports/file_info.cpp`; get_cwd, set_cwd, read_link,
   read_link_info, make_link and make_symlink, `ports/file_paths.cpp`) are

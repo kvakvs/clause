@@ -45,6 +45,8 @@
     wait_response/2,
     wait_response/3
 ]).
+
+-include_lib("kernel/include/logger.hrl").
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
 %% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
 -include("gen_server.types.hrl").
@@ -724,7 +726,7 @@ error_report(#server{name = Name, module = Module}, State, Msg, From, Reason, St
     ).
 
 log(Level, Report, Tag) ->
-    clause_logger:log(Level, {report, Report}, #{
+    ?LOG(Level, Report, #{
         domain => [otp],
         report_cb => fun gen_server:format_log/2,
         error_logger => #{tag => Tag, report_cb => fun gen_server:format_log/1}

@@ -1,0 +1,6 @@
+%% OTP 29 logger_filters exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{domain, 2, default, implemented}.
+{level, 2, default, implemented}.
+{progress, 2, default, implemented}.
+{remote_gl, 2, default, implemented}.

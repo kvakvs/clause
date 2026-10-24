@@ -30,6 +30,8 @@
     which_child/2,
     which_children/1
 ]).
+
+-include_lib("kernel/include/logger.hrl").
 -include("supervisor.types.hrl").
 
 -callback init(Args :: term()) ->
@@ -136,9 +138,7 @@ init({Name, Module, Args}) ->
     process_flag(trap_exit, true),
     case Module:init(Args) of
         {ok, {Flags, Specs}} ->
-            case
-                set_flags(Flags, #state{name = sup_name(Name, Module), module = Module, args = Args})
-            of
+            case set_flags(Flags, #state{name = sup_name(Name, Module), module = Module, args = Args}) of
                 {ok, State} when ?IS_SIMPLE(State) -> init_dynamic(State, Specs);
                 {ok, State} -> init_children(State, Specs);
                 Error -> {stop, {supervisor_data, Error}}
@@ -200,7 +200,7 @@ handle_info({'EXIT', Pid, Reason}, State) ->
         error -> {noreply, State, hibernate_after(State)}
     end;
 handle_info(Msg, State) ->
-    clause_logger:log(error, {"Supervisor received unexpected message: ~tp~n", [Msg]}, #{
+    ?LOG(error, "Supervisor received unexpected message: ~tp~n", [Msg], #{
         domain => [otp], error_logger => #{tag => error}
     }),
     {noreply, State, hibernate_after(State)}.
@@ -973,9 +973,9 @@ child_to_spec(#child{
 %% Reports.
 
 report(Context, Reason, Child, Name) ->
-    clause_logger:log(
+    ?LOG(
         error,
-        {report, #{
+        #{
             label => {supervisor, Context},
             report => [
                 {supervisor, Name},
@@ -983,7 +983,7 @@ report(Context, Reason, Child, Name) ->
                 {reason, Reason},
                 {offender, offender(Child)}
             ]
-        }},
+        },
         #{
             domain => [otp, sasl],
             report_cb => fun supervisor:format_log/2,
@@ -1004,12 +1004,12 @@ progress(Child, Name, Report) ->
             info_report -> info;
             debug_report -> debug
         end,
-    clause_logger:log(
+    ?LOG(
         Level,
-        {report, #{
+        #{
             label => {supervisor, progress},
             report => [{supervisor, Name}, {started, offender(Child)}]
-        }},
+        },
         #{
             domain => [otp, sasl],
             report_cb => fun supervisor:format_log/2,

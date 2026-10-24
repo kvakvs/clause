@@ -37,6 +37,8 @@ enum class FileOperation : std::uint8_t {
     position = 4,
     read_line = 5,
     close = 6,
+    // Flushing to the device (plan 21 step LIB23): a flag byte, 1 for the data only.
+    sync = 7,
     read_file = 10,
     write_file = 11,
     remove = 12,
@@ -225,6 +227,18 @@ std::int64_t seek_fd(int fd, std::int64_t offset, int whence) {
     return _lseeki64(fd, offset, whence);
 #else
     return ::lseek(fd, offset, whence);
+#endif
+}
+
+// Flush a descriptor's file to its device, its data only when `data_only` and POSIX can; false with errno set.
+// Created for file:sync/1 and datasync/1 (plan 21 step LIB23).
+bool sync_fd(int fd, [[maybe_unused]] bool data_only) {
+#ifdef _WIN32
+    return _commit(fd) == 0;
+#elif defined(__APPLE__)
+    return ::fsync(fd) == 0;
+#else
+    return (data_only ? ::fdatasync(fd) : ::fsync(fd)) == 0;
 #endif
 }
 
@@ -471,8 +485,7 @@ class FileDriver final : public PortDriver {
         case FileOperation::read:
             return read(static_cast<std::size_t>(number(bytes, 0, 8)));
         case FileOperation::write:
-            return mode_allows(MODE_WRITE | MODE_APPEND) ? (write_all(fd_, bytes) ? ok() : errno_failure())
-                                                         : failure("ebadf");
+            return write_bytes(bytes);
         case FileOperation::position:
             return position(bytes);
         case FileOperation::read_line:
@@ -480,9 +493,25 @@ class FileDriver final : public PortDriver {
         case FileOperation::close:
             close_fd(std::exchange(fd_, -1));
             return ok();
+        case FileOperation::sync:
+            return sync(bytes);
         default:
             return std::nullopt;
         }
+    }
+
+    // write: the bytes, when the file was opened for writing.
+    Bytes write_bytes(std::span<const std::byte> bytes) {
+        if (!mode_allows(MODE_WRITE | MODE_APPEND)) {
+            return failure("ebadf");
+        }
+        return write_all(fd_, bytes) ? ok() : errno_failure();
+    }
+
+    // sync: the flag byte, 1 to flush the data only. Created for file:sync/1 and datasync/1 (plan 21 step LIB23).
+    Bytes sync(std::span<const std::byte> bytes) {
+        const bool data_only = !bytes.empty() && bytes[0] != std::byte{0};
+        return sync_fd(fd_, data_only) ? ok() : errno_failure();
     }
 
     // open: the mode byte, then the path.

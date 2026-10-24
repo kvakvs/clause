@@ -261,6 +261,10 @@ recorded elsewhere.
   BuiltinRegistry names are static string_views. Helpers in builtins/support.hpp; typed_entry<F>
   derives arity. Builtin can tail-continue in Erlang via code_server().function_frame +
   stack().trap.
+- A library module named only as an atom (handler/formatter/callback config) never joins the batch:
+  dynamic calls to it are undef. Give it a literal call path (`formatted(logger_formatter, ...) ->
+  logger_formatter:format(...)`) or `_ = fun M:F/A`. Library .erl/.terms use erlfmt width 120
+  (LIB23). OTP prints small atom-key maps in atom-index order: goldens print sorted lists.
 - Builtins cannot call funs and get results: fun-taking functions stay Erlang in library/*.erl,
   calling sibling builtins qualified (a local call hits the stub).
 - New library module = library/modules.terms + observe_module.escript + observe_types.escript +

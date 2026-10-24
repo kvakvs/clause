@@ -48,6 +48,8 @@
     wake_hib/5,
     which_handlers/1
 ]).
+
+-include_lib("kernel/include/logger.hrl").
 -include("gen_event.types.hrl").
 
 -behaviour(sys).
@@ -57,20 +59,18 @@
 -callback handle_event(Event :: term(), State :: term()) ->
     {ok, NewState :: term()}
     | {ok, NewState :: term(), hibernate}
-    | {swap_handler, Args1 :: term(), NewState :: term(),
-        Handler2 :: atom() | {atom(), Id :: term()}, Args2 :: term()}
+    | {swap_handler, Args1 :: term(), NewState :: term(), Handler2 :: atom() | {atom(), Id :: term()}, Args2 :: term()}
     | remove_handler.
 -callback handle_call(Request :: term(), State :: term()) ->
     {ok, Reply :: term(), NewState :: term()}
     | {ok, Reply :: term(), NewState :: term(), hibernate}
-    | {swap_handler, Reply :: term(), Args1 :: term(), NewState :: term(),
-        Handler2 :: atom() | {atom(), Id :: term()}, Args2 :: term()}
+    | {swap_handler, Reply :: term(), Args1 :: term(), NewState :: term(), Handler2 :: atom() | {atom(), Id :: term()},
+        Args2 :: term()}
     | {remove_handler, Reply :: term()}.
 -callback handle_info(Info :: term(), State :: term()) ->
     {ok, NewState :: term()}
     | {ok, NewState :: term(), hibernate}
-    | {swap_handler, Args1 :: term(), NewState :: term(),
-        Handler2 :: atom() | {atom(), Id :: term()}, Args2 :: term()}
+    | {swap_handler, Args1 :: term(), NewState :: term(), Handler2 :: atom() | {atom(), Id :: term()}, Args2 :: term()}
     | remove_handler.
 -callback terminate(
     Args ::
@@ -501,13 +501,13 @@ update(#handler{module = Module, state = State} = Handler, Callback, Event, Name
             terminate_handler(Module, Handler, remove_handler, State, remove, Name, normal),
             no;
         {'EXIT', {undef, [{Module, handle_info, [_, _], _} | _]}} ->
-            clause_logger:log(
+            ?LOG(
                 warning,
-                {report, #{
+                #{
                     label => {gen_event, no_handle_info},
                     module => Module,
                     message => Event
-                }},
+                },
                 #{
                     domain => [otp],
                     report_cb => fun gen_event:format_log/2,
@@ -660,9 +660,9 @@ report_error(Handler, Exit, State, LastIn, Name) ->
         },
         [get(), State]
     ),
-    clause_logger:log(
+    ?LOG(
         error,
-        {report, #{
+        #{
             label => {gen_event, terminate},
             handler => handler_name(Handler),
             name => Name,
@@ -670,7 +670,7 @@ report_error(Handler, Exit, State, LastIn, Name) ->
             state => maps:get('$status', Status, maps:get(state, Status)),
             reason => Rewrap(maps:get(reason, Status)),
             process_label => proc_lib:get_label(self())
-        }},
+        },
         #{
             domain => [otp],
             report_cb => fun gen_event:format_log/2,

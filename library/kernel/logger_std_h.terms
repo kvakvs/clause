@@ -1,0 +1,16 @@
+%% OTP 29 logger_std_h exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{adding_handler, 1, default, implemented}.
+{changing_config, 3, default, implemented}.
+{check_config, 4, default, implemented}.
+{config_changed, 3, logger_h_common, declined}.
+{filesync, 1, default, implemented}.
+{filesync, 3, logger_h_common, declined}.
+{filter_config, 1, default, implemented}.
+{handle_info, 3, logger_h_common, declined}.
+{init, 2, logger_h_common, declined}.
+{log, 2, default, implemented}.
+{removing_handler, 1, default, implemented}.
+{reset_state, 2, logger_h_common, declined}.
+{terminate, 3, logger_h_common, declined}.
+{write, 4, logger_h_common, declined}.

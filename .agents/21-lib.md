@@ -21,7 +21,7 @@ choose
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  1,248 are still to do (erts 23, kernel 545, stdlib 680). Appendix A lists them per module.
+  1,146 are still to do (erts 23, kernel 445, stdlib 678). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
@@ -29,14 +29,15 @@ choose
   `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`,
   `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
   `timer`, `unicode`, `uri_string`, `proc_lib`, `sys`, `gen_server`, `gen_statem`, `gen_event`,
-  `gen_fsm` (deprecated), `supervisor`, `supervisor_bridge`.
+  `gen_fsm` (deprecated), `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`,
+  `logger_std_h`, `logger_filters`, `error_logger`, `log_mf_h`, `error_handler`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
-  (51), `io` (31), `file` (30), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
+  (51), `io` (31), `file` (28), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
-- **Missing:** 53 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
-  ones (`logger`, `application`, ...) only by compiling OTP's sources from a search path.
-- **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`,
-  `logger_handler`.
+- **Missing:** 46 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
+  ones (`application`, ...) only by compiling OTP's sources from a search path.
+- **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
+  (`logger_handler` is provided).
 
 ## Working rules for plan 21 steps
 
@@ -115,27 +116,6 @@ remainders follow.
 
 ## Tier C: processes and behaviours (Erlang)
 
-### LIB23. Logging: `logger` and friends
-
-- The behaviours' reports go through `clause_logger` (stderr, OTP's text) until this step: switch
-  `proc_lib`, `gen_*`, `supervisor*` and `gen:debug_options/2` to `logger` and retire
-  `clause_logger`.
-- `logger` (68) in Erlang:
-  - Configuration: primary, handler and proxy config, kept in `persistent_term` plus a `logger`
-    server.
-  - Levels: module and application levels, process metadata.
-  - Events: the `?LOG`-free API functions (`error/1,2,3`, ...) and `format_report/1`.
-- Handlers and formatting:
-  - `logger_formatter` (`format/2` templates, `check_config/1`) in Erlang over `io_lib`.
-  - `logger_std_h` (`standard_io`, `standard_error`, files; `filesync/1`).
-  - `logger_disk_log_h` after LIB52.
-  - `logger_filters` (4).
-- Compatibility modules:
-  - `error_logger` (20) over `logger`, with report handlers as `gen_event`.
-  - `log_mf_h` (2).
-  - `error_handler` (3): `undefined_function/3`, `undefined_lambda/3`, `raise_undef_exception/3`,
-    matching Clause's `undef` path.
-
 ### LIB24. `application`
 
 - `application` (35) and its controller in Erlang.
@@ -149,6 +129,8 @@ remainders follow.
     `get_supervisor/1`, `takeover/2`.
 - `kernel` and `stdlib` load as virtual applications. The existing all-stubs
   `application_controller` is replaced.
+- `logger` (application levels, `reconfigure/0`) and `clause_logger` (kernel environment) reach
+  `application` through `application_module()`, a runtime name: make those calls literal.
 
 ### LIB25. Local-node kernel services
 
@@ -199,7 +181,7 @@ records), with OTP's error terms.
 
 ### LIB50. `file` remainder (C++ driver operations)
 
-- `pread/2,3`, `pwrite/2,3`, `sync/1`, `datasync/1`, `truncate/1`, `advise/4`, `allocate/3`,
+- `pread/2,3`, `pwrite/2,3`, `truncate/1`, `advise/4`, `allocate/3`,
   `write_file_info/2,3`.
 - `change_mode/2`, `change_owner/2,3`, `change_group/2`, `change_time/2,3`, `sendfile/2,5`,
   `path_open/3`, `format_error/1`.
@@ -214,7 +196,8 @@ records), with OTP's error terms.
 
 - Erlang processes over `file`, with C++ for OTP's halt and wrap log chunk formats, so log files are
   exchangeable with OTP.
-- Unblocks `logger_disk_log_h` and the `ets` file functions.
+- Unblocks the `ets` file functions and `logger_disk_log_h`: a `logger` handler like `logger_std_h`
+  (same handler process, `filesync/1`, OTP's config checks) writing through `disk_log`.
 
 ### LIB54. Archives: `zip`, `erl_tar`, `zstd`, `file_sorter`, `beam_lib`
 
@@ -300,7 +283,7 @@ Dependencies first (user direction 2026-10-19), in this order: LIB30 `erl_scan` 
   `match_specs` and join answers, and `CodeF`'s `term_to_binary` abstract code for `info/1,2`.
 - Lookup and match-spec use of `table/2` callbacks, merge and lookup joins, `cache` (`ets`, `list`),
   `unique`, `sort`/`keysort` through `file_sorter` above `max_list_size` with `tmpdir` and
-  `tmpdir_usage` (its message levels need `error_logger`, LIB23: ask before landing without it),
+  `tmpdir_usage` (its message levels go through `error_logger`),
   cursors as processes, OTP's error terms and `format_error/1`.
 - `info/1,2`: OTP's abstract code printed by `erl_pp:expr/3`, table descriptions parsed with
   `erl_scan` and `erl_eval:extended_parse_exprs/1`, `erl_eval:fun_data/1` for interpreted funs.
@@ -348,7 +331,7 @@ own annotations, and no Boost in the runtime.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB23 and LIB24 (`logger`, `application`).
+1. LIB24 (`application`).
 2. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
 3. LIB30–LIB34 (the front end, `consult`, `io:read`).
 4. LIB25 (local-node services).
@@ -400,14 +383,10 @@ separately and are optional.
 - `erpc` (kernel, 27): call/2,3,4,5, cast/2,4, check_response/2,3, multicall/2,3,4,5, multicast/2,4,
   receive_response/1,2,3, reqids_add/3, reqids_new/0, reqids_size/1, reqids_to_list/1,
   send_request/2,4,6, wait_response/1,2,3
-- `error_handler` (kernel, 3): raise_undef_exception/3, undefined_function/3, undefined_lambda/3
-- `error_logger` (kernel, 20): add_report_handler/1,2, delete_report_handler/1, error_msg/1,2,
-  error_report/1,2, format/2, get_format_depth/0, info_msg/1,2, info_report/1,2, logfile/1, tty/1,
-  warning_map/0, warning_msg/1,2, warning_report/1,2
-- `file` (kernel, 30, 32 done): advise/4, allocate/3, change_group/2, change_mode/2,
-  change_owner/2,3, change_time/2,3, consult/1, datasync/1, eval/1,2, format_error/1,
+- `file` (kernel, 28, 34 done): advise/4, allocate/3, change_group/2, change_mode/2,
+  change_owner/2,3, change_time/2,3, consult/1, eval/1,2, format_error/1,
   path_consult/2, path_eval/2, path_open/3, path_script/2,3, pread/2,3, pwrite/2,3, script/1,2,
-  sendfile/2,5, sync/1, truncate/1, write_file_info/2,3
+  sendfile/2,5, truncate/1, write_file_info/2,3
 - `gen_sctp` (kernel, 23): abort/2, close/1, connect/3,4,5, connect_init/3,4,5, connectx_init/3,4,5,
   controlling_process/2, eof/2, error_string/1, listen/2, open/0,1,2, peeloff/2, recv/1,2, send/3,4
 - `gen_tcp` (kernel, 1, 11 done): connect/2
@@ -424,20 +403,7 @@ separately and are optional.
   peernames/1,2, socknames/1,2
 - `inet_res` (kernel, 20): getbyname/2,3,4, gethostbyaddr/1,2,3, gethostbyname/1,2,3,4,
   lookup/3,4,5, nnslookup/4,5, nslookup/3,4, resolve/3,4,5
-- `logger` (kernel, 68): add_handler/3, add_handler_filter/3, add_handlers/1, add_primary_filter/2,
-  alert/1,2,3, compare_levels/2, critical/1,2,3, debug/1,2,3, emergency/1,2,3, error/1,2,3,
-  format_report/1, get_config/0, get_handler_config/0,1, get_handler_ids/0, get_module_level/0,1,
-  get_primary_config/0, get_process_metadata/0, get_proxy_config/0, i/0,1, info/1,2,3, log/2,3,4,
-  notice/1,2,3, reconfigure/0, remove_handler/1, remove_handler_filter/2, remove_primary_filter/1,
-  set_application_level/2, set_handler_config/2,3, set_module_level/2, set_primary_config/1,2,
-  set_process_metadata/1, set_proxy_config/1, timestamp/0, unset_application_level/1,
-  unset_module_level/0,1, unset_process_metadata/0, update_formatter_config/2,3,
-  update_handler_config/2,3, update_primary_config/1, update_process_metadata/1,
-  update_proxy_config/1, warning/1,2,3
 - `logger_disk_log_h` (kernel, 1): filesync/1
-- `logger_filters` (kernel, 4): domain/2, level/2, progress/2, remote_gl/2
-- `logger_formatter` (kernel, 2; 2 callbacks): check_config/1, format/2
-- `logger_std_h` (kernel, 1): filesync/1
 - `net` (kernel, 15): getaddrinfo/1,2, gethostname/0, getifaddrs/0,1,2, getnameinfo/1,2,
   getservbyname/1,2, getservbyport/1,2, if_index2name/1, if_name2index/1, if_names/0
 - `net_adm` (kernel, 10): dns_hostname/1, host_file/0, localhost/0, names/0,1, ping/1, world/0,1,
@@ -524,9 +490,6 @@ separately and are optional.
   tab_backward/0, tab_clear/0, tab_clear_all/0, tab_set/0, tigetflag/1, tigetnum/1, tinfo/0,
   tput/1,2, underline/0, underline_color/1,3, underline_off/0, white/0, white_background/0,
   white_underline/0, yellow/0, yellow_background/0, yellow_underline/0
-- `log_mf_h` (stdlib, 2): init/3,4
-> > > > 
-
 - `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3, start/1,
   start_link/0,1, stop/1
 - `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3, pspawn_link/3, start/1,2, stop/0

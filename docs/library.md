@@ -19,7 +19,9 @@ which are stubs.
 | [`proc_lib`](../library/stdlib/proc_lib.erl), [`sys`](../library/stdlib/sys.erl) | Every documented function: spawning with ancestors and initial calls, synchronous starts (`init_ack`, `init_fail`), labels, `stop/1,3`, crash reports and their text; the system message protocol and debug options (`trace`, `log`, `statistics`, `log_to_file`, installed funs) with OTP's debug list shapes |
 | [`gen_server`](../library/stdlib/gen_server.erl), [`gen_statem`](../library/stdlib/gen_statem.erl), [`gen_event`](../library/stdlib/gen_event.erl), [`gen_fsm`](../library/stdlib/gen_fsm.erl), [`gen`](../library/stdlib/gen.erl) | Every documented function in Erlang over `proc_lib` and `sys`, with OTP's messages (`'$gen_call'` with alias tags, `'$gen_cast'`, ...), callback results and actions, request id collections, error terms and report texts; `gen` holds what they share; `{global, Name}` names need `global` (plan 21 step LIB25) |
 | [`supervisor`](../library/stdlib/supervisor.erl), [`supervisor_bridge`](../library/stdlib/supervisor_bridge.erl) | Every documented function: OTP's child specifications and errors, strategies, restart intensity, shutdown rules, `simple_one_for_one` children and automatic shutdown, as a `gen_server` |
-| [`clause_logger`](../library/kernel/clause_logger.erl) | Clause's own: writes the behaviours' log events on stderr until Clause's `logger` lands (plan 21 step LIB23) |
+| [`logger`](../library/kernel/logger.erl), [`logger_formatter`](../library/kernel/logger_formatter.erl), [`logger_std_h`](../library/kernel/logger_std_h.erl), [`logger_filters`](../library/kernel/logger_filters.erl), [`logger_handler`](../library/kernel/logger_handler.erl) | Every documented function in Erlang: primary, handler and proxy configuration with OTP's checks and error terms, module levels, process metadata, filters, the `?LOG_*` macros of [`kernel/include/logger.hrl`](../library/kernel/include/logger.hrl), formatter templates and the legacy header, `logger_std_h` on devices and files with rotation, compression and `filesync/1`. The `logger` server is Clause's [`clause_logger`](../library/kernel/clause_logger.erl), started at the first use with OTP's default handler on `standard_error`; application levels need `application` (plan 21 step LIB24); `logger_disk_log_h` comes with `disk_log` (LIB52) |
+| [`error_logger`](../library/kernel/error_logger.erl), [`error_logger_file_h`](../library/stdlib/error_logger_file_h.erl), [`log_mf_h`](../library/stdlib/log_mf_h.erl) | Every documented function: messages and reports as log events with OTP's `error_logger` metadata, report handlers on the `error_logger` event manager fed by the `error_logger` logger handler, `logfile/1` in the old report text, wrap files with OTP's index and record format |
+| [`error_handler`](../library/kernel/error_handler.erl) | The undefined-call functions, callable directly; the runtime raises `undef` itself and never calls them; `breakpoint/3` declined (no interpreter) |
 | [`timer`](../library/stdlib/timer.erl) | Every documented function without OTP's timer server: timed sends to local pids are `erlang:send_after/3`, every other timer a process of its own reached through an alias in its `TRef`; the conversions and `now_diff/2` are runtime builtins ([timer](builtins.md#timer)) |
 | [`filename`](../library/stdlib/filename.erl) | Every documented function by OTP's Unix and Windows rules for the host; the name walks are runtime builtins, `absname/1,2` and `basedir/2,3` (from `HOME`, the XDG variables and `APPDATA`) Erlang ([filename](builtins.md#filename)) |
 | [`uri_string`](../library/stdlib/uri_string.erl) | Every documented function as a runtime builtin: RFC 3986 parsing with OTP's error fragments, recomposition, normalization, resolution, percent coding and form-urlencoded queries ([uri_string](builtins.md#uri-string)) |
@@ -85,7 +87,8 @@ name the library functions, not OTP's.
   `--print-inputs` lists the inputs this adds.
 - The library is `library/` of the build tree, found relative to `clau` like the
   runtime archive, with one directory per OTP application (`erts`, `kernel`,
-  `stdlib`).
+  `stdlib`). `-include_lib("kernel/include/logger.hrl")` and `file.hrl` resolve
+  to the library's own headers unless the project names a `kernel` application.
 - A module of the batch with the same name replaces the library module, with a
   warning; catalog builtins of that name still win
   ([registration](builtins.md#registration)).
@@ -222,12 +225,12 @@ library, not to the user's program.
 
 ### Kernel services at startup
 
-OTP's `file`, `io`, `code` and `logger` call registered servers
-(`file_server_2`, `code_server`, a group leader's io server, `logger`) that the
-`kernel` application starts at boot. A Clause executable starts none of them:
-Clause's own `file` and `io` need no server, and an OTP module that does need
-one fails the way it fails on OTP without that server (`noproc`). OTP code that
-logs through `logger` or calls `code` at run time therefore does not work.
+OTP's `file`, `io` and `code` call registered servers (`file_server_2`,
+`code_server`, a group leader's io server) that the `kernel` application starts
+at boot. A Clause executable starts none of them: Clause's own `file` and `io`
+need no server, Clause's `logger` starts its server at the first use, and an OTP
+module that does need one fails the way it fails on OTP without that server
+(`noproc`). OTP code that calls `code` at run time therefore does not work.
 Booting the whole `kernel` application is not planned.
 
 ### Ledger

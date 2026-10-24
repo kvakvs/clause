@@ -16,6 +16,8 @@
     terminate/2
 ]).
 
+-include_lib("kernel/include/logger.hrl").
+
 -callback init(Args :: term()) ->
     {ok, Pid :: pid(), State :: term()} | ignore | {error, Error :: term()}.
 -callback terminate(Reason :: shutdown | term(), State :: term()) -> Ignored :: term().
@@ -86,7 +88,7 @@ log(Level, Kind, Report) ->
             progress -> {"PROGRESS REPORT", info_report, progress};
             error -> {"SUPERVISOR REPORT", error_report, supervisor_report}
         end,
-    clause_logger:log(Level, {report, #{label => {supervisor, Kind}, report => Report}}, #{
+    ?LOG(Level, #{label => {supervisor, Kind}, report => Report}, #{
         domain => [otp, sasl],
         report_cb => fun supervisor_bridge:format_log/2,
         logger_formatter => #{title => Title},

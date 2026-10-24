@@ -1,0 +1,7 @@
+%% OTP 29 error_handler exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{breakpoint, 3, interpreter, declined}.
+{raise_undef_exception, 3, default, implemented}.
+{stub_function, 3, default, implemented}.
+{undefined_function, 3, default, implemented}.
+{undefined_lambda, 3, default, implemented}.

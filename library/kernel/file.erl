@@ -86,6 +86,8 @@
 -define(POSITION, 4).
 -define(READ_LINE, 5).
 -define(CLOSE, 6).
+% Flushing an open file to its device, a flag byte 1 for the data only (plan 21 step LIB23).
+-define(SYNC, 7).
 -define(READ_FILE, 10).
 -define(WRITE_FILE, 11).
 -define(DELETE, 12).
@@ -200,8 +202,8 @@ time_option(_, _) ->
 
 % The driver's status record as #file_info{}.
 file_info(
-    <<Size:64, Type, Access, ATime:64/signed, MTime:64/signed, CTime:64/signed, Mode:32, Links:32,
-        Major:32, Minor:32, Inode:64, Uid:32, Gid:32>>,
+    <<Size:64, Type, Access, ATime:64/signed, MTime:64/signed, CTime:64/signed, Mode:32, Links:32, Major:32, Minor:32,
+        Inode:64, Uid:32, Gid:32>>,
     Time
 ) ->
     #file_info{
@@ -491,6 +493,8 @@ request(Port, _, {write, Bytes}) ->
     catch
         error:badarg -> {error, badarg}
     end;
+request(Port, _, {sync, DataOnly}) ->
+    ok_reply(reply(port_control(Port, ?SYNC, <<DataOnly>>)));
 request(Port, _, {position, Location}) ->
     case location(Location) of
         error ->
@@ -625,7 +629,7 @@ change_time(_, _) -> erlang:error({not_implemented, change_time, 2}).
 change_time(_, _, _) -> erlang:error({not_implemented, change_time, 3}).
 consult(_) -> erlang:error({not_implemented, consult, 1}).
 copy_opened(_, _, _) -> erlang:error({not_implemented, copy_opened, 3}).
-datasync(_) -> erlang:error({not_implemented, datasync, 1}).
+datasync(File) -> call(File, {sync, 1}).
 eval(_) -> erlang:error({not_implemented, eval, 1}).
 eval(_, _) -> erlang:error({not_implemented, eval, 2}).
 format_error(_) -> erlang:error({not_implemented, format_error, 1}).
@@ -646,7 +650,7 @@ script(_) -> erlang:error({not_implemented, script, 1}).
 script(_, _) -> erlang:error({not_implemented, script, 2}).
 sendfile(_, _) -> erlang:error({not_implemented, sendfile, 2}).
 sendfile(_, _, _, _, _) -> erlang:error({not_implemented, sendfile, 5}).
-sync(_) -> erlang:error({not_implemented, sync, 1}).
+sync(File) -> call(File, {sync, 0}).
 truncate(_) -> erlang:error({not_implemented, truncate, 1}).
 write_file_info(_, _) -> erlang:error({not_implemented, write_file_info, 2}).
 write_file_info(_, _, _) -> erlang:error({not_implemented, write_file_info, 3}).

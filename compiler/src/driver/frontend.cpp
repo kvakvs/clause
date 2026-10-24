@@ -48,6 +48,12 @@ void use_index(PreprocessorOptions &options, project::DirectoryIndex *index) {
 // file's fingerprint (added for the compile cache, 62D4).
 PreprocessorOptions preprocessing_options(const FrontendRequest &request, cache::KeyBuilder &fingerprint) {
     auto options = request.preprocessing;
+    // The library's applications answer include_lib after the request's own (`kernel/include/logger.hrl`). Added
+    // for plan 21 step LIB23.
+    const auto library = linking::library_directory();
+    options.applications.insert(
+        options.applications.begin(),
+        {{"erts", library / "erts"}, {"kernel", library / "kernel"}, {"stdlib", library / "stdlib"}});
     options.include_read = [&fingerprint](const std::filesystem::path &path, const std::string_view bytes) {
         fingerprint.add(project::path_text(path)).add(cache::hash_text(bytes));
     };

@@ -311,8 +311,14 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - Behaviours (all Erlang): `proc_lib` (ancestors, initial calls, sync starts, crash reports), `sys`
   (system messages, OTP's debug list shapes), `gen` (starts, calls with alias tags, request ids),
   `gen_server`, `gen_statem` (transition step record, time-out zero queue), `gen_event`, `gen_fsm`,
-  `supervisor`, `supervisor_bridge`; their reports go through `clause_logger` (stderr, OTP's text)
-  until `logger` lands; `{global, _}` names reach `global` by a runtime name until LIB25.
+  `supervisor`, `supervisor_bridge`; their reports are `?LOG_*` events; `{global, _}` names reach
+  `global` by a runtime name until LIB25.
+- Logging (Erlang): `logger` API over the `clause_logger` server (gen_server `logger` started at the
+  first use; ETS `logger` for configs, persistent terms for levels), `logger_formatter`,
+  `logger_std_h` (one synchronous process per handler: devices, files, rotation), `logger_filters`,
+  `error_logger` (gen_event fed by its logger handler), `error_logger_file_h`, `log_mf_h`,
+  `error_handler`; `kernel/include/{logger,file}.hrl` serve `include_lib`. Default formatter and
+  file handler are named by literal calls so the batch links them.
 - Collections in C++ (`builtins/collections/`): `lists`, `maps`, `ordsets`, `orddict`, `proplists`,
   `dict`, `sets`, `gb_trees`, `gb_sets`, `queue`, `array`, `sofs`; fun-taking functions stay Erlang.
 - ETS-based: `ets` builtins (`builtins/ets/`: tables, reads, writes, select and match families,

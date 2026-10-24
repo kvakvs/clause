@@ -35,6 +35,8 @@
     wake_hib/7
 ]).
 
+-include_lib("kernel/include/logger.hrl").
+
 -behaviour(sys).
 
 -deprecated({'_', '_', "use the 'gen_statem' module instead"}).
@@ -79,8 +81,7 @@
     StateData :: term()
 ) ->
     {reply, Reply :: term(), NextStateName :: atom(), NewStateData :: term()}
-    | {reply, Reply :: term(), NextStateName :: atom(), NewStateData :: term(),
-        timeout() | hibernate}
+    | {reply, Reply :: term(), NextStateName :: atom(), NewStateData :: term(), timeout() | hibernate}
     | {next_state, NextStateName :: atom(), NewStateData :: term()}
     | {next_state, NextStateName :: atom(), NewStateData :: term(), timeout() | hibernate}
     | {stop, Reason :: term(), Reply :: term(), NewStateData :: term()}
@@ -392,9 +393,9 @@ terminate(Reason, #fsm{module = Module} = Fsm, From, Msg, StateName, StateData, 
     end.
 
 error_info(Reason, #fsm{name = Name}, From, Msg, StateName, StateData, Debug) ->
-    clause_logger:log(
+    ?LOG(
         error,
-        {report, #{
+        #{
             label => {gen_fsm, terminate},
             name => Name,
             last_message => Msg,
@@ -404,7 +405,7 @@ error_info(Reason, #fsm{name = Name}, From, Msg, StateName, StateData, Debug) ->
             reason => Reason,
             client_info => client_info(From),
             process_label => proc_lib:get_label(self())
-        }},
+        },
         #{
             domain => [otp],
             report_cb => fun gen_fsm:format_log/2,

@@ -56,7 +56,7 @@ planned, create only with implementation. [Architecture](arch.md) · [Backlog](0
 
 | Location | Lookup |
 | --- | --- |
-| `library/{erts,kernel,stdlib}/` | Erlang library modules; `<m>.terms` inventories, `*.types.hrl`; `modules.terms` registry, `documented.terms` (OTP-documented functions) (`docs/library.md`); `kernel/clause_logger.erl` writes behaviour reports until `logger` |
+| `library/{erts,kernel,stdlib}/` | Erlang library modules; `<m>.terms` inventories, `*.types.hrl`; `modules.terms` registry, `documented.terms` (OTP-documented functions) (`docs/library.md`); `kernel/clause_logger.erl` is the `logger` server; `kernel/include/` holds `logger.hrl`, `file.hrl` |
 | Root | `CMakeLists.txt`, `CMakePresets.json`, `Makefile`, `make-*.bat`, `run-macos.sh`, `clau.bat`, `decompile-*.bat`, `.clang-{format,tidy}` |
 | `cmake/` | Options, dependencies, toolchains, quality checks (Lizard/tidy scope) |
 | `tools/` | Windows toolchain script, `asm.py`, `unicode/` and `rand/` table generators, quality requirements, `luerl-trace/` |

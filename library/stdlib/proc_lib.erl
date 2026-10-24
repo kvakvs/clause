@@ -1,6 +1,6 @@
 %% Clause's proc_lib (plan 21 step LIB20, docs/library.md): processes that know their ancestors and initial call,
 %% synchronous starts acknowledged with init_ack/init_fail, and crash reports when they end abnormally. Reports go
-%% through clause_logger in OTP's report shape and text.
+%% through logger in OTP's report shape and text.
 -module(proc_lib).
 -export([
     format/1,
@@ -43,6 +43,8 @@
     translate_initial_call/1,
     wake_up/3
 ]).
+
+-include_lib("kernel/include/logger.hrl").
 -include("proc_lib.types.hrl").
 
 %% The dictionary keys proc_lib keeps for a process.
@@ -400,12 +402,12 @@ crash_report(exit, shutdown, _, _) ->
 crash_report(exit, {shutdown, _}, _, _) ->
     ok;
 crash_report(Class, Reason, Start, Stack) ->
-    clause_logger:log(
+    ?LOG(
         error,
-        {report, #{
+        #{
             label => {proc_lib, crash},
             report => [own_report(Class, Reason, Start, Stack), neighbours()]
-        }},
+        },
         #{
             domain => [otp, sasl],
             report_cb => fun proc_lib:report_cb/2,

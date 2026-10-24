@@ -45,6 +45,8 @@
     wait_response/2,
     wait_response/3
 ]).
+
+-include_lib("kernel/include/logger.hrl").
 -include("gen_statem.types.hrl").
 
 -behaviour(sys).
@@ -874,9 +876,9 @@ error_info(
             error -> {maps:get(state, Status), maps:get(data, Status)};
             {ok, Custom} -> Custom
         end,
-    clause_logger:log(
+    ?LOG(
         error,
-        {report, #{
+        #{
             label => {gen_statem, terminate},
             name => Name,
             queue => maps:get(queue, Status),
@@ -890,7 +892,7 @@ error_info(
             reason => {Class, maps:get(reason, Status), Stack},
             client_info => client_info(Q),
             process_label => proc_lib:get_label(self())
-        }},
+        },
         #{
             domain => [otp],
             report_cb => fun gen_statem:format_log/2,

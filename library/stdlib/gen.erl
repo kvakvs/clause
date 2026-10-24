@@ -103,7 +103,7 @@ debug_options(Name, Options) ->
                 sys:debug_options(DebugOptions)
             catch
                 _:_ ->
-                    clause_logger:format("~tp: ignoring erroneous debug options - ~tp~n", [
+                    error_logger:format("~tp: ignoring erroneous debug options - ~tp~n", [
                         Name, DebugOptions
                     ]),
                     []

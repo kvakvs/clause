@@ -1,0 +1,10 @@
+%% OTP 29 log_mf_h exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{code_change, 3, default, implemented}.
+{handle_call, 2, default, implemented}.
+{handle_event, 2, default, implemented}.
+{handle_info, 2, default, implemented}.
+{init, 1, default, implemented}.
+{init, 3, default, implemented}.
+{init, 4, default, implemented}.
+{terminate, 2, default, implemented}.
