@@ -884,7 +884,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   (work, joins, nodes) identical on W5r, W6, W5a, W1, W3. Inference (3 runs, profiled): W5a 12.89 → 7.30 s
   (0.567), W1 14.67 → 8.42 s (0.574), W5r 1.23 → 0.08 s.
 
-- **B.6** (pending) W5a re-profile after the OPTC.B memo, no code change (`build/prof-compiler`, pinned, raw
+- **B.6** (5a5d69c8) W5a re-profile after the OPTC.B memo, no code change (`build/prof-compiler`, pinned, raw
   stacks by innermost category; inference 66% of 38 700 samples, parse and print types 9% each). Inside
   inference: body walk 48%, lattice ops 12% (was 41%: `fact_of` 2.6%, `Answers::find` 1.5%, `Gather::add` 1.4%),
   `gather_all` 11%, scope `restore` 11%, `BindingFacts` 8%, pass driver 4%, interning 4%, `set_aside`/`put_back`
