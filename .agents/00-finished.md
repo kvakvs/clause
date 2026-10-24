@@ -691,7 +691,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   with OTP over 765 OTP sources and token mutations
 - **LIB22** `timer` without a timer server: local timed sends over `erlang:send_after/3`, other
   timers as processes reached through an alias in the `TRef`, conversions in C++
-  (`builtins/timer.cpp`); `erlang:apply/2,3` builtins for dynamic calls; `timers` golden
+  (`builtins/timer.cpp`); `erlang:apply/2,3` builtins for dynamic calls; `timers` golden —
+  `b0562967`
 
 ## Plan 22 (from 2026-10-23)
 
