@@ -20,3 +20,9 @@ set_tests_properties(inference_contracts PROPERTIES TIMEOUT 120)
 add_test(NAME inference_budgets COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/budgets.py"
     "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/budgets/$<CONFIG>")
 set_tests_properties(inference_budgets PROPERTIES TIMEOUT 300 PASS_REGULAR_EXPRESSION "inference_budgets: ok")
+
+# Plan 22 B.0: work steps, joins, passes and rounds of a compiler-pass-shaped module stay within their budgets.
+add_test(NAME inference_walkers COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/walkers.py"
+    "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}/tests/fixtures/inference/budgets/walkers.erl"
+    "${CMAKE_CURRENT_BINARY_DIR}/walkers/$<CONFIG>")
+set_tests_properties(inference_walkers PROPERTIES TIMEOUT 300 PASS_REGULAR_EXPRESSION "inference_walkers: ok")

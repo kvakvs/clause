@@ -79,10 +79,7 @@ correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation
 
 ## Steps, in suggested order
 
-1. **B.0 owned fixture:** a Clause-written module reproducing the `ubody` shape (state record of
-   more than 16 fields threaded through mutually recursive walkers, results that are unions of many
-   record shapes, `ordsets` of variables) in `tests/compiler/inference/` as a budget test like
-   `budgets.py`, asserting work steps, joins, passes and rounds, never time.
+1. **B.0 owned fixture:** done (`inference_walkers`); lower its budgets when a step cuts them.
 2. **Re-profile W5a** (sampling) at the current HEAD and rank OPTC.* by measured share.
 3. **INS.2 rest:** joins are counted (`Graph::joins`); add `widen`, `meet`, `within`, `subtract`,
    `truncate`/`nesting` and repeated `(op, left, right)` pairs per pass (the bound on a memo's hit

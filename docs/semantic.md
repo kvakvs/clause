@@ -725,6 +725,13 @@ sum() -> 1 + 2.
   `widening.erl` counters inside containers that widen and settle.
 - `tests/fixtures/inference/contracts/` holds the specification checks (CTest
   `inference_contracts`).
+- `tests/fixtures/inference/budgets/walkers.erl` is a compiler pass in
+  Erlang's usual shape (a large state record threaded through mutually
+  recursive walkers whose results are unions of many records). CTest
+  `inference_walkers` (`tests/compiler/inference/walkers.py`) keeps its
+  passes, work steps, lattice joins and the walker group's solves, rounds and
+  member walks within budgets about a quarter above today's counts, and runs
+  the program.
 
 ### Printing types
 
