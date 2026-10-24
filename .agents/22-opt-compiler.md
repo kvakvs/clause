@@ -5,11 +5,17 @@ inference (`compiler/src/semantic/types/`): inference must converge or give up w
 bounded amount of work, then cost less per walk. Done steps, with commit hashes and numbers, are in
 `00-finished.md` (Plan 22).
 
+**NAMING CONVENTION** Tasks in this file have prefixes based on what they are doing.
+- CONV.<id> - convergence of the inference engine; 
+- BUG.<id>
+- LIV.<id> - liveness analysis
+- INS.<id> - instrumentation
+
 **State after CONV.8:** inference W5a 100.4 → 12.2 s, W1 117.0 → 13.0 s; W5a, W1 and W3 settle in
 pass 50 (limit 64), so the final `term()` pass no longer runs. Passes 1-16 take ≈ 8.6 s of W5a's
 9.7 s of passes (real input churn), passes 17-50 ≈ 1.0 s. Target for W5a: **≤ 10 s** with a
 measured, accepted precision loss. Soundness invariant: a fact may get wider, never narrower, than a
-correct result.
+correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation).
 
 ## Working rules
 
@@ -94,9 +100,12 @@ correct result.
    per component; then `yystate` (W5b) and re-analysis fan-out.
 8. **CONV.5 harder fact caps on recursive results:** deprioritized (INS.5: facts are small, mean
    tree size 4; the cost is interning and constant work per join).
-9. **LLVM phases of W2:** `optimize` + `emit` took 196 s of W2's 328 s at B.4, and 73 + 117 s of
-   216 s at CONV.8; profile module size, per-function pass time, single-threaded `emit`. Outside
-   `semantic/types/`.
+9. **LLVM.2 rest of W2** (after LLVM.1, W2 compile 57.8 s: inference 13.2, lower 10.9, optimize
+   11.1, emit 19.7 s on 32 threads): emission is bound by `core_parse` alone (≈ 14 s of one
+   thread); emit each module right after its optimization in the same job (≈ 10 s), destroy the
+   moved-out modules off the main thread, and split very large modules (`llvm::SplitModule`) only if
+   LIV.1 does not drop `core_parse`, `erl_lint`, `v3_core` and `qlc` from euler anyway. `lower`
+   (10.9 s) is serial.
 10. **Side findings, whenever convenient:**
     - **LIV.1:** liveness keeps every export on W5a and W1 because of the host OTP `file.erl`
       (dynamic call in `io_request/3`, `list_to_atom/1` in `reply/1`): check why the `library/`

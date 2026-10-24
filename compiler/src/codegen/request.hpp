@@ -91,6 +91,9 @@ struct CompilationRequest {
     std::string target_triple;
     // Carry the requested pipeline policy without performing optimization yet.
     OptimizationLevel optimization = OptimizationLevel::none;
+    // Threads that optimize and emit object modules in parallel; 0 uses every hardware thread, 1 works in one context
+    // as before. Added for parallel code generation.
+    std::size_t jobs = 1;
     // Keep the specialization override independent of option ordering.
     bool disable_type_specialization = false;
     // Preserve instruction locations for source comments in requested human-readable IR.

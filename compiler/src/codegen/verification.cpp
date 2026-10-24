@@ -72,10 +72,14 @@ bool verify_ir(Compilation &compilation) {
     std::size_t index = 0;
     for (const auto &module : state.modules) {
         progress_module(compilation, index++, "verification");
-        if (!verify_target(*module, *state.target_machine, state.result) || !verify_module(*module, state.result)) {
+        if (!verify_module_ir(*module, *state.target_machine, state.result)) {
             return false;
         }
     }
     return true;
+}
+
+bool verify_module_ir(const llvm::Module &module, const llvm::TargetMachine &machine, CompilationResult &result) {
+    return verify_target(module, machine, result) && verify_module(module, result);
 }
 } // namespace clause::codegen

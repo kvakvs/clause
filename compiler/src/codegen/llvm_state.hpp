@@ -21,12 +21,18 @@ struct CompilationState {
     std::unique_ptr<llvm::LLVMContext> context;
     // Retain target layout/code-generation policy until modules are destroyed.
     std::unique_ptr<llvm::TargetMachine> target_machine;
-    // Destroy all modules before their shared context; indices match request input order.
+    // One context per module once optimization moved the modules out of `context` to work on them in parallel, by
+    // module index; empty otherwise. Added for parallel code generation.
+    std::vector<std::unique_ptr<llvm::LLVMContext>> module_contexts;
+    // Destroy all modules before their contexts; indices match request input order.
     std::vector<std::unique_ptr<llvm::Module>> modules;
     // Match surviving LLVM lexical scopes directly to retained physical source text.
     SourceScopes source_scopes;
     // Retain bounded decisions independently of temporary semantic ownership for later tracing/lowering.
     SpecializationPlan specializations;
+    // Whether lower_frames lowered and verified the batch, so running it again before optimization is free. Added for
+    // parallel code generation.
+    bool frames_lowered = false;
 };
 
 // Copy LLVM diagnostics into the result; catch callback failures before returning to LLVM.

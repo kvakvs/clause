@@ -50,6 +50,7 @@ const CompilationResult &Compilation::result() const { return detail::state(*thi
 CompilationResult Compilation::take_result() && {
     auto &state = detail::state(*this);
     state.modules.clear();
+    state.module_contexts.clear();
     state.target_machine.reset();
     state.context.reset();
     auto result = std::move(state.result);

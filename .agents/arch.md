@@ -134,6 +134,10 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - LLVM: target-derived layouts, O0/O2 PassBuilder with verification, -Os = O2 + optsize +
   dead-stripping; text/bitcode/object/asm output; `--print-asm` maps line info back to
   `ir`/`erlang`; `-g` emits CodeView/DWARF; `--lto`.
+- Parallel code generation (`codegen/parallel`, `--jobs`, default all hardware threads): for object
+  output, optimization moves each module through bitcode (use-list order kept) into its own
+  `LLVMContext`, largest first, each worker with its own `TargetMachine`; emission then runs on those
+  contexts in parallel; diagnostics and outputs merge in module order, objects identical to `--jobs 1`.
 - Startup (`codegen/startup`): module `clausev1_start` whose `main` hands a `StartupDescriptor` to
   `CLAUSE_main_v1`.
 - Linking (`linking/`): objects staged in `.clause-link-*` beside the output,

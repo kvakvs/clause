@@ -817,6 +817,16 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   (real input churn) 9.4 s. Tried and not kept: replayed members keeping their summary instead of
   refreshing it (cuts round-0 cascades): W5a 11.87 → 11.73 s, 102 lines of `--print-types` differ.
 
+- **LLVM.1** parallel code generation (`codegen/parallel`, `--jobs <n>`, default every hardware
+  thread). W2 profile (serial, 175 modules): optimize 67 s, emit 113 s, IR verification 5 times
+  over the batch 14.7 s; the largest module (`core_parse`) only 12%. For object output each worker
+  writes a module's bitcode (use lists kept: without them one luerl object differed) under a lock on
+  the shared context, reads it into its own `LLVMContext`, optimizes and verifies it; emission runs
+  on those contexts; largest modules first; diagnostics and objects merge in module order; repeated
+  `lower_frames` is free. Objects byte-identical to `--jobs 1` (W2's 175, W6 at -O0/-Os/-O2, new
+  `codegen_options` check). W2 compile 214 → 57.8 s (optimize 11.1 s, emit 19.7 s), same run
+  output. IR/asm inspections stay on one context (source scopes key on its metadata).
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions

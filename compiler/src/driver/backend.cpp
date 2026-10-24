@@ -30,6 +30,9 @@ codegen::CompilationRequest backend_request(std::vector<codegen::CompilationInpu
     request.target_triple = options.target_triple;
     request.optimization = options.optimization.value_or(codegen::OptimizationLevel::none);
     request.disable_type_specialization = options.disable_type_specialization;
+    // Every hardware thread unless --jobs says otherwise; IR and assembly inspections read source scopes of the
+    // batch's one context (parallel code generation).
+    request.jobs = options.inspect_ir() ? 1 : options.jobs.value_or(0);
     // Link-time optimization links bitcode instead of objects; LLD optimizes it together at link.
     request.output_kind =
         options.lto ? codegen::OutputKind::llvm_bitcode : options.emit.value_or(codegen::OutputKind::object);

@@ -28,6 +28,9 @@ struct BackendOptions {
     std::optional<codegen::OptimizationLevel> optimization;
     // Disable variants independently of optimization option order.
     bool disable_type_specialization = false;
+    // Threads that optimize and emit object modules (--jobs); absent uses every hardware thread. Added for parallel
+    // code generation.
+    std::optional<std::size_t> jobs;
     // Emit Erlang line tables into objects and keep them in linked executables (-g).
     bool debug_info = false;
     // Link the modules as bitcode with link-time optimization (--lto); only with an executable output.

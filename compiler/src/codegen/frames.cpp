@@ -1566,8 +1566,13 @@ void lower_module(llvm::Module &output) {
 } // namespace
 
 bool lower_frames(Compilation &compilation) {
+    auto &state = detail::state(compilation);
+    // A batch lowered and verified before is left as it is (changed for parallel code generation).
+    if (state.frames_lowered) {
+        return state.result.status() == CompilationStatus::incomplete;
+    }
     try {
-        for (auto &output : detail::state(compilation).modules) {
+        for (auto &output : state.modules) {
             lower_module(*output);
         }
     } catch (const std::exception &error) {
@@ -1575,6 +1580,7 @@ bool lower_frames(Compilation &compilation) {
             {.level = DiagnosticLevel::error, .message = error.what(), .location = {}, .module_name = {}});
         return false;
     }
-    return verify_ir(compilation);
+    state.frames_lowered = verify_ir(compilation);
+    return state.frames_lowered;
 }
 } // namespace clause::codegen

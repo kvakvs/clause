@@ -1,6 +1,7 @@
 #include "backend_options.hpp"
 #include "../project/paths.hpp"
 #include "options.hpp"
+#include <charconv>
 #include <map>
 #include <set>
 
@@ -42,6 +43,20 @@ std::optional<std::string> path_option(const std::string_view option, const std:
     return {};
 }
 
+// Store a positive thread count once. Added for parallel code generation.
+std::optional<std::string> jobs_option(const std::string &value, BackendOptions &options) {
+    if (options.jobs) {
+        return "--jobs specified more than once";
+    }
+    std::size_t jobs = 0;
+    const auto parsed = std::from_chars(value.data(), value.data() + value.size(), jobs);
+    if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() || jobs == 0) {
+        return "--jobs expects a positive number of threads";
+    }
+    options.jobs = jobs;
+    return {};
+}
+
 // Assign native path/triple operands only once, preserving option spelling in errors.
 std::optional<std::string> value_option(const std::string_view option, const std::string &value,
                                         BackendOptions &options) {
@@ -51,6 +66,9 @@ std::optional<std::string> value_option(const std::string_view option, const std
         {"--runtime-library", &BackendOptions::runtime_library}};
     if (option == "--emit") {
         return emission(value, options);
+    }
+    if (option == "--jobs") {
+        return jobs_option(value, options);
     }
     if (const auto found = paths.find(option); found != paths.end()) {
         return path_option(option, value, options.*(found->second));
@@ -160,6 +178,7 @@ bool is_backend_option(const std::string_view option) {
                                                     "-O2",
                                                     "-Os",
                                                     "--no-type-specialization",
+                                                    "--jobs",
                                                     "-g",
                                                     "--lto",
                                                     "--keep-exports",

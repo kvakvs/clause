@@ -31,6 +31,7 @@ Options:
       --target-triple <triple>  Select machine/OS/ABI, independently of --target.
       -O0 | -O2 | -Os    Select generic O0 (default), speed (specialization, LLVM O2) or size (LLVM Os, unused code stripped at link).
       --no-type-specialization  Disable variants regardless of optimization option order.
+      --jobs <n>       Optimize and emit object modules on n threads (default: every hardware thread).
   -g                   Emit Erlang source line tables; linked executables keep them for debuggers.
       --lto            Link modules as bitcode with link-time optimization (LLD: Windows MSVC and ELF targets).
       --keep-exports   Keep every export of an executable callable; by default unreachable ones are left out.
