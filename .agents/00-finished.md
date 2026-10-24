@@ -718,7 +718,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB33** readers: `io:read/1..4`, `scan_erl_*`, `parse_erl_*` as `get_until` requests;
   `file:consult/1`, `eval/1,2`, `script/1,2`, `path_*` and `path_open/3` read the file whole, decode
   it by its coding comment (`clause_epp`, as `epp:set_encoding/1`) and scan form by form with OTP's
-  errors, invalid UTF-8 included; `file_readers` golden
+  errors, invalid UTF-8 included; `file_readers` golden — `0a1a0679`
 
 ## Plan 22 (from 2026-10-23)
 
