@@ -890,7 +890,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `gather_all` 11%, scope `restore` 11%, `BindingFacts` 8%, pass driver 4%, interning 4%, `set_aside`/`put_back`
   2%. Plan 22 reordered: OPTC.D, OPTC.F, then OPTC.B part 2 with OPTC.C.
 
-- **OPTC.D** (pending) walk containers: variable facts are `BindingValues`, one flat slot per definition in
+- **OPTC.D** (a9216ae4) walk containers: variable facts are `BindingValues`, one flat slot per definition in
   `BindingId` order (scopes, clause joins, guard narrowing and fun instances copied `std::map<BindingId, Fact>`
   nodes); each function's binding events, shared names and first facts are a `BindingIndex` built once per
   inference (every definition has an event, so slots equal the old keys; the work spent per binding is unchanged);
