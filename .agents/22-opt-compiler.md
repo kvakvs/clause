@@ -184,6 +184,13 @@ a fact may only get wider than today's result, never narrower.
 - **CONV.6 Remove the fixed pass count.** Once CONV.1 bounds input changes and CONV.2 makes passes
   cheap, `PASSES` is a safety limit only. Its final `term()` pass should become rare. INS.1 reports
   when it still fires.
+  - **Measured at 4c2bd059 with `PASSES = 64` (not kept):** W5a **settles in pass 50**; inference
+    28.3 s against 19.6 s with the forced pass 17. Passes 17-28 cost 0.6-1.1 s, passes 29-50 20-66
+    ms. 10 749 of 121 199 `--print-types` lines change, local inputs becoming known (e.g.
+    `primop_succeeded(_, ...)` → `(raw_raise | resume, ...)`); functions returning `_` 2354 → 2147.
+    The extra cost is mostly `core_parse:yeccpars1/5` + 522 (28 solves, 147 rounds, 35 135 member
+    walks, 9.3 s) and `ubody_used_vars` + 6 (16 solves, 4.2 s): do CONV.3 (warm start that
+    re-walks only members whose inputs or reads changed) before raising `PASSES`.
 
 CONV.1 and CONV.2 are independent and both needed. CONV.3 and CONV.4 target the per-component
 repetition. CONV.5 targets the per-walk cost.
