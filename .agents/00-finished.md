@@ -827,7 +827,7 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   `codegen_options` check). W2 compile 214 → 57.8 s (optimize 11.1 s, emit 19.7 s), same run
   output. IR/asm inspections stay on one context (source scopes key on its metadata).
 
-- **LIV.1** investigation, no code change. The keep-every-export trigger on W1/W2 and W5a (with
+- **LIV.1** (c4c2378e) investigation, no code change. The keep-every-export trigger on W1/W2 and W5a (with
   `--entry b2s_main:main -o`) is Clause's own `library/kernel/file.erl` (`apply(M, F, A)` in
   `io_request/3`, `list_to_atom/1` in `reply/1`), not the host OTP copy; fixing it would not help:
   W1's live code has 138 runtime-module calls in 40 modules and 206 atom-producing calls in 41
