@@ -97,6 +97,9 @@ class Runtime final {
     detail::ets::Tables &ets_tables() noexcept;
     // Borrow the literal areas of the registered modules (OPT0.4); only active runtimes have them.
     detail::LiteralAreas &literal_areas() noexcept;
+    // A context registration builds module literals on: never published, without the process options' caps, and with
+    // pid number 0, which is never issued, so every pid stays as without it. Added for the literal heap.
+    std::expected<std::unique_ptr<ProcessContext>, abi::v1::Status> scratch_context() noexcept;
     // The command line of RuntimeOptions::program. Added for step 41L.
     const ProgramArguments &program_arguments() const noexcept;
 
@@ -114,6 +117,7 @@ class Runtime final {
     std::unique_ptr<ProcessContext> unpublish_context(ProcessContext &context) const noexcept;
     // Free a context that is not published: it no longer holds persistent term words.
     void free_context(std::unique_ptr<ProcessContext> context) const noexcept;
+
     // Adopt fully constructed state so startup failures unwind before publication.
     explicit Runtime(std::unique_ptr<Impl> impl) noexcept;
 };

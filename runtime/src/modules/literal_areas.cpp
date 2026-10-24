@@ -19,6 +19,14 @@ void LiteralAreas::add(const std::span<const Word> area) {
     snapshots_.push_back(std::move(next));
 }
 
+void LiteralAreas::add(const std::span<const Word> area, std::shared_ptr<const void> owner) {
+    {
+        const std::scoped_lock lock(mutex_);
+        owners_.push_back(std::move(owner));
+    }
+    add(area);
+}
+
 std::span<const Word> LiteralAreas::find(const std::uintptr_t address) const noexcept {
     return persistent_.contains(address) ? persistent_.words_from(address) : module_words(address);
 }

@@ -12,10 +12,12 @@
 #include <clause/abi/maps.hpp>
 #include <clause/abi/messages.hpp>
 #include <clause/abi/records.hpp>
+#include <llvm/ADT/APInt.h>
 #include <map>
 #include <optional>
 #include <set>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -167,6 +169,9 @@ struct ExpressionLowering {
     // Map-shape inline caches (OPT1.6): words of atom literals read from the module's atoms; key searches cache their
     // index only for such keys and constant words, whose key stays the same at a site.
     std::set<const llvm::Value *> atom_literals = {};
+    // Words read from the module's literal cache (literal heap): stable for the program's life, so never rooted, and
+    // already boxed.
+    std::set<const llvm::Value *> literal_values = {};
 };
 
 // The fact inference recorded for an expression, or the fact of argument `index` joined from the function's callers;
@@ -197,6 +202,23 @@ llvm::Value *inline_inspection(ExpressionLowering &state, abi::v1::ContainerInsp
 void propagate_failure(ExpressionLowering &state);
 // Load one runtime-initialized atom slot; no expression evaluation interns spelling.
 llvm::Value *lower_atom(ExpressionLowering &state, const ast::Atom &atom);
+// An i1 that holds when this context's runtime claimed the module's caches (OPT0.8, inline closures, literal heap).
+llvm::Value *claimed(ExpressionLowering &state, llvm::GlobalVariable *atom_cache);
+// The word of a module literal, `encoded` as one term of the module's literals (literal heap); null for a module
+// without a descriptor, whose literals are built where they are used.
+llvm::Value *lower_literal(ExpressionLowering &state, const std::string &encoded);
+// A non-empty tuple, list, string or a map without a base whose every element is a literal, encoded; none for any
+// other expression. Such an expression is one module literal: its elements are not lowered (literal heap).
+std::optional<std::string> encoded_literal(ExpressionLowering &state, const ast::ExprId &id);
+// The word of the module literal `id` is, or null when encoded_literal has none.
+llvm::Value *lower_constant_term(ExpressionLowering &state, const ast::ExprId &id);
+// The module literal of a tuple, or a list whose last value is its tail, of immediate words; null when a value is no
+// small integer, [], {} or fixed atom (literal heap).
+llvm::Value *immediate_container(ExpressionLowering &state, bool tuple, std::span<llvm::Value *const> values);
+// The big-endian two's complement bytes of an integer literal, at least two (literal heap).
+std::vector<std::uint8_t> literal_integer_bytes(const llvm::APInt &value);
+// The bytes of a binary whose every segment is known at compile time; none otherwise (literal binaries).
+std::optional<std::vector<std::uint8_t>> constant_binary(ExpressionLowering &state, const ast::Bitstring &binary);
 
 // Representation-aware exact comparison shares the runtime extension point with guards.
 llvm::Value *lower_exact(ExpressionLowering &state, llvm::Value *left, llvm::Value *right);

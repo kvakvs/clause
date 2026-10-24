@@ -56,6 +56,20 @@ Runtime::build_context(const HeapOptions options, const StackOptions stack_optio
     }
 }
 
+std::expected<std::unique_ptr<ProcessContext>, Status> Runtime::scratch_context() noexcept {
+    if (!impl_) {
+        return std::unexpected(Status::stopped);
+    }
+    try {
+        return std::unique_ptr<ProcessContext>(new ProcessContext(*this, ProcessIdentity({impl_->identity}, 0), {}, {},
+                                                                  impl_->memory, impl_->identity_numbers));
+    } catch (const std::bad_alloc &) {
+        return std::unexpected(Status::out_of_memory);
+    } catch (...) {
+        return std::unexpected(Status::internal_error);
+    }
+}
+
 std::expected<ProcessContext *, Status> Runtime::publish_context(std::unique_ptr<ProcessContext> context) noexcept {
     auto *borrowed = context.get();
     const auto number = static_cast<Word>(borrowed->identity().serial_);

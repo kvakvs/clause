@@ -110,7 +110,10 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `list_to_integer`; small cells bump-allocate in `FrameState::heap_top/heap_limit`; the service is
   the slow tail.
 - Constants: atoms false/true/undefined/ok/error = 0–4, others via `ModuleDescriptor::atom_cache`;
-  compound literals in a per-module read-only literal area (`codegen/literals`).
+  compound literals encoded per module (`abi/literals.hpp`, BEAM compact term encoding + extended
+  tags; `codegen/literals`, `codegen/lowering_literals`), decoded once per runtime at registration
+  into its literal heap (`runtime/src/modules/literal_heap`); code reads `literal_cache` after the
+  claim check, other runtimes call `CLAUSE_literal_v1`.
 - Specialization (O2, `codegen/proofs`): proven operands skip tag tests; ≤ 3 variants/function,
   32/module, ≤ 2x generic IR. Binary loops (`codegen/binary_loops`): self tail calls on a binary
   rest get a `<sym>.loop` variant updating one owned `sub_binary` in place; other body reads of a
@@ -162,8 +165,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - Startup (`startup/`): ABI check, options (`CLAUSE_FLAGS`, `--max-atoms`, `--args-file`, `--`),
   module registration, entry run; exits 0/N/1|127/70. `--profile` attributes time at frame
   transfers.
-- Code server (`modules/`): shared mutex, hash indexes, modules never unloaded; literal areas, atom
-  caches.
+- Code server (`modules/`): shared mutex, hash indexes, modules never unloaded; literal areas (literal
+  heap areas in the persistent range, owned by `LiteralAreas`), atom and literal caches.
 
 ### Terms (`terms/`)
 

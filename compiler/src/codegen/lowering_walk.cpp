@@ -195,7 +195,8 @@ void enter(ExpressionLowering &state, const ast::ExprId &id, std::vector<Visit> 
     if (std::holds_alternative<ast::FunExpression>(expression.value)) {
         return;
     }
-    if (semantic::integer_literal(*state.module.syntax, id, state.word->getBitWidth())) {
+    // A module literal is lowered whole, without its elements (literal heap).
+    if (semantic::integer_literal(*state.module.syntax, id, state.word->getBitWidth()) || encoded_literal(state, id)) {
         return;
     }
     const auto *binary = std::get_if<ast::Bitstring>(&expression.value);

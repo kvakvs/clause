@@ -50,6 +50,10 @@ void root_value(ExpressionLowering &state, llvm::Value *value) {
 }
 
 void mark_term(ExpressionLowering &state, llvm::Value *value) {
+    // A module literal never moves, so it needs no root (literal heap).
+    if (state.literal_values.contains(value)) {
+        return;
+    }
     if (auto *instruction = llvm::dyn_cast<llvm::Instruction>(value)) {
         instruction->setMetadata(TERM_METADATA, llvm::MDNode::get(state.entry.getContext(), {}));
     }

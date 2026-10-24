@@ -131,6 +131,8 @@ struct ModuleAtoms final {
     std::vector<ExportFrame> exports;
     // The descriptor's atom cache when this runtime claimed it (OPT0.8), else null.
     Word *claimed_cache = nullptr;
+    // The words of the module's literals in this runtime's literal heap, by literal index (literal heap).
+    std::vector<Word> literals;
 };
 
 struct ModuleDefinition final {
@@ -216,6 +218,8 @@ class CodeServer final {
     std::vector<std::string> module_names() const;
     // Resolve an initialized atom slot without allocation or spelling interning.
     TermResult<Word> atom_word(const void *descriptor, std::size_t slot) const noexcept;
+    // The word of a registered module's literal in this runtime's literal heap. Added for the literal heap.
+    TermResult<Word> literal_word(const void *descriptor, std::size_t index) const noexcept;
     // Find the bound definition of a registered module's record descriptor; null when none is registered.
     const RecordDefinition *record_definition(const void *descriptor) const noexcept;
     // Find the bound definition of a registered module's fun descriptor; null when none is registered.

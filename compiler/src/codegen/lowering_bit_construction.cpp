@@ -1,8 +1,8 @@
 #include "../semantic/binary_options.hpp"
 #include "../semantic/capabilities.hpp"
-#include "literals.hpp"
 #include "lowering_roots.hpp"
 #include "lowering_state.hpp"
+#include <clause/abi/literals.hpp>
 #include <clause/abi/term.hpp>
 #include <clause/abi/v1.hpp>
 #include <cstdint>
@@ -37,12 +37,25 @@ std::optional<std::int64_t> constant_small(llvm::Value *value) {
     return constant->getSExtValue() >> 4;
 }
 
+// An expression's small integer value known at compile time: an integer or character literal, read from the syntax
+// so a module literal's segments need not be lowered (literal heap), or a lowered small integer constant.
+std::optional<std::int64_t> known_small(ExpressionLowering &state, const ast::ExprId &id) {
+    const auto &syntax = *state.module.syntax;
+    if (const auto literal = semantic::integer_literal(syntax, id, 64)) {
+        return literal;
+    }
+    if (const auto *character =
+            std::get_if<ast::CharacterLiteral>(&syntax.expression(semantic::ungroup(syntax, id)).value)) {
+        return character->value;
+    }
+    const auto found = state.values.find(&syntax.expression(id));
+    return found == state.values.end() ? std::nullopt : constant_small(found->second);
+}
+
 // The constant width of an integer segment in whole bytes up to a word; none for any other segment.
 std::optional<unsigned> byte_width(ExpressionLowering &state, const ast::BinarySegment &segment,
                                    const semantic::BinaryOptions &options) {
-    const auto &syntax = *state.module.syntax;
-    const auto size = segment.size ? constant_small(state.values.at(&syntax.expression(*segment.size)))
-                                   : std::optional<std::int64_t>{options.size};
+    const auto size = segment.size ? known_small(state, *segment.size) : std::optional<std::int64_t>{options.size};
     if (options.type != abi::v1::BitType::integer || options.all || !size || *size <= 0 || *size > 64) {
         return std::nullopt;
     }
@@ -100,7 +113,7 @@ bool constant_bytes(ExpressionLowering &state, const ast::BinarySegment &segment
         }
         return true;
     }
-    const auto small = constant_small(state.values.at(&syntax.expression(segment.value)));
+    const auto small = known_small(state, segment.value);
     if (small) {
         append_bytes(bytes, {static_cast<std::uint64_t>(*small), *width, little});
     }
@@ -349,39 +362,29 @@ llvm::Value *inline_append(ExpressionLowering &state, const ast::Bitstring &bina
         service);
 }
 
-// The words of an inline binary cell holding `bytes`: header, bit length, then the bytes packed into words in the
-// target's byte order.
-std::vector<llvm::Constant *> binary_words(ExpressionLowering &state, const std::vector<std::uint8_t> &bytes) {
-    const auto word_bytes = state.word->getBitWidth() / 8;
-    const auto data_words = (bytes.size() + word_bytes - 1) / word_bytes;
-    const auto header = (static_cast<std::uint64_t>(1 + data_words) << abi::v1::header_count_shift) |
-                        (static_cast<std::uint64_t>(abi::v1::HeaderKind::heap_binary) << abi::v1::header_kind_shift);
-    std::vector<llvm::Constant *> words{llvm::ConstantInt::get(state.word, header),
-                                        llvm::ConstantInt::get(state.word, bytes.size() * 8)};
-    const bool little = state.entry.getParent()->getDataLayout().isLittleEndian();
-    std::vector<std::uint64_t> packed(data_words, 0);
-    for (std::size_t i = 0; i < bytes.size(); ++i) {
-        const auto lane = i % word_bytes;
-        packed[i / word_bytes] |= std::uint64_t{bytes[i]} << (8 * (little ? lane : word_bytes - 1 - lane));
-    }
-    for (const auto value : packed) {
-        words.push_back(llvm::ConstantInt::get(state.word, value));
-    }
-    return words;
-}
-
-// A binary whose every byte is known at compile time, at most an inline binary's 64 bytes, as a cell of the module
-// literal area: built once, never at run time (literal binaries); null for any other binary.
+// A binary whose every byte is known at compile time as a module literal: built once, never at run time (literal
+// binaries, literal heap); null for any other binary.
 llvm::Value *literal_binary(ExpressionLowering &state, const ast::Bitstring &binary) {
-    std::vector<std::uint8_t> bytes;
-    for (const auto &segment : binary.segments) {
-        if (!constant_bytes(state, segment, bytes) || bytes.size() > INLINE_BINARY_BYTES) {
-            return nullptr;
-        }
+    const auto bytes = constant_binary(state, binary);
+    if (!bytes) {
+        return nullptr;
     }
-    return literal_cell(*state.entry.getParent(), state.word, binary_words(state, bytes), abi::v1::boxed_tag);
+    std::string encoded;
+    abi::literals::Writer(encoded).bitstring({reinterpret_cast<const char *>(bytes->data()), bytes->size()},
+                                             bytes->size() * 8);
+    return lower_literal(state, encoded);
 }
 } // namespace
+
+std::optional<std::vector<std::uint8_t>> constant_binary(ExpressionLowering &state, const ast::Bitstring &binary) {
+    std::vector<std::uint8_t> bytes;
+    for (const auto &segment : binary.segments) {
+        if (!constant_bytes(state, segment, bytes)) {
+            return std::nullopt;
+        }
+    }
+    return bytes;
+}
 
 llvm::Value *inline_binary(ExpressionLowering &state, const ast::Bitstring &binary,
                            const llvm::function_ref<llvm::Value *()> service) {

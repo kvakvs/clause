@@ -12,4 +12,6 @@ llvm::GlobalVariable *emit_atom_cache(llvm::Module &output, const std::string &p
                                       std::size_t count);
 // The slot index of an atom spelling collected by emit_atom_table.
 llvm::Constant *atom_slot(llvm::Module &output, const std::string &spelling);
+// The same, or null for a spelling emit_atom_table did not collect. Added for the literal heap.
+llvm::Constant *find_atom_slot(llvm::Module &output, const std::string &spelling);
 } // namespace clause::codegen

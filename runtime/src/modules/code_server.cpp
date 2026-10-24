@@ -124,6 +124,18 @@ TermResult<Word> CodeServer::atom_word(const void *descriptor, std::size_t slot)
     return atoms->slots[slot].word();
 }
 
+TermResult<Word> CodeServer::literal_word(const void *descriptor, std::size_t index) const noexcept {
+    const std::shared_lock lock(mutex_);
+    const auto *atoms = find_atoms(descriptor);
+    if (!atoms) {
+        return std::unexpected(TermError::wrong_owner);
+    }
+    if (index >= atoms->literals.size()) {
+        return std::unexpected(TermError::out_of_range);
+    }
+    return atoms->literals[index];
+}
+
 const RecordDefinition *CodeServer::record_definition(const void *descriptor) const noexcept {
     const std::shared_lock lock(mutex_);
     return found(records_, descriptor);

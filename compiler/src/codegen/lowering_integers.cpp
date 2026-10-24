@@ -1,8 +1,8 @@
-#include "literals.hpp"
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
 #include <algorithm>
 #include <array>
+#include <clause/abi/literals.hpp>
 #include <clause/abi/term.hpp>
 #include <llvm/ADT/APInt.h>
 #include <llvm/IR/Module.h>
@@ -147,14 +147,13 @@ bool float_first(const ExpressionLowering &state, const Op operation, llvm::Valu
            (arithmetic(operation) && (state.raw_floats.contains(left) || state.raw_floats.contains(right)));
 }
 
-// Integer literals of at most this many limbs become literal-area cells (OPT0.4); larger ones (and those the ERTS size
-// limit rejects) keep the service.
+// Integer literals of at most this many limbs become module literals (OPT0.4, literal heap); larger ones (and those the
+// ERTS size limit rejects) keep the service.
 constexpr std::size_t LITERAL_LIMBS = 64;
 
-// An integer literal as a constant (OPT0.4): a small one as its immediate; a bignum as a cell of the module literal
-// area, a header, the sign word (1 when negative) and the magnitude in target-word limbs, least significant first.
-// Null when it stays with the service.
-llvm::Constant *integer_literal(ExpressionLowering &state, const std::string_view decimal) {
+// An integer literal: a small one as its immediate constant; a bignum as a module literal (literal heap). Null when it
+// stays with the service.
+llvm::Value *integer_literal(ExpressionLowering &state, const std::string_view decimal) {
     const auto width = state.word->getBitWidth();
     const llvm::APInt parsed(static_cast<unsigned>(decimal.size() * 4 + 8), llvm::StringRef(decimal), 10);
     const auto payload = width - abi::v1::small_integer_bits;
@@ -169,17 +168,9 @@ llvm::Constant *integer_literal(ExpressionLowering &state, const std::string_vie
     if (limbs == 0 || limbs > LITERAL_LIMBS) {
         return nullptr;
     }
-    std::vector<llvm::Constant *> words{
-        llvm::ConstantInt::get(
-            state.word, ((limbs + 1) << abi::v1::header_count_shift) |
-                            (static_cast<std::uint64_t>(abi::v1::HeaderKind::bignum) << abi::v1::header_kind_shift)),
-        llvm::ConstantInt::get(state.word, parsed.isNegative() ? 1 : 0)};
-    for (unsigned limb = 0; limb < limbs; ++limb) {
-        words.push_back(llvm::ConstantInt::get(
-            state.word,
-            magnitude.extractBitsAsZExtValue(std::min(width, magnitude.getBitWidth() - limb * width), limb * width)));
-    }
-    return literal_cell(*state.entry.getParent(), state.word, words, abi::v1::boxed_tag);
+    std::string encoded;
+    abi::literals::Writer(encoded).integer_bytes(literal_integer_bytes(parsed));
+    return lower_literal(state, encoded);
 }
 } // namespace
 

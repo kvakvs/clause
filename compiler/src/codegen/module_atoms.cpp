@@ -281,6 +281,11 @@ llvm::Constant *atom_slot(llvm::Module &output, const std::string &spelling) {
     return output.getNamedGlobal(slot_name(spelling))->getInitializer();
 }
 
+llvm::Constant *find_atom_slot(llvm::Module &output, const std::string &spelling) {
+    auto *slot = output.getNamedGlobal(slot_name(spelling));
+    return slot ? slot->getInitializer() : nullptr;
+}
+
 namespace {
 // The atom word of a slot through CLAUSE_atom_v3, which checks that the owner module is registered.
 llvm::Value *atom_service(ExpressionLowering &state, llvm::Constant *slot, llvm::Value *descriptor) {

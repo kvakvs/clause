@@ -1,15 +1,9 @@
-#include "literals.hpp"
 #include "lowering_state.hpp"
 #include <clause/abi/equality.hpp>
 #include <clause/abi/term.hpp>
 
 namespace clause::codegen {
 llvm::Value *cell_address(ExpressionLowering &state, llvm::Value *value, const unsigned tag) {
-    if (auto *constant = llvm::dyn_cast<llvm::Constant>(value)) {
-        if (auto *literal = literal_address(constant, tag)) {
-            return literal;
-        }
-    }
     auto &builder = state.builder;
     return builder.CreateIntToPtr(builder.CreateSub(value, llvm::ConstantInt::get(state.word, tag)), builder.getPtrTy(),
                                   "proven.cell");

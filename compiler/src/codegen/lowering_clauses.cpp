@@ -204,6 +204,7 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
         state.binary_loop = initial.binary_loop;
         state.float_loop = initial.float_loop;
         state.raw_floats = initial.raw_floats;
+        state.literal_values = initial.literal_values;
         state.lambdas = initial.lambdas;
         reset_candidate_roots(state);
         candidate(state, clauses[index], next);

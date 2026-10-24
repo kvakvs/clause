@@ -130,6 +130,8 @@ int main() {
                                          "_Z25CLAUSE_register_module_v4PvPKv", "_Z25CLAUSE_register_module_v4PvPKv"});
         check<services::Atom>({"?CLAUSE_atom_v3@@YA_KPEAX_KPEBX@Z", "?CLAUSE_atom_v3@@YAIPAXIPBX@Z",
                                "_Z14CLAUSE_atom_v3PvmPKv", "_Z14CLAUSE_atom_v3PvjPKv"});
+        check<services::Literal>({"?CLAUSE_literal_v1@@YA_KPEAX_KPEBX@Z", "?CLAUSE_literal_v1@@YAIPAXIPBX@Z",
+                                  "_Z17CLAUSE_literal_v1PvmPKv", "_Z17CLAUSE_literal_v1PvjPKv"});
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;

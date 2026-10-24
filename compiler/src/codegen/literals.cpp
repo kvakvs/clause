@@ -1,4 +1,5 @@
 #include "literals.hpp"
+#include <llvm/IR/Constants.h>
 #include <map>
 #include <mutex>
 #include <utility>
@@ -6,13 +7,13 @@
 
 namespace clause::codegen {
 namespace {
-// The cells of one module's literal area while its functions are lowered.
+// The literals of one module while its functions are lowered.
 struct Pool {
-    // Stands for the area until finish_literals defines it; every literal word is an offset into it.
-    llvm::GlobalVariable *placeholder = nullptr;
-    // The area's words in order, and the offset (in words) of every distinct cell.
-    std::vector<llvm::Constant *> words;
-    std::map<std::pair<std::vector<llvm::Constant *>, unsigned>, std::size_t> cells;
+    // Stands for the literal cache until finish_literals defines it.
+    llvm::GlobalVariable *cache = nullptr;
+    // The encoded literals in index order, and the index of each.
+    std::vector<const std::string *> order;
+    std::map<std::string, std::size_t> indices;
 };
 
 // The pools of the modules being lowered, under one lock: modules may be lowered on several threads.
@@ -26,60 +27,75 @@ Pools &all_pools() {
     return pools;
 }
 
-llvm::Constant *tagged_word(const Pool &pool, llvm::IntegerType *word, std::size_t offset, unsigned tag) {
-    auto &context = word->getContext();
-    auto *bytes = llvm::ConstantInt::get(word, offset * (word->getBitWidth() / 8) + tag);
-    auto *address = llvm::ConstantExpr::getGetElementPtr(llvm::Type::getInt8Ty(context), pool.placeholder, bytes);
-    return llvm::ConstantExpr::getPtrToInt(address, word);
+// Take the module's pool out of the registry; empty when its functions made no literal.
+Pool take_pool(const llvm::Module &output) {
+    auto &registry = all_pools();
+    const std::scoped_lock lock(registry.mutex);
+    const auto found = registry.pools.find(&output);
+    if (found == registry.pools.end()) {
+        return {};
+    }
+    auto pool = std::move(found->second);
+    registry.pools.erase(found);
+    return pool;
+}
+
+// The encoded literals back to back as a private constant byte array.
+llvm::Constant *encoded_literals(llvm::Module &output, const Pool &pool, const std::string &prefix,
+                                 std::size_t &bytes) {
+    std::string all;
+    for (const auto *encoded : pool.order) {
+        all += *encoded;
+    }
+    bytes = all.size();
+    auto *data = llvm::ConstantDataArray::getString(output.getContext(), all, false);
+    return new llvm::GlobalVariable(output, data->getType(), true, llvm::GlobalValue::PrivateLinkage, data,
+                                    prefix + ".literals");
+}
+
+// The writable literal cache, one zeroed word per literal, in place of its placeholder if any.
+llvm::Constant *define_cache(llvm::Module &output, Pool &pool, llvm::IntegerType *word, const std::string &prefix) {
+    auto *type = llvm::ArrayType::get(word, pool.order.size());
+    auto *cache = new llvm::GlobalVariable(output, type, false, llvm::GlobalValue::InternalLinkage,
+                                           llvm::ConstantAggregateZero::get(type), prefix + ".literal_cache");
+    if (pool.cache) {
+        pool.cache->replaceAllUsesWith(cache);
+        pool.cache->eraseFromParent();
+    }
+    return cache;
 }
 } // namespace
 
-llvm::Constant *literal_cell(llvm::Module &output, llvm::IntegerType *word, std::span<llvm::Constant *const> words,
-                             unsigned tag) {
+std::size_t literal_index(llvm::Module &output, const std::string &encoded) {
     auto &registry = all_pools();
     const std::scoped_lock lock(registry.mutex);
     auto &pool = registry.pools[&output];
-    if (!pool.placeholder) {
-        pool.placeholder = new llvm::GlobalVariable(output, llvm::ArrayType::get(word, 0), true,
-                                                    llvm::GlobalValue::PrivateLinkage, nullptr, "literals.pending");
-    }
-    auto key = std::make_pair(std::vector<llvm::Constant *>(words.begin(), words.end()), tag);
-    const auto [found, added] = pool.cells.try_emplace(std::move(key), pool.words.size());
+    const auto [found, added] = pool.indices.try_emplace(encoded, pool.order.size());
     if (added) {
-        pool.words.insert(pool.words.end(), words.begin(), words.end());
+        pool.order.push_back(&found->first);
     }
-    return tagged_word(pool, word, found->second, tag);
+    return found->second;
 }
 
-llvm::Constant *literal_address(llvm::Constant *word, unsigned tag) {
-    auto *expression = llvm::dyn_cast<llvm::ConstantExpr>(word);
-    if (!expression || expression->getOpcode() != llvm::Instruction::PtrToInt) {
-        return nullptr;
+llvm::GlobalVariable *literal_cache(llvm::Module &output, llvm::IntegerType *word) {
+    auto &registry = all_pools();
+    const std::scoped_lock lock(registry.mutex);
+    auto &pool = registry.pools[&output];
+    if (!pool.cache) {
+        pool.cache = new llvm::GlobalVariable(output, llvm::ArrayType::get(word, 0), false,
+                                              llvm::GlobalValue::InternalLinkage, nullptr, "literal_cache.pending");
     }
-    auto *tagged = expression->getOperand(0);
-    auto *offset = llvm::ConstantInt::getSigned(llvm::cast<llvm::IntegerType>(word->getType()), -static_cast<int>(tag));
-    return llvm::ConstantExpr::getGetElementPtr(llvm::Type::getInt8Ty(word->getContext()), tagged, offset);
+    return pool.cache;
 }
 
 void finish_literals(llvm::Module &output, llvm::IntegerType *word, const std::string &prefix) {
-    Pool pool;
-    {
-        auto &registry = all_pools();
-        const std::scoped_lock lock(registry.mutex);
-        const auto found = registry.pools.find(&output);
-        if (found == registry.pools.end()) {
-            return;
+    auto pool = take_pool(output);
+    if (pool.order.empty()) {
+        if (pool.cache) {
+            pool.cache->eraseFromParent();
         }
-        pool = std::move(found->second);
-        registry.pools.erase(found);
+        return;
     }
-    auto *type = llvm::ArrayType::get(word, pool.words.size());
-    auto *area = new llvm::GlobalVariable(output, type, true, llvm::GlobalValue::PrivateLinkage,
-                                          llvm::ConstantArray::get(type, pool.words), prefix + ".literals");
-    area->setAlignment(llvm::Align(word->getBitWidth() / 8));
-    pool.placeholder->replaceAllUsesWith(area);
-    pool.placeholder->eraseFromParent();
-    // Two descriptor fields name the area (abi::v1::ModuleDescriptor::literals, literal_words).
     auto *descriptor = output.getNamedGlobal(prefix + ".descriptor");
     auto *fields = llvm::cast<llvm::ConstantStruct>(descriptor->getInitializer());
     std::vector<llvm::Constant *> operands;
@@ -87,10 +103,14 @@ void finish_literals(llvm::Module &output, llvm::IntegerType *word, const std::s
     for (unsigned i = 0; i < fields->getNumOperands(); ++i) {
         operands.push_back(fields->getAggregateElement(i));
     }
-    // The literal fields come after the atom cache (abi::v1::ModuleDescriptor field order).
+    // The encoded literals come after the atom cache, the literal cache last (abi::v1::ModuleDescriptor field order).
     constexpr unsigned LITERALS = 13;
-    operands[LITERALS] = area;
-    operands[LITERALS + 1] = llvm::ConstantInt::get(word, pool.words.size());
+    constexpr unsigned LITERAL_CACHE = 19;
+    std::size_t bytes = 0;
+    operands[LITERALS] = encoded_literals(output, pool, prefix, bytes);
+    operands[LITERALS + 1] = llvm::ConstantInt::get(word, bytes);
+    operands[LITERAL_CACHE] = define_cache(output, pool, word, prefix);
+    operands[LITERAL_CACHE + 1] = llvm::ConstantInt::get(word, pool.order.size());
     descriptor->setInitializer(llvm::ConstantStruct::get(fields->getType(), operands));
 }
 } // namespace clause::codegen

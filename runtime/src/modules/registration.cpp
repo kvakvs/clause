@@ -1,15 +1,15 @@
 #include "atoms.hpp"
-#include "literal_areas.hpp"
+#include "literal_heap.hpp"
 #include <array>
 #include <clause/runtime/modules.hpp>
 
 namespace clause::runtime {
 namespace {
 // Validate the fixed prefix before inspecting target-width-dependent descriptor fields.
-// Every table a descriptor names has its pointer: atoms within the hard limit, and the literal area (OPT0.4).
+// Every table a descriptor names has its pointer: atoms within the hard limit, and the encoded literals.
 bool tables_valid(const abi::v1::ModuleDescriptor &descriptor) {
     return (descriptor.atom_count == 0 || descriptor.atoms) && descriptor.atom_count <= AtomStorage::hard_limit &&
-           (descriptor.literal_words == 0 || descriptor.literals);
+           (descriptor.literal_bytes == 0 || descriptor.literals);
 }
 
 // The descriptor's version, word width and Code convention (none, or the runtime's) are this runtime's.
@@ -126,9 +126,10 @@ register_module(Runtime &runtime, const abi::v1::ModuleDescriptor &descriptor, s
         if (!atoms) {
             return std::unexpected(atoms.error());
         }
+        if (const auto literals = decode_literals(runtime, descriptor, **atoms); !literals) {
+            return std::unexpected(literals.error());
+        }
         definition.atoms = *atoms;
-        // Published first: an area a failed load leaves behind is never pointed into.
-        runtime.literal_areas().add({descriptor.literals, descriptor.literal_words});
         return server->load(std::move(definition));
     } catch (const std::bad_alloc &) {
         return std::unexpected(CodeError::resource_limit);

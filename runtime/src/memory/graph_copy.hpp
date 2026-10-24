@@ -240,7 +240,8 @@ class GraphCopy final {
     // Whether a copy keeps the word naming an address instead of copying its object.
     bool kept(std::uintptr_t at) const noexcept {
         if (runtime_.persistent(at)) {
-            return keep_persistent_ && !retiring_.contains(at);
+            // Module literals of the literal heap lie in the persistent term range but never retire (literal heap).
+            return (keep_persistent_ && !retiring_.contains(at)) || runtime_.module_literal(at);
         }
         // Heap words lie outside the span of all module areas: two comparisons spare the area search.
         return at >= module_span_.first && at < module_span_.second && runtime_.module_literal(at);

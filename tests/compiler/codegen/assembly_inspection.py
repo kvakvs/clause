@@ -65,7 +65,8 @@ assert re.search(rf'^{re.escape(comment)} erlang answer\.erl:3: value\(\) -> 42\
 assert re.search(rf'^{re.escape(comment)} erlang answer\.erl:4: identity\(X\) -> X\.$', listing, re.MULTILINE)
 # Line tables exist only to carry the mapping: their directives, sections and labels are gone.
 assert not re.search(r'^\s*\.(loc|cv_loc|cv_file|file)\b', listing, re.MULTILINE)
-assert not re.search(r'debug|Ltmp|Lfunc_begin', listing)
+# The encoded module literals hold the source path, which may contain "debug" (literal heap).
+assert not re.search(r'\.debug|debug_|Ltmp|Lfunc_begin', listing)
 
 # Every IR comment names an instruction of the optimized IR the machine code was selected from.
 optimized = ir_instructions(run('-O2', '--print-optimized-ir', 'answer.erl').stdout)

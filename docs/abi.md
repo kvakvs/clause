@@ -60,8 +60,8 @@ pointer/size pairs), native record descriptors (module, name and field atom
 slots, export flag; [native records](native-records.md#representation)) in an
 external `<prefix>.records` table that other modules of a batch reference, fun
 descriptors in a private `<prefix>.funs` table
-([funs](funs.md#representation)), the read-only literal area
-([areas](runtime-heap.md#areas)), the writable atom and fun caches generated
+([funs](funs.md#representation)), the encoded module literals and the literal
+cache ([areas](runtime-heap.md#areas)), the writable atom and fun caches generated
 code reads inline, and the `code_convention` of its bodies. Registration calls
 `CLAUSE_register_module_v4(Runtime*)`, which validates version/width and all
 exports, interns atoms, builds a frozen registry and publishes it with the code
@@ -77,6 +77,16 @@ publishes nothing (already interned atoms stay in the bounded table).
 - Atom expressions other than the fixed atoms read `atom_cache` when the
   context's `FrameState::runtime` owns the cache, else `CLAUSE_atom_v3`; they
   never intern ([atoms](terms.md#atoms)).
+- Compound literals are `literal_count` terms of `literals` (`literal_bytes`
+  bytes, `abi/literals.hpp`): BEAM's compact term encoding (base tags `u`, `i`,
+  `a`: counts, integers of any size as big-endian two's complement, atoms as
+  module atom slot + 1 with 0 for `[]`) plus Clause's extended tags for lists
+  (length, elements, tail), tuples, floats (binary64), bitstrings (bit count,
+  bytes), maps and byte strings. Registration decodes them into the runtime's
+  literal heap; the claiming runtime fills `literal_cache` (one word per
+  literal), which generated code reads after the claim check, and other
+  runtimes' code calls `CLAUSE_literal_v1(context, index, descriptor)`
+  ([areas](runtime-heap.md#areas)).
 - A startup object (`clausev1_start`) lists every descriptor in a
   `StartupDescriptor` and its native `main` calls
   `CLAUSE_main_v1(argc, argv, descriptor)`, which registers all modules and runs
@@ -500,3 +510,4 @@ success.
 | 22 | Direct builtins: `BuiltinName::direct`, `CLAUSE_builtin_call_v1` |
 | 23 | Quick builtins: `BuiltinName::call` (`BuiltinCall`), 0 from `CLAUSE_builtin_call_v1` declines |
 | 24 | `RecordDescriptor::definition` (the field list as External Term Format bytes, for `records:get_definition/2`) and `ModuleDescriptor::features` (atom slots of the enabled features, for `erl_features:used/1`) |
+| 25 | Encoded module literals and the literal heap: `ModuleDescriptor::literals` holds encoded bytes (`literal_bytes`), `literal_cache`, `literal_count`; `CLAUSE_literal_v1` |

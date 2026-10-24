@@ -67,6 +67,8 @@ using Registers = Function<"CLAUSE_registers_v1", Slot, Context>;
 using Invoke = Function<"CLAUSE_invoke_v1", Size, Context, Descriptor, Words>;
 using RegisterModule = Function<"CLAUSE_register_module_v4", UInt8, Context, Descriptor>;
 using Atom = Function<"CLAUSE_atom_v3", Size, Context, Size, Descriptor>;
+// A module literal's word in the literal heap of a runtime that did not claim the module (literal heap).
+using Literal = Function<"CLAUSE_literal_v1", Size, Context, Size, Descriptor>;
 // Program startup called by the generated native `main` (abi/startup.hpp).
 using Main = Function<"CLAUSE_main_v1", Int32, Int32, Pointer<Pointer<Char>>, Descriptor>;
 

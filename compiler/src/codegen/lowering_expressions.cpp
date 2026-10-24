@@ -249,7 +249,8 @@ llvm::Value *literal_prefix(ExpressionLowering &state, const ast::BinaryExpressi
             values.push_back(llvm::ConstantInt::get(
                 state.word, *abi::v1::IntegerEncoding<32>::encode(static_cast<std::int64_t>(character))));
         }
-    } else if (const auto *list = std::get_if<ast::List>(&left); list && !list->tail) {
+    } else if (const auto *list = std::get_if<ast::List>(&left);
+               list && !list->tail && !encoded_literal(state, semantic::ungroup(syntax, binary.left))) {
         for (const auto &element : list->elements) {
             values.push_back(state.values.at(&syntax.expression(element)));
         }
@@ -303,6 +304,9 @@ llvm::Value *lower_value(ExpressionLowering &state, const ast::ExprId &id) {
     locate_source(state.builder, *state.module.syntax, expression.source);
     if (semantic::integer_literal(*state.module.syntax, id, state.word->getBitWidth())) {
         return literal(state, id);
+    }
+    if (auto *constant = lower_constant_term(state, id)) {
+        return constant;
     }
     if (const auto *call = std::get_if<ast::CallExpression>(&expression.value)) {
         return call_value(state, expression, *call);

@@ -177,10 +177,8 @@ ModuleAtoms::~ModuleAtoms() {
     }
 }
 
-CodeResult<std::shared_ptr<const ModuleAtoms>> bind_atoms(AtomStorage &storage,
-                                                          const abi::v1::ModuleDescriptor &descriptor,
-                                                          const BuiltinRegistry &builtins,
-                                                          const std::uint64_t runtime) {
+CodeResult<std::shared_ptr<ModuleAtoms>> bind_atoms(AtomStorage &storage, const abi::v1::ModuleDescriptor &descriptor,
+                                                    const BuiltinRegistry &builtins, const std::uint64_t runtime) {
     if (!valid_spellings(descriptor)) {
         return std::unexpected(CodeError::invalid_module);
     }

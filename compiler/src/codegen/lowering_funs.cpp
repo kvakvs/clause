@@ -185,7 +185,8 @@ llvm::Value *fun_service(ExpressionLowering &state, const ast::Expression &expre
     return builder.CreateAlignedLoad(state.word, slot, llvm::Align(state.word->getBitWidth() / 8), "fun.value");
 }
 
-// An i1 that holds when this context's runtime claimed the module's caches (OPT0.8, inline closures).
+} // namespace
+
 llvm::Value *claimed(ExpressionLowering &state, llvm::GlobalVariable *atom_cache) {
     auto &builder = state.builder;
     const llvm::Align align(state.word->getBitWidth() / 8);
@@ -199,6 +200,7 @@ llvm::Value *claimed(ExpressionLowering &state, llvm::GlobalVariable *atom_cache
     return builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, claim, runtime));
 }
 
+namespace {
 // Write the fun cell at `top`: header, the definition from the fun cache, then the captured values.
 llvm::Value *write_fun(ExpressionLowering &state, llvm::Value *definition, std::span<llvm::Value *const> captured,
                        llvm::Value *top) {

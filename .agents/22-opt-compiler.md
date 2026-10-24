@@ -21,7 +21,8 @@ walk 60% (`walk` 12.2%, `Module::expression` 4.7%, `refine` 3.8%), lattice ops 1
 2.7%, `fact_of` 1.2%; its `Order::visit` 1.3% is `inference_scopes`), pass driver 8.7%
 (`unchanged` 2.9%), `BindingFacts` 7.7%, interning 6.0% (≈ 4.7% after OPTC.C part 4), `gather_all`
 4.0%. Soundness invariant: a
-fact may get wider, never narrower, than a correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code generation).
+fact may get wider, never narrower, than a correct result. W2 compile 214 → 57.8 s after LLVM.1 (parallel code
+generation), 54.9 → 39.2 s (16 P-core threads) after LLVM.2 part 1 (literal heap).
 
 ## Working rules
 
@@ -98,11 +99,13 @@ fact may get wider, never narrower, than a correct result. W2 compile 214 → 57
    per component; then `yystate` (W5b) and re-analysis fan-out.
 3. **CONV.5 harder fact caps on recursive results:** deprioritized (INS.5: facts are small, mean
    tree size 4; the cost is interning and constant work per join).
-4. **LLVM.2 rest of W2** (after LLVM.1, W2 compile 57.8 s: inference 13.2, lower 10.9, optimize
-   11.1, emit 19.7 s on 32 threads): emission is bound by `core_parse` alone (≈ 14 s of one
-   thread); emit each module right after its optimization in the same job (≈ 10 s), destroy the
-   moved-out modules off the main thread, and split very large modules (`llvm::SplitModule`):
-   liveness keeps `core_parse`, `erl_lint`, `v3_core` and `qlc` whole (LIV.1). `lower` (10.9 s) is
+4. **LLVM.2 rest of W2.** Part 1 (literal heap) done: compound literals are encoded per module and decoded once per
+   runtime at registration; the per-call building of `module_info` data (yecc's ~900 `-dialyzer` attributes, half of
+   `core_parse`'s IR) is gone. Profile after it (W2, 32 threads): lower 9.7, optimize 8.4, emit 10.3 s.
+   `core_parse` still bounds optimize and emit: its `yeccpars1/5` tail-call cycle is one 191K-instruction LLVM
+   function (OPT1.1C), which `llvm::SplitModule` cannot split, so fusing optimize and emit per module gains little
+   while one module leads both phases. Next: cap the size of a tail-call cycle function (fall back to frame transfers
+   for huge cycles), then fuse optimize+emit and destroy moved-out modules off the main thread; `lower` (≈ 10 s) is
    serial.
 5. **Side findings, whenever convenient:**
     - **BUG.1:** `clau` (Release, ab635294) exited 0xC0000005 once in ~100 W5r runs. Suspect a

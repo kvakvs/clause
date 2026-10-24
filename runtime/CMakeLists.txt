@@ -107,7 +107,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/rand/generators.cpp src/builtins/rand/rand.cpp src/builtins/rand/tables.cpp
     src/startup/startup.cpp src/startup/arguments.cpp src/startup/options.cpp
     src/startup/halt.cpp
-    src/modules/atoms.cpp src/modules/services.cpp src/modules/code_server.cpp src/modules/registration.cpp src/modules/literal_areas.cpp)
+    src/modules/atoms.cpp src/modules/literal_heap.cpp src/modules/services.cpp src/modules/code_server.cpp src/modules/registration.cpp src/modules/literal_areas.cpp)
 # List review headers for IDE navigation; they are not separate compilation units.
 target_sources(clause_runtime PRIVATE
     include/atom_storage.hpp

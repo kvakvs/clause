@@ -22,6 +22,9 @@ class LiteralAreas final {
 
     // Add the words of one module's literal area; an empty area adds nothing. May throw std::bad_alloc.
     void add(std::span<const Word> area);
+    // Add an area of the literal heap in the persistent term range and keep its owner, which frees it, as long as the
+    // runtime (literal heap). May throw std::bad_alloc.
+    void add(std::span<const Word> area, std::shared_ptr<const void> owner);
     // The words from a word-aligned address inside a module area to that area's end, or inside the persistent term
     // range to its committed end; empty for any other address. Lock-free: readers see an immutable snapshot.
     std::span<const Word> find(std::uintptr_t address) const noexcept;
@@ -62,5 +65,7 @@ class LiteralAreas final {
     std::mutex mutex_;
     // The persistent term range; its areas come and go, so they are not entered in the snapshots.
     PersistentRegion persistent_;
+    // The owners of the literal heap areas, freed before the range (literal heap).
+    std::vector<std::shared_ptr<const void>> owners_;
 };
 } // namespace clause::runtime::detail

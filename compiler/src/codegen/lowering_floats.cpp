@@ -1,8 +1,8 @@
-#include "literals.hpp"
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
 #include <array>
 #include <bit>
+#include <clause/abi/literals.hpp>
 #include <clause/abi/term.hpp>
 #include <cmath>
 #include <llvm/IR/Module.h>
@@ -11,16 +11,10 @@
 namespace clause::codegen {
 llvm::Value *lower_float(ExpressionLowering &state, const double value) {
     const auto bits = std::bit_cast<std::uint64_t>(value);
-    // A float literal is a cell of the module literal area: a header and the binary64 bits in target words (OPT0.4).
-    if (std::isfinite(value)) {
-        const auto width = state.word->getBitWidth();
-        std::vector<llvm::Constant *> words{llvm::ConstantInt::get(
-            state.word, ((64 / width) << abi::v1::header_count_shift) |
-                            (static_cast<std::uint64_t>(abi::v1::HeaderKind::floating) << abi::v1::header_kind_shift))};
-        for (unsigned shift = 0; shift < 64; shift += width) {
-            words.push_back(llvm::ConstantInt::get(state.word, (bits >> shift) & (~std::uint64_t{0} >> (64 - width))));
-        }
-        auto *literal = literal_cell(*state.entry.getParent(), state.word, words, abi::v1::boxed_tag);
+    // A float literal is a module literal (OPT0.4, literal heap).
+    std::string literal_bytes;
+    abi::literals::Writer(literal_bytes).floating(value);
+    if (auto *literal = std::isfinite(value) ? lower_literal(state, literal_bytes) : nullptr) {
         // Float operations read the literal's double as a constant (raw floats, OPT1.2).
         state.raw_floats.emplace(literal, llvm::ConstantFP::get(state.builder.getDoubleTy(), value));
         return literal;

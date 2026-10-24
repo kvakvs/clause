@@ -169,18 +169,28 @@ heap. Smaller maps stay `map` cells.
   safepoints, such as the returns of a body recursion, stays inline after the
   first fragment opens (fragment windows). Without a budget each new fragment is
   at least as large as the fragments before it.
-- **Literal areas.** Each module's compound literals — strings and constant
-  lists, tuples of constants, floats, bignum literals and constant binaries —
-  are laid out by the compiler as heap cells in one read-only global
-  (`ModuleDescriptor::literals`), registered runtime-wide
-  (`detail::LiteralAreas`, a lock-free sorted snapshot) when the module is
-  registered. Terms of every process may point into them: admission checks
+- **Literal areas (literal heap).** Each module's compound literals —
+  strings, constant lists, tuples and maps, floats, bignum literals and
+  constant binaries of any size — are encoded by the compiler into one
+  constant byte string (`ModuleDescriptor::literals`, `abi/literals.hpp`),
+  which stays in the executable's read-only data. Registration decodes them
+  once per runtime on a scratch context (pid number 0, never issued) with the
+  runtime's atoms and term factories, then copies them into one area of the
+  persistent term range that never retires; `detail::LiteralAreas` owns the
+  area for the runtime's life and registers it as a module literal area (a
+  lock-free sorted snapshot), so even copies that copy live persistent terms
+  share it. Binaries over 64 bytes keep a buffer of their own. Terms of every
+  process may point into them: admission checks
   `HeapStorage::readable` (heap, fragments, then literals), while
   `TermAccess::object` reads trusted pointers. The collector leaves literal
   words as they are (`owned` stays heap-only); copies between heaps and into
   message buffers keep
   pointing at them (a literal root needs no copy); the verifier accepts them.
-  Literals hold only immediates (fixed atoms only) and other literals' words.
+  Literal words are the runtime's own (atoms included), so each runtime has
+  its own copy; generated code reads the claiming runtime's words from
+  `literal_cache` and other runtimes' through `CLAUSE_literal_v1`. An owned map
+  update never changes a literal in place: only a stub in the process's own
+  heap qualifies.
 - **Fragments.** When a request does not fit and the heap may not move, it goes
   into the newest fragment if it fits there, else into a new fragment sized to
   fit (at least the minimum heap size) and chained to the process. The next

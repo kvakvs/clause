@@ -157,7 +157,8 @@ assert not build.exists() or [entry.name for entry in build.iterdir()] == ['cach
 assert not (work / 'out').exists() and not (work / 'new.toml').exists()
 
 # Plan 20 step OPT0.5B: only the two updates of a map nothing else reads use the owned operation (10); the update of
-# a source read again stays an ordinary update (1), so that source keeps its value.
+# a source read again stays an ordinary update (1), so that source keeps its value. The constant maps the updates
+# start from are module literals, built by no operation (literal heap).
 owned = run('--print-ir', 'owned.erl').stdout
 operations = re.findall(r'CLAUSE_map_v1[^(]*\(ptr [^,]*, i8 (\d+)', owned)
-assert sorted(operations) == ['0', '0', '1', '10', '10'], operations
+assert sorted(operations) == ['1', '10', '10'], operations

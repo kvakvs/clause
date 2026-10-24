@@ -305,7 +305,8 @@ llvm::Value *float_box(ExpressionLowering &state, llvm::Value *raw) {
 llvm::Value *materialized(ExpressionLowering &state, llvm::Value *word) {
     // A missing operand (null) has no double either.
     const auto raw = state.raw_floats.find(word);
-    return raw == state.raw_floats.end() || llvm::isa<llvm::Constant>(word) ? word : float_box(state, raw->second);
+    // A float literal is boxed already (literal heap).
+    return raw == state.raw_floats.end() || state.literal_values.contains(word) ? word : float_box(state, raw->second);
 }
 
 llvm::Value *raw_comparison(ExpressionLowering &state, const Op operation, llvm::Value *left, llvm::Value *right) {
