@@ -234,6 +234,12 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Commands checked by `exprs/2`, `expr/2` and `check_command/2` | `erl_lint` reports its first error of any kind | `clause_erl_lint` reports unbound and unsafe variables, illegal patterns and guards, undefined records, stack trace variables, `=>` in map patterns, `:=` in map construction and unsized binaries before the end; other `erl_lint` errors (such as bit type errors) are raised when the code runs, or not at all for code that never runs. `erl_lint` itself comes with plan 21 step LIB34 | [erl_eval](builtins.md#erl-eval) |
 | Stack trace of an error the evaluator raises (`{badmatch, V}`, `undef` of a local call, ...) | The evaluating process's current stack (`process_info/2` `current_stacktrace`) | The stack at the evaluator's `throw` that collects it, in Clause's frames | [erl_eval](builtins.md#erl-eval) |
 
+## erl_pp
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Nesting of the deep character lists `erl_pp` returns | OTP's own nesting | The same characters, nested differently; flattened output is equal | [library](library.md#contents) |
+
 ## Random numbers
 
 | Difference | OTP | Clause | Owner |

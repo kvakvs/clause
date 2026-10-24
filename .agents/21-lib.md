@@ -21,14 +21,14 @@ choose
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  907 are still to do (erts 23, kernel 243, stdlib 641). Appendix A lists them per module.
+  891 are still to do (erts 23, kernel 243, stdlib 625). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
   `dict`, `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`, `filename`,
   `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`,
   `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
-  `timer`, `unicode`, `uri_string`, `erl_eval`, `erl_error`, `proc_lib`, `sys`, `gen_server`, `gen_statem`, `gen_event`,
+  `timer`, `unicode`, `uri_string`, `erl_eval`, `erl_error`, `erl_pp`, `proc_lib`, `sys`, `gen_server`, `gen_statem`, `gen_event`,
   `gen_fsm` (deprecated), `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`,
   `logger_std_h`, `logger_filters`, `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`, `global_group`, `rpc`, `erpc`,
   `net_adm`, `net_kernel` (distribution start declined), `auth`, `seq_trace` (tokens without tracing).
@@ -128,7 +128,7 @@ LIB33 (readers built on the front end) is done (`00-finished.md`).
 ### LIB34. Source tools
 
 - `epp` (18): C++ over Clause's preprocessor, giving forms and encodings.
-- `erl_pp` (16): Erlang, printing the abstract format.
+- `erl_pp` is done (`00-finished.md`).
 - `erl_expand_records` (1): Erlang.
 - `erl_error` is done (`00-finished.md`).
 - `erl_lint` (5): `is_guard_test/1` and `format_error/1` first; `module/1,2,3` later, from Clause's
@@ -379,8 +379,6 @@ separately and are optional.
   scan_erl_form/1, scan_file/2, set_encoding/1,2
 - `erl_expand_records` (stdlib, 1): module/2
 - `erl_lint` (stdlib, 5): format_error/1, is_guard_test/1, module/1,2,3
-- `erl_pp` (stdlib, 16): attribute/1,2, expr/1,2,3,4, exprs/1,2,3, form/1,2, function/1,2,
-  guard/1,2, legalize_vars/1
 - `erl_tar` (stdlib, 14): add/3,4, close/1, create/2,3, extract/1,2, format_error/1, init/3, open/2,
   t/1, table/1,2, tt/1
 - `escript` (stdlib, 3): create/2, extract/2, script_name/0

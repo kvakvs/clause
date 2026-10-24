@@ -722,6 +722,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB34 part 1** `erl_error`: `format_exception/3,4` and the internal formatters in Erlang over
   `io_lib` with OTP's explanations, layouts, `error_info` callbacks, trim, column, format fun and
   characters-limit options; `erl_error_formats` golden over synthetic stack traces — `04a5844e`
+- **LIB34 part 2** `erl_pp`: OTP's layout algorithm (items, then a layout pass) in Clause's own
+  code; options, hooks, `legalize_vars/1`; `erl_pp_forms` golden, and a scratch comparison over the
+  forms of 357 OTP sources found no differences
 
 ## Plan 22 (from 2026-10-23)
 

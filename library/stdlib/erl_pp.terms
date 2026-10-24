@@ -1,0 +1,18 @@
+%% OTP 29 erl_pp exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{attribute, 1, default, implemented}.
+{attribute, 2, default, implemented}.
+{expr, 1, default, implemented}.
+{expr, 2, default, implemented}.
+{expr, 3, default, implemented}.
+{expr, 4, default, implemented}.
+{exprs, 1, default, implemented}.
+{exprs, 2, default, implemented}.
+{exprs, 3, default, implemented}.
+{form, 1, default, implemented}.
+{form, 2, default, implemented}.
+{function, 1, default, implemented}.
+{function, 2, default, implemented}.
+{guard, 1, default, implemented}.
+{guard, 2, default, implemented}.
+{legalize_vars, 1, default, implemented}.
