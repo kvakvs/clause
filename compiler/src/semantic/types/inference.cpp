@@ -1195,6 +1195,7 @@ void infer_pass(Inference &inference, const CallGraph &calls, const bool increme
     const auto spent = spent_joins(inference);
     if (inference.profile) {
         inference.profile->passes_.emplace_back();
+        inference.profile->lattice_.start_pass();
     }
     for (std::size_t index = 0; index < calls.components.size(); ++index) {
         walk_component(inference, calls, index, work, recorded, incremental);
@@ -1253,16 +1254,9 @@ void index_calls(Inference &inference, const CallGraph &calls) {
         }
     }
 }
-} // namespace
 
-std::unique_ptr<Inference> infer(const CallGraph &calls, const Limits limits, InferenceProfile *profile) {
-    auto result = std::make_unique<Inference>(limits);
-    result->profile = profile;
-    infer(*result, calls);
-    return result;
-}
-
-void infer(Inference &inference, const CallGraph &calls) {
+// Run passes until inputs settle, else a last pass with every input term().
+void infer_passes(Inference &inference, const CallGraph &calls) {
     start_profile(inference.profile, calls, inference.graph.limits().syntax_work);
     index_calls(inference, calls);
     // Local inputs grow from their calls and a fun F/A reads its function's summary as far as it is known: passes
@@ -1289,5 +1283,21 @@ void infer(Inference &inference, const CallGraph &calls) {
     inference.failed.clear();
     infer_pass(inference, calls, false);
     pass_outcome(inference, "final pass after passes did not settle: inputs widened to term()");
+}
+} // namespace
+
+std::unique_ptr<Inference> infer(const CallGraph &calls, const Limits limits, InferenceProfile *profile) {
+    auto result = std::make_unique<Inference>(limits);
+    result->profile = profile;
+    infer(*result, calls);
+    return result;
+}
+
+void infer(Inference &inference, const CallGraph &calls) {
+    // The graph counts lattice operations only while inference runs: the profile may move later. Added for the lattice
+    // operation counts of --print-stage-times (INS.2).
+    inference.graph.trace_with(inference.profile ? &inference.profile->lattice_ : nullptr);
+    infer_passes(inference, calls);
+    inference.graph.trace_with(nullptr);
 }
 } // namespace clause::semantic::types

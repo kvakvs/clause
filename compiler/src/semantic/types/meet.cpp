@@ -1,5 +1,6 @@
 #include "decimal.hpp"
 #include "lattice.hpp"
+#include "lattice_trace.hpp"
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -523,6 +524,9 @@ bool Meet::within(const Id inner, const Id outer) {
 } // namespace
 
 Id Lattice::meet(Id left, Id right) {
+    if (auto *trace = graph_.trace()) [[unlikely]] {
+        trace->note(LatticeOp::meet, left.index, right.index);
+    }
     if (left == graph_.top() || right == graph_.top()) {
         return left == graph_.top() ? right : left;
     }
@@ -537,11 +541,17 @@ Id Lattice::meet(Id left, Id right) {
 }
 
 bool Lattice::within(Id inner, Id outer) {
+    if (auto *trace = graph_.trace()) [[unlikely]] {
+        trace->note(LatticeOp::within, inner.index, outer.index);
+    }
     Meet meet(*this);
     return meet.contained(inner, outer);
 }
 
 Id Lattice::subtract(Id fact, Id removed) {
+    if (auto *trace = graph_.trace()) [[unlikely]] {
+        trace->note(LatticeOp::subtract, fact.index, removed.index);
+    }
     if (fact == removed) {
         return graph_.bottom();
     }

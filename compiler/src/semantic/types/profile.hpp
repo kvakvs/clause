@@ -2,6 +2,7 @@
 // Added for --print-stage-times: where whole-program inference spends its time, recorded only when requested.
 #include "../calls.hpp"
 #include "domain.hpp"
+#include "lattice_trace.hpp"
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -194,5 +195,8 @@ struct InferenceProfile {
     std::vector<Repetition> repetitions_;
     // By pass, for the passes noted. Added for the fact size measurements of --print-stage-times.
     std::vector<FactSizes> fact_sizes_;
+    // The lattice operations of every pass, the graph counting them while inference runs. Added for the lattice
+    // operation counts of --print-stage-times (INS.2).
+    LatticeTrace lattice_;
 };
 } // namespace clause::semantic::types

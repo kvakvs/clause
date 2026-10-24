@@ -73,6 +73,25 @@ std::string joins_note(const InferenceProfile::Pass &pass) {
     return note;
 }
 
+// The lattice operations as printed, in the order of LatticeOp. Added for the lattice operation counts (INS.2).
+constexpr std::array<std::string_view, semantic::types::LATTICE_OPS> LATTICE_OP_NAMES{"join",   "widen",    "meet",
+                                                                                      "within", "subtract", "truncate"};
+
+// How often each lattice operation ran and how often a call repeated an earlier one of its pass or of any pass, then
+// the other joins and the nesting lookups. Added for the lattice operation counts of --print-stage-times (INS.2).
+void print_lattice(const InferenceProfile &profile, const std::string_view subject) {
+    const auto &trace = profile.lattice_;
+    std::string note;
+    for (std::size_t op = 0; op < LATTICE_OP_NAMES.size(); ++op) {
+        const auto &counts = trace.counts().at(op);
+        note += std::format("{}{} {} ({} repeated in their pass, {} ever)", op == 0 ? "" : ", ",
+                            LATTICE_OP_NAMES.at(op), counts.calls_, counts.repeated_, counts.repeated_ever_);
+    }
+    note += std::format("; {} joins of other than two members; {} nesting lookups, {} kept by the graph",
+                        trace.other_joins(), trace.nestings(), trace.kept_nestings());
+    print_stage_time("inference lattice", subject, {}, note);
+}
+
 // One line per inference pass: its time, work steps, how it ended and how it changed local inputs.
 void print_passes(const InferenceProfile &profile, const std::string_view subject) {
     for (std::size_t index = 0; index < profile.passes_.size(); ++index) {
@@ -266,6 +285,7 @@ void print_compile_phases(const Analysis &analysis, const std::string_view subje
         print_stage_time(phase, subject, elapsed);
         if (phase == "inference") {
             print_passes(analysis.profile, subject);
+            print_lattice(analysis.profile, subject);
             print_churn(analysis, subject);
             print_clean_changed(analysis.profile);
             print_fact_sizes(analysis, subject);

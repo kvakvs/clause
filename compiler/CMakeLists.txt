@@ -130,7 +130,7 @@ add_library(clause_semantic STATIC
     src/semantic/types/inference_store.cpp
     src/semantic/types/contracts.cpp
     src/semantic/types/printing.cpp
-    src/semantic/types/lattice.cpp)
+    src/semantic/types/lattice.cpp src/semantic/types/lattice_trace.cpp)
 clause_project_options(clause_semantic)
 target_include_directories(clause_semantic PRIVATE src)
 target_link_libraries(clause_semantic PUBLIC clause_frontend clause_abi)

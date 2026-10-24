@@ -11,6 +11,8 @@
 #include <vector>
 
 namespace clause::semantic::types {
+class LatticeTrace;
+
 enum class Kind : std::uint8_t {
     top,
     bottom,
@@ -120,6 +122,12 @@ class Graph {
 
     void count_join() { ++joins_; }
 
+    // Where lattice operations are counted while a profile asks for it, else null. Added for the lattice operation
+    // counts of --print-stage-times (INS.2).
+    LatticeTrace *trace() const { return trace_; }
+
+    void trace_with(LatticeTrace *trace) { trace_ = trace; }
+
     // The nodes interned so far. Added for --print-stage-times.
     std::size_t size() const { return nodes_.size(); }
 
@@ -159,6 +167,8 @@ class Graph {
     bool widened_ = false;
     std::size_t widenings_ = 0;
     std::size_t joins_ = 0;
+    // Added for the lattice operation counts of --print-stage-times (INS.2).
+    LatticeTrace *trace_ = nullptr;
     // Added for the Gather constants (OPTC.A).
     std::optional<JoinConstants> join_constants_;
     // Known nestings by node and limit; a cache, so a const graph fills it. Added for memoized nesting (OPTC.C).

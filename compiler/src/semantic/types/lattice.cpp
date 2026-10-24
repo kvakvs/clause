@@ -1,5 +1,6 @@
 #include "lattice.hpp"
 #include "decimal.hpp"
+#include "lattice_trace.hpp"
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -801,7 +802,11 @@ bool is_container(const Node &node) {
 // How many containers deep a fact nests, counted no further than `limit`. Each answer is kept in the graph (changed
 // for memoized nesting, OPTC.C).
 std::size_t nesting(const Graph &graph, Id fact, std::size_t limit) {
-    if (const auto known = graph.nesting(fact, limit)) {
+    const auto known = graph.nesting(fact, limit);
+    if (auto *trace = graph.trace()) [[unlikely]] {
+        trace->note_nesting(known.has_value());
+    }
+    if (known) {
         return *known;
     }
     const auto &node = graph.get(fact);
@@ -926,12 +931,25 @@ Id relax(Lattice &lattice, Id previous, Id joined) {
     }
     return changed ? fact_of(lattice, families, 0) : joined;
 }
+
+// Count a join for the lattice operation counts of --print-stage-times: two members by both, others only by number.
+// Added for the lattice operation counts (INS.2).
+void note_join(LatticeTrace &trace, const std::span<const Id> members, const std::size_t depth) {
+    if (members.size() == 2) {
+        trace.note(LatticeOp::join, members[0].index, members[1].index, depth);
+    } else {
+        trace.note_other_join();
+    }
+}
 } // namespace
 
 Id Lattice::join(Id left, Id right) { return join(std::array{left, right}, 0); }
 
 Id Lattice::join(std::span<const Id> members, std::size_t depth) {
     graph_.count_join();
+    if (auto *trace = graph_.trace()) [[unlikely]] {
+        note_join(*trace, members, depth);
+    }
     if (depth > limits_.depth) {
         return graph_.top();
     }
@@ -954,7 +972,12 @@ Id Lattice::join(std::span<const Id> members, std::size_t depth) {
 }
 
 // Relaxes nested integer bounds too (changed for nested integer widening, CONV.0).
-Id Lattice::widen(Id previous, Id next) { return relax(*this, previous, join(previous, next)); }
+Id Lattice::widen(Id previous, Id next) {
+    if (auto *trace = graph_.trace()) [[unlikely]] {
+        trace->note(LatticeOp::widen, previous.index, next.index);
+    }
+    return relax(*this, previous, join(previous, next));
+}
 
 int Lattice::family(Id fact) const { return family_rank(graph_.get(fact)); }
 
@@ -1015,6 +1038,9 @@ Id Lattice::range(IntegerBounds bounds) {
 Id Lattice::within_depth(Id fact) { return limits_.depth == 0 ? graph_.top() : truncate(fact, limits_.depth - 1); }
 
 Id Lattice::truncate(Id fact, std::size_t levels) {
+    if (auto *trace = graph_.trace()) [[unlikely]] {
+        trace->note(LatticeOp::truncate, fact.index, levels);
+    }
     if (nesting(graph_, fact, levels + 1) <= levels) {
         return fact;
     }

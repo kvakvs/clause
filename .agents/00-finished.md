@@ -863,6 +863,14 @@ Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
   10% (`Node::operator==` 4%, `NodeHash` 3%, `Graph::intern` 2%), `gather_all` 6% (rebuilds all
   call arguments every pass), pass driver 2%. Plan 22 reordered: OPTC.B, D, C, new OPTC.F.
 
+- **INS.2** (pending) lattice operation counts: `inference lattice` line (`semantic/types/lattice_trace`, graph
+  points at it only while a profiled inference runs) with calls of 2-member `join`, `widen`, `meet`, `within`,
+  `subtract`, `truncate`, those repeating a call of their pass and of any pass, other joins and nesting lookups.
+  W5a: join 22.58M (98.2% repeat in pass, 99.7% ever: 77K distinct), meet 6.30M (50K distinct), within 9.60M (26K),
+  truncate 46.97M (47K), widen 761, subtract 5 505; W1 alike. A graph-lifetime memo of a few 100K entries serves
+  nearly all: OPTC.B starts with it. Profiled inference +7% (two hash sets); uninstrumented W5r 1.004, W5a 1.019
+  (min 1.006, spread 3%). `--print-types` identical on W5a, W1, W3, W6, W5r.
+
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
 Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions
