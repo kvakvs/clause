@@ -75,9 +75,11 @@ def stdout_problem(expected, actual):
 
 def environment(run):
     """The host environment without inherited runtime flags, plus the Python that runs helper programs
-    (CLAUSE_TEST_PYTHON) and the run's own 'env' entries."""
+    (CLAUSE_TEST_PYTHON), the logger's default handler on standard error as the OTP oracle has it
+    (CLAUSE_LOGGER_TYPE) and the run's own 'env' entries."""
     inherited = {name: value for name, value in os.environ.items() if name.upper() != 'CLAUSE_FLAGS'}
-    return inherited | {'CLAUSE_TEST_PYTHON': sys.executable} | run.get('env', {})
+    oracle = {'CLAUSE_TEST_PYTHON': sys.executable, 'CLAUSE_LOGGER_TYPE': 'standard_error'}
+    return inherited | oracle | run.get('env', {})
 
 
 def variants(golden, word_bits):

@@ -172,16 +172,24 @@ kernel_metadata() ->
         _ -> #{}
     end.
 
-%% The default handler: logger_std_h with the legacy header, OTP's default filters, writing on standard error.
+%% The default handler: logger_std_h with the legacy header and OTP's default filters, on standard output as in OTP.
 add_default_handler(Table) ->
     Config = (default_config(default, logger_std_h))#{
         filter_default => stop,
         filters => default_handler_filters(),
         formatter => {logger_formatter, #{legacy_header => true, single_line => false}},
-        config => #{type => standard_error}
+        config => #{type => default_type()}
     },
     {ok, Added} = logger_std_h:adding_handler(Config),
     store_handler(Table, default, Added).
+
+%% The default handler's device: standard_io, or standard_error when CLAUSE_LOGGER_TYPE says so, as the golden
+%% runner does for goldens generated with OTP's default handler on standard_error.
+default_type() ->
+    case os:getenv("CLAUSE_LOGGER_TYPE") of
+        "standard_error" -> standard_error;
+        _ -> standard_io
+    end.
 
 default_handler_filters() ->
     Domain =
