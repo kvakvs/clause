@@ -721,7 +721,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   errors, invalid UTF-8 included; `file_readers` golden — `0a1a0679`
 - **LIB34 part 1** `erl_error`: `format_exception/3,4` and the internal formatters in Erlang over
   `io_lib` with OTP's explanations, layouts, `error_info` callbacks, trim, column, format fun and
-  characters-limit options; `erl_error_formats` golden over synthetic stack traces
+  characters-limit options; `erl_error_formats` golden over synthetic stack traces — `04a5844e`
 
 ## Plan 22 (from 2026-10-23)
 
