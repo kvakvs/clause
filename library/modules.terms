@@ -89,6 +89,7 @@
 {erl_scan, stdlib, provided}.
 {erl_parse, stdlib, provided}.
 {erl_eval, stdlib, provided}.
+{erl_error, stdlib, provided}.
 {digraph, stdlib, provided}.
 {digraph_utils, stdlib, provided}.
 {graph, stdlib, provided}.

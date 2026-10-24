@@ -1,0 +1,14 @@
+%% OTP 29 erl_error exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{behaviour_info, 1, default, implemented}.
+{format_call, 4, default, implemented}.
+{format_call, 5, default, implemented}.
+{format_exception, 3, default, implemented}.
+{format_exception, 4, default, implemented}.
+{format_exception, 6, default, implemented}.
+{format_exception, 7, default, implemented}.
+{format_exception, 8, default, implemented}.
+{format_fun, 1, default, implemented}.
+{format_fun, 2, default, implemented}.
+{format_stacktrace, 4, default, implemented}.
+{format_stacktrace, 5, default, implemented}.

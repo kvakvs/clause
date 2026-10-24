@@ -21,14 +21,14 @@ choose
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  909 are still to do (erts 23, kernel 243, stdlib 643). Appendix A lists them per module.
+  907 are still to do (erts 23, kernel 243, stdlib 641). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
   `dict`, `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`, `filename`,
   `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`,
   `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`,
-  `timer`, `unicode`, `uri_string`, `erl_eval`, `proc_lib`, `sys`, `gen_server`, `gen_statem`, `gen_event`,
+  `timer`, `unicode`, `uri_string`, `erl_eval`, `erl_error`, `proc_lib`, `sys`, `gen_server`, `gen_statem`, `gen_event`,
   `gen_fsm` (deprecated), `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`,
   `logger_std_h`, `logger_filters`, `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`, `global_group`, `rpc`, `erpc`,
   `net_adm`, `net_kernel` (distribution start declined), `auth`, `seq_trace` (tokens without tracing).
@@ -130,7 +130,7 @@ LIB33 (readers built on the front end) is done (`00-finished.md`).
 - `epp` (18): C++ over Clause's preprocessor, giving forms and encodings.
 - `erl_pp` (16): Erlang, printing the abstract format.
 - `erl_expand_records` (1): Erlang.
-- `erl_error` (2): `format_exception/3,4` in Erlang over `io_lib`.
+- `erl_error` is done (`00-finished.md`).
 - `erl_lint` (5): `is_guard_test/1` and `format_error/1` first; `module/1,2,3` later, from Clause's
   semantic checks mapped to OTP's warning terms. `clause_erl_lint` (LIB32) already has
   `is_guard_test/1`, `is_guard_expr/1`, `used_vars/2` and the first-error expression checks of
@@ -377,7 +377,6 @@ separately and are optional.
 - `epp` (stdlib, 18): close/1, default_encoding/0, encoding_to_string/1, format_error/1, open/1,2,3,
   parse_erl_form/1, parse_file/2,3, read_encoding/1,2, read_encoding_from_binary/1,2,
   scan_erl_form/1, scan_file/2, set_encoding/1,2
-- `erl_error` (stdlib, 2; 1 callbacks): format_exception/3,4
 - `erl_expand_records` (stdlib, 1): module/2
 - `erl_lint` (stdlib, 5): format_error/1, is_guard_test/1, module/1,2,3
 - `erl_pp` (stdlib, 16): attribute/1,2, expr/1,2,3,4, exprs/1,2,3, form/1,2, function/1,2,

@@ -719,6 +719,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `file:consult/1`, `eval/1,2`, `script/1,2`, `path_*` and `path_open/3` read the file whole, decode
   it by its coding comment (`clause_epp`, as `epp:set_encoding/1`) and scan form by form with OTP's
   errors, invalid UTF-8 included; `file_readers` golden — `0a1a0679`
+- **LIB34 part 1** `erl_error`: `format_exception/3,4` and the internal formatters in Erlang over
+  `io_lib` with OTP's explanations, layouts, `error_info` callbacks, trim, column, format fun and
+  characters-limit options; `erl_error_formats` golden over synthetic stack traces
 
 ## Plan 22 (from 2026-10-23)
 

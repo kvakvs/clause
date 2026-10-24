@@ -117,7 +117,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 
 | Difference | OTP | Clause | Owner |
 | --- | --- | --- | --- |
-| Stack trace locations | `[{file, F}, {line, L}]`, `error_info` for `error/3` | Always `[]`; no `error_info` | [ABI](abi.md#stack-traces) |
+| Stack trace locations | `[{file, F}, {line, L}]`, `error_info` for `error/3` | Always `[]`; no `error_info`, so `erl_error:format_exception/3,4` shows no locations or `*** argument` lines for them | [ABI](abi.md#stack-traces) |
 | `erlang:raise/3` with `{Fun, Args}` stack entries | Accepted | Rejected | [ABI](abi.md#stack-traces) |
 | `function_clause` top frame | Argument list | Arity | [ABI](abi.md#stack-traces) |
 | `undef` top frame | `{M, F, Args, []}` of the missing function | The calling function's frame | [funs](funs.md#dynamic-calls) |
