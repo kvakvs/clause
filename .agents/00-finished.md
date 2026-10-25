@@ -753,6 +753,16 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   answers so far; `erl_pp_forms` golden unchanged; identical to OTP over the forms of 347 OTP sources and
   suites, and over 80 of them with five option sets plus `exprs/3`, `guard/1`, `expr/4` and 18,205 hook
   calls; a call to `erl_pp` compiles +0.00 s / +0.06 s over a hello-world (was +0.77 s / +1.78 s) — `4c615b56`
+- **LIB34C part 4** `epp` without `erl_eval`: its cost was export liveness, not its clauses. `file:io_request/3`'s
+  `apply/3` with any atom producer (`epp`'s `list_to_atom/1`, `erl_features`' `binary_to_term/1`, `file`'s error
+  reasons) kept every export of the program, and `-if` called `erl_eval`. `-if` conditions now evaluate in C++
+  (`clause_epp:eval_if/1`, `front_end/epp_eval.cpp`, over the match specification guard table), and
+  `-compile({clause_liveness, strict})` (user direction) marks `epp`, `file` and `erl_features`: their record
+  tags, atom literals other than their own name and atom producers keep no exports (`docs/compile.md`,
+  `linking_exports` checks it). The macro walks stay Erlang (a few % of the remaining time). `epp_files`
+  golden unchanged, no differences from OTP over 777 epp calls (259 OTP sources and a 46-condition `-if`
+  file, 3 option sets each); a call to `epp` compiles +1.72 s / +3.18 s over a hello-world (was +2.77 s /
+  +4.38 s measured the same day) — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

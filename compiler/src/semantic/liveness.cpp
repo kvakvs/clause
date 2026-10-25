@@ -175,6 +175,14 @@ class Liveness {
         }
     }
 
+    // An atom used as a value may name a called module later, so its module keeps every export; a strict module's
+    // values name only itself, as in its error tuples (docs/compile.md#strict-liveness). Added for strict liveness.
+    void escape_value(const FunctionRef site, const std::u32string &module, const std::string &reason) {
+        if (!site.module->strict_liveness_ || module == site.module->name) {
+            escape(module, reason);
+        }
+    }
+
     // A call whose module is a runtime value; with an atom-producing builtin it may name any module.
     void dynamic(const FunctionRef site) {
         if (dynamic_.empty()) {
@@ -183,8 +191,12 @@ class Liveness {
         }
     }
 
-    // An atom-producing builtin; with a dynamic call it may name any module.
+    // An atom-producing builtin; with a dynamic call it may name any module, unless its module's atoms never name
+    // a called module (-compile({clause_liveness, strict}), docs/compile.md#strict-liveness).
     void produced(const FunctionRef site, const std::string &builtin) {
+        if (site.module->strict_liveness_) {
+            return;
+        }
         if (producer_.empty()) {
             producer_ = builtin + " in " + function_text(site);
             keep_all();
@@ -225,7 +237,8 @@ class Liveness {
     void visit(const FunctionRef function, const ast::Expression &expression, Skipped &skipped) {
         if (const auto *atom = std::get_if<ast::Atom>(&expression.value)) {
             if (!skipped.contains(&expression)) {
-                escape(atom->name, "'" + utf8(atom->name) + "' is used as a value in " + function_text(function));
+                escape_value(function, atom->name,
+                             "'" + utf8(atom->name) + "' is used as a value in " + function_text(function));
             }
         } else if (const auto *call = std::get_if<ast::CallExpression>(&expression.value)) {
             visit_call(function, expression, *call, skipped);
@@ -253,7 +266,9 @@ class Liveness {
         }
         if (dynamic_call(syntax, call)) {
             const auto &remote = std::get<ast::RemoteExpression>(syntax.expression(ungroup(syntax, call.target)).value);
-            if (!literal_atom(syntax, remote.module)) {
+            if (const auto *module = literal_atom(syntax, remote.module)) {
+                escape(module->name, "a runtime function of " + utf8(module->name) + " in " + function_text(function));
+            } else {
                 dynamic(function);
             }
         }
@@ -265,7 +280,7 @@ class Liveness {
         if (atom_producer(key)) {
             produced(function, "erlang:" + utf8(key.name) + "/" + std::to_string(key.arity));
         }
-        if (key.name == U"binary_to_term") {
+        if (key.name == U"binary_to_term" && !function.module->strict_liveness_) {
             dynamic(function); // Decoded external funs are called like dynamic calls.
         }
         const auto *mfa = mfa_builtin(key);
@@ -280,7 +295,8 @@ class Liveness {
             return;
         }
         if (!name) {
-            return; // The module's atom is visited as a value and keeps all of its exports.
+            escape(module->name, "a runtime function of " + utf8(module->name) + " in " + function_text(function));
+            return;
         }
         skipped.insert(&syntax.expression(ungroup(syntax, call.arguments[mfa->module])));
         skipped.insert(&syntax.expression(ungroup(syntax, call.arguments[mfa->module + 1])));
@@ -319,7 +335,7 @@ class Liveness {
     // A tuple record's construction uses its name as the tag value.
     void visit_record(const FunctionRef function, const ast::RecordExpression &record) {
         const auto *name = std::get_if<ast::UnresolvedRecordName>(&record.identity.value);
-        if (name && !record.base) {
+        if (name && !record.base && !function.module->strict_liveness_) {
             escape(name->name.name, "record tag '" + utf8(name->name.name) + "' in " + function_text(function));
         }
     }

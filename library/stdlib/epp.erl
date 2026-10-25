@@ -34,6 +34,8 @@
 ]).
 
 -include("epp.types.hrl").
+%% epp's runtime atoms (macro names, the machine, application names) never name a called module.
+-compile({clause_liveness, strict}).
 
 -define(DEFAULT_ENCODING, utf8).
 %% Nesting of included files.
@@ -1074,7 +1076,8 @@ if_directive([{'(', _} | _] = Ts, If, St) ->
 if_directive(Ts, If, St) ->
     {[{error, {loc(no_match(Ts, If)), epp, {bad, 'if'}}}], St#epp{resume = {skip, ['if']}}}.
 
-%% The condition of -if and -elif: a guard expression, defined(M) told by the macros, evaluated; any error is false.
+%% The condition of -if and -elif: a guard expression, defined(M) told by the macros, evaluated in C++ as erl_eval
+%% would (clause_epp:eval_if/1); any error is false.
 eval_if(Ts0, St) ->
     Ts = expand(Ts0, St),
     Es0 =
@@ -1089,15 +1092,7 @@ eval_if(Ts0, St) ->
         _ ->
             throw({bad, 'if'})
     end,
-    try
-        erl_eval:exprs(
-            Es1, erl_eval:new_bindings(), {value, fun(_Name, _Args) -> error(badarg) end}
-        )
-    of
-        {value, Result, _} -> Result
-    catch
-        _:_ -> false
-    end.
+    clause_epp:eval_if(hd(Es1)).
 
 defined_calls({call, _, {atom, _, defined}, [N0]}, #epp{macs = Macros}) ->
     N =

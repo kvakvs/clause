@@ -13,7 +13,8 @@ source, work = Path(root), Path(directory)
 shutil.rmtree(work, ignore_errors=True)
 work.mkdir(parents=True)
 fixture = source / "tests/fixtures/linking/exports"
-modules = [str(fixture / name) for name in ("main.erl", "worker.erl", "service.erl", "callbacks.erl", "hidden.erl")]
+modules = [str(fixture / name)
+           for name in ("main.erl", "worker.erl", "service.erl", "callbacks.erl", "hidden.erl", "strict.erl")]
 runner = source / "tests/compiler/executables/run.py"
 # Program fixtures plus executables covering dynamic calls, behaviours, spawning, funs, module_info and traces.
 CASES = [path.parent for path in sorted((source / "tests/fixtures/programs").glob("*/fixture.json"))]
@@ -37,7 +38,8 @@ def output(name):
 
 def expected(dead):
     """The fixture's output: dead/0 answers only when every export is kept."""
-    return (f"spawn 42\napply 42\nfun 9\ncallback started\nexported true\ndead {dead}\nexports: ok\n")
+    return (f"spawn 42\napply 42\nfun 9\ncallback started\nstrict {{strict,made}}\nexported true\ndead {dead}\n"
+            "exports: ok\n")
 
 
 # Without --keep-exports hidden:dead/0 is left out: function_exported/3 still answers true, the call raises undef.
@@ -47,6 +49,7 @@ for level in ("-O0", "-O2"):
     clau([level, "--keep-exports", "-o", "kept" + level, *modules])
     assert output("kept" + level) == expected("dead"), level
 for line in ('module="worker" detail="dropped-exports=3"', 'module="hidden" detail="dropped-exports=3"',
+             'module="strict" detail="dropped-exports=3"',
              'module="callbacks" detail="kept-all-exports reason=\'callbacks\' is used as a value in main:main/1"'):
     assert line in trace, (line, trace)
 print("exports: unreachable exports are left out, --keep-exports keeps them")

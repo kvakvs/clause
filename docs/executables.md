@@ -222,7 +222,13 @@ builtins write to a process device through it). It stays conservative:
   `list_to_existing_atom/1`, `binary_to_atom/1,2`,
   `binary_to_existing_atom/1,2`, `binary_to_term/1,2`, `fun_info/1,2`,
   `fun_info_mfa/1`, `process_info/1,2`, `loaded/0`, `pre_loaded/0`), every
-  export of every module stays.
+  export of every module stays;
+- a module compiled with `{clause_liveness, strict}` promises its atoms never
+  name called code: its record tags and atom literals other than its own name
+  (but not `M:F(...)` or `apply/3` with a literal module and a runtime
+  function), atom-producing builtins and `binary_to_term/1,2` count for neither
+  rule
+  ([strict liveness](compile.md#strict-liveness)).
 
 A function nothing live reaches gets no code at all. A left-out export keeps its
 name in the module's export table without code, so `function_exported/3` and

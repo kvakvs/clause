@@ -75,6 +75,9 @@
     write_file_info/3
 ]).
 -include("file.types.hrl").
+%% file's own atoms (error reasons, request tags) never name a called module; the modules io requests name are the
+%% callers' atoms.
+-compile({clause_liveness, strict}).
 
 % The project-owned file module (docs/library.md, docs/ports.md#standard-io-and-files): files are ports of the
 % runtime's file driver ({spawn_driver, "clause_file"}), driven with port_control/3. An open file is an I/O

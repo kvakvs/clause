@@ -36,7 +36,9 @@ with options that change nothing Clause emits: `{no_auto_import, ...}`, warning
 options (`nowarn_*`, `warn_*`, `{nowarn_unused_function, [...]}`) and
 optimization, debug and reporting hints (`inline`, `{inline, [F/A]}`,
 `{inline_size, N}`, `{inline_effort, N}`, `inline_list_funcs`, `debug_info`,
-`deterministic`, `report*`, `verbose`, ...). `{parse_transform, Module}` runs
+`deterministic`, `report*`, `verbose`, ...) and Clause's own
+`{clause_liveness, strict}` ([strict liveness](#strict-liveness)).
+`{parse_transform, Module}` runs
 the transform on the host Erlang/OTP before analysis
 ([parse transforms](transforms.md)). `on_load`, `nifs`, `export_all`, other
 `compile` options and parameterized modules are rejected; the diagnostic names
@@ -47,6 +49,30 @@ Every module gets `module_info/0,1`. Sources starting with `#!` follow
 `-mode` accepted). Type/spec forms are analyzed but never change generated code.
 Syntax-only modes (`--parse-check`, `--print-ast`, `--print-source`, ...) accept
 the full grammar.
+
+## Strict liveness
+
+`-compile({clause_liveness, strict}).` tells [export liveness](executables.md#export-liveness)
+that the module never names the code it calls through its own atoms. Its atom
+literals keep no other module's exports (its own name still keeps its own, as
+error tuples name it for `format_error/1`), its record tags none, and its
+atom-producing builtins and `binary_to_term/1,2` count neither as a source of
+module names nor as a dynamic call. Nor may it pass other modules' names to
+builtins that call them by name, such as `spawn/4` with a node or
+`erlang:get_module_info/1,2`. Its own calls by name still count:
+`M:F(...)` or `apply/3` with a literal module and a runtime function keep that
+module's exports, and calls with a runtime module are dynamic calls, reaching
+the modules other modules' atoms name.
+
+The option changes no generated code, only which exports an executable keeps.
+A wrong promise leaves out an export the module calls by name, which then
+raises `undef`. Library modules set it where their atoms are only data: `epp`
+(token and macro names, the machine, application names), `erl_features` (the
+feature list of a beam file) and `file` (error reasons, request tags; the modules
+an io request names are the requester's atoms). Without it, `file:io_request/3`'s
+`apply/3` and `epp`'s `list_to_atom/1` kept every export of a program that
+preprocesses a file, all of `erl_eval` included; with it (and `-if` conditions
+evaluated in C++) its extra compile time over a hello-world drops by about 40%.
 
 ## Run the compiled-module example
 

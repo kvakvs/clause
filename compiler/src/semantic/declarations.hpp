@@ -178,6 +178,10 @@ struct Module {
     std::size_t predefined_ = 0;
     // behaviour_info/1 is among them, generated from the -callback declarations.
     bool behaviour_info_ = false;
+    // -compile({clause_liveness, strict}): the module's record tags, atom literals but its own name and the atoms and
+    // funs it makes at run time never name called code, so they keep no exports (docs/compile.md#strict-liveness).
+    // Added for strict liveness.
+    bool strict_liveness_ = false;
     // Each name's auto-import state, scanned over the forms once: a large generated module (OTP's erl_parse) calls
     // the same builtins in thousands of clauses. A cache only, so analyses holding the module const fill it.
     // Added for large generated modules.
@@ -211,6 +215,8 @@ const ast::TokenOrigin &attribute_name(const ast::Module &syntax, const ast::For
 std::vector<ast::TermId> compile_options(const ast::Module &syntax);
 // The warning categories -compile(nowarn_Category) turns off; Clause admits no option turning one back on.
 std::set<std::u32string> disabled_warnings(const ast::Module &syntax);
+// Whether the module's -compile options hold {clause_liveness, strict}. Added for strict liveness.
+bool strict_liveness(const ast::Module &syntax);
 // Whether the module's syntax defines the function itself.
 bool defines_function(const ast::Module &syntax, const FunctionKey &key);
 // The index of a function the module's own source may name; OTP's predefined behaviour_info/1 is not one.

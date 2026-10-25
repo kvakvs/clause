@@ -544,6 +544,22 @@ module; `erl_pp.erl` keeps the hooks and `legalize_vars/1`.
 - Precedences and `erl_parse:abstract/2` come from `erl_parse.cpp`.
 - CTest `executables_erl_pp_forms`.
 
+## Epp
+
+`epp`'s `-if` and `-elif` conditions are evaluated by a builtin,
+`clause_epp:eval_if/1` (`front_end/epp_eval.cpp`, plan 21 step LIB34C), so a
+program that preprocesses files does not link `erl_eval`.
+
+- It evaluates the guard expression as `erl_eval:exprs/3` does with no bindings:
+  literals, lists, tuples, maps and map updates, binaries (segments through
+  `clause_erl_eval`'s bit builtins), operators with `andalso`/`orelse` giving
+  their right side's value, and calls of guard BIFs (local auto-imported or
+  `erlang:`) through the match specification guard table.
+- Any error (unbound variables, undefined records, a raising BIF, a local call)
+  makes the condition false, as `epp` catches it.
+- `epp`, `file` and `erl_features` are compiled with
+  [strict liveness](compile.md#strict-liveness).
+
 ## Erl expand records
 
 `erl_expand_records:module/2` is a builtin (`front_end/expand_records.cpp`,

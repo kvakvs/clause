@@ -37,12 +37,21 @@ bool parse_transform(const ast::Module &syntax, const ast::TermTuple &tuple) {
            std::holds_alternative<ast::Atom>(syntax.term(tuple.elements[1]).value);
 }
 
+// {clause_liveness, strict} steers export liveness (docs/compile.md#strict-liveness). Added for strict liveness.
+bool strict_liveness_value(const ast::Module &syntax, const ast::TermId &value) {
+    const auto *atom = std::get_if<ast::Atom>(&syntax.term(value).value);
+    return atom && atom->name == U"strict";
+}
+
 // {no_auto_import, [F/A]} suppresses auto-imports, which Clause honors; other tuples must be hints.
 bool tuple_option(const ast::Module &syntax, const ast::TermTuple &tuple) {
     const auto *name =
         tuple.elements.size() == 2 ? std::get_if<ast::Atom>(&syntax.term(tuple.elements[0]).value) : nullptr;
     if (!name) {
         return false;
+    }
+    if (name->name == U"clause_liveness") {
+        return strict_liveness_value(syntax, tuple.elements[1]);
     }
     if (name->name != U"no_auto_import") {
         return std::ranges::contains(ARGUMENT_HINTS, name->name) || warning_option(name->name);

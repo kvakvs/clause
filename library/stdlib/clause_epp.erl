@@ -2,7 +2,7 @@
 %% coding comment names, a file's characters decoded by it, and the next form scanned from them as io:scan_erl_form/4
 %% reads it from OTP's file server.
 -module(clause_epp).
--export([read_encoding_from_binary/2, read_all/1, source/2, scan/3]).
+-export([read_encoding_from_binary/2, read_all/1, source/2, scan/3, eval_if/1]).
 
 %% A source being scanned: {Chars, valid}, {Chars, invalid} when only Chars could be decoded, or terminated once a
 %% read reached the bytes that could not (OTP's file server ends then).
@@ -97,3 +97,7 @@ name(_, Part, Parts) ->
 encoding(["latin", "1" | _]) -> latin1;
 encoding(["utf", "8" | _]) -> utf8;
 encoding(_) -> none.
+
+%% eval_if(Expr): the value of a -if or -elif guard expression, false when it raises (a runtime builtin,
+%% runtime/src/builtins/front_end/epp_eval.cpp).
+eval_if(_) -> clause_builtin_placeholder.

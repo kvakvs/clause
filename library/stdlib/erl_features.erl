@@ -19,6 +19,8 @@
     update_parse_state/4,
     used/1
 ]).
+%% The features beam_features/1 decodes from a beam file are never called.
+-compile({clause_liveness, strict}).
 
 all() -> clause_builtin_placeholder.
 configurable() -> clause_builtin_placeholder.

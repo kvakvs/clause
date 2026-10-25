@@ -4,7 +4,8 @@
 % Export liveness (plan step 62C): what an executable keeps of its modules' exports. worker is reached only
 % through literal spawn/apply/fun targets, so its other exports are left out; callbacks escapes as a value, so all
 % of its exports stay; hidden is named only through a stack trace, so its unreachable dead/0 raises undef when
-% called dynamically (docs/differences.md), unless the executable keeps every export (--keep-exports).
+% called dynamically (docs/differences.md), unless the executable keeps every export (--keep-exports). strict
+% uses its name as a value but is compiled with strict liveness, so its unreached idle/0 is left out too.
 
 main(_) ->
     Self = self(),
@@ -16,6 +17,7 @@ main(_) ->
     Triple = fun worker:triple/1,
     io:format("fun ~p~n", [Triple(3)]),
     io:format("callback ~p~n", [service:start(callbacks)]),
+    io:format("strict ~p~n", [strict:tag()]),
     Hidden = hidden_name(),
     io:format("exported ~p~n", [erlang:function_exported(Hidden, dead, 0)]),
     io:format("dead ~p~n", [call_dead(Hidden)]),

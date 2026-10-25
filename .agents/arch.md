@@ -68,7 +68,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - Records: declaration-order layouts, per-use tuple expansion, `record_info/2` folds; native records
   (`-export_record`/`-import_record`, `#_`).
 - Liveness (`semantic/liveness`): worklist from entry over calls, funs, literal apply/spawn targets,
-  escaped module atoms; dead exports keep names with null entries (`--keep-exports`). Map ownership
+  escaped module atoms; `-compile({clause_liveness, strict})` modules escape only their own name and
+  their atom producers do not count (`docs/compile.md#strict-liveness`); dead exports keep names with
+  null entries (`--keep-exports`). Map ownership
   marks fresh single-read maps for in-place updates (`MapOperation::update_owned`).
 
 ### Type inference (`docs/semantic.md#inference-domain`)

@@ -92,6 +92,18 @@ std::set<std::u32string> disabled_warnings(const ast::Module &syntax) {
     return result;
 }
 
+bool strict_liveness(const ast::Module &syntax) {
+    return std::ranges::any_of(compile_options(syntax), [&](const ast::TermId &option) {
+        const auto *tuple = std::get_if<ast::TermTuple>(&syntax.term(option).value);
+        if (!tuple || tuple->elements.size() != 2) {
+            return false;
+        }
+        const auto *name = std::get_if<ast::Atom>(&syntax.term(tuple->elements[0]).value);
+        const auto *value = std::get_if<ast::Atom>(&syntax.term(tuple->elements[1]).value);
+        return name && value && name->name == U"clause_liveness" && value->name == U"strict";
+    });
+}
+
 std::optional<std::size_t> source_function(const Module &module, const FunctionKey &key) {
     const auto found = module.lookup.find(key);
     if (found == module.lookup.end() || (module.behaviour_info_ && key == FunctionKey{U"behaviour_info", 1})) {
@@ -220,6 +232,7 @@ std::unique_ptr<Module> index(const ast::Module &syntax, std::string file, const
     module->file = std::move(file);
     module->predefined_ = options.predefined_;
     module->library_ = options.library_;
+    module->strict_liveness_ = strict_liveness(syntax);
     index_name(*module, out);
     index_functions(*module, out);
     index_predefined(*module);
