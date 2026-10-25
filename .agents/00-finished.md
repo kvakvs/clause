@@ -578,6 +578,24 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
 
 Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 
+- **Status 2026-10-25:** 106 of 120 documented modules complete (all functions, or the rest declined):
+  data modules (`lists`, `maps`, `binary`, `ordsets`, `dict`, `sets`, `gb_*`, `queue`, `array`,
+  `sofs`, `digraph*`, `graph`, `string`, `unicode`, `re`, `json`, `base64`, `uri_string`,
+  `filename`, `calendar`, `rand`, `zlib`, `zstd`, ...), front end (`erl_scan`, `erl_parse`, `epp`,
+  `erl_lint`, `erl_pp`, `erl_eval`, `erl_expand_records`, `erl_error`, `ms_transform`, `qlc_pt`,
+  `qlc`), processes and behaviours (`proc_lib`, `gen_*`, `sys`, `supervisor*`, `logger*`,
+  `error_logger`, `application`, `pg`, `global*`, `rpc`, `erpc`, `net_*`), files and archives
+  (`file`, `filelib`, `file_sorter`, `disk_log`, `zip`, `erl_tar`, `beam_lib`, `escript`,
+  `win32reg`), kernel I/O (`gen_tcp`, `gen_udp`, `gen_sctp` without SCTP, `inet`, `inet_res`,
+  `socket`, `net`, `os`, `io`, `io_ansi`), `ets`, `dets`, `argparse`, tracing modules (`notsup`).
+- **qlc chain** (user direction 2026-10-19): LIB30, LIB31, LIB54A, LIB32, LIB34A, LIB73 with LIB12C
+  in order; `erl_scan`/`erl_parse` got their own C++ scanner and parser in
+  `runtime/src/builtins/front_end/` (the runtime cannot link the compiler's `clause_frontend`).
+- **luerl tracing method** (gaps fixed in plan 11 steps 41T–41ZC): `CLAUSE_CALL_TRACE=FILE`
+  (`runtime/src/process/call_trace.*`, `_FIRST=1`, `_ALL=1`) and its OTP twin
+  `tools/luerl-trace/ctrace.erl` with `norm.py`/`mismatch.py`/`firsts.py` find undocumented functions
+  that OTP-sourced modules reach; stand-ins only in a scratch copy of `library/`.
+
 - **LIB0** `library/documented.terms`: 2,888 documented functions observed from OTP's doc chunks
   (`observe_docs.escript`); `library_inventory` rejects a documented stub outside the partial
   modules; `library_modules.py coverage` — `e3e44460`
