@@ -826,7 +826,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   decodes UTF-8 input; file servers' getopts/setopts and encodings (`{encoding, E}` on open, encoded I/O requests,
   `file:read/2` as latin1 requests); io output to pids as I/O protocol requests; `columns`/`rows`/terminal flags
   over `clause_io` builtins; `io_ansi` with the built-in ANSI sequences (no terminfo); Linux build fixes
-  (`PooledAllocator` not final, `<algorithm>`); `io_options`, `io_ansi_codes` goldens — `HASH`
+  (`PooledAllocator` not final, `<algorithm>`); `io_options`, `io_ansi_codes` goldens — `a12b29c8`
 
 ## Plan 22 (from 2026-10-23)
 
