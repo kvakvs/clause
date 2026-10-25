@@ -119,8 +119,17 @@
 -define(IS_INT64(N), (is_integer(N) andalso N >= -16#8000000000000000 andalso N =< 16#7FFFFFFFFFFFFFFF)).
 
 % Open File with Modes (read, write, append, exclusive, binary, raw, compressed, compressed_one; others are ignored,
-% as OTP ignores options it does not use): {ok, IoDevice} or {error, Reason}.
+% as OTP ignores options it does not use): {ok, IoDevice} or {error, Reason}. With ram, File is the contents.
 open(File, Modes) when is_list(Modes) ->
+    case {lists:member(raw, Modes), lists:member(ram, Modes)} of
+        {true, true} -> erlang:error(badarg, [File, Modes]);
+        {false, true} -> open_ram(File, Modes);
+        _ -> open_file(File, Modes)
+    end;
+open(_, _) ->
+    {error, badarg}.
+
+open_file(File, Modes) ->
     case {name(File), layer(Modes)} of
         {error, _} ->
             {error, badarg};
@@ -132,9 +141,7 @@ open(File, Modes) when is_list(Modes) ->
             receive
                 {Server, opened, Result} -> Result
             end
-    end;
-open(_, _) ->
-    {error, badarg}.
+    end.
 
 read(File, Size) when is_integer(Size), Size >= 0 -> call(File, {read, Size});
 read(_, _) -> {error, badarg}.
@@ -944,6 +951,155 @@ mode_byte(Modes) ->
         0,
         Modes
     ).
+
+% --- RAM files (plan 21 step LIB54C) ---
+
+% A file in memory: a server process like the others, holding the contents, the position and the modes, answering as
+% OTP's ram_file driver does (modes ram, read, write and binary only; read when neither is given).
+open_ram(Data, Modes) ->
+    try {iolist_to_binary(Data), ram_modes(Modes, #{read => false, write => false, binary => false})} of
+        {_, error} ->
+            {error, badarg};
+        {Contents, #{read := false, write := false} = State} ->
+            start_ram(Contents, State#{read := true});
+        {Contents, State} ->
+            start_ram(Contents, State)
+    catch
+        error:badarg -> {error, badarg}
+    end.
+
+ram_modes([ram | Rest], State) ->
+    ram_modes(Rest, State);
+ram_modes([Mode | Rest], State) when Mode =:= read; Mode =:= write; Mode =:= binary ->
+    ram_modes(Rest, State#{Mode := true});
+ram_modes([], State) ->
+    State;
+ram_modes(_, _) ->
+    error.
+
+start_ram(Contents, State) ->
+    Opener = self(),
+    {ok,
+        spawn(fun() ->
+            monitor(process, Opener),
+            ram_loop(Opener, State#{contents => Contents, position => 0})
+        end)}.
+
+ram_loop(Opener, State) ->
+    receive
+        {file_request, From, Ref, close} ->
+            From ! {file_reply, Ref, ok};
+        {file_request, From, Ref, Request} ->
+            {Reply, Next} = ram_request(Request, State),
+            From ! {file_reply, Ref, Reply},
+            ram_loop(Opener, Next);
+        {io_request, From, ReplyAs, _} ->
+            From ! {io_reply, ReplyAs, {error, enotsup}},
+            ram_loop(Opener, State);
+        {'DOWN', _, process, Opener, _} ->
+            ok
+    end.
+
+% The driver's offsets and sizes are signed 32-bit numbers.
+-define(IS_RAM_INT(N), (N >= -16#80000000 andalso N < 16#80000000)).
+
+ram_request({read, _}, #{read := false} = State) ->
+    {{error, ebadf}, State};
+ram_request({read, Size}, State) when not ?IS_RAM_INT(Size) ->
+    {{error, einval}, State};
+ram_request({read, Size}, #{position := At} = State) ->
+    Reply = ram_read(State, At, Size),
+    {Reply, State#{position := At + ram_size(Reply)}};
+ram_request({pread, At, _}, State) when not is_integer(At) ->
+    {{error, badarg}, State};
+ram_request({pread, _, _}, #{read := false} = State) ->
+    {{error, ebadf}, State};
+ram_request({pread, At, Size}, State) when ?IS_RAM_INT(At), ?IS_RAM_INT(Size), At >= 0 ->
+    {ram_read(State, At, Size), State};
+ram_request({pread, _, _}, State) ->
+    {{error, einval}, State};
+ram_request({write, _}, #{write := false} = State) ->
+    {{error, ebadf}, State};
+ram_request({write, Data}, #{position := At} = State) ->
+    {ok, State#{contents := ram_written(State, At, Data), position := At + byte_size(Data)}};
+ram_request({pwrite, At, Bytes}, State) ->
+    ram_pwrite(At, Bytes, State);
+ram_request({position, Location}, State) ->
+    ram_position(Location, State);
+ram_request(truncate, #{write := false} = State) ->
+    {{error, eacces}, State};
+ram_request(truncate, #{position := At} = State) ->
+    {ok, State#{contents := ram_resized(State, At)}};
+ram_request({advise, _, _, Advice}, State) ->
+    {
+        case advice(Advice) of
+            error -> {error, einval};
+            _ -> ok
+        end,
+        State
+    };
+ram_request({sync, _}, State) ->
+    {ok, State};
+ram_request({allocate, _, _}, State) ->
+    {ok, State};
+ram_request(raw, State) ->
+    {false, State};
+ram_request(_, State) ->
+    % OTP's ram files have no line reads.
+    {{error, enotsup}, State}.
+
+% Size bytes at At, the shorter rest before the end, eof past it (an empty read is never eof).
+ram_read(#{contents := Contents, binary := Binary}, At, Size) ->
+    case max(0, min(Size, byte_size(Contents) - At)) of
+        0 when Size > 0 -> eof;
+        Length -> data({ok, binary_part(Contents, At, Length)}, Binary)
+    end.
+
+ram_size({ok, Data}) -> iolist_size(Data);
+ram_size(_) -> 0.
+
+ram_pwrite(_, _, #{write := false} = State) ->
+    {{error, ebadf}, State};
+ram_pwrite(At, _, State) when not is_integer(At) ->
+    {{error, badarg}, State};
+ram_pwrite(At, _, State) when not ?IS_RAM_INT(At); At < 0 ->
+    {{error, einval}, State};
+ram_pwrite(At, Bytes, State) ->
+    try iolist_to_binary(Bytes) of
+        Data -> {ok, State#{contents := ram_written(State, At, Data)}}
+    catch
+        error:badarg -> {{error, badarg}, State}
+    end.
+
+% The contents with Data at At, a gap before it filled with zeros.
+ram_written(#{contents := Contents} = State, At, Data) ->
+    <<Before:At/binary, After/binary>> = ram_resized(State, max(At, byte_size(Contents))),
+    Rest =
+        case After of
+            <<_:(byte_size(Data))/binary, Kept/binary>> -> Kept;
+            _ -> <<>>
+        end,
+    <<Before/binary, Data/binary, Rest/binary>>.
+
+ram_resized(#{contents := Contents}, Size) when Size =< byte_size(Contents) -> binary_part(Contents, 0, Size);
+ram_resized(#{contents := Contents}, Size) -> <<Contents/binary, 0:((Size - byte_size(Contents)) * 8)>>.
+
+ram_position(Location, #{position := At, contents := Contents} = State) ->
+    case ram_offset(Location, At, byte_size(Contents)) of
+        {ok, Offset, _} when not ?IS_RAM_INT(Offset) -> {{error, einval}, State};
+        {ok, Offset, Base} when Base + Offset < 0 -> {{error, einval}, State};
+        {ok, Offset, Base} -> {{ok, Base + Offset}, State#{position := Base + Offset}};
+        Error -> {Error, State}
+    end.
+
+ram_offset(Offset, _, _) when is_integer(Offset) -> {ok, Offset, 0};
+ram_offset(bof, _, _) -> {ok, 0, 0};
+ram_offset(cur, At, _) -> {ok, 0, At};
+ram_offset(eof, _, Size) -> {ok, 0, Size};
+ram_offset({bof, Offset}, _, _) when is_integer(Offset) -> {ok, Offset, 0};
+ram_offset({cur, Offset}, At, _) when is_integer(Offset) -> {ok, Offset, At};
+ram_offset({eof, Offset}, _, Size) when is_integer(Offset) -> {ok, Offset, Size};
+ram_offset(_, _, _) -> {error, badarg}.
 
 % --- Operations on paths ---
 

@@ -329,6 +329,14 @@ stdout are pipes of the port:
   on raw files, positioned I/O are `enotsup`; a file server stops after
   `truncate`, `advise` and `sync` (`enotsup`) as OTP's. Reading and writing at
   once or appending is `{error, einval}`.
+- `ram` (plan 21 step LIB54C): the file is its iodata contents in memory,
+  served by a process like other files and closed with its opener; modes
+  `read`, `write` and `binary` only (`read` when neither is given, anything
+  else `badarg`, `raw` with `ram` raises `badarg`). Reads, writes, positions,
+  `pread`/`pwrite` (the position kept), `truncate`, `sync`, `advise` and
+  `allocate` answer as OTP's ram file driver: writes past the end fill the gap
+  with zeros, offsets and sizes past signed 32 bits are `einval`, writing a
+  read-only file is `ebadf`, truncating it `eacces`.
 - OTP's I/O protocol: the standard input server and every open file's server
   answer `{io_request, From, ReplyAs, Request}` with
   `{io_reply, ReplyAs, Reply}`, which `io:request/1,2` and `io:requests/1,2`

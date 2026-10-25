@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "file_ram",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "read [{ok,<<\"he\">>},{ok,2},{ok,12}]\nat_eof [eof,{ok,<<>>}]\npread [{ok,<<\"ell\">>},eof,{ok,<<>>}]\npread_list [{ok,[<<\"he\">>,<<\"world\">>,eof]},{ok,12}]\npositions [{error,einval},\n           {error,badarg},\n           {ok,100},\n           eof,\n           {ok,5},\n           {ok,<<\"\\nwo\">>},\n           {ok,0},\n           {ok,11}]\nread_only [{error,ebadf},{error,ebadf},{error,eacces}]\nsyncs [ok,ok]\nclose [ok,ok]\nlist_read [{ok,\"abc\"},{ok,3}]\nwrite [ok,{ok,5}]\npwrite [ok,ok,{ok,\"qrcXYZ\"},{ok,5}]\ntruncate [{ok,2},ok,{ok,\"qr\"}]\nextend [{ok,6},ok,{ok,[113,114,0,0,0,0]},eof]\nholes [{ok,9},ok,{ok,[113,114,0,0,0,0,0,0,0,81]}]\nbad_writes [{error,badarg},\n            {error,badarg},\n            {error,badarg},\n            {error,badarg},\n            {error,einval},\n            {error,{1,einval}},\n            {ok,\"a\"}]\nclose ok\nbad_modes [{error,badarg},\n           {error,badarg},\n           {error,badarg},\n           {error,badarg},\n           {error,badarg}]\ndefault_read [{ok,\"ab\"},{error,ebadf}]\nwrite_only [{error,ebadf},ok,{error,ebadf},{ok,1}]\niodata {ok,<<\"abc\">>}\nraw_and_ram {error,badarg}\nempty [{ok,[]},eof,{ok,[]}]\nadvise [ok,{error,einval},ok]\nallocate [ok,{ok,<<\"hello\">>}]\npread_keeps_position [{ok,2},{ok,<<\"hel\">>},{ok,2}]\nlimits [{error,einval},\n        {error,einval},\n        {error,einval},\n        {error,einval},\n        {error,einval}]\nbad_preads [{error,badarg},{error,einval},{error,badarg}]\ncopy [{ok,6},{ok,<<\"source\">>}]\nfile_ram: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "file_ram.erl": "02775058379be5117e51135549e71ebd3850e97c6bece3b7dc829d7f6775aea8"
+  }
+}
