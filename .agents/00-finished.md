@@ -848,7 +848,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (`builtins/qlc_pt/`) for `transform_expression/2`, `transform_from_evaluator/2`, `parse_transform/2`, messages from
   the C++ `erl_lint` (OTP's no-compiler path), `ms_transform` answered by Erlang through replayed requests;
   `qlc_pt_transforms` golden; identical to OTP over 562 `qlc_SUITE` queries (both entry points) and 1686 module
-  transforms (OTP with its compiler stubbed out); a Debug build takes ~30 ms per query (3.3 replays), OTP ~0.6 ms
+  transforms (OTP with its compiler stubbed out); a Debug build takes ~30 ms per query (3.3 replays), OTP ~0.6 ms — `63592558`
 
 ## Plan 22 (from 2026-10-23)
 
