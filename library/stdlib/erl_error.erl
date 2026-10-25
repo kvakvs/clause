@@ -20,6 +20,9 @@
 ]).
 
 -include("erl_error.types.hrl").
+%% erl_error's run-time atoms are printing placeholders; the modules its error_info calls name are the raising
+%% code's atoms.
+-compile({clause_liveness, strict}).
 
 %% The extra information a frame's error_info module gives about an exception.
 -callback format_error(Reason :: term(), StackTrace :: erlang:stacktrace()) ->

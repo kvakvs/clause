@@ -144,14 +144,13 @@ Acceptance of every part: the existing goldens unchanged, the scratch comparison
 module rerun with no differences, and the probe's compile time measured again (recorded in
 `00-finished.md`).
 
-Parts 1 (`erl_expand_records:module/2`), 2 (`erl_lint`), 3 (`erl_pp`) and 4 (`epp`) are done (`00-finished.md`). Probe baselines before the
+Parts 1 (`erl_expand_records:module/2`), 2 (`erl_lint`), 3 (`erl_pp`), 4 (`epp`) and 6 (`erl_error`) are done (`00-finished.md`). Probe baselines before the
 remaining parts (debug `clau`, `-O0` / `-O2`, 2026-10-24): `erl_pp` +0.77 s / +1.78 s, `epp`
 +2.86 s / +4.61 s, `erl_eval` +1.94 s / +3.65 s, `erl_error` +0.44 s / +0.79 s.
 
 5. **`erl_eval`**: pattern matching (`match1` and binaries), guard tests, `partial_eval`, constant
    folding and the comprehension generators' element walks; the evaluator loop calls handlers and
    funs, so it stays Erlang over those builtins.
-6. **`erl_error`**: the layout decisions over terms the format fun already printed.
 
 LIB34A (qlc chain) needs from these: `erl_pp` whole, `erl_expand_records:module/2`,
 `erl_lint:is_guard_test/1`, `format_error/1` and the `module/2` errors a query expression can raise

@@ -67,7 +67,9 @@ the modules other modules' atoms name.
 The option changes no generated code, only which exports an executable keeps.
 A wrong promise leaves out an export the module calls by name, which then
 raises `undef`. Library modules set it where their atoms are only data: `epp`
-(token and macro names, the machine, application names), `erl_features` (the
+(token and macro names, the machine, application names), `erl_error` (an atom
+placeholder in printed argument lists; `error_info` names the raising code's
+modules), `erl_features` (the
 feature list of a beam file) and `file` (error reasons, request tags; the modules
 an io request names are the requester's atoms). Without it, `file:io_request/3`'s
 `apply/3` and `epp`'s `list_to_atom/1` kept every export of a program that
