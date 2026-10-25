@@ -23,7 +23,8 @@ internal functions stay out unless a public function needs them (user direction 
   documented functions.
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
 - **Left:** `erlang` (20 declined functions, LIB9 remainder) and the declined modules' answer stubs
-  (Appendix A); OTP-free builds (LIB77–LIB78: luerl's manifests use no OTP paths since LIB76).
+  (Appendix A); OTP-free builds (LIB77–LIB78: luerl's manifests use no OTP paths since LIB76);
+  applications beyond the core that emqx needs (LIB79–LIB83, Appendix B).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -126,10 +127,64 @@ Steps:
   OTP. Generated parsers are clause-heavy: generate C++ tables or keep generated Erlang small (see
   the IMPORTANT note above).
 
+#### Applications beyond erts/kernel/stdlib (survey 2026-10-26)
+
+What `test-emqx.toml` still takes from OTP. Documented API from the OTP 29 doc chunks of the host's
+`crypto-5.10`, `public_key-1.21.7`, `ssl-11.7.7`, `eunit-2.11`, `common_test-1.31.2` (full lists in
+Appendix B; re-observe them into `documented.terms` the way `observe_docs.escript` does for the
+three core applications). Call counts are over `references/emqx/apps`, non-test sources unless
+noted. The same rules apply as for the core: whole module or nothing in `library/`, OTP's terms and
+records, goldens from OTP, own headers written from the documented records and macros.
+
+- **LIB79 `crypto` (design first, 75 functions in one module, +4 deprecated):** a NIF over OpenSSL
+  in OTP. Decide the backend with the user: a pinned OpenSSL 3 built into the runtime like zlib/zstd
+  (recommended: same algorithms, `supports/1` lists, `info_lib/0` and error terms as OTP) or OS
+  libraries (CNG, CommonCrypto; differ per platform). emqx uses `hash/2` (28), `strong_rand_bytes/1`
+  (20), `pbkdf2_hmac/5`, `hash_equals/2`, `mac/3,4`, `hash_init/update/final`, `exor/2`, `verify/5`,
+  `supports/1`. Engines (`engine_*`, 15 functions) are declined, answering as an OTP built without
+  engine support. Unblocks `beam_lib` decryption (`differences.md` row); `rand_seed*` plug `crypto`
+  into `rand`.
+- **LIB80 `public_key` (54 functions, after LIB79):** PEM, DER codec of the PKIX/PKCS ASN.1 types
+  into OTP's record tuples (`'Certificate'`, `'OTPCertificate'`, `'RSAPrivateKey'`,
+  `'ECPrivateKey'`, ~250 records of `public_key.hrl` and its four included headers), signing,
+  verification, path validation, CRLs, OCSP, hostname checks, `cacerts_*` (OS trust stores). OTP
+  generates 30 ASN.1 modules with `asn1ct` and decodes through `asn1rt_nif` (the `asn1` application
+  has no documented functions): the codec is C++ over type tables generated once from the ASN.1
+  specifications (clause-heavy, see the IMPORTANT note), crypto through LIB79. emqx uses
+  `pem_decode/1` (14), `der_decode/2`, `der_encode/2`, `pem_entry_decode/1,2`, `pem_encode/1`,
+  `pkix_decode_cert/2`, `pkix_sign/2`, `generate_key/1`, `verify/4`,
+  `pkix_verify_hostname_match_fun/1`.
+- **LIB81 `ssl` (design first, after LIB80; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
+  `ssl_crl_cache_api`, `ssl_session_cache_api`):** OTP implements TLS 1.0–1.3 and DTLS in Erlang
+  (`gen_statem` per connection, `ssl_app` supervision tree, PEM and session caches). Decide between
+  Clause's own Erlang protocol implementation over LIB79/LIB80 (OTP's options, alerts, errors and
+  `connection_information/1` items) and a C++ connection over OpenSSL's libssl behind the same API
+  (smaller, but option and alert coverage would differ: `differences.md` rows). Options are the bulk
+  of the API (`tls_client_option()`, `tls_server_option()` types). emqx's `emqx_ocsp_cache` and
+  `emqx_ssl_crl_cache` include OTP-internal `ssl/src/ssl_handshake.hrl` and `ssl_internal.hrl`:
+  not public, not provided (projects keep OTP's `ssl` application root for them).
+- **LIB82 (far back: test support) `eunit` (4 functions: `eunit:test/1,2`, `start/0`, `stop/0`):**
+  `eunit.hrl` (49 `-define`s: `?assert*`, `?_test`, `?_assert*`, `?debug*`, `?LET`, `?IF`, `NOTEST`) adds
+  the `eunit_autoexport` and `eunit_striptests` parse transforms, so it depends on LIB77. The test
+  representation (generators, fixtures `setup`/`foreach`, `{timeout, ...}`, `{inparallel, ...}`),
+  the server and the default text listener and `eunit_surefire` reports; output as OTP's. emqx calls
+  `eunit:test/1` once in tests; 140 test files include the header.
+- **LIB83 (far back: test support) `common_test` (264 documented functions in 16 modules):** `ct`
+  (70) is what suites call: emqx tests use `ct:pal` (1151), `fail` (409), `sleep` (302), `timetrap`
+  (113), `print`, `log`, `get_config`, `comment` in 306 files; `ct.hrl` (19 `-define`s), `ct_event.hrl`,
+  `ct_property_test.hrl`. Needs a test runner executable shape (`ct_run`-like: suites, groups,
+  `init_per_*`/`end_per_*`, config, `priv_dir`/`data_dir`, `ct_hooks` (19 callbacks), `ct_suite`
+  (12 callbacks), HTML logs) and `ct_testspec`, `ct_property_test` (needs PropEr), `ct_doctest`.
+  Decline on a non-distributed node or without the other applications: `ct_master`, `ct_rpc`,
+  `ct_cover` (`cover`), `ct_ssh` (75, `ssh`), `ct_netconfc` (47, `ssh`), `ct_snmp` (18, `snmp`),
+  `ct_telnet` (16), `unix_telnet` (2); `ct_ftp` and `ct_slave` are deprecated only.
+
 ### Order
 
 1. The declined modules' answer stubs.
 2. LIB77 after a design decision; LIB78 only on request.
+3. LIB79 → LIB80 → LIB81 (each after its design decision).
+4. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)
 
@@ -176,3 +231,82 @@ separately and are optional.
   start_link/0,1, stop/1
 - `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3, pspawn_link/3, start/1,2, stop/0
 - `slave` (stdlib, 0): none; deprecated: pseudo/1,2, relay/1, start/1,2,3, start_link/1,2,3, stop/1
+
+## Appendix B: documented API of the applications beyond the core (OTP 29 doc chunks)
+
+Observed 2026-10-26 on the host's OTP 29 (`code:get_doc/1`, not hidden, not deprecated), for LIB79–
+LIB83. Format: `module` (functions): name/arities.
+
+- `crypto` (crypto-5.10, 75, +4 deprecated): bytes_to_integer/1, cipher_info/1, compute_key/4,
+  crypto_final/1, crypto_get_data/1, crypto_init/3,4, crypto_one_time/4,5,
+  crypto_one_time_aead/4,6,7, crypto_one_time_aead_init/4, crypto_update/2, decapsulate_key/3,
+  ec_curve/1, ec_curves/0, encapsulate_key/2, engine_add/1, engine_by_id/1,
+  engine_ctrl_cmd_string/3,4, engine_get_all_methods/0, engine_get_id/1, engine_get_name/1,
+  engine_list/0, engine_load/3, engine_register/2, engine_remove/1, engine_unload/1,
+  engine_unregister/2, ensure_engine_loaded/2, exor/2, generate_key/2,3, hash/2, hash_equals/2,
+  hash_final/1, hash_info/1, hash_init/1, hash_update/2, hash_xof/3, info/0, info_fips/0,
+  info_lib/0, mac/3,4, macN/4,5, mac_final/1, mac_finalN/2, mac_init/2,3, mac_update/2,
+  mod_pow/3, pbkdf2_hmac/5, private_decrypt/4, private_encrypt/4, privkey_to_pubkey/2,
+  public_decrypt/4, public_encrypt/4, rand_seed/0,1, rand_seed_alg/1,2, rand_seed_alg_s/1,2,
+  rand_seed_s/0, sign/4,5, strong_rand_bytes/1, strong_rand_range/1, supports/1, verify/5,6
+- `public_key` (public_key-1.21.7, 54): cacerts_clear/0, cacerts_get/0, cacerts_load/0,1,
+  compute_key/2,3, decrypt_private/2,3, decrypt_public/2,3, der_decode/2, der_encode/2,
+  dh_gex_group/4, encrypt_private/2,3, encrypt_public/2,3, generate_key/1, pem_decode/1,
+  pem_encode/1, pem_entry_decode/1,2, pem_entry_encode/2,3, pkix_crl_issuer/1,
+  pkix_crl_verify/2, pkix_crls_validate/3, pkix_decode_cert/2, pkix_dist_point/1,
+  pkix_dist_points/1, pkix_encode/3, pkix_hash_type/1, pkix_is_fixed_dh_cert/1,
+  pkix_is_issuer/2, pkix_is_self_signed/1, pkix_issuer_id/2, pkix_match_dist_point/2,
+  pkix_normalize_name/1, pkix_ocsp_validate/5, pkix_path_validation/3, pkix_sign/2,
+  pkix_sign_types/1, pkix_subject_id/1, pkix_test_data/1, pkix_test_root_cert/2, pkix_verify/2,
+  pkix_verify_hostname/2,3, pkix_verify_hostname_match_fun/1, short_name_hash/1, sign/3,4,
+  verify/4,5. Headers: `public_key.hrl` with `OTP-PUB-KEY.hrl`, `PKCS-FRAME.hrl`, `PKIXCMP.hrl`,
+  `PKIXCRMF.hrl`. `asn1-5.5.2`: no documented functions (`asn1rt_nif` only).
+- `ssl` (ssl-11.7.7, 52, +1 deprecated): append_cipher_suites/2, cipher_suites/2,3,
+  clear_pem_cache/0, close/1,2, connect/2,3,4, connection_information/1,2,
+  controlling_process/2, eccs/0,1, export_key_materials/4,5, filter_cipher_suites/2,
+  format_error/1, getopts/2, getstat/1,2, groups/0,1, handshake/1,2,3, handshake_cancel/1,
+  handshake_continue/2,3, listen/2, negotiated_protocol/1, peercert/1, peername/1,
+  prepend_cipher_suites/2, recv/2,3, renegotiate/1, send/2, setopts/2, shutdown/2,
+  signature_algs/2, sockname/1, start/0,1, stop/0, str_to_suite/1, suite_to_openssl_str/1,
+  suite_to_str/1, transport_accept/1,2, update_keys/2, versions/0
+- `ssl_crl_cache` (3): delete/1, insert/1,2. Callback-only: `ssl_crl_cache_api` (4 callbacks),
+  `ssl_session_cache_api` (8 callbacks).
+- `eunit` (eunit-2.11, 4): start/0, stop/0, test/1,2. `eunit_surefire`: no functions (a
+  listener). Header `eunit.hrl`.
+- `ct` (common_test-1.31.2, 70): abort_current_testcase/1, add_config/2, break/1,2,
+  capture_get/0,1, capture_start/0, capture_stop/0, comment/1,2, continue/0,1,
+  decrypt_config_file/2,3, encrypt_config_file/2,3, fail/1,2, get_config/1,2,3,
+  get_event_mgr_ref/0, get_progname/0, get_status/0, get_target_name/1, get_testspec_terms/0,1,
+  get_timetrap_info/0, get_verbosity/1, install/1, listenv/1, log/1,2,3,4,5, make_priv_dir/0,
+  notify/2, pal/1,2,3,4,5, parse_table/1, print/1,2,3,4,5, reload_config/1,
+  remaining_test_procs/0, remove_config/2, require/1,2, run/1,2,3, run_test/1, run_testspec/1,
+  set_verbosity/2, sleep/1, start_interactive/0, step/3,4, stop_interactive/0, sync_notify/2,
+  testcases/2, timetrap/1, userdata/2,3
+- `ct_cover` (3): add_nodes/1, cross_cover_analyse/2, remove_nodes/1
+- `ct_doctest` (6): file/1,2,3, module/1,2,3
+- `ct_master` (11): abort/0,1, basic_html/1, get_event_mgr_ref/0, progress/0, run/1,3,4,
+  run_on_node/2,3, run_test/2
+- `ct_netconfc` (47): action/2,3, close_session/1,2, connect/1,2, copy_config/3,4,
+  create_subscription/2,3, delete_config/2,3, disconnect/1, edit_config/3,4,5, get/2,3,
+  get_capabilities/1,2, get_config/3,4, get_event_streams/1,2,3, get_session_id/1,2,
+  hello/1,2,3, kill_session/2,3, lock/2,3, only_open/1,2, open/1,2, send/2,3, send_rpc/2,3,
+  session/1,2,3, unlock/2,3
+- `ct_property_test` (7): cmnd_names/1, init_per_suite/1, num_calls/1, present_result/4,5,
+  quickcheck/2, sequential_parallel/1
+- `ct_rpc` (8): app_node/2,3,4, call/4,5,6, cast/4,5
+- `ct_snmp` (18): get_next_values/3, get_values/3, load_mibs/1, register_agents/2,
+  register_users/2, register_usm_users/2, set_info/1, set_values/4, start/2,3, stop/1,
+  unload_mibs/1, unregister_agents/1,2, unregister_users/1,2, unregister_usm_users/1,2
+- `ct_ssh` (75): apread/4,5, apwrite/4,5, aread/3,4, awrite/3,4, close/2,3, connect/1,2,3,
+  del_dir/2,3, delete/2,3, disconnect/1, exec/2,3,4, get_file_info/2,3, list_dir/2,3,
+  make_dir/2,3, make_symlink/3,4, open/3,4, opendir/2,3, position/3,4, pread/4,5, pwrite/4,5,
+  read/3,4, read_file/2,3, read_file_info/2,3, read_link/2,3, read_link_info/2,3,
+  receive_response/2,3,4, rename/3,4, send/3,4,5, send_and_receive/3,4,5,6, session_close/2,
+  session_open/1,2, sftp_connect/1, shell/2,3, subsystem/3,4, write/3,4, write_file/3,4,
+  write_file_info/3,4
+- `ct_telnet` (16): close/1, cmd/2,3, cmdf/3,4, expect/2,3, get_data/1, open/1,2,3,4, send/2,3,
+  sendf/3,4
+- `ct_testspec` (1): get_tests/1
+- `unix_telnet` (2): connect/7, get_prompt_regexp/0
+- Callback-only: `ct_hooks` (19 callbacks), `ct_suite` (12 callbacks). Deprecated only: `ct_ftp`
+  (12), `ct_slave` (5). Headers: `ct.hrl`, `ct_event.hrl`, `ct_property_test.hrl`.
