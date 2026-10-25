@@ -1225,6 +1225,12 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_erl_eval", "bit_type", 2},
     BuiltinName{"clause_erl_eval", "bit_segment", 3},
     BuiltinName{"clause_erl_eval", "bit_take", 3},
+    // erl_eval's pattern matching and constant folding (plan 21 step LIB34C;
+    // runtime/src/builtins/front_end/eval_match.cpp).
+    BuiltinName{"clause_erl_eval", "match", 4},
+    BuiltinName{"clause_erl_eval", "bits_gen", 4},
+    BuiltinName{"erl_eval", "partial_eval", 1},
+    BuiltinName{"erl_eval", "is_constant_expr", 1},
     // erl_expand_records:module/2 (plan 21 step LIB34C; runtime/src/builtins/front_end/expand_records.cpp).
     BuiltinName{"erl_expand_records", "module", 2},
     // erl_lint (plan 21 step LIB34C; runtime/src/builtins/front_end/lint*.cpp).

@@ -2,6 +2,7 @@
 #include "../string/string.hpp"
 #include "../typed.hpp"
 #include "bit_types.hpp"
+#include "eval.hpp"
 #include <array>
 #include <bit>
 #include <terms.hpp>
@@ -56,11 +57,12 @@ std::optional<BitType> type_of(const Term &name) {
 
 // bit_type(Size, Types): {Size1, {Type, Unit, Sign, Endian}} as make_bit_type/4 settles a bin_element, Size1 being
 // the default size (all, undefined, 8 or 64) when Size is default and Size itself otherwise; erl_bits' errors raise.
-Term bit_type(ProcessContext &context, const SizeArg &size, const TypesArg &types) {
-    const auto spec = settle_bit_type(context, {.size = size.term, .types = types.term});
+Term settled(ProcessContext &context, std::span<const Term, 2> size_and_types) {
+    const auto &size = size_and_types[0];
+    const auto spec = settle_bit_type(context, {.size = size, .types = size_and_types[1]});
     const Terms terms(context);
-    auto size1 = size.term;
-    if (is_atom(size.term, "default")) {
+    auto size1 = size;
+    if (is_atom(size, "default")) {
         size1 = is_utf_type(spec.type)         ? terms.atom("undefined"_atom)
                 : spec.type == BitType::binary ? terms.atom("all"_atom)
                                                : terms.integer(spec.default_size.value_or(8));
@@ -96,9 +98,9 @@ std::optional<detail::BitSegment> segment_of(const Term &size, const Term &spec,
 
 // bit_segment(Value, Size, Spec): eval_exp_field/6, the segment as a bitstring, or the atom badarg or system_limit
 // the construction fails with.
-Term bit_segment(ProcessContext &context, const ValueArg &value, const SizeArg &size, const SpecArg &spec) {
+Term built(ProcessContext &context, const Term &value, std::span<const Term, 2> size_and_spec) {
     const Terms terms(context);
-    const auto segment = segment_of(size.term, spec.term, value.term);
+    const auto segment = segment_of(size_and_spec[0], size_and_spec[1], value);
     if (!segment) {
         return terms.atom("badarg"_atom);
     }
@@ -111,21 +113,36 @@ Term bit_segment(ProcessContext &context, const ValueArg &value, const SizeArg &
 }
 
 // bit_take(Bits, Size, Spec): get_value/6, {Value, Rest} for the segment at the start of Bits, or nomatch.
-Term bit_take(ProcessContext &context, const ValueArg &bits, const SizeArg &size, const SpecArg &spec) {
+Term taken(ProcessContext &context, const Term &bits, std::span<const Term, 2> size_and_spec) {
     const Terms terms(context);
-    const auto view = detail::bit_view(bits.term);
-    const auto segment = segment_of(size.term, spec.term, terms.nil());
+    const auto view = detail::bit_view(bits);
+    const auto segment = segment_of(size_and_spec[0], size_and_spec[1], terms.nil());
     if (!view || !segment) {
         return terms.atom("nomatch"_atom);
     }
-    const auto taken = detail::bit_extract(context, bits.term, 0, *segment);
-    if (!taken) {
+    const auto extracted = detail::bit_extract(context, bits, 0, *segment);
+    if (!extracted) {
         return terms.atom("nomatch"_atom);
     }
     const auto rest =
-        need(detail::BitAccess::slice(context.heap(), bits.term, taken->cursor, view->length - taken->cursor));
-    const std::array result{taken->value, rest};
+        need(detail::BitAccess::slice(context.heap(), bits, extracted->cursor, view->length - extracted->cursor));
+    const std::array result{extracted->value, rest};
     return terms.tuple(result);
+}
+
+Term bit_type(ProcessContext &context, const SizeArg &size, const TypesArg &types) {
+    const std::array args{size.term, types.term};
+    return settled(context, args);
+}
+
+Term bit_segment(ProcessContext &context, const ValueArg &value, const SizeArg &size, const SpecArg &spec) {
+    const std::array args{size.term, spec.term};
+    return built(context, value.term, args);
+}
+
+Term bit_take(ProcessContext &context, const ValueArg &bits, const SizeArg &size, const SpecArg &spec) {
+    const std::array args{size.term, spec.term};
+    return taken(context, bits.term, args);
 }
 
 constexpr std::array ERL_EVAL_BUILTINS{
@@ -134,6 +151,21 @@ constexpr std::array ERL_EVAL_BUILTINS{
     typed_entry<bit_take>("clause_erl_eval", "bit_take"),
 };
 } // namespace
+
+// Added for the C++ erl_eval parts.
+namespace eval {
+Term bit_type(ProcessContext &context, std::span<const Term, 2> size_and_types) {
+    return settled(context, size_and_types);
+}
+
+Term bit_segment(ProcessContext &context, const Term &value, std::span<const Term, 2> size_and_spec) {
+    return built(context, value, size_and_spec);
+}
+
+Term bit_take(ProcessContext &context, const Term &bits, std::span<const Term, 2> size_and_spec) {
+    return taken(context, bits, size_and_spec);
+}
+} // namespace eval
 } // namespace clause::runtime::builtins::front_end
 
 namespace clause::runtime {

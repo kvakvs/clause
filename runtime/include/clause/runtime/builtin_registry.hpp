@@ -214,6 +214,9 @@ std::span<const BuiltinEntry> erl_eval_builtins() noexcept;
 std::span<const BuiltinEntry> expand_records_builtins() noexcept;
 // erl_lint (plan 21 step LIB34C; runtime/src/builtins/front_end/lint*.cpp).
 std::span<const BuiltinEntry> lint_builtins() noexcept;
+// erl_eval's pattern matching and constant folding (plan 21 step LIB34C;
+// runtime/src/builtins/front_end/eval_match.cpp).
+std::span<const BuiltinEntry> eval_match_builtins() noexcept;
 // epp's -if conditions (plan 21 step LIB34C; runtime/src/builtins/front_end/epp_eval.cpp).
 std::span<const BuiltinEntry> epp_builtins() noexcept;
 // erl_pp's printer (plan 21 step LIB34C; runtime/src/builtins/front_end/pp*.cpp).

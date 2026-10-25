@@ -492,7 +492,20 @@ recursive-descent parser of OTP's grammar.
 ## Erl eval
 
 `erl_eval.erl` interprets the abstract format in Erlang; `clause_erl_eval`
-builtins (`front_end/erl_eval.cpp`) handle bit syntax segments.
+builtins handle bit syntax segments (`front_end/erl_eval.cpp`) and pattern
+matching (`front_end/eval_match.cpp`, plan 21 step LIB34C), and
+`erl_eval:partial_eval/1` and `is_constant_expr/1` are builtins too.
+
+- `clause_erl_eval:match/4` is `match1/5`: literals, variables, lists, tuples,
+  maps, native records, `"abc" ++ T` prefixes, operator constants and binary
+  patterns, giving `{match, Bindings}`, `nomatch` or `invalid` (raised as
+  `{illegal_pattern, Pattern}` by `erl_eval.erl`). Map keys and segment sizes are
+  guard expressions evaluated over the outer bindings (`front_end/guard_eval.cpp`,
+  shared with `epp`'s `-if`); bindings are read and stored as `orddict` or a map,
+  as OTP does, an unsorted list included.
+- `clause_erl_eval:bits_gen/4` takes a binary generator's pattern from the front
+  of the bits; the evaluator loop, guards (they call the non-local handler) and
+  the comprehension walks stay Erlang.
 
 - `bit_type/2` settles a `bin_element`'s specifiers with `erl_bits`' defaults
   and errors (`front_end/bit_types.cpp`, shared with `normalise/1`);

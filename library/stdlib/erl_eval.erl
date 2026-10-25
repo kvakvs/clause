@@ -2,9 +2,10 @@
 %% documentation and observed behavior. Bindings are orddicts or maps and come back as given. Calls go through the
 %% local and non-local function handlers as OTP documents; errors are raised through the non-local handler as calls of
 %% erlang:raise/3. Funs made here are closures of their arity over {Anno, Bindings, LocalHandler, NonLocalHandler,
-%% UsedVars, Clauses} (and the name of a named fun), so fun_data/1 and erlang:fun_info/2 see what OTP shows. Bit syntax
-%% segments are built and taken by clause_erl_eval's builtins; exprs/2 and expr/2 check a command with
-%% erl_lint first.
+%% UsedVars, Clauses} (and the name of a named fun), so fun_data/1 and erlang:fun_info/2 see what OTP shows. Pattern
+%% matching (binary patterns and generators included) and constant folding run in C++ as clause_erl_eval's and
+%% erl_eval's builtins, bit syntax segments are built by them; exprs/2 and expr/2 check a command with erl_lint
+%% first.
 -module(erl_eval).
 -export([
     add_binding/3,
@@ -1063,9 +1064,15 @@ map_generator(Iter0, P, Anno, Bs, Ev, Next, Relaxed, Acc) ->
             Acc
     end.
 
-%% Binary generator patterns over the outer bindings for sizes.
-bin_generate({bin, _, Fields}, Bin, Bs, Ev) ->
-    bits_gen(Fields, Bin, new_bindings(Bs), Bs, Ev, true).
+%% Binary generator patterns over the outer bindings for sizes (clause_erl_eval:bits_gen/4): {match, Rest,
+%% Bindings}, {nomatch, Rest} once a segment did not match (the rest still taken), or done when a segment cannot be
+%% taken; bad specifiers raise.
+bin_generate({bin, Anno, Fields}, Bin, Bs, Ev) ->
+    try
+        clause_erl_eval:bits_gen(Fields, Bin, new_bindings(Bs), Bs)
+    catch
+        error:Reason -> fail(Reason, Anno, Bs, Ev, none)
+    end.
 
 %% Zip generators: the sources evaluated once, then one element of each per round. A round whose elements do not all
 %% match (or whose patterns bind a variable differently) is skipped, or an error for strict generators; generators
@@ -1230,14 +1237,13 @@ zip_next(_Tag, _P, _Term, _Anno, _Bs, _Ev) ->
 
 %% Pattern matching
 
-%% match(Pattern, Term, Anno, Bindings, OuterBindings, Ev): {match, Bindings} or nomatch; an illegal pattern is
-%% {illegal_pattern, Pattern}. OuterBindings give binary sizes and map keys.
+%% match(Pattern, Term, Anno, Bindings, OuterBindings, Ev): {match, Bindings} or nomatch, matched in C++
+%% (clause_erl_eval:match/4); an illegal pattern raises {illegal_pattern, Pattern}. OuterBindings give binary sizes
+%% and map keys.
 match(P, Term, Anno, Bs, BBs, Ev) ->
-    try match1(P, Term, Bs, BBs, Ev) of
+    case clause_erl_eval:match(P, Term, Bs, BBs) of
+        invalid -> fail({illegal_pattern, to_term(P)}, Anno, Bs, Ev, none);
         Result -> Result
-    catch
-        throw:nomatch -> nomatch;
-        throw:invalid -> fail({illegal_pattern, to_term(P)}, Anno, Bs, Ev, none)
     end.
 
 match_list([P | Ps], [T | Ts], Anno, Bs, BBs, Ev) ->
@@ -1249,119 +1255,6 @@ match_list([], [], _Anno, Bs, _BBs, _Ev) ->
     {match, Bs};
 match_list(_, _, _Anno, _Bs, _BBs, _Ev) ->
     nomatch.
-
-match1({Leaf, _, Value}, Term, Bs, _BBs, _Ev) when
-    Leaf =:= atom; Leaf =:= integer; Leaf =:= float; Leaf =:= char; Leaf =:= string
-->
-    case Term of
-        Value -> {match, Bs};
-        _ -> throw(nomatch)
-    end;
-match1({var, _, '_'}, _, Bs, _BBs, _Ev) ->
-    {match, Bs};
-match1({var, _, Name}, Term, Bs, _BBs, _Ev) ->
-    case binding(Name, Bs) of
-        {value, Term} -> {match, Bs};
-        {value, _} -> throw(nomatch);
-        unbound -> {match, add_binding(Name, Term, Bs)}
-    end;
-match1({match, _, P1, P2}, Term, Bs, BBs, Ev) ->
-    {match, Bs1} = match1(P1, Term, Bs, BBs, Ev),
-    match1(P2, Term, Bs1, BBs, Ev);
-match1({nil, _}, Term, Bs, _BBs, _Ev) ->
-    case Term of
-        [] -> {match, Bs};
-        _ -> throw(nomatch)
-    end;
-match1({cons, _, H, T}, [H1 | T1], Bs, BBs, Ev) ->
-    {match, Bs1} = match1(H, H1, Bs, BBs, Ev),
-    match1(T, T1, Bs1, BBs, Ev);
-match1({cons, _, _, _}, _, _Bs, _BBs, _Ev) ->
-    throw(nomatch);
-match1({tuple, _, Ps}, Tuple, Bs, BBs, Ev) when is_tuple(Tuple), length(Ps) =:= tuple_size(Tuple) ->
-    match_elements(Ps, Tuple, 1, Bs, BBs, Ev);
-match1({tuple, _, _}, _, _Bs, _BBs, _Ev) ->
-    throw(nomatch);
-match1({map, _, Fields}, Map, Bs, BBs, Ev) when is_map(Map) ->
-    lists:foldl(
-        fun(Field, {match, Acc}) -> match_map_field(Field, Map, Acc, BBs, Ev) end,
-        {match, Bs},
-        Fields
-    );
-match1({map, _, _}, _, _Bs, _BBs, _Ev) ->
-    throw(nomatch);
-match1({record, _, _, _} = P, Record, Bs, BBs, Ev) when is_record(Record) ->
-    match_record(P, Record, Bs, BBs, Ev);
-match1({record, _, _, _}, _, _Bs, _BBs, _Ev) ->
-    throw(nomatch);
-match1({bin, _, Fields}, <<_/bitstring>> = Bin, Bs, BBs, Ev) ->
-    match_bits(Fields, Bin, Bs, BBs, Ev);
-match1({bin, _, _}, _, _Bs, _BBs, _Ev) ->
-    throw(nomatch);
-match1({op, _, '++', L, R}, Term, Bs, BBs, Ev) ->
-    match1(prefix_pattern(L, R), Term, Bs, BBs, Ev);
-match1({op, _, _, _} = Op, Term, Bs, BBs, Ev) ->
-    match_constant(Op, Term, Bs, BBs, Ev);
-match1({op, _, _, _, _} = Op, Term, Bs, BBs, Ev) ->
-    match_constant(Op, Term, Bs, BBs, Ev);
-match1(_, _, _Bs, _BBs, _Ev) ->
-    throw(invalid).
-
-match_elements([P | Ps], Tuple, I, Bs, BBs, Ev) ->
-    {match, Bs1} = match1(P, element(I, Tuple), Bs, BBs, Ev),
-    match_elements(Ps, Tuple, I + 1, Bs1, BBs, Ev);
-match_elements([], _Tuple, _I, Bs, _BBs, _Ev) ->
-    {match, Bs}.
-
-%% A map pattern's key is evaluated (and checked) over the outer bindings.
-match_map_field({map_field_exact, _, K, V}, Map, Bs, BBs, Ev) ->
-    Value =
-        try
-            {value, Key, _} = expr(K, BBs),
-            maps:get(Key, Map)
-        catch
-            error:_ -> throw(nomatch)
-        end,
-    match1(V, Value, Bs, BBs, Ev).
-
-match_record({record, _, Name, Fields}, Record, Bs, BBs, Ev) ->
-    Module = records:get_module(Record),
-    RecordName = records:get_name(Record),
-    case Name of
-        {Module, RecordName} -> ok;
-        RecordName -> ok;
-        _ -> throw(nomatch)
-    end,
-    lists:foldl(
-        fun({record_field, _, {atom, _, K}, P}, {match, Acc}) ->
-            Value =
-                try
-                    records:get(K, Record)
-                catch
-                    error:_ -> throw(nomatch)
-                end,
-            match1(P, Value, Acc, BBs, Ev)
-        end,
-        {match, Bs},
-        Fields
-    ).
-
-%% "abc" ++ T, [$a] ++ T and [] ++ T as the conses they stand for; any other left side is illegal.
-prefix_pattern({nil, _}, R) ->
-    R;
-prefix_pattern({cons, A, {Leaf, _, _} = H, T}, R) when Leaf =:= integer; Leaf =:= char ->
-    {cons, A, H, {op, A, '++', T, R}};
-prefix_pattern({string, A, S}, R) ->
-    lists:foldr(fun(C, Tail) -> {cons, A, {integer, A, C}, Tail} end, R, S);
-prefix_pattern(_, _) ->
-    throw(invalid).
-
-%% An operator pattern is the constant it folds to.
-match_constant(Op, Term, Bs, BBs, Ev) ->
-    case partial_eval(Op) of
-        Op -> throw(invalid);
-        Constant -> match1(Constant, Term, Bs, BBs, Ev)
-    end.
 
 %% Bit syntax
 
@@ -1424,185 +1317,14 @@ segment(Anno, Value, Size, Spec, Error) ->
         Reason -> Error(Anno, Reason, stacktrace())
     end.
 
-%% A binary pattern: segments taken in order, sizes evaluated over the outer bindings and the segments matched
-%% before; bad types and failed takes are no match, unbound size variables an illegal pattern.
-match_bits(Fields, Bin, Bs, BBs, Ev) ->
-    try match_segments(Fields, Bin, Bs, BBs, Ev) of
-        {match, _} = Match -> Match
-    catch
-        throw:invalid -> throw(invalid);
-        _:_ -> throw(nomatch)
-    end.
-
-match_segments([], <<>>, Bs, _BBs, _Ev) ->
-    {match, Bs};
-match_segments([Field | Fields], Bin, Bs, BBs, Ev) ->
-    {Bs1, BBs1, Rest} = match_segment(Field, Bin, Bs, BBs, Ev),
-    match_segments(Fields, Rest, Bs1, BBs1, Ev).
-
-match_segment({bin_element, _, {string, _, S}, default, default}, Bin, Bs, BBs, _Ev) ->
-    Bytes = list_to_binary(S),
-    Size = byte_size(Bytes),
-    <<Bytes:Size/binary, Rest/bitstring>> = Bin,
-    {Bs, BBs, Rest};
-match_segment({bin_element, Anno, {string, SAnno, S}, Size0, Types}, Bin, Bs, BBs, Ev) ->
-    {Size, Spec} = segment_spec(Anno, Size0, Types, BBs, Ev),
-    lists:foldl(
-        fun(C, {B, BB, Rest}) -> take_segment(Rest, Size, Spec, {integer, SAnno, C}, B, BB, Ev) end,
-        {Bs, BBs, Bin},
-        S
-    );
-match_segment({bin_element, Anno, P0, Size0, Types}, Bin, Bs, BBs, Ev) ->
-    {Size, {Type, _, _, _} = Spec} = segment_spec(Anno, Size0, Types, BBs, Ev),
-    P = float_pattern(partial_eval(P0), Type),
-    take_segment(Bin, Size, Spec, P, Bs, BBs, Ev).
-
-%% The settled specifiers and the size of a pattern segment, evaluated over the outer bindings.
-segment_spec(Anno, Size0, Types, BBs, Ev) ->
-    {Size1, Spec} = bit_type(Anno, Size0, Types, fun(A, R, S) -> fail(R, S, A, BBs, Ev, none) end),
-    case Size0 of
-        default -> {Size1, Spec};
-        _ -> {size_value(partial_eval(Size1), BBs), Spec}
-    end.
-
-%% Sizes are guard expressions over bound variables; anything else makes the pattern illegal.
-size_value(E, BBs) ->
-    erl_lint:is_guard_expr(E) orelse throw(invalid),
-    try eval(E, BBs, #ev{}, none) of
-        {value, Size, _} -> Size
-    catch
-        error:{unbound, _} -> throw(invalid)
-    end.
-
-take_segment(Bin, Size, Spec, P, Bs, BBs, Ev) ->
-    {Value, Rest} = clause_erl_eval:bit_take(Bin, Size, Spec),
-    {match, Bs1} = match1(P, Value, Bs, BBs, Ev),
-    {Bs1, bin_binding(P, Bs1, BBs), Rest}.
-
-%% A variable a segment binds can size the segments after it.
-bin_binding({var, _, '_'}, _Bs, BBs) ->
-    BBs;
-bin_binding({var, _, Name}, Bs, BBs) ->
-    {value, Value} = binding(Name, Bs),
-    add_binding(Name, Value, BBs);
-bin_binding(_, _Bs, BBs) ->
-    BBs.
-
-%% An integer pattern of a float segment matches as a float.
-float_pattern({integer, Anno, I} = P, float) ->
-    try
-        {float, Anno, float(I)}
-    catch
-        error:_ -> P
-    end;
-float_pattern(P, _Type) ->
-    P.
-
-%% A binary generator's pattern at the front of Bin: {match, Rest, Bindings}, {nomatch, Rest} once a segment did not
-%% match (the rest still taken), or done when a segment cannot be taken.
-bits_gen([Field | Fields], Bin, Bs, BBs, Ev, Matched) ->
-    case gen_segment(Field, Bin, Bs, BBs, Ev) of
-        {match, Bs1, BBs1, Rest} -> bits_gen(Fields, Rest, Bs1, BBs1, Ev, Matched);
-        {nomatch, Rest} -> bits_gen(Fields, Rest, Bs, BBs, Ev, false);
-        done -> done
-    end;
-bits_gen([], Bin, Bs, _BBs, _Ev, true) ->
-    {match, Bin, Bs};
-bits_gen([], Bin, _Bs, _BBs, _Ev, false) ->
-    {nomatch, Bin}.
-
-gen_segment({bin_element, _, {string, _, S}, default, default}, Bin, Bs, BBs, _Ev) ->
-    Bytes =
-        try
-            list_to_binary(S)
-        catch
-            _:_ -> <<>>
-        end,
-    Size = length(S),
-    case Bin of
-        <<Bytes:Size/binary, Rest/bitstring>> -> {match, Bs, BBs, Rest};
-        <<_:Size/binary, Rest/bitstring>> -> {nomatch, Rest};
-        _ -> done
-    end;
-gen_segment({bin_element, Anno, {string, SAnno, S}, Size0, Types}, Bin, Bs, BBs, Ev) ->
-    {Size, Spec} = gen_spec(Anno, Size0, Types, BBs, Ev),
-    gen_string(S, SAnno, Bin, Size, Spec, Bs, BBs, Ev);
-gen_segment({bin_element, Anno, P0, Size0, Types}, Bin, Bs, BBs, Ev) ->
-    {Size1, {Type, _, _, _} = Spec} = bit_type(Anno, Size0, Types, fun(A, R, S) ->
-        fail(R, S, A, BBs, Ev, none)
-    end),
-    P = float_pattern(partial_eval(P0), Type),
-    try gen_size(Size0, Size1, BBs, Ev) of
-        Size -> gen_take(Bin, Size, Spec, P, Bs, BBs, Ev)
-    catch
-        _:_ -> done
-    end.
-
-gen_spec(Anno, Size0, Types, BBs, Ev) ->
-    {Size1, Spec} = bit_type(Anno, Size0, Types, fun(A, R, S) -> fail(R, S, A, BBs, Ev, none) end),
-    {gen_size(Size0, Size1, BBs, Ev), Spec}.
-
-gen_size(default, Size, _BBs, _Ev) ->
-    Size;
-gen_size(_, SizeExpr, BBs, Ev) ->
-    {value, Size, _} = eval(SizeExpr, BBs, Ev, none),
-    Size.
-
-gen_string([C | Cs], SAnno, Bin, Size, Spec, Bs, BBs, Ev) ->
-    case gen_take(Bin, Size, Spec, {integer, SAnno, C}, Bs, BBs, Ev) of
-        {match, Bs1, BBs1, Rest} -> gen_string(Cs, SAnno, Rest, Size, Spec, Bs1, BBs1, Ev);
-        Other -> Other
-    end;
-gen_string([], _SAnno, Rest, _Size, _Spec, Bs, BBs, _Ev) ->
-    {match, Bs, BBs, Rest}.
-
-%% A float segment that does not decode still consumes its bits when an integer of that size fits.
-gen_take(Bin, Size, {Type, Unit, Sign, Endian} = Spec, P, Bs, BBs, Ev) ->
-    case clause_erl_eval:bit_take(Bin, Size, Spec) of
-        {Value, Rest} ->
-            try match1(P, Value, Bs, BBs, Ev) of
-                {match, Bs1} -> {match, Bs1, bin_binding(P, Bs1, BBs), Rest}
-            catch
-                _:_ -> {nomatch, Rest}
-            end;
-        nomatch when Type =:= float ->
-            case clause_erl_eval:bit_take(Bin, Size, {integer, Unit, Sign, Endian}) of
-                {_, Rest} -> {nomatch, Rest};
-                nomatch -> done
-            end;
-        nomatch ->
-            done
-    end.
-
-%% Constant expressions
+%% Constant expressions (runtime builtins, runtime/src/builtins/front_end/eval_match.cpp)
 
 %% partial_eval(Expr): an operator expression over constants folded to the integer, float or atom it gives, else
 %% Expr as it is.
-partial_eval(Expr) ->
-    Anno = element(2, Expr),
-    try constant(Expr) of
-        X when is_integer(X) -> {integer, Anno, X};
-        X when is_float(X) -> {float, Anno, X};
-        X when is_atom(X) -> {atom, Anno, X};
-        _ -> Expr
-    catch
-        error:_ -> Expr
-    end.
+partial_eval(_) -> clause_builtin_placeholder.
 
 %% is_constant_expr(Expr): whether Expr folds to a number.
-is_constant_expr(Expr) ->
-    try constant(Expr) of
-        X -> is_number(X)
-    catch
-        error:_ -> false
-    end.
-
-constant({op, _, Op, L, R}) -> erlang:Op(constant(L), constant(R));
-constant({op, _, Op, A}) -> erlang:Op(constant(A));
-constant({Leaf, _, X}) when Leaf =:= integer; Leaf =:= char; Leaf =:= float; Leaf =:= atom -> X;
-constant({tuple, _, Es}) -> list_to_tuple([constant(E) || E <- Es]);
-constant({nil, _}) -> [];
-constant({cons, _, H, T}) -> [constant(H) | constant(T)].
+is_constant_expr(_) -> clause_builtin_placeholder.
 
 %% Strings
 

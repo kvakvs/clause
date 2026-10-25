@@ -767,6 +767,15 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (a placeholder atom when printing argument lists) and its `error_info` call `Module:Function/2` kept every
   export of the program; with the switch a call to `erl_error` compiles 293 ms / 668 ms (stage `compile`,
   was 420 ms / 867 ms); `erl_error_formats`, `stack_traces`, `crash_reports`, `loggers` unchanged — `976360be`
+- **LIB34C part 5** `erl_eval`'s pattern matching in C++ (`front_end/eval_match.cpp`): `match1/5`, binary
+  patterns and generators (`clause_erl_eval:match/4`, `bits_gen/4`), `partial_eval/1`, `is_constant_expr/1`,
+  map keys and sizes over a C++ guard evaluator shared with `epp` (`guard_eval.cpp`); the evaluator loop,
+  funs, guards (non-local handler) and comprehension walks stay Erlang (measured: fun builders ≈8%, bit
+  syntax ≈9%, spread elsewhere). `erl_eval_exprs` golden unchanged; over 1,605 expression lists (OTP's
+  erl_eval, lists, binary and qlc suites, 90 pattern cases) the results equal the Erlang version's in every
+  case (235 pre-existing differences from OTP: unimplemented `qlc` and `lists` internals, stack contents);
+  a call to `erl_eval` compiles 12% / 11% faster (stage `compile` 3278 → 2898 ms / 6557 → 5830 ms, same
+  machine state) — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

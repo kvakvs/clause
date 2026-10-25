@@ -30,9 +30,9 @@ internal functions stay out unless a public function needs them (user direction 
   `dict`, `digraph`, `digraph_utils`, `erl_anno`, `erl_features`, `erl_internal`, `filename`,
   `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`,
   `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`, `timer`,
-  `unicode`, `uri_string`, `erl_eval`, `erl_error`, `erl_pp`, `erl_expand_records`, `epp`, `proc_lib`,
-  `erl_lint`, `sys`, `gen_server`, `gen_statem`, `gen_event`, `gen_fsm` (deprecated), `supervisor`,
-  `supervisor_bridge`, `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`,
+  `unicode`, `uri_string`, `erl_eval`, `erl_error`, `erl_pp`, `erl_expand_records`, `epp`,
+  `proc_lib`, `erl_lint`, `sys`, `gen_server`, `gen_statem`, `gen_event`, `gen_fsm` (deprecated),
+  `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`,
   `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
   `seq_trace` (tokens without tracing).
@@ -126,31 +126,29 @@ Done: LIB20–LIB25 (`00-finished.md`); `logger_disk_log_h` waits for LIB52.
 ## Tier D: Erlang front end as library modules
 
 Done (`00-finished.md`): LIB32 `erl_eval`, LIB33 readers, LIB34 parts 1-4 (`erl_error`, `erl_pp`,
-`erl_expand_records`, `epp`, all in Erlang). Left: the C++ cores of LIB34C below. Each part is its own
-commit, in this order.
+`erl_expand_records`, `epp`, all in Erlang). Left: the C++ cores of LIB34C below. Each part is its
+own commit, in this order.
 
 ### LIB34C. C++ cores for the clause-heavy front-end modules (user direction 2026-10-24)
 
-Erlang modules made of large clause dispatches (OTP's style, like yecc's generated parsers) are heavy
-on every program that links them: inference walks big SCCs and codegen emits large functions, while
-runtime builtins come prebuilt. Measured on a debug `clau` (one call reaching each module, extra
-compile time over a hello-world, `-O0` / `-O2`): `epp` +3.0 s / +4.8 s (it pulls `erl_eval` for
-`-if`), `erl_eval` +2.0 s / +3.7 s (inference 0.5 s, 0.28 s of it the `expr/2` SCC; lower,
+Erlang modules made of large clause dispatches (OTP's style, like yecc's generated parsers) are
+heavy on every program that links them: inference walks big SCCs and codegen emits large functions,
+while runtime builtins come prebuilt. Measured on a debug `clau` (one call reaching each module,
+extra compile time over a hello-world, `-O0` / `-O2`): `epp` +3.0 s / +4.8 s (it pulls `erl_eval`
+for `-if`), `erl_eval` +2.0 s / +3.7 s (inference 0.5 s, 0.28 s of it the `expr/2` SCC; lower,
 optimize and emit 3 s), `erl_expand_records` +1.2 s / +0.7 s, `erl_pp` +0.9 s / +1.9 s,
-`clause_erl_lint` +0.6 s / +1.2 s, `erl_error` +0.4 s / +0.8 s. The data walks move to C++
-builtins (`runtime/src/builtins/front_end/`); Erlang stays only where funs run or processes serve.
+`clause_erl_lint` +0.6 s / +1.2 s, `erl_error` +0.4 s / +0.8 s. The data walks move to C++ builtins
+(`runtime/src/builtins/front_end/`); Erlang stays only where funs run or processes serve.
 
 Acceptance of every part: the existing goldens unchanged, the scratch comparison with OTP of that
 module rerun with no differences, and the probe's compile time measured again (recorded in
 `00-finished.md`).
 
-Parts 1 (`erl_expand_records:module/2`), 2 (`erl_lint`), 3 (`erl_pp`), 4 (`epp`) and 6 (`erl_error`) are done (`00-finished.md`). Probe baselines before the
-remaining parts (debug `clau`, `-O0` / `-O2`, 2026-10-24): `erl_pp` +0.77 s / +1.78 s, `epp`
-+2.86 s / +4.61 s, `erl_eval` +1.94 s / +3.65 s, `erl_error` +0.44 s / +0.79 s.
+All six parts (`erl_expand_records:module/2`, `erl_lint`, `erl_pp`, `epp`, `erl_eval`, `erl_error`)
+are done (`00-finished.md`). Probe baselines before the remaining parts (debug `clau`, `-O0` /
+`-O2`, 2026-10-24): `erl_pp` +0.77 s / +1.78 s, `epp` +2.86 s / +4.61 s, `erl_eval` +1.94 s / +3.65
+s, `erl_error` +0.44 s / +0.79 s.
 
-5. **`erl_eval`**: pattern matching (`match1` and binaries), guard tests, `partial_eval`, constant
-   folding and the comprehension generators' element walks; the evaluator loop calls handlers and
-   funs, so it stays Erlang over those builtins.
 
 LIB34A (qlc chain) needs from these: `erl_pp` whole, `erl_expand_records:module/2`,
 `erl_lint:is_guard_test/1`, `format_error/1` and the `module/2` errors a query expression can raise
