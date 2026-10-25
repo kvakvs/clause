@@ -158,6 +158,12 @@ recorded elsewhere.
   absolute -pa.
 - Normal build/test is OTP-free; OTP source never committed (observations only). Fixtures written as
   UTF-8 LF bytes.
+- Host-transformed fixtures (qlc.hrl): commit X.abstr beside X.erl (regenerate.py --clau writes it,
+  drops the header's host-path file attribute); run.py deletes X.erl in work/src. qlc_pt numbers
+  annotations around every integer in the forms (header path chars too): normalize annos before
+  printing info(…, {format, abstract_code}). OTP's qlc_pt calls compile:noenv_forms with the same
+  options, so a --parse-transform dump runs twice (write once). qlc compile errors in fixtures:
+  call qlc:q through a runtime module name.
 - Fixture layout: project.toml, src, fixture.json (entry+argv, env, stdin, data files), expected/{stdout.txt,
   golden.json}, compile.txt. Golden runs may be `"authored": true`, may mark word_bits 64. Runner runs each
   combination in work/<label>. programs.py --update-diagnostics rewrites compile.txt.
@@ -279,6 +285,10 @@ recorded elsewhere.
   heap_.top_/used_words_ of a running process must absorb first.
 
 ## Library and builtins
+- qlc (LIB73): ets/dets/erl_eval reach qlc via a runtime name (qlc_module() -> qlc) so ets users do
+  not link it; internal errors thrown as {'$qlc_thrown_error', E} (OTP checks the throw_error stack
+  frame). Differential scratch tests (OTP erlc run vs clau -O0) matched first try except refs and
+  stack traces.
 - Bridge catalog abi::v1::bridge_builtins (index = CLAUSE_builtin_v1 arg) may be reordered freely:
   no release, no users, only own tests (user direction 2026-10-14); keep groups by module;
   BuiltinRegistry names are static string_views. Helpers in builtins/support.hpp; typed_entry<F>

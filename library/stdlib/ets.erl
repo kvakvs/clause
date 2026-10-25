@@ -134,8 +134,6 @@ select_reverse(_, _, _) -> clause_builtin_placeholder.
 setopts(_, _) -> clause_builtin_placeholder.
 slot(_, _) -> clause_builtin_placeholder.
 tab2list(_) -> clause_builtin_placeholder.
-table(_) -> erlang:error({not_implemented, table, 1}).
-table(_, _) -> erlang:error({not_implemented, table, 2}).
 take(_, _) -> clause_builtin_placeholder.
 update_counter(_, _, _) -> clause_builtin_placeholder.
 update_counter(_, _, _, _) -> clause_builtin_placeholder.
@@ -201,6 +199,108 @@ init_continue(Tid, {Objects, InitFun}) when is_list(Objects), is_function(InitFu
     end;
 init_continue(_Tid, Other) ->
     exit(Other).
+
+table(Table) ->
+    table(Table, []).
+
+%% Created for qlc (plan 21 step LIB73): a query handle over the table, traversed by select/3 (the default), first/next
+%% or last/prev, with key lookups unless a match specification is given; other options go to qlc:table/2.
+table(TableArg, Options) ->
+    Table = table_id(TableArg),
+    case table_options(Options, [traverse, n_objects], []) of
+        badarg ->
+            erlang:error(badarg, [Table, Options]);
+        {[Traverse, NObjs], QlcOptions} ->
+            KeyEquality =
+                case ets:info(Table, type) of
+                    ordered_set -> '==';
+                    _ -> '=:='
+                end,
+            TableOptions = [
+                {pre_fun, fun(_) -> ets:safe_fixtable(Table, true) end},
+                {post_fun, fun() -> ets:safe_fixtable(Table, false) end},
+                {info_fun, fun(Tag) -> table_info(Table, Tag) end},
+                {format_fun, table_format_fun(Table, Options)},
+                {key_equality, KeyEquality},
+                {lookup_fun, table_lookup_fun(Table, Traverse)}
+            ],
+            (qlc_module()):table(table_traverse_fun(Table, Traverse, NObjs), TableOptions ++ QlcOptions)
+    end.
+
+%% Created for qlc: reached by a runtime name so that only programs evaluating queries link it.
+qlc_module() -> qlc.
+
+%% The values of table/2's own options with their defaults, and the options left for qlc:table/2.
+table_options(Options, Keys, Values) when not is_list(Options) ->
+    table_options([Options], Keys, Values);
+table_options(Options, [Key | Keys], Values) ->
+    case table_option(lists:keyfind(Key, 1, Options), Key) of
+        badarg -> badarg;
+        {ok, Value} -> table_options(lists:keydelete(Key, 1, Options), Keys, [Value | Values])
+    end;
+table_options(Options, [], Values) ->
+    {lists:reverse(Values), Options}.
+
+table_option({n_objects, default}, n_objects) -> {ok, 100};
+table_option({n_objects, N}, n_objects) when is_integer(N), N >= 1 -> {ok, N};
+table_option({traverse, select}, traverse) -> {ok, select};
+table_option({traverse, {select, _MS} = Select}, traverse) -> {ok, Select};
+table_option({traverse, first_next}, traverse) -> {ok, first_next};
+table_option({traverse, last_prev}, traverse) -> {ok, last_prev};
+table_option({Key, _}, Key) -> badarg;
+table_option(false, n_objects) -> {ok, 100};
+table_option(false, traverse) -> {ok, select}.
+
+table_traverse_fun(Table, first_next, _NObjs) ->
+    fun() -> qlc_next(Table, ets:first(Table)) end;
+table_traverse_fun(Table, last_prev, _NObjs) ->
+    fun() -> qlc_prev(Table, ets:last(Table)) end;
+table_traverse_fun(Table, select, NObjs) ->
+    fun(MS) -> qlc_select(ets:select(Table, MS, NObjs)) end;
+table_traverse_fun(Table, {select, MS}, NObjs) ->
+    fun() -> qlc_select(ets:select(Table, MS, NObjs)) end.
+
+table_lookup_fun(_Table, {select, _MS}) ->
+    undefined;
+table_lookup_fun(Table, _Traverse) ->
+    fun
+        (_Pos, [K]) -> ets:lookup(Table, K);
+        (_Pos, Ks) -> lists:flatmap(fun(K) -> ets:lookup(Table, K) end, Ks)
+    end.
+
+%% How info/1,2 of qlc shows the table: the call that made it, or the lookups it does.
+table_format_fun(Table, Options) ->
+    fun
+        ({all, _NElements, _ElementFun}) when Options =:= [] ->
+            {ets, table, [Table]};
+        ({all, _NElements, _ElementFun}) ->
+            {ets, table, [Table, Options]};
+        ({match_spec, MS}) ->
+            {ets, table, [Table, [{traverse, {select, MS}} | table_listify(Options)]]};
+        ({lookup, _KeyPos, [Value], _NElements, ElementFun}) ->
+            io_lib:format("~w:lookup(~w, ~w)", [ets, Table, ElementFun(Value)]);
+        ({lookup, _KeyPos, Values, _NElements, ElementFun}) ->
+            Vals = [ElementFun(V) || V <- Values],
+            io_lib:format("lists:flatmap(fun(V) -> ~w:lookup(~w, V) end, ~w)", [ets, Table, Vals])
+    end.
+
+table_listify(L) when is_list(L) -> L;
+table_listify(T) -> [T].
+
+table_info(Table, num_of_objects) -> ets:info(Table, size);
+table_info(Table, keypos) -> ets:info(Table, keypos);
+table_info(Table, is_unique_objects) -> ets:info(Table, type) =/= duplicate_bag;
+table_info(Table, is_sorted_key) -> ets:info(Table, type) =:= ordered_set;
+table_info(_Table, _) -> undefined.
+
+qlc_next(_Table, '$end_of_table') -> [];
+qlc_next(Table, Key) -> ets:lookup(Table, Key) ++ fun() -> qlc_next(Table, ets:next(Table, Key)) end.
+
+qlc_prev(_Table, '$end_of_table') -> [];
+qlc_prev(Table, Key) -> ets:lookup(Table, Key) ++ fun() -> qlc_prev(Table, ets:prev(Table, Key)) end.
+
+qlc_select('$end_of_table') -> [];
+qlc_select({Objects, Cont}) -> Objects ++ fun() -> qlc_select(ets:select(Cont)) end.
 
 insert_each(_Tid, []) ->
     true;

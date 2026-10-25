@@ -849,6 +849,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   the C++ `erl_lint` (OTP's no-compiler path), `ms_transform` answered by Erlang through replayed requests;
   `qlc_pt_transforms` golden; identical to OTP over 562 `qlc_SUITE` queries (both entry points) and 1686 module
   transforms (OTP with its compiler stubbed out); a Debug build takes ~30 ms per query (3.3 replays), OTP ~0.6 ms — `63592558`
+- **LIB73 part 2** `qlc` complete: Clause's own `qlc.erl` over the transform's `qlc_lc` handles (lookups, match
+  specifications, merge/lookup joins with equal keys on files, `cache` ets/list spilling to files, `unique`,
+  `file_sorter` sorts, cursors, `info/1,2`, `string_to_handle`), `ets:table/1,2`, `dets:table/1,2`, `qlc.hrl`,
+  `erl_eval`'s `qlc:q` hook; form import accepts OTP's line 0; executable cases compile an `.abstr` stand-in
+  (`regenerate.py --clau`); `qlc_queries` golden (~200 checks, identical to OTP) — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

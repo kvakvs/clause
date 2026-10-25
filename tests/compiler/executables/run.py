@@ -56,7 +56,8 @@ def command(tool, work, case, golden, policy, target_options=()):
     (work / label).mkdir()
     if project:
         return label, [tool, '--project', golden['manifest'], *options, '--entry', golden['entry'], '-o', output]
-    inputs = sorted(path.relative_to(work).as_posix() for path in (work / 'src').rglob('*.erl'))
+    sources = [path for path in (work / 'src').rglob('*') if path.suffix in ('.erl', '.abstr')]
+    inputs = sorted(path.relative_to(work).as_posix() for path in sources)
     return label, [tool, *options, '--entry', golden['entry'], '-o', output, *inputs]
 
 
@@ -130,7 +131,7 @@ def check_policy(tool, work, case, golden, policy, suffix, target_options=(), wo
     # Each combination runs in its own directory beside its executable, with the case's data files, so programs that
     # write files do not meet each other.
     for path in (work / 'src').iterdir():
-        if path.is_file() and path.suffix not in ('.erl', '.hrl'):
+        if path.is_file() and path.suffix not in cases.SOURCE_SUFFIXES:
             shutil.copyfile(path, work / label / path.name)
     failures, lines = 0, []
     for run, variant in variants(golden, word_bits):
@@ -162,6 +163,9 @@ def prepare(case_dir, work):
         return golden
     golden = cases.verify(case_dir)
     cases.stage(case_dir, golden, work / 'src')
+    # A module with transformed forms compiles from its .abstr, so the tests need no host OTP (plan 21 step LIB73).
+    for source in cases.transformed(work / 'src'):
+        source.unlink()
     return golden
 
 

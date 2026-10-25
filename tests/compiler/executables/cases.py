@@ -9,6 +9,8 @@ CASES = ROOT / 'tests/fixtures/executables'
 GOLDEN = 'golden.json'
 # Fields written by regenerate.py from OTP; a golden lacking any of them was never generated.
 GENERATED_RUN_FIELDS = ('exit_status', 'stdout')
+# The inputs of a case: sources, headers and transformed forms (sources()).
+SOURCE_SUFFIXES = ('.erl', '.hrl', '.abstr')
 
 
 def digest(path):
@@ -37,10 +39,17 @@ def load(case_dir):
 
 
 def sources(case_dir, golden):
-    """Erlang inputs as {case-relative spelling: path}: listed 'sources', else every .erl/.hrl beside the golden."""
+    """Erlang inputs as {case-relative spelling: path}: listed 'sources', else every .erl/.hrl/.abstr beside the
+    golden. An .abstr holds its .erl's forms after the host's parse transforms: Clause compiles it instead of the
+    .erl, which only the OTP oracle compiles (plan 21 step LIB73)."""
     if 'sources' in golden:
         return {source: case_dir / source for source in golden['sources']}
-    return {path.name: path for path in sorted(case_dir.iterdir()) if path.suffix in ('.erl', '.hrl')}
+    return {path.name: path for path in sorted(case_dir.iterdir()) if path.suffix in SOURCE_SUFFIXES}
+
+
+def transformed(directory):
+    """The .erl files of a directory that have an .abstr beside them."""
+    return [path.with_suffix('.erl') for path in sorted(directory.glob('*.abstr')) if path.with_suffix('.erl').exists()]
 
 
 def data(case_dir, golden):

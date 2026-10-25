@@ -130,10 +130,11 @@ Returned forms, and `.abstr` inputs (positional or project `sources`), become
 tokens located at their annotations and go through Clause's parser, so they get
 the same syntax checks as source; operator precedence decides where parentheses
 are added. `{Line, Column}`, a bare `Line` (shown as `file:line:`) and property
-lists with `location` and `file` are accepted; `generated` is ignored. A file
-attribute switches the file of the following forms; when that file exists,
-imported code keeps its debug lines and source comments. Malformed forms are
-errors at their annotation (`unknown expression bogus`,
+lists with `location` and `file` are accepted; `generated` is ignored. Line 0,
+which OTP's `qlc` transform gives generated code, takes the place of the node
+imported before it. A file attribute switches the file of the following forms;
+when that file exists, imported code keeps its debug lines and source comments.
+Malformed forms are errors at their annotation (`unknown expression bogus`,
 `expected {Name, Arity}`, `invalid annotation`) and the module fails; OTP's
 `{error, _}`/`{warning, _}` forms are reported with their descriptor, which
 needs OTP to format. Importing an exported module and exporting it again gives

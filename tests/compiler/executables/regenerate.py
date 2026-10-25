@@ -13,6 +13,8 @@ import cases
 ORACLE = cases.ROOT / 'tests/compiler/programs/oracle.escript'
 # The operating system family the oracle runs on; runs for another ('os') are kept as written.
 HOST_OS = 'windows' if sys.platform == 'win32' else 'unix'
+# A file attribute naming a path with a directory, as an included header outside the case has.
+FOREIGN_FILE = re.compile(r'^\{attribute,.*,file,\{"[^"]*[/\\:][^"]*",\d+\}\}\.$')
 
 
 def reference():
@@ -48,6 +50,23 @@ def generated_run(case, run, result):
     authored = {key: run[key] for key in ('stdin', 'word_bits', 'os') if key in run}
     return {'args': run['args'], **authored, 'stderr': pattern or '^$', 'exit_status': result.returncode,
             'stdout': stdout}
+
+
+def refresh_abstr(clau, escript, case_dir):
+    """Rewrites each X.abstr of a case from X.erl with clau --print-abstr, whose parse transforms run on the oracle's
+    OTP. File attributes of headers outside the case are left out: their paths are this host's. Added for plan 21
+    step LIB73 (compiled queries)."""
+    erl = pathlib.Path(escript).with_name('erl' + pathlib.Path(escript).suffix)
+    clau = str(pathlib.Path(clau).resolve())
+    for source in cases.transformed(case_dir):
+        result = subprocess.run([clau, '--erl', str(erl), '--print-abstr', source.name], cwd=case_dir,
+                                capture_output=True, check=False, timeout=300)
+        if result.returncode != 0:
+            sys.exit(f'{case_dir.name}: clau --print-abstr {source.name} failed:\n'
+                     f'{result.stderr.decode(errors="replace")}')
+        forms = [line for line in result.stdout.decode('utf8').replace('\r\n', '\n').splitlines(keepends=True)
+                 if not FOREIGN_FILE.match(line)]
+        source.with_suffix('.abstr').write_bytes(''.join(forms).encode('utf8'))
 
 
 def regenerate(escript, case_dir, work):
@@ -86,7 +105,11 @@ def main():
     parser.add_argument('--escript', required=True, help='OTP 29 escript executable')
     parser.add_argument('--case', action='append', choices=cases.names(), help='limit to one case')
     parser.add_argument('--check', action='store_true', help='compare with committed goldens, write nothing')
+    parser.add_argument('--clau', help='also rewrite each X.abstr beside an X.erl through this clau --print-abstr')
     options = parser.parse_args()
+    if options.clau and not options.check:
+        for name in options.case or cases.names():
+            refresh_abstr(options.clau, options.escript, cases.CASES / name)
     work_root = cases.ROOT / 'build'
     work_root.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='executables-oracle-', dir=work_root) as work:

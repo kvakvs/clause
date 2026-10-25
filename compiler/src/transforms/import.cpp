@@ -60,6 +60,19 @@ std::optional<TermId> property(const Terms &terms, const TermNode &list, const s
     }
     return std::nullopt;
 }
+
+// The position of an annotation: a plain location, or the location property of an annotation list.
+std::optional<std::pair<std::int64_t, std::int64_t>> annotation_position(const Terms &terms, const TermId anno) {
+    if (auto position = plain_position(terms, anno)) {
+        return position;
+    }
+    const auto &node = terms.node(anno);
+    if (node.kind_ != TermKind::list) {
+        return std::nullopt;
+    }
+    const auto location = property(terms, node, U"location");
+    return location ? plain_position(terms, *location) : std::nullopt;
+}
 } // namespace
 
 // ---- tokens -----------------------------------------------------------------------------------------------------
@@ -153,13 +166,10 @@ Span Locator::real(const std::string &file, const std::size_t line, const std::s
 }
 
 std::optional<Place> Locator::find(const Terms &terms, const TermId anno) {
-    auto position = plain_position(terms, anno);
+    const auto position = annotation_position(terms, anno);
     auto file = file_;
     const auto &node = terms.node(anno);
-    if (!position && node.kind_ == TermKind::list) {
-        if (const auto location = property(terms, node, U"location")) {
-            position = plain_position(terms, *location);
-        }
+    if (node.kind_ == TermKind::list) {
         const auto name = property(terms, node, U"file");
         if (const auto text = name ? terms.text(*name) : std::nullopt) {
             file = utf8(*text);
@@ -176,6 +186,11 @@ std::optional<Place> Locator::find(const Terms &terms, const TermId anno) {
 Place Locator::place(const Terms &terms, const TermId anno, const Place &fallback) {
     if (auto found = find(terms, anno)) {
         return std::move(*found);
+    }
+    // Added for qlc: line 0, generated code without a source line (qlc's transform), takes the place before it.
+    if (const auto position = annotation_position(terms, anno);
+        position && position->first == 0 && position->second >= 0) {
+        return fallback;
     }
     throw ImportError(fallback, "invalid annotation");
 }

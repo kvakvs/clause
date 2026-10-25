@@ -35,11 +35,12 @@ internal functions stay out unless a public function needs them (user direction 
   `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`,
   `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
-  `seq_trace` (tokens without tracing), `file`, `filelib`, `file_sorter`, `disk_log`, `wrap_log_reader`,
-  `logger_disk_log_h`, `gen_tcp`, `gen_udp`, `net`, `os`, `code` (loading answers for linked code), `io`,
-  `io_ansi` (no terminfo), `inet`, `inet_res` (no answer cache), `socket`, `gen_sctp` (no SCTP), `argparse`, `trace` and `erl_tracer` (all `notsup`: no tracing).
-- **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `ets` (2,
-  LIB73), `dets` (2, LIB73).
+  `seq_trace` (tokens without tracing), `file`, `filelib`, `file_sorter`, `disk_log`,
+  `wrap_log_reader`, `logger_disk_log_h`, `gen_tcp`, `gen_udp`, `net`, `os`, `code` (loading answers
+  for linked code), `io`, `io_ansi` (no terminfo), `inet`, `inet_res` (no answer cache), `socket`,
+  `gen_sctp` (no SCTP), `argparse`, `ets`, `dets`, `qlc`, `trace` and `erl_tracer` (all `notsup`:
+  no tracing).
+- **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing).
 - **Missing:** 15 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
   ones (`zip`, `erl_tar`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
@@ -112,13 +113,8 @@ remainders follow.
 
 ## Tier B: ETS and what needs it
 
-- `ets` and `dets` ship `table/1,2` as stubs until `qlc` (`PARTIAL` in `library_modules.py`).
 - Later: `select_delete/2` and `select_replace/2` over a whole table in portions (they run in one
   piece, each part under its lock).
-
-### LIB12C remainder: `ets:table/1,2`
-
-- `table/1,2` after `qlc` (LIB73), with `dets:table/1,2`.
 
 ## Tier C: processes and behaviours (Erlang)
 
@@ -139,48 +135,19 @@ tier. Later (speed): `zip` and `erl_tar` header parsing, stored copies and check
 
 ## Tier F: kernel I/O remainder
 
-Every step is done (LIB60A, LIB60B, LIB61, LIB62, LIB63; `00-finished.md`). Later: `{active, N}`, `{packet, line | http | ...}` and `{raw, ...}`
-socket options; applying inet_drv's own options (`send_timeout`, `header`, `deliver`, `exit_on_close`, ...).
-Later for `socket`: `local` domain, `ioctl`, native options and descriptor adoption as OTP on Linux and macOS;
-SCTP (`gen_sctp`, socket's `seqpacket`); a cache of `inet_res` answers; terminfo for `io_ansi`.
+Every step is done (LIB60A, LIB60B, LIB61, LIB62, LIB63; `00-finished.md`). Later: `{active, N}`,
+`{packet, line | http | ...}` and `{raw, ...}` socket options; applying inet_drv's own options
+(`send_timeout`, `header`, `deliver`, `exit_on_close`, ...). Later for `socket`: `local` domain,
+`ioctl`, native options and descriptor adoption as OTP on Linux and macOS; SCTP (`gen_sctp`,
+socket's `seqpacket`); a cache of `inet_res` answers; terminfo for `io_ansi`.
 
 ## Tier G: tools, transforms and the interactive shell
 
-Done: LIB70, LIB71 (`00-finished.md`). Later (optional): real tracing (runtime trace points for sends,
-receives, calls and process events; `trace`, `erlang:trace*`, `seq_trace` tracer output), starting from plan
-11's call tracer.
-
-### LIB73. `qlc`
-
-Part 1 (`qlc_pt` at run time) is done (`00-finished.md`). Part 2 is the rest below: `qlc` itself, `ets:table/1,2`,
-`dets:table/1,2`, `qlc.hrl` and `erl_eval`'s hook; `qlc` enters `library/` with it. Its golden needs compiled queries:
-commit the fixture's transformed forms as `.abstr` (from `clau --print-abstr` over the host transform) and let the
-executable runner prefer an `.abstr` over the `.erl` of the same module. Later (speed): `ms_transform` in C++ so
-`qlc_pt` needs no replayed requests (each `try_ms` answer reruns the whole transform today).
-
-Dependencies first (user direction 2026-10-19), in this order: LIB30 `erl_scan` (done), LIB31
-`erl_parse` (done), LIB54A `file_sorter` (done), LIB32 `erl_eval` (done), LIB34A (`erl_pp`,
-`erl_expand_records`, `erl_lint`'s checks for `qlc_pt`; done with LIB34C). See
-[the qlc chain](#qlc-chain-user-direction-2026-10-19).
-
-- `qlc` (26): Erlang query handles and evaluation over `ets`, `dets` and lists. Compiled queries
-  come from the host's `qlc_pt` (`qlc.hrl` names `{parse_transform, qlc}`, D03), so Clause's
-  `qlc:q/1,2` interprets OTP's generated `{qlc_lc, Fun, Opt}` / `{qlc_v1, QFun, CodeF, Qdata, QOpt}`
-  (or `{simple_v1, ...}`) handles exactly: generator and filter numbering, the `QOpt` fun's `size`,
-  `template`, `constants`, `equal_constants`, `n_leading_constant_columns`, `constant_columns`,
-  `match_specs` and join answers, and `CodeF`'s `term_to_binary` abstract code for `info/1,2`.
-- Lookup and match-spec use of `table/2` callbacks, merge and lookup joins, `cache` (`ets`, `list`),
-  `unique`, `sort`/`keysort` through `file_sorter` above `max_list_size` with `tmpdir` and
-  `tmpdir_usage` (its message levels go through `error_logger`), cursors as processes, OTP's error
-  terms and `format_error/1`.
-- `info/1,2`: OTP's abstract code printed by `erl_pp:expr/3`, table descriptions parsed with
-  `erl_scan` and `erl_eval:extended_parse_exprs/1`, `erl_eval:fun_data/1` for interpreted funs.
-- `string_to_handle/1,2,3`: `erl_scan:string/3`, `erl_eval` and a Clause `qlc_pt` (internal module,
-  not copied) that does at run time what the host transform does at compile time, with `erl_lint`'s
-  errors for bad queries.
-- `ets:table/1,2` and `dets:table/1,2` (LIB12C) land with it.
-- `erl_eval`'s clause for `qlc:q/1,2` calls in evaluated code (`qlc:transform_from_evaluator/2`, the
-  local calls hidden from the transform), with the old `''.qlc:q` spelling.
+Done: LIB70, LIB71 (`00-finished.md`). Later (optional): real tracing (runtime trace points for
+sends, receives, calls and process events; `trace`, `erlang:trace*`, `seq_trace` tracer output),
+starting from plan 11's call tracer. Later (speed): `ms_transform` in C++ so `qlc_pt` needs no
+replayed requests (each `try_ms` answer reruns the whole transform today); `qlc`'s merge joins and
+caches over C++ helpers.
 
 ### LIB74. Interactive modules (last; optional)
 
@@ -206,32 +173,26 @@ probe for them keep working.
 
 ### qlc chain (user direction 2026-10-19)
 
-Runs now, before the list below: LIB30 `erl_scan` (done), LIB31 `erl_parse` (done), LIB54A
-`file_sorter` (done), LIB32 `erl_eval` (done,
-with every undocumented export), LIB34A (done), then LIB73 `qlc` with LIB12C. Each is its own commit. The
-runtime cannot link the compiler's `clause_frontend` (a separate, LLVM-free build; the compiler
-lexer throws Clause diagnostics and has no `erl_scan` continuations), so `erl_scan` and `erl_parse`
-get their own C++ scanner and parser in `runtime/src/builtins/front_end/`, written to OTP's
-documented behavior and grammar. For `erl_parse` the user chose this over reusing the compiler's
-parser with the parse-transform export (2026-10-19): OTP's error tokens and messages, the tokens'
-own annotations, and no Boost in the runtime.
+Done: LIB30, LIB31, LIB54A, LIB32, LIB34A, then LIB73 `qlc` with LIB12C (`00-finished.md`).
+`erl_scan` and `erl_parse` have their own C++ scanner and parser in `runtime/src/builtins/front_end/`
+(the runtime cannot link the compiler's `clause_frontend`; user choice 2026-10-19).
 
 ### General order
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB73–LIB74 (with LIB12C), then the declined modules' answer stubs.
+1. LIB74, then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 
 Format: `module` (application, functions to do, ...): name/arities. Deprecated functions are listed
 separately and are optional.
 
-- `erlang` (erts, 20 left, all declined; tracing raises `notsup`): check_old_code/1, check_process_code/2,3,
-  dist_ctrl_get_data/1, dist_ctrl_get_data_notification/1, dist_ctrl_get_opt/2,
-  dist_ctrl_input_handler/2, dist_ctrl_put_data/2, dist_ctrl_set_opt/3, load_module/2, load_nif/2,
-  purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3, trace_delivered/1,
-  trace_info/2, trace_pattern/2,3
+- `erlang` (erts, 20 left, all declined; tracing raises `notsup`): check_old_code/1,
+  check_process_code/2,3, dist_ctrl_get_data/1, dist_ctrl_get_data_notification/1,
+  dist_ctrl_get_opt/2, dist_ctrl_input_handler/2, dist_ctrl_put_data/2, dist_ctrl_set_opt/3,
+  load_module/2, load_nif/2, purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3,
+  trace_delivered/1, trace_info/2, trace_pattern/2,3
 - `init` (erts, 3, 8 done): boot/1, restart/0,1
 - `erl_boot_server` (kernel, 7): add_slave/1, delete_slave/1, start/1,2, start_link/1,2,
   which_slaves/0
@@ -251,19 +212,14 @@ separately and are optional.
 - `c` (stdlib, 44): bt/1, c/1,2,3, cd/1, erlangrc/1, flush/0, h/1,2,3, hcb/1,2,3, help/0, ht/1,2,3,
   i/0,3, l/1, lc/1, lm/0, ls/0,1, m/0,1, memory/0,1, mm/0, nc/1,2, ni/0, nl/1, nregs/0, pi/1,3,
   pid/3, pwd/0, q/0, regs/0, uptime/0, xm/1, y/1,2
-- `dets` (stdlib, 2, 42 done): table/1,2
 - `edlin` (stdlib, 1): keymap/0
 - `edlin_expand` (stdlib, 2): expand/1,2
 - `erl_tar` (stdlib, 14): add/3,4, close/1, create/2,3, extract/1,2, format_error/1, init/3, open/2,
   t/1, table/1,2, tt/1
 - `escript` (stdlib, 3): create/2, extract/2, script_name/0
-- `ets` (stdlib, 2, 68 done): table/1,2
 - `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3, start/1,
   start_link/0,1, stop/1
 - `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3, pspawn_link/3, start/1,2, stop/0
-- `qlc` (stdlib, 26): append/1,2, cursor/1,2, delete_cursor/1, e/1,2, eval/1,2, fold/3,4,
-  format_error/1, info/1,2, keysort/2,3, next_answers/1,2, q/1,2, sort/1,2, string_to_handle/1,2,3,
-  table/2
 
 - `re` (stdlib, 1, 10 done): import/1
 - `shell` (stdlib, 18): catch_exception/1, default_multiline_prompt/1, erl_pp_format_func/1,

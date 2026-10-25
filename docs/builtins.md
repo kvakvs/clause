@@ -282,7 +282,9 @@ raise.
   OTP-shaped continuations.
 - Table files: `tab2file`, `file2tab`, `tabfile_info` read and write OTP's
   disk_log format both ways.
-- `to_dets/2`, `from_dets/2` over `dets`; `table/1,2` stubs.
+- `to_dets/2`, `from_dets/2` over `dets`; `table/1,2` Erlang over
+  `qlc:table/2` (select/3 by default, `first_next`, `last_prev`, `{select, MS}`),
+  looking up keys with `==` in an `ordered_set`, else `=:=`.
 - CTests `executables_ets_*` run OTP goldens.
 
 ## Dets
@@ -295,7 +297,8 @@ byte for byte, same file orders.
 - Processes (Erlang): `dets` server with OTP's registry tables; one process per
   table holding file handle, cache, fixes, timers.
 - Opening repairs and errors as OTP; funs run where OTP runs them.
-- `table/1,2` wait for `qlc`; undocumented helpers are stubs.
+- `table/1,2` Erlang over `qlc:table/2` (select/3 by default, `first_next`,
+  `{select, MS}`); undocumented helpers are stubs.
 - CTest `executables_dets_tables` compares with OTP, file MD5s included.
 
 ## Encodings
@@ -413,6 +416,40 @@ transform ([parse transforms](transforms.md)).
   builtin again with the answers so far, replaying its walk; the result is
   `{done, Result, Transformed}` (a transformed module raises the backtrace
   depth to 500, as OTP's transform does).
+
+## Qlc
+
+`library/stdlib/qlc.erl` (plan 21 step LIB73): every function in Erlang, since
+evaluation calls the query's funs. Written from OTP's documentation; the
+algorithms are OTP's where answers, their order or `info/1,2` show them.
+
+- Handles keep OTP's tuples (`{qlc_handle, H}` with `qlc_lc`, `qlc_table`,
+  `qlc_append`, `qlc_sort`; `{qlc_cursor, {Pid, Owner}}`); compiled queries are
+  the transform's `{qlc_lc, Fun, Opt}` with `qlc_v1` or `simple_v1` data.
+- Preparation: lookups at the key or the index with the fewest keys
+  (`max_lookup`), match specifications for unary traverse funs and lists, lookup
+  joins preferred to merge joins, merge join inputs sorted unless known sorted,
+  simple queries for `cache` and `unique`, coalesced, and never for the first
+  generator.
+- Evaluation: answers are lists ending in `[]` or a continuation fun. `cache`
+  uses `ets` tables (`qlc`, private) or a list kept under
+  `{Ref, '$_qlc_cache_tmpfiles_'}`, moved to a temporary file past
+  `max_list_size`; merge joins put large classes of equal keys on a file
+  (`'$_qlc_merge_join_tmpfiles_'`); sorts run `file_sorter` once answers exceed
+  `size`. Temporary files are `qlc_<node>_<os pid>_<unique>` in `tmpdir` or the
+  working directory; `tmpdir_usage` reports through `error_logger`.
+- Errors the evaluation finds (a traverse or lookup fun's non-list answer,
+  file errors, `{tmpdir_usage, _}`) are thrown with an internal tag and returned
+  by `eval/2`, `fold/4`, `info/2` and cursors, as OTP returns the errors its
+  `throw_error/1` throws.
+- `info/1,2` prints the prepared query with `erl_pp:expr/3`, table descriptions
+  through their format funs (strings parsed by `erl_eval:extended_parse_exprs/1`).
+- `string_to_handle/1,2,3` and `erl_eval`'s `qlc:q/1,2` run Clause's
+  [`qlc_pt`](#qlc-pt); `ets:table/1,2`, `dets:table/1,2` and `erl_eval` reach
+  `qlc` by a runtime name, so only programs that name `qlc` link it.
+- CTest `executables_qlc_queries` compares with OTP: its query module compiles
+  from `qlc_queries.abstr`, the forms after OTP's transform, so the test needs
+  no host OTP ([executable cases](../tests/fixtures/executables/README.md)).
 
 ## String
 

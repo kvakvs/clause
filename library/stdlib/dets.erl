@@ -403,10 +403,81 @@ stop() ->
 sync(Tab) ->
     badarg(treq(Tab, sync), [Tab]).
 
-table(_) -> erlang:error({not_implemented, table, 1}).
-%% table/1,2 wait for qlc (plan 21 step LIB73).
+table(Tab) ->
+    table(Tab, []).
 
-table(_, _) -> erlang:error({not_implemented, table, 2}).
+%% Created for qlc (plan 21 step LIB73): a query handle over the table, traversed by select/3 (the default) or
+%% first/next, with key lookups unless a match specification is given.
+table(Tab, Options) ->
+    case options(Options, [traverse, n_objects]) of
+        {badarg, _} ->
+            erlang:error(badarg, [Tab, Options]);
+        [Traverse, NObjs] ->
+            TableOptions = [
+                {pre_fun, fun(_) -> safe_fixtable(Tab, true) end},
+                {post_fun, fun() -> safe_fixtable(Tab, false) end},
+                {info_fun, fun(Tag) -> table_info(Tab, Tag) end},
+                {format_fun, table_format_fun(Tab, Options)},
+                {key_equality, '=:='},
+                {lookup_fun, table_lookup_fun(Tab, Traverse)}
+            ],
+            (qlc_module()):table(table_traverse_fun(Tab, Traverse, NObjs), TableOptions)
+    end.
+
+%% Created for qlc: reached by a runtime name so that only programs evaluating queries link it.
+qlc_module() -> qlc.
+
+table_traverse_fun(Tab, first_next, _NObjs) ->
+    fun() -> qlc_next(Tab, first(Tab)) end;
+table_traverse_fun(Tab, select, NObjs) ->
+    fun(MS) -> qlc_select(select(Tab, MS, NObjs)) end;
+table_traverse_fun(Tab, {select, MS}, NObjs) ->
+    fun() -> qlc_select(select(Tab, MS, NObjs)) end.
+
+table_lookup_fun(_Tab, {select, _MS}) ->
+    undefined;
+table_lookup_fun(Tab, _Traverse) ->
+    fun
+        (_KeyPos, [K]) -> lookup(Tab, K);
+        (_KeyPos, Ks) -> lookup_keys(Tab, Ks)
+    end.
+
+%% How info/1,2 of qlc shows the table: the call that made it, or the lookups it does.
+table_format_fun(Tab, Options) ->
+    fun
+        ({all, _NElements, _ElementFun}) when Options =:= [] ->
+            {dets, table, [Tab]};
+        ({all, _NElements, _ElementFun}) ->
+            {dets, table, [Tab, Options]};
+        ({match_spec, MS}) ->
+            {dets, table, [Tab, [{traverse, {select, MS}} | table_listify(Options)]]};
+        ({lookup, _KeyPos, [Value], _NElements, ElementFun}) ->
+            io_lib:format("~w:lookup(~w, ~w)", [dets, Tab, ElementFun(Value)]);
+        ({lookup, _KeyPos, Values, _NElements, ElementFun}) ->
+            Vals = [ElementFun(V) || V <- Values],
+            io_lib:format("lists:flatmap(fun(V) -> ~w:lookup(~w, V) end, ~w)", [dets, Tab, Vals])
+    end.
+
+table_listify(L) when is_list(L) -> L;
+table_listify(T) -> [T].
+
+qlc_next(_Tab, '$end_of_table') ->
+    [];
+qlc_next(Tab, Key) ->
+    case lookup(Tab, Key) of
+        Objects when is_list(Objects) -> Objects ++ fun() -> qlc_next(Tab, next(Tab, Key)) end;
+        %% As first/1 and next/2 fail.
+        Error -> exit(Error)
+    end.
+
+qlc_select('$end_of_table') -> [];
+qlc_select({Objects, Cont}) when is_list(Objects) -> Objects ++ fun() -> qlc_select(select(Cont)) end;
+qlc_select(Error) -> Error.
+
+table_info(Tab, num_of_objects) -> info(Tab, size);
+table_info(Tab, keypos) -> info(Tab, keypos);
+table_info(Tab, is_unique_objects) -> info(Tab, type) =/= duplicate_bag;
+table_info(_Tab, _) -> undefined.
 
 to_ets(DetsTab, EtsArgument) ->
     case ets_id(EtsArgument) of
@@ -1480,8 +1551,8 @@ parameters(T) ->
                     phash2 -> 1;
                     phash -> 0
                 end,
-            {'$hash2', 9, 1, filename:basename(T#tab.file), Type, Keypos, Method, N, M, Next, Min,
-                Max, Objects, Keys, Collections}
+            {'$hash2', 9, 1, filename:basename(T#tab.file), Type, Keypos, Method, N, M, Next, Min, Max, Objects, Keys,
+                Collections}
     end.
 
 compatible_bchunk(T, Term) ->

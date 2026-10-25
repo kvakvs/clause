@@ -278,6 +278,14 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | --- | --- | --- | --- |
 | Shape of the characters `erl_pp` returns | Deep character lists | One flat character list; flattened output is equal | [builtins](builtins.md#erl-pp) |
 
+## qlc
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Stack trace of an exception raised in a cursor process, as `next_answers/1,2` re-raises it | The cursor's stack trace followed by the owner's `process_info(self(), current_stacktrace)` | Followed by the stack trace of an exception caught in the owner (Clause has no `current_stacktrace` item) | [qlc](builtins.md#qlc) |
+| `qlc:q/1,2` in `erl_eval`, `ets:table/1,2`, `dets:table/1,2` in a program that never names `qlc` | `qlc` is always loaded | `undef` for `qlc`: these reach it by a runtime name, so only programs naming `qlc` (any module including `qlc.hrl` does) link it | [library](library.md#how-programs-get-them) |
+| Annotation numbers in the code of compiled queries (`info/2` with `{format, abstract_code}`) | OTP's transform numbers annotations around every integer of the module, the characters of `qlc.hrl`'s path in its `file` attribute included | The same transform, but Clause's `qlc.hrl` has another path, so numbers past the first query may differ; the code is otherwise equal | [qlc](builtins.md#qlc) |
+
 ## qlc_pt
 
 | Difference | OTP | Clause | Owner |
@@ -295,6 +303,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Difference | OTP | Clause | Owner |
 | --- | --- | --- | --- |
 | Name in the `file` attribute of an included file (`--print-abstr`, transform input) | The include directory joined to the name, as found (`inc.hrl`, `/abs/dir/inc.hrl`, `../inc/x.hrl`) | The path relative to the working directory when the file is under it, else the absolute path | [transforms](transforms.md#interchange) |
+| Line 0 annotations of imported forms (generated code, as from the `qlc` transform) | A valid line: the code has no source line | The code takes the place of the node imported before it | [transforms](transforms.md#importing-forms) |
 | `generated` annotations of imported forms (`.abstr` inputs, transform output) | `erl_lint` and the compiler skip some warnings for generated code | Ignored: the code is checked like source | [transforms](transforms.md#importing-forms) |
 | `{error, {Location, Module, Descriptor}}` forms in imported code | Formatted with `Module:format_error/1` | The descriptor's term text; formatting needs OTP | [transforms](transforms.md#importing-forms) |
 | A module with preprocessor or parse errors that names a parse transform | The transform runs and gets the errors as `{error, E}` forms; `erl_lint` reports them afterwards | Errors are reported and the transform does not run | [transforms](transforms.md#clause-pipeline) |

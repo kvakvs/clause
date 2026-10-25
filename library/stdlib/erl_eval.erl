@@ -293,6 +293,20 @@ eval({'fun', Anno, {clauses, Cs}} = Fun, Bs, Ev, RBs) ->
     make_fun(Anno, Fun, Cs, none, Bs, Ev, RBs);
 eval({named_fun, Anno, Name, Cs} = Fun, Bs, Ev, RBs) ->
     make_fun(Anno, Fun, Cs, Name, Bs, Ev, RBs);
+eval({call, _, {remote, _, {atom, _, qlc}, {atom, _, q}}, [{lc, _, _E, _Qs} = LC | As0]}, Bs, Ev, RBs) when
+    length(As0) =< 1
+->
+    qlc_query(LC, As0, Bs, Ev, RBs);
+eval(
+    {call, A1, {remote, A2, {record_field, _, {atom, _, ''}, {atom, _, qlc} = Mod}, {atom, _, q} = Func}, As},
+    Bs,
+    Ev,
+    RBs
+) when
+    is_tuple(hd(As)), element(1, hd(As)) =:= lc, length(As) =< 2
+->
+    %% The old ''.qlc:q spelling.
+    eval({call, A1, {remote, A2, Mod, Func}, As}, Bs, Ev, RBs);
 eval({call, Anno, {remote, _, Mod, Func}, As0}, Bs, Ev, RBs) ->
     {value, M, Bs1} = eval(Mod, Bs, Ev, none),
     {value, F, Bs2} = eval(Func, Bs, Ev, none),
@@ -723,6 +737,69 @@ fun_clauses([], As, Anno, Bs, _Self, Ev, RBs) ->
     fail(function_clause, Stack, Anno, Bs, Ev, RBs).
 
 %% Calls
+
+%% Created for qlc (plan 21 step LIB73): qlc:q/1,2 of a query list comprehension, transformed by qlc first with the
+%% local calls hidden from the transform so that it does not expand them; a transform error is the value.
+qlc_query(LC, As0, Bs, Ev, RBs) ->
+    MaxLine = max_line(LC),
+    {LC1, _, Hidden} = hide_calls(LC, MaxLine + 1, #{}),
+    case (qlc_module()):transform_from_evaluator(LC1, Bs) of
+        {ok, {call, A, Remote, [QLC]}} ->
+            eval({call, A, Remote, [unhide_calls(QLC, MaxLine, Hidden) | As0]}, Bs, Ev, RBs);
+        {not_ok, Error} ->
+            ret(Error, Bs, RBs)
+    end.
+
+%% Created for qlc: reached by a runtime name so that only programs evaluating queries link it.
+qlc_module() -> qlc.
+
+%% The greatest line of the annotations of an expression, 0 without any.
+max_line(Expr) ->
+    erl_parse:fold_anno(
+        fun(A, Max) ->
+            case erl_anno:line(A) of
+                L when is_integer(L), L > Max -> L;
+                _ -> Max
+            end
+        end,
+        0,
+        Expr
+    ).
+
+%% Each local call as a call of m:f annotated with a fresh line (Id) above the expression's lines, Hidden mapping the
+%% line back to the function name; auto-imported BIFs stay as they are but use up an Id as well.
+hide_calls({call, A, {atom, _, N} = Atom, Args}, Id0, Hidden0) ->
+    {NArgs, Id, Hidden} = hide_calls(Args, Id0, Hidden0),
+    Call =
+        case erl_internal:bif(N, length(Args)) of
+            true -> {call, A, Atom, NArgs};
+            false -> {call, erl_anno:new(Id), {remote, A, {atom, A, m}, {atom, A, f}}, NArgs}
+        end,
+    {Call, Id + 1, Hidden#{Id => {call, Atom}}};
+hide_calls(T0, Id0, Hidden0) when is_tuple(T0) ->
+    {L, Id, Hidden} = hide_calls(tuple_to_list(T0), Id0, Hidden0),
+    {list_to_tuple(L), Id, Hidden};
+hide_calls([E0 | Es0], Id0, Hidden0) ->
+    {E, Id1, Hidden1} = hide_calls(E0, Id0, Hidden0),
+    {Es, Id, Hidden} = hide_calls(Es0, Id1, Hidden1),
+    {[E | Es], Id, Hidden};
+hide_calls(E, Id, Hidden) ->
+    {E, Id, Hidden}.
+
+unhide_calls({call, Anno, {remote, A, {atom, A, m}, {atom, A, f}} = F, Args}, MaxLine, Hidden) ->
+    case erl_anno:line(Anno) of
+        Line when Line > MaxLine ->
+            {call, Atom} = map_get(Line, Hidden),
+            {call, A, Atom, unhide_calls(Args, MaxLine, Hidden)};
+        _ ->
+            {call, Anno, F, unhide_calls(Args, MaxLine, Hidden)}
+    end;
+unhide_calls(T, MaxLine, Hidden) when is_tuple(T) ->
+    list_to_tuple(unhide_calls(tuple_to_list(T), MaxLine, Hidden));
+unhide_calls([E | Es], MaxLine, Hidden) ->
+    [unhide_calls(E, MaxLine, Hidden) | unhide_calls(Es, MaxLine, Hidden)];
+unhide_calls(E, _MaxLine, _Hidden) ->
+    E.
 
 %% A local call: the local function handler's, or undef without one.
 local_call(Func, As0, _Anno, Bs, #ev{lf = {value, F}} = Ev, value) ->

@@ -314,7 +314,7 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `json`, `uri_string`, `filename`, `filelib` (wildcard parts compiled/matched in `builtins/filelib.cpp`,
   walk in Erlang), `file_sorter` (exact Erlang port of OTP's runs and merges), `zip`, `erl_tar` (Erlang following
   OTP's archive layouts byte for byte over `zlib` and `file`), `zstd` (`builtins/zstd/` over pinned
-  libzstd 1.5.7 objects in the runtime, like zlib), `beam_lib` (Erlang chunk walk as OTP's), `escript` (create/extract), `argparse` (`builtins/argparse/`: validation, parser and help in C++, funs called by Erlang through replayed requests), `qlc_pt` (`builtins/qlc_pt/`: the qlc transform at run time in C++, ms_transform answered by Erlang through replayed requests), `win32reg`
+  libzstd 1.5.7 objects in the runtime, like zlib), `beam_lib` (Erlang chunk walk as OTP's), `escript` (create/extract), `argparse` (`builtins/argparse/`: validation, parser and help in C++, funs called by Erlang through replayed requests), `qlc_pt` (`builtins/qlc_pt/`: the qlc transform at run time in C++, ms_transform answered by Erlang through replayed requests), `qlc` (Erlang: OTP's prepare/optimize/setup over the transform's handles, joins, caches, file_sorter sorts, cursors, info), `win32reg`
   (Erlang over the Windows-only `clause_registry` port driver), `calendar`.
 - Time: `timer` without a timer server (per-timer processes reached through aliases; conversions in
   `builtins/timer.cpp`).
