@@ -817,7 +817,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB60A** sockets and names: socket options as driver records (system ones by setsockopt, inet_drv's kept
   with its defaults), inet_drv's counters and status flags, `inet:getopts/2`, `getstat/1,2`, `info/1`, `i/0,1,2`,
   monitors, `socknames`/`peernames`, `getifaddrs/0,1`, `gethostbyaddr/1`; connected UDP and `gen_udp:send/2,3,5`,
-  `gen_tcp:connect/2`; `net` complete over `clause_net` builtins; `inet_socket_options`, `net_names` goldens — `HASH`
+  `gen_tcp:connect/2`; `net` complete over `clause_net` builtins; `inet_socket_options`, `net_names` goldens — `4e23e01b`
 
 ## Plan 22 (from 2026-10-23)
 
