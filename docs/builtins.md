@@ -387,6 +387,33 @@ byte for byte, same file orders.
   OTP's order.
 - `run/3`, handlers and `format_error/1,2` are Erlang.
 
+## Qlc pt
+
+`builtins/qlc_pt/`, `library/stdlib/qlc_pt.erl`,
+`library/stdlib/clause_qlc_pt.erl` (plan 21 step LIB73): the qlc parse
+transform at run time, for `qlc:string_to_handle/1,2,3` and `qlc:q/1,2` in
+evaluated code. Modules compiled with `qlc.hrl` still get the host OTP's
+transform ([parse transforms](transforms.md)).
+
+- `clause_qlc_pt:transform_expression/4` and `parse_transform/4` follow
+  `qlc_pt.erl` function for function: NodeInfo (unique annotations and what the
+  checks note on each node, kept by slot number from 1 as OTP's), `no_shadows`,
+  the lint runs that find introduced and generator variables, frames of
+  `#bind{}` records for constant and join columns, filter skipping, match
+  specifications, join generators, the generated state fun, `Qdata`, `CodeF`
+  (`term_to_binary(_, [compressed])` of the original code) and the options fun.
+  Intermediate data are Erlang terms shaped as OTP's, so sorts follow term
+  order; generated variables are references as OTP's `make_ref/0`.
+- Messages come from the C++ `erl_lint` (`Lint`), the path OTP's `qlc_pt`
+  takes when the compiler is not available; a lint crash on the forms it builds
+  is the compiler's internal error, as OTP's compiler reports it. Records are
+  expanded by the C++ `erl_expand_records`, guard tests by `is_guard_test/3`.
+- Match specifications run `ms_transform` in Erlang: the builtin returns
+  `{try_ms, Forms}`, `qlc_pt.erl` answers `try_ms/4`'s result and calls the
+  builtin again with the answers so far, replaying its walk; the result is
+  `{done, Result, Transformed}` (a transformed module raises the backtrace
+  depth to 500, as OTP's transform does).
+
 ## String
 
 `builtins/string/`: every `string` function.

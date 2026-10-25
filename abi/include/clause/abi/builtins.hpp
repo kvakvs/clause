@@ -1200,6 +1200,9 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_argparse", "validate", 3},
     BuiltinName{"clause_argparse", "parse", 6},
     BuiltinName{"clause_argparse", "help", 4},
+    // clause_qlc_pt, the qlc parse transform at run time (plan 21 step LIB73; runtime/src/builtins/qlc_pt/).
+    BuiltinName{"clause_qlc_pt", "parse_transform", 4},
+    BuiltinName{"clause_qlc_pt", "transform_expression", 4},
     // erl_anno and erl_internal (plan 21 step LIB8; runtime/src/builtins/front_end/).
     BuiltinName{"erl_anno", "column", 1},
     BuiltinName{"erl_anno", "end_location", 1},

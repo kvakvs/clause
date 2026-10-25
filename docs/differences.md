@@ -278,6 +278,12 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | --- | --- | --- | --- |
 | Shape of the characters `erl_pp` returns | Deep character lists | One flat character list; flattened output is equal | [builtins](builtins.md#erl-pp) |
 
+## qlc_pt
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Messages of `qlc_pt:parse_transform/2` at run time | From `compile:noenv_forms/2` (`strong_validation`): `erl_lint` plus the compiler's core passes, such as `sys_core_fold` warnings | From `erl_lint` only, as OTP's `qlc_pt` does when the compiler is not available | [qlc_pt](builtins.md#qlc-pt) |
+
 ## Random numbers
 
 | Difference | OTP | Clause | Owner |

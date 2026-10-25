@@ -231,6 +231,8 @@ std::span<const BuiltinEntry> clause_net_builtins() noexcept;
 std::span<const BuiltinEntry> filelib_builtins() noexcept;
 // clause_argparse, argparse's validation, parser and help (plan 21 step LIB70; runtime/src/builtins/argparse/).
 std::span<const BuiltinEntry> argparse_builtins() noexcept;
+// clause_qlc_pt, the qlc parse transform at run time (plan 21 step LIB73; runtime/src/builtins/qlc_pt/).
+std::span<const BuiltinEntry> qlc_pt_builtins() noexcept;
 // The erlang gaps of plan 21 step LIB9A: checksums and iovecs, tuple edits, option-taking process builtins and
 // system flags.
 std::span<const BuiltinEntry> checksum_builtins() noexcept;

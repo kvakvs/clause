@@ -844,6 +844,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB71** tracing not supported: the erlang tracing functions (`trace*`, `system_monitor`, `system_profile`,
   `seq_trace*`, `dt_*`), `erts_internal`'s tracing internals, `trace` and `erl_tracer`'s default tracer raise `notsup`;
   `erl_tracer` lists OTP's callbacks; `tracing_unsupported` golden (authored) — `20759caf`
+- **LIB73 part 1** `qlc_pt` (the qlc transform at run time, first of LIB73's two parts): OTP's `qlc_pt.erl` in C++
+  (`builtins/qlc_pt/`) for `transform_expression/2`, `transform_from_evaluator/2`, `parse_transform/2`, messages from
+  the C++ `erl_lint` (OTP's no-compiler path), `ms_transform` answered by Erlang through replayed requests;
+  `qlc_pt_transforms` golden; identical to OTP over 562 `qlc_SUITE` queries (both entry points) and 1686 module
+  transforms (OTP with its compiler stubbed out); a Debug build takes ~30 ms per query (3.3 replays), OTP ~0.6 ms
 
 ## Plan 22 (from 2026-10-23)
 

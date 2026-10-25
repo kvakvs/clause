@@ -1,0 +1,5 @@
+%% OTP 29 qlc_pt exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{parse_transform, 2, default, implemented}.
+{transform_expression, 2, default, implemented}.
+{transform_from_evaluator, 2, default, implemented}.

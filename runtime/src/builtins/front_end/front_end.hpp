@@ -45,4 +45,6 @@ inline constexpr std::int64_t FUNC_PRECEDENCE = 700;
 inline constexpr std::int64_t MAX_PRECEDENCE = 900;
 // clause_erl_parse:abstract(Term, Anno, Encoding), Encoding latin1, unicode, utf8 or none.
 Term abstract_term(ProcessContext &context, const Term &term, const Term &anno, const Term &encoding);
+// erl_expand_records:module(Forms, Options). Added for the run-time qlc transform (plan 21 step LIB73).
+Term expand_records_module(ProcessContext &context, const Term &forms, const Term &options);
 } // namespace clause::runtime::builtins::front_end

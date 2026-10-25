@@ -123,3 +123,4 @@
 {ets, stdlib, provided}.
 {dets, stdlib, provided}.
 {ms_transform, stdlib, provided}.
+{qlc_pt, stdlib, provided}.

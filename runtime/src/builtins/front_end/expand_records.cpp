@@ -1486,6 +1486,10 @@ constexpr std::array EXPAND_RECORDS_BUILTINS{
     typed_entry<module2>("erl_expand_records", "module"),
 };
 } // namespace
+
+Term expand_records_module(ProcessContext &context, const Term &forms, const Term &options) {
+    return module2(context, {forms}, {options});
+}
 } // namespace clause::runtime::builtins::front_end
 
 namespace clause::runtime {

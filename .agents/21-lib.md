@@ -152,6 +152,12 @@ receives, calls and process events; `trace`, `erlang:trace*`, `seq_trace` tracer
 
 ### LIB73. `qlc`
 
+Part 1 (`qlc_pt` at run time) is done (`00-finished.md`). Part 2 is the rest below: `qlc` itself, `ets:table/1,2`,
+`dets:table/1,2`, `qlc.hrl` and `erl_eval`'s hook; `qlc` enters `library/` with it. Its golden needs compiled queries:
+commit the fixture's transformed forms as `.abstr` (from `clau --print-abstr` over the host transform) and let the
+executable runner prefer an `.abstr` over the `.erl` of the same module. Later (speed): `ms_transform` in C++ so
+`qlc_pt` needs no replayed requests (each `try_ms` answer reruns the whole transform today).
+
 Dependencies first (user direction 2026-10-19), in this order: LIB30 `erl_scan` (done), LIB31
 `erl_parse` (done), LIB54A `file_sorter` (done), LIB32 `erl_eval` (done), LIB34A (`erl_pp`,
 `erl_expand_records`, `erl_lint`'s checks for `qlc_pt`; done with LIB34C). See
