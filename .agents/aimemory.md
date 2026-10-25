@@ -96,6 +96,15 @@ recorded elsewhere.
   -align-all-functions=6)`. Counters in `Graph::intern` (~40M calls per W5a pass) are layout-costly:
   keep them temporary.
 
+- Plan 21 Tier F (2026-10-25): WSL check = rsync sources into ~/clau (exclude build/thirdparty/references/.git), then
+  `bash ~/gate.sh configure|build|test -R <re>` (gate.sh not executable: call via bash; full log in
+  build/plan11-wsl/logs/ctest-debug.log). OTP probes in escript: output piped through grep buffers until exit, so a
+  hang looks like no output; add a watchdog process (halt after N s) and write to a file. taskkill of escript is
+  denied: stop background probes with TaskStop. OTP on Windows: socket connect needs bind first (not_bound), nowait
+  answers completion messages, recvmsg/sendmsg/sendfile raise notsup; inet_res ids count from 1 without crypto;
+  io_ansi has no terminfo there. frontend_cli/codegen_examples time out under the full fast suite at -j24 and pass
+  alone.
+
 ## Quality (tidy/Lizard)
 - clang-tidy may crash (0xC0000005/0xC0000409) or exit 1 silently with 2 jobs: rerun with one job.
   Check targets do not forward QUALITY_JOBS: `cmake -DQUALITY_SCOPE=all -DQUALITY_BUILD_DIR=<b>
