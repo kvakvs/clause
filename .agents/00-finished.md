@@ -797,6 +797,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB54A** `file_sorter` complete (first step of the qlc chain): an exact Erlang port of OTP's runs, merges and
   checks, so equal-but-different terms and `unique` behave as OTP's; io's old request conversions;
   `file_sorter_ops` golden — `9046d2d4`
+- **LIB52** `disk_log` (halt, wrap, rotate; OTP's file formats byte for byte, owners, blocking, repair),
+  `wrap_log_reader`, `logger_disk_log_h` (common handler part `clause_logger_h`); `ets:tab2file/3` syncs;
+  `disk_log_ops` golden — `c9f38431`
 
 ## Plan 22 (from 2026-10-23)
 
