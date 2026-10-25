@@ -800,6 +800,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB52** `disk_log` (halt, wrap, rotate; OTP's file formats byte for byte, owners, blocking, repair),
   `wrap_log_reader`, `logger_disk_log_h` (common handler part `clause_logger_h`); `ets:tab2file/3` syncs;
   `disk_log_ops` golden — `c9f38431`
+- **LIB54B** `zip` complete: Erlang following OTP's archive layout byte for byte (deflate blocks, extra fields,
+  zip64), memory and disk archives, filters, `foldl/3`, `zip_open` servers; `file` path operations no longer send
+  `{'EXIT', Port, normal}` to callers trapping exits; `zip_ops` golden — `8a060c8b`
 
 ## Plan 22 (from 2026-10-23)
 
