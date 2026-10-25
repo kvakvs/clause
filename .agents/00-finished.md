@@ -840,7 +840,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB70** `argparse` complete: validation, parser and help formatter as `clause_argparse` C++ builtins with OTP's
   errors and deep-list shapes; custom types, `re:run` and help funs called by Erlang through replayed requests;
   `run/3` Erlang; a 9-module program compiles in 1.62 s instead of 2.6 s with OTP's all-Erlang argparse;
-  `argparse_ops` golden — `PENDING`
+  `argparse_ops` golden — `02866a06`
 
 ## Plan 22 (from 2026-10-23)
 
