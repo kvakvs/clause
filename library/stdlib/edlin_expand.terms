@@ -1,13 +1,13 @@
 %% OTP 29 edlin_expand exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
 %% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
 {bif, 1, default, implemented}.
-{expand, 1, default, stub}.
-{expand, 2, default, stub}.
-{expand, 3, default, stub}.
+{expand, 1, default, implemented}.
+{expand, 2, default, implemented}.
+{expand, 3, default, implemented}.
 {format_matches, 2, default, stub}.
 {get_exports, 1, default, implemented}.
 {is_type, 3, default, stub}.
 {match_arguments1, 3, default, stub}.
-{number_matches, 1, default, stub}.
-{over_word, 1, default, stub}.
+{number_matches, 1, default, implemented}.
+{over_word, 1, default, implemented}.
 {shell_default_or_bif, 1, default, implemented}.

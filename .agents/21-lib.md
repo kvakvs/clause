@@ -22,8 +22,8 @@ internal functions stay out unless a public function needs them (user direction 
   `library_modules.py coverage .` prints the progress per module. 120 documented modules, 2,888
   documented functions.
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
-- **Left:** `erlang` (20 declined functions, LIB9 remainder), `edlin_expand` and `shell_docs`
-  (LIB74B, LIB74C; provided as partial modules) and the declined modules' answer stubs (Appendix A).
+- **Left:** `erlang` (20 declined functions, LIB9 remainder), `shell_docs` (LIB74C; provided as a
+  partial module) and the declined modules' answer stubs (Appendix A).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -91,11 +91,6 @@ runs a process protocol or is glue. C++ reproduces OTP's exact result shapes for
 
 ### LIB74. Interactive modules
 
-- LIB74B. `edlin_expand:expand/1,2`: completion of modules, functions (exports), shell bindings,
-  records and fields, map keys, `fun M:F/` arities, file paths in strings; result shapes as OTP
-  (legacy and sections). Type-spec hints need specs at run time, which linked code lacks: answer
-  `{no, [], []}` there and record it in `differences.md`. Golden: observe `edlin_expand:expand/1,2`
-  from the shell (the shell's bindings and records feed it through `shell:get_state/0`).
 - LIB74C. `shell_docs` (15): `render/2..5`, `render_type/2..5`, `render_callback/2..5` of a given
   `docs_v1` chunk (`application/erlang+html` and `text/markdown`), `normalize/1`, `validate/1`,
   `supported_tags/0`; golden from OTP over chunks the fixture builds (`code:get_doc/1` has none for
@@ -116,7 +111,7 @@ probe for them keep working.
 
 ### Order
 
-1. LIB74B, LIB74C, then the declined modules' answer stubs.
+1. LIB74C, then the declined modules' answer stubs.
 
 ## Later (optional: speed and features beyond OTP's documented functions)
 
@@ -159,7 +154,6 @@ separately and are optional.
   register_node/2,3, start_link/0
 - `heart` (kernel, 8): clear_callback/0, clear_cmd/0, get_callback/0, get_cmd/0, get_options/0,
   set_callback/2, set_cmd/1, set_options/1
-- `edlin_expand` (stdlib, 2): expand/1,2
 - `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3, start/1,
   start_link/0,1, stop/1
 - `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3, pspawn_link/3, start/1,2, stop/0

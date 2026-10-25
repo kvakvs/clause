@@ -302,6 +302,8 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Programs that start the shell without `--shell` | Every module of the code path is callable | Only the modules the program links; without `--keep-exports` dynamic calls reach only exports the program can reach | [library](library.md#interactive-shell) |
 | Records of compiled modules (`rr(Module)`, `shell_default` and `user_default` at start) | Read from the module's debug information or source | `{error, nofile}`: linked code keeps no abstract code; `rr/1,2,3` of source and `.beam` files read them | [library](library.md#interactive-shell) |
 | `save_module/1` | Writes the module and compiles it with `c:c/1` | Writes the module only (no compiler) | [library](library.md#interactive-shell) |
+| `edlin_expand:expand/1,2` inside a call or a record field value | Function heads and argument types from the function's specification (`lists:seq(From, To)`), atoms and types the specification allows | `Mod:Fun/Arity` heads of the exported arities, no type suggestions: linked code keeps no specifications | [library](library.md#interactive-shell) |
+| `edlin_expand:expand/1,2` of functions and modules | Functions grouped by the documentation's groups; modules of the code path | One `Functions` group (no documentation); the program's modules | [library](library.md#interactive-shell) |
 | `c:i/0,1`, `c:ni/0`, `c:regs/0` columns | Each process's initial call and current function | `proc_lib`'s initial call or `undefined`; the current function `undefined` (no `current_function` item) | [library](library.md#interactive-shell) |
 
 ## Random numbers

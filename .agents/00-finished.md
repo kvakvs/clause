@@ -879,6 +879,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   prompt per line and reads CRLF as LF; `clause_io_lib:pretty/2` prints shell records; undef traces get OTP's
   `{M,F,Args,[]}` top frame; `shell_session` golden (escript oracle, identical but the masked system version),
   `linking_shell` CTest — `f90c7198`
+- **LIB74B** `edlin_expand:expand/1,2` in Erlang (own backward scan of the line for the context; OTP's match,
+  section and legacy shapes): modules, functions, fun arities, BIFs, commands, shell functions, keywords, bindings,
+  records, fields, map keys, file paths; call arguments as `Mod:Fun/Arity` heads (no specs at run time);
+  `shell_expand` golden — `PENDING`
 
 ## Plan 22 (from 2026-10-23)
 

@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "entry": "shell_expand",
+  "options": [
+    "--keep-exports"
+  ],
+  "stdout_masks": [
+    [
+      "^(?:Erlang/OTP|Clause compiled Erlang/OTP) 29 .*$",
+      "<system version>"
+    ],
+    [
+      "#Fun<erl_eval[^>]*>",
+      "#Fun<erl_eval>"
+    ]
+  ],
+  "runs": [
+    {
+      "args": [],
+      "stdin": "E = fun(S) -> edlin_expand:expand(lists:reverse(S)) end.\nL = fun(S) -> {R, C, M} = edlin_expand:expand(lists:reverse(S), [{legacy_output, false}]), {R, C, [lists:sort(maps:to_list(X)) || X <- M]} end.\nE(\"lists:sea\").\nE(\"lists:keyf\").\nE(\"lists:se\").\nE(\"lists:\").\nE(\"list\").\nE(\"fun lists:seq/\").\nE(\"fun lists:se\").\nE(\"fun lists:keyfind/\").\nE(\"Ex\").\nE(\"E\").\nE(\"X = 1, E\").\nrd(point, {x, y = 0}).\nE(\"#po\").\nE(\"#point{\").\nE(\"#point{x = 1, \").\nM = #{alpha => 1, beta => 2}.\nE(\"M#\").\nE(\"M#{\").\nE(\"M#{alpha => 2, \").\nP = #point{}.\nE(\"P#\").\nE(\"is_ato\").\nE(\"erlang:is_ato\").\nE(\"self\").\nE(\"h(lis\").\nE(\"pw\").\nE(\"foo(\").\nE(\"[1, 2\").\nE(\"lists:sum(lists:se\").\nE(\"{ok, lists:keyf\").\nE(\"case X of 1 -> lists:keyf\").\nedlin_expand:expand([]).\nL(\"lists:sea\").\nL(\"lists:se\").\nL(\"is_ato\").\nL(\"#po\").\nL(\"E\").\n",
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "<system version>\n\nEshell V17.1 (press Ctrl+G to abort, type help(). for help)\n1> #Fun<erl_eval>\n2> #Fun<erl_eval>\n3> {yes,\"rch(\",[]}\n4> {yes,\"ind(\",[]}\n5> {yes,[],[\"Functions\"]}\n6> {no,[],[\"Functions\"]}\n7> {no,[],[{\"lists\",[]}]}\n8> {no,[],[{\"2\",[]},{\"3\",[]}]}\n9> {yes,[],[\"Functions\"]}\n10> {yes,\"3\",[]}\n11> {no,[],[]}\n12> {yes,[],[]}\n13> {yes,[],[]}\n14> point\n15> {yes,\"int{\",[]}\n16> {no,[],[{\"x\",[]},{\"y\",[]}]}\n17> {no,[],[{\"x\",[]},{\"y\",[]}]}\n18> #{alpha => 1,beta => 2}\n19> {yes,\"{\",[]}\n20> {no,[],[{\"alpha\",[]},{\"beta\",[]}]}\n21> {yes,\"beta=>\",[]}\n22> #point{x = undefined,y = 0}\n23> {yes,\"point{\",[]}\n24> {yes,\"m(\",[]}\n25> {yes,\"m(\",[]}\n26> {yes,\"()\",[]}\n27> {yes,\"ts, \",[]}\n28> {yes,\"d()\",[]}\n29> {no,[],[]}\n30> {no,[],[]}\n31> {yes,[],[\"Functions\"]}\n32> {yes,\"ind(\",[]}\n33> {yes,\"ind(\",[]}\n34> {no,[],[]}\n35> {yes,\"rch(\",[]}\n36> {yes,[],\n     [[{elems,[{\"search\",[{ending,\"(\"}]},{\"seq\",[{ending,\"(\"}]}]},\n       {options,[highlight_all]},\n       {title,\"Functions\"}]]}\n37> {yes,\"m(\",[]}\n38> {yes,\"int{\",[]}\n39> {yes,[],[]}\n40> *** Terminating erlang (nonode@nohost)\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "shell_expand.erl": "81c7e2488ddea8b28a83a889d9b09e8464af9c2a10d0d150ed72ad2bb6f6cc1f"
+  }
+}
