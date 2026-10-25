@@ -37,10 +37,10 @@ internal functions stay out unless a public function needs them (user direction 
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
   `seq_trace` (tokens without tracing), `file`, `filelib`, `file_sorter`, `disk_log`, `wrap_log_reader`,
   `logger_disk_log_h`, `gen_tcp`, `gen_udp`, `net`, `os`, `code` (loading answers for linked code), `io`,
-  `io_ansi` (no terminfo), `inet`, `inet_res` (no answer cache).
+  `io_ansi` (no terminfo), `inet`, `inet_res` (no answer cache), `socket`, `gen_sctp` (no SCTP).
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `ets` (2,
   LIB73), `dets` (2, LIB73).
-- **Missing:** 17 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
+- **Missing:** 15 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
   ones (`zip`, `erl_tar`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
@@ -139,16 +139,10 @@ tier. Later (speed): `zip` and `erl_tar` header parsing, stored copies and check
 
 ## Tier F: kernel I/O remainder
 
-LIB60A, LIB60B, LIB61 and LIB63 are done (`00-finished.md`). Later: `{active, N}`, `{packet, line | http | ...}` and `{raw, ...}`
+Every step is done (LIB60A, LIB60B, LIB61, LIB62, LIB63; `00-finished.md`). Later: `{active, N}`, `{packet, line | http | ...}` and `{raw, ...}`
 socket options; applying inet_drv's own options (`send_timeout`, `header`, `deliver`, `exit_on_close`, ...).
-
-### LIB62. `socket` and `gen_sctp`
-
-- `socket` (79): a C++ socket object over the existing socket driver (`open`, `bind`, `listen`,
-  `accept`, `connect`, `send*`, `recv*`, options, `select`/`completion` handles, monitors). This
-  reverses the "missing" decision in `modules.terms`.
-- `gen_sctp` (23): `{error, eprotonosupport}` where SCTP is absent, as in OTP; SCTP support is
-  optional and later.
+Later for `socket`: `local` domain, `ioctl`, native options and descriptor adoption as OTP on Linux and macOS;
+SCTP (`gen_sctp`, socket's `seqpacket`); a cache of `inet_res` answers; terminfo for `io_ansi`.
 
 ## Tier G: tools, transforms and the interactive shell
 
@@ -228,7 +222,7 @@ own annotations, and no Boost in the runtime.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB62 (`socket`, `gen_sctp`), then LIB70.
+1. LIB70.
 2. LIB71–LIB74 (with LIB12C), then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
@@ -252,16 +246,8 @@ separately and are optional.
   toggle_instrumentations/1, unregister/2, whereis/0, xregs_count/1
 - `erl_epmd` (kernel, 8): address_please/3, listen_port_please/2, names/1, port_please/2,3,
   register_node/2,3, start_link/0
-- `gen_sctp` (kernel, 23): abort/2, close/1, connect/3,4,5, connect_init/3,4,5, connectx_init/3,4,5,
-  controlling_process/2, eof/2, error_string/1, listen/2, open/0,1,2, peeloff/2, recv/1,2, send/3,4
 - `heart` (kernel, 8): clear_callback/0, clear_cmd/0, get_callback/0, get_cmd/0, get_options/0,
   set_callback/2, set_cmd/1, set_options/1
-- `socket` (kernel, 79): accept/1,2, bind/2,3, cancel/2, cancel_monitor/1, close/1, connect/1,2,3,
-  getopt/2,3, getopt_native/3, i/0,1,2, info/0,1, ioctl/2,3,4, is_supported/1,2, listen/1,2,
-  monitor/1, number_of/0, open/1,2,3,4, peeloff/2,3, peername/1, peernames/2, recv/1,2,3,4,
-  recvfrom/1,2,3,4, recvmmsg/6, recvmsg/1,2,3,4,5, rest_iov/2, send/2,3,4, sendfile/2,3,4,5,
-  sendmmsg/4, sendmsg/2,3,4, sendto/3,4,5, sendv/2,3,4, setopt/3,4, setopt_native/3, shutdown/2,
-  sockname/1, socknames/2, supports/0,1,2, use_registry/1, which_sockets/0,1
 - `trace` (kernel, 11): delivered/2, function/4, info/3, port/4, process/4, recv/3, send/3,
   session_create/3, session_destroy/1, session_info/1, system/3
 - `argparse` (stdlib, 6): format_error/1, help/1,2, parse/2,3, run/3

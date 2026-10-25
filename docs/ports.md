@@ -439,6 +439,15 @@ status flags (`open`, `connected`, `connecting`, `listen`, `accepting`), which
 `info/1` and `i/0,1,2` print with OTP's names and module column (`inet_tcp`,
 `inet6_udp`, ...). Queries of a closed socket answer `{error, einval}`, as OTP.
 
+The `socket` module (plan 21 step LIB62, `library/kernel/socket.erl`) uses the
+same driver ports in passive binary mode. A stream socket can be bound before
+it listens or connects (operation 22 opens and binds the system socket, which
+`listen` turns into the acceptor or `connect` connects); a datagram socket is
+bound by `udp_open`, implicitly at its first send. A connection's end answers
+every waiting `recv` (also one asking for more bytes than remain). `socket`
+keeps the bytes a recv did not take in its own buffer, so `recv/2,3,4` gives
+OTP's `{error, {timeout, Data}}` and `{error, {closed, Data}}`.
+
 Implementation (`runtime/src/ports/sockets.cpp`):
 
 - The runtime's I/O thread ([I/O thread](#io-thread)) serves the sockets; every

@@ -832,6 +832,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   hostents), a C++ DNS codec (`clause_net:dns_decode/1`, `dns_encode/1`) with inet_dns's records, values and formerr
   rules; resolver configuration as OTP's inet_config for a non-distributed node; `inet_res_queries` golden against a
   loopback DNS server of the program — `64f30bc9`
+- **LIB62** `socket` and `gen_sctp`: socket in Erlang over the driver ports (`{'$socket', Ref}` handles in a registry
+  process/table: owners, states, counters, meta, monitors, listings; bind before listen/connect as driver op 22;
+  OTP's partial-data recv errors from socket's own buffer; nowait as completion (Windows) or select messages,
+  `cancel/2`; OTP's option names and errors, `info`, `i`, `supports`); the driver answers every waiting recv at a
+  connection's end; gen_sctp answers as OTP without SCTP; `socket_ops` golden (with an authored run) — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

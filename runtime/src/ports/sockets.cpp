@@ -79,6 +79,8 @@ enum class SocketOperation : std::uint8_t {
     udp_connect = 20,
     // Send one datagram at once with ancillary data (gen_udp:send/5).
     udp_send_now = 21,
+    // Bind a stream socket before it listens or connects (socket:bind/2, plan 21 step LIB62).
+    bind = 22,
 };
 
 // The status flags of getstatus, as inet_drv's: open, connected, connecting, listen, accepting.
@@ -234,6 +236,12 @@ struct Mode {
     }
 };
 
+// A caller waiting for recv and the length it wants.
+struct Waiting {
+    Word caller = 0;
+    std::size_t length = 0;
+};
+
 // One datagram received.
 struct Datagram {
     udp::endpoint from;
@@ -287,6 +295,10 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     Bytes listen(std::span<const std::byte> data);
     Bytes accept(Word caller);
     Bytes recv(Word caller, std::size_t length);
+    // Move the socket bind/2 bound into the listener (stream_ holds it).
+    void adopt_bound(tcp::acceptor &listener, boost::system::error_code &error);
+    // Open and bind a stream socket that listen or connect then uses (socket:bind/2).
+    Bytes bind(std::span<const std::byte> data);
     Bytes send(std::span<const std::byte> data);
     Bytes names(bool peer);
     Bytes shutdown(std::span<const std::byte> data);
@@ -372,7 +384,7 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     std::deque<Bytes> packets_;
     std::deque<Datagram> datagrams_;
     // Callers waiting for recv (with their length) and for accept, oldest first.
-    std::deque<std::pair<Word, std::size_t>> recvs_;
+    std::deque<Waiting> recvs_;
     std::deque<Word> accepts_;
     // Queued TCP output, or UDP datagrams with their destinations.
     std::deque<std::pair<udp::endpoint, Bytes>> writes_;
@@ -383,6 +395,8 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     socket_options::Options options_;
     // A TCP connect is in progress; a UDP socket is connected to one peer (gen_udp:connect/3).
     bool connecting_ = false;
+    // stream_ is a socket bound by socket:bind/2 that has neither listened nor connected yet (plan 21 step LIB62).
+    bool bound_ = false;
     bool connected_ = false;
     bool writing_ = false;
     bool reading_ = false;
@@ -463,7 +477,7 @@ std::uint8_t Socket::status_flags() const {
     }
     if (connecting_) {
         flags |= CONNECTING;
-    } else if ((stream_ && stream_->is_open()) || connected_) {
+    } else if ((stream_ && stream_->is_open() && !bound_) || connected_) {
         flags |= CONNECTED;
     }
     return flags;
@@ -554,6 +568,8 @@ std::optional<Bytes> Socket::stream_operation(Word caller, SocketOperation opera
         return accept(caller);
     case SocketOperation::recv:
         return recv(caller, number(data, 0, 4));
+    case SocketOperation::bind:
+        return bind(data);
     case SocketOperation::send:
         return send(data);
     case SocketOperation::sockname:
@@ -590,18 +606,22 @@ std::optional<Bytes> Socket::datagram_operation(Word caller, SocketOperation ope
 Bytes Socket::connect(Word caller, std::span<const std::byte> data) {
     std::size_t at = 0;
     const auto target = address(data, at);
-    if (!target || stream_) {
+    if (!target || (stream_ && !bound_)) {
         return failure("einval");
     }
     const auto port = static_cast<unsigned short>(number(data, at, 2));
     mode_.apply(data, at + 2);
     decoder_ = InputDecoder(mode_.framing());
     const tcp::endpoint endpoint(*target, port);
-    auto &stream = stream_.emplace(context());
-    if (auto failed = open_with(stream, endpoint.protocol(), data, at + 5); !failed.empty()) {
-        stream_.reset();
-        return failure(failed);
+    if (!bound_) {
+        auto &opened = stream_.emplace(context());
+        if (auto failed = open_with(opened, endpoint.protocol(), data, at + 5); !failed.empty()) {
+            stream_.reset();
+            return failure(failed);
+        }
     }
+    bound_ = false;
+    auto &stream = *stream_;
     connecting_ = true;
     stream.async_connect(endpoint, [self = shared_from_this(), caller](const auto &error) {
         self->connecting_ = false;
@@ -621,10 +641,22 @@ Bytes Socket::connect(Word caller, std::span<const std::byte> data) {
     return ok();
 }
 
+// A socket bound by socket:bind/2 becomes the listener with its address and options.
+void Socket::adopt_bound(tcp::acceptor &listener, boost::system::error_code &error) {
+    auto &bound = *stream_;
+    const auto protocol = bound.local_endpoint(error).protocol();
+    const auto native = bound.release(error);
+    stream_.reset();
+    bound_ = false;
+    if (!error) {
+        listener.assign(protocol, native, error);
+    }
+}
+
 Bytes Socket::listen(std::span<const std::byte> data) {
     std::size_t at = 0;
     const auto local = address(data, at);
-    if (!local || listener_ || stream_) {
+    if (!local || listener_ || (stream_ && !bound_)) {
         return failure("einval");
     }
     const auto port = static_cast<unsigned short>(number(data, at, 2));
@@ -632,12 +664,15 @@ Bytes Socket::listen(std::span<const std::byte> data) {
     mode_.apply(data, at + 6);
     const tcp::endpoint endpoint(*local, port);
     auto &listener = listener_.emplace(context());
-    if (auto failed = open_with(listener, endpoint.protocol(), data, at + 9); !failed.empty()) {
+    boost::system::error_code error;
+    if (bound_ && stream_) {
+        adopt_bound(listener, error);
+    } else if (auto failed = open_with(listener, endpoint.protocol(), data, at + 9); !failed.empty()) {
         listener_.reset();
         return failure(failed);
+    } else {
+        listener.bind(endpoint, error);
     }
-    boost::system::error_code error;
-    listener.bind(endpoint, error);
     if (!error) {
         listener.listen(backlog, error);
     }
@@ -645,6 +680,29 @@ Bytes Socket::listen(std::span<const std::byte> data) {
         listener_.reset();
         return failure(reason(error));
     }
+    return ok();
+}
+
+Bytes Socket::bind(std::span<const std::byte> data) {
+    std::size_t at = 0;
+    const auto local = address(data, at);
+    if (!local || listener_ || stream_) {
+        return failure("einval");
+    }
+    const tcp::endpoint endpoint(*local, static_cast<unsigned short>(number(data, at, 2)));
+    mode_.apply(data, at + 2);
+    auto &stream = stream_.emplace(context());
+    auto failed = open_with(stream, endpoint.protocol(), data, at + 5);
+    boost::system::error_code error;
+    if (failed.empty()) {
+        stream.bind(endpoint, error);
+        failed = error ? reason(error) : std::string();
+    }
+    if (!failed.empty()) {
+        stream_.reset();
+        return failure(failed);
+    }
+    bound_ = true;
     return ok();
 }
 
@@ -698,7 +756,7 @@ Bytes Socket::recv(Word caller, std::size_t length) {
     if (mode_.active != Active::passive) {
         return failure("einval");
     }
-    recvs_.emplace_back(caller, length);
+    recvs_.push_back(Waiting{.caller = caller, .length = length});
     serve();
     return ok();
 }
@@ -797,7 +855,7 @@ Bytes Socket::shutdown(std::span<const std::byte> data) {
 }
 
 Bytes Socket::cancel(Word caller) {
-    std::erase_if(recvs_, [&](const auto &waiting) { return waiting.first == caller; });
+    std::erase_if(recvs_, [&](const auto &waiting) { return waiting.caller == caller; });
     std::erase(accepts_, caller);
     if (accepts_.empty() && accepting_ && listener_) {
         boost::system::error_code error;
@@ -939,11 +997,11 @@ std::optional<Bytes> Socket::take(std::size_t length) {
 
 bool Socket::serve_stream() {
     if (!recvs_.empty()) {
-        auto taken = take(recvs_.front().second);
+        auto taken = take(recvs_.front().length);
         if (!taken) {
             return false;
         }
-        const auto caller = recvs_.front().first;
+        const auto caller = recvs_.front().caller;
         recvs_.pop_front();
         reply(caller, answer(PortValue::of_tuple({PortValue::of_atom("ok"), data(std::move(*taken))})));
         return true;
@@ -969,7 +1027,7 @@ bool Socket::serve_datagrams() {
     const auto from = address_value(datagram.from.address());
     const auto port = PortValue::of_integer(datagram.from.port());
     if (!recvs_.empty()) {
-        const auto caller = recvs_.front().first;
+        const auto caller = recvs_.front().caller;
         recvs_.pop_front();
         reply(caller, answer(PortValue::of_tuple({PortValue::of_atom("ok"),
                                                   PortValue::of_tuple({from, port, data(std::move(datagram.data))})})));
@@ -983,9 +1041,9 @@ bool Socket::serve_datagrams() {
 
 void Socket::report_end() {
     while (!recvs_.empty()) {
-        reply(recvs_.front().first,
-              answer(PortValue::of_tuple({PortValue::of_atom("error"), PortValue::of_atom("closed")})));
+        const auto waiting = recvs_.front();
         recvs_.pop_front();
+        reply(waiting.caller, answer(PortValue::of_tuple({PortValue::of_atom("error"), PortValue::of_atom("closed")})));
     }
     if (reported_ || mode_.active == Active::passive) {
         return;
@@ -1004,7 +1062,8 @@ void Socket::serve() {
     }
     while (udp_ ? serve_datagrams() : serve_stream()) {
     }
-    if (ended_ && stream_bytes_.empty() && packets_.empty()) {
+    // A recv the data left cannot satisfy is answered at the end too.
+    if (ended_ && ((stream_bytes_.empty() && packets_.empty()) || !recvs_.empty())) {
         report_end();
     }
     read();
@@ -1066,8 +1125,8 @@ void Socket::close() {
     for (const auto caller : std::exchange(accepts_, {})) {
         reply(caller, answer(PortValue::of_tuple({PortValue::of_atom("error"), PortValue::of_atom("closed")})));
     }
-    for (const auto &[caller, length] : std::exchange(recvs_, {})) {
-        reply(caller, answer(PortValue::of_tuple({PortValue::of_atom("error"), PortValue::of_atom("closed")})));
+    for (const auto &waiting : std::exchange(recvs_, {})) {
+        reply(waiting.caller, answer(PortValue::of_tuple({PortValue::of_atom("error"), PortValue::of_atom("closed")})));
     }
     if (!writing_) {
         release();

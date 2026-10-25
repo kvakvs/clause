@@ -302,7 +302,7 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - `file` (every documented function; a raw file is a server answering as raw; servers stop after
   failed writes and reads as OTP's; `compressed` gzip layer in the server over `zlib`), `io` stdin server, `os` (`cmd/1,2` over OTP's shell protocol; `find_executable`, `set_signal` builtins), `code` (loaded-module builtins; code path in a persistent term, OTP's path changes and lookups, loading answers for linked code), `application_controller`; networking via
   `clause_socket.erl` (+ `clause_socket_options.erl`) + `gen_tcp`, `gen_udp`, `inet` over port socket
-  drivers; `net` over `clause_net` builtins (names, services, interfaces); `inet_res` in Erlang over the `clause_net` DNS codec; `clause_disk_log`
+  drivers; `net` over `clause_net` builtins (names, services, interfaces); `inet_res` in Erlang over the `clause_net` DNS codec; `socket` over the same driver ports (bind op 22, registry process for handles, monitors, listings); `gen_sctp` without SCTP; `clause_disk_log`
   halt logs.
 
 ### stdlib

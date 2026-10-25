@@ -1,0 +1,25 @@
+%% OTP 29 gen_sctp exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{abort, 2, default, implemented}.
+{close, 1, default, implemented}.
+{connect, 3, default, implemented}.
+{connect, 4, default, implemented}.
+{connect, 5, default, implemented}.
+{connect_init, 3, default, implemented}.
+{connect_init, 4, default, implemented}.
+{connect_init, 5, default, implemented}.
+{connectx_init, 3, default, implemented}.
+{connectx_init, 4, default, implemented}.
+{connectx_init, 5, default, implemented}.
+{controlling_process, 2, default, implemented}.
+{eof, 2, default, implemented}.
+{error_string, 1, default, implemented}.
+{listen, 2, default, implemented}.
+{open, 0, default, implemented}.
+{open, 1, default, implemented}.
+{open, 2, default, implemented}.
+{peeloff, 2, default, implemented}.
+{recv, 1, default, implemented}.
+{recv, 2, default, implemented}.
+{send, 3, default, implemented}.
+{send, 4, default, implemented}.

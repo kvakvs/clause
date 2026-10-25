@@ -30,7 +30,8 @@
 {auth, kernel, provided}.
 {seq_trace, kernel, provided}.
 {net, kernel, provided}.
-{socket, kernel, missing, "socket NIF API; Clause's gen_tcp, gen_udp and inet replace it"}.
+{socket, kernel, provided}.
+{gen_sctp, kernel, provided}.
 {code, kernel, provided}.
 {file, kernel, provided}.
 {gen_tcp, kernel, provided}.
