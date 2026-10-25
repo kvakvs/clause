@@ -9,6 +9,10 @@ status and a stderr pattern are compared with an OTP-generated golden.
 ## A case
 
 A directory holding the Erlang sources (`*.erl`, `*.hrl`) and `golden.json`.
+A module whose `X.erl` needs a parse transform of the host OTP (`qlc.hrl`)
+also has `X.abstr`, its forms after the transform: the runner compiles the
+`.abstr` instead of the `.erl`, so the tests need no OTP, and the oracle
+compiles the `.erl` (`qlc_queries`).
 Every such directory becomes the CTest `executables_<directory>`; nothing else
 is registered.
 
@@ -18,7 +22,7 @@ is registered.
 | `entry` | author | Entry module; `main/1` receives argv strings ([contract](../../../docs/executables.md)) |
 | `data` | author, optional | Case-relative files the program uses at run time (helper scripts), staged beside the sources and hashed with them; runs start in the staged directory, and `CLAUSE_TEST_PYTHON` names the Python that runs the tests |
 | `workers` | author, optional | Scheduler counts: every run is made once per count with `CLAUSE_FLAGS=--schedulers N`, instead of once with the default of one worker per logical processor ([workers](../../../docs/processes.md#workers)) |
-| `sources` | author, optional | Case-relative source paths instead of the directory's `.erl`/`.hrl` files (the `demo` case uses `examples/compile/`) |
+| `sources` | author, optional | Case-relative source paths instead of the directory's `.erl`/`.hrl`/`.abstr` files (the `demo` case uses `examples/compile/`) |
 | `runs[].args` | author | Argument strings of one invocation |
 | `runs[].stdin` | author, optional | Text written to standard input, which is then closed; empty when missing |
 | `runs[].stderr` | author, or `^$` | Python regular expression searched in stderr; required when OTP writes stderr, because Clause's report text differs |
@@ -36,6 +40,10 @@ hashes cover them):
 python tests/compiler/executables/regenerate.py --escript 'C:/Program Files/Erlang OTP/erts-17.1/bin/escript.exe' --case NAME
 python tests/compiler/executables/regenerate.py --escript '...' --check   # writes nothing; also CTest executables_oracle
 ```
+
+`--clau PATH` also rewrites every `X.abstr` from its `X.erl` with
+`clau --print-abstr` and the oracle's `erl` (a header's `file` attribute, a
+host path, is left out); give it when such an `.erl` changes.
 
 Never regenerate to make a Clause comparison pass.
 

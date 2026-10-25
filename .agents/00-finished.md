@@ -853,7 +853,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   specifications, merge/lookup joins with equal keys on files, `cache` ets/list spilling to files, `unique`,
   `file_sorter` sorts, cursors, `info/1,2`, `string_to_handle`), `ets:table/1,2`, `dets:table/1,2`, `qlc.hrl`,
   `erl_eval`'s `qlc:q` hook; form import accepts OTP's line 0; executable cases compile an `.abstr` stand-in
-  (`regenerate.py --clau`); `qlc_queries` golden (~200 checks, identical to OTP) — `HASH`
+  (`regenerate.py --clau`); `qlc_queries` golden (~200 checks, identical to OTP) — `c03e883d`
 
 ## Plan 22 (from 2026-10-23)
 
