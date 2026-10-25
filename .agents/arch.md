@@ -312,7 +312,7 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `json`, `uri_string`, `filename`, `filelib` (wildcard parts compiled/matched in `builtins/filelib.cpp`,
   walk in Erlang), `file_sorter` (exact Erlang port of OTP's runs and merges), `zip`, `erl_tar` (Erlang following
   OTP's archive layouts byte for byte over `zlib` and `file`), `zstd` (`builtins/zstd/` over pinned
-  libzstd 1.5.7 objects in the runtime, like zlib), `calendar`.
+  libzstd 1.5.7 objects in the runtime, like zlib), `beam_lib` (Erlang chunk walk as OTP's), `calendar`.
 - Time: `timer` without a timer server (per-timer processes reached through aliases; conversions in
   `builtins/timer.cpp`).
 - Behaviours (all Erlang): `proc_lib` (ancestors, initial calls, sync starts, crash reports), `sys`

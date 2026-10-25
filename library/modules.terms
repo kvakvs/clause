@@ -63,6 +63,8 @@
 {zip, stdlib, provided}.
 {erl_tar, stdlib, provided}.
 {zstd, stdlib, provided}.
+{beam_lib, stdlib, provided}.
+{erl_abstract_code, stdlib, provided}.
 {uri_string, stdlib, provided}.
 {json, stdlib, provided}.
 {string, stdlib, provided}.

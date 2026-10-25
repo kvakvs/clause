@@ -132,20 +132,10 @@ Nothing is left in this tier.
 
 ## Tier E: files, archives and logs
 
-### LIB54. Archives: `zip`, `erl_tar`, `zstd`, `beam_lib`
-
-- `zip` done (LIB54B, `00-finished.md`): Erlang following OTP's layout over the `zlib` builtins, as
-  its API is funs (input/output, filters, `foldl/3`) and a server process. Later (speed): header
-  parsing and stored-file copies as C++.
-- `file` `ram` mode done (LIB54C, `00-finished.md`), for `erl_tar`'s binaries.
-- `erl_tar` done (LIB54D): Erlang following OTP's format rules, as `zip`. Later (speed): header
-  parsing and checksums as C++.
-- `zstd` done (LIB54E): C++ builtins over the pinned zstd 1.5.7 objects, `zstd.erl` as OTP's;
-  `file`'s `{zstd, Options}` layer.
-- Later (speed): `file_sorter` (LIB54A, an exact Erlang port of OTP's runs and merges) could decode
-  chunks and sort runs of the default formats and orders in C++.
-- `beam_lib` (19): a C++ chunk reader and writer for `.beam` files (Clause makes none, but programs
-  inspect them).
+Done (`00-finished.md`): LIB50-LIB52 and LIB54 (`zip`, `file` `ram` mode, `erl_tar`, `zstd` with
+`file`'s `{zstd, Options}`, `beam_lib`). Later (speed): `zip` and `erl_tar` header parsing, stored
+copies and checksums as C++; `file_sorter` (LIB54A) chunk decoding and run sorts of the default
+formats and orders in C++.
 
 ### LIB55. Platform modules
 
