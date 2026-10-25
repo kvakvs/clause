@@ -789,6 +789,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `truncate`, `advise`, `allocate`, `write_file_info`, `change_*`, `sendfile` (OTP's chunked fallback),
   `format_error` over a new `erl_posix_msg:message/1` builtin; servers stop after failed writes as OTP's;
   `file_positioned` golden — `848d8dce`
+- **LIB51** `filelib` complete: wildcard escape, part compiler and matcher as `clause_filelib` builtins with OTP's
+  quirks and errors; walk, queries, `ensure_*`, `fold_files`, `find_*`, `safe_relative_path` Erlang; `filelib_ops`
+  golden — `0233d4d9`
 
 ## Plan 22 (from 2026-10-23)
 
