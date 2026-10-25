@@ -314,6 +314,21 @@ stdout are pipes of the port:
   `chunk_size`) and send them with `gen_tcp:send/2` or the given fun, OTP's
   fallback: Clause has no native sendfile. `format_error/1` gives OTP's texts,
   POSIX ones from `erl_posix_msg:message/1`.
+- Lines and failed reads (plan 21 step LIB50C): `read_line/1` and `io:get_line`
+  read a CRLF ending as LF (the position counts the CR), as OTP; a file server
+  whose read fails replies with the error and exits, and one whose line read
+  fails exits without a reply (the caller gets `{error, terminated}`), as OTP's.
+- `compressed` and `compressed_one` (plan 21 step LIB50C): writing goes through
+  a gzip deflate stream (zlib, window bits 31) finished at close, also when the
+  server stops or its opener ends; reading inflates a file that starts with
+  gzip's magic bytes (`compressed` reads concatenated members as one,
+  `compressed_one` stops after the first) and reads any other file as it is.
+  Positions count uncompressed bytes: forward by reading or writing zeros,
+  backward only when reading (from the start again), `eof` is `einval`.
+  Reading a written file or writing a read one is `ebadf`; `allocate/3` and,
+  on raw files, positioned I/O are `enotsup`; a file server stops after
+  `truncate`, `advise` and `sync` (`enotsup`) as OTP's. Reading and writing at
+  once or appending is `{error, einval}`.
 - OTP's I/O protocol: the standard input server and every open file's server
   answer `{io_request, From, ReplyAs, Request}` with
   `{io_reply, ReplyAs, Reply}`, which `io:request/1,2` and `io:requests/1,2`

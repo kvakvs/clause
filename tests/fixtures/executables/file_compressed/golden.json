@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "file_compressed",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "write [ok,{ok,20},ok,{ok,20035}]\nwrite_position [{error,einval},{error,einval},{error,badarg}]\nwrite_read [{error,ebadf},{error,terminated}]\ngzip [<<31,139,8>>,true,true]\nread [{ok,<<\"first\">>},{ok,5},{ok,<<>>},{ok,<<\" line\\n\">>}]\nread_rest [20024,eof,{ok,20035}]\nlist_mode [{ok,\"first\"},{ok,\" line\\n\"}]\npositions [{ok,11},\n           {ok,<<\"second\">>},\n           {ok,11},\n           {ok,<<\"second\">>},\n           {ok,0},\n           {ok,<<\"first\">>},\n           {ok,15000},\n           {ok,<<\"012\">>},\n           {ok,20035},\n           eof,\n           {error,einval},\n           {error,einval},\n           {error,einval},\n           {error,badarg},\n           {ok,20035}]\nlines [{ok,<<\"first line\\n\">>},\n       {ok,<<\"second line\\n\">>},\n       {ok,24},\n       {ok,<<\"third\\n\">>},\n       20001,\n       {ok,<<\"last\">>},\n       {ok,20035},\n       eof]\nplain [{ok,<<\"not gzip\\n\">>},{ok,<<\"not\">>},{ok,<<\" gzip\\nat all\">>},{ok,4}]\nempty [eof,eof]\nmembers [{ok,<<\"one,two\">>}]\nmember_one [{ok,<<\"one,\">>},eof]\nio [{ok,{term,1}},\"a line\\n\",\"more\\n\",eof,eof]\nio_end [eof,eof]\nopen_errors [{error,einval},{error,einval},{error,einval}]\nserver [{ok,<<\"cd\">>},{ok,4},{error,ebadf},{error,terminated}]\nrefusals [{error,enotsup},{ok,<<\"a\">>},{error,enotsup},{error,terminated}]\nraw [{error,enotsup},\n     {error,enotsup},\n     {error,enotsup},\n     {error,ebadf},\n     {ok,<<\"ab\">>},\n     {error,enotsup},\n     {ok,<<\"cd\">>}]\nwritten_refusals [{error,ebadf},\n                  {error,terminated},\n                  {error,terminated},\n                  {error,terminated}]\ncrlf [{ok,<<\"a\\n\">>},{ok,3},{ok,<<\"b\\n\">>},<<\"\\n\">>,{ok,<<\"c\\r\">>}]\ncrlf_raw [{ok,\"a\\n\"},{ok,\"b\\n\"}]\nread_write_only [{error,ebadf},{error,terminated}]\nread_line_write_only [{error,terminated},{error,terminated}]\nfile_compressed: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "file_compressed.erl": "96f50683bf87a6c8c7f31a341498268f71f6be2481fe9a572c8f1a31521b4daa"
+  }
+}

@@ -299,7 +299,7 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 ### kernel
 
 - `file` (every documented function; a raw file is a server answering as raw; servers stop after
-  failed writes as OTP's), `io` stdin server, `os` (`os:cmd/1`), `code`, `application_controller`; networking via
+  failed writes and reads as OTP's; `compressed` gzip layer in the server over `zlib`), `io` stdin server, `os` (`os:cmd/1`), `code`, `application_controller`; networking via
   `clause_socket.erl` + `gen_tcp`, `gen_udp`, `inet` over port socket drivers; `clause_disk_log`
   halt logs.
 

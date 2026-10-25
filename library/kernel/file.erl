@@ -118,13 +118,15 @@
 % Integers the driver takes as signed 64-bit numbers (plan 21 step LIB50).
 -define(IS_INT64(N), (is_integer(N) andalso N >= -16#8000000000000000 andalso N =< 16#7FFFFFFFFFFFFFFF)).
 
-% Open File with Modes (read, write, append, exclusive, binary; others are ignored, as OTP ignores options it does
-% not use): {ok, IoDevice} or {error, Reason}.
+% Open File with Modes (read, write, append, exclusive, binary, raw, compressed, compressed_one; others are ignored,
+% as OTP ignores options it does not use): {ok, IoDevice} or {error, Reason}.
 open(File, Modes) when is_list(Modes) ->
-    case name(File) of
-        error ->
+    case {name(File), layer(Modes)} of
+        {error, _} ->
             {error, badarg};
-        Name ->
+        {_, einval} ->
+            {error, einval};
+        {Name, _} ->
             Self = self(),
             Server = spawn(fun() -> serve(Self, Name, Modes) end),
             receive
@@ -414,9 +416,30 @@ serve(Opener, Name, Modes) ->
         {ok, _} ->
             monitor(process, Opener),
             Opener ! {self(), opened, {ok, self()}},
-            loop(Opener, Port, lists:member(binary, Modes), lists:member(raw, Modes));
+            start(Opener, Port, Modes);
         Error ->
             Opener ! {self(), opened, Error}
+    end.
+
+% Serve a plain file, or a compressed one through its gzip layer; a file opened compressed for reading that does not
+% start with gzip's magic bytes is read as it is, as OTP's layer does.
+start(Opener, Port, Modes) ->
+    Binary = lists:member(binary, Modes),
+    Raw = lists:member(raw, Modes),
+    case layer(Modes) of
+        {inflate, Mode} ->
+            case reply(port_control(Port, ?READ, <<2:64>>)) of
+                {ok, <<16#1F, 16#8B>>} ->
+                    {ok, _} = reply(port_control(Port, ?POSITION, <<0, 0:64>>)),
+                    compressed_loop(Opener, inflating(Port, Mode, Binary, Raw));
+                _ ->
+                    {ok, _} = reply(port_control(Port, ?POSITION, <<0, 0:64>>)),
+                    loop(Opener, Port, Binary, Raw)
+            end;
+        deflate ->
+            compressed_loop(Opener, deflating(Port, Binary, Raw));
+        none ->
+            loop(Opener, Port, Binary, Raw)
     end.
 
 loop(Opener, Port, Binary, Raw) ->
@@ -434,7 +457,10 @@ loop(Opener, Port, Binary, Raw) ->
             port_close(Port)
     end.
 
-% Send a reply; {stop, Reason, Reply} also ends the server with Reason after replying.
+% Send a reply; {stop, Reason, Reply} also ends the server with Reason after replying, {exit, Reason} ends it without
+% a reply.
+answer(_, _, _, {exit, Reason}) ->
+    exit(Reason);
 answer(Tag, From, Ref, {stop, Reason, Reply}) ->
     From ! {Tag, Ref, Reply},
     exit(Reason);
@@ -458,20 +484,28 @@ file_request(Port, _, _, {allocate, Offset, Length}) ->
         {ok, Range} -> ok_reply(reply(port_control(Port, ?ALLOCATE, Range)));
         Error -> Error
     end;
-file_request(Port, Binary, Raw, {Operation, _} = Request) when Operation =:= write; Operation =:= sync ->
+file_request(Port, Binary, Raw, {Operation, _} = Request) when
+    Operation =:= write; Operation =:= sync; Operation =:= read
+->
     stopping(Raw, request(Port, Binary, Request));
+file_request(Port, Binary, Raw, Line) when Line =:= read_line; Line =:= get_line ->
+    line_stopping(Raw, request(Port, Binary, Line));
 file_request(Port, Binary, _, Request) ->
     request(Port, Binary, Request).
 
 stopping(false, {error, Reason} = Error) -> {stop, Reason, Error};
 stopping(_, Reply) -> Reply.
 
+% A failed line read ends a file server without a reply, so its caller sees {error, terminated}, as with OTP's.
+line_stopping(false, {error, Reason}) -> {exit, Reason};
+line_stopping(_, Reply) -> Reply.
+
 % pread: a file server positions and reads (at cur it reads on); a raw file reads at an integer offset and stays put.
 pread_request(Port, Binary, false, At, Size) when At =:= cur; At =:= {cur, 0} ->
-    request(Port, Binary, {read, Size});
+    stopping(false, request(Port, Binary, {read, Size}));
 pread_request(Port, Binary, false, At, Size) ->
     case request(Port, Binary, {position, At}) of
-        {ok, _} -> request(Port, Binary, {read, Size});
+        {ok, _} -> stopping(false, request(Port, Binary, {read, Size}));
         Error -> Error
     end;
 pread_request(Port, Binary, true, At, Size) when ?IS_INT64(At) ->
@@ -521,14 +555,288 @@ range(Offset, Length) when ?IS_INT64(Offset), ?IS_INT64(Length), Offset >= 0, Le
 range(_, _) ->
     {error, einval}.
 
-% --- OTP's I/O protocol on an open file (step 41ZC) ---
+% --- Compressed files (plan 21 step LIB50C) ---
+
+% The gzip layer of a file's modes: inflate when reading (compressed resets at the end of each gzip member, so
+% concatenated members read as one; compressed_one stops after the first), deflate when writing, einval for reading
+% and writing at once or appending, none without compression.
+layer(Modes) ->
+    Compressed = lists:member(compressed, Modes),
+    One = lists:member(compressed_one, Modes),
+    Write = lists:member(write, Modes),
+    Read = lists:member(read, Modes) orelse not Write,
+    layer(Compressed orelse One, One, Read, Write, lists:member(append, Modes)).
+
+layer(false, _, _, _, _) -> none;
+layer(true, _, true, true, _) -> einval;
+layer(true, _, _, _, true) -> einval;
+layer(true, true, false, true, _) -> einval;
+layer(true, _, false, true, _) -> deflate;
+layer(true, true, true, false, _) -> {inflate, cut};
+layer(true, false, true, false, _) -> {inflate, reset}.
+
+% Bytes of compressed data read at a time, as OTP's layer reads them.
+-define(INFLATE_CHUNK, 8192).
+
+inflating(Port, Mode, Binary, Raw) ->
+    Z = zlib:open(),
+    ok = zlib:inflateInit(Z, 31, Mode),
+    #{port => Port, binary => Binary, raw => Raw, z => Z, mode => inflate, buffer => <<>>, position => 0}.
+
+deflating(Port, Binary, Raw) ->
+    Z = zlib:open(),
+    ok = zlib:deflateInit(Z, default, deflated, 31, 8, default),
+    #{port => Port, binary => Binary, raw => Raw, z => Z, mode => deflate, position => 0}.
+
+% The server of a compressed file; positions count uncompressed bytes.
+compressed_loop(Opener, State) ->
+    receive
+        {file_request, From, Ref, close} ->
+            From ! {file_reply, Ref, compressed_close(State)};
+        {file_request, From, Ref, Request} ->
+            {Reply, Next} = compressed_request(Request, State),
+            closed_on_stop(Reply, Next),
+            answer(file_reply, From, Ref, Reply),
+            compressed_loop(Opener, Next);
+        {io_request, From, ReplyAs, Request} ->
+            {Reply, Next} = compressed_io(Request, State),
+            closed_on_stop(Reply, Next),
+            answer(io_reply, From, ReplyAs, Reply),
+            compressed_loop(Opener, Next);
+        {'DOWN', _, process, Opener, _} ->
+            _ = compressed_close(State),
+            ok
+    end.
+
+% A server that stops still finishes a written file's gzip stream, as OTP's layer does when its owner ends.
+closed_on_stop({stop, _, _}, State) -> compressed_close(State);
+closed_on_stop({exit, _}, State) -> compressed_close(State);
+closed_on_stop(_, _) -> ok.
+
+% Closing a written file first finishes its gzip stream.
+compressed_close(#{mode := deflate, port := Port, z := Z}) ->
+    Result = ok_reply(reply(port_control(Port, ?WRITE, zlib:deflate(Z, [], finish)))),
+    port_close(Port),
+    zlib:close(Z),
+    Result;
+compressed_close(#{port := Port, z := Z}) ->
+    port_close(Port),
+    zlib:close(Z),
+    ok.
+
+% A file request on a compressed file: reads and lines when reading, writes when writing, positions both ways
+% (backwards only when reading); a file server's positioned reads and writes position first, as on plain files.
+% Reading a written file or writing a read one is ebadf, the rest enotsup; a file server then stops where OTP's
+% stops (writes, truncate, advise, sync).
+compressed_request({read, Size}, #{mode := inflate} = State) ->
+    read_stopping(inflated(State, Size));
+compressed_request(read_line, #{mode := inflate} = State) ->
+    line_read_stopping(inflated_line(State));
+compressed_request(get_line, #{mode := inflate} = State) ->
+    unwrapped(line_read_stopping(inflated_line(State)));
+compressed_request({position, Location}, State) ->
+    compressed_position(State, Location);
+compressed_request({write, Data}, #{mode := deflate} = State) ->
+    deflated(State, Data);
+compressed_request({pread, At, Size}, #{raw := false} = State) ->
+    case compressed_position(State, At) of
+        {{ok, _}, Next} -> compressed_request({read, Size}, Next);
+        Other -> Other
+    end;
+compressed_request({pwrite, At, Data}, #{raw := false} = State) ->
+    case compressed_position(State, At) of
+        {{ok, _}, Next} -> compressed_request({write, iolist_or_badarg(Data)}, Next);
+        Other -> Other
+    end;
+compressed_request(raw, #{raw := Raw} = State) ->
+    {Raw, State};
+compressed_request(Request, #{raw := Raw} = State) when Request =:= read_line; Request =:= get_line ->
+    {line_stopping(Raw, {error, ebadf}), State};
+compressed_request(Request, #{raw := Raw} = State) when element(1, Request) =:= read; element(1, Request) =:= write ->
+    {stopping(Raw, {error, ebadf}), State};
+compressed_request(Request, #{raw := Raw} = State) when
+    Request =:= truncate; element(1, Request) =:= advise; element(1, Request) =:= sync
+->
+    {stopping(Raw, {error, enotsup}), State};
+compressed_request(_, State) ->
+    {{error, enotsup}, State}.
+
+% A failed read stops a file server, as OTP's stops.
+read_stopping({Reply, #{raw := Raw} = State}) -> {stopping(Raw, Reply), State}.
+
+line_read_stopping({Reply, #{raw := Raw} = State}) -> {line_stopping(Raw, Reply), State}.
+
+iolist_or_badarg(Data) ->
+    try
+        iolist_to_binary(Data)
+    catch
+        error:badarg -> badarg
+    end.
+
+% An I/O request on a compressed file, as on a plain one but through the layer.
+compressed_io({get_line, _, _}, #{mode := inflate} = State) ->
+    unwrapped(line_read_stopping(inflated_line(State#{raw := false})));
+compressed_io({get_chars, _, _, Count}, #{mode := inflate} = State) when is_integer(Count), Count >= 0 ->
+    unwrapped(read_stopping(inflated(State#{raw := false}, Count)));
+compressed_io({get_until, Encoding, _, M, F, Args}, #{mode := inflate} = State) ->
+    compressed_until(State, {Encoding, M, F, Args}, []);
+compressed_io({put_chars, Encoding, M, F, A}, State) ->
+    case catch apply(M, F, A) of
+        {'EXIT', Reason} -> {{stop, Reason, {error, F}}, State};
+        Chars -> compressed_io({put_chars, Encoding, Chars}, State)
+    end;
+compressed_io({put_chars, Encoding, Chars}, #{mode := deflate} = State) ->
+    case unicode:characters_to_binary(Chars, Encoding, latin1) of
+        Bytes when is_binary(Bytes) -> deflated(State, Bytes);
+        _ -> {{stop, no_translation, {error, {no_translation, Encoding, latin1}}}, State}
+    end;
+compressed_io({put_chars, _, _}, State) ->
+    {{stop, ebadf, {error, ebadf}}, State};
+compressed_io({get_line, _, _}, State) ->
+    {{exit, ebadf}, State};
+compressed_io(Request, State) when element(1, Request) =:= get_chars; element(1, Request) =:= get_until ->
+    {{stop, ebadf, {error, ebadf}}, State};
+compressed_io(Request, State) ->
+    {{error, {request, Request}}, State}.
+
+unwrapped({{ok, Data}, State}) -> {Data, State};
+unwrapped(Other) -> Other.
+
+% Feed 4 KiB of uncompressed bytes and then eof to M:F until it is done; what it leaves over goes back to the buffer.
+compressed_until(State, Until, Cont) ->
+    case taken(State, 4096) of
+        {{ok, Bytes}, Next} -> compressed_apply(Next, Until, Cont, binary_to_list(Bytes));
+        {eof, Next} -> compressed_apply(Next, Until, Cont, eof);
+        {{error, Reason} = Error, Next} -> {{stop, Reason, Error}, Next}
+    end.
+
+compressed_apply(#{binary := Binary} = State, {Encoding, M, F, Args} = Until, Cont, Data) ->
+    case catch apply(M, F, [Cont, Data | Args]) of
+        {done, Result, Rest} -> {until_result(Binary, Encoding, Result), given_back(State, Rest)};
+        {more, NewCont} -> compressed_until(State, Until, NewCont);
+        {'EXIT', Reason} -> {{stop, Reason, {error, F}}, State}
+    end.
+
+given_back(#{buffer := Buffer, position := Position} = State, Rest) when is_list(Rest), Rest =/= [] ->
+    Bytes = unicode:characters_to_binary(Rest, latin1),
+    State#{buffer := <<Bytes/binary, Buffer/binary>>, position := Position - byte_size(Bytes)};
+given_back(State, _) ->
+    State.
+
+% Up to Size uncompressed bytes as the file's data; what is left before the end of the data, or eof.
+inflated(#{binary := Binary} = State, Size) ->
+    {Reply, Next} = taken(State, Size),
+    {data(Reply, Binary), Next}.
+
+taken(#{buffer := Buffer, position := Position} = State, Size) when byte_size(Buffer) >= Size ->
+    <<Data:Size/binary, Rest/binary>> = Buffer,
+    {{ok, Data}, State#{buffer := Rest, position := Position + Size}};
+taken(#{buffer := Buffer} = State, Size) ->
+    case refill(State) of
+        {ok, Next} -> taken(Next, Size);
+        eof when Buffer =/= <<>> -> taken(State, byte_size(Buffer));
+        Other -> {Other, State}
+    end.
+
+% The next line (CRLF read as LF, the position counting the CR); the rest of the data without a newline, which a raw
+% file's position does not count, as OTP's layer leaves it (a file server's buffer counts it).
+inflated_line(#{buffer := Buffer, position := Position, binary := Binary, raw := Raw} = State) ->
+    case binary:match(Buffer, <<"\n">>) of
+        {At, 1} ->
+            <<Line:(At + 1)/binary, Rest/binary>> = Buffer,
+            {data({ok, crlf(Line)}, Binary), State#{buffer := Rest, position := Position + At + 1}};
+        nomatch ->
+            case refill(State) of
+                {ok, Next} ->
+                    inflated_line(Next);
+                eof when Buffer =/= <<>> ->
+                    Moved =
+                        Position +
+                            (case Raw of
+                                true -> 0;
+                                false -> byte_size(Buffer)
+                            end),
+                    {data({ok, Buffer}, Binary), State#{buffer := <<>>, position := Moved}};
+                Other ->
+                    {Other, State}
+            end
+    end.
+
+crlf(Line) ->
+    case byte_size(Line) - 2 of
+        Size when Size >= 0 ->
+            case Line of
+                <<Text:Size/binary, "\r\n">> -> <<Text/binary, "\n">>;
+                _ -> Line
+            end;
+        _ ->
+            Line
+    end.
+
+% Read and inflate the next chunk into the buffer; eof, or {error, eio} for data that is not gzip.
+refill(#{port := Port, z := Z, buffer := Buffer} = State) ->
+    case reply(port_control(Port, ?READ, <<?INFLATE_CHUNK:64>>)) of
+        {ok, Compressed} ->
+            try zlib:inflate(Z, Compressed) of
+                Data -> {ok, State#{buffer := iolist_to_binary([Buffer | Data])}}
+            catch
+                error:badarg -> {error, badarg};
+                error:_ -> {error, eio}
+            end;
+        Other ->
+            Other
+    end.
+
+% A position from the start or the current position (eof is einval); reading moves forward by inflating and back by
+% starting over, writing moves forward by writing zeros.
+compressed_position(State, Mark) when is_atom(Mark) -> compressed_position(State, {Mark, 0});
+compressed_position(State, Offset) when is_integer(Offset) -> compressed_position(State, {bof, Offset});
+compressed_position(State, {bof, Offset}) when is_integer(Offset) -> moved(State, Offset);
+compressed_position(#{position := At} = State, {cur, Offset}) when is_integer(Offset) -> moved(State, At + Offset);
+compressed_position(State, {eof, Offset}) when is_integer(Offset) -> {{error, einval}, State};
+compressed_position(State, _) -> {{error, badarg}, State}.
+
+moved(#{mode := inflate} = State, Desired) when Desired < 0 ->
+    {{error, einval}, State};
+moved(#{position := Desired} = State, Desired) ->
+    {{ok, Desired}, State};
+moved(#{mode := inflate, position := At} = State, Desired) when At < Desired ->
+    case taken(State, min(Desired - At, ?INFLATE_CHUNK)) of
+        {{ok, _}, Next} -> moved(Next, Desired);
+        {eof, _} -> {{ok, At}, State};
+        Other -> Other
+    end;
+moved(#{mode := inflate, port := Port, z := Z} = State, Desired) ->
+    case reply(port_control(Port, ?POSITION, <<0, 0:64>>)) of
+        {ok, <<0:64>>} ->
+            ok = zlib:inflateReset(Z),
+            moved(State#{buffer := <<>>, position := 0}, Desired);
+        Other ->
+            {Other, State}
+    end;
+moved(#{position := At} = State, Desired) when At < Desired ->
+    case deflated(State, <<0:(min(Desired - At, 4 bsl 20))/unit:8>>) of
+        {ok, Next} -> moved(Next, Desired);
+        Other -> Other
+    end;
+moved(State, _) ->
+    {{error, einval}, State}.
+
+% Write Data through the deflate stream; ok and the moved position.
+deflated(#{raw := Raw} = State, badarg) ->
+    {stopping(Raw, {error, badarg}), State};
+deflated(#{port := Port, z := Z, position := Position, raw := Raw} = State, Data) ->
+    case reply(port_control(Port, ?WRITE, zlib:deflate(Z, Data))) of
+        {ok, _} -> {ok, State#{position := Position + iolist_size(Data)}};
+        Error -> {stopping(Raw, Error), State}
+    end.
 
 % Answer one I/O request as OTP's file I/O server does: the reply, or {stop, Reason, Reply} when the server must exit
 % after replying (a failing get_until function, an untranslatable put_chars).
 io_request(Port, Binary, {get_line, _, _}) ->
-    request(Port, Binary, get_line);
+    line_stopping(false, request(Port, Binary, get_line));
 io_request(Port, Binary, {get_chars, _, _, Count}) when is_integer(Count), Count >= 0 ->
-    case request(Port, Binary, {read, Count}) of
+    case stopping(false, request(Port, Binary, {read, Count})) of
         {ok, Data} -> Data;
         Other -> Other
     end;
@@ -584,9 +892,9 @@ unread(_, _) ->
 request(Port, Binary, {read, Size}) ->
     data(reply(port_control(Port, ?READ, <<Size:64>>)), Binary);
 request(Port, Binary, read_line) ->
-    data(reply(port_control(Port, ?READ_LINE, [])), Binary);
+    data(line(Port), Binary);
 request(Port, Binary, get_line) ->
-    case data(reply(port_control(Port, ?READ_LINE, [])), Binary) of
+    case data(line(Port), Binary) of
         {ok, Line} -> Line;
         Other -> Other
     end;
@@ -603,6 +911,14 @@ request(Port, _, {position, Location}) ->
                 {ok, <<Position:64>>} -> {ok, Position};
                 Error -> Error
             end
+    end.
+
+% The next line of a file, a CRLF ending read as LF, as OTP's file server and raw files read lines (plan 21 step
+% LIB50C).
+line(Port) ->
+    case reply(port_control(Port, ?READ_LINE, [])) of
+        {ok, Line} -> {ok, crlf(Line)};
+        Other -> Other
     end.
 
 % A position as a whence byte (0 start, 1 current, 2 end) and an offset; badarg for anything else, as OTP.
