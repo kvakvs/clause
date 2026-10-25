@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "file_positioned",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "pread [{ok,<<48,49,50>>},{ok,3},{ok,<<52,53>>},{ok,<<54,55>>},{ok,<<57>>},{ok,<<55,56,57>>},eof,eof,{ok,<<>>},{ok,<<>>},{ok,30}]\npread_list [{ok,[<<48,49>>,<<56,57>>,eof,<<48>>]},{ok,[]},{error,badarg},{error,badarg},{error,badarg},{error,einval},{error,badarg},{error,badarg},{error,badarg},{error,badarg}]\npwrite [ok,{ok,4},ok,ok,ok,{error,{1,einval}},{error,{0,badarg}},{error,terminated},{error,terminated},ok,{error,badarg},{error,badarg},{error,badarg},{ok,<<121,122,97,98,52,53,54,55,56,57,99,100,101>>}]\npread_lists [{ok,[122,97,98]},{ok,[[121,122],eof]}]\npwrite_read_only [false]\nclosed [{error,terminated},{error,terminated},{error,terminated},{error,{0,terminated}}]\nraw [{ok,<<51,52>>},{ok,[<<48>>,<<57>>,eof]},ok,ok,{ok,<<48,65,66,51,67,53,68,55,56,57>>},eof,{error,badarg},{error,badarg},{error,einval},{error,einval}]\ntruncate [{ok,6},ok,{ok,<<48,49,50,51,52,53>>},ok,{ok,2},ok,{ok,2},{ok,<<48,49>>},{error,badarg}]\ntruncate_closed [{error,terminated}]\ntruncate_read_only [error,false]\nadvise [ok,ok,ok,ok,ok,ok]\nadvise_errors [{{error,einval},{error,terminated}},{{error,einval},{error,terminated}},{{error,einval},{error,terminated}},{{error,badarg},{error,terminated}},{{error,einval},{error,terminated}}]\nadvise_not_a_file [{error,badarg}]\nallocate [true,{error,einval},{error,einval},{error,badarg},{error,badarg},true]\nchange_mode [ok,false,ok,true,{error,enoent},{error,function_clause}]\nchange_owner [ok,ok,ok,{error,function_clause},{error,function_clause}]\nchange_time [ok,{{2020,1,2},{3,4,5}},ok,{{2019,5,6},{7,8,9}},{{2021,3,4},{5,6,7}},{error,enoent},{error,function_clause},{error,function_clause}]\nwrite_file_info [ok,1000000000,1100000000,ok,{{2001,2,3},{4,5,6}},ok,{{2002,2,3},{4,5,6}},ok,1200000000,ok,{error,enoent},{error,badarg},{error,badarg},{error,badarg},{error,function_clause},{error,function_clause}]\nsendfile [{ok,10},{ok,3},{ok,0},{ok,2},{ok,0},{error,badarg},{error,enoent},{error,einval},{error,badarg}]\nreceived [<<48,49,50,51,52,53,54,55,56,57,50,51,52,56,57>>]\nsendfile_fun [{ok,7},[<<49,50,51>>,<<52,53,54>>,<<55>>],{error,closed},{ok,10},[<<48,49,50,51,52,53,54,55,56,57>>]]\nno such file or directory\npermission denied\nfile already exists\nillegal operation on a directory\nnot a directory\ninvalid argument\nbad file number\nno space left on device\nnot owner\noperation not supported\nconnection refused\ninet_drv bad port state\nnon-existing domain\nError 0\nunknown POSIX error: unknown_reason\nbad argument\nthe file server process is terminated\na system limit was hit, probably not enough ports\nno value returned from script\n2: evaluation failed with reason error:badarith and stacktrace []\n3: evaluation failed with reason badarith and stacktrace [{m,f,1,[]}]\n4: syntax error before: '.'\n5: {string,34,[97,98,99]}\nformat_error [{error,badarg}]\n3: evaluation failed with reason error:badarith and stacktrace []\nfile_positioned: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "file_positioned.erl": "e85c137a16303d5a94f0c139585d6945741ea08c8f8bfd0367f59215bd48e37a"
+  }
+}

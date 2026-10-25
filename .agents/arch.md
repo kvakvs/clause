@@ -240,7 +240,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 ### Ports and I/O (`ports/`, `docs/ports.md`)
 
 - Executor port table; drivers fd, spawn, file (`port_control` outside the mutex; binary data passed
-  in place, `ByteBuffer` replies taken over as binaries), tcp/udp sockets.
+  in place, `ByteBuffer` replies taken over as binaries; `file_changes` owners, permissions, times,
+  truncate/advise/allocate), tcp/udp sockets.
 - One Asio `Reactor` thread per runtime serves pipes, fd input, child exits, sockets (Windows
   overlapped pipes/wait pool; POSIX `async_wait`, `SIGCHLD` reaper).
 - Ports are run-queue entities alternating with process slices under a reduction budget; busy ports
@@ -297,7 +298,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 
 ### kernel
 
-- `file`, `io` stdin server, `os` (`os:cmd/1`), `code`, `application_controller`; networking via
+- `file` (every documented function; a raw file is a server answering as raw; servers stop after
+  failed writes as OTP's), `io` stdin server, `os` (`os:cmd/1`), `code`, `application_controller`; networking via
   `clause_socket.erl` + `gen_tcp`, `gen_udp`, `inet` over port socket drivers; `clause_disk_log`
   halt logs.
 

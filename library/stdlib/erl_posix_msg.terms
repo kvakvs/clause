@@ -1,0 +1,3 @@
+%% OTP 29 erl_posix_msg exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{message, 1, default, implemented}.

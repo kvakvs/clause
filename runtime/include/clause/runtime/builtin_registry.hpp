@@ -221,6 +221,8 @@ std::span<const BuiltinEntry> eval_match_builtins() noexcept;
 std::span<const BuiltinEntry> epp_builtins() noexcept;
 // erl_pp's printer (plan 21 step LIB34C; runtime/src/builtins/front_end/pp*.cpp).
 std::span<const BuiltinEntry> erl_pp_builtins() noexcept;
+// erl_posix_msg:message/1 (plan 21 step LIB50; runtime/src/builtins/erl_posix_msg.cpp).
+std::span<const BuiltinEntry> erl_posix_msg_builtins() noexcept;
 // The erlang gaps of plan 21 step LIB9A: checksums and iovecs, tuple edits, option-taking process builtins and
 // system flags.
 std::span<const BuiltinEntry> checksum_builtins() noexcept;

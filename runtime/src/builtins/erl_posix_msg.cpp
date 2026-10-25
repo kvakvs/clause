@@ -1,0 +1,178 @@
+#include "erlang/conversion_text.hpp"
+#include "typed.hpp"
+#include <algorithm>
+#include <array>
+#include <string>
+#include <string_view>
+#include <utility>
+
+// erl_posix_msg:message/1 (plan 21 step LIB50, docs/builtins.md#posix-messages): the English text of a POSIX error
+// reason, as file:format_error/1 and the socket modules print it. The texts are observed from OTP 29.
+namespace clause::runtime::builtins {
+namespace {
+// Each reason OTP names and its text, sorted by reason.
+constexpr std::array<std::pair<std::string_view, std::string_view>, 143> MESSAGES{{
+    {"e2big", "argument list too long"},
+    {"eacces", "permission denied"},
+    {"eaddrinuse", "address already in use"},
+    {"eaddrnotavail", "can't assign requested address"},
+    {"eadv", "advertise error"},
+    {"eafnosupport", "address family not supported by protocol family"},
+    {"eagain", "resource temporarily unavailable"},
+    {"ealign", "EALIGN"},
+    {"ealready", "operation already in progress"},
+    {"ebade", "bad exchange descriptor"},
+    {"ebadf", "bad file number"},
+    {"ebadfd", "file descriptor in bad state"},
+    {"ebadmsg", "not a data message"},
+    {"ebadr", "bad request descriptor"},
+    {"ebadrpc", "RPC structure is bad"},
+    {"ebadrqc", "bad request code"},
+    {"ebadslt", "invalid slot"},
+    {"ebfont", "bad font file format"},
+    {"ebusy", "file busy"},
+    {"echild", "no children"},
+    {"echrng", "channel number out of range"},
+    {"ecomm", "communication error on send"},
+    {"econnaborted", "software caused connection abort"},
+    {"econnrefused", "connection refused"},
+    {"econnreset", "connection reset by peer"},
+    {"edeadlk", "resource deadlock avoided"},
+    {"edeadlock", "resource deadlock avoided"},
+    {"edestaddrreq", "destination address required"},
+    {"edirty", "mounting a dirty fs w/o force"},
+    {"edom", "math argument out of range"},
+    {"edotdot", "cross mount point"},
+    {"edquot", "disk quota exceeded"},
+    {"eduppkg", "duplicate package name"},
+    {"eexist", "file already exists"},
+    {"efault", "bad address in system call argument"},
+    {"efbig", "file too large"},
+    {"eftype", "EFTYPE"},
+    {"ehostdown", "host is down"},
+    {"ehostunreach", "host is unreachable"},
+    {"eidrm", "identifier removed"},
+    {"einit", "initialization error"},
+    {"einprogress", "operation now in progress"},
+    {"eintr", "interrupted system call"},
+    {"einval", "invalid argument"},
+    {"eio", "I/O error"},
+    {"eisconn", "socket is already connected"},
+    {"eisdir", "illegal operation on a directory"},
+    {"eisnam", "is a name file"},
+    {"el2hlt", "level 2 halted"},
+    {"el2nsync", "level 2 not synchronized"},
+    {"el3hlt", "level 3 halted"},
+    {"el3rst", "level 3 reset"},
+    {"elbin", "ELBIN"},
+    {"elibacc", "cannot access a needed shared library"},
+    {"elibbad", "accessing a corrupted shared library"},
+    {"elibexec", "cannot exec a shared library directly"},
+    {"elibmax", "attempting to link in more shared libraries than system limit"},
+    {"elibscn", ".lib section in a.out corrupted"},
+    {"elnrng", "link number out of range"},
+    {"eloop", "too many levels of symbolic links"},
+    {"emfile", "too many open files"},
+    {"emlink", "too many links"},
+    {"emsgsize", "message too long"},
+    {"emultihop", "multihop attempted"},
+    {"enametoolong", "file name too long"},
+    {"enavail", "not available"},
+    {"enet", "ENET"},
+    {"enetdown", "network is down"},
+    {"enetreset", "network dropped connection on reset"},
+    {"enetunreach", "network is unreachable"},
+    {"enfile", "file table overflow"},
+    {"enoano", "anode table overflow"},
+    {"enobufs", "no buffer space available"},
+    {"enocsi", "no CSI structure available"},
+    {"enodata", "no data available"},
+    {"enodev", "no such device"},
+    {"enoent", "no such file or directory"},
+    {"enoexec", "exec format error"},
+    {"enolck", "no locks available"},
+    {"enolink", "link has be severed"},
+    {"enomem", "not enough memory"},
+    {"enomsg", "no message of desired type"},
+    {"enonet", "machine is not on the network"},
+    {"enopkg", "package not installed"},
+    {"enoprotoopt", "bad proocol option"},
+    {"enospc", "no space left on device"},
+    {"enosr", "out of stream resources or not a stream device"},
+    {"enostr", "not a stream"},
+    {"enosym", "unresolved symbol name"},
+    {"enosys", "function not implemented"},
+    {"enotblk", "block device required"},
+    {"enotconn", "socket is not connected"},
+    {"enotdir", "not a directory"},
+    {"enotempty", "directory not empty"},
+    {"enotnam", "not a name file"},
+    {"enotsock", "socket operation on non-socket"},
+    {"enotsup", "operation not supported"},
+    {"enotty", "inappropriate device for ioctl"},
+    {"enotuniq", "name not unique on network"},
+    {"enxio", "no such device or address"},
+    {"eopnotsupp", "operation not supported on socket"},
+    {"eoverflow", "offset too large for file system"},
+    {"eperm", "not owner"},
+    {"epfnosupport", "protocol family not supported"},
+    {"epipe", "broken pipe"},
+    {"eproclim", "too many processes"},
+    {"eprocunavail", "bad procedure for program"},
+    {"eprogmismatch", "program version wrong"},
+    {"eprogunavail", "RPC program not available"},
+    {"eproto", "protocol error"},
+    {"eprotonosupport", "protocol not supported"},
+    {"eprototype", "protocol wrong type for socket"},
+    {"erange", "math result unrepresentable"},
+    {"erefused", "EREFUSED"},
+    {"eremchg", "remote address changed"},
+    {"eremdev", "remote device"},
+    {"eremote", "pathname hit remote file system"},
+    {"eremoteio", "remote i/o error"},
+    {"eremoterelease", "EREMOTERELEASE"},
+    {"erofs", "read-only file system"},
+    {"erpcmismatch", "RPC version is wrong"},
+    {"erremote", "object is remote"},
+    {"eshutdown", "can't send after socket shutdown"},
+    {"esocktnosupport", "socket type not supported"},
+    {"espipe", "invalid seek"},
+    {"esrch", "no such process"},
+    {"esrmnt", "srmount error"},
+    {"estale", "stale remote file handle"},
+    {"esuccess", "Error 0"},
+    {"etime", "timer expired"},
+    {"etimedout", "connection timed out"},
+    {"etoomanyrefs", "too many references: can't splice"},
+    {"etxtbsy", "text file or pseudo-device busy"},
+    {"euclean", "structure needs cleaning"},
+    {"eunatch", "protocol driver not attached"},
+    {"eusers", "too many users"},
+    {"eversion", "version mismatch"},
+    {"ewouldblock", "operation would block"},
+    {"exbadport", "inet_drv bad port state"},
+    {"exbadseq", "inet_drv bad request sequence"},
+    {"exdev", "cross-device link"},
+    {"exfull", "message tables full"},
+    {"nxdomain", "non-existing domain"},
+}};
+
+// message(Reason): the text of a known reason, else "unknown POSIX error: " and its name; badarg for a non-atom.
+Term message(ProcessContext &context, const AtomArgument &reason) {
+    const auto found =
+        std::ranges::lower_bound(MESSAGES, reason.spelling, {}, &std::pair<std::string_view, std::string_view>::first);
+    if (found != MESSAGES.end() && found->first == reason.spelling) {
+        return need(byte_list(context, found->second));
+    }
+    return need(byte_list(context, std::string("unknown POSIX error: ").append(reason.spelling)));
+}
+
+constexpr std::array ERL_POSIX_MSG_BUILTINS{
+    typed_entry<message>("erl_posix_msg", "message"),
+};
+} // namespace
+} // namespace clause::runtime::builtins
+
+namespace clause::runtime {
+std::span<const BuiltinEntry> erl_posix_msg_builtins() noexcept { return builtins::ERL_POSIX_MSG_BUILTINS; }
+} // namespace clause::runtime

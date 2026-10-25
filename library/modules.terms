@@ -91,6 +91,7 @@
 {erl_eval, stdlib, provided}.
 {erl_error, stdlib, provided}.
 {erl_pp, stdlib, provided}.
+{erl_posix_msg, stdlib, provided}.
 {erl_expand_records, stdlib, provided}.
 {erl_lint, stdlib, provided}.
 {epp, stdlib, provided}.

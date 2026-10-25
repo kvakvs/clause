@@ -23,7 +23,7 @@ internal functions stay out unless a public function needs them (user direction 
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  872 are still to do (erts 23, kernel 243, stdlib 606). Appendix A lists them per module.
+  854 are still to do (erts 23, kernel 225, stdlib 606). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
@@ -35,9 +35,9 @@ internal functions stay out unless a public function needs them (user direction 
   `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`,
   `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
-  `seq_trace` (tokens without tracing).
+  `seq_trace` (tokens without tracing), `file`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
-  (51), `io` (11), `file` (18), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
+  (51), `io` (11), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
 - **Missing:** 30 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
   ones (`filelib`, `disk_log`, ...) only by compiling OTP's sources from a search path.
@@ -125,40 +125,11 @@ Done: LIB20–LIB25 (`00-finished.md`); `logger_disk_log_h` waits for LIB52.
 
 ## Tier D: Erlang front end as library modules
 
-Done (`00-finished.md`): LIB32 `erl_eval`, LIB33 readers, LIB34 parts 1-4 (`erl_error`, `erl_pp`,
-`erl_expand_records`, `epp`, all in Erlang), and the LIB34C cores below. Left: LIB34A (qlc).
-
-### LIB34C. C++ cores for the clause-heavy front-end modules (user direction 2026-10-24)
-
-Erlang modules made of large clause dispatches (OTP's style, like yecc's generated parsers) are
-heavy on every program that links them: inference walks big SCCs and codegen emits large functions,
-while runtime builtins come prebuilt. Measured on a debug `clau` (one call reaching each module,
-extra compile time over a hello-world, `-O0` / `-O2`): `epp` +3.0 s / +4.8 s (it pulls `erl_eval`
-for `-if`), `erl_eval` +2.0 s / +3.7 s (inference 0.5 s, 0.28 s of it the `expr/2` SCC; lower,
-optimize and emit 3 s), `erl_expand_records` +1.2 s / +0.7 s, `erl_pp` +0.9 s / +1.9 s,
-`clause_erl_lint` +0.6 s / +1.2 s, `erl_error` +0.4 s / +0.8 s. The data walks move to C++ builtins
-(`runtime/src/builtins/front_end/`); Erlang stays only where funs run or processes serve.
-
-Acceptance of every part: the existing goldens unchanged, the scratch comparison with OTP of that
-module rerun with no differences, and the probe's compile time measured again (recorded in
-`00-finished.md`).
-
-All six parts (`erl_expand_records:module/2`, `erl_lint`, `erl_pp`, `epp`, `erl_eval`, `erl_error`)
-are done (`00-finished.md`). `epp` and `erl_error` turned out to be costly through export liveness
-rather than their clauses, which `-compile({clause_liveness, strict})` answers
-(`docs/compile.md#strict-liveness`); `erl_eval`'s remaining cost is its evaluator loop and funs.
-
-LIB34A (qlc chain) needs from these: `erl_pp` whole, `erl_expand_records:module/2`,
-`erl_lint:is_guard_test/1`, `format_error/1` and the `module/2` errors a query expression can raise
-(unbound and unsafe variables, illegal guards, undefined records), with OTP's error terms.
+Done (`00-finished.md`): LIB32 `erl_eval`, LIB33 readers, LIB34 parts 1-4, LIB34C (C++ cores of
+`erl_expand_records`, `erl_lint`, `erl_pp`, `epp`, `erl_eval`, `erl_error`) and with it LIB34A.
+Nothing is left in this tier.
 
 ## Tier E: files, archives and logs
-
-### LIB50. `file` remainder (C++ driver operations)
-
-- `pread/2,3`, `pwrite/2,3`, `truncate/1`, `advise/4`, `allocate/3`, `write_file_info/2,3`.
-- `change_mode/2`, `change_owner/2,3`, `change_group/2`, `change_time/2,3`, `sendfile/2,5`,
-  `format_error/1` (with the `{Line, file, ...}` terms of `eval/1,2` and `script/1,2`).
 
 ### LIB51. `filelib`
 
@@ -241,13 +212,12 @@ LIB34A (qlc chain) needs from these: `erl_pp` whole, `erl_expand_records:module/
 - Needs runtime trace points (sends, receives, calls, process events).
 - Selected or declined as one decision. The call tracer of plan 11 is the starting point.
 
-> > > > 
 
 ### LIB73. `qlc`
 
 Dependencies first (user direction 2026-10-19), in this order: LIB30 `erl_scan` (done), LIB31
 `erl_parse` (done), LIB54A `file_sorter`, LIB32 `erl_eval` (done), LIB34A (`erl_pp`,
-`erl_expand_records`, `erl_lint`'s checks for `qlc_pt`). See
+`erl_expand_records`, `erl_lint`'s checks for `qlc_pt`; done with LIB34C). See
 [the qlc chain](#qlc-chain-user-direction-2026-10-19).
 
 - `qlc` (26): Erlang query handles and evaluation over `ets`, `dets` and lists. Compiled queries
@@ -295,7 +265,7 @@ probe for them keep working.
 
 Runs now, before the list below: LIB30 `erl_scan` (done), LIB31 `erl_parse` (done), LIB54A
 `file_sorter` (its `term` format reads with `io:read/2`, done in LIB33), LIB32 `erl_eval` (done,
-with every undocumented export), LIB34A, then LIB73 `qlc` with LIB12C. Each is its own commit. The
+with every undocumented export), LIB34A (done), then LIB73 `qlc` with LIB12C. Each is its own commit. The
 runtime cannot link the compiler's `clause_frontend` (a separate, LLVM-free build; the compiler
 lexer throws Clause diagnostics and has no `erl_scan` continuations), so `erl_scan` and `erl_parse`
 get their own C++ scanner and parser in `runtime/src/builtins/front_end/`, written to OTP's
@@ -307,7 +277,7 @@ own annotations, and no Boost in the runtime.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB50, LIB60 and LIB61 (`file`, `inet`, `os`, `code` gaps).
+1. LIB60 and LIB61 (`inet`, `os`, `code` gaps).
 2. LIB30–LIB34 (the front end, `consult`, `io:read`).
 3. LIB51–LIB55 (files, logs, archives), then LIB12C.
 4. LIB70, LIB62 and LIB63.
@@ -347,9 +317,6 @@ separately and are optional.
   toggle_instrumentations/1, unregister/2, whereis/0, xregs_count/1
 - `erl_epmd` (kernel, 8): address_please/3, listen_port_please/2, names/1, port_please/2,3,
   register_node/2,3, start_link/0
-- `file` (kernel, 18, 44 done): advise/4, allocate/3, change_group/2, change_mode/2,
-  change_owner/2,3, change_time/2,3, format_error/1, pread/2,3, pwrite/2,3, sendfile/2,5,
-  truncate/1, write_file_info/2,3
 - `gen_sctp` (kernel, 23): abort/2, close/1, connect/3,4,5, connect_init/3,4,5, connectx_init/3,4,5,
   controlling_process/2, eof/2, error_string/1, listen/2, open/0,1,2, peeloff/2, recv/1,2, send/3,4
 - `gen_tcp` (kernel, 1, 11 done): connect/2

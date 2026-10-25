@@ -1171,6 +1171,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"digraph_utils", "is_tree", 1},
     BuiltinName{"digraph_utils", "preorder", 1},
     BuiltinName{"digraph_utils", "postorder", 1},
+    // erl_posix_msg (plan 21 step LIB50; runtime/src/builtins/erl_posix_msg.cpp).
+    BuiltinName{"erl_posix_msg", "message", 1},
     // erl_anno and erl_internal (plan 21 step LIB8; runtime/src/builtins/front_end/).
     BuiltinName{"erl_anno", "column", 1},
     BuiltinName{"erl_anno", "end_location", 1},

@@ -284,10 +284,10 @@ stdout are pipes of the port:
   is flattened first), and a reply becomes the result binary without a copy:
   replies are `ByteBuffer`s (`runtime/include/byte_buffer.hpp`), byte vectors
   that grow without zeroing, so a read fills its reply's bytes once (OPT3.4).
-- `file:open/2` returns an I/O server pid that owns a file port and is linked to
-  the opener (modes `read`, `write`, `append`, `exclusive`, `binary`; other
-  modes are ignored, as OTP ignores options it does not use; `write` truncates
-  unless `append` is also given).
+- `file:open/2` returns an I/O server pid that owns a file port and closes when
+  the opener ends, as OTP's (modes `read`, `write`, `append`, `exclusive`,
+  `binary`, `raw`; other modes are ignored, as OTP ignores options it does not
+  use; `write` truncates unless `append` is also given).
 - `file:write_file/3` opens with its modes plus `binary` and `write`;
   `file:read_file_info/1,2` return OTP's `#file_info{}` from the path's status
   (following links), with times as local or universal date and time or POSIX
@@ -296,6 +296,24 @@ stdout are pipes of the port:
   reports them. `read/2`, `read_line/1`, `write/2`, `position/2` and
   `io:get_line/2`, `io:get_chars/3` on it are requests to that server; after
   `close/1` requests return `{error, terminated}` and `close/1` stays `ok`.
+- Positioned I/O and file changes (plan 21 step LIB50): `pread/2,3` and
+  `pwrite/2,3` position and then read or write on a file server (`cur` reads
+  on, the position moves), as OTP's server does; a `raw` file takes integer
+  offsets only (`badarg` otherwise) and keeps its position. `truncate/1` cuts at
+  the position; `advise/4` takes OTP's advice atoms (`posix_fadvise` on Linux,
+  ignored elsewhere, as OTP); `allocate/3` reserves space (`fallocate`, macOS
+  `F_PREALLOCATE`, `{error, enotsup}` on Windows), its arguments checked first
+  (`badarg` for non-numbers, `einval` for negatives and floats). As OTP's file
+  server, a server whose write, positioned write, sync, truncate or advice
+  fails replies with the error and exits, so later requests get
+  `{error, terminated}`; a raw file goes on. `write_file_info/2,3` and
+  `change_mode/2`, `change_owner/2,3`, `change_group/2`, `change_time/2,3`
+  change owner, permissions and times in prim_file's order (Windows: owners
+  ignored, only the read-only attribute from the owner write bit, the creation
+  time set too). `sendfile/2,5` read a raw file in chunks (at most 1 MiB,
+  `chunk_size`) and send them with `gen_tcp:send/2` or the given fun, OTP's
+  fallback: Clause has no native sendfile. `format_error/1` gives OTP's texts,
+  POSIX ones from `erl_posix_msg:message/1`.
 - OTP's I/O protocol: the standard input server and every open file's server
   answer `{io_request, From, ReplyAs, Request}` with
   `{io_reply, ReplyAs, Reply}`, which `io:request/1,2` and `io:requests/1,2`

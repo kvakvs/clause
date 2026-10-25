@@ -1,3 +1,4 @@
+#include "file_changes.hpp"
 #include "file_info.hpp"
 #include "file_paths.hpp"
 #include "port.hpp"
@@ -39,6 +40,9 @@ enum class FileOperation : std::uint8_t {
     close = 6,
     // Flushing to the device (plan 21 step LIB23): a flag byte, 1 for the data only.
     sync = 7,
+    // Cutting the file at its position and access advice (plan 21 step LIB50).
+    truncate = 8,
+    advise = 9,
     read_file = 10,
     write_file = 11,
     remove = 12,
@@ -55,6 +59,14 @@ enum class FileOperation : std::uint8_t {
     read_link_info = 21,
     make_link = 22,
     make_symlink = 23,
+    // A path's owner, permissions and times (plan 21 step LIB50).
+    set_owner = 24,
+    set_permissions = 25,
+    set_times = 26,
+    // Reads and writes at an offset that keep the position, and reserving space (plan 21 step LIB50).
+    pread = 30,
+    pwrite = 31,
+    allocate = 32,
 };
 
 // Bits of the open operation's mode byte.
@@ -405,10 +417,44 @@ Bytes make_symlink(std::span<const std::byte> bytes) {
     return path_reply(make_symbolic_link(path_of(existing), path_of(link)));
 }
 
+// A 32-bit big-endian signed integer at `at`.
+std::int32_t signed32(std::span<const std::byte> bytes, std::size_t at) {
+    return std::bit_cast<std::int32_t>(static_cast<std::uint32_t>(number(bytes, at, 4)));
+}
+
+// A 64-bit big-endian signed integer at `at`.
+std::int64_t signed64(std::span<const std::byte> bytes, std::size_t at) {
+    return std::bit_cast<std::int64_t>(number(bytes, at, 8));
+}
+
+// The path after a fixed-size head of `size` bytes.
+std::filesystem::path path_after(std::span<const std::byte> bytes, std::size_t size) {
+    return path_of(bytes.subspan(std::min(size, bytes.size())));
+}
+
+// set_owner: the 32-bit user and group ids (-1 keeps one), then the path (plan 21 step LIB50).
+Bytes owner_operation(std::span<const std::byte> bytes) {
+    return done(set_owner(path_after(bytes, 8), FileOwner{signed32(bytes, 0), signed32(bytes, 4)}));
+}
+
+// set_permissions: the 32-bit mode, then the path (plan 21 step LIB50).
+Bytes permissions_operation(std::span<const std::byte> bytes) {
+    return done(set_permissions(path_after(bytes, 4), static_cast<std::uint32_t>(number(bytes, 0, 4))));
+}
+
+// set_times: the access, modification and creation times as 64-bit POSIX seconds, then the path (plan 21 step LIB50).
+Bytes times_operation(std::span<const std::byte> bytes) {
+    return done(
+        set_times(path_after(bytes, 24), FileTimes{signed64(bytes, 0), signed64(bytes, 8), signed64(bytes, 16)}));
+}
+
 // The path operations, which need no open file, from read_file on in FileOperation order.
-constexpr std::array<Bytes (*)(std::span<const std::byte>), 14> PATH_OPERATIONS{
-    read_file,      write_file, remove_file, rename_path, list_dir,       make_dir,  delete_dir,
-    read_file_info, get_cwd,    set_cwd,     read_link,   read_link_info, make_link, make_symlink};
+constexpr std::array<Bytes (*)(std::span<const std::byte>), 17> PATH_OPERATIONS{
+    read_file,      write_file,   remove_file,     rename_path,
+    list_dir,       make_dir,     delete_dir,      read_file_info,
+    get_cwd,        set_cwd,      read_link,       read_link_info,
+    make_link,      make_symlink, owner_operation, permissions_operation,
+    times_operation};
 
 // Run a path operation.
 Bytes path_operation(FileOperation operation, std::span<const std::byte> bytes) {
@@ -440,7 +486,7 @@ class FileDriver final : public PortDriver {
     std::optional<Bytes> control(std::uint32_t operation, std::span<const std::byte> bytes, Word) override {
         const auto kind = static_cast<FileOperation>(operation);
         if (operation >= static_cast<std::uint32_t>(FileOperation::read_file) &&
-            operation <= static_cast<std::uint32_t>(FileOperation::make_symlink)) {
+            operation <= static_cast<std::uint32_t>(FileOperation::set_times)) {
             return path_operation(kind, bytes);
         }
         const Turn turn(*this);
@@ -477,27 +523,80 @@ class FileDriver final : public PortDriver {
         FileDriver &driver_;
     };
 
+    // A handler of an operation on the open file.
+    using Handler = Bytes (FileDriver::*)(std::span<const std::byte>);
+
     // An operation on the open file; none for an unknown operation.
     std::optional<Bytes> file_operation(FileOperation operation, std::span<const std::byte> bytes) {
-        switch (operation) {
-        case FileOperation::open:
-            return open(bytes);
-        case FileOperation::read:
-            return read(static_cast<std::size_t>(number(bytes, 0, 8)));
-        case FileOperation::write:
-            return write_bytes(bytes);
-        case FileOperation::position:
-            return position(bytes);
-        case FileOperation::read_line:
-            return mode_allows(MODE_READ) ? read_line() : failure("ebadf");
-        case FileOperation::close:
-            close_fd(std::exchange(fd_, -1));
-            return ok();
-        case FileOperation::sync:
-            return sync(bytes);
-        default:
+        static constexpr std::array<std::pair<FileOperation, Handler>, 12> OPERATIONS{{
+            {FileOperation::open, &FileDriver::open},
+            {FileOperation::read, &FileDriver::read_operation},
+            {FileOperation::write, &FileDriver::write_bytes},
+            {FileOperation::position, &FileDriver::position},
+            {FileOperation::read_line, &FileDriver::read_line_operation},
+            {FileOperation::close, &FileDriver::close_operation},
+            {FileOperation::sync, &FileDriver::sync},
+            {FileOperation::truncate, &FileDriver::truncate_operation},
+            {FileOperation::advise, &FileDriver::advise_operation},
+            {FileOperation::allocate, &FileDriver::allocate_operation},
+            {FileOperation::pread, &FileDriver::pread_operation},
+            {FileOperation::pwrite, &FileDriver::pwrite_operation},
+        }};
+        const auto found = std::ranges::find(OPERATIONS, operation, &std::pair<FileOperation, Handler>::first);
+        if (found == OPERATIONS.end()) {
             return std::nullopt;
         }
+        return (this->*found->second)(bytes);
+    }
+
+    // read: a 64-bit size.
+    Bytes read_operation(std::span<const std::byte> bytes) {
+        return read(static_cast<std::size_t>(number(bytes, 0, 8)));
+    }
+
+    Bytes read_line_operation(std::span<const std::byte>) {
+        return mode_allows(MODE_READ) ? read_line() : failure("ebadf");
+    }
+
+    Bytes close_operation(std::span<const std::byte>) {
+        close_fd(std::exchange(fd_, -1));
+        return ok();
+    }
+
+    // truncate, advise (a range and an advice byte) and allocate (a range): plan 21 step LIB50.
+    Bytes truncate_operation(std::span<const std::byte>) { return done(truncate_at_position(fd_)); }
+
+    Bytes advise_operation(std::span<const std::byte> bytes) {
+        advise_access(fd_, range(bytes), bytes.size() > 16 ? std::to_integer<unsigned>(bytes[16]) : 0);
+        return ok();
+    }
+
+    Bytes allocate_operation(std::span<const std::byte> bytes) { return done(allocate_space(fd_, range(bytes))); }
+
+    // pread: a 64-bit offset and size; pwrite: a 64-bit offset and the bytes (plan 21 step LIB50).
+    Bytes pread_operation(std::span<const std::byte> bytes) {
+        return at_offset(signed64(bytes, 0), [&] { return read(static_cast<std::size_t>(number(bytes, 8, 8))); });
+    }
+
+    Bytes pwrite_operation(std::span<const std::byte> bytes) {
+        return at_offset(signed64(bytes, 0),
+                         [&] { return write_bytes(bytes.subspan(std::min<std::size_t>(8, bytes.size()))); });
+    }
+
+    // A signed 64-bit offset and length (advise and allocate, plan 21 step LIB50).
+    static FileRange range(std::span<const std::byte> bytes) {
+        return FileRange{signed64(bytes, 0), signed64(bytes, 8)};
+    }
+
+    // Run a read or write at `offset` and move back to where the file was (pread, pwrite: plan 21 step LIB50).
+    template <typename Operation> Bytes at_offset(std::int64_t offset, Operation operation) {
+        const auto current = seek_fd(fd_, 0, SEEK_CUR);
+        if (current < 0 || seek_fd(fd_, offset, SEEK_SET) < 0) {
+            return errno_failure();
+        }
+        auto reply = operation();
+        seek_fd(fd_, current, SEEK_SET);
+        return reply;
     }
 
     // write: the bytes, when the file was opened for writing.

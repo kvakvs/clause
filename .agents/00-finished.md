@@ -734,6 +734,15 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   parse state; `file` servers monitor their opener instead of linking (no `EXIT` on close, as OTP);
   `epp_files` golden, and a scratch comparison over 1,110 epp calls on OTP sources and suites found
   no differences — `4a3e5b7b`
+- **LIB34C** C++ cores for the clause-heavy front-end modules (user direction 2026-10-24): their large
+  clause dispatches were heavy on every program linking them (debug `clau`, extra compile over a
+  hello-world, `-O0` / `-O2`: `epp` +3.0 s / +4.8 s, `erl_eval` +2.0 s / +3.7 s, `erl_expand_records`
+  +1.2 s / +0.7 s, `erl_pp` +0.9 s / +1.9 s, `clause_erl_lint` +0.6 s / +1.2 s, `erl_error` +0.4 s / +0.8 s).
+  Data walks moved to `runtime/src/builtins/front_end/`, accepted by unchanged goldens, a scratch OTP
+  comparison and a remeasured probe per part. `epp` and `erl_error` were costly through export
+  liveness instead, answered by `-compile({clause_liveness, strict})`; `erl_eval`'s rest is its
+  evaluator loop and funs. Six parts, below; they also meet LIB34A (what `qlc` needs: `erl_pp`,
+  `erl_expand_records:module/2`, `erl_lint`'s guard tests, `format_error/1` and `module/2` errors)
 - **LIB34C part 1** `erl_expand_records:module/2` as a C++ builtin (`front_end/expand_records.cpp`) with
   OTP's traversal and `recN` numbering, guard tests in C++ (`front_end/guard_tests.cpp`, also
   `clause_erl_lint:is_guard_test/1`, `is_guard_expr/1`); a program calling it compiles +0.00 s / +0.01 s

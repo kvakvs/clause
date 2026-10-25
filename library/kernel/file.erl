@@ -91,6 +91,10 @@
 -define(CLOSE, 6).
 % Flushing an open file to its device, a flag byte 1 for the data only (plan 21 step LIB23).
 -define(SYNC, 7).
+% Cutting a file at its position, access advice, path owners, permissions and times, reads and writes at an offset
+% and reserving space (plan 21 step LIB50).
+-define(TRUNCATE, 8).
+-define(ADVISE, 9).
 -define(READ_FILE, 10).
 -define(WRITE_FILE, 11).
 -define(DELETE, 12).
@@ -105,6 +109,14 @@
 -define(READ_LINK_INFO, 21).
 -define(MAKE_LINK, 22).
 -define(MAKE_SYMLINK, 23).
+-define(SET_OWNER, 24).
+-define(SET_PERMISSIONS, 25).
+-define(SET_TIMES, 26).
+-define(PREAD, 30).
+-define(PWRITE, 31).
+-define(ALLOCATE, 32).
+% Integers the driver takes as signed 64-bit numbers (plan 21 step LIB50).
+-define(IS_INT64(N), (is_integer(N) andalso N >= -16#8000000000000000 andalso N =< 16#7FFFFFFFFFFFFFFF)).
 
 % Open File with Modes (read, write, append, exclusive, binary; others are ignored, as OTP ignores options it does
 % not use): {ok, IoDevice} or {error, Reason}.
@@ -125,7 +137,13 @@ open(_, _) ->
 read(File, Size) when is_integer(Size), Size >= 0 -> call(File, {read, Size});
 read(_, _) -> {error, badarg}.
 
-write(File, Bytes) -> call(File, {write, Bytes}).
+% Bytes are made a binary before the request, so a server only fails a write it attempted (and then stops).
+write(File, Bytes) ->
+    try iolist_to_binary(Bytes) of
+        Data -> call(File, {write, Data})
+    catch
+        error:badarg -> {error, badarg}
+    end.
 
 read_line(File) -> call(File, read_line).
 
@@ -205,8 +223,8 @@ time_option(_, _) ->
 
 % The driver's status record as #file_info{}.
 file_info(
-    <<Size:64, Type, Access, ATime:64/signed, MTime:64/signed, CTime:64/signed, Mode:32, Links:32,
-        Major:32, Minor:32, Inode:64, Uid:32, Gid:32>>,
+    <<Size:64, Type, Access, ATime:64/signed, MTime:64/signed, CTime:64/signed, Mode:32, Links:32, Major:32, Minor:32,
+        Inode:64, Uid:32, Gid:32>>,
     Time
 ) ->
     #file_info{
@@ -388,38 +406,120 @@ call(File, Request) when is_pid(File) ->
 call(_, _) ->
     {error, badarg}.
 
-% The I/O server of one open file. As OTP's, it is not linked to the opener but closes when the opener ends.
+% The I/O server of one open file. As OTP's, it is not linked to the opener but closes when the opener ends. A raw
+% file is served too, and answers as OTP's raw files do where they differ (plan 21 step LIB50).
 serve(Opener, Name, Modes) ->
     Port = open_port({spawn_driver, "clause_file"}, [binary]),
     case reply(port_control(Port, ?OPEN, [mode_byte(Modes), Name])) of
         {ok, _} ->
             monitor(process, Opener),
             Opener ! {self(), opened, {ok, self()}},
-            loop(Opener, Port, lists:member(binary, Modes));
+            loop(Opener, Port, lists:member(binary, Modes), lists:member(raw, Modes));
         Error ->
             Opener ! {self(), opened, Error}
     end.
 
-loop(Opener, Port, Binary) ->
+loop(Opener, Port, Binary, Raw) ->
     receive
         {file_request, From, Ref, close} ->
             port_close(Port),
             From ! {file_reply, Ref, ok};
         {file_request, From, Ref, Request} ->
-            From ! {file_reply, Ref, request(Port, Binary, Request)},
-            loop(Opener, Port, Binary);
+            answer(file_reply, From, Ref, file_request(Port, Binary, Raw, Request)),
+            loop(Opener, Port, Binary, Raw);
         {io_request, From, ReplyAs, Request} ->
-            case io_request(Port, Binary, Request) of
-                {stop, Reason, Reply} ->
-                    From ! {io_reply, ReplyAs, Reply},
-                    exit(Reason);
-                Reply ->
-                    From ! {io_reply, ReplyAs, Reply},
-                    loop(Opener, Port, Binary)
-            end;
+            answer(io_reply, From, ReplyAs, io_request(Port, Binary, Request)),
+            loop(Opener, Port, Binary, Raw);
         {'DOWN', _, process, Opener, _} ->
             port_close(Port)
     end.
+
+% Send a reply; {stop, Reason, Reply} also ends the server with Reason after replying.
+answer(Tag, From, Ref, {stop, Reason, Reply}) ->
+    From ! {Tag, Ref, Reply},
+    exit(Reason);
+answer(Tag, From, Ref, Reply) ->
+    From ! {Tag, Ref, Reply}.
+
+% Answer a file request as request/3 does, but a failed write, sync, truncate or advice stops the server, as OTP's
+% file server stops, while a raw file (OTP serves none) goes on. Added for plan 21 step LIB50.
+file_request(Port, Binary, Raw, {pread, At, Size}) ->
+    pread_request(Port, Binary, Raw, At, Size);
+file_request(Port, _, Raw, {pwrite, At, Bytes}) ->
+    pwrite_request(Port, Raw, At, Bytes);
+file_request(_, _, Raw, raw) ->
+    Raw;
+file_request(Port, _, Raw, truncate) ->
+    stopping(Raw, ok_reply(reply(port_control(Port, ?TRUNCATE, []))));
+file_request(Port, _, Raw, {advise, Offset, Length, Advice}) ->
+    stopping(Raw, advise_request(Port, Offset, Length, Advice));
+file_request(Port, _, _, {allocate, Offset, Length}) ->
+    case range(Offset, Length) of
+        {ok, Range} -> ok_reply(reply(port_control(Port, ?ALLOCATE, Range)));
+        Error -> Error
+    end;
+file_request(Port, Binary, Raw, {Operation, _} = Request) when Operation =:= write; Operation =:= sync ->
+    stopping(Raw, request(Port, Binary, Request));
+file_request(Port, Binary, _, Request) ->
+    request(Port, Binary, Request).
+
+stopping(false, {error, Reason} = Error) -> {stop, Reason, Error};
+stopping(_, Reply) -> Reply.
+
+% pread: a file server positions and reads (at cur it reads on); a raw file reads at an integer offset and stays put.
+pread_request(Port, Binary, false, At, Size) when At =:= cur; At =:= {cur, 0} ->
+    request(Port, Binary, {read, Size});
+pread_request(Port, Binary, false, At, Size) ->
+    case request(Port, Binary, {position, At}) of
+        {ok, _} -> request(Port, Binary, {read, Size});
+        Error -> Error
+    end;
+pread_request(Port, Binary, true, At, Size) when ?IS_INT64(At) ->
+    data(reply(port_control(Port, ?PREAD, <<At:64/signed, Size:64>>)), Binary);
+pread_request(_, _, true, _, _) ->
+    {error, badarg}.
+
+% pwrite: as pread; a file server stops when the write fails or Bytes are not iodata.
+pwrite_request(Port, false, At, Bytes) ->
+    case At =:= cur orelse At =:= {cur, 0} orelse request(Port, false, {position, At}) of
+        {error, _} = Error -> Error;
+        _ -> stopping(false, written(Port, ?WRITE, <<>>, Bytes))
+    end;
+pwrite_request(Port, true, At, Bytes) when ?IS_INT64(At) ->
+    written(Port, ?PWRITE, <<At:64/signed>>, Bytes);
+pwrite_request(_, true, _, _) ->
+    {error, badarg}.
+
+written(Port, Operation, Head, Bytes) ->
+    try iolist_to_binary(Bytes) of
+        Data -> ok_reply(reply(port_control(Port, Operation, [Head, Data])))
+    catch
+        error:badarg -> {error, badarg}
+    end.
+
+% advise: the offset and length as prim_file checks them, then one of OTP's advice atoms (einval for another).
+advise_request(Port, Offset, Length, Advice) ->
+    case {range(Offset, Length), advice(Advice)} of
+        {{ok, Range}, Code} when is_integer(Code) -> ok_reply(reply(port_control(Port, ?ADVISE, [Range, Code])));
+        {{ok, _}, error} -> {error, einval};
+        {Error, _} -> Error
+    end.
+
+advice(normal) -> 0;
+advice(random) -> 1;
+advice(sequential) -> 2;
+advice(will_need) -> 3;
+advice(dont_need) -> 4;
+advice(no_reuse) -> 5;
+advice(_) -> error.
+
+% An offset and length for the driver: badarg for non-numbers, einval for floats, negatives and integers past 64
+% bits, as prim_file's NIF answers.
+range(Offset, Length) when not is_number(Offset); not is_number(Length) -> {error, badarg};
+range(Offset, Length) when ?IS_INT64(Offset), ?IS_INT64(Length), Offset >= 0, Length >= 0 ->
+    {ok, <<Offset:64, Length:64>>};
+range(_, _) ->
+    {error, einval}.
 
 % --- OTP's I/O protocol on an open file (step 41ZC) ---
 
@@ -490,18 +590,14 @@ request(Port, Binary, get_line) ->
         {ok, Line} -> Line;
         Other -> Other
     end;
-request(Port, _, {write, Bytes}) ->
-    try iolist_to_binary(Bytes) of
-        Data -> ok_reply(reply(port_control(Port, ?WRITE, Data)))
-    catch
-        error:badarg -> {error, badarg}
-    end;
+request(Port, _, {write, Data}) ->
+    ok_reply(reply(port_control(Port, ?WRITE, Data)));
 request(Port, _, {sync, DataOnly}) ->
     ok_reply(reply(port_control(Port, ?SYNC, <<DataOnly>>)));
 request(Port, _, {position, Location}) ->
     case location(Location) of
-        error ->
-            {error, einval};
+        badarg ->
+            {error, badarg};
         {Whence, Offset} ->
             case reply(port_control(Port, ?POSITION, <<Whence, Offset:64/signed>>)) of
                 {ok, <<Position:64>>} -> {ok, Position};
@@ -509,7 +605,7 @@ request(Port, _, {position, Location}) ->
             end
     end.
 
-% A position as a whence byte (0 start, 1 current, 2 end) and an offset.
+% A position as a whence byte (0 start, 1 current, 2 end) and an offset; badarg for anything else, as OTP.
 location(Offset) when is_integer(Offset) -> {0, Offset};
 location(bof) -> {0, 0};
 location(cur) -> {1, 0};
@@ -517,7 +613,7 @@ location(eof) -> {2, 0};
 location({bof, Offset}) when is_integer(Offset) -> {0, Offset};
 location({cur, Offset}) when is_integer(Offset) -> {1, Offset};
 location({eof, Offset}) when is_integer(Offset) -> {2, Offset};
-location(_) -> error.
+location(_) -> badarg.
 
 % The mode byte of the open operation: read 1, write 2, append 4, exclusive 8.
 mode_byte(Modes) ->
@@ -810,28 +906,255 @@ next_exprs(Source, Line) ->
 % The next form's scan as io:read/3 reads it from OTP's file server.
 next_tokens(Source, Line) -> clause_epp:scan(Source, Line, []).
 
-advise(_, _, _, _) -> erlang:error({not_implemented, advise, 4}).
-allocate(_, _, _) -> erlang:error({not_implemented, allocate, 3}).
+% --- Positioned I/O, truncation, advice and space (plan 21 step LIB50) ---
+
+% A file server positions and then reads or writes, so the position moves; a raw file takes integer offsets only
+% and keeps its position, as OTP's raw files do.
+pread(File, LocNums) when is_pid(File), is_list(LocNums) -> pread_all(File, LocNums, []);
+pread(_, _) -> {error, badarg}.
+
+pread_all(_, [], Acc) ->
+    {ok, lists:reverse(Acc)};
+pread_all(File, [{At, Size} | Rest], Acc) when is_integer(Size), Size >= 0 ->
+    case pread(File, At, Size) of
+        {ok, Data} -> pread_all(File, Rest, [Data | Acc]);
+        eof -> pread_all(File, Rest, [eof | Acc]);
+        {error, _} = Error -> Error
+    end;
+pread_all(_, _, _) ->
+    {error, badarg}.
+
+pread(File, At, Size) when is_pid(File), is_integer(Size), Size >= 0 -> call(File, {pread, At, Size});
+pread(_, _, _) -> {error, badarg}.
+
+% pwrite(File, LocBytes): ok, or {error, {N, Reason}} after N successful writes.
+pwrite(File, LocBytes) when is_pid(File), is_list(LocBytes) -> pwrite_all(File, LocBytes, 0);
+pwrite(_, _) -> {error, badarg}.
+
+pwrite_all(_, [], _) ->
+    ok;
+pwrite_all(File, [{At, Bytes} | Rest], Done) ->
+    case pwrite(File, At, Bytes) of
+        ok -> pwrite_all(File, Rest, Done + 1);
+        {error, Reason} -> {error, {Done, Reason}}
+    end;
+pwrite_all(_, _, _) ->
+    {error, badarg}.
+
+pwrite(File, At, Bytes) when is_pid(File) -> call(File, {pwrite, At, Bytes});
+pwrite(_, _, _) -> {error, badarg}.
+
+% Cut the file at its current position.
+truncate(File) when is_pid(File) -> call(File, truncate);
+truncate(_) -> {error, badarg}.
+
+% Access advice for a range: ok on every platform that takes or ignores it.
+advise(File, Offset, Length, Advice) when is_pid(File) -> call(File, {advise, Offset, Length, Advice});
+advise(_, _, _, _) -> {error, badarg}.
+
+% Reserve space for a range; {error, enotsup} where the platform cannot (Windows, as OTP).
+allocate(File, Offset, Length) when is_pid(File) -> call(File, {allocate, Offset, Length}).
+
+% --- File information changes (plan 21 step LIB50) ---
+
+write_file_info(File, #file_info{} = Info) -> write_file_info(File, Info, []).
+
+% Change owner, permissions and times in prim_file's order, from the fields that are set; an undefined atime is now,
+% an undefined mtime the atime and an undefined ctime the mtime. {error, badarg} for bad fields and times.
+write_file_info(File, #file_info{} = Info, Options) when is_list(Options) ->
+    Time = time_type(Options),
+    case name(File) of
+        error ->
+            {error, badarg};
+        Name ->
+            try
+                change_info(Name, Info, Time)
+            catch
+                throw:Reason -> {error, Reason};
+                error:_ -> {error, badarg}
+            end
+    end.
+
+raw_write_file_info(File, #file_info{} = Info) -> write_file_info(File, Info, [raw]).
+
+% The time option of a list, as prim_file reads it.
+time_type([{time, Time} | _]) -> Time;
+time_type([time | _]) -> true;
+time_type([_ | Rest]) -> time_type(Rest);
+time_type([]) -> local.
+
+change_info(Name, #file_info{mode = Mode, uid = Uid, gid = Gid, atime = A, mtime = M, ctime = C}, Time) ->
+    ATime = int64(access_time(A, Time)),
+    MTime = int64(later_time(M, ATime, Time)),
+    CTime = int64(later_time(C, MTime, Time)),
+    changed(path_change(Name, ?SET_OWNER, <<(owner_id(Uid)):32/signed, (owner_id(Gid)):32/signed>>)),
+    changed(mode_change(Name, Mode)),
+    changed(path_change(Name, ?SET_TIMES, <<ATime:64/signed, MTime:64/signed, CTime:64/signed>>)).
+
+access_time(undefined, local) -> posix_time(erlang:localtime(), local);
+access_time(undefined, universal) -> posix_time(erlang:universaltime(), universal);
+access_time(undefined, posix) -> erlang:universaltime_to_posixtime(erlang:universaltime());
+access_time(Time, Type) -> posix_time(Time, Type).
+
+later_time(undefined, Earlier, _) -> Earlier;
+later_time(Time, _, Type) -> posix_time(Time, Type).
+
+posix_time(Seconds, posix) when is_integer(Seconds) -> Seconds;
+posix_time({_, _} = Time, universal) -> erlang:universaltime_to_posixtime(Time);
+posix_time({_, _} = Time, local) -> erlang:universaltime_to_posixtime(erlang:localtime_to_universaltime(Time)).
+
+int64(N) when ?IS_INT64(N) -> N.
+
+owner_id(undefined) -> -1;
+owner_id(Id) when is_integer(Id), Id >= -16#80000000, Id =< 16#7FFFFFFF -> Id.
+
+mode_change(_, undefined) ->
+    ok;
+mode_change(Name, Mode) when is_integer(Mode), Mode >= 0, Mode =< 16#FFFFFFFF ->
+    path_change(Name, ?SET_PERMISSIONS, <<Mode:32>>).
+
+path_change(Name, Operation, Head) -> path_call(Name, Operation, fun(Path) -> [Head, Path] end, fun(_) -> ok end).
+
+% A change that failed ends write_file_info with its reason; enotsup counts as done, as prim_file counts it.
+changed(ok) -> ok;
+changed({error, enotsup}) -> ok;
+changed({error, Reason}) -> throw(Reason).
+
+change_mode(Name, Mode) when is_integer(Mode) -> write_file_info(Name, #file_info{mode = Mode}).
+
+change_owner(Name, Uid) when is_integer(Uid) -> write_file_info(Name, #file_info{uid = Uid}).
+
+change_owner(Name, Uid, Gid) when is_integer(Uid), is_integer(Gid) ->
+    write_file_info(Name, #file_info{uid = Uid, gid = Gid}).
+
+change_group(Name, Gid) when is_integer(Gid) -> write_file_info(Name, #file_info{gid = Gid}).
+
+change_time(Name, {{Y, Mo, D}, {H, Mi, S}} = MTime) when
+    is_integer(Y), is_integer(Mo), is_integer(D), is_integer(H), is_integer(Mi), is_integer(S)
+->
+    write_file_info(Name, #file_info{mtime = MTime}).
+
+change_time(Name, {{AY, AMo, AD}, {AH, AMi, AS}} = ATime, {{MY, MMo, MD}, {MH, MMi, MS}} = MTime) when
+    is_integer(AY),
+    is_integer(AMo),
+    is_integer(AD),
+    is_integer(AH),
+    is_integer(AMi),
+    is_integer(AS),
+    is_integer(MY),
+    is_integer(MMo),
+    is_integer(MD),
+    is_integer(MH),
+    is_integer(MMi),
+    is_integer(MS)
+->
+    write_file_info(Name, #file_info{atime = ATime, mtime = MTime}).
+
+% --- sendfile (plan 21 step LIB50) ---
+
+% Clause has no native sendfile: the data is read in chunks (at most 1 MiB) and sent with gen_tcp:send/2 or the
+% given fun, OTP's fallback. Only a raw file may be sent, as OTP requires; its position is kept.
+-define(MAX_CHUNK_SIZE, (1 bsl 20)).
+
+sendfile(File, Socket) ->
+    case open(File, [read, raw, binary]) of
+        {ok, Fd} ->
+            Result = sendfile(Fd, Socket, 0, 0, []),
+            _ = close(Fd),
+            Result;
+        Error ->
+            Error
+    end.
+
+sendfile(File, Socket, Offset, Bytes, Options) when is_pid(File) ->
+    case call(File, raw) of
+        true -> sendfile_options(File, Socket, Offset, Bytes, Options);
+        _ -> {error, badarg}
+    end;
+sendfile(_, _, _, _, _) ->
+    {error, badarg}.
+
+sendfile_options(File, Socket, Offset, Bytes, []) ->
+    sendfile_to(File, Socket, Offset, Bytes, ?MAX_CHUNK_SIZE);
+sendfile_options(File, Socket, Offset, Bytes, Options) ->
+    try proplists:get_value(chunk_size, Options, ?MAX_CHUNK_SIZE) of
+        Size when is_integer(Size) -> sendfile_to(File, Socket, Offset, Bytes, min(Size, ?MAX_CHUNK_SIZE));
+        _ -> {error, badarg}
+    catch
+        error:_ -> {error, badarg}
+    end.
+
+sendfile_to(File, Socket, Offset, Bytes, Chunk) when is_integer(Offset), is_integer(Bytes) ->
+    send_from(File, sender(Socket), Offset, Bytes, Chunk);
+sendfile_to(_, _, _, _, _) ->
+    {error, badarg}.
+
+sender(Socket) when is_port(Socket) -> fun(Data) -> gen_tcp:send(Socket, Data) end;
+sender(Send) when is_function(Send, 1) -> Send;
+sender(Socket) -> erlang:error({case_clause, Socket}).
+
+send_from(File, Send, Offset, Bytes, Chunk) when Bytes >= 0 ->
+    {ok, Current} = position(File, {cur, 0}),
+    case position(File, {bof, Offset}) of
+        {ok, _} ->
+            Result = send_chunks(File, Send, Bytes, Chunk, 0),
+            _ = position(File, {bof, Current}),
+            Result;
+        Error ->
+            Error
+    end;
+send_from(_, _, _, _, _) ->
+    {error, einval}.
+
+% Read and send chunks until Bytes are sent (all of the file for 0), the end of the file or an error.
+send_chunks(File, Send, Bytes, Chunk, Sent) when Bytes > Sent; Bytes =:= 0 ->
+    Size =
+        case Bytes of
+            0 -> Chunk;
+            _ -> min(Bytes - Sent, Chunk)
+        end,
+    case read(File, Size) of
+        {ok, Data} ->
+            case Send(Data) of
+                ok -> send_chunks(File, Send, Bytes, Chunk, Sent + iolist_size(Data));
+                Error -> Error
+            end;
+        eof ->
+            {ok, Sent};
+        Error ->
+            Error
+    end;
+send_chunks(_, _, _, _, Sent) ->
+    {ok, Sent}.
+
+% --- Error texts (plan 21 step LIB50) ---
+
+format_error({_Line, file, undefined_script}) ->
+    "no value returned from script";
+format_error({Line, file, {Class, Reason, Stacktrace}}) ->
+    io_lib:format("~w: evaluation failed with reason ~w:~w and stacktrace ~w", [Line, Class, Reason, Stacktrace]);
+format_error({Line, file, {Reason, Stacktrace}}) ->
+    io_lib:format("~w: evaluation failed with reason ~w and stacktrace ~w", [Line, Reason, Stacktrace]);
+format_error({Line, Module, Reason}) ->
+    io_lib:format("~w: ~ts", [Line, module_error(Module, Reason)]);
+format_error(badarg) ->
+    "bad argument";
+format_error(system_limit) ->
+    "a system limit was hit, probably not enough ports";
+format_error(terminated) ->
+    "the file server process is terminated";
+format_error(Reason) ->
+    erl_posix_msg:message(Reason).
+
+% The scanner and parser, whose errors consult/1 and the eval family return, are called literally so a program that
+% formats those errors links them.
+module_error(erl_scan, Reason) -> erl_scan:format_error(Reason);
+module_error(erl_parse, Reason) -> erl_parse:format_error(Reason);
+module_error(Module, Reason) -> Module:format_error(Reason).
+
 altname(_) -> erlang:error({not_implemented, altname, 1}).
-change_group(_, _) -> erlang:error({not_implemented, change_group, 2}).
-change_mode(_, _) -> erlang:error({not_implemented, change_mode, 2}).
-change_owner(_, _) -> erlang:error({not_implemented, change_owner, 2}).
-change_owner(_, _, _) -> erlang:error({not_implemented, change_owner, 3}).
-change_time(_, _) -> erlang:error({not_implemented, change_time, 2}).
-change_time(_, _, _) -> erlang:error({not_implemented, change_time, 3}).
 copy_opened(_, _, _) -> erlang:error({not_implemented, copy_opened, 3}).
 datasync(File) -> call(File, {sync, 1}).
-format_error(_) -> erlang:error({not_implemented, format_error, 1}).
 ipread_s32bu_p32bu(_, _, _) -> erlang:error({not_implemented, ipread_s32bu_p32bu, 3}).
 ipread_s32bu_p32bu_int(_, _, _) -> erlang:error({not_implemented, ipread_s32bu_p32bu_int, 3}).
-pread(_, _) -> erlang:error({not_implemented, pread, 2}).
-pread(_, _, _) -> erlang:error({not_implemented, pread, 3}).
-pwrite(_, _) -> erlang:error({not_implemented, pwrite, 2}).
-pwrite(_, _, _) -> erlang:error({not_implemented, pwrite, 3}).
-raw_write_file_info(_, _) -> erlang:error({not_implemented, raw_write_file_info, 2}).
-sendfile(_, _) -> erlang:error({not_implemented, sendfile, 2}).
-sendfile(_, _, _, _, _) -> erlang:error({not_implemented, sendfile, 5}).
 sync(File) -> call(File, {sync, 0}).
-truncate(_) -> erlang:error({not_implemented, truncate, 1}).
-write_file_info(_, _) -> erlang:error({not_implemented, write_file_info, 2}).
-write_file_info(_, _, _) -> erlang:error({not_implemented, write_file_info, 3}).

@@ -307,6 +307,15 @@ byte for byte, same file orders.
   builtins (fallback to Erlang past 256 nesting levels); callback decoders and
   fun-taking encoders are Erlang over `clause_json` scanners.
 
+## POSIX messages
+
+`builtins/erl_posix_msg.cpp`, `library/stdlib/erl_posix_msg.erl`.
+
+- `erl_posix_msg:message/1` (OTP's internal module, which `file:format_error/1`
+  needs): the English text of a POSIX reason from a table observed from OTP 29,
+  `"unknown POSIX error: "` and the name for another atom, `badarg` for a
+  non-atom.
+
 ## Filename
 
 `builtins/filename/`.

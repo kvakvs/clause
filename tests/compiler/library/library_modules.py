@@ -43,7 +43,6 @@ PARTIAL = {
     "code": "LIB61",
     "dets": "LIB73",
     "ets": "LIB73",
-    "file": "LIB50",
     "gen_tcp": "LIB60",
     "gen_udp": "LIB60",
     "inet": "LIB60",
