@@ -1,0 +1,19 @@
+%% OTP 29 erl_lint exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{bool_option, 4, default, implemented}.
+{check_format_string, 1, default, implemented}.
+{check_format_string, 2, default, implemented}.
+{exprs, 2, default, implemented}.
+{exprs_opt, 3, default, implemented}.
+{format_error, 1, default, implemented}.
+{is_guard_expr, 1, default, implemented}.
+{is_guard_test, 1, default, implemented}.
+{is_guard_test, 2, default, implemented}.
+{is_guard_test, 3, default, implemented}.
+{is_pattern_expr, 1, default, implemented}.
+{module, 1, default, implemented}.
+{module, 2, default, implemented}.
+{module, 3, default, implemented}.
+{used_vars, 2, default, implemented}.
+{value_option, 3, default, implemented}.
+{value_option, 7, default, implemented}.

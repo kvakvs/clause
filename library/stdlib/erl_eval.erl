@@ -4,7 +4,7 @@
 %% erlang:raise/3. Funs made here are closures of their arity over {Anno, Bindings, LocalHandler, NonLocalHandler,
 %% UsedVars, Clauses} (and the name of a named fun), so fun_data/1 and erlang:fun_info/2 see what OTP shows. Bit syntax
 %% segments are built and taken by clause_erl_eval's builtins; exprs/2 and expr/2 check a command with
-%% clause_erl_lint first.
+%% erl_lint first.
 -module(erl_eval).
 -export([
     add_binding/3,
@@ -75,7 +75,11 @@ expr_list(Es, Bs, Lf, Ef) ->
 
 %% check_command(Exprs, Bindings): ok or {error, {Location, erl_lint, Error}}, the first error of the command.
 check_command(Es, Bs) ->
-    clause_erl_lint:exprs(Es, bindings(Bs)).
+    Opts = [{features, erl_features:enabled()}],
+    case erl_lint:exprs_opt(Es, bindings(Bs), Opts) of
+        {ok, _Ws} -> ok;
+        {error, [{_File, [Error | _]}], _Ws} -> {error, Error}
+    end.
 
 %% Only exprs/2 and expr/2 check: with a handler, constructs erl_lint rejects may be meant for the handler.
 checked(Es, Bs) ->
@@ -556,7 +560,7 @@ closure_bindings(Fun, Cs, Bs, #ev{fuvs = Fuvs}) ->
             #{Cs := Known} ->
                 Known;
             #{} ->
-                [{_, Computed}] = maps:to_list(clause_erl_lint:used_vars([Fun], bindings(Bs))),
+                [{_, Computed}] = maps:to_list(erl_lint:used_vars([Fun], bindings(Bs))),
                 Computed
         end,
     {filter_bindings(fun(K, _) -> lists:member(K, Used) end, Bs), Inner}.
@@ -879,7 +883,7 @@ guard(Tests, Bs, Ev) ->
     conjunction(Tests, Bs, Ev).
 
 conjunction([G | Gs], Bs, Ev) ->
-    case clause_erl_lint:is_guard_test(G) of
+    case erl_lint:is_guard_test(G) of
         true ->
             case guard_test(G, Bs, Ev) of
                 {value, true, Bs1} -> conjunction(Gs, Bs1, Ev);
@@ -976,7 +980,7 @@ is_generator(_) ->
     false.
 
 filter(F, Bs, Ev, Acc, Next) ->
-    case clause_erl_lint:is_guard_test(F) of
+    case erl_lint:is_guard_test(F) of
         true ->
             case guard_test(F, Bs, Ev) of
                 {value, true, Bs1} -> Next(Bs1);
@@ -1463,7 +1467,7 @@ segment_spec(Anno, Size0, Types, BBs, Ev) ->
 
 %% Sizes are guard expressions over bound variables; anything else makes the pattern illegal.
 size_value(E, BBs) ->
-    clause_erl_lint:is_guard_expr(E) orelse throw(invalid),
+    erl_lint:is_guard_expr(E) orelse throw(invalid),
     try eval(E, BBs, #ev{}, none) of
         {value, Size, _} -> Size
     catch

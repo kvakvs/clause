@@ -231,8 +231,16 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 
 | Difference | OTP | Clause | Owner |
 | --- | --- | --- | --- |
-| Commands checked by `exprs/2`, `expr/2` and `check_command/2` | `erl_lint` reports its first error of any kind | `clause_erl_lint` reports unbound and unsafe variables, illegal patterns and guards, undefined records, stack trace variables, `=>` in map patterns, `:=` in map construction and unsized binaries before the end; other `erl_lint` errors (such as bit type errors) are raised when the code runs, or not at all for code that never runs. `erl_lint` itself comes with plan 21 step LIB34 | [erl_eval](builtins.md#erl-eval) |
 | Stack trace of an error the evaluator raises (`{badmatch, V}`, `undef` of a local call, ...) | The evaluating process's current stack (`process_info/2` `current_stacktrace`) | The stack at the evaluator's `throw` that collects it, in Clause's frames | [erl_eval](builtins.md#erl-eval) |
+
+## erl_lint
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Behaviours named by `-behaviour` | Any module on the code path answers `behaviour_info/1` | Only modules linked into the program answer; another is `undefined_behaviour` | [erl_lint](builtins.md#erl-lint) |
+| Order of several errors found in one map fold (singleton type variables of one type, specs without a function, callback checks) | The map's internal order (atoms by index) | Term order | [erl_lint](builtins.md#erl-lint) |
+| `erlang:is_builtin/3` for `-deprecated`, `-removed` and `-unsafe` entries that are not exported | OTP's BIF table | The runtime's builtins, which include native library functions | [erl_lint](builtins.md#erl-lint) |
+| `is_guard_expr/1` of a record construction | Raises `case_clause` | Answers whether the fields are guard expressions | [erl_lint](builtins.md#erl-lint) |
 
 ## epp
 

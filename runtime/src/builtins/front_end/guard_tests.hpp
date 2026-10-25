@@ -6,7 +6,7 @@
 #include <utility>
 
 // erl_lint's guard checks over abstract expressions (plan 21 step LIB34C): is_guard_test/1,3 and is_guard_expr/1,
-// shared by the C++ erl_expand_records and clause_erl_lint's builtins.
+// shared by the C++ erl_expand_records and erl_lint.
 namespace clause::runtime::builtins::front_end {
 // A local function by its name's atom word and its arity.
 using FunctionKey = std::pair<Word, std::int64_t>;

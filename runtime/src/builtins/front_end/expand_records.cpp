@@ -895,7 +895,7 @@ class Expander final {
     }
 
     Term copy(const Term &node, const Term &anno) const {
-        return abstract::replace_annos(build_.context(), node, anno);
+        return abstract::replace_annos(build_.context(), node, {anno});
     }
 
     // The value given for field `name`.
@@ -1158,7 +1158,7 @@ class Expander final {
         const auto fields = record_fields({.name = name, .anno = anno});
         const auto index = field_number(access.field, fields);
         const auto expanded = expr(access.record);
-        const std::array key{name, abstract::replace_annos(build_.context(), expanded, build_.integer(0))};
+        const std::array key{name, abstract::replace_annos(build_.context(), expanded, {build_.integer(0)})};
         const auto generated = this->generated(anno);
         const std::array args{expanded, build_.atom_node(generated, name),
                               build_.integer_node(generated, static_cast<std::int64_t>(fields.size()) + 1)};

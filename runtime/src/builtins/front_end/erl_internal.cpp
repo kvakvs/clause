@@ -437,6 +437,8 @@ bool is_type_test(std::string_view name, std::int64_t arity) {
     return listed(NEW_TYPE_TESTS, query) || listed(OLD_TYPE_TESTS, query);
 }
 
+bool is_old_type_test(std::string_view name, std::int64_t arity) { return listed(OLD_TYPE_TESTS, Entry{name, arity}); }
+
 std::string_view operator_type(std::string_view name, std::int64_t arity) {
     const auto *row = operator_row(Entry{name, arity});
     return row == nullptr ? std::string_view{} : row->type;

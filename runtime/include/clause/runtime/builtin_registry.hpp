@@ -210,10 +210,10 @@ std::span<const BuiltinEntry> erl_parse_builtins() noexcept;
 // clause_erl_eval:bit_type/2, bit_segment/3 and bit_take/3, erl_eval's bit syntax segments (plan 21 step LIB32;
 // runtime/src/builtins/front_end/erl_eval.cpp).
 std::span<const BuiltinEntry> erl_eval_builtins() noexcept;
-// erl_expand_records:module/2 and clause_erl_lint's guard checks in C++ (plan 21 step LIB34C;
-// runtime/src/builtins/front_end/expand_records.cpp, guard_tests.cpp).
+// erl_expand_records:module/2 in C++ (plan 21 step LIB34C; runtime/src/builtins/front_end/expand_records.cpp).
 std::span<const BuiltinEntry> expand_records_builtins() noexcept;
-std::span<const BuiltinEntry> guard_test_builtins() noexcept;
+// erl_lint (plan 21 step LIB34C; runtime/src/builtins/front_end/lint*.cpp).
+std::span<const BuiltinEntry> lint_builtins() noexcept;
 // The erlang gaps of plan 21 step LIB9A: checksums and iovecs, tuple edits, option-taking process builtins and
 // system flags.
 std::span<const BuiltinEntry> checksum_builtins() noexcept;

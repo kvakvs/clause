@@ -1085,7 +1085,7 @@ eval_if(Ts0, St) ->
     Es1 = defined_calls(Es0, St),
     case Es1 of
         [E1] ->
-            clause_erl_lint:is_guard_expr(E1) orelse throw({bad, 'if'});
+            erl_lint:is_guard_expr(E1) orelse throw({bad, 'if'});
         _ ->
             throw({bad, 'if'})
     end,

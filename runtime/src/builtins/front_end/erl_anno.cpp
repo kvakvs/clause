@@ -378,6 +378,14 @@ Term anno_location(ProcessContext &context, const Term &anno) { return location(
 
 Term anno_end_location(ProcessContext &context, const Term &anno) { return end_location(context, {anno}); }
 
+std::optional<Term> anno_item(const Term &anno, std::string_view item) {
+    if (is_location(anno)) {
+        return std::nullopt;
+    }
+    const auto value = anno_info(anno, item);
+    return value && !is_atom(*value, "undefined") ? value : std::nullopt;
+}
+
 Term anno_set(ProcessContext &context, std::string_view item, const Term &value, const Term &anno) {
     return Annotations(context).set(item, value, anno);
 }

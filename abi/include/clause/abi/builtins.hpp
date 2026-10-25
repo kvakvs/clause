@@ -1225,11 +1225,21 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_erl_eval", "bit_type", 2},
     BuiltinName{"clause_erl_eval", "bit_segment", 3},
     BuiltinName{"clause_erl_eval", "bit_take", 3},
-    // erl_expand_records:module/2 and erl_lint's guard checks (plan 21 step LIB34C;
-    // runtime/src/builtins/front_end/expand_records.cpp, guard_tests.cpp).
+    // erl_expand_records:module/2 (plan 21 step LIB34C; runtime/src/builtins/front_end/expand_records.cpp).
     BuiltinName{"erl_expand_records", "module", 2},
-    BuiltinName{"clause_erl_lint", "is_guard_expr", 1},
-    BuiltinName{"clause_erl_lint", "is_guard_test", 1},
+    // erl_lint (plan 21 step LIB34C; runtime/src/builtins/front_end/lint*.cpp).
+    BuiltinName{"clause_erl_lint", "module", 4},
+    BuiltinName{"clause_erl_lint", "format_spec", 1},
+    BuiltinName{"clause_erl_lint", "local_calls", 1},
+    BuiltinName{"clause_erl_lint", "is_guard_test", 3},
+    BuiltinName{"erl_lint", "exprs", 2},
+    BuiltinName{"erl_lint", "exprs_opt", 3},
+    BuiltinName{"erl_lint", "used_vars", 2},
+    BuiltinName{"erl_lint", "is_pattern_expr", 1},
+    BuiltinName{"erl_lint", "is_guard_test", 1},
+    BuiltinName{"erl_lint", "is_guard_expr", 1},
+    BuiltinName{"erl_lint", "check_format_string", 1},
+    BuiltinName{"erl_lint", "check_format_string", 2},
     // The io_lib module (plan 21 steps LIB4C, LIB4E; runtime/src/builtins/io_lib/).
     BuiltinName{"io_lib", "bformat", 2},
     // maps_order comparison funs (plan 21 step LIB4F; runtime/src/builtins/io_lib/key_orders.cpp).

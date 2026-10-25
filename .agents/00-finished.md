@@ -740,6 +740,14 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   over a hello-world (was +1.2 s / +0.7 s); golden unchanged, no differences from OTP over 347 OTP
   sources and suites under four option sets; OTP pin refreshed to `9710673e` (CI-only upstream
   changes) — `c54f3cf4`
+- **LIB34C part 2** `erl_lint` (the last missing front-end module) with its checks in C++ (`front_end/lint*.cpp`,
+  one `Lint` state after OTP's `#lint{}`): `module/1,2,3` with OTP's errors, warnings, options and order,
+  `exprs/2`, `exprs_opt/3`, `used_vars/2` (now `erl_eval`'s command checks, replacing `clause_erl_lint`'s
+  subset), guard and pattern predicates, `check_format_string/1,2`, `format_error/1` (texts from a table,
+  nested `io_lib:format/2` parts); deprecations from `otp_internal` (`otp_obsolete.inc`); `erl_lint_checks`
+  golden; no differences from OTP over 481 OTP sources and suites and 474 suite snippets (3 option sets
+  each, 4782 diagnostics of 121 kinds), 8307 `format_error/1` texts and 816 command expressions; a call to
+  `erl_lint` compiles +0.00 s over a hello-world (`clause_erl_lint` was +0.6 s / +1.2 s) — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

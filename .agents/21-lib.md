@@ -31,7 +31,7 @@ internal functions stay out unless a public function needs them (user direction 
   `gb_sets`, `gb_trees`, `graph`, `io_lib`, `json`, `ms_transform`, `erl_scan`, `erl_parse`,
   `orddict`, `ordsets`, `proplists`, `queue`, `rand`, `records`, `sets`, `sofs`, `string`, `timer`,
   `unicode`, `uri_string`, `erl_eval`, `erl_error`, `erl_pp`, `erl_expand_records`, `epp`, `proc_lib`,
-  `sys`, `gen_server`, `gen_statem`, `gen_event`, `gen_fsm` (deprecated), `supervisor`,
+  `erl_lint`, `sys`, `gen_server`, `gen_statem`, `gen_event`, `gen_fsm` (deprecated), `supervisor`,
   `supervisor_bridge`, `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`,
   `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
@@ -39,7 +39,7 @@ internal functions stay out unless a public function needs them (user direction 
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
   (51), `io` (11), `file` (18), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
-- **Missing:** 35 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
+- **Missing:** 30 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
   ones (`filelib`, `disk_log`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
@@ -126,8 +126,8 @@ Done: LIB20–LIB25 (`00-finished.md`); `logger_disk_log_h` waits for LIB52.
 ## Tier D: Erlang front end as library modules
 
 Done (`00-finished.md`): LIB32 `erl_eval`, LIB33 readers, LIB34 parts 1-4 (`erl_error`, `erl_pp`,
-`erl_expand_records`, `epp`, all in Erlang). Left: `erl_lint` (5 functions), and the C++ cores of
-LIB34C. Each part below is its own commit, in this order.
+`erl_expand_records`, `epp`, all in Erlang). Left: the C++ cores of LIB34C below. Each part is its own
+commit, in this order.
 
 ### LIB34C. C++ cores for the clause-heavy front-end modules (user direction 2026-10-24)
 
@@ -144,20 +144,10 @@ Acceptance of every part: the existing goldens unchanged, the scratch comparison
 module rerun with no differences, and the probe's compile time measured again (recorded in
 `00-finished.md`).
 
-Part 1 (`erl_expand_records:module/2`) is done (`00-finished.md`). Probe baselines before the
+Parts 1 (`erl_expand_records:module/2`) and 2 (`erl_lint`) are done (`00-finished.md`). Probe baselines before the
 remaining parts (debug `clau`, `-O0` / `-O2`, 2026-10-24): `erl_pp` +0.77 s / +1.78 s, `epp`
 +2.86 s / +4.61 s, `erl_eval` +1.94 s / +3.65 s, `erl_error` +0.44 s / +0.79 s.
 
-2. **`erl_lint`** (the missing module, LIB34 part 5), written in C++ from the start:
-   `module/1,2,3` with OTP's errors and warnings (option handling, `nowarn_*`/`warn_*`,
-   `{error_location, ...}`, behaviours, records, types and specs, deprecations from
-   `otp_internal`'s data, format string checks, bit syntax, `-feature`), `is_guard_test/1,2,3`,
-   `is_guard_expr/1`, `exprs/2,3`, `exprs_opt/3`, `used_vars/2`. `format_error/1` builds OTP's
-   texts. `clause_erl_lint` is replaced by it: `erl_eval` checks commands with `erl_lint` itself
-   (the `erl_eval` row of `differences.md` goes). Behaviour callbacks come from the callback
-   modules' `behaviour_info/1`, called by an Erlang wrapper before the C++ walk. Golden from OTP
-   over authored modules (one per warning family), plus a scratch comparison over the forms of OTP
-   sources and suites.
 3. **`erl_pp`**: item building and layout; hooks continue in Erlang the way `maps_order` funs do
    (LIB4F: the builtin stops at a hook item and an Erlang continuation calls it and resumes).
    Scratch comparison: forms of 357 OTP sources (`ppcheck`).
@@ -405,7 +395,6 @@ separately and are optional.
 - `dets` (stdlib, 2, 42 done): table/1,2
 - `edlin` (stdlib, 1): keymap/0
 - `edlin_expand` (stdlib, 2): expand/1,2
-- `erl_lint` (stdlib, 5): format_error/1, is_guard_test/1, module/1,2,3
 - `erl_tar` (stdlib, 14): add/3,4, close/1, create/2,3, extract/1,2, format_error/1, init/3, open/2,
   t/1, table/1,2, tt/1
 - `escript` (stdlib, 3): create/2, extract/2, script_name/0

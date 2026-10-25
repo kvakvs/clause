@@ -1,4 +1,5 @@
 #include "../string/string.hpp"
+#include "front_end.hpp"
 #include <array>
 #include <clause/runtime/code_server.hpp>
 
@@ -197,6 +198,15 @@ constexpr std::array FEATURES_BUILTINS{
     typed_entry<beam_meta>("clause_features", "beam_meta"),
 };
 } // namespace
+
+std::string_view feature_of_keyword(std::string_view keyword) {
+    for (const auto &feature : FEATURES) {
+        if (std::ranges::find(feature.keywords, keyword) != feature.keywords.end() && !keyword.empty()) {
+            return feature.name;
+        }
+    }
+    return {};
+}
 } // namespace clause::runtime::builtins::front_end
 
 namespace clause::runtime {

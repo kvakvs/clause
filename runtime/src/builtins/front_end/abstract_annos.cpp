@@ -166,10 +166,10 @@ Term last_anno(ProcessContext &context, const Term &node) {
 }
 
 namespace {
-// The rebuild of replace_annos/3: modify_anno1/3's clauses with every annotation replaced by one.
+// The rebuild of map_annos/3: modify_anno1/3's clauses with every annotation mapped.
 class Reannotator final {
   public:
-    Reannotator(ProcessContext &context, const Term &anno) : terms_(context), anno_(anno) {}
+    Reannotator(ProcessContext &context, const AnnoMap &map) : terms_(context), map_(map) {}
 
     Term node(const Term &node) const {
         if (node.is_cons()) {
@@ -210,7 +210,7 @@ class Reannotator final {
         for (std::size_t at = 0; at < tuple.tuple_size_unchecked(); ++at) {
             const auto item = element(tuple, at);
             if (at == 1 && shape.annotated) {
-                items.push_back(anno_);
+                items.push_back(map_(item));
             } else if (at < shape.first || std::ranges::find(shape.kept, at) != shape.kept.end()) {
                 items.push_back(item);
             } else {
@@ -265,16 +265,20 @@ class Reannotator final {
         const auto typed = is_atom(name, "type") || is_atom(name, "opaque") || is_atom(name, "nominal");
         const auto paired = is_atom(name, "record") || is_atom(name, "spec") || is_atom(name, "callback");
         const auto walks = (paired && is_tuple_of(value, 2)) || (typed && is_tuple_of(value, 3));
-        const std::array items{element(node, 0), anno_, name, walks ? rebuilt(value, {}) : value};
+        const std::array items{element(node, 0), map_(element(node, 1)), name, walks ? rebuilt(value, {}) : value};
         return terms_.tuple(items);
     }
 
     string::Terms terms_;
-    Term anno_;
+    const AnnoMap &map_;
 };
 } // namespace
 
-Term replace_annos(ProcessContext &context, const Term &node, const Term &anno) {
-    return Reannotator(context, anno).node(node);
+Term replace_annos(ProcessContext &context, const Term &node, const NewAnno &anno) {
+    return map_annos(context, node, [&](const Term &) { return anno.term; });
+}
+
+Term map_annos(ProcessContext &context, const Term &node, const AnnoMap &map) {
+    return Reannotator(context, map).node(node);
 }
 } // namespace clause::runtime::builtins::front_end::abstract

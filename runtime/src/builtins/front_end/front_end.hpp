@@ -16,9 +16,14 @@ bool is_predefined_type(std::string_view name, std::int64_t arity);
 // erl_anno's setters (set_generated/2, set_record/2, ...): `item` of `anno` set to `value`. Added for the C++
 // erl_expand_records.
 Term anno_set(ProcessContext &context, std::string_view item, const Term &value, const Term &anno);
+// An item of an annotation (file, text, ...); none for a plain location or a missing item. Added for erl_lint.
+std::optional<Term> anno_item(const Term &anno, std::string_view item);
+// The configurable feature a keyword belongs to (erl_lint's feature_keywords/0); empty for no keyword.
+std::string_view feature_of_keyword(std::string_view keyword);
 // erl_internal's bif/2, guard_bif/2 and type_test/2, and op_type/2 (empty for no operator), for the C++ walks.
 bool is_bif(std::string_view name, std::int64_t arity);
 bool is_guard_bif(std::string_view name, std::int64_t arity);
 bool is_type_test(std::string_view name, std::int64_t arity);
+bool is_old_type_test(std::string_view name, std::int64_t arity);
 std::string_view operator_type(std::string_view name, std::int64_t arity);
 } // namespace clause::runtime::builtins::front_end

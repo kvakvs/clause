@@ -671,8 +671,13 @@ class Jaro final {
     std::vector<std::pair<std::size_t, Key>> matches_b_;
 };
 
+} // namespace
+
+double jaro_similarity(ProcessContext &context, const Term &a, const Term &b) { return Jaro(context, a, b).run(); }
+
+namespace {
 Term jaro_similarity2(ProcessContext &context, const TextArg &a, const OtherArg &b) {
-    return need(TermFactory(context).floating(Jaro(context, a.term, b.term).run()));
+    return need(TermFactory(context).floating(jaro_similarity(context, a.term, b.term)));
 }
 
 constexpr std::array STRING_TEXT_BUILTINS{

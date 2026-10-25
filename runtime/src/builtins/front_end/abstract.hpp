@@ -1,5 +1,6 @@
 #pragma once
 #include "../support.hpp"
+#include <functional>
 #include <vector>
 
 // Abstract-format helpers of erl_parse (plan 21 step LIB31): the annotation walk of map_anno/2 and fold_anno/3,
@@ -29,9 +30,18 @@ Term first_anno(ProcessContext &context, const Term &node);
 Term first_location(ProcessContext &context, const Term &node);
 // last_anno/1: the annotation with the largest location, set to its end location when it has one.
 Term last_anno(ProcessContext &context, const Term &node);
+
+// The annotation that replaces every annotation of a node, named so it is not passed as the node.
+struct NewAnno {
+    Term term;
+};
+
 // map_anno(fun(_) -> Anno end, Node): every annotation of `node` replaced by `anno`, in modify_anno1/3's clauses.
 // Added for the C++ erl_expand_records.
-Term replace_annos(ProcessContext &context, const Term &node, const Term &anno);
+Term replace_annos(ProcessContext &context, const Term &node, const NewAnno &anno);
+// map_anno(Fun, Node) for a C++ function of the annotations.
+using AnnoMap = std::function<Term(const Term &)>;
+Term map_annos(ProcessContext &context, const Term &node, const AnnoMap &map);
 // normalise/1: the term an abstract literal stands for; error({badarg, Node}) for anything else.
 Term normalise(ProcessContext &context, const Term &node);
 

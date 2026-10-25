@@ -5,7 +5,7 @@
 #include <algorithm>
 
 // erl_lint's guard checks (plan 21 step LIB34C, docs/builtins.md#erl-lint): is_guard_test/1,3 and is_guard_expr/1
-// written after erl_lint's is_guard_test2/2 and is_gexpr/2, and clause_erl_lint's builtins over them.
+// written after erl_lint's is_guard_test2/2 and is_gexpr/2.
 namespace clause::runtime::builtins::front_end {
 namespace {
 using forms::element;
@@ -254,7 +254,7 @@ class GuardCheck final {
             }
             const auto field_name = element(element(field, 2), 2);
             if (std::ranges::none_of(given, [&](const Term &known) { return known.word() == field_name.word(); })) {
-                const auto value = abstract::replace_annos(build_.context(), element(field, 3), element(record, 1));
+                const auto value = abstract::replace_annos(build_.context(), element(field, 3), {element(record, 1)});
                 defaults.push_back(forms::with_element(build_, field, 3, value));
             }
         }
@@ -265,20 +265,6 @@ class GuardCheck final {
     const GuardScope &scope_;
 };
 
-// clause_erl_lint:is_guard_test(Expr): erl_lint:is_guard_test/1, with no record definitions.
-Term is_guard_test1(ProcessContext &context, const Term &expr) {
-    return string::Terms(context).boolean(is_guard_test(context, expr, {}));
-}
-
-// clause_erl_lint:is_guard_expr(Expr).
-Term is_guard_expr1(ProcessContext &context, const Term &expr) {
-    return string::Terms(context).boolean(is_guard_expr(context, expr, {}));
-}
-
-constexpr std::array GUARD_TEST_BUILTINS{
-    typed_entry<is_guard_expr1>("clause_erl_lint", "is_guard_expr"),
-    typed_entry<is_guard_test1>("clause_erl_lint", "is_guard_test"),
-};
 } // namespace
 
 bool is_guard_test(ProcessContext &context, const Term &expr, const GuardScope &scope) {
@@ -289,7 +275,3 @@ bool is_guard_expr(ProcessContext &context, const Term &expr, const GuardScope &
     return GuardCheck(context, scope).expr(expr);
 }
 } // namespace clause::runtime::builtins::front_end
-
-namespace clause::runtime {
-std::span<const BuiltinEntry> guard_test_builtins() noexcept { return builtins::front_end::GUARD_TEST_BUILTINS; }
-} // namespace clause::runtime
