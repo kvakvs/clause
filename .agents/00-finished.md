@@ -766,7 +766,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB34C part 6** `erl_error` compiled with strict liveness instead of C++ layout: its `list_to_atom/1`
   (a placeholder atom when printing argument lists) and its `error_info` call `Module:Function/2` kept every
   export of the program; with the switch a call to `erl_error` compiles 293 ms / 668 ms (stage `compile`,
-  was 420 ms / 867 ms); `erl_error_formats`, `stack_traces`, `crash_reports`, `loggers` unchanged — `HASH`
+  was 420 ms / 867 ms); `erl_error_formats`, `stack_traces`, `crash_reports`, `loggers` unchanged — `976360be`
 
 ## Plan 22 (from 2026-10-23)
 
