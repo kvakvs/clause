@@ -794,6 +794,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   golden — `0233d4d9`
 - **LIB50C** `file` `compressed`/`compressed_one` modes (gzip layer in the file server over `zlib`), CRLF line
   endings read as LF, read failures stopping file servers as OTP's; `file_compressed` golden — `d76b6c4d`
+- **LIB54A** `file_sorter` complete (first step of the qlc chain): an exact Erlang port of OTP's runs, merges and
+  checks, so equal-but-different terms and `unique` behave as OTP's; io's old request conversions;
+  `file_sorter_ops` golden — `9046d2d4`
 
 ## Plan 22 (from 2026-10-23)
 
