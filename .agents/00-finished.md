@@ -843,7 +843,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `argparse_ops` golden — `02866a06`
 - **LIB71** tracing not supported: the erlang tracing functions (`trace*`, `system_monitor`, `system_profile`,
   `seq_trace*`, `dt_*`), `erts_internal`'s tracing internals, `trace` and `erl_tracer`'s default tracer raise `notsup`;
-  `erl_tracer` lists OTP's callbacks; `tracing_unsupported` golden (authored) — `PENDING`
+  `erl_tracer` lists OTP's callbacks; `tracing_unsupported` golden (authored) — `20759caf`
 
 ## Plan 22 (from 2026-10-23)
 
