@@ -82,6 +82,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/front_end/lint_patterns.cpp src/builtins/front_end/lint_records.cpp
     src/builtins/front_end/lint_types.cpp src/builtins/front_end/lint_format.cpp src/builtins/front_end/lint_eval.cpp
     src/builtins/front_end/lint_errors.cpp src/builtins/front_end/lint_builtins.cpp
+    src/builtins/front_end/pp_items.cpp src/builtins/front_end/pp_exprs.cpp src/builtins/front_end/pp_forms.cpp
+    src/builtins/front_end/pp_types.cpp src/builtins/front_end/pp_layout.cpp src/builtins/front_end/pp_builtins.cpp
     # The erlang gaps of plan 21 step LIB9A.
     src/builtins/erlang/checksums.cpp src/builtins/erlang/tuple_edits.cpp src/builtins/erlang/process_options.cpp
     src/builtins/erlang/system_flags.cpp src/builtins/erlang/packets.cpp src/builtins/erlang/packet_http.cpp

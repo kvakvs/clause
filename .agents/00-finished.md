@@ -748,6 +748,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   golden; no differences from OTP over 481 OTP sources and suites and 474 suite snippets (3 option sets
   each, 4782 diagnostics of 121 kinds), 8307 `format_error/1` texts and 816 command expressions; a call to
   `erl_lint` compiles +0.00 s over a hello-world (`clause_erl_lint` was +0.6 s / +1.2 s) — `5312fc45`
+- **LIB34C part 3** `erl_pp`'s printing as a C++ builtin (`front_end/pp*.cpp`, `clause_erl_pp:print/2`): items
+  then layout, ported from the Erlang module; hooks answered by `erl_pp.erl` rerunning the print with the
+  answers so far; `erl_pp_forms` golden unchanged; identical to OTP over the forms of 347 OTP sources and
+  suites, and over 80 of them with five option sets plus `exprs/3`, `guard/1`, `expr/4` and 18,205 hook
+  calls; a call to `erl_pp` compiles +0.00 s / +0.06 s over a hello-world (was +0.77 s / +1.78 s) — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

@@ -1240,6 +1240,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"erl_lint", "is_guard_expr", 1},
     BuiltinName{"erl_lint", "check_format_string", 1},
     BuiltinName{"erl_lint", "check_format_string", 2},
+    // erl_pp's printer (plan 21 step LIB34C; runtime/src/builtins/front_end/pp*.cpp).
+    BuiltinName{"clause_erl_pp", "print", 2},
     // The io_lib module (plan 21 steps LIB4C, LIB4E; runtime/src/builtins/io_lib/).
     BuiltinName{"io_lib", "bformat", 2},
     // maps_order comparison funs (plan 21 step LIB4F; runtime/src/builtins/io_lib/key_orders.cpp).

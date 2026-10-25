@@ -343,5 +343,6 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   abstract forms; `erl_eval` an Erlang interpreter of the abstract format (interpreted funs as
   closures over OTP's env tuple, bit segments via `clause_erl_eval` C++ builtins, command checks with
   `erl_lint`). Clause-heavy front-end walks move to C++ builtins
-  (LIB34C): `erl_expand_records:module/2`, the guard tests and `erl_lint` (`front_end/expand_records.cpp`,
-  `guard_tests.cpp`, `lint*.cpp` over one `Lint` state, node helpers in `forms.hpp`).
+  (LIB34C): `erl_expand_records:module/2`, the guard tests, `erl_lint` and `erl_pp`
+  (`front_end/expand_records.cpp`, `guard_tests.cpp`, `lint*.cpp` over one `Lint` state, `pp*.cpp`
+  items then layout with hooks answered by rerunning from Erlang, node helpers in `forms.hpp`).

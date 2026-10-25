@@ -528,6 +528,22 @@ keeps what calls funs or other modules.
   are C++ (`lint_eval.cpp`, `bit_types.cpp`).
 - CTest `executables_erl_lint_checks`.
 
+## Erl pp
+
+`erl_pp`'s printing is a builtin (`front_end/pp*.cpp`, plan 21 step LIB34C),
+`clause_erl_pp:print/2`, ported from the two passes of the earlier Erlang
+module; `erl_pp.erl` keeps the hooks and `legalize_vars/1`.
+
+- The first pass turns a form into layout items in an arena (`pp_items`,
+  `pp_exprs`, `pp_forms`, `pp_types`); the second lays them out against the
+  line width (`pp_layout`), writing atoms, strings, chars and values through
+  `io_lib`'s C++ writers.
+- A form only the hook can print stops the layout with
+  `{hook, Expr, Column, Precedence}`; `erl_pp.erl` calls the hook and prints
+  again with the answers so far, so each hook runs once, in OTP's order.
+- Precedences and `erl_parse:abstract/2` come from `erl_parse.cpp`.
+- CTest `executables_erl_pp_forms`.
+
 ## Erl expand records
 
 `erl_expand_records:module/2` is a builtin (`front_end/expand_records.cpp`,

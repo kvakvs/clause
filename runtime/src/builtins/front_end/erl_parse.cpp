@@ -2,6 +2,7 @@
 #include "../lists/list_walk.hpp"
 #include "../string/string.hpp"
 #include "abstract.hpp"
+#include "front_end.hpp"
 #include "parser.hpp"
 #include <array>
 #include <clause/runtime/code_server.hpp>
@@ -462,10 +463,23 @@ Term type_preop_prec(ProcessContext &context, const Term &name) {
 
 Term func_prec(ProcessContext &context) {
     const Terms terms(context);
-    return pair(terms, terms.integer(800), terms.integer(700));
+    return pair(terms, terms.integer(FUNC_LEFT_PRECEDENCE), terms.integer(FUNC_PRECEDENCE));
 }
 
-Term max_prec(ProcessContext &context) { return Terms(context).integer(900); }
+Term max_prec(ProcessContext &context) { return Terms(context).integer(MAX_PRECEDENCE); }
+
+// The row of `op`, a prefix row's two values as precedence and right; function_clause for any other operator.
+template <std::size_t Size>
+Precedences row_of(const std::array<Precedence, Size> &table, std::string_view op, bool prefix) {
+    for (const auto &row : table) {
+        if (row.name == op) {
+            const auto &[first, second, third] = row.values;
+            return prefix ? Precedences{.left = 0, .precedence = first, .right = second}
+                          : Precedences{.left = first, .precedence = second, .right = third};
+        }
+    }
+    no_clause();
+}
 
 constexpr std::array ERL_PARSE_BUILTINS{
     typed_entry<parse>("clause_erl_parse", "parse"),
@@ -482,6 +496,19 @@ constexpr std::array ERL_PARSE_BUILTINS{
     typed_entry<type_preop_prec>("erl_parse", "type_preop_prec"),
 };
 } // namespace
+
+// Added for the C++ erl_pp.
+Precedences inop_precedence(std::string_view op) { return row_of(INOP_PRECEDENCES, op, false); }
+
+Precedences preop_precedence(std::string_view op) { return row_of(PREOP_PRECEDENCES, op, true); }
+
+Precedences type_inop_precedence(std::string_view op) { return row_of(TYPE_INOP_PRECEDENCES, op, false); }
+
+Precedences type_preop_precedence(std::string_view op) { return row_of(TYPE_PREOP_PRECEDENCES, op, true); }
+
+Term abstract_term(ProcessContext &context, const Term &term, const Term &anno, const Term &encoding) {
+    return Abstract(context, encoding_of(encoding), anno).value(term);
+}
 } // namespace clause::runtime::builtins::front_end
 
 namespace clause::runtime {

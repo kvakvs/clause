@@ -144,13 +144,10 @@ Acceptance of every part: the existing goldens unchanged, the scratch comparison
 module rerun with no differences, and the probe's compile time measured again (recorded in
 `00-finished.md`).
 
-Parts 1 (`erl_expand_records:module/2`) and 2 (`erl_lint`) are done (`00-finished.md`). Probe baselines before the
+Parts 1 (`erl_expand_records:module/2`), 2 (`erl_lint`) and 3 (`erl_pp`) are done (`00-finished.md`). Probe baselines before the
 remaining parts (debug `clau`, `-O0` / `-O2`, 2026-10-24): `erl_pp` +0.77 s / +1.78 s, `epp`
 +2.86 s / +4.61 s, `erl_eval` +1.94 s / +3.65 s, `erl_error` +0.44 s / +0.79 s.
 
-3. **`erl_pp`**: item building and layout; hooks continue in Erlang the way `maps_order` funs do
-   (LIB4F: the builtin stops at a hook item and an Erlang continuation calls it and resumes).
-   Scratch comparison: forms of 357 OTP sources (`ppcheck`).
 4. **`epp`**: directive matching, macro definition and expansion (`expand`, `macro_arg`,
    `count_args`, `substitute`, `stringify`) over token lists; the server, file reading and `-if`
    evaluation stay. Scratch comparison: 1,110 epp calls (`epcheck`).

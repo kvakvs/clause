@@ -253,7 +253,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 
 | Difference | OTP | Clause | Owner |
 | --- | --- | --- | --- |
-| Nesting of the deep character lists `erl_pp` returns | OTP's own nesting | The same characters, nested differently; flattened output is equal | [library](library.md#contents) |
+| Shape of the characters `erl_pp` returns | Deep character lists | One flat character list; flattened output is equal | [builtins](builtins.md#erl-pp) |
 
 ## Random numbers
 

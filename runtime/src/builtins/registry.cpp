@@ -227,6 +227,7 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      erl_eval_builtins(),
                                      expand_records_builtins(),
                                      lint_builtins(),
+                                     erl_pp_builtins(),
                                      erl_features_builtins(),
                                      sofs_callbacks_builtins(),
                                      sofs_constructors_builtins(),

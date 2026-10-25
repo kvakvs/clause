@@ -26,4 +26,23 @@ bool is_guard_bif(std::string_view name, std::int64_t arity);
 bool is_type_test(std::string_view name, std::int64_t arity);
 bool is_old_type_test(std::string_view name, std::int64_t arity);
 std::string_view operator_type(std::string_view name, std::int64_t arity);
+
+// erl_parse's precedences, for the C++ erl_pp: an infix operator's {Left, Prec, Right}, a prefix one's {Prec, Right}
+// (left 0); function_clause for an operator erl_parse does not know.
+struct Precedences {
+    std::int64_t left = 0;
+    std::int64_t precedence = 0;
+    std::int64_t right = 0;
+};
+
+Precedences inop_precedence(std::string_view op);
+Precedences preop_precedence(std::string_view op);
+Precedences type_inop_precedence(std::string_view op);
+Precedences type_preop_precedence(std::string_view op);
+// func_prec/0 ({FUNC_LEFT_PRECEDENCE, FUNC_PRECEDENCE}) and max_prec/0.
+inline constexpr std::int64_t FUNC_LEFT_PRECEDENCE = 800;
+inline constexpr std::int64_t FUNC_PRECEDENCE = 700;
+inline constexpr std::int64_t MAX_PRECEDENCE = 900;
+// clause_erl_parse:abstract(Term, Anno, Encoding), Encoding latin1, unicode, utf8 or none.
+Term abstract_term(ProcessContext &context, const Term &term, const Term &anno, const Term &encoding);
 } // namespace clause::runtime::builtins::front_end
