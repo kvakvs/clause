@@ -158,6 +158,13 @@ recorded elsewhere.
   uncaught-exception report prints ~w. OTP crash reports go through async logger: oracle usually
   halts first, author stderr. phash2 differs: digest with md5(term_to_binary).
 - OTP race quirks: monitor/link after spawn of a short process races -> spawn_monitor; check goldens with --check 3x.
+- A Clause program killed by a timeout loses its buffered stdout: the last printed line is NOT where it hung; find
+  the hang with a watchdog process that prints to standard_error and halts. Full mode runs policies concurrently
+  (4 at once): fixtures touching shared state (registry keys, fixed paths outside the work dir) need per-process
+  names (os:getpid()). Golden runs can be per OS family ('os': windows|unix, other family authored).
+- Ports opened in a process that traps exits send {'EXIT', Port, normal} on port_close (OTP too); library code
+  closing helper ports in the caller must unlink first (file:path_call). OTP's raw files/NIFs send nothing.
+- Shell edits: when the Bash classifier keeps failing, the PowerShell tool still works.
   Busy-port senders resume in any order. -eval process traps exits: probe inside spawned processes. Oracle runs
   entries from an escript while init still boots (shape-only checks for init status/arguments). init:request/1
   takes any pending {init,_} message.
