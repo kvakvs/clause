@@ -891,6 +891,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   euler output identical to the OTP-sourced build, 37 MB instead of 85 MB. Public headers `stdlib/include/
   assert.hrl` (OTP's macros, error terms, `NOASSERT`/`NODEBUG`/`ASSERT`), `ms_transform.hrl`, `kernel/include/
   inet.hrl`; `otp_headers` golden — `4f2d7449`
+- **LIB76** OTP-free manifests: `test-luerl-euler.toml`/`test-luerl-benchmark.toml` library-only (97 modules
+  instead of 174, euler 21 MB, 5.8 s) and the luerl performance baseline; `-noOTP` twin removed. `test-emqx.toml`
+  drops OTP include dirs, keeps `eunit`/`common_test`/`public_key`/`ssl` as `applications` roots; same
+  diagnostics — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

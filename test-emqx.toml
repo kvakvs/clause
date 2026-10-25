@@ -26,9 +26,6 @@ source_search_paths = []
 # Header search directories, first listed first, e.g. ["include", "vendor/include"].
 # CLI -I directories take precedence; the last CLI -I is searched first.
 include_dirs = [
-  "references/otp/lib/compiler/include", 
-  "references/otp/lib/stdlib/include",
-  "references/otp/lib",
   "references/emqx/apps",
   "references/emqx/apps/*/include"
 ]
@@ -43,4 +40,9 @@ disable_features = []
 
 # Explicit include_lib application roots. Empty by default.
 # Example entry: my_dependency = "vendor/my_dependency"
+# erts, kernel and stdlib headers come from Clause's library; these OTP applications are outside it (LIB76).
 [targets.options.applications]
+eunit = "references/otp/lib/eunit"
+common_test = "references/otp/lib/common_test"
+public_key = "references/otp/lib/public_key"
+ssl = "references/otp/lib/ssl"

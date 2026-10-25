@@ -23,7 +23,7 @@ internal functions stay out unless a public function needs them (user direction 
   documented functions.
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
 - **Left:** `erlang` (20 declined functions, LIB9 remainder) and the declined modules' answer stubs
-  (Appendix A); OTP-free builds (LIB76–LIB78: luerl already builds with no OTP paths).
+  (Appendix A); OTP-free builds (LIB77–LIB78: luerl's manifests use no OTP paths since LIB76).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -102,17 +102,13 @@ runs a process protocol or is glue. C++ reproduces OTP's exact result shapes for
 These still get small modules answering as OTP does where the feature is missing, so programs that
 probe for them keep working.
 
-### Phase: OTP-free builds (probe 2026-10-25)
+### Phase: OTP-free builds
 
-`test-luerl-euler-noOTP.toml` is `test-luerl-euler.toml` with every Erlang/OTP path removed (no
-`source_search_paths`, no OTP `include_dirs`, no OTP `ignore_*`). Findings:
+`test-luerl-euler.toml` and `test-luerl-benchmark.toml` use no Erlang/OTP paths since LIB76: all
+non-luerl modules resolve from `library/`. `test-emqx.toml` keeps only the OTP applications outside
+erts/kernel/stdlib (`eunit`, `common_test`, `public_key`, `ssl`) as `applications` roots; its
+preprocessing diagnostics are unchanged (the rest are emqx's missing dependencies).
 
-- **luerl needs nothing more:** `--print-inputs` resolves all 41 non-luerl modules from `library/`;
-  every module luerl calls remotely is in the library; `-include_lib("kernel/include/file.hrl")`
-  resolves to the library's header. Compile 16 s, no diagnostics.
-- **Same behaviour:** euler prints byte-identical results to the OTP-sourced build in the same time
-  (7.7 s total); the executable is 37 MB instead of 85 MB. `examples/benchmark` built the same way
-  (`--entry benchmarks:run/0`) runs all suites without errors.
 - **What still ties programs to OTP** (counted over `references/emqx/apps`): parse transforms
   (`ms_transform`, `qlc`) run on the host `erl`; `.yrl`/`.xrl` sources need OTP's `yecc`/`leex`
   (luerl ships generated `luerl_parse.erl`/`luerl_scan.erl`, whose `-file` lines only name OTP's
@@ -121,10 +117,6 @@ probe for them keep working.
 
 Steps:
 
-- **LIB76 OTP-free manifests by default:** switch `test-luerl-euler.toml` and
-  `test-luerl-benchmark.toml` (or add `-noOTP` twins) to the library only, and make them the luerl
-  performance baseline (OTP-sourced modules no longer measured). Re-check emqx's `include_dirs`
-  and drop `references/otp` paths it no longer needs; record what is left.
 - **LIB77 Parse transforms without the host (design first):** `ms_transform` and `qlc_pt` exist in
   `library/` but run on the host OTP `erl` ([transforms](../docs/transforms.md)). Decide with
   the user between running library transforms inside `clau` (needs compile-time evaluation) and
@@ -136,9 +128,8 @@ Steps:
 
 ### Order
 
-1. LIB76 manifests.
-2. The declined modules' answer stubs.
-3. LIB77 after a design decision; LIB78 only on request.
+1. The declined modules' answer stubs.
+2. LIB77 after a design decision; LIB78 only on request.
 
 ## Later (optional: speed and features beyond OTP's documented functions)
 

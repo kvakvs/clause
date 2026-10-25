@@ -48,7 +48,7 @@ after LLVM.1 (parallel code generation), 54.9 → 39.2 s (16 P-core threads) aft
 |---|---|---|
 | **W5a** | `--project <scratch>/b2s/b2s.toml --print-types` | Main target, 134 modules |
 | W5r | `--project <scratch>/w5r/w5r.toml --print-types` | Fast loop for the `ubody` group (0.08 s since the memo) |
-| W1 | `--project test-luerl-euler.toml --entry euler:run --print-types` | 174 modules |
+| W1 | `--project test-luerl-euler.toml --entry euler:run --print-types` | 97 modules (174 before LIB76 dropped OTP sources) |
 | W2 | W1 with `-O2 -o <scratch>/euler.exe`, no `--print-types` | Executable path; run from `references/luerl/examples/euler` |
 | W3 | `--project test-luerl-benchmark.toml --entry benchmarks:run/0 --print-types` | Second luerl entry |
 | W4 | `--project test-emqx.toml --print-types` | Stress check, only if it gets through inference |

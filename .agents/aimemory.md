@@ -307,7 +307,8 @@ recorded elsewhere.
 - luerl manifests (old test-luerl.toml split 2026-10-15, both share build_dir build-clau-luerl, run
   from the example dir): test-luerl-euler.toml (--entry euler:run, cwd
   references/luerl/examples/euler) and test-luerl-benchmark.toml (--entry benchmarks:run/0, cwd
-  references/luerl/examples/benchmark; plain benchmarks:run picks run/1).
+  references/luerl/examples/benchmark; plain benchmarks:run picks run/1). Since LIB76 both use only
+  library/ (no OTP paths): OTP-sourced modules are no longer part of luerl timings.
 - unicode_util tables: observe host OTP (observe.escript dump, ~15 MB, scratch) + UCD files ->
   generate.py -> clang-format tables.cpp. Full 1.1M-codepoint checks ~40 s Release: tests sample.
 - Benchmarks: make-benchmark.bat -> build/bench Release + benchmarks/run.py; first results ~20x
