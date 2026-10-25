@@ -28,7 +28,8 @@ def observe(escript, staged, entry, run, work):
     args = run['args']
     version = work / 'version.txt'
     version.unlink(missing_ok=True)
-    environment = os.environ | {'CLAUSE_TEST_PYTHON': sys.executable}
+    # NO_COLOR is dropped as run.py drops it: io_ansi's colors must not depend on the caller's shell.
+    environment = {k: v for k, v in os.environ.items() if k.upper() != 'NO_COLOR'} | {'CLAUSE_TEST_PYTHON': sys.executable}
     result = subprocess.run([escript, str(ORACLE), str(version), str(staged), entry, *args],
                             cwd=staged, capture_output=True, timeout=300, check=False,
                             input=run.get('stdin', '').encode(), env=environment)

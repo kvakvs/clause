@@ -37,7 +37,7 @@ internal functions stay out unless a public function needs them (user direction 
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
   `seq_trace` (tokens without tracing), `file`, `filelib`, `file_sorter`, `disk_log`, `wrap_log_reader`,
   `logger_disk_log_h`, `gen_tcp`, `gen_udp`, `net`, `os`, `code` (loading answers for linked code), `io`,
-  `io_ansi` (no terminfo), `inet`, `inet_res` (no answer cache), `socket`, `gen_sctp` (no SCTP).
+  `io_ansi` (no terminfo), `inet`, `inet_res` (no answer cache), `socket`, `gen_sctp` (no SCTP), `argparse`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `ets` (2,
   LIB73), `dets` (2, LIB73).
 - **Missing:** 15 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
@@ -146,11 +146,6 @@ SCTP (`gen_sctp`, socket's `seqpacket`); a cache of `inet_res` answers; terminfo
 
 ## Tier G: tools, transforms and the interactive shell
 
-### LIB70. `argparse`
-
-- `argparse` (6): Erlang (command maps and handler funs), with C++ for splitting and converting
-  arguments.
-
 ### LIB71. Tracing family
 
 - `trace` (11), `seq_trace` tracer output, `erl_tracer` callbacks and the `erlang:trace*` builtins.
@@ -222,8 +217,7 @@ own annotations, and no Boost in the runtime.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB70.
-2. LIB71–LIB74 (with LIB12C), then the declined modules' answer stubs.
+1. LIB71–LIB74 (with LIB12C), then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 
@@ -250,7 +244,6 @@ separately and are optional.
   set_callback/2, set_cmd/1, set_options/1
 - `trace` (kernel, 11): delivered/2, function/4, info/3, port/4, process/4, recv/3, send/3,
   session_create/3, session_destroy/1, session_info/1, system/3
-- `argparse` (stdlib, 6): format_error/1, help/1,2, parse/2,3, run/3
 - `beam_lib` (stdlib, 19): all_chunks/1, build_module/1, chunks/2,3, clear_crypto_key_fun/0, cmp/2,
   cmp_dirs/2, crypto_key_fun/1, diff_dirs/2, format_error/1, info/1, md5/1, strip/1,2,
   strip_files/1,2, strip_release/1,2, version/1

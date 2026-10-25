@@ -69,6 +69,7 @@
 {erl_abstract_code, stdlib, provided}.
 {escript, stdlib, provided}.
 {win32reg, stdlib, provided}.
+{argparse, stdlib, provided}.
 {io_ansi, stdlib, provided}.
 {uri_string, stdlib, provided}.
 {json, stdlib, provided}.

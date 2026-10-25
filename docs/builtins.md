@@ -368,6 +368,24 @@ byte for byte, same file orders.
 - The walk (literal prefixes, `..`, `**`, existence checks) is Erlang over
   `file` and `filename`, so results are OTP's, sorted.
 
+## Argparse
+
+`builtins/argparse/`, `library/stdlib/argparse.erl`,
+`library/stdlib/clause_argparse.erl`.
+
+- `clause_argparse:validate/3` checks a command as OTP's `validate/2` does, in
+  OTP's order, and returns the first invalid field for `argparse.erl` to raise.
+- `parse/6` is OTP's parser as a loop: long forms (`--name=value`), short
+  forms, combined flags, attached values, negative numbers, `nargs`, actions,
+  types, sub-commands, defaults; OTP's thrown errors and argument maps.
+- `help/4` builds OTP's help lists (usage wrapping, sections, templates) through
+  the `io_lib`, `string` and `unicode` builtins, so shapes equal OTP's.
+- Funs are called by `argparse.erl`: a builtin returns a request (`{custom,
+  Fun, Arg}`, `{re, Arg, Re[, Options]}`, `{describe, Fun}`) and is called
+  again with the answers so far, replaying its walk; each fun runs once, in
+  OTP's order.
+- `run/3`, handlers and `format_error/1,2` are Erlang.
+
 ## String
 
 `builtins/string/`: every `string` function.

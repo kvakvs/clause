@@ -74,6 +74,9 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/net/interfaces_posix.cpp src/builtins/net/dns.cpp
     # filelib's wildcard patterns (plan 21 step LIB51).
     src/builtins/filelib.cpp
+    # argparse's validation, parser and help (plan 21 step LIB70).
+    src/builtins/argparse/argparse.cpp src/builtins/argparse/validate.cpp src/builtins/argparse/parse.cpp
+    src/builtins/argparse/help.cpp
     # Modules erl_anno and erl_internal (plan 21 step LIB8).
     src/builtins/front_end/erl_anno.cpp src/builtins/front_end/erl_internal.cpp
     # Module erl_scan (plan 21 step LIB30).

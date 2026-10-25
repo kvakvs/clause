@@ -1196,6 +1196,10 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_filelib", "compile_part", 1},
     BuiltinName{"clause_filelib", "matches", 3},
     BuiltinName{"clause_filelib", "match", 2},
+    // clause_argparse, argparse's validation, parser and help (plan 21 step LIB70; runtime/src/builtins/argparse/).
+    BuiltinName{"clause_argparse", "validate", 3},
+    BuiltinName{"clause_argparse", "parse", 6},
+    BuiltinName{"clause_argparse", "help", 4},
     // erl_anno and erl_internal (plan 21 step LIB8; runtime/src/builtins/front_end/).
     BuiltinName{"erl_anno", "column", 1},
     BuiltinName{"erl_anno", "end_location", 1},

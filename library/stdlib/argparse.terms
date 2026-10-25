@@ -1,0 +1,11 @@
+%% OTP 29 argparse exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{format_error, 1, default, implemented}.
+{format_error, 2, default, implemented}.
+{help, 1, default, implemented}.
+{help, 2, default, implemented}.
+{parse, 2, default, implemented}.
+{parse, 3, default, implemented}.
+{run, 3, default, implemented}.
+{validate, 1, default, implemented}.
+{validate, 2, default, implemented}.

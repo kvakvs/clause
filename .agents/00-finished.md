@@ -837,6 +837,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   OTP's partial-data recv errors from socket's own buffer; nowait as completion (Windows) or select messages,
   `cancel/2`; OTP's option names and errors, `info`, `i`, `supports`); the driver answers every waiting recv at a
   connection's end; gen_sctp answers as OTP without SCTP; `socket_ops` golden (with an authored run) — `eb51924e`
+- **LIB70** `argparse` complete: validation, parser and help formatter as `clause_argparse` C++ builtins with OTP's
+  errors and deep-list shapes; custom types, `re:run` and help funs called by Erlang through replayed requests;
+  `run/3` Erlang; a 9-module program compiles in 1.62 s instead of 2.6 s with OTP's all-Erlang argparse;
+  `argparse_ops` golden — `PENDING`
 
 ## Plan 22 (from 2026-10-23)
 
