@@ -821,7 +821,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB61** `os` and `code` complete: `os:cmd/2` with OTP's shell protocol (`max_size`, `exception_on_failure`,
   UTF-8 output as characters), `find_executable/1,2` and `set_signal/2` builtins; `open_port` `in`/`out` combine as
   OTP's; the code path in a persistent term with OTP's path changes, `lib_dir`/`priv_dir`/`where_is_file` lookups,
-  `all_available/0`, `clash/0`, loading and coverage answers for linked code; `code_paths`, `os_commands` goldens — `HASH`
+  `all_available/0`, `clash/0`, loading and coverage answers for linked code; `code_paths`, `os_commands` goldens — `97dfec2f`
 
 ## Plan 22 (from 2026-10-23)
 
