@@ -836,7 +836,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   process/table: owners, states, counters, meta, monitors, listings; bind before listen/connect as driver op 22;
   OTP's partial-data recv errors from socket's own buffer; nowait as completion (Windows) or select messages,
   `cancel/2`; OTP's option names and errors, `info`, `i`, `supports`); the driver answers every waiting recv at a
-  connection's end; gen_sctp answers as OTP without SCTP; `socket_ops` golden (with an authored run) — `HASH`
+  connection's end; gen_sctp answers as OTP without SCTP; `socket_ops` golden (with an authored run) — `eb51924e`
 
 ## Plan 22 (from 2026-10-23)
 
