@@ -890,7 +890,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB75** OTP-free probe: `test-luerl-euler-noOTP.toml` (no OTP paths) builds luerl from the library alone,
   euler output identical to the OTP-sourced build, 37 MB instead of 85 MB. Public headers `stdlib/include/
   assert.hrl` (OTP's macros, error terms, `NOASSERT`/`NODEBUG`/`ASSERT`), `ms_transform.hrl`, `kernel/include/
-  inet.hrl`; `otp_headers` golden — `TBD`
+  inet.hrl`; `otp_headers` golden — `4f2d7449`
 
 ## Plan 22 (from 2026-10-23)
 
