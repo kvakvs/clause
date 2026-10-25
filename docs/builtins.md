@@ -620,6 +620,21 @@ Erlang clause dispatch, so programs that call it compile no extra code.
 - `zlib.erl` keeps OTP's API, errors, states and whole-buffer helpers.
 - `term_to_binary` compression follows OTP's size rule.
 
+## Zstd module
+
+`builtins/zstd/contexts.cpp`, `library/stdlib/zstd.erl` (plan 21 step LIB54E).
+
+- Links zstd 1.5.7 as OTP 29 ([zstd](compile.md#zstd)): same frames.
+- Contexts and dictionaries are handle references owning libzstd's; a context
+  referencing a dictionary keeps it alive. `clause_zstd` builtins mirror OTP's
+  NIF: output chunks of `ZSTD_CStreamOutSize()` / `ZSTD_DStreamOutSize()` (a
+  frame that states a smaller size decompresses into one chunk of it),
+  `{continue, Rest, Out}`, `{flush, Out}` and `{done, Out}` results, owner
+  checks (`not_on_controlling_process`), `{badarg, {invalid_key | invalid_value,
+  Term}}` and `{zstd_error, Name}` errors, booleans read back as `false` as
+  OTP's NIF reads them.
+- `zstd.erl` keeps OTP's iodata, streaming and frame handling.
+
 ## Re module
 
 `builtins/re/`, `re.erl` over bundled PCRE2 ([PCRE2](compile.md#pcre2)).

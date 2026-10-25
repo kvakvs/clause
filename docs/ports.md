@@ -329,6 +329,10 @@ stdout are pipes of the port:
   on raw files, positioned I/O are `enotsup`; a file server stops after
   `truncate`, `advise` and `sync` (`enotsup`) as OTP's. Reading and writing at
   once or appending is `{error, einval}`.
+- `{zstd, Options}` (plan 21 step LIB54E): as `compressed`, through a zstd
+  context made with `Options` (`{error, badarg}` when it refuses them): each
+  write is a frame of its own and closing adds an empty one, as OTP's layer
+  writes; reading decompresses the frames read in 8 KiB chunks.
 - `ram` (plan 21 step LIB54C): the file is its iodata contents in memory,
   served by a process like other files and closed with its opener; modes
   `read`, `write` and `binary` only (`read` when neither is given, anything

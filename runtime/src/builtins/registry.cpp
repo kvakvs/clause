@@ -263,6 +263,7 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      records_builtins(),
                                      re_builtins(),
                                      zlib_builtins(),
+                                     zstd_builtins(),
                                      re_pattern_builtins(),
                                      re_matching_builtins(),
                                      receive_builtins()};

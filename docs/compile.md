@@ -385,6 +385,20 @@ release is downloaded into `thirdparty/zlib-1.3.2` and verified (SHA-256
 host. zlib's license is the zlib license. The compiler's LLVM keeps its own
 zlib; the two never meet in one binary.
 
+## zstd
+
+The runtime's zstd module uses zstd **1.5.7**, the release OTP 29 bundles
+(`erts/emulator/zstd/vendor.info`), so frames equal OTP's. CMake compiles its
+library sources (common, compress, decompress; single-threaded, without the
+assembly decoder; `cmake/ZstdDependencies.cmake`, `clause_add_runtime_zstd`)
+into the object library `clause_runtime_zstd`, whose objects join
+`clause_runtime` as zlib's do; `-DCLAUSE_RUNTIME_ZSTD_ROOT=<source directory>`
+takes precedence, otherwise the release is downloaded into
+`thirdparty/zstd-1.5.7` and verified (SHA-256
+`eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3`), the same
+archive the Windows LLVM build uses. zstd's license is BSD-3-Clause (or
+GPL-2.0).
+
 Other prerequisites: CMake ≥ 3.28, a C++23 compiler, Boost ≥ 1.90, toml++ 3.4.0
 and the quality tools. OTP is needed only for opt-in audits and fixture
 regeneration.

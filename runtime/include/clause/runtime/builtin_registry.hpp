@@ -271,6 +271,8 @@ std::span<const BuiltinEntry> re_builtins() noexcept;
 // The zlib streams of step 41Q: clause_zlib:open/0, close/1, set_controller/2, deflate_init/2, inflate_init/2,
 // deflate/3, inflate/2, *_end/1, *_reset/1, deflate_params/2 and the dictionary functions.
 std::span<const BuiltinEntry> zlib_builtins() noexcept;
+// The zstd contexts and dictionaries of plan 21 step LIB54E: the clause_zstd builtins under library/stdlib/zstd.erl.
+std::span<const BuiltinEntry> zstd_builtins() noexcept;
 // The re builtins of step 41ZB: clause_re:compile/2, re:inspect/2 and clause_re:run/4.
 std::span<const BuiltinEntry> re_pattern_builtins() noexcept;
 std::span<const BuiltinEntry> re_matching_builtins() noexcept;

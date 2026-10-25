@@ -62,6 +62,7 @@
 {file_sorter, stdlib, provided}.
 {zip, stdlib, provided}.
 {erl_tar, stdlib, provided}.
+{zstd, stdlib, provided}.
 {uri_string, stdlib, provided}.
 {json, stdlib, provided}.
 {string, stdlib, provided}.

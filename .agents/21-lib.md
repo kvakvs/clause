@@ -140,7 +140,8 @@ Nothing is left in this tier.
 - `file` `ram` mode done (LIB54C, `00-finished.md`), for `erl_tar`'s binaries.
 - `erl_tar` done (LIB54D): Erlang following OTP's format rules, as `zip`. Later (speed): header
   parsing and checksums as C++.
-- `zstd` (17): C++ over a pinned zstd under `thirdparty/`, like zlib.
+- `zstd` done (LIB54E): C++ builtins over the pinned zstd 1.5.7 objects, `zstd.erl` as OTP's;
+  `file`'s `{zstd, Options}` layer.
 - Later (speed): `file_sorter` (LIB54A, an exact Erlang port of OTP's runs and merges) could decode
   chunks and sort runs of the default formats and orders in C++.
 - `beam_lib` (19): a C++ chunk reader and writer for `.beam` files (Clause makes none, but programs

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "zstd_ops",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "compress [{108,<<\"7C6E530003BAECC0F41E754335951E62\">>},true]\nlevels [{204,<<\"31E05B2A626692AF5271A2958DAA9BB5\">>},\n        {108,<<\"898D3A5E9D6158546DFEBFFF1CCD5EAA\">>},\n        {108,<<\"7C6E530003BAECC0F41E754335951E62\">>},\n        {108,<<\"7C6E530003BAECC0F41E754335951E62\">>},\n        {108,<<\"898D3A5E9D6158546DFEBFFF1CCD5EAA\">>}]\nempty [{9,<<\"7599DE72367C754250F904705C4F8322\">>},\n       [<<>>],\n       {9,<<\"7599DE72367C754250F904705C4F8322\">>}]\niodata [{15,<<\"BC9FAF81F611957F40FCD2588ED7F367\">>},true]\nnoise {3010,<<\"8EB31E1F415DE82739F2FF9E1AAFE040\">>}\ntwo_frames [<<\"onetwo\">>]\nflags [{112,<<\"89E97F20393C961573A3AEF217E7CEAA\">>},\n       {107,<<\"64D9E21B6C34238AF1C3FBAFE8F5B0D5\">>},\n       {120,<<\"520A9A517A7589FB785EC1DC7E89AD1B\">>},\n       {108,<<\"4E4624A9607C51E459FCF2BA07A42E16\">>}]\nread_back [7,lazy,false,0,ok,default]\ndecompress_read_back 20\ncloses [ok,ok]\nstream_shapes [{continue,0},{continue,0},{continue,30},[4]]\nstream_frame [{34,<<\"D87A8AF2D82DE6C60B115A24B03329AC\">>},\n              <<\"hello streaming world!\">>]\ndecompress_stream [{continue,<<\"h\">>},{continue,<<\"ello streaming world!\">>}]\ndecompress_finish {done,[<<\"again\">>]}\nreset [ok,{20,<<\"388FEC0C60AD3EF60CDFE122158767A6\">>}]\nreused {20,<<\"388FEC0C60AD3EF60CDFE122158767A6\">>}\nlarge [{134,<<\"4CC6C17F891B93A6AD6C6E4FFE8802F6\">>},379381]\nlarge_chunks [131072,131072,117237]\nunsized_chunks [131072,131072,117237]\nlarge_stream [12,131072]\nnoisy [131591,131591,36836]\nnoisy_stream {continue,37856,131591}\nraw_dictionary [{119,<<\"B3F260910D86FDDF599A78E1731A6A70\">>},\n                {26,<<\"D118EDC74CD0324E3F1304129BEE1D4F\">>},\n                true]\ndict_handles [{26,<<\"D118EDC74CD0324E3F1304129BEE1D4F\">>},\n              {26,<<\"4A0C48BF882082BAE5E33BD96D746000\">>},\n              true,0,0,0,0]\nmissing_dictionary {error,{zstd_error,<<\"Data corruption detected\">>}}\nheader {ok,[{blockSizeMax,1891},\n            {checksumFlag,true},\n            {dictID,0},\n            {frameContentSize,1891},\n            {frameType,'ZSTD_frame'},\n            {headerSize,7},\n            {windowSize,1891}]}\nunsized_header {ok,[{blockSizeMax,1024},\n                    {checksumFlag,false},\n                    {dictID,0},\n                    {frameContentSize,undefined},\n                    {frameType,'ZSTD_frame'},\n                    {headerSize,6},\n                    {windowSize,1024}]}\nskippable {ok,[{blockSizeMax,0},\n               {checksumFlag,false},\n               {dictID,0},\n               {frameContentSize,4},\n               {frameType,'ZSTD_skippableFrame'},\n               {headerSize,8},\n               {windowSize,0}]}\nnot_a_frame {error,<<\"Unknown frame descriptor\">>}\nfile_write [ok,ok,ok]\nfile_bytes [{50,<<\"4023CB015E92CC35689EE5990E61F332\">>},\n            <<\"first line\\nsecond line\\n\">>]\nfile_read [{ok,<<\"fir\">>},\n           {ok,<<\"st line\\n\">>},\n           {ok,11},\n           {ok,2},\n           {ok,<<\"rst line\\nsecond line\\n\">>},\n           eof,ok]\nfile_raw_read [{ok,\"first \"},ok]\nfile_errors [{error,einval},{error,badarg},{error,einval}]\nbad_parameters [{error,{badarg,{invalid_key,bogus}}},\n                {error,{badarg,{invalid_value,slow}}},\n                {error,{badarg,{invalid_value,1}}},\n                {error,{badarg,{invalid_value,high}}},\n                {error,{zstd_error,<<\"Parameter is out of bound\">>}},\n                {error,{badarg,{invalid_key,bogus}}},\n                {error,badarg},\n                {error,{badarg,{invalid_key,other}}},\n                {error,{badarg,{invalid_key,other}}},\n                {error,{badarg,{invalid_context,not_a_context}}},\n                {error,{badarg,{invalid_context,not_a_context}}},\n                {error,{badarg,{invalid_key,bogus}}}]\nbad_data [{error,{zstd_error,<<\"Unknown frame descriptor\">>}},\n          {error,badarg},\n          {error,{badarg,{invalid_context,{decompress,ref}}}},\n          [<<>>]]\nother_process {error,not_on_controlling_process}\nclosed [{error,badarg},{error,badarg},{error,badarg}]\nwrong_kind [{error,badarg}]\nzstd_ops: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "zstd_ops.erl": "b6fd92fba2534b08ea0d89603f52c0016aac19d2ebb2c29b482b371c0410dc27"
+  }
+}

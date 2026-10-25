@@ -419,32 +419,38 @@ call(_, _) ->
 % file is served too, and answers as OTP's raw files do where they differ (plan 21 step LIB50).
 serve(Opener, Name, Modes) ->
     Port = open_port({spawn_driver, "clause_file"}, [binary]),
-    case reply(port_control(Port, ?OPEN, [mode_byte(Modes), Name])) of
-        {ok, _} ->
+    case {reply(port_control(Port, ?OPEN, [mode_byte(Modes), Name])), codec(layer(Modes))} of
+        {{ok, _}, {ok, Codec}} ->
             monitor(process, Opener),
             Opener ! {self(), opened, {ok, self()}},
-            start(Opener, Port, Modes);
-        Error ->
+            start(Opener, Port, Modes, Codec);
+        {{ok, _}, Error} ->
+            port_close(Port),
+            Opener ! {self(), opened, Error};
+        {Error, _} ->
             Opener ! {self(), opened, Error}
     end.
 
-% Serve a plain file, or a compressed one through its gzip layer; a file opened compressed for reading that does not
-% start with gzip's magic bytes is read as it is, as OTP's layer does.
-start(Opener, Port, Modes) ->
+% Serve a plain file, or a compressed one through its gzip or zstd layer; a file opened compressed (gzip) for reading
+% that does not start with gzip's magic bytes is read as it is, as OTP's layer does.
+start(Opener, Port, Modes, Codec) ->
     Binary = lists:member(binary, Modes),
     Raw = lists:member(raw, Modes),
-    case layer(Modes) of
-        {inflate, Mode} ->
+    case Codec of
+        #{inflate := _, gzip := true} ->
             case reply(port_control(Port, ?READ, <<2:64>>)) of
                 {ok, <<16#1F, 16#8B>>} ->
                     {ok, _} = reply(port_control(Port, ?POSITION, <<0, 0:64>>)),
-                    compressed_loop(Opener, inflating(Port, Mode, Binary, Raw));
+                    compressed_loop(Opener, inflating(Port, Codec, Binary, Raw));
                 _ ->
                     {ok, _} = reply(port_control(Port, ?POSITION, <<0, 0:64>>)),
+                    (maps:get(close, Codec))(),
                     loop(Opener, Port, Binary, Raw)
             end;
-        deflate ->
-            compressed_loop(Opener, deflating(Port, Binary, Raw));
+        #{inflate := _} ->
+            compressed_loop(Opener, inflating(Port, Codec, Binary, Raw));
+        #{deflate := _} ->
+            compressed_loop(Opener, deflating(Port, Codec, Binary, Raw));
         none ->
             loop(Opener, Port, Binary, Raw)
     end.
@@ -572,7 +578,62 @@ layer(Modes) ->
     One = lists:member(compressed_one, Modes),
     Write = lists:member(write, Modes),
     Read = lists:member(read, Modes) orelse not Write,
-    layer(Compressed orelse One, One, Read, Write, lists:member(append, Modes)).
+    case {lists:keyfind(zstd, 1, Modes), layer(Compressed orelse One, One, Read, Write, lists:member(append, Modes))} of
+        {false, Layer} -> Layer;
+        {{zstd, _} = Zstd, none} -> zstd_layer(Zstd, layer(true, false, Read, Write, lists:member(append, Modes)));
+        {_, _} -> einval
+    end.
+
+% {zstd, Parameters} (plan 21 step LIB54E) reads or writes zstd frames as compressed reads or writes gzip.
+zstd_layer(Zstd, deflate) -> {deflate, Zstd};
+zstd_layer(Zstd, {inflate, _}) -> {inflate, Zstd};
+zstd_layer(_, Other) -> Other.
+
+% The funs of a layer's stream, made in the server that uses them: inflate, reset and close when reading, deflate,
+% finish and close when writing; {error, badarg} for zstd parameters its context refuses, as OTP's layer answers.
+codec({inflate, {zstd, Parameters}}) ->
+    try zstd:context(decompress, Parameters) of
+        {ok, Z} ->
+            {ok, #{
+                inflate => fun(Data) -> zstd:decompress(Data, Z) end,
+                reset => fun() -> zstd:reset(Z) end,
+                close => fun() -> zstd:close(Z) end
+            }}
+    catch
+        _:_ -> {error, badarg}
+    end;
+codec({deflate, {zstd, Parameters}}) ->
+    try zstd:context(compress, Parameters) of
+        {ok, Z} ->
+            {ok, #{
+                deflate => fun(Data) -> zstd:compress(Data, Z) end,
+                finish => fun() -> element(2, zstd:finish(Z, [])) end,
+                close => fun() -> zstd:close(Z) end
+            }}
+    catch
+        _:_ -> {error, badarg}
+    end;
+codec({inflate, Mode}) ->
+    Z = zlib:open(),
+    ok = zlib:inflateInit(Z, 31, Mode),
+    {ok, #{
+        gzip => true,
+        inflate => fun(Data) -> zlib:inflate(Z, Data) end,
+        reset => fun() -> zlib:inflateReset(Z) end,
+        close => fun() -> zlib:close(Z) end
+    }};
+codec(deflate) ->
+    Z = zlib:open(),
+    ok = zlib:deflateInit(Z, default, deflated, 31, 8, default),
+    {ok, #{
+        deflate => fun(Data) -> zlib:deflate(Z, Data) end,
+        finish => fun() -> zlib:deflate(Z, [], finish) end,
+        close => fun() -> zlib:close(Z) end
+    }};
+codec(none) ->
+    {ok, none};
+codec(einval) ->
+    {ok, none}.
 
 layer(false, _, _, _, _) -> none;
 layer(true, _, true, true, _) -> einval;
@@ -585,15 +646,11 @@ layer(true, false, true, false, _) -> {inflate, reset}.
 % Bytes of compressed data read at a time, as OTP's layer reads them.
 -define(INFLATE_CHUNK, 8192).
 
-inflating(Port, Mode, Binary, Raw) ->
-    Z = zlib:open(),
-    ok = zlib:inflateInit(Z, 31, Mode),
-    #{port => Port, binary => Binary, raw => Raw, z => Z, mode => inflate, buffer => <<>>, position => 0}.
+inflating(Port, Codec, Binary, Raw) ->
+    #{port => Port, binary => Binary, raw => Raw, z => Codec, mode => inflate, buffer => <<>>, position => 0}.
 
-deflating(Port, Binary, Raw) ->
-    Z = zlib:open(),
-    ok = zlib:deflateInit(Z, default, deflated, 31, 8, default),
-    #{port => Port, binary => Binary, raw => Raw, z => Z, mode => deflate, position => 0}.
+deflating(Port, Codec, Binary, Raw) ->
+    #{port => Port, binary => Binary, raw => Raw, z => Codec, mode => deflate, position => 0}.
 
 % The server of a compressed file; positions count uncompressed bytes.
 compressed_loop(Opener, State) ->
@@ -621,14 +678,14 @@ closed_on_stop({exit, _}, State) -> compressed_close(State);
 closed_on_stop(_, _) -> ok.
 
 % Closing a written file first finishes its gzip stream.
-compressed_close(#{mode := deflate, port := Port, z := Z}) ->
-    Result = ok_reply(reply(port_control(Port, ?WRITE, zlib:deflate(Z, [], finish)))),
+compressed_close(#{mode := deflate, port := Port, z := #{finish := Finish, close := Close}}) ->
+    Result = ok_reply(reply(port_control(Port, ?WRITE, Finish()))),
     port_close(Port),
-    zlib:close(Z),
+    Close(),
     Result;
-compressed_close(#{port := Port, z := Z}) ->
+compressed_close(#{port := Port, z := #{close := Close}}) ->
     port_close(Port),
-    zlib:close(Z),
+    Close(),
     ok.
 
 % A file request on a compressed file: reads and lines when reading, writes when writing, positions both ways
@@ -781,10 +838,10 @@ crlf(Line) ->
     end.
 
 % Read and inflate the next chunk into the buffer; eof, or {error, eio} for data that is not gzip.
-refill(#{port := Port, z := Z, buffer := Buffer} = State) ->
+refill(#{port := Port, z := #{inflate := Inflate}, buffer := Buffer} = State) ->
     case reply(port_control(Port, ?READ, <<?INFLATE_CHUNK:64>>)) of
         {ok, Compressed} ->
-            try zlib:inflate(Z, Compressed) of
+            try Inflate(Compressed) of
                 Data -> {ok, State#{buffer := iolist_to_binary([Buffer | Data])}}
             catch
                 error:badarg -> {error, badarg};
@@ -813,10 +870,10 @@ moved(#{mode := inflate, position := At} = State, Desired) when At < Desired ->
         {eof, _} -> {{ok, At}, State};
         Other -> Other
     end;
-moved(#{mode := inflate, port := Port, z := Z} = State, Desired) ->
+moved(#{mode := inflate, port := Port, z := #{reset := Reset}} = State, Desired) ->
     case reply(port_control(Port, ?POSITION, <<0, 0:64>>)) of
         {ok, <<0:64>>} ->
-            ok = zlib:inflateReset(Z),
+            ok = Reset(),
             moved(State#{buffer := <<>>, position := 0}, Desired);
         Other ->
             {Other, State}
@@ -832,8 +889,8 @@ moved(State, _) ->
 % Write Data through the deflate stream; ok and the moved position.
 deflated(#{raw := Raw} = State, badarg) ->
     {stopping(Raw, {error, badarg}), State};
-deflated(#{port := Port, z := Z, position := Position, raw := Raw} = State, Data) ->
-    case reply(port_control(Port, ?WRITE, zlib:deflate(Z, Data))) of
+deflated(#{port := Port, z := #{deflate := Deflate}, position := Position, raw := Raw} = State, Data) ->
+    case reply(port_control(Port, ?WRITE, Deflate(Data))) of
         {ok, _} -> {ok, State#{position := Position + iolist_size(Data)}};
         Error -> {stopping(Raw, Error), State}
     end.

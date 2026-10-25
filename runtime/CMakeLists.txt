@@ -1,6 +1,7 @@
 include(${PROJECT_SOURCE_DIR}/cmake/BoostDependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/Pcre2Dependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/ZlibDependencies.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/ZstdDependencies.cmake)
 
 add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/terms/bit_factory.cpp src/terms/bit_access.cpp src/terms/word_order.cpp src/terms/bit_float.cpp src/terms/bit_numeric.cpp src/terms/bit_utf.cpp src/terms/bit_services.cpp
@@ -27,6 +28,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/re/version.cpp src/builtins/re/options.cpp src/builtins/re/patterns.cpp src/builtins/re/matching.cpp
     # Module zlib streams (plan step 41Q).
     src/builtins/zlib/streams.cpp
+    # Module zstd contexts and dictionaries (plan 21 step LIB54E).
+    src/builtins/zstd/contexts.cpp
     # Module lists (plan step 41T).
     src/builtins/lists/list_walk.cpp src/builtins/lists/sublists.cpp src/builtins/lists/ordering.cpp src/builtins/lists/keys.cpp src/builtins/lists/merges.cpp src/builtins/lists/zips.cpp
     # Modules ordsets, orddict and proplists (plan 21 step LIB1).
@@ -180,6 +183,8 @@ target_link_libraries(clause_runtime
 clause_add_pcre2(clause_runtime)
 # zlib for the zlib module and compressed external terms (plan step 41Q), always from the pinned source.
 clause_add_runtime_zlib(clause_runtime)
+# zstd for the zstd module (plan 21 step LIB54E), always from the pinned source.
+clause_add_runtime_zstd(clause_runtime)
 file(GENERATE OUTPUT "$<TARGET_FILE_DIR:clause_runtime>/clause_runtime.link"
     CONTENT "$<JOIN:$<TARGET_PROPERTY:clause_runtime,CLAUSE_LINK_ARGUMENTS>,\n>")
 

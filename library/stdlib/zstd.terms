@@ -1,0 +1,19 @@
+%% OTP 29 zstd exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{close, 1, default, implemented}.
+{compress, 1, default, implemented}.
+{compress, 2, default, implemented}.
+{context, 1, default, implemented}.
+{context, 2, default, implemented}.
+{decompress, 1, default, implemented}.
+{decompress, 2, default, implemented}.
+{dict, 2, default, implemented}.
+{dict, 3, default, implemented}.
+{finish, 2, default, implemented}.
+{flush, 1, default, implemented}.
+{get_dict_id, 1, default, implemented}.
+{get_frame_header, 1, default, implemented}.
+{get_parameter, 2, default, implemented}.
+{reset, 1, default, implemented}.
+{set_parameter, 3, default, implemented}.
+{stream, 2, default, implemented}.
