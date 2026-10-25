@@ -223,6 +223,8 @@ std::span<const BuiltinEntry> epp_builtins() noexcept;
 std::span<const BuiltinEntry> erl_pp_builtins() noexcept;
 // erl_posix_msg:message/1 (plan 21 step LIB50; runtime/src/builtins/erl_posix_msg.cpp).
 std::span<const BuiltinEntry> erl_posix_msg_builtins() noexcept;
+// clause_filelib's wildcard pattern builtins (plan 21 step LIB51; runtime/src/builtins/filelib.cpp).
+std::span<const BuiltinEntry> filelib_builtins() noexcept;
 // The erlang gaps of plan 21 step LIB9A: checksums and iovecs, tuple edits, option-taking process builtins and
 // system flags.
 std::span<const BuiltinEntry> checksum_builtins() noexcept;

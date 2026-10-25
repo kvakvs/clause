@@ -341,17 +341,16 @@ stdout are pipes of the port:
   `copy/2,3` (names, `{Name, Modes}` or open files; `{ok, BytesCopied}`),
   `raw_read_file_info/1`, `read_file/2`, `delete/2`, `native_name_encoding/0`
   (`utf8`). `del_dir/1` answers `enoent` for a missing path and `enotdir` for a
-  file. `consult/1` and the `eval`/`script` family stay stubs: they need OTP's
-  generated parser.
-- Clause's `file` is the file layer; OTP's `filelib` and `filename` are plain
-  Erlang that runs on it when a program's search path holds OTP's sources
-  (`filelib:fold_files/5` needs `re`); `erl_prim_loader` is provided over `file`
+  file.
+- Clause's `file` is the file layer; Clause's `filelib` and `filename` run on
+  it (`filelib:fold_files/5` uses `re`); `erl_prim_loader` is provided over `file`
   with OTP's bare `error` answers and a loader path of `["."]` (`set_path/1`),
   its loading and archive functions declined until plan step 71; `prim_file` and
   `prim_buffer` stay missing, so OTP's `raw_file_io*` callers never enter a
   program.
 - Errors follow OTP: `{error, enoent}`, `eexist`, `eisdir` (a directory opened
-  or read as a file), `einval` (a negative position), `ebadf` (reading a
+  or read as a file), `einval` (a negative position; `badarg` for one that is
+  no location), `ebadf` (reading a
   write-only or writing a read-only file), `badarg` for bad names and data. File
   names are strings, binaries or atoms, encoded as UTF-8.
 

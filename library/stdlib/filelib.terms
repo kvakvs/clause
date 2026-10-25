@@ -1,0 +1,26 @@
+%% OTP 29 filelib exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{compile_wildcard, 1, default, stub}.
+{ensure_dir, 1, default, implemented}.
+{ensure_path, 1, default, implemented}.
+{file_size, 1, default, implemented}.
+{file_size, 2, default, implemented}.
+{find_file, 2, default, implemented}.
+{find_file, 3, default, implemented}.
+{find_source, 1, default, implemented}.
+{find_source, 2, default, implemented}.
+{find_source, 3, default, implemented}.
+{fold_files, 5, default, implemented}.
+{fold_files, 6, default, implemented}.
+{is_dir, 1, default, implemented}.
+{is_dir, 2, default, implemented}.
+{is_file, 1, default, implemented}.
+{is_file, 2, default, implemented}.
+{is_regular, 1, default, implemented}.
+{is_regular, 2, default, implemented}.
+{last_modified, 1, default, implemented}.
+{last_modified, 2, default, implemented}.
+{safe_relative_path, 2, default, implemented}.
+{wildcard, 1, default, implemented}.
+{wildcard, 2, default, implemented}.
+{wildcard, 3, default, implemented}.

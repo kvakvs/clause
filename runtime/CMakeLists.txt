@@ -64,6 +64,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/io_lib/key_orders.cpp
     # Module erl_posix_msg (plan 21 step LIB50).
     src/builtins/erl_posix_msg.cpp
+    # filelib's wildcard patterns (plan 21 step LIB51).
+    src/builtins/filelib.cpp
     # Modules erl_anno and erl_internal (plan 21 step LIB8).
     src/builtins/front_end/erl_anno.cpp src/builtins/front_end/erl_internal.cpp
     # Module erl_scan (plan 21 step LIB30).

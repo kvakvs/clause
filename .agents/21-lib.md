@@ -23,7 +23,7 @@ internal functions stay out unless a public function needs them (user direction 
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  854 are still to do (erts 23, kernel 225, stdlib 606). Appendix A lists them per module.
+  838 are still to do (erts 23, kernel 225, stdlib 590). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
@@ -35,12 +35,12 @@ internal functions stay out unless a public function needs them (user direction 
   `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`,
   `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
-  `seq_trace` (tokens without tracing), `file`.
+  `seq_trace` (tokens without tracing), `file`, `filelib`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
   (51), `io` (11), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
-- **Missing:** 30 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
-  ones (`filelib`, `disk_log`, ...) only by compiling OTP's sources from a search path.
+- **Missing:** 29 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
+  ones (`disk_log`, `zip`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -130,12 +130,6 @@ Done (`00-finished.md`): LIB32 `erl_eval`, LIB33 readers, LIB34 parts 1-4, LIB34
 Nothing is left in this tier.
 
 ## Tier E: files, archives and logs
-
-### LIB51. `filelib`
-
-- C++: `wildcard/1,2`, glob matching over directory listings, and `safe_relative_path/2`.
-- Erlang: `ensure_dir/1`, `ensure_path/1`, `fold_files/5`, `is_dir/1`, `is_file/1`, `is_regular/1`,
-  `file_size/1`, `last_modified/1`, `find_file/2,3`, `find_source/1,2,3`.
 
 ### LIB52. `disk_log` and `wrap_log_reader`
 
@@ -357,9 +351,6 @@ separately and are optional.
 - `ets` (stdlib, 2, 68 done): table/1,2
 - `file_sorter` (stdlib, 14): check/1,2, keycheck/2,3, keymerge/3,4, keysort/2,3,4, merge/2,3,
   sort/1,2,3
-- `filelib` (stdlib, 16): ensure_dir/1, ensure_path/1, file_size/1, find_file/2,3,
-  find_source/1,2,3, fold_files/5, is_dir/1, is_file/1, is_regular/1, last_modified/1,
-  safe_relative_path/2, wildcard/1,2
 - `io` (stdlib, 11, 37 done): columns/0,1, get_password/0, getopts/0,1, printable_range/0, rows/0,1,
   setopts/1,2, write/1,2
 - `io_ansi` (stdlib, 153): alternate_character_set_mode/0, alternate_character_set_mode_off/0,

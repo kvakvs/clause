@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "filelib_ops",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "* [\".hidden\",\"@at\",\"[x].txt\",\"a.erl\",\"b.hrl\",\"c.txt\",\"ebin\",\"empty\",\"lib\",\n   \"src\",\"sub\"]\n*.erl [\"a.erl\"]\n*.{erl,hrl} [\"a.erl\",\"b.hrl\"]\n?.erl [\"a.erl\"]\n[a-b]* [\"a.erl\",\"b.hrl\"]\n[b-a]* [\"a.erl\",\"b.hrl\"]\n[]x]* []\n[[]x].txt [\"[x].txt\"]\n\\[x\\].txt [\"[x].txt\"]\n[x].txt []\n\\@* []\n@* [\"@at\"]\n.* [\".hidden\"]\n**/*.erl [\"a.erl\",\"lib/p/src/q.erl\",\"src/m.erl\",\"src/n/o.erl\",\n          \"sub/deep/y.erl\",\"sub/x.erl\"]\n**/*.{beam,hrl} [\"b.hrl\",\"ebin/m.beam\",\"ebin/o.beam\",\"lib/p/ebin/q.beam\",\n                 \"sub/deep/z.beam\"]\nsub/** [\"sub/deep\",\"sub/deep/y.erl\",\"sub/deep/z.beam\",\"sub/x.erl\"]\n** [\".hidden\",\"@at\",\"[x].txt\",\"a.erl\",\"b.hrl\",\"c.txt\",\"ebin\",\"ebin/m.beam\",\n    \"ebin/o.beam\",\"empty\",\"lib\",\"lib/p\",\"lib/p/ebin\",\"lib/p/ebin/q.beam\",\n    \"lib/p/src\",\"lib/p/src/q.erl\",\"src\",\"src/m.erl\",\"src/n\",\"src/n/o.erl\",\n    \"sub\",\"sub/deep\",\"sub/deep/y.erl\",\"sub/deep/z.beam\",\"sub/x.erl\"]\nsub/../*.erl [\"sub/../a.erl\"]\nsub/*/y.erl [\"sub/deep/y.erl\"]\n*/deep/* [\"sub/deep/y.erl\",\"sub/deep/z.beam\"]\ns*/d*/*.beam [\"sub/deep/z.beam\"]\n{a,b}* [\"a.erl\",\"b.hrl\"]\n{a.erl,s*} [\"a.erl\",\"src\",\"sub\"]\na.erl [\"a.erl\"]\nsub [\"sub\"]\nsub/ [\"sub\"]\nmissing []\nmissing/* []\n*/missing []\n*.erl\\ [\"a.erl\"]\n[ []\na** [\"a.erl\"]\nlib/*/ebin/*.beam [\"lib/p/ebin/q.beam\"]\nempty/* []\na.erl/* []\n{a,{b,c}} {error,{case_clause,[{alt,[\"c}\",\"b}\"]}]}}\n{abc {error,{badpattern,missing_delimiter}}\n*.{erl,hrl {error,{badpattern,missing_delimiter}}\nrelative [\"filelib_ops.dir/sub/x.erl\"]\ndot_relative [\"filelib_ops.dir/b.hrl\"]\nparent_cwd [\"a.erl\"]\nmodule [\"filelib_ops.dir/a.erl\"]\nmodule_cwd [\"[x].txt\",\"c.txt\"]\nabsolute [\"/sub/deep/y.erl\"]\nabsolute_literal true\nbad_arguments [{error,function_clause},\n               {error,function_clause},\n               {error,{badmatch,[]}}]\nis_dir [false,true,false]\nis_file [true,true,false]\nis_regular [true,false,false]\nmodule_queries [true,true,false,21,0]\nfile_size [21,0]\nlast_modified [true,0]\nbinary_names [true,21]\nensure [ok,true,false,ok,ok,true,ok,ok,ok,ok,error]\nfold_recursive [\"filelib_ops.dir/a.erl\",\"filelib_ops.dir/lib/p/src/q.erl\",\n                \"filelib_ops.dir/src/m.erl\",\"filelib_ops.dir/src/n/o.erl\",\n                \"filelib_ops.dir/sub/deep/y.erl\",\"filelib_ops.dir/sub/x.erl\"]\nfold_flat [\"filelib_ops.dir/a.erl\",\"filelib_ops.dir/b.hrl\"]\nfold_module [\"filelib_ops.dir/sub/deep/y.erl\",\n             \"filelib_ops.dir/sub/deep/z.beam\",\"filelib_ops.dir/sub/x.erl\"]\nfold_missing none\nfold_count 15\nfold_bad_regexp {error,{badmatch,{error,{\"missing closing parenthesis\",1}}}}\nfind_file [{ok,\"filelib_ops.dir/src/m.erl\"},\n           {ok,\"filelib_ops.dir/src/m.erl\"},\n           {ok,\"filelib_ops.dir/src/n/o.erl\"},\n           {error,not_found},\n           {ok,\"filelib_ops.dir/ebin/m.beam\"},\n           {ok,\"filelib_ops.dir/src/m.erl\"},\n           {error,not_found}]\nfind_source [{ok,\"filelib_ops.dir/src/m.erl\"},\n             {ok,\"filelib_ops.dir/src/n/o.erl\"},\n             {ok,\"filelib_ops.dir/lib/p/src/q.erl\"},\n             {ok,\"filelib_ops.dir/src/m.erl\"},\n             {error,not_found},\n             {error,not_found},\n             {ok,\"filelib_ops.dir/a.erl\"},\n             {error,not_found}]\nsafe_relative_path [\"dir\",[],unsafe,unsafe,\"a/b\",\"a/b\",[],[],unsafe,unsafe,\n                    <<\"y\">>,[],\"a/b\"]\nsafe_empty_cwd \"a/b\"\nfilelib_ops: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "filelib_ops.erl": "d1d0a2ebfcb054ec2d491dfa0cdc3baf2110facced0312f45461173fcbe1c07e"
+  }
+}

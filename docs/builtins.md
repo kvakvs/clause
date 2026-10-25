@@ -324,6 +324,19 @@ byte for byte, same file orders.
   (Unix or Windows drives and `//` names); OTP's result shapes and errors.
 - `absname/1,2`, `basedir/2,3` are Erlang.
 
+## Filelib
+
+`builtins/filelib.cpp`, `library/stdlib/filelib.erl`, `library/stdlib/clause_filelib.erl`.
+
+- `clause_filelib:escape/1` spells `@` and `\` so `filename:split/1` keeps
+  escapes; `compile_part/1` compiles one part of a split pattern (`?`, `*`,
+  `**`, character sets with ranges, `{...}` alternatives folding in the rest of
+  their part) with OTP's quirks (`**` only as a whole part, `]` first or as a
+  range's low end, `{badpattern, missing_delimiter}`, a `case_clause` for nested
+  alternatives); `matches/3` and `match/2` filter directory entries.
+- The walk (literal prefixes, `..`, `**`, existence checks) is Erlang over
+  `file` and `filename`, so results are OTP's, sorted.
+
 ## String
 
 `builtins/string/`: every `string` function.
