@@ -1,0 +1,16 @@
+%% OTP 29 erl_tar exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{add, 3, default, implemented}.
+{add, 4, default, implemented}.
+{close, 1, default, implemented}.
+{create, 2, default, implemented}.
+{create, 3, default, implemented}.
+{extract, 1, default, implemented}.
+{extract, 2, default, implemented}.
+{format_error, 1, default, implemented}.
+{init, 3, default, implemented}.
+{open, 2, default, implemented}.
+{t, 1, default, implemented}.
+{table, 1, default, implemented}.
+{table, 2, default, implemented}.
+{tt, 1, default, implemented}.

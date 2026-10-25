@@ -138,7 +138,8 @@ Nothing is left in this tier.
   its API is funs (input/output, filters, `foldl/3`) and a server process. Later (speed): header
   parsing and stored-file copies as C++.
 - `file` `ram` mode done (LIB54C, `00-finished.md`), for `erl_tar`'s binaries.
-- `erl_tar` (14): C++ readers and writers over the pinned zlib, with an Erlang API (options).
+- `erl_tar` done (LIB54D): Erlang following OTP's format rules, as `zip`. Later (speed): header
+  parsing and checksums as C++.
 - `zstd` (17): C++ over a pinned zstd under `thirdparty/`, like zlib.
 - Later (speed): `file_sorter` (LIB54A, an exact Erlang port of OTP's runs and merges) could decode
   chunks and sort runs of the default formats and orders in C++.

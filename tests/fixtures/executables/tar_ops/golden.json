@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "tar_ops",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "create ok\ncreated {6144,<<\"251CDD34FC2AF0497B5A0D466FD131E7\">>}\ntable {ok,[\"a.txt\",\"dir/b.txt\",\"empty\",\"block\"]}\ntable_verbose {ok,[{\"a.txt\",regular,5,1700000000,33184,1000,100},\n                   {\"dir/b.txt\",regular,1321,1700000000,33184,1000,100},\n                   {\"empty\",regular,0,1700000000,33184,1000,100},\n                   {\"block\",regular,965,1700000000,33184,1000,100}]}\na.txt\ndir/b.txt\nempty\nblock\nt ok\ncreate_compressed ok\ncompressed_table {ok,[\"a.txt\",\"dir/b.txt\",\"empty\",\"block\"]}\ncompressed_binary {ok,[\"a.txt\",\"dir/b.txt\",\"empty\",\"block\"]}\nadd [ok,ok,ok,ok,{error,{\"tar_ops.dir/missing\",enoent}},ok]\ndisk [{4608,<<\"A6FDE18ACC0C6CE2851A5FE49F8CC788\">>},\n      {ok,[{\"one.txt\",regular,3,1700000000,33184,1000,100},\n           {\"renamed.txt\",regular,3,1700000000,33184,1000,100},\n           {\"bin.txt\",regular,9,1700000000,33184,1000,100},\n           {\"empty_dir\",directory,0,1700000000,33184,1000,100}]}]\na v.txt\nverbose_create ok\nnested ok\nnested_table [\"tree/empty\",\"tree/two.txt\"]\nnames_create ok\nnames [{6144,<<\"EBFC4C7654426242FAE777CA94511C76\">>},true]\nbig_owner ok\nbig_owner_table [{3072,<<\"438F05A9E694A7FF74D24FB106C56378\">>},\n                 {ok,[{\"o\",regular,1,1700000000,33184,2097152,\n                       1099511627776}]}]\nlong_name ok\nbinary_table {ok,[\"a.txt\",\"dir/b.txt\",\"empty\",\"block\"]}\nfd_table {ok,[\"a.txt\",\"dir/b.txt\",\"empty\",\"block\"]}\nreader [{ok,[{\"a.txt\",<<\"alpha\">>}]},ok]\ncooked {ok,[\"a.txt\",\"dir/b.txt\",\"empty\",\"block\"]}\nmemory [{\"a.txt\",5},{\"dir/b.txt\",1321},{\"empty\",0},{\"block\",965}]\nmemory_files {ok,[{\"a.txt\",<<\"alpha\">>},{\"empty\",<<>>}]}\nextract ok\nextracted [{ok,<<\"alpha\">>},{ok,<<>>},1700000000]\nx a.txt\nx dir/b.txt\nx empty\nx block\nkeep_old_files [ok,{ok,<<\"changed\">>}]\nx a.txt\nverbose_extract ok\nmax_size [[\"a.txt\",\"dir/b.txt\",\"empty\",\"block\"],{error,too_big}]\ncompressed_max_size [[\"a.txt\",\"dir/b.txt\",\"empty\",\"block\"],{error,too_big}]\nchunks ok\nchunked_copy true\ndisk_dir ok\ndir_made true\ninit_write [{2048,<<\"EC97391CEE0532179130FA01053041F3\">>},\n            {ok,[{\"x.txt\",<<\"through funs\">>}]}]\ninit_read {ok,[{\"x.txt\",<<\"through funs\">>}]}\ninit_bad {error,badarg}\nv7 {ok,[{\"v7.txt\",<<\"old\">>}]}\ngnu_longname [true]\ngnu_sparse {ok,[{\"sparse\",\n                 <<0,0,0,0,0,97,98,99,0,0,0,0,0,0,0,100,101,0,0,0>>}]}\ngnu_sparse_table {ok,[{\"sparse\",regular,20,1700000000,420,0,0}]}\nbase256 {error,integer_overflow}\nbase256_owner {ok,[{\"u256\",regular,1,0,420,-9223372036854775803,0}]}\nstar {ok,[{\"prefix/star.txt\",regular,1,1700000000,420,0,0}]}\npax {ok,[{\"pax/name.txt\",regular,1,0,420,4294967296,0}]}\nlinks [{ok,[{\"dir\",directory,0,1700000000,420,0,0},\n            {\"hard\",link,0,1700000000,420,0,0}]},\n       {ok,[]}]\nbad_checksum {error,bad_header}\ntruncated {error,eof}\nno_end {error,eof}\nhalf_end {ok,[\"e\"]}\nbad_end {error,invalid_end_of_archive}\nempty {error,eof}\nunsafe {error,{\"../up.txt\",unsafe_path}}\nmissing [{error,{\"tar_ops.dir/none.tar\",enoent}},\n         {error,{\"tar_ops.dir/none.tar\",enoent}}]\nopen_errors [{error,{\"tar_ops.dir/x.tar\",einval}},\n             {error,{{file,device},{incompatible_option,compressed}}},\n             {error,{{file,device},{incompatible_option,cooked}}}]\nadd_to_reader {error,eacces}\nclose_bad {error,einval}\ncreate_missing {error,{\"tar_ops.dir/nope.txt\",enoent}}\nformat_error [\"Checksum failed\",\"Unrecognized tar header format\",\n              \"Unrecognized tar header format: why\",\"Unexpected end of file\",\n              \"Extraction size exceeds the configured max_size limit\",\n              \"The path points above the current working directory\",\n              \"Read a block which was misaligned: block_size=512 pos=7\",\n              \"Invalid GNU sparse map (version 0.1)\",\n              \"name.txt: no such file or directory\",\n              \"no such file or directory\",\"{weird,term,here}\"]\ntar_ops: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "tar_ops.erl": "b2bccd928e6c86069b68819d1efd2207098e5f1f36ef26e2645f75ccf982087c"
+  }
+}
