@@ -105,6 +105,13 @@ recorded elsewhere.
   io_ansi has no terminfo there. frontend_cli/codegen_examples time out under the full fast suite at -j24 and pass
   alone.
 
+- Plan 21 Tier G (2026-10-25): the PowerShell tool's environment sets NO_COLOR=1 (Git Bash does not); io_ansi
+  honours it, so the executable runner and regenerate.py now drop NO_COLOR. Builtins needing funs (argparse) return
+  a request term and Erlang re-calls them with the answers so far (replay): no state serialization. Calling other
+  builtins from C++: registry find + call_builtin; a 0 result leaves the failure recorded (rethrow as a marker,
+  return 0). Tidy's easily-swappable check passes when both Terms meet in one call; else role structs or Named<>.
+  Under -j21 gen_statems/gen_fsms once failed (timer order, `gen_statem:state_callback/7 not exported`) and passed
+  alone. library_freshness fails on socket.types.hrl (drift from LIB62, eb51924e).
 ## Quality (tidy/Lizard)
 - clang-tidy may crash (0xC0000005/0xC0000409) or exit 1 silently with 2 jobs: rerun with one job.
   Check targets do not forward QUALITY_JOBS: `cmake -DQUALITY_SCOPE=all -DQUALITY_BUILD_DIR=<b>
