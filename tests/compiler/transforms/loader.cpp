@@ -1,6 +1,7 @@
 // Added for parse transforms: the loader on the host Erlang/OTP with real transform modules and every reply shape.
 #include "transforms/loader.hpp"
 #include "transforms/export.hpp"
+#include <algorithm>
 #include <clause/compiler/parser.hpp>
 #include <iostream>
 

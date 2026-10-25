@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "entry": "io_options",
+  "runs": [
+    {
+      "args": [],
+      "stdin": "abc\ndef\nαβ rest\nlatin é\n42\n",
+      "stderr": "^ok$",
+      "exit_status": 0,
+      "stdout": "getopts [{expand_fun,false},{echo,false},{line_history,false},{log,none},{binary,false},{encoding,unicode},{terminal,false},{stdout,false},{stderr,false},{stdin,false}]\ngetopts_user true\ncolumns {error,enotsup}\nrows {error,enotsup}\nsetopts_binary ok\nbinary_line <<97,98,99,10>>\nbinary_chars <<100,101,102>>\nsetopts_list ok\nlist_line [10]\nunicode_chars [945,946]\nrest_line [32,114,101,115,116,10]\nsetopts_latin1 ok\nlatin1_line [108,97,116,105,110,32,233,10]\ngetopts_latin1 latin1\nsetopts_unicode ok\necho true\nsetopts_first_wins ok\nfirst_binary true\nsetopts_bad {error,enotsup}\nsetopts_line_history {error,enotsup}\nsetopts_bad_encoding {error,enotsup}\nsetopts_utf8_atom {error,enotsup}\nget_password {error,enotsup}\n42\nfread {ok,[42]}\neof_line eof\nprintable_range latin1\n{a,[98],1.0,<<99>>,[1|2]}write ok\n\n[x]write_device ok\n\nrequest_getopts true\nerror_getopts [{encoding,unicode},{onlcr,false},{log,none},{terminal,false}]\nerror_columns {error,enotsup}\nerror_setopts ok\nerror_getopts [{encoding,unicode},{onlcr,true},{log,none},{terminal,true}]\nerror_setopts_bad {error,enotsup}\nerror_setopts_back ok\nerror_write ok\nfile_getopts [{binary,false},{encoding,latin1}]\nfile_columns {error,enotsup}\nfile_password {error,{request,{get_password,unicode}}}\nfile_setopts ok\nfile_getopts [{binary,true},{encoding,latin1}]\nfile_setopts_unicode ok\nfile_getopts [{binary,false},{encoding,unicode}]\nfile_setopts_utf16 ok\nfile_getopts [{binary,false},{encoding,{utf16,big}}]\nfile_setopts_bad_encoding {error,badarg}\nfile_setopts_bad {error,enotsup}\nfile_put_unicode ok\nfile_get_line [945,946,10]\nfile_get_chars [120]\nfile_binary_line <<206,177,206,178,10>>\nfile_binary_chars <<120,10>>\nfile_eof eof\nopened_getopts [{binary,false},{encoding,unicode}]\nopened_line [945,946,10]\nopened_read {ok,[120]}\nopened_read_line {ok,[10]}\nopened_read_wide {error,{no_translation,unicode,latin1}}\nopened_after_wide {error,terminated}\nopen_bad_encoding {error,badarg}\nlatin1_put ok\nlatin1_bytes {ok,<<233>>}\nio_options: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "io_options.erl": "f109758ca1846301a40e2dca73fe6df47de6fcc8c3a8a1696957a30bda5c3fa9"
+  }
+}

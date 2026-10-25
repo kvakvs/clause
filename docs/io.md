@@ -16,9 +16,9 @@ functions of `io` are Erlang in the [library](library.md#contents).
 - Devices of `io:format/3`, `io:fwrite/3`, `io:put_chars/2` and `io:nl/1`:
   `standard_io` and `user` are standard output, `standard_error` is standard
   error (standard output is flushed first, so the two keep their order). A pid,
-  or an atom registered to one, is an I/O server: the text goes to it as UTF-8
-  through `file:write/2` (an open file of Clause's `file` module), and the call
-  returns what that returns. An unregistered atom is `badarg`, a dead pid
+  or an atom registered to one, is an I/O server: the text goes to it as an I/O
+  protocol `{put_chars, unicode, Utf8}` request (`clause_io:put_chars/2`), the
+  server writes it in its encoding, and the call returns the reply. An unregistered atom is `badarg`, a dead pid
   `error:terminated`, the caller itself `error:calling_self`, any other term
   `function_clause`, as OTP.
 - `io:put_chars(Chardata)` writes chardata: Unicode characters, UTF-8 binaries

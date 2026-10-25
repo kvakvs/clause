@@ -266,8 +266,19 @@ stdout are pipes of the port:
   `{fd, 0, 1}` port: `io:get_line/1,2` writes the prompt, then returns the next
   line with its newline, the rest of the input without one at its end, then
   `eof`; `io:get_chars/2,3` returns up to `N` characters, then `eof`. Requests
-  of several processes are answered in arrival order. Input is returned as bytes
-  (one list element per byte).
+  of several processes are answered in arrival order. Input is decoded as UTF-8
+  into characters, as OTP reads its terminal; the server keeps OTP's noshell
+  `standard_io` options (`binary`, `encoding`, `echo`, `log`; `io:getopts/0,1`,
+  `io:setopts/1,2`, plan 21 step LIB63): binary mode returns binaries, `echo`
+  writes consumed input to standard output, `get_password` is `{error, enotsup}`
+  without a shell, as OTP's.
+- File servers answer `getopts` and `setopts` as OTP's file I/O server
+  (`binary`/`list` and `encoding`; `file:open/2` takes `{encoding, E}`): I/O
+  requests (`io:get_line`, `get_chars`, `put_chars`, `get_until`) encode and
+  decode the device encoding, and `file:read/2`, `read_line/1` on an encoded file
+  answer as latin1 `get_chars`/`get_line` requests (`no_translation` above 255,
+  which stops the server). Output of `io:format/3`, `io:put_chars/2`, `io:nl/1`
+  to any pid is an I/O protocol `put_chars` request.
 - The library's `file` module drives the runtime's file driver,
   `{spawn_driver, "clause_file"}`, with `port_control/3`. Its operations
   (`ports/file.cpp`: open, read, write, position, read_line, sync, close, and the path

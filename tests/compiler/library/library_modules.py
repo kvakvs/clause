@@ -43,7 +43,6 @@ PARTIAL = {
     "dets": "LIB73",
     "ets": "LIB73",
     "inet": "LIB60B",
-    "io": "LIB63",
 }
 
 

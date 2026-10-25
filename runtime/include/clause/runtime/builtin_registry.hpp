@@ -223,6 +223,8 @@ std::span<const BuiltinEntry> epp_builtins() noexcept;
 std::span<const BuiltinEntry> erl_pp_builtins() noexcept;
 // erl_posix_msg:message/1 (plan 21 step LIB50; runtime/src/builtins/erl_posix_msg.cpp).
 std::span<const BuiltinEntry> erl_posix_msg_builtins() noexcept;
+// clause_io, the terminal queries of io and io_ansi (plan 21 step LIB63; runtime/src/builtins/terminal.cpp).
+std::span<const BuiltinEntry> clause_io_builtins() noexcept;
 // clause_net, the name and interface lookups of net and inet (plan 21 step LIB60; runtime/src/builtins/net/).
 std::span<const BuiltinEntry> clause_net_builtins() noexcept;
 // clause_filelib's wildcard pattern builtins (plan 21 step LIB51; runtime/src/builtins/filelib.cpp).

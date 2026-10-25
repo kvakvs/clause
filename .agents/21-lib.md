@@ -36,10 +36,11 @@ internal functions stay out unless a public function needs them (user direction 
   `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
   `seq_trace` (tokens without tracing), `file`, `filelib`, `file_sorter`, `disk_log`, `wrap_log_reader`,
-  `logger_disk_log_h`, `gen_tcp`, `gen_udp`, `net`, `os`, `code` (loading answers for linked code).
-- **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `io` (11),
-  `inet` (1, LIB60B), `ets` (2, LIB73), `dets` (2, LIB73).
-- **Missing:** 19 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
+  `logger_disk_log_h`, `gen_tcp`, `gen_udp`, `net`, `os`, `code` (loading answers for linked code), `io`,
+  `io_ansi` (no terminfo).
+- **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `inet` (1,
+  LIB60B), `ets` (2, LIB73), `dets` (2, LIB73).
+- **Missing:** 18 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
   ones (`zip`, `erl_tar`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
@@ -138,7 +139,7 @@ tier. Later (speed): `zip` and `erl_tar` header parsing, stored copies and check
 
 ## Tier F: kernel I/O remainder
 
-LIB60A and LIB61 are done (`00-finished.md`). Later: `{active, N}`, `{packet, line | http | ...}` and `{raw, ...}`
+LIB60A, LIB61 and LIB63 are done (`00-finished.md`). Later: `{active, N}`, `{packet, line | http | ...}` and `{raw, ...}`
 socket options; applying inet_drv's own options (`send_timeout`, `header`, `deliver`, `exit_on_close`, ...).
 
 ### LIB60B. `inet_res` and the resolver configuration
@@ -155,13 +156,6 @@ socket options; applying inet_drv's own options (`send_timeout`, `header`, `deli
   reverses the "missing" decision in `modules.terms`.
 - `gen_sctp` (23): `{error, eprotonosupport}` where SCTP is absent, as in OTP; SCTP support is
   optional and later.
-
-### LIB63. `io` remainder and terminal output
-
-- `io`: `write/1,2`, `columns/0,1`, `rows/0,1`, `getopts/0,1`, `setopts/1,2`, `printable_range/0`,
-  `get_password/0`. The read and parse family is done (LIB33).
-- `io_ansi` (153, new in OTP 29): C++ escape-sequence builders and `enabled/0,1` terminal detection;
-  `format/1,2,3` and `fwrite/1,2,3,4` over `io_lib`.
 
 ## Tier G: tools, transforms and the interactive shell
 
@@ -244,7 +238,7 @@ Ranked by what real programs need first and by dependencies:
 1. LIB60B (`inet_res`).
 2. LIB30–LIB34 (the front end, `consult`, `io:read`).
 3. LIB51–LIB55 (files, logs, archives), then LIB12C.
-4. LIB70, LIB62 and LIB63.
+4. LIB70 and LIB62.
 5. LIB71–LIB74, then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
@@ -297,35 +291,6 @@ separately and are optional.
   t/1, table/1,2, tt/1
 - `escript` (stdlib, 3): create/2, extract/2, script_name/0
 - `ets` (stdlib, 2, 68 done): table/1,2
-- `io` (stdlib, 11, 37 done): columns/0,1, get_password/0, getopts/0,1, printable_range/0, rows/0,1,
-  setopts/1,2, write/1,2
-- `io_ansi` (stdlib, 153): alternate_character_set_mode/0, alternate_character_set_mode_off/0,
-  alternate_screen/0, alternate_screen_off/0, background/1,3, black/0, black_background/0,
-  black_underline/0, blink/0, blink_off/0, blue/0, blue_background/0, blue_underline/0, bold/0,
-  bold_off/0, clear/0, color/1,3, color_name_to_index/1, curly_underline/0, cursor/2,
-  cursor_backward/0,1, cursor_down/0,1, cursor_forward/0,1, cursor_get_position/0, cursor_hide/0,
-  cursor_home/0, cursor_horizontal_absolute/1, cursor_horizontal_vertical/2, cursor_move/2,
-  cursor_next_line/0, cursor_previous_line/0, cursor_report_position/0, cursor_restore/0,
-  cursor_save/0, cursor_show/0, cursor_up/0,1, cursor_vertical_absolute/1, cyan/0,
-  cyan_background/0, cyan_underline/0, dashed_underline/0, default_background/0, default_color/0,
-  default_underline_color/0, delete_character/0,1, delete_line/0,1, device_report_attributes/0,
-  dim/0, dim_off/0, dotted_underline/0, double_underline/0, enabled/0,1, erase_character/1,
-  erase_display/0, erase_line/0, format/1,2,3, fwrite/1,2,3,4, green/0, green_background/0,
-  green_underline/0, hyperlink_reset/0, hyperlink_start/1,2, insert_character/1, insert_line/0,1,
-  inverse/0, inverse_off/0, invisible/0, invisible_off/0, italic/0, italic_off/0,
-  keypad_transmit_mode/0, keypad_transmit_mode_off/0, light_black/0, light_black_background/0,
-  light_black_underline/0, light_blue/0, light_blue_background/0, light_blue_underline/0,
-  light_cyan/0, light_cyan_background/0, light_cyan_underline/0, light_green/0,
-  light_green_background/0, light_green_underline/0, light_magenta/0, light_magenta_background/0,
-  light_magenta_underline/0, light_red/0, light_red_background/0, light_red_underline/0,
-  light_white/0, light_white_background/0, light_white_underline/0, light_yellow/0,
-  light_yellow_background/0, light_yellow_underline/0, magenta/0, magenta_background/0,
-  magenta_underline/0, modify_color/4, overline/0, overline_off/0, red/0, red_background/0,
-  red_underline/0, render/1,2, reset/0, reverse_index/0, scan/1, scroll_backward/0,1,
-  scroll_change_region/2, scroll_forward/0,1, strikethrough/0, strikethrough_off/0, tab/0,
-  tab_backward/0, tab_clear/0, tab_clear_all/0, tab_set/0, tigetflag/1, tigetnum/1, tinfo/0,
-  tput/1,2, underline/0, underline_color/1,3, underline_off/0, white/0, white_background/0,
-  white_underline/0, yellow/0, yellow_background/0, yellow_underline/0
 - `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3, start/1,
   start_link/0,1, stop/1
 - `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3, pspawn_link/3, start/1,2, stop/0

@@ -67,6 +67,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/io_lib/key_orders.cpp
     # Module erl_posix_msg (plan 21 step LIB50).
     src/builtins/erl_posix_msg.cpp
+    # Module clause_io: terminal queries of io and io_ansi (plan 21 step LIB63).
+    src/builtins/terminal.cpp
     # Module clause_net: names and interfaces of net and inet (plan 21 step LIB60).
     src/builtins/net/names.cpp src/builtins/net/interfaces.cpp src/builtins/net/interfaces_windows.cpp
     src/builtins/net/interfaces_posix.cpp

@@ -448,6 +448,16 @@ program.
   `purge/1` `false`, `soft_purge/1` `true`, `delete/1` `false`;
   `get_doc/1` `{error, missing}`; no coverage support.
 
+## Io module
+
+`builtins/terminal.cpp`, `library/stdlib/clause_io.erl` (plan 21 step LIB63).
+
+- `clause_io:isatty/1` (`stdin`, `stdout`, `stderr`): a console on Windows,
+  `isatty(3)` elsewhere; `window_size/1`: `{Columns, Rows}` of a terminal
+  (`GetConsoleScreenBufferInfo`, `TIOCGWINSZ`), else `{error, enotsup}`.
+- They answer `io:getopts/0,1`'s terminal flags, `io:columns/0,1`,
+  `io:rows/0,1` and `io_ansi:enabled/0,1`.
+
 ## Os module
 
 `builtins/os.cpp`, `library/kernel/os.erl`.

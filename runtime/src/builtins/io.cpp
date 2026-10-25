@@ -90,13 +90,14 @@ Word emit_error(ProcessContext &context, std::u32string_view text) {
     return publish(context, context.atom_storage().intern("ok"_atom));
 }
 
-// Hand `text` to an I/O server: continue as file:write(Server, Utf8Binary), whose result the call returns.
+// Hand `text` to an I/O server: continue as clause_io:put_chars(Server, Utf8Binary), an I/O protocol put_chars request
+// whose reply the call returns (plan 21 step LIB63).
 Word emit_server(ProcessContext &context, Word server, std::u32string_view text) {
     TermFactory factory(context);
     const auto bytes = utf8(text);
     const auto binary = need(factory.binary(std::as_bytes(std::span{bytes.data(), bytes.size()})));
-    const auto *frame = static_cast<const abi::v1::FrameDescriptor *>(
-        context.code_server().function_frame(need(factory.atom("file"_atom)), need(factory.atom("write"_atom)), 2));
+    const auto *frame = static_cast<const abi::v1::FrameDescriptor *>(context.code_server().function_frame(
+        need(factory.atom("clause_io"_atom)), need(factory.atom("put_chars"_atom)), 2));
     if (!frame) {
         bad_argument();
     }

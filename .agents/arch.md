@@ -307,7 +307,7 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 
 ### stdlib
 
-- Text: `io`/`io_lib` (`builtins/io_lib/`: deep-chardata arena, `write1`, format scan/build,
+- Text: `io` (stdin server with OTP's noshell options; file servers' encodings; terminal queries in `builtins/terminal.cpp`)/`io_lib` (`builtins/io_lib/`: deep-chardata arena, `write1`, format scan/build,
   `fread`, io_lib_pretty layout, `maps_order` sort-and-rerun with `clause_io_lib`),
   `builtins/float_text` (OTP rounding, Ryu), `string`, `unicode`/`unicode_util` (generated tables,
   cp/gc, normalization), `re` (bundled PCRE2 10.47; C++ compile/run, rest in `re.erl`), `base64`,

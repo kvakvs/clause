@@ -256,8 +256,9 @@ class NodePool final {
     alignas(std::max_align_t) std::array<std::byte, EMBEDDED_NODES * EMBEDDED_BYTES> embedded_{};
 };
 
-// The allocator of a mailbox's lists: single nodes come from its pool (pooled message nodes).
-template <typename T> class PooledAllocator final {
+// The allocator of a mailbox's lists: single nodes come from its pool (pooled message nodes). Not final: libstdc++'s
+// std::list derives from its allocator.
+template <typename T> class PooledAllocator {
   public:
     using value_type = T;
 

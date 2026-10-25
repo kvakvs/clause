@@ -822,6 +822,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   UTF-8 output as characters), `find_executable/1,2` and `set_signal/2` builtins; `open_port` `in`/`out` combine as
   OTP's; the code path in a persistent term with OTP's path changes, `lib_dir`/`priv_dir`/`where_is_file` lookups,
   `all_available/0`, `clash/0`, loading and coverage answers for linked code; `code_paths`, `os_commands` goldens — `97dfec2f`
+- **LIB63** `io` complete and `io_ansi`: the stdin server keeps OTP's noshell options (binary, encoding, echo, log),
+  decodes UTF-8 input; file servers' getopts/setopts and encodings (`{encoding, E}` on open, encoded I/O requests,
+  `file:read/2` as latin1 requests); io output to pids as I/O protocol requests; `columns`/`rows`/terminal flags
+  over `clause_io` builtins; `io_ansi` with the built-in ANSI sequences (no terminfo); Linux build fixes
+  (`PooledAllocator` not final, `<algorithm>`); `io_options`, `io_ansi_codes` goldens — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

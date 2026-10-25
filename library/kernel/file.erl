@@ -130,12 +130,14 @@ open(_, _) ->
     {error, badarg}.
 
 open_file(File, Modes) ->
-    case {name(File), layer(Modes)} of
-        {error, _} ->
+    case {name(File), layer(Modes), device_encoding(proplists:get_value(encoding, Modes, latin1))} of
+        {error, _, _} ->
             {error, badarg};
-        {_, einval} ->
+        {_, _, error} ->
+            {error, badarg};
+        {_, einval, _} ->
             {error, einval};
-        {Name, _} ->
+        {Name, _, _} ->
             Self = self(),
             Server = spawn(fun() -> serve(Self, Name, Modes) end),
             receive
@@ -422,6 +424,8 @@ serve(Opener, Name, Modes) ->
     case {reply(port_control(Port, ?OPEN, [mode_byte(Modes), Name])), codec(layer(Modes))} of
         {{ok, _}, {ok, Codec}} ->
             monitor(process, Opener),
+            {ok, Encoding} = device_encoding(proplists:get_value(encoding, Modes, latin1)),
+            put(io_encoding, Encoding),
             Opener ! {self(), opened, {ok, self()}},
             start(Opener, Port, Modes, Codec);
         {{ok, _}, Error} ->
@@ -461,14 +465,102 @@ loop(Opener, Port, Binary, Raw) ->
             port_close(Port),
             From ! {file_reply, Ref, ok};
         {file_request, From, Ref, Request} ->
-            answer(file_reply, From, Ref, file_request(Port, Binary, Raw, Request)),
+            answer(file_reply, From, Ref, encoded_file_request(Port, Binary, Raw, Request)),
             loop(Opener, Port, Binary, Raw);
+        {io_request, From, ReplyAs, {setopts, Options}} ->
+            {Reply, NewBinary} = set_io_options(Options, Binary),
+            answer(io_reply, From, ReplyAs, Reply),
+            loop(Opener, Port, NewBinary, Raw);
         {io_request, From, ReplyAs, Request} ->
             answer(io_reply, From, ReplyAs, io_request(Port, Binary, Request)),
             loop(Opener, Port, Binary, Raw);
         {'DOWN', _, process, Opener, _} ->
             port_close(Port)
     end.
+
+% --- I/O options of a file server (plan 21 step LIB63) ---
+
+% Reads of a file opened with an encoding answer as OTP's latin1 get_chars and get_line requests do: characters,
+% and no_translation (which stops the server) for one above 255.
+encoded_file_request(Port, Binary, Raw, Request) ->
+    case {io_encoding(), Request} of
+        {latin1, _} -> file_request(Port, Binary, Raw, Request);
+        {_, read_line} -> encoded_read(Port, Binary, {get_line, unicode, ''});
+        {_, {read, Size}} when is_integer(Size), Size >= 0 ->
+            encoded_read(Port, Binary, {get_chars, unicode, '', Size});
+        _ -> file_request(Port, Binary, Raw, Request)
+    end.
+
+encoded_read(Port, Binary, Request) ->
+    case io_request(Port, true, Request) of
+        Bytes when is_binary(Bytes) -> latin1_data(unicode:characters_to_list(Bytes, io_encoding()), Binary);
+        Other -> Other
+    end.
+
+latin1_data(Chars, Binary) ->
+    case lists:all(fun(C) -> C =< 255 end, Chars) of
+        true when Binary -> {ok, list_to_binary(Chars)};
+        true -> {ok, Chars};
+        false -> {stop, no_translation, {error, {no_translation, unicode, latin1}}}
+    end.
+
+% The device encoding of this file server: latin1 unless the file was opened or set to another, as OTP's.
+io_encoding() ->
+    case get(io_encoding) of
+        undefined -> latin1;
+        Encoding -> Encoding
+    end.
+
+% OTP's file I/O server options: binary (or list) and encoding; a bad encoding is badarg, others enotsup.
+set_io_options(Options0, Binary) when is_list(Options0) ->
+    Expanded = [
+        case Option of
+            latin1 -> {encoding, latin1};
+            unicode -> {encoding, unicode};
+            _ -> Option
+        end
+     || Option <- Options0
+    ],
+    Options = proplists:unfold(proplists:substitute_negations([{list, binary}], Expanded)),
+    Known = fun
+        ({binary, _}) -> true;
+        ({encoding, _}) -> true;
+        (_) -> false
+    end,
+    case lists:all(Known, Options) of
+        true -> apply_io_options(Options, Binary);
+        false -> {{error, enotsup}, Binary}
+    end;
+set_io_options(_, Binary) ->
+    {{error, enotsup}, Binary}.
+
+apply_io_options(Options, Binary) ->
+    case device_encoding(proplists:get_value(encoding, Options, io_encoding())) of
+        {ok, Encoding} ->
+            put(io_encoding, Encoding),
+            {ok, proplists:get_value(binary, Options, Binary)};
+        error ->
+            {{error, badarg}, Binary}
+    end.
+
+% An encoding as OTP's file I/O server keeps it.
+device_encoding(latin1) -> {ok, latin1};
+device_encoding(utf8) -> {ok, unicode};
+device_encoding(unicode) -> {ok, unicode};
+device_encoding(utf16) -> {ok, {utf16, big}};
+device_encoding({utf16, Endian} = Encoding) when Endian =:= big; Endian =:= little -> {ok, Encoding};
+device_encoding(utf32) -> {ok, {utf32, big}};
+device_encoding({utf32, Endian} = Encoding) when Endian =:= big; Endian =:= little -> {ok, Encoding};
+device_encoding(_) -> error.
+
+% Bytes read from an encoded file as an I/O reply: characters in list mode, the bytes in binary mode.
+encoded(Bytes, false) when is_binary(Bytes) ->
+    case io_encoding() of
+        latin1 -> binary_to_list(Bytes);
+        Encoding -> unicode:characters_to_list(Bytes, Encoding)
+    end;
+encoded(Data, _) ->
+    Data.
 
 % Send a reply; {stop, Reason, Reply} also ends the server with Reason after replying, {exit, Reason} ends it without
 % a reply.
@@ -738,6 +830,11 @@ iolist_or_badarg(Data) ->
     end.
 
 % An I/O request on a compressed file, as on a plain one but through the layer.
+compressed_io(getopts, #{binary := Binary} = State) ->
+    {[{binary, Binary}, {encoding, latin1}], State};
+compressed_io({setopts, Options}, #{binary := Binary} = State) ->
+    {Reply, NewBinary} = set_io_options(Options, Binary),
+    {Reply, State#{binary := NewBinary}};
 compressed_io({get_line, _, _}, #{mode := inflate} = State) ->
     unwrapped(line_read_stopping(inflated_line(State#{raw := false})));
 compressed_io({get_chars, _, _, Count}, #{mode := inflate} = State) when is_integer(Count), Count >= 0 ->
@@ -897,12 +994,24 @@ deflated(#{port := Port, z := #{deflate := Deflate}, position := Position, raw :
 
 % Answer one I/O request as OTP's file I/O server does: the reply, or {stop, Reason, Reply} when the server must exit
 % after replying (a failing get_until function, an untranslatable put_chars).
+io_request(_, Binary, getopts) ->
+    [{binary, Binary}, {encoding, io_encoding()}];
 io_request(Port, Binary, {get_line, _, _}) ->
-    line_stopping(false, request(Port, Binary, get_line));
+    encoded(line_stopping(false, request(Port, true, get_line)), Binary);
 io_request(Port, Binary, {get_chars, _, _, Count}) when is_integer(Count), Count >= 0 ->
-    case stopping(false, request(Port, Binary, {read, Count})) of
-        {ok, Data} -> Data;
-        Other -> Other
+    case io_encoding() of
+        latin1 ->
+            case stopping(false, request(Port, Binary, {read, Count})) of
+                {ok, Data} -> Data;
+                Other -> Other
+            end;
+        unicode ->
+            encoded(utf8_chars(Port, Count, <<>>), Binary);
+        _ ->
+            case stopping(false, request(Port, true, {read, Count})) of
+                {ok, Data} -> encoded(Data, Binary);
+                Other -> Other
+            end
     end;
 io_request(Port, Binary, {get_until, Encoding, _, M, F, Args}) ->
     until(Port, Binary, {Encoding, M, F, Args}, []);
@@ -912,19 +1021,42 @@ io_request(Port, Binary, {put_chars, Encoding, M, F, A}) ->
         Chars -> io_request(Port, Binary, {put_chars, Encoding, Chars})
     end;
 io_request(Port, _, {put_chars, Encoding, Chars}) ->
-    case unicode:characters_to_binary(Chars, Encoding, latin1) of
+    Device = io_encoding(),
+    case unicode:characters_to_binary(Chars, Encoding, Device) of
         Bytes when is_binary(Bytes) ->
             ok_reply(reply(port_control(Port, ?WRITE, Bytes)));
         _ ->
-            {stop, no_translation, {error, {no_translation, Encoding, latin1}}}
+            {stop, no_translation, {error, {no_translation, Encoding, Device}}}
     end;
 io_request(_, _, Request) ->
     {error, {request, Request}}.
 
+% The bytes of the next Count UTF-8 characters of a unicode file, fewer at its end; eof at the end itself.
+utf8_chars(Port, Count, Read) ->
+    Chars = utf8_count(Read),
+    case Chars >= Count of
+        true ->
+            Read;
+        false ->
+            case reply(port_control(Port, ?READ, <<(Count - Chars):64>>)) of
+                {ok, Bytes} -> utf8_chars(Port, Count, <<Read/binary, Bytes/binary>>);
+                eof when Read =:= <<>> -> eof;
+                eof -> Read;
+                {error, Reason} = Error -> {stop, Reason, Error}
+            end
+    end.
+
+% The complete characters of UTF-8 bytes.
+utf8_count(Bytes) ->
+    case unicode:characters_to_list(Bytes) of
+        Chars when is_list(Chars) -> length(Chars);
+        {_, Chars, _} -> length(Chars)
+    end.
+
 % Feed 4 KiB chunks and then eof to M:F until it is done; the characters it leaves over are read again next.
 until(Port, Binary, Until, Cont) ->
     case reply(port_control(Port, ?READ, <<4096:64>>)) of
-        {ok, Bytes} -> apply_until(Port, Binary, Until, Cont, binary_to_list(Bytes));
+        {ok, Bytes} -> apply_until(Port, Binary, Until, Cont, chunk_chars(Port, Bytes));
         eof -> apply_until(Port, Binary, Until, Cont, eof);
         {error, Reason} = Error -> {stop, Reason, Error}
     end.
@@ -947,10 +1079,30 @@ until_result(_, _, Result) -> Result.
 
 % Move the file position back over the bytes of the characters M:F did not use.
 unread(Port, Rest) when is_list(Rest), Rest =/= [] ->
-    Size = byte_size(unicode:characters_to_binary(Rest, latin1)),
+    Size = byte_size(unicode:characters_to_binary(Rest, unicode, io_encoding())),
     port_control(Port, ?POSITION, <<1, (-Size):64/signed>>);
 unread(_, _) ->
     ok.
+
+% The characters of a chunk in the device encoding; an incomplete character at its end is read again next (plan 21
+% step LIB63).
+chunk_chars(_, Bytes) when Bytes =:= <<>> ->
+    [];
+chunk_chars(Port, Bytes) ->
+    case io_encoding() of
+        latin1 ->
+            binary_to_list(Bytes);
+        Encoding ->
+            case unicode:characters_to_list(Bytes, Encoding) of
+                Chars when is_list(Chars) ->
+                    Chars;
+                {incomplete, Chars, Tail} ->
+                    port_control(Port, ?POSITION, <<1, (-byte_size(Tail)):64/signed>>),
+                    Chars;
+                {error, Chars, Invalid} ->
+                    Chars ++ binary_to_list(Invalid)
+            end
+    end.
 
 % Answer one request of an open file.
 request(Port, Binary, {read, Size}) ->

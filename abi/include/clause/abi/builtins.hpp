@@ -1177,6 +1177,9 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     // erl_posix_msg (plan 21 step LIB50; runtime/src/builtins/erl_posix_msg.cpp).
     BuiltinName{"erl_posix_msg", "message", 1},
     // clause_net, name and interface lookups of net and inet (plan 21 step LIB60; runtime/src/builtins/net/).
+    // clause_io, the terminal queries of io and io_ansi (plan 21 step LIB63; runtime/src/builtins/terminal.cpp).
+    BuiltinName{"clause_io", "isatty", 1},
+    BuiltinName{"clause_io", "window_size", 1},
     BuiltinName{"clause_net", "gethostname", 0},
     BuiltinName{"clause_net", "getaddrinfo", 2},
     BuiltinName{"clause_net", "getnameinfo", 4},

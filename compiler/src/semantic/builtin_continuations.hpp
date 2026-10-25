@@ -17,13 +17,13 @@ struct BuiltinContinuation {
     std::size_t target_arity;
 };
 
-// io output to a process device goes through file:write/2 (step 41U); writes of maps ordered by comparison funs sort
-// their keys in clause_io_lib:sort_maps/6 (plan 21 step LIB4F).
+// io output to a process device goes through clause_io:put_chars/2, an I/O protocol request (plan 21 step LIB63);
+// writes of maps ordered by comparison funs sort their keys in clause_io_lib:sort_maps/6 (plan 21 step LIB4F).
 inline constexpr std::array BUILTIN_CONTINUATIONS{
-    BuiltinContinuation{{"io", "format", 3}, U"file", U"write", 2},
-    BuiltinContinuation{{"io", "fwrite", 3}, U"file", U"write", 2},
-    BuiltinContinuation{{"io", "put_chars", 2}, U"file", U"write", 2},
-    BuiltinContinuation{{"io", "nl", 1}, U"file", U"write", 2},
+    BuiltinContinuation{{"io", "format", 3}, U"clause_io", U"put_chars", 2},
+    BuiltinContinuation{{"io", "fwrite", 3}, U"clause_io", U"put_chars", 2},
+    BuiltinContinuation{{"io", "put_chars", 2}, U"clause_io", U"put_chars", 2},
+    BuiltinContinuation{{"io", "nl", 1}, U"clause_io", U"put_chars", 2},
     BuiltinContinuation{{"io_lib", "format", 2}, U"clause_io_lib", U"sort_maps", 6},
     BuiltinContinuation{{"io_lib", "format", 3}, U"clause_io_lib", U"sort_maps", 6},
     BuiltinContinuation{{"io_lib", "fwrite", 2}, U"clause_io_lib", U"sort_maps", 6},

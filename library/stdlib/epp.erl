@@ -181,8 +181,7 @@ read_encoding_from_binary(Bin, Options) -> clause_epp:read_encoding_from_binary(
 
 set_encoding(File) -> set_encoding(File, ?DEFAULT_ENCODING).
 
-%% The encoding a device's coding comment names, or none; the device is set to it (or Default) where its I/O server
-%% takes the option.
+%% The encoding a device's coding comment names, or none; the device is set to it (or Default).
 set_encoding(File, Default) ->
     Encoding = encoding_of(File, true),
     Set =
@@ -190,11 +189,7 @@ set_encoding(File, Default) ->
             none -> Default;
             _ -> Encoding
         end,
-    try io:setopts(File, [{encoding, Set}]) of
-        _ -> ok
-    catch
-        error:{not_implemented, _, _} -> ok
-    end,
+    _ = io:setopts(File, [{encoding, Set}]),
     Encoding.
 
 %% The coding comment within a device's first 512 bytes, its position kept.
