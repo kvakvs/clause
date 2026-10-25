@@ -1173,6 +1173,15 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"digraph_utils", "postorder", 1},
     // erl_posix_msg (plan 21 step LIB50; runtime/src/builtins/erl_posix_msg.cpp).
     BuiltinName{"erl_posix_msg", "message", 1},
+    // clause_net, name and interface lookups of net and inet (plan 21 step LIB60; runtime/src/builtins/net/).
+    BuiltinName{"clause_net", "gethostname", 0},
+    BuiltinName{"clause_net", "getaddrinfo", 2},
+    BuiltinName{"clause_net", "getnameinfo", 4},
+    BuiltinName{"clause_net", "getservbyname", 2},
+    BuiltinName{"clause_net", "getservbyport", 2},
+    BuiltinName{"clause_net", "inet_getifaddrs", 0},
+    BuiltinName{"clause_net", "getifaddrs", 0},
+    BuiltinName{"clause_net", "if_names", 0},
     // clause_filelib, filelib's wildcard patterns (plan 21 step LIB51; runtime/src/builtins/filelib.cpp).
     BuiltinName{"clause_filelib", "escape", 1},
     BuiltinName{"clause_filelib", "compile_part", 1},

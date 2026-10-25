@@ -14,7 +14,7 @@
 {prim_buffer, erts, missing, "low-level file buffers; Clause's file module is the file layer"}.
 {prim_file, erts, missing, "low-level file driver; Clause's file module is the file layer"}.
 {prim_inet, erts, missing, "socket driver; Clause's gen_tcp, gen_udp and inet replace it"}.
-{prim_net, erts, missing, "low-level network queries; Clause's inet is the network layer"}.
+{prim_net, erts, missing, "low-level network queries; Clause's net and inet are the network layer"}.
 {prim_socket, erts, missing, "socket NIF; Clause's gen_tcp, gen_udp and inet replace it"}.
 {socket_registry, erts, missing, "bookkeeping of the socket NIF, which Clause does not provide"}.
 {application, kernel, provided}.
@@ -29,7 +29,7 @@
 {net_kernel, kernel, provided}.
 {auth, kernel, provided}.
 {seq_trace, kernel, provided}.
-{net, kernel, missing, "socket NIF queries; Clause's inet answers host names and addresses"}.
+{net, kernel, provided}.
 {socket, kernel, missing, "socket NIF API; Clause's gen_tcp, gen_udp and inet replace it"}.
 {code, kernel, provided}.
 {file, kernel, provided}.

@@ -70,7 +70,8 @@ which are stubs.
 | [`re`](../library/stdlib/re.erl) | Every function but `import/1`, over PCRE2 ([re module](builtins.md#re-module)) |
 | [`file`](../library/kernel/file.erl) | Every documented function: open, read, write, position and close files (on disk, `compressed`, or in memory with `ram`), positioned reads and writes, `truncate/1`, `advise/4`, `allocate/3`, whole-file reads and writes, `consult/1`, `eval/1,2`, `script/1,2` and their `path_` forms with `path_open/3` (the file read whole and decoded by its coding comment, UTF-8 by default, as `epp:set_encoding/1` does in [`clause_epp`](../library/stdlib/clause_epp.erl), then scanned form by form with OTP's results and errors), file information and its changes (`write_file_info/2,3`, `change_*`), directory operations over the file driver, `sendfile/2,5` as OTP's chunked fallback and `format_error/1` ([files](ports.md#standard-io-and-files)) |
 | [`erl_posix_msg`](../library/stdlib/erl_posix_msg.erl) | OTP's internal module for `file:format_error/1`: `message/1` as a runtime builtin ([POSIX messages](builtins.md#posix-messages)) |
-| [`gen_tcp`](../library/kernel/gen_tcp.erl), [`gen_udp`](../library/kernel/gen_udp.erl), [`inet`](../library/kernel/inet.erl) | Sockets over socket ports ([sockets](ports.md#sockets)) |
+| [`gen_tcp`](../library/kernel/gen_tcp.erl), [`gen_udp`](../library/kernel/gen_udp.erl), [`inet`](../library/kernel/inet.erl), [`clause_socket`](../library/kernel/clause_socket.erl), [`clause_socket_options`](../library/kernel/clause_socket_options.erl) | Sockets over socket ports, with their options, statistics, status and listings ([sockets](ports.md#sockets)); `inet`'s DNS-client functions are LIB60B |
+| [`net`](../library/kernel/net.erl), [`clause_net`](../library/kernel/clause_net.erl) | Every documented function: host, address and service lookups and the interface lists as runtime builtins with prim_net's results, the filters Erlang; no network namespaces ([network names](builtins.md#network-names)) |
 | [`clause_socket`](../library/kernel/clause_socket.erl) | Clause's own: the socket driver protocol the three modules above share |
 | [`os`](../library/kernel/os.erl) | `cmd/1` over a port, environment, time and version queries ([maps module](builtins.md#maps-module)) |
 | [`code`](../library/kernel/code.erl) | Loaded-module queries without a code server ([code module](builtins.md#code-module)); paths and loading are stubs |
@@ -154,8 +155,8 @@ module, and per group of functions where a module mixes concerns:
   and which higher-level Clause modules take its callers' place
   (`library/modules.terms`). The low-level `prim_*` file and socket layers
   (`prim_file`, `prim_buffer`, `prim_socket`, `prim_net`, `prim_inet`,
-  `socket_registry`) and `socket`, `net` are the missing modules: programs use
-  Clause's `file`, `gen_tcp`, `gen_udp` and `inet` instead, and because Clause
+  `socket_registry`) and `socket` are the missing modules: programs use
+  Clause's `file`, `gen_tcp`, `gen_udp`, `inet` and `net` instead, and because Clause
   modules win over OTP's (below), OTP's callers of a missing module (OTP's
   `gen_tcp_socket`, `inet_tcp`, ...) never enter a batch. A missing module never
   gets a stub, so a reference to it is a compile-time error, never a run-time

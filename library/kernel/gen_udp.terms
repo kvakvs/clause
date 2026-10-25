@@ -1,15 +1,15 @@
 %% OTP 29 gen_udp exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
 %% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
 {close, 1, default, implemented}.
-{connect, 2, default, stub}.
-{connect, 3, default, stub}.
+{connect, 2, default, implemented}.
+{connect, 3, default, implemented}.
 {controlling_process, 2, default, implemented}.
 {fdopen, 2, default, stub}.
 {open, 1, default, implemented}.
 {open, 2, default, implemented}.
 {recv, 2, default, implemented}.
 {recv, 3, default, implemented}.
-{send, 2, default, stub}.
-{send, 3, default, stub}.
+{send, 2, default, implemented}.
+{send, 3, default, implemented}.
 {send, 4, default, implemented}.
-{send, 5, default, stub}.
+{send, 5, default, implemented}.

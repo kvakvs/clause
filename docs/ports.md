@@ -389,16 +389,43 @@ stdout are pipes of the port:
 A socket is a port, as with OTP's `inet_drv` backend: `is_port(Socket)` is true
 and active-mode messages are `{tcp, Socket, Data}`, `{tcp_closed, Socket}`,
 `{tcp_error, Socket, Reason}`, `{udp, Socket, Address, Port, Data}`. The subset:
-`gen_tcp:connect/3,4`, `listen/2`, `accept/1,2`, `send/2`, `recv/2,3`,
-`close/1`, `controlling_process/2`, `shutdown/2`; `gen_udp:open/1,2`, `send/4`,
-`recv/2,3`, `close/1`; `inet:setopts/2`, `inet:port/1`, `inet:peername/1`,
-`inet:sockname/1`; modes `{active, true | false | once}`, `binary`/`list`,
-`{packet, 0 | 1 | 2 | 4 | raw}`, `{reuseaddr, Bool}`, `{backlog, N}`,
+`gen_tcp:connect/2,3,4` (a host and port, or a socket address map),
+`listen/2`, `accept/1,2`, `send/2`, `recv/2,3`, `close/1`,
+`controlling_process/2`, `shutdown/2`; `gen_udp:open/1,2`, `connect/2,3`,
+`send/2,3,4,5` (OTP's destination forms and ancillary data), `recv/2,3`,
+`close/1`; `inet:setopts/2`, `getopts/2`, `getstat/1,2`, `info/1`, `i/0,1,2`,
+`monitor/1`, `cancel_monitor/1`, `port/1`, `peername/1`, `peernames/1,2`,
+`sockname/1`, `socknames/1,2`; modes `{active, true | false | once}`,
+`binary`/`list` (`{mode, M}`), `{packet, 0 | 1 | 2 | 4 | raw}`, `{backlog, N}`,
 `{ip, Address}`/`{ifaddr, Address}`, `inet`/`inet6`; IPv4 and IPv6 addresses as
-tuples, host names as strings or atoms (`loopback` included). The tuning options
-`nodelay`, `keepalive`, `send_timeout`, `send_timeout_close`, `delay_send` and
-`exit_on_close` are accepted and not applied; any other option is
-`exit(badarg)`, as for an invalid one in OTP.
+tuples, host names as strings or atoms (`loopback` included).
+
+Options beyond the data mode (plan 21 step LIB60, `ports/socket_options.cpp`,
+`library/kernel/clause_socket_options.erl`) are driver records of a code and a
+value, given when a socket opens (set before it binds or connects) or by
+`setopts/2`; every option of a `setopts/2` call is checked before any is set.
+The system's options (`reuseaddr`, `keepalive`, `dontroute`, `linger`,
+`broadcast`, `sndbuf`, `recbuf`, `nodelay`, `tos`, `tclass`, `ipv6_v6only`,
+`multicast_ttl`, `multicast_loop`, `multicast_if`, `add_membership`,
+`drop_membership`, `exclusiveaddruse` on Windows, `priority` and `reuseport`
+where the system has them) go to `setsockopt` and are read back with
+`getsockopt`; the options OTP's `inet_drv` keeps itself (`buffer`, `header`,
+`deliver`, `exit_on_close`, `send_timeout`, watermarks, `packet_size`, ...) are
+kept with inet_drv's defaults and not applied ([differences](differences.md)).
+As inet_drv, a receive buffer raises `buffer` until that is set, and
+`getopts/2` leaves out the options a socket type lacks (`broadcast` of a TCP
+socket, `nodelay` of a UDP one, `tclass` of IPv4) and refuses unknown ones with
+`{error, einval}`. An accepted connection takes over its listening socket's
+options. `send/5` with ancillary data sets `tos`, `tclass` or `ttl` for that
+datagram alone; on Windows it is `{error, einval}`, as OTP.
+
+Each socket counts its traffic as inet_drv does for `getstat/1,2`: packets
+received are reads (TCP) or datagrams, packets sent are `send` calls (with
+their packet header) or datagrams, with inet_drv's running averages;
+`send_pend` is the output queued and not written. `getstatus` gives inet_drv's
+status flags (`open`, `connected`, `connecting`, `listen`, `accepting`), which
+`info/1` and `i/0,1,2` print with OTP's names and module column (`inet_tcp`,
+`inet6_udp`, ...). Queries of a closed socket answer `{error, einval}`, as OTP.
 
 Implementation (`runtime/src/ports/sockets.cpp`):
 
@@ -434,10 +461,12 @@ Implementation (`runtime/src/ports/sockets.cpp`):
   `gethostname/0` (a socket operation), `getaddr/2`, `getaddrs/2` (the system
   resolver, `getaddrinfo`) and `gethostbyname/1,2` (`h_name` is the name asked,
   no aliases) answer through a socket port opened for the query.
-- Clause's `gen_tcp`, `gen_udp` and `inet` are the network layer and grow toward
-  OTP's export lists as programs need; OTP's `socket` and `net` modules (the
-  socket NIF API) are missing, so are `prim_socket`, `prim_net`, `prim_inet` and
-  `socket_registry`.
+- Services, reverse lookups and interfaces (`inet:getservbyname/2`,
+  `getservbyport/2`, `gethostbyaddr/1`, `getifaddrs/0,1`) are `clause_net`
+  builtins shared with `net` ([network names](builtins.md#network-names)).
+- Clause's `gen_tcp`, `gen_udp`, `inet` and `net` are the network layer; OTP's
+  `socket` module (the socket NIF API) is missing, so are `prim_socket`,
+  `prim_net`, `prim_inet` and `socket_registry`.
 
 ## The registry
 

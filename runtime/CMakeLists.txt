@@ -14,7 +14,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/terms/container_access.cpp src/terms/container_factory.cpp src/terms/container_services.cpp src/terms/structural_order.cpp
     src/process/generated_calls.cpp src/process/exceptions.cpp src/process/exits.cpp src/process/receive.cpp src/process/stack.cpp src/process/profile.cpp src/process/call_trace.cpp src/process/context.cpp src/process/identities.cpp src/process/ownership.cpp src/process/storage.cpp
     src/memory/heap.cpp src/memory/heap_storage.cpp src/memory/heap_blocks.cpp src/memory/heap_reservation.cpp src/memory/off_heap.cpp src/memory/heap_collect.cpp src/memory/heap_walk.cpp src/memory/heap_verify.cpp src/memory/copy.cpp src/memory/persistent_region.cpp src/memory/persistent_terms.cpp
-    src/scheduler/services.cpp src/scheduler/registry.cpp src/scheduler/transitions.cpp src/scheduler/executor.cpp src/scheduler/cpus.cpp src/scheduler/timer_wheel.cpp src/scheduler/timers.cpp src/scheduler/introspection.cpp src/scheduler/suspension.cpp src/scheduler/aliases.cpp src/scheduler/signals.cpp src/scheduler/ports.cpp src/ports/fd.cpp src/ports/input.cpp src/ports/io.cpp src/ports/spawn.cpp src/ports/file.cpp src/ports/posix_reason.cpp src/ports/file_info.cpp src/ports/file_paths.cpp src/ports/file_changes.cpp src/ports/value.cpp src/ports/sockets.cpp src/ports/reactor.cpp
+    src/scheduler/services.cpp src/scheduler/registry.cpp src/scheduler/transitions.cpp src/scheduler/executor.cpp src/scheduler/cpus.cpp src/scheduler/timer_wheel.cpp src/scheduler/timers.cpp src/scheduler/introspection.cpp src/scheduler/suspension.cpp src/scheduler/aliases.cpp src/scheduler/signals.cpp src/scheduler/ports.cpp src/ports/fd.cpp src/ports/input.cpp src/ports/io.cpp src/ports/spawn.cpp src/ports/file.cpp src/ports/posix_reason.cpp src/ports/file_info.cpp src/ports/file_paths.cpp src/ports/file_changes.cpp src/ports/value.cpp src/ports/sockets.cpp src/ports/socket_options.cpp src/ports/reactor.cpp
     src/terms/term_text.cpp src/terms/term_text_scalars.cpp
     src/terms/atoms.cpp src/terms/atom_table.cpp src/terms/atom_spelling.cpp src/terms/factory.cpp src/terms/immediate.cpp src/terms/term.cpp src/terms/term_unchecked.cpp src/terms/equality.cpp src/terms/immediate_order.cpp src/terms/immediate_services.cpp
     src/builtins/registry.cpp src/builtins/invocation.cpp src/builtins/bridge.cpp src/builtins/portions.cpp src/builtins/float_text.cpp src/builtins/text.cpp src/builtins/typed.cpp src/builtins/io.cpp src/builtins/io_format.cpp src/builtins/os.cpp src/builtins/math.cpp src/builtins/maps.cpp src/builtins/persistent_term.cpp src/builtins/code.cpp src/builtins/init.cpp src/builtins/atomics.cpp src/builtins/erts_internal.cpp src/builtins/output.cpp
@@ -67,6 +67,9 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/io_lib/key_orders.cpp
     # Module erl_posix_msg (plan 21 step LIB50).
     src/builtins/erl_posix_msg.cpp
+    # Module clause_net: names and interfaces of net and inet (plan 21 step LIB60).
+    src/builtins/net/names.cpp src/builtins/net/interfaces.cpp src/builtins/net/interfaces_windows.cpp
+    src/builtins/net/interfaces_posix.cpp
     # filelib's wildcard patterns (plan 21 step LIB51).
     src/builtins/filelib.cpp
     # Modules erl_anno and erl_internal (plan 21 step LIB8).
@@ -177,6 +180,7 @@ target_compile_definitions(clause_runtime PRIVATE BOOST_ASIO_NO_DEPRECATED)
 target_link_libraries(clause_runtime
     PUBLIC clause_multiprecision_dependency clause_abi $<$<PLATFORM_ID:Linux>:-pthread>
     $<$<PLATFORM_ID:Windows>:ws2_32> $<$<PLATFORM_ID:Windows>:mswsock> $<$<PLATFORM_ID:Windows>:advapi32>
+    $<$<PLATFORM_ID:Windows>:iphlpapi>
 )
 
 # PCRE2 for the re builtins (plan step 41ZA): built from source into the archive itself, or an installed library

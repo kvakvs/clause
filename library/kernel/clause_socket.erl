@@ -12,6 +12,11 @@
     hostname/1,
     names/2,
     setopts/2,
+    getopts/2,
+    getstat/2,
+    status/1,
+    query/3,
+    records/1,
     controlling_process/2,
     close/1
 ]).
@@ -26,6 +31,10 @@
 -define(CANCEL, 13).
 -define(RESOLVE, 14).
 -define(HOSTNAME, 15).
+-define(GETSTAT, 16).
+-define(GETSTATUS, 17).
+-define(GETOPT, 18).
+-define(SETOPT, 19).
 -define(UNCHANGED, 255).
 
 % A new socket port of Driver ("tcp_inet" or "udp_inet") owned by and linked to the caller.
@@ -45,6 +54,10 @@ option(inet6, Map) ->
     Map#{family => 6};
 option({active, Active}, Map) when Active =:= true; Active =:= false; Active =:= once ->
     Map#{active => Active};
+option({mode, binary}, Map) ->
+    Map#{binary => true};
+option({mode, list}, Map) ->
+    Map#{binary => false};
 option({packet, raw}, Map) ->
     Map#{packet => 0};
 option({packet, Size}, Map) when Size =:= 0; Size =:= 1; Size =:= 2; Size =:= 4 ->
@@ -53,20 +66,19 @@ option({ip, Address}, Map) ->
     ip(Address, Map);
 option({ifaddr, Address}, Map) ->
     ip(Address, Map);
-option({reuseaddr, Reuse}, Map) when is_boolean(Reuse) -> Map#{reuseaddr => Reuse};
-option({backlog, Backlog}, Map) when is_integer(Backlog), Backlog >= 0 -> Map#{backlog => Backlog};
-option({Name, _}, Map) ->
-    % Tuning options the sockets accept and do not apply.
-    case
-        lists:member(Name, [
-            nodelay, keepalive, send_timeout, send_timeout_close, delay_send, exit_on_close
-        ])
-    of
-        true -> Map;
-        false -> exit(badarg)
+option({backlog, Backlog}, Map) when is_integer(Backlog), Backlog >= 0 ->
+    Map#{backlog => Backlog};
+option({Name, Value}, Map) ->
+    % The options beyond the data mode, as driver records (inet:getopts/2).
+    case clause_socket_options:record(Name, Value) of
+        {ok, Record} -> Map#{records => [Record | maps:get(records, Map, [])]};
+        error -> exit(badarg)
     end;
 option(_, _) ->
     exit(badarg).
+
+% The option records of an options map, in the order given, for the driver to set (inet:getopts/2).
+records(Map) -> lists:reverse(maps:get(records, Map, [])).
 
 ip(Address, Map) ->
     case address(Address) of
@@ -137,6 +149,14 @@ control(Socket, Operation, Data) ->
         <<1, Reason/binary>> -> {error, list_to_atom(binary_to_list(Reason))}
     catch
         error:badarg -> {error, closed}
+    end.
+
+% Run a query or setting on Socket as control/3, {error, einval} once the port has closed, as OTP's inet_drv answers
+% (inet:getopts/2, inet:getstat/2).
+query(Socket, Operation, Data) ->
+    case control(Socket, Operation, Data) of
+        {error, closed} -> {error, einval};
+        Result -> Result
     end.
 
 % Start Operation, which answers with a message, and wait at most Timeout for it.
@@ -227,24 +247,104 @@ names(Socket, Peer) ->
             true -> ?PEERNAME;
             false -> ?SOCKNAME
         end,
-    case control(Socket, Operation, <<>>) of
+    case query(Socket, Operation, <<>>) of
         {ok, <<Family, Port:16, Address/binary>>} ->
             {ok, {element(1, address_tuple(<<Family, Address/binary>>)), Port}};
         Error ->
             Error
     end.
 
-% Change the data mode options of Socket.
+% Change the options of Socket: every option is checked before any is set, as OTP does.
+setopts(_, Options) when not is_list(Options) ->
+    erlang:error({bad_generator, Options});
 setopts(Socket, Options) ->
     try options(Options, #{}) of
-        Map ->
-            case control(Socket, ?SETOPTS, mode(Map)) of
-                {ok, _} -> ok;
-                Error -> Error
-            end
+        Map -> set_records(Socket, records(Map), mode(Map))
     catch
         exit:badarg -> {error, einval}
     end.
+
+set_records(Socket, [], Mode) ->
+    set_mode(Socket, Mode);
+set_records(Socket, Records, Mode) ->
+    case query(Socket, ?SETOPT, Records) of
+        {ok, _} -> set_mode(Socket, Mode);
+        Error -> Error
+    end.
+
+set_mode(Socket, Mode) ->
+    case query(Socket, ?SETOPTS, Mode) of
+        {ok, _} -> ok;
+        Error -> Error
+    end.
+
+% {ok, [{Name, Value}]} of the options Names in order, leaving out those the socket type lacks; {error, einval} for
+% an option getopts cannot read (inet:getopts/2).
+getopts(Socket, Names) when is_list(Names) ->
+    case status(Socket) of
+        {ok, {_, Type, Family}} ->
+            Requests = [{Name, option_request(Name, Type, Family)} || Name <- Names],
+            case lists:keymember(einval, 2, Requests) of
+                true -> {error, einval};
+                false -> fetch_options(Socket, Requests)
+            end;
+        Error ->
+            Error
+    end.
+
+option_request(Name, _, _) when Name =:= active; Name =:= packet; Name =:= mode -> mode;
+option_request(Name, Type, Family) -> clause_socket_options:request(Name, Type, Family).
+
+fetch_options(Socket, Requests) ->
+    Codes = <<<<Code>> || {_, {code, Code, _}} <- Requests>>,
+    Unchanged = <<?UNCHANGED, ?UNCHANGED, ?UNCHANGED>>,
+    case {query(Socket, ?SETOPTS, Unchanged), query(Socket, ?GETOPT, Codes)} of
+        {{ok, Mode}, {ok, Values}} -> {ok, option_values(Requests, Mode, Values)};
+        {{error, _} = Error, _} -> Error;
+        {_, Error} -> Error
+    end.
+
+option_values([], _, _) ->
+    [];
+option_values([{_, skip} | Requests], Mode, Values) ->
+    option_values(Requests, Mode, Values);
+option_values([{Name, mode} | Requests], Mode, Values) ->
+    [{Name, mode_value(Name, Mode)} | option_values(Requests, Mode, Values)];
+option_values([{Name, {code, Code, Type}} | Requests], Mode, <<Code, Size, Value:Size/binary, Rest/binary>>) ->
+    [{Name, clause_socket_options:decode(Type, Value)} | option_values(Requests, Mode, Rest)].
+
+mode_value(active, <<0, _, _>>) -> false;
+mode_value(active, <<1, _, _>>) -> true;
+mode_value(active, <<_, _, _>>) -> once;
+mode_value(packet, <<_, Packet, _>>) -> Packet;
+mode_value(mode, <<_, _, 0>>) -> list;
+mode_value(mode, <<_, _, _>>) -> binary.
+
+% {ok, {Flags, Type, Family}} of an open socket: inet_drv's status flags (sorted), stream or dgram, and 4 or 6.
+status(Socket) ->
+    case query(Socket, ?GETSTATUS, <<>>) of
+        {ok, <<Flags, Kind, Family>>} ->
+            Names = [accepting, connected, connecting, listen, open],
+            Bits = [16, 2, 4, 8, 1],
+            Set = [Name || {Name, Bit} <- lists:zip(Names, Bits), Flags band Bit =/= 0],
+            {ok, {Set, element(Kind + 1, {stream, dgram}), Family}};
+        Error ->
+            Error
+    end.
+
+% {ok, [{Name, Count}]} of the statistics Names in order (inet:getstat/2).
+getstat(Socket, Names) when is_list(Names) ->
+    All = [recv_oct, recv_cnt, recv_max, recv_avg, recv_dvi, send_oct, send_cnt, send_max, send_avg, send_pend],
+    case lists:all(fun(Name) -> lists:member(Name, All) end, Names) of
+        true -> statistics(query(Socket, ?GETSTAT, <<>>), All, Names);
+        false -> {error, einval}
+    end.
+
+statistics({ok, Bytes}, All, Names) ->
+    Values = maps:from_list(lists:zip(All, [Value || <<Value:64>> <= Bytes])),
+    {ok, [{Name, maps:get(Name, Values)} || Name <- Names]};
+statistics(Error, _, _) ->
+    Error.
 
 % Make Owner the process the socket's messages go to; only its current owner may, as in OTP.
 controlling_process(Socket, Owner) when is_port(Socket), is_pid(Owner) ->

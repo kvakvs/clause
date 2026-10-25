@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "entry": "net_names",
+  "workers": [
+    1,
+    4
+  ],
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "gethostname true\nlocalhost_has_ipv4 true\ninfo_keys [[addr,family,protocol,socktype]]\nnumeric {ok,[{inet,80,{127,0,0,1}}]}\nservice_only true\nunknown_host error\nunknown_service {error,eservice}\n{getaddrinfo,localhost} {error,function_clause}\n{getaddrinfo,1} {error,function_clause}\n{getaddrinfo,undefined} {error,function_clause}\nboth_undefined {error,function_clause}\nnumeric_name {ok,[{host,\"127.0.0.1\"},{service,\"80\"}]}\nservice_name {ok,[{host,\"127.0.0.1\"},{service,\"http\"}]}\nipv6_name {ok,[{host,\"::1\"},{service,\"https\"}]}\ndatagram_name {ok,[{host,\"127.0.0.1\"},{service,\"domain\"}]}\nreverse_name true\nbad_flag {error,badarg}\nbad_address {error,function_clause}\nby_name [{ok,80},{ok,80}]\nby_name_protocol [{ok,80},{ok,53}]\nunknown_name {error,einval}\nname_string_protocol {error,function_clause}\nby_port [{ok,\"http\"},{ok,\"http\"},{ok,\"domain\"}]\nunknown_port [{error,einval},{error,einval}]\nport_string_protocol {error,function_clause}\ninet_by_port [{ok,\"http\"},{ok,\"domain\"},{error,einval}]\ninet_by_name [{ok,80},{ok,53},{error,einval}]\nif_names true\nindex_to_name true\nname_to_index true\nunknown_index {error,enxio}\nunknown_name {error,enodev}\nentry_keys true\nloopback_entry true\ninet_families [inet]\ninet6_families []\ndefault_families []\nloopback_filter true\nfun_filter true\nhwaddr_families []\nbad_filter {error,function_clause}\ninet_interfaces true\ninet_loopback true\nsocket_backend_loopback true\ninet_bad_option {exit,badarg}\ngethostbyaddr {hostent,true,[],inet,4,[{127,0,0,1}]}\ngethostbyaddr_text {hostent,true,[],inet,4,[{127,0,0,1}]}\ngethostbyaddr_ipv6 {hostent,true,[],inet6,16,[{0,0,0,0,0,0,0,1}]}\ngethostbyaddr_bad [{error,einval},{error,einval},{error,einval}]\nnet_names: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "net_names.erl": "19c84530086e0fe86f0bb43d87a2e3d53f0ff3e10e2e08da813ab76f0e2b89e0"
+  }
+}

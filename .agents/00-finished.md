@@ -814,6 +814,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB55** `escript` (`create/2`, `extract/2` as OTP's; `script_name/0` the executable's path) and `win32reg`
   (OTP's Erlang over a Windows `clause_registry` port driver, `enotsup` elsewhere); Windows files shared for
   deletion as OTP's; golden runs per OS family; `escript_ops`, `win32reg_ops` goldens — `04c0bbc8`
+- **LIB60A** sockets and names: socket options as driver records (system ones by setsockopt, inet_drv's kept
+  with its defaults), inet_drv's counters and status flags, `inet:getopts/2`, `getstat/1,2`, `info/1`, `i/0,1,2`,
+  monitors, `socknames`/`peernames`, `getifaddrs/0,1`, `gethostbyaddr/1`; connected UDP and `gen_udp:send/2,3,5`,
+  `gen_tcp:connect/2`; `net` complete over `clause_net` builtins; `inet_socket_options`, `net_names` goldens — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

@@ -36,11 +36,10 @@ internal functions stay out unless a public function needs them (user direction 
   `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
   `seq_trace` (tokens without tracing), `file`, `filelib`, `file_sorter`, `disk_log`, `wrap_log_reader`,
-  `logger_disk_log_h`.
+  `logger_disk_log_h`, `gen_tcp`, `gen_udp`, `net`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
-  (51), `io` (11), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
-  LIB73), `dets` (2, LIB73).
-- **Missing:** 25 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
+  (51), `io` (11), `inet` (1, LIB60B), `os` (4), `ets` (2, LIB73), `dets` (2, LIB73).
+- **Missing:** 19 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
   ones (`zip`, `erl_tar`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
@@ -139,14 +138,15 @@ tier. Later (speed): `zip` and `erl_tar` header parsing, stored copies and check
 
 ## Tier F: kernel I/O remainder
 
-### LIB60. Sockets and names
+LIB60A is done (`00-finished.md`). Later: `{active, N}`, `{packet, line | http | ...}` and `{raw, ...}`
+socket options; applying inet_drv's own options (`send_timeout`, `header`, `deliver`, `exit_on_close`, ...).
 
-- `inet` (19): `getopts/2`, `getstat/1,2`, `getifaddrs/0,1`, `gethostbyaddr/1`, `monitor/1`,
-  `cancel_monitor/1`, `info/1`, `i/0,1,2`, `peernames`, `socknames`, `get_rc/0`, `format_error/1`.
-- `gen_udp` `connect/2,3` and `send/2,3,5`; `gen_tcp` `connect/2`.
-- `net` (15): C++ (`getaddrinfo`, `getnameinfo`, `gethostname`, `getifaddrs`, interface names,
-  `getservbyname`, `getservbyport`).
-- `inet_res` (20): an Erlang DNS client over `gen_udp`, with a C++ DNS message codec.
+### LIB60B. `inet_res` and the resolver configuration
+
+- `inet_res` (20): an Erlang DNS client over `gen_udp`, with a C++ DNS message codec; OTP's
+  `#dns_rec{}` records and errors. Golden against a DNS server the test program runs itself.
+- `inet:get_rc/0` from the resolver configuration OTP's `inet_config` loads (`{lookup, [native]}`
+  on Windows; `resolv.conf` and hosts files elsewhere), shared with `inet_res`'s nameservers.
 
 ### LIB61. `os` and `code` remainder
 
@@ -253,7 +253,7 @@ own annotations, and no Boost in the runtime.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB60 and LIB61 (`inet`, `os`, `code` gaps).
+1. LIB60B and LIB61 (`inet_res`, `os`, `code` gaps).
 2. LIB30–LIB34 (the front end, `consult`, `io:read`).
 3. LIB51–LIB55 (files, logs, archives), then LIB12C.
 4. LIB70, LIB62 and LIB63.
@@ -290,17 +290,11 @@ separately and are optional.
   register_node/2,3, start_link/0
 - `gen_sctp` (kernel, 23): abort/2, close/1, connect/3,4,5, connect_init/3,4,5, connectx_init/3,4,5,
   controlling_process/2, eof/2, error_string/1, listen/2, open/0,1,2, peeloff/2, recv/1,2, send/3,4
-- `gen_tcp` (kernel, 1, 11 done): connect/2
-- `gen_udp` (kernel, 5, 7 done): connect/2,3, send/2,3,5
 - `heart` (kernel, 8): clear_callback/0, clear_cmd/0, get_callback/0, get_cmd/0, get_options/0,
   set_callback/2, set_cmd/1, set_options/1
-- `inet` (kernel, 19, 20 done): cancel_monitor/1, format_error/1, get_rc/0, gethostbyaddr/1,
-  getifaddrs/0,1, getopts/2, getstat/1,2, i/0,1,2, info/1, ipv4_mapped_ipv6_address/1, monitor/1,
-  peernames/1,2, socknames/1,2
+- `inet` (kernel, 1, 38 done): get_rc/0
 - `inet_res` (kernel, 20): getbyname/2,3,4, gethostbyaddr/1,2,3, gethostbyname/1,2,3,4,
   lookup/3,4,5, nnslookup/4,5, nslookup/3,4, resolve/3,4,5
-- `net` (kernel, 15): getaddrinfo/1,2, gethostname/0, getifaddrs/0,1,2, getnameinfo/1,2,
-  getservbyname/1,2, getservbyport/1,2, if_index2name/1, if_name2index/1, if_names/0
 - `os` (kernel, 4, 15 done): cmd/2, find_executable/1,2, set_signal/2
 - `socket` (kernel, 79): accept/1,2, bind/2,3, cancel/2, cancel_monitor/1, close/1, connect/1,2,3,
   getopt/2,3, getopt_native/3, i/0,1,2, info/0,1, ioctl/2,3,4, is_supported/1,2, listen/1,2,

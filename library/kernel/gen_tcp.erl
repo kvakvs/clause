@@ -3,6 +3,7 @@
     listen/2,
     accept/1,
     accept/2,
+    connect/2,
     connect/3,
     connect/4,
     send/2,
@@ -15,7 +16,6 @@
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
 %% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
 -export([
-    connect/2,
     fdopen/2,
     unrecv/2
 ]).
@@ -33,14 +33,14 @@
 
 % OTP's defaults: list data, active messages, no packet header, IPv4.
 defaults() ->
-    #{family => 4, binary => false, active => true, packet => 0, reuseaddr => false, backlog => 5}.
+    #{family => 4, binary => false, active => true, packet => 0, backlog => 5}.
 
 % A socket listening on Port (0 for any free port) of its ip option, or {error, Reason}.
 listen(Port, Options) when is_integer(Port), Port >= 0, Port =< 65535 ->
     Map = clause_socket:options(Options, defaults()),
-    #{reuseaddr := Reuse, backlog := Backlog} = Map,
+    #{backlog := Backlog} = Map,
     Socket = clause_socket:open("tcp_inet"),
-    Data = [clause_socket:local(Map), <<Port:16, Backlog:32, (flag(Reuse))>>, mode(Map)],
+    Data = [clause_socket:local(Map), <<Port:16, Backlog:32>>, mode(Map), clause_socket:records(Map)],
     case clause_socket:control(Socket, ?LISTEN, Data) of
         {ok, _} ->
             {ok, Socket};
@@ -56,7 +56,23 @@ accept(Listen) -> accept(Listen, infinity).
 % The next connection of Listen as a new socket owned by the caller, waiting at most Timeout.
 accept(Listen, Timeout) -> clause_socket:request(Listen, ?ACCEPT, <<>>, Timeout).
 
-connect(Address, Port, Options) -> connect(Address, Port, Options, infinity).
+% A socket connected to a socket address map #{family, addr, port} (inet:ensure_sockaddr/1's forms).
+connect(SockAddr, Options) -> connect(SockAddr, Options, infinity).
+
+connect(#{family := Family} = SockAddr, Options, Timeout) when
+    (Family =:= inet orelse Family =:= inet6) andalso is_list(Options)
+->
+    #{addr := Address, port := Port} = inet:ensure_sockaddr(SockAddr),
+    connect(sockaddr_host(Address, Family), Port, [Family | Options], Timeout);
+connect(Address, Port, Options) ->
+    connect(Address, Port, Options, infinity).
+
+% The host of a socket address: its address tuple, or any and loopback of its family.
+sockaddr_host(any, inet) -> {0, 0, 0, 0};
+sockaddr_host(any, inet6) -> {0, 0, 0, 0, 0, 0, 0, 0};
+sockaddr_host(loopback, inet) -> {127, 0, 0, 1};
+sockaddr_host(loopback, inet6) -> {0, 0, 0, 0, 0, 0, 0, 1};
+sockaddr_host(Address, _) -> Address.
 
 % A socket connected to Port at Address (a tuple, a host name string or an atom), or {error, Reason}.
 connect(Address, Port, Options, Timeout) when is_integer(Port), Port >= 0, Port =< 65535 ->
@@ -75,7 +91,7 @@ connect(_, _, _, _) ->
 connect_to(Socket, Address, Port, #{family := Family} = Map, Timeout) ->
     case clause_socket:resolve(Socket, Address, Family) of
         {ok, Target} ->
-            Data = [clause_socket:address(Target), <<Port:16>>, mode(Map)],
+            Data = [clause_socket:address(Target), <<Port:16>>, mode(Map), clause_socket:records(Map)],
             clause_socket:request(Socket, ?CONNECT, Data, Timeout);
         Error ->
             Error
@@ -108,12 +124,8 @@ close(Socket) -> clause_socket:close(Socket).
 
 mode(Map) -> clause_socket:mode(Map).
 
-flag(true) -> 1;
-flag(false) -> 0.
-
 ok({ok, _}) -> ok;
 ok(Error) -> Error.
 
-connect(_, _) -> erlang:error({not_implemented, connect, 2}).
 fdopen(_, _) -> erlang:error({not_implemented, fdopen, 2}).
 unrecv(_, _) -> erlang:error({not_implemented, unrecv, 2}).

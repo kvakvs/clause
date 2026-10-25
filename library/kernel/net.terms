@@ -1,0 +1,24 @@
+%% OTP 29 net exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{broadcast, 3, default, implemented}.
+{call, 4, default, implemented}.
+{cast, 4, default, implemented}.
+{debug, 1, default, implemented}.
+{getaddrinfo, 1, default, implemented}.
+{getaddrinfo, 2, default, implemented}.
+{gethostname, 0, default, implemented}.
+{getifaddrs, 0, default, implemented}.
+{getifaddrs, 1, default, implemented}.
+{getifaddrs, 2, default, implemented}.
+{getnameinfo, 1, default, implemented}.
+{getnameinfo, 2, default, implemented}.
+{getservbyname, 1, default, implemented}.
+{getservbyname, 2, default, implemented}.
+{getservbyport, 1, default, implemented}.
+{getservbyport, 2, default, implemented}.
+{if_index2name, 1, default, implemented}.
+{if_name2index, 1, default, implemented}.
+{if_names, 0, default, implemented}.
+{info, 0, default, stub}.
+{ping, 1, default, implemented}.
+{sleep, 1, default, implemented}.

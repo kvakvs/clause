@@ -316,6 +316,30 @@ byte for byte, same file orders.
   `"unknown POSIX error: "` and the name for another atom, `badarg` for a
   non-atom.
 
+## Network names
+
+`builtins/net/`, `library/kernel/clause_net.erl`, `library/kernel/net.erl`
+(plan 21 step LIB60).
+
+- `clause_net:gethostname/0`, `getaddrinfo/2`, `getnameinfo/4`,
+  `getservbyname/2`, `getservbyport/2` call the system's functions and answer
+  as OTP's `prim_net`: address infos as maps of `family`, `socktype`,
+  `protocol` and a socket address, prim_net's error names (`eservice`,
+  `enodata`, ...), `{error, einval}` for an unknown service. `net` checks the
+  arguments with OTP's guards and passes text as UTF-8 binaries.
+- `clause_net:inet_getifaddrs/0` lists interfaces as OTP's `inet_drv` does
+  for `inet:getifaddrs/0` (on Windows from `GetAdaptersAddresses` and
+  `GetIfEntry` with its flag, prefix and classful-netmask rules; elsewhere
+  from `getifaddrs(3)`, merged per name and flags as `prim_inet`).
+  `clause_net:getifaddrs/0` lists them as `net:getifaddrs(all)` (Windows:
+  OTP's `net` module's packet entries and sorted flags; elsewhere prim_net's
+  maps with packet or link addresses); `net` filters them by family, flags or
+  fun. `if_names/0` is the index and name list both `net:if_index2name/1`
+  and `if_name2index/1` search.
+- `inet:getservbyname/2`, `getservbyport/2` and `gethostbyaddr/1` (a
+  `getnameinfo` with `NI_NAMEREQD`) use the same builtins; network namespaces
+  answer `{error, enotsup}` ([differences](differences.md)).
+
 ## Filename
 
 `builtins/filename/`.

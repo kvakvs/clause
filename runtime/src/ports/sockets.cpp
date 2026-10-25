@@ -2,6 +2,7 @@
 // the deprecated overloads that return it too).
 #include "sockets.hpp"
 #include "io.hpp"
+#include "socket_options.hpp"
 #include <array>
 #include <boost/asio.hpp>
 #include <cstring>
@@ -9,6 +10,7 @@
 #include <exception>
 #include <future>
 #include <mutex>
+#include <numeric>
 #include <thread>
 
 // Sockets as ports (docs/ports.md#sockets). Every socket's state lives on the I/O thread: port_control/3
@@ -68,7 +70,19 @@ enum class SocketOperation : std::uint8_t {
     resolve = 14,
     // The machine's host name (step 41R).
     hostname = 15,
+    // Statistics, status flags, options and UDP connect, created for inet:getstat/2, inet:info/1,
+    // inet:getopts/2 and gen_udp:connect/3.
+    getstat = 16,
+    getstatus = 17,
+    getopt = 18,
+    setopt = 19,
+    udp_connect = 20,
+    // Send one datagram at once with ancillary data (gen_udp:send/5).
+    udp_send_now = 21,
 };
+
+// The status flags of getstatus, as inet_drv's: open, connected, connecting, listen, accepting.
+enum StatusFlag : std::uint8_t { OPEN = 1, CONNECTED = 2, CONNECTING = 4, LISTEN = 8, ACCEPTING = 16 };
 
 // How data reaches the owner: as messages ({active, true}, once for one message) or only through recv.
 enum class Active : std::uint8_t { passive = 0, active = 1, once = 2 };
@@ -92,7 +106,7 @@ Bytes failure(std::string_view reason) {
 
 // The POSIX reason of a socket error, as OTP's inet names it.
 std::string reason(const boost::system::error_code &error) {
-    static const std::array<std::pair<std::errc, std::string_view>, 13> NAMES{{
+    static const std::array<std::pair<std::errc, std::string_view>, 14> NAMES{{
         {std::errc::connection_refused, "econnrefused"},
         {std::errc::address_in_use, "eaddrinuse"},
         {std::errc::connection_reset, "econnreset"},
@@ -106,6 +120,7 @@ std::string reason(const boost::system::error_code &error) {
         {std::errc::broken_pipe, "epipe"},
         {std::errc::invalid_argument, "einval"},
         {std::errc::address_family_not_supported, "eafnosupport"},
+        {std::errc::message_size, "emsgsize"},
     }};
     if (error == asio::error::eof || error == asio::error::operation_aborted) {
         return "closed";
@@ -240,10 +255,13 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     // Learn the port's word.
     void attach(Word port) noexcept { port_ = port; }
 
-    // Adopt an accepted connection with the listening socket's mode; it serves once its port exists.
-    void adopt(tcp::socket socket, const Mode &mode) {
-        stream_.emplace(std::move(socket));
+    // Adopt an accepted connection with the listening socket's mode and options; it serves once its port exists.
+    void adopt(tcp::socket socket, const Mode &mode, const socket_options::Options &options) {
+        auto &stream = stream_.emplace(std::move(socket));
         mode_ = mode;
+        options_ = options;
+        // An option the connection refuses keeps the system's value, as the connection exists already.
+        static_cast<void>(options_.apply(static_cast<socket_options::Handle>(stream.native_handle())));
         decoder_ = InputDecoder(mode_.framing());
         adopted_ = true;
     }
@@ -261,6 +279,8 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     void start() { serve(); }
 
   private:
+    // The operations of every socket: data mode, cancellation, statistics, status and options; none for another.
+    std::optional<Bytes> common_operation(Word caller, SocketOperation operation, std::span<const std::byte> data);
     std::optional<Bytes> stream_operation(Word caller, SocketOperation operation, std::span<const std::byte> data);
     std::optional<Bytes> datagram_operation(Word caller, SocketOperation operation, std::span<const std::byte> data);
     Bytes connect(Word caller, std::span<const std::byte> data);
@@ -273,6 +293,34 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     Bytes cancel(Word caller);
     Bytes udp_open(std::span<const std::byte> data);
     Bytes udp_send(std::span<const std::byte> data);
+    // Connect a UDP socket to one peer (gen_udp:connect/3).
+    Bytes udp_connect(std::span<const std::byte> data);
+    // Send one datagram at once with ancillary data set for it alone (gen_udp:send/5).
+    Bytes udp_send_now(std::span<const std::byte> data);
+    // The status flags, the socket type (0 stream, 1 datagram) and the family (4, 6 or 0 before opening).
+    Bytes status() const;
+    std::uint8_t status_flags() const;
+    int family() const;
+    // The values of the option codes in `data`.
+    Bytes getopt(std::span<const std::byte> data);
+    // Set the option records in `data`.
+    Bytes setopt(std::span<const std::byte> data);
+    // Take the option records after an open request's fields at `at`; an error reason, or empty.
+    std::string preset(std::span<const std::byte> data, std::size_t at);
+    // Open `socket` for `protocol` and apply the options taken so far; an error reason, or empty.
+    template <typename AsioSocket, typename Protocol> std::string open(AsioSocket &socket, const Protocol &protocol);
+    // Take the options after `at`, then open `socket`; an error reason, or empty.
+    template <typename AsioSocket, typename Protocol>
+    std::string open_with(AsioSocket &socket, const Protocol &protocol, std::span<const std::byte> data,
+                          std::size_t at);
+    // The native handle of the open socket, none before one is open.
+    std::optional<socket_options::Handle> handle();
+    // Queue `bytes` for writing to `to`, counting them as sent and pending.
+    void queue_write(const udp::endpoint &to, Bytes bytes);
+    // Start writing the front of the queue, calling `done` when written.
+    template <typename Done> void start_write(const udp::endpoint &to, const Bytes &bytes, Done done);
+    // sockname and peername of a UDP socket.
+    Bytes datagram_names(udp::socket &datagram, bool peer) const;
 
     // Accept the next connection for the first waiting caller.
     void start_accept();
@@ -328,6 +376,14 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     std::deque<Word> accepts_;
     // Queued TCP output, or UDP datagrams with their destinations.
     std::deque<std::pair<udp::endpoint, Bytes>> writes_;
+    // Bytes queued and not written yet (send_pend), the traffic counters and the options beyond the data mode,
+    // created for inet:getstat/2 and inet:getopts/2.
+    std::uint64_t pending_ = 0;
+    socket_options::Counters counters_;
+    socket_options::Options options_;
+    // A TCP connect is in progress; a UDP socket is connected to one peer (gen_udp:connect/3).
+    bool connecting_ = false;
+    bool connected_ = false;
     bool writing_ = false;
     bool reading_ = false;
     bool accepting_ = false;
@@ -355,17 +411,137 @@ std::optional<Bytes> Socket::operate(Word caller, SocketOperation operation, std
     if (shut_) {
         return failure("closed");
     }
-    if (operation == SocketOperation::setopts) {
+    if (auto answer = common_operation(caller, operation, data)) {
+        return answer;
+    }
+    return udp_ ? datagram_operation(caller, operation, data) : stream_operation(caller, operation, data);
+}
+
+std::optional<Bytes> Socket::common_operation(Word caller, SocketOperation operation, std::span<const std::byte> data) {
+    switch (operation) {
+    case SocketOperation::setopts: {
         const auto previous = mode_.bytes();
         mode_.apply(data, 0);
         decoder_ = InputDecoder(mode_.framing());
         serve();
         return ok(previous);
     }
-    if (operation == SocketOperation::cancel) {
+    case SocketOperation::cancel:
         return cancel(caller);
+    case SocketOperation::getstat:
+        return ok(counters_.bytes(pending_));
+    case SocketOperation::getstatus:
+        return status();
+    case SocketOperation::getopt:
+        return getopt(data);
+    case SocketOperation::setopt:
+        return setopt(data);
+    default:
+        return std::nullopt;
     }
-    return udp_ ? datagram_operation(caller, operation, data) : stream_operation(caller, operation, data);
+}
+
+// The address of the local end of an open socket, if it has one.
+template <typename AsioSocket> std::optional<asio::ip::address> local_address(const std::optional<AsioSocket> &socket) {
+    boost::system::error_code error;
+    if (!socket || !socket->is_open()) {
+        return std::nullopt;
+    }
+    const auto endpoint = socket->local_endpoint(error);
+    return error ? std::nullopt : std::optional(endpoint.address());
+}
+
+Bytes Socket::status() const {
+    return ok(std::array{static_cast<std::byte>(status_flags()), static_cast<std::byte>(udp_ ? 1 : 0),
+                         static_cast<std::byte>(family())});
+}
+
+std::uint8_t Socket::status_flags() const {
+    std::uint8_t flags = OPEN;
+    if (listener_) {
+        flags |= LISTEN | (accepts_.empty() ? 0 : ACCEPTING);
+    }
+    if (connecting_) {
+        flags |= CONNECTING;
+    } else if ((stream_ && stream_->is_open()) || connected_) {
+        flags |= CONNECTED;
+    }
+    return flags;
+}
+
+int Socket::family() const {
+    auto local = local_address(datagram_);
+    local = local ? local : local_address(listener_);
+    local = local ? local : local_address(stream_);
+    return !local ? 0 : local->is_v6() ? 6 : 4;
+}
+
+std::optional<socket_options::Handle> Socket::handle() {
+    if (stream_ && stream_->is_open()) {
+        return static_cast<socket_options::Handle>(stream_->native_handle());
+    }
+    if (listener_ && listener_->is_open()) {
+        return static_cast<socket_options::Handle>(listener_->native_handle());
+    }
+    if (datagram_ && datagram_->is_open()) {
+        return static_cast<socket_options::Handle>(datagram_->native_handle());
+    }
+    return std::nullopt;
+}
+
+Bytes Socket::getopt(std::span<const std::byte> data) {
+    std::vector<socket_options::Record> found;
+    for (const auto code : data) {
+        auto record = options_.get(handle(), std::to_integer<std::uint8_t>(code));
+        if (!record) {
+            return failure("einval");
+        }
+        found.push_back(std::move(*record));
+    }
+    return ok(socket_options::encode(found));
+}
+
+Bytes Socket::setopt(std::span<const std::byte> data) {
+    const auto records = socket_options::records(data);
+    if (!records) {
+        return failure("einval");
+    }
+    for (const auto &record : *records) {
+        if (auto failed = options_.set(handle(), udp_, record); !failed.empty()) {
+            return failure(failed);
+        }
+    }
+    return ok();
+}
+
+std::string Socket::preset(std::span<const std::byte> data, std::size_t at) {
+    const auto records = socket_options::records(data.subspan(std::min(at, data.size())));
+    if (!records) {
+        return "einval";
+    }
+    for (const auto &record : *records) {
+        if (auto failed = options_.set(std::nullopt, udp_, record); !failed.empty()) {
+            return failed;
+        }
+    }
+    return {};
+}
+
+template <typename AsioSocket, typename Protocol>
+std::string Socket::open(AsioSocket &socket, const Protocol &protocol) {
+    boost::system::error_code error;
+    socket.open(protocol, error);
+    if (error) {
+        return reason(error);
+    }
+    return options_.apply(static_cast<socket_options::Handle>(socket.native_handle()));
+}
+
+template <typename AsioSocket, typename Protocol>
+std::string Socket::open_with(AsioSocket &socket, const Protocol &protocol, std::span<const std::byte> data,
+                              std::size_t at) {
+    auto failed = preset(data, at);
+    return failed.empty() ? open(socket, protocol) : failed;
 }
 
 std::optional<Bytes> Socket::stream_operation(Word caller, SocketOperation operation, std::span<const std::byte> data) {
@@ -400,7 +576,12 @@ std::optional<Bytes> Socket::datagram_operation(Word caller, SocketOperation ope
     case SocketOperation::udp_recv:
         return recv(caller, 0);
     case SocketOperation::sockname:
-        return names(false);
+    case SocketOperation::peername:
+        return names(operation == SocketOperation::peername);
+    case SocketOperation::udp_connect:
+        return udp_connect(data);
+    case SocketOperation::udp_send_now:
+        return udp_send_now(data);
     default:
         return std::nullopt;
     }
@@ -415,8 +596,15 @@ Bytes Socket::connect(Word caller, std::span<const std::byte> data) {
     const auto port = static_cast<unsigned short>(number(data, at, 2));
     mode_.apply(data, at + 2);
     decoder_ = InputDecoder(mode_.framing());
-    stream_.emplace(context());
-    stream_->async_connect(tcp::endpoint(*target, port), [self = shared_from_this(), caller](const auto &error) {
+    const tcp::endpoint endpoint(*target, port);
+    auto &stream = stream_.emplace(context());
+    if (auto failed = open_with(stream, endpoint.protocol(), data, at + 5); !failed.empty()) {
+        stream_.reset();
+        return failure(failed);
+    }
+    connecting_ = true;
+    stream.async_connect(endpoint, [self = shared_from_this(), caller](const auto &error) {
+        self->connecting_ = false;
         if (self->shut_) {
             return;
         }
@@ -441,20 +629,17 @@ Bytes Socket::listen(std::span<const std::byte> data) {
     }
     const auto port = static_cast<unsigned short>(number(data, at, 2));
     const auto backlog = static_cast<int>(number(data, at + 2, 4));
-    const bool reuse = number(data, at + 6, 1) != 0;
-    mode_.apply(data, at + 7);
+    mode_.apply(data, at + 6);
     const tcp::endpoint endpoint(*local, port);
+    auto &listener = listener_.emplace(context());
+    if (auto failed = open_with(listener, endpoint.protocol(), data, at + 9); !failed.empty()) {
+        listener_.reset();
+        return failure(failed);
+    }
     boost::system::error_code error;
-    listener_.emplace(context());
-    listener_->open(endpoint.protocol(), error);
-    if (!error && reuse) {
-        listener_->set_option(tcp::acceptor::reuse_address(true), error);
-    }
+    listener.bind(endpoint, error);
     if (!error) {
-        listener_->bind(endpoint, error);
-    }
-    if (!error) {
-        listener_->listen(backlog, error);
+        listener.listen(backlog, error);
     }
     if (error) {
         listener_.reset();
@@ -497,7 +682,7 @@ void Socket::accepted(const boost::system::error_code &error, tcp::socket socket
         reply(caller, answer(PortValue::of_tuple({PortValue::of_atom("error"), PortValue::of_atom(reason(error))})));
     } else {
         auto connection = std::make_shared<Socket>(service_, false);
-        connection->adopt(std::move(socket), mode_);
+        connection->adopt(std::move(socket), mode_, options_);
         auto driver = socket_driver(connection);
         // The connection starts serving once the listening port's task gave it a port (SocketDriver::attach).
         service_->deliver(port_, SocketEvent{.kind = SocketEvent::Kind::accepted,
@@ -522,13 +707,19 @@ Bytes Socket::send(std::span<const std::byte> data) {
     if (!stream_ || ended_) {
         return failure("closed");
     }
-    const auto framed_data = framed(mode_.framing(), Bytes(data.begin(), data.end()));
+    auto framed_data = framed(mode_.framing(), Bytes(data.begin(), data.end()));
     if (!framed_data) {
         return failure("emsgsize");
     }
-    writes_.emplace_back(udp::endpoint(), *framed_data);
-    write_next();
+    queue_write(udp::endpoint(), std::move(*framed_data));
     return ok();
+}
+
+void Socket::queue_write(const udp::endpoint &to, Bytes bytes) {
+    counters_.sent(bytes.size());
+    pending_ += bytes.size();
+    writes_.emplace_back(to, std::move(bytes));
+    write_next();
 }
 
 void Socket::write_next() {
@@ -539,9 +730,11 @@ void Socket::write_next() {
     auto &[to, bytes] = writes_.front();
     const auto done = [self = shared_from_this()](const boost::system::error_code &error, std::size_t) {
         self->writing_ = false;
+        self->pending_ -= self->writes_.front().second.size();
         self->writes_.pop_front();
         if (error) {
             self->writes_.clear();
+            self->pending_ = 0;
         }
         if (self->shut_ && self->writes_.empty()) {
             self->release();
@@ -549,7 +742,13 @@ void Socket::write_next() {
         }
         self->write_next();
     };
-    if (datagram_) {
+    start_write(to, bytes, done);
+}
+
+template <typename Done> void Socket::start_write(const udp::endpoint &to, const Bytes &bytes, Done done) {
+    if (datagram_ && connected_) {
+        datagram_->async_send(asio::buffer(bytes), done);
+    } else if (datagram_) {
         datagram_->async_send_to(asio::buffer(bytes), to, done);
     } else if (stream_) {
         asio::async_write(*stream_, asio::buffer(bytes), done);
@@ -561,13 +760,21 @@ template <typename Endpoint> Bytes endpoint_reply(const Endpoint &endpoint, cons
     return error ? failure(reason(error)) : ok(endpoint_bytes(endpoint));
 }
 
-Bytes Socket::names(bool peer) {
+Bytes Socket::datagram_names(udp::socket &datagram, bool peer) const {
     boost::system::error_code error;
-    if (datagram_) {
-        return endpoint_reply(datagram_->local_endpoint(error), error);
+    if (!peer) {
+        return endpoint_reply(datagram.local_endpoint(error), error);
     }
+    return connected_ ? endpoint_reply(datagram.remote_endpoint(error), error) : failure("enotconn");
+}
+
+Bytes Socket::names(bool peer) {
+    if (datagram_) {
+        return datagram_names(*datagram_, peer);
+    }
+    boost::system::error_code error;
     if (listener_) {
-        return endpoint_reply(listener_->local_endpoint(error), error);
+        return peer ? failure("enotconn") : endpoint_reply(listener_->local_endpoint(error), error);
     }
     if (!stream_) {
         return failure(udp_ ? "einval" : "enotconn");
@@ -610,17 +817,33 @@ Bytes Socket::udp_open(std::span<const std::byte> data) {
     const auto port = static_cast<unsigned short>(number(data, at, 2));
     mode_.apply(data, at + 2);
     const udp::endpoint endpoint(*local, port);
-    boost::system::error_code error;
-    datagram_.emplace(context());
-    datagram_->open(endpoint.protocol(), error);
-    if (!error) {
-        datagram_->bind(endpoint, error);
+    auto &datagram = datagram_.emplace(context());
+    if (auto failed = open_with(datagram, endpoint.protocol(), data, at + 5); !failed.empty()) {
+        datagram_.reset();
+        return failure(failed);
     }
+    boost::system::error_code error;
+    datagram.bind(endpoint, error);
     if (error) {
         datagram_.reset();
         return failure(reason(error));
     }
     serve();
+    return ok();
+}
+
+Bytes Socket::udp_connect(std::span<const std::byte> data) {
+    std::size_t at = 0;
+    const auto target = address(data, at);
+    if (!target || !datagram_) {
+        return failure("einval");
+    }
+    boost::system::error_code error;
+    datagram_->connect(udp::endpoint(*target, static_cast<unsigned short>(number(data, at, 2))), error);
+    if (error) {
+        return failure(reason(error));
+    }
+    connected_ = true;
     return ok();
 }
 
@@ -631,9 +854,68 @@ Bytes Socket::udp_send(std::span<const std::byte> data) {
     if (!target || !datagram_) {
         return failure("einval");
     }
-    writes_.emplace_back(udp::endpoint(*target, port),
-                         Bytes(data.begin() + static_cast<std::ptrdiff_t>(at), data.end()));
-    write_next();
+    Bytes bytes(data.begin() + static_cast<std::ptrdiff_t>(at), data.end());
+    const udp::endpoint to(*target, port);
+    // As OTP's send/2, an unconnected socket sends to the any address and port 0, which the system refuses at once.
+    if (!connected_ && port == 0 && target->is_unspecified()) {
+        boost::system::error_code error;
+        datagram_->send_to(asio::buffer(bytes), to, 0, error);
+        return error ? failure(reason(error)) : ok();
+    }
+    queue_write(to, std::move(bytes));
+    return ok();
+}
+
+// The ancillary data records of a send; none when malformed or, as OTP on Windows, when there are any.
+std::optional<std::vector<socket_options::Record>> ancillary_records(std::span<const std::byte> bytes) {
+    auto records = socket_options::records(bytes);
+#if defined(_WIN32)
+    if (records && !records->empty()) {
+        return std::nullopt;
+    }
+#endif
+    return records;
+}
+
+// Set each record for one send: the previous values to restore, or none (with the ones set restored) when one
+// cannot be set.
+std::optional<std::vector<socket_options::Record>> exchange_all(socket_options::Handle handle,
+                                                                const std::vector<socket_options::Record> &records) {
+    std::vector<socket_options::Record> previous;
+    for (const auto &record : records) {
+        auto old = socket_options::exchange(handle, record);
+        if (!old) {
+            static_cast<void>(exchange_all(handle, previous));
+            return std::nullopt;
+        }
+        previous.push_back(std::move(*old));
+    }
+    return previous;
+}
+
+Bytes Socket::udp_send_now(std::span<const std::byte> data) {
+    std::size_t at = 2;
+    const auto port = static_cast<unsigned short>(number(data, 0, 2));
+    const auto target = address(data, at);
+    const auto size = number(data, at, 2);
+    const auto native = handle();
+    if (!target || !datagram_ || !native || at + 2 + size > data.size()) {
+        return failure("einval");
+    }
+    auto &datagram = *datagram_;
+    const auto ancillary = ancillary_records(data.subspan(at + 2, size));
+    const auto previous = ancillary ? exchange_all(*native, *ancillary) : std::nullopt;
+    if (!previous) {
+        return failure("einval");
+    }
+    const auto bytes = data.subspan(at + 2 + size);
+    boost::system::error_code error;
+    datagram.send_to(asio::buffer(bytes.data(), bytes.size()), udp::endpoint(*target, port), 0, error);
+    static_cast<void>(exchange_all(*native, *previous));
+    if (error) {
+        return failure(reason(error));
+    }
+    counters_.sent(bytes.size());
     return ok();
 }
 
@@ -758,6 +1040,7 @@ void Socket::read_done(const boost::system::error_code &error, std::size_t size)
         return;
     }
     const auto chunk = std::span(buffer_).first(size);
+    counters_.received(size);
     if (mode_.packet == 0) {
         stream_bytes_.insert(stream_bytes_.end(), chunk.begin(), chunk.end());
     } else {
@@ -773,6 +1056,7 @@ void Socket::receive_done(const boost::system::error_code &error, std::size_t si
     if (shut_ || error) {
         return;
     }
+    counters_.received(size);
     datagrams_.push_back({from_, Bytes(buffer_.begin(), buffer_.begin() + static_cast<std::ptrdiff_t>(size))});
     serve();
 }
