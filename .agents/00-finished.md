@@ -747,7 +747,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   nested `io_lib:format/2` parts); deprecations from `otp_internal` (`otp_obsolete.inc`); `erl_lint_checks`
   golden; no differences from OTP over 481 OTP sources and suites and 474 suite snippets (3 option sets
   each, 4782 diagnostics of 121 kinds), 8307 `format_error/1` texts and 816 command expressions; a call to
-  `erl_lint` compiles +0.00 s over a hello-world (`clause_erl_lint` was +0.6 s / +1.2 s) — `HASH`
+  `erl_lint` compiles +0.00 s over a hello-world (`clause_erl_lint` was +0.6 s / +1.2 s) — `5312fc45`
 
 ## Plan 22 (from 2026-10-23)
 
