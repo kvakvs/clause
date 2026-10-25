@@ -886,7 +886,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB74C** `shell_docs` complete in Erlang (normalize, validate, render of modules, functions with equiv groups,
   types, callbacks; OTP's layout, wrapping, bullets, ANSI) with `clause_shell_docs_markdown` (OTP's markdown
   conversion); identical to OTP over all 10,643 markdown texts and 51,249 renderings of OTP 29's doc chunks (three
-  configurations); `shell_docs_render` golden — `PENDING`
+  configurations); `shell_docs_render` golden — `91d3f04d`
 
 ## Plan 22 (from 2026-10-23)
 
