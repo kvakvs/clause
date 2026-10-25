@@ -121,8 +121,9 @@ OTP's trapping BIFs.
   `builtins_erlang_inventory` (current) and `builtins_erlang_freshness` (host
   OTP).
 - Builtins win for `erlang:F(...)`, `fun erlang:F/A`, `apply` and imports; other
-  exports raise `{not_implemented, F, A}` when called; unknown names are
-  `undefined function`.
+  exports raise `{not_implemented, F, A}` when called, the tracing ones
+  (`{unavailable, tracing}`: `trace*`, `system_monitor`, `system_profile`,
+  `seq_trace*`, `dt_*`) `notsup`; unknown names are `undefined function`.
 - Extras (`executables_erlang_gaps`, `_packet_decoding`, `_suspension`):
   - `adler32`, `crc32` and `*_combine` over pinned zlib; `iolist_to_iovec/1`.
   - `append_element/2`, `insert_element/3`, `delete_element/2`.

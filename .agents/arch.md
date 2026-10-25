@@ -337,7 +337,7 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - Local-node kernel services (Erlang): `pg` over `data_publisher` (scope gen_server, ETS per scope, no peers),
   `global` (lazy `global_name_server`, OTP's ETS names/locks), `global_group` (no groups), `erpc` (spawn_request
   locally; other nodes get a simulated `noconnection` reply), `rpc` over erpc with lazy `rex`, `net_adm`/
-  `net_kernel`/`auth` non-alive answers, `seq_trace` tokens in the process dictionary. Behaviours call `global`
+  `net_kernel`/`auth` non-alive answers, `seq_trace` tokens in the process dictionary; tracing (`erlang:trace*`, `trace`, `erl_tracer`) raises `notsup`. Behaviours call `global`
   literally for `{global, Name}`.
 - Collections in C++ (`builtins/collections/`): `lists`, `maps`, `ordsets`, `orddict`, `proplists`,
   `dict`, `sets`, `gb_trees`, `gb_sets`, `queue`, `array`, `sofs`; fun-taking functions stay Erlang.

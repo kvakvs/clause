@@ -37,7 +37,7 @@ internal functions stay out unless a public function needs them (user direction 
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
   `seq_trace` (tokens without tracing), `file`, `filelib`, `file_sorter`, `disk_log`, `wrap_log_reader`,
   `logger_disk_log_h`, `gen_tcp`, `gen_udp`, `net`, `os`, `code` (loading answers for linked code), `io`,
-  `io_ansi` (no terminfo), `inet`, `inet_res` (no answer cache), `socket`, `gen_sctp` (no SCTP), `argparse`.
+  `io_ansi` (no terminfo), `inet`, `inet_res` (no answer cache), `socket`, `gen_sctp` (no SCTP), `argparse`, `trace` and `erl_tracer` (all `notsup`: no tracing).
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `ets` (2,
   LIB73), `dets` (2, LIB73).
 - **Missing:** 15 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
@@ -108,7 +108,7 @@ remainders follow.
 
 - D01: `load_module/2`, `load_nif/2`, `purge_module/1`, `check_*code`.
 - Distribution: `dist_ctrl_*`.
-- Tracing: `trace*`, `system_monitor/0,1,2`, `system_profile/0,2`. LIB71 revisits these.
+- Tracing: `trace*`, `system_monitor/0,1,2`, `system_profile/0,2` raise `notsup` (LIB71).
 
 ## Tier B: ETS and what needs it
 
@@ -146,12 +146,9 @@ SCTP (`gen_sctp`, socket's `seqpacket`); a cache of `inet_res` answers; terminfo
 
 ## Tier G: tools, transforms and the interactive shell
 
-### LIB71. Tracing family
-
-- `trace` (11), `seq_trace` tracer output, `erl_tracer` callbacks and the `erlang:trace*` builtins.
-- Needs runtime trace points (sends, receives, calls, process events).
-- Selected or declined as one decision. The call tracer of plan 11 is the starting point.
-
+Done: LIB70, LIB71 (`00-finished.md`). Later (optional): real tracing (runtime trace points for sends,
+receives, calls and process events; `trace`, `erlang:trace*`, `seq_trace` tracer output), starting from plan
+11's call tracer.
 
 ### LIB73. `qlc`
 
@@ -217,14 +214,14 @@ own annotations, and no Boost in the runtime.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB71–LIB74 (with LIB12C), then the declined modules' answer stubs.
+1. LIB73–LIB74 (with LIB12C), then the declined modules' answer stubs.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 
 Format: `module` (application, functions to do, ...): name/arities. Deprecated functions are listed
 separately and are optional.
 
-- `erlang` (erts, 20 left, all declined or LIB71): check_old_code/1, check_process_code/2,3,
+- `erlang` (erts, 20 left, all declined; tracing raises `notsup`): check_old_code/1, check_process_code/2,3,
   dist_ctrl_get_data/1, dist_ctrl_get_data_notification/1, dist_ctrl_get_opt/2,
   dist_ctrl_input_handler/2, dist_ctrl_put_data/2, dist_ctrl_set_opt/3, load_module/2, load_nif/2,
   purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3, trace_delivered/1,
@@ -242,8 +239,6 @@ separately and are optional.
   register_node/2,3, start_link/0
 - `heart` (kernel, 8): clear_callback/0, clear_cmd/0, get_callback/0, get_cmd/0, get_options/0,
   set_callback/2, set_cmd/1, set_options/1
-- `trace` (kernel, 11): delivered/2, function/4, info/3, port/4, process/4, recv/3, send/3,
-  session_create/3, session_destroy/1, session_info/1, system/3
 - `beam_lib` (stdlib, 19): all_chunks/1, build_module/1, chunks/2,3, clear_crypto_key_fun/0, cmp/2,
   cmp_dirs/2, crypto_key_fun/1, diff_dirs/2, format_error/1, info/1, md5/1, strip/1,2,
   strip_files/1,2, strip_release/1,2, version/1

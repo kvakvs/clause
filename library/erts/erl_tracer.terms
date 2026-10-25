@@ -1,0 +1,6 @@
+%% OTP 29 erl_tracer exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{behaviour_info, 1, default, implemented}.
+{enabled, 3, default, refused}.
+{on_load, 0, default, refused}.
+{trace, 5, default, refused}.

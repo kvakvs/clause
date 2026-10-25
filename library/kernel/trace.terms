@@ -1,0 +1,13 @@
+%% OTP 29 trace exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{delivered, 2, default, refused}.
+{function, 4, default, refused}.
+{info, 3, default, refused}.
+{port, 4, default, refused}.
+{process, 4, default, refused}.
+{recv, 3, default, refused}.
+{send, 3, default, refused}.
+{session_create, 3, default, refused}.
+{session_destroy, 1, default, refused}.
+{session_info, 1, default, refused}.
+{system, 3, default, refused}.

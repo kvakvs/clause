@@ -11,6 +11,7 @@
 {persistent_term, erts, provided}.
 {prim_eval, erts, provided}.
 {zlib, erts, provided}.
+{erl_tracer, erts, provided}.
 {prim_buffer, erts, missing, "low-level file buffers; Clause's file module is the file layer"}.
 {prim_file, erts, missing, "low-level file driver; Clause's file module is the file layer"}.
 {prim_inet, erts, missing, "socket driver; Clause's gen_tcp, gen_udp and inet replace it"}.
@@ -29,6 +30,7 @@
 {net_kernel, kernel, provided}.
 {auth, kernel, provided}.
 {seq_trace, kernel, provided}.
+{trace, kernel, provided}.
 {net, kernel, provided}.
 {socket, kernel, provided}.
 {gen_sctp, kernel, provided}.

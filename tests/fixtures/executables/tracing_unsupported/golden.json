@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "entry": "tracing_unsupported",
+  "runs": [
+    {
+      "args": [],
+      "authored": true,
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "trace error:notsup\ntrace_pattern2 error:notsup\ntrace_pattern3 error:notsup\ntrace_info error:notsup\ntrace_delivered error:notsup\nsystem_monitor0 error:notsup\nsystem_monitor1 error:notsup\nsystem_monitor2 error:notsup\nsystem_profile0 error:notsup\nsystem_profile2 error:notsup\nseq_trace error:notsup\nseq_trace_info error:notsup\nsession_create error:notsup\nsession_info error:notsup\nsession_destroy error:notsup\ntrace_process error:notsup\ntrace_port error:notsup\ntrace_function error:notsup\ntrace_send error:notsup\ntrace_recv error:notsup\ntrace_info3 error:notsup\ntrace_delivered2 error:notsup\ntrace_system error:notsup\ntracer_enabled error:notsup\ntracer_trace error:notsup\ncallbacks [{enabled,3},\n           {enabled_call,3},\n           {enabled_garbage_collection,3},\n           {enabled_ports,3},\n           {enabled_procs,3},\n           {enabled_receive,3},\n           {enabled_running_ports,3},\n           {enabled_running_procs,3},\n           {enabled_send,3},\n           {trace,5},\n           {trace_call,5},\n           {trace_garbage_collection,5},\n           {trace_ports,5},\n           {trace_procs,5},\n           {trace_receive,5},\n           {trace_running_ports,5},\n           {trace_running_procs,5},\n           {trace_send,5}]\ntracing_unsupported: ok\n"
+    }
+  ],
+  "oracle_version": null,
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "tracing_unsupported.erl": "af3a997ecc523f4c0e88f5bcf6ba4fb0ba918ca884083b99b34f1f7b5f9a4420"
+  }
+}

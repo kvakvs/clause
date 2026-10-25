@@ -841,6 +841,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   errors and deep-list shapes; custom types, `re:run` and help funs called by Erlang through replayed requests;
   `run/3` Erlang; a 9-module program compiles in 1.62 s instead of 2.6 s with OTP's all-Erlang argparse;
   `argparse_ops` golden — `02866a06`
+- **LIB71** tracing not supported: the erlang tracing functions (`trace*`, `system_monitor`, `system_profile`,
+  `seq_trace*`, `dt_*`), `erts_internal`'s tracing internals, `trace` and `erl_tracer`'s default tracer raise `notsup`;
+  `erl_tracer` lists OTP's callbacks; `tracing_unsupported` golden (authored) — `PENDING`
 
 ## Plan 22 (from 2026-10-23)
 

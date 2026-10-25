@@ -270,8 +270,8 @@ suspend_process(_, _) -> erlang:error({not_implemented, suspend_process, 2}).
 system_check(_) -> erlang:error({not_implemented, system_check, 1}).
 system_flag_scheduler_wall_time(_) ->
     erlang:error({not_implemented, system_flag_scheduler_wall_time, 1}).
-system_monitor(_) -> erlang:error({not_implemented, system_monitor, 1}).
-system_monitor(_, _, _) -> erlang:error({not_implemented, system_monitor, 3}).
+system_monitor(_) -> erlang:error(notsup).
+system_monitor(_, _, _) -> erlang:error(notsup).
 term_to_string(_) -> erlang:error({not_implemented, term_to_string, 1}).
 term_to_string(_, _) -> erlang:error({not_implemented, term_to_string, 2}).
 %% OTP's internal type names for Clause's terms: maps are flatmaps, bitstrings sub_binary as OTP's binary terms
@@ -298,12 +298,12 @@ term_type(Term) when is_pid(Term) -> pid;
 term_type(Term) when is_port(Term) -> port;
 term_type(Term) when is_atom(Term) -> atom.
 time_unit() -> erlang:error({not_implemented, time_unit, 0}).
-trace(_, _, _) -> erlang:error({not_implemented, trace, 3}).
-trace(_, _, _, _) -> erlang:error({not_implemented, trace, 4}).
-trace_info(_, _, _) -> erlang:error({not_implemented, trace_info, 3}).
-trace_pattern(_, _, _) -> erlang:error({not_implemented, trace_pattern, 3}).
-trace_pattern(_, _, _, _) -> erlang:error({not_implemented, trace_pattern, 4}).
-trace_session_create(_, _, _) -> erlang:error({not_implemented, trace_session_create, 3}).
-trace_session_destroy(_) -> erlang:error({not_implemented, trace_session_destroy, 1}).
+trace(_, _, _) -> erlang:error(notsup).
+trace(_, _, _, _) -> erlang:error(notsup).
+trace_info(_, _, _) -> erlang:error(notsup).
+trace_pattern(_, _, _) -> erlang:error(notsup).
+trace_pattern(_, _, _, _) -> erlang:error(notsup).
+trace_session_create(_, _, _) -> erlang:error(notsup).
+trace_session_destroy(_) -> erlang:error(notsup).
 wait_release_literal_area_switch(_) ->
     erlang:error({not_implemented, wait_release_literal_area_switch, 1}).

@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE "${TEST_DIR}")
 file(MAKE_DIRECTORY "${TEST_DIR}")
-file(WRITE "${TEST_DIR}/space å.erl" "-module(trace). -export([value/0,identity/1]). value() -> identity(42). identity(X) -> X.\n")
+file(WRITE "${TEST_DIR}/space å.erl" "-module(traced). -export([value/0,identity/1]). value() -> identity(42). identity(X) -> X.\n")
 # Preserve both streams so phase order and stdout isolation are observable together.
 function(run)
     execute_process(COMMAND "${TOOL}" ${ARGN} WORKING_DIRECTORY "${TEST_DIR}"
@@ -36,8 +36,8 @@ if(trace MATCHES "\\[comp\\]" OR NOT trace MATCHES "\\[pp\\].*\\[parse\\]")
 endif()
 run(--emit llvm-ir --artifact-dir plain "space å.erl")
 run(--verbose --emit llvm-ir --artifact-dir traced "space å.erl")
-file(SHA256 "${TEST_DIR}/plain/clausev1_7472616365__0.ll" plain)
-file(SHA256 "${TEST_DIR}/traced/clausev1_7472616365__0.ll" traced)
+file(SHA256 "${TEST_DIR}/plain/clausev1_747261636564__0.ll" plain)
+file(SHA256 "${TEST_DIR}/traced/clausev1_747261636564__0.ll" traced)
 if(NOT plain STREQUAL traced)
     message(FATAL_ERROR "Tracing altered emitted IR")
 endif()
