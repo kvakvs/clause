@@ -319,7 +319,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `supervisor`, `supervisor_bridge`; their reports are `?LOG_*` events.
 - Logging (Erlang): `logger` API over the `clause_logger` server (gen_server `logger` started at the
   first use; ETS `logger` for configs, persistent terms for levels), `logger_formatter`,
-  `logger_std_h` (one synchronous process per handler: devices, files, rotation), `logger_filters`,
+  `logger_std_h` (one synchronous process per handler: devices, files, rotation), `logger_disk_log_h`
+  (same shape over a disk log; common part `clause_logger_h`), `logger_filters`,
   `error_logger` (gen_event fed by its logger handler), `error_logger_file_h`, `log_mf_h`,
   `error_handler`; `kernel/include/{logger,file}.hrl` serve `include_lib`. Default formatter and
   file handler are named by literal calls so the batch links them.
@@ -338,6 +339,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - ETS-based: `ets` builtins (`builtins/ets/`: tables, reads, writes, select and match families,
   match_spec functions, walks), `digraph`/`digraph_utils` over ETS tables (`DigraphView`,
   `graph::View` queries), ets table files via `disk_log` halt-log items.
+- Disk logs: `disk_log` keeps OTP's processes (registry `clause_disk_log_server`, one process per log
+  with owners, blocking, write cache) in Erlang over `clause_disk_log` (OTP's halt/wrap/rotate file
+  formats, byte for byte); `wrap_log_reader` reads wrap logs offline.
 - Disk tables: `dets` keeps OTP's processes (registry server, one process per table with the write
   cache and fixes) in Erlang over a C++ engine of the version 9 file format (`builtins/dets/`) that
   writes OTP's bytes.

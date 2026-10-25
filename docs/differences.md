@@ -191,7 +191,6 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Match specifications naming a variable numbered 25 or above | Renumbers every `'$N'` atom of the specification, even inside `{const, ...}` (so `{const, '$30'}` gives `'$0'`) | Variables keep their numbers; `{const, '$30'}` gives `'$30'` | [runtime](runtime.md#match-specifications) |
 | Match specification guards and bodies nested deeper than 1000 levels | Compile until the C stack runs low (`system_limit`) | `system_limit` | [runtime](runtime.md#match-specifications) |
 | Trace actions in `erlang:match_spec_test/3`: `enable_trace`, `disable_trace`, `trace` with valid flags | Change the caller's trace flags (29.1.1 crashes without a tracer) | `true` after checking the flags (and that a pid argument is alive); nothing changes | [builtins](builtins.md#ets) |
-| `ets:tab2file/3` with `{sync, true}` | `disk_log:sync/1` flushes the file to disk | The file is written and closed without a flush to disk (`file:sync/1` is LIB50) | [builtins](builtins.md#ets) |
 | `ets:tab2file/2,3` and `file2tab/1,2` | Through a disk_log process named by a fresh reference | Written and read directly with `file` | [builtins](builtins.md#ets) |
 | `{process_dump}` and `{current_stacktrace}` in `erlang:match_spec_test/3` | The process's dump text; its stack trace | `<<>>`; `[]` | [builtins](builtins.md#ets) |
 

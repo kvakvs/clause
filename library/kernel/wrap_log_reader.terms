@@ -1,0 +1,7 @@
+%% OTP 29 wrap_log_reader exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{chunk, 1, default, implemented}.
+{chunk, 2, default, implemented}.
+{close, 1, default, implemented}.
+{open, 1, default, implemented}.
+{open, 2, default, implemented}.

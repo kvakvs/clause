@@ -23,7 +23,7 @@ internal functions stay out unless a public function needs them (user direction 
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  824 are still to do (erts 23, kernel 225, stdlib 576). Appendix A lists them per module.
+  784 are still to do (erts 23, kernel 185, stdlib 576). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
@@ -35,12 +35,13 @@ internal functions stay out unless a public function needs them (user direction 
   `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`,
   `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
-  `seq_trace` (tokens without tracing), `file`, `filelib`, `file_sorter`.
+  `seq_trace` (tokens without tracing), `file`, `filelib`, `file_sorter`, `disk_log`, `wrap_log_reader`,
+  `logger_disk_log_h`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
   (51), `io` (11), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
-- **Missing:** 28 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
-  ones (`disk_log`, `zip`, ...) only by compiling OTP's sources from a search path.
+- **Missing:** 25 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
+  ones (`zip`, `erl_tar`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -121,7 +122,7 @@ remainders follow.
 
 ## Tier C: processes and behaviours (Erlang)
 
-Done: LIB20–LIB25 (`00-finished.md`); `logger_disk_log_h` waits for LIB52.
+Done: LIB20–LIB25 and `logger_disk_log_h` (LIB52) (`00-finished.md`).
 
 ## Tier D: Erlang front end as library modules
 
@@ -130,13 +131,6 @@ Done (`00-finished.md`): LIB32 `erl_eval`, LIB33 readers, LIB34 parts 1-4, LIB34
 Nothing is left in this tier.
 
 ## Tier E: files, archives and logs
-
-### LIB52. `disk_log` and `wrap_log_reader`
-
-- Erlang processes over `file`, with C++ for OTP's halt and wrap log chunk formats, so log files are
-  exchangeable with OTP.
-- Unblocks the `ets` file functions and `logger_disk_log_h`: a `logger` handler like `logger_std_h`
-  (same handler process, `filesync/1`, OTP's config checks) writing through `disk_log`.
 
 ### LIB54. Archives: `zip`, `erl_tar`, `zstd`, `beam_lib`
 
@@ -294,11 +288,6 @@ separately and are optional.
   objfile_extension/0, prepare_loading/1, priv_dir/1, purge/1, replace_path/2,3, reset_coverage/1,
   root_dir/0, set_coverage_mode/1, set_path/1,2, soft_purge/1, stick_dir/1, unstick_dir/1,
   where_is_file/1; deprecated: lib_dir/2
-- `disk_log` (kernel, 34): all/0, alog/2, alog_terms/2, balog/2, balog_terms/2, bchunk/2,3,
-  block/1,2, blog/2, blog_terms/2, breopen/3, btruncate/2, change_header/2, change_notify/3,
-  change_size/2, chunk/2,3, chunk_info/1, chunk_step/3, close/1, format_error/1, info/1, log/2,
-  log_terms/2, next_file/1, open/1, pid2name/1, reopen/2,3, sync/1, truncate/1,2, unblock/1;
-  deprecated: inc_wrap_file/1
 - `erl_boot_server` (kernel, 7): add_slave/1, delete_slave/1, start/1,2, start_link/1,2,
   which_slaves/0
 - `erl_ddll` (kernel, 15): demonitor/1, format_error/1, info/0,1,2, load/2, load_driver/2,
@@ -320,7 +309,6 @@ separately and are optional.
   peernames/1,2, socknames/1,2
 - `inet_res` (kernel, 20): getbyname/2,3,4, gethostbyaddr/1,2,3, gethostbyname/1,2,3,4,
   lookup/3,4,5, nnslookup/4,5, nslookup/3,4, resolve/3,4,5
-- `logger_disk_log_h` (kernel, 1): filesync/1
 - `net` (kernel, 15): getaddrinfo/1,2, gethostname/0, getifaddrs/0,1,2, getnameinfo/1,2,
   getservbyname/1,2, getservbyport/1,2, if_index2name/1, if_name2index/1, if_names/0
 - `os` (kernel, 4, 15 done): cmd/2, find_executable/1,2, set_signal/2
@@ -332,7 +320,6 @@ separately and are optional.
   sockname/1, socknames/2, supports/0,1,2, use_registry/1, which_sockets/0,1
 - `trace` (kernel, 11): delivered/2, function/4, info/3, port/4, process/4, recv/3, send/3,
   session_create/3, session_destroy/1, session_info/1, system/3
-- `wrap_log_reader` (kernel, 5): chunk/1,2, close/1, open/1,2
 - `argparse` (stdlib, 6): format_error/1, help/1,2, parse/2,3, run/3
 - `beam_lib` (stdlib, 19): all_chunks/1, build_module/1, chunks/2,3, clear_crypto_key_fun/0, cmp/2,
   cmp_dirs/2, crypto_key_fun/1, diff_dirs/2, format_error/1, info/1, md5/1, strip/1,2,

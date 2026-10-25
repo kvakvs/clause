@@ -76,6 +76,12 @@
 {logger, kernel, provided}.
 {logger_formatter, kernel, provided}.
 {logger_std_h, kernel, provided}.
+{logger_disk_log_h, kernel, provided}.
+{disk_log, kernel, provided}.
+{wrap_log_reader, kernel, provided}.
+{disk_log_1, kernel, missing, "disk_log's file layer; Clause's clause_disk_log replaces it"}.
+{disk_log_server, kernel, missing, "disk_log's registry; Clause's clause_disk_log_server replaces it"}.
+{disk_log_sup, kernel, missing, "disk_log's supervisor; Clause's registry starts log processes"}.
 {logger_filters, kernel, provided}.
 {logger_handler, kernel, provided}.
 {error_logger, kernel, provided}.

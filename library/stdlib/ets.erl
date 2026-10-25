@@ -167,8 +167,7 @@ repair_continuation(
         true ->
             Continuation;
         false ->
-            {Table, LastKey, EndCondition, Limit, ets:match_spec_compile(MatchSpec), Rest, Reverse,
-                Count}
+            {Table, LastKey, EndCondition, Limit, ets:match_spec_compile(MatchSpec), Rest, Reverse, Count}
     end;
 repair_continuation({Table, Slot, Limit, Compiled, Rest, Count} = Continuation, MatchSpec) when
     is_integer(Slot), is_integer(Limit), is_list(Rest), is_integer(Count)
@@ -246,7 +245,8 @@ tab2file(Table, File, Options) ->
         end,
         Fd = open_log(File),
         try
-            write_table(Fd, Tid, Info, Extended)
+            write_table(Fd, Tid, Info, Extended),
+            close_log(Fd, sync_option(Options))
         catch
             Class:Reason:Stack ->
                 _ = file:close(Fd),
@@ -332,9 +332,28 @@ write_table(Fd, Tid, Info, {Count, Md5} = Extended) ->
         [] -> ok;
         _ -> log_terms(Fd, [['$end_of_table', End]], Digest2)
     end,
+    ok.
+
+%% Mark the log closed, after flushing it to disk for {sync, true} as disk_log:sync/1 does.
+close_log(Fd, Sync) ->
+    case Sync of
+        true -> ok = file:sync(Fd);
+        false -> ok
+    end,
     {ok, _} = file:position(Fd, 4),
     write_log(Fd, ?LOG_CLOSED),
     file:close(Fd).
+
+%% The last {sync, Bool} option given, false without one.
+sync_option(Options) ->
+    lists:foldl(
+        fun
+            ({sync, Sync}, _) -> Sync;
+            (_, Sync) -> Sync
+        end,
+        false,
+        Options
+    ).
 
 unfix(Tid) ->
     try

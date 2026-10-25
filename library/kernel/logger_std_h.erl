@@ -24,97 +24,25 @@
 
 -include("include/file.hrl").
 
--define(OLP_KEYS, [
-    sync_mode_qlen,
-    drop_mode_qlen,
-    flush_qlen,
-    burst_limit_enable,
-    burst_limit_max_count,
-    burst_limit_window_time,
-    overload_kill_enable,
-    overload_kill_qlen,
-    overload_kill_mem_size,
-    overload_kill_restart_after
-]).
--define(COMMON_KEYS, [filesync_repeat_interval]).
--define(READ_ONLY_KEYS, [olp]).
 -define(CALL_TIMEOUT, 5000).
 
 %% The logger_handler callbacks.
 
-adding_handler(#{id := Name} = Config) ->
-    HConfig0 = maps:get(config, Config, #{}),
-    case check_config(Name, set, undefined, maps:without(?OLP_KEYS ++ ?COMMON_KEYS, HConfig0)) of
-        {ok, Own} ->
-            Common = maps:merge(
-                maps:merge(#{filesync_repeat_interval => 5000}, maps:with(?COMMON_KEYS, HConfig0)),
-                maps:with(?COMMON_KEYS, Own)
-            ),
-            Olp = maps:merge(olp_defaults(), maps:with(?OLP_KEYS, HConfig0)),
-            case {check_common(Common), check_olp(Olp)} of
-                {ok, ok} ->
-                    HConfig = maps:merge(maps:merge(Common, Own), Olp),
-                    case start(Name, HConfig) of
-                        {ok, Pid} -> {ok, Config#{config => HConfig#{olp => Pid}}};
-                        Error -> Error
-                    end;
-                {{error, Faulty}, _} ->
-                    {error, {invalid_config, ?MODULE, Faulty}};
-                {_, Error} ->
-                    Error
-            end;
-        Error ->
-            Error
-    end.
+% The common and overload options are clause_logger_h's, as OTP's logger_h_common's.
+adding_handler(Config) -> clause_logger_h:adding_handler(?MODULE, Config, fun start/2).
 
-changing_config(SetOrUpdate, #{id := Name, config := OldHConfig}, New) ->
-    NewHConfig0 = maps:get(config, New, #{}),
-    Excluded = ?OLP_KEYS ++ ?COMMON_KEYS ++ ?READ_ONLY_KEYS,
-    case check_config(Name, SetOrUpdate, maps:without(Excluded, OldHConfig), maps:without(Excluded, NewHConfig0)) of
-        {ok, Own} ->
-            CommonBase =
-                case SetOrUpdate of
-                    set -> #{filesync_repeat_interval => 5000};
-                    update -> maps:with(?COMMON_KEYS, OldHConfig)
-                end,
-            Common = maps:merge(
-                maps:merge(CommonBase, maps:with(?COMMON_KEYS, NewHConfig0)),
-                maps:with(?COMMON_KEYS, Own)
-            ),
-            OlpBase =
-                case SetOrUpdate of
-                    set -> olp_defaults();
-                    update -> maps:with(?OLP_KEYS, OldHConfig)
-                end,
-            Olp = maps:merge(OlpBase, maps:with(?OLP_KEYS, NewHConfig0)),
-            case {check_common(Common), check_olp(Olp)} of
-                {ok, ok} ->
-                    Pid = maps:get(olp, OldHConfig),
-                    Pid ! {config_changed, Common, Own},
-                    HConfig = maps:merge(
-                        maps:merge(maps:merge(Common, Own), maps:with(?READ_ONLY_KEYS, OldHConfig)),
-                        Olp
-                    ),
-                    {ok, New#{config => HConfig}};
-                {{error, Faulty}, _} ->
-                    {error, {invalid_config, ?MODULE, Faulty}};
-                {_, Error} ->
-                    Error
-            end;
-        Error ->
-            Error
-    end.
+changing_config(SetOrUpdate, Old, New) -> clause_logger_h:changing_config(?MODULE, SetOrUpdate, Old, New).
 
 removing_handler(#{config := #{olp := Pid}}) ->
-    stop(Pid),
+    clause_logger_h:stop(Pid),
     ok.
 
-filter_config(#{config := HConfig} = Config) -> Config#{config => maps:without(?READ_ONLY_KEYS, HConfig)}.
+filter_config(Config) -> clause_logger_h:filter_config(Config).
 
 %% Formats in the logging process, then writes through the handler's process.
 log(Event, #{config := #{olp := Pid}} = Config) ->
-    Bin = to_binary(Event, Config),
-    case request(Pid, {log, Bin}) of
+    Bin = clause_logger_h:to_binary(Event, Config),
+    case clause_logger_h:request(Pid, {log, Bin}) of
         ok -> ok;
         {error, Reason} -> erlang:error(Reason)
     end.
@@ -123,7 +51,7 @@ filesync(Name) when is_atom(Name) ->
     RegName = reg_name(Name),
     case whereis(RegName) of
         undefined -> exit({noproc, {gen_server, call, [RegName, filesync]}});
-        Pid -> request(Pid, filesync)
+        Pid -> clause_logger_h:request(Pid, filesync)
     end;
 filesync(Name) ->
     {error, {badarg, {filesync, [Name]}}}.
@@ -221,89 +149,9 @@ fix_modes(#{modes := Modes} = HConfig) ->
 fix_modes(HConfig) ->
     HConfig#{filesync_repeat_interval => no_repeat}.
 
-check_common(Common) ->
-    case
-        [
-            {K, V}
-         || K := V <- Common, not (K =:= filesync_repeat_interval andalso (is_integer(V) orelse V =:= no_repeat))
-        ]
-    of
-        [] -> ok;
-        [{K, V} | _] -> {error, #{K => V}}
-    end.
-
-olp_defaults() ->
-    #{
-        sync_mode_qlen => 10,
-        drop_mode_qlen => 200,
-        flush_qlen => 1000,
-        burst_limit_enable => true,
-        burst_limit_max_count => 500,
-        burst_limit_window_time => 1000,
-        overload_kill_enable => false,
-        overload_kill_qlen => 20000,
-        overload_kill_mem_size => 3000000,
-        overload_kill_restart_after => 5000
-    }.
-
-check_olp(Options) ->
-    Bad = [
-        {K, V}
-     || K := V <- Options,
-        not (is_integer(V) orelse
-            (K =:= burst_limit_enable orelse K =:= overload_kill_enable) andalso is_boolean(V) orelse
-            K =:= overload_kill_restart_after andalso V =:= infinity)
-    ],
-    case Bad of
-        [{K, V} | _] ->
-            {error, {invalid_olp_config, #{K => V}}};
-        [] ->
-            #{sync_mode_qlen := Sync, drop_mode_qlen := Drop, flush_qlen := Flush} = Options,
-            case Drop > 1 andalso Sync =< Drop andalso Drop =< Flush of
-                true -> ok;
-                false -> {error, {invalid_olp_levels, maps:with([sync_mode_qlen, drop_mode_qlen, flush_qlen], Options)}}
-            end
-    end.
-
-%% Formatting: the formatter's text as a binary; a failing formatter falls back to the default one.
-to_binary(#{msg := {report, _}, meta := Meta} = Event, Config) when not is_map_key(report_cb, Meta) ->
-    binary_text(Event#{meta => Meta#{report_cb => fun logger:format_otp_report/1}}, Config);
-to_binary(Event, Config) ->
-    binary_text(Event, Config).
-
-binary_text(Event, Config) ->
-    {Formatter, FConfig} = maps:get(
-        formatter,
-        Config,
-        {logger_formatter, #{
-            legacy_header => true,
-            single_line => false
-        }}
-    ),
-    Text = format(Event, Formatter, FConfig),
-    case unicode:characters_to_binary(Text) of
-        Bin when is_binary(Bin) -> Bin;
-        _ -> <<"FORMATTER ERROR: bad return value\n">>
-    end.
-
-format(Event, Formatter, FConfig) ->
-    try
-        formatted(Formatter, Event, FConfig)
-    catch
-        _:_ ->
-            case {Formatter, FConfig} of
-                {logger_formatter, #{}} when map_size(FConfig) =:= 0 -> "DEFAULT FORMATTER CRASHED\n";
-                _ -> format(Event#{msg => {"FORMATTER CRASH: ~tp", [maps:get(msg, Event)]}}, logger_formatter, #{})
-            end
-    end.
-
-%% Names the default formatter literally, so programs that log link it.
-formatted(logger_formatter, Event, FConfig) -> logger_formatter:format(Event, FConfig);
-formatted(Formatter, Event, FConfig) -> Formatter:format(Event, FConfig).
-
 %% The handler process.
 
-reg_name(Name) -> list_to_atom(lists:concat([?MODULE, "_", Name])).
+reg_name(Name) -> clause_logger_h:reg_name(?MODULE, Name).
 
 start(Name, HConfig) ->
     Starter = self(),
@@ -312,31 +160,6 @@ start(Name, HConfig) ->
         {Pid, ok} -> {ok, Pid};
         {Pid, Error} -> Error
     after ?CALL_TIMEOUT -> {error, handler_process_not_started}
-    end.
-
-stop(Pid) ->
-    Ref = monitor(process, Pid),
-    unlink(Pid),
-    Pid ! stop,
-    receive
-        {'DOWN', Ref, _, _, _} -> ok
-    after ?CALL_TIMEOUT ->
-        exit(Pid, kill),
-        ok
-    end.
-
-%% A synchronous request to the handler process: its reply, or {error, Reason} when it ended.
-request(Pid, Request) when Pid =:= self() ->
-    {error, {attempting_syncronous_call_to_self, Request}};
-request(Pid, Request) ->
-    Ref = monitor(process, Pid),
-    Pid ! {Request, {self(), Ref}},
-    receive
-        {Ref, Result} ->
-            demonitor(Ref, [flush]),
-            Result;
-        {'DOWN', Ref, _, _, Reason} ->
-            {error, Reason}
     end.
 
 handler_init(Name, HConfig, Starter) ->
