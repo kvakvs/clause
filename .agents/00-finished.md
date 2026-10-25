@@ -883,6 +883,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   section and legacy shapes): modules, functions, fun arities, BIFs, commands, shell functions, keywords, bindings,
   records, fields, map keys, file paths; call arguments as `Mod:Fun/Arity` heads (no specs at run time);
   `shell_expand` golden — `15957f84`
+- **LIB74C** `shell_docs` complete in Erlang (normalize, validate, render of modules, functions with equiv groups,
+  types, callbacks; OTP's layout, wrapping, bullets, ANSI) with `clause_shell_docs_markdown` (OTP's markdown
+  conversion); identical to OTP over all 10,643 markdown texts and 51,249 renderings of OTP 29's doc chunks (three
+  configurations); `shell_docs_render` golden — `PENDING`
 
 ## Plan 22 (from 2026-10-23)
 

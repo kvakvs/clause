@@ -22,8 +22,8 @@ internal functions stay out unless a public function needs them (user direction 
   `library_modules.py coverage .` prints the progress per module. 120 documented modules, 2,888
   documented functions.
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
-- **Left:** `erlang` (20 declined functions, LIB9 remainder), `shell_docs` (LIB74C; provided as a
-  partial module) and the declined modules' answer stubs (Appendix A).
+- **Left:** `erlang` (20 declined functions, LIB9 remainder) and the declined modules' answer stubs
+  (Appendix A).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -89,13 +89,6 @@ runs a process protocol or is glue. C++ reproduces OTP's exact result shapes for
 - Distribution: `dist_ctrl_*`.
 - Tracing: `trace*`, `system_monitor/0,1,2`, `system_profile/0,2` raise `notsup` (LIB71).
 
-### LIB74. Interactive modules
-
-- LIB74C. `shell_docs` (15): `render/2..5`, `render_type/2..5`, `render_callback/2..5` of a given
-  `docs_v1` chunk (`application/erlang+html` and `text/markdown`), `normalize/1`, `validate/1`,
-  `supported_tags/0`; golden from OTP over chunks the fixture builds (`code:get_doc/1` has none for
-  linked code). Then drop both from `PARTIAL` in `library_modules.py`.
-
 ### Declined modules (recorded in `modules.terms`)
 
 | Module | Reason | OTP's answer on a non-distributed or unsupported node |
@@ -111,7 +104,7 @@ probe for them keep working.
 
 ### Order
 
-1. LIB74C, then the declined modules' answer stubs.
+1. The declined modules' answer stubs.
 
 ## Later (optional: speed and features beyond OTP's documented functions)
 
@@ -157,6 +150,4 @@ separately and are optional.
 - `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3, start/1,
   start_link/0,1, stop/1
 - `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3, pspawn_link/3, start/1,2, stop/0
-- `shell_docs` (stdlib, 15): normalize/1, render/2,3,4,5, render_callback/2,3,4,5,
-  render_type/2,3,4,5, supported_tags/0, validate/1
 - `slave` (stdlib, 0): none; deprecated: pseudo/1,2, relay/1, start/1,2,3, start_link/1,2,3, stop/1
