@@ -91,13 +91,15 @@ streams() ->
     show(close_again, socket:close(Client)),
     show(send_closed, socket:send(Client, <<"x">>)),
     show(info_closed, states(Client)),
-    show(listen_dgram, listen_dgram()),
+    show(listen_dgram, element(1, listen_dgram())),
     [socket:close(S) || S <- [Listen, Accepted]].
 
 % recv with nowait: OTP answers with completion messages on Windows and select messages elsewhere.
 nowait(Client, Accepted) ->
     Pending = socket:recv(Accepted, 0, nowait),
-    show(nowait_kind, element(1, element(2, Pending))),
+    show(
+        nowait_kind, lists:member(element(1, element(2, Pending)), [completion_info, select_info])
+    ),
     show(nowait_quiet, receive_any(50)),
     ok = socket:send(Client, <<"later">>),
     show(nowait_result, await(Accepted, Pending, fun() -> socket:recv(Accepted, 0, nowait) end)),

@@ -492,11 +492,8 @@ accept(Socket, Timeout) ->
         Error -> Error
     end.
 
-accept_now(Socket, #{port := Port} = Info, Timeout, Caller) ->
-    case ready(Socket, accept) of
-        {ok, Result} -> Result;
-        none -> accepted(request(Port, ?ACCEPT, <<>>, Timeout), Info, Caller)
-    end.
+accept_now(_, #{port := Port} = Info, Timeout, Caller) ->
+    accepted(request(Port, ?ACCEPT, <<>>, Timeout), Info, Caller).
 
 accepted({ok, Port}, #{domain := Domain, type := Type, protocol := Protocol}, Caller) ->
     Caller =:= self() orelse
@@ -898,7 +895,29 @@ more_msgs(Socket, N, BufSz, CtrlSz, Flags) ->
 
 % A time-out runs Fun in the caller; nowait or a handle runs it in a helper process, whose answer comes as OTP's
 % completion message (Windows) or is kept for the next call after a select message (elsewhere).
-maybe_async(Socket, Operation, Handle0, Fun) when Handle0 =:= nowait; is_reference(Handle0) ->
+maybe_async(Socket, Operation, Timeout, Fun) when Operation =/= connect ->
+    % What a select-style helper got answers the next call, as the system's readiness does.
+    case ready(Socket, Operation) of
+        {ok, Result} -> Result;
+        none -> start(Socket, Operation, Timeout, Fun)
+    end;
+maybe_async(Socket, Operation, Timeout, Fun) ->
+    start(Socket, Operation, Timeout, Fun).
+
+start(?SOCKET(Ref) = Socket, recv, nowait, Fun) ->
+    % Buffered stream bytes are read at once where readiness is selected (not Windows).
+    case {os:type(), lookup(Ref)} of
+        {{unix, _}, {ok, #{type := stream, buffer := Buffer}}} when Buffer =/= <<>> -> Fun(0, self());
+        _ -> start_async(Socket, recv, nowait, Fun)
+    end;
+start(Socket, Operation, Handle, Fun) when Handle =:= nowait; is_reference(Handle) ->
+    start_async(Socket, Operation, Handle, Fun);
+start(_, _, Timeout, Fun) when Timeout =:= infinity; is_integer(Timeout), Timeout >= 0 ->
+    Fun(Timeout, self());
+start(Socket, _, Timeout, _) ->
+    erlang:error(badarg, [Socket, Timeout]).
+
+start_async(Socket, Operation, Handle0, Fun) ->
     Handle =
         case Handle0 of
             nowait -> make_ref();
@@ -911,11 +930,7 @@ maybe_async(Socket, Operation, Handle0, Fun) when Handle0 =:= nowait; is_referen
     case os:type() of
         {win32, _} -> {completion, {completion_info, Operation, Handle}};
         _ -> {select, {select_info, Operation, Handle}}
-    end;
-maybe_async(_, _, Timeout, Fun) when Timeout =:= infinity; is_integer(Timeout), Timeout >= 0 ->
-    Fun(Timeout, self());
-maybe_async(Socket, _, Timeout, _) ->
-    erlang:error(badarg, [Socket, Timeout]).
+    end.
 
 helper(?SOCKET(Ref) = Socket, Operation, Handle, Caller, Fun) ->
     Result = Fun(infinity, Caller),
@@ -929,8 +944,6 @@ helper(?SOCKET(Ref) = Socket, Operation, Handle, Caller, Fun) ->
     end.
 
 % A result that a select-style helper got, for the next call of its operation.
-keep_ready(Ref, recv, {ok, Data}) ->
-    update(Ref, fun(#{buffer := B} = Info) -> Info#{buffer := <<Data/binary, B/binary>>} end);
 keep_ready(Ref, Operation, Result) ->
     update(Ref, fun(#{ready := R} = Info) -> Info#{ready := R#{Operation => Result}} end).
 
