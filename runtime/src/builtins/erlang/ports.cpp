@@ -106,8 +106,8 @@ constexpr std::array ATOM_OPTIONS{
     AtomOption{"stream", [](PortOptions &options) { options.framing = Framing::stream; }},
     AtomOption{"eof", [](PortOptions &options) { options.eof = true; }},
     AtomOption{"exit_status", [](PortOptions &options) { options.exit_status = true; }},
-    AtomOption{"in", [](PortOptions &options) { options.output = false; }},
-    AtomOption{"out", [](PortOptions &options) { options.input = false; }},
+    AtomOption{"in", [](PortOptions &options) { options.input = true; }},
+    AtomOption{"out", [](PortOptions &options) { options.output = true; }},
     AtomOption{"use_stdio", [](PortOptions &options) { options.use_stdio = true; }},
     AtomOption{"nouse_stdio", [](PortOptions &options) { options.use_stdio = false; }},
     AtomOption{"stderr_to_stdout", [](PortOptions &options) { options.stderr_to_stdout = true; }},
@@ -240,13 +240,20 @@ bool option(const Term &item, PortOptions &options) {
                        options);
 }
 
-// The options of open_port/2; badarg for any unknown or invalid one.
+// The options of open_port/2; badarg for any unknown or invalid one. Options in and out select the directions they
+// name; a port opened with neither has both, as in OTP.
 PortOptions port_options(const ListArgument &list) {
     PortOptions options;
+    options.input = false;
+    options.output = false;
     for (const auto &item : list.elements) {
         if (!option(item, options)) {
             bad_argument();
         }
+    }
+    if (!options.input && !options.output) {
+        options.input = true;
+        options.output = true;
     }
     return options;
 }

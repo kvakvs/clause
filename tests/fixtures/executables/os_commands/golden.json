@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "os_commands",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "cmd [\"hello\"]\ncmd_atom [\"atom\"]\ncmd_deep [\"deep\"]\ncmd_nul [\"nul\"]\ncmd_inner_nul {error,badarg}\ncmd_bad {error,badarg}\ncmd_options [\"options\"]\nmax_size \"0123\"\nmax_size_zero []\nmax_size_large [\"01234\"]\nexit_ignored []\nexit_ok [\"fine\"]\nexit_failed {error,{command_failed,[],3}}\nbad_options {error,badarg}\nstderr [\"to-stderr\"]\nfound absolute\nsame_dir true\nquoted_dir true\nabsolute true\natom_name true\nmissing false\nmissing_dir false\ndirectory false\nset_signal true\nset_signal_default true\nset_signal_handle true\nset_signal_bad_option {error,badarg}\nset_signal_bad_signal {error,badarg}\nset_signal_not_atom {error,badarg}\nos_commands: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "os_commands.erl": "aadf80d9903027784f60aa4a9e2dd4b684513243c3affcea4b123a0ddcf41398"
+  }
+}

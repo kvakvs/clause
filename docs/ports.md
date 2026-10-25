@@ -236,9 +236,10 @@ stdout are pipes of the port:
   are quoted by the rules of `CommandLineToArgvW`.
 - `{env, [{Name, Value | false}]}` sets or removes variables of the child,
   `{cd, Dir}` its directory, `stderr_to_stdout` merges stderr into the port;
-  otherwise the child shares the program's stderr. `in` opens no stdin pipe and
-  `out` no stdout pipe (the null device instead). `hide` and `overlapped_io`
-  have no effect.
+  otherwise the child shares the program's stderr. `in` alone opens no stdin
+  pipe and `out` alone no stdout pipe (the null device instead); with both or
+  neither the port has both, as in OTP. `hide` and `overlapped_io` have no
+  effect.
 - A program that cannot be started raises `error:Reason` with the POSIX reason
   (`enoent`, `eacces`, `enoexec`); bad names and options raise `badarg`.
 - Output is queued and written by the I/O thread, with the port's busy limits

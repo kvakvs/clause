@@ -818,6 +818,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   with its defaults), inet_drv's counters and status flags, `inet:getopts/2`, `getstat/1,2`, `info/1`, `i/0,1,2`,
   monitors, `socknames`/`peernames`, `getifaddrs/0,1`, `gethostbyaddr/1`; connected UDP and `gen_udp:send/2,3,5`,
   `gen_tcp:connect/2`; `net` complete over `clause_net` builtins; `inet_socket_options`, `net_names` goldens — `4e23e01b`
+- **LIB61** `os` and `code` complete: `os:cmd/2` with OTP's shell protocol (`max_size`, `exception_on_failure`,
+  UTF-8 output as characters), `find_executable/1,2` and `set_signal/2` builtins; `open_port` `in`/`out` combine as
+  OTP's; the code path in a persistent term with OTP's path changes, `lib_dir`/`priv_dir`/`where_is_file` lookups,
+  `all_available/0`, `clash/0`, loading and coverage answers for linked code; `code_paths`, `os_commands` goldens — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

@@ -67,7 +67,11 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Long `re` matches | `re:run/3` and the global loop yield after a bounded amount of work | One match runs to its end and holds its scheduler thread; a global run yields between matches only | [builtins](builtins.md#re-module) |
 | `re:compile/2` with `export`, `re:import/1` | An exported pattern `{re_exported_pattern, ...}` that another node imports | `export` is `badarg`; `import/1` raises `{not_implemented, import, 1}` | [builtins](builtins.md#re-module) |
 | `re` argument errors | `badarg` raised from `re:run/3` (or `replace`, `split`) with the caller's arguments and `error_info` | `badarg` raised from the `re` helper that rejected the argument, with that helper's arguments | [builtins](builtins.md#re-module) |
-| `code:is_sticky/1` | `true` for modules of `kernel`, `stdlib` and `compiler` | Always `false` | [builtins](builtins.md#code-module) |
+| `code:is_sticky/1` | `true` for modules of `kernel`, `stdlib` and `compiler`, and for the modules of directories `code:stick_dir/1` named | Always `false`; `stick_dir/1` only checks that the directory can be listed | [builtins](builtins.md#code-module) |
+| `code:root_dir/0` and the initial code path | OTP's installation directory; the path holds its `lib/*/ebin` directories | The executable's directory; the path holds the `ebin` directories of `lib/` beside it and of `ERL_LIBS`, then `"."` | [builtins](builtins.md#code-module) |
+| `code:load_file/1`, `load_abs/1`, `load_binary/3`, `atomic_load/1`, `prepare_loading/1` with valid object code | Load the module | `{error, badfile}`: every module is linked into the executable (D01) | [builtins](builtins.md#code-module) |
+| `code:coverage_support/0` and the coverage functions | `true` with the JIT; coverage modes and counters | `false`; the others raise `badarg`, as OTP does without coverage support | [builtins](builtins.md#code-module) |
+| `code:get_doc/1` of a module the program has | Its EEP 48 documentation chunk | `{error, missing}`: executables embed no documentation | [builtins](builtins.md#code-module) |
 | Output to a file device (`io:format(File, ...)`) | Characters are encoded as the file's encoding (`latin1` by default: characters above 255 are an error) | Always UTF-8 bytes | [io](io.md#calls) |
 | Formatting a large term (`io:format/1,2`) | Runs in Erlang code (`io_lib`) and the group leader, so the process can be preempted while formatting | Runs to completion in one builtin call; other processes wait | [builtins](builtins.md#portions) |
 | `process_flag/2` flags | `trap_exit`, `priority`, `message_queue_data`, `min_heap_size` and others | Only `trap_exit` and `min_heap_size`; every other flag raises `badarg` | [processes](processes.md#builtins) |
@@ -109,7 +113,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `file:open/2` with `raw` or `ram` | A `#file_descriptor{}` record served in the caller (`is_pid/1` false); `io` requests on it fail; a `ram` file has no `read_line/1` (`undef`) and a closed one answers `{error, einval}` | A file server pid like other files; positioned I/O and `sendfile/5` answer as for OTP's raw files; a `ram` file answers `read_line/1` and I/O requests with `{error, enotsup}`, and `{error, terminated}` once closed | [ports](ports.md#standard-io-and-files) |
 | `file:truncate/1` on a file opened only for reading | The platform's error (`eacces` on Windows, `einval` elsewhere) | The C runtime's error for the descriptor (`ebadf` or `einval`); the server stops as OTP's | [ports](ports.md#standard-io-and-files) |
 | `io:get_line`, `io:get_chars` and `file:read/2` in list mode on non-ASCII input | Characters decoded per the device encoding | One list element per byte | [ports](ports.md#standard-io-and-files) |
-| `os:cmd/1` result | Unicode characters decoded from the output | The output's bytes | [ports](ports.md#subprocesses) |
+| `os:set_signal(Signal, handle)` (Linux, macOS) | The signal is sent to `erl_signal_server`, whose default handler stops the system on `sigterm`, halts on `sigusr1` and `sigquit` | No `erl_signal_server`: `sigterm` and `sigquit` exit with status 0, `sigusr1` with status 1, others are dropped; without `set_signal`, `SIGTERM` keeps the system's default action | [ports](ports.md#subprocesses) |
 | Empty arguments of `{spawn_executable, F}` on Windows | Dropped from the command line | Passed as `""` | [ports](ports.md#subprocesses) |
 | `{exit_status, S}` and `eof` of a spawned program | Unspecified order, `exit_status` may arrive before the last data | After all data, before `eof` | [ports](ports.md#subprocesses) |
 | Busy ports | A port with too much queued output suspends senders, socket ports included; `port_command/3` `force` works on drivers that allow it | Only ports of spawned programs become busy; `fd` and socket ports never do; `force` raises `notsup` on every driver | [ports](ports.md#busy-ports) |
@@ -257,7 +261,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 
 | Difference | OTP | Clause | Owner |
 | --- | --- | --- | --- |
-| `-include_lib("App/...")` not on the include path | Found in `code:lib_dir(App)` | Not found (`{include, lib, Name}`) until `code:lib_dir/1` is provided (plan 21 step LIB61) | [library](library.md#contents) |
+| `-include_lib("App/...")` not on the include path | Found in `code:lib_dir(App)`, which knows OTP's applications | Found in `code:lib_dir(App)` of Clause's code path, which has no OTP applications unless they are added to it | [library](library.md#contents) |
 | `set_encoding/1,2` on an open file | Sets the device's encoding | Returns the encoding found; Clause's file servers read bytes (`io:setopts/2`, LIB63) | [library](library.md#contents) |
 
 ## erl_pp

@@ -1,19 +1,19 @@
 %% OTP 29 os exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
 %% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
 {cmd, 1, default, implemented}.
-{cmd, 2, default, stub}.
+{cmd, 2, default, implemented}.
 {env, 0, default, implemented}.
-{find_executable, 1, default, stub}.
-{find_executable, 2, default, stub}.
+{find_executable, 1, default, implemented}.
+{find_executable, 2, default, implemented}.
 {getenv, 0, default, implemented}.
 {getenv, 1, default, implemented}.
 {getenv, 2, default, implemented}.
 {getpid, 0, default, implemented}.
-{internal_init_cmd_shell, 0, default, stub}.
+{internal_init_cmd_shell, 0, default, implemented}.
 {perf_counter, 0, default, implemented}.
 {perf_counter, 1, default, implemented}.
 {putenv, 2, default, implemented}.
-{set_signal, 2, default, stub}.
+{set_signal, 2, default, implemented}.
 {system_time, 0, default, implemented}.
 {system_time, 1, default, implemented}.
 {timestamp, 0, default, implemented}.

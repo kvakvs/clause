@@ -579,6 +579,10 @@ constexpr std::array FILENAME_JOIN_BUILTINS{
     typed_entry<split1>("filename", "split"),
 };
 } // namespace
+
+bool is_relative(ProcessContext &context, const Term &name) { return pathtype_of(context, name) == PathType::relative; }
+
+Term join(ProcessContext &context, const Term &name1, const Term &name2) { return join2(context, name1, name2); }
 } // namespace clause::runtime::builtins::filename
 
 namespace clause::runtime {

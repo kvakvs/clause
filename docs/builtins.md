@@ -437,7 +437,31 @@ program.
 
 - `ensure_loaded/1`, `is_loaded/1` (`{file, preloaded}`), `which/1`
   (`preloaded`), `all_loaded/0`, `module_status/0,1`; `is_sticky/1` `false`.
-- Code paths and loading are stubs.
+- Code path (`library/kernel/code.erl`, plan 21 step LIB61): a persistent term
+  built on first use as OTP's interactive code server builds it: `ERL_LIBS`
+  application `ebin` directories, the newest version of each application in
+  `lib_dir()`, then `"."`. `root_dir/0` is the executable's directory. Path
+  changes normalize and check directories as OTP; `lib_dir/1`, `priv_dir/1`
+  and `compiler_dir/0` name the first path directory `.../Name[-Vsn][/ebin]`.
+- Loading answers for linked code: object code found on the path gives
+  `erlang:prepare_loading/2`'s `{error, badfile}`, missing code `nofile`;
+  `purge/1` `false`, `soft_purge/1` `true`, `delete/1` `false`;
+  `get_doc/1` `{error, missing}`; no coverage support.
+
+## Os module
+
+`builtins/os.cpp`, `library/kernel/os.erl`.
+
+- `type/0`, `getenv/0,1`, `env/0`, `putenv/2`, `unsetenv/1`, `getpid/0`,
+  `version/0` are builtins.
+- `cmd/1,2`: Erlang over a spawn port with OTP's protocol: Windows runs
+  `COMSPEC /c Command`; elsewhere `/bin/sh -s unix:cmd` reads the command and
+  echoes `^D` (and the exit status) at its end. `max_size`,
+  `exception_on_failure`, UTF-8 output decoded to characters.
+- `find_executable/2` (builtin): OTP's search over `PATH` elements (Windows:
+  the current directory first, `.exe`, `.com`, `.cmd`, `.bat`).
+- `set_signal/2` (builtin): `badarg` on Windows as OTP; elsewhere `sigaction`;
+  a handled signal acts as OTP's default `erl_signal_handler`.
 
 ## Init module
 

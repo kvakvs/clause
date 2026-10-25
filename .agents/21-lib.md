@@ -36,9 +36,9 @@ internal functions stay out unless a public function needs them (user direction 
   `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
   `seq_trace` (tokens without tracing), `file`, `filelib`, `file_sorter`, `disk_log`, `wrap_log_reader`,
-  `logger_disk_log_h`, `gen_tcp`, `gen_udp`, `net`.
-- **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
-  (51), `io` (11), `inet` (1, LIB60B), `os` (4), `ets` (2, LIB73), `dets` (2, LIB73).
+  `logger_disk_log_h`, `gen_tcp`, `gen_udp`, `net`, `os`, `code` (loading answers for linked code).
+- **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `io` (11),
+  `inet` (1, LIB60B), `ets` (2, LIB73), `dets` (2, LIB73).
 - **Missing:** 19 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
   ones (`zip`, `erl_tar`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
@@ -138,7 +138,7 @@ tier. Later (speed): `zip` and `erl_tar` header parsing, stored copies and check
 
 ## Tier F: kernel I/O remainder
 
-LIB60A is done (`00-finished.md`). Later: `{active, N}`, `{packet, line | http | ...}` and `{raw, ...}`
+LIB60A and LIB61 are done (`00-finished.md`). Later: `{active, N}`, `{packet, line | http | ...}` and `{raw, ...}`
 socket options; applying inet_drv's own options (`send_timeout`, `header`, `deliver`, `exit_on_close`, ...).
 
 ### LIB60B. `inet_res` and the resolver configuration
@@ -147,18 +147,6 @@ socket options; applying inet_drv's own options (`send_timeout`, `header`, `deli
   `#dns_rec{}` records and errors. Golden against a DNS server the test program runs itself.
 - `inet:get_rc/0` from the resolver configuration OTP's `inet_config` loads (`{lookup, [native]}`
   on Windows; `resolv.conf` and hosts files elsewhere), shared with `inet_res`'s nameservers.
-
-### LIB61. `os` and `code` remainder
-
-- `os` (C++): `cmd/2`, `find_executable/1,2`, `set_signal/2`.
-- `code` path functions (Erlang over `persistent_term` and the executable layout): `get_path/0`,
-  `set_path/1,2`, `add_path*`, `del_path*`, `replace_path/2,3`, `lib_dir/0,1`, `priv_dir/1`,
-  `root_dir/0`, `compiler_dir/0`, `where_is_file/1`, `objfile_extension/0`, `clash/0`,
-  `all_available/0`, `get_mode/0`, `clear_cache/0`.
-- Loading and coverage answer as for a static program (D01): `load_*`, `purge/1`, `soft_purge/1`,
-  `delete/1`, `atomic_load/1`, the `prepare_loading`/`finish_loading` pair, `get_object_code/1`,
-  `modified_modules/0`, the coverage functions. `get_doc/1` gives `{error, missing}` unless docs are
-  embedded later.
 
 ### LIB62. `socket` and `gen_sctp`
 
@@ -253,7 +241,7 @@ own annotations, and no Boost in the runtime.
 
 Ranked by what real programs need first and by dependencies:
 
-1. LIB60B and LIB61 (`inet_res`, `os`, `code` gaps).
+1. LIB60B (`inet_res`).
 2. LIB30–LIB34 (the front end, `consult`, `io:read`).
 3. LIB51–LIB55 (files, logs, archives), then LIB12C.
 4. LIB70, LIB62 and LIB63.
@@ -270,14 +258,6 @@ separately and are optional.
   purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3, trace_delivered/1,
   trace_info/2, trace_pattern/2,3
 - `init` (erts, 3, 8 done): boot/1, restart/0,1
-- `code` (kernel, 51, 8 done): add_path/1,2, add_patha/1,2, add_paths/1,2, add_pathsa/1,2,
-  add_pathsz/1,2, add_pathz/1,2, all_available/0, atomic_load/1, clash/0, clear_cache/0,
-  compiler_dir/0, coverage_support/0, del_path/1, del_paths/1, delete/1, finish_loading/1,
-  get_coverage/2, get_coverage_mode/0,1, get_debug_info/1, get_doc/1, get_mode/0, get_object_code/1,
-  get_path/0, lib_dir/0,1, load_abs/1, load_binary/3, load_file/1, modified_modules/0,
-  objfile_extension/0, prepare_loading/1, priv_dir/1, purge/1, replace_path/2,3, reset_coverage/1,
-  root_dir/0, set_coverage_mode/1, set_path/1,2, soft_purge/1, stick_dir/1, unstick_dir/1,
-  where_is_file/1; deprecated: lib_dir/2
 - `erl_boot_server` (kernel, 7): add_slave/1, delete_slave/1, start/1,2, start_link/1,2,
   which_slaves/0
 - `erl_ddll` (kernel, 15): demonitor/1, format_error/1, info/0,1,2, load/2, load_driver/2,
@@ -295,7 +275,6 @@ separately and are optional.
 - `inet` (kernel, 1, 38 done): get_rc/0
 - `inet_res` (kernel, 20): getbyname/2,3,4, gethostbyaddr/1,2,3, gethostbyname/1,2,3,4,
   lookup/3,4,5, nnslookup/4,5, nslookup/3,4, resolve/3,4,5
-- `os` (kernel, 4, 15 done): cmd/2, find_executable/1,2, set_signal/2
 - `socket` (kernel, 79): accept/1,2, bind/2,3, cancel/2, cancel_monitor/1, close/1, connect/1,2,3,
   getopt/2,3, getopt_native/3, i/0,1,2, info/0,1, ioctl/2,3,4, is_supported/1,2, listen/1,2,
   monitor/1, number_of/0, open/1,2,3,4, peeloff/2,3, peername/1, peernames/2, recv/1,2,3,4,

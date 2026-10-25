@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "code_paths",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "get_mode interactive\nobjfile_extension \".beam\"\nroot_dir true\nlib_dir true\nclear_cache ok\npath_strings true\nset_path true\nours [\"t/b/ebin\",\"t/a-2.0/ebin\"]\nset_path_missing {error,bad_directory}\nset_path_bad {error,bad_directory}\nset_path_atom_dir true\nours [\"t/c\"]\nset_path_not_list {error,function_clause}\nset_path_bad_cache {error,function_clause}\nadd_patha true\nadd_pathz true\nadd_path true\nadd_path_missing {error,bad_directory}\nours [\"t/a-1.0/ebin\",\"t/c\",\"t/b/ebin\",\"t/d-3/ebin\"]\nadd_patha_again true\nadd_pathz_again true\nours [\"t/d-3/ebin\",\"t/a-1.0/ebin\",\"t/c\",\"t/b/ebin\"]\nadd_path_atom {error,function_clause}\nadd_pathsa ok\nours [\"t/a-2.0\",\"t/b\",\"t/d-3/ebin\",\"t/a-1.0/ebin\",\"t/c\",\"t/b/ebin\"]\nadd_pathsz ok\nours [\"t/a-2.0\",\"t/b\",\"t/d-3/ebin\",\"t/a-1.0/ebin\",\"t/c\",\"t/b/ebin\",\n      \"t/a-2.0/ebin\",\"t/b/priv\"]\nadd_paths ok\nlib_dir_b \"t/b\"\nlib_dir_a \"t/a-2.0\"\nlib_dir_d \"t/d-3\"\nlib_dir_missing {error,bad_name}\nlib_dir_bad {error,function_clause}\npriv_dir_b \"t/b/priv\"\npriv_dir_missing {error,bad_name}\nlib_dir_sub \"t/b/ebin\"\nwhere_is_file \"t/b/ebin/x.beam\"\nwhere_is_app \"t/b/ebin/b.app\"\nwhere_is_missing non_existing\nwhere_is_file_bad {error,function_clause}\navailable [{\"x\",\"t/b/ebin/x.beam\",false}]\nobject_code {<<\"not object code\">>,absolute,\"b\"}\nobject_code_missing error\ncompiler_dir true\nstick_dir ok\nstick_dir_missing error\nunstick_dir ok\n** t/b/ebin/x.beam hides t/a-2.0/ebin/x.beam\n** Found 1 name clashes in code paths \ndel_path_name true\nours [\"t/b\",\"t/d-3/ebin\",\"t/a-1.0/ebin\",\"t/c\",\"t/b/ebin\",\"t/a-2.0/ebin\",\n      \"t/b/priv\"]\ndel_path_dir true\ndel_path_missing false\ndel_path_bad {error,function_clause}\nours [\"t/b\",\"t/d-3/ebin\",\"t/a-1.0/ebin\",\"t/c\",\"t/b/ebin\",\"t/a-2.0/ebin\"]\nreplace_path true\nours [\"t/b\",\"t/d-3/ebin\",\"t/a-1.0/ebin\",\"t/c\",\"t/b/ebin\",\"t/a-2.0/ebin\"]\nreplace_path_name {error,bad_name}\nreplace_path_missing {error,bad_directory}\nreplace_path_last true\nours [\"t/b\",\"t/d-3/ebin\",\"t/a-1.0/ebin\",\"t/c\",\"t/b/ebin\",\"t/a-2.0/ebin\"]\ndel_paths ok\nours [\"t/a-1.0/ebin\",\"t/b/ebin\",\"t/a-2.0/ebin\"]\nload_file {error,badfile}\nload_file_missing {error,nofile}\nload_file_bad {error,function_clause}\nload_abs {error,badfile}\nload_abs_missing {error,nofile}\nload_binary {error,badfile}\nload_binary_name {error,badarg}\nload_binary_bad {error,function_clause}\natomic_load {error,[{no_such_module,nofile},{x,badfile},{y,badfile}]}\natomic_load_duplicated {error,[{x,duplicated}]}\natomic_load_empty ok\natomic_load_bad {error,function_clause}\nprepare_loading {error,[{no_such_module,nofile},{x,badfile}]}\nfinish_loading ok\nfinish_loading_bad {error,function_clause}\ndelete false\npurge false\nsoft_purge true\nmodified_modules []\nget_doc_missing {error,non_existing}\nget_debug_info_missing {error,badarg}\nget_debug_info_bad {error,badarg}\nrestored true\ncode_paths: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "code_paths.erl": "116147cba1e5a50e45642c0a0b4c366d3afdde06fbdda7c646afef33b449c777"
+  }
+}

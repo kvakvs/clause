@@ -474,6 +474,9 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"os", "unsetenv", 1},
     BuiltinName{"os", "getpid", 0},
     BuiltinName{"os", "version", 0},
+    // The os remainder (plan 21 step LIB61; runtime/src/builtins/os.cpp).
+    BuiltinName{"os", "find_executable", 2},
+    BuiltinName{"os", "set_signal", 2},
     BuiltinName{"maps", "get", 3},
     BuiltinName{"maps", "is_key", 2},
     BuiltinName{"maps", "remove", 2},

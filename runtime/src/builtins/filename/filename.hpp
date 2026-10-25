@@ -39,6 +39,12 @@ Element character(ProcessContext &context, char32_t code);
 // one element; function_clause for another tail.
 Elements flatten(ProcessContext &context, const Term &name);
 
+// Whether filename:pathtype(Name) is relative (os:find_executable/2, plan 21 step LIB61); function_clause for what is
+// no name.
+bool is_relative(ProcessContext &context, const Term &name);
+// filename:join(Name1, Name2) (os:find_executable/2).
+Term join(ProcessContext &context, const Term &name1, const Term &name2);
+
 // A proper list of the elements.
 Term list_of(ProcessContext &context, std::span<const Element> elements);
 
