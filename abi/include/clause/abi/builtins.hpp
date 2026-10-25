@@ -1188,6 +1188,9 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_net", "inet_getifaddrs", 0},
     BuiltinName{"clause_net", "getifaddrs", 0},
     BuiltinName{"clause_net", "if_names", 0},
+    // The DNS message codec of inet_res (plan 21 step LIB60B; runtime/src/builtins/net/dns.cpp).
+    BuiltinName{"clause_net", "dns_decode", 1},
+    BuiltinName{"clause_net", "dns_encode", 1},
     // clause_filelib, filelib's wildcard patterns (plan 21 step LIB51; runtime/src/builtins/filelib.cpp).
     BuiltinName{"clause_filelib", "escape", 1},
     BuiltinName{"clause_filelib", "compile_part", 1},

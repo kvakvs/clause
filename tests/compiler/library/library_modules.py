@@ -42,7 +42,6 @@ DOCUMENTED_ENTRY = re.compile(rf"^\{{({ATOM}), ([a-z]+), ({ATOM}), (\d+)\}}\.$")
 PARTIAL = {
     "dets": "LIB73",
     "ets": "LIB73",
-    "inet": "LIB60B",
 }
 
 

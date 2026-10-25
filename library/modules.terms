@@ -36,6 +36,7 @@
 {gen_tcp, kernel, provided}.
 {gen_udp, kernel, provided}.
 {inet, kernel, provided}.
+{inet_res, kernel, provided}.
 {os, kernel, provided}.
 {array, stdlib, provided}.
 {binary, stdlib, provided}.

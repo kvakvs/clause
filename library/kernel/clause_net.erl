@@ -7,7 +7,9 @@
     getservbyport/2,
     inet_getifaddrs/0,
     getifaddrs/0,
-    if_names/0
+    if_names/0,
+    dns_decode/1,
+    dns_encode/1
 ]).
 
 % Clause's system name and interface lookups (plan 21 step LIB60, docs/builtins.md#network-names): runtime builtins
@@ -22,3 +24,5 @@ getservbyport(_, _) -> clause_builtin_placeholder.
 inet_getifaddrs() -> clause_builtin_placeholder.
 getifaddrs() -> clause_builtin_placeholder.
 if_names() -> clause_builtin_placeholder.
+dns_decode(_) -> clause_builtin_placeholder.
+dns_encode(_) -> clause_builtin_placeholder.

@@ -827,6 +827,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `file:read/2` as latin1 requests); io output to pids as I/O protocol requests; `columns`/`rows`/terminal flags
   over `clause_io` builtins; `io_ansi` with the built-in ANSI sequences (no terminfo); Linux build fixes
   (`PooledAllocator` not final, `<algorithm>`); `io_options`, `io_ansi_codes` goldens — `a12b29c8`
+- **LIB60B** `inet_res` complete and `inet:get_rc/0`: OTP's DNS client in Erlang over gen_udp/gen_tcp (retries,
+  alternative servers, EDNS, TC over TCP, servfail waits, legacy sequential ids, search lists, CNAME chains,
+  hostents), a C++ DNS codec (`clause_net:dns_decode/1`, `dns_encode/1`) with inet_dns's records, values and formerr
+  rules; resolver configuration as OTP's inet_config for a non-distributed node; `inet_res_queries` golden against a
+  loopback DNS server of the program — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

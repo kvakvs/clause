@@ -71,7 +71,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/terminal.cpp
     # Module clause_net: names and interfaces of net and inet (plan 21 step LIB60).
     src/builtins/net/names.cpp src/builtins/net/interfaces.cpp src/builtins/net/interfaces_windows.cpp
-    src/builtins/net/interfaces_posix.cpp
+    src/builtins/net/interfaces_posix.cpp src/builtins/net/dns.cpp
     # filelib's wildcard patterns (plan 21 step LIB51).
     src/builtins/filelib.cpp
     # Modules erl_anno and erl_internal (plan 21 step LIB8).

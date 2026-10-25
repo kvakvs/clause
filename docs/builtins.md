@@ -339,6 +339,13 @@ byte for byte, same file orders.
 - `inet:getservbyname/2`, `getservbyport/2` and `gethostbyaddr/1` (a
   `getnameinfo` with `NI_NAMEREQD`) use the same builtins; network namespaces
   answer `{error, enotsup}` ([differences](differences.md)).
+- `clause_net:dns_decode/1` and `dns_encode/1` (`builtins/net/dns.cpp`, plan
+  21 step LIB60B) are inet_res's DNS message codec: OTP's `#dns_rec{}`,
+  `#dns_header{}`, `#dns_query{}`, `#dns_rr{}`, `#dns_rr_opt{}` and
+  `#dns_rr_tsig{}` tuples with inet_dns's values (symbolic types, classes and
+  opcodes, escaped name labels, LOC as degrees and meters) and its `formerr`
+  rules (compression pointers backwards past the header, names below 255
+  bytes, truncated sections only with the TC bit); encoding compresses names.
 
 ## Filename
 

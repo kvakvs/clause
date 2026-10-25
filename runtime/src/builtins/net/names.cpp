@@ -1,4 +1,5 @@
 #include "../text.hpp"
+#include "dns.hpp"
 #include "net.hpp"
 #include <array>
 #include <cstring>
@@ -227,6 +228,8 @@ constexpr std::array NET_BUILTINS{
     typed_entry<inet_getifaddrs>("clause_net", "inet_getifaddrs"),
     typed_entry<getifaddrs>("clause_net", "getifaddrs"),
     typed_entry<if_names>("clause_net", "if_names"),
+    typed_entry<dns::decode>("clause_net", "dns_decode"),
+    typed_entry<dns::encode>("clause_net", "dns_encode"),
 };
 } // namespace
 

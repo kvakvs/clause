@@ -124,7 +124,8 @@ connect_options(_, _) -> erlang:error({not_implemented, connect_options, 2}).
 fdopen(_, _, _, _, _, _) -> erlang:error({not_implemented, fdopen, 6}).
 gen_tcp_module(_) -> erlang:error({not_implemented, gen_tcp_module, 1}).
 gen_udp_module(_) -> erlang:error({not_implemented, gen_udp_module, 1}).
-get_rc() -> erlang:error({not_implemented, get_rc, 0}).
+%% The resolver configuration as OTP lists it (plan 21 step LIB60B).
+get_rc() -> clause_inet_config:get_rc().
 getaddr(_, _, _) -> erlang:error({not_implemented, getaddr, 3}).
 getaddr_tm(_, _, _) -> erlang:error({not_implemented, getaddr_tm, 3}).
 getaddrs(_, _, _) -> erlang:error({not_implemented, getaddrs, 3}).
@@ -160,14 +161,35 @@ send(_, _) -> erlang:error({not_implemented, send, 2}).
 setpeername(_, _) -> erlang:error({not_implemented, setpeername, 2}).
 setsockname(_, _) -> erlang:error({not_implemented, setsockname, 2}).
 socket_to_list(_) -> erlang:error({not_implemented, socket_to_list, 1}).
-start_timer(_) -> erlang:error({not_implemented, start_timer, 1}).
-stop_timer(_) -> erlang:error({not_implemented, stop_timer, 1}).
+%% A timer for a call's time-out, false for infinity (inet_res, plan 21 step LIB60B).
+start_timer(infinity) -> false;
+start_timer(Timeout) -> erlang:start_timer(Timeout, self(), inet).
+stop_timer(false) ->
+    false;
+stop_timer(Timer) ->
+    case erlang:cancel_timer(Timer) of
+        false ->
+            receive
+                {timeout, Timer, _} -> false
+            after 0 -> false
+            end;
+        Left ->
+            Left
+    end.
 tcp_close(_) -> erlang:error({not_implemented, tcp_close, 1}).
 tcp_controlling_process(_, _) -> erlang:error({not_implemented, tcp_controlling_process, 2}).
 tcp_module(_) -> erlang:error({not_implemented, tcp_module, 1}).
 tcp_module(_, _) -> erlang:error({not_implemented, tcp_module, 2}).
-timeout(_) -> erlang:error({not_implemented, timeout, 1}).
-timeout(_, _) -> erlang:error({not_implemented, timeout, 2}).
+%% The time left of a timer, and the smaller of it and Time.
+timeout(false) ->
+    infinity;
+timeout(Timer) ->
+    case erlang:read_timer(Timer) of
+        false -> 0;
+        Left -> Left
+    end.
+timeout(Time, false) -> Time;
+timeout(Time, Timer) -> min(Time, timeout(Timer)).
 translate_ip(_, _) -> erlang:error({not_implemented, translate_ip, 2}).
 udp_close(_) -> erlang:error({not_implemented, udp_close, 1}).
 udp_controlling_process(_, _) -> erlang:error({not_implemented, udp_controlling_process, 2}).
