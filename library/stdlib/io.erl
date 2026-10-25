@@ -166,6 +166,12 @@ io_request({put_chars, M, F, A}) -> {put_chars, latin1, M, F, A};
 io_request({get_chars, Prompt, Count}) -> {get_chars, latin1, Prompt, Count};
 io_request({get_line, Prompt}) -> {get_line, latin1, Prompt};
 io_request({get_until, Prompt, M, F, Args}) -> {get_until, latin1, Prompt, M, F, Args};
+% OTP's conversions of the old output and fread requests (plan 21 step LIB54A, for file_sorter's term format).
+io_request({write, Term}) -> {put_chars, unicode, io_lib, write, [Term]};
+io_request({format, Format, Args}) -> {put_chars, unicode, io_lib, format, [Format, Args]};
+io_request({fwrite, Format, Args}) -> {put_chars, unicode, io_lib, fwrite, [Format, Args]};
+io_request(nl) -> {put_chars, unicode, io_lib:nl()};
+io_request({fread, Prompt, Format}) -> {get_until, unicode, Prompt, io_lib, fread, [Format]};
 io_request(Request) -> Request.
 
 % --- The standard input server ---

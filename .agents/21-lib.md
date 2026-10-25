@@ -23,7 +23,7 @@ internal functions stay out unless a public function needs them (user direction 
   `tests/compiler/library/observe_docs.escript` records the documented functions in
   `library/documented.terms`; `library_modules.py coverage .` prints the progress per module.
 - **Result:** 120 documented modules (erts 9, kernel 37, stdlib 74) with 2,888 documented functions;
-  838 are still to do (erts 23, kernel 225, stdlib 590). Appendix A lists them per module.
+  824 are still to do (erts 23, kernel 225, stdlib 576). Appendix A lists them per module.
 - **Complete already** (every documented function, or the rest declined): `atomics`, `counters`,
   `erl_prim_loader`, `persistent_term`, `prim_eval`, `zlib`, `binary`, `lists`, `maps`, `math`, `re`
   (`import/1` declined), `init` (`boot/1`, `restart/0,1` refused), `array`, `base64`, `calendar`,
@@ -35,11 +35,11 @@ internal functions stay out unless a public function needs them (user direction 
   `supervisor`, `supervisor_bridge`, `logger`, `logger_formatter`, `logger_std_h`, `logger_filters`,
   `error_logger`, `log_mf_h`, `error_handler`, `application`, `pg`, `data_publisher`, `global`,
   `global_group`, `rpc`, `erpc`, `net_adm`, `net_kernel` (distribution start declined), `auth`,
-  `seq_trace` (tokens without tracing), `file`, `filelib`.
+  `seq_trace` (tokens without tracing), `file`, `filelib`, `file_sorter`.
 - **Partial:** `erlang` (22 left, all unavailable: code loading, distribution, tracing), `code`
   (51), `io` (11), `inet` (19), `gen_udp` (5), `os` (4), `gen_tcp` (1), `ets` (2,
   LIB73), `dets` (2, LIB73).
-- **Missing:** 29 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
+- **Missing:** 28 modules (`library_modules.py coverage`). Today a program gets the plain-Erlang
   ones (`disk_log`, `zip`, ...) only by compiling OTP's sources from a search path.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
@@ -138,15 +138,13 @@ Nothing is left in this tier.
 - Unblocks the `ets` file functions and `logger_disk_log_h`: a `logger` handler like `logger_std_h`
   (same handler process, `filesync/1`, OTP's config checks) writing through `disk_log`.
 
-### LIB54. Archives: `zip`, `erl_tar`, `zstd`, `file_sorter`, `beam_lib`
+### LIB54. Archives: `zip`, `erl_tar`, `zstd`, `beam_lib`
 
 - `zip` (22) and `erl_tar` (14): C++ readers and writers over the pinned zlib, with an Erlang API
   (`foldl/3`, options).
 - `zstd` (17): C++ over a pinned zstd under `thirdparty/`, like zlib.
-- `file_sorter` (14): a C++ external merge sort; Erlang for user order funs. Split out as LIB54A,
-  first step of the qlc chain: all 14 functions, OTP's `binary_term` (4-byte size prefix plus
-  `term_to_binary`) and `term` file formats, input and output funs, `tmpdir`, `compressed`, `size`,
-  `no_files`, `order` (with funs), `unique`, `header`, and OTP's error tuples.
+- Later (speed): `file_sorter` (LIB54A, an exact Erlang port of OTP's runs and merges) could decode
+  chunks and sort runs of the default formats and orders in C++.
 - `beam_lib` (19): a C++ chunk reader and writer for `.beam` files (Clause makes none, but programs
   inspect them).
 
@@ -210,7 +208,7 @@ Nothing is left in this tier.
 ### LIB73. `qlc`
 
 Dependencies first (user direction 2026-10-19), in this order: LIB30 `erl_scan` (done), LIB31
-`erl_parse` (done), LIB54A `file_sorter`, LIB32 `erl_eval` (done), LIB34A (`erl_pp`,
+`erl_parse` (done), LIB54A `file_sorter` (done), LIB32 `erl_eval` (done), LIB34A (`erl_pp`,
 `erl_expand_records`, `erl_lint`'s checks for `qlc_pt`; done with LIB34C). See
 [the qlc chain](#qlc-chain-user-direction-2026-10-19).
 
@@ -258,7 +256,7 @@ probe for them keep working.
 ### qlc chain (user direction 2026-10-19)
 
 Runs now, before the list below: LIB30 `erl_scan` (done), LIB31 `erl_parse` (done), LIB54A
-`file_sorter` (its `term` format reads with `io:read/2`, done in LIB33), LIB32 `erl_eval` (done,
+`file_sorter` (done), LIB32 `erl_eval` (done,
 with every undocumented export), LIB34A (done), then LIB73 `qlc` with LIB12C. Each is its own commit. The
 runtime cannot link the compiler's `clause_frontend` (a separate, LLVM-free build; the compiler
 lexer throws Clause diagnostics and has no `erl_scan` continuations), so `erl_scan` and `erl_parse`
@@ -349,8 +347,6 @@ separately and are optional.
   t/1, table/1,2, tt/1
 - `escript` (stdlib, 3): create/2, extract/2, script_name/0
 - `ets` (stdlib, 2, 68 done): table/1,2
-- `file_sorter` (stdlib, 14): check/1,2, keycheck/2,3, keymerge/3,4, keysort/2,3,4, merge/2,3,
-  sort/1,2,3
 - `io` (stdlib, 11, 37 done): columns/0,1, get_password/0, getopts/0,1, printable_range/0, rows/0,1,
   setopts/1,2, write/1,2
 - `io_ansi` (stdlib, 153): alternate_character_set_mode/0, alternate_character_set_mode_off/0,

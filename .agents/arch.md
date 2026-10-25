@@ -310,7 +310,7 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `builtins/float_text` (OTP rounding, Ryu), `string`, `unicode`/`unicode_util` (generated tables,
   cp/gc, normalization), `re` (bundled PCRE2 10.47; C++ compile/run, rest in `re.erl`), `base64`,
   `json`, `uri_string`, `filename`, `filelib` (wildcard parts compiled/matched in `builtins/filelib.cpp`,
-  walk in Erlang), `calendar`.
+  walk in Erlang), `file_sorter` (exact Erlang port of OTP's runs and merges), `calendar`.
 - Time: `timer` without a timer server (per-timer processes reached through aliases; conversions in
   `builtins/timer.cpp`).
 - Behaviours (all Erlang): `proc_lib` (ancestors, initial calls, sync starts, crash reports), `sys`

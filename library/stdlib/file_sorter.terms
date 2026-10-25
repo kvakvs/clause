@@ -1,0 +1,16 @@
+%% OTP 29 file_sorter exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{check, 1, default, implemented}.
+{check, 2, default, implemented}.
+{keycheck, 2, default, implemented}.
+{keycheck, 3, default, implemented}.
+{keymerge, 3, default, implemented}.
+{keymerge, 4, default, implemented}.
+{keysort, 2, default, implemented}.
+{keysort, 3, default, implemented}.
+{keysort, 4, default, implemented}.
+{merge, 2, default, implemented}.
+{merge, 3, default, implemented}.
+{sort, 1, default, implemented}.
+{sort, 2, default, implemented}.
+{sort, 3, default, implemented}.
