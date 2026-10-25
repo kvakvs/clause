@@ -115,8 +115,41 @@ function(clause_reserve_test_processors directory)
         clause_reserve_test_processors("${child}")
     endforeach()
 endfunction()
+# Tests that time out only under a loaded parallel run (saved suite logs 2026-10-12 to 2026-10-26). Each waits for
+# every other selected test, so they run last with the processors to themselves. Added for load-sensitive tests.
+set(CLAUSE_LOAD_SENSITIVE_TESTS frontend_cli codegen_examples linking_debugger executables_applications)
+
+# Collects the test names of a directory and its subdirectories into names_var.
+function(clause_collect_tests directory names_var)
+    get_property(tests DIRECTORY "${directory}" PROPERTY TESTS)
+    set(names ${${names_var}} ${tests})
+    get_property(children DIRECTORY "${directory}" PROPERTY SUBDIRECTORIES)
+    foreach(child IN LISTS children)
+        clause_collect_tests("${child}" names)
+    endforeach()
+    set(${names_var} "${names}" PARENT_SCOPE)
+endfunction()
+
+# Makes each load-sensitive test of a directory tree depend on the others, which CTest honors as start order only.
+function(clause_defer_load_sensitive_tests directory others)
+    get_property(tests DIRECTORY "${directory}" PROPERTY TESTS)
+    foreach(test IN LISTS tests)
+        if(test IN_LIST CLAUSE_LOAD_SENSITIVE_TESTS)
+            set_tests_properties(${test} DIRECTORY "${directory}" PROPERTIES DEPENDS "${others}")
+        endif()
+    endforeach()
+    get_property(children DIRECTORY "${directory}" PROPERTY SUBDIRECTORIES)
+    foreach(child IN LISTS children)
+        clause_defer_load_sensitive_tests("${child}" "${others}")
+    endforeach()
+endfunction()
+
 if(BUILD_TESTING)
     clause_reserve_test_processors("${PROJECT_SOURCE_DIR}")
+    set(all_tests "")
+    clause_collect_tests("${PROJECT_SOURCE_DIR}" all_tests)
+    list(REMOVE_ITEM all_tests ${CLAUSE_LOAD_SENSITIVE_TESTS})
+    clause_defer_load_sensitive_tests("${PROJECT_SOURCE_DIR}" "${all_tests}")
 endif()
 # Compiler dependency discovery may enable C; capture the complete host toolchain for child builds.
 configure_file(cmake/TestHost.cmake.in TestHost.cmake @ONLY)

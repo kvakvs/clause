@@ -36,6 +36,12 @@ cmake --build build/debug --target check-quality-all  # whole tree
 - Long tests driven by a Python or CMake script carry a fixed CTest `COST`:
   CTest learns a wrapper's cost from its own small CPU time and would start them
   last.
+- Load-sensitive tests (`CLAUSE_LOAD_SENSITIVE_TESTS` in the top
+  `CMakeLists.txt`: `frontend_cli`, `codegen_examples`, `linking_debugger`,
+  `executables_applications`) only timed out or lost timing races under a full
+  parallel run. They `DEPENDS` on every other test, so they start after the rest
+  of the selection finishes and have the processors to themselves; a failing
+  dependency does not skip them.
 - `CLAUSE_TEST_TIMEOUT_SCALE=N` multiplies the per-run limits of the golden
   runner (60 s) and the semantic case runner (15 s) for instrumented builds.
 - `check-quality`, `make format` and `make-format.bat` cover files changed since
