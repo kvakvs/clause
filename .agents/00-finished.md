@@ -878,7 +878,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   project option `shell`) links the whole library, keeps exports, shell as default entry; stdin server reprints the
   prompt per line and reads CRLF as LF; `clause_io_lib:pretty/2` prints shell records; undef traces get OTP's
   `{M,F,Args,[]}` top frame; `shell_session` golden (escript oracle, identical but the masked system version),
-  `linking_shell` CTest — `PENDING`
+  `linking_shell` CTest — `f90c7198`
 
 ## Plan 22 (from 2026-10-23)
 
