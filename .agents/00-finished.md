@@ -811,6 +811,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `zstd.erl` as OTP's; `file`'s `{zstd, Options}` layer; `zstd_ops` golden — `c67bf634`
 - **LIB54F** `beam_lib` complete: Erlang following OTP's chunk handling, `erl_abstract_code`, `eep48.hrl`;
   `beam_ops` golden — `c5b5ba04`
+- **LIB55** `escript` (`create/2`, `extract/2` as OTP's; `script_name/0` the executable's path) and `win32reg`
+  (OTP's Erlang over a Windows `clause_registry` port driver, `enotsup` elsewhere); Windows files shared for
+  deletion as OTP's; golden runs per OS family; `escript_ops`, `win32reg_ops` goldens — `04c0bbc8`
 
 ## Plan 22 (from 2026-10-23)
 
