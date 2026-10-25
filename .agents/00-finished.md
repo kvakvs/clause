@@ -809,6 +809,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   and sparse files, STAR, v7), compressed, ram, device and `init/3` I/O; `tar_ops` golden — `1a2e2cce`
 - **LIB54E** `zstd` complete: libzstd 1.5.7 objects in the runtime, `clause_zstd` builtins as OTP's NIF,
   `zstd.erl` as OTP's; `file`'s `{zstd, Options}` layer; `zstd_ops` golden — `c67bf634`
+- **LIB54F** `beam_lib` complete: Erlang following OTP's chunk handling, `erl_abstract_code`, `eep48.hrl`;
+  `beam_ops` golden — `c5b5ba04`
 
 ## Plan 22 (from 2026-10-23)
 
