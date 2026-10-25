@@ -1,0 +1,24 @@
+%% OTP 29 zip exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{create, 2, default, implemented}.
+{create, 3, default, implemented}.
+{extract, 1, default, implemented}.
+{extract, 2, default, implemented}.
+{foldl, 3, default, implemented}.
+{list_dir, 1, default, implemented}.
+{list_dir, 2, default, implemented}.
+{t, 1, default, implemented}.
+{table, 1, default, implemented}.
+{table, 2, default, implemented}.
+{tt, 1, default, implemented}.
+{unzip, 1, default, implemented}.
+{unzip, 2, default, implemented}.
+{zip, 2, default, implemented}.
+{zip, 3, default, implemented}.
+{zip_close, 1, default, implemented}.
+{zip_get, 1, default, implemented}.
+{zip_get, 2, default, implemented}.
+{zip_get_crc32, 2, default, implemented}.
+{zip_list_dir, 1, default, implemented}.
+{zip_open, 1, default, implemented}.
+{zip_open, 2, default, implemented}.

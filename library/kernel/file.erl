@@ -81,7 +81,7 @@
 
 % The project-owned file module (docs/library.md, docs/ports.md#standard-io-and-files): files are ports of the
 % runtime's file driver ({spawn_driver, "clause_file"}), driven with port_control/3. An open file is an I/O
-% server process that owns its port and is linked to the opener, as in OTP.
+% server process that owns its port and monitors the opener, as in OTP.
 
 -define(OPEN, 1).
 -define(READ, 2).
@@ -955,6 +955,8 @@ path_call(File, Operation, Encode, Decode) ->
         Name ->
             Port = open_port({spawn_driver, "clause_file"}, [binary]),
             Reply = reply(port_control(Port, Operation, Encode(Name))),
+            % Unlinked first: a caller trapping exits gets no {'EXIT', Port, normal}, as OTP's file NIFs send none.
+            unlink(Port),
             port_close(Port),
             case Reply of
                 {ok, Result} -> Decode(Result);
