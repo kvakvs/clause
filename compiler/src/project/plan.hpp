@@ -48,6 +48,8 @@ struct PlannedTarget {
     Ignore ignore_ = {};
     // The keep_exports option. Added for export liveness (62C).
     bool keep_exports_ = false;
+    // The shell option. Added for the shell option (plan 21 step LIB74).
+    bool shell_ = false;
     // Where Clause keeps its temporary files and caches: --build-dir, else build_dir, else <manifest-dir>/build.
     // Added for the build directory (62D1).
     std::filesystem::path build_directory_ = {};

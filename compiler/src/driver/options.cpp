@@ -225,7 +225,9 @@ static std::optional<std::string> validate_options(const Options &options) {
                                                 options.frontend_options_explicit, options.entry.has_value()})) {
         return error;
     }
-    if (!options.show_help && !options.show_version && options.inputs.empty() && !project::active(options.project)) {
+    // --shell links a program from the library alone. Added for the shell option (plan 21 step LIB74).
+    if (!options.show_help && !options.show_version && options.inputs.empty() && !project::active(options.project) &&
+        !options.backend.shell) {
         return "no input files";
     }
     return action_conflict(options);

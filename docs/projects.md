@@ -26,6 +26,7 @@ disable_features = ["compr_assign"]
 ignore_dirs = ["src/legacy", "deps/*/test"]
 ignore_modules = ["telemetry", "*_SUITE"]
 keep_exports = false
+shell = false
 cache_inference_in_dirs = ["deps/*"]
 
 [targets.options.applications]
@@ -51,6 +52,9 @@ my_dependency = "vendor/my_dependency"
 - `keep_exports = true` in `options` keeps every export of the target's
   executable callable, as `--keep-exports` does for every selected target
   ([export liveness](executables.md#export-liveness)). It must be a boolean.
+- `shell = true` in `options` links the interactive shell into the target's
+  executable, as `--shell` does ([interactive shell](library.md#interactive-shell)).
+  It must be a boolean.
 - `cache_inference_in_dirs` (directory wildcards) in `options` adds directories
   whose modules keep their inference results in the build cache
   ([inference cache](#inference-cache)).

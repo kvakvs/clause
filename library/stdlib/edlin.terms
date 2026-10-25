@@ -1,0 +1,18 @@
+%% OTP 29 edlin exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{current_chars, 1, default, stub}.
+{current_line, 1, default, stub}.
+{edit_line, 2, default, stub}.
+{edit_line1, 2, default, stub}.
+{erase_inp, 1, default, stub}.
+{erase_line, 0, default, stub}.
+{init, 0, default, stub}.
+{init, 1, default, stub}.
+{keymap, 0, default, implemented}.
+{length_after, 1, default, stub}.
+{length_before, 1, default, stub}.
+{over_word, 3, default, stub}.
+{prompt, 1, default, stub}.
+{redraw_line, 1, default, stub}.
+{start, 1, default, stub}.
+{start, 2, default, stub}.

@@ -145,7 +145,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Stack trace locations | `[{file, F}, {line, L}]`, `error_info` for `error/3` | Always `[]`; no `error_info`, so `erl_error:format_exception/3,4` shows no locations or `*** argument` lines for them | [ABI](abi.md#stack-traces) |
 | `erlang:raise/3` with `{Fun, Args}` stack entries | Accepted | Rejected | [ABI](abi.md#stack-traces) |
 | `function_clause` top frame | Argument list | Arity | [ABI](abi.md#stack-traces) |
-| `undef` top frame | `{M, F, Args, []}` of the missing function | The calling function's frame | [funs](funs.md#dynamic-calls) |
+| `undef` top frame of a `M:F(A1, ..., An)` call | `{M, F, [A1, ..., An], []}` | `{M, F, N, []}`: the arity in place of the arguments (`apply/3` and fun calls show the arguments) | [funs](funs.md#dynamic-calls) |
 | Dynamic call of an export an executable cannot reach (its module named only through a stack trace, an exception or a message from outside the program) | Calls it | `undef`, unless built with `--keep-exports`; `function_exported/3` and `module_info(exports)` still list it | [executables](executables.md#export-liveness) |
 | Failing BIF/operator frames | Present (`{erlang, '+', Args, ...}`) | Absent; nothing below the entry function | [ABI](abi.md#stack-traces) |
 | Atom table full (`list_to_atom/1`) | The emulator aborts (`no more index entries in atom_tab`) and writes a crash dump | `clau: runtime failure: entry call failed: resource_limit`, exit 70 | [builtins](builtins.md#how-calls-reach-them) |
@@ -291,6 +291,18 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Difference | OTP | Clause | Owner |
 | --- | --- | --- | --- |
 | Messages of `qlc_pt:parse_transform/2` at run time | From `compile:noenv_forms/2` (`strong_validation`): `erl_lint` plus the compiler's core passes, such as `sys_core_fold` warnings | From `erl_lint` only, as OTP's `qlc_pt` does when the compiler is not available | [qlc_pt](builtins.md#qlc-pt) |
+
+## Interactive shell
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Line editing in a terminal | `edlin`: cursor keys, line history, search, tab completion over `edlin_expand`, the `..>` multiline prompt | The terminal's own (cooked) line editing; lines are read as the terminal delivers them, with the same prompt for each further line of a command, as OTP does for piped input | [library](library.md#interactive-shell) |
+| Job control | Ctrl+G opens the JCL menu (new, connected, interrupted and killed shells) | None; the banner and the slow-command hint still name Ctrl+G as OTP prints them | [library](library.md#interactive-shell) |
+| `exit().` when the shell reads piped input | A new shell starts and reads nothing more | A new shell starts and reads the rest of the input | [library](library.md#interactive-shell) |
+| Programs that start the shell without `--shell` | Every module of the code path is callable | Only the modules the program links; without `--keep-exports` dynamic calls reach only exports the program can reach | [library](library.md#interactive-shell) |
+| Records of compiled modules (`rr(Module)`, `shell_default` and `user_default` at start) | Read from the module's debug information or source | `{error, nofile}`: linked code keeps no abstract code; `rr/1,2,3` of source and `.beam` files read them | [library](library.md#interactive-shell) |
+| `save_module/1` | Writes the module and compiles it with `c:c/1` | Writes the module only (no compiler) | [library](library.md#interactive-shell) |
+| `c:i/0,1`, `c:ni/0`, `c:regs/0` columns | Each process's initial call and current function | `proc_lib`'s initial call or `undefined`; the current function `undefined` (no `current_function` item) | [library](library.md#interactive-shell) |
 
 ## Random numbers
 

@@ -22,8 +22,8 @@ internal functions stay out unless a public function needs them (user direction 
   `library_modules.py coverage .` prints the progress per module. 120 documented modules, 2,888
   documented functions.
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
-- **Left:** `erlang` (20 declined functions, LIB9 remainder) and 14 modules with 151 documented
-  functions (Appendix A): the interactive modules (LIB74) and the declined modules' answer stubs.
+- **Left:** `erlang` (20 declined functions, LIB9 remainder), `edlin_expand` and `shell_docs`
+  (LIB74B, LIB74C; provided as partial modules) and the declined modules' answer stubs (Appendix A).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -89,12 +89,17 @@ runs a process protocol or is glue. C++ reproduces OTP's exact result shapes for
 - Distribution: `dist_ctrl_*`.
 - Tracing: `trace*`, `system_monitor/0,1,2`, `system_profile/0,2` raise `notsup` (LIB71).
 
-### LIB74. Interactive modules (last; optional)
+### LIB74. Interactive modules
 
-- `shell` (18), `shell_default` (1), `shell_docs` (15), `edlin` (1), `edlin_expand` (2), `c` (44).
-- The process-inspection subset of `c` is useful without a shell: `pid/3`, `flush/0`, `i/0,3`,
-  `regs/0`, `nregs/0`, `memory/0,1`, `uptime/0`, `bt/1`, `pwd/0`, `cd/1`, `ls/0,1`, `q/0`.
-- The compiler and loading parts (`c/1,2,3`, `l/1`, `lm/0`, `nc/1,2`) are declined (D01).
+- LIB74B. `edlin_expand:expand/1,2`: completion of modules, functions (exports), shell bindings,
+  records and fields, map keys, `fun M:F/` arities, file paths in strings; result shapes as OTP
+  (legacy and sections). Type-spec hints need specs at run time, which linked code lacks: answer
+  `{no, [], []}` there and record it in `differences.md`. Golden: observe `edlin_expand:expand/1,2`
+  from the shell (the shell's bindings and records feed it through `shell:get_state/0`).
+- LIB74C. `shell_docs` (15): `render/2..5`, `render_type/2..5`, `render_callback/2..5` of a given
+  `docs_v1` chunk (`application/erlang+html` and `text/markdown`), `normalize/1`, `validate/1`,
+  `supported_tags/0`; golden from OTP over chunks the fixture builds (`code:get_doc/1` has none for
+  linked code). Then drop both from `PARTIAL` in `library_modules.py`.
 
 ### Declined modules (recorded in `modules.terms`)
 
@@ -111,7 +116,7 @@ probe for them keep working.
 
 ### Order
 
-1. LIB74, then the declined modules' answer stubs.
+1. LIB74B, LIB74C, then the declined modules' answer stubs.
 
 ## Later (optional: speed and features beyond OTP's documented functions)
 
@@ -128,6 +133,9 @@ probe for them keep working.
 - A cache of `inet_res` answers; terminfo for `io_ansi`.
 - Real tracing (runtime trace points for sends, receives, calls and process events; `trace`,
   `erlang:trace*`, `seq_trace` tracer output), starting from plan 11's call tracer.
+- Shell: `edlin` line editing in a raw terminal (cursor keys, history, search, tab completion over
+  `edlin_expand`, the `..>` multiline prompt) and Ctrl+G job control; `current_function` and
+  `initial_call` items for `c:i/0`; records of compiled modules for `rr(Module)`.
 
 ## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
 
@@ -151,19 +159,10 @@ separately and are optional.
   register_node/2,3, start_link/0
 - `heart` (kernel, 8): clear_callback/0, clear_cmd/0, get_callback/0, get_cmd/0, get_options/0,
   set_callback/2, set_cmd/1, set_options/1
-- `c` (stdlib, 44): bt/1, c/1,2,3, cd/1, erlangrc/1, flush/0, h/1,2,3, hcb/1,2,3, help/0, ht/1,2,3,
-  i/0,3, l/1, lc/1, lm/0, ls/0,1, m/0,1, memory/0,1, mm/0, nc/1,2, ni/0, nl/1, nregs/0, pi/1,3,
-  pid/3, pwd/0, q/0, regs/0, uptime/0, xm/1, y/1,2
-- `edlin` (stdlib, 1): keymap/0
 - `edlin_expand` (stdlib, 2): expand/1,2
 - `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3, start/1,
   start_link/0,1, stop/1
 - `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3, pspawn_link/3, start/1,2, stop/0
-- `shell` (stdlib, 18): catch_exception/1, default_multiline_prompt/1, erl_pp_format_func/1,
-  format_shell_func/1, hints/1, history/1, inverted_space_prompt/1, multiline_prompt_func/1,
-  prompt_func/1, prompt_width/1,2, results/1, start_interactive/0,1, start_restricted/1,
-  stop_restricted/0, strings/1, whereis/0
-- `shell_default` (stdlib, 1): help/0
 - `shell_docs` (stdlib, 15): normalize/1, render/2,3,4,5, render_callback/2,3,4,5,
   render_type/2,3,4,5, supported_tags/0, validate/1
 - `slave` (stdlib, 0): none; deprecated: pseudo/1,2, relay/1, start/1,2,3, start_link/1,2,3, stop/1

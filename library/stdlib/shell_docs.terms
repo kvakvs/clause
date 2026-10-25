@@ -1,0 +1,22 @@
+%% OTP 29 shell_docs exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{extract_type_specs, 1, default, stub}.
+{get_callback_doc, 3, default, stub}.
+{get_doc, 1, default, stub}.
+{get_doc, 3, default, stub}.
+{get_type_doc, 3, default, stub}.
+{normalize, 1, default, stub}.
+{render, 2, default, stub}.
+{render, 3, default, stub}.
+{render, 4, default, stub}.
+{render, 5, default, stub}.
+{render_callback, 2, default, stub}.
+{render_callback, 3, default, stub}.
+{render_callback, 4, default, stub}.
+{render_callback, 5, default, stub}.
+{render_type, 2, default, stub}.
+{render_type, 3, default, stub}.
+{render_type, 4, default, stub}.
+{render_type, 5, default, stub}.
+{supported_tags, 0, default, stub}.
+{validate, 1, default, stub}.

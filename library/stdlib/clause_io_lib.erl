@@ -1,5 +1,5 @@
 -module(clause_io_lib).
--export([sort_maps/6, apply_ordered/4]).
+-export([sort_maps/6, apply_ordered/4, pretty/2]).
 
 %% maps_order comparison funs (plan 21 step LIB4F, docs/builtins.md#io-lib): an io_lib or io builtin that wrote maps
 %% ordered by funs continues here with the maps it met. Their keys are sorted as maps:iterator/2 sorts them, and the
@@ -20,6 +20,10 @@ sorted(Missing, true) ->
 
 %% Run the builtin Module:Function(Args) with the sorted keys [{Fun, Map, Keys}]; a runtime builtin.
 apply_ordered(_, _, _, _) -> clause_builtin_placeholder.
+
+%% io_lib_pretty:print/2 for the shell (plan 21 step LIB74): options column, line_length, depth, line_max_chars,
+%% strings, encoding and records, [{Name, [Field]}] in place of a record_print_fun; a runtime builtin.
+pretty(_, _) -> clause_builtin_placeholder.
 
 %% The keys of a map in its key order, as maps:keys/1 lists them, from the {K1, V1, ...} tuple of its entries.
 keys(Map) ->

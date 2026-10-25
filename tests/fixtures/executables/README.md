@@ -22,6 +22,8 @@ is registered.
 | `entry` | author | Entry module; `main/1` receives argv strings ([contract](../../../docs/executables.md)) |
 | `data` | author, optional | Case-relative files the program uses at run time (helper scripts), staged beside the sources and hashed with them; runs start in the staged directory, and `CLAUSE_TEST_PYTHON` names the Python that runs the tests |
 | `workers` | author, optional | Scheduler counts: every run is made once per count with `CLAUSE_FLAGS=--schedulers N`, instead of once with the default of one worker per logical processor ([workers](../../../docs/processes.md#workers)) |
+| `options` | author, optional | Compiler options every policy adds (`shell_session`: `--keep-exports`, since the shell calls modules by name) |
+| `stdout_masks` | author, optional | `[pattern, replacement]` pairs of multiline regular expressions applied to OTP's and Clause's stdout, for lines that differ by design (`shell_session`: the system version line) |
 | `sources` | author, optional | Case-relative source paths instead of the directory's `.erl`/`.hrl`/`.abstr` files (the `demo` case uses `examples/compile/`) |
 | `runs[].args` | author | Argument strings of one invocation |
 | `runs[].stdin` | author, optional | Text written to standard input, which is then closed; empty when missing |

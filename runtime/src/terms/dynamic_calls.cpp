@@ -103,15 +103,22 @@ const void *word_apply_list(ProcessContext &context, const ApplyOperands operand
 }
 
 // The frame Module:Function/Arity enters: badarg for a non-atom name, undef when neither a module exports it nor
-// a builtin has that name.
-const void *lookup(ProcessContext &context, const Term &module, const Term &function, std::size_t arity) {
+// a builtin has that name; its top frame shows Args, the argument list or the arity.
+const void *lookup(ProcessContext &context, const Term &module, const Term &function, std::size_t arity,
+                   const std::optional<Term> &args) {
     if (!module.is_atom() || !function.is_atom()) {
         raise_call_error(context, ErrorReason::badarg);
         return nullptr;
     }
     const auto *frame = context.code_server().function_frame(module, function, arity);
     if (!frame) {
-        raise_call_error(context, ErrorReason::undef);
+        const auto shown =
+            args ? TermResult<Term>{*args} : TermFactory(context).integer(static_cast<std::int64_t>(arity));
+        if (shown) {
+            raise_undef(context, module, function, *shown);
+        } else {
+            context.generated_calls().fail_service(term_status(shown.error()));
+        }
     }
     return frame;
 }
@@ -167,8 +174,9 @@ Status make_external(ProcessContext &context, const std::array<Term, 3> &operand
 const void *call_service(ProcessContext &context, Word module, Word function, std::size_t arity) noexcept {
     return contained(context, [&]() -> const void * {
         std::array<Term, 2> names;
-        return admit(context, std::array{module, function}, names) ? lookup(context, names[0], names[1], arity)
-                                                                   : nullptr;
+        return admit(context, std::array{module, function}, names)
+                   ? lookup(context, names[0], names[1], arity, std::nullopt)
+                   : nullptr;
     });
 }
 
@@ -194,7 +202,7 @@ const void *call_list_service(ProcessContext &context, Word module, Word functio
             return nullptr;
         }
         const auto count = arguments(context, terms[2], registers);
-        return count ? lookup(context, terms[0], terms[1], *count) : nullptr;
+        return count ? lookup(context, terms[0], terms[1], *count, terms[2]) : nullptr;
     });
 }
 

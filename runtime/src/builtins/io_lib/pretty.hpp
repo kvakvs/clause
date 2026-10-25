@@ -5,6 +5,7 @@
 #include <limits>
 #include <string>
 #include <utility>
+#include <vector>
 
 // io_lib_pretty (plan 21 step LIB4D, docs/builtins.md#io-lib): io_lib:print/1,4, the ~p and ~P controls and the
 // chars_limit forms of io_lib:write/2 and write_bin/5, built as OTP's intermediate format and laid out in OTP's deep
@@ -13,7 +14,16 @@ namespace clause::runtime::builtins::io_lib {
 // A print depth that is not an integer: comparisons with it fail and arithmetic on it raises badarith, as in OTP.
 inline constexpr std::int64_t NON_INTEGER_DEPTH = std::numeric_limits<std::int64_t>::min();
 
-// The options of io_lib_pretty:print/2 (record_print_fun is always `no_fun`: no documented caller passes one).
+// A record definition known to the printer, standing for a record_print_fun answer: a tuple {Name, V1, ..., Vn}
+// with as many fields prints as #Name{F1 = V1, ...}. Added for the shell's record printing (plan 21 step LIB74).
+struct RecordDefinition {
+    Word name = 0;
+    std::vector<Term> fields{};
+};
+
+using RecordDefinitions = std::vector<RecordDefinition>;
+
+// The options of io_lib_pretty:print/2; record_print_fun is given as its definitions (`records`).
 struct PrettyOptions {
     // Column of the first character, from 1; smaller columns count as 1.
     std::int64_t column = 1;
@@ -31,6 +41,8 @@ struct PrettyOptions {
     MapsOrder order = MapsOrder::undefined;
     // Whether column, line_length and depth are integers: OTP's arithmetic on them raises badarith otherwise.
     bool numeric = true;
+    // The record definitions tuples print with; none prints every tuple as a tuple (record_print_fun no_fun).
+    const RecordDefinitions *records = nullptr;
 };
 
 // io_lib_pretty:print/2 as chars().

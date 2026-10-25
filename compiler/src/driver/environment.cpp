@@ -190,6 +190,7 @@ void print_backend(const BackendOptions &backend, const std::string &triple) {
     print_value("debug_info", backend.debug_info ? "true" : "false");
     print_value("lto", backend.lto ? "true" : "false");
     print_value("keep_exports", backend.keep_exports ? "true" : "false");
+    print_value("shell", backend.shell ? "true" : "false");
     print_value("emit", toml_string(emission_name(backend.emit)));
     print_value("artifact_dir", toml_path(backend.artifact_directory.value_or("build/aot")));
 }

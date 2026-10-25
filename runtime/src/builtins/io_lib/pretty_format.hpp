@@ -29,7 +29,7 @@ struct Seq {
 
 // The More fun of a value cut short: which print_length function to rerun, on what, from which depth.
 struct More {
-    enum class Kind : std::uint8_t { term, list_rest, tuple_rest, map_pairs, record_fields };
+    enum class Kind : std::uint8_t { term, list_rest, tuple_rest, map_pairs, record_fields, tuple_record_fields };
     Kind kind = Kind::term;
     // The term, list rest, tuple or record.
     Term term{};
@@ -74,6 +74,8 @@ struct LengthOptions {
     bool utf8 = false;
     bool strings = true;
     MapsOrder order = MapsOrder::undefined;
+    // The definitions tuples print as records with; none for no_fun.
+    const RecordDefinitions *records = nullptr;
 };
 
 class Arena final {
@@ -107,6 +109,10 @@ class Arena final {
     Seq map_pairs(const More &at, std::int64_t depth, std::int64_t limit);
     Index record(const Term &record, std::int64_t depth, std::int64_t limit);
     Seq record_fields(const Term &record, std::size_t at, std::int64_t depth, std::int64_t limit);
+    // A tuple record_print_fun knows: its definition, or none. Added for the shell's record printing (LIB74).
+    const RecordDefinition *definition(const Term &tuple) const;
+    Index tuple_record(const Term &tuple, std::int64_t depth, std::int64_t limit);
+    Seq tuple_record_fields(const Term &tuple, std::size_t at, std::int64_t depth, std::int64_t limit);
     Index binary(const Term &binary, std::int64_t depth, std::int64_t limit);
     Index printable_binary(const Term &binary, Cut at);
     std::pair<Deep::Ref, std::int64_t> binary_text(std::span<const std::byte> part, const Term &binary, bool latin1);

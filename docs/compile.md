@@ -161,6 +161,7 @@ annotations. The printer (`print_source`, `expression_source`, `type_source` in
 | `--jobs <n>` | Optimize and emit object modules on `n` threads (default: every hardware thread), each module in its own LLVM context; objects are the same for any count; `--jobs 1`, IR and assembly inspections keep every module in one context |
 | `--lto` | Link the modules as bitcode with LLD link-time optimization (Windows MSVC and ELF targets; needs `-o` or a linking project build) ([linking](executables.md#linking)) |
 | `--keep-exports` | Keep every export of an executable callable instead of leaving out those it cannot reach; needs `-o`, a linking project build or an IR/assembly inspection ([export liveness](executables.md#export-liveness)) |
+| `--shell` | Link the interactive Erlang shell and every library module, keeping every export callable; without `--entry` the executable starts the shell, so `clau --shell -o erl` with no inputs builds a shell over the library alone; needs `-o` or a linking project build ([interactive shell](library.md#interactive-shell)) |
 | `-g` | Erlang line tables in objects and linked executables (CodeView/PDB on MSVC targets, DWARF elsewhere) ([debugging](debugging.md)) |
 | `--print-ir` / `--print-optimized-ir` | Verified IR before/after LLVM passes, with Erlang source lines as comments |
 | `--print-asm` | Each module's target assembly after the selected pipeline, every run of machine code commented with the IR instruction and Erlang line it came from ([assembly listings](#assembly-listings)) |
@@ -255,6 +256,7 @@ type_specialization = true  # O2 without --no-type-specialization
 debug_info = false
 lto = false
 keep_exports = false        # --keep-exports or the project option
+shell = false               # --shell or the project option
 emit = "none"               # or obj, llvm-ir, llvm-bc
 artifact_dir = "/work/build/aot"
 ```

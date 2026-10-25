@@ -451,6 +451,9 @@ Index Arena::tuple(const Term &tuple, std::int64_t depth, std::int64_t limit) {
     if (depth == 1) {
         return cut(deep_.ascii("{...}"), 5, More{.term = tuple, .depth = 1});
     }
+    if (definition(tuple) != nullptr) {
+        return tuple_record(tuple, depth, limit);
+    }
     Node node;
     node.shape = Shape::tuple;
     node.seq = tuple_rest(tuple, 1, depth, tsub(limit, 2));
@@ -559,6 +562,59 @@ Seq Arena::record_fields(const Term &record, std::size_t at, std::int64_t depth,
         field.dots = nodes_[value].dots;
         seq.items.push_back(add(std::move(field)));
         limit = tsub(room, key_length + nodes_[value].length);
+    }
+    return seq;
+}
+
+// record_print_fun(Tag, NoFields) of a tuple starting with an atom: the definition with as many fields, if any.
+const RecordDefinition *Arena::definition(const Term &tuple) const {
+    if (options_.records == nullptr || tuple.tuple_size_unchecked() == 0 ||
+        !tuple.tuple_element_unchecked(0).is_atom()) {
+        return nullptr;
+    }
+    const auto name = tuple.tuple_element_unchecked(0).word();
+    const auto fields = tuple.tuple_size_unchecked() - 1;
+    const auto found = std::ranges::find_if(*options_.records, [&](const RecordDefinition &known) {
+        return known.name == name && known.fields.size() == fields;
+    });
+    return found == options_.records->end() ? nullptr : &*found;
+}
+
+// print_length_record/8 below depth 1 (where a record is "{...}" as any tuple): #Name{Field = Value, ...}.
+Index Arena::tuple_record(const Term &tuple, std::int64_t depth, std::int64_t limit) {
+    Node node;
+    node.shape = Shape::record;
+    node.text = deep_.list({deep_.code('#'), atom_text(deep_, tuple.tuple_element_unchecked(0), options_.encoding)});
+    node.name_length = deep_.chars_length(context_, node.text);
+    node.seq = tuple_record_fields(tuple, 2, depth_minus(depth, 1), tsub(limit, node.name_length + 2));
+    const auto open = node.name_length + 2;
+    return container(std::move(node), open);
+}
+
+// print_length_fields/9 from tuple element `at` (from 1): each field one level deeper than the one before.
+Seq Arena::tuple_record_fields(const Term &tuple, std::size_t at, std::int64_t depth, std::int64_t limit) {
+    Seq seq;
+    const auto &fields = definition(tuple)->fields;
+    const auto size = tuple.tuple_size_unchecked();
+    for (; at <= size; ++at) {
+        if (depth == 1 || limit == 0) {
+            seq.end = dots(More{.kind = More::Kind::tuple_record_fields, .term = tuple, .index = at, .depth = depth});
+            return seq;
+        }
+        const auto room = at == size ? limit : tsub(limit, 1);
+        const auto key = atom_text(deep_, fields[at - 2], options_.encoding);
+        const auto key_length = deep_.chars_length(context_, key) + 3;
+        depth = depth_minus(depth, 1);
+        const auto value = length(tuple.tuple_element_unchecked(at - 1), depth, tsub(room, key_length));
+        Node field;
+        field.shape = Shape::field;
+        field.text = key;
+        field.name_length = key_length;
+        field.value = value;
+        field.length = key_length + nodes_[value].length;
+        field.dots = nodes_[value].dots;
+        limit = tsub(room, field.length);
+        seq.items.push_back(add(std::move(field)));
     }
     return seq;
 }
@@ -722,6 +778,8 @@ Seq Arena::rerun(const More &more, Deeper at) {
     }
     case More::Kind::record_fields:
         return record_fields(more.term, more.index, depth, limit);
+    case More::Kind::tuple_record_fields:
+        return tuple_record_fields(more.term, more.index, depth, limit);
     default:
         return {.items = {}, .end = length(more.term, depth, limit)};
     }

@@ -13,6 +13,9 @@ struct LibraryModules {
     std::vector<std::filesystem::path> directories_;
     // Modules Clause does not provide, by name, with the reason modules.terms gives; never searched for elsewhere.
     std::map<std::string, std::string> missing_;
+    // Modules modules.terms records as provided, in its order; --shell links them all. Added for the shell option
+    // (plan 21 step LIB74).
+    std::vector<std::string> provided_;
 };
 
 // The library below `root`; without a readable modules.terms no name is reserved.

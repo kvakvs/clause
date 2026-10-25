@@ -125,3 +125,9 @@
 {ms_transform, stdlib, provided}.
 {qlc_pt, stdlib, provided}.
 {qlc, stdlib, provided}.
+{shell, stdlib, provided}.
+{shell_default, stdlib, provided}.
+{c, stdlib, provided}.
+{edlin, stdlib, provided}.
+{edlin_expand, stdlib, provided}.
+{shell_docs, stdlib, provided}.

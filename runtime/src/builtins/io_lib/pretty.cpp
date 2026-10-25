@@ -52,7 +52,9 @@ Deep::Ref pretty_print(ProcessContext &context, Deep &deep, const Term &term, co
     if (!laid_out(term)) {
         return Writer(context, deep, Encoding::latin1, MapsOrder::undefined).write(term, -1);
     }
-    Arena arena(context, deep, {.encoding = options.encoding, .strings = options.strings, .order = options.order});
+    Arena arena(
+        context, deep,
+        {.encoding = options.encoding, .strings = options.strings, .order = options.order, .records = options.records});
     const auto root = intermediate_of(arena, term, options);
     const auto length = arena.node(root).length;
     Bounds bounds{.line_length = options.line_length,

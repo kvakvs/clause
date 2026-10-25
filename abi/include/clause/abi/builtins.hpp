@@ -1286,6 +1286,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"io_lib", "bformat", 2},
     // maps_order comparison funs (plan 21 step LIB4F; runtime/src/builtins/io_lib/key_orders.cpp).
     BuiltinName{"clause_io_lib", "apply_ordered", 4},
+    // The shell's printing with record definitions (plan 21 step LIB74; io_lib/write_builtins.cpp).
+    BuiltinName{"clause_io_lib", "pretty", 2},
     BuiltinName{"io_lib", "bformat", 3},
     BuiltinName{"io_lib", "bfwrite", 2},
     BuiltinName{"io_lib", "bfwrite", 3},

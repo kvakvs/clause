@@ -33,8 +33,10 @@ sources (`erts/emulator/beam/utils.c` `erts_cmp`, `erl_printf_term.c`,
 - `M:F(Args)` with a variable (or any expression) as module or function
   evaluates the module, then the function, then the arguments left to right. A
   non-atom module or function raises `badarg`; a function no module of the
-  program exports with that arity raises `undef`. A call in tail position is a
-  tail call.
+  program exports with that arity raises `undef`, its stack trace topped by
+  `{M, F, Arity, []}` (OTP shows the arguments; `apply/3` and calls of external
+  funs show them too, plan 21 step LIB74). A call in tail position is a tail
+  call.
 - `apply(Fun, Args)` and `apply(M, F, Args)` (auto-imported unless the module
   defines `apply/2,3` or suppresses the import; also `erlang:apply/2,3`)
   evaluate their arguments, then require `Args` to be a proper list (`badarg`).

@@ -285,7 +285,7 @@ TermResult<Term> stack_term(ProcessContext &context, const CallFailure &failure)
         const auto entry = frame_term(context, *failure.trace.frames.at(index - 1), arguments);
         stack = entry ? factory.cons(*entry, *stack) : entry;
     }
-    return stack;
+    return stack && failure.missing ? factory.cons(*failure.missing, *stack) : stack;
 }
 
 TermResult<Term> exception_reason_term(ProcessContext &context, const CallFailure &failure) {

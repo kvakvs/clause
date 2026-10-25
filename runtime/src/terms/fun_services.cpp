@@ -26,6 +26,18 @@ void raise_call_error(ProcessContext &context, ErrorReason reason, std::optional
     context.generated_calls().fail({.code = CallError::erlang_exception, .reason = reason, .value = value});
 }
 
+void raise_undef(ProcessContext &context, const Term &module, const Term &function, const Term &args) {
+    TermFactory factory(context);
+    const auto nil = factory.nil();
+    const auto frame = nil ? factory.tuple(std::array{module, function, args, *nil}) : nil;
+    if (!frame) {
+        context.generated_calls().fail_service(term_status(frame.error()));
+        return;
+    }
+    context.generated_calls().fail(
+        {.code = CallError::erlang_exception, .reason = ErrorReason::undef, .missing = *frame});
+}
+
 namespace {
 
 // Build a fun of a registered descriptor from rooted captured values.
@@ -58,6 +70,23 @@ TermResult<Term> bad_arity(ProcessContext &context, const Term &fun, std::span<c
     return list.and_then([&](const Term &args) { return factory.tuple(std::array{fun, args}); });
 }
 
+// undef for a fun whose function is not in the program, with its {Module, Function, Args, []} frame.
+void undefined_fun(ProcessContext &context, const FunDefinition &definition, std::span<const Word> arguments) {
+    const auto module = Term::from_word(definition.module, context);
+    const auto function = Term::from_word(definition.function, context);
+    std::vector<Term> items;
+    for (const auto word : arguments) {
+        if (auto item = Term::from_word(word, context)) {
+            items.push_back(*item);
+        }
+    }
+    const auto list = TermFactory(context).list(items);
+    if (!module || !function || !list) {
+        raise_call_error(context, ErrorReason::undef);
+        return;
+    }
+    raise_undef(context, *module, *function, *list);
+}
 } // namespace
 
 const void *prepare_fun_call(ProcessContext &context, const Term &fun, std::size_t arity, Word *arguments) {
@@ -77,7 +106,7 @@ const void *prepare_fun_call(ProcessContext &context, const Term &fun, std::size
         return nullptr;
     }
     if (!definition.frame) {
-        raise_call_error(context, ErrorReason::undef);
+        undefined_fun(context, definition, {arguments, arity});
         return nullptr;
     }
     std::ranges::copy(view->captures, arguments + arity);

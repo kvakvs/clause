@@ -48,7 +48,8 @@ def command(tool, work, case, golden, policy, target_options=()):
     (--target-triple, --runtime-library, --linker)."""
     level, extra, name, project = policy
     label = f'{name}-{"project" if project else "positional"}'
-    options = [f'-{level}', *([extra] if extra else []), *target_options]
+    # A golden's 'options' are compiler options every policy adds (plan 21 step LIB74: --keep-exports for the shell).
+    options = [f'-{level}', *([extra] if extra else []), *target_options, *golden.get('options', [])]
     output = f'{label}/{case}'
     if project and 'manifest' not in golden:
         (work / f'{label}.toml').write_bytes(manifest(case, golden['entry'], output).encode())
@@ -100,14 +101,14 @@ def variants(golden, word_bits):
             yield run | {'env': run.get('env', {}) | {'CLAUSE_FLAGS': flags}}, f' workers={count}'
 
 
-def compare(executable, run, directory):
+def compare(executable, run, directory, golden):
     """Runs one golden invocation in `directory`; returns readable mismatch descriptions (empty when it matches)."""
     try:
         result = subprocess.run([executable, *run['args']], capture_output=True, timeout=RUN_TIMEOUT, check=False,
                                 env=environment(run), input=run.get('stdin', '').encode(), cwd=directory)
     except subprocess.TimeoutExpired:
         return [f'timed out after {RUN_TIMEOUT} s']
-    stdout, stderr = text(result.stdout), text(result.stderr)
+    stdout, stderr = cases.masked(golden, text(result.stdout)), text(result.stderr)
     problems = []
     if result.returncode != run['exit_status']:
         problems.append(f'exit status: expected {run["exit_status"]}, got {result.returncode}')
@@ -135,7 +136,7 @@ def check_policy(tool, work, case, golden, policy, suffix, target_options=(), wo
             shutil.copyfile(path, work / label / path.name)
     failures, lines = 0, []
     for run, variant in variants(golden, word_bits):
-        problems = compare(executable, run, work / label)
+        problems = compare(executable, run, work / label, golden)
         status = 'FAIL' if problems else 'ok'
         lines.append(f'{status} {case} [{label}] args={json.dumps(run["args"])}{variant}')
         lines.extend('    ' + problem.replace('\n', '\n    ') for problem in problems)

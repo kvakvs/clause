@@ -872,6 +872,13 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `file_sorter` sorts, cursors, `info/1,2`, `string_to_handle`), `ets:table/1,2`, `dets:table/1,2`, `qlc.hrl`,
   `erl_eval`'s `qlc:q` hook; form import accepts OTP's line 0; executable cases compile an `.abstr` stand-in
   (`regenerate.py --clau`); `qlc_queries` golden (~200 checks, identical to OTP) — `c03e883d`
+- **LIB74A** interactive shell: Clause's own `shell` (server, history, `e/v/h/b/f`, records, functions/types/specs
+  defined at the prompt, restricted shells, settings), evaluator over `erl_eval`, `clause_shell` terminal side,
+  `shell_default`, `c` (compiler/tools calls report the missing application), `edlin:keymap/0`; `clau --shell` (and
+  project option `shell`) links the whole library, keeps exports, shell as default entry; stdin server reprints the
+  prompt per line and reads CRLF as LF; `clause_io_lib:pretty/2` prints shell records; undef traces get OTP's
+  `{M,F,Args,[]}` top frame; `shell_session` golden (escript oracle, identical but the masked system version),
+  `linking_shell` CTest — `PENDING`
 
 ## Plan 22 (from 2026-10-23)
 

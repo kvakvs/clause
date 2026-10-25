@@ -2,6 +2,7 @@
 import hashlib
 import json
 import pathlib
+import re
 import shutil
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -50,6 +51,14 @@ def sources(case_dir, golden):
 def transformed(directory):
     """The .erl files of a directory that have an .abstr beside them."""
     return [path.with_suffix('.erl') for path in sorted(directory.glob('*.abstr')) if path.with_suffix('.erl').exists()]
+
+
+def masked(golden, text):
+    """Output with the golden's 'stdout_masks' applied: [pattern, replacement] pairs of multiline regexes for lines the
+    oracle and Clause print differently by design, such as the shell's system version (plan 21 step LIB74)."""
+    for pattern, replacement in golden.get('stdout_masks', []):
+        text = re.sub(pattern, replacement, text, flags=re.MULTILINE)
+    return text
 
 
 def data(case_dir, golden):

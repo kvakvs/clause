@@ -435,3 +435,11 @@ recorded elsewhere.
   measured null/worse on ring_setup, short_processes, fan_in: dropped. The embedded first stack
   block is charged on the first push (state limit 0 until then), else exact-account tests and
   --max-memory 64 break.
+- LIB74 shell (2026-10-25): a call that resolves to a C++ builtin does not pull the module's
+  Erlang source into the batch, so its other exports (erl_lint:format_error/1) are absent for
+  dynamic calls even with --keep-exports: name them statically (clause_shell_eval:format_error/2).
+  A static M:F call to a module neither in the library nor on the search path is an "unknown
+  module" compile error (c needs shell_docs to exist). A library module exporting main/1 makes
+  entry detection ambiguous (clause_shell:run/1). Python text-mode stdin on Windows sends CRLF;
+  OTP's stdin reads a CRLF line end as LF. The escript oracle can run shell:start_interactive();
+  goldens mask the system version line with "stdout_masks" and add compile flags with "options".

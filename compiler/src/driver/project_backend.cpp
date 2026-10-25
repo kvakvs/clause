@@ -20,6 +20,7 @@ BackendOptions target_options(const Options &options, const project::Invocation 
                           : invocation.file.parent_path() / "build" / "aot";
     backend.artifact_directory = root / artifacts::encoded_name(target.name);
     backend.keep_exports = backend.keep_exports || target.keep_exports_;
+    backend.shell = backend.shell || target.shell_;
     return backend;
 }
 

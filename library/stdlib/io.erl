@@ -237,7 +237,7 @@ accept({get_chars, _, Prompt, Count}) when is_integer(Count), Count >= 0 ->
     {get_chars, Count};
 accept({get_until, _, Prompt, M, F, Args}) ->
     prompt(Prompt),
-    {get_until, M, F, Args, []};
+    {get_until, M, F, Args, [], Prompt};
 accept({put_chars, _, Chars}) ->
     {put_chars, Chars};
 accept({put_chars, _, M, F, A}) ->
@@ -269,15 +269,15 @@ take({get_password, _}, State) ->
     {{error, enotsup}, State};
 take({put_ansi, Options, Ansi}, State) ->
     {put_ansi(Options, Ansi), State};
-take({get_until, M, F, Args, Cont}, State) ->
-    until(M, F, Args, Cont, State);
+take({get_until, M, F, Args, Cont, Prompt}, State) ->
+    until({M, F, Args, Prompt}, Cont, State);
 take(_, #{buffer := <<>>, ended := true} = State) ->
     {eof, State};
 take(get_line, #{buffer := Buffer, ended := Ended} = State) ->
     case line_size(Buffer, 0) of
         none when Ended -> split(byte_size(Buffer), State);
         none -> wait;
-        Size -> split(Size, State)
+        Size -> split_line(Size, State)
     end;
 take({get_chars, Count}, State) ->
     case chars_size(Count, State) of
@@ -314,25 +314,44 @@ decode(Bytes) ->
         {error, Chars, Rest} -> {Chars ++ binary_to_list(Rest), <<>>}
     end.
 
-% Feed the buffer's characters, or eof once input ended, to M:F; its rest characters go back in front of the buffer.
-until(_, _, _, _, #{buffer := <<>>, ended := false}) ->
-    wait;
-until(M, F, Args, Cont, #{buffer := Buffer, ended := Ended} = State) ->
-    {Data, Tail} =
-        case Buffer of
-            <<>> when Ended -> {eof, <<>>};
-            _ -> decode(Buffer)
-        end,
-    try apply(M, F, [Cont, Data | Args]) of
-        {done, Result, Rest} ->
-            Unused = rest_bytes(Rest),
-            echo(binary:part(Buffer, 0, max(0, byte_size(Buffer) - byte_size(Unused) - byte_size(Tail))), State),
-            {until_result(Result, State), State#{buffer := <<Unused/binary, Tail/binary>>}};
-        {more, NewCont} ->
-            echo(binary:part(Buffer, 0, byte_size(Buffer) - byte_size(Tail)), State),
-            {more, {get_until, M, F, Args, NewCont}, State#{buffer := Tail}}
-    catch
-        _:_ -> {{error, F}, State#{buffer := <<>>}}
+% Feed the next line of the buffer, or eof once input ended, to M:F; its rest characters go back in front of the
+% buffer. A function asking for more input gets the prompt written again before the next line, as OTP's group reads
+% one line per prompt.
+until({M, F, Args, Prompt}, Cont, #{buffer := Buffer, ended := Ended} = State) ->
+    case next_line(Buffer, Ended) of
+        wait ->
+            wait;
+        {Line, After} ->
+            {Data, Tail} =
+                case Line of
+                    <<>> -> {eof, <<>>};
+                    _ -> decode(Line)
+                end,
+            try apply(M, F, [Cont, Data | Args]) of
+                {done, Result, Rest} ->
+                    Unused = rest_bytes(Rest),
+                    echo(binary:part(Line, 0, max(0, byte_size(Line) - byte_size(Unused) - byte_size(Tail))), State),
+                    {until_result(Result, State), State#{buffer := <<Unused/binary, Tail/binary, After/binary>>}};
+                {more, NewCont} ->
+                    echo(binary:part(Line, 0, byte_size(Line) - byte_size(Tail)), State),
+                    prompt(Prompt),
+                    {more, {get_until, M, F, Args, NewCont, Prompt}, State#{buffer := <<Tail/binary, After/binary>>}}
+            catch
+                _:_ -> {{error, F}, State#{buffer := <<>>}}
+            end
+    end.
+
+% The first line of the buffer with its newline (CRLF read as LF) and the bytes after it; the rest once input ended
+% (<<>> for eof).
+next_line(Buffer, Ended) ->
+    case line_size(Buffer, 0) of
+        none when Ended ->
+            {Buffer, <<>>};
+        none ->
+            wait;
+        Size ->
+            {Line, After} = split_binary(Buffer, Size),
+            {lf_end(Line), After}
     end.
 
 % A list result in binary mode is a binary, as OTP's group casts it.
@@ -371,6 +390,20 @@ split(Size, #{buffer := Buffer} = State) ->
     <<Taken:Size/binary, Rest/binary>> = Buffer,
     echo(Taken, State),
     {input(Taken, State), State#{buffer := Rest}}.
+
+% A line of the buffer, its CRLF end read as LF.
+split_line(Size, #{buffer := Buffer} = State) ->
+    <<Taken:Size/binary, Rest/binary>> = Buffer,
+    echo(Taken, State),
+    {input(lf_end(Taken), State), State#{buffer := Rest}}.
+
+% A CRLF line end as LF, as OTP's standard input reads lines (plan 21 step LIB74).
+lf_end(Line) ->
+    Size = byte_size(Line) - 2,
+    case Line of
+        <<Text:Size/binary, $\r, $\n>> -> <<Text/binary, $\n>>;
+        _ -> Line
+    end.
 
 % With option echo, consumed input is written to standard output, as OTP's noshell standard_io does.
 echo(Bytes, #{echo := true}) -> io:put_chars(Bytes);

@@ -27,6 +27,9 @@ TermResult<void> print_fun(const Term &value, TermStyle style, TextOutput &out);
 bool service_ready(ProcessContext &context);
 // Record the Erlang error a failed call raises, with its payload if it has one.
 void raise_call_error(ProcessContext &context, abi::v1::ErrorReason reason, std::optional<Term> value = std::nullopt);
+// Raise undef for Module:Function called with Args (a list, or the arity when the arguments are not at hand), with
+// OTP's {Module, Function, Args, []} top frame. Added for the shell's error messages (plan 21 step LIB74).
+void raise_undef(ProcessContext &context, const Term &module, const Term &function, const Term &args);
 // Check a called fun and append its captured values after the `arity` arguments; null when the call raised or failed.
 const void *prepare_fun_call(ProcessContext &context, const Term &fun, std::size_t arity, Word *arguments);
 // apply(Fun, List) and apply(M, F, List) (dynamic_calls.cpp): unpack List into the registers and return the frame the

@@ -89,7 +89,8 @@ bool inspection_flag(const std::string_view option, BackendOptions &options) {
         {"--print-asm", &BackendOptions::print_asm},
         {"-g", &BackendOptions::debug_info},
         {"--lto", &BackendOptions::lto},
-        {"--keep-exports", &BackendOptions::keep_exports}};
+        {"--keep-exports", &BackendOptions::keep_exports},
+        {"--shell", &BackendOptions::shell}};
     const auto found = flags.find(option);
     if (found == flags.end()) {
         return false;
@@ -124,6 +125,18 @@ bool links_project(const Options &options) {
            !options.backend.print_types && !options.preprocess;
 }
 
+// --keep-exports and --shell change what an executable keeps, so they need one (or an IR inspection).
+std::optional<std::string> export_conflict(const BackendOptions &backend, const bool links) {
+    if (backend.keep_exports && !links && !backend.inspect_ir()) {
+        return "--keep-exports requires --output, a linking project build or IR/assembly inspection";
+    }
+    // Added for the shell option (plan 21 step LIB74).
+    if (backend.shell && !links) {
+        return "--shell requires --output or a linking project build";
+    }
+    return {};
+}
+
 // Linking options need an invocation that links: an explicit --output or a linking project build.
 std::optional<std::string> linking_conflict(const Options &options) {
     const auto &backend = options.backend;
@@ -134,10 +147,7 @@ std::optional<std::string> linking_conflict(const Options &options) {
     if (backend.lto && !links) {
         return "--lto requires --output or a linking project build";
     }
-    if (backend.keep_exports && !links && !backend.inspect_ir()) {
-        return "--keep-exports requires --output, a linking project build or IR/assembly inspection";
-    }
-    return {};
+    return export_conflict(backend, links);
 }
 
 // Keep artifact emission and executable linking options on their own sides of --output.
@@ -162,11 +172,14 @@ std::optional<codegen::OptimizationLevel> optimization_level(const std::string_v
     return found == levels.end() ? std::nullopt : std::optional(found->second);
 }
 
+// The explicit options that only change how an executable is linked.
+bool explicit_linking(const BackendOptions &options) { return options.lto || options.keep_exports || options.shell; }
+
 // Remember any explicit backend policy so frontend-only actions cannot silently discard it.
 bool explicit_backend(const BackendOptions &options) {
     return options.emit || options.artifact_directory || !options.target_triple.empty() || options.optimization ||
            options.disable_type_specialization || options.inspect_ir() || options.print_types || options.debug_info ||
-           options.lto || options.keep_exports;
+           explicit_linking(options);
 }
 } // namespace
 
@@ -182,6 +195,7 @@ bool is_backend_option(const std::string_view option) {
                                                     "-g",
                                                     "--lto",
                                                     "--keep-exports",
+                                                    "--shell",
                                                     "--print-ir",
                                                     "--print-optimized-ir",
                                                     "--print-asm",

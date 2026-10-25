@@ -48,6 +48,7 @@ class GeneratedCallState final {
             visit_term(failure_->value, visit);
             visit_term(failure_->arguments, visit);
             visit_term(failure_->stack, visit);
+            visit_term(failure_->missing, visit);
         }
     }
 

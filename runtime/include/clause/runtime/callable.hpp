@@ -63,6 +63,9 @@ struct CallFailure final {
     std::optional<Term> arguments = {};
     // A complete stack trace term from erlang:raise/3 or a re-raise; replaces `trace` (a process root).
     std::optional<Term> stack = {};
+    // The {Module, Function, Args, []} frame of an undefined function, put on top of the trace as OTP does
+    // (a process root). Added for the shell's error messages (plan 21 step LIB74).
+    std::optional<Term> missing = {};
 };
 
 template <typename Value> using CallResult = std::expected<Value, CallFailure>;

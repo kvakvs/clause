@@ -467,12 +467,24 @@ bool add_module(const std::u32string &name, std::string site, Discovery &discove
     return load_found(path, discovery, request, sink, inputs);
 }
 
+// --shell: the shell's terminal and every module the library provides, so commands can call any of them. Added for
+// the shell option (plan 21 step LIB74).
+bool add_shell(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs, Discovery &discovery) {
+    bool failed = add_module(U"clause_shell", "--shell", discovery, request, sink, inputs);
+    for (const auto &name : discovery.library.provided_) {
+        // modules.terms names are ASCII atoms.
+        const std::u32string module(name.begin(), name.end());
+        failed = add_module(module, "--shell", discovery, request, sink, inputs) || failed;
+    }
+    return failed;
+}
+
 // Add the modules the batch references but does not define, from the library, then the search directories,
 // including those they reference in turn. Clause's modules come first so an installed OTP never replaces them.
 bool add_referenced(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs, Discovery &discovery) {
     discovery.directories = discovery.library.directories_;
     std::ranges::copy(request.module_search_paths_, std::back_inserter(discovery.directories));
-    bool failed = false;
+    bool failed = request.backend.shell && add_shell(request, sink, inputs, discovery);
     for (std::size_t scanned = 0; scanned < inputs.size(); ++scanned) {
         for (const auto &[name, source] : semantic::referenced_modules(inputs[scanned].syntax)) {
             auto site = site_text(inputs[scanned].syntax, source);

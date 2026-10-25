@@ -44,6 +44,9 @@ struct TargetOptions {
     std::vector<Text> ignore_modules;
     // Keep every export of the target's executable callable (docs/projects.md). Added for export liveness (62C).
     bool keep_exports_ = false;
+    // Link the interactive shell into the target's executable (docs/projects.md). Added for the shell option
+    // (plan 21 step LIB74).
+    bool shell_ = false;
     // Directory wildcards whose modules keep their inference results in the build cache, besides the implicit OTP
     // application directories (docs/projects.md#inference-cache). Added for the inference cache (58U).
     std::vector<Text> cache_inference_in_dirs_;

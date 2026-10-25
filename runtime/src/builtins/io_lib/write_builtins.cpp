@@ -24,6 +24,8 @@ struct ColumnRole;
 using ColumnArg = Named<ColumnRole>;
 struct LineRole;
 using LineArg = Named<LineRole>;
+struct OptionsRole;
+using OptionsArg = Named<OptionsRole>;
 
 // write1/4's encoding: latin1 escapes atoms, anything else keeps them.
 Encoding encoding_of(const Term &encoding) {
@@ -485,6 +487,88 @@ Term print1(ProcessContext &context, const Term &term) {
     return deep.to_term(context, pretty_print(context, deep, term, {}));
 }
 
+// The atom an option is named by, or badarg. Added for the shell's printing (plan 21 step LIB74).
+std::string_view option_name(const Term &option) {
+    if (!option.is_tuple() || option.tuple_size_unchecked() != 2 || !option.tuple_element_unchecked(0).is_atom()) {
+        bad_argument();
+    }
+    return option.tuple_element_unchecked(0).atom_spelling_unchecked();
+}
+
+std::int64_t option_integer(const Term &value) {
+    const auto number = small_value(value);
+    if (!number) {
+        bad_argument();
+    }
+    return *number;
+}
+
+// One {Name, [Field]} of the records option.
+RecordDefinition record_definition(const Term &record) {
+    if (!record.is_tuple() || record.tuple_size_unchecked() != 2 || !record.tuple_element_unchecked(0).is_atom()) {
+        bad_argument();
+    }
+    RecordDefinition definition{.name = record.tuple_element_unchecked(0).word()};
+    for (auto field = record.tuple_element_unchecked(1); !field.is_nil(); field = field.tail_unchecked()) {
+        if (!field.is_cons() || !field.head_unchecked().is_atom()) {
+            bad_argument();
+        }
+        definition.fields.push_back(field.head_unchecked());
+    }
+    return definition;
+}
+
+// The records option, [{Name, [Field]}], as definitions.
+RecordDefinitions record_definitions(const Term &records) {
+    RecordDefinitions definitions;
+    for (auto rest = records; !rest.is_nil(); rest = rest.tail_unchecked()) {
+        if (!rest.is_cons()) {
+            bad_argument();
+        }
+        definitions.push_back(record_definition(rest.head_unchecked()));
+    }
+    return definitions;
+}
+
+// One option of clause_io_lib:pretty/2 stored into `options` (records into `records`).
+void pretty_option(const Term &option, PrettyOptions &options, RecordDefinitions &records) {
+    const auto name = option_name(option);
+    const auto value = option.tuple_element_unchecked(1);
+    if (name == "column") {
+        options.column = option_integer(value);
+    } else if (name == "line_length") {
+        options.line_length = option_integer(value);
+    } else if (name == "depth") {
+        options.depth = option_integer(value);
+    } else if (name == "line_max_chars") {
+        options.line_max_chars = option_integer(value);
+    } else if (name == "strings") {
+        options.strings = value.is_atom() && value.atom_spelling_unchecked() == "true";
+    } else if (name == "encoding") {
+        options.encoding = encoding_of(value);
+    } else if (name == "records") {
+        records = record_definitions(value);
+    } else {
+        bad_argument();
+    }
+}
+
+// clause_io_lib:pretty(Term, Options): io_lib_pretty:print/2 with column, line_length, depth, line_max_chars,
+// strings, encoding and records, the definitions a record_print_fun would answer. Added for the shell (LIB74).
+Term pretty2(ProcessContext &context, const Term &term, const OptionsArg &options) {
+    PrettyOptions pretty;
+    RecordDefinitions records;
+    for (auto rest = options.term; !rest.is_nil(); rest = rest.tail_unchecked()) {
+        if (!rest.is_cons()) {
+            bad_argument();
+        }
+        pretty_option(rest.head_unchecked(), pretty, records);
+    }
+    pretty.records = &records;
+    Deep deep;
+    return deep.to_term(context, pretty_print(context, deep, term, pretty));
+}
+
 Term limit_term2(ProcessContext &context, const Term &term, const DepthArg &depth) {
     const auto value = small_value(depth.term);
     if (!value || *value < -1) {
@@ -498,6 +582,7 @@ Term limit_term2(ProcessContext &context, const Term &term, const DepthArg &dept
 }
 
 constexpr std::array IO_LIB_WRITE_BUILTINS{
+    typed_entry<pretty2>("clause_io_lib", "pretty"),
     typed_entry<print1>("io_lib", "print"),
     typed_entry<print4>("io_lib", "print"),
     typed_entry<write1>("io_lib", "write"),

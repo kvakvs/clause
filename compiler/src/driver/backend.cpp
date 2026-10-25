@@ -175,7 +175,18 @@ std::string batch_text(const std::size_t modules, const FrontendRequest &fronten
 // show the executable's code. Inspections with an entry added for inspection liveness.
 bool live_only(const FrontendRequest &frontend) {
     const auto &backend = frontend.backend;
-    return !backend.keep_exports && (frontend.executable_output || (backend.inspect_ir() && frontend.entry));
+    return !backend.keep_exports && !backend.shell &&
+           (frontend.executable_output || (backend.inspect_ir() && frontend.entry));
+}
+
+// The entry the startup code calls: the selected one, else the shell's with --shell. Added for the shell option
+// (plan 21 step LIB74).
+std::optional<project::SelectedEntry> batch_entry(const FrontendRequest &frontend) {
+    if (frontend.entry || !frontend.backend.shell) {
+        return frontend.entry;
+    }
+    return project::SelectedEntry{.name_ = {.module_ = U"clause_shell", .function_ = U"run", .arity_ = 1},
+                                  .origin_ = "--shell"};
 }
 
 // The inference cache of a batch with a build cache; none without one or with --no-cache. Added for the inference
@@ -192,7 +203,8 @@ std::optional<InferenceCache> inference_cache(const FrontendRequest &frontend) {
 // leaves its compilation in `output` unless it stopped at --print-types.
 bool compile_analyzed(codegen::CompilationRequest request, const FrontendRequest &frontend, const DiagnosticSink &sink,
                       Analysis &analysis, std::optional<codegen::Compilation> &output) {
-    const EntryRequest entry{frontend.entry, frontend.executable_output.has_value(), !request.project_target.empty()};
+    const EntryRequest entry{batch_entry(frontend), frontend.executable_output.has_value(),
+                             !request.project_target.empty()};
     const auto cache = inference_cache(frontend);
     if (!analyze(request, entry, live_only(frontend), analysis, sink, cache ? &*cache : nullptr)) {
         return true;

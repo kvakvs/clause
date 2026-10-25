@@ -40,13 +40,13 @@ def observe(escript, staged, entry, run, work):
     return result, version.read_text().split()
 
 
-def generated_run(case, run, result):
-    """Golden run: authored args and stderr pattern plus OTP's exit status and stdout."""
+def generated_run(case, run, result, golden):
+    """Golden run: authored args and stderr pattern plus OTP's exit status and (masked) stdout."""
     pattern = run.get('stderr')
     if pattern is None and result.stderr:
         sys.exit(f'{case}: OTP wrote stderr for args {run["args"]}; author a "stderr" pattern for '
                  f'the Clause report:\n{result.stderr.decode(errors="replace")}')
-    stdout = result.stdout.replace(b'\r\n', b'\n').decode('utf8')
+    stdout = cases.masked(golden, result.stdout.replace(b'\r\n', b'\n').decode('utf8'))
     authored = {key: run[key] for key in ('stdin', 'word_bits', 'os') if key in run}
     return {'args': run['args'], **authored, 'stderr': pattern or '^$', 'exit_status': result.returncode,
             'stdout': stdout}
@@ -80,9 +80,10 @@ def regenerate(escript, case_dir, work):
             runs.append(run)
             continue
         result, version = observe(escript, staged, golden['entry'], run, work)
-        runs.append(generated_run(case_dir.name, run, result))
-    # Authored top-level fields: listed sources and the scheduler counts every run repeats with.
-    listed = {key: golden[key] for key in ('sources', 'data', 'workers') if key in golden}
+        runs.append(generated_run(case_dir.name, run, result, golden))
+    # Authored top-level fields: listed sources, the scheduler counts every run repeats with, extra compiler options
+    # and output masks.
+    listed = {key: golden[key] for key in ('sources', 'data', 'workers', 'options', 'stdout_masks') if key in golden}
     return golden, {'schema': 1, 'entry': golden['entry'], **listed, 'runs': runs, 'oracle_version': version,
                     'reference': reference(), 'inputs': cases.inputs(case_dir, golden)}
 

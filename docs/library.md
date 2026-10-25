@@ -58,6 +58,9 @@ which are stubs.
 | [`ms_transform`](../library/stdlib/ms_transform.erl) | Every function in Erlang over the abstract format: `parse_transform/2` translates literal funs given to `ets:fun2ms/1` and `dbg:fun2ms/1` in a module's forms, `transform_from_shell/3` a shell fun's clauses, with OTP's match specifications, shadowing warnings and error codes. A module using the transform at compile time still runs the host OTP's `ms_transform` ([parse transforms](transforms.md)) |
 | [`qlc_pt`](../library/stdlib/qlc_pt.erl), [`clause_qlc_pt`](../library/stdlib/clause_qlc_pt.erl) | The qlc parse transform at run time (undocumented in OTP): `transform_expression/2`, `transform_from_evaluator/2` and `parse_transform/2` as runtime builtins with OTP's generated query code, messages and annotations; `ms_transform` runs in Erlang on request ([qlc_pt](builtins.md#qlc-pt)). Compiled modules including `qlc.hrl` still use the host OTP's transform ([parse transforms](transforms.md)) |
 | [`qlc`](../library/stdlib/qlc.erl) | Every function in Erlang, written from OTP's documentation: query handles of compiled queries (OTP's `qlc_lc` handles from the transform), lists, `table/2` tables, `append/1,2`, `sort/1,2` and `keysort/2,3`; evaluation with constant lookups, match specifications, merge and lookup joins, `cache` (`ets`, `list` spilling to temporary files), `unique`, `file_sorter` sorts, cursors as processes, `info/1,2` over `erl_pp`, `string_to_handle/1,2,3` over `qlc_pt`, OTP's error terms and `format_error/1`. Handles, tables, process dictionary keys and temporary file names are OTP's. [`stdlib/include/qlc.hrl`](../library/stdlib/include/qlc.hrl) names the `qlc` transform, which runs on the host OTP ([qlc](builtins.md#qlc)) |
+| [`shell`](../library/stdlib/shell.erl), [`clause_shell`](../library/stdlib/clause_shell.erl), [`clause_shell_eval`](../library/stdlib/clause_shell_eval.erl), [`clause_shell_commands`](../library/stdlib/clause_shell_commands.erl), [`clause_shell_records`](../library/stdlib/clause_shell_records.erl) | Every documented function in Erlang, written from OTP's documentation: the interactive shell on standard input ([interactive shell](#interactive-shell)): OTP's prompts, banner, history (`e/1`, `v/1`, `h/0`), bindings, records (`rd`, `rr`, `rl`, `rp`, `rf`), functions, types and specs defined at the prompt, exception reports over `erl_error`, results printed as OTP prints them (depth 30, records), restricted shells, `catch_exception/1` and the settings functions |
+| [`shell_default`](../library/stdlib/shell_default.erl), [`c`](../library/stdlib/c.erl) | Every function: `c`'s commands with OTP's output (`i/0`, `regs/0`, `m/0,1`, `ls/0,1`, `flush/0`, `help/0`, ...); compiling (`c/1,2,3`, `lc/1`, `nc/1,2`), `xm/1` and `y/1,2` report the failed call as OTP does without the compiler, tools or parsetools; `h/1,2,3` find no documentation in linked code; the debugger's `i` commands report the missing application |
+| [`edlin`](../library/stdlib/edlin.erl), [`edlin_expand`](../library/stdlib/edlin_expand.erl), [`shell_docs`](../library/stdlib/shell_docs.erl) | `edlin:keymap/0` (the calling line editor's keymap; `undefined` outside one); `edlin_expand:expand/1,2` and `shell_docs` are steps LIB74B and LIB74C |
 | [`erl_parse`](../library/stdlib/erl_parse.erl), [`clause_erl_parse`](../library/stdlib/clause_erl_parse.erl) | Every function: `parse_form/1`, `parse_exprs/1`, `parse_term/1` and yecc's `parse/1`, `parse_and_scan/1` over a runtime parser with OTP's abstract format and errors; `normalise/1`, `abstract/1,2`, `tokens/1,2` and the precedence tables builtins; the annotation walks and `format_error/1` Erlang ([erl_parse](builtins.md#erl-parse)) |
 | [`erl_eval`](../library/stdlib/erl_eval.erl), [`clause_erl_eval`](../library/stdlib/clause_erl_eval.erl) | Every function in Erlang over the abstract format: bindings as orddicts or maps, local and non-local function handlers (operators, BIFs and errors as `erlang:raise/3` calls go through the latter), interpreted funs with OTP's environment, comprehensions with strict and zip generators, `maybe`, native records, `receive` over `prim_eval`; pattern matching, bit syntax segments and constant folding are runtime builtins ([erl_eval](builtins.md#erl-eval)). `exprs/2` and `expr/2` check a command with `erl_lint:exprs_opt/3`; `qlc:q/1,2` of a query list comprehension goes through `qlc:transform_from_evaluator/2` with local calls hidden, as OTP's |
 | [`erl_error`](../library/stdlib/erl_error.erl) | Every function in Erlang over `io_lib`: `format_exception/3,4` and the internal formatters (`format_exception/6,7,8`, `format_stacktrace/4,5`, `format_call/4,5`, `format_fun/1,2`) with OTP's explanations, layouts, `error_info` callbacks and options. Clause's own stack traces have no locations or `error_info` ([differences](differences.md#errors-stack-traces-and-reports)), so their reports show neither |
@@ -101,6 +104,28 @@ functions: `badarg`, `{badmap, M}`, `{badkey, K}`). `lists:member/2` matches
 with `=:=`, `lists:keyfind/3` with `==`. `lists:sort/1` is a stable runtime
 builtin ([comparison and order](terms.md#comparison-and-order)). Stack traces
 name the library functions, not OTP's.
+
+## Interactive shell
+
+`shell:start_interactive/0,1` starts the Erlang shell on the standard streams
+(plan 21 step LIB74), and `clau --shell` links it into an executable whose entry
+it is unless `--entry` names another ([compile](compile.md#options)). The
+`clause_shell` process stands where OTP's `user_drv` does: it prints the system
+version, starts `shell`'s server and starts a new one when a shell exits
+(`exit().`). The server reads each command through `io`'s standard input
+server with the prompt reprinted for every further line of a command, keeps the
+history and starts the evaluator, which checks each expression with
+`erl_lint`, expands records and evaluates it with `erl_eval`. Results print with
+the shell's records through the runtime's pretty printer
+(`clause_io_lib:pretty/2`, [io_lib](builtins.md#io-lib)). The end of input ends
+the program with status 0 after `*** Terminating erlang (nonode@nohost)`.
+
+Commands call modules by name, so a program that starts the shell needs every
+export callable: `--shell` keeps them ([export liveness](executables.md#export-liveness))
+and links every library module; a program built without it reaches only the
+modules it names. Input lines are read as the terminal delivers them, edited by
+the terminal itself: there is no `edlin` line editing, history keys or tab
+completion ([differences](differences.md#interactive-shell)).
 
 ## How programs get them
 

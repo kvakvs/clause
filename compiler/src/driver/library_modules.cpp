@@ -19,6 +19,16 @@ std::optional<std::pair<std::string, std::string>> missing_entry(std::string_vie
     const auto reason = line.substr(mark + MARK.size());
     return std::pair{std::string(line.substr(1, comma - 1)), std::string(reason.substr(0, reason.size() - 3))};
 }
+
+// The name of a `{Module, Application, provided}.` line; none for any other line. Added for the shell option.
+std::optional<std::string> provided_entry(std::string_view line) {
+    constexpr std::string_view MARK = ", provided}.";
+    const auto comma = line.find(", ");
+    if (!line.starts_with('{') || !line.ends_with(MARK) || comma == std::string_view::npos) {
+        return std::nullopt;
+    }
+    return std::string(line.substr(1, comma - 1));
+}
 } // namespace
 
 LibraryModules load_library(const std::filesystem::path &root) {
@@ -37,6 +47,8 @@ LibraryModules load_library(const std::filesystem::path &root) {
         }
         if (auto entry = missing_entry(line)) {
             library.missing_.insert(std::move(*entry));
+        } else if (auto name = provided_entry(line)) {
+            library.provided_.push_back(std::move(*name));
         }
     }
     return library;

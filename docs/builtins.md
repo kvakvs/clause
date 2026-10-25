@@ -547,6 +547,10 @@ program.
   (`GetConsoleScreenBufferInfo`, `TIOCGWINSZ`), else `{error, enotsup}`.
 - They answer `io:getopts/0,1`'s terminal flags, `io:columns/0,1`,
   `io:rows/0,1` and `io_ansi:enabled/0,1`.
+- The standard input server (`io.erl`) reads lines as OTP's group does: a
+  `get_until` request (`io:read/1,2`, `io:scan_erl_exprs/1..4`, the shell's
+  commands) takes one line at a time and writes its prompt again before each
+  further line, and a CRLF line end reads as LF (plan 21 step LIB74).
 
 ## Os module
 
@@ -618,6 +622,12 @@ arena; `io:format` uses the same engine.
 - Format engine (`format_scan.cpp`, `format_build.cpp`): every control,
   `chars_limit`, OTP's float rounding; errors `badarg`.
 - Pretty printer (`pretty*.cpp`): OTP's `io_lib_pretty` layouts.
+  `clause_io_lib:pretty/2` is `io_lib_pretty:print/2` for the shell (plan 21
+  step LIB74): `column`, `line_length`, `depth`, `line_max_chars`, `strings`,
+  `encoding` and `records`, the `[{Name, [Field]}]` definitions a
+  `record_print_fun` would answer, so tuples of a known name and size print as
+  `#Name{Field = Value, ...}` with OTP's layout. CTest
+  `executables_shell_session`.
 - Scanner (`fread.cpp`): `fread/2,3` controls and continuations.
 - Collectors (`collect.cpp`), printable checks, `indentation/2`.
 - `maps_order` funs: builtin records maps and continues in

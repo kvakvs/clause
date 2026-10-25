@@ -35,6 +35,8 @@ Options:
   -g                   Emit Erlang source line tables; linked executables keep them for debuggers.
       --lto            Link modules as bitcode with link-time optimization (LLD: Windows MSVC and ELF targets).
       --keep-exports   Keep every export of an executable callable; by default unreachable ones are left out.
+      --shell          Link the interactive Erlang shell and every library module, keeping every export callable;
+                         without --entry the executable starts the shell.
       --print-ir          Print verified IR with Erlang source comments before LLVM optimization.
       --print-types       Print each module as source annotated with inferred types; stop before LLVM lowering.
       --print-optimized-ir  Print verified IR with Erlang source comments after the selected pipeline.
