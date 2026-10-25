@@ -126,8 +126,7 @@ Done: LIB20–LIB25 (`00-finished.md`); `logger_disk_log_h` waits for LIB52.
 ## Tier D: Erlang front end as library modules
 
 Done (`00-finished.md`): LIB32 `erl_eval`, LIB33 readers, LIB34 parts 1-4 (`erl_error`, `erl_pp`,
-`erl_expand_records`, `epp`, all in Erlang). Left: the C++ cores of LIB34C below. Each part is its
-own commit, in this order.
+`erl_expand_records`, `epp`, all in Erlang), and the LIB34C cores below. Left: LIB34A (qlc).
 
 ### LIB34C. C++ cores for the clause-heavy front-end modules (user direction 2026-10-24)
 
@@ -145,10 +144,9 @@ module rerun with no differences, and the probe's compile time measured again (r
 `00-finished.md`).
 
 All six parts (`erl_expand_records:module/2`, `erl_lint`, `erl_pp`, `epp`, `erl_eval`, `erl_error`)
-are done (`00-finished.md`). Probe baselines before the remaining parts (debug `clau`, `-O0` /
-`-O2`, 2026-10-24): `erl_pp` +0.77 s / +1.78 s, `epp` +2.86 s / +4.61 s, `erl_eval` +1.94 s / +3.65
-s, `erl_error` +0.44 s / +0.79 s.
-
+are done (`00-finished.md`). `epp` and `erl_error` turned out to be costly through export liveness
+rather than their clauses, which `-compile({clause_liveness, strict})` answers
+(`docs/compile.md#strict-liveness`); `erl_eval`'s remaining cost is its evaluator loop and funs.
 
 LIB34A (qlc chain) needs from these: `erl_pp` whole, `erl_expand_records:module/2`,
 `erl_lint:is_guard_test/1`, `format_error/1` and the `module/2` errors a query expression can raise
