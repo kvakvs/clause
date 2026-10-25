@@ -113,7 +113,8 @@ interfaces() ->
     show(hwaddr_families, Families(Hardware) -- [packet, link]),
     show(bad_filter, catch_error(fun() -> net:getifaddrs(id(bogus)) end)).
 
-is_loopback(#{addr := #{family := inet, addr := {127, 0, 0, 1}}, flags := Flags}) ->
+% A loopback interface's inet entry (WSL also gives lo an address outside 127.0.0.0/8).
+is_loopback(#{addr := #{family := inet}, flags := Flags}) ->
     lists:member(loopback, Flags);
 is_loopback(_) ->
     false.
