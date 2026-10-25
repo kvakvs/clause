@@ -894,7 +894,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB76** OTP-free manifests: `test-luerl-euler.toml`/`test-luerl-benchmark.toml` library-only (97 modules
   instead of 174, euler 21 MB, 5.8 s) and the luerl performance baseline; `-noOTP` twin removed. `test-emqx.toml`
   drops OTP include dirs, keeps `eunit`/`common_test`/`public_key`/`ssl` as `applications` roots; same
-  diagnostics — `HASH`
+  diagnostics — `85fbfdbd`
 
 ## Plan 22 (from 2026-10-23)
 
