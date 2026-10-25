@@ -762,7 +762,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `linking_exports` checks it). The macro walks stay Erlang (a few % of the remaining time). `epp_files`
   golden unchanged, no differences from OTP over 777 epp calls (259 OTP sources and a 46-condition `-if`
   file, 3 option sets each); a call to `epp` compiles +1.72 s / +3.18 s over a hello-world (was +2.77 s /
-  +4.38 s measured the same day) — `HASH`
+  +4.38 s measured the same day) — `1b9150c1`
 
 ## Plan 22 (from 2026-10-23)
 
