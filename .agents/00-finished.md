@@ -803,6 +803,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB54B** `zip` complete: Erlang following OTP's archive layout byte for byte (deflate blocks, extra fields,
   zip64), memory and disk archives, filters, `foldl/3`, `zip_open` servers; `file` path operations no longer send
   `{'EXIT', Port, normal}` to callers trapping exits; `zip_ops` golden — `8a060c8b`
+- **LIB54C** `file` `ram` mode: in-memory files served like other files, answering as OTP's ram file driver
+  (modes, zero-filled gaps, 32-bit limits, read-only errors); `file_ram` golden — `d390f609`
 
 ## Plan 22 (from 2026-10-23)
 
