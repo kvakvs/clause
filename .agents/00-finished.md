@@ -831,7 +831,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   alternative servers, EDNS, TC over TCP, servfail waits, legacy sequential ids, search lists, CNAME chains,
   hostents), a C++ DNS codec (`clause_net:dns_decode/1`, `dns_encode/1`) with inet_dns's records, values and formerr
   rules; resolver configuration as OTP's inet_config for a non-distributed node; `inet_res_queries` golden against a
-  loopback DNS server of the program — `HASH`
+  loopback DNS server of the program — `64f30bc9`
 
 ## Plan 22 (from 2026-10-23)
 
