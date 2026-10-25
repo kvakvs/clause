@@ -775,7 +775,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   erl_eval, lists, binary and qlc suites, 90 pattern cases) the results equal the Erlang version's in every
   case (235 pre-existing differences from OTP: unimplemented `qlc` and `lists` internals, stack contents);
   a call to `erl_eval` compiles 12% / 11% faster (stage `compile` 3278 → 2898 ms / 6557 → 5830 ms, same
-  machine state) — `HASH`
+  machine state) — `3545d448`
 
 ## Plan 22 (from 2026-10-23)
 
