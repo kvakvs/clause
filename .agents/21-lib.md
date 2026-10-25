@@ -132,15 +132,10 @@ Nothing is left in this tier.
 
 ## Tier E: files, archives and logs
 
-Done (`00-finished.md`): LIB50-LIB52 and LIB54 (`zip`, `file` `ram` mode, `erl_tar`, `zstd` with
-`file`'s `{zstd, Options}`, `beam_lib`). Later (speed): `zip` and `erl_tar` header parsing, stored
-copies and checksums as C++; `file_sorter` (LIB54A) chunk decoding and run sorts of the default
-formats and orders in C++.
-
-### LIB55. Platform modules
-
-- `win32reg` (13): C++ over the Windows registry; `{error, enotsup}` elsewhere, as OTP does.
-- `escript` (3): `script_name/0` is the executable path; `create/2` and `extract/2` over `zip`.
+Done (`00-finished.md`): LIB50-LIB52, LIB54 (`zip`, `file` `ram` mode, `erl_tar`, `zstd` with
+`file`'s `{zstd, Options}`, `beam_lib`) and LIB55 (`escript`, `win32reg`). Nothing is left in this
+tier. Later (speed): `zip` and `erl_tar` header parsing, stored copies and checksums as C++;
+`file_sorter` (LIB54A) chunk decoding and run sorts of the default formats and orders in C++.
 
 ## Tier F: kernel I/O remainder
 

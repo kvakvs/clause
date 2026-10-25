@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "escript_ops",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "source_default {ok,<<\"#!/usr/bin/env escript\\n%% This is an -*- erlang -*- file\\n%%!-smp enable\\nmain(_) -> io:format(\\\"hi~n\\\").\\n\">>}\ncustom_lines {ok,<<\"#!/opt/bin/escript\\n%% Made by a test\\nmain(_) -> io:format(\\\"hi~n\\\").\\n\">>}\nundefined_lines {ok,<<\"main(_) -> io:format(\\\"hi~n\\\").\\n\">>}\nbeam_body {ok,<<\"#!/usr/bin/env escript\\nFOR1fake beam\">>}\narchive_body [{422,<<\"707F09CB42CD310E96AF5608C268469A\">>},\n              <<\"#!/usr/bin/env escript\\n%% This is an -*- erlang -*- file\\n%%!\">>]\nbody_from_file ok\nwritten {ok,<<\"#!/usr/bin/env escript\\nmain(_) -> io:format(\\\"hi~n\\\").\\n\">>}\nfull {ok,[{shebang,default},\n          {comment,default},\n          {emu_args,\"-smp enable\"},\n          {source,<<\"main(_) -> io:format(\\\"hi~n\\\").\\n\">>}]}\ncustom {ok,[{shebang,\"/opt/bin/escript -x\"},\n            {comment,\"%% doubled\"},\n            {emu_args,undefined},\n            {source,<<\"main(_) -> io:format(\\\"hi~n\\\").\\n\">>}]}\nemu_only {ok,[{shebang,default},\n              {comment,undefined},\n              {emu_args,\"-noshell\"},\n              {source,<<\"main(_) -> io:format(\\\"hi~n\\\").\\n\">>}]}\nbare {ok,[{shebang,default},\n          {comment,undefined},\n          {emu_args,undefined},\n          {source,<<\"main(_) -> io:format(\\\"hi~n\\\").\\n\">>}]}\narchive {ok,[{\"main.beam\",<<\"beam bytes\">>}]}\nbeam {ok,[{shebang,undefined},\n          {comment,undefined},\n          {emu_args,undefined},\n          {beam,<<\"FOR1 beam body\">>}]}\nno_shebang {ok,[{shebang,undefined},\n                {comment,undefined},\n                {emu_args,undefined},\n                {source,<<\"%% first\\nmain(_) -> ok.\\n\">>}]}\narchive_first {ok,[{shebang,undefined},\n                   {comment,undefined},\n                   {emu_args,undefined},\n                   {archive,<<\"PK rest of a zip\\nmore\\n\">>}]}\ncreate_errors [{error,missing_body},\n               {error,{illegal_type,text}},\n               {error,{enoent,{source,\"escript_ops.dir/missing.erl\"}}},\n               {error,{badarg,bogus}},\n               {error,{badarg,improper}},\n               {error,{einval,{archive,[{\"a\",not_binary}],[]}}},\n               {error,{enoent,\"escript_ops.dir/no/such/dir/x.escript\"}}]\nextract_errors [{error,\"no such file or directory: 'escript_ops.dir/nope.escript'\"},\n                {error,{badarg,bogus}},\n                {error,\"Premature end of file reached\"}]\nscript_name true\nescript_ops: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "escript_ops.erl": "ae5da2027cbb7f5fc78b58e7561291d252c4ae1119abd97e4826e6c2f0217400"
+  }
+}

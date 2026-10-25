@@ -24,6 +24,7 @@ is registered.
 | `runs[].stderr` | author, or `^$` | Python regular expression searched in stderr; required when OTP writes stderr, because Clause's report text differs |
 | `runs[].exit_status`, `runs[].stdout` | OTP | Observed under the pinned OTP with the program-fixture [oracle](../../compiler/programs/oracle.escript) |
 | `runs[].env` | author, optional (authored runs only) | Environment entries for the run, such as `CLAUSE_FLAGS`; the runner always drops an inherited `CLAUSE_FLAGS` |
+| `runs[].os` | author, optional | `windows` or `unix`: the run holds on that operating system family only and is skipped elsewhere; the oracle observes runs of its own family and keeps the others as written (`win32reg`) |
 | `runs[].authored` | author, optional | `true` keeps the run's `exit_status`, `stdout` and `stderr` as written: Clause-only behavior OTP cannot show, such as the runtime options of `runtime_options` |
 | `oracle_version`, `reference`, `inputs` | OTP | Oracle release, `maint-29` pin, and source hashes that make a stale golden fail before linking |
 

@@ -162,7 +162,9 @@ endif()
 target_include_directories(clause_runtime PUBLIC include)
 # The I/O service of ports is platform specific (docs/ports.md#io-thread).
 if(WIN32)
-    target_sources(clause_runtime PRIVATE src/ports/io_windows.cpp src/ports/spawn_windows.cpp)
+    # The registry driver of win32reg (plan 21 step LIB55B) exists on Windows only.
+    target_sources(clause_runtime PRIVATE src/ports/io_windows.cpp src/ports/spawn_windows.cpp
+        src/ports/registry_windows.cpp)
     # Windows 10 is the oldest supported version; Asio asks for it explicitly.
     target_compile_definitions(clause_runtime PRIVATE _WIN32_WINNT=0x0A00)
 else()
@@ -174,7 +176,7 @@ target_compile_definitions(clause_runtime PRIVATE BOOST_ASIO_NO_DEPRECATED)
 # Sockets use Boost.Asio (header-only, from the same Boost), which needs Winsock on Windows.
 target_link_libraries(clause_runtime
     PUBLIC clause_multiprecision_dependency clause_abi $<$<PLATFORM_ID:Linux>:-pthread>
-    $<$<PLATFORM_ID:Windows>:ws2_32> $<$<PLATFORM_ID:Windows>:mswsock>
+    $<$<PLATFORM_ID:Windows>:ws2_32> $<$<PLATFORM_ID:Windows>:mswsock> $<$<PLATFORM_ID:Windows>:advapi32>
 )
 
 # PCRE2 for the re builtins (plan step 41ZA): built from source into the archive itself, or an installed library

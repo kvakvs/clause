@@ -1,0 +1,15 @@
+%% OTP 29 win32reg exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{change_key, 2, default, implemented}.
+{change_key_create, 2, default, implemented}.
+{close, 1, default, implemented}.
+{current_key, 1, default, implemented}.
+{delete_key, 1, default, implemented}.
+{delete_value, 2, default, implemented}.
+{expand, 1, default, implemented}.
+{format_error, 1, default, implemented}.
+{open, 1, default, implemented}.
+{set_value, 3, default, implemented}.
+{sub_keys, 1, default, implemented}.
+{value, 2, default, implemented}.
+{values, 1, default, implemented}.

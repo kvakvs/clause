@@ -110,8 +110,10 @@ supports control, reports input and errors as events and closes. Drivers:
 - `tcp_inet`, `udp_inet`: sockets of the project library's `gen_tcp`, `gen_udp`
   and `inet` on Boost.Asio; connects, accepts and receives are asynchronous
   ([sockets](#sockets)).
+- `clause_registry` (Windows): the registry of `win32reg`
+  ([the registry](#the-registry)).
 
-The internal drivers of `file` and the sockets are opened with
+The internal drivers of `file`, the sockets and the registry are opened with
 `{spawn_driver, Name}` under Clause names, and their `port_control/3` operations
 are a Clause protocol: programs use the library modules, not OTP's
 `prim_inet`/`efile` protocols.
@@ -285,7 +287,8 @@ stdout are pipes of the port:
   replies are `ByteBuffer`s (`runtime/include/byte_buffer.hpp`), byte vectors
   that grow without zeroing, so a read fills its reply's bytes once (OPT3.4).
 - `file:open/2` returns an I/O server pid that owns a file port and closes when
-  the opener ends, as OTP's (modes `read`, `write`, `append`, `exclusive`,
+  the opener ends, as OTP's (on Windows the file is shared for reading, writing
+  and deletion, as OTP opens it, so an open file can be deleted or renamed) (modes `read`, `write`, `append`, `exclusive`,
   `binary`, `raw`; other modes are ignored, as OTP ignores options it does not
   use; `write` truncates unless `append` is also given).
 - `file:write_file/3` opens with its modes plus `binary` and `write`;
@@ -435,6 +438,19 @@ Implementation (`runtime/src/ports/sockets.cpp`):
   OTP's export lists as programs need; OTP's `socket` and `net` modules (the
   socket NIF API) are missing, so are `prim_socket`, `prim_net`, `prim_inet` and
   `socket_registry`.
+
+## The registry
+
+`win32reg` (plan 21 step LIB55B) opens `{spawn_driver, "clause_registry"}` on
+Windows (`runtime/src/ports/registry_windows.cpp`). The driver keeps OTP's
+registry driver's state (the access asked for, the current key and its root,
+initially `HKEY_CLASSES_ROOT`) and answers OTP's nine commands as synchronous
+`port_control/3` operations with the replies OTP's driver sends as port data:
+`o`, `e` and the errno name (registry damage is `eio`, a deleted key `einval`,
+other Windows errors as the C runtime maps them), `k` and a key name, `v`, the
+type, name and data (strings without their trailing zero, DWORDs big-endian),
+`s` and the current key. Listings return every reply, each preceded by its
+32-bit size. Names and strings use the ANSI code page, as OTP's driver.
 
 ## Not provided
 

@@ -138,6 +138,11 @@ std::expected<std::unique_ptr<PortDriver>, DriverError> spawn_driver(const Spawn
 // port_control/3 protocol of ports/file.cpp.
 std::unique_ptr<PortDriver> file_driver();
 
+#ifdef _WIN32
+// The driver of {spawn_driver, "clause_registry"}: win32reg's registry access (ports/registry_windows.cpp).
+std::unique_ptr<PortDriver> registry_driver();
+#endif
+
 // The driver of an {fd, In, Out} port: input read from In by the I/O thread, output written at once to Out
 // (docs/ports.md#drivers).
 std::unique_ptr<PortDriver> fd_driver(int in, int out);

@@ -16,6 +16,13 @@
 #include <fcntl.h>
 #include <io.h>
 #include <sys/stat.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #else
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -167,13 +174,51 @@ void close_fd(int fd) {
 #endif
 }
 
-// Open a file with C runtime flags; -1 with errno set on failure.
+#ifdef _WIN32
+// The CreateFileW disposition of C runtime flags.
+DWORD disposition(int flags) {
+    if ((flags & O_CREAT) != 0) {
+        if ((flags & O_EXCL) != 0) {
+            return CREATE_NEW;
+        }
+        return (flags & O_TRUNC) != 0 ? CREATE_ALWAYS : OPEN_ALWAYS;
+    }
+    return (flags & O_TRUNC) != 0 ? TRUNCATE_EXISTING : OPEN_EXISTING;
+}
+
+// The CreateFileW access of C runtime flags.
+DWORD desired_access(int flags) {
+    switch (flags & (O_RDONLY | O_WRONLY | O_RDWR)) {
+    case O_WRONLY:
+        return GENERIC_WRITE;
+    case O_RDWR:
+        return GENERIC_READ | GENERIC_WRITE;
+    default:
+        return GENERIC_READ;
+    }
+}
+#endif
+
+// Open a file with C runtime flags; -1 with errno set on failure. On Windows the file is shared for reading, writing
+// and deletion, as OTP opens files (plan 21 step LIB55), so an open file can be renamed or deleted.
 int system_open(const std::filesystem::path &path, int flags) {
 #ifdef _WIN32
-    int fd = -1;
-    const auto error = _wsopen_s(&fd, path.c_str(), flags, _SH_DENYNO, _S_IREAD | _S_IWRITE);
-    errno = error;
-    return error == 0 ? fd : -1;
+    const auto handle =
+        CreateFileW(path.c_str(), desired_access(flags), FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                    nullptr, disposition(flags), FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (handle == INVALID_HANDLE_VALUE) {
+        const std::error_code error(static_cast<int>(GetLastError()), std::system_category());
+        const auto condition = error.default_error_condition();
+        errno = condition.category() == std::generic_category() ? condition.value() : EINVAL;
+        return -1;
+    }
+    const auto fd =
+        _open_osfhandle(reinterpret_cast<intptr_t>(handle), flags & (_O_APPEND | _O_RDONLY | _O_WRONLY | _O_RDWR));
+    if (fd < 0) {
+        CloseHandle(handle);
+        errno = EMFILE;
+    }
+    return fd;
 #else
     return ::open(path.c_str(), flags | O_CLOEXEC, 0666);
 #endif

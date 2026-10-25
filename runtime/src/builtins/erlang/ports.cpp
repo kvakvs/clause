@@ -283,6 +283,11 @@ std::unique_ptr<detail::PortDriver> internal_driver(ProcessContext &context, con
     if (name == "clause_file") {
         return detail::file_driver();
     }
+#ifdef _WIN32
+    if (name == "clause_registry") {
+        return detail::registry_driver();
+    }
+#endif
     if (name != "tcp_inet" && name != "udp_inet") {
         bad_argument();
     }

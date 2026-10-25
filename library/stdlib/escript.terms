@@ -1,0 +1,8 @@
+%% OTP 29 escript exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+{create, 2, default, implemented}.
+{extract, 2, default, implemented}.
+{parse_file, 1, default, declined}.
+{script_name, 0, default, implemented}.
+{start, 0, default, declined}.
+{start, 1, default, declined}.

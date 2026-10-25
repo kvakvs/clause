@@ -65,6 +65,8 @@
 {zstd, stdlib, provided}.
 {beam_lib, stdlib, provided}.
 {erl_abstract_code, stdlib, provided}.
+{escript, stdlib, provided}.
+{win32reg, stdlib, provided}.
 {uri_string, stdlib, provided}.
 {json, stdlib, provided}.
 {string, stdlib, provided}.

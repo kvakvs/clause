@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "entry": "win32reg_ops",
+  "runs": [
+    {
+      "args": [],
+      "os": "windows",
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "expand [\"100% sure\",\"ab\",\"no variables\"]\nformat_error [\"no such file or directory\",\"permission denied\"]\ninitial {ok,\"\\\\hkey_classes_root\"}\nsoftware [ok,{ok,\"\\\\hkey_current_user\\\\Software\"}]\ncreate [ok,{ok,\"\\\\hkey_current_user\\\\Software\\\\ClauseWin32regTest\\\\Sub\"}]\nset [ok,ok,ok,ok]\nread [{ok,42},{ok,\"text\"},{ok,<<1,2,3>>},{ok,\"default value\"},{error,enoent}]\nvalues [{default,\"default value\"},\n        {\"binary\",<<1,2,3>>},\n        {\"dword\",42},\n        {\"string\",\"text\"}]\nparent [ok,\n        {ok,\"\\\\hkey_current_user\\\\Software\\\\ClauseWin32regTest\"},\n        {ok,[\"Sub\"]}]\nrelative [ok,{ok,\"\\\\hkey_current_user\\\\Software\\\\ClauseWin32regTest\\\\Sub\"}]\ndelete_value [ok,{error,enoent},{error,enoent}]\ndelete_keys [ok,\n             {ok,\"\\\\hkey_current_user\\\\Software\\\\ClauseWin32regTest\"},\n             {ok,[]},\n             ok,\n             {ok,\"\\\\hkey_current_user\\\\Software\"}]\nerrors [{error,enoent},\n        {error,enoent},\n        {ok,\"\\\\hkey_current_user\\\\Software\"},\n        {error,enoent},\n        ok,\n        {error,eperm},\n        {error,einval}]\nread_only [ok,{error,eacces}]\nwin32reg_ops: ok\n"
+    },
+    {
+      "args": [],
+      "os": "unix",
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "expand [\"100% sure\",\"ab\",\"no variables\"]\nformat_error [\"no such file or directory\",\"permission denied\"]\nopen [{error,enotsup},{error,enotsup},{error,enotsup}]\nwin32reg_ops: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "win32reg_ops.erl": "9fdc4377760a9fcf401c543d31f72c4b3b6282c39bb8b31c0557ef53bc56695a"
+  }
+}

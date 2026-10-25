@@ -99,6 +99,9 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `list_to_port/1` of a number never issued | Returns a port term | `badarg`: only ports this program opened are admitted | [ports](ports.md#identity) |
 | `port_info/1,2` values | `id` is a table index; `memory`, `queue_size`, `locking` describe the driver | `id` is the port number; `memory` and `queue_size` are 0; `locking` is `port_level` | [ports](ports.md#builtins-and-port-messages) |
 | Writing a file opened only for reading | `{error, eacces}` on Windows, `{error, ebadf}` elsewhere | `{error, ebadf}` everywhere | [ports](ports.md#standard-io-and-files) |
+| `win32reg`'s port | The linked-in `registry__drv__` port (`{spawn, "registry__drv__ rw"}`), answering commands with port messages | The `clause_registry` driver (`{spawn_driver, ...}`), answering the same replies through `port_control/3`; `port_info/2` names it `clause_registry` | [ports](ports.md#the-registry) |
+| `escript:script_name/0` | The escript's path, the first plain argument | The executable's path: a Clause program is its own script | [library](library.md) |
+| `escript:extract/2` with `compile_source` | The source compiled to a beam | `{error, {compile, ...}}`: Clause programs have no compiler | [library](library.md) |
 | `beam_lib` chunks of encrypted debug information with a valid key | Decrypted with `crypto` | `key_missing_or_invalid`: Clause programs have no `crypto` | [library](library.md) |
 | `erl_abstract_code:debug_info(core_v1, ...)` (beam_lib's Core Erlang) | Core Erlang from the compiler | `{error, failed_conversion}`: Clause programs have no compiler | [library](library.md) |
 | `zstd:get_frame_header/1` of a truncated frame header | The fields of uninitialized memory | The fields zero (`'ZSTD_frame'`, sizes 0) | [builtins](builtins.md#zstd-module) |

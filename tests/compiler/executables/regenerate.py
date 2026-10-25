@@ -11,6 +11,8 @@ import cases
 
 # The program-fixture oracle already runs Entry:main(Argv) under the executable contract.
 ORACLE = cases.ROOT / 'tests/compiler/programs/oracle.escript'
+# The operating system family the oracle runs on; runs for another ('os') are kept as written.
+HOST_OS = 'windows' if sys.platform == 'win32' else 'unix'
 
 
 def reference():
@@ -42,7 +44,7 @@ def generated_run(case, run, result):
         sys.exit(f'{case}: OTP wrote stderr for args {run["args"]}; author a "stderr" pattern for '
                  f'the Clause report:\n{result.stderr.decode(errors="replace")}')
     stdout = result.stdout.replace(b'\r\n', b'\n').decode('utf8')
-    authored = {key: run[key] for key in ('stdin', 'word_bits') if key in run}
+    authored = {key: run[key] for key in ('stdin', 'word_bits', 'os') if key in run}
     return {'args': run['args'], **authored, 'stderr': pattern or '^$', 'exit_status': result.returncode,
             'stdout': stdout}
 
@@ -53,8 +55,8 @@ def regenerate(escript, case_dir, work):
     staged = cases.stage(case_dir, golden, work / case_dir.name)
     runs, version = [], None
     for run in golden['runs']:
-        if run.get('authored'):
-            # Clause-only behavior OTP cannot show: kept as written.
+        if run.get('authored') or run.get('os', HOST_OS) != HOST_OS:
+            # Clause-only behavior, or another operating system's, OTP here cannot show: kept as written.
             runs.append(run)
             continue
         result, version = observe(escript, staged, golden['entry'], run, work)
