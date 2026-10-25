@@ -327,7 +327,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `logger_std_h` (one synchronous process per handler: devices, files, rotation), `logger_disk_log_h`
   (same shape over a disk log; common part `clause_logger_h`), `logger_filters`,
   `error_logger` (gen_event fed by its logger handler), `error_logger_file_h`, `log_mf_h`,
-  `error_handler`; `kernel/include/{logger,file}.hrl` serve `include_lib`. Default formatter and
+  `error_handler`; `kernel/include/{logger,file,eep48,inet}.hrl` and `stdlib/include/{assert,
+  ms_transform,qlc,zip}.hrl` serve `include_lib` (no OTP on paths needed). Default formatter and
   file handler are named by literal calls so the batch links them.
 - Applications (Erlang): `application` over `application_controller` (registered gen_server entered from a
   proc_lib process at first use; public ETS `ac_tab` for loaded specs, env, masters) and

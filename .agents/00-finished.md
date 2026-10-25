@@ -887,6 +887,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   types, callbacks; OTP's layout, wrapping, bullets, ANSI) with `clause_shell_docs_markdown` (OTP's markdown
   conversion); identical to OTP over all 10,643 markdown texts and 51,249 renderings of OTP 29's doc chunks (three
   configurations); `shell_docs_render` golden — `91d3f04d`
+- **LIB75** OTP-free probe: `test-luerl-euler-noOTP.toml` (no OTP paths) builds luerl from the library alone,
+  euler output identical to the OTP-sourced build, 37 MB instead of 85 MB. Public headers `stdlib/include/
+  assert.hrl` (OTP's macros, error terms, `NOASSERT`/`NODEBUG`/`ASSERT`), `ms_transform.hrl`, `kernel/include/
+  inet.hrl`; `otp_headers` golden — `TBD`
 
 ## Plan 22 (from 2026-10-23)
 

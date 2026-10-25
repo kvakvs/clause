@@ -142,9 +142,15 @@ completion ([differences](differences.md#interactive-shell)).
   `--print-inputs` lists the inputs this adds.
 - The library is `library/` of the build tree, found relative to `clau` like the
   runtime archive, with one directory per OTP application (`erts`, `kernel`,
-  `stdlib`). `-include_lib("kernel/include/logger.hrl")` and `file.hrl` resolve
-  to the library's own headers unless the project names a `kernel` application,
-  `stdlib/include/zip.hrl` and `qlc.hrl` unless it names a `stdlib` one.
+  `stdlib`). `-include_lib("kernel/include/logger.hrl")`, `file.hrl`,
+  `eep48.hrl` and `inet.hrl` (`#hostent{}`) resolve to the library's own
+  headers unless the project names a `kernel` application; `stdlib/include/`
+  `zip.hrl`, `qlc.hrl`, `ms_transform.hrl` (names the transform, which runs on
+  the host OTP: [transforms](transforms.md)) and `assert.hrl` unless it names a
+  `stdlib` one. `assert.hrl` has OTP's macros, error terms and `NOASSERT`,
+  `NODEBUG`, `ASSERT` switches. OTP's internal headers (`erl_bits.hrl`,
+  `erl_compile.hrl`) and distribution ones (`dist.hrl`, `dist_util.hrl`,
+  `net_address.hrl`) are not provided, nor `inet_sctp.hrl` (no SCTP).
 - A module of the batch with the same name replaces the library module, with a
   warning; catalog builtins of that name still win
   ([registration](builtins.md#registration)).
