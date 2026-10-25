@@ -752,7 +752,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   then layout, ported from the Erlang module; hooks answered by `erl_pp.erl` rerunning the print with the
   answers so far; `erl_pp_forms` golden unchanged; identical to OTP over the forms of 347 OTP sources and
   suites, and over 80 of them with five option sets plus `exprs/3`, `guard/1`, `expr/4` and 18,205 hook
-  calls; a call to `erl_pp` compiles +0.00 s / +0.06 s over a hello-world (was +0.77 s / +1.78 s) — `HASH`
+  calls; a call to `erl_pp` compiles +0.00 s / +0.06 s over a hello-world (was +0.77 s / +1.78 s) — `4c615b56`
 
 ## Plan 22 (from 2026-10-23)
 
