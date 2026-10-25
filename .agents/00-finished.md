@@ -785,6 +785,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   case (235 pre-existing differences from OTP: unimplemented `qlc` and `lists` internals, stack contents);
   a call to `erl_eval` compiles 12% / 11% faster (stage `compile` 3278 → 2898 ms / 6557 → 5830 ms, same
   machine state) — `3545d448`
+- **LIB50** `file` complete: positioned I/O (server positions then reads; raw files keep their position),
+  `truncate`, `advise`, `allocate`, `write_file_info`, `change_*`, `sendfile` (OTP's chunked fallback),
+  `format_error` over a new `erl_posix_msg:message/1` builtin; servers stop after failed writes as OTP's;
+  `file_positioned` golden — `848d8dce`
 
 ## Plan 22 (from 2026-10-23)
 
