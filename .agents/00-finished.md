@@ -792,6 +792,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB51** `filelib` complete: wildcard escape, part compiler and matcher as `clause_filelib` builtins with OTP's
   quirks and errors; walk, queries, `ensure_*`, `fold_files`, `find_*`, `safe_relative_path` Erlang; `filelib_ops`
   golden — `0233d4d9`
+- **LIB50C** `file` `compressed`/`compressed_one` modes (gzip layer in the file server over `zlib`), CRLF line
+  endings read as LF, read failures stopping file servers as OTP's; `file_compressed` golden — `d76b6c4d`
 
 ## Plan 22 (from 2026-10-23)
 
