@@ -1,6 +1,7 @@
 #include "../erlang/ports.hpp"
 #include "crypto.hpp"
 #include <array>
+#include <openssl/evp.h>
 #include <terms.hpp>
 
 // Errors and term helpers of the crypto builtins (plan 21 step LIB79).
@@ -42,6 +43,21 @@ void raise_notsup(ProcessContext &context) {
 }
 
 std::optional<std::vector<std::byte>> iodata(const Term &data) { return iodata_bytes(data); }
+
+std::vector<std::byte> iodata_argument(ProcessContext &context, const Term &data, Rejection rejection) {
+    auto bytes = iodata_bytes(data);
+    if (!bytes) {
+        reject(context, Fault::badarg, rejection);
+    }
+    return std::move(*bytes);
+}
+
+const unsigned char *bytes_address(std::span<const std::byte> bytes) {
+    static constexpr unsigned char NO_BYTES = 0;
+    return bytes.empty() ? &NO_BYTES : reinterpret_cast<const unsigned char *>(bytes.data());
+}
+
+void CipherContextDeleter::operator()(EVP_CIPHER_CTX *context) const noexcept { EVP_CIPHER_CTX_free(context); }
 
 TermResult<Term> string_term(ProcessContext &context, std::string_view text) {
     TermFactory factory(context);

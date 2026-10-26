@@ -452,6 +452,63 @@ Term exsp_jump1(ProcessContext &context, const Term &state) {
     return generator.state(context);
 }
 
+// The exro928 helpers crypto's crypto_aes generator counts with (added for crypto_aes, LIB79B): exro928ss's ring
+// without its scrambler.
+constexpr Spec EXRO928{.alg = Alg::exro928ss, .name = "exro928ss", .bits = 58, .weak = 0, .max = 0};
+
+// exro928_seed(Seed): exro928ss's seeded state.
+Term exro928_seed1(ProcessContext &context, const Term &seed) { return seed_state(context, EXRO928, seed); }
+
+// exro928_next(State): {{S15, S0}, NewState}, the ring's next two words before the step.
+Term exro928_next1(ProcessContext &context, const Term &state) {
+    Generator generator(EXRO928, state);
+    const auto [s15, s0] = generator.ring_front();
+    static_cast<void>(generator.next());
+    const std::array words{integer_term(context, Integer(s15)), integer_term(context, Integer(s0))};
+    return pair_of(context, need(TermFactory(context).tuple(words)), generator);
+}
+
+// exro928_next_state(State): the state one step on.
+Term exro928_next_state1(ProcessContext &context, const Term &state) {
+    Generator generator(EXRO928, state);
+    static_cast<void>(generator.next());
+    return generator.state(context);
+}
+
+Term exro928_jump_2pow512_1(ProcessContext &context, const Term &state) {
+    Generator generator(EXRO928, state);
+    generator.jump();
+    return generator.state(context);
+}
+
+Term exro928_jump_2pow20_1(ProcessContext &context, const Term &state) {
+    Generator generator(EXRO928, state);
+    generator.jump_2pow20();
+    return generator.state(context);
+}
+
+// seed58(N, X): N non-zero 58-bit words of SplitMix64 from X.
+Term seed58_2(ProcessContext &context, const Count &count_term, const State &seed_term) {
+    const auto &count = count_term.term;
+    const auto &seed = seed_term.term;
+    std::vector<Term> words;
+    if (count.is_integer() && need(detail::integer_read(count)) == 0) {
+        return need(TermFactory(context).list(words));
+    }
+    const auto state = low64(seed);
+    if (!count.is_integer()) {
+        throw BuiltinFailure{.reason = abi::v1::ErrorReason::badarith};
+    }
+    const auto value = need(detail::integer_read(count));
+    if (value < 0 || value > Integer(UINT32_MAX)) {
+        no_clause();
+    }
+    for (const auto word : seed58_words(value.convert_to<std::size_t>(), state)) {
+        words.push_back(integer_term(context, Integer(word)));
+    }
+    return need(TermFactory(context).list(words));
+}
+
 constexpr std::uint64_t MWC59_A = 0x7fa6502;
 constexpr std::uint64_t MWC59_P = (MWC59_A << 32U) - 1;
 
@@ -548,6 +605,12 @@ constexpr std::array RAND_BUILTINS{
     typed_entry<mwc59_float1>("rand", "mwc59_float"),
     typed_entry<mwc59_seed1>("rand", "mwc59_seed"),
     typed_entry<random_uniform_s1>("random", "uniform_s"),
+    typed_entry<exro928_seed1>("rand", "exro928_seed"),
+    typed_entry<exro928_next1>("rand", "exro928_next"),
+    typed_entry<exro928_next_state1>("rand", "exro928_next_state"),
+    typed_entry<exro928_jump_2pow512_1>("rand", "exro928_jump_2pow512"),
+    typed_entry<exro928_jump_2pow20_1>("rand", "exro928_jump_2pow20"),
+    typed_entry<seed58_2>("rand", "seed58"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::rand

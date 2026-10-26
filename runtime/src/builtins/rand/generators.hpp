@@ -47,6 +47,10 @@ class Generator final {
 
     // jump/1 for the algorithms that have one.
     void jump();
+    // exro928_jump_2pow20/1: exro928ss's ring advanced 2^20 steps (added for crypto's crypto_aes, LIB79B).
+    void jump_2pow20();
+    // The ring's next two words, as exro928_next/1 returns them before stepping.
+    std::pair<std::uint64_t, std::uint64_t> ring_front();
 
     Term state(ProcessContext &context) const;
 
@@ -74,6 +78,9 @@ class Generator final {
 // seed_s(Alg, Seed)'s algorithm state: an integer through SplitMix64, a list of state words, or a 3-tuple hashed as
 // OTP hashes it; OTP's errors for bad seeds.
 Term seed_state(ProcessContext &context, const Spec &spec, const Term &seed);
+
+// seed58/2: `count` non-zero 58-bit words of SplitMix64 from `state` (added for crypto's crypto_aes, LIB79B).
+std::vector<std::uint64_t> seed58_words(std::size_t count, std::uint64_t state);
 
 // splitmix64_next/1 of a 64-bit state: the value and the next state.
 std::pair<std::uint64_t, std::uint64_t> splitmix64(std::uint64_t state);

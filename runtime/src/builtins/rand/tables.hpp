@@ -16,9 +16,10 @@ struct Strip {
 extern const std::array<Strip, 256> STRIPS;
 
 // The jump polynomials, bit j set when the jump adds the state after j steps: exsplus (exsp, exsss), exrop,
-// exs1024 (exs1024s) and exro928ss.
+// exs1024 (exs1024s) and exro928ss, and exro928_jump_2pow20/1's shorter exro928 jump.
 extern const std::array<std::uint64_t, 2> EXSPLUS_JUMP;
 extern const std::array<std::uint64_t, 2> EXROP_JUMP;
 extern const std::array<std::uint64_t, 16> EXS1024_JUMP;
 extern const std::array<std::uint64_t, 15> EXRO928SS_JUMP;
+extern const std::array<std::uint64_t, 15> EXRO928_2POW20_JUMP;
 } // namespace clause::runtime::builtins::rand

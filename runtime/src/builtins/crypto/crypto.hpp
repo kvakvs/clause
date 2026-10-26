@@ -1,7 +1,10 @@
 #pragma once
+#include "../../terms/identities.hpp"
 #include "../typed.hpp"
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <openssl/types.h>
 #include <optional>
@@ -33,6 +36,10 @@ struct Rejection {
 
 // The bytes of iodata, or none for anything else.
 std::optional<std::vector<std::byte>> iodata(const Term &data);
+// The bytes of an iodata argument; badarg with the rejection's argument and message for anything else.
+std::vector<std::byte> iodata_argument(ProcessContext &context, const Term &data, Rejection rejection);
+// The address of bytes for OpenSSL, never null: an empty span gives a valid address, as an empty NIF binary does.
+const unsigned char *bytes_address(std::span<const std::byte> bytes);
 // A Latin-1 string as a character list.
 TermResult<Term> string_term(ProcessContext &context, std::string_view text);
 // A map of atom keys.
@@ -44,6 +51,13 @@ struct BignumDeleter {
 };
 
 using Bignum = std::unique_ptr<BIGNUM, BignumDeleter>;
+
+// An owned OpenSSL cipher context (added for crypto's ciphers, LIB79B).
+struct CipherContextDeleter {
+    void operator()(EVP_CIPHER_CTX *context) const noexcept;
+};
+
+using CipherContext = std::unique_ptr<EVP_CIPHER_CTX, CipherContextDeleter>;
 // The unsigned big-endian number of a binary's bytes; null when OpenSSL fails.
 Bignum bignum_of(std::span<const std::byte> bytes);
 // The minimal unsigned big-endian bytes of a number (none for zero).
@@ -62,11 +76,16 @@ struct Digest {
     EVP_MD *md;
 };
 
+// How OTP drives a cipher: the streaming and one-time API (plain), or AEAD, where CCM takes the tag and the text
+// length before the text (OTP's AEAD_CIPHER and CCM_MODE flags).
+enum class CipherKind : std::uint8_t { plain, aead, ccm };
+
 // One OTP cipher name with the OpenSSL algorithm it fetches; key_length != 0 selects among same-named entries.
 struct Cipher {
     std::string_view name;
     std::string_view fetch;
     std::size_t key_length;
+    CipherKind kind;
     EVP_CIPHER *cipher;
 };
 
@@ -80,12 +99,52 @@ struct Mac {
 
 // The digest an atom names, probed; null for a name OTP does not know.
 const Digest *find_digest(std::string_view name);
-// The cipher an atom names for a key length (0 matches the first); null for a name OTP does not know.
+// The cipher an atom names for a key of `key_length` bytes; null for a name OTP does not know or a wrong length.
 const Cipher *find_cipher(std::string_view name, std::size_t key_length);
+// The first cipher of a name, whatever its key length; null for a name OTP does not know.
+const Cipher *find_cipher_named(std::string_view name);
 // The MAC an atom names for a key length; null for none.
 const Mac *find_mac(std::string_view name, std::size_t key_length);
 // Whether OTP knows a MAC of that name for some key length.
 bool known_mac(std::string_view name);
+
+// A handle's buffer when it owns a C++ object: trivially copyable, so it starts as the buffer's bytes. Cipher states
+// keep mutable data and a lock, so they live behind the pointer (added for crypto's ciphers, LIB79B).
+struct OwnedHandle {
+    // Tells the handles of one kind apart from other handles.
+    std::uint64_t magic;
+    void *object;
+};
+
+// Delete the object of a handle whose last reference died.
+template <typename T> void finalize_owned(std::span<std::byte> bytes) noexcept {
+    OwnedHandle owned{};
+    std::memcpy(&owned, bytes.data(), sizeof(owned));
+    delete static_cast<T *>(owned.object);
+}
+
+// A new handle reference owning `object`, which dies with the handle's last reference.
+template <typename T>
+TermResult<Term> owned_handle(ProcessContext &context, std::uint64_t magic, std::unique_ptr<T> object) {
+    const OwnedHandle owned{magic, object.get()};
+    std::array<std::byte, sizeof(OwnedHandle)> bytes{};
+    std::memcpy(bytes.data(), &owned, sizeof(owned));
+    auto handle = detail::HandleAccess::make(context.heap(), bytes, finalize_owned<T>);
+    if (handle) {
+        static_cast<void>(object.release());
+    }
+    return handle;
+}
+
+// The object a handle of `magic` owns; null for any other term.
+template <typename T> T *owned_object(const Term &handle, std::uint64_t magic) {
+    const auto buffer = detail::HandleAccess::buffer(handle);
+    OwnedHandle owned{};
+    if (buffer && (*buffer)->size() == sizeof(OwnedHandle)) {
+        std::memcpy(&owned, (*buffer)->data(), sizeof(owned));
+    }
+    return owned.magic == magic ? static_cast<T *>(owned.object) : nullptr;
+}
 
 // The extension's builtin families.
 std::span<const BuiltinEntry> algorithm_builtins() noexcept;
@@ -93,4 +152,6 @@ std::span<const BuiltinEntry> hash_builtins() noexcept;
 std::span<const BuiltinEntry> mac_builtins() noexcept;
 std::span<const BuiltinEntry> random_builtins() noexcept;
 std::span<const BuiltinEntry> number_builtins() noexcept;
+std::span<const BuiltinEntry> cipher_builtins() noexcept;
+std::span<const BuiltinEntry> aead_builtins() noexcept;
 } // namespace clause::runtime::builtins::crypto

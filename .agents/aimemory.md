@@ -452,3 +452,8 @@ recorded elsewhere.
   from libcrypto.pc Libs.private; no pkg-config in WSL); libcrypto in lib/x86_64-linux-gnu. Clause has no frame
   for a failing builtin, so `?nif_call` passes the builtin's args to error/3 explicitly. `maybe` is a reserved
   word in OTP 29 fixtures. Library apps with a `<dir>/<dir>.app` (crypto) count as resources beside their modules.
+- LIB79B ciphers (2026-10-26): host OTP 29.1.1's OpenSSL 3.5.5 has no legacy provider (no des_cbc, blowfish, rc4,
+  rc2): goldens use default-provider ciphers only. OTP's crypto on_load loads the crypto app (rand_cache_size 896
+  from crypto.app); Clause loads it in rand_cache_size(). enif_snprintf %T prints like ~p on one line (strings):
+  io_lib::pretty_print with line_length 0. One ?nif_call per function clause (its catch variables are unsafe
+  after the try). Compile OTP-side fixtures into a fresh scratch subdir: stray Clause rand.beam on -pa kills boot.

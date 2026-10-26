@@ -901,6 +901,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `CLAUSE_OPENSSL_ROOT`); startup descriptor lists runtime extensions. Algorithms probed on first call;
   `supports`, `info*`, hashes, MACs, PBKDF2, rand plugins `crypto`/`crypto_cache`, helpers with OTP's errors;
   engines refused. +4.5 MB only for crypto programs; `crypto_digests` golden — `dda50d1e`
+- **LIB79B** `crypto` ciphers and AEAD: `crypto_init/update/final/get_data`, `crypto_one_time*`, `cipher_info`,
+  GCM/CCM/ChaCha20-Poly1305 one-time and init states, with OTP's checks, padding and errors; `crypto_aes` and
+  `crypto_prng1` rand plugins over new `rand` builtins `exro928_*`/`seed58` (2^20 jump solved by
+  `tools/rand`); `beam_lib` decrypts debug information; `crypto_ciphers` golden — (hash pending)
 
 ## Plan 22 (from 2026-10-23)
 

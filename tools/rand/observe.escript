@@ -5,14 +5,17 @@
 %%     word is chosen takes the strip from the word's low byte; below the strip's bound K it returns Word * W, above
 %%     it reaches the slow path, which calls the generator's uniform. W is read from fast-path products, K as the
 %%     smallest word of the strip reaching the slow path (words of a strip differ by 256, all the bound decides).
-%%   jumps: [Before, After] states of jump/1 per algorithm, from which the jump polynomials are solved.
+%%   jumps: [Before, After] states of jump/1 per algorithm, and of exro928_jump_2pow20/1 (exro928_2pow20), from
+%%     which the jump polynomials are solved.
 %% Run explicitly:
 %%   escript tools/rand/observe.escript OBSERVED
 -mode(compile).
 
 main([Output]) ->
     Strips = [strip(Index) || Index <- lists:seq(0, 255)],
-    Jumps = [{Alg, [jumped(Alg, Seed) || Seed <- [1, 2]]} || Alg <- [exsplus, exs1024, exrop, exro928ss]],
+    Jumps =
+        [{Alg, [jumped(Alg, Seed) || Seed <- [1, 2]]} || Alg <- [exsplus, exs1024, exrop, exro928ss]] ++
+            [{exro928_2pow20, [jumped_2pow20(Seed) || Seed <- [1, 2]]}],
     Json = [
         "{\"ziggurat\": ",
         list([list([integer_to_list(K), float_text(W)]) || {K, W} <- Strips]),
@@ -35,6 +38,11 @@ jumped(Alg, Seed) ->
     {_, Before} = State = rand:seed_s(Alg, Seed),
     {_, After} = rand:jump(State),
     list([words(Before), words(After)]).
+
+%% An exro928ss state before and after rand:exro928_jump_2pow20/1, the shorter jump crypto's crypto_aes uses.
+jumped_2pow20(Seed) ->
+    {_, Before} = rand:seed_s(exro928ss, Seed),
+    list([words(Before), words(rand:exro928_jump_2pow20(Before))]).
 
 words([S0 | S1]) when is_integer(S1) -> integers([S0, S1]);
 words({L, RL}) -> list([integers(L), integers(RL)]).
@@ -66,7 +74,8 @@ fast(Word) ->
 bound(1) -> 0;
 bound(Index) -> Index + 256 * first_slow(Index, 0, 1 bsl 43).
 
-first_slow(_Index, Low, Low) -> Low;
+first_slow(_Index, Low, Low) ->
+    Low;
 first_slow(Index, Low, High) ->
     Middle = (Low + High) div 2,
     case fast(Index + 256 * Middle) of

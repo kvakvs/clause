@@ -126,6 +126,8 @@
 -define(HALF_DBL_EPSILON, 1.1102230246251565e-16).
 %% Bits of the crypto_cache generator's numbers (a multiple of 8).
 -define(CRYPTO_CACHE_BITS, 56).
+%% Bits of the crypto_aes and crypto_prng1 generators' numbers.
+-define(CRYPTO_PRNG_BITS, 58).
 
 %% Run a builtin; its {Class, #{c_file_name, ...}, Message} error becomes OTP's {Class, {File, Line}, Message}, raised
 %% with the builtin's arguments Args (OTP's NIF frame has them) and the Erlang argument number in error_info. ArgMap
@@ -364,20 +366,96 @@ alias1_rev(aes_256_ccm) -> aes_ccm;
 alias1_rev(C) -> C.
 
 %%% ---------------------------------------------------------------------------
-%%% Ciphers (plan 21 step LIB79B)
+%%% Ciphers
 
-cipher_info(_) -> erlang:error({not_implemented, cipher_info, 1}).
-crypto_init(_, _, _) -> erlang:error({not_implemented, crypto_init, 3}).
-crypto_init(_, _, _, _) -> erlang:error({not_implemented, crypto_init, 4}).
-crypto_update(_, _) -> erlang:error({not_implemented, crypto_update, 2}).
-crypto_final(_) -> erlang:error({not_implemented, crypto_final, 1}).
-crypto_get_data(_) -> erlang:error({not_implemented, crypto_get_data, 1}).
-crypto_one_time(_, _, _, _) -> erlang:error({not_implemented, crypto_one_time, 4}).
-crypto_one_time(_, _, _, _, _) -> erlang:error({not_implemented, crypto_one_time, 5}).
-crypto_one_time_aead(_, _, _, _) -> erlang:error({not_implemented, crypto_one_time_aead, 4}).
-crypto_one_time_aead(_, _, _, _, _, _) -> erlang:error({not_implemented, crypto_one_time_aead, 6}).
-crypto_one_time_aead(_, _, _, _, _, _, _) -> erlang:error({not_implemented, crypto_one_time_aead, 7}).
-crypto_one_time_aead_init(_, _, _, _) -> erlang:error({not_implemented, crypto_one_time_aead_init, 4}).
+cipher_info(Type) ->
+    try
+        clause_crypto:cipher_info(Type)
+    catch
+        error:badarg ->
+            %% Maybe an alias: the key length is unknown, so it reads as the 16-byte one.
+            case alias1(Type, 16) of
+                Type -> erlang:error(badarg);
+                NewType -> cipher_info(NewType)
+            end
+    end.
+
+crypto_init(Cipher, Key, FlagOrOptions) ->
+    Alg = alias(Cipher, Key),
+    ?nif_call(clause_crypto:crypto_init(Alg, Key, <<>>, FlagOrOptions), [Alg, Key, <<>>, FlagOrOptions], {1, 2, -1, 3}).
+
+crypto_init(Cipher, Key, IV, FlagOrOptions) ->
+    Alg = alias(Cipher, Key),
+    ?nif_call(clause_crypto:crypto_init(Alg, Key, IV, FlagOrOptions), [Alg, Key, IV, FlagOrOptions]).
+
+crypto_update(State, Data) ->
+    case text_size(Data) =< ?MAX_BYTES of
+        true -> crypto_update_nif(State, Data, Data);
+        false -> crypto_update_pieces(State, iolist_to_binary(Data), Data, [])
+    end.
+
+%% Encrypt or decrypt a long text in pieces; errors name the whole text.
+crypto_update_pieces(State, <<Piece:?MAX_BYTES/binary, Rest/binary>>, Data, Acc) when Rest =/= <<>> ->
+    crypto_update_pieces(State, Rest, Data, [crypto_update_nif(State, Piece, Data) | Acc]);
+crypto_update_pieces(State, Last, Data, Acc) ->
+    iolist_to_binary(lists:reverse(Acc, [crypto_update_nif(State, Last, Data)])).
+
+crypto_update_nif(State, Piece, Data) -> ?nif_call(clause_crypto:crypto_update(State, Piece), [State, Data]).
+
+crypto_final(State) -> ?nif_call(clause_crypto:crypto_final(State), [State]).
+
+crypto_get_data(State) -> ?nif_call(clause_crypto:crypto_get_data(State), [State]).
+
+crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
+    ?nif_call(
+        clause_crypto:crypto_one_time(alias(Cipher, Key), Key, <<>>, Data, FlagOrOptions),
+        [Cipher, Key, Data, FlagOrOptions],
+        {1, 2, -1, 3, 4}
+    ).
+
+crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
+    ?nif_call(
+        clause_crypto:crypto_one_time(alias(Cipher, Key), Key, IV, Data, FlagOrOptions),
+        [Cipher, Key, IV, Data, FlagOrOptions]
+    ).
+
+crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
+    Alg = alias(Cipher, Key),
+    TagLength = aead_tag_len(Cipher),
+    ?nif_call(
+        clause_crypto:aead_cipher(Alg, Key, IV, PlainText, AAD, TagLength, true),
+        [Alg, Key, IV, PlainText, AAD, TagLength, true],
+        {1, 2, 3, 4, 5, -1, 6}
+    ).
+
+crypto_one_time_aead(Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg) ->
+    ?nif_call(
+        clause_crypto:aead_cipher(alias(Cipher, Key), Key, IV, TextIn, AAD, TagOrTagLength, EncFlg),
+        [Cipher, Key, IV, TextIn, AAD, TagOrTagLength, EncFlg]
+    ).
+
+%% The default tag length of an AEAD cipher.
+aead_tag_len(aes_ccm) -> 12;
+aead_tag_len(aes_128_ccm) -> 12;
+aead_tag_len(aes_192_ccm) -> 12;
+aead_tag_len(aes_256_ccm) -> 12;
+aead_tag_len(aes_gcm) -> 16;
+aead_tag_len(aes_128_gcm) -> 16;
+aead_tag_len(aes_192_gcm) -> 16;
+aead_tag_len(aes_256_gcm) -> 16;
+aead_tag_len(chacha20_poly1305) -> 16;
+aead_tag_len(sm4_gcm) -> 16;
+aead_tag_len(sm4_ccm) -> 16;
+aead_tag_len(_) -> erlang:error({badarg, "Not an AEAD cipher"}).
+
+crypto_one_time_aead_init(Cipher, Key, Length, Encode) when is_integer(Length) ->
+    ?nif_call(
+        clause_crypto:aead_cipher_init(alias(Cipher, Key), iolist_to_binary(Key), Length, Encode),
+        [Cipher, Key, Length, Encode]
+    ).
+
+crypto_one_time_aead(State, IV, InText, AAD) ->
+    ?nif_call(clause_crypto:aead_cipher(State, IV, InText, AAD), [State, IV, InText, AAD]).
 
 %%% ---------------------------------------------------------------------------
 %%% Public keys (plan 21 step LIB79C)
@@ -487,8 +565,21 @@ mk_alg_handler(crypto_cache = Alg) ->
         next => fun ?MODULE:rand_cache_plugin_next/1,
         bytes => fun ?MODULE:rand_cache_plugin_bytes/2
     };
-mk_alg_handler(Alg) when Alg =:= crypto_aes; Alg =:= crypto_prng1 ->
-    erlang:error({not_implemented, rand_seed_alg_s, 1}).
+mk_alg_handler(crypto_aes = Alg) ->
+    #{
+        type => Alg,
+        bits => ?CRYPTO_PRNG_BITS,
+        next => fun ?MODULE:rand_plugin_aes_next/1,
+        jump => fun ?MODULE:rand_plugin_aes_jump/1
+    };
+mk_alg_handler(crypto_prng1 = Alg) ->
+    #{
+        type => Alg,
+        bits => ?CRYPTO_PRNG_BITS,
+        next => fun ?MODULE:rand_plugin_prng_next/1,
+        jump => fun ?MODULE:rand_plugin_prng_jump/1,
+        bytes => fun ?MODULE:rand_plugin_prng_bytes/2
+    }.
 
 mk_alg_state(?MODULE) ->
     no_seed;
@@ -498,11 +589,20 @@ mk_alg_state(crypto_cache) ->
     BytesPerWord = (CacheBits + 7) div 8,
     GenBytes = ((rand_cache_size() + (2 * BytesPerWord - 1)) div BytesPerWord) * BytesPerWord,
     {CacheBits, GenBytes, <<>>};
-mk_alg_state({Alg, _Seed}) when Alg =:= crypto_aes; Alg =:= crypto_prng1 ->
-    erlang:error({not_implemented, rand_seed_alg_s, 2}).
+mk_alg_state({crypto_aes, Seed}) ->
+    %% 16-byte words (128-bit cipher blocks).
+    GenWords = (rand_cache_size() + 31) div 16,
+    Key = hash(sha256, Seed),
+    {F, Count} = longcount_seed(Seed),
+    {Key, GenWords, F, Count};
+mk_alg_state({crypto_prng1, Seed}) ->
+    rand_plugin_prng_seed(aes_256_ctr, hash(sha384, Seed)).
 
 rand_cache_size() ->
     DefaultCacheSize = 1024,
+    %% OTP's crypto loads its application as the module loads (on_load); Clause loads it before reading its
+    %% environment.
+    _ = application:load(crypto),
     CacheSize = application:get_env(crypto, rand_cache_size, DefaultCacheSize),
     if
         is_integer(CacheSize), 0 =< CacheSize -> CacheSize;
@@ -543,12 +643,128 @@ rand_cache_plugin_bytes(N, State = {AlgHandler, {CacheBits, GenBytes, Cache}}) w
             {strong_rand_bytes(N), State}
     end.
 
-rand_plugin_aes_next(_) -> erlang:error({not_implemented, rand_plugin_aes_next, 1}).
-rand_plugin_aes_jump(_) -> erlang:error({not_implemented, rand_plugin_aes_jump, 1}).
-rand_plugin_aes_jump_2pow20(_) -> erlang:error({not_implemented, rand_plugin_aes_jump_2pow20, 1}).
-rand_plugin_prng_next(_) -> erlang:error({not_implemented, rand_plugin_prng_next, 1}).
-rand_plugin_prng_jump(_) -> erlang:error({not_implemented, rand_plugin_prng_jump, 1}).
-rand_plugin_prng_bytes(_, _) -> erlang:error({not_implemented, rand_plugin_prng_bytes, 2}).
+%% crypto_aes: 128-bit counters, each two 58-bit words of a Xoroshiro928 state under a 12-bit F, encrypted with
+%% AES-ECB; the lowest 58 bits of each block are the numbers, generated GenWords at a time and cached.
+rand_plugin_aes_next([V | Cache]) ->
+    {V, Cache};
+rand_plugin_aes_next({Key, GenWords, F, Count}) ->
+    rand_plugin_aes_next(Key, GenWords, F, Count);
+rand_plugin_aes_next({Key, GenWords, F, _JumpBase, Count}) ->
+    rand_plugin_aes_next(Key, GenWords, F, Count).
+
+rand_plugin_aes_next(Key, GenWords, F, Count) ->
+    {Cleartext, NewCount} = aes_cleartext(<<>>, F, Count, GenWords),
+    Encrypted = block_encrypt(Key, Cleartext),
+    [V | Cache] = aes_cache(Encrypted, {Key, GenWords, F, Count, NewCount}),
+    {V, Cache}.
+
+block_encrypt(Key, Data) ->
+    Cipher =
+        case byte_size(Key) of
+            16 -> aes_128_ecb;
+            24 -> aes_192_ecb;
+            32 -> aes_256_ecb;
+            _ -> erlang:error(badarg)
+        end,
+    try
+        crypto_one_time(Cipher, Key, Data, true)
+    catch
+        error:{error, {_File, _Line}, _Reason} -> erlang:error(badarg);
+        error:{E, {_File, _Line}, _Reason} when E == notsup; E == badarg -> erlang:error(E)
+    end.
+
+%% A jump advances the counter 2^512 steps from the jump base; the numbers already taken from the cache are
+%% skipped after it.
+rand_plugin_aes_jump({#{type := crypto_aes} = Alg, Cache}) ->
+    {Alg, rand_plugin_aes_jump(fun rand:exro928_jump_2pow512/1, 0, Cache)}.
+
+rand_plugin_aes_jump(Jump, J, [_ | Cache]) ->
+    rand_plugin_aes_jump(Jump, J + 1, Cache);
+rand_plugin_aes_jump(Jump, J, {Key, GenWords, F, JumpBase, _Count}) ->
+    rand_plugin_aes_jump(Jump, GenWords - J, Key, GenWords, F, JumpBase);
+rand_plugin_aes_jump(Jump, 0, {Key, GenWords, F, JumpBase}) ->
+    rand_plugin_aes_jump(Jump, 0, Key, GenWords, F, JumpBase).
+
+rand_plugin_aes_jump(Jump, Skip, Key, GenWords, F, JumpBase) ->
+    Count = longcount_next_count(Skip, Jump(JumpBase)),
+    {Key, GenWords, F, Count}.
+
+rand_plugin_aes_jump_2pow20(Cache) ->
+    rand_plugin_aes_jump(fun rand:exro928_jump_2pow20/1, 0, Cache).
+
+longcount_seed(Seed) ->
+    <<X:64, _:6, F:12, S2:58, S1:58, S0:58>> = hash(sha256, [Seed, <<"Xoroshiro928">>]),
+    {F, rand:exro928_seed([S0, S1, S2 | rand:seed58(13, X)])}.
+
+longcount_next_count(0, Count) -> Count;
+longcount_next_count(N, Count) -> longcount_next_count(N - 1, rand:exro928_next_state(Count)).
+
+%% The cleartext of GenWords counter blocks.
+aes_cleartext(Cleartext, _F, Count, 0) ->
+    {Cleartext, Count};
+aes_cleartext(Cleartext, F, Count, GenWords) ->
+    {{S0, S1}, NewCount} = rand:exro928_next(Count),
+    aes_cleartext(<<Cleartext/binary, F:12, S1:58, S0:58>>, F, NewCount, GenWords - 1).
+
+%% The numbers of the encrypted blocks, in front of the state they continue from.
+aes_cache(<<>>, Cache) ->
+    Cache;
+aes_cache(<<_:(128 - ?CRYPTO_PRNG_BITS), V:?CRYPTO_PRNG_BITS, Encrypted/binary>>, Cache) ->
+    [V | aes_cache(Encrypted, Cache)].
+
+%% crypto_prng1: the key stream of a stream cipher (AES-256-CTR) keyed from the seed's hash, read in cached chunks
+%% of whole 128-byte blocks; only its initial state {Alg, ZeroData, Key, IV} can be exported.
+rand_plugin_prng_seed(CryptoAlg, SeedBin) ->
+    case cipher_info(CryptoAlg) of
+        #{prop_aead := false, block_size := 1, key_length := KeyLength, iv_length := IVLength} when 0 < IVLength ->
+            <<Key:KeyLength/binary, IV:IVLength/binary, _/binary>> = SeedBin,
+            Block = <<0:1024>>,
+            Size = byte_size(Block),
+            Count = (rand_cache_size() + Size - 1) div Size,
+            {CryptoAlg, binary:copy(Block, Count), Key, IV}
+    end.
+
+rand_plugin_prng_next({CryptoAlg, ZeroData, Key, IV}) ->
+    CryptoState = crypto_init(CryptoAlg, Key, IV, true),
+    rand_plugin_prng_next([<<>> | {CryptoState, ZeroData}]);
+rand_plugin_prng_next([Cache | AlgState = {CryptoState, ZeroData}]) ->
+    case Cache of
+        <<_:(64 - ?CRYPTO_PRNG_BITS), I:?CRYPTO_PRNG_BITS, NewCache/binary>> ->
+            {I, [NewCache | AlgState]};
+        <<_/binary>> ->
+            MissingSize = 8 - byte_size(Cache),
+            <<NewBytes:MissingSize/bytes, NewCache/binary>> = crypto_update(CryptoState, ZeroData),
+            <<_:(64 - ?CRYPTO_PRNG_BITS), I:?CRYPTO_PRNG_BITS>> = <<Cache/binary, NewBytes/bytes>>,
+            {I, [NewCache | AlgState]}
+    end.
+
+rand_plugin_prng_bytes(N, {AlgHandler, {CryptoAlg, ZeroData, Key, IV}}) when is_integer(N), 0 =< N ->
+    CryptoState = crypto_init(CryptoAlg, Key, IV, true),
+    rand_plugin_prng_bytes(N, {AlgHandler, [<<>> | {CryptoState, ZeroData}]});
+rand_plugin_prng_bytes(N, {AlgHandler, [Cache | AlgState]}) when is_integer(N), 0 =< N ->
+    case Cache of
+        <<Bytes:N/binary, NewCache/binary>> ->
+            {Bytes, {AlgHandler, [NewCache | AlgState]}};
+        <<_/binary>> ->
+            rand_plugin_prng_bytes(N - byte_size(Cache), AlgHandler, AlgState, Cache)
+    end.
+
+rand_plugin_prng_bytes(M, AlgHandler, AlgState = {CryptoState, ZeroData}, Cache) when M =< byte_size(ZeroData) ->
+    <<NewBytes:M/binary, NewCache/binary>> = crypto_update(CryptoState, ZeroData),
+    {<<Cache/binary, NewBytes/binary>>, {AlgHandler, [NewCache | AlgState]}};
+rand_plugin_prng_bytes(M, AlgHandler, AlgState = {CryptoState, ZeroData}, Cache) ->
+    NewBytes = crypto_update(CryptoState, ZeroData),
+    rand_plugin_prng_bytes(M - byte_size(NewBytes), AlgHandler, AlgState, <<Cache/binary, NewBytes/binary>>).
+
+%% Only the initial state jumps: to the next IV, counted up from its first byte.
+rand_plugin_prng_jump({AlgHandler, {Alg, ZeroData, Key, IV}}) ->
+    {AlgHandler, {Alg, ZeroData, Key, jump_iv(IV, <<>>)}};
+rand_plugin_prng_jump({_AlgHandler, [_Cache | _AlgState]}) ->
+    erlang:error(not_implemented).
+
+jump_iv(<<>>, JumpIV) -> JumpIV;
+jump_iv(<<X, Rest/binary>>, JumpIV) when X < 255 -> <<JumpIV/binary, (X + 1), (binary:copy(Rest))/binary>>;
+jump_iv(<<_, Rest/binary>>, JumpIV) -> jump_iv(Rest, <<JumpIV/binary, 0>>).
 
 %%% ---------------------------------------------------------------------------
 %%% Numbers and bytes

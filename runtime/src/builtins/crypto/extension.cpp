@@ -6,7 +6,8 @@
 // links this archive, and startup registers the clause_crypto builtins after the production ones.
 namespace clause::runtime::builtins::crypto {
 namespace {
-const std::array FAMILIES{algorithm_builtins(), hash_builtins(), mac_builtins(), random_builtins(), number_builtins()};
+const std::array FAMILIES{algorithm_builtins(), hash_builtins(),   mac_builtins(), random_builtins(),
+                          number_builtins(),    cipher_builtins(), aead_builtins()};
 
 const RuntimeExtension EXTENSION{.name = "crypto", .families = FAMILIES};
 } // namespace

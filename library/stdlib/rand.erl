@@ -193,9 +193,7 @@ uniform_with(Alg, N, {Handler, S}) ->
 
 %% The algorithm of a handler that is OTP's own, unchanged; none for a plug-in.
 builtin(#{type := Alg} = Handler) ->
-    case
-        lists:member(Alg, [exs64, exsplus, exsp, exsss, exs1024, exs1024s, exrop, exro928ss, dummy])
-    of
+    case lists:member(Alg, [exs64, exsplus, exsp, exsss, exs1024, exs1024s, exrop, exro928ss, dummy]) of
         true -> same_handler(Alg, Handler);
         false -> none
     end;
@@ -305,6 +303,11 @@ mwc59_seed() ->
     {A1, A2, A3} = default_seed(),
     ((rand:mwc59_seed(A1) - 1) bxor (rand:mwc59_seed(A2) - 1) bxor (rand:mwc59_seed(A3) - 1)) + 1.
 
+exro928_jump_2pow20(_) -> clause_builtin_placeholder.
+exro928_jump_2pow512(_) -> clause_builtin_placeholder.
+exro928_next(_) -> clause_builtin_placeholder.
+exro928_next_state(_) -> clause_builtin_placeholder.
+exro928_seed(_) -> clause_builtin_placeholder.
 exsp_jump(_) -> clause_builtin_placeholder.
 exsp_next(_) -> clause_builtin_placeholder.
 mwc59(_) -> clause_builtin_placeholder.
@@ -312,18 +315,13 @@ mwc59_float(_) -> clause_builtin_placeholder.
 mwc59_seed(_) -> clause_builtin_placeholder.
 mwc59_value(_) -> clause_builtin_placeholder.
 mwc59_value32(_) -> clause_builtin_placeholder.
+seed58(_, _) -> clause_builtin_placeholder.
 splitmix64_next(_) -> clause_builtin_placeholder.
 
 bc64(_) -> erlang:error({not_implemented, bc64, 1}).
-exro928_jump_2pow20(_) -> erlang:error({not_implemented, exro928_jump_2pow20, 1}).
-exro928_jump_2pow512(_) -> erlang:error({not_implemented, exro928_jump_2pow512, 1}).
-exro928_next(_) -> erlang:error({not_implemented, exro928_next, 1}).
-exro928_next_state(_) -> erlang:error({not_implemented, exro928_next_state, 1}).
-exro928_seed(_) -> erlang:error({not_implemented, exro928_seed, 1}).
 float2str(_) -> erlang:error({not_implemented, float2str, 1}).
 format_jumpconst58(_) -> erlang:error({not_implemented, format_jumpconst58, 1}).
 make_float(_, _, _) -> erlang:error({not_implemented, make_float, 3}).
-seed58(_, _) -> erlang:error({not_implemented, seed58, 2}).
 
 %% Plug-in generators: OTP's generic algorithms over the handler's funs, `bits` or the deprecated `max`.
 

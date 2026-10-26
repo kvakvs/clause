@@ -108,7 +108,6 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Top stack frame of an `argparse` command validation error | The validating function (`argparse:validate_command/2`, `validate_option/2`, a fun inside them) with `[Entity]` | `argparse:validate/2` with `[Entity]` | [builtins](builtins.md#argparse) |
 | `escript:script_name/0` | The escript's path, the first plain argument | The executable's path: a Clause program is its own script | [library](library.md) |
 | `escript:extract/2` with `compile_source` | The source compiled to a beam | `{error, {compile, ...}}`: Clause programs have no compiler | [library](library.md) |
-| `beam_lib` chunks of encrypted debug information with a valid key | Decrypted with `crypto` | `key_missing_or_invalid`: `crypto`'s ciphers are not implemented yet (plan 21 step LIB79B) | [library](library.md) |
 | `erl_abstract_code:debug_info(core_v1, ...)` (beam_lib's Core Erlang) | Core Erlang from the compiler | `{error, failed_conversion}`: Clause programs have no compiler | [library](library.md) |
 | `zstd:get_frame_header/1` of a truncated frame header | The fields of uninitialized memory | The fields zero (`'ZSTD_frame'`, sizes 0) | [builtins](builtins.md#zstd-module) |
 | `file:open/2` with `raw` or `ram` | A `#file_descriptor{}` record served in the caller (`is_pid/1` false); `io` requests on it fail; a `ram` file has no `read_line/1` (`undef`) and a closed one answers `{error, einval}` | A file server pid like other files; positioned I/O and `sendfile/5` answer as for OTP's raw files; a `ram` file answers `read_line/1` and I/O requests with `{error, enotsup}`, and `{error, terminated}` once closed | [ports](ports.md#standard-io-and-files) |
@@ -321,6 +320,9 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `link_type` of `crypto:info/0` | How OTP linked libcrypto (usually `dynamic`) | Always `static`, also when an installed shared libcrypto is linked | [OpenSSL](compile.md#openssl) |
 | Long `pbkdf2_hmac/5` computations (more than 100 iterations or 64 bytes) | Run on a dirty CPU scheduler | Run on the calling process's scheduler worker, which runs no other process meanwhile | [builtins](builtins.md#crypto-module) |
 | `modules` of the `crypto` application | `[crypto, crypto_ec_curves]` | `[crypto]` | [library](library.md) |
+| Long `crypto_one_time/4,5` and `crypto_one_time_aead/4,6,7` texts (more than 20000 bytes) | Run on a dirty CPU scheduler | Run on the calling process's scheduler worker, which runs no other process meanwhile | [builtins](builtins.md#crypto-module) |
+| When the `crypto` application is loaded | When the `crypto` module loads (its `on_load`) | When a `crypto_cache`, `crypto_aes` or `crypto_prng1` generator first reads `rand_cache_size` | [library](library.md) |
+| `beam_lib` decryption of debug information in a program that does not call `crypto` | `crypto` is always present | `key_missing_or_invalid` unless the program links `crypto` (`--with-crypto`), since `beam_lib` calls it dynamically | [library](library.md) |
 
 ## Parse transforms
 

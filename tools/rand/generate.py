@@ -88,6 +88,7 @@ ALGORITHMS = {
     'exrop': (116, exrop_next, list, 58, lambda before, words: words),
     'exs1024': (1024, exs1024_next, ring, 64, exs1024_layout),
     'exro928ss': (928, exro928_next, ring, 58, lambda before, words: [words, []]),
+    'exro928_2pow20': (928, exro928_next, ring, 58, lambda before, words: [words, []]),
 }
 
 
@@ -112,7 +113,7 @@ def unlayout(name, before, after):
     """The accumulated words of an observed jumped state."""
     if name == 'exs1024':
         return after[0] + after[1][::-1]
-    if name == 'exro928ss':
+    if name.startswith('exro928'):
         return after[0]
     return after
 
@@ -198,7 +199,8 @@ def main():
     for (bound, width), height in zip(strips, f):
         out.append(f'    {{{bound}U, {float(width).hex()}, {height.hex()}}},')
     out.append('}};')
-    for name, steps in [('exsplus', 116), ('exrop', 116), ('exs1024', 1024), ('exro928ss', 928)]:
+    for name, steps in [('exsplus', 116), ('exrop', 116), ('exs1024', 1024), ('exro928ss', 928),
+                        ('exro928_2pow20', 928)]:
         values = words_of(masks[name], steps)
         out.append('')
         out.append(f'const std::array<std::uint64_t, {len(values)}> {name.upper()}_JUMP{{')

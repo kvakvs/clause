@@ -310,7 +310,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   over `clause_crypto` builtins in `runtime/src/builtins/crypto/` (OpenSSL ≥ 3.4, pinned 4.1.0):
   algorithm tables probed on the first call (`algorithms.cpp`), hash/MAC states as handle
   references, OTP's NIF errors turned into `{Class, {File, Line}, Msg}` by `?nif_call`; engines
-  refused. Ciphers (LIB79B) and public keys (LIB79C) pending.
+  refused. Cipher and AEAD states own a C++ object (`OwnedHandle`: EVP_CIPHER_CTX + lock); the
+  `crypto_aes`/`crypto_prng1` rand plugins are Erlang over `rand`'s exro928 builtins. Public keys
+  (LIB79C) pending.
 
 ### kernel
 

@@ -819,8 +819,15 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   descriptions and checks follow OTP's order, the file and line are Clause's.
 - Engines answer as an OTP whose OpenSSL has no engine support (`notsup`;
   OpenSSL 4 has none); FIPS is not supported (`info_fips/0`).
-- Ciphers and AEAD (step LIB79B) and public keys, curves, KEMs and SRP (LIB79C)
-  are not implemented yet.
+- Ciphers (`cipher.cpp`, step LIB79B) follow OTP's `api_ng.c`: `crypto_init/4`
+  states own an `EVP_CIPHER_CTX` behind a lock that `crypto_update/2` advances in
+  place; `crypto_final/1` pads as the options say (OTP's `undefined`, `none`,
+  `zero`, `random`, `pkcs_padding`); `crypto_one_time/5` runs a temporary state.
+  `crypto.erl` feeds `crypto_update/2` texts longer than 20000 bytes in pieces.
+  AEAD (`aead.cpp`) follows `aead.c` for GCM, CCM and ChaCha20-Poly1305; a wrong
+  tag decrypts to `error`. `crypto.erl` runs the `crypto_aes` and `crypto_prng1`
+  `rand` generators as OTP's, over `rand`'s `exro928_*` and `seed58/2` builtins.
+- Public keys, curves, KEMs and SRP (LIB79C) are not implemented yet.
 
 ## Re module
 

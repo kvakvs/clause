@@ -179,9 +179,7 @@ records, goldens from OTP, own headers written from the documented records and m
   - **Tests:** goldens from OTP 29.1.1 (OpenSSL 3.5.5) for deterministic vectors and error terms;
     probe lists checked as a required core subset plus "every listed algorithm works", `info_lib`
     masked.
-  - **Steps:** LIB79A done (`00-finished.md`). LIB79B ciphers and AEAD (`crypto_init/update/final/get_data`,
-    `crypto_one_time*`, `cipher_info/1`; the `crypto_aes`/`crypto_prng1` rand plugins, which need `rand`'s
-    `exro928_*` and `seed58`), `beam_lib` decryption. LIB79C public keys (`sign`/`verify`, `generate_key`,
+  - **Steps:** LIB79A, LIB79B done (`00-finished.md`). LIB79C public keys (`sign`/`verify`, `generate_key`,
     `compute_key`, RSA encrypt/decrypt, `privkey_to_pubkey`), `ec_curve(s)`, ML-KEM, SRP; then crypto leaves
     `PARTIAL` in `library_modules.py`.
 - **LIB80 `public_key` (54 functions, after LIB79):** PEM, DER codec of the PKIX/PKCS ASN.1 types

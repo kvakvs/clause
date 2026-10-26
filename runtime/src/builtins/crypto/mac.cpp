@@ -67,7 +67,7 @@ std::string cmac_cipher(ProcessContext &context, const Term &subtype, std::size_
     const auto *cipher = find_cipher(name, key_length);
     if (!cipher) {
         reject(context, Fault::badarg,
-               find_cipher(name, 0) ? Rejection{2, "Bad key size"} : Rejection{1, "Unknown cipher"});
+               find_cipher_named(name) ? Rejection{2, "Bad key size"} : Rejection{1, "Unknown cipher"});
     }
     if (!cipher->cipher) {
         reject(context, Fault::notsup, {1, "Unsupported cipher algorithm"});

@@ -284,4 +284,10 @@ const std::array<std::uint64_t, 15> EXRO928SS_JUMP{
     0x5ac26d5d20f9b49fU, 0x4ddd98ee4be41e01U, 0x0657e19f00d4b358U, 0xf02f778573cf0f0aU, 0xb45a3a8a3cef3cc0U,
     0x6e62a33cc2323831U, 0xbcb3b7c4cc049c53U, 0x83f240c6007e76ceU, 0xe19f5fc1a1504acdU, 0x00000000b10773cbU,
 };
+
+const std::array<std::uint64_t, 15> EXRO928_2POW20_JUMP{
+    0xbdb966a3daf905e6U, 0x644807a56270cf78U, 0xda90f4a806c17e9eU, 0x4a426866bfad3c77U, 0xaf699c306d8e7566U,
+    0x8ebc73c700b8b091U, 0xc081a7bf148531fbU, 0xdc4d3af15f8a4dfdU, 0x90627c014098f4b6U, 0x06df2eb1feaf0fb6U,
+    0x5bdeb1a5a90f2e6bU, 0xa480c5878c3549bdU, 0xff45ef33c82f3d48U, 0xa30bebc15fefcc78U, 0x00000000cb3d181cU,
+};
 } // namespace clause::runtime::builtins::rand

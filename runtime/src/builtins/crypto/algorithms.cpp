@@ -44,50 +44,50 @@ std::array DIGESTS{
 // OTP's ciphers in its table order; supports(ciphers) lists the available ones in this order (OTP's own order
 // follows atom indexes, docs/differences.md).
 std::array CIPHERS{
-    Cipher{"rc2_cbc", "rc2-cbc", 0, nullptr},
-    Cipher{"rc4", "rc4", 0, nullptr},
-    Cipher{"des_cbc", "des-cbc", 0, nullptr},
-    Cipher{"des_cfb", "des-cfb", 0, nullptr},
-    Cipher{"des_ecb", "des-ecb", 0, nullptr},
-    Cipher{"des_ede3_cbc", "des-ede3-cbc", 0, nullptr},
-    Cipher{"des_ede3_cfb", "des-ede3-cfb", 0, nullptr},
-    Cipher{"blowfish_cbc", "BF-CBC", 0, nullptr},
-    Cipher{"blowfish_cfb64", "BF-CFB", 0, nullptr},
-    Cipher{"blowfish_ofb64", "BF-OFB", 0, nullptr},
-    Cipher{"blowfish_ecb", "BF-ECB", 0, nullptr},
-    Cipher{"sm4_cbc", "sm4-cbc", 16, nullptr},
-    Cipher{"sm4_ecb", "sm4-ecb", 16, nullptr},
-    Cipher{"sm4_cfb", "sm4-cfb", 16, nullptr},
-    Cipher{"sm4_ofb", "sm4-ofb", 16, nullptr},
-    Cipher{"sm4_ctr", "sm4-ctr", 16, nullptr},
-    Cipher{"aes_128_cbc", "aes-128-cbc", 16, nullptr},
-    Cipher{"aes_192_cbc", "aes-192-cbc", 24, nullptr},
-    Cipher{"aes_256_cbc", "aes-256-cbc", 32, nullptr},
-    Cipher{"aes_128_ofb", "aes-128-ofb", 16, nullptr},
-    Cipher{"aes_192_ofb", "aes-192-ofb", 24, nullptr},
-    Cipher{"aes_256_ofb", "aes-256-ofb", 32, nullptr},
-    Cipher{"aes_128_cfb8", "aes-128-cfb8", 16, nullptr},
-    Cipher{"aes_192_cfb8", "aes-192-cfb8", 24, nullptr},
-    Cipher{"aes_256_cfb8", "aes-256-cfb8", 32, nullptr},
-    Cipher{"aes_128_cfb128", "aes-128-cfb", 16, nullptr},
-    Cipher{"aes_192_cfb128", "aes-192-cfb", 24, nullptr},
-    Cipher{"aes_256_cfb128", "aes-256-cfb", 32, nullptr},
-    Cipher{"aes_128_ecb", "aes-128-ecb", 16, nullptr},
-    Cipher{"aes_192_ecb", "aes-192-ecb", 24, nullptr},
-    Cipher{"aes_256_ecb", "aes-256-ecb", 32, nullptr},
-    Cipher{"aes_128_ctr", "aes-128-ctr", 16, nullptr},
-    Cipher{"aes_192_ctr", "aes-192-ctr", 24, nullptr},
-    Cipher{"aes_256_ctr", "aes-256-ctr", 32, nullptr},
-    Cipher{"chacha20", "chacha20", 32, nullptr},
-    Cipher{"chacha20_poly1305", "chacha20-poly1305", 32, nullptr},
-    Cipher{"sm4_gcm", "sm4-gcm", 16, nullptr},
-    Cipher{"sm4_ccm", "sm4-ccm", 16, nullptr},
-    Cipher{"aes_128_gcm", "aes-128-gcm", 16, nullptr},
-    Cipher{"aes_192_gcm", "aes-192-gcm", 24, nullptr},
-    Cipher{"aes_256_gcm", "aes-256-gcm", 32, nullptr},
-    Cipher{"aes_128_ccm", "aes-128-ccm", 16, nullptr},
-    Cipher{"aes_192_ccm", "aes-192-ccm", 24, nullptr},
-    Cipher{"aes_256_ccm", "aes-256-ccm", 32, nullptr},
+    Cipher{"rc2_cbc", "rc2-cbc", 0, CipherKind::plain, nullptr},
+    Cipher{"rc4", "rc4", 0, CipherKind::plain, nullptr},
+    Cipher{"des_cbc", "des-cbc", 0, CipherKind::plain, nullptr},
+    Cipher{"des_cfb", "des-cfb", 0, CipherKind::plain, nullptr},
+    Cipher{"des_ecb", "des-ecb", 0, CipherKind::plain, nullptr},
+    Cipher{"des_ede3_cbc", "des-ede3-cbc", 0, CipherKind::plain, nullptr},
+    Cipher{"des_ede3_cfb", "des-ede3-cfb", 0, CipherKind::plain, nullptr},
+    Cipher{"blowfish_cbc", "BF-CBC", 0, CipherKind::plain, nullptr},
+    Cipher{"blowfish_cfb64", "BF-CFB", 0, CipherKind::plain, nullptr},
+    Cipher{"blowfish_ofb64", "BF-OFB", 0, CipherKind::plain, nullptr},
+    Cipher{"blowfish_ecb", "BF-ECB", 0, CipherKind::plain, nullptr},
+    Cipher{"sm4_cbc", "sm4-cbc", 16, CipherKind::plain, nullptr},
+    Cipher{"sm4_ecb", "sm4-ecb", 16, CipherKind::plain, nullptr},
+    Cipher{"sm4_cfb", "sm4-cfb", 16, CipherKind::plain, nullptr},
+    Cipher{"sm4_ofb", "sm4-ofb", 16, CipherKind::plain, nullptr},
+    Cipher{"sm4_ctr", "sm4-ctr", 16, CipherKind::plain, nullptr},
+    Cipher{"aes_128_cbc", "aes-128-cbc", 16, CipherKind::plain, nullptr},
+    Cipher{"aes_192_cbc", "aes-192-cbc", 24, CipherKind::plain, nullptr},
+    Cipher{"aes_256_cbc", "aes-256-cbc", 32, CipherKind::plain, nullptr},
+    Cipher{"aes_128_ofb", "aes-128-ofb", 16, CipherKind::plain, nullptr},
+    Cipher{"aes_192_ofb", "aes-192-ofb", 24, CipherKind::plain, nullptr},
+    Cipher{"aes_256_ofb", "aes-256-ofb", 32, CipherKind::plain, nullptr},
+    Cipher{"aes_128_cfb8", "aes-128-cfb8", 16, CipherKind::plain, nullptr},
+    Cipher{"aes_192_cfb8", "aes-192-cfb8", 24, CipherKind::plain, nullptr},
+    Cipher{"aes_256_cfb8", "aes-256-cfb8", 32, CipherKind::plain, nullptr},
+    Cipher{"aes_128_cfb128", "aes-128-cfb", 16, CipherKind::plain, nullptr},
+    Cipher{"aes_192_cfb128", "aes-192-cfb", 24, CipherKind::plain, nullptr},
+    Cipher{"aes_256_cfb128", "aes-256-cfb", 32, CipherKind::plain, nullptr},
+    Cipher{"aes_128_ecb", "aes-128-ecb", 16, CipherKind::plain, nullptr},
+    Cipher{"aes_192_ecb", "aes-192-ecb", 24, CipherKind::plain, nullptr},
+    Cipher{"aes_256_ecb", "aes-256-ecb", 32, CipherKind::plain, nullptr},
+    Cipher{"aes_128_ctr", "aes-128-ctr", 16, CipherKind::plain, nullptr},
+    Cipher{"aes_192_ctr", "aes-192-ctr", 24, CipherKind::plain, nullptr},
+    Cipher{"aes_256_ctr", "aes-256-ctr", 32, CipherKind::plain, nullptr},
+    Cipher{"chacha20", "chacha20", 32, CipherKind::plain, nullptr},
+    Cipher{"chacha20_poly1305", "chacha20-poly1305", 32, CipherKind::aead, nullptr},
+    Cipher{"sm4_gcm", "sm4-gcm", 16, CipherKind::aead, nullptr},
+    Cipher{"sm4_ccm", "sm4-ccm", 16, CipherKind::ccm, nullptr},
+    Cipher{"aes_128_gcm", "aes-128-gcm", 16, CipherKind::aead, nullptr},
+    Cipher{"aes_192_gcm", "aes-192-gcm", 24, CipherKind::aead, nullptr},
+    Cipher{"aes_256_gcm", "aes-256-gcm", 32, CipherKind::aead, nullptr},
+    Cipher{"aes_128_ccm", "aes-128-ccm", 16, CipherKind::ccm, nullptr},
+    Cipher{"aes_192_ccm", "aes-192-ccm", 24, CipherKind::ccm, nullptr},
+    Cipher{"aes_256_ccm", "aes-256-ccm", 32, CipherKind::ccm, nullptr},
 };
 
 // OTP's MACs in its table order (supports(macs) lists them in reverse).
@@ -469,11 +469,17 @@ const Digest *find_digest(std::string_view name) {
 const Cipher *find_cipher(std::string_view name, std::size_t key_length) {
     probe();
     for (const auto &cipher : CIPHERS) {
-        if (cipher.name == name && (cipher.key_length == 0 || key_length == 0 || cipher.key_length == key_length)) {
+        if (cipher.name == name && (cipher.key_length == 0 || cipher.key_length == key_length)) {
             return &cipher;
         }
     }
     return nullptr;
+}
+
+const Cipher *find_cipher_named(std::string_view name) {
+    probe();
+    const auto found = std::ranges::find(CIPHERS, name, &Cipher::name);
+    return found == CIPHERS.end() ? nullptr : &*found;
 }
 
 const Mac *find_mac(std::string_view name, std::size_t key_length) {

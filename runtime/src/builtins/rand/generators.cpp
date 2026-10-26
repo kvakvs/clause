@@ -537,6 +537,22 @@ void Generator::jump() {
     }
 }
 
+void Generator::jump_2pow20() {
+    if (spec_.alg != Alg::exro928ss) {
+        no_clause();
+    }
+    ring_jump(EXRO928_2POW20_JUMP.data(), 928, false);
+}
+
+std::pair<std::uint64_t, std::uint64_t> Generator::ring_front() {
+    unwind();
+    return {left_[0], left_[1]};
+}
+
+std::vector<std::uint64_t> seed58_words(std::size_t count, std::uint64_t state) {
+    return splitmix_words(state, {.count = count, .bits = 58});
+}
+
 Term Generator::state(ProcessContext &context) const {
     switch (layout_of(spec_.alg)) {
     case Layout::one:
