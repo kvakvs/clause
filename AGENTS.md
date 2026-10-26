@@ -132,7 +132,15 @@ printed by `vcvars64.bat` is harmless.
   preserve existing useful tests unless equivalent behavioral coverage replaces them.
 - IMPORTANT: OTP source and copied files from OTP source remain transient and never join the Clause
   git, if necessary, save observations/oracle data/gold master data in Clause git, but not the
-  license-protected files.- Keep test disk writes low. Test programs (main-build test executables
+  license-protected files.
+- CPU budget: builds, clang-tidy and test runs together use at most 3/4 of the logical cores (24 of
+  32 here), leaving 1/4 (the E-cores are enough) so that the machine stays responsive. Run heavy jobs
+  one after another, never several at once (a build, quality gate or test suite each alone). Count
+  threads, not tests: `ctest -j N` limits tests, but each test may run `clau` (one worker per
+  hardware thread without `--jobs`), linkers and nested builds, so choose `-j` so that their threads
+  fit the budget, and start the run at below-normal priority. A test that times out in a loaded run
+  means the run exceeded the budget: rerun it alone before treating it as a failure.
+- Keep test disk writes low. Test programs (main-build test executables
   and the nested CMake consumers under `build/*/tests`) are rebuilt by test runs and are built
   without debug information: no PDB files unless `-DCLAUSE_TEST_DEBUG_INFO=ON`. A PDB only helps to
   debug a crash, so when a test program crashes, reconfigure with that option, rebuild and rerun the
