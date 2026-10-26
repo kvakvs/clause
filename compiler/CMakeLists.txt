@@ -145,7 +145,7 @@ target_link_libraries(clau PRIVATE clause_artifacts)
 
 # Executable linking drives Clang with the module/startup objects and the matching runtime archive.
 add_library(clause_linking STATIC src/linking/link.cpp src/linking/toolchain.cpp src/linking/runtime_library.cpp
-    src/linking/crypto.cpp src/linking/openssl.cpp)
+    src/linking/crypto.cpp src/linking/openssl.cpp src/linking/fips.cpp)
 clause_project_options(clause_linking)
 target_include_directories(clause_linking PRIVATE src)
 target_link_libraries(clause_linking PRIVATE clause_llvm_sdk clause_artifacts clause_project)

@@ -9,6 +9,8 @@ namespace clause::cli {
 namespace {
 // The crypto option, alone or with "=PATH". Added for the crypto runtime archive (plan 21 step LIB79).
 constexpr std::string_view WITH_CRYPTO = "--with-crypto";
+// The FIPS pin option, with "=PATH". Added for crypto's FIPS mode (plan 21 step LIB79F).
+constexpr std::string_view FIPS = "--fips=";
 
 // Give every value-bearing switch the same absent/empty operand diagnostic.
 std::optional<std::string> operand(const std::string_view option, std::span<char *> &remaining, std::string &value) {
@@ -117,6 +119,19 @@ std::optional<std::string> crypto_option(const std::string_view option, BackendO
     return {};
 }
 
+// --fips=PATH, once. Added for crypto's FIPS mode (plan 21 step LIB79F).
+std::optional<std::string> fips_option(const std::string_view option, BackendOptions &options) {
+    if (options.fips) {
+        return "--fips specified more than once";
+    }
+    const auto path = option.substr(FIPS.size());
+    if (path.empty()) {
+        return "expected a FIPS provider path after --fips=";
+    }
+    options.fips = project::native_path(std::string(path));
+    return {};
+}
+
 // Semantic inspection cannot consume backend policy or select another output action.
 bool type_conflict_options(const Options &options) {
     const auto &backend = options.backend;
@@ -156,14 +171,25 @@ std::optional<std::string> export_conflict(const BackendOptions &backend, const 
 }
 
 // Linking options need an invocation that links: an explicit --output or a linking project build.
+// The crypto options need an invocation that links. Added for the crypto runtime archive and its FIPS mode.
+std::optional<std::string> crypto_conflict(const BackendOptions &backend, const bool links) {
+    if (backend.with_crypto && !links) {
+        return "--with-crypto requires --output or a linking project build";
+    }
+    if (backend.fips && !links) {
+        return "--fips requires --output or a linking project build";
+    }
+    return {};
+}
+
 std::optional<std::string> linking_conflict(const Options &options) {
     const auto &backend = options.backend;
     const bool links = options.output_explicit || links_project(options);
     if ((backend.linker || backend.runtime_library) && !links) {
         return "--linker and --runtime-library require --output or a linking project build";
     }
-    if (backend.with_crypto && !links) {
-        return "--with-crypto requires --output or a linking project build";
+    if (auto conflict = crypto_conflict(backend, links)) {
+        return conflict;
     }
     if (backend.lto && !links) {
         return "--lto requires --output or a linking project build";
@@ -195,7 +221,7 @@ std::optional<codegen::OptimizationLevel> optimization_level(const std::string_v
 
 // The explicit options that only change how an executable is linked.
 bool explicit_linking(const BackendOptions &options) {
-    return options.lto || options.keep_exports || options.shell || options.with_crypto;
+    return options.lto || options.keep_exports || options.shell || options.links_crypto();
 }
 
 // Remember any explicit backend policy so frontend-only actions cannot silently discard it.
@@ -225,7 +251,8 @@ bool is_backend_option(const std::string_view option) {
                                                     "--print-types",
                                                     "--linker",
                                                     "--runtime-library"};
-    return options.contains(option) || option == WITH_CRYPTO || option.starts_with("--with-crypto=");
+    return options.contains(option) || option == WITH_CRYPTO || option.starts_with("--with-crypto=") ||
+           option.starts_with(FIPS) || option == "--fips";
 }
 
 std::optional<std::string> parse_backend_option(const std::string_view option, std::span<char *> &remaining,
@@ -239,6 +266,12 @@ std::optional<std::string> parse_backend_option(const std::string_view option, s
     }
     if (option.starts_with(WITH_CRYPTO)) {
         return crypto_option(option, options);
+    }
+    if (option == "--fips") {
+        return "--fips expects a FIPS provider path: --fips=PATH";
+    }
+    if (option.starts_with(FIPS)) {
+        return fips_option(option, options);
     }
     if (const auto level = optimization_level(option)) {
         if (options.optimization) {

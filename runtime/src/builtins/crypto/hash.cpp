@@ -18,6 +18,8 @@ struct HashState {
     EVP_MD_CTX *context;
     // The output length of hash_final/1 for an extendable-output digest; 0 for the others.
     unsigned xof_length;
+    // The digest, which FIPS mode may forbid after the state was made (added for crypto's FIPS mode, LIB79F).
+    const Digest *digest;
 };
 
 static_assert(std::is_trivially_copyable_v<HashState>);
@@ -38,15 +40,15 @@ HashState state_of(ProcessContext &context, const Term &handle) {
     if (buffer && (*buffer)->size() == sizeof(HashState)) {
         std::memcpy(&state, (*buffer)->data(), sizeof(state));
     }
-    if (state.magic != HASH_MAGIC) {
+    if (state.magic != HASH_MAGIC || forbidden_in_fips(*state.digest)) {
         reject(context, Fault::badarg, {0, "Bad state"});
     }
     return state;
 }
 
 // A new hash handle owning `digest_context`.
-TermResult<Term> make_state(ProcessContext &context, EVP_MD_CTX *digest_context, unsigned xof_length) {
-    const HashState state{HASH_MAGIC, digest_context, xof_length};
+TermResult<Term> make_state(ProcessContext &context, EVP_MD_CTX *digest_context, const HashState &from) {
+    const HashState state{HASH_MAGIC, digest_context, from.xof_length, from.digest};
     std::array<std::byte, sizeof(HashState)> bytes{};
     std::memcpy(bytes.data(), &state, sizeof(state));
     auto handle = detail::HandleAccess::make(context.heap(), bytes, finalize);
@@ -56,14 +58,23 @@ TermResult<Term> make_state(ProcessContext &context, EVP_MD_CTX *digest_context,
     return handle;
 }
 
-// The digest `type` names and the libcrypto has; badarg or notsup as OTP raises them.
-const Digest &digest_of(ProcessContext &context, const Term &type, std::string_view unsupported) {
+// The notsup descriptions of a digest FIPS mode forbids and of one the libcrypto lacks.
+struct Unsupported {
+    std::string_view forbidden;
+    std::string_view missing;
+};
+
+// The digest `type` names and the libcrypto has in the current mode; badarg or notsup as OTP raises them.
+const Digest &digest_of(ProcessContext &context, const Term &type, Unsupported unsupported) {
     const auto *digest = type.is_atom() ? find_digest(type.atom_spelling_unchecked()) : nullptr;
     if (!digest) {
         reject(context, Fault::badarg, {0, "Bad digest type"});
     }
-    if (!digest->md) {
-        reject(context, Fault::notsup, {0, unsupported});
+    if (forbidden_in_fips(*digest)) {
+        reject(context, Fault::notsup, {0, unsupported.forbidden});
+    }
+    if (!active(*digest)) {
+        reject(context, Fault::notsup, {0, unsupported.missing});
     }
     return *digest;
 }
@@ -74,7 +85,7 @@ EVP_MD_CTX *started(const Digest &digest) {
     auto length = digest.xof_length;
     std::array params{OSSL_PARAM_construct_uint("xoflen", &length), OSSL_PARAM_construct_end()};
     if (digest_context &&
-        EVP_DigestInit_ex2(digest_context, digest.md, digest.xof_length ? params.data() : nullptr) != 1) {
+        EVP_DigestInit_ex2(digest_context, active(digest), digest.xof_length ? params.data() : nullptr) != 1) {
         EVP_MD_CTX_free(digest_context);
         return nullptr;
     }
@@ -95,7 +106,8 @@ std::optional<std::vector<std::byte>> finish(EVP_MD_CTX *digest_context, Output 
                    ? std::optional(std::move(bytes))
                    : std::nullopt;
     }
-    std::vector<std::byte> bytes(static_cast<std::size_t>(EVP_MD_CTX_get_size(digest_context)));
+    // EVP_MD_get_size of the context's digest: OpenSSL 3.4 headers map EVP_MD_CTX_get_size to a 3.4 function.
+    std::vector<std::byte> bytes(static_cast<std::size_t>(EVP_MD_get_size(EVP_MD_CTX_get0_md(digest_context))));
     unsigned size = 0;
     if (EVP_DigestFinal_ex(digest_context, reinterpret_cast<unsigned char *>(bytes.data()), &size) != 1) {
         return std::nullopt;
@@ -115,7 +127,8 @@ std::vector<std::byte> data_of(ProcessContext &context, const Term &data, int ar
 
 // hash(Type, Data): the digest of Data.
 TermResult<Term> hash(ProcessContext &context, const Named<struct HashType> &type, const Named<struct HashData> &data) {
-    const auto &digest = digest_of(context, type.term, "Digest type not supported in this cryptolib");
+    const auto &digest =
+        digest_of(context, type.term, {"Bad digest type in FIPS", "Digest type not supported in this cryptolib"});
     const auto bytes = data_of(context, data.term, 1);
     auto *digest_context = started(digest);
     if (!digest_context) {
@@ -132,12 +145,12 @@ TermResult<Term> hash(ProcessContext &context, const Named<struct HashType> &typ
 
 // hash_init(Type): a new hash state.
 TermResult<Term> hash_init(ProcessContext &context, const Term &type) {
-    const auto &digest = digest_of(context, type, "Unsupported digest type");
+    const auto &digest = digest_of(context, type, {"Digest type not supported in FIPS", "Unsupported digest type"});
     auto *digest_context = started(digest);
     if (!digest_context) {
         reject(context, Fault::error, {-1, "Low-level call EVP_DigestInit failed"});
     }
-    return make_state(context, digest_context, digest.xof_length);
+    return make_state(context, digest_context, {HASH_MAGIC, nullptr, digest.xof_length, &digest});
 }
 
 // A copy of a state's digest context; null when OpenSSL fails.
@@ -163,7 +176,7 @@ TermResult<Term> hash_update(ProcessContext &context, const Named<struct HashHan
         EVP_MD_CTX_free(copy);
         reject(context, Fault::error, {-1, "Low-level call EVP_DigestUpdate failed"});
     }
-    return make_state(context, copy, state.xof_length);
+    return make_state(context, copy, state);
 }
 
 // The digest of a state's input; the state stays usable.

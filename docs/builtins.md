@@ -800,7 +800,7 @@ Erlang clause dispatch, so programs that call it compile no extra code.
 `builtins/crypto/` in the separate `clause_runtime_crypto` archive,
 `library/crypto/crypto.erl` and `clause_crypto.erl` (plan 21 step LIB79).
 
-- Links OpenSSL's libcrypto ≥ 3.4 (pinned 4.1.0, [OpenSSL](compile.md#openssl));
+- Links OpenSSL's libcrypto ≥ 3.1.2 (pinned 4.1.0, [OpenSSL](crypto.md));
   only programs that call `crypto` (or pass `--with-crypto`) link the archive,
   whose `CLAUSE_crypto_extension_v1` entry the startup descriptor lists.
 - `algorithms.cpp` keeps OTP's name tables (digests, ciphers, MACs, key types,
@@ -818,7 +818,7 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   into `{Class, {File, Line}, Description}` with `error_info` (`?nif_call`);
   descriptions and checks follow OTP's order, the file and line are Clause's.
 - Engines answer as an OTP whose OpenSSL has no engine support (`notsup`;
-  OpenSSL 4 has none); FIPS is not supported (`info_fips/0`).
+  OpenSSL 4 has none).
 - Ciphers (`cipher.cpp`, step LIB79B) follow OTP's `api_ng.c`: `crypto_init/4`
   states own an `EVP_CIPHER_CTX` behind a lock that `crypto_update/2` advances in
   place; `crypto_final/1` pads as the options say (OTP's `undefined`, `none`,
@@ -827,6 +827,11 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   AEAD (`aead.cpp`) follows `aead.c` for GCM, CCM and ChaCha20-Poly1305; a wrong
   tag decrypts to `error`. `crypto.erl` runs the `crypto_aes` and `crypto_prng1`
   `rand` generators as OTP's, over `rand`'s `exro928_*` and `seed58/2` builtins.
+- FIPS (`fips.cpp`, step LIB79F): each table entry keeps a second `fips=yes` fetch, used in FIPS mode; an entry
+  without one is forbidden there (OTP's `*_FORBIDDEN_IN_FIPS`), leaves `supports/1` and raises OTP's `notsup`
+  descriptions. `enable_fips_mode/1` switches OpenSSL's default properties; programs built with `--fips` link the
+  archive's `CLAUSE_crypto_fips_extension_v1` entry, whose start hook loads the provider beside the executable
+  ([FIPS](crypto.md#fips)).
 - Public keys, curves, KEMs and SRP (LIB79C) are not implemented yet.
 
 ## Re module

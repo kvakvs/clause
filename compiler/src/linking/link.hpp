@@ -5,6 +5,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace clause::linking {
@@ -63,6 +64,9 @@ struct StagedExecutable {
     std::string warnings;
     // A staged PDB published beside the output (MSVC targets with debug information); empty otherwise.
     std::filesystem::path symbols = {};
+    // Staged files published beside the output, with their destinations: a pinned program's FIPS provider. Added
+    // for crypto's FIPS mode (plan 21 step LIB79F).
+    std::vector<std::pair<std::filesystem::path, std::filesystem::path>> companions = {};
 };
 
 struct LinkTools {

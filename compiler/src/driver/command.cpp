@@ -27,8 +27,10 @@ Options:
       --linker <path>   Clang driver used to link executables (default: clang++ or clang on PATH).
       --runtime-library <path>  Runtime archive linked into executables (default: the one built with clau).
       --with-crypto[=PATH]  Link the crypto runtime archive and the library crypto module (automatic when the
-                         program calls crypto); PATH is an OpenSSL >= 3.4 installation or source tree to link
+                         program calls crypto); PATH is an OpenSSL >= 3.1.2 installation or source tree to link
                          (default: CLAUSE_OPENSSL_ROOT, else the OpenSSL clau was built with).
+      --fips=PATH      Pin the program to FIPS mode with the OpenSSL FIPS provider in PATH (fips module and
+                         fipsmodule.cnf), copied beside the executable; links crypto as --with-crypto does.
       --emit <obj|llvm-ir|llvm-bc>  Select one artifact per module (default: in memory).
       --artifact-dir <dir>  Override artifact root; requires --emit.
       --target-triple <triple>  Select machine/OS/ABI, independently of --target.

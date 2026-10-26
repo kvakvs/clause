@@ -35,6 +35,7 @@ std::string options_text(const FrontendRequest &frontend, const bool outputs) {
     flag(text, backend.keep_exports, "keep-exports");
     flag(text, backend.shell, "shell");
     flag(text, backend.with_crypto, "with-crypto");
+    flag(text, backend.fips.has_value(), "fips"); // Added for crypto's FIPS mode.
     flag(text, frontend.executable_output.has_value(), "executable");
     flag(text, outputs, "outputs");
     if (frontend.entry) {

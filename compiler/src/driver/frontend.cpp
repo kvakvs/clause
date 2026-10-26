@@ -486,8 +486,9 @@ bool add_referenced(const FrontendRequest &request, const DiagnosticSink &sink, 
     std::ranges::copy(request.module_search_paths_, std::back_inserter(discovery.directories));
     bool failed = request.backend.shell && add_shell(request, sink, inputs, discovery);
     // Added for the crypto runtime archive (plan 21 step LIB79): dynamic callers find crypto in the program.
-    if (request.backend.with_crypto) {
-        failed = add_module(U"crypto", "--with-crypto", discovery, request, sink, inputs) || failed;
+    if (request.backend.links_crypto()) {
+        const auto *option = request.backend.with_crypto ? "--with-crypto" : "--fips";
+        failed = add_module(U"crypto", option, discovery, request, sink, inputs) || failed;
     }
     for (std::size_t scanned = 0; scanned < inputs.size(); ++scanned) {
         for (const auto &[name, source] : semantic::referenced_modules(inputs[scanned].syntax)) {

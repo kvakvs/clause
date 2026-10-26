@@ -5,12 +5,12 @@
 #include <string>
 #include <vector>
 
-// OpenSSL installations and source trees for clau --with-crypto=PATH (plan 21 step LIB79, docs/compile.md#openssl).
+// OpenSSL installations and source trees for clau --with-crypto=PATH (plan 21 step LIB79, docs/crypto.md).
 namespace clause::linking {
 // How the build configured OpenSSL, as clause_runtime_crypto.openssl beside the crypto archive records it.
 struct OpensslRecipe {
     // The oldest OpenSSL the crypto archive links with.
-    std::string minimum = "3.4";
+    std::string minimum = "3.1.2";
     // Configure's target (empty: detected) and options.
     std::string target;
     std::vector<std::string> options;

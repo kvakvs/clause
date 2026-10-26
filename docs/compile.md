@@ -162,7 +162,8 @@ annotations. The printer (`print_source`, `expression_source`, `type_source` in
 | `--lto` | Link the modules as bitcode with LLD link-time optimization (Windows MSVC and ELF targets; needs `-o` or a linking project build) ([linking](executables.md#linking)) |
 | `--keep-exports` | Keep every export of an executable callable instead of leaving out those it cannot reach; needs `-o`, a linking project build or an IR/assembly inspection ([export liveness](executables.md#export-liveness)) |
 | `--shell` | Link the interactive Erlang shell and every library module, keeping every export callable; without `--entry` the executable starts the shell, so `clau --shell -o erl` with no inputs builds a shell over the library alone; needs `-o` or a linking project build ([interactive shell](library.md#interactive-shell)) |
-| `--with-crypto[=PATH]` | Link the crypto runtime archive and add the library `crypto` module to the batch, for programs that reach `crypto` only through dynamic calls (programs that call it are linked with it anyway); `PATH` is an OpenSSL ≥ 3.4 installation or source tree to link instead of the one Clause was built with; needs `-o` or a linking project build ([OpenSSL](#openssl)) |
+| `--fips=PATH` | Pin the program to FIPS mode with the user-supplied OpenSSL FIPS provider in `PATH` (module and `fipsmodule.cnf`, copied beside the executable); implies `--with-crypto`; a missing or malformed provider fails the build ([FIPS](crypto.md#fips)) |
+| `--with-crypto[=PATH]` | Link the crypto runtime archive and add the library `crypto` module to the batch, for programs that reach `crypto` only through dynamic calls (programs that call it are linked with it anyway); `PATH` is an OpenSSL ≥ 3.1.2 installation or source tree to link instead of the one Clause was built with; needs `-o` or a linking project build ([crypto](crypto.md#linking-programs)) |
 | `-g` | Erlang line tables in objects and linked executables (CodeView/PDB on MSVC targets, DWARF elsewhere) ([debugging](debugging.md)) |
 | `--print-ir` / `--print-optimized-ir` | Verified IR before/after LLVM passes, with Erlang source lines as comments |
 | `--print-asm` | Each module's target assembly after the selected pipeline, every run of machine code commented with the IR instruction and Erlang line it came from ([assembly listings](#assembly-listings)) |
@@ -404,41 +405,10 @@ GPL-2.0).
 
 ## OpenSSL
 
-The runtime's `crypto` builtins (plan 21 step LIB79, [crypto module](builtins.md#crypto-module)) use OpenSSL's
-libcrypto. The pinned release is **4.1.0**; any OpenSSL **≥ 3.4** also works, since the builtins use only API
-present since 3.4 and decide version differences at run time, so one archive links with any such libcrypto. Which
-algorithms exist is probed when a program first calls `crypto` (`crypto:supports/0,1`, `hash_info/1`, `info_lib/0`
-report the linked OpenSSL). OpenSSL is Apache-2.0 licensed; no OpenSSL file is committed. CMake
-(`cmake/OpenSSLDependencies.cmake`) resolves it in this order:
-
-1. `-DCLAUSE_OPENSSL_ROOT=<path>`: an installed prefix (`include/openssl/opensslv.h`) or a source tree (`Configure`,
-   `VERSION.dat`), which is built as in 3.
-2. An installed OpenSSL ≥ 3.4 (`CLAUSE_OPENSSL_SYSTEM`, ON by default except on Windows): `find_package(OpenSSL)`,
-   static libcrypto preferred.
-3. The pinned release, downloaded into `thirdparty/openssl-4.1.0` and verified (`openssl-4.1.0.tar.gz`, SHA-256
-   `50c17baf54cb008f6ce42d50deb4b28050a1aad711636cabd4b241c7e90cc2fd`), configured and built once into
-   `thirdparty/openssl-4.1.0-<arch>-<crt>/install` (rebuilt when the compiler or options change);
-   `-DCLAUSE_DOWNLOAD_OPENSSL=OFF` disables the download.
-
-A source build configures `no-shared no-module no-tests no-docs no-makedepend enable-ec_explicit_curves` (a static
-libcrypto with the legacy provider built in, which the builtins load as OTP does), with the CMake C compiler and the
-selected MSVC runtime (`enable-static-vcruntime` for `/MT`). On Windows it needs a native Perl and NASM: pinned
-Strawberry Perl 5.42.3.1 portable (SHA-256 `6a081a811781c30aca51dbc036afd93092af91e3297901f02c17043795a10690`) and
-NASM 3.02 (SHA-256 `161d0bfaff53c2f9e9f3e69fd0672323ebabafd1268976a5cec11be92a19aee7`) are downloaded into
-`thirdparty/tools/` (Git's MSYS perl gives Configure Unix paths), then `nmake` builds it serially (about 4 minutes
-once). Linux and macOS use their `perl` and `make -j` (two thirds of the cores). Cross builds take the target's
-installed OpenSSL through `CLAUSE_OPENSSL_ROOT`.
-
-The builtins live in their own archive, `clause_runtime_crypto` beside `clause_runtime` (`-DCLAUSE_RUNTIME_CRYPTO=OFF`
-leaves it out), so programs that never call `crypto` stay as small as before; libcrypto with its providers adds about
-4.5 MB to those that do. `clau` links the archive when the batch compiled the library `crypto` module, or with
-`--with-crypto`: the startup object then lists the archive's extension entry, which pulls the archive in, and startup
-registers its builtins. `clause_runtime_crypto.link` beside the archive names libcrypto (first line) and its system
-libraries; `clause_runtime_crypto.openssl` records the recipe of a source build (target, options, compiler, Perl and
-NASM directories). `--with-crypto=PATH`, else the `CLAUSE_OPENSSL_ROOT` environment variable, links another
-OpenSSL: an installation's libcrypto, or a source tree that `clau` configures and builds with the recorded recipe into
-`<build-dir>/cache/openssl/<hash>` on first use (in a Visual Studio developer shell on Windows, for `nmake`); without
-either, the recorded libcrypto. Programs without `crypto` never look at an OpenSSL.
+The runtime's `crypto` builtins use OpenSSL's libcrypto, pinned 4.1.0, any release from 3.1.2 (the latest with a
+FIPS-validated provider) accepted, in a separate `clause_runtime_crypto` archive that only programs calling `crypto`
+link. Where it comes from, how Clause and `clau` build it from source, linking (`--with-crypto[=PATH]`) and FIPS
+mode (`--fips=PATH`) are described in [crypto](crypto.md).
 
 Other prerequisites: CMake ≥ 3.28, a C++23 compiler, Boost ≥ 1.90, toml++ 3.4.0
 and the quality tools. OTP is needed only for opt-in audits and fixture

@@ -10,6 +10,7 @@ and limits that exist today; plans and step history live in `.agents/`.
 | Parsing, AST ownership, syntax limits | [parser.md](parser.md) |
 | TOML projects, target selection, build directory and caches, ignored sources | [projects.md](projects.md) |
 | Compiler CLI, artifacts, source and abstract format printing, compile cache, LLVM SDK, PCRE2 and zlib, example | [compile.md](compile.md) |
+| Crypto: OpenSSL versions and sources, building it, linking, FIPS mode and pinned FIPS programs | [crypto.md](crypto.md) |
 | Executable entry, arguments, exit status, output streams, linking | [executables.md](executables.md) |
 | Debug information (`-g`), debuggers and the Erlang call stack | [debugging.md](debugging.md) |
 | Opt-in profiling (`--profile FILE`): entries and self time per function and process | [profiling.md](profiling.md) |

@@ -204,6 +204,20 @@ void write_profile(const Runtime &runtime, const std::string &file) {
     }
 }
 
+// Run the start hooks of the linked extensions; the first failure, as "name: reason", else empty. Added for crypto's
+// pinned FIPS mode (plan 21 step LIB79F).
+std::string start_extensions(std::span<const RuntimeExtension *const> extensions) {
+    for (const auto *extension : extensions) {
+        if (!extension->start) {
+            continue;
+        }
+        if (auto failure = extension->start(); !failure.empty()) {
+            return std::string(extension->name) + ": " + failure;
+        }
+    }
+    return {};
+}
+
 // Own the runtime for one program run and shut it down in order on every path.
 int run(const StartupDescriptor &startup, int argc, char **argv) {
     if (!compatible(startup)) {
@@ -216,6 +230,9 @@ int run(const StartupDescriptor &startup, int argc, char **argv) {
     options->runtime.program = command_line(argc, argv, options->consumed);
     for (const auto entry : std::span(startup.extensions, startup.extension_count)) {
         options->runtime.extensions.push_back(static_cast<const RuntimeExtension *>(entry()));
+    }
+    if (const auto failure = start_extensions(options->runtime.extensions); !failure.empty()) {
+        return runtime_failure(failure);
     }
     auto runtime = Runtime::start(options->runtime);
     if (!runtime) {

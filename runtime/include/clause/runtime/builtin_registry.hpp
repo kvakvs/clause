@@ -338,5 +338,8 @@ struct RuntimeExtension {
     std::string_view name;
     // The builtin families the extension adds.
     std::span<const std::span<const BuiltinEntry>> families;
+    // Runs before the runtime starts: why the program cannot run, empty when it can. Added for crypto's pinned
+    // FIPS mode (plan 21 step LIB79F).
+    std::string (*start)() = nullptr;
 };
 } // namespace clause::runtime

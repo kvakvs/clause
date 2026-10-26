@@ -51,6 +51,9 @@ struct StartupRequest {
     // The program links the crypto runtime archive: the descriptor lists its extension entry. Added for the crypto
     // runtime archive.
     bool crypto = false;
+    // The program is pinned to FIPS (--fips): the descriptor lists the archive's FIPS entry instead. Added for
+    // crypto's FIPS mode (plan 21 step LIB79F).
+    bool crypto_fips = false;
 };
 
 struct CompilationProgress {

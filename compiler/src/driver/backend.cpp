@@ -132,12 +132,12 @@ std::optional<linking::CryptoLink> crypto_link(const Compiled &compiled, const F
         std::error_code error;
         return std::filesystem::equivalent(input, library, error);
     });
-    if (!frontend.backend.with_crypto && !compiled_crypto) {
+    if (!frontend.backend.links_crypto() && !compiled_crypto) {
         return std::nullopt;
     }
     const auto cache = frontend.build_directory_ ? *frontend.build_directory_ / "cache"
                                                  : std::filesystem::temp_directory_path() / "clause-cache";
-    return linking::CryptoLink{frontend.backend.openssl, cache};
+    return linking::CryptoLink{frontend.backend.openssl, cache, frontend.backend.fips};
 }
 
 // Link the in-memory module and startup objects into `output`; project executables wait for the whole invocation.
@@ -176,7 +176,7 @@ void link(const Compiled &compiled, const FrontendRequest &frontend, const std::
 // Whether the program links the crypto runtime archive: --with-crypto, or the library crypto module in the batch.
 // Added for the crypto runtime archive (plan 21 step LIB79).
 bool uses_crypto(const Analysis &analysis, const FrontendRequest &frontend) {
-    return frontend.backend.with_crypto || std::ranges::any_of(analysis.modules, [](const auto &module) {
+    return frontend.backend.links_crypto() || std::ranges::any_of(analysis.modules, [](const auto &module) {
                return module->library_ && module->name == U"crypto";
            });
 }
@@ -187,8 +187,8 @@ std::optional<codegen::StartupRequest> startup_request(const Analysis &analysis,
         return std::nullopt;
     }
     const auto &entry = *analysis.entry;
-    return codegen::StartupRequest{entry.module, utf8(entry.function.name), entry.function.arity, entry.escript,
-                                   uses_crypto(analysis, frontend)};
+    return codegen::StartupRequest{entry.module,  utf8(entry.function.name),       entry.function.arity,
+                                   entry.escript, uses_crypto(analysis, frontend), frontend.backend.fips.has_value()};
 }
 
 // The batch a compile time belongs to: its module count, and its project target when there is one.

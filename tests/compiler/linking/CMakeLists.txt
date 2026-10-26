@@ -74,6 +74,24 @@ if(CLAUSE_BUILD_RUNTIME)
             "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/crypto_source/$<CONFIG>"
             "${CMAKE_EXECUTABLE_SUFFIX}" --source)
         set_tests_properties(linking_crypto_source PROPERTIES TIMEOUT 3600 COST 30 LABELS full_only)
+        # FIPS mode (plan 21 LIB79F): --fips=PATH refusals and start failures.
+        add_test(NAME linking_fips COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/fips.py"
+            "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/fips/$<CONFIG>"
+            "${CMAKE_EXECUTABLE_SUFFIX}")
+        set_tests_properties(linking_fips PROPERTIES TIMEOUT 900 COST 10)
+        # The minimum OpenSSL (minutes, full suite only): the crypto goldens linked with its libcrypto, and its
+        # validated FIPS provider, built from source for the test only, in pinned and switchable programs.
+        if(CLAUSE_TEST_OPENSSL_MINIMUM)
+            clause_openssl_minimum_source(minimum_openssl)
+            add_test(NAME linking_crypto_minimum COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/crypto_minimum.py" "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}"
+                "${CMAKE_CURRENT_BINARY_DIR}/crypto_minimum/$<CONFIG>" "${CMAKE_EXECUTABLE_SUFFIX}" "${minimum_openssl}")
+            set_tests_properties(linking_crypto_minimum PROPERTIES TIMEOUT 3600 COST 30 LABELS full_only)
+            add_test(NAME linking_fips_real COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/fips.py"
+                "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/fips_real/$<CONFIG>"
+                "${CMAKE_EXECUTABLE_SUFFIX}" --real "${minimum_openssl}")
+            set_tests_properties(linking_fips_real PROPERTIES TIMEOUT 3600 COST 30 LABELS full_only)
+        endif()
     endif()
     # Compile cache: warm project builds reuse the whole batch; edits and options miss (62D4).
     add_test(NAME linking_compile_cache COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compile_cache.py"

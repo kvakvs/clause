@@ -1437,6 +1437,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_crypto", "aead_cipher", 7},
     BuiltinName{"clause_crypto", "aead_cipher_init", 4},
     BuiltinName{"clause_crypto", "aead_cipher", 4},
+    BuiltinName{"clause_crypto", "info_fips", 0},
+    BuiltinName{"clause_crypto", "enable_fips_mode", 1},
     // The receive of prim_eval (plan step 41S; runtime/src/process/receive.cpp).
     BuiltinName{"clause_receive", "peek", 0},
     BuiltinName{"clause_receive", "skip", 0},

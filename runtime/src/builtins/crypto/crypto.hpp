@@ -10,12 +10,13 @@
 #include <optional>
 #include <source_location>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
 // Shared parts of the crypto runtime archive (plan 21 step LIB79, docs/builtins.md#crypto-module): the builtins of
 // Clause's private clause_crypto module over OpenSSL's libcrypto, which library/crypto/crypto.erl answers OTP's crypto
-// functions with. Only libcrypto API present since OpenSSL 3.4 is used, so the archive links with any such libcrypto.
+// functions with. Only libcrypto API present since OpenSSL 3.1.2 is used, so the archive links with any such libcrypto.
 namespace clause::runtime::builtins::crypto {
 // The class of an error a crypto builtin raises, as OTP's NIF raises them: badarg and notsup carry the argument and
 // a description, error a failed library call.
@@ -74,6 +75,8 @@ struct Digest {
     // pbkdf2_hmac/5 accepts it.
     bool pbkdf2;
     EVP_MD *md;
+    // The FIPS provider's implementation (a `fips=yes` fetch), used in FIPS mode; null when it has none.
+    EVP_MD *fips_md = nullptr;
 };
 
 // How OTP drives a cipher: the streaming and one-time API (plain), or AEAD, where CCM takes the tag and the text
@@ -87,6 +90,8 @@ struct Cipher {
     std::size_t key_length;
     CipherKind kind;
     EVP_CIPHER *cipher;
+    // The FIPS provider's implementation, used in FIPS mode; null when it has none.
+    EVP_CIPHER *fips_cipher = nullptr;
 };
 
 // One OTP MAC name with its OpenSSL algorithm; key_length != 0 requires that key length (poly1305).
@@ -95,7 +100,32 @@ struct Mac {
     std::string_view fetch;
     std::size_t key_length;
     EVP_MAC *mac;
+    // The FIPS provider's implementation, used in FIPS mode; null when it has none.
+    EVP_MAC *fips_mac = nullptr;
 };
+
+// Whether OpenSSL's default properties ask for FIPS (crypto:enable_fips_mode/1, a pinned program, or the OpenSSL
+// configuration). Added for crypto's FIPS mode (plan 21 step LIB79F).
+bool fips_enabled() noexcept;
+// Load the providers as OTP does on the first crypto call (fips when loadable, default, base, legacy); a pinned
+// program has fips and base only.
+void load_providers();
+// The FIPS provider the program loaded, null without one.
+OSSL_PROVIDER *fips_provider() noexcept;
+// Load the algorithm tables once, before a builtin reads them.
+void ensure_probed();
+
+// The implementation of an entry in the current mode: the FIPS provider's in FIPS mode, null when unavailable.
+inline EVP_MD *active(const Digest &digest) { return fips_enabled() ? digest.fips_md : digest.md; }
+
+inline EVP_CIPHER *active(const Cipher &cipher) { return fips_enabled() ? cipher.fips_cipher : cipher.cipher; }
+
+inline EVP_MAC *active(const Mac &mac) { return fips_enabled() ? mac.fips_mac : mac.mac; }
+
+// Whether FIPS mode forbids an entry: the FIPS provider has no implementation of it (OTP's *_FORBIDDEN_IN_FIPS).
+template <typename Entry> bool forbidden_in_fips(const Entry &entry) {
+    return fips_enabled() && active(entry) == nullptr;
+}
 
 // The digest an atom names, probed; null for a name OTP does not know.
 const Digest *find_digest(std::string_view name);
@@ -154,4 +184,9 @@ std::span<const BuiltinEntry> random_builtins() noexcept;
 std::span<const BuiltinEntry> number_builtins() noexcept;
 std::span<const BuiltinEntry> cipher_builtins() noexcept;
 std::span<const BuiltinEntry> aead_builtins() noexcept;
+std::span<const BuiltinEntry> fips_builtins() noexcept;
+
+// The start hook of a FIPS-pinned program: load the FIPS provider beside the executable and enable FIPS for good;
+// the reason when the program cannot run, else empty.
+std::string pin_fips();
 } // namespace clause::runtime::builtins::crypto

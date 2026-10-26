@@ -49,6 +49,9 @@ int CLAUSE_main_v1(int argc, char **argv, const void *startup) noexcept;
 // The extension entry of the crypto runtime archive (clause_runtime_crypto, plan 21 step LIB79): its builtins and
 // OpenSSL. Defined only in that archive.
 const void *CLAUSE_crypto_extension_v1() noexcept;
+// The crypto archive's entry for programs built with clau --fips (plan 21 step LIB79F): the same builtins, after a
+// start hook loads the FIPS provider beside the executable and keeps FIPS mode on.
+const void *CLAUSE_crypto_fips_extension_v1() noexcept;
 
 // Stop the program through erlang:halt/0,1: records the halt (or badarg) in the checked channel and never succeeds.
 std::uint8_t CLAUSE_halt_v1(void *context, clause::abi::v1::TermWord status) noexcept;

@@ -49,6 +49,12 @@ struct BackendOptions {
     // Added for the crypto runtime archive (plan 21 step LIB79).
     bool with_crypto = false;
     std::optional<std::filesystem::path> openssl;
+    // Pin the program to a user-supplied FIPS provider (--fips=PATH): links crypto as --with-crypto does, copies the
+    // provider beside the executable and keeps FIPS mode on. Added for crypto's FIPS mode (plan 21 step LIB79F).
+    std::optional<std::filesystem::path> fips;
+
+    // Whether the program links the crypto runtime archive and the library crypto module whatever it calls.
+    [[nodiscard]] bool links_crypto() const { return with_crypto || fips.has_value(); }
 };
 
 // Recognize backend options separately from preprocessing and project operands.

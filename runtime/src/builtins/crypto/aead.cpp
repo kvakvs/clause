@@ -77,7 +77,10 @@ const Cipher &aead_cipher_of(ProcessContext &context, const Term &type, std::siz
     if (cipher->kind == CipherKind::plain) {
         reject(context, Fault::badarg, {0, "Not aead cipher"});
     }
-    if (!cipher->cipher) {
+    if (forbidden_in_fips(*cipher)) {
+        reject(context, Fault::notsup, {0, "Forbidden in FIPS"});
+    }
+    if (!active(*cipher)) {
         reject(context, Fault::notsup, {0, "The cipher is not supported in this libcrypto version"});
     }
     return *cipher;
@@ -89,7 +92,7 @@ CipherContext aead_context(ProcessContext &context, const Cipher &cipher, std::s
     if (!cipher_context) {
         reject(context, Fault::error, {-1, "Can't allocate ctx"});
     }
-    if (EVP_CipherInit_ex(cipher_context.get(), cipher.cipher, nullptr, nullptr, nullptr, encrypt) != 1) {
+    if (EVP_CipherInit_ex(cipher_context.get(), active(cipher), nullptr, nullptr, nullptr, encrypt) != 1) {
         reject(context, Fault::error, {-1, "CipherInit failed"});
     }
     if (EVP_CIPHER_CTX_set_key_length(cipher_context.get(), static_cast<int>(key.size())) != 1) {

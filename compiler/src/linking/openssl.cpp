@@ -4,15 +4,18 @@
 #include "toolchain.hpp"
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <charconv>
 #include <cstdlib>
 #include <fstream>
 #include <llvm/Support/Process.h>
 #include <llvm/Support/Program.h>
 #include <llvm/Support/xxhash.h>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <thread>
+#include <utility>
 
 namespace clause::linking {
 namespace {
@@ -178,6 +181,61 @@ void build_environment(const OpensslRecipe &recipe) {
     }
 }
 
+// The features a source tree's Configure can enable or disable: the names in its `my @disablables... = (...);` lists
+// (comments dropped). Added for the OpenSSL 3.1.2 minimum.
+// Add the names of one list's body to `names`, skipping Perl comments.
+void list_names(std::string_view body, std::set<std::string> &names) {
+    std::string name;
+    bool comment = false;
+    for (const char c : body) {
+        comment = c == '#' || (comment && c != '\n');
+        if (!comment && (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-')) {
+            name.push_back(c);
+        } else if (!name.empty()) {
+            names.insert(std::exchange(name, {}));
+        }
+    }
+}
+
+std::set<std::string> disablable_features(const std::string &configure) {
+    std::set<std::string> names;
+    constexpr std::string_view LIST = "my @disablables";
+    for (auto at = configure.find(LIST); at != std::string::npos; at = configure.find(LIST, at + LIST.size())) {
+        const auto open = configure.find('(', at);
+        const auto close = configure.find(';', at);
+        if (open != std::string::npos && close != std::string::npos && open < close) {
+            list_names(std::string_view(configure).substr(open + 1, close - open - 1), names);
+        }
+    }
+    return names;
+}
+
+// The recipe options the source tree knows: enable-X and no-X are kept when its Configure can enable or disable X
+// (older trees lack later options, such as 3.1's no-docs and enable-ec_explicit_curves).
+std::vector<std::string> known_options(const std::filesystem::path &source, const std::vector<std::string> &options) {
+    std::ifstream file(source / "Configure", std::ios::binary);
+    const auto features =
+        disablable_features(std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>()));
+    std::vector<std::string> known;
+    for (const auto &option : options) {
+        const auto prefix = option.starts_with("enable-") ? 7U : option.starts_with("no-") ? 3U : 0U;
+        if (prefix == 0 || features.contains(option.substr(prefix))) {
+            known.push_back(option);
+        }
+    }
+    return known;
+}
+
+// OpenSSL 3.x's Windows install_dev of a static build copies ossl_static.pdb, which clang-cl's embedded debug
+// information (/Z7) never writes: give it an empty one (fixed in 4.0). Added for the OpenSSL 3.1.2 minimum.
+void static_library_symbols(const std::filesystem::path &build) {
+    const auto symbols = build / "ossl_static.pdb";
+    std::error_code error;
+    if (std::filesystem::is_regular_file(build / "makefile", error) && !std::filesystem::exists(symbols, error)) {
+        std::ofstream{symbols};
+    }
+}
+
 // Configure `source` into `directory`/build, then build its libraries and install them into `directory`/install.
 void build_source(const std::filesystem::path &source, const OpensslRecipe &recipe,
                   const std::filesystem::path &directory) {
@@ -190,7 +248,8 @@ void build_source(const std::filesystem::path &source, const OpensslRecipe &reci
     if (!recipe.target.empty()) {
         configure.push_back(recipe.target);
     }
-    configure.insert(configure.end(), recipe.options.begin(), recipe.options.end());
+    const auto options = known_options(source, recipe.options);
+    configure.insert(configure.end(), options.begin(), options.end());
     configure.insert(configure.end(),
                      {"--prefix=" + utf8_path(install), "--openssldir=" + utf8_path(install / "ssl"), "--libdir=lib"});
     run_step(program("perl", recipe, "install Perl"), configure, build / "configure.log");
@@ -198,6 +257,9 @@ void build_source(const std::filesystem::path &source, const OpensslRecipe &reci
     const auto tool = make.front();
     make.erase(make.begin());
     for (const auto *target : {"build_libs", "install_dev"}) {
+        if (std::string_view(target) == "install_dev") {
+            static_library_symbols(build);
+        }
         auto arguments = make;
         arguments.emplace_back(target);
         run_step(tool, arguments, build / (std::string(target) + ".log"));

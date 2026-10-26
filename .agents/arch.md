@@ -69,9 +69,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   (`-export_record`/`-import_record`, `#_`).
 - Liveness (`semantic/liveness`): worklist from entry over calls, funs, literal apply/spawn targets,
   escaped module atoms; `-compile({clause_liveness, strict})` modules escape only their own name and
-  their atom producers do not count (`docs/compile.md#strict-liveness`); dead exports keep names with
-  null entries (`--keep-exports`). Map ownership
-  marks fresh single-read maps for in-place updates (`MapOperation::update_owned`).
+  their atom producers do not count (`docs/compile.md#strict-liveness`); dead exports keep names
+  with null entries (`--keep-exports`). Map ownership marks fresh single-read maps for in-place
+  updates (`MapOperation::update_owned`).
 
 ### Type inference (`docs/semantic.md#inference-domain`)
 
@@ -81,10 +81,10 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   integer-threshold widening, positional lists, map associations past the key budget.
 - `inference.cpp`: postorder walk over frames; clause joins widen after 8 rounds, give up on a group
   at the cap or 1/8 of pass work, or when a member oscillates. Passes repeat until local inputs and
-  fun reads settle, else a final pass with `term()` inputs. Later passes skip components nothing they
-  read changed for, warm-start recursive solves, and give costly ones (lattice joins) `term()` inputs.
-  Walk scopes save variable facts as flat slots per definition (`BindingValues`); each function's
-  binding index is built once per inference; expression facts are hash maps.
+  fun reads settle, else a final pass with `term()` inputs. Later passes skip components nothing
+  they read changed for, warm-start recursive solves, and give costly ones (lattice joins) `term()`
+  inputs. Walk scopes save variable facts as flat slots per definition (`BindingValues`); each
+  function's binding index is built once per inference; expression facts are hash maps.
 - `Summary::types` = one `FunctionType` per clause; non-recursive callees are re-analysed per call
   under a budget; dependent facts index interned `Dependent`s while `Fact::type` is the erased join.
 
@@ -143,11 +143,12 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `ir`/`erlang`; `-g` emits CodeView/DWARF; `--lto`.
 - Parallel code generation (`codegen/parallel`, `--jobs`, default all hardware threads): for object
   output, optimization moves each module through bitcode (use-list order kept) into its own
-  `LLVMContext`, largest first, each worker with its own `TargetMachine`; emission then runs on those
-  contexts in parallel; diagnostics and outputs merge in module order, objects identical to `--jobs 1`.
+  `LLVMContext`, largest first, each worker with its own `TargetMachine`; emission then runs on
+  those contexts in parallel; diagnostics and outputs merge in module order, objects identical to
+  `--jobs 1`.
 - Startup (`codegen/startup`): module `clausev1_start` whose `main` hands a `StartupDescriptor` to
-  `CLAUSE_main_v1`; the descriptor lists runtime extension entries (`CLAUSE_crypto_extension_v1` when
-  the batch has library `crypto` or `--with-crypto`), whose builtins startup registers.
+  `CLAUSE_main_v1`; the descriptor lists runtime extension entries (`CLAUSE_crypto_extension_v1`
+  when the batch has library `crypto` or `--with-crypto`), whose builtins startup registers.
 - Linking (`linking/`): objects staged in `.clause-link-*` beside the output,
   `clang --driver-mode=g++ --target=<triple>` with the runtime archive (members checked via LLVM
   Object) plus installed library inputs from `clause_runtime.link`; projects publish executables
@@ -171,8 +172,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - Startup (`startup/`): ABI check, options (`CLAUSE_FLAGS`, `--max-atoms`, `--args-file`, `--`),
   module registration, entry run; exits 0/N/1|127/70. `--profile` attributes time at frame
   transfers.
-- Code server (`modules/`): shared mutex, hash indexes, modules never unloaded; literal areas (literal
-  heap areas in the persistent range, owned by `LiteralAreas`), atom and literal caches.
+- Code server (`modules/`): shared mutex, hash indexes, modules never unloaded; literal areas
+  (literal heap areas in the persistent range, owned by `LiteralAreas`), atom and literal caches.
 
 ### Terms (`terms/`)
 
@@ -270,7 +271,7 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `clause_builtin_placeholder` bodies are replaced at registration.
 - Call kinds: bridge (`CLAUSE_builtin_frame_v1` + apply marker), direct (`CLAUSE_builtin_call_v1`),
   quick (bounded fast path, then frame). `typed<Function>` adapts typed C++ (mismatch → badarg).
-- Runtime extensions: separate archives (`clause_runtime_crypto`, `docs/compile.md#openssl`) whose
+- Runtime extensions: separate archives (`clause_runtime_crypto`, `docs/crypto.md`) whose
   `RuntimeExtension` families `RuntimeOptions::extensions` adds after `production_builtins()`; only
   programs that need them link them.
 - Portions (`builtins/portions`): long builtins spend `ProcessStack::budget()` then
@@ -306,33 +307,48 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 
 ### crypto (plan 21 LIB79)
 
-- `library/crypto/` (application with `crypto.app`, listed as a library resource): `crypto.erl`
-  over `clause_crypto` builtins in `runtime/src/builtins/crypto/` (OpenSSL ≥ 3.4, pinned 4.1.0):
+- `library/crypto/` (application with `crypto.app`, listed as a library resource): `crypto.erl` over
+  `clause_crypto` builtins in `runtime/src/builtins/crypto/` (OpenSSL ≥ 3.4, pinned 4.1.0):
   algorithm tables probed on the first call (`algorithms.cpp`), hash/MAC states as handle
   references, OTP's NIF errors turned into `{Class, {File, Line}, Msg}` by `?nif_call`; engines
   refused. Cipher and AEAD states own a C++ object (`OwnedHandle`: EVP_CIPHER_CTX + lock); the
-  `crypto_aes`/`crypto_prng1` rand plugins are Erlang over `rand`'s exro928 builtins. Public keys
-  (LIB79C) pending.
+  `crypto_aes`/`crypto_prng1` rand plugins are Erlang over `rand`'s exro928 builtins. FIPS (LIB79F):
+  entries keep `fips=yes` fetches for FIPS mode; `clau --fips=PATH` copies a user-supplied provider
+  beside the executable and lists `CLAUSE_crypto_fips_extension_v1`, whose `RuntimeExtension::start`
+  hook pins FIPS before the runtime starts. Public keys (LIB79C) pending.
 
 ### kernel
 
 - `file` (every documented function; a raw file is a server answering as raw; servers stop after
-  failed writes and reads as OTP's; `compressed` gzip layer in the server over `zlib`), `io` stdin server, `os` (`cmd/1,2` over OTP's shell protocol; `find_executable`, `set_signal` builtins), `code` (loaded-module builtins; code path in a persistent term, OTP's path changes and lookups, loading answers for linked code), `application_controller`; networking via
-  `clause_socket.erl` (+ `clause_socket_options.erl`) + `gen_tcp`, `gen_udp`, `inet` over port socket
-  drivers; `net` over `clause_net` builtins (names, services, interfaces); `inet_res` in Erlang over the `clause_net` DNS codec; `socket` over the same driver ports (bind op 22, registry process for handles, monitors, listings); `gen_sctp` without SCTP; `clause_disk_log`
-  halt logs.
+  failed writes and reads as OTP's; `compressed` gzip layer in the server over `zlib`), `io` stdin
+  server, `os` (`cmd/1,2` over OTP's shell protocol; `find_executable`, `set_signal` builtins),
+  `code` (loaded-module builtins; code path in a persistent term, OTP's path changes and lookups,
+  loading answers for linked code), `application_controller`; networking via `clause_socket.erl` (+
+  `clause_socket_options.erl`) + `gen_tcp`, `gen_udp`, `inet` over port socket drivers; `net` over
+  `clause_net` builtins (names, services, interfaces); `inet_res` in Erlang over the `clause_net`
+  DNS codec; `socket` over the same driver ports (bind op 22, registry process for handles,
+  monitors, listings); `gen_sctp` without SCTP; `clause_disk_log` halt logs.
 
 ### stdlib
 
-- Text: `io` (stdin server with OTP's noshell options; file servers' encodings; terminal queries in `builtins/terminal.cpp`)/`io_lib` (`builtins/io_lib/`: deep-chardata arena, `write1`, format scan/build,
-  `fread`, io_lib_pretty layout, `maps_order` sort-and-rerun with `clause_io_lib`),
+- Text: `io` (stdin server with OTP's noshell options; file servers' encodings; terminal queries in
+  `builtins/terminal.cpp`)/`io_lib` (`builtins/io_lib/`: deep-chardata arena, `write1`, format
+  scan/build, `fread`, io_lib_pretty layout, `maps_order` sort-and-rerun with `clause_io_lib`),
   `builtins/float_text` (OTP rounding, Ryu), `string`, `unicode`/`unicode_util` (generated tables,
   cp/gc, normalization), `re` (bundled PCRE2 10.47; C++ compile/run, rest in `re.erl`), `base64`,
-  `json`, `uri_string`, `filename`, `filelib` (wildcard parts compiled/matched in `builtins/filelib.cpp`,
-  walk in Erlang), `file_sorter` (exact Erlang port of OTP's runs and merges), `zip`, `erl_tar` (Erlang following
-  OTP's archive layouts byte for byte over `zlib` and `file`), `zstd` (`builtins/zstd/` over pinned
-  libzstd 1.5.7 objects in the runtime, like zlib), `beam_lib` (Erlang chunk walk as OTP's), `escript` (create/extract), `argparse` (`builtins/argparse/`: validation, parser and help in C++, funs called by Erlang through replayed requests), `qlc_pt` (`builtins/qlc_pt/`: the qlc transform at run time in C++, ms_transform answered by Erlang through replayed requests), `qlc` (Erlang: OTP's prepare/optimize/setup over the transform's handles, joins, caches, file_sorter sorts, cursors, info), the interactive shell (`shell` server + `clause_shell` terminal + `clause_shell_eval` evaluator over `erl_eval`, `clause_io_lib:pretty/2` record printing; `clau --shell` links it with the whole library and keeps exports; `c`, `shell_default`), `win32reg`
-  (Erlang over the Windows-only `clause_registry` port driver), `calendar`.
+  `json`, `uri_string`, `filename`, `filelib` (wildcard parts compiled/matched in
+  `builtins/filelib.cpp`, walk in Erlang), `file_sorter` (exact Erlang port of OTP's runs and
+  merges), `zip`, `erl_tar` (Erlang following OTP's archive layouts byte for byte over `zlib` and
+  `file`), `zstd` (`builtins/zstd/` over pinned libzstd 1.5.7 objects in the runtime, like zlib),
+  `beam_lib` (Erlang chunk walk as OTP's), `escript` (create/extract), `argparse`
+  (`builtins/argparse/`: validation, parser and help in C++, funs called by Erlang through replayed
+  requests), `qlc_pt` (`builtins/qlc_pt/`: the qlc transform at run time in C++, ms_transform
+  answered by Erlang through replayed requests), `qlc` (Erlang: OTP's prepare/optimize/setup over
+  the transform's handles, joins, caches, file_sorter sorts, cursors, info), the interactive shell
+  (`shell` server + `clause_shell` terminal + `clause_shell_eval` evaluator over `erl_eval`,
+  `clause_io_lib:pretty/2` record printing; `clau --shell` links it with the whole library and keeps
+  exports; `c`, `shell_default`), `win32reg` (Erlang over the Windows-only `clause_registry` port
+  driver), `calendar`.
 - Time: `timer` without a timer server (per-timer processes reached through aliases; conversions in
   `builtins/timer.cpp`).
 - Behaviours (all Erlang): `proc_lib` (ancestors, initial calls, sync starts, crash reports), `sys`
@@ -341,30 +357,32 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `supervisor`, `supervisor_bridge`; their reports are `?LOG_*` events.
 - Logging (Erlang): `logger` API over the `clause_logger` server (gen_server `logger` started at the
   first use; ETS `logger` for configs, persistent terms for levels), `logger_formatter`,
-  `logger_std_h` (one synchronous process per handler: devices, files, rotation), `logger_disk_log_h`
-  (same shape over a disk log; common part `clause_logger_h`), `logger_filters`,
+  `logger_std_h` (one synchronous process per handler: devices, files, rotation),
+  `logger_disk_log_h` (same shape over a disk log; common part `clause_logger_h`), `logger_filters`,
   `error_logger` (gen_event fed by its logger handler), `error_logger_file_h`, `log_mf_h`,
   `error_handler`; `kernel/include/{logger,file,eep48,inet}.hrl` and `stdlib/include/{assert,
   ms_transform,qlc,zip}.hrl` serve `include_lib` (no OTP on paths needed). Default formatter and
   file handler are named by literal calls so the batch links them.
-- Applications (Erlang): `application` over `application_controller` (registered gen_server entered from a
-  proc_lib process at first use; public ETS `ac_tab` for loaded specs, env, masters) and
+- Applications (Erlang): `application` over `application_controller` (registered gen_server entered
+  from a proc_lib process at first use; public ETS `ac_tab` for loaded specs, env, masters) and
   `clause_application_master` (group leader per application, start/phases/stop). Specs: clau's
-  `driver/app_resources` generates `clause_applications` (specs/0, library_modules/1) from `.app`/`.app.src`
-  files when the batch has application_controller; kernel/stdlib virtual and running.
-- Local-node kernel services (Erlang): `pg` over `data_publisher` (scope gen_server, ETS per scope, no peers),
-  `global` (lazy `global_name_server`, OTP's ETS names/locks), `global_group` (no groups), `erpc` (spawn_request
-  locally; other nodes get a simulated `noconnection` reply), `rpc` over erpc with lazy `rex`, `net_adm`/
-  `net_kernel`/`auth` non-alive answers, `seq_trace` tokens in the process dictionary; tracing (`erlang:trace*`, `trace`, `erl_tracer`) raises `notsup`. Behaviours call `global`
-  literally for `{global, Name}`.
+  `driver/app_resources` generates `clause_applications` (specs/0, library_modules/1) from
+  `.app`/`.app.src` files when the batch has application_controller; kernel/stdlib virtual and
+  running.
+- Local-node kernel services (Erlang): `pg` over `data_publisher` (scope gen_server, ETS per scope,
+  no peers), `global` (lazy `global_name_server`, OTP's ETS names/locks), `global_group` (no
+  groups), `erpc` (spawn_request locally; other nodes get a simulated `noconnection` reply), `rpc`
+  over erpc with lazy `rex`, `net_adm`/ `net_kernel`/`auth` non-alive answers, `seq_trace` tokens in
+  the process dictionary; tracing (`erlang:trace*`, `trace`, `erl_tracer`) raises `notsup`.
+  Behaviours call `global` literally for `{global, Name}`.
 - Collections in C++ (`builtins/collections/`): `lists`, `maps`, `ordsets`, `orddict`, `proplists`,
   `dict`, `sets`, `gb_trees`, `gb_sets`, `queue`, `array`, `sofs`; fun-taking functions stay Erlang.
 - ETS-based: `ets` builtins (`builtins/ets/`: tables, reads, writes, select and match families,
   match_spec functions, walks), `digraph`/`digraph_utils` over ETS tables (`DigraphView`,
   `graph::View` queries), ets table files via `disk_log` halt-log items.
-- Disk logs: `disk_log` keeps OTP's processes (registry `clause_disk_log_server`, one process per log
-  with owners, blocking, write cache) in Erlang over `clause_disk_log` (OTP's halt/wrap/rotate file
-  formats, byte for byte); `wrap_log_reader` reads wrap logs offline.
+- Disk logs: `disk_log` keeps OTP's processes (registry `clause_disk_log_server`, one process per
+  log with owners, blocking, write cache) in Erlang over `clause_disk_log` (OTP's halt/wrap/rotate
+  file formats, byte for byte); `wrap_log_reader` reads wrap logs offline.
 - Disk tables: `dets` keeps OTP's processes (registry server, one process per table with the write
   cache and fixes) in Erlang over a C++ engine of the version 9 file format (`builtins/dets/`) that
   writes OTP's bytes.
@@ -373,8 +391,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   scanner of OTP's rules (re-entrant by rescanning the unfinished token); `erl_parse` over a C++
   recursive-descent parser building OTP's abstract format and errors; `ms_transform` in Erlang over
   abstract forms; `erl_eval` an Erlang interpreter of the abstract format (interpreted funs as
-  closures over OTP's env tuple, bit segments via `clause_erl_eval` C++ builtins, command checks with
-  `erl_lint`). Clause-heavy front-end walks move to C++ builtins
-  (LIB34C): `erl_expand_records:module/2`, the guard tests, `erl_lint` and `erl_pp`
+  closures over OTP's env tuple, bit segments via `clause_erl_eval` C++ builtins, command checks
+  with `erl_lint`). Clause-heavy front-end walks move to C++ builtins (LIB34C):
+  `erl_expand_records:module/2`, the guard tests, `erl_lint` and `erl_pp`
   (`front_end/expand_records.cpp`, `guard_tests.cpp`, `lint*.cpp` over one `Lint` state, `pp*.cpp`
   items then layout with hooks answered by rerunning from Erlang, node helpers in `forms.hpp`).

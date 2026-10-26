@@ -96,14 +96,15 @@ recorded elsewhere.
   -align-all-functions=6)`. Counters in `Graph::intern` (~40M calls per W5a pass) are layout-costly:
   keep them temporary.
 
-- Plan 21 Tier F (2026-10-25): WSL check = rsync sources into ~/clau (exclude build/thirdparty/references/.git), then
-  `bash ~/gate.sh configure|build|test -R <re>` (gate.sh not executable: call via bash; full log in
-  build/plan11-wsl/logs/ctest-debug.log). OTP probes in escript: output piped through grep buffers until exit, so a
-  hang looks like no output; add a watchdog process (halt after N s) and write to a file. taskkill of escript is
-  denied: stop background probes with TaskStop. OTP on Windows: socket connect needs bind first (not_bound), nowait
-  answers completion messages, recvmsg/sendmsg/sendfile raise notsup; inet_res ids count from 1 without crypto;
-  io_ansi has no terminfo there. frontend_cli/codegen_examples time out under the full fast suite at -j24 and pass
-  alone.
+- Plan 21 Tier F (2026-10-25): WSL check = rsync sources into ~/clau (exclude
+  build/thirdparty/references/.git), then `bash ~/gate.sh configure|build|test -R <re>` (gate.sh not
+  executable: call via bash; full log in build/plan11-wsl/logs/ctest-debug.log). OTP probes in
+  escript: output piped through grep buffers until exit, so a hang looks like no output; add a
+  watchdog process (halt after N s) and write to a file. taskkill of escript is denied: stop
+  background probes with TaskStop. OTP on Windows: socket connect needs bind first (not_bound),
+  nowait answers completion messages, recvmsg/sendmsg/sendfile raise notsup; inet_res ids count from
+  1 without crypto; io_ansi has no terminfo there. frontend_cli/codegen_examples time out under the
+  full fast suite at -j24 and pass alone.
 
 - Plan 21 Tier G (2026-10-25): the PowerShell tool's environment sets NO_COLOR=1 (Git Bash does not); io_ansi
   honours it, so the executable runner and regenerate.py now drop NO_COLOR. Builtins needing funs (argparse) return
@@ -179,11 +180,13 @@ recorded elsewhere.
   order (unstable: use integer keys, ~kw, display fields or single-field native records);
   uncaught-exception report prints ~w. OTP crash reports go through async logger: oracle usually
   halts first, author stderr. phash2 differs: digest with md5(term_to_binary).
-- OTP race quirks: monitor/link after spawn of a short process races -> spawn_monitor; check goldens with --check 3x.
-- A Clause program killed by a timeout loses its buffered stdout: the last printed line is NOT where it hung; find
-  the hang with a watchdog process that prints to standard_error and halts. Full mode runs policies concurrently
-  (4 at once): fixtures touching shared state (registry keys, fixed paths outside the work dir) need per-process
-  names (os:getpid()). Golden runs can be per OS family ('os': windows|unix, other family authored).
+- OTP race quirks: monitor/link after spawn of a short process races -> spawn_monitor; check goldens
+  with --check 3x.
+- A Clause program killed by a timeout loses its buffered stdout: the last printed line is NOT where
+  it hung; find the hang with a watchdog process that prints to standard_error and halts. Full mode
+  runs policies concurrently (4 at once): fixtures touching shared state (registry keys, fixed paths
+  outside the work dir) need per-process names (os:getpid()). Golden runs can be per OS family
+  ('os': windows|unix, other family authored).
 - Ports opened in a process that traps exits send {'EXIT', Port, normal} on port_close (OTP too); library code
   closing helper ports in the caller must unlink first (file:path_call). OTP's raw files/NIFs send nothing.
 - Shell edits: when the Bash classifier keeps failing, the PowerShell tool still works.
@@ -436,24 +439,33 @@ recorded elsewhere.
   measured null/worse on ring_setup, short_processes, fan_in: dropped. The embedded first stack
   block is charged on the first push (state limit 0 until then), else exact-account tests and
   --max-memory 64 break.
-- LIB74 shell (2026-10-25): a call that resolves to a C++ builtin does not pull the module's
-  Erlang source into the batch, so its other exports (erl_lint:format_error/1) are absent for
-  dynamic calls even with --keep-exports: name them statically (clause_shell_eval:format_error/2).
-  A static M:F call to a module neither in the library nor on the search path is an "unknown
-  module" compile error (c needs shell_docs to exist). A library module exporting main/1 makes
-  entry detection ambiguous (clause_shell:run/1). Python text-mode stdin on Windows sends CRLF;
-  OTP's stdin reads a CRLF line end as LF. The escript oracle can run shell:start_interactive();
-  goldens mask the system version line with "stdout_masks" and add compile flags with "options".
-- LIB79A crypto (2026-10-26): OpenSSL 4.1.0 out-of-tree Configure with `no-apps` dies (apps/include missing):
-  drop no-apps, build target `build_libs` + `install_dev`. Windows Configure needs native Strawberry Perl (Git's
-  MSYS perl breaks paths); serial nmake ~4 min. Clang driver reads `ws2_32.lib` as a file: clau turns bare `.lib`
-  names into `-l`. Generated `.link`/`.openssl` files are named after the archive (`$<TARGET_FILE_PREFIX>`): clau
-  reads `<archive>.link` (libclause_runtime.link on Linux). Ubuntu's static libcrypto needs `-lz -lzstd` (read
-  from libcrypto.pc Libs.private; no pkg-config in WSL); libcrypto in lib/x86_64-linux-gnu. Clause has no frame
-  for a failing builtin, so `?nif_call` passes the builtin's args to error/3 explicitly. `maybe` is a reserved
-  word in OTP 29 fixtures. Library apps with a `<dir>/<dir>.app` (crypto) count as resources beside their modules.
-- LIB79B ciphers (2026-10-26): host OTP 29.1.1's OpenSSL 3.5.5 has no legacy provider (no des_cbc, blowfish, rc4,
-  rc2): goldens use default-provider ciphers only. OTP's crypto on_load loads the crypto app (rand_cache_size 896
-  from crypto.app); Clause loads it in rand_cache_size(). enif_snprintf %T prints like ~p on one line (strings):
-  io_lib::pretty_print with line_length 0. One ?nif_call per function clause (its catch variables are unsafe
-  after the try). Compile OTP-side fixtures into a fresh scratch subdir: stray Clause rand.beam on -pa kills boot.
+- LIB74 shell (2026-10-25): a call that resolves to a C++ builtin does not pull the module's Erlang
+  source into the batch, so its other exports (erl_lint:format_error/1) are absent for dynamic calls
+  even with --keep-exports: name them statically (clause_shell_eval:format_error/2). A static M:F
+  call to a module neither in the library nor on the search path is an "unknown module" compile
+  error (c needs shell_docs to exist). A library module exporting main/1 makes entry detection
+  ambiguous (clause_shell:run/1). Python text-mode stdin on Windows sends CRLF; OTP's stdin reads a
+  CRLF line end as LF. The escript oracle can run shell:start_interactive(); goldens mask the system
+  version line with "stdout_masks" and add compile flags with "options".
+- LIB79A crypto (2026-10-26): OpenSSL 4.1.0 out-of-tree Configure with `no-apps` dies (apps/include
+  missing): drop no-apps, build target `build_libs` + `install_dev`. Windows Configure needs native
+  Strawberry Perl (Git's MSYS perl breaks paths); serial nmake ~4 min. Clang driver reads
+  `ws2_32.lib` as a file: clau turns bare `.lib` names into `-l`. Generated `.link`/`.openssl` files
+  are named after the archive (`$<TARGET_FILE_PREFIX>`): clau reads `<archive>.link`
+  (libclause_runtime.link on Linux). Ubuntu's static libcrypto needs `-lz -lzstd` (read from
+  libcrypto.pc Libs.private; no pkg-config in WSL); libcrypto in lib/x86_64-linux-gnu. Clause has no
+  frame for a failing builtin, so `?nif_call` passes the builtin's args to error/3 explicitly.
+  `maybe` is a reserved word in OTP 29 fixtures. Library apps with a `<dir>/<dir>.app` (crypto)
+  count as resources beside their modules.
+- LIB79B ciphers (2026-10-26): host OTP 29.1.1's OpenSSL 3.5.5 has no legacy provider (no des_cbc,
+  blowfish, rc4, rc2): goldens use default-provider ciphers only. OTP's crypto on_load loads the
+  crypto app (rand_cache_size 896 from crypto.app); Clause loads it in rand_cache_size().
+  enif_snprintf %T prints like ~p on one line (strings): io_lib::pretty_print with line_length 0.
+  One ?nif_call per function clause (its catch variables are unsafe after the try). Compile OTP-side
+  fixtures into a fresh scratch subdir: stray Clause rand.beam on -pa kills boot.
+- LIB79F FIPS (2026-10-26): OpenSSL Configure disables fips with no-module, so a FIPS provider is
+  always a separate module (static libcrypto still loads it: provider_core has no OPENSSL_NO_MODULE
+  check). OSSL_PROVIDER_load_ex params become the provider's config (module-mac etc.). Windows
+  LoadLibrary of a bad DLL pops a modal "Bad Image" box that blocks tests: wrap loads in
+  SetThreadErrorMode(SEM_FAILCRITICALERRORS). Python subprocess on Windows resolves argv[0] with the
+  parent's PATH, not env=: shutil.which(name, path=env PATH). `after` is reserved.

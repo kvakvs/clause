@@ -29,7 +29,18 @@
     rand_uniform/2,
     rand_seed/1,
     mod_exp/4,
-    exor/2
+    exor/2,
+    cipher_info/1,
+    crypto_init/4,
+    crypto_update/2,
+    crypto_final/1,
+    crypto_get_data/1,
+    crypto_one_time/5,
+    aead_cipher/7,
+    aead_cipher_init/4,
+    aead_cipher/4,
+    info_fips/0,
+    enable_fips_mode/1
 ]).
 
 hash_algorithms() -> clause_builtin_placeholder.
@@ -59,3 +70,14 @@ rand_uniform(_, _) -> clause_builtin_placeholder.
 rand_seed(_) -> clause_builtin_placeholder.
 mod_exp(_, _, _, _) -> clause_builtin_placeholder.
 exor(_, _) -> clause_builtin_placeholder.
+cipher_info(_) -> clause_builtin_placeholder.
+crypto_init(_, _, _, _) -> clause_builtin_placeholder.
+crypto_update(_, _) -> clause_builtin_placeholder.
+crypto_final(_) -> clause_builtin_placeholder.
+crypto_get_data(_) -> clause_builtin_placeholder.
+crypto_one_time(_, _, _, _, _) -> clause_builtin_placeholder.
+aead_cipher(_, _, _, _, _, _, _) -> clause_builtin_placeholder.
+aead_cipher_init(_, _, _, _) -> clause_builtin_placeholder.
+aead_cipher(_, _, _, _) -> clause_builtin_placeholder.
+info_fips() -> clause_builtin_placeholder.
+enable_fips_mode(_) -> clause_builtin_placeholder.

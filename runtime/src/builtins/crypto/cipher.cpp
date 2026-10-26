@@ -145,7 +145,10 @@ const Cipher &plain_cipher(ProcessContext &context, const Term &type, std::size_
     if (cipher->kind != CipherKind::plain) {
         reject(context, Fault::badarg, {0, "Missing arguments for this cipher"});
     }
-    if (!cipher->cipher) {
+    if (forbidden_in_fips(*cipher)) {
+        reject(context, Fault::notsup, {0, "Forbidden in FIPS"});
+    }
+    if (!active(*cipher)) {
         reject(context, Fault::notsup, {0, "Cipher not supported in this libcrypto version"});
     }
     return *cipher;
@@ -156,7 +159,7 @@ std::vector<std::byte> iv_of(ProcessContext &context, const Cipher &cipher, cons
     if (is_atom_named(iv, "undefined")) {
         reject(context, Fault::notsup, {-1, "Dynamic IV is not supported since OTP 27.0"});
     }
-    const auto length = static_cast<std::size_t>(EVP_CIPHER_get_iv_length(cipher.cipher));
+    const auto length = static_cast<std::size_t>(EVP_CIPHER_get_iv_length(active(cipher)));
     if (length == 0) {
         return {};
     }
@@ -192,13 +195,13 @@ CipherContext started(ProcessContext &context, const Cipher &cipher, const Keyin
     if (!cipher_context) {
         reject(context, Fault::error, {-1, "Can't allocate context"});
     }
-    if (EVP_CipherInit_ex(cipher_context.get(), cipher.cipher, nullptr, nullptr, nullptr, encrypt) != 1) {
+    if (EVP_CipherInit_ex(cipher_context.get(), active(cipher), nullptr, nullptr, nullptr, encrypt) != 1) {
         reject(context, Fault::error, {-1, "Can't initialize context, step 1"});
     }
     if (EVP_CIPHER_CTX_set_key_length(cipher_context.get(), static_cast<int>(key.size())) != 1) {
         reject(context, Fault::error, {1, "Can't initialize context, key_length"});
     }
-    if (EVP_CIPHER_get_type(cipher.cipher) == NID_rc2_cbc) {
+    if (EVP_CIPHER_get_type(active(cipher)) == NID_rc2_cbc) {
         set_rc2_key_bits(context, cipher_context.get(), key.size());
     }
     const auto *iv_address = iv.empty() ? nullptr : bytes_address(iv);
@@ -362,7 +365,7 @@ TermResult<Term> cipher_info(ProcessContext &context, const Term &type) {
     if (!found) {
         bad_argument();
     }
-    const auto *cipher = found->cipher;
+    const auto *cipher = active(*found);
     if (!cipher) {
         raise_notsup(context);
     }

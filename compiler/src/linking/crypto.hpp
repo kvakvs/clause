@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-// Linking the crypto runtime archive (plan 21 step LIB79, docs/compile.md#openssl): clause_runtime_crypto beside the
+// Linking the crypto runtime archive (plan 21 step LIB79, docs/crypto.md): clause_runtime_crypto beside the
 // runtime archive, then OpenSSL's libcrypto and its system libraries.
 namespace clause::linking {
 struct CryptoLink {
@@ -13,6 +13,9 @@ struct CryptoLink {
     std::optional<std::filesystem::path> openssl;
     // Where a source tree is configured and built once (the build cache).
     std::filesystem::path cache;
+    // A user-supplied FIPS provider the program is pinned to (--fips=PATH): copied beside the executable. Added for
+    // crypto's FIPS mode (plan 21 step LIB79F).
+    std::optional<std::filesystem::path> fips = std::nullopt;
 };
 
 // The crypto archive's linker inputs: the archive, which goes before the runtime archive, and libcrypto with its

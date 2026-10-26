@@ -36,8 +36,10 @@ llvm::Constant *extensions(llvm::Module &output, const StartupRequest &request) 
     if (!request.crypto) {
         return llvm::ConstantPointerNull::get(ptr);
     }
-    auto entry = output.getOrInsertFunction(services::symbol<services::CryptoExtension>(output.getTargetTriple()),
-                                            llvm::FunctionType::get(ptr, false));
+    const auto &triple = output.getTargetTriple();
+    const auto name = request.crypto_fips ? services::symbol<services::CryptoFipsExtension>(triple)
+                                          : services::symbol<services::CryptoExtension>(triple);
+    auto entry = output.getOrInsertFunction(name, llvm::FunctionType::get(ptr, false));
     auto *array =
         llvm::ConstantArray::get(llvm::ArrayType::get(ptr, 1), {llvm::cast<llvm::Constant>(entry.getCallee())});
     return new llvm::GlobalVariable(output, array->getType(), true, llvm::GlobalValue::PrivateLinkage, array,

@@ -187,12 +187,11 @@ info_lib() -> clause_crypto:info_lib().
 
 info() -> (clause_crypto:info())#{otp_crypto_version => version()}.
 
-%% Clause's libcrypto has no FIPS provider.
-info_fips() -> not_supported.
+%% FIPS mode over the linked OpenSSL's FIPS provider (not_supported without one); a program built with clau --fips
+%% stays in FIPS mode.
+info_fips() -> clause_crypto:info_fips().
 
-enable_fips_mode(true) -> false;
-enable_fips_mode(false) -> true;
-enable_fips_mode(_) -> erlang:error(badarg).
+enable_fips_mode(Enable) -> clause_crypto:enable_fips_mode(Enable).
 
 hash_info(Type) -> clause_crypto:hash_info(Type).
 

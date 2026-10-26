@@ -1,5 +1,6 @@
-# OpenSSL's libcrypto for the runtime's crypto archive (plan 21 step LIB79, docs/compile.md#openssl). The crypto
-# builtins use only API present since OpenSSL 3.4, so any libcrypto of at least that version links with them.
+# OpenSSL's libcrypto for the runtime's crypto archive (plan 21 step LIB79, docs/crypto.md). The crypto
+# builtins use only API present since OpenSSL 3.1.2 (the latest FIPS-validated provider release), so any libcrypto
+# of at least that version links with them.
 # Resolution order: CLAUSE_OPENSSL_ROOT (an installed prefix or a source tree), an installed OpenSSL
 # (CLAUSE_OPENSSL_SYSTEM), then the pinned release downloaded into thirdparty/ and built once per architecture and
 # CRT. clause_add_openssl(target) gives `target` the headers and libcrypto, and records what clau must add to link an
@@ -10,7 +11,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/ThirdPartyDependencies.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/WindowsDependencyBuild.cmake")
 
 set(CLAUSE_OPENSSL_VERSION 4.1.0)
-set(CLAUSE_OPENSSL_MINIMUM 3.4)
+set(CLAUSE_OPENSSL_MINIMUM 3.1.2 CACHE INTERNAL "Oldest OpenSSL the crypto archive links with" FORCE)
 set(CLAUSE_OPENSSL_ROOT "" CACHE PATH "OpenSSL >= ${CLAUSE_OPENSSL_MINIMUM} installation prefix or source tree; takes precedence over installed and downloaded copies")
 set(clause_openssl_system_default ON)
 if(WIN32)
@@ -18,6 +19,19 @@ if(WIN32)
 endif()
 option(CLAUSE_OPENSSL_SYSTEM "Use an installed OpenSSL >= ${CLAUSE_OPENSSL_MINIMUM} when CLAUSE_OPENSSL_ROOT is not set" ${clause_openssl_system_default})
 option(CLAUSE_DOWNLOAD_OPENSSL "Download and build OpenSSL ${CLAUSE_OPENSSL_VERSION} into thirdparty when no other copy is found" ON)
+# The oldest supported release, whose FIPS provider is the latest validated one: the full test suite links the crypto
+# goldens with its libcrypto and loads its FIPS provider into the pinned libcrypto (plan 21 step LIB79F).
+set(CLAUSE_OPENSSL_MINIMUM_SHA256 a0ce69b8b97ea6a35b96875235aa453b966ba3cba8af2de23657d8b6767d6539 CACHE INTERNAL "SHA-256 of its source archive" FORCE)
+option(CLAUSE_TEST_OPENSSL_MINIMUM "Download OpenSSL ${CLAUSE_OPENSSL_MINIMUM} source for the full crypto tests" ON)
+
+# The source tree of the minimum release in thirdparty/, downloaded once (only extracted: tests build it).
+function(clause_openssl_minimum_source output)
+    clause_download_dependency(openssl-${CLAUSE_OPENSSL_MINIMUM}
+        "https://github.com/openssl/openssl/releases/download/openssl-${CLAUSE_OPENSSL_MINIMUM}/openssl-${CLAUSE_OPENSSL_MINIMUM}.tar.gz"
+        "${CLAUSE_OPENSSL_MINIMUM_SHA256}" "Configure" source)
+    set(${output} "${source}" PARENT_SCOPE)
+endfunction()
+
 # Configure options of every source build: a static libcrypto with the legacy provider built in, as OTP loads it.
 set(CLAUSE_OPENSSL_OPTIONS no-shared no-module no-tests no-docs no-makedepend enable-ec_explicit_curves)
 
@@ -118,11 +132,32 @@ function(clause_openssl_crt_arguments crt output)
     set(${output} "${arguments}" PARENT_SCOPE)
 endfunction()
 
+# The Configure options of `options` the source tree knows: enable-X and no-X are kept when X is in one of its
+# Configure's `my @disablables... = (...);` lists (older trees lack later options, such as 3.1's no-docs,
+# enable-ec_explicit_curves, which it always has, and enable-static-vcruntime, whose /MT its static builds already
+# use). Added for the OpenSSL 3.1.2 minimum.
+function(clause_openssl_known_options source options output)
+    file(READ "${source}/Configure" configure)
+    string(REGEX MATCHALL "my @disablables[a-z_]* = (qw)?\\([^;]*\\);" lists "${configure}")
+    string(JOIN " " features ${lists})
+    string(REGEX REPLACE "#[^\n]*" "" features " ${features} ")
+    set(known)
+    foreach(option IN LISTS options)
+        string(REGEX REPLACE "^(enable-|no-)" "" name "${option}")
+        string(REGEX MATCH "[^A-Za-z0-9_-]${name}[^A-Za-z0-9_-]" found "${features}")
+        if(name STREQUAL option OR found)
+            list(APPEND known "${option}")
+        endif()
+    endforeach()
+    set(${output} "${known}" PARENT_SCOPE)
+endfunction()
+
 # Configure, build and install the libraries of one source tree into `prefix`; also writes prefix/ex_libs.txt with
 # the system libraries libcrypto needs (the makefile's CNF_EX_LIBS and EX_LIBS).
 function(clause_openssl_build source prefix work crt)
     clause_openssl_target(target arguments)
     clause_openssl_crt_arguments("${crt}" crt_arguments)
+    clause_openssl_known_options("${source}" "${CLAUSE_OPENSSL_OPTIONS};${crt_arguments}" options)
     set(path "$ENV{PATH}")
     if(WIN32)
         clause_openssl_windows_tools(tools)
@@ -145,11 +180,15 @@ function(clause_openssl_build source prefix work crt)
     file(MAKE_DIRECTORY "${work}")
     set(environment "${CMAKE_COMMAND}" -E env "PATH=${path}" "CC=${CMAKE_C_COMPILER}")
     message(STATUS "Building OpenSSL from ${source} (CRT ${crt}) in ${work}")
-    execute_process(COMMAND ${environment} "${perl}" "${source}/Configure" ${target} ${CLAUSE_OPENSSL_OPTIONS}
-            ${arguments} ${crt_arguments} "--prefix=${prefix}" "--openssldir=${prefix}/ssl" --libdir=lib
+    execute_process(COMMAND ${environment} "${perl}" "${source}/Configure" ${target} ${options}
+            ${arguments} "--prefix=${prefix}" "--openssldir=${prefix}/ssl" --libdir=lib
         WORKING_DIRECTORY "${work}" OUTPUT_QUIET COMMAND_ERROR_IS_FATAL ANY)
     execute_process(COMMAND ${environment} ${make} build_libs WORKING_DIRECTORY "${work}"
         OUTPUT_FILE "${work}/build.log" ERROR_FILE "${work}/build.log" COMMAND_ERROR_IS_FATAL ANY)
+    # OpenSSL 3.x's Windows install_dev of a static build copies ossl_static.pdb, which clang-cl's /Z7 never writes.
+    if(WIN32 AND NOT EXISTS "${work}/ossl_static.pdb")
+        file(TOUCH "${work}/ossl_static.pdb")
+    endif()
     execute_process(COMMAND ${environment} ${make} install_dev WORKING_DIRECTORY "${work}"
         OUTPUT_FILE "${work}/install.log" COMMAND_ERROR_IS_FATAL ANY)
     file(STRINGS "${work}/makefile" lines REGEX "^(CNF_)?EX_LIBS *=")
@@ -298,7 +337,7 @@ function(clause_resolve_openssl prefixes_output source_output)
     endif()
     if(NOT source)
         if(NOT CLAUSE_DOWNLOAD_OPENSSL)
-            message(FATAL_ERROR "OpenSSL >= ${CLAUSE_OPENSSL_MINIMUM} is required for the crypto runtime: set CLAUSE_OPENSSL_ROOT, install it, enable CLAUSE_DOWNLOAD_OPENSSL or disable CLAUSE_RUNTIME_CRYPTO (docs/compile.md#openssl).")
+            message(FATAL_ERROR "OpenSSL >= ${CLAUSE_OPENSSL_MINIMUM} is required for the crypto runtime: set CLAUSE_OPENSSL_ROOT, install it, enable CLAUSE_DOWNLOAD_OPENSSL or disable CLAUSE_RUNTIME_CRYPTO (docs/crypto.md).")
         endif()
         clause_download_dependency(openssl-${CLAUSE_OPENSSL_VERSION}
             "https://github.com/openssl/openssl/releases/download/openssl-${CLAUSE_OPENSSL_VERSION}/openssl-${CLAUSE_OPENSSL_VERSION}.tar.gz"

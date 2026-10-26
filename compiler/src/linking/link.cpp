@@ -1,8 +1,10 @@
 #include "link.hpp"
 #include "../artifacts/paths.hpp"
 #include "../project/paths.hpp"
+#include "fips.hpp"
 #include "toolchain.hpp"
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <iterator>
 #include <llvm/ADT/SmallString.h>
@@ -180,8 +182,40 @@ LinkTools resolve_link_tools(const LinkRequest &request) {
     return {executable_path(request), linker_or_empty(request.linker), runtime_library_path(request.runtime_library)};
 }
 
+namespace {
+// The FIPS provider a pinned program copies beside it, found before linking so a missing one fails the build.
+// Added for crypto's FIPS mode (plan 21 step LIB79F).
+std::optional<FipsProvider> pinned_provider(const LinkRequest &request) {
+    if (!request.crypto || !request.crypto->fips) {
+        return std::nullopt;
+    }
+    const auto root = project::absolute_path(std::filesystem::current_path(), *request.crypto->fips);
+    return find_fips_provider(root, request.target_triple);
+}
+
+// Copy a pinned program's FIPS provider into the staging directory; the copies and their destinations.
+std::vector<std::pair<std::filesystem::path, std::filesystem::path>> stage_provider(const StagingDirectory &staging,
+                                                                                    const FipsProvider &provider,
+                                                                                    const std::filesystem::path &output,
+                                                                                    const std::string &target_triple) {
+    const std::array files{std::pair{provider.module, fips_module_name(target_triple)},
+                           std::pair{provider.config, std::string(FIPS_CONFIG_NAME)}};
+    std::vector<std::pair<std::filesystem::path, std::filesystem::path>> companions;
+    for (const auto &[source, name] : files) {
+        const auto staged = staging.path() / name;
+        std::error_code error;
+        if (!std::filesystem::copy_file(source, staged, std::filesystem::copy_options::overwrite_existing, error)) {
+            throw std::runtime_error("--fips: cannot copy " + project::path_text(source) + ": " + error.message());
+        }
+        companions.emplace_back(staged, output.parent_path() / name);
+    }
+    return companions;
+}
+} // namespace
+
 StagedExecutable stage_executable(const LinkRequest &request) {
     const auto output = executable_path(request);
+    const auto provider = pinned_provider(request);
     if (request.create_directory) {
         create_output_directory(output.parent_path());
     }
@@ -205,12 +239,15 @@ StagedExecutable stage_executable(const LinkRequest &request) {
     if (pdb && !std::filesystem::is_regular_file(symbols, error)) {
         throw std::runtime_error("linking " + project::path_text(output) + " produced no PDB");
     }
+    auto companions = provider ? stage_provider(staging, *provider, output, request.target_triple)
+                               : std::vector<std::pair<std::filesystem::path, std::filesystem::path>>{};
     return {std::move(staging),
             std::move(staged),
             output,
             {request.protected_inputs.begin(), request.protected_inputs.end()},
             std::move(run.output),
-            pdb ? std::move(symbols) : std::filesystem::path{}};
+            pdb ? std::move(symbols) : std::filesystem::path{},
+            std::move(companions)};
 }
 
 void publish_executable(const StagedExecutable &executable) {
@@ -220,6 +257,10 @@ void publish_executable(const StagedExecutable &executable) {
         const auto symbols = std::filesystem::path(executable.output).replace_extension(".pdb");
         check_destination(symbols, executable.protected_inputs);
         artifacts::detail::replace(executable.symbols, symbols);
+    }
+    for (const auto &[staged, destination] : executable.companions) {
+        check_destination(destination, executable.protected_inputs);
+        artifacts::detail::replace(staged, destination);
     }
 }
 

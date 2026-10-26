@@ -3,7 +3,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/Pcre2Dependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/ZlibDependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/ZstdDependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/OpenSSLDependencies.cmake)
-option(CLAUSE_RUNTIME_CRYPTO "Build the crypto runtime archive over OpenSSL (plan 21 step LIB79, docs/compile.md#openssl)" ON)
+option(CLAUSE_RUNTIME_CRYPTO "Build the crypto runtime archive over OpenSSL (plan 21 step LIB79, docs/crypto.md)" ON)
 
 add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/terms/bit_factory.cpp src/terms/bit_access.cpp src/terms/word_order.cpp src/terms/bit_float.cpp src/terms/bit_numeric.cpp src/terms/bit_utf.cpp src/terms/bit_services.cpp
@@ -214,7 +214,7 @@ if(CLAUSE_RUNTIME_CRYPTO)
     add_library(clause_runtime_crypto STATIC src/builtins/crypto/extension.cpp src/builtins/crypto/errors.cpp
         src/builtins/crypto/algorithms.cpp src/builtins/crypto/hash.cpp src/builtins/crypto/mac.cpp
         src/builtins/crypto/random.cpp src/builtins/crypto/numbers.cpp src/builtins/crypto/cipher.cpp
-        src/builtins/crypto/aead.cpp)
+        src/builtins/crypto/aead.cpp src/builtins/crypto/fips.cpp)
     set_target_properties(clause_runtime_crypto PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
         EXPORT_NAME crypto)
     clause_project_options(clause_runtime_crypto)

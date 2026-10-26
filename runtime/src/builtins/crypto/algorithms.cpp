@@ -260,19 +260,26 @@ bool binary_curves() {
     return group != nullptr;
 }
 
-// Load the providers as OTP does (default, base, and legacy when present), then fetch every digest, cipher and MAC.
+// The property query of the FIPS provider's implementations (added for crypto's FIPS mode, LIB79F).
+constexpr const char *FIPS_QUERY = "fips=yes";
+
+// Load the providers as OTP does, then fetch every digest, cipher and MAC, and again from the FIPS provider.
 void fetch_algorithms() {
-    OSSL_PROVIDER_load(nullptr, "default");
-    OSSL_PROVIDER_load(nullptr, "base");
-    OSSL_PROVIDER_load(nullptr, "legacy");
+    load_providers();
     for (auto &digest : DIGESTS) {
-        digest.md = EVP_MD_fetch(nullptr, std::string(digest.fetch).c_str(), "");
+        const std::string name(digest.fetch);
+        digest.md = EVP_MD_fetch(nullptr, name.c_str(), "");
+        digest.fips_md = EVP_MD_fetch(nullptr, name.c_str(), FIPS_QUERY);
     }
     for (auto &cipher : CIPHERS) {
-        cipher.cipher = EVP_CIPHER_fetch(nullptr, std::string(cipher.fetch).c_str(), "");
+        const std::string name(cipher.fetch);
+        cipher.cipher = EVP_CIPHER_fetch(nullptr, name.c_str(), "");
+        cipher.fips_cipher = EVP_CIPHER_fetch(nullptr, name.c_str(), FIPS_QUERY);
     }
     for (auto &mac : MACS) {
-        mac.mac = EVP_MAC_fetch(nullptr, std::string(mac.fetch).c_str(), nullptr);
+        const std::string name(mac.fetch);
+        mac.mac = EVP_MAC_fetch(nullptr, name.c_str(), nullptr);
+        mac.fips_mac = EVP_MAC_fetch(nullptr, name.c_str(), FIPS_QUERY);
     }
     // ERR_clear_error: failed fetches leave entries in the thread's error queue.
     ERR_clear_error();
@@ -299,19 +306,26 @@ std::vector<std::string_view> probe_curves() {
     return found;
 }
 
-// The OTP names of the usable curves, probed on the first query: the named ones, then Edwards and Montgomery.
-const std::vector<std::string_view> &usable_curves() {
-    static const std::vector<std::string_view> names = [] {
-        probe();
-        auto found = probe_curves();
-        for (const auto &curve : EDWARDS_CURVES) {
-            if (has_key_type(curve.fetch)) {
-                found.push_back(curve.name);
-            }
+// The OTP names of the usable curves: the named ones, then Edwards and Montgomery (not in FIPS mode, as OTP).
+std::vector<std::string_view> curves_of_mode(bool fips) {
+    auto found = probe_curves();
+    for (const auto &curve : EDWARDS_CURVES) {
+        if (!fips && has_key_type(curve.fetch)) {
+            found.push_back(curve.name);
         }
-        ERR_clear_error();
-        return found;
-    }();
+    }
+    ERR_clear_error();
+    return found;
+}
+
+// The usable curves of the current mode, probed on the first query in that mode (each takes key generations).
+const std::vector<std::string_view> &usable_curves() {
+    probe();
+    if (fips_enabled()) {
+        static const auto fips_names = curves_of_mode(true);
+        return fips_names;
+    }
+    static const auto names = curves_of_mode(false);
     return names;
 }
 
@@ -330,7 +344,7 @@ TermResult<Term> hash_algorithms(ProcessContext &context) {
     probe();
     std::vector<std::string_view> names;
     for (auto digest = DIGESTS.rbegin(); digest != DIGESTS.rend(); ++digest) {
-        if (digest->md) {
+        if (active(*digest)) {
             names.push_back(digest->name);
         }
     }
@@ -342,7 +356,7 @@ TermResult<Term> cipher_algorithms(ProcessContext &context) {
     probe();
     std::vector<std::string_view> names;
     for (const auto &cipher : CIPHERS) {
-        if (cipher.cipher) {
+        if (active(cipher)) {
             names.push_back(cipher.name);
         }
     }
@@ -354,15 +368,23 @@ TermResult<Term> mac_algorithms(ProcessContext &context) {
     probe();
     std::vector<std::string_view> names;
     for (auto mac = MACS.rbegin(); mac != MACS.rend(); ++mac) {
-        if (mac->mac) {
+        if (active(*mac)) {
             names.push_back(mac->name);
         }
     }
     return atom_list(context, names);
 }
 
-// Whether one classic public key algorithm is available.
-bool classic_available(const KeyType &key) { return key.name == "ec_gf2m" ? binary_curves() : has_key_type(key.fetch); }
+// The classic algorithms OTP leaves out in FIPS mode: those of the Edwards curves, and SRP.
+bool fips_excluded(const KeyType &key) { return key.name == "eddsa" || key.name == "eddh" || key.name == "srp"; }
+
+// Whether one classic public key algorithm is available in the current mode.
+bool classic_available(const KeyType &key) {
+    if (fips_enabled() && fips_excluded(key)) {
+        return false;
+    }
+    return key.name == "ec_gf2m" ? binary_curves() : has_key_type(key.fetch);
+}
 
 // pubkey_algorithms(): the post-quantum signature algorithms in reverse table order, then the classic ones.
 TermResult<Term> pubkey_algorithms(ProcessContext &context) {
@@ -411,9 +433,21 @@ TermResult<Term> info_lib(ProcessContext &context) {
     return factory.list(entry);
 }
 
-// info(): the map of OTP's info_nif; crypto.erl adds otp_crypto_version. Clause links libcrypto statically.
+// The build information of the loaded FIPS provider, as OTP reports it.
+std::string fips_build_info() {
+    char *build_info = nullptr;
+    std::array request{OSSL_PARAM_construct_utf8_ptr("buildinfo", &build_info, 0), OSSL_PARAM_construct_end()};
+    if (OSSL_PROVIDER_get_params(fips_provider(), request.data()) != 1 || !build_info) {
+        return "Not available";
+    }
+    return build_info;
+}
+
+// info(): the map of OTP's info_nif, with fips_provider_buildinfo when a FIPS provider is loaded; crypto.erl adds
+// otp_crypto_version. Clause links libcrypto statically.
 TermResult<Term> info(ProcessContext &context) {
-    const std::array<std::pair<AtomName, Term>, 5> entries{
+    probe();
+    std::vector<std::pair<AtomName, Term>> entries{
         std::pair<AtomName, Term>{"compile_type"_atom, atom(context, "normal"_atom)},
         std::pair<AtomName, Term>{"link_type"_atom, atom(context, "static"_atom)},
         std::pair<AtomName, Term>{"cryptolib_version_compiled"_atom, need(string_term(context, OPENSSL_VERSION_TEXT))},
@@ -422,6 +456,9 @@ TermResult<Term> info(ProcessContext &context) {
         std::pair<AtomName, Term>{
             "fips_provider_available"_atom,
             atom(context, OSSL_PROVIDER_available(nullptr, "fips") ? "true"_atom : "false"_atom)}};
+    if (fips_provider()) {
+        entries.emplace_back("fips_provider_buildinfo"_atom, need(string_term(context, fips_build_info())));
+    }
     return atom_map(context, entries);
 }
 
@@ -431,14 +468,15 @@ TermResult<Term> hash_info(ProcessContext &context, const AtomArgument &type) {
     if (!digest) {
         bad_argument();
     }
-    if (!digest->md) {
+    const auto *md = active(*digest);
+    if (!md) {
         raise_notsup(context);
     }
     TermFactory factory(context);
     const std::array<std::pair<AtomName, Term>, 3> entries{
-        std::pair<AtomName, Term>{"type"_atom, need(factory.integer(EVP_MD_get_type(digest->md)))},
-        std::pair<AtomName, Term>{"size"_atom, need(factory.integer(EVP_MD_get_size(digest->md)))},
-        std::pair<AtomName, Term>{"block_size"_atom, need(factory.integer(EVP_MD_get_block_size(digest->md)))}};
+        std::pair<AtomName, Term>{"type"_atom, need(factory.integer(EVP_MD_get_type(md)))},
+        std::pair<AtomName, Term>{"size"_atom, need(factory.integer(EVP_MD_get_size(md)))},
+        std::pair<AtomName, Term>{"block_size"_atom, need(factory.integer(EVP_MD_get_block_size(md)))}};
     return atom_map(context, entries);
 }
 
@@ -495,6 +533,8 @@ const Mac *find_mac(std::string_view name, std::size_t key_length) {
 bool known_mac(std::string_view name) {
     return std::ranges::any_of(MACS, [name](const Mac &mac) { return mac.name == name; });
 }
+
+void ensure_probed() { probe(); }
 
 std::span<const BuiltinEntry> algorithm_builtins() noexcept { return ALGORITHM_BUILTINS; }
 } // namespace clause::runtime::builtins::crypto

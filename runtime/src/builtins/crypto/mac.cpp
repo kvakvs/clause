@@ -58,6 +58,9 @@ std::string hmac_digest(ProcessContext &context, const Term &subtype) {
     if (!digest) {
         reject(context, Fault::badarg, {1, "Bad digest algorithm for HMAC"});
     }
+    if (forbidden_in_fips(*digest)) {
+        reject(context, Fault::notsup, {1, "Digest algorithm for HMAC forbidden in FIPS"});
+    }
     return std::string(digest->fetch);
 }
 
@@ -69,7 +72,10 @@ std::string cmac_cipher(ProcessContext &context, const Term &subtype, std::size_
         reject(context, Fault::badarg,
                find_cipher_named(name) ? Rejection{2, "Bad key size"} : Rejection{1, "Unknown cipher"});
     }
-    if (!cipher->cipher) {
+    if (forbidden_in_fips(*cipher)) {
+        reject(context, Fault::notsup, {1, "Cipher algorithm not supported in FIPS"});
+    }
+    if (!active(*cipher)) {
         reject(context, Fault::notsup, {1, "Unsupported cipher algorithm"});
     }
     return std::string(cipher->fetch);
@@ -84,6 +90,9 @@ MacSetup setup(ProcessContext &context, const Named<struct MacType> &type, const
         reject(context, Fault::badarg,
                known_mac(name) ? Rejection{2, "Bad key length"} : Rejection{0, "Unknown mac algorithm"});
     }
+    if (forbidden_in_fips(*mac)) {
+        reject(context, Fault::notsup, {0, "MAC algorithm forbidden in FIPS"});
+    }
     if (mac->name == "hmac") {
         return {mac, OSSL_MAC_PARAM_DIGEST, hmac_digest(context, subtype.term)};
     }
@@ -95,7 +104,8 @@ MacSetup setup(ProcessContext &context, const Named<struct MacType> &type, const
 
 // A MAC context initialized with `key`; null when OpenSSL rejects the setup.
 EVP_MAC_CTX *initialized(const MacSetup &setup, std::span<const std::byte> key) {
-    auto *mac_context = setup.mac->mac ? EVP_MAC_CTX_new(setup.mac->mac) : nullptr;
+    auto *implementation = active(*setup.mac);
+    auto *mac_context = implementation ? EVP_MAC_CTX_new(implementation) : nullptr;
     std::string parameter(setup.parameter);
     auto algorithm = setup.algorithm;
     std::array params{OSSL_PARAM_construct_end(), OSSL_PARAM_construct_end()};
@@ -157,7 +167,7 @@ TermResult<Term> mac_init(ProcessContext &context, const Named<struct MacType> &
                           const Named<struct MacSubtype> &subtype, const Named<struct MacKey> &key) {
     const auto bytes = bytes_of(context, key.term, {2, "Bad key"});
     const auto prepared = setup(context, type, subtype, bytes.size());
-    if (!prepared.mac->mac) {
+    if (!active(*prepared.mac)) {
         reject(context, Fault::notsup, {0, "Unsupported mac algorithm"});
     }
     auto *mac_context = initialized(prepared, bytes);
@@ -220,7 +230,7 @@ const Digest &pbkdf2_digest(ProcessContext &context, const Term &type) {
     if (!digest) {
         reject(context, Fault::badarg, {0, "Bad digest type"});
     }
-    if (!digest->md) {
+    if (!active(*digest)) {
         reject(context, Fault::badarg, {0, "md.p is not NULL"});
     }
     if (!digest->pbkdf2) {
@@ -243,7 +253,7 @@ TermResult<Term> pbkdf2_hmac(ProcessContext &context, const Named<struct Pbkdf2D
     std::vector<std::byte> output(length);
     if (PKCS5_PBKDF2_HMAC(reinterpret_cast<const char *>(password.data()), static_cast<int>(password.size()),
                           reinterpret_cast<const unsigned char *>(salt.data()), static_cast<int>(salt.size()),
-                          static_cast<int>(iterations), digest.md, static_cast<int>(length),
+                          static_cast<int>(iterations), active(digest), static_cast<int>(length),
                           reinterpret_cast<unsigned char *>(output.data())) != 1) {
         reject(context, Fault::error, {-1, "Low-level call failed"});
     }

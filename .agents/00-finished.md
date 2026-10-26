@@ -905,6 +905,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   GCM/CCM/ChaCha20-Poly1305 one-time and init states, with OTP's checks, padding and errors; `crypto_aes` and
   `crypto_prng1` rand plugins over new `rand` builtins `exro928_*`/`seed58` (2^20 jump solved by
   `tools/rand`); `beam_lib` decrypts debug information; `crypto_ciphers` golden — `2bc4228e`
+- **LIB79F** `crypto` FIPS: switchable as OTP (`fips` provider via `OPENSSL_MODULES`/`OPENSSL_CONF`, `fips=yes`
+  fetches per table entry, OTP's "forbidden in FIPS" errors); `clau --fips=PATH` pins a program to a user-supplied
+  provider copied beside it (start hook loads it, base only, mode cannot be left). Minimum OpenSSL 3.1.2 (latest
+  FIPS-validated); validated 3.1.2 provider runs in the 4.1 libcrypto; `docs/crypto.md` — (hash pending)
 
 ## Plan 22 (from 2026-10-23)
 
