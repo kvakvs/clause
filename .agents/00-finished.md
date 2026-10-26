@@ -939,10 +939,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   leaf, CRL) identical to OTP — `3b18c228`
 - **LIB80D2** public_key path validation: `clause_public_key_path` (RFC 5280 state, extensions, name constraints,
   policy tree and mappings, verify fun events, options, path errors); `public_key_path` golden (OpenSSL chains)
-  identical to OTP — pending
+  identical to OTP — `1a5c6897`
 - **LIB80D3** public_key CRL validation: `clause_public_key_crl` (DP grouping and delta CRLs, freshness and
   update_crl, issuer and scope, reason masks, signer path via issuer_fun with cRLSign and signer revocation,
-  undetermined_details); `public_key_crls` golden (OpenSSL CRLs) identical to OTP — pending
+  undetermined_details); `public_key_crls` golden (OpenSSL CRLs) identical to OTP — `1a5c6897`
 
 ## Plan 22 (from 2026-10-23)
 
