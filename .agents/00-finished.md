@@ -961,7 +961,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `public_key_codec` golden gains a visibleString notice — `76373830`
 - **LIB80E3** public_key names in C++: `normalize_name`, `is_issuer`, `is_dir_name`, `match_name`, `match_wildcard`,
   `lower_ascii` builtins (`names.cpp`) calling string/unicode/uri_string builtins through the registry (`calls.cpp`);
-  goldens and scratch oracles (normalisation, issuer comparison, wildcards, dist point name rules) identical — `TBD`
+  goldens and scratch oracles (normalisation, issuer comparison, wildcards, dist point name rules) identical — `51dddcc9`
 
 ## Plan 22 (from 2026-10-23)
 
