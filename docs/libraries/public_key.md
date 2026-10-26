@@ -3,7 +3,8 @@
 Clause's `public_key` application (plan 21, LIB80) is built from two parts: the ASN.1 modules that encode and decode
 the PKIX and PKCS types, which clau generates from the specifications in `library/public_key/asn1/`, and the header
 `library/public_key/include/public_key.hrl`, and the `public_key` module, which has OTP 29's exports: its DER and PEM
-codec (LIB80B) and keys and signatures (LIB80C) are implemented; validation (LIB80D) still raises
+codec (LIB80B), keys and signatures (LIB80C) and the certificate, name, CRL and hostname functions (LIB80D1) are
+implemented; path, CRL and OCSP validation, test data and trust stores (LIB80D2–D6) still raise
 `{not_implemented, Name, Arity}` ([inventory](../../library/public_key/public_key.terms)).
 
 ## Specifications
@@ -95,3 +96,24 @@ OTP's quirks are kept: an ML-DSA key `generate_key/1` makes has an empty seed, w
 a DSA private key cannot verify; explicit prime-field curves fail decoding their prime. The `public_key_keys`
 golden compares deterministic signatures (RSA PKCS #1, EdDSA, certificates), encryption, agreement, types, hashes and
 group selection with OTP.
+
+## Certificates and names
+
+`clause_public_key_cert` holds what OTP's `pubkey_cert`, `pubkey_crl` and `public_key` do for certificates:
+
+- `pkix_normalize_name/1` (printable strings trimmed, inner white space runs made single, case folded; a DER name is
+  decoded first), `pkix_is_issuer/2` (a certificate's or CRL's issuer against a candidate's subject, attribute
+  values compared as terms or, for printable and UTF-8 strings, without case and extra white space),
+  `pkix_is_self_signed/1`, `pkix_issuer_id/2` (`self`: the certificate's serial number and normalised issuer;
+  `other`: its authority key identifier's, `{error, issuer_not_found}` without one), `pkix_subject_id/1`,
+  `pkix_is_fixed_dh_cert/1`.
+- `pkix_crl_issuer/1`, `pkix_crl_verify/2` (the CRL's signature over its first element, with the certificate's
+  key), `pkix_dist_point/1`, `pkix_dist_points/1` (in reverse order, as OTP), `pkix_match_dist_point/2` (the CRL's
+  issuing distribution point names against the point's, by OTP's name matching rules).
+- `pkix_verify_hostname/2,3` with the `match_fun`, `fail_callback` and `fqdn_fun` options: DNS, URI, IP (tuples or
+  strict strings) and SRV ids against the subject alternative names, then the host names taken from the reference
+  ids; `pkix_verify_hostname_match_fun(https)` adds wildcard matching of the first label.
+
+As in OTP, a certificate of an X9.42 DH key does not decode in the otp form (`{badarg, {unknown_type,
+'DHPublicKey'}}`), so `pkix_is_fixed_dh_cert/1` answers only for decoded records. The `public_key_certs` golden
+compares these functions with OTP on certificates and a CRL made with OpenSSL.

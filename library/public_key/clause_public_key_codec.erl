@@ -14,7 +14,8 @@
     pem_entry_encode/2,
     pem_entry_encode/3,
     pkix_decode_cert/2,
-    pkix_encode/3
+    pkix_encode/3,
+    transform/2
 ]).
 
 -include("include/public_key.hrl").
@@ -550,6 +551,10 @@ pkix_encode(Type, Term, otp) when Type =:= 'OTPCertificate'; Type =:= 'OTPTBSCer
     Encoded;
 pkix_encode(Type, Term, otp) ->
     pkix_encode(Type, Term, plain).
+
+%% pubkey_cert_records:transform/2: the otp form of OTP-PKIX's records, or the reverse.
+transform(Term, decode) -> decode_transform(Term);
+transform(Term, encode) -> encode_transform(Term).
 
 %% The otp form from OTP-PKIX's records: names with their values unwrapped, the public key and extensions decoded.
 decode_transform(#'OTPCertificate'{tbsCertificate = Tbs, signatureAlgorithm = Algorithm} = Cert) ->

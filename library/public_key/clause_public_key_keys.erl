@@ -12,6 +12,7 @@
     dh_gex_group_sizes/0,
     encrypt_private/3,
     encrypt_public/3,
+    first_element/1,
     generate_key/1,
     handle_trace/3,
     oid2ssh_curvename/1,
@@ -19,7 +20,9 @@
     pkix_sign/2,
     pkix_sign_types/1,
     pkix_verify/2,
+    rsa_opts/1,
     short_name_hash/1,
+    sign_algorithm_types/1,
     sign/4,
     ssh_curvename2oid/1,
     verify/5

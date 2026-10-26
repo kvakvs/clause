@@ -79,6 +79,23 @@ pem_entry_encode(Asn1Type, Entity, InfoPwd) -> clause_public_key_codec:pem_entry
 pkix_decode_cert(DerCert, Type) -> clause_public_key_codec:pkix_decode_cert(DerCert, Type).
 pkix_encode(Asn1Type, Term, Type) -> clause_public_key_codec:pkix_encode(Asn1Type, Term, Type).
 
+%% Certificates, names, CRLs and hostnames.
+pkix_normalize_name(Issuer) -> clause_public_key_cert:pkix_normalize_name(Issuer).
+pkix_is_issuer(Cert, IssuerCert) -> clause_public_key_cert:pkix_is_issuer(Cert, IssuerCert).
+pkix_is_self_signed(Cert) -> clause_public_key_cert:pkix_is_self_signed(Cert).
+pkix_is_fixed_dh_cert(Cert) -> clause_public_key_cert:pkix_is_fixed_dh_cert(Cert).
+pkix_issuer_id(Cert, IssuedBy) -> clause_public_key_cert:pkix_issuer_id(Cert, IssuedBy).
+pkix_subject_id(Cert) -> clause_public_key_cert:pkix_subject_id(Cert).
+pkix_crl_issuer(CRL) -> clause_public_key_cert:pkix_crl_issuer(CRL).
+pkix_crl_verify(CRL, Cert) -> clause_public_key_cert:pkix_crl_verify(CRL, Cert).
+pkix_dist_point(Cert) -> clause_public_key_cert:pkix_dist_point(Cert).
+pkix_dist_points(Cert) -> clause_public_key_cert:pkix_dist_points(Cert).
+pkix_match_dist_point(CRL, DistPoint) -> clause_public_key_cert:pkix_match_dist_point(CRL, DistPoint).
+pkix_verify_hostname(Cert, ReferenceIDs) -> clause_public_key_cert:pkix_verify_hostname(Cert, ReferenceIDs, []).
+pkix_verify_hostname(Cert, ReferenceIDs, Options) ->
+    clause_public_key_cert:pkix_verify_hostname(Cert, ReferenceIDs, Options).
+pkix_verify_hostname_match_fun(Protocol) -> clause_public_key_cert:pkix_verify_hostname_match_fun(Protocol).
+
 %% Keys and signatures.
 compute_key(OthersKey, MyKey) -> clause_public_key_keys:compute_key(OthersKey, MyKey).
 compute_key(OthersKey, MyKey, Params) -> clause_public_key_keys:compute_key(OthersKey, MyKey, Params).
@@ -118,22 +135,8 @@ cacerts_get() -> erlang:error({not_implemented, cacerts_get, 0}).
 cacerts_load() -> erlang:error({not_implemented, cacerts_load, 0}).
 cacerts_load(_) -> erlang:error({not_implemented, cacerts_load, 1}).
 ocsp_extensions(_) -> erlang:error({not_implemented, ocsp_extensions, 1}).
-pkix_crl_issuer(_) -> erlang:error({not_implemented, pkix_crl_issuer, 1}).
-pkix_crl_verify(_, _) -> erlang:error({not_implemented, pkix_crl_verify, 2}).
 pkix_crls_validate(_, _, _) -> erlang:error({not_implemented, pkix_crls_validate, 3}).
-pkix_dist_point(_) -> erlang:error({not_implemented, pkix_dist_point, 1}).
-pkix_dist_points(_) -> erlang:error({not_implemented, pkix_dist_points, 1}).
-pkix_is_fixed_dh_cert(_) -> erlang:error({not_implemented, pkix_is_fixed_dh_cert, 1}).
-pkix_is_issuer(_, _) -> erlang:error({not_implemented, pkix_is_issuer, 2}).
-pkix_is_self_signed(_) -> erlang:error({not_implemented, pkix_is_self_signed, 1}).
-pkix_issuer_id(_, _) -> erlang:error({not_implemented, pkix_issuer_id, 2}).
-pkix_match_dist_point(_, _) -> erlang:error({not_implemented, pkix_match_dist_point, 2}).
-pkix_normalize_name(_) -> erlang:error({not_implemented, pkix_normalize_name, 1}).
 pkix_ocsp_validate(_, _, _, _, _) -> erlang:error({not_implemented, pkix_ocsp_validate, 5}).
 pkix_path_validation(_, _, _) -> erlang:error({not_implemented, pkix_path_validation, 3}).
-pkix_subject_id(_) -> erlang:error({not_implemented, pkix_subject_id, 1}).
 pkix_test_data(_) -> erlang:error({not_implemented, pkix_test_data, 1}).
 pkix_test_root_cert(_, _) -> erlang:error({not_implemented, pkix_test_root_cert, 2}).
-pkix_verify_hostname(_, _) -> erlang:error({not_implemented, pkix_verify_hostname, 2}).
-pkix_verify_hostname(_, _, _) -> erlang:error({not_implemented, pkix_verify_hostname, 3}).
-pkix_verify_hostname_match_fun(_) -> erlang:error({not_implemented, pkix_verify_hostname_match_fun, 1}).

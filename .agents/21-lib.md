@@ -176,12 +176,25 @@ records, goldens from OTP, own headers written from the documented records and m
     - LIB80B done (B1 specs and header, B2 codec).
     - LIB80C done (keys and signatures over crypto in `clause_public_key_keys`; default DH groups
       from OpenSSH's moduli). `public_key_keys` golden.
-    - LIB80D: `pkix_path_validation/3`, CRLs (`pkix_crl_*`, `pkix_crls_validate/3`, dist points),
-      `pkix_ocsp_validate/5`, hostname checks, `pkix_is_*`, issuer/subject ids,
-      `pkix_normalize_name/1`, `pkix_test_data/1`, `pkix_test_root_cert/2`, `cacerts_*`.
+    - LIB80D (split 2026-10-26; Erlang where verify/issuer/CRL funs run or the walk is thin glue over
+      the C++ string builtins):
+      - D1 done: `pkix_normalize_name/1`, `pkix_is_issuer/2`, `pkix_is_self_signed/1`,
+        `pkix_is_fixed_dh_cert/1`, `pkix_issuer_id/2`, `pkix_subject_id/1`, `pkix_crl_issuer/1`,
+        `pkix_crl_verify/2`, `pkix_dist_point(s)/1`, `pkix_match_dist_point/2`,
+        `pkix_verify_hostname/2,3`, `pkix_verify_hostname_match_fun/1`.
+      - D2: `pkix_path_validation/3` (validation state, extensions, name constraints, policy tree,
+        `verify_fun`).
+      - D3: `pkix_crls_validate/3` (CRL and delta CRL checks, `issuer_fun`, `update_crl`).
+      - D4: `pkix_ocsp_validate/5`, `ocsp_extensions/1`.
+      - D5: `pkix_test_data/1`, `pkix_test_root_cert/2`.
+      - D6: `cacerts_get/0`, `cacerts_load/0,1`, `cacerts_clear/0` (OS trust stores, C++).
       - Docs: `public_key.md` gains validation (path, CRL, OCSP, hostname) and trust stores per
         platform; `differences.md` rows (macOS trust store, any others found); drop public_key from
-        `PARTIAL`.
+        `PARTIAL` after D6.
+    - LIB80E (after D): port public_key's pure Erlang walks to C++ builtins (memory: clause-heavy
+      library code): the codec's transforms, PEM text and PBE parameters, the `der_decode`/
+      `der_encode` dispatch, name matching and normalisation, the policy tree; Erlang keeps only fun
+      calls and crypto glue.
 - **LIB81 `ssl` (design first, after LIB80; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
   `ssl_crl_cache_api`, `ssl_session_cache_api`):** OTP implements TLS 1.0–1.3 and DTLS in Erlang
   (`gen_statem` per connection, `ssl_app` supervision tree, PEM and session caches). Decide between

@@ -933,6 +933,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   padding options, generate_key/compute_key, pkix_sign/pkix_verify with TBS bytes by a TLV split, sign/hash types,
   short_name_hash via HashRDNSequence, dh_gex_group with eight OpenSSH moduli per size, SSH curve names,
   handle_trace); `public_key_keys` golden identical to OTP — `1db190b1`
+- **LIB80D1** public_key certificate utilities: `clause_public_key_cert` (normalize_name, is_issuer/self_signed/
+  fixed_dh, issuer/subject ids, CRL issuer and signature, dist points and IDP matching with OTP's name rules,
+  hostname verification with match/fail/fqdn funs and the https wildcard fun); `public_key_certs` golden (OpenSSL CA,
+  leaf, CRL) identical to OTP — pending
 
 ## Plan 22 (from 2026-10-23)
 
