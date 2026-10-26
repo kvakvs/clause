@@ -954,7 +954,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB80E1** public_key PEM text and PBE tables in C++: `pem_decode`/`pem_entry` builtins (`pubkey_pem`'s lines,
   labels, DEK-Info, base64 lines and errors; decoding stops after an encrypted PKCS #8 entry for Erlang's
   der_decode), `pubkey_pbe`'s cipher/scheme/PBES1/PRF tables; base64 encode/mime_decode exported to builtins;
-  goldens and a scratch edge-case oracle (DEK-Info tokens, signed hex, missing END, ~s ciphers) identical to OTP — `TBD`
+  goldens and a scratch edge-case oracle (DEK-Info tokens, signed hex, missing END, ~s ciphers) identical to OTP — `c63ce619`
 
 ## Plan 22 (from 2026-10-23)
 
