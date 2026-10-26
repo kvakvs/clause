@@ -9,6 +9,7 @@ constexpr std::array PUBLIC_KEY_BUILTINS{
     typed_entry<oid_name>("clause_public_key", "oid_name"),
     typed_entry<name_oid>("clause_public_key", "name_oid"),
     typed_entry<asn1_module>("clause_public_key", "asn1_module"),
+    typed_entry<os_cacerts>("clause_public_key", "os_cacerts"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::public_key

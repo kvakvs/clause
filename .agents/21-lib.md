@@ -168,8 +168,8 @@ records, goldens from OTP, own headers written from the documented records and m
     normalization, hostname match, issuer/subject ids, dist points, hash types); Erlang glue over
     `crypto` for sign/verify/encrypt/`generate_key`/`compute_key`; Erlang for path validation, CRL
     and OCSP validation (`verify_fun` funs and state).
-  - **Trust stores:** Windows crypt32 `ROOT`/`CA` stores and Unix OTP's file list, as OTP; macOS via
-    Security.framework (not OTP's `/usr/bin/security` run: `differences.md` row if the set differs).
+  - **Trust stores:** as OTP: Windows crypt32 current user `ROOT` store (C++ builtin), Unix file lists,
+    macOS keychains through `/usr/bin/security`.
   - **Steps** (`public_key` in `library/` since LIB80B, documented functions PARTIAL in
     `library_modules.py` until LIB80D; later steps' functions keep `not_implemented` placeholders):
     - LIB80B done (B1 specs and header, B2 codec).
@@ -186,10 +186,8 @@ records, goldens from OTP, own headers written from the documented records and m
       - D3 done: `pkix_crls_validate/3` (CRL and delta CRL checks, `issuer_fun`, `update_crl`).
       - D4 done: `pkix_ocsp_validate/5`, `ocsp_extensions/1`.
       - D5 done: `pkix_test_data/1`, `pkix_test_root_cert/2`.
-      - D6: `cacerts_get/0`, `cacerts_load/0,1`, `cacerts_clear/0` (OS trust stores, C++).
-      - Docs: `public_key.md` gains validation (path, CRL, OCSP, hostname) and trust stores per
-        platform; `differences.md` rows (macOS trust store, any others found); drop public_key from
-        `PARTIAL` after D6.
+      - D6 done: `cacerts_get/0`, `cacerts_load/0,1`, `cacerts_clear/0`; public_key removed from `PARTIAL`.
+      - Docs done: `public_key.md` sections per step, the frames row of `differences.md`.
     - LIB80E (after D): port public_key's pure Erlang walks to C++ builtins (memory: clause-heavy
       library code): the codec's transforms, PEM text and PBE parameters, the `der_decode`/
       `der_encode` dispatch, name matching and normalisation, the policy tree; Erlang keeps only fun

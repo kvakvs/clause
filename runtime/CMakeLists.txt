@@ -58,6 +58,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/asn1/per_decode_constructed.cpp
     # Module clause_public_key (plan 21 step LIB80B).
     src/builtins/public_key/translate.cpp src/builtins/public_key/tables.cpp src/builtins/public_key/builtins.cpp
+    # Trust stores (plan 21 step LIB80D6).
+    src/builtins/public_key/os_cacerts.cpp
     # Module json (plan 21 step LIB5E).
     src/builtins/encoding/json.cpp src/builtins/encoding/json_encode.cpp
     # Module filename (plan 21 step LIB5G).
@@ -201,7 +203,7 @@ target_compile_definitions(clause_runtime PRIVATE BOOST_ASIO_NO_DEPRECATED)
 target_link_libraries(clause_runtime
     PUBLIC clause_multiprecision_dependency clause_abi $<$<PLATFORM_ID:Linux>:-pthread>
     $<$<PLATFORM_ID:Windows>:ws2_32> $<$<PLATFORM_ID:Windows>:mswsock> $<$<PLATFORM_ID:Windows>:advapi32>
-    $<$<PLATFORM_ID:Windows>:iphlpapi>
+    $<$<PLATFORM_ID:Windows>:iphlpapi> $<$<PLATFORM_ID:Windows>:crypt32>
 )
 
 # PCRE2 for the re builtins (plan step 41ZA): built from source into the archive itself, or an installed library

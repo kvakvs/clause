@@ -5,9 +5,8 @@ Clause's `public_key` application (plan 21, LIB80) consists of generated ASN.1 m
 modules from `library/public_key/asn1/` to encode and decode PKIX and PKCS types. The `public_key`
 module exports the OTP 29 interface. Implemented functions cover DER and PEM encoding and decoding
 (LIB80B), keys and signatures (LIB80C), certificate, name, CRL and hostname operations (LIB80D1),
-path validation (LIB80D2), CRL validation (LIB80D3), OCSP validation (LIB80D4) and test data
-(LIB80D5). Trust store functions (LIB80D6) raise `{not_implemented, Name, Arity}`. See the
-[function inventory](../../library/public_key/public_key.terms).
+path validation (LIB80D2), CRL validation (LIB80D3), OCSP validation (LIB80D4), test data
+(LIB80D5) and trust stores (LIB80D6). See the [function inventory](../../library/public_key/public_key.terms).
 
 ## Specifications
 
@@ -242,3 +241,23 @@ chains, returned as `#{server_config, client_config}` with each chain trusting t
 
 The `public_key_test_data` golden test compares the non-random components of generated
 certificates and their path validation results against OTP.
+
+## Trust stores
+
+`cacerts_load/0,1`, `cacerts_get/0` and `cacerts_clear/0`, implemented by
+`clause_public_key_cacerts`, load trusted CA certificates as OTP does and cache them as
+`#cert{}` records in a persistent term:
+
+- **Linux, BSD and Solaris:** the first of OTP's bundle files (or `.pem` directories) per system
+  that contains certificates, for example `/etc/ssl/certs/ca-certificates.crt` on Debian.
+- **macOS:** the system root and system keychains, exported by `/usr/bin/security`.
+- **Windows:** the current user's `ROOT` store, read through crypt32 by the `os_cacerts/0`
+  builtin ([public key](../builtins.md#public-key)).
+- **Files:** `cacerts_load/1` reads one PEM file or directory of `.pem` files; entries that are
+  not certificates are ignored with a warning. A missing file, or one without certificates, gives
+  `{error, enoent}`.
+
+`cacerts_get/0` loads on first use, from the `public_key` application's `cacerts_path` setting if
+present, and fails with `{failed_load_cacerts, Reason}` when nothing loads. `cacerts_clear/0`
+returns whether certificates were loaded. The `public_key_cacerts` golden test compares bundles,
+directories, `cacerts_path`, errors and whether the system store has certificates against OTP.

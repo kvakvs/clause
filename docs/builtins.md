@@ -827,6 +827,9 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   and `extension` (an extension's type); `undefined` when the table has no row, `badarg` for another table.
 - `asn1_module(Type)` names the generated module `der_decode/2` and `der_encode/2` use for a type
   (`public_key:get_asn1_module/1`), `undefined` for a type of none.
+- `os_cacerts()` (`os_cacerts.cpp`, plan 21 step LIB80D6) reads the current user's Windows `ROOT` store through
+  crypt32 as OTP's `pubkey_os_cacerts` NIF does: `[{Encoding, Der}]` in the NIF's order, `internal_error` when the
+  store does not open, `[]` on other systems, where `clause_public_key_cacerts` reads files.
 
 ## Crypto module
 

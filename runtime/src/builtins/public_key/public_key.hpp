@@ -17,4 +17,6 @@ Term translate(ProcessContext &context, const Named<DirectionRole> &direction, c
 Term oid_name(ProcessContext &context, const Named<TableRole> &table, const Named<KeyRole> &oid);
 Term name_oid(ProcessContext &context, const Named<TableRole> &table, const Named<KeyRole> &name);
 Term asn1_module(ProcessContext &context, const Named<KeyRole> &type);
+// os_cacerts(): Windows' current user ROOT certificates as [{Encoding, Der}] (public_key trust stores).
+Term os_cacerts(ProcessContext &context);
 } // namespace clause::runtime::builtins::public_key

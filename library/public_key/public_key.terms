@@ -1,9 +1,9 @@
 %% OTP 29 public_key exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
 %% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
-{cacerts_clear, 0, default, stub}.
-{cacerts_get, 0, default, stub}.
-{cacerts_load, 0, default, stub}.
-{cacerts_load, 1, default, stub}.
+{cacerts_clear, 0, trust_stores, implemented}.
+{cacerts_get, 0, trust_stores, implemented}.
+{cacerts_load, 0, trust_stores, implemented}.
+{cacerts_load, 1, trust_stores, implemented}.
 {compute_key, 2, keys, implemented}.
 {compute_key, 3, keys, implemented}.
 {decrypt_private, 2, keys, implemented}.

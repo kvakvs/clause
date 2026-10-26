@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "public_key_cacerts",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "clear false\nbundle ok [{utf8String,<<\"Other CA\">>},{utf8String,<<\"OCSP CA\">>}]\nclear true false\nmissing {error,enoent}\nempty {error,enoent}\ndirectory ok [{utf8String,<<\"OCSP CA\">>},\n              {utf8String,<<\"Other CA\">>},\n              {utf8String,<<\"leaf\">>}]\nbinary path ok [{utf8String,<<\"Other CA\">>},{utf8String,<<\"OCSP CA\">>}]\ncacerts_path [{utf8String,<<\"Other CA\">>},{utf8String,<<\"OCSP CA\">>}]\nfailed {failed_load_cacerts,enoent}\nos ok\nos certificates true\nos get true\npublic_key_cacerts: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "public_key_cacerts.erl": "37359055171e0c13c9674550df32abe4eed76cdc1acd9c8a99fd118596b0400a"
+  }
+}

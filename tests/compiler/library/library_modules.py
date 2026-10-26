@@ -39,7 +39,7 @@ OWN_FORMAT = {"erlang.terms", "modules.terms"}
 DOCUMENTED_ENTRY = re.compile(rf"^\{{({ATOM}), ([a-z_]+), ({ATOM}), (\d+)\}}\.$")
 # Provided modules whose documented functions may still be stubs, with the plan 21 step that completes each
 # (docs/libraries/library.md#documented-functions); every other provided module implements, refuses or declines them all.
-PARTIAL = {"public_key": "LIB80C and LIB80D"}
+PARTIAL: dict[str, str] = {}
 
 
 def unquote(name):

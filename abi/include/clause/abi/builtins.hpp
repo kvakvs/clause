@@ -676,6 +676,7 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_public_key", "asn1_module", 1},
     BuiltinName{"clause_public_key", "name_oid", 2},
     BuiltinName{"clause_public_key", "oid_name", 2},
+    BuiltinName{"clause_public_key", "os_cacerts", 0},
     BuiltinName{"clause_public_key", "translate", 2},
     // Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
     BuiltinName{"base64", "decode", 1},

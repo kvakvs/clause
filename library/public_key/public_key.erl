@@ -1,8 +1,8 @@
 %% Clause's replacement for OTP's public_key (docs/libraries/public_key.md, plan 21 step LIB80), written from OTP's
 %% documentation: DER and PEM coding and certificate decoding (LIB80B) are clause_public_key_codec's, over the ASN.1
 %% modules clau generates from library/public_key/asn1, keys and signatures (LIB80C) clause_public_key_keys', over
-%% crypto; certificates, validation and test data (LIB80D) clause_public_key_cert, _path, _crl, _ocsp and _test_data'.
-%% The rest raises {not_implemented, Name, Arity}.
+%% crypto; certificates, validation, test data and trust stores (LIB80D) clause_public_key_cert, _path, _crl, _ocsp,
+%% _test_data and _cacerts'.
 -module(public_key).
 -export([
     cacerts_clear/0,
@@ -143,11 +143,8 @@ verify(DigestOrPlainText, DigestType, Signature, Key) ->
 verify(DigestOrPlainText, DigestType, Signature, Key, Options) ->
     clause_public_key_keys:verify(DigestOrPlainText, DigestType, Signature, Key, Options).
 
-%%--------------------------------------------------------------------------------------------------------------------
-%% Not implemented yet (plan 21 step LIB80D)
-%%--------------------------------------------------------------------------------------------------------------------
-
-cacerts_clear() -> erlang:error({not_implemented, cacerts_clear, 0}).
-cacerts_get() -> erlang:error({not_implemented, cacerts_get, 0}).
-cacerts_load() -> erlang:error({not_implemented, cacerts_load, 0}).
-cacerts_load(_) -> erlang:error({not_implemented, cacerts_load, 1}).
+%% Trust stores.
+cacerts_clear() -> clause_public_key_cacerts:clear().
+cacerts_get() -> clause_public_key_cacerts:get().
+cacerts_load() -> clause_public_key_cacerts:load().
+cacerts_load(File) -> clause_public_key_cacerts:load([File]).
