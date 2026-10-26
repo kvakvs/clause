@@ -947,7 +947,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   name or key, issuer/designated/trusted authorisation, signature, nonce, single response times),
   `ocsp_extensions/1`; `public_key_ocsp` golden (OpenSSL responses, re-signed stale ones) identical to OTP — `20a3d8bd`
 - **LIB80D5** public_key test data: `clause_public_key_test_data` (roots, chains, server/client pairs, OTP's key,
-  digest, padding, validity and extension options); `public_key_test_data` golden (random parts hidden) — `TBD`
+  digest, padding, validity and extension options); `public_key_test_data` golden (random parts hidden) — `93b46f75`
 
 ## Plan 22 (from 2026-10-23)
 
