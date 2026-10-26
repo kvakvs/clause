@@ -958,7 +958,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB80E2** public_key otp form walk in C++: `otp_transform` builtin (`pubkey_cert_records:transform/2` below
   certificates), `extension_type` table; dispatch stays Erlang; fixed the long user notice fallback (table constraint
   exits raised raw); OTP's public_key_SUITE/pbe/PKITS PEMs and certificates identical to OTP (scratch corpus oracle),
-  `public_key_codec` golden gains a visibleString notice — `TBD`
+  `public_key_codec` golden gains a visibleString notice — `76373830`
 
 ## Plan 22 (from 2026-10-23)
 
