@@ -932,7 +932,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB80C** public_key keys and signatures: `clause_public_key_keys` over crypto (sign/verify, RSA encryption and
   padding options, generate_key/compute_key, pkix_sign/pkix_verify with TBS bytes by a TLV split, sign/hash types,
   short_name_hash via HashRDNSequence, dh_gex_group with eight OpenSSH moduli per size, SSH curve names,
-  handle_trace); `public_key_keys` golden identical to OTP — pending
+  handle_trace); `public_key_keys` golden identical to OTP — `1db190b1`
 
 ## Plan 22 (from 2026-10-23)
 
