@@ -206,7 +206,11 @@ records, goldens from OTP, own headers written from the documented records and m
         hostname verification's fun loop and `inet` address parsing stay Erlang.
       - E4 done: the policy tree walks (`policy.cpp`); the state machine, verify fun calls,
         counters and node limit stay Erlang.
-      - E5: what pure walks remain in `clause_public_key_crl`/`_ocsp` (reason masks, DP grouping).
+      - E5 done (rule 2026-10-27: port only hot inner loops with a measured win and very complex
+        recursive clusters): PBKDF1 rounds (`pbkdf1_rounds`, 2048 rounds 15.9 -> 0.84 ms in Release). CRL
+        revoked-entry loops were tried and reverted: Term API walks were 1.7-4x slower than compiled
+        Erlang matching. The `der_decode`/`der_encode` and `pkix_crls_validate` SCCs stay Erlang (generated
+        module calls, funs, throws).
 - **LIB81 `ssl` (design first, after LIB80; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
   `ssl_crl_cache_api`, `ssl_session_cache_api`):** OTP implements TLS 1.0–1.3 and DTLS in Erlang
   (`gen_statem` per connection, `ssl_app` supervision tree, PEM and session caches). Decide between

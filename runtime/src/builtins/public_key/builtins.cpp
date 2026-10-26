@@ -31,6 +31,7 @@ constexpr std::array PUBLIC_KEY_BUILTINS{
     typed_entry<policy_prune>("clause_public_key", "policy_prune"),
     typed_entry<policy_constrained>("clause_public_key", "policy_constrained"),
     typed_entry<policy_result>("clause_public_key", "policy_result"),
+    typed_entry<pbkdf1_rounds>("clause_public_key", "pbkdf1_rounds"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::public_key

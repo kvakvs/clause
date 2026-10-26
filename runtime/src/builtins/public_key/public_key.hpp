@@ -76,4 +76,9 @@ Term policy_intersection(ProcessContext &context, const Named<ValueRole> &user_s
 Term policy_prune(ProcessContext &context, const Named<TreeRole> &tree);
 Term policy_constrained(ProcessContext &context, const Named<TreeRole> &tree);
 Term policy_result(ProcessContext &context, const Named<TreeRole> &tree);
+
+// Added for public_key's PBKDF1 loop (plan 21 step LIB80E5): pbkdf1_rounds(First, Count, Digest) is the PBKDF1 output
+// after the first round; 0 when a called builtin failed.
+Word pbkdf1_rounds(ProcessContext &context, const Named<ValueRole> &first, const Named<KeyRole> &count,
+                   const Named<TableRole> &digest);
 } // namespace clause::runtime::builtins::public_key

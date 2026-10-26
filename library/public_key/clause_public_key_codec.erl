@@ -650,13 +650,8 @@ pbkdf1(_, _, 0, Acc) ->
     Acc;
 pbkdf1(Password, Salt, Count, Hash) ->
     First = crypto:hash(Hash, [Password, Salt]),
-    pbkdf1_more(First, Count - 1, First, Hash).
-
-pbkdf1_more(_, 0, Acc, _) ->
-    Acc;
-pbkdf1_more(Previous, Count, Acc, Hash) ->
-    Next = crypto:hash(Hash, Previous),
-    pbkdf1_more(Next, Count - 1, <<Next/binary, Acc/binary>>, Hash).
+    %% The first digest checked the digest type; the rounds after it are a builtin loop.
+    clause_public_key:pbkdf1_rounds(First, Count - 1, Hash).
 
 %% OpenSSL's EVP_BytesToKey with MD5 and one iteration.
 legacy_pem_key(_, _, _, 0, Acc) ->

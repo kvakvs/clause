@@ -1,6 +1,8 @@
+#include "calls.hpp"
 #include "public_key.hpp"
 #include <array>
 #include <initializer_list>
+#include <ranges>
 
 // Added for public_key's PBE tables (plan 21 step LIB80E1): pubkey_pbe's ciphers of PEM encryption, the PBES2
 // encryption schemes, the PBES1 algorithms and the PBKDF2 pseudo-random functions.
@@ -108,5 +110,28 @@ Term prf_digest(ProcessContext &context, const Named<KeyRole> &oid) {
         }
     }
     no_clause();
+}
+
+// Added for public_key's PBKDF1 loop (plan 21 step LIB80E5): pbdkdf1's rounds after the first, each digest of the
+// previous one put in front of those before it; a negative count never ends, as OTP's loop does not.
+Word pbkdf1_rounds(ProcessContext &context, const Named<ValueRole> &first, const Named<KeyRole> &count,
+                   const Named<TableRole> &digest) {
+    auto rounds = small(count.term.word());
+    if (!rounds) {
+        bad_argument();
+    }
+    return recorded_or([&] {
+        std::vector<std::vector<std::byte>> digests{need(first.term.binary_bytes())};
+        auto previous = first.term;
+        for (; *rounds != 0; --*rounds) {
+            previous = call(context, "clause_crypto", "hash", {digest.term, previous});
+            digests.push_back(need(previous.binary_bytes()));
+        }
+        std::vector<std::byte> joined;
+        for (const auto &bytes : std::views::reverse(digests)) {
+            joined.insert(joined.end(), bytes.begin(), bytes.end());
+        }
+        return asn1::Builder(context).binary(joined);
+    });
 }
 } // namespace clause::runtime::builtins::public_key

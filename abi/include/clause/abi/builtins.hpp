@@ -674,6 +674,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     // Module clause_public_key: public_key's term walks and tables (plan 21 step LIB80B;
     // runtime/src/builtins/public_key/).
     BuiltinName{"clause_public_key", "asn1_module", 1},
+    // The PBKDF1 loop (plan 21 step LIB80E5).
+    BuiltinName{"clause_public_key", "pbkdf1_rounds", 3},
     BuiltinName{"clause_public_key", "name_oid", 2},
     BuiltinName{"clause_public_key", "oid_name", 2},
     BuiltinName{"clause_public_key", "os_cacerts", 0},

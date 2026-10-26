@@ -854,6 +854,9 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   (RFC 5280 6.1.3 d, 6.1.4 b, 6.1.5 g): children and siblings for a certificate's policies and anyPolicy, policy
   mappings, the intersection with the user's policy set, pruning and the constrained node set with its qualifiers,
   in OTP's list orders. `clause_public_key_path` keeps the verify fun calls, the counters and the node limit.
+- `pbkdf1_rounds(First, Count, Digest)` (`pbe.cpp`, plan 21 step LIB80E5) runs PBKDF1's rounds after the first
+  through `clause_crypto:hash/2` (each digest in front of those before it, as `pubkey_pbe`), without the Erlang
+  loop's quadratic binary building; the first round stays `crypto:hash/2` in Erlang so a bad digest fails as there.
 - `os_cacerts()` (`os_cacerts.cpp`, plan 21 step LIB80D6) reads the current user's Windows `ROOT` store through
   crypt32 as OTP's `pubkey_os_cacerts` NIF does: `[{Encoding, Der}]` in the NIF's order, `internal_error` when the
   store does not open, `[]` on other systems, where `clause_public_key_cacerts` reads files.

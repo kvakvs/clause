@@ -499,3 +499,7 @@ recorded elsewhere.
   needs shims pubkey_cert (extensions_list/select_extension/is_issuer) and pubkey_cert_records (transform/2) and a
   minimal erl_make_certs (pem_to_der); clau rejects -compile(export_all). 211 validations, compare after any
   public_key path/CRL/name change.
+- Perf (2026-10-27, Release): a C++ builtin walking Erlang terms through the Term API (is_tuple, tuple_element,
+  head/tail, same_oid) ran 1.7-4x slower than LLVM-compiled Erlang pattern matching over the same 100k CRL entries.
+  C++ wins only on algorithmic gains (avoiding O(n^2) binary appends, native loops over bytes) or skipped Erlang
+  wrapper calls; measure in build/bench (Release) before keeping a port, never on the Debug runtime.
