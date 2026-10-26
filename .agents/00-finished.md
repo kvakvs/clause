@@ -950,7 +950,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   digest, padding, validity and extension options); `public_key_test_data` golden (random parts hidden) — `93b46f75`
 - **LIB80D6** public_key trust stores: `clause_public_key_cacerts` (OTP's file lists, macOS `/usr/bin/security`,
   persistent term, cacerts_path, error_info) and the `os_cacerts/0` builtin (Windows ROOT store via crypt32);
-  public_key no longer PARTIAL; `public_key_cacerts` golden identical to OTP — `TBD`
+  public_key no longer PARTIAL; `public_key_cacerts` golden identical to OTP — `294c4eee`
 
 ## Plan 22 (from 2026-10-23)
 
