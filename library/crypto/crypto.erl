@@ -457,24 +457,259 @@ crypto_one_time_aead(State, IV, InText, AAD) ->
     ?nif_call(clause_crypto:aead_cipher(State, IV, InText, AAD), [State, IV, InText, AAD]).
 
 %%% ---------------------------------------------------------------------------
-%%% Public keys (plan 21 step LIB79C)
+%%% Public keys (plan 21 step LIB79C): OTP's key terms are turned into binaries here and read by the builtins as
+%%% OTP's NIFs read them.
 
-sign(_, _, _, _) -> erlang:error({not_implemented, sign, 4}).
-sign(_, _, _, _, _) -> erlang:error({not_implemented, sign, 5}).
-verify(_, _, _, _, _) -> erlang:error({not_implemented, verify, 5}).
-verify(_, _, _, _, _, _) -> erlang:error({not_implemented, verify, 6}).
-public_encrypt(_, _, _, _) -> erlang:error({not_implemented, public_encrypt, 4}).
-private_decrypt(_, _, _, _) -> erlang:error({not_implemented, private_decrypt, 4}).
-private_encrypt(_, _, _, _) -> erlang:error({not_implemented, private_encrypt, 4}).
-public_decrypt(_, _, _, _) -> erlang:error({not_implemented, public_decrypt, 4}).
-generate_key(_, _) -> erlang:error({not_implemented, generate_key, 2}).
-generate_key(_, _, _) -> erlang:error({not_implemented, generate_key, 3}).
-compute_key(_, _, _, _) -> erlang:error({not_implemented, compute_key, 4}).
-encapsulate_key(_, _) -> erlang:error({not_implemented, encapsulate_key, 2}).
-decapsulate_key(_, _, _) -> erlang:error({not_implemented, decapsulate_key, 3}).
-privkey_to_pubkey(_, _) -> erlang:error({not_implemented, privkey_to_pubkey, 2}).
-ec_curves() -> erlang:error({not_implemented, ec_curves, 0}).
-ec_curve(_) -> erlang:error({not_implemented, ec_curve, 1}).
+sign(Algorithm, Type, Data, Key) -> sign(Algorithm, Type, Data, Key, []).
+
+sign(Algorithm0, Type0, Data, Key0, Options) ->
+    {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
+    Key = format_pkey(Algorithm, Key0),
+    ?nif_call(clause_crypto:pkey_sign(Algorithm, Type, Data, Key, Options), [Algorithm0, Type0, Data, Key0, Options]).
+
+verify(Algorithm, Type, Data, Signature, Key) -> verify(Algorithm, Type, Data, Signature, Key, []).
+
+verify(Algorithm0, Type0, Data, Signature, Key, Options) ->
+    {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
+    ?nif_call(
+        clause_crypto:pkey_verify(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options),
+        [Algorithm0, Type0, Data, Signature, Key, Options]
+    ).
+
+sign_verify_compatibility(dss, none, Digest) -> {sha, {digest, Digest}};
+sign_verify_compatibility(Algorithm0, Type0, _Digest) -> {Algorithm0, Type0}.
+
+public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
+    pkey_crypt(Algorithm, PlainText, PublicKey, Options, false, true).
+
+private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
+    pkey_crypt(Algorithm, CipherText, PrivateKey, Options, true, false).
+
+private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
+    pkey_crypt(Algorithm, PlainText, PrivateKey, Options, true, true).
+
+public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
+    pkey_crypt(Algorithm, CipherText, PublicKey, Options, false, false).
+
+pkey_crypt(rsa, Text, Key, Padding, PubPriv, EncDec) when is_atom(Padding) ->
+    pkey_crypt(rsa, Text, Key, [{rsa_padding, Padding}], PubPriv, EncDec);
+pkey_crypt(Alg, Text, Key0, Options, PubPriv, EncDec) ->
+    Key = format_pkey(Alg, Key0),
+    ?nif_call(
+        clause_crypto:pkey_crypt(Alg, Text, Key, Options, PubPriv, EncDec), [Alg, Text, Key, Options, PubPriv, EncDec]
+    ).
+
+generate_key(Type, Params) -> generate_key(Type, Params, undefined).
+
+generate_key(dh, DHParameters0, PrivateKey) ->
+    {DHParameters, Len} =
+        case DHParameters0 of
+            [P, G, L] -> {[P, G], L};
+            [P, G] -> {[P, G], 0}
+        end,
+    ?nif_call(
+        clause_crypto:dh_generate_key(ensure_int_as_bin(PrivateKey), map_ensure_int_as_bin(DHParameters), 0, Len),
+        [dh, DHParameters0, PrivateKey]
+    );
+generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg) when
+    is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version)
+->
+    Private =
+        case PrivArg of
+            undefined -> strong_rand_bytes(32);
+            _ -> ensure_int_as_bin(PrivArg)
+        end,
+    host_srp_gen_key(Private, Verifier, Generator, Prime, Version);
+generate_key(srp, {user, [Generator, Prime, Version]}, PrivateArg) when
+    is_binary(Generator), is_binary(Prime), is_atom(Version)
+->
+    Private =
+        case PrivateArg of
+            undefined -> strong_rand_bytes(32);
+            _ -> PrivateArg
+        end,
+    user_srp_gen_key(Private, Generator, Prime);
+generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
+    Private = ?nif_call(
+        clause_crypto:rsa_generate_key(ModulusSize, ensure_int_as_bin(PublicExponent)),
+        [rsa, {ModulusSize, PublicExponent}, undefined],
+        {2, 2}
+    ),
+    {lists:sublist(Private, 2), Private};
+generate_key(ecdh, Curve, PrivKey) when Curve == x448; Curve == x25519 ->
+    generate_key(eddh, Curve, PrivKey);
+generate_key(eddh, Curve, PrivKey) when Curve == x448; Curve == x25519 ->
+    ?nif_call(clause_crypto:evp_generate_key(Curve, ensure_int_as_bin(PrivKey)), [eddh, Curve, PrivKey]);
+generate_key(ecdh, Curve, PrivKey) ->
+    CurveParams = nif_curve_params(Curve),
+    PrivBin = ensure_int_as_bin(PrivKey),
+    ?nif_call(clause_crypto:ec_generate_key(CurveParams, PrivBin), [CurveParams, PrivBin]);
+generate_key(eddsa, Curve, PrivKey) when Curve == ed448; Curve == ed25519 ->
+    ?nif_call(clause_crypto:evp_generate_key(Curve, ensure_int_as_bin(PrivKey)), [eddsa, Curve, PrivKey]);
+generate_key(Type, [], PrivKey) ->
+    ?nif_call(clause_crypto:evp_generate_key(Type, PrivKey), [Type, PrivKey]).
+
+%% Key encapsulation raises the builtins' errors unchanged, as OTP's does.
+encapsulate_key(Type, OthersPublicKey) -> clause_crypto:encapsulate_key(Type, OthersPublicKey).
+
+decapsulate_key(Type, MyPrivKey, EncapSecret) -> clause_crypto:decapsulate_key(Type, MyPrivKey, EncapSecret).
+
+compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
+    ?nif_call(
+        clause_crypto:dh_compute_key(
+            ensure_int_as_bin(OthersPublicKey), ensure_int_as_bin(MyPrivateKey), map_ensure_int_as_bin(DHParameters)
+        ),
+        [dh, OthersPublicKey, MyPrivateKey, DHParameters]
+    );
+compute_key(
+    srp, HostPublic, {UserPublic, UserPrivate}, {user, [DerivedKey, Prime, Generator, Version | ScramblerArg]}
+) when
+    is_binary(Prime), is_binary(Generator), is_atom(Version)
+->
+    HostPubBin = ensure_int_as_bin(HostPublic),
+    Multiplier = srp_multiplier(Version, Generator, Prime),
+    Scrambler =
+        case ScramblerArg of
+            [] -> srp_scrambler(Version, ensure_int_as_bin(UserPublic), HostPubBin, Prime);
+            [S] -> S
+        end,
+    clause_crypto:srp_user_secret(
+        ensure_int_as_bin(UserPrivate), Scrambler, HostPubBin, Multiplier, Generator, DerivedKey, Prime
+    );
+compute_key(srp, UserPublic, {HostPublic, HostPrivate}, {host, [Verifier, Prime, Version | ScramblerArg]}) when
+    is_binary(Verifier), is_binary(Prime), is_atom(Version)
+->
+    UserPubBin = ensure_int_as_bin(UserPublic),
+    Scrambler =
+        case ScramblerArg of
+            [] -> srp_scrambler(Version, UserPubBin, ensure_int_as_bin(HostPublic), Prime);
+            [S] -> S
+        end,
+    clause_crypto:srp_host_secret(Verifier, ensure_int_as_bin(HostPrivate), Scrambler, UserPubBin, Prime);
+compute_key(ecdh, Others, My, Curve) when Curve == x448; Curve == x25519 ->
+    compute_key(eddh, Others, My, Curve);
+compute_key(eddh, Others, My, Curve) when Curve == x448; Curve == x25519 ->
+    ?nif_call(
+        clause_crypto:evp_compute_key(Curve, ensure_int_as_bin(Others), ensure_int_as_bin(My)),
+        [eddh, Others, My, Curve]
+    );
+compute_key(ecdh, Others, My, Curve) ->
+    ?nif_call(
+        clause_crypto:ecdh_compute_key(ensure_int_as_bin(Others), nif_curve_params(Curve), ensure_int_as_bin(My)),
+        [ecdh, Others, My, Curve]
+    ).
+
+user_srp_gen_key(Private, Generator, Prime) ->
+    case info_fips() of
+        enabled -> erlang:error(notsup);
+        _ -> ok
+    end,
+    case mod_pow(Generator, Private, Prime) of
+        error -> error;
+        Public -> {Public, Private}
+    end.
+
+host_srp_gen_key(Private, Verifier, Generator, Prime, Version) ->
+    Multiplier = srp_multiplier(Version, Generator, Prime),
+    case clause_crypto:srp_value_B(Multiplier, Verifier, Generator, Private, Prime) of
+        error -> error;
+        Public -> {Public, Private}
+    end.
+
+srp_multiplier('6a', Generator, Prime) ->
+    C0 = hash_init(sha),
+    C1 = hash_update(C0, Prime),
+    C2 = hash_update(C1, srp_pad_to(byte_size(Prime), Generator)),
+    hash_final(C2);
+srp_multiplier('6', _, _) ->
+    <<3/integer>>;
+srp_multiplier('3', _, _) ->
+    <<1/integer>>.
+
+srp_scrambler(Version, UserPublic, HostPublic, Prime) when Version == '6'; Version == '6a' ->
+    PadLength = byte_size(Prime),
+    C0 = hash_init(sha),
+    C1 = hash_update(C0, srp_pad_to(PadLength, UserPublic)),
+    C2 = hash_update(C1, srp_pad_to(PadLength, HostPublic)),
+    hash_final(C2);
+srp_scrambler('3', _, HostPublic, _Prime) ->
+    <<U:32/bits, _/binary>> = hash(sha, HostPublic),
+    U.
+
+srp_pad_to(Width, Binary) ->
+    case (Width - byte_size(Binary) rem Width) rem Width of
+        0 -> Binary;
+        N -> <<0:N/unit:8, Binary/binary>>
+    end.
+
+%% The explicit parameters of OTP's named curves come from the linked libcrypto's built-in curves.
+ec_curves() -> supports(curves) -- [x25519, x448].
+
+ec_curve(X) ->
+    case clause_crypto:ec_curve(real_name(X)) of
+        undefined -> erlang:error(function_clause, [X]);
+        Params -> Params
+    end.
+
+%% The curve names OpenSSL knows under another name.
+real_name(secp192r1) -> prime192v1;
+real_name(secp256r1) -> prime256v1;
+real_name(Name) -> Name.
+
+privkey_to_pubkey(Alg, EngineMap) when Alg == rsa; Alg == dss; Alg == ecdsa ->
+    Key = format_pkey(Alg, EngineMap),
+    try ?nif_call(clause_crypto:privkey_to_pubkey(Alg, Key), [Alg, Key]) of
+        [_ | _] = L -> map_ensure_bin_as_int(L);
+        X -> X
+    catch
+        error:{badarg, _, _} when Alg == ecdsa -> {error, notsup};
+        error:{badarg, _, _} -> {error, not_found};
+        error:{notsup, _, _} -> {error, notsup}
+    end.
+
+%% A curve for the builtins: an explicit curve with binaries for integers, or a named curve with its parameters.
+nif_curve_params({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
+    {
+        {
+            term_to_nif_prime(PrimeField),
+            term_to_nif_curve(Curve),
+            ensure_int_as_bin(BasePoint),
+            ensure_int_as_bin(Order),
+            ensure_int_as_bin(CoFactor)
+        },
+        undefined
+    };
+nif_curve_params(CurveName) when is_atom(CurveName) ->
+    case CurveName of
+        x448 -> {evp, CurveName};
+        x25519 -> {evp, CurveName};
+        _ -> named_curve_params(CurveName)
+    end.
+
+named_curve_params(CurveName) ->
+    RealName = real_name(CurveName),
+    case clause_crypto:ec_curve(RealName) of
+        undefined -> {undefined, CurveName};
+        Params -> {Params, RealName}
+    end.
+
+term_to_nif_prime({prime_field, Prime}) -> {prime_field, ensure_int_as_bin(Prime)};
+term_to_nif_prime(PrimeField) -> PrimeField.
+
+term_to_nif_curve({A, B, Seed}) -> {ensure_int_as_bin(A), ensure_int_as_bin(B), Seed}.
+
+format_pkey(_Alg, #{engine := _, key_id := T} = M) when is_binary(T) -> format_pwd(M);
+format_pkey(_Alg, #{engine := _, key_id := T} = M) when is_list(T) -> format_pwd(M#{key_id := list_to_binary(T)});
+format_pkey(_Alg, #{engine := _} = M) -> erlang:error({bad_key_id, M});
+format_pkey(_Alg, #{} = M) -> erlang:error({bad_engine_map, M});
+format_pkey(rsa, Key) -> map_ensure_int_as_bin(Key);
+format_pkey(ecdsa, [Key, Curve]) -> {nif_curve_params(Curve), ensure_int_as_bin(Key)};
+format_pkey(eddsa, [PubKey, Curve]) when Curve == ed25519; Curve == ed448 -> [ensure_int_as_bin(PubKey), Curve];
+format_pkey(dss, Key) -> map_ensure_int_as_bin(Key);
+format_pkey(_, Key) -> Key.
+
+format_pwd(#{password := Pwd} = M) when is_list(Pwd) -> M#{password := list_to_binary(Pwd)};
+format_pwd(M) -> M.
 
 %%% ---------------------------------------------------------------------------
 %%% Random numbers
@@ -811,6 +1046,14 @@ bin_to_int(undefined) ->
 
 ensure_int_as_bin(Int) when is_integer(Int) -> int_to_bin(Int);
 ensure_int_as_bin(Bin) -> Bin.
+
+map_ensure_int_as_bin([H | _] = List) when is_integer(H) -> lists:map(fun int_to_bin/1, List);
+map_ensure_int_as_bin(List) -> List.
+
+map_ensure_bin_as_int(List) when is_list(List) -> lists:map(fun ensure_bin_as_int/1, List).
+
+ensure_bin_as_int(Bin) when is_binary(Bin) -> bin_to_int(Bin);
+ensure_bin_as_int(E) -> E.
 
 %% A large integer in a binary with a 32-bit length (SSH2's mpint).
 mpint(X) when X < 0 ->

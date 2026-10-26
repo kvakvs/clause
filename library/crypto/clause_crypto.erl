@@ -40,7 +40,24 @@
     aead_cipher_init/4,
     aead_cipher/4,
     info_fips/0,
-    enable_fips_mode/1
+    enable_fips_mode/1,
+    pkey_sign/5,
+    pkey_verify/6,
+    pkey_crypt/6,
+    privkey_to_pubkey/2,
+    rsa_generate_key/2,
+    dh_generate_key/4,
+    dh_compute_key/3,
+    evp_generate_key/2,
+    evp_compute_key/3,
+    encapsulate_key/2,
+    decapsulate_key/3,
+    ec_generate_key/2,
+    ecdh_compute_key/3,
+    ec_curve/1,
+    srp_value_B/5,
+    srp_user_secret/7,
+    srp_host_secret/5
 ]).
 
 hash_algorithms() -> clause_builtin_placeholder.
@@ -81,3 +98,20 @@ aead_cipher_init(_, _, _, _) -> clause_builtin_placeholder.
 aead_cipher(_, _, _, _) -> clause_builtin_placeholder.
 info_fips() -> clause_builtin_placeholder.
 enable_fips_mode(_) -> clause_builtin_placeholder.
+pkey_sign(_, _, _, _, _) -> clause_builtin_placeholder.
+pkey_verify(_, _, _, _, _, _) -> clause_builtin_placeholder.
+pkey_crypt(_, _, _, _, _, _) -> clause_builtin_placeholder.
+privkey_to_pubkey(_, _) -> clause_builtin_placeholder.
+rsa_generate_key(_, _) -> clause_builtin_placeholder.
+dh_generate_key(_, _, _, _) -> clause_builtin_placeholder.
+dh_compute_key(_, _, _) -> clause_builtin_placeholder.
+evp_generate_key(_, _) -> clause_builtin_placeholder.
+evp_compute_key(_, _, _) -> clause_builtin_placeholder.
+encapsulate_key(_, _) -> clause_builtin_placeholder.
+decapsulate_key(_, _, _) -> clause_builtin_placeholder.
+ec_generate_key(_, _) -> clause_builtin_placeholder.
+ecdh_compute_key(_, _, _) -> clause_builtin_placeholder.
+ec_curve(_) -> clause_builtin_placeholder.
+srp_value_B(_, _, _, _, _) -> clause_builtin_placeholder.
+srp_user_secret(_, _, _, _, _, _, _) -> clause_builtin_placeholder.
+srp_host_secret(_, _, _, _, _) -> clause_builtin_placeholder.

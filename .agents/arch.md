@@ -308,14 +308,16 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 ### crypto (plan 21 LIB79)
 
 - `library/crypto/` (application with `crypto.app`, listed as a library resource): `crypto.erl` over
-  `clause_crypto` builtins in `runtime/src/builtins/crypto/` (OpenSSL ≥ 3.4, pinned 4.1.0):
+  `clause_crypto` builtins in `runtime/src/builtins/crypto/` (OpenSSL ≥ 3.1.2, pinned 4.1.0):
   algorithm tables probed on the first call (`algorithms.cpp`), hash/MAC states as handle
   references, OTP's NIF errors turned into `{Class, {File, Line}, Msg}` by `?nif_call`; engines
   refused. Cipher and AEAD states own a C++ object (`OwnedHandle`: EVP_CIPHER_CTX + lock); the
   `crypto_aes`/`crypto_prng1` rand plugins are Erlang over `rand`'s exro928 builtins. FIPS (LIB79F):
   entries keep `fips=yes` fetches for FIPS mode; `clau --fips=PATH` copies a user-supplied provider
   beside the executable and lists `CLAUSE_crypto_fips_extension_v1`, whose `RuntimeExtension::start`
-  hook pins FIPS before the runtime starts. Public keys (LIB79C) pending.
+  hook pins FIPS before the runtime starts. Public keys (LIB79C): `crypto.erl` binarizes OTP's key
+  terms, builtins build keys from OTP's OSSL_PARAM lists (`params.cpp`, `ParamList`), errors via
+  `KeyFailure` where OTP discards a reader's error; `ec_curve/1` from OpenSSL's built-in groups.
 
 ### kernel
 

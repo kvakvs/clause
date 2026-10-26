@@ -534,6 +534,12 @@ bool known_mac(std::string_view name) {
     return std::ranges::any_of(MACS, [name](const Mac &mac) { return mac.name == name; });
 }
 
+int curve_nid(std::string_view name) {
+    const auto found = std::ranges::find_if(
+        CURVES, [name](const Curve &curve) { return curve.name == name || (!name.empty() && curve.alias == name); });
+    return found == CURVES.end() ? NID_undef : found->nid;
+}
+
 void ensure_probed() { probe(); }
 
 std::span<const BuiltinEntry> algorithm_builtins() noexcept { return ALGORITHM_BUILTINS; }

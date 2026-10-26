@@ -137,6 +137,8 @@ const Cipher *find_cipher_named(std::string_view name);
 const Mac *find_mac(std::string_view name, std::size_t key_length);
 // Whether OTP knows a MAC of that name for some key length.
 bool known_mac(std::string_view name);
+// The OpenSSL curve of an OTP named curve (or its second name); NID_undef for others (added for crypto's public keys).
+int curve_nid(std::string_view name);
 
 // A handle's buffer when it owns a C++ object: trivially copyable, so it starts as the buffer's bytes. Cipher states
 // keep mutable data and a lock, so they live behind the pointer (added for crypto's ciphers, LIB79B).

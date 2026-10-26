@@ -469,3 +469,11 @@ recorded elsewhere.
   LoadLibrary of a bad DLL pops a modal "Bad Image" box that blocks tests: wrap loads in
   SetThreadErrorMode(SEM_FAILCRITICALERRORS). Python subprocess on Windows resolves argv[0] with the
   parent's PATH, not env=: shutil.which(name, path=env PATH). `after` is reserved.
+- LIB79C public keys (2026-10-26): `TermResult<T>{}` default-constructs a VALUE, not an error (use
+  `integer_of`/optional). An OSSL_PARAM big number of zero needs a non-null data pointer (fromdata of
+  explicit curves with A=0 fails otherwise). OTP quirks kept: `sign(dss, none, ...)` = "Bad digest type"
+  (compat clause swaps algorithm/type), DH keygen ignores a given private key, RSA exponent bytes go to
+  OpenSSL native-endian (65539 -> 196609 on x86). OTP's sign/dh/eddh ?nif_call pass Args/ArgMap swapped:
+  error_info arg = C arg + 1. Configuring build/debug once without the toolchain script (VS generator,
+  cl) wiped thirdparty's OpenSSL install (identity has the compiler) -> 4 min serial rebuild; clang-cl
+  23.1.2 crashed twice at random files in that nmake build, a retry passed.

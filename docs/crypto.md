@@ -113,6 +113,9 @@ The first `crypto` call also tries to load OpenSSL's `fips` provider, which Open
   second fetch with `fips=yes`, used while FIPS mode is on, so FIPS mode computes with the provider's own
   implementations.
 
+Public key operations fetch their algorithms through OpenSSL's default properties, so in FIPS mode they run on the
+provider's implementations; `eddsa` raises `"Unsupported algorithm in FIPS mode"` and SRP `notsup`, as OTP's.
+
 OTP's `fips_mode` application variable is not read (Clause has no `on_load` and programs have no `sys.config`):
 programs call `crypto:enable_fips_mode/1`, or are built pinned.
 

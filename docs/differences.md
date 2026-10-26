@@ -324,6 +324,9 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | The `fips_mode` application variable of `crypto` | Read when the `crypto` module loads: `true` enables FIPS mode | Not read (Clause has no `on_load` and programs have no `sys.config`): use `crypto:enable_fips_mode/1`, or `clau --fips` | [crypto](crypto.md#fips) |
 | `crypto:info_fips/0` without a loadable FIPS provider | `not_enabled` when OTP was built with FIPS support, `not_supported` otherwise | `not_supported` | [crypto](crypto.md#fips) |
 | When the `crypto` application is loaded | When the `crypto` module loads (its `on_load`) | When a `crypto_cache`, `crypto_aes` or `crypto_prng1` generator first reads `rand_cache_size` | [library](library.md) |
+| RSA key generation (`crypto:generate_key(rsa, ...)`) and SLH-DSA signatures | Run on a dirty CPU scheduler | Run on the calling process's scheduler worker, which runs no other process meanwhile | [builtins](builtins.md#crypto-module) |
+| The `rsa_sslv23_padding` option of `crypto:public_encrypt/4` and its siblings | Accepted when OTP is built against an OpenSSL that has SSLv23 padding (1.1, 3.x) | `"Bad padding type in option rsa_padding"`, as OTP built against OpenSSL 4 | [builtins](builtins.md#crypto-module) |
+| `crypto:ec_curve/1` of a curve the linked libcrypto lacks (an OpenSSL built without binary curves) | The parameters from `crypto_ec_curves` | `error:function_clause`, as for an unknown curve: the parameters come from the libcrypto's built-in curves | [builtins](builtins.md#crypto-module) |
 | `beam_lib` decryption of debug information in a program that does not call `crypto` | `crypto` is always present | `key_missing_or_invalid` unless the program links `crypto` (`--with-crypto`), since `beam_lib` calls it dynamically | [library](library.md) |
 
 ## Parse transforms

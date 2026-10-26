@@ -214,7 +214,9 @@ if(CLAUSE_RUNTIME_CRYPTO)
     add_library(clause_runtime_crypto STATIC src/builtins/crypto/extension.cpp src/builtins/crypto/errors.cpp
         src/builtins/crypto/algorithms.cpp src/builtins/crypto/hash.cpp src/builtins/crypto/mac.cpp
         src/builtins/crypto/random.cpp src/builtins/crypto/numbers.cpp src/builtins/crypto/cipher.cpp
-        src/builtins/crypto/aead.cpp src/builtins/crypto/fips.cpp)
+        src/builtins/crypto/aead.cpp src/builtins/crypto/fips.cpp src/builtins/crypto/params.cpp
+        src/builtins/crypto/pkey.cpp src/builtins/crypto/keys.cpp src/builtins/crypto/curves.cpp
+        src/builtins/crypto/srp.cpp)
     set_target_properties(clause_runtime_crypto PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
         EXPORT_NAME crypto)
     clause_project_options(clause_runtime_crypto)

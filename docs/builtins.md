@@ -832,7 +832,20 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   descriptions. `enable_fips_mode/1` switches OpenSSL's default properties; programs built with `--fips` link the
   archive's `CLAUSE_crypto_fips_extension_v1` entry, whose start hook loads the provider beside the executable
   ([FIPS](crypto.md#fips)).
-- Public keys, curves, KEMs and SRP (LIB79C) are not implemented yet.
+- Public keys (step LIB79C) follow OTP's `pkey.c`, `rsa.c`, `dss.c`, `eddsa.c`, `ec.c`, `ecdh.c`, `dh.c`,
+  `evp.c` and `srp.c`: `crypto.erl` turns integers into binaries (`format_pkey`, `nif_curve_params`) and the
+  builtins build OpenSSL keys from the same `OSSL_PARAM` lists OTP's NIFs build (`params.cpp`, native-order big
+  numbers), with OTP's checks, descriptions and argument numbers. `pkey.cpp`: `sign/4,5`, `verify/5,6` (RSA with
+  PKCS #1, PSS, X9.31 and no padding, DSA, ECDSA, EdDSA, ML-DSA, SLH-DSA; `{digest, Digest}`), RSA
+  `public_encrypt/4` and its three siblings (PKCS #1, OAEP with its digests and label, no padding),
+  `privkey_to_pubkey/2`. `keys.cpp`: RSA, DH, X25519/X448, Ed25519/Ed448, ML-DSA, SLH-DSA and ML-KEM key
+  generation, DH and X25519/X448 agreement, `encapsulate_key/2`, `decapsulate_key/3`. `curves.cpp`: ECDH keys and
+  agreement on named or explicit curves, retried with explicit parameters when OpenSSL does not know OTP's name (as
+  OTP's `retry_without_name`), and `ec_curve/1`, whose explicit parameters come from the linked libcrypto's built-in
+  curves instead of OTP's `crypto_ec_curves` table (byte for byte the same terms). `srp.cpp`: SRP's big number
+  formulas; `crypto.erl` keeps OTP's multiplier and scrambler. OTP's quirks are kept: `sign(dss, none, ...)` fails
+  with `"Bad digest type"`, `generate_key(dh, ...)` ignores a given private key, and a multi-byte RSA public
+  exponent reaches OpenSSL in native byte order.
 
 ## Re module
 
