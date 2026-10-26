@@ -40,6 +40,7 @@ std::span<const OidName> rows(const Term &table) {
     }
     bad_argument();
 }
+} // namespace
 
 bool same_oid(const Term &oid, const std::initializer_list<std::uint32_t> &arcs) {
     if (!oid.is_tuple() || oid.tuple_size_unchecked() != arcs.size()) {
@@ -62,7 +63,17 @@ Term oid_term(asn1::Builder &builder, const std::initializer_list<std::uint32_t>
     }
     return builder.tuple(elements);
 }
-} // namespace
+
+bool is_string(const Term &term, const std::string_view text) {
+    auto rest = term;
+    for (const auto c : text) {
+        if (!rest.is_cons() || small(rest.head_unchecked().word()) != static_cast<unsigned char>(c)) {
+            return false;
+        }
+        rest = rest.tail_unchecked();
+    }
+    return rest.is_nil();
+}
 
 Term oid_name(ProcessContext &context, const Named<TableRole> &table, const Named<KeyRole> &oid) {
     asn1::Builder builder(context);

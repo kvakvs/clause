@@ -677,6 +677,14 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_public_key", "name_oid", 2},
     BuiltinName{"clause_public_key", "oid_name", 2},
     BuiltinName{"clause_public_key", "os_cacerts", 0},
+    // PEM text and PBE tables (plan 21 step LIB80E1).
+    BuiltinName{"clause_public_key", "pbe_cipher", 1},
+    BuiltinName{"clause_public_key", "pbes1", 1},
+    BuiltinName{"clause_public_key", "pbes1_oid", 2},
+    BuiltinName{"clause_public_key", "pbes2_cipher", 1},
+    BuiltinName{"clause_public_key", "pem_decode", 1},
+    BuiltinName{"clause_public_key", "pem_entry", 1},
+    BuiltinName{"clause_public_key", "prf_digest", 1},
     BuiltinName{"clause_public_key", "translate", 2},
     // Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
     BuiltinName{"base64", "decode", 1},

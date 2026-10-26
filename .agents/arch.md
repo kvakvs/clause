@@ -170,7 +170,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   (`linking::generated_library_directory`, `load_library(root, generated)`). `public_key`
   (LIB80B2) forwards to Erlang `clause_public_key_codec` over the generated modules and
   `clause_public_key_keys` over crypto (LIB80C); C++
-  builtins `clause_public_key` (`builtins/public_key/`) do pubkey_translation's walk and OID tables.
+  builtins `clause_public_key` (`builtins/public_key/`) do pubkey_translation's walk, OID tables,
+  PEM text and PBE tables (LIB80E: pure walks move to C++; Erlang keeps funs, crypto and the
+  calls into generated modules, whose schemas are module-local literals).
 - Codec in core runtime (`builtins/asn1/`): TLV parse as asn1rt_nif, then a schema interpreter
   mirroring asn1ct's BER/DER generated code (frames for component relations, postponed open types);
   PER/UPER over BitWriter/BitReader (`per*`), with OTP's effective constraints, quirks and decode

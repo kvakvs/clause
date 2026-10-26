@@ -188,10 +188,21 @@ records, goldens from OTP, own headers written from the documented records and m
       - D5 done: `pkix_test_data/1`, `pkix_test_root_cert/2`.
       - D6 done: `cacerts_get/0`, `cacerts_load/0,1`, `cacerts_clear/0`; public_key removed from `PARTIAL`.
       - Docs done: `public_key.md` sections per step, the frames row of `differences.md`.
-    - LIB80E (after D): port public_key's pure Erlang walks to C++ builtins (memory: clause-heavy
-      library code): the codec's transforms, PEM text and PBE parameters, the `der_decode`/
-      `der_encode` dispatch, name matching and normalisation, the policy tree; Erlang keeps only fun
-      calls and crypto glue.
+    - LIB80E (after D; split 2026-10-26): port public_key's pure Erlang walks to C++ builtins
+      (memory: clause-heavy library code); Erlang keeps fun calls, crypto glue and the calls into
+      the generated modules (their schemas are module-local literals C++ cannot reach). Goldens stay
+      identical; each step ends with the public_key goldens and the quality gate.
+      - E1 done: PEM text (`pem_decode/1` lines, labels, `DEK-Info`, base64; `pem_encode/1` lines) and
+        PBE tables (ciphers, block sizes, key lengths, PRF digests, PBES1/PBES2 OIDs); Erlang maps
+        `ENCRYPTED PRIVATE KEY` entries through `der_decode`/`der_encode`.
+      - E2: the `der_decode`/`der_encode` dispatch as a C++ route table (module, ASN.1 type,
+        translation), the otp form walks of `pubkey_cert_records` (names, signature algorithms,
+        name constraints, distribution points, policies), extension types.
+      - E3: `clause_public_key_cert` name normalisation, comparison and `match_name` rules,
+        wildcard and IP matching.
+      - E4: the policy tree of `clause_public_key_path` (OTP's `pubkey_policy_tree`) and the pure
+        checks around it (name constraint subtrees, key usage tables).
+      - E5: what pure walks remain in `clause_public_key_crl`/`_ocsp` (reason masks, DP grouping).
 - **LIB81 `ssl` (design first, after LIB80; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
   `ssl_crl_cache_api`, `ssl_session_cache_api`):** OTP implements TLS 1.0–1.3 and DTLS in Erlang
   (`gen_statem` per connection, `ssl_app` supervision tree, PEM and session caches). Decide between

@@ -39,145 +39,34 @@
 %% PEM
 %%--------------------------------------------------------------------------------------------------------------------
 
-%% The entries of PEM text, as pubkey_pem:decode/1.
+%% The entries of PEM text, as pubkey_pem:decode/1; the text after an encrypted PKCS #8 entry is read once that entry
+%% is decoded.
 pem_decode(PemBin) when is_binary(PemBin) ->
-    pem_entries(binary:split(PemBin, [<<"\r\n">>, <<"\r">>, <<"\n">>], [global]), []).
+    case clause_public_key:pem_decode(PemBin) of
+        {Entries, done} ->
+            Entries;
+        {Entries, Encrypted, Rest} ->
+            Entry = encrypted_private_key(Encrypted),
+            Entries ++ [Entry | pem_decode(Rest)]
+    end.
 
 %% PEM text of entries, as pubkey_pem:encode/1.
 pem_encode(PemEntries) when is_list(PemEntries) ->
-    iolist_to_binary([pem_entry(Entry) || Entry <- PemEntries]).
+    iolist_to_binary([clause_public_key:pem_entry(pem_entry(Entry)) || Entry <- PemEntries]).
 
-%% The entries between BEGIN and END lines; other lines are skipped.
-pem_entries([], Entries) ->
-    lists:reverse(Entries);
-pem_entries([<<>>], Entries) ->
-    lists:reverse(Entries);
-pem_entries([<<>> | Lines], Entries) ->
-    pem_entries(Lines, Entries);
-pem_entries([StartLine | Lines], Entries) ->
-    Start = strip_trailing_space(StartLine),
-    case pem_end(Start) of
-        undefined ->
-            pem_entries(Lines, Entries);
-        _ ->
-            {Entry, Rest} = pem_body(Lines, []),
-            pem_entries(Rest, [pem_decode_entry(Start, Entry) | Entries])
-    end.
+%% An ENCRYPTED PRIVATE KEY entry: the encrypted data and the cipher of its algorithm.
+encrypted_private_key(Der) ->
+    #'EncryptedPrivateKeyInfo'{encryptionAlgorithm = Algorithm, encryptedData = Data} =
+        der_decode('EncryptedPrivateKeyInfo', Der),
+    {'PrivateKeyInfo', Data, pbe_decrypt_parameters(Algorithm)}.
 
-%% A BEGIN line without its trailing white space.
-strip_trailing_space(Line) ->
-    list_to_binary(lists:reverse(lists:dropwhile(fun space/1, lists:reverse(binary_to_list(Line))))).
-
-%% The white space characters pubkey_pem strips.
-space(C) -> C =:= $\s orelse C =:= $\t orelse C =:= $\v orelse C =:= $\f orelse C =:= $\r orelse C =:= $\n.
-
-%% The lines up to the END line (any END line ends an entry).
-pem_body([<<"-----END ", _/binary>> | Lines], Entry) ->
-    {lists:reverse(Entry), Lines};
-pem_body([Line | Lines], Entry) ->
-    pem_body(Lines, [Line | Entry]).
-
-%% An entry from its BEGIN line and body lines: legacy encrypted, PKCS #8 encrypted or plain.
-pem_decode_entry(Start, [<<"Proc-Type: 4,ENCRYPTED", _/binary>>, Line | Lines]) ->
-    Type = pem_type(Start),
-    Der = base64:mime_decode(iolist_to_binary(Lines)),
-    [_, DekInfo] = string:tokens(binary_to_list(Line), ": "),
-    [Cipher, Salt] = string:tokens(DekInfo, ","),
-    {Type, Der, {Cipher, unhex(Salt, [])}};
-pem_decode_entry(Start, Lines) ->
-    Type = pem_type(Start),
-    Der = base64:mime_decode(iolist_to_binary(Lines)),
-    case Type of
-        'EncryptedPrivateKeyInfo' ->
-            #'EncryptedPrivateKeyInfo'{encryptionAlgorithm = Algorithm, encryptedData = Data} =
-                der_decode('EncryptedPrivateKeyInfo', Der),
-            {'PrivateKeyInfo', Data, pbe_decrypt_parameters(Algorithm)};
-        _ ->
-            {Type, Der, not_encrypted}
-    end.
-
-%% The salt of a DEK-Info line.
-unhex("", Bytes) ->
-    list_to_binary(lists:reverse(Bytes));
-unhex([D1, D2 | Rest], Bytes) ->
-    unhex(Rest, [list_to_integer([D1, D2], 16) | Bytes]).
-
-%% The PEM text of one entry.
-pem_entry({Type, Der, not_encrypted}) ->
-    Start = pem_start(Type),
-    [Start, "\n", base64_lines(Der), "\n", pem_end(Start), "\n\n"];
-pem_entry({'PrivateKeyInfo', Der, EncryptParams}) ->
+%% An encrypted PKCS #8 entry as the ENCRYPTED PRIVATE KEY entry of its EncryptedPrivateKeyInfo.
+pem_entry({'PrivateKeyInfo', Der, EncryptParams}) when EncryptParams =/= not_encrypted ->
     Algorithm = pbe_encrypt_parameters(EncryptParams),
     Info = #'EncryptedPrivateKeyInfo'{encryptionAlgorithm = Algorithm, encryptedData = Der},
-    Start = pem_start('EncryptedPrivateKeyInfo'),
-    [Start, "\n", base64_lines(der_encode('EncryptedPrivateKeyInfo', Info)), "\n", pem_end(Start), "\n\n"];
-pem_entry({Type, Encrypted, {Cipher, Salt}}) ->
-    Start = pem_start(Type),
-    DekInfo = io_lib:format("DEK-Info: ~s,~s", [Cipher, binary:encode_hex(Salt)]),
-    [
-        Start,
-        "\n",
-        <<"Proc-Type: 4,ENCRYPTED">>,
-        "\n",
-        DekInfo,
-        "\n\n",
-        base64_lines(Encrypted),
-        "\n",
-        pem_end(Start),
-        "\n\n"
-    ].
-
-%% Base 64 in lines of 64 characters.
-base64_lines(Der) -> split_lines(base64:encode(Der)).
-
-%% Base 64 text cut after each 64 characters.
-split_lines(<<Text:64/binary>>) -> [Text];
-split_lines(<<Text:64/binary, Rest/binary>>) -> [Text, $\n | split_lines(Rest)];
-split_lines(Text) -> [Text].
-
-%% The PEM labels and their types.
-pem_labels() ->
-    [
-        {'Certificate', <<"CERTIFICATE">>},
-        {'RSAPrivateKey', <<"RSA PRIVATE KEY">>},
-        {'RSAPublicKey', <<"RSA PUBLIC KEY">>},
-        {'SubjectPublicKeyInfo', <<"PUBLIC KEY">>},
-        {'DSAPrivateKey', <<"DSA PRIVATE KEY">>},
-        {'DHParameter', <<"DH PARAMETERS">>},
-        {'PrivateKeyInfo', <<"PRIVATE KEY">>},
-        {'EncryptedPrivateKeyInfo', <<"ENCRYPTED PRIVATE KEY">>},
-        {'CertificationRequest', <<"CERTIFICATE REQUEST">>},
-        {'ContentInfo', <<"PKCS7">>},
-        {'CertificateList', <<"X509 CRL">>},
-        {'EcpkParameters', <<"EC PARAMETERS">>},
-        {'ECPrivateKey', <<"EC PRIVATE KEY">>},
-        {{no_asn1, new_openssh}, <<"OPENSSH PRIVATE KEY">>}
-    ].
-
-%% The BEGIN line of a type.
-pem_start('OneAsymmetricKey') ->
-    pem_start('PrivateKeyInfo');
-pem_start(Type) ->
-    case lists:keyfind(Type, 1, pem_labels()) of
-        {_, Label} -> <<"-----BEGIN ", Label/binary, "-----">>;
-        false -> erlang:error(function_clause, [Type])
-    end.
-
-%% The END line of a BEGIN line, or undefined for a line that begins no entry.
-pem_end(<<"-----BEGIN ", Rest/binary>>) ->
-    Label = binary:part(Rest, 0, max(0, byte_size(Rest) - 5)),
-    case lists:keyfind(Label, 2, pem_labels()) of
-        {_, _} when Rest =:= <<Label/binary, "-----">> -> <<"-----END ", Label/binary, "-----">>;
-        _ -> undefined
-    end;
-pem_end(_) ->
-    undefined.
-
-%% The type of a BEGIN line.
-pem_type(<<"-----BEGIN ", Rest/binary>>) ->
-    Label = binary:part(Rest, 0, byte_size(Rest) - 5),
-    {Type, _} = lists:keyfind(Label, 2, pem_labels()),
-    Type.
+    {'EncryptedPrivateKeyInfo', der_encode('EncryptedPrivateKeyInfo', Info), not_encrypted};
+pem_entry(Entry) ->
+    Entry.
 
 %%--------------------------------------------------------------------------------------------------------------------
 %% PEM entries
@@ -800,26 +689,15 @@ encode_extension(#'Extension'{extnID = Id, extnValue = Value} = Extension) ->
 
 %% Data decrypted with a password, a cipher and its key derivation parameters.
 pbe_decode(Data, Password, Cipher, Params) ->
+    {Algorithm, _, _} = clause_public_key:pbe_cipher(Cipher),
     {Key, IV} = pbe_key(Password, Cipher, Params),
-    crypto:crypto_one_time(pbe_cipher(Cipher), Key, IV, Data, false).
+    crypto:crypto_one_time(Algorithm, Key, IV, Data, false).
 
 %% Data padded and encrypted with a password, a cipher and its key derivation parameters.
 pbe_encode(Data, Password, Cipher, Params) ->
+    {Algorithm, BlockSize, _} = clause_public_key:pbe_cipher(Cipher),
     {Key, IV} = pbe_key(Password, Cipher, Params),
-    Algorithm = pbe_cipher(Cipher),
-    crypto:crypto_one_time(Algorithm, Key, IV, pbe_pad(Data, pbe_block_size(Algorithm)), true).
-
-%% The crypto cipher of a PEM cipher name.
-pbe_cipher("DES-CBC") -> des_cbc;
-pbe_cipher("DES-EDE3-CBC") -> des_ede3_cbc;
-pbe_cipher("RC2-CBC") -> rc2_cbc;
-pbe_cipher("AES-128-CBC") -> aes_128_cbc;
-pbe_cipher("AES-192-CBC") -> aes_192_cbc;
-pbe_cipher("AES-256-CBC") -> aes_256_cbc.
-
-%% The block size of a cipher.
-pbe_block_size(Cipher) when Cipher == rc2_cbc; Cipher == des_cbc; Cipher == des_ede3_cbc -> 8;
-pbe_block_size(_) -> 16.
+    crypto:crypto_one_time(Algorithm, Key, IV, pbe_pad(Data, BlockSize), true).
 
 %% PKCS #5 padding to whole blocks.
 pbe_pad(Data, BlockSize) ->
@@ -835,7 +713,7 @@ pbe_key(Password, _, {#'PBEParameter'{salt = Salt, iterationCount = Count}, Hash
     {Key, IV};
 pbe_key(Password, Cipher, Params) ->
     <<Salt:8/binary, _/binary>> = Params,
-    Length = derived_key_length(Cipher, undefined),
+    {_, _, Length} = clause_public_key:pbe_cipher(Cipher),
     <<Key:Length/binary, _/binary>> = legacy_pem_key(<<>>, Password, Salt, round(Length div 16 + 0.5), <<>>),
     {Key, Params}.
 
@@ -864,15 +742,11 @@ pbes2_key_params(#'PBES2-params'{keyDerivationFunc = Derivation, encryptionSchem
         parameters = #'PBKDF2-params'{salt = {specified, Salt}, iterationCount = Count, keyLength = Length, prf = Prf}
     } = Derivation,
     #'PBES2-params_encryptionScheme'{algorithm = Algorithm} = Scheme,
-    {Salt, Count, derived_key_length(Algorithm, Length), prf_hash(Prf), pbes2_iv(Scheme)}.
+    {Salt, Count, key_length(Algorithm, Length), prf_hash(Prf), pbes2_iv(Scheme)}.
 
 %% The digest of a PBKDF2 pseudo-random function.
 prf_hash(#'PBKDF2-params_prf'{algorithm = {_, _, _, 'id-hmacWithSHA1'}}) -> sha;
-prf_hash(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA1'}) -> sha;
-prf_hash(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA224'}) -> sha224;
-prf_hash(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA256'}) -> sha256;
-prf_hash(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA384'}) -> sha384;
-prf_hash(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA512'}) -> sha512.
+prf_hash(#'PBKDF2-params_prf'{algorithm = Oid}) -> clause_public_key:prf_digest(Oid).
 
 pbes2_iv(#'PBES2-params_encryptionScheme'{algorithm = ?'rc2CBC', parameters = {asn1_OPENTYPE, Params}}) ->
     #'RC2-CBC-Parameter'{iv = IV} = der_decode('RC2-CBC-Parameter', Params),
@@ -881,32 +755,25 @@ pbes2_iv(#'PBES2-params_encryptionScheme'{parameters = {asn1_OPENTYPE, Params}})
     <<4, Length:8/unsigned-big-integer, IV:Length/binary>> = Params,
     IV.
 
-%% The key length of a cipher, unless the parameters give one.
-derived_key_length(_, Length) when is_integer(Length) -> Length;
-derived_key_length(Cipher, _) when Cipher == ?'desCBC'; Cipher == "DES-CBC" -> 8;
-derived_key_length(Cipher, _) when Cipher == ?'rc2CBC'; Cipher == "RC2-CBC" -> 16;
-derived_key_length(Cipher, _) when Cipher == ?'des-EDE3-CBC'; Cipher == "DES-EDE3-CBC" -> 24;
-derived_key_length(Cipher, _) when Cipher == "AES-128-CBC"; Cipher == ?'id-aes128-CBC' -> 16;
-derived_key_length(Cipher, _) when Cipher == "AES-192-CBC"; Cipher == ?'id-aes192-CBC' -> 24;
-derived_key_length(Cipher, _) when Cipher == "AES-256-CBC"; Cipher == ?'id-aes256-CBC' -> 32.
+%% The key length of a PBES2 scheme, unless the parameters give one.
+key_length(_, Length) when is_integer(Length) ->
+    Length;
+key_length(Algorithm, _) ->
+    {_, _, Length} = clause_public_key:pbe_cipher(clause_public_key:pbes2_cipher(Algorithm)),
+    Length.
 
 %% The cipher and its parameters of an EncryptedPrivateKeyInfo's algorithm.
 pbe_decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
+    algorithm = ?'id-PBES2', parameters = {asn1_OPENTYPE, Der}
+}) ->
+    Params = der_decode('PBES2-params', Der),
+    #'PBES2-params_encryptionScheme'{algorithm = Oid} = Params#'PBES2-params'.encryptionScheme,
+    {clause_public_key:pbes2_cipher(Oid), Params};
+pbe_decrypt_parameters(#'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
     algorithm = Oid, parameters = {asn1_OPENTYPE, Der}
 }) ->
-    case Oid of
-        ?'id-PBES2' ->
-            Params = der_decode('PBES2-params', Der),
-            {pbes2_cipher(Params#'PBES2-params'.encryptionScheme), Params};
-        ?'pbeWithSHA1AndRC2-CBC' ->
-            {"RC2-CBC", {der_decode('PBEParameter', Der), sha}};
-        ?'pbeWithSHA1AndDES-CBC' ->
-            {"DES-CBC", {der_decode('PBEParameter', Der), sha}};
-        ?'pbeWithMD5AndRC2-CBC' ->
-            {"RC2-CBC", {der_decode('PBEParameter', Der), md5}};
-        ?'pbeWithMD5AndDES-CBC' ->
-            {"DES-CBC", {der_decode('PBEParameter', Der), md5}}
-    end.
+    {Cipher, Hash} = clause_public_key:pbes1(Oid),
+    {Cipher, {der_decode('PBEParameter', Der), Hash}}.
 
 %% The encryption algorithm of an EncryptedPrivateKeyInfo for a cipher and its parameters.
 pbe_encrypt_parameters({_, #'PBES2-params'{} = Params}) ->
@@ -915,20 +782,9 @@ pbe_encrypt_parameters({_, #'PBES2-params'{} = Params}) ->
     };
 pbe_encrypt_parameters({Cipher, {#'PBEParameter'{} = Params, Hash}}) ->
     #'EncryptedPrivateKeyInfo_encryptionAlgorithm'{
-        algorithm = pbes1_oid(Cipher, Hash), parameters = {asn1_OPENTYPE, der_encode('PBEParameter', Params)}
+        algorithm = clause_public_key:pbes1_oid(Cipher, Hash),
+        parameters = {asn1_OPENTYPE, der_encode('PBEParameter', Params)}
     }.
-
-pbes1_oid("RC2-CBC", sha) -> ?'pbeWithSHA1AndRC2-CBC';
-pbes1_oid("DES-CBC", sha) -> ?'pbeWithSHA1AndDES-CBC';
-pbes1_oid("RC2-CBC", md5) -> ?'pbeWithMD5AndRC2-CBC';
-pbes1_oid("DES-CBC", md5) -> ?'pbeWithMD5AndDES-CBC'.
-
-pbes2_cipher(#'PBES2-params_encryptionScheme'{algorithm = ?'id-aes128-CBC'}) -> "AES-128-CBC";
-pbes2_cipher(#'PBES2-params_encryptionScheme'{algorithm = ?'id-aes192-CBC'}) -> "AES-192-CBC";
-pbes2_cipher(#'PBES2-params_encryptionScheme'{algorithm = ?'id-aes256-CBC'}) -> "AES-256-CBC";
-pbes2_cipher(#'PBES2-params_encryptionScheme'{algorithm = ?'desCBC'}) -> "DES-CBC";
-pbes2_cipher(#'PBES2-params_encryptionScheme'{algorithm = ?'des-EDE3-CBC'}) -> "DES-EDE3-CBC";
-pbes2_cipher(#'PBES2-params_encryptionScheme'{algorithm = ?'rc2CBC'}) -> "RC2-CBC".
 
 %%--------------------------------------------------------------------------------------------------------------------
 %% Helpers

@@ -1,3 +1,4 @@
+#include "base64.hpp"
 #include "../../terms/integers.hpp"
 #include "../collections/collections.hpp"
 #include <array>
@@ -467,6 +468,12 @@ constexpr std::array BASE64_BUILTINS{
     typed_entry<decode2<true, true>>("base64", "mime_decode_to_string"),
 };
 } // namespace
+
+Term base64_encode(ProcessContext &context, const Term &data) {
+    return encode2(context, {data}, empty_options(context));
+}
+
+Term base64_mime_decode(ProcessContext &context, const Term &data) { return decode1<true, false>(context, {data}); }
 } // namespace clause::runtime::builtins::encoding
 
 namespace clause::runtime {

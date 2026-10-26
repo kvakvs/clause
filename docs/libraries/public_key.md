@@ -57,7 +57,8 @@ The application includes [`public_key.app`](../../library/public_key/public_key.
 `asn1.app` dependency resource. `public_key` delegates encoding and decoding functions to
 `clause_public_key_codec`, which includes `public_key.hrl`. Runtime builtins implement the record
 traversals and object identifier tables corresponding to OTP's `pubkey_translation` and
-`pubkey_cert_records`; see [public key builtins](../builtins.md#public-key).
+`pubkey_cert_records`, PEM text and the password-based encryption tables; see
+[public key builtins](../builtins.md#public-key).
 
 - `der_decode/2` and `der_encode/2` select the generated module for each type according to OTP's
   rules. PKCS #8 `PrivateKeyInfo` and `OneAsymmetricKey` values are unwrapped into RSA, DSA, EC,

@@ -60,6 +60,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/public_key/translate.cpp src/builtins/public_key/tables.cpp src/builtins/public_key/builtins.cpp
     # Trust stores (plan 21 step LIB80D6).
     src/builtins/public_key/os_cacerts.cpp
+    # PEM text and PBE tables (plan 21 step LIB80E1).
+    src/builtins/public_key/pem.cpp src/builtins/public_key/pbe.cpp
     # Module json (plan 21 step LIB5E).
     src/builtins/encoding/json.cpp src/builtins/encoding/json_encode.cpp
     # Module filename (plan 21 step LIB5G).

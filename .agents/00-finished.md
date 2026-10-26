@@ -951,6 +951,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB80D6** public_key trust stores: `clause_public_key_cacerts` (OTP's file lists, macOS `/usr/bin/security`,
   persistent term, cacerts_path, error_info) and the `os_cacerts/0` builtin (Windows ROOT store via crypt32);
   public_key no longer PARTIAL; `public_key_cacerts` golden identical to OTP — `294c4eee`
+- **LIB80E1** public_key PEM text and PBE tables in C++: `pem_decode`/`pem_entry` builtins (`pubkey_pem`'s lines,
+  labels, DEK-Info, base64 lines and errors; decoding stops after an encrypted PKCS #8 entry for Erlang's
+  der_decode), `pubkey_pbe`'s cipher/scheme/PBES1/PRF tables; base64 encode/mime_decode exported to builtins;
+  goldens and a scratch edge-case oracle (DEK-Info tokens, signed hex, missing END, ~s ciphers) identical to OTP — `TBD`
 
 ## Plan 22 (from 2026-10-23)
 

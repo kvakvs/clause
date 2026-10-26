@@ -816,7 +816,7 @@ Erlang clause dispatch, so programs that call it compile no extra code.
 
 `builtins/public_key/` in `clause_runtime`, `library/public_key/clause_public_key.erl` (plan 21 step LIB80B,
 [public_key](libraries/public_key.md)): the record walks and tables of OTP's `pubkey_translation` and
-`pubkey_cert_records`, which `clause_public_key_codec` calls.
+`pubkey_cert_records`, `pubkey_pem`'s text and `pubkey_pbe`'s tables, which `clause_public_key_codec` calls.
 
 - `translate(decode | encode, Term)` (`translate.cpp`) walks a term as `pubkey_translation:decode/1` and `encode/1`
   do: the generated modules' `SubjectPublicKeyInfo_algorithm`, `DSA-Params`, `DSA-Sig-Value`, `OTPExtension`,
@@ -827,6 +827,15 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   and `extension` (an extension's type); `undefined` when the table has no row, `badarg` for another table.
 - `asn1_module(Type)` names the generated module `der_decode/2` and `der_encode/2` use for a type
   (`public_key:get_asn1_module/1`), `undefined` for a type of none.
+- `pem_decode(Text)` and `pem_entry(Entry)` (`pem.cpp`, plan 21 step LIB80E1) read and write PEM text as
+  `pubkey_pem` does: CRLF/CR/LF lines, BEGIN lines without trailing white space, OTP's labels, the `Proc-Type` and
+  `DEK-Info` header and base64 bodies in 64-character lines, with `pubkey_pem`'s errors (`function_clause` without
+  an END line, `badmatch` of `DEK-Info` tokens, `unhex`'s `list_to_integer` signs). `pem_decode` stops after an
+  `ENCRYPTED PRIVATE KEY` entry, `{Entries, Der, Rest}`, so that Erlang decodes it before the rest is read;
+  otherwise `{Entries, done}`.
+- `pbe_cipher(Name)`, `pbes2_cipher(Oid)`, `pbes1(Oid)`, `pbes1_oid(Name, Digest)` and `prf_digest(Oid)` (`pbe.cpp`)
+  are `pubkey_pbe`'s tables: a PEM cipher's crypto cipher, block size and key length, PBES2 schemes, PBES1
+  algorithms and PBKDF2 digests; `function_clause` for anything else.
 - `os_cacerts()` (`os_cacerts.cpp`, plan 21 step LIB80D6) reads the current user's Windows `ROOT` store through
   crypt32 as OTP's `pubkey_os_cacerts` NIF does: `[{Encoding, Der}]` in the NIF's order, `internal_error` when the
   store does not open, `[]` on other systems, where `clause_public_key_cacerts` reads files.
