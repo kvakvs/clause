@@ -929,6 +929,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   to `clause_public_key_codec` (DER/PEM, PKCS #8 keys of every type, PEM encryption legacy/PBES1/PBES2 over crypto,
   plain/otp/relaxed certificates, extensions); `clause_public_key` builtins (`pubkey_translation` walk, OID tables,
   type modules); `public_key_codec` golden identical to OTP — `c25240e3`
+- **LIB80C** public_key keys and signatures: `clause_public_key_keys` over crypto (sign/verify, RSA encryption and
+  padding options, generate_key/compute_key, pkix_sign/pkix_verify with TBS bytes by a TLV split, sign/hash types,
+  short_name_hash via HashRDNSequence, dh_gex_group with eight OpenSSH moduli per size, SSH curve names,
+  handle_trace); `public_key_keys` golden identical to OTP — pending
 
 ## Plan 22 (from 2026-10-23)
 

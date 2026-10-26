@@ -4,6 +4,7 @@ Clause's `crypto` (plan 21 step LIB79) answers OTP's `crypto` module over OpenSS
 which OpenSSL is used and how it is found, how Clause and `clau` build it from source, how programs link it, and
 FIPS mode. The builtins themselves are described in [builtins](../builtins.md#crypto-module), the library module in
 [library](library.md), and the observable differences from OTP in [differences](../differences.md#crypto).
+`public_key`'s keys and signatures call it ([public_key](public_key.md#keys-and-signatures)).
 
 ## OpenSSL versions
 

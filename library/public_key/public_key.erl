@@ -1,7 +1,7 @@
 %% Clause's replacement for OTP's public_key (docs/libraries/public_key.md, plan 21 step LIB80), written from OTP's
 %% documentation: DER and PEM coding and certificate decoding (LIB80B) are clause_public_key_codec's, over the ASN.1
-%% modules clau generates from library/public_key/asn1; keys and signatures (LIB80C) and validation (LIB80D) raise
-%% {not_implemented, Name, Arity}.
+%% modules clau generates from library/public_key/asn1, keys and signatures (LIB80C) clause_public_key_keys', over
+%% crypto; validation (LIB80D) raises {not_implemented, Name, Arity}.
 -module(public_key).
 -export([
     cacerts_clear/0,
@@ -79,36 +79,50 @@ pem_entry_encode(Asn1Type, Entity, InfoPwd) -> clause_public_key_codec:pem_entry
 pkix_decode_cert(DerCert, Type) -> clause_public_key_codec:pkix_decode_cert(DerCert, Type).
 pkix_encode(Asn1Type, Term, Type) -> clause_public_key_codec:pkix_encode(Asn1Type, Term, Type).
 
+%% Keys and signatures.
+compute_key(OthersKey, MyKey) -> clause_public_key_keys:compute_key(OthersKey, MyKey).
+compute_key(OthersKey, MyKey, Params) -> clause_public_key_keys:compute_key(OthersKey, MyKey, Params).
+decrypt_private(CipherText, Key) -> clause_public_key_keys:decrypt_private(CipherText, Key, []).
+decrypt_private(CipherText, Key, Options) -> clause_public_key_keys:decrypt_private(CipherText, Key, Options).
+decrypt_public(CipherText, Key) -> clause_public_key_keys:decrypt_public(CipherText, Key, []).
+decrypt_public(CipherText, Key, Options) -> clause_public_key_keys:decrypt_public(CipherText, Key, Options).
+dh_gex_group(Min, N, Max, Groups) -> clause_public_key_keys:dh_gex_group(Min, N, Max, Groups).
+dh_gex_group_sizes() -> clause_public_key_keys:dh_gex_group_sizes().
+encrypt_private(PlainText, Key) -> clause_public_key_keys:encrypt_private(PlainText, Key, []).
+encrypt_private(PlainText, Key, Options) -> clause_public_key_keys:encrypt_private(PlainText, Key, Options).
+encrypt_public(PlainText, Key) -> clause_public_key_keys:encrypt_public(PlainText, Key, []).
+encrypt_public(PlainText, Key, Options) -> clause_public_key_keys:encrypt_public(PlainText, Key, Options).
+generate_key(Params) -> clause_public_key_keys:generate_key(Params).
+handle_trace(Kind, Event, Stack) -> clause_public_key_keys:handle_trace(Kind, Event, Stack).
+oid2ssh_curvename(Oid) -> clause_public_key_keys:oid2ssh_curvename(Oid).
+pkix_hash_type(Oid) -> clause_public_key_keys:pkix_hash_type(Oid).
+pkix_sign(TBSCert, Key) -> clause_public_key_keys:pkix_sign(TBSCert, Key).
+pkix_sign_types(Oid) -> clause_public_key_keys:pkix_sign_types(Oid).
+pkix_verify(DerCert, Key) -> clause_public_key_keys:pkix_verify(DerCert, Key).
+short_name_hash(Name) -> clause_public_key_keys:short_name_hash(Name).
+sign(DigestOrPlainText, DigestType, Key) -> clause_public_key_keys:sign(DigestOrPlainText, DigestType, Key, []).
+sign(DigestOrPlainText, DigestType, Key, Options) ->
+    clause_public_key_keys:sign(DigestOrPlainText, DigestType, Key, Options).
+ssh_curvename2oid(Name) -> clause_public_key_keys:ssh_curvename2oid(Name).
+verify(DigestOrPlainText, DigestType, Signature, Key) ->
+    clause_public_key_keys:verify(DigestOrPlainText, DigestType, Signature, Key, []).
+verify(DigestOrPlainText, DigestType, Signature, Key, Options) ->
+    clause_public_key_keys:verify(DigestOrPlainText, DigestType, Signature, Key, Options).
+
 %%--------------------------------------------------------------------------------------------------------------------
-%% Not implemented yet (plan 21 steps LIB80C and LIB80D)
+%% Not implemented yet (plan 21 step LIB80D)
 %%--------------------------------------------------------------------------------------------------------------------
 
 cacerts_clear() -> erlang:error({not_implemented, cacerts_clear, 0}).
 cacerts_get() -> erlang:error({not_implemented, cacerts_get, 0}).
 cacerts_load() -> erlang:error({not_implemented, cacerts_load, 0}).
 cacerts_load(_) -> erlang:error({not_implemented, cacerts_load, 1}).
-compute_key(_, _) -> erlang:error({not_implemented, compute_key, 2}).
-compute_key(_, _, _) -> erlang:error({not_implemented, compute_key, 3}).
-decrypt_private(_, _) -> erlang:error({not_implemented, decrypt_private, 2}).
-decrypt_private(_, _, _) -> erlang:error({not_implemented, decrypt_private, 3}).
-decrypt_public(_, _) -> erlang:error({not_implemented, decrypt_public, 2}).
-decrypt_public(_, _, _) -> erlang:error({not_implemented, decrypt_public, 3}).
-dh_gex_group(_, _, _, _) -> erlang:error({not_implemented, dh_gex_group, 4}).
-dh_gex_group_sizes() -> erlang:error({not_implemented, dh_gex_group_sizes, 0}).
-encrypt_private(_, _) -> erlang:error({not_implemented, encrypt_private, 2}).
-encrypt_private(_, _, _) -> erlang:error({not_implemented, encrypt_private, 3}).
-encrypt_public(_, _) -> erlang:error({not_implemented, encrypt_public, 2}).
-encrypt_public(_, _, _) -> erlang:error({not_implemented, encrypt_public, 3}).
-generate_key(_) -> erlang:error({not_implemented, generate_key, 1}).
-handle_trace(_, _, _) -> erlang:error({not_implemented, handle_trace, 3}).
 ocsp_extensions(_) -> erlang:error({not_implemented, ocsp_extensions, 1}).
-oid2ssh_curvename(_) -> erlang:error({not_implemented, oid2ssh_curvename, 1}).
 pkix_crl_issuer(_) -> erlang:error({not_implemented, pkix_crl_issuer, 1}).
 pkix_crl_verify(_, _) -> erlang:error({not_implemented, pkix_crl_verify, 2}).
 pkix_crls_validate(_, _, _) -> erlang:error({not_implemented, pkix_crls_validate, 3}).
 pkix_dist_point(_) -> erlang:error({not_implemented, pkix_dist_point, 1}).
 pkix_dist_points(_) -> erlang:error({not_implemented, pkix_dist_points, 1}).
-pkix_hash_type(_) -> erlang:error({not_implemented, pkix_hash_type, 1}).
 pkix_is_fixed_dh_cert(_) -> erlang:error({not_implemented, pkix_is_fixed_dh_cert, 1}).
 pkix_is_issuer(_, _) -> erlang:error({not_implemented, pkix_is_issuer, 2}).
 pkix_is_self_signed(_) -> erlang:error({not_implemented, pkix_is_self_signed, 1}).
@@ -117,18 +131,9 @@ pkix_match_dist_point(_, _) -> erlang:error({not_implemented, pkix_match_dist_po
 pkix_normalize_name(_) -> erlang:error({not_implemented, pkix_normalize_name, 1}).
 pkix_ocsp_validate(_, _, _, _, _) -> erlang:error({not_implemented, pkix_ocsp_validate, 5}).
 pkix_path_validation(_, _, _) -> erlang:error({not_implemented, pkix_path_validation, 3}).
-pkix_sign(_, _) -> erlang:error({not_implemented, pkix_sign, 2}).
-pkix_sign_types(_) -> erlang:error({not_implemented, pkix_sign_types, 1}).
 pkix_subject_id(_) -> erlang:error({not_implemented, pkix_subject_id, 1}).
 pkix_test_data(_) -> erlang:error({not_implemented, pkix_test_data, 1}).
 pkix_test_root_cert(_, _) -> erlang:error({not_implemented, pkix_test_root_cert, 2}).
-pkix_verify(_, _) -> erlang:error({not_implemented, pkix_verify, 2}).
 pkix_verify_hostname(_, _) -> erlang:error({not_implemented, pkix_verify_hostname, 2}).
 pkix_verify_hostname(_, _, _) -> erlang:error({not_implemented, pkix_verify_hostname, 3}).
 pkix_verify_hostname_match_fun(_) -> erlang:error({not_implemented, pkix_verify_hostname_match_fun, 1}).
-short_name_hash(_) -> erlang:error({not_implemented, short_name_hash, 1}).
-sign(_, _, _) -> erlang:error({not_implemented, sign, 3}).
-sign(_, _, _, _) -> erlang:error({not_implemented, sign, 4}).
-ssh_curvename2oid(_) -> erlang:error({not_implemented, ssh_curvename2oid, 1}).
-verify(_, _, _, _) -> erlang:error({not_implemented, verify, 4}).
-verify(_, _, _, _, _) -> erlang:error({not_implemented, verify, 5}).

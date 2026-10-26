@@ -173,14 +173,9 @@ records, goldens from OTP, own headers written from the documented records and m
     differs).
   - **Steps** (`public_key` in `library/` since LIB80B, documented functions PARTIAL in
     `library_modules.py` until LIB80D; later steps' functions keep `not_implemented` placeholders):
-    - LIB80B done (B1 specs and header, B2 codec). Left for LIB80C: TBS bytes for `pkix_verify`
-      without `asn1config` exclusive decode (a TLV split); `short_name_hash/1` needs
-      `'OTP-PKIX':enc_HashRDNSequence`, which clau's modules do not export (encode `HashRDNSequence`).
-    - LIB80C: keys and crypto: `sign`, `verify`, `encrypt_*`/`decrypt_*`, `generate_key/1`,
-      `compute_key/2,3`, `dh_gex_group/4`, `pkix_sign/2`, `pkix_verify/2`, `pkix_sign_types/1`,
-      `pkix_hash_type/1`, `short_name_hash/1`.
-      - Docs: `public_key.md` gains keys and signatures (key records and `crypto` mapping, supported
-        algorithms); link from `crypto.md`.
+    - LIB80B done (B1 specs and header, B2 codec).
+    - LIB80C done (keys and signatures over crypto in `clause_public_key_keys`; default DH groups
+      from OpenSSH's moduli). `public_key_keys` golden.
     - LIB80D: `pkix_path_validation/3`, CRLs (`pkix_crl_*`, `pkix_crls_validate/3`, dist points),
       `pkix_ocsp_validate/5`, hostname checks, `pkix_is_*`, issuer/subject ids,
       `pkix_normalize_name/1`, `pkix_test_data/1`, `pkix_test_root_cert/2`, `cacerts_*`.

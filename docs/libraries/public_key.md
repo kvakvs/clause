@@ -3,7 +3,7 @@
 Clause's `public_key` application (plan 21, LIB80) is built from two parts: the ASN.1 modules that encode and decode
 the PKIX and PKCS types, which clau generates from the specifications in `library/public_key/asn1/`, and the header
 `library/public_key/include/public_key.hrl`, and the `public_key` module, which has OTP 29's exports: its DER and PEM
-codec is implemented (LIB80B); keys and signatures (LIB80C) and validation (LIB80D) still raise
+codec (LIB80B) and keys and signatures (LIB80C) are implemented; validation (LIB80D) still raises
 `{not_implemented, Name, Arity}` ([inventory](../../library/public_key/public_key.terms)).
 
 ## Specifications
@@ -64,3 +64,34 @@ walks and object identifier tables of OTP's `pubkey_translation` and `pubkey_cer
   `pkix_encode/3` in the `plain` and `otp` forms.
 
 The `public_key_codec` golden compares all of these with OTP, including the PEM text of encrypted entries.
+
+## Keys and signatures
+
+`clause_public_key_keys` turns key records into [`crypto`](crypto.md)'s key lists as OTP does and calls it:
+
+| Key | crypto algorithm |
+| --- | --- |
+| `#'RSAPrivateKey'{}` (all CRT components, or only `[E, N, D]`), `{RSAKey, PssParams}`; `#'RSAPublicKey'{}` | `rsa` |
+| `#'DSAPrivateKey'{}`; `{Y, #'Dss-Parms'{}}` | `dss` |
+| `#'ECPrivateKey'{}` with named or explicit parameters; `{#'ECPoint'{}, Params}` | `ecdsa` |
+| Ed25519/Ed448 `#'ECPrivateKey'{}`, `{ed_pri, Curve, Pub, Priv}`; `{#'ECPoint'{}, {namedCurve, Oid}}`, `{ed_pub, Curve, Key}` | `eddsa` |
+| `#'ML-DSAPrivateKey'{}` (seed, else expanded key), `#'SLH-DSAPrivateKey'{}`; their public keys | the parameter set |
+| A map with `sign_fun` or `encrypt_fun` | the fun is called |
+
+- `sign/3,4`, `verify/4,5` (a DSA key with digest type `none` signs a SHA-1 digest; a signature that is not a binary
+  verifies `false`; a key of no kind raises `badarg`), `encrypt_private/2,3`, `decrypt_public/2,3`,
+  `encrypt_public/2,3`, `decrypt_private/2,3` (padding from `rsa_pad`, `rsa_padding` or the first atom option, PKCS #1
+  by default).
+- `generate_key/1`: DH, EC on named and explicit curves (parameters normalised to the curve's OID), X25519/X448,
+  Ed25519/Ed448, RSA, ML-DSA and SLH-DSA; `compute_key/2,3`: ECDH, X25519/X448 and DH.
+- `pkix_sign/2` and `pkix_verify/2` for every signature algorithm OTP knows, RSASSA-PSS included; the signed bytes are
+  the DER certificate's first element, as OTP's exclusive decode gives them. `pkix_sign_types/1`, `pkix_hash_type/1`.
+- `short_name_hash/1`: OpenSSL's `c_rehash` hash of a name.
+- `dh_gex_group/4`, `dh_gex_group_sizes/0`: OTP's selection among groups; the default groups are eight per size from
+  OpenSSH's moduli file (`clause_public_key_moduli`), the sizes OTP has
+  ([differences](../differences.md#asn1)). `ssh_curvename2oid/1`, `oid2ssh_curvename/1`, `handle_trace/3`.
+
+OTP's quirks are kept: an ML-DSA key `generate_key/1` makes has an empty seed, which `crypto` refuses to sign with;
+a DSA private key cannot verify; explicit prime-field curves fail decoding their prime. The `public_key_keys`
+golden compares deterministic signatures (RSA PKCS #1, EdDSA, certificates), encryption, agreement, types, hashes and
+group selection with OTP.
