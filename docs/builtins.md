@@ -836,19 +836,6 @@ Erlang clause dispatch, so programs that call it compile no extra code.
 - `pbe_cipher(Name)`, `pbes2_cipher(Oid)`, `pbes1(Oid)`, `pbes1_oid(Name, Digest)` and `prf_digest(Oid)` (`pbe.cpp`)
   are `pubkey_pbe`'s tables: a PEM cipher's crypto cipher, block size and key length, PBES2 schemes, PBES1
   algorithms and PBKDF2 digests; `function_clause` for anything else.
-- `otp_transform(decode | encode, Term)` (`otp.cpp`, plan 21 step LIB80E2) is `pubkey_cert_records:transform/2`
-  below the certificate records: attribute values unwrapped from their string choice (country, domain component,
-  e-mail address) or wrapped in `{correct, V}`, signature algorithm records, DSA parameters, key identifiers,
-  directory names and RDN sequences (`lists:map/2`'s `function_clause` for an improper one), name constraint
-  subtrees, distribution points and access descriptions. `OTPCertificate` and `OTPTBSCertificate` stay with
-  `clause_public_key_codec`, which decodes their public keys and extensions through the generated modules.
-- `extension_type(Name)` (`tables.cpp`) is the `{Module, Type}` of an extension's value.
-- `normalize_name(Name)`, `is_issuer(Issuer, Candidate)`, `is_dir_name(First, Second, Exact)`,
-  `match_name(Type, Name, Permitted)`, `match_wildcard(Fqdn, Name)` and `lower_ascii(Term)` (`names.cpp`, plan 21
-  step LIB80E3) are `pubkey_cert`'s name normalisation and comparison, the name constraint rules of each general
-  name type (OTP's quirks kept: only the first permitted URI is reduced to its host) and the https wildcard match.
-  Their `string`, `unicode`, `uri_string`, `lists:last/1` and `erlang:band/2` steps call those builtins through the
-  registry (`calls.cpp`), so results and errors are theirs.
 - `policy_add/4`, `policy_map/5`, `policy_intersection/3`, `policy_prune/1`, `policy_constrained/1` and
   `policy_result/1` (`policy.cpp`, plan 21 step LIB80E4) are `pubkey_policy_tree`'s walks over the valid policy tree
   (RFC 5280 6.1.3 d, 6.1.4 b, 6.1.5 g): children and siblings for a certificate's policies and anyPolicy, policy

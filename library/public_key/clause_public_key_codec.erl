@@ -24,6 +24,8 @@
 -record('PrivateKeyAlgorithmIdentifier', {algorithm, parameters = asn1_NOVALUE}).
 -record('SubjectPublicKeyInfo_algorithm', {algorithm, parameters = asn1_NOVALUE}).
 -record('DSA-Params', {p, q, g}).
+-record('OTPCertificate_signatureAlgorithm', {algorithm, parameters = asn1_NOVALUE}).
+-record('OTPTBSCertificate_signature', {algorithm, parameters = asn1_NOVALUE}).
 -record('OTPPolicyInformation', {policyIdentifier, policyQualifiers = asn1_NOVALUE}).
 -record('OTPPolicyQualifierInfo', {policyQualifierId, qualifier}).
 -record('OTPUserNotice', {noticeRef = asn1_NOVALUE, explicitText = asn1_NOVALUE}).
@@ -443,10 +445,11 @@ pkix_encode(Type, Term, otp) ->
 transform(Term, decode) -> decode_transform(Term);
 transform(Term, encode) -> encode_transform(Term).
 
-%% The otp form from OTP-PKIX's records: the public key and extensions of a certificate decoded here, the walk below
-%% them (names with their values unwrapped, signature algorithms, constraints, points) a builtin.
+%% The otp form from OTP-PKIX's records: names with their values unwrapped, the public key and extensions decoded.
 decode_transform(#'OTPCertificate'{tbsCertificate = Tbs, signatureAlgorithm = Algorithm} = Cert) ->
     Cert#'OTPCertificate'{tbsCertificate = decode_transform(Tbs), signatureAlgorithm = decode_transform(Algorithm)};
+decode_transform(#'OTPCertificate_signatureAlgorithm'{algorithm = Algorithm, parameters = Params}) ->
+    #'SignatureAlgorithm'{algorithm = Algorithm, parameters = decode_transform(Params)};
 decode_transform(
     #'OTPTBSCertificate'{
         signature = Signature, issuer = Issuer, subject = Subject, subjectPublicKeyInfo = Info, extensions = Extensions
@@ -459,11 +462,45 @@ decode_transform(
         subjectPublicKeyInfo = decode_public_key_info(Info),
         extensions = decode_extensions(Extensions, crl_later)
     };
+decode_transform(#'OTPTBSCertificate_signature'{algorithm = Algorithm, parameters = Params}) ->
+    #'SignatureAlgorithm'{algorithm = Algorithm, parameters = decode_transform(Params)};
+decode_transform({present, #'DSA-Params'{p = P, q = Q, g = G}}) ->
+    {params, #'Dss-Parms'{p = P, q = Q, g = G}};
+decode_transform({absent, 'NULL'}) ->
+    'NULL';
+decode_transform(#'SingleAttribute'{type = Id, value = Value}) ->
+    case {Id, Value} of
+        {?'id-at-countryName', {_, String}} -> #'AttributeTypeAndValue'{type = Id, value = String};
+        {?'id-domainComponent', {_, String}} -> #'AttributeTypeAndValue'{type = Id, value = String};
+        {?'id-emailAddress', {_, String}} -> #'AttributeTypeAndValue'{type = Id, value = String};
+        {_, _} -> #'AttributeTypeAndValue'{type = Id, value = Value}
+    end;
+decode_transform(#'AuthorityKeyIdentifier'{authorityCertIssuer = Issuer} = Id) ->
+    Id#'AuthorityKeyIdentifier'{authorityCertIssuer = decode_transform(Issuer)};
+decode_transform({directoryName, Value}) ->
+    {directoryName, decode_transform(Value)};
+decode_transform({rdnSequence, Sequence}) when is_list(Sequence) ->
+    {rdnSequence, [[decode_transform(Element) || Element <- Rdn] || Rdn <- Sequence]};
+decode_transform(#'NameConstraints'{permittedSubtrees = Permitted, excludedSubtrees = Excluded}) ->
+    #'NameConstraints'{permittedSubtrees = subtrees(decode, Permitted), excludedSubtrees = subtrees(decode, Excluded)};
+decode_transform([#'DistributionPoint'{} | _] = Points) ->
+    [decode_distribution_point(Point) || Point <- Points];
+decode_transform(#'AccessDescription'{accessLocation = Name} = Description) ->
+    Description#'AccessDescription'{accessLocation = decode_transform(Name)};
+decode_transform(List) when is_list(List) ->
+    [decode_transform(Element) || Element <- List];
 decode_transform(Other) ->
-    clause_public_key:otp_transform(decode, Other).
+    Other.
 
-%% OTP-PKIX's records from the otp form, for encoding (pubkey_cert_records:transform/2); below certificates a
-%% builtin.
+%% A CRL distribution point with its names in the otp form.
+decode_distribution_point(#'DistributionPoint'{distributionPoint = {Type, Name}, cRLIssuer = Issuers} = Point) ->
+    Point#'DistributionPoint'{
+        distributionPoint = {Type, decode_transform(Name)}, cRLIssuer = decode_transform(Issuers)
+    };
+decode_distribution_point(Point) ->
+    Point.
+
+%% OTP-PKIX's records from the otp form, for encoding (pubkey_cert_records:transform/2).
 encode_transform(#'OTPCertificate'{tbsCertificate = Tbs, signatureAlgorithm = Algorithm} = Cert) ->
     Cert#'OTPCertificate'{tbsCertificate = encode_transform(Tbs), signatureAlgorithm = encode_transform(Algorithm)};
 encode_transform(
@@ -478,8 +515,37 @@ encode_transform(
         subjectPublicKeyInfo = encode_public_key_info(Info),
         extensions = encode_extensions(Extensions)
     };
+encode_transform(#'SignatureAlgorithm'{algorithm = Algorithm, parameters = Params}) ->
+    #'OTPTBSCertificate_signature'{algorithm = Algorithm, parameters = encode_transform(Params)};
+encode_transform({params, #'Dss-Parms'{p = P, q = Q, g = G}}) ->
+    {present, #'DSA-Params'{p = P, q = Q, g = G}};
+encode_transform(#'AttributeTypeAndValue'{type = Id, value = Value}) ->
+    case Id of
+        ?'id-at-countryName' -> #'SingleAttribute'{type = Id, value = {correct, Value}};
+        ?'id-domainComponent' -> #'SingleAttribute'{type = Id, value = {correct, Value}};
+        ?'id-emailAddress' -> #'SingleAttribute'{type = Id, value = {correct, Value}};
+        _ -> #'SingleAttribute'{type = Id, value = Value}
+    end;
+encode_transform(#'AuthorityKeyIdentifier'{authorityCertIssuer = Issuer} = Id) ->
+    Id#'AuthorityKeyIdentifier'{authorityCertIssuer = encode_transform(Issuer)};
+encode_transform([{directoryName, _}] = List) ->
+    [{directoryName, encode_transform(Value)} || {directoryName, Value} <- List];
+encode_transform({directoryName, Value}) ->
+    {directoryName, encode_transform(Value)};
+encode_transform({rdnSequence, Sequence}) when is_list(Sequence) ->
+    {rdnSequence, [[encode_transform(Element) || Element <- Rdn] || Rdn <- Sequence]};
+encode_transform(#'NameConstraints'{permittedSubtrees = Permitted, excludedSubtrees = Excluded}) ->
+    #'NameConstraints'{permittedSubtrees = subtrees(encode, Permitted), excludedSubtrees = subtrees(encode, Excluded)};
 encode_transform(Other) ->
-    clause_public_key:otp_transform(encode, Other).
+    Other.
+
+%% Name constraint subtrees with their names transformed.
+subtrees(_, asn1_NOVALUE) ->
+    asn1_NOVALUE;
+subtrees(decode, Trees) ->
+    [Tree#'GeneralSubtree'{base = decode_transform(Name)} || #'GeneralSubtree'{base = Name} = Tree <- Trees];
+subtrees(encode, Trees) ->
+    [Tree#'GeneralSubtree'{base = encode_transform(Name)} || #'GeneralSubtree'{base = Name} = Tree <- Trees].
 
 %% The otp form's public key: decoded by its algorithm.
 decode_public_key_info(#'SubjectPublicKeyInfo'{algorithm = KeyAlgorithm, subjectPublicKey = Key0}) ->
@@ -568,8 +634,18 @@ extension_value(Name, Der) ->
 asn1_exit({'Type not compatible with table constraint', _} = Reason) -> exit(Reason);
 asn1_exit(Reason) -> exit({error, {asn1, Reason}}).
 
-%% The module and type of an extension's value (EXTENSION's &ExtnType), a builtin.
-extension_type(Name) -> clause_public_key:extension_type(Name).
+%% The module and type of an extension's value (EXTENSION's &ExtnType); HoldInstructionCode's OBJECT IDENTIFIER and
+%% InvalidityDate's GeneralizedTime have no type of their own and take another type of the same definition.
+extension_type('SubjectKeyIdentifier') -> {'PKIX1Implicit-2009', 'KeyIdentifier'};
+extension_type('SubjectAltName') -> {'PKIX1Implicit-2009', 'GeneralNames'};
+extension_type('IssuerAltName') -> {'PKIX1Implicit-2009', 'GeneralNames'};
+extension_type('CertificateIssuer') -> {'PKIX1Implicit-2009', 'GeneralNames'};
+extension_type('InhibitAnyPolicy') -> {'PKIX1Implicit-2009', 'SkipCerts'};
+extension_type('FreshestCRL') -> {'PKIX1Implicit-2009', 'CRLDistributionPoints'};
+extension_type('BaseCRLNumber') -> {'PKIX1Implicit-2009', 'CRLNumber'};
+extension_type('HoldInstructionCode') -> {'PKIX1Implicit-2009', 'KeyPurposeId'};
+extension_type('InvalidityDate') -> {'OCSP-2024-08', 'ArchiveCutoff'};
+extension_type(Name) -> {'PKIX1Implicit-2009', Name}.
 
 %% Certificate policies whose explicit texts are longer than allowed, cut to 350 characters.
 otp_policies(Extension, Der) ->

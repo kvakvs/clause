@@ -4,7 +4,7 @@
 #include <clause/runtime/builtin_registry.hpp>
 #include <clause/runtime/code_server.hpp>
 
-// Added for public_key's names (plan 21 step LIB80E3): calls of other registered builtins.
+// Added for public_key's PBKDF1 loop (plan 21 step LIB80E5): calls of other registered builtins.
 namespace clause::runtime::builtins::public_key {
 Term call(ProcessContext &context, const std::string_view module, const std::string_view function,
           const std::initializer_list<Term> args) {

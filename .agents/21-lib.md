@@ -195,15 +195,9 @@ records, goldens from OTP, own headers written from the documented records and m
       - E1 done: PEM text (`pem_decode/1` lines, labels, `DEK-Info`, base64; `pem_encode/1` lines) and
         PBE tables (ciphers, block sizes, key lengths, PRF digests, PBES1/PBES2 OIDs); Erlang maps
         `ENCRYPTED PRIVATE KEY` entries through `der_decode`/`der_encode`.
-      - E2 done: the otp form walks of `pubkey_cert_records` below certificates (names,
-        signature algorithms, name constraints, distribution points, access descriptions), extension
-        types; the `der_decode`/`der_encode` dispatch stays Erlang (its clauses are guards around
-        static calls into generated modules), as do certificates' keys and extensions and the
-        long notice fallback (`string:slice/3`). Fixed: a table constraint exit is raised as the
-        extension decoder raises it, so long visibleString notices fall back to OTP-PKIX.
-      - E3 done: `clause_public_key_cert` name normalisation and comparison, `match_name` rules,
-        the https wildcard and ASCII lowering (`names.cpp`, string/uri steps through registry calls);
-        hostname verification's fun loop and `inet` address parsing stay Erlang.
+      - E2, E3 reverted 2026-10-27 (user decision after a Release benchmark: the C++ otp form walk
+        and name functions were 3-8% slower than the Erlang and are not big recursive clusters); E2's
+        long user notice fix (table constraint exits raised raw) and its golden case stay.
       - E4 done: the policy tree walks (`policy.cpp`); the state machine, verify fun calls,
         counters and node limit stay Erlang.
       - E5 done (rule 2026-10-27: port only hot inner loops with a measured win and very complex

@@ -62,10 +62,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/public_key/os_cacerts.cpp
     # PEM text and PBE tables (plan 21 step LIB80E1).
     src/builtins/public_key/pem.cpp src/builtins/public_key/pbe.cpp
-    # The otp form walk (plan 21 step LIB80E2).
-    src/builtins/public_key/otp.cpp
-    # Names (plan 21 step LIB80E3).
-    src/builtins/public_key/names.cpp src/builtins/public_key/calls.cpp
+    # Calls of other builtins (plan 21 step LIB80E5).
+    src/builtins/public_key/calls.cpp
     # The policy tree (plan 21 step LIB80E4).
     src/builtins/public_key/policy.cpp
     # Module json (plan 21 step LIB5E).

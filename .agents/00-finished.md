@@ -967,6 +967,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   runner) identical to OTP — `bde5daaa`
 - **LIB80E5** public_key PBKDF1 rounds in C++ (`pbkdf1_rounds`, identical output, 2048 rounds 15.9 -> 0.84 ms
   Release); CRL entry loops tried and reverted (slower than compiled Erlang) — `b8282d39`
+- **LIB80E2/E3 reverted**: otp form walk and name functions back to Erlang (Release benchmark: C++ 3-8% slower,
+  not complex clusters); PEM (2.2x faster decode), policy tree and PBKDF1 ports kept; long notice fix kept — `TBD`
 
 ## Plan 22 (from 2026-10-23)
 

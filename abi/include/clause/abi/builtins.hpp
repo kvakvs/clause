@@ -679,16 +679,6 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_public_key", "name_oid", 2},
     BuiltinName{"clause_public_key", "oid_name", 2},
     BuiltinName{"clause_public_key", "os_cacerts", 0},
-    // The otp form walk and extension types (plan 21 step LIB80E2).
-    BuiltinName{"clause_public_key", "extension_type", 1},
-    BuiltinName{"clause_public_key", "otp_transform", 2},
-    // Names (plan 21 step LIB80E3).
-    BuiltinName{"clause_public_key", "is_dir_name", 3},
-    BuiltinName{"clause_public_key", "is_issuer", 2},
-    BuiltinName{"clause_public_key", "lower_ascii", 1},
-    BuiltinName{"clause_public_key", "match_name", 3},
-    BuiltinName{"clause_public_key", "match_wildcard", 2},
-    BuiltinName{"clause_public_key", "normalize_name", 1},
     // The policy tree (plan 21 step LIB80E4).
     BuiltinName{"clause_public_key", "policy_add", 4},
     BuiltinName{"clause_public_key", "policy_constrained", 1},

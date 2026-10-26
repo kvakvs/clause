@@ -1,6 +1,6 @@
 #pragma once
-// Added for public_key's names (plan 21 step LIB80E3): calls of other registered builtins (string, unicode,
-// uri_string) from public_key's walks, so that their results and errors stay OTP's.
+// Added for public_key's PBKDF1 loop (plan 21 step LIB80E5): calls of other registered builtins (clause_crypto)
+// from public_key's loops, so that their results and errors stay theirs.
 #include "../support.hpp"
 #include <initializer_list>
 #include <string_view>
