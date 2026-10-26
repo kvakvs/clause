@@ -253,6 +253,14 @@ Sorted tables done (see `00-finished.md`). Open: the small tables that would nee
 index-bearing ones (`fixed_atom_spellings`, preprocessor directive names, compile cache output
 kinds) or process_info/system_info item lists.
 
+The array of builtins in `builtins.hpp` is a flat array searched by a loop. This is no good and
+should either be a map/hash_map or use a better search algorithm.
+
+Same applies to searching for imports/loaded modules/exported functions and so on. Scan
+the compiler code for such linear searches.
+
+Same applies to runtime searching for module names and functions, dynamic call code for example.
+
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
 Ordered by measured T2 value and how well each fits an AOT compiler. 69A weight on 2026-10-21
