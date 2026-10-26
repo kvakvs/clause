@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "public_key_ocsp",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "nonce extension {'Extension',{1,3,6,1,5,5,7,48,1,2},\n                             false,\n                             <<4,16,196,100,157,156,153,3,113,212,20,36,125,\n                               58,154,251,86,159>>}\ngood {ok,[]}\ngood_der {ok,[]}\ngood_nonce_missing {ok,[{missing,ocsp_nonce}]}\nnonce {ok,[]}\nnonce_unchecked {ok,[]}\nnonce_mismatch {error,\n                   {bad_cert,{revocation_status_undetermined,nonce_mismatch}}}\nrevoked {error,\n            {bad_cert,\n                {revoked,{'RevokedInfo',\"20260101000000Z\",keyCompromise}}}}\nunknown {error,{bad_cert,{revocation_status_undetermined,'NULL'}}}\nmulti_revoked {error,\n                  {bad_cert,\n                      {revoked,\n                          {'RevokedInfo',\"20260101000000Z\",keyCompromise}}}}\nmulti_leaf {ok,[]}\nsha256 {ok,[]}\ndesignated {ok,[]}\nby_key {ok,[]}\nnoeku {error,\n          {bad_cert,\n              {revocation_status_undetermined,ocsp_responder_cert_not_found}}}\nnoeku_trusted {ok,[]}\nother {error,\n          {bad_cert,\n              {revocation_status_undetermined,ocsp_responder_cert_not_found}}}\nother_trusted {ok,[]}\nexpired_trusted {error,\n                    {bad_cert,\n                        {revocation_status_undetermined,\n                            ocsp_responder_cert_not_found}}}\nno_certs {ok,[]}\nnot_in_response {error,\n                    {bad_cert,\n                        {revocation_status_undetermined,no_matched_response}}}\nwrong_issuer {error,\n                 {bad_cert,\n                     {revocation_status_undetermined,\n                         ocsp_responder_cert_not_found}}}\ntrusted fun {trusted,{utf8String,<<\"noeku\">>}}\ntampered {error,\n             {bad_cert,\n                 {revocation_status_undetermined,\n                     ocsp_responder_cert_not_found}}}\ntry_later {error,{bad_cert,{revocation_status_undetermined,tryLater}}}\nother type {error,\n               {bad_cert,\n                   {revocation_status_undetermined,\n                       {ocsp_response_type_not_supported,{1,2,3,4}}}}}\ntoo large {error,\n              {bad_cert,\n                  {revocation_status_undetermined,\n                      {ocsp_response_too_large,102401}}}}\nresigned {ok,[]}\nproduced later {error,\n                   {bad_cert,\n                       {revocation_status_undetermined,ocsp_stale_response}}}\nthis update later {error,\n                      {bad_cert,\n                          {revocation_status_undetermined,\n                              no_matched_response}}}\nnext update passed {error,\n                       {bad_cert,\n                           {revocation_status_undetermined,\n                               no_matched_response}}}\nno next update {ok,[]}\nocsp_extensions [] [{'Extension',{1,3,6,1,5,5,7,48,1,2},\n                                 asn1_DEFAULT,\n                                 <<4,2,1,2>>}]\npublic_key_ocsp: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "public_key_ocsp.erl": "cad7076ff867cd59df00a2a02694d1addf48997bd4f35a8e4f89de8f5c5db81c"
+  }
+}

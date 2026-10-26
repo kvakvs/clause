@@ -2,7 +2,7 @@
 %% docs/libraries/public_key.md#path-validation): RFC 5280 basic path validation as OTP's public_key and pubkey_cert
 %% do it, with the validation state, the extensions, name constraints, the valid policy tree and the verify fun.
 -module(clause_public_key_path).
--export([gregorian_seconds/1, pkix_path_validation/3]).
+-export([combined_cert/1, gregorian_seconds/1, pkix_path_validation/3, validity/1]).
 
 -include("include/public_key.hrl").
 
@@ -301,6 +301,7 @@ validate_time(Cert, UserState, VerifyFun) ->
         ok -> UserState
     end.
 
+%% ok, expired, or error for dates that do not parse (pubkey_cert:parse_and_check_validity_dates/1; also OCSP's).
 validity(#'OTPCertificate'{tbsCertificate = TBSCert}) ->
     {'Validity', NotBeforeStr, NotAfterStr} = TBSCert#'OTPTBSCertificate'.validity,
     Now = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),

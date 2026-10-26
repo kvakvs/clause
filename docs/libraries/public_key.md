@@ -4,9 +4,10 @@ Clause's `public_key` application (plan 21, LIB80) is built from two parts: the 
 encode and decode the PKIX and PKCS types, which clau generates from the specifications in
 `library/public_key/asn1/`, and the header `library/public_key/include/public_key.hrl`, and the
 `public_key` module, which has OTP 29's exports: its DER and PEM codec (LIB80B), keys and signatures
-(LIB80C), the certificate, name, CRL and hostname functions (LIB80D1), path validation (LIB80D2)
-and CRL validation (LIB80D3) are implemented; OCSP validation, test data and trust stores
-(LIB80D4–D6) still raise `{not_implemented, Name, Arity}` ([inventory](../../library/public_key/public_key.terms)).
+(LIB80C), the certificate, name, CRL and hostname functions (LIB80D1), path validation (LIB80D2),
+CRL validation (LIB80D3) and OCSP validation (LIB80D4) are implemented; test data and trust stores
+(LIB80D5–D6) still raise `{not_implemented, Name, Arity}`
+([inventory](../../library/public_key/public_key.terms)).
 
 ## Specifications
 
@@ -162,3 +163,19 @@ then the CRL. The result is `valid`, `{bad_cert, {revoked, Reason}}` or
 `undetermined_details` is set. The `public_key_crls` golden compares revoked and unrevoked
 certificates, delta CRLs, stale CRLs, unknown critical extensions, bad signatures, missing issuer
 chains and a separate CRL signer with OTP on CRLs made with OpenSSL.
+
+## OCSP validation
+
+`pkix_ocsp_validate/5` (`clause_public_key_ocsp`) checks a DER OCSP response for a certificate as
+OTP does, by RFC 6960: the response must be at most 100 KB, `successful` and of the basic type; it
+must have been produced in the past and be signed by a responder that its responder ID names (by
+name or by key hash), whose certificate is within its validity dates and is the issuer itself, a
+designated responder the issuer signed with the `id-kp-OCSPSigning` extended key usage, or one that
+`is_trusted_responder_fun` accepts; the nonce sent must come back (a missing one gives
+`{missing, ocsp_nonce}` in the details); and a single response must match the certificate's serial
+number and issuer name and key hashes, with this update in the past and next update, if any, in the
+future. The result is `{ok, Details}`, `{error, {bad_cert, {revoked, RevokedInfo}}}` or
+`{error, {bad_cert, {revocation_status_undetermined, Reason}}}`. `ocsp_extensions/1` gives the
+nonce extension of a request. The `public_key_ocsp` golden compares good, revoked and unknown
+statuses, designated, unauthorised and expired responders, nonces, tampered and re-signed responses
+and stale times with OTP on responses made with OpenSSL.

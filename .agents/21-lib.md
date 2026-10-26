@@ -184,7 +184,7 @@ records, goldens from OTP, own headers written from the documented records and m
       - D2 done: `pkix_path_validation/3` (validation state, extensions, name constraints, policy
         tree, `verify_fun`).
       - D3 done: `pkix_crls_validate/3` (CRL and delta CRL checks, `issuer_fun`, `update_crl`).
-      - D4: `pkix_ocsp_validate/5`, `ocsp_extensions/1`.
+      - D4 done: `pkix_ocsp_validate/5`, `ocsp_extensions/1`.
       - D5: `pkix_test_data/1`, `pkix_test_root_cert/2`.
       - D6: `cacerts_get/0`, `cacerts_load/0,1`, `cacerts_clear/0` (OS trust stores, C++).
       - Docs: `public_key.md` gains validation (path, CRL, OCSP, hostname) and trust stores per
