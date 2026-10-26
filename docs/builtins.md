@@ -843,6 +843,12 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   subtrees, distribution points and access descriptions. `OTPCertificate` and `OTPTBSCertificate` stay with
   `clause_public_key_codec`, which decodes their public keys and extensions through the generated modules.
 - `extension_type(Name)` (`tables.cpp`) is the `{Module, Type}` of an extension's value.
+- `normalize_name(Name)`, `is_issuer(Issuer, Candidate)`, `is_dir_name(First, Second, Exact)`,
+  `match_name(Type, Name, Permitted)`, `match_wildcard(Fqdn, Name)` and `lower_ascii(Term)` (`names.cpp`, plan 21
+  step LIB80E3) are `pubkey_cert`'s name normalisation and comparison, the name constraint rules of each general
+  name type (OTP's quirks kept: only the first permitted URI is reduced to its host) and the https wildcard match.
+  Their `string`, `unicode`, `uri_string`, `lists:last/1` and `erlang:band/2` steps call those builtins through the
+  registry (`calls.cpp`), so results and errors are theirs.
 - `os_cacerts()` (`os_cacerts.cpp`, plan 21 step LIB80D6) reads the current user's Windows `ROOT` store through
   crypt32 as OTP's `pubkey_os_cacerts` NIF does: `[{Encoding, Der}]` in the NIF's order, `internal_error` when the
   store does not open, `[]` on other systems, where `clause_public_key_cacerts` reads files.

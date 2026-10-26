@@ -201,8 +201,9 @@ records, goldens from OTP, own headers written from the documented records and m
         static calls into generated modules), as do certificates' keys and extensions and the
         long notice fallback (`string:slice/3`). Fixed: a table constraint exit is raised as the
         extension decoder raises it, so long visibleString notices fall back to OTP-PKIX.
-      - E3: `clause_public_key_cert` name normalisation, comparison and `match_name` rules,
-        wildcard and IP matching.
+      - E3 done: `clause_public_key_cert` name normalisation and comparison, `match_name` rules,
+        the https wildcard and ASCII lowering (`names.cpp`, string/uri steps through registry calls);
+        hostname verification's fun loop and `inet` address parsing stay Erlang.
       - E4: the policy tree of `clause_public_key_path` (OTP's `pubkey_policy_tree`) and the pure
         checks around it (name constraint subtrees, key usage tables).
       - E5: what pure walks remain in `clause_public_key_crl`/`_ocsp` (reason masks, DP grouping).

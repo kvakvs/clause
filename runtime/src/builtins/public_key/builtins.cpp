@@ -19,6 +19,12 @@ constexpr std::array PUBLIC_KEY_BUILTINS{
     typed_entry<prf_digest>("clause_public_key", "prf_digest"),
     typed_entry<otp_transform>("clause_public_key", "otp_transform"),
     typed_entry<extension_type>("clause_public_key", "extension_type"),
+    typed_entry<normalize_name>("clause_public_key", "normalize_name"),
+    typed_entry<is_issuer>("clause_public_key", "is_issuer"),
+    typed_entry<is_dir_name>("clause_public_key", "is_dir_name"),
+    typed_entry<match_name>("clause_public_key", "match_name"),
+    typed_entry<match_wildcard>("clause_public_key", "match_wildcard"),
+    typed_entry<lower_ascii>("clause_public_key", "lower_ascii"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::public_key

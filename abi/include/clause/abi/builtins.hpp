@@ -680,6 +680,13 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     // The otp form walk and extension types (plan 21 step LIB80E2).
     BuiltinName{"clause_public_key", "extension_type", 1},
     BuiltinName{"clause_public_key", "otp_transform", 2},
+    // Names (plan 21 step LIB80E3).
+    BuiltinName{"clause_public_key", "is_dir_name", 3},
+    BuiltinName{"clause_public_key", "is_issuer", 2},
+    BuiltinName{"clause_public_key", "lower_ascii", 1},
+    BuiltinName{"clause_public_key", "match_name", 3},
+    BuiltinName{"clause_public_key", "match_wildcard", 2},
+    BuiltinName{"clause_public_key", "normalize_name", 1},
     // PEM text and PBE tables (plan 21 step LIB80E1).
     BuiltinName{"clause_public_key", "pbe_cipher", 1},
     BuiltinName{"clause_public_key", "pbes1", 1},

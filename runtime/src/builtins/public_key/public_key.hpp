@@ -11,6 +11,10 @@ struct DirectionRole;
 struct TableRole;
 struct KeyRole;
 struct ValueRole;
+// Added for public_key's names (plan 21 step LIB80E3).
+struct NameRole;
+struct CandidateRole;
+struct FlagRole;
 
 // Whether a term is the OID of these arcs; the OID's tuple term.
 bool same_oid(const Term &oid, const std::initializer_list<std::uint32_t> &arcs);
@@ -44,4 +48,16 @@ Term prf_digest(ProcessContext &context, const Named<KeyRole> &oid);
 // pubkey_cert_records:transform/2 below certificates; extension_type(Name) the {Module, Type} of an extension's value.
 Term otp_transform(ProcessContext &context, const Named<DirectionRole> &direction, const Named<ValueRole> &value);
 Term extension_type(ProcessContext &context, const Named<KeyRole> &name);
+
+// Added for public_key's names (plan 21 step LIB80E3): pubkey_cert's normalize_general_name/1, is_issuer/2,
+// is_dir_name/3 and match_name/3, the https wildcard match and pubkey_verify_hostname's to_lower_ascii/1; 0 when a
+// called builtin failed.
+Word normalize_name(ProcessContext &context, const Named<NameRole> &name);
+Word is_issuer(ProcessContext &context, const Named<NameRole> &issuer, const Named<CandidateRole> &candidate);
+Word is_dir_name(ProcessContext &context, const Named<NameRole> &first, const Named<CandidateRole> &second,
+                 const Named<FlagRole> &exact);
+Word match_name(ProcessContext &context, const Named<FlagRole> &type, const Named<NameRole> &name,
+                const Named<CandidateRole> &permitted);
+Word match_wildcard(ProcessContext &context, const Named<NameRole> &fqdn, const Named<CandidateRole> &name);
+Word lower_ascii(ProcessContext &context, const Named<NameRole> &term);
 } // namespace clause::runtime::builtins::public_key

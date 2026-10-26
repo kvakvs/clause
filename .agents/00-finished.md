@@ -959,6 +959,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   certificates), `extension_type` table; dispatch stays Erlang; fixed the long user notice fallback (table constraint
   exits raised raw); OTP's public_key_SUITE/pbe/PKITS PEMs and certificates identical to OTP (scratch corpus oracle),
   `public_key_codec` golden gains a visibleString notice — `76373830`
+- **LIB80E3** public_key names in C++: `normalize_name`, `is_issuer`, `is_dir_name`, `match_name`, `match_wildcard`,
+  `lower_ascii` builtins (`names.cpp`) calling string/unicode/uri_string builtins through the registry (`calls.cpp`);
+  goldens and scratch oracles (normalisation, issuer comparison, wildcards, dist point name rules) identical — `TBD`
 
 ## Plan 22 (from 2026-10-23)
 
