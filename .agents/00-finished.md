@@ -945,7 +945,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   undetermined_details); `public_key_crls` golden (OpenSSL CRLs) identical to OTP — `1a5c6897`
 - **LIB80D4** public_key OCSP validation: `clause_public_key_ocsp` (response status/type/size, responder by
   name or key, issuer/designated/trusted authorisation, signature, nonce, single response times),
-  `ocsp_extensions/1`; `public_key_ocsp` golden (OpenSSL responses, re-signed stale ones) identical to OTP — `TBD`
+  `ocsp_extensions/1`; `public_key_ocsp` golden (OpenSSL responses, re-signed stale ones) identical to OTP — `20a3d8bd`
 
 ## Plan 22 (from 2026-10-23)
 
