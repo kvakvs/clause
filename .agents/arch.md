@@ -271,14 +271,14 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `clause_builtin_placeholder` bodies are replaced at registration.
 - Call kinds: bridge (`CLAUSE_builtin_frame_v1` + apply marker), direct (`CLAUSE_builtin_call_v1`),
   quick (bounded fast path, then frame). `typed<Function>` adapts typed C++ (mismatch → badarg).
-- Runtime extensions: separate archives (`clause_runtime_crypto`, `docs/crypto.md`) whose
+- Runtime extensions: separate archives (`clause_runtime_crypto`, `docs/libraries/crypto.md`) whose
   `RuntimeExtension` families `RuntimeOptions::extensions` adds after `production_builtins()`; only
   programs that need them link them.
 - Portions (`builtins/portions`): long builtins spend `ProcessStack::budget()` then
   `trap(continuation, state)`; builtins may continue in an Erlang export
   (`semantic/builtin_continuations.hpp`), which keeps the target live.
 
-## 3. Standard library reimplementation (`library/`, `docs/library.md`)
+## 3. Standard library reimplementation (`library/`, `docs/libraries/library.md`)
 
 ### Model
 

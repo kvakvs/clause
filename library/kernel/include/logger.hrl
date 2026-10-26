@@ -1,4 +1,4 @@
-%% Clause's logger macros (plan 21 step LIB23, docs/library.md): the ?LOG_* macros of OTP's kernel/include/logger.hrl,
+%% Clause's logger macros (plan 21 step LIB23, docs/libraries/library.md): the ?LOG_* macros of OTP's kernel/include/logger.hrl,
 %% written for Clause. Each checks logger:allow/2 for the calling module first, so arguments of a dropped level are
 %% not evaluated, and adds the call's location (mfa, file, line) to the metadata.
 -ifndef(LOGGER_HRL).

@@ -64,7 +64,7 @@ CryptoInputs crypto_link_inputs(const std::filesystem::path &runtime, const Cryp
     std::error_code error;
     if (!std::filesystem::is_regular_file(archive, error)) {
         throw std::runtime_error("crypto runtime archive not found: " + project::path_text(archive) +
-                                 "; build Clause with CLAUSE_RUNTIME_CRYPTO=ON (docs/crypto.md)");
+                                 "; build Clause with CLAUSE_RUNTIME_CRYPTO=ON (docs/libraries/crypto.md)");
     }
     auto recorded = runtime_link_inputs(archive);
     const auto root = openssl_root(link);

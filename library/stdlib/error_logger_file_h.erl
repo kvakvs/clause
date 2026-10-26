@@ -1,4 +1,4 @@
-%% Clause's error_logger_file_h (plan 21 step LIB23, docs/library.md): the error_logger report handler behind
+%% Clause's error_logger_file_h (plan 21 step LIB23, docs/libraries/library.md): the error_logger report handler behind
 %% error_logger:logfile/1, writing error, warning and info messages and standard reports to a file in the old
 %% error_logger text (=ERROR REPORT==== 24-Oct-2026::18:00:09 ===). Other events are ignored.
 -module(error_logger_file_h).

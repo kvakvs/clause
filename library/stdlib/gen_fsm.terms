@@ -1,5 +1,5 @@
 %% OTP 29 gen_fsm exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {behaviour_info, 1, default, implemented}.
 {cancel_timer, 1, default, implemented}.
 {enter_loop, 4, default, implemented}.

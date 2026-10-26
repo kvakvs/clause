@@ -3,7 +3,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/Pcre2Dependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/ZlibDependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/ZstdDependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/OpenSSLDependencies.cmake)
-option(CLAUSE_RUNTIME_CRYPTO "Build the crypto runtime archive over OpenSSL (plan 21 step LIB79, docs/crypto.md)" ON)
+option(CLAUSE_RUNTIME_CRYPTO "Build the crypto runtime archive over OpenSSL (plan 21 step LIB79, docs/libraries/crypto.md)" ON)
 
 add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/terms/bit_factory.cpp src/terms/bit_access.cpp src/terms/word_order.cpp src/terms/bit_float.cpp src/terms/bit_numeric.cpp src/terms/bit_utf.cpp src/terms/bit_services.cpp

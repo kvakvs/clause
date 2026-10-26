@@ -1,4 +1,4 @@
-%% Clause's ms_transform (plan 21 step LIB72, docs/library.md): the translation of literal funs given to ets:fun2ms/1
+%% Clause's ms_transform (plan 21 step LIB72, docs/libraries/library.md): the translation of literal funs given to ets:fun2ms/1
 %% and dbg:fun2ms/1 into match specifications, over the abstract format. parse_transform/2 rewrites the calls inside
 %% a module's forms; transform_from_shell/3 translates the clauses of one shell fun into a match specification term.
 %% The state OTP keeps in the process dictionary (file, records, warnings) is threaded through the walks instead.

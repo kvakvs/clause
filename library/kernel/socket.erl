@@ -102,7 +102,7 @@
 ]).
 -include("socket.types.hrl").
 
-% Clause's socket (plan 21 step LIB62, docs/library.md): OTP's socket API in Erlang over the runtime's socket
+% Clause's socket (plan 21 step LIB62, docs/libraries/library.md): OTP's socket API in Erlang over the runtime's socket
 % driver ports (tcp_inet, udp_inet). A socket is {'$socket', Ref}; its port, kind and states are kept by the
 % clause_socket_registry process in a public ETS table, which also serves monitors and listings. Operations block in
 % the caller; nowait starts the operation in a helper process and answers as OTP does on the platform: completion

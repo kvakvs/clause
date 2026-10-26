@@ -1,7 +1,7 @@
 #pragma once
 // Created for application resources (plan 21 step LIB24): the application specifications of a program, read from
 // `.app` and `.app.src` files at compile time and compiled into the generated module clause_applications, which
-// Clause's application_controller reads instead of searching a code path (docs/library.md#applications).
+// Clause's application_controller reads instead of searching a code path (docs/libraries/library.md#applications).
 #include <filesystem>
 #include <string>
 #include <utility>

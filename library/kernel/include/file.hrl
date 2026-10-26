@@ -1,4 +1,4 @@
-%% Clause's kernel/include/file.hrl (plan 21 step LIB23, docs/library.md): the records of file's documentation,
+%% Clause's kernel/include/file.hrl (plan 21 step LIB23, docs/libraries/library.md): the records of file's documentation,
 %% file:read_file_info/1,2 results and the descriptors of raw files, written for Clause.
 -ifndef(FILE_HRL_).
 -define(FILE_HRL_, 1).

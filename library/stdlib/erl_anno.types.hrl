@@ -1,5 +1,5 @@
 %% OTP 29 erl_anno types: the exported types and the local types and records they use, as OTP defines
-%% them; observed by tests/compiler/library/observe_types.escript (docs/library.md#types).
+%% them; observed by tests/compiler/library/observe_types.escript (docs/libraries/library.md#types).
 -export_type([anno/0,anno_term/0,column/0,line/0,location/0,text/0]).
 -type annotation() ::
           {file, filename()} |

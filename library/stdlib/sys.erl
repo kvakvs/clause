@@ -1,4 +1,4 @@
-%% Clause's sys (plan 21 step LIB20, docs/library.md): the system message protocol of special processes and its
+%% Clause's sys (plan 21 step LIB20, docs/libraries/library.md): the system message protocol of special processes and its
 %% debug options. Requests are gen:call/3,4 calls labelled `system`; a process hands them to handle_system_msg/6,
 %% which answers and continues in the module's system_continue/3 or system_terminate/4. The debug list keeps OTP's
 %% shape ({trace, true}, {log, NLog}, {statistics, ...}, {log_to_file, Fd}, installed funs), which get_status/1,2
@@ -43,7 +43,7 @@
     trace/3
 ]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
-%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -include("sys.types.hrl").
 
 -callback system_code_change(Misc, Module, OldVsn, Extra) -> {ok, NMisc} when

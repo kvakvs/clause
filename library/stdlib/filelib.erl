@@ -1,4 +1,4 @@
-%% Clause's filelib (plan 21 step LIB51, docs/library.md): file name patterns and file system helpers, written from
+%% Clause's filelib (plan 21 step LIB51, docs/libraries/library.md): file name patterns and file system helpers, written from
 %% OTP's documentation. Wildcard patterns are escaped, compiled part by part and matched against directory listings
 %% by clause_filelib builtins (runtime/src/builtins/filelib.cpp); the directory walk, the queries and the searches
 %% are Erlang over file, filename and re. The Mod argument of the undocumented forms names the module that answers

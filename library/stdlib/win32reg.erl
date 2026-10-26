@@ -1,4 +1,4 @@
-%% Clause's win32reg (plan 21 step LIB55B, docs/library.md): the Windows registry, written from OTP's documentation and
+%% Clause's win32reg (plan 21 step LIB55B, docs/libraries/library.md): the Windows registry, written from OTP's documentation and
 %% following OTP's key parsing, current key and value encodings. OTP's registry driver answers commands with port
 %% messages; Clause's (runtime/src/ports/registry_windows.cpp) answers the same replies through port_control/3.
 %% Elsewhere open/1 is {error, enotsup}, as OTP's.

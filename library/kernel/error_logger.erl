@@ -1,4 +1,4 @@
-%% Clause's error_logger (plan 21 step LIB23, docs/library.md): the old error logging API over logger. Its messages
+%% Clause's error_logger (plan 21 step LIB23, docs/libraries/library.md): the old error logging API over logger. Its messages
 %% and reports become log events with OTP's error_logger metadata; report handlers are gen_event handlers of the
 %% error_logger event manager, which the logger handler `error_logger` feeds while any is installed.
 -module(error_logger).

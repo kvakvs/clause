@@ -1,5 +1,5 @@
 %% OTP 29 net_adm exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {dns_hostname, 1, default, implemented}.
 {host_file, 0, default, implemented}.
 {localhost, 0, default, implemented}.

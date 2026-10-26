@@ -1,5 +1,5 @@
 %% OTP 29 graph types: the exported types and the local types and records they use, as OTP defines
-%% them; observed by tests/compiler/library/observe_types.escript (docs/library.md#types).
+%% them; observed by tests/compiler/library/observe_types.escript (docs/libraries/library.md#types).
 -export_type([edge/0,
               graph/0,
               graph_cyclicity/0,

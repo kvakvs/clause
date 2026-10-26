@@ -1,4 +1,4 @@
-%% Clause's disk_log (plan 21 step LIB52, docs/library.md): halt, wrap and rotate logs of terms or bytes, written
+%% Clause's disk_log (plan 21 step LIB52, docs/libraries/library.md): halt, wrap and rotate logs of terms or bytes, written
 %% from OTP's documentation with OTP's file formats (clause_disk_log), so logs are exchangeable with OTP. Each open
 %% log has a process that owns its files, with owners (linked, notified on request) and anonymous users; a registry
 %% server named disk_log_server (clause_disk_log_server) keeps the named tables disk_log_names and disk_log_pids and

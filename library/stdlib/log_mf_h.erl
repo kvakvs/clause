@@ -1,4 +1,4 @@
-%% Clause's log_mf_h (plan 21 step LIB23, docs/library.md): a gen_event handler writing every accepted event to
+%% Clause's log_mf_h (plan 21 step LIB23, docs/libraries/library.md): a gen_event handler writing every accepted event to
 %% wrap files 1..MaxFiles of a directory as a 2-byte size and the external term of {LocalTime, Event}. The file
 %% `index` holds the number of the file written last, so a restarted handler continues with the next one.
 -module(log_mf_h).

@@ -1,4 +1,4 @@
-%% Clause's gen_server (plan 21 step LIB21, docs/library.md): the generic server over gen, proc_lib and sys. Calls
+%% Clause's gen_server (plan 21 step LIB21, docs/libraries/library.md): the generic server over gen, proc_lib and sys. Calls
 %% arrive as {'$gen_call', From, Request}, casts as {'$gen_cast', Request}; callback results take OTP's actions
 %% (timeouts, hibernate, continue), a crash or stop gives OTP's error report, and system messages run through sys.
 -module(gen_server).
@@ -48,7 +48,7 @@
 
 -include_lib("kernel/include/logger.hrl").
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
-%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -include("gen_server.types.hrl").
 
 -behaviour(sys).

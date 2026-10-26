@@ -12,8 +12,8 @@
 #include <cstdio>
 #include <terms.hpp>
 
-// The io builtins (docs/io.md): io:format/1,2,3, io:fwrite/1,2,3, io:put_chars/1,2 and io:nl/0,1 write UTF-8 to
-// standard output, standard error or an I/O server process, and return ok. Text the device rejects raises badarg (a
+// The io builtins (docs/libraries/io.md): io:format/1,2,3, io:fwrite/1,2,3, io:put_chars/1,2 and io:nl/0,1 write UTF-8
+// to standard output, standard error or an I/O server process, and return ok. Text the device rejects raises badarg (a
 // thrown BuiltinFailure), writing nothing.
 namespace clause::runtime::builtins {
 namespace {

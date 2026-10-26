@@ -1,4 +1,4 @@
-%% Erlang sources as epp and file:consult/1 read them (plan 21 steps LIB33, LIB34, docs/library.md): the encoding a
+%% Erlang sources as epp and file:consult/1 read them (plan 21 steps LIB33, LIB34, docs/libraries/library.md): the encoding a
 %% coding comment names, a file's characters decoded by it, and the next form scanned from them as io:scan_erl_form/4
 %% reads it from OTP's file server.
 -module(clause_epp).

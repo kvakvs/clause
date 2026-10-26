@@ -1,4 +1,4 @@
-%% Clause's supervisor (plan 21 step LIB21, docs/library.md): a gen_server that starts, watches and restarts
+%% Clause's supervisor (plan 21 step LIB21, docs/libraries/library.md): a gen_server that starts, watches and restarts
 %% children by OTP's strategies, restart intensity, shutdown rules and automatic shutdown, with OTP's error terms
 %% and supervisor reports. Children are kept as {Ids, #{Id => #child{}}} with the ids in reverse start order; a
 %% simple_one_for_one supervisor keeps its pids in a map. The #child{} record keeps OTP's shape, which

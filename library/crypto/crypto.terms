@@ -1,5 +1,5 @@
 %% OTP 29 crypto exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {bytes_to_integer, 1, default, implemented}.
 {cipher_info, 1, default, implemented}.
 {compute_key, 4, default, implemented}.

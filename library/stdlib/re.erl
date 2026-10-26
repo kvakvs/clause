@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's re (docs/library.md#runtime-module-replacements), generated from
+%% Clause's replacement for OTP's re (docs/libraries/library.md#runtime-module-replacements), generated from
 %% re.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
 %% error({not_implemented, Name, Arity}); import/1 stays one, as Clause exports no patterns.
 -module(re).

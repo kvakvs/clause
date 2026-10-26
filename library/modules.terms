@@ -1,4 +1,4 @@
-%% Modules Clause decides about (docs/library.md#runtime-module-replacements): {Module, Application, provided} or
+%% Modules Clause decides about (docs/libraries/library.md#runtime-module-replacements): {Module, Application, provided} or
 %% {Module, Application, missing, "Reason"}. A missing module's name is reserved: never taken from a search path.
 %% Clause's own modules without an OTP counterpart (clause_socket) are not listed.
 {erlang, erts, provided}.

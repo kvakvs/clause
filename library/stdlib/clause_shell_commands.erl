@@ -1,7 +1,7 @@
 -module(clause_shell_commands).
 -export([local/5, command/2, non_builtin/4]).
 
-% The shell's own commands (plan 21 step LIB74, docs/library.md#interactive-shell), run by the evaluator as local
+% The shell's own commands (plan 21 step LIB74, docs/libraries/library.md#interactive-shell), run by the evaluator as local
 % functions: b(), e(N) and v(N) (expanded by the server), f(), h(), the record commands rd/rf/rl/rp/rr, the local
 % function, type and record commands fd/ff/fl/lf/lr/lt/td/tf/ft, and the settings. Other local calls go to
 % user_default, shell_default, then the functions defined in the shell.

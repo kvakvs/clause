@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's code (docs/library.md#runtime-module-replacements). The queries about loaded
+%% Clause's replacement for OTP's code (docs/libraries/library.md#runtime-module-replacements). The queries about loaded
 %% modules are runtime builtins answering for the linked program without a code server (plan step 41Z,
 %% docs/builtins.md#code-module). The code path and its directory queries are Erlang over a persistent term (plan 21
 %% step LIB61); loading answers as OTP does for object code it cannot load, since every module is linked (D01).

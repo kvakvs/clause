@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's erts_internal (docs/library.md#runtime-module-replacements), generated from
+%% Clause's replacement for OTP's erts_internal (docs/libraries/library.md#runtime-module-replacements), generated from
 %% erts_internal.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
 %% error({not_implemented, Name, Arity}). The functions stdlib needs are implemented (plan step 41N,
 %% docs/builtins.md#erts-internal): cmp_term/2 and map_next/3 are runtime builtins, the rest Erlang; write-concurrency

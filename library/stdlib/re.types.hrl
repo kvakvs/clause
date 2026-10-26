@@ -1,5 +1,5 @@
 %% OTP 29 re types: the exported types and the local types and records they use, as OTP defines
-%% them; observed by tests/compiler/library/observe_types.escript (docs/library.md#types).
+%% them; observed by tests/compiler/library/observe_types.escript (docs/libraries/library.md#types).
 -export_type([compile_options/0,mp/0,options/0]).
 -type mp() :: {re_pattern, _, _, _, _}.
 -type nl_spec() :: cr | crlf | lf | nul | anycrlf | any.

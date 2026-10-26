@@ -1,4 +1,4 @@
-%% Clause's zstd (plan 21 step LIB54E, docs/library.md): zstd compression over the clause_zstd builtins, which hold
+%% Clause's zstd (plan 21 step LIB54E, docs/libraries/library.md): zstd compression over the clause_zstd builtins, which hold
 %% libzstd 1.5.7 contexts and dictionaries as OTP's NIF does (docs/builtins.md#zstd-module). The functions here follow
 %% OTP's documentation and its iodata, streaming and frame handling, so output and chunking equal OTP's.
 -module(zstd).

@@ -1,4 +1,4 @@
-%% Clause's qlc_pt (plan 21 step LIB73, docs/library.md): the qlc parse transform at run time, for
+%% Clause's qlc_pt (plan 21 step LIB73, docs/libraries/library.md): the qlc parse transform at run time, for
 %% qlc:string_to_handle/1,2,3 and erl_eval's qlc:q/1,2. clause_qlc_pt's builtins run OTP's transform in C++
 %% (runtime/src/builtins/qlc_pt/) and ask for each match specification attempt, which runs ms_transform here; the
 %% builtin then replays its walk with the answers so far. Without a compiler at run time, messages come from

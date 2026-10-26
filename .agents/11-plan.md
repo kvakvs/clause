@@ -294,7 +294,7 @@ Proposed direction:
 Two findings shape the steps:
 
 - **Precedence.** Today a module found in `source_search_paths` wins over the library
-  ([library](../docs/library.md#how-programs-get-them)). With `references/otp/lib/**/src` on the
+  ([library](../docs/libraries/library.md#how-programs-get-them)). With `references/otp/lib/**/src` on the
   search path, OTP's `file`, `io`, `lists`, `maps`, `os`, `gen_tcp` replace Clause's library modules
   of the same name, and a user's copy of `erts/preloaded/src` would replace the replacements.
   Decided 2026-10-12 (user): every module Clause provides wins over OTP's module of the same name.
@@ -307,7 +307,7 @@ Two findings shape the steps:
   application starts at boot. A Clause executable starts none of them, so making their modules
   compile is not making them work. Which services exist at startup is decided in 41I.
 
-The ledger above lives on in `docs/library.md` (41K) and is refreshed by every step of this phase:
+The ledger above lives on in `docs/libraries/library.md` (41K) and is refreshed by every step of this phase:
 rerun the luerl command, classify each new error (`unknown module`, `undefined function M:F/A`,
 unsupported syntax or feature, other), and add or adjust steps here before coding the next one.
 

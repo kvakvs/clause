@@ -1,4 +1,4 @@
-%% Clause's timer (plan 21 step LIB22, docs/library.md): OTP's timer without its timer server. Timed sends to local
+%% Clause's timer (plan 21 step LIB22, docs/libraries/library.md): OTP's timer without its timer server. Timed sends to local
 %% pids are erlang:send_after/3; every other timer is a process of its own, holding an alias that its TRef carries,
 %% so cancel/1 reaches it without a registry. One-shot timers are not linked to anything; interval timers end with
 %% the process they work for. The conversions and now_diff/2 are runtime builtins.

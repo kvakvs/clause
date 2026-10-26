@@ -1,4 +1,4 @@
-%% Clause's application (plan 21 step LIB24, docs/library.md): OTP's application API over Clause's
+%% Clause's application (plan 21 step LIB24, docs/libraries/library.md): OTP's application API over Clause's
 %% application_controller. Specifications come from the program's .app and .app.src files, compiled into it, or from
 %% {application, Name, Keys} terms; kernel and stdlib are loaded and running from the start. Distribution (dist_ac)
 %% is not running, as on a node without distributed applications.

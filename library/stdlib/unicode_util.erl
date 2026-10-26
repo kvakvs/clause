@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's unicode_util (docs/library.md#runtime-module-replacements). Code points,
+%% Clause's replacement for OTP's unicode_util (docs/libraries/library.md#runtime-module-replacements). Code points,
 %% categories, decompositions, case mappings and properties come from the generated tables of Clause's private
 %% clause_unicode module (plan step 41O1, docs/builtins.md#unicode-util). The walks over chardata (cp/1, gc/1, the
 %% nf* forms and the case mappings of the first code point) are runtime builtins in OTP's result shapes (plan 21

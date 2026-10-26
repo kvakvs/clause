@@ -10,7 +10,6 @@ and limits that exist today; plans and step history live in `.agents/`.
 | Parsing, AST ownership, syntax limits | [parser.md](parser.md) |
 | TOML projects, target selection, build directory and caches, ignored sources | [projects.md](projects.md) |
 | Compiler CLI, artifacts, source and abstract format printing, compile cache, LLVM SDK, PCRE2 and zlib, example | [compile.md](compile.md) |
-| Crypto: OpenSSL versions and sources, building it, linking, FIPS mode and pinned FIPS programs | [crypto.md](crypto.md) |
 | Executable entry, arguments, exit status, output streams, linking | [executables.md](executables.md) |
 | Debug information (`-g`), debuggers and the Erlang call stack | [debugging.md](debugging.md) |
 | Opt-in profiling (`--profile FILE`): entries and self time per function and process | [profiling.md](profiling.md) |
@@ -24,8 +23,6 @@ and limits that exist today; plans and step history live in `.agents/`.
 | Native, qualified and anonymous records (OTP 29) | [native-records.md](native-records.md) |
 | Function values: `fun F/A`, `fun M:F/A`, closures, named funs, dynamic calls | [funs.md](funs.md) |
 | Production builtins: catalog, bridge calls, module builtins, portions, registration | [builtins.md](builtins.md) |
-| Library modules under `library/{erts,kernel,stdlib}` compiled with programs, how programs get them, provided and missing modules | [library.md](library.md) |
-| Console output: `io:format`, `io:put_chars`, devices, format controls, `~p` layout | [io.md](io.md) |
 | Runtime lifecycle, memory, code server, persistent terms, threads, standard output, startup | [runtime.md](runtime.md) |
 | Processes: scheduler workers, messages and receive, links, monitors, registered names, timers, introspection, aliases, exit signals | [processes.md](processes.md) |
 | Ports: identity, port table, drivers, data modes, the I/O thread, busy ports, subprocesses, standard I/O, files and sockets | [ports.md](ports.md) |
@@ -39,3 +36,13 @@ and limits that exist today; plans and step history live in `.agents/`.
 Older per-step validation records and evidence JSON were condensed into
 [validation history](validation.md#history); full originals remain in Git
 history (last present at commit `2777c98`).
+
+## Libraries
+
+Clause's own OTP applications under `library/`, in [libraries/](libraries/).
+
+| Topic | Document |
+| --- | --- |
+| Library modules under `library/{erts,kernel,stdlib}` compiled with programs, how programs get them, provided and missing modules | [library.md](libraries/library.md) |
+| Console output: `io:format`, `io:put_chars`, devices, format controls, `~p` layout | [io.md](libraries/io.md) |
+| Crypto: OpenSSL versions and sources, building it, linking, FIPS mode and pinned FIPS programs | [crypto.md](libraries/crypto.md) |

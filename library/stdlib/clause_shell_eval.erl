@@ -11,7 +11,7 @@
     pp/4
 ]).
 
-% The shell's reader and evaluator (plan 21 step LIB74, docs/library.md#interactive-shell): commands are read and
+% The shell's reader and evaluator (plan 21 step LIB74, docs/libraries/library.md#interactive-shell): commands are read and
 % turned into expressions here, then evaluated by an evaluator process with erl_eval; the shell's own commands
 % (b(), f(), h(), v(N), rd/2, ...) are its local functions. shell's server keeps the history and restarts the
 % evaluator after an exception.

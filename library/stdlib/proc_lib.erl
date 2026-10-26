@@ -1,4 +1,4 @@
-%% Clause's proc_lib (plan 21 step LIB20, docs/library.md): processes that know their ancestors and initial call,
+%% Clause's proc_lib (plan 21 step LIB20, docs/libraries/library.md): processes that know their ancestors and initial call,
 %% synchronous starts acknowledged with init_ack/init_fail, and crash reports when they end abnormally. Reports go
 %% through logger in OTP's report shape and text.
 -module(proc_lib).

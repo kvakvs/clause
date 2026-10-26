@@ -1,4 +1,4 @@
-%% Clause's qlc (plan 21 step LIB73, docs/library.md): query list comprehensions over lists, ets, dets and qlc:table/2
+%% Clause's qlc (plan 21 step LIB73, docs/libraries/library.md): query list comprehensions over lists, ets, dets and qlc:table/2
 %% tables, written from OTP's documentation and observed behavior. Compiled queries come from the qlc transform (the
 %% host's when a module includes qlc.hrl, qlc_pt's for string_to_handle/1,2,3 and erl_eval) as {qlc_lc, Fun, Opt}
 %% handles. Evaluation prepares a handle (constant lookups, match specifications, merge and lookup joins, caches,

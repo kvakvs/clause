@@ -1,5 +1,5 @@
 %% OTP 29 dets types: the exported types and the local types and records they use, as OTP defines
-%% them; observed by tests/compiler/library/observe_types.escript (docs/library.md#types).
+%% them; observed by tests/compiler/library/observe_types.escript (docs/libraries/library.md#types).
 -export_type([bindings_cont/0,
               cont/0,
               object_cont/0,

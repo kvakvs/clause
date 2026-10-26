@@ -48,7 +48,7 @@ Follows OTP's
     L, column C)` when an earlier behaviour also requires it (an optional
     callback counts when exported);
   - `behaviour M undefined` when `M` is not in the batch or has no
-    `behaviour_info/1` (an OTP behaviour the Clause [library](library.md) does
+    `behaviour_info/1` (an OTP behaviour the Clause [library](libraries/library.md) does
     not provide yet, such as `application`), plus OTP's module-name errors for
     names that
     cannot be modules (`the module name must not be empty`,

@@ -1,4 +1,4 @@
-# OpenSSL's libcrypto for the runtime's crypto archive (plan 21 step LIB79, docs/crypto.md). The crypto
+# OpenSSL's libcrypto for the runtime's crypto archive (plan 21 step LIB79, docs/libraries/crypto.md). The crypto
 # builtins use only API present since OpenSSL 3.1.2 (the latest FIPS-validated provider release), so any libcrypto
 # of at least that version links with them.
 # Resolution order: CLAUSE_OPENSSL_ROOT (an installed prefix or a source tree), an installed OpenSSL
@@ -337,7 +337,7 @@ function(clause_resolve_openssl prefixes_output source_output)
     endif()
     if(NOT source)
         if(NOT CLAUSE_DOWNLOAD_OPENSSL)
-            message(FATAL_ERROR "OpenSSL >= ${CLAUSE_OPENSSL_MINIMUM} is required for the crypto runtime: set CLAUSE_OPENSSL_ROOT, install it, enable CLAUSE_DOWNLOAD_OPENSSL or disable CLAUSE_RUNTIME_CRYPTO (docs/crypto.md).")
+            message(FATAL_ERROR "OpenSSL >= ${CLAUSE_OPENSSL_MINIMUM} is required for the crypto runtime: set CLAUSE_OPENSSL_ROOT, install it, enable CLAUSE_DOWNLOAD_OPENSSL or disable CLAUSE_RUNTIME_CRYPTO (docs/libraries/crypto.md).")
         endif()
         clause_download_dependency(openssl-${CLAUSE_OPENSSL_VERSION}
             "https://github.com/openssl/openssl/releases/download/openssl-${CLAUSE_OPENSSL_VERSION}/openssl-${CLAUSE_OPENSSL_VERSION}.tar.gz"

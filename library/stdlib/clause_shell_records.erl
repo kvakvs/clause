@@ -11,7 +11,7 @@
     list/1
 ]).
 
-% The shell's record definitions (plan 21 step LIB74, docs/library.md#interactive-shell): an ETS table of
+% The shell's record definitions (plan 21 step LIB74, docs/libraries/library.md#interactive-shell): an ETS table of
 % {Name, RecordAttribute} (native records under {shell_default, Name}) filled by rd/2 and rr/1,2,3, used to check,
 % expand and print the records of commands.
 

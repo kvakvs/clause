@@ -1,4 +1,4 @@
-%% Clause's rpc (plan 21 step LIB25, docs/library.md): OTP's remote procedure calls over erpc, with {badrpc, Reason}
+%% Clause's rpc (plan 21 step LIB25, docs/libraries/library.md): OTP's remote procedure calls over erpc, with {badrpc, Reason}
 %% results. The rex server, which block calls, sbcast/2,3 and server messages need, starts at the first use. A
 %% Clause program is one node, so other nodes are down: calls to them give {badrpc, nodedown} and multicalls list
 %% them as bad nodes.

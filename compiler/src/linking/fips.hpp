@@ -3,7 +3,7 @@
 #include <string>
 
 // The user-supplied OpenSSL FIPS provider of a program built with clau --fips (plan 21 step LIB79F,
-// docs/crypto.md#fips): its module and settings are copied beside the executable, whose start loads them.
+// docs/libraries/crypto.md#fips): its module and settings are copied beside the executable, whose start loads them.
 namespace clause::linking {
 struct FipsProvider {
     // The provider module (fips.dll, fips.so or fips.dylib) and the fipsmodule.cnf `openssl fipsinstall` wrote.

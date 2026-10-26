@@ -53,7 +53,7 @@ my_dependency = "vendor/my_dependency"
   executable callable, as `--keep-exports` does for every selected target
   ([export liveness](executables.md#export-liveness)). It must be a boolean.
 - `shell = true` in `options` links the interactive shell into the target's
-  executable, as `--shell` does ([interactive shell](library.md#interactive-shell)).
+  executable, as `--shell` does ([interactive shell](libraries/library.md#interactive-shell)).
   It must be a boolean.
 - `cache_inference_in_dirs` (directory wildcards) in `options` adds directories
   whose modules keep their inference results in the build cache
@@ -263,7 +263,7 @@ modules whose transform inputs did not change, each batch's
 ### Inference cache
 
 Library modules (OTP's `stdlib`, `kernel`, `compiler` and `syntax_tools` sources
-found through `source_search_paths`, Clause's own [library](library.md)) rarely
+found through `source_search_paths`, Clause's own [library](libraries/library.md)) rarely
 change, so modules in configured directories keep their type inference results
 in the build cache, per module, and later compiles reuse them instead of
 inferring them again.
@@ -321,10 +321,10 @@ inferring them again.
   enumerate modules or affect includes.
 - When the target's sources name a module that none of them defines (a remote
   call, `fun M:F/A`, `apply` with a literal module, `-behaviour` or `-import`),
-  Clause's [library](library.md#how-programs-get-them) is searched first, then
+  Clause's [library](libraries/library.md#how-programs-get-them) is searched first, then
   the search paths in order, for `Module.erl` (an installed OTP never replaces a
   Clause module, and a module Clause records as missing is never taken from a
-  search path: [resolution](library.md#which-module-a-name-resolves-to)); a
+  search path: [resolution](libraries/library.md#which-module-a-name-resolves-to)); a
   found file joins the target like a listed source, and its own references are
   resolved the same way. A listed source with a Clause module's name replaces
   it, with a warning.
@@ -385,7 +385,7 @@ compiled or linked, so it may even hold syntax errors.
   against the whole name (`*_SUITE`, `legacy_*`, `prim_???`). A source named
   `<Module>.erl` (or `.abstr`) is ignored when an entry matches `<Module>`, and
   a referenced module that matches is never searched for. This includes Clause's
-  [library modules](library.md#which-module-a-name-resolves-to).
+  [library modules](libraries/library.md#which-module-a-name-resolves-to).
 - A source that `sources` lists literally (no wildcard) is never ignored: the
   rules have no effect on it, and the build warns `listed in sources but matched
   by ignore_modules or ignore_dirs; ignoring it has no effect`. Wildcard matches

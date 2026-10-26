@@ -1,5 +1,5 @@
 %% OTP 29 erl_prim_loader exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {get_cwd, 0, default, implemented}.
 {get_cwd, 1, default, implemented}.
 {get_file, 1, default, implemented}.

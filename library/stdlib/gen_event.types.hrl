@@ -1,5 +1,5 @@
 %% OTP 29 gen_event types: the exported types and the local types and records they use, as OTP defines
-%% them; observed by tests/compiler/library/observe_types.escript (docs/library.md#types).
+%% them; observed by tests/compiler/library/observe_types.escript (docs/libraries/library.md#types).
 -export_type([add_handler_ret/0,
               del_handler_ret/0,
               format_status/0,

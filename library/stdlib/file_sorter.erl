@@ -1,4 +1,4 @@
-%% Clause's file_sorter (plan 21 step LIB54A, docs/library.md): sorting, merging and checking terms on files, written
+%% Clause's file_sorter (plan 21 step LIB54A, docs/libraries/library.md): sorting, merging and checking terms on files, written
 %% from OTP's documentation. The run and merge algorithm follows OTP's step for step (runs of `size` bytes sorted in
 %% memory, temporary files merged `no_files` at a time, chunks of 16 KiB, merge streams ordered by their buffered
 %% objects and file numbers), because the order of terms that compare equal and the terms `unique` keeps depend on

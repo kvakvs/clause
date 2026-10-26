@@ -20,7 +20,7 @@ Sources live in `runtime/src/builtins/`; observable differences from OTP are in
   (`clause_unicode`, `clause_re`, `clause_zlib`, `clause_receive`, ...) serve
   Erlang library code.
 - Per-function status (builtin, Erlang body, stub) is in
-  `library/<application>/<module>.terms` ([library](library.md#files)).
+  `library/<application>/<module>.terms` ([library](libraries/library.md#files)).
 - A qualified call of a catalog builtin calls the bridge; any other `erlang`
   function reaches the [erlang library module](#erlang-module).
 
@@ -800,7 +800,7 @@ Erlang clause dispatch, so programs that call it compile no extra code.
 `builtins/crypto/` in the separate `clause_runtime_crypto` archive,
 `library/crypto/crypto.erl` and `clause_crypto.erl` (plan 21 step LIB79).
 
-- Links OpenSSL's libcrypto ≥ 3.1.2 (pinned 4.1.0, [OpenSSL](crypto.md));
+- Links OpenSSL's libcrypto ≥ 3.1.2 (pinned 4.1.0, [OpenSSL](libraries/crypto.md));
   only programs that call `crypto` (or pass `--with-crypto`) link the archive,
   whose `CLAUSE_crypto_extension_v1` entry the startup descriptor lists.
 - `algorithms.cpp` keeps OTP's name tables (digests, ciphers, MACs, key types,
@@ -831,7 +831,7 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   without one is forbidden there (OTP's `*_FORBIDDEN_IN_FIPS`), leaves `supports/1` and raises OTP's `notsup`
   descriptions. `enable_fips_mode/1` switches OpenSSL's default properties; programs built with `--fips` link the
   archive's `CLAUSE_crypto_fips_extension_v1` entry, whose start hook loads the provider beside the executable
-  ([FIPS](crypto.md#fips)).
+  ([FIPS](libraries/crypto.md#fips)).
 - Public keys (step LIB79C) follow OTP's `pkey.c`, `rsa.c`, `dss.c`, `eddsa.c`, `ec.c`, `ecdh.c`, `dh.c`,
   `evp.c` and `srp.c`: `crypto.erl` turns integers into binaries (`format_pkey`, `nif_curve_params`) and the
   builtins build OpenSSL keys from the same `OSSL_PARAM` lists OTP's NIFs build (`params.cpp`, native-order big

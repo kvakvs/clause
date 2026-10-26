@@ -1,4 +1,4 @@
-%% Clause's erl_error (plan 21 step LIB34, docs/library.md): exceptions in the shell's words, written from OTP's
+%% Clause's erl_error (plan 21 step LIB34, docs/libraries/library.md): exceptions in the shell's words, written from OTP's
 %% documentation and observed output. The explanation of a reason comes first, then the stack trace, one line per
 %% frame ("in function", "in call from"), a frame with arguments followed by its call as written, and the argument
 %% errors a frame's error_info module describes. Terms are written by the format fun (io_lib:print/4 by default);

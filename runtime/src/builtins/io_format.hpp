@@ -4,8 +4,8 @@
 #include <optional>
 #include <string>
 
-// io:format/1,2 and io:put_chars/1 text (docs/io.md): OTP's io_lib_format and io_lib_pretty rules applied by the
-// standard output device, producing characters that the device writes as UTF-8.
+// io:format/1,2 and io:put_chars/1 text (docs/libraries/io.md): OTP's io_lib_format and io_lib_pretty rules applied by
+// the standard output device, producing characters that the device writes as UTF-8.
 namespace clause::runtime::builtins {
 // The characters of `format` with each control sequence replaced, as io_lib:format(Format, Args) (no `arguments`:
 // io:format/1, Args = []); throws BuiltinFailure (badarg for format errors and text that is not Unicode).

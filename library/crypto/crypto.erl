@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's crypto (docs/library.md#runtime-module-replacements, plan 21 step LIB79), written
+%% Clause's replacement for OTP's crypto (docs/libraries/library.md#runtime-module-replacements, plan 21 step LIB79), written
 %% from OTP's documentation over the clause_crypto builtins of the crypto runtime archive, which a program links when
 %% it calls crypto (docs/builtins.md#crypto-module). The builtins raise OTP's NIF errors; ?nif_call turns them into
 %% OTP's {Class, {File, Line}, Description} errors with error_info. Engines are declined: they raise notsup, as an

@@ -1,7 +1,7 @@
 -module(edlin_expand).
 -export([expand/1, expand/2]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
-%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -export([
     bif/1,
     expand/3,
@@ -14,7 +14,7 @@
     shell_default_or_bif/1
 ]).
 
-% Completion of the shell's input (plan 21 step LIB74B, docs/library.md#interactive-shell), written from OTP's
+% Completion of the shell's input (plan 21 step LIB74B, docs/libraries/library.md#interactive-shell), written from OTP's
 % documentation and observed results: the text before the cursor (reversed) is completed as a module, function,
 % shell binding, record name or field, map key, fun arity or file path. Linked code has no type specifications or
 % documentation, so a call's arguments are suggested as the function's arities.

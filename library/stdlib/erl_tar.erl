@@ -1,4 +1,4 @@
-%% Clause's erl_tar (plan 21 step LIB54D, docs/library.md): tar archives on files, open devices or binaries, written
+%% Clause's erl_tar (plan 21 step LIB54D, docs/libraries/library.md): tar archives on files, open devices or binaries, written
 %% from OTP's documentation and following OTP's format rules: USTAR headers with long names split into a prefix, pax
 %% extended headers for what does not fit, reading of v7, GNU (long names, sparse files), STAR, USTAR and pax archives,
 %% gzip through file's compressed modes, and the user I/O funs of init/3. Archives equal OTP's byte for byte.

@@ -1,6 +1,6 @@
 -module(os).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
-%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -export([
     cmd/1,
     cmd/2,
@@ -26,7 +26,7 @@
 -include("os.types.hrl").
 -include("include/file.hrl").
 
-% The project-owned os module (docs/library.md): os:cmd/1,2 and the time functions in Erlang; os:type/0,
+% The project-owned os module (docs/libraries/library.md): os:cmd/1,2 and the time functions in Erlang; os:type/0,
 % os:getenv/0,1, os:env/0, os:putenv/2, os:unsetenv/1, os:getpid/0, os:version/0, os:find_executable/2 and
 % os:set_signal/2 are builtins of the runtime.
 

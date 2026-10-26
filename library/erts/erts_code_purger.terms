@@ -1,5 +1,5 @@
 %% OTP 29 erts_code_purger exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {finish_after_on_load, 2, default, declined}.
 {pending_purge_lambda, 3, default, declined}.
 {purge, 1, default, implemented}.

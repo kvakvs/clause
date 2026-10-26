@@ -1,4 +1,4 @@
-%% Clause's application_controller (plan 21 step LIB24, docs/library.md): the registered server behind application,
+%% Clause's application_controller (plan 21 step LIB24, docs/libraries/library.md): the registered server behind application,
 %% started at its first use. Loaded applications, their environments and masters live in the public ETS table
 %% ac_tab as in OTP; specifications come from clause_applications, which clau generates from the program's .app and
 %% .app.src files. kernel and stdlib are loaded and running from the start, without masters. A permanent application

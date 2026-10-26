@@ -1,4 +1,4 @@
-%% Clause's data_publisher (plan 21 step LIB25, docs/library.md): OTP 29's behaviour for replicated data stores, as
+%% Clause's data_publisher (plan 21 step LIB25, docs/libraries/library.md): OTP 29's behaviour for replicated data stores, as
 %% a gen_server registered under its scope. A Clause program is a single node, so a scope has no peers: updates go
 %% to the local data and the global view, whose module notifies subscribers, and node events are ignored.
 -module(data_publisher).

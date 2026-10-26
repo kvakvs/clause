@@ -1,5 +1,5 @@
 %% OTP 29 documented functions of erts, kernel, stdlib and crypto: {Module, Application, Name, Arity};
-%% observed by tests/compiler/library/observe_docs.escript (docs/library.md#documented-functions).
+%% observed by tests/compiler/library/observe_docs.escript (docs/libraries/library.md#documented-functions).
 {atomics, erts, add, 3}.
 {atomics, erts, add_get, 3}.
 {atomics, erts, compare_exchange, 4}.

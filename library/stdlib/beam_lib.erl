@@ -1,4 +1,4 @@
-%% Clause's beam_lib (plan 21 step LIB54F, docs/library.md): reading, comparing, stripping and building BEAM files,
+%% Clause's beam_lib (plan 21 step LIB54F, docs/libraries/library.md): reading, comparing, stripping and building BEAM files,
 %% written from OTP's documentation and following OTP's chunk handling: the IFF chunk walk, symbol tables, attributes,
 %% literals, debug information through its backend, MD5s over the significant chunks, gzip-compressed beams, and the
 %% crypto key server for encrypted debug information (decryption needs crypto, which Clause programs lack).

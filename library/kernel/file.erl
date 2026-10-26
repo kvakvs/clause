@@ -15,7 +15,7 @@
     del_dir/1
 ]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
-%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -export([
     advise/4,
     allocate/3,
@@ -79,7 +79,7 @@
 %% callers' atoms.
 -compile({clause_liveness, strict}).
 
-% The project-owned file module (docs/library.md, docs/ports.md#standard-io-and-files): files are ports of the
+% The project-owned file module (docs/libraries/library.md, docs/ports.md#standard-io-and-files): files are ports of the
 % runtime's file driver ({spawn_driver, "clause_file"}), driven with port_control/3. An open file is an I/O
 % server process that owns its port and monitors the opener, as in OTP.
 

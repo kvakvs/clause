@@ -1,4 +1,4 @@
-%% Clause's seq_trace (plan 21 step LIB25, docs/library.md): each process keeps its sequential trace token, with
+%% Clause's seq_trace (plan 21 step LIB25, docs/libraries/library.md): each process keeps its sequential trace token, with
 %% OTP's components and answers. Clause's runtime does not trace: tokens are not passed on with messages, serial
 %% numbers stay where they are set, and there is no tracer to print to (LIB71).
 -module(seq_trace).

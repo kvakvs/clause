@@ -1,4 +1,4 @@
-%% Clause's gen_fsm (plan 21 step LIB21, docs/library.md): the deprecated finite state machine behaviour, with OTP's
+%% Clause's gen_fsm (plan 21 step LIB21, docs/libraries/library.md): the deprecated finite state machine behaviour, with OTP's
 %% messages ('$gen_event', '$gen_sync_event', '$gen_all_state_event', '$gen_sync_all_state_event'), timers, results
 %% (catch-based, as OTP's) and reports. It keeps a loop of its own, as OTP's does, rather than adapting gen_statem,
 %% whose time-outs and messages differ.

@@ -28,7 +28,7 @@ preemptive scheduling, message passing and garbage collection.
 - **Library:** every `erlang` export is implemented or a named stub. Clause ships its own
   `stdlib`/`kernel` modules (`lists`, `maps`, `ets`, `dets`, `string`, `unicode`, `re`, `json`,
   `rand`, `io`, `file`, ...); other modules compile from an OTP source tree on a project's search
-  path ([library](docs/library.md)).
+  path ([library](docs/libraries/library.md)).
 - **Platforms:** validated on Windows x64 and Linux x86-64; 32-bit x86 and Linux ARM have historical
   results; macOS on Apple Silicon is not yet validated ([validation](docs/validation.md)).
 
@@ -87,4 +87,4 @@ The [documentation index](docs/README.md) lists every reference note. Start with
 - [compilation](docs/compile.md): CLI, artifacts, listings;
 - [executables](docs/executables.md): entry, arguments, runtime options, exit status;
 - [projects](docs/projects.md): TOML manifests, source discovery, caches;
-- [library](docs/library.md): provided and missing modules.
+- [library](docs/libraries/library.md): provided and missing modules.

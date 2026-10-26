@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's edlin (docs/library.md#interactive-shell), generated from edlin.terms by
+%% Clause's replacement for OTP's edlin (docs/libraries/library.md#interactive-shell), generated from edlin.terms by
 %% tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
 %% error({not_implemented, Name, Arity}). Only keymap/0 is documented.
 -module(edlin).

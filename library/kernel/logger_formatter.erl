@@ -1,4 +1,4 @@
-%% Clause's logger_formatter (plan 21 step LIB23, docs/library.md): the default formatter of log events. A template
+%% Clause's logger_formatter (plan 21 step LIB23, docs/libraries/library.md): the default formatter of log events. A template
 %% of metadata keys and strings lays the event out; the message comes from a format and its arguments, a string, or a
 %% report through its report callback, limited by depth, chars_limit and max_size, on one line or several, with
 %% OTP's legacy header (=ERROR REPORT==== ...) when asked.

@@ -1,4 +1,4 @@
-"""Library modules in linked programs (plan step 41K, docs/library.md#which-module-a-name-resolves-to).
+"""Library modules in linked programs (plan step 41K, docs/libraries/library.md#which-module-a-name-resolves-to).
 
   library_programs.py stubs ROOT CLAU WORK SUFFIX       every provided module's stub raises not_implemented in every call form
   library_programs.py precedence ROOT CLAU WORK SUFFIX  Clause modules win over search paths, explicit inputs win

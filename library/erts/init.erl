@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's init (docs/library.md#runtime-module-replacements), generated from
+%% Clause's replacement for OTP's init (docs/libraries/library.md#runtime-module-replacements), generated from
 %% init.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
 %% error({not_implemented, Name, Arity}). An executable is a started system without a boot script (plan step 41L,
 %% docs/builtins.md#init-module): the command-line answers are runtime builtins, the rest answer as OTP's init

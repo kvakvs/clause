@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's prim_eval (docs/library.md#runtime-module-replacements), generated from
+%% Clause's replacement for OTP's prim_eval (docs/libraries/library.md#runtime-module-replacements), generated from
 %% prim_eval.terms by tests/compiler/library/library_modules.py; edited by hand from here on.
 -module(prim_eval).
 -export([

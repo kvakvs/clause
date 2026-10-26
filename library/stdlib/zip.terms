@@ -1,5 +1,5 @@
 %% OTP 29 zip exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {create, 2, default, implemented}.
 {create, 3, default, implemented}.
 {extract, 1, default, implemented}.

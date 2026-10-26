@@ -1,4 +1,4 @@
-%% Clause's kernel/include/inet.hrl (plan 21 step LIB75, docs/library.md): the #hostent{} record of inet's
+%% Clause's kernel/include/inet.hrl (plan 21 step LIB75, docs/libraries/library.md): the #hostent{} record of inet's
 %% documentation, the result of inet:gethostbyname/1,2 and inet:gethostbyaddr/1, written for Clause.
 -record(hostent, {
     % Official name of the host.

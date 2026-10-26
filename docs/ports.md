@@ -261,7 +261,7 @@ stdout are pipes of the port:
 ## Standard I/O and files
 
 - `io:format`, `io:put_chars` and `erlang:display` write standard output
-  directly ([io](io.md)). Standard input is read by one library server process,
+  directly ([io](libraries/io.md)). Standard input is read by one library server process,
   registered as `clause_stdin` and started on first use, which owns an
   `{fd, 0, 1}` port: `io:get_line/1,2` writes the prompt, then returns the next
   line with its newline, the rest of the input without one at its end, then

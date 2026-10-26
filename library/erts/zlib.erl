@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's zlib (docs/library.md#runtime-module-replacements), generated from
+%% Clause's replacement for OTP's zlib (docs/libraries/library.md#runtime-module-replacements), generated from
 %% zlib.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
 %% error({not_implemented, Name, Arity}). Streams are handle references over the pinned zlib (plan step 41Q).
 -module(zlib).

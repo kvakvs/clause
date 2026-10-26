@@ -56,7 +56,7 @@
     y/2
 ]).
 
-% The shell's command line interface module (plan 21 step LIB74, docs/library.md#interactive-shell), written from
+% The shell's command line interface module (plan 21 step LIB74, docs/libraries/library.md#interactive-shell), written from
 % OTP's documentation. A Clause program has no compiler, tools or parsetools: c/1,2,3, lc/1, nc/1,2, xm/1 and
 % y/1,2 report the failed call as OTP does when the application is missing, and loading answers come from code.
 

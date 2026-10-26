@@ -1,4 +1,4 @@
-%% Clause's erpc (plan 21 step LIB25, docs/library.md): calls run in processes spawned with spawn_request/5 on this
+%% Clause's erpc (plan 21 step LIB25, docs/libraries/library.md): calls run in processes spawned with spawn_request/5 on this
 %% node, with OTP's results and errors ({erpc, Reason}, {exception, Reason, Stack}, ...). A Clause program is one
 %% node: a request to another node gets the spawn reply OTP gets when it cannot connect, noconnection, and casts
 %% to it are dropped.

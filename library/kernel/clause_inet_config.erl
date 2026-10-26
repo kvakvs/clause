@@ -1,7 +1,7 @@
 -module(clause_inet_config).
 -export([config/0, get_rc/0]).
 
-% The resolver configuration of inet_res and inet:get_rc/0 (plan 21 step LIB60B, docs/library.md): what OTP's
+% The resolver configuration of inet_res and inet:get_rc/0 (plan 21 step LIB60B, docs/libraries/library.md): what OTP's
 % inet_config loads on a node that is not distributed. Windows has none (lookup [native]); on Linux and macOS the
 % resolver reads resolv.conf (nameserver, domain, search) and get_rc/0 also lists the hosts file. Read once, kept in
 % a persistent term.

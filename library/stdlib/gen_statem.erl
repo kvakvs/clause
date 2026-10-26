@@ -1,4 +1,4 @@
-%% Clause's gen_statem (plan 21 step LIB21, docs/library.md): the generic state machine over gen, proc_lib and sys.
+%% Clause's gen_statem (plan 21 step LIB21, docs/libraries/library.md): the generic state machine over gen, proc_lib and sys.
 %% Events are queued and handled by state functions or handle_event/4, with OTP's transition actions: replies,
 %% postponing (retried after a state change), inserted events, state enter calls, event, state and generic
 %% time-outs (time-out zero events queued after the inserted ones), hibernation and callback module changes. Errors,

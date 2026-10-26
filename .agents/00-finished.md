@@ -127,7 +127,7 @@ measurements are dropped.
 - **41H** non-distributed node and code-loading answers; phase gate left only non-`erlang` modules
   for luerl — `89d0c7d`
 - **41I** replacement-module contract: Clause modules win over `source_search_paths`, missing
-  modules are reserved names ([library](../docs/library.md#runtime-module-replacements)) —
+  modules are reserved names ([library](../docs/libraries/library.md#runtime-module-replacements)) —
   `8c6a94f1`
 - **41J** library split into `library/{erts,kernel,stdlib}/` with `modules.terms`;
   `{Name, Arity, Group, Status}` inventories checked against OTP 29 — `b284a034`
@@ -159,7 +159,7 @@ measurements are dropped.
 - **41T** `lists` data functions as runtime builtins (`sublist`, `flatten`, `usort`, `keymember`,
   ...); fun-taking ones stay Erlang; tracer fix of `6a7d402a` — `f6a53456`
 - **41U** `io:format/3`, `fwrite`, `put_chars/2`, `nl` builtins; pid or name devices go through
-  `file:write/2` ([io](../docs/io.md#calls)) — `cd08f1a8`
+  `file:write/2` ([io](../docs/libraries/io.md#calls)) — `cd08f1a8`
 - **41V** `math` as builtins over the C library (`library/stdlib/math.erl` stubs) — `42acff89`
 - **41W** `binary` search, split, parts, hex builtins; `replace` in Erlang over them — `82292d0a`
 - **41X** `os` env/getpid builtins and `maps` get/merge/take/with builtins; Erlang `os:timestamp`,
@@ -908,7 +908,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB79F** `crypto` FIPS: switchable as OTP (`fips` provider via `OPENSSL_MODULES`/`OPENSSL_CONF`, `fips=yes`
   fetches per table entry, OTP's "forbidden in FIPS" errors); `clau --fips=PATH` pins a program to a user-supplied
   provider copied beside it (start hook loads it, base only, mode cannot be left). Minimum OpenSSL 3.1.2 (latest
-  FIPS-validated); validated 3.1.2 provider runs in the 4.1 libcrypto; `docs/crypto.md` — `0a0f9917`
+  FIPS-validated); validated 3.1.2 provider runs in the 4.1 libcrypto; `docs/libraries/crypto.md` — `0a0f9917`
 - **LIB79C** `crypto` public keys, crypto complete: sign/verify (RSA PKCS #1/PSS, DSA, ECDSA, EdDSA, ML-DSA, SLH-DSA),
   RSA encryption, key generation and agreement (RSA, DH, ECDH on named/explicit curves, X25519/X448), SRP, ML-KEM,
   `privkey_to_pubkey`, `ec_curve(s)` from OpenSSL's groups; OTP's OSSL_PARAM key building, errors and quirks;

@@ -26,7 +26,7 @@
     stats/0
 ]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
-%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -export([
     connect_options/2,
     fdopen/6,
@@ -102,7 +102,7 @@
 ]).
 -include("inet.types.hrl").
 
-% The project-owned subset of inet (docs/library.md, docs/ports.md#sockets) for sockets of gen_tcp and gen_udp.
+% The project-owned subset of inet (docs/libraries/library.md, docs/ports.md#sockets) for sockets of gen_tcp and gen_udp.
 
 % The local port number of Socket.
 port(Socket) ->

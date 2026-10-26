@@ -1,4 +1,4 @@
-%% Clause's logger_handler (plan 21 step LIB23, docs/library.md): the behaviour of logger handlers, callbacks only.
+%% Clause's logger_handler (plan 21 step LIB23, docs/libraries/library.md): the behaviour of logger handlers, callbacks only.
 -module(logger_handler).
 -include("logger_handler.types.hrl").
 

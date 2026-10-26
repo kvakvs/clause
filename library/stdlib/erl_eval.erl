@@ -1,4 +1,4 @@
-%% Clause's erl_eval (plan 21 step LIB32, docs/library.md): an interpreter of the abstract format, written from OTP's
+%% Clause's erl_eval (plan 21 step LIB32, docs/libraries/library.md): an interpreter of the abstract format, written from OTP's
 %% documentation and observed behavior. Bindings are orddicts or maps and come back as given. Calls go through the
 %% local and non-local function handlers as OTP documents; errors are raised through the non-local handler as calls of
 %% erlang:raise/3. Funs made here are closures of their arity over {Anno, Bindings, LocalHandler, NonLocalHandler,

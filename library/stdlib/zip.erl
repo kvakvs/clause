@@ -1,4 +1,4 @@
-%% Clause's zip (plan 21 step LIB54, docs/library.md): zip archives on files or in memory, written from OTP's
+%% Clause's zip (plan 21 step LIB54, docs/libraries/library.md): zip archives on files or in memory, written from OTP's
 %% documentation with OTP's layout followed byte for byte (local and central headers, made by UNIX version 6.1,
 %% extended timestamp and UNIX uid/gid extra fields, zip64 past 4 GiB, deflate with a full flush every 8 KiB), so
 %% archives equal OTP's. Archive I/O goes through an input and an output fun over files or binaries, as OTP's;

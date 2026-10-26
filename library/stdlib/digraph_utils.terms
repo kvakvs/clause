@@ -1,5 +1,5 @@
 %% OTP 29 digraph_utils exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {arborescence_root, 1, default, implemented}.
 {components, 1, default, implemented}.
 {condensation, 1, default, implemented}.

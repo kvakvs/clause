@@ -1,4 +1,4 @@
-%% Clause's supervisor_bridge (plan 21 step LIB21, docs/library.md): a gen_server standing in a supervision tree
+%% Clause's supervisor_bridge (plan 21 step LIB21, docs/libraries/library.md): a gen_server standing in a supervision tree
 %% for a process the callback module starts itself. It links to that process, ends with it, and calls the module's
 %% terminate/2 when it is told to stop first.
 -module(supervisor_bridge).

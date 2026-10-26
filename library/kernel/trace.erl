@@ -1,4 +1,4 @@
-%% Clause's trace (plan 21 step LIB71, docs/library.md): tracing is not supported, so every function raises
+%% Clause's trace (plan 21 step LIB71, docs/libraries/library.md): tracing is not supported, so every function raises
 %% error:notsup, as erlang's tracing functions do.
 -module(trace).
 -export([

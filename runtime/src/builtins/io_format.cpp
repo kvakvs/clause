@@ -3,8 +3,8 @@
 #include "text.hpp"
 #include <vector>
 
-// Chardata read as characters for io:put_chars/1,2 and io:format's output (docs/io.md); the format engine itself is
-// io_lib's (io_lib/format_build.cpp).
+// Chardata read as characters for io:put_chars/1,2 and io:format's output (docs/libraries/io.md); the format engine
+// itself is io_lib's (io_lib/format_build.cpp).
 namespace clause::runtime::builtins {
 namespace {
 // Append one character of a chardata leaf, or throw badarg for a code that is not a Unicode character.

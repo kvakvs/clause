@@ -1,4 +1,4 @@
-%% Clause's error_handler (plan 21 step LIB23, docs/library.md): OTP's handler of calls to undefined functions,
+%% Clause's error_handler (plan 21 step LIB23, docs/libraries/library.md): OTP's handler of calls to undefined functions,
 %% callable directly. Programs are linked ahead of time, so the runtime raises undef itself and never calls it.
 -module(error_handler).
 -export([undefined_function/3, undefined_lambda/3, breakpoint/3, raise_undef_exception/3, stub_function/3]).

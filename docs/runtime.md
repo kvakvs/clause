@@ -331,7 +331,7 @@ mutex.
 
 `RuntimeOptions::standard_output`
 ([output.hpp](../runtime/include/clause/runtime/output.hpp)) receives
-`erlang:display/1` and `io` output to standard output ([io](io.md)). The default
+`erlang:display/1` and `io` output to standard output ([io](libraries/io.md)). The default
 writes to process `stdout` through C stdio (buffered); a host sink returns
 `false` to report a failed write.
 

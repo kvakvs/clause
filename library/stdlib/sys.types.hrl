@@ -1,5 +1,5 @@
 %% OTP 29 sys types: the exported types and the local types and records they use, as OTP defines
-%% them; observed by tests/compiler/library/observe_types.escript (docs/library.md#types).
+%% them; observed by tests/compiler/library/observe_types.escript (docs/libraries/library.md#types).
 -export_type([dbg_fun/0,dbg_opt/0,debug_option/0,system_event/0]).
 -type system_event() ::
           {in, Msg :: _} |

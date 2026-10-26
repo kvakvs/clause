@@ -30,7 +30,7 @@
 ]).
 -include("inet_res.types.hrl").
 
-% Clause's inet_res (plan 21 step LIB60B, docs/library.md): OTP's DNS client in Erlang over gen_udp and gen_tcp, its
+% Clause's inet_res (plan 21 step LIB60B, docs/libraries/library.md): OTP's DNS client in Erlang over gen_udp and gen_tcp, its
 % messages encoded and decoded by the clause_net DNS codec into OTP's #dns_rec{} records. Name servers come from
 % the resolver configuration (clause_inet_config) or the nameservers option; answers are not cached.
 

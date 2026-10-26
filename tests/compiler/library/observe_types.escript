@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%% Observe one module's exported types on the host OTP for Clause's library (docs/library.md#types): the exported
+%% Observe one module's exported types on the host OTP for Clause's library (docs/libraries/library.md#types): the exported
 %% types and the local types and records they use, as OTP defines them (the beam's debug info, or the shipped source
 %% of a preloaded module). Writes library/<App>/<Module>.types.hrl, which the Clause module includes; nothing when
 %% the module exports no type. Run explicitly:
@@ -25,7 +25,7 @@ main([Library, App, Module]) ->
         Forms ->
             Header = io_lib:format(
                 "%% OTP ~s ~s types: the exported types and the local types and records they use, as OTP defines\n"
-                "%% them; observed by tests/compiler/library/observe_types.escript (docs/library.md#types).\n",
+                "%% them; observed by tests/compiler/library/observe_types.escript (docs/libraries/library.md#types).\n",
                 [erlang:system_info(otp_release), Module]
             ),
             ok = file:write_file(File, [Header, [erl_pp:form(F) || F <- Forms]]),

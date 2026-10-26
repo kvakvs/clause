@@ -1,5 +1,5 @@
 %% OTP 29 inet exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {cancel_monitor, 1, default, implemented}.
 {close, 1, default, implemented}.
 {connect_options, 2, default, stub}.

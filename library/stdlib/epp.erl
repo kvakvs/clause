@@ -1,4 +1,4 @@
-%% Clause's epp (plan 21 step LIB34, docs/library.md): the Erlang preprocessor, written from OTP's documentation and
+%% Clause's epp (plan 21 step LIB34, docs/libraries/library.md): the Erlang preprocessor, written from OTP's documentation and
 %% observed behavior. An open source is a server process answering scan_erl_form requests one form at a time:
 %% -define/-undef, macro expansion with OTP's errors (arguments, overloading, circular and predefined macros,
 %% ??Arg, ?FUNCTION_NAME, ?LINE), -include and -include_lib through the include path, -ifdef/-ifndef/-if/-elif/

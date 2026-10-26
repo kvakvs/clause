@@ -428,7 +428,7 @@ bool reserved(const std::u32string &name, const std::string &site, const Discove
         return false;
     }
     sink("note: " + site + ": Clause does not provide module " + found->first + " (" + found->second +
-         "; docs/library.md#provided-or-missing)");
+         "; docs/libraries/library.md#provided-or-missing)");
     return true;
 }
 

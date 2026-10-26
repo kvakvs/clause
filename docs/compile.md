@@ -21,7 +21,7 @@ calls (`M:F(...)`, `apply/2,3`); [processes](processes.md) and
 [ports](ports.md). Calls run on explicit process frames with proper tail calls
 ([execution model](execution-model.md#implementation)); body recursion is
 bounded by the process stack (uncapped by default), not the native stack.
-Modules a batch names but does not declare come from the [library](library.md).
+Modules a batch names but does not declare come from the [library](libraries/library.md).
 Comprehension match qualifiers of the experimental `compr_assign` feature are
 rejected as `[heap expressions] notimpl`.
 
@@ -161,9 +161,9 @@ annotations. The printer (`print_source`, `expression_source`, `type_source` in
 | `--jobs <n>` | Optimize and emit object modules on `n` threads (default: every hardware thread), each module in its own LLVM context; objects are the same for any count; `--jobs 1`, IR and assembly inspections keep every module in one context |
 | `--lto` | Link the modules as bitcode with LLD link-time optimization (Windows MSVC and ELF targets; needs `-o` or a linking project build) ([linking](executables.md#linking)) |
 | `--keep-exports` | Keep every export of an executable callable instead of leaving out those it cannot reach; needs `-o`, a linking project build or an IR/assembly inspection ([export liveness](executables.md#export-liveness)) |
-| `--shell` | Link the interactive Erlang shell and every library module, keeping every export callable; without `--entry` the executable starts the shell, so `clau --shell -o erl` with no inputs builds a shell over the library alone; needs `-o` or a linking project build ([interactive shell](library.md#interactive-shell)) |
-| `--fips=PATH` | Pin the program to FIPS mode with the user-supplied OpenSSL FIPS provider in `PATH` (module and `fipsmodule.cnf`, copied beside the executable); implies `--with-crypto`; a missing or malformed provider fails the build ([FIPS](crypto.md#fips)) |
-| `--with-crypto[=PATH]` | Link the crypto runtime archive and add the library `crypto` module to the batch, for programs that reach `crypto` only through dynamic calls (programs that call it are linked with it anyway); `PATH` is an OpenSSL ≥ 3.1.2 installation or source tree to link instead of the one Clause was built with; needs `-o` or a linking project build ([crypto](crypto.md#linking-programs)) |
+| `--shell` | Link the interactive Erlang shell and every library module, keeping every export callable; without `--entry` the executable starts the shell, so `clau --shell -o erl` with no inputs builds a shell over the library alone; needs `-o` or a linking project build ([interactive shell](libraries/library.md#interactive-shell)) |
+| `--fips=PATH` | Pin the program to FIPS mode with the user-supplied OpenSSL FIPS provider in `PATH` (module and `fipsmodule.cnf`, copied beside the executable); implies `--with-crypto`; a missing or malformed provider fails the build ([FIPS](libraries/crypto.md#fips)) |
+| `--with-crypto[=PATH]` | Link the crypto runtime archive and add the library `crypto` module to the batch, for programs that reach `crypto` only through dynamic calls (programs that call it are linked with it anyway); `PATH` is an OpenSSL ≥ 3.1.2 installation or source tree to link instead of the one Clause was built with; needs `-o` or a linking project build ([crypto](libraries/crypto.md#linking-programs)) |
 | `-g` | Erlang line tables in objects and linked executables (CodeView/PDB on MSVC targets, DWARF elsewhere) ([debugging](debugging.md)) |
 | `--print-ir` / `--print-optimized-ir` | Verified IR before/after LLVM passes, with Erlang source lines as comments |
 | `--print-asm` | Each module's target assembly after the selected pipeline, every run of machine code commented with the IR instruction and Erlang line it came from ([assembly listings](#assembly-listings)) |
@@ -408,7 +408,7 @@ GPL-2.0).
 The runtime's `crypto` builtins use OpenSSL's libcrypto, pinned 4.1.0, any release from 3.1.2 (the latest with a
 FIPS-validated provider) accepted, in a separate `clause_runtime_crypto` archive that only programs calling `crypto`
 link. Where it comes from, how Clause and `clau` build it from source, linking (`--with-crypto[=PATH]`) and FIPS
-mode (`--fips=PATH`) are described in [crypto](crypto.md).
+mode (`--fips=PATH`) are described in [crypto](libraries/crypto.md).
 
 Other prerequisites: CMake ≥ 3.28, a C++23 compiler, Boost ≥ 1.90, toml++ 3.4.0
 and the quality tools. OTP is needed only for opt-in audits and fixture

@@ -142,7 +142,7 @@ errors() ->
         {"~w", x}
     ].
 
-%% Valid OTP control sequences Clause does not implement (docs/io.md).
+%% Valid OTP control sequences Clause does not implement (docs/libraries/io.md).
 %% Tuples nested `Depth` deep around an atom.
 nest(0) -> leaf;
 nest(Depth) -> {Depth, nest(Depth - 1)}.

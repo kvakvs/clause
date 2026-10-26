@@ -1,5 +1,5 @@
 %% OTP 29 digraph types: the exported types and the local types and records they use, as OTP defines
-%% them; observed by tests/compiler/library/observe_types.escript (docs/library.md#types).
+%% them; observed by tests/compiler/library/observe_types.escript (docs/libraries/library.md#types).
 -export_type([d_type/0,edge/0,graph/0,label/0,vertex/0]).
 -record(digraph,{vtab = notable :: ets:table(),
                  etab = notable :: ets:table(),

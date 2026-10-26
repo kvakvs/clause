@@ -1,4 +1,4 @@
-%% Clause's erl_abstract_code (plan 21 step LIB54F, docs/library.md): the debug information backend of beams compiled
+%% Clause's erl_abstract_code (plan 21 step LIB54F, docs/libraries/library.md): the debug information backend of beams compiled
 %% with debug_info, as beam_lib asks it for a module's abstract code. Core Erlang needs the compiler, which Clause
 %% programs do not have: that conversion fails as a failed one does in OTP.
 -module(erl_abstract_code).

@@ -1,4 +1,4 @@
-%% Clause's logger server and configuration store (plan 21 step LIB23, docs/library.md), what OTP's logger_server,
+%% Clause's logger server and configuration store (plan 21 step LIB23, docs/libraries/library.md), what OTP's logger_server,
 %% logger_config and the kernel's logger setup do. The server is the gen_server registered as `logger`, started on
 %% first use; it owns the `logger` ETS table of the primary, proxy and handler configurations, keeps the primary,
 %% handler and module levels in persistent terms for logger:allow/2, and runs the handlers' adding, changing and

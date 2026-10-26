@@ -24,7 +24,7 @@
 -include("shell_docs.types.hrl").
 -include_lib("kernel/include/eep48.hrl").
 
-% EEP-48 documentation rendered for a shell (plan 21 step LIB74C, docs/library.md#interactive-shell), written from
+% EEP-48 documentation rendered for a shell (plan 21 step LIB74C, docs/libraries/library.md#interactive-shell), written from
 % OTP's documentation and observed output: chunks of format application/erlang+html, text/markdown (converted by
 % clause_shell_docs_markdown) or other text formats are normalized, then laid out as text with OTP's indentation,
 % word wrapping, bullets and ANSI styles. Linked Clause code has no documentation (code:get_doc/1), so the chunks

@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's math (docs/library.md#runtime-module-replacements), generated from
+%% Clause's replacement for OTP's math (docs/libraries/library.md#runtime-module-replacements), generated from
 %% math.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
 %% error({not_implemented, Name, Arity}). Every function is a runtime builtin that replaces its placeholder (plan step 41V,
 %% docs/builtins.md#math-module).

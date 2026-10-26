@@ -1,7 +1,7 @@
 -module(clause_shell_docs_markdown).
 -export([parse_md/1, parse_md/2]).
 
-% Markdown documentation as shell_docs chunk elements (plan 21 step LIB74C, docs/library.md#interactive-shell),
+% Markdown documentation as shell_docs chunk elements (plan 21 step LIB74C, docs/libraries/library.md#interactive-shell),
 % reproducing the conversion OTP's shell uses for text/markdown chunks: ATX and setext headings, paragraphs,
 % bullet and numbered lists, block quotes, fenced and indented code, tables (kept as preformatted text), HTML
 % comments, and inline code, emphasis (* or _ is i, ** or __ em), escapes and links reduced to their text.

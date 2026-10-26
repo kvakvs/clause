@@ -1,5 +1,5 @@
 %% OTP 29 atomics exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {add, 3, default, implemented}.
 {add_get, 3, default, implemented}.
 {compare_exchange, 4, default, implemented}.

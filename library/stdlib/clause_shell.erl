@@ -1,7 +1,7 @@
 -module(clause_shell).
 -export([run/1, start_interactive/1, whereis/0]).
 
-% The terminal side of the interactive shell (plan 21 step LIB74, docs/library.md#interactive-shell): the process
+% The terminal side of the interactive shell (plan 21 step LIB74, docs/libraries/library.md#interactive-shell): the process
 % registered as clause_shell starts shell servers on the standard streams, as OTP's user_drv does, and starts a new
 % one when a shell exits. Standard input is read by io's standard input server, line by line as a terminal in
 % cooked mode delivers it.

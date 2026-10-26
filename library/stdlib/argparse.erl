@@ -1,4 +1,4 @@
-%% Clause's argparse (plan 21 step LIB70, docs/library.md): command validation, parsing and help texts are the
+%% Clause's argparse (plan 21 step LIB70, docs/libraries/library.md): command validation, parsing and help texts are the
 %% clause_argparse builtins (runtime/src/builtins/argparse/), following OTP's checks, errors and result shapes.
 %% The builtins ask this module to call custom type funs, re:run/2,3 and help description funs: each answer is
 %% handed back and the builtin replays its walk up to the next call, so each fun runs once, in OTP's order.

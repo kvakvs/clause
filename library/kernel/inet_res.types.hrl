@@ -1,5 +1,5 @@
 %% OTP 29 inet_res types: the exported types and the local types and records they use, as OTP defines
-%% them; observed by tests/compiler/library/observe_types.escript (docs/library.md#types).
+%% them; observed by tests/compiler/library/observe_types.escript (docs/libraries/library.md#types).
 -export_type([hostent/0,nameserver/0,res_error/0,res_option/0]).
 -type res_option() ::
           {alt_nameservers, [nameserver()]} |

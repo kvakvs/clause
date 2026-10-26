@@ -1,4 +1,4 @@
-%% Clause's erl_tracer (plan 21 step LIB71, docs/library.md): the tracer behaviour's callbacks as OTP lists them; the
+%% Clause's erl_tracer (plan 21 step LIB71, docs/libraries/library.md): the tracer behaviour's callbacks as OTP lists them; the
 %% default tracer's functions raise error:notsup, since tracing is not supported.
 -module(erl_tracer).
 -export([enabled/3, trace/5, on_load/0]).

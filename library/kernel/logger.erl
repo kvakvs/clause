@@ -1,4 +1,4 @@
-%% Clause's logger (plan 21 step LIB23, docs/library.md): OTP's logging API over clause_logger, which keeps the
+%% Clause's logger (plan 21 step LIB23, docs/libraries/library.md): OTP's logging API over clause_logger, which keeps the
 %% configuration. A log event passes the module or primary level, then the primary filters, then each handler's
 %% level and filters, and is handed to the handler's log/2 in the calling process; a failing filter or handler is
 %% removed. Configuration functions check their arguments as OTP does and return its error terms.

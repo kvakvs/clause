@@ -1,4 +1,4 @@
-%% Clause's application master (plan 21 step LIB24, docs/library.md): the process application_controller starts for
+%% Clause's application master (plan 21 step LIB24, docs/libraries/library.md): the process application_controller starts for
 %% each application with a start module, as OTP's application_master. It leads the group of the application's
 %% processes, runs Mod:start/2 and the start phases in a process of its own, answers I/O requests on standard I/O and
 %% on stop runs prep_stop/1, shuts the top supervisor down, runs stop/1 and kills what is left of the group.

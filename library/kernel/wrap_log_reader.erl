@@ -1,4 +1,4 @@
-%% Clause's wrap_log_reader (plan 21 step LIB52, docs/library.md): reading the chunks of an internal wrap log written
+%% Clause's wrap_log_reader (plan 21 step LIB52, docs/libraries/library.md): reading the chunks of an internal wrap log written
 %% by disk_log (or OTP's) without opening it, from the oldest file to the newest or from one file, as OTP's. A file
 %% older than the one just read means the log wrapped meanwhile: {error, {is_wrapped, File}}.
 -module(wrap_log_reader).

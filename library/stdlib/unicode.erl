@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's unicode (docs/library.md#runtime-module-replacements), generated from
+%% Clause's replacement for OTP's unicode (docs/libraries/library.md#runtime-module-replacements), generated from
 %% unicode.terms by tests/compiler/library/library_modules.py; edited by hand from here on. Every function is a
 %% runtime builtin that replaces its placeholder: the conversions, bin_is_7bit/1 and the byte order mark functions
 %% (plan step 41Y1, docs/builtins.md#unicode-module), the normalization forms, categories and identifier properties

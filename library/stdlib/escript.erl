@@ -1,4 +1,4 @@
-%% Clause's escript (plan 21 step LIB55, docs/library.md): making and taking apart escript files, written from OTP's
+%% Clause's escript (plan 21 step LIB55, docs/libraries/library.md): making and taking apart escript files, written from OTP's
 %% documentation and following OTP's section layout and header reading. A Clause program is an executable rather
 %% than a script, so script_name/0 is the executable's path and running escripts (start/0,1, parse_file/1) is
 %% declined; extracting with compile_source needs the compiler and fails.

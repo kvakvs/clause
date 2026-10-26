@@ -1,7 +1,7 @@
 #pragma once
 // Added for runtime module replacements (plan step 41K): the modules Clause's library provides, by application
 // directory, and those library/modules.terms records as missing, whose names are reserved
-// (docs/library.md#runtime-module-replacements).
+// (docs/libraries/library.md#runtime-module-replacements).
 #include <filesystem>
 #include <map>
 #include <string>

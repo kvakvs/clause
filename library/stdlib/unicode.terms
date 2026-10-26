@@ -1,5 +1,5 @@
 %% OTP 29 unicode exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {bin_is_7bit, 1, default, implemented}.
 {bom_to_encoding, 1, default, implemented}.
 {category, 1, default, implemented}.

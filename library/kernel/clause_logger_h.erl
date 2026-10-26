@@ -1,4 +1,4 @@
-%% What Clause's logger handlers share (plan 21 steps LIB23, LIB52; docs/library.md), as OTP's logger_h_common: the
+%% What Clause's logger handlers share (plan 21 steps LIB23, LIB52; docs/libraries/library.md), as OTP's logger_h_common: the
 %% common and overload options and their checks, adding and changing a handler's configuration around the handler
 %% module's own check_config/4, formatting events in the logging process, and synchronous requests to a handler's
 %% process. logger_std_h and logger_disk_log_h each run their own handler process.

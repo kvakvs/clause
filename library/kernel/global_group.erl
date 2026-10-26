@@ -1,4 +1,4 @@
-%% Clause's global_group (plan 21 step LIB25, docs/library.md): the answers of an OTP node without global groups,
+%% Clause's global_group (plan 21 step LIB25, docs/libraries/library.md): the answers of an OTP node without global groups,
 %% which a Clause program always is: there are no groups, the node's own group is all of it (the node itself), and
 %% names resolve through global.
 -module(global_group).

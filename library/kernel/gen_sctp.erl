@@ -26,7 +26,7 @@
 ]).
 -include("gen_sctp.types.hrl").
 
-% Clause's gen_sctp (plan 21 step LIB62, docs/library.md): the runtime has no SCTP, so opening answers
+% Clause's gen_sctp (plan 21 step LIB62, docs/libraries/library.md): the runtime has no SCTP, so opening answers
 % {error, eprotonosupport} after OTP's option checks, as OTP where SCTP is absent, and no socket can be an SCTP one.
 
 open() -> open([]).

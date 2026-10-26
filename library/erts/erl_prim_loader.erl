@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's erl_prim_loader (docs/library.md#runtime-module-replacements), generated from
+%% Clause's replacement for OTP's erl_prim_loader (docs/libraries/library.md#runtime-module-replacements), generated from
 %% erl_prim_loader.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
 %% error({not_implemented, Name, Arity}). An executable has no boot loader or archives (plan step 41P): the file
 %% queries answer over Clause's file module with OTP's bare error; loading .beam modules waits for step 71.

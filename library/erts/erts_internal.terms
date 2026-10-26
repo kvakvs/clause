@@ -1,5 +1,5 @@
 %% OTP 29 erts_internal exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {'@flush_monitor_messages_refopt', 0, emulator, declined}.
 {abort_pending_connection, 2, distribution, declined}.
 {atomics_new, 2, emulator, declined}.

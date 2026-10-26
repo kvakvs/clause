@@ -1,4 +1,4 @@
-%% disk_log's files (plan 21 steps LIB12, LIB52; docs/library.md): halt, wrap and rotate logs in OTP's formats, so
+%% disk_log's files (plan 21 steps LIB12, LIB52; docs/libraries/library.md): halt, wrap and rotate logs in OTP's formats, so
 %% log files are exchangeable with OTP. Writes go through a cache flushed past 64 KiB, by a timer two seconds after
 %% the first cached write, and before any read, position or close. Errors are thrown as {error, Reason}. items/1 is a
 %% runtime builtin that reads the items of a halt log's bytes for ets's table files.

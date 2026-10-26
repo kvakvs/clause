@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's erts_code_purger (docs/library.md#runtime-module-replacements), generated from
+%% Clause's replacement for OTP's erts_code_purger (docs/libraries/library.md#runtime-module-replacements), generated from
 %% erts_code_purger.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
 %% error({not_implemented, Name, Arity}). Linked code has no old code to purge (plan step 41N); the purger's own
 %% process loop and on_load support wait for step 71.

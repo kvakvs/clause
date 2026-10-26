@@ -1,4 +1,4 @@
-%% Clause's logger_std_h (plan 21 step LIB23, docs/library.md): the standard logger handler, writing formatted events
+%% Clause's logger_std_h (plan 21 step LIB23, docs/libraries/library.md): the standard logger handler, writing formatted events
 %% on standard_io, standard_error, an io device or a file, with OTP's configuration (overload options kept, file
 %% modes, rotation by size with numbered and optionally gzip-compressed archives, file checks and repeated
 %% filesync). Each handler has a process registered as logger_std_h_<Id> that owns the device or file; events are

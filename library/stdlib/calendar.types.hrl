@@ -1,5 +1,5 @@
 %% OTP 29 calendar types: the exported types and the local types and records they use, as OTP defines
-%% them; observed by tests/compiler/library/observe_types.escript (docs/library.md#types).
+%% them; observed by tests/compiler/library/observe_types.escript (docs/libraries/library.md#types).
 -export_type([date/0,datetime/0,datetime1970/0,time/0]).
 -type year() :: integer().
 -type year1970() :: 1970..10000.

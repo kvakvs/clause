@@ -1,5 +1,5 @@
 # Clause library modules: inventories, stubs and the luerl ledger report (plan step 41J,
-# docs/library.md#runtime-module-replacements).
+# docs/libraries/library.md#runtime-module-replacements).
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(library_modules "${CMAKE_CURRENT_SOURCE_DIR}/library_modules.py")
 

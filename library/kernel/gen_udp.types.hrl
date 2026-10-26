@@ -1,5 +1,5 @@
 %% OTP 29 gen_udp types: the exported types and the local types and records they use, as OTP defines
-%% them; observed by tests/compiler/library/observe_types.escript (docs/library.md#types).
+%% them; observed by tests/compiler/library/observe_types.escript (docs/libraries/library.md#types).
 -export_type([
     ip6_membership/0,
     ip6_multicast_if/0,

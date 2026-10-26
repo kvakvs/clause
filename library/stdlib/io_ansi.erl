@@ -156,7 +156,7 @@
 ]).
 -include("io_ansi.types.hrl").
 
-% Clause's io_ansi (plan 21 step LIB63, docs/library.md): OTP 29's virtual terminal sequences. A Clause program reads
+% Clause's io_ansi (plan 21 step LIB63, docs/libraries/library.md): OTP 29's virtual terminal sequences. A Clause program reads
 % no terminfo database, so every sequence is the built-in ANSI one OTP uses where terminfo is unavailable (as on
 % Windows); the terminfo queries answer {error, enotsup}. The sequences are literals, the rest Erlang over io_lib.
 

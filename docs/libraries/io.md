@@ -2,10 +2,10 @@
 
 `io:format/1,2,3`, `io:fwrite/1,2,3`, `io:put_chars/1,2` and `io:nl/0,1` are
 runtime builtins of module `io` in the bridge catalog
-([builtins](builtins.md)); the text is `io_lib:format/2`'s, built by
-[io_lib's engine](builtins.md#io_lib) and flattened, with `~p` laid out by OTP's
+([builtins](../builtins.md)); the text is `io_lib:format/2`'s, built by
+[io_lib's engine](../builtins.md#io_lib) and flattened, with `~p` laid out by OTP's
 `io_lib_pretty` rules
-([io_lib/pretty.cpp](../runtime/src/builtins/io_lib/pretty.cpp)). The input
+([io_lib/pretty.cpp](../../runtime/src/builtins/io_lib/pretty.cpp)). The input
 functions of `io` are Erlang in the [library](library.md#contents).
 
 ## Calls
@@ -30,7 +30,7 @@ functions of `io` are Erlang in the [library](library.md#contents).
 - Qualified calls, `fun io:format/2`, `apply(io, format, Args)` and
   `M:format(...)` all reach the builtins. A batch module named `io` does not
   replace the builtins (OTP's `io` is sticky,
-  [registration](builtins.md#registration)).
+  [registration](../builtins.md#registration)).
 
 ## Formats
 
@@ -75,4 +75,4 @@ functions of `io` are Erlang in the [library](library.md#contents).
 - Containers nested more than 256 deep raise `system_limit` (the layout recurses
   on the native stack).
 - Formatting runs to completion, however large the term
-  ([portions](builtins.md#portions)).
+  ([portions](../builtins.md#portions)).

@@ -1,4 +1,4 @@
-%% Clause's gen_event (plan 21 step LIB21, docs/library.md): an event manager process holding a list of handlers,
+%% Clause's gen_event (plan 21 step LIB21, docs/libraries/library.md): an event manager process holding a list of handlers,
 %% each a callback module with its own state. Requests arrive as gen calls labelled with the caller's pid; handler
 %% results, crashes ({'EXIT', ...} terms as catch gives them), supervised handlers' gen_event_EXIT messages and
 %% error reports follow OTP.

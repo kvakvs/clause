@@ -1,4 +1,4 @@
-%% Clause's stdlib/include/assert.hrl (plan 21 step LIB75, docs/library.md): the assertion macros of OTP's
+%% Clause's stdlib/include/assert.hrl (plan 21 step LIB75, docs/libraries/library.md): the assertion macros of OTP's
 %% documentation, written for Clause, raising OTP's error terms. Each runs in a fun called at once, as OTP's do, so
 %% variables bound inside stay local and failures name the same stack frames. NOASSERT, or NODEBUG without DEBUG,
 %% turns every macro into ok unless ASSERT is defined.

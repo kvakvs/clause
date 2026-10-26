@@ -1,4 +1,4 @@
-%% Clause's logger_filters (plan 21 step LIB23, docs/library.md): the filter functions logger offers for primary and
+%% Clause's logger_filters (plan 21 step LIB23, docs/libraries/library.md): the filter functions logger offers for primary and
 %% handler filters. Each returns the log event (Action log), stop (Action stop) when the event matches, and ignore
 %% otherwise.
 -module(logger_filters).

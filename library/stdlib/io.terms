@@ -1,5 +1,5 @@
 %% OTP 29 io exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {columns, 0, default, implemented}.
 {columns, 1, default, implemented}.
 {format, 1, default, implemented}.

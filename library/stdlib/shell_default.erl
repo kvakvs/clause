@@ -80,7 +80,7 @@
 ]).
 -export(['$handle_undefined_function'/2]).
 
-% The shell's default local functions (plan 21 step LIB74, docs/library.md#interactive-shell): the commands of c
+% The shell's default local functions (plan 21 step LIB74, docs/libraries/library.md#interactive-shell): the commands of c
 % and of the debugger's i module, callable without a module prefix. A user_default module's functions come first.
 
 %% Print the help of every shell command.

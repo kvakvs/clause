@@ -1,4 +1,4 @@
-%% Clause's logger_disk_log_h (plan 21 step LIB52, docs/library.md): a logger handler writing formatted events to an
+%% Clause's logger_disk_log_h (plan 21 step LIB52, docs/libraries/library.md): a logger handler writing formatted events to an
 %% external halt or wrap disk_log, with OTP's configuration and checks (file, type, max_no_bytes and max_no_files set
 %% once). Each handler has a process registered as logger_disk_log_h_<Id> that owns the log (opened with
 %% linkto, notify and quiet); events are formatted in the logging process and logged synchronously, the log is synced

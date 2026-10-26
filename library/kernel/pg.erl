@@ -1,4 +1,4 @@
-%% Clause's pg (plan 21 step LIB25, docs/library.md): process groups in scopes, each scope a data_publisher with
+%% Clause's pg (plan 21 step LIB25, docs/libraries/library.md): process groups in scopes, each scope a data_publisher with
 %% this module as its callback module. A scope's ETS table, named after it, holds {Group, Members, LocalMembers};
 %% members are monitored and leave when they end, and monitors of a scope or group get {Ref, join | leave, Group,
 %% Pids} messages. A Clause program is one node, so all members are local.

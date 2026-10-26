@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-// Linking the crypto runtime archive (plan 21 step LIB79, docs/crypto.md): clause_runtime_crypto beside the
+// Linking the crypto runtime archive (plan 21 step LIB79, docs/libraries/crypto.md): clause_runtime_crypto beside the
 // runtime archive, then OpenSSL's libcrypto and its system libraries.
 namespace clause::linking {
 struct CryptoLink {

@@ -1,4 +1,4 @@
-%% Clause's replacement for OTP's binary (docs/library.md#runtime-module-replacements), generated from
+%% Clause's replacement for OTP's binary (docs/libraries/library.md#runtime-module-replacements), generated from
 %% binary.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
 %% error({not_implemented, Name, Arity}). The other functions are runtime builtins that replace their placeholders
 %% (plan step 41W, docs/builtins.md#binary-module); replace/3,4 and list_to_bin/1 are Erlang over them.

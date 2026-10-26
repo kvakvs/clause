@@ -1,5 +1,5 @@
 %% OTP 29 pg exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
-%% groups and statuses maintained by hand (docs/library.md#runtime-module-replacements).
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {data_diff, 2, default, implemented}.
 {demonitor, 1, default, implemented}.
 {demonitor, 2, default, implemented}.

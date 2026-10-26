@@ -1,4 +1,4 @@
-%% Clause's gen (plan 21 step LIB21, docs/library.md): what the generic behaviours share. Starting a named process
+%% Clause's gen (plan 21 step LIB21, docs/libraries/library.md): what the generic behaviours share. Starting a named process
 %% through proc_lib, calls and replies in OTP's message shapes ({Label, {Pid, Tag}, Request} with an alias tag
 %% [alias | Ref], answered with {Tag, Reply}), request ids and their collections, stopping, names and debug options.
 -module(gen).

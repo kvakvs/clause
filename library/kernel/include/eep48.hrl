@@ -1,4 +1,4 @@
-%% Clause's kernel/include/eep48.hrl (plan 21 step LIB54F, docs/library.md): the records of EEP 48's documentation
+%% Clause's kernel/include/eep48.hrl (plan 21 step LIB54F, docs/libraries/library.md): the records of EEP 48's documentation
 %% chunk format, written for Clause from the format's description.
 -ifndef(EEP48_HRL_).
 -define(EEP48_HRL_, 1).

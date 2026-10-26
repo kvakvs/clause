@@ -1,4 +1,4 @@
-%% Clause's net_adm (plan 21 step LIB25, docs/library.md): the answers of an OTP node that is not alive. Pings are
+%% Clause's net_adm (plan 21 step LIB25, docs/libraries/library.md): the answers of an OTP node that is not alive. Pings are
 %% pang, epmd is never reached ({error, address}), so worlds are empty; .hosts.erlang is read from the current
 %% directory, then the home directory.
 -module(net_adm).

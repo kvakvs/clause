@@ -7,7 +7,7 @@
     requests/1, requests/2
 ]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
-%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/library.md#runtime-module-replacements).
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -export([
     columns/0,
     columns/1,
@@ -55,7 +55,7 @@
 ]).
 -include("io.types.hrl").
 
-% Input functions of the project-owned io module (docs/library.md, docs/ports.md#standard-io-and-files); io:format/1,2
+% Input functions of the project-owned io module (docs/libraries/library.md, docs/ports.md#standard-io-and-files); io:format/1,2
 % and io:put_chars/1 are builtins of the runtime. Standard input is read by one server process, registered as
 % clause_stdin, which owns an {fd, 0, 1} port. It and every open file's server also answer OTP's I/O protocol
 % ({io_request, From, ReplyAs, Request}), which io:request/1,2 and io:requests/1,2 send.

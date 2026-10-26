@@ -1,4 +1,4 @@
-%% Clause's net_kernel (plan 21 step LIB25, docs/library.md): the answers of an OTP node whose distribution is not
+%% Clause's net_kernel (plan 21 step LIB25, docs/libraries/library.md): the answers of an OTP node whose distribution is not
 %% started, which a Clause program always is. Most requests are ignored, node monitoring is accepted without any
 %% node ever coming up, and distribution cannot be started.
 -module(net_kernel).

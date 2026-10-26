@@ -1,4 +1,4 @@
-%% Clause's global (plan 21 step LIB25, docs/library.md): global names and locks as on an OTP node that is not
+%% Clause's global (plan 21 step LIB25, docs/libraries/library.md): global names and locks as on an OTP node that is not
 %% distributed. The server global_name_server starts at the first use; the ETS tables global_names
 %% ({Name, Pid, Method, Ref}), global_pid_names ({Pid, Name}) and global_locks ({ResourceId, RequesterId,
 %% [{Pid, Ref}]}) are OTP's. Names and locks of a process go when it ends. Other nodes are never reachable, so

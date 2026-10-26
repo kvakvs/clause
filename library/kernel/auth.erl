@@ -1,4 +1,4 @@
-%% Clause's auth (plan 21 step LIB25, docs/library.md): the deprecated cookie API as an OTP node without distribution
+%% Clause's auth (plan 21 step LIB25, docs/libraries/library.md): the deprecated cookie API as an OTP node without distribution
 %% answers it: there is no cookie, and setting one raises distribution_not_started.
 -module(auth).
 -export([

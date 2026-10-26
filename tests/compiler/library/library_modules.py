@@ -1,4 +1,4 @@
-"""Clause library modules (docs/library.md#runtime-module-replacements): inventories, stubs, checks and the ledger.
+"""Clause library modules (docs/libraries/library.md#runtime-module-replacements): inventories, stubs, checks and the ledger.
 
   library_modules.py check ROOT [LIBRARY]          inventories, module files and modules.terms agree (no OTP)
   library_modules.py rejects ROOT                  check refuses the deliberately inconsistent fixture library
@@ -7,7 +7,7 @@
   library_modules.py include ROOT                  include each observed types header in its module
   library_modules.py coverage ROOT                 documented functions per provided or missing module (plan 21)
   library_modules.py freshness ROOT ERL CLAU WORK  inventories match the host OTP; observe, generate, check, compile
-  library_modules.py report STDERR                 classify clau errors for the ledger (docs/library.md#ledger)
+  library_modules.py report STDERR                 classify clau errors for the ledger (docs/libraries/library.md#ledger)
   library_modules.py reporting ROOT CLAU WORK      report classifies a real clau run over the fixture program
 
 Added for plan step 41J.
@@ -38,7 +38,7 @@ RESERVED = set(
 OWN_FORMAT = {"erlang.terms", "modules.terms"}
 DOCUMENTED_ENTRY = re.compile(rf"^\{{({ATOM}), ([a-z]+), ({ATOM}), (\d+)\}}\.$")
 # Provided modules whose documented functions may still be stubs, with the plan 21 step that completes each
-# (docs/library.md#documented-functions); every other provided module implements, refuses or declines them all.
+# (docs/libraries/library.md#documented-functions); every other provided module implements, refuses or declines them all.
 PARTIAL = {}
 
 
@@ -255,7 +255,7 @@ def check_module(root, source, inventory, problems):
         key, label = (name, arity), f"{module}:{name}/{arity}"
         if status in ("stub", "declined") and key not in stubs:
             problems.append(f"{label} is marked {status} but is not a not_implemented stub")
-        # A catalog builtin replaces the module's stub at registration (docs/library.md#runtime-module-replacements).
+        # A catalog builtin replaces the module's stub at registration (docs/libraries/library.md#runtime-module-replacements).
         if status in ("implemented", "refused") and key not in builtins and (key in stubs or key not in defined):
             problems.append(f"{label} is marked {status} but has no body or catalog builtin")
 
@@ -292,7 +292,7 @@ def check(root, library):
 
 
 def stub_clause(name, arity, builtin=False):
-    """A stub: raises error({not_implemented, Name, Arity}) (docs/library.md#provided-or-missing); a catalog
+    """A stub: raises error({not_implemented, Name, Arity}) (docs/libraries/library.md#provided-or-missing); a catalog
     builtin's placeholder instead."""
     head = f"{atom(name)}({', '.join(['_'] * arity)}) ->"
     body = f"{PLACEHOLDER}." if builtin else f"erlang:error({{not_implemented, {atom(name)}, {arity}}})."
@@ -311,7 +311,7 @@ def generate(library, app, module):
     exports = ",\n".join(f"    {atom(name)}/{arity}" for name, arity, _, _ in entries)
     clauses = "".join(stub_clause(name, arity, (name, arity) in builtins) for name, arity, _, _ in entries)
     target.write_bytes(
-        f"%% Clause's replacement for OTP's {module} (docs/library.md#runtime-module-replacements), generated from\n"
+        f"%% Clause's replacement for OTP's {module} (docs/libraries/library.md#runtime-module-replacements), generated from\n"
         f"%% {module}.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises\n"
         f"%% error({{not_implemented, Name, Arity}}); a catalog builtin replaces its {PLACEHOLDER} body.\n"
         f"-module({atom(module)}).\n-export([\n{exports}\n]).\n\n{clauses}".encode("utf-8"))
@@ -327,7 +327,7 @@ def write_inventory(path, entries):
 
 
 def include_line(source):
-    """The include of a module's observed types header (docs/library.md#types). Added for plan step 41K1."""
+    """The include of a module's observed types header (docs/libraries/library.md#types). Added for plan step 41K1."""
     return f'-include("{source.stem}.types.hrl").'
 
 
@@ -359,7 +359,7 @@ def complete(root, library, app, module):
         last = list(re.finditer(r"-export\(\[.*?\]\)\.", text, re.S))[-1]
         listing = ",\n".join(f"    {atom(n)}/{a}" for n, a in absent_exports)
         text = (f"{text[: last.end()]}\n%% OTP 29 exports implemented natively or not yet: catalog builtins, whose {PLACEHOLDER} body the runtime's\n"
-                f"%% builtin replaces, and stubs raising error({{not_implemented, F, A}}) (docs/library.md#runtime-module-replacements).\n"
+                f"%% builtin replaces, and stubs raising error({{not_implemented, F, A}}) (docs/libraries/library.md#runtime-module-replacements).\n"
                 f"-export([\n{listing}\n]).{text[last.end():]}")
     if absent_bodies:
         text = text.rstrip("\n") + "\n\n" + "".join(stub_clause(n, a, (n, a) in builtins) for n, a in absent_bodies)
