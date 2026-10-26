@@ -936,7 +936,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB80D1** public_key certificate utilities: `clause_public_key_cert` (normalize_name, is_issuer/self_signed/
   fixed_dh, issuer/subject ids, CRL issuer and signature, dist points and IDP matching with OTP's name rules,
   hostname verification with match/fail/fqdn funs and the https wildcard fun); `public_key_certs` golden (OpenSSL CA,
-  leaf, CRL) identical to OTP — pending
+  leaf, CRL) identical to OTP — `3b18c228`
 
 ## Plan 22 (from 2026-10-23)
 
