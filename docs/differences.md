@@ -337,6 +337,8 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Functions of a generated module | Also exports `enc_Type/1,2`, `dec_Type/1,2` and the other per-type functions asn1ct generates | Only `encode/2`, `decode/2`, `info/0`, the option functions and the value functions | [asn1](asn1.md#generated-modules) |
 | A `CHOICE` whose body starts with `...` (no root alternatives) | asn1ct reports a syntax error | Accepted | [asn1](asn1.md#coverage) |
 | Value macros and functions that name another value inside an open type (PKCS-1's `mgf1SHA1`, `rSASSA-PSS-Default-Identifier`) | asn1ct leaves `{'Externalvaluereference', Line, Module, Name}` in place of the value | The referenced value | [asn1](asn1.md#generated-modules) |
+| A runtime error (not an ASN.1 one) while `public_key` decodes or encodes an extension value | Raised as it happens, mostly `error` class, from the generated `dec_ext-*`/`enc_ext-*` function | `exit({error, {asn1, Reason}})`: the value goes through the generated module's `decode/2` or `encode/2`, which wraps every failure | [public_key](libraries/public_key.md#functions) |
+| Frames of a `public_key` codec exception | `public_key`, `pubkey_pem`, `pubkey_pbe`, `pubkey_cert_records` | `public_key` and `clause_public_key_codec` | [public_key](libraries/public_key.md#functions) |
 
 ## Parse transforms
 

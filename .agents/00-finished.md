@@ -925,6 +925,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   BSD notices and OTP's edits, own OTP-PKIX/-Relaxed/DSS/PKCS-3/RFC5639/PKCS-FRAME) generating modules identical to
   OTP's specs; build-time generation into `library-asn1/` (second library root); own `public_key.hrl`;
   `public_key_records` (159 records, 289 macros) and `public_key_asn1` goldens — `6d3cf07a`
+- **LIB80B2** public_key codec: `public_key` (59 exports, inventory, `.app`, documented functions PARTIAL) forwarding
+  to `clause_public_key_codec` (DER/PEM, PKCS #8 keys of every type, PEM encryption legacy/PBES1/PBES2 over crypto,
+  plain/otp/relaxed certificates, extensions); `clause_public_key` builtins (`pubkey_translation` walk, OID tables,
+  type modules); `public_key_codec` golden identical to OTP — pending
 
 ## Plan 22 (from 2026-10-23)
 

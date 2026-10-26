@@ -56,6 +56,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/asn1/per_bits.cpp src/builtins/asn1/per_strings.cpp src/builtins/asn1/per_encode.cpp
     src/builtins/asn1/per_encode_constructed.cpp src/builtins/asn1/per_decode.cpp
     src/builtins/asn1/per_decode_constructed.cpp
+    # Module clause_public_key (plan 21 step LIB80B).
+    src/builtins/public_key/translate.cpp src/builtins/public_key/tables.cpp src/builtins/public_key/builtins.cpp
     # Module json (plan 21 step LIB5E).
     src/builtins/encoding/json.cpp src/builtins/encoding/json_encode.cpp
     # Module filename (plan 21 step LIB5G).

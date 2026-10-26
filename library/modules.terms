@@ -132,3 +132,4 @@
 {edlin_expand, stdlib, provided}.
 {shell_docs, stdlib, provided}.
 {crypto, crypto, provided}.
+{public_key, public_key, provided}.

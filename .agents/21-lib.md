@@ -171,15 +171,11 @@ records, goldens from OTP, own headers written from the documented records and m
   - **Trust stores:** Windows crypt32 `ROOT`/`CA` stores and Unix OTP's file list, as OTP; macOS via
     Security.framework (not OTP's `/usr/bin/security` run: `differences.md` row if the set
     differs).
-  - **Steps** (`public_key` enters `library/` at LIB80D; earlier steps keep `not_implemented`
-    placeholders, as `crypto` did):
-    - LIB80B (B1 specs and header done): `public_key.erl` with `not_implemented` placeholders and
-      its inventory (`public_key.terms`, `modules.terms` rows, `.app`); `der_decode/2`,
-      `der_encode/2`, `pem_*`, `pkix_decode_cert/2`, `pkix_encode/3`, `OTPCertificate`
-      translation (pubkey_translation's work in C++ where it walks terms); codec golden with error
-      cases. TBS bytes for `pkix_verify` without `asn1config` exclusive decode (a TLV split).
-      - Docs: `public_key.md` gains decoding and encoding (types accepted, `plain`/`otp` forms,
-        PEM entries and encrypted PEM, error terms).
+  - **Steps** (`public_key` in `library/` since LIB80B, documented functions PARTIAL in
+    `library_modules.py` until LIB80D; later steps' functions keep `not_implemented` placeholders):
+    - LIB80B done (B1 specs and header, B2 codec). Left for LIB80C: TBS bytes for `pkix_verify`
+      without `asn1config` exclusive decode (a TLV split); `short_name_hash/1` needs
+      `'OTP-PKIX':enc_HashRDNSequence`, which clau's modules do not export (encode `HashRDNSequence`).
     - LIB80C: keys and crypto: `sign`, `verify`, `encrypt_*`/`decrypt_*`, `generate_key/1`,
       `compute_key/2,3`, `dh_gex_group/4`, `pkix_sign/2`, `pkix_verify/2`, `pkix_sign_types/1`,
       `pkix_hash_type/1`, `short_name_hash/1`.
@@ -189,8 +185,8 @@ records, goldens from OTP, own headers written from the documented records and m
       `pkix_ocsp_validate/5`, hostname checks, `pkix_is_*`, issuer/subject ids,
       `pkix_normalize_name/1`, `pkix_test_data/1`, `pkix_test_root_cert/2`, `cacerts_*`.
       - Docs: `public_key.md` gains validation (path, CRL, OCSP, hostname) and trust stores per
-        platform; `library.md` row for the `public_key` application; `differences.md` rows (macOS
-        trust store, any others found).
+        platform; `differences.md` rows (macOS trust store, any others found); drop public_key from
+        `PARTIAL`.
 - **LIB81 `ssl` (design first, after LIB80; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
   `ssl_crl_cache_api`, `ssl_session_cache_api`):** OTP implements TLS 1.0–1.3 and DTLS in Erlang
   (`gen_statem` per connection, `ssl_app` supervision tree, PEM and session caches). Decide between

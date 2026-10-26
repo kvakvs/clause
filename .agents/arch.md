@@ -167,7 +167,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   asn1ct-identical `Module.hrl`. The generated modules join the batch; outdir joins includes.
 - Library ASN.1 (LIB80B1): compiler/CMakeLists.txt runs `clau --generate-asn1` over
   `library/public_key/asn1/` into `<build>/library-asn1/public_key/`, a second library root
-  (`linking::generated_library_directory`, `load_library(root, generated)`).
+  (`linking::generated_library_directory`, `load_library(root, generated)`). `public_key`
+  (LIB80B2) forwards to Erlang `clause_public_key_codec` over the generated modules; C++
+  builtins `clause_public_key` (`builtins/public_key/`) do pubkey_translation's walk and OID tables.
 - Codec in core runtime (`builtins/asn1/`): TLV parse as asn1rt_nif, then a schema interpreter
   mirroring asn1ct's BER/DER generated code (frames for component relations, postponed open types);
   PER/UPER over BitWriter/BitReader (`per*`), with OTP's effective constraints, quirks and decode

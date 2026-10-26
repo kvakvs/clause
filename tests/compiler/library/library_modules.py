@@ -36,10 +36,10 @@ RESERVED = set(
 )
 # Inventories with their own format and generator (docs/builtins.md#erlang-module), and the module list itself.
 OWN_FORMAT = {"erlang.terms", "modules.terms"}
-DOCUMENTED_ENTRY = re.compile(rf"^\{{({ATOM}), ([a-z]+), ({ATOM}), (\d+)\}}\.$")
+DOCUMENTED_ENTRY = re.compile(rf"^\{{({ATOM}), ([a-z_]+), ({ATOM}), (\d+)\}}\.$")
 # Provided modules whose documented functions may still be stubs, with the plan 21 step that completes each
 # (docs/libraries/library.md#documented-functions); every other provided module implements, refuses or declines them all.
-PARTIAL = {}
+PARTIAL = {"public_key": "LIB80C and LIB80D"}
 
 
 def unquote(name):
@@ -132,7 +132,7 @@ def coverage(library):
             state = f"{done}/{len(functions)}" + (f" (partial: {PARTIAL[module]})" if module in PARTIAL else "")
         else:
             state = "provided, own format" if module in modules else "not provided"
-        print(f"{app:7} {module:24} {state}")
+        print(f"{app:10} {module:24} {state}")
 
 
 def strip_comments(text):

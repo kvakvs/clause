@@ -2,8 +2,9 @@
 
 Clause's `public_key` application (plan 21, LIB80) is built from two parts: the ASN.1 modules that encode and decode
 the PKIX and PKCS types, which clau generates from the specifications in `library/public_key/asn1/`, and the header
-`library/public_key/include/public_key.hrl`. The functions of the `public_key` module follow in later steps (LIB80B:
-DER and PEM codec; LIB80C: keys and signatures; LIB80D: validation).
+`library/public_key/include/public_key.hrl`, and the `public_key` module, which has OTP 29's exports: its DER and PEM
+codec is implemented (LIB80B); keys and signatures (LIB80C) and validation (LIB80D) still raise
+`{not_implemented, Name, Arity}` ([inventory](../../library/public_key/public_key.terms)).
 
 ## Specifications
 
@@ -39,3 +40,27 @@ specifications generate, the others the records `public_key` builds itself (`'Ce
 `'ECPoint'`, the ML-DSA, ML-KEM and SLH-DSA keys, `#cert{}`) and the object identifiers it names. The
 `public_key_records` golden checks every record's fields and defaults and every macro's value against OTP's header;
 `public_key_asn1` decodes and encodes certificates, keys and parameters through the generated modules.
+
+## Functions
+
+`public_key` (with [`public_key.app`](../../library/public_key/public_key.app), and an `asn1.app` for the application
+it depends on) forwards its codec functions to `clause_public_key_codec`, which includes `public_key.hrl`; the record
+walks and object identifier tables of OTP's `pubkey_translation` and `pubkey_cert_records` are runtime builtins
+([public key](../builtins.md#public-key)).
+
+- `der_decode/2`, `der_encode/2`: the type's generated module, as OTP chooses it; PKCS #8 `PrivateKeyInfo` and
+  `OneAsymmetricKey` unwrapped into RSA (also RSASSA-PSS with its parameters), DSA, EC, Ed25519/Ed448, ML-DSA,
+  ML-KEM and SLH-DSA keys and wrapped again; `EcpkParameters`, `Dss-Sig-Value`, `AttributeTypeAndValue`,
+  `ExtensionRequest` and extension types (`'SubjectAltName'`, `'CRLReason'`, ...) as OTP codes them; errors as OTP's
+  (`{badmatch, {error, {asn1, Reason}}}`, `{badarg, {unknown_type, Type}}`).
+- `pem_decode/1`, `pem_encode/1`: OTP's labels and lines (64 characters, `CRLF` and trailing white space accepted,
+  other lines skipped); an `ENCRYPTED PRIVATE KEY` entry decodes to `{'PrivateKeyInfo', Encrypted, CipherInfo}`.
+- `pem_entry_decode/1,2`, `pem_entry_encode/2,3`: `SubjectPublicKeyInfo` entries of every key type; password
+  encryption by OpenSSL's legacy `Proc-Type`/`DEK-Info` scheme (MD5 key derivation), PKCS #5 PBES1 (PBKDF1) and PBES2
+  (PBKDF2 with HMAC-SHA1/224/256/384/512) over `crypto`, with the ciphers `DES-CBC`, `DES-EDE3-CBC`, `RC2-CBC` and
+  `AES-128/192/256-CBC` (those the linked OpenSSL provides).
+- `pkix_decode_cert/2` in the `plain`, `otp` and `relaxed` forms (the otp form with its public key and extensions
+  decoded, CRL distribution points left encoded, long user notices cut to 350 characters as OTP does),
+  `pkix_encode/3` in the `plain` and `otp` forms.
+
+The `public_key_codec` golden compares all of these with OTP, including the PEM text of encrypted entries.

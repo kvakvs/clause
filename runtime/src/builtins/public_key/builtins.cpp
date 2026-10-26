@@ -1,0 +1,18 @@
+#include "../typed.hpp"
+#include "public_key.hpp"
+
+// Added for public_key (plan 21 step LIB80B): the builtins of clause_public_key (docs/builtins.md#public-key).
+namespace clause::runtime::builtins::public_key {
+namespace {
+constexpr std::array PUBLIC_KEY_BUILTINS{
+    typed_entry<translate>("clause_public_key", "translate"),
+    typed_entry<oid_name>("clause_public_key", "oid_name"),
+    typed_entry<name_oid>("clause_public_key", "name_oid"),
+    typed_entry<asn1_module>("clause_public_key", "asn1_module"),
+};
+} // namespace
+} // namespace clause::runtime::builtins::public_key
+
+namespace clause::runtime {
+std::span<const BuiltinEntry> public_key_builtins() noexcept { return builtins::public_key::PUBLIC_KEY_BUILTINS; }
+} // namespace clause::runtime

@@ -812,6 +812,22 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   `per_decode_constructed.cpp` sequences, extension additions, choices and open types; `per_strings.cpp`
   `BIT STRING` values. A PER decode takes a binary and returns the bits left unread.
 
+## Public key
+
+`builtins/public_key/` in `clause_runtime`, `library/public_key/clause_public_key.erl` (plan 21 step LIB80B,
+[public_key](libraries/public_key.md)): the record walks and tables of OTP's `pubkey_translation` and
+`pubkey_cert_records`, which `clause_public_key_codec` calls.
+
+- `translate(decode | encode, Term)` (`translate.cpp`) walks a term as `pubkey_translation:decode/1` and `encode/1`
+  do: the generated modules' `SubjectPublicKeyInfo_algorithm`, `DSA-Params`, `DSA-Sig-Value`, `OTPExtension`,
+  `SingleAttribute`, `OneAsymmetricKey` (version `v1`) and `EncryptionAlgorithmIdentifier` records become the ones
+  `public_key.hrl` documents, and back; an improper list fails with `bad_generator` as the comprehension does.
+- `oid_name(Table, Oid)` and `name_oid(Table, Name)` (`tables.cpp`, rows in `tables.inc`) look up the tables
+  `public_key_algorithm` (the key type of an algorithm), `curve_type`, `named_curve`, `ml_dsa`, `ml_kem`, `slh_dsa`
+  and `extension` (an extension's type); `undefined` when the table has no row, `badarg` for another table.
+- `asn1_module(Type)` names the generated module `der_decode/2` and `der_encode/2` use for a type
+  (`public_key:get_asn1_module/1`), `undefined` for a type of none.
+
 ## Crypto module
 
 `builtins/crypto/` in the separate `clause_runtime_crypto` archive,
