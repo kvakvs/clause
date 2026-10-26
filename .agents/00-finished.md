@@ -928,7 +928,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB80B2** public_key codec: `public_key` (59 exports, inventory, `.app`, documented functions PARTIAL) forwarding
   to `clause_public_key_codec` (DER/PEM, PKCS #8 keys of every type, PEM encryption legacy/PBES1/PBES2 over crypto,
   plain/otp/relaxed certificates, extensions); `clause_public_key` builtins (`pubkey_translation` walk, OID tables,
-  type modules); `public_key_codec` golden identical to OTP — pending
+  type modules); `public_key_codec` golden identical to OTP — `c25240e3`
 
 ## Plan 22 (from 2026-10-23)
 
