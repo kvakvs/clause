@@ -964,7 +964,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   goldens and scratch oracles (normalisation, issuer comparison, wildcards, dist point name rules) identical — `51dddcc9`
 - **LIB80E4** public_key policy tree in C++: `policy_add`/`_map`/`_intersection`/`_prune`/`_constrained`/`_result`
   builtins (`policy.cpp`) for `pubkey_policy_tree`; all 211 PKITS path validations of OTP's pkits_SUITE (scratch
-  runner) identical to OTP — `TBD`
+  runner) identical to OTP — `bde5daaa`
 
 ## Plan 22 (from 2026-10-23)
 
