@@ -1,182 +1,207 @@
-# Crypto: OpenSSL, building and FIPS
+# Crypto: OpenSSL integration, build configuration and FIPS
 
-Clause's `crypto` (plan 21 step LIB79) answers OTP's `crypto` module over OpenSSL's libcrypto. This
-note covers which OpenSSL is used and how it is found, how Clause and `clau` build it from source,
-how programs link it, and FIPS mode. The builtins themselves are described in
-[builtins](../builtins.md#crypto-module), the library module in [library](library.md), and the
-observable differences from OTP in [differences](../differences.md#crypto). `public_key`'s keys and
-signatures call it ([public_key](public_key.md#keys-and-signatures)).
+Clause implements the Erlang/OTP `crypto` module using OpenSSL's libcrypto (plan 21, step LIB79).
+This document specifies OpenSSL version requirements, dependency resolution, source builds,
+executable linking and FIPS mode configuration. See [builtins](../builtins.md#crypto-module) for
+the builtin interface, [library](library.md) for the library module, and
+[differences](../differences.md#crypto) for observable differences from Erlang/OTP. The `public_key`
+module uses `crypto` for [key and signature operations](public_key.md#keys-and-signatures).
 
 ## OpenSSL versions
 
-- **Pinned: 4.1.0.** The release Clause downloads and builds when no other OpenSSL is given.
-- **Minimum: 3.1.2.** The latest release whose FIPS provider is validated (FIPS 140-3 certificate
-  #4985). Any libcrypto from 3.1.2 on links with the crypto archive: the builtins use only API
-  present in 3.1.2 and decide version differences at run time, so one archive serves every such
-  libcrypto. Newer headers can still map an old name to a newer function (4.1's
-  `EVP_MD_CTX_get_size` is 3.4's `EVP_MD_CTX_get_size_ex`), so the archive avoids such names; the
-  full test suite links the crypto goldens with a libcrypto built from the 3.1.2 source.
-- **Algorithms are probed, not assumed.** The first `crypto` call loads the providers (`fips` when
-  loadable, then `default`, `base` and `legacy`, as OTP does) and fetches every digest, cipher and
-  MAC of OTP's tables; `crypto:supports/0,1`, `hash_info/1`, `info/0` and `info_lib/0` report what
-  the linked OpenSSL has. A program linked with 3.1.2 simply lists fewer algorithms (no ML-KEM,
-  ML-DSA or SLH-DSA).
+- **Pinned version: 4.1.0.** Clause downloads and builds this version when no alternative OpenSSL
+  installation or source tree is selected.
+- **Minimum version: 3.1.2.** The FIPS provider for this release is covered by FIPS 140-3 certificate
+  #4985. The crypto runtime archive supports libcrypto versions 3.1.2 and later: its builtins use
+  APIs available in 3.1.2 and handle version-dependent behavior at run time. Newer headers can
+  alias existing API names to newer functions; for example, OpenSSL 4.1 maps `EVP_MD_CTX_get_size`
+  to `EVP_MD_CTX_get_size_ex`, introduced in 3.4. The archive avoids these aliases to preserve
+  compatibility. The full test suite links the crypto golden fixtures against libcrypto built
+  from OpenSSL 3.1.2 source.
+- **Algorithm availability: detected at run time.** The first `crypto` call attempts to load the
+  `fips` provider, followed by `default`, `base` and `legacy`, matching OTP's provider initialization.
+  It then fetches each digest, cipher and MAC listed in OTP's algorithm tables.
+  `crypto:supports/0,1`, `hash_info/1`, `info/0` and `info_lib/0` report the capabilities of the
+  linked OpenSSL. OpenSSL 3.1.2 does not provide ML-KEM, ML-DSA or SLH-DSA, so programs linked
+  against that version omit these algorithms from the reported capabilities.
 
-OpenSSL is Apache-2.0 licensed; no OpenSSL file is committed.
+OpenSSL is licensed under Apache-2.0. OpenSSL source files are not committed to the Clause repository.
 
-## Where Clause's OpenSSL comes from
+## OpenSSL dependency resolution
 
-CMake (`cmake/OpenSSLDependencies.cmake`) resolves libcrypto for the crypto archive in this order:
+CMake resolves libcrypto for the crypto runtime archive through `cmake/OpenSSLDependencies.cmake`,
+in the following order:
 
-1. `-DCLAUSE_OPENSSL_ROOT=<path>`: an installed prefix (`include/openssl/opensslv.h`) or a source
-   tree (`Configure`, `VERSION.dat`), which is built as in 3.
-2. An installed OpenSSL ≥ 3.1.2 (`CLAUSE_OPENSSL_SYSTEM`, ON by default except on Windows):
-   `find_package(OpenSSL)`, static libcrypto preferred.
-3. The pinned release, downloaded into `thirdparty/openssl-4.1.0` and verified
-   (`openssl-4.1.0.tar.gz`, SHA-256
-   `50c17baf54cb008f6ce42d50deb4b28050a1aad711636cabd4b241c7e90cc2fd`), configured and built once
-   into `thirdparty/openssl-4.1.0-<arch>-<crt>/install` (rebuilt when the compiler or options
-   change); `-DCLAUSE_DOWNLOAD_OPENSSL=OFF` disables the download.
+1. **Explicit path:** `-DCLAUSE_OPENSSL_ROOT=<path>` selects an installation prefix containing
+   `include/openssl/opensslv.h`, or a source tree containing `Configure` and `VERSION.dat`.
+   Source trees use the build procedure described below.
+2. **System installation:** when `CLAUSE_OPENSSL_SYSTEM` is enabled, `find_package(OpenSSL)`
+   searches for OpenSSL 3.1.2 or later and prefers static libcrypto. This option defaults to `ON`
+   except on Windows.
+3. **Pinned source release:** Clause downloads and extracts `openssl-4.1.0.tar.gz` into
+   `thirdparty/openssl-4.1.0` after verifying its SHA-256 digest:
+   `50c17baf54cb008f6ce42d50deb4b28050a1aad711636cabd4b241c7e90cc2fd`.
+   The installation is cached at `thirdparty/openssl-4.1.0-<arch>-<crt>/install` and rebuilt when
+   the compiler or build options change. `-DCLAUSE_DOWNLOAD_OPENSSL=OFF` disables the download.
 
-`-DCLAUSE_RUNTIME_CRYPTO=OFF` leaves the crypto archive out altogether. With tests enabled,
-configure also downloads the 3.1.2 source (`openssl-3.1.2.tar.gz`, SHA-256
-`a0ce69b8b97ea6a35b96875235aa453b966ba3cba8af2de23657d8b6767d6539`) into `thirdparty/openssl-3.1.2`
-for the full suite's tests; `-DCLAUSE_TEST_OPENSSL_MINIMUM=OFF` skips it and those tests.
+`-DCLAUSE_RUNTIME_CRYPTO=OFF` excludes the crypto runtime archive from the build. When tests are
+enabled, configuration also downloads `openssl-3.1.2.tar.gz` into `thirdparty/openssl-3.1.2` for
+the full test suite. Its SHA-256 digest is
+`a0ce69b8b97ea6a35b96875235aa453b966ba3cba8af2de23657d8b6767d6539`.
+`-DCLAUSE_TEST_OPENSSL_MINIMUM=OFF` disables this download and the associated tests.
 
 ## Building OpenSSL from source
 
-A source build makes a static libcrypto with the legacy provider built in (which the builtins load
-as OTP does):
+Source builds produce static libcrypto with the legacy provider included. The crypto builtins
+load this provider during initialization, matching OTP. The build procedure uses these commands,
+with options filtered for the selected OpenSSL version:
 
-```
+```text
 Configure <target> no-shared no-module no-tests no-docs no-makedepend enable-ec_explicit_curves
           [enable-static-vcruntime] [--debug] --prefix=<install> --openssldir=<install>/ssl --libdir=lib
 make build_libs && make install_dev
 ```
 
-- **Compiler and runtime.** CMake's C compiler builds it (`CC`); `enable-static-vcruntime` selects
-  `/MT` when the build uses the static MSVC runtime, `--debug` the Debug one.
-- **Windows tools.** Configure needs a native Perl and NASM: pinned Strawberry Perl 5.42.3.1
-  portable (SHA-256 `6a081a811781c30aca51dbc036afd93092af91e3297901f02c17043795a10690`) and NASM
-  3.02 (SHA-256 `161d0bfaff53c2f9e9f3e69fd0672323ebabafd1268976a5cec11be92a19aee7`) are downloaded
-  into `thirdparty/tools/`. `nmake` then builds serially (about 4 minutes once), so a Visual Studio
-  developer environment is needed. Linux and macOS use their `perl` and `make -j` (two thirds of the
-  cores).
-- **Older source trees get only the options they know.** enable-X and no-X are kept when X is in one
-  of the tree's `my @disablables... = (...)` lists in `Configure`: 3.1.2 knows neither `no-docs` nor
-  `enable-ec_explicit_curves` (explicit curves are always in) nor `enable-static-vcruntime` (its
-  static builds already use `/MT`).
-- **Cross builds** take the target's installed OpenSSL through `CLAUSE_OPENSSL_ROOT`.
+- **Compiler and C runtime:** `CC` selects CMake's C compiler. `enable-static-vcruntime` selects
+  `/MT` for a static MSVC runtime build; `--debug` selects the Debug runtime variant.
+- **Windows build tools:** configuration requires native Perl and NASM. Clause downloads
+  Strawberry Perl 5.42.3.1 portable and NASM 3.02 into `thirdparty/tools/`. Their SHA-256 digests
+  are `6a081a811781c30aca51dbc036afd93092af91e3297901f02c17043795a10690` and
+  `161d0bfaff53c2f9e9f3e69fd0672323ebabafd1268976a5cec11be92a19aee7`, respectively.
+  The build uses serial `nmake` and requires a Visual Studio developer environment. An initial
+  build takes approximately four minutes.
+- **Linux and macOS build tools:** builds use the system `perl` and `make -j`, with parallelism
+  set to two thirds of the logical cores.
+- **Version-specific options:** `enable-X` and `no-X` options are retained only when `X` appears
+  in a `my @disablables... = (...)` list in the source tree's `Configure` script. OpenSSL 3.1.2
+  does not recognize `no-docs`, `enable-ec_explicit_curves` or `enable-static-vcruntime`.
+  Explicit curves are always enabled in that version, and its static builds already use `/MT`.
+- **Cross-compilation:** `CLAUSE_OPENSSL_ROOT` must select an OpenSSL installation for the target.
 
-### Pitfalls met on the way
+### Build constraints and workarounds
 
-- **Git's MSYS Perl breaks Configure.** It hands Configure Unix paths, which `nmake` cannot use:
-  Windows builds need the native Strawberry Perl, never the `perl` that Git for Windows puts on
-  `PATH`.
-- **Out-of-tree builds with `no-apps` fail** (`apps/include` is missing), so Clause keeps the apps
-  enabled and builds the `build_libs` target instead of everything.
-- **Out-of-tree `install_fips` fails on Windows.** The makefile lists the program as
-  `"apps\\openssl.exe"`, which `nmake` does not match with its own `apps\openssl.exe` rule. Build
-  `build_sw` and run `openssl fipsinstall` yourself instead.
-- **3.x installs a PDB that clang-cl never writes.** The Windows `install_dev` of a static 3.x build
-  copies `ossl_static.pdb`, which clang-cl's embedded debug information (`/Z7`) does not produce;
-  Clause gives it an empty one (4.0 dropped the copy).
-- **`no-module` disables FIPS.** Configure turns `fips` off with `no-module`: a FIPS provider is
-  always a separate module, never part of a static libcrypto (which can still load one).
-- **Static libcrypto on Linux needs compression libraries.** Ubuntu's static `libcrypto.a` wants
-  `-lz -lzstd` (`libcrypto.pc`'s `Libs.private`); the libraries an install needs are recorded with
-  it.
+- **Native Perl on Windows:** Git for Windows supplies an MSYS Perl that passes Unix paths to
+  `Configure`. These paths are incompatible with `nmake`; Windows builds require native
+  Strawberry Perl.
+- **Out-of-tree builds with `no-apps`:** configuration fails because `apps/include` is missing.
+  Clause leaves applications enabled and builds only the `build_libs` target.
+- **Out-of-tree `install_fips` on Windows:** the generated makefile references
+  `"apps\\openssl.exe"`, which `nmake` does not match to its `apps\openssl.exe` rule. Build
+  `build_sw` and invoke `openssl fipsinstall` directly.
+- **Static OpenSSL 3.x installation with clang-cl:** Windows `install_dev` attempts to copy
+  `ossl_static.pdb`. Clang-cl uses embedded debug information (`/Z7`) and does not generate this
+  file, so Clause supplies an empty placeholder. OpenSSL 4.0 removed this copy operation.
+- **FIPS provider modules:** `no-module` disables FIPS provider builds. A FIPS provider requires
+  a separate module; static libcrypto can load that module at run time.
+- **Static libcrypto dependencies on Linux:** Ubuntu's static `libcrypto.a` requires `-lz -lzstd`,
+  as specified by `Libs.private` in `libcrypto.pc`. Clause records the additional libraries
+  required by the selected installation.
 
 ## Linking programs
 
-The builtins live in their own archive, `clause_runtime_crypto` beside `clause_runtime`, so programs
-that never call `crypto` stay as small as before; libcrypto with its providers adds about 4.5 MB to
-those that do.
+The crypto builtins are compiled into `clause_runtime_crypto`, a separate archive from
+`clause_runtime`. Programs that do not use `crypto` do not link this archive or libcrypto.
+Linking libcrypto with its providers increases executable size by approximately 4.5 MB.
 
-- **When it is linked.** `clau` links the archive when the batch compiled the library `crypto`
-  module (a static call to `crypto`), or with `--with-crypto` for programs that reach `crypto` only
-  through dynamic calls (`beam_lib`'s decryption of debug information is one). The startup object
-  then lists the archive's extension entry, which pulls the archive in, and startup registers its
-  builtins. Programs without `crypto` never look at an OpenSSL.
-- **What is linked.** `clause_runtime_crypto.link` beside the archive names libcrypto (first line)
-  and its system libraries; `clause_runtime_crypto.openssl` records how a source tree is built
-  (version, minimum, target, options, compiler, Perl and NASM directories).
-- **Another OpenSSL.** `--with-crypto=PATH`, else the `CLAUSE_OPENSSL_ROOT` environment variable,
-  links a different OpenSSL ≥ 3.1.2: an installation's libcrypto, or a source tree that `clau`
-  configures and builds with the recorded recipe into `<build-dir>/cache/openssl/<hash>` on first
-  use (in a Visual Studio developer shell on Windows, for `nmake`).
+- **Archive selection:** `clau` links the archive when the compilation batch includes the library
+  `crypto` module, as occurs for a static call to `crypto`. `--with-crypto` enables linking for
+  programs that access `crypto` exclusively through dynamic calls, such as `beam_lib` debug
+  information decryption. The startup object references the archive's extension entry to force
+  archive inclusion; startup then registers its builtins. Programs without crypto support do
+  not resolve or load OpenSSL.
+- **Link and build metadata:** `clause_runtime_crypto.link`, stored beside the archive, lists
+  libcrypto on its first line and the required system libraries on subsequent lines.
+  `clause_runtime_crypto.openssl` records the source build recipe: version, minimum version,
+  target, options, compiler, and Perl and NASM directories.
+- **Alternative OpenSSL selection:** `--with-crypto=PATH` takes precedence over the
+  `CLAUSE_OPENSSL_ROOT` environment variable. Either can select an OpenSSL 3.1.2 or later
+  installation or source tree. For an installation, `clau` links its libcrypto. For a source
+  tree, `clau` uses the recorded recipe to configure and build it on first use, caching the
+  result under `<build-dir>/cache/openssl/<hash>`. On Windows, this build requires a Visual
+  Studio developer shell for `nmake`.
 
 ## FIPS
 
-### Switchable mode (as OTP)
+### Runtime FIPS mode selection
 
-The first `crypto` call also tries to load OpenSSL's `fips` provider, which OpenSSL finds through
-its own `OPENSSL_MODULES` (the module directory) and `OPENSSL_CONF` (a configuration that includes
-the `fipsmodule.cnf` that `openssl fipsinstall` wrote, and activates the provider). Then:
+The first `crypto` call attempts to load OpenSSL's `fips` provider. OpenSSL uses `OPENSSL_MODULES`
+to locate provider modules and `OPENSSL_CONF` to locate a configuration that includes the
+`fipsmodule.cnf` generated by `openssl fipsinstall` and activates the provider.
 
-- `crypto:enable_fips_mode(true)` turns on OpenSSL's default `fips=yes` property (`true` when it
-  could, `false` without a loadable provider); `crypto:enable_fips_mode(false)` turns it off.
-- `crypto:info_fips/0` answers `enabled` or `not_enabled`, and `not_supported` when no FIPS provider
-  loaded.
-- `crypto:info/0` adds `fips_provider_buildinfo` when a FIPS provider is loaded.
-- In FIPS mode, the algorithms the provider lacks are left out of `crypto:supports/1` (and OTP's
-  non-FIPS public keys and curves: `eddsa`, `eddh`, `srp`, the Edwards curves) and raise OTP's
-  `notsup` errors: `"Bad digest type in FIPS"`,`"Digest type not supported in FIPS"`,`"MAC
-  algorithm forbidden in FIPS"`, `"Digest algorithm for HMAC forbidden in FIPS"`, `"Cipher algorithm
-  not supported in FIPS"`, `"Forbidden in FIPS"`. Every table entry keeps a second fetch with
-  `fips=yes`, used while FIPS mode is on, so FIPS mode computes with the provider's own
-  implementations.
+- `crypto:enable_fips_mode(true)` enables OpenSSL's default `fips=yes` property. It returns `true`
+  on success and `false` when no provider can be loaded. `crypto:enable_fips_mode(false)` disables
+  the property.
+- `crypto:info_fips/0` returns `enabled` or `not_enabled` when a FIPS provider is loaded, and
+  `not_supported` otherwise.
+- `crypto:info/0` includes `fips_provider_buildinfo` when a FIPS provider is loaded.
+- In FIPS mode, `crypto:supports/1` excludes algorithms unavailable from the FIPS provider and
+  OTP's non-FIPS public key algorithms and curves: `eddsa`, `eddh`, `srp` and the Edwards curves.
+  Calls to excluded algorithms raise OTP-compatible `notsup` errors with the applicable message:
+  `"Bad digest type in FIPS"`, `"Digest type not supported in FIPS"`,
+  `"MAC algorithm forbidden in FIPS"`, `"Digest algorithm for HMAC forbidden in FIPS"`,
+  `"Cipher algorithm not supported in FIPS"` or `"Forbidden in FIPS"`.
 
-Public key operations fetch their algorithms through OpenSSL's default properties, so in FIPS mode
-they run on the provider's implementations; `eddsa` raises `"Unsupported algorithm in FIPS mode"`
-and SRP `notsup`, as OTP's.
+Each algorithm table entry retains a separate fetch result obtained with `fips=yes`. FIPS mode
+uses this result to select the FIPS provider's implementation. Public key operations fetch
+algorithms using OpenSSL's default properties, which select the FIPS provider's implementations
+when FIPS mode is enabled. In this mode, `eddsa` raises `"Unsupported algorithm in FIPS mode"`
+and SRP raises `notsup`, matching OTP.
 
-OTP's `fips_mode` application variable is not read (Clause has no `on_load` and programs have no
-`sys.config`): programs call `crypto:enable_fips_mode/1`, or are built pinned.
+Clause does not read OTP's `fips_mode` application variable: it does not implement `on_load`, and
+programs do not use `sys.config`. Programs must call `crypto:enable_fips_mode/1` or use the
+mandatory FIPS mode build option described below.
 
-### Pinned programs: `clau --fips=PATH`
+### Mandatory FIPS mode: `clau --fips=PATH`
 
-`--fips=PATH` builds a program that always runs in FIPS mode, with a user-supplied FIPS provider.
-`PATH` is either a directory holding the provider module and its `fipsmodule.cnf`, or an OpenSSL
-installation:
+`--fips=PATH` builds an executable that requires FIPS mode and a user-supplied FIPS provider.
+`PATH` must identify either a directory containing the provider module and `fipsmodule.cnf`, or
+an OpenSSL installation. Each file is searched for directly in `PATH`, then in the listed
+subdirectories:
 
-| File | Looked for in `PATH`, then |
+| File | Search subdirectories, in order |
 | --- | --- |
 | `fips.dll` (Windows), `fips.so` (Linux), `fips.dylib` (macOS) | `lib/ossl-modules`, `lib64/ossl-modules`, `lib/<triplet>/ossl-modules` |
 | `fipsmodule.cnf` | `ssl/`, `etc/ssl/` |
 
-- **The build fails** when the module or the settings file is missing, or the settings have no
-  `module-mac` in a `[fips_sect]` section (run `openssl fipsinstall`).
-- **Both files are copied beside the executable**, under the names above; deploy them with it. The
-  option implies `--with-crypto`; the libcrypto is chosen as usual and must accept the provider.
-- **Before the program runs**, the startup object's FIPS entry (`CLAUSE_crypto_fips_extension_v1`)
-  reads `fipsmodule.cnf` beside the executable, loads the module beside it through an OpenSSL
-  provider configuration (the file's settings plus `module` and `activate`, which every libcrypto
-  from 3.0 takes), loads only OpenSSL's `base` provider besides it (never `default` or `legacy`; the
-  system's OpenSSL configuration is not read) and turns on `fips=yes`.
-- **When the provider does not load** or fails its self-test (a changed module, a wrong
-  `module-mac`), the program stops with exit status 70 and
-  `crypto: cannot load the FIPS provider from <directory>: <OpenSSL's error>` on stderr. Windows
-  shows no "Bad Image" dialog for a broken module: the error mode is quiet while it loads.
-- **The mode cannot be left.** `crypto:enable_fips_mode(false)` returns `false`, and
-  `crypto:info_fips/0` stays `enabled`.
+- **Build validation:** the build fails if either file is missing or if the configuration lacks
+  `module-mac` in a `[fips_sect]` section. Generate the configuration with `openssl fipsinstall`.
+- **Deployment files:** both files are copied into the executable's directory under the names
+  listed above and must be deployed with the executable. The option implies `--with-crypto`.
+  Standard OpenSSL selection rules apply; the selected libcrypto must support the supplied
+  provider.
+- **Startup initialization:** the startup object's FIPS entry,
+  `CLAUSE_crypto_fips_extension_v1`, reads `fipsmodule.cnf` from the executable's directory and
+  loads the adjacent provider module. The provider configuration contains the file's settings
+  plus `module` and `activate`, supported by libcrypto 3.0 and later. Initialization loads only
+  the `fips` and `base` providers, does not read the system OpenSSL configuration, and enables
+  `fips=yes`.
+- **Startup failure:** if provider loading or a provider self-test fails, for example because
+  the module was modified or `module-mac` is incorrect, the program exits with status 70 and
+  writes `crypto: cannot load the FIPS provider from <directory>: <OpenSSL's error>` to stderr.
+  On Windows, module loading temporarily suppresses the modal "Bad Image" dialog.
+- **Mode enforcement:** `crypto:enable_fips_mode(false)` returns `false`, and
+  `crypto:info_fips/0` remains `enabled`.
 
-### Which FIPS provider
+### FIPS provider requirements
 
-Clause never builds a FIPS provider for deployment. OpenSSL allows other releases to use a validated
-FIPS provider but forbids using a self-built one from a non-validated release: take the provider of
-a validated release (3.1.2 as of this writing, built as its security policy prescribes, or one
-shipped by an operating system vendor) and run its `openssl fipsinstall` on the target machine where
-the policy requires it. The 3.1.2 provider loads into the pinned 4.1 libcrypto: the full suite
-builds it (for the test only) and runs pinned and switchable programs with it.
+Clause does not build FIPS providers for deployment. A provider used for validated operation
+must come from a validated release, such as OpenSSL 3.1.2, and be built according to its security
+policy, or be supplied by an operating system vendor. OpenSSL permits a validated provider to
+be used with other OpenSSL releases; a provider built from a non-validated release does not
+qualify as a validated provider. Run the provider's `openssl fipsinstall` on the target machine
+when required by its security policy.
+
+The OpenSSL 3.1.2 FIPS provider loads into the pinned OpenSSL 4.1 libcrypto. The full test suite
+builds this provider exclusively for testing and executes programs with both mandatory and
+runtime-selectable FIPS modes.
 
 ## Tests
 
-| Test | Suite | What it checks |
+| Test | Suite | Coverage |
 | --- | --- | --- |
-| `executables_crypto_digests`, `executables_crypto_ciphers` | fast | Goldens from OTP 29.1.1: vectors, states, errors, probed lists, `info_fips` without a provider |
-| `linking_crypto` | fast | The archive is linked only when used; `--with-crypto[=PATH]`, `CLAUSE_OPENSSL_ROOT`, refusals |
-| `linking_fips` | fast | `--fips` refusals, missing or malformed providers fail the build, copying, start failures |
-| `linking_crypto_source` | full | `--with-crypto=SOURCE` builds the 4.1.0 tree once into the build cache |
-| `linking_crypto_minimum` | full | The crypto goldens linked with a libcrypto built from the 3.1.2 source print their goldens |
-| `linking_fips_real` | full | 3.1.2's FIPS provider (built with `enable-fips` for the test) in a pinned program (stays in FIPS mode, forbidden algorithms, tampered module stops it) and a switchable one (`OPENSSL_MODULES`/`OPENSSL_CONF`) |
+| `executables_crypto_digests`, `executables_crypto_ciphers` | fast | OTP 29.1.1 golden fixtures: vectors, states, errors, detected algorithm lists and `info_fips` without a provider |
+| `linking_crypto` | fast | Conditional archive linking, `--with-crypto[=PATH]`, `CLAUSE_OPENSSL_ROOT` and invalid input rejection |
+| `linking_fips` | fast | Invalid `--fips` argument rejection, build failures for missing or malformed providers, deployment file copying and startup failures |
+| `linking_crypto_source` | full | Initial build and cache reuse for the OpenSSL 4.1.0 source tree selected by `--with-crypto=SOURCE` |
+| `linking_crypto_minimum` | full | Crypto fixture output matches the golden output when linked against libcrypto built from OpenSSL 3.1.2 source |
+| `linking_fips_real` | full | OpenSSL 3.1.2 FIPS provider built with `enable-fips` for testing: mandatory FIPS mode enforcement, forbidden algorithms, startup failure after module modification, and runtime mode selection through `OPENSSL_MODULES` and `OPENSSL_CONF` |
