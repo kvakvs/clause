@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "public_key_crls",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "leaf_empty valid\nplain_revoked {bad_cert,{revoked,keyCompromise}}\nleaf_hold {bad_cert,{revoked,certificateHold}}\nleaf_delta {bad_cert,{revoked,superseded}}\nplain_delta {bad_cert,{revoked,keyCompromise}}\ndelta_only {bad_cert,\n               {revocation_status_undetermined,{bad_crls,no_relevant_crls}}}\nstale {bad_cert,revocation_status_undetermined}\nstale_details {bad_cert,\n                  {revocation_status_undetermined,\n                      {bad_crls,no_relevant_crls}}}\ncritical {bad_cert,revocation_status_undetermined}\ncritical_details {bad_cert,{revocation_status_undetermined,{bad_crls,[]}}}\nno_idp {bad_cert,{revoked,affiliationChanged}}\ntwo_crls valid\nupdate_crl {bad_cert,{revoked,keyCompromise}}\nupdate_crl same {bad_cert,\n                    {revocation_status_undetermined,\n                        {bad_crls,no_relevant_crls}}}\ncombined form {bad_cert,{revoked,keyCompromise}}\nbad signature {bad_cert,revocation_status_undetermined} {bad_cert,\n                                                         {revocation_status_undetermined,\n                                                          {bad_crls,\n                                                           [{bad_crl,\n                                                             invalid_signature}]}}}\nno chain {bad_cert,\n             {revocation_status_undetermined,\n                 {bad_crls,[{bad_crl,no_issuer_cert_chain}]}}}\nissuer_fun {issuer_fun,true,\n               {518629659285136994921044483267008459263656963247,\n                {rdnSequence,\n                    [[{'AttributeTypeAndValue',{2,5,4,6},\"SE\"}],\n                     [{'AttributeTypeAndValue',\n                          {2,5,4,10},\n                          {utf8String,<<\"Test  Org \">>}}],\n                     [{'AttributeTypeAndValue',\n                          {2,5,4,3},\n                          {utf8String,<<\"Test CA\">>}}]]}},\n               my_state}\nsigner {bad_cert,{revoked,cessationOfOperation}} valid\npublic_key_crls: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+  },
+  "inputs": {
+    "public_key_crls.erl": "c66ee0beabdfbbaa668f148a192ddcca43bcd9928fdf0ed2e56ad67c993145ef"
+  }
+}

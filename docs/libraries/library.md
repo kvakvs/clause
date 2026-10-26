@@ -1,14 +1,13 @@
 # Library modules
 
-Clause ships its own versions of the OTP modules programs call, written in
-Erlang from OTP's documented behavior (not copied from OTP sources) over runtime
-[builtins](../builtins.md), and compiles them with the programs that use them.
+Clause ships its own versions of the OTP modules programs call, written in Erlang from OTP's
+documented behavior (not copied from OTP sources) over runtime [builtins](../builtins.md), and
+compiles them with the programs that use them.
 
 ## Contents
 
-Every provided module exports OTP 29's complete list for its name; its inventory
-`<module>.terms` ([files](#files)) records which functions are implemented and
-which are stubs.
+Every provided module exports OTP 29's complete list for its name; its inventory `<module>.terms`
+([files](#files)) records which functions are implemented and which are stubs.
 
 | Module | Contents |
 | --- | --- |
@@ -97,263 +96,221 @@ which are stubs.
 | [`zlib`](../../library/erts/zlib.erl) | Every function over the pinned zlib ([zlib module](../builtins.md#zlib-module)) |
 | [`prim_eval`](../../library/erts/prim_eval.erl) | `'receive'/2` over the steps of a compiled receive ([prim eval](../builtins.md#prim-eval)) |
 | `public_key`'s ASN.1 modules (`'OTP-PKIX'`, `'PKIX1Explicit-2009'`, ...) and [`public_key.hrl`](../../library/public_key/include/public_key.hrl) | Generated at build time from [`library/public_key/asn1/`](../../library/public_key/asn1/) into the build tree's `library-asn1/public_key/` ([public_key](public_key.md)) |
-| [`public_key`](../../library/public_key/public_key.erl), [`clause_public_key_codec`](../../library/public_key/clause_public_key_codec.erl), [`clause_public_key_keys`](../../library/public_key/clause_public_key_keys.erl), [`clause_public_key_cert`](../../library/public_key/clause_public_key_cert.erl), [`clause_public_key`](../../library/public_key/clause_public_key.erl) | Application `public_key` (with [`public_key.app`](../../library/public_key/public_key.app)): DER and PEM coding, PEM encryption, PKCS #8 private keys of every type and certificates in the plain and otp forms over the generated modules ([public_key](public_key.md#functions), [public key](../builtins.md#public-key)); keys, signatures, RSA encryption, key generation and agreement, certificate signing over `crypto` (`clause_public_key_keys`, [keys](public_key.md#keys-and-signatures)); names, issuer and subject ids, CRL issuers and signatures, distribution points, hostname verification (`clause_public_key_cert`, [certificates](public_key.md#certificates-and-names)); path, CRL and OCSP validation, test data and trust stores are stubs |
+| [`public_key`](../../library/public_key/public_key.erl), [`clause_public_key_codec`](../../library/public_key/clause_public_key_codec.erl), [`clause_public_key_keys`](../../library/public_key/clause_public_key_keys.erl), [`clause_public_key_cert`](../../library/public_key/clause_public_key_cert.erl), [`clause_public_key_path`](../../library/public_key/clause_public_key_path.erl), [`clause_public_key_crl`](../../library/public_key/clause_public_key_crl.erl), [`clause_public_key`](../../library/public_key/clause_public_key.erl) | Application `public_key` (with [`public_key.app`](../../library/public_key/public_key.app)): DER and PEM coding, PEM encryption, PKCS #8 private keys of every type and certificates in the plain and otp forms over the generated modules ([public_key](public_key.md#functions), [public key](../builtins.md#public-key)); keys, signatures, RSA encryption, key generation and agreement, certificate signing over `crypto` (`clause_public_key_keys`, [keys](public_key.md#keys-and-signatures)); names, issuer and subject ids, CRL issuers and signatures, distribution points, hostname verification (`clause_public_key_cert`, [certificates](public_key.md#certificates-and-names)); path validation (`clause_public_key_path`, [path validation](public_key.md#path-validation)); CRL validation (`clause_public_key_crl`, [CRL validation](public_key.md#crl-validation)); OCSP validation, test data and trust stores are stubs |
 | [`clause_asn1`](../../library/asn1/clause_asn1.erl) | The codec the modules clau generates from ASN.1 specifications call ([ASN.1 codec](../builtins.md#asn1-codec), [ASN.1](../asn1.md)); OTP's `asn1` application (`asn1ct`, `asn1rt_nif`) is not provided |
 | [`crypto`](../../library/crypto/crypto.erl), [`clause_crypto`](../../library/crypto/clause_crypto.erl) | Application `crypto` (with [`crypto.app`](../../library/crypto/crypto.app)), over OpenSSL's libcrypto in the crypto runtime archive ([crypto module](../builtins.md#crypto-module), [OpenSSL](crypto.md)): the algorithm lists the linked OpenSSL has (`supports/0,1`, `hash_info/1`, `info/0`, `info_lib/0`), digests and hash states, HMAC/CMAC/Poly1305 and MAC states, `pbkdf2_hmac/5`, `hash_equals/2`, `exor/2`, `mod_pow/3`, ciphers and their states (`crypto_init/3,4`, `crypto_update/2`, `crypto_final/1`, `crypto_get_data/1`, `crypto_one_time/4,5`, `cipher_info/1`), AEAD (`crypto_one_time_aead/4,6,7`, `crypto_one_time_aead_init/4`), strong random numbers and the `crypto`, `crypto_cache`, `crypto_aes` and `crypto_prng1` `rand` plugins, OTP's error terms; engines refused (`notsup`); FIPS mode switchable as OTP's, or pinned with `clau --fips`; public keys (`sign/4,5`, `verify/5,6`, RSA encryption, `generate_key/2,3`, `compute_key/4`, `privkey_to_pubkey/2`: RSA, DSA, DH, ECDSA/ECDH on named and explicit curves, EdDSA, X25519/X448, ML-DSA, SLH-DSA, SRP), `ec_curve/1` and `ec_curves/0` (explicit parameters from the linked libcrypto), ML-KEM (`encapsulate_key/2`, `decapsulate_key/3`) |
 
-Results and error reasons match OTP 29, including the error shapes of OTP's
-Erlang implementations (`lists:map(F, x)` is `{case_clause, x}`,
-`lists:nth(0, L)` `function_clause`, `lists:seq(1, 10, 0)` `badarg`) and of its
-BIFs (`lists:member/2`, `lists:keyfind/3`, `lists:reverse/2`, the `maps`
-functions: `badarg`, `{badmap, M}`, `{badkey, K}`). `lists:member/2` matches
-with `=:=`, `lists:keyfind/3` with `==`. `lists:sort/1` is a stable runtime
-builtin ([comparison and order](../terms.md#comparison-and-order)). Stack traces
-name the library functions, not OTP's.
+Results and error reasons match OTP 29, including the error shapes of OTP's Erlang implementations
+(`lists:map(F, x)` is `{case_clause, x}`, `lists:nth(0, L)` `function_clause`, `lists:seq(1, 10, 0)`
+`badarg`) and of its BIFs (`lists:member/2`, `lists:keyfind/3`, `lists:reverse/2`, the `maps`
+functions: `badarg`, `{badmap, M}`, `{badkey, K}`). `lists:member/2` matches with `=:=`,
+`lists:keyfind/3` with `==`. `lists:sort/1` is a stable runtime builtin
+([comparison and order](../terms.md#comparison-and-order)). Stack traces name the library functions,
+not OTP's.
 
 ## Interactive shell
 
-`shell:start_interactive/0,1` starts the Erlang shell on the standard streams
-(plan 21 step LIB74), and `clau --shell` links it into an executable whose entry
-it is unless `--entry` names another ([compile](../compile.md#options)). The
-`clause_shell` process stands where OTP's `user_drv` does: it prints the system
-version, starts `shell`'s server and starts a new one when a shell exits
-(`exit().`). The server reads each command through `io`'s standard input
-server with the prompt reprinted for every further line of a command, keeps the
-history and starts the evaluator, which checks each expression with
-`erl_lint`, expands records and evaluates it with `erl_eval`. Results print with
-the shell's records through the runtime's pretty printer
-(`clause_io_lib:pretty/2`, [io_lib](../builtins.md#io-lib)). The end of input ends
-the program with status 0 after `*** Terminating erlang (nonode@nohost)`.
+`shell:start_interactive/0,1` starts the Erlang shell on the standard streams (plan 21 step LIB74),
+and `clau --shell` links it into an executable whose entry it is unless `--entry` names another
+([compile](../compile.md#options)). The `clause_shell` process stands where OTP's `user_drv` does:
+it prints the system version, starts `shell`'s server and starts a new one when a shell exits
+(`exit().`). The server reads each command through `io`'s standard input server with the prompt
+reprinted for every further line of a command, keeps the history and starts the evaluator, which
+checks each expression with `erl_lint`, expands records and evaluates it with `erl_eval`. Results
+print with the shell's records through the runtime's pretty printer (`clause_io_lib:pretty/2`,
+[io_lib](../builtins.md#io-lib)). The end of input ends the program with status 0 after
+`*** Terminating erlang (nonode@nohost)`.
 
-Commands call modules by name, so a program that starts the shell needs every
-export callable: `--shell` keeps them ([export liveness](../executables.md#export-liveness))
-and links every library module; a program built without it reaches only the
-modules it names. Input lines are read as the terminal delivers them, edited by
-the terminal itself: there is no `edlin` line editing, history keys or tab
-completion ([differences](../differences.md#interactive-shell)).
+Commands call modules by name, so a program that starts the shell needs every export callable:
+`--shell` keeps them ([export liveness](../executables.md#export-liveness)) and links every library
+module; a program built without it reaches only the modules it names. Input lines are read as the
+terminal delivers them, edited by the terminal itself: there is no `edlin` line editing, history
+keys or tab completion ([differences](../differences.md#interactive-shell)).
 
 ## How programs get them
 
-- When a batch (positional inputs or one project target) names a module with a
-  literal atom — `M:F(...)` with literal `M`, `fun M:F/A`, `apply(M, F, Args)`
-  with literal `M`, `-behaviour(M)` or `-import(M, ...)` — that no input
-  defines, the compiler looks for `M.erl` in the library's application
-  directories, then in the project's `source_search_paths`
-  ([projects](../projects.md#paths-and-discovery)), parses and compiles the first
-  one found into the batch, then repeats for the modules the added files name
-  ([which module a name resolves to](#which-module-a-name-resolves-to)). A call
-  `M:F(...)` of a catalog builtin (`io:format/2`, `os:type/0`) names no module.
-  `--print-inputs` lists the inputs this adds.
-- The library is `library/` of the build tree, found relative to `clau` like the
-  runtime archive, with one directory per OTP application (`erts`, `kernel`,
-  `stdlib`), then `library-asn1/` of the build tree, the modules the build
-  generates from the library's ASN.1 specifications ([public_key](public_key.md)). `-include_lib("kernel/include/logger.hrl")`, `file.hrl`,
-  `eep48.hrl` and `inet.hrl` (`#hostent{}`) resolve to the library's own
-  headers unless the project names a `kernel` application; `stdlib/include/`
-  `zip.hrl`, `qlc.hrl`, `ms_transform.hrl` (names the transform, which runs on
-  the host OTP: [transforms](../transforms.md)) and `assert.hrl` unless it names a
-  `stdlib` one. `assert.hrl` has OTP's macros, error terms and `NOASSERT`,
-  `NODEBUG`, `ASSERT` switches. OTP's internal headers (`erl_bits.hrl`,
-  `erl_compile.hrl`) and distribution ones (`dist.hrl`, `dist_util.hrl`,
-  `net_address.hrl`) are not provided, nor `inet_sctp.hrl` (no SCTP).
-- A module of the batch with the same name replaces the library module, with a
-  warning; catalog builtins of that name still win
-  ([registration](../builtins.md#registration)).
-- Library modules are ordinary batch modules: they link into executables and,
-  for object or IR output, produce their own artifacts. They are Erlang code, so
-  they yield like other code.
-- A module reached only through runtime names (`M:F(...)` with `M` a variable)
-  is not added: such a call raises `undef` unless something else names the
-  module.
+- When a batch (positional inputs or one project target) names a module with a literal atom —
+  `M:F(...)` with literal `M`, `fun M:F/A`, `apply(M, F, Args)` with literal `M`, `-behaviour(M)` or
+  `-import(M, ...)` — that no input defines, the compiler looks for `M.erl` in the library's
+  application directories, then in the project's `source_search_paths`
+  ([projects](../projects.md#paths-and-discovery)), parses and compiles the first one found into the
+  batch, then repeats for the modules the added files name
+  ([which module a name resolves to](#which-module-a-name-resolves-to)). A call `M:F(...)` of a
+  catalog builtin (`io:format/2`, `os:type/0`) names no module. `--print-inputs` lists the inputs
+  this adds.
+- The library is `library/` of the build tree, found relative to `clau` like the runtime archive,
+  with one directory per OTP application (`erts`, `kernel`, `stdlib`), then `library-asn1/` of the
+  build tree, the modules the build generates from the library's ASN.1 specifications
+  ([public_key](public_key.md)). `-include_lib("kernel/include/logger.hrl")`, `file.hrl`,
+  `eep48.hrl` and `inet.hrl` (`#hostent{}`) resolve to the library's own headers unless the project
+  names a `kernel` application; `stdlib/include/` `zip.hrl`, `qlc.hrl`, `ms_transform.hrl` (names
+  the transform, which runs on the host OTP: [transforms](../transforms.md)) and `assert.hrl` unless
+  it names a `stdlib` one. `assert.hrl` has OTP's macros, error terms and `NOASSERT`, `NODEBUG`,
+  `ASSERT` switches. OTP's internal headers (`erl_bits.hrl`, `erl_compile.hrl`) and distribution
+  ones (`dist.hrl`, `dist_util.hrl`, `net_address.hrl`) are not provided, nor `inet_sctp.hrl` (no
+  SCTP).
+- A module of the batch with the same name replaces the library module, with a warning; catalog
+  builtins of that name still win ([registration](../builtins.md#registration)).
+- Library modules are ordinary batch modules: they link into executables and, for object or IR
+  output, produce their own artifacts. They are Erlang code, so they yield like other code.
+- A module reached only through runtime names (`M:F(...)` with `M` a variable) is not added: such a
+  call raises `undef` unless something else names the module.
 
 ## Runtime module replacements
 
-Clause stands in for the OTP modules that ERTS implements in C (NIFs, BIFs, port
-drivers, the preloaded modules of `erts/preloaded/src`) and for modules OTP
-generates while it builds (`unicode_util`). OTP's `kernel` and `stdlib` are
-plain Erlang but call those modules.
+Clause stands in for the OTP modules that ERTS implements in C (NIFs, BIFs, port drivers, the
+preloaded modules of `erts/preloaded/src`) and for modules OTP generates while it builds
+(`unicode_util`). OTP's `kernel` and `stdlib` are plain Erlang but call those modules.
 
 ### Provided or missing
 
-Whatever needs the runtime and cannot be written in plain Erlang is decided per
-module, and per group of functions where a module mixes concerns:
+Whatever needs the runtime and cannot be written in plain Erlang is decided per module, and per
+group of functions where a module mixes concerns:
 
-- **Provided:** Clause ships the module with OTP 29's exact export list. Every
-  function has one of four statuses: `implemented` (a runtime builtin or an
-  Erlang body over existing runtime services), `refused` (returns or raises what
-  OTP callers already handle when a feature is absent, such as
-  `{error, enotsup}`), `stub` (raises `error({not_implemented, F, A})` with
-  `M:F/A` on top of the stack, as the
-  [`erlang` stubs](../builtins.md#erlang-module) do; not done yet), or `declined`
-  (a stub that stays, with a reason such as distribution or code loading,
-  [step 71](../../.agents/11-plan.md#step-71)). A new module starts with every
-  function a stub, so it is discoverable and its callers compile; groups then
-  move to their decided status.
-- **Builtin placeholders:** a function a catalog builtin implements keeps its
-  export and the body `F(_, ...) -> clause_builtin_placeholder.`, which never
-  runs: registration binds the builtin in its place, and a qualified call
-  `M:F(...)` compiles to the bridge. Only an unqualified call inside the module
-  would reach the placeholder, so the module calls its own builtins qualified;
-  `library_inventory` rejects a placeholder that names no catalog builtin, a
-  catalog builtin left as a `not_implemented` stub and an unqualified call of a
-  placeholder.
-- **Missing:** Clause ships no module at all, possibly forever, and records why
-  and which higher-level Clause modules take its callers' place
-  (`library/modules.terms`). The low-level `prim_*` file and socket layers
-  (`prim_file`, `prim_buffer`, `prim_socket`, `prim_net`, `prim_inet`,
-  `socket_registry`) and `socket` are the missing modules: programs use
-  Clause's `file`, `gen_tcp`, `gen_udp`, `inet` and `net` instead, and because Clause
-  modules win over OTP's (below), OTP's callers of a missing module (OTP's
-  `gen_tcp_socket`, `inet_tcp`, ...) never enter a batch. A missing module never
-  gets a stub, so a reference to it is a compile-time error, never a run-time
-  surprise.
+- **Provided:** Clause ships the module with OTP 29's exact export list. Every function has one of
+  four statuses: `implemented` (a runtime builtin or an Erlang body over existing runtime services),
+  `refused` (returns or raises what OTP callers already handle when a feature is absent, such as
+  `{error, enotsup}`), `stub` (raises `error({not_implemented, F, A})` with `M:F/A` on top of the
+  stack, as the [`erlang` stubs](../builtins.md#erlang-module) do; not done yet), or `declined` (a
+  stub that stays, with a reason such as distribution or code loading,
+  [step 71](../../.agents/11-plan.md#step-71)). A new module starts with every function a stub, so
+  it is discoverable and its callers compile; groups then move to their decided status.
+- **Builtin placeholders:** a function a catalog builtin implements keeps its export and the body
+  `F(_, ...) -> clause_builtin_placeholder.`, which never runs: registration binds the builtin in
+  its place, and a qualified call `M:F(...)` compiles to the bridge. Only an unqualified call inside
+  the module would reach the placeholder, so the module calls its own builtins qualified;
+  `library_inventory` rejects a placeholder that names no catalog builtin, a catalog builtin left as
+  a `not_implemented` stub and an unqualified call of a placeholder.
+- **Missing:** Clause ships no module at all, possibly forever, and records why and which
+  higher-level Clause modules take its callers' place (`library/modules.terms`). The low-level
+  `prim_*` file and socket layers (`prim_file`, `prim_buffer`, `prim_socket`, `prim_net`,
+  `prim_inet`, `socket_registry`) and `socket` are the missing modules: programs use Clause's
+  `file`, `gen_tcp`, `gen_udp`, `inet` and `net` instead, and because Clause modules win over OTP's
+  (below), OTP's callers of a missing module (OTP's `gen_tcp_socket`, `inet_tcp`, ...) never enter a
+  batch. A missing module never gets a stub, so a reference to it is a compile-time error, never a
+  run-time surprise.
 
-Functions that are trivial for the runtime are implemented without a separate
-decision.
+Functions that are trivial for the runtime are implemented without a separate decision.
 
 ### Which module a name resolves to
 
-OTP is optional on the user's machine; when present it must not change what a
-build compiles. A module name resolves in this order:
+OTP is optional on the user's machine; when present it must not change what a build compiles. A
+module name resolves in this order:
 
-1. **Explicit inputs:** sources the user lists (`sources`, `source_dirs`,
-   positional inputs). One that has the name of a Clause module replaces it,
-   with a warning naming both files.
+1. **Explicit inputs:** sources the user lists (`sources`, `source_dirs`, positional inputs). One
+   that has the name of a Clause module replaces it, with a warning naming both files.
 2. **Clause modules:** the library modules, provided replacements included.
-3. **`source_search_paths`**, as described in
-   [projects](../projects.md#paths-and-discovery).
+3. **`source_search_paths`**, as described in [projects](../projects.md#paths-and-discovery).
 
-The name of a missing module is reserved: a same-named file on a search path
-(for example OTP's `erts/preloaded/src/prim_file.erl`) is not used, and the
-diagnostic says that Clause does not provide the module. An explicit input may
-still provide it, with the replacement warning.
+The name of a missing module is reserved: a same-named file on a search path (for example OTP's
+`erts/preloaded/src/prim_file.erl`) is not used, and the diagnostic says that Clause does not
+provide the module. An explicit input may still provide it, with the replacement warning.
 
-`ignore_modules` applies to Clause modules too: an ignored Clause module is
-missing from the batch, and an explicit input can then provide it without a
-warning, since nothing is replaced.
+`ignore_modules` applies to Clause modules too: an ignored Clause module is missing from the batch,
+and an explicit input can then provide it without a warning, since nothing is replaced.
 
 ### Files
 
-- Library modules live in `library/<application>/`, named after the OTP
-  application that owns the module in OTP: `erts` (preloaded counterparts and
-  `erlang`), `kernel`, `stdlib`. Clause's private helper modules
-  (`clause_socket`, `clause_re`, `clause_unicode`, `clause_zlib`,
-  `clause_receive`, `clause_maps`, `clause_hashed`, `clause_array`,
-  `clause_features`, `clause_io_lib`, `clause_disk_log`, `clause_dets`) sit
-  beside the modules they serve. The library lookup searches every application
-  directory; a module name exists in at most one of them.
+- Library modules live in `library/<application>/`, named after the OTP application that owns the
+  module in OTP: `erts` (preloaded counterparts and `erlang`), `kernel`, `stdlib`. Clause's private
+  helper modules (`clause_socket`, `clause_re`, `clause_unicode`, `clause_zlib`, `clause_receive`,
+  `clause_maps`, `clause_hashed`, `clause_array`, `clause_features`, `clause_io_lib`,
+  `clause_disk_log`, `clause_dets`) sit beside the modules they serve. The library lookup searches
+  every application directory; a module name exists in at most one of them.
 - `library/modules.terms` lists every module Clause decides about:
-  `{Module, Application, provided}.` or
-  `{Module, Application, missing, "reason"}.` The compiler reads it to know
-  which names are Clause modules and which are reserved.
-- Each provided module has an inventory `<module>.terms` next to it:
-  `{Name, Arity, Group, Status}.` per OTP 29 export, sorted by name and arity,
-  where `Group` names the decision group (for example `stdlib`, `distribution`,
-  `beam`). `erlang.terms` keeps its own format (`{Name, Arity, Flags, Status}`,
-  [erlang module](../builtins.md#erlang-module)).
-- Export lists are observed from a host OTP 29 (`M:module_info(exports)`); no
-  OTP source is copied. Results and error terms of implemented functions match
-  OTP 29; deliberate differences go to [differences](../differences.md).
+  `{Module, Application, provided}.` or `{Module, Application, missing, "reason"}.` The compiler
+  reads it to know which names are Clause modules and which are reserved.
+- Each provided module has an inventory `<module>.terms` next to it: `{Name, Arity, Group, Status}.`
+  per OTP 29 export, sorted by name and arity, where `Group` names the decision group (for example
+  `stdlib`, `distribution`, `beam`). `erlang.terms` keeps its own format
+  (`{Name, Arity, Flags, Status}`, [erlang module](../builtins.md#erlang-module)).
+- Export lists are observed from a host OTP 29 (`M:module_info(exports)`); no OTP source is copied.
+  Results and error terms of implemented functions match OTP 29; deliberate differences go to
+  [differences](../differences.md).
 
 ### Documented functions
 
-`library/documented.terms` lists the public functions OTP 29 documents for
-`erts`, `kernel`, `stdlib`, `crypto` and `public_key`: `{Module, Application, Name, Arity}.` per
-function whose module and function docs are not hidden and which is not
-deprecated, observed from the host OTP's doc chunks by
-`tests/compiler/library/observe_docs.escript` (run explicitly). Undocumented
-exports stay in the inventories but may remain stubs.
+`library/documented.terms` lists the public functions OTP 29 documents for `erts`, `kernel`,
+`stdlib`, `crypto` and `public_key`: `{Module, Application, Name, Arity}.` per function whose module
+and function docs are not hidden and which is not deprecated, observed from the host OTP's doc
+chunks by `tests/compiler/library/observe_docs.escript` (run explicitly). Undocumented exports stay
+in the inventories but may remain stubs.
 
-- `library_inventory` checks that every documented function of a provided module
-  is in its inventory and is not a stub, except in the modules
-  `library_modules.py` lists as partial with the plan step that completes them
-  ([plan 21](../../.agents/21-lib.md)).
-- `python tests/compiler/library/library_modules.py coverage .` prints each
-  documented module's implemented and documented counts.
+- `library_inventory` checks that every documented function of a provided module is in its inventory
+  and is not a stub, except in the modules `library_modules.py` lists as partial with the plan step
+  that completes them ([plan 21](../../.agents/21-lib.md)).
+- `python tests/compiler/library/library_modules.py coverage .` prints each documented module's
+  implemented and documented counts.
 
 ### Types
 
-Because Clause's modules win over OTP's, OTP code naming `file:filename()` or
-`erlang:time_unit()` in its specs must find those types in Clause's modules.
-Every provided module whose OTP counterpart exports types includes
-`<module>.types.hrl` from its own directory: the `-export_type` list, then the
-exported types and the local types and records they use, as OTP defines them
-(the documentation shows the same definitions; the installed documentation
-carries no type definitions, so they come from the implementation: the beam's
-debug information, or the shipped source of a preloaded module such as
-`erlang`). `escript tests/compiler/library/observe_types.escript LIBRARY APP
-MODULE` writes the header from the host OTP, and `--check` compares its forms
-with a fresh observation (CTest `library_freshness`); `library_modules.py check`
-requires each header to be included by its module. Types the headers name from
-modules outside the program (`unicode:chardata()`, `calendar:datetime()`) and
-OTP's wide unions (`file:posix()` has more members than the type graph keeps)
-resolve to `term()` without a warning: the diagnostics belong to Clause's
+Because Clause's modules win over OTP's, OTP code naming `file:filename()` or `erlang:time_unit()`
+in its specs must find those types in Clause's modules. Every provided module whose OTP counterpart
+exports types includes `<module>.types.hrl` from its own directory: the `-export_type` list, then
+the exported types and the local types and records they use, as OTP defines them (the documentation
+shows the same definitions; the installed documentation carries no type definitions, so they come
+from the implementation: the beam's debug information, or the shipped source of a preloaded module
+such as `erlang`). `escript tests/compiler/library/observe_types.escript LIBRARY APP
+MODULE` writes the header from the host OTP, and `--check` compares its forms with a fresh
+observation (CTest `library_freshness`); `library_modules.py check` requires each header to be
+included by its module. Types the headers name from modules outside the program
+(`unicode:chardata()`, `calendar:datetime()`) and OTP's wide unions (`file:posix()` has more members
+than the type graph keeps) resolve to `term()` without a warning: the diagnostics belong to Clause's
 library, not to the user's program.
 
 ### Kernel services at startup
 
-OTP's `file`, `io` and `code` call registered servers (`file_server_2`,
-`code_server`, a group leader's io server) that the `kernel` application starts
-at boot. A Clause executable starts none of them: Clause's own `file` and `io`
-need no server, Clause's `logger` starts its server at the first use, and an OTP
-module that does need one fails the way it fails on OTP without that server
-(`noproc`). OTP code that calls `code` at run time therefore does not work.
-Booting the whole `kernel` application is not planned.
+OTP's `file`, `io` and `code` call registered servers (`file_server_2`, `code_server`, a group
+leader's io server) that the `kernel` application starts at boot. A Clause executable starts none of
+them: Clause's own `file` and `io` need no server, Clause's `logger` starts its server at the first
+use, and an OTP module that does need one fails the way it fails on OTP without that server
+(`noproc`). OTP code that calls `code` at run time therefore does not work. Booting the whole
+`kernel` application is not planned.
 
 ### Applications
 
-- Specifications come from the program, not a code path: clau compiles every
-  `*.app` and `*.app.src` beside the batch's sources, every `*.app` in the
-  `ebin` directory next to them, and `ebin/Name.app` or `src/Name.app.src` of
-  each `[targets.options.applications]` entry into the generated module
-  `clause_applications`, added whenever the batch has `application_controller`.
-  The first file of an application name wins. A resource that lists no modules
-  gets the batch's modules beside it. Diagnostics point into the resource file.
-- `application:load/1` also takes `{application, Name, Keys}` terms. A name with
-  no resource is `{error, {"no such file or directory", "Name.app"}}`, as OTP
-  answers for a missing file.
-- `kernel` (11.0.4) and `stdlib` (8.1) are loaded and running from the start as
-  OTP 29.1.1 lists them, without application masters; `kernel` has the default
-  environment of its `kernel.app`.
-- An application with a start module gets a master that leads its processes'
-  group (so `get_application/0`, `get_env/1` and `start_type/0` answer inside
-  it), relays their I/O requests to standard I/O, and on stop runs
-  `prep_stop/1`, shuts the top process down, runs `stop/1` and kills what is
-  left of the group. A permanent application that ends, or a transient one that
-  ends abnormally, halts the program with OTP's slogan, exit status 1.
-- `logger` and `clause_logger` reach `application` by a runtime name, so only
-  programs that use `application` link it.
+- Specifications come from the program, not a code path: clau compiles every `*.app` and `*.app.src`
+  beside the batch's sources, every `*.app` in the `ebin` directory next to them, and
+  `ebin/Name.app` or `src/Name.app.src` of each `[targets.options.applications]` entry into the
+  generated module `clause_applications`, added whenever the batch has `application_controller`. The
+  first file of an application name wins. A resource that lists no modules gets the batch's modules
+  beside it. Diagnostics point into the resource file.
+- `application:load/1` also takes `{application, Name, Keys}` terms. A name with no resource is
+  `{error, {"no such file or directory", "Name.app"}}`, as OTP answers for a missing file.
+- `kernel` (11.0.4) and `stdlib` (8.1) are loaded and running from the start as OTP 29.1.1 lists
+  them, without application masters; `kernel` has the default environment of its `kernel.app`.
+- An application with a start module gets a master that leads its processes' group (so
+  `get_application/0`, `get_env/1` and `start_type/0` answer inside it), relays their I/O requests
+  to standard I/O, and on stop runs `prep_stop/1`, shuts the top process down, runs `stop/1` and
+  kills what is left of the group. A permanent application that ends, or a transient one that ends
+  abnormally, halts the program with OTP's slogan, exit status 1.
+- `logger` and `clause_logger` reach `application` by a runtime name, so only programs that use
+  `application` link it.
 
 ### Ledger
 
-[Plan 21](../../.agents/21-lib.md) schedules every documented `erts`, `kernel` and
-`stdlib` module; real programs (luerl first) set priorities. Compile and run it,
-classify every error (`unknown module`, `undefined function M:F/A`, unsupported
-syntax or feature, other), and assign each to a plan step, another backlog item,
-or a recorded decline. With the run's stderr saved to a file,
-`python tests/compiler/library/library_modules.py report FILE` prints the
-classification as tables: each unknown module with its error count, calling
-modules and called functions with arities; undefined functions by module; other
-messages with their counts.
+[Plan 21](../../.agents/21-lib.md) schedules every documented `erts`, `kernel` and `stdlib` module;
+real programs (luerl first) set priorities. Compile and run it, classify every error
+(`unknown module`, `undefined function M:F/A`, unsupported syntax or feature, other), and assign
+each to a plan step, another backlog item, or a recorded decline. With the run's stderr saved to a
+file, `python tests/compiler/library/library_modules.py report FILE` prints the classification as
+tables: each unknown module with its error count, calling modules and called functions with arities;
+undefined functions by module; other messages with their counts.
 
 ### Tools
 
 All live in `tests/compiler/library/`:
 
-- `escript observe_module.escript LIBRARY APP MODULE` writes
-  `LIBRARY/APP/MODULE.terms` from the host OTP's `MODULE:module_info(exports)`,
-  keeping the group and status of every entry already there; a new export starts
-  as `{Name, Arity, default, stub}`.
-- `python library_modules.py generate LIBRARY APP MODULE` writes the module file
-  once, every export a stub; from then on the file is edited by hand.
-- `python library_modules.py check ROOT` (CTest `library_inventory`, no OTP)
-  reports every disagreement: a provided module without its files, a missing
-  module with a file, an inventory not listed as provided, an export not in the
-  inventory or the reverse, a `stub`/`declined` entry that is not a
-  `not_implemented` stub, an `implemented`/`refused` entry without a body or a
-  catalog builtin. `library_rejects` proves it on a deliberately inconsistent
-  fixture library.
-- CTest `library_freshness` (labels `host_otp`, `full_only`) re-observes every
-  inventory and requires it unchanged, then observes, generates, checks and
-  compiles a new module end to end. `library_report` runs `clau` on a fixture
-  program and checks the report's rows.
+- `escript observe_module.escript LIBRARY APP MODULE` writes `LIBRARY/APP/MODULE.terms` from the
+  host OTP's `MODULE:module_info(exports)`, keeping the group and status of every entry already
+  there; a new export starts as `{Name, Arity, default, stub}`.
+- `python library_modules.py generate LIBRARY APP MODULE` writes the module file once, every export
+  a stub; from then on the file is edited by hand.
+- `python library_modules.py check ROOT` (CTest `library_inventory`, no OTP) reports every
+  disagreement: a provided module without its files, a missing module with a file, an inventory not
+  listed as provided, an export not in the inventory or the reverse, a `stub`/`declined` entry that
+  is not a `not_implemented` stub, an `implemented`/`refused` entry without a body or a catalog
+  builtin. `library_rejects` proves it on a deliberately inconsistent fixture library.
+- CTest `library_freshness` (labels `host_otp`, `full_only`) re-observes every inventory and
+  requires it unchanged, then observes, generates, checks and compiles a new module end to end.
+  `library_report` runs `clau` on a fixture program and checks the report's rows.

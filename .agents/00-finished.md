@@ -937,6 +937,12 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   fixed_dh, issuer/subject ids, CRL issuer and signature, dist points and IDP matching with OTP's name rules,
   hostname verification with match/fail/fqdn funs and the https wildcard fun); `public_key_certs` golden (OpenSSL CA,
   leaf, CRL) identical to OTP — `3b18c228`
+- **LIB80D2** public_key path validation: `clause_public_key_path` (RFC 5280 state, extensions, name constraints,
+  policy tree and mappings, verify fun events, options, path errors); `public_key_path` golden (OpenSSL chains)
+  identical to OTP — pending
+- **LIB80D3** public_key CRL validation: `clause_public_key_crl` (DP grouping and delta CRLs, freshness and
+  update_crl, issuer and scope, reason masks, signer path via issuer_fun with cRLSign and signer revocation,
+  undetermined_details); `public_key_crls` golden (OpenSSL CRLs) identical to OTP — pending
 
 ## Plan 22 (from 2026-10-23)
 

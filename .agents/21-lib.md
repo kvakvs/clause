@@ -36,8 +36,8 @@ internal functions stay out unless a public function needs them (user direction 
   clang-format, erlfmt for `.erl`/`.terms`, docs (`docs/libraries/library.md` row,
   `docs/builtins.md` section, `docs/differences.md`, `.agents/arch.md`, `.agents/files.md`).
 - **Library docs live in `docs/libraries/`** (indexed in `docs/README.md`'s Libraries table). An
-  application beyond erts/kernel/stdlib gets its own file there (`crypto.md`, `public_key.md`),
-  and every step ends with a documentation pass over it.
+  application beyond erts/kernel/stdlib gets its own file there (`crypto.md`, `public_key.md`), and
+  every step ends with a documentation pass over it.
 - **One golden per module family**, generated once from OTP with
   `tests/compiler/executables/regenerate.py`. Print maps and other unordered results as sorted
   lists. Wrap bad arguments in `id/1` so OTP's compiler does not warn about them or drop the code
@@ -139,11 +139,11 @@ three core applications). Call counts are over `references/emqx/apps`, non-test 
 noted. The same rules apply as for the core: whole module or nothing in `library/`, OTP's terms and
 records, goldens from OTP, own headers written from the documented records and macros.
 
-- **LIB80 `public_key` (54 functions; design decided 2026-10-26):** PEM, DER codec of the
-  PKIX/PKCS ASN.1 types into OTP's record tuples (`'Certificate'`, `'OTPCertificate'`,
-  `'RSAPrivateKey'`, ~250 records of `public_key.hrl` and its four included headers), signing,
-  verification, path validation, CRLs, OCSP, hostname checks, `cacerts_*`. OTP compiles 30 ASN.1
-  modules (2009 style: parameterized types, information object classes) with `asn1ct -bber +der
+- **LIB80 `public_key` (54 functions; design decided 2026-10-26):** PEM, DER codec of the PKIX/PKCS
+  ASN.1 types into OTP's record tuples (`'Certificate'`, `'OTPCertificate'`, `'RSAPrivateKey'`, ~250
+  records of `public_key.hrl` and its four included headers), signing, verification, path
+  validation, CRLs, OCSP, hostname checks, `cacerts_*`. OTP compiles 30 ASN.1 modules (2009 style:
+  parameterized types, information object classes) with `asn1ct -bber +der
   +asn1config` and decodes through `asn1rt_nif`. emqx uses `pem_decode/1` (14), `der_decode/2`,
   `der_encode/2`, `pem_entry_decode/1,2`, `pem_encode/1`, `pkix_decode_cert/2`, `pkix_sign/2`,
   `generate_key/1`, `verify/4`, `pkix_verify_hostname_match_fun/1`. Decisions:
@@ -154,8 +154,8 @@ records, goldens from OTP, own headers written from the documented records and m
   - **Specs:** ASN.1 modules copied from their RFCs (IETF code components, BSD notice kept) into
     `library/public_key/asn1/`; OTP's own modules (`OTP-PKIX`, `OTP-PKIX-Relaxed`, the
     `PKCS-FRAME`/`OTP-PUB-KEY` sets) written by us from the documented records. A golden observed
-    once from host OTP (record names, field order, defaults; type names) proves the generated
-    `.hrl` match OTP's.
+    once from host OTP (record names, field order, defaults; type names) proves the generated `.hrl`
+    match OTP's.
   - **Generation (changed 2026-10-26, LIB80A):** clau compiles specifications as asn1ct does
     (`Module.erl` + `Module.hrl`, `docs/asn1.md`); the generated modules call
     `clause_asn1:encode/decode/3` with a literal schema term. `public_key`'s specs compile the same
@@ -169,22 +169,21 @@ records, goldens from OTP, own headers written from the documented records and m
     `crypto` for sign/verify/encrypt/`generate_key`/`compute_key`; Erlang for path validation, CRL
     and OCSP validation (`verify_fun` funs and state).
   - **Trust stores:** Windows crypt32 `ROOT`/`CA` stores and Unix OTP's file list, as OTP; macOS via
-    Security.framework (not OTP's `/usr/bin/security` run: `differences.md` row if the set
-    differs).
+    Security.framework (not OTP's `/usr/bin/security` run: `differences.md` row if the set differs).
   - **Steps** (`public_key` in `library/` since LIB80B, documented functions PARTIAL in
     `library_modules.py` until LIB80D; later steps' functions keep `not_implemented` placeholders):
     - LIB80B done (B1 specs and header, B2 codec).
     - LIB80C done (keys and signatures over crypto in `clause_public_key_keys`; default DH groups
       from OpenSSH's moduli). `public_key_keys` golden.
-    - LIB80D (split 2026-10-26; Erlang where verify/issuer/CRL funs run or the walk is thin glue over
-      the C++ string builtins):
+    - LIB80D (split 2026-10-26; Erlang where verify/issuer/CRL funs run or the walk is thin glue
+      over the C++ string builtins):
       - D1 done: `pkix_normalize_name/1`, `pkix_is_issuer/2`, `pkix_is_self_signed/1`,
         `pkix_is_fixed_dh_cert/1`, `pkix_issuer_id/2`, `pkix_subject_id/1`, `pkix_crl_issuer/1`,
         `pkix_crl_verify/2`, `pkix_dist_point(s)/1`, `pkix_match_dist_point/2`,
         `pkix_verify_hostname/2,3`, `pkix_verify_hostname_match_fun/1`.
-      - D2: `pkix_path_validation/3` (validation state, extensions, name constraints, policy tree,
-        `verify_fun`).
-      - D3: `pkix_crls_validate/3` (CRL and delta CRL checks, `issuer_fun`, `update_crl`).
+      - D2 done: `pkix_path_validation/3` (validation state, extensions, name constraints, policy
+        tree, `verify_fun`).
+      - D3 done: `pkix_crls_validate/3` (CRL and delta CRL checks, `issuer_fun`, `update_crl`).
       - D4: `pkix_ocsp_validate/5`, `ocsp_extensions/1`.
       - D5: `pkix_test_data/1`, `pkix_test_root_cert/2`.
       - D6: `cacerts_get/0`, `cacerts_load/0,1`, `cacerts_clear/0` (OS trust stores, C++).

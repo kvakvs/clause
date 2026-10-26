@@ -96,6 +96,13 @@ pkix_verify_hostname(Cert, ReferenceIDs, Options) ->
     clause_public_key_cert:pkix_verify_hostname(Cert, ReferenceIDs, Options).
 pkix_verify_hostname_match_fun(Protocol) -> clause_public_key_cert:pkix_verify_hostname_match_fun(Protocol).
 
+%% Path validation.
+pkix_path_validation(Cert, CertChain, Options) -> clause_public_key_path:pkix_path_validation(Cert, CertChain, Options).
+
+%% CRL validation.
+pkix_crls_validate(OtpCert, DPAndCRLs, Options) ->
+    clause_public_key_crl:pkix_crls_validate(OtpCert, DPAndCRLs, Options).
+
 %% Keys and signatures.
 compute_key(OthersKey, MyKey) -> clause_public_key_keys:compute_key(OthersKey, MyKey).
 compute_key(OthersKey, MyKey, Params) -> clause_public_key_keys:compute_key(OthersKey, MyKey, Params).
@@ -135,8 +142,6 @@ cacerts_get() -> erlang:error({not_implemented, cacerts_get, 0}).
 cacerts_load() -> erlang:error({not_implemented, cacerts_load, 0}).
 cacerts_load(_) -> erlang:error({not_implemented, cacerts_load, 1}).
 ocsp_extensions(_) -> erlang:error({not_implemented, ocsp_extensions, 1}).
-pkix_crls_validate(_, _, _) -> erlang:error({not_implemented, pkix_crls_validate, 3}).
 pkix_ocsp_validate(_, _, _, _, _) -> erlang:error({not_implemented, pkix_ocsp_validate, 5}).
-pkix_path_validation(_, _, _) -> erlang:error({not_implemented, pkix_path_validation, 3}).
 pkix_test_data(_) -> erlang:error({not_implemented, pkix_test_data, 1}).
 pkix_test_root_cert(_, _) -> erlang:error({not_implemented, pkix_test_root_cert, 2}).
