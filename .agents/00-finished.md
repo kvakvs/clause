@@ -900,7 +900,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   programs that compile library `crypto` or pass `--with-crypto[=PATH]` (install or source tree, also
   `CLAUSE_OPENSSL_ROOT`); startup descriptor lists runtime extensions. Algorithms probed on first call;
   `supports`, `info*`, hashes, MACs, PBKDF2, rand plugins `crypto`/`crypto_cache`, helpers with OTP's errors;
-  engines refused. +4.5 MB only for crypto programs; `crypto_digests` golden — `HASH`
+  engines refused. +4.5 MB only for crypto programs; `crypto_digests` golden — `dda50d1e`
 
 ## Plan 22 (from 2026-10-23)
 
