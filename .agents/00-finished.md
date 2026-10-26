@@ -912,7 +912,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB79C** `crypto` public keys, crypto complete: sign/verify (RSA PKCS #1/PSS, DSA, ECDSA, EdDSA, ML-DSA, SLH-DSA),
   RSA encryption, key generation and agreement (RSA, DH, ECDH on named/explicit curves, X25519/X448), SRP, ML-KEM,
   `privkey_to_pubkey`, `ec_curve(s)` from OpenSSL's groups; OTP's OSSL_PARAM key building, errors and quirks;
-  `crypto_pubkey` golden (all 83 curves, 87 error cases) identical to OTP — `pending`
+  `crypto_pubkey` golden (all 83 curves, 87 error cases) identical to OTP — `3777dc40`
 
 ## Plan 22 (from 2026-10-23)
 
