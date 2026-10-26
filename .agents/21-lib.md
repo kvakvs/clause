@@ -204,8 +204,8 @@ records, goldens from OTP, own headers written from the documented records and m
       - E3 done: `clause_public_key_cert` name normalisation and comparison, `match_name` rules,
         the https wildcard and ASCII lowering (`names.cpp`, string/uri steps through registry calls);
         hostname verification's fun loop and `inet` address parsing stay Erlang.
-      - E4: the policy tree of `clause_public_key_path` (OTP's `pubkey_policy_tree`) and the pure
-        checks around it (name constraint subtrees, key usage tables).
+      - E4 done: the policy tree walks (`policy.cpp`); the state machine, verify fun calls,
+        counters and node limit stay Erlang.
       - E5: what pure walks remain in `clause_public_key_crl`/`_ocsp` (reason masks, DP grouping).
 - **LIB81 `ssl` (design first, after LIB80; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
   `ssl_crl_cache_api`, `ssl_session_cache_api`):** OTP implements TLS 1.0–1.3 and DTLS in Erlang

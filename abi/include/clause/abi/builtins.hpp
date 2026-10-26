@@ -687,6 +687,13 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_public_key", "match_name", 3},
     BuiltinName{"clause_public_key", "match_wildcard", 2},
     BuiltinName{"clause_public_key", "normalize_name", 1},
+    // The policy tree (plan 21 step LIB80E4).
+    BuiltinName{"clause_public_key", "policy_add", 4},
+    BuiltinName{"clause_public_key", "policy_constrained", 1},
+    BuiltinName{"clause_public_key", "policy_intersection", 3},
+    BuiltinName{"clause_public_key", "policy_map", 5},
+    BuiltinName{"clause_public_key", "policy_prune", 1},
+    BuiltinName{"clause_public_key", "policy_result", 1},
     // PEM text and PBE tables (plan 21 step LIB80E1).
     BuiltinName{"clause_public_key", "pbe_cipher", 1},
     BuiltinName{"clause_public_key", "pbes1", 1},

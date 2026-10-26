@@ -15,6 +15,9 @@ struct ValueRole;
 struct NameRole;
 struct CandidateRole;
 struct FlagRole;
+// Added for public_key's policy tree (plan 21 step LIB80E4).
+struct TreeRole;
+struct CountRole;
 
 // Whether a term is the OID of these arcs; the OID's tuple term.
 bool same_oid(const Term &oid, const std::initializer_list<std::uint32_t> &arcs);
@@ -60,4 +63,17 @@ Word match_name(ProcessContext &context, const Named<FlagRole> &type, const Name
                 const Named<CandidateRole> &permitted);
 Word match_wildcard(ProcessContext &context, const Named<NameRole> &fqdn, const Named<CandidateRole> &name);
 Word lower_ascii(ProcessContext &context, const Named<NameRole> &term);
+
+// Added for public_key's policy tree (plan 21 step LIB80E4): pubkey_policy_tree's walks. policy_add, policy_map and
+// policy_intersection return {Tree, Count}; policy_prune the pruned tree; policy_constrained the constrained node
+// set; policy_result its nodes with their qualifiers collected.
+Term policy_add(ProcessContext &context, const Named<TreeRole> &tree, const Named<CountRole> &count,
+                const Named<ValueRole> &infos, const Named<FlagRole> &any_allowed);
+Term policy_map(ProcessContext &context, const Named<TreeRole> &tree, const Named<CountRole> &count,
+                const Named<ValueRole> &mapping, const Named<FlagRole> &inhibit, const Named<KeyRole> &any_qualifiers);
+Term policy_intersection(ProcessContext &context, const Named<ValueRole> &user_set, const Named<TreeRole> &tree,
+                         const Named<CountRole> &count);
+Term policy_prune(ProcessContext &context, const Named<TreeRole> &tree);
+Term policy_constrained(ProcessContext &context, const Named<TreeRole> &tree);
+Term policy_result(ProcessContext &context, const Named<TreeRole> &tree);
 } // namespace clause::runtime::builtins::public_key

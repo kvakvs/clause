@@ -849,6 +849,11 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   name type (OTP's quirks kept: only the first permitted URI is reduced to its host) and the https wildcard match.
   Their `string`, `unicode`, `uri_string`, `lists:last/1` and `erlang:band/2` steps call those builtins through the
   registry (`calls.cpp`), so results and errors are theirs.
+- `policy_add/4`, `policy_map/5`, `policy_intersection/3`, `policy_prune/1`, `policy_constrained/1` and
+  `policy_result/1` (`policy.cpp`, plan 21 step LIB80E4) are `pubkey_policy_tree`'s walks over the valid policy tree
+  (RFC 5280 6.1.3 d, 6.1.4 b, 6.1.5 g): children and siblings for a certificate's policies and anyPolicy, policy
+  mappings, the intersection with the user's policy set, pruning and the constrained node set with its qualifiers,
+  in OTP's list orders. `clause_public_key_path` keeps the verify fun calls, the counters and the node limit.
 - `os_cacerts()` (`os_cacerts.cpp`, plan 21 step LIB80D6) reads the current user's Windows `ROOT` store through
   crypt32 as OTP's `pubkey_os_cacerts` NIF does: `[{Encoding, Der}]` in the NIF's order, `internal_error` when the
   store does not open, `[]` on other systems, where `clause_public_key_cacerts` reads files.

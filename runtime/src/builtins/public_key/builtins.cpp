@@ -25,6 +25,12 @@ constexpr std::array PUBLIC_KEY_BUILTINS{
     typed_entry<match_name>("clause_public_key", "match_name"),
     typed_entry<match_wildcard>("clause_public_key", "match_wildcard"),
     typed_entry<lower_ascii>("clause_public_key", "lower_ascii"),
+    typed_entry<policy_add>("clause_public_key", "policy_add"),
+    typed_entry<policy_map>("clause_public_key", "policy_map"),
+    typed_entry<policy_intersection>("clause_public_key", "policy_intersection"),
+    typed_entry<policy_prune>("clause_public_key", "policy_prune"),
+    typed_entry<policy_constrained>("clause_public_key", "policy_constrained"),
+    typed_entry<policy_result>("clause_public_key", "policy_result"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::public_key

@@ -100,10 +100,7 @@ path_validation([], #state{
     working_public_key_parameters = PublicKeyParams,
     valid_policy_tree = Tree
 }) ->
-    CollectQualifiers = fun(#{expected_policy_set := PolicySet} = Node) ->
-        Node#{qualifier_set => lists:flatmap(fun(Policy) -> collect_qualifiers(Tree, Policy) end, PolicySet)}
-    end,
-    {ok, {{Algorithm, PublicKey, PublicKeyParams}, lists:map(CollectQualifiers, constrained_policy_node_set(Tree))}};
+    {ok, {{Algorithm, PublicKey, PublicKeyParams}, clause_public_key:policy_result(Tree)}};
 path_validation([DerCert | Rest], #state{max_path_length = Len} = State) when Len >= 0 ->
     try validate(DerCert, State#state{last_cert = Rest =:= []}) of
         #state{} = NewState -> path_validation(Rest, NewState)
@@ -741,77 +738,20 @@ process_policy_tree(
         false ->
             {Tree, Count} = add_policy_children(PolicyInformation, SelfSigned, S),
             assert_policy_tree_node_count(Count),
-            {prune_tree(Tree), Count}
+            {clause_public_key:policy_prune(Tree), Count}
     end.
 
-add_policy_children(PolicyInfoList0, SelfSigned, #state{
-    valid_policy_tree = Tree0,
-    policy_tree_node_count = Count0,
+%% 6.1.3 d 1 and 2 (a builtin): children for the certificate's policies, and for anyPolicy the expected policies
+%% no leaf has yet, unless inhibited.
+add_policy_children(PolicyInfoList, SelfSigned, #state{
+    valid_policy_tree = Tree,
+    policy_tree_node_count = Count,
     inhibit_any_policy = AnyPolicyConstraint,
     cert_num = CertNum,
     max_path_length = PathLen
 }) ->
-    {AnyExt, PolicyInfoList} =
-        case lists:keytake(?anyPolicy, #'PolicyInformation'.policyIdentifier, PolicyInfoList0) of
-            {value, AnyExt0, PolicyInfoList1} -> {AnyExt0, PolicyInfoList1};
-            false -> {undefined, PolicyInfoList0}
-        end,
-    LeafFun = fun(#{expected_policy_set := ExpPolicySet}) -> policy_children(ExpPolicySet, PolicyInfoList) end,
-    {Tree1, Count1} = add_leaves(Tree0, Count0, LeafFun),
-    AllLeaves = all_leaves(Tree1),
-    Siblings = fun
-        (#{valid_policy := ?anyPolicy}) -> any_policy_children(AllLeaves, PolicyInfoList);
-        (_) -> []
-    end,
-    Grown = add_leaf_siblings(Tree1, Count1, Siblings),
-    handle_any_ext(Grown, AnyExt, AnyPolicyConstraint, SelfSigned, CertNum, PathLen).
-
-%% 6.1.3 d 1 i: a child for each policy in the parent's expected set.
-policy_children(ExpPolicySet, PolicyInfoList) ->
-    lists:foldl(
-        fun(#'PolicyInformation'{policyIdentifier = Policy, policyQualifiers = Qualifiers}, Acc) ->
-            case lists:member(Policy, ExpPolicySet) of
-                true -> [policy_node(Policy, Qualifiers, [Policy]) | Acc];
-                false -> Acc
-            end
-        end,
-        [],
-        PolicyInfoList
-    ).
-
-%% 6.1.3 d 1 ii: without any match, children of the anyPolicy node for every policy.
-any_policy_children([], PolicyInfoList) ->
-    lists:foldl(
-        fun(#'PolicyInformation'{policyIdentifier = Policy, policyQualifiers = Qualifiers}, Acc) ->
-            [policy_node(Policy, Qualifiers, [Policy]) | Acc]
-        end,
-        [],
-        PolicyInfoList
-    );
-any_policy_children(_, _) ->
-    no_sibling.
-
-%% 6.1.3 d 2: anyPolicy in the certificate adds the expected policies no child has yet.
-handle_any_ext(Tree, undefined, _, _, _, _) ->
-    Tree;
-handle_any_ext(
-    {Tree, Count},
-    #'PolicyInformation'{policyIdentifier = ?anyPolicy, policyQualifiers = Qualifiers},
-    AnyPolicyConstraint,
-    SelfSigned,
-    CertNum,
-    PathLen
-) ->
-    case AnyPolicyConstraint > 0 orelse ((CertNum < PathLen) andalso SelfSigned) of
-        true ->
-            AllLeaves = all_leaves(Tree),
-            Siblings = fun(#{expected_policy_set := ExpPolicySet}) ->
-                [policy_node(Policy, Qualifiers, [Policy]) || Policy <- ExpPolicySet, not in_set(Policy, AllLeaves)]
-            end,
-            add_leaf_siblings(Tree, Count, Siblings);
-        false ->
-            {Tree, Count}
-    end.
+    AnyAllowed = AnyPolicyConstraint > 0 orelse ((CertNum < PathLen) andalso SelfSigned),
+    clause_public_key:policy_add(Tree, Count, PolicyInfoList, AnyAllowed).
 
 %% 6.1.4 a, b: the policy mappings of the previous certificate.
 handle_policy_mappings(
@@ -860,38 +800,9 @@ handle_policy_mapping(
     end.
 
 %% 6.1.4 b 2: with mapping inhibited, the issuer policy's leaves are deleted; b 1: otherwise their expected sets map
-%% to the subject policy, or an anyPolicy leaf gets a mapped sibling.
-map_policy(#'PolicyMappings_SEQOF'{issuerDomainPolicy = IssuerPolicy}, Tree0, Count, 0, _) ->
-    {prune_tree(prune_leaves(Tree0, IssuerPolicy)), Count};
-map_policy(
-    #'PolicyMappings_SEQOF'{issuerDomainPolicy = IssuerPolicy, subjectDomainPolicy = SubjectPolicy},
-    Tree,
-    Count,
-    N,
-    AnyQualifiers
-) when N > 0 ->
-    MapPolicy = fun
-        (#{valid_policy := ValidPolicy, expected_policy_set := Set} = Node) when ValidPolicy == IssuerPolicy ->
-            case Set of
-                [ValidPolicy] when ValidPolicy =/= SubjectPolicy ->
-                    Node#{expected_policy_set => [SubjectPolicy]};
-                _ ->
-                    case lists:member(SubjectPolicy, Set) of
-                        true -> Node;
-                        false -> Node#{expected_policy_set => Set ++ [SubjectPolicy]}
-                    end
-            end;
-        (Node) ->
-            Node
-    end,
-    AnySiblings = fun
-        (#{valid_policy := ?anyPolicy}) -> [policy_node(IssuerPolicy, AnyQualifiers, [SubjectPolicy])];
-        (_) -> no_sibling
-    end,
-    case map_leaves(Tree, MapPolicy) of
-        Tree -> add_leaf_siblings(Tree, Count, AnySiblings);
-        NewTree -> {NewTree, Count}
-    end.
+%% to the subject policy, or an anyPolicy leaf gets a mapped sibling (a builtin).
+map_policy(Mapping, Tree, Count, PolicyMapping, AnyQualifiers) ->
+    clause_public_key:policy_map(Tree, Count, Mapping, PolicyMapping, AnyQualifiers).
 
 %% 6.1.4 i: the policy constraints extension lowers the explicit policy and policy mapping counters.
 handle_policy_constraints(
@@ -967,247 +878,26 @@ validate_policy_tree(
         false ->
             Reason =
                 {policy_requirement_not_met, {
-                    {explicit_policy, Explicit}, {policy_set, constrained_policy_node_set(Tree)}
+                    {explicit_policy, Explicit}, {policy_set, clause_public_key:policy_constrained(Tree)}
                 }},
             State#state{user_state = verify_fun(Cert, {bad_cert, Reason}, UserState0, VerifyFun)}
     end.
 
-policy_tree_intersection([?anyPolicy], Tree, Count) ->
-    {Tree, Count};
-policy_tree_intersection(UserPolicySet, Tree0, Count0) ->
-    case is_empty(Tree0) of
-        true ->
-            {Tree0, Count0};
-        false ->
-            ValidPolicyNodeSet = valid_policy_node_set(Tree0),
-            InvalidNodes = [
-                Node
-             || #{valid_policy := Policy} = Node <- lists:reverse(ValidPolicyNodeSet),
-                Policy =/= ?anyPolicy,
-                not lists:member(Policy, UserPolicySet)
-            ],
-            Tree1 = prune_invalid_nodes(Tree0, InvalidNodes),
-            {Tree, Count} = handle_any_policy_leaves(Tree1, Count0, ValidPolicyNodeSet, UserPolicySet),
-            {prune_tree(Tree), Count}
-    end.
-
-handle_any_policy_leaves(Tree0, Count0, ValidPolicyNodeSet, UserPolicySet) ->
-    case any_leaves(Tree0) of
-        [] ->
-            {Tree0, Count0};
-        AnyLeaves ->
-            {Tree, Count} = add_policy_nodes(AnyLeaves, Tree0, Count0, ValidPolicyNodeSet, UserPolicySet),
-            {prune_leaves(Tree, ?anyPolicy), Count}
-    end.
-
-add_policy_nodes([], Tree, Count, _, _) ->
-    {Tree, Count};
-add_policy_nodes([#{qualifier_set := Qualifiers} | Rest], Tree0, Count0, ValidPolicyNodeSet, UserPolicySet) ->
-    Children = [
-        policy_node(Policy, Qualifiers, [Policy])
-     || Policy <- UserPolicySet, not in_set(Policy, ValidPolicyNodeSet)
-    ],
-    Siblings = fun
-        (#{valid_policy := ?anyPolicy, qualifier_set := QSet}) when QSet == Qualifiers -> Children;
-        (_) -> []
-    end,
-    {Tree, Count} = add_leaf_siblings(Tree0, Count0, Siblings),
-    add_policy_nodes(Rest, Tree, Count, ValidPolicyNodeSet, UserPolicySet).
+%% 6.1.5 g (a builtin): the tree intersected with the user's initial policy set.
+policy_tree_intersection(UserPolicySet, Tree, Count) ->
+    clause_public_key:policy_intersection(UserPolicySet, Tree, Count).
 
 assert_policy_tree_node_count(Count) when Count > ?MAX_POLICY_TREE_NODES -> throw({bad_cert, policy_tree_exceeded});
 assert_policy_tree_node_count(_) -> ok.
 
 %%--------------------------------------------------------------------------------------------------------------------
-%% The valid policy tree (OTP's pubkey_policy_tree): {} or {Node, Children}, where children are subtrees or leaves.
+%% The valid policy tree (OTP's pubkey_policy_tree): {} or {Node, Children}, where children are subtrees or leaves;
+%% its walks are builtins (runtime/src/builtins/public_key/policy.cpp).
 %%--------------------------------------------------------------------------------------------------------------------
 
-policy_node(ValidPolicy, Qualifiers, ExpPolicySet) ->
-    QualifierSet =
-        case Qualifiers of
-            asn1_NOVALUE -> [];
-            _ -> Qualifiers
-        end,
-    #{valid_policy => ValidPolicy, qualifier_set => QualifierSet, expected_policy_set => ExpPolicySet}.
-
-root() -> {policy_node(?anyPolicy, [], [?anyPolicy]), []}.
+root() -> {#{valid_policy => ?anyPolicy, qualifier_set => [], expected_policy_set => [?anyPolicy]}, []}.
 
 empty() -> {}.
 
 is_empty({}) -> true;
 is_empty(_) -> false.
-
-in_set(Policy, Nodes) -> lists:any(fun(#{valid_policy := P}) -> P =:= Policy end, Nodes).
-
-%% Each leaf given the children the fun makes; the count grows by them.
-add_leaves({Parent, []}, Count, LeafFun) ->
-    Leaves = LeafFun(Parent),
-    {{Parent, Leaves}, Count + length(Leaves)};
-add_leaves(Tree0, Count, LeafFun) ->
-    {Tree, Added} = map_leaves_count(Tree0, fun(Leaf) -> {Leaf, LeafFun(Leaf)} end),
-    {Tree, Count + Added}.
-
-map_leaves_count({Parent, [{_, _} | _] = ChildNodes}, LeafFun) ->
-    {Children, Added} = lists:mapfoldl(
-        fun(ChildNode, Acc) ->
-            {Node, N} = map_leaves_count(ChildNode, LeafFun),
-            {Node, Acc + N}
-        end,
-        0,
-        ChildNodes
-    ),
-    {{Parent, Children}, Added};
-map_leaves_count({Parent, Leaves0}, LeafFun) ->
-    {Leaves, Added} = lists:mapfoldl(
-        fun(Leaf, Acc) ->
-            {_, ChildNodes} = Node = LeafFun(Leaf),
-            {Node, Acc + length(ChildNodes)}
-        end,
-        0,
-        Leaves0
-    ),
-    {{Parent, Leaves}, Added}.
-
-%% The deepest parents given siblings for their leaves, as the fun makes them for the parent.
-add_leaf_siblings({Parent, [{_, _} | _] = ChildNodes}, Count, SiblingFun) ->
-    {Children, Added} = lists:mapfoldl(
-        fun(ChildNode, Acc) ->
-            {Node, N} = add_leaf_siblings(ChildNode, 0, SiblingFun),
-            {Node, Acc + N}
-        end,
-        0,
-        ChildNodes
-    ),
-    {{Parent, Children}, Count + Added};
-add_leaf_siblings({Parent, Leaves} = Node, Count, SiblingFun) ->
-    case SiblingFun(Parent) of
-        no_sibling -> {Node, Count};
-        Siblings -> {{Parent, Leaves ++ Siblings}, Count + length(Siblings)}
-    end.
-
-any_leaves(Tree) -> [Leaf || #{valid_policy := ?anyPolicy} = Leaf <- all_leaves(Tree)].
-
-all_leaves({}) -> [];
-all_leaves({_, [{_, _} | _] = ChildNodes}) -> lists:flatmap(fun all_leaves/1, ChildNodes);
-all_leaves({_, Leaves}) -> Leaves.
-
-map_leaves({Parent, [{_, _} | _] = ChildNodes}, LeafFun) ->
-    {Parent, [map_leaves(ChildNode, LeafFun) || ChildNode <- ChildNodes]};
-map_leaves({Parent, Leaves}, LeafFun) ->
-    {Parent, lists:map(LeafFun, Leaves)}.
-
-prune_leaves({}, _) ->
-    {};
-prune_leaves({_, _} = Tree, Policy) ->
-    filter_leaves(Tree, fun(#{valid_policy := ValidPolicy}) -> ValidPolicy =/= Policy end).
-
-filter_leaves({Parent, [{_, _} | _] = ChildNodes}, Keep) ->
-    {Parent, [filter_leaves(ChildNode, Keep) || ChildNode <- ChildNodes]};
-filter_leaves({Parent, Leaves}, Keep) ->
-    {Parent, lists:filter(Keep, Leaves)}.
-
-%% Subtrees without leaves removed; a tree left without children is empty.
-prune_tree({}) ->
-    {};
-prune_tree({_, []}) ->
-    {};
-prune_tree({Root, ChildNodes}) ->
-    case prune_children(ChildNodes) of
-        [] -> {};
-        NewChildNodes -> {Root, NewChildNodes}
-    end.
-
-prune_children(ChildNodes) ->
-    lists:filtermap(
-        fun
-            ({Parent, Children}) ->
-                case prune_children(Children) of
-                    [] -> false;
-                    NewChildren -> {true, {Parent, NewChildren}}
-                end;
-            (Leaf) ->
-                {true, Leaf}
-        end,
-        ChildNodes
-    ).
-
-prune_invalid_nodes(Tree, []) ->
-    Tree;
-prune_invalid_nodes({Root, ChildNodes}, InvalidNodes) ->
-    case prune_invalid_children(ChildNodes, InvalidNodes) of
-        [] -> {};
-        NewChildNodes -> {Root, NewChildNodes}
-    end.
-
-prune_invalid_children(ChildNodes, InvalidNodes) ->
-    lists:filtermap(
-        fun
-            ({#{valid_policy := ?anyPolicy} = Parent, Children}) ->
-                {true, {Parent, prune_invalid_children(Children, InvalidNodes)}};
-            ({Parent, Children}) ->
-                case lists:member(Parent, InvalidNodes) of
-                    true -> false;
-                    false -> {true, {Parent, Children}}
-                end;
-            (#{valid_policy := ?anyPolicy} = Child) ->
-                {true, Child};
-            (#{} = Child) ->
-                not lists:member(Child, InvalidNodes)
-        end,
-        ChildNodes
-    ).
-
-%% The nodes whose parents are anyPolicy nodes, depth first (6.1.5 g iii 1).
-valid_policy_node_set({#{valid_policy := ?anyPolicy}, [{_, _} | _] = ChildNodes}) ->
-    [Parent || {Parent, _} <- ChildNodes] ++
-        lists:foldl(fun(ChildNode, Acc) -> valid_policy_node_set(ChildNode) ++ Acc end, [], ChildNodes);
-valid_policy_node_set({#{valid_policy := ?anyPolicy}, Leaves}) when is_list(Leaves) ->
-    Leaves;
-valid_policy_node_set(_) ->
-    [].
-
-%% The anyPolicy leaves, or else the valid policy nodes other than anyPolicy.
-constrained_policy_node_set({}) ->
-    [];
-constrained_policy_node_set(Tree) ->
-    case any_leaves(Tree) of
-        [] -> constrain(Tree);
-        AnyLeaves -> AnyLeaves
-    end.
-
-constrain({#{valid_policy := ?anyPolicy}, [{_, _} | _] = ChildNodes}) ->
-    [Parent || {#{valid_policy := P} = Parent, _} <- ChildNodes, P =/= ?anyPolicy] ++
-        lists:foldl(fun(Child, Acc) -> constrain(Child) ++ Acc end, [], ChildNodes);
-constrain({#{valid_policy := ?anyPolicy}, Leaves}) when is_list(Leaves) ->
-    [Leaf || #{valid_policy := P} = Leaf <- Leaves, P =/= ?anyPolicy];
-constrain(_) ->
-    [].
-
-%% The user notices and CPS URIs of the nodes under the child expecting a policy (or anyPolicy).
-collect_qualifiers({_, ChildNodes}, Policy) ->
-    case collect_children_qualifiers(ChildNodes, Policy) of
-        [] -> collect_children_qualifiers(ChildNodes, ?anyPolicy);
-        QSet -> QSet
-    end.
-
-collect_children_qualifiers([], _) ->
-    [];
-collect_children_qualifiers([{#{expected_policy_set := Set}, _} = ChildNode | ChildNodes], Policy) ->
-    case lists:member(Policy, Set) of
-        true -> lists:flatten(children_collect(ChildNode));
-        false -> collect_children_qualifiers(ChildNodes, Policy)
-    end;
-collect_children_qualifiers(ChildNodes, _) ->
-    lists:flatten(children_collect(ChildNodes)).
-
-children_collect({Parent, ChildNodes}) -> qualifiers(Parent) ++ children_collect(ChildNodes);
-children_collect([{_, _} = ChildNode | ChildNodes]) -> children_collect(ChildNode) ++ children_collect(ChildNodes);
-children_collect(Leaves) -> lists:map(fun qualifiers/1, Leaves).
-
-qualifiers(#{qualifier_set := QSet}) -> lists:map(fun qualifier/1, QSet).
-
-qualifier(#'PolicyQualifierInfo'{policyQualifierId = ?'id-qt-unotice', qualifier = Qualifier}) when
-    is_tuple(Qualifier)
-->
-    Qualifier;
-qualifier(#'PolicyQualifierInfo'{policyQualifierId = ?'id-qt-cps', qualifier = Qualifier}) ->
-    {uri, Qualifier}.

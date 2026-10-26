@@ -492,3 +492,10 @@ recorded elsewhere.
   alignment padding; uper skipextensions/decode_fragmented_1 are function clauses. Scratch cycles: kitchen/cycle.sh
   `<opts> per_test PerKitchen.asn` and emqx/cycle.sh (all 8 emqx specs). The directory index caches listings from the
   source walk: forget() the ASN.1 outdir after generating into it.
+- LIB80E (2026-10-26): public_key C++ ports call other builtins via `calls.hpp` (registry find + call_builtin,
+  `Recorded` -> return Word 0); lists:reverse/1 is not registered (Erlang), write it locally. PKITS oracle: a scratch
+  python turns a copy of OTP's pkits_SUITE into pkits_run (main/1 runs all 99 cases, prints each
+  pkix_path_validation result with maps as sorted lists; OTP prints small maps in atom-index order); Clause side
+  needs shims pubkey_cert (extensions_list/select_extension/is_issuer) and pubkey_cert_records (transform/2) and a
+  minimal erl_make_certs (pem_to_der); clau rejects -compile(export_all). 211 validations, compare after any
+  public_key path/CRL/name change.
