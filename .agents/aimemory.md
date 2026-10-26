@@ -485,3 +485,10 @@ recorded elsewhere.
   ours resolves (differences.md). Scratch cycles compared Kitchen (8 option sets) and all
   public_key_SUITE PEMs + PKITS certs/CRLs byte-identical; redo for any codec change. Analyzer flags
   a leak when a [[noreturn]] throw runs with a boost cpp_int alive: keep the value as text first.
+- LIB84 PER (2026-10-26): asn1ct PER is the oracle, not X.691: CHOICE alternatives in textual order, SET root sorted
+  by tag, size bounds >= 64K ignored, k_m strings align when Ub*unit >= 16, empty open type/encoding is <<0>>.
+  Records: additions after a multi-component [[group]] are read shifted (OTP bug, mirrored). Decode error payloads:
+  dec_string cases -> case_clause on bits before the determinant; a separate read -> badmatch on bits before its
+  alignment padding; uper skipextensions/decode_fragmented_1 are function clauses. Scratch cycles: kitchen/cycle.sh
+  `<opts> per_test PerKitchen.asn` and emqx/cycle.sh (all 8 emqx specs). The directory index caches listings from the
+  source walk: forget() the ASN.1 outdir after generating into it.

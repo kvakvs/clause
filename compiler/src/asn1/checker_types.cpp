@@ -12,26 +12,6 @@ Node basic(const NodeKind kind, const std::uint64_t universal) {
     node.tags_.push_back({TagClass::universal, universal});
     return node;
 }
-
-// The universal tag of each restricted character string type (X.680 clause 41).
-std::uint64_t string_tag(const std::string_view name) {
-    struct Entry {
-        std::string_view name_;
-        std::uint64_t tag_;
-    };
-
-    static constexpr std::array TAGS = {
-        Entry{"UTF8String", 12},      Entry{"NumericString", 18},  Entry{"PrintableString", 19},
-        Entry{"TeletexString", 20},   Entry{"VideotexString", 21}, Entry{"IA5String", 22},
-        Entry{"GraphicString", 25},   Entry{"VisibleString", 26},  Entry{"GeneralString", 27},
-        Entry{"UniversalString", 28}, Entry{"BMPString", 30}};
-    for (const auto &entry : TAGS) {
-        if (entry.name_ == name) {
-            return entry.tag_;
-        }
-    }
-    return 0;
-}
 } // namespace
 
 Resolved TypeChecker::fresh(Node node) { return {checker_.add(std::move(node)), true, false}; }
@@ -122,7 +102,7 @@ Resolved TypeChecker::object_descriptor(const TypeSyntax & /*syntax*/) {
 }
 
 Resolved TypeChecker::restricted_string(const TypeSyntax &syntax) {
-    auto node = basic(NodeKind::restricted_string, string_tag(syntax.string_));
+    auto node = basic(NodeKind::restricted_string, string_universal_tag(syntax.string_));
     node.string_ = syntax.string_;
     return fresh(std::move(node));
 }

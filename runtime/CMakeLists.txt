@@ -52,6 +52,10 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/asn1/common.cpp src/builtins/asn1/tlv.cpp src/builtins/asn1/ber_decode.cpp
     src/builtins/asn1/ber_constructed.cpp src/builtins/asn1/ber_encode.cpp src/builtins/asn1/ber_encode_constructed.cpp
     src/builtins/asn1/values.cpp src/builtins/asn1/legacy.cpp src/builtins/asn1/builtins.cpp
+    # Packed encoding rules (plan 21 step LIB84).
+    src/builtins/asn1/per_bits.cpp src/builtins/asn1/per_strings.cpp src/builtins/asn1/per_encode.cpp
+    src/builtins/asn1/per_encode_constructed.cpp src/builtins/asn1/per_decode.cpp
+    src/builtins/asn1/per_decode_constructed.cpp
     # Module json (plan 21 step LIB5E).
     src/builtins/encoding/json.cpp src/builtins/encoding/json_encode.cpp
     # Module filename (plan 21 step LIB5G).

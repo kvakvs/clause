@@ -807,6 +807,10 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   limits); `ber_decode.cpp`, `ber_constructed.cpp`, `ber_encode.cpp` and `ber_encode_constructed.cpp` hold the
   primitive and constructed types, `values.cpp` INTEGER, REAL and DER `DEFAULT` comparisons, `legacy.cpp` the legacy
   `BIT STRING` forms.
+- PER (`per.hpp`): `per_bits.cpp` bit fields, length determinants, whole numbers and strings with their alignment and
+  fragments; `per_encode.cpp`/`per_decode.cpp` the primitive types; `per_encode_constructed.cpp`/
+  `per_decode_constructed.cpp` sequences, extension additions, choices and open types; `per_strings.cpp`
+  `BIT STRING` values. A PER decode takes a binary and returns the bits left unread.
 
 ## Crypto module
 

@@ -166,7 +166,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `Module.erl` (encode/decode over `clause_asn1:encode/decode/3` with a literal schema term) and an
   asn1ct-identical `Module.hrl`. The generated modules join the batch; outdir joins includes.
 - Codec in core runtime (`builtins/asn1/`): TLV parse as asn1rt_nif, then a schema interpreter
-  mirroring asn1ct's BER/DER generated code (frames for component relations, postponed open types).
+  mirroring asn1ct's BER/DER generated code (frames for component relations, postponed open types);
+  PER/UPER over BitWriter/BitReader (`per*`), with OTP's effective constraints, quirks and decode
+  error payloads (CaseScope: case_clause vs badmatch on the remaining bits).
 
 ## 2. Runtime (`clause_runtime`)
 

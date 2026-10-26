@@ -23,6 +23,7 @@ const std::map<std::string, Setter, std::less<>> &setters() {
         {"maps", [](auto &options) { options.maps_ = true; }},
         {"undec_rest", [](auto &options) { options.undec_rest_ = true; }},
         {"no_ok_wrapper", [](auto &options) { options.no_ok_wrapper_ = true; }},
+        {"no_final_padding", [](auto &options) { options.no_final_padding_ = true; }},
         {"legacy_erlang_types", [](auto &options) { options.legacy_erlang_types_ = true; }},
         {"legacy_bit_string",
          [](auto &options) {
@@ -160,9 +161,6 @@ std::optional<std::string> check_asn1_options(const std::vector<std::string> &op
     for (const auto &option : options) {
         if (option == "jer") {
             return "the ASN.1 option jer (JSON encoding rules) is not supported";
-        }
-        if (option == "per" || option == "uper") {
-            return "the ASN.1 option " + option + " (packed encoding rules) is not supported yet";
         }
         if (!setters().contains(option)) {
             return "unknown ASN.1 option '" + option + "'";

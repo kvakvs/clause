@@ -1,0 +1,109 @@
+-- PER-visible constraints, character alphabets, extensions, addition groups and fragmentation for the PER
+-- fixtures (plan 21 step LIB84).
+PerKitchen DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+  Bit ::= INTEGER (0..1)
+  Byte ::= INTEGER (0..255)
+  Range256 ::= INTEGER (1..256)
+  Word ::= INTEGER (0..65535)
+  Wide ::= INTEGER (0..65536)
+  Huge ::= INTEGER (-5..4294967295)
+  Single ::= INTEGER (7)
+  Semi ::= INTEGER (10..MAX)
+  Upper ::= INTEGER (MIN..100)
+  ExtRange ::= INTEGER (0..15, ...)
+  ExtSingles ::= INTEGER (1 | 17, ...)
+  ExtSingle ::= INTEGER (5, ...)
+  Union ::= INTEGER (1..10 | 20..30)
+  Inter ::= INTEGER (1..10 ^ 5..20)
+  Named ::= INTEGER { zero(0), one(1), many(100) } (0..100)
+
+  Small ::= ENUMERATED { a, b }
+  Three ::= ENUMERATED { x(5), y(1), z(3) }
+  One ::= ENUMERATED { only }
+  OpenEnum ::= ENUMERATED { p, q, ..., r, s }
+
+  Fixed2 ::= OCTET STRING (SIZE (2))
+  Fixed3 ::= OCTET STRING (SIZE (3))
+  Sized ::= OCTET STRING (SIZE (1..10))
+  SizedExt ::= OCTET STRING (SIZE (1..4, ...))
+  BigSize ::= OCTET STRING (SIZE (0..70000))
+  Unbounded ::= OCTET STRING
+  FixedBits ::= BIT STRING (SIZE (12))
+  FewBits ::= BIT STRING (SIZE (1..4))
+  NamedBits ::= BIT STRING { a(0), b(1), c(5) } (SIZE (8))
+  NamedMin ::= BIT STRING { a(0), b(1) } (SIZE (4..10))
+  NamedFree ::= BIT STRING { a(0), b(1), c(9) }
+
+  Digits ::= NumericString (SIZE (1..8))
+  Hex ::= IA5String (FROM ("0".."9" | "A".."F"))
+  Abc ::= VisibleString (FROM ("abc")) (SIZE (3))
+  Wide16 ::= BMPString (SIZE (1..2))
+  Wide32 ::= UniversalString
+  Print ::= PrintableString (SIZE (4))
+  Vis ::= VisibleString (SIZE (0..20, ...))
+  Ia5Fixed ::= IA5String (SIZE (2))
+  Lower ::= IA5String (FROM ("a".."z"))
+  Time ::= GeneralizedTime
+  Utf ::= UTF8String (SIZE (1..5))
+
+  Items ::= SEQUENCE (SIZE (2)) OF Byte
+  Some ::= SEQUENCE (SIZE (0..3)) OF Byte
+  SomeExt ::= SEQUENCE (SIZE (1..2, ...)) OF Byte
+  Many ::= SEQUENCE OF Bit
+
+  Defaults ::= SEQUENCE {
+    a INTEGER DEFAULT 4,
+    b BOOLEAN DEFAULT TRUE,
+    c Named DEFAULT many,
+    d NamedFree DEFAULT { a, c },
+    e OCTET STRING OPTIONAL
+  }
+
+  Ext ::= SEQUENCE {
+    root INTEGER (0..7),
+    ...,
+    add1 BOOLEAN,
+    [[ g1 INTEGER (0..3), g2 IA5String OPTIONAL ]],
+    add2 OCTET STRING OPTIONAL,
+    add3 INTEGER DEFAULT 9,
+    ...,
+    tail BOOLEAN
+  }
+
+  ExtEmpty ::= SEQUENCE {
+    x BOOLEAN,
+    ...
+  }
+
+  Group1 ::= SEQUENCE {
+    x INTEGER (0..3),
+    ...,
+    [[ y BOOLEAN ]]
+  }
+
+  Unsorted ::= SET {
+    z [2] INTEGER (0..3),
+    a [0] BOOLEAN OPTIONAL,
+    m [1] OCTET STRING OPTIONAL
+  }
+
+  Pick ::= CHOICE {
+    first Byte,
+    second Hex,
+    ...,
+    third Ext,
+    fourth NULL
+  }
+
+  Lone ::= CHOICE { only Bit }
+
+
+  Bundle ::= SEQUENCE {
+    pick Pick,
+    list SEQUENCE OF Pick,
+    real REAL,
+    oid OBJECT IDENTIFIER,
+    rel RELATIVE-OID
+  }
+END

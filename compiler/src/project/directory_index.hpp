@@ -26,6 +26,9 @@ class DirectoryIndex {
     // Record the complete listing (entry names) of a directory a recursive walk enumerated, so it is never listed
     // again; a directory already known keeps its first listing.
     void add_listing(const std::filesystem::path &directory, const std::vector<std::filesystem::path> &names);
+    // Drop a directory's listing so the next lookup lists it again: files were written there since. Added for ASN.1
+    // sources.
+    void forget(const std::filesystem::path &directory);
 
     // What the index did so far, for --verbose.
     const Statistics &statistics() const { return statistics_; }

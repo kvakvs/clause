@@ -1,4 +1,7 @@
 #include "checker_types.hpp"
+#include <algorithm>
+#include <iterator>
+#include <set>
 
 // Added for the ASN.1 compiler (plan 21 step LIB84): constraints. Table constraints with component relations give
 // open types their object tables (X.682 clause 10); value, size and alphabet constraints give PER its effective
@@ -25,7 +28,38 @@ struct Effective {
     std::optional<Bounds> value_;
     std::optional<Bounds> size_;
     bool extensible_ = false;
+    // The values when the constraint only lists single values (asn1ct's root `SingleValue` list). Added for PER.
+    std::optional<std::vector<BigInt>> singles_;
+    // A permitted alphabet (FROM) as code points. Added for PER.
+    std::optional<std::set<std::uint32_t>> alphabet_;
 };
+
+using Alphabet = std::optional<std::set<std::uint32_t>>;
+
+// Alphabets combine as values do: a union needs both sides, an intersection keeps what both allow.
+Alphabet combine_alphabets(const Alphabet &left, const Alphabet &right, const bool all) {
+    if (!left || !right) {
+        return all ? (left ? left : right) : std::nullopt;
+    }
+    std::set<std::uint32_t> result;
+    if (all) {
+        std::ranges::set_intersection(*left, *right, std::inserter(result, result.end()));
+    } else {
+        std::ranges::set_union(*left, *right, std::inserter(result, result.end()));
+    }
+    return result;
+}
+
+// Single values of a union stay a list; anything else ends it.
+std::optional<std::vector<BigInt>> combine_singles(const std::optional<std::vector<BigInt>> &left,
+                                                   const std::optional<std::vector<BigInt>> &right, const bool all) {
+    if (all || !left || !right) {
+        return std::nullopt;
+    }
+    auto result = *left;
+    result.insert(result.end(), right->begin(), right->end());
+    return result;
+}
 
 std::optional<Bounds> hull(const std::optional<Bounds> &left, const std::optional<Bounds> &right) {
     if (!left || !right) {
@@ -60,6 +94,18 @@ std::optional<Bounds> meet(const std::optional<Bounds> &left, const std::optiona
     return result;
 }
 
+// `"a".."z"`: the characters between two single characters.
+Alphabet character_range(const Alphabet &lower, const Alphabet &upper) {
+    if (!lower || !upper || lower->size() != 1 || upper->size() != 1) {
+        return std::nullopt;
+    }
+    std::set<std::uint32_t> result;
+    for (auto c = *lower->begin(); c <= *upper->begin(); ++c) {
+        result.insert(c);
+    }
+    return result;
+}
+
 // Computes the effective constraint of one constraint notation on a type.
 class Evaluator {
   public:
@@ -74,6 +120,9 @@ class Evaluator {
     Effective range(const ConstraintSyntax &constraint);
     Effective single(const ConstraintSyntax &constraint);
     Effective contained(const ConstraintSyntax &constraint);
+    Effective from(const ConstraintSyntax &constraint);
+    Alphabet alphabet(const ConstraintSyntax &constraint);
+    Alphabet characters(TokenRange range);
     std::optional<BigInt> endpoint(TokenRange range, bool open, int step);
 
     Checker &checker_;
@@ -99,6 +148,8 @@ Effective Evaluator::evaluate(const ConstraintSyntax &constraint) {
         return single(constraint);
     case Kind::contained_subtype:
         return contained(constraint);
+    case Kind::from:
+        return from(constraint);
     default:
         return {};
     }
@@ -111,6 +162,8 @@ Effective Evaluator::combine(const ConstraintSyntax &constraint, const bool all)
         const auto next = evaluate(*constraint.children_[i]);
         result.value_ = all ? meet(result.value_, next.value_) : hull(result.value_, next.value_);
         result.size_ = all ? meet(result.size_, next.size_) : hull(result.size_, next.size_);
+        result.singles_ = combine_singles(result.singles_, next.singles_, all);
+        result.alphabet_ = combine_alphabets(result.alphabet_, next.alphabet_, all);
         result.extensible_ = result.extensible_ || next.extensible_;
     }
     return result;
@@ -155,7 +208,7 @@ Effective Evaluator::range(const ConstraintSyntax &constraint) {
     bounds.present_ = true;
     bounds.lower_ = endpoint(constraint.value_, constraint.lower_open_, 1);
     bounds.upper_ = endpoint(constraint.upper_, constraint.upper_open_, -1);
-    return {bounds, std::nullopt, false};
+    return {bounds, std::nullopt, false, std::nullopt, std::nullopt};
 }
 
 Effective Evaluator::single(const ConstraintSyntax &constraint) {
@@ -167,7 +220,48 @@ Effective Evaluator::single(const ConstraintSyntax &constraint) {
     bounds.present_ = true;
     bounds.lower_ = value;
     bounds.upper_ = value;
-    return {bounds, std::nullopt, false};
+    return {bounds, std::nullopt, false, std::vector<BigInt>{value}, std::nullopt};
+}
+
+// FROM: the permitted alphabet of a character string. Added for PER.
+Effective Evaluator::from(const ConstraintSyntax &constraint) {
+    Effective result;
+    result.alphabet_ = alphabet(*constraint.children_.front());
+    return result;
+}
+
+// The characters a constraint inside FROM allows: strings, ranges of single characters and their combinations.
+Alphabet Evaluator::alphabet(const ConstraintSyntax &constraint) {
+    switch (constraint.kind_) {
+    case Kind::single_value:
+        return characters(constraint.value_);
+    case Kind::value_range:
+        return character_range(characters(constraint.value_), characters(constraint.upper_));
+    case Kind::union_:
+    case Kind::intersection: {
+        auto result = alphabet(*constraint.children_.front());
+        for (std::size_t i = 1; i < constraint.children_.size(); ++i) {
+            result = combine_alphabets(result, alphabet(*constraint.children_[i]),
+                                       constraint.kind_ == Kind::intersection);
+        }
+        return result;
+    }
+    default:
+        return std::nullopt;
+    }
+}
+
+// The characters of a quoted string value.
+Alphabet Evaluator::characters(const TokenRange range) {
+    auto parser = checker_.parser(scope_, range);
+    if (!parser.is_kind(TokenKind::cstring)) {
+        return std::nullopt;
+    }
+    std::set<std::uint32_t> result;
+    for (const char c : parser.advance().text_) {
+        result.insert(static_cast<unsigned char>(c));
+    }
+    return result;
 }
 
 // A contained subtype contributes the constraints of the type it names.
@@ -181,7 +275,21 @@ Effective Evaluator::contained(const ConstraintSyntax &constraint) {
     if (node.size_.present_) {
         result.size_ = node.size_;
     }
+    if (!node.alphabet_.empty()) {
+        result.alphabet_ = std::set<std::uint32_t>(node.alphabet_.begin(), node.alphabet_.end());
+    }
     return result;
+}
+
+// An extensible root of several single values (`(1 | 17, ...)`): only those values are root values. Added for PER.
+void root_values(Bounds &bounds, const Effective &effective) {
+    if (!effective.extensible_ || !effective.singles_) {
+        return;
+    }
+    const std::set<BigInt> values(effective.singles_->begin(), effective.singles_->end());
+    if (values.size() > 1) {
+        bounds.root_values_.assign(values.begin(), values.end());
+    }
 }
 
 // Apply serial constraints `T (C1) (C2)`: bounds intersect, and the last one decides extensibility.
@@ -190,6 +298,11 @@ void apply_effective(Node &node, const Effective &effective) {
         auto value = meet(node.value_.present_ ? std::optional<Bounds>(node.value_) : std::nullopt, effective.value_);
         node.value_ = *value;
         node.value_.extensible_ = effective.extensible_;
+        node.value_.root_values_.clear();
+        root_values(node.value_, effective);
+    }
+    if (effective.alphabet_) {
+        node.alphabet_.assign(effective.alphabet_->begin(), effective.alphabet_->end());
     }
     if (effective.size_) {
         auto size = meet(node.size_.present_ ? std::optional<Bounds>(node.size_) : std::nullopt, effective.size_);

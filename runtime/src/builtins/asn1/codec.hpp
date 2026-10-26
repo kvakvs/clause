@@ -9,7 +9,7 @@
 namespace clause::runtime::builtins::asn1 {
 using Tags = std::span<const std::uint64_t>;
 
-// A component of a SEQUENCE or SET node: {Name, Node, Presence, Default, Addition, Root2}.
+// A component of a SEQUENCE or SET node: {Name, Node, Presence, Default, Addition, Root2, Group}.
 struct ComponentView {
     Term name_;
     std::int64_t node_ = 0;
@@ -18,6 +18,8 @@ struct ComponentView {
     Term default_;
     std::int64_t addition_ = 0;
     bool root2_ = false;
+    // In an extension addition group, which PER encodes as one addition. Added for PER.
+    bool group_ = false;
 };
 
 std::vector<ComponentView> components_of(const NodeView &node);

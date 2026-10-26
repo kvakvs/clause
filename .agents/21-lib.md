@@ -148,7 +148,7 @@ records, goldens from OTP, own headers written from the documented records and m
   `der_encode/2`, `pem_entry_decode/1,2`, `pem_encode/1`, `pkix_decode_cert/2`, `pkix_sign/2`,
   `generate_key/1`, `verify/4`, `pkix_verify_hostname_match_fun/1`. Decisions:
   - **Own ASN.1 compiler**, LLVM-free C++ in `compiler/src/asn1/` (reusable by clau for project
-    `.asn` files later, LIB84). Covers what the 30 modules need: X.680/681/683 constructs they use
+    `.asn` files, LIB84 done). Covers what the 30 modules need: X.680/681/683 constructs they use
     (parameterized types, object classes and sets, open types, extensibility, tagging, OTP's
     `exclusive_decode` configs), BER/DER only; any other construct is an "unsupported" diagnostic.
   - **Specs:** ASN.1 modules copied from their RFCs (IETF code components, BSD notice kept) into
@@ -192,12 +192,6 @@ records, goldens from OTP, own headers written from the documented records and m
       - Docs: `public_key.md` gains validation (path, CRL, OCSP, hostname) and trust stores per
         platform; `library.md` row for the `public_key` application; `differences.md` rows (macOS
         trust store, any others found).
-- **LIB84 project `.asn` sources:** BER/DER part done with LIB80A (positional inputs,
-  `[[targets.asn1]]`, asn1ct options, `docs/asn1.md`). Remaining: the PER/UPER engine (`per` and
-  `uper` are rejected today; aligned and unaligned, OTP's `asn1rtt_per`/`uper` quirks, golden
-  from asn1ct), and emqx's 7 specs (`DurableSession`, `DSBuiltinMetadata`, `MessageQueue`, ...;
-  they use `per`) as `[[targets.asn1]]` groups in `test-emqx.toml`.
-  - Docs: `asn1.md` gains PER/UPER; `differences.md` rows for any difference found.
 - **LIB81 `ssl` (design first, after LIB80; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
   `ssl_crl_cache_api`, `ssl_session_cache_api`):** OTP implements TLS 1.0–1.3 and DTLS in Erlang
   (`gen_statem` per connection, `ssl_app` supervision tree, PEM and session caches). Decide between
@@ -228,7 +222,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 1. The declined modules' answer stubs.
 2. LIB77 after a design decision; LIB78 only on request.
-3. LIB80B–D and LIB84's PER (requested 2026-10-26), then LIB81 after its design decision.
+3. LIB80B–D (requested 2026-10-26), then LIB81 after its design decision.
 4. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)

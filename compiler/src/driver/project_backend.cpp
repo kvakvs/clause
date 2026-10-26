@@ -182,6 +182,9 @@ bool process_target(const project::PlannedTarget &target, FrontendRequest &reque
     }
     for (const auto &group : target.asn1_) {
         request.preprocessing.include_paths.push_back(group.outdir);
+        if (request.index_ != nullptr) {
+            request.index_->forget(group.outdir);
+        }
     }
     return process_files(*sources, request, sink);
 }

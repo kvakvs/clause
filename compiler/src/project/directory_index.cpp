@@ -95,6 +95,12 @@ void DirectoryIndex::add_listing(const fs::path &directory, const std::vector<fs
     }
 }
 
+void DirectoryIndex::forget(const fs::path &directory) {
+    if (const auto key = directory_key(directory)) {
+        directories_.erase(*key);
+    }
+}
+
 std::optional<std::size_t> DirectoryIndex::listing(const fs::path &directory) {
     const auto key = directory_key(directory);
     if (!key) {

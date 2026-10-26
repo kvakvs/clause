@@ -2,8 +2,8 @@
 
 Clau compiles ASN.1 specifications (`.asn`, `.asn1`, and `.set.asn` lists of modules) into Erlang modules as OTP's
 `asn1ct` does: `Module.erl` with `encode/2`, `decode/2` and the module's values, and `Module.hrl` with its records and
-macros. The generated module joins the batch like any other source; its encoding and decoding run in the C++ BER/DER
-engine of `clause_runtime` (no OpenSSL needed). OTP's `public_key` specifications will be compiled the same way
+macros. The generated module joins the batch like any other source; its encoding and decoding run in the C++ BER, DER
+and PER engine of `clause_runtime` (no OpenSSL needed). OTP's `public_key` specifications will be compiled the same way
 (plan 21, LIB80).
 
 ## Inputs
@@ -54,7 +54,8 @@ with `.asn1`, `.asn` and `.py` appended. The merged module takes the set file's 
 | `legacy_erlang_types` | `BIT STRING` and `OCTET STRING` values as lists, `{Unused, Binary}` and integers accepted. |
 | `legacy_bit_string`, `compact_bit_string` | Old `BIT STRING` forms (lists of 0 and 1, `{Unused, Binary}`); imply `legacy_erlang_types`. |
 | `noobj`, `asn1config`, `verbose`, `warnings`, `errors`, `deterministic` | Accepted, change nothing. |
-| `per`, `uper` | Rejected: `PER/UPER encoding is not supported yet` (plan 21, LIB84). |
+| `per`, `uper` | Packed Encoding Rules, aligned and unaligned ([PER](#per)). |
+| `no_final_padding` | With `uper`: `encode/2` returns the bits without padding to an octet (a bitstring). |
 | `jer` | Rejected: `jer (JSON encoding rules) is not supported`. |
 
 Any other option is `unknown ASN.1 option 'Name'` (exit 2).
@@ -69,9 +70,9 @@ The constructs of X.680/X.681/X.682/X.683 that OTP's PKIX and PKCS modules and e
   `ANY DEFINED BY`, `INSTANCE OF`, open types, selection types (`name < Type`).
 - Tagging: explicit, implicit and automatic tags, module defaults, `COMPONENTS OF`, extension markers, extension
   addition groups and the components after the extensions.
-- Constraints: single values, ranges, `SIZE`, `FROM`, unions and intersections (evaluated for the bounds BER checks);
-  `WITH COMPONENT(S)`, `CONTAINING`, `PATTERN`, `CONSTRAINED BY` and `INCLUDES` are parsed and not checked, as by
-  asn1ct for BER.
+- Constraints: single values, ranges, `SIZE`, `FROM`, unions and intersections (evaluated for the bounds BER checks
+  and PER encodes); `WITH COMPONENT(S)`, `CONTAINING`, `PATTERN`, `CONSTRAINED BY` and `INCLUDES` are parsed and not
+  checked, as by asn1ct.
 - Information objects: classes with `WITH SYNTAX`, `TYPE-IDENTIFIER`, `ABSTRACT-SYNTAX`, objects, object sets
   (unions, extensible sets, sets from other sets and object fields), simple and component relation table constraints
   (`{Set}{@a.b}`, decoded and encoded through the object's type).
@@ -83,7 +84,7 @@ specifications do not use (`unsupported value notation`).
 
 ## Generated modules
 
-`Module.erl` exports what asn1ct's does for BER: `encoding_rule/0`, `maps/0`, `bit_string_format/0`,
+`Module.erl` exports what asn1ct's does: `encoding_rule/0`, `maps/0`, `bit_string_format/0`,
 `legacy_erlang_types/0`, `encode/2`, `decode/2`, `info/0` and one function per value assignment. Records and their
 names follow asn1ct (inner types named by their path, `SEQOF`/`SETOF` for collection elements, parameterized
 instances), so `Module.hrl` is identical to asn1ct's apart from the first comment line; values are printed as asn1ct
@@ -96,7 +97,28 @@ errors of `asn1rt_nif`); decoding keeps asn1ct's leniency and quirks (unknown ex
 
 The generated functions call `clause_asn1:encode/3` and `clause_asn1:decode/3` with a schema term: `{asn1_schema, 1,
 Rule, Flags, #{Type => Node}, Nodes}`. Each node is `{Kind, Tags, Fields...}` (kinds in the order of the compiler's
-`NodeKind`, tags as `Number bsl 2 bor Class`); the format is internal to Clause and may change.
+`NodeKind`, tags as `Number bsl 2 bor Class`; bounds `{Lower, Upper, Extensible}` with the root values of an
+extensible single-value list as a fourth element, restricted strings with their PER alphabet, components with their
+addition group flag); the format is internal to Clause and may change.
+
+## PER
+
+`per` (aligned) and `uper` (unaligned) follow the code asn1ct generates and `asn1rtt_per`/`asn1rtt_uper`/
+`asn1rtt_per_common`, byte for byte (X.691 as OTP implements it):
+
+- PER-visible constraints as asn1ct's `effective_constraint/2` computes them: value ranges (constrained,
+  semi-constrained and unconstrained whole numbers), `SIZE` bounds below 64K (larger ones encode as unconstrained
+  lengths), extensible roots (an extensible list of single values encodes only those values as root values), and
+  `FROM` alphabets of the known-multiplier strings (`NumericString`, `PrintableString`, `VisibleString`, `IA5String`,
+  `BMPString`, `UniversalString`, `UTCTime`, `GeneralizedTime`), whose characters are indexes when their codes do not
+  fit the character width.
+- `SET` root components are encoded in tag order, `CHOICE` alternatives in textual order (as asn1ct, not X.691's
+  canonical order), `ENUMERATED` items by value; extension additions are open types, an addition group a `SEQUENCE`
+  of its components; fragments above 16K units (octets, bits, characters, elements).
+- asn1ct's quirks are kept: in a record, extension additions after a group of several components are read from the
+  wrong positions (shifted by the group's length less one); open-type elements of a `SEQUENCE OF` ignore their table
+  constraint; dropping trailing zero bits of an all-zero named `BIT STRING` tail fails with `badmatch`; malformed
+  input fails with the generated code's `badmatch`, `case_clause` or `function_clause` on the remaining bits.
 
 ## Diagnostics
 

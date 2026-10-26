@@ -38,4 +38,21 @@ endif()
 if(NOT EXISTS "${WORK}/kitchen/Kitchen.erl")
     message(FATAL_ERROR "header: no Kitchen.erl was generated")
 endif()
+
+# A project target whose source pattern also walks the ASN.1 output directory: the headers written there after the
+# walk are found, and the generated module joins the target.
+set(project "${WORK}/project")
+file(MAKE_DIRECTORY "${project}/src")
+file(COPY "${FIXTURES}/executables/asn1_ber/Kitchen.asn" DESTINATION "${project}/asn1")
+file(WRITE "${project}/src/main.erl"
+    "-module(main).\n-export([main/1]).\n-include(\"../gen/Kitchen.hrl\").\n\nmain(_) -> #'Record'{id = 1}.\n")
+file(WRITE "${project}/project.toml"
+    "schema_version = 1\n\n[[targets]]\nname = \"app\"\nsources = [\"**/*.erl\"]\n\n"
+    "[[targets.asn1]]\nsources = [\"asn1/*.asn\"]\noutdir = \"gen\"\n")
+execute_process(COMMAND "${TOOL}" --project project.toml --print-inputs
+    WORKING_DIRECTORY "${project}" RESULT_VARIABLE result OUTPUT_VARIABLE out ERROR_VARIABLE err)
+if(NOT result STREQUAL "0" OR NOT out MATCHES "gen/Kitchen[.]erl")
+    message(FATAL_ERROR "project: exit ${result}\n${out}\n${err}")
+endif()
+
 message(STATUS "asn1_cli: ok")

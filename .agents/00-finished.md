@@ -917,6 +917,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `[[targets.asn1]]`) into asn1ct-identical `Module.erl`/`.hrl` calling `clause_asn1` builtins (core runtime);
   X.680–683 constructs of OTP's PKIX/PKCS specs; options except per/uper/jer (LIB84's BER part included);
   `asn1_ber`/`asn1_der` goldens, PKIX PEM/PKITS round trips identical to OTP (`docs/asn1.md`) — `69e27290`
+- **LIB84** project `.asn` sources complete: PER/UPER engine (`builtins/asn1/per*`: effective constraints, FROM
+  alphabets, extension additions and groups, fragments, OTP's quirks and decode error payloads), `no_final_padding`;
+  `asn1_per`/`asn1_uper` goldens; all emqx specs (emqx's `[[targets.asn1]]` group in `test-emqx.toml`) identical to
+  asn1ct — `pending`
 
 ## Plan 22 (from 2026-10-23)
 

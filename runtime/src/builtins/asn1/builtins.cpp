@@ -1,5 +1,6 @@
 #include "../typed.hpp"
 #include "codec.hpp"
+#include "per.hpp"
 
 // Added for ASN.1 sources (plan 21 step LIB84): the builtins of clause_asn1 that clau's generated ASN.1 modules call
 // (docs/builtins.md#asn1): encode/3 and decode/3 over the module's schema term.
@@ -40,9 +41,33 @@ Term encode(ProcessContext &context, const Named<SchemaRole> &schema_term, const
     const Schema schema(schema_term.term);
     Builder builder(context);
     const auto root = schema.root(context, type.term);
+    if (schema.rule() != "ber") {
+        PerEncoder encoder(builder, schema);
+        const auto out = encoder.top(root, value.term);
+        return builder.bitstring(out.bytes(), out.bits());
+    }
     Encoder encoder(builder, schema);
     const auto bytes = encoder.top(root, value.term);
     return builder.binary(bytes);
+}
+
+// The PER decoders take a binary: {Value, Rest} with the bits left unread. Added for PER.
+Term decode_per(ProcessContext &context, const Schema &schema, const Named<TypeRole> &type_name,
+                const Named<ValueRole> &input) {
+    const auto &type = type_name.term;
+    const auto &data = input.term;
+    Builder builder(context);
+    // Aligned decoders take bit_size/1 of their input first; unaligned ones match it in a case.
+    if (!data.is_bitstring()) {
+        erlang_error(schema.rule() == "per" ? abi::v1::ErrorReason::badarg : abi::v1::ErrorReason::case_clause,
+                     schema.rule() == "per" ? nullptr : &data);
+    }
+    const auto bytes = need(data.bitstring_bytes());
+    const auto root = schema.root(context, type);
+    BitReader in(bytes, need(data.bit_size()), schema.rule() == "per", &builder);
+    PerDecoder decoder(builder, schema);
+    const auto value = decoder.decode(root, in);
+    return builder.tuple({value, in.rest(builder)});
 }
 
 // decode(Schema, Type, Bytes): {Value, Rest}; the TLV is split off before the type is looked up, as
@@ -50,6 +75,9 @@ Term encode(ProcessContext &context, const Named<SchemaRole> &schema_term, const
 Term decode(ProcessContext &context, const Named<SchemaRole> &schema_term, const Named<TypeRole> &type,
             const Named<ValueRole> &data) {
     const Schema schema(schema_term.term);
+    if (schema.rule() != "ber") {
+        return decode_per(context, schema, type, data);
+    }
     Builder builder(context);
     const auto bytes = input_bytes(data.term);
     std::pair<Tlv, std::size_t> parsed;

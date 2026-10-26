@@ -14,6 +14,8 @@ constexpr int FLAG_LEGACY_TYPES = 4;
 constexpr int FLAG_LEGACY_BIT_STRING = 8;
 constexpr int FLAG_COMPACT_BIT_STRING = 16;
 constexpr int FLAG_UNDEC_REST = 32;
+// Added for PER: uper's no_final_padding.
+constexpr int FLAG_NO_FINAL_PADDING = 64;
 
 Term small(const std::uint64_t value) { return Term::integer(BigInt(value)); }
 
@@ -26,8 +28,32 @@ Term bounds(const Bounds &value) {
     if (!value.present_) {
         return Term::atom("none");
     }
-    return Term::tuple({value.lower_ ? Term::integer(*value.lower_) : Term::atom("MIN"),
-                        value.upper_ ? Term::integer(*value.upper_) : Term::atom("MAX"), boolean(value.extensible_)});
+    std::vector<Term> items{value.lower_ ? Term::integer(*value.lower_) : Term::atom("MIN"),
+                            value.upper_ ? Term::integer(*value.upper_) : Term::atom("MAX"),
+                            boolean(value.extensible_)};
+    // Added for PER: the root values of an extensible single-value list.
+    if (!value.root_values_.empty()) {
+        std::vector<Term> roots;
+        roots.reserve(value.root_values_.size());
+        for (const auto &root : value.root_values_) {
+            roots.push_back(Term::integer(root));
+        }
+        items.push_back(Term::list(std::move(roots)));
+    }
+    return Term::tuple(std::move(items));
+}
+
+// A PER permitted alphabet: none, or the code points in order. Added for PER.
+Term alphabet(const std::vector<std::uint32_t> &characters) {
+    if (characters.empty()) {
+        return Term::atom("none");
+    }
+    std::vector<Term> items;
+    items.reserve(characters.size());
+    for (const auto c : characters) {
+        items.push_back(small(c));
+    }
+    return Term::list(std::move(items));
 }
 
 Term named(const std::vector<std::pair<std::string, BigInt>> &numbers, const std::size_t begin, const std::size_t end) {
@@ -142,13 +168,14 @@ Term SchemaBuilder::other_fields(const Node &node) {
     case NodeKind::reference:
         return Term::tuple({index(node.target_)});
     case NodeKind::restricted_string:
-        return Term::tuple({small(node.tags_.empty() ? 0 : node.tags_.back().number_), bounds(node.size_)});
+        return Term::tuple({small(string_universal_tag(node.string_)), bounds(node.size_),
+                            alphabet(node.alphabet_)});
     default:
         return Term::tuple({bounds(node.size_)});
     }
 }
 
-// {Name, Node, Presence (0 required, 1 optional, 2 default), Default, Addition, Root2}.
+// {Name, Node, Presence (0 required, 1 optional, 2 default), Default, Addition, Root2, Group}.
 Term SchemaBuilder::components(const Node &node) {
     std::vector<Term> items;
     items.reserve(node.components_.size());
@@ -156,7 +183,8 @@ Term SchemaBuilder::components(const Node &node) {
         items.push_back(Term::tuple({Term::atom(component.name_), index(component.type_),
                                      small(static_cast<std::uint64_t>(component.presence_)),
                                      component.default_ ? *component.default_ : Term::atom("undefined"),
-                                     small(component.addition_), boolean(component.root2_)}));
+                                     small(component.addition_), boolean(component.root2_),
+                                     boolean(component.group_)}));
     }
     return Term::tuple(std::move(items));
 }
@@ -200,6 +228,7 @@ int flags(const CompileOptions &options) {
     result |= options.bit_string_format_ == "legacy" ? FLAG_LEGACY_BIT_STRING : 0;
     result |= options.bit_string_format_ == "compact" ? FLAG_COMPACT_BIT_STRING : 0;
     result |= options.undec_rest_ ? FLAG_UNDEC_REST : 0;
+    result |= options.no_final_padding_ ? FLAG_NO_FINAL_PADDING : 0;
     return result;
 }
 
@@ -208,6 +237,26 @@ const char *rule_name(const EncodingRule rule) {
     return NAMES[static_cast<std::size_t>(rule)];
 }
 } // namespace
+
+// The universal tag of each restricted character string type (X.680 clause 41).
+std::uint64_t string_universal_tag(const std::string_view name) {
+    struct Entry {
+        std::string_view name_;
+        std::uint64_t tag_;
+    };
+
+    static constexpr std::array TAGS = {
+        Entry{"UTF8String", 12},      Entry{"NumericString", 18},  Entry{"PrintableString", 19},
+        Entry{"TeletexString", 20},   Entry{"VideotexString", 21}, Entry{"IA5String", 22},
+        Entry{"GraphicString", 25},   Entry{"VisibleString", 26},  Entry{"GeneralString", 27},
+        Entry{"UniversalString", 28}, Entry{"BMPString", 30}};
+    for (const auto &entry : TAGS) {
+        if (entry.name_ == name) {
+            return entry.tag_;
+        }
+    }
+    return 0;
+}
 
 // {asn1_schema, 1, Rule, Flags, #{TypeName => Node}, {Node0, Node1, ...}}.
 Term schema(const CompiledModule &module, const CompileOptions &options) {

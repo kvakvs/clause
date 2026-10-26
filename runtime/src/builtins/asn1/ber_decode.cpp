@@ -12,7 +12,9 @@ std::vector<ComponentView> components_of(const NodeView &node) {
         result.push_back({item.tuple_element_unchecked(0), item.tuple_element_unchecked(1).small_integer_unchecked(),
                           item.tuple_element_unchecked(2).small_integer_unchecked(), item.tuple_element_unchecked(3),
                           item.tuple_element_unchecked(4).small_integer_unchecked(),
-                          item.tuple_element_unchecked(5).atom_spelling_unchecked() == "true"});
+                          item.tuple_element_unchecked(5).atom_spelling_unchecked() == "true",
+                          item.tuple_size_unchecked() > 6 &&
+                              item.tuple_element_unchecked(6).atom_spelling_unchecked() == "true"});
     }
     return result;
 }

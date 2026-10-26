@@ -81,6 +81,8 @@ struct Bounds {
     std::optional<BigInt> upper_;
     bool extensible_ = false;
     bool present_ = false;
+    // The root of an extensible constraint listing single values only: the values PER encodes as root values.
+    std::vector<BigInt> root_values_;
 };
 
 // The objects an open type or a table-constrained field may come from, keyed by the value of the referenced
@@ -105,6 +107,8 @@ struct Component {
     std::uint32_t addition_ = 0;
     // Set for root components after the second ellipsis.
     bool root2_ = false;
+    // Set for the components of an extension addition group `[[ ]]`, which PER encodes together. Added for PER.
+    bool group_ = false;
     // The textual position in a SET (decoding order is by tag), and the group's version.
     std::uint32_t textual_ = 0;
 };
@@ -161,6 +165,9 @@ struct ValueDefinition {
 enum class EncodingRule : std::uint8_t { ber, per, uper };
 
 // asn1ct options that change what the generated module does.
+// The universal tag number of a restricted character string type (IA5String: 22), 0 for another name.
+std::uint64_t string_universal_tag(std::string_view name);
+
 struct CompileOptions {
     EncodingRule rule_ = EncodingRule::ber;
     bool der_ = false;
@@ -168,6 +175,8 @@ struct CompileOptions {
     bool undec_rest_ = false;
     bool no_ok_wrapper_ = false;
     bool legacy_erlang_types_ = false;
+    // uper's no_final_padding: the encoding is a bitstring. Added for PER.
+    bool no_final_padding_ = false;
     // bit_string_format/0: bitstring (default), legacy (legacy_bit_string) or compact (compact_bit_string).
     std::string bit_string_format_ = "bitstring";
     std::string record_prefix_;

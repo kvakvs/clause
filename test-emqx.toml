@@ -19,6 +19,18 @@ source_dirs = []
 # Future executable path; checks/printing do not write it. Windows: build/app.exe.
 output = "test-emqx"
 
+# ASN.1 specifications compiled as emqx's mix.exs compiles them (asn1ct options); the generated modules join the
+# target and their headers its include path (docs/asn1.md).
+[[targets.asn1]]
+sources = [
+  "references/emqx/apps/emqx/src/emqx_persistent_session_ds/DurableSession.asn",
+  "references/emqx/apps/emqx/src/emqx_persistent_session_ds/ChannelInfo.asn",
+  "references/emqx/apps/emqx/src/emqx_ds_shared_sub/DSSharedSub.asn"
+]
+options = ["ber", "noobj", "no_ok_wrapper"]
+# emqx includes the headers as "../gen_src/Name.hrl", found through apps/emqx/include.
+outdir = "references/emqx/apps/emqx/gen_src"
+
 [targets.options]
 # Fallback roots for listed source filenames, e.g. ["src", "generated"].
 # These do not discover extra files or search for headers.

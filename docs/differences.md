@@ -335,6 +335,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | --- | --- | --- | --- |
 | Stack in `{error, {asn1, {Reason, Stack}}}` | Frames of the generated `enc_*`/`dec_*` functions and `asn1rtt_*` | Frames of `Module:encode/2` or `decode/2` and the codec builtin | [asn1](asn1.md#generated-modules) |
 | Functions of a generated module | Also exports `enc_Type/1,2`, `dec_Type/1,2` and the other per-type functions asn1ct generates | Only `encode/2`, `decode/2`, `info/0`, the option functions and the value functions | [asn1](asn1.md#generated-modules) |
+| A `CHOICE` whose body starts with `...` (no root alternatives) | asn1ct reports a syntax error | Accepted | [asn1](asn1.md#coverage) |
 | Value macros and functions that name another value inside an open type (PKCS-1's `mgf1SHA1`, `rSASSA-PSS-Default-Identifier`) | asn1ct leaves `{'Externalvaluereference', Line, Module, Name}` in place of the value | The referenced value | [asn1](asn1.md#generated-modules) |
 
 ## Parse transforms

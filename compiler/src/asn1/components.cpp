@@ -13,6 +13,8 @@ struct Item {
     // Where the item sits: root (0), extension addition (its index) or the root after the second ellipsis.
     std::uint32_t addition_ = 0;
     bool root2_ = false;
+    // Inside an extension addition group. Added for PER.
+    bool group_ = false;
     // Items brought in by COMPONENTS OF do not decide whether automatic tagging applies.
     bool included_ = false;
 };
@@ -79,6 +81,7 @@ void Layout::named(const ComponentSyntax &entry) {
         item.root2_ = true;
     } else if (extension_) {
         item.addition_ = group_ ? addition_ : ++addition_;
+        item.group_ = group_;
     }
     items_.push_back(item);
 }
@@ -154,6 +157,7 @@ Component check_item(Checker &checker, const Item &item, const Context &context)
     component.presence_ = syntax.presence_;
     component.addition_ = item.addition_;
     component.root2_ = item.root2_;
+    component.group_ = item.group_;
     component.type_ = checker.type(*syntax.type_, item.scope_, context.with({syntax.name_, false}));
     return component;
 }

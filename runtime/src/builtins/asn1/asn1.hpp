@@ -41,6 +41,8 @@ inline constexpr std::int64_t FLAG_LEGACY_TYPES = 4;
 inline constexpr std::int64_t FLAG_LEGACY_BIT_STRING = 8;
 inline constexpr std::int64_t FLAG_COMPACT_BIT_STRING = 16;
 inline constexpr std::int64_t FLAG_UNDEC_REST = 32;
+// Added for PER: uper's no_final_padding.
+inline constexpr std::int64_t FLAG_NO_FINAL_PADDING = 64;
 
 // A tag: its class (universal 0, application 1, context 2, private 3) and number.
 struct Tag {
