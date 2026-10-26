@@ -165,6 +165,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   constraints into a Node graph; `records` names records as asn1ct; `generate` writes
   `Module.erl` (encode/decode over `clause_asn1:encode/decode/3` with a literal schema term) and an
   asn1ct-identical `Module.hrl`. The generated modules join the batch; outdir joins includes.
+- Library ASN.1 (LIB80B1): compiler/CMakeLists.txt runs `clau --generate-asn1` over
+  `library/public_key/asn1/` into `<build>/library-asn1/public_key/`, a second library root
+  (`linking::generated_library_directory`, `load_library(root, generated)`).
 - Codec in core runtime (`builtins/asn1/`): TLV parse as asn1rt_nif, then a schema interpreter
   mirroring asn1ct's BER/DER generated code (frames for component relations, postponed open types);
   PER/UPER over BitWriter/BitReader (`per*`), with OTP's effective constraints, quirks and decode

@@ -1,0 +1,20 @@
+-- PKCS-3: the Diffie-Hellman parameters of PKCS #3 (RSA Laboratories, Diffie-Hellman Key-Agreement Standard) that
+-- public_key decodes as 'DHParameter' (plan 21 step LIB80B). Written for Clause.
+
+PKCS-3 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 3}
+
+DEFINITIONS EXPLICIT TAGS ::=
+
+BEGIN
+
+pkcs-3 OBJECT IDENTIFIER ::= {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 3}
+
+dhKeyAgreement OBJECT IDENTIFIER ::= { pkcs-3 1 }
+
+-- The prime p, the base g and the length of the private value in bits.
+DHParameter ::= SEQUENCE {
+    prime              INTEGER,
+    base               INTEGER,
+    privateValueLength INTEGER OPTIONAL }
+
+END

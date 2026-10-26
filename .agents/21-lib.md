@@ -173,14 +173,13 @@ records, goldens from OTP, own headers written from the documented records and m
     differs).
   - **Steps** (`public_key` enters `library/` at LIB80D; earlier steps keep `not_implemented`
     placeholders, as `crypto` did):
-    - LIB80B: specs in `library/public_key/asn1/` (RFC modules with notices, own `OTP-PKIX`,
-      `OTP-PKIX-Relaxed`, `PKCS-FRAME`/`OTP-PUB-KEY` sets), hand-written `public_key.hrl` (OTP 29's
-      is not generated) checked by a record golden; `der_decode/2`, `der_encode/2`, `pem_*`,
-      `pkix_decode_cert/2`, `pkix_encode/3`, `OTPCertificate` translation; codec golden with error
-      cases. `asn1config` exclusive decode if `pkix_decode_cert` needs it.
-      - Docs: create `docs/libraries/public_key.md` (spec sources and their notices, decoding and
-        encoding: types accepted, `plain`/`otp` forms, PEM entries and encrypted PEM, error terms);
-        add it to `docs/README.md`'s Libraries table.
+    - LIB80B (B1 specs and header done): `public_key.erl` with `not_implemented` placeholders and
+      its inventory (`public_key.terms`, `modules.terms` rows, `.app`); `der_decode/2`,
+      `der_encode/2`, `pem_*`, `pkix_decode_cert/2`, `pkix_encode/3`, `OTPCertificate`
+      translation (pubkey_translation's work in C++ where it walks terms); codec golden with error
+      cases. TBS bytes for `pkix_verify` without `asn1config` exclusive decode (a TLV split).
+      - Docs: `public_key.md` gains decoding and encoding (types accepted, `plain`/`otp` forms,
+        PEM entries and encrypted PEM, error terms).
     - LIB80C: keys and crypto: `sign`, `verify`, `encrypt_*`/`decrypt_*`, `generate_key/1`,
       `compute_key/2,3`, `dh_gex_group/4`, `pkix_sign/2`, `pkix_verify/2`, `pkix_sign_types/1`,
       `pkix_hash_type/1`, `short_name_hash/1`.

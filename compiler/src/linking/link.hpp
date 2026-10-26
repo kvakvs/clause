@@ -89,4 +89,7 @@ std::string link_executable(const LinkRequest &request);
 // The project library root (library/ of this build tree, one directory per OTP application), relative to this
 // compiler.
 std::filesystem::path library_directory();
+// The library modules this build generates (public_key's ASN.1 modules), one directory per application. Added for
+// public_key.
+std::filesystem::path generated_library_directory();
 } // namespace clause::linking

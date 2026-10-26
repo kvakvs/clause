@@ -96,6 +96,7 @@ which are stubs.
 | [`erl_prim_loader`](../../library/erts/erl_prim_loader.erl) | File queries over `file`; loading and archives declined ([files](../ports.md#standard-io-and-files)) |
 | [`zlib`](../../library/erts/zlib.erl) | Every function over the pinned zlib ([zlib module](../builtins.md#zlib-module)) |
 | [`prim_eval`](../../library/erts/prim_eval.erl) | `'receive'/2` over the steps of a compiled receive ([prim eval](../builtins.md#prim-eval)) |
+| `public_key`'s ASN.1 modules (`'OTP-PKIX'`, `'PKIX1Explicit-2009'`, ...) and [`public_key.hrl`](../../library/public_key/include/public_key.hrl) | Generated at build time from [`library/public_key/asn1/`](../../library/public_key/asn1/) into the build tree's `library-asn1/public_key/` ([public_key](public_key.md)); the `public_key` module itself is not provided yet |
 | [`clause_asn1`](../../library/asn1/clause_asn1.erl) | The codec the modules clau generates from ASN.1 specifications call ([ASN.1 codec](../builtins.md#asn1-codec), [ASN.1](../asn1.md)); OTP's `asn1` application (`asn1ct`, `asn1rt_nif`) is not provided |
 | [`crypto`](../../library/crypto/crypto.erl), [`clause_crypto`](../../library/crypto/clause_crypto.erl) | Application `crypto` (with [`crypto.app`](../../library/crypto/crypto.app)), over OpenSSL's libcrypto in the crypto runtime archive ([crypto module](../builtins.md#crypto-module), [OpenSSL](crypto.md)): the algorithm lists the linked OpenSSL has (`supports/0,1`, `hash_info/1`, `info/0`, `info_lib/0`), digests and hash states, HMAC/CMAC/Poly1305 and MAC states, `pbkdf2_hmac/5`, `hash_equals/2`, `exor/2`, `mod_pow/3`, ciphers and their states (`crypto_init/3,4`, `crypto_update/2`, `crypto_final/1`, `crypto_get_data/1`, `crypto_one_time/4,5`, `cipher_info/1`), AEAD (`crypto_one_time_aead/4,6,7`, `crypto_one_time_aead_init/4`), strong random numbers and the `crypto`, `crypto_cache`, `crypto_aes` and `crypto_prng1` `rand` plugins, OTP's error terms; engines refused (`notsup`); FIPS mode switchable as OTP's, or pinned with `clau --fips`; public keys (`sign/4,5`, `verify/5,6`, RSA encryption, `generate_key/2,3`, `compute_key/4`, `privkey_to_pubkey/2`: RSA, DSA, DH, ECDSA/ECDH on named and explicit curves, EdDSA, X25519/X448, ML-DSA, SLH-DSA, SRP), `ec_curve/1` and `ec_curves/0` (explicit parameters from the linked libcrypto), ML-KEM (`encapsulate_key/2`, `decapsulate_key/3`) |
 
@@ -144,7 +145,8 @@ completion ([differences](../differences.md#interactive-shell)).
   `--print-inputs` lists the inputs this adds.
 - The library is `library/` of the build tree, found relative to `clau` like the
   runtime archive, with one directory per OTP application (`erts`, `kernel`,
-  `stdlib`). `-include_lib("kernel/include/logger.hrl")`, `file.hrl`,
+  `stdlib`), then `library-asn1/` of the build tree, the modules the build
+  generates from the library's ASN.1 specifications ([public_key](public_key.md)). `-include_lib("kernel/include/logger.hrl")`, `file.hrl`,
   `eep48.hrl` and `inet.hrl` (`#hostent{}`) resolve to the library's own
   headers unless the project names a `kernel` application; `stdlib/include/`
   `zip.hrl`, `qlc.hrl`, `ms_transform.hrl` (names the transform, which runs on

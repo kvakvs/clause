@@ -1,0 +1,181 @@
+-- OTP-PKIX: the certificate types of OTP's public_key that decode what RFC 5280 would reject but deployed certificates
+-- carry (plan 21 step LIB80B, docs/libraries/public_key.md). Written for Clause from public_key's documented records:
+-- OTPCertificate and OTPTBSCertificate with their relaxed names, extensions and policies.
+
+OTP-PKIX {iso(1) identified-organization(3) dod(6) internet(1) private(4) enterprise(1) 193 otp(19)
+          otpApplications(3)}
+
+DEFINITIONS EXPLICIT TAGS ::=
+
+BEGIN
+
+IMPORTS
+    ATTRIBUTE, Extensions{}, SingleAttribute
+        FROM PKIX-CommonTypes-2009
+
+    CertificateSerialNumber, CertExtensions{}, NoticeReference
+        FROM PKIX1Implicit-2009
+            {iso(1) identified-organization(3) dod(6) internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+             id-mod-pkix1-implicit-02(59)}
+
+    at-name, at-surname, at-givenName, at-initials, at-generationQualifier, at-x520LocalityName,
+    at-x520StateOrProvinceName, at-x520OrganizationName, at-x520OrganizationalUnitName, at-x520Title,
+    at-x520dnQualifier, at-x520SerialNumber, at-x520Pseudonym, at-domainComponent, at-emailAddress,
+    id-at-commonName, id-at-countryName, id-domainComponent, id-emailAddress, ub-emailaddress-length,
+    Validity, Version, SubjectPublicKeyInfo, UniqueIdentifier, DirectoryString{}, id-qt-unotice, id-qt-cps
+        FROM PKIX1Explicit-2009
+            {iso(1) identified-organization(3) dod(6) internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+             id-mod-pkix1-explicit-02(51)}
+
+    dsa-with-sha1, DSA-Sig-Value, mda-sha1, pk-dsa, DSA-Params
+        FROM PKIXAlgs-2009
+
+    AlgorithmIdentifier{}, SIGNATURE-ALGORITHM
+        FROM AlgorithmInformation-2009
+            {iso(1) identified-organization(3) dod(6) internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+             id-mod-algorithmInformation-02(58)};
+
+-- A certificate as public_key:pkix_decode_cert(Der, otp) returns it.
+
+OTPCertificate ::= SEQUENCE {
+    tbsCertificate     OTPTBSCertificate,
+    signatureAlgorithm AlgorithmIdentifier{SIGNATURE-ALGORITHM, {OTPSignatureAlgorithms}},
+    signature          BIT STRING }
+
+OTPTBSCertificate ::= SEQUENCE {
+    version              [0] Version DEFAULT v1,
+    serialNumber         CertificateSerialNumber,
+    signature            AlgorithmIdentifier{SIGNATURE-ALGORITHM, {OTPSignatureAlgorithms}},
+    issuer               OTPName,
+    validity             Validity,
+    subject              OTPName,
+    subjectPublicKeyInfo SubjectPublicKeyInfo,
+    ...,
+    [[2:
+    issuerUniqueID       [1] IMPLICIT UniqueIdentifier OPTIONAL,
+    subjectUniqueID      [2] IMPLICIT UniqueIdentifier OPTIONAL
+    ]],
+    [[3:
+    extensions           [3] Extensions{{CertExtensions}} OPTIONAL
+    ]], ... }
+
+-- The signature algorithms of old certificates first, then those of RFC 4055.
+
+OTPSignatureAlgorithms SIGNATURE-ALGORITHM ::= {
+    OTPSignatureAlgs, ..., PKIX1-PSS-OAEP-Algorithms-2009.SignatureAlgs }
+
+OTPSignatureAlgs SIGNATURE-ALGORITHM ::= {
+    PKIXAlgs-2009.sa-rsaWithMD2 | PKIXAlgs-2009.sa-rsaWithMD5 | PKIXAlgs-2009.sa-rsaWithSHA1 |
+    otp-sa-dsaWithSHA1 | PKIXAlgs-2009.sa-ecdsaWithSHA1,
+    ...,
+    PKIXAlgs-2009.sa-dsaWithSHA224 | PKIXAlgs-2009.sa-dsaWithSHA256 | PKIXAlgs-2009.sa-ecdsaWithSHA224 |
+    PKIXAlgs-2009.sa-ecdsaWithSHA256 | PKIXAlgs-2009.sa-ecdsaWithSHA384 | PKIXAlgs-2009.sa-ecdsaWithSHA512 }
+
+-- DSA with SHA-1 whose parameters may be the DSA parameters (very old certificates) or NULL.
+
+otp-sa-dsaWithSHA1 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER dsa-with-sha1
+    VALUE DSA-Sig-Value
+    PARAMS TYPE OTP-DSA-Params-Or-NULL ARE absent
+    HASHES { mda-sha1 }
+    PUBLIC-KEYS { pk-dsa }
+    SMIME-CAPS { IDENTIFIED BY dsa-with-sha1 } }
+
+OTP-DSA-Params-Or-NULL ::= CHOICE {
+    present DSA-Params,
+    absent  NULL }
+
+-- Names whose country, domain component, e-mail address and common name attributes take values RFC 5280 does not.
+
+OTPName ::= CHOICE {
+    rdnSequence RDNSequence }
+
+RDNSequence ::= SEQUENCE OF OTPRelativeDistinguishedName
+
+OTPRelativeDistinguishedName ::= SET SIZE (1 .. MAX) OF SingleAttribute { {OTPSupportedAttributes} }
+
+OTPSupportedAttributes ATTRIBUTE ::= {
+    at-name | at-surname | at-givenName | at-initials | at-generationQualifier | otp-at-x520CommonName |
+    at-x520LocalityName | at-x520StateOrProvinceName | at-x520OrganizationName | at-x520OrganizationalUnitName |
+    at-x520Title | at-x520dnQualifier | otp-at-x520countryName | at-x520SerialNumber | at-x520Pseudonym |
+    otp-at-domainComponent | otp-at-emailAddress, ... }
+
+otp-at-x520countryName ATTRIBUTE ::= { TYPE OTP-X520countryName IDENTIFIED BY id-at-countryName }
+
+otp-at-domainComponent ATTRIBUTE ::= { TYPE OTP-DomainComponent IDENTIFIED BY id-domainComponent }
+
+otp-at-emailAddress ATTRIBUTE ::= { TYPE OTP-emailAddress IDENTIFIED BY id-emailAddress }
+
+otp-at-x520CommonName ATTRIBUTE ::= { TYPE OTP-X520CommonName IDENTIFIED BY id-at-commonName }
+
+-- A country code of two or three characters, also as a UTF8String.
+OTP-X520countryName ::= CHOICE {
+    correct PrintableString (SIZE (2..3)),
+    wrong   UTF8String (SIZE (2..3)) }
+
+-- A domain component as RFC 2247 has it (IA5String), or as a PrintableString.
+OTP-DomainComponent ::= CHOICE {
+    correct IA5String,
+    wrong   PrintableString }
+
+OTP-emailAddress ::= CHOICE {
+    correct IA5String (SIZE (1..ub-emailaddress-length)),
+    wrong   UTF8String }
+
+-- Common names of up to 255 characters (ub-common-name is 64).
+OTP-X520CommonName ::= DirectoryString {255}
+
+-- Names with UTF8String values, which public_key:short_name_hash/1 hashes.
+
+HashSingleAttribute ::= SEQUENCE {
+    type  OBJECT IDENTIFIER,
+    value UTF8String }
+
+HashRDNSequence ::= SEQUENCE OF HashRelativeDistinguishedName
+
+HashRelativeDistinguishedName ::= SET SIZE (1 .. MAX) OF HashSingleAttribute
+
+-- Certificate policies whose user notices may be longer than RFC 5280 allows.
+
+OTPCertificatePolicies ::= SEQUENCE SIZE (1..MAX) OF OTPPolicyInformation
+
+OTPPolicyInformation ::= SEQUENCE {
+    policyIdentifier CertPolicyId,
+    policyQualifiers SEQUENCE SIZE (1..MAX) OF OTPPolicyQualifierInfo OPTIONAL }
+
+CertPolicyId ::= OBJECT IDENTIFIER
+
+CERT-POLICY-QUALIFIER ::= TYPE-IDENTIFIER
+
+OTPPolicyQualifierInfo ::= SEQUENCE {
+    policyQualifierId CERT-POLICY-QUALIFIER.&id({PolicyQualifierId}),
+    qualifier         CERT-POLICY-QUALIFIER.&Type({PolicyQualifierId}{@policyQualifierId}) }
+
+PolicyQualifierId CERT-POLICY-QUALIFIER ::= { pqid-cps | pqid-unotice, ... }
+
+pqid-cps CERT-POLICY-QUALIFIER ::= { CPSuri IDENTIFIED BY id-qt-cps }
+
+pqid-unotice CERT-POLICY-QUALIFIER ::= { OTPUserNotice IDENTIFIED BY id-qt-unotice }
+
+CPSuri ::= IA5String
+
+OTPUserNotice ::= SEQUENCE {
+    noticeRef    NoticeReference OPTIONAL,
+    explicitText OTPDisplayText OPTIONAL }
+
+OTPDisplayText ::= CHOICE {
+    ia5String     IA5String (SIZE (1..650)),
+    visibleString VisibleString (SIZE (1..650)),
+    bmpString     BMPString (SIZE (1..650)),
+    utf8String    UTF8String (SIZE (1..650)) }
+
+-- Extensions with their values undecoded.
+
+Extensions ::= SEQUENCE SIZE (1..MAX) OF OTPExtension
+
+OTPExtension ::= SEQUENCE {
+    extnID    OBJECT IDENTIFIER,
+    critical  BOOLEAN DEFAULT FALSE,
+    extnValue OCTET STRING }
+
+END

@@ -36,6 +36,10 @@ std::filesystem::path library_directory() {
     return (compiler_directory() / project::native_path(CLAUSE_DEFAULT_LIBRARY)).lexically_normal();
 }
 
+std::filesystem::path generated_library_directory() {
+    return (compiler_directory() / project::native_path(CLAUSE_GENERATED_LIBRARY)).lexically_normal();
+}
+
 namespace {
 // Classify a member as a native object; bitcode, import and other members are skipped.
 std::optional<ObjectKind> member_kind(const llvm::object::Archive::Child &child) {

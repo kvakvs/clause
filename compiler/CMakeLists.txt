@@ -169,4 +169,26 @@ target_compile_definitions(clause_linking PRIVATE "CLAUSE_DEFAULT_RUNTIME=\"${de
 # Library modules (lists, maps) compile from source with the programs that call them.
 set(default_library "$<PATH:RELATIVE_PATH,${PROJECT_SOURCE_DIR}/library,$<TARGET_FILE_DIR:clau>>")
 target_compile_definitions(clause_linking PRIVATE "CLAUSE_DEFAULT_LIBRARY=\"${default_library}\"")
+# Added for public_key (plan 21 step LIB80B): the modules clau generates from the library's ASN.1 specifications are a
+# second library root in this build tree, one directory per application (docs/libraries/public_key.md).
+set(generated_library "${CMAKE_BINARY_DIR}/library-asn1")
+set(generated_library_path "$<PATH:RELATIVE_PATH,${generated_library},$<TARGET_FILE_DIR:clau>>")
+target_compile_definitions(clause_linking PRIVATE "CLAUSE_GENERATED_LIBRARY=\"${generated_library_path}\"")
+set(public_key_asn1 "${PROJECT_SOURCE_DIR}/library/public_key/asn1")
+file(GLOB public_key_specs CONFIGURE_DEPENDS "${public_key_asn1}/*.asn1")
+# The modules a set file merges are compiled only through it, as OTP compiles PKCS-FRAME.
+file(STRINGS "${public_key_asn1}/PKCS-FRAME.set.asn" public_key_set_members)
+foreach(member IN LISTS public_key_set_members)
+    list(REMOVE_ITEM public_key_specs "${public_key_asn1}/${member}")
+endforeach()
+set(public_key_stamp "${generated_library}/public_key/generated.stamp")
+add_custom_command(OUTPUT "${public_key_stamp}"
+    COMMAND clau --generate-asn1 --asn1-option ber --asn1-option der --asn1-option noobj
+        --asn1-outdir "${generated_library}/public_key" ${public_key_specs} "${public_key_asn1}/PKCS-FRAME.set.asn"
+    COMMAND "${CMAKE_COMMAND}" -E touch "${public_key_stamp}"
+    DEPENDS clau ${public_key_specs} "${public_key_asn1}/PKCS-FRAME.set.asn"
+    WORKING_DIRECTORY "${public_key_asn1}"
+    COMMENT "Generating public_key's ASN.1 modules"
+    VERBATIM)
+add_custom_target(clause_library_asn1 ALL DEPENDS "${public_key_stamp}")
 target_link_libraries(clau PRIVATE clause_linking)

@@ -47,3 +47,4 @@ Clause's own OTP applications under `library/`, in [libraries/](libraries/).
 | Library modules under `library/{erts,kernel,stdlib}` compiled with programs, how programs get them, provided and missing modules | [library.md](libraries/library.md) |
 | Console output: `io:format`, `io:put_chars`, devices, format controls, `~p` layout | [io.md](libraries/io.md) |
 | Crypto: OpenSSL versions and sources, building it, linking, FIPS mode and pinned FIPS programs | [crypto.md](libraries/crypto.md) |
+| public_key: ASN.1 specifications and their sources, generated modules, `public_key.hrl` | [public_key.md](libraries/public_key.md) |

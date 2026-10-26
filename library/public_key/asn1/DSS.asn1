@@ -1,0 +1,16 @@
+-- DSS: the DSA private key as OpenSSL writes it (version, p, q, g, y, x), which public_key decodes as 'DSAPrivateKey'
+-- (plan 21 step LIB80B). Written for Clause.
+
+DSS DEFINITIONS EXPLICIT TAGS ::=
+
+BEGIN
+
+DSAPrivateKey ::= SEQUENCE {
+    version INTEGER,
+    p       INTEGER,
+    q       INTEGER,
+    g       INTEGER,
+    y       INTEGER,
+    x       INTEGER }
+
+END

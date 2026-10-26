@@ -19,7 +19,7 @@ struct LibraryModules {
 };
 
 // The library below `root`; without a readable modules.terms no name is reserved.
-LibraryModules load_library(const std::filesystem::path &root);
+LibraryModules load_library(const std::filesystem::path &root, const std::filesystem::path &generated);
 // The library source of module `name`; empty when Clause provides none.
 std::filesystem::path library_source(const LibraryModules &library, const std::string &name);
 } // namespace clause::cli

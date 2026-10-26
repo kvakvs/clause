@@ -53,9 +53,10 @@ PreprocessorOptions preprocessing_options(const FrontendRequest &request, cache:
     // The library's applications answer include_lib after the request's own (`kernel/include/logger.hrl`). Added
     // for plan 21 step LIB23.
     const auto library = linking::library_directory();
-    options.applications.insert(
-        options.applications.begin(),
-        {{"erts", library / "erts"}, {"kernel", library / "kernel"}, {"stdlib", library / "stdlib"}});
+    options.applications.insert(options.applications.begin(), {{"erts", library / "erts"},
+                                                               {"kernel", library / "kernel"},
+                                                               {"stdlib", library / "stdlib"},
+                                                               {"public_key", library / "public_key"}});
     options.include_read = [&fingerprint](const std::filesystem::path &path, const std::string_view bytes) {
         fingerprint.add(project::path_text(path)).add(cache::hash_text(bytes));
     };
@@ -668,7 +669,8 @@ bool process_files(const std::span<const std::filesystem::path> paths, const Fro
     }
     Discovery discovery;
     if (request.compile && !failed) {
-        discovery.library = load_library(linking::library_directory()); // Added for runtime module replacements.
+        // Added for runtime module replacements.
+        discovery.library = load_library(linking::library_directory(), linking::generated_library_directory());
         warn_replaced(inputs, discovery.library, request, sink);
         failed = add_referenced(request, sink, inputs, discovery);
     }

@@ -1,0 +1,217 @@
+-- PKCS5v2-0: the ASN.1 module of RFC 8018, compiled by clau for Clause's public_key (plan 21 step LIB80B).
+--
+-- Copyright (c) 2017 IETF Trust and the persons identified as the document authors.  All rights reserved.
+--
+-- Redistribution and use in source and binary forms, with or without modification, are permitted provided
+-- that the following conditions are met:
+--
+-- - Redistributions of source code must retain the above copyright notice, this list of conditions and the
+--   following disclaimer.
+-- - Redistributions in binary form must reproduce the above copyright notice, this list of conditions and
+--   the following disclaimer in the documentation and/or other materials provided with the distribution.
+-- - Neither the name of Internet Society, IETF or IETF Trust, nor the names of specific contributors, may be
+--   used to endorse or promote products derived from this software without specific prior written
+--   permission.
+--
+-- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+-- WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+-- PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY
+-- DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+-- PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+-- HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+-- NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+-- POSSIBILITY OF SUCH DAMAGE.
+--
+-- Changed from the RFC, as OTP's public_key has it:
+-- - the module is PKCS #5 v2.0's: PKCS5v2-0, with v2.0's algorithm sets.
+-- - TYPE-IDENTIFIER used directly.
+
+PKCS5v2-0 {
+   iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-5(5)
+   modules(16) pkcs5v2-0(1)
+}
+
+DEFINITIONS ::=
+
+BEGIN
+
+-- ========================
+-- Basic object identifiers
+-- ========================
+
+rsadsi OBJECT IDENTIFIER ::= {iso(1) member-body(2) us(840) 113549}
+pkcs   OBJECT IDENTIFIER ::= {rsadsi 1}
+pkcs-5 OBJECT IDENTIFIER ::= {pkcs 5}
+
+-- =======================
+-- Basic types and classes
+-- =======================
+
+AlgorithmIdentifier { TYPE-IDENTIFIER:InfoObjectSet } ::=
+  SEQUENCE {
+    algorithm TYPE-IDENTIFIER.&id({InfoObjectSet}),
+    parameters TYPE-IDENTIFIER.&Type({InfoObjectSet}
+    {@algorithm}) OPTIONAL
+}
+
+-- ======
+-- PBKDF2
+-- ======
+
+
+
+
+
+
+
+id-PBKDF2 OBJECT IDENTIFIER ::= {pkcs-5 12}
+
+PBKDF2-params ::= SEQUENCE {
+    salt CHOICE {
+      specified OCTET STRING,
+      otherSource AlgorithmIdentifier {{PBKDF2-SaltSources}}
+    },
+    iterationCount INTEGER (1..MAX),
+    keyLength INTEGER (1..MAX) OPTIONAL,
+    prf AlgorithmIdentifier {{PBKDF2-PRFs}} DEFAULT
+    {algorithm id-hmacWithSHA1, parameters NULL : NULL}
+}
+
+PBKDF2-SaltSources TYPE-IDENTIFIER ::= { ... }
+
+PBKDF2-PRFs TYPE-IDENTIFIER ::= {
+  {NULL IDENTIFIED BY id-hmacWithSHA1},
+  ...
+}
+
+-- =====
+-- PBES1
+-- =====
+
+PBES1Algorithms TYPE-IDENTIFIER ::= {
+   {PBEParameter IDENTIFIED BY pbeWithMD2AndDES-CBC}  |
+   {PBEParameter IDENTIFIED BY pbeWithMD2AndRC2-CBC}  |
+   {PBEParameter IDENTIFIED BY pbeWithMD5AndDES-CBC}  |
+   {PBEParameter IDENTIFIED BY pbeWithMD5AndRC2-CBC}  |
+   {PBEParameter IDENTIFIED BY pbeWithSHA1AndDES-CBC} |
+   {PBEParameter IDENTIFIED BY pbeWithSHA1AndRC2-CBC},
+   ...
+}
+
+
+
+
+
+
+
+
+pbeWithMD2AndDES-CBC OBJECT IDENTIFIER ::= {pkcs-5 1}
+pbeWithMD2AndRC2-CBC OBJECT IDENTIFIER ::= {pkcs-5 4}
+pbeWithMD5AndDES-CBC OBJECT IDENTIFIER ::= {pkcs-5 3}
+pbeWithMD5AndRC2-CBC OBJECT IDENTIFIER ::= {pkcs-5 6}
+pbeWithSHA1AndDES-CBC OBJECT IDENTIFIER ::= {pkcs-5 10}
+pbeWithSHA1AndRC2-CBC OBJECT IDENTIFIER ::= {pkcs-5 11}
+
+PBEParameter ::= SEQUENCE {
+    salt OCTET STRING (SIZE(8)),
+    iterationCount INTEGER
+}
+
+-- =====
+-- PBES2
+-- =====
+
+PBES2Algorithms TYPE-IDENTIFIER ::= {
+   {PBES2-params IDENTIFIED BY id-PBES2},
+   ...
+}
+
+id-PBES2 OBJECT IDENTIFIER ::= {pkcs-5 13}
+
+PBES2-params ::= SEQUENCE {
+   keyDerivationFunc AlgorithmIdentifier {{PBES2-KDFs}},
+   encryptionScheme AlgorithmIdentifier {{PBES2-Encs}}
+}
+
+PBES2-KDFs TYPE-IDENTIFIER ::= {
+   {PBKDF2-params IDENTIFIED BY id-PBKDF2},
+   ...
+}
+
+PBES2-Encs TYPE-IDENTIFIER ::= { ... }
+
+-- ======
+-- PBMAC1
+-- ======
+
+PBMAC1Algorithms TYPE-IDENTIFIER ::= {
+   {PBMAC1-params IDENTIFIED BY id-PBMAC1},
+   ...
+}
+
+id-PBMAC1 OBJECT IDENTIFIER ::= {pkcs-5 14}
+
+PBMAC1-params ::=  SEQUENCE {
+    keyDerivationFunc AlgorithmIdentifier {{PBMAC1-KDFs}},
+
+
+
+
+
+
+
+    messageAuthScheme AlgorithmIdentifier {{PBMAC1-MACs}}
+}
+
+PBMAC1-KDFs TYPE-IDENTIFIER ::= {
+   {PBKDF2-params IDENTIFIED BY id-PBKDF2},
+   ...
+}
+
+PBMAC1-MACs TYPE-IDENTIFIER ::= { ... }
+
+-- =====================
+-- Supporting techniques
+-- =====================
+
+digestAlgorithm OBJECT IDENTIFIER     ::= {rsadsi 2}
+encryptionAlgorithm OBJECT IDENTIFIER ::= {rsadsi 3}
+
+SupportingAlgorithms TYPE-IDENTIFIER ::= {
+   {NULL IDENTIFIED BY id-hmacWithSHA1}                   |
+   {OCTET STRING (SIZE(8)) IDENTIFIED BY desCBC}          |
+   {OCTET STRING (SIZE(8)) IDENTIFIED BY des-EDE3-CBC}    |
+   {RC2-CBC-Parameter IDENTIFIED BY rc2CBC}               |
+   {RC5-CBC-Parameters IDENTIFIED BY rc5-CBC-PAD},
+  ...
+}
+
+id-hmacWithSHA1 OBJECT IDENTIFIER ::= {digestAlgorithm 7}
+desCBC OBJECT IDENTIFIER ::= {iso(1) identified-organization(3) oiw(14) secsig(3) algorithms(2) 7}
+
+des-EDE3-CBC OBJECT IDENTIFIER ::= {encryptionAlgorithm 7}
+
+rc2CBC OBJECT IDENTIFIER ::= {encryptionAlgorithm 2}
+
+RC2-CBC-Parameter ::= SEQUENCE {
+   rc2ParameterVersion INTEGER OPTIONAL,
+   iv OCTET STRING (SIZE(8))
+}
+
+
+
+
+
+
+
+
+rc5-CBC-PAD OBJECT IDENTIFIER ::= {encryptionAlgorithm 9}
+
+RC5-CBC-Parameters ::= SEQUENCE {
+   version INTEGER {v1-0(16)},
+   rounds INTEGER (8..127),
+   blockSizeInBits INTEGER (64 | 128),
+   iv OCTET STRING OPTIONAL
+}
+
+END

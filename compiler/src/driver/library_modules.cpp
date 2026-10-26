@@ -3,6 +3,7 @@
 #include "../project/paths.hpp"
 #include <algorithm>
 #include <fstream>
+#include <iterator>
 #include <optional>
 #include <string_view>
 
@@ -31,15 +32,26 @@ std::optional<std::string> provided_entry(std::string_view line) {
 }
 } // namespace
 
-LibraryModules load_library(const std::filesystem::path &root) {
-    LibraryModules library;
+namespace {
+// The application directories of a library root, sorted.
+std::vector<std::filesystem::path> application_directories(const std::filesystem::path &root) {
+    std::vector<std::filesystem::path> directories;
     std::error_code error;
     for (const auto &item : std::filesystem::directory_iterator(root, error)) {
         if (item.is_directory(error)) {
-            library.directories_.push_back(item.path());
+            directories.push_back(item.path());
         }
     }
-    std::ranges::sort(library.directories_);
+    std::ranges::sort(directories);
+    return directories;
+}
+} // namespace
+
+LibraryModules load_library(const std::filesystem::path &root, const std::filesystem::path &generated) {
+    LibraryModules library;
+    library.directories_ = application_directories(root);
+    // Added for public_key: the generated modules come after the library's sources.
+    std::ranges::copy(application_directories(generated), std::back_inserter(library.directories_));
     std::ifstream terms(root / "modules.terms");
     for (std::string line; std::getline(terms, line);) {
         if (line.ends_with('\r')) {
