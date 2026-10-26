@@ -80,11 +80,15 @@ are archived in `.agents/00-finished.md`.
 - Before a clean commit, run `cmake --build build/debug --target check-quality` in a freshly
   configured build with both compiler and runtime enabled. Both Lizard and clang-tidy must pass; do
   not bypass findings with threshold increases or suppressions merely to pass the gate.
-- Keep all code clang-formatted (Use either makefile target 'format' or invoke clang-format)
-- Before commit: All .ERL and terms files must be formatted. Install local copy of
-  [erlfmt](https://github.com/WhatsApp/erlfmt) under 'thirdparty/tools/', if missing it should be
-  installed. Always run erlfmt on new and modified .ERL and terms files which did not have a syntax
-  error in them planted intentionally.
+  - Minimize count of files impacted by full rechecking to only modified files and direct includes.
+  - Run full clang-tidy/Lizard less frequently, once every 20 commits or once per implemented plan
+    phase whichever comes first.
+- Before commit
+  - Keep all code clang-formatted (Use either makefile target 'format' or invoke clang-format)
+  - All .ERL and terms files must be formatted. Install local copy of
+    [erlfmt](https://github.com/WhatsApp/erlfmt) under 'thirdparty/tools/', if missing it should be
+    installed. Always run erlfmt on new and modified .ERL and terms files which did not have a
+    syntax error in them planted intentionally.
 - IMPORTANT: Do not add "co-authored by" in commit messages.
 
 ## Windows Toolchain
@@ -134,20 +138,20 @@ printed by `vcvars64.bat` is harmless.
   git, if necessary, save observations/oracle data/gold master data in Clause git, but not the
   license-protected files.
 - CPU budget: builds, clang-tidy and test runs together use at most 3/4 of the logical cores (24 of
-  32 here), leaving 1/4 (the E-cores are enough) so that the machine stays responsive. Run heavy jobs
-  one after another, never several at once (a build, quality gate or test suite each alone). Count
-  threads, not tests: `ctest -j N` limits tests, but each test may run `clau` (one worker per
+  32 here), leaving 1/4 (the E-cores are enough) so that the machine stays responsive. Run heavy
+  jobs one after another, never several at once (a build, quality gate or test suite each alone).
+  Count threads, not tests: `ctest -j N` limits tests, but each test may run `clau` (one worker per
   hardware thread without `--jobs`), linkers and nested builds, so choose `-j` so that their threads
   fit the budget, and start the run at below-normal priority. A test that times out in a loaded run
   means the run exceeded the budget: rerun it alone before treating it as a failure.
-- Keep test disk writes low. Test programs (main-build test executables
-  and the nested CMake consumers under `build/*/tests`) are rebuilt by test runs and are built
-  without debug information: no PDB files unless `-DCLAUSE_TEST_DEBUG_INFO=ON`. A PDB only helps to
-  debug a crash, so when a test program crashes, reconfigure with that option, rebuild and rerun the
-  test to get one, then switch it back off. `clau`, compiler and runtime libraries keep their debug
-  information. `clau` and the compiler libraries are optimized even in Debug
-  (`CLAUSE_OPTIMIZED_COMPILER=ON`); when `clau` crashes, reconfigure with
-  `-DCLAUSE_OPTIMIZED_COMPILER=OFF` to investigate, then switch it back on.
+- Keep test disk writes low. Test programs (main-build test executables and the nested CMake
+  consumers under `build/*/tests`) are rebuilt by test runs and are built without debug information:
+  no PDB files unless `-DCLAUSE_TEST_DEBUG_INFO=ON`. A PDB only helps to debug a crash, so when a
+  test program crashes, reconfigure with that option, rebuild and rerun the test to get one, then
+  switch it back off. `clau`, compiler and runtime libraries keep their debug information. `clau`
+  and the compiler libraries are optimized even in Debug (`CLAUSE_OPTIMIZED_COMPILER=ON`); when
+  `clau` crashes, reconfigure with `-DCLAUSE_OPTIMIZED_COMPILER=OFF` to investigate, then switch it
+  back on.
 - Nested test consumers link the runtime the parent build already compiled:
   `include("${RUNTIME_TARGETS}")` (passed by `TestHost.cmake` through `host_configure_args`)
   provides `Clause::generated_program` and `Clause::abi`. Never `add_subdirectory` the repository
