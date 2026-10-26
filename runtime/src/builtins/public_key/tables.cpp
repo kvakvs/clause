@@ -95,6 +95,29 @@ Term name_oid(ProcessContext &context, const Named<TableRole> &table, const Name
     return builder.atom("undefined");
 }
 
+// Added for public_key's otp form (plan 21 step LIB80E2): the extensions whose values are of another type
+// (HoldInstructionCode's OBJECT IDENTIFIER and InvalidityDate's GeneralizedTime take one of the same definition).
+Term extension_type(ProcessContext &context, const Named<KeyRole> &name) {
+    static constexpr std::array<std::array<std::string_view, 3>, 9> RENAMED{{
+        {"SubjectKeyIdentifier", "PKIX1Implicit-2009", "KeyIdentifier"},
+        {"SubjectAltName", "PKIX1Implicit-2009", "GeneralNames"},
+        {"IssuerAltName", "PKIX1Implicit-2009", "GeneralNames"},
+        {"CertificateIssuer", "PKIX1Implicit-2009", "GeneralNames"},
+        {"InhibitAnyPolicy", "PKIX1Implicit-2009", "SkipCerts"},
+        {"FreshestCRL", "PKIX1Implicit-2009", "CRLDistributionPoints"},
+        {"BaseCRLNumber", "PKIX1Implicit-2009", "CRLNumber"},
+        {"HoldInstructionCode", "PKIX1Implicit-2009", "KeyPurposeId"},
+        {"InvalidityDate", "OCSP-2024-08", "ArchiveCutoff"},
+    }};
+    asn1::Builder builder(context);
+    for (const auto &[extension, module, type] : RENAMED) {
+        if (name.term.is_atom() && name.term.atom_spelling_unchecked() == extension) {
+            return builder.tuple({builder.atom(module), builder.atom(type)});
+        }
+    }
+    return builder.tuple({builder.atom("PKIX1Implicit-2009"), name.term});
+}
+
 Term asn1_module(ProcessContext &context, const Named<KeyRole> &type) {
     asn1::Builder builder(context);
     for (const auto &row : TYPE_MODULES) {

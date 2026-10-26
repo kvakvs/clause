@@ -195,9 +195,12 @@ records, goldens from OTP, own headers written from the documented records and m
       - E1 done: PEM text (`pem_decode/1` lines, labels, `DEK-Info`, base64; `pem_encode/1` lines) and
         PBE tables (ciphers, block sizes, key lengths, PRF digests, PBES1/PBES2 OIDs); Erlang maps
         `ENCRYPTED PRIVATE KEY` entries through `der_decode`/`der_encode`.
-      - E2: the `der_decode`/`der_encode` dispatch as a C++ route table (module, ASN.1 type,
-        translation), the otp form walks of `pubkey_cert_records` (names, signature algorithms,
-        name constraints, distribution points, policies), extension types.
+      - E2 done: the otp form walks of `pubkey_cert_records` below certificates (names,
+        signature algorithms, name constraints, distribution points, access descriptions), extension
+        types; the `der_decode`/`der_encode` dispatch stays Erlang (its clauses are guards around
+        static calls into generated modules), as do certificates' keys and extensions and the
+        long notice fallback (`string:slice/3`). Fixed: a table constraint exit is raised as the
+        extension decoder raises it, so long visibleString notices fall back to OTP-PKIX.
       - E3: `clause_public_key_cert` name normalisation, comparison and `match_name` rules,
         wildcard and IP matching.
       - E4: the policy tree of `clause_public_key_path` (OTP's `pubkey_policy_tree`) and the pure

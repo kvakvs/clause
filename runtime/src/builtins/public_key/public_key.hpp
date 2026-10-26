@@ -39,4 +39,9 @@ Term pbes2_cipher(ProcessContext &context, const Named<KeyRole> &oid);
 Term pbes1(ProcessContext &context, const Named<KeyRole> &oid);
 Term pbes1_oid(ProcessContext &context, const Named<KeyRole> &cipher, const Named<ValueRole> &digest);
 Term prf_digest(ProcessContext &context, const Named<KeyRole> &oid);
+
+// Added for public_key's otp form (plan 21 step LIB80E2): otp_transform(decode | encode, Term) is
+// pubkey_cert_records:transform/2 below certificates; extension_type(Name) the {Module, Type} of an extension's value.
+Term otp_transform(ProcessContext &context, const Named<DirectionRole> &direction, const Named<ValueRole> &value);
+Term extension_type(ProcessContext &context, const Named<KeyRole> &name);
 } // namespace clause::runtime::builtins::public_key

@@ -955,6 +955,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   labels, DEK-Info, base64 lines and errors; decoding stops after an encrypted PKCS #8 entry for Erlang's
   der_decode), `pubkey_pbe`'s cipher/scheme/PBES1/PRF tables; base64 encode/mime_decode exported to builtins;
   goldens and a scratch edge-case oracle (DEK-Info tokens, signed hex, missing END, ~s ciphers) identical to OTP — `c63ce619`
+- **LIB80E2** public_key otp form walk in C++: `otp_transform` builtin (`pubkey_cert_records:transform/2` below
+  certificates), `extension_type` table; dispatch stays Erlang; fixed the long user notice fallback (table constraint
+  exits raised raw); OTP's public_key_SUITE/pbe/PKITS PEMs and certificates identical to OTP (scratch corpus oracle),
+  `public_key_codec` golden gains a visibleString notice — `TBD`
 
 ## Plan 22 (from 2026-10-23)
 

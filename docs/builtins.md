@@ -836,6 +836,13 @@ Erlang clause dispatch, so programs that call it compile no extra code.
 - `pbe_cipher(Name)`, `pbes2_cipher(Oid)`, `pbes1(Oid)`, `pbes1_oid(Name, Digest)` and `prf_digest(Oid)` (`pbe.cpp`)
   are `pubkey_pbe`'s tables: a PEM cipher's crypto cipher, block size and key length, PBES2 schemes, PBES1
   algorithms and PBKDF2 digests; `function_clause` for anything else.
+- `otp_transform(decode | encode, Term)` (`otp.cpp`, plan 21 step LIB80E2) is `pubkey_cert_records:transform/2`
+  below the certificate records: attribute values unwrapped from their string choice (country, domain component,
+  e-mail address) or wrapped in `{correct, V}`, signature algorithm records, DSA parameters, key identifiers,
+  directory names and RDN sequences (`lists:map/2`'s `function_clause` for an improper one), name constraint
+  subtrees, distribution points and access descriptions. `OTPCertificate` and `OTPTBSCertificate` stay with
+  `clause_public_key_codec`, which decodes their public keys and extensions through the generated modules.
+- `extension_type(Name)` (`tables.cpp`) is the `{Module, Type}` of an extension's value.
 - `os_cacerts()` (`os_cacerts.cpp`, plan 21 step LIB80D6) reads the current user's Windows `ROOT` store through
   crypt32 as OTP's `pubkey_os_cacerts` NIF does: `[{Encoding, Der}]` in the NIF's order, `internal_error` when the
   store does not open, `[]` on other systems, where `clause_public_key_cacerts` reads files.

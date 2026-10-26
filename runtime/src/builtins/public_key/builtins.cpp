@@ -17,6 +17,8 @@ constexpr std::array PUBLIC_KEY_BUILTINS{
     typed_entry<pbes1>("clause_public_key", "pbes1"),
     typed_entry<pbes1_oid>("clause_public_key", "pbes1_oid"),
     typed_entry<prf_digest>("clause_public_key", "prf_digest"),
+    typed_entry<otp_transform>("clause_public_key", "otp_transform"),
+    typed_entry<extension_type>("clause_public_key", "extension_type"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::public_key
