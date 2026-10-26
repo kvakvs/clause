@@ -82,6 +82,14 @@ Complete for the selected scope; the plan steps hold criteria and evidence.
 
 - **F20 — Erlang exceptions** (11–15; delivered: raise classes, `catch`, `try`/`of`/`catch`/`after`,
   stack traces, `raise/3`): [ ] nested handling and cleanup across module and builtin calls.
+- **F37 — Erlang debug info in stack traces and crash reports** (late, unscheduled; added
+  2026-10-26): [ ] per module, interned source file name strings and a line table per call site
+  (kept beside the frame descriptors, optional so executables can drop them) so frames carry
+  `[{file, F}, {line, L}]`; [ ] `error_info` from `error/3` options and failing BIFs/operators
+  (with their frames); [ ] crash reports, `proc_lib` reports and the uncaught exception line
+  formatted through `erl_error` with locations, extended error text and the stack. Replaces the
+  `differences.md` rows on stack trace locations, BIF frames, uncaught exceptions and crash report
+  details ([ABI](../docs/abi.md#stack-traces)).
 
 ### Optimization
 
