@@ -1,0 +1,4 @@
+-- A type assignment without ::=.
+Syntax DEFINITIONS ::= BEGIN
+  T INTEGER
+END

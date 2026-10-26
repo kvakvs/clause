@@ -24,14 +24,15 @@ def reference():
     return {'branch': branch, 'revision': re.search(r'REFERENCE_REVISION "([0-9a-f]{40})"', text).group(1)}
 
 
-def observe(escript, staged, entry, run, work):
+def observe(escript, staged, entry, run, work, asn1_options=()):
     """Runs the entry with one run's argv and standard input under OTP; returns the completed process and the oracle
-    version."""
+    version. ASN.1 specifications beside the sources compile with asn1ct and `asn1_options` first."""
     args = run['args']
     version = work / 'version.txt'
     version.unlink(missing_ok=True)
     # NO_COLOR is dropped as run.py drops it: io_ansi's colors must not depend on the caller's shell.
     environment = {k: v for k, v in os.environ.items() if k.upper() != 'NO_COLOR'} | {'CLAUSE_TEST_PYTHON': sys.executable}
+    environment['CLAUSE_ASN1_OPTIONS'] = ','.join(asn1_options)
     result = subprocess.run([escript, str(ORACLE), str(version), str(staged), entry, *args],
                             cwd=staged, capture_output=True, timeout=300, check=False,
                             input=run.get('stdin', '').encode(), env=environment)
@@ -79,11 +80,12 @@ def regenerate(escript, case_dir, work):
             # Clause-only behavior, or another operating system's, OTP here cannot show: kept as written.
             runs.append(run)
             continue
-        result, version = observe(escript, staged, golden['entry'], run, work)
+        result, version = observe(escript, staged, golden['entry'], run, work, golden.get('asn1_options', []))
         runs.append(generated_run(case_dir.name, run, result, golden))
     # Authored top-level fields: listed sources, the scheduler counts every run repeats with, extra compiler options
     # and output masks.
-    listed = {key: golden[key] for key in ('sources', 'data', 'workers', 'options', 'stdout_masks') if key in golden}
+    listed = {key: golden[key] for key in ('sources', 'data', 'workers', 'options', 'stdout_masks', 'asn1_options')
+              if key in golden}
     return golden, {'schema': 1, 'entry': golden['entry'], **listed, 'runs': runs, 'oracle_version': version,
                     'reference': reference(), 'inputs': cases.inputs(case_dir, golden)}
 

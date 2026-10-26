@@ -156,12 +156,14 @@ records, goldens from OTP, own headers written from the documented records and m
     `PKCS-FRAME`/`OTP-PUB-KEY` sets) written by us from the documented records. A golden observed
     once from host OTP (record names, field order, defaults; type names) proves the generated
     `.hrl` match OTP's.
-  - **Build-time generation:** a small tool runs the compiler during the Clause build (also in the
-    LLVM-free runtime-only build) and emits constant type tables and the headers; nothing generated
-    is checked in.
-  - **Codec:** one generic C++ BER/DER engine interpreting the tables, linked into
-    `clause_runtime_crypto` (public_key depends on crypto; no new archive). Decode leniency and
-    `{error, {asn1, Reason}}` terms exactly as OTP's, proved by an error-case golden.
+  - **Generation (changed 2026-10-26, LIB80A):** clau compiles specifications as asn1ct does
+    (`Module.erl` + `Module.hrl`, `docs/asn1.md`); the generated modules call
+    `clause_asn1:encode/decode/3` with a literal schema term. `public_key`'s specs compile the same
+    way when its modules join a batch; nothing generated is checked in.
+  - **Codec:** one generic C++ BER/DER engine interpreting the schema, in core `clause_runtime`
+    (`builtins/asn1/`; project specs need it without OpenSSL). Decode leniency and
+    `{error, {asn1, Reason}}` terms exactly as OTP's (Kitchen fixtures; all public_key_SUITE PEMs,
+    PKITS CRLs and certificates decode and re-encode as OTP's).
   - **Split:** C++ for data (codec, PEM incl. PBE decryption, `pubkey_translation`'s work, name
     normalization, hostname match, issuer/subject ids, dist points, hash types); Erlang glue over
     `crypto` for sign/verify/encrypt/`generate_key`/`compute_key`; Erlang for path validation, CRL
@@ -171,14 +173,14 @@ records, goldens from OTP, own headers written from the documented records and m
     differs).
   - **Steps** (`public_key` enters `library/` at LIB80D; earlier steps keep `not_implemented`
     placeholders, as `crypto` did):
-    - LIB80A: ASN.1 compiler, BER/DER engine, generated headers, build tool; record golden.
-      - Docs: create `docs/libraries/public_key.md` (spec sources and their notices, the ASN.1
-        compiler's coverage and diagnostics, build-time generation, codec placement in
-        `clause_runtime_crypto`); add it to `docs/README.md`'s Libraries table.
-    - LIB80B: `der_decode/2`, `der_encode/2`, `pem_*`, `pkix_decode_cert/2`, `pkix_encode/3`,
-      `OTPCertificate` translation; codec golden with error cases.
-      - Docs: `public_key.md` gains decoding and encoding (types accepted, `plain`/`otp` forms, PEM
-        entries and encrypted PEM, error terms); `builtins.md` section for the codec builtins.
+    - LIB80B: specs in `library/public_key/asn1/` (RFC modules with notices, own `OTP-PKIX`,
+      `OTP-PKIX-Relaxed`, `PKCS-FRAME`/`OTP-PUB-KEY` sets), hand-written `public_key.hrl` (OTP 29's
+      is not generated) checked by a record golden; `der_decode/2`, `der_encode/2`, `pem_*`,
+      `pkix_decode_cert/2`, `pkix_encode/3`, `OTPCertificate` translation; codec golden with error
+      cases. `asn1config` exclusive decode if `pkix_decode_cert` needs it.
+      - Docs: create `docs/libraries/public_key.md` (spec sources and their notices, decoding and
+        encoding: types accepted, `plain`/`otp` forms, PEM entries and encrypted PEM, error terms);
+        add it to `docs/README.md`'s Libraries table.
     - LIB80C: keys and crypto: `sign`, `verify`, `encrypt_*`/`decrypt_*`, `generate_key/1`,
       `compute_key/2,3`, `dh_gex_group/4`, `pkix_sign/2`, `pkix_verify/2`, `pkix_sign_types/1`,
       `pkix_hash_type/1`, `short_name_hash/1`.
@@ -190,12 +192,12 @@ records, goldens from OTP, own headers written from the documented records and m
       - Docs: `public_key.md` gains validation (path, CRL, OCSP, hostname) and trust stores per
         platform; `library.md` row for the `public_key` application; `differences.md` rows (macOS
         trust store, any others found).
-- **LIB84 (optional, on request) project `.asn` sources:** clau compiles a project's `.asn` files
-  with the LIB80 compiler as `asn1ct` would (`Mod:encode/decode`, `.hrl`, options `ber`, `per`,
-  `noobj`, `no_ok_wrapper`), tables emitted as LLVM constants; adds the PER engine. emqx has 7
-  (`DurableSession`, `DSBuiltinMetadata`, `MessageQueue`, ...); until then they need host `asn1ct`.
-  - Docs: the ASN.1 compiler part of `public_key.md` moves to its own `docs/asn1.md` (project
-    sources, options, PER); `projects.md` and `compile.md` link it.
+- **LIB84 project `.asn` sources:** BER/DER part done with LIB80A (positional inputs,
+  `[[targets.asn1]]`, asn1ct options, `docs/asn1.md`). Remaining: the PER/UPER engine (`per` and
+  `uper` are rejected today; aligned and unaligned, OTP's `asn1rtt_per`/`uper` quirks, golden
+  from asn1ct), and emqx's 7 specs (`DurableSession`, `DSBuiltinMetadata`, `MessageQueue`, ...;
+  they use `per`) as `[[targets.asn1]]` groups in `test-emqx.toml`.
+  - Docs: `asn1.md` gains PER/UPER; `differences.md` rows for any difference found.
 - **LIB81 `ssl` (design first, after LIB80; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
   `ssl_crl_cache_api`, `ssl_session_cache_api`):** OTP implements TLS 1.0–1.3 and DTLS in Erlang
   (`gen_statem` per connection, `ssl_app` supervision tree, PEM and session caches). Decide between
@@ -226,7 +228,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 1. The declined modules' answer stubs.
 2. LIB77 after a design decision; LIB78 only on request.
-3. LIB80A–D, then LIB81 after its design decision; LIB84 only on request.
+3. LIB80B–D and LIB84's PER (requested 2026-10-26), then LIB81 after its design decision.
 4. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)

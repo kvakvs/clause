@@ -10,6 +10,7 @@ and limits that exist today; plans and step history live in `.agents/`.
 | Parsing, AST ownership, syntax limits | [parser.md](parser.md) |
 | TOML projects, target selection, build directory and caches, ignored sources | [projects.md](projects.md) |
 | Compiler CLI, artifacts, source and abstract format printing, compile cache, LLVM SDK, PCRE2 and zlib, example | [compile.md](compile.md) |
+| ASN.1 specifications: `.asn` inputs and `[[targets.asn1]]`, asn1ct options, coverage, generated modules | [asn1.md](asn1.md) |
 | Executable entry, arguments, exit status, output streams, linking | [executables.md](executables.md) |
 | Debug information (`-g`), debuggers and the Erlang call stack | [debugging.md](debugging.md) |
 | Opt-in profiling (`--profile FILE`): entries and self time per function and process | [profiling.md](profiling.md) |

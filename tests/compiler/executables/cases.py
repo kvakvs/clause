@@ -10,8 +10,10 @@ CASES = ROOT / 'tests/fixtures/executables'
 GOLDEN = 'golden.json'
 # Fields written by regenerate.py from OTP; a golden lacking any of them was never generated.
 GENERATED_RUN_FIELDS = ('exit_status', 'stdout')
-# The inputs of a case: sources, headers and transformed forms (sources()).
-SOURCE_SUFFIXES = ('.erl', '.hrl', '.abstr')
+# The inputs of a case: sources, headers, transformed forms and ASN.1 specifications (sources()).
+SOURCE_SUFFIXES = ('.erl', '.hrl', '.abstr', '.asn', '.asn1')
+# The suffixes of ASN.1 specifications, compiled with the golden's 'asn1_options' (plan 21 step LIB84).
+ASN1_SUFFIXES = ('.asn', '.asn1')
 
 
 def digest(path):

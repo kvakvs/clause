@@ -151,6 +151,8 @@ std::span<const BuiltinEntry> calendar_builtins() noexcept;
 std::span<const BuiltinEntry> timer_module_builtins() noexcept;
 // Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
 std::span<const BuiltinEntry> base64_builtins() noexcept;
+// Module clause_asn1: the codec of generated ASN.1 modules (plan 21 step LIB84; runtime/src/builtins/asn1/).
+std::span<const BuiltinEntry> asn1_builtins() noexcept;
 // Module json and its private clause_json scanners (plan 21 step LIB5E; runtime/src/builtins/encoding/json.cpp).
 std::span<const BuiltinEntry> json_builtins() noexcept;
 // Module filename's walks over one name, and its joins and splits (plan 21 step LIB5G; runtime/src/builtins/filename/).

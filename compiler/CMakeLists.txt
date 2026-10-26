@@ -62,10 +62,20 @@ add_library(clause_cache STATIC src/cache/store.cpp src/cache/sqlite.cpp src/cac
 clause_project_options(clause_cache)
 target_link_libraries(clause_cache PRIVATE clause_llvm_sdk clause_sqlite)
 
+# Added for the ASN.1 compiler (plan 21 step LIB84): LLVM-free parsing, checking and Erlang generation of ASN.1
+# specifications (docs/asn1.md).
+add_library(clause_asn1 STATIC src/asn1/lexer.cpp src/asn1/parser.cpp src/asn1/parser_constraints.cpp
+    src/asn1/parser_module.cpp src/asn1/term.cpp src/asn1/checker.cpp src/asn1/checker_types.cpp
+    src/asn1/checker_tags.cpp src/asn1/components.cpp src/asn1/checker_values.cpp src/asn1/checker_objects.cpp
+    src/asn1/checker_object_sets.cpp src/asn1/checker_constraints.cpp src/asn1/checker_fields.cpp
+    src/asn1/records.cpp src/asn1/schema.cpp src/asn1/generate.cpp)
+clause_project_options(clause_asn1)
+target_link_libraries(clause_asn1 PUBLIC clause_multiprecision_dependency)
+
 add_executable(clau src/main.cpp src/driver/command.cpp src/driver/options.cpp src/driver/frontend.cpp
     src/driver/build_cache.cpp src/driver/compile_cache.cpp src/driver/inference_cache.cpp src/driver/library_modules.cpp
     src/driver/backend_options.cpp src/driver/analysis.cpp src/driver/entry.cpp src/driver/escript.cpp src/driver/predefined.cpp src/driver/transform_sources.cpp src/driver/backend.cpp src/driver/compile_times.cpp src/driver/publication.cpp src/driver/project_backend.cpp src/driver/progress.cpp src/driver/display.cpp src/driver/inspection.cpp src/driver/type_report.cpp src/driver/environment.cpp
-    src/driver/placeholders.cpp src/driver/app_resources.cpp src/driver/stage_times.cpp)
+    src/driver/placeholders.cpp src/driver/app_resources.cpp src/driver/stage_times.cpp src/driver/asn1_sources.cpp)
 if(WIN32 AND MSVC)
     # Keep narrow argv and filesystem conversions consistent with UTF-8 project paths.
     target_sources(clau PRIVATE clau.manifest)
@@ -76,7 +86,7 @@ set_target_properties(clau PROPERTIES
 )
 clause_project_options(clau)
 target_compile_definitions(clau PRIVATE CLAUSE_VERSION="${PROJECT_VERSION}")
-target_link_libraries(clau PRIVATE clause_abi clause_transforms clause_cache)
+target_link_libraries(clau PRIVATE clause_abi clause_transforms clause_cache clause_asn1)
 
 add_subdirectory(src/project)
 

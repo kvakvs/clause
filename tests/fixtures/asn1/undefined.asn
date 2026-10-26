@@ -1,0 +1,4 @@
+-- A component of a type no assignment defines.
+Undefined DEFINITIONS ::= BEGIN
+  T ::= SEQUENCE { a Missing }
+END

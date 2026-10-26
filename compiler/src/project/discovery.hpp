@@ -23,6 +23,9 @@ std::vector<std::filesystem::path> wildcard_sources(const std::filesystem::path 
 // directories it matches (directory symlinks skipped), sorted; an unmatched pattern is an error naming `kind`.
 std::vector<std::filesystem::path> pattern_directories(const std::filesystem::path &base, const Text &pattern,
                                                        std::string_view kind, DiscoveryLimits limits = {});
+// The ASN.1 specifications (.asn, .asn1) a literal path or wildcard pattern names. Added for ASN.1 sources.
+std::vector<std::filesystem::path> asn1_sources(const std::filesystem::path &base, const Text &pattern,
+                                                DiscoveryLimits limits = {});
 // Recursively collect regular Erlang sources under one explicitly named directory.
 std::vector<std::filesystem::path> directory_sources(const std::filesystem::path &base, const Text &directory,
                                                      DiscoveryLimits limits = {});

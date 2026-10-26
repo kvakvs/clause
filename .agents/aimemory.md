@@ -477,3 +477,11 @@ recorded elsewhere.
   error_info arg = C arg + 1. Configuring build/debug once without the toolchain script (VS generator,
   cl) wiped thirdparty's OpenSSL install (identity has the compiler) -> 4 min serial rebuild; clang-cl
   23.1.2 crashed twice at random files in that nmake build, a retry passed.
+- LIB80A ASN.1 (2026-10-26): oracle = host asn1ct (escript compiles specs with outdir+i+noobj, then
+  loads); asn1ct's runtime record names (list2rname) differ from its .hrl names (SEQOF/SETOF always,
+  SET with pname skipped, ptype records first, .set.asn lists reversed, object-instantiated ptypes
+  `<Def>_<PType>` after types and INSTANCE OF). DER decodes a SET in tag-sorted order (OTP quirk).
+  OTP hrl/value functions keep `{'Externalvaluereference',...}` inside open-type values (PKCS-1);
+  ours resolves (differences.md). Scratch cycles compared Kitchen (8 option sets) and all
+  public_key_SUITE PEMs + PKITS certs/CRLs byte-identical; redo for any codec change. Analyzer flags
+  a leak when a [[noreturn]] throw runs with a boost cpp_int alive: keep the value as text first.

@@ -52,6 +52,14 @@ struct TargetOptions {
     std::vector<Text> cache_inference_in_dirs_;
 };
 
+// One `[[targets.asn1]]` group: ASN.1 specifications compiled with the same asn1ct options into `outdir`
+// (docs/asn1.md#projects). Added for ASN.1 sources.
+struct Asn1Group {
+    std::vector<Text> sources;
+    std::vector<Text> options;
+    std::optional<Text> outdir;
+};
+
 struct Target {
     // Identify this independently configured compilation unit collection.
     Text name;
@@ -66,6 +74,8 @@ struct Target {
     // (62D1).
     std::optional<Text> build_dir_;
     TargetOptions options;
+    // The target's ASN.1 specifications. Added for ASN.1 sources.
+    std::vector<Asn1Group> asn1_;
 };
 
 struct Manifest {

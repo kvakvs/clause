@@ -329,6 +329,14 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `crypto:ec_curve/1` of a curve the linked libcrypto lacks (an OpenSSL built without binary curves) | The parameters from `crypto_ec_curves` | `error:function_clause`, as for an unknown curve: the parameters come from the libcrypto's built-in curves | [builtins](builtins.md#crypto-module) |
 | `beam_lib` decryption of debug information in a program that does not call `crypto` | `crypto` is always present | `key_missing_or_invalid` unless the program links `crypto` (`--with-crypto`), since `beam_lib` calls it dynamically | [library](libraries/library.md) |
 
+## ASN.1
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Stack in `{error, {asn1, {Reason, Stack}}}` | Frames of the generated `enc_*`/`dec_*` functions and `asn1rtt_*` | Frames of `Module:encode/2` or `decode/2` and the codec builtin | [asn1](asn1.md#generated-modules) |
+| Functions of a generated module | Also exports `enc_Type/1,2`, `dec_Type/1,2` and the other per-type functions asn1ct generates | Only `encode/2`, `decode/2`, `info/0`, the option functions and the value functions | [asn1](asn1.md#generated-modules) |
+| Value macros and functions that name another value inside an open type (PKCS-1's `mgf1SHA1`, `rSASSA-PSS-Default-Identifier`) | asn1ct leaves `{'Externalvaluereference', Line, Module, Name}` in place of the value | The referenced value | [asn1](asn1.md#generated-modules) |
+
 ## Parse transforms
 
 | Difference | OTP | Clause | Owner |

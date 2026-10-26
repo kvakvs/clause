@@ -157,6 +157,17 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `--with-crypto=PATH`/`CLAUSE_OPENSSL_ROOT` (an install, or a source tree built once into
   `<build>/cache/openssl/<hash>` with the recipe in `clause_runtime_crypto.openssl`).
 
+### ASN.1 (`asn1/`, `driver/asn1_sources`, `docs/asn1.md`)
+
+- `.asn`/`.asn1`/`.set.asn` inputs and manifest `[[targets.asn1]]` groups compile before the batch:
+  lexer, parser into syntax (token ranges kept for values/constraints), Checker resolves
+  references, parameterized instances (`Scope` + `Binding`), classes/objects/sets and table
+  constraints into a Node graph; `records` names records as asn1ct; `generate` writes
+  `Module.erl` (encode/decode over `clause_asn1:encode/decode/3` with a literal schema term) and an
+  asn1ct-identical `Module.hrl`. The generated modules join the batch; outdir joins includes.
+- Codec in core runtime (`builtins/asn1/`): TLV parse as asn1rt_nif, then a schema interpreter
+  mirroring asn1ct's BER/DER generated code (frames for component relations, postponed open types).
+
 ## 2. Runtime (`clause_runtime`)
 
 ### Execution and ABI

@@ -20,7 +20,19 @@ struct Walk {
     DiscoveryLimits remaining;
     // Collect the directories the pattern matches instead of Erlang sources.
     bool directories = false;
+    // Collect ASN.1 specifications instead of Erlang sources. Added for ASN.1 sources.
+    bool asn1 = false;
 };
+
+// The files a walk collects: Erlang sources, or ASN.1 specifications.
+bool wanted(const fs::path &path, const bool asn1) {
+    const auto extension = path.extension();
+    if (asn1) {
+        return extension == ".asn" || extension == ".asn1";
+    }
+    // .abstr files of abstract format forms are sources too (docs/transforms.md).
+    return extension == ".erl" || extension == ".abstr";
+}
 
 // Report filesystem failures with the selected manifest entry and physical path.
 void check_io(const std::error_code &error, const fs::path &path, const Site &site) {
@@ -50,8 +62,7 @@ void prune(fs::recursive_directory_iterator &iterator, const Walk &walk) {
 // Filter before following file symlinks so dangling selected files produce diagnostics.
 void collect(const fs::directory_entry &entry, Walk &walk, std::vector<fs::path> &result) {
     (void)filename_scalars(path_text(entry.path().filename()), walk.site);
-    // .abstr files of abstract format forms are sources too (docs/transforms.md).
-    if (entry.path().extension() != ".erl" && entry.path().extension() != ".abstr") {
+    if (!wanted(entry.path(), walk.asn1)) {
         return;
     }
     const auto relative = path_text(entry.path().lexically_relative(walk.root));
@@ -167,6 +178,29 @@ std::vector<fs::path> pattern_directories(const fs::path &base, const Text &patt
     result.insert(result.end(), found.begin(), found.end());
     if (result.empty()) {
         fail(pattern.site, "unmatched " + std::string(kind) + " pattern: " + pattern.value);
+    }
+    return result;
+}
+
+std::vector<fs::path> asn1_sources(const fs::path &base, const Text &pattern, DiscoveryLimits limits) {
+    const auto [prefix, suffix] = split_pattern(native_path(pattern.value));
+    const auto root = absolute_path(base, prefix);
+    if (suffix.empty()) {
+        if (!wanted(root, true)) {
+            fail(pattern.site, "ASN.1 source must have .asn or .asn1 extension");
+        }
+        require_source(root, pattern.site);
+        return {root};
+    }
+    const auto glob = parse_glob({path_text(suffix), pattern.site});
+    (void)source_directory(base, {path_text(root), pattern.site});
+    const bool recursive = std::ranges::find(glob.components, U"**") != glob.components.end();
+    const auto levels = recursive ? std::numeric_limits<std::size_t>::max() : glob.components.size();
+    Walk walk{root, pattern.site, &glob, levels, limits};
+    walk.asn1 = true;
+    auto result = discover(walk);
+    if (result.empty()) {
+        fail(pattern.site, "unmatched ASN.1 source pattern: " + pattern.value);
     }
     return result;
 }

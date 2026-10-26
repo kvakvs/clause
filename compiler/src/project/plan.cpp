@@ -1,5 +1,6 @@
 #include "plan.hpp"
 #include "diagnostics.hpp"
+#include "discovery.hpp"
 #include "identity.hpp"
 #include "paths.hpp"
 #include "selection.hpp"
@@ -115,6 +116,31 @@ InferenceCacheDirs cache_dirs(const Target &target, const PlanOptions &options) 
 }
 } // namespace
 
+namespace {
+// The target's ASN.1 groups: their specifications, options and output directories (manifest-relative; by default
+// asn1/ in the build directory). Added for ASN.1 sources.
+std::vector<PlannedAsn1> asn1_groups(const Target &target, const std::filesystem::path &base,
+                                     const DiscoveryLimits limits, const std::filesystem::path &build) {
+    std::vector<PlannedAsn1> result;
+    for (const auto &group : target.asn1_) {
+        PlannedAsn1 planned;
+        for (const auto &pattern : group.sources) {
+            const auto files = asn1_sources(base, pattern, limits);
+            planned.sources.insert(planned.sources.end(), files.begin(), files.end());
+        }
+        for (const auto &option : group.options) {
+            planned.options.push_back(option.value);
+        }
+        planned.outdir = build / "asn1";
+        if (const auto &outdir = group.outdir) {
+            planned.outdir = absolute_path(base, native_path(outdir->value));
+        }
+        result.push_back(std::move(planned));
+    }
+    return result;
+}
+} // namespace
+
 Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
     const auto selected = select_targets(manifest, options.selectors);
     if (options.output && (options.frontend || selected.size() != 1)) {
@@ -143,6 +169,8 @@ Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
         result.targets.back().shell_ = target.options.shell_;
         result.targets.back().build_directory_ = build_directory(target, options, base);
         result.targets.back().cache_dirs_ = cache_dirs(target, options);
+        result.targets.back().asn1_ =
+            asn1_groups(target, base, options.discovery, result.targets.back().build_directory_);
     }
     outputs(result);
     return result;

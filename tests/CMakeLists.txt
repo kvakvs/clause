@@ -69,6 +69,13 @@ add_test(NAME cli COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cli.cmake"
 )
 
+# ASN.1 sources through clau: diagnostics and generated headers (plan 21 step LIB84).
+add_test(NAME asn1_cli COMMAND "${CMAKE_COMMAND}"
+    "-DTOOL=$<TARGET_FILE:clau>" "-DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+    "-DWORK=${CMAKE_CURRENT_BINARY_DIR}/asn1-cli"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/compiler/asn1/asn1_cli.cmake")
+set_tests_properties(asn1_cli PROPERTIES TIMEOUT 60 PASS_REGULAR_EXPRESSION "asn1_cli: ok")
+
 add_test(NAME frontend_cli COMMAND "${CMAKE_COMMAND}"
     "-DTOOL=$<TARGET_FILE:clau>" "-DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/fixtures/parser/cli"
     "-DWORK=${CMAKE_CURRENT_BINARY_DIR}/frontend-cli" "-DWORD_BYTES=${CMAKE_SIZEOF_VOID_P}"

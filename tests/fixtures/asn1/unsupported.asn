@@ -1,0 +1,4 @@
+-- EXTERNAL is not supported.
+Unsupported DEFINITIONS ::= BEGIN
+  T ::= EXTERNAL
+END

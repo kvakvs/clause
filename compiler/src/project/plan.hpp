@@ -30,6 +30,16 @@ struct PlanOptions {
     std::function<void(const std::filesystem::path &, std::chrono::steady_clock::duration)> planned;
 };
 
+// One group of ASN.1 specifications with its asn1ct options and output directory. Added for ASN.1 sources.
+struct PlannedAsn1 {
+    // The specifications, patterns expanded, in manifest order.
+    std::vector<std::filesystem::path> sources;
+    // asn1ct options as spelled; checked when the target runs.
+    std::vector<std::string> options;
+    // Where Module.erl and Module.hrl are written; joins the target's include path.
+    std::filesystem::path outdir;
+};
+
 struct PlannedTarget {
     // Own all resolved target work independently of the manifest decoding tree.
     std::string name;
@@ -56,6 +66,8 @@ struct PlannedTarget {
     // The implicit OTP directories, cache_inference_in_dirs and --cache-inference-in-dirs. Added for the inference
     // cache (58U).
     InferenceCacheDirs cache_dirs_ = {};
+    // The target's ASN.1 specifications, compiled before its Erlang sources. Added for ASN.1 sources.
+    std::vector<PlannedAsn1> asn1_ = {};
 };
 
 struct Invocation {

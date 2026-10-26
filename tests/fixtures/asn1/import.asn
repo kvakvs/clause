@@ -1,0 +1,5 @@
+-- An import from a module no source defines.
+Import DEFINITIONS ::= BEGIN
+  IMPORTS Other FROM Absent;
+  T ::= Other
+END

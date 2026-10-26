@@ -43,6 +43,8 @@ my_dependency = "vendor/my_dependency"
   Explicit files must end in `.erl`, or `.abstr` for abstract format forms
   ([transforms](transforms.md#interchange)); headers are dependencies, not
   inputs.
+- `[[targets.asn1]]` groups compile ASN.1 specifications (`sources`, `options`,
+  `outdir`) into modules that join the target ([ASN.1](asn1.md#inputs)).
 - `parse_transforms` (module names) and `transform_paths` (directories or
   patterns of precompiled `.beam` files) in `options` apply parse transforms to
   the target's modules ([transforms](transforms.md#options)).

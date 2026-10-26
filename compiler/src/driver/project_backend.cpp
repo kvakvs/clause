@@ -1,12 +1,15 @@
 #include "../artifacts/artifacts.hpp"
 #include "../project/command.hpp"
 #include "../project/paths.hpp"
+#include "asn1_sources.hpp"
 #include "environment.hpp"
 #include "frontend.hpp"
 #include "options.hpp"
 #include "publication.hpp"
 #include "stage_times.hpp"
 #include <iostream>
+#include <optional>
+#include <set>
 #include <utility>
 
 namespace clause::cli {
@@ -132,6 +135,57 @@ project::PlanOptions plan_settings(const Options &options, project::DirectoryInd
     return settings;
 }
 
+// The modules one ASN.1 group generates, its specifications' directories searched for imports; nothing after
+// reporting a failure. Added for ASN.1 sources.
+std::optional<std::vector<std::filesystem::path>> group_modules(const project::PlannedTarget &target,
+                                                                const project::PlannedAsn1 &group,
+                                                                const project::MessageSink &sink) {
+    if (const auto error = check_asn1_options(group.options)) {
+        sink("error: target " + target.name + ": " + *error);
+        return std::nullopt;
+    }
+    Asn1Settings settings{group.options, group.outdir, {}};
+    settings.include_dirs_.reserve(group.sources.size());
+    for (const auto &source : group.sources) {
+        settings.include_dirs_.push_back(source.parent_path());
+    }
+    return generate_asn1(group.sources, settings, sink);
+}
+
+// The target's Erlang sources and the modules its ASN.1 groups generate (a generated module already among the
+// sources is not added twice); nothing after reporting a failure. Added for ASN.1 sources.
+std::optional<std::vector<std::filesystem::path>> target_inputs(const project::PlannedTarget &target,
+                                                                const project::MessageSink &sink) {
+    auto sources = target.sources;
+    std::set<std::filesystem::path> known;
+    for (const auto &source : sources) {
+        known.insert(source.lexically_normal());
+    }
+    for (const auto &group : target.asn1_) {
+        const auto generated = group_modules(target, group, sink);
+        if (!generated) {
+            return std::nullopt;
+        }
+        std::ranges::copy_if(*generated, std::back_inserter(sources),
+                             [&](const auto &module) { return known.insert(module.lexically_normal()).second; });
+    }
+    return sources;
+}
+
+// Compile the target's sources; the modules its ASN.1 groups generate join the batch, their headers the include path.
+// True on failure. Added for ASN.1 sources.
+bool process_target(const project::PlannedTarget &target, FrontendRequest &request, const bool generate_only,
+                    const project::MessageSink &sink) {
+    const auto sources = target_inputs(target, sink);
+    if (!sources || generate_only) {
+        return !sources;
+    }
+    for (const auto &group : target.asn1_) {
+        request.preprocessing.include_paths.push_back(group.outdir);
+    }
+    return process_files(*sources, request, sink);
+}
+
 // Report planned targets as TOML without processing their sources (--print-env).
 int report_project(const Options &options, const std::span<char *const> arguments) {
     bool header = false;
@@ -197,7 +251,7 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
         request.build_directory_ = target.build_directory_;
         request.caches_ = options.no_cache ? nullptr : &caches;
         request.cache_dirs_ = target.cache_dirs_; // Added for the inference cache (58W).
-        return process_files(target.sources, request, sink);
+        return process_target(target, request, options.generate_asn1, sink);
     };
     const int status = project::run(options.project, plan_settings(options, &index), execute, std::cout, std::cerr);
     caches.prune();

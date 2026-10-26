@@ -29,10 +29,36 @@ std::optional<Text> entry(const toml::table &values, const schema::Context &cont
     return result;
 }
 
+// `[[targets.asn1]]`: groups of ASN.1 specifications with their asn1ct options and output directory. Added for
+// ASN.1 sources.
+std::vector<Asn1Group> asn1_groups(const toml::node &node, const schema::Context &context) {
+    const auto *array = node.as_array();
+    if (array == nullptr) {
+        fail(schema::site(node, context, "asn1"), "expected an array of tables");
+    }
+    std::vector<Asn1Group> result;
+    for (const auto &item : *array) {
+        const auto &values = schema::table(item, context, "asn1");
+        schema::keys(values, {"sources", "options", "outdir"}, context);
+        Asn1Group group;
+        group.sources = schema::strings(values, "sources", context);
+        if (group.sources.empty()) {
+            fail(schema::site(item, context, "asn1"), "an asn1 group requires sources");
+        }
+        group.options = schema::strings(values, "options", context);
+        if (const auto *outdir = values.get("outdir")) {
+            group.outdir = schema::text(*outdir, context, "outdir");
+        }
+        result.push_back(std::move(group));
+    }
+    return result;
+}
+
 // Decode one target's source declarations; options are decoded in their own module.
 Target target(const toml::node &node, schema::Context context) {
     const auto &values = schema::table(node, context, "targets");
-    schema::keys(values, {"name", "sources", "source_dirs", "output", "entry", "build_dir", "options"}, context);
+    schema::keys(values, {"name", "sources", "source_dirs", "output", "entry", "build_dir", "options", "asn1"},
+                 context);
     const auto *name = values.get("name");
     if (!name) {
         fail(schema::site(node, context, "name"), "missing target name");
@@ -58,6 +84,9 @@ Target target(const toml::node &node, schema::Context context) {
     }
     if (const auto *options = values.get("options")) {
         result.options = decode_options(*options, context);
+    }
+    if (const auto *asn1 = values.get("asn1")) {
+        result.asn1_ = asn1_groups(*asn1, context);
     }
     return result;
 }

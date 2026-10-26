@@ -10,8 +10,23 @@ main([VersionFile, SourceDir, Entry | Args]) ->
     ok = file:write_file(VersionFile, io_lib:format("~s~n~s~n", [release(), otp_version()])),
     % Application resources (.app) beside the sources are found on the code path.
     true = code:add_patha(SourceDir),
+    asn1(SourceDir),
     load(lists:sort(filelib:wildcard(filename:join(SourceDir, "**/*.erl"))), [], false),
     run(list_to_atom(Entry), Args).
+
+%% ASN.1 specifications beside the sources become modules (.erl and .hrl) there first,
+%% compiled by asn1ct with the options of CLAUSE_ASN1_OPTIONS (comma-separated).
+%% Added for plan 21 step LIB84.
+asn1(SourceDir) ->
+    Options = [list_to_atom(O) || O <- string:lexemes(os:getenv("CLAUSE_ASN1_OPTIONS", ""), ",")],
+    Specs =
+        filelib:wildcard(filename:join(SourceDir, "*.asn")) ++
+            filelib:wildcard(filename:join(SourceDir, "*.asn1")),
+    [
+        ok = asn1ct:compile(Spec, [{outdir, SourceDir}, {i, SourceDir}, noobj | Options])
+     || Spec <- lists:sort(Specs)
+    ],
+    ok.
 
 %% Compiles and loads the modules in memory, failing on any warning. A module whose
 %% behaviour module is not loaded yet waits until the other modules are.

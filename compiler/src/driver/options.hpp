@@ -28,6 +28,8 @@ struct Options {
     std::optional<std::filesystem::path> build_directory;
     // --no-cache: neither read nor write build caches. Added for build caches (62D2).
     bool no_cache = false;
+    // --generate-asn1: only write the modules of ASN.1 inputs. Added for ASN.1 sources.
+    bool generate_asn1 = false;
     // --cache-inference-in-dirs patterns, in order, validated while parsing. Added for the inference cache (58U).
     std::vector<project::Text> cache_inference_in_dirs;
     // Distinguish explicit frontend settings from defaults for standalone commands.
@@ -59,6 +61,9 @@ struct Options {
     transforms::TransformSettings transforms;
     // Recreate preprocessing options independently for every input module.
     clause::PreprocessorOptions preprocessing;
+    // --asn1-option and --asn1-outdir: how .asn/.asn1 inputs compile (docs/asn1.md). Added for ASN.1 sources.
+    std::vector<std::string> asn1_options;
+    std::optional<std::filesystem::path> asn1_outdir;
 };
 
 // The inference cache directories of positional inputs: the implicit ones, then --cache-inference-in-dirs. Added for

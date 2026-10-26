@@ -36,10 +36,32 @@ RUN_TIMEOUT = 60 * int(os.environ.get('CLAUSE_TEST_TIMEOUT_SCALE', '1'))
 PROGRAM_EXTRAS = ('expected', 'compile.txt')
 
 
-def manifest(case, entry, output):
-    """Schema-1 project manifest that links the staged sources as one executable target."""
-    return (f'schema_version = 1\n\n[[targets]]\nname = "{case}"\nsource_dirs = ["src"]\n'
+def manifest(case, entry, output, golden, asn1_dir):
+    """Schema-1 project manifest that links the staged sources as one executable target; ASN.1 specifications form
+    one asn1 group with the golden's 'asn1_options', generated into `asn1_dir` (plan 21 step LIB84)."""
+    text = (f'schema_version = 1\n\n[[targets]]\nname = "{case}"\nsource_dirs = ["src"]\n'
             f'entry = "{entry}"\noutput = "{output}"\n')
+    specifications = sorted(f'src/{path.name}' for path in asn1_sources(golden))
+    if specifications:
+        options = ', '.join(f'"{option}"' for option in golden.get('asn1_options', []))
+        text += (f'\n[[targets.asn1]]\nsources = [{", ".join(chr(34) + s + chr(34) for s in specifications)}]\n'
+                 f'options = [{options}]\noutdir = "{asn1_dir}"\n')
+    return text
+
+
+def asn1_sources(golden):
+    """The staged ASN.1 specifications of a case (the work directory's src)."""
+    return [path for path in golden.get('_staged', []) if path.suffix in cases.ASN1_SUFFIXES]
+
+
+def asn1_arguments(golden, asn1_dir):
+    """The compiler options for a case's ASN.1 specifications in positional mode."""
+    if not asn1_sources(golden):
+        return []
+    arguments = ['--asn1-outdir', asn1_dir]
+    for option in golden.get('asn1_options', []):
+        arguments += ['--asn1-option', option]
+    return arguments
 
 
 def command(tool, work, case, golden, policy, target_options=()):
@@ -51,15 +73,18 @@ def command(tool, work, case, golden, policy, target_options=()):
     # A golden's 'options' are compiler options every policy adds (plan 21 step LIB74: --keep-exports for the shell).
     options = [f'-{level}', *([extra] if extra else []), *target_options, *golden.get('options', [])]
     output = f'{label}/{case}'
+    # Each policy generates its ASN.1 modules into its own directory: policies run at once.
+    asn1_dir = f'{label}/asn1'
     if project and 'manifest' not in golden:
-        (work / f'{label}.toml').write_bytes(manifest(case, golden['entry'], output).encode())
+        (work / f'{label}.toml').write_bytes(manifest(case, golden['entry'], output, golden, asn1_dir).encode())
         return label, [tool, '--project', f'{label}.toml', *options]
     (work / label).mkdir()
     if project:
         return label, [tool, '--project', golden['manifest'], *options, '--entry', golden['entry'], '-o', output]
-    sources = [path for path in (work / 'src').rglob('*') if path.suffix in ('.erl', '.abstr')]
+    sources = [path for path in (work / 'src').rglob('*') if path.suffix in ('.erl', '.abstr', *cases.ASN1_SUFFIXES)]
     inputs = sorted(path.relative_to(work).as_posix() for path in sources)
-    return label, [tool, *options, '--entry', golden['entry'], '-o', output, *inputs]
+    return label, [tool, *options, *asn1_arguments(golden, asn1_dir), '--entry', golden['entry'], '-o', output,
+                   *inputs]
 
 
 def text(data):
@@ -164,6 +189,7 @@ def prepare(case_dir, work):
         return golden
     golden = cases.verify(case_dir)
     cases.stage(case_dir, golden, work / 'src')
+    golden['_staged'] = sorted((work / 'src').iterdir())
     # A module with transformed forms compiles from its .abstr, so the tests need no host OTP (plan 21 step LIB73).
     for source in cases.transformed(work / 'src'):
         source.unlink()

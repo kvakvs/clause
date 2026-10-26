@@ -795,6 +795,19 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   OTP's NIF reads them.
 - `zstd.erl` keeps OTP's iodata, streaming and frame handling.
 
+## ASN.1 codec
+
+`builtins/asn1/` in `clause_runtime`, `library/asn1/clause_asn1.erl` (plan 21 step LIB84, [ASN.1](asn1.md)).
+
+- `clause_asn1:encode/3` and `decode/3` take the generated module's schema term, the type name and the value or
+  bytes (a binary or iolist); `decode/3` returns `{Value, Rest}`. They interpret the schema as asn1ct's generated
+  BER code and `asn1rtt_ber` do, and fail with the same `exit`/`error` reasons, which the generated wrapper turns into
+  `{error, {asn1, Reason}}`.
+- TLVs are parsed as `asn1rt_nif` parses them (`tlv.cpp`: its error positions, two-byte tag and four-byte length
+  limits); `ber_decode.cpp`, `ber_constructed.cpp`, `ber_encode.cpp` and `ber_encode_constructed.cpp` hold the
+  primitive and constructed types, `values.cpp` INTEGER, REAL and DER `DEFAULT` comparisons, `legacy.cpp` the legacy
+  `BIT STRING` forms.
+
 ## Crypto module
 
 `builtins/crypto/` in the separate `clause_runtime_crypto` archive,

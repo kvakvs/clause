@@ -6,7 +6,7 @@
 
 namespace clause::cli {
 
-constexpr std::string_view help = R"(Usage: clau [options] <source.erl>...
+constexpr std::string_view help = R"(Usage: clau [options] <source.erl|spec.asn>...
 
 Ahead-of-time compiler for Erlang/OTP 29.
 
@@ -57,6 +57,11 @@ Options:
       --erl <path|none>  Host Erlang/OTP 29 erl that runs parse transforms (default: erl on PATH); none: never.
       --print-inputs     Parse the inputs, add the modules they name, print every source of the batch; do not compile.
       --print-env        Print the resolved compile environment as TOML and exit without processing sources.
+      --asn1-option <option>  Compile .asn/.asn1/.set.asn inputs with an asn1ct option (ber, per, uper, der, maps,
+                         undec_rest, no_ok_wrapper, legacy_erlang_types, ...); repeatable (default: ber).
+      --asn1-outdir <dir>  Write the Module.erl and Module.hrl of ASN.1 inputs to <dir> (default: the current
+                         directory, as asn1ct); the headers are found by -include.
+      --generate-asn1    Only write the modules of the ASN.1 inputs; compile nothing.
   -I, --include <dir>  Add an include directory (last supplied is searched first).
   -D, --define <name[=term]>  Predefine a macro (default value: true).
       --app-dir <app=dir>  Map an include_lib application to a directory.

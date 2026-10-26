@@ -1,0 +1,128 @@
+-- A tour of the ASN.1 types Clause's codec supports, checked against asn1ct's encodings.
+Kitchen DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+  Flag ::= BOOLEAN
+  Count ::= INTEGER
+  Level ::= INTEGER { low(0), medium(5), high(10) }
+  Small ::= INTEGER (0..255)
+  Colour ::= ENUMERATED { red(0), green(1), blue(2) }
+  Shape ::= ENUMERATED { circle, square, ..., triangle }
+  Nothing ::= NULL
+  Bits ::= BIT STRING
+  Rights ::= BIT STRING { read(0), write(1), execute(2), admin(7) }
+  Bytes ::= OCTET STRING
+  Oid ::= OBJECT IDENTIFIER
+  RelOid ::= RELATIVE-OID
+  Number ::= REAL
+  Ia5 ::= IA5String
+  Printable ::= PrintableString
+  Utf8 ::= UTF8String
+  Bmp ::= BMPString
+  Universal ::= UniversalString
+  Numeric ::= NumericString
+  Visible ::= VisibleString
+  Teletex ::= TeletexString
+  General ::= GeneralString
+  Graphic ::= GraphicString
+  Videotex ::= VideotexString
+  Utc ::= UTCTime
+  Generalized ::= GeneralizedTime
+  Descriptor ::= ObjectDescriptor
+
+  Record ::= SEQUENCE {
+    id INTEGER,
+    name IA5String OPTIONAL,
+    level Level DEFAULT medium,
+    flag BOOLEAN DEFAULT TRUE,
+    inner SEQUENCE { a INTEGER, b OCTET STRING OPTIONAL } OPTIONAL
+  }
+
+  Extended ::= SEQUENCE {
+    first INTEGER,
+    ...,
+    second [0] BOOLEAN,
+    [[ third [1] INTEGER, fourth [2] NULL OPTIONAL ]],
+    ...,
+    last OCTET STRING
+  }
+
+  Unordered ::= SET {
+    z [2] INTEGER,
+    a [0] BOOLEAN,
+    m [1] OCTET STRING OPTIONAL
+  }
+
+  Numbers ::= SEQUENCE OF INTEGER
+  NumberSet ::= SET OF OCTET STRING
+  Pairs ::= SEQUENCE OF SEQUENCE { key IA5String, value INTEGER }
+
+  Choice ::= CHOICE {
+    int INTEGER,
+    str [0] IA5String,
+    seq [1] Record,
+    ...,
+    later [2] BOOLEAN
+  }
+
+  Tagged ::= SEQUENCE {
+    impl [APPLICATION 1] IMPLICIT INTEGER,
+    expl [2] EXPLICIT INTEGER,
+    priv [PRIVATE 3] OCTET STRING,
+    deep [4] EXPLICIT Deep,
+    choice [6] Choice
+  }
+
+  Deep ::= [5] IMPLICIT BOOLEAN
+
+  Tree ::= SEQUENCE {
+    value INTEGER,
+    children SEQUENCE OF Tree OPTIONAL
+  }
+
+  Holder ::= SEQUENCE {
+    anything ANY,
+    defined ANY DEFINED BY id,
+    id INTEGER
+  }
+
+  ATTRIBUTE ::= CLASS {
+    &id OBJECT IDENTIFIER UNIQUE,
+    &Type
+  } WITH SYNTAX { TYPE &Type ID &id }
+
+  attr-count ATTRIBUTE ::= { TYPE INTEGER ID { 1 2 3 } }
+  attr-name ATTRIBUTE ::= { TYPE IA5String ID { 1 2 4 } }
+  attr-record ATTRIBUTE ::= { TYPE Record ID { 1 2 5 } }
+
+  Attributes ATTRIBUTE ::= { attr-count | attr-name | attr-record, ... }
+  Closed ATTRIBUTE ::= { attr-count | attr-name }
+
+  Attribute ::= SEQUENCE {
+    type ATTRIBUTE.&id({Attributes}),
+    value ATTRIBUTE.&Type({Attributes}{@type})
+  }
+
+  ClosedAttribute ::= SEQUENCE {
+    type ATTRIBUTE.&id({Closed}),
+    value ATTRIBUTE.&Type({Closed}{@type})
+  }
+
+  MultiValued ::= SEQUENCE {
+    type ATTRIBUTE.&id({Attributes}),
+    values SET OF ATTRIBUTE.&Type({Attributes}{@type})
+  }
+
+  Wrapper{Inner} ::= SEQUENCE {
+    version INTEGER,
+    body Inner
+  }
+
+  WrappedRecord ::= Wrapper{Record}
+  WrappedList ::= SEQUENCE OF Wrapper{OCTET STRING}
+
+  Instance ::= INSTANCE OF TYPE-IDENTIFIER
+
+  defaultLevel Level ::= high
+  someOid OBJECT IDENTIFIER ::= { iso(1) member-body(2) 840 }
+  aRecord Record ::= { id 7, name "seven" }
+END

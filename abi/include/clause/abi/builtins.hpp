@@ -668,6 +668,9 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_array", "replace", 4},
     BuiltinName{"clause_array", "sparse", 3},
     BuiltinName{"clause_array", "values", 3},
+    // Module clause_asn1: the codec of generated ASN.1 modules (plan 21 step LIB84; runtime/src/builtins/asn1/).
+    BuiltinName{"clause_asn1", "decode", 3},
+    BuiltinName{"clause_asn1", "encode", 3},
     // Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
     BuiltinName{"base64", "decode", 1},
     BuiltinName{"base64", "decode", 2},

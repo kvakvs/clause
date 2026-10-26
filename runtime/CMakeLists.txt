@@ -48,6 +48,10 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/timer.cpp
     # Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
     src/builtins/encoding/base64.cpp
+    # Module clause_asn1, the codec of generated ASN.1 modules (plan 21 step LIB84; runtime/src/builtins/asn1/).
+    src/builtins/asn1/common.cpp src/builtins/asn1/tlv.cpp src/builtins/asn1/ber_decode.cpp
+    src/builtins/asn1/ber_constructed.cpp src/builtins/asn1/ber_encode.cpp src/builtins/asn1/ber_encode_constructed.cpp
+    src/builtins/asn1/values.cpp src/builtins/asn1/legacy.cpp src/builtins/asn1/builtins.cpp
     # Module json (plan 21 step LIB5E).
     src/builtins/encoding/json.cpp src/builtins/encoding/json_encode.cpp
     # Module filename (plan 21 step LIB5G).

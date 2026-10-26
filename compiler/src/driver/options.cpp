@@ -1,4 +1,5 @@
 #include "options.hpp"
+#include "asn1_sources.hpp"
 #include "project/diagnostics.hpp"
 #include <map>
 
@@ -142,6 +143,25 @@ static std::optional<std::string> parse_cache_dirs(const std::string_view argume
     return std::nullopt;
 }
 
+// Consume --asn1-option OPTION or --asn1-outdir DIR. Added for ASN.1 sources.
+static std::optional<std::string> parse_asn1_option(const std::string_view argument, std::span<char *> &remaining,
+                                                    Options &options) {
+    if (remaining.empty() || std::string_view(remaining.front()).empty()) {
+        return "expected a value after " + std::string(argument);
+    }
+    const std::string value = remaining.front();
+    remaining = remaining.subspan(1);
+    if (argument == "--asn1-option") {
+        options.asn1_options.push_back(value);
+        return check_asn1_options({value});
+    }
+    if (options.asn1_outdir) {
+        return "--asn1-outdir specified more than once";
+    }
+    options.asn1_outdir = value;
+    return std::nullopt;
+}
+
 namespace {
 struct Flag {
     // Map a flag to its destination and whether it requests frontend processing.
@@ -164,6 +184,7 @@ bool parse_flag(const std::string_view argument, Options &options) {
                                                         {"--print-env", {&Options::print_env, false}},
                                                         {"--verbose", {&Options::verbose, false}},
                                                         {"--no-cache", {&Options::no_cache, false}},
+                                                        {"--generate-asn1", {&Options::generate_asn1, false}},
                                                         {"--print-stage-times", {&Options::print_stage_times, false}}};
     const auto found = flags.find(argument);
     if (found == flags.end()) {
@@ -187,7 +208,9 @@ static std::optional<std::string> parse_option(const std::string_view argument, 
                                                             {"--parse-transform", parse_transform_option},
                                                             {"--transform-path", parse_transform_option},
                                                             {"--erl", parse_transform_option},
-                                                            {"--cache-inference-in-dirs", parse_cache_dirs}};
+                                                            {"--cache-inference-in-dirs", parse_cache_dirs},
+                                                            {"--asn1-option", parse_asn1_option},
+                                                            {"--asn1-outdir", parse_asn1_option}};
     if (parse_flag(argument, options)) {
         return std::nullopt;
     }

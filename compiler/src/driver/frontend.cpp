@@ -5,6 +5,7 @@
 #include "../project/paths.hpp"
 #include "../semantic/calls.hpp"
 #include "app_resources.hpp"
+#include "asn1_sources.hpp"
 #include "backend.hpp"
 #include "escript.hpp"
 #include "library_modules.hpp"
@@ -682,6 +683,44 @@ bool process_files(const std::span<const std::filesystem::path> paths, const Fro
     return failed;
 }
 
+namespace {
+// The Erlang inputs: the .erl/.abstr files given, then the modules generated from the ASN.1 ones (written to
+// --asn1-outdir, else the current directory, as asn1ct does). Added for ASN.1 sources.
+std::optional<std::vector<std::filesystem::path>> erlang_inputs(const Options &options, const DiagnosticSink &sink) {
+    std::vector<std::filesystem::path> erlang;
+    std::vector<std::filesystem::path> specifications;
+    for (const auto &input : options.inputs) {
+        (asn1_source(input) ? specifications : erlang).push_back(input);
+    }
+    if (specifications.empty()) {
+        return erlang;
+    }
+    Asn1Settings settings{options.asn1_options, options.asn1_outdir.value_or(std::filesystem::current_path()), {}};
+    for (const auto &include : options.preprocessing.include_paths) {
+        settings.include_dirs_.emplace_back(include);
+    }
+    auto generated = generate_asn1(specifications, settings, sink);
+    if (!generated) {
+        return std::nullopt;
+    }
+    erlang.insert(erlang.end(), generated->begin(), generated->end());
+    return erlang;
+}
+
+// ASN.1 specifications become Erlang modules first, their headers found on the include path; then the Erlang inputs
+// are compiled. True on failure. Added for ASN.1 sources.
+bool process_positional(const Options &options, FrontendRequest &request, const DiagnosticSink &sink) {
+    const auto inputs = erlang_inputs(options, sink);
+    if (!inputs || options.generate_asn1) {
+        return !inputs;
+    }
+    if (options.asn1_outdir) {
+        request.preprocessing.include_paths.push_back(*options.asn1_outdir);
+    }
+    return process_files(*inputs, request, sink);
+}
+} // namespace
+
 // Preserve positional order and warning-only success using the same per-file operation.
 int process_inputs(const Options &options) {
     FrontendRequest request{
@@ -707,7 +746,7 @@ int process_inputs(const Options &options) {
     request.caches_ = options.no_cache ? nullptr : &caches;
     request.cache_dirs_ = positional_cache_dirs(options); // Added for the inference cache (58W).
     const DiagnosticSink sink = [](const std::string_view message) { std::cerr << message << '\n'; };
-    const bool failed = process_files(options.inputs, request, sink);
+    const bool failed = process_positional(options, request, sink);
     caches.prune();
     if (options.verbose) {
         trace_index(index);
