@@ -966,7 +966,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   builtins (`policy.cpp`) for `pubkey_policy_tree`; all 211 PKITS path validations of OTP's pkits_SUITE (scratch
   runner) identical to OTP — `bde5daaa`
 - **LIB80E5** public_key PBKDF1 rounds in C++ (`pbkdf1_rounds`, identical output, 2048 rounds 15.9 -> 0.84 ms
-  Release); CRL entry loops tried and reverted (slower than compiled Erlang) — `TBD`
+  Release); CRL entry loops tried and reverted (slower than compiled Erlang) — `b8282d39`
 
 ## Plan 22 (from 2026-10-23)
 
