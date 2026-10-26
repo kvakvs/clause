@@ -924,7 +924,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB80B1** public_key specifications and header: 33 specs in `library/public_key/asn1/` (RFC code components with
   BSD notices and OTP's edits, own OTP-PKIX/-Relaxed/DSS/PKCS-3/RFC5639/PKCS-FRAME) generating modules identical to
   OTP's specs; build-time generation into `library-asn1/` (second library root); own `public_key.hrl`;
-  `public_key_records` (159 records, 289 macros) and `public_key_asn1` goldens — `pending`
+  `public_key_records` (159 records, 289 macros) and `public_key_asn1` goldens — `6d3cf07a`
 
 ## Plan 22 (from 2026-10-23)
 
