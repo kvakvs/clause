@@ -913,6 +913,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   RSA encryption, key generation and agreement (RSA, DH, ECDH on named/explicit curves, X25519/X448), SRP, ML-KEM,
   `privkey_to_pubkey`, `ec_curve(s)` from OpenSSL's groups; OTP's OSSL_PARAM key building, errors and quirks;
   `crypto_pubkey` golden (all 83 curves, 87 error cases) identical to OTP — `3777dc40`
+- **LIB80A** ASN.1 compiler and BER/DER codec: clau compiles `.asn`/`.asn1`/`.set.asn` (positional or
+  `[[targets.asn1]]`) into asn1ct-identical `Module.erl`/`.hrl` calling `clause_asn1` builtins (core runtime);
+  X.680–683 constructs of OTP's PKIX/PKCS specs; options except per/uper/jer (LIB84's BER part included);
+  `asn1_ber`/`asn1_der` goldens, PKIX PEM/PKITS round trips identical to OTP (`docs/asn1.md`) — `69e27290`
 
 ## Plan 22 (from 2026-10-23)
 
