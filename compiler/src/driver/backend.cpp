@@ -15,6 +15,7 @@
 #include "publication.hpp"
 #include "stage_times.hpp"
 #include "type_report.hpp"
+#include <algorithm>
 #include <clause/compiler/source.hpp>
 
 namespace clause::cli {
@@ -123,6 +124,22 @@ bool generate(codegen::Compilation &compilation, Analysis &analysis, const Front
     return emit(compilation);
 }
 
+// The crypto archive's link of a batch: with --with-crypto, or when the batch compiled the library's crypto module;
+// a source tree to link is built below the build directory's caches. Added for the crypto runtime archive.
+std::optional<linking::CryptoLink> crypto_link(const Compiled &compiled, const FrontendRequest &frontend) {
+    const auto library = (linking::library_directory() / "crypto" / "crypto.erl").lexically_normal();
+    const bool compiled_crypto = std::ranges::any_of(compiled.inputs, [&library](const auto &input) {
+        std::error_code error;
+        return std::filesystem::equivalent(input, library, error);
+    });
+    if (!frontend.backend.with_crypto && !compiled_crypto) {
+        return std::nullopt;
+    }
+    const auto cache = frontend.build_directory_ ? *frontend.build_directory_ / "cache"
+                                                 : std::filesystem::temp_directory_path() / "clause-cache";
+    return linking::CryptoLink{frontend.backend.openssl, cache};
+}
+
 // Link the in-memory module and startup objects into `output`; project executables wait for the whole invocation.
 void link(const Compiled &compiled, const FrontendRequest &frontend, const std::filesystem::path &output,
           const DiagnosticSink &sink) {
@@ -140,7 +157,8 @@ void link(const Compiled &compiled, const FrontendRequest &frontend, const std::
              .create_directory = frontend.create_output_directory,
              .strip_unused = frontend.backend.optimization == codegen::OptimizationLevel::size,
              .debug_info = frontend.backend.debug_info,
-             .lto = frontend.backend.lto});
+             .lto = frontend.backend.lto,
+             .crypto = crypto_link(compiled, frontend)});
     });
     if (frontend.stage_times) {
         print_stage_time("link", project::path_text(executable.output), clock.elapsed());
@@ -155,13 +173,22 @@ void link(const Compiled &compiled, const FrontendRequest &frontend, const std::
     }
 }
 
+// Whether the program links the crypto runtime archive: --with-crypto, or the library crypto module in the batch.
+// Added for the crypto runtime archive (plan 21 step LIB79).
+bool uses_crypto(const Analysis &analysis, const FrontendRequest &frontend) {
+    return frontend.backend.with_crypto || std::ranges::any_of(analysis.modules, [](const auto &module) {
+               return module->library_ && module->name == U"crypto";
+           });
+}
+
 // Select the startup module from the resolved entry, if any.
-std::optional<codegen::StartupRequest> startup_request(const Analysis &analysis) {
+std::optional<codegen::StartupRequest> startup_request(const Analysis &analysis, const FrontendRequest &frontend) {
     if (!analysis.entry) {
         return std::nullopt;
     }
     const auto &entry = *analysis.entry;
-    return codegen::StartupRequest{entry.module, utf8(entry.function.name), entry.function.arity, entry.escript};
+    return codegen::StartupRequest{entry.module, utf8(entry.function.name), entry.function.arity, entry.escript,
+                                   uses_crypto(analysis, frontend)};
 }
 
 // The batch a compile time belongs to: its module count, and its project target when there is one.
@@ -213,7 +240,7 @@ bool compile_analyzed(codegen::CompilationRequest request, const FrontendRequest
         print_types(analysis, request);
         return false;
     }
-    request.startup = startup_request(analysis);
+    request.startup = startup_request(analysis, frontend);
     auto &compilation = output.emplace(std::move(request));
     const bool succeeded = generate(compilation, analysis, frontend);
     report_backend(compilation.result(), sink);

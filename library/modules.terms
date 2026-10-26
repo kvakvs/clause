@@ -131,3 +131,4 @@
 {edlin, stdlib, provided}.
 {edlin_expand, stdlib, provided}.
 {shell_docs, stdlib, provided}.
+{crypto, crypto, provided}.

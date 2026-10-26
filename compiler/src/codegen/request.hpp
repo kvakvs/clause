@@ -48,6 +48,9 @@ struct StartupRequest {
     std::size_t arity = 1;
     // Escript entries exit with status 127 on uncaught exceptions.
     bool escript = false;
+    // The program links the crypto runtime archive: the descriptor lists its extension entry. Added for the crypto
+    // runtime archive.
+    bool crypto = false;
 };
 
 struct CompilationProgress {

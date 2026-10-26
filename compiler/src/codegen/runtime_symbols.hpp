@@ -71,6 +71,9 @@ using Atom = Function<"CLAUSE_atom_v3", Size, Context, Size, Descriptor>;
 using Literal = Function<"CLAUSE_literal_v1", Size, Context, Size, Descriptor>;
 // Program startup called by the generated native `main` (abi/startup.hpp).
 using Main = Function<"CLAUSE_main_v1", Int32, Int32, Pointer<Pointer<Char>>, Descriptor>;
+// The crypto runtime archive's extension entry, stored in the startup descriptor (abi/startup.hpp). Added for the
+// crypto runtime archive.
+using CryptoExtension = Function<"CLAUSE_crypto_extension_v1", Descriptor>;
 
 // Mangling family and pointer width of the emitted target, independent of the compiler host.
 inline mangling::Target target(const llvm::Triple &triple) {

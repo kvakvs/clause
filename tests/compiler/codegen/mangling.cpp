@@ -95,6 +95,9 @@ int main() {
                                "_Z14CLAUSE_halt_v1Pvj"});
         check<services::Main>({"?CLAUSE_main_v1@@YAHHPEAPEADPEBX@Z", "?CLAUSE_main_v1@@YAHHPAPADPBX@Z",
                                "_Z14CLAUSE_main_v1iPPcPKv", "_Z14CLAUSE_main_v1iPPcPKv"});
+        check<services::CryptoExtension>({"?CLAUSE_crypto_extension_v1@@YAPEBXXZ",
+                                          "?CLAUSE_crypto_extension_v1@@YAPBXXZ", "_Z26CLAUSE_crypto_extension_v1v",
+                                          "_Z26CLAUSE_crypto_extension_v1v"});
         check<services::Exact>({"?CLAUSE_exact_v1@@YAEPEAX_K1@Z", "?CLAUSE_exact_v1@@YAEPAXII@Z",
                                 "_Z15CLAUSE_exact_v1Pvmm", "_Z15CLAUSE_exact_v1Pvjj"});
         check<services::CallFailed>({"?CLAUSE_call_failed_v2@@YAEPEAX@Z", "?CLAUSE_call_failed_v2@@YAEPAX@Z",

@@ -96,7 +96,9 @@ OTP's trapping BIFs.
   owned by `CodeServer`, maps module/function/arity to a `BuiltinFrame`; `add`
   registers a batch all-or-none.
 - Startup registers every table of `production_builtins()`
-  (`builtins/registry.cpp`).
+  (`builtins/registry.cpp`), then those of the runtime extensions the startup
+  descriptor lists (`RuntimeOptions::extensions`): the crypto archive's when the
+  program links it ([crypto module](#crypto-module)).
 - Sticky: module exports named like a builtin are skipped, so calls never reach
   a `clause_builtin_placeholder` body or a same-named user function.
 - Host path `abi::v1::dispatch_builtin` is separate
@@ -792,6 +794,33 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   Term}}` and `{zstd_error, Name}` errors, booleans read back as `false` as
   OTP's NIF reads them.
 - `zstd.erl` keeps OTP's iodata, streaming and frame handling.
+
+## Crypto module
+
+`builtins/crypto/` in the separate `clause_runtime_crypto` archive,
+`library/crypto/crypto.erl` and `clause_crypto.erl` (plan 21 step LIB79).
+
+- Links OpenSSL's libcrypto ≥ 3.4 (pinned 4.1.0, [OpenSSL](compile.md#openssl));
+  only programs that call `crypto` (or pass `--with-crypto`) link the archive,
+  whose `CLAUSE_crypto_extension_v1` entry the startup descriptor lists.
+- `algorithms.cpp` keeps OTP's name tables (digests, ciphers, MACs, key types,
+  curves, KEMs) with their OpenSSL fetch names; the first `crypto` call loads the
+  default, base and legacy providers and fetches every digest, cipher and MAC,
+  as OTP's NIF does when it loads; curves are probed (a key generated on each) on
+  the first `supports(curves)`. `supports/0,1`, `hash_info/1`, `info/0` and
+  `info_lib/0` report what the linked libcrypto has.
+- Hash states are handle references owning an `EVP_MD_CTX`; `hash_update/2`
+  returns a new state over a copy, as OTP's. MAC states own an `EVP_MAC_CTX`
+  that `mac_update/2` advances in place. `crypto.erl` feeds texts longer than
+  20000 bytes in pieces, as OTP does, so no builtin call runs long.
+- Errors are OTP's NIF errors: `{badarg | notsup | error, #{c_file_name,
+  c_file_line_num, c_function_arg_num}, Description}`, which `crypto.erl` turns
+  into `{Class, {File, Line}, Description}` with `error_info` (`?nif_call`);
+  descriptions and checks follow OTP's order, the file and line are Clause's.
+- Engines answer as an OTP whose OpenSSL has no engine support (`notsup`;
+  OpenSSL 4 has none); FIPS is not supported (`info_fips/0`).
+- Ciphers and AEAD (step LIB79B) and public keys, curves, KEMs and SRP (LIB79C)
+  are not implemented yet.
 
 ## Re module
 

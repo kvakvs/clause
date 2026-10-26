@@ -96,6 +96,7 @@ which are stubs.
 | [`erl_prim_loader`](../library/erts/erl_prim_loader.erl) | File queries over `file`; loading and archives declined ([files](ports.md#standard-io-and-files)) |
 | [`zlib`](../library/erts/zlib.erl) | Every function over the pinned zlib ([zlib module](builtins.md#zlib-module)) |
 | [`prim_eval`](../library/erts/prim_eval.erl) | `'receive'/2` over the steps of a compiled receive ([prim eval](builtins.md#prim-eval)) |
+| [`crypto`](../library/crypto/crypto.erl), [`clause_crypto`](../library/crypto/clause_crypto.erl) | Application `crypto` (with [`crypto.app`](../library/crypto/crypto.app)), over OpenSSL's libcrypto in the crypto runtime archive ([crypto module](builtins.md#crypto-module), [OpenSSL](compile.md#openssl)): the algorithm lists the linked OpenSSL has (`supports/0,1`, `hash_info/1`, `info/0`, `info_lib/0`), digests and hash states, HMAC/CMAC/Poly1305 and MAC states, `pbkdf2_hmac/5`, `hash_equals/2`, `exor/2`, `mod_pow/3`, strong random numbers and the `crypto` and `crypto_cache` `rand` plugins, OTP's error terms; engines refused (`notsup`), no FIPS; ciphers, AEAD, public keys, curves and KEMs are stubs until plan 21 steps LIB79B and LIB79C |
 
 Results and error reasons match OTP 29, including the error shapes of OTP's
 Erlang implementations (`lists:map(F, x)` is `{case_clause, x}`,

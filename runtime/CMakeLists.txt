@@ -2,6 +2,8 @@ include(${PROJECT_SOURCE_DIR}/cmake/BoostDependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/Pcre2Dependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/ZlibDependencies.cmake)
 include(${PROJECT_SOURCE_DIR}/cmake/ZstdDependencies.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/OpenSSLDependencies.cmake)
+option(CLAUSE_RUNTIME_CRYPTO "Build the crypto runtime archive over OpenSSL (plan 21 step LIB79, docs/compile.md#openssl)" ON)
 
 add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/terms/bit_factory.cpp src/terms/bit_access.cpp src/terms/word_order.cpp src/terms/bit_float.cpp src/terms/bit_numeric.cpp src/terms/bit_utf.cpp src/terms/bit_services.cpp
@@ -193,15 +195,41 @@ target_link_libraries(clause_runtime
 )
 
 # PCRE2 for the re builtins (plan step 41ZA): built from source into the archive itself, or an installed library
-# whose path clau adds when it links an executable. clause_runtime.link beside the archive lists such extra linker
-# inputs, one per line (docs/compile.md#pcre2).
+# whose path clau adds when it links an executable. clause_runtime.link beside the archive (named after it:
+# libclause_runtime.link beside libclause_runtime.a) lists such extra linker inputs, one per line
+# (docs/compile.md#pcre2).
 clause_add_pcre2(clause_runtime)
 # zlib for the zlib module and compressed external terms (plan step 41Q), always from the pinned source.
 clause_add_runtime_zlib(clause_runtime)
 # zstd for the zstd module (plan 21 step LIB54E), always from the pinned source.
 clause_add_runtime_zstd(clause_runtime)
-file(GENERATE OUTPUT "$<TARGET_FILE_DIR:clause_runtime>/clause_runtime.link"
+file(GENERATE OUTPUT "$<TARGET_FILE_DIR:clause_runtime>/$<TARGET_FILE_PREFIX:clause_runtime>clause_runtime.link"
     CONTENT "$<JOIN:$<TARGET_PROPERTY:clause_runtime,CLAUSE_LINK_ARGUMENTS>,\n>")
+
+# The crypto runtime archive (plan 21 step LIB79): the crypto builtins over OpenSSL's libcrypto, beside
+# clause_runtime. clau links it only into programs whose batch has the library crypto module (or --with-crypto).
+# clause_runtime_crypto.link lists libcrypto, then its system libraries, one per line; clause_runtime_crypto.openssl
+# records how this build configures an OpenSSL source tree, for clau --with-crypto=SOURCE.
+if(CLAUSE_RUNTIME_CRYPTO)
+    add_library(clause_runtime_crypto STATIC src/builtins/crypto/extension.cpp src/builtins/crypto/errors.cpp
+        src/builtins/crypto/algorithms.cpp src/builtins/crypto/hash.cpp src/builtins/crypto/mac.cpp
+        src/builtins/crypto/random.cpp src/builtins/crypto/numbers.cpp)
+    set_target_properties(clause_runtime_crypto PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+        EXPORT_NAME crypto)
+    clause_project_options(clause_runtime_crypto)
+    if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        target_compile_options(clause_runtime_crypto PRIVATE /Gy /Gw)
+    else()
+        target_compile_options(clause_runtime_crypto PRIVATE -ffunction-sections -fdata-sections)
+    endif()
+    target_include_directories(clause_runtime_crypto PRIVATE src)
+    target_link_libraries(clause_runtime_crypto PUBLIC clause_runtime)
+    clause_add_openssl(clause_runtime_crypto)
+    file(GENERATE OUTPUT "$<TARGET_FILE_DIR:clause_runtime_crypto>/$<TARGET_FILE_PREFIX:clause_runtime_crypto>clause_runtime_crypto.link"
+        CONTENT "$<IF:$<CONFIG:Debug>,$<TARGET_PROPERTY:clause_runtime_crypto,CLAUSE_OPENSSL_DEBUG>,$<TARGET_PROPERTY:clause_runtime_crypto,CLAUSE_OPENSSL_RELEASE>>\n$<JOIN:$<TARGET_PROPERTY:clause_runtime_crypto,CLAUSE_LINK_ARGUMENTS>,\n>\n")
+    file(GENERATE OUTPUT "$<TARGET_FILE_DIR:clause_runtime_crypto>/$<TARGET_FILE_PREFIX:clause_runtime_crypto>clause_runtime_crypto.openssl"
+        CONTENT "$<JOIN:$<TARGET_PROPERTY:clause_runtime_crypto,CLAUSE_OPENSSL_CONFIGURATION>,\n>\n")
+endif()
 
 # Every generated-program consumer links one matching target runtime through this boundary.
 # Platform dependencies (threads) come with clause_runtime.

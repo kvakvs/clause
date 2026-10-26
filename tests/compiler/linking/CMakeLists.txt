@@ -63,6 +63,18 @@ if(CLAUSE_BUILD_RUNTIME)
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/exports/$<CONFIG>"
         "${CMAKE_EXECUTABLE_SUFFIX}")
     set_tests_properties(linking_exports PROPERTIES TIMEOUT 900 COST 30 LABELS full_only)
+    # The crypto runtime archive: linked only when used, --with-crypto[=PATH], CLAUSE_OPENSSL_ROOT (plan 21 LIB79);
+    # building an OpenSSL source tree takes minutes, so that part runs in the full suite only.
+    if(TARGET clause_runtime_crypto)
+        add_test(NAME linking_crypto COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/crypto.py"
+            "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/crypto/$<CONFIG>"
+            "${CMAKE_EXECUTABLE_SUFFIX}")
+        set_tests_properties(linking_crypto PROPERTIES TIMEOUT 600 COST 10)
+        add_test(NAME linking_crypto_source COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/crypto.py"
+            "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/crypto_source/$<CONFIG>"
+            "${CMAKE_EXECUTABLE_SUFFIX}" --source)
+        set_tests_properties(linking_crypto_source PROPERTIES TIMEOUT 3600 COST 30 LABELS full_only)
+    endif()
     # Compile cache: warm project builds reuse the whole batch; edits and options miss (62D4).
     add_test(NAME linking_compile_cache COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/compile_cache.py"
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/compile_cache/$<CONFIG>"

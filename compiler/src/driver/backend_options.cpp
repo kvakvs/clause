@@ -7,6 +7,9 @@
 
 namespace clause::cli {
 namespace {
+// The crypto option, alone or with "=PATH". Added for the crypto runtime archive (plan 21 step LIB79).
+constexpr std::string_view WITH_CRYPTO = "--with-crypto";
+
 // Give every value-bearing switch the same absent/empty operand diagnostic.
 std::optional<std::string> operand(const std::string_view option, std::span<char *> &remaining, std::string &value) {
     if (remaining.empty() || std::string_view(remaining.front()).empty()) {
@@ -99,6 +102,21 @@ bool inspection_flag(const std::string_view option, BackendOptions &options) {
     return true;
 }
 
+// --with-crypto or --with-crypto=PATH, once. Added for the crypto runtime archive (plan 21 step LIB79).
+std::optional<std::string> crypto_option(const std::string_view option, BackendOptions &options) {
+    if (options.with_crypto) {
+        return "--with-crypto specified more than once";
+    }
+    options.with_crypto = true;
+    if (const auto path = option.substr(std::string_view(WITH_CRYPTO).size()); !path.empty()) {
+        if (path.size() == 1) {
+            return "expected an OpenSSL path after --with-crypto=";
+        }
+        options.openssl = project::native_path(std::string(path.substr(1)));
+    }
+    return {};
+}
+
 // Semantic inspection cannot consume backend policy or select another output action.
 bool type_conflict_options(const Options &options) {
     const auto &backend = options.backend;
@@ -144,6 +162,9 @@ std::optional<std::string> linking_conflict(const Options &options) {
     if ((backend.linker || backend.runtime_library) && !links) {
         return "--linker and --runtime-library require --output or a linking project build";
     }
+    if (backend.with_crypto && !links) {
+        return "--with-crypto requires --output or a linking project build";
+    }
     if (backend.lto && !links) {
         return "--lto requires --output or a linking project build";
     }
@@ -173,7 +194,9 @@ std::optional<codegen::OptimizationLevel> optimization_level(const std::string_v
 }
 
 // The explicit options that only change how an executable is linked.
-bool explicit_linking(const BackendOptions &options) { return options.lto || options.keep_exports || options.shell; }
+bool explicit_linking(const BackendOptions &options) {
+    return options.lto || options.keep_exports || options.shell || options.with_crypto;
+}
 
 // Remember any explicit backend policy so frontend-only actions cannot silently discard it.
 bool explicit_backend(const BackendOptions &options) {
@@ -202,7 +225,7 @@ bool is_backend_option(const std::string_view option) {
                                                     "--print-types",
                                                     "--linker",
                                                     "--runtime-library"};
-    return options.contains(option);
+    return options.contains(option) || option == WITH_CRYPTO || option.starts_with("--with-crypto=");
 }
 
 std::optional<std::string> parse_backend_option(const std::string_view option, std::span<char *> &remaining,
@@ -213,6 +236,9 @@ std::optional<std::string> parse_backend_option(const std::string_view option, s
     if (option == "--no-type-specialization") {
         options.disable_type_specialization = true;
         return {};
+    }
+    if (option.starts_with(WITH_CRYPTO)) {
+        return crypto_option(option, options);
     }
     if (const auto level = optimization_level(option)) {
         if (options.optimization) {

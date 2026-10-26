@@ -44,6 +44,11 @@ struct BackendOptions {
     // Override the Clang driver and runtime archive used to link an explicit --output executable.
     std::optional<std::filesystem::path> linker;
     std::optional<std::filesystem::path> runtime_library;
+    // Link the crypto runtime archive and add the library crypto module even without a static call to it
+    // (--with-crypto[=PATH]); PATH is an OpenSSL installation or source tree to link instead of the recorded one.
+    // Added for the crypto runtime archive (plan 21 step LIB79).
+    bool with_crypto = false;
+    std::optional<std::filesystem::path> openssl;
 };
 
 // Recognize backend options separately from preprocessing and project operands.

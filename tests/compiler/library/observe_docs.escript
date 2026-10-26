@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%% Observe the documented public functions of OTP's erts, kernel and stdlib on the host OTP (the pinned major,
+%% Observe the documented public functions of OTP's erts, kernel, stdlib and crypto on the host OTP (the pinned major,
 %% docs/otp-reference.md) from its doc chunks, for Clause's library (docs/library.md#documented-functions). Writes
 %% library/documented.terms: one {Module, Application, Name, Arity} per function whose module and function docs are
 %% not hidden and which is not deprecated. Run explicitly:
@@ -15,12 +15,13 @@ main(_) ->
     io:format(standard_error, "usage: observe_docs.escript <library> [output]~n", []),
     halt(2).
 
-% Write every documented function of the three applications to Output.
+% Write every documented function of the applications Clause's library provides to Output (crypto added for plan 21
+% step LIB79).
 observe(Output) ->
-    Rows = lists:append([application_rows(App) || App <- [erts, kernel, stdlib]]),
+    Rows = lists:append([application_rows(App) || App <- [erts, kernel, stdlib, crypto]]),
     Header = io_lib:format(
-        "%% OTP ~s documented functions of erts, kernel and stdlib: {Module, Application, Name, Arity}; observed by\n"
-        "%% tests/compiler/library/observe_docs.escript (docs/library.md#documented-functions).\n",
+        "%% OTP ~s documented functions of erts, kernel, stdlib and crypto: {Module, Application, Name, Arity};\n"
+        "%% observed by tests/compiler/library/observe_docs.escript (docs/library.md#documented-functions).\n",
         [erlang:system_info(otp_release)]
     ),
     Lines = [io_lib:format("{~s, ~s, ~s, ~w}.~n", [quoted(M), App, quoted(F), A]) || {M, App, F, A} <- Rows],

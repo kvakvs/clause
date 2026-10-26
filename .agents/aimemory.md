@@ -444,3 +444,11 @@ recorded elsewhere.
   entry detection ambiguous (clause_shell:run/1). Python text-mode stdin on Windows sends CRLF;
   OTP's stdin reads a CRLF line end as LF. The escript oracle can run shell:start_interactive();
   goldens mask the system version line with "stdout_masks" and add compile flags with "options".
+- LIB79A crypto (2026-10-26): OpenSSL 4.1.0 out-of-tree Configure with `no-apps` dies (apps/include missing):
+  drop no-apps, build target `build_libs` + `install_dev`. Windows Configure needs native Strawberry Perl (Git's
+  MSYS perl breaks paths); serial nmake ~4 min. Clang driver reads `ws2_32.lib` as a file: clau turns bare `.lib`
+  names into `-l`. Generated `.link`/`.openssl` files are named after the archive (`$<TARGET_FILE_PREFIX>`): clau
+  reads `<archive>.link` (libclause_runtime.link on Linux). Ubuntu's static libcrypto needs `-lz -lzstd` (read
+  from libcrypto.pc Libs.private; no pkg-config in WSL); libcrypto in lib/x86_64-linux-gnu. Clause has no frame
+  for a failing builtin, so `?nif_call` passes the builtin's args to error/3 explicitly. `maybe` is a reserved
+  word in OTP 29 fixtures. Library apps with a `<dir>/<dir>.app` (crypto) count as resources beside their modules.

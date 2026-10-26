@@ -485,6 +485,10 @@ bool add_referenced(const FrontendRequest &request, const DiagnosticSink &sink, 
     discovery.directories = discovery.library.directories_;
     std::ranges::copy(request.module_search_paths_, std::back_inserter(discovery.directories));
     bool failed = request.backend.shell && add_shell(request, sink, inputs, discovery);
+    // Added for the crypto runtime archive (plan 21 step LIB79): dynamic callers find crypto in the program.
+    if (request.backend.with_crypto) {
+        failed = add_module(U"crypto", "--with-crypto", discovery, request, sink, inputs) || failed;
+    }
     for (std::size_t scanned = 0; scanned < inputs.size(); ++scanned) {
         for (const auto &[name, source] : semantic::referenced_modules(inputs[scanned].syntax)) {
             auto site = site_text(inputs[scanned].syntax, source);
@@ -528,6 +532,16 @@ bool add_placeholder(const std::u32string &module, const std::set<semantic::Func
 
 // The program's application resources as the generated clause_applications module, when the batch has
 // application_controller; true on a failure. Added for application resources (plan 21 step LIB24).
+// Whether a library source's application directory has its resource (`crypto/crypto.app`). Added for the crypto
+// application (plan 21 step LIB79).
+bool library_resource(const std::filesystem::path &source) {
+    const auto directory = source.parent_path();
+    auto resource = directory / directory.filename();
+    resource += ".app";
+    std::error_code error;
+    return std::filesystem::is_regular_file(resource, error);
+}
+
 bool add_applications(const Discovery &discovery, const FrontendRequest &shared, const DiagnosticSink &sink,
                       Inputs &inputs) {
     if (!defined(inputs, U"application_controller")) {
@@ -539,7 +553,9 @@ bool add_applications(const Discovery &discovery, const FrontendRequest &shared,
     ApplicationPlaces places;
     for (const auto &input : inputs) {
         const auto module = semantic::declared_module(input.syntax);
-        if (!input.library_ && module) {
+        // Library modules count where their application has a resource beside them (library/crypto/crypto.app),
+        // which then lists them. Library resources added for the crypto application (plan 21 step LIB79).
+        if (module && (!input.library_ || library_resource(input.source_path))) {
             places.modules_.emplace_back(absolute(input.source_path).parent_path(), utf8(*module));
         }
     }

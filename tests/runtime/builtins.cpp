@@ -1,4 +1,5 @@
 #include <array>
+#include <clause/abi/startup.hpp>
 #include <clause/runtime/code_server.hpp>
 #include <clause/runtime/runtime.hpp>
 #include <iostream>
@@ -104,12 +105,33 @@ void check_calls() {
 // A builtin body that is never called.
 Word unused(ProcessContext &, std::span<const Word>) { return 0; }
 
-// Production registration covers the bridge catalog by index; duplicates and invalid entries roll back a batch.
+// The runtime extensions of this build (the crypto archive's), which programs linking them register after the
+// production builtins.
+std::vector<const RuntimeExtension *> extensions() {
+#ifdef CLAUSE_TEST_CRYPTO
+    return {static_cast<const RuntimeExtension *>(CLAUSE_crypto_extension_v1())};
+#else
+    return {};
+#endif
+}
+
+// Whether the bridge catalog entry belongs to an extension this build lacks.
+bool absent_extension(const clause::abi::v1::BuiltinName &name) {
+    return extensions().empty() && name.module == "clause_crypto";
+}
+
+// Production registration with the extensions covers the bridge catalog by index; duplicates and invalid entries roll
+// back a batch.
 void check_builtin_registry() {
-    auto runtime = Runtime::start().value();
+    RuntimeOptions options;
+    options.extensions = extensions();
+    auto runtime = Runtime::start(options).value();
     const auto &production = runtime->code_server()->builtins();
     for (std::size_t index = 0; index < clause::abi::v1::bridge_builtins.size(); ++index) {
         const auto &name = clause::abi::v1::bridge_builtins[index];
+        if (absent_extension(name)) {
+            continue;
+        }
         const auto *frame = production.bridge(index);
         require(frame && frame == production.find(name.module, name.function, name.arity), "bridge builtin missing");
         require(!frame->frame.body && frame->frame.arity == name.arity, "builtin frame malformed");
@@ -118,6 +140,11 @@ void check_builtin_registry() {
     BuiltinRegistry registry;
     for (const auto family : production_builtins()) {
         require(registry.add(family).has_value(), "family rejected");
+    }
+    for (const auto *extension : extensions()) {
+        for (const auto family : extension->families) {
+            require(registry.add(family).has_value(), "extension family rejected");
+        }
     }
     require(registry.size() == production.size(), "families differ from startup registration");
     require(registry.add(erlang_builtins()).error() == RegistryError::duplicate_key, "duplicate table accepted");

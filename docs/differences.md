@@ -108,7 +108,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Top stack frame of an `argparse` command validation error | The validating function (`argparse:validate_command/2`, `validate_option/2`, a fun inside them) with `[Entity]` | `argparse:validate/2` with `[Entity]` | [builtins](builtins.md#argparse) |
 | `escript:script_name/0` | The escript's path, the first plain argument | The executable's path: a Clause program is its own script | [library](library.md) |
 | `escript:extract/2` with `compile_source` | The source compiled to a beam | `{error, {compile, ...}}`: Clause programs have no compiler | [library](library.md) |
-| `beam_lib` chunks of encrypted debug information with a valid key | Decrypted with `crypto` | `key_missing_or_invalid`: Clause programs have no `crypto` | [library](library.md) |
+| `beam_lib` chunks of encrypted debug information with a valid key | Decrypted with `crypto` | `key_missing_or_invalid`: `crypto`'s ciphers are not implemented yet (plan 21 step LIB79B) | [library](library.md) |
 | `erl_abstract_code:debug_info(core_v1, ...)` (beam_lib's Core Erlang) | Core Erlang from the compiler | `{error, failed_conversion}`: Clause programs have no compiler | [library](library.md) |
 | `zstd:get_frame_header/1` of a truncated frame header | The fields of uninitialized memory | The fields zero (`'ZSTD_frame'`, sizes 0) | [builtins](builtins.md#zstd-module) |
 | `file:open/2` with `raw` or `ram` | A `#file_descriptor{}` record served in the caller (`is_pid/1` false); `io` requests on it fail; a `ram` file has no `read_line/1` (`undef`) and a closed one answers `{error, einval}` | A file server pid like other files; positioned I/O and `sendfile/5` answer as for OTP's raw files; a `ram` file answers `read_line/1` and I/O requests with `{error, enotsup}`, and `{error, terminated}` once closed | [ports](ports.md#standard-io-and-files) |
@@ -311,6 +311,16 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Difference | OTP | Clause | Owner |
 | --- | --- | --- | --- |
 | Strip heights of `rand`'s normal ziggurat | Tabled constants | Computed to the nearest double from the ziggurat's constants; a height may differ in its last bit, which changes a slow-path accept only for a draw within that bit of the bound (odds near 2^-53 per slow-path draw). Strip widths and bounds are observed from OTP and equal | [builtins](builtins.md#random-numbers) |
+
+## crypto
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Order of `crypto:supports(ciphers)` | The NIF's table sorted by atom index, which varies between VM runs, then the aliases | OTP's table order, then the aliases | [builtins](builtins.md#crypto-module) |
+| `{File, Line}` of `crypto`'s `{badarg \| notsup \| error, {File, Line}, Description}` errors | OTP's C source file and line (`{"hash.c", 111}`) | Clause's C++ source file and line (`{"hash.cpp", 63}`); the class and description are OTP's | [builtins](builtins.md#crypto-module) |
+| `link_type` of `crypto:info/0` | How OTP linked libcrypto (usually `dynamic`) | Always `static`, also when an installed shared libcrypto is linked | [OpenSSL](compile.md#openssl) |
+| Long `pbkdf2_hmac/5` computations (more than 100 iterations or 64 bytes) | Run on a dirty CPU scheduler | Run on the calling process's scheduler worker, which runs no other process meanwhile | [builtins](builtins.md#crypto-module) |
+| `modules` of the `crypto` application | `[crypto, crypto_ec_curves]` | `[crypto]` | [library](library.md) |
 
 ## Parse transforms
 

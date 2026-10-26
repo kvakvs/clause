@@ -327,6 +327,16 @@ std::span<const BuiltinEntry> node_builtins() noexcept;
 std::span<const BuiltinEntry> code_builtins() noexcept;
 // The process dictionary builtins: put/2, get/0,1, get_keys/0,1, erase/0,1. Added for step 41C.
 std::span<const BuiltinEntry> dictionary_builtins() noexcept;
-// Every production builtin family runtime startup registers, together covering abi::v1::bridge_builtins.
+// Every production builtin family runtime startup registers, together covering abi::v1::bridge_builtins but for the
+// extensions' builtins.
 std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept;
+
+// The builtins of one runtime extension archive (clause_runtime_crypto), registered after the production ones when a
+// program links the archive. Added for the crypto runtime archive (plan 21 step LIB79).
+struct RuntimeExtension {
+    // Names the extension in diagnostics.
+    std::string_view name;
+    // The builtin families the extension adds.
+    std::span<const std::span<const BuiltinEntry>> families;
+};
 } // namespace clause::runtime

@@ -36,10 +36,19 @@ Runtime::Impl::Impl(const RuntimeOptions &options, std::uint64_t identity)
       persistent_terms(literals.persistent()),
       profile(options.profile.empty() ? nullptr : std::make_unique<detail::RuntimeProfile>()), executor(*this) {
     for (const auto family : production_builtins()) {
-        if (!code_server.builtins().add(family)) {
-            // Only allocation can fail for the fixed production tables.
-            throw std::bad_alloc();
+        add_builtins(family);
+    }
+    for (const auto *extension : options.extensions) {
+        for (const auto family : extension->families) {
+            add_builtins(family);
         }
+    }
+}
+
+void Runtime::Impl::add_builtins(std::span<const BuiltinEntry> family) {
+    if (!code_server.builtins().add(family)) {
+        // Only allocation can fail for the fixed production and extension tables.
+        throw std::bad_alloc();
     }
 }
 

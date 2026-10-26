@@ -9,6 +9,7 @@
 
 namespace clause::runtime {
 class SchedulerService;
+struct RuntimeExtension;
 
 namespace detail {
 class Executor;
@@ -51,6 +52,9 @@ struct RuntimeOptions {
     std::string profile = {};
     // The command line and home directory startup decoded (plan step 41L); empty for runtimes a host starts.
     ProgramArguments program = {};
+    // The runtime extensions whose builtins join the production ones: those the program links (startup), or a
+    // host's. Added for the crypto runtime archive.
+    std::vector<const RuntimeExtension *> extensions = {};
 };
 
 // Own stable process contexts and reserved runtime-wide services; calls require host-side serialization.

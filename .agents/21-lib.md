@@ -136,14 +136,54 @@ three core applications). Call counts are over `references/emqx/apps`, non-test 
 noted. The same rules apply as for the core: whole module or nothing in `library/`, OTP's terms and
 records, goldens from OTP, own headers written from the documented records and macros.
 
-- **LIB79 `crypto` (design first, 75 functions in one module, +4 deprecated):** a NIF over OpenSSL
-  in OTP. Decide the backend with the user: a pinned OpenSSL 3 built into the runtime like zlib/zstd
-  (recommended: same algorithms, `supports/1` lists, `info_lib/0` and error terms as OTP) or OS
-  libraries (CNG, CommonCrypto; differ per platform). emqx uses `hash/2` (28), `strong_rand_bytes/1`
-  (20), `pbkdf2_hmac/5`, `hash_equals/2`, `mac/3,4`, `hash_init/update/final`, `exor/2`, `verify/5`,
-  `supports/1`. Engines (`engine_*`, 15 functions) are declined, answering as an OTP built without
-  engine support. Unblocks `beam_lib` decryption (`differences.md` row); `rand_seed*` plug `crypto`
-  into `rand`.
+- **LIB79 `crypto` (75 functions in one module, +4 deprecated; design agreed 2026-10-26):** emqx
+  uses `hash/2` (28), `strong_rand_bytes/1` (20), `pbkdf2_hmac/5`, `hash_equals/2`, `mac/3,4`,
+  `hash_init/update/final`, `exor/2`, `verify/5`, `supports/1`.
+  - **OpenSSL:** pinned 4.1.0 (`cmake/OpenSSLDependencies.cmake`); any OpenSSL >= 3.4 also works:
+    the crypto C++ uses only API present since 3.4 and no compile-time version branches (runtime
+    `OpenSSL_version_num()` checks), so one archive links with any such libcrypto. Order:
+    `CLAUSE_OPENSSL_ROOT` (an installed prefix or a source tree, told apart by
+    `include/openssl/opensslv.h` vs `Configure`), an installed copy (`CLAUSE_OPENSSL_SYSTEM`, default
+    ON except Windows), else the pinned source built at
+    configure time into `thirdparty/` (one install per architecture and CRT). Options: `no-shared
+    no-module no-apps no-tests no-docs no-makedepend enable-ec_explicit_curves` (`no-module` puts the
+    legacy provider into libcrypto; it is loaded as OTP loads it). Windows builds need native Perl
+    and NASM: pinned Strawberry Perl portable and NASM zips into `thirdparty/tools/` (Git's MSYS perl
+    breaks Configure's paths), then `nmake`; POSIX hosts `./Configure` and `make -j`.
+  - **Separate runtime archive `clause_runtime_crypto`** (+ `clause_runtime_crypto.link` listing
+    libcrypto and system libraries) beside `clause_runtime`, exported as `Clause::crypto` for CMake
+    consumers. `clau` links it when the batch contains the library `crypto` module or with
+    `--with-crypto[=PATH]` (also adds `crypto` to the batch, for dynamic callers such as
+    `beam_lib`). PATH is an OpenSSL >= 3.4 install prefix or source tree (a source tree is
+    configured and built once into clau's build cache with Perl/NASM from PATH or the build's
+    `thirdparty/tools`); without PATH the `CLAUSE_OPENSSL_ROOT` environment variable, else the
+    libcrypto the build recorded in `clause_runtime_crypto.link`. The
+    startup descriptor lists builtin extensions: codegen emits a pointer to
+    `CLAUSE_crypto_extension_v1` (runtime_symbols.hpp), so the linker pulls the archive and the
+    runtime registers its families. Programs without crypto are unchanged. Configure option
+    `CLAUSE_RUNTIME_CRYPTO` (ON) builds it.
+  - **Probing:** one table (OTP name, kind, OpenSSL fetch name, flags, OTP's order); probed once per
+    program on the first crypto call (`std::call_once`, as OTP probes at NIF load). `supports/0,1`,
+    `hash_info`, `cipher_info`, `ec_curves`, `info`, `info_lib` read it: programs see what the
+    linked OpenSSL provides.
+  - **Runtime (`runtime/src/builtins/crypto/`):** `openssl.hpp` (RAII, errors), `algorithms.cpp`,
+    `hash.cpp`, `mac.cpp` (+ pbkdf2, hash_equals), `cipher.cpp`, `aead.cpp`, `pkey.cpp`, `kem.cpp`,
+    `curves.cpp` (`ec_curve/1` from OpenSSL's group data), `math.cpp`, `rand.cpp`. States are handle
+    references with finalizers; long inputs run in portions. Errors keep OTP's
+    `{badarg, {File, Line}, Description}` shape and descriptions with Clause's own file and line
+    (`differences.md` row).
+  - **Erlang (`library/crypto/`, new application):** `crypto.erl` wrappers, `crypto.terms`,
+    `crypto.app` (`application:start(crypto)`), headers if documented. Refused: `engine_*` (notsup) as an OTP
+    built without engines; FIPS (`info_fips/0` gives `not_supported`). `rand_seed*` plug into
+    `rand`'s plugin handler.
+  - **Tests:** goldens from OTP 29.1.1 (OpenSSL 3.5.5) for deterministic vectors and error terms;
+    probe lists checked as a required core subset plus "every listed algorithm works", `info_lib`
+    masked.
+  - **Steps:** LIB79A done (`00-finished.md`). LIB79B ciphers and AEAD (`crypto_init/update/final/get_data`,
+    `crypto_one_time*`, `cipher_info/1`; the `crypto_aes`/`crypto_prng1` rand plugins, which need `rand`'s
+    `exro928_*` and `seed58`), `beam_lib` decryption. LIB79C public keys (`sign`/`verify`, `generate_key`,
+    `compute_key`, RSA encrypt/decrypt, `privkey_to_pubkey`), `ec_curve(s)`, ML-KEM, SRP; then crypto leaves
+    `PARTIAL` in `library_modules.py`.
 - **LIB80 `public_key` (54 functions, after LIB79):** PEM, DER codec of the PKIX/PKCS ASN.1 types
   into OTP's record tuples (`'Certificate'`, `'OTPCertificate'`, `'RSAPrivateKey'`,
   `'ECPrivateKey'`, ~250 records of `public_key.hrl` and its four included headers), signing,

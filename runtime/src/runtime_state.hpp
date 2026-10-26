@@ -21,6 +21,8 @@ class Runtime::Impl final {
     Impl(const RuntimeOptions &options, std::uint64_t identity);
     // Retire scheduling records before contexts, then release code while the stopped service still exists.
     ~Impl();
+    // Register one fixed builtin family (production or extension); a failure is out of memory.
+    void add_builtins(std::span<const BuiltinEntry> family);
     // Own the bounded spelling table after contexts and module bindings are released.
     AtomStorage atom_storage;
     // Own one host-serialized lifecycle record service; the executor below runs the processes.

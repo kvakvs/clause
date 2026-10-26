@@ -1,5 +1,6 @@
 #pragma once
 #include "../codegen/output.hpp"
+#include "crypto.hpp"
 #include <filesystem>
 #include <optional>
 #include <span>
@@ -27,6 +28,9 @@ struct LinkRequest {
     bool debug_info = false;
     // The objects are bitcode: link with LLD's link-time optimization (Windows MSVC and ELF targets only).
     bool lto = false;
+    // Link the crypto runtime archive and OpenSSL's libcrypto (the program calls crypto, or --with-crypto). Added for
+    // the crypto runtime archive (plan 21 step LIB79).
+    std::optional<CryptoLink> crypto = std::nullopt;
 };
 
 // Own a uniquely created directory beside an output; it is removed with its contents on destruction.

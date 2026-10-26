@@ -51,12 +51,17 @@ int runtime_failure(std::string_view what) noexcept {
     return abi::v1::exit_runtime_failure;
 }
 
+// Whether every array and spelling the descriptor borrows is present.
+bool borrowed(const StartupDescriptor &startup) {
+    return (startup.module_count == 0 || startup.modules) && (startup.extension_count == 0 || startup.extensions) &&
+           startup.entry_module && startup.entry_function;
+}
+
 // Reject startup and module descriptors of another ABI revision or width before anything is registered.
 bool compatible(const StartupDescriptor &startup) {
     constexpr auto bits = sizeof(abi::v1::TermWord) * 8;
     if (startup.abi_version != abi::v1::version || startup.term_bits != bits ||
-        (startup.flags & ~(abi::v1::startup_escript | abi::v1::startup_no_arguments)) != 0 ||
-        (startup.module_count != 0 && !startup.modules) || !startup.entry_module || !startup.entry_function) {
+        (startup.flags & ~(abi::v1::startup_escript | abi::v1::startup_no_arguments)) != 0 || !borrowed(startup)) {
         return false;
     }
     return std::ranges::all_of(std::span(startup.modules, startup.module_count), [](const auto *module) {
@@ -209,6 +214,9 @@ int run(const StartupDescriptor &startup, int argc, char **argv) {
         return runtime_failure(options.error());
     }
     options->runtime.program = command_line(argc, argv, options->consumed);
+    for (const auto entry : std::span(startup.extensions, startup.extension_count)) {
+        options->runtime.extensions.push_back(static_cast<const RuntimeExtension *>(entry()));
+    }
     auto runtime = Runtime::start(options->runtime);
     if (!runtime) {
         return runtime_failure("cannot start the runtime: " + status_name(runtime.error()));

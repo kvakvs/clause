@@ -146,11 +146,15 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `LLVMContext`, largest first, each worker with its own `TargetMachine`; emission then runs on those
   contexts in parallel; diagnostics and outputs merge in module order, objects identical to `--jobs 1`.
 - Startup (`codegen/startup`): module `clausev1_start` whose `main` hands a `StartupDescriptor` to
-  `CLAUSE_main_v1`.
+  `CLAUSE_main_v1`; the descriptor lists runtime extension entries (`CLAUSE_crypto_extension_v1` when
+  the batch has library `crypto` or `--with-crypto`), whose builtins startup registers.
 - Linking (`linking/`): objects staged in `.clause-link-*` beside the output,
   `clang --driver-mode=g++ --target=<triple>` with the runtime archive (members checked via LLVM
   Object) plus installed library inputs from `clause_runtime.link`; projects publish executables
-  only after all succeed.
+  only after all succeed. Crypto (`linking/crypto`, `openssl`): `clause_runtime_crypto` before the
+  runtime archive, libcrypto + system libraries from `clause_runtime_crypto.link` after it, or from
+  `--with-crypto=PATH`/`CLAUSE_OPENSSL_ROOT` (an install, or a source tree built once into
+  `<build>/cache/openssl/<hash>` with the recipe in `clause_runtime_crypto.openssl`).
 
 ## 2. Runtime (`clause_runtime`)
 
@@ -266,6 +270,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `clause_builtin_placeholder` bodies are replaced at registration.
 - Call kinds: bridge (`CLAUSE_builtin_frame_v1` + apply marker), direct (`CLAUSE_builtin_call_v1`),
   quick (bounded fast path, then frame). `typed<Function>` adapts typed C++ (mismatch → badarg).
+- Runtime extensions: separate archives (`clause_runtime_crypto`, `docs/compile.md#openssl`) whose
+  `RuntimeExtension` families `RuntimeOptions::extensions` adds after `production_builtins()`; only
+  programs that need them link them.
 - Portions (`builtins/portions`): long builtins spend `ProcessStack::budget()` then
   `trap(continuation, state)`; builtins may continue in an Erlang export
   (`semantic/builtin_continuations.hpp`), which keeps the target live.
@@ -296,6 +303,14 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   decoded once into `ProgramArguments`), `prim_eval:'receive'/2` (Erlang scan over
   `clause_receive`), `zlib` (bundled zlib 1.3.2: streams, compressed term codec). Low-level
   `prim_*`, socket NIF modules are declared missing.
+
+### crypto (plan 21 LIB79)
+
+- `library/crypto/` (application with `crypto.app`, listed as a library resource): `crypto.erl`
+  over `clause_crypto` builtins in `runtime/src/builtins/crypto/` (OpenSSL ≥ 3.4, pinned 4.1.0):
+  algorithm tables probed on the first call (`algorithms.cpp`), hash/MAC states as handle
+  references, OTP's NIF errors turned into `{Class, {File, Line}, Msg}` by `?nif_call`; engines
+  refused. Ciphers (LIB79B) and public keys (LIB79C) pending.
 
 ### kernel
 

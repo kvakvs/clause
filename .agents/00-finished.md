@@ -895,6 +895,12 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   instead of 174, euler 21 MB, 5.8 s) and the luerl performance baseline; `-noOTP` twin removed. `test-emqx.toml`
   drops OTP include dirs, keeps `eunit`/`common_test`/`public_key`/`ssl` as `applications` roots; same
   diagnostics — `85fbfdbd`
+- **LIB79A** `crypto` foundation: OpenSSL 4.1.0 pinned (≥ 3.4 accepted; Windows source build with pinned
+  Strawberry Perl + NASM, Linux system libcrypto), separate `clause_runtime_crypto` archive linked only into
+  programs that compile library `crypto` or pass `--with-crypto[=PATH]` (install or source tree, also
+  `CLAUSE_OPENSSL_ROOT`); startup descriptor lists runtime extensions. Algorithms probed on first call;
+  `supports`, `info*`, hashes, MACs, PBKDF2, rand plugins `crypto`/`crypto_cache`, helpers with OTP's errors;
+  engines refused. +4.5 MB only for crypto programs; `crypto_digests` golden — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 
