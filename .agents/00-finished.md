@@ -920,7 +920,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB84** project `.asn` sources complete: PER/UPER engine (`builtins/asn1/per*`: effective constraints, FROM
   alphabets, extension additions and groups, fragments, OTP's quirks and decode error payloads), `no_final_padding`;
   `asn1_per`/`asn1_uper` goldens; all emqx specs (emqx's `[[targets.asn1]]` group in `test-emqx.toml`) identical to
-  asn1ct — `pending`
+  asn1ct — `1e02283e`
 
 ## Plan 22 (from 2026-10-23)
 
