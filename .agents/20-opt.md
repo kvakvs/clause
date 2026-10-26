@@ -255,6 +255,7 @@ kinds) or process_info/system_info item lists.
 
 The array of builtins in `builtins.hpp` is a flat array searched by a loop. This is no good and
 should either be a map/hash_map or use a better search algorithm.
+Note: `BuiltinRegistry` is already using a compound key of M:F/Arity and a map keyed by that.
 
 Same applies to searching for imports/loaded modules/exported functions and so on. Scan
 the compiler code for such linear searches.
