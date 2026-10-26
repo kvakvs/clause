@@ -5,8 +5,8 @@ encode and decode the PKIX and PKCS types, which clau generates from the specifi
 `library/public_key/asn1/`, and the header `library/public_key/include/public_key.hrl`, and the
 `public_key` module, which has OTP 29's exports: its DER and PEM codec (LIB80B), keys and signatures
 (LIB80C), the certificate, name, CRL and hostname functions (LIB80D1), path validation (LIB80D2),
-CRL validation (LIB80D3) and OCSP validation (LIB80D4) are implemented; test data and trust stores
-(LIB80D5–D6) still raise `{not_implemented, Name, Arity}`
+CRL validation (LIB80D3), OCSP validation (LIB80D4) and test data (LIB80D5) are implemented; the
+trust stores (LIB80D6) still raise `{not_implemented, Name, Arity}`
 ([inventory](../../library/public_key/public_key.terms)).
 
 ## Specifications
@@ -179,3 +179,19 @@ future. The result is `{ok, Details}`, `{error, {bad_cert, {revoked, RevokedInfo
 nonce extension of a request. The `public_key_ocsp` golden compares good, revoked and unknown
 statuses, designated, unauthorised and expired responders, nonces, tampered and re-signed responses
 and stale times with OTP on responses made with OpenSSL.
+
+## Test data
+
+`pkix_test_data/1` and `pkix_test_root_cert/2` (`clause_public_key_test_data`) make certificates
+for tests as OTP does: a self-signed root (given as `#{cert, key}` or made from options), the
+intermediate CAs and the peer of one chain (`[{cert, _}, {key, _}, {cacerts, _}]`) or of a server
+and a client chain (`#{server_config, client_config}`, each trusting the other's root). Keys are
+generated from the `key` option (by default on the first curve `crypto:ec_curves/0` lists) or given,
+as `{both, Public, Private}` too; certificates are signed with SHA-1 unless the `digest` option says
+otherwise (`rsa_padding` `rsa_pss_rsae` defaults to SHA-256, a key with RSASSA-PSS parameters signs
+with RSASSA-PSS); subjects are OTP's (`erlang`, `automated testing`, Stockholm), serial numbers
+`erlang:unique_integer/1`, validity from yesterday to a week ahead at 13:00 (or the `validity`
+option's dates, GeneralizedTime from 2049), and the `extensions` option replaces the defaults it
+names (CA key usage and basic constraints; a server peer's key usage and `net_adm:localhost/0`
+subject alternative name; a client peer's key usage). The `public_key_test_data` golden compares
+the generated certificates without their random parts, and their path validation, with OTP.

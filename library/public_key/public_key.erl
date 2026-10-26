@@ -1,8 +1,8 @@
 %% Clause's replacement for OTP's public_key (docs/libraries/public_key.md, plan 21 step LIB80), written from OTP's
 %% documentation: DER and PEM coding and certificate decoding (LIB80B) are clause_public_key_codec's, over the ASN.1
 %% modules clau generates from library/public_key/asn1, keys and signatures (LIB80C) clause_public_key_keys', over
-%% crypto; certificates and validation (LIB80D) clause_public_key_cert, _path, _crl and _ocsp'. The rest raises
-%% {not_implemented, Name, Arity}.
+%% crypto; certificates, validation and test data (LIB80D) clause_public_key_cert, _path, _crl, _ocsp and _test_data'.
+%% The rest raises {not_implemented, Name, Arity}.
 -module(public_key).
 -export([
     cacerts_clear/0,
@@ -109,6 +109,10 @@ ocsp_extensions(Nonce) -> clause_public_key_ocsp:ocsp_extensions(Nonce).
 pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, Options) ->
     clause_public_key_ocsp:pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, Options).
 
+%% Test data.
+pkix_test_data(ChainConf) -> clause_public_key_test_data:pkix_test_data(ChainConf).
+pkix_test_root_cert(Name, Opts) -> clause_public_key_test_data:pkix_test_root_cert(Name, Opts).
+
 %% Keys and signatures.
 compute_key(OthersKey, MyKey) -> clause_public_key_keys:compute_key(OthersKey, MyKey).
 compute_key(OthersKey, MyKey, Params) -> clause_public_key_keys:compute_key(OthersKey, MyKey, Params).
@@ -147,5 +151,3 @@ cacerts_clear() -> erlang:error({not_implemented, cacerts_clear, 0}).
 cacerts_get() -> erlang:error({not_implemented, cacerts_get, 0}).
 cacerts_load() -> erlang:error({not_implemented, cacerts_load, 0}).
 cacerts_load(_) -> erlang:error({not_implemented, cacerts_load, 1}).
-pkix_test_data(_) -> erlang:error({not_implemented, pkix_test_data, 1}).
-pkix_test_root_cert(_, _) -> erlang:error({not_implemented, pkix_test_root_cert, 2}).
