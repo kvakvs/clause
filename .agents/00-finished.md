@@ -996,7 +996,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 
 - **LIB77E2** `erl_syntax`: all 303 functions as C++ builtins over OTP's representation (tables of accessors,
   constructors, make_tree shapes, subtrees groups, revert per type), `*_literal` Erlang glue; `syntax_tools.app`,
-  types header (observer now follows nested records); `erl_syntax_trees` golden identical to OTP — `HASH`
+  types header (observer now follows nested records); `erl_syntax_trees` golden identical to OTP — `9a92f0e7`
 
 ## Plan 22 (from 2026-10-23)
 
