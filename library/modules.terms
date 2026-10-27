@@ -134,3 +134,11 @@
 {crypto, crypto, provided}.
 {public_key, public_key, provided}.
 {ssl, ssl, provided}.
+{erl_boot_server, kernel, provided}.
+{erl_epmd, kernel, provided}.
+{heart, kernel, provided}.
+{erl_ddll, kernel, provided}.
+{erl_debugger, kernel, provided}.
+{peer, stdlib, provided}.
+{slave, stdlib, provided}.
+{pool, stdlib, provided}.

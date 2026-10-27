@@ -16,15 +16,15 @@ internal functions stay out unless a public function needs them (user direction 
   headline speedup to `00-finished.md` (Plan 21). Rejected or reverted steps go to `00-reject.md`
   with the measurement behind the decision.
 
-## Status (2026-10-25)
+## Status (2026-10-27)
 
 - **Source of truth:** the doc chunks of the installed OTP 29.1.1 (`code:get_doc/1`), recorded in
   `library/documented.terms` by `tests/compiler/library/observe_docs.escript`;
   `library_modules.py coverage .` prints the progress per module. 120 documented modules, 2,888
   documented functions.
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
-- **Left:** `erlang` (20 declined functions, LIB9 remainder) and the declined modules' answer stubs
-  (Appendix A); OTP-free builds (LIB77–LIB78: luerl's manifests use no OTP paths since LIB76);
+- **Left:** `erlang` (20 declined functions, LIB9 remainder, Appendix A); OTP-free builds
+  (LIB77–LIB78: luerl's manifests use no OTP paths since LIB76);
   applications beyond the core that emqx needs (LIB81B–D, LIB82–LIB83, Appendix B; `crypto` (LIB79),
   `public_key` (LIB80) and `ssl`'s utility functions (LIB81A) are done).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
@@ -94,19 +94,6 @@ runs a process protocol or is glue. C++ reproduces OTP's exact result shapes for
 - D01: `load_module/2`, `load_nif/2`, `purge_module/1`, `check_*code`.
 - Distribution: `dist_ctrl_*`.
 - Tracing: `trace*`, `system_monitor/0,1,2`, `system_profile/0,2` raise `notsup` (LIB71).
-
-### Declined modules (recorded in `modules.terms`)
-
-| Module | Reason | OTP's answer on a non-distributed or unsupported node |
-| --- | --- | --- |
-| `erl_boot_server` (7), `erl_epmd` (8) | Distribution boot and port mapping | Start fails as without epmd |
-| `peer` (11), `slave` (deprecated), `pool` (8) | Start other nodes | `{error, not_alive}` or the matching error |
-| `heart` (8) | Needs OTP's heart port program | `heart` not started |
-| `erl_ddll` (15) | No dynamic drivers (D01) | `loaded_drivers/0` gives `{ok, []}`, loads give `{error, ...}` |
-| `erl_debugger` (13) | No debugger interface | `supported/0` gives `false` |
-
-These still get small modules answering as OTP does where the feature is missing, so programs that
-probe for them keep working.
 
 ### Phase: OTP-free builds
 
@@ -192,10 +179,9 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. The declined modules' answer stubs.
-2. LIB77 after a design decision; LIB78 only on request.
-3. LIB81B–D in order (LIB81E on request).
-4. LIB82, LIB83 last (test support).
+1. LIB77 after a design decision; LIB78 only on request.
+2. LIB81B–D in order (LIB81E on request).
+3. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)
 
@@ -226,22 +212,6 @@ separately and are optional.
   dist_ctrl_get_opt/2, dist_ctrl_input_handler/2, dist_ctrl_put_data/2, dist_ctrl_set_opt/3,
   load_module/2, load_nif/2, purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3,
   trace_delivered/1, trace_info/2, trace_pattern/2,3
-- `erl_boot_server` (kernel, 7): add_slave/1, delete_slave/1, start/1,2, start_link/1,2,
-  which_slaves/0
-- `erl_ddll` (kernel, 15): demonitor/1, format_error/1, info/0,1,2, load/2, load_driver/2,
-  loaded_drivers/0, monitor/2, reload/2, reload_driver/2, try_load/3, try_unload/2, unload/1,
-  unload_driver/1
-- `erl_debugger` (kernel, 13): breakpoint/3, breakpoints/1,3, instrumentations/0,
-  peek_stack_frame_slot/4, peek_xreg/3, register/1, stack_frames/2, supported/0,
-  toggle_instrumentations/1, unregister/2, whereis/0, xregs_count/1
-- `erl_epmd` (kernel, 8): address_please/3, listen_port_please/2, names/1, port_please/2,3,
-  register_node/2,3, start_link/0
-- `heart` (kernel, 8): clear_callback/0, clear_cmd/0, get_callback/0, get_cmd/0, get_options/0,
-  set_callback/2, set_cmd/1, set_options/1
-- `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3, start/1,
-  start_link/0,1, stop/1
-- `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3, pspawn_link/3, start/1,2, stop/0
-- `slave` (stdlib, 0): none; deprecated: pseudo/1,2, relay/1, start/1,2,3, start_link/1,2,3, stop/1
 
 ## Appendix B: documented API of the applications beyond the core (OTP 29 doc chunks)
 

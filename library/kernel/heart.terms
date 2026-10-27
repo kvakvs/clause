@@ -1,0 +1,13 @@
+%% OTP 29 heart exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{clear_callback, 0, default, refused}.
+{clear_cmd, 0, default, refused}.
+{cycle, 0, server, declined}.
+{get_callback, 0, default, refused}.
+{get_cmd, 0, default, refused}.
+{get_options, 0, default, refused}.
+{init, 2, server, declined}.
+{set_callback, 2, default, refused}.
+{set_cmd, 1, default, refused}.
+{set_options, 1, default, refused}.
+{start, 0, server, declined}.

@@ -1,0 +1,20 @@
+%% OTP 29 erl_boot_server exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{add_slave, 1, boot, declined}.
+{add_subnet, 2, boot, declined}.
+{boot_accept, 3, boot, declined}.
+{boot_init, 1, boot, declined}.
+{code_change, 3, boot, declined}.
+{delete_slave, 1, boot, declined}.
+{delete_subnet, 2, boot, declined}.
+{handle_call, 3, boot, declined}.
+{handle_cast, 2, boot, declined}.
+{handle_info, 2, boot, declined}.
+{init, 1, boot, declined}.
+{start, 1, boot, declined}.
+{start, 2, boot, declined}.
+{start_link, 1, boot, declined}.
+{start_link, 2, boot, declined}.
+{terminate, 2, boot, declined}.
+{which_slaves, 0, boot, declined}.
+{would_be_booted, 1, boot, declined}.

@@ -1,0 +1,27 @@
+%% OTP 29 peer exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{call, 4, default, implemented}.
+{call, 5, default, implemented}.
+{cast, 4, default, implemented}.
+{get_state, 1, default, implemented}.
+{handle_call, 3, server, declined}.
+{handle_cast, 2, server, declined}.
+{handle_info, 2, server, declined}.
+{init, 1, server, declined}.
+{init_supervision, 2, server, declined}.
+{random_name, 0, default, implemented}.
+{random_name, 1, default, implemented}.
+{send, 3, default, implemented}.
+{start, 0, server, declined}.
+{start, 1, default, refused}.
+{start_link, 0, default, refused}.
+{start_link, 1, default, refused}.
+{start_supervision, 0, server, declined}.
+{stop, 1, default, implemented}.
+{supervision_child_spec, 0, server, declined}.
+{system_code_change, 4, server, declined}.
+{system_continue, 3, server, declined}.
+{system_get_state, 1, server, declined}.
+{system_replace_state, 2, server, declined}.
+{system_terminate, 4, server, declined}.
+{terminate, 2, server, declined}.

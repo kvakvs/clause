@@ -341,6 +341,18 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | The default Diffie-Hellman groups of `public_key:dh_gex_group/4` | The groups OTP generated (`lib/public_key/priv/moduli`), 60–81 per size | Eight per size from OpenSSH's moduli file; same sizes (2047 to 8191) | [public_key](libraries/public_key.md#keys-and-signatures) |
 | Frames of a `public_key` exception | `public_key`, `pubkey_pem`, `pubkey_pbe`, `pubkey_cert_records`, `pubkey_cert`, `pubkey_crl`, `pubkey_policy_tree`, `pubkey_ocsp`, `pubkey_os_cacerts`, `pubkey_ssh` | `public_key`, `clause_public_key_codec`, `clause_public_key_keys`, `clause_public_key_cert`, `clause_public_key_path`, `clause_public_key_crl`, `clause_public_key_ocsp`, `clause_public_key_test_data` and `clause_public_key_cacerts` | [public_key](libraries/public_key.md#functions) |
 
+## Unsupported features
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| `erl_ddll:loaded_drivers/0` | The linked-in drivers (`tcp_inet`, `udp_inet`, `ram_file_drv`, ...) | `{ok, []}`: Clause's ports are not drivers | [library](libraries/library.md) |
+| `erl_ddll:load/2`, `load_driver/2`, `try_load/3` | Load a driver, or `{error, {open_error, Code}}` for a missing file | `{error, no_ddll_available}`, OTP's answer without DDLL functionality | [library](libraries/library.md) |
+| `erl_ddll:format_error({open_error, Code})` for an operating system code (`Code =< -10`) | The system's message (`"The specified module could not be found."`) | `"Unspecified error"` | [library](libraries/library.md) |
+| `erl_epmd:names/1`, `port_please/2,3` | Ask a running epmd daemon | Answer as without one (`{error, address}`, `noport` or the configured listen port); `start_link/0` is declined | [library](libraries/library.md) |
+| `erl_boot_server` | A working boot server for diskless nodes | Every function is declined | [library](libraries/library.md) |
+| `peer:start/1`, `start_link/1` with an alternative `connection` | Start a peer node over standard I/O or TCP | `error:notsup` after OTP's option checks: Clause cannot run another node | [library](libraries/library.md) |
+| `pool`'s expected loads | A statistic collector per node updates them every few seconds | Only `get_node/0` and `pspawn/3` raise them | [library](libraries/library.md) |
+
 ## ssl
 
 | Difference | OTP | Clause | Owner |
