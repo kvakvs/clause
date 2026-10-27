@@ -164,3 +164,5 @@ printed by `vcvars64.bat` is harmless.
     other than printing "<program name>: ok", it can silently exit, it can crash, it can print an
     error - everything should not be considered a success. Of course for those test steps which
     already adopted such behavior change
+- Testing the code which does nothing/returns error/returns not supported/stubs and placeholders:
+  - Do not test code which does nothing. Save CPU cycles for other valuable stuff.

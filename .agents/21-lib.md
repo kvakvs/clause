@@ -110,10 +110,38 @@ preprocessing diagnostics are unchanged (the rest are emqx's missing dependencie
 
 Steps:
 
-- **LIB77 Parse transforms without the host (design first):** `ms_transform` and `qlc_pt` exist in
-  `library/` but run on the host OTP `erl` ([transforms](../docs/transforms.md)). Decide with the
-  user between running library transforms inside `clau` (needs compile-time evaluation) and keeping
-  the host requirement; until then, `ets:fun2ms` users still need OTP on the build host.
+- **LIB77 Parse transforms without the host:** `ms_transform` and `qlc_pt` exist in `library/` but
+  run on the host OTP `erl` ([transforms](../docs/transforms.md)). Decided 2026-10-27 (user): an
+  Erlang interpreter runs transforms without OTP. Library transforms run compiled, project and
+  dependency transforms are interpreted from their forms. Already there: `erl_eval`, `erl_parse`,
+  `erl_scan`, `epp`, `erl_lint`, `erl_expand_records`, `erl_internal`, `erl_anno`, `erl_pp`,
+  `erl_error`, `beam_lib`, `erl_abstract_code`, `error_handler`, `ms_transform`, `qlc_pt`.
+  - **LIB77A Transform host executable:** built the way `clau --shell` is (whole library, exports
+    kept), cached by clau identity; speaks the loader's ETF request/reply, so the pipeline swaps
+    `erl` for it. `--erl` stays as the fallback for what the host cannot run (LIB77C).
+  - **LIB77B Module interpreter (`clause_interp`, Erlang over `erl_eval`):** loads a module's forms
+    (records expanded, `erl_lint` checked) into a registry; local calls through `erl_eval`'s local
+    function handler, `fun f/N`, and remote calls, `apply/3`, `fun M:F/A` and spawn MFAs into
+    interpreted modules routed through `error_handler`. `erlang:function_exported/3`,
+    `code:ensure_loaded/1`, `is_loaded/1`, `which/1` and `module_info/0,1` see interpreted modules;
+    exceptions keep OTP's `error in parse transform 'M': ...` text with interpreted stack frames.
+  - **LIB77C Transform sources:** `clau` preprocesses and parses project transform sources (and the
+    project modules they call) with its own frontend, applies their own transforms first, and sends
+    the exported forms in the request; the host only interprets them (no `compile`, `epp` or
+    `erl_parse` run in the host). `.beam` files on `transform_paths` are interpreted from their
+    `debug_info` chunk (`beam_lib` + `erl_abstract_code`); one without debug info needs `--erl`.
+  - **LIB77D Switch over:** transforms run in the host by default and `erl` is only the fallback;
+    imported `{error, _}`/`{warning, _}` forms formatted natively; modules with preprocessor or
+    parse errors pass them to transforms as forms, as OTP does (both `differences.md` rows go).
+    Proof: emqx's `ets:fun2ms`/`qlc` users and `emqx_bpapi_trans` (which calls the dependency
+    `erlang_qq`) build with `--erl none`.
+  - **LIB77E (on request) APIs that third-party transforms call:** not needed by `clau`, only by
+    transform code that uses them (else `undef`). `syntax_tools`: `erl_syntax` (303 exports; plain
+    forms are already valid trees, so most of it is node accessors over abstract forms, the
+    clause-heavy dispatch in C++), `erl_syntax_lib`, `erl_prettypr`/`prettypr`, `epp_dodger`,
+    `merl` with `merl_transform` and `merl.hrl`. `compile:forms/1,2` for transforms that build
+    helper modules, returning an interpreter image that `code:load_binary/3` accepts in the host
+    only. Written in Clause's shape, never copied.
 - **LIB78 (optional, beyond erts/kernel/stdlib) `parsetools`:** `yecc` and `leex` with
   `yeccpre.hrl`/`leexinc.hrl` equivalents, so projects that ship only `.yrl`/`.xrl` build without
   OTP. Generated parsers are clause-heavy: generate C++ tables or keep generated Erlang small (see
@@ -179,7 +207,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB77 after a design decision; LIB78 only on request.
+1. LIB77A–D in order; LIB77E and LIB78 only on request.
 2. LIB81B–D in order (LIB81E on request).
 3. LIB82, LIB83 last (test support).
 

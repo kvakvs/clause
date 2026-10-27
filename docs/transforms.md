@@ -146,6 +146,18 @@ the same forms.
   `%ProgramFiles%\Erlang OTP\bin\erl.exe`. Not finding one when a module needs a
   transform is an error naming the transform and the module; there is no
   fallback that skips transforms.
+- `--erl PATH` names the host `erl` executable (`erl.exe` on Windows) and skips
+  the search. It works in positional and `--project` builds alike; there is no
+  project manifest key. Giving it twice is the usage error
+  `--erl specified more than once`. The path is checked only when a module
+  needs a transform: a path that is not an executable is then the error
+  `erl not found: PATH`, and a build without transforms never looks at it.
+- `--erl none` forbids running host code. A module that names a transform
+  (`-compile`, `--parse-transform` or `parse_transforms`) fails with the
+  missing-OTP error, even when the [build cache](projects.md#build-caches)
+  holds its reply; modules without transforms compile as usual and never start
+  OTP. Missing transform paths are still reported first. Use it to prove that a
+  build needs no host OTP, or to keep a build from executing transform code.
 - The host must run OTP 29 (`erlang:system_info(otp_release)`); another release
   is an error.
 - The [loader](#loader) runs as `erl -noshell -noinput -pa Dir ... -eval ...`
@@ -242,7 +254,7 @@ needs them.
 | --- | --- | --- |
 | `--parse-transform M` | `parse_transforms = ["m"]` | Apply `M` to every module, before its own `-compile` transforms (CLI ones first) |
 | `--transform-path DIR` | `transform_paths = ["deps/*/ebin"]` | Code path for precompiled transform `.beam` files; patterns as in `source_search_paths` |
-| `--erl PATH` or `none` | — | Host `erl` executable; `none` never runs host code |
+| `--erl PATH` or `none` | — | Host `erl` executable; `none` never runs host code ([host OTP](#host-otp)) |
 | `--print-abstr` | — | Print the forms after transforms instead of compiling |
 
 A project that uses its own transform and a precompiled one from a dependency:
