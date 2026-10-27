@@ -1075,6 +1075,10 @@ Halves take_leading(ProcessContext &context, const Term &str, const PatternArg &
 }
 
 Term trim_of(ProcessContext &context, const Term &data) { return trim1(context, {data}); }
+
+Term trim_leading_of(ProcessContext &context, const Term &data) {
+    return trim2(context, {data}, {Terms(context).atom("leading"_atom)});
+}
 } // namespace clause::runtime::builtins::string
 
 namespace clause::runtime {

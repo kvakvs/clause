@@ -49,4 +49,4 @@ Clause's own OTP applications under `library/`, in [libraries/](libraries/).
 | Crypto: OpenSSL versions and sources, building it, linking, FIPS mode and pinned FIPS programs | [crypto.md](libraries/crypto.md) |
 | public_key: ASN.1 specifications and their sources, generated modules, `public_key.hrl` | [public_key.md](libraries/public_key.md) |
 | ssl: the TLS design over libssl, the application, cipher suites and the other utility functions | [ssl.md](libraries/ssl.md) |
-| syntax_tools: `erl_syntax`'s trees, `prettypr`'s layouts, `erl_prettypr`'s text and `erl_syntax_lib`'s analyses for third-party parse transforms and tools | [syntax_tools.md](libraries/syntax_tools.md) |
+| syntax_tools: `erl_syntax`'s trees, `prettypr`'s layouts, `erl_prettypr`'s text, `erl_syntax_lib`'s analyses and comment scanning for third-party parse transforms and tools | [syntax_tools.md](libraries/syntax_tools.md) |

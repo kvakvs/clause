@@ -1007,6 +1007,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   analyses, `annotate_bindings` (`Binder` over type tables, `Names` ordsets), `variables`, `limit`,
   `strip_comments` C++ (`builtins/syntax_lib/`); erl_prettypr's private copies dropped; `syntax_tools_lib`
   golden identical to OTP — `5801ca75`
+- **LIB77E4b** `erl_comment_scan` (scanner state machine, joins; `file/1` Erlang) and `erl_recomment` (OTP's
+  leaf/tree/list range tree, `-file` filtering) C++ in `builtins/comments/`; `syntax_tools_comments` golden
+  identical to OTP — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

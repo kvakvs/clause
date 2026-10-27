@@ -582,3 +582,8 @@ recorded elsewhere.
   `-import(M).` (build such forms with erl_syntax). C++ catching a nested erl_syntax error: catch BuiltinFailure,
   rethrow when `.term` is set; throw(syntax_error) = raised_throw with the atom payload. typed_entry works for any
   module (made_entry is erl_syntax-only); Named<Role> params silence swappable-parameter findings.
+- LIB77E4b comments (2026-10-28): erl_comment_scan + erl_recomment C++ (builtins/comments/); golden identical once
+  file/1 called string/1 qualified (local call to a placeholder runs the placeholder). string:trim of a list with
+  non-chars raises function_clause in OTP's unicode_util: keep goldens to char texts. Long python edits: write the
+  script with Write to the scratchpad and run it (a heredoc with many quotes broke bash parsing). Clang warns on
+  missing designated-field initializers (-Wmissing-designated-field-initializers): use small factories instead.

@@ -1819,6 +1819,13 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"erl_syntax_lib", "limit", 2},
     BuiltinName{"erl_syntax_lib", "limit", 3},
     BuiltinName{"erl_syntax_lib", "strip_comments", 1},
+    // erl_comment_scan's scanning and erl_recomment (plan 21 LIB77E4b; runtime/src/builtins/comments/).
+    BuiltinName{"erl_comment_scan", "scan_lines", 1},
+    BuiltinName{"erl_comment_scan", "join_lines", 1},
+    BuiltinName{"erl_comment_scan", "string", 1},
+    BuiltinName{"erl_recomment", "recomment_forms", 2},
+    BuiltinName{"erl_recomment", "quick_recomment_forms", 2},
+    BuiltinName{"erl_recomment", "recomment_tree", 2},
     // The registry of clause_interp's interpreted modules (plan 21 LIB77B; runtime/src/builtins/interpreted.cpp).
     BuiltinName{"clause_interp", "register", 4},
     BuiltinName{"clause_interp", "unregister", 1},

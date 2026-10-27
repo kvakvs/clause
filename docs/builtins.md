@@ -822,6 +822,24 @@ They are written over `builtins/syntax/`'s C++ accessors and constructors:
   `strip_comments/1`, and the subtree rebuilding the others share.
 - CTest `executables_syntax_tools_lib` (compared with OTP).
 
+## Comments
+
+`builtins/comments/` (plan 21 step LIB77E4b) has
+[`erl_comment_scan`](libraries/syntax_tools.md#erl_comment_scan)'s scanning and
+[`erl_recomment`](libraries/syntax_tools.md#erl_recomment):
+
+- `scan.cpp`: `scan_lines/1` is OTP's scanner state machine (line, column,
+  margin) over the characters of the text, skipping strings, quoted atoms and
+  character literals; a comment's trailing white space is trimmed by
+  `string:trim/2`'s C++ walk. `join_lines/1` and `string/1` join consecutive
+  lines alone in the same column.
+- `recomment.cpp`: OTP's extended tree of leaf, tree and list nodes with the
+  line range each covers, built from `erl_syntax`'s subtrees; comments go
+  before, after or into nodes by those ranges, forms after a `-file` attribute
+  that leaves the file lose their range, and every tree node is rebuilt with
+  `make_tree/2` and its original attributes.
+- CTest `executables_syntax_tools_comments` (compared with OTP).
+
 ## Erl lint
 
 `erl_lint`'s checks are builtins (`front_end/lint*.cpp`, plan 21 step

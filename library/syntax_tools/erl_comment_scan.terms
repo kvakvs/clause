@@ -1,0 +1,6 @@
+%% OTP 29 erl_comment_scan exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{file, 1, default, implemented}.
+{join_lines, 1, default, implemented}.
+{scan_lines, 1, default, implemented}.
+{string, 1, default, implemented}.

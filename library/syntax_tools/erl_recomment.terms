@@ -1,0 +1,5 @@
+%% OTP 29 erl_recomment exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{quick_recomment_forms, 2, default, implemented}.
+{recomment_forms, 2, default, implemented}.
+{recomment_tree, 2, default, implemented}.

@@ -8,8 +8,8 @@ Clause's [transform host](../transforms.md), which links the whole library, so i
 transform code finds these modules there too.
 
 The application is partial: `erl_syntax` (LIB77E2), `prettypr` (LIB77E3a), `erl_prettypr`
-(LIB77E3b) and `erl_syntax_lib` (LIB77E4a) are provided. `erl_comment_scan` and `erl_recomment`
-(LIB77E4b), `epp_dodger` (LIB77E4c), and `merl` with `merl_transform` (LIB77E5) follow, as
+(LIB77E3b), `erl_syntax_lib` (LIB77E4a), `erl_comment_scan` and `erl_recomment` (LIB77E4b) are
+provided. `epp_dodger` (LIB77E4c), and `merl` with `merl_transform` (LIB77E5) follow, as
 [plan 21](../../.agents/21-lib.md) orders them.
 
 ## erl_syntax
@@ -120,3 +120,34 @@ Differences from OTP are in [differences](../differences.md#erl_syntax_lib).
   - `variables/1`, fresh variable names with the default and an own name function;
   - `limit/2,3` at several depths, `strip_comments/1`, `to_comment/1,2,3`;
   - the folds and maps with their visiting order.
+
+## erl_comment_scan
+
+[`erl_comment_scan`](../../library/syntax_tools/erl_comment_scan.erl) has OTP 29's 4 exports, all
+implemented (see the [inventory](../../library/syntax_tools/erl_comment_scan.terms)).
+`scan_lines/1`, `join_lines/1` and `string/1` are [runtime builtins](../builtins.md#comments):
+comment lines `{Line, Column, Indentation, Text}` after OTP's scanner, which skips strings,
+quoted atoms and character literals and counts tabs to the next multiple of 8, and comments of
+consecutive lines alone in one column joined. `file/1` reads the file in Erlang: in its declared
+encoding, else UTF-8 and then Latin-1, with OTP's error reports and exits.
+
+## erl_recomment
+
+[`erl_recomment`](../../library/syntax_tools/erl_recomment.erl) has OTP 29's 3 exports, all
+implemented (see the [inventory](../../library/syntax_tools/erl_recomment.terms)), as
+[runtime builtins](../builtins.md#comments). `recomment_forms/2` puts each comment before the
+first form it does not follow: standalone when a blank line separates them or it starts in
+column 1 over the form's first line, else into the form. `quick_recomment_forms/2` leaves
+comments inside forms out, and `recomment_tree/2` returns the comments below the tree. Forms
+after a `-file` attribute that leaves the file get no comments. Rebuilt nodes are `erl_syntax`
+trees with their original attributes, as OTP's.
+
+- CTest `executables_syntax_tools_comments`, compared with OTP:
+  - comment lines and comments of a source text with strings, quoted atoms, character literals,
+    escapes, tabs, CR, LF and CR LF line breaks, trailing white space and Unicode white space;
+  - texts that end inside a string, a comment or a character, consecutive and indented lines,
+    `join_lines/1` of given lines and the errors of malformed input;
+  - `file/1` of UTF-8, declared Latin-1 and invalid UTF-8 files;
+  - `recomment_forms/2` and `quick_recomment_forms/2` printed with `erl_prettypr`, nested form
+    lists, the comments of each form, `recomment_tree/2` with its leftovers, a tree that is not a
+    form list, `-file` attributes, comments alone and the errors of a bad position or comment.

@@ -132,10 +132,8 @@ Steps:
     `compile:forms/file` compile to interpreter images since LIB77E1 (`merl:compile` builds on it);
     `erl_syntax` is provided since LIB77E2, `prettypr` since LIB77E3a, `erl_prettypr` since LIB77E3b,
     `erl_syntax_lib` since LIB77E4a (folds, maps and variable names Erlang; analyses, bindings and
-    walks without funs C++; golden `syntax_tools_lib`).
-    - **LIB77E4b `erl_comment_scan`, `erl_recomment`:** comment scanning in C++ (`file/1`,
-      `string/1`, `scan_lines/1`, `join_lines/1`), recommenting forms and trees. Golden
-      `syntax_tools_comments`.
+    walks without funs C++; golden `syntax_tools_lib`), `erl_comment_scan` and `erl_recomment`
+    since LIB77E4b (C++ but `file/1`; golden `syntax_tools_comments`).
     - **LIB77E4c `epp_dodger`:** parsing without the preprocessor over Clause's scanner and parser
       with OTP's macro rewriting (`parse*`, `quick_parse*`, `tokens_to_string/1`,
       `format_error/1`). Golden `epp_dodger_forms`.
@@ -208,7 +206,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB77E4b–E5 in order (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
+1. LIB77E4c–E5 in order (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
    request.
 2. LIB82, LIB83 last (test support).
 

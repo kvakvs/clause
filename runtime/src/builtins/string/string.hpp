@@ -110,6 +110,8 @@ Term length_of(ProcessContext &context, const Term &data);
 Term prefix_of(ProcessContext &context, const Term &data, std::int64_t length);
 // string:trim/1, for io_lib:collect_line_no_eol/4.
 Term trim_of(ProcessContext &context, const Term &data);
+// string:trim(Data, leading). Added for erl_comment_scan's comment texts.
+Term trim_leading_of(ProcessContext &context, const Term &data);
 // string:jaro_similarity/2 of two chardata, for erl_lint's name suggestions (plan 21 step LIB34C).
 double jaro_similarity(ProcessContext &context, const Term &a, const Term &b);
 
