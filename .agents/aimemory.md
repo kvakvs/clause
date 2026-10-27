@@ -570,3 +570,8 @@ recorded elsewhere.
   Pos/Value/Target/Groups/Tail in syntax.hpp. observe_types.escript missed records nested in records (#com in #attr):
   fixed. Shared tree with peer session clau-5b (prettypr): commit own versions of shared files through a temporary
   GIT_INDEX_FILE (read-tree HEAD, hash-object -w, update-index --cacheinfo), leaving the peer's hunks and index alone.
+- LIB77E3b erl_prettypr (2026-10-27): Erlang (hooks). Quick oracle trick: compile the library .erl with host erlc
+  into a dir, run the golden program with `erl -pa thatdir` (syntax_tools is not sticky) and diff with plain OTP run
+  -- identical before any Clause build. Marker text needs Module:format_error, absent unless the program links the
+  module (golden links erl_lint/erl_parse explicitly). erl_prettypr needs erl_syntax_lib map/analyze_type_application:
+  private copies (whole-module rule) until LIB77E4.

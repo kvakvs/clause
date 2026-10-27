@@ -1001,6 +1001,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB77E3a** `prettypr`: Erlang constructors over OTP's records; `best/3` a C++ loop of OTP's rewrite/2 rules
   (document/context arenas, lazy term reading), width/words/layout builtins; `prettypr_layout` golden identical
   to OTP — `3f412427`
+- **LIB77E3b** `erl_prettypr`: Erlang (hooks are funs) over erl_syntax and prettypr with OTP's text, options and
+  `#ctxt{}`; `erl_prettypr_format` golden identical to OTP (markers need their module linked) — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

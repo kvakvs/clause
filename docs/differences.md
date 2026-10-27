@@ -291,6 +291,12 @@ Compared with the same module compiled by `compile:forms/2` and loaded by `code:
 | An error raised while `revert_forms/1` reverts a form (a malformed node) | Caught and raised again as `exit({Reason, Stacktrace})` | Raised as the error it is | [syntax_tools](libraries/syntax_tools.md#erl_syntax) |
 | `concrete/1` of a binary tree whose field is not a literal | `{badarg, Node}` with the field's tree | `{badarg, Form}` with the field reverted to its erl_parse form | [syntax_tools](libraries/syntax_tools.md#erl_syntax) |
 
+## erl_prettypr
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| The text of an error or warning marker `{Line, Module, Descriptor}` whose module the program does not link | `Module:format_error/1` loads the module and formats the descriptor | The marker's term, as when `format_error/1` fails | [syntax_tools](libraries/syntax_tools.md#erl_prettypr) |
+
 ## prettypr
 
 | Difference | OTP | Clause | Owner |

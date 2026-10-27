@@ -448,7 +448,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   them to `clause_interp:load_binary/3` through a non-literal module when the program links it.
   Library `syntax_tools` (LIB77E) serves third-party transform code: `erl_syntax` (LIB77E2) is C++
   (`builtins/syntax/`) over OTP's tree/wrapper/attr records and erl_parse forms, table-driven
-  (`FIELDS` accessors, `SIMPLE` constructors, make_tree shapes, subtrees groups, revert per type).
+  (`FIELDS` accessors, `SIMPLE` constructors, make_tree shapes, subtrees groups, revert per type);
+  `prettypr` (LIB77E3a) is Erlang documents over a C++ `best/3`, `erl_prettypr` (LIB77E3b) Erlang
+  layout of trees (hooks are funs) over both.
   Clause-heavy front-end walks move to C++ builtins (LIB34C):
   `erl_expand_records:module/2`, the guard tests, `erl_lint` and `erl_pp`
   (`front_end/expand_records.cpp`, `guard_tests.cpp`, `lint*.cpp` over one `Lint` state, `pp*.cpp`

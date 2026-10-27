@@ -7,9 +7,10 @@ other syntax_tools modules; without them such code fails with `undef`. Parse tra
 Clause's [transform host](../transforms.md), which links the whole library, so interpreted
 transform code finds these modules there too.
 
-The application is partial: `erl_syntax` (LIB77E2) and `prettypr` (LIB77E3a) are provided. `erl_prettypr` (LIB77E3b),
-`erl_syntax_lib`, `epp_dodger`, `erl_comment_scan` and `erl_recomment` (LIB77E4), and `merl` with
-`merl_transform` (LIB77E5) follow, as [plan 21](../../.agents/21-lib.md) orders them.
+The application is partial: `erl_syntax` (LIB77E2), `prettypr` (LIB77E3a) and `erl_prettypr`
+(LIB77E3b) are provided. `erl_syntax_lib`, `epp_dodger`, `erl_comment_scan` and `erl_recomment`
+(LIB77E4), and `merl` with `merl_transform` (LIB77E5) follow, as [plan 21](../../.agents/21-lib.md)
+orders them.
 
 ## erl_syntax
 
@@ -67,3 +68,26 @@ Differences from OTP are in [differences](../differences.md#prettypr).
   pars at several widths, follows, breaks and empty documents, paragraphs with indentation and
   ribbon widths, a long paragraph, code-shaped documents, every float rule, `best/3`'s layout
   documents and the errors of malformed documents.
+
+## erl_prettypr
+
+[`erl_prettypr`](../../library/syntax_tools/erl_prettypr.erl) has OTP 29's 16 exports, all
+implemented (see the [inventory](../../library/syntax_tools/erl_prettypr.terms)). It is Erlang:
+hooks are funs that call back into the layout. It builds `prettypr` documents with OTP's text for
+every node type, and `prettypr`'s `best/3` builtin chooses the layout. The layout context is OTP's
+`#ctxt{}` record, which hooks read and change with the `get_ctxt_*` and `set_ctxt_*` functions.
+The options are OTP's: `paper`, `ribbon`, `hook`, `user`, `encoding` and `empty_lines`.
+
+Error and warning markers `{Line, Module, Descriptor}` are formatted by `Module:format_error/1`.
+A program has only the modules it links, so a marker of a module the program does not otherwise
+call prints as the term ([differences](../differences.md#erl_prettypr)). `erl_syntax_lib:map/2` and
+`analyze_type_application/1` are private copies until LIB77E4 provides that module.
+
+- CTest `executables_erl_prettypr_format`, compared with OTP:
+  - a corpus of forms with every node type, at the default, narrow and wide widths, and as trees;
+  - comments;
+  - hooks reading and changing their context;
+  - the `empty_lines` and `encoding` options;
+  - long strings at several ribbons and floats;
+  - nodes erl_parse has no form for, and markers;
+  - `best/1,2` and `layout/1,2` documents.

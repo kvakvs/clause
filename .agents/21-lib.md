@@ -130,9 +130,9 @@ Steps:
     application beyond the core: `library/syntax_tools/` with `syntax_tools.app`, its own
     `docs/libraries/syntax_tools.md`, rows in `documented.terms` (`observe_docs.escript`).
     `compile:forms/file` compile to interpreter images since LIB77E1 (`merl:compile` builds on it);
-    `erl_syntax` is provided since LIB77E2, `prettypr` since LIB77E3a.
-    - **LIB77E3b `erl_prettypr`:** over `erl_syntax` and `prettypr` (provided since LIB77E3a) with
-      OTP's text (hooks are funs: Erlang glue). Golden `erl_prettypr_format`.
+    `erl_syntax` is provided since LIB77E2, `prettypr` since LIB77E3a, `erl_prettypr` since LIB77E3b
+    (with private copies of `erl_syntax_lib:map/2` and `analyze_type_application/1` that LIB77E4
+    replaces).
     - **LIB77E4 `erl_syntax_lib`, `epp_dodger`, `erl_comment_scan`, `erl_recomment`:** folds and
       maps (Erlang, take funs), analyses and variable names (C++), `epp_dodger` over Clause's
       scanner and parser with its macro rewriting, comment scanning in C++. Golden
@@ -206,7 +206,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB77E3b–E5 in order (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
+1. LIB77E4–E5 in order (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
    request.
 2. LIB82, LIB83 last (test support).
 

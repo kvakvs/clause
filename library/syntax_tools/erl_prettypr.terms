@@ -1,0 +1,18 @@
+%% OTP 29 erl_prettypr exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{best, 1, default, implemented}.
+{best, 2, default, implemented}.
+{format, 1, default, implemented}.
+{format, 2, default, implemented}.
+{get_ctxt_hook, 1, default, implemented}.
+{get_ctxt_linewidth, 1, default, implemented}.
+{get_ctxt_paperwidth, 1, default, implemented}.
+{get_ctxt_precedence, 1, default, implemented}.
+{get_ctxt_user, 1, default, implemented}.
+{layout, 1, default, implemented}.
+{layout, 2, default, implemented}.
+{set_ctxt_hook, 2, default, implemented}.
+{set_ctxt_linewidth, 2, default, implemented}.
+{set_ctxt_paperwidth, 2, default, implemented}.
+{set_ctxt_precedence, 2, default, implemented}.
+{set_ctxt_user, 2, default, implemented}.
