@@ -89,6 +89,28 @@ runs a process protocol or is glue. C++ reproduces OTP's exact result shapes for
 
 ## Open steps
 
+### LIB85 Library catalog compiled into `clau` (first)
+
+`library/modules.terms` (provided and missing modules) is read from disk and line-parsed by
+`load_library` (`compiler/src/driver/library_modules.cpp`) on every frontend discovery and transform
+host build. The parser depends on erlfmt keeping one entry per line, and the file is not data a
+user can change: it changes with the library sources and `clau` together. Decided 2026-10-27
+(user): move it to C++ and keep it there.
+
+- A terms-like X-macro list `compiler/src/driver/library_modules.inc`, one entry per line, same
+  order and comments as `modules.terms` today: `PROVIDED(erlang, erts)` and
+  `MISSING(prim_file, erts, "low-level file driver; ...")`. `library_modules.cpp` expands it into a
+  `constexpr` array; `load_library` builds `missing_` and `provided_` from it; the application
+  directories still come from disk. `modules.terms` is deleted and no `.terms` copy comes back.
+- `library_modules.py check` reads the `.inc` with one regex per line; the `inconsistent` fixture
+  carries its own `.inc` (passed to the check), so its "missing module has a file" and "inventory
+  not provided" cases stay covered.
+- A changed catalog changes the `clau` identity, so library and transform host caches keyed on it
+  are invalidated without hashing a file.
+- Docs: `docs/libraries/library.md` (provided or missing, runtime module replacements),
+  `docs/differences.md` (statuses link), the `modules.terms` mentions in this plan's working rules,
+  `.agents/arch.md`, `.agents/files.md`, `.agents/aimemory.md` (new library module checklist).
+
 ### LIB9 remainder: declined `erlang` functions
 
 - D01: `load_module/2`, `load_nif/2`, `purge_module/1`, `check_*code`.
@@ -210,9 +232,10 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB77B–D in order; LIB77E and LIB78 only on request.
-2. LIB81B–D in order (LIB81E on request).
-3. LIB82, LIB83 last (test support).
+1. LIB85 (library catalog in C++) first.
+2. LIB77B–D in order; LIB77E and LIB78 only on request.
+3. LIB81B–D in order (LIB81E on request).
+4. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)
 
