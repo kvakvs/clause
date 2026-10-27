@@ -1,7 +1,7 @@
 {application, syntax_tools, [
     {description, "Syntax tools"},
     {vsn, "4.1.1"},
-    {modules, [clause_prettypr, erl_prettypr, erl_syntax, prettypr]},
+    {modules, [clause_prettypr, erl_prettypr, erl_syntax, erl_syntax_lib, prettypr]},
     {registered, []},
     {applications, [stdlib]},
     {env, []},

@@ -1003,6 +1003,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   to OTP — `3f412427`
 - **LIB77E3b** `erl_prettypr`: Erlang (hooks are funs) over erl_syntax and prettypr with OTP's text, options and
   `#ctxt{}`; `erl_prettypr_format` golden identical to OTP (markers need their module linked) — `d7f20eb9`
+- **LIB77E4a** `erl_syntax_lib`: folds/maps, variable names (rand seeded as OTP) and `to_comment` Erlang;
+  analyses, `annotate_bindings` (`Binder` over type tables, `Names` ordsets), `variables`, `limit`,
+  `strip_comments` C++ (`builtins/syntax_lib/`); erl_prettypr's private copies dropped; `syntax_tools_lib`
+  golden identical to OTP — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

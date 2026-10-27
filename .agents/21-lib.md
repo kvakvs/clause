@@ -130,13 +130,15 @@ Steps:
     application beyond the core: `library/syntax_tools/` with `syntax_tools.app`, its own
     `docs/libraries/syntax_tools.md`, rows in `documented.terms` (`observe_docs.escript`).
     `compile:forms/file` compile to interpreter images since LIB77E1 (`merl:compile` builds on it);
-    `erl_syntax` is provided since LIB77E2, `prettypr` since LIB77E3a, `erl_prettypr` since LIB77E3b
-    (with private copies of `erl_syntax_lib:map/2` and `analyze_type_application/1` that LIB77E4
-    replaces).
-    - **LIB77E4 `erl_syntax_lib`, `epp_dodger`, `erl_comment_scan`, `erl_recomment`:** folds and
-      maps (Erlang, take funs), analyses and variable names (C++), `epp_dodger` over Clause's
-      scanner and parser with its macro rewriting, comment scanning in C++. Golden
-      `syntax_tools_lib`.
+    `erl_syntax` is provided since LIB77E2, `prettypr` since LIB77E3a, `erl_prettypr` since LIB77E3b,
+    `erl_syntax_lib` since LIB77E4a (folds, maps and variable names Erlang; analyses, bindings and
+    walks without funs C++; golden `syntax_tools_lib`).
+    - **LIB77E4b `erl_comment_scan`, `erl_recomment`:** comment scanning in C++ (`file/1`,
+      `string/1`, `scan_lines/1`, `join_lines/1`), recommenting forms and trees. Golden
+      `syntax_tools_comments`.
+    - **LIB77E4c `epp_dodger`:** parsing without the preprocessor over Clause's scanner and parser
+      with OTP's macro rewriting (`parse*`, `quick_parse*`, `tokens_to_string/1`,
+      `format_error/1`). Golden `epp_dodger_forms`.
     - **LIB77E5 `merl`:** quoting and templates over `epp_dodger`/`erl_syntax`, `merl.hrl` written
       from the documented macros, `merl_transform` (also a library transform for the host),
       `compile`/`compile_and_load` over LIB77E1. `syntax_tools` stops being partial. Golden
@@ -206,7 +208,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB77E4–E5 in order (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
+1. LIB77E4b–E5 in order (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
    request.
 2. LIB82, LIB83 last (test support).
 

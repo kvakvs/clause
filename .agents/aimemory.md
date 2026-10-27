@@ -575,3 +575,10 @@ recorded elsewhere.
   -- identical before any Clause build. Marker text needs Module:format_error, absent unless the program links the
   module (golden links erl_lint/erl_parse explicitly). erl_prettypr needs erl_syntax_lib map/analyze_type_application:
   private copies (whole-module rule) until LIB77E4.
+- LIB77E4a erl_syntax_lib (2026-10-27): split E4 into a (erl_syntax_lib), b (comment scan/recomment), c (epp_dodger).
+  Golden identical on first run, rand-based new_variable_name included (Clause rand exsplus = OTP's). New executables
+  case: write a golden.json skeleton ({schema, entry, runs:[{args:[],stderr,exit_status,stdout:""}]}) before
+  regenerate.py --case accepts it; erlfmt the fixture BEFORE the final regenerate (inputs hash). erl_parse rejects
+  `-import(M).` (build such forms with erl_syntax). C++ catching a nested erl_syntax error: catch BuiltinFailure,
+  rethrow when `.term` is set; throw(syntax_error) = raised_throw with the atom payload. typed_entry works for any
+  module (made_entry is erl_syntax-only); Named<Role> params silence swappable-parameter findings.

@@ -7,10 +7,10 @@ other syntax_tools modules; without them such code fails with `undef`. Parse tra
 Clause's [transform host](../transforms.md), which links the whole library, so interpreted
 transform code finds these modules there too.
 
-The application is partial: `erl_syntax` (LIB77E2), `prettypr` (LIB77E3a) and `erl_prettypr`
-(LIB77E3b) are provided. `erl_syntax_lib`, `epp_dodger`, `erl_comment_scan` and `erl_recomment`
-(LIB77E4), and `merl` with `merl_transform` (LIB77E5) follow, as [plan 21](../../.agents/21-lib.md)
-orders them.
+The application is partial: `erl_syntax` (LIB77E2), `prettypr` (LIB77E3a), `erl_prettypr`
+(LIB77E3b) and `erl_syntax_lib` (LIB77E4a) are provided. `erl_comment_scan` and `erl_recomment`
+(LIB77E4b), `epp_dodger` (LIB77E4c), and `merl` with `merl_transform` (LIB77E5) follow, as
+[plan 21](../../.agents/21-lib.md) orders them.
 
 ## erl_syntax
 
@@ -80,8 +80,7 @@ The options are OTP's: `paper`, `ribbon`, `hook`, `user`, `encoding` and `empty_
 
 Error and warning markers `{Line, Module, Descriptor}` are formatted by `Module:format_error/1`.
 A program has only the modules it links, so a marker of a module the program does not otherwise
-call prints as the term ([differences](../differences.md#erl_prettypr)). `erl_syntax_lib:map/2` and
-`analyze_type_application/1` are private copies until LIB77E4 provides that module.
+call prints as the term ([differences](../differences.md#erl_prettypr)).
 
 - CTest `executables_erl_prettypr_format`, compared with OTP:
   - a corpus of forms with every node type, at the default, narrow and wide widths, and as trees;
@@ -91,3 +90,33 @@ call prints as the term ([differences](../differences.md#erl_prettypr)). `erl_sy
   - long strings at several ribbons and floats;
   - nodes erl_parse has no form for, and markers;
   - `best/1,2` and `layout/1,2` documents.
+
+## erl_syntax_lib
+
+[`erl_syntax_lib`](../../library/syntax_tools/erl_syntax_lib.erl) has OTP 29's 40 exports, all
+implemented (see the [inventory](../../library/syntax_tools/erl_syntax_lib.terms)). The folds and
+maps (`map/2`, `fold/3`, `mapfold/3` and their `_subtrees` and list forms) take funs and are
+Erlang; they visit children before their node, groups and subtrees left to right, as OTP does.
+`new_variable_name/1,2` and `new_variable_names/2,3` are Erlang over `rand`: a process without a
+`rand` state is seeded as OTP seeds it, so the names are OTP's. `to_comment/1,2,3` format with
+`erl_prettypr` (or the given fun) and split the text into comment lines in Erlang.
+
+The analyses (`analyze_forms/1` and the other `analyze_*` functions), `annotate_bindings/1,2`,
+`is_fail_expr/1`, `function_name_expansions/1`, `variables/1`, `limit/2,3` and
+`strip_comments/1` are [runtime builtins](../builtins.md#erl-syntax-lib). The analyses throw
+`syntax_error` for nodes they cannot analyse, as OTP's do. `variables/1` returns a set of
+`sets:new/0`'s kind (a map).
+
+Differences from OTP are in [differences](../differences.md#erl_syntax_lib).
+
+- CTest `executables_syntax_tools_lib`, compared with OTP:
+  - `analyze_forms/1` of forms, form lists and trees, `analyze_form/1` and each attribute analysis
+    of every form, preprocessor directives, parameterized modules and imports;
+  - the expression analyses: applications, implicit funs, record expressions, type applications,
+    function and type names of every shape, `is_fail_expr/1`, `function_name_expansions/1`;
+  - the errors of nodes the analyses do not accept;
+  - binding annotations of every function of a corpus with each expression and pattern kind, and
+    of annotated nodes and macros;
+  - `variables/1`, fresh variable names with the default and an own name function;
+  - `limit/2,3` at several depths, `strip_comments/1`, `to_comment/1,2,3`;
+  - the folds and maps with their visiting order.

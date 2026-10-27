@@ -466,11 +466,14 @@ Term list_tail(ProcessContext &context, const Term &node);
 bool is_list_skeleton(ProcessContext &context, const Term &node);
 bool is_proper_list(ProcessContext &context, const Term &node);
 Term list_elements(ProcessContext &context, const Term &node);
-// Node shapes (shapes.cpp): is_leaf/1, subtrees/1, make_tree/2 and update_tree/2.
+// Node shapes (shapes.cpp): type/1 as an atom, is_leaf/1, subtrees/1, make_tree/2, update_tree/2 and
+// flatten_form_list/1.
+Term node_type(ProcessContext &context, const Term &node);
 bool is_leaf(ProcessContext &context, const Term &node);
 Term subtrees(ProcessContext &context, const Term &node);
 Term make_tree(ProcessContext &context, const Term &type, const Groups &groups);
 Term update_tree(ProcessContext &context, const Term &node, const Term &groups);
+Term flatten_form_list(ProcessContext &context, const Term &node);
 // revert/1 and fold_binary_field_types/1 (revert.cpp), abstract/1 and concrete/1 (literals.cpp).
 Term revert(ProcessContext &context, const Term &node);
 Term fold_binary_field_types(ProcessContext &context, const Term &types);

@@ -207,13 +207,6 @@ bool one_of(std::string_view name, std::span<const std::string_view> names) {
     return std::ranges::find(names, name) != names.end();
 }
 
-Term type1(ProcessContext &context, const Term &node) {
-    if (is_tree(node) || is_wrapper(node)) {
-        return element(node, 1);
-    }
-    return Trees(context).atom_of(type_of(context, node));
-}
-
 Term is_leaf1(ProcessContext &context, const Term &node) { return Trees(context).boolean(is_leaf(context, node)); }
 
 Term is_form1(ProcessContext &context, const Term &node) {
@@ -237,14 +230,8 @@ void flatten(ProcessContext &context, const Term &forms, Items &into) {
     }
 }
 
-Term flatten_form_list(ProcessContext &context, const Term &node) {
-    Items forms;
-    flatten(context, get(context, node, "form_list_elements"), forms);
-    return copy_attrs(context, node, make(context, "form_list", std::array{Trees(context).list(forms)}));
-}
-
 constexpr std::array SHAPE_ENTRIES{
-    typed_entry<type1>("erl_syntax", "type"),
+    typed_entry<node_type>("erl_syntax", "type"),
     typed_entry<is_leaf1>("erl_syntax", "is_leaf"),
     typed_entry<is_form1>("erl_syntax", "is_form"),
     typed_entry<subtrees1>("erl_syntax", "subtrees"),
@@ -253,6 +240,19 @@ constexpr std::array SHAPE_ENTRIES{
     typed_entry<flatten_form_list>("erl_syntax", "flatten_form_list"),
 };
 } // namespace
+
+Term node_type(ProcessContext &context, const Term &node) {
+    if (is_tree(node) || is_wrapper(node)) {
+        return element(node, 1);
+    }
+    return Trees(context).atom_of(type_of(context, node));
+}
+
+Term flatten_form_list(ProcessContext &context, const Term &node) {
+    Items forms;
+    flatten(context, get(context, node, "form_list_elements"), forms);
+    return copy_attrs(context, node, make(context, "form_list", std::array{Trees(context).list(forms)}));
+}
 
 bool is_leaf(ProcessContext &context, const Term &node) {
     const auto type = type_of(context, node);

@@ -1,7 +1,6 @@
 %% Clause's erl_prettypr (plan 21 LIB77E3b, docs/libraries/syntax_tools.md#erl_prettypr): erl_syntax trees as
 %% prettypr documents with OTP's text. It is Erlang, since hooks are funs that call back into the layout, and the
-%% document layout itself is prettypr's best/3 builtin. erl_syntax_lib's map/2 and analyze_type_application/1 are
-%% private helpers here until that module is provided.
+%% document layout itself is prettypr's best/3 builtin.
 -module(erl_prettypr).
 -export([
     format/1,
@@ -825,7 +824,7 @@ lay_native_record([Name, Definition], Ctxt) ->
 
 % Macros in type attributes as the atoms '?NAME', so concrete/1 accepts the types.
 dodge_macros(Tree) ->
-    map_tree(
+    erl_syntax_lib:map(
         fun(Node) ->
             case erl_syntax:type(Node) of
                 macro ->
@@ -837,16 +836,6 @@ dodge_macros(Tree) ->
         end,
         Tree
     ).
-
-% erl_syntax_lib:map/2: Fun applied to every node, bottom-up.
-map_tree(Fun, Tree) ->
-    case erl_syntax:subtrees(Tree) of
-        [] ->
-            Fun(Tree);
-        Groups ->
-            Mapped = erl_syntax:make_tree(erl_syntax:type(Tree), [[map_tree(Fun, T) || T <- G] || G <- Groups]),
-            Fun(erl_syntax:copy_attrs(Tree, Mapped))
-    end.
 
 %% Types.
 
@@ -860,7 +849,7 @@ lay_annotated_type(Node, Ctxt) ->
 lay_type_application_node(Node, Ctxt) ->
     Name = erl_syntax:type_application_name(Node),
     Arguments = erl_syntax:type_application_arguments(Node),
-    case type_application_name(Node) of
+    case erl_syntax_lib:analyze_type_application(Node) of
         {nil, 0} ->
             text("[]");
         {list, 1} ->
@@ -872,44 +861,6 @@ lay_type_application_node(Node, Ctxt) ->
         _ ->
             lay_type_application(Name, Arguments, Ctxt)
     end.
-
-% erl_syntax_lib:analyze_type_application/1 of a type application: {Name, Arity} or {Module, {Name, Arity}};
-% throws syntax_error for a name that is none.
-type_application_name(Node) ->
-    Arity = length(erl_syntax:type_application_arguments(Node)),
-    Name =
-        try
-            type_name(erl_syntax:type_application_name(Node))
-        catch
-            _:_ -> throw(syntax_error)
-        end,
-    with_arity(Arity, Name).
-
-type_name(Node) ->
-    case erl_syntax:type(Node) of
-        atom ->
-            erl_syntax:atom_value(Node);
-        arity_qualifier ->
-            Arity = erl_syntax:arity_qualifier_argument(Node),
-            Name = erl_syntax:arity_qualifier_body(Node),
-            case erl_syntax:type(Arity) =:= integer andalso erl_syntax:type(Name) =:= atom of
-                true -> with_arity(erl_syntax:integer_value(Arity), erl_syntax:atom_value(Name));
-                false -> throw(syntax_error)
-            end;
-        module_qualifier ->
-            Module = erl_syntax:module_qualifier_argument(Node),
-            case erl_syntax:type(Module) of
-                atom -> {erl_syntax:atom_value(Module), type_name(erl_syntax:module_qualifier_body(Node))};
-                _ -> throw(syntax_error)
-            end;
-        _ ->
-            throw(syntax_error)
-    end.
-
-with_arity(Arity, {Module, Name}) -> {Module, with_arity(Arity, Name)};
-with_arity(Arity, Name) when is_atom(Name) -> {Name, Arity};
-with_arity(Arity, Arity) -> Arity;
-with_arity(_Arity, Name) -> Name.
 
 lay_type_application(Name, Arguments, Ctxt) ->
     {PrecL, Prec} = erl_parse:func_prec(),

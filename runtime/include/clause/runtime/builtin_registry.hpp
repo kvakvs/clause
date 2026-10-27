@@ -257,6 +257,10 @@ std::span<const BuiltinEntry> erl_syntax_attr_builtins() noexcept;
 std::span<const BuiltinEntry> erl_syntax_shape_builtins() noexcept;
 std::span<const BuiltinEntry> erl_syntax_revert_builtins() noexcept;
 std::span<const BuiltinEntry> erl_syntax_literal_builtins() noexcept;
+// Module erl_syntax_lib's analyses and walks without funs (plan 21 step LIB77E4a; runtime/src/builtins/syntax_lib/).
+std::span<const BuiltinEntry> erl_syntax_lib_analysis_builtins() noexcept;
+std::span<const BuiltinEntry> erl_syntax_lib_binding_builtins() noexcept;
+std::span<const BuiltinEntry> erl_syntax_lib_tree_builtins() noexcept;
 // The erlang gaps of plan 21 step LIB9A: checksums and iovecs, tuple edits, option-taking process builtins and
 // system flags.
 std::span<const BuiltinEntry> checksum_builtins() noexcept;

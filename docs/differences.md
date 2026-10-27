@@ -297,6 +297,12 @@ Compared with the same module compiled by `compile:forms/2` and loaded by `code:
 | --- | --- | --- | --- |
 | The text of an error or warning marker `{Line, Module, Descriptor}` whose module the program does not link | `Module:format_error/1` loads the module and formats the descriptor | The marker's term, as when `format_error/1` fails | [syntax_tools](libraries/syntax_tools.md#erl_prettypr) |
 
+## erl_syntax_lib
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| `limit/2,3` with a depth that is not an integer | Compares the depth with integers in term order (an atom depth keeps a leaf) | `badarg` | [syntax_tools](libraries/syntax_tools.md#erl_syntax_lib) |
+
 ## prettypr
 
 | Difference | OTP | Clause | Owner |

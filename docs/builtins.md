@@ -806,6 +806,22 @@ returns OTP's very layout documents, joined strings included
   a layout document). Malformed documents raise `function_clause`.
 - CTest `executables_prettypr_layout` (compared with OTP).
 
+## Erl syntax lib
+
+`builtins/syntax_lib/` (plan 21 step LIB77E4a) has the functions of
+[`erl_syntax_lib`](libraries/syntax_tools.md#erl_syntax_lib) that take no funs.
+They are written over `builtins/syntax/`'s C++ accessors and constructors:
+
+- `analyze.cpp`: the `analyze_*` functions, `is_fail_expr/1` and
+  `function_name_expansions/1`. A node they cannot analyse raises
+  `throw(syntax_error)`. Errors of `erl_syntax` itself pass through as they are.
+- `bindings.cpp`: `annotate_bindings/1,2`. One `Binder` walks expressions and
+  patterns by OTP's scoping rules (tables of node types), with ordsets of
+  names (`Names` in `syntax_lib.hpp`) merged in Erlang's term order.
+- `trees.cpp`: `variables/1` (a `sets:new/0` map), `limit/2,3` and
+  `strip_comments/1`, and the subtree rebuilding the others share.
+- CTest `executables_syntax_tools_lib` (compared with OTP).
+
 ## Erl lint
 
 `erl_lint`'s checks are builtins (`front_end/lint*.cpp`, plan 21 step
