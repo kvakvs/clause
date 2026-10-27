@@ -998,6 +998,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   constructors, make_tree shapes, subtrees groups, revert per type), `*_literal` Erlang glue; `syntax_tools.app`,
   types header (observer now follows nested records); `erl_syntax_trees` golden identical to OTP — `9a92f0e7`
 
+- **LIB77E3a** `prettypr`: Erlang constructors over OTP's records; `best/3` a C++ loop of OTP's rewrite/2 rules
+  (document/context arenas, lazy term reading), width/words/layout builtins; `prettypr_layout` golden identical
+  to OTP — `3f412427`
+
 ## Plan 22 (from 2026-10-23)
 
 Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
