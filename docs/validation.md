@@ -51,9 +51,13 @@ cmake --build build/debug --target check-quality-all  # whole tree
   dependents are left to `check-quality-all` in the full gate) and, for
   clang-tidy, units whose compile command differs from the one the last passing
   run recorded (`build/debug/quality/tidy-commands.json`), so a build rule edit
-  rechecks only the units it changes. Changes to `.clang-tidy` or the tidy
-  scripts select everything, as do build rule edits before the first recorded
-  run.
+  rechecks only the units it changes. Each passing batch merges its units into
+  that record, so after a failing run the next one rechecks only what did not
+  pass. Changes to `.clang-tidy`, `CheckClangTidy.cmake`, `tidy_filter.py` or
+  the quality toolchain template select everything, as do build rule edits
+  before the first recorded run. The scope scripts (`quality_scope.py`,
+  `QualityScope.cmake`) and `CMakeLists.txt` edits that only add, remove or
+  comment source files do not.
 - `CLAUSE_OPTIMIZED_COMPILER` (default ON) compiles `clau` and the compiler
   libraries optimized in Debug builds too, keeping their debug information and
   the Debug inference budgets; tests spend most of their time in `clau`. When a
