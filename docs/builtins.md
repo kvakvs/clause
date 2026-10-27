@@ -783,6 +783,29 @@ skeletons, comments and attributes (`nodes.cpp`, `attrs.cpp`), `abstract/1`, `co
 
 - CTest `executables_erl_syntax_trees`.
 
+## Prettypr
+
+`builtins/prettypr/` (plan 21 step LIB77E3a) is the layout chooser of
+[`prettypr`](libraries/syntax_tools.md#prettypr): `prettypr:best/3` is OTP's
+`rewrite/2`, John Hughes' strict context-passing pretty printer with OTP's
+paragraphs, empty documents, floats and null texts, rule for rule, so it
+returns OTP's very layout documents, joined strings included
+(`[W1 + W2 | [Chars1 | Chars2]]`).
+
+- `prettypr.hpp`: the `Engine` with arenas of documents, strings, sep cells
+  and contexts. Documents are read from their terms when the rewriting first
+  visits them (one per distinct term, so shared subdocuments cost nothing).
+- `rewrite.cpp`: one handler per document kind, switching on the context
+  (`floats.cpp` for floating documents). The rewriting is a loop; the one call
+  OTP makes under a context (a completed line moved out) pushes a line that
+  the result wraps, so deep documents need no deep C++ stack.
+- `documents.cpp`: reading terms, OTP's builders (`nest(0, D)` is `D`,
+  `expand_sep`, `expand_par`, `horizontal`, `vertical`) and the result terms.
+- `builtins.cpp`: `best/3` and `clause_prettypr`'s `width/1` (tabs to the next
+  multiple of 8), `words/1` (`text_par/2`'s words) and `layout/1` (the text of
+  a layout document). Malformed documents raise `function_clause`.
+- CTest `executables_prettypr_layout` (compared with OTP).
+
 ## Erl lint
 
 `erl_lint`'s checks are builtins (`front_end/lint*.cpp`, plan 21 step

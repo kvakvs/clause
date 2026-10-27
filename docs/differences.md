@@ -291,6 +291,13 @@ Compared with the same module compiled by `compile:forms/2` and loaded by `code:
 | An error raised while `revert_forms/1` reverts a form (a malformed node) | Caught and raised again as `exit({Reason, Stacktrace})` | Raised as the error it is | [syntax_tools](libraries/syntax_tools.md#erl_syntax) |
 | `concrete/1` of a binary tree whose field is not a literal | `{badarg, Node}` with the field's tree | `{badarg, Form}` with the field reverted to its erl_parse form | [syntax_tools](libraries/syntax_tools.md#erl_syntax) |
 
+## prettypr
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| A paper or ribbon width that is not an integer (`prettypr:format(D, wide)`) | Used only when compared or subtracted: a short document lays out, a longer one raises `badarith` or compares by term order | `function_clause` | [builtins](builtins.md#prettypr) |
+| `prettypr:sep([])` or `par([])` laid out | `case_clause` | `function_clause` | [builtins](builtins.md#prettypr) |
+
 ## erl_lint
 
 | Difference | OTP | Clause | Owner |

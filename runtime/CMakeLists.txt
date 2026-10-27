@@ -110,6 +110,9 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/qlc_pt/kit.cpp src/builtins/qlc_pt/state.cpp src/builtins/qlc_pt/messages.cpp
     src/builtins/qlc_pt/frames.cpp src/builtins/qlc_pt/columns.cpp src/builtins/qlc_pt/clauses.cpp
     src/builtins/qlc_pt/generate.cpp
+    # prettypr's layout chooser (plan 21 step LIB77E3a).
+    src/builtins/prettypr/documents.cpp src/builtins/prettypr/rewrite.cpp src/builtins/prettypr/floats.cpp
+    src/builtins/prettypr/builtins.cpp
     # Modules erl_anno and erl_internal (plan 21 step LIB8).
     src/builtins/front_end/erl_anno.cpp src/builtins/front_end/erl_internal.cpp
     # Module erl_scan (plan 21 step LIB30).

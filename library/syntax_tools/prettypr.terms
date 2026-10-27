@@ -1,0 +1,22 @@
+%% OTP 29 prettypr exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{above, 2, default, implemented}.
+{beside, 2, default, implemented}.
+{best, 3, default, implemented}.
+{break, 1, default, implemented}.
+{empty, 0, default, implemented}.
+{floating, 1, default, implemented}.
+{floating, 3, default, implemented}.
+{follow, 2, default, implemented}.
+{follow, 3, default, implemented}.
+{format, 1, default, implemented}.
+{format, 2, default, implemented}.
+{format, 3, default, implemented}.
+{nest, 2, default, implemented}.
+{null_text, 1, default, implemented}.
+{par, 1, default, implemented}.
+{par, 2, default, implemented}.
+{sep, 1, default, implemented}.
+{text, 1, default, implemented}.
+{text_par, 1, default, implemented}.
+{text_par, 2, default, implemented}.

@@ -1787,6 +1787,11 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"erl_syntax", "warning_marker_info", 1},
     BuiltinName{"erl_syntax", "zip_generator", 1},
     BuiltinName{"erl_syntax", "zip_generator_body", 1},
+    // prettypr's layout chooser and clause_prettypr's text helpers (plan 21 LIB77E3a; runtime/src/builtins/prettypr/).
+    BuiltinName{"prettypr", "best", 3},
+    BuiltinName{"clause_prettypr", "width", 1},
+    BuiltinName{"clause_prettypr", "words", 1},
+    BuiltinName{"clause_prettypr", "layout", 1},
     // The registry of clause_interp's interpreted modules (plan 21 LIB77B; runtime/src/builtins/interpreted.cpp).
     BuiltinName{"clause_interp", "register", 4},
     BuiltinName{"clause_interp", "unregister", 1},

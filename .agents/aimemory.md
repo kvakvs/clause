@@ -558,6 +558,12 @@ recorded elsewhere.
   pin 10.0.7 (golden prints no version). Windows Debug build was broken since c163afd5 (boost.parser pulls
   windows.h min/max into numbers.cpp): NOMINMAX in parsing/boost_parser.hpp. Git Bash `cmd //c` mangles
   backslash paths: launch .state scripts via PowerShell Start-Process.
+- LIB77E3a prettypr (2026-10-27): done in parallel with session clau-70 (LIB77E2 erl_syntax) in the SAME working tree:
+  agree file ownership by message, announce every build/ctest (shared CPU, ninja log lock gives "failed recompaction:
+  Permission denied"), commit with explicit paths. Library local calls to builtin placeholder functions run the
+  placeholder (function_clause later) -> qualify them (prettypr:best/3 from format/3). prettypr best/3 is a C++ loop
+  of OTP's rewrite/2 rules; golden prints best/3 docs (OTP's joined strings [W | [C1 | C2]]) identical.
+  clang-tidy bugprone-easily-swappable-parameters: pass structs (Ctx/Doc) instead of adjacent Index/Number params.
 - LIB77E2 erl_syntax (2026-10-27): all 303 C++ (syntax/), golden identical on 2nd try (pid in error, map print
   order: atom-index in OTP -> print sorted). Tables + consteval names: FieldName/SimpleName need a char-array
   template ctor (literal -> string_view -> class is two user conversions). Tidy swappable-params: Named roles

@@ -7,8 +7,8 @@ other syntax_tools modules; without them such code fails with `undef`. Parse tra
 Clause's [transform host](../transforms.md), which links the whole library, so interpreted
 transform code finds these modules there too.
 
-The application is partial: `erl_syntax` (LIB77E2) is provided. `prettypr` and `erl_prettypr`
-(LIB77E3), `erl_syntax_lib`, `epp_dodger`, `erl_comment_scan` and `erl_recomment` (LIB77E4), and `merl` with
+The application is partial: `erl_syntax` (LIB77E2) and `prettypr` (LIB77E3a) are provided. `erl_prettypr` (LIB77E3b),
+`erl_syntax_lib`, `epp_dodger`, `erl_comment_scan` and `erl_recomment` (LIB77E4), and `merl` with
 `merl_transform` (LIB77E5) follow, as [plan 21](../../.agents/21-lib.md) orders them.
 
 ## erl_syntax
@@ -47,3 +47,23 @@ Differences from OTP are in [differences](../differences.md#erl_syntax).
     attributes, form lists, `meta/1` and the errors.
 - CTest `transforms_pipeline`: the `pt_tag` parse transform builds its function body with
   `erl_syntax` and runs in the transform host.
+
+## prettypr
+
+[`prettypr`](../../library/syntax_tools/prettypr.erl) has OTP 29's 20 exports, all implemented
+(see the [inventory](../../library/syntax_tools/prettypr.terms)). Documents are OTP's records
+(`#text{}`, `#nest{}`, `#beside{}`, `#above{}`, `#sep{}`, `#float{}`, `null`), built by the
+Erlang constructors; texts keep their width in front of their characters (`[Width | Chars]`,
+tabs to the next multiple of 8).
+
+`best/3`, the layout chooser, is a [runtime builtin](../builtins.md#prettypr) that applies OTP's
+rewriting rules one for one, so it returns OTP's very layout documents, joined strings included.
+`format/1,2,3` lay the chosen layout out as text through `clause_prettypr:layout/1`, and
+`text_par/1,2` split their words with `clause_prettypr:words/1`.
+
+Differences from OTP are in [differences](../differences.md#prettypr).
+
+- CTest `executables_prettypr_layout`, compared with OTP: texts, nests, besides, aboves, seps and
+  pars at several widths, follows, breaks and empty documents, paragraphs with indentation and
+  ribbon widths, a long paragraph, code-shaped documents, every float rule, `best/3`'s layout
+  documents and the errors of malformed documents.
