@@ -32,7 +32,7 @@ class TransformHost final : public transforms::ClauseHost {
     TransformHost() {
         const auto library = load_library(linking::library_directory(), linking::generated_library_directory());
         for (const auto &name : library.provided_) {
-            provided_.emplace(name.begin(), name.end()); // modules.terms names are ASCII atoms.
+            provided_.emplace(name.begin(), name.end()); // Catalog names are ASCII atoms.
         }
     }
 

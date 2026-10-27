@@ -9,4 +9,4 @@ bad:zeta/1 is called unqualified, which runs its clause_builtin_placeholder body
 bad:alpha/1 is marked stub but is not a not_implemented stub
 bad:beta/0 is marked implemented but has no body or catalog builtin
 bad:delta/1 is marked stub but is not a not_implemented stub
-stdlib/stray.terms is not a provided module in modules.terms
+stdlib/stray.terms is not a provided module in the catalog

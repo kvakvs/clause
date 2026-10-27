@@ -186,7 +186,7 @@ A module is either provided or missing:
 - **Provided:** the module exports the exact OTP 29 interface. New modules initially contain
   stubs for every function so that discovery and caller compilation can proceed. Function groups
   are then assigned the statuses defined below.
-- **Missing:** no module is supplied. `library/modules.terms` records the reason and the
+- **Missing:** no module is supplied. The library catalog records the reason and the
   higher-level Clause interfaces that replace its callers. Examples include the low-level file
   and socket modules `prim_file`, `prim_buffer`, `prim_socket`, `prim_net`, `prim_inet` and
   `socket_registry`. Programs use Clause's `file`, `gen_tcp`, `gen_udp`, `inet`, `net` and
@@ -240,9 +240,12 @@ an explicit input can then provide that name without a replacement warning.
   `clause_maps`, `clause_hashed`, `clause_array`, `clause_features`, `clause_io_lib`,
   `clause_disk_log` and `clause_dets` are stored beside the modules they support. Discovery
   searches every application directory; module names must be unique across those directories.
-- `library/modules.terms` records module classifications as `{Module, Application, provided}.`
-  or `{Module, Application, missing, "reason"}.` The compiler uses this file to identify Clause
-  module names and reserved missing names.
+- The library catalog, `compiler/src/driver/library_modules.inc`, records module classifications
+  as `PROVIDED(Module, Application)` or `MISSING(Module, Application, "reason")`, one entry per
+  line. It is compiled into `clau`, so it changes with the library sources and `clau` together and
+  is not read from disk; a changed catalog changes `clau`'s identity and thereby the library and
+  transform host caches. The compiler uses it to identify Clause module names and reserved missing
+  names, and `library_modules.py check` compares it with the library's files.
 - Each provided module has an adjacent `<module>.terms` inventory containing one
   `{Name, Arity, Group, Status}.` entry per OTP 29 export, sorted by name and arity. `Group`
   identifies the function group, such as `stdlib`, `distribution` or `beam`. `erlang.terms` uses

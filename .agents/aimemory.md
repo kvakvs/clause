@@ -305,8 +305,8 @@ recorded elsewhere.
   (LIB23). OTP prints small atom-key maps in atom-index order: goldens print sorted lists.
 - Builtins cannot call funs and get results: fun-taking functions stay Erlang in library/*.erl,
   calling sibling builtins qualified (a local call hits the stub).
-- New library module = library/modules.terms + observe_module.escript + observe_types.escript +
-  library_modules.py generate. erlang.terms statuses hand-maintained: regenerate erlang.erl via
+- New library module = a PROVIDED line in compiler/src/driver/library_modules.inc (rebuild clau) +
+  observe_module.escript + observe_types.escript + library_modules.py generate. erlang.terms statuses hand-maintained: regenerate erlang.erl via
   tests/compiler/builtins/generate_erlang.py. Any library edit = ~4.5 min luerl rebuild; luerl
   timing: clau --project test-luerl-euler --entry luerl:init.
 - luerl manifests (old test-luerl.toml split 2026-10-15, both share build_dir build-clau-luerl, run
@@ -330,8 +330,8 @@ recorded elsewhere.
   clause_runtime.lib via $<TARGET_OBJECTS>, so clau/link lines and the export set need nothing; an
   installed PCRE2 instead lands in <runtime>.link (one linker input per line) that clau appends
   (runtime_link_inputs). Untested here: the installed- library path (no system pcre2 on Windows).
-  modules.terms entries must stay one line each after erlfmt (keep reasons short); a new provided
-  module's .erl must -include its .types.hrl.
+  library_modules.inc entries must stay one line each (library_modules.py reads them by line); a new
+  provided module's .erl must -include its .types.hrl.
 - 41Q (2026-10-14): zlib streams = handle refs with finalizer; leftover input after need_dictionary and
   deflateParams output are kept by zlib.erl in the process dictionary ({zlib, input|pending, Z}). OTP's
   safeInflate "finished" = queued input consumed (not end of stream). A full-scope check-quality (428 units, after a

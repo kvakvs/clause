@@ -976,6 +976,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   library identity into the user cache (lock file, older hosts pruned); library-only transform chains run there, also
   under `--erl none`; replies equal OTP's (ms_headers, qlc_queries `.abstr`); library `compile` without compiling
   (PARTIAL, LIB77E); qlc_pt replay batched by query (qlc_queries transform 220 s -> 12.7 s, 158 -> 3 runs) — `e926cf97`
+- **LIB85** library catalog compiled into `clau`: `library/modules.terms` became the X-macro list
+  `compiler/src/driver/library_modules.inc` (no disk read or line parse per discovery/host build; a changed catalog
+  changes clau's identity); `library_modules.py check` reads the `.inc`, the inconsistent fixture has its own — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

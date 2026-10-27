@@ -476,7 +476,7 @@ bool add_module(const std::u32string &name, std::string site, Discovery &discove
 bool add_shell(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs, Discovery &discovery) {
     bool failed = add_module(U"clause_shell", "--shell", discovery, request, sink, inputs);
     for (const auto &name : discovery.library.provided_) {
-        // modules.terms names are ASCII atoms.
+        // Catalog names are ASCII atoms.
         const std::u32string module(name.begin(), name.end());
         failed = add_module(module, "--shell", discovery, request, sink, inputs) || failed;
     }

@@ -2,37 +2,31 @@
 #include "library_modules.hpp"
 #include "../project/paths.hpp"
 #include <algorithm>
-#include <fstream>
+#include <array>
 #include <iterator>
-#include <optional>
 #include <string_view>
 
 namespace clause::cli {
 namespace {
-// The name and reason of a `{Module, Application, missing, "Reason"}.` line; none for any other line.
-std::optional<std::pair<std::string, std::string>> missing_entry(std::string_view line) {
-    constexpr std::string_view MARK = ", missing, \"";
-    const auto mark = line.find(MARK);
-    const auto comma = line.find(", ");
-    if (!line.starts_with('{') || !line.ends_with("\"}.") || mark == std::string_view::npos || comma >= mark) {
-        return std::nullopt;
-    }
-    const auto reason = line.substr(mark + MARK.size());
-    return std::pair{std::string(line.substr(1, comma - 1)), std::string(reason.substr(0, reason.size() - 3))};
-}
+// A catalog entry: a module and, when Clause leaves it missing, the reason. Added for the library catalog in clau.
+struct CatalogEntry {
+    // The module's name, an ASCII atom.
+    std::string_view module_;
+    // Why Clause does not provide the module; empty for a provided module.
+    std::string_view reason_;
+};
 
-// The name of a `{Module, Application, provided}.` line; none for any other line. Added for the shell option.
-std::optional<std::string> provided_entry(std::string_view line) {
-    constexpr std::string_view MARK = ", provided}.";
-    const auto comma = line.find(", ");
-    if (!line.starts_with('{') || !line.ends_with(MARK) || comma == std::string_view::npos) {
-        return std::nullopt;
-    }
-    return std::string(line.substr(1, comma - 1));
-}
-} // namespace
+// The modules Clause decides about, in library_modules.inc's order. Added for the library catalog in clau.
+// clang-format off
+constexpr std::array CATALOG{
+#define PROVIDED(module, application) CatalogEntry{.module_ = #module, .reason_ = {}},
+#define MISSING(module, application, reason) CatalogEntry{.module_ = #module, .reason_ = (reason)},
+#include "library_modules.inc"
+#undef MISSING
+#undef PROVIDED
+};
+// clang-format on
 
-namespace {
 // The application directories of a library root, sorted.
 std::vector<std::filesystem::path> application_directories(const std::filesystem::path &root) {
     std::vector<std::filesystem::path> directories;
@@ -52,15 +46,11 @@ LibraryModules load_library(const std::filesystem::path &root, const std::filesy
     library.directories_ = application_directories(root);
     // Added for public_key: the generated modules come after the library's sources.
     std::ranges::copy(application_directories(generated), std::back_inserter(library.directories_));
-    std::ifstream terms(root / "modules.terms");
-    for (std::string line; std::getline(terms, line);) {
-        if (line.ends_with('\r')) {
-            line.pop_back();
-        }
-        if (auto entry = missing_entry(line)) {
-            library.missing_.insert(std::move(*entry));
-        } else if (auto name = provided_entry(line)) {
-            library.provided_.push_back(std::move(*name));
+    for (const auto &entry : CATALOG) {
+        if (entry.reason_.empty()) {
+            library.provided_.emplace_back(entry.module_);
+        } else {
+            library.missing_.emplace(entry.module_, entry.reason_);
         }
     }
     return library;

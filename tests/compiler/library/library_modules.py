@@ -1,6 +1,6 @@
 """Clause library modules (docs/libraries/library.md#runtime-module-replacements): inventories, stubs, checks and the ledger.
 
-  library_modules.py check ROOT [LIBRARY]          inventories, module files and modules.terms agree (no OTP)
+  library_modules.py check ROOT [LIBRARY CATALOG]  inventories, module files and the library catalog agree (no OTP)
   library_modules.py rejects ROOT                  check refuses the deliberately inconsistent fixture library
   library_modules.py generate LIBRARY APP MODULE   write the all-stub module of an inventory, once
   library_modules.py complete ROOT APP MODULE      bring a hand-written library module to its inventory
@@ -25,8 +25,10 @@ import sys
 
 ATOM = r"'(?:[^'\\]|\\.)*'|[a-z][a-zA-Z0-9_@]*"
 INVENTORY_ENTRY = re.compile(rf"^\{{({ATOM}), (\d+), ([a-z][a-zA-Z0-9_]*), (implemented|refused|stub|declined)\}}\.$")
-PROVIDED = re.compile(rf"^\{{({ATOM}), ([a-z][a-z_]*), provided\}}\.$")
-MISSING = re.compile(rf'^\{{({ATOM}), ([a-z][a-z_]*), missing, "([^"]+)"\}}\.$')
+# Entries of the library catalog compiled into clau (plan 21 step LIB85): C++ identifiers, not quoted atoms.
+CATALOG = pathlib.Path("compiler/src/driver/library_modules.inc")
+PROVIDED = re.compile(r"^PROVIDED\(([a-z][a-zA-Z0-9_]*), ([a-z][a-z_]*)\)$")
+MISSING = re.compile(r'^MISSING\(([a-z][a-zA-Z0-9_]*), ([a-z][a-z_]*), "([^"\\]+)"\)$')
 # The body of a function a runtime catalog builtin implements: registration puts the builtin in its place, so the body
 # never runs (builtin placeholders).
 PLACEHOLDER = "clause_builtin_placeholder"
@@ -34,8 +36,8 @@ RESERVED = set(
     "after and andalso band begin bnot bor bsl bsr bxor case catch cond div else end fun if let maybe not of or "
     "orelse receive rem try when xor".split()
 )
-# Inventories with their own format and generator (docs/builtins.md#erlang-module), and the module list itself.
-OWN_FORMAT = {"erlang.terms", "modules.terms"}
+# Inventories with their own format and generator (docs/builtins.md#erlang-module).
+OWN_FORMAT = {"erlang.terms"}
 DOCUMENTED_ENTRY = re.compile(rf"^\{{({ATOM}), ([a-z_]+), ({ATOM}), (\d+)\}}\.$")
 # Provided modules whose documented functions may still be stubs, with the plan 21 step that completes each
 # (docs/libraries/library.md#documented-functions); every other provided module implements, refuses or declines them all.
@@ -71,20 +73,19 @@ def read_inventory(path, problems):
     return entries
 
 
-def read_modules(library, problems):
-    """library/modules.terms: {module: (application, reason or None for provided)}."""
-    path = library / "modules.terms"
+def read_modules(catalog, problems):
+    """The library catalog (library_modules.inc): {module: (application, reason or None for provided)}."""
     modules = {}
-    if not path.exists():
-        return modules
-    for line in term_lines(path):
+    for line in catalog.read_text(encoding="utf-8").splitlines():
+        if not line or line.startswith("//"):
+            continue
         provided, missing = PROVIDED.match(line), MISSING.match(line)
         if provided:
-            modules[unquote(provided[1])] = (provided[2], None)
+            modules[provided[1]] = (provided[2], None)
         elif missing:
-            modules[unquote(missing[1])] = (missing[2], missing[3])
+            modules[missing[1]] = (missing[2], missing[3])
         else:
-            problems.append(f"modules.terms: malformed entry: {line}")
+            problems.append(f"{catalog.name}: malformed entry: {line}")
     return modules
 
 
@@ -120,10 +121,10 @@ def check_documented(library, modules, problems):
                 problems.append(f"{label} is documented but a stub; finish it or list {module} as PARTIAL")
 
 
-def coverage(library):
+def coverage(root):
     """Print each documented module's implemented and documented function counts."""
-    problems = []
-    modules = read_modules(library, problems)
+    problems, library = [], root / "library"
+    modules = read_modules(root / CATALOG, problems)
     for module, (app, functions) in sorted(read_documented(library, problems).items(), key=lambda m: (m[1][0], m[0])):
         inventory = library / app / f"{module}.terms"
         if module in modules and modules[module][1] is None and inventory.name not in OWN_FORMAT:
@@ -265,10 +266,10 @@ def inventories(library):
     return sorted(p for p in library.glob("*/*.terms") if p.name not in OWN_FORMAT)
 
 
-def check(root, library):
-    """All problems of a library: modules.terms against the files, each inventory against its module."""
+def check(root, library, catalog):
+    """All problems of a library: its catalog against the files, each inventory against its module."""
     problems = []
-    modules = read_modules(library, problems)
+    modules = read_modules(catalog, problems)
     for module, (app, reason) in sorted(modules.items()):
         files = [library / app / f"{module}.erl", library / app / f"{module}.terms"]
         if reason is None:
@@ -279,7 +280,7 @@ def check(root, library):
     for inventory in inventories(library):
         module, app = inventory.stem, inventory.parent.name
         if modules.get(module, (None, ""))[0] != app or modules[module][1] is not None:
-            problems.append(f"{inventory.relative_to(library).as_posix()} is not a provided module in modules.terms")
+            problems.append(f"{inventory.relative_to(library).as_posix()} is not a provided module in the catalog")
         source = inventory.with_suffix(".erl")
         if source.exists():
             check_module(root, source, inventory, problems)
@@ -392,15 +393,16 @@ def freshness(root, erl, clau, work):
         if not filecmp.cmp(observed, inventory, shallow=False):
             raise AssertionError(f"{inventory} differs from the host OTP; rerun observe_module.escript")
     # Types headers (plan step 41K1): every provided module's header holds the forms a fresh observation gives.
-    for module, (app, reason) in sorted(read_modules(root / "library", []).items()):
+    for module, (app, reason) in sorted(read_modules(root / CATALOG, []).items()):
         if reason is None:
             run([escript, root / "tests/compiler/library/observe_types.escript", "--check", root / "library", app,
                  module])
     library = work / "library"
     run([escript, observe, library, "erts", "persistent_term"])
-    (library / "modules.terms").write_text("{persistent_term, erts, provided}.\n", encoding="utf-8")
+    catalog = work / CATALOG.name
+    catalog.write_bytes(b"PROVIDED(persistent_term, erts)\n")
     generate(library, "erts", "persistent_term")
-    problems = check(root, library)
+    problems = check(root, library, catalog)
     assert not problems, problems
     run([clau, library / "erts/persistent_term.erl"])
     print("library_freshness: ok")
@@ -410,7 +412,7 @@ def rejects(root):
     """The inconsistent fixture library yields exactly the expected problems."""
     fixture = root / "tests/fixtures/library/inconsistent"
     expected = (fixture / "expected.txt").read_text(encoding="utf-8").splitlines()
-    found = check(root, fixture / "library")
+    found = check(root, fixture / "library", fixture / CATALOG.name)
     assert found == expected, "\n".join(found)
     print("library_rejects: ok")
 
@@ -493,9 +495,11 @@ def listing(calls):
 
 def main(arguments):
     action = arguments[0] if arguments else ""
-    if action == "check" and len(arguments) in (2, 3):
+    if action == "check" and len(arguments) in (2, 4):
         root = pathlib.Path(arguments[1])
-        problems = check(root, pathlib.Path(arguments[2]) if len(arguments) == 3 else root / "library")
+        library, catalog = (pathlib.Path(arguments[2]), pathlib.Path(arguments[3])) if len(arguments) == 4 else (
+            root / "library", root / CATALOG)
+        problems = check(root, library, catalog)
         for problem in problems:
             print(f"error: {problem}", file=sys.stderr)
         print("library_inventory: ok" if not problems else f"{len(problems)} problems")
@@ -506,7 +510,7 @@ def main(arguments):
         root = pathlib.Path(arguments[1])
         complete(root, root / "library", arguments[2], arguments[3])
     elif action == "coverage" and len(arguments) == 2:
-        coverage(pathlib.Path(arguments[1]) / "library")
+        coverage(pathlib.Path(arguments[1]))
     elif action == "include" and len(arguments) == 2:
         for source in sorted(pathlib.Path(arguments[1]).glob("library/*/*.erl")):
             include_types(source)

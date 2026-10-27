@@ -310,7 +310,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   implementation; programs need no OTP sources. Native C++ builtins preferred; Erlang only for
   fun-taking functions, process protocols and glue. OTP compatibility beats speed.
 - Tree `library/{erts,kernel,stdlib}/<m>.erl` with `<m>.terms` inventories and `*.types.hrl`;
-  `modules.terms` lists provided and missing (reserved, never taken from search paths) modules;
+  the catalog `compiler/src/driver/library_modules.inc` (X-macro list compiled into `clau`, LIB85)
+  lists provided and missing (reserved, never taken from search paths) modules;
   `documented.terms` records OTP-documented functions; checked by
   `tests/compiler/library/library_modules.py`.
 - Loading: library modules join the batch only when referenced (see input closure); inputs replacing
