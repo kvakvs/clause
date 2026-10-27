@@ -1002,7 +1002,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (document/context arenas, lazy term reading), width/words/layout builtins; `prettypr_layout` golden identical
   to OTP — `3f412427`
 - **LIB77E3b** `erl_prettypr`: Erlang (hooks are funs) over erl_syntax and prettypr with OTP's text, options and
-  `#ctxt{}`; `erl_prettypr_format` golden identical to OTP (markers need their module linked) — `HASH`
+  `#ctxt{}`; `erl_prettypr_format` golden identical to OTP (markers need their module linked) — `d7f20eb9`
 
 ## Plan 22 (from 2026-10-23)
 
