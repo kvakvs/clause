@@ -166,3 +166,6 @@ printed by `vcvars64.bat` is harmless.
     already adopted such behavior change
 - Testing the code which does nothing/returns error/returns not supported/stubs and placeholders:
   - Do not test code which does nothing. Save CPU cycles for other valuable stuff.
+- When long (full) test suite is running. Report progress at least every estimated and approximate
+  25% (estimate the percentage from previous runs)
+  
