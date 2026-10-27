@@ -986,6 +986,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB77C** transform sources: `clau` reads project transform sources (preprocess, parse, own transforms, export)
   and sends `{File, Forms}` (erl `compile:forms`, host `clause_interp:load`); without erl the host interprets chains
   of project sources and `.beam`s (`debug_info`, loaded on first call via `route_undefined`) — `a8bbac69`
+- **LIB77D** switch-over: transforms run in the transform host by default (erl fallback, or non-library chains with
+  `--erl PATH`); parse/preprocess problems reach transforms as `clause_source` forms, returned error forms come
+  formatted (`clause_message`); emqx fun2ms/qlc users transform with `--erl none` — `0312b3f9`
 
 ## Plan 22 (from 2026-10-23)
 
