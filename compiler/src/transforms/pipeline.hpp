@@ -3,6 +3,7 @@
 #include "loader.hpp"
 #include <clause/compiler/parser.hpp>
 #include <functional>
+#include <span>
 
 namespace clause::transforms {
 // Whether the host OTP provides a module it never replaces (a sticky one). Added for transform source caching.
@@ -73,8 +74,9 @@ struct TransformOutcome {
 };
 
 // Run the module's transforms on the host OTP and parse the forms they return into `parser`, as erlc does
-// between epp and erl_lint; `main` is the module's main source.
+// between epp and erl_lint; `main` is the module's main source. `problems`, the module's preprocessor and parse
+// diagnostics, reach the transforms as error and warning forms (plan 21 LIB77D); the caller reports them.
 TransformOutcome transform_module(const ast::Module &syntax, const Source &main, const TransformSettings &settings,
                                   const CompileOptions &options, const FeatureSnapshot &features,
-                                  const ParserSession &parser);
+                                  const ParserSession &parser, std::span<const Diagnostic> problems = {});
 } // namespace clause::transforms

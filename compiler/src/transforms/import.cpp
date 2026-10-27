@@ -20,9 +20,22 @@ Diagnostic diagnostic(const Place &place, std::string message, const Severity se
     return result;
 }
 
-// The message of an {error, {Location, Module, Descriptor}} or {warning, ...} form, which needs OTP to format.
+// The module named by an {error, {Location, Module, Descriptor}} or {warning, ...} form's info, else none.
+std::u32string reporter(const Terms &terms, const TermId info) {
+    const auto &parts = terms.node(info).children_;
+    return parts.size() == 3 && terms.node(parts[1]).kind_ == TermKind::atom ? terms.node(parts[1]).atom_
+                                                                             : std::u32string{};
+}
+
+// The message of an {error, {Location, Module, Descriptor}} or {warning, ...} form: the loader's formatted text
+// (module clause_message, plan 21 LIB77D), else the descriptor's term text.
 std::string reported(const Terms &terms, const TermId info) {
     const auto &parts = terms.node(info).children_;
+    if (reporter(terms, info) == U"clause_message") {
+        if (const auto message = terms.text(parts[2])) {
+            return utf8(*message);
+        }
+    }
     std::string text;
     write_text(text, terms, parts.size() == 3 ? parts[2] : info);
     const auto module = parts.size() == 3 && terms.node(parts[1]).kind_ == TermKind::atom
@@ -409,6 +422,10 @@ class FormsImport {
         }
         if (kind == U"error" || kind == U"warning") {
             const auto &info = importer.children<2>(form)[1];
+            // Clause's own preprocessor and parse problems, which clau reports itself (plan 21 LIB77D).
+            if (reporter(terms_, info) == U"clause_source") {
+                return true;
+            }
             const auto &parts = terms_.node(info).children_;
             const auto at = parts.size() == 3 ? locator_.place(terms_, parts[0], {}) : Place{};
             report(at, reported(terms_, info), kind == U"error" ? Severity::error : Severity::warning);

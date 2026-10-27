@@ -120,7 +120,19 @@ transform([Transform | Rest], Forms0, Options, File, Warnings) ->
             end
     end;
 transform([], Forms, Options, _File, Warnings) ->
-    {ok, strip_columns_if(Forms, option_location(Options) =:= line), Warnings}.
+    {ok, formatted(strip_columns_if(Forms, option_location(Options) =:= line)), Warnings}.
+
+%% Error and warning forms the transforms return, formatted here with Module:format_error/1 since clau cannot
+%% (plan 21 LIB77D); Clause's own source problems (clause_source) stay as they came.
+formatted(Forms) ->
+    [formatted_form(Form) || Form <- Forms].
+
+formatted_form({Kind, {Location, Module, Descriptor}}) when
+    (Kind =:= error orelse Kind =:= warning), is_atom(Module), Module =/= clause_source, Module =/= clause_message
+->
+    {Kind, {Location, clause_message, format(Module, Descriptor)}};
+formatted_form(Form) ->
+    Form.
 
 %% Why a transform cannot run: a .beam on the code path that does not load is named, one without debug
 %% information (which Clause's host needs, plan 21 LIB77C) asks for erl, else OTP's undefined text.

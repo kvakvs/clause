@@ -87,7 +87,7 @@ planned, create only with implementation. [Architecture](arch.md) · [Backlog](0
   fast/full selection (`CLAUSE_TEST_MODE`); `CLAUSE_OTP_AUDITS` gates live OTP audits. Corpus
   provenance: `docs/validation.md`.
 - Executable cases: an `X.abstr` beside `X.erl` (host-transformed forms, `regenerate.py --clau`)
-  replaces the `.erl` in Clause runs (`qlc_queries`).
+  replaces the `.erl` in Clause runs (`qlc_queries`); `transforms_no_otp` compares the host's forms.
 - **+** `tests/interop/`: external consumers (D06).
 
 ## Backlog → owners

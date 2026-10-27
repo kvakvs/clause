@@ -57,6 +57,22 @@ std::vector<TermId> compile_options(const Terms &terms, const TermId value) {
     return node.kind_ == TermKind::list ? node.children_ : std::vector<TermId>{value};
 }
 
+// Diagnostics as {error | warning, {{Line, Column}, clause_source, Text}} forms before eof, as epp passes its own
+// problems to transforms; the importer skips them. Added for the transform host switch-over (plan 21 LIB77D).
+void add_problem_forms(AbstractModule &module, const std::span<const Diagnostic> problems) {
+    auto &terms = module.terms_;
+    std::vector<TermId> added;
+    for (const auto &problem : problems) {
+        const auto line = static_cast<std::int64_t>(problem.location ? problem.location->line : 0);
+        const auto column = static_cast<std::int64_t>(problem.location ? problem.location->column : 0);
+        const auto text = terms.string(Source(0, "diagnostic", problem.message).text);
+        const auto info = terms.tuple(
+            {terms.tuple({terms.integer(line), terms.integer(column)}), terms.atom(U"clause_source"), text});
+        added.push_back(terms.tuple({terms.atom(problem.severity == Severity::error ? U"error" : U"warning"), info}));
+    }
+    module.forms_.insert(module.forms_.end() - 1, added.begin(), added.end());
+}
+
 // The transforms to run in compile.erl's order: the settings' ones, then those of -compile attributes.
 std::vector<std::u32string> transform_names(const AbstractModule &module, const TransformSettings &settings) {
     auto result = settings.transforms_;
@@ -297,27 +313,29 @@ std::optional<TransformRequest> host_request(std::vector<std::u32string> transfo
     return request;
 }
 
-// The request of a module's transforms: Clause's transform host when the library provides them all, else the host
-// erl; without one, the host also interprets project sources and .beam files (plan 21 LIB77C).
+// Whether --erl names an executable, which then runs every chain the library does not fully provide. Added for the
+// transform host switch-over (plan 21 LIB77D).
+bool erl_named(const TransformSettings &settings) { return settings.erl_ && *settings.erl_ != "none"; }
+
+// The request of a module's transforms: Clause's transform host when the library provides them all or (unless --erl
+// names an erl) it interprets the others, else the host erl (plan 21 LIB77C-D).
 std::optional<TransformRequest> request_of(std::vector<std::u32string> transforms, const TransformSettings &settings,
                                            const CompileOptions &options, const std::string &file,
                                            TransformOutcome &outcome, SourceManager &sources) {
     const auto provided = [&](const std::u32string &name) { return host_provides(name, settings); };
-    if (std::ranges::all_of(transforms, provided)) {
+    const auto runs = [&](const std::u32string &name) { return host_runs(name, settings); };
+    if (std::ranges::all_of(transforms, provided) || (!erl_named(settings) && std::ranges::all_of(transforms, runs))) {
         return host_request(std::move(transforms), settings, options, file, outcome, sources);
     }
-    const auto erl = host_erl(settings, file, outcome, sources);
-    if (erl || outcome.failed_) {
-        return erl ? erl_request(*erl, std::move(transforms), settings, options, file, outcome, sources) : std::nullopt;
+    if (const auto erl = host_erl(settings, file, outcome, sources)) {
+        return erl_request(*erl, std::move(transforms), settings, options, file, outcome, sources);
     }
-    const auto missing =
-        std::ranges::find_if_not(transforms, [&](const auto &name) { return host_runs(name, settings); });
-    if (missing != transforms.end()) {
+    if (!outcome.failed_) {
+        const auto missing = std::ranges::find_if_not(transforms, runs);
         fail(file, "parse transform '" + utf8(*missing) + "' needs Erlang/OTP 29 on the host; pass --erl", outcome,
              sources);
-        return std::nullopt;
     }
-    return host_request(std::move(transforms), settings, options, file, outcome, sources);
+    return std::nullopt;
 }
 } // namespace
 
@@ -329,13 +347,14 @@ bool wants_transforms(const ast::Module &syntax, const TransformSettings &settin
 
 TransformOutcome transform_module(const ast::Module &syntax, const Source &main, const TransformSettings &settings,
                                   const CompileOptions &options, const FeatureSnapshot &features,
-                                  const ParserSession &parser) {
+                                  const ParserSession &parser, const std::span<const Diagnostic> problems) {
     TransformOutcome outcome;
     SourceManager sources;
     outcome.end_ = end_of(syntax, syntax.forms(), main);
     auto module = export_module(syntax, syntax.forms(), outcome.end_);
     auto transforms = transform_names(module, settings);
     remove_transform_options(module);
+    add_problem_forms(module, problems);
     if (missing_paths(settings, main.name, outcome, sources)) {
         return outcome;
     }

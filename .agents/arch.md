@@ -27,11 +27,13 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - Parse transforms (`transforms/`): term arena, ETF, abstract-form export/import, external `erl`
   loader with cached replies. Transforms Clause's library provides run in Clause's transform host
   (LIB77A): the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
-  library identity into the user cache (lock file for concurrent builds); other chains go to `erl`.
-  Project transform sources are read by `clau` (`driver/transform_sources.cpp`: preprocess, parse,
-  own transforms, export) and sent as `{File, Forms}` (LIB77C): erl `compile:forms`, the host
-  `clause_interp:load`. Without erl the host also takes chains of project sources and `.beam`s,
-  interpreting `.beam`s from `debug_info` on first call (`clause_interp:route_undefined`).
+  library identity into the user cache (lock file for concurrent builds). Project transform sources
+  are read by `clau` (`driver/transform_sources.cpp`: preprocess, parse, own transforms, export)
+  and sent as `{File, Forms}` (LIB77C): the host `clause_interp:load`, erl `compile:forms`. The host
+  runs every chain of library transforms, project sources and `.beam`s (interpreted from
+  `debug_info` on first call, `clause_interp:route_undefined`); `erl` is the fallback, or takes
+  non-library chains with `--erl PATH` (LIB77D). Parse problems go to transforms as `clause_source`
+  forms; the loader formats returned error forms as `clause_message` text.
 
 ### Drivers, projects, caches
 

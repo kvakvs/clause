@@ -197,23 +197,19 @@ transforms::CompileOptions compile_options(const FrontendRequest &request, const
             .transforms_ = request.transforms_.transforms_};
 }
 
-// Parse transforms run on a module that parsed without errors; the forms they return replace its syntax.
+// Parse transforms run on the module; the forms they return replace its syntax. Its preprocessor and parse problems
+// reach them as forms and are reported after them, as erl_lint reports epp's (plan 21 LIB77D); errors still fail it.
 // Added for parse transforms.
 bool transform_and_finish(ParserSession &parser, PreprocessorSession &session, const FrontendRequest &request,
                           const DiagnosticSink &sink, const SourcePtr &source, const std::filesystem::path &path,
                           const bool escript, Inputs &inputs, FileTimes &times) {
     const auto features = session.features();
     auto parsed = times.parse.time([&] { return std::move(parser).finish(features); });
-    for (const auto &diagnostic : parsed.diagnostics) {
-        print_diagnostic(diagnostic, sink);
-    }
-    if (parsed.failed || session.failed()) {
-        return true;
-    }
     ParserSession transformed;
     const auto outcome = times.transform.emplace().time([&] {
         return transforms::transform_module(parsed.module, *source, request.transforms_,
-                                            compile_options(request, features), features, transformed);
+                                            compile_options(request, features), features, transformed,
+                                            parsed.diagnostics);
     });
     times.transform_cached = outcome.cached_;
     times.fingerprint.add(outcome.reply_);
@@ -224,6 +220,12 @@ bool transform_and_finish(ParserSession &parser, PreprocessorSession &session, c
         print_diagnostic(diagnostic, sink);
     }
     if (outcome.failed_) {
+        return true;
+    }
+    for (const auto &diagnostic : parsed.diagnostics) {
+        print_diagnostic(diagnostic, sink);
+    }
+    if (parsed.failed || session.failed()) {
         return true;
     }
     const auto end = [position = outcome.end_](const ast::Module &) { return position; };

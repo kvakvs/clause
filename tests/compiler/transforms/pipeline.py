@@ -112,6 +112,35 @@ def host_crash(tool, fixtures, work):
     return []
 
 
+def host_messages(tool, fixtures, work):
+    """An error form a transform returns is formatted with its module's format_error/1; a module's parse errors reach
+    its transforms as forms and are reported after them (plan 21 LIB77D)."""
+    directory = fixtures / "pipeline"
+    failures = []
+    result = run([tool, "--erl", "none", "--print-abstr", "error_form_user.erl", "pt_error_form.erl"], directory)
+    stderr = text(result)[1]
+    if result.returncode != 1 or "error_form_user.erl:5:1: variable 'Missing' is unbound" not in stderr:
+        failures.append(f"error form: exit {result.returncode}\n{stderr}")
+    result = run([tool, "--erl", "none", "--print-abstr", "broken_user.erl", "pt_count.erl"], directory)
+    stderr = text(result)[1]
+    counted, syntax = stderr.find("pt_count: 1 error forms"), stderr.find("broken_user.erl:6:")
+    if result.returncode != 1 or counted < 0 or syntax < counted:
+        failures.append(f"parse errors as forms: exit {result.returncode}\n{stderr}")
+    return failures
+
+
+def default_host(tool, erl, fixtures):
+    """A project transform runs in Clause's transform host by default, and on the host OTP when --erl names it (plan
+    21 LIB77D)."""
+    directory = fixtures / "pipeline"
+    failures = []
+    for extra, expected in [([], "pt_where: true"), (["--erl", erl], "pt_where: false")]:
+        result = run([tool, *extra, "--print-abstr", "where_user.erl", "pt_where.erl"], directory)
+        if result.returncode != 0 or expected not in text(result)[1]:
+            failures.append(f"default host {extra}: exit {result.returncode}\n{result.stderr}")
+    return failures
+
+
 def compile_transforms(erl, fixtures, ebin):
     """Precompile the owned transforms with the host OTP into one code path directory."""
     ebin.mkdir(parents=True, exist_ok=True)
@@ -169,6 +198,7 @@ def main():
         failures = without_otp(tool, fixtures, work) + missing_path(tool, fixtures, work)
         failures += host_program(tool, fixtures, work) + host_forms(tool, fixtures, work)
         failures += host_project(tool, fixtures, work) + host_crash(tool, fixtures, work)
+        failures += host_messages(tool, fixtures, work)
     elif erl == "-":
         print("SKIP: no host Erlang/OTP")
         return
@@ -178,7 +208,7 @@ def main():
         failures += program(tool, erl, fixtures, work, "tagged_user.erl")
         failures += program(tool, erl, fixtures, work, "cli_user.erl", ["--parse-transform", "pt_tag"])
         failures += program(tool, erl, fixtures, work, "warned.erl")
-        failures += reported(tool, erl, fixtures, work)
+        failures += reported(tool, erl, fixtures, work) + default_host(tool, erl, fixtures)
     if failures:
         print("\n".join(failures), file=sys.stderr)
         sys.exit(1)

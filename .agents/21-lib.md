@@ -103,8 +103,9 @@ non-luerl modules resolve from `library/`. `test-emqx.toml` keeps only the OTP a
 erts/kernel/stdlib (`eunit`, `common_test`, `public_key`, `ssl`) as `applications` roots; its
 preprocessing diagnostics are unchanged (the rest are emqx's missing dependencies).
 
-- **What still ties programs to OTP** (counted over `references/emqx/apps`): project parse
-  transforms run on the host `erl` (`ms_transform` and `qlc` no longer: LIB77A); `.yrl`/`.xrl`
+- **What still ties programs to OTP** (counted over `references/emqx/apps`): parse transforms run
+  in Clause's transform host since LIB77D (the host `erl` only for `.beam`s without `debug_info`,
+  OTP modules the library lacks such as `eunit_autoexport`, or `--erl PATH`); `.yrl`/`.xrl`
   sources need OTP's `yecc`/`leex`
   (luerl ships generated `luerl_parse.erl`/`luerl_scan.erl`, whose `-file` lines only name OTP's
   `yeccpre.hrl`). The public headers emqx includes (`assert.hrl`, `ms_transform.hrl`, `inet.hrl`)
@@ -112,24 +113,15 @@ preprocessing diagnostics are unchanged (the rest are emqx's missing dependencie
 
 Steps:
 
-- **LIB77 Parse transforms without the host:** library transforms (`ms_transform`, `qlc_pt`) run in
-  Clause's transform host since LIB77A; project and dependency transforms run on the host OTP `erl`
-  when one is found, else the host interprets them (LIB77C, [transforms](../docs/transforms.md)).
-  Decided 2026-10-27 (user): an Erlang interpreter runs transforms without OTP. Library transforms
-  run compiled, project and dependency transforms are interpreted from their forms. Already there: `erl_eval`, `erl_parse`,
-  `erl_scan`, `epp`, `erl_lint`, `erl_expand_records`, `erl_internal`, `erl_anno`, `erl_pp`,
-  `erl_error`, `beam_lib`, `erl_abstract_code`, `error_handler`, `ms_transform`, `qlc_pt`, the
-  transform host (`compiler/src/transforms/host.cpp`, `driver/transform_host.cpp`), `compile`
-  without its compiling functions and the module interpreter `clause_interp` (LIB77B:
-  `clause_interp:load(Forms)`, calls from compiled code through `error_handler`, interpreted
-  stack frames), transform sources read by `clau` and interpreted (or `compile:forms` on erl),
-  `.beam` files interpreted from `debug_info` (LIB77C).
-  - **LIB77D Switch over:** transforms run in the host by default and `erl` is only the fallback;
-    imported `{error, _}`/`{warning, _}` forms formatted natively; modules with preprocessor or
-    parse errors pass them to transforms as forms, as OTP does (both `differences.md` rows go).
-    Proof: emqx's `ets:fun2ms`/`qlc` users and `emqx_bpapi_trans` (which calls the dependency
-    `erlang_qq`) build with `--erl none`. The executables goldens' `X.abstr` files (forms from OTP's
-    transforms, LIB73) can go: the host gives the same forms (checked by `transforms_no_otp`).
+- **LIB77 Parse transforms without the host:** every transform runs in Clause's transform host by
+  default ([transforms](../docs/transforms.md)): library transforms (`ms_transform`, `qlc_pt`)
+  compiled (LIB77A), project sources and `.beam`s with `debug_info` interpreted by `clause_interp`
+  (LIB77B, LIB77C); the host `erl` is the fallback, or runs non-library chains when `--erl PATH`
+  names it (LIB77D). Decided 2026-10-27 (user). Proof (LIB77D): emqx's `fun2ms`/`qlc` users print
+  their transformed forms with `--erl none`; `emqx_bpapi_trans` needs `emqx_utils` on the search
+  paths and its dependency `erlang_qq`, which `references/emqx` does not hold (like `snabbkaffe`).
+  The executables `X.abstr` goldens stay: `qlc_queries` through the host's `qlc_pt` timed out
+  (300 s) in a loaded Debug suite.
   - **LIB77E (on request) APIs that third-party transforms call:** not needed by `clau`, only by
     transform code that uses them (else `undef`). `syntax_tools`: `erl_syntax` (303 exports; plain
     forms are already valid trees, so most of it is node accessors over abstract forms, the
@@ -203,9 +195,8 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB77D; LIB77E and LIB78 only on request.
-2. LIB81B–D in order (LIB81E on request).
-3. LIB82, LIB83 last (test support).
+1. LIB81B–D in order (LIB81E on request); LIB77E and LIB78 only on request.
+2. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)
 

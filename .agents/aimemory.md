@@ -535,3 +535,9 @@ recorded elsewhere.
   not interpretable: host links its own). erlc omits debug_info by default -> test fixtures build with
   +debug_info. erl_error prints "(File:Line)" in OTP 29, not "(File, line N)". Python test edits via bash heredoc
   turn "\n" in strings into real newlines (use Write/Edit).
+- LIB77D switch-over (2026-10-27): request_of routes to the host unless --erl names a path (explicit erl keeps the
+  old erl routing, so tests with `--erl erl` still exercise erl). Parse/preprocess diagnostics go to transforms as
+  {error|warning, {{L,C}, clause_source, Text}} forms before eof (importer skips them; frontend prints them after the
+  transform's diagnostics unless it failed). Loader rewrites returned {error|warning, {Loc, M, D}} to clause_message
+  text. Removing the executables .abstr goldens made qlc_queries compile qlc_pt in the host: +56 s alone, >300 s
+  (timeout) in the loaded full suite, so the .abstr goldens stay.

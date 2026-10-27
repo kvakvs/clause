@@ -9,10 +9,11 @@ status and a stderr pattern are compared with an OTP-generated golden.
 ## A case
 
 A directory holding the Erlang sources (`*.erl`, `*.hrl`) and `golden.json`.
-A module whose `X.erl` needs a parse transform of the host OTP (`qlc.hrl`)
-also has `X.abstr`, its forms after the transform: the runner compiles the
-`.abstr` instead of the `.erl`, so the tests need no OTP, and the oracle
-compiles the `.erl` (`qlc_queries`).
+A module whose `X.erl` needs a slow parse transform (`qlc.hrl`: Clause's
+transform host takes minutes for it in a loaded Debug test run) also has
+`X.abstr`, its forms after OTP's transform: the runner compiles the `.abstr`
+instead of the `.erl`, and the oracle compiles the `.erl` (`qlc_queries`).
+`transforms_no_otp` checks that the transform host gives the same forms.
 Every such directory becomes the CTest `executables_<directory>`; nothing else
 is registered.
 
