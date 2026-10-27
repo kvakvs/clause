@@ -975,7 +975,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB77A** transform host: the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
   library identity into the user cache (lock file, older hosts pruned); library-only transform chains run there, also
   under `--erl none`; replies equal OTP's (ms_headers, qlc_queries `.abstr`); library `compile` without compiling
-  (PARTIAL, LIB77E); qlc_pt replay batched by query (qlc_queries transform 220 s -> 12.7 s, 158 -> 3 runs) — `HASH`
+  (PARTIAL, LIB77E); qlc_pt replay batched by query (qlc_queries transform 220 s -> 12.7 s, 158 -> 3 runs) — `e926cf97`
 
 ## Plan 22 (from 2026-10-23)
 
