@@ -1826,6 +1826,10 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"erl_recomment", "recomment_forms", 2},
     BuiltinName{"erl_recomment", "quick_recomment_forms", 2},
     BuiltinName{"erl_recomment", "recomment_tree", 2},
+    // epp_dodger's token and form rewriting (plan 21 LIB77E4c; runtime/src/builtins/epp_dodger/).
+    BuiltinName{"clause_epp_dodger", "scan", 2},
+    BuiltinName{"clause_epp_dodger", "quickscan", 1},
+    BuiltinName{"clause_epp_dodger", "rewrite_form", 1},
     // The registry of clause_interp's interpreted modules (plan 21 LIB77B; runtime/src/builtins/interpreted.cpp).
     BuiltinName{"clause_interp", "register", 4},
     BuiltinName{"clause_interp", "unregister", 1},

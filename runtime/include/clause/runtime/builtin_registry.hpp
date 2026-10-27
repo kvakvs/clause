@@ -264,6 +264,9 @@ std::span<const BuiltinEntry> erl_syntax_lib_tree_builtins() noexcept;
 // Modules erl_comment_scan and erl_recomment (plan 21 step LIB77E4b; runtime/src/builtins/comments/).
 std::span<const BuiltinEntry> erl_comment_scan_builtins() noexcept;
 std::span<const BuiltinEntry> erl_recomment_builtins() noexcept;
+// clause_epp_dodger, epp_dodger's token and form rewriting (plan 21 step LIB77E4c; runtime/src/builtins/epp_dodger/).
+std::span<const BuiltinEntry> epp_dodger_token_builtins() noexcept;
+std::span<const BuiltinEntry> epp_dodger_rewrite_builtins() noexcept;
 // The erlang gaps of plan 21 step LIB9A: checksums and iovecs, tuple edits, option-taking process builtins and
 // system flags.
 std::span<const BuiltinEntry> checksum_builtins() noexcept;

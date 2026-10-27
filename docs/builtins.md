@@ -840,6 +840,24 @@ They are written over `builtins/syntax/`'s C++ accessors and constructors:
   `make_tree/2` and its original attributes.
 - CTest `executables_syntax_tools_comments` (compared with OTP).
 
+## Epp dodger
+
+`builtins/epp_dodger/` (plan 21 step LIB77E4c) has the rewriting of
+[`epp_dodger`](libraries/syntax_tools.md#epp_dodger), as `clause_epp_dodger`'s
+builtins:
+
+- `tokens.cpp`: `scan/2` is OTP's `scan_form/2` but `-error` and `-warning`:
+  directives become `'?preprocessor declaration?'() -> Name...` functions, and
+  `scan_macros/3` (a `Scanner` over a deque of tokens, since macro arguments
+  are put back in front) makes macros the atoms `'? NAME'` and `'?,NAME'` or
+  `{'? <macro> (', Name, Args...}` tuples, with `++` next to strings when
+  clever. `quickscan/1` is `quickscan_form/1`: directives killed, macros
+  `'?NAME'` atoms or parts of the strings next to them. `skip_macro_args`
+  throws `{error, macro_args}` for unclosed arguments.
+- `rewrite.cpp`: `rewrite_form/1` turns the directive functions back into
+  attributes and the macro atoms and tuples into `erl_syntax` macros.
+- CTest `executables_epp_dodger_forms` (compared with OTP).
+
 ## Erl lint
 
 `erl_lint`'s checks are builtins (`front_end/lint*.cpp`, plan 21 step

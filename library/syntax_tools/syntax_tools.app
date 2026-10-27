@@ -1,7 +1,17 @@
 {application, syntax_tools, [
     {description, "Syntax tools"},
     {vsn, "4.1.1"},
-    {modules, [clause_prettypr, erl_comment_scan, erl_prettypr, erl_recomment, erl_syntax, erl_syntax_lib, prettypr]},
+    {modules, [
+        clause_epp_dodger,
+        clause_prettypr,
+        epp_dodger,
+        erl_comment_scan,
+        erl_prettypr,
+        erl_recomment,
+        erl_syntax,
+        erl_syntax_lib,
+        prettypr
+    ]},
     {registered, []},
     {applications, [stdlib]},
     {env, []},

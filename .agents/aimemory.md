@@ -587,3 +587,7 @@ recorded elsewhere.
   non-chars raises function_clause in OTP's unicode_util: keep goldens to char texts. Long python edits: write the
   script with Write to the scratchpad and run it (a heredoc with many quotes broke bash parsing). Clang warns on
   missing designated-field initializers (-Wmissing-designated-field-initializers): use small factories instead.
+- LIB77E4c epp_dodger (2026-10-28): golden diffs came only from Clause's file I/O server feeding undecodable UTF-8
+  as Latin-1 (and over-unreading by re-encoding them): now chunk_chars seeks back over them and until/5 stops with
+  OTP's {error, {Loc, file_io_server, invalid_unicode}, Loc} (erl_scan cont) or {error, F}. Quick scratch repro:
+  clau X.erl --entry X -o X.exe from a .cmd that calls tools\windows-toolchain.cmd, then run the exe from bash.

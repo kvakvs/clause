@@ -452,7 +452,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `prettypr` (LIB77E3a) is Erlang documents over a C++ `best/3`, `erl_prettypr` (LIB77E3b) Erlang
   layout of trees (hooks are funs) over both; `erl_syntax_lib` (LIB77E4a) Erlang folds and names over
   C++ analyses and binding annotations (`builtins/syntax_lib/`); `erl_comment_scan`/`erl_recomment`
-  (LIB77E4b) C++ in `builtins/comments/`.
+  (LIB77E4b) C++ in `builtins/comments/`; `epp_dodger` (LIB77E4c) Erlang over `clause_epp_dodger`'s
+  C++ token and form rewriting (`builtins/epp_dodger/`).
   Clause-heavy front-end walks move to C++ builtins (LIB34C):
   `erl_expand_records:module/2`, the guard tests, `erl_lint` and `erl_pp`
   (`front_end/expand_records.cpp`, `guard_tests.cpp`, `lint*.cpp` over one `Lint` state, `pp*.cpp`

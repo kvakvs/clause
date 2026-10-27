@@ -1010,6 +1010,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB77E4b** `erl_comment_scan` (scanner state machine, joins; `file/1` Erlang) and `erl_recomment` (OTP's
   leaf/tree/list range tree, `-file` filtering) C++ in `builtins/comments/`; `syntax_tools_comments` golden
   identical to OTP — `7c6c356a`
+- **LIB77E4c** `epp_dodger`: Erlang reading/parsing/fixes, C++ `clause_epp_dodger` token rewriting (deque
+  `Scanner`, `QuickScanner`) and form rewriting; file I/O server stops at undecodable UTF-8 with OTP's
+  `{error, {Loc, file_io_server, invalid_unicode}, Loc}`; `epp_dodger_forms` golden identical to OTP — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

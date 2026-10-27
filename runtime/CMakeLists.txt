@@ -110,6 +110,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/syntax_lib/analyze.cpp src/builtins/syntax_lib/bindings.cpp src/builtins/syntax_lib/trees.cpp
     # Modules erl_comment_scan and erl_recomment (plan 21 step LIB77E4b).
     src/builtins/comments/scan.cpp src/builtins/comments/recomment.cpp
+    # epp_dodger's token and form rewriting (plan 21 step LIB77E4c).
+    src/builtins/epp_dodger/tokens.cpp src/builtins/epp_dodger/rewrite.cpp
     # The qlc parse transform at run time (plan 21 step LIB73).
     src/builtins/qlc_pt/kit.cpp src/builtins/qlc_pt/state.cpp src/builtins/qlc_pt/messages.cpp
     src/builtins/qlc_pt/frames.cpp src/builtins/qlc_pt/columns.cpp src/builtins/qlc_pt/clauses.cpp

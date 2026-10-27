@@ -255,6 +255,8 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      erl_syntax_lib_tree_builtins(),
                                      erl_comment_scan_builtins(),
                                      erl_recomment_builtins(),
+                                     epp_dodger_token_builtins(),
+                                     epp_dodger_rewrite_builtins(),
                                      epp_builtins(),
                                      eval_match_builtins(),
                                      erl_features_builtins(),

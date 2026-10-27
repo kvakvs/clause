@@ -371,8 +371,13 @@ stdout are pipes of the port:
   returns a `get_until` list result as a binary. Others get
   `{error, {request, Request}}`. A failing `get_until` or `put_chars` function
   makes a file's server reply `{error, Function}` and exit with the failure, as
-  OTP's does; the opener lives on (OTP's file server is not linked to it). Input
-  requests on standard input write their prompt.
+  OTP's does; the opener lives on (OTP's file server is not linked to it). Bytes
+  a unicode file cannot decode end its server as OTP's: the characters before
+  them are fed first, and when the function needs more it gets no more, the
+  reply is `{error, {Location, file_io_server, invalid_unicode}, Location}` for
+  an `erl_scan:tokens` scan that has started (else `{error, Function}`) and the
+  server exits with `invalid_unicode`. Input requests on standard input write
+  their prompt.
 - Directories, links and copies: `get_cwd/0` spells the current directory as OTP
   does (forward slashes, a lowercase drive letter), `get_cwd/1` takes a Windows
   drive (`enotsup` elsewhere); `set_cwd/1` changes it for the whole program;

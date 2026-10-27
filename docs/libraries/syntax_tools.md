@@ -8,9 +8,9 @@ Clause's [transform host](../transforms.md), which links the whole library, so i
 transform code finds these modules there too.
 
 The application is partial: `erl_syntax` (LIB77E2), `prettypr` (LIB77E3a), `erl_prettypr`
-(LIB77E3b), `erl_syntax_lib` (LIB77E4a), `erl_comment_scan` and `erl_recomment` (LIB77E4b) are
-provided. `epp_dodger` (LIB77E4c), and `merl` with `merl_transform` (LIB77E5) follow, as
-[plan 21](../../.agents/21-lib.md) orders them.
+(LIB77E3b), `erl_syntax_lib` (LIB77E4a), `erl_comment_scan` and `erl_recomment` (LIB77E4b) and
+`epp_dodger` (LIB77E4c) are provided. `merl` with `merl_transform` (LIB77E5) follows, as
+[plan 21](../../.agents/21-lib.md) orders it.
 
 ## erl_syntax
 
@@ -151,3 +151,25 @@ trees with their original attributes, as OTP's.
   - `recomment_forms/2` and `quick_recomment_forms/2` printed with `erl_prettypr`, nested form
     lists, the comments of each form, `recomment_tree/2` with its leftovers, a tree that is not a
     form list, `-file` attributes, comments alone and the errors of a bad position or comment.
+
+## epp_dodger
+
+[`epp_dodger`](../../library/syntax_tools/epp_dodger.erl) has OTP 29's 16 exports, all implemented
+(see the [inventory](../../library/syntax_tools/epp_dodger.terms)). Reading forms with
+`io:scan_erl_form/4` (with the reserved words of the `feature` options), parsing them with
+`erl_parse`, the fix of a `-define` whose body does not parse (its body kept as text), the
+`no_fail` and `clever` options, `-error` and `-warning` markers, the Latin-1 retry of files that
+are not UTF-8, `tokens_to_string/1` and `format_error/1` are Erlang. The rewriting of directives
+and macros in the tokens of a form and back in the parsed form are
+[runtime builtins](../builtins.md#epp-dodger) of the internal module
+[`clause_epp_dodger`](../../library/syntax_tools/clause_epp_dodger.erl).
+
+- CTest `executables_epp_dodger_forms`, compared with OTP:
+  - `parse_file/1,2` and `quick_parse_file/1,2` of a file with every directive, `-error` and
+    `-warning`, macros with and without arguments at the start of forms and functions, after `:`,
+    in `try` and `case` clause patterns and around strings, a `-define` whose body does not parse,
+    unclosed macro arguments and syntax errors, with the `clever` and `no_fail` options, as text and
+    as terms; missing files;
+  - `parse/1,2,3`, `quick_parse/1,2,3`, `parse_form/2,3` and `quick_parse_form/2,3` on devices;
+  - a Latin-1 file parsed again as Latin-1, and the error of one that declares UTF-8;
+  - `tokens_to_string/1` and `format_error/1`.

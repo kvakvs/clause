@@ -133,10 +133,9 @@ Steps:
     `erl_syntax` is provided since LIB77E2, `prettypr` since LIB77E3a, `erl_prettypr` since LIB77E3b,
     `erl_syntax_lib` since LIB77E4a (folds, maps and variable names Erlang; analyses, bindings and
     walks without funs C++; golden `syntax_tools_lib`), `erl_comment_scan` and `erl_recomment`
-    since LIB77E4b (C++ but `file/1`; golden `syntax_tools_comments`).
-    - **LIB77E4c `epp_dodger`:** parsing without the preprocessor over Clause's scanner and parser
-      with OTP's macro rewriting (`parse*`, `quick_parse*`, `tokens_to_string/1`,
-      `format_error/1`). Golden `epp_dodger_forms`.
+    since LIB77E4b (C++ but `file/1`; golden `syntax_tools_comments`), `epp_dodger` since LIB77E4c
+    (Erlang reading and parsing, C++ token and form rewriting in `clause_epp_dodger`; golden
+    `epp_dodger_forms`; the file I/O server now ends at undecodable UTF-8 as OTP's).
     - **LIB77E5 `merl`:** quoting and templates over `epp_dodger`/`erl_syntax`, `merl.hrl` written
       from the documented macros, `merl_transform` (also a library transform for the host),
       `compile`/`compile_and_load` over LIB77E1. `syntax_tools` stops being partial. Golden
@@ -206,7 +205,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB77E4c–E5 in order (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
+1. LIB77E5 (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
    request.
 2. LIB82, LIB83 last (test support).
 

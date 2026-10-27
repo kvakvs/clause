@@ -484,11 +484,14 @@ loop(Opener, Port, Binary, Raw) ->
 % and no_translation (which stops the server) for one above 255.
 encoded_file_request(Port, Binary, Raw, Request) ->
     case {io_encoding(), Request} of
-        {latin1, _} -> file_request(Port, Binary, Raw, Request);
-        {_, read_line} -> encoded_read(Port, Binary, {get_line, unicode, ''});
+        {latin1, _} ->
+            file_request(Port, Binary, Raw, Request);
+        {_, read_line} ->
+            encoded_read(Port, Binary, {get_line, unicode, ''});
         {_, {read, Size}} when is_integer(Size), Size >= 0 ->
             encoded_read(Port, Binary, {get_chars, unicode, '', Size});
-        _ -> file_request(Port, Binary, Raw, Request)
+        _ ->
+            file_request(Port, Binary, Raw, Request)
     end.
 
 encoded_read(Port, Binary, Request) ->
@@ -1056,10 +1059,25 @@ utf8_count(Bytes) ->
 % Feed 4 KiB chunks and then eof to M:F until it is done; the characters it leaves over are read again next.
 until(Port, Binary, Until, Cont) ->
     case reply(port_control(Port, ?READ, <<4096:64>>)) of
-        {ok, Bytes} -> apply_until(Port, Binary, Until, Cont, chunk_chars(Port, Bytes));
+        {ok, Bytes} -> until_chars(Port, Binary, Until, Cont, chunk_chars(Port, Bytes));
         eof -> apply_until(Port, Binary, Until, Cont, eof);
         {error, Reason} = Error -> {stop, Reason, Error}
     end.
+
+% A chunk that starts with bytes the encoding cannot decode ends the server, as OTP's file_io_server does.
+until_chars(_, _, Until, Cont, invalid) -> {stop, invalid_unicode, invalid_unicode_error(Until, Cont)};
+until_chars(Port, Binary, Until, Cont, Chars) -> apply_until(Port, Binary, Until, Cont, Chars).
+
+% OTP's reply to undecodable bytes: an erl_scan:tokens scan in progress gets the location it has reached.
+% Added for epp_dodger's re-parse of Latin-1 files (plan 21 LIB77E4c).
+invalid_unicode_error({_, erl_scan, tokens, _}, Cont) when Cont =/= [] ->
+    try erl_scan:continuation_location(Cont) of
+        Location -> {error, {Location, file_io_server, invalid_unicode}, Location}
+    catch
+        _:_ -> {error, tokens}
+    end;
+invalid_unicode_error({_, _, F, _}, _) ->
+    {error, F}.
 
 apply_until(Port, Binary, {Encoding, M, F, Args} = Until, Cont, Data) ->
     case catch apply(M, F, [Cont, Data | Args]) of
@@ -1084,8 +1102,9 @@ unread(Port, Rest) when is_list(Rest), Rest =/= [] ->
 unread(_, _) ->
     ok.
 
-% The characters of a chunk in the device encoding; an incomplete character at its end is read again next (plan 21
-% step LIB63).
+% The characters of a chunk in the device encoding (plan 21 step LIB63): an incomplete character at its end and
+% bytes that cannot be decoded are read again next; invalid when the chunk starts with them (or an incomplete
+% character ends the file).
 chunk_chars(_, Bytes) when Bytes =:= <<>> ->
     [];
 chunk_chars(Port, Bytes) ->
@@ -1096,11 +1115,11 @@ chunk_chars(Port, Bytes) ->
             case unicode:characters_to_list(Bytes, Encoding) of
                 Chars when is_list(Chars) ->
                     Chars;
-                {incomplete, Chars, Tail} ->
-                    port_control(Port, ?POSITION, <<1, (-byte_size(Tail)):64/signed>>),
-                    Chars;
-                {error, Chars, Invalid} ->
-                    Chars ++ binary_to_list(Invalid)
+                {_, [], _} ->
+                    invalid;
+                {_, Chars, Rest} ->
+                    port_control(Port, ?POSITION, <<1, (-byte_size(iolist_to_binary(Rest))):64/signed>>),
+                    Chars
             end
     end.
 

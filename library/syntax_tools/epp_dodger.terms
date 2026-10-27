@@ -1,0 +1,18 @@
+%% OTP 29 epp_dodger exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{format_error, 1, default, implemented}.
+{parse, 1, default, implemented}.
+{parse, 2, default, implemented}.
+{parse, 3, default, implemented}.
+{parse_file, 1, default, implemented}.
+{parse_file, 2, default, implemented}.
+{parse_form, 2, default, implemented}.
+{parse_form, 3, default, implemented}.
+{quick_parse, 1, default, implemented}.
+{quick_parse, 2, default, implemented}.
+{quick_parse, 3, default, implemented}.
+{quick_parse_file, 1, default, implemented}.
+{quick_parse_file, 2, default, implemented}.
+{quick_parse_form, 2, default, implemented}.
+{quick_parse_form, 3, default, implemented}.
+{tokens_to_string, 1, default, implemented}.
