@@ -288,8 +288,8 @@ llvm::Value *lower_dynamic_call(ExpressionLowering &state, const ast::Expression
     auto *function = value_of(state, remote.function);
     auto *array = arguments(state, call);
     auto *count = llvm::ConstantInt::get(state.word, call.arguments.size());
-    return transfer(state, in_tail(state, expression), frame_service<services::Call>(state, 3, false),
-                    {state.entry.getArg(0), module, function, count}, array);
+    return transfer(state, in_tail(state, expression), frame_service<services::Call>(state, 3, true),
+                    {state.entry.getArg(0), module, function, count, array}, array);
 }
 
 namespace {

@@ -1,5 +1,6 @@
 #include "../../terms/funs.hpp"
 #include "../support.hpp"
+#include <algorithm>
 #include <array>
 #include <clause/abi/frames.hpp>
 
@@ -21,7 +22,8 @@ Word continue_at(ProcessContext &context, const void *frame, const Registers &re
     return 0;
 }
 
-// apply(Fun, Args): the arguments, then the fun's captured values.
+// apply(Fun, Args): the arguments, then the fun's captured values; a fun of an interpreted module enters its route
+// with its three arguments.
 Word apply_fun(ProcessContext &context, Arguments arguments) {
     Registers registers{};
     const auto *frame = detail::apply_list_service(context, arguments[0], arguments[1], registers.data());
@@ -34,7 +36,9 @@ Word apply_fun(ProcessContext &context, Arguments arguments) {
     if (!view || !*view) {
         return 0;
     }
-    return continue_at(context, frame, registers, (*view)->definition->arity + (*view)->captures.size());
+    const auto count = (*view)->definition->arity + (*view)->captures.size();
+    return continue_at(context, frame, registers,
+                       std::max(count, static_cast<const abi::v1::FrameDescriptor *>(frame)->arity));
 }
 
 // apply(Module, Function, Args).

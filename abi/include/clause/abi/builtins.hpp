@@ -1489,6 +1489,10 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_crypto", "srp_value_B", 5},
     BuiltinName{"clause_crypto", "srp_user_secret", 7},
     BuiltinName{"clause_crypto", "srp_host_secret", 5},
+    // The registry of clause_interp's interpreted modules (plan 21 LIB77B; runtime/src/builtins/interpreted.cpp).
+    BuiltinName{"clause_interp", "register", 4},
+    BuiltinName{"clause_interp", "unregister", 1},
+    BuiltinName{"clause_interp", "interpreted", 1},
     // The receive of prim_eval (plan step 41S; runtime/src/process/receive.cpp).
     BuiltinName{"clause_receive", "peek", 0},
     BuiltinName{"clause_receive", "skip", 0},

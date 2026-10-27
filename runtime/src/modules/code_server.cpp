@@ -170,8 +170,13 @@ const void *CodeServer::find_function(const Term &module, const Term &function, 
 }
 
 bool CodeServer::exported(const Term &module, const Term &function, std::size_t arity) const noexcept {
-    const std::shared_lock lock(mutex_);
-    return exports_.contains({module.word(), function.word(), arity}) || find_function(module, function, arity);
+    {
+        const std::shared_lock lock(mutex_);
+        if (exports_.contains({module.word(), function.word(), arity}) || find_function(module, function, arity)) {
+            return true;
+        }
+    }
+    return interpreted_.exported(module.word(), {function.word(), arity});
 }
 
 const FunDefinition &CodeServer::external_fun(const Term &module, const Term &function, std::size_t arity) {

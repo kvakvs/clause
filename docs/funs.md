@@ -57,9 +57,15 @@ sources (`erts/emulator/beam/utils.c` `erts_cmp`, `erl_printf_term.c`,
   name no module exports is then looked up among the [builtins](builtins.md), so
   `M:F(...)`, `apply/3` and runtime `fun M:F/A` reach the builtins of the bridge
   catalog.
-- **Services.** `CLAUSE_call_v1(context, module, function, arity)` checks the
-  names and returns the `FrameDescriptor` of the export (from its
-  `ExportDescriptor`); the arguments are already in the registers.
+- A call of a module that [`clause_interp`](libraries/library.md#module-interpreter)
+  interprets (`M:F(...)`, `apply/3`, an external fun, a `spawn` MFA) enters
+  `error_handler:undefined_function(M, F, Args)` in place of `undef`, as OTP
+  calls it for a module that is not loaded, and the handler passes it to the
+  interpreter.
+- **Services.** `CLAUSE_call_v1(context, module, function, arity, registers)`
+  checks the names and returns the `FrameDescriptor` of the export (from its
+  `ExportDescriptor`); the arguments are already in the registers, where a call
+  of an interpreted module gets `error_handler`'s three arguments.
   `CLAUSE_apply_list_v1(context, fun, list, registers)` and
   `CLAUSE_call_list_v1(context, module, function, list, registers)` copy the
   list into the registers first. All three return null after recording the

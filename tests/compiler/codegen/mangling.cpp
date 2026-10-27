@@ -68,8 +68,8 @@ int main() {
                                   "_Z18CLAUSE_make_fun_v1PvPKvPKjjPj"});
         check<services::Apply>({"?CLAUSE_apply_v1@@YAPEBXPEAX_K1PEA_K@Z", "?CLAUSE_apply_v1@@YAPBXPAXIIPAI@Z",
                                 "_Z15CLAUSE_apply_v1PvmmPm", "_Z15CLAUSE_apply_v1PvjjPj"});
-        check<services::Call>({"?CLAUSE_call_v1@@YAPEBXPEAX_K11@Z", "?CLAUSE_call_v1@@YAPBXPAXIII@Z",
-                               "_Z14CLAUSE_call_v1Pvmmm", "_Z14CLAUSE_call_v1Pvjjj"});
+        check<services::Call>({"?CLAUSE_call_v1@@YAPEBXPEAX_K11PEA_K@Z", "?CLAUSE_call_v1@@YAPBXPAXIIIPAI@Z",
+                               "_Z14CLAUSE_call_v1PvmmmPm", "_Z14CLAUSE_call_v1PvjjjPj"});
         check<services::ApplyList>({"?CLAUSE_apply_list_v1@@YAPEBXPEAX_K1PEA_K@Z",
                                     "?CLAUSE_apply_list_v1@@YAPBXPAXIIPAI@Z", "_Z20CLAUSE_apply_list_v1PvmmPm",
                                     "_Z20CLAUSE_apply_list_v1PvjjPj"});

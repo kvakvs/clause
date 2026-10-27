@@ -16,15 +16,20 @@ bool loaded_module(ProcessContext &context, std::string_view name) {
     return server.find_module(name).has_value() || std::ranges::contains(server.builtins().modules(), name);
 }
 
+// module_loaded(Module): also true for an interpreted module (plan 21 LIB77B).
 TermResult<Term> module_loaded(ProcessContext &context, const AtomArgument &module) {
-    return TermFactory(context).boolean(loaded_module(context, module.spelling));
+    return TermFactory(context).boolean(loaded_module(context, module.spelling) ||
+                                        context.code_server().interpreted().route(module.term.word()) != nullptr);
 }
 
-// Every module of the program, as atoms.
+// Every module of the program, then the interpreted ones, as atoms.
 TermResult<Term> loaded(ProcessContext &context) {
     std::vector<Term> items;
     for (const auto &name : context.code_server().module_names()) {
         items.push_back(atom(context, name));
+    }
+    for (const auto &entry : context.code_server().interpreted().modules()) {
+        items.push_back(need(Term::from_word(entry.first, context)));
     }
     return TermFactory(context).list(items);
 }

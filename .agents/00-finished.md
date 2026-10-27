@@ -979,6 +979,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB85** library catalog compiled into `clau`: `library/modules.terms` became the X-macro list
   `compiler/src/driver/library_modules.inc` (no disk read or line parse per discovery/host build; a changed catalog
   changes clau's identity); `library_modules.py check` reads the `.inc`, the inconsistent fixture has its own — `05e7b1e0`
+- **LIB77B** module interpreter `clause_interp`: modules from forms as `erl_eval` funs (lint, records, predefined
+  functions), code server registry so compiled calls/apply/funs/spawn into them enter `error_handler`
+  (`CLAUSE_call_v1` takes the registers), code queries see them, shadow stack gives OTP's interpreted frames;
+  `interpreted_modules` golden identical to OTP's compile:forms + load_binary — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

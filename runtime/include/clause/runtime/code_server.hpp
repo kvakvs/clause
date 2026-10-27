@@ -2,6 +2,7 @@
 #include "builtin_registry.hpp"
 #include "callable.hpp"
 #include "features.hpp"
+#include "interpreted_modules.hpp"
 #include <compare>
 #include <map>
 #include <memory>
@@ -230,7 +231,7 @@ class CodeServer final {
     // builtin's frame; null when neither exists.
     const void *function_frame(const Term &module, const Term &function, std::size_t arity) const noexcept;
     // Whether a registered module exports Module:Function/Arity, even by name only (an export the executable never
-    // calls, plan step 62C), or a builtin has that name: the answer of function_exported/3.
+    // calls, plan step 62C), a builtin has that name or an interpreted module exports it: function_exported/3.
     bool exported(const Term &module, const Term &function, std::size_t arity) const noexcept;
     // The definition of external fun Module:Function/Arity built at run time (fun M:F/A with variables) from atoms,
     // created on first use and kept for the server's lifetime; may throw std::bad_alloc.
@@ -250,6 +251,11 @@ class CodeServer final {
     BuiltinRegistry &builtins() noexcept { return builtins_; }
 
     const BuiltinRegistry &builtins() const noexcept { return builtins_; }
+
+    // The modules clause_interp runs from their forms (plan 21 LIB77B).
+    InterpretedModules &interpreted() noexcept { return interpreted_; }
+
+    const InterpretedModules &interpreted() const noexcept { return interpreted_; }
 
   private:
     // The lookups below run with the lock already held.
@@ -290,5 +296,7 @@ class CodeServer final {
     std::unordered_map<FunctionAtoms, const void *, FunctionAtomsHash> exports_;
     // Registered once at runtime startup; external fun definitions may point at its frames.
     BuiltinRegistry builtins_;
+    // Modules run by the interpreter; it has its own lock. Added for the module interpreter.
+    InterpretedModules interpreted_;
 };
 } // namespace clause::runtime

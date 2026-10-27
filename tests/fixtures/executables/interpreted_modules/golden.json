@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "entry": "interpreted_modules",
+  "data": [
+    "interp_a.erl.in",
+    "interp_b.erl.in",
+    "interp_bad.erl.in",
+    "interp_server.erl.in"
+  ],
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "loads: [{ok,interp_a,[]},\n        {ok,interp_b,[]},\n        {error,[{\"interp_bad.erl.in\",\n                 [{7,erl_lint,{undefined_function,{g,0}}}]}],\n               [{\"interp_bad.erl.in\",[{6,erl_lint,{unused_var,'X'}}]}]},\n        {ok,interp_server,[]}]\ndynamic: 42\napply: 6\nexternal_fun: [2,4]\nmake_fun: 10\nfun_argument: 3\nlocal_fun: [6,4,2]\nrecords: {1,0,{point,1,5}}\ndeep: 100000\ninfo: {interp_a,info,0}\ncatching: [{value,1},{caught,{badmatch,other}}]\nremote_interpreted: 7\nexported: [true,false,true,true]\ncode: [{module,interp_a},\n       {file,\"interp_a.erl.in\"},\n       \"interp_a.erl.in\",true,removed]\nmodule_info: [interp_a,\n              [{apply_twice,2},\n               {call_b,1},\n               {catching,1},\n               {crash,1},\n               {deep,1},\n               {double,1},\n               {echo,1},\n               {element_of,1},\n               {info,0},\n               {local_fun,1},\n               {module_info,0},\n               {module_info,1},\n               {records,0},\n               {sum,1},\n               {throw_it,1}],\n              [marked]]\nmodule_info_keys: [module,exports,attributes,compile,md5]\nspawn: hello\ngen_server: 15\nbadmatch: {error,{badmatch,error},\n                 [{interp_a,step,1,[{file,\"interp_a.erl.in\"},{line,42}]},\n                  {interp_a,crash,1,[{file,\"interp_a.erl.in\"},{line,38}]}]}\nthrough_tail_call: {error,{badmatch,error},\n                          [{interp_a,step,1,\n                                     [{file,\"interp_a.erl.in\"},{line,42}]},\n                           {interp_a,crash,1,\n                                     [{file,\"interp_a.erl.in\"},{line,38}]}]}\nbadarg: {error,badarg,\n               [{interp_a,element_of,1,[{file,\"interp_a.erl.in\"},{line,55}]}]}\nundef: {error,undef,[{interp_a,step,[1],[]}]}\nfunction_clause: {error,function_clause,\n                        [{interp_a,sum,\n                                   [x,0],\n                                   [{file,\"interp_a.erl.in\"},{line,26}]}]}\nbadarith: {error,badarith,\n                 [{interp_a,double,1,[{file,\"interp_a.erl.in\"},{line,22}]}]}\nthrow: {throw,{thrown,1},\n              [{interp_a,throw_it,1,[{file,\"interp_a.erl.in\"},{line,52}]}]}\ninterpreted_modules: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "interpreted_modules.erl": "a06babb5782c5de2a5aab455eb42fb1c2a1f4fcb7421127f79b729728708f880",
+    "interp_a.erl.in": "86c6996a28aa4b591d8efa857dcd465b3db895c84961a5e07ec62d51c5ebf299",
+    "interp_b.erl.in": "989af2d81a5e5581d30122815b0eafcf68b3ff796c17a47d49250df4d14a49fe",
+    "interp_bad.erl.in": "c439992031988cede91bd0c6bdd8c95f18bc2e4b82fded54e13ba1221041dcd1",
+    "interp_server.erl.in": "93efb466d599197c3c224a01a47be381d4e4190a8577774135e21c6a6540a982"
+  }
+}

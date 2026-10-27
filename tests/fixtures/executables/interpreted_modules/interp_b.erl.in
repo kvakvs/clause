@@ -1,0 +1,7 @@
+%% Interpreted by interpreted_modules: calls into another interpreted module.
+-module(interp_b).
+-export([triple/1, fail/1]).
+
+triple(X) -> 3 * X.
+
+fail(X) -> interp_a:crash(X).

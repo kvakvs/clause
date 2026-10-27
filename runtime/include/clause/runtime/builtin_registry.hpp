@@ -184,6 +184,8 @@ std::span<const BuiltinEntry> unicode_builtins() noexcept;
 // The code module of step 41Z: ensure_loaded/1, ensure_modules_loaded/1, is_loaded/1, all_loaded/0, which/1,
 // module_status/0,1, is_sticky/1, answered for linked code.
 std::span<const BuiltinEntry> code_module_builtins() noexcept;
+// clause_interp's registry of interpreted modules (plan 21 LIB77B; builtins/interpreted.cpp).
+std::span<const BuiltinEntry> interpreter_builtins() noexcept;
 // The init module of step 41L: get_plain_arguments/0, get_arguments/0, get_argument/1, script_name/0.
 std::span<const BuiltinEntry> init_builtins() noexcept;
 // The atomics module of step 41N: new/2, get/2, put/3, add/3, add_get/3, sub/3, sub_get/3, exchange/3,

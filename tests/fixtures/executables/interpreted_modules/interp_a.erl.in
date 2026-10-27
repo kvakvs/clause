@@ -1,0 +1,70 @@
+%% Interpreted by interpreted_modules: calls, records, funs, imports and exceptions.
+-module(interp_a).
+-export([
+    double/1,
+    sum/1,
+    apply_twice/2,
+    local_fun/1,
+    records/0,
+    crash/1,
+    deep/1,
+    call_b/1,
+    throw_it/1,
+    element_of/1,
+    echo/1,
+    info/0,
+    catching/1
+]).
+-import(lists, [reverse/1]).
+-record(point, {x = 0, y = 0}).
+-attribute_x(marked).
+
+double(X) -> X * 2.
+
+sum(L) -> sum(L, 0).
+
+sum([H | T], Acc) -> sum(T, Acc + H);
+sum([], Acc) -> Acc.
+
+apply_twice(F, X) -> F(F(X)).
+
+local_fun(L) -> lists:map(fun double/1, reverse(L)).
+
+records() ->
+    P = #point{x = 1},
+    {P#point.x, P#point.y, P#point{y = 5}}.
+
+crash(X) ->
+    Y = step(X),
+    Y + 1.
+
+step(X) ->
+    {ok, V} = X,
+    V.
+
+deep(N) -> length(count(N, [])).
+
+count(0, Acc) -> Acc;
+count(N, Acc) -> count(N - 1, [N | Acc]).
+
+call_b(X) -> interp_b:triple(X) + 1.
+
+throw_it(X) -> throw({thrown, X}).
+
+element_of(N) ->
+    V = element(N, {a}),
+    {V}.
+
+echo(Parent) ->
+    receive
+        {msg, M} -> Parent ! {echoed, M}
+    end.
+
+info() -> {?MODULE, ?FUNCTION_NAME, ?FUNCTION_ARITY}.
+
+catching(X) ->
+    try step(X) of
+        V -> {value, V}
+    catch
+        error:Reason -> {caught, Reason}
+    end.

@@ -38,6 +38,27 @@ void raise_undef(ProcessContext &context, const Term &module, const Term &functi
         {.code = CallError::erlang_exception, .reason = ErrorReason::undef, .missing = *frame});
 }
 
+TermResult<Term> argument_list(ProcessContext &context, std::span<const Word> arguments) {
+    std::vector<Term> items;
+    items.reserve(arguments.size());
+    for (const auto word : arguments) {
+        auto item = Term::from_word(word, context);
+        if (!item) {
+            return item;
+        }
+        items.push_back(*item);
+    }
+    return TermFactory(context).list(items);
+}
+
+const void *enter_route(const void *route, const Term &module, const Term &function, const Term &args,
+                        Word *registers) noexcept {
+    registers[0] = module.word();
+    registers[1] = function.word();
+    registers[2] = args.word();
+    return route;
+}
+
 namespace {
 
 // Build a fun of a registered descriptor from rooted captured values.
@@ -56,18 +77,25 @@ Status make(ProcessContext &context, const void *descriptor, std::span<const Wor
 
 // The {Fun, Args} payload of badarity, with the arguments in the registers.
 TermResult<Term> bad_arity(ProcessContext &context, const Term &fun, std::span<const Word> arguments) {
-    TermFactory factory(context);
-    std::vector<Term> items;
-    items.reserve(arguments.size());
-    for (const auto word : arguments) {
-        auto item = Term::from_word(word, context);
-        if (!item) {
-            return item;
-        }
-        items.push_back(*item);
+    const auto list = argument_list(context, arguments);
+    return list.and_then([&](const Term &args) { return TermFactory(context).tuple(std::array{fun, args}); });
+}
+
+// The route of an external fun of an interpreted module, entered with its arguments (plan 21 LIB77B); null for any
+// other fun.
+const void *interpreted_fun(ProcessContext &context, const FunDefinition &definition, Word *arguments) {
+    const auto *route = definition.external ? context.code_server().interpreted().route(definition.module) : nullptr;
+    if (!route) {
+        return nullptr;
     }
-    const auto list = factory.list(items);
-    return list.and_then([&](const Term &args) { return factory.tuple(std::array{fun, args}); });
+    const auto module = Term::from_word(definition.module, context);
+    const auto function = Term::from_word(definition.function, context);
+    const auto list = argument_list(context, {arguments, definition.arity});
+    if (!module || !function || !list) {
+        context.generated_calls().fail_service(Status::internal_error);
+        return nullptr;
+    }
+    return enter_route(route, *module, *function, *list, arguments);
 }
 
 // undef for a fun whose function is not in the program, with its {Module, Function, Args, []} frame.
@@ -106,7 +134,12 @@ const void *prepare_fun_call(ProcessContext &context, const Term &fun, std::size
         return nullptr;
     }
     if (!definition.frame) {
-        undefined_fun(context, definition, {arguments, arity});
+        if (const auto *route = interpreted_fun(context, definition, arguments)) {
+            return route;
+        }
+        if (!context.generated_calls().failure()) {
+            undefined_fun(context, definition, {arguments, arity});
+        }
         return nullptr;
     }
     std::ranges::copy(view->captures, arguments + arity);

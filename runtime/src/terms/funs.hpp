@@ -30,7 +30,14 @@ void raise_call_error(ProcessContext &context, abi::v1::ErrorReason reason, std:
 // Raise undef for Module:Function called with Args (a list, or the arity when the arguments are not at hand), with
 // OTP's {Module, Function, Args, []} top frame. Added for the shell's error messages (plan 21 step LIB74).
 void raise_undef(ProcessContext &context, const Term &module, const Term &function, const Term &args);
+// The list of the argument words `arguments`.
+TermResult<Term> argument_list(ProcessContext &context, std::span<const Word> arguments);
+// Write Module, Function and Args to the registers and return `route`, the frame a call into an interpreted module
+// enters (error_handler:undefined_function/3). Added for the module interpreter (plan 21 LIB77B).
+const void *enter_route(const void *route, const Term &module, const Term &function, const Term &args,
+                        Word *registers) noexcept;
 // Check a called fun and append its captured values after the `arity` arguments; null when the call raised or failed.
+// An external fun of an interpreted module enters its route.
 const void *prepare_fun_call(ProcessContext &context, const Term &fun, std::size_t arity, Word *arguments);
 // apply(Fun, List) and apply(M, F, List) (dynamic_calls.cpp): unpack List into the registers and return the frame the
 // call enters, or null after recording the error or failure.

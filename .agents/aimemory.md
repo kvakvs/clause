@@ -521,3 +521,12 @@ recorded elsewhere.
   (qlc_queries 220 s): answers keyed by query, unanswered attempts batched (3 runs, ~4 s each on the
   Debug runtime). User direction: provide only the non-cascading `compile` functions (format_error,
   env options, output_generated); compiling stays stubs.
+- LIB77B clause_interp (2026-10-27): runtime routes undefined calls into registered modules to the frame of the fun
+  passed to clause_interp:register/4 (error_handler:undefined_function/3) with registers [M, F, Args]; error_handler
+  hands interpreted modules to clause_interp:call/3. Function closures take ONE list argument (no 20-arity limit);
+  local calls -> '$clause_interp_local':F(...), tail calls wrap the module expr in {'$clause_interp_tail', M}
+  (erl_eval's remote call accepts any module term and passes {M, F} to the 3-arity non-local handler with Anno).
+  Compiled calls get no try wrapper (next interpreter catch rewrites from the unchanged shadow stack). Clause never
+  shows failing-BIF frames ({erlang, element, ...}), so goldens print only interpreted frames. OTP's
+  code:module_status of a load_binary module whose file is a source = removed. Interpreted sources in executables
+  fixtures need a non-.erl suffix (`.erl.in`), else run.py's rglob compiles them into the program.

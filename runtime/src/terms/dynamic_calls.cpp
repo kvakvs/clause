@@ -102,25 +102,39 @@ const void *word_apply_list(ProcessContext &context, const ApplyOperands operand
     return count ? word_apply(context, operands.fun, registers, *count) : nullptr;
 }
 
-// The frame Module:Function/Arity enters: badarg for a non-atom name, undef when neither a module exports it nor
-// a builtin has that name; its top frame shows Args, the argument list or the arity.
+// The call of an interpreted module's function (plan 21 LIB77B): its route frame, entered with Module, Function and
+// Args (the list given, else the `arity` registers) in the registers.
+const void *interpreted_call(ProcessContext &context, const void *route, const std::array<Term, 2> &name,
+                             const std::optional<Term> &args, Word *registers, std::size_t arity) {
+    const auto list = args ? TermResult<Term>{*args} : argument_list(context, {registers, arity});
+    if (!list) {
+        context.generated_calls().fail_service(term_status(list.error()));
+        return nullptr;
+    }
+    return enter_route(route, name[0], name[1], *list, registers);
+}
+
+// The frame Module:Function/Arity enters: badarg for a non-atom name, an interpreted module's route, undef when
+// neither a module exports it nor a builtin has that name; its top frame shows Args, the argument list or the arity.
 const void *lookup(ProcessContext &context, const Term &module, const Term &function, std::size_t arity,
-                   const std::optional<Term> &args) {
+                   const std::optional<Term> &args, Word *registers) {
     if (!module.is_atom() || !function.is_atom()) {
         raise_call_error(context, ErrorReason::badarg);
         return nullptr;
     }
-    const auto *frame = context.code_server().function_frame(module, function, arity);
-    if (!frame) {
-        const auto shown =
-            args ? TermResult<Term>{*args} : TermFactory(context).integer(static_cast<std::int64_t>(arity));
-        if (shown) {
-            raise_undef(context, module, function, *shown);
-        } else {
-            context.generated_calls().fail_service(term_status(shown.error()));
-        }
+    if (const auto *frame = context.code_server().function_frame(module, function, arity)) {
+        return frame;
     }
-    return frame;
+    if (const auto *route = context.code_server().interpreted().route(module.word())) {
+        return interpreted_call(context, route, {module, function}, args, registers, arity);
+    }
+    const auto shown = args ? TermResult<Term>{*args} : TermFactory(context).integer(static_cast<std::int64_t>(arity));
+    if (shown) {
+        raise_undef(context, module, function, *shown);
+    } else {
+        context.generated_calls().fail_service(term_status(shown.error()));
+    }
+    return nullptr;
 }
 
 // apply(Fun, Args) once Args is unpacked: a fun of another arity raises badarity with the original list.
@@ -171,11 +185,12 @@ Status make_external(ProcessContext &context, const std::array<Term, 3> &operand
 }
 } // namespace
 
-const void *call_service(ProcessContext &context, Word module, Word function, std::size_t arity) noexcept {
+const void *call_service(ProcessContext &context, Word module, Word function, std::size_t arity,
+                         Word *registers) noexcept {
     return contained(context, [&]() -> const void * {
         std::array<Term, 2> names;
-        return admit(context, std::array{module, function}, names)
-                   ? lookup(context, names[0], names[1], arity, std::nullopt)
+        return present(context, registers) && admit(context, std::array{module, function}, names)
+                   ? lookup(context, names[0], names[1], arity, std::nullopt, registers)
                    : nullptr;
     });
 }
@@ -202,7 +217,7 @@ const void *call_list_service(ProcessContext &context, Word module, Word functio
             return nullptr;
         }
         const auto count = arguments(context, terms[2], registers);
-        return count ? lookup(context, terms[0], terms[1], *count, terms[2]) : nullptr;
+        return count ? lookup(context, terms[0], terms[1], *count, terms[2], registers) : nullptr;
     });
 }
 
@@ -226,12 +241,12 @@ std::uint8_t make_external_service(ProcessContext &context, Word module, Word fu
 } // namespace clause::runtime::detail
 
 const void *CLAUSE_call_v1(void *context, clause::abi::v1::TermWord module, clause::abi::v1::TermWord function,
-                           std::size_t arity) noexcept {
+                           std::size_t arity, clause::abi::v1::TermWord *registers) noexcept {
     if (!context) {
         return nullptr;
     }
     return clause::runtime::detail::call_service(*static_cast<clause::runtime::ProcessContext *>(context), module,
-                                                 function, arity);
+                                                 function, arity, registers);
 }
 
 const void *CLAUSE_apply_list_v1(void *context, clause::abi::v1::TermWord fun, clause::abi::v1::TermWord list,

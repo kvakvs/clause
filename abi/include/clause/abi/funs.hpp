@@ -42,11 +42,12 @@ std::uint8_t CLAUSE_make_fun_v1(void *context, const void *descriptor, const cla
 // arity {badarity, {Fun, Args}} and an external fun outside the program undef; the result is then null.
 const void *CLAUSE_apply_v1(void *context, clause::abi::v1::TermWord fun, std::size_t arity,
                             clause::abi::v1::TermWord *arguments) noexcept;
-// Prepare calling Module:Function with `arity` arguments already in the registers (M:F(Args) with runtime operands):
-// return the FrameDescriptor of the function a module of the program exports. A non-atom module or function raises
-// badarg, anything else undef; the result is then null.
+// Prepare calling Module:Function with `arity` arguments already in `registers` (M:F(Args) with runtime operands):
+// return the FrameDescriptor of the function a module of the program exports. A call into an interpreted module
+// enters error_handler:undefined_function/3 with its three arguments written to the registers. A non-atom module or
+// function raises badarg, anything else undef; the result is then null.
 const void *CLAUSE_call_v1(void *context, clause::abi::v1::TermWord module, clause::abi::v1::TermWord function,
-                           std::size_t arity) noexcept;
+                           std::size_t arity, clause::abi::v1::TermWord *registers) noexcept;
 // erlang:apply(Fun, Args): copy the proper list `list` into `registers` and prepare the call as CLAUSE_apply_v1
 // does. An improper list raises badarg, before the fun is checked; badarity carries {Fun, Args}.
 const void *CLAUSE_apply_list_v1(void *context, clause::abi::v1::TermWord fun, clause::abi::v1::TermWord list,

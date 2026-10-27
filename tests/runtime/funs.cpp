@@ -168,7 +168,8 @@ std::string pending(ProcessContext &context) {
 std::pair<const void *, std::string> lookup(ProcessContext &context, const Term &module, const Term &function,
                                             std::size_t arity) {
     GeneratedInvocation scope(context.generated_calls());
-    const auto *frame = CLAUSE_call_v1(&context, module.word(), function.word(), arity);
+    std::array<Word, abi::v1::register_count> registers{};
+    const auto *frame = CLAUSE_call_v1(&context, module.word(), function.word(), arity, registers.data());
     return {frame, pending(context)};
 }
 

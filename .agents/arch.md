@@ -432,7 +432,12 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   recursive-descent parser building OTP's abstract format and errors; `ms_transform` in Erlang over
   abstract forms; `erl_eval` an Erlang interpreter of the abstract format (interpreted funs as
   closures over OTP's env tuple, bit segments via `clause_erl_eval` C++ builtins, command checks
-  with `erl_lint`). Clause-heavy front-end walks move to C++ builtins (LIB34C):
+  with `erl_lint`); `clause_interp` (LIB77B) runs whole modules from forms as `erl_eval` funs of
+  their argument lists (local calls rewritten into handler calls, tail calls marked), registered in
+  the code server's `InterpretedModules` so compiled code's undefined calls into them enter
+  `error_handler:undefined_function/3` (call services write its 3 registers; `CLAUSE_call_v1`
+  takes the register array), with a process-dictionary shadow stack giving OTP-like frames.
+  Clause-heavy front-end walks move to C++ builtins (LIB34C):
   `erl_expand_records:module/2`, the guard tests, `erl_lint` and `erl_pp`
   (`front_end/expand_records.cpp`, `guard_tests.cpp`, `lint*.cpp` over one `Lint` state, `pp*.cpp`
   items then layout with hooks answered by rerunning from Erlang, node helpers in `forms.hpp`).

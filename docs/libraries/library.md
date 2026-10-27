@@ -27,7 +27,7 @@ Each provided module exports the complete OTP 29 interface for that module name.
 | [`net_adm`](../../library/kernel/net_adm.erl), [`net_kernel`](../../library/kernel/net_kernel.erl), [`auth`](../../library/kernel/auth.erl), [`seq_trace`](../../library/kernel/seq_trace.erl) | OTP-compatible results for a node without distribution (`pang`, `ignored`, `#{started => no}`, `nocookie`). `net_kernel:start/1,2` and distribution internals are declined. `seq_trace` maintains per-process tokens without emitting traces |
 | [`heart`](../../library/kernel/heart.erl), [`erl_debugger`](../../library/kernel/erl_debugger.erl), [`erl_epmd`](../../library/kernel/erl_epmd.erl), [`erl_ddll`](../../library/kernel/erl_ddll.erl), [`erl_boot_server`](../../library/kernel/erl_boot_server.erl), [`peer`](../../library/stdlib/peer.erl), [`slave`](../../library/stdlib/slave.erl), [`pool`](../../library/stdlib/pool.erl) | Features a Clause node lacks, answering as OTP does without them: `heart` calls raise `badarg` (no heart program), `erl_debugger:supported/0` is `false` and its other functions raise `undef`, `erl_epmd` finds no epmd (`{error, address}`, `noport`, registration exits `noproc`), `erl_ddll` loads nothing (`{error, no_ddll_available}`, `not_loaded`, monitors report `unloaded`) with OTP's error texts, `peer:start/1` and `slave:start/1,2,3` fail with `not_alive` after OTP's option checks, and `pool` runs its globally registered master over this node alone. `erl_boot_server` is declined (network boot) |
 | [`trace`](../../library/kernel/trace.erl), [`erl_tracer`](../../library/erts/erl_tracer.erl) | Tracing is unsupported. All `trace` functions and the `erl_tracer` default tracer (`enabled/3`, `trace/5`) raise `notsup`, matching `erlang` tracing functions ([erlang module](../builtins.md#erlang-module)). `erl_tracer:behaviour_info/1` returns OTP's callback list |
-| [`error_handler`](../../library/kernel/error_handler.erl) | Undefined-call handlers are directly callable. The runtime raises `undef` without invoking them. `breakpoint/3` is declined because no interpreter is provided |
+| [`error_handler`](../../library/kernel/error_handler.erl) | Undefined-call handlers are directly callable. The runtime raises `undef` without invoking them, except for calls into [interpreted modules](#module-interpreter), which `undefined_function/3` passes to `clause_interp`. `breakpoint/3` is declined because the interpreter has no break points |
 | [`timer`](../../library/stdlib/timer.erl) | All documented functions without OTP's timer server. Timed sends to local pids use `erlang:send_after/3`; each other timer uses a separate process addressed through an alias in its `TRef`. Time conversions and `now_diff/2` are runtime builtins ([timer](../builtins.md#timer)) |
 | [`filelib`](../../library/stdlib/filelib.erl), [`clause_filelib`](../../library/stdlib/clause_filelib.erl) | All documented functions. Runtime builtins compile and match wildcards with OTP-compatible rules and errors. Erlang implementations provide directory traversal, queries, `ensure_dir/1`, `ensure_path/1`, `fold_files/5,6`, `find_file/2,3`, `find_source/1,2,3` using the kernel `source_search_rules` or OTP defaults, and `safe_relative_path/2`. Undocumented variants accepting a module such as `file` or `erl_prim_loader` are also implemented. The debugging function `compile_wildcard/1` remains a stub ([filelib](../builtins.md#filelib)) |
 | [`file_sorter`](../../library/stdlib/file_sorter.erl) | All documented functions, implemented in Erlang. In-memory runs of `size` bytes, merges of at most `no_files` temporary files, 16 KiB chunks, stream ordering by buffered objects and file numbers, and consistency checks follow OTP's algorithm. Equal-term ordering and `unique` retention match OTP. Supported formats are `binary_term`, `binary`, `term` and custom functions; options include `header`, `compressed` through `file`'s gzip layer, `tmpdir`, and input and output functions. Error terms match OTP |
@@ -132,6 +132,34 @@ preserves every export; see [export liveness](../executables.md#export-liveness)
 option, the shell can access only modules referenced by the program. Input uses the terminal's
 line editing and is read as delivered by the terminal. `edlin` line editing, history keys and tab
 completion are not integrated; see [differences](../differences.md#interactive-shell).
+
+## Module interpreter
+
+[`clause_interp`](../../library/stdlib/clause_interp.erl) (plan 21, step LIB77B) runs a module from
+its abstract forms, so a program can call modules that were not compiled into it. Clause's
+[transform host](../transforms.md#transform-host) uses it for project parse transforms.
+
+- `clause_interp:load(Forms)` checks the forms with `erl_lint`, expands records, adds
+  `module_info/0,1` and `behaviour_info/1` and returns `{ok, Module, Warnings}`, or
+  `{error, Errors, Warnings}` in the shape of `compile:forms/2`. Loading a module of the same name
+  again replaces it; a module the program links cannot be interpreted.
+  `clause_interp:unload(Module)` removes it.
+- Calls of the program's code into the module (`M:F(...)`, `apply/3`, `fun M:F/A`, `spawn` with
+  a module, function and arguments, behaviour callbacks) enter
+  `error_handler:undefined_function/3`, as OTP's calls of modules that are not loaded do; the
+  handler passes them to the interpreter ([dynamic calls](../funs.md#dynamic-calls)). A function
+  the module does not export raises `undef`.
+- `erlang:function_exported/3`, `erlang:module_loaded/1`, `erlang:loaded/0` and the `code` module's
+  `ensure_loaded/1`, `is_loaded/1`, `which/1`, `all_loaded/0` and `module_status/0,1` see the module
+  as loaded from the file of its first `file` attribute, as `code:load_binary/3` with that file
+  name would show it ([code module](../builtins.md#code-module)).
+- Each function runs as an `erl_eval` fun. Local calls, imported functions and `fun F/A` reach the
+  interpreter's non-local function handler, and calls in tail position stay tail calls.
+- Exceptions leaving interpreted code show OTP's frames for the interpreted functions,
+  `{Module, Function, Arity, [{file, File}, {line, Line}]}`, with the arguments for
+  `function_clause` and `undef`. The interpreter keeps those frames on a stack of its own in the
+  process dictionary; [differences](../differences.md#errors-stack-traces-and-reports) lists what
+  it does not reproduce.
 
 <a id="how-programs-get-them"></a>
 

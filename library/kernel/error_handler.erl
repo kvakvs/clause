@@ -1,10 +1,17 @@
 %% Clause's error_handler (plan 21 step LIB23, docs/libraries/library.md): OTP's handler of calls to undefined functions,
-%% callable directly. Programs are linked ahead of time, so the runtime raises undef itself and never calls it.
+%% callable directly. Programs are linked ahead of time, so the runtime raises undef itself; it calls this module only
+%% for calls into modules clause_interp interprets (plan 21 LIB77B), which it hands to the interpreter.
 -module(error_handler).
 -export([undefined_function/3, undefined_lambda/3, breakpoint/3, raise_undef_exception/3, stub_function/3]).
 
 %% Calls the export once its module loads, else the module's '$handle_undefined_function'/2, else raises undef.
 undefined_function(Module, Function, Args) ->
+    case clause_interp:interpreted(Module) of
+        true -> clause_interp:call(Module, Function, Args);
+        false -> loaded_function(Module, Function, Args)
+    end.
+
+loaded_function(Module, Function, Args) ->
     case code:ensure_loaded(Module) of
         {module, Module} ->
             case erlang:function_exported(Module, Function, length(Args)) of
@@ -27,7 +34,7 @@ undefined_lambda(Module, Fun, Args) ->
         _ -> raise_undef({Fun, Args, []})
     end.
 
-%% The interpreter's entry for break points: Clause has no interpreter.
+%% The interpreter's entry for break points: clause_interp has no break points.
 breakpoint(_, _, _) -> erlang:error({not_implemented, breakpoint, 3}).
 
 raise_undef_exception(Module, Function, Args) -> raise_undef({Module, Function, Args, []}).

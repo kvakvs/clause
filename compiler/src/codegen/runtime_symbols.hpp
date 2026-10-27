@@ -48,7 +48,7 @@ using Error = Function<"CLAUSE_error_v1", UInt8, Context, Size, Size>;
 using MakeFun = Function<"CLAUSE_make_fun_v1", UInt8, Context, Descriptor, Words, Size, Slot>;
 using Apply = Function<"CLAUSE_apply_v1", Descriptor, Context, Size, Size, Slot>;
 // Dynamic calls: M:F(Args), apply/2,3 (arguments unpacked into the registers) and fun M:F/A with variables.
-using Call = Function<"CLAUSE_call_v1", Descriptor, Context, Size, Size, Size>;
+using Call = Function<"CLAUSE_call_v1", Descriptor, Context, Size, Size, Size, Slot>;
 using ApplyList = Function<"CLAUSE_apply_list_v1", Descriptor, Context, Size, Size, Slot>;
 using CallList = Function<"CLAUSE_call_list_v1", Descriptor, Context, Size, Size, Size, Slot>;
 using MakeExternalFun = Function<"CLAUSE_make_external_fun_v1", UInt8, Context, Size, Size, Size, Slot>;

@@ -173,7 +173,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `application:ensure_all_started/3` with `concurrent` | Starts independent applications at once; the list follows completion order | Starts them one after another, dependencies first | [library](libraries/library.md#applications) |
 | `application:takeover/2` | Waits for the distributed application controller | Exits `noproc` (no `dist_ac`), as `load/2` with nodes does on both | [library](libraries/library.md#applications) |
 | I/O requests to an application master | Relayed to the group leader the application started under | Answered on standard I/O | [library](libraries/library.md#applications) |
-| `erlang:process_flag(error_handler, Module)` | The runtime calls `Module:undefined_function/3` and `undefined_lambda/3` for undefined calls | `badarg`; `process_info/2` always reports `error_handler`, and undefined calls raise `undef` directly ([`error_handler`](libraries/library.md) is only callable) | [library](libraries/library.md) |
+| `erlang:process_flag(error_handler, Module)` | The runtime calls `Module:undefined_function/3` and `undefined_lambda/3` for undefined calls | `badarg`; `process_info/2` always reports `error_handler`, and undefined calls raise `undef` directly, except calls into [interpreted modules](libraries/library.md#module-interpreter), which enter `error_handler:undefined_function/3` | [library](libraries/library.md) |
 | Crash report details (`proc_lib`) | `erl_error`'s exception text with extended error information; neighbours with `current_function`, `initial_call` and `current_stacktrace`; real `reductions` | The exception's class line and stack frames without extended error information; neighbours without those items; `reductions` 0 | [library](libraries/library.md) |
 | `client_info` of `gen_server`, `gen_statem` and `gen_fsm` error reports | The calling process's `current_stacktrace` | `[]`: Clause keeps no current stack of another process | [library](libraries/library.md) |
 | `-behaviour` with a value that is not an atom | Warning prints the term with `~w` (`behaviour [115,116,114] undefined`) | Prints the attribute's source text (`behaviour "str" undefined`); the error is the same | [semantic](semantic.md#behaviours) |
@@ -255,6 +255,20 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | Difference | OTP | Clause | Owner |
 | --- | --- | --- | --- |
 | Stack trace of an error the evaluator raises (`{badmatch, V}`, `undef` of a local call, ...) | The evaluating process's current stack (`process_info/2` `current_stacktrace`) | The stack at the evaluator's `throw` that collects it, in Clause's frames | [erl_eval](builtins.md#erl-eval) |
+
+## Module interpreter
+
+Compared with the same module compiled by `compile:forms/2` and loaded by `code:load_binary/3`.
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Stack trace an interpreted `try` or `catch` sees for an exception raised in its own body or by compiled code it calls | The module's frames | `erl_eval`'s and the interpreter's frames; an exception that left an interpreted function call has the interpreted frames | [library](libraries/library.md#module-interpreter) |
+| Frames of interpreted funs (`-f/1-fun-N-`) and of compiled code between interpreted calls (`lists:map/2` calling an interpreted fun, compiled code calling back into an interpreted module) | Present | Absent: the interpreted functions' frames, then the compiled frames below the outermost interpreted call; a fun's lines count for the interpreted function it runs under | [library](libraries/library.md#module-interpreter) |
+| `fun F/A` of an interpreted function, and interpreted funs | Funs of the module | `erl_eval` funs; at most 20 arguments (`{argument_limit, _}`) | [library](libraries/library.md#module-interpreter) |
+| `module_info(compile)`, `module_info(md5)` | The compiler's version, options and source; the object code's MD5 | `[{options, []}, {source, File}]`; the MD5 of the forms | [library](libraries/library.md#module-interpreter) |
+| `erlang:get_module_info/1,2` and `erlang:hibernate/3` of an interpreted module from compiled code | Work | `badarg`, `undef` (`M:module_info/0,1` works) | [builtins](builtins.md#module-interpreter) |
+| `-on_load` of an interpreted module | Runs when the module loads | Not run | [library](libraries/library.md#module-interpreter) |
+| Process dictionary of a process running interpreted code | Only the program's keys | Also `'$clause_interp_stack'` (the interpreted frames) and `'$clause_interp_raised'` | [library](libraries/library.md#module-interpreter) |
 
 ## erl_lint
 

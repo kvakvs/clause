@@ -191,7 +191,8 @@ stacks.
 deferred.
 
 - `module_loaded/1`, `loaded/0`, `pre_loaded/0` cover compiled and builtin
-  modules.
+  modules; `module_loaded/1` and `loaded/0` also
+  [interpreted modules](#module-interpreter).
 - `delete_module/1` of a loaded module is `notsup`; `prepare_loading/2` is
   `{error, badfile}`.
 
@@ -533,6 +534,10 @@ program.
 
 - `ensure_loaded/1`, `is_loaded/1` (`{file, preloaded}`), `which/1`
   (`preloaded`), `all_loaded/0`, `module_status/0,1`; `is_sticky/1` `false`.
+  An [interpreted module](#module-interpreter) is loaded from its file:
+  `{file, File}`, `File`, and `module_status/1` as OTP derives it from the
+  object code at that file (`removed` for a source file, `loaded` for a
+  `.beam`).
 - Code path (`library/kernel/code.erl`, plan 21 step LIB61): a persistent term
   built on first use as OTP's interactive code server builds it: `ERL_LIBS`
   application `ebin` directories, the newest version of each application in
@@ -704,6 +709,28 @@ matching (`front_end/eval_match.cpp`, plan 21 step LIB34C), and
 - `exprs/2`, `expr/2` and `check_command/2` check commands with
   `erl_lint:exprs_opt/3` as OTP does.
 - CTest `executables_erl_eval_exprs`.
+
+## Module interpreter
+
+`builtins/interpreted.cpp` (plan 21 step LIB77B) is the runtime half of
+[`clause_interp`](libraries/library.md#module-interpreter): the code server's
+registry of interpreted modules (`modules/interpreted_modules.cpp`), with each
+module's file and exports.
+
+- `clause_interp:register(Module, File, Exports, Route)` registers or replaces a
+  module (`linked` for a module the program links), `unregister/1` removes it,
+  `interpreted/1` asks. `Route` is `fun error_handler:undefined_function/3`,
+  which keeps that function live in every program that loads modules.
+- When no export or builtin answers a call of a registered module
+  (`CLAUSE_call_v1`, `CLAUSE_call_list_v1`, `apply/3`, a `spawn` MFA) or of
+  its external funs, the call service writes `Module`, `Function` and the
+  argument list to the registers and returns `Route`'s frame
+  ([dynamic calls](funs.md#dynamic-calls)).
+- `erlang:function_exported/3` and the [code module](#code-module) answer for
+  registered modules. Programs that never register one pay one atomic flag
+  test in these paths.
+- CTest `executables_interpreted_modules` (compared with `compile:forms/2` and
+  `code:load_binary/3` under OTP).
 
 ## Erl lint
 

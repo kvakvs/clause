@@ -1,0 +1,11 @@
+%% Interpreted by interpreted_modules: a gen_server callback module.
+-module(interp_server).
+-behaviour(gen_server).
+-export([init/1, handle_call/3, handle_cast/2]).
+
+init(N) -> {ok, N}.
+
+handle_call(get, _From, N) -> {reply, N, N};
+handle_call({add, X}, _From, N) -> {reply, ok, N + X}.
+
+handle_cast(_Message, N) -> {noreply, N}.

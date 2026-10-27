@@ -119,19 +119,17 @@ Steps:
   dependency transforms are interpreted from their forms. Already there: `erl_eval`, `erl_parse`,
   `erl_scan`, `epp`, `erl_lint`, `erl_expand_records`, `erl_internal`, `erl_anno`, `erl_pp`,
   `erl_error`, `beam_lib`, `erl_abstract_code`, `error_handler`, `ms_transform`, `qlc_pt`, the
-  transform host (`compiler/src/transforms/host.cpp`, `driver/transform_host.cpp`) and `compile`
-  without its compiling functions.
-  - **LIB77B Module interpreter (`clause_interp`, Erlang over `erl_eval`):** loads a module's forms
-    (records expanded, `erl_lint` checked) into a registry; local calls through `erl_eval`'s local
-    function handler, `fun f/N`, and remote calls, `apply/3`, `fun M:F/A` and spawn MFAs into
-    interpreted modules routed through `error_handler`. `erlang:function_exported/3`,
-    `code:ensure_loaded/1`, `is_loaded/1`, `which/1` and `module_info/0,1` see interpreted modules;
-    exceptions keep OTP's `error in parse transform 'M': ...` text with interpreted stack frames.
+  transform host (`compiler/src/transforms/host.cpp`, `driver/transform_host.cpp`), `compile`
+  without its compiling functions and the module interpreter `clause_interp` (LIB77B:
+  `clause_interp:load(Forms)`, calls from compiled code through `error_handler`, interpreted
+  stack frames).
   - **LIB77C Transform sources:** `clau` preprocesses and parses project transform sources (and the
     project modules they call) with its own frontend, applies their own transforms first, and sends
-    the exported forms in the request; the host only interprets them (no `compile`, `epp` or
-    `erl_parse` run in the host). `.beam` files on `transform_paths` are interpreted from their
-    `debug_info` chunk (`beam_lib` + `erl_abstract_code`); one without debug info needs `--erl`.
+    the exported forms in the request; the host only interprets them with `clause_interp:load/1`
+    (no `compile`, `epp` or `erl_parse` run in the host). `.beam` files on `transform_paths` are
+    interpreted from their `debug_info` chunk (`beam_lib` + `erl_abstract_code`); one without debug
+    info needs `--erl`. A transform crash keeps OTP's `error in parse transform 'M': ...` text with
+    the interpreted frames.
   - **LIB77D Switch over:** transforms run in the host by default and `erl` is only the fallback;
     imported `{error, _}`/`{warning, _}` forms formatted natively; modules with preprocessor or
     parse errors pass them to transforms as forms, as OTP does (both `differences.md` rows go).
@@ -211,7 +209,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB77B–D in order; LIB77E and LIB78 only on request.
+1. LIB77C–D in order; LIB77E and LIB78 only on request.
 2. LIB81B–D in order (LIB81E on request).
 3. LIB82, LIB83 last (test support).
 
