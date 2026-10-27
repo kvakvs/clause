@@ -122,14 +122,28 @@ Steps:
   paths and its dependency `erlang_qq`, which `references/emqx` does not hold (like `snabbkaffe`).
   The executables `X.abstr` goldens stay: `qlc_queries` through the host's `qlc_pt` timed out
   (300 s) in a loaded Debug suite.
-  - **LIB77E (on request) APIs that third-party transforms call:** not needed by `clau`, only by
-    transform code that uses them (else `undef`). `syntax_tools`: `erl_syntax` (303 exports; plain
-    forms are already valid trees, so most of it is node accessors over abstract forms, the
-    clause-heavy dispatch in C++), `erl_syntax_lib`, `erl_prettypr`/`prettypr`, `epp_dodger`,
-    `merl` with `merl_transform` and `merl.hrl`. `compile:forms/1,2`, `noenv_forms/2` (and
-    `file/1,2`, `noenv_file/2` as `epp` plus forms) for transforms that build helper modules,
-    returning an interpreter image that `code:load_binary/3` accepts in the host only; they are
-    stubs of library `compile` (PARTIAL) until then. Written in Clause's shape, never copied.
+  - **LIB77E APIs that third-party transforms call** (requested 2026-10-27): not needed by `clau`,
+    only by transform code that uses them (else `undef`). Written in Clause's shape, never copied.
+    `syntax_tools` 4.1.1 documents 422 functions (observed 2026-10-27): `erl_syntax` 303,
+    `erl_syntax_lib` 40, `merl` 21, `prettypr` 20, `erl_prettypr` 16, `epp_dodger` 15,
+    `erl_comment_scan` 4, `erl_recomment` 3, `merl_transform` none (a transform). It is an
+    application beyond the core: `library/syntax_tools/` with `syntax_tools.app`, its own
+    `docs/libraries/syntax_tools.md`, rows in `documented.terms` (`observe_docs.escript`).
+    `compile:forms/file` compile to interpreter images since LIB77E1 (`merl:compile` builds on it).
+    - **LIB77E2 `erl_syntax`:** OTP's `tree`/`wrapper` records and plain forms as trees; `type/1`,
+      `subtrees/1`, `revert/1`, `update_tree/2` dispatch in C++ (clause-heavy), constructors and
+      accessors in C++ where no fun is taken. Golden `erl_syntax_trees`.
+    - **LIB77E3 `prettypr` and `erl_prettypr`:** layout documents and their best/format algorithm
+      (C++ where no fun is taken); `erl_prettypr` over `erl_syntax` with OTP's text (hooks are
+      funs: Erlang glue). Golden `erl_prettypr_format`.
+    - **LIB77E4 `erl_syntax_lib`, `epp_dodger`, `erl_comment_scan`, `erl_recomment`:** folds and
+      maps (Erlang, take funs), analyses and variable names (C++), `epp_dodger` over Clause's
+      scanner and parser with its macro rewriting, comment scanning in C++. Golden
+      `syntax_tools_lib`.
+    - **LIB77E5 `merl`:** quoting and templates over `epp_dodger`/`erl_syntax`, `merl.hrl` written
+      from the documented macros, `merl_transform` (also a library transform for the host),
+      `compile`/`compile_and_load` over LIB77E1. `syntax_tools` stops being partial. Golden
+      `merl_templates`.
 - **LIB78 (optional, beyond erts/kernel/stdlib) `parsetools`:** `yecc` and `leex` with
   `yeccpre.hrl`/`leexinc.hrl` equivalents, so projects that ship only `.yrl`/`.xrl` build without
   OTP. Generated parsers are clause-heavy: generate C++ tables or keep generated Erlang small (see
@@ -195,7 +209,8 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB81B–D in order (LIB81E on request); LIB77E and LIB78 only on request.
+1. LIB77E2–E5 in order (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
+   request.
 2. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)

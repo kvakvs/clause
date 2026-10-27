@@ -1,0 +1,23 @@
+%% A parse transform compile_forms compiles and loads: the atom hello becomes transformed, a warning names the
+%% module, and the option crash_please makes it fail.
+-module(cf_transform).
+-export([parse_transform/2, format_error/1]).
+
+parse_transform(Forms, Options) ->
+    case lists:member(crash_please, Options) of
+        true -> erlang:error({asked_to_crash, length(Forms)});
+        false -> {warning, [rewrite(Form) || Form <- Forms], [{"cf_transform.erl", [{1, ?MODULE, seen}]}]}
+    end.
+
+rewrite({function, Anno, Name, Arity, Clauses}) ->
+    {function, Anno, Name, Arity, [rewrite_clause(Clause) || Clause <- Clauses]};
+rewrite(Form) ->
+    Form.
+
+rewrite_clause({clause, Anno, Patterns, Guards, Body}) ->
+    {clause, Anno, Patterns, Guards, [rewrite_expression(E) || E <- Body]}.
+
+rewrite_expression({atom, Anno, hello}) -> {atom, Anno, transformed};
+rewrite_expression(Expression) -> Expression.
+
+format_error(seen) -> "the transform saw this module".

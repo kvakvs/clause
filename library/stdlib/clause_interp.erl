@@ -13,8 +13,12 @@
 %%
 %% With a path (set_path/1, plan 21 LIB77C) every undefined call enters error_handler, which interprets the module
 %% from the debug_info chunk of its .beam on the path when it has one (load_from_path/1).
+%%
+%% compile's binaries are interpreter images (plan 21 LIB77E1): beam/2 wraps linted forms in a BEAM container,
+%% load_binary/3 interprets one for code:load_binary/3 and the other loading functions of code.
 -module(clause_interp).
 -export([load/1, unload/1, call/3, format_error/1, set_path/1, ensure_loaded/1, load_from_path/1]).
+-export([beam/2, load_binary/3]).
 -export([register/4, unregister/1, interpreted/1, route_undefined/1]).
 
 -define(LOCAL, '$clause_interp_local').
@@ -26,9 +30,11 @@
 -define(INTERNAL, [erl_eval, clause_erl_eval, clause_interp, error_handler, prim_eval, clause_receive]).
 %% OTP's backtrace depth.
 -define(DEPTH, 8).
+%% The chunk of an interpreter image that holds its forms (plan 21 LIB77E1).
+-define(FORMS_CHUNK, "ClFm").
 
 %% An interpreted module: its file, functions {Name, Arity} => #function{}, exports and what module_info/1 tells.
--record(image, {module, file, functions = #{}, exports = [], attributes = [], md5}).
+-record(image, {module, file, functions = #{}, exports = [], attributes = [], md5, compile = []}).
 %% One function: the erl_eval fun of its argument list, and the file and line of its definition.
 -record(function, {fun_value, file, line}).
 %% What rewriting a module's code needs: its name, the functions it defines and the ones it imports.
@@ -59,7 +65,7 @@ load(Forms) ->
 load(Forms, Location) ->
     File = source_file(Forms),
     case erl_lint:module(Forms, File, []) of
-        {ok, Warnings} -> install(Forms, File, Location, Warnings);
+        {ok, Warnings} -> install(Forms, File, Location, Warnings, [{options, []}, {source, File}]);
         {error, Errors, Warnings} -> {error, Errors, Warnings}
     end.
 
@@ -71,9 +77,10 @@ unload(Module) ->
 format_error({linked, Module}) ->
     io_lib:format("module '~ts' is part of the program and cannot be interpreted", [Module]).
 
-install(Forms0, File, Location, Warnings) ->
+%% Interpret linted forms; Compile is what module_info(compile) tells.
+install(Forms0, File, Location, Warnings, Compile) ->
     Forms = erl_internal:add_predefined_functions(erl_expand_records:module(Forms0, [])),
-    Image = image(Forms, File),
+    Image = (image(Forms, File))#image{md5 = md5(Forms0), compile = Compile},
     Module = Image#image.module,
     persistent_term:put({?MODULE, Module}, Image),
     case clause_interp:register(Module, Location, Image#image.exports, fun error_handler:undefined_function/3) of
@@ -83,6 +90,47 @@ install(Forms0, File, Location, Warnings) ->
             _ = persistent_term:erase({?MODULE, Module}),
             {error, [{File, [{none, ?MODULE, {linked, Module}}]}], Warnings}
     end.
+
+%% Interpreter images (plan 21 LIB77E1)
+
+%% beam(Forms, Chunks): the image of linted Forms that compile returns: a BEAM container with the module's atom
+%% chunk, Attr as OTP's (attributes with vsn), Chunks (compile's CInf, Dbgi and extra chunks) and the forms.
+beam(Forms, Chunks) ->
+    Module = hd([M || {attribute, _, module, M} <- Forms]),
+    Attributes = with_vsn(attributes(Forms), md5(Forms)),
+    Head = [{"AtU8", atom_chunk(Module)}, {"Attr", term_to_binary(Attributes)}],
+    beam_lib:build_module(Head ++ Chunks ++ [{?FORMS_CHUNK, term_to_binary(Forms)}]).
+
+%% An atom chunk of one atom, its length in the compact encoding of OTP 28 and later.
+atom_chunk(Module) ->
+    Name = atom_to_binary(Module),
+    Length =
+        case byte_size(Name) of
+            Small when Small < 16 -> <<Small:4, 0:4>>;
+            Large -> <<(Large bsr 8):3, 1:2, 0:3, Large:8>>
+        end,
+    <<-1:32/signed, Length/binary, Name/binary>>.
+
+%% load_binary(Module, File, Binary): {module, Module} after interpreting an image of Module, File being what code
+%% queries show; {error, badfile} for another binary, an image of another module or one of a linked module.
+load_binary(Module, File, Binary) when is_atom(File) ->
+    load_binary(Module, atom_to_list(File), Binary);
+load_binary(Module, File, Binary) ->
+    case image_chunks(Binary) of
+        {ok, Module, Forms, Compile} -> loaded_image(install(Forms, source_file(Forms), File, [], Compile));
+        _ -> {error, badfile}
+    end.
+
+image_chunks(Binary) ->
+    try beam_lib:chunks(Binary, [?FORMS_CHUNK, "CInf"]) of
+        {ok, {Module, [{_, Forms}, {_, Compile}]}} -> {ok, Module, binary_to_term(Forms), binary_to_term(Compile)};
+        {error, beam_lib, _} -> error
+    catch
+        _:_ -> error
+    end.
+
+loaded_image({ok, Module, _}) -> {module, Module};
+loaded_image({error, _, _}) -> {error, badfile}.
 
 %% Modules from .beam files (plan 21 LIB77C)
 
@@ -114,7 +162,20 @@ load_beam(Module) ->
         [] -> {error, nofile}
     end.
 
+%% A .beam compile wrote is an image (plan 21 LIB77E1); OTP's need debug_info.
 interpret_beam(Module, File) ->
+    case file:read_file(File) of
+        {ok, Binary} -> interpret_beam(Module, File, Binary);
+        {error, Reason} -> {error, {Reason, File}}
+    end.
+
+interpret_beam(Module, File, Binary) ->
+    case load_binary(Module, File, Binary) of
+        {module, Module} -> {module, Module};
+        {error, badfile} -> interpret_debug_info(Module, File)
+    end.
+
+interpret_debug_info(Module, File) ->
     case beam_lib:chunks(File, [abstract_code]) of
         {ok, {Module, [{abstract_code, {raw_abstract_v1, Forms}}]}} -> loaded_beam(Module, File, load(Forms, File));
         {ok, {Module, [{abstract_code, no_abstract_code}]}} -> {error, {no_debug_info, File}};
@@ -140,9 +201,10 @@ image(Forms, File) ->
         file = File,
         functions = functions(Forms, File, Context, #{}),
         exports = exports(Forms, Defined),
-        attributes = attributes(Forms),
-        md5 = erlang:md5(term_to_binary(Forms))
+        attributes = attributes(Forms)
     }.
+
+md5(Forms) -> erlang:md5(term_to_binary(Forms)).
 
 %% Every function of the forms, each from the file that the file attributes before it name.
 functions([{attribute, _, file, {File, _}} | Forms], _File, Context, Acc) ->
@@ -193,6 +255,13 @@ attributes(Forms) ->
 
 as_list(Value) when is_list(Value) -> Value;
 as_list(Value) -> [Value].
+
+%% The attributes with OTP's vsn, the module's MD5 as an integer, unless the module gives one.
+with_vsn(Attributes, Md5) ->
+    case lists:keymember(vsn, 1, Attributes) of
+        true -> Attributes;
+        false -> [{vsn, [binary:decode_unsigned(Md5)]} | Attributes]
+    end.
 
 %% A function as an erl_eval fun of its argument list; a last clause raises function_clause for the handler.
 function_fun(Anno, Clauses, Context) ->
@@ -466,12 +535,9 @@ module_info(#image{exports = Exports}, [exports]) ->
 module_info(#image{functions = Functions}, [functions]) ->
     lists:sort(maps:keys(Functions));
 module_info(#image{attributes = Attributes, md5 = Md5}, [attributes]) ->
-    case lists:keymember(vsn, 1, Attributes) of
-        true -> Attributes;
-        false -> [{vsn, [binary:decode_unsigned(Md5)]} | Attributes]
-    end;
-module_info(#image{file = File}, [compile]) ->
-    [{options, []}, {source, File}];
+    with_vsn(Attributes, Md5);
+module_info(#image{compile = Compile}, [compile]) ->
+    Compile;
 module_info(#image{md5 = Md5}, [md5]) ->
     Md5;
 module_info(_Image, [nifs]) ->

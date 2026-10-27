@@ -1,0 +1,7 @@
+%% Compiled by compile_forms: syntax and lint errors, one line indented with a tab.
+-module(cf_bad).
+-export([f/1]).
+
+f(X) ->
+	Y = X +,
+    Y.

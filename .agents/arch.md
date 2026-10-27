@@ -443,6 +443,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   the code server's `InterpretedModules` so compiled code's undefined calls into them enter
   `error_handler:undefined_function/3` (call services write its 3 registers; `CLAUSE_call_v1`
   takes the register array), with a process-dictionary shadow stack giving OTP-like frames.
+  Library `compile` (LIB77E1) runs OTP's front passes and returns interpreter images (BEAM
+  containers holding the linted forms, `clause_interp:beam/2`); `code`'s loading functions hand
+  them to `clause_interp:load_binary/3` through a non-literal module when the program links it.
   Clause-heavy front-end walks move to C++ builtins (LIB34C):
   `erl_expand_records:module/2`, the guard tests, `erl_lint` and `erl_pp`
   (`front_end/expand_records.cpp`, `guard_tests.cpp`, `lint*.cpp` over one `Lint` state, `pp*.cpp`

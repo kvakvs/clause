@@ -1,7 +1,8 @@
 %% Clause's replacement for OTP's code (docs/libraries/library.md#runtime-module-replacements). The queries about loaded
 %% modules are runtime builtins answering for the linked program without a code server (plan step 41Z,
 %% docs/builtins.md#code-module). The code path and its directory queries are Erlang over a persistent term (plan 21
-%% step LIB61); loading answers as OTP does for object code it cannot load, since every module is linked (D01).
+%% step LIB61); loading answers as OTP does for object code it cannot load, since every module is linked (D01). The
+%% binaries of Clause's compile load as interpreted modules in programs that have the interpreter (plan 21 LIB77E1).
 -module(code).
 -export([
     add_path/1,
@@ -509,11 +510,11 @@ object_code(_, [], _) ->
     error.
 
 %% Loading (D01): every module is linked into the executable. Object code that is found cannot be loaded and gives
-%% erlang:prepare_loading/2's error, missing code nofile, as in OTP.
+%% erlang:prepare_loading/2's error, missing code nofile, as in OTP; compile's images are interpreted.
 load_file(Module) when is_atom(Module) ->
     case get_object_code(Module) of
         error -> {error, nofile};
-        {Module, Binary, _} -> load_module(Module, Binary)
+        {Module, Binary, File} -> load_module(Module, File, Binary)
     end.
 
 load_abs(File) when is_list(File); is_atom(File) ->
@@ -522,8 +523,9 @@ load_abs(File) when is_list(File); is_atom(File) ->
 load_abs(File, Module) when (is_list(File) orelse is_atom(File)), is_atom(Module) ->
     case is_file_name(File) of
         true ->
-            case file:read_file(filename:absname(lists:concat([File, objfile_extension()]))) of
-                {ok, Binary} -> load_module(Module, Binary);
+            Beam = filename:absname(lists:concat([File, objfile_extension()])),
+            case file:read_file(Beam) of
+                {ok, Binary} -> load_module(Module, Beam, Binary);
                 {error, _} -> {error, nofile}
             end;
         false ->
@@ -534,12 +536,22 @@ load_binary(Module, File, Binary) when
     is_atom(Module), (is_list(File) orelse is_atom(File)), is_binary(Binary)
 ->
     case is_file_name(File) of
-        true -> load_module(Module, Binary);
+        true -> load_module(Module, File, Binary);
         false -> {error, badarg}
     end.
 
-load_module(Module, Binary) ->
-    {error, _} = erlang:prepare_loading(Module, Binary).
+%% An image of Clause's compile is interpreted, File being what which/1 tells, when the program has the interpreter
+%% (plan 21 LIB77E1); other object code cannot load.
+load_module(Module, File, Binary) ->
+    Interpreter = interpreter(),
+    case erlang:function_exported(Interpreter, load_binary, 3) of
+        true -> Interpreter:load_binary(Module, File, Binary);
+        false -> {error, _} = erlang:prepare_loading(Module, Binary)
+    end.
+
+%% The interpreter, never named by a call so that programs using code do not link it (its runtime builtins make it
+%% count as loaded either way).
+interpreter() -> clause_interp.
 
 is_file_name(File) when is_atom(File) -> true;
 is_file_name(File) -> lists:all(fun is_integer/1, File).

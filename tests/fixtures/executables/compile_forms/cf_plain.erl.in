@@ -1,0 +1,13 @@
+%% Compiled by compile_forms: a record, an unused variable and an unused function warn.
+-module(cf_plain).
+-export([make/1, double/1]).
+-vsn_note(plain).
+-record(point, {x = 0, y = 0}).
+
+make(X) ->
+    Unused = 1,
+    #point{x = X}.
+
+double(N) -> N * 2.
+
+helper() -> ok.

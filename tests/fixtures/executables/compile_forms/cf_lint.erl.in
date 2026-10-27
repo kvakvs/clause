@@ -1,0 +1,7 @@
+%% Compiled by compile_forms: lint errors only.
+-module(cf_lint).
+-export([f/0]).
+
+f() ->
+    undefined_here(),
+    Z.

@@ -549,3 +549,12 @@ recorded elsewhere.
   transform's diagnostics unless it failed). Loader rewrites returned {error|warning, {Loc, M, D}} to clause_message
   text. Removing the executables .abstr goldens made qlc_queries compile qlc_pt in the host: +56 s alone, >300 s
   (timeout) in the loaded full suite, so the .abstr goldens stay.
+- LIB77E1 compile (2026-10-27): user asked "continue LIB77" = LIB77E (split E1 compile, E2 erl_syntax, E3 prettypr,
+  E4 syntax_tools lib/epp_dodger, E5 merl). compile:forms/file return interpreter images (beam_lib container: AtU8,
+  Attr, CInf, Dbgi, extras, ClFm forms chunk) built by clause_interp:beam/2; code:load_* -> clause_interp:load_binary
+  via a non-literal module. erlang:module_loaded(M) is TRUE for any module with runtime builtins even when not
+  linked (clause_interp has 4) -> test linkage with function_exported of an Erlang function. OTP's listings return
+  {ok, [], ...} (module set only by v3_core). compile_forms golden identical on first run; host OTP compiler 10.0.6,
+  pin 10.0.7 (golden prints no version). Windows Debug build was broken since c163afd5 (boost.parser pulls
+  windows.h min/max into numbers.cpp): NOMINMAX in parsing/boost_parser.hpp. Git Bash `cmd //c` mangles
+  backslash paths: launch .state scripts via PowerShell Start-Process.

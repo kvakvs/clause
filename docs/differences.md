@@ -265,10 +265,24 @@ Compared with the same module compiled by `compile:forms/2` and loaded by `code:
 | Stack trace an interpreted `try` or `catch` sees for an exception raised in its own body or by compiled code it calls | The module's frames | `erl_eval`'s and the interpreter's frames; an exception that left an interpreted function call has the interpreted frames | [library](libraries/library.md#module-interpreter) |
 | Frames of interpreted funs (`-f/1-fun-N-`) and of compiled code between interpreted calls (`lists:map/2` calling an interpreted fun, compiled code calling back into an interpreted module) | Present | Absent: the interpreted functions' frames, then the compiled frames below the outermost interpreted call; a fun's lines count for the interpreted function it runs under | [library](libraries/library.md#module-interpreter) |
 | `fun F/A` of an interpreted function, and interpreted funs | Funs of the module | `erl_eval` funs; at most 20 arguments (`{argument_limit, _}`) | [library](libraries/library.md#module-interpreter) |
-| `module_info(compile)`, `module_info(md5)` | The compiler's version, options and source; the object code's MD5 | `[{options, []}, {source, File}]`; the MD5 of the forms | [library](libraries/library.md#module-interpreter) |
+| `module_info(compile)`, `module_info(md5)` | The compiler's version, options and source; the object code's MD5 | `[{options, []}, {source, File}]` after `clause_interp:load/1`, the image's compile information after `code:load_binary/3`; the MD5 of the forms | [library](libraries/library.md#module-interpreter) |
 | `erlang:get_module_info/1,2` and `erlang:hibernate/3` of an interpreted module from compiled code | Work | `badarg`, `undef` (`M:module_info/0,1` works) | [builtins](builtins.md#module-interpreter) |
 | `-on_load` of an interpreted module | Runs when the module loads | Not run | [library](libraries/library.md#module-interpreter) |
 | Process dictionary of a process running interpreted code | Only the program's keys | Also `'$clause_interp_stack'` (the interpreted frames) and `'$clause_interp_raised'` | [library](libraries/library.md#module-interpreter) |
+
+## compile
+
+`compile:file/1,2` and `compile:forms/1,2` (plan 21 LIB77E1) compared with OTP's `compile`.
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| The binary of `forms/1,2` and of `file/1,2` with `binary`, and the `.beam` file written | BEAM code | An interpreter image: an `AtU8` chunk with only the module, `Attr`, `CInf`, `Dbgi`, extra chunks and the forms (`ClFm`); no `Code`, `ImpT`, `ExpT`, `LocT`, `Line`, `Type` or `Docs` chunk. Only Clause programs with `clause_interp` load it | [library](libraries/library.md#module-interpreter) |
+| The `vsn` attribute of a compiled module and `beam_lib:md5/1` | MD5 of the BEAM code | MD5 of the forms (as `module_info(md5)`) | [library](libraries/library.md#module-interpreter) |
+| Warnings of the passes after `erl_lint` (`v3_core`, `sys_core_fold`, ...: no clause will ever match, the result of an expression is ignored, ...) | Reported | Not reported: only `erl_lint`'s, `epp`'s and parse transforms' | [library](libraries/library.md) |
+| Options of the Core Erlang, SSA and assembly passes (`to_core`, `dssa`, `'S'`, `to_asm`, `core_transform`, ...), `from_core`, `from_asm`, `makedep`, `dcover`, encrypted `debug_info` | Listings, Core or assembly input, dependencies, encrypted debug information | Error `{none, compile, {clause_unsupported, Option}}`: "the Option option needs OTP's code generator, which Clause does not have" | [library](libraries/library.md) |
+| `-moduledoc`/`-doc` attributes | Saved in the `Docs` chunk unless `no_docs` | Removed; no `Docs` chunk | [library](libraries/library.md) |
+| `code:load_binary/3` of a binary of another module | `{error, badfile}` and an error report on the logger | `{error, badfile}`, no report | [library](libraries/library.md#module-interpreter) |
+| `code:load_binary/3` in a program without `compile` or `clause_interp` | Loads BEAM code | `{error, badfile}`, as for any binary (D01) | [library](libraries/library.md#module-interpreter) |
 
 ## erl_lint
 

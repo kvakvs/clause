@@ -739,6 +739,25 @@ module's file and exports.
 - CTest `executables_interpreted_modules` (compared with `compile:forms/2` and
   `code:load_binary/3` under OTP).
 
+## Compile
+
+`builtins/compile_messages.cpp` (plan 21 step LIB77E1) quotes sources for the
+reports of [`compile`](libraries/library.md):
+`clause_compile:quote_source(Source, Encoding, Location)` returns the line of
+`Location` from the source binary (latin1, or UTF-8 up to its first invalid
+character) as `"% Line| Text
+"`, the marker line `"%     |   ^
+"` when the
+location has a column, and an empty line, as OTP's `sys_messages` prints
+them, with OTP's quirks: tabs before the column stay tabs and a column past
+the end of the line widens the marker. `<<>>` when the source has no such
+line. `compile.erl` reads the file and its `coding` comment and formats the
+message.
+
+- CTest `executables_compile_forms` (reports, returned messages, transforms,
+  listings and `.beam` files compared with OTP's `compile`; a Clause-only run
+  for the options that need OTP's code generator).
+
 ## Erl lint
 
 `erl_lint`'s checks are builtins (`front_end/lint*.cpp`, plan 21 step

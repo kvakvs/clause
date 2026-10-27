@@ -100,6 +100,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     # argparse's validation, parser and help (plan 21 step LIB70).
     src/builtins/argparse/argparse.cpp src/builtins/argparse/validate.cpp src/builtins/argparse/parse.cpp
     src/builtins/argparse/help.cpp
+    # Source quotes of compile's messages (plan 21 step LIB77E1).
+    src/builtins/compile_messages.cpp
     # The qlc parse transform at run time (plan 21 step LIB73).
     src/builtins/qlc_pt/kit.cpp src/builtins/qlc_pt/state.cpp src/builtins/qlc_pt/messages.cpp
     src/builtins/qlc_pt/frames.cpp src/builtins/qlc_pt/columns.cpp src/builtins/qlc_pt/clauses.cpp

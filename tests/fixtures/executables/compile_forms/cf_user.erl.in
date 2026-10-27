@@ -1,0 +1,6 @@
+%% Compiled by compile_forms with its own parse transform attribute.
+-module(cf_user).
+-compile({parse_transform, cf_transform}).
+-export([greet/0]).
+
+greet() -> hello.

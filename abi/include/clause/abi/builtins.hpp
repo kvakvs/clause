@@ -1491,6 +1491,9 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_crypto", "srp_value_B", 5},
     BuiltinName{"clause_crypto", "srp_user_secret", 7},
     BuiltinName{"clause_crypto", "srp_host_secret", 5},
+    // clause_compile, the source quotes of compile's messages (plan 21 LIB77E1;
+    // runtime/src/builtins/compile_messages.cpp).
+    BuiltinName{"clause_compile", "quote_source", 3},
     // The registry of clause_interp's interpreted modules (plan 21 LIB77B; runtime/src/builtins/interpreted.cpp).
     BuiltinName{"clause_interp", "register", 4},
     BuiltinName{"clause_interp", "unregister", 1},
