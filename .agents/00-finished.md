@@ -1012,7 +1012,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   identical to OTP — `7c6c356a`
 - **LIB77E4c** `epp_dodger`: Erlang reading/parsing/fixes, C++ `clause_epp_dodger` token rewriting (deque
   `Scanner`, `QuickScanner`) and form rewriting; file I/O server stops at undecodable UTF-8 with OTP's
-  `{error, {Loc, file_io_server, invalid_unicode}, Loc}`; `epp_dodger_forms` golden identical to OTP — `HASH`
+  `{error, {Loc, file_io_server, invalid_unicode}, Loc}`; `epp_dodger_forms` golden identical to OTP — `060e939e`
 
 ## Plan 22 (from 2026-10-23)
 
