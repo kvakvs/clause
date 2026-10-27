@@ -1,3 +1,4 @@
+#include "link_name.hpp"
 #include <array>
 #include <clause/runtime/modules.hpp>
 #include <clause/runtime/output.hpp>
@@ -6,7 +7,7 @@
 #include <stdexcept>
 #include <string>
 
-extern clause::abi::v1::GeneratedRegistration register_cleanup asm("clausev1_636c65616e7570__0.register");
+extern clause::abi::v1::GeneratedRegistration register_cleanup CLAUSE_LINK_NAME("clausev1_636c65616e7570__0.register");
 
 namespace {
 using namespace clause::runtime;

@@ -119,6 +119,15 @@ struct Standard {
     }
 };
 
+// Queue the child's {cd, Dir}; macOS 26 replaced the _np call with the POSIX 2024 name.
+int add_chdir(posix_spawn_file_actions_t &actions, const char *directory) {
+#if defined(__APPLE__) && defined(__MAC_26_0) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_26_0
+    return posix_spawn_file_actions_addchdir(&actions, directory);
+#else
+    return posix_spawn_file_actions_addchdir_np(&actions, directory);
+#endif
+}
+
 // Wire the child's standard descriptors through file actions.
 int file_actions(posix_spawn_file_actions_t &actions, const Standard &handles, const PortOptions &options) {
     int failed = posix_spawn_file_actions_init(&actions);
@@ -136,7 +145,7 @@ int file_actions(posix_spawn_file_actions_t &actions, const Standard &handles, c
         failed |= posix_spawn_file_actions_adddup2(&actions, 1, 2);
     }
     if (options.cd) {
-        failed |= posix_spawn_file_actions_addchdir_np(&actions, options.cd->c_str());
+        failed |= add_chdir(actions, options.cd->c_str());
     }
     return failed;
 }

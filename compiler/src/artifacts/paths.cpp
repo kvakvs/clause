@@ -32,8 +32,10 @@ std::string extension(const codegen::OutputKind kind, const std::string_view obj
 // Compare physical identities when both paths exist, including hard links and aliased parents.
 bool same_file(const std::filesystem::path &left, const std::filesystem::path &right) {
     std::error_code error;
-    const bool same = std::filesystem::equivalent(left, right, error);
-    if (error && error != std::errc::no_such_file_or_directory) {
+    // Check existence first: libc++ reports a missing path to equivalent() as not_supported.
+    const bool both_exist = std::filesystem::exists(left, error) && std::filesystem::exists(right, error);
+    const bool same = both_exist && std::filesystem::equivalent(left, right, error);
+    if (error) {
         throw std::filesystem::filesystem_error("cannot inspect artifact identity", left, right, error);
     }
     return same;

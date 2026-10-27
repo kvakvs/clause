@@ -2,8 +2,12 @@
 #include "dns.hpp"
 #include "net.hpp"
 #include <array>
+#include <cerrno>
 #include <cstring>
 #include <memory>
+#include <optional>
+#include <string>
+#include <vector>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -199,6 +203,55 @@ Term getnameinfo(ProcessContext &context, const BinaryArgument &address, const P
     return ok(context, need(TermFactory(context).map(entries)));
 }
 
+#ifndef _WIN32
+// The name and aliases gethostbyaddr(3) gives an IPv4 address; none when the resolver knows no name. Added for
+// inet:gethostbyaddr/1's aliases.
+std::optional<std::vector<std::string>> reverse_names(const void *address) {
+#ifdef __linux__
+    hostent entry{};
+    hostent *found = nullptr;
+    int failure = 0;
+    std::vector<char> buffer(1024);
+    while (::gethostbyaddr_r(address, 4, AF_INET, &entry, buffer.data(), buffer.size(), &found, &failure) == ERANGE) {
+        buffer.resize(buffer.size() * 2);
+    }
+#else
+    // Apple's gethostbyaddr keeps its result in thread-specific storage.
+    const auto *found = ::gethostbyaddr(address, 4, AF_INET);
+#endif
+    if (found == nullptr) {
+        return std::nullopt;
+    }
+    std::vector<std::string> names{found->h_name};
+    for (auto **alias = found->h_aliases; alias != nullptr && *alias != nullptr; ++alias) {
+        names.emplace_back(*alias);
+    }
+    return names;
+}
+#endif
+
+// clause_net:gethostbyaddr(Address): {ok, [Name | Aliases]} of an IPv4 address's 4 bytes, as OTP's inet_gethost
+// looks it up; {error, nxdomain} without a name, {error, enotsup} on Windows. Added for inet:gethostbyaddr/1's aliases.
+Term gethostbyaddr(ProcessContext &context, const BinaryArgument &address) {
+    if (address.bytes.size() != 4) {
+        bad_argument();
+    }
+#ifdef _WIN32
+    return error(context, "enotsup");
+#else
+    const auto names = reverse_names(address.bytes.data());
+    if (!names) {
+        return error(context, "nxdomain");
+    }
+    std::vector<Term> list;
+    list.reserve(names->size());
+    for (const auto &name : *names) {
+        list.push_back(chars(context, name));
+    }
+    return ok(context, need(TermFactory(context).list(list)));
+#endif
+}
+
 // clause_net:getservbyname(Name, Protocol): {ok, Port}, or {error, einval} for an unknown service.
 Term getservbyname(ProcessContext &context, const Text &name, const Protocol &protocol) {
     const auto service = optional_text(name.term);
@@ -223,6 +276,7 @@ constexpr std::array NET_BUILTINS{
     typed_entry<gethostname>("clause_net", "gethostname"),
     typed_entry<getaddrinfo>("clause_net", "getaddrinfo"),
     typed_entry<getnameinfo>("clause_net", "getnameinfo"),
+    typed_entry<gethostbyaddr>("clause_net", "gethostbyaddr"),
     typed_entry<getservbyname>("clause_net", "getservbyname"),
     typed_entry<getservbyport>("clause_net", "getservbyport"),
     typed_entry<inet_getifaddrs>("clause_net", "inet_getifaddrs"),

@@ -1,12 +1,18 @@
 #include <array>
-#include <cstdio>
 #include <clause/runtime/modules.hpp>
+#include <cstdio>
 #include <stdexcept>
 #include <utility>
 
-// Match ABI v1's reversible registration symbols; these are project C++ machine interfaces.
-extern clause::abi::v1::GeneratedRegistration register_answer asm("clausev1_616e73776572__0.register");
-extern clause::abi::v1::GeneratedRegistration register_client asm("clausev1_636c69656e74__0.register");
+// Match ABI v1's reversible registration symbols; these are project C++ machine interfaces. Mach-O prefixes
+// C-level symbol names with '_'.
+#ifdef __APPLE__
+#define GENERATED_SYMBOL(name) asm("_" name)
+#else
+#define GENERATED_SYMBOL(name) asm(name)
+#endif
+extern clause::abi::v1::GeneratedRegistration register_answer GENERATED_SYMBOL("clausev1_616e73776572__0.register");
+extern clause::abi::v1::GeneratedRegistration register_client GENERATED_SYMBOL("clausev1_636c69656e74__0.register");
 
 // Convert failed host operations into one contained example error before accessing their values.
 template <class Result> auto checked(Result result) {

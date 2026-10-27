@@ -379,7 +379,7 @@ TermResult<Term> set_signal(ProcessContext &context, const Term &signal, const A
     }
     struct sigaction action{};
     action.sa_handler = choice == "ignore" ? SIG_IGN : choice == "default" ? SIG_DFL : handle_signal;
-    ::sigemptyset(&action.sa_mask);
+    sigemptyset(&action.sa_mask);
     // SIGSTOP can be neither caught nor ignored; OTP answers ok all the same.
     static_cast<void>(::sigaction(number, &action, nullptr));
     return atom(context, "ok"_atom);

@@ -83,7 +83,9 @@ planned, create only with implementation. [Architecture](arch.md) · [Backlog](0
   prototypes (not CTest).
 - Shared: `tests/cli.cmake`, `tests/compiler/{frontend_cases,printing_roundtrip}.cmake`; `matrix.py`
   fast/full selection (`CLAUSE_TEST_MODE`); `CLAUSE_OTP_AUDITS` gates live OTP audits. Corpus
-  provenance: `docs/validation.md`.
+  provenance: `docs/validation.md`. `tests/compiler/codegen/link_name.hpp`: `CLAUSE_LINK_NAME` binds
+  native consumers to generated symbols (Mach-O `_` prefix); `executables/cases.py` `runs_here`:
+  golden runs' `os` (windows/macos/linux, list or `unix`).
 - Executable cases: an `X.abstr` beside `X.erl` (host-transformed forms, `regenerate.py --clau`)
   replaces the `.erl` in Clause runs (`qlc_queries`).
 - **+** `tests/interop/`: external consumers (D06).

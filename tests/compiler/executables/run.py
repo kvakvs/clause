@@ -26,9 +26,6 @@ PROGRAM_WORKERS = [1, 4]
 LTO_POLICIES = [('O2', '--lto', 'O2-lto', False), ('O2', '--lto', 'O2-lto', True)]
 # The word width of this host's executables; runs of goldens that hold on one width only ('word_bits') follow it.
 HOST_WORD_BITS = struct.calcsize('P') * 8
-# This host's operating system family; runs of goldens that hold on one family only ('os') follow it (plan 21 step
-# LIB55B: win32reg answers differently on Windows).
-HOST_OS = 'windows' if sys.platform == 'win32' else 'unix'
 # Seconds one golden invocation may run; --run-timeout raises it for emulated targets, and CLAUSE_TEST_TIMEOUT_SCALE
 # multiplies the default for slower instrumented builds (sanitizers).
 RUN_TIMEOUT = 60 * int(os.environ.get('CLAUSE_TEST_TIMEOUT_SCALE', '1'))
@@ -117,7 +114,7 @@ def variants(golden, word_bits):
     """Every run for targets of `word_bits`, once per scheduler count the golden lists under 'workers', else once with
     the default count."""
     for run in golden['runs']:
-        if run.get('word_bits', word_bits) != word_bits or run.get('os', HOST_OS) != HOST_OS:
+        if run.get('word_bits', word_bits) != word_bits or not cases.runs_here(run):
             continue
         if 'workers' not in golden:
             yield run, ''

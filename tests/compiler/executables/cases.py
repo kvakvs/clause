@@ -4,6 +4,7 @@ import json
 import pathlib
 import re
 import shutil
+import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 CASES = ROOT / 'tests/fixtures/executables'
@@ -14,6 +15,16 @@ GENERATED_RUN_FIELDS = ('exit_status', 'stdout')
 SOURCE_SUFFIXES = ('.erl', '.hrl', '.abstr', '.asn', '.asn1')
 # The suffixes of ASN.1 specifications, compiled with the golden's 'asn1_options' (plan 21 step LIB84).
 ASN1_SUFFIXES = ('.asn', '.asn1')
+# This host's operating system; a run's 'os' names the systems it holds on (plan 21 step LIB55B, and macOS goldens).
+HOST_OS = {'win32': 'windows', 'darwin': 'macos'}.get(sys.platform, 'linux')
+
+
+def runs_here(run):
+    """Whether a golden run holds on this host: its 'os' is a system or a list of them, 'unix' meaning any but
+    Windows; a run without one holds everywhere."""
+    systems = run.get('os', [HOST_OS])
+    systems = [systems] if isinstance(systems, str) else systems
+    return HOST_OS in systems or ('unix' in systems and HOST_OS != 'windows')
 
 
 def digest(path):

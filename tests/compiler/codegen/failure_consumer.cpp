@@ -1,3 +1,4 @@
+#include "link_name.hpp"
 #include <clause/abi/builtins.hpp>
 #include <clause/runtime/modules.hpp>
 #include <cstdio>
@@ -6,11 +7,13 @@
 
 using namespace clause;
 using namespace clause::runtime;
-extern abi::v1::GeneratedRegistration register_answer asm("clausev1_6661696c7572655f616e73776572__0.register");
-extern abi::v1::GeneratedRegistration register_client asm("clausev1_6661696c7572655f636c69656e74__0.register");
-extern abi::v1::GeneratedFunction leaf asm("step2_leaf");
-extern abi::v1::GeneratedFunction later asm("step2_later");
-extern abi::v1::GeneratedFunction take asm("step2_take");
+extern abi::v1::GeneratedRegistration
+    register_answer CLAUSE_LINK_NAME("clausev1_6661696c7572655f616e73776572__0.register");
+extern abi::v1::GeneratedRegistration
+    register_client CLAUSE_LINK_NAME("clausev1_6661696c7572655f636c69656e74__0.register");
+extern abi::v1::GeneratedFunction leaf CLAUSE_LINK_NAME("step2_leaf");
+extern abi::v1::GeneratedFunction later CLAUSE_LINK_NAME("step2_later");
+extern abi::v1::GeneratedFunction take CLAUSE_LINK_NAME("step2_take");
 
 namespace {
 // Select a deterministic leaf fault without changing the real generated caller graph.

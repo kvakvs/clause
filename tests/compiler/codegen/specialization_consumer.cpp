@@ -1,8 +1,10 @@
+#include "link_name.hpp"
 #include <array>
 #include <clause/runtime/modules.hpp>
 
-extern clause::abi::v1::GeneratedRegistration register_guards asm("clausev1_677561726473__0.register");
-extern clause::abi::v1::GeneratedFunction reference_select asm("clausev1_677561726473_73656c656374_2.reference");
+extern clause::abi::v1::GeneratedRegistration register_guards CLAUSE_LINK_NAME("clausev1_677561726473__0.register");
+extern clause::abi::v1::GeneratedFunction
+    reference_select CLAUSE_LINK_NAME("clausev1_677561726473_73656c656374_2.reference");
 
 // Compare native guarded dispatch against the untouched generic body over hits, misses and word boundaries.
 int main() {

@@ -37,7 +37,8 @@ if(NOT ir MATCHES "define i64 @clausev1_616e73776572_76616c7565_0" OR NOT ir MAT
     message(FATAL_ERROR "Missing value/ABI/runtime structures: ${ir}")
 endif()
 file(READ "${TEST_DIR}/artifacts/-O0/llvm-bc/clausev1_616e73776572__0.bc" magic LIMIT 4 HEX)
-if(NOT magic STREQUAL "4243c0de")
+# Darwin targets wrap bitcode in a header with its own magic (0x0B17C0DE).
+if(NOT magic MATCHES "^(4243c0de|dec0170b)$")
     message(FATAL_ERROR "Output is not LLVM bitcode: ${magic}")
 endif()
 check(0 "^$" --emit llvm-ir "${answer}")

@@ -40,6 +40,14 @@ recorded elsewhere.
   revert plan edits.
 
 ## Host and toolchain
+- macOS host (2026-10-27): 8 logical cores (budget 6: build --parallel 6, ctest -j 4 at nice).
+  ~/.zprofile exports CXXFLAGS=-I/opt/homebrew/include; ~/.tool-versions pins asdf erlang 28 ahead
+  of Homebrew OTP 29 on PATH: configure -DCLAUSE_TEST_ERL=/opt/homebrew/bin/erl, regenerate goldens
+  with /opt/homebrew/bin/escript; rebar3 needs ASDF_REBAR_VERSION=3.25.0. clang-tidy (pip 22) cannot
+  parse the Apple SDK: tidy stays on Windows; Lizard runs. LLDB attach needs Developer Mode
+  (linking_debugger skips). libc++ traps seen: missing <algorithm>, filesystem::equivalent reports a
+  missing path as not_supported, istream>>double fails on subnormals, sigemptyset is a macro,
+  uint64_t != Word (unsigned long). Unix Makefiles nested builds run serially.
 - Code layout alone moves GC-heavy kernels ~5% (OPT3.4: list_of_tuples +7%, list_to_tuple +4% with
   byte-identical GC/generated code, only other TUs changed). Before blaming a change, diff object
   code (llvm-objdump -d with symbol names stripped) between builds.

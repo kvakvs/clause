@@ -813,8 +813,24 @@ parsed_address(Address) when is_list(Address) ->
 parsed_address(_) ->
     {error, einval}.
 
+% IPv4 names come from gethostbyaddr(3) with their aliases, as OTP's inet_gethost has them; IPv6 names, and IPv4
+% ones on Windows, from getnameinfo without aliases.
+reverse_lookup({_, _, _, _} = IP) ->
+    <<_, Bytes/binary>> = clause_socket:address(IP),
+    case clause_net:gethostbyaddr(Bytes) of
+        {ok, [Name | Aliases]} ->
+            {ok, #hostent{h_name = Name, h_aliases = Aliases, h_addrtype = inet, h_length = 4, h_addr_list = [IP]}};
+        {error, enotsup} ->
+            name_lookup(IP, Bytes);
+        {error, _} ->
+            {error, nxdomain}
+    end;
 reverse_lookup(IP) ->
     <<_, Bytes/binary>> = clause_socket:address(IP),
+    name_lookup(IP, Bytes).
+
+% A #hostent{} with the name getnameinfo(3) gives an address, without aliases.
+name_lookup(IP, Bytes) ->
     case clause_net:getnameinfo(Bytes, 0, 0, 1) of
         {ok, #{host := Name}} ->
             {Family, Length} =

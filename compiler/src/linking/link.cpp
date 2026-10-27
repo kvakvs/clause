@@ -9,6 +9,7 @@
 #include <iterator>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/Support/FileSystem.h>
+#include <llvm/Support/Program.h>
 #include <llvm/TargetParser/Triple.h>
 #include <stdexcept>
 #include <utility>
@@ -183,6 +184,60 @@ LinkTools resolve_link_tools(const LinkRequest &request) {
 }
 
 namespace {
+// Gather a Darwin executable's DWARF into a dSYM bundle while the staged objects it names still exist (clang -g
+// links keep it there). Added for macOS debugging.
+std::filesystem::path gather_dsym(const std::string &linker, const std::filesystem::path &staged,
+                                  const std::filesystem::path &output) {
+    const auto tool =
+        llvm::sys::findProgramByName("dsymutil", {utf8_path(std::filesystem::path(linker).parent_path())});
+    if (!tool) {
+        throw std::runtime_error("linking " + project::path_text(output) + " with -g needs dsymutil on PATH");
+    }
+    auto bundle = staged;
+    bundle += ".dSYM";
+    const std::array<std::string, 3> arguments{utf8_path(staged), "-o", utf8_path(bundle)};
+    const auto run = run_linker(*tool, arguments, staged.parent_path() / "dsymutil.log");
+    std::error_code error;
+    if (run.status != 0 || !std::filesystem::is_directory(bundle, error)) {
+        throw std::runtime_error("dsymutil failed for " + project::path_text(output) + ":\n" + run.output);
+    }
+    return bundle;
+}
+
+// The staged debug symbols published beside the output: an MSVC target's PDB or a Darwin target's dSYM bundle;
+// none without -g or for other targets.
+std::filesystem::path staged_symbols(const LinkRequest &request, const std::string &linker,
+                                     const std::filesystem::path &staged, const std::filesystem::path &output) {
+    const llvm::Triple triple(request.target_triple);
+    if (request.debug_info && triple.isOSDarwin()) {
+        return gather_dsym(linker, staged, output);
+    }
+    if (!request.debug_info || !triple.isWindowsMSVCEnvironment()) {
+        return {};
+    }
+    auto symbols = std::filesystem::path(staged).replace_extension(".pdb");
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(symbols, error)) {
+        throw std::runtime_error("linking " + project::path_text(output) + " produced no PDB");
+    }
+    return symbols;
+}
+
+// Publish staged debug symbols: a dSYM bundle as <output>.dSYM, replacing the previous bundle; a PDB beside the
+// output with its extension.
+void publish_symbols(const StagedExecutable &executable) {
+    if (executable.symbols.extension() != ".dSYM") {
+        const auto symbols = std::filesystem::path(executable.output).replace_extension(".pdb");
+        check_destination(symbols, executable.protected_inputs);
+        artifacts::detail::replace(executable.symbols, symbols);
+        return;
+    }
+    auto bundle = executable.output;
+    bundle += ".dSYM";
+    std::filesystem::remove_all(bundle);
+    std::filesystem::rename(executable.symbols, bundle);
+}
+
 // The FIPS provider a pinned program copies beside it, found before linking so a missing one fails the build.
 // Added for crypto's FIPS mode (plan 21 step LIB79F).
 std::optional<FipsProvider> pinned_provider(const LinkRequest &request) {
@@ -234,11 +289,7 @@ StagedExecutable stage_executable(const LinkRequest &request) {
     if (run.status != 0 || !std::filesystem::is_regular_file(staged, error)) {
         throw link_failure(output, linker, run);
     }
-    auto symbols = std::filesystem::path(staged).replace_extension(".pdb");
-    const bool pdb = request.debug_info && llvm::Triple(request.target_triple).isWindowsMSVCEnvironment();
-    if (pdb && !std::filesystem::is_regular_file(symbols, error)) {
-        throw std::runtime_error("linking " + project::path_text(output) + " produced no PDB");
-    }
+    auto symbols = staged_symbols(request, linker, staged, output);
     auto companions = provider ? stage_provider(staging, *provider, output, request.target_triple)
                                : std::vector<std::pair<std::filesystem::path, std::filesystem::path>>{};
     return {std::move(staging),
@@ -246,7 +297,7 @@ StagedExecutable stage_executable(const LinkRequest &request) {
             output,
             {request.protected_inputs.begin(), request.protected_inputs.end()},
             std::move(run.output),
-            pdb ? std::move(symbols) : std::filesystem::path{},
+            std::move(symbols),
             std::move(companions)};
 }
 
@@ -254,9 +305,7 @@ void publish_executable(const StagedExecutable &executable) {
     check_destination(executable.output, executable.protected_inputs);
     artifacts::detail::replace(executable.staged, executable.output);
     if (!executable.symbols.empty()) {
-        const auto symbols = std::filesystem::path(executable.output).replace_extension(".pdb");
-        check_destination(symbols, executable.protected_inputs);
-        artifacts::detail::replace(executable.symbols, symbols);
+        publish_symbols(executable);
     }
     for (const auto &[staged, destination] : executable.companions) {
         check_destination(destination, executable.protected_inputs);

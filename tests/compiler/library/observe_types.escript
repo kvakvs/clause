@@ -150,14 +150,28 @@ source_forms(Module) ->
         {error, Reason} -> fail("cannot parse ~s: ~p", [Source, Reason])
     end.
 
-% The existing header's forms equal the observation (annotations ignored).
+% The existing header's forms equal the observation (annotations and union nesting ignored).
 compare(File, Observed) ->
     {ok, Read} = epp:parse_file(File, []),
-    Forms = [erl_parse:map_anno(fun(_) -> 0 end, F) || F <- Read, element(1, F) =/= eof, not file_attribute(F)],
-    case Forms =:= Observed of
+    Forms = [
+        erl_parse:map_anno(fun(_) -> 0 end, F)
+     || F <- Read, element(1, F) =/= eof, not file_attribute(F)
+    ],
+    case flat(Forms) =:= flat(Observed) of
         true -> io:format("~s: fresh~n", [File]);
         false -> fail("~s differs from the host OTP; rerun observe_types.escript", [File])
     end.
+
+% Nested unions flattened: printed `A | (B | C)` parses back as one union. Added for OTP 29 socket types.
+flat({type, Anno, union, Members}) ->
+    {type, Anno, union, lists:append([members(flat(M)) || M <- Members])};
+flat(Term) when is_tuple(Term) -> list_to_tuple(flat(tuple_to_list(Term)));
+flat(Terms) when is_list(Terms) -> [flat(T) || T <- Terms];
+flat(Term) ->
+    Term.
+
+members({type, _, union, Members}) -> Members;
+members(Type) -> [Type].
 
 file_attribute({attribute, _, file, _}) -> true;
 file_attribute(_) -> false.

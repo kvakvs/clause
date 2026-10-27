@@ -238,9 +238,10 @@ semantic_case(record_info_defined "-module(a). -export([record_info/2]). record_
     "function record_info/2 already defined")
 semantic_case(compile_option "-module(a). -compile(export_all). f() -> 1." 1
     "behavior-changing attributes\] notimpl .*-compile option export_all")
-# A parse transform runs on the host OTP: x does not exist there, or there is no host OTP (plan step 73F).
+# A parse transform runs on the host OTP: x does not exist there, there is no host OTP, or an older one (plan step
+# 73F).
 semantic_case(transform "-module(a). -compile([debug_info, {parse_transform,x}]). f() -> 1." 1
-    "transform.erl: (undefined parse transform 'x'|parse transform 'x' needs Erlang/OTP 29 on the host)")
+    "transform.erl: (undefined parse transform 'x'|parse transform 'x' needs Erlang/OTP 29 on the host|parse transforms need Erlang/OTP 29 on the host, found [0-9]+)")
 semantic_case(transform_module "-module(a). -compile({parse_transform,\"x\"}). f() -> 1." 1
     "behavior-changing attributes")
 semantic_case(compile_nowarn "-module(a). -compile([nowarn_deprecated_catch, nowarn_unused_function]). f() -> 1." 0 "^$")

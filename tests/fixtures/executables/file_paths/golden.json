@@ -4,9 +4,20 @@
   "runs": [
     {
       "args": [],
+      "os": [
+        "linux",
+        "windows"
+      ],
       "stderr": "^$",
       "exit_status": 0,
       "stdout": "[true,true,true]\n[{ok,5},\n {ok,<<\"hello\">>},\n {ok,3},\n {ok,<<\"hel\">>},\n {ok,5},\n {ok,5},\n {ok,<<\"hellohello\">>},\n {error,enoent},\n {error,enoent},\n {error,badarg},\n [\"a.txt\",\"c.txt\",\"d\",\"e.txt\",\"f.txt\"],\n utf8,regular,\n {ok,<<\"hello\">>},\n ok,\n {error,enoent},\n {error,eisdir},\n {error,eisdir},\n {error,eisdir},\n {error,enotdir},\n {error,enoent},\n {error,enoent},\n {error,enoent},\n {error,enoent},\n ok,\n {error,enoent}]\n[ok,\n {ok,<<\"hello\">>},\n {error,eexist},\n {error,enoent},\n {error,einval},\n {error,enoent},\n {error,einval},\n regular,regular,\n {error,enoent},\n true,\n [symlink,{ok,\"a.txt\"},{ok,<<\"hello\">>}]]\n[{ok,<<\"hello\">>},\n error,\n [\"a.txt\",\"c.txt\",\"f.txt\",\"h.txt\"],\n error,regular,error,error,true,error,error,true,false,false,\n {error,function_clause},\n ok]\n[ok,{error,enoent}]\nfile_paths: ok\n"
+    },
+    {
+      "args": [],
+      "os": "macos",
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[true,true,true]\n[{ok,5},\n {ok,<<\"hello\">>},\n {ok,3},\n {ok,<<\"hel\">>},\n {ok,5},\n {ok,5},\n {ok,<<\"hellohello\">>},\n {error,enoent},\n {error,enoent},\n {error,badarg},\n [\"a.txt\",\"c.txt\",\"d\",\"e.txt\",\"f.txt\"],\n utf8,regular,\n {ok,<<\"hello\">>},\n ok,\n {error,enotdir},\n {error,eisdir},\n {error,eisdir},\n {error,eisdir},\n {error,enotdir},\n {error,enoent},\n {error,enoent},\n {error,enoent},\n {error,enoent},\n ok,\n {error,enoent}]\n[ok,\n {ok,<<\"hello\">>},\n {error,eexist},\n {error,enoent},\n {error,einval},\n {error,enoent},\n {error,einval},\n regular,regular,\n {error,enoent},\n true,\n [symlink,{ok,\"a.txt\"},{ok,<<\"hello\">>}]]\n[{ok,<<\"hello\">>},\n error,\n [\"a.txt\",\"c.txt\",\"f.txt\",\"h.txt\"],\n error,regular,error,error,true,error,error,true,false,false,\n {error,function_clause},\n ok]\n[ok,{error,enoent}]\nfile_paths: ok\n"
     }
   ],
   "oracle_version": [

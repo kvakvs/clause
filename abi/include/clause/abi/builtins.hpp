@@ -1212,6 +1212,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_net", "inet_getifaddrs", 0},
     BuiltinName{"clause_net", "getifaddrs", 0},
     BuiltinName{"clause_net", "if_names", 0},
+    // inet:gethostbyaddr/1's IPv4 names and aliases, as OTP's inet_gethost looks them up.
+    BuiltinName{"clause_net", "gethostbyaddr", 1},
     // The DNS message codec of inet_res (plan 21 step LIB60B; runtime/src/builtins/net/dns.cpp).
     BuiltinName{"clause_net", "dns_decode", 1},
     BuiltinName{"clause_net", "dns_encode", 1},
