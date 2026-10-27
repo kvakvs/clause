@@ -13,7 +13,8 @@ internal functions stay out unless a public function needs them (user direction 
   they are very heavy on inference engine, consider making C++ versions of those instead.
 
 - When a step is done, remove it from this file and add a 1-2 line bullet with its commit hash and
-  headline speedup to `00-finished.md` (Plan 21).
+  headline speedup to `00-finished.md` (Plan 21). Rejected or reverted steps go to `00-reject.md`
+  with the measurement behind the decision.
 
 ## Status (2026-10-25)
 
@@ -24,7 +25,8 @@ internal functions stay out unless a public function needs them (user direction 
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
 - **Left:** `erlang` (20 declined functions, LIB9 remainder) and the declined modules' answer stubs
   (Appendix A); OTP-free builds (LIB77–LIB78: luerl's manifests use no OTP paths since LIB76);
-  applications beyond the core that emqx needs (LIB80–LIB83, Appendix B; `crypto`, LIB79, is done).
+  applications beyond the core that emqx needs (LIB81–LIB83, Appendix B; `crypto` (LIB79) and
+  `public_key` (LIB80) are done).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -133,79 +135,13 @@ Steps:
 #### Applications beyond erts/kernel/stdlib (survey 2026-10-26)
 
 What `test-emqx.toml` still takes from OTP. Documented API from the OTP 29 doc chunks of the host's
-`crypto-5.10`, `public_key-1.21.7`, `ssl-11.7.7`, `eunit-2.11`, `common_test-1.31.2` (full lists in
+`ssl-11.7.7`, `eunit-2.11`, `common_test-1.31.2` (full lists in
 Appendix B; re-observe them into `documented.terms` the way `observe_docs.escript` does for the
 three core applications). Call counts are over `references/emqx/apps`, non-test sources unless
 noted. The same rules apply as for the core: whole module or nothing in `library/`, OTP's terms and
 records, goldens from OTP, own headers written from the documented records and macros.
 
-- **LIB80 `public_key` (54 functions; design decided 2026-10-26):** PEM, DER codec of the PKIX/PKCS
-  ASN.1 types into OTP's record tuples (`'Certificate'`, `'OTPCertificate'`, `'RSAPrivateKey'`, ~250
-  records of `public_key.hrl` and its four included headers), signing, verification, path
-  validation, CRLs, OCSP, hostname checks, `cacerts_*`. OTP compiles 30 ASN.1 modules (2009 style:
-  parameterized types, information object classes) with `asn1ct -bber +der
-  +asn1config` and decodes through `asn1rt_nif`. emqx uses `pem_decode/1` (14), `der_decode/2`,
-  `der_encode/2`, `pem_entry_decode/1,2`, `pem_encode/1`, `pkix_decode_cert/2`, `pkix_sign/2`,
-  `generate_key/1`, `verify/4`, `pkix_verify_hostname_match_fun/1`. Decisions:
-  - **Own ASN.1 compiler**, LLVM-free C++ in `compiler/src/asn1/` (reusable by clau for project
-    `.asn` files, LIB84 done). Covers what the 30 modules need: X.680/681/683 constructs they use
-    (parameterized types, object classes and sets, open types, extensibility, tagging, OTP's
-    `exclusive_decode` configs), BER/DER only; any other construct is an "unsupported" diagnostic.
-  - **Specs:** ASN.1 modules copied from their RFCs (IETF code components, BSD notice kept) into
-    `library/public_key/asn1/`; OTP's own modules (`OTP-PKIX`, `OTP-PKIX-Relaxed`, the
-    `PKCS-FRAME`/`OTP-PUB-KEY` sets) written by us from the documented records. A golden observed
-    once from host OTP (record names, field order, defaults; type names) proves the generated `.hrl`
-    match OTP's.
-  - **Generation (changed 2026-10-26, LIB80A):** clau compiles specifications as asn1ct does
-    (`Module.erl` + `Module.hrl`, `docs/asn1.md`); the generated modules call
-    `clause_asn1:encode/decode/3` with a literal schema term. `public_key`'s specs compile the same
-    way when its modules join a batch; nothing generated is checked in.
-  - **Codec:** one generic C++ BER/DER engine interpreting the schema, in core `clause_runtime`
-    (`builtins/asn1/`; project specs need it without OpenSSL). Decode leniency and
-    `{error, {asn1, Reason}}` terms exactly as OTP's (Kitchen fixtures; all public_key_SUITE PEMs,
-    PKITS CRLs and certificates decode and re-encode as OTP's).
-  - **Split:** C++ for data (codec, PEM incl. PBE decryption, `pubkey_translation`'s work, name
-    normalization, hostname match, issuer/subject ids, dist points, hash types); Erlang glue over
-    `crypto` for sign/verify/encrypt/`generate_key`/`compute_key`; Erlang for path validation, CRL
-    and OCSP validation (`verify_fun` funs and state).
-  - **Trust stores:** as OTP: Windows crypt32 current user `ROOT` store (C++ builtin), Unix file lists,
-    macOS keychains through `/usr/bin/security`.
-  - **Steps** (`public_key` in `library/` since LIB80B, documented functions PARTIAL in
-    `library_modules.py` until LIB80D; later steps' functions keep `not_implemented` placeholders):
-    - LIB80B done (B1 specs and header, B2 codec).
-    - LIB80C done (keys and signatures over crypto in `clause_public_key_keys`; default DH groups
-      from OpenSSH's moduli). `public_key_keys` golden.
-    - LIB80D (split 2026-10-26; Erlang where verify/issuer/CRL funs run or the walk is thin glue
-      over the C++ string builtins):
-      - D1 done: `pkix_normalize_name/1`, `pkix_is_issuer/2`, `pkix_is_self_signed/1`,
-        `pkix_is_fixed_dh_cert/1`, `pkix_issuer_id/2`, `pkix_subject_id/1`, `pkix_crl_issuer/1`,
-        `pkix_crl_verify/2`, `pkix_dist_point(s)/1`, `pkix_match_dist_point/2`,
-        `pkix_verify_hostname/2,3`, `pkix_verify_hostname_match_fun/1`.
-      - D2 done: `pkix_path_validation/3` (validation state, extensions, name constraints, policy
-        tree, `verify_fun`).
-      - D3 done: `pkix_crls_validate/3` (CRL and delta CRL checks, `issuer_fun`, `update_crl`).
-      - D4 done: `pkix_ocsp_validate/5`, `ocsp_extensions/1`.
-      - D5 done: `pkix_test_data/1`, `pkix_test_root_cert/2`.
-      - D6 done: `cacerts_get/0`, `cacerts_load/0,1`, `cacerts_clear/0`; public_key removed from `PARTIAL`.
-      - Docs done: `public_key.md` sections per step, the frames row of `differences.md`.
-    - LIB80E (after D; split 2026-10-26): port public_key's pure Erlang walks to C++ builtins
-      (memory: clause-heavy library code); Erlang keeps fun calls, crypto glue and the calls into
-      the generated modules (their schemas are module-local literals C++ cannot reach). Goldens stay
-      identical; each step ends with the public_key goldens and the quality gate.
-      - E1 done: PEM text (`pem_decode/1` lines, labels, `DEK-Info`, base64; `pem_encode/1` lines) and
-        PBE tables (ciphers, block sizes, key lengths, PRF digests, PBES1/PBES2 OIDs); Erlang maps
-        `ENCRYPTED PRIVATE KEY` entries through `der_decode`/`der_encode`.
-      - E2, E3 reverted 2026-10-27 (user decision after a Release benchmark: the C++ otp form walk
-        and name functions were 3-8% slower than the Erlang and are not big recursive clusters); E2's
-        long user notice fix (table constraint exits raised raw) and its golden case stay.
-      - E4 done: the policy tree walks (`policy.cpp`); the state machine, verify fun calls,
-        counters and node limit stay Erlang.
-      - E5 done (rule 2026-10-27: port only hot inner loops with a measured win and very complex
-        recursive clusters): PBKDF1 rounds (`pbkdf1_rounds`, 2048 rounds 15.9 -> 0.84 ms in Release). CRL
-        revoked-entry loops were tried and reverted: Term API walks were 1.7-4x slower than compiled
-        Erlang matching. The `der_decode`/`der_encode` and `pkix_crls_validate` SCCs stay Erlang (generated
-        module calls, funs, throws).
-- **LIB81 `ssl` (design first, after LIB80; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
+- **LIB81 `ssl` (design first; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
   `ssl_crl_cache_api`, `ssl_session_cache_api`):** OTP implements TLS 1.0–1.3 and DTLS in Erlang
   (`gen_statem` per connection, `ssl_app` supervision tree, PEM and session caches). Decide between
   Clause's own Erlang protocol implementation over LIB79/LIB80 (OTP's options, alerts, errors and
@@ -235,7 +171,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 1. The declined modules' answer stubs.
 2. LIB77 after a design decision; LIB78 only on request.
-3. LIB80B–D (requested 2026-10-26), then LIB81 after its design decision.
+3. LIB81 after its design decision.
 4. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)
@@ -286,33 +222,9 @@ separately and are optional.
 
 ## Appendix B: documented API of the applications beyond the core (OTP 29 doc chunks)
 
-Observed 2026-10-26 on the host's OTP 29 (`code:get_doc/1`, not hidden, not deprecated), for LIB79–
-LIB83. Format: `module` (functions): name/arities.
+Observed 2026-10-26 on the host's OTP 29 (`code:get_doc/1`, not hidden, not deprecated), for LIB81–
+LIB83 (`crypto` and `public_key` are done). Format: `module` (functions): name/arities.
 
-- `crypto` (crypto-5.10, 75, +4 deprecated): bytes_to_integer/1, cipher_info/1, compute_key/4,
-  crypto_final/1, crypto_get_data/1, crypto_init/3,4, crypto_one_time/4,5,
-  crypto_one_time_aead/4,6,7, crypto_one_time_aead_init/4, crypto_update/2, decapsulate_key/3,
-  ec_curve/1, ec_curves/0, encapsulate_key/2, engine_add/1, engine_by_id/1,
-  engine_ctrl_cmd_string/3,4, engine_get_all_methods/0, engine_get_id/1, engine_get_name/1,
-  engine_list/0, engine_load/3, engine_register/2, engine_remove/1, engine_unload/1,
-  engine_unregister/2, ensure_engine_loaded/2, exor/2, generate_key/2,3, hash/2, hash_equals/2,
-  hash_final/1, hash_info/1, hash_init/1, hash_update/2, hash_xof/3, info/0, info_fips/0,
-  info_lib/0, mac/3,4, macN/4,5, mac_final/1, mac_finalN/2, mac_init/2,3, mac_update/2, mod_pow/3,
-  pbkdf2_hmac/5, private_decrypt/4, private_encrypt/4, privkey_to_pubkey/2, public_decrypt/4,
-  public_encrypt/4, rand_seed/0,1, rand_seed_alg/1,2, rand_seed_alg_s/1,2, rand_seed_s/0, sign/4,5,
-  strong_rand_bytes/1, strong_rand_range/1, supports/1, verify/5,6
-- `public_key` (public_key-1.21.7, 54): cacerts_clear/0, cacerts_get/0, cacerts_load/0,1,
-  compute_key/2,3, decrypt_private/2,3, decrypt_public/2,3, der_decode/2, der_encode/2,
-  dh_gex_group/4, encrypt_private/2,3, encrypt_public/2,3, generate_key/1, pem_decode/1,
-  pem_encode/1, pem_entry_decode/1,2, pem_entry_encode/2,3, pkix_crl_issuer/1, pkix_crl_verify/2,
-  pkix_crls_validate/3, pkix_decode_cert/2, pkix_dist_point/1, pkix_dist_points/1, pkix_encode/3,
-  pkix_hash_type/1, pkix_is_fixed_dh_cert/1, pkix_is_issuer/2, pkix_is_self_signed/1,
-  pkix_issuer_id/2, pkix_match_dist_point/2, pkix_normalize_name/1, pkix_ocsp_validate/5,
-  pkix_path_validation/3, pkix_sign/2, pkix_sign_types/1, pkix_subject_id/1, pkix_test_data/1,
-  pkix_test_root_cert/2, pkix_verify/2, pkix_verify_hostname/2,3, pkix_verify_hostname_match_fun/1,
-  short_name_hash/1, sign/3,4, verify/4,5. Headers: `public_key.hrl` with `OTP-PUB-KEY.hrl`,
-  `PKCS-FRAME.hrl`, `PKIXCMP.hrl`, `PKIXCRMF.hrl`. `asn1-5.5.2`: no documented functions
-  (`asn1rt_nif` only).
 - `ssl` (ssl-11.7.7, 52, +1 deprecated): append_cipher_suites/2, cipher_suites/2,3,
   clear_pem_cache/0, close/1,2, connect/2,3,4, connection_information/1,2, controlling_process/2,
   eccs/0,1, export_key_materials/4,5, filter_cipher_suites/2, format_error/1, getopts/2,
