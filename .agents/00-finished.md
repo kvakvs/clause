@@ -969,6 +969,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   Release); CRL entry loops tried and reverted (slower than compiled Erlang) — `b8282d39`
 - **LIB80E2/E3 reverted**: otp form walk and name functions back to Erlang (Release benchmark: C++ 3-8% slower,
   not complex clusters); PEM (2.2x faster decode), policy tree and PBKDF1 ports kept; long notice fix kept — `3a3bed22`
+- **LIB81A** ssl application and utility functions (PARTIAL; libssl hybrid design decided): suite table and lists,
+  name walks as `ssl` builtins, crypto-filtered algorithms/curves/groups/versions, `format_error/1`, `ssl_sup` with
+  `ssl_pem_cache`; clau adds library start modules and dependency resources; `ssl_suites` golden identical to OTP — `e16028cf`
 
 ## Plan 22 (from 2026-10-23)
 
