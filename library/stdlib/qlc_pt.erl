@@ -1,8 +1,8 @@
 %% Clause's qlc_pt (plan 21 step LIB73, docs/libraries/library.md): the qlc parse transform at run time, for
 %% qlc:string_to_handle/1,2,3 and erl_eval's qlc:q/1,2. clause_qlc_pt's builtins run OTP's transform in C++
-%% (runtime/src/builtins/qlc_pt/) and ask for each match specification attempt, which runs ms_transform here; the
-%% builtin then replays its walk with the answers so far. Without a compiler at run time, messages come from
-%% erl_lint, as OTP's qlc_pt falls back to when the compiler is not available.
+%% (runtime/src/builtins/qlc_pt/) and ask for the match specification attempts they have no answer for, which run
+%% ms_transform here; the builtin then replays its walk with the answers. Without a compiler at run time, messages
+%% come from erl_lint, as OTP's qlc_pt falls back to when the compiler is not available.
 -module(qlc_pt).
 -export([parse_transform/2, transform_from_evaluator/2, transform_expression/2]).
 
@@ -15,12 +15,12 @@ transform_from_evaluator(LC, Bindings) ->
 transform_expression(LC, Bindings) ->
     answered(fun(Answers) -> clause_qlc_pt:transform_expression(LC, Bindings, true, Answers) end, []).
 
-%% Run the transform until it has every match specification it asks for (answers newest first). OTP's transform
+%% Run the transform until it has every match specification it asks for ({Query, Answer} pairs). OTP's transform
 %% raises the backtrace depth and leaves its file key erased from the process dictionary.
 answered(Transform, Answers) ->
     case Transform(Answers) of
-        {try_ms, Forms} ->
-            answered(Transform, [try_ms(Forms) | Answers]);
+        {try_ms, Requests} ->
+            answered(Transform, [{Query, try_ms(Forms)} || {Query, Forms} <- Requests] ++ Answers);
         {done, Result, Transformed} ->
             _ = Transformed andalso erlang:system_flag(backtrace_depth, 500),
             _ = erase(qlc_current_file),

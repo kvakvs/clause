@@ -216,6 +216,56 @@ std::optional<std::filesystem::path> host_erl(const TransformSettings &settings,
     outcome.failed_ = true;
     return std::nullopt;
 }
+
+// The request for the host erl, or none (after an error) when there is no erl. Added for the transform host.
+std::optional<TransformRequest> erl_request(std::vector<std::u32string> transforms, const TransformSettings &settings,
+                                            const CompileOptions &options, const std::string &file,
+                                            TransformOutcome &outcome, SourceManager &sources) {
+    const auto erl = host_erl(settings, transforms.front(), file, outcome, sources);
+    if (!erl) {
+        return std::nullopt;
+    }
+    return request_for(*erl, std::move(transforms), settings, options, file);
+}
+
+// Whether Clause's transform host runs every transform: the library provides them all and no precompiled .beam on
+// the code paths replaces one. Added for the transform host (plan 21 LIB77A).
+bool host_runs(const std::vector<std::u32string> &transforms, const TransformSettings &settings) {
+    return settings.host_ && std::ranges::all_of(transforms, [&](const std::u32string &name) {
+               return settings.host_->provides(name) && !precompiled(name, settings.code_paths_);
+           });
+}
+
+// The request for Clause's transform host, or none (after an error) when it cannot be built. Added for the
+// transform host (plan 21 LIB77A).
+std::optional<TransformRequest> host_request(std::vector<std::u32string> transforms, const TransformSettings &settings,
+                                             const CompileOptions &options, const std::string &file,
+                                             TransformOutcome &outcome, SourceManager &sources) {
+    TransformRequest request;
+    try {
+        request.erl_ = settings.host_->executable();
+    } catch (const LoaderError &error) {
+        outcome.diagnostics_.push_back(located(file, std::nullopt, error.what(), Severity::error, sources));
+        outcome.failed_ = true;
+        return std::nullopt;
+    }
+    request.clause_host_ = true;
+    request.temporary_directory_ = settings.temporary_directory_;
+    request.file_ = file;
+    request.options_ = options;
+    request.transforms_ = std::move(transforms);
+    return request;
+}
+
+// The request of a module's transforms: Clause's transform host when it runs them all, else the host erl.
+std::optional<TransformRequest> request_of(std::vector<std::u32string> transforms, const TransformSettings &settings,
+                                           const CompileOptions &options, const std::string &file,
+                                           TransformOutcome &outcome, SourceManager &sources) {
+    if (host_runs(transforms, settings)) {
+        return host_request(std::move(transforms), settings, options, file, outcome, sources);
+    }
+    return erl_request(std::move(transforms), settings, options, file, outcome, sources);
+}
 } // namespace
 
 bool wants_transforms(const ast::Module &syntax, const TransformSettings &settings) {
@@ -236,12 +286,11 @@ TransformOutcome transform_module(const ast::Module &syntax, const Source &main,
     if (missing_paths(settings, main.name, outcome, sources)) {
         return outcome;
     }
-    const auto erl = host_erl(settings, transforms.front(), main.name, outcome, sources);
-    if (!erl) {
+    const auto request = request_of(std::move(transforms), settings, options, main.name, outcome, sources);
+    if (!request) {
         return outcome;
     }
-    const auto reply = run(module, request_for(*erl, std::move(transforms), settings, options, main.name),
-                           settings.cache_.get(), outcome, sources);
+    const auto reply = run(module, *request, settings.cache_.get(), outcome, sources);
     if (!reply) {
         return outcome;
     }

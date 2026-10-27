@@ -8,6 +8,20 @@ namespace clause::transforms {
 // Whether the host OTP provides a module it never replaces (a sticky one). Added for transform source caching.
 using HostModule = std::function<bool(const std::u32string &)>;
 
+// Clause's own transform host: the loader linked with Clause's whole library, which runs the transforms the library
+// provides without a host OTP. Added for the transform host (plan 21 LIB77A).
+class ClauseHost {
+  public:
+    ClauseHost() = default;
+    ClauseHost(const ClauseHost &) = delete;
+    ClauseHost &operator=(const ClauseHost &) = delete;
+    virtual ~ClauseHost() = default;
+    // Whether the host has `module`: Clause's library provides it.
+    virtual bool provides(const std::u32string &module) const = 0;
+    // The host executable, built on first use; throws LoaderError when it cannot be built.
+    virtual std::filesystem::path executable() = 0;
+};
+
 struct TransformSettings {
     // --erl; transforms named by --parse-transform or the project, run before the module's own; directories of
     // precompiled transform modules.
@@ -26,6 +40,9 @@ struct TransformSettings {
     // Loader replies and sticky module lists kept between invocations; absent: none are kept. Added for the
     // transform cache (62D2).
     std::shared_ptr<HostCache> cache_;
+    // Runs requests whose transforms all come from Clause's library in place of erl; absent: erl runs every one.
+    // Added for the transform host (plan 21 LIB77A).
+    std::shared_ptr<ClauseHost> host_;
 };
 
 // Whether a parsed module needs parse transforms: the settings name some, or one of its -compile attributes does.

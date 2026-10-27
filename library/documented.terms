@@ -1,4 +1,4 @@
-%% OTP 29 documented functions of erts, kernel, stdlib, crypto, public_key and ssl: {Module, Application, Name, Arity};
+%% OTP 29 documented functions of erts, kernel, stdlib, crypto, public_key, ssl and compile: {Module, Application, Name, Arity};
 %% observed by tests/compiler/library/observe_docs.escript (docs/libraries/library.md#documented-functions).
 {atomics, erts, add, 3}.
 {atomics, erts, add_get, 3}.
@@ -3072,3 +3072,13 @@
 {ssl_crl_cache, ssl, delete, 1}.
 {ssl_crl_cache, ssl, insert, 1}.
 {ssl_crl_cache, ssl, insert, 2}.
+{compile, compiler, env_compiler_options, 0}.
+{compile, compiler, file, 1}.
+{compile, compiler, file, 2}.
+{compile, compiler, format_error, 1}.
+{compile, compiler, forms, 1}.
+{compile, compiler, forms, 2}.
+{compile, compiler, noenv_file, 2}.
+{compile, compiler, noenv_forms, 2}.
+{compile, compiler, noenv_output_generated, 1}.
+{compile, compiler, output_generated, 1}.

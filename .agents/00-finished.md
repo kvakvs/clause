@@ -972,6 +972,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB81A** ssl application and utility functions (PARTIAL; libssl hybrid design decided): suite table and lists,
   name walks as `ssl` builtins, crypto-filtered algorithms/curves/groups/versions, `format_error/1`, `ssl_sup` with
   `ssl_pem_cache`; clau adds library start modules and dependency resources; `ssl_suites` golden identical to OTP — `e16028cf`
+- **LIB77A** transform host: the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
+  library identity into the user cache (lock file, older hosts pruned); library-only transform chains run there, also
+  under `--erl none`; replies equal OTP's (ms_headers, qlc_queries `.abstr`); library `compile` without compiling
+  (PARTIAL, LIB77E); qlc_pt replay batched by query (qlc_queries transform 220 s -> 12.7 s, 158 -> 3 runs) — `HASH`
 
 ## Plan 22 (from 2026-10-23)
 

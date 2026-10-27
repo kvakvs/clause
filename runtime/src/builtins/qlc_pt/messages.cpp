@@ -544,9 +544,14 @@ Term Transformer::try_ms(const MsQuery &query) {
         build_.node("remote"_atom, anno, atom_node(anno, atom("ets"_atom)), atom_node(anno, atom("fun2ms"_atom))),
         list(std::array{fun}));
     const auto body = build_.node("clause"_atom, anno, nil(), nil(), list(std::array{call}));
+    const auto function = build_.node("function"_atom, anno, atom("foo"_atom), integer(0), list(std::array{body}));
+    if (auto known = replay_.answer(function)) {
+        return *known;
+    }
     auto forms = records_;
-    forms.push_back(build_.node("function"_atom, anno, atom("foo"_atom), integer(0), list(std::array{body})));
-    return replay_.next(pair(atom("try_ms"_atom), list(forms)));
+    forms.push_back(function);
+    replay_.ask(function, pair(function, list(forms)));
+    return atom("no"_atom);
 }
 
 namespace {
@@ -566,18 +571,24 @@ using LcArg = Named<LcRole>;
 using BindingsArg = Named<BindingsRole>;
 using FlagArg = Named<FlagRole>;
 
-// A transform run: {done, Result, Transformed}, or the request it stopped at.
+// A transform run: {done, Result, Transformed}, or {try_ms, Requests} when it made attempts without an answer (a
+// failure then may come from attempts taken as failed, and the run is redone with their answers).
 template <typename Body>
 Term answered(ProcessContext &context, const AnswersArg &answers, const Term &behaviours, Body &&body) {
     Replay replay(answers.term);
+    string::Terms terms(context);
     try {
         Transformer transformer(context, replay, behaviours);
         const auto result = body(transformer);
-        string::Terms terms(context);
-        return terms.tuple(std::array{terms.atom("done"_atom), result, terms.boolean(transformer.transformed())});
-    } catch (const Request &request) {
-        return request.term;
+        if (replay.requests().empty()) {
+            return terms.tuple(std::array{terms.atom("done"_atom), result, terms.boolean(transformer.transformed())});
+        }
+    } catch (...) {
+        if (replay.requests().empty()) {
+            throw;
+        }
     }
+    return terms.tuple(std::array{terms.atom("try_ms"_atom), terms.list(replay.requests())});
 }
 
 // clause_qlc_pt:parse_transform(Forms, Options, Behaviours, Answers).

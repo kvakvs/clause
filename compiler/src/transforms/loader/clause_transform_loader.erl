@@ -1,13 +1,14 @@
 %% Added for parse transforms: runs parse transforms for clau on the host Erlang/OTP (docs/transforms.md#loader).
 %% clau writes request.etf into a fresh directory, starts erl, which compiles this module in memory and calls
-%% main/1 with that directory; the reply goes to reply.etf beside it.
+%% main/1 with [Directory]; the reply goes to reply.etf beside it. Clause's transform host is this module linked with
+%% the whole library, its main/1 getting the directory as the program argument (plan 21 LIB77A).
 -module(clause_transform_loader).
 -export([main/1]).
 
 -define(RELEASE, "29").
 
 %% Run the request and always write a reply, then halt.
-main(Directory) ->
+main([Directory]) ->
     Reply =
         try
             run(Directory)

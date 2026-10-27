@@ -20,7 +20,7 @@ constexpr std::size_t OUTPUT_LIMIT = std::size_t{64} * 1024;
 // erl evaluates this with the request directory as its only plain argument: compile the loader, run it.
 constexpr std::string_view BOOT = "[D]=init:get_plain_arguments(),S=filename:join(D,'clause_transform_loader.erl'),"
                                   "{ok,M,B}=compile:file(S,[binary,report]),{module,M}=code:load_binary(M,S,B),"
-                                  "M:main(D).";
+                                  "M:main([D]).";
 
 std::string text(const fs::path &path) {
     const auto bytes = path.generic_u8string();
@@ -263,6 +263,8 @@ void parse_reply(const std::string &bytes, TransformReply &reply) {
 }
 } // namespace
 
+std::string_view loader_source() { return LOADER_SOURCE; }
+
 std::optional<fs::path> find_erl(const std::optional<fs::path> &explicit_path) {
     if (explicit_path && *explicit_path == "none") {
         return std::nullopt;
@@ -296,18 +298,29 @@ TransformReply reply_of(const HostRun &run) {
     return reply;
 }
 
-// Run the loader on the request bytes in a fresh workspace.
-HostRun execute(const std::string &bytes, const TransformRequest &request) {
-    const Workspace workspace(request.temporary_directory_);
-    const auto &directory = workspace.path();
-    write_file(directory / "clause_transform_loader.erl", LOADER_SOURCE);
-    write_file(directory / "request.etf", bytes);
+// The command line of a run in `directory`: erl compiling the loader there, or Clause's transform host (whose `--`
+// ends its runtime options; added for the transform host, plan 21 LIB77A).
+std::vector<std::string> command(const TransformRequest &request, const fs::path &directory) {
     const auto program = text(request.erl_);
+    if (request.clause_host_) {
+        return {program, "--", text(directory)};
+    }
+    write_file(directory / "clause_transform_loader.erl", LOADER_SOURCE);
     std::vector<std::string> arguments{program, "-noshell", "-noinput"};
     for (const auto &path : request.code_paths_) {
         arguments.insert(arguments.end(), {"-pa", text(fs::absolute(path))});
     }
     arguments.insert(arguments.end(), {"-eval", std::string(BOOT), "-extra", text(directory)});
+    return arguments;
+}
+
+// Run the loader on the request bytes in a fresh workspace.
+HostRun execute(const std::string &bytes, const TransformRequest &request) {
+    const Workspace workspace(request.temporary_directory_);
+    const auto &directory = workspace.path();
+    write_file(directory / "request.etf", bytes);
+    const auto arguments = command(request, directory);
+    const auto &program = arguments.front();
     const std::vector<llvm::StringRef> argv(arguments.begin(), arguments.end());
     const auto log = text(directory / "output.txt");
     const std::array<std::optional<llvm::StringRef>, 3> redirects{llvm::StringRef(), llvm::StringRef(log),

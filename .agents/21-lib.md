@@ -102,23 +102,24 @@ non-luerl modules resolve from `library/`. `test-emqx.toml` keeps only the OTP a
 erts/kernel/stdlib (`eunit`, `common_test`, `public_key`, `ssl`) as `applications` roots; its
 preprocessing diagnostics are unchanged (the rest are emqx's missing dependencies).
 
-- **What still ties programs to OTP** (counted over `references/emqx/apps`): parse transforms
-  (`ms_transform`, `qlc`) run on the host `erl`; `.yrl`/`.xrl` sources need OTP's `yecc`/`leex`
+- **What still ties programs to OTP** (counted over `references/emqx/apps`): project parse
+  transforms run on the host `erl` (`ms_transform` and `qlc` no longer: LIB77A); `.yrl`/`.xrl`
+  sources need OTP's `yecc`/`leex`
   (luerl ships generated `luerl_parse.erl`/`luerl_scan.erl`, whose `-file` lines only name OTP's
   `yeccpre.hrl`). The public headers emqx includes (`assert.hrl`, `ms_transform.hrl`, `inet.hrl`)
   are provided since LIB75.
 
 Steps:
 
-- **LIB77 Parse transforms without the host:** `ms_transform` and `qlc_pt` exist in `library/` but
-  run on the host OTP `erl` ([transforms](../docs/transforms.md)). Decided 2026-10-27 (user): an
+- **LIB77 Parse transforms without the host:** library transforms (`ms_transform`, `qlc_pt`) run in
+  Clause's transform host since LIB77A; project and dependency transforms still run on the host OTP
+  `erl` ([transforms](../docs/transforms.md)). Decided 2026-10-27 (user): an
   Erlang interpreter runs transforms without OTP. Library transforms run compiled, project and
   dependency transforms are interpreted from their forms. Already there: `erl_eval`, `erl_parse`,
   `erl_scan`, `epp`, `erl_lint`, `erl_expand_records`, `erl_internal`, `erl_anno`, `erl_pp`,
-  `erl_error`, `beam_lib`, `erl_abstract_code`, `error_handler`, `ms_transform`, `qlc_pt`.
-  - **LIB77A Transform host executable:** built the way `clau --shell` is (whole library, exports
-    kept), cached by clau identity; speaks the loader's ETF request/reply, so the pipeline swaps
-    `erl` for it. `--erl` stays as the fallback for what the host cannot run (LIB77C).
+  `erl_error`, `beam_lib`, `erl_abstract_code`, `error_handler`, `ms_transform`, `qlc_pt`, the
+  transform host (`compiler/src/transforms/host.cpp`, `driver/transform_host.cpp`) and `compile`
+  without its compiling functions.
   - **LIB77B Module interpreter (`clause_interp`, Erlang over `erl_eval`):** loads a module's forms
     (records expanded, `erl_lint` checked) into a registry; local calls through `erl_eval`'s local
     function handler, `fun f/N`, and remote calls, `apply/3`, `fun M:F/A` and spawn MFAs into
@@ -134,14 +135,16 @@ Steps:
     imported `{error, _}`/`{warning, _}` forms formatted natively; modules with preprocessor or
     parse errors pass them to transforms as forms, as OTP does (both `differences.md` rows go).
     Proof: emqx's `ets:fun2ms`/`qlc` users and `emqx_bpapi_trans` (which calls the dependency
-    `erlang_qq`) build with `--erl none`.
+    `erlang_qq`) build with `--erl none`. The executables goldens' `X.abstr` files (forms from OTP's
+    transforms, LIB73) can go: the host gives the same forms (checked by `transforms_no_otp`).
   - **LIB77E (on request) APIs that third-party transforms call:** not needed by `clau`, only by
     transform code that uses them (else `undef`). `syntax_tools`: `erl_syntax` (303 exports; plain
     forms are already valid trees, so most of it is node accessors over abstract forms, the
     clause-heavy dispatch in C++), `erl_syntax_lib`, `erl_prettypr`/`prettypr`, `epp_dodger`,
-    `merl` with `merl_transform` and `merl.hrl`. `compile:forms/1,2` for transforms that build
-    helper modules, returning an interpreter image that `code:load_binary/3` accepts in the host
-    only. Written in Clause's shape, never copied.
+    `merl` with `merl_transform` and `merl.hrl`. `compile:forms/1,2`, `noenv_forms/2` (and
+    `file/1,2`, `noenv_file/2` as `epp` plus forms) for transforms that build helper modules,
+    returning an interpreter image that `code:load_binary/3` accepts in the host only; they are
+    stubs of library `compile` (PARTIAL) until then. Written in Clause's shape, never copied.
 - **LIB78 (optional, beyond erts/kernel/stdlib) `parsetools`:** `yecc` and `leex` with
   `yeccpre.hrl`/`leexinc.hrl` equivalents, so projects that ship only `.yrl`/`.xrl` build without
   OTP. Generated parsers are clause-heavy: generate C++ tables or keep generated Erlang small (see
@@ -207,7 +210,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB77A–D in order; LIB77E and LIB78 only on request.
+1. LIB77B–D in order; LIB77E and LIB78 only on request.
 2. LIB81B–D in order (LIB81E on request).
 3. LIB82, LIB83 last (test support).
 

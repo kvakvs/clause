@@ -512,3 +512,12 @@ recorded elsewhere.
   public_key.app). Inventory stubs need bare `_` heads. OTP quirks kept: clear_pem_cache sets the caller's
   `ssl_pem_cache` dict key; protocol_version=[sslv2] stores defaults then function_clause; str_to_suite parses
   without the table (list_to_existing_atom). Host OTP lacks legacy provider: fixtures drop RC4/DES suites.
+- LIB77A transform host (2026-10-27): host = loader linked by `clau --shell --entry
+  clause_transform_loader:main/1`, ~40-60 s Debug build, cached in %LOCALAPPDATA%/clause/transform-host
+  (delete it to force a rebuild). The clau target must not link clause_llvm_sdk (its interface flags
+  turn RTTI off and change the iterator debug level): LLVM-using code goes to clause_transforms etc.
+  Differential check of host vs OTP: scratch mkreq.escript (epp:parse_file forms -> request.etf), run
+  host `-- DIR` and erl loader, compare reply.etf terms. qlc_pt's per-answer replay was quadratic
+  (qlc_queries 220 s): answers keyed by query, unanswered attempts batched (3 runs, ~4 s each on the
+  Debug runtime). User direction: provide only the non-cascading `compile` functions (format_error,
+  env options, output_generated); compiling stays stubs.

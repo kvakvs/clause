@@ -13,6 +13,7 @@
 #include "placeholders.hpp"
 #include "predefined.hpp"
 #include "stage_times.hpp"
+#include "transform_host.hpp"
 #include "transform_sources.hpp"
 #include "transforms/abstract_input.hpp"
 #include "transforms/export.hpp"
@@ -765,6 +766,7 @@ int process_inputs(const Options &options) {
     request.print_source = options.print_source;
     request.print_abstr = options.print_abstr;
     request.transforms_ = options.transforms;
+    request.transforms_.host_ = transform_host(); // Added for the transform host (plan 21 LIB77A).
     if (options.output_explicit) {
         request.executable_output = options.output;
     }

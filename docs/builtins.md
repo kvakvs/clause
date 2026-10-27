@@ -397,8 +397,8 @@ byte for byte, same file orders.
 `builtins/qlc_pt/`, `library/stdlib/qlc_pt.erl`,
 `library/stdlib/clause_qlc_pt.erl` (plan 21 step LIB73): the qlc parse
 transform at run time, for `qlc:string_to_handle/1,2,3` and `qlc:q/1,2` in
-evaluated code. Modules compiled with `qlc.hrl` still get the host OTP's
-transform ([parse transforms](transforms.md)).
+evaluated code, and at compile time for modules including `qlc.hrl`, in Clause's
+[transform host](transforms.md#transform-host).
 
 - `clause_qlc_pt:transform_expression/4` and `parse_transform/4` follow
   `qlc_pt.erl` function for function: NodeInfo (unique annotations and what the
@@ -413,11 +413,15 @@ transform ([parse transforms](transforms.md)).
   takes when the compiler is not available; a lint crash on the forms it builds
   is the compiler's internal error, as OTP's compiler reports it. Records are
   expanded by the C++ `erl_expand_records`, guard tests by `is_guard_test/3`.
-- Match specifications run `ms_transform` in Erlang: the builtin returns
-  `{try_ms, Forms}`, `qlc_pt.erl` answers `try_ms/4`'s result and calls the
-  builtin again with the answers so far, replaying its walk; the result is
-  `{done, Result, Transformed}` (a transformed module raises the backtrace
-  depth to 500, as OTP's transform does).
+- Match specifications run `ms_transform` in Erlang: an attempt without an
+  answer is taken as failed and recorded, the walk goes on, and the builtin
+  returns `{try_ms, [{Query, Forms}]}` for all of them; `qlc_pt.erl` answers
+  each with `try_ms/4`'s result and calls the builtin again with the
+  `{Query, Answer}` pairs, replaying its walk. Answers are found by query, so a
+  module reruns about once per depth of attempts that depend on earlier
+  answers (3 runs for `qlc_queries`' 157 attempts), not once per attempt. The
+  result is `{done, Result, Transformed}` (a transformed module raises the
+  backtrace depth to 500, as OTP's transform does).
 
 ## Qlc
 

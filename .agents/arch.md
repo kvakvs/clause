@@ -25,7 +25,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - Printing (`docs/compile.md#source-printing`): `print_source` (`--print-source`) round-trips to the
   same tree, `SourceNotes` add annotations; `--print-types` adds `%% inferred:` signatures.
 - Parse transforms (`transforms/`): term arena, ETF, abstract-form export/import, external `erl`
-  loader with cached replies.
+  loader with cached replies. Transforms Clause's library provides run in Clause's transform host
+  (LIB77A): the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
+  library identity into the user cache (lock file for concurrent builds); other chains go to `erl`.
 
 ### Drivers, projects, caches
 
@@ -380,7 +382,7 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `beam_lib` (Erlang chunk walk as OTP's), `escript` (create/extract), `argparse`
   (`builtins/argparse/`: validation, parser and help in C++, funs called by Erlang through replayed
   requests), `qlc_pt` (`builtins/qlc_pt/`: the qlc transform at run time in C++, ms_transform
-  answered by Erlang through replayed requests), `qlc` (Erlang: OTP's prepare/optimize/setup over
+  answered by Erlang in batches keyed by query, the walk replayed per batch), `qlc` (Erlang: OTP's prepare/optimize/setup over
   the transform's handles, joins, caches, file_sorter sorts, cursors, info), the interactive shell
   (`shell` server + `clause_shell` terminal + `clause_shell_eval` evaluator over `erl_eval`,
   `clause_io_lib:pretty/2` record printing; `clau --shell` links it with the whole library and keeps

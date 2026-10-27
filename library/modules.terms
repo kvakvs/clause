@@ -142,3 +142,4 @@
 {peer, stdlib, provided}.
 {slave, stdlib, provided}.
 {pool, stdlib, provided}.
+{compile, compiler, provided}.
