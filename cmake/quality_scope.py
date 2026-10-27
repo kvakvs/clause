@@ -80,18 +80,26 @@ def production_units(root, build):
     return units
 
 
-def record_path(build):
-    """Command digests of the units the last passing clang-tidy run covered."""
-    return os.path.join(build, "quality", "tidy-commands.json")
+def record_path(root, build):
+    """Command digests of the units the last passing clang-tidy run covered, per build directory, under the ignored
+    .state/ directory that make clean keeps (a fresh build directory then needs no full run)."""
+    relative = os.path.relpath(os.path.abspath(build), os.path.abspath(root))
+    if relative.startswith(".."):
+        relative = hashlib.sha1(norm(os.path.abspath(build)).encode("utf-8")).hexdigest()[:16]
+    name = re.sub(r"[^\w.-]+", "-", relative.replace("\\", "/")).strip("-")
+    return os.path.join(root, ".state", "quality", name, "tidy-commands.json")
 
 
-def read_record(build):
-    """The recorded digests by unit, or None before the first passing run."""
-    try:
-        with open(record_path(build), encoding="utf-8") as stream:
-            return json.load(stream)
-    except (OSError, ValueError):
-        return None
+def read_record(root, build):
+    """The recorded digests by unit, or None before the first passing run; a record left in the build directory by
+    an older version of this script still counts."""
+    for path in (record_path(root, build), os.path.join(build, "quality", "tidy-commands.json")):
+        try:
+            with open(path, encoding="utf-8") as stream:
+                return json.load(stream)
+        except (OSError, ValueError):
+            continue
+    return None
 
 
 def write_record(root, build, passed=None):
@@ -103,8 +111,10 @@ def write_record(root, build, passed=None):
     else:
         with open(passed, encoding="utf-8") as stream:
             paths = {line.strip() for line in stream if line.strip()}
-        record = (read_record(build) or {}) | {path: units[path].digest for path in paths if path in units}
-    with open(record_path(build), "w", encoding="utf-8", newline="\n") as stream:
+        record = (read_record(root, build) or {}) | {path: units[path].digest for path in paths if path in units}
+    path = record_path(root, build)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as stream:
         json.dump(dict(sorted(record.items())), stream, indent=0)
 
 
@@ -141,7 +151,7 @@ def tidy_scope(root, build, ninja, changed, base):
     units = production_units(root, build)
     if any(path in TIDY_CONFIG for path in changed):
         return sorted(units), "analyzer configuration changed"
-    recorded = read_record(build)
+    recorded = read_record(root, build)
     if recorded is None and any(affects_everything(root, base, path) for path in changed):
         return sorted(units), "build configuration changed, no record of analyzed commands"
     selected = {path for path in changed if path in units}

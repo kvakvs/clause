@@ -45,7 +45,9 @@ recorded elsewhere.
   code (llvm-objdump -d with symbol names stripped) between builds.
 - Repo F:/CLAUSE/clau (uppercase F: matters for programs.py <fixture> substitution and expectation
   runners: use absolute F:/CLAUSE/clau/build/debug/bin/Debug/clau.exe). build/ is wiped by
-  make-clean.bat: helper scripts live in the session scratchpad.
+  make-clean.bat: host-local history lives in the gitignored `.state/` (user 2026-10-27): helper
+  scripts `.state/scripts/` (README there), gate run log with timings `.state/runs.md` (append
+  after every gate run), tidy records `.state/quality/`. Committed lessons stay in this file.
 - Toolchain LLVM 23.1.2 SDK, VS 18 x64, SDK 10.0.26100, /MT, Ninja, Boost 1.90, toml 3.4, Lizard
   1.24, tidy 22.1.8. Fresh configure MUST pass %CLAUSE_CONFIGURE_ARGS% from
   tools/windows-toolchain.cmd (BUILD_DIR set): else VS generator + cl (C2220) or GNU clang++ (nested
@@ -117,8 +119,9 @@ recorded elsewhere.
 - clang-tidy may crash (0xC0000005/0xC0000409) or exit 1 silently with 2 jobs: rerun with one job.
   Check targets do not forward QUALITY_JOBS: `cmake -DQUALITY_SCOPE=all -DQUALITY_BUILD_DIR=<b>
   -DQUALITY_NINJA=<n> -DQUALITY_JOBS=1 -P cmake/CheckClangTidy.cmake`; shard with
-  -DQUALITY_SHARD=K/N, batches QUALITY_BATCH. Root/runtime/compiler CMakeLists edits select all
-  units (~20 min). Single-file tidy -p build/debug/quality works for runtime units only.
+  -DQUALITY_SHARD=K/N, batches QUALITY_BATCH. CMakeLists edits other than source lists select all
+  units (~25 min, 710 units at 16 jobs) when no record exists; passing batches merge into the record
+  (a65e1ac4). Iterate on findings with `.state/scripts/tidy_files.py FILE...` (-p build/debug).
   CLAUSE_QUALITY_BASE overrides HEAD for changed scope. Lizard: .venv-quality python -m lizard -C
   10.
 - Windows tidy HeaderFilterRegex never matched backslash paths; libstdc++ exposes unchecked-optional
@@ -146,8 +149,7 @@ recorded elsewhere.
   reads as a leak: do the CAS in an out-of-line function (opaque to callers' TUs).
   bugprone-easily-swappable fires when two same-type params stop appearing in one expression.
 - check-quality's changed scope is `git diff HEAD`: `git add` new files first or they are skipped.
-  abi/ header edits do not pull their runtime dependents into the tidy scope; CMakeLists edits
-  select all units.
+  abi/ header edits do not pull their runtime dependents into the tidy scope.
 
 ## OTP oracle, goldens and fixtures
 - OTP pin and refresh: docs/otp-reference.md. Pin 9710673e (29.1.2), oracle install 29.1.1 / ERTS

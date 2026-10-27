@@ -50,7 +50,8 @@ cmake --build build/debug --target check-quality-all  # whole tree
   user, from Ninja's dependency data of any configuration; the header's other
   dependents are left to `check-quality-all` in the full gate) and, for
   clang-tidy, units whose compile command differs from the one the last passing
-  run recorded (`build/debug/quality/tidy-commands.json`), so a build rule edit
+  run recorded (`.state/quality/<build directory>/tidy-commands.json`, in the
+  ignored `.state/` directory that `make clean` keeps), so a build rule edit
   rechecks only the units it changes. Each passing batch merges its units into
   that record, so after a failing run the next one rechecks only what did not
   pass. Changes to `.clang-tidy`, `CheckClangTidy.cmake`, `tidy_filter.py` or

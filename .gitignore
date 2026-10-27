@@ -15,3 +15,5 @@ __pycache__/
 *.exe
 *.dll
 *.pdb
+# Host-local history kept across make clean: tidy records, gate run logs, helper scripts.
+/.state/
