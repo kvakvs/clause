@@ -1015,7 +1015,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `{error, {Loc, file_io_server, invalid_unicode}, Loc}`; `epp_dodger_forms` golden identical to OTP — `060e939e`
 - **LIB77E5** `merl` (quote/qquote, print/show, switch, compile Erlang; templates, subst/alpha, match, meta
   templates C++ in `builtins/merl/`), `merl.hrl`, `merl_transform` (patterns quoted once per call);
-  `syntax_tools` complete; `merl_templates` golden identical to OTP — `HASH`
+  `syntax_tools` complete; `merl_templates` golden identical to OTP — `c674dcba`
 
 ## Plan 22 (from 2026-10-23)
 
