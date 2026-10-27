@@ -858,6 +858,24 @@ builtins:
   attributes and the macro atoms and tuples into `erl_syntax` macros.
 - CTest `executables_epp_dodger_forms` (compared with OTP).
 
+## Merl
+
+`builtins/merl/` (plan 21 step LIB77E5) has the template functions of
+[`merl`](libraries/syntax_tools.md#merl):
+
+- `shapes.cpp`: merl's view of nodes (`[]` is a list with two empty groups,
+  `{}` keeps its element group, lists, binary fields, clauses, receives and
+  record nodes have fixed groups) and the nodes made from such groups;
+  `clause_merl:subtrees/1` gives the groups to `show/1`.
+- `templates.cpp`: `template/1` finds metavariables (`'@Name'`, `_@Name`,
+  `909N`, `"'@Name"`; `@@`/`9099` globs) and lifts one level per extra
+  underscore or 0; `tree/1`, `subst/2`, `tsubst/2`, `alpha/2` and
+  `template_vars/1`.
+- `match.cpp`: `match/2` binds metavariables group by group (the last group
+  first, as OTP's recursion does) with a glob taking the run of trees its
+  group leaves, and compares the rest node by node; `meta_template/1`.
+- CTest `executables_merl_templates` (compared with OTP).
+
 ## Erl lint
 
 `erl_lint`'s checks are builtins (`front_end/lint*.cpp`, plan 21 step

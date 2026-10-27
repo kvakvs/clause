@@ -135,11 +135,10 @@ Steps:
     walks without funs C++; golden `syntax_tools_lib`), `erl_comment_scan` and `erl_recomment`
     since LIB77E4b (C++ but `file/1`; golden `syntax_tools_comments`), `epp_dodger` since LIB77E4c
     (Erlang reading and parsing, C++ token and form rewriting in `clause_epp_dodger`; golden
-    `epp_dodger_forms`; the file I/O server now ends at undecodable UTF-8 as OTP's).
-    - **LIB77E5 `merl`:** quoting and templates over `epp_dodger`/`erl_syntax`, `merl.hrl` written
-      from the documented macros, `merl_transform` (also a library transform for the host),
-      `compile`/`compile_and_load` over LIB77E1. `syntax_tools` stops being partial. Golden
-      `merl_templates`.
+    `epp_dodger_forms`; the file I/O server now ends at undecodable UTF-8 as OTP's), and `merl`
+    with `merl.hrl` and `merl_transform` since LIB77E5 (quoting, printing, `switch/2` and
+    compiling Erlang; templates and matching C++; golden `merl_templates`). `syntax_tools` is
+    complete.
 - **LIB78 (optional, beyond erts/kernel/stdlib) `parsetools`:** `yecc` and `leex` with
   `yeccpre.hrl`/`leexinc.hrl` equivalents, so projects that ship only `.yrl`/`.xrl` build without
   OTP. Generated parsers are clause-heavy: generate C++ tables or keep generated Erlang small (see
@@ -205,7 +204,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB77E5 (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
+1. LIB81B–D (LIB81E on request); LIB78 only on
    request.
 2. LIB82, LIB83 last (test support).
 

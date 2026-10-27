@@ -53,12 +53,13 @@ void use_index(PreprocessorOptions &options, project::DirectoryIndex *index) {
 PreprocessorOptions preprocessing_options(const FrontendRequest &request, cache::KeyBuilder &fingerprint) {
     auto options = request.preprocessing;
     // The library's applications answer include_lib after the request's own (`kernel/include/logger.hrl`). Added
-    // for plan 21 step LIB23.
+    // for plan 21 step LIB23; syntax_tools (merl.hrl) since LIB77E5.
     const auto library = linking::library_directory();
     options.applications.insert(options.applications.begin(), {{"erts", library / "erts"},
                                                                {"kernel", library / "kernel"},
                                                                {"stdlib", library / "stdlib"},
-                                                               {"public_key", library / "public_key"}});
+                                                               {"public_key", library / "public_key"},
+                                                               {"syntax_tools", library / "syntax_tools"}});
     options.include_read = [&fingerprint](const std::filesystem::path &path, const std::string_view bytes) {
         fingerprint.add(project::path_text(path)).add(cache::hash_text(bytes));
     };

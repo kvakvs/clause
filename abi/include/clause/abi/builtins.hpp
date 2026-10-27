@@ -1830,6 +1830,16 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_epp_dodger", "scan", 2},
     BuiltinName{"clause_epp_dodger", "quickscan", 1},
     BuiltinName{"clause_epp_dodger", "rewrite_form", 1},
+    // merl's templates and matching, and clause_merl's shapes (plan 21 LIB77E5; runtime/src/builtins/merl/).
+    BuiltinName{"clause_merl", "subtrees", 1},
+    BuiltinName{"merl", "template", 1},
+    BuiltinName{"merl", "tree", 1},
+    BuiltinName{"merl", "subst", 2},
+    BuiltinName{"merl", "tsubst", 2},
+    BuiltinName{"merl", "alpha", 2},
+    BuiltinName{"merl", "template_vars", 1},
+    BuiltinName{"merl", "match", 2},
+    BuiltinName{"merl", "meta_template", 1},
     // The registry of clause_interp's interpreted modules (plan 21 LIB77B; runtime/src/builtins/interpreted.cpp).
     BuiltinName{"clause_interp", "register", 4},
     BuiltinName{"clause_interp", "unregister", 1},

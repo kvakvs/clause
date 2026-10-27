@@ -1,0 +1,23 @@
+%% OTP 29 merl exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{alpha, 2, default, implemented}.
+{compile, 1, default, implemented}.
+{compile, 2, default, implemented}.
+{compile_and_load, 1, default, implemented}.
+{compile_and_load, 2, default, implemented}.
+{match, 2, default, implemented}.
+{meta_template, 1, default, implemented}.
+{print, 1, default, implemented}.
+{qquote, 2, default, implemented}.
+{qquote, 3, default, implemented}.
+{quote, 1, default, implemented}.
+{quote, 2, default, implemented}.
+{show, 1, default, implemented}.
+{subst, 2, default, implemented}.
+{switch, 2, default, implemented}.
+{template, 1, default, implemented}.
+{template_vars, 1, default, implemented}.
+{term, 1, default, implemented}.
+{tree, 1, default, implemented}.
+{tsubst, 2, default, implemented}.
+{var, 1, default, implemented}.

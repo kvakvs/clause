@@ -591,3 +591,8 @@ recorded elsewhere.
   as Latin-1 (and over-unreading by re-encoding them): now chunk_chars seeks back over them and until/5 stops with
   OTP's {error, {Loc, file_io_server, invalid_unicode}, Loc} (erl_scan cont) or {error, F}. Quick scratch repro:
   clau X.erl --entry X -o X.exe from a .cmd that calls tools\windows-toolchain.cmd, then run the exe from bash.
+- LIB77E5 merl (2026-10-28): golden identical once (1) frontend.cpp maps include_lib "syntax_tools" to library/
+  (library apps are listed by hand there: erts, kernel, stdlib, public_key, syntax_tools) and (2) the program calls the
+  compile_and_load'ed module through a runtime name (clau rejects static calls to unknown modules). `std::vector{x}`
+  with one vector argument copies it (CTAD): write std::vector<Items>{...}. Lizard CCN 10 also flags if-chains of
+  shapes: use a table of {type, sizes, build} rows. syntax_tools now 422/422 documented functions.

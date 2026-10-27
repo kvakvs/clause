@@ -7,10 +7,10 @@ other syntax_tools modules; without them such code fails with `undef`. Parse tra
 Clause's [transform host](../transforms.md), which links the whole library, so interpreted
 transform code finds these modules there too.
 
-The application is partial: `erl_syntax` (LIB77E2), `prettypr` (LIB77E3a), `erl_prettypr`
-(LIB77E3b), `erl_syntax_lib` (LIB77E4a), `erl_comment_scan` and `erl_recomment` (LIB77E4b) and
-`epp_dodger` (LIB77E4c) are provided. `merl` with `merl_transform` (LIB77E5) follows, as
-[plan 21](../../.agents/21-lib.md) orders it.
+All the application's modules are provided: `erl_syntax` (LIB77E2), `prettypr` (LIB77E3a),
+`erl_prettypr` (LIB77E3b), `erl_syntax_lib` (LIB77E4a), `erl_comment_scan` and `erl_recomment`
+(LIB77E4b), `epp_dodger` (LIB77E4c), and `merl` with `merl_transform` and
+[`merl.hrl`](../../library/syntax_tools/include/merl.hrl) (LIB77E5).
 
 ## erl_syntax
 
@@ -173,3 +173,36 @@ and macros in the tokens of a form and back in the parsed form are
   - `parse/1,2,3`, `quick_parse/1,2,3`, `parse_form/2,3` and `quick_parse_form/2,3` on devices;
   - a Latin-1 file parsed again as Latin-1, and the error of one that declares UTF-8;
   - `tokens_to_string/1` and `format_error/1`.
+
+## merl
+
+[`merl`](../../library/syntax_tools/merl.erl) has OTP 29's 21 exports, all implemented (see the
+[inventory](../../library/syntax_tools/merl.terms)). Quoting (`quote/1,2`, `qquote/2,3`: forms
+when the text has dots, else expressions, `try` handlers, fun clauses or case clauses, the first
+that parses, with the text's comments attached by line), `print/1`, `show/1`, `switch/2` (its
+guards and actions are funs), `var/1`, `term/1`, `compile/1,2` and `compile_and_load/1,2` are
+Erlang. `compile` compiles to Clause's interpreter images ([compile](../builtins.md#compile)),
+which `compile_and_load` loads. The templates (`template/1`, `tree/1`, `subst/2`, `tsubst/2`,
+`alpha/2`, `template_vars/1`, `meta_template/1`) and `match/2` are
+[runtime builtins](../builtins.md#merl).
+
+[`merl.hrl`](../../library/syntax_tools/include/merl.hrl) defines `?Q/1,2` and selects
+`merl_transform` unless `MERL_NO_TRANSFORM` is defined, as OTP's header does.
+
+## merl_transform
+
+[`merl_transform`](../../library/syntax_tools/merl_transform.erl) is merl.hrl's parse transform, run
+in the [transform host](../transforms.md#transform-host) like the other library transforms. It
+rewrites `?Q(Text) = Expr` matches and `case` clauses of `?Q` patterns into `merl:match/2` and
+`merl:switch/2` calls with their templates built at compile time, and evaluates merl calls whose
+arguments are literals. It is Erlang over `merl`, as OTP's.
+
+- CTest `executables_merl_templates`, compared with OTP:
+  - quoting expressions, forms, clauses of every kind, comments, lines and binaries; parse errors;
+  - templates of every metavariable kind with lifting and globs, their variables, trees and meta
+    templates; substitution, renaming and the errors of bad metavariables and environments;
+  - matching with variables, globs, anonymous variables and lists, arity and glob errors;
+  - `switch/2` with guards, actions, defaults and its errors; `print/1` and `show/1`;
+  - `compile_and_load/1` of quoted forms and a call of the loaded module, `compile/1`;
+  - the program's own `?Q` matches, quasi-quotes, Erlang-variable metavariables and `case`
+    clauses, rewritten by `merl_transform`.

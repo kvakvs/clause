@@ -112,6 +112,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/comments/scan.cpp src/builtins/comments/recomment.cpp
     # epp_dodger's token and form rewriting (plan 21 step LIB77E4c).
     src/builtins/epp_dodger/tokens.cpp src/builtins/epp_dodger/rewrite.cpp
+    # merl's templates and matching (plan 21 step LIB77E5).
+    src/builtins/merl/shapes.cpp src/builtins/merl/templates.cpp src/builtins/merl/match.cpp
     # The qlc parse transform at run time (plan 21 step LIB73).
     src/builtins/qlc_pt/kit.cpp src/builtins/qlc_pt/state.cpp src/builtins/qlc_pt/messages.cpp
     src/builtins/qlc_pt/frames.cpp src/builtins/qlc_pt/columns.cpp src/builtins/qlc_pt/clauses.cpp

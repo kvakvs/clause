@@ -267,6 +267,10 @@ std::span<const BuiltinEntry> erl_recomment_builtins() noexcept;
 // clause_epp_dodger, epp_dodger's token and form rewriting (plan 21 step LIB77E4c; runtime/src/builtins/epp_dodger/).
 std::span<const BuiltinEntry> epp_dodger_token_builtins() noexcept;
 std::span<const BuiltinEntry> epp_dodger_rewrite_builtins() noexcept;
+// Module merl's templates and matching, and clause_merl (plan 21 step LIB77E5; runtime/src/builtins/merl/).
+std::span<const BuiltinEntry> merl_shape_builtins() noexcept;
+std::span<const BuiltinEntry> merl_template_builtins() noexcept;
+std::span<const BuiltinEntry> merl_match_builtins() noexcept;
 // The erlang gaps of plan 21 step LIB9A: checksums and iovecs, tuple edits, option-taking process builtins and
 // system flags.
 std::span<const BuiltinEntry> checksum_builtins() noexcept;

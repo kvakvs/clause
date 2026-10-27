@@ -3,6 +3,7 @@
     {vsn, "4.1.1"},
     {modules, [
         clause_epp_dodger,
+        clause_merl,
         clause_prettypr,
         epp_dodger,
         erl_comment_scan,
@@ -10,6 +11,8 @@
         erl_recomment,
         erl_syntax,
         erl_syntax_lib,
+        merl,
+        merl_transform,
         prettypr
     ]},
     {registered, []},
