@@ -684,6 +684,16 @@ FrontendRequest batch_request(const std::span<const std::filesystem::path> paths
                                   .index_ = shared.index_};
         return transform_sources(module, places, options, host, *cache);
     };
+    // Transform sources get their own transforms, not the batch's; the reader they use for those holds its settings
+    // weakly, so the two never keep each other alive. Added for transform sources (plan 21 LIB77C).
+    auto own = std::make_shared<transforms::TransformSettings>(request.transforms_);
+    own->transforms_.clear();
+    const std::weak_ptr<const transforms::TransformSettings> weak = own;
+    own->read_source_ = [weak, cache, options = request.preprocessing](const std::filesystem::path &path) {
+        const auto settings = weak.lock();
+        return settings ? read_transform_source(path, options, *settings, *cache) : transforms::SourceForms{};
+    };
+    request.transforms_.read_source_ = [own](const std::filesystem::path &path) { return own->read_source_(path); };
     return request;
 }
 } // namespace

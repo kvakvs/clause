@@ -530,3 +530,8 @@ recorded elsewhere.
   shows failing-BIF frames ({erlang, element, ...}), so goldens print only interpreted frames. OTP's
   code:module_status of a load_binary module whose file is a source = removed. Interpreted sources in executables
   fixtures need a non-.erl suffix (`.erl.in`), else run.py's rglob compiles them into the program.
+- LIB77C transform sources (2026-10-27): routing in pipeline.cpp request_of: all library-provided -> host; else erl
+  when found; else host if every transform is library/.beam/project source (library module shadowed by a .beam is
+  not interpretable: host links its own). erlc omits debug_info by default -> test fixtures build with
+  +debug_info. erl_error prints "(File:Line)" in OTP 29, not "(File, line N)". Python test edits via bash heredoc
+  turn "\n" in strings into real newlines (use Write/Edit).

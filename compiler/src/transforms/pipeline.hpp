@@ -8,6 +8,15 @@ namespace clause::transforms {
 // Whether the host OTP provides a module it never replaces (a sticky one). Added for transform source caching.
 using HostModule = std::function<bool(const std::u32string &)>;
 
+// A transform source as Clause's frontend read it, after its own parse transforms: its forms, or none after the
+// errors. Added for transform sources (plan 21 LIB77C).
+struct SourceForms {
+    std::shared_ptr<const AbstractModule> module_;
+    std::vector<Diagnostic> errors_;
+    // What the loader running the source's own transforms printed.
+    std::string output_;
+};
+
 // Clause's own transform host: the loader linked with Clause's whole library, which runs the transforms the library
 // provides without a host OTP. Added for the transform host (plan 21 LIB77A).
 class ClauseHost {
@@ -31,6 +40,8 @@ struct TransformSettings {
     // The sources of a project transform module and of the project modules it calls, by module name, leaving out
     // host modules; the loader compiles them when no .beam on the code paths precedes them.
     std::function<std::vector<std::filesystem::path>(const std::u32string &, const HostModule &)> find_sources_;
+    // Reads one of those sources as the loader gets it. Added for transform sources (plan 21 LIB77C).
+    std::function<SourceForms(const std::filesystem::path &)> read_source_;
     // The host's sticky modules, shared by every copy of the settings so erl is asked once per invocation.
     // Added for transform source caching.
     std::shared_ptr<StickyModules> sticky_ = std::make_shared<StickyModules>();
@@ -40,8 +51,9 @@ struct TransformSettings {
     // Loader replies and sticky module lists kept between invocations; absent: none are kept. Added for the
     // transform cache (62D2).
     std::shared_ptr<HostCache> cache_;
-    // Runs requests whose transforms all come from Clause's library in place of erl; absent: erl runs every one.
-    // Added for the transform host (plan 21 LIB77A).
+    // Runs requests whose transforms all come from Clause's library in place of erl, and without erl those whose
+    // transforms are project sources or .beam files too (LIB77C); absent: erl runs every one. Added for the
+    // transform host (plan 21 LIB77A).
     std::shared_ptr<ClauseHost> host_;
 };
 

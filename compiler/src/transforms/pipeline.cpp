@@ -153,36 +153,56 @@ bool missing_paths(const TransformSettings &settings, const std::string &file, T
     return outcome.failed_;
 }
 
-// The request for one module: its transforms, project sources of those that have one, the host erl.
-TransformRequest request_for(const std::filesystem::path &erl, std::vector<std::u32string> transforms,
+// The forms of one transform source, or false after reporting why it cannot be read. Added for transform sources
+// (plan 21 LIB77C).
+bool add_source(std::filesystem::path path, const TransformSettings &settings, TransformRequest &request,
+                TransformOutcome &outcome, SourceManager &sources) {
+    const auto known = std::ranges::any_of(request.sources_, [&](const auto &item) { return item.path_ == path; });
+    if (known) {
+        return true;
+    }
+    auto read = settings.read_source_(path);
+    outcome.output_ += read.output_;
+    if (!read.module_) {
+        std::ranges::move(read.errors_, std::back_inserter(outcome.diagnostics_));
+        const auto bytes = path.generic_u8string();
+        outcome.diagnostics_.push_back(located(std::string(bytes.begin(), bytes.end()), std::nullopt,
+                                               "cannot compile parse transform source; precompile it into a .beam "
+                                               "with the host Erlang/OTP and pass its directory with --transform-path",
+                                               Severity::error, sources));
+        outcome.failed_ = true;
+        return false;
+    }
+    request.sources_.push_back({.path_ = std::move(path), .module_ = std::move(read.module_)});
+    return true;
+}
+
+// Add the project sources of the transforms that have one and no .beam on the code paths, leaving out the modules
+// `host` has; false after one could not be read.
+bool add_sources(const TransformSettings &settings, const HostModule &host, TransformRequest &request,
+                 TransformOutcome &outcome, SourceManager &sources) {
+    for (const auto &name : request.transforms_) {
+        if (precompiled(name, settings.code_paths_) || !settings.find_sources_ || !settings.read_source_) {
+            continue;
+        }
+        for (auto &path : settings.find_sources_(name, host)) {
+            if (!add_source(std::move(path), settings, request, outcome, sources)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// The request for one module, without its transform sources: the runner, transforms, code paths and options.
+TransformRequest request_for(const std::filesystem::path &runner, std::vector<std::u32string> transforms,
                              const TransformSettings &settings, const CompileOptions &options, std::string file) {
     TransformRequest request;
-    request.erl_ = erl;
+    request.erl_ = runner;
     request.temporary_directory_ = settings.temporary_directory_;
     request.code_paths_ = settings.code_paths_;
     request.file_ = std::move(file);
     request.options_ = options;
-    // Transform sources compile with the module's include directories and defines, never with transforms.
-    auto source_options = options;
-    source_options.features_.clear();
-    source_options.transforms_.clear();
-    // The host's own sticky modules need no sources. Added for transform source caching.
-    const HostModule host = [&](const std::u32string &module) {
-        return settings.sticky_ &&
-               settings.sticky_->contains(erl, module, settings.temporary_directory_, settings.cache_.get());
-    };
-    for (const auto &name : transforms) {
-        if (precompiled(name, settings.code_paths_) || !settings.find_sources_) {
-            continue;
-        }
-        for (auto &path : settings.find_sources_(name, host)) {
-            const auto known =
-                std::ranges::any_of(request.sources_, [&](const auto &item) { return item.path_ == path; });
-            if (!known) {
-                request.sources_.push_back({.path_ = std::move(path), .options_ = source_options});
-            }
-        }
-    }
     request.transforms_ = std::move(transforms);
     return request;
 }
@@ -199,72 +219,105 @@ std::optional<TransformReply> run(const AbstractModule &module, const TransformR
     }
 }
 
-// The host erl, or an error naming the first transform when there is none.
-std::optional<std::filesystem::path> host_erl(const TransformSettings &settings, const std::u32string &transform,
-                                              const std::string &file, TransformOutcome &outcome,
-                                              SourceManager &sources) {
-    std::string problem;
-    try {
-        if (auto erl = find_erl(settings.erl_)) {
-            return erl;
-        }
-        problem = "parse transform '" + utf8(transform) + "' needs Erlang/OTP 29 on the host; pass --erl";
-    } catch (const LoaderError &error) {
-        problem = error.what();
-    }
-    outcome.diagnostics_.push_back(located(file, std::nullopt, problem, Severity::error, sources));
+// Report an error of the module's file and fail it.
+void fail(const std::string &file, std::string message, TransformOutcome &outcome, SourceManager &sources) {
+    outcome.diagnostics_.push_back(located(file, std::nullopt, std::move(message), Severity::error, sources));
     outcome.failed_ = true;
-    return std::nullopt;
 }
 
-// The request for the host erl, or none (after an error) when there is no erl. Added for the transform host.
-std::optional<TransformRequest> erl_request(std::vector<std::u32string> transforms, const TransformSettings &settings,
-                                            const CompileOptions &options, const std::string &file,
-                                            TransformOutcome &outcome, SourceManager &sources) {
-    const auto erl = host_erl(settings, transforms.front(), file, outcome, sources);
-    if (!erl) {
-        return std::nullopt;
-    }
-    return request_for(*erl, std::move(transforms), settings, options, file);
-}
-
-// Whether Clause's transform host runs every transform: the library provides them all and no precompiled .beam on
-// the code paths replaces one. Added for the transform host (plan 21 LIB77A).
-bool host_runs(const std::vector<std::u32string> &transforms, const TransformSettings &settings) {
-    return settings.host_ && std::ranges::all_of(transforms, [&](const std::u32string &name) {
-               return settings.host_->provides(name) && !precompiled(name, settings.code_paths_);
-           });
-}
-
-// The request for Clause's transform host, or none (after an error) when it cannot be built. Added for the
-// transform host (plan 21 LIB77A).
-std::optional<TransformRequest> host_request(std::vector<std::u32string> transforms, const TransformSettings &settings,
-                                             const CompileOptions &options, const std::string &file,
-                                             TransformOutcome &outcome, SourceManager &sources) {
-    TransformRequest request;
+// The host erl when there is one: none for `--erl none` or when no erl is found; an invalid --erl path is an error
+// (reported, and the outcome failed).
+std::optional<std::filesystem::path> host_erl(const TransformSettings &settings, const std::string &file,
+                                              TransformOutcome &outcome, SourceManager &sources) {
     try {
-        request.erl_ = settings.host_->executable();
+        return find_erl(settings.erl_);
     } catch (const LoaderError &error) {
-        outcome.diagnostics_.push_back(located(file, std::nullopt, error.what(), Severity::error, sources));
-        outcome.failed_ = true;
+        fail(file, error.what(), outcome, sources);
         return std::nullopt;
     }
-    request.clause_host_ = true;
-    request.temporary_directory_ = settings.temporary_directory_;
-    request.file_ = file;
-    request.options_ = options;
-    request.transforms_ = std::move(transforms);
+}
+
+// The request for the host erl, with the project sources it compiles, or none after an error. Added for the
+// transform host.
+std::optional<TransformRequest> erl_request(const std::filesystem::path &erl, std::vector<std::u32string> transforms,
+                                            const TransformSettings &settings, const CompileOptions &options,
+                                            const std::string &file, TransformOutcome &outcome,
+                                            SourceManager &sources) {
+    // The host's own sticky modules need no sources. Added for transform source caching.
+    const HostModule sticky = [&](const std::u32string &module) {
+        return settings.sticky_ &&
+               settings.sticky_->contains(erl, module, settings.temporary_directory_, settings.cache_.get());
+    };
+    auto request = request_for(erl, std::move(transforms), settings, options, file);
+    if (!add_sources(settings, sticky, request, outcome, sources)) {
+        return std::nullopt;
+    }
     return request;
 }
 
-// The request of a module's transforms: Clause's transform host when it runs them all, else the host erl.
+// Whether Clause's transform host provides a transform: Clause's library has it and no .beam on the code paths
+// replaces it. Added for the transform host (plan 21 LIB77A).
+bool host_provides(const std::u32string &name, const TransformSettings &settings) {
+    return settings.host_ && settings.host_->provides(name) && !precompiled(name, settings.code_paths_);
+}
+
+// Whether Clause's transform host can run a transform: it provides it, or interprets a .beam on the code paths or a
+// project source of it. Added for transform sources (plan 21 LIB77C).
+bool host_runs(const std::u32string &name, const TransformSettings &settings) {
+    if (!settings.host_ || host_provides(name, settings)) {
+        return settings.host_ != nullptr;
+    }
+    // The host cannot interpret a module of the library it links.
+    if (settings.host_->provides(name)) {
+        return false;
+    }
+    const HostModule linked = [&](const std::u32string &module) { return settings.host_->provides(module); };
+    return precompiled(name, settings.code_paths_) ||
+           (settings.find_sources_ && !settings.find_sources_(name, linked).empty());
+}
+
+// The request for Clause's transform host, with the project sources it interprets, or none (after an error) when it
+// cannot be built. Added for the transform host (plan 21 LIB77A).
+std::optional<TransformRequest> host_request(std::vector<std::u32string> transforms, const TransformSettings &settings,
+                                             const CompileOptions &options, const std::string &file,
+                                             TransformOutcome &outcome, SourceManager &sources) {
+    std::filesystem::path host;
+    try {
+        host = settings.host_->executable();
+    } catch (const LoaderError &error) {
+        fail(file, error.what(), outcome, sources);
+        return std::nullopt;
+    }
+    auto request = request_for(host, std::move(transforms), settings, options, file);
+    request.clause_host_ = true;
+    const HostModule linked = [&](const std::u32string &module) { return settings.host_->provides(module); };
+    if (!add_sources(settings, linked, request, outcome, sources)) {
+        return std::nullopt;
+    }
+    return request;
+}
+
+// The request of a module's transforms: Clause's transform host when the library provides them all, else the host
+// erl; without one, the host also interprets project sources and .beam files (plan 21 LIB77C).
 std::optional<TransformRequest> request_of(std::vector<std::u32string> transforms, const TransformSettings &settings,
                                            const CompileOptions &options, const std::string &file,
                                            TransformOutcome &outcome, SourceManager &sources) {
-    if (host_runs(transforms, settings)) {
+    const auto provided = [&](const std::u32string &name) { return host_provides(name, settings); };
+    if (std::ranges::all_of(transforms, provided)) {
         return host_request(std::move(transforms), settings, options, file, outcome, sources);
     }
-    return erl_request(std::move(transforms), settings, options, file, outcome, sources);
+    const auto erl = host_erl(settings, file, outcome, sources);
+    if (erl || outcome.failed_) {
+        return erl ? erl_request(*erl, std::move(transforms), settings, options, file, outcome, sources) : std::nullopt;
+    }
+    const auto missing =
+        std::ranges::find_if_not(transforms, [&](const auto &name) { return host_runs(name, settings); });
+    if (missing != transforms.end()) {
+        fail(file, "parse transform '" + utf8(*missing) + "' needs Erlang/OTP 29 on the host; pass --erl", outcome,
+             sources);
+        return std::nullopt;
+    }
+    return host_request(std::move(transforms), settings, options, file, outcome, sources);
 }
 } // namespace
 

@@ -31,8 +31,14 @@ class InterpretedModules final {
     void add(Word module, Module entry, const void *route);
     // Stop interpreting `module`; false when it was not interpreted.
     bool remove(Word module);
-    // The route frame of a call into `module`, or null when it is not interpreted.
+    // Route every call of an undefined function, not only those of interpreted modules, so the interpreter can load
+    // their modules from .beam files (plan 21 LIB77C).
+    void route_undefined(const void *route);
+    // The route frame of a call into `module` that nothing in the program answers, or null when it is not
+    // interpreted (and undefined calls are not routed).
     const void *route(Word module) const noexcept;
+    // Whether `module` is interpreted.
+    bool contains(Word module) const noexcept;
     // Whether interpreted `module` exports `function`.
     bool exported(Word module, const Export &function) const noexcept;
     // The file of interpreted `module`; none when it is not interpreted.
@@ -43,8 +49,11 @@ class InterpretedModules final {
   private:
     // Guards modules_ and route_: shared for queries, exclusive for changes.
     mutable std::shared_mutex mutex_;
-    // Set while any module is interpreted, so the calls and queries of programs without any skip the lock.
+    // Set while any module is interpreted or undefined calls are routed, so the calls and queries of programs
+    // without any skip the lock.
     std::atomic<bool> any_{false};
+    // Every undefined call takes the route (route_undefined).
+    bool all_ = false;
     // The interpreted modules by module atom word.
     std::map<Word, Module> modules_;
     // error_handler:undefined_function/3's frame, as the last registration gave it.

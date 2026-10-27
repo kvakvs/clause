@@ -726,6 +726,9 @@ module's file and exports.
   its external funs, the call service writes `Module`, `Function` and the
   argument list to the registers and returns `Route`'s frame
   ([dynamic calls](funs.md#dynamic-calls)).
+- `clause_interp:route_undefined(Route)` (plan 21 LIB77C) sends every call that
+  finds no function to `Route`, so `clause_interp` can interpret a module
+  from a `.beam` when first called; `Route` raises `undef` for the rest.
 - `erlang:function_exported/3` and the [code module](#code-module) answer for
   registered modules. Programs that never register one pay one atomic flag
   test in these paths.

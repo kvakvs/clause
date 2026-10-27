@@ -5,7 +5,8 @@ source_search_paths, plus a dependency transform precompiled with the host OTP a
 links a program that prints what OTP prints; ignored search directories and sources of the host's sticky modules
 (with what they call) are left out of the transform's sources; a transform source the loader cannot compile is
 reported with the
-precompile hint; a precompiled .beam on a code path wins over the source.
+precompile hint; a precompiled .beam on a code path wins over the source. With --erl none, Clause's transform host
+interprets those .beam files from their debug_info, and asks for --erl for one without it (plan 21 LIB77C).
 """
 import pathlib
 import shutil
@@ -20,14 +21,15 @@ def run(command, cwd):
 
 
 def prepare(erl, fixtures, work):
-    """A fresh copy of the project with its dependency transform built by the host OTP."""
+    """A fresh copy of the project with its dependency transform built by the host OTP, with debug_info for Clause's
+    transform host."""
     root = work / "project"
     shutil.rmtree(root, ignore_errors=True)
     shutil.copytree(fixtures / "project", root)
     ebin = root / "deps/ptdep/ebin"
     ebin.mkdir(parents=True)
     erlc = pathlib.Path(erl).with_name("erlc" + pathlib.Path(erl).suffix)
-    built = run([erlc, "-o", ebin, root / "deps/ptdep/src/pt_dep.erl"], root)
+    built = run([erlc, "+debug_info", "-o", ebin, root / "deps/ptdep/src/pt_dep.erl"], root)
     return root, ([] if built.returncode == 0 else [f"erlc failed\n{built.stdout}{built.stderr}"])
 
 
@@ -76,10 +78,25 @@ def precompiled(tool, erl, root, fixtures):
     ebin = root / "deps/ptdep/ebin"
     erlc = pathlib.Path(erl).with_name("erlc" + pathlib.Path(erl).suffix)
     sources = [fixtures / "project/transforms/pt_rewrite.erl", fixtures / "project/transforms/pt_helper.erl"]
-    built = run([erlc, "-o", ebin] + sources, root)
+    built = run([erlc, "+debug_info", "-o", ebin] + sources, root)
     if built.returncode != 0:
         return [f"erlc failed\n{built.stdout}{built.stderr}"]
     return program(tool, erl, root)
+
+
+def host_beams(tool, erl, root, fixtures):
+    """Without erl, the precompiled transforms and the pt_helper they call are interpreted from their .beam files; a
+    .beam built without debug_info needs erl. Added for transform sources (plan 21 LIB77C)."""
+    failures = program(tool, "none", root)
+    erlc = pathlib.Path(erl).with_name("erlc" + pathlib.Path(erl).suffix)
+    built = run([erlc, "+no_debug_info", "-o", root / "deps/ptdep/ebin", root / "deps/ptdep/src/pt_dep.erl"], root)
+    if built.returncode != 0:
+        return failures + [f"erlc failed\n{built.stdout}{built.stderr}"]
+    result = run([tool, "--erl", "none", "--project", "project.toml"], root)
+    message = "parse transform 'pt_dep' in "
+    if result.returncode != 1 or message not in result.stderr or "has no debug_info; pass --erl" not in result.stderr:
+        failures.append(f"no debug_info: exit {result.returncode}\n{result.stderr}")
+    return failures
 
 
 def main():
@@ -92,7 +109,7 @@ def main():
     root, failures = prepare(erl, fixtures, work)
     if not failures:
         failures = (program(tool, erl, root) + skipped_sources(tool, erl, root) + broken(tool, erl, root) +
-                    precompiled(tool, erl, root, fixtures))
+                    precompiled(tool, erl, root, fixtures) + host_beams(tool, erl, root, fixtures))
     if failures:
         print("\n".join(failures), file=sys.stderr)
         sys.exit(1)

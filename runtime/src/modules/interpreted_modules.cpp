@@ -13,8 +13,15 @@ void InterpretedModules::add(Word module, Module entry, const void *route) {
 bool InterpretedModules::remove(Word module) {
     const std::unique_lock lock(mutex_);
     const auto removed = modules_.erase(module) != 0;
-    any_.store(!modules_.empty(), std::memory_order_release);
+    any_.store(all_ || !modules_.empty(), std::memory_order_release);
     return removed;
+}
+
+void InterpretedModules::route_undefined(const void *route) {
+    const std::unique_lock lock(mutex_);
+    route_ = route;
+    all_ = true;
+    any_.store(true, std::memory_order_release);
 }
 
 const void *InterpretedModules::route(Word module) const noexcept {
@@ -22,7 +29,15 @@ const void *InterpretedModules::route(Word module) const noexcept {
         return nullptr;
     }
     const std::shared_lock lock(mutex_);
-    return modules_.contains(module) ? route_ : nullptr;
+    return all_ || modules_.contains(module) ? route_ : nullptr;
+}
+
+bool InterpretedModules::contains(Word module) const noexcept {
+    if (!any_.load(std::memory_order_acquire)) {
+        return false;
+    }
+    const std::shared_lock lock(mutex_);
+    return modules_.contains(module);
 }
 
 bool InterpretedModules::exported(Word module, const Export &function) const noexcept {

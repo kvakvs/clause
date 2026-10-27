@@ -10,9 +10,12 @@
 %% so the non-local function handler knows both. The handler keeps a shadow stack of the interpreted functions
 %% running in the process dictionary, with the line each is at, and exceptions leaving interpreted code get OTP-like
 %% frames {Module, Function, Arity, [{file, File}, {line, Line}]} for them in place of erl_eval's.
+%%
+%% With a path (set_path/1, plan 21 LIB77C) every undefined call enters error_handler, which interprets the module
+%% from the debug_info chunk of its .beam on the path when it has one (load_from_path/1).
 -module(clause_interp).
--export([load/1, unload/1, call/3, format_error/1]).
--export([register/4, unregister/1, interpreted/1]).
+-export([load/1, unload/1, call/3, format_error/1, set_path/1, ensure_loaded/1, load_from_path/1]).
+-export([register/4, unregister/1, interpreted/1, route_undefined/1]).
 
 -define(LOCAL, '$clause_interp_local').
 -define(TAIL, '$clause_interp_tail').
@@ -42,14 +45,21 @@ unregister(_) -> clause_builtin_placeholder.
 %% interpreted(Module): whether Module is interpreted.
 interpreted(_) -> clause_builtin_placeholder.
 
+%% route_undefined(Route): every call of an undefined function enters Route from now on (set_path/1).
+route_undefined(_) -> clause_builtin_placeholder.
+
 %% Loading
 
 %% load(Forms): {ok, Module, Warnings} after interpreting the module of Forms (replacing an interpreted one of that
 %% name), or {error, Errors, Warnings} as compile:forms/2 returns them.
 load(Forms) ->
+    load(Forms, source_file(Forms)).
+
+%% Interpret Forms as loaded from Location, the file code queries show.
+load(Forms, Location) ->
     File = source_file(Forms),
     case erl_lint:module(Forms, File, []) of
-        {ok, Warnings} -> install(Forms, File, Warnings);
+        {ok, Warnings} -> install(Forms, File, Location, Warnings);
         {error, Errors, Warnings} -> {error, Errors, Warnings}
     end.
 
@@ -61,18 +71,59 @@ unload(Module) ->
 format_error({linked, Module}) ->
     io_lib:format("module '~ts' is part of the program and cannot be interpreted", [Module]).
 
-install(Forms0, File, Warnings) ->
+install(Forms0, File, Location, Warnings) ->
     Forms = erl_internal:add_predefined_functions(erl_expand_records:module(Forms0, [])),
     Image = image(Forms, File),
     Module = Image#image.module,
     persistent_term:put({?MODULE, Module}, Image),
-    case clause_interp:register(Module, File, Image#image.exports, fun error_handler:undefined_function/3) of
+    case clause_interp:register(Module, Location, Image#image.exports, fun error_handler:undefined_function/3) of
         ok ->
             {ok, Module, Warnings};
         linked ->
             _ = persistent_term:erase({?MODULE, Module}),
             {error, [{File, [{none, ?MODULE, {linked, Module}}]}], Warnings}
     end.
+
+%% Modules from .beam files (plan 21 LIB77C)
+
+%% set_path(Directories): interpret modules from their .beam files in the directories when first called, or asked
+%% for with ensure_loaded/1; an empty list changes nothing.
+set_path([]) ->
+    ok;
+set_path(Directories) ->
+    persistent_term:put({?MODULE, path}, Directories),
+    clause_interp:route_undefined(fun error_handler:undefined_function/3).
+
+%% ensure_loaded(Module): {module, Module} for a module the program links or interprets, or interprets now from its
+%% .beam on the path; {error, nofile} without one, {error, {Reason, File}} when its .beam cannot be interpreted.
+ensure_loaded(Module) ->
+    case code:ensure_loaded(Module) of
+        {module, Module} -> {module, Module};
+        {error, _} -> load_beam(Module)
+    end.
+
+%% load_from_path(Module): whether Module, neither linked nor interpreted, is interpreted now from its .beam.
+load_from_path(Module) ->
+    not erlang:module_loaded(Module) andalso load_beam(Module) =:= {module, Module}.
+
+load_beam(Module) ->
+    Name = atom_to_list(Module) ++ ".beam",
+    Path = persistent_term:get({?MODULE, path}, []),
+    case [File || Directory <- Path, File <- [filename:join(Directory, Name)], filelib:is_regular(File)] of
+        [File | _] -> interpret_beam(Module, File);
+        [] -> {error, nofile}
+    end.
+
+interpret_beam(Module, File) ->
+    case beam_lib:chunks(File, [abstract_code]) of
+        {ok, {Module, [{abstract_code, {raw_abstract_v1, Forms}}]}} -> loaded_beam(Module, File, load(Forms, File));
+        {ok, {Module, [{abstract_code, no_abstract_code}]}} -> {error, {no_debug_info, File}};
+        {ok, {Other, _}} -> {error, {{module_name, Other}, File}};
+        {error, beam_lib, Reason} -> {error, {Reason, File}}
+    end.
+
+loaded_beam(Module, _File, {ok, Module, _Warnings}) -> {module, Module};
+loaded_beam(_Module, File, {error, Errors, _Warnings}) -> {error, {Errors, File}}.
 
 %% The file of the forms: the first file attribute's.
 source_file([{attribute, _, file, {File, _}} | _]) -> File;

@@ -3,11 +3,13 @@
 pipeline.py otp CLAU ERL FIXTURES WORK: on the host Erlang/OTP, programs using ms_transform and owned transforms
 (from -compile attributes and --parse-transform, found through --transform-path) link and print what OTP prints;
 transform warnings and errors and an undefined transform are reported.
-pipeline.py none CLAU - FIXTURES WORK: with --erl none a module naming a project transform fails with a message;
-transforms Clause's library provides run in Clause's transform host.
+pipeline.py none CLAU - FIXTURES WORK: with --erl none a module naming a transform no source or library provides fails
+with a message; transforms Clause's library provides run in Clause's transform host, which also interprets project
+transform sources (plan 21 LIB77C).
 """
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 
@@ -76,6 +78,40 @@ def host_forms(tool, fixtures, work):
     return failures
 
 
+def host_project(tool, fixtures, work):
+    """Without OTP, Clause's transform host interprets the project's transform sources: pt_rewrite and the pt_helper
+    it calls, and pt_dep as a source in place of its .beam; the program prints what OTP prints (plan 21 LIB77C)."""
+    root = work / "host-project"
+    shutil.rmtree(root, ignore_errors=True)
+    shutil.copytree(fixtures / "project", root)
+    shutil.move(root / "deps/ptdep/src/pt_dep.erl", root / "transforms/pt_dep.erl")
+    manifest = root / "project.toml"
+    text_ = manifest.read_text(encoding="utf-8").replace('transform_paths = ["deps/*/ebin"]\n', "")
+    manifest.write_text(text_, encoding="utf-8")
+    built = run([tool, "--erl", "none", "--project", "project.toml"], root)
+    if built.returncode != 0:
+        return [f"host project: build failed\n{built.stderr}"]
+    stdout, _ = text(run([root / "app.exe"], root))
+    expected = (root / "app.stdout").read_text(encoding="utf-8")
+    return [] if stdout == expected else [f"host project printed\n{stdout}"]
+
+
+def host_crash(tool, fixtures, work):
+    """An interpreted transform that raises is OTP's error with the transform's own frame."""
+    directory = work / "host-crash"
+    directory.mkdir(exist_ok=True)
+    shutil.copy(fixtures / "loader/pt_crash.erl", directory)
+    (directory / "crash_user.erl").write_text("-module(crash_user).\n-compile({parse_transform, pt_crash}).\n",
+                                              encoding="utf-8")
+    result = run([tool, "--erl", "none", "--print-abstr", "crash_user.erl", "pt_crash.erl"], directory)
+    message = "crash_user.erl: error in parse transform 'pt_crash':"
+    frame = "in function  pt_crash:parse_transform/2 (pt_crash.erl:6)"
+    stderr = text(result)[1]
+    if result.returncode != 1 or message not in stderr or frame not in stderr:
+        return [f"host crash: exit {result.returncode}\n{stderr}"]
+    return []
+
+
 def compile_transforms(erl, fixtures, ebin):
     """Precompile the owned transforms with the host OTP into one code path directory."""
     ebin.mkdir(parents=True, exist_ok=True)
@@ -132,6 +168,7 @@ def main():
     if mode == "none":
         failures = without_otp(tool, fixtures, work) + missing_path(tool, fixtures, work)
         failures += host_program(tool, fixtures, work) + host_forms(tool, fixtures, work)
+        failures += host_project(tool, fixtures, work) + host_crash(tool, fixtures, work)
     elif erl == "-":
         print("SKIP: no host Erlang/OTP")
         return

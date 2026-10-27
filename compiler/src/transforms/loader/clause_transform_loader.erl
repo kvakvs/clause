@@ -1,7 +1,8 @@
 %% Added for parse transforms: runs parse transforms for clau on the host Erlang/OTP (docs/transforms.md#loader).
 %% clau writes request.etf into a fresh directory, starts erl, which compiles this module in memory and calls
 %% main/1 with [Directory]; the reply goes to reply.etf beside it. Clause's transform host is this module linked with
-%% the whole library, its main/1 getting the directory as the program argument (plan 21 LIB77A).
+%% the whole library, its main/1 getting the directory as the program argument (plan 21 LIB77A); it interprets
+%% project transforms with clause_interp (LIB77C).
 -module(clause_transform_loader).
 -export([main/1]).
 
@@ -26,11 +27,19 @@ run(Directory) ->
         options := Options,
         transforms := Transforms,
         file := File,
-        sources := Sources
+        sources := Sources,
+        paths := Paths
     } = binary_to_term(Binary),
     check_release(File),
+    case host() of
+        true -> clause_interp:set_path(Paths);
+        false -> ok
+    end,
     load_sources(Sources),
     transform(Transforms, Forms, Options, File, []).
+
+%% Whether this is Clause's transform host, which interprets project transforms (plan 21 LIB77C); erl compiles them.
+host() -> erlang:module_loaded(clause_interp).
 
 %% Transforms compiled by another OTP release may not load or behave; Clause supports OTP 29 only.
 check_release(File) ->
@@ -43,14 +52,15 @@ check_release(File) ->
             throw({reply, {error, [{File, none, Message}], []}})
     end.
 
-%% Project transform sources {Path, CompileOptions}: compiled in memory and loaded before any transform runs.
+%% Project transform sources {Path, Forms}, as clau read them (plan 21 LIB77C): interpreted in Clause's transform
+%% host, compiled in memory and loaded on erl, before any transform runs.
 load_sources(Sources) ->
     lists:foreach(fun load_source/1, Sources).
 
-load_source({Path, Options}) ->
-    case host_sticky(list_to_atom(filename:basename(Path, ".erl"))) of
-        true -> ok;
-        false -> compile_source(Path, Options)
+load_source({Path, Forms}) ->
+    case host() of
+        true -> loaded_source(Path, clause_interp:load(Forms));
+        false -> compile_source(Path, Forms)
     end.
 
 %% Modules of kernel, stdlib and compiler live in sticky directories and cannot be reloaded: a project source of
@@ -59,28 +69,40 @@ host_sticky(Module) ->
     _ = code:ensure_loaded(Module),
     code:is_sticky(Module).
 
-compile_source(Path, Options) ->
-    case compile:file(Path, [binary, return_errors, return_warnings | Options]) of
-        {ok, Module, Binary, _Warnings} ->
-            {module, Module} = code:load_binary(Module, Path, Binary);
-        {error, Errors, _Warnings} ->
-            Hint = {
-                Path,
-                none,
-                "cannot compile parse transform source; precompile it into a .beam with the host "
-                "Erlang/OTP and pass its directory with --transform-path"
-            },
-            throw({reply, {error, messages(Errors) ++ [Hint], []}})
+compile_source(Path, Forms) ->
+    case host_sticky(hd([Module || {attribute, _, module, Module} <- Forms])) of
+        true -> ok;
+        false -> loaded_source(Path, compile:forms(Forms, [binary, return_errors, return_warnings]))
+    end.
+
+loaded_source(Path, {ok, Module, Binary, _Warnings}) ->
+    {module, Module} = code:load_binary(Module, Path, Binary),
+    ok;
+loaded_source(_Path, {ok, _Module, _Warnings}) ->
+    ok;
+loaded_source(Path, {error, Errors, _Warnings}) ->
+    Hint = {
+        Path,
+        none,
+        "cannot compile parse transform source; precompile it into a .beam with the host "
+        "Erlang/OTP and pass its directory with --transform-path"
+    },
+    throw({reply, {error, messages(Errors) ++ [Hint], []}}).
+
+%% Load a transform module: from the code path on erl; in Clause's transform host a linked or interpreted module, or
+%% one it interprets from a .beam on the code path (plan 21 LIB77C).
+ensure(Transform) ->
+    case host() of
+        true -> clause_interp:ensure_loaded(Transform);
+        false -> code:ensure_loaded(Transform)
     end.
 
 %% compile:foldl_transform/3: each transform gets the previous one's forms; the first error stops the chain.
 transform([Transform | Rest], Forms0, Options, File, Warnings) ->
-    case
-        code:ensure_loaded(Transform) =:= {module, Transform} andalso
-            erlang:function_exported(Transform, parse_transform, 2)
-    of
+    Loaded = ensure(Transform),
+    case Loaded =:= {module, Transform} andalso erlang:function_exported(Transform, parse_transform, 2) of
         false ->
-            {error, [{File, none, unavailable(Transform)}], Warnings};
+            {error, [{File, none, unavailable(Transform, Loaded)}], Warnings};
         true ->
             Forms = maybe_strip_columns(Forms0, Transform, Options),
             try Transform:parse_transform(Forms, Options) of
@@ -93,17 +115,23 @@ transform([Transform | Rest], Forms0, Options, File, Warnings) ->
             catch
                 Class:Reason:Stack ->
                     Error =
-                        {File, none,
-                            compile_error({parse_transform, Transform, {Class, Reason, Stack}})},
+                        {File, none, compile_error({parse_transform, Transform, {Class, Reason, Stack}})},
                     {error, [Error], Warnings}
             end
     end;
 transform([], Forms, Options, _File, Warnings) ->
     {ok, strip_columns_if(Forms, option_location(Options) =:= line), Warnings}.
 
-%% Why a transform cannot run: a .beam on the code path that does not load is named, else OTP's undefined text.
-unavailable(Transform) ->
-    case {code:ensure_loaded(Transform), code:where_is_file(atom_to_list(Transform) ++ ".beam")} of
+%% Why a transform cannot run: a .beam on the code path that does not load is named, one without debug
+%% information (which Clause's host needs, plan 21 LIB77C) asks for erl, else OTP's undefined text.
+unavailable(Transform, {error, {no_debug_info, Path}}) ->
+    text("parse transform '~ts' in ~ts has no debug_info; pass --erl to run it on the host Erlang/OTP", [
+        Transform, Path
+    ]);
+unavailable(Transform, {error, {Reason, Path}}) ->
+    text("cannot load parse transform '~ts' from ~ts: ~tp", [Transform, Path, Reason]);
+unavailable(Transform, Loaded) ->
+    case {Loaded, code:where_is_file(atom_to_list(Transform) ++ ".beam")} of
         {{error, Reason}, Path} when is_list(Path) ->
             text("cannot load parse transform '~ts' from ~ts: ~tp", [Transform, Path, Reason]);
         _ ->

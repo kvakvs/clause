@@ -3,6 +3,7 @@
 #include "export.hpp"
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -30,10 +31,11 @@ struct CompileOptions {
     std::vector<std::u32string> transforms_;
 };
 
-// A project transform module source the loader compiles in memory before running transforms.
+// A project transform module source as Clause's frontend read it: the loader interprets (Clause's transform host)
+// or compiles (erl) its forms before running transforms. Forms added for transform sources (plan 21 LIB77C).
 struct TransformSource {
     std::filesystem::path path_;
-    CompileOptions options_;
+    std::shared_ptr<const AbstractModule> module_;
 };
 
 struct TransformRequest {

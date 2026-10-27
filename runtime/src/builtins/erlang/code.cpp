@@ -19,7 +19,7 @@ bool loaded_module(ProcessContext &context, std::string_view name) {
 // module_loaded(Module): also true for an interpreted module (plan 21 LIB77B).
 TermResult<Term> module_loaded(ProcessContext &context, const AtomArgument &module) {
     return TermFactory(context).boolean(loaded_module(context, module.spelling) ||
-                                        context.code_server().interpreted().route(module.term.word()) != nullptr);
+                                        context.code_server().interpreted().contains(module.term.word()));
 }
 
 // Every module of the program, then the interpreted ones, as atoms.

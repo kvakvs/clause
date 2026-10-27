@@ -1,12 +1,13 @@
 %% Clause's error_handler (plan 21 step LIB23, docs/libraries/library.md): OTP's handler of calls to undefined functions,
 %% callable directly. Programs are linked ahead of time, so the runtime raises undef itself; it calls this module only
-%% for calls into modules clause_interp interprets (plan 21 LIB77B), which it hands to the interpreter.
+%% for calls into modules clause_interp interprets (plan 21 LIB77B), which it hands to the interpreter, and with an
+%% interpreter path for every undefined call (LIB77C), whose module it may interpret from a .beam on that path.
 -module(error_handler).
 -export([undefined_function/3, undefined_lambda/3, breakpoint/3, raise_undef_exception/3, stub_function/3]).
 
 %% Calls the export once its module loads, else the module's '$handle_undefined_function'/2, else raises undef.
 undefined_function(Module, Function, Args) ->
-    case clause_interp:interpreted(Module) of
+    case clause_interp:interpreted(Module) orelse clause_interp:load_from_path(Module) of
         true -> clause_interp:call(Module, Function, Args);
         false -> loaded_function(Module, Function, Args)
     end.

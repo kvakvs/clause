@@ -1493,6 +1493,7 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_interp", "register", 4},
     BuiltinName{"clause_interp", "unregister", 1},
     BuiltinName{"clause_interp", "interpreted", 1},
+    BuiltinName{"clause_interp", "route_undefined", 1},
     // The receive of prim_eval (plan step 41S; runtime/src/process/receive.cpp).
     BuiltinName{"clause_receive", "peek", 0},
     BuiltinName{"clause_receive", "skip", 0},

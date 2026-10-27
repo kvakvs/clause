@@ -127,7 +127,29 @@ TermId options_term(Terms &terms, const CompileOptions &options) {
     return terms.list(std::move(result));
 }
 
-// The request map: #{forms, options, transforms, file, sources}; forms are spliced from the module's own arena.
+// Append a module's forms as a list, spliced from its own arena.
+void write_forms(const AbstractModule &module, abi::external::Writer &writer, std::string &out) {
+    writer.list(module.forms_.size());
+    for (const auto form : module.forms_) {
+        out += encode_external(module.terms_, form).substr(1);
+    }
+    writer.nil();
+}
+
+// Append the transform sources as [{File, Forms}]. Forms added for transform sources (plan 21 LIB77C).
+void write_sources(const std::vector<TransformSource> &sources, abi::external::Writer &writer, std::string &out) {
+    writer.list(sources.size());
+    for (const auto &source : sources) {
+        Terms terms;
+        writer.tuple(2);
+        out += encode_external(terms, terms.string(wide(text(source.path_)))).substr(1);
+        write_forms(*source.module_, writer, out);
+    }
+    writer.nil();
+}
+
+// The request map: #{forms, options, transforms, file, sources, paths}; forms are spliced from the modules' own
+// arenas. The code paths (added for transform sources, plan 21 LIB77C) are where Clause's host finds .beam files.
 std::string request_bytes(const AbstractModule &module, const TransformRequest &request) {
     Terms terms;
     std::vector<TermId> transforms;
@@ -135,23 +157,20 @@ std::string request_bytes(const AbstractModule &module, const TransformRequest &
     for (const auto &name : request.transforms_) {
         transforms.push_back(terms.atom(name));
     }
-    std::vector<TermId> sources;
-    sources.reserve(request.sources_.size());
-    for (const auto &source : request.sources_) {
-        sources.push_back(terms.tuple({terms.string(wide(text(source.path_))), options_term(terms, source.options_)}));
+    std::vector<TermId> paths;
+    paths.reserve(request.code_paths_.size());
+    for (const auto &directory : request.code_paths_) {
+        std::error_code error;
+        paths.push_back(terms.string(wide(text(fs::absolute(directory, error)))));
     }
     const auto body = [&terms](const TermId id) { return encode_external(terms, id).substr(1); };
     std::string out;
     out.reserve(4096);
     abi::external::Writer writer(out);
     writer.version();
-    writer.map(5);
+    writer.map(6);
     writer.atom("forms");
-    writer.list(module.forms_.size());
-    for (const auto form : module.forms_) {
-        out += encode_external(module.terms_, form).substr(1);
-    }
-    writer.nil();
+    write_forms(module, writer, out);
     writer.atom("options");
     out += body(options_term(terms, request.options_));
     writer.atom("transforms");
@@ -159,7 +178,9 @@ std::string request_bytes(const AbstractModule &module, const TransformRequest &
     writer.atom("file");
     out += body(terms.string(wide(request.file_)));
     writer.atom("sources");
-    out += body(terms.list(std::move(sources)));
+    write_sources(request.sources_, writer, out);
+    writer.atom("paths");
+    out += body(terms.list(std::move(paths)));
     return out;
 }
 

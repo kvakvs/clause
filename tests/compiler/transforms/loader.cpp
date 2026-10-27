@@ -15,19 +15,20 @@ void require(const bool condition, const std::string &message) {
     }
 }
 
-// The fixture module subject.erl as abstract forms.
-AbstractModule subject(const std::filesystem::path &fixtures, SourceManager &sources) {
-    const auto source = sources.read(fixtures / "subject.erl");
+// A fixture module as abstract forms.
+AbstractModule forms_of(const std::filesystem::path &path) {
+    SourceManager sources;
+    const auto source = sources.read(path);
     PreprocessorOptions options;
-    options.working_directory = fixtures;
+    options.working_directory = path.parent_path();
     PreprocessorSession session(source, options);
     const auto parsed = parse_module(session);
-    require(parsed.succeeded(), "subject.erl does not parse");
+    require(parsed.succeeded(), path.filename().string() + " does not parse");
     const auto &syntax = parsed.module;
     return export_module(syntax, syntax.forms(), end_of(syntax, syntax.forms(), *source));
 }
 
-// A request for `transforms`, compiling the named fixture transform sources in the loader.
+// A request for `transforms`, with the named fixture transform sources as forms the loader compiles.
 TransformRequest request(const std::filesystem::path &erl, const std::filesystem::path &fixtures,
                          const std::vector<std::u32string> &transforms, const std::vector<std::string> &sources) {
     TransformRequest result;
@@ -35,7 +36,8 @@ TransformRequest request(const std::filesystem::path &erl, const std::filesystem
     result.transforms_ = transforms;
     result.file_ = "subject.erl";
     for (const auto &name : sources) {
-        result.sources_.push_back({.path_ = fixtures / (name + ".erl"), .options_ = {}});
+        const auto path = fixtures / (name + ".erl");
+        result.sources_.push_back({.path_ = path, .module_ = std::make_shared<AbstractModule>(forms_of(path))});
     }
     return result;
 }
@@ -95,8 +97,7 @@ int main(const int argc, char **argv) {
         }
         const std::filesystem::path fixtures = argv[2];
         const auto erl = find_erl(std::filesystem::path(argv[1]));
-        SourceManager sources;
-        const auto module = subject(fixtures, sources);
+        const auto module = forms_of(fixtures / "subject.erl");
         check_shapes(*erl, fixtures, module);
         check_columns_and_sources(*erl, fixtures, module);
     } catch (const std::exception &error) {

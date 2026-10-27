@@ -25,7 +25,7 @@ bool loaded(ProcessContext &context, const Term &module) {
     const auto name = module_name(module);
     auto &server = context.code_server();
     return server.find_module(name).has_value() || std::ranges::contains(server.builtins().modules(), name) ||
-           server.interpreted().route(module.word()) != nullptr;
+           server.interpreted().contains(module.word());
 }
 
 // The character list of a file name.

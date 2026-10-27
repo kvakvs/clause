@@ -153,6 +153,12 @@ its abstract forms, so a program can call modules that were not compiled into it
   `ensure_loaded/1`, `is_loaded/1`, `which/1`, `all_loaded/0` and `module_status/0,1` see the module
   as loaded from the file of its first `file` attribute, as `code:load_binary/3` with that file
   name would show it ([code module](../builtins.md#code-module)).
+- `clause_interp:set_path(Dirs)` (plan 21 LIB77C) also interprets modules from `.beam` files in
+  `Dirs`: a call of a module the program neither links nor interprets loads `Dir/Module.beam`'s
+  `debug_info` (`beam_lib:chunks(File, [abstract_code])`) first, as OTP's code server loads a
+  module on its first call; `ensure_loaded(Module)` does it ahead, returning `{module, Module}` or
+  `{error, {Reason, File}}` (`no_debug_info` among the reasons). The module then shows as loaded
+  from its `.beam`.
 - Each function runs as an `erl_eval` fun. Local calls, imported functions and `fun F/A` reach the
   interpreter's non-local function handler, and calls in tail position stay tail calls.
 - Exceptions leaving interpreted code show OTP's frames for the interpreted functions,
