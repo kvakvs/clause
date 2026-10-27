@@ -57,8 +57,15 @@ bool one_of(TextView kex, std::initializer_list<TextView> names) {
     return std::ranges::find(names, kex) != names.end();
 }
 
+// A key exchange's spelling and an upper-cased cipher, as openssl_cipher_name/2 takes them.
+struct KexCipher {
+    TextView kex_;
+    TextView cipher_;
+};
+
 // openssl_cipher_name/2 for the AES CBC ciphers; none for other ciphers.
-std::optional<Text> openssl_cbc_name(TextView kex, TextView cipher) {
+std::optional<Text> openssl_cbc_name(const KexCipher &suite) {
+    const auto [kex, cipher] = suite;
     if (!cipher.starts_with(U"AES_128_CBC") && !cipher.starts_with(U"AES_256_CBC")) {
         return std::nullopt;
     }
@@ -72,14 +79,8 @@ std::optional<Text> openssl_cbc_name(TextView kex, TextView cipher) {
     return name_concat(cipher) + U"-CBC";
 }
 
-// openssl_cipher_name/2: OpenSSL's spelling of an upper-cased cipher for a key exchange.
-Text openssl_cipher_name(TextView kex, TextView cipher) {
-    if (cipher.starts_with(U"3DES_EDE_CBC")) {
-        return one_of(kex, {U"ecdhe_psk", U"srp_anon", U"psk", U"dhe_psk"}) ? U"3DES-EDE-CBC" : U"DES-CBC3";
-    }
-    if (auto name = openssl_cbc_name(kex, cipher)) {
-        return *name;
-    }
+// openssl_cipher_name/2 for the AES GCM and CCM ciphers; none for other ciphers.
+std::optional<Text> openssl_aead_name(TextView cipher) {
     constexpr std::array<std::pair<TextView, TextView>, 4> SHORT_TAGS{{
         {U"AES_128_GCM_8", U"-GCM8"},
         {U"AES_256_GCM_8", U"-GCM8"},
@@ -95,6 +96,21 @@ Text openssl_cipher_name(TextView kex, TextView cipher) {
         if (cipher.starts_with(prefix)) {
             return name_concat(cipher) + U"-" + Text(prefix.substr(8));
         }
+    }
+    return std::nullopt;
+}
+
+// openssl_cipher_name/2: OpenSSL's spelling of an upper-cased cipher for a key exchange.
+Text openssl_cipher_name(const KexCipher &suite) {
+    const auto [kex, cipher] = suite;
+    if (cipher.starts_with(U"3DES_EDE_CBC")) {
+        return one_of(kex, {U"ecdhe_psk", U"srp_anon", U"psk", U"dhe_psk"}) ? U"3DES-EDE-CBC" : U"DES-CBC3";
+    }
+    if (auto name = openssl_cbc_name(suite)) {
+        return *name;
+    }
+    if (auto name = openssl_aead_name(cipher)) {
+        return *name;
     }
     return cipher.starts_with(U"RC4") ? Text(U"RC4") : replace_all(cipher, U'_', U'-');
 }
@@ -171,19 +187,19 @@ std::u32string openssl_name(const SuiteParts &suite) {
         return rfc_name(suite);
     }
     if (rsa_aead_named_by_prf(suite)) {
-        return openssl_cipher_name(U"rsa", upper_part(cipher)) + U"-" + upper_part(prf);
+        return openssl_cipher_name({U"rsa", upper_part(cipher)}) + U"-" + upper_part(prf);
     }
     if (!has_kex_cipher_mac(suite)) {
         function_clause();
     }
     if (is(kex, U"rsa")) {
-        return openssl_cipher_name(U"rsa", upper_part(cipher)) + U"-" + upper_part(mac);
+        return openssl_cipher_name({U"rsa", upper_part(cipher)}) + U"-" + upper_part(mac);
     }
     const auto start = openssl_suite_start(kex_str(kex), cipher);
     if (chacha_sha256(suite)) {
-        return start + openssl_cipher_name(spelling(kex), U"CHACHA20_POLY1305");
+        return start + openssl_cipher_name({spelling(kex), U"CHACHA20_POLY1305"});
     }
-    const auto name = start + openssl_cipher_name(spelling(kex), upper_part(cipher));
+    const auto name = start + openssl_cipher_name({spelling(kex), upper_part(cipher)});
     return aead_with_prf(suite) ? name + prf_str(U"-", prf) : name + U"-" + upper_part(mac);
 }
 } // namespace clause::runtime::builtins::ssl

@@ -43,11 +43,13 @@ std::string_view one_of(const Term &term, std::span<const std::string_view> name
 }
 
 // The suites of a description's list for a version, checked in OTP's order: the version first.
-std::span<const std::uint8_t> listed(const Term &description, const Term &version) {
-    const auto version_name = one_of(version, VERSIONS);
+std::span<const std::uint8_t> listed(const Named<DescriptionRole> &description_name,
+                                     const Named<VersionRole> &version_name) {
+    const auto &description = description_name.term;
+    const auto version = one_of(version_name.term, VERSIONS);
     if (description.is_atom()) {
         for (const auto &list : SUITE_LISTS) {
-            if (list.version_ == version_name && list.description_ == description.atom_spelling_unchecked()) {
+            if (list.version_ == version && list.description_ == description.atom_spelling_unchecked()) {
                 return std::span{SUITE_LIST_INDICES}.subspan(list.offset_, list.count_);
             }
         }
@@ -94,7 +96,7 @@ void function_clause() { throw BuiltinFailure{.reason = abi::v1::ErrorReason::fu
 Term cipher_suites(ProcessContext &context, const Named<DescriptionRole> &description,
                    const Named<VersionRole> &version) {
     std::vector<Term> suites;
-    for (const auto index : listed(description.term, version.term)) {
+    for (const auto index : listed(description, version)) {
         suites.push_back(suite_map(context, SUITES.at(index)));
     }
     return need(TermFactory(context).list(suites));
@@ -106,7 +108,7 @@ Term cipher_suite_names(ProcessContext &context, const Named<DescriptionRole> &d
     constexpr std::array<std::string_view, 2> TYPES{"rfc", "openssl"};
     const bool rfc = one_of(type.term, TYPES) == "rfc";
     std::vector<Term> names;
-    for (const auto index : listed(description.term, version.term)) {
+    for (const auto index : listed(description, version)) {
         const auto parts = row_parts(SUITES.at(index));
         names.push_back(string_term(context, rfc ? rfc_name(parts) : openssl_name(parts)));
     }

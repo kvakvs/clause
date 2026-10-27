@@ -196,6 +196,7 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      base64_builtins(),
                                      asn1_builtins(),
                                      public_key_builtins(),
+                                     ssl_builtins(),
                                      json_builtins(),
                                      filename_builtins(),
                                      filename_join_builtins(),

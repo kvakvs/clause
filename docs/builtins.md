@@ -848,6 +848,20 @@ Erlang clause dispatch, so programs that call it compile no extra code.
   crypt32 as OTP's `pubkey_os_cacerts` NIF does: `[{Encoding, Der}]` in the NIF's order, `internal_error` when the
   store does not open, `[]` on other systems, where `clause_public_key_cacerts` reads files.
 
+## Ssl
+
+`builtins/ssl/` in `clause_runtime` (plan 21 step LIB81A, [ssl](libraries/ssl.md)): the `ssl` module's cipher suite
+table and `ssl_cipher_format`'s name walks, as catalog builtins of `ssl` itself.
+
+- `cipher_suites(Description, Version)` (`suites.cpp`, rows in `suites.inc` observed from OTP) is a list of OTP's,
+  as suite maps; `cipher_suites(Description, Version, rfc | openssl)` gives their names. `function_clause` for
+  another version, description or string type; the version is checked first.
+- `suite_to_str(Suite)` and `suite_to_openssl_str(Suite)` (`suite_names.cpp`) build a suite's RFC and OpenSSL names
+  from any map with the parts a clause of OTP's needs, Latin-1 upper-casing as `string:to_upper/1`;
+  `function_clause` for other terms and `badarg` for a part that is not an atom.
+- `str_to_suite(Name)` (`suite_parse.cpp`) parses RFC and OpenSSL names as `ssl_cipher_format` does and makes the
+  map of any parts whose atoms exist (the table's parts always do); `{error, {not_recognized, Name}}` otherwise.
+
 ## Crypto module
 
 `builtins/crypto/` in the separate `clause_runtime_crypto` archive,

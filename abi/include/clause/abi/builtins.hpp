@@ -695,6 +695,12 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_public_key", "pem_entry", 1},
     BuiltinName{"clause_public_key", "prf_digest", 1},
     BuiltinName{"clause_public_key", "translate", 2},
+    // Module ssl: the cipher suite table and name walks (plan 21 step LIB81A; runtime/src/builtins/ssl/).
+    BuiltinName{"ssl", "cipher_suites", 2},
+    BuiltinName{"ssl", "cipher_suites", 3},
+    BuiltinName{"ssl", "str_to_suite", 1},
+    BuiltinName{"ssl", "suite_to_openssl_str", 1},
+    BuiltinName{"ssl", "suite_to_str", 1},
     // Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
     BuiltinName{"base64", "decode", 1},
     BuiltinName{"base64", "decode", 2},

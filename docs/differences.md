@@ -341,6 +341,15 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | The default Diffie-Hellman groups of `public_key:dh_gex_group/4` | The groups OTP generated (`lib/public_key/priv/moduli`), 60–81 per size | Eight per size from OpenSSH's moduli file; same sizes (2047 to 8191) | [public_key](libraries/public_key.md#keys-and-signatures) |
 | Frames of a `public_key` exception | `public_key`, `pubkey_pem`, `pubkey_pbe`, `pubkey_cert_records`, `pubkey_cert`, `pubkey_crl`, `pubkey_policy_tree`, `pubkey_ocsp`, `pubkey_os_cacerts`, `pubkey_ssh` | `public_key`, `clause_public_key_codec`, `clause_public_key_keys`, `clause_public_key_cert`, `clause_public_key_path`, `clause_public_key_crl`, `clause_public_key_ocsp`, `clause_public_key_test_data` and `clause_public_key_cacerts` | [public_key](libraries/public_key.md#functions) |
 
+## ssl
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| Atoms `ssl:str_to_suite/1` takes as existing | Any atom of the VM's atom table | The program's atoms and the parts of the suite table | [ssl](libraries/ssl.md#utility-functions) |
+| `ssl:str_to_suite/1` of chardata that is not a flat string (`["TLS_AES_128_GCM_SHA256"]`) | `string` functions may parse it | `{error, {not_recognized, Name}}` | [ssl](libraries/ssl.md#utility-functions) |
+| The `ssl` application's start module and supervision tree | `ssl_app`; `ssl_sup` with `ssl_admin_sup`, `ssl_pem_cache`, `ssl_manager`, `tls_sup` and `dtls_sup` | `clause_ssl_app`; `ssl_sup` with `ssl_pem_cache` (connection supervisors join in LIB81C) | [ssl](libraries/ssl.md#application) |
+| Frames of an `ssl` exception | `ssl`, `ssl_cipher`, `ssl_cipher_format`, `tls_v1`, `tls_record`, `dtls_record` | `ssl` and `clause_ssl_algorithms` | [ssl](libraries/ssl.md#utility-functions) |
+
 ## Parse transforms
 
 | Difference | OTP | Clause | Owner |

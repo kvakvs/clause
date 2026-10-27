@@ -503,3 +503,10 @@ recorded elsewhere.
   head/tail, same_oid) ran 1.7-4x slower than LLVM-compiled Erlang pattern matching over the same 100k CRL entries.
   C++ wins only on algorithmic gains (avoiding O(n^2) binary appends, native loops over bytes) or skipped Erlang
   wrapper calls; measure in build/bench (Release) before keeping a port, never on the Debug runtime.
+- LIB81A ssl (2026-10-27): user chose hybrid libssl design (Erlang connection process, memory BIOs, verify pause
+  for public_key path validation), TLS 1.2/1.3 first. clau only adds library modules named by calls/funs/behaviours:
+  start modules of library `.app` `{mod, ...}` are now added (frontend `library_start_module`), and
+  clause_applications includes library resources of `applications` deps (else ensure_all_started(ssl) fails on
+  public_key.app). Inventory stubs need bare `_` heads. OTP quirks kept: clear_pem_cache sets the caller's
+  `ssl_pem_cache` dict key; protocol_version=[sslv2] stores defaults then function_clause; str_to_suite parses
+  without the table (list_to_existing_atom). Host OTP lacks legacy provider: fixtures drop RC4/DES suites.

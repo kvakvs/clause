@@ -19,7 +19,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
     "inet_socket_options.erl": "35936962635c7d50eafe25b3efe4bf85d11f527ac111ccd1e736c868a671429b"

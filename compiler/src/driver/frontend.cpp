@@ -23,6 +23,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <regex>
 
 namespace clause::cli {
 namespace {
@@ -481,6 +482,50 @@ bool add_shell(const FrontendRequest &request, const DiagnosticSink &sink, Input
     return failed;
 }
 
+// Whether a library source's application directory has its resource (`crypto/crypto.app`). Added for the crypto
+// application (plan 21 step LIB79).
+bool library_resource(const std::filesystem::path &source) {
+    const auto directory = source.parent_path();
+    auto resource = directory / directory.filename();
+    resource += ".app";
+    std::error_code error;
+    return std::filesystem::is_regular_file(resource, error);
+}
+
+// The start module a library application's resource names (`{mod, {clause_ssl_app, []}}` in `ssl/ssl.app`): no
+// module calls it, yet application:start/1 does. Added for the ssl application (plan 21 step LIB81A).
+std::optional<std::u32string> library_start_module(const std::filesystem::path &source) {
+    if (!library_resource(source)) {
+        return std::nullopt;
+    }
+    const auto directory = source.parent_path();
+    std::ifstream file(directory / (project::path_text(directory.filename()) + ".app"), std::ios::binary);
+    const std::string text{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+    static const std::regex MOD(R"(\{\s*mod\s*,\s*\{\s*([a-z][A-Za-z0-9_@]*)\s*,)");
+    std::smatch match;
+    if (!std::regex_search(text, match, MOD)) {
+        return std::nullopt;
+    }
+    const auto name = match.str(1);
+    return std::u32string(name.begin(), name.end());
+}
+
+// Add the modules one input names (inputs grow meanwhile, so it is read by index), and the start module of its
+// library application (added for the ssl application, plan 21 step LIB81A); true on a failure.
+bool add_named_by(const std::size_t scanned, const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs,
+                  Discovery &discovery) {
+    bool failed = false;
+    for (const auto &[name, source] : semantic::referenced_modules(inputs[scanned].syntax)) {
+        auto site = site_text(inputs[scanned].syntax, source);
+        failed = add_module(name, std::move(site), discovery, request, sink, inputs) || failed;
+    }
+    if (const auto start =
+            inputs[scanned].library_ ? library_start_module(inputs[scanned].source_path) : std::nullopt) {
+        failed = add_module(*start, "its application resource", discovery, request, sink, inputs) || failed;
+    }
+    return failed;
+}
+
 // Add the modules the batch references but does not define, from the library, then the search directories,
 // including those they reference in turn. Clause's modules come first so an installed OTP never replaces them.
 bool add_referenced(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs, Discovery &discovery) {
@@ -493,10 +538,7 @@ bool add_referenced(const FrontendRequest &request, const DiagnosticSink &sink, 
         failed = add_module(U"crypto", option, discovery, request, sink, inputs) || failed;
     }
     for (std::size_t scanned = 0; scanned < inputs.size(); ++scanned) {
-        for (const auto &[name, source] : semantic::referenced_modules(inputs[scanned].syntax)) {
-            auto site = site_text(inputs[scanned].syntax, source);
-            failed = add_module(name, std::move(site), discovery, request, sink, inputs) || failed;
-        }
+        failed = add_named_by(scanned, request, sink, inputs, discovery) || failed;
     }
     return failed;
 }
@@ -535,16 +577,6 @@ bool add_placeholder(const std::u32string &module, const std::set<semantic::Func
 
 // The program's application resources as the generated clause_applications module, when the batch has
 // application_controller; true on a failure. Added for application resources (plan 21 step LIB24).
-// Whether a library source's application directory has its resource (`crypto/crypto.app`). Added for the crypto
-// application (plan 21 step LIB79).
-bool library_resource(const std::filesystem::path &source) {
-    const auto directory = source.parent_path();
-    auto resource = directory / directory.filename();
-    resource += ".app";
-    std::error_code error;
-    return std::filesystem::is_regular_file(resource, error);
-}
-
 bool add_applications(const Discovery &discovery, const FrontendRequest &shared, const DiagnosticSink &sink,
                       Inputs &inputs) {
     if (!defined(inputs, U"application_controller")) {

@@ -48,3 +48,4 @@ Clause's own OTP applications under `library/`, in [libraries/](libraries/).
 | Console output: `io:format`, `io:put_chars`, devices, format controls, `~p` layout | [io.md](libraries/io.md) |
 | Crypto: OpenSSL versions and sources, building it, linking, FIPS mode and pinned FIPS programs | [crypto.md](libraries/crypto.md) |
 | public_key: ASN.1 specifications and their sources, generated modules, `public_key.hrl` | [public_key.md](libraries/public_key.md) |
+| ssl: the TLS design over libssl, the application, cipher suites and the other utility functions | [ssl.md](libraries/ssl.md) |

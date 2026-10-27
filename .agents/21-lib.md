@@ -25,8 +25,8 @@ internal functions stay out unless a public function needs them (user direction 
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
 - **Left:** `erlang` (20 declined functions, LIB9 remainder) and the declined modules' answer stubs
   (Appendix A); OTP-free builds (LIB77–LIB78: luerl's manifests use no OTP paths since LIB76);
-  applications beyond the core that emqx needs (LIB81–LIB83, Appendix B; `crypto` (LIB79) and
-  `public_key` (LIB80) are done).
+  applications beyond the core that emqx needs (LIB81B–D, LIB82–LIB83, Appendix B; `crypto` (LIB79),
+  `public_key` (LIB80) and `ssl`'s utility functions (LIB81A) are done).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -141,15 +141,38 @@ three core applications). Call counts are over `references/emqx/apps`, non-test 
 noted. The same rules apply as for the core: whole module or nothing in `library/`, OTP's terms and
 records, goldens from OTP, own headers written from the documented records and macros.
 
-- **LIB81 `ssl` (design first; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
-  `ssl_crl_cache_api`, `ssl_session_cache_api`):** OTP implements TLS 1.0–1.3 and DTLS in Erlang
-  (`gen_statem` per connection, `ssl_app` supervision tree, PEM and session caches). Decide between
-  Clause's own Erlang protocol implementation over LIB79/LIB80 (OTP's options, alerts, errors and
-  `connection_information/1` items) and a C++ connection over OpenSSL's libssl behind the same API
-  (smaller, but option and alert coverage would differ: `differences.md` rows). Options are the bulk
-  of the API (`tls_client_option()`, `tls_server_option()` types). emqx's `emqx_ocsp_cache` and
-  `emqx_ssl_crl_cache` include OTP-internal `ssl/src/ssl_handshake.hrl` and `ssl_internal.hrl`: not
-  public, not provided (projects keep OTP's `ssl` application root for them).
+- **LIB81 `ssl` (`ssl` 52 functions, `ssl_crl_cache` 3, callback-only `ssl_crl_cache_api`,
+  `ssl_session_cache_api`).** Decided 2026-10-27 (user): a hybrid over OpenSSL's libssl. Each
+  connection is an Erlang process with OTP's semantics: owner and `controlling_process`, active
+  modes, `{ssl, S, Data}`/`{ssl_closed, S}`/`{ssl_error, S, R}` messages, OTP's option validation,
+  error and alert terms. libssl does the record layer and handshake over memory BIOs, and the
+  process moves bytes through the `cb_info` transport (`gen_tcp` by default). Certificate checks
+  stay OTP's: the handshake pauses in libssl's verify callback (`SSL_set_retry_verify`) and the
+  process runs `public_key:pkix_path_validation/3` with `verify_fun`, `partial_chain` and CRL
+  options. TLS 1.2 and 1.3 come first. emqx's non-test code only calls the data functions
+  (`cipher_suites`, `versions`, `str_to_suite`, `suite_to_str`). Its tests call `connect` 70 times,
+  `close` 55, `send` 17 and `recv` 15. emqx's `emqx_ocsp_cache` and `emqx_ssl_crl_cache` include
+  OTP-internal `ssl_handshake.hrl` and `ssl_internal.hrl`. These are not public and are not
+  provided, so projects keep OTP's `ssl` application root for them.
+  - **LIB81B libssl engine:** a `clause_runtime_ssl` archive (libssl over the crypto archive's
+    libcrypto). clau links it into programs that compile library `ssl`. Engine handles are an
+    `SSL_CTX` built from validated options (versions, suites by code, groups, signature schemes,
+    DER certificates and keys, CA lists, ALPN, SNI) and an `SSL` over memory BIOs. Builtins: feed
+    received bytes, take bytes to send, handshake step (returns want-read, done, verify-pause or an
+    alert), read, write, shutdown, key update, and the negotiated items for
+    `connection_information`.
+  - **LIB81C Connections:** `connect/2,3,4`, `listen/2`, `transport_accept/1,2`, `handshake/1,2,3`,
+    `handshake_continue/2,3` and `handshake_cancel/1` (the `{handshake, hello}` pause), `send`,
+    `recv`, active modes, `close/1,2`, `shutdown/2`, `controlling_process/2`, `getopts`/`setopts`,
+    `peername`, `sockname`, `getstat`, `peercert`, `negotiated_protocol`,
+    `connection_information/1,2`. Also OTP's `{options, ...}` errors, `{tls_alert, {Desc, Text}}`,
+    the verify pause over `public_key`, and the `ssl` supervision tree. `ssl_connections` golden
+    (loopback client and server).
+  - **LIB81D TLS features:** session reuse and tickets, `renegotiate/1`, `update_keys/2`,
+    `export_key_materials/4,5`, `sni_hosts`/`sni_fun`, CRL checks with `ssl_crl_cache` (`insert/1,2`,
+    `delete/1`) and the cache callbacks, OCSP stapling, PSK/SRP `user_lookup_fun`, custom `cb_info`
+    transports, `keep_secrets`, `log_level` output. `ssl` stops being PARTIAL.
+  - **LIB81E (optional) TLS 1.0/1.1 and DTLS 1.0/1.2** over `gen_udp` with libssl's DTLS methods.
 - **LIB82 (far back: test support) `eunit` (4 functions: `eunit:test/1,2`, `start/0`, `stop/0`):**
   `eunit.hrl` (49 `-define`s: `?assert*`, `?_test`, `?_assert*`, `?debug*`, `?LET`, `?IF`, `NOTEST`)
   adds the `eunit_autoexport` and `eunit_striptests` parse transforms, so it depends on LIB77. The
@@ -171,7 +194,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 1. The declined modules' answer stubs.
 2. LIB77 after a design decision; LIB78 only on request.
-3. LIB81 after its design decision.
+3. LIB81B–D in order (LIB81E on request).
 4. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)

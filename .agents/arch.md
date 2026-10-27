@@ -341,6 +341,19 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   terms, builtins build keys from OTP's OSSL_PARAM lists (`params.cpp`, `ParamList`), errors via
   `KeyFailure` where OTP discards a reader's error; `ec_curve/1` from OpenSSL's built-in groups.
 
+### ssl (plan 21 LIB81, `docs/libraries/ssl.md`)
+
+- Hybrid design (user 2026-10-27): one Erlang process per connection with OTP's semantics, libssl
+  (same OpenSSL as crypto) running records and handshakes over memory BIOs, verification paused in
+  libssl's verify callback for `public_key:pkix_path_validation/3`; TLS 1.2/1.3 first.
+- LIB81A: `ssl.erl` exports OTP 29's API (connections are stubs); suite table and lists (observed,
+  `suites.inc`) and `ssl_cipher_format`'s name walks are core-runtime builtins of `ssl` itself
+  (`builtins/ssl/`); `clause_ssl_algorithms` filters OTP's lists by `crypto:supports/1` and reads
+  the version environment; `clause_ssl_app` starts `ssl_sup` with `clause_ssl_pem_cache`.
+- Frontend: a library module whose application resource names `{mod, {M, _}}` brings M into the
+  batch (`library_start_module`); `clause_applications` also holds the library resources of the
+  included resources' `applications` (ssl's public_key, asn1, crypto).
+
 ### kernel
 
 - `file` (every documented function; a raw file is a server answering as raw; servers stop after

@@ -18,6 +18,14 @@ struct Parsed {
     std::string prf_;
 };
 
+// The prefixes of suite_openssl_str_to_map/1 in its order: the OpenSSL key exchange and whether the cipher part
+// starts after the prefix (or is the whole name, for the RSA suites named by their cipher).
+struct OpensslPrefix {
+    TextView prefix_;
+    TextView kex_;
+    bool whole_ = false;
+};
+
 // The parse of one name, with the process whose atom table answers list_to_existing_atom/1.
 class SuiteParser {
   public:
@@ -28,9 +36,9 @@ class SuiteParser {
   private:
     Parsed rfc(TextView name);
     Parsed tls_1_3(TextView cipher);
-    Parsed pre_tls_1_3(TextView kex, TextView rest);
+    Parsed pre_tls_1_3(TextView rest, std::size_t with);
     Parsed cipher_parts(std::string kex, TextView cipher, TextView hash);
-    Parsed openssl_parts(TextView kex, TextView rest);
+    Parsed openssl_parts(const OpensslPrefix &prefix, TextView name);
     Parsed openssl_cipher_parts(std::string kex, TextView cipher, TextView hash);
     // algo_str_to_atom/1: the spelling of an existing atom.
     std::string algorithm(TextView text) const;
@@ -38,8 +46,10 @@ class SuiteParser {
     ProcessContext &context_;
 };
 
-// default_prf/2: the PRF a pre-TLS 1.3 suite of a MAC uses.
-std::string default_prf(std::string_view kex, std::string_view hash) {
+// default_prf/2: the PRF a pre-TLS 1.3 suite of a MAC uses, by its key exchange and MAC.
+std::string default_prf(const Parsed &suite) {
+    const std::string_view kex = suite.key_exchange_;
+    const std::string_view hash = suite.mac_;
     if (hash == "md5" || hash == "sha") {
         return "default_prf";
     }
@@ -119,14 +129,6 @@ Text kex_from_openssl(TextView kex) {
     return name == U"SRP" ? Text(U"SRP_SHA") : name;
 }
 
-// The prefixes of suite_openssl_str_to_map/1 in its order: the OpenSSL key exchange and whether the cipher part
-// starts after the prefix (or is the whole name, for the RSA suites named by their cipher).
-struct OpensslPrefix {
-    TextView prefix_;
-    TextView kex_;
-    bool whole_ = false;
-};
-
 constexpr std::array<OpensslPrefix, 21> OPENSSL_PREFIXES{{
     {U"ADH", U"DH-anon"},
     {U"AECDH", U"ECDH-anon"},
@@ -167,7 +169,7 @@ Parsed SuiteParser::openssl(TextView name) {
     }
     for (const auto &prefix : OPENSSL_PREFIXES) {
         if (name.starts_with(prefix.prefix_)) {
-            return openssl_parts(prefix.kex_, prefix.whole_ ? name : name.substr(prefix.prefix_.size()));
+            return openssl_parts(prefix, name);
         }
     }
     throw Unrecognized{};
@@ -180,7 +182,7 @@ Parsed SuiteParser::rfc(TextView name) {
     }
     const auto rest = name.substr(4);
     const auto with = rest.find(U"_WITH_");
-    return with == TextView::npos ? tls_1_3(rest) : pre_tls_1_3(rest.substr(0, with), rest.substr(with + 6));
+    return with == TextView::npos ? tls_1_3(rest) : pre_tls_1_3(rest, with);
 }
 
 Parsed SuiteParser::tls_1_3(TextView cipher) {
@@ -192,9 +194,10 @@ Parsed SuiteParser::tls_1_3(TextView cipher) {
     return {"any", algorithm(parts->first), "aead", std::move(hash)};
 }
 
-Parsed SuiteParser::pre_tls_1_3(TextView kex, TextView rest) {
-    auto kex_atom = algorithm(kex);
-    const auto parts = split_trailing(rest, U'_');
+// The parts of a pre-TLS 1.3 name around its _WITH_ at `with`.
+Parsed SuiteParser::pre_tls_1_3(TextView rest, std::size_t with) {
+    auto kex_atom = algorithm(rest.substr(0, with));
+    const auto parts = split_trailing(rest.substr(with + 6), U'_');
     if (!parts) {
         throw Unrecognized{};
     }
@@ -217,14 +220,15 @@ Parsed SuiteParser::cipher_parts(std::string kex, TextView cipher, TextView hash
     if (aead_cipher(cipher)) {
         return {std::move(kex), std::move(cipher_atom), "aead", std::move(hash_atom)};
     }
-    auto prf = default_prf(kex, hash_atom);
-    return {std::move(kex), std::move(cipher_atom), std::move(hash_atom), std::move(prf)};
+    Parsed suite{std::move(kex), std::move(cipher_atom), std::move(hash_atom), ""};
+    suite.prf_ = default_prf(suite);
+    return suite;
 }
 
 // suite_openssl_str_to_map/2.
-Parsed SuiteParser::openssl_parts(TextView kex, TextView rest) {
-    auto kex_atom = algorithm(kex_from_openssl(kex));
-    const auto parts = split_trailing(rest, U'-');
+Parsed SuiteParser::openssl_parts(const OpensslPrefix &prefix, TextView name) {
+    auto kex_atom = algorithm(kex_from_openssl(prefix.kex_));
+    const auto parts = split_trailing(prefix.whole_ ? name : name.substr(prefix.prefix_.size()), U'-');
     if (!parts) {
         throw Unrecognized{};
     }
@@ -249,8 +253,9 @@ Parsed SuiteParser::openssl_cipher_parts(std::string kex, TextView cipher, TextV
     if (openssl_aead_cipher(cipher)) {
         return {std::move(kex), std::move(cipher_atom), "aead", std::move(hash_atom)};
     }
-    auto prf = default_prf(kex, hash_atom);
-    return {std::move(kex), std::move(cipher_atom), std::move(hash_atom), std::move(prf)};
+    Parsed suite{std::move(kex), std::move(cipher_atom), std::move(hash_atom), ""};
+    suite.prf_ = default_prf(suite);
+    return suite;
 }
 
 std::string SuiteParser::algorithm(TextView text) const {

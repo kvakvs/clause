@@ -15,7 +15,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
     "public_key_ocsp.erl": "cad7076ff867cd59df00a2a02694d1addf48997bd4f35a8e4f89de8f5c5db81c"

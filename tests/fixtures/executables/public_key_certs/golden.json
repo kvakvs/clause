@@ -15,7 +15,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
     "public_key_certs.erl": "998bac37320c7e3acc6dc202f53e7b39432da5fe6cf39ea061e854e9118f6038"

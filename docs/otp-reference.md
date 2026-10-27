@@ -3,8 +3,8 @@
 Clause tracks the official `maint-29` branch. The reviewed pin lives in
 [`references/otp-pin.cmake`](../references/otp-pin.cmake):
 
-- Revision `9710673e5916164dff9616327df7de39f1aa75a9` (OTP 29.1.2, upstream
-  commit dated 2026-10-22), refreshed on 2026-10-24.
+- Revision `e14591f196d4eacc1946e7073e0ec27f72df2a12` (OTP 29.1.2, upstream
+  commit dated 2026-10-26), refreshed on 2026-10-27.
 - Installed oracle used for goldens and audits: OTP 29.1.1 / ERTS 17.1.
 
 `references/otp` is an ignored checkout. Normal builds and tests use
@@ -55,3 +55,4 @@ Historical records keep the revision they were made against.
 | 2026-10-03 | Plan 11 step 1: 14 audit tests pass, 19 corpora reproduce | same |
 | 2026-10-14 | Refreshed to OTP 29.1.2: grammar, scanner, preprocessor and `phase6/otp.tsv` hashes unchanged (`genop.tab` comment only); 17 audit tests pass and 19 corpora reproduce under oracle 29.1.1; the revision recorded by executable, lint, program and printing goldens updated (outputs unchanged, `external_terms` keeps its atom-order-dependent map output) | `d199a49a01a2079afb6f2c5c9ae047cd4555e68d` |
 | 2026-10-24 | Refreshed; upstream changed only `.github/` workflows (32 files), so grammar, scanner, preprocessor, corpus and `phase6/otp.tsv` inputs are byte-identical and audits were not rerun; the revision recorded by goldens updated | `9710673e5916164dff9616327df7de39f1aa75a9` |
+| 2026-10-27 | Refreshed; upstream changed only `.github/` workflows (31 files), inputs byte-identical, audits not rerun; the revision recorded by goldens updated | `e14591f196d4eacc1946e7073e0ec27f72df2a12` |
