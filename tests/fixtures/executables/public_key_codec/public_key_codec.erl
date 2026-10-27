@@ -200,6 +200,14 @@ values() ->
             policyQualifiers = [#'PolicyQualifierInfo'{policyQualifierId = ?'id-qt-unotice', qualifier = Notice}]
         }
     ],
+    %% A visible string notice past 200 characters, which fails its table constraint before OTP-PKIX reads it.
+    Visible = #'UserNotice'{noticeRef = asn1_NOVALUE, explicitText = {visibleString, lists:duplicate(400, $v)}},
+    VisiblePolicies = [
+        #'PolicyInformation'{
+            policyIdentifier = ?anyPolicy,
+            policyQualifiers = [#'PolicyQualifierInfo'{policyQualifierId = ?'id-qt-unotice', qualifier = Visible}]
+        }
+    ],
     Point = #'DistributionPoint'{
         distributionPoint = {fullName, [{uniformResourceIdentifier, "http://crl.example/ca.crl"}]},
         reasons = asn1_NOVALUE,
@@ -217,6 +225,7 @@ values() ->
         {'FreshestCRL', [Point]},
         {'CRLDistributionPoints', [Point]},
         {'CertificatePolicies', Policies},
+        {'CertificatePolicies', VisiblePolicies},
         {'PolicyConstraints', #'PolicyConstraints'{requireExplicitPolicy = 1, inhibitPolicyMapping = asn1_NOVALUE}},
         {'AttributeTypeAndValue', #'AttributeTypeAndValue'{type = ?'id-at-countryName', value = "SE"}},
         {'AttributeTypeAndValue', #'AttributeTypeAndValue'{

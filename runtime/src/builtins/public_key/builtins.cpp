@@ -17,6 +17,13 @@ constexpr std::array PUBLIC_KEY_BUILTINS{
     typed_entry<pbes1>("clause_public_key", "pbes1"),
     typed_entry<pbes1_oid>("clause_public_key", "pbes1_oid"),
     typed_entry<prf_digest>("clause_public_key", "prf_digest"),
+    typed_entry<policy_add>("clause_public_key", "policy_add"),
+    typed_entry<policy_map>("clause_public_key", "policy_map"),
+    typed_entry<policy_intersection>("clause_public_key", "policy_intersection"),
+    typed_entry<policy_prune>("clause_public_key", "policy_prune"),
+    typed_entry<policy_constrained>("clause_public_key", "policy_constrained"),
+    typed_entry<policy_result>("clause_public_key", "policy_result"),
+    typed_entry<pbkdf1_rounds>("clause_public_key", "pbkdf1_rounds"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::public_key

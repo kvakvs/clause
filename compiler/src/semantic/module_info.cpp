@@ -20,6 +20,7 @@ std::vector<FunctionKey> defined_functions(const ast::Module &syntax) {
         if (!function) {
             continue;
         }
+        // The search cost here is quadratic but the volume of search is small so the impact is also small
         FunctionKey key{function->name.name, function->clauses.front().arguments.size()};
         if (!std::ranges::contains(result, key)) {
             result.push_back(std::move(key));

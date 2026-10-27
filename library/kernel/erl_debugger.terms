@@ -1,0 +1,15 @@
+%% OTP 29 erl_debugger exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{breakpoint, 3, default, refused}.
+{breakpoints, 1, default, refused}.
+{breakpoints, 3, default, refused}.
+{instrumentations, 0, default, refused}.
+{peek_stack_frame_slot, 4, default, refused}.
+{peek_xreg, 3, default, refused}.
+{register, 1, default, refused}.
+{stack_frames, 2, default, refused}.
+{supported, 0, default, implemented}.
+{toggle_instrumentations, 1, default, refused}.
+{unregister, 2, default, refused}.
+{whereis, 0, default, refused}.
+{xregs_count, 1, default, refused}.

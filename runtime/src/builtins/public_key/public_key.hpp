@@ -11,6 +11,10 @@ struct DirectionRole;
 struct TableRole;
 struct KeyRole;
 struct ValueRole;
+// Added for public_key's policy tree (plan 21 step LIB80E4).
+struct FlagRole;
+struct TreeRole;
+struct CountRole;
 
 // Whether a term is the OID of these arcs; the OID's tuple term.
 bool same_oid(const Term &oid, const std::initializer_list<std::uint32_t> &arcs);
@@ -39,4 +43,22 @@ Term pbes2_cipher(ProcessContext &context, const Named<KeyRole> &oid);
 Term pbes1(ProcessContext &context, const Named<KeyRole> &oid);
 Term pbes1_oid(ProcessContext &context, const Named<KeyRole> &cipher, const Named<ValueRole> &digest);
 Term prf_digest(ProcessContext &context, const Named<KeyRole> &oid);
+
+// Added for public_key's policy tree (plan 21 step LIB80E4): pubkey_policy_tree's walks. policy_add, policy_map and
+// policy_intersection return {Tree, Count}; policy_prune the pruned tree; policy_constrained the constrained node
+// set; policy_result its nodes with their qualifiers collected.
+Term policy_add(ProcessContext &context, const Named<TreeRole> &tree, const Named<CountRole> &count,
+                const Named<ValueRole> &infos, const Named<FlagRole> &any_allowed);
+Term policy_map(ProcessContext &context, const Named<TreeRole> &tree, const Named<CountRole> &count,
+                const Named<ValueRole> &mapping, const Named<FlagRole> &inhibit, const Named<KeyRole> &any_qualifiers);
+Term policy_intersection(ProcessContext &context, const Named<ValueRole> &user_set, const Named<TreeRole> &tree,
+                         const Named<CountRole> &count);
+Term policy_prune(ProcessContext &context, const Named<TreeRole> &tree);
+Term policy_constrained(ProcessContext &context, const Named<TreeRole> &tree);
+Term policy_result(ProcessContext &context, const Named<TreeRole> &tree);
+
+// Added for public_key's PBKDF1 loop (plan 21 step LIB80E5): pbkdf1_rounds(First, Count, Digest) is the PBKDF1 output
+// after the first round; 0 when a called builtin failed.
+Word pbkdf1_rounds(ProcessContext &context, const Named<ValueRole> &first, const Named<KeyRole> &count,
+                   const Named<TableRole> &digest);
 } // namespace clause::runtime::builtins::public_key

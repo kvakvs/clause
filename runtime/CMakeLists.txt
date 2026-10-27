@@ -62,6 +62,13 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/public_key/os_cacerts.cpp
     # PEM text and PBE tables (plan 21 step LIB80E1).
     src/builtins/public_key/pem.cpp src/builtins/public_key/pbe.cpp
+    # Calls of other builtins (plan 21 step LIB80E5).
+    src/builtins/public_key/calls.cpp
+    # The policy tree (plan 21 step LIB80E4).
+    src/builtins/public_key/policy.cpp
+    # Module ssl's cipher suites (plan 21 step LIB81A).
+    src/builtins/ssl/suites.cpp src/builtins/ssl/suite_names.cpp src/builtins/ssl/suite_parse.cpp
+    src/builtins/ssl/builtins.cpp
     # Module json (plan 21 step LIB5E).
     src/builtins/encoding/json.cpp src/builtins/encoding/json_encode.cpp
     # Module filename (plan 21 step LIB5G).

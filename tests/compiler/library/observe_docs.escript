@@ -1,6 +1,6 @@
 #!/usr/bin/env escript
-%% Observe the documented public functions of OTP's erts, kernel, stdlib, crypto and public_key on the host OTP (the
-%% pinned major, docs/otp-reference.md) from its doc chunks, for Clause's library
+%% Observe the documented public functions of OTP's erts, kernel, stdlib, crypto, public_key, ssl and compile on the
+%% host OTP (the pinned major, docs/otp-reference.md) from its doc chunks, for Clause's library
 %% (docs/libraries/library.md#documented-functions). Writes
 %% library/documented.terms: one {Module, Application, Name, Arity} per function whose module and function docs are
 %% not hidden and which is not deprecated. Run explicitly:
@@ -17,11 +17,12 @@ main(_) ->
     halt(2).
 
 % Write every documented function of the applications Clause's library provides to Output (crypto added for plan 21
-% step LIB79, public_key for LIB80).
+% step LIB79, public_key for LIB80, ssl for LIB81, compile for LIB77A).
 observe(Output) ->
-    Rows = lists:append([application_rows(App) || App <- [erts, kernel, stdlib, crypto, public_key]]),
+    Rows = lists:append([application_rows(App) || App <- [erts, kernel, stdlib, crypto, public_key, ssl]]) ++
+        module_rows(compile, compiler),
     Header = io_lib:format(
-        "%% OTP ~s documented functions of erts, kernel, stdlib, crypto and public_key: "
+        "%% OTP ~s documented functions of erts, kernel, stdlib, crypto, public_key, ssl and compile: "
         "{Module, Application, Name, Arity};\n"
         "%% observed by tests/compiler/library/observe_docs.escript (docs/libraries/library.md#documented-functions).\n",
         [erlang:system_info(otp_release)]
@@ -34,6 +35,11 @@ application_rows(App) ->
     _ = application:load(App),
     {ok, Modules} = application:get_key(App, modules),
     lists:sort([{M, App, F, A} || M <- Modules, {F, A} <- documented(M)]).
+
+% The documented functions of one module of an application Clause provides no other module of (compile, added for
+% plan 21 step LIB77A).
+module_rows(Module, App) ->
+    lists:sort([{Module, App, F, A} || {F, A} <- documented(Module)]).
 
 % The functions of a module whose module and function docs are not hidden, without the deprecated ones; none when
 % the module is hidden or has no doc chunk.

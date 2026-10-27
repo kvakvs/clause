@@ -155,6 +155,8 @@ std::span<const BuiltinEntry> base64_builtins() noexcept;
 std::span<const BuiltinEntry> asn1_builtins() noexcept;
 // Module clause_public_key: public_key's term walks and tables (plan 21 step LIB80B; runtime/src/builtins/public_key/).
 std::span<const BuiltinEntry> public_key_builtins() noexcept;
+// Module ssl's cipher suite table and name walks (plan 21 step LIB81A; runtime/src/builtins/ssl/).
+std::span<const BuiltinEntry> ssl_builtins() noexcept;
 // Module json and its private clause_json scanners (plan 21 step LIB5E; runtime/src/builtins/encoding/json.cpp).
 std::span<const BuiltinEntry> json_builtins() noexcept;
 // Module filename's walks over one name, and its joins and splits (plan 21 step LIB5G; runtime/src/builtins/filename/).

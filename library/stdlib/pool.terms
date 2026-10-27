@@ -1,0 +1,18 @@
+%% OTP 29 pool exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{attach, 1, default, implemented}.
+{do_spawn, 4, default, implemented}.
+{get_node, 0, default, implemented}.
+{get_nodes, 0, default, implemented}.
+{get_nodes_and_load, 0, default, implemented}.
+{handle_call, 3, default, implemented}.
+{handle_cast, 2, default, implemented}.
+{handle_info, 2, default, implemented}.
+{init, 1, default, implemented}.
+{pspawn, 3, default, implemented}.
+{pspawn_link, 3, default, implemented}.
+{start, 1, default, implemented}.
+{start, 2, default, implemented}.
+{statistic_collector, 0, collector, declined}.
+{stop, 0, default, implemented}.
+{terminate, 2, default, implemented}.

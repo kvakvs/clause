@@ -11,13 +11,26 @@ using front_end::forms::element;
 using front_end::forms::is_atom;
 using front_end::forms::is_node;
 
-Replay::Replay(const Term &answers) : answers_(elements(answers)) { std::ranges::reverse(answers_); }
-
-Term Replay::next(const Term &request) {
-    if (used_ == answers_.size()) {
-        throw Request{request};
+Replay::Replay(const Term &answers) {
+    for (const auto &pair : elements(answers)) {
+        queries_.push_back(element(pair, 0));
+        answers_.push_back(element(pair, 1));
     }
-    return answers_[used_++];
+}
+
+std::optional<Term> Replay::answer(const Term &query) const {
+    const auto found = std::ranges::find_if(queries_, [&](const Term &known) { return same(known, query); });
+    if (found == queries_.end()) {
+        return std::nullopt;
+    }
+    return answers_[static_cast<std::size_t>(found - queries_.begin())];
+}
+
+void Replay::ask(const Term &query, const Term &request) {
+    if (std::ranges::none_of(asked_, [&](const Term &known) { return same(known, query); })) {
+        asked_.push_back(query);
+        requests_.push_back(request);
+    }
 }
 
 bool less(const Term &left, const Term &right) { return collections::compare(left, right) < 0; }

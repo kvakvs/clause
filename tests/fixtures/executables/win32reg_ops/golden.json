@@ -23,7 +23,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
     "win32reg_ops.erl": "9fdc4377760a9fcf401c543d31f72c4b3b6282c39bb8b31c0557ef53bc56695a"

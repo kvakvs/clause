@@ -300,6 +300,7 @@ class Term final {
     Word value_;
 };
 
-static_assert(sizeof(Term) == sizeof(Word) && std::is_trivially_copyable_v<Term>, "a Term is exactly one Word");
+static_assert(sizeof(Term) == sizeof(Word), "a Term is exactly one Word");
+static_assert(std::is_trivially_copyable_v<Term>, "a Term is trivially copyable");
 
 } // namespace clause::runtime

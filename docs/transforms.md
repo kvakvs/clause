@@ -2,16 +2,19 @@
 
 ## Using parse transforms
 
-- **Requirement:** Erlang/OTP 29 installed on the host, only for compiling
-  modules that use a transform ([host OTP](#host-otp)). `--erl none` never runs
-  host code: modules that need a transform fail.
+- **Requirement:** none for the transforms Clause's library provides
+  (`ms_transform`, `qlc_pt`): they run in Clause's own
+  [transform host](#transform-host). Other transforms need Erlang/OTP 29
+  installed on the host, only for compiling modules that use them
+  ([host OTP](#host-otp)). `--erl none` never runs host OTP code: modules that
+  need such a transform fail.
 - **Invoke a transform** in the source with
   `-compile({parse_transform, Module}).` (or inside a `-compile([...])` list),
   or for every module of the command with `--parse-transform Module`
   (repeatable; these run first, like `erlc +'{parse_transform,M}'`).
 - **Transform modules** are found as `.beam` files on the transform paths, then
-  as project sources compiled by the host OTP on every build, then among OTP's
-  modules ([transform modules](#transform-modules)).
+  in Clause's library, then as project sources compiled by the host OTP on every
+  build, then among OTP's modules ([transform modules](#transform-modules)).
 - **Precompile** a transform that comes from another library (always), or a
   project transform the host compiler cannot build with the target's include
   directories and defines: `erlc -o deps/lib/ebin deps/lib/src/*.erl` with the
@@ -29,10 +32,11 @@ clau --erl "C:/Program Files/Erlang OTP/bin/erl.exe" --transform-path ebin -o ap
 Clause applies `{parse_transform, Module}` the way `erlc` does. It exports the
 parsed module as OTP
 [abstract format](https://www.erlang.org/doc/apps/erts/absform.html) forms, runs
-the transform module on an Erlang/OTP 29 installed on the host, imports the
-returned forms as the module's new syntax and compiles that
-(`compiler/src/transforms/`). OTP is needed only while compiling a module that
-uses a transform; generated programs never need it.
+the transform module in Clause's transform host or on an Erlang/OTP 29 installed
+on the host, imports the returned forms as the module's new syntax and compiles
+that (`compiler/src/transforms/`). OTP is needed only while compiling a module
+that uses a transform Clause's library does not provide; generated programs
+never need it.
 
 ## OTP behavior
 
@@ -93,7 +97,9 @@ From pinned `lib/compiler/src/compile.erl` (`transform_module`,
 3. Remove those options from the forms and export them: `{Line, Column}`
    annotations as `erl_parse` assigns them, `epp`'s `file` attributes, and
    `eof`. The predefined functions are not part of the forms yet.
-4. Run the [loader](#loader) once for the module.
+4. Run the [loader](#loader) once for the module: in the
+   [transform host](#transform-host) when Clause's library provides every
+   transform of the module, else on the host OTP.
 5. Import the returned forms by turning them into tokens located at their
    annotations and parsing them with Clause's parser; a `file` attribute
    switches the file of the following forms as in `erl_lint`.
@@ -146,6 +152,20 @@ the same forms.
   `%ProgramFiles%\Erlang OTP\bin\erl.exe`. Not finding one when a module needs a
   transform is an error naming the transform and the module; there is no
   fallback that skips transforms.
+- `--erl PATH` names the host `erl` executable (`erl.exe` on Windows) and skips
+  the search. It works in positional and `--project` builds alike; there is no
+  project manifest key. Giving it twice is the usage error
+  `--erl specified more than once`. The path is checked only when a module
+  needs a transform: a path that is not an executable is then the error
+  `erl not found: PATH`, and a build without transforms never looks at it.
+- `--erl none` forbids running host OTP code. A module that names a transform
+  (`-compile`, `--parse-transform` or `parse_transforms`) the
+  [transform host](#transform-host) cannot run fails with the missing-OTP
+  error, even when the [build cache](projects.md#build-caches) holds its reply;
+  modules without transforms, or with only library transforms, compile as usual
+  and never start OTP. Missing transform paths are still reported first. Use it
+  to prove that a build needs no host OTP, or to keep a build from executing
+  project transform code.
 - The host must run OTP 29 (`erlang:system_info(otp_release)`); another release
   is an error.
 - The [loader](#loader) runs as `erl -noshell -noinput -pa Dir ... -eval ...`
@@ -156,10 +176,42 @@ the same forms.
 - A transform executes arbitrary code with the user's rights, exactly as it
   would under `erlc`.
 
+## Transform host
+
+Clause's transform host (plan 21 LIB77A) runs the transforms Clause's library
+provides (`ms_transform` and `qlc_pt` among them) without a host OTP. It is the
+[loader](#loader) module linked with the whole library and every export kept,
+as [`--shell`](executables.md) links it, with `clause_transform_loader:main/1`
+as its entry (`compiler/src/transforms/host.cpp`,
+`compiler/src/driver/transform_host.cpp`).
+
+- **When it runs:** a module whose transforms are all modules of Clause's
+  library, none of them replaced by a `.beam` on the
+  [transform paths](#transform-modules). Any other transform in the chain sends
+  the whole chain to the host OTP. A library module without
+  `parse_transform/2` is OTP's `undefined parse transform 'M'`.
+- **Built once:** the first module that needs it builds it with `clau` itself
+  (`clau --shell --erl none --no-cache --entry clause_transform_loader:main/1`),
+  which takes about a minute on a Debug build. It is kept in
+  `<user cache>/clause/transform-host/<clau>-<identity>/` (`%LOCALAPPDATA%` on
+  Windows, `$XDG_CACHE_HOME` or `~/.cache` on Linux, `~/Library/Caches` on
+  macOS). `<clau>` hashes the path of `clau`, `<identity>` its version, size and
+  modification time and those of its runtime archive and every library file, so
+  a rebuilt `clau` or an edited library builds a new host; the new build removes
+  the hosts older builds of the same `clau` left. Concurrent `clau`s wait for
+  the one building it (a lock file beside the directory).
+- **Protocol:** the loader's own request and reply files; the host gets the
+  workspace as its program argument (`clause_transform_host -- DIR`). Its
+  replies equal those of OTP's transforms, and the
+  [build cache](projects.md#build-caches) keys them by the host's path.
+- **Not available:** a host that cannot be built is the error
+  `File: cannot build the parse transform host (...)` with the build's output.
+
 ## Loader
 
 `compiler/src/transforms/loader/clause_transform_loader.erl` is project-owned
-and embedded into `clau`. Each run writes it and the request into a fresh
+and embedded into `clau`; the [transform host](#transform-host) is built from it
+too. Each run writes it and the request into a fresh
 temporary directory, `clause-transform-*` below `<build_dir>/tmp`
 ([build directory](projects.md#build-directory)) or, for positional inputs
 without `--build-dir`, the system's temporary directory, removed after the run;
@@ -187,7 +239,10 @@ A transform module is looked up in this order:
    comes from a dependency library: build that library with the host OTP first
    (for example `erlc -o deps/lib/ebin deps/lib/src/*.erl`); Clause never builds
    dependencies. The `.beam` must come from the host's OTP major release.
-2. **The current project's sources**: a `Module.erl` in the batch or its
+2. **Clause's library** (`ms_transform`, `qlc_pt`, ...), run in the
+   [transform host](#transform-host) when every transform of the module is
+   there.
+3. **The current project's sources**: a `Module.erl` in the batch or its
    `source_search_paths`, compiled by the loader in memory with the target's
    include directories and defines on every run, together with the project
    modules it calls by name (found the same way). The search passes over sources
@@ -201,14 +256,9 @@ A transform module is looked up in this order:
    modules are used: their sources, and the modules only they call, are not
    looked for or compiled. Clause asks the host `erl` for these modules once per
    invocation.
-3. **OTP's own modules** (`ms_transform`, `qlc`) from the host's code path. OTP
-   ships `erl_id_trans` only as an example source, not as a module. Their
-   headers resolve as every `include_lib` does
-   ([preprocessor](preprocessor.md#compatibility-policies)): map the
-   application, as in
-   `--app-dir "stdlib=C:/Program Files/Erlang OTP/lib/stdlib-8.1"` for
-   `include_lib("stdlib/include/ms_transform.hrl")`, or name the transform
-   directly with `-compile({parse_transform, ms_transform})`.
+4. **OTP's own modules** from the host's code path, for those Clause's library
+   does not provide. OTP ships `erl_id_trans` only as an example source, not as
+   a module.
 
 Compiling a project transform can fail where its real build succeeds: headers of
 dependencies, a transform of the transform, or macros that only another build
@@ -234,6 +284,7 @@ needs them.
 | A transform path does not exist | `File: parse transform path is not a directory: DIR` |
 | A `.beam` on a transform path does not load | `File: cannot load parse transform 'M' from PATH: Reason` |
 | Loader failed, timed out or wrote no reply | `parse transform loader failed: ...` |
+| The transform host cannot be built | `File: cannot build the parse transform host (...)` and the build's output |
 | Invalid returned forms | the parser's diagnostic at the form's location |
 
 ## Options
@@ -242,7 +293,7 @@ needs them.
 | --- | --- | --- |
 | `--parse-transform M` | `parse_transforms = ["m"]` | Apply `M` to every module, before its own `-compile` transforms (CLI ones first) |
 | `--transform-path DIR` | `transform_paths = ["deps/*/ebin"]` | Code path for precompiled transform `.beam` files; patterns as in `source_search_paths` |
-| `--erl PATH` or `none` | — | Host `erl` executable; `none` never runs host code |
+| `--erl PATH` or `none` | — | Host `erl` executable; `none` never runs host code ([host OTP](#host-otp)) |
 | `--print-abstr` | — | Print the forms after transforms instead of compiling |
 
 A project that uses its own transform and a precompiled one from a dependency:

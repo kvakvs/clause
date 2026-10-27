@@ -1,0 +1,20 @@
+%% OTP 29 erl_ddll exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{demonitor, 1, default, implemented}.
+{format_error, 1, default, implemented}.
+{format_error_int, 1, default, implemented}.
+{info, 0, default, implemented}.
+{info, 1, default, refused}.
+{info, 2, default, refused}.
+{load, 2, default, refused}.
+{load_driver, 2, default, refused}.
+{loaded_drivers, 0, default, implemented}.
+{monitor, 2, default, refused}.
+{reload, 2, default, refused}.
+{reload_driver, 2, default, refused}.
+{start, 0, server, declined}.
+{stop, 0, server, declined}.
+{try_load, 3, default, refused}.
+{try_unload, 2, default, refused}.
+{unload, 1, default, refused}.
+{unload_driver, 1, default, refused}.

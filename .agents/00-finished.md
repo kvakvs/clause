@@ -955,6 +955,30 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   labels, DEK-Info, base64 lines and errors; decoding stops after an encrypted PKCS #8 entry for Erlang's
   der_decode), `pubkey_pbe`'s cipher/scheme/PBES1/PRF tables; base64 encode/mime_decode exported to builtins;
   goldens and a scratch edge-case oracle (DEK-Info tokens, signed hex, missing END, ~s ciphers) identical to OTP — `c63ce619`
+- **LIB80E2** public_key otp form walk in C++: `otp_transform` builtin (`pubkey_cert_records:transform/2` below
+  certificates), `extension_type` table; dispatch stays Erlang; fixed the long user notice fallback (table constraint
+  exits raised raw); OTP's public_key_SUITE/pbe/PKITS PEMs and certificates identical to OTP (scratch corpus oracle),
+  `public_key_codec` golden gains a visibleString notice — `76373830`
+- **LIB80E3** public_key names in C++: `normalize_name`, `is_issuer`, `is_dir_name`, `match_name`, `match_wildcard`,
+  `lower_ascii` builtins (`names.cpp`) calling string/unicode/uri_string builtins through the registry (`calls.cpp`);
+  goldens and scratch oracles (normalisation, issuer comparison, wildcards, dist point name rules) identical — `51dddcc9`
+- **LIB80E4** public_key policy tree in C++: `policy_add`/`_map`/`_intersection`/`_prune`/`_constrained`/`_result`
+  builtins (`policy.cpp`) for `pubkey_policy_tree`; all 211 PKITS path validations of OTP's pkits_SUITE (scratch
+  runner) identical to OTP — `bde5daaa`
+- **LIB80E5** public_key PBKDF1 rounds in C++ (`pbkdf1_rounds`, identical output, 2048 rounds 15.9 -> 0.84 ms
+  Release); CRL entry loops tried and reverted (slower than compiled Erlang) — `b8282d39`
+- **LIB80E2/E3 reverted**: otp form walk and name functions back to Erlang (Release benchmark: C++ 3-8% slower,
+  not complex clusters); PEM (2.2x faster decode), policy tree and PBKDF1 ports kept; long notice fix kept — `3a3bed22`
+- **LIB81A** ssl application and utility functions (PARTIAL; libssl hybrid design decided): suite table and lists,
+  name walks as `ssl` builtins, crypto-filtered algorithms/curves/groups/versions, `format_error/1`, `ssl_sup` with
+  `ssl_pem_cache`; clau adds library start modules and dependency resources; `ssl_suites` golden identical to OTP — `e16028cf`
+- **LIB77A** transform host: the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
+  library identity into the user cache (lock file, older hosts pruned); library-only transform chains run there, also
+  under `--erl none`; replies equal OTP's (ms_headers, qlc_queries `.abstr`); library `compile` without compiling
+  (PARTIAL, LIB77E); qlc_pt replay batched by query (qlc_queries transform 220 s -> 12.7 s, 158 -> 3 runs) — `e926cf97`
+- **LIB85** library catalog compiled into `clau`: `library/modules.terms` became the X-macro list
+  `compiler/src/driver/library_modules.inc` (no disk read or line parse per discovery/host build; a changed catalog
+  changes clau's identity); `library_modules.py check` reads the `.inc`, the inconsistent fixture has its own — `05e7b1e0`
 
 ## Plan 22 (from 2026-10-23)
 

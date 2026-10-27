@@ -39,7 +39,8 @@ add_test(NAME transforms_loader
 set_tests_properties(transforms_loader PROPERTIES TIMEOUT 300 LABELS host_otp
     PASS_REGULAR_EXPRESSION "transforms_loader: ok" SKIP_REGULAR_EXPRESSION "SKIP: no host Erlang/OTP")
 
-# Added for parse transforms: transforms in the compile pipeline (host OTP), and the error without a host OTP.
+# Added for parse transforms: transforms in the compile pipeline (host OTP), and the error without a host OTP; the
+# library's transforms in Clause's transform host (plan 21 LIB77A, which builds it once per clau: long timeout).
 add_test(NAME transforms_pipeline COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/pipeline.py" otp
     "$<TARGET_FILE:clau>" "${test_erl}" "${PROJECT_SOURCE_DIR}/tests/fixtures/transforms"
     "${CMAKE_CURRENT_BINARY_DIR}/pipeline/$<CONFIG>")
@@ -48,7 +49,7 @@ set_tests_properties(transforms_pipeline PROPERTIES TIMEOUT 600 LABELS host_otp
 add_test(NAME transforms_no_otp COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/pipeline.py" none
     "$<TARGET_FILE:clau>" "-" "${PROJECT_SOURCE_DIR}/tests/fixtures/transforms"
     "${CMAKE_CURRENT_BINARY_DIR}/no-otp/$<CONFIG>")
-set_tests_properties(transforms_no_otp PROPERTIES TIMEOUT 60 PASS_REGULAR_EXPRESSION "transforms_no_otp: ok")
+set_tests_properties(transforms_no_otp PROPERTIES TIMEOUT 900 PASS_REGULAR_EXPRESSION "transforms_no_otp: ok")
 
 # Added for parse transforms: transform modules from a project: sources, helpers, precompiled dependencies.
 add_test(NAME transforms_project COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/project.py"

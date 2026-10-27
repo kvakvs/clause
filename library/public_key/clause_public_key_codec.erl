@@ -626,8 +626,13 @@ extension_value(Name, Der) ->
     {Module, Type} = extension_type(Name),
     case decode(Module, Type, Der) of
         {ok, Value} -> Value;
-        {error, {asn1, {Reason, _}}} -> exit({error, {asn1, Reason}})
+        {error, {asn1, {Reason, _}}} -> asn1_exit(Reason)
     end.
+
+%% A codec error raised again as the type's own decoder or encoder raises it: a table constraint's exit as it is
+%% (so that long user notices fall back to OTP-PKIX), others as exit({error, {asn1, Reason}}).
+asn1_exit({'Type not compatible with table constraint', _} = Reason) -> exit(Reason);
+asn1_exit(Reason) -> exit({error, {asn1, Reason}}).
 
 %% The module and type of an extension's value (EXTENSION's &ExtnType); HoldInstructionCode's OBJECT IDENTIFIER and
 %% InvalidityDate's GeneralizedTime have no type of their own and take another type of the same definition.
@@ -679,7 +684,7 @@ encode_extension(#'Extension'{extnID = Id, extnValue = Value} = Extension) ->
             {Module, Type} = extension_type(Name),
             case encode(Module, Type, translate(encode, Value)) of
                 {ok, Der} -> Extension#'Extension'{extnValue = Der};
-                {error, {asn1, {Reason, _}}} -> exit({error, {asn1, Reason}})
+                {error, {asn1, {Reason, _}}} -> asn1_exit(Reason)
             end
     end.
 
@@ -721,13 +726,8 @@ pbkdf1(_, _, 0, Acc) ->
     Acc;
 pbkdf1(Password, Salt, Count, Hash) ->
     First = crypto:hash(Hash, [Password, Salt]),
-    pbkdf1_more(First, Count - 1, First, Hash).
-
-pbkdf1_more(_, 0, Acc, _) ->
-    Acc;
-pbkdf1_more(Previous, Count, Acc, Hash) ->
-    Next = crypto:hash(Hash, Previous),
-    pbkdf1_more(Next, Count - 1, <<Next/binary, Acc/binary>>, Hash).
+    %% The first digest checked the digest type; the rounds after it are a builtin loop.
+    clause_public_key:pbkdf1_rounds(First, Count - 1, Hash).
 
 %% OpenSSL's EVP_BytesToKey with MD5 and one iteration.
 legacy_pem_key(_, _, _, 0, Acc) ->

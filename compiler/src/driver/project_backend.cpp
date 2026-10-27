@@ -8,6 +8,7 @@
 #include "publication.hpp"
 #include "stage_times.hpp"
 #include <algorithm>
+#include "transform_host.hpp"
 #include <iostream>
 #include <optional>
 #include <set>
@@ -219,6 +220,7 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
     }
     project::DirectoryIndex index;       // Added for the directory index (62E).
     BuildCaches caches{options.verbose}; // Added for build caches (62D2).
+    const auto host = transform_host();  // Added for the transform host (plan 21 LIB77A).
     std::vector<Publication> pending;
     std::vector<PendingExecutable> executables;
     const project::TargetExecutor execute = [&](const project::Invocation &invocation,
@@ -237,6 +239,7 @@ int run_project(const Options &options, const std::span<char *const> arguments) 
         request.print_source = options.print_source;
         request.print_abstr = options.print_abstr;
         request.transforms_ = options.transforms;
+        request.transforms_.host_ = host;
         for (const auto &name : target.transforms_) {
             request.transforms_.transforms_.push_back(Source(0, "module", name).text);
         }

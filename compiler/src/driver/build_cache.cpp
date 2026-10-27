@@ -92,7 +92,9 @@ void TransformCache::store(const transforms::HostQuery &query, const transforms:
 cache::Key TransformCache::key(const transforms::HostQuery &query) {
     cache::KeyBuilder key;
     key.add(CLAUSE_VERSION).add(cache::program_identity()).add(query.kind_).add(query.bytes_);
-    key.add(erl_identity(query.request_.erl_));
+    // The transform host's path names its identity (plan 21 LIB77A).
+    const auto &runner = query.request_.erl_;
+    key.add(query.request_.clause_host_ ? project::path_text(runner) : erl_identity(runner));
     for (const auto &source : query.request_.sources_) {
         key.add_file(source.path_);
         add_includes(key, sources_.get(), source.path_);

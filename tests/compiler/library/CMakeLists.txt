@@ -3,7 +3,7 @@
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(library_modules "${CMAKE_CURRENT_SOURCE_DIR}/library_modules.py")
 
-# The repository's inventories, module files and modules.terms agree; the inconsistent fixture is refused.
+# The repository's inventories, module files and library catalog agree; the inconsistent fixture is refused.
 add_test(NAME library_inventory COMMAND "${Python3_EXECUTABLE}" "${library_modules}" check "${PROJECT_SOURCE_DIR}")
 set_tests_properties(library_inventory PROPERTIES TIMEOUT 60 PASS_REGULAR_EXPRESSION "library_inventory: ok")
 add_test(NAME library_rejects COMMAND "${Python3_EXECUTABLE}" "${library_modules}" rejects "${PROJECT_SOURCE_DIR}")

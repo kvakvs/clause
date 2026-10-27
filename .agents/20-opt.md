@@ -8,7 +8,8 @@ Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3, OPT1.4, O
 OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder,
 OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4
 and its remainder, OPT3.18, OPT3.19, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5,
-OPTM.6): see [00-finished.md](00-finished.md). This file keeps open work only.
+OPTM.6): see [00-finished.md](00-finished.md). Rejected steps (OPTM.1 remainder): see
+[00-reject.md](00-reject.md). This file keeps open work only.
 
 **NAMING CONVENTIONS** The optimization steps use prefixes based on their area of concern
 - OPT<id1>.<id2> - optimization tasks
@@ -246,13 +247,6 @@ each.
   freshly built; constant maps moved into the literal pool must be excluded. Maps and binaries stay
   with their services.
 
-## OPTM.1 remainder: binary search over static tables
-
-Sorted tables done (see `00-finished.md`). Open: the small tables that would need reordering first
-(re flags and newlines, time units, port options, the importers' handler tables); not the
-index-bearing ones (`fixed_atom_spellings`, preprocessor directive names, compile cache output
-kinds) or process_info/system_info item lists.
-
 ## Tier OPT1: static compiler optimizations (directly applicable, no profile)
 
 Ordered by measured T2 value and how well each fits an AOT compiler. 69A weight on 2026-10-21
@@ -479,7 +473,7 @@ it needs the match's value to be unused and every read to inline (static decisio
    both done; then the kernels already ahead: OPT3.23 (ring ~0.80x), OPT1.6 remainder (~0.84x),
    OPT3.15 remainder (0.96x), OPT3.20 (0.90x), OPT3.21 (0.88x), OPT1.5 (0.86x), OPT3.22 (0.80x),
    OPT1.12 (0.77x), OPT3.6 remainder (0.76x), term_to_binary remainder (0.70x), OPT3.5 remainder
-   (0.67x), OPT1.3 (0.63x). Steps with no 69A kernel (OPT3.13/3.14 remainders, OPTM.1 remainder,
+   (0.67x), OPT1.3 (0.63x). Steps with no 69A kernel (OPT3.13/3.14 remainders,
    OPT1.7-1.11, OPT1.13, OPT2.x) follow; `--lto` (an OPT2.1 proxy) is 1.00x overall.
 
 **Gate for every item:**

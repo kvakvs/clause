@@ -50,3 +50,23 @@ function(clause_quality_record)
         message(FATAL_ERROR "Recording the analyzed compile commands failed.")
     endif()
 endfunction()
+
+# Merge the commands of one passing batch's units (absolute source paths) into the record, so that after a failing
+# run the next changed scope analyzes only what did not pass, not the whole selection again.
+function(clause_quality_record_passed sources)
+    set(passed_file "${QUALITY_BUILD_DIR}/quality/passed-batch.txt")
+    set(lines "")
+    foreach(source IN LISTS sources)
+        file(RELATIVE_PATH relative "${project_root}" "${source}")
+        string(APPEND lines "${relative}\n")
+    endforeach()
+    file(WRITE "${passed_file}" "${lines}")
+    execute_process(
+        COMMAND "${QUALITY_PYTHON}" "${project_root}/cmake/quality_scope.py" --kind record
+            --root "${project_root}" --build "${QUALITY_BUILD_DIR}" --passed "${passed_file}"
+        RESULT_VARIABLE record_result
+    )
+    if(NOT record_result STREQUAL "0")
+        message(FATAL_ERROR "Recording the analyzed compile commands failed.")
+    endif()
+endfunction()

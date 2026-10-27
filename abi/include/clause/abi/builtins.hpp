@@ -674,9 +674,18 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     // Module clause_public_key: public_key's term walks and tables (plan 21 step LIB80B;
     // runtime/src/builtins/public_key/).
     BuiltinName{"clause_public_key", "asn1_module", 1},
+    // The PBKDF1 loop (plan 21 step LIB80E5).
+    BuiltinName{"clause_public_key", "pbkdf1_rounds", 3},
     BuiltinName{"clause_public_key", "name_oid", 2},
     BuiltinName{"clause_public_key", "oid_name", 2},
     BuiltinName{"clause_public_key", "os_cacerts", 0},
+    // The policy tree (plan 21 step LIB80E4).
+    BuiltinName{"clause_public_key", "policy_add", 4},
+    BuiltinName{"clause_public_key", "policy_constrained", 1},
+    BuiltinName{"clause_public_key", "policy_intersection", 3},
+    BuiltinName{"clause_public_key", "policy_map", 5},
+    BuiltinName{"clause_public_key", "policy_prune", 1},
+    BuiltinName{"clause_public_key", "policy_result", 1},
     // PEM text and PBE tables (plan 21 step LIB80E1).
     BuiltinName{"clause_public_key", "pbe_cipher", 1},
     BuiltinName{"clause_public_key", "pbes1", 1},
@@ -686,6 +695,12 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_public_key", "pem_entry", 1},
     BuiltinName{"clause_public_key", "prf_digest", 1},
     BuiltinName{"clause_public_key", "translate", 2},
+    // Module ssl: the cipher suite table and name walks (plan 21 step LIB81A; runtime/src/builtins/ssl/).
+    BuiltinName{"ssl", "cipher_suites", 2},
+    BuiltinName{"ssl", "cipher_suites", 3},
+    BuiltinName{"ssl", "str_to_suite", 1},
+    BuiltinName{"ssl", "suite_to_openssl_str", 1},
+    BuiltinName{"ssl", "suite_to_str", 1},
     // Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
     BuiltinName{"base64", "decode", 1},
     BuiltinName{"base64", "decode", 2},

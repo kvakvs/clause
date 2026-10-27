@@ -1,0 +1,22 @@
+%% OTP 29 erl_epmd exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{address_please, 3, default, implemented}.
+{code_change, 3, server, declined}.
+{handle_call, 3, server, declined}.
+{handle_cast, 2, server, declined}.
+{handle_info, 2, server, declined}.
+{init, 1, server, declined}.
+{listen_port_please, 2, default, implemented}.
+{names, 0, default, refused}.
+{names, 1, default, refused}.
+{open, 0, server, declined}.
+{open, 1, server, declined}.
+{open, 2, server, declined}.
+{port_please, 2, default, refused}.
+{port_please, 3, default, refused}.
+{register_node, 2, default, refused}.
+{register_node, 3, default, refused}.
+{start, 0, server, declined}.
+{start_link, 0, server, declined}.
+{stop, 0, server, declined}.
+{terminate, 2, server, declined}.

@@ -13,18 +13,20 @@ internal functions stay out unless a public function needs them (user direction 
   they are very heavy on inference engine, consider making C++ versions of those instead.
 
 - When a step is done, remove it from this file and add a 1-2 line bullet with its commit hash and
-  headline speedup to `00-finished.md` (Plan 21).
+  headline speedup to `00-finished.md` (Plan 21). Rejected or reverted steps go to `00-reject.md`
+  with the measurement behind the decision.
 
-## Status (2026-10-25)
+## Status (2026-10-27)
 
 - **Source of truth:** the doc chunks of the installed OTP 29.1.1 (`code:get_doc/1`), recorded in
   `library/documented.terms` by `tests/compiler/library/observe_docs.escript`;
   `library_modules.py coverage .` prints the progress per module. 120 documented modules, 2,888
   documented functions.
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
-- **Left:** `erlang` (20 declined functions, LIB9 remainder) and the declined modules' answer stubs
-  (Appendix A); OTP-free builds (LIB77–LIB78: luerl's manifests use no OTP paths since LIB76);
-  applications beyond the core that emqx needs (LIB80–LIB83, Appendix B; `crypto`, LIB79, is done).
+- **Left:** `erlang` (20 declined functions, LIB9 remainder, Appendix A); OTP-free builds
+  (LIB77–LIB78: luerl's manifests use no OTP paths since LIB76);
+  applications beyond the core that emqx needs (LIB81B–D, LIB82–LIB83, Appendix B; `crypto` (LIB79),
+  `public_key` (LIB80) and `ssl`'s utility functions (LIB81A) are done).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -62,7 +64,8 @@ internal functions stay out unless a public function needs them (user direction 
   `noconnection`, `pang`).
 - **Declined functions** raise or return what OTP gives where the feature is unavailable
   (`{error, enotsup}`, `{error, not_distributed}`, ...). Each one is recorded in `.terms` as
-  `{declined, Reason}`, and `modules.terms` records the declined modules.
+  `{declined, Reason}`, and the library catalog (`compiler/src/driver/library_modules.inc`) records
+  the missing modules.
 - **Not implemented placeholder**: Such functions are declared but return
   erlang:error({not_implemented, <function name>, <arity>}).
 - **Implemented but in C++**: Erlang counterpart function declaration is created to keep exports
@@ -93,19 +96,6 @@ runs a process protocol or is glue. C++ reproduces OTP's exact result shapes for
 - Distribution: `dist_ctrl_*`.
 - Tracing: `trace*`, `system_monitor/0,1,2`, `system_profile/0,2` raise `notsup` (LIB71).
 
-### Declined modules (recorded in `modules.terms`)
-
-| Module | Reason | OTP's answer on a non-distributed or unsupported node |
-| --- | --- | --- |
-| `erl_boot_server` (7), `erl_epmd` (8) | Distribution boot and port mapping | Start fails as without epmd |
-| `peer` (11), `slave` (deprecated), `pool` (8) | Start other nodes | `{error, not_alive}` or the matching error |
-| `heart` (8) | Needs OTP's heart port program | `heart` not started |
-| `erl_ddll` (15) | No dynamic drivers (D01) | `loaded_drivers/0` gives `{ok, []}`, loads give `{error, ...}` |
-| `erl_debugger` (13) | No debugger interface | `supported/0` gives `false` |
-
-These still get small modules answering as OTP does where the feature is missing, so programs that
-probe for them keep working.
-
 ### Phase: OTP-free builds
 
 `test-luerl-euler.toml` and `test-luerl-benchmark.toml` use no Erlang/OTP paths since LIB76: all
@@ -113,18 +103,49 @@ non-luerl modules resolve from `library/`. `test-emqx.toml` keeps only the OTP a
 erts/kernel/stdlib (`eunit`, `common_test`, `public_key`, `ssl`) as `applications` roots; its
 preprocessing diagnostics are unchanged (the rest are emqx's missing dependencies).
 
-- **What still ties programs to OTP** (counted over `references/emqx/apps`): parse transforms
-  (`ms_transform`, `qlc`) run on the host `erl`; `.yrl`/`.xrl` sources need OTP's `yecc`/`leex`
+- **What still ties programs to OTP** (counted over `references/emqx/apps`): project parse
+  transforms run on the host `erl` (`ms_transform` and `qlc` no longer: LIB77A); `.yrl`/`.xrl`
+  sources need OTP's `yecc`/`leex`
   (luerl ships generated `luerl_parse.erl`/`luerl_scan.erl`, whose `-file` lines only name OTP's
   `yeccpre.hrl`). The public headers emqx includes (`assert.hrl`, `ms_transform.hrl`, `inet.hrl`)
   are provided since LIB75.
 
 Steps:
 
-- **LIB77 Parse transforms without the host (design first):** `ms_transform` and `qlc_pt` exist in
-  `library/` but run on the host OTP `erl` ([transforms](../docs/transforms.md)). Decide with the
-  user between running library transforms inside `clau` (needs compile-time evaluation) and keeping
-  the host requirement; until then, `ets:fun2ms` users still need OTP on the build host.
+- **LIB77 Parse transforms without the host:** library transforms (`ms_transform`, `qlc_pt`) run in
+  Clause's transform host since LIB77A; project and dependency transforms still run on the host OTP
+  `erl` ([transforms](../docs/transforms.md)). Decided 2026-10-27 (user): an
+  Erlang interpreter runs transforms without OTP. Library transforms run compiled, project and
+  dependency transforms are interpreted from their forms. Already there: `erl_eval`, `erl_parse`,
+  `erl_scan`, `epp`, `erl_lint`, `erl_expand_records`, `erl_internal`, `erl_anno`, `erl_pp`,
+  `erl_error`, `beam_lib`, `erl_abstract_code`, `error_handler`, `ms_transform`, `qlc_pt`, the
+  transform host (`compiler/src/transforms/host.cpp`, `driver/transform_host.cpp`) and `compile`
+  without its compiling functions.
+  - **LIB77B Module interpreter (`clause_interp`, Erlang over `erl_eval`):** loads a module's forms
+    (records expanded, `erl_lint` checked) into a registry; local calls through `erl_eval`'s local
+    function handler, `fun f/N`, and remote calls, `apply/3`, `fun M:F/A` and spawn MFAs into
+    interpreted modules routed through `error_handler`. `erlang:function_exported/3`,
+    `code:ensure_loaded/1`, `is_loaded/1`, `which/1` and `module_info/0,1` see interpreted modules;
+    exceptions keep OTP's `error in parse transform 'M': ...` text with interpreted stack frames.
+  - **LIB77C Transform sources:** `clau` preprocesses and parses project transform sources (and the
+    project modules they call) with its own frontend, applies their own transforms first, and sends
+    the exported forms in the request; the host only interprets them (no `compile`, `epp` or
+    `erl_parse` run in the host). `.beam` files on `transform_paths` are interpreted from their
+    `debug_info` chunk (`beam_lib` + `erl_abstract_code`); one without debug info needs `--erl`.
+  - **LIB77D Switch over:** transforms run in the host by default and `erl` is only the fallback;
+    imported `{error, _}`/`{warning, _}` forms formatted natively; modules with preprocessor or
+    parse errors pass them to transforms as forms, as OTP does (both `differences.md` rows go).
+    Proof: emqx's `ets:fun2ms`/`qlc` users and `emqx_bpapi_trans` (which calls the dependency
+    `erlang_qq`) build with `--erl none`. The executables goldens' `X.abstr` files (forms from OTP's
+    transforms, LIB73) can go: the host gives the same forms (checked by `transforms_no_otp`).
+  - **LIB77E (on request) APIs that third-party transforms call:** not needed by `clau`, only by
+    transform code that uses them (else `undef`). `syntax_tools`: `erl_syntax` (303 exports; plain
+    forms are already valid trees, so most of it is node accessors over abstract forms, the
+    clause-heavy dispatch in C++), `erl_syntax_lib`, `erl_prettypr`/`prettypr`, `epp_dodger`,
+    `merl` with `merl_transform` and `merl.hrl`. `compile:forms/1,2`, `noenv_forms/2` (and
+    `file/1,2`, `noenv_file/2` as `epp` plus forms) for transforms that build helper modules,
+    returning an interpreter image that `code:load_binary/3` accepts in the host only; they are
+    stubs of library `compile` (PARTIAL) until then. Written in Clause's shape, never copied.
 - **LIB78 (optional, beyond erts/kernel/stdlib) `parsetools`:** `yecc` and `leex` with
   `yeccpre.hrl`/`leexinc.hrl` equivalents, so projects that ship only `.yrl`/`.xrl` build without
   OTP. Generated parsers are clause-heavy: generate C++ tables or keep generated Erlang small (see
@@ -133,85 +154,44 @@ Steps:
 #### Applications beyond erts/kernel/stdlib (survey 2026-10-26)
 
 What `test-emqx.toml` still takes from OTP. Documented API from the OTP 29 doc chunks of the host's
-`crypto-5.10`, `public_key-1.21.7`, `ssl-11.7.7`, `eunit-2.11`, `common_test-1.31.2` (full lists in
+`ssl-11.7.7`, `eunit-2.11`, `common_test-1.31.2` (full lists in
 Appendix B; re-observe them into `documented.terms` the way `observe_docs.escript` does for the
 three core applications). Call counts are over `references/emqx/apps`, non-test sources unless
 noted. The same rules apply as for the core: whole module or nothing in `library/`, OTP's terms and
 records, goldens from OTP, own headers written from the documented records and macros.
 
-- **LIB80 `public_key` (54 functions; design decided 2026-10-26):** PEM, DER codec of the PKIX/PKCS
-  ASN.1 types into OTP's record tuples (`'Certificate'`, `'OTPCertificate'`, `'RSAPrivateKey'`, ~250
-  records of `public_key.hrl` and its four included headers), signing, verification, path
-  validation, CRLs, OCSP, hostname checks, `cacerts_*`. OTP compiles 30 ASN.1 modules (2009 style:
-  parameterized types, information object classes) with `asn1ct -bber +der
-  +asn1config` and decodes through `asn1rt_nif`. emqx uses `pem_decode/1` (14), `der_decode/2`,
-  `der_encode/2`, `pem_entry_decode/1,2`, `pem_encode/1`, `pkix_decode_cert/2`, `pkix_sign/2`,
-  `generate_key/1`, `verify/4`, `pkix_verify_hostname_match_fun/1`. Decisions:
-  - **Own ASN.1 compiler**, LLVM-free C++ in `compiler/src/asn1/` (reusable by clau for project
-    `.asn` files, LIB84 done). Covers what the 30 modules need: X.680/681/683 constructs they use
-    (parameterized types, object classes and sets, open types, extensibility, tagging, OTP's
-    `exclusive_decode` configs), BER/DER only; any other construct is an "unsupported" diagnostic.
-  - **Specs:** ASN.1 modules copied from their RFCs (IETF code components, BSD notice kept) into
-    `library/public_key/asn1/`; OTP's own modules (`OTP-PKIX`, `OTP-PKIX-Relaxed`, the
-    `PKCS-FRAME`/`OTP-PUB-KEY` sets) written by us from the documented records. A golden observed
-    once from host OTP (record names, field order, defaults; type names) proves the generated `.hrl`
-    match OTP's.
-  - **Generation (changed 2026-10-26, LIB80A):** clau compiles specifications as asn1ct does
-    (`Module.erl` + `Module.hrl`, `docs/asn1.md`); the generated modules call
-    `clause_asn1:encode/decode/3` with a literal schema term. `public_key`'s specs compile the same
-    way when its modules join a batch; nothing generated is checked in.
-  - **Codec:** one generic C++ BER/DER engine interpreting the schema, in core `clause_runtime`
-    (`builtins/asn1/`; project specs need it without OpenSSL). Decode leniency and
-    `{error, {asn1, Reason}}` terms exactly as OTP's (Kitchen fixtures; all public_key_SUITE PEMs,
-    PKITS CRLs and certificates decode and re-encode as OTP's).
-  - **Split:** C++ for data (codec, PEM incl. PBE decryption, `pubkey_translation`'s work, name
-    normalization, hostname match, issuer/subject ids, dist points, hash types); Erlang glue over
-    `crypto` for sign/verify/encrypt/`generate_key`/`compute_key`; Erlang for path validation, CRL
-    and OCSP validation (`verify_fun` funs and state).
-  - **Trust stores:** as OTP: Windows crypt32 current user `ROOT` store (C++ builtin), Unix file lists,
-    macOS keychains through `/usr/bin/security`.
-  - **Steps** (`public_key` in `library/` since LIB80B, documented functions PARTIAL in
-    `library_modules.py` until LIB80D; later steps' functions keep `not_implemented` placeholders):
-    - LIB80B done (B1 specs and header, B2 codec).
-    - LIB80C done (keys and signatures over crypto in `clause_public_key_keys`; default DH groups
-      from OpenSSH's moduli). `public_key_keys` golden.
-    - LIB80D (split 2026-10-26; Erlang where verify/issuer/CRL funs run or the walk is thin glue
-      over the C++ string builtins):
-      - D1 done: `pkix_normalize_name/1`, `pkix_is_issuer/2`, `pkix_is_self_signed/1`,
-        `pkix_is_fixed_dh_cert/1`, `pkix_issuer_id/2`, `pkix_subject_id/1`, `pkix_crl_issuer/1`,
-        `pkix_crl_verify/2`, `pkix_dist_point(s)/1`, `pkix_match_dist_point/2`,
-        `pkix_verify_hostname/2,3`, `pkix_verify_hostname_match_fun/1`.
-      - D2 done: `pkix_path_validation/3` (validation state, extensions, name constraints, policy
-        tree, `verify_fun`).
-      - D3 done: `pkix_crls_validate/3` (CRL and delta CRL checks, `issuer_fun`, `update_crl`).
-      - D4 done: `pkix_ocsp_validate/5`, `ocsp_extensions/1`.
-      - D5 done: `pkix_test_data/1`, `pkix_test_root_cert/2`.
-      - D6 done: `cacerts_get/0`, `cacerts_load/0,1`, `cacerts_clear/0`; public_key removed from `PARTIAL`.
-      - Docs done: `public_key.md` sections per step, the frames row of `differences.md`.
-    - LIB80E (after D; split 2026-10-26): port public_key's pure Erlang walks to C++ builtins
-      (memory: clause-heavy library code); Erlang keeps fun calls, crypto glue and the calls into
-      the generated modules (their schemas are module-local literals C++ cannot reach). Goldens stay
-      identical; each step ends with the public_key goldens and the quality gate.
-      - E1 done: PEM text (`pem_decode/1` lines, labels, `DEK-Info`, base64; `pem_encode/1` lines) and
-        PBE tables (ciphers, block sizes, key lengths, PRF digests, PBES1/PBES2 OIDs); Erlang maps
-        `ENCRYPTED PRIVATE KEY` entries through `der_decode`/`der_encode`.
-      - E2: the `der_decode`/`der_encode` dispatch as a C++ route table (module, ASN.1 type,
-        translation), the otp form walks of `pubkey_cert_records` (names, signature algorithms,
-        name constraints, distribution points, policies), extension types.
-      - E3: `clause_public_key_cert` name normalisation, comparison and `match_name` rules,
-        wildcard and IP matching.
-      - E4: the policy tree of `clause_public_key_path` (OTP's `pubkey_policy_tree`) and the pure
-        checks around it (name constraint subtrees, key usage tables).
-      - E5: what pure walks remain in `clause_public_key_crl`/`_ocsp` (reason masks, DP grouping).
-- **LIB81 `ssl` (design first, after LIB80; `ssl` 52 functions, `ssl_crl_cache` 3, callback-only
-  `ssl_crl_cache_api`, `ssl_session_cache_api`):** OTP implements TLS 1.0–1.3 and DTLS in Erlang
-  (`gen_statem` per connection, `ssl_app` supervision tree, PEM and session caches). Decide between
-  Clause's own Erlang protocol implementation over LIB79/LIB80 (OTP's options, alerts, errors and
-  `connection_information/1` items) and a C++ connection over OpenSSL's libssl behind the same API
-  (smaller, but option and alert coverage would differ: `differences.md` rows). Options are the bulk
-  of the API (`tls_client_option()`, `tls_server_option()` types). emqx's `emqx_ocsp_cache` and
-  `emqx_ssl_crl_cache` include OTP-internal `ssl/src/ssl_handshake.hrl` and `ssl_internal.hrl`: not
-  public, not provided (projects keep OTP's `ssl` application root for them).
+- **LIB81 `ssl` (`ssl` 52 functions, `ssl_crl_cache` 3, callback-only `ssl_crl_cache_api`,
+  `ssl_session_cache_api`).** Decided 2026-10-27 (user): a hybrid over OpenSSL's libssl. Each
+  connection is an Erlang process with OTP's semantics: owner and `controlling_process`, active
+  modes, `{ssl, S, Data}`/`{ssl_closed, S}`/`{ssl_error, S, R}` messages, OTP's option validation,
+  error and alert terms. libssl does the record layer and handshake over memory BIOs, and the
+  process moves bytes through the `cb_info` transport (`gen_tcp` by default). Certificate checks
+  stay OTP's: the handshake pauses in libssl's verify callback (`SSL_set_retry_verify`) and the
+  process runs `public_key:pkix_path_validation/3` with `verify_fun`, `partial_chain` and CRL
+  options. TLS 1.2 and 1.3 come first. emqx's non-test code only calls the data functions
+  (`cipher_suites`, `versions`, `str_to_suite`, `suite_to_str`). Its tests call `connect` 70 times,
+  `close` 55, `send` 17 and `recv` 15. emqx's `emqx_ocsp_cache` and `emqx_ssl_crl_cache` include
+  OTP-internal `ssl_handshake.hrl` and `ssl_internal.hrl`. These are not public and are not
+  provided, so projects keep OTP's `ssl` application root for them.
+  - **LIB81B libssl engine:** a `clause_runtime_ssl` archive (libssl over the crypto archive's
+    libcrypto). clau links it into programs that compile library `ssl`. Engine handles are an
+    `SSL_CTX` built from validated options (versions, suites by code, groups, signature schemes,
+    DER certificates and keys, CA lists, ALPN, SNI) and an `SSL` over memory BIOs. Builtins: feed
+    received bytes, take bytes to send, handshake step (returns want-read, done, verify-pause or an
+    alert), read, write, shutdown, key update, and the negotiated items for
+    `connection_information`.
+  - **LIB81C Connections:** `connect/2,3,4`, `listen/2`, `transport_accept/1,2`, `handshake/1,2,3`,
+    `handshake_continue/2,3` and `handshake_cancel/1` (the `{handshake, hello}` pause), `send`,
+    `recv`, active modes, `close/1,2`, `shutdown/2`, `controlling_process/2`, `getopts`/`setopts`,
+    `peername`, `sockname`, `getstat`, `peercert`, `negotiated_protocol`,
+    `connection_information/1,2`. Also OTP's `{options, ...}` errors, `{tls_alert, {Desc, Text}}`,
+    the verify pause over `public_key`, and the `ssl` supervision tree. `ssl_connections` golden
+    (loopback client and server).
+  - **LIB81D TLS features:** session reuse and tickets, `renegotiate/1`, `update_keys/2`,
+    `export_key_materials/4,5`, `sni_hosts`/`sni_fun`, CRL checks with `ssl_crl_cache` (`insert/1,2`,
+    `delete/1`) and the cache callbacks, OCSP stapling, PSK/SRP `user_lookup_fun`, custom `cb_info`
+    transports, `keep_secrets`, `log_level` output. `ssl` stops being PARTIAL.
+  - **LIB81E (optional) TLS 1.0/1.1 and DTLS 1.0/1.2** over `gen_udp` with libssl's DTLS methods.
 - **LIB82 (far back: test support) `eunit` (4 functions: `eunit:test/1,2`, `start/0`, `stop/0`):**
   `eunit.hrl` (49 `-define`s: `?assert*`, `?_test`, `?_assert*`, `?debug*`, `?LET`, `?IF`, `NOTEST`)
   adds the `eunit_autoexport` and `eunit_striptests` parse transforms, so it depends on LIB77. The
@@ -231,10 +211,9 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. The declined modules' answer stubs.
-2. LIB77 after a design decision; LIB78 only on request.
-3. LIB80B–D (requested 2026-10-26), then LIB81 after its design decision.
-4. LIB82, LIB83 last (test support).
+1. LIB77B–D in order; LIB77E and LIB78 only on request.
+2. LIB81B–D in order (LIB81E on request).
+3. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)
 
@@ -265,52 +244,12 @@ separately and are optional.
   dist_ctrl_get_opt/2, dist_ctrl_input_handler/2, dist_ctrl_put_data/2, dist_ctrl_set_opt/3,
   load_module/2, load_nif/2, purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3,
   trace_delivered/1, trace_info/2, trace_pattern/2,3
-- `erl_boot_server` (kernel, 7): add_slave/1, delete_slave/1, start/1,2, start_link/1,2,
-  which_slaves/0
-- `erl_ddll` (kernel, 15): demonitor/1, format_error/1, info/0,1,2, load/2, load_driver/2,
-  loaded_drivers/0, monitor/2, reload/2, reload_driver/2, try_load/3, try_unload/2, unload/1,
-  unload_driver/1
-- `erl_debugger` (kernel, 13): breakpoint/3, breakpoints/1,3, instrumentations/0,
-  peek_stack_frame_slot/4, peek_xreg/3, register/1, stack_frames/2, supported/0,
-  toggle_instrumentations/1, unregister/2, whereis/0, xregs_count/1
-- `erl_epmd` (kernel, 8): address_please/3, listen_port_please/2, names/1, port_please/2,3,
-  register_node/2,3, start_link/0
-- `heart` (kernel, 8): clear_callback/0, clear_cmd/0, get_callback/0, get_cmd/0, get_options/0,
-  set_callback/2, set_cmd/1, set_options/1
-- `peer` (stdlib, 11): call/4,5, cast/4, get_state/1, random_name/0,1, send/3, start/1,
-  start_link/0,1, stop/1
-- `pool` (stdlib, 8): attach/1, get_node/0, get_nodes/0, pspawn/3, pspawn_link/3, start/1,2, stop/0
-- `slave` (stdlib, 0): none; deprecated: pseudo/1,2, relay/1, start/1,2,3, start_link/1,2,3, stop/1
 
 ## Appendix B: documented API of the applications beyond the core (OTP 29 doc chunks)
 
-Observed 2026-10-26 on the host's OTP 29 (`code:get_doc/1`, not hidden, not deprecated), for LIB79–
-LIB83. Format: `module` (functions): name/arities.
+Observed 2026-10-26 on the host's OTP 29 (`code:get_doc/1`, not hidden, not deprecated), for LIB81–
+LIB83 (`crypto` and `public_key` are done). Format: `module` (functions): name/arities.
 
-- `crypto` (crypto-5.10, 75, +4 deprecated): bytes_to_integer/1, cipher_info/1, compute_key/4,
-  crypto_final/1, crypto_get_data/1, crypto_init/3,4, crypto_one_time/4,5,
-  crypto_one_time_aead/4,6,7, crypto_one_time_aead_init/4, crypto_update/2, decapsulate_key/3,
-  ec_curve/1, ec_curves/0, encapsulate_key/2, engine_add/1, engine_by_id/1,
-  engine_ctrl_cmd_string/3,4, engine_get_all_methods/0, engine_get_id/1, engine_get_name/1,
-  engine_list/0, engine_load/3, engine_register/2, engine_remove/1, engine_unload/1,
-  engine_unregister/2, ensure_engine_loaded/2, exor/2, generate_key/2,3, hash/2, hash_equals/2,
-  hash_final/1, hash_info/1, hash_init/1, hash_update/2, hash_xof/3, info/0, info_fips/0,
-  info_lib/0, mac/3,4, macN/4,5, mac_final/1, mac_finalN/2, mac_init/2,3, mac_update/2, mod_pow/3,
-  pbkdf2_hmac/5, private_decrypt/4, private_encrypt/4, privkey_to_pubkey/2, public_decrypt/4,
-  public_encrypt/4, rand_seed/0,1, rand_seed_alg/1,2, rand_seed_alg_s/1,2, rand_seed_s/0, sign/4,5,
-  strong_rand_bytes/1, strong_rand_range/1, supports/1, verify/5,6
-- `public_key` (public_key-1.21.7, 54): cacerts_clear/0, cacerts_get/0, cacerts_load/0,1,
-  compute_key/2,3, decrypt_private/2,3, decrypt_public/2,3, der_decode/2, der_encode/2,
-  dh_gex_group/4, encrypt_private/2,3, encrypt_public/2,3, generate_key/1, pem_decode/1,
-  pem_encode/1, pem_entry_decode/1,2, pem_entry_encode/2,3, pkix_crl_issuer/1, pkix_crl_verify/2,
-  pkix_crls_validate/3, pkix_decode_cert/2, pkix_dist_point/1, pkix_dist_points/1, pkix_encode/3,
-  pkix_hash_type/1, pkix_is_fixed_dh_cert/1, pkix_is_issuer/2, pkix_is_self_signed/1,
-  pkix_issuer_id/2, pkix_match_dist_point/2, pkix_normalize_name/1, pkix_ocsp_validate/5,
-  pkix_path_validation/3, pkix_sign/2, pkix_sign_types/1, pkix_subject_id/1, pkix_test_data/1,
-  pkix_test_root_cert/2, pkix_verify/2, pkix_verify_hostname/2,3, pkix_verify_hostname_match_fun/1,
-  short_name_hash/1, sign/3,4, verify/4,5. Headers: `public_key.hrl` with `OTP-PUB-KEY.hrl`,
-  `PKCS-FRAME.hrl`, `PKIXCMP.hrl`, `PKIXCRMF.hrl`. `asn1-5.5.2`: no documented functions
-  (`asn1rt_nif` only).
 - `ssl` (ssl-11.7.7, 52, +1 deprecated): append_cipher_suites/2, cipher_suites/2,3,
   clear_pem_cache/0, close/1,2, connect/2,3,4, connection_information/1,2, controlling_process/2,
   eccs/0,1, export_key_materials/4,5, filter_cipher_suites/2, format_error/1, getopts/2,

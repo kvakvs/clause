@@ -112,7 +112,7 @@ Invariants that later steps must keep:
 | Representations | [Terms](../docs/terms.md), [runtime memory](../docs/runtime.md#process-memory) |
 | Owned fixtures and history | [Validation](../docs/validation.md), [fixture instructions](../tests/fixtures/patternmatch/generated/README.md) |
 
-Last reviewed `maint-29` pin: `9710673e5916164dff9616327df7de39f1aa75a9` (OTP 29.1.2, 2026-10-24);
+Last reviewed `maint-29` pin: `e14591f196d4eacc1946e7073e0ec27f72df2a12` (OTP 29.1.2, 2026-10-27);
 oracle OTP 29.1.1 / ERTS 17.1. Latest combined Windows x64 Debug gate (steps 63-65, 2026-10-09): 235
 full-mode CTests; `check-quality-all` clean (338 units, headers now checked); Linux x86-64 235/235.
 

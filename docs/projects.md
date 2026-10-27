@@ -221,7 +221,9 @@ modules whose transform inputs did not change, each batch's
   modification time, so a rebuilt `clau` misses), the result kind, and for a
   transform run the request sent to `erl` (the module's preprocessed forms and
   its compile options: include directories, defines, features), the host OTP
-  release (`erl` and the `releases/*/OTP_VERSION` files beside it), every
+  release (`erl` and the `releases/*/OTP_VERSION` files beside it) or the
+  [transform host](transforms.md#transform-host)'s path, which names its
+  identity, every
   project transform source compiled for the run with the files it includes, and
   every `.beam` on the transform code paths. The store's format version is the
   `v<format>` directory; a value's own format version is kept in its row.

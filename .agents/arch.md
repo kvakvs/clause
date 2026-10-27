@@ -25,7 +25,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
 - Printing (`docs/compile.md#source-printing`): `print_source` (`--print-source`) round-trips to the
   same tree, `SourceNotes` add annotations; `--print-types` adds `%% inferred:` signatures.
 - Parse transforms (`transforms/`): term arena, ETF, abstract-form export/import, external `erl`
-  loader with cached replies.
+  loader with cached replies. Transforms Clause's library provides run in Clause's transform host
+  (LIB77A): the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
+  library identity into the user cache (lock file for concurrent builds); other chains go to `erl`.
 
 ### Drivers, projects, caches
 
@@ -171,8 +173,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   (LIB80B2) forwards to Erlang `clause_public_key_codec` over the generated modules and
   `clause_public_key_keys` over crypto (LIB80C); C++
   builtins `clause_public_key` (`builtins/public_key/`) do pubkey_translation's walk, OID tables,
-  PEM text and PBE tables (LIB80E: pure walks move to C++; Erlang keeps funs, crypto and the
-  calls into generated modules, whose schemas are module-local literals).
+  PEM text, PBE tables, the policy tree and PBKDF1 rounds (LIB80E: only hot loops with a measured
+  win and big recursive clusters move to C++; Erlang keeps funs, crypto glue and the calls into
+  generated modules, whose schemas are module-local literals).
 - Codec in core runtime (`builtins/asn1/`): TLV parse as asn1rt_nif, then a schema interpreter
   mirroring asn1ct's BER/DER generated code (frames for component relations, postponed open types);
   PER/UPER over BitWriter/BitReader (`per*`), with OTP's effective constraints, quirks and decode
@@ -307,7 +310,8 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   implementation; programs need no OTP sources. Native C++ builtins preferred; Erlang only for
   fun-taking functions, process protocols and glue. OTP compatibility beats speed.
 - Tree `library/{erts,kernel,stdlib}/<m>.erl` with `<m>.terms` inventories and `*.types.hrl`;
-  `modules.terms` lists provided and missing (reserved, never taken from search paths) modules;
+  the catalog `compiler/src/driver/library_modules.inc` (X-macro list compiled into `clau`, LIB85)
+  lists provided and missing (reserved, never taken from search paths) modules;
   `documented.terms` records OTP-documented functions; checked by
   `tests/compiler/library/library_modules.py`.
 - Loading: library modules join the batch only when referenced (see input closure); inputs replacing
@@ -340,6 +344,19 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   terms, builtins build keys from OTP's OSSL_PARAM lists (`params.cpp`, `ParamList`), errors via
   `KeyFailure` where OTP discards a reader's error; `ec_curve/1` from OpenSSL's built-in groups.
 
+### ssl (plan 21 LIB81, `docs/libraries/ssl.md`)
+
+- Hybrid design (user 2026-10-27): one Erlang process per connection with OTP's semantics, libssl
+  (same OpenSSL as crypto) running records and handshakes over memory BIOs, verification paused in
+  libssl's verify callback for `public_key:pkix_path_validation/3`; TLS 1.2/1.3 first.
+- LIB81A: `ssl.erl` exports OTP 29's API (connections are stubs); suite table and lists (observed,
+  `suites.inc`) and `ssl_cipher_format`'s name walks are core-runtime builtins of `ssl` itself
+  (`builtins/ssl/`); `clause_ssl_algorithms` filters OTP's lists by `crypto:supports/1` and reads
+  the version environment; `clause_ssl_app` starts `ssl_sup` with `clause_ssl_pem_cache`.
+- Frontend: a library module whose application resource names `{mod, {M, _}}` brings M into the
+  batch (`library_start_module`); `clause_applications` also holds the library resources of the
+  included resources' `applications` (ssl's public_key, asn1, crypto).
+
 ### kernel
 
 - `file` (every documented function; a raw file is a server answering as raw; servers stop after
@@ -366,7 +383,7 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `beam_lib` (Erlang chunk walk as OTP's), `escript` (create/extract), `argparse`
   (`builtins/argparse/`: validation, parser and help in C++, funs called by Erlang through replayed
   requests), `qlc_pt` (`builtins/qlc_pt/`: the qlc transform at run time in C++, ms_transform
-  answered by Erlang through replayed requests), `qlc` (Erlang: OTP's prepare/optimize/setup over
+  answered by Erlang in batches keyed by query, the walk replayed per batch), `qlc` (Erlang: OTP's prepare/optimize/setup over
   the transform's handles, joins, caches, file_sorter sorts, cursors, info), the interactive shell
   (`shell` server + `clause_shell` terminal + `clause_shell_eval` evaluator over `erl_eval`,
   `clause_io_lib:pretty/2` record printing; `clau --shell` links it with the whole library and keeps

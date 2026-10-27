@@ -1,0 +1,16 @@
+%% OTP 29 slave exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{pseudo, 1, default, implemented}.
+{pseudo, 2, default, implemented}.
+{relay, 1, default, implemented}.
+{slave_start, 1, protocol, declined}.
+{start, 1, default, refused}.
+{start, 2, default, refused}.
+{start, 3, default, refused}.
+{start, 5, default, refused}.
+{start_link, 1, default, refused}.
+{start_link, 2, default, refused}.
+{start_link, 3, default, refused}.
+{stop, 1, default, implemented}.
+{wait_for_master_to_die, 2, protocol, declined}.
+{wait_for_slave, 7, protocol, declined}.

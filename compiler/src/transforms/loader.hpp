@@ -14,6 +14,9 @@ class LoaderError : public std::runtime_error {
     explicit LoaderError(const std::string &message) : std::runtime_error(message) {}
 };
 
+// The loader module's source, which Clause's transform host is built from. Added for the transform host (LIB77A).
+std::string_view loader_source();
+
 // Find the host erl: an explicit path (must be executable; `none` means no host OTP), else erl on PATH, else the
 // Windows default install.
 std::optional<std::filesystem::path> find_erl(const std::optional<std::filesystem::path> &explicit_path);
@@ -43,6 +46,9 @@ struct TransformRequest {
     CompileOptions options_;
     // Where the run's workspace is made; absent: the system temporary directory. Added for the build directory.
     std::optional<std::filesystem::path> temporary_directory_ = {};
+    // `erl_` is Clause's transform host, which takes the workspace as its program argument. Added for the transform
+    // host (plan 21 LIB77A).
+    bool clause_host_ = false;
 };
 
 struct TransformMessage {

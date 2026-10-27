@@ -3,7 +3,8 @@
 pipeline.py otp CLAU ERL FIXTURES WORK: on the host Erlang/OTP, programs using ms_transform and owned transforms
 (from -compile attributes and --parse-transform, found through --transform-path) link and print what OTP prints;
 transform warnings and errors and an undefined transform are reported.
-pipeline.py none CLAU - FIXTURES WORK: with --erl none a module naming a transform fails with a message.
+pipeline.py none CLAU - FIXTURES WORK: with --erl none a module naming a project transform fails with a message;
+transforms Clause's library provides run in Clause's transform host.
 """
 import pathlib
 import re
@@ -39,6 +40,40 @@ def missing_path(tool, fixtures, work):
     if result.returncode != 1 or "parse transform path is not a directory" not in result.stderr:
         return [f"missing path: exit {result.returncode}\n{result.stderr}"]
     return []
+
+
+def host_program(tool, fixtures, work):
+    """Transforms Clause's library provides run in Clause's transform host, without OTP: ms.erl links and prints
+    what OTP prints (plan 21 LIB77A)."""
+    directory = fixtures / "pipeline"
+    executable = work / "ms_host.exe"
+    built = run([tool, "--erl", "none", "-o", executable, "ms.erl"], directory)
+    if built.returncode != 0:
+        return [f"host ms.erl: compile failed\n{built.stderr}"]
+    stdout, _ = text(run([executable], work))
+    expected = (directory / "ms.stdout").read_text(encoding="utf-8")
+    return [] if stdout == expected else [f"host ms.erl printed\n{stdout}"]
+
+
+# The include's file attribute, which the recorded forms leave out (they were made with OTP's own header).
+HEADER_FILE = re.compile(r'^\{attribute,\{1,1\},file,\{".*\.hrl",1\}\}\.\n', re.MULTILINE)
+
+
+def host_forms(tool, fixtures, work):
+    """The host's ms_transform and qlc_pt give the forms OTP's gave, as the executables goldens recorded them."""
+    root = fixtures.parents[2]
+    failures = []
+    for case in ["otp_headers/ms_headers", "qlc_queries/qlc_queries"]:
+        source = root / "tests/fixtures/executables" / (case + ".erl")
+        result = run([tool, "--erl", "none", "--print-abstr", source.name], source.parent)
+        forms = HEADER_FILE.sub("", text(result)[0])
+        if result.returncode != 0 or forms != source.with_suffix(".abstr").read_text(encoding="utf-8"):
+            failures.append(f"host {case}: exit {result.returncode}\n{result.stderr}")
+    # A library module without parse_transform/2 is OTP's undefined transform.
+    result = run([tool, "--erl", "none", "--parse-transform", "lists", fixtures / "pipeline/ms.erl"], work)
+    if result.returncode != 1 or "ms.erl: undefined parse transform 'lists'" not in text(result)[1]:
+        failures.append(f"host lists: exit {result.returncode}\n{result.stderr}")
+    return failures
 
 
 def compile_transforms(erl, fixtures, ebin):
@@ -96,6 +131,7 @@ def main():
     work.mkdir(parents=True, exist_ok=True)
     if mode == "none":
         failures = without_otp(tool, fixtures, work) + missing_path(tool, fixtures, work)
+        failures += host_program(tool, fixtures, work) + host_forms(tool, fixtures, work)
     elif erl == "-":
         print("SKIP: no host Erlang/OTP")
         return

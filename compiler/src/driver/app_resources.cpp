@@ -5,6 +5,8 @@
 #include <clause/compiler/printing.hpp>
 #include <fstream>
 #include <iterator>
+#include <optional>
+#include <regex>
 #include <set>
 #include <sstream>
 
@@ -67,6 +69,48 @@ void add_application(const std::string &name, const std::filesystem::path &direc
     }
 }
 
+// The applications a resource names in its `applications` key.
+std::vector<std::string> dependencies(const std::filesystem::path &file) {
+    std::ifstream stream(file, std::ios::binary);
+    const std::string text{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+    static const std::regex APPLICATIONS(R"(\{\s*applications\s*,\s*\[([^\]]*)\])");
+    static const std::regex NAME("[a-z][A-Za-z0-9_@]*");
+    std::smatch match;
+    std::vector<std::string> names;
+    if (std::regex_search(text, match, APPLICATIONS)) {
+        const auto list = match.str(1);
+        for (auto at = std::sregex_iterator(list.begin(), list.end(), NAME); at != std::sregex_iterator(); ++at) {
+            names.push_back(at->str());
+        }
+    }
+    return names;
+}
+
+// The resource of a library application directory (`public_key/public_key.app`); none when it has none.
+std::optional<Resource> library_resource(const ApplicationPlaces &places, const std::string &name) {
+    for (const auto &directory : places.library_) {
+        auto file = directory / project::native_path(name + std::string(APP_SUFFIX));
+        std::error_code error;
+        if (project::path_text(directory.filename()) == name && std::filesystem::is_regular_file(file, error)) {
+            return Resource{name, std::move(file), directory};
+        }
+    }
+    return std::nullopt;
+}
+
+// The library applications the found resources depend on, in turn, so that application:ensure_all_started/1 finds
+// them (ssl's public_key and asn1). Added for the ssl application (plan 21 step LIB81A).
+void add_library_dependencies(const ApplicationPlaces &places, std::vector<Resource> &found) {
+    for (std::size_t i = 0; i < found.size(); ++i) {
+        for (const auto &name : dependencies(found[i].file_)) {
+            const auto known = std::ranges::any_of(found, [&name](const Resource &r) { return r.name_ == name; });
+            if (auto resource = known ? std::nullopt : library_resource(places, name)) {
+                found.push_back(std::move(*resource));
+            }
+        }
+    }
+}
+
 // Every resource of the program, the first one of each application name only.
 std::vector<Resource> resources(const ApplicationPlaces &places) {
     std::vector<Resource> found;
@@ -79,6 +123,7 @@ std::vector<Resource> resources(const ApplicationPlaces &places) {
     for (const auto &[name, directory] : places.applications_) {
         add_application(name, directory, found);
     }
+    add_library_dependencies(places, found);
     std::set<std::string> names;
     std::erase_if(found, [&names](const Resource &resource) { return !names.insert(resource.name_).second; });
     return found;

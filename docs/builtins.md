@@ -401,8 +401,8 @@ byte for byte, same file orders.
 `builtins/qlc_pt/`, `library/stdlib/qlc_pt.erl`,
 `library/stdlib/clause_qlc_pt.erl` (plan 21 step LIB73): the qlc parse
 transform at run time, for `qlc:string_to_handle/1,2,3` and `qlc:q/1,2` in
-evaluated code. Modules compiled with `qlc.hrl` still get the host OTP's
-transform ([parse transforms](transforms.md)).
+evaluated code, and at compile time for modules including `qlc.hrl`, in Clause's
+[transform host](transforms.md#transform-host).
 
 - `clause_qlc_pt:transform_expression/4` and `parse_transform/4` follow
   `qlc_pt.erl` function for function: NodeInfo (unique annotations and what the
@@ -417,11 +417,15 @@ transform ([parse transforms](transforms.md)).
   takes when the compiler is not available; a lint crash on the forms it builds
   is the compiler's internal error, as OTP's compiler reports it. Records are
   expanded by the C++ `erl_expand_records`, guard tests by `is_guard_test/3`.
-- Match specifications run `ms_transform` in Erlang: the builtin returns
-  `{try_ms, Forms}`, `qlc_pt.erl` answers `try_ms/4`'s result and calls the
-  builtin again with the answers so far, replaying its walk; the result is
-  `{done, Result, Transformed}` (a transformed module raises the backtrace
-  depth to 500, as OTP's transform does).
+- Match specifications run `ms_transform` in Erlang: an attempt without an
+  answer is taken as failed and recorded, the walk goes on, and the builtin
+  returns `{try_ms, [{Query, Forms}]}` for all of them; `qlc_pt.erl` answers
+  each with `try_ms/4`'s result and calls the builtin again with the
+  `{Query, Answer}` pairs, replaying its walk. Answers are found by query, so a
+  module reruns about once per depth of attempts that depend on earlier
+  answers (3 runs for `qlc_queries`' 157 attempts), not once per attempt. The
+  result is `{done, Result, Transformed}` (a transformed module raises the
+  backtrace depth to 500, as OTP's transform does).
 
 ## Qlc
 
@@ -840,9 +844,31 @@ Erlang clause dispatch, so programs that call it compile no extra code.
 - `pbe_cipher(Name)`, `pbes2_cipher(Oid)`, `pbes1(Oid)`, `pbes1_oid(Name, Digest)` and `prf_digest(Oid)` (`pbe.cpp`)
   are `pubkey_pbe`'s tables: a PEM cipher's crypto cipher, block size and key length, PBES2 schemes, PBES1
   algorithms and PBKDF2 digests; `function_clause` for anything else.
+- `policy_add/4`, `policy_map/5`, `policy_intersection/3`, `policy_prune/1`, `policy_constrained/1` and
+  `policy_result/1` (`policy.cpp`, plan 21 step LIB80E4) are `pubkey_policy_tree`'s walks over the valid policy tree
+  (RFC 5280 6.1.3 d, 6.1.4 b, 6.1.5 g): children and siblings for a certificate's policies and anyPolicy, policy
+  mappings, the intersection with the user's policy set, pruning and the constrained node set with its qualifiers,
+  in OTP's list orders. `clause_public_key_path` keeps the verify fun calls, the counters and the node limit.
+- `pbkdf1_rounds(First, Count, Digest)` (`pbe.cpp`, plan 21 step LIB80E5) runs PBKDF1's rounds after the first
+  through `clause_crypto:hash/2` (each digest in front of those before it, as `pubkey_pbe`), without the Erlang
+  loop's quadratic binary building; the first round stays `crypto:hash/2` in Erlang so a bad digest fails as there.
 - `os_cacerts()` (`os_cacerts.cpp`, plan 21 step LIB80D6) reads the current user's Windows `ROOT` store through
   crypt32 as OTP's `pubkey_os_cacerts` NIF does: `[{Encoding, Der}]` in the NIF's order, `internal_error` when the
   store does not open, `[]` on other systems, where `clause_public_key_cacerts` reads files.
+
+## Ssl
+
+`builtins/ssl/` in `clause_runtime` (plan 21 step LIB81A, [ssl](libraries/ssl.md)): the `ssl` module's cipher suite
+table and `ssl_cipher_format`'s name walks, as catalog builtins of `ssl` itself.
+
+- `cipher_suites(Description, Version)` (`suites.cpp`, rows in `suites.inc` observed from OTP) is a list of OTP's,
+  as suite maps; `cipher_suites(Description, Version, rfc | openssl)` gives their names. `function_clause` for
+  another version, description or string type; the version is checked first.
+- `suite_to_str(Suite)` and `suite_to_openssl_str(Suite)` (`suite_names.cpp`) build a suite's RFC and OpenSSL names
+  from any map with the parts a clause of OTP's needs, Latin-1 upper-casing as `string:to_upper/1`;
+  `function_clause` for other terms and `badarg` for a part that is not an atom.
+- `str_to_suite(Name)` (`suite_parse.cpp`) parses RFC and OpenSSL names as `ssl_cipher_format` does and makes the
+  map of any parts whose atoms exist (the table's parts always do); `{error, {not_recognized, Name}}` otherwise.
 
 ## Crypto module
 

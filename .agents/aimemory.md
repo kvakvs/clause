@@ -53,7 +53,9 @@ recorded elsewhere.
   code (llvm-objdump -d with symbol names stripped) between builds.
 - Repo F:/CLAUSE/clau (uppercase F: matters for programs.py <fixture> substitution and expectation
   runners: use absolute F:/CLAUSE/clau/build/debug/bin/Debug/clau.exe). build/ is wiped by
-  make-clean.bat: helper scripts live in the session scratchpad.
+  make-clean.bat: host-local history lives in the gitignored `.state/` (user 2026-10-27): helper
+  scripts `.state/scripts/` (README there), gate run log with timings `.state/runs.md` (append
+  after every gate run), tidy records `.state/quality/`. Committed lessons stay in this file.
 - Toolchain LLVM 23.1.2 SDK, VS 18 x64, SDK 10.0.26100, /MT, Ninja, Boost 1.90, toml 3.4, Lizard
   1.24, tidy 22.1.8. Fresh configure MUST pass %CLAUSE_CONFIGURE_ARGS% from
   tools/windows-toolchain.cmd (BUILD_DIR set): else VS generator + cl (C2220) or GNU clang++ (nested
@@ -125,8 +127,9 @@ recorded elsewhere.
 - clang-tidy may crash (0xC0000005/0xC0000409) or exit 1 silently with 2 jobs: rerun with one job.
   Check targets do not forward QUALITY_JOBS: `cmake -DQUALITY_SCOPE=all -DQUALITY_BUILD_DIR=<b>
   -DQUALITY_NINJA=<n> -DQUALITY_JOBS=1 -P cmake/CheckClangTidy.cmake`; shard with
-  -DQUALITY_SHARD=K/N, batches QUALITY_BATCH. Root/runtime/compiler CMakeLists edits select all
-  units (~20 min). Single-file tidy -p build/debug/quality works for runtime units only.
+  -DQUALITY_SHARD=K/N, batches QUALITY_BATCH. CMakeLists edits other than source lists select all
+  units (~25 min, 710 units at 16 jobs) when no record exists; passing batches merge into the record
+  (a65e1ac4). Iterate on findings with `.state/scripts/tidy_files.py FILE...` (-p build/debug).
   CLAUSE_QUALITY_BASE overrides HEAD for changed scope. Lizard: .venv-quality python -m lizard -C
   10.
 - Windows tidy HeaderFilterRegex never matched backslash paths; libstdc++ exposes unchecked-optional
@@ -154,8 +157,7 @@ recorded elsewhere.
   reads as a leak: do the CAS in an out-of-line function (opaque to callers' TUs).
   bugprone-easily-swappable fires when two same-type params stop appearing in one expression.
 - check-quality's changed scope is `git diff HEAD`: `git add` new files first or they are skipped.
-  abi/ header edits do not pull their runtime dependents into the tidy scope; CMakeLists edits
-  select all units.
+  abi/ header edits do not pull their runtime dependents into the tidy scope.
 
 ## OTP oracle, goldens and fixtures
 - OTP pin and refresh: docs/otp-reference.md. Pin 9710673e (29.1.2), oracle install 29.1.1 / ERTS
@@ -311,8 +313,8 @@ recorded elsewhere.
   (LIB23). OTP prints small atom-key maps in atom-index order: goldens print sorted lists.
 - Builtins cannot call funs and get results: fun-taking functions stay Erlang in library/*.erl,
   calling sibling builtins qualified (a local call hits the stub).
-- New library module = library/modules.terms + observe_module.escript + observe_types.escript +
-  library_modules.py generate. erlang.terms statuses hand-maintained: regenerate erlang.erl via
+- New library module = a PROVIDED line in compiler/src/driver/library_modules.inc (rebuild clau) +
+  observe_module.escript + observe_types.escript + library_modules.py generate. erlang.terms statuses hand-maintained: regenerate erlang.erl via
   tests/compiler/builtins/generate_erlang.py. Any library edit = ~4.5 min luerl rebuild; luerl
   timing: clau --project test-luerl-euler --entry luerl:init.
 - luerl manifests (old test-luerl.toml split 2026-10-15, both share build_dir build-clau-luerl, run
@@ -336,8 +338,8 @@ recorded elsewhere.
   clause_runtime.lib via $<TARGET_OBJECTS>, so clau/link lines and the export set need nothing; an
   installed PCRE2 instead lands in <runtime>.link (one linker input per line) that clau appends
   (runtime_link_inputs). Untested here: the installed- library path (no system pcre2 on Windows).
-  modules.terms entries must stay one line each after erlfmt (keep reasons short); a new provided
-  module's .erl must -include its .types.hrl.
+  library_modules.inc entries must stay one line each (library_modules.py reads them by line); a new
+  provided module's .erl must -include its .types.hrl.
 - 41Q (2026-10-14): zlib streams = handle refs with finalizer; leftover input after need_dictionary and
   deflateParams output are kept by zlib.erl in the process dictionary ({zlib, input|pending, Z}). OTP's
   safeInflate "finished" = queued input consumed (not end of stream). A full-scope check-quality (428 units, after a
@@ -500,3 +502,30 @@ recorded elsewhere.
   alignment padding; uper skipextensions/decode_fragmented_1 are function clauses. Scratch cycles: kitchen/cycle.sh
   `<opts> per_test PerKitchen.asn` and emqx/cycle.sh (all 8 emqx specs). The directory index caches listings from the
   source walk: forget() the ASN.1 outdir after generating into it.
+- LIB80E (2026-10-26): public_key C++ ports call other builtins via `calls.hpp` (registry find + call_builtin,
+  `Recorded` -> return Word 0); lists:reverse/1 is not registered (Erlang), write it locally. PKITS oracle: a scratch
+  python turns a copy of OTP's pkits_SUITE into pkits_run (main/1 runs all 99 cases, prints each
+  pkix_path_validation result with maps as sorted lists; OTP prints small maps in atom-index order); Clause side
+  needs shims pubkey_cert (extensions_list/select_extension/is_issuer) and pubkey_cert_records (transform/2) and a
+  minimal erl_make_certs (pem_to_der); clau rejects -compile(export_all). 211 validations, compare after any
+  public_key path/CRL/name change.
+- Perf (2026-10-27, Release): a C++ builtin walking Erlang terms through the Term API (is_tuple, tuple_element,
+  head/tail, same_oid) ran 1.7-4x slower than LLVM-compiled Erlang pattern matching over the same 100k CRL entries.
+  C++ wins only on algorithmic gains (avoiding O(n^2) binary appends, native loops over bytes) or skipped Erlang
+  wrapper calls; measure in build/bench (Release) before keeping a port, never on the Debug runtime.
+- LIB81A ssl (2026-10-27): user chose hybrid libssl design (Erlang connection process, memory BIOs, verify pause
+  for public_key path validation), TLS 1.2/1.3 first. clau only adds library modules named by calls/funs/behaviours:
+  start modules of library `.app` `{mod, ...}` are now added (frontend `library_start_module`), and
+  clause_applications includes library resources of `applications` deps (else ensure_all_started(ssl) fails on
+  public_key.app). Inventory stubs need bare `_` heads. OTP quirks kept: clear_pem_cache sets the caller's
+  `ssl_pem_cache` dict key; protocol_version=[sslv2] stores defaults then function_clause; str_to_suite parses
+  without the table (list_to_existing_atom). Host OTP lacks legacy provider: fixtures drop RC4/DES suites.
+- LIB77A transform host (2026-10-27): host = loader linked by `clau --shell --entry
+  clause_transform_loader:main/1`, ~40-60 s Debug build, cached in %LOCALAPPDATA%/clause/transform-host
+  (delete it to force a rebuild). The clau target must not link clause_llvm_sdk (its interface flags
+  turn RTTI off and change the iterator debug level): LLVM-using code goes to clause_transforms etc.
+  Differential check of host vs OTP: scratch mkreq.escript (epp:parse_file forms -> request.etf), run
+  host `-- DIR` and erl loader, compare reply.etf terms. qlc_pt's per-answer replay was quadratic
+  (qlc_queries 220 s): answers keyed by query, unanswered attempts batched (3 runs, ~4 s each on the
+  Debug runtime). User direction: provide only the non-cascading `compile` functions (format_error,
+  env options, output_generated); compiling stays stubs.

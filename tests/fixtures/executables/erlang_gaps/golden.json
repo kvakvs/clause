@@ -15,7 +15,7 @@
   ],
   "reference": {
     "branch": "maint-29",
-    "revision": "9710673e5916164dff9616327df7de39f1aa75a9"
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
     "erlang_gaps.erl": "5dcff9477cd71a1c75e53cf2e694dd5afe72e0f5fc6f15be587c47f0ec0f9c29"
