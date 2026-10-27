@@ -983,6 +983,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   functions), code server registry so compiled calls/apply/funs/spawn into them enter `error_handler`
   (`CLAUSE_call_v1` takes the registers), code queries see them, shadow stack gives OTP's interpreted frames;
   `interpreted_modules` golden identical to OTP's compile:forms + load_binary — `e081d8ab`
+- **LIB77C** transform sources: `clau` reads project transform sources (preprocess, parse, own transforms, export)
+  and sends `{File, Forms}` (erl `compile:forms`, host `clause_interp:load`); without erl the host interprets chains
+  of project sources and `.beam`s (`debug_info`, loaded on first call via `route_undefined`) — `a8bbac69`
 
 ## Plan 22 (from 2026-10-23)
 
