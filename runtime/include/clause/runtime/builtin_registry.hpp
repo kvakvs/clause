@@ -244,6 +244,17 @@ std::span<const BuiltinEntry> qlc_pt_builtins() noexcept;
 // clause_compile, the source quotes of compile's messages (plan 21 step LIB77E1;
 // runtime/src/builtins/compile_messages.cpp).
 std::span<const BuiltinEntry> compile_message_builtins() noexcept;
+// Module erl_syntax, OTP's trees in C++ (plan 21 step LIB77E2; runtime/src/builtins/syntax/).
+std::span<const BuiltinEntry> erl_syntax_field_builtins() noexcept;
+std::span<const BuiltinEntry> erl_syntax_accessor_builtins() noexcept;
+std::span<const BuiltinEntry> erl_syntax_simple_builtins() noexcept;
+std::span<const BuiltinEntry> erl_syntax_constructor_builtins() noexcept;
+std::span<const BuiltinEntry> erl_syntax_assembly_builtins() noexcept;
+std::span<const BuiltinEntry> erl_syntax_list_builtins() noexcept;
+std::span<const BuiltinEntry> erl_syntax_attr_builtins() noexcept;
+std::span<const BuiltinEntry> erl_syntax_shape_builtins() noexcept;
+std::span<const BuiltinEntry> erl_syntax_revert_builtins() noexcept;
+std::span<const BuiltinEntry> erl_syntax_literal_builtins() noexcept;
 // The erlang gaps of plan 21 step LIB9A: checksums and iovecs, tuple edits, option-taking process builtins and
 // system flags.
 std::span<const BuiltinEntry> checksum_builtins() noexcept;

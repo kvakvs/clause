@@ -15,7 +15,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `maps:iterator/1,2`, `maps:next/1`, `erts_internal:map_next/3`, the order `maps` funs run in (`intersect_with/3`, `merge_with/3`, ...), `proplists:get_keys/1`, `sets` of version 2 (`to_list/1`, `fold/3`) | Internal order (atom-table order for atom keys, hash order above 32 keys); an iterator is a position or a `{K, V, Next}` chain | Canonical key order; an iterator continues over a key list | [builtins](builtins.md#erts-internal) |
 | Map printing (`erlang:display/1`, `~w`, `~p`) | Internal layout order (atom-table order for atom keys, hash order above 32 keys) | Map-key order, as OTP's `~kw` | [terms](terms.md#printing) |
 | Order of `digraph:vertices/1`, `edges/1`, `source_vertices/1`, `sink_vertices/1` and of `digraph_utils`' orderings and components where they start from those lists | The vertex and edge tables' hash order | Clause's hash order ([ETS](#ets)); paths and neighbour lists follow edge insertion in both | [builtins](builtins.md#digraph) |
-| Order of `maps:keys/1`, `values/1`, `to_list/1`, `fold/3`, of the members `json:encode/1` writes, of the fields `erl_parse:abstract/1,2` gives a map, and of `graph`'s vertex lists and traversals | The map's internal order (atom-table order for atom keys, hash order above 32 keys) | Key order | [library](libraries/library.md) |
+| Order of `maps:keys/1`, `values/1`, `to_list/1`, `fold/3`, of the members `json:encode/1` writes, of the fields `erl_parse:abstract/1,2` and `erl_syntax:abstract/1` give a map, and of `graph`'s vertex lists and traversals | The map's internal order (atom-table order for atom keys, hash order above 32 keys) | Key order | [library](libraries/library.md) |
 | Native record printing (`erlang:display/1`) | Fields in atom-table index order | Definition order, as `~w` | [native records](native-records.md#printing-and-order) |
 | `==` between native records whose fields differ only as integer/float | The compiler may fold it to `=:=` (false) | Numeric comparison (true) | [native records](native-records.md#printing-and-order) |
 | External native record construction of a module that is not loaded | Fails until the defining module is loaded | Every batch module is loaded at startup; a module outside the batch always fails | [native records](native-records.md#differences-kept) |
@@ -283,6 +283,13 @@ Compared with the same module compiled by `compile:forms/2` and loaded by `code:
 | `-moduledoc`/`-doc` attributes | Saved in the `Docs` chunk unless `no_docs` | Removed; no `Docs` chunk | [library](libraries/library.md) |
 | `code:load_binary/3` of a binary of another module | `{error, badfile}` and an error report on the logger | `{error, badfile}`, no report | [library](libraries/library.md#module-interpreter) |
 | `code:load_binary/3` in a program without `compile` or `clause_interp` | Loads BEAM code | `{error, badfile}`, as for any binary (D01) | [library](libraries/library.md#module-interpreter) |
+
+## erl_syntax
+
+| Difference | OTP | Clause | Owner |
+| --- | --- | --- | --- |
+| An error raised while `revert_forms/1` reverts a form (a malformed node) | Caught and raised again as `exit({Reason, Stacktrace})` | Raised as the error it is | [syntax_tools](libraries/syntax_tools.md#erl_syntax) |
+| `concrete/1` of a binary tree whose field is not a literal | `{badarg, Node}` with the field's tree | `{badarg, Form}` with the field reverted to its erl_parse form | [syntax_tools](libraries/syntax_tools.md#erl_syntax) |
 
 ## erl_lint
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env escript
-%% Observe the documented public functions of OTP's erts, kernel, stdlib, crypto, public_key, ssl and compile on the
+%% Observe the documented public functions of OTP's erts, kernel, stdlib, crypto, public_key, ssl, syntax_tools and
+%% compile on the
 %% host OTP (the pinned major, docs/otp-reference.md) from its doc chunks, for Clause's library
 %% (docs/libraries/library.md#documented-functions). Writes
 %% library/documented.terms: one {Module, Application, Name, Arity} per function whose module and function docs are
@@ -17,12 +18,14 @@ main(_) ->
     halt(2).
 
 % Write every documented function of the applications Clause's library provides to Output (crypto added for plan 21
-% step LIB79, public_key for LIB80, ssl for LIB81, compile for LIB77A).
+% step LIB79, public_key for LIB80, ssl for LIB81, compile for LIB77A, syntax_tools for LIB77E2).
 observe(Output) ->
-    Rows = lists:append([application_rows(App) || App <- [erts, kernel, stdlib, crypto, public_key, ssl]]) ++
-        module_rows(compile, compiler),
+    Apps = [erts, kernel, stdlib, crypto, public_key, ssl, syntax_tools],
+    Rows =
+        lists:append([application_rows(App) || App <- Apps]) ++
+            module_rows(compile, compiler),
     Header = io_lib:format(
-        "%% OTP ~s documented functions of erts, kernel, stdlib, crypto, public_key, ssl and compile: "
+        "%% OTP ~s documented functions of erts, kernel, stdlib, crypto, public_key, ssl, syntax_tools and compile: "
         "{Module, Application, Name, Arity};\n"
         "%% observed by tests/compiler/library/observe_docs.escript (docs/libraries/library.md#documented-functions).\n",
         [erlang:system_info(otp_release)]

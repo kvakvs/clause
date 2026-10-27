@@ -758,6 +758,31 @@ message.
   listings and `.beam` files compared with OTP's `compile`; a Clause-only run
   for the options that need OTP's code generator).
 
+## Erl syntax
+
+`builtins/syntax/` (plan 21 step LIB77E2) implements
+[`erl_syntax`](libraries/syntax_tools.md#erl_syntax) over OTP's node representation. The
+`syntax.hpp` tables drive most of it:
+
+- `FIELDS`: the accessors that read one element of one erl_parse form, or one field of the
+  tree's data record, plus the data itself. They are registered from the table, and C++ reads
+  them by name with `get(context, node, "case_expr_argument")`. The name is checked at compile time.
+- `SIMPLE`: the constructors that build `tree(Type, #Record{Arguments...})`, used by C++ through
+  `make(context, "case_expr", ...)`.
+- In `build.cpp`, `make_tree/2`'s clauses as group shapes.
+- In `shapes.cpp`, `subtrees/1`'s groups as accessors with the parts that may be absent.
+- In `revert.cpp`, `revert/1`'s function per node type.
+
+Accessors with several erl_parse forms (`record_expr_type/1`, `attribute_arguments/1`, ...),
+constructors that normalize their arguments (`clause/3`'s guards, `list/2`, `cons/2`, ...), list
+skeletons, comments and attributes (`nodes.cpp`, `attrs.cpp`), `abstract/1`, `concrete/1`,
+`is_literal/1` and `meta/1` (`literals.cpp`) are written out.
+
+`concrete/1` of a binary reverts each field and builds it as `erl_parse:normalise/1` does.
+`abstract/1` takes a list for a string when Clause's `io_lib:printable_list/1` accepts it.
+
+- CTest `executables_erl_syntax_trees`.
+
 ## Erl lint
 
 `erl_lint`'s checks are builtins (`front_end/lint*.cpp`, plan 21 step

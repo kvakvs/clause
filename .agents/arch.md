@@ -446,6 +446,9 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   Library `compile` (LIB77E1) runs OTP's front passes and returns interpreter images (BEAM
   containers holding the linted forms, `clause_interp:beam/2`); `code`'s loading functions hand
   them to `clause_interp:load_binary/3` through a non-literal module when the program links it.
+  Library `syntax_tools` (LIB77E) serves third-party transform code: `erl_syntax` (LIB77E2) is C++
+  (`builtins/syntax/`) over OTP's tree/wrapper/attr records and erl_parse forms, table-driven
+  (`FIELDS` accessors, `SIMPLE` constructors, make_tree shapes, subtrees groups, revert per type).
   Clause-heavy front-end walks move to C++ builtins (LIB34C):
   `erl_expand_records:module/2`, the guard tests, `erl_lint` and `erl_pp`
   (`front_end/expand_records.cpp`, `guard_tests.cpp`, `lint*.cpp` over one `Lint` state, `pp*.cpp`

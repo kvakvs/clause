@@ -90,11 +90,17 @@ closure([Key | Rest], Types, AllRecords, Needed, Records) ->
             closure(Rest, Types, AllRecords, Needed, Records)
     end.
 
-% The local types used by the fields of newly needed records, and the records now needed.
+% The local types used by the fields of newly needed records, and the records now needed, including the records
+% those fields name (erl_syntax's #attr{} holds a #com{}, plan 21 LIB77E2).
+records([], _, Records) ->
+    {[], Records};
 records(Names, AllRecords, Records) ->
     New = [N || N <- lists:usort(Names), not is_map_key(N, Records), is_map_key(N, AllRecords)],
-    Fields = lists:append([element(1, references(maps:get(N, AllRecords))) || N <- New]),
-    {Fields, maps:merge(Records, maps:from_list([{N, true} || N <- New]))}.
+    Found = [references(maps:get(N, AllRecords)) || N <- New],
+    Fields = lists:append([Types || {Types, _} <- Found]),
+    Records1 = maps:merge(Records, maps:from_list([{N, true} || N <- New])),
+    {More, Records2} = records(lists:append([Named || {_, Named} <- Found]), AllRecords, Records1),
+    {Fields ++ More, Records2}.
 
 % Local user types {Name, Arity} and record names a term mentions.
 references({user_type, _, Name, Args}) ->

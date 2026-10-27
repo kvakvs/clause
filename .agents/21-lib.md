@@ -129,10 +129,8 @@ Steps:
     `erl_comment_scan` 4, `erl_recomment` 3, `merl_transform` none (a transform). It is an
     application beyond the core: `library/syntax_tools/` with `syntax_tools.app`, its own
     `docs/libraries/syntax_tools.md`, rows in `documented.terms` (`observe_docs.escript`).
-    `compile:forms/file` compile to interpreter images since LIB77E1 (`merl:compile` builds on it).
-    - **LIB77E2 `erl_syntax`:** OTP's `tree`/`wrapper` records and plain forms as trees; `type/1`,
-      `subtrees/1`, `revert/1`, `update_tree/2` dispatch in C++ (clause-heavy), constructors and
-      accessors in C++ where no fun is taken. Golden `erl_syntax_trees`.
+    `compile:forms/file` compile to interpreter images since LIB77E1 (`merl:compile` builds on it);
+    `erl_syntax` is provided since LIB77E2.
     - **LIB77E3 `prettypr` and `erl_prettypr`:** layout documents and their best/format algorithm
       (C++ where no fun is taken); `erl_prettypr` over `erl_syntax` with OTP's text (hooks are
       funs: Erlang glue). Golden `erl_prettypr_format`.
@@ -209,7 +207,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB77E2–E5 in order (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
+1. LIB77E3–E5 in order (requested 2026-10-27), then LIB81B–D (LIB81E on request); LIB78 only on
    request.
 2. LIB82, LIB83 last (test support).
 
