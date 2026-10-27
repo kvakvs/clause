@@ -990,6 +990,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `--erl PATH`); parse/preprocess problems reach transforms as `clause_source` forms, returned error forms come
   formatted (`clause_message`); emqx fun2ms/qlc users transform with `--erl none` — `0312b3f9`
 
+- **LIB77E1** `compile` compiles: `file`/`forms` and noenv variants run OTP's front passes, listings and reports
+  (source quotes as a C++ builtin) and return interpreter images that `code:load_binary/3` interprets;
+  code-generator options fail with `clause_unsupported`; `compile_forms` golden identical to OTP — `3f5b6a34`
+
 ## Plan 22 (from 2026-10-23)
 
 Compiler performance, type inference first (`.agents/22-opt-compiler.md`).
