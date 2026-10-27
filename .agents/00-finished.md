@@ -982,7 +982,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB77B** module interpreter `clause_interp`: modules from forms as `erl_eval` funs (lint, records, predefined
   functions), code server registry so compiled calls/apply/funs/spawn into them enter `error_handler`
   (`CLAUSE_call_v1` takes the registers), code queries see them, shadow stack gives OTP's interpreted frames;
-  `interpreted_modules` golden identical to OTP's compile:forms + load_binary — `HASH`
+  `interpreted_modules` golden identical to OTP's compile:forms + load_binary — `e081d8ab`
 
 ## Plan 22 (from 2026-10-23)
 
