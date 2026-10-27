@@ -11,8 +11,6 @@ import cases
 
 # The program-fixture oracle already runs Entry:main(Argv) under the executable contract.
 ORACLE = cases.ROOT / 'tests/compiler/programs/oracle.escript'
-# The operating system family the oracle runs on; runs for another ('os') are kept as written.
-HOST_OS = 'windows' if sys.platform == 'win32' else 'unix'
 # A file attribute naming a path with a directory, as an included header outside the case has.
 FOREIGN_FILE = re.compile(r'^\{attribute,.*,file,\{"[^"]*[/\\:][^"]*",\d+\}\}\.$')
 
@@ -76,7 +74,7 @@ def regenerate(escript, case_dir, work):
     staged = cases.stage(case_dir, golden, work / case_dir.name)
     runs, version = [], None
     for run in golden['runs']:
-        if run.get('authored') or run.get('os', HOST_OS) != HOST_OS:
+        if run.get('authored') or not cases.runs_here(run):
             # Clause-only behavior, or another operating system's, OTP here cannot show: kept as written.
             runs.append(run)
             continue

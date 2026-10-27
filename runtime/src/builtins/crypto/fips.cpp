@@ -158,7 +158,7 @@ struct QuietLoading {};
 
 // Load the providers a configuration text names; false when one of them does not load.
 bool load_configured(const std::string &text) {
-    const QuietLoading quiet;
+    [[maybe_unused]] const QuietLoading quiet;
     OPENSSL_load_builtin_modules();
     const std::unique_ptr<BIO, BioDeleter> bio(BIO_new_mem_buf(text.data(), static_cast<int>(text.size())));
     const std::unique_ptr<CONF, ConfDeleter> conf(NCONF_new(nullptr));
@@ -211,7 +211,7 @@ void load_providers() {
     if (pinned.load()) {
         return;
     }
-    const QuietLoading quiet;
+    [[maybe_unused]] const QuietLoading quiet;
     provider.store(OSSL_PROVIDER_load(nullptr, "fips"));
     OSSL_PROVIDER_load(nullptr, "default");
     OSSL_PROVIDER_load(nullptr, "base");

@@ -7,6 +7,7 @@
 #include "options.hpp"
 #include "publication.hpp"
 #include "stage_times.hpp"
+#include <algorithm>
 #include "transform_host.hpp"
 #include <iostream>
 #include <optional>

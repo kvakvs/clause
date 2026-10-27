@@ -3,6 +3,7 @@
     gethostname/0,
     getaddrinfo/2,
     getnameinfo/4,
+    gethostbyaddr/1,
     getservbyname/2,
     getservbyport/2,
     inet_getifaddrs/0,
@@ -19,6 +20,7 @@
 gethostname() -> clause_builtin_placeholder.
 getaddrinfo(_, _) -> clause_builtin_placeholder.
 getnameinfo(_, _, _, _) -> clause_builtin_placeholder.
+gethostbyaddr(_) -> clause_builtin_placeholder.
 getservbyname(_, _) -> clause_builtin_placeholder.
 getservbyport(_, _) -> clause_builtin_placeholder.
 inet_getifaddrs() -> clause_builtin_placeholder.

@@ -1,11 +1,13 @@
 #include "source_locations.hpp"
 #include "../semantic/declarations.hpp"
+#include <filesystem>
 #include <limits>
 #include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/IR/DIBuilder.h>
 #include <llvm/IR/Module.h>
 #include <llvm/TargetParser/Triple.h>
 #include <stdexcept>
+#include <string>
 
 namespace clause::codegen {
 namespace {
@@ -44,6 +46,17 @@ void function_scope(llvm::DIBuilder &debug, llvm::Module &output, const semantic
         sources.try_emplace(block, physical.source);
     }
 }
+
+// The compile unit's directory: the working directory for Darwin targets, whose linker leaves a unit without one
+// out of the debug map (no dSYM line tables); none elsewhere, keeping objects independent of it. Added for macOS -g.
+std::string compile_directory(const llvm::Module &output) {
+    if (!llvm::Triple(output.getTargetTriple()).isOSDarwin()) {
+        return {};
+    }
+    std::error_code error;
+    const auto directory = std::filesystem::current_path(error).u8string();
+    return error ? std::string() : std::string(directory.begin(), directory.end());
+}
 } // namespace
 
 const Span &source_site(const ast::TokenOrigin &origin) {
@@ -65,7 +78,7 @@ void request_debug_format(llvm::Module &output) {
 void prepare_source_locations(llvm::Module &output, const semantic::Module &module, const bool optimized,
                               SourceScopes &sources) {
     llvm::DIBuilder debug(output);
-    auto *file = debug.createFile(output.getSourceFileName(), "");
+    auto *file = debug.createFile(output.getSourceFileName(), compile_directory(output));
     // Erlang uses a private language code here; these scopes describe source lines, not debugger types. Full
     // emission keeps the named function scopes in DWARF, which drops them from line-only units that inline nothing.
     debug.createCompileUnit(llvm::dwarf::DW_LANG_lo_user, file, "clau", optimized, "", 0, "",

@@ -70,8 +70,10 @@ if(APPLE AND NOT CMAKE_CROSSCOMPILING AND CLAUSE_BREW_EXECUTABLE)
     if(brew_result STREQUAL "0" AND IS_DIRECTORY "${brew_install_prefix}/include/boost")
         file(REAL_PATH "${CLAUSE_BOOST_INCLUDE}/boost" selected_boost)
         file(REAL_PATH "${brew_install_prefix}/include/boost" linked_boost)
-        if(selected_boost STREQUAL linked_boost)
-            list(APPEND CLAUSE_BOOST_SYSTEM_INCLUDES "${brew_install_prefix}/include")
+        string(FIND "${CMAKE_CXX_FLAGS}" "${brew_install_prefix}/include" inherited)
+        if(selected_boost STREQUAL linked_boost AND inherited GREATER -1)
+            # C++ alone inherits CXXFLAGS; bundled C sources such as PCRE2 must find their own headers first.
+            list(APPEND CLAUSE_BOOST_SYSTEM_INCLUDES "$<$<COMPILE_LANGUAGE:CXX>:${brew_install_prefix}/include>")
             # CMake can infer the inherited -I as implicit and omit the required -isystem.
             list(REMOVE_ITEM CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES "${brew_install_prefix}/include")
         endif()

@@ -146,7 +146,8 @@ and evidence are in Git at those commits. The anchors below keep older links to 
   still expects 1025 inputs to fail; every gate from 73B to 41K ran with that one known failure.
   Disabled on 2026-10-12 (user) until it is rewritten for the new limit (16385 inputs need a
   project, not a command line).
-- 60 (for 66): Mach-O debug info needs `dsymutil`, not run yet (`docs/debugging.md`).
+- 60 (for 66): Mach-O debug info: `dsymutil` writes `<name>.dSYM` at link and Darwin units record a compile
+  directory (2026-10-27); LLDB attach needs Developer Mode, else `linking_debugger` skips.
 - 63: clang-tidy runs on the Windows host only (user); `cmake/tidy_filter.py` ignores Boost
   `cpp_int` analyzer reports (user decision).
 - 65 (for 66): ARM ran under qemu-user only; qemu's `posix_spawn` never reports a missing program

@@ -1,10 +1,11 @@
+#include "link_name.hpp"
 #include <array>
 #include <clause/abi/modules.hpp>
 #include <clause/runtime/modules.hpp>
 
 // Bind native C++ declarations to the project-generated symbol names without a C linkage wrapper.
-extern clause::abi::v1::GeneratedRegistration register_answer asm("clausev1_616e73776572__0.register");
-extern clause::abi::v1::GeneratedRegistration register_client asm("clausev1_636c69656e74__0.register");
+extern clause::abi::v1::GeneratedRegistration register_answer CLAUSE_LINK_NAME("clausev1_616e73776572__0.register");
+extern clause::abi::v1::GeneratedRegistration register_client CLAUSE_LINK_NAME("clausev1_636c69656e74__0.register");
 
 // Require explicit registration, then execute separately linked source modules through real runtime handles.
 int main() {

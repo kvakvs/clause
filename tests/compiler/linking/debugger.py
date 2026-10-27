@@ -1,6 +1,7 @@
 """Link a -g program and drive a debugger through it: break on Erlang lines, see the Erlang stack (step 60).
 
-Uses LLDB (on Windows the LLVM installation's), else GDB; exits 77 (CTest skip) when no debugger exists.
+Uses LLDB (on Windows the LLVM installation's), else GDB; exits 77 (CTest skip) when no debugger exists or the
+system does not let it start programs.
 """
 import os
 from pathlib import Path
@@ -81,6 +82,10 @@ for level in ("O0", "O2"):
     if not command:
         continue
     output = session(command, dialect, executable)
+    # macOS lets a debugger start programs only with Developer Mode (DevToolsSecurity -enable): skip without it.
+    if "Not allowed to attach to process" in output:
+        print(f"SKIP: {command[0]} may not debug programs here (enable Developer Mode)")
+        sys.exit(77)
     # Both stops show the Erlang function and line (GDB may name the file by its full path), then the Erlang frames of
     # the stopped process.
     for function, place in (("twice", "debug.hrl:5"), ("leaf", "debug.erl:8")):

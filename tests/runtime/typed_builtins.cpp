@@ -131,7 +131,7 @@ void check_handles(Runtime &runtime, ProcessContext &context, const BuiltinRegis
 
 // Whatever a body throws stays inside call_builtin and becomes the matching failure or Erlang error.
 void check_throwing(ProcessContext &context, const BuiltinRegistry &registry) {
-    const auto kind = [](std::int64_t value) { return *clause::abi::v1::NativeIntegerEncoding::encode(value); };
+    const auto kind = [](std::int64_t value) -> Word { return *clause::abi::v1::NativeIntegerEncoding::encode(value); };
     auto outcome = call(context, registry, "throwing", std::array{kind(0)});
     require(outcome.failure && outcome.failure->status == Status::internal_error, "host exception not contained");
     outcome = call(context, registry, "throwing", std::array{kind(1)});

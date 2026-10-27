@@ -343,8 +343,12 @@ byte for byte, same file orders.
   maps with packet or link addresses); `net` filters them by family, flags or
   fun. `if_names/0` is the index and name list both `net:if_index2name/1`
   and `if_name2index/1` search.
-- `inet:getservbyname/2`, `getservbyport/2` and `gethostbyaddr/1` (a
-  `getnameinfo` with `NI_NAMEREQD`) use the same builtins; network namespaces
+- `inet:getservbyname/2`, `getservbyport/2` and `gethostbyaddr/1` use the
+  same builtins: as OTP's `inet_gethost`, an IPv4 `gethostbyaddr/1` takes its
+  name and aliases from `clause_net:gethostbyaddr/1` (`gethostbyaddr(3)`;
+  Windows and IPv6 use a `getnameinfo` with `NI_NAMEREQD`, without aliases).
+  `net:if_name2index/1` answers `einval` for an unknown name on macOS and
+  `enodev` elsewhere, as `if_nametoindex(3)` reports. Network namespaces
   answer `{error, enotsup}` ([differences](differences.md)).
 - `clause_net:dns_decode/1` and `dns_encode/1` (`builtins/net/dns.cpp`, plan
   21 step LIB60B) are inet_res's DNS message codec: OTP's `#dns_rec{}`,

@@ -100,8 +100,10 @@ It prints `42`, `-7`, `record`, `map`, `binary`, `list`, `integer`, `other`, one
 per line. The harness registers modules explicitly, creates a context and
 decodes results; it is an example host, not a production entry point. On Unix
 use `build/debug/bin/clau`, `clang++` and
-`-DGENERATED_DIR="$PWD/build/example-aot"`. CTest `codegen_examples` runs these
-commands at every policy.
+`-DGENERATED_DIR="$PWD/build/example-aot"`. The example builds the runtime
+itself; `-DRUNTIME_TARGETS=build/debug/ClauseRuntimeTargets.cmake` links the
+runtime a Clause build already compiled instead. CTest `codegen_examples` runs
+these commands at every policy, with the parent build's runtime.
 
 Other actions on the same sources:
 
@@ -164,7 +166,7 @@ annotations. The printer (`print_source`, `expression_source`, `type_source` in
 | `--shell` | Link the interactive Erlang shell and every library module, keeping every export callable; without `--entry` the executable starts the shell, so `clau --shell -o erl` with no inputs builds a shell over the library alone; needs `-o` or a linking project build ([interactive shell](libraries/library.md#interactive-shell)) |
 | `--fips=PATH` | Pin the program to FIPS mode with the user-supplied OpenSSL FIPS provider in `PATH` (module and `fipsmodule.cnf`, copied beside the executable); implies `--with-crypto`; a missing or malformed provider fails the build ([FIPS](libraries/crypto.md#fips)) |
 | `--with-crypto[=PATH]` | Link the crypto runtime archive and add the library `crypto` module to the batch, for programs that reach `crypto` only through dynamic calls (programs that call it are linked with it anyway); `PATH` is an OpenSSL ≥ 3.1.2 installation or source tree to link instead of the one Clause was built with; needs `-o` or a linking project build ([crypto](libraries/crypto.md#linking-programs)) |
-| `-g` | Erlang line tables in objects and linked executables (CodeView/PDB on MSVC targets, DWARF elsewhere) ([debugging](debugging.md)) |
+| `-g` | Erlang line tables in objects and linked executables (CodeView/PDB on MSVC targets, a dSYM bundle on Darwin, DWARF elsewhere) ([debugging](debugging.md)) |
 | `--print-ir` / `--print-optimized-ir` | Verified IR before/after LLVM passes, with Erlang source lines as comments |
 | `--print-asm` | Each module's target assembly after the selected pipeline, every run of machine code commented with the IR instruction and Erlang line it came from ([assembly listings](#assembly-listings)) |
 | `--print-types` | Each module as Erlang source annotated with inferred types ([semantic](semantic.md#--print-types)); stops before LLVM |

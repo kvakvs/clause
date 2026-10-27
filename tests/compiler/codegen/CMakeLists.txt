@@ -324,7 +324,7 @@ if(CLAUSE_BUILD_RUNTIME)
         "${PROJECT_SOURCE_DIR}/tests/compiler/patternmatch/bits.py"
         "$<TARGET_FILE:clau>" "${CMAKE_COMMAND}" "${PROJECT_SOURCE_DIR}"
         "${CMAKE_CURRENT_BINARY_DIR}/bits/$<CONFIG>"
-        "${PROJECT_BINARY_DIR}/TestHost.cmake" "$<CONFIG>" "${CMAKE_EXECUTABLE_SUFFIX}")
+        "${PROJECT_BINARY_DIR}/TestHost.cmake" "$<CONFIG>" "${CMAKE_EXECUTABLE_SUFFIX}" "${CLAUSE_LLVM_READOBJ}")
     set_tests_properties(patternmatch_bits PROPERTIES TIMEOUT 300)
     add_test(NAME patternmatch_records COMMAND "${Python3_EXECUTABLE}"
         "${PROJECT_SOURCE_DIR}/tests/compiler/patternmatch/records.py"

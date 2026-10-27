@@ -1,6 +1,7 @@
 // Added for parse transforms: abstract forms to located tokens, parsed by Clause's parser.
 #include "import_writer.hpp"
 #include "term_text.hpp"
+#include <algorithm>
 #include <array>
 #include <charconv>
 

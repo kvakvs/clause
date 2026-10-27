@@ -1,3 +1,4 @@
+#include "link_name.hpp"
 #include <array>
 #include <clause/runtime/modules.hpp>
 #include <iostream>
@@ -8,7 +9,8 @@
 
 // Literal heap: one module's literals read by the runtime that claims its caches (from the literal cache), by one that
 // does not (through CLAUSE_literal_v1) and by one that claims them after the first runtime is gone.
-extern clause::abi::v1::GeneratedRegistration register_literals asm("clausev1_6c69746572616c73__0.register");
+extern clause::abi::v1::GeneratedRegistration
+    register_literals CLAUSE_LINK_NAME("clausev1_6c69746572616c73__0.register");
 
 namespace {
 using namespace clause::runtime;

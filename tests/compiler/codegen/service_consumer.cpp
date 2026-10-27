@@ -1,3 +1,4 @@
+#include "link_name.hpp"
 #include <array>
 #include <clause/abi/bits.hpp>
 #include <clause/abi/containers.hpp>
@@ -14,16 +15,21 @@
 
 using namespace clause;
 using namespace clause::runtime;
-extern abi::v1::GeneratedRegistration register_answer asm("clausev1_736572766963655f616e73776572__0.register");
-extern abi::v1::GeneratedRegistration register_client asm("clausev1_736572766963655f636c69656e74__0.register");
-extern std::uint8_t injected(void *, std::uint8_t, Word, Word, Word *) noexcept asm("step7_service");
+extern abi::v1::GeneratedRegistration
+    register_answer CLAUSE_LINK_NAME("clausev1_736572766963655f616e73776572__0.register");
+extern abi::v1::GeneratedRegistration
+    register_client CLAUSE_LINK_NAME("clausev1_736572766963655f636c69656e74__0.register");
+extern std::uint8_t injected(void *, std::uint8_t, Word, Word, Word *) noexcept CLAUSE_LINK_NAME("step7_service");
 extern std::uint8_t injected_construct(void *, std::uint8_t, const Word *, std::size_t, Word *) noexcept
-    asm("step12_construct");
-extern std::uint8_t injected_inspect(void *, std::uint8_t, Word, std::size_t, Word *) noexcept asm("step12_inspect");
+    CLAUSE_LINK_NAME("step12_construct");
+extern std::uint8_t injected_inspect(void *, std::uint8_t, Word, std::size_t, Word *) noexcept
+    CLAUSE_LINK_NAME("step12_inspect");
 
-extern std::uint8_t injected_map(void *, std::uint8_t, const Word *, std::size_t, Word *) noexcept asm("step15_map");
+extern std::uint8_t injected_map(void *, std::uint8_t, const Word *, std::size_t, Word *) noexcept
+    CLAUSE_LINK_NAME("step15_map");
 
-extern std::uint8_t injected_bits(void *, std::uint8_t, const Word *, std::size_t, Word *) noexcept asm("step16_bits");
+extern std::uint8_t injected_bits(void *, std::uint8_t, const Word *, std::size_t, Word *) noexcept
+    CLAUSE_LINK_NAME("step16_bits");
 
 namespace {
 // Select faults after source-generated code has entered the real invocation scope.

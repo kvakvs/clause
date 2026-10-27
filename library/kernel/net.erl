@@ -165,12 +165,19 @@ getservbyport(PortNumber, Protocol) when is_integer(PortNumber) andalso is_atom(
 protocol(any) -> undefined;
 protocol(Protocol) -> atom_to_binary(Protocol).
 
-% The interface index of a name: {error, enodev} for no such interface.
+% The interface index of a name: {error, enodev} (einval on macOS) for no such interface.
 if_name2index(Name) when is_list(Name) ->
     {ok, Names} = if_names(),
     case lists:keyfind(Name, 2, Names) of
         {Index, _} -> {ok, Index};
-        false -> {error, enodev}
+        false -> {error, unknown_interface()}
+    end.
+
+% The reason if_nametoindex(3) gives prim_net for an unknown name: einval on macOS, enodev elsewhere.
+unknown_interface() ->
+    case os:type() of
+        {unix, darwin} -> einval;
+        _ -> enodev
     end.
 
 % The interface name of an index: {error, enxio} for no such interface.

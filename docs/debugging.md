@@ -26,9 +26,11 @@ with `--emit`, positional `-o` linking and project targets.
 executable names by file name only (`/PDBALTPATH:%_PDB%`); it is published
 beside the executable as `<name>.pdb`, after the executable, in the same
 deferred publication. ELF executables keep DWARF inside. Mach-O executables
-would need `dsymutil` over the staged objects before staging is removed; it is
-not run, so macOS executables lose line tables at link
-([step 66](../.agents/11-plan.md#step-66)).
+keep only a debug map naming the staged objects, so `dsymutil` (beside the
+Clang driver, else on `PATH`) gathers their DWARF into `<name>.dSYM` before
+staging is removed; the bundle is published beside the executable, replacing
+the previous one. Darwin compile units record the working directory as their
+compile directory: the linker leaves a unit without one out of the debug map.
 
 ## Erlang call stack
 
@@ -63,9 +65,10 @@ drop the helper with other unreferenced code.
   Windows, x86-64, AArch64 and ARMv7 Linux and arm64 macOS at O0/O2, and none
   without `-g`.
 - `linking_debugger`: links the fixture with `-g` at O0/O2 (and a PDB beside it
-  on Windows), then drives LLDB (the LLVM installation's on Windows) or GDB:
+  on Windows, a dSYM bundle on macOS), then drives LLDB (the LLVM installation's on Windows) or GDB:
   breakpoints in `debug.hrl` and `debug.erl` stop in `twice` and `leaf`, and the
   helper prints their Erlang stacks. A debugger that does not start (an LLVM
   release's LLDB without its Python library) is passed over; exit 77 (skipped)
-  when none exists. Validated with LLDB on Windows x64 and GDB 16 on Linux
+  when none exists or the system does not let it start programs (macOS
+  without Developer Mode). Validated with LLDB on Windows x64 and GDB 16 on Linux
   x86-64.

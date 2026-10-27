@@ -13,7 +13,7 @@ def bits(data, length=None):
 
 
 def main():
-    tool,cmake,root,directory,settings,config,suffix = sys.argv[1:]
+    tool,cmake,root,directory,settings,config,suffix,readobj = sys.argv[1:]
     source,work = pathlib.Path(root),pathlib.Path(directory)
     records = load(source,'bits',work)
     native(tool,cmake,source,work,settings,config,suffix)
@@ -22,10 +22,6 @@ def main():
     target_reports = []
     for triple in ['i686-pc-windows-msvc','x86_64-pc-windows-msvc','aarch64-unknown-linux-gnu']:
         run([tool,'--target-triple',triple,'--emit','obj','--artifact-dir',str(work/triple),str(work/'answer.erl'),str(work/'client.erl')])
-        readobj = pathlib.Path(tool).parents[3] / 'thirdparty/clang+llvm-23.1.2-x86_64-pc-windows-msvc/bin/llvm-readobj.exe'
-        if not readobj.exists():
-            import shutil
-            readobj = pathlib.Path(shutil.which('llvm-readobj') or '')
         objects = sorted(p for p in (work/triple).iterdir() if p.suffix in ['.obj','.o'])
         assert len(objects) == 2
         arch, width = {'i686-pc-windows-msvc':('i386','32bit'),

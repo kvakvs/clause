@@ -1,9 +1,10 @@
 #include "parsing/boost_parser.hpp"
 #include "preprocessor/value.hpp"
+#include <algorithm>
+#include <charconv>
 #include <clause/compiler/lexer.hpp>
 #include <cmath>
-#include <locale>
-#include <sstream>
+#include <system_error>
 
 namespace clause {
 namespace {
@@ -85,15 +86,36 @@ Integer sized_integer(Integer value) {
     return value;
 }
 
-// Parse floating values with a fixed locale and reject non-finite results.
+// Whether an out-of-range decimal spelling is tiny rather than huge, from the order of its first significant digit.
+bool underflows(const std::string_view text) {
+    const auto mark = std::min(text.find_first_of("eE"), text.size());
+    const auto mantissa = text.substr(0, mark);
+    const auto point = static_cast<long long>(std::min(mantissa.find('.'), mantissa.size()));
+    const auto first = static_cast<long long>(mantissa.find_first_not_of("0."));
+    const auto order = point - first - (first < point ? 1 : 0);
+    auto exponent = text.substr(std::min(mark + 1, text.size()));
+    if (exponent.starts_with('+')) {
+        exponent.remove_prefix(1);
+    }
+    long long power = 0;
+    if (std::from_chars(exponent.data(), exponent.data() + exponent.size(), power).ec ==
+        std::errc::result_out_of_range) {
+        return exponent.starts_with('-');
+    }
+    return order + power < 0;
+}
+
+// Parse floating values independently of locale and C++ library; as in OTP, an underflow reads as 0.0 and an
+// overflow is rejected.
 double floating(const std::u32string_view spelling) {
     auto text = utf8(spelling);
     std::erase(text, '_');
-    std::istringstream input(text);
-    input.imbue(std::locale::classic());
     double value = 0;
-    input >> value;
-    if (!input || !std::isfinite(value)) {
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
+    if (error == std::errc::result_out_of_range && underflows(text)) {
+        return 0.0;
+    }
+    if (error != std::errc() || end != text.data() + text.size() || !std::isfinite(value)) {
         throw std::invalid_argument("invalid floating-point value");
     }
     return value;

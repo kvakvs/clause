@@ -62,7 +62,8 @@ struct StagedExecutable {
     std::vector<std::filesystem::path> protected_inputs;
     // Output of the successful linker run, forwarded as warnings by the caller.
     std::string warnings;
-    // A staged PDB published beside the output (MSVC targets with debug information); empty otherwise.
+    // Staged debug symbols published beside the output: a PDB (MSVC targets) or a dSYM bundle (Darwin targets)
+    // with debug information; empty otherwise.
     std::filesystem::path symbols = {};
     // Staged files published beside the output, with their destinations: a pinned program's FIPS provider. Added
     // for crypto's FIPS mode (plan 21 step LIB79F).
