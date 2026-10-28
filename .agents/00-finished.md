@@ -343,6 +343,9 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   4.3); 69A and luerl euler neutral — `[plan20] OPT1.2. Float loops ...`
 - **OPT1.3 (part)** inline `+`/`-` on tagged words with a sign-test overflow check, no double width;
   hash 22%, count_up 19%, fib 15% — `93981174`
+- **OPT1.3 (part 2)** `+ - *` branch on the overflow flag (`llvm.s*.with.overflow`), `*` as
+  `(a >> 4) * (b ^ 15)` with no double width; mul loop 418 to 328 ms (OTP 322), dot 210 to 165 (OTP
+  280), hash 131 to 114 (OTP 124); 69A 1.05x geomean; luerl euler ~1% slower — `[plan20] OPT1.3 (part 2) ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

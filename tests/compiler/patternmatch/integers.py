@@ -15,7 +15,7 @@ def main():
     records = load(source, "integers", work)
     native(tool,cmake,source,work,settings,config,suffix)
     ir = run([tool,'--print-ir',str(work/'answer.erl'),str(work/'client.erl')])
-    assert all(name in ir for name in ['integer.checked','mul i128','integer.fallback'])
+    assert all(name in ir for name in ['integer.checked','smul.with.overflow','integer.fallback'])
     for bits,triple in [(32,'i686-pc-windows-msvc'),(64,'x86_64-pc-windows-msvc')]:
         run([tool,'--target-triple',triple,'--emit','obj','--artifact-dir',str(work/f'width{bits}'),str(work/'answer.erl'),str(work/'client.erl')])
     # 20,000 digits passed the former 10,000-digit cap; 1,262,594 digits exceed 2^4194240 - 1, OTP's largest integer

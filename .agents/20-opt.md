@@ -257,11 +257,11 @@ pay off in real programs (euler, luerl, json).
 
 ### OPT1.3 Speculation-free small-int fast paths, with guard fusion and range-proven overflow elimination
 
-Part done 2026-10-16: `+`/`-` add the tagged words (`a + (b ^ 15)`, the one-untag trick) and test
-word overflow with a sign test; both tag tests already fuse into one mask. Open: the flag form
-(`llvm.s*.with.overflow`, `add; jo`, a further 5-15% on the arithmetic kernels) is blocked only by a
-clang-analyzer false positive in LLVM's `ExtractValueInst` headers; `*` still uses double width;
-range-proven elimination beyond `codegen/proofs`.
+Part done: `+`/`-`/`*` work on the tagged words (`a + (b ^ 15)`, `(a >> 4) * (b ^ 15)`) and branch
+on the overflow flag (`llvm.s*.with.overflow`); both tag tests already fuse into one mask. LLVM
+speculates the checked add above the tag test (costs ~1% on float-only luerl euler). Open:
+range-proven elimination beyond `codegen/proofs`; `integer()`-typed operands still carry the float
+fallback (code size, spills in loops such as `mul_loop`).
 
 - **Overflow check:** compute with flag-setting instructions and branch on overflow to the bignum
   service ("check before commit").

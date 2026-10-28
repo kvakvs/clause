@@ -90,9 +90,10 @@ in [abi.md](abi.md#terms).
   ([proofs](specialization.md#proofs)).
 - Generated `+`, `-`, `*` try an inline fast path on two immediates, otherwise
   call the runtime service: `+` and `-` add or subtract the tagged words
-  directly (`a + (b ^ 15)`) and fall back when the word overflows, which is
-  exactly when the result leaves the small range; `*` computes in double width
-  with explicit bounds. So do `band`, `bor`, `bxor`, `bsr`, `div`, `rem` and
+  directly (`a + (b ^ 15)`), `*` multiplies one payload by the other tagged
+  word less its tag (`(a >> 4) * (b ^ 15)`, then the tag); each falls back
+  when the word operation overflows (its overflow flag), which is exactly when
+  the result leaves the small range. So do `band`, `bor`, `bxor`, `bsr`, `div`, `rem` and
   comparisons of two small integers ([inline forms](abi.md#runtime-services)).
 - The service multiplies a bignum (or an overflowed small product) by a small
   integer limb by limb, from the operand's cell straight into the new one; other
