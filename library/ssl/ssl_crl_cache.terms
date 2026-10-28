@@ -1,0 +1,11 @@
+%% OTP 29 ssl_crl_cache exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{delete, 1, cache, implemented}.
+{fresh_crl, 2, callbacks, implemented}.
+{insert, 1, cache, implemented}.
+{insert, 2, cache, implemented}.
+{is_allowed, 3, http, declined}.
+{is_internal_ip, 1, http, declined}.
+{lookup, 3, callbacks, implemented}.
+{select, 2, callbacks, implemented}.
+{validate_host, 4, http, declined}.

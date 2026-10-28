@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ssl_crls",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "good crl [{ok,ok},{ok,ok},{ok,ok},{ok,ok}]\nrevoked [{{error,certificate_revoked},{error,certificate_revoked}},\n         {{error,certificate_revoked},{error,certificate_revoked}},\n         {{error,certificate_revoked},{error,certificate_revoked}},\n         {ok,ok}]\nno crl [{{error,bad_certificate},{error,bad_certificate}},\n        {{error,bad_certificate},{error,bad_certificate}},\n        {ok,ok}]\nno crl by issuer [{{error,bad_certificate},{error,bad_certificate}},{ok,ok}]\nrevoked by issuer [{{error,bad_certificate},{error,bad_certificate}},{ok,ok}]\ndeleted by issuer {{error,bad_certificate},{error,bad_certificate}}\ncustom cache {{error,certificate_revoked},{error,certificate_revoked}}\ncustom calls [lookup]\nverify fun {ok,ok}\nverify fun events [valid_peer,{bad_cert,{revoked,unspecified}}]\ncache errors [{error,enoent},\n              {error,\n                  {only_http_distribution_points_supported,\n                      \"ftp://localhost/ca.crl\"}},\n              {error,\n                  {only_http_distribution_points_supported,\n                      \"ftp://localhost/ca.crl\"}}]\noption errors [{error,{options,{crl_check,sometimes}}},\n               {error,{options,{crl_cache,cache}}},\n               {error,\n                   {options,{crl_cache,{ssl_crl_cache,{internal,nolist}}}}}]\nssl_crls: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "ssl_crls.erl": "040c80af2ed856641fa1b58770431605ebb021d1837b93430848fa668c47ec48"
+  }
+}

@@ -187,6 +187,7 @@ ssl_options(List, Ssl0, Env) ->
         fun rekeys/3,
         fun sessions/3,
         fun groups_and_ciphers/3,
+        fun crl/3,
         fun handshake/3,
         fun others/3
     ],
@@ -669,6 +670,21 @@ default_codes(['tlsv1.3']) ->
     [code(S) || S <- ssl:filter_cipher_suites(ssl:cipher_suites(exclusive, 'tlsv1.3'), [])];
 default_codes([Version | _]) ->
     [code(S) || S <- ssl:filter_cipher_suites(ssl:cipher_suites(default, Version), [])].
+
+%% CRL checks (LIB81D4a): crl_check (true, peer, best_effort or false) and crl_cache ({Module, {Handle, Args}}); a
+%% new ssl_crl_cache handle gets OTP's owner argument.
+crl(User, Ssl, _Env) ->
+    Check = one_of(crl_check, [best_effort, peer, true, false], false, User, Ssl),
+    Cache =
+        case get_opt(crl_cache, {ssl_crl_cache, {internal, [{owner, normal}]}}, User, Ssl) of
+            {Where, {ssl_crl_cache, {_, _}} = Value} when Where =/= new -> Value;
+            {new, {ssl_crl_cache, {Handle, Args}}} when is_list(Args) ->
+                {ssl_crl_cache, {Handle, [{owner, normal} | Args]}};
+            {_, {Module, {_, Args}} = Value} when is_atom(Module), is_list(Args) -> Value;
+            {_, Other} ->
+                option_error(crl_cache, Other)
+        end,
+    Ssl#{crl_check => Check, crl_cache => Cache}.
 
 handshake(User, Ssl, _Env) ->
     Ssl#{handshake => one_of(handshake, [hello, full], full, User, Ssl)}.

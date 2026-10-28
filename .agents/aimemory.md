@@ -671,3 +671,7 @@ recorded elsewhere.
   TLS 1.2 renegotiate_at counts the write sequence (Finished = 1) and renegotiates when seq >= limit; a second client
   renegotiation within 12 s is refused by the server and OTP's client connection closes. cb_info modules already
   worked; OTP crashes (badarg in apply) for a non-atom module, so no golden for it.
+- LIB81D4a ssl CRLs (2026-10-28): OTP's insert/1 (no DP) stores CRLs by their encoding's issuer while the same-issuer
+  lookup uses the OTP-form issuer from pkix_dist_point, so "revoked by issuer" is undetermined (bad_certificate) in
+  OTP 29.1.1 - mirrored, documented. Build CRLs in fixtures: plain TBSCertList + public_key:sign + der_encode
+  CertificateList; root key via pkix_test_root_cert. Catalog "declined" stubs need bare `_` heads. Clause has no inets.

@@ -7,8 +7,8 @@ utility functions are implemented (LIB81A), and so are TLS 1.2 and 1.3 [connecti
 and [secrets](#secrets) (LIB81D1), TLS 1.2 [session reuse](#session-reuse) (LIB81D2a), TLS 1.3
 [session tickets](#session-tickets) (LIB81D2b), [early data](#early-data) (LIB81D2c) and the server's
 [server name options](#server-name-indication) (LIB81D3a), custom transports and
-[automatic rekeys](#automatic-rekeys) (LIB81D3b). Protocol logs, CRLs, OCSP, PSK and SRP (the rest of LIB81D) and
-`ssl_crl_cache` follow. See the
+[automatic rekeys](#automatic-rekeys) (LIB81D3b), and [CRL checks](#crl-checks) with `ssl_crl_cache` (LIB81D4a).
+OCSP stapling, PSK and SRP (the rest of LIB81D) follow; OTP's `debug` protocol traces of `log_level` are not produced. See the
 [function inventory](../../library/ssl/ssl.terms) and
 [differences](../differences.md#ssl).
 
@@ -220,6 +220,25 @@ server's options. `unrecognized`, an empty name and a name with a trailing dot e
 `unrecognized_name` alert; options that fail and a failing fun with `handshake_failure`, logged as OTP's. A server
 name option that turns `verify_peer` on takes the `reuse_sessions` default of `verify_peer`, as OTP's. The options are
 checked as OTP checks them: entries with names and option lists without `sni_hosts`, `sni_fun` of arity 1, not both.
+
+## CRL checks
+
+`crl_check` (`true`, `peer`, `best_effort` or `false`, the default) checks the revocation status of the peer's
+certificate (`peer`) or of every certificate of its path, as OTP's ssl does (LIB81D4a). CRLs come from the `crl_cache`
+module (`{Module, {Handle, Args}}`, `ssl_crl_cache` by default): first by the certificate's distribution points
+(`Module:lookup/3`, else `lookup/2`), then by its issuer (`Module:select/2`); `public_key:pkix_crls_validate/3`
+decides, its `issuer_fun` finding the CRL's signer by name and signature among the peer's chain and `cacerts`, and
+`Module:fresh_crl/2` updating CRLs. A revoked certificate ends the handshake with `certificate_revoked`, an
+undetermined status with `bad_certificate`, except with `best_effort`. A `verify_fun` that accepts a valid
+certificate is then shown a failed check (`{bad_cert, {revoked, Reason}}`), and decides again. Callback results of
+`{logger, {Level, Report, Metadata}, Value}` are logged.
+
+`ssl_crl_cache` keeps CRLs in `clause_ssl_crls`, an ETS store under `ssl_sup`: `insert(URI, {der, CRLs} | {file,
+PemFile})` by the http distribution point URI (and by issuer), `insert(Source)` by issuer only, and `delete/1` of a
+URI or of a source. Other URIs are `{error, {only_http_distribution_points_supported, URI}}`. An insert past
+`crl_cache_max_size` empties the store first, as OTP's. As in OTP 29.1.1, CRLs inserted by issuer are stored under
+the issuer name of their encoding, which the lookup by a certificate's issuer does not match. Clause has no `inets`:
+CRLs are not fetched over HTTP, and the `{http, Timeout}` argument of the internal cache does nothing.
 
 ## Verification
 

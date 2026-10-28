@@ -109,5 +109,6 @@ behavior (`docs/differences.md` lists gaps).
   listener) as libssl DER, a server's ClientHello callback pausing for the lookup; TLS 1.3 client tickets in
   `tls_client_ticket_store`, stateful server tickets in the engine context; early data read before the handshake
   goes on, binder sets for anti_replay; sni_hosts/sni_fun pause the ClientHello and switch the server context;
-  key_update_at/renegotiate_at counted in the connection's send path). Distribution and tracing
+  key_update_at/renegotiate_at counted in the connection's send path; CRL status checks in the verify fun over
+  crl_cache modules). Distribution and tracing
   answer as a non-alive node.
