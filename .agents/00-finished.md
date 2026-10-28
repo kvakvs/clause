@@ -983,6 +983,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB81C2** ssl hello pause and closing: `{handshake, hello}` holds the peer's first flight and returns OTP's
   decoded extensions (`hello_extensions` C++ builtin), `handshake_continue/2,3` (new server engine, client
   `configure/2`), `handshake_cancel/1`; `close/2` downgrade, `shutdown/2`, `tls_version/1`; golden identical — `41f771da`
+- **LIB81D1** ssl renegotiation (TLS 1.2, OTP's client refusal window), `update_keys/2`, `export_key_materials/4,5`,
+  `prf/5`, `keep_secrets` (`keylog` items and funs from libssl key log events, TLS 1.3 traffic updates in Erlang);
+  passive read-ahead and deferred close_notify as OTP's; `ssl_features` golden identical — `56470c50`
 - **LIB77A** transform host: the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
   library identity into the user cache (lock file, older hosts pruned); library-only transform chains run there, also
   under `--erl none`; replies equal OTP's (ms_headers, qlc_queries `.abstr`); library `compile` without compiling
