@@ -986,6 +986,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB81D1** ssl renegotiation (TLS 1.2, OTP's client refusal window), `update_keys/2`, `export_key_materials/4,5`,
   `prf/5`, `keep_secrets` (`keylog` items and funs from libssl key log events, TLS 1.3 traffic updates in Erlang);
   passive read-ahead and deferred close_notify as OTP's; `ssl_features` golden identical — `56470c50`
+- **LIB81D2a** ssl TLS 1.2 session reuse: client cache `ssl_manager`, per-listener server caches over
+  `ssl_session_cache_api` stores (ETS default), OTP's selection/registration rules and `reuse_session` policy; libssl
+  server pauses in its ClientHello callback for the Erlang lookup; `ssl_sessions` golden identical — `f60504c8`
 - **LIB77A** transform host: the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
   library identity into the user cache (lock file, older hosts pruned); library-only transform chains run there, also
   under `--erl none`; replies equal OTP's (ms_headers, qlc_queries `.abstr`); library `compile` without compiling
