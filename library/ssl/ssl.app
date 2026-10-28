@@ -8,6 +8,7 @@
         clause_ssl_certificate,
         clause_ssl_connection,
         clause_ssl_engine,
+        clause_ssl_hello,
         clause_ssl_options,
         clause_ssl_pem_cache,
         ssl

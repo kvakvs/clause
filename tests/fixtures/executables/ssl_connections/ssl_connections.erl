@@ -1,6 +1,7 @@
 %% TLS connections over loopback (plan 21 step LIB81C1): option errors, a listening socket, clients and servers in
 %% passive and active modes, packet framing, options, connection information, controlling processes, certificate
-%% verification failures and callbacks, client certificates, TLS 1.2, upgraded gen_tcp sockets and closing.
+%% verification failures and callbacks, client certificates, TLS 1.2, upgraded gen_tcp sockets and closing. LIB81C2:
+%% handshakes paused at the hello, continued or canceled, close/2 downgrades, shutdown/2 and tls_version/1.
 -module(ssl_connections).
 -export([main/1]).
 
@@ -20,7 +21,11 @@ main(_) ->
     mutual(Server, Client),
     tls12(Listen, Server),
     upgrade(Server),
-    ok = ssl:close(Listen),
+    hello(Server),
+    downgrade(Listen, Server),
+    shutdown(Listen, Server),
+    show("tls_version", [ssl:tls_version(V) || V <- [{3, 4}, {3, 3}, {254, 253}, {254, 255}]]),
+    show("close listen", ssl:close(Listen, 100)),
     io:format("transport_accept closed ~p~n", [ssl:transport_accept(Listen, 100)]),
     io:format("ssl_connections: ok~n").
 
@@ -383,3 +388,158 @@ upgrade(Server) ->
     ok = ssl:close(Socket),
     show("upgrade server saw", echoed()),
     gen_tcp:close(Listen).
+
+%% Handshakes paused at the hello ({handshake, hello}): the extensions each side sees (the peer's own extensions
+%% differ between OTP and libssl, so only their keys and stable values), continuing with new options, canceling and a
+%% refused continue option.
+hello(Server) ->
+    {ok, Listen} = ssl:listen(0, [{ip, {127, 0, 0, 1}}, {active, false}, {handshake, hello} | server_options(Server)]),
+    Self = self(),
+    Paused = fun(Then) ->
+        spawn(fun() ->
+            {ok, Socket} = ssl:transport_accept(Listen),
+            case ssl:handshake(Socket, 5000) of
+                {ok, Same, Extensions} ->
+                    Self ! {hello, Same =:= Socket, Extensions},
+                    Then(Same);
+                Other ->
+                    Self ! {hello, alert(Other)}
+            end
+        end)
+    end,
+    Paused(fun(Socket) ->
+        {ok, Connected} = ssl:handshake_continue(Socket, [{alpn_preferred_protocols, [<<"h2">>]}], 5000),
+        Self ! {server, ok, self()},
+        echo(Self, Connected)
+    end),
+    Options = [{alpn_advertised_protocols, [<<"h2">>]}, {active, false} | client_options(Server)],
+    {ok, Client, ClientExtensions} = connect(Listen, [{handshake, hello} | Options]),
+    receive
+        {hello, Same, Extensions} ->
+            show("hello same socket", Same),
+            show("hello keys", hello_keys(Extensions)),
+            show("hello values", [maps:get(K, Extensions) || K <- [sni, alpn, client_hello_versions, cookie]])
+    end,
+    show("server hello keys", lists:sort(maps:keys(ClientExtensions))),
+    show("server hello version", maps:get(server_hello_selected_version, ClientExtensions)),
+    {ok, Connected} = ssl:handshake_continue(Client, [], 5000),
+    show("continued server", server_result()),
+    show("continued alpn", ssl:negotiated_protocol(Connected)),
+    ok = ssl:send(Connected, "after hello"),
+    show("continued recv", ssl:recv(Connected, 0, 2000)),
+    ok = ssl:close(Connected),
+    echoed(),
+    Paused(fun(Socket) ->
+        {ok, Connected12} = ssl:handshake_continue(Socket, [], 5000),
+        Self ! {server, ok, self()},
+        echo(Self, Connected12)
+    end),
+    {ok, Client12, ServerHello12} = connect(Listen, [{handshake, hello}, {versions, ['tlsv1.2']} | Options]),
+    receive
+        {hello, _, Hello12} -> show("tls12 hello keys", hello_keys(Hello12))
+    end,
+    show("tls12 server hello keys", lists:sort(maps:keys(ServerHello12))),
+    show("tls12 server hello", [maps:get(K, ServerHello12) || K <- [renegotiation_info, alpn]]),
+    {ok, Continued12} = ssl:handshake_continue(Client12, [], 5000),
+    show("tls12 continued server", server_result()),
+    show("tls12 continued", ssl:connection_information(Continued12, [protocol])),
+    ok = ssl:close(Continued12),
+    echoed(),
+    Paused(fun(Socket) ->
+        Self ! {cancel, ssl:handshake_cancel(Socket), ssl:handshake_cancel(Socket)}
+    end),
+    show("canceled client", alert(connect(Listen, Options))),
+    receive
+        {cancel, First, Again} -> show("cancel", [First, Again])
+    end,
+    flush_hello(),
+    Paused(fun(Socket) ->
+        Self ! {cancel, ssl:handshake_continue(Socket, [{verify, id(foo)}], 5000)}
+    end),
+    show("refused continue client", alert(connect(Listen, Options))),
+    receive
+        {cancel, Refused} -> show("refused continue", Refused)
+    end,
+    flush_hello(),
+    ssl:close(Listen).
+
+%% The keys of a ClientHello's extensions but those only one of OTP's and libssl's hellos has.
+hello_keys(Extensions) ->
+    lists:sort(maps:keys(Extensions)) -- [renegotiation_info, signature_algs_cert].
+
+flush_hello() ->
+    receive
+        {hello, _, _} -> ok
+    after 2000 -> timeout
+    end.
+
+%% close/2: a timeout, and downgrades of both ends to their gen_tcp sockets once each has the other's close_notify;
+%% a downgrade whose passive peer does not read times out.
+downgrade(Listen, Server) ->
+    Self = self(),
+    serve(Listen, fun(Socket) ->
+        {ok, Data} = ssl:recv(Socket, 0, 2000),
+        Self ! {downgrading, Data},
+        Downgraded = ssl:close(Socket, {self(), 2000}),
+        Self ! {server_downgrade, element(1, Downgraded)},
+        {ok, Tcp} = Downgraded,
+        Self ! {plain, inet:getopts(Tcp, [active, mode, packet]), gen_tcp:recv(Tcp, 0, 2000)},
+        ok = gen_tcp:send(Tcp, "plain back"),
+        receive
+            done -> gen_tcp:close(Tcp)
+        end
+    end),
+    {ok, Socket} = connect(Listen, [{active, false} | client_options(Server)]),
+    server_result(),
+    ok = ssl:send(Socket, "before"),
+    receive
+        {downgrading, Data} -> show("downgrading", Data)
+    end,
+    {ok, Tcp} = ssl:close(Socket, {self(), 2000}),
+    receive
+        {server_downgrade, Result} -> show("server downgrade", Result)
+    end,
+    ok = gen_tcp:send(Tcp, "plain"),
+    receive
+        {plain, Options, Plain} -> show("server plain", [Options, Plain])
+    end,
+    show("client plain", gen_tcp:recv(Tcp, 0, 2000)),
+    get(server) ! done,
+    gen_tcp:close(Tcp),
+    show("downgraded close", ssl:close(Socket)),
+    serve(Listen, fun(Peer) ->
+        receive
+            read -> Self ! {echo, ssl:recv(Peer, 0, 1000)}
+        end
+    end),
+    {ok, Unread} = connect(Listen, [{active, false} | client_options(Server)]),
+    server_result(),
+    show("downgrade timeout", ssl:close(Unread, {self(), 300})),
+    get(server) ! read,
+    show("downgrade timeout peer", echoed()),
+    serve(Listen, fun(Peer) -> echo(Self, Peer) end),
+    {ok, Timed} = connect(Listen, [{active, false} | client_options(Server)]),
+    server_result(),
+    show("close timeout", ssl:close(Timed, 300)),
+    show("close timeout peer", echoed()).
+
+%% shutdown/2: write shuts the transport down without close_notify, so the peer sees the transport close; a listening
+%% socket is not connected.
+shutdown(Listen, Server) ->
+    Self = self(),
+    serve(Listen, fun(Socket) ->
+        First = ssl:recv(Socket, 0, 2000),
+        Second = ssl:recv(Socket, 0, 2000),
+        Self ! {shutdown_peer, [First, Second, ssl:send(Socket, "late")]}
+    end),
+    {ok, Socket} = connect(Listen, [{active, false} | client_options(Server)]),
+    server_result(),
+    ok = ssl:send(Socket, "hi"),
+    show("shutdown write", ssl:shutdown(Socket, write)),
+    receive
+        {shutdown_peer, Peer} -> show("shutdown peer", Peer)
+    end,
+    show("recv after shutdown", ssl:recv(Socket, 0, 2000)),
+    show("shutdown closed", ssl:shutdown(Socket, read_write)),
+    show("shutdown close", ssl:close(Socket)),
+    show("shutdown listen", ssl:shutdown(Listen, write)).

@@ -70,14 +70,24 @@ Term random_term(ProcessContext &context, const SSL *ssl, std::size_t (*get)(con
     return binary_of(context, std::span(random).first(size));
 }
 
+// Added for ssl closing (plan 21 step LIB81C2): the received bytes libssl has not read, such as the plain data after a
+// close_notify that ssl:close/2 hands over with a downgraded socket.
+Term unread_term(ProcessContext &context, const Engine &engine) {
+    char *data = nullptr;
+    const auto size = BIO_get_mem_data(engine.input_, &data);
+    return binary_of(
+        context, std::span(reinterpret_cast<const std::byte *>(data), static_cast<std::size_t>(size > 0 ? size : 0)));
+}
+
 // info(Engine): #{protocol, cipher_suite, alpn, server_name, group, session_id, resumed, client_random,
-// server_random}; codes and names are libssl's, which ssl.erl turns into OTP's terms.
+// server_random, alert, unread}; codes and names are libssl's, which ssl.erl turns into OTP's terms. The last alert
+// (undefined or {alert, Origin, Level, Description}) also names one libssl ignored, as a TLS 1.3 user_canceled.
 Term info(ProcessContext &context, const Named<EngineRole> &handle) {
     auto &engine = engine_of(handle.term);
     const std::scoped_lock guard(engine.lock_);
     auto *ssl = engine.ssl_.get();
     const auto group = SSL_get_negotiated_group(ssl);
-    const std::array<std::pair<AtomName, Term>, 9> entries{{
+    const std::array<std::pair<AtomName, Term>, 11> entries{{
         {"protocol"_atom, version_term(context, SSL_version(ssl))},
         {"cipher_suite"_atom, suite_term(context, ssl)},
         {"alpn"_atom, alpn_term(context, ssl)},
@@ -87,6 +97,8 @@ Term info(ProcessContext &context, const Named<EngineRole> &handle) {
         {"resumed"_atom, atom(context, SSL_session_reused(ssl) == 1 ? "true"_atom : "false"_atom)},
         {"client_random"_atom, random_term(context, ssl, SSL_get_client_random)},
         {"server_random"_atom, random_term(context, ssl, SSL_get_server_random)},
+        {"alert"_atom, last_alert(context, engine)},
+        {"unread"_atom, unread_term(context, engine)},
     }};
     return need(crypto::atom_map(context, entries));
 }

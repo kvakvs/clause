@@ -4,7 +4,7 @@
 -module(clause_ssl_algorithms).
 -export([filter_cipher_suites/2, signature_algs/2, eccs/0, eccs/1, groups/0, groups/1, versions/0]).
 -export([tls_versions/0, dtls_versions/0, sufficient_crypto/1]).
--export([suite_code/1, code_suite/1]).
+-export([suite_code/1, code_suite/1, hello_extensions/2]).
 
 -define(VSN, "11.7.7").
 -define(SUPPORTED_TLS, ['tlsv1.3', 'tlsv1.2']).
@@ -329,6 +329,10 @@ group_parts(Group) -> [Group].
 %% Suite codes (LIB81C1): connections hand libssl suites by their two-byte codes; builtins over the suite table.
 suite_code(_Suite) -> clause_builtin_placeholder.
 code_suite(_Code) -> clause_builtin_placeholder.
+
+%% The extension map of a ClientHello or ServerHello handshake message, as {handshake, hello} returns it, read for
+%% the highest local version (LIB81C2); a builtin.
+hello_extensions(_Message, _LocalVersion) -> clause_builtin_placeholder.
 
 %% Protocol versions.
 

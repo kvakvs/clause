@@ -1039,6 +1039,13 @@ table and `ssl_cipher_format`'s name walks, as catalog builtins of `ssl` itself.
 - `clause_ssl_algorithms:suite_code(Suite)` and `code_suite(Code)` (`suites.cpp`, LIB81C1) map a listed suite's map to
   its two-byte code and back, else `undefined`: connections hand libssl suites by code and report the negotiated one
   as a map.
+- `clause_ssl_algorithms:hello_extensions(Message, {Major, Minor})` (`hello.cpp`, LIB81C2) decodes the extensions of
+  a ClientHello or ServerHello handshake message as OTP's `ssl_handshake` does for the `{handshake, hello}` pause:
+  the version they are read for (the first supported version, else the hello's, at most the local one), the keys
+  OTP's map starts with for that version and message, each known extension under OTP's guards (others skipped, a
+  malformed tail ending the list), and the values without their top-level records. Signature schemes, groups and
+  TLS 1.2 curve OIDs come from OTP's tables; certificate authorities stay DER for Erlang to normalize. `error` for
+  a hello OTP fails to decode (a duplicate extension, a misplaced `pre_shared_key`, a bad compression method).
 
 ## Ssl engine
 
@@ -1068,7 +1075,12 @@ all the I/O.
   linked with a libssl older than 4.1 cannot pause: they accept in the callback, and the handshake answers
   `verify` once libssl is done. A rejection then ends the connection without an alert.
 - `info(Engine)` (`info.cpp`) gives `protocol`, `cipher_suite` (its code), `alpn`, `server_name`, `group`,
-  `session_id`, `resumed`, `client_random` and `server_random`.
+  `session_id`, `resumed`, `client_random` and `server_random`; LIB81C2 adds `alert` (the last alert sent or
+  received, also one libssl ignored, as TLS 1.3's `user_canceled`) and `unread` (received bytes libssl has not read,
+  as the plain data after a close_notify).
+- `configure(Engine, Context)` (`connection.cpp`, LIB81C2) moves an engine to another context of its role
+  (`SSL_set_SSL_CTX` and the context's verify mode): a client's `handshake_continue/2,3` options take effect after
+  its ClientHello.
 - An engine is a handle reference owning the `SSL` behind a lock. It keeps its context alive for libssl's
   callbacks: ALPN selection picks the server's first preference the client offers, else
   `no_application_protocol`.

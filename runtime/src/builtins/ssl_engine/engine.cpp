@@ -114,6 +114,10 @@ Term failure_of(ProcessContext &context, const Engine &engine) {
     return tuple_of(context, elements);
 }
 
+Term last_alert(ProcessContext &context, const Engine &engine) {
+    return engine.alert_ ? alert_term(context, *engine.alert_) : atom(context, "undefined"_atom);
+}
+
 Engine &engine_of(const Term &handle) {
     auto *engine = crypto::owned_object<Engine>(handle, ENGINE_MAGIC);
     if (engine == nullptr) {

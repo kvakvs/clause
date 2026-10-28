@@ -2,13 +2,17 @@
 %% transport socket and a clause_ssl_engine, runs the handshake (pausing for clause_ssl_certificate's verdict), and
 %% then moves bytes between the transport and the engine. It keeps OTP's semantics for the owner: active modes and
 %% {ssl, S, Data}, {ssl_closed, S}, {ssl_error, S, Reason} and {ssl_passive, S} messages, passive recv, emulated
-%% packet framing, and closing when the owner exits.
+%% packet framing, and closing when the owner exits. LIB81C2 adds the {handshake, hello} pause (clause_ssl_hello),
+%% shutdown/2 and close/2's downgrade to the transport socket.
 -module(clause_ssl_connection).
 -behaviour(gen_server).
 -export([start/1, start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("clause_ssl.hrl").
+
+-define(INTERNAL_ERROR, 80).
+-define(USER_CANCELED, 90).
 
 %% Start a connection process for #{role, socket, config, owner, context (optional)}, under tls_connection_sup when
 %% ssl is started.
@@ -24,7 +28,9 @@ start_link(Args) ->
 %% The state is a map: role, socket, transport, tags, ssl (options), emulated (socket options), owner, monitor,
 %% sslsocket, engine, phase (idle | handshake | connection | closed), waiter and timer (the handshake's caller),
 %% buffer (received plaintext), reader ({From, Length, Timer} of a passive recv), armed (a transport read pending),
-%% end_reason (why the peer ended) and verify_reason (the reason of a rejected peer chain).
+%% end_reason (why the peer ended) and verify_reason (the reason of a rejected peer chain). For LIB81C2: pausing (the
+%% handshake pauses at the peer's hello), held (the peer's bytes libssl has not seen yet; phase user_hello while
+%% paused) and downgrade ({NewOwner, From, Timer} of close/2's downgrade; phase downgrade).
 init(#{role := Role, socket := Socket, config := Config, owner := Owner} = Args) ->
     #{ssl := Ssl, emulated := Emulated, cb_info := {Transport, Data, Closed, Error, _}} = Config,
     SslSocket = #sslsocket{
@@ -54,7 +60,10 @@ init(#{role := Role, socket := Socket, config := Config, owner := Owner} = Args)
         reader => undefined,
         armed => false,
         end_reason => undefined,
-        verify_reason => undefined
+        verify_reason => undefined,
+        pausing => false,
+        held => <<>>,
+        downgrade => undefined
     }}.
 
 %%--------------------------------------------------------------------------------------------------------------------
@@ -72,17 +81,20 @@ handle_call({send, _}, _From, S) ->
 handle_call({recv, _, _}, _From, #{emulated := #{active := Active}} = S) when Active =/= false ->
     {reply, {error, einval}, S};
 handle_call({recv, Length, Timeout}, From, #{reader := undefined} = S) ->
-    Timer =
-        case Timeout of
-            infinity -> undefined;
-            _ -> erlang:start_timer(Timeout, self(), recv_timeout)
-        end,
-    deliver(S#{reader => {From, Length, Timer}});
+    deliver(S#{reader => {From, Length, start_timer(Timeout, recv_timeout)}});
 handle_call({recv, _, _}, _From, S) ->
     {reply, {error, ealready}, S};
 handle_call(close, _From, S) ->
     close_transport(S),
     {stop, normal, ok, S#{phase => closed}};
+handle_call({handshake_continue, Options, Timeout}, From, #{phase := user_hello} = S) ->
+    continue_handshake(Options, Timeout, From, S);
+handle_call(cancel, _From, #{phase := user_hello} = S) ->
+    {stop, normal, ok, end_paused(?USER_CANCELED, user_canceled, S)};
+handle_call({shutdown, How}, _From, #{phase := connection} = S) ->
+    shutdown_transport(How, S);
+handle_call({downgrade, Owner, Timeout}, From, #{phase := connection} = S) ->
+    start_downgrade(Owner, Timeout, From, S);
 handle_call({controlling_process, Pid}, _From, #{monitor := Monitor} = S) ->
     erlang:demonitor(Monitor, [flush]),
     {reply, ok, S#{owner => Pid, monitor => erlang:monitor(process, Pid)}};
@@ -122,14 +134,22 @@ handle_info({'DOWN', Monitor, process, _, _}, #{monitor := Monitor} = S) ->
     {stop, normal, S#{phase => closed}};
 handle_info({timeout, Timer, handshake_timeout}, #{timer := Timer} = S) ->
     handshake_ended({error, timeout}, S);
+handle_info({timeout, Timer, downgrade_timeout}, #{downgrade := {_, _, Timer}} = S) ->
+    downgrade_ended({error, timeout}, S);
 handle_info({timeout, Timer, recv_timeout}, #{reader := {From, _, Timer}} = S) ->
     gen_server:reply(From, {error, timeout}),
     {noreply, S#{reader => undefined}};
 handle_info(_Message, S) ->
     {noreply, S}.
 
+received(Bytes, #{phase := handshake, pausing := true} = S) ->
+    hello_received(Bytes, S);
 received(Bytes, #{phase := handshake} = S) ->
     step(Bytes, S);
+received(Bytes, #{phase := user_hello, held := Held} = S) ->
+    {noreply, S#{held => <<Held/binary, Bytes/binary>>}};
+received(Bytes, #{phase := downgrade} = S) ->
+    downgrade_received(Bytes, S);
 received(Bytes, #{phase := connection, engine := Engine} = S) ->
     {Status, Plain, Output} = clause_ssl_engine:read(Engine, Bytes),
     transmit(Output, S),
@@ -142,10 +162,19 @@ received(Bytes, #{phase := connection, engine := Engine} = S) ->
 received(_Bytes, S) ->
     {noreply, S}.
 
-transport_ended(Reason, #{phase := handshake} = S) ->
-    handshake_ended({error, Reason}, S);
+transport_ended(Reason, #{phase := handshake, engine := Engine} = S) ->
+    % An alert libssl ignored, as a TLS 1.3 user_canceled, is why the peer ended.
+    case clause_ssl_engine:info(Engine) of
+        #{alert := {alert, received, _, _} = Alert} -> handshake_ended({error, failure_reason(Alert, handshake, S)}, S);
+        _ -> handshake_ended({error, Reason}, S)
+    end;
 transport_ended(Reason, #{phase := connection} = S) ->
     peer_ended(Reason, S);
+transport_ended(_Reason, #{phase := user_hello} = S) ->
+    close_socket(S),
+    {stop, normal, S#{phase => closed}};
+transport_ended(_Reason, #{phase := downgrade, tags := {_, Closed, _}} = S) ->
+    downgrade_ended({error, Closed}, S);
 transport_ended(_Reason, S) ->
     {noreply, S}.
 
@@ -158,12 +187,10 @@ start_handshake(Timeout, Options, From, #{config := Config0, role := Role} = S) 
         {ok, Config} ->
             case engine(Config, S) of
                 {ok, Engine} ->
-                    Timer =
-                        case Timeout of
-                            infinity -> undefined;
-                            _ -> erlang:start_timer(Timeout, self(), handshake_timeout)
-                        end,
-                    S1 = S#{config => Config, ssl => maps:get(ssl, Config), engine => Engine},
+                    #{ssl := Ssl} = Config,
+                    Pausing = maps:get(handshake, Ssl) == hello,
+                    S1 = S#{config => Config, ssl => Ssl, engine => Engine, pausing => Pausing},
+                    Timer = start_timer(Timeout, handshake_timeout),
                     step(<<>>, S1#{phase => handshake, waiter => From, timer => Timer});
                 Error ->
                     close_transport(S),
@@ -174,8 +201,13 @@ start_handshake(Timeout, Options, From, #{config := Config0, role := Role} = S) 
             {stop, normal, Error, S#{phase => closed}}
     end.
 
-updated(Config, [], _Role) -> {ok, Config};
-updated(Config, Options, Role) -> clause_ssl_options:update(Config, Options, Role).
+updated(Config, [], _Role) ->
+    {ok, Config};
+updated(Config0, Options, Role) ->
+    case clause_ssl_options:update(Config0, Options, Role) of
+        {ok, Config} -> clause_ssl_options:load_files(Config);
+        Error -> Error
+    end.
 
 % The engine of the connection: over the listening socket's context unless the handshake changed options.
 engine(Config, #{context := Context, config := Config, role := Role} = S) when Context =/= undefined ->
@@ -236,6 +268,63 @@ handshake_ended(Reply, #{waiter := From, timer := Timer} = S) ->
     From =/= undefined andalso gen_server:reply(From, Reply),
     close_transport(S),
     {stop, normal, S#{phase => closed, waiter => undefined}}.
+
+%% The {handshake, hello} pause (LIB81C2).
+
+% The bytes of the peer's first flight, held until its hello message is complete; then the handshake pauses with the
+% hello's extensions, unless they cannot be read (libssl then fails the handshake).
+hello_received(Bytes, #{held := Held0, ssl := Ssl} = S) ->
+    Held = <<Held0/binary, Bytes/binary>>,
+    case clause_ssl_hello:message(Held) of
+        more -> {noreply, arm(S#{held => Held})};
+        {ok, Message} -> paused(clause_ssl_hello:extensions(Message, Ssl), S#{held => Held});
+        invalid -> step(Held, S#{pausing => false, held => <<>>})
+    end.
+
+paused({ok, Extensions}, #{waiter := From, timer := Timer, sslsocket := SslSocket} = S) ->
+    cancel(Timer),
+    gen_server:reply(From, {ok, SslSocket, Extensions}),
+    {noreply, S#{phase => user_hello, waiter => undefined, timer => undefined}};
+paused(error, #{held := Held} = S) ->
+    step(Held, S#{pausing => false, held => <<>>}).
+
+% Go on with the held bytes under the options of handshake_continue/2,3; a refused option ends the handshake with an
+% internal_error alert, as OTP's does.
+continue_handshake(Options, Timeout, From, #{config := Config, role := Role} = S0) ->
+    case reconfigured(updated(Config, Options, Role), S0) of
+        {ok, #{held := Held} = S} ->
+            Timer = start_timer(Timeout, handshake_timeout),
+            step(Held, S#{phase => handshake, waiter => From, timer => Timer, pausing => false, held => <<>>});
+        {error, Reason} = Error ->
+            {stop, normal, Error, end_paused(?INTERNAL_ERROR, Reason, S0)}
+    end.
+
+% A server's engine has not seen the client's hello, so changed options get a new engine; a client's engine switches
+% to a new context.
+reconfigured({ok, Config}, #{config := Config} = S) ->
+    {ok, S};
+reconfigured({ok, #{ssl := Ssl} = Config}, #{role := server} = S) ->
+    case engine(Config, S) of
+        {ok, Engine} -> {ok, S#{config => Config, ssl => Ssl, engine => Engine}};
+        Error -> Error
+    end;
+reconfigured({ok, #{ssl := Ssl} = Config}, #{role := client, engine := Engine} = S) ->
+    case clause_ssl_engine:context(client, clause_ssl_options:engine_options(Config)) of
+        {ok, Context} ->
+            ok = clause_ssl_engine:configure(Engine, Context),
+            {ok, S#{config => Config, ssl => Ssl}};
+        {error, {Key, Text}} ->
+            {error, {options, {Key, Text}}}
+    end;
+reconfigured(Error, _S) ->
+    Error.
+
+% End a paused handshake with a fatal alert, logged as OTP logs it, and close the transport.
+end_paused(Code, Reason, #{role := Role, ssl := Ssl} = S) ->
+    transmit(clause_ssl_hello:alert(Code), S),
+    clause_ssl_alert:log(Code, sent, Role, {user_hello, 2, Reason}, maps:get(log_level, Ssl)),
+    close_socket(S),
+    S#{phase => closed}.
 
 % The error term of an engine failure, logged as OTP logs alerts.
 failure_reason({alert, Origin, Level, Code}, Phase, #{role := Role, ssl := Ssl} = S) ->
@@ -485,10 +574,67 @@ transmit(Output, #{transport := Transport, socket := Socket}) ->
         {error, _} -> {error, closed}
     end.
 
+%%--------------------------------------------------------------------------------------------------------------------
+%% Shutdown and downgrade (LIB81C2)
+%%--------------------------------------------------------------------------------------------------------------------
+
+% shutdown/2 as OTP's: read and write shut the transport down, read_write sends close_notify first; a failure ends
+% the connection.
+shutdown_transport(read_write, #{engine := Engine} = S) ->
+    transmit(element(2, clause_ssl_engine:shutdown(Engine)), S),
+    shutdown_reply(transport_shutdown(read_write, S), S);
+shutdown_transport(How, S) ->
+    shutdown_reply(transport_shutdown(How, S), S).
+
+shutdown_reply(ok, S) ->
+    {reply, ok, S};
+shutdown_reply(Error, S) ->
+    close_socket(S),
+    {stop, normal, Error, S#{phase => closed}}.
+
+transport_shutdown(How, #{transport := Transport, socket := Socket}) ->
+    try
+        Transport:shutdown(Socket, How)
+    catch
+        error:undef -> {error, notsup}
+    end.
+
+% close/2's downgrade: send close_notify and wait for the peer's, then hand the transport socket to the new owner.
+start_downgrade(Owner, Timeout, From, #{engine := Engine} = S) ->
+    transmit(element(2, clause_ssl_engine:shutdown(Engine)), S),
+    Timer = start_timer(Timeout, downgrade_timeout),
+    {noreply, arm(S#{phase => downgrade, downgrade => {Owner, From, Timer}})}.
+
+downgrade_received(Bytes, #{engine := Engine} = S) ->
+    case clause_ssl_engine:read(Engine, Bytes) of
+        {ok, _Plain, _Output} -> {noreply, arm(S)};
+        {closed, _Plain, _Output} -> hand_over(S);
+        {_Failure, _Plain, _Output} -> downgrade_ended({error, closed}, S)
+    end.
+
+% The socket goes to the new owner with OTP's options, and with the bytes that came after the peer's close_notify.
+hand_over(#{downgrade := {Owner, From, Timer}, transport := Transport, socket := Socket, engine := Engine} = S) ->
+    cancel(Timer),
+    (socket_module(Transport)):setopts(Socket, [{active, false}, {mode, binary}, {packet, 0}]),
+    ok = Transport:controlling_process(Socket, Owner),
+    Reply =
+        case clause_ssl_engine:info(Engine) of
+            #{unread := <<>>} -> {ok, Socket};
+            #{unread := Data} -> {ok, Socket, Data}
+        end,
+    gen_server:reply(From, Reply),
+    {stop, normal, S#{phase => closed, downgrade => undefined}}.
+
+downgrade_ended(Reply, #{downgrade := {_, From, Timer}} = S) ->
+    cancel(Timer),
+    gen_server:reply(From, Reply),
+    close_socket(S),
+    {stop, normal, S#{phase => closed, downgrade => undefined}}.
+
 % Ask the transport for the next bytes, once.
 arm(#{armed := true} = S) ->
     S;
-arm(#{phase := Phase} = S) when Phase == closed; Phase == idle ->
+arm(#{phase := Phase} = S) when Phase == closed; Phase == idle; Phase == user_hello ->
     S;
 arm(#{phase := connection, reader := undefined, emulated := #{active := false}} = S) ->
     S;
@@ -504,6 +650,9 @@ close_transport(S) ->
 
 close_socket(#{transport := Transport, socket := Socket}) ->
     Transport:close(Socket).
+
+start_timer(infinity, _Tag) -> undefined;
+start_timer(Timeout, Tag) -> erlang:start_timer(Timeout, self(), Tag).
 
 cancel(undefined) -> ok;
 cancel(Timer) -> erlang:cancel_timer(Timer, [{async, true}, {info, false}]).

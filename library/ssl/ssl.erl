@@ -1,7 +1,7 @@
 %% Clause's replacement for OTP's ssl (docs/libraries/ssl.md, plan 21 step LIB81), written from OTP's documentation:
 %% the cipher suite table and name walks are builtins and the crypto-dependent lists clause_ssl_algorithms' (LIB81A);
-%% connections run over OpenSSL's libssl (LIB81B engine, LIB81C1 connections); the rest of LIB81C-D raises
-%% not_implemented until then.
+%% connections run over OpenSSL's libssl (LIB81B engine, LIB81C1 connections, LIB81C2 pauses and closing); the rest
+%% of LIB81D raises not_implemented until then.
 -module(ssl).
 -export([
     append_cipher_suites/2,
@@ -69,6 +69,8 @@
 
 -include("ssl.types.hrl").
 -include("clause_ssl.hrl").
+
+-define(IS_TIMEOUT(T), ((is_integer(T) andalso T >= 0) orelse T == infinity)).
 
 %% The application.
 start() -> start(temporary).
@@ -371,18 +373,45 @@ call(#sslsocket{connection_handler = Pid}, Request) ->
 socket_module(gen_tcp) -> inet;
 socket_module(Transport) -> Transport.
 
-%% Connection features of LIB81C2 and LIB81D.
-close(_, _) -> erlang:error({not_implemented, close, 2}).
+%% Pauses and closing (LIB81C2).
+
+% Continue or cancel a handshake paused by {handshake, hello}.
+handshake_continue(SslSocket, Options) -> handshake_continue(SslSocket, Options, infinity).
+
+handshake_continue(SslSocket, Options, Timeout) when is_list(Options), ?IS_TIMEOUT(Timeout) ->
+    call(SslSocket, {handshake_continue, Options, Timeout}).
+
+handshake_cancel(SslSocket) -> call(SslSocket, cancel).
+
+% Close with a timeout, which OTP's close leaves to its default, or downgrade to the transport socket, handed to
+% NewOwner once the peer has answered close_notify.
+close(#sslsocket{connection_handler = undefined} = ListenSocket, _How) ->
+    close(ListenSocket);
+close(#sslsocket{connection_handler = Pid} = SslSocket, {NewOwner, Timeout}) when
+    is_pid(Pid), is_pid(NewOwner), ?IS_TIMEOUT(Timeout)
+->
+    call(SslSocket, {downgrade, NewOwner, Timeout});
+close(#sslsocket{connection_handler = Pid} = SslSocket, Timeout) when is_pid(Pid), ?IS_TIMEOUT(Timeout) ->
+    close(SslSocket).
+
+shutdown(#sslsocket{connection_handler = undefined, transport_cb = T}, _How) when T == gen_udp; T == gen_sctp ->
+    {error, notsup};
+shutdown(#sslsocket{connection_handler = undefined}, _How) ->
+    {error, enotconn};
+shutdown(SslSocket, How) ->
+    call(SslSocket, {shutdown, How}).
+
+% The TLS version of a protocol version tuple (a DTLS one's counterpart); internal, as in OTP.
+tls_version(Version) when element(1, Version) == 3 -> Version;
+tls_version({254, 255}) -> {3, 2};
+tls_version({254, 253}) -> {3, 3}.
+
+%% Connection features of LIB81D.
 export_key_materials(_, _, _, _) ->
     erlang:error({not_implemented, export_key_materials, 4}).
 export_key_materials(_, _, _, _, _) ->
     erlang:error({not_implemented, export_key_materials, 5}).
 handle_trace(_, _, _) -> erlang:error({not_implemented, handle_trace, 3}).
-handshake_cancel(_) -> erlang:error({not_implemented, handshake_cancel, 1}).
-handshake_continue(_, _) -> erlang:error({not_implemented, handshake_continue, 2}).
-handshake_continue(_, _, _) -> erlang:error({not_implemented, handshake_continue, 3}).
 prf(_, _, _, _, _) -> erlang:error({not_implemented, prf, 5}).
 renegotiate(_) -> erlang:error({not_implemented, renegotiate, 1}).
-shutdown(_, _) -> erlang:error({not_implemented, shutdown, 2}).
-tls_version(_) -> erlang:error({not_implemented, tls_version, 1}).
 update_keys(_, _) -> erlang:error({not_implemented, update_keys, 2}).

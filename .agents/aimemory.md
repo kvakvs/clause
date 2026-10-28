@@ -611,3 +611,12 @@ recorded elsewhere.
   mode/packet/header/active; Windows connect to a closed port takes ~2 s (no "refused" cases with short timeouts);
   pkix_test_data SAN defaults to the host name (set {extensions, [SAN]}). Clause decode_packet badargs on
   line_delimiter for non-line types. Golden prints alerts as {tls_alert, Desc} (texts name OTP source lines).
+- LIB81C2 ssl hello pause/closing (2026-10-28): OTP quirks: handshake/3 with non-empty options on an accepted
+  socket returns {ok, Ext} (raw records, no socket; ssl_gen_statem:handshake/3 passes the reply through) - use a
+  {handshake, hello} listener + handshake/2 in probes; calls during the pause are postponed (hang); close/1,2 use
+  DEFAULT_TIMEOUT (5 s shutdown(write)+recv), close/2's timeout unused; shutdown(write) sends no close_notify.
+  Pause design: Erlang holds the peer's first flight until the hello message is complete (records parsed in
+  clause_ssl_hello), libssl sees it on continue; cancel/internal_error go out as plaintext alert records. libssl
+  ignores a TLS 1.3 user_canceled, so transport_ended reads info(Engine).alert. Peer hellos differ (libssl client:
+  renegotiation_info, no signature_algs_cert): golden prints keys minus those. Bash heredoc with nested python
+  '''strings failed ("unexpected EOF"): use Edit tool or python -c.

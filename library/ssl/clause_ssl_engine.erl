@@ -9,6 +9,7 @@
     connection/2,
     handshake/2,
     verify/2,
+    configure/2,
     read/2,
     write/2,
     shutdown/1,
@@ -21,6 +22,7 @@ context(_Role, _Options) -> clause_builtin_placeholder.
 connection(_Context, _Options) -> clause_builtin_placeholder.
 handshake(_Engine, _Received) -> clause_builtin_placeholder.
 verify(_Engine, _Decision) -> clause_builtin_placeholder.
+configure(_Engine, _Context) -> clause_builtin_placeholder.
 read(_Engine, _Received) -> clause_builtin_placeholder.
 write(_Engine, _Data) -> clause_builtin_placeholder.
 shutdown(_Engine) -> clause_builtin_placeholder.

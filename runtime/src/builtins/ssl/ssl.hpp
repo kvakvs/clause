@@ -50,6 +50,9 @@ Term str_to_suite(ProcessContext &context, const Named<NameRole> &name);
 // undefined (LIB81C1: connections name suites by code).
 Term suite_code(ProcessContext &context, const Named<SuiteRole> &suite);
 Term code_suite(ProcessContext &context, const Named<CodeRole> &code);
+// clause_ssl_algorithms:hello_extensions(Message, {Major, Minor}): the extension map of a ClientHello or ServerHello
+// handshake message read for the local highest version, as {handshake, hello} returns it, else error (LIB81C2).
+Term hello_extensions(ProcessContext &context, const BinaryArgument &message, const TupleArgument &local);
 
 // The character list of code points.
 Term string_term(ProcessContext &context, std::u32string_view text);

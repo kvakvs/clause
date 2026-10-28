@@ -25,9 +25,9 @@ internal functions stay out unless a public function needs them (user direction 
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
 - **Left:** `erlang` (20 declined functions, LIB9 remainder, Appendix A); OTP-free builds
   (LIB78 on request; LIB77 transforms without the host are done);
-  applications beyond the core that emqx needs (LIB81C2–D, LIB82–LIB83, Appendix B; `crypto` (LIB79),
-  `public_key` (LIB80), `ssl`'s utility functions (LIB81A), libssl engine (LIB81B) and core connections
-  (LIB81C1) are done).
+  applications beyond the core that emqx needs (LIB81D, LIB82–LIB83, Appendix B; `crypto` (LIB79),
+  `public_key` (LIB80), `ssl`'s utility functions (LIB81A), libssl engine (LIB81B), core connections
+  (LIB81C1) and the hello pause and closing (LIB81C2) are done).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -141,10 +141,6 @@ records, goldens from OTP, own headers written from the documented records and m
   `close` 55, `send` 17 and `recv` 15. emqx's `emqx_ocsp_cache` and `emqx_ssl_crl_cache` include
   OTP-internal `ssl_handshake.hrl` and `ssl_internal.hrl`. These are not public and are not
   provided, so projects keep OTP's `ssl` application root for them.
-  - **LIB81C Connections** over the `clause_ssl_engine` builtins (LIB81B), split (2026-10-28):
-    - **LIB81C2 Pauses and closing:** `{handshake, hello}` with `handshake_continue/2,3` and
-      `handshake_cancel/1` (libssl's client hello callback), `close/2` (timeout and downgrade to the
-      transport socket), `shutdown/2`, `tls_version/1`.
   - **LIB81D TLS features:** session reuse and tickets, `renegotiate/1`, `update_keys/2`,
     `export_key_materials/4,5`, `sni_hosts`/`sni_fun`, CRL checks with `ssl_crl_cache` (`insert/1,2`,
     `delete/1`) and the cache callbacks, OCSP stapling, PSK/SRP `user_lookup_fun`, custom `cb_info`
@@ -169,8 +165,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB81C2–D (LIB81E on request); LIB78 only on
-   request.
+1. LIB81D (LIB81E on request); LIB78 only on request.
 2. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)

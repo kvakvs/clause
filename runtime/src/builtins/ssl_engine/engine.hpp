@@ -102,6 +102,8 @@ void feed(Engine &engine, std::span<const std::byte> bytes);
 Term status_of(ProcessContext &context, Engine &engine, int result, AtomName done);
 // The failure of a call: the alert libssl sent or received, else {error, Text} with libssl's reason.
 Term failure_of(ProcessContext &context, const Engine &engine);
+// The last alert libssl sent or received as {alert, Origin, Level, Description}, else undefined (LIB81C2).
+Term last_alert(ProcessContext &context, const Engine &engine);
 // The failure of a rejected deferred verification: the alert Erlang chose, which cannot be sent any more.
 Term deferred_rejection(ProcessContext &context, Engine &engine);
 

@@ -11,6 +11,7 @@ constexpr std::array SSL_BUILTINS{
     typed_entry<str_to_suite>("ssl", "str_to_suite"),
     typed_entry<suite_code>("clause_ssl_algorithms", "suite_code"),
     typed_entry<code_suite>("clause_ssl_algorithms", "code_suite"),
+    typed_entry<hello_extensions>("clause_ssl_algorithms", "hello_extensions"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::ssl

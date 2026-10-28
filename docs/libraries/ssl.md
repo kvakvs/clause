@@ -2,8 +2,8 @@
 
 Clause's `ssl` application (plan 21, LIB81) exports the OTP 29 interface of the `ssl` module. The
 utility functions are implemented (LIB81A), and so are TLS 1.2 and 1.3 [connections](#connections)
-(LIB81C1) over the libssl [engine](#engine) (LIB81B). The `{handshake, hello}` pause, `close/2`,
-`shutdown/2` and `tls_version/1` (LIB81C2), the TLS features of LIB81D and `ssl_crl_cache` raise
+(LIB81C1) over the libssl [engine](#engine) (LIB81B), with the `{handshake, hello}` pause, `close/2`,
+`shutdown/2` and `tls_version/1` (LIB81C2). The TLS features of LIB81D and `ssl_crl_cache` raise
 `{not_implemented, Name, Arity}` until then. See the
 [function inventory](../../library/ssl/ssl.terms) and
 [differences](../differences.md#ssl).
@@ -45,7 +45,22 @@ and 1.3 come first; TLS 1.0, 1.1 and DTLS are optional (LIB81E).
   `{ssl, S, Data}` as each packet completes (`erlang:decode_packet/3` for packet types). `once`
   and counts turn passive, a count with `{ssl_passive, S}`, and `{active, N}` adds to a count.
   `header` returns the first bytes of a binary as a list.
+- **Hello pause** (`clause_ssl_hello`): with `{handshake, hello}` the connection holds the peer's first bytes
+  until its hello message (a ClientHello to a server, a ServerHello to a client) is complete, before libssl sees
+  them. The handshake then returns `{ok, SslSocket, Extensions}`, the hello's extensions as OTP decodes them
+  ([builtins](../builtins.md#ssl)). `handshake_continue/2,3` feeds the held bytes to libssl under the updated
+  options: a server gets a new engine when they change, a client's engine moves to a new context for its
+  certificate and verification. A refused option returns its error and ends the handshake with an
+  `internal_error` alert; `handshake_cancel/1` sends `user_canceled`. Both alerts go out as plaintext records,
+  since no keys are in use yet. The peer's extensions are libssl's when the peer is a Clause connection
+  ([differences](../differences.md#ssl)).
 - **Closing**: `close/1` sends close_notify and closes the transport; the owner's exit does the same.
+  `close/2` with a timeout closes the same way. `close(S, {NewOwner, Timeout})` sends close_notify, waits for the
+  peer's, and hands the transport socket to `NewOwner` in passive binary mode as `{ok, Socket}`, or
+  `{ok, Socket, Data}` with the bytes that came after the peer's close_notify; `{error, timeout}` when it does not
+  come in time. `shutdown(S, read | write)` shuts the transport down without close_notify, as OTP's does, and
+  `read_write` sends close_notify first; a listening socket gives `{error, enotconn}`. A handshake whose peer
+  closes the transport after an alert libssl ignored (TLS 1.3's `user_canceled`) fails with that alert.
   When the peer closes, the connection answers its close_notify; an active owner then gets
   `{ssl_closed, S}`, or `{ssl_error, S, {tls_alert, ...}}` after an alert, and a passive reader
   gets `{error, closed}` once the buffered data is read. A finished connection answers every call
@@ -54,7 +69,8 @@ and 1.3 come first; TLS 1.0, 1.1 and DTLS are optional (LIB81E).
   transport's options and then the emulated ones, the last asked first, as OTP's does.
   `connection_information/1,2` gives the negotiated items (a server also gives `sni_hostname`, and
   `keep_secrets` adds the randoms) and the main options. `peercert` gives the peer's certificate,
-  and `negotiated_protocol` gives the ALPN protocol or `{error, protocol_not_negotiated}`.
+  and `negotiated_protocol` gives the ALPN protocol or `{error, protocol_not_negotiated}`. The internal
+  `tls_version/1` maps a version tuple to its TLS version, a DTLS one to its counterpart.
 - **Alerts** (`clause_ssl_alert`): a failed handshake returns `{error, {tls_alert, {Description,
   Text}}}` with OTP's description atoms and texts, and logs the alert at `notice` unless
   `log_level` is above it. The text leaves out OTP's source location
@@ -82,7 +98,7 @@ certificate authorities of a certificate request.
 archive, linked with libssl of the OpenSSL the [crypto](crypto.md#linking-programs) archive uses.
 Only programs that call the engine link it. A context holds the options `ssl.erl` validated, and an
 engine holds one connection over memory buffers. Each handshake, read, write, shutdown or key update
-step returns the bytes to send. When it pauses for verification, the peer's chain is available, and
+step returns the bytes to send. A client continuing a paused handshake moves its engine to a new context. When it pauses for verification, the peer's chain is available, and
 Erlang answers with `ok` or the alert to send. libssl 4.1 and later pause on both sides. A server
 linked with an older libssl verifies the client's chain after its handshake is done, and a
 rejection then closes the connection without sending the alert.

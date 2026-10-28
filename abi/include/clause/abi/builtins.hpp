@@ -704,6 +704,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     // Module clause_ssl_algorithms: suite codes of connections (plan 21 step LIB81C1; runtime/src/builtins/ssl/).
     BuiltinName{"clause_ssl_algorithms", "code_suite", 1},
     BuiltinName{"clause_ssl_algorithms", "suite_code", 1},
+    // The hello extensions of the {handshake, hello} pause (plan 21 step LIB81C2).
+    BuiltinName{"clause_ssl_algorithms", "hello_extensions", 2},
     // Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
     BuiltinName{"base64", "decode", 1},
     BuiltinName{"base64", "decode", 2},
@@ -1500,6 +1502,7 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_ssl_engine", "connection", 2},
     BuiltinName{"clause_ssl_engine", "handshake", 2},
     BuiltinName{"clause_ssl_engine", "verify", 2},
+    BuiltinName{"clause_ssl_engine", "configure", 2},
     BuiltinName{"clause_ssl_engine", "read", 2},
     BuiltinName{"clause_ssl_engine", "write", 2},
     BuiltinName{"clause_ssl_engine", "shutdown", 1},

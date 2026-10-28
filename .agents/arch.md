@@ -103,5 +103,6 @@ behavior (`docs/differences.md` lists gaps).
 - **Applications**: erts and kernel (processes, files, networking, code, applications), stdlib
   (text, collections, behaviours, logging, ETS-based structures, front-end tools: scanner, parser,
   linter, evaluator, module interpreter, `compile`), syntax_tools, crypto, public_key + asn1, ssl
-  (one Erlang process per connection over the libssl engine extension). Distribution and tracing
+  (one Erlang process per connection over the libssl engine extension; the `{handshake, hello}` pause
+  reads the peer's hello before libssl does). Distribution and tracing
   answer as a non-alive node.

@@ -422,6 +422,11 @@ Compared with the same module compiled by `compile:forms/2` and loaded by `code:
 | `ssl:connection_information/1` | The negotiated items and every ssl option of the connection | The negotiated items (`protocol`, `session_id`, `session_resumption`, `selected_cipher_suite`, `selected_group`, `sni_hostname`) and the main options (`verify`, `versions`, `ciphers`, `cacerts`, `depth`, ...) | [ssl](libraries/ssl.md#connections) |
 | Emulated options (`active`, `mode`, `packet`, `header`) set on a listening `ssl` socket | Kept by its option tracker for the next accepted connections | Ignored: accepted connections take the options `listen/2` was given | [ssl](libraries/ssl.md#connections) |
 | A server linked with libssl older than 4.1 that verifies client certificates | Rejects a chain during the handshake with the chosen alert | Verifies after libssl's handshake; a rejection closes the connection without the alert | [ssl](libraries/ssl.md#engine) |
+| `ssl:handshake/3` with options on an accepted socket whose handshake pauses at the hello | `{ok, Extensions}`, the extensions still OTP's internal records and no socket | `{ok, SslSocket, Extensions}`, as documented and as `handshake/1,2` return it | [ssl](libraries/ssl.md#connections) |
+| The hello messages an `ssl` connection sends | OTP's: its extensions, groups and key shares | libssl's: for example a ClientHello has `renegotiation_info` and no `signature_algs_cert`, so a peer paused at the hello sees other extensions | [ssl](libraries/ssl.md#engine) |
+| Calls other than `handshake_continue` and `handshake_cancel` on a connection paused at the hello | Wait until the handshake goes on | `{error, closed}` | [ssl](libraries/ssl.md#connections) |
+| `ssl:close/1` and `close/2` with a timeout | After close_notify, shut the transport down for writing and wait up to 5 s (not the given timeout) for the peer to close | Close the transport right after close_notify | [ssl](libraries/ssl.md#connections) |
+| `ssl:close/2` downgrade after the peer's close_notify has already arrived | Hands the transport socket over | `{error, closed}`: the connection answered and closed when the close_notify arrived | [ssl](libraries/ssl.md#connections) |
 
 ## Parse transforms
 

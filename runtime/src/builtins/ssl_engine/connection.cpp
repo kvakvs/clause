@@ -105,6 +105,21 @@ Term verify(ProcessContext &context, const Named<EngineRole> &handle, const Name
     return atom(context, "ok"_atom);
 }
 
+// Added for the ssl hello pause (plan 21 step LIB81C2): configure(Engine, Context) goes on under another context's
+// certificates, verification and callbacks, as a client's handshake_continue/2,3 options ask after its ClientHello.
+Term configure(ProcessContext &context, const Named<EngineRole> &handle, const Named<ContextRole> &replacement) {
+    auto &engine = engine_of(handle.term);
+    const std::scoped_lock guard(engine.lock_);
+    auto next = context_of(replacement.term);
+    if (next->server_ != engine.context_->server_ ||
+        SSL_set_SSL_CTX(engine.ssl_.get(), next->context_.get()) == nullptr) {
+        bad_argument();
+    }
+    SSL_set_verify(engine.ssl_.get(), SSL_CTX_get_verify_mode(next->context_.get()), nullptr);
+    engine.context_ = std::move(next);
+    return atom(context, "ok"_atom);
+}
+
 // The plaintext libssl has decrypted, read until it wants more input.
 std::pair<std::vector<std::byte>, int> decrypted(Engine &engine) {
     std::vector<std::byte> data;
@@ -180,6 +195,7 @@ constexpr std::array CONNECTION_BUILTINS{
     typed_entry<connection>("clause_ssl_engine", "connection"),
     typed_entry<handshake>("clause_ssl_engine", "handshake"),
     typed_entry<verify>("clause_ssl_engine", "verify"),
+    typed_entry<configure>("clause_ssl_engine", "configure"),
     typed_entry<read_data>("clause_ssl_engine", "read"),
     typed_entry<write_data>("clause_ssl_engine", "write"),
     typed_entry<shutdown_engine>("clause_ssl_engine", "shutdown"),
