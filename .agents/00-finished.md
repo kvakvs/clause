@@ -992,6 +992,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB81D2b** ssl TLS 1.3 session tickets: client auto store `tls_client_ticket_store` and manual
   `{ssl, session_ticket, _}`/`use_ticket`; stateless (seeded keys) and stateful (context store, single use) servers,
   OTP's ticket environment and option errors, `_with_cert` peer certificates; `ssl_tickets` golden identical — `383c1587`
+- **LIB81D2c** ssl TLS 1.3 early data: client 0-RTT with `{early_data, accepted | rejected}`, server early data
+  before the handshake's data, anti_replay binder windows, libssl anti-replay off (own single-use store);
+  `ssl_early_data` golden identical — `8647cad4`
 - **LIB77A** transform host: the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
   library identity into the user cache (lock file, older hosts pruned); library-only transform chains run there, also
   under `--erl none`; replies equal OTP's (ms_headers, qlc_queries `.abstr`); library `compile` without compiling
