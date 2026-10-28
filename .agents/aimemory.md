@@ -620,3 +620,8 @@ recorded elsewhere.
   ignores a TLS 1.3 user_canceled, so transport_ended reads info(Engine).alert. Peer hellos differ (libssl client:
   renegotiation_info, no signature_algs_cert): golden prints keys minus those. Bash heredoc with nested python
   '''strings failed ("unexpected EOF"): use Edit tool or python -c.
+- Fast gate slowdowns (2026-10-28): wall time 460-1519 s for the same ~430 tests is contention, not growth. Causes:
+  the transform host rebuilds after every library change (first host user ~90-110 s at all threads, other host
+  users wait on its lock), a fresh build dir has no CTestCostData, VS Code cpptools re-indexes after reconfigure, and
+  each executables case runs 2 clau at once with all hardware threads (no --jobs). Rank candidates by time alone
+  (ctest1.cmd), not by loaded runs. Load-sensitive list + PROCESSORS in the top CMakeLists.txt.

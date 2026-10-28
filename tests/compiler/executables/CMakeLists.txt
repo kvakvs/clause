@@ -2,6 +2,9 @@
 # links under the fast/full policy matrix and runs against its OTP-generated stdout and exit status.
 if(CLAUSE_BUILD_RUNTIME)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    # Cases too slow for the fast gate (qlc_queries: about 77 s alone, its query module through every policy): full
+    # gate only (label full_only).
+    set(full_only_cases qlc_queries)
     file(GLOB goldens CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/tests/fixtures/executables/*/golden.json")
     foreach(golden IN LISTS goldens)
         get_filename_component(case_dir "${golden}" DIRECTORY)
@@ -10,6 +13,9 @@ if(CLAUSE_BUILD_RUNTIME)
             "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/${case}/$<CONFIG>" "${case_dir}"
             "--suffix=${CMAKE_EXECUTABLE_SUFFIX}")
         set_tests_properties(executables_${case} PROPERTIES TIMEOUT 600)
+        if(case IN_LIST full_only_cases)
+            set_tests_properties(executables_${case} PROPERTIES COST 15 LABELS full_only)
+        endif()
     endforeach()
     # A deliberately wrong golden must fail with a readable diff; a stale one before linking.
     add_test(NAME executables_selfcheck COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/selfcheck.py"

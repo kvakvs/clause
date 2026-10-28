@@ -10,7 +10,8 @@ endif()
 # Erlang source printing: every parseable fixture module prints, parses back to the same tree and prints the same.
 add_test(NAME printing_source COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/source_roundtrip.py"
     "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/source")
-set_tests_properties(printing_source PROPERTIES TIMEOUT 300)
+# Slow (about 47 s alone, every fixture module printed twice): full gate only (label full_only).
+set_tests_properties(printing_source PROPERTIES TIMEOUT 300 COST 10 LABELS full_only)
 
 # Live OTP reproduction of the printing goldens; opt-in like other audits.
 if(CLAUSE_OTP_AUDITS)
