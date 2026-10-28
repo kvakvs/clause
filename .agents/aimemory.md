@@ -666,3 +666,8 @@ recorded elsewhere.
   clause_ssl_options update with cert/key kept the old certs_keys (fixed: a new cert/key replaces them). Switching
   SSL_CTX in the ClientHello pause: SSL_set_SSL_CTX copies certs only; copy verify mode, version bounds, options and
   ciphers (SSL_CIPHER_get_protocol_id >> 8 == 0x13 for TLS 1.3 names; no SSL_CIPHER_get_min_tls in 4.1).
+- LIB81D3b ssl rekeys/transports (2026-10-28): OTP TLS 1.3 key_update_at: before a send, if bytes+size > limit send
+  KeyUpdate(requested), reset, split data larger than the limit (sizes 5,5,1,25 with limit 10 -> traffic secret 0,0,1,4);
+  TLS 1.2 renegotiate_at counts the write sequence (Finished = 1) and renegotiates when seq >= limit; a second client
+  renegotiation within 12 s is refused by the server and OTP's client connection closes. cb_info modules already
+  worked; OTP crashes (badarg in apply) for a non-atom module, so no golden for it.

@@ -11,6 +11,9 @@
 -define(EMULATED, [mode, packet, packet_size, header, active, line_delimiter]).
 -define(LOG_LEVELS, [none, all, emergency, alert, critical, error, warning, notice, info, debug]).
 -define(DEFAULT_DEPTH, 10).
+%% OTP's defaults of key_update_at (the AES-GCM key usage limit) and renegotiate_at (2^28 records), LIB81D3b.
+-define(KEY_USAGE_LIMIT, 388736063997).
+-define(RENEGOTIATE_AT, 268435456).
 -define(DEFAULT_CB_INFO, {gen_tcp, tcp, tcp_closed, tcp_error, tcp_passive}).
 
 %% The configuration of ssl:connect/2,3,4 to Host (a name, an address or undefined for an upgraded socket).
@@ -181,6 +184,7 @@ ssl_options(List, Ssl0, Env) ->
         fun alpn/3,
         fun role_only/3,
         fun booleans/3,
+        fun rekeys/3,
         fun sessions/3,
         fun groups_and_ciphers/3,
         fun handshake/3,
@@ -474,6 +478,20 @@ booleans(User, Ssl, _Env) ->
     ],
     Ssl1 = lists:foldl(fun({K, D}, S) -> S#{K => boolean(K, D, User, S)} end, Ssl, Defaults),
     Ssl1#{keep_secrets => keep_secrets(User, Ssl1)}.
+
+%% Automatic rekeys (LIB81D3b): key_update_at (TLS 1.3 bytes under one key) and renegotiate_at (TLS 1.2 records, at
+%% most 2^28, as OTP's).
+rekeys(User, #{versions := Versions} = Ssl, _Env) ->
+    {Where, KeyUpdateAt} = positive(key_update_at, ?KEY_USAGE_LIMIT, User, Ssl),
+    Where == new andalso tls13_only(key_update_at, Versions),
+    {_, RenegotiateAt} = positive(renegotiate_at, ?RENEGOTIATE_AT, User, Ssl),
+    Ssl#{key_update_at => KeyUpdateAt, renegotiate_at => min(RenegotiateAt, ?RENEGOTIATE_AT)}.
+
+positive(Key, Default, User, Ssl) ->
+    case get_opt(Key, Default, User, Ssl) of
+        {_, Value} = Found when is_integer(Value), Value >= 1 -> Found;
+        {_, Value} -> option_error(Key, Value)
+    end.
 
 %% Session reuse (LIB81D2a): a client's reuse_sessions (true, false or save) and reuse_session (an id or {Id, Data});
 %% a server's reuse_sessions (false by default when it verifies clients) and reuse_session policy fun. Both are

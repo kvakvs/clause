@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ssl_transports",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "4 {'tlsv1.3',{ok,<<\"ping\">>},<<\"pong\">>,{127,0,0,1},closed}\n5 {'tlsv1.3',{ok,<<\"ping\">>},<<\"pong\">>,{127,0,0,1},closed}\ntransport calls [{listen,true},\n                 {accept,true},\n                 {connect,true},\n                 {send,true},\n                 {setopts,true}]\noption errors [{error,{options,{cb_info,{ssl_transports,tcp}}}},\n               {error,{options,{cb_info,ssl_transports}}}]\nssl_transports: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "ssl_transports.erl": "a64f270e51eb6d686f7d12445b3d954f0594e3a79d813d4162bee9dc99830c81"
+  }
+}

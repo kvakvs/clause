@@ -6,7 +6,7 @@
 %% shutdown/2 and close/2's downgrade to the transport socket. LIB81D1 adds TLS 1.2 renegotiation, TLS 1.3 key updates,
 %% keying material exporters and the secrets of keep_secrets (clause_ssl_secrets). LIB81D2a adds TLS 1.2 session reuse
 %% over clause_ssl_session's caches, LIB81D2b TLS 1.3 session tickets (clause_ssl_tickets) and LIB81D2c early data.
-%% LIB81D3a adds the server's sni_hosts and sni_fun.
+%% LIB81D3a adds the server's sni_hosts and sni_fun, LIB81D3b automatic rekeys (key_update_at, renegotiate_at).
 -module(clause_ssl_connection).
 -behaviour(gen_server).
 -export([start/1, start_link/1]).
@@ -18,6 +18,8 @@
 -define(USER_CANCELED, 90).
 -define(HANDSHAKE_FAILURE, 40).
 -define(UNRECOGNIZED_NAME, 112).
+%% The largest TLS record payload, which a write splits data into (LIB81D3b).
+-define(MAX_RECORD, 16384).
 %% How long a server refuses client renegotiations after one, as OTP's ssl (LIB81D1).
 -define(WAIT_TO_ALLOW_RENEGOTIATION, 12000).
 
@@ -41,7 +43,10 @@ start_link(Args) ->
 %% (clause_ssl_secrets), exporter (whether the TLS 1.3 exporter secret is unconsumed), renegotiator (the caller of
 %% renegotiate/1), allow_peer (whether a server accepts a client's renegotiation now), sends (the {From, Data} of
 %% sends waiting for a handshake to end) and end_pending (a close_notify a passive connection has not acted on yet).
-%% For LIB81D2a: session_cache (a server's cache) and peer (the {Host, Port} key of a client's sessions).
+%% For LIB81D2a: session_cache (a server's cache) and peer (the {Host, Port} key of a client's sessions). For LIB81D3b:
+%% protocol (the negotiated version), bytes_sent (TLS 1.3 data sent under the current keys) and records (TLS 1.2
+%% records sent under the current keys, the Finished message included); renegotiator is internal during an automatic
+%% renegotiation.
 init(#{role := Role, socket := Socket, config := Config, owner := Owner} = Args) ->
     #{ssl := Ssl, emulated := Emulated, cb_info := {Transport, Data, Closed, Error, _}} = Config,
     SslSocket = #sslsocket{
@@ -82,7 +87,10 @@ init(#{role := Role, socket := Socket, config := Config, owner := Owner} = Args)
         sends => [],
         end_pending => false,
         session_cache => maps:get(session_cache, Args, undefined),
-        peer => undefined
+        peer => undefined,
+        protocol => undefined,
+        bytes_sent => 0,
+        records => 1
     }}.
 
 %%--------------------------------------------------------------------------------------------------------------------
@@ -93,10 +101,10 @@ handle_call({handshake, Timeout, Options}, From, #{phase := idle} = S) ->
     start_handshake(Timeout, Options, From, S);
 handle_call({handshake, _, _}, _From, S) ->
     {reply, {error, closed}, S};
-handle_call({send, Data}, From, #{phase := connection, sends := []} = S) ->
-    case send_data(Data, S) of
-        want_read -> {noreply, S#{sends => [{From, Data}]}};
-        Reply -> {reply, Reply, S}
+handle_call({send, Data}, From, #{phase := connection, sends := []} = S0) ->
+    case send_data(Data, S0) of
+        {want_read, S} -> {noreply, S#{sends => [{From, Data}]}};
+        {Reply, S} -> {reply, Reply, S}
     end;
 handle_call({send, Data}, From, #{phase := connection, sends := Sends} = S) ->
     {noreply, S#{sends => Sends ++ [{From, Data}]}};
@@ -302,12 +310,24 @@ handshake_failed(Failure, #{engine := Engine, role := Role, keys := Keys} = S) -
     end,
     handshake_ended({error, failure_reason(Failure, handshake, S)}, S).
 
-handshake_done(#{waiter := From, timer := Timer, sslsocket := SslSocket} = S) ->
+handshake_done(#{waiter := From, timer := Timer, sslsocket := SslSocket} = S0) ->
     cancel(Timer),
+    S = negotiated(S0),
     save_session(S),
     gen_server:reply(From, {ok, SslSocket}),
     % Application data that came with the handshake's last flight, after its early data.
     connection_read(<<>>, early_data_done(S#{phase => connection, waiter => undefined, timer => undefined})).
+
+% The negotiated version for automatic rekeys (LIB81D3b); as OTP's, ChaCha20 TLS 1.3 connections update their keys only
+% at the sequence number limit, which they never reach.
+negotiated(#{engine := Engine, ssl := Ssl} = S) ->
+    #{protocol := Protocol, cipher_suite := Code} = clause_ssl_engine:info(Engine),
+    case clause_ssl_algorithms:code_suite(Code) of
+        #{cipher := chacha20_poly1305} when Protocol == 'tlsv1.3' ->
+            S#{protocol => Protocol, ssl => Ssl#{key_update_at => infinity}};
+        _ ->
+            S#{protocol => Protocol}
+    end.
 
 handshake_ended(Reply, #{waiter := From, timer := Timer} = S) ->
     cancel(Timer),
@@ -647,26 +667,69 @@ connection_read(Bytes, #{engine := Engine, buffer := Buffer} = S0) ->
         Failure -> peer_ended(failure_reason(Failure, connection, S), S)
     end.
 
-% ok, an error, or want_read while a handshake keeps libssl from writing.
-send_data(Data, #{engine := Engine, emulated := #{packet := Packet}} = S) ->
-    try clause_ssl_engine:write(Engine, framed(Packet, Data)) of
+% {ok | Error | want_read, S}: want_read while a handshake keeps libssl from writing. An automatic rekey comes first,
+% as OTP's (LIB81D3b).
+send_data(Data, #{emulated := #{packet := Packet}} = S) ->
+    try iolist_to_binary(framed(Packet, Data)) of
+        Bytes -> rekeyed_write(Bytes, S)
+    catch
+        error:badarg -> {{error, badarg}, S}
+    end.
+
+% TLS 1.3 updates the keys (asking the peer to update its own) before the data sent passes key_update_at, and splits
+% larger data at it; TLS 1.2 renegotiates once renegotiate_at records went out under the current keys.
+rekeyed_write(Bytes, #{protocol := 'tlsv1.3', bytes_sent := Sent, ssl := #{key_update_at := Limit}} = S) when
+    Sent + byte_size(Bytes) > Limit
+->
+    S1 = automatic_key_update(S),
+    case Bytes of
+        <<Chunk:Limit/binary, Rest/binary>> when Rest =/= <<>> ->
+            case write(Chunk, S1#{bytes_sent => Limit}) of
+                {ok, S2} -> rekeyed_write(Rest, S2);
+                Other -> Other
+            end;
+        _ ->
+            write(Bytes, S1#{bytes_sent => byte_size(Bytes)})
+    end;
+rekeyed_write(Bytes, #{protocol := 'tlsv1.3', bytes_sent := Sent} = S) ->
+    write(Bytes, S#{bytes_sent => Sent + byte_size(Bytes)});
+rekeyed_write(Bytes, #{records := Records, renegotiator := undefined, ssl := #{renegotiate_at := Limit}} = S) when
+    Records >= Limit
+->
+    write(Bytes, automatic_renegotiation(S));
+rekeyed_write(Bytes, #{records := Records} = S) ->
+    write(Bytes, S#{records => Records + (byte_size(Bytes) + ?MAX_RECORD - 1) div ?MAX_RECORD}).
+
+write(Bytes, #{engine := Engine} = S) ->
+    case clause_ssl_engine:write(Engine, Bytes) of
         {ok, Output} ->
-            transmit(Output, S);
+            {transmit(Output, S), S};
         {want_read, Output} ->
             transmit(Output, S),
-            want_read;
+            {want_read, S};
         _ ->
-            {error, closed}
-    catch
-        error:badarg -> {error, badarg}
+            {{error, closed}, S}
+    end.
+
+automatic_key_update(#{engine := Engine} = S) ->
+    {_, Output} = clause_ssl_engine:key_update(Engine, read_write),
+    transmit(Output, S),
+    take_events(S#{bytes_sent => 0}).
+
+automatic_renegotiation(#{engine := Engine} = S) ->
+    {Status, Output} = clause_ssl_engine:renegotiate(Engine),
+    transmit(Output, S),
+    case Status of
+        ok -> arm(take_events(S#{renegotiator => internal}));
+        _ -> S
     end.
 
 % The sends that waited for a handshake, in order, until libssl takes no more.
-flush_sends(#{sends := [{From, Data} | Rest]} = S) ->
-    case send_data(Data, S) of
-        want_read ->
+flush_sends(#{sends := [{From, Data} | Rest]} = S0) ->
+    case send_data(Data, S0) of
+        {want_read, S} ->
             S;
-        Reply ->
+        {Reply, S} ->
             gen_server:reply(From, Reply),
             flush_sends(S#{sends => Rest})
     end;
@@ -765,7 +828,7 @@ format(Data, _) ->
 peer_ended(Reason, #{engine := Engine, renegotiator := Renegotiator, sends := Sends} = S) ->
     Reason == closed andalso transmit(element(2, clause_ssl_engine:shutdown(Engine)), S),
     close_socket(S),
-    [gen_server:reply(From, {error, closed}) || From <- [Renegotiator || Renegotiator =/= undefined]],
+    [gen_server:reply(From, {error, closed}) || From <- [Renegotiator], From =/= undefined, From =/= internal],
     [gen_server:reply(From, {error, closed}) || {From, _} <- Sends],
     deliver(S#{phase => closed, end_reason => Reason, renegotiator => undefined, sends => []}).
 
@@ -779,7 +842,11 @@ take_events(#{engine := Engine, role := Role, keys := Keys0} = S) ->
     lists:foldl(fun connection_event/2, S#{keys => Keys}, Events).
 
 connection_event(renegotiated, #{renegotiator := From} = S) when From =/= undefined ->
-    gen_server:reply(From, ok),
+    From =/= internal andalso gen_server:reply(From, ok),
+    S#{renegotiator => undefined, records => 1};
+connection_event(renegotiated, S) ->
+    S#{records => 1};
+connection_event(renegotiation_refused, #{renegotiator := internal} = S) ->
     S#{renegotiator => undefined};
 connection_event(renegotiation_refused, #{renegotiator := From} = S) when From =/= undefined ->
     gen_server:reply(From, {error, renegotiation_rejected}),

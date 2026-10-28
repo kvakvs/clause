@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ssl_rekeys",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "key updates [{5,[\"CLIENT_TRAFFIC_SECRET_0\"]},\n             {5,[\"CLIENT_TRAFFIC_SECRET_0\"]},\n             {1,[\"CLIENT_TRAFFIC_SECRET_1\"]},\n             {25,[\"CLIENT_TRAFFIC_SECRET_4\"]}]\nclient secrets [\"CLIENT_TRAFFIC_SECRET_4\",\"SERVER_TRAFFIC_SECRET_4\"]\nserver secrets [\"CLIENT_TRAFFIC_SECRET_4\",\"SERVER_TRAFFIC_SECRET_4\"]\nrenegotiated [false,false,true,true]\noption errors [{error,{options,{key_update_at,0}}},\n               {error,{options,{key_update_at,many}}},\n               {error,{options,incompatible,\n                               [key_update_at,{versions,['tlsv1.2']}]}},\n               {error,{options,{renegotiate_at,0}}},\n               accepted]\nssl_rekeys: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "ssl_rekeys.erl": "c52a41b3fc8661c66242edc6df3a3cb7cab182bc26751815693d28d00afffc6c"
+  }
+}

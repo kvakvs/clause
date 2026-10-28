@@ -146,8 +146,8 @@ records, goldens from OTP, own headers written from the documented records and m
   - **LIB81D TLS features** (D1 `renegotiate/1`, `update_keys/2`, `export_key_materials/4,5`, `prf/5` and
     `keep_secrets`, D2a TLS 1.2 session reuse, D2b TLS 1.3 session tickets, D2c early data are done). `ssl` stops
     being PARTIAL after D5.
-    - **LIB81D3** (D3a `sni_hosts`/`sni_fun` is done) custom `cb_info` transports, `key_update_at`/`renegotiate_at` automatic
-      rekeys (accepted and ignored today), `log_level` output.
+    - **LIB81D3c** `log_level` output: OTP's `debug` protocol traces of records and handshake messages (`ssl_logger`);
+      D3a `sni_hosts`/`sni_fun` and D3b custom `cb_info` transports and automatic rekeys are done.
     - **LIB81D4** CRL checks with `ssl_crl_cache` (`insert/1,2`, `delete/1`) and the cache callbacks, OCSP stapling.
     - **LIB81D5** PSK/SRP `user_lookup_fun`.
   - **LIB81E (optional) TLS 1.0/1.1 and DTLS 1.0/1.2** over `gen_udp` with libssl's DTLS methods.

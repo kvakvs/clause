@@ -6,8 +6,9 @@ utility functions are implemented (LIB81A), and so are TLS 1.2 and 1.3 [connecti
 `shutdown/2` and `tls_version/1` (LIB81C2), and [renegotiation, key updates, exporters](#renegotiation-key-updates-and-exporters)
 and [secrets](#secrets) (LIB81D1), TLS 1.2 [session reuse](#session-reuse) (LIB81D2a), TLS 1.3
 [session tickets](#session-tickets) (LIB81D2b), [early data](#early-data) (LIB81D2c) and the server's
-[server name options](#server-name-indication) (LIB81D3a). Custom transports, automatic rekeys, CRLs, OCSP, PSK and
-SRP (the rest of LIB81D) and `ssl_crl_cache` follow. See the
+[server name options](#server-name-indication) (LIB81D3a), custom transports and
+[automatic rekeys](#automatic-rekeys) (LIB81D3b). Protocol logs, CRLs, OCSP, PSK and SRP (the rest of LIB81D) and
+`ssl_crl_cache` follow. See the
 [function inventory](../../library/ssl/ssl.terms) and
 [differences](../differences.md#ssl).
 
@@ -190,6 +191,23 @@ TLS 1.3 early data (0-RTT) as OTP's (LIB81D2c).
   server's tickets are used once. A stateless server's `anti_replay` (`'10k'`, `'100k'` or `{Window, Hashes, Bits}`)
   records the PSK binders of the ClientHellos that brought early data and refuses early data whose binders it saw
   in the current or the last window; without `anti_replay` it logs OTP's warning when it listens.
+
+## Automatic rekeys
+
+As OTP's sender does (LIB81D3b): a TLS 1.3 connection sends a KeyUpdate that asks the peer to update its keys too
+before the data it has sent under its keys would pass `key_update_at` bytes (OTP's AES-GCM limit by default), and
+splits a larger send at that size, a KeyUpdate before each part. ChaCha20 connections do not count bytes. A TLS 1.2
+connection renegotiates once `renegotiate_at` records (at most 2^28, the default) went out under its keys, the
+Finished message counting as the first; the send waits for the renegotiation. A server refuses another client
+renegotiation within 12 seconds, which ends an OTP or Clause client's connection. `key_update_at` needs TLS 1.3
+among the versions; both take positive integers.
+
+## Transports
+
+`cb_info` (`{Module, DataTag, ClosedTag, ErrorTag}`, or with a `PassiveTag`) names a `gen_tcp`-like module: the
+connection calls its `connect`, `listen`, `accept`, `send`, `close`, `shutdown`, `controlling_process`, `setopts`,
+`getopts`, `peername`, `sockname` and `getstat`, and reads its messages by the tags (LIB81D3b). Other values are
+`{options, {cb_info, Value}}`.
 
 ## Server name indication
 
