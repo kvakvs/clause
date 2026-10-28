@@ -1062,7 +1062,9 @@ all the I/O.
   libssl maps to its TLS 1.3 and 1.2 names), `honor_cipher_order`, `groups`, `signature_algs` (OTP's scheme atoms
   and `{Hash, Sign}` tuples), `certs` (`[{[CertDER], {KeyType, KeyDER}}]`), `verify`, `fail_if_no_peer_cert`,
   `client_cas` and `alpn`; LIB81D1 adds `keylog` (secrets and KeyUpdates become events) and a server's
-  `client_renegotiation`; LIB81D2a adds a server's `session_cache => Lifetime` (sessions live in Erlang's cache). It
+  `client_renegotiation`; LIB81D2a adds a server's `session_cache => Lifetime` (sessions live in Erlang's cache), and
+  LIB81D2b `tickets` (`true` for a client keeping TLS 1.3 tickets, a server's `{stateless | stateful, Count,
+  Lifetime, StoreSize, Seed | undefined}`). It
   drops names the linked libssl does not know and repeats, one at a time. It sets OTP's defaults where libssl's
   differ: no session tickets, no libssl session cache (servers still name each session), security level 0, and
   chains as given.
@@ -1094,6 +1096,10 @@ all the I/O.
   undefined}`. Erlang answers with `resume(Engine, SessionDER | none)`, which libssl's session lookup returns on the
   next step. `session(Engine)` gives `{SessionId, SessionDER, OwnCertificate | undefined}` of the current session,
   else `undefined`. `peer_chain/1` of a resumed session is the peer certificate the session kept.
+- Tickets (`tickets.cpp`, LIB81D2b): a client's TLS 1.3 tickets become `{ticket, SessionDER}` events. A stateless
+  server issues libssl's tickets (keys from SHA-512 and SHA-256 of the seed), a stateful one keeps each ticket's
+  session in its context and gives it to libssl's lookup once. Each ticket's session gets the server's lifetime,
+  and a TLS 1.2 connection of a ticket server is denied tickets in the ClientHello callback.
 - `configure(Engine, Context)` (`connection.cpp`, LIB81C2) moves an engine to another context of its role
   (`SSL_set_SSL_CTX` and the context's verify mode): a client's `handshake_continue/2,3` options take effect after
   its ClientHello.

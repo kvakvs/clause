@@ -106,5 +106,6 @@ behavior (`docs/differences.md` lists gaps).
   (one Erlang process per connection over the libssl engine extension; the `{handshake, hello}` pause
   reads the peer's hello before libssl does; libssl callbacks queue secrets/KeyUpdates/renegotiations as engine
   events the process takes after each step; TLS 1.2 sessions live in Erlang caches (`ssl_manager`, one per
-  listener) as libssl DER, a server's ClientHello callback pausing for the lookup). Distribution and tracing
+  listener) as libssl DER, a server's ClientHello callback pausing for the lookup; TLS 1.3 client tickets in
+  `tls_client_ticket_store`, stateful server tickets in the engine context). Distribution and tracing
   answer as a non-alive node.

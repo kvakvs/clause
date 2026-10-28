@@ -209,6 +209,9 @@ void install_callbacks(Context &context) {
     if (context.server_ && !context.alpn_.empty()) {
         SSL_CTX_set_alpn_select_cb(ssl_context, select_alpn, &context);
     }
+    if (context.server_) {
+        install_server_sessions(context);
+    }
 }
 
 void install_keylog(Context &context) {

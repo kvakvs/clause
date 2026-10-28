@@ -176,6 +176,7 @@ ssl_options(List, Ssl0, Env) ->
         fun verification/3,
         fun certs/3,
         fun server_name/3,
+        fun tickets/3,
         fun signature_algs/3,
         fun alpn/3,
         fun role_only/3,
@@ -431,7 +432,7 @@ role_only(User, Ssl, #{role := client}) ->
     [server_only(K, User) || K <- [honor_cipher_order, honor_ecc_order, client_renegotiation, sni_fun, sni_hosts]],
     Ssl;
 role_only(User, Ssl, #{role := server}) ->
-    [client_only(K, User) || K <- [use_ticket, fallback, psk_identity, srp_identity]],
+    [client_only(K, User) || K <- [fallback, psk_identity, srp_identity]],
     Ssl.
 
 booleans(User, Ssl, _Env) ->
@@ -477,6 +478,70 @@ before_tls13(Keys, User, #{versions := ['tlsv1.3'] = Versions}) ->
     ok;
 before_tls13(_Keys, _User, _Ssl) ->
     ok.
+
+%% TLS 1.3 session tickets (LIB81D2b): a client's session_tickets (disabled, manual or auto), use_ticket and
+%% early_data; a server's session_tickets (disabled, stateful, stateless, or either _with_cert), early_data,
+%% anti_replay and stateless_tickets_seed. OTP checks them in this order, with these errors.
+tickets(User, #{versions := Versions} = Ssl, #{role := client}) ->
+    Tickets = one_of(session_tickets, [disabled, manual, auto], disabled, User, Ssl),
+    Tickets =/= disabled andalso tls13_only(session_tickets, Versions),
+    UseTicket =
+        case get_opt(use_ticket, undefined, User, Ssl) of
+            {new, NotList} when not is_list(NotList) -> option_error(use_ticket, NotList);
+            {_, Value} -> Value
+        end,
+    Tickets == manual andalso is_list(UseTicket) andalso same_server(UseTicket, Ssl),
+    UseTicket == [] andalso option_error(use_ticket, UseTicket),
+    UseTicket =/= undefined andalso Tickets =/= manual andalso
+        incompatible([{use_ticket, UseTicket}, {session_tickets, Tickets}]),
+    EarlyData = binary_option(early_data, User, Ssl),
+    is_binary(EarlyData) andalso Tickets == disabled andalso incompatible([early_data, {session_tickets, disabled}]),
+    is_binary(EarlyData) andalso Tickets == manual andalso UseTicket == undefined andalso
+        incompatible([early_data, {session_tickets, manual}, {use_ticket, undefined}]),
+    [server_only(K, User) || K <- [anti_replay, stateless_tickets_seed]],
+    Ssl#{session_tickets => Tickets, use_ticket => UseTicket, early_data => EarlyData};
+tickets(User, #{versions := Versions} = Ssl, #{role := server}) ->
+    Modes = [disabled, stateful, stateless, stateful_with_cert, stateless_with_cert],
+    Tickets = one_of(session_tickets, Modes, disabled, User, Ssl),
+    Tickets =/= disabled andalso tls13_only(session_tickets, Versions),
+    EarlyData = one_of(early_data, [enabled, disabled], disabled, User, Ssl),
+    Tickets == disabled andalso EarlyData == enabled andalso incompatible([early_data, {session_tickets, disabled}]),
+    Stateless = lists:member(Tickets, [stateless, stateless_with_cert]),
+    AntiReplay = anti_replay(get_opt(anti_replay, undefined, User, Ssl), Stateless, Tickets),
+    Seed = binary_option(stateless_tickets_seed, User, Ssl),
+    Seed =/= undefined andalso not Stateless andalso
+        incompatible([stateless_tickets_seed, {session_tickets, Tickets}]),
+    EarlyData == enabled andalso Stateless andalso AntiReplay == undefined andalso
+        logger:warning("early_data enabled without anti_replay; 0-RTT data is replayable"),
+    client_only(use_ticket, User),
+    Ssl#{
+        session_tickets => Tickets, early_data => EarlyData, anti_replay => AntiReplay, stateless_tickets_seed => Seed
+    }.
+
+% An option of TLS 1.3 only, given with versions without it.
+tls13_only(Key, Versions) ->
+    lists:member('tlsv1.3', Versions) orelse incompatible([Key, {versions, Versions}]).
+
+incompatible(Options) -> throw({error, {options, incompatible, Options}}).
+
+% Manual tickets are for the server the client names.
+same_server(Tickets, Ssl) ->
+    Name = maps:get(server_name_indication, Ssl, undefined),
+    [option_error(ticket_for_other_SNI, {T, Name}) || T <- Tickets, not is_map(T) orelse maps:get(sni, T) =/= Name].
+
+binary_option(Key, User, Ssl) ->
+    case get_opt(Key, undefined, User, Ssl) of
+        {new, Value} when not is_binary(Value) -> option_error(Key, Value);
+        {_, Value} -> Value
+    end.
+
+% The Bloom filters of anti_replay ({WindowSeconds, HashFunctions, Bits}), for stateless tickets only.
+anti_replay({_, undefined}, _Stateless, _Tickets) -> undefined;
+anti_replay({_, Value}, false, Tickets) -> incompatible([{anti_replay, Value}, {session_tickets, Tickets}]);
+anti_replay({_, '10k'}, true, _Tickets) -> {10, 5, 72985};
+anti_replay({_, '100k'}, true, _Tickets) -> {10, 5, 729845};
+anti_replay({_, {_, _, _} = Filters}, true, _Tickets) -> Filters;
+anti_replay({_, Value}, true, _Tickets) -> option_error(anti_replay, Value).
 
 %% keep_secrets: a boolean, or {keylog | keylog_hs, Fun} (LIB81D1).
 keep_secrets(User, Ssl) ->
@@ -692,7 +757,8 @@ engine_extras(Role, Ssl, CaCerts) ->
         {client_cas, client_cas(Role, Ssl, CaCerts)},
         {keylog, maps:get(keep_secrets, Ssl) =/= false orelse undefined},
         {client_renegotiation, client_renegotiation(Role, Ssl)},
-        {session_cache, session_cache(Role, Ssl)}
+        {session_cache, session_cache(Role, Ssl)},
+        {tickets, tickets(Role, Ssl)}
     ],
     [{K, V} || {K, V} <- Optional, V =/= undefined].
 
@@ -703,6 +769,21 @@ client_renegotiation(client, _) -> undefined.
 session_cache(server, #{reuse_sessions := true, versions := Versions}) when Versions =/= ['tlsv1.3'] ->
     clause_ssl_session:lifetime();
 session_cache(_, _) ->
+    undefined.
+
+% Added for TLS 1.3 session tickets (LIB81D2b): a client keeps tickets; a server issues stateless or stateful ones with
+% the count, lifetime and store size of the application environment.
+tickets(client, #{session_tickets := Tickets}) when Tickets =/= disabled ->
+    true;
+tickets(server, #{session_tickets := Tickets, stateless_tickets_seed := Seed}) when Tickets =/= disabled ->
+    Mode =
+        case lists:member(Tickets, [stateless, stateless_with_cert]) of
+            true -> stateless;
+            false -> stateful
+        end,
+    {Mode, clause_ssl_tickets:server_amount(), clause_ssl_tickets:server_lifetime(),
+        clause_ssl_tickets:server_store_size(), Seed};
+tickets(_, _) ->
     undefined.
 
 client_cas(server, #{verify := verify_peer, certificate_authorities := true}, [_ | _] = CaCerts) -> CaCerts;

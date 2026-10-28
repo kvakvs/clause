@@ -60,15 +60,20 @@ std::optional<std::vector<std::byte>> server_name_of(SSL *ssl) {
     return std::vector<std::byte>(name, name + length);
 }
 
-// libssl's ClientHello callback: a TLS 1.2 ClientHello offering a session pauses the handshake until Erlang answers.
+// libssl's ClientHello callback: a TLS 1.2 ClientHello offering a session pauses the handshake until Erlang's cache
+// answers. TLS 1.2 connections get no tickets (RFC 5077), as OTP's servers issue none (LIB81D2b).
 int on_client_hello(SSL *ssl, int * /*alert*/, void * /*argument*/) {
     auto &engine = *engine_of(ssl);
     if (engine.lookup_ != Lookup::none) {
         return engine.lookup_ == Lookup::answered ? SSL_CLIENT_HELLO_SUCCESS : SSL_CLIENT_HELLO_RETRY;
     }
+    const auto tls13 = chooses_tls13(ssl);
+    if (!tls13) {
+        SSL_set_options(ssl, SSL_OP_NO_TICKET);
+    }
     const unsigned char *id = nullptr;
     const auto size = SSL_client_hello_get0_session_id(ssl, &id);
-    if (size == 0 || chooses_tls13(ssl)) {
+    if (!engine.context_->session_cache_ || size == 0 || tls13) {
         return SSL_CLIENT_HELLO_SUCCESS;
     }
     const auto *bytes = reinterpret_cast<const std::byte *>(id);
@@ -78,10 +83,14 @@ int on_client_hello(SSL *ssl, int * /*alert*/, void * /*argument*/) {
     return SSL_CLIENT_HELLO_RETRY;
 }
 
-// libssl's session lookup: the session Erlang answered with, which libssl then owns.
-SSL_SESSION *get_session(SSL *ssl, const unsigned char * /*id*/, int /*size*/, int *copy) {
+// libssl's session lookup, which libssl then owns: the TLS 1.2 session Erlang answered with, or a stateful TLS 1.3
+// ticket's session (LIB81D2b).
+SSL_SESSION *get_session(SSL *ssl, const unsigned char *id, int size, int *copy) {
     auto &engine = *engine_of(ssl);
     *copy = 0;
+    if (engine.lookup_ != Lookup::answered && SSL_version(ssl) == TLS1_3_VERSION) {
+        return take_ticket(*engine.context_, std::span(id, static_cast<std::size_t>(size)));
+    }
     if (engine.lookup_ != Lookup::answered || engine.session_answer_.empty()) {
         return nullptr;
     }
@@ -101,18 +110,6 @@ Term resume(ProcessContext &context, const Named<EngineRole> &handle, const Name
     }
     engine.lookup_ = Lookup::answered;
     return atom(context, "ok"_atom);
-}
-
-// The DER bytes of a session; empty when libssl cannot encode it.
-std::vector<std::byte> session_der(SSL_SESSION *session) {
-    const auto size = i2d_SSL_SESSION(session, nullptr);
-    if (size <= 0) {
-        return {};
-    }
-    std::vector<std::byte> bytes(static_cast<std::size_t>(size));
-    auto *out = reinterpret_cast<unsigned char *>(bytes.data());
-    i2d_SSL_SESSION(session, &out);
-    return bytes;
 }
 
 // session(Engine): {SessionId, SessionDER, OwnCertificate | undefined} of the current session, else undefined.
@@ -139,10 +136,24 @@ constexpr std::array SESSION_BUILTINS{
 } // namespace
 
 void install_session_cache(Context &context, long lifetime) {
-    auto *ssl_context = context.context_.get();
-    SSL_CTX_sess_set_get_cb(ssl_context, get_session);
-    SSL_CTX_set_client_hello_cb(ssl_context, on_client_hello, nullptr);
-    SSL_CTX_set_timeout(ssl_context, lifetime);
+    context.session_cache_ = true;
+    SSL_CTX_set_timeout(context.context_.get(), lifetime);
+}
+
+void install_server_sessions(Context &context) {
+    SSL_CTX_sess_set_get_cb(context.context_.get(), get_session);
+    SSL_CTX_set_client_hello_cb(context.context_.get(), on_client_hello, nullptr);
+}
+
+std::vector<std::byte> session_der(SSL_SESSION *session) {
+    const auto size = i2d_SSL_SESSION(session, nullptr);
+    if (size <= 0) {
+        return {};
+    }
+    std::vector<std::byte> bytes(static_cast<std::size_t>(size));
+    auto *out = reinterpret_cast<unsigned char *>(bytes.data());
+    i2d_SSL_SESSION(session, &out);
+    return bytes;
 }
 
 void offer_session(SSL *ssl, std::span<const std::byte> der) {

@@ -647,3 +647,10 @@ recorded elsewhere.
   (0xC0000005 / 0x80000003) compiling ssl_sessions -O2 cold with a clause_ssl_options variant, jobs >= 2; jobs 1
   passed and cached it; not reproducible after a reboot (function-level cache: comment-only probes stay warm, a
   failed compile caches nothing).
+- LIB81D2b ssl tickets (2026-10-28): OTP's auto ticket store is keyed by SNI only and takes oldest first, so stale
+  tickets of other listeners (same SNI) make later connections full handshakes: fixtures give each scenario its own
+  server_name_indication (client verify_none). Resumed TLS 1.3: client peercert {error, no_peercert}; server only with
+  _with_cert. libssl: generate_ticket_cb (after timeout calc) sets per-ticket lifetime; stateful TLS 1.3 tickets go
+  through the external get/new session callbacks (needs SSL_SESS_CACHE_SERVER); clear SSL_OP_NO_TICKET for stateless
+  and set it per connection in the ClientHello callback when TLS 1.3 is not chosen (no RFC 5077 tickets). Client
+  new_session_cb needs SSL_SESS_CACHE_CLIENT. Bash heredocs with apostrophes in python strings fail: use scratch .py.

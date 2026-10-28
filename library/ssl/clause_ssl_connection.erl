@@ -5,7 +5,7 @@
 %% packet framing, and closing when the owner exits. LIB81C2 adds the {handshake, hello} pause (clause_ssl_hello),
 %% shutdown/2 and close/2's downgrade to the transport socket. LIB81D1 adds TLS 1.2 renegotiation, TLS 1.3 key updates,
 %% keying material exporters and the secrets of keep_secrets (clause_ssl_secrets). LIB81D2a adds TLS 1.2 session reuse
-%% over clause_ssl_session's caches.
+%% over clause_ssl_session's caches, LIB81D2b TLS 1.3 session tickets (clause_ssl_tickets).
 -module(clause_ssl_connection).
 -behaviour(gen_server).
 -export([start/1, start_link/1]).
@@ -397,23 +397,73 @@ host_id(#{server_name_indication := [_ | _] = Name}, _Address) -> Name;
 host_id(#{host := Host}, _Address) when Host =/= undefined -> Host;
 host_id(_Ssl, Address) -> Address.
 
+% The session a client offers: a TLS 1.3 ticket (LIB81D2b), else a TLS 1.2 session.
+offered_session(Ssl, S) ->
+    case offered_ticket(Ssl) of
+        undefined -> tls12_session(Ssl, S);
+        Data -> Data
+    end.
+
 % The TLS 1.2 session a client offers, as OTP's client selects it: the data reuse_session gives, a saved session it
 % names, or with reuse_sessions true a cached session to the same server whose suite and certificate still apply.
-offered_session(#{versions := ['tlsv1.3']}, _S) ->
+tls12_session(#{versions := ['tlsv1.3']}, _S) ->
     undefined;
-offered_session(#{reuse_session := {_Id, Data}}, _S) ->
+tls12_session(#{reuse_session := {_Id, Data}}, _S) ->
     Data;
-offered_session(_Ssl, #{peer := undefined}) ->
+tls12_session(_Ssl, #{peer := undefined}) ->
     undefined;
-offered_session(#{reuse_session := Id}, #{peer := Server}) when is_binary(Id) ->
+tls12_session(#{reuse_session := Id}, #{peer := Server}) when is_binary(Id) ->
     session_data(clause_ssl_session:client_lookup({Server, Id}));
-offered_session(#{reuse_sessions := true} = Ssl, #{peer := Server}) ->
+tls12_session(#{reuse_sessions := true} = Ssl, #{peer := Server}) ->
     case lists:search(fun(Session) -> usable(Session, Ssl) end, clause_ssl_session:client_sessions(Server)) of
         {value, Session} -> session_data(Session);
         false -> undefined
     end;
-offered_session(_Ssl, _S) ->
+tls12_session(_Ssl, _S) ->
     undefined.
+
+%% TLS 1.3 session tickets (LIB81D2b).
+
+% The ticket a TLS 1.3 client offers: with session_tickets auto the oldest stored one for the server, with manual the
+% first of use_ticket whose suite it offers (OTP's offers them all; libssl offers one).
+offered_ticket(#{session_tickets := auto} = Ssl) ->
+    clause_ssl_tickets:take(maps:get(server_name_indication, Ssl, undefined), tls13_suites(Ssl));
+offered_ticket(#{session_tickets := manual, use_ticket := [_ | _] = Tickets} = Ssl) ->
+    Suites = tls13_suites(Ssl),
+    Usable = [Data || #{cipher_suite := {Cipher, _}, ticket := Data} <- Tickets, lists:keymember(Cipher, 1, Suites)],
+    case Usable of
+        [Data | _] -> Data;
+        [] -> undefined
+    end;
+offered_ticket(_Ssl) ->
+    undefined.
+
+% The {Cipher, Hash} of the TLS 1.3 suites a client offers, in its order.
+tls13_suites(#{ciphers := Codes}) ->
+    [{Cipher, Hash} || Code <- Codes, Code bsr 8 == 16#13, #{cipher := Cipher, prf := Hash} <- [suite(Code)]].
+
+suite(Code) -> clause_ssl_algorithms:code_suite(Code).
+
+% A ticket the server sent: kept for session_tickets auto, sent to the owner for manual, as OTP's.
+ticket_received(Data, #{engine := Engine, ssl := Ssl, owner := Owner}) ->
+    #{cipher_suite := Code} = clause_ssl_engine:info(Engine),
+    Ticket = clause_ssl_tickets:ticket(Data, Code, maps:get(server_name_indication, Ssl, undefined)),
+    case maps:get(session_tickets, Ssl) of
+        auto -> clause_ssl_tickets:store(Ticket);
+        manual -> Owner ! {ssl, session_ticket, Ticket};
+        disabled -> ok
+    end.
+
+% Whether a connection still has its peer's certificate: a resumed TLS 1.3 session keeps it only on a server whose
+% tickets are _with_cert, as OTP's.
+peer_kept(#{engine := Engine, role := Role, ssl := Ssl}) ->
+    case clause_ssl_engine:info(Engine) of
+        #{protocol := 'tlsv1.3', resumed := true} ->
+            Role == server andalso
+                lists:member(maps:get(session_tickets, Ssl), [stateless_with_cert, stateful_with_cert]);
+        _ ->
+            true
+    end.
 
 usable(#{cipher_suite := Suite, own_certificate := Own}, #{ciphers := Ciphers} = Ssl) ->
     lists:member(Suite, Ciphers) andalso (Own == undefined orelse lists:member(Own, own_certificates(Ssl)));
@@ -657,6 +707,9 @@ connection_event(renegotiation_started, #{role := server, renegotiator := undefi
     Allowed andalso clause_ssl_engine:allow_renegotiation(Engine, false),
     Allowed andalso erlang:send_after(?WAIT_TO_ALLOW_RENEGOTIATION, self(), allow_renegotiation),
     S#{allow_peer => not Allowed};
+connection_event({ticket, Data}, #{role := client} = S) ->
+    ticket_received(Data, S),
+    S;
 connection_event(_Event, S) ->
     S.
 
@@ -773,10 +826,15 @@ transport_getopts(Names, #{transport := Transport, socket := Socket}) ->
 socket_module(gen_tcp) -> inet;
 socket_module(Transport) -> Transport.
 
-information(peercert, #{engine := Engine}) ->
+information(peercert, #{engine := Engine} = S) ->
     case clause_ssl_engine:peer_chain(Engine) of
-        [Cert | _] -> {ok, Cert};
-        [] -> {error, no_peercert}
+        [Cert | _] ->
+            case peer_kept(S) of
+                true -> {ok, Cert};
+                false -> {error, no_peercert}
+            end;
+        [] ->
+            {error, no_peercert}
     end;
 information(negotiated_protocol, #{engine := Engine}) ->
     case clause_ssl_engine:info(Engine) of

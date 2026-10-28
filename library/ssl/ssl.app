@@ -14,10 +14,11 @@
         clause_ssl_secrets,
         clause_ssl_session,
         clause_ssl_session_db,
+        clause_ssl_tickets,
         ssl,
         ssl_session_cache_api
     ]},
-    {registered, [ssl_sup, ssl_manager, ssl_pem_cache, tls_connection_sup]},
+    {registered, [ssl_sup, ssl_manager, ssl_pem_cache, tls_client_ticket_store, tls_connection_sup]},
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {clause_ssl_app, []}},

@@ -25,10 +25,10 @@ internal functions stay out unless a public function needs them (user direction 
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
 - **Left:** `erlang` (20 declined functions, LIB9 remainder, Appendix A); OTP-free builds
   (LIB78 on request; LIB77 transforms without the host are done);
-  applications beyond the core that emqx needs (LIB81D2b–D5, LIB82–LIB83, Appendix B; `crypto` (LIB79),
+  applications beyond the core that emqx needs (LIB81D2c–D5, LIB82–LIB83, Appendix B; `crypto` (LIB79),
   `public_key` (LIB80), `ssl`'s utility functions (LIB81A), libssl engine (LIB81B), core connections
   (LIB81C1), the hello pause and closing (LIB81C2), renegotiation, key updates, exporters and secrets
-  (LIB81D1) and TLS 1.2 session reuse (LIB81D2a) are done).
+  (LIB81D1), TLS 1.2 session reuse (LIB81D2a) and TLS 1.3 session tickets (LIB81D2b) are done).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -143,12 +143,8 @@ records, goldens from OTP, own headers written from the documented records and m
   OTP-internal `ssl_handshake.hrl` and `ssl_internal.hrl`. These are not public and are not
   provided, so projects keep OTP's `ssl` application root for them.
   - **LIB81D TLS features** (D1 `renegotiate/1`, `update_keys/2`, `export_key_materials/4,5`, `prf/5` and
-    `keep_secrets`, D2a TLS 1.2 session reuse are done). `ssl` stops being PARTIAL after D5.
-    - **LIB81D2b** TLS 1.3 session tickets: client `session_tickets` `manual | auto` with `use_ticket` and the
-      `{ssl, session_ticket, Ticket}` messages (an Erlang ticket store keyed by SNI, `client_session_ticket_lifetime`,
-      `_store_size`); server `stateful | stateless | stateful_with_cert | stateless_with_cert`,
-      `stateless_tickets_seed`, `server_session_tickets_amount`, `_ticket_lifetime`, `_ticket_store_size`; resumed
-      TLS 1.3 `session_resumption` and `peercert`. libssl: SSL_OP_NO_TICKET selects stateful TLS 1.3 tickets.
+    `keep_secrets`, D2a TLS 1.2 session reuse, D2b TLS 1.3 session tickets are done). `ssl` stops being PARTIAL
+    after D5.
     - **LIB81D2c** early data: client `early_data` binary and `{ssl, S, {early_data, accepted | rejected}}`, server
       `early_data` with `server_session_ticket_max_early_data`, `anti_replay` Bloom filters (`'10k' | '100k' |
       {Window, Hashes, Bits}`) over the PSK binders, OTP's warning for stateless early data without anti_replay.
@@ -176,7 +172,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB81D2b–D5 (LIB81E on request); LIB78 only on request.
+1. LIB81D2c–D5 (LIB81E on request); LIB78 only on request.
 2. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)

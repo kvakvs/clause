@@ -1,6 +1,7 @@
 %% The ssl application's callback and its top supervisor, registered as ssl_sup as in OTP (plan 21 step LIB81A,
 %% docs/libraries/ssl.md#application). The supervisor runs the PEM cache, the client session cache ssl_manager
-%% (LIB81D2a) and tls_connection_sup, whose temporary children are the connection processes (LIB81C1).
+%% (LIB81D2a), the client ticket store tls_client_ticket_store (LIB81D2b) and tls_connection_sup, whose temporary
+%% children are the connection processes (LIB81C1).
 -module(clause_ssl_app).
 -behaviour(application).
 -behaviour(supervisor).
@@ -36,10 +37,15 @@ init([]) ->
         start => {clause_ssl_session, start_link, []},
         modules => [clause_ssl_session]
     },
+    Tickets = #{
+        id => tls_client_ticket_store,
+        start => {clause_ssl_tickets, start_link, []},
+        modules => [clause_ssl_tickets]
+    },
     Connections = #{
         id => tls_connection_sup,
         start => {?MODULE, start_connection_sup, []},
         type => supervisor,
         modules => [?MODULE]
     },
-    {ok, {#{strategy => one_for_all, intensity => 10, period => 3600}, [PemCache, Sessions, Connections]}}.
+    {ok, {#{strategy => one_for_all, intensity => 10, period => 3600}, [PemCache, Sessions, Tickets, Connections]}}.

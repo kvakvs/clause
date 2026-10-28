@@ -1,6 +1,8 @@
 #pragma once
 #include "../crypto/crypto.hpp"
 #include <cstdint>
+#include <deque>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <openssl/ssl.h>
@@ -27,6 +29,9 @@ struct SslDeleter {
 
 using Ssl = std::unique_ptr<SSL, SslDeleter>;
 
+// Added for TLS 1.3 session tickets (plan 21 step LIB81D2b): the tickets a server issues.
+enum class Tickets : std::uint8_t { none, stateless, stateful };
+
 // A context/2 result: the SSL_CTX built from validated options and what its callbacks read.
 struct Context {
     SslContext context_;
@@ -36,6 +41,18 @@ struct Context {
     bool verify_peer_ = false;
     // Whether this is a server context.
     bool server_ = false;
+    // Added for ssl session reuse (LIB81D2a): whether Erlang's cache answers a server's TLS 1.2 session lookups.
+    bool session_cache_ = false;
+    // Added for LIB81D2b: a server's tickets and their lifetime in seconds; whether a client keeps tickets.
+    Tickets tickets_ = Tickets::none;
+    long ticket_lifetime_ = 0;
+    bool client_tickets_ = false;
+    // Added for LIB81D2b: a stateful server's ticket sessions (DER) by ticket id, the oldest first in order, at most
+    // ticket_store_size_; each is taken once. Engines of several processes share them.
+    std::mutex ticket_lock_;
+    std::map<std::vector<std::byte>, std::vector<std::byte>> ticket_store_;
+    std::deque<std::vector<std::byte>> ticket_order_;
+    std::size_t ticket_store_size_ = 0;
 };
 
 // A handle's object: shared, since every engine keeps its context alive for the callbacks.
@@ -62,14 +79,15 @@ enum class EventKind : std::uint8_t {
     key_update_received,
     renegotiation_started,
     renegotiated,
-    renegotiation_refused
+    renegotiation_refused,
+    ticket
 };
 
 // Added for ssl session reuse (plan 21 step LIB81D2a): where a server's lookup of the TLS 1.2 session a client offers
 // stands: not asked, paused for Erlang's answer, or answered.
 enum class Lookup : std::uint8_t { none, pending, answered };
 
-// One event of events/1; a secret carries its NSS key log label and value.
+// One event of events/1; a secret carries its NSS key log label and value, a ticket (LIB81D2b) its session's DER.
 struct Event {
     EventKind kind_ = EventKind::secret;
     std::string label_;
@@ -125,6 +143,15 @@ void install_keylog(Context &context);
 void install_session_cache(Context &context, long lifetime);
 // Added for LIB81D2a: a client offers the session of DER bytes; bytes libssl cannot decode are ignored.
 void offer_session(SSL *ssl, std::span<const std::byte> der);
+// Added for LIB81D2a: a server's session callbacks: the ClientHello pause and the session lookup.
+void install_server_sessions(Context &context);
+// Added for LIB81D2b: the tickets of a context: true for a client keeping TLS 1.3 tickets, a server's
+// {stateless | stateful, Count, Lifetime, StoreSize, Seed | undefined}; false for a value it cannot take.
+bool configure_tickets(Context &context, const Term &value);
+// Added for LIB81D2b: a stateful server's session of a ticket id, taken from its store; null when it has none.
+SSL_SESSION *take_ticket(Context &context, std::span<const unsigned char> id);
+// The DER bytes of a session; empty when libssl cannot encode it.
+std::vector<std::byte> session_der(SSL_SESSION *session);
 
 // The engine of an SSL object inside a libssl callback.
 Engine *engine_of(const SSL *ssl);

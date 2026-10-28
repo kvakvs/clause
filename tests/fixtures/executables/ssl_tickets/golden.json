@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ssl_tickets",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "auto, server stateless [{false,false},{true,true},{true,true}]\nauto, server stateful [{false,false},{true,true},{true,true}]\nauto, server disabled [{false,false},{false,false},{false,false}]\nclient disabled [{false,false},{false,false}]\nmanual tickets, server stateless {3,\n                                  [\"stateless.manual\",\"stateless.manual\",\n                                   \"stateless.manual\"]}\nuse_ticket, server stateless [{true,true},{true,true}]\nmanual tickets, server stateful {3,\n                                 [\"stateful.manual\",\"stateful.manual\",\n                                  \"stateful.manual\"]}\nuse_ticket, server stateful [{true,true},{false,false}]\npeercert, server stateless {true,{error,no_peercert},{error,no_peercert}}\npeercert, server stateless_with_cert {true,{error,no_peercert},same}\npeercert, server stateful {true,{error,no_peercert},{error,no_peercert}}\npeercert, server stateful_with_cert {true,{error,no_peercert},same}\ntlsv1.2 against a ticket server [{false,false},{false,false}]\nclient option errors [{error,{options,{session_tickets,sometimes}}},\n                      {error,{options,{session_tickets,stateless}}},\n                      {error,{options,incompatible,\n                                      [session_tickets,\n                                       {versions,['tlsv1.2']}]}},\n                      {error,{options,{use_ticket,[]}}},\n                      {error,{options,{use_ticket,ticket}}},\n                      {error,{options,incompatible,\n                                      [{use_ticket,[#{sni => \"localhost\"}]},\n                                       {session_tickets,auto}]}},\n                      {error,{options,incompatible,\n                                      [early_data,\n                                       {session_tickets,disabled}]}},\n                      {error,{options,incompatible,\n                                      [early_data,\n                                       {session_tickets,manual},\n                                       {use_ticket,undefined}]}},\n                      {error,{options,{early_data,data}}},\n                      {error,{option,server_only,anti_replay}},\n                      {error,{option,server_only,stateless_tickets_seed}}]\nserver option errors [{error,{options,{session_tickets,auto}}},\n                      {error,{options,incompatible,\n                                      [session_tickets,\n                                       {versions,['tlsv1.2']}]}},\n                      {error,{options,incompatible,\n                                      [early_data,\n                                       {session_tickets,disabled}]}},\n                      {error,{options,{early_data,sometimes}}},\n                      {error,{options,incompatible,\n                                      [{anti_replay,'10k'},\n                                       {session_tickets,stateful}]}},\n                      {error,{options,{anti_replay,'1m'}}},\n                      {error,{options,incompatible,\n                                      [stateless_tickets_seed,\n                                       {session_tickets,stateful}]}},\n                      {error,{options,{stateless_tickets_seed,seed}}},\n                      {error,{option,client_only,use_ticket}}]\nssl_tickets: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "ssl_tickets.erl": "90c758e3d9c0ccd8571246b2590e234afd62a1f237f07b1887b2d1a2b37f29fe"
+  }
+}

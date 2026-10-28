@@ -81,6 +81,10 @@ Term event_term(ProcessContext &context, const Event &event) {
         return atom(context, "renegotiated"_atom);
     case EventKind::renegotiation_refused:
         return atom(context, "renegotiation_refused"_atom);
+    case EventKind::ticket: {
+        const std::array elements{atom(context, "ticket"_atom), binary_of(context, event.secret_)};
+        return tuple_of(context, elements);
+    }
     }
     return atom(context, "undefined"_atom);
 }

@@ -4,8 +4,9 @@ Clause's `ssl` application (plan 21, LIB81) exports the OTP 29 interface of the 
 utility functions are implemented (LIB81A), and so are TLS 1.2 and 1.3 [connections](#connections)
 (LIB81C1) over the libssl [engine](#engine) (LIB81B), with the `{handshake, hello}` pause, `close/2`,
 `shutdown/2` and `tls_version/1` (LIB81C2), and [renegotiation, key updates, exporters](#renegotiation-key-updates-and-exporters)
-and [secrets](#secrets) (LIB81D1), and TLS 1.2 [session reuse](#session-reuse) (LIB81D2a). TLS 1.3 session
-tickets and early data, SNI, CRLs, OCSP, PSK and SRP (the rest of LIB81D) and `ssl_crl_cache` follow. See the
+and [secrets](#secrets) (LIB81D1), TLS 1.2 [session reuse](#session-reuse) (LIB81D2a) and TLS 1.3
+[session tickets](#session-tickets) (LIB81D2b). Early data, SNI, CRLs, OCSP, PSK and SRP (the rest of LIB81D) and
+`ssl_crl_cache` follow. See the
 [function inventory](../../library/ssl/ssl.terms) and
 [differences](../differences.md#ssl).
 
@@ -153,6 +154,29 @@ certificates, server name, time stamp).
 - **Options**: `reuse_sessions` and `reuse_session` are checked as OTP checks them, with its errors; given with
   versions that are only TLS 1.3 they are `{options, incompatible, [Key, {versions, ['tlsv1.3']}]}`.
 
+## Session tickets
+
+TLS 1.3 sessions resume with tickets as OTP's do (LIB81D2b). A ticket is a map: `cipher_suite` (`{Cipher, Hash}`),
+`sni` (the `server_name_indication` the client sent), `timestamp` and `ticket` (libssl's session in DER).
+
+- **Clients**: with `{session_tickets, auto}` each ticket the server sends goes to the store `clause_ssl_tickets`
+  registers as `tls_client_ticket_store`, as OTP's. A new connection takes the oldest ticket for the same server
+  name whose suite it offers (of the first hash of its suites that has one), and each ticket is used once; tickets
+  expire after `client_session_ticket_lifetime` seconds (7200) and the store keeps
+  `client_session_ticket_store_size` (1000). Since the store is keyed by server name, connections to another server
+  of the same name try its tickets first, as OTP's do. With `{session_tickets, manual}` the owner gets
+  `{ssl, session_ticket, Ticket}` for each ticket, and `{use_ticket, Tickets}` offers one of them.
+- **Servers**: `session_tickets` `stateless` and `stateless_with_cert` issue libssl's encrypted tickets, keyed by
+  `stateless_tickets_seed` when it is given; `stateful` and `stateful_with_cert` issue ids of sessions the listening
+  socket's context keeps (`server_session_ticket_store_size`, 1000) and takes once. A server sends
+  `server_session_tickets_amount` tickets (3) after each handshake, living `server_session_ticket_lifetime` seconds
+  (7200). TLS 1.2 connections of a ticket server get no tickets.
+- **Resumed connections**: `session_resumption` is `true`. As OTP's, a resumed client has no `peercert/1`
+  (`{error, no_peercert}`), and a server has its client's certificate only with the `_with_cert` modes.
+- **Options**: `session_tickets`, `use_ticket` (tickets for the server the client names), `early_data`,
+  `anti_replay` and `stateless_tickets_seed` are checked in OTP's order with its errors; they need TLS 1.3 among the
+  versions. Early data itself follows (LIB81D2c).
+
 ## Verification
 
 `clause_ssl_certificate` checks a peer's chain when the handshake pauses, as OTP's ssl does. A
@@ -189,7 +213,8 @@ every program that uses a module of that application, because no module calls it
 `ssl:start/0,1` runs `application:ensure_all_started(ssl, Type)`, which also starts `crypto`,
 `asn1` and `public_key`. The top supervisor is registered as `ssl_sup`. Its children are
 `clause_ssl_pem_cache`, registered as `ssl_pem_cache` as in OTP, the client session cache registered as
-`ssl_manager` ([session reuse](#session-reuse)), and `tls_connection_sup`, whose temporary children are the connection
+`ssl_manager` ([session reuse](#session-reuse)), the client ticket store `tls_client_ticket_store`
+([session tickets](#session-tickets)), and `tls_connection_sup`, whose temporary children are the connection
 processes. Connections started without the application
 run unsupervised. `ssl:clear_pem_cache/0` calls it
 the way OTP does: it sets the caller's `ssl_pem_cache` process dictionary key, and it exits with
