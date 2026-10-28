@@ -998,6 +998,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB81D3a** ssl `sni_hosts`/`sni_fun`: ClientHello pause, options merged and the connection moved to their context
   (or `unrecognized_name`/`handshake_failure`); update with `cert`/`key` replaces certificates; `ssl_sni` golden
   identical — `c9ef88ab`
+- **LIB81D3b** ssl `key_update_at`/`renegotiate_at` automatic rekeys in the send path (OTP's split and counting), custom
+  `cb_info` transports verified; `ssl_rekeys`, `ssl_transports` goldens identical — `7ced7bf1`
 - **LIB77A** transform host: the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
   library identity into the user cache (lock file, older hosts pruned); library-only transform chains run there, also
   under `--erl none`; replies equal OTP's (ms_headers, qlc_queries `.abstr`); library `compile` without compiling
