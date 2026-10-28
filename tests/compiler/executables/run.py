@@ -20,6 +20,9 @@ import matrix  # noqa: E402  (shared fast/full policy selection)
 
 # Policy combinations linked and run at once; each is independent, so a case takes about one combination's time.
 COMBINATION_JOBS = 4
+# Code generation threads of each clau run (--jobs): without it every clau takes all hardware threads, and the fast
+# gate's parallel cases (two combinations each) would ask for many times the CPU budget of AGENTS.md.
+CLAU_JOBS = 2
 # Scheduler counts every program fixture runs with (plan step 58: one and several workers).
 PROGRAM_WORKERS = [1, 4]
 # The link-time optimization combinations (--lto): bitcode linked by LLD, through both drivers.
@@ -68,7 +71,8 @@ def command(tool, work, case, golden, policy, target_options=()):
     level, extra, name, project = policy
     label = f'{name}-{"project" if project else "positional"}'
     # A golden's 'options' are compiler options every policy adds (plan 21 step LIB74: --keep-exports for the shell).
-    options = [f'-{level}', *([extra] if extra else []), *target_options, *golden.get('options', [])]
+    options = [f'-{level}', *([extra] if extra else []), '--jobs', str(CLAU_JOBS), *target_options,
+               *golden.get('options', [])]
     output = f'{label}/{case}'
     # Each policy generates its ASN.1 modules into its own directory: policies run at once.
     asn1_dir = f'{label}/asn1'

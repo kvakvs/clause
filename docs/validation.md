@@ -44,6 +44,15 @@ cmake --build build/debug --target check-quality-all  # whole tree
   they start after the rest of the selection finishes and have the processors to
   themselves; a failing dependency does not skip them. They reserve four CTest
   slots instead of two, so half as many of them run at once.
+- The executable golden runner gives each `clau` it starts `--jobs 2`; a case
+  links two policy combinations at once, so it runs within its two CTest slots
+  instead of taking every hardware thread twice.
+- `transforms_host_setup` (fixture `transform_host`) builds Clause's transform
+  host before the tests that run library parse transforms (`transforms_*` and
+  the executable cases whose sources name a parse transform or include
+  `ms_transform.hrl`, `qlc.hrl` or `merl.hrl`), so they do not wait for its lock
+  holding their slots. It starts first and reserves eight slots; with a built
+  host it takes a fraction of a second.
 - `CLAUSE_TEST_TIMEOUT_SCALE=N` multiplies the per-run limits of the golden
   runner (60 s) and the semantic case runner (15 s) for instrumented builds.
 - `check-quality`, `make format` and `make-format.bat` cover files changed since

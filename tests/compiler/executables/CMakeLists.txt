@@ -16,6 +16,16 @@ if(CLAUSE_BUILD_RUNTIME)
         if(case IN_LIST full_only_cases)
             set_tests_properties(executables_${case} PROPERTIES COST 15 LABELS full_only)
         endif()
+        # A case whose sources name a parse transform compiles through the transform host: it waits for the host's
+        # setup instead of its lock (added for the transform host setup).
+        file(GLOB_RECURSE case_sources "${case_dir}/*.erl" "${case_dir}/*.hrl")
+        foreach(source IN LISTS case_sources)
+            file(STRINGS "${source}" transform_lines REGEX "parse_transform|ms_transform\\.hrl|qlc\\.hrl|merl\\.hrl")
+            if(transform_lines)
+                set_tests_properties(executables_${case} PROPERTIES FIXTURES_REQUIRED transform_host)
+                break()
+            endif()
+        endforeach()
     endforeach()
     # A deliberately wrong golden must fail with a readable diff; a stale one before linking.
     add_test(NAME executables_selfcheck COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/selfcheck.py"

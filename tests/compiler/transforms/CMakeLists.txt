@@ -39,8 +39,17 @@ add_test(NAME transforms_loader
 set_tests_properties(transforms_loader PROPERTIES TIMEOUT 300 LABELS host_otp
     PASS_REGULAR_EXPRESSION "transforms_loader: ok" SKIP_REGULAR_EXPRESSION "SKIP: no host Erlang/OTP")
 
+# Added for the transform host setup: builds Clause's transform host (a library transform under --erl none) before
+# the tests that use it, which otherwise wait for its lock while holding their CTest slots. It starts first (COST)
+# and reserves more slots: the host build links the whole library with every hardware thread. A built host makes it
+# instant.
+add_test(NAME transforms_host_setup COMMAND "$<TARGET_FILE:clau>" --erl none --print-abstr ms.erl
+    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/tests/fixtures/transforms/pipeline")
+set_tests_properties(transforms_host_setup PROPERTIES TIMEOUT 900 COST 1000 PROCESSORS 8
+    FIXTURES_SETUP transform_host)
+
 # Added for parse transforms: transforms in the compile pipeline (host OTP), and the error without a host OTP; the
-# library's transforms in Clause's transform host (plan 21 LIB77A, which builds it once per clau: long timeout).
+# library's transforms in Clause's transform host (plan 21 LIB77A, built by transforms_host_setup).
 add_test(NAME transforms_pipeline COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/pipeline.py" otp
     "$<TARGET_FILE:clau>" "${test_erl}" "${PROJECT_SOURCE_DIR}/tests/fixtures/transforms"
     "${CMAKE_CURRENT_BINARY_DIR}/pipeline/$<CONFIG>")
@@ -70,3 +79,8 @@ add_test(NAME transforms_cache COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_
 # Slow cache workflow: full gate only (label full_only).
 set_tests_properties(transforms_cache PROPERTIES TIMEOUT 600 COST 12 LABELS "host_otp;full_only"
     PASS_REGULAR_EXPRESSION "cache: ok" SKIP_REGULAR_EXPRESSION "SKIP: no host Erlang/OTP")
+
+# Tests that run the library's transforms in the transform host wait for its setup (added for the transform host
+# setup).
+set_tests_properties(transforms_pipeline transforms_no_otp transforms_project transforms_build_dir transforms_cache
+    PROPERTIES FIXTURES_REQUIRED transform_host)
