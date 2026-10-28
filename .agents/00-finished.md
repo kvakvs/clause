@@ -976,6 +976,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   verify/read/write/shutdown/key_update/info/peer_chain over memory BIOs, verify pause for public_key, servers on
   libssl < 4.1 verify after the handshake); linked when a live function calls it; `ssl_engine` golden (authored) also
   on OpenSSL 3.1.2 — `448a0c12`
+- **LIB81C1** ssl connections: a `clause_ssl_connection` process per connection (`tls_connection_sup`) over the engine:
+  connect/listen/accept/handshake (and gen_tcp upgrades), send/recv, active modes, emulated packet/mode/header, options
+  and information calls; OTP's option checks and errors; OTP's trusted-path choice, partial_chain, verify_fun and host
+  name checks; tls_alert terms; `ssl_connections` golden identical to OTP — `ffee110f`
 - **LIB77A** transform host: the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
   library identity into the user cache (lock file, older hosts pruned); library-only transform chains run there, also
   under `--erl none`; replies equal OTP's (ms_headers, qlc_queries `.abstr`); library `compile` without compiling
