@@ -22,7 +22,8 @@
     allow_renegotiation/2,
     resume/2,
     session/1,
-    early_data/1
+    early_data/1,
+    name_served/2
 ]).
 
 context(_Role, _Options) -> clause_builtin_placeholder.
@@ -46,3 +47,5 @@ resume(_Engine, _Session) -> clause_builtin_placeholder.
 session(_Engine) -> clause_builtin_placeholder.
 %% Early data (LIB81D2c).
 early_data(_Engine) -> clause_builtin_placeholder.
+%% Server name indication (LIB81D3a).
+name_served(_Engine, _Answer) -> clause_builtin_placeholder.

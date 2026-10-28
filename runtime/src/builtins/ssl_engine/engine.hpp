@@ -62,6 +62,8 @@ struct Context {
     std::mutex replay_lock_;
     std::set<std::vector<std::byte>> replay_current_;
     std::set<std::vector<std::byte>> replay_old_;
+    // Added for LIB81D3a: whether a server pauses for Erlang's options of the server name a client sends.
+    bool sni_ = false;
 };
 
 // A handle's object: shared, since every engine keeps its context alive for the callbacks.
@@ -95,6 +97,10 @@ enum class EventKind : std::uint8_t {
 // Added for ssl session reuse (plan 21 step LIB81D2a): where a server's lookup of the TLS 1.2 session a client offers
 // stands: not asked, paused for Erlang's answer, or answered.
 enum class Lookup : std::uint8_t { none, pending, answered };
+
+// Added for server name indication (plan 21 step LIB81D3a): where a server's choice of options for the name a client
+// sends stands: not asked, paused for Erlang's answer, answered, or refused with an alert.
+enum class Sni : std::uint8_t { none, pending, answered, refused };
 
 // One event of events/1; a secret carries its NSS key log label and value, a ticket (LIB81D2b) its session's DER.
 struct Event {
@@ -138,6 +144,9 @@ struct Engine {
     bool early_reading_ = false;
     std::vector<std::byte> early_in_;
     std::vector<std::byte> binders_;
+    // Added for LIB81D3a: the server name pause and the alert of a refused name.
+    Sni sni_ = Sni::none;
+    int sni_alert_ = 0;
 };
 
 constexpr std::uint64_t CONTEXT_MAGIC = 0x73736c63747874; // "sslctxt"
@@ -169,6 +178,10 @@ SSL_SESSION *take_ticket(Context &context, std::span<const unsigned char> id);
 std::vector<std::byte> session_der(SSL_SESSION *session);
 // Added for LIB81D2c: a server's early data, {MaxSize, AntiReplayWindow | undefined}; false for a value it cannot take.
 bool configure_early_data(Context &context, const Term &value);
+// Added for LIB81D3a: the host name of a ClientHello's server_name extension, inside the ClientHello callback.
+std::optional<std::vector<std::byte>> server_name_of(SSL *ssl);
+// Added for LIB81D3a: the ClientHello callback's result while the server name pause is not over, else none.
+std::optional<int> server_name_step(SSL *ssl, int *alert);
 // Added for LIB81D2c: keep a ClientHello's PSK binders for anti_replay, inside the ClientHello callback.
 void record_binders(SSL *ssl);
 // Added for LIB81D2c: write a client's early data, or read a server's; the status of a step that must wait, else none.
@@ -186,7 +199,7 @@ void take_output(Engine &engine, std::vector<std::byte> &bytes);
 void feed(Engine &engine, std::span<const std::byte> bytes);
 
 // The status of a libssl call that returned `result`: done (or ok), want_read, verify, {lookup, SessionId, ServerName |
-// undefined}, closed,
+// undefined}, {sni, ServerName}, closed,
 // {alert, sent | received, Level, Description} or {error, Text}.
 Term status_of(ProcessContext &context, Engine &engine, int result, AtomName done);
 // The failure of a call: the alert libssl sent or received, else {error, Text} with libssl's reason.
@@ -212,4 +225,5 @@ std::span<const BuiltinEntry> info_builtins() noexcept;
 std::span<const BuiltinEntry> feature_builtins() noexcept;
 std::span<const BuiltinEntry> session_builtins() noexcept;
 std::span<const BuiltinEntry> early_data_builtins() noexcept;
+std::span<const BuiltinEntry> sni_builtins() noexcept;
 } // namespace clause::runtime::builtins::ssl_engine

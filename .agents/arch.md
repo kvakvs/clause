@@ -108,5 +108,5 @@ behavior (`docs/differences.md` lists gaps).
   events the process takes after each step; TLS 1.2 sessions live in Erlang caches (`ssl_manager`, one per
   listener) as libssl DER, a server's ClientHello callback pausing for the lookup; TLS 1.3 client tickets in
   `tls_client_ticket_store`, stateful server tickets in the engine context; early data read before the handshake
-  goes on, binder sets for anti_replay). Distribution and tracing
+  goes on, binder sets for anti_replay; sni_hosts/sni_fun pause the ClientHello and switch the server context). Distribution and tracing
   answer as a non-alive node.

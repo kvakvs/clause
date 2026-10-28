@@ -375,14 +375,24 @@ Problem early_data(Context &context, const Term &value) {
     return std::nullopt;
 }
 
+// Added for server name indication (plan 21 step LIB81D3a): sni => true: a server pauses for the options of the
+// name a client sends.
+Problem sni(Context &context, const Term &value) {
+    if (!context.server_ || !value.is_boolean()) {
+        bad_argument();
+    }
+    context.sni_ = value.boolean_value_unchecked();
+    return std::nullopt;
+}
+
 // The options context/2 reads, applied in this order.
 struct Option {
     AtomName key;
     Problem (*apply)(Context &, const Term &);
 };
 
-const std::array<Option, 15> &options() {
-    static const std::array<Option, 15> OPTIONS{{
+const std::array<Option, 16> &options() {
+    static const std::array<Option, 16> OPTIONS{{
         {"versions"_atom, versions},
         {"ciphers"_atom, ciphers},
         {"honor_cipher_order"_atom, honor_cipher_order},
@@ -398,6 +408,7 @@ const std::array<Option, 15> &options() {
         {"session_cache"_atom, session_cache},
         {"tickets"_atom, tickets},
         {"early_data"_atom, early_data},
+        {"sni"_atom, sni},
     }};
     return OPTIONS;
 }

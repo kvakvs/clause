@@ -44,6 +44,8 @@ bool chooses_tls13(SSL *ssl) {
     return false;
 }
 
+} // namespace
+
 // The host name of a ClientHello's server_name extension: a list length, then entries of a type byte (0 for a host
 // name) and a length-prefixed name.
 std::optional<std::vector<std::byte>> server_name_of(SSL *ssl) {
@@ -60,9 +62,13 @@ std::optional<std::vector<std::byte>> server_name_of(SSL *ssl) {
     return std::vector<std::byte>(name, name + length);
 }
 
+namespace {
 // libssl's ClientHello callback: a TLS 1.2 ClientHello offering a session pauses the handshake until Erlang's cache
 // answers. TLS 1.2 connections get no tickets (RFC 5077), as OTP's servers issue none (LIB81D2b).
-int on_client_hello(SSL *ssl, int * /*alert*/, void * /*argument*/) {
+int on_client_hello(SSL *ssl, int *alert, void * /*argument*/) {
+    if (const auto named = server_name_step(ssl, alert)) {
+        return *named;
+    }
     auto &engine = *engine_of(ssl);
     if (engine.lookup_ != Lookup::none) {
         return engine.lookup_ == Lookup::answered ? SSL_CLIENT_HELLO_SUCCESS : SSL_CLIENT_HELLO_RETRY;

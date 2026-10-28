@@ -1107,6 +1107,10 @@ all the I/O.
   session takes that much. `info/1` adds `early_data` (`accepted`, `rejected` or `not_sent`). With a window, the
   ClientHello callback keeps the PSK binders and libssl's early data callback refuses binders seen in the current or
   the last window.
+- Server name indication (`sni.cpp`, LIB81D3a): a server context with `sni => true` pauses its handshake in the
+  ClientHello callback when the client sends a name, with the status `{sni, Name}`. `name_served(Engine, keep |
+  Context | {alert, Description})` goes on, goes on under another server context (its certificates, verify mode,
+  version bounds, suites and options), or ends the handshake with the alert.
 - `configure(Engine, Context)` (`connection.cpp`, LIB81C2) moves an engine to another context of its role
   (`SSL_set_SSL_CTX` and the context's verify mode): a client's `handshake_continue/2,3` options take effect after
   its ClientHello.

@@ -662,3 +662,7 @@ recorded elsewhere.
 - linking_debugger flake (2026-10-28): lldb sometimes prints `expr -- clause::runtime::debug_erlang_stack()` output
   late (hex inside "unexpected response to k packet"), failing debugger.py's assert; fails ~1 in 3 runs, passes alone
   on rerun. Not related to library changes.
+- LIB81D3a ssl SNI (2026-10-28): OTP calls sni_fun twice for a name answered undefined (fixture prints usort).
+  clause_ssl_options update with cert/key kept the old certs_keys (fixed: a new cert/key replaces them). Switching
+  SSL_CTX in the ClientHello pause: SSL_set_SSL_CTX copies certs only; copy verify mode, version bounds, options and
+  ciphers (SSL_CIPHER_get_protocol_id >> 8 == 0x13 for TLS 1.3 names; no SSL_CIPHER_get_min_tls in 4.1).

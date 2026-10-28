@@ -6,6 +6,7 @@
 %% shutdown/2 and close/2's downgrade to the transport socket. LIB81D1 adds TLS 1.2 renegotiation, TLS 1.3 key updates,
 %% keying material exporters and the secrets of keep_secrets (clause_ssl_secrets). LIB81D2a adds TLS 1.2 session reuse
 %% over clause_ssl_session's caches, LIB81D2b TLS 1.3 session tickets (clause_ssl_tickets) and LIB81D2c early data.
+%% LIB81D3a adds the server's sni_hosts and sni_fun.
 -module(clause_ssl_connection).
 -behaviour(gen_server).
 -export([start/1, start_link/1]).
@@ -15,6 +16,8 @@
 
 -define(INTERNAL_ERROR, 80).
 -define(USER_CANCELED, 90).
+-define(HANDSHAKE_FAILURE, 40).
+-define(UNRECOGNIZED_NAME, 112).
 %% How long a server refuses client renegotiations after one, as OTP's ssl (LIB81D1).
 -define(WAIT_TO_ALLOW_RENEGOTIATION, 12000).
 
@@ -276,6 +279,7 @@ step(Received, #{engine := Engine} = S0) ->
         done -> handshake_done(S);
         verify -> step(<<>>, verdict(S));
         {lookup, SessionId, ServerName} -> step(<<>>, lookup_session(SessionId, ServerName, S));
+        {sni, ServerName} -> step(<<>>, server_name_received(binary_to_list(ServerName), S));
         Failure -> handshake_failed(Failure, S)
     end.
 
@@ -416,6 +420,71 @@ tls12_session(#{reuse_sessions := true} = Ssl, #{peer := Server}) ->
     end;
 tls12_session(_Ssl, _S) ->
     undefined.
+
+%% Server name indication (LIB81D3a).
+
+% The server name a ClientHello sends: the options sni_fun or sni_hosts give for it replace the server's, as OTP's; an
+% empty name, one with a trailing dot or one sni_fun calls unrecognized ends the handshake with unrecognized_name, and
+% options that fail with handshake_failure.
+server_name_received(Name, #{engine := Engine} = S0) ->
+    {Answer, S} =
+        case sni_options(Name, maps:get(ssl, S0)) of
+            undefined -> {keep, S0};
+            unrecognized -> {{alert, ?UNRECOGNIZED_NAME}, S0};
+            {crashed, Class, Reason, Stack} -> sni_failure("sni_fun crashed ~p ~p~n ~p~n", [Class, Reason, Stack], S0);
+            Options -> sni_reconfigured(Options, S0)
+        end,
+    ok = clause_ssl_engine:name_served(Engine, Answer),
+    S.
+
+sni_options("", _Ssl) ->
+    unrecognized;
+sni_options(Name, #{sni_fun := Fun}) when is_function(Fun) ->
+    case lists:last(Name) of
+        $. ->
+            unrecognized;
+        _ ->
+            try
+                Fun(Name)
+            catch
+                Class:Reason:Stack -> {crashed, Class, Reason, {stacktrace, Stack}}
+            end
+    end;
+sni_options(Name, #{sni_hosts := Hosts}) ->
+    case lists:last(Name) of
+        $. -> unrecognized;
+        _ -> proplists:get_value(Name, Hosts)
+    end.
+
+% A context of the server's options updated by Options; when its verify_peer is new and reuse_sessions is not given,
+% reuse_sessions takes its verify_peer default, as OTP's.
+sni_reconfigured(Options, #{config := #{ssl := Ssl0} = Config0, role := Role} = S) ->
+    Ssl =
+        case
+            {
+                proplists:get_value(verify, Options),
+                maps:get(verify, Ssl0),
+                proplists:is_defined(reuse_sessions, Options)
+            }
+        of
+            {verify_peer, verify_none, false} -> maps:remove(reuse_sessions, Ssl0);
+            _ -> Ssl0
+        end,
+    try updated(Config0#{ssl => Ssl}, Options, Role) of
+        {ok, #{ssl := Ssl1} = Config} ->
+            case clause_ssl_engine:context(Role, clause_ssl_options:engine_options(Config)) of
+                {ok, Context} -> {Context, S#{config => Config, ssl => Ssl1}};
+                {error, Reason} -> sni_failure("sni_fun provided erroneous options : ~p~n", [Reason], S)
+            end;
+        {error, Reason} ->
+            sni_failure("sni_fun provided erroneous options : ~p~n", [Reason], S)
+    catch
+        _:Reason -> sni_failure("sni_fun provided erroneous options : ~p~n", [Reason], S)
+    end.
+
+sni_failure(Format, Args, S) ->
+    logger:error(Format, Args),
+    {{alert, ?HANDSHAKE_FAILURE}, S}.
 
 %% TLS 1.3 session tickets (LIB81D2b).
 

@@ -5,7 +5,8 @@ utility functions are implemented (LIB81A), and so are TLS 1.2 and 1.3 [connecti
 (LIB81C1) over the libssl [engine](#engine) (LIB81B), with the `{handshake, hello}` pause, `close/2`,
 `shutdown/2` and `tls_version/1` (LIB81C2), and [renegotiation, key updates, exporters](#renegotiation-key-updates-and-exporters)
 and [secrets](#secrets) (LIB81D1), TLS 1.2 [session reuse](#session-reuse) (LIB81D2a), TLS 1.3
-[session tickets](#session-tickets) (LIB81D2b) and [early data](#early-data) (LIB81D2c). SNI, CRLs, OCSP, PSK and
+[session tickets](#session-tickets) (LIB81D2b), [early data](#early-data) (LIB81D2c) and the server's
+[server name options](#server-name-indication) (LIB81D3a). Custom transports, automatic rekeys, CRLs, OCSP, PSK and
 SRP (the rest of LIB81D) and `ssl_crl_cache` follow. See the
 [function inventory](../../library/ssl/ssl.terms) and
 [differences](../differences.md#ssl).
@@ -189,6 +190,18 @@ TLS 1.3 early data (0-RTT) as OTP's (LIB81D2c).
   server's tickets are used once. A stateless server's `anti_replay` (`'10k'`, `'100k'` or `{Window, Hashes, Bits}`)
   records the PSK binders of the ClientHellos that brought early data and refuses early data whose binders it saw
   in the current or the last window; without `anti_replay` it logs OTP's warning when it listens.
+
+## Server name indication
+
+A server's `sni_hosts` (`[{HostName, Options}]`) or `sni_fun` (`fun(HostName) -> Options | undefined |
+unrecognized`) choose its options by the name a client sends (LIB81D3a). The handshake pauses in libssl's
+ClientHello callback while the connection asks them; options replace the server's (as `handshake/2` options do: a
+`cert` and `key` replace its certificates) and the connection goes on under a context of them, with their
+certificates, verification, versions, suites and libssl options. `undefined`, an unlisted name or no name keep the
+server's options. `unrecognized`, an empty name and a name with a trailing dot end the handshake with an
+`unrecognized_name` alert; options that fail and a failing fun with `handshake_failure`, logged as OTP's. A server
+name option that turns `verify_peer` on takes the `reuse_sessions` default of `verify_peer`, as OTP's. The options are
+checked as OTP checks them: entries with names and option lists without `sni_hosts`, `sni_fun` of arity 1, not both.
 
 ## Verification
 

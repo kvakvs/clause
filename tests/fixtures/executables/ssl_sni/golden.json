@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ssl_sni",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "sni_hosts listed {{'tlsv1.3',[{dNSName,\"other.example\"}]},\n                  [{sni_hostname,\"other.example\"}]}\nsni_hosts default {{'tlsv1.3',[{dNSName,\"localhost\"}]},\n                   [{sni_hostname,\"localhost\"}]}\nsni_hosts unlisted {{'tlsv1.3',[{dNSName,\"localhost\"}]},\n                    [{sni_hostname,\"unlisted.example\"}]}\nsni_hosts trailing dot {{error,{tls_alert,unrecognized_name}},\n                        {error,{tls_alert,unrecognized_name}}}\nsni_hosts no name {{'tlsv1.3',[{dNSName,\"localhost\"}]},[]}\nsni_fun options {{'tlsv1.2',[{dNSName,\"other.example\"}]},\n                 [{sni_hostname,\"other.example\"}]}\nsni_fun undefined {{'tlsv1.3',[{dNSName,\"localhost\"}]},\n                   [{sni_hostname,\"localhost\"}]}\nsni_fun unrecognized {{error,{tls_alert,unrecognized_name}},\n                      {error,{tls_alert,unrecognized_name}}}\nsni_fun names [\"localhost\",\"other.example\",\"unknown.example\"]\nserver option errors [{error,{options,{sni_hosts,[]}}},\n                      {error,{options,{sni_hosts,[{\"x\",[]}]}}},\n                      {error,{options,{sni_hosts,other}}},\n                      {error,{options,{sni_hosts,{[],[]}}}},\n                      {error,{options,{sni_hosts,other}}},\n                      {error,{options,{sni_fun,{'fun',2}}}},\n                      {error,{options,incompatible,[sni_fun,sni_hosts]}},\n                      {error,{option,client_only,server_name_indication}}]\nclient option errors [{error,{option,server_only,sni_fun}},\n                      {error,{option,server_only,sni_hosts}},\n                      {error,{options,{server_name_indication,other}}}]\nssl_sni: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "ssl_sni.erl": "9ceb098d54bd202e85f4319369933f23b4c24482f338fb32a2f6a4d3f202f0de"
+  }
+}

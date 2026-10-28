@@ -322,8 +322,11 @@ boolean(Key, Default, User, Ssl) ->
 
 %% Certificates and keys: certs_keys, else cert/key/certfile/keyfile/password, as a list of maps.
 certs(User, Ssl, _Env) ->
+    % A certificate given to an update (sni_hosts, handshake options) replaces the configured ones.
+    Single = lists:any(fun(K) -> is_map_key(K, User) end, [cert, key, certfile, keyfile]),
     CertsKeys =
         case get_opt(certs_keys, undefined, User, Ssl) of
+            {old, _} when Single -> [old_cert_key(User, Ssl)];
             {_, undefined} -> [old_cert_key(User, Ssl)];
             {_, List} when is_list(List) -> [cert_key(M) || M <- List];
             {_, Other} -> option_error(certs_keys, Other)
@@ -357,10 +360,25 @@ cert_key_value(password, Password, Acc) when is_list(Password); is_binary(Passwo
 cert_key_value(Key, Value, _) ->
     option_error(Key, Value).
 
-%% server_name_indication: a client's host name, disable or the host it connects to.
+%% server_name_indication: a client's host name, disable or the host it connects to. A server's sni_hosts
+%% ([{Host, Options}]) or sni_fun (fun(Host) -> Options | undefined | unrecognized) choose options by the name a client
+%% sends (LIB81D3a).
 server_name(User, Ssl, #{role := server}) ->
+    Hosts =
+        case get_opt(sni_hosts, [], User, Ssl) of
+            {new, NotList} when not is_list(NotList) -> option_error(sni_hosts, NotList);
+            {_, List} -> List
+        end,
+    [sni_host(Host) || Host <- Hosts],
+    {Where, Fun} =
+        case get_opt(sni_fun, undefined, User, Ssl) of
+            {_, F} = Found when is_function(F, 1) -> Found;
+            {new, Bad} -> option_error(sni_fun, Bad);
+            Found -> Found
+        end,
+    is_function(Fun) andalso Hosts =/= [] andalso Where == new andalso incompatible([sni_fun, sni_hosts]),
     client_only(server_name_indication, User),
-    Ssl;
+    Ssl#{sni_hosts => Hosts, sni_fun => Fun};
 server_name(User, Ssl, #{role := client} = Env) ->
     case get_opt(server_name_indication, undefined, User, Ssl) of
         {_, disable} -> Ssl#{server_name_indication => disable};
@@ -368,6 +386,15 @@ server_name(User, Ssl, #{role := client} = Env) ->
         {_, [_ | _] = Name} -> Ssl#{server_name_indication => Name};
         {_, Other} -> option_error(server_name_indication, Other)
     end.
+
+% An sni_hosts entry: a host name and options without sni_hosts of their own.
+sni_host({[_ | _], Options}) when is_list(Options) ->
+    case proplists:get_value(sni_hosts, Options) of
+        undefined -> ok;
+        Nested -> option_error(sni_hosts, Nested)
+    end;
+sni_host(Other) ->
+    option_error(sni_hosts, Other).
 
 % A host name connected to is the default name, without a trailing dot.
 sni_default(Host) when is_list(Host) -> string:strip(Host, right, $.);
@@ -759,7 +786,8 @@ engine_extras(Role, Ssl, CaCerts) ->
         {client_renegotiation, client_renegotiation(Role, Ssl)},
         {session_cache, session_cache(Role, Ssl)},
         {tickets, tickets(Role, Ssl)},
-        {early_data, early_data(Role, Ssl)}
+        {early_data, early_data(Role, Ssl)},
+        {sni, sni(Role, Ssl)}
     ],
     [{K, V} || {K, V} <- Optional, V =/= undefined].
 
@@ -798,6 +826,11 @@ early_data(server, #{early_data := enabled, anti_replay := AntiReplay}) ->
     {clause_ssl_tickets:max_early_data(), Window};
 early_data(_, _) ->
     undefined.
+
+% Added for server name indication (LIB81D3a): a server with sni_hosts or sni_fun pauses at the name a client sends.
+sni(server, #{sni_fun := Fun}) when is_function(Fun) -> true;
+sni(server, #{sni_hosts := [_ | _]}) -> true;
+sni(_, _) -> undefined.
 
 client_cas(server, #{verify := verify_peer, certificate_authorities := true}, [_ | _] = CaCerts) -> CaCerts;
 client_cas(_, _, _) -> undefined.

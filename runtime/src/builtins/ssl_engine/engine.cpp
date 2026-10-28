@@ -259,6 +259,10 @@ Term status_of(ProcessContext &context, Engine &engine, int result, AtomName don
         return atom(context, "verify"_atom);
     case SSL_ERROR_WANT_CLIENT_HELLO_CB: {
         const auto &name = engine.requested_server_name_;
+        if (engine.sni_ == Sni::pending) {
+            const std::array elements{atom(context, "sni"_atom), binary_of(context, *name)};
+            return tuple_of(context, elements);
+        }
         const std::array elements{atom(context, "lookup"_atom), binary_of(context, engine.requested_session_),
                                   name ? binary_of(context, *name) : atom(context, "undefined"_atom)};
         return tuple_of(context, elements);
