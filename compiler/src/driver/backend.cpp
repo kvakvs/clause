@@ -16,6 +16,7 @@
 #include "stage_times.hpp"
 #include "type_report.hpp"
 #include <algorithm>
+#include <clause/abi/builtins.hpp>
 #include <clause/compiler/source.hpp>
 
 namespace clause::cli {
@@ -83,6 +84,8 @@ Compiled compiled_of(codegen::Compilation compilation) {
     for (const auto &input : compilation.request().inputs) {
         result.inputs.push_back(input.source_path);
     }
+    // Added for the ssl runtime archive (plan 21 step LIB81B).
+    result.ssl = compilation.request().startup && compilation.request().startup->ssl;
     result.result = std::move(compilation).take_result();
     return result;
 }
@@ -124,20 +127,21 @@ bool generate(codegen::Compilation &compilation, Analysis &analysis, const Front
     return emit(compilation);
 }
 
-// The crypto archive's link of a batch: with --with-crypto, or when the batch compiled the library's crypto module;
-// a source tree to link is built below the build directory's caches. Added for the crypto runtime archive.
+// The crypto archive's link of a batch: with --with-crypto, or when the batch compiled the library's crypto module or
+// calls the ssl engine, whose archive needs libcrypto; a source tree to link is built below the build directory's
+// caches. Added for the crypto runtime archive.
 std::optional<linking::CryptoLink> crypto_link(const Compiled &compiled, const FrontendRequest &frontend) {
     const auto library = (linking::library_directory() / "crypto" / "crypto.erl").lexically_normal();
     const bool compiled_crypto = std::ranges::any_of(compiled.inputs, [&library](const auto &input) {
         std::error_code error;
         return std::filesystem::equivalent(input, library, error);
     });
-    if (!frontend.backend.links_crypto() && !compiled_crypto) {
+    if (!frontend.backend.links_crypto() && !compiled_crypto && !compiled.ssl) {
         return std::nullopt;
     }
     const auto cache = frontend.build_directory_ ? *frontend.build_directory_ / "cache"
                                                  : std::filesystem::temp_directory_path() / "clause-cache";
-    return linking::CryptoLink{frontend.backend.openssl, cache, frontend.backend.fips};
+    return linking::CryptoLink{frontend.backend.openssl, cache, frontend.backend.fips, compiled.ssl};
 }
 
 // Link the in-memory module and startup objects into `output`; project executables wait for the whole invocation.
@@ -181,14 +185,33 @@ bool uses_crypto(const Analysis &analysis, const FrontendRequest &frontend) {
            });
 }
 
+// Whether a live function calls a builtin of the ssl engine: calls of catalog builtins name no module, so its source
+// never joins the batch. Added for the ssl runtime archive (plan 21 step LIB81B).
+bool calls_ssl_engine(const Analysis &analysis) {
+    const auto engine_call = [](const auto &service) {
+        return service.second.builtin &&
+               abi::v1::bridge_builtins.at(*service.second.builtin).module == "clause_ssl_engine";
+    };
+    return std::ranges::any_of(analysis.modules, [&engine_call](const auto &module) {
+        return std::ranges::any_of(module->functions, [&engine_call](const semantic::Function &function) {
+            return function.live_ && std::ranges::any_of(function.services, engine_call);
+        });
+    });
+}
+
 // Select the startup module from the resolved entry, if any.
 std::optional<codegen::StartupRequest> startup_request(const Analysis &analysis, const FrontendRequest &frontend) {
     if (!analysis.entry) {
         return std::nullopt;
     }
     const auto &entry = *analysis.entry;
-    return codegen::StartupRequest{entry.module,  utf8(entry.function.name),       entry.function.arity,
-                                   entry.escript, uses_crypto(analysis, frontend), frontend.backend.fips.has_value()};
+    return codegen::StartupRequest{entry.module,
+                                   utf8(entry.function.name),
+                                   entry.function.arity,
+                                   entry.escript,
+                                   uses_crypto(analysis, frontend),
+                                   frontend.backend.fips.has_value(),
+                                   calls_ssl_engine(analysis)};
 }
 
 // The batch a compile time belongs to: its module count, and its project target when there is one.

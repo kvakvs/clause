@@ -111,6 +111,10 @@ Linking libcrypto with its providers increases executable size by approximately 
   not resolve or load OpenSSL.
 - **Link and build metadata:** `clause_runtime_crypto.link`, stored beside the archive, lists
   libcrypto on its first line and the required system libraries on subsequent lines.
+- **The ssl archive:** programs that call the [ssl engine](ssl.md#engine) also link
+  `clause_runtime_ssl` and libssl from the same OpenSSL, before the crypto archive and libcrypto.
+  `clause_runtime_ssl.link` names libssl, and `--with-crypto=PATH` selects libssl beside the
+  selected libcrypto.
   `clause_runtime_crypto.openssl` records the source build recipe: version, minimum version,
   target, options, compiler, and Perl and NASM directories.
 - **Alternative OpenSSL selection:** `--with-crypto=PATH` takes precedence over the

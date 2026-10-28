@@ -1491,6 +1491,18 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_crypto", "srp_value_B", 5},
     BuiltinName{"clause_crypto", "srp_user_secret", 7},
     BuiltinName{"clause_crypto", "srp_host_secret", 5},
+    // The ssl engine over libssl (plan 21 step LIB81B; runtime/src/builtins/ssl_engine/): registered only by programs
+    // that link the ssl runtime archive.
+    BuiltinName{"clause_ssl_engine", "context", 2},
+    BuiltinName{"clause_ssl_engine", "connection", 2},
+    BuiltinName{"clause_ssl_engine", "handshake", 2},
+    BuiltinName{"clause_ssl_engine", "verify", 2},
+    BuiltinName{"clause_ssl_engine", "read", 2},
+    BuiltinName{"clause_ssl_engine", "write", 2},
+    BuiltinName{"clause_ssl_engine", "shutdown", 1},
+    BuiltinName{"clause_ssl_engine", "key_update", 2},
+    BuiltinName{"clause_ssl_engine", "info", 1},
+    BuiltinName{"clause_ssl_engine", "peer_chain", 1},
     // clause_compile, the source quotes of compile's messages (plan 21 LIB77E1;
     // runtime/src/builtins/compile_messages.cpp).
     BuiltinName{"clause_compile", "quote_source", 3},

@@ -520,6 +520,13 @@ recorded elsewhere.
   public_key.app). Inventory stubs need bare `_` heads. OTP quirks kept: clear_pem_cache sets the caller's
   `ssl_pem_cache` dict key; protocol_version=[sslv2] stores defaults then function_clause; str_to_suite parses
   without the table (list_to_existing_atom). Host OTP lacks legacy provider: fixtures drop RC4/DES suites.
+- LIB81B ssl engine (2026-10-28): calls of catalog builtins (clause_ssl_engine:*) name no module, so its .erl never
+  joins the batch: link decisions read semantic services (backend calls_ssl_engine -> Compiled::ssl, cached part
+  "ssl"). OpenSSL headers pull windows.h: `small` and `max` are macros (use is_integer/integer_value, no std::max).
+  SSL_get_error depends on the last libssl call: compute a status before any follow-up call. A received KeyUpdate
+  request is only queued (key_update=NOT_REQUESTED, not in init): SSL_key_update(NOT_REQUESTED)+do_handshake sends
+  the answer. SSL_set_retry_verify pauses servers only from libssl 4.1 (3.1.2 fails with -1); the callback must
+  return 1 after it. linking_crypto_minimum runs the ssl_engine golden on 3.1.2 (deferred server verification).
 - LIB77A transform host (2026-10-27): host = loader linked by `clau --shell --entry
   clause_transform_loader:main/1`, ~40-60 s Debug build, cached in %LOCALAPPDATA%/clause/transform-host
   (delete it to force a rebuild). The clau target must not link clause_llvm_sdk (its interface flags

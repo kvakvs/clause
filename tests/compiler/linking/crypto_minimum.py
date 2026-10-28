@@ -1,5 +1,7 @@
 """The oldest OpenSSL the crypto runtime links with (plan 21 step LIB79F): the crypto goldens, linked with a libcrypto
-that clau builds once from the OpenSSL 3.1.2 source (--with-crypto=SOURCE), print exactly what their goldens hold."""
+that clau builds once from the OpenSSL 3.1.2 source (--with-crypto=SOURCE), print exactly what their goldens hold. So
+does the ssl engine's (plan 21 step LIB81B) with that release's libssl, whose servers verify client certificates
+after the handshake instead of pausing it."""
 import json
 from pathlib import Path
 import shutil
@@ -12,7 +14,7 @@ shutil.rmtree(work, ignore_errors=True)
 work.mkdir(parents=True)
 cases = Path(root) / "tests" / "fixtures" / "executables"
 
-for case in ["crypto_digests", "crypto_ciphers"]:
+for case in ["crypto_digests", "crypto_ciphers", "ssl_engine"]:
     golden = json.loads((cases / case / "golden.json").read_text(encoding="utf-8"))
     build = [tool, str(cases / case / f"{case}.erl"), f"--with-crypto={source}", "--build-dir", str(work / "build"),
              "-o", case]

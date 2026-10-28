@@ -52,6 +52,9 @@ const void *CLAUSE_crypto_extension_v1() noexcept;
 // The crypto archive's entry for programs built with clau --fips (plan 21 step LIB79F): the same builtins, after a
 // start hook loads the FIPS provider beside the executable and keeps FIPS mode on.
 const void *CLAUSE_crypto_fips_extension_v1() noexcept;
+// The extension entry of the ssl runtime archive (clause_runtime_ssl, plan 21 step LIB81B): the clause_ssl_engine
+// builtins over libssl. Defined only in that archive, which needs the crypto archive's libcrypto.
+const void *CLAUSE_ssl_extension_v1() noexcept;
 
 // Stop the program through erlang:halt/0,1: records the halt (or badarg) in the checked channel and never succeeds.
 std::uint8_t CLAUSE_halt_v1(void *context, clause::abi::v1::TermWord status) noexcept;

@@ -972,6 +972,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB81A** ssl application and utility functions (PARTIAL; libssl hybrid design decided): suite table and lists,
   name walks as `ssl` builtins, crypto-filtered algorithms/curves/groups/versions, `format_error/1`, `ssl_sup` with
   `ssl_pem_cache`; clau adds library start modules and dependency resources; `ssl_suites` golden identical to OTP — `e16028cf`
+- **LIB81B** ssl engine over libssl: `clause_runtime_ssl` archive (`clause_ssl_engine` context/connection/handshake/
+  verify/read/write/shutdown/key_update/info/peer_chain over memory BIOs, verify pause for public_key, servers on
+  libssl < 4.1 verify after the handshake); linked when a live function calls it; `ssl_engine` golden (authored) also
+  on OpenSSL 3.1.2 — `HASH`
 - **LIB77A** transform host: the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
   library identity into the user cache (lock file, older hosts pruned); library-only transform chains run there, also
   under `--erl none`; replies equal OTP's (ms_headers, qlc_queries `.abstr`); library `compile` without compiling

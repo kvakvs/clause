@@ -105,11 +105,12 @@ void check_calls() {
 // A builtin body that is never called.
 Word unused(ProcessContext &, std::span<const Word>) { return 0; }
 
-// The runtime extensions of this build (the crypto archive's), which programs linking them register after the
-// production builtins.
+// The runtime extensions of this build (the crypto and ssl archives'), which programs linking them register after
+// the production builtins.
 std::vector<const RuntimeExtension *> extensions() {
 #ifdef CLAUSE_TEST_CRYPTO
-    return {static_cast<const RuntimeExtension *>(CLAUSE_crypto_extension_v1())};
+    return {static_cast<const RuntimeExtension *>(CLAUSE_crypto_extension_v1()),
+            static_cast<const RuntimeExtension *>(CLAUSE_ssl_extension_v1())};
 #else
     return {};
 #endif
@@ -117,7 +118,7 @@ std::vector<const RuntimeExtension *> extensions() {
 
 // Whether the bridge catalog entry belongs to an extension this build lacks.
 bool absent_extension(const clause::abi::v1::BuiltinName &name) {
-    return extensions().empty() && name.module == "clause_crypto";
+    return extensions().empty() && (name.module == "clause_crypto" || name.module == "clause_ssl_engine");
 }
 
 // Production registration with the extensions covers the bridge catalog by index; duplicates and invalid entries roll

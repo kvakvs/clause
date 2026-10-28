@@ -1,8 +1,9 @@
 # ssl
 
 Clause's `ssl` application (plan 21, LIB81) exports the OTP 29 interface of the `ssl` module. The
-utility functions are implemented (LIB81A). The connection functions raise
-`{not_implemented, Name, Arity}` until LIB81C, and `ssl_crl_cache` arrives in LIB81D. See the
+utility functions are implemented (LIB81A), and so is the libssl [engine](#engine) that connections
+will run on (LIB81B). The connection functions raise `{not_implemented, Name, Arity}` until LIB81C,
+and `ssl_crl_cache` arrives in LIB81D. See the
 [function inventory](../../library/ssl/ssl.terms) and
 [differences](../differences.md#ssl).
 
@@ -17,6 +18,18 @@ the handshake over memory buffers. The process moves bytes between libssl and th
 pauses the handshake in its verify callback, and the process runs
 `public_key:pkix_path_validation/3` with the `verify_fun`, `partial_chain` and CRL options. TLS 1.2
 and 1.3 come first; TLS 1.0, 1.1 and DTLS are optional (LIB81E).
+
+## Engine
+
+`clause_ssl_engine` runs the TLS side of one connection over libssl (LIB81B,
+[builtins](../builtins.md#ssl-engine)). Its builtins live in a separate `clause_runtime_ssl`
+archive, linked with libssl of the OpenSSL the [crypto](crypto.md#linking-programs) archive uses.
+Only programs that call the engine link it. A context holds the options `ssl.erl` validated, and an
+engine holds one connection over memory buffers. Each handshake, read, write, shutdown or key update
+step returns the bytes to send. When it pauses for verification, the peer's chain is available, and
+Erlang answers with `ok` or the alert to send. libssl 4.1 and later pause on both sides. A server
+linked with an older libssl verifies the client's chain after its handshake is done, and a
+rejection then closes the connection without sending the alert.
 
 ## Application
 

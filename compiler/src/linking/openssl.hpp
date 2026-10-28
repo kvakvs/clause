@@ -32,6 +32,9 @@ OpensslKind openssl_kind(const std::filesystem::path &root);
 void check_openssl_version(const std::filesystem::path &root, OpensslKind kind, const std::string &minimum);
 // libcrypto of an install prefix, its static archive first; throws std::runtime_error when there is none.
 std::filesystem::path libcrypto_of(const std::filesystem::path &prefix);
+// libssl beside an install prefix's libcrypto; throws std::runtime_error when there is none. Added for the ssl
+// runtime archive (plan 21 step LIB81B).
+std::filesystem::path libssl_of(const std::filesystem::path &prefix);
 // The system libraries a source build recorded beside its libcrypto (ex_libs.txt); none for other prefixes.
 std::optional<std::vector<std::string>> system_libraries(const std::filesystem::path &prefix);
 // The install prefix of `source` built with `recipe`, building it under `cache` on first use.

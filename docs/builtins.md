@@ -1037,6 +1037,39 @@ table and `ssl_cipher_format`'s name walks, as catalog builtins of `ssl` itself.
 - `str_to_suite(Name)` (`suite_parse.cpp`) parses RFC and OpenSSL names as `ssl_cipher_format` does and makes the
   map of any parts whose atoms exist (the table's parts always do); `{error, {not_recognized, Name}}` otherwise.
 
+## Ssl engine
+
+`builtins/ssl_engine/` in the separate `clause_runtime_ssl` archive, `library/ssl/clause_ssl_engine.erl` (plan 21
+step LIB81B, [ssl](libraries/ssl.md#engine)): one TLS connection over OpenSSL's libssl and memory buffers. Each step
+takes the bytes received from the transport and returns the bytes to send to it, so the connection process does
+all the I/O.
+
+- Links libssl of the same OpenSSL as the [crypto archive](#crypto-module), which it needs. Calls of catalog
+  builtins name no module, so `clau` links the archive when a live function of the batch calls a
+  `clause_ssl_engine` builtin. The startup descriptor then lists `CLAUSE_ssl_extension_v1` after the crypto entry.
+- `context(client | server, Options)` (`context.cpp`) gives `{ok, Context}`, or `{error, {Key, Text}}` for an
+  option libssl refuses. It reads the options `ssl.erl` has validated: `versions`, `ciphers` (suite codes, which
+  libssl maps to its TLS 1.3 and 1.2 names), `honor_cipher_order`, `groups`, `signature_algs` (OTP's scheme atoms
+  and `{Hash, Sign}` tuples), `certs` (`[{[CertDER], {KeyType, KeyDER}}]`), `verify`, `fail_if_no_peer_cert`,
+  `client_cas` and `alpn`. It drops names the linked libssl does not know and repeats, one at a time. It sets
+  OTP's defaults where libssl's differ: no session tickets, security level 0, and chains as given.
+- `connection(Context, #{server_name => Name})` (`connection.cpp`) makes an engine. `handshake(Engine, Received)`
+  gives `{done | want_read | verify | Failure, Output}`. `read/2` gives `{ok | closed | Failure, Data, Output}`
+  with all the plaintext that is available, and answers a requested key update at once. `write(Engine, IoData)`,
+  `shutdown/1` (close_notify) and `key_update(Engine, write | read_write)` give `{ok | Failure, Output}`. A
+  failure is `{alert, sent | received, Level, Description}`, else `{error, Text}`.
+- Verification (`engine.cpp`): with `verify => verify_peer`, libssl's chain callback keeps the peer's chain
+  (`peer_chain/1`) and pauses the handshake (`verify`). Erlang validates the chain and answers with
+  `verify(Engine, ok | AlertDescription)`. On rejection, libssl sends that alert, through an X509 error that
+  `ssl_x509err2alert` maps back to it. Descriptions outside libssl's table become `certificate_unknown`. Servers
+  linked with a libssl older than 4.1 cannot pause: they accept in the callback, and the handshake answers
+  `verify` once libssl is done. A rejection then ends the connection without an alert.
+- `info(Engine)` (`info.cpp`) gives `protocol`, `cipher_suite` (its code), `alpn`, `server_name`, `group`,
+  `session_id`, `resumed`, `client_random` and `server_random`.
+- An engine is a handle reference owning the `SSL` behind a lock. It keeps its context alive for libssl's
+  callbacks: ALPN selection picks the server's first preference the client offers, else
+  `no_application_protocol`.
+
 ## Crypto module
 
 `builtins/crypto/` in the separate `clause_runtime_crypto` archive,

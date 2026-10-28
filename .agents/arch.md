@@ -359,6 +359,11 @@ directories only. Tests prefer real CLI/project sources with owned OTP-generated
   `suites.inc`) and `ssl_cipher_format`'s name walks are core-runtime builtins of `ssl` itself
   (`builtins/ssl/`); `clause_ssl_algorithms` filters OTP's lists by `crypto:supports/1` and reads
   the version environment; `clause_ssl_app` starts `ssl_sup` with `clause_ssl_pem_cache`.
+- LIB81B engine: `clause_runtime_ssl` archive (`builtins/ssl_engine/`, libssl of crypto's OpenSSL) with
+  `clause_ssl_engine` builtins: context (validated options -> SSL_CTX), connection over memory BIOs, steps
+  returning {Status, Output}; verify callback keeps the chain and pauses (SSL_set_retry_verify; servers only
+  on libssl >= 4.1, older ones defer to after the handshake). Catalog builtin calls name no module, so clau
+  links it when a live function calls one (`calls_ssl_engine`, `Compiled::ssl`, kept by the compile cache).
 - Frontend: a library module whose application resource names `{mod, {M, _}}` brings M into the
   batch (`library_start_module`); `clause_applications` also holds the library resources of the
   included resources' `applications` (ssl's public_key, asn1, crypto).

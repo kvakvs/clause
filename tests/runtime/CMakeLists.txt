@@ -150,9 +150,9 @@ foreach(suite IN ITEMS builtins builtin_bridge)
     target_link_libraries(runtime_${suite} PRIVATE Clause::generated_program)
     add_test(NAME runtime_${suite} COMMAND runtime_${suite})
 endforeach()
-# The registry covers the bridge catalog only with the crypto extension's builtins (plan 21 step LIB79).
+# The registry covers the bridge catalog only with the crypto and ssl extensions' builtins (plan 21 LIB79, LIB81B).
 if(TARGET clause_runtime_crypto)
-    target_link_libraries(runtime_builtins PRIVATE clause_runtime_crypto)
+    target_link_libraries(runtime_builtins PRIVATE clause_runtime_ssl clause_runtime_crypto)
     target_compile_definitions(runtime_builtins PRIVATE CLAUSE_TEST_CRYPTO)
 endif()
 # Typed builtin adapters: conversion failures, foreign and expired words, throwing bodies.

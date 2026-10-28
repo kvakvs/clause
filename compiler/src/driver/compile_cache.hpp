@@ -14,6 +14,9 @@ struct Compiled {
     std::string object_extension;
     // The batch's source paths, protected from being replaced by outputs.
     std::vector<std::filesystem::path> inputs;
+    // The program calls the ssl engine, so it links the ssl runtime archive. Added for the ssl runtime archive (plan
+    // 21 step LIB81B).
+    bool ssl = false;
 };
 
 // A batch outcome as the cache keeps it: failure, the diagnostics in order, and the outputs when kept.

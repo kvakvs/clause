@@ -277,6 +277,31 @@ function(clause_openssl_library prefix output)
     message(FATAL_ERROR "No libcrypto under ${prefix}/lib")
 endfunction()
 
+# libssl beside an install prefix's libcrypto, by the same naming. Added for the ssl runtime archive (plan 21 LIB81B).
+function(clause_openssl_ssl_library prefix output)
+    clause_openssl_library("${prefix}" crypto)
+    get_filename_component(directory "${crypto}" DIRECTORY)
+    get_filename_component(name "${crypto}" NAME)
+    string(REPLACE "crypto" "ssl" name "${name}")
+    if(NOT EXISTS "${directory}/${name}")
+        message(FATAL_ERROR "No ${name} beside ${crypto}")
+    endif()
+    set(${output} "${directory}/${name}" PARENT_SCOPE)
+endfunction()
+
+# Give `target` OpenSSL's libssl, after `crypto_target` resolved OpenSSL with clause_add_openssl; the target records
+# libssl of each configuration for its .link file. Added for the ssl runtime archive (plan 21 step LIB81B).
+function(clause_add_libssl target crypto_target)
+    get_target_property(prefixes ${crypto_target} CLAUSE_OPENSSL_PREFIXES)
+    list(GET prefixes 0 release)
+    list(GET prefixes -1 debug)
+    clause_openssl_ssl_library("${release}" release_library)
+    clause_openssl_ssl_library("${debug}" debug_library)
+    target_link_libraries(${target} PUBLIC "$<IF:$<CONFIG:Debug>,${debug_library},${release_library}>")
+    set_target_properties(${target} PROPERTIES CLAUSE_OPENSSL_RELEASE "${release_library}"
+        CLAUSE_OPENSSL_DEBUG "${debug_library}")
+endfunction()
+
 # The system libraries a static libcrypto needs: recorded by a source build, else the Libs.private of the
 # libcrypto.pc beside an installed one (Ubuntu's names -lz and -lzstd), else the platform's usual set.
 function(clause_openssl_system_libraries prefix library output)
@@ -364,7 +389,7 @@ function(clause_add_openssl target)
     target_link_libraries(${target} PUBLIC "${library}" ${system_libraries})
     # clause_runtime_crypto.link: libcrypto of the configuration, then the system libraries.
     set_target_properties(${target} PROPERTIES CLAUSE_OPENSSL_RELEASE "${release_library}"
-        CLAUSE_OPENSSL_DEBUG "${debug_library}")
+        CLAUSE_OPENSSL_DEBUG "${debug_library}" CLAUSE_OPENSSL_PREFIXES "${prefixes}")
     set_property(TARGET ${target} APPEND PROPERTY CLAUSE_LINK_ARGUMENTS ${system_libraries})
     # The recipe clau repeats for --with-crypto=SOURCE: one key=value per line, values space-separated.
     clause_openssl_target(configure_target configure_arguments)

@@ -79,6 +79,7 @@ struct Reading {
     CompileOutcome outcome;
     std::optional<std::string> triple;
     std::optional<std::string> extension;
+    bool ssl = false;
     codegen::CompilationResult result;
 };
 
@@ -92,6 +93,8 @@ bool read_part(const cache::Part &part, Reading &reading) {
         reading.triple = part.bytes_;
     } else if (part.name_ == "extension") {
         reading.extension = part.bytes_;
+    } else if (part.name_ == "ssl") {
+        reading.ssl = part.bytes_ == "1";
     } else {
         auto output = read_output(part);
         return output && reading.result.add_output(std::move(*output));
@@ -111,7 +114,7 @@ std::optional<CompileOutcome> decode(const cache::Value &value, std::span<const 
         reading.result.complete();
         reading.outcome.compiled =
             Compiled{std::move(reading.result), std::move(*reading.triple), std::move(*reading.extension),
-                     std::vector<std::filesystem::path>(inputs.begin(), inputs.end())};
+                     std::vector<std::filesystem::path>(inputs.begin(), inputs.end()), reading.ssl};
     }
     return std::move(reading.outcome);
 }
@@ -157,6 +160,7 @@ void save_outcome(const CompileCache &cache, const CompileOutcome &outcome) {
     if (cache.outputs_ && outcome.compiled) {
         value.parts_.push_back({"triple", outcome.compiled->triple});
         value.parts_.push_back({"extension", outcome.compiled->object_extension});
+        value.parts_.push_back({"ssl", outcome.compiled->ssl ? "1" : "0"});
         for (const auto &output : outcome.compiled->result.outputs()) {
             const auto *data = reinterpret_cast<const char *>(output.bytes.data());
             value.parts_.push_back({output_name(output), std::string(data, output.bytes.size())});

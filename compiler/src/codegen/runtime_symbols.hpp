@@ -76,6 +76,8 @@ using Main = Function<"CLAUSE_main_v1", Int32, Int32, Pointer<Pointer<Char>>, De
 using CryptoExtension = Function<"CLAUSE_crypto_extension_v1", Descriptor>;
 // Its entry for programs pinned to FIPS (--fips). Added for crypto's FIPS mode (plan 21 step LIB79F).
 using CryptoFipsExtension = Function<"CLAUSE_crypto_fips_extension_v1", Descriptor>;
+// The ssl runtime archive's extension entry. Added for the ssl runtime archive (plan 21 step LIB81B).
+using SslExtension = Function<"CLAUSE_ssl_extension_v1", Descriptor>;
 
 // Mangling family and pointer width of the emitted target, independent of the compiler host.
 inline mangling::Target target(const llvm::Triple &triple) {

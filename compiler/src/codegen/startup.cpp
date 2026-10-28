@@ -5,6 +5,9 @@
 #include <clause/abi/startup.hpp>
 #include <clause/compiler/source.hpp>
 #include <llvm/IR/IRBuilder.h>
+#include <span>
+#include <string_view>
+#include <vector>
 
 namespace clause::codegen {
 namespace {
@@ -29,19 +32,32 @@ llvm::Constant *descriptors(llvm::Module &output, const std::span<const std::uni
                                     "startup.modules");
 }
 
-// Array of the extension entries the program links (the crypto archive's), or null without any. Added for the
-// crypto runtime archive.
-llvm::Constant *extensions(llvm::Module &output, const StartupRequest &request) {
+// The symbols of the extension entries the program links: the crypto archive's, then the ssl archive's (added for
+// the ssl runtime archive, plan 21 step LIB81B).
+std::vector<std::string_view> extension_symbols(const llvm::Triple &triple, const StartupRequest &request) {
+    std::vector<std::string_view> symbols;
+    if (request.crypto) {
+        symbols.push_back(request.crypto_fips ? services::symbol<services::CryptoFipsExtension>(triple)
+                                              : services::symbol<services::CryptoExtension>(triple));
+    }
+    if (request.ssl) {
+        symbols.push_back(services::symbol<services::SslExtension>(triple));
+    }
+    return symbols;
+}
+
+// Array of the extension entries the program links, or null without any. Added for the crypto runtime archive.
+llvm::Constant *extensions(llvm::Module &output, const std::span<const std::string_view> symbols) {
     auto *ptr = llvm::PointerType::get(output.getContext(), 0);
-    if (!request.crypto) {
+    if (symbols.empty()) {
         return llvm::ConstantPointerNull::get(ptr);
     }
-    const auto &triple = output.getTargetTriple();
-    const auto name = request.crypto_fips ? services::symbol<services::CryptoFipsExtension>(triple)
-                                          : services::symbol<services::CryptoExtension>(triple);
-    auto entry = output.getOrInsertFunction(name, llvm::FunctionType::get(ptr, false));
-    auto *array =
-        llvm::ConstantArray::get(llvm::ArrayType::get(ptr, 1), {llvm::cast<llvm::Constant>(entry.getCallee())});
+    std::vector<llvm::Constant *> entries;
+    for (const auto &symbol : symbols) {
+        auto entry = output.getOrInsertFunction(symbol, llvm::FunctionType::get(ptr, false));
+        entries.push_back(llvm::cast<llvm::Constant>(entry.getCallee()));
+    }
+    auto *array = llvm::ConstantArray::get(llvm::ArrayType::get(ptr, entries.size()), entries);
     return new llvm::GlobalVariable(output, array->getType(), true, llvm::GlobalValue::PrivateLinkage, array,
                                     "startup.extensions");
 }
@@ -55,6 +71,7 @@ llvm::GlobalVariable *descriptor(llvm::Module &output, const std::span<const std
     auto *i32 = builder.getInt32Ty();
     auto *type = llvm::StructType::get(i32, i32, ptr, word, ptr, word, ptr, word, i32, ptr, word);
     const auto module = utf8(modules[request.module]->name);
+    const auto symbols = extension_symbols(output.getTargetTriple(), request);
     const auto size = [word](const std::size_t value) { return llvm::ConstantInt::get(word, value); };
     auto *data = llvm::ConstantStruct::get(
         type, {builder.getInt32(abi::v1::version), builder.getInt32(word->getBitWidth()), descriptors(output, modules),
@@ -62,7 +79,7 @@ llvm::GlobalVariable *descriptor(llvm::Module &output, const std::span<const std
                spelling(output, request.function, "startup.function"), size(request.function.size()),
                builder.getInt32((request.escript ? abi::v1::startup_escript : 0U) |
                                 (request.arity == 0 ? abi::v1::startup_no_arguments : 0U)),
-               extensions(output, request), size(request.crypto ? 1 : 0)});
+               extensions(output, symbols), size(symbols.size())});
     return new llvm::GlobalVariable(output, type, true, llvm::GlobalValue::PrivateLinkage, data, "startup.descriptor");
 }
 

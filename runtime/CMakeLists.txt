@@ -270,6 +270,25 @@ if(CLAUSE_RUNTIME_CRYPTO)
         CONTENT "$<IF:$<CONFIG:Debug>,$<TARGET_PROPERTY:clause_runtime_crypto,CLAUSE_OPENSSL_DEBUG>,$<TARGET_PROPERTY:clause_runtime_crypto,CLAUSE_OPENSSL_RELEASE>>\n$<JOIN:$<TARGET_PROPERTY:clause_runtime_crypto,CLAUSE_LINK_ARGUMENTS>,\n>\n")
     file(GENERATE OUTPUT "$<TARGET_FILE_DIR:clause_runtime_crypto>/$<TARGET_FILE_PREFIX:clause_runtime_crypto>clause_runtime_crypto.openssl"
         CONTENT "$<JOIN:$<TARGET_PROPERTY:clause_runtime_crypto,CLAUSE_OPENSSL_CONFIGURATION>,\n>\n")
+
+    # The ssl runtime archive (plan 21 step LIB81B): the clause_ssl_engine builtins over libssl of the same OpenSSL.
+    # clau links it, before the crypto archive, into programs whose batch has the library clause_ssl_engine module;
+    # clause_runtime_ssl.link names libssl, which goes before libcrypto.
+    add_library(clause_runtime_ssl STATIC src/builtins/ssl_engine/extension.cpp src/builtins/ssl_engine/engine.cpp
+        src/builtins/ssl_engine/context.cpp src/builtins/ssl_engine/connection.cpp src/builtins/ssl_engine/info.cpp)
+    set_target_properties(clause_runtime_ssl PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+        EXPORT_NAME ssl)
+    clause_project_options(clause_runtime_ssl)
+    if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        target_compile_options(clause_runtime_ssl PRIVATE /Gy /Gw)
+    else()
+        target_compile_options(clause_runtime_ssl PRIVATE -ffunction-sections -fdata-sections)
+    endif()
+    target_include_directories(clause_runtime_ssl PRIVATE src)
+    target_link_libraries(clause_runtime_ssl PUBLIC clause_runtime_crypto)
+    clause_add_libssl(clause_runtime_ssl clause_runtime_crypto)
+    file(GENERATE OUTPUT "$<TARGET_FILE_DIR:clause_runtime_ssl>/$<TARGET_FILE_PREFIX:clause_runtime_ssl>clause_runtime_ssl.link"
+        CONTENT "$<IF:$<CONFIG:Debug>,$<TARGET_PROPERTY:clause_runtime_ssl,CLAUSE_OPENSSL_DEBUG>,$<TARGET_PROPERTY:clause_runtime_ssl,CLAUSE_OPENSSL_RELEASE>>\n")
 endif()
 
 # Every generated-program consumer links one matching target runtime through this boundary.

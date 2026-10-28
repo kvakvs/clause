@@ -130,7 +130,7 @@ std::vector<std::string> link_arguments(const LinkRequest &request, const std::f
     // The crypto archive calls into the runtime and libcrypto, so it goes before both (ELF archives resolve in order).
     auto crypto = request.crypto ? std::optional(crypto_link_inputs(runtime, *request.crypto)) : std::nullopt;
     if (crypto) {
-        arguments.push_back(crypto->archive);
+        std::ranges::move(crypto->archives, std::back_inserter(arguments));
     }
     arguments.push_back(utf8_path(runtime));
     std::ranges::move(runtime_link_inputs(runtime), std::back_inserter(arguments));
@@ -185,13 +185,13 @@ LinkTools resolve_link_tools(const LinkRequest &request) {
 
 namespace {
 // Gather a Darwin executable's DWARF into a dSYM bundle while the staged objects it names still exist (clang -g
-// links keep it there). Added for macOS debugging.
+// links keep it there); `output` names the executable in failures. Added for macOS debugging.
 std::filesystem::path gather_dsym(const std::string &linker, const std::filesystem::path &staged,
-                                  const std::filesystem::path &output) {
+                                  const std::string &output) {
     const auto tool =
         llvm::sys::findProgramByName("dsymutil", {utf8_path(std::filesystem::path(linker).parent_path())});
     if (!tool) {
-        throw std::runtime_error("linking " + project::path_text(output) + " with -g needs dsymutil on PATH");
+        throw std::runtime_error("linking " + output + " with -g needs dsymutil on PATH");
     }
     auto bundle = staged;
     bundle += ".dSYM";
@@ -199,7 +199,7 @@ std::filesystem::path gather_dsym(const std::string &linker, const std::filesyst
     const auto run = run_linker(*tool, arguments, staged.parent_path() / "dsymutil.log");
     std::error_code error;
     if (run.status != 0 || !std::filesystem::is_directory(bundle, error)) {
-        throw std::runtime_error("dsymutil failed for " + project::path_text(output) + ":\n" + run.output);
+        throw std::runtime_error("dsymutil failed for " + output + ":\n" + run.output);
     }
     return bundle;
 }
@@ -210,7 +210,7 @@ std::filesystem::path staged_symbols(const LinkRequest &request, const std::stri
                                      const std::filesystem::path &staged, const std::filesystem::path &output) {
     const llvm::Triple triple(request.target_triple);
     if (request.debug_info && triple.isOSDarwin()) {
-        return gather_dsym(linker, staged, output);
+        return gather_dsym(linker, staged, project::path_text(output));
     }
     if (!request.debug_info || !triple.isWindowsMSVCEnvironment()) {
         return {};

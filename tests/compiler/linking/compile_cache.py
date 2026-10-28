@@ -53,7 +53,7 @@ print("compile_cache: warm program builds reuse the batch and match their golden
 # A batch with a warning: the warm build reports it again.
 project = work / "edits"
 (project / "src").mkdir(parents=True)
-for name in ("main.erl", "worker.erl", "service.erl", "callbacks.erl", "hidden.erl"):
+for name in ("main.erl", "worker.erl", "service.erl", "callbacks.erl", "hidden.erl", "strict.erl"):
     shutil.copy(source / "tests/fixtures/linking/exports" / name, project / "src" / name)
 (project / "src/lazy.erl").write_bytes(b"-module(lazy).\n-behaviour(service).\n-export([other/0]).\nother() -> ok.\n")
 (project / "project.toml").write_bytes(b'schema_version = 1\n\n[[targets]]\nname = "app"\nsources = ["src/*.erl"]\n'

@@ -347,6 +347,18 @@ std::filesystem::path libcrypto_of(const std::filesystem::path &prefix) {
     throw std::runtime_error("no libcrypto under " + project::path_text(prefix / "lib"));
 }
 
+std::filesystem::path libssl_of(const std::filesystem::path &prefix) {
+    const auto crypto = libcrypto_of(prefix);
+    auto name = project::path_text(crypto.filename());
+    name.replace(name.find("crypto"), 6, "ssl");
+    auto ssl = crypto.parent_path() / project::native_path(name);
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(ssl, error)) {
+        throw std::runtime_error("no libssl beside " + project::path_text(crypto));
+    }
+    return ssl;
+}
+
 std::optional<std::vector<std::string>> system_libraries(const std::filesystem::path &prefix) {
     std::error_code error;
     if (!std::filesystem::is_regular_file(prefix / "ex_libs.txt", error)) {

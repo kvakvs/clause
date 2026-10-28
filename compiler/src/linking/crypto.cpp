@@ -12,15 +12,22 @@ namespace clause::linking {
 namespace {
 constexpr std::string_view RUNTIME_NAME = "clause_runtime";
 
-// The crypto archive beside a runtime archive: its name with clause_runtime_crypto for clause_runtime.
-std::filesystem::path crypto_archive(const std::filesystem::path &runtime) {
-    auto name = project::path_text(runtime.filename());
-    const auto at = name.rfind(RUNTIME_NAME);
+// An archive beside a runtime archive: its name with `name` for clause_runtime; throws when it was not built.
+std::filesystem::path sibling_archive(const std::filesystem::path &runtime, std::string_view name,
+                                      std::string_view option) {
+    auto file = project::path_text(runtime.filename());
+    const auto at = file.rfind(RUNTIME_NAME);
     if (at == std::string::npos) {
-        throw std::runtime_error("cannot locate the crypto runtime archive beside " + project::path_text(runtime));
+        throw std::runtime_error("cannot locate " + std::string(name) + " beside " + project::path_text(runtime));
     }
-    name.replace(at, RUNTIME_NAME.size(), "clause_runtime_crypto");
-    return runtime.parent_path() / project::native_path(name);
+    file.replace(at, RUNTIME_NAME.size(), name);
+    auto archive = runtime.parent_path() / project::native_path(file);
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(archive, error)) {
+        throw std::runtime_error(std::string(name) + " runtime archive not found: " + project::path_text(archive) +
+                                 "; build Clause with " + std::string(option) + "=ON (docs/libraries/crypto.md)");
+    }
+    return archive;
 }
 
 // The OpenSSL to link instead of the recorded one: --with-crypto=PATH, else CLAUSE_OPENSSL_ROOT.
@@ -41,13 +48,17 @@ std::string driver_library(const std::string &library) {
     return bare && library.ends_with(".lib") ? "-l" + library.substr(0, library.size() - 4) : library;
 }
 
-// libcrypto and its system libraries from an OpenSSL root: an installation, or a source tree built once.
-std::vector<std::string> root_libraries(const std::filesystem::path &root, const CryptoLink &link,
-                                        const std::filesystem::path &archive, std::span<const std::string> recorded) {
+// The install prefix of an OpenSSL root: an installation, or a source tree built once.
+std::filesystem::path openssl_prefix(const std::filesystem::path &root, const CryptoLink &link,
+                                     const std::filesystem::path &archive) {
     const auto recipe = read_recipe(archive);
     const auto kind = openssl_kind(root);
     check_openssl_version(root, kind, recipe.minimum);
-    const auto prefix = kind == OpensslKind::install ? root : built_openssl(root, recipe, link.cache);
+    return kind == OpensslKind::install ? root : built_openssl(root, recipe, link.cache);
+}
+
+// libcrypto and its system libraries of an OpenSSL prefix.
+std::vector<std::string> prefix_libraries(const std::filesystem::path &prefix, std::span<const std::string> recorded) {
     std::vector<std::string> libraries{utf8_path(libcrypto_of(prefix))};
     const auto system = system_libraries(prefix);
     if (system) {
@@ -60,16 +71,19 @@ std::vector<std::string> root_libraries(const std::filesystem::path &root, const
 } // namespace
 
 CryptoInputs crypto_link_inputs(const std::filesystem::path &runtime, const CryptoLink &link) {
-    const auto archive = crypto_archive(runtime);
-    std::error_code error;
-    if (!std::filesystem::is_regular_file(archive, error)) {
-        throw std::runtime_error("crypto runtime archive not found: " + project::path_text(archive) +
-                                 "; build Clause with CLAUSE_RUNTIME_CRYPTO=ON (docs/libraries/crypto.md)");
-    }
+    const auto archive = sibling_archive(runtime, "clause_runtime_crypto", "CLAUSE_RUNTIME_CRYPTO");
     auto recorded = runtime_link_inputs(archive);
     const auto root = openssl_root(link);
-    auto libraries = root ? root_libraries(*root, link, archive, recorded) : std::move(recorded);
-    std::ranges::transform(libraries, libraries.begin(), driver_library);
-    return {utf8_path(archive), std::move(libraries)};
+    const auto prefix = root ? std::optional(openssl_prefix(*root, link, archive)) : std::nullopt;
+    CryptoInputs inputs{{utf8_path(archive)}, prefix ? prefix_libraries(*prefix, recorded) : std::move(recorded)};
+    // Added for the ssl runtime archive (plan 21 step LIB81B): it and libssl go before their crypto counterparts.
+    if (link.ssl) {
+        const auto ssl = sibling_archive(runtime, "clause_runtime_ssl", "CLAUSE_RUNTIME_CRYPTO");
+        inputs.archives.insert(inputs.archives.begin(), utf8_path(ssl));
+        auto libssl = prefix ? utf8_path(libssl_of(*prefix)) : runtime_link_inputs(ssl).at(0);
+        inputs.libraries.insert(inputs.libraries.begin(), std::move(libssl));
+    }
+    std::ranges::transform(inputs.libraries, inputs.libraries.begin(), driver_library);
+    return inputs;
 }
 } // namespace clause::linking

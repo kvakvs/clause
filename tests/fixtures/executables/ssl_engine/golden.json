@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "entry": "ssl_engine",
+  "runs": [
+    {
+      "args": [],
+      "authored": true,
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "tls13 'tlsv1.3' suite 1302 alpn undefined group <<\"secp256r1\">> resumed false sni <<\"example.test\">>\ntls13 peer is server true\ntls13 data ok\ntls13 key update answered true\ntls13_updated data ok\ntls13 closed\ntls12 'tlsv1.2' suite C02B alpn <<\"http/1.1\">> group <<\"x25519\">> resumed false sni undefined\ntls12 data ok\ntls12 key_update refused\ntls12 closed\nrejected client {alert,sent,2,48} server {alert,received,2,48}\nmutual peer is client true\nmutual data ok\nmutual without certificate client {after_done,{alert,received,2,116}} server {alert,sent,2,116}\nno_alpn client {alert,received,2,120} server {alert,sent,2,120}\nssl_engine: ok\n"
+    }
+  ],
+  "oracle_version": null,
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "ssl_engine.erl": "f3d57a8513b0309174529268f2417aaaa1bd42a60471a9a268529c8464728455"
+  }
+}
