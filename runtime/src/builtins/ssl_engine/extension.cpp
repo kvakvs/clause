@@ -6,7 +6,7 @@
 // this archive, and startup registers the clause_ssl_engine builtins after the production ones.
 namespace clause::runtime::builtins::ssl_engine {
 namespace {
-const std::array FAMILIES{context_builtins(), connection_builtins(), info_builtins()};
+const std::array FAMILIES{context_builtins(), connection_builtins(), info_builtins(), feature_builtins()};
 
 const RuntimeExtension EXTENSION{.name = "ssl", .families = FAMILIES};
 } // namespace

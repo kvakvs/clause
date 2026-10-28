@@ -426,7 +426,12 @@ Compared with the same module compiled by `compile:forms/2` and loaded by `code:
 | The hello messages an `ssl` connection sends | OTP's: its extensions, groups and key shares | libssl's: for example a ClientHello has `renegotiation_info` and no `signature_algs_cert`, so a peer paused at the hello sees other extensions | [ssl](libraries/ssl.md#engine) |
 | Calls other than `handshake_continue` and `handshake_cancel` on a connection paused at the hello | Wait until the handshake goes on | `{error, closed}` | [ssl](libraries/ssl.md#connections) |
 | `ssl:close/1` and `close/2` with a timeout | After close_notify, shut the transport down for writing and wait up to 5 s (not the given timeout) for the peer to close | Close the transport right after close_notify | [ssl](libraries/ssl.md#connections) |
-| `ssl:close/2` downgrade after the peer's close_notify has already arrived | Hands the transport socket over | `{error, closed}`: the connection answered and closed when the close_notify arrived | [ssl](libraries/ssl.md#connections) |
+| A TLS 1.2 renegotiation the peer refuses (`no_renegotiation`) | `ssl:renegotiate/1` gives `{error, renegotiation_rejected}` and the connection goes on | The same result, but libssl then ends the connection with a `handshake_failure` alert | [ssl](libraries/ssl.md#renegotiation-key-updates-and-exporters) |
+| `ssl:update_keys/2` on a TLS 1.2 connection | The connection's sender process crashes (`function_clause`) and the caller exits | `{error, not_supported}`, the connection goes on | [ssl](libraries/ssl.md#renegotiation-key-updates-and-exporters) |
+| `ssl:export_key_materials/4,5` with a length of 0 or less | The connection hangs | A negative length is `{error, bad_input}` (TLS 1.3) or `{error, badarg}` (TLS 1.2); 0 gives libssl's exporter result | [ssl](libraries/ssl.md#renegotiation-key-updates-and-exporters) |
+| `master_secret` of `ssl:connection_information/2` on TLS 1.3 | The key schedule's master secret | Left out: libssl does not expose it | [ssl](libraries/ssl.md#secrets) |
+| Items of a `{keylog_hs, Fun}` when a TLS 1.3 client fails before the server's Finished (a rejected server certificate) | Both handshake traffic secrets | Only `SERVER_HANDSHAKE_TRAFFIC_SECRET`: libssl derives the client's own handshake secret after the server's Finished | [ssl](libraries/ssl.md#secrets) |
+| Key log lines of `keylog` and the keep_secrets funs | Deep character lists (`io_lib:format/2` results) | Flat strings with the same characters | [ssl](libraries/ssl.md#secrets) |
 
 ## Parse transforms
 

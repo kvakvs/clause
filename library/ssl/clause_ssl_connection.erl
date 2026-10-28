@@ -3,7 +3,8 @@
 %% then moves bytes between the transport and the engine. It keeps OTP's semantics for the owner: active modes and
 %% {ssl, S, Data}, {ssl_closed, S}, {ssl_error, S, Reason} and {ssl_passive, S} messages, passive recv, emulated
 %% packet framing, and closing when the owner exits. LIB81C2 adds the {handshake, hello} pause (clause_ssl_hello),
-%% shutdown/2 and close/2's downgrade to the transport socket.
+%% shutdown/2 and close/2's downgrade to the transport socket. LIB81D1 adds TLS 1.2 renegotiation, TLS 1.3 key updates,
+%% keying material exporters and the secrets of keep_secrets (clause_ssl_secrets).
 -module(clause_ssl_connection).
 -behaviour(gen_server).
 -export([start/1, start_link/1]).
@@ -13,6 +14,8 @@
 
 -define(INTERNAL_ERROR, 80).
 -define(USER_CANCELED, 90).
+%% How long a server refuses client renegotiations after one, as OTP's ssl (LIB81D1).
+-define(WAIT_TO_ALLOW_RENEGOTIATION, 12000).
 
 %% Start a connection process for #{role, socket, config, owner, context (optional)}, under tls_connection_sup when
 %% ssl is started.
@@ -30,7 +33,10 @@ start_link(Args) ->
 %% buffer (received plaintext), reader ({From, Length, Timer} of a passive recv), armed (a transport read pending),
 %% end_reason (why the peer ended) and verify_reason (the reason of a rejected peer chain). For LIB81C2: pausing (the
 %% handshake pauses at the peer's hello), held (the peer's bytes libssl has not seen yet; phase user_hello while
-%% paused) and downgrade ({NewOwner, From, Timer} of close/2's downgrade; phase downgrade).
+%% paused) and downgrade ({NewOwner, From, Timer} of close/2's downgrade; phase downgrade). For LIB81D1: keys
+%% (clause_ssl_secrets), exporter (whether the TLS 1.3 exporter secret is unconsumed), renegotiator (the caller of
+%% renegotiate/1), allow_peer (whether a server accepts a client's renegotiation now), sends (the {From, Data} of
+%% sends waiting for a handshake to end) and end_pending (a close_notify a passive connection has not acted on yet).
 init(#{role := Role, socket := Socket, config := Config, owner := Owner} = Args) ->
     #{ssl := Ssl, emulated := Emulated, cb_info := {Transport, Data, Closed, Error, _}} = Config,
     SslSocket = #sslsocket{
@@ -63,7 +69,13 @@ init(#{role := Role, socket := Socket, config := Config, owner := Owner} = Args)
         verify_reason => undefined,
         pausing => false,
         held => <<>>,
-        downgrade => undefined
+        downgrade => undefined,
+        keys => clause_ssl_secrets:new(false),
+        exporter => true,
+        renegotiator => undefined,
+        allow_peer => true,
+        sends => [],
+        end_pending => false
     }}.
 
 %%--------------------------------------------------------------------------------------------------------------------
@@ -74,8 +86,13 @@ handle_call({handshake, Timeout, Options}, From, #{phase := idle} = S) ->
     start_handshake(Timeout, Options, From, S);
 handle_call({handshake, _, _}, _From, S) ->
     {reply, {error, closed}, S};
-handle_call({send, Data}, _From, #{phase := connection} = S) ->
-    {reply, send_data(Data, S), S};
+handle_call({send, Data}, From, #{phase := connection, sends := []} = S) ->
+    case send_data(Data, S) of
+        want_read -> {noreply, S#{sends => [{From, Data}]}};
+        Reply -> {reply, Reply, S}
+    end;
+handle_call({send, Data}, From, #{phase := connection, sends := Sends} = S) ->
+    {noreply, S#{sends => Sends ++ [{From, Data}]}};
 handle_call({send, _}, _From, S) ->
     {reply, {error, closed}, S};
 handle_call({recv, _, _}, _From, #{emulated := #{active := Active}} = S) when Active =/= false ->
@@ -95,6 +112,12 @@ handle_call({shutdown, How}, _From, #{phase := connection} = S) ->
     shutdown_transport(How, S);
 handle_call({downgrade, Owner, Timeout}, From, #{phase := connection} = S) ->
     start_downgrade(Owner, Timeout, From, S);
+handle_call(renegotiate, From, #{phase := connection} = S) ->
+    start_renegotiation(From, S);
+handle_call({update_keys, Type}, _From, #{phase := connection} = S) ->
+    update_keys(Type, S);
+handle_call({export_key_materials, Labels, Contexts, Lengths, Consume}, _From, #{phase := connection} = S) ->
+    export(Labels, Contexts, Lengths, Consume, S);
 handle_call({controlling_process, Pid}, _From, #{monitor := Monitor} = S) ->
     erlang:demonitor(Monitor, [flush]),
     {reply, ok, S#{owner => Pid, monitor => erlang:monitor(process, Pid)}};
@@ -136,6 +159,9 @@ handle_info({timeout, Timer, handshake_timeout}, #{timer := Timer} = S) ->
     handshake_ended({error, timeout}, S);
 handle_info({timeout, Timer, downgrade_timeout}, #{downgrade := {_, _, Timer}} = S) ->
     downgrade_ended({error, timeout}, S);
+handle_info(allow_renegotiation, #{phase := connection, engine := Engine} = S) ->
+    ok = clause_ssl_engine:allow_renegotiation(Engine, true),
+    {noreply, S#{allow_peer => true}};
 handle_info({timeout, Timer, recv_timeout}, #{reader := {From, _, Timer}} = S) ->
     gen_server:reply(From, {error, timeout}),
     {noreply, S#{reader => undefined}};
@@ -150,22 +176,15 @@ received(Bytes, #{phase := user_hello, held := Held} = S) ->
     {noreply, S#{held => <<Held/binary, Bytes/binary>>}};
 received(Bytes, #{phase := downgrade} = S) ->
     downgrade_received(Bytes, S);
-received(Bytes, #{phase := connection, engine := Engine} = S) ->
-    {Status, Plain, Output} = clause_ssl_engine:read(Engine, Bytes),
-    transmit(Output, S),
-    S1 = S#{buffer => <<(maps:get(buffer, S))/binary, Plain/binary>>},
-    case Status of
-        ok -> deliver(S1);
-        closed -> peer_ended(closed, S1);
-        Failure -> peer_ended(failure_reason(Failure, connection, S1), S1)
-    end;
+received(Bytes, #{phase := connection} = S) ->
+    connection_read(Bytes, S);
 received(_Bytes, S) ->
     {noreply, S}.
 
 transport_ended(Reason, #{phase := handshake, engine := Engine} = S) ->
     % An alert libssl ignored, as a TLS 1.3 user_canceled, is why the peer ended.
     case clause_ssl_engine:info(Engine) of
-        #{alert := {alert, received, _, _} = Alert} -> handshake_ended({error, failure_reason(Alert, handshake, S)}, S);
+        #{alert := {alert, received, _, _} = Alert} -> handshake_failed(Alert, S);
         _ -> handshake_ended({error, Reason}, S)
     end;
 transport_ended(Reason, #{phase := connection} = S) ->
@@ -189,7 +208,8 @@ start_handshake(Timeout, Options, From, #{config := Config0, role := Role} = S) 
                 {ok, Engine} ->
                     #{ssl := Ssl} = Config,
                     Pausing = maps:get(handshake, Ssl) == hello,
-                    S1 = S#{config => Config, ssl => Ssl, engine => Engine, pausing => Pausing},
+                    Keys = clause_ssl_secrets:new(maps:get(keep_secrets, Ssl)),
+                    S1 = S#{config => Config, ssl => Ssl, engine => Engine, pausing => Pausing, keys => Keys},
                     Timer = start_timer(Timeout, handshake_timeout),
                     step(<<>>, S1#{phase => handshake, waiter => From, timer => Timer});
                 Error ->
@@ -222,46 +242,41 @@ connection_options(client, #{server_name_indication := [_ | _] = Name}) -> #{ser
 connection_options(_, _) -> #{}.
 
 % One handshake step with the bytes received.
-step(Received, #{engine := Engine} = S) ->
-    case clause_ssl_engine:handshake(Engine, Received) of
-        {want_read, Output} ->
-            transmit(Output, S),
-            {noreply, arm(S)};
-        {done, Output} ->
-            transmit(Output, S),
-            handshake_done(S);
-        {verify, Output} ->
-            transmit(Output, S),
-            verify(S);
-        {Failure, Output} ->
-            transmit(Output, S),
-            handshake_ended({error, failure_reason(Failure, handshake, S)}, S)
+step(Received, #{engine := Engine} = S0) ->
+    {Status, Output} = clause_ssl_engine:handshake(Engine, Received),
+    transmit(Output, S0),
+    S = take_events(S0),
+    case Status of
+        want_read -> {noreply, arm(S)};
+        done -> handshake_done(S);
+        verify -> step(<<>>, verdict(S));
+        Failure -> handshake_failed(Failure, S)
     end.
 
 % The peer's chain checked as OTP's ssl checks it; the engine sends the alert of a rejection.
-verify(#{engine := Engine, ssl := Ssl, role := Role} = S) ->
+verdict(#{engine := Engine, ssl := Ssl, role := Role} = S) ->
     case clause_ssl_certificate:verify(clause_ssl_engine:peer_chain(Engine), Ssl, Role) of
         ok ->
             ok = clause_ssl_engine:verify(Engine, ok),
-            step(<<>>, S);
+            S;
         {alert, Code, Reason} ->
             ok = clause_ssl_engine:verify(Engine, Code),
-            step(<<>>, S#{verify_reason => {Code, Reason}})
+            S#{verify_reason => {Code, Reason}}
     end.
 
-handshake_done(#{waiter := From, timer := Timer, sslsocket := SslSocket, engine := Engine} = S) ->
+% A failed handshake; a fatal alert gives a {keylog_hs, Fun} the secrets so far (LIB81D1).
+handshake_failed(Failure, #{engine := Engine, role := Role, keys := Keys} = S) ->
+    case Failure of
+        {alert, _, 2, _} -> clause_ssl_secrets:handshake_failed(Engine, Role, Keys);
+        _ -> ok
+    end,
+    handshake_ended({error, failure_reason(Failure, handshake, S)}, S).
+
+handshake_done(#{waiter := From, timer := Timer, sslsocket := SslSocket} = S) ->
     cancel(Timer),
     gen_server:reply(From, {ok, SslSocket}),
-    S1 = S#{phase => connection, waiter => undefined, timer => undefined},
     % Application data that came with the handshake's last flight.
-    {Status, Plain, Output} = clause_ssl_engine:read(Engine, <<>>),
-    transmit(Output, S1),
-    S2 = S1#{buffer => Plain},
-    case Status of
-        ok -> deliver(S2);
-        closed -> peer_ended(closed, S2);
-        Failure -> peer_ended(failure_reason(Failure, connection, S2), S2)
-    end.
+    connection_read(<<>>, S#{phase => connection, waiter => undefined, timer => undefined}).
 
 handshake_ended(Reply, #{waiter := From, timer := Timer} = S) ->
     cancel(Timer),
@@ -343,13 +358,44 @@ alert_context(_, _, connection, _) -> {connection, undefined}.
 %% Data
 %%--------------------------------------------------------------------------------------------------------------------
 
+% Received bytes of a connection: the plaintext is buffered for delivery; a renegotiation may pause for the peer's
+% chain, and finished handshakes let waiting sends go out.
+connection_read(Bytes, #{engine := Engine, buffer := Buffer} = S0) ->
+    {Status, Plain, Output} = clause_ssl_engine:read(Engine, Bytes),
+    transmit(Output, S0),
+    S = take_events(S0#{buffer => <<Buffer/binary, Plain/binary>>}),
+    case Status of
+        ok -> deliver(flush_sends(S));
+        verify -> connection_read(<<>>, verdict(S));
+        closed -> deliver(S#{end_pending => true});
+        Failure -> peer_ended(failure_reason(Failure, connection, S), S)
+    end.
+
+% ok, an error, or want_read while a handshake keeps libssl from writing.
 send_data(Data, #{engine := Engine, emulated := #{packet := Packet}} = S) ->
     try clause_ssl_engine:write(Engine, framed(Packet, Data)) of
-        {ok, Output} -> transmit(Output, S);
-        _ -> {error, closed}
+        {ok, Output} ->
+            transmit(Output, S);
+        {want_read, Output} ->
+            transmit(Output, S),
+            want_read;
+        _ ->
+            {error, closed}
     catch
         error:badarg -> {error, badarg}
     end.
+
+% The sends that waited for a handshake, in order, until libssl takes no more.
+flush_sends(#{sends := [{From, Data} | Rest]} = S) ->
+    case send_data(Data, S) of
+        want_read ->
+            S;
+        Reply ->
+            gen_server:reply(From, Reply),
+            flush_sends(S#{sends => Rest})
+    end;
+flush_sends(S) ->
+    S.
 
 framed(Size, Data) when Size == 1; Size == 2; Size == 4 ->
     [<<(iolist_size(Data)):Size/unit:8>>, Data];
@@ -357,7 +403,12 @@ framed(_, Data) ->
     Data.
 
 % Deliver what the buffer holds: to a waiting passive reader, or to the owner in active mode; then ask the
-% transport for more when someone waits for it.
+% transport for more when someone waits for it. As OTP's, a passive connection acts on the peer's close_notify once
+% it is read from or turns active.
+deliver(#{end_pending := true, reader := Reader, emulated := #{active := Active}} = S) when
+    Reader =/= undefined; Active =/= false
+->
+    peer_ended(closed, S#{end_pending => false});
 deliver(#{reader := {From, Length, Timer}} = S) ->
     case take(Length, S) of
         {ok, Data, S1} ->
@@ -372,7 +423,7 @@ deliver(#{reader := {From, Length, Timer}} = S) ->
             {noreply, arm(S)}
     end;
 deliver(#{emulated := #{active := false}} = S) ->
-    {noreply, S};
+    {noreply, arm(S)};
 deliver(#{owner := Owner, sslsocket := SslSocket} = S) ->
     case take(0, S) of
         {ok, Data, S1} ->
@@ -433,11 +484,101 @@ format(Data, #{header := Header}) when Header > 0 ->
 format(Data, _) ->
     Data.
 
-% The peer ended the connection: answer a close_notify, close the transport, and tell the reader or owner.
-peer_ended(Reason, #{engine := Engine} = S) ->
+% The peer ended the connection: answer a close_notify, close the transport, and tell the reader or owner, and the
+% callers of renegotiate/1 and send/2 still waiting.
+peer_ended(Reason, #{engine := Engine, renegotiator := Renegotiator, sends := Sends} = S) ->
     Reason == closed andalso transmit(element(2, clause_ssl_engine:shutdown(Engine)), S),
     close_socket(S),
-    deliver(S#{phase => closed, end_reason => Reason}).
+    [gen_server:reply(From, {error, closed}) || From <- [Renegotiator || Renegotiator =/= undefined]],
+    [gen_server:reply(From, {error, closed}) || {From, _} <- Sends],
+    deliver(S#{phase => closed, end_reason => Reason, renegotiator => undefined, sends => []}).
+
+%%--------------------------------------------------------------------------------------------------------------------
+%% Renegotiation, key updates and exporters (LIB81D1)
+%%--------------------------------------------------------------------------------------------------------------------
+
+% The engine's events: secrets and key updates go to clause_ssl_secrets, renegotiations to the connection.
+take_events(#{engine := Engine, role := Role, keys := Keys0} = S) ->
+    {Keys, Events} = clause_ssl_secrets:events(clause_ssl_engine:events(Engine), Engine, Role, Keys0),
+    lists:foldl(fun connection_event/2, S#{keys => Keys}, Events).
+
+connection_event(renegotiated, #{renegotiator := From} = S) when From =/= undefined ->
+    gen_server:reply(From, ok),
+    S#{renegotiator => undefined};
+connection_event(renegotiation_refused, #{renegotiator := From} = S) when From =/= undefined ->
+    gen_server:reply(From, {error, renegotiation_rejected}),
+    S#{renegotiator => undefined};
+connection_event(renegotiation_started, #{role := server, renegotiator := undefined, allow_peer := true} = S) ->
+    % OTP's ssl refuses a client's renegotiations for a while after one, against computational DoS.
+    #{engine := Engine, ssl := #{client_renegotiation := Allowed}} = S,
+    Allowed andalso clause_ssl_engine:allow_renegotiation(Engine, false),
+    Allowed andalso erlang:send_after(?WAIT_TO_ALLOW_RENEGOTIATION, self(), allow_renegotiation),
+    S#{allow_peer => not Allowed};
+connection_event(_Event, S) ->
+    S.
+
+% renegotiate/1 of a TLS 1.2 connection: answered when the new handshake is done or the peer refused it.
+start_renegotiation(_From, #{renegotiator := Renegotiator} = S) when Renegotiator =/= undefined ->
+    {reply, {error, already_renegotiating}, S};
+start_renegotiation(From, #{engine := Engine} = S) ->
+    {Status, Output} = clause_ssl_engine:renegotiate(Engine),
+    transmit(Output, S),
+    case Status of
+        ok -> {noreply, arm(take_events(S#{renegotiator => From}))};
+        _ -> {reply, {error, notsup}, S}
+    end.
+
+% update_keys/2: a TLS 1.3 KeyUpdate; OTP's ssl fails it on TLS 1.2 connections.
+update_keys(Type, #{engine := Engine} = S) ->
+    case clause_ssl_engine:info(Engine) of
+        #{protocol := 'tlsv1.3'} ->
+            {Status, Output} = clause_ssl_engine:key_update(Engine, Type),
+            transmit(Output, S),
+            Reply =
+                case Status of
+                    ok -> ok;
+                    _ -> {error, closed}
+                end,
+            {reply, Reply, take_events(S)};
+        _ ->
+            {reply, {error, not_supported}, S}
+    end.
+
+% export_key_materials/4,5: TLS 1.3 exports any number of materials while its exporter secret is unconsumed; OTP's
+% TLS 1.2 exports one, unwrapped, and its connection fails on other requests.
+export(Labels, Contexts, Lengths, Consume, #{engine := Engine, exporter := Exporter} = S) ->
+    case clause_ssl_engine:info(Engine) of
+        #{protocol := 'tlsv1.3'} when not Exporter ->
+            {reply, {error, exporter_master_secret_already_consumed}, S};
+        #{protocol := 'tlsv1.3'} ->
+            {reply, materials(Engine, Labels, Contexts, Lengths), S#{exporter => not Consume}};
+        _ when [length(Labels), length(Contexts), length(Lengths)] == [1, 1, 1] ->
+            single_material(Engine, Labels, Contexts, Lengths, S);
+        _ ->
+            close_socket(S),
+            {stop, normal, {error, closed}, S#{phase => closed}}
+    end.
+
+materials(Engine, Labels, Contexts, Lengths) ->
+    try
+        {ok, [material(Engine, L, C, N) || {L, C, N} <- lists:zip3(Labels, Contexts, Lengths)]}
+    catch
+        _:_ -> {error, bad_input}
+    end.
+
+single_material(Engine, [Label], [Context], [Length], S) when is_binary(Context); Context == no_context ->
+    try material(Engine, Label, Context, Length) of
+        Material -> {reply, {ok, Material}, S}
+    catch
+        _:_ -> {reply, {error, badarg}, S}
+    end;
+single_material(_Engine, _Labels, _Contexts, _Lengths, S) ->
+    close_socket(S),
+    {stop, normal, {error, closed}, S#{phase => closed}}.
+
+material(Engine, Label, Context, Length) ->
+    {ok, Material} = clause_ssl_engine:export(Engine, Label, Context, Length),
+    Material.
 
 %%--------------------------------------------------------------------------------------------------------------------
 %% Options and information
@@ -502,13 +643,17 @@ information(negotiated_protocol, #{engine := Engine}) ->
 information({connection_information, all}, S) ->
     {ok, connection_items(S) ++ option_items(S)};
 information({connection_information, Items}, S) ->
-    All = connection_items(S) ++ option_items(S),
-    {ok, [Item || Key <- Items, {K, _} = Item <- All, K == Key]};
+    % As OTP's: the items in its order, the secrets last when one is asked for (LIB81D1).
+    try connection_items(S) ++ option_items(S) ++ security_items(Items, S) of
+        All -> {ok, [Item || {K, _} = Item <- All, lists:member(K, Items)]}
+    catch
+        error:{case_clause, {keep_secrets, _}} = Reason -> {keylog_failure, Reason}
+    end;
 information(_Request, _S) ->
     {error, closed}.
 
 % The negotiated items of connection_information/1,2.
-connection_items(#{engine := Engine, role := Role, ssl := Ssl}) ->
+connection_items(#{engine := Engine, role := Role}) ->
     Info = clause_ssl_engine:info(Engine),
     Items = [
         {protocol, maps:get(protocol, Info)},
@@ -517,7 +662,6 @@ connection_items(#{engine := Engine, role := Role, ssl := Ssl}) ->
         {selected_cipher_suite, clause_ssl_algorithms:code_suite(maps:get(cipher_suite, Info))},
         {selected_group, group(maps:get(group, Info))},
         {sni_hostname, sni_hostname(Role, maps:get(server_name, Info))}
-        | secrets(maps:get(keep_secrets, Ssl), Info)
     ],
     [{K, V} || {K, V} <- Items, V =/= undefined].
 
@@ -533,10 +677,19 @@ group(Name) ->
 sni_hostname(server, Name) when is_binary(Name) -> binary_to_list(Name);
 sni_hostname(_, _) -> undefined.
 
-secrets(true, Info) ->
-    [{client_random, maps:get(client_random, Info)}, {server_random, maps:get(server_random, Info)}];
-secrets(_, _) ->
-    [].
+% The secrets of connection_information/2, given when one is asked for, as OTP's; keylog needs keep_secrets.
+security_items(Items, #{engine := Engine, role := Role, keys := Keys}) ->
+    case [I || I <- [client_random, server_random, master_secret, keylog], lists:member(I, Items)] of
+        [] ->
+            [];
+        _ ->
+            Info = clause_ssl_engine:info(Engine),
+            Secrets = [{K, maps:get(K, Info)} || K <- [client_random, server_random, master_secret]],
+            [
+                Item
+             || {_, V} = Item <- Secrets ++ [{keylog, clause_ssl_secrets:keylog(Engine, Role, Keys)}], V =/= undefined
+            ]
+    end.
 
 % The connection's ssl options of connection_information/1, as OTP lists its configuration.
 option_items(#{ssl := Ssl}) ->
@@ -600,10 +753,15 @@ transport_shutdown(How, #{transport := Transport, socket := Socket}) ->
     end.
 
 % close/2's downgrade: send close_notify and wait for the peer's, then hand the transport socket to the new owner.
-start_downgrade(Owner, Timeout, From, #{engine := Engine} = S) ->
-    transmit(element(2, clause_ssl_engine:shutdown(Engine)), S),
+start_downgrade(Owner, Timeout, From, #{engine := Engine} = S0) ->
+    transmit(element(2, clause_ssl_engine:shutdown(Engine)), S0),
     Timer = start_timer(Timeout, downgrade_timeout),
-    {noreply, arm(S#{phase => downgrade, downgrade => {Owner, From, Timer}})}.
+    S = S0#{phase => downgrade, downgrade => {Owner, From, Timer}},
+    % A passive connection that has the peer's close_notify already (LIB81D1) hands over at once, as OTP's.
+    case S of
+        #{end_pending := true} -> hand_over(S);
+        _ -> {noreply, arm(S)}
+    end.
 
 downgrade_received(Bytes, #{engine := Engine} = S) ->
     case clause_ssl_engine:read(Engine, Bytes) of
@@ -631,12 +789,24 @@ downgrade_ended(Reply, #{downgrade := {_, From, Timer}} = S) ->
     close_socket(S),
     {stop, normal, S#{phase => closed, downgrade => undefined}}.
 
-% Ask the transport for the next bytes, once.
+% Ask the transport for the next bytes, once. A passive connection reads ahead while its buffer is empty, as OTP's
+% does, so that the handshake messages of renegotiations and key updates are answered (LIB81D1).
 arm(#{armed := true} = S) ->
+    S;
+arm(#{end_pending := true} = S) ->
     S;
 arm(#{phase := Phase} = S) when Phase == closed; Phase == idle; Phase == user_hello ->
     S;
-arm(#{phase := connection, reader := undefined, emulated := #{active := false}} = S) ->
+arm(
+    #{
+        phase := connection,
+        reader := undefined,
+        emulated := #{active := false},
+        buffer := <<_, _/binary>>,
+        renegotiator := undefined,
+        sends := []
+    } = S
+) ->
     S;
 arm(#{transport := Transport, socket := Socket} = S) ->
     (socket_module(Transport)):setopts(Socket, [{active, once}]),

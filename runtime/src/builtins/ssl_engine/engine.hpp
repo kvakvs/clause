@@ -54,6 +54,24 @@ struct Alert {
 // alert libssl sends.
 enum class Verdict : std::uint8_t { pending, accepted, rejected };
 
+// Added for ssl connection features (plan 21 step LIB81D1): what happened inside libssl that Erlang acts on after a
+// step: a secret libssl logged, a KeyUpdate sent or received, a TLS 1.2 renegotiation started, finished or refused.
+enum class EventKind : std::uint8_t {
+    secret,
+    key_update_sent,
+    key_update_received,
+    renegotiation_started,
+    renegotiated,
+    renegotiation_refused
+};
+
+// One event of events/1; a secret carries its NSS key log label and value.
+struct Event {
+    EventKind kind_ = EventKind::secret;
+    std::string label_;
+    std::vector<std::byte> secret_;
+};
+
 // A connection/2 result: one TLS connection over memory BIOs.
 struct Engine {
     // Serializes the processes that share the handle.
@@ -73,6 +91,10 @@ struct Engine {
     bool deferred_ = false;
     // The last alert other than close_notify; a failed step reports it.
     std::optional<Alert> alert_;
+    // Added for LIB81D1: the events not yet taken by events/1, and the handshakes finished so far (renegotiations
+    // follow the first).
+    std::vector<Event> events_;
+    int handshakes_ = 0;
 };
 
 constexpr std::uint64_t CONTEXT_MAGIC = 0x73736c63747874; // "sslctxt"
@@ -85,6 +107,8 @@ std::shared_ptr<Context> context_of(const Term &handle);
 
 // Install the callbacks every context needs (alerts, verification, ALPN selection) on `context`.
 void install_callbacks(Context &context);
+// Added for LIB81D1: log the context's secrets and KeyUpdates as events, for keep_secrets.
+void install_keylog(Context &context);
 
 // The engine of an SSL object inside a libssl callback.
 Engine *engine_of(const SSL *ssl);
@@ -120,4 +144,5 @@ int bounded_integer(const Term &term, int limit);
 std::span<const BuiltinEntry> context_builtins() noexcept;
 std::span<const BuiltinEntry> connection_builtins() noexcept;
 std::span<const BuiltinEntry> info_builtins() noexcept;
+std::span<const BuiltinEntry> feature_builtins() noexcept;
 } // namespace clause::runtime::builtins::ssl_engine

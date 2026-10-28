@@ -625,3 +625,14 @@ recorded elsewhere.
   users wait on its lock), a fresh build dir has no CTestCostData, VS Code cpptools re-indexes after reconfigure, and
   each executables case runs 2 clau at once with all hardware threads (no --jobs). Rank candidates by time alone
   (ctest1.cmd), not by loaded runs. Load-sensitive list + PROCESSORS in the top CMakeLists.txt.
+- LIB81D1 ssl features (2026-10-28): split LIB81D into D1 (renegotiate/update_keys/exporters/prf/keep_secrets) and
+  later steps. OTP quirks: TLS 1.2 export_key_materials takes only one-element lists and returns {ok, Bin} (others
+  crash the connection -> {error, closed}); export with length 0 or -1 hangs OTP; update_keys on TLS 1.2 crashes OTP's
+  sender; connection_information/2 gives client_random/server_random/master_secret without keep_secrets, and raises
+  case_clause in the caller with a keylog fun; /1 never gives secrets; items come in OTP's order, not the asked one.
+  Idle passive OTP connections process handshake records (renegotiation works) but act on close_notify only once read
+  from or active (passive close/2 downgrade after the peer's close_notify hands over). libssl: a refused renegotiation
+  (no_renegotiation warning) is fatal for the requester; servers refuse client renegotiation without
+  SSL_OP_ALLOW_CLIENT_RENEGOTIATION; a server's HelloRequest fires HANDSHAKE_DONE while SSL_renegotiate_pending is
+  still 1; TLS 1.3 post-handshake messages fire no START/DONE; a libssl client logs CLIENT_HANDSHAKE_TRAFFIC_SECRET
+  only after the server's Finished. OTP probes with possibly hanging calls: wrap in a spawned limited/1 with timeout.

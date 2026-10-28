@@ -275,7 +275,8 @@ if(CLAUSE_RUNTIME_CRYPTO)
     # clau links it, before the crypto archive, into programs whose batch has the library clause_ssl_engine module;
     # clause_runtime_ssl.link names libssl, which goes before libcrypto.
     add_library(clause_runtime_ssl STATIC src/builtins/ssl_engine/extension.cpp src/builtins/ssl_engine/engine.cpp
-        src/builtins/ssl_engine/context.cpp src/builtins/ssl_engine/connection.cpp src/builtins/ssl_engine/info.cpp)
+        src/builtins/ssl_engine/context.cpp src/builtins/ssl_engine/connection.cpp src/builtins/ssl_engine/info.cpp
+        src/builtins/ssl_engine/features.cpp)
     set_target_properties(clause_runtime_ssl PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
         EXPORT_NAME ssl)
     clause_project_options(clause_runtime_ssl)

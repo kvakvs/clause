@@ -73,13 +73,78 @@ int verify_chain(X509_STORE_CTX *store, void * /*argument*/) {
     return 1;
 }
 
-// Record the alerts libssl sends and receives.
-void record_alert(const SSL *ssl, int where, int value) {
-    const auto description = value & 0xFF;
-    if ((where & SSL_CB_ALERT) == 0 || description == SSL3_AD_CLOSE_NOTIFY) {
+// An event without a secret.
+Event marker(EventKind kind) {
+    Event event;
+    event.kind_ = kind;
+    return event;
+}
+
+// Record the alerts libssl sends and receives; a received no_renegotiation warning refuses our renegotiation.
+void record_alert(Engine &engine, const Alert &alert) {
+    if (alert.description_ == SSL3_AD_CLOSE_NOTIFY) {
         return;
     }
-    engine_of(ssl)->alert_ = Alert{(where & SSL_CB_WRITE) != 0, value >> 8, description};
+    engine.alert_ = alert;
+    if (!alert.sent_ && alert.description_ == SSL_AD_NO_RENEGOTIATION) {
+        engine.events_.push_back(marker(EventKind::renegotiation_refused));
+    }
+}
+
+// Added for LIB81D1: a finished handshake lets the next one (a renegotiation) verify the peer again; TLS 1.2
+// renegotiations become events (a server's own one starts with its HelloRequest).
+void record_handshake(const SSL *ssl, Engine &engine, int where) {
+    const auto renegotiation = engine.handshakes_ > 0 && SSL_version(ssl) <= TLS1_2_VERSION;
+    if ((where & SSL_CB_HANDSHAKE_START) != 0 && renegotiation) {
+        engine.events_.push_back(marker(EventKind::renegotiation_started));
+    }
+    // A server's HelloRequest also ends with HANDSHAKE_DONE, while its renegotiation is still pending.
+    if ((where & SSL_CB_HANDSHAKE_DONE) != 0 && SSL_renegotiate_pending(ssl) == 0) {
+        engine.verdict_ = Verdict::pending;
+        ++engine.handshakes_;
+        if (renegotiation) {
+            engine.events_.push_back(marker(EventKind::renegotiated));
+        }
+    }
+}
+
+// libssl's information callback: alerts and handshake boundaries.
+void on_info(const SSL *ssl, int where, int value) {
+    auto &engine = *engine_of(ssl);
+    if ((where & SSL_CB_ALERT) != 0) {
+        record_alert(engine, Alert{(where & SSL_CB_WRITE) != 0, value >> 8, value & 0xFF});
+    }
+    record_handshake(ssl, engine, where);
+}
+
+// The value of a hexadecimal digit libssl wrote.
+int hex_value(char digit) { return digit <= '9' ? digit - '0' : (digit | 0x20) - 'a' + 10; }
+
+// Added for LIB81D1: a secret of libssl's NSS key log line "LABEL ClientRandom Secret", hexadecimal values.
+void on_keylog(const SSL *ssl, const char *line) {
+    const std::string_view text(line);
+    const auto first = text.find(' ');
+    const auto second = first == std::string_view::npos ? first : text.find(' ', first + 1);
+    if (second == std::string_view::npos) {
+        return;
+    }
+    const auto hex = text.substr(second + 1);
+    auto event = marker(EventKind::secret);
+    event.label_ = text.substr(0, first);
+    for (std::size_t index = 0; index + 1 < hex.size(); index += 2) {
+        event.secret_.push_back(static_cast<std::byte>((hex_value(hex[index]) << 4) | hex_value(hex[index + 1])));
+    }
+    engine_of(ssl)->events_.push_back(std::move(event));
+}
+
+// Added for LIB81D1: the KeyUpdate messages libssl sends and receives, which change the traffic secrets.
+void on_message(int write, int /*version*/, int content_type, const void *buffer, std::size_t length, SSL *ssl,
+                void * /*argument*/) {
+    if (content_type != SSL3_RT_HANDSHAKE || length == 0 ||
+        *static_cast<const unsigned char *>(buffer) != SSL3_MT_KEY_UPDATE) {
+        return;
+    }
+    engine_of(ssl)->events_.push_back(marker(write != 0 ? EventKind::key_update_sent : EventKind::key_update_received));
 }
 
 // A server's ALPN choice: its first preference the client offers, else the fatal no_application_protocol alert.
@@ -138,11 +203,16 @@ Engine *engine_of(const SSL *ssl) { return static_cast<Engine *>(SSL_get_app_dat
 
 void install_callbacks(Context &context) {
     auto *ssl_context = context.context_.get();
-    SSL_CTX_set_info_callback(ssl_context, record_alert);
+    SSL_CTX_set_info_callback(ssl_context, on_info);
     SSL_CTX_set_cert_verify_callback(ssl_context, verify_chain, nullptr);
     if (context.server_ && !context.alpn_.empty()) {
         SSL_CTX_set_alpn_select_cb(ssl_context, select_alpn, &context);
     }
+}
+
+void install_keylog(Context &context) {
+    SSL_CTX_set_keylog_callback(context.context_.get(), on_keylog);
+    SSL_CTX_set_msg_callback(context.context_.get(), on_message);
 }
 
 std::vector<std::byte> der_of(X509 *certificate) {

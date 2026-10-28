@@ -1,7 +1,7 @@
 %% Clause's replacement for OTP's ssl (docs/libraries/ssl.md, plan 21 step LIB81), written from OTP's documentation:
 %% the cipher suite table and name walks are builtins and the crypto-dependent lists clause_ssl_algorithms' (LIB81A);
-%% connections run over OpenSSL's libssl (LIB81B engine, LIB81C1 connections, LIB81C2 pauses and closing); the rest
-%% of LIB81D raises not_implemented until then.
+%% connections run over OpenSSL's libssl (LIB81B engine, LIB81C1 connections, LIB81C2 pauses and closing, LIB81D1
+%% renegotiation, key updates, exporters and secrets); handle_trace/3 (OTP's tracing callback) raises not_implemented.
 -module(ssl).
 -export([
     append_cipher_suites/2,
@@ -359,8 +359,14 @@ negotiated_protocol(#sslsocket{connection_handler = Pid} = SslSocket) when is_pi
 connection_information(#sslsocket{connection_handler = undefined}) -> {error, enotconn};
 connection_information(SslSocket) -> call(SslSocket, {connection_information, all}).
 
-connection_information(#sslsocket{connection_handler = undefined}, _Items) -> {error, enotconn};
-connection_information(SslSocket, Items) when is_list(Items) -> call(SslSocket, {connection_information, Items}).
+connection_information(#sslsocket{connection_handler = undefined}, _Items) ->
+    {error, enotconn};
+connection_information(SslSocket, Items) when is_list(Items) ->
+    % A keep_secrets fun fails asking for secrets in the caller, as OTP's does (LIB81D1).
+    case call(SslSocket, {connection_information, Items}) of
+        {keylog_failure, Reason} -> erlang:error(Reason);
+        Result -> Result
+    end.
 
 % A call to the connection process; a finished connection is closed.
 call(#sslsocket{connection_handler = Pid}, Request) ->
@@ -406,12 +412,61 @@ tls_version(Version) when element(1, Version) == 3 -> Version;
 tls_version({254, 255}) -> {3, 2};
 tls_version({254, 253}) -> {3, 3}.
 
-%% Connection features of LIB81D.
-export_key_materials(_, _, _, _) ->
-    erlang:error({not_implemented, export_key_materials, 4}).
-export_key_materials(_, _, _, _, _) ->
-    erlang:error({not_implemented, export_key_materials, 5}).
+%% Renegotiation, key updates and exporters (LIB81D1).
+
+% A new TLS 1.2 handshake on the connection; TLS 1.3 has none.
+renegotiate(#sslsocket{connection_handler = undefined}) ->
+    {error, enotconn};
+renegotiate(SslSocket) ->
+    case connection_information(SslSocket, [protocol]) of
+        {ok, [{protocol, 'tlsv1.3'}]} -> {error, notsup};
+        _ -> call(SslSocket, renegotiate)
+    end.
+
+% A TLS 1.3 KeyUpdate of the writing keys, or of both sides' keys.
+update_keys(#sslsocket{connection_handler = Pid} = SslSocket, Type) when is_pid(Pid) ->
+    case Type of
+        write -> call(SslSocket, {update_keys, write});
+        read_write -> call(SslSocket, {update_keys, read_write});
+        _ -> {error, {illegal_parameter, Type}}
+    end;
+update_keys(_, _) ->
+    {error, not_supported}.
+
+export_key_materials(#sslsocket{connection_handler = Pid} = SslSocket, Labels, Contexts, Lengths) when is_pid(Pid) ->
+    call(SslSocket, {export_key_materials, Labels, Contexts, Lengths, true});
+export_key_materials(#sslsocket{connection_handler = undefined}, _, _, _) ->
+    {error, enotconn}.
+
+% As OTP's, a listening socket matches no clause here.
+export_key_materials(#sslsocket{connection_handler = Pid} = SslSocket, Labels, Contexts, Lengths, Consume) when
+    is_pid(Pid)
+->
+    call(SslSocket, {export_key_materials, Labels, Contexts, Lengths, Consume}).
+
+% The deprecated PRF interface: the master secret forms export keying material; the legacy form runs TLS 1.2's PRF
+% under the negotiated suite's hash.
+prf(#sslsocket{connection_handler = Pid} = SslSocket, master_secret, Label, [client_random, server_random], Length) when
+    is_pid(Pid)
+->
+    single_material(export_key_materials(SslSocket, [Label], [no_context], [Length], true));
+prf(
+    #sslsocket{connection_handler = Pid} = SslSocket,
+    master_secret,
+    Label,
+    [client_random, server_random, Context],
+    Length
+) when
+    is_pid(Pid), is_binary(Context)
+->
+    single_material(export_key_materials(SslSocket, [Label], [Context], [Length], true));
+prf(#sslsocket{connection_handler = undefined}, _, _, _, _) ->
+    {error, enotconn};
+prf(SslSocket, Secret, Label, Seed, Length) ->
+    {ok, [{selected_cipher_suite, #{prf := Hash}}]} = connection_information(SslSocket, [selected_cipher_suite]),
+    {ok, clause_ssl_secrets:prf(Hash, Secret, Label, erlang:iolist_to_binary(Seed), Length)}.
+
+single_material({ok, [Material]}) -> {ok, Material};
+single_material(Other) -> Other.
+
 handle_trace(_, _, _) -> erlang:error({not_implemented, handle_trace, 3}).
-prf(_, _, _, _, _) -> erlang:error({not_implemented, prf, 5}).
-renegotiate(_) -> erlang:error({not_implemented, renegotiate, 1}).
-update_keys(_, _) -> erlang:error({not_implemented, update_keys, 2}).

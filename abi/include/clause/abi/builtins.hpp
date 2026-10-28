@@ -1509,6 +1509,11 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_ssl_engine", "key_update", 2},
     BuiltinName{"clause_ssl_engine", "info", 1},
     BuiltinName{"clause_ssl_engine", "peer_chain", 1},
+    // Connection features (plan 21 step LIB81D1; runtime/src/builtins/ssl_engine/features.cpp).
+    BuiltinName{"clause_ssl_engine", "renegotiate", 1},
+    BuiltinName{"clause_ssl_engine", "export", 4},
+    BuiltinName{"clause_ssl_engine", "events", 1},
+    BuiltinName{"clause_ssl_engine", "allow_renegotiation", 2},
     // clause_compile, the source quotes of compile's messages (plan 21 LIB77E1;
     // runtime/src/builtins/compile_messages.cpp).
     BuiltinName{"clause_compile", "quote_source", 3},

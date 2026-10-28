@@ -11,6 +11,7 @@
         clause_ssl_hello,
         clause_ssl_options,
         clause_ssl_pem_cache,
+        clause_ssl_secrets,
         ssl
     ]},
     {registered, [ssl_sup, ssl_pem_cache, tls_connection_sup]},

@@ -324,14 +324,37 @@ Problem alpn(Context &context, const Term &value) {
     return std::nullopt;
 }
 
+// Added for ssl connection features (plan 21 step LIB81D1): keylog => boolean() logs secrets and KeyUpdates as
+// events, for keep_secrets.
+Problem keylog(Context &context, const Term &value) {
+    if (!value.is_boolean()) {
+        bad_argument();
+    }
+    if (value.boolean_value_unchecked()) {
+        install_keylog(context);
+    }
+    return std::nullopt;
+}
+
+// Added for LIB81D1: client_renegotiation => boolean(): a server accepts the client's TLS 1.2 renegotiations.
+Problem client_renegotiation(Context &context, const Term &value) {
+    if (!value.is_boolean()) {
+        bad_argument();
+    }
+    if (value.boolean_value_unchecked()) {
+        SSL_CTX_set_options(context.context_.get(), SSL_OP_ALLOW_CLIENT_RENEGOTIATION);
+    }
+    return std::nullopt;
+}
+
 // The options context/2 reads, applied in this order.
 struct Option {
     AtomName key;
     Problem (*apply)(Context &, const Term &);
 };
 
-const std::array<Option, 10> &options() {
-    static const std::array<Option, 10> OPTIONS{{
+const std::array<Option, 12> &options() {
+    static const std::array<Option, 12> OPTIONS{{
         {"versions"_atom, versions},
         {"ciphers"_atom, ciphers},
         {"honor_cipher_order"_atom, honor_cipher_order},
@@ -342,6 +365,8 @@ const std::array<Option, 10> &options() {
         {"fail_if_no_peer_cert"_atom, fail_if_no_peer_cert},
         {"client_cas"_atom, client_cas},
         {"alpn"_atom, alpn},
+        {"keylog"_atom, keylog},
+        {"client_renegotiation"_atom, client_renegotiation},
     }};
     return OPTIONS;
 }
@@ -358,7 +383,9 @@ std::shared_ptr<Context> new_context(bool server) {
     SSL_CTX_set_security_level(ssl_context, 0);
     SSL_CTX_set_options(ssl_context, SSL_OP_NO_TICKET);
     SSL_CTX_set_num_tickets(ssl_context, 0);
-    SSL_CTX_set_mode(ssl_context, SSL_MODE_NO_AUTO_CHAIN | SSL_MODE_RELEASE_BUFFERS);
+    // A write retried after a renegotiation (LIB81D1) may come from another buffer.
+    SSL_CTX_set_mode(ssl_context,
+                     SSL_MODE_NO_AUTO_CHAIN | SSL_MODE_RELEASE_BUFFERS | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
     return context;
 }
 

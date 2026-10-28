@@ -1061,7 +1061,8 @@ all the I/O.
   option libssl refuses. It reads the options `ssl.erl` has validated: `versions`, `ciphers` (suite codes, which
   libssl maps to its TLS 1.3 and 1.2 names), `honor_cipher_order`, `groups`, `signature_algs` (OTP's scheme atoms
   and `{Hash, Sign}` tuples), `certs` (`[{[CertDER], {KeyType, KeyDER}}]`), `verify`, `fail_if_no_peer_cert`,
-  `client_cas` and `alpn`. It drops names the linked libssl does not know and repeats, one at a time. It sets
+  `client_cas` and `alpn`; LIB81D1 adds `keylog` (secrets and KeyUpdates become events) and a server's
+  `client_renegotiation`. It drops names the linked libssl does not know and repeats, one at a time. It sets
   OTP's defaults where libssl's differ: no session tickets, security level 0, and chains as given.
 - `connection(Context, #{server_name => Name})` (`connection.cpp`) makes an engine. `handshake(Engine, Received)`
   gives `{done | want_read | verify | Failure, Output}`. `read/2` gives `{ok | closed | Failure, Data, Output}`
@@ -1075,9 +1076,16 @@ all the I/O.
   linked with a libssl older than 4.1 cannot pause: they accept in the callback, and the handshake answers
   `verify` once libssl is done. A rejection then ends the connection without an alert.
 - `info(Engine)` (`info.cpp`) gives `protocol`, `cipher_suite` (its code), `alpn`, `server_name`, `group`,
-  `session_id`, `resumed`, `client_random` and `server_random`; LIB81C2 adds `alert` (the last alert sent or
-  received, also one libssl ignored, as TLS 1.3's `user_canceled`) and `unread` (received bytes libssl has not read,
-  as the plain data after a close_notify).
+  `session_id`, `resumed`, `client_random`, `server_random` and (LIB81D1) the TLS 1.2 `master_secret`; LIB81C2 adds
+  `alert` (the last alert sent or received, also one libssl ignored, as TLS 1.3's `user_canceled`) and `unread`
+  (received bytes libssl has not read, as the plain data after a close_notify).
+- Connection features (`features.cpp`, LIB81D1): `renegotiate(Engine)` gives `{ok | Failure, Output}` with the
+  first message of a TLS 1.2 renegotiation, which later reads finish. `export(Engine, Label, Context | no_context,
+  Length)` gives `{ok, Material}` from `SSL_export_keying_material`, else `error`. `events(Engine)` gives the
+  events libssl's callbacks queued, oldest first: `{secret, Label, Secret}` (NSS key log lines), `key_update_sent`,
+  `key_update_received`, `renegotiation_started`, `renegotiated` and `renegotiation_refused` (a received
+  `no_renegotiation` warning). `allow_renegotiation(Engine, Boolean)` sets whether a server accepts the client's
+  renegotiations. A finished handshake resets the verdict, so a renegotiation verifies the peer again.
 - `configure(Engine, Context)` (`connection.cpp`, LIB81C2) moves an engine to another context of its role
   (`SSL_set_SSL_CTX` and the context's verify mode): a client's `handshake_continue/2,3` options take effect after
   its ClientHello.

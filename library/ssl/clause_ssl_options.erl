@@ -274,7 +274,7 @@ cacerts(User, #{verify := Verify} = Ssl, #{role := Role}) ->
     CaCerts =
         case get_opt(cacerts, undefined, User, Ssl) of
             {_, undefined} -> undefined;
-            {_, [_ | _] = Certs} -> [cacert(C) || C <- Certs];
+            {_, Certs} when is_list(Certs) -> [cacert(C) || C <- Certs];
             {_, Other} -> option_error(cacerts, Other)
         end,
     CaCertFile =
@@ -439,14 +439,21 @@ booleans(User, Ssl, _Env) ->
         {honor_ecc_order, false},
         {secure_renegotiate, true},
         {client_renegotiation, true},
-        {keep_secrets, false},
         {middlebox_comp_mode, true},
         {allow_any_ca_purpose, false},
         {certificate_authorities, true}
     ],
     Ssl1 = lists:foldl(fun({K, D}, S) -> S#{K => boolean(K, D, User, S)} end, Ssl, Defaults),
     Reuse = one_of(reuse_sessions, [true, false, save], true, User, Ssl1),
-    Ssl1#{reuse_sessions => Reuse}.
+    Ssl1#{reuse_sessions => Reuse, keep_secrets => keep_secrets(User, Ssl1)}.
+
+%% keep_secrets: a boolean, or {keylog | keylog_hs, Fun} (LIB81D1).
+keep_secrets(User, Ssl) ->
+    case get_opt(keep_secrets, false, User, Ssl) of
+        {_, Value} when is_boolean(Value) -> Value;
+        {_, {Type, Fun} = Value} when (Type == keylog orelse Type == keylog_hs), is_function(Fun) -> Value;
+        {_, Other} -> option_error(keep_secrets, Other)
+    end.
 
 %% Groups (TLS 1.3) and cipher suites, as two-byte codes the versions take.
 groups_and_ciphers(User, #{versions := Versions} = Ssl, _Env) ->
@@ -651,9 +658,14 @@ engine_extras(Role, Ssl, CaCerts) ->
     Optional = [
         {alpn, Alpn},
         {signature_algs, maps:get(signature_algs, Ssl)},
-        {client_cas, client_cas(Role, Ssl, CaCerts)}
+        {client_cas, client_cas(Role, Ssl, CaCerts)},
+        {keylog, maps:get(keep_secrets, Ssl) =/= false orelse undefined},
+        {client_renegotiation, client_renegotiation(Role, Ssl)}
     ],
     [{K, V} || {K, V} <- Optional, V =/= undefined].
+
+client_renegotiation(server, #{client_renegotiation := Allow}) -> Allow;
+client_renegotiation(client, _) -> undefined.
 
 client_cas(server, #{verify := verify_peer, certificate_authorities := true}, [_ | _] = CaCerts) -> CaCerts;
 client_cas(_, _, _) -> undefined.

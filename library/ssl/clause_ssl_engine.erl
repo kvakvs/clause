@@ -15,7 +15,11 @@
     shutdown/1,
     key_update/2,
     info/1,
-    peer_chain/1
+    peer_chain/1,
+    renegotiate/1,
+    export/4,
+    events/1,
+    allow_renegotiation/2
 ]).
 
 context(_Role, _Options) -> clause_builtin_placeholder.
@@ -29,3 +33,8 @@ shutdown(_Engine) -> clause_builtin_placeholder.
 key_update(_Engine, _Type) -> clause_builtin_placeholder.
 info(_Engine) -> clause_builtin_placeholder.
 peer_chain(_Engine) -> clause_builtin_placeholder.
+%% Connection features (LIB81D1).
+renegotiate(_Engine) -> clause_builtin_placeholder.
+export(_Engine, _Label, _Context, _Length) -> clause_builtin_placeholder.
+events(_Engine) -> clause_builtin_placeholder.
+allow_renegotiation(_Engine, _Allow) -> clause_builtin_placeholder.

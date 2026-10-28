@@ -79,15 +79,29 @@ Term unread_term(ProcessContext &context, const Engine &engine) {
         context, std::span(reinterpret_cast<const std::byte *>(data), static_cast<std::size_t>(size > 0 ? size : 0)));
 }
 
+// Added for ssl connection features (plan 21 step LIB81D1): a TLS 1.2 session's master secret; undefined for TLS
+// 1.3, whose key schedule libssl does not expose.
+Term master_secret_term(ProcessContext &context, const SSL *ssl) {
+    const auto *session = SSL_get_session(ssl);
+    if (session == nullptr || SSL_version(ssl) > TLS1_2_VERSION) {
+        return atom(context, "undefined"_atom);
+    }
+    std::array<std::byte, SSL_MAX_MASTER_KEY_LENGTH> secret{};
+    const auto size =
+        SSL_SESSION_get_master_key(session, reinterpret_cast<unsigned char *>(secret.data()), secret.size());
+    return optional_binary(context, reinterpret_cast<const unsigned char *>(secret.data()), size);
+}
+
 // info(Engine): #{protocol, cipher_suite, alpn, server_name, group, session_id, resumed, client_random,
-// server_random, alert, unread}; codes and names are libssl's, which ssl.erl turns into OTP's terms. The last alert
-// (undefined or {alert, Origin, Level, Description}) also names one libssl ignored, as a TLS 1.3 user_canceled.
+// server_random, master_secret, alert, unread}; codes and names are libssl's, which ssl.erl turns into OTP's terms. The
+// last alert (undefined or {alert, Origin, Level, Description}) also names one libssl ignored, as a TLS 1.3
+// user_canceled.
 Term info(ProcessContext &context, const Named<EngineRole> &handle) {
     auto &engine = engine_of(handle.term);
     const std::scoped_lock guard(engine.lock_);
     auto *ssl = engine.ssl_.get();
     const auto group = SSL_get_negotiated_group(ssl);
-    const std::array<std::pair<AtomName, Term>, 11> entries{{
+    const std::array<std::pair<AtomName, Term>, 12> entries{{
         {"protocol"_atom, version_term(context, SSL_version(ssl))},
         {"cipher_suite"_atom, suite_term(context, ssl)},
         {"alpn"_atom, alpn_term(context, ssl)},
@@ -97,6 +111,7 @@ Term info(ProcessContext &context, const Named<EngineRole> &handle) {
         {"resumed"_atom, atom(context, SSL_session_reused(ssl) == 1 ? "true"_atom : "false"_atom)},
         {"client_random"_atom, random_term(context, ssl, SSL_get_client_random)},
         {"server_random"_atom, random_term(context, ssl, SSL_get_server_random)},
+        {"master_secret"_atom, master_secret_term(context, ssl)},
         {"alert"_atom, last_alert(context, engine)},
         {"unread"_atom, unread_term(context, engine)},
     }};
