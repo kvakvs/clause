@@ -23,13 +23,13 @@ internal functions stay out unless a public function needs them (user direction 
   `library_modules.py coverage .` prints the progress per module. 120 documented modules, 2,888
   documented functions.
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
-- **Left:** `erlang` (20 declined functions, LIB9 remainder, Appendix A); OTP-free builds
-  (LIB77 transforms without the host are done; LIB78 `yecc`/`leex` cancelled);
-  applications beyond the core that emqx needs (LIB81D3c and LIB81D4b on request, LIB82–LIB83, Appendix B; `crypto` (LIB79),
+- **Left:** `erlang` (20 declined functions, LIB9 remainder, Appendix A); OTP-free builds (LIB77
+  transforms without the host are done; LIB78 `yecc`/`leex` cancelled); applications beyond the core
+  that emqx needs (LIB81D3c and LIB81D4b on request, LIB82–LIB83, Appendix B; `crypto` (LIB79),
   `public_key` (LIB80), `ssl`'s utility functions (LIB81A), libssl engine (LIB81B), core connections
-  (LIB81C1), the hello pause and closing (LIB81C2), renegotiation, key updates, exporters and secrets
-  (LIB81D1), TLS 1.2 session reuse (LIB81D2a), TLS 1.3 session tickets (LIB81D2b) and early data (LIB81D2c) are
-  done).
+  (LIB81C1), the hello pause and closing (LIB81C2), renegotiation, key updates, exporters and
+  secrets (LIB81D1), TLS 1.2 session reuse (LIB81D2a), TLS 1.3 session tickets (LIB81D2b) and early
+  data (LIB81D2c) are done).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -106,21 +106,21 @@ non-luerl modules resolve from `library/`. `test-emqx.toml` keeps only the OTP a
 erts/kernel/stdlib (`eunit`, `common_test`, `public_key`, `ssl`) as `applications` roots; its
 preprocessing diagnostics are unchanged (the rest are emqx's missing dependencies).
 
-- **What still ties programs to OTP** (counted over `references/emqx/apps`): parse transforms run
-  in Clause's transform host since LIB77D (the host `erl` only for `.beam`s without `debug_info`,
-  OTP modules the library lacks such as `eunit_autoexport`, or `--erl PATH`); `.yrl`/`.xrl`
-  sources need OTP's `yecc`/`leex`, which Clause will not provide (LIB78 cancelled; luerl ships generated
-  `luerl_parse.erl`/`luerl_scan.erl`). The public headers emqx includes (`assert.hrl`, `ms_transform.hrl`, `inet.hrl`)
-  are provided since LIB75.
+- **What still ties programs to OTP** (counted over `references/emqx/apps`): parse transforms run in
+  Clause's transform host since LIB77D (the host `erl` only for `.beam`s without `debug_info`, OTP
+  modules the library lacks such as `eunit_autoexport`, or `--erl PATH`); `.yrl`/`.xrl` sources need
+  OTP's `yecc`/`leex`, which Clause will not provide (LIB78 cancelled; luerl ships generated
+  `luerl_parse.erl`/`luerl_scan.erl`). The public headers emqx includes (`assert.hrl`,
+  `ms_transform.hrl`, `inet.hrl`) are provided since LIB75.
 
 #### Applications beyond erts/kernel/stdlib (survey 2026-10-26)
 
 What `test-emqx.toml` still takes from OTP. Documented API from the OTP 29 doc chunks of the host's
-`ssl-11.7.7`, `eunit-2.11`, `common_test-1.31.2` (full lists in
-Appendix B; re-observe them into `documented.terms` the way `observe_docs.escript` does for the
-three core applications). Call counts are over `references/emqx/apps`, non-test sources unless
-noted. The same rules apply as for the core: whole module or nothing in `library/`, OTP's terms and
-records, goldens from OTP, own headers written from the documented records and macros.
+`ssl-11.7.7`, `eunit-2.11`, `common_test-1.31.2` (full lists in Appendix B; re-observe them into
+`documented.terms` the way `observe_docs.escript` does for the three core applications). Call counts
+are over `references/emqx/apps`, non-test sources unless noted. The same rules apply as for the
+core: whole module or nothing in `library/`, OTP's terms and records, goldens from OTP, own headers
+written from the documented records and macros.
 
 - **LIB81 `ssl` (`ssl` 52 functions, `ssl_crl_cache` 3, callback-only `ssl_crl_cache_api`,
   `ssl_session_cache_api`).** Decided 2026-10-27 (user): a hybrid over OpenSSL's libssl. Each
@@ -135,15 +135,17 @@ records, goldens from OTP, own headers written from the documented records and m
   `close` 55, `send` 17 and `recv` 15. emqx's `emqx_ocsp_cache` and `emqx_ssl_crl_cache` include
   OTP-internal `ssl_handshake.hrl` and `ssl_internal.hrl`. These are not public and are not
   provided, so projects keep OTP's `ssl` application root for them.
-  - **LIB81D TLS features** (D1 `renegotiate/1`, `update_keys/2`, `export_key_materials/4,5`, `prf/5` and
-    `keep_secrets`, D2a TLS 1.2 session reuse, D2b TLS 1.3 session tickets, D2c early data are done). `ssl` is no
-    longer PARTIAL (D5 done).
-    - **LIB81D3c (optional, on request)** `log_level` output: OTP's `debug` protocol traces of records and handshake
-      messages (`ssl_logger`); libssl's messages differ from OTP's, so the traces cannot match. D3a `sni_hosts`/
-      `sni_fun` and D3b custom `cb_info` transports and automatic rekeys are done.
-    - **LIB81D4b** OCSP stapling: the client `stapling` option (`staple | no_staple | #{ocsp_nonce, ...}`), the staple
-      checked as OTP's `ssl_certificate` checks it (`public_key:pkix_ocsp_validate/5`), `missing_ocsp_staple`. D4a CRL
-      checks with `ssl_crl_cache` are done.
+  - **LIB81D TLS features** (D1 `renegotiate/1`, `update_keys/2`, `export_key_materials/4,5`,
+    `prf/5` and `keep_secrets`, D2a TLS 1.2 session reuse, D2b TLS 1.3 session tickets, D2c early
+    data are done). `ssl` is no longer PARTIAL (D5 done).
+    - **LIB81D3c (optional, on request)** `log_level` output: OTP's `debug` protocol traces of
+      records and handshake messages (`ssl_logger`); libssl's messages differ from OTP's, so the
+      traces cannot match. D3a `sni_hosts`/ `sni_fun` and D3b custom `cb_info` transports and
+      automatic rekeys are done.
+    - **LIB81D4b** OCSP stapling: the client `stapling` option
+      (`staple | no_staple | #{ocsp_nonce, ...}`), the staple checked as OTP's `ssl_certificate`
+      checks it (`public_key:pkix_ocsp_validate/5`), `missing_ocsp_staple`. D4a CRL checks with
+      `ssl_crl_cache` are done.
     - LIB81D5 TLS 1.2 PSK is done; SRP declined (user 2026-10-28: libssl's SRP API is deprecated).
   - **LIB81E (optional) TLS 1.0/1.1 and DTLS 1.0/1.2** over `gen_udp` with libssl's DTLS methods.
 - **LIB82 (far back: test support) `eunit` (4 functions: `eunit:test/1,2`, `start/0`, `stop/0`):**
