@@ -71,8 +71,8 @@ Complete for the selected scope; the plan steps hold criteria and evidence.
   ERTS-preloaded and generated modules `kernel`/`stdlib` call (`init`, `persistent_term`,
   `unicode_util`, `zlib`, `prim_*`, ...; phase H3,
   [41I](11-plan.md#step-41i)–[41S](11-plan.md#step-41s); delivered so far: `init` 41L,
-  `persistent_term` 41M1/41M2); [ ] leex/yecc generation for `.xrl`/`.yrl` sources through the host
-  OTP.
+  `persistent_term` 41M1/41M2). (leex/yecc generation for `.xrl`/`.yrl` sources: cancelled 2026-10-28,
+  `00-reject.md`.)
 - **F32 follow-up — export liveness** ([62C](00-finished.md)): [x] unused exports leave the export
   table so dead-stripping and `--lto` can remove them (executables; `--keep-exports` opts out).
 - **F11 — Floating-point values** (38; delivered: finite binary64 values, operations, conversions):

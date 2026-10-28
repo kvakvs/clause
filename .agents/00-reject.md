@@ -20,3 +20,5 @@ Steps investigated and dropped, with the measurement behind each decision.
   API were 1.7-4x slower than compiled Erlang matching. The `der_decode`/`der_encode` and
   `pkix_crls_validate` SCCs stay Erlang (generated module calls, funs, throws). Rule since then:
   port only hot inner loops with a measured win, or very complex recursive clusters.
+- **LIB78 `parsetools` (`yecc`/`leex`)** (cancelled 2026-10-28 by the user before any work: not needed). Projects
+  that ship only `.yrl`/`.xrl` sources keep needing OTP's `yecc`/`leex` to generate their `.erl` files.
