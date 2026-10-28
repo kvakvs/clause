@@ -758,7 +758,8 @@ engine_extras(Role, Ssl, CaCerts) ->
         {keylog, maps:get(keep_secrets, Ssl) =/= false orelse undefined},
         {client_renegotiation, client_renegotiation(Role, Ssl)},
         {session_cache, session_cache(Role, Ssl)},
-        {tickets, tickets(Role, Ssl)}
+        {tickets, tickets(Role, Ssl)},
+        {early_data, early_data(Role, Ssl)}
     ],
     [{K, V} || {K, V} <- Optional, V =/= undefined].
 
@@ -784,6 +785,18 @@ tickets(server, #{session_tickets := Tickets, stateless_tickets_seed := Seed}) w
     {Mode, clause_ssl_tickets:server_amount(), clause_ssl_tickets:server_lifetime(),
         clause_ssl_tickets:server_store_size(), Seed};
 tickets(_, _) ->
+    undefined.
+
+% Added for TLS 1.3 early data (LIB81D2c): a server that takes early data, up to the size its tickets name, with the
+% window of its anti_replay filters.
+early_data(server, #{early_data := enabled, anti_replay := AntiReplay}) ->
+    Window =
+        case AntiReplay of
+            {Seconds, _, _} -> Seconds;
+            undefined -> undefined
+        end,
+    {clause_ssl_tickets:max_early_data(), Window};
+early_data(_, _) ->
     undefined.
 
 client_cas(server, #{verify := verify_peer, certificate_authorities := true}, [_ | _] = CaCerts) -> CaCerts;

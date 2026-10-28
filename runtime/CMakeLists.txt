@@ -277,7 +277,7 @@ if(CLAUSE_RUNTIME_CRYPTO)
     add_library(clause_runtime_ssl STATIC src/builtins/ssl_engine/extension.cpp src/builtins/ssl_engine/engine.cpp
         src/builtins/ssl_engine/context.cpp src/builtins/ssl_engine/connection.cpp src/builtins/ssl_engine/info.cpp
         src/builtins/ssl_engine/features.cpp src/builtins/ssl_engine/sessions.cpp
-        src/builtins/ssl_engine/tickets.cpp)
+        src/builtins/ssl_engine/tickets.cpp src/builtins/ssl_engine/early_data.cpp)
     set_target_properties(clause_runtime_ssl PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
         EXPORT_NAME ssl)
     clause_project_options(clause_runtime_ssl)

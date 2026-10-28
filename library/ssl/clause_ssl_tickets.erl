@@ -6,13 +6,14 @@
 -module(clause_ssl_tickets).
 -behaviour(gen_server).
 -export([start_link/0, store/1, take/2, ticket/3]).
--export([server_amount/0, server_lifetime/0, server_store_size/0]).
+-export([server_amount/0, server_lifetime/0, server_store_size/0, max_early_data/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -define(TWO_HOURS, 7200).
 -define(SEVEN_DAYS, 604800).
 -define(DEFAULT_STORE_SIZE, 1000).
 -define(DEFAULT_AMOUNT, 3).
+-define(DEFAULT_MAX_EARLY_DATA, 16384).
 
 start_link() ->
     gen_server:start_link({local, tls_client_ticket_store}, ?MODULE, [], []).
@@ -42,6 +43,9 @@ server_lifetime() ->
     env(server_session_ticket_lifetime, fun(N) -> is_integer(N) andalso N =< ?SEVEN_DAYS end, ?TWO_HOURS).
 
 server_store_size() -> env(server_session_ticket_store_size, fun is_integer/1, ?DEFAULT_STORE_SIZE).
+
+%% Added for early data (LIB81D2c): the early data a server takes and its tickets name.
+max_early_data() -> env(server_session_ticket_max_early_data, fun is_integer/1, ?DEFAULT_MAX_EARLY_DATA).
 
 env(Key, Valid, Default) ->
     case application:get_env(ssl, Key) of

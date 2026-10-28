@@ -31,11 +31,15 @@ Term with_output(ProcessContext &context, Engine &engine, const Term &status) {
     return tuple_of(context, elements);
 }
 
-// Apply connection/2's options: server_name => Name sends SNI, and session => SessionDER offers a TLS 1.2 session
-// (LIB81D2a).
-void connection_options(ProcessContext &context, SSL *ssl, const MapArgument &options) {
+// Apply connection/2's options: server_name => Name sends SNI, session => SessionDER offers a session (LIB81D2a),
+// and early_data => Data is written with the ClientHello when the session takes it (LIB81D2c).
+void connection_options(ProcessContext &context, Engine &engine, const MapArgument &options) {
+    auto *ssl = engine.ssl_.get();
     if (const auto offered = need(options.term.map_find(atom(context, "session"_atom)))) {
         offer_session(ssl, crypto::binary_argument(*offered));
+    }
+    if (const auto early = need(options.term.map_find(atom(context, "early_data"_atom)))) {
+        engine.early_out_ = crypto::binary_argument(*early);
     }
     const auto name = need(options.term.map_find(atom(context, "server_name"_atom)));
     if (!name) {
@@ -66,10 +70,11 @@ Term connection(ProcessContext &context, const Named<ContextRole> &handle, const
     SSL_set_app_data(engine->ssl_.get(), engine.get());
     if (engine->context_->server_) {
         SSL_set_accept_state(engine->ssl_.get());
+        engine->early_reading_ = engine->context_->early_data_;
     } else {
         SSL_set_connect_state(engine->ssl_.get());
     }
-    connection_options(context, engine->ssl_.get(), options);
+    connection_options(context, *engine, options);
     return need(crypto::owned_handle(context, ENGINE_MAGIC, std::move(engine)));
 }
 
@@ -78,6 +83,9 @@ Term connection(ProcessContext &context, const Named<ContextRole> &handle, const
 Term handshake_status(ProcessContext &context, Engine &engine) {
     if (engine.deferred_ && engine.verdict_ == Verdict::rejected) {
         return deferred_rejection(context, engine);
+    }
+    if (auto waiting = early_data_step(context, engine)) {
+        return *waiting;
     }
     const auto status = status_of(context, engine, SSL_do_handshake(engine.ssl_.get()), "done"_atom);
     if (engine.deferred_ && engine.verdict_ == Verdict::pending && status.is_atom() &&

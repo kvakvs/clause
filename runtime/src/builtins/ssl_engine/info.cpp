@@ -92,16 +92,28 @@ Term master_secret_term(ProcessContext &context, const SSL *ssl) {
     return optional_binary(context, reinterpret_cast<const unsigned char *>(secret.data()), size);
 }
 
+// Added for TLS 1.3 early data (plan 21 step LIB81D2c): what became of the early data of the connection.
+Term early_data_term(ProcessContext &context, const SSL *ssl) {
+    switch (SSL_get_early_data_status(ssl)) {
+    case SSL_EARLY_DATA_ACCEPTED:
+        return atom(context, "accepted"_atom);
+    case SSL_EARLY_DATA_REJECTED:
+        return atom(context, "rejected"_atom);
+    default:
+        return atom(context, "not_sent"_atom);
+    }
+}
+
 // info(Engine): #{protocol, cipher_suite, alpn, server_name, group, session_id, resumed, client_random,
-// server_random, master_secret, alert, unread}; codes and names are libssl's, which ssl.erl turns into OTP's terms. The
-// last alert (undefined or {alert, Origin, Level, Description}) also names one libssl ignored, as a TLS 1.3
-// user_canceled.
+// server_random, master_secret, alert, unread, early_data}; codes and names are libssl's, which ssl.erl turns into
+// OTP's terms. The last alert (undefined or {alert, Origin, Level, Description}) also names one libssl ignored, as a
+// TLS 1.3 user_canceled. early_data (LIB81D2c) is accepted, rejected or not_sent.
 Term info(ProcessContext &context, const Named<EngineRole> &handle) {
     auto &engine = engine_of(handle.term);
     const std::scoped_lock guard(engine.lock_);
     auto *ssl = engine.ssl_.get();
     const auto group = SSL_get_negotiated_group(ssl);
-    const std::array<std::pair<AtomName, Term>, 12> entries{{
+    const std::array<std::pair<AtomName, Term>, 13> entries{{
         {"protocol"_atom, version_term(context, SSL_version(ssl))},
         {"cipher_suite"_atom, suite_term(context, ssl)},
         {"alpn"_atom, alpn_term(context, ssl)},
@@ -114,6 +126,7 @@ Term info(ProcessContext &context, const Named<EngineRole> &handle) {
         {"master_secret"_atom, master_secret_term(context, ssl)},
         {"alert"_atom, last_alert(context, engine)},
         {"unread"_atom, unread_term(context, engine)},
+        {"early_data"_atom, early_data_term(context, ssl)},
     }};
     return need(crypto::atom_map(context, entries));
 }

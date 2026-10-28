@@ -93,6 +93,9 @@ bool server_tickets(Context &context, const Term &value) {
                             static_cast<std::size_t>(bounded_integer(value.tuple_element_unchecked(1), INT_MAX)));
     context.ticket_lifetime_ = bounded_integer(value.tuple_element_unchecked(2), INT_MAX);
     context.ticket_store_size_ = static_cast<std::size_t>(bounded_integer(value.tuple_element_unchecked(3), INT_MAX));
+    // libssl's own anti-replay needs its internal cache: stateful tickets are taken once from the context's store,
+    // and stateless servers have anti_replay (LIB81D2c).
+    SSL_CTX_set_options(ssl_context, SSL_OP_NO_ANTI_REPLAY);
     if (context.tickets_ == Tickets::stateless) {
         SSL_CTX_clear_options(ssl_context, SSL_OP_NO_TICKET);
     }

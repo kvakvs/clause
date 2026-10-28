@@ -4,9 +4,9 @@ Clause's `ssl` application (plan 21, LIB81) exports the OTP 29 interface of the 
 utility functions are implemented (LIB81A), and so are TLS 1.2 and 1.3 [connections](#connections)
 (LIB81C1) over the libssl [engine](#engine) (LIB81B), with the `{handshake, hello}` pause, `close/2`,
 `shutdown/2` and `tls_version/1` (LIB81C2), and [renegotiation, key updates, exporters](#renegotiation-key-updates-and-exporters)
-and [secrets](#secrets) (LIB81D1), TLS 1.2 [session reuse](#session-reuse) (LIB81D2a) and TLS 1.3
-[session tickets](#session-tickets) (LIB81D2b). Early data, SNI, CRLs, OCSP, PSK and SRP (the rest of LIB81D) and
-`ssl_crl_cache` follow. See the
+and [secrets](#secrets) (LIB81D1), TLS 1.2 [session reuse](#session-reuse) (LIB81D2a), TLS 1.3
+[session tickets](#session-tickets) (LIB81D2b) and [early data](#early-data) (LIB81D2c). SNI, CRLs, OCSP, PSK and
+SRP (the rest of LIB81D) and `ssl_crl_cache` follow. See the
 [function inventory](../../library/ssl/ssl.terms) and
 [differences](../differences.md#ssl).
 
@@ -175,7 +175,20 @@ TLS 1.3 sessions resume with tickets as OTP's do (LIB81D2b). A ticket is a map: 
   (`{error, no_peercert}`), and a server has its client's certificate only with the `_with_cert` modes.
 - **Options**: `session_tickets`, `use_ticket` (tickets for the server the client names), `early_data`,
   `anti_replay` and `stateless_tickets_seed` are checked in OTP's order with its errors; they need TLS 1.3 among the
-  versions. Early data itself follows (LIB81D2c).
+  versions.
+
+## Early data
+
+TLS 1.3 early data (0-RTT) as OTP's (LIB81D2c).
+
+- **Clients**: `{early_data, Data}` goes with the ClientHello of a connection that resumes with a ticket whose limit
+  takes it. After the handshake the owner gets `{ssl, S, {early_data, accepted | rejected}}`; rejected data is the
+  application's to send again. Data larger than the ticket's limit is not sent and counts as rejected.
+- **Servers**: `{early_data, enabled}` takes up to `server_session_ticket_max_early_data` bytes (16384), which its
+  tickets name; the connection delivers the early data before the data that follows the handshake. A stateful
+  server's tickets are used once. A stateless server's `anti_replay` (`'10k'`, `'100k'` or `{Window, Hashes, Bits}`)
+  records the PSK binders of the ClientHellos that brought early data and refuses early data whose binders it saw
+  in the current or the last window; without `anti_replay` it logs OTP's warning when it listens.
 
 ## Verification
 

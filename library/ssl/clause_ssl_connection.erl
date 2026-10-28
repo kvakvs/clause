@@ -5,7 +5,7 @@
 %% packet framing, and closing when the owner exits. LIB81C2 adds the {handshake, hello} pause (clause_ssl_hello),
 %% shutdown/2 and close/2's downgrade to the transport socket. LIB81D1 adds TLS 1.2 renegotiation, TLS 1.3 key updates,
 %% keying material exporters and the secrets of keep_secrets (clause_ssl_secrets). LIB81D2a adds TLS 1.2 session reuse
-%% over clause_ssl_session's caches, LIB81D2b TLS 1.3 session tickets (clause_ssl_tickets).
+%% over clause_ssl_session's caches, LIB81D2b TLS 1.3 session tickets (clause_ssl_tickets) and LIB81D2c early data.
 -module(clause_ssl_connection).
 -behaviour(gen_server).
 -export([start/1, start_link/1]).
@@ -250,16 +250,18 @@ engine(#{role := Role, ssl := Ssl} = Config, S) ->
         {error, {Key, Text}} -> {error, {options, {Key, Text}}}
     end.
 
-% A client sends its server name and offers a TLS 1.2 session (LIB81D2a).
+% A client sends its server name and offers a session (LIB81D2a): a TLS 1.3 ticket with its early data (LIB81D2b,
+% LIB81D2c), else a TLS 1.2 session.
 connection_options(client, Ssl, S) ->
     Options =
         case Ssl of
             #{server_name_indication := [_ | _] = Name} -> #{server_name => list_to_binary(Name)};
             _ -> #{}
         end,
-    case offered_session(Ssl, S) of
-        undefined -> Options;
-        Data -> Options#{session => Data}
+    case {offered_ticket(Ssl), tls12_session(Ssl, S)} of
+        {undefined, undefined} -> Options;
+        {undefined, Data} -> Options#{session => Data};
+        {Ticket, _} -> with_early_data(Ssl, Options#{session => Ticket})
     end;
 connection_options(server, _Ssl, _S) ->
     #{}.
@@ -300,8 +302,8 @@ handshake_done(#{waiter := From, timer := Timer, sslsocket := SslSocket} = S) ->
     cancel(Timer),
     save_session(S),
     gen_server:reply(From, {ok, SslSocket}),
-    % Application data that came with the handshake's last flight.
-    connection_read(<<>>, S#{phase => connection, waiter => undefined, timer => undefined}).
+    % Application data that came with the handshake's last flight, after its early data.
+    connection_read(<<>>, early_data_done(S#{phase => connection, waiter => undefined, timer => undefined})).
 
 handshake_ended(Reply, #{waiter := From, timer := Timer} = S) ->
     cancel(Timer),
@@ -397,13 +399,6 @@ host_id(#{server_name_indication := [_ | _] = Name}, _Address) -> Name;
 host_id(#{host := Host}, _Address) when Host =/= undefined -> Host;
 host_id(_Ssl, Address) -> Address.
 
-% The session a client offers: a TLS 1.3 ticket (LIB81D2b), else a TLS 1.2 session.
-offered_session(Ssl, S) ->
-    case offered_ticket(Ssl) of
-        undefined -> tls12_session(Ssl, S);
-        Data -> Data
-    end.
-
 % The TLS 1.2 session a client offers, as OTP's client selects it: the data reuse_session gives, a saved session it
 % names, or with reuse_sessions true a cached session to the same server whose suite and certificate still apply.
 tls12_session(#{versions := ['tlsv1.3']}, _S) ->
@@ -443,6 +438,25 @@ tls13_suites(#{ciphers := Codes}) ->
     [{Cipher, Hash} || Code <- Codes, Code bsr 8 == 16#13, #{cipher := Cipher, prf := Hash} <- [suite(Code)]].
 
 suite(Code) -> clause_ssl_algorithms:code_suite(Code).
+
+with_early_data(#{early_data := Data}, Options) when is_binary(Data) -> Options#{early_data => Data};
+with_early_data(_Ssl, Options) -> Options.
+
+% Added for early data (LIB81D2c): after the handshake a client that offered early data tells its owner whether the
+% server accepted it (data the ticket could not take counts as rejected); a server delivers the early data it read.
+early_data_done(#{role := client, ssl := #{early_data := Data}, engine := Engine} = S) when is_binary(Data) ->
+    #{owner := Owner, sslsocket := SslSocket} = S,
+    case clause_ssl_engine:info(Engine) of
+        #{early_data := accepted} -> Owner ! {ssl, SslSocket, {early_data, accepted}};
+        #{early_data := rejected} -> Owner ! {ssl, SslSocket, {early_data, rejected}};
+        #{resumed := true} -> Owner ! {ssl, SslSocket, {early_data, rejected}};
+        _ -> ok
+    end,
+    S;
+early_data_done(#{role := server, ssl := #{early_data := enabled}, engine := Engine, buffer := Buffer} = S) ->
+    S#{buffer => <<(clause_ssl_engine:early_data(Engine))/binary, Buffer/binary>>};
+early_data_done(S) ->
+    S.
 
 % A ticket the server sent: kept for session_tickets auto, sent to the owner for manual, as OTP's.
 ticket_received(Data, #{engine := Engine, ssl := Ssl, owner := Owner}) ->

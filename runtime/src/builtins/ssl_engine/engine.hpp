@@ -7,6 +7,7 @@
 #include <mutex>
 #include <openssl/ssl.h>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <vector>
@@ -53,6 +54,14 @@ struct Context {
     std::map<std::vector<std::byte>, std::vector<std::byte>> ticket_store_;
     std::deque<std::vector<std::byte>> ticket_order_;
     std::size_t ticket_store_size_ = 0;
+    // Added for TLS 1.3 early data (LIB81D2c): whether a server takes early data; a stateless server's anti_replay
+    // window in seconds (0 for none), with the PSK binders of the current and the last window and when it began.
+    bool early_data_ = false;
+    std::int64_t replay_window_ = 0;
+    std::int64_t replay_rotated_ = 0;
+    std::mutex replay_lock_;
+    std::set<std::vector<std::byte>> replay_current_;
+    std::set<std::vector<std::byte>> replay_old_;
 };
 
 // A handle's object: shared, since every engine keeps its context alive for the callbacks.
@@ -123,6 +132,12 @@ struct Engine {
     std::vector<std::byte> requested_session_;
     std::optional<std::vector<std::byte>> requested_server_name_;
     std::vector<std::byte> session_answer_;
+    // Added for LIB81D2c: a client's early data to write with its ClientHello; a server's reading of early data, the
+    // early data it read, and the ClientHello's PSK binders anti_replay checks.
+    std::vector<std::byte> early_out_;
+    bool early_reading_ = false;
+    std::vector<std::byte> early_in_;
+    std::vector<std::byte> binders_;
 };
 
 constexpr std::uint64_t CONTEXT_MAGIC = 0x73736c63747874; // "sslctxt"
@@ -152,6 +167,12 @@ bool configure_tickets(Context &context, const Term &value);
 SSL_SESSION *take_ticket(Context &context, std::span<const unsigned char> id);
 // The DER bytes of a session; empty when libssl cannot encode it.
 std::vector<std::byte> session_der(SSL_SESSION *session);
+// Added for LIB81D2c: a server's early data, {MaxSize, AntiReplayWindow | undefined}; false for a value it cannot take.
+bool configure_early_data(Context &context, const Term &value);
+// Added for LIB81D2c: keep a ClientHello's PSK binders for anti_replay, inside the ClientHello callback.
+void record_binders(SSL *ssl);
+// Added for LIB81D2c: write a client's early data, or read a server's; the status of a step that must wait, else none.
+std::optional<Term> early_data_step(ProcessContext &context, Engine &engine);
 
 // The engine of an SSL object inside a libssl callback.
 Engine *engine_of(const SSL *ssl);
@@ -190,4 +211,5 @@ std::span<const BuiltinEntry> connection_builtins() noexcept;
 std::span<const BuiltinEntry> info_builtins() noexcept;
 std::span<const BuiltinEntry> feature_builtins() noexcept;
 std::span<const BuiltinEntry> session_builtins() noexcept;
+std::span<const BuiltinEntry> early_data_builtins() noexcept;
 } // namespace clause::runtime::builtins::ssl_engine

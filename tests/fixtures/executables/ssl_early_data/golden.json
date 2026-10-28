@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ssl_early_data",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "stateful early data {true,[accepted],{ok,\"early\"}}\nthen {ok,\"later\"}\nstateless early data {true,[accepted],{ok,\"early\"}}\nthen {ok,\"later\"}\nrejected {true,[rejected],{error,timeout}}\nstateless replayed [{true,[accepted],{ok,\"again\"}},\n                    {true,[accepted],{ok,\"again\"}}]\nssl_early_data: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "ssl_early_data.erl": "640b8cbc98be2469448479675cbf20bd22d3a9152a2bab39724edc47ea3b157f"
+  }
+}

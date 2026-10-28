@@ -1099,7 +1099,14 @@ all the I/O.
 - Tickets (`tickets.cpp`, LIB81D2b): a client's TLS 1.3 tickets become `{ticket, SessionDER}` events. A stateless
   server issues libssl's tickets (keys from SHA-512 and SHA-256 of the seed), a stateful one keeps each ticket's
   session in its context and gives it to libssl's lookup once. Each ticket's session gets the server's lifetime,
-  and a TLS 1.2 connection of a ticket server is denied tickets in the ClientHello callback.
+  and a TLS 1.2 connection of a ticket server is denied tickets in the ClientHello callback. libssl's own anti-replay
+  is off (`SSL_OP_NO_ANTI_REPLAY`): it needs libssl's internal session cache.
+- Early data (`early_data.cpp`, LIB81D2c): a context's `early_data => {MaxSize, AntiReplayWindow | undefined}` makes
+  a server take early data, which its handshake steps read before the handshake goes on; `early_data(Engine)` takes
+  what it read. `connection/2`'s `early_data => Data` is written with a client's ClientHello when the offered
+  session takes that much. `info/1` adds `early_data` (`accepted`, `rejected` or `not_sent`). With a window, the
+  ClientHello callback keeps the PSK binders and libssl's early data callback refuses binders seen in the current or
+  the last window.
 - `configure(Engine, Context)` (`connection.cpp`, LIB81C2) moves an engine to another context of its role
   (`SSL_set_SSL_CTX` and the context's verify mode): a client's `handshake_continue/2,3` options take effect after
   its ClientHello.

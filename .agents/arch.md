@@ -107,5 +107,6 @@ behavior (`docs/differences.md` lists gaps).
   reads the peer's hello before libssl does; libssl callbacks queue secrets/KeyUpdates/renegotiations as engine
   events the process takes after each step; TLS 1.2 sessions live in Erlang caches (`ssl_manager`, one per
   listener) as libssl DER, a server's ClientHello callback pausing for the lookup; TLS 1.3 client tickets in
-  `tls_client_ticket_store`, stateful server tickets in the engine context). Distribution and tracing
+  `tls_client_ticket_store`, stateful server tickets in the engine context; early data read before the handshake
+  goes on, binder sets for anti_replay). Distribution and tracing
   answer as a non-alive node.

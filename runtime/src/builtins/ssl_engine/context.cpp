@@ -366,14 +366,23 @@ Problem tickets(Context &context, const Term &value) {
     return std::nullopt;
 }
 
+// Added for TLS 1.3 early data (plan 21 step LIB81D2c): early_data => {MaxSize, AntiReplayWindow | undefined}: a
+// server takes early data up to MaxSize.
+Problem early_data(Context &context, const Term &value) {
+    if (!configure_early_data(context, value)) {
+        bad_argument();
+    }
+    return std::nullopt;
+}
+
 // The options context/2 reads, applied in this order.
 struct Option {
     AtomName key;
     Problem (*apply)(Context &, const Term &);
 };
 
-const std::array<Option, 14> &options() {
-    static const std::array<Option, 14> OPTIONS{{
+const std::array<Option, 15> &options() {
+    static const std::array<Option, 15> OPTIONS{{
         {"versions"_atom, versions},
         {"ciphers"_atom, ciphers},
         {"honor_cipher_order"_atom, honor_cipher_order},
@@ -388,6 +397,7 @@ const std::array<Option, 14> &options() {
         {"client_renegotiation"_atom, client_renegotiation},
         {"session_cache"_atom, session_cache},
         {"tickets"_atom, tickets},
+        {"early_data"_atom, early_data},
     }};
     return OPTIONS;
 }

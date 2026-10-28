@@ -654,3 +654,11 @@ recorded elsewhere.
   through the external get/new session callbacks (needs SSL_SESS_CACHE_SERVER); clear SSL_OP_NO_TICKET for stateless
   and set it per connection in the ClientHello callback when TLS 1.3 is not chosen (no RFC 5077 tickets). Client
   new_session_cb needs SSL_SESS_CACHE_CLIENT. Bash heredocs with apostrophes in python strings fail: use scratch .py.
+- LIB81D2c ssl early data (2026-10-28): OTP 29.1.1 server crashes (unexpected_message) on early data above the
+  ticket limit and on a used stateful ticket with early data: fixtures leave those out (rows in differences.md). A
+  legit ticket reuse under anti_replay is accepted (fresh binders). libssl's anti-replay calls SSL_CTX_remove_session,
+  which only succeeds for the INTERNAL cache: set SSL_OP_NO_ANTI_REPLAY on every ticket server (own single-use store).
+  Server early data: SSL_read_early_data loop before SSL_do_handshake (it drives the ClientHello callback pauses too).
+- linking_debugger flake (2026-10-28): lldb sometimes prints `expr -- clause::runtime::debug_erlang_stack()` output
+  late (hex inside "unexpected response to k packet"), failing debugger.py's assert; fails ~1 in 3 runs, passes alone
+  on rerun. Not related to library changes.

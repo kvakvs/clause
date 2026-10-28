@@ -67,6 +67,7 @@ int on_client_hello(SSL *ssl, int * /*alert*/, void * /*argument*/) {
     if (engine.lookup_ != Lookup::none) {
         return engine.lookup_ == Lookup::answered ? SSL_CLIENT_HELLO_SUCCESS : SSL_CLIENT_HELLO_RETRY;
     }
+    record_binders(ssl);
     const auto tls13 = chooses_tls13(ssl);
     if (!tls13) {
         SSL_set_options(ssl, SSL_OP_NO_TICKET);
