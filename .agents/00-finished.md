@@ -1000,6 +1000,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   identical — `c9ef88ab`
 - **LIB81D3b** ssl `key_update_at`/`renegotiate_at` automatic rekeys in the send path (OTP's split and counting), custom
   `cb_info` transports verified; `ssl_rekeys`, `ssl_transports` goldens identical — `7ced7bf1`
+- **LIB81D4a** ssl CRL checks (`crl_check`/`crl_cache`, OTP's lookup order and verify_fun replay) and `ssl_crl_cache`
+  over an ETS store; no HTTP fetch (no inets); `ssl_crls` golden identical — `65202f81`
 - **LIB77A** transform host: the loader linked with the whole library by `clau --shell`, built once per clau/runtime/
   library identity into the user cache (lock file, older hosts pruned); library-only transform chains run there, also
   under `--erl none`; replies equal OTP's (ms_headers, qlc_queries `.abstr`); library `compile` without compiling
