@@ -646,7 +646,9 @@ recorded elsewhere.
   need PROVIDED(...) in compiler/src/driver/library_modules.inc (`library_modules.py check .`). clau crashed 3 times
   (0xC0000005 / 0x80000003) compiling ssl_sessions -O2 cold with a clause_ssl_options variant, jobs >= 2; jobs 1
   passed and cached it; not reproducible after a reboot (function-level cache: comment-only probes stay warm, a
-  failed compile caches nothing).
+  failed compile caches nothing). 2026-10-28 retry with CLAUSE_OPTIMIZED_COMPILER=OFF: 54 cold -O2 compiles
+  (positional --no-cache and project with fresh build/, jobs 2/4/8, current and crash-time D2a library) plus
+  5 run_case loops all compiled; no crash. Suspect a transient host fault (pre-reboot) or optimized-only UB.
 - LIB81D2b ssl tickets (2026-10-28): OTP's auto ticket store is keyed by SNI only and takes oldest first, so stale
   tickets of other listeners (same SNI) make later connections full handshakes: fixtures give each scenario its own
   server_name_indication (client verify_none). Resumed TLS 1.3: client peercert {error, no_peercert}; server only with

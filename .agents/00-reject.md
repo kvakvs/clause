@@ -20,5 +20,18 @@ Steps investigated and dropped, with the measurement behind each decision.
   API were 1.7-4x slower than compiled Erlang matching. The `der_decode`/`der_encode` and
   `pkix_crls_validate` SCCs stay Erlang (generated module calls, funs, throws). Rule since then:
   port only hot inner loops with a measured win, or very complex recursive clusters.
+- **LIB9 remainder: 20 `erlang` functions** (declined; moved out of plan 21 on 2026-10-28). They
+  raise or return what OTP gives where the feature is unavailable, each recorded as
+  `{unavailable, code_loading | distribution | tracing}` in `library/erts/erlang.terms`. Code
+  loading (D01: `load_module/2`, `load_nif/2`, `purge_module/1`, `check_old_code/1`,
+  `check_process_code/2,3`): programs are linked executables.
+  Distribution (`dist_ctrl_get_data/1`, `dist_ctrl_get_data_notification/1`, `dist_ctrl_get_opt/2`,
+  `dist_ctrl_input_handler/2`, `dist_ctrl_put_data/2`, `dist_ctrl_set_opt/3`): a Clause program is a
+  non-distributed node. Tracing (`trace/3`, `trace_delivered/1`, `trace_info/2`,
+  `trace_pattern/2,3`, `system_monitor/0,1,2`, `system_profile/0,2`) raises `notsup` (LIB71); real
+  tracing stays a "Later" idea in `21-lib.md`.
+- **LIB81D5 SRP suites** (declined 2026-10-28 by the user: libssl's SRP interface is deprecated).
+  `srp_identity` is validated as OTP's but no SRP suite is negotiated (`docs/differences.md`); TLS
+  1.2 PSK was done instead.
 - **LIB78 `parsetools` (`yecc`/`leex`)** (cancelled 2026-10-28 by the user before any work: not needed). Projects
   that ship only `.yrl`/`.xrl` sources keep needing OTP's `yecc`/`leex` to generate their `.erl` files.

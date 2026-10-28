@@ -16,20 +16,18 @@ internal functions stay out unless a public function needs them (user direction 
   headline speedup to `00-finished.md` (Plan 21). Rejected or reverted steps go to `00-reject.md`
   with the measurement behind the decision.
 
-## Status (2026-10-27)
+## Status (2026-10-28)
 
 - **Source of truth:** the doc chunks of the installed OTP 29.1.1 (`code:get_doc/1`), recorded in
   `library/documented.terms` by `tests/compiler/library/observe_docs.escript`;
   `library_modules.py coverage .` prints the progress per module. 120 documented modules, 2,888
   documented functions.
-- **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
-- **Left:** `erlang` (20 declined functions, LIB9 remainder, Appendix A); OTP-free builds (LIB77
-  transforms without the host are done; LIB78 `yecc`/`leex` cancelled); applications beyond the core
-  that emqx needs (LIB81D3c and LIB81D4b on request, LIB82–LIB83, Appendix B; `crypto` (LIB79),
-  `public_key` (LIB80), `ssl`'s utility functions (LIB81A), libssl engine (LIB81B), core connections
-  (LIB81C1), the hello pause and closing (LIB81C2), renegotiation, key updates, exporters and
-  secrets (LIB81D1), TLS 1.2 session reuse (LIB81D2a), TLS 1.3 session tickets (LIB81D2b) and early
-  data (LIB81D2c) are done).
+- **Done:** every documented module of `erts`, `kernel` and `stdlib`, `crypto` (LIB79),
+  `public_key` (LIB80) and `ssl` (LIB81A–D5) (`00-finished.md`, Plan 21).
+- **Left:** optional `ssl` steps on request (LIB81D3c, LIB81D4b, LIB81E) and test support (LIB82
+  `eunit`, LIB83 `common_test`, the appendix).
+- **Declined** (`00-reject.md`): the 20 `erlang` functions of the LIB9 remainder, LIB78
+  `yecc`/`leex`, `ssl`'s SRP suites.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -93,12 +91,6 @@ runs a process protocol or is glue. C++ reproduces OTP's exact result shapes for
 
 ## Open steps
 
-### LIB9 remainder: declined `erlang` functions
-
-- D01: `load_module/2`, `load_nif/2`, `purge_module/1`, `check_*code`.
-- Distribution: `dist_ctrl_*`.
-- Tracing: `trace*`, `system_monitor/0,1,2`, `system_profile/0,2` raise `notsup` (LIB71).
-
 ### Phase: OTP-free builds
 
 `test-luerl-euler.toml` and `test-luerl-benchmark.toml` use no Erlang/OTP paths since LIB76: all
@@ -116,7 +108,7 @@ preprocessing diagnostics are unchanged (the rest are emqx's missing dependencie
 #### Applications beyond erts/kernel/stdlib (survey 2026-10-26)
 
 What `test-emqx.toml` still takes from OTP. Documented API from the OTP 29 doc chunks of the host's
-`ssl-11.7.7`, `eunit-2.11`, `common_test-1.31.2` (full lists in Appendix B; re-observe them into
+`ssl-11.7.7`, `eunit-2.11`, `common_test-1.31.2` (full lists in the appendix; re-observe them into
 `documented.terms` the way `observe_docs.escript` does for the three core applications). Call counts
 are over `references/emqx/apps`, non-test sources unless noted. The same rules apply as for the
 core: whole module or nothing in `library/`, OTP's terms and records, goldens from OTP, own headers
@@ -135,18 +127,13 @@ written from the documented records and macros.
   `close` 55, `send` 17 and `recv` 15. emqx's `emqx_ocsp_cache` and `emqx_ssl_crl_cache` include
   OTP-internal `ssl_handshake.hrl` and `ssl_internal.hrl`. These are not public and are not
   provided, so projects keep OTP's `ssl` application root for them.
-  - **LIB81D TLS features** (D1 `renegotiate/1`, `update_keys/2`, `export_key_materials/4,5`,
-    `prf/5` and `keep_secrets`, D2a TLS 1.2 session reuse, D2b TLS 1.3 session tickets, D2c early
-    data are done). `ssl` is no longer PARTIAL (D5 done).
+  - **LIB81D TLS features:** done but these optional steps (`ssl` is complete, not PARTIAL).
     - **LIB81D3c (optional, on request)** `log_level` output: OTP's `debug` protocol traces of
       records and handshake messages (`ssl_logger`); libssl's messages differ from OTP's, so the
-      traces cannot match. D3a `sni_hosts`/ `sni_fun` and D3b custom `cb_info` transports and
-      automatic rekeys are done.
-    - **LIB81D4b** OCSP stapling: the client `stapling` option
-      (`staple | no_staple | #{ocsp_nonce, ...}`), the staple checked as OTP's `ssl_certificate`
-      checks it (`public_key:pkix_ocsp_validate/5`), `missing_ocsp_staple`. D4a CRL checks with
-      `ssl_crl_cache` are done.
-    - LIB81D5 TLS 1.2 PSK is done; SRP declined (user 2026-10-28: libssl's SRP API is deprecated).
+      traces cannot match.
+    - **LIB81D4b (optional, skipped for now 2026-10-28)** OCSP stapling: the client `stapling`
+      option (`staple | no_staple | #{ocsp_nonce, ...}`), the staple checked as OTP's
+      `ssl_certificate` checks it (`public_key:pkix_ocsp_validate/5`), `missing_ocsp_staple`.
   - **LIB81E (optional) TLS 1.0/1.1 and DTLS 1.0/1.2** over `gen_udp` with libssl's DTLS methods.
 - **LIB82 (far back: test support) `eunit` (4 functions: `eunit:test/1,2`, `start/0`, `stop/0`):**
   `eunit.hrl` (49 `-define`s: `?assert*`, `?_test`, `?_assert*`, `?debug*`, `?LET`, `?IF`, `NOTEST`)
@@ -189,18 +176,7 @@ written from the documented records and macros.
   `edlin_expand`, the `..>` multiline prompt) and Ctrl+G job control; `current_function` and
   `initial_call` items for `c:i/0`; records of compiled modules for `rr(Module)`.
 
-## Appendix A: documented functions still to do (OTP 29.1.1 doc chunks)
-
-Format: `module` (application, functions to do): name/arities. Deprecated functions are listed
-separately and are optional.
-
-- `erlang` (erts, 20, all declined; tracing raises `notsup`): check_old_code/1,
-  check_process_code/2,3, dist_ctrl_get_data/1, dist_ctrl_get_data_notification/1,
-  dist_ctrl_get_opt/2, dist_ctrl_input_handler/2, dist_ctrl_put_data/2, dist_ctrl_set_opt/3,
-  load_module/2, load_nif/2, purge_module/1, system_monitor/0,1,2, system_profile/0,2, trace/3,
-  trace_delivered/1, trace_info/2, trace_pattern/2,3
-
-## Appendix B: documented API of the applications beyond the core (OTP 29 doc chunks)
+## Appendix: documented API of the applications beyond the core (OTP 29 doc chunks)
 
 Observed 2026-10-26 on the host's OTP 29 (`code:get_doc/1`, not hidden, not deprecated), for LIB81–
 LIB83 (`crypto` and `public_key` are done). Format: `module` (functions): name/arities.
