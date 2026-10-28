@@ -1514,6 +1514,9 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_ssl_engine", "export", 4},
     BuiltinName{"clause_ssl_engine", "events", 1},
     BuiltinName{"clause_ssl_engine", "allow_renegotiation", 2},
+    // Session reuse (plan 21 step LIB81D2a; runtime/src/builtins/ssl_engine/sessions.cpp).
+    BuiltinName{"clause_ssl_engine", "resume", 2},
+    BuiltinName{"clause_ssl_engine", "session", 1},
     // clause_compile, the source quotes of compile's messages (plan 21 LIB77E1;
     // runtime/src/builtins/compile_messages.cpp).
     BuiltinName{"clause_compile", "quote_source", 3},

@@ -1,0 +1,4 @@
+%% OTP 29 ssl_session_cache_api exports: {Name, Arity, Group, Status}; observed by
+%% tests/compiler/library/observe_module.escript, groups and statuses maintained by hand
+%% (docs/libraries/library.md#runtime-module-replacements).
+{behaviour_info, 1, default, implemented}.

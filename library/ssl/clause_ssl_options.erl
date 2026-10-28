@@ -180,6 +180,7 @@ ssl_options(List, Ssl0, Env) ->
         fun alpn/3,
         fun role_only/3,
         fun booleans/3,
+        fun sessions/3,
         fun groups_and_ciphers/3,
         fun handshake/3,
         fun others/3
@@ -430,7 +431,7 @@ role_only(User, Ssl, #{role := client}) ->
     [server_only(K, User) || K <- [honor_cipher_order, honor_ecc_order, client_renegotiation, sni_fun, sni_hosts]],
     Ssl;
 role_only(User, Ssl, #{role := server}) ->
-    [client_only(K, User) || K <- [reuse_session, use_ticket, fallback, psk_identity, srp_identity]],
+    [client_only(K, User) || K <- [use_ticket, fallback, psk_identity, srp_identity]],
     Ssl.
 
 booleans(User, Ssl, _Env) ->
@@ -444,8 +445,38 @@ booleans(User, Ssl, _Env) ->
         {certificate_authorities, true}
     ],
     Ssl1 = lists:foldl(fun({K, D}, S) -> S#{K => boolean(K, D, User, S)} end, Ssl, Defaults),
-    Reuse = one_of(reuse_sessions, [true, false, save], true, User, Ssl1),
-    Ssl1#{reuse_sessions => Reuse, keep_secrets => keep_secrets(User, Ssl1)}.
+    Ssl1#{keep_secrets => keep_secrets(User, Ssl1)}.
+
+%% Session reuse (LIB81D2a): a client's reuse_sessions (true, false or save) and reuse_session (an id or {Id, Data});
+%% a server's reuse_sessions (false by default when it verifies clients) and reuse_session policy fun. Both are
+%% options of TLS 1.2 and older.
+sessions(User, Ssl, #{role := client}) ->
+    Reuse = one_of(reuse_sessions, [true, false, save], true, User, Ssl),
+    Session =
+        case get_opt(reuse_session, undefined, User, Ssl) of
+            {new, Id} when is_binary(Id) -> Id;
+            {new, {Id, Data} = Ref} when is_binary(Id), is_binary(Data) -> Ref;
+            {new, Bad} -> option_error(reuse_session, Bad);
+            {_, Value} -> Value
+        end,
+    before_tls13([reuse_sessions, reuse_session], User, Ssl),
+    Ssl#{reuse_sessions => Reuse, reuse_session => Session};
+sessions(User, #{verify := Verify} = Ssl, #{role := server}) ->
+    Reuse = boolean(reuse_sessions, Verify == verify_none, User, Ssl),
+    Policy =
+        case get_opt(reuse_session, fun(_, _, _, _) -> true end, User, Ssl) of
+            {_, Fun} when is_function(Fun, 4) -> Fun;
+            {_, Bad} -> option_error(reuse_session, Bad)
+        end,
+    before_tls13([reuse_sessions, reuse_session], User, Ssl),
+    Ssl#{reuse_sessions => Reuse, reuse_session => Policy}.
+
+% Options given for TLS 1.2 and older while only TLS 1.3 is configured, as OTP's.
+before_tls13(Keys, User, #{versions := ['tlsv1.3'] = Versions}) ->
+    [throw({error, {options, incompatible, [K, {versions, Versions}]}}) || K <- Keys, is_map_key(K, User)],
+    ok;
+before_tls13(_Keys, _User, _Ssl) ->
+    ok.
 
 %% keep_secrets: a boolean, or {keylog | keylog_hs, Fun} (LIB81D1).
 keep_secrets(User, Ssl) ->
@@ -660,12 +691,19 @@ engine_extras(Role, Ssl, CaCerts) ->
         {signature_algs, maps:get(signature_algs, Ssl)},
         {client_cas, client_cas(Role, Ssl, CaCerts)},
         {keylog, maps:get(keep_secrets, Ssl) =/= false orelse undefined},
-        {client_renegotiation, client_renegotiation(Role, Ssl)}
+        {client_renegotiation, client_renegotiation(Role, Ssl)},
+        {session_cache, session_cache(Role, Ssl)}
     ],
     [{K, V} || {K, V} <- Optional, V =/= undefined].
 
 client_renegotiation(server, #{client_renegotiation := Allow}) -> Allow;
 client_renegotiation(client, _) -> undefined.
+
+% Added for session reuse (LIB81D2a): a server that reuses TLS 1.2 sessions keeps them in Erlang's cache.
+session_cache(server, #{reuse_sessions := true, versions := Versions}) when Versions =/= ['tlsv1.3'] ->
+    clause_ssl_session:lifetime();
+session_cache(_, _) ->
+    undefined.
 
 client_cas(server, #{verify := verify_peer, certificate_authorities := true}, [_ | _] = CaCerts) -> CaCerts;
 client_cas(_, _, _) -> undefined.

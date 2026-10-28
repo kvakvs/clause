@@ -636,3 +636,14 @@ recorded elsewhere.
   SSL_OP_ALLOW_CLIENT_RENEGOTIATION; a server's HelloRequest fires HANDSHAKE_DONE while SSL_renegotiate_pending is
   still 1; TLS 1.3 post-handshake messages fire no START/DONE; a libssl client logs CLIENT_HANDSHAKE_TRAFFIC_SECRET
   only after the server's Finished. OTP probes with possibly hanging calls: wrap in a spawned limited/1 with timeout.
+- LIB81D2a ssl sessions (2026-10-28): split D2 into a (TLS 1.2 reuse), b (TLS 1.3 tickets), c (early data). OpenSSL
+  has no async session lookup (SSL_magic_pending_session_ptr is BoringSSL): pause in the ClientHello callback
+  (SSL_CLIENT_HELLO_RETRY -> SSL_ERROR_WANT_CLIENT_HELLO_CB), answer, then the external get_cb returns it. A libssl
+  server without SSL_SESS_CACHE_SERVER sends an EMPTY session id (OTP always sends one): servers keep SERVER|NO_INTERNAL.
+  Libssl's default SSL_CTX cache mode is SERVER with internal store. OTP quirks: reuse_session fun gets the suite as a
+  2-byte binary (docs say map); client registers only verify_peer sessions; server reuse_sessions default false when
+  verify_peer; ssl:stop prints an =INFO REPORT= unless logger primary level >= warning. New OTP-named library modules
+  need PROVIDED(...) in compiler/src/driver/library_modules.inc (`library_modules.py check .`). clau crashed 3 times
+  (0xC0000005 / 0x80000003) compiling ssl_sessions -O2 cold with a clause_ssl_options variant, jobs >= 2; jobs 1
+  passed and cached it; not reproducible after a reboot (function-level cache: comment-only probes stay warm, a
+  failed compile caches nothing).

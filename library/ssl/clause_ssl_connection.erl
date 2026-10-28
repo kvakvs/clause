@@ -4,7 +4,8 @@
 %% {ssl, S, Data}, {ssl_closed, S}, {ssl_error, S, Reason} and {ssl_passive, S} messages, passive recv, emulated
 %% packet framing, and closing when the owner exits. LIB81C2 adds the {handshake, hello} pause (clause_ssl_hello),
 %% shutdown/2 and close/2's downgrade to the transport socket. LIB81D1 adds TLS 1.2 renegotiation, TLS 1.3 key updates,
-%% keying material exporters and the secrets of keep_secrets (clause_ssl_secrets).
+%% keying material exporters and the secrets of keep_secrets (clause_ssl_secrets). LIB81D2a adds TLS 1.2 session reuse
+%% over clause_ssl_session's caches.
 -module(clause_ssl_connection).
 -behaviour(gen_server).
 -export([start/1, start_link/1]).
@@ -37,6 +38,7 @@ start_link(Args) ->
 %% (clause_ssl_secrets), exporter (whether the TLS 1.3 exporter secret is unconsumed), renegotiator (the caller of
 %% renegotiate/1), allow_peer (whether a server accepts a client's renegotiation now), sends (the {From, Data} of
 %% sends waiting for a handshake to end) and end_pending (a close_notify a passive connection has not acted on yet).
+%% For LIB81D2a: session_cache (a server's cache) and peer (the {Host, Port} key of a client's sessions).
 init(#{role := Role, socket := Socket, config := Config, owner := Owner} = Args) ->
     #{ssl := Ssl, emulated := Emulated, cb_info := {Transport, Data, Closed, Error, _}} = Config,
     SslSocket = #sslsocket{
@@ -75,7 +77,9 @@ init(#{role := Role, socket := Socket, config := Config, owner := Owner} = Args)
         renegotiator => undefined,
         allow_peer => true,
         sends => [],
-        end_pending => false
+        end_pending => false,
+        session_cache => maps:get(session_cache, Args, undefined),
+        peer => undefined
     }}.
 
 %%--------------------------------------------------------------------------------------------------------------------
@@ -204,12 +208,20 @@ transport_ended(_Reason, S) ->
 start_handshake(Timeout, Options, From, #{config := Config0, role := Role} = S) ->
     case updated(Config0, Options, Role) of
         {ok, Config} ->
-            case engine(Config, S) of
+            Peer = peer(S, Config),
+            case engine(Config, S#{peer := Peer}) of
                 {ok, Engine} ->
                     #{ssl := Ssl} = Config,
                     Pausing = maps:get(handshake, Ssl) == hello,
                     Keys = clause_ssl_secrets:new(maps:get(keep_secrets, Ssl)),
-                    S1 = S#{config => Config, ssl => Ssl, engine => Engine, pausing => Pausing, keys => Keys},
+                    S1 = S#{
+                        config => Config,
+                        ssl => Ssl,
+                        engine => Engine,
+                        pausing => Pausing,
+                        keys => Keys,
+                        peer => Peer
+                    },
                     Timer = start_timer(Timeout, handshake_timeout),
                     step(<<>>, S1#{phase => handshake, waiter => From, timer => Timer});
                 Error ->
@@ -231,15 +243,26 @@ updated(Config0, Options, Role) ->
 
 % The engine of the connection: over the listening socket's context unless the handshake changed options.
 engine(Config, #{context := Context, config := Config, role := Role} = S) when Context =/= undefined ->
-    {ok, clause_ssl_engine:connection(Context, connection_options(Role, maps:get(ssl, S)))};
-engine(#{role := Role, ssl := Ssl} = Config, _S) ->
+    {ok, clause_ssl_engine:connection(Context, connection_options(Role, maps:get(ssl, S), S))};
+engine(#{role := Role, ssl := Ssl} = Config, S) ->
     case clause_ssl_engine:context(Role, clause_ssl_options:engine_options(Config)) of
-        {ok, Context} -> {ok, clause_ssl_engine:connection(Context, connection_options(Role, Ssl))};
+        {ok, Context} -> {ok, clause_ssl_engine:connection(Context, connection_options(Role, Ssl, S))};
         {error, {Key, Text}} -> {error, {options, {Key, Text}}}
     end.
 
-connection_options(client, #{server_name_indication := [_ | _] = Name}) -> #{server_name => list_to_binary(Name)};
-connection_options(_, _) -> #{}.
+% A client sends its server name and offers a TLS 1.2 session (LIB81D2a).
+connection_options(client, Ssl, S) ->
+    Options =
+        case Ssl of
+            #{server_name_indication := [_ | _] = Name} -> #{server_name => list_to_binary(Name)};
+            _ -> #{}
+        end,
+    case offered_session(Ssl, S) of
+        undefined -> Options;
+        Data -> Options#{session => Data}
+    end;
+connection_options(server, _Ssl, _S) ->
+    #{}.
 
 % One handshake step with the bytes received.
 step(Received, #{engine := Engine} = S0) ->
@@ -250,6 +273,7 @@ step(Received, #{engine := Engine} = S0) ->
         want_read -> {noreply, arm(S)};
         done -> handshake_done(S);
         verify -> step(<<>>, verdict(S));
+        {lookup, SessionId, ServerName} -> step(<<>>, lookup_session(SessionId, ServerName, S));
         Failure -> handshake_failed(Failure, S)
     end.
 
@@ -274,6 +298,7 @@ handshake_failed(Failure, #{engine := Engine, role := Role, keys := Keys} = S) -
 
 handshake_done(#{waiter := From, timer := Timer, sslsocket := SslSocket} = S) ->
     cancel(Timer),
+    save_session(S),
     gen_server:reply(From, {ok, SslSocket}),
     % Application data that came with the handshake's last flight.
     connection_read(<<>>, S#{phase => connection, waiter => undefined, timer => undefined}).
@@ -355,6 +380,123 @@ alert_context(_, _, handshake, _) -> {hello, undefined};
 alert_context(_, _, connection, _) -> {connection, undefined}.
 
 %%--------------------------------------------------------------------------------------------------------------------
+%% Session reuse (LIB81D2a)
+%%--------------------------------------------------------------------------------------------------------------------
+
+% The {Host, Port} key of a client's sessions, as OTP's: the server name it sends, else the host it connected to (the
+% peer's address for an upgraded socket).
+peer(#{role := client, transport := Transport, socket := Socket}, #{ssl := Ssl}) ->
+    case (socket_module(Transport)):peername(Socket) of
+        {ok, {Address, Port}} -> {host_id(Ssl, Address), Port};
+        _ -> undefined
+    end;
+peer(_S, _Config) ->
+    undefined.
+
+host_id(#{server_name_indication := [_ | _] = Name}, _Address) -> Name;
+host_id(#{host := Host}, _Address) when Host =/= undefined -> Host;
+host_id(_Ssl, Address) -> Address.
+
+% The TLS 1.2 session a client offers, as OTP's client selects it: the data reuse_session gives, a saved session it
+% names, or with reuse_sessions true a cached session to the same server whose suite and certificate still apply.
+offered_session(#{versions := ['tlsv1.3']}, _S) ->
+    undefined;
+offered_session(#{reuse_session := {_Id, Data}}, _S) ->
+    Data;
+offered_session(_Ssl, #{peer := undefined}) ->
+    undefined;
+offered_session(#{reuse_session := Id}, #{peer := Server}) when is_binary(Id) ->
+    session_data(clause_ssl_session:client_lookup({Server, Id}));
+offered_session(#{reuse_sessions := true} = Ssl, #{peer := Server}) ->
+    case lists:search(fun(Session) -> usable(Session, Ssl) end, clause_ssl_session:client_sessions(Server)) of
+        {value, Session} -> session_data(Session);
+        false -> undefined
+    end;
+offered_session(_Ssl, _S) ->
+    undefined.
+
+usable(#{cipher_suite := Suite, own_certificate := Own}, #{ciphers := Ciphers} = Ssl) ->
+    lists:member(Suite, Ciphers) andalso (Own == undefined orelse lists:member(Own, own_certificates(Ssl)));
+usable(_Session, _Ssl) ->
+    false.
+
+own_certificates(Ssl) -> [Cert || #{cert := [Cert | _]} <- maps:get(certs_keys, Ssl, [])].
+
+session_data(#{data := Data}) -> Data;
+session_data({_Id, Data, _Own}) -> Data;
+session_data(_) -> undefined.
+
+% A server's answer to the TLS 1.2 session a ClientHello offers: the cached session when OTP's server would reuse it,
+% else none.
+lookup_session(Id, ServerName, #{engine := Engine, session_cache := Cache, ssl := Ssl} = S) ->
+    Answer =
+        case clause_ssl_session:reusable(Cache, Id) of
+            #{} = Session ->
+                case resumable(Id, ServerName, Session, Ssl) of
+                    true -> session_data(Session);
+                    false -> none
+                end;
+            not_reusable ->
+                none
+        end,
+    ok = clause_ssl_engine:resume(Engine, Answer),
+    S.
+
+% OTP's checks: the server still has the session's certificate, a client certificate it requires, the same server
+% name, and its reuse_session policy (given the suite's two-byte code, as OTP's).
+resumable(Id, ServerName, #{own_certificate := Own, peer_certificate := Peer, sni := Name, cipher_suite := Suite}, Ssl) ->
+    #{reuse_session := Policy, verify := Verify, fail_if_no_peer_cert := Required} = Ssl,
+    lists:member(Own, own_certificates(Ssl)) andalso
+        not (Required andalso Verify == verify_peer andalso Peer == undefined) andalso
+        ServerName == Name andalso
+        Policy(Id, Peer, 0, <<Suite:16>>);
+resumable(_Id, _ServerName, _Session, _Ssl) ->
+    false.
+
+% A new TLS 1.2 session saved as OTP saves it: a client's when it verified the server and reuse_sessions is not false
+% (save at once), a server's when reuse_sessions is true.
+save_session(#{engine := Engine} = S) ->
+    case clause_ssl_engine:info(Engine) of
+        #{resumed := false, protocol := Protocol} = Info when Protocol =/= 'tlsv1.3' -> save_session(Info, S);
+        _ -> ok
+    end.
+
+save_session(Info, #{role := client, peer := {_, _} = Server, ssl := #{verify := verify_peer} = Ssl} = S) ->
+    case {maps:get(reuse_sessions, Ssl), session_entry(Info, S)} of
+        {false, _} -> ok;
+        {_, #{session_id := <<>>}} -> ok;
+        {Reuse, #{session_id := Id} = Session} -> clause_ssl_session:register_client({Server, Id}, Session, Reuse);
+        _ -> ok
+    end;
+save_session(Info, #{role := server, session_cache := Cache, ssl := #{reuse_sessions := true}} = S) ->
+    case session_entry(Info, S) of
+        #{} = Session -> clause_ssl_session:register_server(Cache, Session);
+        undefined -> ok
+    end;
+save_session(_Info, _S) ->
+    ok.
+
+% The cache entry of the connection's session; undefined when libssl has none.
+session_entry(Info, #{engine := Engine}) ->
+    case clause_ssl_engine:session(Engine) of
+        {Id, Data, Own} ->
+            #{
+                session_id => Id,
+                data => Data,
+                cipher_suite => maps:get(cipher_suite, Info),
+                own_certificate => Own,
+                peer_certificate => first_certificate(clause_ssl_engine:peer_chain(Engine)),
+                sni => maps:get(server_name, Info),
+                is_resumable => true
+            };
+        undefined ->
+            undefined
+    end.
+
+first_certificate([Cert | _]) -> Cert;
+first_certificate([]) -> undefined.
+
+%%--------------------------------------------------------------------------------------------------------------------
 %% Data
 %%--------------------------------------------------------------------------------------------------------------------
 
@@ -367,6 +509,7 @@ connection_read(Bytes, #{engine := Engine, buffer := Buffer} = S0) ->
     case Status of
         ok -> deliver(flush_sends(S));
         verify -> connection_read(<<>>, verdict(S));
+        {lookup, SessionId, ServerName} -> connection_read(<<>>, lookup_session(SessionId, ServerName, S));
         closed -> deliver(S#{end_pending => true});
         Failure -> peer_ended(failure_reason(Failure, connection, S), S)
     end.
@@ -658,6 +801,7 @@ connection_items(#{engine := Engine, role := Role}) ->
     Items = [
         {protocol, maps:get(protocol, Info)},
         {session_id, maps:get(session_id, Info)},
+        {session_data, session_data(clause_ssl_engine:session(Engine))},
         {session_resumption, maps:get(resumed, Info)},
         {selected_cipher_suite, clause_ssl_algorithms:code_suite(maps:get(cipher_suite, Info))},
         {selected_group, group(maps:get(group, Info))},

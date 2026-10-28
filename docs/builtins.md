@@ -1062,9 +1062,12 @@ all the I/O.
   libssl maps to its TLS 1.3 and 1.2 names), `honor_cipher_order`, `groups`, `signature_algs` (OTP's scheme atoms
   and `{Hash, Sign}` tuples), `certs` (`[{[CertDER], {KeyType, KeyDER}}]`), `verify`, `fail_if_no_peer_cert`,
   `client_cas` and `alpn`; LIB81D1 adds `keylog` (secrets and KeyUpdates become events) and a server's
-  `client_renegotiation`. It drops names the linked libssl does not know and repeats, one at a time. It sets
-  OTP's defaults where libssl's differ: no session tickets, security level 0, and chains as given.
-- `connection(Context, #{server_name => Name})` (`connection.cpp`) makes an engine. `handshake(Engine, Received)`
+  `client_renegotiation`; LIB81D2a adds a server's `session_cache => Lifetime` (sessions live in Erlang's cache). It
+  drops names the linked libssl does not know and repeats, one at a time. It sets OTP's defaults where libssl's
+  differ: no session tickets, no libssl session cache (servers still name each session), security level 0, and
+  chains as given.
+- `connection(Context, #{server_name => Name, session => SessionDER})` (`connection.cpp`) makes an engine; a client
+  offers the given session (LIB81D2a). `handshake(Engine, Received)`
   gives `{done | want_read | verify | Failure, Output}`. `read/2` gives `{ok | closed | Failure, Data, Output}`
   with all the plaintext that is available, and answers a requested key update at once. `write(Engine, IoData)`,
   `shutdown/1` (close_notify) and `key_update(Engine, write | read_write)` give `{ok | Failure, Output}`. A
@@ -1086,6 +1089,11 @@ all the I/O.
   `key_update_received`, `renegotiation_started`, `renegotiated` and `renegotiation_refused` (a received
   `no_renegotiation` warning). `allow_renegotiation(Engine, Boolean)` sets whether a server accepts the client's
   renegotiations. A finished handshake resets the verdict, so a renegotiation verifies the peer again.
+- Session reuse (`sessions.cpp`, LIB81D2a): a server with `session_cache` pauses its handshake in libssl's
+  ClientHello callback when the hello offers a TLS 1.2 session, with the status `{lookup, SessionId, ServerName |
+  undefined}`. Erlang answers with `resume(Engine, SessionDER | none)`, which libssl's session lookup returns on the
+  next step. `session(Engine)` gives `{SessionId, SessionDER, OwnCertificate | undefined}` of the current session,
+  else `undefined`. `peer_chain/1` of a resumed session is the peer certificate the session kept.
 - `configure(Engine, Context)` (`connection.cpp`, LIB81C2) moves an engine to another context of its role
   (`SSL_set_SSL_CTX` and the context's verify mode): a client's `handshake_continue/2,3` options take effect after
   its ClientHello.

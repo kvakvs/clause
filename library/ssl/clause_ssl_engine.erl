@@ -19,7 +19,9 @@
     renegotiate/1,
     export/4,
     events/1,
-    allow_renegotiation/2
+    allow_renegotiation/2,
+    resume/2,
+    session/1
 ]).
 
 context(_Role, _Options) -> clause_builtin_placeholder.
@@ -38,3 +40,6 @@ renegotiate(_Engine) -> clause_builtin_placeholder.
 export(_Engine, _Label, _Context, _Length) -> clause_builtin_placeholder.
 events(_Engine) -> clause_builtin_placeholder.
 allow_renegotiation(_Engine, _Allow) -> clause_builtin_placeholder.
+%% Session reuse (LIB81D2a).
+resume(_Engine, _Session) -> clause_builtin_placeholder.
+session(_Engine) -> clause_builtin_placeholder.

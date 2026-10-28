@@ -31,8 +31,12 @@ Term with_output(ProcessContext &context, Engine &engine, const Term &status) {
     return tuple_of(context, elements);
 }
 
-// Apply connection/2's options: server_name => Name sends SNI.
+// Apply connection/2's options: server_name => Name sends SNI, and session => SessionDER offers a TLS 1.2 session
+// (LIB81D2a).
 void connection_options(ProcessContext &context, SSL *ssl, const MapArgument &options) {
+    if (const auto offered = need(options.term.map_find(atom(context, "session"_atom)))) {
+        offer_session(ssl, crypto::binary_argument(*offered));
+    }
     const auto name = need(options.term.map_find(atom(context, "server_name"_atom)));
     if (!name) {
         return;

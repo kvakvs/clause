@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ssl_sessions",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "automatic {[false,true,true],[true,true]}\nclient verify_none {[false,false],[false]}\nreuse_sessions false {[false,false,false,true],true}\nsave {false,false}\nreuse_session saved {true,true}\nreuse_session unknown {false,false}\nsession items [{session_id,true},{session_data,true}]\nreuse_session data {true,true}\nreuse_session bad data {false,false}\nserver reuse_sessions false {[false,false],[false]}\nreuse_session false {[false,false],[false]}\npolicy arguments [{32,undefined,0,{binary,2}}]\nreuse_session true {[false,true],[true]}\npolicy arguments [{32,undefined,0,{binary,2}}]\nserver verify_peer {[false,false],[false]}\nserver verify_peer, reuse_sessions true [false,true]\npeer certificates kept {true,true}\ntlsv1.3 [false,false]\nclient option errors [{error,{options,{reuse_sessions,sometimes}}},\n                      {error,{options,{reuse_session,42}}},\n                      {error,{options,{reuse_session,{<<1>>,2}}}},\n                      {error,{options,{reuse_session,{'fun',4}}}},\n                      {error,{options,incompatible,\n                                      [reuse_sessions,\n                                       {versions,['tlsv1.3']}]}},\n                      {error,{options,incompatible,\n                                      [reuse_session,\n                                       {versions,['tlsv1.3']}]}}]\nserver option errors [{error,{options,{reuse_sessions,save}}},\n                      {error,{options,{reuse_session,<<1>>}}},\n                      {error,{options,{reuse_session,{'fun',2}}}},\n                      {error,{options,incompatible,\n                                      [reuse_sessions,\n                                       {versions,['tlsv1.3']}]}}]\ncallbacks {[false,true],[true]}\nclient callbacks {[[{role,client},{tag,client}]],\n                  [lookup,select_session,size,update]}\nserver callbacks {[[{role,server},{tag,server}]],[lookup,size,update]}\nssl_sessions: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "ssl_sessions.erl": "7d46eae1da625a91ea8084530e7ebbc9c2101d4739faf229cd854b36ff7821c1"
+  }
+}

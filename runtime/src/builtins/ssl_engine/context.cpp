@@ -347,14 +347,24 @@ Problem client_renegotiation(Context &context, const Term &value) {
     return std::nullopt;
 }
 
+// Added for ssl session reuse (plan 21 step LIB81D2a): session_cache => Lifetime: a server's TLS 1.2 sessions live in
+// Erlang's cache for Lifetime seconds.
+Problem session_cache(Context &context, const Term &value) {
+    if (!context.server_) {
+        bad_argument();
+    }
+    install_session_cache(context, bounded_integer(value, INT_MAX));
+    return std::nullopt;
+}
+
 // The options context/2 reads, applied in this order.
 struct Option {
     AtomName key;
     Problem (*apply)(Context &, const Term &);
 };
 
-const std::array<Option, 12> &options() {
-    static const std::array<Option, 12> OPTIONS{{
+const std::array<Option, 13> &options() {
+    static const std::array<Option, 13> OPTIONS{{
         {"versions"_atom, versions},
         {"ciphers"_atom, ciphers},
         {"honor_cipher_order"_atom, honor_cipher_order},
@@ -367,11 +377,13 @@ const std::array<Option, 12> &options() {
         {"alpn"_atom, alpn},
         {"keylog"_atom, keylog},
         {"client_renegotiation"_atom, client_renegotiation},
+        {"session_cache"_atom, session_cache},
     }};
     return OPTIONS;
 }
 
-// A new context with OTP's defaults: no session tickets, every security level, chains as given.
+// A new context with OTP's defaults: no session tickets, no session cache (session_cache/2 sets Erlang's), every
+// security level, chains as given. A server names its sessions' context, which libssl needs to resume them.
 std::shared_ptr<Context> new_context(bool server) {
     auto context = std::make_shared<Context>();
     context->server_ = server;
@@ -383,6 +395,15 @@ std::shared_ptr<Context> new_context(bool server) {
     SSL_CTX_set_security_level(ssl_context, 0);
     SSL_CTX_set_options(ssl_context, SSL_OP_NO_TICKET);
     SSL_CTX_set_num_tickets(ssl_context, 0);
+    // A server names every session, as OTP's does; libssl looks none up without session_cache/2's callbacks.
+    SSL_CTX_set_session_cache_mode(ssl_context, server ? SSL_SESS_CACHE_SERVER | SSL_SESS_CACHE_NO_INTERNAL |
+                                                             SSL_SESS_CACHE_NO_AUTO_CLEAR
+                                                       : SSL_SESS_CACHE_OFF);
+    if (server) {
+        constexpr std::string_view SESSION_CONTEXT = "clause";
+        SSL_CTX_set_session_id_context(ssl_context, reinterpret_cast<const unsigned char *>(SESSION_CONTEXT.data()),
+                                       static_cast<unsigned>(SESSION_CONTEXT.size()));
+    }
     // A write retried after a renegotiation (LIB81D1) may come from another buffer.
     SSL_CTX_set_mode(ssl_context,
                      SSL_MODE_NO_AUTO_CHAIN | SSL_MODE_RELEASE_BUFFERS | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);

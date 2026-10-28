@@ -4,8 +4,8 @@ Clause's `ssl` application (plan 21, LIB81) exports the OTP 29 interface of the 
 utility functions are implemented (LIB81A), and so are TLS 1.2 and 1.3 [connections](#connections)
 (LIB81C1) over the libssl [engine](#engine) (LIB81B), with the `{handshake, hello}` pause, `close/2`,
 `shutdown/2` and `tls_version/1` (LIB81C2), and [renegotiation, key updates, exporters](#renegotiation-key-updates-and-exporters)
-and [secrets](#secrets) (LIB81D1). Session reuse, SNI, CRLs, OCSP, PSK and SRP (the rest of LIB81D) and
-`ssl_crl_cache` follow. See the
+and [secrets](#secrets) (LIB81D1), and TLS 1.2 [session reuse](#session-reuse) (LIB81D2a). TLS 1.3 session
+tickets and early data, SNI, CRLs, OCSP, PSK and SRP (the rest of LIB81D) and `ssl_crl_cache` follow. See the
 [function inventory](../../library/ssl/ssl.terms) and
 [differences](../differences.md#ssl).
 
@@ -118,6 +118,41 @@ are derived in Erlang (RFC 8446 section 7.2).
   every handshake. A failing fun is logged as a warning.
 - `{keylog_hs, Fun}` gets the TLS 1.3 secrets a handshake had when it failed with a fatal alert.
 
+## Session reuse
+
+TLS 1.2 sessions are saved and reused as OTP's ssl saves and reuses them (LIB81D2a). `clause_ssl_session` runs the
+caches; a session is libssl's session in its DER encoding, with the facts OTP's choices read (suite, own and peer
+certificates, server name, time stamp).
+
+- **Client cache**: one process, registered as `ssl_manager` as OTP's, keys sessions by `{{Host, Port}, SessionId}`,
+  `Host` being the `server_name_indication` sent, else the host connected to (the peer's address for an upgraded
+  socket). A client that verified the server (`verify_peer`) saves its new session unless `reuse_sessions` is
+  `false`: with `true` (the default) only when no equivalent session is cached, with `save` at once, before the
+  handshake returns. A client whose versions are not only TLS 1.3 offers a session in its ClientHello: the
+  session of `{reuse_session, {Id, Data}}` (data libssl cannot read gives a new session, as OTP's does with data it
+  cannot decode), the saved session `{reuse_session, Id}` names, or with `reuse_sessions` `true` a cached session to
+  the same server whose suite is still in `ciphers` and whose own certificate is still configured.
+- **Server caches**: each listening socket starts one, keyed by session id, which ends with `ssl:close/1` of the
+  listening socket or with its owner; upgraded server sockets share `ssl_unknown_listener`'s, started under `ssl_sup`
+  on first use. A server with `reuse_sessions` `true` (the default unless it verifies clients) saves its new
+  sessions. A ClientHello offering a session it may resume (not one that also offers TLS 1.3 to a server that takes
+  it) pauses the handshake while the connection looks it up: the session is reused when it has not expired, the
+  server still has its certificate, a server that requires a client certificate has one, the requested server name
+  is the session's, and the `reuse_session` fun (`fun(SuggestedId, PeerCert, Compression, CipherSuite)`) agrees.
+  Like OTP's, the fun gets the suite's two-byte code, not a suite map. Every server names its sessions, also with
+  `reuse_sessions` `false`.
+- **Stores**: each cache keeps its sessions in an `ssl_session_cache_api` module, `client_session_cb` and
+  `server_session_cb` of the application environment (`init/1` gets `[{role, client | server} | Args]`, Args from
+  `client_session_cb_init_args`, `server_session_cb_init_args` or `session_cb_init_args`). OTP's default
+  `ssl_client_session_cache_db` and `ssl_server_session_cache_db` name Clause's `clause_ssl_session_db`, an ETS
+  table. `session_lifetime` (seconds, 24 hours by default) bounds a session's age, also in libssl's check, and
+  `session_cache_client_max` and `session_cache_server_max` (1000) the number of entries, the oldest going first.
+- **Information**: `connection_information/1,2` give `session_id`, `session_data` (the DER encoding, which
+  `{reuse_session, {Id, Data}}` takes back) and `session_resumption`. A resumed connection's `peercert/1` is the
+  certificate its session kept.
+- **Options**: `reuse_sessions` and `reuse_session` are checked as OTP checks them, with its errors; given with
+  versions that are only TLS 1.3 they are `{options, incompatible, [Key, {versions, ['tlsv1.3']}]}`.
+
 ## Verification
 
 `clause_ssl_certificate` checks a peer's chain when the handshake pauses, as OTP's ssl does. A
@@ -153,8 +188,9 @@ received, and TLS 1.2 renegotiations started, finished or refused.
 every program that uses a module of that application, because no module calls it.
 `ssl:start/0,1` runs `application:ensure_all_started(ssl, Type)`, which also starts `crypto`,
 `asn1` and `public_key`. The top supervisor is registered as `ssl_sup`. Its children are
-`clause_ssl_pem_cache`, registered as `ssl_pem_cache` as in OTP, and `tls_connection_sup`, whose
-temporary children are the connection processes. Connections started without the application
+`clause_ssl_pem_cache`, registered as `ssl_pem_cache` as in OTP, the client session cache registered as
+`ssl_manager` ([session reuse](#session-reuse)), and `tls_connection_sup`, whose temporary children are the connection
+processes. Connections started without the application
 run unsupervised. `ssl:clear_pem_cache/0` calls it
 the way OTP does: it sets the caller's `ssl_pem_cache` process dictionary key, and it exits with
 `{noproc, {gen_server, call, [ssl_pem_cache, {unconditionally_clear_pem_cache, Caller}, infinity]}}`

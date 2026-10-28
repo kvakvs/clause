@@ -118,10 +118,16 @@ Term info(ProcessContext &context, const Named<EngineRole> &handle) {
     return need(crypto::atom_map(context, entries));
 }
 
-// peer_chain(Engine): the DER certificates the peer sent, its own first; [] before it sent any.
+// peer_chain(Engine): the DER certificates the peer sent, its own first; [] before it sent any. A resumed session
+// (LIB81D2a) gives the peer certificate it kept.
 Term peer_chain(ProcessContext &context, const Named<EngineRole> &handle) {
     auto &engine = engine_of(handle.term);
     const std::scoped_lock guard(engine.lock_);
+    if (engine.peer_chain_.empty()) {
+        if (auto *kept = SSL_get0_peer_certificate(engine.ssl_.get())) {
+            engine.peer_chain_.push_back(der_of(kept));
+        }
+    }
     std::vector<Term> certificates;
     certificates.reserve(engine.peer_chain_.size());
     for (const auto &der : engine.peer_chain_) {

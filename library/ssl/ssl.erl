@@ -183,7 +183,7 @@ connect(Host, Port, Options, Timeout) when
     case clause_ssl_options:client(Options, Host) of
         {ok, #{cb_info := {Transport, _, _, _, _}, socket := SocketOptions} = Config} ->
             case Transport:connect(Host, Port, transport_options(SocketOptions), Timeout) of
-                {ok, Socket} -> start_connection(client, Socket, Config, undefined, Timeout);
+                {ok, Socket} -> start_connection(client, Socket, Config, {undefined, undefined}, Timeout);
                 Error -> Error
             end;
         Error ->
@@ -205,7 +205,7 @@ upgrade(Role, Socket, Options0, Timeout) ->
     case Configured of
         {ok, #{cb_info := {Transport, _, _, _, _}, socket := SocketOptions} = Config} ->
             case (socket_module(Transport)):setopts(Socket, transport_options(SocketOptions)) of
-                ok -> start_connection(Role, Socket, Config, undefined, Timeout);
+                ok -> start_connection(Role, Socket, Config, {undefined, upgrade_cache(Role, Config)}, Timeout);
                 Error -> Error
             end;
         Error ->
@@ -216,13 +216,28 @@ upgrade(Role, Socket, Options0, Timeout) ->
 transport_options(SocketOptions) ->
     [{mode, binary}, {packet, 0}, {header, 0}, {active, false}, {packet_size, 0} | SocketOptions].
 
+% The server session cache of an upgraded socket (LIB81D2a): the one upgraded sockets share.
+upgrade_cache(server, #{ssl := Ssl}) -> session_cache(Ssl, fun clause_ssl_session:unknown_listener/0);
+upgrade_cache(client, _Config) -> undefined.
+
+% A server session cache when the server reuses TLS 1.2 sessions, else undefined.
+session_cache(#{reuse_sessions := true, versions := Versions}, Start) when Versions =/= ['tlsv1.3'] -> Start();
+session_cache(_Ssl, _Start) -> undefined.
+
 % Start a connection process owning Socket and run its handshake; a server's from transport_accept (with its
-% listening socket's engine context) waits for handshake/1,2,3.
-start_connection(Role, Socket, Config0, Context, Timeout) ->
+% listening socket's engine context) waits for handshake/1,2,3. Servers get their session cache.
+start_connection(Role, Socket, Config0, {Context, Cache}, Timeout) ->
     #{cb_info := {Transport, _, _, _, _}} = Config0,
     case clause_ssl_options:load_files(Config0) of
         {ok, Config} ->
-            Args = #{role => Role, socket => Socket, config => Config, owner => self(), context => Context},
+            Args = #{
+                role => Role,
+                socket => Socket,
+                config => Config,
+                owner => self(),
+                context => Context,
+                session_cache => Cache
+            },
             {ok, Pid} = clause_ssl_connection:start(Args),
             ok = Transport:controlling_process(Socket, Pid),
             SslSocket = sslsocket(Socket, Pid, Transport),
@@ -258,13 +273,14 @@ listen(Port, Options) ->
             Error
     end.
 
-listen_with(Port, #{cb_info := {Transport, _, _, _, _}, socket := SocketOptions} = Config) ->
+listen_with(Port, #{cb_info := {Transport, _, _, _, _}, socket := SocketOptions, ssl := Ssl} = Config) ->
     case clause_ssl_engine:context(server, clause_ssl_options:engine_options(Config)) of
         {ok, Context} ->
             case Transport:listen(Port, transport_options(SocketOptions)) of
                 {ok, Listen} ->
+                    Cache = session_cache(Ssl, fun clause_ssl_session:start_listener/0),
                     {ok, #sslsocket{
-                        socket_handle = Listen, transport_cb = Transport, listener_config = {Config, Context}
+                        socket_handle = Listen, transport_cb = Transport, listener_config = {Config, Context, Cache}
                     }};
                 Error ->
                     Error
@@ -275,10 +291,10 @@ listen_with(Port, #{cb_info := {Transport, _, _, _, _}, socket := SocketOptions}
 
 transport_accept(ListenSocket) -> transport_accept(ListenSocket, infinity).
 
-transport_accept(#sslsocket{socket_handle = Listen, listener_config = {Config, Context}}, Timeout) ->
+transport_accept(#sslsocket{socket_handle = Listen, listener_config = {Config, Context, Cache}}, Timeout) ->
     #{cb_info := {Transport, _, _, _, _}} = Config,
     case Transport:accept(Listen, Timeout) of
-        {ok, Socket} -> start_connection(server, Socket, Config, Context, Timeout);
+        {ok, Socket} -> start_connection(server, Socket, Config, {Context, Cache}, Timeout);
         Error -> Error
     end.
 
@@ -303,13 +319,17 @@ recv(SslSocket, Length) -> recv(SslSocket, Length, infinity).
 recv(#sslsocket{connection_handler = undefined}, _Length, _Timeout) -> {error, enotconn};
 recv(SslSocket, Length, Timeout) -> call(SslSocket, {recv, Length, Timeout}).
 
-close(#sslsocket{connection_handler = undefined, socket_handle = Listen, transport_cb = Transport}) ->
+close(#sslsocket{connection_handler = undefined, socket_handle = Listen, transport_cb = Transport} = ListenSocket) ->
+    stop_listener_cache(ListenSocket),
     Transport:close(Listen);
 close(SslSocket) ->
     case call(SslSocket, close) of
         {error, closed} -> ok;
         Result -> Result
     end.
+
+stop_listener_cache(#sslsocket{listener_config = {_, _, Cache}}) -> clause_ssl_session:stop_listener(Cache);
+stop_listener_cache(_ListenSocket) -> ok.
 
 controlling_process(#sslsocket{connection_handler = undefined, socket_handle = Listen, transport_cb = T}, Pid) ->
     T:controlling_process(Listen, Pid);
@@ -326,7 +346,8 @@ setopts(SslSocket, Options) when is_list(Options) ->
     call(SslSocket, {setopts, Options}).
 
 getopts(#sslsocket{connection_handler = undefined} = ListenSocket, Names) ->
-    #sslsocket{socket_handle = Listen, transport_cb = T, listener_config = {#{emulated := Emulated}, _}} = ListenSocket,
+    #sslsocket{socket_handle = Listen, transport_cb = T, listener_config = {#{emulated := Emulated}, _, _}} =
+        ListenSocket,
     {EmulatedNames, SocketNames} = clause_ssl_options:split_socket(Names),
     Values = lists:reverse([{N, maps:get(N, Emulated)} || N <- EmulatedNames]),
     case SocketNames of

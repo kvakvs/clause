@@ -101,6 +101,7 @@ void record_handshake(const SSL *ssl, Engine &engine, int where) {
     // A server's HelloRequest also ends with HANDSHAKE_DONE, while its renegotiation is still pending.
     if ((where & SSL_CB_HANDSHAKE_DONE) != 0 && SSL_renegotiate_pending(ssl) == 0) {
         engine.verdict_ = Verdict::pending;
+        engine.lookup_ = Lookup::none;
         ++engine.handshakes_;
         if (renegotiation) {
             engine.events_.push_back(marker(EventKind::renegotiated));
@@ -253,6 +254,12 @@ Term status_of(ProcessContext &context, Engine &engine, int result, AtomName don
         return atom(context, "want_read"_atom);
     case SSL_ERROR_WANT_RETRY_VERIFY:
         return atom(context, "verify"_atom);
+    case SSL_ERROR_WANT_CLIENT_HELLO_CB: {
+        const auto &name = engine.requested_server_name_;
+        const std::array elements{atom(context, "lookup"_atom), binary_of(context, engine.requested_session_),
+                                  name ? binary_of(context, *name) : atom(context, "undefined"_atom)};
+        return tuple_of(context, elements);
+    }
     case SSL_ERROR_ZERO_RETURN:
         return atom(context, "closed"_atom);
     default:

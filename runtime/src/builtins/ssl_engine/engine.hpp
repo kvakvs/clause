@@ -65,6 +65,10 @@ enum class EventKind : std::uint8_t {
     renegotiation_refused
 };
 
+// Added for ssl session reuse (plan 21 step LIB81D2a): where a server's lookup of the TLS 1.2 session a client offers
+// stands: not asked, paused for Erlang's answer, or answered.
+enum class Lookup : std::uint8_t { none, pending, answered };
+
 // One event of events/1; a secret carries its NSS key log label and value.
 struct Event {
     EventKind kind_ = EventKind::secret;
@@ -95,6 +99,12 @@ struct Engine {
     // follow the first).
     std::vector<Event> events_;
     int handshakes_ = 0;
+    // Added for LIB81D2a: the session id and server name of the ClientHello a server's handshake paused on, and the
+    // session Erlang's cache answered with (DER; empty for none), which libssl's session lookup returns.
+    Lookup lookup_ = Lookup::none;
+    std::vector<std::byte> requested_session_;
+    std::optional<std::vector<std::byte>> requested_server_name_;
+    std::vector<std::byte> session_answer_;
 };
 
 constexpr std::uint64_t CONTEXT_MAGIC = 0x73736c63747874; // "sslctxt"
@@ -110,6 +120,12 @@ void install_callbacks(Context &context);
 // Added for LIB81D1: log the context's secrets and KeyUpdates as events, for keep_secrets.
 void install_keylog(Context &context);
 
+// Added for LIB81D2a: a server context whose TLS 1.2 sessions live in Erlang's cache: a ClientHello offering one
+// pauses the handshake for the lookup, and sessions expire after `lifetime` seconds.
+void install_session_cache(Context &context, long lifetime);
+// Added for LIB81D2a: a client offers the session of DER bytes; bytes libssl cannot decode are ignored.
+void offer_session(SSL *ssl, std::span<const std::byte> der);
+
 // The engine of an SSL object inside a libssl callback.
 Engine *engine_of(const SSL *ssl);
 
@@ -121,7 +137,8 @@ void take_output(Engine &engine, std::vector<std::byte> &bytes);
 // Give libssl received bytes.
 void feed(Engine &engine, std::span<const std::byte> bytes);
 
-// The status of a libssl call that returned `result`: done (or ok), want_read, verify, closed,
+// The status of a libssl call that returned `result`: done (or ok), want_read, verify, {lookup, SessionId, ServerName |
+// undefined}, closed,
 // {alert, sent | received, Level, Description} or {error, Text}.
 Term status_of(ProcessContext &context, Engine &engine, int result, AtomName done);
 // The failure of a call: the alert libssl sent or received, else {error, Text} with libssl's reason.
@@ -145,4 +162,5 @@ std::span<const BuiltinEntry> context_builtins() noexcept;
 std::span<const BuiltinEntry> connection_builtins() noexcept;
 std::span<const BuiltinEntry> info_builtins() noexcept;
 std::span<const BuiltinEntry> feature_builtins() noexcept;
+std::span<const BuiltinEntry> session_builtins() noexcept;
 } // namespace clause::runtime::builtins::ssl_engine
