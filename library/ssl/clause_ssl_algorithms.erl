@@ -3,7 +3,8 @@
 %% versions, as OTP's ssl computes them from crypto:supports/1.
 -module(clause_ssl_algorithms).
 -export([filter_cipher_suites/2, signature_algs/2, eccs/0, eccs/1, groups/0, groups/1, versions/0]).
--export([tls_versions/0, dtls_versions/0]).
+-export([tls_versions/0, dtls_versions/0, sufficient_crypto/1]).
+-export([suite_code/1, code_suite/1]).
 
 -define(VSN, "11.7.7").
 -define(SUPPORTED_TLS, ['tlsv1.3', 'tlsv1.2']).
@@ -324,6 +325,10 @@ group_parts(brainpoolP512r1tls13) -> [brainpoolP512r1];
 group_parts(brainpoolP384r1tls13) -> [brainpoolP384r1];
 group_parts(brainpoolP256r1tls13) -> [brainpoolP256r1];
 group_parts(Group) -> [Group].
+
+%% Suite codes (LIB81C1): connections hand libssl suites by their two-byte codes; builtins over the suite table.
+suite_code(_Suite) -> clause_builtin_placeholder.
+code_suite(_Code) -> clause_builtin_placeholder.
 
 %% Protocol versions.
 

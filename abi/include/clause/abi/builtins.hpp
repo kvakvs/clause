@@ -701,6 +701,9 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"ssl", "str_to_suite", 1},
     BuiltinName{"ssl", "suite_to_openssl_str", 1},
     BuiltinName{"ssl", "suite_to_str", 1},
+    // Module clause_ssl_algorithms: suite codes of connections (plan 21 step LIB81C1; runtime/src/builtins/ssl/).
+    BuiltinName{"clause_ssl_algorithms", "code_suite", 1},
+    BuiltinName{"clause_ssl_algorithms", "suite_code", 1},
     // Module base64 (plan 21 step LIB5; runtime/src/builtins/encoding/).
     BuiltinName{"base64", "decode", 1},
     BuiltinName{"base64", "decode", 2},

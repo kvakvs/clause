@@ -1,8 +1,18 @@
 {application, ssl, [
     {description, "Erlang/OTP SSL application"},
     {vsn, "11.7.7"},
-    {modules, [clause_ssl_algorithms, clause_ssl_app, clause_ssl_engine, clause_ssl_pem_cache, ssl]},
-    {registered, [ssl_sup, ssl_pem_cache]},
+    {modules, [
+        clause_ssl_alert,
+        clause_ssl_algorithms,
+        clause_ssl_app,
+        clause_ssl_certificate,
+        clause_ssl_connection,
+        clause_ssl_engine,
+        clause_ssl_options,
+        clause_ssl_pem_cache,
+        ssl
+    ]},
+    {registered, [ssl_sup, ssl_pem_cache, tls_connection_sup]},
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {clause_ssl_app, []}},

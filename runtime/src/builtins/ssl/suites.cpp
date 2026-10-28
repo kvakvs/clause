@@ -114,4 +114,29 @@ Term cipher_suite_names(ProcessContext &context, const Named<DescriptionRole> &d
     }
     return need(TermFactory(context).list(names));
 }
+
+// Added for ssl connections (plan 21 step LIB81C1): the code of a listed suite's map, else undefined.
+Term suite_code(ProcessContext &context, const Named<SuiteRole> &suite) {
+    const auto spelling = [&](AtomName key) {
+        const auto value = suite.term.is_map() ? need(suite.term.map_find(atom(context, key))) : std::nullopt;
+        return value && value->is_atom() ? value->atom_spelling_unchecked() : std::string_view{};
+    };
+    const auto key_exchange = spelling("key_exchange"_atom);
+    const auto cipher = spelling("cipher"_atom);
+    const auto mac = spelling("mac"_atom);
+    const auto prf = spelling("prf"_atom);
+    for (const auto &row : SUITES) {
+        if (row.key_exchange_ == key_exchange && row.cipher_ == cipher && row.mac_ == mac && row.prf_ == prf) {
+            return need(TermFactory(context).integer(row.code_));
+        }
+    }
+    return atom(context, "undefined"_atom);
+}
+
+// Added for ssl connections (plan 21 step LIB81C1): the map of a listed suite's code, else undefined.
+Term code_suite(ProcessContext &context, const Named<CodeRole> &code) {
+    const auto value = small(code.term.word());
+    const auto row = std::ranges::find_if(SUITES, [&](const SuiteRow &r) { return value && r.code_ == *value; });
+    return row == SUITES.end() ? atom(context, "undefined"_atom) : suite_map(context, *row);
+}
 } // namespace clause::runtime::builtins::ssl

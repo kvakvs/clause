@@ -13,6 +13,7 @@ struct VersionRole;
 struct StringTypeRole;
 struct SuiteRole;
 struct NameRole;
+struct CodeRole;
 
 // One part of a suite map: absent, an atom (its spelling as code points) or another term (badarg where it is used).
 struct SuitePart {
@@ -45,6 +46,10 @@ Term cipher_suite_names(ProcessContext &context, const Named<DescriptionRole> &d
 Term suite_to_str(ProcessContext &context, const Named<SuiteRole> &suite);
 Term suite_to_openssl_str(ProcessContext &context, const Named<SuiteRole> &suite);
 Term str_to_suite(ProcessContext &context, const Named<NameRole> &name);
+// clause_ssl_algorithms:suite_code(Suite) and code_suite(Code): a listed suite's two-byte code and back, else
+// undefined (LIB81C1: connections name suites by code).
+Term suite_code(ProcessContext &context, const Named<SuiteRole> &suite);
+Term code_suite(ProcessContext &context, const Named<CodeRole> &code);
 
 // The character list of code points.
 Term string_term(ProcessContext &context, std::u32string_view text);

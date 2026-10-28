@@ -24,9 +24,10 @@ internal functions stay out unless a public function needs them (user direction 
   documented functions.
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
 - **Left:** `erlang` (20 declined functions, LIB9 remainder, Appendix A); OTP-free builds
-  (LIB77–LIB78: luerl's manifests use no OTP paths since LIB76);
-  applications beyond the core that emqx needs (LIB81C–D, LIB82–LIB83, Appendix B; `crypto` (LIB79),
-  `public_key` (LIB80), `ssl`'s utility functions (LIB81A) and its libssl engine (LIB81B) are done).
+  (LIB78 on request; LIB77 transforms without the host are done);
+  applications beyond the core that emqx needs (LIB81C2–D, LIB82–LIB83, Appendix B; `crypto` (LIB79),
+  `public_key` (LIB80), `ssl`'s utility functions (LIB81A), libssl engine (LIB81B) and core connections
+  (LIB81C1) are done).
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
   (`logger_handler` is provided).
 
@@ -113,32 +114,6 @@ preprocessing diagnostics are unchanged (the rest are emqx's missing dependencie
 
 Steps:
 
-- **LIB77 Parse transforms without the host:** every transform runs in Clause's transform host by
-  default ([transforms](../docs/transforms.md)): library transforms (`ms_transform`, `qlc_pt`)
-  compiled (LIB77A), project sources and `.beam`s with `debug_info` interpreted by `clause_interp`
-  (LIB77B, LIB77C); the host `erl` is the fallback, or runs non-library chains when `--erl PATH`
-  names it (LIB77D). Decided 2026-10-27 (user). Proof (LIB77D): emqx's `fun2ms`/`qlc` users print
-  their transformed forms with `--erl none`; `emqx_bpapi_trans` needs `emqx_utils` on the search
-  paths and its dependency `erlang_qq`, which `references/emqx` does not hold (like `snabbkaffe`).
-  The executables `X.abstr` goldens stay: `qlc_queries` through the host's `qlc_pt` timed out
-  (300 s) in a loaded Debug suite.
-  - **LIB77E APIs that third-party transforms call** (requested 2026-10-27): not needed by `clau`,
-    only by transform code that uses them (else `undef`). Written in Clause's shape, never copied.
-    `syntax_tools` 4.1.1 documents 422 functions (observed 2026-10-27): `erl_syntax` 303,
-    `erl_syntax_lib` 40, `merl` 21, `prettypr` 20, `erl_prettypr` 16, `epp_dodger` 15,
-    `erl_comment_scan` 4, `erl_recomment` 3, `merl_transform` none (a transform). It is an
-    application beyond the core: `library/syntax_tools/` with `syntax_tools.app`, its own
-    `docs/libraries/syntax_tools.md`, rows in `documented.terms` (`observe_docs.escript`).
-    `compile:forms/file` compile to interpreter images since LIB77E1 (`merl:compile` builds on it);
-    `erl_syntax` is provided since LIB77E2, `prettypr` since LIB77E3a, `erl_prettypr` since LIB77E3b,
-    `erl_syntax_lib` since LIB77E4a (folds, maps and variable names Erlang; analyses, bindings and
-    walks without funs C++; golden `syntax_tools_lib`), `erl_comment_scan` and `erl_recomment`
-    since LIB77E4b (C++ but `file/1`; golden `syntax_tools_comments`), `epp_dodger` since LIB77E4c
-    (Erlang reading and parsing, C++ token and form rewriting in `clause_epp_dodger`; golden
-    `epp_dodger_forms`; the file I/O server now ends at undecodable UTF-8 as OTP's), and `merl`
-    with `merl.hrl` and `merl_transform` since LIB77E5 (quoting, printing, `switch/2` and
-    compiling Erlang; templates and matching C++; golden `merl_templates`). `syntax_tools` is
-    complete.
 - **LIB78 (optional, beyond erts/kernel/stdlib) `parsetools`:** `yecc` and `leex` with
   `yeccpre.hrl`/`leexinc.hrl` equivalents, so projects that ship only `.yrl`/`.xrl` build without
   OTP. Generated parsers are clause-heavy: generate C++ tables or keep generated Erlang small (see
@@ -166,14 +141,10 @@ records, goldens from OTP, own headers written from the documented records and m
   `close` 55, `send` 17 and `recv` 15. emqx's `emqx_ocsp_cache` and `emqx_ssl_crl_cache` include
   OTP-internal `ssl_handshake.hrl` and `ssl_internal.hrl`. These are not public and are not
   provided, so projects keep OTP's `ssl` application root for them.
-  - **LIB81C Connections:** `connect/2,3,4`, `listen/2`, `transport_accept/1,2`, `handshake/1,2,3`,
-    `handshake_continue/2,3` and `handshake_cancel/1` (the `{handshake, hello}` pause), `send`,
-    `recv`, active modes, `close/1,2`, `shutdown/2`, `controlling_process/2`, `getopts`/`setopts`,
-    `peername`, `sockname`, `getstat`, `peercert`, `negotiated_protocol`,
-    `connection_information/1,2` over the `clause_ssl_engine` builtins (LIB81B). Also OTP's
-    `{options, ...}` errors, `{tls_alert, {Desc, Text}}`, the verify pause over `public_key` (servers
-    on libssl < 4.1 verify after the handshake: record in `differences.md`), and the `ssl`
-    supervision tree. `ssl_connections` golden (loopback client and server).
+  - **LIB81C Connections** over the `clause_ssl_engine` builtins (LIB81B), split (2026-10-28):
+    - **LIB81C2 Pauses and closing:** `{handshake, hello}` with `handshake_continue/2,3` and
+      `handshake_cancel/1` (libssl's client hello callback), `close/2` (timeout and downgrade to the
+      transport socket), `shutdown/2`, `tls_version/1`.
   - **LIB81D TLS features:** session reuse and tickets, `renegotiate/1`, `update_keys/2`,
     `export_key_materials/4,5`, `sni_hosts`/`sni_fun`, CRL checks with `ssl_crl_cache` (`insert/1,2`,
     `delete/1`) and the cache callbacks, OCSP stapling, PSK/SRP `user_lookup_fun`, custom `cb_info`
@@ -198,7 +169,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB81C–D (LIB81E on request); LIB78 only on
+1. LIB81C2–D (LIB81E on request); LIB78 only on
    request.
 2. LIB82, LIB83 last (test support).
 

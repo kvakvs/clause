@@ -603,3 +603,11 @@ recorded elsewhere.
   compile_and_load'ed module through a runtime name (clau rejects static calls to unknown modules). `std::vector{x}`
   with one vector argument copies it (CTAD): write std::vector<Items>{...}. Lizard CCN 10 also flags if-chains of
   shapes: use a table of {type, sizes, build} rows. syntax_tools now 422/422 documented functions.
+- LIB81C1 ssl connections (2026-10-28): OTP probes in scratch (erlc + `erl -noshell -s M main x`) before the golden.
+  OTP quirks: `ssl:listen(P, [])` = {error, nooptions} (any non-empty list listens, even without certs); handshake/3
+  ignores socket options (use setopts after); active-mode data coalesces unless {packet, N}; pkix_test_data roots
+  share subject names, so issuer lookup needs the signature check (pkix_verify) or unknown_ca turns bad_certificate;
+  server sends cert + issuers from its cacerts (partial_chain needs that); upgraded gen_tcp sockets inherit
+  mode/packet/header/active; Windows connect to a closed port takes ~2 s (no "refused" cases with short timeouts);
+  pkix_test_data SAN defaults to the host name (set {extensions, [SAN]}). Clause decode_packet badargs on
+  line_delimiter for non-line types. Golden prints alerts as {tls_alert, Desc} (texts name OTP source lines).

@@ -1036,6 +1036,9 @@ table and `ssl_cipher_format`'s name walks, as catalog builtins of `ssl` itself.
   `function_clause` for other terms and `badarg` for a part that is not an atom.
 - `str_to_suite(Name)` (`suite_parse.cpp`) parses RFC and OpenSSL names as `ssl_cipher_format` does and makes the
   map of any parts whose atoms exist (the table's parts always do); `{error, {not_recognized, Name}}` otherwise.
+- `clause_ssl_algorithms:suite_code(Suite)` and `code_suite(Code)` (`suites.cpp`, LIB81C1) map a listed suite's map to
+  its two-byte code and back, else `undefined`: connections hand libssl suites by code and report the negotiated one
+  as a map.
 
 ## Ssl engine
 

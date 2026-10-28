@@ -413,8 +413,15 @@ Compared with the same module compiled by `compile:forms/2` and loaded by `code:
 | --- | --- | --- | --- |
 | Atoms `ssl:str_to_suite/1` takes as existing | Any atom of the VM's atom table | The program's atoms and the parts of the suite table | [ssl](libraries/ssl.md#utility-functions) |
 | `ssl:str_to_suite/1` of chardata that is not a flat string (`["TLS_AES_128_GCM_SHA256"]`) | `string` functions may parse it | `{error, {not_recognized, Name}}` | [ssl](libraries/ssl.md#utility-functions) |
-| The `ssl` application's start module and supervision tree | `ssl_app`; `ssl_sup` with `ssl_admin_sup`, `ssl_pem_cache`, `ssl_manager`, `tls_sup` and `dtls_sup` | `clause_ssl_app`; `ssl_sup` with `ssl_pem_cache` (connection supervisors join in LIB81C) | [ssl](libraries/ssl.md#application) |
+| The `ssl` application's start module and supervision tree | `ssl_app`; `ssl_sup` with `ssl_admin_sup`, `ssl_pem_cache`, `ssl_manager`, `tls_sup` and `dtls_sup` | `clause_ssl_app`; `ssl_sup` with `ssl_pem_cache` and `tls_connection_sup`, whose children are the connection processes | [ssl](libraries/ssl.md#application) |
 | Frames of an `ssl` exception | `ssl`, `ssl_cipher`, `ssl_cipher_format`, `tls_v1`, `tls_record`, `dtls_record` | `ssl` and `clause_ssl_algorithms` | [ssl](libraries/ssl.md#utility-functions) |
+| Text of a `{tls_alert, {Description, Text}}` error and alert log entries | `"TLS client: In state certify at ssl_handshake.erl:2304 generated CLIENT ALERT: Fatal - Unknown CA
+"`: the state of OTP's state machine and a source location | `"TLS client: In state certify generated CLIENT ALERT: Fatal - Unknown CA
+"`: `hello` or `certify` during the handshake, `connection` after it, no location | [ssl](libraries/ssl.md#connections) |
+| `ssl` connection processes | A `tls_dyn_connection_sup` per connection with a receiver (`gen_statem`) and a sender process; the `sslsocket` record names both and an ETS table | One `clause_ssl_connection` (`gen_server`) per connection; the record names it twice and no table | [ssl](libraries/ssl.md#connections) |
+| `ssl:connection_information/1` | The negotiated items and every ssl option of the connection | The negotiated items (`protocol`, `session_id`, `session_resumption`, `selected_cipher_suite`, `selected_group`, `sni_hostname`) and the main options (`verify`, `versions`, `ciphers`, `cacerts`, `depth`, ...) | [ssl](libraries/ssl.md#connections) |
+| Emulated options (`active`, `mode`, `packet`, `header`) set on a listening `ssl` socket | Kept by its option tracker for the next accepted connections | Ignored: accepted connections take the options `listen/2` was given | [ssl](libraries/ssl.md#connections) |
+| A server linked with libssl older than 4.1 that verifies client certificates | Rejects a chain during the handshake with the chosen alert | Verifies after libssl's handshake; a rejection closes the connection without the alert | [ssl](libraries/ssl.md#engine) |
 
 ## Parse transforms
 
