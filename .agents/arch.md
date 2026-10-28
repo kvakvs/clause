@@ -110,5 +110,5 @@ behavior (`docs/differences.md` lists gaps).
   `tls_client_ticket_store`, stateful server tickets in the engine context; early data read before the handshake
   goes on, binder sets for anti_replay; sni_hosts/sni_fun pause the ClientHello and switch the server context;
   key_update_at/renegotiate_at counted in the connection's send path; CRL status checks in the verify fun over
-  crl_cache modules). Distribution and tracing
+  crl_cache modules; PSK keys from user_lookup_fun after the engine scans the peer's plaintext handshake). Distribution and tracing
   answer as a non-alive node.

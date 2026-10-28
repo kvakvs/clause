@@ -1521,6 +1521,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_ssl_engine", "early_data", 1},
     // Server name indication (plan 21 step LIB81D3a; runtime/src/builtins/ssl_engine/sni.cpp).
     BuiltinName{"clause_ssl_engine", "name_served", 2},
+    // Pre-shared keys (plan 21 step LIB81D5; runtime/src/builtins/ssl_engine/psk.cpp).
+    BuiltinName{"clause_ssl_engine", "psk", 2},
     // clause_compile, the source quotes of compile's messages (plan 21 LIB77E1;
     // runtime/src/builtins/compile_messages.cpp).
     BuiltinName{"clause_compile", "quote_source", 3},

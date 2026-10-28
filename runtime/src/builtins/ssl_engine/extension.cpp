@@ -7,7 +7,7 @@
 namespace clause::runtime::builtins::ssl_engine {
 namespace {
 const std::array FAMILIES{context_builtins(), connection_builtins(), info_builtins(), feature_builtins(),
-                          session_builtins(), early_data_builtins(), sni_builtins()};
+                          session_builtins(), early_data_builtins(), sni_builtins(),  psk_builtins()};
 
 const RuntimeExtension EXTENSION{.name = "ssl", .families = FAMILIES};
 } // namespace

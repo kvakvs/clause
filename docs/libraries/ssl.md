@@ -7,8 +7,9 @@ utility functions are implemented (LIB81A), and so are TLS 1.2 and 1.3 [connecti
 and [secrets](#secrets) (LIB81D1), TLS 1.2 [session reuse](#session-reuse) (LIB81D2a), TLS 1.3
 [session tickets](#session-tickets) (LIB81D2b), [early data](#early-data) (LIB81D2c) and the server's
 [server name options](#server-name-indication) (LIB81D3a), custom transports and
-[automatic rekeys](#automatic-rekeys) (LIB81D3b), and [CRL checks](#crl-checks) with `ssl_crl_cache` (LIB81D4a).
-OCSP stapling, PSK and SRP (the rest of LIB81D) follow; OTP's `debug` protocol traces of `log_level` are not produced. See the
+[automatic rekeys](#automatic-rekeys) (LIB81D3b), [CRL checks](#crl-checks) with `ssl_crl_cache` (LIB81D4a) and
+TLS 1.2 [pre-shared keys](#pre-shared-keys) (LIB81D5). OCSP stapling is not done (optional, LIB81D4b), SRP is
+declined, and OTP's `debug` protocol traces of `log_level` are not produced. See the
 [function inventory](../../library/ssl/ssl.terms) and
 [differences](../differences.md#ssl).
 
@@ -239,6 +240,19 @@ URI or of a source. Other URIs are `{error, {only_http_distribution_points_suppo
 `crl_cache_max_size` empties the store first, as OTP's. As in OTP 29.1.1, CRLs inserted by issuer are stored under
 the issuer name of their encoding, which the lookup by a certificate's issuer does not match. Clause has no `inets`:
 CRLs are not fetched over HTTP, and the `{http, Timeout}` argument of the internal cache does nothing.
+
+## Pre-shared keys
+
+TLS 1.2 PSK suites (`psk`, `dhe_psk`, `ecdhe_psk`, `rsa_psk` key exchanges) take their keys from `user_lookup_fun`
+(`{fun(psk, Name, UserState) -> {ok, Key} | error, UserState}`), as OTP's do (LIB81D5). A server's fun gets the
+client's identity, a client's fun the server's hint (`psk_identity` of the server; `undefined` without a
+ServerKeyExchange, `<<>>` for an empty one). A client sends its `psk_identity`, else `"psk_identity"`. libssl asks for
+keys in a synchronous callback, so the engine reads the peer's plaintext handshake first: a server holds the bytes of
+the ClientKeyExchange, a client of a PSK suite those of the ServerHelloDone, while the connection asks the fun. A fun
+without a key ends the handshake with `illegal_parameter`. The options are checked as OTP's: `psk_identity` is a
+string shorter than 64 KiB, `user_lookup_fun` a pair with a fun of arity 3, neither with versions that are only
+TLS 1.3. libssl has no ECDHE_PSK suites with AES-GCM or AES-CCM, so they are never negotiated. SRP suites are
+declined: libssl's SRP interface is deprecated; `srp_identity` is checked but no SRP suite is negotiated.
 
 ## Verification
 

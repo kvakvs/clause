@@ -24,8 +24,8 @@ internal functions stay out unless a public function needs them (user direction 
   documented functions.
 - **Done:** every documented module but the ones below (`00-finished.md`, Plan 21).
 - **Left:** `erlang` (20 declined functions, LIB9 remainder, Appendix A); OTP-free builds
-  (LIB78 on request; LIB77 transforms without the host are done);
-  applications beyond the core that emqx needs (LIB81D3c, LIB81D4b, LIB81D5, LIB82–LIB83, Appendix B; `crypto` (LIB79),
+  (LIB77 transforms without the host are done; LIB78 `yecc`/`leex` cancelled);
+  applications beyond the core that emqx needs (LIB81D3c and LIB81D4b on request, LIB82–LIB83, Appendix B; `crypto` (LIB79),
   `public_key` (LIB80), `ssl`'s utility functions (LIB81A), libssl engine (LIB81B), core connections
   (LIB81C1), the hello pause and closing (LIB81C2), renegotiation, key updates, exporters and secrets
   (LIB81D1), TLS 1.2 session reuse (LIB81D2a), TLS 1.3 session tickets (LIB81D2b) and early data (LIB81D2c) are
@@ -109,17 +109,9 @@ preprocessing diagnostics are unchanged (the rest are emqx's missing dependencie
 - **What still ties programs to OTP** (counted over `references/emqx/apps`): parse transforms run
   in Clause's transform host since LIB77D (the host `erl` only for `.beam`s without `debug_info`,
   OTP modules the library lacks such as `eunit_autoexport`, or `--erl PATH`); `.yrl`/`.xrl`
-  sources need OTP's `yecc`/`leex`
-  (luerl ships generated `luerl_parse.erl`/`luerl_scan.erl`, whose `-file` lines only name OTP's
-  `yeccpre.hrl`). The public headers emqx includes (`assert.hrl`, `ms_transform.hrl`, `inet.hrl`)
+  sources need OTP's `yecc`/`leex`, which Clause will not provide (LIB78 cancelled; luerl ships generated
+  `luerl_parse.erl`/`luerl_scan.erl`). The public headers emqx includes (`assert.hrl`, `ms_transform.hrl`, `inet.hrl`)
   are provided since LIB75.
-
-Steps:
-
-- **LIB78 (optional, beyond erts/kernel/stdlib) `parsetools`:** `yecc` and `leex` with
-  `yeccpre.hrl`/`leexinc.hrl` equivalents, so projects that ship only `.yrl`/`.xrl` build without
-  OTP. Generated parsers are clause-heavy: generate C++ tables or keep generated Erlang small (see
-  the IMPORTANT note above).
 
 #### Applications beyond erts/kernel/stdlib (survey 2026-10-26)
 
@@ -144,15 +136,15 @@ records, goldens from OTP, own headers written from the documented records and m
   OTP-internal `ssl_handshake.hrl` and `ssl_internal.hrl`. These are not public and are not
   provided, so projects keep OTP's `ssl` application root for them.
   - **LIB81D TLS features** (D1 `renegotiate/1`, `update_keys/2`, `export_key_materials/4,5`, `prf/5` and
-    `keep_secrets`, D2a TLS 1.2 session reuse, D2b TLS 1.3 session tickets, D2c early data are done). `ssl` stops
-    being PARTIAL after D5.
+    `keep_secrets`, D2a TLS 1.2 session reuse, D2b TLS 1.3 session tickets, D2c early data are done). `ssl` is no
+    longer PARTIAL (D5 done).
     - **LIB81D3c (optional, on request)** `log_level` output: OTP's `debug` protocol traces of records and handshake
       messages (`ssl_logger`); libssl's messages differ from OTP's, so the traces cannot match. D3a `sni_hosts`/
       `sni_fun` and D3b custom `cb_info` transports and automatic rekeys are done.
     - **LIB81D4b** OCSP stapling: the client `stapling` option (`staple | no_staple | #{ocsp_nonce, ...}`), the staple
       checked as OTP's `ssl_certificate` checks it (`public_key:pkix_ocsp_validate/5`), `missing_ocsp_staple`. D4a CRL
       checks with `ssl_crl_cache` are done.
-    - **LIB81D5** PSK/SRP `user_lookup_fun`.
+    - LIB81D5 TLS 1.2 PSK is done; SRP declined (user 2026-10-28: libssl's SRP API is deprecated).
   - **LIB81E (optional) TLS 1.0/1.1 and DTLS 1.0/1.2** over `gen_udp` with libssl's DTLS methods.
 - **LIB82 (far back: test support) `eunit` (4 functions: `eunit:test/1,2`, `start/0`, `stop/0`):**
   `eunit.hrl` (49 `-define`s: `?assert*`, `?_test`, `?_assert*`, `?debug*`, `?LET`, `?IF`, `NOTEST`)
@@ -173,7 +165,7 @@ records, goldens from OTP, own headers written from the documented records and m
 
 ### Order
 
-1. LIB81D4b, LIB81D5 (LIB81D3c and LIB81E on request); LIB78 only on request.
+1. LIB81D3c, LIB81D4b and LIB81E on request.
 2. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)

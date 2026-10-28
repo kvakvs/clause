@@ -1111,6 +1111,11 @@ all the I/O.
   ClientHello callback when the client sends a name, with the status `{sni, Name}`. `name_served(Engine, keep |
   Context | {alert, Description})` goes on, goes on under another server context (its certificates, verify mode,
   version bounds, suites and options), or ends the handshake with the alert.
+- Pre-shared keys (`psk.cpp`, LIB81D5): a context's `psk => {Hint | Identity | undefined}` installs libssl's PSK
+  callbacks (a server's hint). A handshake step reads the peer's plaintext records before libssl does and pauses
+  with `{psk, Name}` at a server's ClientKeyExchange (the client's identity) or a client's ServerHelloDone of a PSK
+  suite (the server's hint or `undefined`), holding those bytes; `psk(Engine, Key)` answers, and the next step
+  feeds them. The callbacks give the key, and a client its identity (`"psk_identity"` without one).
 - `configure(Engine, Context)` (`connection.cpp`, LIB81C2) moves an engine to another context of its role
   (`SSL_set_SSL_CTX` and the context's verify mode): a client's `handshake_continue/2,3` options take effect after
   its ClientHello.

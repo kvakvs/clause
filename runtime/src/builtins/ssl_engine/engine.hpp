@@ -64,6 +64,10 @@ struct Context {
     std::set<std::vector<std::byte>> replay_old_;
     // Added for LIB81D3a: whether a server pauses for Erlang's options of the server name a client sends.
     bool sni_ = false;
+    // Added for LIB81D5: whether user_lookup_fun gives TLS 1.2 pre-shared keys, and a server's hint or a client's
+    // identity.
+    bool psk_ = false;
+    std::optional<std::string> psk_identity_;
 };
 
 // A handle's object: shared, since every engine keeps its context alive for the callbacks.
@@ -101,6 +105,21 @@ enum class Lookup : std::uint8_t { none, pending, answered };
 // Added for server name indication (plan 21 step LIB81D3a): where a server's choice of options for the name a client
 // sends stands: not asked, paused for Erlang's answer, answered, or refused with an alert.
 enum class Sni : std::uint8_t { none, pending, answered, refused };
+
+// Added for pre-shared keys (plan 21 step LIB81D5): the reading of the peer's plaintext handshake for the message
+// whose key Erlang gives: reading, paused for the key, or over.
+enum class PskState : std::uint8_t { scanning, pending, done };
+
+// Added for LIB81D5: the peer's record bytes not read yet, its handshake messages not complete yet, the bytes held
+// from libssl while Erlang finds the key, a server's hint (a client's ServerKeyExchange), and the key.
+struct PskScan {
+    PskState state_ = PskState::scanning;
+    std::vector<std::byte> records_;
+    std::vector<std::byte> stream_;
+    std::vector<std::byte> held_;
+    std::optional<std::vector<std::byte>> hint_;
+    std::optional<std::vector<std::byte>> key_;
+};
 
 // One event of events/1; a secret carries its NSS key log label and value, a ticket (LIB81D2b) its session's DER.
 struct Event {
@@ -147,6 +166,8 @@ struct Engine {
     // Added for LIB81D3a: the server name pause and the alert of a refused name.
     Sni sni_ = Sni::none;
     int sni_alert_ = 0;
+    // Added for LIB81D5: the pre-shared key pause.
+    PskScan psk_;
 };
 
 constexpr std::uint64_t CONTEXT_MAGIC = 0x73736c63747874; // "sslctxt"
@@ -182,6 +203,10 @@ bool configure_early_data(Context &context, const Term &value);
 std::optional<std::vector<std::byte>> server_name_of(SSL *ssl);
 // Added for LIB81D3a: the ClientHello callback's result while the server name pause is not over, else none.
 std::optional<int> server_name_step(SSL *ssl, int *alert);
+// Added for LIB81D5: a context's pre-shared keys, {Hint | Identity | undefined}; false for a value it cannot take.
+bool configure_psk(Context &context, const Term &value);
+// Added for LIB81D5: received bytes on their way to libssl: a {psk, Name} pause holds them, else the bytes to feed.
+std::optional<Term> psk_received(ProcessContext &context, Engine &engine, std::vector<std::byte> &bytes);
 // Added for LIB81D2c: keep a ClientHello's PSK binders for anti_replay, inside the ClientHello callback.
 void record_binders(SSL *ssl);
 // Added for LIB81D2c: write a client's early data, or read a server's; the status of a step that must wait, else none.
@@ -226,4 +251,5 @@ std::span<const BuiltinEntry> feature_builtins() noexcept;
 std::span<const BuiltinEntry> session_builtins() noexcept;
 std::span<const BuiltinEntry> early_data_builtins() noexcept;
 std::span<const BuiltinEntry> sni_builtins() noexcept;
+std::span<const BuiltinEntry> psk_builtins() noexcept;
 } // namespace clause::runtime::builtins::ssl_engine

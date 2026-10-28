@@ -186,6 +186,7 @@ ssl_options(List, Ssl0, Env) ->
         fun booleans/3,
         fun rekeys/3,
         fun sessions/3,
+        fun identity/3,
         fun groups_and_ciphers/3,
         fun crl/3,
         fun handshake/3,
@@ -464,7 +465,7 @@ role_only(User, Ssl, #{role := client}) ->
     [server_only(K, User) || K <- [honor_cipher_order, honor_ecc_order, client_renegotiation, sni_fun, sni_hosts]],
     Ssl;
 role_only(User, Ssl, #{role := server}) ->
-    [client_only(K, User) || K <- [fallback, psk_identity, srp_identity]],
+    [client_only(K, User) || K <- [fallback, srp_identity]],
     Ssl.
 
 booleans(User, Ssl, _Env) ->
@@ -493,6 +494,47 @@ positive(Key, Default, User, Ssl) ->
         {_, Value} = Found when is_integer(Value), Value >= 1 -> Found;
         {_, Value} -> option_error(Key, Value)
     end.
+
+%% Identities (LIB81D5): psk_identity (a client's identity, a server's hint), srp_identity ({User, Password}) and
+%% user_lookup_fun ({fun(psk, Name, State), State}), options of TLS 1.2 and older.
+identity(User, #{versions := Versions} = Ssl, _Env) ->
+    Psk =
+        case get_opt(psk_identity, undefined, User, Ssl) of
+            {new, Name} when is_list(Name) ->
+                Bytes = unicode:characters_to_binary(Name),
+                before_tls13([psk_identity], User, Ssl),
+                byte_size(Bytes) < 65536 orelse option_error(psk_identity, {psk_identity, Name}),
+                Bytes;
+            {new, Other} ->
+                option_error(psk_identity, Other);
+            {_, Value} ->
+                Value
+        end,
+    Srp =
+        case get_opt(srp_identity, undefined, User, Ssl) of
+            {new, {Name1, Password}} when is_list(Name1), is_list(Password) ->
+                UserName = unicode:characters_to_binary(Name1),
+                before_tls13([srp_identity], User, Ssl),
+                byte_size(UserName) > 0 andalso byte_size(UserName) < 65536 orelse
+                    option_error(srp_identity, {srp_identity, Psk}),
+                {UserName, unicode:characters_to_binary(Password)};
+            {new, Bad} ->
+                option_error(srp_identity, Bad);
+            {_, Value1} ->
+                Value1
+        end,
+    Lookup =
+        case get_opt(user_lookup_fun, undefined, User, Ssl) of
+            {new, {Fun, _} = Found} when is_function(Fun, 3) ->
+                before_tls13([user_lookup_fun], User, Ssl),
+                Found;
+            {new, Bad1} ->
+                option_error(user_lookup_fun, Bad1);
+            {_, Value2} ->
+                Value2
+        end,
+    _ = Versions,
+    Ssl#{psk_identity => Psk, srp_identity => Srp, user_lookup_fun => Lookup}.
 
 %% Session reuse (LIB81D2a): a client's reuse_sessions (true, false or save) and reuse_session (an id or {Id, Data});
 %% a server's reuse_sessions (false by default when it verifies clients) and reuse_session policy fun. Both are
@@ -821,7 +863,8 @@ engine_extras(Role, Ssl, CaCerts) ->
         {session_cache, session_cache(Role, Ssl)},
         {tickets, tickets(Role, Ssl)},
         {early_data, early_data(Role, Ssl)},
-        {sni, sni(Role, Ssl)}
+        {sni, sni(Role, Ssl)},
+        {psk, psk(Ssl)}
     ],
     [{K, V} || {K, V} <- Optional, V =/= undefined].
 
@@ -865,6 +908,10 @@ early_data(_, _) ->
 sni(server, #{sni_fun := Fun}) when is_function(Fun) -> true;
 sni(server, #{sni_hosts := [_ | _]}) -> true;
 sni(_, _) -> undefined.
+
+% Added for pre-shared keys (LIB81D5): user_lookup_fun gives the keys; a server sends its hint, a client its identity.
+psk(#{user_lookup_fun := {_, _}, psk_identity := Name}) -> {Name};
+psk(_) -> undefined.
 
 client_cas(server, #{verify := verify_peer, certificate_authorities := true}, [_ | _] = CaCerts) -> CaCerts;
 client_cas(_, _, _) -> undefined.

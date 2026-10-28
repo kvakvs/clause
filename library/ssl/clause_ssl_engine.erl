@@ -23,7 +23,8 @@
     resume/2,
     session/1,
     early_data/1,
-    name_served/2
+    name_served/2,
+    psk/2
 ]).
 
 context(_Role, _Options) -> clause_builtin_placeholder.
@@ -49,3 +50,5 @@ session(_Engine) -> clause_builtin_placeholder.
 early_data(_Engine) -> clause_builtin_placeholder.
 %% Server name indication (LIB81D3a).
 name_served(_Engine, _Answer) -> clause_builtin_placeholder.
+%% Pre-shared keys (LIB81D5).
+psk(_Engine, _Key) -> clause_builtin_placeholder.

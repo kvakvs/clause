@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "ssl_psk",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "psk {ok,ok,\"TLS_PSK_WITH_AES_128_GCM_SHA256\",\n        [{client,<<\"server hint\">>,client},\n         {server,<<\"client identity\">>,server}]}\necdhe_psk {ok,ok,\"TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256\",\n              [{client,<<\"server hint\">>,client},\n               {server,<<\"client identity\">>,server}]}\npsk without hint {ok,ok,\"TLS_PSK_WITH_AES_128_GCM_SHA256\",\n                     [{client,undefined,client},\n                      {server,<<\"client identity\">>,server}]}\necdhe_psk without hint {ok,ok,\"TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256\",\n                           [{client,<<>>,client},\n                            {server,<<\"client identity\">>,server}]}\npsk without identity {ok,ok,\"TLS_PSK_WITH_AES_128_GCM_SHA256\",\n                         [{client,<<\"server hint\">>,client},\n                          {server,<<\"psk_identity\">>,server}]}\nother keys {failed,{error,bad_record_mac},\n                   none,\n                   [{other_client,<<\"server hint\">>,other_client},\n                    {server,<<\"client identity\">>,server}]}\nunknown identity {{error,illegal_parameter},\n                  {error,illegal_parameter},\n                  none,\n                  [{client,<<\"server hint\">>,client},\n                   {server,<<\"unknown\">>,server}]}\noption errors [{error,{options,{user_lookup_fun,{{'fun',2},state}}}},\n               {error,{options,{user_lookup_fun,nofun}}},\n               {error,{options,incompatible,\n                               [user_lookup_fun,{versions,['tlsv1.3']}]}},\n               {error,{options,incompatible,\n                               [psk_identity,{versions,['tlsv1.3']}]}},\n               {error,{options,{psk_identity,{psk_identity,70000}}}}]\nssl_psk: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "ssl_psk.erl": "4ad50bcbca91fbc5d1f2a7d8200a9304b2d4b5c486be70413a9e2a166519c0b2"
+  }
+}

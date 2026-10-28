@@ -385,14 +385,23 @@ Problem sni(Context &context, const Term &value) {
     return std::nullopt;
 }
 
+// Added for pre-shared keys (plan 21 step LIB81D5): psk => {Hint | Identity | undefined}: user_lookup_fun gives the
+// keys of TLS 1.2 PSK suites; a server sends the hint, a client the identity.
+Problem psk(Context &context, const Term &value) {
+    if (!configure_psk(context, value)) {
+        return "identity hint not accepted";
+    }
+    return std::nullopt;
+}
+
 // The options context/2 reads, applied in this order.
 struct Option {
     AtomName key;
     Problem (*apply)(Context &, const Term &);
 };
 
-const std::array<Option, 16> &options() {
-    static const std::array<Option, 16> OPTIONS{{
+const std::array<Option, 17> &options() {
+    static const std::array<Option, 17> OPTIONS{{
         {"versions"_atom, versions},
         {"ciphers"_atom, ciphers},
         {"honor_cipher_order"_atom, honor_cipher_order},
@@ -409,6 +418,7 @@ const std::array<Option, 16> &options() {
         {"tickets"_atom, tickets},
         {"early_data"_atom, early_data},
         {"sni"_atom, sni},
+        {"psk"_atom, psk},
     }};
     return OPTIONS;
 }

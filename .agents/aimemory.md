@@ -675,3 +675,9 @@ recorded elsewhere.
   lookup uses the OTP-form issuer from pkix_dist_point, so "revoked by issuer" is undetermined (bad_certificate) in
   OTP 29.1.1 - mirrored, documented. Build CRLs in fixtures: plain TBSCertList + public_key:sign + der_encode
   CertificateList; root key via pkix_test_root_cert. Catalog "declined" stubs need bare `_` heads. Clause has no inets.
+- LIB81D5 ssl PSK (2026-10-28): user chose PSK only, SRP declined; OCSP stapling skipped (optional LIB81D4b). libssl PSK
+  callbacks are synchronous: engine scans the peer's plaintext records (server: ClientKeyExchange identity, client:
+  ServerHello suite kx + ServerKeyExchange hint + ServerHelloDone) and holds that chunk while Erlang runs
+  user_lookup_fun. OTP: client fun gets the hint (undefined without SKE, <<>> for empty), server fun the client's
+  identity (default <<"psk_identity">>), error -> illegal_parameter. libssl lacks ECDHE-PSK AES-GCM/CCM suites.
+  ssl no longer PARTIAL in library_modules.py.

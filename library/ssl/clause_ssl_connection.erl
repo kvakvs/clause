@@ -6,7 +6,8 @@
 %% shutdown/2 and close/2's downgrade to the transport socket. LIB81D1 adds TLS 1.2 renegotiation, TLS 1.3 key updates,
 %% keying material exporters and the secrets of keep_secrets (clause_ssl_secrets). LIB81D2a adds TLS 1.2 session reuse
 %% over clause_ssl_session's caches, LIB81D2b TLS 1.3 session tickets (clause_ssl_tickets) and LIB81D2c early data.
-%% LIB81D3a adds the server's sni_hosts and sni_fun, LIB81D3b automatic rekeys (key_update_at, renegotiate_at).
+%% LIB81D3a adds the server's sni_hosts and sni_fun, LIB81D3b automatic rekeys (key_update_at, renegotiate_at), LIB81D5
+%% TLS 1.2 pre-shared keys.
 -module(clause_ssl_connection).
 -behaviour(gen_server).
 -export([start/1, start_link/1]).
@@ -17,6 +18,7 @@
 -define(INTERNAL_ERROR, 80).
 -define(USER_CANCELED, 90).
 -define(HANDSHAKE_FAILURE, 40).
+-define(ILLEGAL_PARAMETER, 47).
 -define(UNRECOGNIZED_NAME, 112).
 %% The largest TLS record payload, which a write splits data into (LIB81D3b).
 -define(MAX_RECORD, 16384).
@@ -288,6 +290,7 @@ step(Received, #{engine := Engine} = S0) ->
         verify -> step(<<>>, verdict(S));
         {lookup, SessionId, ServerName} -> step(<<>>, lookup_session(SessionId, ServerName, S));
         {sni, ServerName} -> step(<<>>, server_name_received(binary_to_list(ServerName), S));
+        {psk, Name} -> psk_lookup(Name, S);
         Failure -> handshake_failed(Failure, S)
     end.
 
@@ -440,6 +443,21 @@ tls12_session(#{reuse_sessions := true} = Ssl, #{peer := Server}) ->
     end;
 tls12_session(_Ssl, _S) ->
     undefined.
+
+%% Pre-shared keys (LIB81D5).
+
+% The key of a TLS 1.2 PSK suite, as OTP's user_lookup_fun gives it: a server's fun gets the client's identity, a
+% client's the server's hint (undefined without one). Without a key the handshake ends with illegal_parameter, sent
+% in plaintext since no keys are in use yet.
+psk_lookup(Name, #{engine := Engine, ssl := #{user_lookup_fun := {Fun, UserState}}} = S) ->
+    case Fun(psk, Name, UserState) of
+        {ok, Key} when is_binary(Key) ->
+            ok = clause_ssl_engine:psk(Engine, Key),
+            step(<<>>, S);
+        _ ->
+            transmit(clause_ssl_hello:alert(?ILLEGAL_PARAMETER), S),
+            handshake_failed({alert, sent, 2, ?ILLEGAL_PARAMETER}, S)
+    end.
 
 %% Server name indication (LIB81D3a).
 

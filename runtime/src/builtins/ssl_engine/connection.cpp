@@ -99,7 +99,11 @@ Term handshake_status(ProcessContext &context, Engine &engine) {
 Term handshake(ProcessContext &context, const Named<EngineRole> &handle, const Named<BytesRole> &received) {
     auto &engine = engine_of(handle.term);
     const std::scoped_lock guard(engine.lock_);
-    feed(engine, bytes_argument(received.term));
+    auto bytes = bytes_argument(received.term);
+    if (auto paused = psk_received(context, engine, bytes)) {
+        return with_output(context, engine, *paused);
+    }
+    feed(engine, bytes);
     ERR_clear_error();
     return with_output(context, engine, handshake_status(context, engine));
 }
