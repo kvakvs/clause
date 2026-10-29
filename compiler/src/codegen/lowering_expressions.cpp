@@ -34,6 +34,9 @@ llvm::Value *binding(ExpressionLowering &state, const ast::ExprId &expression) {
     }
     const auto *read = &state.module.syntax->expression(expression);
     const auto identity = state.reads->at(read);
+    if (auto *closure = sunk_read(state, identity)) {
+        return closure;
+    }
     auto *value = binary_loop_read(state, identity, state.bindings.at(identity), read);
     // A float loop variant's parameter gets a cell where it is read, so steps reading only its double make none (float
     // loops, OPT1.2).
@@ -312,7 +315,8 @@ llvm::Value *lower_value(ExpressionLowering &state, const ast::ExprId &id) {
         return call_value(state, expression, *call);
     }
     if (const auto *match = std::get_if<ast::MatchExpression>(&expression.value)) {
-        return lower_body_match(state, *match);
+        auto *sunk = lower_sunk_binding(state, expression);
+        return sunk ? sunk : lower_body_match(state, *match);
     }
     if (const auto *binary = std::get_if<ast::BinaryExpression>(&expression.value)) {
         return binary_value(state, *binary);

@@ -4,12 +4,12 @@ This file lists optimizations taken from Lukas Larsson's (garazdawi) **T2-Full**
 work for BeamAsm, restated for Clause's ahead-of-time LLVM code generation. The plans are planning
 input only; no OTP source is copied.
 
-Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, OPT1.3 parts 1-2, OPT1.4, OPT1.6 inline
-caches, OPT1.7 parts 1-2 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its
-remainder, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16,
-OPT3.17, OPT3.4 and its remainder, OPT3.18, OPT3.19, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
-OPTM.4, OPTM.5, OPTM.6): see [00-finished.md](00-finished.md). Rejected steps (OPTM.1 remainder):
-see [00-reject.md](00-reject.md). This file keeps open work only.
+Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, OPT1.3 parts 1-2, OPT1.4, OPT1.5, OPT1.6
+inline caches, OPT1.7 parts 1-3 (with `maps:fold`), OPT1.8 and its remainder, OPT1.14 parts 1-2,
+OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14
+service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4 and its remainder, OPT3.18, OPT3.19, sorted
+tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5, OPTM.6): see [00-finished.md](00-finished.md).
+Rejected steps (OPTM.1 remainder): see [00-reject.md](00-reject.md). This file keeps open work only.
 
 **NAMING CONVENTIONS** The optimization steps use prefixes based on their area of concern
 - OPT<id1>.<id2> - optimization tasks
@@ -341,12 +341,6 @@ takewhile 24, zipwith 13, uniq 4, keymap 1. Open:
 - Generating the loops from the real `lists` source by cross-module inlining (OPT2.1) instead of
   hand-written loops.
 
-### OPT1.8 remainder: sinking bound closures
-
-Funs written in an inlined call are built only on fallback paths (done). Open: `F = fun ... end`
-still builds its closure where it is bound even when every read of `F` is an inlined call; sinking
-it needs the match's value to be unused and every read to inline (static decisions only).
-
 ### OPT1.9 Leaf inlining scored by eliminated work
 
 - **What:** inline small call-free local callees at most ≤24 IR ops, depth ≤3, and ≤5× total growth,
@@ -480,7 +474,7 @@ it needs the match's value to be unused and every read to inline (static decisio
 3. **Binaries:** OPT1.5 byte scans done; remainder above.
 4. **Maps:** OPT1.6 remainder (inline caches and the `maps:fold` part of OPT1.7 are done).
 5. **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
-6. **Funs and floats:** OPT1.11, the OPT1.8 remainder.
+6. **Funs and floats:** OPT1.11 (OPT1.8 remainder done).
 7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM once the IR is
    transparent.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact (pinned 2026-10-21

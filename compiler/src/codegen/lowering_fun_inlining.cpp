@@ -2,7 +2,10 @@
 #include "../semantic/funs.hpp"
 #include "lowering_state.hpp"
 #include <algorithm>
+#include <clause/abi/equality.hpp>
+#include <iterator>
 #include <llvm/Transforms/Utils/SSAUpdater.h>
+#include <set>
 #include <stdexcept>
 
 // Inline funs (OPT1.8, docs/funs.md#inlined-funs): calls of an anonymous fun known where it is called lower the fun's
@@ -46,29 +49,98 @@ bool small(const semantic::Module &module, const ast::Expression &fun) {
 }
 
 struct BindingCounts {
-    // The definition each variable expression makes, and the definitions and reads of each binding.
+    // The definition each variable expression makes, the definitions and exact checks of each binding, and its reads.
     std::map<const ast::Expression *, semantic::BindingId> defined;
     std::map<semantic::BindingId, std::size_t> definitions;
-    std::map<semantic::BindingId, std::size_t> reads;
+    std::map<semantic::BindingId, std::size_t> checks;
+    std::map<semantic::BindingId, std::vector<const ast::Expression *>> reads;
 };
 
 BindingCounts count_bindings(const ast::Module &syntax, const semantic::Function &function) {
     BindingCounts counts;
     for (const auto &binding : function.bindings) {
+        const auto *expression = &syntax.expression(binding.expression);
         if (binding.use == semantic::BindingUse::definition) {
-            counts.defined.emplace(&syntax.expression(binding.expression), binding.identity);
+            counts.defined.emplace(expression, binding.identity);
             ++counts.definitions[binding.identity];
         } else if (binding.use == semantic::BindingUse::read) {
-            ++counts.reads[binding.identity];
+            counts.reads[binding.identity].push_back(expression);
+        } else {
+            ++counts.checks[binding.identity];
         }
     }
     return counts;
 }
 
+struct SinkFacts {
+    // Sunk bound funs (OPT1.8): expressions whose value nothing reads (every body expression but the last), reads
+    // that call a fun or pass it first to a lists or maps call, and the variables some fun captures.
+    std::set<const ast::Expression *> statements;
+    std::set<const ast::Expression *> call_reads;
+    std::set<semantic::BindingId> captured;
+};
+
+// Record every expression of `body` but the last as a statement.
+void add_statements(const ast::Module &syntax, const std::vector<ast::ExprId> &body, SinkFacts &facts) {
+    for (std::size_t index = 0; index + 1 < body.size(); ++index) {
+        facts.statements.insert(&syntax.expression(body[index]));
+    }
+}
+
+// The bodies of a block, a try, a fun and the clauses of a case, if, receive, try or maybe.
+std::vector<const std::vector<ast::ExprId> *> bodies(const ast::ExprValue &value) {
+    std::vector<const std::vector<ast::ExprId> *> result;
+    for (const auto &branch : semantic::branch_clauses(value)) {
+        result.push_back(branch.body);
+    }
+    if (const auto *clauses = semantic::fun_clauses(value)) {
+        std::ranges::transform(*clauses, std::back_inserter(result), [](const auto &clause) { return &clause.body; });
+    }
+    if (const auto *block = std::get_if<ast::BlockExpression>(&value)) {
+        result.push_back(&block->body);
+    } else if (const auto *attempt = std::get_if<ast::TryExpression>(&value)) {
+        result.push_back(&attempt->body);
+    }
+    return result;
+}
+
+// Whether a call is lists:F(...) or maps:F(...), whose fun argument comes first.
+bool fun_loop_call(const ast::Module &syntax, const ast::CallExpression &call) {
+    const auto *remote =
+        std::get_if<ast::RemoteExpression>(&syntax.expression(semantic::ungroup(syntax, call.target)).value);
+    const auto *name =
+        remote ? std::get_if<ast::Atom>(&syntax.expression(semantic::ungroup(syntax, remote->module)).value) : nullptr;
+    return name && (name->name == U"lists" || name->name == U"maps") && !call.arguments.empty();
+}
+
+// Record the statements of an expression's bodies and the reads its call may inline.
+void add_facts(const ast::Module &syntax, const ast::Expression &expression, SinkFacts &facts) {
+    for (const auto *body : bodies(expression.value)) {
+        add_statements(syntax, *body, facts);
+    }
+    const auto *call = std::get_if<ast::CallExpression>(&expression.value);
+    if (call && semantic::fun_call(syntax, *call)) {
+        facts.call_reads.insert(&syntax.expression(semantic::ungroup(syntax, call->target)));
+    } else if (call && fun_loop_call(syntax, *call)) {
+        facts.call_reads.insert(&syntax.expression(semantic::ungroup(syntax, call->arguments.front())));
+    }
+}
+
+// Whether the closure of a match `F = fun ... end` binding `identity` can be built only where a read needs it.
+bool sinkable(const ast::Expression &match, const semantic::BindingId &identity, const BindingCounts &counts,
+              const SinkFacts &facts) {
+    const auto reads = counts.reads.find(identity);
+    const auto called = [&](const ast::Expression *read) { return facts.call_reads.contains(read); };
+    return facts.statements.contains(&match) && !counts.checks.contains(identity) &&
+           !facts.captured.contains(identity) &&
+           (reads == counts.reads.end() || std::ranges::all_of(reads->second, called));
+}
+
 // Record `Variable = fun ... end` when the variable is bound only there and the fun is read once or small.
-void bind_lambda(const semantic::Module &module, const ast::MatchExpression &match, const BindingCounts &counts,
-                 LambdaBindings &result) {
+void bind_lambda(const semantic::Module &module, const ast::Expression &expression, const BindingCounts &counts,
+                 const SinkFacts &facts, LambdaBindings &result) {
     const auto &syntax = *module.syntax;
+    const auto &match = std::get<ast::MatchExpression>(expression.value);
     const auto &fun = syntax.expression(semantic::ungroup(syntax, match.right));
     const auto defined = counts.defined.find(&syntax.expression(semantic::ungroup(syntax, match.left)));
     const auto *entry = inlinable(module, fun);
@@ -76,8 +148,11 @@ void bind_lambda(const semantic::Module &module, const ast::MatchExpression &mat
         return;
     }
     const auto reads = counts.reads.find(defined->second);
-    if ((reads != counts.reads.end() && reads->second == 1) || small(module, fun)) {
-        result.emplace(defined->second, entry);
+    if ((reads != counts.reads.end() && reads->second.size() == 1) || small(module, fun)) {
+        result.funs.emplace(defined->second, entry);
+        if (sinkable(expression, defined->second, counts, facts)) {
+            result.sunk.emplace(&expression, defined->second);
+        }
     }
 }
 
@@ -127,21 +202,57 @@ llvm::Value *join_clauses(ExpressionLowering &state, llvm::BasicBlock *join, con
     mark_term(state, value);
     return value;
 }
+
+// The variable of a sunk binding's match when funs may be inlined here (sunk bound funs, OPT1.8); null otherwise.
+const semantic::BindingId *sunk_match(const ExpressionLowering &state, const ast::Expression &expression) {
+    if (!inlining(state)) {
+        return nullptr;
+    }
+    const auto found = state.lambdas->sunk.find(&expression);
+    return found == state.lambdas->sunk.end() ? nullptr : &found->second;
+}
+
+// The fun a variable read `read` holds when bound once to one; `read` itself is not lowered when its binding is sunk.
+KnownLambda bound_lambda(const ExpressionLowering &state, const semantic::BindingId &variable,
+                         const ast::Expression &read) {
+    // Inside another fun's code, the fun's captured values may be out of reach: they are not that fun's.
+    const auto bound = state.lambdas->funs.find(variable);
+    const auto reachable = [&](const semantic::BindingId &identity) { return state.bindings.contains(identity); };
+    if (bound == state.lambdas->funs.end() || !std::ranges::all_of(bound->second->captures, reachable)) {
+        return {};
+    }
+    return {bound->second, state.sunk_lambdas.contains(variable) ? &read : nullptr};
+}
 } // namespace
 
 LambdaBindings lambda_bindings(const semantic::Module &module, const semantic::Function &function) {
     const auto &syntax = *module.syntax;
     const auto counts = count_bindings(syntax, function);
-    LambdaBindings result;
-    auto pending = semantic::function_roots(std::get<ast::Function>(syntax.form(function.form).value));
+    SinkFacts facts;
+    for (const auto &fun : module.funs) {
+        if (fun.owner == &function) {
+            facts.captured.insert(fun.captures.begin(), fun.captures.end());
+        }
+    }
+    const auto &form = std::get<ast::Function>(syntax.form(function.form).value);
+    for (const auto &clause : form.clauses) {
+        add_statements(syntax, clause.body, facts);
+    }
+    std::vector<const ast::Expression *> matches;
+    auto pending = semantic::function_roots(form);
     while (!pending.empty()) {
         const auto &expression = syntax.expression(pending.back());
         pending.pop_back();
-        if (const auto *match = std::get_if<ast::MatchExpression>(&expression.value)) {
-            bind_lambda(module, *match, counts, result);
+        if (std::holds_alternative<ast::MatchExpression>(expression.value)) {
+            matches.push_back(&expression);
         }
+        add_facts(syntax, expression, facts);
         const auto children = semantic::expression_children(module, expression);
         pending.insert(pending.end(), children.begin(), children.end());
+    }
+    LambdaBindings result;
+    for (const auto *match : matches) {
+        bind_lambda(module, *match, counts, facts, result);
     }
     return result;
 }
@@ -156,26 +267,41 @@ KnownLambda known_lambda(const ExpressionLowering &state, const ast::ExprId &val
     if (std::holds_alternative<ast::FunExpression>(expression.value)) {
         known = {inlinable(state.module, expression), &syntax.expression(value)};
     } else if (const auto read = state.reads->find(&expression); read != state.reads->end()) {
-        // Inside another fun's code, the fun's captured values may be out of reach: they are not that fun's.
-        const auto bound = state.lambdas->find(read->second);
-        const auto reachable = [&](const semantic::BindingId &identity) { return state.bindings.contains(identity); };
-        known.lambda = bound == state.lambdas->end() || !std::ranges::all_of(bound->second->captures, reachable)
-                           ? nullptr
-                           : bound->second;
+        known = bound_lambda(state, read->second, syntax.expression(value));
     }
     return known.lambda && known.lambda->arity == arity ? known : KnownLambda{};
 }
 
 const ast::Expression *sunk_fun(const ExpressionLowering &state, const ast::Expression &expression) {
+    if (const auto *match = std::get_if<ast::MatchExpression>(&expression.value)) {
+        return sunk_match(state, expression) ? &state.module.syntax->expression(match->right) : nullptr;
+    }
     const auto *call = std::get_if<ast::CallExpression>(&expression.value);
     if (!call) {
         return nullptr;
     }
     if (semantic::fun_call(*state.module.syntax, *call)) {
-        return known_lambda(state, call->target, call->arguments.size()).literal;
+        return known_lambda(state, call->target, call->arguments.size()).unlowered;
     }
     const auto *list = sunk_list_fun(state, expression, *call);
     return list ? list : sunk_map_fun(state, expression, *call);
+}
+
+llvm::Value *lower_sunk_binding(ExpressionLowering &state, const ast::Expression &expression) {
+    const auto *identity = sunk_match(state, expression);
+    if (!identity) {
+        return nullptr;
+    }
+    // Nothing reads this word: the binding's reads inline the fun or build it (sunk_read).
+    auto *placeholder = llvm::ConstantInt::get(state.word, abi::v1::empty_list);
+    state.bindings.insert_or_assign(*identity, placeholder);
+    state.sunk_lambdas.insert_or_assign(*identity, state.lambdas->funs.at(*identity));
+    return placeholder;
+}
+
+llvm::Value *sunk_read(ExpressionLowering &state, const semantic::BindingId identity) {
+    const auto sunk = state.sunk_lambdas.find(identity);
+    return sunk == state.sunk_lambdas.end() ? nullptr : lower_fun(state, *sunk->second->expression);
 }
 
 llvm::Value *inline_lambda(ExpressionLowering &state, const semantic::FunEntry &lambda,
@@ -220,8 +346,8 @@ llvm::Value *lower_known_fun_call(ExpressionLowering &state, const ast::CallExpr
         arguments.push_back(state.values.at(&syntax.expression(argument)));
     }
     return inline_lambda(state, *known.lambda, arguments, [&] {
-        return known.literal ? lower_fun(state, *known.lambda->expression)
-                             : state.values.at(&syntax.expression(call.target));
+        return known.unlowered ? lower_fun(state, *known.lambda->expression)
+                               : state.values.at(&syntax.expression(call.target));
     });
 }
 } // namespace clause::codegen

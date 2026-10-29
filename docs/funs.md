@@ -116,8 +116,12 @@ of the call, much as OTP's `inline_list_funcs` option does:
   guards, and the matching clause's body runs in the caller's frame. When no
   clause matches, the fun is called, so `function_clause` comes from the fun's
   own code as before. A fun written in the call is built only on that path and
-  the paths below that need its value (closure sinking); a variable's fun is
-  built where it is bound, as before.
+  the paths below that need its value (closure sinking). A variable's fun is
+  sunk the same way when the match's value is unused, no other fun captures
+  the variable, no pattern compares it, and every read calls it or passes it
+  first to a `lists` or `maps` call; a read that does not inline (another
+  arity, a `lists` function that is no loop) builds the fun where it is read.
+  Otherwise the fun is built where it is bound.
 - **List loops.** `lists:map/2`, `filter/2`, `filtermap/2` (and `zf/2`, its old
   undocumented name), `partition/2`, `foreach/2`, `all/2`, `any/2`, `search/2`,
   `takewhile/2`, `dropwhile/2`, `splitwith/2`, `flatmap/2`, `foldl/3`,

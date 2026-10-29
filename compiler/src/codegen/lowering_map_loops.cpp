@@ -15,7 +15,7 @@ struct MapLoop {
     // The fun inlined and the resolved maps:fold/3, kept for the paths that make the real call.
     const semantic::FunEntry *lambda;
     semantic::FunctionRef callee;
-    // The fun argument's value; null for a fun written in the call, which is built only where it is needed.
+    // The fun argument's value; null for a fun written in the call or sunk, which is built only where it is needed.
     llvm::Value *fun = nullptr;
     // Frame slots: the map, its entries cell, the next entry's word index (a small integer), the accumulator, whether
     // it is a map only this loop holds (an atom) and the result.
@@ -143,7 +143,7 @@ MapLoop begin(ExpressionLowering &state, const KnownLambda &known, semantic::Fun
     const auto &syntax = *state.module.syntax;
     const auto value = [&](const ast::ExprId &id) { return state.values.at(&syntax.expression(id)); };
     MapLoop loop{known.lambda, callee};
-    loop.fun = known.literal ? nullptr : value(call.arguments.front());
+    loop.fun = known.unlowered ? nullptr : value(call.arguments.front());
     loop.map = root_slot(state);
     store(state, value(call.arguments[2]), loop.map);
     loop.accumulator = root_slot(state);
@@ -246,7 +246,7 @@ llvm::Value *owned_map_update(ExpressionLowering &state, const ast::Expression &
 
 const ast::Expression *sunk_map_fun(const ExpressionLowering &state, const ast::Expression &expression,
                                     const ast::CallExpression &call) {
-    return fold_callee(state, expression, call) ? known_lambda(state, call.arguments.front(), 3).literal : nullptr;
+    return fold_callee(state, expression, call) ? known_lambda(state, call.arguments.front(), 3).unlowered : nullptr;
 }
 
 llvm::Value *lower_map_fold(ExpressionLowering &state, const ast::Expression &expression,

@@ -364,6 +364,11 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   versions rewritten to OTP's walk (the fun runs on the leading elements before a length mismatch
   fails, a non-fun is `badfun`). 300k elements, unpinned: zipwith 7.8 to 2.5 ms, zipwith3 11.3 to
   2.6 ms (OTP 4.7, 4.2) — `[plan20] OPT1.7 (part 3) ...`
+- **OPT1.8 remainder** sunk bound funs: `F = fun ... end` builds no closure where it is bound when
+  its value is unused, no fun captures `F` and only calls read it; reads that do not inline build it.
+  Pinned, a function binding a fun for a 4-element `foldl` 97 to 88 ms, two `F(X)` calls 48 to 42
+  (both equal to the fun written in the call); long loops unchanged, no 69A kernel binds a fun —
+  `[plan20] OPT1.8 remainder ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

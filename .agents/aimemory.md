@@ -687,3 +687,10 @@ recorded elsewhere.
   user_lookup_fun. OTP: client fun gets the hint (undefined without SKE, <<>> for empty), server fun the client's
   identity (default <<"psk_identity">>), error -> illegal_parameter. libssl lacks ECDHE-PSK AES-GCM/CCM suites.
   ssl no longer PARTIAL in library_modules.py.
+- Windows `start` (2026-10-29): never pass `start "" ...` or `start "title" ...` through Git Bash
+  (`cmd //c "start ..."`): the quotes are mangled and Windows pops "cannot find" dialogs on the
+  user's desktop. Put every start/affinity/belownormal line in a scratch .cmd file (use "%~dp0x.cmd"
+  for paths; printf turns `\f` in paths into form feeds, write .cmd files with a quoted heredoc).
+- OPT1.8 remainder (2026-10-29): measure a sinking idea first by writing the bound and the
+  written-in-call forms side by side (the written-in-call form is the ceiling); sunk bindings bind
+  a placeholder word and any read that does not inline builds the fun (sunk_read).

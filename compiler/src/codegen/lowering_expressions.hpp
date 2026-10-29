@@ -5,8 +5,14 @@
 #include <map>
 
 namespace clause::codegen {
-// Inline funs (OPT1.8): each variable of a function bound once to an anonymous fun (`F = fun ... end`), with that fun.
-using LambdaBindings = std::map<semantic::BindingId, const semantic::FunEntry *>;
+struct LambdaBindings {
+    // Inline funs (OPT1.8): each variable of a function bound once to an anonymous fun (`F = fun ... end`), with that
+    // fun.
+    std::map<semantic::BindingId, const semantic::FunEntry *> funs;
+    // Sunk bound funs: the matches `F = fun ... end` whose value is unused and whose variable no fun captures and
+    // only calls read; their closure is built only where a read needs it.
+    std::map<const ast::Expression *, semantic::BindingId> sunk;
+};
 
 // The variables of `function` whose fun calls may lower the fun's clauses in place: bound once to an anonymous fun
 // that is read once or is small (inline funs, OPT1.8).

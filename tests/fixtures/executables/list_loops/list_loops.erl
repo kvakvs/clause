@@ -28,6 +28,7 @@ main(_) ->
     zips(L),
     folds(L),
     bound(L, K),
+    io:format("sunk tail: ~p~n", [sunk(L, K)]),
     nesting(L),
     collections(),
     receiving(),
@@ -284,6 +285,40 @@ bound(L, K) ->
         end,
     show("bound twice", fun() -> Twice(4) end),
     show("literal call", fun() -> (fun(X, Y) -> X - Y end)(10, 3) end).
+
+%% A variable bound once to a fun that only calls read (no fun captures it) builds its closure only where a read
+%% needs it: calls that do not inline, lists functions that are no loops, and no clause matching (sunk bound funs).
+sunk(L, K) ->
+    F = fun(X) -> X + K end,
+    io:format("sunk: ~p~n", [{F(1), lists:map(F, L), [F(X) || X <- L]}]),
+    G = fun(X) when X < 3 -> X * K end,
+    io:format("sunk no clause: ~p~n", [
+        try lists:map(G, L) of
+            R -> R
+        catch
+            error:Reason -> {error, Reason}
+        end
+    ]),
+    io:format("sunk arity: ~p~n", [
+        try G(1, 2) of
+            V -> V
+        catch
+            error:{badarity, {Fun, Args}} -> {badarity, is_function(Fun, 1), Fun(2), Args}
+        end
+    ]),
+    S = fun(A, B) -> A > B end,
+    io:format("sunk sort: ~p~n", [{lists:sort(S, L), lists:usort(S, L)}]),
+    M = fun(Key, V, Acc) -> Key * V + Acc end,
+    io:format("sunk fold: ~p~n", [{maps:fold(M, 0, #{1 => 2, 3 => 4}), M(1, 2, 3)}]),
+    case id(K) of
+        _ ->
+            P = fun(X) -> X * K end,
+            ok
+    end,
+    io:format("sunk exported: ~p~n", [P(3)]),
+    _Unused = fun() -> K end,
+    T = fun(X) -> {tail, X, K} end,
+    T(L).
 
 %% Funs inlined inside inlined funs, deeper than inlining goes, and control flow inside inlined bodies.
 nesting(L) ->

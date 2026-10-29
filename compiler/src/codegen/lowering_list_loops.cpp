@@ -48,7 +48,7 @@ struct ListLoop {
     semantic::FunctionRef callee;
     // lists:reverse/2, which flatmap/2 prepends each element's list with.
     semantic::FunctionRef reverse;
-    // The fun argument's value; null for a fun written in the call, which is built only where it is needed.
+    // The fun argument's value; null for a fun written in the call or sunk, which is built only where it is needed.
     llvm::Value *fun = nullptr;
     // Frame slots: the input left, the fold accumulator, whether it is a map only the loop holds (OPT3.15), the
     // reversed list built so far, partition/2's reversed list of the other elements and the result.
@@ -90,7 +90,7 @@ llvm::Value *is_atom(ExpressionLowering &state, llvm::Value *value, const char32
     return lower_exact(state, value, atom(state, name));
 }
 
-// The fun's value: the argument's, or the fun written in the call built here.
+// The fun's value: the argument's, or the fun written in the call (or sunk) built here.
 llvm::Value *fun_value(ExpressionLowering &state, const ListLoop &loop) {
     return loop.fun ? loop.fun : lower_fun(state, *loop.lambda->expression);
 }
@@ -375,7 +375,7 @@ semantic::FunctionRef exported(semantic::Module &module, std::u32string_view nam
 }
 
 struct ListCall {
-    // The lists function called, the known fun and the fun written in the call (null for a variable).
+    // The lists function called and the known fun with its argument the walk does not lower.
     const ListFunction *function;
     KnownLambda known;
     semantic::FunctionRef callee;
@@ -424,7 +424,7 @@ ListLoop begin(ExpressionLowering &state, const ListCall &found, const ast::Call
     const auto &syntax = *state.module.syntax;
     const auto value = [&](std::size_t index) { return state.values.at(&syntax.expression(call.arguments[index])); };
     ListLoop loop{found.function, found.known.lambda, found.callee, found.reverse};
-    loop.fun = found.known.literal ? nullptr : value(0);
+    loop.fun = found.known.unlowered ? nullptr : value(0);
     const auto first = call.arguments.size() - found.function->lists;
     loop.rest = slot_of(state, value(first));
     for (std::size_t index = 1; index < found.function->lists; ++index) {
@@ -599,7 +599,7 @@ void run_zip(ExpressionLowering &state, const ListLoop &loop) {
 const ast::Expression *sunk_list_fun(const ExpressionLowering &state, const ast::Expression &expression,
                                      const ast::CallExpression &call) {
     const auto found = list_call(state, expression, call);
-    return found ? found->known.literal : nullptr;
+    return found ? found->known.unlowered : nullptr;
 }
 
 llvm::Value *lower_list_call(ExpressionLowering &state, const ast::Expression &expression,

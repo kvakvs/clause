@@ -171,6 +171,8 @@ struct ExpressionLowering {
     // when no fun is inlined (below O2). `inline_depth` counts the inlined fun bodies around the current expression.
     const LambdaBindings *lambdas = nullptr;
     std::size_t inline_depth = 0;
+    // Sunk bound funs (OPT1.8): the variables whose binding built no closure; a read not inlined builds its own.
+    std::map<semantic::BindingId, const semantic::FunEntry *> sunk_lambdas = {};
     // Fold loops (OPT1.7, OPT3.15): the accumulator updates of the fun inlined in a fold loop, owned when the frame
     // slot each names holds true (from the loop's second step on).
     std::map<const ast::Expression *, llvm::Value *> owned_maps = {};
@@ -549,32 +551,40 @@ void loop_safepoint(ExpressionLowering &state);
 // collects (list loops, OPT1.7).
 void loop_reduction(ExpressionLowering &state);
 
-// Inline funs (OPT1.8): an anonymous fun whose clauses lowering can put in place of a call, and the fun expression
-// when it is written in the call itself, so that it is built only on the paths that need its value.
+// Inline funs (OPT1.8): an anonymous fun whose clauses lowering can put in place of a call, and the argument the walk
+// does not lower (the fun written in the call, or a read of a sunk binding), so that the fun is built only on the
+// paths that need its value.
 struct KnownLambda {
     const semantic::FunEntry *lambda = nullptr;
-    const ast::Expression *literal = nullptr;
+    const ast::Expression *unlowered = nullptr;
 };
 
 // The anonymous fun of arity `arity` that `value` is (written there, or read from a variable bound once to it) when
 // funs may be inlined here; none otherwise.
 KnownLambda known_lambda(const ExpressionLowering &state, const ast::ExprId &value, std::size_t arity);
-// The fun written in a call that lowering inlines, which the walk must not build; null for every other expression.
+// The fun written in a call that lowering inlines (or read from a sunk binding), and the fun of a sunk binding's
+// match, which the walk must not lower; null for every other expression.
 const ast::Expression *sunk_fun(const ExpressionLowering &state, const ast::Expression &expression);
+// A sunk binding's match `F = fun ... end`: F bound to a placeholder, no closure built (sunk bound funs, OPT1.8);
+// null for every other match.
+llvm::Value *lower_sunk_binding(ExpressionLowering &state, const ast::Expression &expression);
+// The closure of a sunk binding a read needs, built where it is read; null for every other read.
+llvm::Value *sunk_read(ExpressionLowering &state, semantic::BindingId identity);
 // The fun's clauses matched against `arguments` and their body lowered in place: its result. No clause matching
 // calls the fun from `fun()`, which raises function_clause as the fun itself would (inline funs, OPT1.8).
 llvm::Value *inline_lambda(ExpressionLowering &state, const semantic::FunEntry &lambda,
                            std::span<llvm::Value *const> arguments, llvm::function_ref<llvm::Value *()> fun);
 // F(Args) of a known anonymous fun with its clauses inlined; null when the target is no known fun (inline funs).
 llvm::Value *lower_known_fun_call(ExpressionLowering &state, const ast::CallExpression &call);
-// The literal fun argument of a lists call that lowering turns into a loop, null for other calls (list loops, OPT1.7).
+// The unlowered fun argument (written there or a sunk read) of a lists call that lowering turns into a loop, null for
+// other calls (list loops, OPT1.7).
 const ast::Expression *sunk_list_fun(const ExpressionLowering &state, const ast::Expression &expression,
                                      const ast::CallExpression &call);
 // lists:map/2, filter/2, foreach/2, all/2, any/2, flatmap/2, foldl/3, foldr/3, mapfoldl/3 and mapfoldr/3 of a known
 // anonymous fun as a loop with the fun inlined; null for every other call (list loops, OPT1.7).
 llvm::Value *lower_list_call(ExpressionLowering &state, const ast::Expression &expression,
                              const ast::CallExpression &call);
-// The literal fun argument of a maps:fold/3 call that lowering turns into a loop, null for other calls (map fold
+// The unlowered fun argument of a maps:fold/3 call that lowering turns into a loop, null for other calls (map fold
 // loops, OPT1.7).
 const ast::Expression *sunk_map_fun(const ExpressionLowering &state, const ast::Expression &expression,
                                     const ast::CallExpression &call);
