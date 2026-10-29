@@ -47,9 +47,11 @@ the earlier 51-step draft with smaller, single-commit steps.
 ## Common gate and rules (apply to every step)
 
 - **Gate:** freshly configure `build/debug` with compiler, runtime and `BUILD_TESTING=ON`; build;
-  run fast-mode CTest (`ctest --preset debug-fast`); run
-  `cmake --build build/debug --target check-quality` (changed files and one unit per changed
-  header). When a phase or major feature completes, run full-mode CTest
+  run `cmake --build build/debug --target check-quality` (changed files and one unit per changed
+  header) first, so tidy and Lizard findings come before a long test run that would have to be
+  repeated after fixing them (user 2026-10-29); then fast-mode CTest (`ctest --preset debug-fast`).
+  Cases of about 70 s or more alone go to the full gate (label `full_only`) instead of slowing the
+  fast one. When a phase or major feature completes, run full-mode CTest
   (`ctest --preset debug -j <N>`; each test takes two slots, so N/2 run at once) instead of fast
   mode, never both (full covers every fast run), and `check-quality-all`. Lizard and clang-tidy pass
   without raised thresholds or suppressions. Code is clang-formatted; new and changed `.erl`/terms

@@ -35,8 +35,8 @@ internal functions stay out unless a public function needs them (user direction 
 
 - Commit each step when its gate is green: subject `[plan21] LIBn. Title`. Finished steps move to
   `00-finished.md` (Plan 21) with their hash.
-- The plan 11 gate applies: fast CTest, `check-quality` (clang-tidy and Lizard, no suppressions),
-  clang-format, erlfmt for `.erl`/`.terms`, docs (`docs/libraries/library.md` row,
+- The plan 11 gate applies: `check-quality` first (clang-tidy and Lizard, no suppressions), then
+  fast CTest, clang-format, erlfmt for `.erl`/`.terms`, docs (`docs/libraries/library.md` row,
   `docs/builtins.md` section, `docs/differences.md`, `.agents/arch.md`, `.agents/files.md`).
 - **Library docs live in `docs/libraries/`** (indexed in `docs/README.md`'s Libraries table). An
   application beyond erts/kernel/stdlib gets its own file there (`crypto.md`, `public_key.md`), and

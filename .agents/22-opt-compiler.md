@@ -30,9 +30,9 @@ after LLVM.1 (parallel code generation), 54.9 → 39.2 s (16 P-core threads) aft
   `compiler/src/driver/` (timing output), docs, tests and benchmark scripts; never `runtime/` or
   `abi/`.
 - One commit per step: `[plan22] <code>. <title>`, then a `Record commit hash` commit for the
-  `00-finished.md` entry. Plan 11's gate applies: fast CTest, `check-quality`, clang-format, docs
-  (`docs/semantic.md#inference` for passes, rounds, widening; `docs/compile.md` for every
-  `--print-stage-times` line).
+  `00-finished.md` entry. Plan 11's gate applies: `check-quality` first, then fast CTest,
+  clang-format, docs (`docs/semantic.md#inference` for passes, rounds, widening; `docs/compile.md`
+  for every `--print-stage-times` line).
 - Instrumentation is opt-in: with `Inference::profile` null the hot paths gain at most one
   well-predicted branch, the uninstrumented phase does not slow down and `--print-types` does not
   change. Counters are `size_t` increments; timers stay at pass and component level. Tag new code

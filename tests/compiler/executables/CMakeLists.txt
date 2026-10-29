@@ -2,9 +2,11 @@
 # links under the fast/full policy matrix and runs against its OTP-generated stdout and exit status.
 if(CLAUSE_BUILD_RUNTIME)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
-    # Cases too slow for the fast gate (qlc_queries: about 77 s alone, its query module through every policy): full
-    # gate only (label full_only).
-    set(full_only_cases qlc_queries)
+    # Cases too slow for the fast gate, about 70 s or more alone (qlc_queries: its query module through every policy;
+    # the ssl connection cases 79-90 s each, their library linked twice; shell_expand, shell_session): full gate only
+    # (label full_only). ssl_engine (14 s) keeps ssl in the fast gate.
+    set(full_only_cases qlc_queries shell_expand shell_session ssl_connections ssl_crls ssl_early_data ssl_features
+        ssl_psk ssl_rekeys ssl_sessions ssl_suites ssl_sni ssl_tickets ssl_transports)
     file(GLOB goldens CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/tests/fixtures/executables/*/golden.json")
     foreach(golden IN LISTS goldens)
         get_filename_component(case_dir "${golden}" DIRECTORY)
