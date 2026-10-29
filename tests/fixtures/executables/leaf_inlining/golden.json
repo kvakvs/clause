@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "leaf_inlining",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "guards: {ok,[1,0,1,2]}\nconstant arguments: {ok,[2,2,3,3]}\nselected: {ok,{zero,digit,number}}\nno clause: {error,function_clause,{leaf_inlining,small,1}}\nno clause twice: {error,function_clause,{leaf_inlining,small,1}}\nexported: {ok,{3,3}}\nbadarith: {error,badarith}\nbadarg: {error,badarg}\nbadmatch: {error,{badmatch,{1,2,3}}}\ncaught: {ok,caught}\nleaf no clause: {error,function_clause,{leaf_inlining,matched,1}}\nfloats: {ok,[1.0,1.5,2.0,2.5]}\nrecords: {ok,{point,7,6}}\nmaps: {ok,{[{a,1},{size,1}],1}}\ncase bindings: {ok,[{1,odd},{2,even},{3,odd},{4,even}]}\nin a fun: {ok,[2,1,0,1]}\nin a fold: {ok,10}\nnested calls: {ok,2}\norder: {ok,{1,[2,1]}}\ntail: {ok,4}\nloop: {ok,250000}\nleaf_inlining: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "leaf_inlining.erl": "b9c6fe76dabe23f15a4ec7d44268e7cde1c8bb976a8f1d97d79bcb1178e5ddda"
+  }
+}

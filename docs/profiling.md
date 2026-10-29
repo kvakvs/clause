@@ -20,6 +20,10 @@ code:
   Builtins and runtime services count as time of the function that called them;
   time while a process waits or is not scheduled counts for nobody. Time before
   the first entry of a process is `(runtime)`.
+- **Inlined code** (`-O2`): known funs and small call-free local functions run
+  in their caller's frame ([inlined funs](funs.md#inlined-funs),
+  [leaf inlining](specialization.md#leaf-inlining)), so their entries and time
+  are the caller's; they have no rows of their own.
 - **Per process**: each process keeps its own costs; they are added to the
   program's when the process's context is destroyed, with its pid, totals and
   most expensive function.

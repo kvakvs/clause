@@ -87,12 +87,18 @@ for level in ("O0", "O2"):
         print(f"SKIP: {command[0]} may not debug programs here (enable Developer Mode)")
         sys.exit(77)
     # Both stops show the Erlang function and line (GDB may name the file by its full path), then the Erlang frames of
-    # the stopped process.
-    for function, place in (("twice", "debug.hrl:5"), ("leaf", "debug.erl:8")):
+    # the stopped process. At O2 twice/1 and leaf/1 run inlined in middle/1 (leaf inlining): the debugger shows them as
+    # inlined frames, and the Erlang stack has middle/1 on top. LLDB reading a PDB finds the lines of an included file
+    # only in functions of their own, so it cannot break in the inlined twice/1.
+    stops = [("leaf", "debug.erl:8")]
+    if level == "O0" or not (dialect == "lldb" and suffix == ".exe"):
+        stops.append(("twice", "debug.hrl:5"))
+    for function, place in stops:
         assert re.search(rf"\b{function}( \(\))? at (\S*[/\\])?{re.escape(place)}", output), (level, output)
+    if level == "O0":
+        assert "debug:twice/1\n  debug:middle/1" in output and "debug:leaf/1\n  debug:middle/1" in output, output
     stacks = output.count("debug:middle/1\n  debug:main/1")
-    assert "debug:twice/1\n  debug:middle/1" in output and "debug:leaf/1\n  debug:middle/1" in output, output
-    assert stacks == 2, (level, output)
+    assert stacks == len(stops), (level, output)
 if not command:
     print("debugger: no LLDB or GDB found; linked line tables only")
     sys.exit(77)

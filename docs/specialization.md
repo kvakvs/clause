@@ -62,6 +62,29 @@ dispatcher tests every constrained tag and forwards context and arguments to a
 variant or the generic body; the public symbol and ABI do not change. No spec
 assumptions or fast-math flags are introduced.
 
+## Leaf inlining
+
+At `-O2` (`codegen/lowering_leaf_inlining.cpp`) a local call of a small
+function of the same module that calls no Erlang code lowers the callee's
+clauses in place of the call. A call costs a frame push and a return through it
+(about 3 ns), often more than the leaf's own work, and a loop whose step calls
+a leaf becomes a loop without calls.
+
+- **Leaves.** At most 24 expressions over all clauses; no calls except services
+  (inline operations and builtins), and none of `apply/2,3`, the raise family
+  (`error`, `exit`, `throw`, `raise`) or `process_info`; no funs,
+  comprehensions, `receive`, `try`, `catch` or `maybe`. Leaves call nothing, so
+  inlining never nests.
+- **Sites.** Local calls (an atom target, not `?MODULE:f()`) outside binary and
+  float loops, also inside inlined funs and list loops.
+- **Clauses in place.** The arguments are matched against the leaf's clauses
+  with the caller's facts about them; the leaf's body runs in the caller's frame
+  with the leaf's own bindings. When no clause matches, the function is called,
+  so `function_clause` comes from its own code with its arguments.
+- **Observable cost:** an error raised inside an inlined leaf (`badarith`,
+  `badmatch`, a failing builtin) has no frame of the leaf in its stack trace
+  ([differences](differences.md)).
+
 ## Current effect
 
 Proofs act on real source: local functions whose callers pass small integers,

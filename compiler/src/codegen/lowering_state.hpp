@@ -25,6 +25,8 @@
 
 namespace clause::codegen {
 using BindingReads = std::map<const ast::Expression *, semantic::BindingId>;
+// Index validated reads once without transferring bindings between candidate environments.
+BindingReads read_bindings(const semantic::Module &module, const semantic::Function &function);
 
 // The value semantic analysis guarantees `value` holds; a missing one is an internal compiler error.
 template <typename Value> const Value &analyzed(const std::optional<Value> &value) {
@@ -574,6 +576,13 @@ llvm::Value *sunk_read(ExpressionLowering &state, semantic::BindingId identity);
 // calls the fun from `fun()`, which raises function_clause as the fun itself would (inline funs, OPT1.8).
 llvm::Value *inline_lambda(ExpressionLowering &state, const semantic::FunEntry &lambda,
                            std::span<llvm::Value *const> arguments, llvm::function_ref<llvm::Value *()> fun);
+// Join the values inlined clauses complete with at `join`; SSAUpdater adds a PHI only when they differ (inline funs,
+// leaf inlining).
+llvm::Value *join_inlined(ExpressionLowering &state, llvm::BasicBlock *join, const std::vector<BlockValue> &incoming);
+// A call of a small call-free function of this module with the callee's clauses lowered in place; null when the
+// callee is no such leaf or leaves are not inlined here (leaf inlining, OPT1.9).
+llvm::Value *lower_leaf_call(ExpressionLowering &state, const ast::Expression &expression,
+                             const ast::CallExpression &call);
 // F(Args) of a known anonymous fun with its clauses inlined; null when the target is no known fun (inline funs).
 llvm::Value *lower_known_fun_call(ExpressionLowering &state, const ast::CallExpression &call);
 // The unlowered fun argument (written there or a sunk read) of a lists call that lowering turns into a loop, null for

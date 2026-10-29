@@ -17,8 +17,10 @@ recorded elsewhere.
   asks.
 - Long-running builtins run in interruptible portions (call_builtin_portion, step 43A).
 - Test iteration counts: just large enough to prove the property.
-- Test/gate time: per step fast CTest + check-quality; full CTest only at phase/major completion,
-  INSTEAD of fast. Fast gate must stay fast (user 2026-10-17): slow workflows are full_only,
+- Test/gate time: per step check-quality FIRST, then fast CTest (user 2026-10-29); full CTest only
+  at phase/major completion, INSTEAD of fast. After a gate run, rank build/debug/Testing/Temporary/
+  CTestCostData.txt: cases of ~70 s or more alone go full_only (executables/CMakeLists.txt
+  full_only_cases; ssl connection cases and shell_expand/session moved 2026-10-29). Fast gate must stay fast (user 2026-10-17): slow workflows are full_only,
   check-quality tidies one unit per changed header (dependents in check-quality-all); fast CTest ~75
   s at -j 16. Tidy default jobs = half the logical cores. Keep slow tests parallel. Keep 20-25% CPUs
   free.
@@ -694,3 +696,12 @@ recorded elsewhere.
 - OPT1.8 remainder (2026-10-29): measure a sinking idea first by writing the bound and the
   written-in-call forms side by side (the written-in-call form is the ceiling); sunk bindings bind
   a placeholder word and any read that does not inline builds the fun (sunk_read).
+- OPT1.9 leaf inlining (2026-10-29): a Clause call costs ~2.8 ns (frame push + 48-byte header memset +
+  return through the frame; OTP ~0.7), so T2's "no inlining for call overhead" is false here; LLVM
+  cannot inline across musttail frame transfers, so lowering inlines (nested ExpressionLowering of
+  the callee: own function/reads/bindings, shared builder/roots/handler/exits). Tests that patch
+  function bodies after lowering (codegen_failure's fault seams) must call them remotely
+  (?MODULE:f()). lldb + PDB cannot break by .hrl line inside inlined code (no own function left).
+- CPU budget in practice (user 2026-10-29: a plain belownormal -j 12 run loaded the PC to 100%):
+  launch every build/tidy/CTest run with `start "" /belownormal /affinity FFFFFF /b /wait cmd /c
+  X.cmd` (logical 0-23: P-cores + 8 E-cores; children inherit it), leaving E-cores 24-31 free.

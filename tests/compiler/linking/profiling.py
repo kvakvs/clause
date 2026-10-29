@@ -40,11 +40,13 @@ def rows(report, section):
     return found
 
 
-def check(report):
-    """spin/2 ranks first by self time with exactly its entries; the busy process ranks first too."""
+def check(report, level):
+    """spin/2 ranks first by self time with exactly its entries; the busy process ranks first too. At O2 the leaf
+    cold/1 runs inlined in main/1 (leaf inlining), so it has no entries of its own."""
     functions = rows(report, "Functions by self time")
     assert functions[0][1:] == (2000001, "profile:spin/2"), functions
-    assert (1, "profile:cold/1") in [row[1:] for row in functions], functions
+    names = [row[1:] for row in functions]
+    assert ((1, "profile:cold/1") in names) == (level == "O0"), (level, functions)
     assert functions[0][0] > sum(row[0] for row in functions[1:]), functions
     processes = rows(report, "Processes by time")
     assert len(processes) == 2 and processes[0][2].endswith(": profile:spin/2"), processes
@@ -63,9 +65,9 @@ for level in ("O0", "O2"):
     assert plain == (0, EXPECTED, ""), plain
     assert not list(work.glob("*.txt")), "a report without --profile"
     assert run(executable, "--profile", "report.txt") == plain
-    check((work / "report.txt").read_text(encoding="utf-8"))
+    check((work / "report.txt").read_text(encoding="utf-8"), level)
     assert run(executable, flags="--profile=flags.txt") == plain
-    check((work / "flags.txt").read_text(encoding="utf-8"))
+    check((work / "flags.txt").read_text(encoding="utf-8"), level)
     for path in work.glob("*.txt"):
         path.unlink()
 status, _, error = run(work / ("profile-O0" + suffix), "--profile")

@@ -5,11 +5,12 @@ work for BeamAsm, restated for Clause's ahead-of-time LLVM code generation. The 
 input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, OPT1.3 parts 1-2, OPT1.4, OPT1.5, OPT1.6
-inline caches, OPT1.7 parts 1-3 (with `maps:fold`), OPT1.8 and its remainder, OPT1.14 parts 1-2,
-OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14
-service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4 and its remainder, OPT3.18, OPT3.19, sorted
-tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5, OPTM.6): see [00-finished.md](00-finished.md).
-Rejected steps (OPTM.1 remainder): see [00-reject.md](00-reject.md). This file keeps open work only.
+inline caches, OPT1.7 parts 1-3 (with `maps:fold`), OPT1.8 and its remainder, OPT1.9 leaves, OPT1.14
+parts 1-2, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
+OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4 and its remainder, OPT3.18, OPT3.19,
+sorted tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5, OPTM.6): see
+[00-finished.md](00-finished.md). Rejected steps (OPTM.1 remainder): see
+[00-reject.md](00-reject.md). This file keeps open work only.
 
 **NAMING CONVENTIONS** The optimization steps use prefixes based on their area of concern
 - OPT<id1>.<id2> - optimization tasks
@@ -21,8 +22,8 @@ Rejected steps (OPTM.1 remainder): see [00-reject.md](00-reject.md). This file k
   2026-10-12).
 - Prefix the commit subject with `[plan20]`, then the step code and title, e.g.
   `[plan20] OPT0.1. Inline frame transfers`.
-- The plan 11 gate applies: fast CTest, `check-quality` (clang-tidy and Lizard, no suppressions),
-  clang-format, and docs updated (`docs/`, `.agents/arch.md`, `.agents/files.md`,
+- The plan 11 gate applies: `check-quality` first (clang-tidy and Lizard, no suppressions), then
+  fast CTest, clang-format, and docs updated (`docs/`, `.agents/arch.md`, `.agents/files.md`,
   `docs/differences.md` for observable differences).
 - When a step is done, remove it from this file and add a 1-2 line bullet with its commit hash and
   headline speedup to `00-finished.md` (Plan 20).
@@ -341,17 +342,17 @@ takewhile 24, zipwith 13, uniq 4, keymap 1. Open:
 - Generating the loops from the real `lists` source by cross-module inlining (OPT2.1) instead of
   hand-written loops.
 
-### OPT1.9 Leaf inlining scored by eliminated work
+### OPT1.9 remainder: leaf inlining beyond call-free leaves
 
-- **What:** inline small call-free local callees at most ≤24 IR ops, depth ≤3, and ≤5× total growth,
-  only when a score shows something is eliminated:
-  - callee entry guards subsumed by caller facts
-  - constant arguments, with literal funs scoring highest
-  - a construct/deconstruct pair (`{ok,X}` returned and immediately matched)
-  - opening up loop recovery
-- **Measured:** T2's MVP fused `diff/2` into the `total/2` loop.
-- **Clause caveat:** with OPT0.1 done (OPT0.1A dropped), follow T2's rule: never inline for call
-  overhead alone. LLVM's inliner can take over once calls are direct and services are inline.
+Call-free leaves are done (see `00-finished.md`). T2's "never inline for call overhead alone" does not
+hold in Clause: a call pushes a heap frame and returns through it (~2.8 ns, OTP ~0.7), and a loop
+that calls a leaf is no leaf loop. Open:
+
+- Callees that call other leaves (depth up to 3), a growth budget per caller instead of the fixed
+  24-expression leaf size, and `?MODULE:f()` sites.
+- Leaves that raise (`error/1`, `throw/1`): inlining loses their stack-trace frame, so they stay calls.
+- The tuple a leaf returns and the caller matches at once is still built (`{Q, R} = divmod(X, 7)`
+  47 ms against 43 hand-inlined; `{ok, V}` 40 against 32): OPT1.13.
 
 ### OPT1.10 Cleanup suite across inlined boundaries
 
@@ -450,7 +451,7 @@ takewhile 24, zipwith 13, uniq 4, keymap 1. Open:
 | Idea | T2 finding | Clause note |
 |---|---|---|
 | Cold-arm pruning / branch-counter dispatch specialization | 1.01–1.02×; a 12-clause dispatch costs ~4 ns in T1 | Use branch weights for layout only |
-| Inlining for call overhead alone | 0 ± 1 % | Holds now that OPT0.1 is done |
+| Inlining for call overhead alone | 0 ± 1 % | Does not hold for Clause: a call pushes a heap frame (~2.8 ns); leaf inlining (OPT1.9) made a loop calling a leaf 3.5x faster |
 | Polymorphic inline caches wider than 2 | rarely pays; compiler sites see 20–130+ shapes | Monomorphic map cache only |
 | General interning of map shapes | measured unnecessary: literal shapes already share the pointer | — |
 | Escape analysis at scale / PEA | survivors escape; top allocators are inside C BIFs | Revisit only after OPT2.1 creates pairs |
@@ -475,8 +476,7 @@ takewhile 24, zipwith 13, uniq 4, keymap 1. Open:
 4. **Maps:** OPT1.6 remainder (inline caches and the `maps:fold` part of OPT1.7 are done).
 5. **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
 6. **Funs and floats:** OPT1.11 (OPT1.8 remainder done).
-7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13, mostly through LLVM once the IR is
-   transparent.
+7. **Inlining and cleanup:** OPT1.9 call-free leaves done; its remainder, OPT1.10 and OPT1.13.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact (pinned 2026-10-21
    71ec52f8 run, worst kernel of each step; OPT3.18 done): OPT3.19 (1.20x), OPT1.6 caches (1.03x),
    both done; then the kernels already ahead: OPT3.23 (ring ~0.80x), OPT1.6 remainder (~0.84x),

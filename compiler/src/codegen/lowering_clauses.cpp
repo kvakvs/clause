@@ -10,8 +10,6 @@
 #include <string>
 
 namespace clause::codegen {
-namespace {
-// Index validated reads once without transferring bindings between candidate environments.
 BindingReads read_bindings(const semantic::Module &module, const semantic::Function &function) {
     BindingReads result;
     for (const auto &binding : function.bindings) {
@@ -21,6 +19,8 @@ BindingReads read_bindings(const semantic::Module &module, const semantic::Funct
     }
     return result;
 }
+
+namespace {
 
 // Whether a call transfers to Erlang code: a named function, a value, a runtime module or function, or apply/2,3.
 bool transfers(const ExpressionLowering &state, const ast::Expression &expression, const ast::CallExpression &call) {

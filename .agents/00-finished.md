@@ -369,6 +369,12 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   Pinned, a function binding a fun for a 4-element `foldl` 97 to 88 ms, two `F(X)` calls 48 to 42
   (both equal to the fun written in the call); long loops unchanged, no 69A kernel binds a fun —
   `[plan20] OPT1.8 remainder ...`
+- **OPT1.9** leaf inlining: a local call of a small (<= 24 expressions) function of the same module
+  that calls no Erlang code lowers the callee's clauses in place with the caller's argument facts;
+  no clause matching calls the function. Debug locations are inlined at the call. Pinned loops
+  calling a leaf: `total/diff` 81 to 23 ms (OTP 40), `clamp` 78 to 23 (OTP 44), `{Q, R} = divmod`
+  107 to 47 (OTP 130), `{ok, V}` case 91 to 40 (OTP 95); 69A 1.00x, luerl euler ~1.5% faster,
+  programs +0.2% — `[plan20] OPT1.9 ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

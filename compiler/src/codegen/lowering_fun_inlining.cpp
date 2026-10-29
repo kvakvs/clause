@@ -182,27 +182,6 @@ llvm::Value *inline_clause(ExpressionLowering &state, const ast::FunctionClause 
     return value;
 }
 
-// Join the values the clauses complete with at `join`; SSAUpdater adds a PHI only when they differ.
-llvm::Value *join_clauses(ExpressionLowering &state, llvm::BasicBlock *join, const std::vector<BlockValue> &incoming) {
-    state.builder.SetInsertPoint(join);
-    // SSA formation inspects successors, so terminate the join until the surrounding expression resumes.
-    auto *boundary = state.builder.CreateUnreachable();
-    llvm::SmallVector<llvm::PHINode *, 2> phis;
-    llvm::SSAUpdater updater(&phis);
-    updater.Initialize(state.word, "inline.value");
-    for (const auto &[block, value] : incoming) {
-        updater.AddAvailableValue(block, value);
-    }
-    auto *value = updater.GetValueInMiddleOfBlock(join);
-    for (auto *phi : phis) {
-        phi->setDebugLoc(state.builder.getCurrentDebugLocation());
-    }
-    boundary->eraseFromParent();
-    state.builder.SetInsertPoint(join);
-    mark_term(state, value);
-    return value;
-}
-
 // The variable of a sunk binding's match when funs may be inlined here (sunk bound funs, OPT1.8); null otherwise.
 const semantic::BindingId *sunk_match(const ExpressionLowering &state, const ast::Expression &expression) {
     if (!inlining(state)) {
@@ -224,6 +203,26 @@ KnownLambda bound_lambda(const ExpressionLowering &state, const semantic::Bindin
     return {bound->second, state.sunk_lambdas.contains(variable) ? &read : nullptr};
 }
 } // namespace
+
+llvm::Value *join_inlined(ExpressionLowering &state, llvm::BasicBlock *join, const std::vector<BlockValue> &incoming) {
+    state.builder.SetInsertPoint(join);
+    // SSA formation inspects successors, so terminate the join until the surrounding expression resumes.
+    auto *boundary = state.builder.CreateUnreachable();
+    llvm::SmallVector<llvm::PHINode *, 2> phis;
+    llvm::SSAUpdater updater(&phis);
+    updater.Initialize(state.word, "inline.value");
+    for (const auto &[block, value] : incoming) {
+        updater.AddAvailableValue(block, value);
+    }
+    auto *value = updater.GetValueInMiddleOfBlock(join);
+    for (auto *phi : phis) {
+        phi->setDebugLoc(state.builder.getCurrentDebugLocation());
+    }
+    boundary->eraseFromParent();
+    state.builder.SetInsertPoint(join);
+    mark_term(state, value);
+    return value;
+}
 
 LambdaBindings lambda_bindings(const semantic::Module &module, const semantic::Function &function) {
     const auto &syntax = *module.syntax;
@@ -331,7 +330,7 @@ llvm::Value *inline_lambda(ExpressionLowering &state, const semantic::FunEntry &
         incoming.emplace_back(state.builder.GetInsertBlock(), value);
         state.builder.CreateBr(join);
     }
-    return join_clauses(state, join, incoming);
+    return join_inlined(state, join, incoming);
 }
 
 llvm::Value *lower_known_fun_call(ExpressionLowering &state, const ast::CallExpression &call) {

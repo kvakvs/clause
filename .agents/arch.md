@@ -56,7 +56,9 @@ stage outputs, `--shell`, `--generate-asn1`), see `README.md` and `docs/compile.
   inline fast paths in lowering.
 - **Lowering (`codegen/`)**: AST + summaries → LLVM IR in the frame-based execution model
   (`docs/execution-model.md`). Calls into the runtime only through services declared in
-  `codegen/runtime_symbols.hpp`, mangled per target (`mangling.hpp`).
+  `codegen/runtime_symbols.hpp`, mangled per target (`mangling.hpp`). At O2 lowering itself inlines
+  known funs, `lists`/`maps:fold` loops of them and small call-free local functions (leaves): LLVM
+  cannot inline across frame transfers.
 - **Backend**: LLVM optimization and emission (objects, asm, IR, debug info), parallel per module.
   Emits a startup module handing a `StartupDescriptor` (module list + needed runtime extensions)
   to the runtime.

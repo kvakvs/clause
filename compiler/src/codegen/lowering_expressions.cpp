@@ -117,9 +117,10 @@ llvm::Value *generated_call(ExpressionLowering &state, const ast::Expression &ex
     if (semantic::dynamic_call(*state.module.syntax, call)) {
         return lower_dynamic_call(state, expression, call);
     }
-    auto *loop = lower_list_call(state, expression, call);
-    loop = loop ? loop : lower_map_fold(state, expression, call);
-    return loop ? loop : lower_call(state, expression, call);
+    auto *inlined = lower_list_call(state, expression, call);
+    inlined = inlined ? inlined : lower_map_fold(state, expression, call);
+    inlined = inlined ? inlined : lower_leaf_call(state, expression, call);
+    return inlined ? inlined : lower_call(state, expression, call);
 }
 
 // The evaluated values of a call's arguments, in order.
