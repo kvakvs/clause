@@ -346,6 +346,9 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
 - **OPT1.3 (part 2)** `+ - *` branch on the overflow flag (`llvm.s*.with.overflow`), `*` as
   `(a >> 4) * (b ^ 15)` with no double width; mul loop 418 to 328 ms (OTP 322), dot 210 to 165 (OTP
   280), hash 131 to 114 (OTP 124); 69A 1.05x geomean; luerl euler ~1% slower — `[plan20] OPT1.3 (part 2) ...`
+- **OPT1.5** byte scans: a binary loop's `<<C, R/binary>>` clause with a byte-only guard skips up to
+  16 accepted bytes per step with one vector test; 200 MB scans 3-6x faster (digits 23 to 5 ms, OTP
+  30), words text 1.18x; worst case (alternating clauses every byte) 1.18x slower — `[plan20] OPT1.5 ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

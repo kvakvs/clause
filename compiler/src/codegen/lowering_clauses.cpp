@@ -1,6 +1,7 @@
 #include "../semantic/capabilities.hpp"
 #include "../semantic/funs.hpp"
 #include "binary_loops.hpp"
+#include "byte_scans.hpp"
 #include "float_loops.hpp"
 #include "lowering_state.hpp"
 #include "source_locations.hpp"
@@ -235,6 +236,7 @@ void lower_loop(ExpressionLowering &initial, const std::vector<ast::FunctionClau
     inner.reads = initial.reads;
     inner.proofs = initial.proofs;
     BinaryLoop looping{reads, variant, true};
+    looping.scan = byte_scan(initial, clauses, reads.parameter);
     inner.binary_loop = &looping;
     lower_candidates(inner, clauses, tails);
     keep_invariants_alone(*variant);

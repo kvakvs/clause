@@ -106,7 +106,7 @@ first, with the step that owns it (unprofiled ones say so):
 | msg.ring | 1355 / 1472 | 0.92x | done (OPT3.9 remainder: 1324 to 1152 alone, ~0.80x); OPT3.23 |
 | gc.long_lived_churn | 1195 / 1326 | 0.90x | OPT3.20 (collector, unprofiled) |
 | datagen.list_to_tuple | 1408 / 1605 | 0.88x | OPT3.21 (unprofiled) |
-| dataproc.binary_match | 1100 / 1277 | 0.86x | OPT1.5 |
+| dataproc.binary_match | 1100 / 1277 | 0.86x | loop bookkeeping (a 32-bit stride sum, not a byte scan; OPT1.5 byte scans do not apply) |
 | file.large_read | 1203 / 1455 | 0.83x | done (OPT3.4 remainder run: 0.74x) |
 | gc.grow_shrink | 860 / 1068 | 0.81x | OPT3.20 |
 | socket.udp_round_trip | 1212 / 1511 | 0.80x | OPT3.22 (sockets, unprofiled) |
@@ -277,27 +277,20 @@ fallback (code size, spills in loops such as `mul_loop`).
   - fused multi-operand guards
   - integer range facts from F34 inference, the equivalent of `ssa_opt_ranges`
 
-### OPT1.5 Unrolling plus SWAR byte-class recipes for scan loops
+### OPT1.5 remainder: more byte-scan shapes
 
-Builds on OPT1.4.
+Byte-class scans are done (see `00-finished.md`): a binary loop's first `<<C, R/binary>>` clause with
+a byte-only guard and constant-step counters skips up to 16 accepted bytes per step with one vector
+test (after earlier literal-byte clauses). Census 2026-10-29: about 15 such loops in stdlib, luerl
+and emqx; OTP's own `json` already scans 7 bytes at a time in source (`<<W:56, ...>>` with a SWAR
+guard). Open:
 
-- **Unroll:** byte scans ×8 by default (`word_bits/stride`):
-  - one strengthened `BsEnsure(N·S)` per chunk
-  - one 64-bit load
-  - a scalar remainder loop
-- **Lane-combining recipes:** about five cover the predicates that occur in practice: `==C`, `<C`, a
-  range, and small-set membership, each with OR-reduction. Use the classic
-  `(w - 0x0101..) & ~w & 0x8080..` family. A scalar tail finds the exact stop byte.
-- **Variants:**
-  - *roll-back skip-count*: one checked `acc + N·C` before the cursor advance
-  - *read-and-sum* (`SwarByteSum`)
-  - *born-8-wide classifier*: a source-unrolled `select_val` chain on 8 bytes, as in
-    `json:string_ascii`, becomes one wide load plus a branchless test
-- **Why legal:** pure work inside an effect-free window is safe to re-execute.
-- **Limits:**
-  - per-byte loop-carried value dependences (`Acc*10+D`) stay scalar
-  - UTF-8 does not unroll, except speculating an ASCII run
-- **Measured:** about 2× on top of fused bytewise scanning. 5.6× total.
+- Worst case (the scan clause alternates with another clause every byte): +18% from the probe; an
+  adaptive probe could skip it after short runs.
+- Several 16-byte steps per Erlang step (spending reductions per step) for long runs.
+- Literal-byte scan clauses (`f(<<$a, R/binary>>, N) -> f(R, N - 2)`), guards reading other
+  unchanged parameters, `Acc*10 + D`-style dependent loops (stay scalar), the *born-8-wide
+  classifier* (`<<W:56, ...>>` guards as in `json:string_ascii`) and *read-and-sum*.
 
 ### OPT1.6 remainder: static map shapes and the shared-keys layout
 
@@ -462,7 +455,7 @@ it needs the match's value to be unused and every read to inline (static decisio
 1. **Substrate (tier OPT0):** done (open follow-ups above); it made services visible to LLVM and cut
    the 100–600× kernels.
 2. **Loops:** OPT1.1 and OPT1.2 done; OPT1.3 next.
-3. **Binaries:** OPT1.5 (OPT1.4 done).
+3. **Binaries:** OPT1.5 byte scans done; remainder above.
 4. **Maps:** OPT1.6 remainder (inline caches and the `maps:fold` part of OPT1.7 are done).
 5. **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
 6. **Funs and floats:** OPT1.11, the OPT1.8 remainder.

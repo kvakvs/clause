@@ -268,6 +268,21 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   makes it without heap room), so nothing else ever holds the loop's cell;
   guards read the value itself. The variant has the function's name and arity in
   stack traces.
+- Byte scans (binary loop variants): the first clause whose head is
+  `<<Byte, Rest/binary>>` (or `/bits`, `Byte` of 8 unsigned bits) at the
+  loop parameter and a distinct variable at every other parameter, whose guard
+  tests only `Byte` (comparisons with integers, `andalso`/`orelse`/`not`,
+  `and`/`or`/`xor`, `+ - band bor`, `is_integer/1`; evaluated for all 256
+  values at compile time) and whose body is only the self call passing `Rest`
+  and each other parameter unchanged or plus/minus a constant (at most 2^20),
+  scans: every earlier clause must need a literal first byte or the empty
+  binary there, and those bytes leave the accepted set. In the variant its tail
+  call tests the next byte; when at least 16 bytes remain from a byte boundary,
+  that byte is accepted and every counter is a small integer 16 steps keep
+  inside the word, one unaligned 16-byte vector load tests the bytes against
+  up to four ranges of the set (or of its complement), and the call passes the
+  rest past the leading accepted bytes with each counter advanced by its step
+  per byte. Skipped steps spend no reductions.
 - Float loops (64-bit targets): a parameter among the first six (those passed in
   registers) that every clause binds to a variable (or ignores), that some self
   tail call passes a float-only expression (a float literal, `/`, a `math` call,

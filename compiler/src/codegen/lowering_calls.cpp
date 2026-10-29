@@ -1,3 +1,4 @@
+#include "byte_scans.hpp"
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
 #include <clause/abi/equality.hpp>
@@ -123,8 +124,18 @@ bool binary_loop_call(ExpressionLowering &state, const ast::Expression &expressi
         return false;
     }
     if (loop->in_variant) {
-        update_context(state, argument, found->second);
-        tail_enter(state, loop->variant, call);
+        const auto enter = [&](const LoopRest &rest) {
+            update_context(state, argument, rest);
+            tail_enter(state, loop->variant, call);
+        };
+        // The byte scan clause also skips the run of accepted bytes after this one (byte scans, OPT1.5).
+        if (loop->scan && loop->scan->clause == state.clause) {
+            const auto saved = state.values;
+            scan_tail(state, *loop->scan, found->second, call, enter);
+            state.values = saved;
+        } else {
+            enter(found->second);
+        }
         return true;
     }
     auto *variant = llvm::BasicBlock::Create(state.entry.getContext(), "binary.loop", &state.entry);

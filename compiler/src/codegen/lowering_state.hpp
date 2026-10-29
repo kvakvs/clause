@@ -6,6 +6,7 @@
 #include "lowering_roots.hpp"
 #include "proofs.hpp"
 #include <array>
+#include <bitset>
 #include <clause/abi/bits.hpp>
 #include <clause/abi/calls.hpp>
 #include <clause/abi/containers.hpp>
@@ -83,11 +84,22 @@ struct LoopReads {
     std::set<semantic::BindingId> wholes;
 };
 
+// A byte scan clause of a binary loop (byte scans, OPT1.5): it matches one byte of the parameter whose value is in
+// `bytes`, and passes on the rest and every other parameter unchanged or advanced by a constant step.
+struct ByteScan {
+    // The clause, the bytes it accepts that no earlier clause can match, and each (parameter, step) counter.
+    std::size_t clause;
+    std::bitset<256> bytes;
+    std::vector<std::pair<std::size_t, std::int64_t>> counters;
+};
+
 struct BinaryLoop {
     // How the clauses read the parameter, the variant function, and whether the variant is being lowered.
     LoopReads reads;
     llvm::Function *variant;
     bool in_variant;
+    // The loop's byte scan clause, whose variant tail call skips the run of accepted bytes after it (OPT1.5).
+    std::optional<ByteScan> scan = {};
     // Each rest of the parameter the clause being lowered made.
     std::map<const llvm::Value *, LoopRest> rests = {};
     // In the variant: the parameter's view, read once before the clauses, since the parameter is always its cell,
