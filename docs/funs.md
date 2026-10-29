@@ -121,8 +121,9 @@ of the call, much as OTP's `inline_list_funcs` option does:
 - **List loops.** `lists:map/2`, `filter/2`, `filtermap/2` (and `zf/2`, its old
   undocumented name), `partition/2`, `foreach/2`, `all/2`, `any/2`, `search/2`,
   `takewhile/2`, `dropwhile/2`, `splitwith/2`, `flatmap/2`, `foldl/3`,
-  `foldr/3`, `mapfoldl/3` and `mapfoldr/3` of Clause's own `lists` module with a
-  known fun of the right arity become a loop over the list in the calling
+  `foldr/3`, `mapfoldl/3`, `mapfoldr/3`, `zipwith/3` and `zipwith3/4` of
+  Clause's own `lists` module with a known fun of the right arity become a loop
+  over the list (the zips walk their two or three lists in step) in the calling
   function. `all/2`, `any/2`, `search/2`, `takewhile/2`, `dropwhile/2` and
   `splitwith/2` leave at the first element that decides the result, so an
   improper tail after it is never read. Each element's fun call is inlined;

@@ -514,14 +514,46 @@ zip(_, _) -> clause_builtin_placeholder.
 zip(_, _, _) -> clause_builtin_placeholder.
 zip3(_, _, _) -> clause_builtin_placeholder.
 zip3(_, _, _, _) -> clause_builtin_placeholder.
-%% Combine applied to the elements at each position, the lengths treated as zip/3 and zip3/4 say (the builtins pair
-%% the elements first).
+%% Combine applied to the elements at each position, the lengths treated as zip/3 and zip3/4 say. Like OTP's, they
+%% call Combine while walking, so a length mismatch fails after the leading elements were combined.
 zipwith(Combine, List1, List2) -> zipwith(Combine, List1, List2, fail).
 
-zipwith(Combine, List1, List2, How) when is_function(Combine, 2) ->
-    [Combine(X, Y) || {X, Y} <- lists:zip(List1, List2, How)].
+zipwith(Combine, [X | Xs], [Y | Ys], How) ->
+    [Combine(X, Y) | zipwith(Combine, Xs, Ys, How)];
+zipwith(Combine, [], [], fail) when is_function(Combine, 2) ->
+    [];
+zipwith(Combine, [], [], trim) when is_function(Combine, 2) ->
+    [];
+zipwith(Combine, [], [], {pad, {_, _}}) when is_function(Combine, 2) ->
+    [];
+zipwith(Combine, [_ | _], [], trim) when is_function(Combine, 2) ->
+    [];
+zipwith(Combine, [], [_ | _], trim) when is_function(Combine, 2) ->
+    [];
+zipwith(Combine, [], [_ | _] = Ys, {pad, {X, _}}) ->
+    [Combine(X, Y) || Y <- Ys];
+zipwith(Combine, [_ | _] = Xs, [], {pad, {_, Y}}) ->
+    [Combine(X, Y) || X <- Xs].
 
 zipwith3(Combine, List1, List2, List3) -> zipwith3(Combine, List1, List2, List3, fail).
 
-zipwith3(Combine, List1, List2, List3, How) when is_function(Combine, 3) ->
-    [Combine(X, Y, Z) || {X, Y, Z} <- lists:zip3(List1, List2, List3, How)].
+zipwith3(Combine, [X | Xs], [Y | Ys], [Z | Zs], How) ->
+    [Combine(X, Y, Z) | zipwith3(Combine, Xs, Ys, Zs, How)];
+zipwith3(Combine, [], [], [], fail) when is_function(Combine, 3) ->
+    [];
+zipwith3(Combine, Xs, Ys, Zs, trim) when is_function(Combine, 3), is_list(Xs), is_list(Ys), is_list(Zs) ->
+    [];
+zipwith3(Combine, [], [], [], {pad, {_, _, _}}) when is_function(Combine, 3) ->
+    [];
+zipwith3(Combine, [], [], [_ | _] = Zs, {pad, {X, Y, _}}) ->
+    [Combine(X, Y, Z) || Z <- Zs];
+zipwith3(Combine, [], [_ | _] = Ys, [], {pad, {X, _, Z}}) ->
+    [Combine(X, Y, Z) || Y <- Ys];
+zipwith3(Combine, [_ | _] = Xs, [], [], {pad, {_, Y, Z}}) ->
+    [Combine(X, Y, Z) || X <- Xs];
+zipwith3(Combine, [], [Y | Ys], [Z | Zs], {pad, {X, _, _}} = How) ->
+    [Combine(X, Y, Z) | zipwith3(Combine, [], Ys, Zs, How)];
+zipwith3(Combine, [X | Xs], [], [Z | Zs], {pad, {_, Y, _}} = How) ->
+    [Combine(X, Y, Z) | zipwith3(Combine, Xs, [], Zs, How)];
+zipwith3(Combine, [X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
+    [Combine(X, Y, Z) | zipwith3(Combine, Xs, Ys, [], How)].

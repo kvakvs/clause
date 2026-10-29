@@ -25,6 +25,7 @@ main(_) ->
     predicates(L),
     selections(L),
     prefixes(L),
+    zips(L),
     folds(L),
     bound(L, K),
     nesting(L),
@@ -192,6 +193,66 @@ prefixes(L) ->
     show("splitwith improper", fun() -> lists:splitwith(fun(_) -> true end, id([1 | r])) end),
     show("splitwith non-boolean", fun() -> lists:splitwith(fun(_) -> [] end, L) end).
 
+%% zipwith/3 and zipwith3/4 walk their lists in step; the fun runs on the leading elements before a length
+%% mismatch fails. The trim and pad modes and a non-fun make the real lists call.
+zips(L) ->
+    show("zipwith", fun() -> lists:zipwith(fun(X, Y) -> X * Y end, L, [5, 6, 7, 8]) end),
+    show("zipwith empty", fun() -> lists:zipwith(fun(X, Y) -> X * Y end, id([]), []) end),
+    show("zipwith no clause", fun() -> lists:zipwith(fun(X, Y) when X < 3 -> X + Y end, L, L) end),
+    show("zipwith short", fun() ->
+        R =
+            try
+                lists:zipwith(
+                    fun(X, Y) ->
+                        put(z, [X | dictionary(z)]),
+                        X + Y
+                    end,
+                    L,
+                    [1, 2]
+                )
+            catch
+                error:E -> E
+            end,
+        {R, get(z)}
+    end),
+    show("zipwith long second", fun() -> lists:zipwith(fun(X, Y) -> X + Y end, [1], L) end),
+    show("zipwith improper", fun() -> lists:zipwith(fun(X, Y) -> X + Y end, id([1 | x]), [1, 2]) end),
+    show("zipwith non-list", fun() -> lists:zipwith(fun(X, Y) -> X + Y end, L, id(y)) end),
+    Pair = fun(X, Y) -> {X, Y} end,
+    show("zipwith bound", fun() -> lists:zipwith(Pair, L, lists:reverse(L)) end),
+    show("zipwith trim", fun() -> lists:zipwith(fun(X, Y) -> X + Y end, L, [1], trim) end),
+    show("zipwith pad", fun() -> lists:zipwith(fun(X, Y) -> {X, Y} end, [1], L, {pad, {a, b}}) end),
+    show("zipwith fail", fun() -> lists:zipwith(fun(X, Y) -> X + Y end, L, [1], fail) end),
+    show("zipwith non-fun", fun() -> lists:zipwith(id(nofun), L, L) end),
+    show("zipwith non-fun empty", fun() -> lists:zipwith(id(nofun), [], []) end),
+    show("zipwith3", fun() -> lists:zipwith3(fun(X, Y, Z) -> X + Y * Z end, L, L, L) end),
+    show("zipwith3 short", fun() ->
+        R =
+            try
+                lists:zipwith3(
+                    fun(X, Y, Z) ->
+                        put(z3, [X | dictionary(z3)]),
+                        X + Y + Z
+                    end,
+                    L,
+                    L,
+                    [1, 2, 3]
+                )
+            catch
+                error:E -> E
+            end,
+        {R, get(z3)}
+    end),
+    show("zipwith3 improper", fun() ->
+        lists:zipwith3(fun(X, Y, Z) -> {X, Y, Z} end, L, L, id([1 | z]))
+    end),
+    show("zipwith3 trim", fun() ->
+        lists:zipwith3(fun(X, Y, Z) -> {X, Y, Z} end, L, [1, 2], L, trim)
+    end),
+    show("zipwith3 pad", fun() ->
+        lists:zipwith3(fun(X, Y, Z) -> {X, Y, Z} end, [1], [1, 2], [1, 2, 3], {pad, {x, y, z}})
+    end).
+
 %% Variables bound once to a fun: their calls and lists calls inline it; anything else still sees the fun.
 bound(L, K) ->
     F = fun(X) -> X + K end,
@@ -314,7 +375,12 @@ collections() ->
         {length(Prefix), hd(Rest), length(lists:takewhile(fun({X, _}) -> X < 777 end, Prefix))}
     end),
     show("dropped", fun() -> hd(lists:dropwhile(fun(X) -> X < 19999 end, Seq)) end),
-    show("searched", fun() -> lists:search(fun(X) -> X * X > 300000000 end, Seq) end).
+    show("searched", fun() -> lists:search(fun(X) -> X * X > 300000000 end, Seq) end),
+    show("zipped", fun() ->
+        Zipped = lists:zipwith(fun(X, Y) -> {X, [Y]} end, Seq, lists:reverse(Seq)),
+        Sums = lists:zipwith3(fun({X, [Y]}, Z, W) -> X + Y + Z + W end, Zipped, Seq, Seq),
+        {length(Zipped), lists:last(Zipped), lists:foldl(fun(X, A) -> X + A end, 0, Sums)}
+    end).
 
 %% A fun that receives inside a loop: the loop suspends and resumes with its state intact.
 receiving() ->

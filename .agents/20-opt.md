@@ -331,15 +331,13 @@ luerl's tables) only scan. Open:
 ### OPT1.7 remainder: more higher-order intrinsics
 
 List loops of `map`, `filter`, `filtermap`/`zf`, `partition`, `foreach`, `all`, `any`, `search`,
-`takewhile`, `dropwhile`, `splitwith`, `flatmap`, `foldl`, `foldr`, `mapfoldl` and `mapfoldr` are
-done (see `00-finished.md`). Census 2026-10-29 (`lists:F(fun` written in the call, otp/luerl/emqx):
-foreach 1082, map 979, foldl 669, filter 294, all/any 233, flatmap 205, dropwhile 78, splitwith 71,
-mapfoldl 61, filtermap 48, search 47, partition 44, takewhile 24, zipwith 13, uniq 4, keymap 1.
-Open:
+`takewhile`, `dropwhile`, `splitwith`, `flatmap`, `foldl`, `foldr`, `mapfoldl`, `mapfoldr`,
+`zipwith/3` and `zipwith3/4` are done (see `00-finished.md`). Census 2026-10-29 (`lists:F(fun`
+written in the call, otp/luerl/emqx): foreach 1082, map 979, foldl 669, filter 294, all/any 233,
+flatmap 205, dropwhile 78, splitwith 71, mapfoldl 61, filtermap 48, search 47, partition 44,
+takewhile 24, zipwith 13, uniq 4, keymap 1. Open:
 
-- `zipwith/3,4`, `zipwith3/4,5`: two or three inputs. First rewrite Clause's `lists` versions in
-  OTP's shape (they pair the lists with `zip/3` first, so the fun never runs before a length
-  mismatch fails: `docs/differences.md`). Then `uniq/2`, `keymap/3`, by census.
+- `zipwith/4` and `zipwith3/5` (the `trim` and `pad` modes; rare), `uniq/2`, `keymap/3`, by census.
 - Generating the loops from the real `lists` source by cross-module inlining (OPT2.1) instead of
   hand-written loops.
 

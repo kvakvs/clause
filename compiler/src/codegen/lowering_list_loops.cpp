@@ -3,6 +3,7 @@
 #include <clause/abi/equality.hpp>
 #include <clause/abi/term.hpp>
 #include <optional>
+#include <span>
 #include <utility>
 
 // List loops (OPT1.7, docs/funs.md#inlined-funs): lists:map/2 and its kin called with a known anonymous fun become a
@@ -22,6 +23,8 @@ struct Visit {
     // A cons cell's head, which its step reads, and the cell itself, which dropwhile/2 and splitwith/2 return.
     llvm::Value *element;
     llvm::Value *cell;
+    // The heads of every list a zip loop walks in step (zip loops); empty for one list.
+    std::span<llvm::Value *const> heads;
 };
 
 struct ListFunction {
@@ -34,6 +37,8 @@ struct ListFunction {
     // exhausted.
     void (*step)(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next);
     llvm::Value *(*finish)(ExpressionLowering &state, const ListLoop &loop);
+    // How many lists it walks in step, its last arguments: two for zipwith/3, three for zipwith3/4 (zip loops).
+    std::size_t lists = 1;
 };
 
 struct ListLoop {
@@ -48,6 +53,8 @@ struct ListLoop {
     // Frame slots: the input left, the fold accumulator, whether it is a map only the loop holds (OPT3.15), the
     // reversed list built so far, partition/2's reversed list of the other elements and the result.
     llvm::Value *rest = nullptr;
+    // The other lists a zip loop walks in step with `rest` (zip loops).
+    std::array<llvm::Value *, 2> zipped{};
     llvm::Value *accumulator = nullptr;
     llvm::Value *owned = nullptr;
     llvm::Value *output = nullptr;
@@ -259,6 +266,12 @@ void dropwhile_step(ExpressionLowering &state, const ListLoop &loop, const Visit
     leave(state, loop, visit.cell);
 }
 
+// zipwith/3 and zipwith3/4 prepend the fun's value for the heads of all their lists (zip loops).
+void zip_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    push(state, loop.output, apply(state, loop, visit.heads));
+    state.builder.CreateBr(next);
+}
+
 // flatmap/2 prepends each list the fun returns reversed, as lists:flatmap_onto/3 does with lists:reverse/2.
 void flatmap_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
     auto *value = apply(state, loop, std::array{visit.element});
@@ -347,6 +360,8 @@ constexpr std::array LIST_FUNCTIONS{
     ListFunction{U"foldr", 3, Input::reversed, Improper::call, fold_step, finish_fold},
     ListFunction{U"mapfoldl", 3, Input::plain, Improper::call, mapfold_step, finish_mapfoldl},
     ListFunction{U"mapfoldr", 3, Input::reversed, Improper::call, mapfold_step, finish_mapfoldr},
+    ListFunction{U"zipwith", 3, Input::plain, Improper::function_clause, zip_step, reversed_output, 2},
+    ListFunction{U"zipwith3", 4, Input::plain, Improper::function_clause, zip_step, reversed_output, 3},
 };
 
 // The exported, live function `name`/`arity` of `module`; a null function when there is none.
@@ -397,17 +412,26 @@ std::optional<ListCall> list_call(const ExpressionLowering &state, const ast::Ex
     return ListCall{function, known, ref, reverse};
 }
 
-// The loop's slots, filled with the call's arguments.
+// A new frame slot holding `value`.
+llvm::Value *slot_of(ExpressionLowering &state, llvm::Value *value) {
+    auto *slot = root_slot(state);
+    store(state, value, slot);
+    return slot;
+}
+
+// The loop's slots, filled with the call's arguments: the fun, a fold's accumulator, then the lists.
 ListLoop begin(ExpressionLowering &state, const ListCall &found, const ast::CallExpression &call) {
     const auto &syntax = *state.module.syntax;
-    const auto value = [&](const ast::ExprId &id) { return state.values.at(&syntax.expression(id)); };
+    const auto value = [&](std::size_t index) { return state.values.at(&syntax.expression(call.arguments[index])); };
     ListLoop loop{found.function, found.known.lambda, found.callee, found.reverse};
-    loop.fun = found.known.literal ? nullptr : value(call.arguments.front());
-    loop.rest = root_slot(state);
-    store(state, value(call.arguments.back()), loop.rest);
-    if (call.arguments.size() == 3) {
-        loop.accumulator = root_slot(state);
-        store(state, value(call.arguments[1]), loop.accumulator);
+    loop.fun = found.known.literal ? nullptr : value(0);
+    const auto first = call.arguments.size() - found.function->lists;
+    loop.rest = slot_of(state, value(first));
+    for (std::size_t index = 1; index < found.function->lists; ++index) {
+        loop.zipped.at(index - 1) = slot_of(state, value(first + index));
+    }
+    if (first == 2) {
+        loop.accumulator = slot_of(state, value(1));
         loop.owned = fold_owned_slot(state);
     }
     loop.output = root_slot(state);
@@ -494,7 +518,7 @@ void improper_tail(ExpressionLowering &state, const ListLoop &loop, llvm::Value 
 void run(ExpressionLowering &state, const ListLoop &loop) {
     auto *head = block(state, "list.next");
     const auto iteration = iterate(state, loop, head);
-    loop.function->step(state, loop, Visit{.element = iteration.element, .cell = iteration.input}, head);
+    loop.function->step(state, loop, Visit{.element = iteration.element, .cell = iteration.input, .heads = {}}, head);
     state.builder.SetInsertPoint(iteration.end);
     if (loop.function->input != Input::reversed) {
         auto *proper = block(state, "list.exhausted");
@@ -505,6 +529,70 @@ void run(ExpressionLowering &state, const ListLoop &loop) {
         state.builder.SetInsertPoint(proper);
     }
     leave(state, loop, loop.function->finish(state, loop));
+}
+
+// The loop over one list, reversed or checked first when the lists function does that.
+void run_single(ExpressionLowering &state, const ListLoop &loop) {
+    if (loop.function->input == Input::checked) {
+        check_input(state, loop);
+    } else if (loop.function->input == Input::reversed) {
+        reverse_input(state, loop);
+    }
+    run(state, loop);
+}
+
+// The heads of a zip loop's lists, each tail stored back, once every list is a cons cell; any other word continues
+// at `end` with the slots unchanged (zip loops).
+std::array<llvm::Value *, 3> zip_heads(ExpressionLowering &state, std::span<llvm::Value *const> slots,
+                                       llvm::BasicBlock *end) {
+    std::array<llvm::Value *, 3> cells{};
+    for (std::size_t index = 0; index < slots.size(); ++index) {
+        cells.at(index) = load(state, slots[index], "list.input");
+        auto *more = block(state, "list.zip_more");
+        state.builder.CreateCondBr(inline_cons_test(state, cells.at(index)), more, end);
+        state.builder.SetInsertPoint(more);
+    }
+    std::array<llvm::Value *, 3> heads{};
+    for (std::size_t index = 0; index < slots.size(); ++index) {
+        heads.at(index) = inline_cons_word(state, cells.at(index), 0);
+        mark_term(state, heads.at(index));
+        auto *tail = inline_cons_word(state, cells.at(index), 1);
+        mark_term(state, tail);
+        store(state, tail, slots[index]);
+    }
+    return heads;
+}
+
+// Lists of the same length end together with the result; any other end is the function_clause of lists' walk.
+void zip_end(ExpressionLowering &state, const ListLoop &loop, std::span<llvm::Value *const> slots) {
+    llvm::Value *ended = nullptr;
+    for (auto *slot : slots) {
+        auto *empty = word_equal(state, load(state, slot, "list.input"), abi::v1::empty_list);
+        ended = ended ? state.builder.CreateAnd(ended, empty) : empty;
+    }
+    auto *proper = block(state, "list.exhausted");
+    auto *bad = block(state, "list.improper");
+    state.builder.CreateCondBr(ended, proper, bad);
+    state.builder.SetInsertPoint(bad);
+    raise_function_clause(state);
+    state.builder.SetInsertPoint(proper);
+    leave(state, loop, loop.function->finish(state, loop));
+}
+
+// The loop over two or three lists in step, as zipwith/3 and zipwith3/4 walk them (zip loops).
+void run_zip(ExpressionLowering &state, const ListLoop &loop) {
+    const std::array all{loop.rest, loop.zipped[0], loop.zipped[1]};
+    const auto slots = std::span{all}.first(loop.function->lists);
+    auto *head = block(state, "list.zip");
+    auto *end = block(state, "list.zip_end");
+    state.builder.CreateBr(head);
+    state.builder.SetInsertPoint(head);
+    loop_reduction(state);
+    const auto heads = zip_heads(state, slots, end);
+    const auto visit = Visit{.element = heads[0], .cell = nullptr, .heads = std::span{heads}.first(slots.size())};
+    loop.function->step(state, loop, visit, head);
+    state.builder.SetInsertPoint(end);
+    zip_end(state, loop, slots);
 }
 } // namespace
 
@@ -521,12 +609,11 @@ llvm::Value *lower_list_call(ExpressionLowering &state, const ast::Expression &e
         return nullptr;
     }
     const auto loop = begin(state, *found, call);
-    if (found->function->input == Input::checked) {
-        check_input(state, loop);
-    } else if (found->function->input == Input::reversed) {
-        reverse_input(state, loop);
+    if (found->function->lists > 1) {
+        run_zip(state, loop);
+    } else {
+        run_single(state, loop);
     }
-    run(state, loop);
     state.builder.SetInsertPoint(loop.done);
     return load(state, loop.result, "list.result");
 }
