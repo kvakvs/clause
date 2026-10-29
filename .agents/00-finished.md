@@ -349,6 +349,9 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
 - **OPT1.5** byte scans: a binary loop's `<<C, R/binary>>` clause with a byte-only guard skips up to
   16 accepted bytes per step with one vector test; 200 MB scans 3-6x faster (digits 23 to 5 ms, OTP
   30), words text 1.18x; worst case (alternating clauses every byte) 1.18x slower — `[plan20] OPT1.5 ...`
+- **OPT1.14 (part)** a self tail call reached only through a non-tail call spends no reduction of its
+  own (still tests `slow`); pinned call-per-step loop 161 to 152 ms, `lists:foldl` 40 to 37 ms —
+  `[plan20] OPT1.14 (part) ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

@@ -4,6 +4,12 @@
 % A process that never waits and never ends.
 spin(N) -> spin(N + 1).
 
+% Like spin/1, entering another function every step, so its self call spends no reduction of its
+% own (batched loop reductions): the entered function's reductions must still end its time slice.
+spin_calls(N) -> spin_calls(next(N)).
+
+next(N) -> N + 1.
+
 % Answers each {From, N} with N + 1 until it gets stop.
 echo() ->
     receive
@@ -26,7 +32,7 @@ exchange(Echo, Count, N) ->
 % Busy loops on every scheduler, or all sharing one, cannot starve a process waiting for messages: each exchange
 % needs both the echo process and main to get a time slice between the spinners'.
 main(_) ->
-    Spinners = [spawn(fun() -> spin(0) end) || _ <- lists:seq(1, 2)],
+    Spinners = [spawn(fun() -> spin(0) end), spawn(fun() -> spin_calls(0) end)],
     Echo = spawn(fun echo/0),
     io:format("~p answers~n", [exchange(Echo, 20, 0)]),
     Echo ! stop,

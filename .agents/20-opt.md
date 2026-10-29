@@ -4,8 +4,8 @@ This file lists optimizations taken from Lukas Larsson's (garazdawi) **T2-Full**
 work for BeamAsm, restated for Clause's ahead-of-time LLVM code generation. The plans are planning
 input only; no OTP source is copied.
 
-Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, part of OPT1.3, OPT1.4, OPT1.6 inline caches,
-OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder,
+Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, OPT1.3 parts 1-2, OPT1.4, OPT1.6 inline
+caches, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder,
 OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4
 and its remainder, OPT3.18, OPT3.19, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5,
 OPTM.6): see [00-finished.md](00-finished.md). Rejected steps (OPTM.1 remainder): see
@@ -255,26 +255,44 @@ Ordered by measured T2 value and how well each fits an AOT compiler. 69A weight 
 kernels already ahead, so they rank lower but stay (the goal is beating OTP everywhere), and also
 pay off in real programs (euler, luerl, json).
 
-### OPT1.3 Speculation-free small-int fast paths, with guard fusion and range-proven overflow elimination
+### OPT1.14 Batched loop reductions (user idea 2026-10-29)
 
-Part done: `+`/`-`/`*` work on the tagged words (`a + (b ^ 15)`, `(a >> 4) * (b ^ 15)`) and branch
-on the overflow flag (`llvm.s*.with.overflow`); both tag tests already fuse into one mask. LLVM
-speculates the checked add above the tag test (costs ~1% on float-only luerl euler). Open:
-range-proven elimination beyond `codegen/proofs`; `integer()`-typed operands still carry the float
-fallback (code size, spills in loops such as `mul_loop`).
+Every self tail call loads, tests, decrements and stores `FrameState::reductions` and tests `slow`; with
+the frame-header memset, the `live` store and the stack/frame reloads that is ~8 memory operations per
+step around a 5-instruction body. Experiment (self calls spending no reduction, unpinned, same-round
+ratios): count_up -18%, mul_loop -17%, sum_list -19% (OTP still 0.83x of sum_list after that; the
+rest is the header reset and reloads). Reductions are not observable (`process_info` reports 0), so
+only scheduling fairness constrains this.
 
-- **Overflow check:** compute with flag-setting instructions and branch on overflow to the bignum
-  service ("check before commit").
-- **One-untag trick:** untag one operand and add it to the tagged other.
-- **Guard fusion:** test the tags of several operands in one mask. Use **AND, not OR**: the MVP's
-  `(A|F)&0xF==0xF` bug accepted mixed types.
+- **Loops whose every step enters a call:** done (see `00-finished.md`). The self call still tests
+  `slow` (profiling and tracing must see each step). A tail call to a peer of a merged cycle could
+  skip its reduction the same way.
+- **Leaf loops** (no call on the fast path) must still yield: carry a budget in a register instead of
+  the field. Make the self transfer a branch to the body start (as OPT1.1C `jump`/`join` do for
+  cycles) with a budget PHI loaded once on entry; each step decrements it, and only at zero is it
+  flushed and `slow`/the slice tested through the tail service. Store it back before every exit and
+  every service call on the loop's slow paths (reload after).
+- **Same pass, header reset:** a body with no continuations and no handlers never sets the resume or
+  handler word, so its self call skips the memset (an experiment dropping it in a body with a call
+  looped forever: the resume word must stay reset there); hoist the stack/frame/registers loads.
+- Gate: count_up, sum_list, mul_loop kernels vs OTP; 69A; a spinning leaf loop must still let other
+  processes run (msg ring with a busy process); `--max-reductions`-style fairness tests if any.
+
+### OPT1.3 remainder: range-proven overflow elimination and wider guard fusion
+
+Parts 1 and 2 are done (see `00-finished.md`): `+ - *` on tagged words branching on the overflow
+flag, two-operand tag tests fused into one AND mask. LLVM speculates the checked add above the tag
+test (costs ~1% on float-only luerl euler). Open:
+
 - **Overflow-guard elimination:** drop the per-iteration overflow guard when a range proves no
   overflow, e.g. a loop counter bounded by list length or `bit_size`. Also drop redundant tag
   guards.
-- **Clause:** inline `+ - *` already exist, and `codegen/proofs` drops checks for proven smalls.
-  Extend this to:
+- **Guard fusion:** test the tags of more than two operands in one mask. Use **AND, not OR**: the
+  MVP's `(A|F)&0xF==0xF` bug accepted mixed types.
+- **Integer-typed operands:** `integer()` operands still carry the float fallback (code size, spills
+  in loops such as `mul_loop`).
+- **Clause:** `codegen/proofs` drops checks for proven smalls. Extend this to:
   - comparisons and `band`/`bsl`
-  - fused multi-operand guards
   - integer range facts from F34 inference, the equivalent of `ssa_opt_ranges`
 
 ### OPT1.5 remainder: more byte-scan shapes
@@ -454,7 +472,8 @@ it needs the match's value to be unused and every read to inline (static decisio
 0. **Measurement:** done (OPTM.5: 69A runs pinned to the P-cores).
 1. **Substrate (tier OPT0):** done (open follow-ups above); it made services visible to LLVM and cut
    the 100–600× kernels.
-2. **Loops:** OPT1.1 and OPT1.2 done; OPT1.3 next.
+2. **Loops:** OPT1.1, OPT1.2 and OPT1.3 parts 1-2 done; OPT1.14 next (count_up 1.13x and sum_list
+   1.30x behind OTP, unpinned 2026-10-29), then OPT1.3 remainder.
 3. **Binaries:** OPT1.5 byte scans done; remainder above.
 4. **Maps:** OPT1.6 remainder (inline caches and the `maps:fold` part of OPT1.7 are done).
 5. **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
@@ -466,7 +485,7 @@ it needs the match's value to be unused and every read to inline (static decisio
    both done; then the kernels already ahead: OPT3.23 (ring ~0.80x), OPT1.6 remainder (~0.84x),
    OPT3.15 remainder (0.96x), OPT3.20 (0.90x), OPT3.21 (0.88x), OPT1.5 (0.86x), OPT3.22 (0.80x),
    OPT1.12 (0.77x), OPT3.6 remainder (0.76x), term_to_binary remainder (0.70x), OPT3.5 remainder
-   (0.67x), OPT1.3 (0.63x). Steps with no 69A kernel (OPT3.13/3.14 remainders,
+   (0.67x), OPT1.3 remainder (0.63x). Steps with no 69A kernel (OPT3.13/3.14 remainders,
    OPT1.7-1.11, OPT1.13, OPT2.x) follow; `--lto` (an OPT2.1 proxy) is 1.00x overall.
 
 **Gate for every item:**

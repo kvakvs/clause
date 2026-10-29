@@ -826,19 +826,63 @@ class FrameLowering {
     // is spent, the resume and handler words and the live count are reset and the arguments past the registers are
     // copied before the body runs again. Its slots need no zeroing: each holds zero or a term word that collections
     // rewrite, and the body writes a slot before it reads it. Wanted collections, profiling and an empty slice take
-    // the tail service.
+    // the tail service. A step that entered another function on every path spends no reduction of its own (batched
+    // loop reductions).
     void enter_self(llvm::IRBuilder<> &builder, llvm::Value *descriptor, const Callee &callee,
                     const Parameters &values) {
         auto *context = body_.getArg(0);
         auto *word = services_.word;
         auto *zero = llvm::ConstantInt::get(word, 0);
-        auto *reductions = services_.state(builder, context, StateField::reductions, word, "self.reds");
+        const bool spends = reachable_without_call(builder.GetInsertBlock());
         auto *slow = services_.state(builder, context, StateField::slow, word, "self.slow");
-        auto *fast = builder.CreateAnd(compare(builder, llvm::CmpInst::ICMP_EQ, slow, zero),
-                                       compare(builder, llvm::CmpInst::ICMP_NE, reductions, zero));
+        llvm::Value *fast = compare(builder, llvm::CmpInst::ICMP_EQ, slow, zero);
+        llvm::Value *reductions = nullptr;
+        if (spends) {
+            reductions = services_.state(builder, context, StateField::reductions, word, "self.reds");
+            fast = builder.CreateAnd(fast, compare(builder, llvm::CmpInst::ICMP_NE, reductions, zero));
+        }
         auto *rest = diamond(builder, fast, "self");
-        services_.set_state(builder, context, StateField::reductions,
-                            builder.CreateSub(reductions, llvm::ConstantInt::get(word, 1)));
+        if (spends) {
+            services_.set_state(builder, context, StateField::reductions,
+                                builder.CreateSub(reductions, llvm::ConstantInt::get(word, 1)));
+        }
+        reenter(builder, callee, values);
+        builder.SetInsertPoint(rest->getPrevNode());
+        const auto [boxed, entered] = service_entry(builder, &native_, values, descriptor);
+        llvm::Value *code = nullptr;
+        const auto loaded = through_registers(builder, boxed, code, services_.tail, {context, entered});
+        transfer(builder, code, loaded);
+        discard(*rest);
+    }
+
+    // Whether some path from the body start reaches `block` without a non-tail call (batched loop reductions). Resume
+    // blocks are not entered: each follows a call whose entry spent a reduction and could yield.
+    bool reachable_without_call(const llvm::BasicBlock *block) const {
+        llvm::SmallPtrSet<const llvm::BasicBlock *, 16> resumes;
+        for (const auto &continuation : continuations_) {
+            resumes.insert(continuation.resume);
+        }
+        std::vector<const llvm::BasicBlock *> pending{prologue_.block};
+        llvm::SmallPtrSet<const llvm::BasicBlock *, 32> seen;
+        while (!pending.empty()) {
+            const auto *next = pending.back();
+            pending.pop_back();
+            if (resumes.contains(next) || !seen.insert(next).second) {
+                continue;
+            }
+            if (next == block) {
+                return true;
+            }
+            std::ranges::copy(llvm::successors(next), std::back_inserter(pending));
+        }
+        return false;
+    }
+
+    // Reset this frame for the body's next run and transfer to it: the resume and handler words, the arguments past
+    // the registers and the live count.
+    void reenter(llvm::IRBuilder<> &builder, const Callee &callee, const Parameters &values) {
+        auto *context = body_.getArg(0);
+        auto *word = services_.word;
         auto *stack = services_.state(builder, context, StateField::stack, builder.getPtrTy(), "self.stack");
         auto *at = services_.state(builder, context, StateField::frame, word, "self.at");
         auto *header = builder.CreateInBoundsGEP(word, stack, at, "self.header");
@@ -855,14 +899,8 @@ class FrameLowering {
                                         builder.CreateConstGEP1_64(word, prologue_.registers, register_arguments),
                                         services_.align(), builder.CreateMul(extra, unit)),
                    MemoryKind::frame);
-        services_.set_state(builder, context, StateField::live, zero);
+        services_.set_state(builder, context, StateField::live, llvm::ConstantInt::get(word, 0));
         record_transfer(transfer(builder, callee.body, values), &native_);
-        builder.SetInsertPoint(rest->getPrevNode());
-        const auto [boxed, entered] = service_entry(builder, &native_, values, descriptor);
-        llvm::Value *code = nullptr;
-        const auto loaded = through_registers(builder, boxed, code, services_.tail, {context, entered});
-        transfer(builder, code, loaded);
-        discard(*rest);
     }
 
     // The parameters and descriptor a transfer service enters `callee` with: unchanged, but a float loop variant
