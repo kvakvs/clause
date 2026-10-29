@@ -295,6 +295,17 @@ void copy_loop_mark(const llvm::Function &from, llvm::Function &to) {
     }
 }
 
+// A body's context points at its process's whole FrameState, so loads of state words may be hoisted out of branches
+// and loops (cleanup across inlined boundaries, OPT1.10).
+void mark_context(llvm::Function &body, const llvm::IntegerType &word) {
+    const auto bytes = word.getBitWidth() / 8;
+    auto *context = body.getArg(0);
+    context->addAttr(llvm::Attribute::NonNull);
+    context->addAttr(llvm::Attribute::getWithDereferenceableBytes(
+        body.getContext(), (static_cast<std::uint64_t>(StateField::self) + 1) * bytes));
+    context->addAttr(llvm::Attribute::getWithAlignment(body.getContext(), llvm::Align(bytes)));
+}
+
 // Lower one native-form function into the body its descriptor names.
 class FrameLowering {
   public:
@@ -306,6 +317,7 @@ class FrameLowering {
           arity_(erlang_arity(&native).value_or(0)), resume_base_(cycle.merged ? cycle.resumes : 0), roots_(arity_) {
         body_.setCallingConv(services.convention);
         copy_loop_mark(native, body_);
+        mark_context(body_, *services.word);
     }
 
     // Run every step and return the descriptor contents.
@@ -386,7 +398,9 @@ class FrameLowering {
             arguments.push_back(
                 llvm::cast<llvm::Instruction>(builder.CreateFreeze(body_.getArg(index + 1), "argument")));
             if (forwarded) {
-                builder.CreateAlignedStore(arguments.back(), argument_slot(builder, index), services_.align());
+                tag_memory(
+                    builder.CreateAlignedStore(arguments.back(), argument_slot(builder, index), services_.align()),
+                    MemoryKind::frame);
             }
         }
         for (std::size_t index = 0; index < arguments.size(); ++index) {
@@ -672,7 +686,8 @@ class FrameLowering {
     Parameters through_registers(llvm::IRBuilder<> &builder, const Parameters &values, llvm::Value *&code,
                                  llvm::FunctionCallee service, llvm::ArrayRef<llvm::Value *> arguments) const {
         for (std::size_t i = 0; i < register_arguments; ++i) {
-            builder.CreateAlignedStore(values.at(i), register_address(builder, i), services_.align());
+            tag_memory(builder.CreateAlignedStore(values.at(i), register_address(builder, i), services_.align()),
+                       MemoryKind::frame);
         }
         code = builder.CreateCall(service, arguments, "transfer.service");
         Parameters loaded{};
@@ -780,7 +795,9 @@ class FrameLowering {
     // Record the resume index, pass the arguments and enter the callee; its return resumes this body.
     void lower_call(const Continuation &continuation, std::size_t index) {
         llvm::IRBuilder<> builder(continuation.call.call);
-        builder.CreateAlignedStore(llvm::ConstantInt::get(services_.word, index), prologue_.resume, services_.align());
+        tag_memory(builder.CreateAlignedStore(llvm::ConstantInt::get(services_.word, index), prologue_.resume,
+                                              services_.align()),
+                   MemoryKind::frame);
         copy_arguments(builder, continuation.call);
         enter(builder, continuation.call, parameters(builder, continuation.call), Entry::call);
     }
@@ -1034,12 +1051,13 @@ class FrameLowering {
         auto *zero = llvm::ConstantInt::get(word, 0);
         if (entry == Entry::call) {
             auto *previous = services_.state(builder, body_.getArg(0), StateField::frame, word, "push.previous");
-            builder.CreateAlignedStore(previous, header, services_.align());
+            tag_memory(builder.CreateAlignedStore(previous, header, services_.align()), MemoryKind::frame);
         }
         const std::array<llvm::Value *, frame_header_words - 1> words{callee.descriptor, zero, zero};
         for (std::size_t i = 0; i < words.size(); ++i) {
-            builder.CreateAlignedStore(words.at(i), builder.CreateConstInBoundsGEP1_64(word, header, i + 1),
-                                       services_.align());
+            tag_memory(builder.CreateAlignedStore(words.at(i), builder.CreateConstInBoundsGEP1_64(word, header, i + 1),
+                                                  services_.align()),
+                       MemoryKind::frame);
         }
     }
 
@@ -1424,6 +1442,7 @@ class CycleMerge {
                                          members.front().native->getName() + ".cycle", services.output)),
           incoming_(members.size()) {
         cycle_.setCallingConv(services.convention);
+        mark_context(cycle_, *services.word);
         for (const auto &member : members) {
             copy_loop_mark(*member.native, cycle_);
         }

@@ -711,3 +711,8 @@ recorded elsewhere.
 - CPU budget in practice (user 2026-10-29: a plain belownormal -j 12 run loaded the PC to 100%):
   launch every build/tidy/CTest run with `start "" /belownormal /affinity FFFFFF /b /wait cmd /c
   X.cmd` (logical 0-23: P-cores + 8 E-cores; children inherit it), leaving E-cores 24-31 free.
+- OPT1.10 (2026-10-29): datagen.list_of_tuples swings ~15% on generated-code layout alone (the
+  tuples/2 loop byte-identical at the same address; padding the program with an unused module
+  flipped fast/slow either way; runtime library swap no effect). Before blaming a change on it,
+  cross-link (each clau x each runtime) and pad with a dummy module (--keep-exports). Bisect codegen
+  changes with temporary env switches in the debug clau + `--runtime-library` of build/bench.

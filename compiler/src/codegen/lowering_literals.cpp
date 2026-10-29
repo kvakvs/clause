@@ -1,5 +1,6 @@
 #include "../semantic/capabilities.hpp"
 #include "../semantic/symbols.hpp"
+#include "alias_tags.hpp"
 #include "literals.hpp"
 #include "lowering_state.hpp"
 #include "module_atoms.hpp"
@@ -250,9 +251,9 @@ llvm::Value *lower_literal(ExpressionLowering &state, const std::string &encoded
     auto *join = llvm::BasicBlock::Create(context, "literal.join", &state.entry);
     builder.CreateCondBr(claimed(state, atom_cache), hit, miss);
     builder.SetInsertPoint(hit);
-    auto *cached = builder.CreateAlignedLoad(
+    auto *cached = invariant_load(builder.CreateAlignedLoad(
         state.word, builder.CreateConstGEP1_64(state.word, literal_cache(output, state.word), index),
-        llvm::Align(state.word->getBitWidth() / 8), "literal.word");
+        llvm::Align(state.word->getBitWidth() / 8), "literal.word"));
     builder.CreateBr(join);
     builder.SetInsertPoint(miss);
     auto *serviced = literal_service(state, index, descriptor);

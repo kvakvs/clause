@@ -4,6 +4,7 @@
 #include "../semantic/records.hpp"
 #include "../semantic/services.hpp"
 #include "../semantic/symbols.hpp"
+#include "alias_tags.hpp"
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
 #include <algorithm>
@@ -322,24 +323,15 @@ llvm::Value *cached_atom(ExpressionLowering &state, llvm::GlobalVariable *cache,
                          llvm::Value *descriptor) {
     auto &builder = state.builder;
     const llvm::Align align(state.word->getBitWidth() / 8);
-    auto *claim = builder.CreateAlignedLoad(state.word, cache, align, "atom.claim");
-    claim->setAtomic(llvm::AtomicOrdering::Monotonic);
-    auto *runtime = builder.CreateAlignedLoad(
-        state.word,
-        builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0),
-                                           static_cast<unsigned>(abi::v1::StateField::runtime)),
-        align, "context.runtime");
     auto &context = state.entry.getContext();
     auto *hit = llvm::BasicBlock::Create(context, "atom.cached", &state.entry);
     auto *miss = llvm::BasicBlock::Create(context, "atom.service", &state.entry);
     auto *join = llvm::BasicBlock::Create(context, "atom.join", &state.entry);
-    builder.CreateCondBr(
-        builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, claim, runtime)), hit,
-        miss);
+    builder.CreateCondBr(claimed(state, cache), hit, miss);
     builder.SetInsertPoint(hit);
     auto *index = llvm::ConstantExpr::getAdd(slot, llvm::ConstantInt::get(state.word, 1));
-    auto *cached =
-        builder.CreateAlignedLoad(state.word, builder.CreateGEP(state.word, cache, index), align, "atom.word");
+    auto *cached = invariant_load(
+        builder.CreateAlignedLoad(state.word, builder.CreateGEP(state.word, cache, index), align, "atom.word"));
     builder.CreateBr(join);
     builder.SetInsertPoint(miss);
     auto *serviced = atom_service(state, slot, descriptor);

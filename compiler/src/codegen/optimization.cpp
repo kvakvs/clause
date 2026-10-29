@@ -1,4 +1,5 @@
 #include "optimization.hpp"
+#include "alias_tags.hpp"
 #include "frames.hpp"
 #include "llvm_state.hpp"
 #include "lowering_roots.hpp"
@@ -59,6 +60,9 @@ void optimize_module(llvm::Module &module, llvm::TargetMachine &machine, const O
     builder.registerFunctionAnalyses(functions);
     builder.registerLoopAnalyses(loops);
     builder.crossRegisterProxies(loops, functions, call_graph, modules);
+    for (auto &function : module) {
+        tag_term_loads(function);
+    }
     pipeline(builder, module, level).run(module, modules);
 }
 

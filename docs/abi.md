@@ -257,7 +257,10 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   the same cell on, so a loop over a binary allocates once. The variant reads
   the cell's view once per step, before its clauses, and skips the bitstring
   test of the parameter. Loads and stores of process state, frames, `sub_binary`
-  words and inline/off-heap binary words carry disjoint LLVM TBAA tags; a
+  words and inline/off-heap binary words carry disjoint LLVM TBAA tags (every
+  other load through a pointer formed from a term word is tagged `term`, the
+  parent of the two binary tags, so the loops' in-place stores alias it; a body's
+  context parameter is `nonnull` and `dereferenceable` over its `FrameState`); a
   variant that calls no other Erlang function marks the loads of its cell's
   original and of the original's header, offset and data address
   `!invariant.load`, and gets one more GVN after the pipeline (function

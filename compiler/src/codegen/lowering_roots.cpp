@@ -1,4 +1,5 @@
 #include "../semantic/symbols.hpp"
+#include "alias_tags.hpp"
 #include "lowering_state.hpp"
 #include "module_atoms.hpp"
 #include <algorithm>
@@ -46,7 +47,8 @@ llvm::Value *root_slot(ExpressionLowering &state) {
 
 void root_value(ExpressionLowering &state, llvm::Value *value) {
     auto *slot = root_slot(state);
-    state.builder.CreateAlignedStore(value, slot, llvm::Align(state.word->getBitWidth() / 8));
+    tag_memory(state.builder.CreateAlignedStore(value, slot, llvm::Align(state.word->getBitWidth() / 8)),
+               MemoryKind::frame);
 }
 
 void mark_term(ExpressionLowering &state, llvm::Value *value) {

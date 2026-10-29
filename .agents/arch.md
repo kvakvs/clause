@@ -61,6 +61,8 @@ stage outputs, `--shell`, `--generate-asn1`), see `README.md` and `docs/compile.
   (budgeted per function): LLVM cannot inline across frame transfers. Matches of tuples/cons cells
   built in the same function read the built words, and unread cells are dropped (OPT1.13).
 - **Backend**: LLVM optimization and emission (objects, asm, IR, debug info), parallel per module.
+  Before the pipeline, term-word loads get the `term` TBAA tag (state/frame/binary tags come from
+  lowering); atom/literal/fun cache reads are invariant loads, so their claim checks merge (OPT1.10).
   Emits a startup module handing a `StartupDescriptor` (module list + needed runtime extensions)
   to the runtime.
 - **Linking**: drives Clang to link objects with the runtime archive, extension archives and their

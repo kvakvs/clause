@@ -383,6 +383,12 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   `{ok, V}` case 35 to 25 (139), nested leaves 79 to 27 (127), a 40-expression leaf 156 to 109 (138),
   `?MODULE:twice` 80 to 24 (105), mapfoldl 179 to 142 (294); 69A 0.99x, luerl euler 1.00x, programs
   +0.04% (69A) / +0.76% (luerl) — `[plan20] OPT1.9 remainder, OPT1.13 ...`
+- **OPT1.10** cleanup across inlined boundaries: atom/literal/fun cache claim, runtime identity and
+  cached words are invariant loads (claim checks merge where one dominates the next, and leave
+  loops); term-word loads tagged `term` TBAA (parent of the binary tags), frame-slot stores `frame`;
+  body context `nonnull dereferenceable`. Pinned (OTP): 8-atom dispatch 55 to 37 ms (106), record
+  tag tests 54 to 47 (104), `{atom, N}` clauses 65 to 59 (124); 69A 0.99x (list_of_tuples -16% is
+  layout: padding flips it), luerl euler 1.007x, programs -0.02% — `[plan20] OPT1.10 ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

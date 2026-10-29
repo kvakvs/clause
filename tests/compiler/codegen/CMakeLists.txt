@@ -211,6 +211,10 @@ add_test(NAME codegen_proofs COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SO
 add_test(NAME codegen_float_loops COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/float_loops.py"
     "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}/tests/fixtures/executables/float_loops")
 set_tests_properties(codegen_float_loops PROPERTIES PASS_REGULAR_EXPRESSION "float_loops: ok")
+# Added for the cleanup across inlined boundaries (plan 20 OPT1.10).
+add_test(NAME codegen_cleanup COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/cleanup.py"
+    "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}/tests/fixtures/codegen")
+set_tests_properties(codegen_cleanup PROPERTIES PASS_REGULAR_EXPRESSION "cleanup: ok")
 
 if(CLAUSE_BUILD_RUNTIME)
     foreach(level IN ITEMS O0 O2)

@@ -69,7 +69,10 @@ in [abi.md](abi.md#terms).
   word per slot), which the first runtime to register the module fills; a
   context whose `FrameState::runtime` matches the claim reads it without a call,
   any other calls `CLAUSE_atom_v3`. The claim is given back when the runtime's
-  code server releases the module.
+  code server releases the module. Registration fills the cache before any of
+  the module's code runs, so generated code marks the claim, the runtime
+  identity and the cached words `!invariant.load`: a function checks the claim
+  once, before its first atom, and loops check it before they start.
 - Runtime C++ writes literal atoms as `"name"_atom` (`atom_names.hpp`): one
   static `CachedAtom` per spelling keeps the word last interned for it, and
   `AtomStorage::intern` returns it after one lock-free index read when this

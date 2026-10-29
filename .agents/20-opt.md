@@ -5,7 +5,7 @@ work for BeamAsm, restated for Clause's ahead-of-time LLVM code generation. The 
 input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, OPT1.3 parts 1-2, OPT1.4, OPT1.5, OPT1.6
-inline caches, OPT1.7 parts 1-3 (with `maps:fold`), OPT1.8 and its remainder, OPT1.9 leaves (nested, budget, `?MODULE:f()`), OPT1.13, OPT1.14
+inline caches, OPT1.7 parts 1-3 (with `maps:fold`), OPT1.8 and its remainder, OPT1.9 leaves (nested, budget, `?MODULE:f()`), OPT1.10, OPT1.13, OPT1.14
 parts 1-2, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
 OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4 and its remainder, OPT3.18, OPT3.19,
 sorted tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5, OPTM.6): see
@@ -348,20 +348,20 @@ Call-free leaves, nested leaves (depth 3), the per-function growth budget and `?
 (see `00-finished.md`). Open: leaves that raise (`error/1`, `throw/1`) stay calls, since inlining loses
 their stack-trace frame.
 
-### OPT1.10 Cleanup suite across inlined boundaries
+### OPT1.10 remainder: service memory effects
 
-- **Passes:** DCE (including dead phis), constant folding, copy propagation, CSE/GVN of pure term
-  ops, and LICM of invariant guards, loads and pure computation into the preheader.
-- **Immutability:** BEAM terms are immutable. Loads from term memory never alias a store; only GC
-  moves them, and GC happens only at safepoints.
-- **Clause:** mostly free from LLVM once OPT0.2 and OPT0.3 expose the ops. Emit:
-  - `!invariant.load`, or TBAA plus `noalias`, on term-field loads
-  - `memory(none/read)`, `nounwind` and `willreturn` attributes on pure services
-  - GC/safepoint calls as the only clobbers
-- **Related T2 fusions that come for free:**
-  - `GetTupleElement` shared base: the tuple untag is CSE'd across consecutive reads
-  - a wide `select_val` becomes a binary search or jump table: emit an LLVM `switch` on raw
-    atom/small words
+Done (see `00-finished.md`): invariant atom/literal/fun cache loads (claim checks merge where one
+dominates the next, and leave loops), `term` TBAA on term-word loads, `frame` tags on slot stores,
+a `dereferenceable` context. Measured: term TBAA alone removed 5 of ~19k loads in bench_dataproc;
+service calls on the fallback paths are what still clobber term loads. Open, by measured need only:
+
+- `memory(...)`, `nounwind`, `willreturn` per service operation (most `CLAUSE_immediate_v1` /
+  `CLAUSE_inspect_v1` operations write their output slot and the failure word and may collect, so
+  only non-allocating ones qualify).
+- Claim checks of atom reads in sibling clauses (no read dominates the other) stay separate; one
+  check at the function's start would have to survive resumes after calls.
+- `select_val` on atoms cannot become an LLVM `switch`: atom words are runtime-assigned (integer
+  cases already become one).
 
 ### OPT1.11 Float unboxing and FP-register residency
 
@@ -467,7 +467,7 @@ Fusion and allocation sinking of tuples and first cons cells built in the same f
 4. **Maps:** OPT1.6 remainder (inline caches and the `maps:fold` part of OPT1.7 are done).
 5. **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
 6. **Funs and floats:** OPT1.11 (OPT1.8 remainder done).
-7. **Inlining and cleanup:** OPT1.9 and OPT1.13 done (remainders above); OPT1.10.
+7. **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13 done (remainders above).
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact (pinned 2026-10-21
    71ec52f8 run, worst kernel of each step; OPT3.18 done): OPT3.19 (1.20x), OPT1.6 caches (1.03x),
    both done; then the kernels already ahead: OPT3.23 (ring ~0.80x), OPT1.6 remainder (~0.84x),

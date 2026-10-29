@@ -1,6 +1,7 @@
 #include "../semantic/capabilities.hpp"
 #include "../semantic/funs.hpp"
 #include "../semantic/symbols.hpp"
+#include "alias_tags.hpp"
 #include "lowering_state.hpp"
 #include "runtime_symbols.hpp"
 #include <algorithm>
@@ -190,13 +191,14 @@ llvm::Value *fun_service(ExpressionLowering &state, const ast::Expression &expre
 llvm::Value *claimed(ExpressionLowering &state, llvm::GlobalVariable *atom_cache) {
     auto &builder = state.builder;
     const llvm::Align align(state.word->getBitWidth() / 8);
-    auto *claim = builder.CreateAlignedLoad(state.word, atom_cache, align, "fun.claim");
-    claim->setAtomic(llvm::AtomicOrdering::Monotonic);
-    auto *runtime = builder.CreateAlignedLoad(
+    // Registration claims the caches before the module's code runs, so every check of a function is one (OPT1.10).
+    auto *claim = invariant_load(builder.CreateAlignedLoad(state.word, atom_cache, align, "cache.claim"));
+    claim->setAtomic(llvm::AtomicOrdering::Unordered);
+    auto *runtime = invariant_load(builder.CreateAlignedLoad(
         state.word,
         builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0),
                                            static_cast<unsigned>(abi::v1::StateField::runtime)),
-        align, "context.runtime");
+        align, "context.runtime"));
     return builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, claim, runtime));
 }
 
@@ -242,8 +244,8 @@ llvm::Value *lower_fun(ExpressionLowering &state, const ast::Expression &express
     for (const auto &identity : state.module.funs.at(index).captures) {
         captured.push_back(binary_loop_read(state, identity, state.bindings.at(identity), nullptr));
     }
-    auto *definition = builder.CreateAlignedLoad(state.word, builder.CreateConstGEP1_64(state.word, fun_cache, index),
-                                                 align, "fun.definition");
+    auto *definition = invariant_load(builder.CreateAlignedLoad(
+        state.word, builder.CreateConstGEP1_64(state.word, fun_cache, index), align, "fun.definition"));
     const auto room = heap_room(state, llvm::ConstantInt::get(state.word, 2 + captured.size()));
     auto *direct = llvm::BasicBlock::Create(context, "fun.inline", &state.entry);
     auto *fallback = llvm::BasicBlock::Create(context, "fun.service", &state.entry);
