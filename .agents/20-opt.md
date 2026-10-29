@@ -267,14 +267,14 @@ only scheduling fairness constrains this.
 - **Loops whose every step enters a call:** done (see `00-finished.md`). The self call still tests
   `slow` (profiling and tracing must see each step). A tail call to a peer of a merged cycle could
   skip its reduction the same way.
-- **Leaf loops** (no call on the fast path) must still yield: carry a budget in a register instead of
-  the field. Make the self transfer a branch to the body start (as OPT1.1C `jump`/`join` do for
-  cycles) with a budget PHI loaded once on entry; each step decrements it, and only at zero is it
-  flushed and `slow`/the slice tested through the tail service. Store it back before every exit and
-  every service call on the loop's slow paths (reload after).
-- **Same pass, header reset:** a body with no continuations and no handlers never sets the resume or
-  handler word, so its self call skips the memset (an experiment dropping it in a body with a call
-  looped forever: the resume word must stay reset there); hoist the stack/frame/registers loads.
+- **Leaf loops:** done (see `00-finished.md`). Notes: branching to the body start instead of the
+  prologue kept every frame address live across the loop and spilled (mul_loop +11%); without
+  likely-branch weights the budget register pushed reloads into the hot path (binary_match +8%).
+  mul_loop stays ~8% slower pinned with a clean, spill-free hot path (layout); map_update 69A -5%.
+- **Header reset (open):** a body with no continuations and no handlers never sets the resume or
+  handler word, so its self call can skip the memset (an experiment dropping it in a body with a call
+  looped forever: the resume word must stay reset there); likewise the `live` store when no service
+  sets it. Merged cycles (OPT1.1C) still spend through the field.
 - Gate: count_up, sum_list, mul_loop kernels vs OTP; 69A; a spinning leaf loop must still let other
   processes run (msg ring with a busy process); `--max-reductions`-style fairness tests if any.
 

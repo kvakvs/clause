@@ -83,11 +83,15 @@ in the first register and ends the native call.
   tail recursion runs in constant Erlang and native stack. A self tail call
   keeps its frame where it is: it spends a reduction, resets the frame's resume
   and handler words and the live count and copies the arguments past the
-  parameters, without rewriting the header or zeroing the slots; LLVM turns it
-  into a loop. When every path through the body to the self call passes a
-  non-tail call, that call's entry has already spent a reduction (and can
-  yield), so the self call spends none of its own; it still tests `slow`, so
-  profiling and tracing see every step. A tail call to another member of the caller's tail-call cycle
+  parameters, without rewriting the header or zeroing the slots, then branches
+  back to the body's prologue with the new parameters, so the function is a
+  loop. When every path through the body to the self call passes a non-tail
+  call, that call's entry has already spent a reduction (and can yield), so the
+  self call spends none of its own; it still tests `slow`, so profiling and
+  tracing see every step. In a body whose self call spends, the reduction count
+  lives in a register: it is read once when the body is entered, written back
+  before every call (services spend and test it) and read again after one that
+  returns. A tail call to another member of the caller's tail-call cycle
   (functions of one module that reach each other through tail calls) keeps the
   caller link and the term slots both frames have: it writes the callee's
   descriptor, zeroes only the callee's term slots past the caller's and skips

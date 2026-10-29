@@ -6,6 +6,7 @@
 #include <clause/abi/term.hpp>
 #include <llvm-c/Core.h>
 #include <llvm/ADT/APInt.h>
+#include <llvm/IR/MDBuilder.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Transforms/Utils/SSAUpdater.h>
 #include <vector>
@@ -264,14 +265,16 @@ llvm::Value *lower_operation(ExpressionLowering &state, const Op operation, llvm
     auto *fast = llvm::BasicBlock::Create(context, "integer.small.success", &state.entry);
     auto *fallback = llvm::BasicBlock::Create(context, "integer.fallback", &state.entry);
     auto *join = llvm::BasicBlock::Create(context, "integer.join", &state.entry);
+    // Small operands that stay small are the common case: registers and layout favour them (batched loop reductions).
+    auto *likely = llvm::MDBuilder(context).createLikelyBranchWeights();
     if (auto *tags = unproven_tags(state, left, right, proofs)) {
-        builder.CreateCondBr(tags, attempt, fallback);
+        builder.CreateCondBr(tags, attempt, fallback, likely);
     } else {
         builder.CreateBr(attempt);
     }
     builder.SetInsertPoint(attempt);
     const auto result = tagged(state, *checked, {left, right});
-    builder.CreateCondBr(result.valid, fast, fallback);
+    builder.CreateCondBr(result.valid, fast, fallback, likely);
     builder.SetInsertPoint(fast);
     auto *encoded = result.value;
     builder.CreateBr(join);

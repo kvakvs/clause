@@ -3,6 +3,7 @@
 #include "code_convention.hpp"
 #include "llvm_state.hpp"
 #include "lowering_roots.hpp"
+#include "reduction_budget.hpp"
 #include "runtime_symbols.hpp"
 #include "verification.hpp"
 #include <algorithm>
@@ -16,6 +17,7 @@
 #include <llvm/IR/DebugInfoMetadata.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/InstIterator.h>
+#include <llvm/IR/MDBuilder.h>
 #include <llvm/Transforms/Utils/Local.h>
 #include <llvm/Transforms/Utils/SSAUpdater.h>
 #include <map>
@@ -336,6 +338,7 @@ class FrameLowering {
         }
         lower_returns();
         finish_prologue();
+        finish_self_jumps();
         if (cycle_.merged) {
             cycle_.resumes += continuations_.size();
             cycle_.lowered.push_back(
@@ -826,8 +829,9 @@ class FrameLowering {
     // is spent, the resume and handler words and the live count are reset and the arguments past the registers are
     // copied before the body runs again. Its slots need no zeroing: each holds zero or a term word that collections
     // rewrite, and the body writes a slot before it reads it. Wanted collections, profiling and an empty slice take
-    // the tail service. A step that entered another function on every path spends no reduction of its own (batched
-    // loop reductions).
+    // the tail service. A step that entered another function on every path spends no reduction of its own; outside
+    // a merged cycle the call is a branch back to the prologue, so a reduction count kept in a register carries over
+    // (batched loop reductions).
     void enter_self(llvm::IRBuilder<> &builder, llvm::Value *descriptor, const Callee &callee,
                     const Parameters &values) {
         auto *context = body_.getArg(0);
@@ -845,8 +849,15 @@ class FrameLowering {
         if (spends) {
             services_.set_state(builder, context, StateField::reductions,
                                 builder.CreateSub(reductions, llvm::ConstantInt::get(word, 1)));
+            self_spends_ = true;
         }
-        reenter(builder, callee, values);
+        reset_frame(builder, callee);
+        if (cycle_.merged) {
+            record_transfer(transfer(builder, callee.body, values), &native_);
+        } else {
+            self_jumps_.emplace_back(builder.GetInsertBlock(), values);
+            builder.CreateBr(prologue_.block);
+        }
         builder.SetInsertPoint(rest->getPrevNode());
         const auto [boxed, entered] = service_entry(builder, &native_, values, descriptor);
         llvm::Value *code = nullptr;
@@ -878,20 +889,17 @@ class FrameLowering {
         return false;
     }
 
-    // Reset this frame for the body's next run and transfer to it: the resume and handler words, the arguments past
-    // the registers and the live count.
-    void reenter(llvm::IRBuilder<> &builder, const Callee &callee, const Parameters &values) {
+    // Reset this frame for the body's next run: the resume and handler words, the arguments past the registers and
+    // the live count. The prologue's header is still this frame's: only a transfer moves the stack.
+    void reset_frame(llvm::IRBuilder<> &builder, const Callee &callee) {
         auto *context = body_.getArg(0);
         auto *word = services_.word;
-        auto *stack = services_.state(builder, context, StateField::stack, builder.getPtrTy(), "self.stack");
-        auto *at = services_.state(builder, context, StateField::frame, word, "self.at");
-        auto *header = builder.CreateInBoundsGEP(word, stack, at, "self.header");
         // The resume and handler words, cleared as one tagged write (SSA binary cursors, OPT1.4F).
-        tag_memory(builder.CreateMemSet(builder.CreateConstInBoundsGEP1_64(word, header, 2), builder.getInt8(0),
-                                        2 * word->getBitWidth() / 8, services_.align()),
-                   MemoryKind::frame);
+        tag_memory(
+            builder.CreateMemSet(prologue_.resume, builder.getInt8(0), 2 * word->getBitWidth() / 8, services_.align()),
+            MemoryKind::frame);
         const auto unit = llvm::ConstantInt::get(word, word->getBitWidth() / 8);
-        auto *slots = builder.CreateConstInBoundsGEP1_64(word, header, frame_header_words, "self.slots");
+        auto *slots = prologue_.slots;
         auto *passed = llvm::ConstantInt::get(word, register_arguments);
         auto *extra =
             builder.CreateSub(builder.CreateBinaryIntrinsic(llvm::Intrinsic::umax, callee.arity, passed), passed);
@@ -900,7 +908,40 @@ class FrameLowering {
                                         services_.align(), builder.CreateMul(extra, unit)),
                    MemoryKind::frame);
         services_.set_state(builder, context, StateField::live, llvm::ConstantInt::get(word, 0));
-        record_transfer(transfer(builder, callee.body, values), &native_);
+    }
+
+    // Join the self calls' branches and keep a spending loop's reduction count in a register (batched loop
+    // reductions).
+    void finish_self_jumps() {
+        if (self_jumps_.empty()) {
+            return;
+        }
+        auto *entry = join_self_jumps();
+        if (self_spends_) {
+            keep_reductions_in_register(body_, *entry, *services_.word);
+        }
+    }
+
+    // The self calls branch back to the prologue, which recomputes the frame addresses as a new entry would (keeping
+    // them out of registers across the loop). A new entry block leads to it, and each parameter becomes a PHI of the
+    // value the body was entered with and the value of each self call (batched loop reductions). Returns the entry.
+    llvm::BasicBlock *join_self_jumps() {
+        auto *entry = llvm::BasicBlock::Create(body_.getContext(), "entry", &body_, prologue_.block);
+        llvm::IRBuilder<>(entry).CreateBr(prologue_.block);
+        for (unsigned i = 0; i < register_arguments; ++i) {
+            auto *parameter = body_.getArg(i + 1);
+            if (parameter->use_empty()) {
+                continue;
+            }
+            auto *phi = llvm::PHINode::Create(services_.word, 1 + self_jumps_.size(), parameter->getName(),
+                                              prologue_.block->begin());
+            parameter->replaceAllUsesWith(phi);
+            phi->addIncoming(parameter, entry);
+            for (const auto &[block, values] : self_jumps_) {
+                phi->addIncoming(values.at(i), block);
+            }
+        }
+        return entry;
     }
 
     // The parameters and descriptor a transfer service enters `callee` with: unchanged, but a float loop variant
@@ -1063,7 +1104,8 @@ class FrameLowering {
         auto *fast = llvm::BasicBlock::Create(body_.getContext(), name + ".inline", &body_, rest);
         auto *slow = llvm::BasicBlock::Create(body_.getContext(), name + ".service", &body_, rest);
         builder.SetInsertPoint(head);
-        builder.CreateCondBr(condition, fast, slow);
+        // The service path is rare, so registers and layout favour the inline path (batched loop reductions).
+        builder.CreateCondBr(condition, fast, slow, llvm::MDBuilder(body_.getContext()).createLikelyBranchWeights());
         builder.SetInsertPoint(fast);
         return rest;
     }
@@ -1200,6 +1242,10 @@ class FrameLowering {
     std::array<llvm::Constant *, 4> names_{};
     // Non-tail calls in resume-index order.
     std::vector<Continuation> continuations_;
+    // The self calls branching back to the prologue with their parameters, and whether any of them spends a reduction
+    // (batched loop reductions).
+    std::vector<std::pair<llvm::BasicBlock *, Parameters>> self_jumps_;
+    bool self_spends_ = false;
     // Blocks continuing after each loop-head safepoint call.
     std::vector<const llvm::BasicBlock *> safepoints_;
     // The blocks execution resumes in after a call or safepoint, where a value read later must sit in a slot.

@@ -352,6 +352,10 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
 - **OPT1.14 (part)** a self tail call reached only through a non-tail call spends no reduction of its
   own (still tests `slow`); pinned call-per-step loop 161 to 152 ms, `lists:foldl` 40 to 37 ms —
   `[plan20] OPT1.14 (part) ...`
+- **OPT1.14 (part 2)** self tail calls branch back to the prologue; a body whose self call spends
+  keeps the reduction count in a register (written back around calls); inline transfer and
+  small-integer fast paths carry likely-branch weights; pinned count_up 92 to 86 ms; 69A 1.02x
+  geomean (list_of_tuples 1.15x, map_update 0.95x) — `[plan20] OPT1.14 (part 2) ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring
