@@ -256,6 +256,10 @@ recorded elsewhere.
   its result with no safepoint. List loops use loop_reduction only (collect at yields);
   comprehensions still check. A/B codegen with one clau via a temporary env switch; time each kernel
   in its own process (heap state leaks between kernels), min and median of 300 runs.
+- An atom codegen makes up (not in the source, not one of v1 fixed_atom_spellings: false, true,
+  undefined, ok, error) must be added to the module's table in `codegen/module_atoms.cpp`
+  expression_atoms, else lower_atom's atom_slot is null and clau crashes (0xC0000005 at -O2 only):
+  OPT1.7 part 2 `{value, E}` of lists:search loops.
 - `codegen_service_*` fault tests reach services only where codegen still calls them: their fixtures
   route type tests through `abs/1` and the consumer runs under a heap budget (inline allocation
   off).

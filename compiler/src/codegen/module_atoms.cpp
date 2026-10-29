@@ -158,6 +158,23 @@ bool raises_stack(const ast::Module &syntax, const ast::ExprValue &value) {
     return owner && name && owner->name == U"erlang" && name->name == U"raise";
 }
 
+// lists:search/2 with a known fun becomes a loop that returns {value, Element} (more list loops); a local or imported
+// search/2 adds the atom too, which costs only a table entry.
+void list_loop_atoms(const ast::Module &syntax, const ast::ExprValue &value, std::set<std::string> &result) {
+    const auto *call = std::get_if<ast::CallExpression>(&value);
+    if (!call || call->arguments.size() != 2) {
+        return;
+    }
+    const auto *target = &syntax.expression(semantic::ungroup(syntax, call->target)).value;
+    if (const auto *remote = std::get_if<ast::RemoteExpression>(target)) {
+        target = &syntax.expression(semantic::ungroup(syntax, remote->function)).value;
+    }
+    const auto *name = std::get_if<ast::Atom>(target);
+    if (name && name->name == U"search") {
+        result.insert("value");
+    }
+}
+
 // is_record(X, r) with an imported r tests the record's module.
 void imported_test_atoms(const semantic::Module &module, const ast::ExprValue &value, std::set<std::string> &result) {
     const auto *call = std::get_if<ast::CallExpression>(&value);
@@ -207,6 +224,7 @@ void expression_atoms(const semantic::Module &module, const ast::Expression &exp
         result.insert("true");
     }
     imported_test_atoms(module, value, result);
+    list_loop_atoms(*module.syntax, value, result);
 }
 
 // Walk only admitted executable children; atom call targets are metadata rather than term expressions.

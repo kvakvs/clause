@@ -99,6 +99,7 @@
     zip3/3,
     zip3/4
 ]).
+-deprecated([{zf, 2, "use filtermap/2 instead"}]).
 
 %% The concatenation of a list of lists.
 append([Last]) -> Last;
@@ -392,12 +393,17 @@ rukeymerge(_, _, _) -> erlang:error({not_implemented, rukeymerge, 3}).
 rumerge(_, _) -> erlang:error({not_implemented, rumerge, 2}).
 rumerge(_, _, _) -> erlang:error({not_implemented, rumerge, 3}).
 rumerge3(_, _, _) -> erlang:error({not_implemented, rumerge3, 3}).
-%% {value, Element} for the first element Pred holds for, or false.
-search(Pred, List) when is_function(Pred, 1) ->
-    case lists:dropwhile(fun(Element) -> not Pred(Element) end, List) of
-        [Found | _] -> {value, Found};
-        [] -> false
-    end.
+%% {value, Element} for the first element Pred holds for, or false; anything else from Pred is a case_clause error,
+%% as in OTP.
+search(Pred, List) when is_function(Pred, 1) -> search_1(Pred, List).
+
+search_1(Pred, [Element | Rest]) ->
+    case Pred(Element) of
+        true -> {value, Element};
+        false -> search_1(Pred, Rest)
+    end;
+search_1(_, []) ->
+    false.
 %% A stable merge sort by Fun(A, B), true when A sorts before or with B; maps:iterator/2 needs it (step 41N).
 sort(Fun, List) when is_function(Fun, 2) ->
     case List of
@@ -502,6 +508,7 @@ drop_equal(Fun, [Kept, Next | Rest]) ->
     end;
 drop_equal(_, Short) ->
     Short.
+%% filtermap/2 under its old, undocumented name, deprecated as in OTP.
 zf(Fun, List) -> filtermap(Fun, List).
 zip(_, _) -> clause_builtin_placeholder.
 zip(_, _, _) -> clause_builtin_placeholder.

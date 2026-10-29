@@ -5,11 +5,11 @@ work for BeamAsm, restated for Clause's ahead-of-time LLVM code generation. The 
 input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, OPT1.3 parts 1-2, OPT1.4, OPT1.6 inline
-caches, OPT1.7 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder,
-OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4
-and its remainder, OPT3.18, OPT3.19, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5,
-OPTM.6): see [00-finished.md](00-finished.md). Rejected steps (OPTM.1 remainder): see
-[00-reject.md](00-reject.md). This file keeps open work only.
+caches, OPT1.7 parts 1-2 (with `maps:fold`), OPT1.8, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its
+remainder, OPT3.10-3.12, OPT3.10B, OPT3.13A-C, OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16,
+OPT3.17, OPT3.4 and its remainder, OPT3.18, OPT3.19, sorted tables of OPTM.1, OPTM.2A-E, OPTM.3,
+OPTM.4, OPTM.5, OPTM.6): see [00-finished.md](00-finished.md). Rejected steps (OPTM.1 remainder):
+see [00-reject.md](00-reject.md). This file keeps open work only.
 
 **NAMING CONVENTIONS** The optimization steps use prefixes based on their area of concern
 - OPT<id1>.<id2> - optimization tasks
@@ -330,11 +330,16 @@ luerl's tables) only scan. Open:
 
 ### OPT1.7 remainder: more higher-order intrinsics
 
-List loops of `map`, `filter`, `foreach`, `all`, `any`, `flatmap`, `foldl`, `foldr`, `mapfoldl` and
-`mapfoldr` are done (see `00-finished.md`). Open:
+List loops of `map`, `filter`, `filtermap`/`zf`, `partition`, `foreach`, `all`, `any`, `search`,
+`takewhile`, `dropwhile`, `splitwith`, `flatmap`, `foldl`, `foldr`, `mapfoldl` and `mapfoldr` are
+done (see `00-finished.md`). Census 2026-10-29 (`lists:F(fun` written in the call, otp/luerl/emqx):
+foreach 1082, map 979, foldl 669, filter 294, all/any 233, flatmap 205, dropwhile 78, splitwith 71,
+mapfoldl 61, filtermap 48, search 47, partition 44, takewhile 24, zipwith 13, uniq 4, keymap 1.
+Open:
 
-- Other fun-taking `lists` functions (`filtermap`, `partition`, `takewhile`, `dropwhile`, `zipwith`,
-  `keymap`, ...), by census of real programs.
+- `zipwith/3,4`, `zipwith3/4,5`: two or three inputs. First rewrite Clause's `lists` versions in
+  OTP's shape (they pair the lists with `zip/3` first, so the fun never runs before a length
+  mismatch fails: `docs/differences.md`). Then `uniq/2`, `keymap/3`, by census.
 - Generating the loops from the real `lists` source by cross-module inlining (OPT2.1) instead of
   hand-written loops.
 

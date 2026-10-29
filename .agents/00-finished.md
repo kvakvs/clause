@@ -356,6 +356,10 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   keeps the reduction count in a register (written back around calls); inline transfer and
   small-integer fast paths carry likely-branch weights; pinned count_up 92 to 86 ms; 69A 1.02x
   geomean (list_of_tuples 1.15x, map_update 0.95x) — `[plan20] OPT1.14 (part 2) ...`
+- **OPT1.7 (part 2)** more list loops: `filtermap` (and `zf`), `partition`, `search`, `takewhile`,
+  `dropwhile`, `splitwith`; `lists:search/2` raises OTP's `case_clause`. 300k elements, unpinned,
+  vs the real call: filtermap 3.1x, takewhile 2.0x, partition/splitwith 1.6x, search/dropwhile ~10x
+  (all now ahead of OTP JIT) — `[plan20] OPT1.7 (part 2) ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

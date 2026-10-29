@@ -18,6 +18,12 @@ enum class Improper : std::uint8_t { function_clause, call };
 
 struct ListLoop;
 
+struct Visit {
+    // A cons cell's head, which its step reads, and the cell itself, which dropwhile/2 and splitwith/2 return.
+    llvm::Value *element;
+    llvm::Value *cell;
+};
+
 struct ListFunction {
     // The lists function, how it reads its input and what its improper tail raises.
     std::u32string_view name;
@@ -26,7 +32,7 @@ struct ListFunction {
     Improper improper;
     // One element's step, which continues at `next` or leaves for the loop's end, and the value once the input is
     // exhausted.
-    void (*step)(ExpressionLowering &state, const ListLoop &loop, llvm::Value *element, llvm::BasicBlock *next);
+    void (*step)(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next);
     llvm::Value *(*finish)(ExpressionLowering &state, const ListLoop &loop);
 };
 
@@ -40,11 +46,12 @@ struct ListLoop {
     // The fun argument's value; null for a fun written in the call, which is built only where it is needed.
     llvm::Value *fun = nullptr;
     // Frame slots: the input left, the fold accumulator, whether it is a map only the loop holds (OPT3.15), the
-    // reversed list built so far and the result.
+    // reversed list built so far, partition/2's reversed list of the other elements and the result.
     llvm::Value *rest = nullptr;
     llvm::Value *accumulator = nullptr;
     llvm::Value *owned = nullptr;
     llvm::Value *output = nullptr;
+    llvm::Value *others = nullptr;
     llvm::Value *result = nullptr;
     // Where the loop leaves with the result in its slot.
     llvm::BasicBlock *done = nullptr;
@@ -108,8 +115,9 @@ void leave(ExpressionLowering &state, const ListLoop &loop, llvm::Value *value) 
     state.builder.CreateBr(loop.done);
 }
 
-void push(ExpressionLowering &state, const ListLoop &loop, llvm::Value *value) {
-    store(state, lower_list(state, std::array{value, load(state, loop.output, "list.output")}), loop.output);
+// Prepend `value` to the reversed list in `slot`.
+void push(ExpressionLowering &state, llvm::Value *slot, llvm::Value *value) {
+    store(state, lower_list(state, std::array{value, load(state, slot, "list.output")}), slot);
 }
 
 // Continue at `next` when `value` is true, at `other` when it is false; anything else raises {case_clause, Value}
@@ -125,57 +133,150 @@ void boolean(ExpressionLowering &state, llvm::Value *value, std::array<llvm::Bas
     raise_reason(state, reason, value);
 }
 
-void map_step(ExpressionLowering &state, const ListLoop &loop, llvm::Value *element, llvm::BasicBlock *next) {
-    push(state, loop, apply(state, loop, std::array{element}));
+// The predicate applied to the element, branching as boolean/4 does; a value that is no boolean is a case_clause.
+void predicate(ExpressionLowering &state, const ListLoop &loop, const Visit &visit,
+               std::array<llvm::BasicBlock *, 2> targets) {
+    boolean(state, apply(state, loop, std::array{visit.element}), targets, abi::v1::ErrorReason::case_clause);
+}
+
+void map_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    push(state, loop.output, apply(state, loop, std::array{visit.element}));
     state.builder.CreateBr(next);
 }
 
-void filter_step(ExpressionLowering &state, const ListLoop &loop, llvm::Value *element, llvm::BasicBlock *next) {
+void filter_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
     auto *keep = block(state, "list.keep");
-    boolean(state, apply(state, loop, std::array{element}), {keep, next}, abi::v1::ErrorReason::bad_filter);
+    boolean(state, apply(state, loop, std::array{visit.element}), {keep, next}, abi::v1::ErrorReason::bad_filter);
     state.builder.SetInsertPoint(keep);
-    push(state, loop, element);
+    push(state, loop.output, visit.element);
     state.builder.CreateBr(next);
 }
 
-void foreach_step(ExpressionLowering &state, const ListLoop &loop, llvm::Value *element, llvm::BasicBlock *next) {
-    apply(state, loop, std::array{element});
+// filtermap/2 (and zf/2, its old name; more list loops) keeps the element for true and Value for {true, Value};
+// anything else but false raises {case_clause, Value}, as the case in lists does.
+void filtermap_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    auto *value = apply(state, loop, std::array{visit.element});
+    auto *keep = block(state, "list.keep");
+    auto *not_true = block(state, "list.not_true");
+    auto *not_false = block(state, "list.not_false");
+    auto *pair = block(state, "list.pair");
+    auto *replace = block(state, "list.replace");
+    auto *bad = block(state, "list.not_kept");
+    state.builder.CreateCondBr(is_atom(state, value, U"true"), keep, not_true);
+    state.builder.SetInsertPoint(not_true);
+    state.builder.CreateCondBr(is_atom(state, value, U"false"), next, not_false);
+    state.builder.SetInsertPoint(not_false);
+    inline_tuple_shape(state, value, 2, pair, bad);
+    state.builder.SetInsertPoint(pair);
+    auto *tag = inline_tuple_element(state, value, 0);
+    state.builder.CreateCondBr(is_atom(state, tag, U"true"), replace, bad);
+    state.builder.SetInsertPoint(replace);
+    auto *replaced = inline_tuple_element(state, value, 1);
+    mark_term(state, replaced);
+    push(state, loop.output, replaced);
+    state.builder.CreateBr(next);
+    state.builder.SetInsertPoint(keep);
+    push(state, loop.output, visit.element);
+    state.builder.CreateBr(next);
+    state.builder.SetInsertPoint(bad);
+    raise_reason(state, abi::v1::ErrorReason::case_clause, value);
+}
+
+// partition/2 prepends each element to the satisfying or the other list (more list loops).
+void partition_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    auto *keep = block(state, "list.keep");
+    auto *other = block(state, "list.other");
+    predicate(state, loop, visit, {keep, other});
+    state.builder.SetInsertPoint(keep);
+    push(state, loop.output, visit.element);
+    state.builder.CreateBr(next);
+    state.builder.SetInsertPoint(other);
+    push(state, loop.others, visit.element);
+    state.builder.CreateBr(next);
+}
+
+void foreach_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    apply(state, loop, std::array{visit.element});
     state.builder.CreateBr(next);
 }
 
 // all/2 leaves with false at the first false, any/2 with true at the first true.
-void all_step(ExpressionLowering &state, const ListLoop &loop, llvm::Value *element, llvm::BasicBlock *next) {
+void all_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
     auto *stop = block(state, "list.stop");
-    boolean(state, apply(state, loop, std::array{element}), {next, stop}, abi::v1::ErrorReason::case_clause);
+    predicate(state, loop, visit, {next, stop});
     state.builder.SetInsertPoint(stop);
     leave(state, loop, atom(state, U"false"));
 }
 
-void any_step(ExpressionLowering &state, const ListLoop &loop, llvm::Value *element, llvm::BasicBlock *next) {
+void any_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
     auto *stop = block(state, "list.stop");
-    boolean(state, apply(state, loop, std::array{element}), {stop, next}, abi::v1::ErrorReason::case_clause);
+    predicate(state, loop, visit, {stop, next});
     state.builder.SetInsertPoint(stop);
     leave(state, loop, atom(state, U"true"));
 }
 
+// search/2 leaves with {value, Element} at the first element the predicate holds for (more list loops).
+void search_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    auto *found = block(state, "list.found");
+    predicate(state, loop, visit, {found, next});
+    state.builder.SetInsertPoint(found);
+    leave(state, loop, lower_tuple(state, std::array{atom(state, U"value"), visit.element}));
+}
+
+llvm::Value *reversed_output(ExpressionLowering &state, const ListLoop &loop) {
+    return lower_reverse(state, load(state, loop.output, "list.output"));
+}
+
+// takewhile/2 and splitwith/2 keep the elements while the predicate holds; this leaves the builder where it first
+// fails (more list loops).
+void keep_while(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    auto *keep = block(state, "list.keep");
+    auto *stop = block(state, "list.stop");
+    predicate(state, loop, visit, {keep, stop});
+    state.builder.SetInsertPoint(keep);
+    push(state, loop.output, visit.element);
+    state.builder.CreateBr(next);
+    state.builder.SetInsertPoint(stop);
+}
+
+void takewhile_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    keep_while(state, loop, visit, next);
+    leave(state, loop, reversed_output(state, loop));
+}
+
+// splitwith/2 leaves with {Prefix, Cell} at the first element the predicate fails for.
+void splitwith_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    keep_while(state, loop, visit, next);
+    auto *prefix = reversed_output(state, loop);
+    leave(state, loop, lower_tuple(state, std::array{prefix, visit.cell}));
+}
+
+// dropwhile/2 leaves with the cell of the first element the predicate fails for (more list loops).
+void dropwhile_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    auto *stop = block(state, "list.stop");
+    predicate(state, loop, visit, {next, stop});
+    state.builder.SetInsertPoint(stop);
+    leave(state, loop, visit.cell);
+}
+
 // flatmap/2 prepends each list the fun returns reversed, as lists:flatmap_onto/3 does with lists:reverse/2.
-void flatmap_step(ExpressionLowering &state, const ListLoop &loop, llvm::Value *element, llvm::BasicBlock *next) {
-    auto *value = apply(state, loop, std::array{element});
+void flatmap_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    auto *value = apply(state, loop, std::array{visit.element});
     store(state, lower_named_call(state, loop.reverse, std::array{value, load(state, loop.output, "list.output")}),
           loop.output);
     state.builder.CreateBr(next);
 }
 
-void fold_step(ExpressionLowering &state, const ListLoop &loop, llvm::Value *element, llvm::BasicBlock *next) {
-    const std::array arguments{element, load(state, loop.accumulator, "list.accumulator")};
+void fold_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    const std::array arguments{visit.element, load(state, loop.accumulator, "list.accumulator")};
     store(state, apply_fold(state, *loop.lambda, arguments, loop.owned, [&] { return fun_value(state, loop); }),
           loop.accumulator);
     state.builder.CreateBr(next);
 }
 
 // mapfoldl/3 and mapfoldr/3 match {Mapped, Next} = Fun(Element, Acc); anything else raises {badmatch, Value}.
-void mapfold_step(ExpressionLowering &state, const ListLoop &loop, llvm::Value *element, llvm::BasicBlock *next) {
-    auto *value = apply(state, loop, std::array{element, load(state, loop.accumulator, "list.accumulator")});
+void mapfold_step(ExpressionLowering &state, const ListLoop &loop, const Visit &visit, llvm::BasicBlock *next) {
+    auto *value = apply(state, loop, std::array{visit.element, load(state, loop.accumulator, "list.accumulator")});
     auto *pair = block(state, "list.pair");
     auto *bad = block(state, "list.badmatch");
     inline_tuple_shape(state, value, 2, pair, bad);
@@ -186,13 +287,9 @@ void mapfold_step(ExpressionLowering &state, const ListLoop &loop, llvm::Value *
     auto *accumulated = inline_tuple_element(state, value, 1);
     mark_term(state, mapped);
     mark_term(state, accumulated);
-    push(state, loop, mapped);
+    push(state, loop.output, mapped);
     store(state, accumulated, loop.accumulator);
     state.builder.CreateBr(next);
-}
-
-llvm::Value *reversed_output(ExpressionLowering &state, const ListLoop &loop) {
-    return lower_reverse(state, load(state, loop.output, "list.output"));
 }
 
 llvm::Value *finish_ok(ExpressionLowering &state, const ListLoop & /*loop*/) { return atom(state, U"ok"); }
@@ -201,8 +298,24 @@ llvm::Value *finish_true(ExpressionLowering &state, const ListLoop & /*loop*/) {
 
 llvm::Value *finish_false(ExpressionLowering &state, const ListLoop & /*loop*/) { return atom(state, U"false"); }
 
+llvm::Value *finish_empty(ExpressionLowering &state, const ListLoop & /*loop*/) {
+    return llvm::ConstantInt::get(state.word, abi::v1::empty_list);
+}
+
 llvm::Value *finish_fold(ExpressionLowering &state, const ListLoop &loop) {
     return load(state, loop.accumulator, "list.accumulator");
+}
+
+// partition/2 returns {Satisfying, Others}, splitwith/2 the whole input as its prefix with an empty rest.
+llvm::Value *finish_partition(ExpressionLowering &state, const ListLoop &loop) {
+    auto *satisfying = reversed_output(state, loop);
+    auto *others = lower_reverse(state, load(state, loop.others, "list.others"));
+    return lower_tuple(state, std::array{satisfying, others});
+}
+
+llvm::Value *finish_splitwith(ExpressionLowering &state, const ListLoop &loop) {
+    auto *prefix = reversed_output(state, loop);
+    return lower_tuple(state, std::array{prefix, finish_empty(state, loop)});
 }
 
 // mapfoldl/3 built its list reversed; mapfoldr/3 walked the input reversed, so its list is in order.
@@ -219,9 +332,16 @@ llvm::Value *finish_mapfoldr(ExpressionLowering &state, const ListLoop &loop) {
 constexpr std::array LIST_FUNCTIONS{
     ListFunction{U"map", 2, Input::checked, Improper::function_clause, map_step, reversed_output},
     ListFunction{U"filter", 2, Input::plain, Improper::call, filter_step, reversed_output},
+    ListFunction{U"filtermap", 2, Input::plain, Improper::function_clause, filtermap_step, reversed_output},
+    ListFunction{U"zf", 2, Input::plain, Improper::function_clause, filtermap_step, reversed_output},
+    ListFunction{U"partition", 2, Input::plain, Improper::function_clause, partition_step, finish_partition},
     ListFunction{U"foreach", 2, Input::plain, Improper::call, foreach_step, finish_ok},
     ListFunction{U"all", 2, Input::checked, Improper::function_clause, all_step, finish_true},
     ListFunction{U"any", 2, Input::checked, Improper::function_clause, any_step, finish_false},
+    ListFunction{U"search", 2, Input::plain, Improper::function_clause, search_step, finish_false},
+    ListFunction{U"takewhile", 2, Input::plain, Improper::function_clause, takewhile_step, reversed_output},
+    ListFunction{U"dropwhile", 2, Input::plain, Improper::function_clause, dropwhile_step, finish_empty},
+    ListFunction{U"splitwith", 2, Input::plain, Improper::function_clause, splitwith_step, finish_splitwith},
     ListFunction{U"flatmap", 2, Input::plain, Improper::function_clause, flatmap_step, reversed_output},
     ListFunction{U"foldl", 3, Input::checked, Improper::function_clause, fold_step, finish_fold},
     ListFunction{U"foldr", 3, Input::reversed, Improper::call, fold_step, finish_fold},
@@ -292,6 +412,10 @@ ListLoop begin(ExpressionLowering &state, const ListCall &found, const ast::Call
     }
     loop.output = root_slot(state);
     store(state, llvm::ConstantInt::get(state.word, abi::v1::empty_list), loop.output);
+    if (found.function->step == partition_step) {
+        loop.others = root_slot(state);
+        store(state, llvm::ConstantInt::get(state.word, abi::v1::empty_list), loop.others);
+    }
     loop.result = root_slot(state);
     loop.done = block(state, "list.done");
     return loop;
@@ -370,7 +494,7 @@ void improper_tail(ExpressionLowering &state, const ListLoop &loop, llvm::Value 
 void run(ExpressionLowering &state, const ListLoop &loop) {
     auto *head = block(state, "list.next");
     const auto iteration = iterate(state, loop, head);
-    loop.function->step(state, loop, iteration.element, head);
+    loop.function->step(state, loop, Visit{.element = iteration.element, .cell = iteration.input}, head);
     state.builder.SetInsertPoint(iteration.end);
     if (loop.function->input != Input::reversed) {
         auto *proper = block(state, "list.exhausted");

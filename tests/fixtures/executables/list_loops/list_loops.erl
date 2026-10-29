@@ -1,6 +1,7 @@
 -module(list_loops).
 -export([main/1, id/1]).
 -compile(nowarn_shadow_vars).
+-compile({nowarn_deprecated_function, [{lists, zf, 2}]}).
 
 %% At O2, lists:map/2 and its kin called with a fun written in the call (or a variable bound once to one) become
 %% loops with the fun's clauses inlined, and calls of such a variable inline its clauses (list loops, inline funs).
@@ -22,6 +23,8 @@ main(_) ->
     maps(L, K),
     filters(L, K),
     predicates(L),
+    selections(L),
+    prefixes(L),
     folds(L),
     bound(L, K),
     nesting(L),
@@ -127,6 +130,67 @@ folds(L) ->
     show("mapfoldl improper", fun() -> lists:mapfoldl(fun(X, A) -> {X, A} end, 0, id([1 | q])) end),
     show("mapfoldr", fun() -> lists:mapfoldr(fun(X, A) -> {X * 2, [X | A]} end, [], L) end),
     show("mapfoldr improper", fun() -> lists:mapfoldr(fun(X, A) -> {X, A} end, 0, id([1 | q])) end).
+
+%% filtermap/2 (and zf/2, its old name), partition/2 and search/2: what the fun returns picks the elements.
+selections(L) ->
+    show("filtermap", fun() ->
+        lists:filtermap(
+            fun
+                (X) when X rem 2 =:= 0 -> {true, X * 10};
+                (X) -> X > 2
+            end,
+            L
+        )
+    end),
+    show("filtermap non-boolean", fun() -> lists:filtermap(fun(X) -> X end, L) end),
+    show("filtermap bad pair", fun() -> lists:filtermap(fun(X) -> {false, X} end, L) end),
+    show("filtermap triple", fun() -> lists:filtermap(fun(X) -> {true, X, X} end, L) end),
+    show("filtermap improper", fun() -> lists:filtermap(fun(_) -> true end, id([1 | w])) end),
+    show("filtermap non-list", fun() -> lists:filtermap(fun(_) -> true end, id(w)) end),
+    show("zf", fun() -> lists:zf(fun(X) -> X > 2 orelse {true, -X} end, L) end),
+    show("zf improper", fun() -> lists:zf(fun(_) -> false end, id([1 | z])) end),
+    show("partition", fun() -> lists:partition(fun(X) -> X > 2 end, L) end),
+    show("partition empty", fun() -> lists:partition(fun(X) -> X > 2 end, id([])) end),
+    show("partition non-boolean", fun() -> lists:partition(fun(_) -> unsure end, L) end),
+    show("partition improper", fun() -> lists:partition(fun(_) -> true end, id([1 | p])) end),
+    P = fun(X) -> X rem 2 =:= 1 end,
+    show("partition bound", fun() -> lists:partition(P, L) end),
+    show("search", fun() -> lists:search(fun(X) -> X > 2 end, L) end),
+    show("search none", fun() -> lists:search(fun(X) -> X > 20 end, L) end),
+    show("search empty", fun() -> lists:search(fun(X) -> X end, id([])) end),
+    show("search non-boolean", fun() -> lists:search(fun(X) -> X end, L) end),
+    show("search improper", fun() -> lists:search(fun(_) -> false end, id([1 | s])) end),
+    show("search stops", fun() -> lists:search(fun(X) -> X > 1 end, id([1, 2 | s])) end).
+
+%% takewhile/2, dropwhile/2 and splitwith/2 stop at the first element the predicate fails for.
+prefixes(L) ->
+    show("takewhile", fun() -> lists:takewhile(fun(X) -> X < 3 end, L) end),
+    show("takewhile all", fun() -> lists:takewhile(fun(X) -> X < 10 end, L) end),
+    show("takewhile stops", fun() ->
+        lists:takewhile(
+            fun(X) ->
+                put(t, X),
+                X < 2
+            end,
+            L
+        ),
+        get(t)
+    end),
+    show("takewhile before tail", fun() -> lists:takewhile(fun(X) -> X < 2 end, id([1, 2 | t])) end),
+    show("takewhile improper", fun() -> lists:takewhile(fun(_) -> true end, id([1 | t])) end),
+    show("takewhile non-boolean", fun() -> lists:takewhile(fun(_) -> 0 end, L) end),
+    show("dropwhile", fun() -> lists:dropwhile(fun(X) -> X < 3 end, L) end),
+    show("dropwhile all", fun() -> lists:dropwhile(fun(X) -> X < 10 end, L) end),
+    show("dropwhile rest", fun() -> lists:dropwhile(fun(X) -> X < 2 end, id([1, 2 | d])) end),
+    show("dropwhile non-boolean", fun() -> lists:dropwhile(fun(X) -> X end, L) end),
+    show("dropwhile improper", fun() -> lists:dropwhile(fun(_) -> true end, id([1 | d])) end),
+    show("dropwhile non-list", fun() -> lists:dropwhile(fun(_) -> true end, id(d)) end),
+    show("splitwith", fun() -> lists:splitwith(fun(X) -> X < 3 end, L) end),
+    show("splitwith all", fun() -> lists:splitwith(fun(X) -> X < 10 end, L) end),
+    show("splitwith none", fun() -> lists:splitwith(fun(X) -> X > 10 end, L) end),
+    show("splitwith rest", fun() -> lists:splitwith(fun(X) -> X < 2 end, id([1, 2 | r])) end),
+    show("splitwith improper", fun() -> lists:splitwith(fun(_) -> true end, id([1 | r])) end),
+    show("splitwith non-boolean", fun() -> lists:splitwith(fun(_) -> [] end, L) end).
 
 %% Variables bound once to a fun: their calls and lists calls inline it; anything else still sees the fun.
 bound(L, K) ->
@@ -236,7 +300,21 @@ collections() ->
     show("mapfold", fun() ->
         {Doubled, Sum} = lists:mapfoldl(fun(X, A) -> {[X], X + A} end, 0, Seq),
         {length(Doubled), Sum}
-    end).
+    end),
+    show("filtermapped", fun() ->
+        Kept = lists:filtermap(fun(X) -> X rem 3 =:= 0 andalso {true, {X, [X]}} end, Seq),
+        {length(Kept), lists:last(Kept)}
+    end),
+    show("partitioned", fun() ->
+        {Small, Big} = lists:partition(fun({X, _}) -> X < 15000 end, [{X, [X]} || X <- Seq]),
+        {length(Small), hd(Big)}
+    end),
+    show("split", fun() ->
+        {Prefix, Rest} = lists:splitwith(fun({X, _}) -> X < 12345 end, [{X, [X]} || X <- Seq]),
+        {length(Prefix), hd(Rest), length(lists:takewhile(fun({X, _}) -> X < 777 end, Prefix))}
+    end),
+    show("dropped", fun() -> hd(lists:dropwhile(fun(X) -> X < 19999 end, Seq)) end),
+    show("searched", fun() -> lists:search(fun(X) -> X * X > 300000000 end, Seq) end).
 
 %% A fun that receives inside a loop: the loop suspends and resumes with its state intact.
 receiving() ->

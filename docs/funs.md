@@ -118,15 +118,19 @@ of the call, much as OTP's `inline_list_funcs` option does:
   own code as before. A fun written in the call is built only on that path and
   the paths below that need its value (closure sinking); a variable's fun is
   built where it is bound, as before.
-- **List loops.** `lists:map/2`, `filter/2`, `foreach/2`, `all/2`, `any/2`,
-  `flatmap/2`, `foldl/3`, `foldr/3`, `mapfoldl/3` and `mapfoldr/3` of Clause's
-  own `lists` module with a known fun of the right arity become a loop over the
-  list in the calling function. Each element's fun call is inlined; lists are
-  built reversed and reversed once at the end; `foldr/3` and `mapfoldr/3`
-  reverse their input first, so their fun still sees the elements from the last,
-  after an improper tail failed. Like the body recursion they replace, list
-  loops collect only where they yield (every 4,000 elements without other calls)
-  and in the calls their fun makes.
+- **List loops.** `lists:map/2`, `filter/2`, `filtermap/2` (and `zf/2`, its old
+  undocumented name), `partition/2`, `foreach/2`, `all/2`, `any/2`, `search/2`,
+  `takewhile/2`, `dropwhile/2`, `splitwith/2`, `flatmap/2`, `foldl/3`,
+  `foldr/3`, `mapfoldl/3` and `mapfoldr/3` of Clause's own `lists` module with a
+  known fun of the right arity become a loop over the list in the calling
+  function. `all/2`, `any/2`, `search/2`, `takewhile/2`, `dropwhile/2` and
+  `splitwith/2` leave at the first element that decides the result, so an
+  improper tail after it is never read. Each element's fun call is inlined;
+  lists are built reversed and reversed once at the end; `foldr/3` and
+  `mapfoldr/3` reverse their input first, so their fun still sees the elements
+  from the last, after an improper tail failed. Like the body recursion they
+  replace, list loops collect only where they yield (every 4,000 elements
+  without other calls) and in the calls their fun makes.
 - **Map fold loops.** `maps:fold/3` of Clause's own `maps` module with a known
   fun of arity 3 becomes a loop over the map's entries (the classic map cell, or
   a tree's entries copied once into a tuple-shaped cell, as `maps:fold/3` reads
@@ -143,10 +147,11 @@ of the call, much as OTP's `inline_list_funcs` option does:
   reasons are those of `lists`: a non-list input of `map/2`, `foldl/3`, `all/2`,
   `any/2` and the improper tails of `filter/2`, `foreach/2`, `foldr/3`,
   `mapfoldl/3`, `mapfoldr/3` make the real `lists` call, which raises its own
-  error; an improper tail of `map/2`, `foldl/3`, `all/2`, `any/2`, `flatmap/2`
-  raises `function_clause` in the caller. A non-boolean predicate raises
-  `{case_clause, V}` (`all/2`, `any/2`) or `{bad_filter, V}` (`filter/2`), a
-  `mapfold` fun's non-pair result `{badmatch, V}`.
+  error (as do their non-list inputs); any other improper tail or non-list
+  input raises `function_clause` in the caller. A non-boolean predicate raises
+  `{case_clause, V}` (`filter/2` raises `{bad_filter, V}`), as does a
+  `filtermap/2` result that is neither a boolean nor `{true, Value}`; a
+  `mapfold` fun's non-pair result raises `{badmatch, V}`.
 - **Stack traces** of exceptions inside inlined funs lack the fun's and the
   `lists` or `maps` helper's frames
   ([differences](differences.md#errors-stack-traces-and-reports)).
