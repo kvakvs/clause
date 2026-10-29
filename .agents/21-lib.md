@@ -162,9 +162,8 @@ written from the documented records and macros.
 - `ets`: `select_delete/2` and `select_replace/2` over a whole table in portions (they run in one
   piece, each part under its lock).
 - Speed: `zip` and `erl_tar` header parsing, stored copies and checksums as C++; `file_sorter` chunk
-  decoding and run sorts of the default formats and orders in C++; `ms_transform` in C++ so `qlc_pt`
-  needs no replayed requests (each `try_ms` answer reruns the whole transform today); `qlc`'s merge
-  joins and caches over C++ helpers.
+  decoding and run sorts of the default formats and orders in C++; `qlc`'s merge joins and caches
+  over C++ helpers.
 - Sockets: `{active, N}`, `{packet, line | http | ...}` and `{raw, ...}` options; inet_drv's own
   options (`send_timeout`, `header`, `deliver`, `exit_on_close`, ...); `socket`'s `local` domain,
   `ioctl`, native options and descriptor adoption as OTP on Linux and macOS; SCTP (`gen_sctp`,

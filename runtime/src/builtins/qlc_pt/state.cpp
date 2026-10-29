@@ -14,8 +14,8 @@ std::int64_t qid_no(const Term &qid) { return string::small_of(element(qid, 2)).
 
 Term qid_lcid(const Term &qid) { return element(qid, 1); }
 
-Transformer::Transformer(ProcessContext &context, Replay &replay, const Term &behaviours)
-    : build_(context), replay_(replay), file_(build_.atom("undefined"_atom)) {
+Transformer::Transformer(ProcessContext &context, const Term &behaviours)
+    : build_(context), file_(build_.atom("undefined"_atom)) {
     for (const auto &entry : elements(behaviours)) {
         behaviours_.insert_or_assign(
             element(entry, 0),

@@ -1,53 +1,24 @@
 %% Clause's qlc_pt (plan 21 step LIB73, docs/libraries/library.md): the qlc parse transform at run time, for
 %% qlc:string_to_handle/1,2,3 and erl_eval's qlc:q/1,2. clause_qlc_pt's builtins run OTP's transform in C++
-%% (runtime/src/builtins/qlc_pt/) and ask for the match specification attempts they have no answer for, which run
-%% ms_transform here; the builtin then replays its walk with the answers. Without a compiler at run time, messages
-%% come from erl_lint, as OTP's qlc_pt falls back to when the compiler is not available.
+%% (runtime/src/builtins/qlc_pt/), match specification attempts through the C++ ms_transform. Without a compiler at
+%% run time, messages come from erl_lint, as OTP's qlc_pt falls back to when the compiler is not available.
 -module(qlc_pt).
 -export([parse_transform/2, transform_from_evaluator/2, transform_expression/2]).
 
 parse_transform(Forms, Options) ->
-    answered(fun(Answers) -> clause_qlc_pt:parse_transform(Forms, Options, behaviours(Forms), Answers) end, []).
+    finished(clause_qlc_pt:parse_transform(Forms, Options, behaviours(Forms))).
 
 transform_from_evaluator(LC, Bindings) ->
-    answered(fun(Answers) -> clause_qlc_pt:transform_expression(LC, Bindings, false, Answers) end, []).
+    finished(clause_qlc_pt:transform_expression(LC, Bindings, false)).
 
 transform_expression(LC, Bindings) ->
-    answered(fun(Answers) -> clause_qlc_pt:transform_expression(LC, Bindings, true, Answers) end, []).
+    finished(clause_qlc_pt:transform_expression(LC, Bindings, true)).
 
-%% Run the transform until it has every match specification it asks for ({Query, Answer} pairs). OTP's transform
-%% raises the backtrace depth and leaves its file key erased from the process dictionary.
-answered(Transform, Answers) ->
-    case Transform(Answers) of
-        {try_ms, Requests} ->
-            answered(Transform, [{Query, try_ms(Forms)} || {Query, Forms} <- Requests] ++ Answers);
-        {done, Result, Transformed} ->
-            _ = Transformed andalso erlang:system_flag(backtrace_depth, 500),
-            _ = erase(qlc_current_file),
-            Result
-    end.
-
-%% try_ms/4 after the forms are built: {ok, MS, AbstractMS} when ets:fun2ms/1 makes a match specification of the
-%% fun, else no.
-try_ms(Forms) ->
-    X = ms_transform:parse_transform(Forms, []),
-    case
-        catch begin
-            {function, 1, foo, 0, [{clause, 1, [], [], [MS0]}]} = lists:last(X),
-            MS = erl_parse:normalise(var2const(MS0)),
-            XMS = ets:match_spec_compile(MS),
-            true = ets:is_compiled_ms(XMS),
-            {ok, MS, MS0}
-        end
-    of
-        {'EXIT', _Reason} -> no;
-        Reply -> Reply
-    end.
-
-var2const({var, A, V}) -> {atom, A, V};
-var2const(T) when is_tuple(T) -> list_to_tuple(var2const(tuple_to_list(T)));
-var2const([E | Es]) -> [var2const(E) | var2const(Es)];
-var2const(E) -> E.
+%% A transform that ran sets the backtrace depth as OTP's transform/2 does; the current file is forgotten.
+finished({Result, Transformed}) ->
+    _ = Transformed andalso erlang:system_flag(backtrace_depth, 500),
+    _ = erase(qlc_current_file),
+    Result.
 
 %% erl_lint.erl's behaviours/1: each behaviour's callback lists for the lint runs over the module.
 behaviours(Forms) ->

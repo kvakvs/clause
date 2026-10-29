@@ -405,7 +405,7 @@ transform at run time, for `qlc:string_to_handle/1,2,3` and `qlc:q/1,2` in
 evaluated code, and at compile time for modules including `qlc.hrl`, in Clause's
 [transform host](transforms.md#transform-host).
 
-- `clause_qlc_pt:transform_expression/4` and `parse_transform/4` follow
+- `clause_qlc_pt:transform_expression/3` and `parse_transform/3` follow
   `qlc_pt.erl` function for function: NodeInfo (unique annotations and what the
   checks note on each node, kept by slot number from 1 as OTP's), `no_shadows`,
   the lint runs that find introduced and generator variables, frames of
@@ -418,15 +418,32 @@ evaluated code, and at compile time for modules including `qlc.hrl`, in Clause's
   takes when the compiler is not available; a lint crash on the forms it builds
   is the compiler's internal error, as OTP's compiler reports it. Records are
   expanded by the C++ `erl_expand_records`, guard tests by `is_guard_test/3`.
-- Match specifications run `ms_transform` in Erlang: an attempt without an
-  answer is taken as failed and recorded, the walk goes on, and the builtin
-  returns `{try_ms, [{Query, Forms}]}` for all of them; `qlc_pt.erl` answers
-  each with `try_ms/4`'s result and calls the builtin again with the
-  `{Query, Answer}` pairs, replaying its walk. Answers are found by query, so a
-  module reruns about once per depth of attempts that depend on earlier
-  answers (3 runs for `qlc_queries`' 157 attempts), not once per attempt. The
-  result is `{done, Result, Transformed}` (a transformed module raises the
-  backtrace depth to 500, as OTP's transform does).
+- Match specifications: each attempt runs the C++ `ms_transform` (see
+  [ms_transform](#ms-transform)) over the module's records and a `foo/0`
+  calling `ets:fun2ms/1`, then `erl_parse:normalise/1` and the match
+  specification compiler, as OTP's `try_ms/4` does; any failure is `no`. The
+  walk runs once. The result is `{Result, Transformed}` (a transformed module
+  raises the backtrace depth to 500, as OTP's transform does).
+
+## Ms transform
+
+`builtins/front_end/ms_transform.hpp`, `ms_head.cpp`, `ms_guards.cpp`,
+`ms_transform.cpp`, `library/stdlib/ms_transform.erl`,
+`library/stdlib/clause_ms_transform.erl`: the translation of literal funs given
+to `ets:fun2ms/1` and `dbg:fun2ms/1` into abstract match specifications, in
+C++ so `qlc_pt` calls it in place.
+
+- `clause_ms_transform:transform_forms/1` walks a module's forms as OTP's
+  `ms_transform` does (bound variables through matches, funs and `case`
+  clauses, file and record attributes in order) and answers
+  `{ok, Forms, File, Warnings, Used}` or `{error, File, Anno, Reason}` for the
+  first fun that does not translate; `clause_list/2` translates a shell fun's
+  clauses. `ms_transform.erl` shapes `parse_transform/2`'s and
+  `transform_from_shell/3`'s results, formats errors and turns a shell
+  specification into a term (imported variables, constant binaries).
+- Operators over constants are folded through the registered `erlang`
+  builtins, as OTP's `apply(erlang, Op, Args)`; error codes, shadowing
+  warnings and the records used as tuples match OTP.
 
 ## Qlc
 

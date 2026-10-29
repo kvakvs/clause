@@ -389,6 +389,11 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   body context `nonnull dereferenceable`. Pinned (OTP): 8-atom dispatch 55 to 37 ms (106), record
   tag tests 54 to 47 (104), `{atom, N}` clauses 65 to 59 (124); 69A 0.99x (list_of_tuples -16% is
   layout: padding flips it), luerl euler 1.007x, programs -0.02% — `[plan20] OPT1.10 ...`
+- **OPT3.24** libraries.qlc: ms_transform's translation in C++ (`builtins/front_end/ms_*`,
+  `clause_ms_transform`), which qlc_pt's try_ms calls in place with normalise and the match
+  specification compiler, so a transform walks once (was 121 walks for 57 transforms, each answer
+  through Erlang); `ms_transform.erl` keeps format_error, result shapes and the shell's normalise.
+  Pinned: libraries.qlc 4.17 s to 1.61 s (OTP 1.95 s) — `[plan20] OPT3.24 ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

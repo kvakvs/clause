@@ -472,10 +472,6 @@ namespace {
 // gen_ms/4: the abstract match specification, no_match_spec for the trivial one; badmatch when it is none.
 Term gen_ms(Transformer &t, const Term &expr, const Term &pattern, const TermList &filters) {
     const auto reply = t.try_ms({.expr = expr, .pattern = pattern, .filter = t.filters_as_one(filters)});
-    // An attempt still unanswered: this walk is redone, so it goes on and asks what else it needs (LIB77A).
-    if (!is_node(reply, "ok", 3) && !t.replay().requests().empty()) {
-        return t.atom_node(t.anno0(), t.atom("no_match_spec"_atom));
-    }
     if (!is_node(reply, "ok", 3)) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::badmatch, .payload = reply.word()};
     }

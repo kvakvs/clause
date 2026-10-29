@@ -1,4 +1,6 @@
+#include "../../match_spec/program.hpp"
 #include "../front_end/abstract.hpp"
+#include "../front_end/ms_transform.hpp"
 #include "qlc_pt.hpp"
 #include <algorithm>
 
@@ -533,6 +535,33 @@ Term Transformer::parse_transform(const Term &forms0, const Term &options) {
     return list(out);
 }
 
+namespace {
+// var2const/1: every {var, A, V} as {atom, A, V}.
+Term var_to_const(const Builder &build, const Term &term) {
+    return rebuilt(build, term, [&](const Term &node) -> std::optional<Term> {
+        if (!is_node(node, "var", 3)) {
+            return std::nullopt;
+        }
+        return build.node("atom"_atom, element(node, 1), element(node, 2));
+    });
+}
+
+// The MS0 of a translated {function, 1, foo, 0, [{clause, 1, [], [], [MS0]}]}.
+std::optional<Term> translated_spec(const Term &function) {
+    if (!is_node(function, "function", 5)) {
+        return std::nullopt;
+    }
+    const auto clauses = elements(element(function, 4));
+    if (clauses.size() != 1 || !is_node(clauses.front(), "clause", 5)) {
+        return std::nullopt;
+    }
+    const auto body = elements(element(clauses.front(), 4));
+    return body.size() == 1 ? std::optional{body.front()} : std::nullopt;
+}
+} // namespace
+
+// What qlc_pt.erl's try_ms/1 computed with ms_transform:parse_transform/2 over the records and foo/0, the match
+// specification normalised and compiled; any failure is no, as its catch made it (C++ ms_transform).
 Term Transformer::try_ms(const MsQuery &query) {
     const auto anno = anno1();
     const auto guard = list(std::array{list(std::array{query.filter})});
@@ -545,13 +574,28 @@ Term Transformer::try_ms(const MsQuery &query) {
         list(std::array{fun}));
     const auto body = build_.node("clause"_atom, anno, nil(), nil(), list(std::array{call}));
     const auto function = build_.node("function"_atom, anno, atom("foo"_atom), integer(0), list(std::array{body}));
-    if (auto known = replay_.answer(function)) {
-        return *known;
-    }
     auto forms = records_;
     forms.push_back(function);
-    replay_.ask(function, pair(function, list(forms)));
-    return atom("no"_atom);
+    auto &context = build_.context();
+    try {
+        const auto run = front_end::ms::transform_forms(context, list(forms));
+        // An error, or a shadowing warning ({warning, ...}), leaves no function for lists:last/1 to match.
+        const auto spec = run.error || !run.warnings.empty() ? std::nullopt : translated_spec(run.forms.back());
+        if (!spec) {
+            return atom("no"_atom);
+        }
+        const auto normalised = front_end::abstract::normalise(context, var_to_const(build_, *spec));
+        const auto compiled =
+            detail::match_spec::compile(context, normalised, detail::match_spec::Dialect::table, false);
+        if (!compiled.program) {
+            return atom("no"_atom);
+        }
+        return tuple({atom("ok"_atom), normalised, *spec});
+    } catch (const front_end::ms::MsError &) {
+        return atom("no"_atom);
+    } catch (const BuiltinFailure &) {
+        return atom("no"_atom);
+    }
 }
 
 namespace {
@@ -559,56 +603,42 @@ namespace {
 struct FormsRole;
 struct OptionsRole;
 struct BehavioursRole;
-struct AnswersRole;
 struct LcRole;
 struct BindingsRole;
 struct FlagRole;
 using FormsArg = Named<FormsRole>;
 using OptionsArg = Named<OptionsRole>;
 using BehavioursArg = Named<BehavioursRole>;
-using AnswersArg = Named<AnswersRole>;
 using LcArg = Named<LcRole>;
 using BindingsArg = Named<BindingsRole>;
 using FlagArg = Named<FlagRole>;
 
-// A transform run: {done, Result, Transformed}, or {try_ms, Requests} when it made attempts without an answer (a
-// failure then may come from attempts taken as failed, and the run is redone with their answers).
-template <typename Body>
-Term answered(ProcessContext &context, const AnswersArg &answers, const Term &behaviours, Body &&body) {
-    Replay replay(answers.term);
-    string::Terms terms(context);
-    try {
-        Transformer transformer(context, replay, behaviours);
-        const auto result = body(transformer);
-        if (replay.requests().empty()) {
-            return terms.tuple(std::array{terms.atom("done"_atom), result, terms.boolean(transformer.transformed())});
-        }
-    } catch (...) {
-        if (replay.requests().empty()) {
-            throw;
-        }
-    }
-    return terms.tuple(std::array{terms.atom("try_ms"_atom), terms.list(replay.requests())});
+// A transform run: {Result, Transformed}.
+template <typename Body> Term finished(ProcessContext &context, const Term &behaviours, Body &&body) {
+    const string::Terms terms(context);
+    Transformer transformer(context, behaviours);
+    const auto result = body(transformer);
+    return terms.tuple(std::array{result, terms.boolean(transformer.transformed())});
 }
 
-// clause_qlc_pt:parse_transform(Forms, Options, Behaviours, Answers).
-Term parse_transform4(ProcessContext &context, const FormsArg &forms, const OptionsArg &options,
-                      const BehavioursArg &behaviours, const AnswersArg &answers) {
-    return answered(context, answers, behaviours.term,
+// clause_qlc_pt:parse_transform(Forms, Options, Behaviours).
+Term parse_transform3(ProcessContext &context, const FormsArg &forms, const OptionsArg &options,
+                      const BehavioursArg &behaviours) {
+    return finished(context, behaviours.term,
                     [&](Transformer &transformer) { return transformer.parse_transform(forms.term, options.term); });
 }
 
-// clause_qlc_pt:transform_expression(LC, Bindings, LintErrors, Answers).
-Term transform_expression4(ProcessContext &context, const LcArg &lc, const BindingsArg &bindings,
-                           const FlagArg &lint_errors, const AnswersArg &answers) {
-    return answered(context, answers, string::Terms(context).nil(), [&](Transformer &transformer) {
+// clause_qlc_pt:transform_expression(LC, Bindings, LintErrors).
+Term transform_expression3(ProcessContext &context, const LcArg &lc, const BindingsArg &bindings,
+                           const FlagArg &lint_errors) {
+    return finished(context, string::Terms(context).nil(), [&](Transformer &transformer) {
         return transformer.transform_expression(lc.term, is_atom(lint_errors.term, "true"), bindings.term);
     });
 }
 
 constexpr std::array QLC_PT_BUILTINS{
-    typed_entry<parse_transform4>("clause_qlc_pt", "parse_transform"),
-    typed_entry<transform_expression4>("clause_qlc_pt", "transform_expression"),
+    typed_entry<parse_transform3>("clause_qlc_pt", "parse_transform"),
+    typed_entry<transform_expression3>("clause_qlc_pt", "transform_expression"),
 };
 } // namespace
 } // namespace clause::runtime::builtins::qlc_pt

@@ -134,6 +134,8 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/builtins/front_end/erl_parse.cpp src/builtins/front_end/bit_types.cpp
     # Module erl_eval (plan 21 step LIB32).
     src/builtins/front_end/erl_eval.cpp
+    # ms_transform in C++ (C++ ms_transform).
+    src/builtins/front_end/ms_head.cpp src/builtins/front_end/ms_guards.cpp src/builtins/front_end/ms_transform.cpp
     # C++ cores of the front-end modules (plan 21 step LIB34C).
     src/builtins/front_end/expand_records.cpp src/builtins/front_end/guard_tests.cpp
     src/builtins/front_end/lint_state.cpp src/builtins/front_end/lint_vars.cpp src/builtins/front_end/lint_forms.cpp
