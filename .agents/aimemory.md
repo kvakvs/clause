@@ -702,6 +702,12 @@ recorded elsewhere.
   the callee: own function/reads/bindings, shared builder/roots/handler/exits). Tests that patch
   function bodies after lowering (codegen_failure's fault seams) must call them remotely
   (?MODULE:f()). lldb + PDB cannot break by .hrl line inside inlined code (no own function left).
+- OPT1.9 remainder/OPT1.13 (2026-10-29): LLVM 23 BasicBlock::getTerminator() asserts on an open block
+  (use hasTerminator()/getTerminatorOrNull()); the Release clau read garbage and crashed only on luerl
+  (fixtures passed): build luerl euler with both clau after lowering changes. Lowering records its joins
+  (ExpressionLowering::joins) because PHI operands trip the ArrayBound false positive; join answers with
+  SSAUpdater. Leaf budget 64 grew luerl 1.3% for nothing measurable, 32 lost a 40-expression leaf: 48.
+  User saw a "Windows cannot find '\'" dialog from an inline `cmd //c "start \"\" ..."`: never inline start.
 - CPU budget in practice (user 2026-10-29: a plain belownormal -j 12 run loaded the PC to 100%):
   launch every build/tidy/CTest run with `start "" /belownormal /affinity FFFFFF /b /wait cmd /c
   X.cmd` (logical 0-23: P-cores + 8 E-cores; children inherit it), leaving E-cores 24-31 free.

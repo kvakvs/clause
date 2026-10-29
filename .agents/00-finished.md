@@ -375,6 +375,14 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   calling a leaf: `total/diff` 81 to 23 ms (OTP 40), `clamp` 78 to 23 (OTP 44), `{Q, R} = divmod`
   107 to 47 (OTP 130), `{ok, V}` case 91 to 40 (OTP 95); 69A 1.00x, luerl euler ~1.5% faster,
   programs +0.2% — `[plan20] OPT1.9 ...`
+- **OPT1.9 remainder + OPT1.13** nested leaves (depth 3, no recursion), a 48-expression growth budget
+  per generated function (leaves <= 12 free), `?MODULE:f()` sites; construct/deconstruct fusion: matches
+  of tuples and first cons cells built here, or joined from leaf/fun/case clauses with immediates, read
+  the built words; unread cells dropped (drop_unused_cells), error payloads rebuilt on their own path.
+  No-clause fallbacks of inlined leaves and funs never return. Pinned (OTP): divmod 53 to 33 ms (291),
+  `{ok, V}` case 35 to 25 (139), nested leaves 79 to 27 (127), a 40-expression leaf 156 to 109 (138),
+  `?MODULE:twice` 80 to 24 (105), mapfoldl 179 to 142 (294); 69A 0.99x, luerl euler 1.00x, programs
+  +0.04% (69A) / +0.76% (luerl) — `[plan20] OPT1.9 remainder, OPT1.13 ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

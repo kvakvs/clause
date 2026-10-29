@@ -5,7 +5,7 @@ work for BeamAsm, restated for Clause's ahead-of-time LLVM code generation. The 
 input only; no OTP source is copied.
 
 Completed steps (all of tier OPT0 plus OPT1.1, OPT1.2, OPT1.3 parts 1-2, OPT1.4, OPT1.5, OPT1.6
-inline caches, OPT1.7 parts 1-3 (with `maps:fold`), OPT1.8 and its remainder, OPT1.9 leaves, OPT1.14
+inline caches, OPT1.7 parts 1-3 (with `maps:fold`), OPT1.8 and its remainder, OPT1.9 leaves (nested, budget, `?MODULE:f()`), OPT1.13, OPT1.14
 parts 1-2, OPT3.1-3.3, OPT3.6, OPT3.7, OPT3.9 and its remainder, OPT3.10-3.12, OPT3.10B, OPT3.13A-C,
 OPT3.14 service path, OPT3.15, OPT3.8, OPT3.16, OPT3.17, OPT3.4 and its remainder, OPT3.18, OPT3.19,
 sorted tables of OPTM.1, OPTM.2A-E, OPTM.3, OPTM.4, OPTM.5, OPTM.6): see
@@ -342,17 +342,11 @@ takewhile 24, zipwith 13, uniq 4, keymap 1. Open:
 - Generating the loops from the real `lists` source by cross-module inlining (OPT2.1) instead of
   hand-written loops.
 
-### OPT1.9 remainder: leaf inlining beyond call-free leaves
+### OPT1.9 remainder: leaves that raise
 
-Call-free leaves are done (see `00-finished.md`). T2's "never inline for call overhead alone" does not
-hold in Clause: a call pushes a heap frame and returns through it (~2.8 ns, OTP ~0.7), and a loop
-that calls a leaf is no leaf loop. Open:
-
-- Callees that call other leaves (depth up to 3), a growth budget per caller instead of the fixed
-  24-expression leaf size, and `?MODULE:f()` sites.
-- Leaves that raise (`error/1`, `throw/1`): inlining loses their stack-trace frame, so they stay calls.
-- The tuple a leaf returns and the caller matches at once is still built (`{Q, R} = divmod(X, 7)`
-  47 ms against 43 hand-inlined; `{ok, V}` 40 against 32): OPT1.13.
+Call-free leaves, nested leaves (depth 3), the per-function growth budget and `?MODULE:f()` sites are done
+(see `00-finished.md`). Open: leaves that raise (`error/1`, `throw/1`) stay calls, since inlining loses
+their stack-trace frame.
 
 ### OPT1.10 Cleanup suite across inlined boundaries
 
@@ -404,18 +398,15 @@ that calls a leaf is no leaf loop. Open:
   - The cost is observable: shallower stacktraces and `stack_size`. Record it in
     `docs/differences.md`.
 
-### OPT1.13 Construct/deconstruct fusion, then allocation sinking
+### OPT1.13 remainder: constructions the fusion cannot see
 
-- **What:** when a tuple or cons is built and destructured in the same region, do not build it. Sink
-  an allocation that is dead on every exit path. The `maps:find` → `{ok,V}` → `case` fusion measured
-  ≈7× in isolation.
-- **T2 caveat:** on OTP this pool is ≈0, because `beam_ssa` already cancels same-function pairs and
-  every allocation that survives escapes.
-- **Clause:**
-  - First check whether our frontend already cancels these pairs. It has no mid-end of its own.
-  - Inlining (OPT1.7, OPT1.9, OPT2.1) manufactures new pairs.
-  - LLVM SROA does not apply to service-allocated cells, so this needs OPT0.3 plus a small escape
-    check on our side.
+Fusion and allocation sinking of tuples and first cons cells built in the same function are done (see
+`00-finished.md`). Open, by measured need only:
+
+- Joins with a path that is not a construction or an immediate (the `{List, Acc}` a `mapfoldl` loop
+  returns: its join also has the generic path's value), literal tuples (`{error, nf}`) and the inner
+  cells of `[A, B | T]`.
+- Values a loop carries and cells built in a binary loop.
 
 ## Tier OPT2: possible because Clause compiles whole programs
 
@@ -476,7 +467,7 @@ that calls a leaf is no leaf loop. Open:
 4. **Maps:** OPT1.6 remainder (inline caches and the `maps:fold` part of OPT1.7 are done).
 5. **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
 6. **Funs and floats:** OPT1.11 (OPT1.8 remainder done).
-7. **Inlining and cleanup:** OPT1.9 call-free leaves done; its remainder, OPT1.10 and OPT1.13.
+7. **Inlining and cleanup:** OPT1.9 and OPT1.13 done (remainders above); OPT1.10.
 8. **Outside 69A:** done (OPT3.12-3.14, 2026-10-17 review); next by 69A impact (pinned 2026-10-21
    71ec52f8 run, worst kernel of each step; OPT3.18 done): OPT3.19 (1.20x), OPT1.6 caches (1.03x),
    both done; then the kernels already ahead: OPT3.23 (ring ~0.80x), OPT1.6 remainder (~0.84x),

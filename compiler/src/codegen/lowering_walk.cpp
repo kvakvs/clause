@@ -850,6 +850,13 @@ struct Walk {
         // SSA formation inspects successors, so terminate the join until the surrounding expression resumes.
         auto *boundary = state.builder.CreateUnreachable();
         auto *result = merged(state, join, 0);
+        // Matches of the case value answer from the clauses' constructions (OPT1.13).
+        std::vector<BlockValue> incoming;
+        incoming.reserve(join.incoming.size());
+        for (const auto &completed : join.incoming) {
+            incoming.emplace_back(completed.block, completed.values.front());
+        }
+        record_join(state, result, join.merge, std::move(incoming));
         state.bindings = std::move(join.bindings);
         const auto exports = exported(expression);
         for (std::size_t i = 0; i < exports.size(); ++i) {

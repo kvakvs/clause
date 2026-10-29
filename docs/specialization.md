@@ -64,19 +64,24 @@ assumptions or fast-math flags are introduced.
 
 ## Leaf inlining
 
-At `-O2` (`codegen/lowering_leaf_inlining.cpp`) a local call of a small
-function of the same module that calls no Erlang code lowers the callee's
-clauses in place of the call. A call costs a frame push and a return through it
-(about 3 ns), often more than the leaf's own work, and a loop whose step calls
-a leaf becomes a loop without calls.
+At `-O2` (`codegen/lowering_leaf_inlining.cpp`) a call of a small function of
+the same module that calls no Erlang code except other such leaves lowers the
+callee's clauses in place of the call. A call costs a frame push and a return
+through it (about 3 ns), often more than the leaf's own work, and a loop whose
+step calls a leaf becomes a loop without calls.
 
-- **Leaves.** At most 24 expressions over all clauses; no calls except services
-  (inline operations and builtins), and none of `apply/2,3`, the raise family
+- **Leaves.** No calls except services (inline operations and builtins) and
+  other leaves, nested at most three deep (a leaf, the leaves it calls, and
+  theirs, which call none); no recursion. None of `apply/2,3`, the raise family
   (`error`, `exit`, `throw`, `raise`) or `process_info`; no funs,
-  comprehensions, `receive`, `try`, `catch` or `maybe`. Leaves call nothing, so
-  inlining never nests.
-- **Sites.** Local calls (an atom target, not `?MODULE:f()`) outside binary and
-  float loops, also inside inlined funs and list loops.
+  comprehensions, `receive`, `try`, `catch` or `maybe`.
+- **Budget.** A leaf's size counts its expressions and those of the leaves it
+  calls. Each generated function may grow by 48 expressions of inlined leaves;
+  a leaf of at most 12 expressions is about the size of its call and is always
+  inlined. A site the budget cannot pay for stays a call.
+- **Sites.** Local calls and `?MODULE:f()` (a remote call of the module
+  itself), outside binary and float loops, also inside inlined funs and list
+  loops.
 - **Clauses in place.** The arguments are matched against the leaf's clauses
   with the caller's facts about them; the leaf's body runs in the caller's frame
   with the leaf's own bindings. When no clause matches, the function is called,
@@ -84,6 +89,24 @@ a leaf becomes a loop without calls.
 - **Observable cost:** an error raised inside an inlined leaf (`badarith`,
   `badmatch`, a failing builtin) has no frame of the leaf in its stack trace
   ([differences](differences.md)).
+
+## Constructions
+
+At `-O2` (`codegen/lowering_constructions.cpp`) a match of a
+tuple or a cons cell built in the same generated function reads the words it was
+built of instead of the cell; inlined leaves and funs make most such pairs
+(`{Q, R} = divmod(X, 7)`, `case lookup(K) of {ok, V} -> ...`, the `{Mapped, Acc}`
+of a `mapfoldl` fun).
+
+- **Joins.** A value joined from the clauses of an inlined leaf or fun, or of a
+  `case`, is known when every clause's value is such a construction or an
+  immediate (an atom, a small integer, `[]`); shape tests then become constants
+  per clause, which LLVM threads through.
+- **Allocation sinking.** A cell whose word nothing reads any more is not built.
+  An error that needs the value itself (`{case_clause, V}`, `{badmatch, V}`)
+  builds a copy of it on its own path.
+- **Limits.** Only tuples and the first cell of a list are known; a value a loop
+  carries, or one passed in a binary loop, is read from its cell.
 
 ## Current effect
 

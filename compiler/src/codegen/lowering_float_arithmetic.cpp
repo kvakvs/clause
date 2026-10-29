@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Module.h>
-#include <llvm/Transforms/Utils/Local.h>
 #include <span>
 #include <vector>
 
@@ -168,9 +167,6 @@ llvm::Value *raw_or_service(ExpressionLowering &state, const FloatResult result,
     return float_box(state, raw);
 }
 
-// The metadata naming the branch of a float_box cell, which drop_unused_floats removes with the cell.
-constexpr const char *FLOAT_BOX_METADATA = "clause.float.box";
-
 // A float cell made by the float service from the double's IEEE bytes in network order (CLAUSE_float_v1).
 llvm::Value *serviced_box(ExpressionLowering &state, llvm::Value *raw) {
     auto &builder = state.builder;
@@ -282,7 +278,6 @@ llvm::Value *float_box(ExpressionLowering &state, llvm::Value *raw) {
     auto *fallback = llvm::BasicBlock::Create(context, "float.box.service", &state.entry);
     auto *join = llvm::BasicBlock::Create(context, "float.boxed", &state.entry);
     auto *branch = builder.CreateCondBr(room.fits, direct, fallback);
-    branch->setMetadata(FLOAT_BOX_METADATA, llvm::MDNode::get(context, {}));
     builder.SetInsertPoint(direct);
     const llvm::Align align(8);
     builder.CreateAlignedStore(llvm::ConstantInt::get(state.word, FLOAT_HEADER), room.top, align);
@@ -298,6 +293,7 @@ llvm::Value *float_box(ExpressionLowering &state, llvm::Value *raw) {
     builder.CreateBr(join);
     builder.SetInsertPoint(join);
     auto *word = join_values(state, state.word, {direct, made}, {fallback_end, serviced});
+    mark_cell(branch, word);
     state.raw_floats.emplace(word, raw);
     return word;
 }
@@ -375,31 +371,5 @@ void define_float_box(ExpressionLowering &state) {
     auto *succeeded = builder.Insert(
         llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, outcome, builder.getInt8(0)));
     builder.CreateRet(builder.CreateSelect(succeeded, made, llvm::ConstantInt::get(state.word, 0)));
-}
-
-void drop_unused_floats(llvm::Function &function) {
-    std::vector<llvm::Instruction *> boxes;
-    for (auto &block : function) {
-        auto *branch = block.getTerminator();
-        if (branch && branch->getMetadata(FLOAT_BOX_METADATA)) {
-            boxes.push_back(branch);
-        }
-    }
-    bool dropped = false;
-    for (auto *branch : boxes) {
-        // The cell's word is the PHI that starts the block both of its paths join.
-        auto *join = branch->getSuccessor(0)->getSingleSuccessor();
-        auto *word = llvm::cast<llvm::PHINode>(&join->front());
-        if (!word->use_empty()) {
-            continue;
-        }
-        word->eraseFromParent();
-        llvm::IRBuilder<>(branch).CreateBr(join);
-        branch->eraseFromParent();
-        dropped = true;
-    }
-    if (dropped) {
-        llvm::removeUnreachableBlocks(function);
-    }
 }
 } // namespace clause::codegen

@@ -120,6 +120,24 @@ struct FloatLoop {
     bool in_variant;
 };
 
+// A tuple or a cons cell lowering built inline: its element words, or a cons cell's head and tail
+// (construct/deconstruct fusion, OPT1.13). Terms never change, so a match of the word may read these instead of the
+// cell.
+struct Construction {
+    bool tuple;
+    std::vector<llvm::Value *> words;
+};
+
+// A value and the predecessor block that computed it.
+using BlockValue = std::pair<llvm::BasicBlock *, llvm::Value *>;
+
+// A word lowering joined at `block` from the values of several paths (inlined clauses, case clauses), each with the
+// block it arrives from (OPT1.13); kept here because PHI operands are not read back.
+struct Join {
+    llvm::BasicBlock *block;
+    std::vector<BlockValue> incoming;
+};
+
 struct ExpressionLowering {
     // Borrow the current generic entry, immutable source/analysis and target-word builder.
     llvm::IRBuilder<> &builder;
@@ -173,6 +191,13 @@ struct ExpressionLowering {
     // when no fun is inlined (below O2). `inline_depth` counts the inlined fun bodies around the current expression.
     const LambdaBindings *lambdas = nullptr;
     std::size_t inline_depth = 0;
+    // Leaf inlining (OPT1.9): the expressions inlined leaves may still add to the function; null where leaves are not
+    // inlined (below O2). Inside an inlined leaf it is what its site paid for the leaves the leaf calls.
+    std::size_t *leaf_budget = nullptr;
+    // Construct/deconstruct fusion (OPT1.13): the tuples and cons cells built inline here, by their words.
+    std::map<const llvm::Value *, Construction> constructions = {};
+    // The words joined from several paths here, by their words: matches answer from the constructions among them.
+    std::map<const llvm::Value *, Join> joins = {};
     // Sunk bound funs (OPT1.8): the variables whose binding built no closure; a read not inlined builds its own.
     std::map<semantic::BindingId, const semantic::FunEntry *> sunk_lambdas = {};
     // Fold loops (OPT1.7, OPT3.15): the accumulator updates of the fun inlined in a fold loop, owned when the frame
@@ -296,8 +321,6 @@ BinaryView inline_binary_view(ExpressionLowering &state, llvm::Value *binary);
 BinaryView sub_view(ExpressionLowering &state, llvm::Value *binary, bool invariant);
 // An i1 that holds when a word is a bitstring (an inline or off-heap binary cell) (OPT1.4).
 llvm::Value *inline_bitstring_test(ExpressionLowering &state, llvm::Value *value);
-// A value and the predecessor block that computed it.
-using BlockValue = std::pair<llvm::BasicBlock *, llvm::Value *>;
 // At the start of the current block, join the values its two predecessors computed (LLVM's SSA updater, which never
 // reads PHI operands; OPT0.2B).
 llvm::Value *join_values(ExpressionLowering &state, llvm::Type *type, BlockValue first, BlockValue second);
@@ -350,13 +373,39 @@ llvm::Value *inline_float_operation(ExpressionLowering &state, abi::v1::Immediat
 llvm::Value *inline_math(ExpressionLowering &state, std::size_t builtin, std::span<llvm::Value *const> values,
                          llvm::function_ref<llvm::Value *()> service);
 // A new float cell holding `raw`, whose double stays known as raw (raw floats, OPT1.2). Lowering drops the cell where
-// nothing reads the word itself (drop_unused_floats).
+// nothing reads the word itself (drop_unused_cells).
 llvm::Value *float_box(ExpressionLowering &state, llvm::Value *raw);
 // The word a service reads: a raw float gets a cell of its own where the builder is, so the cell float_box made for it
 // stays unread on the fast path (raw floats, OPT1.2).
 llvm::Value *materialized(ExpressionLowering &state, llvm::Value *word);
-// Remove the float cells of float_box whose word nothing reads, once a function is lowered.
-void drop_unused_floats(llvm::Function &function);
+// The metadata naming the branch between an inline cell allocation and its service, and the word both paths join to,
+// which drop_unused_cells removes with both paths when nothing reads it (raw floats OPT1.2, allocation sinking
+// OPT1.13).
+inline constexpr const char *CELL_METADATA = "clause.cell";
+// Name `branch` and `word` of an inline cell allocation with CELL_METADATA.
+void mark_cell(llvm::Instruction *branch, llvm::Value *word);
+// Remove the cells of float_box and of inline tuples and cons cells whose word nothing reads (only PHIs nothing reads),
+// once a function is lowered.
+void drop_unused_cells(llvm::Function &function);
+// Remember that `word` is a tuple or a cons cell built here of `words` (construct/deconstruct fusion, OPT1.13).
+void record_construction(ExpressionLowering &state, llvm::Value *word, bool tuple, std::span<llvm::Value *const> words);
+// Remember that `word` joins `incoming` at `block`, unless it is one of them (OPT1.13).
+void record_join(ExpressionLowering &state, llvm::Value *word, llvm::BasicBlock *block,
+                 std::vector<BlockValue> incoming);
+// The i1 answering whether a word is a tuple of `arity` elements (or a cons cell when `arity` is none), known from the
+// constructions it was built or joined from; null when some path's word is not known (OPT1.13).
+llvm::Value *constructed_shape(ExpressionLowering &state, llvm::Value *word, std::optional<std::size_t> arity);
+// Word `index` of a tuple (or of a cons cell when `tuple` is false) known from the constructions it was built or
+// joined from, read from no cell; null when some path's word is not known (OPT1.13).
+llvm::Value *constructed_word(ExpressionLowering &state, llvm::Value *word, bool tuple, std::size_t index);
+// The word an exact comparison with an immediate may read instead of a word known from constructions and immediates:
+// its immediates, with every cell's word replaced by one equal to no immediate; null when some path's word is not
+// known (OPT1.13).
+llvm::Value *constructed_immediate(ExpressionLowering &state, llvm::Value *word);
+// A copy of a word known from constructions built where the builder is, from the words those were built of, so a cold
+// path that needs the word itself (an error's payload) keeps no cell alive on the others (allocation sinking, OPT1.13);
+// any other word itself.
+llvm::Value *rebuilt(ExpressionLowering &state, llvm::Value *word);
 // A comparison of two words whose doubles lowering holds, as the true or false word (raw floats, OPT1.2); null when
 // either has none.
 llvm::Value *raw_comparison(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,
@@ -579,8 +628,11 @@ llvm::Value *inline_lambda(ExpressionLowering &state, const semantic::FunEntry &
 // Join the values inlined clauses complete with at `join`; SSAUpdater adds a PHI only when they differ (inline funs,
 // leaf inlining).
 llvm::Value *join_inlined(ExpressionLowering &state, llvm::BasicBlock *join, const std::vector<BlockValue> &incoming);
-// A call of a small call-free function of this module with the callee's clauses lowered in place; null when the
-// callee is no such leaf or leaves are not inlined here (leaf inlining, OPT1.9).
+// The expressions inlined leaves may add to one generated function (leaf inlining, OPT1.9).
+inline constexpr std::size_t LEAF_BUDGET = 48;
+// A call of a small function of this module that calls only leaves with the callee's clauses lowered in place; null
+// when the callee is no such leaf, the function's leaf budget cannot pay for it or leaves are not inlined here (leaf
+// inlining, OPT1.9).
 llvm::Value *lower_leaf_call(ExpressionLowering &state, const ast::Expression &expression,
                              const ast::CallExpression &call);
 // F(Args) of a known anonymous fun with its clauses inlined; null when the target is no known fun (inline funs).

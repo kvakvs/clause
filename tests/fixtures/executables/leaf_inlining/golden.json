@@ -6,7 +6,7 @@
       "args": [],
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "guards: {ok,[1,0,1,2]}\nconstant arguments: {ok,[2,2,3,3]}\nselected: {ok,{zero,digit,number}}\nno clause: {error,function_clause,{leaf_inlining,small,1}}\nno clause twice: {error,function_clause,{leaf_inlining,small,1}}\nexported: {ok,{3,3}}\nbadarith: {error,badarith}\nbadarg: {error,badarg}\nbadmatch: {error,{badmatch,{1,2,3}}}\ncaught: {ok,caught}\nleaf no clause: {error,function_clause,{leaf_inlining,matched,1}}\nfloats: {ok,[1.0,1.5,2.0,2.5]}\nrecords: {ok,{point,7,6}}\nmaps: {ok,{[{a,1},{size,1}],1}}\ncase bindings: {ok,[{1,odd},{2,even},{3,odd},{4,even}]}\nin a fun: {ok,[2,1,0,1]}\nin a fold: {ok,10}\nnested calls: {ok,2}\norder: {ok,{1,[2,1]}}\ntail: {ok,4}\nloop: {ok,250000}\nleaf_inlining: ok\n"
+      "stdout": "guards: {ok,[1,0,1,2]}\nconstant arguments: {ok,[2,2,3,3]}\nselected: {ok,{zero,digit,number}}\nno clause: {error,function_clause,{leaf_inlining,small,1}}\nno clause twice: {error,function_clause,{leaf_inlining,small,1}}\nexported: {ok,{3,3}}\nbadarith: {error,badarith}\nbadarg: {error,badarg}\nbadmatch: {error,{badmatch,{1,2,3}}}\ncaught: {ok,caught}\nleaf no clause: {error,function_clause,{leaf_inlining,matched,1}}\nfloats: {ok,[1.0,1.5,2.0,2.5]}\nrecords: {ok,{point,7,6}}\nmaps: {ok,{[{a,1},{size,1}],1}}\ncase bindings: {ok,[{1,odd},{2,even},{3,odd},{4,even}]}\nin a fun: {ok,[2,1,0,1]}\nin a fold: {ok,10}\nnested calls: {ok,2}\norder: {ok,{1,[2,1]}}\ntail: {ok,4}\nloop: {ok,250000}\nnested: {ok,[6,6,4,2,6,6]}\nfour levels: {ok,23}\nnested badarith: {error,badarith}\nnested no clause: {error,function_clause,{leaf_inlining,small,1}}\nrecursive: {ok,{done,done}}\nlarge leaf: {ok,[23,41,58,68]}\nbudget: {ok,{23,58,86,121,164,200}}\nremote self call: {ok,[2,4,6,8]}\nremote no clause: {error,function_clause,{leaf_inlining,picky,1}}\ndivmod: {ok,[1,2,10,11,21]}\nok or error: {ok,[1,2,3,none]}\nthree shapes: {ok,[{o,2},o,{z,3},{o,5}]}\ncons: {ok,[5,6,7,8]}\ncons or empty: {ok,[1,nothing]}\nnested tuples: {ok,[3,5,7,9]}\nsame function: {ok,20}\nkept and matched: {ok,{3,{3,2}}}\nbuilt argument: {ok,7}\nmapfoldl: {ok,{[2,4,6,8],10}}\nfiltermap: {ok,[6,12]}\ncase_clause tuple: {error,{case_clause,{one,5}}}\ncase_clause atom: {error,{case_clause,other}}\nbadmatch built here: {error,{badmatch,{4,1}}}\nbadmatch cons: {error,{badmatch,[1,2]}}\nbadmatch nested: {error,{badmatch,{{inner,6},7}}}\nleaf_inlining: ok\n"
     }
   ],
   "oracle_version": [
@@ -18,6 +18,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "leaf_inlining.erl": "b9c6fe76dabe23f15a4ec7d44268e7cde1c8bb976a8f1d97d79bcb1178e5ddda"
+    "leaf_inlining.erl": "f643b9cae41ec48d2ec63b21b7758575af7c82eb7d2fb0d5a9b28c068c69824b"
   }
 }

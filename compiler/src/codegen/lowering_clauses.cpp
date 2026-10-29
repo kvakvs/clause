@@ -191,6 +191,8 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
     const auto captures = initial.bindings;
     auto *exhausted = llvm::BasicBlock::Create(entry.getContext(), "match.mismatch", &entry);
     llvm::BasicBlock *failure = initial.failure;
+    // Every clause spends the one leaf budget of the generated function (leaf inlining, OPT1.9).
+    std::size_t leaf_budget = LEAF_BUDGET;
     for (std::size_t index = 0; index < clauses.size(); ++index) {
         auto *next = index + 1 == clauses.size() ? exhausted
                                                  : llvm::BasicBlock::Create(entry.getContext(), "clause.next", &entry);
@@ -207,6 +209,7 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
         state.raw_floats = initial.raw_floats;
         state.literal_values = initial.literal_values;
         state.lambdas = initial.lambdas;
+        state.leaf_budget = initial.lambdas ? &leaf_budget : nullptr;
         reset_candidate_roots(state);
         candidate(state, clauses[index], next);
         failure = state.failure;
@@ -219,7 +222,7 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
         raise_function_clause(initial);
     }
     finish_roots(initial);
-    drop_unused_floats(entry);
+    drop_unused_cells(entry);
 }
 
 // A binary loop (OPT1.4C): the function enters its variant with each rest cell it makes, and the variant, lowered

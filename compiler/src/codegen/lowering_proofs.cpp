@@ -51,6 +51,10 @@ std::optional<SmallRange> small_expression(const ExpressionLowering &state, cons
 }
 
 llvm::Value *inline_cons_test(ExpressionLowering &state, llvm::Value *value) {
+    // A word built here, or joined from such words, is known to be a cons cell or not (OPT1.13).
+    if (auto *known = constructed_shape(state, value, std::nullopt)) {
+        return known;
+    }
     auto &builder = state.builder;
     auto *primary = builder.CreateAnd(value, llvm::ConstantInt::get(state.word, abi::v1::primary_mask));
     return builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, primary,
@@ -68,6 +72,15 @@ void inline_tuple_shape(ExpressionLowering &state, llvm::Value *value, const std
         builder.CreateCondBr(equal(value, abi::v1::empty_tuple), success, mismatch);
         return;
     }
+    // A word built here, or joined from such words, has a known shape (OPT1.13).
+    if (auto *known = constructed_shape(state, value, arity)) {
+        if (const auto *constant = llvm::dyn_cast<llvm::ConstantInt>(known)) {
+            builder.CreateBr(constant->isOne() ? success : mismatch);
+        } else {
+            builder.CreateCondBr(known, success, mismatch);
+        }
+        return;
+    }
     auto *header = llvm::BasicBlock::Create(state.entry.getContext(), "match.tuple.header", &state.entry);
     builder.CreateCondBr(
         equal(builder.CreateAnd(value, llvm::ConstantInt::get(state.word, abi::v1::primary_mask)), abi::v1::boxed_tag),
@@ -80,11 +93,14 @@ void inline_tuple_shape(ExpressionLowering &state, llvm::Value *value, const std
 }
 
 llvm::Value *inline_cons_word(ExpressionLowering &state, llvm::Value *value, const std::size_t index) {
-    return word_at(state, value, abi::v1::list_tag, index);
+    // A cell built here, or joined from such cells, is not read: its words are known (OPT1.13).
+    auto *known = constructed_word(state, value, false, index);
+    return known ? known : word_at(state, value, abi::v1::list_tag, index);
 }
 
 llvm::Value *inline_tuple_element(ExpressionLowering &state, llvm::Value *value, const std::size_t index) {
-    return word_at(state, value, abi::v1::boxed_tag, index + 1);
+    auto *known = constructed_word(state, value, true, index);
+    return known ? known : word_at(state, value, abi::v1::boxed_tag, index + 1);
 }
 
 namespace {

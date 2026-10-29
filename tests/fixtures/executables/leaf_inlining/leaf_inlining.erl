@@ -1,5 +1,5 @@
 -module(leaf_inlining).
--export([main/1, id/1, exported_leaf/1]).
+-export([main/1, id/1, exported_leaf/1, twice/1, picky/1]).
 -record(point, {x = 0, y = 0}).
 
 %% At O2, calls of small functions of the same module that call no Erlang code lower the callee's clauses in place
@@ -38,6 +38,9 @@ main(_) ->
     errors(),
     values(L),
     contexts(L),
+    nesting(L),
+    fusion(L),
+    sinking(),
     io:format("leaf_inlining: ok~n").
 
 diff(A, B) when A > B -> A - B;
@@ -127,3 +130,176 @@ tail(X) -> diff(X, 1).
 
 total([], Acc) -> Acc;
 total([X | T], Acc) -> total(T, Acc + diff(X, 500)).
+
+%% Leaves may call leaves, three deep (nested leaves); the fourth level stays a call.
+scale(X) -> clamp(diff(X, 5), 0, 3) * 2.
+
+level1(X) -> level2(X) + 1.
+level2(X) -> level3(X) + 1.
+level3(X) -> level4(X) + 1.
+level4(X) -> X * 10.
+
+%% Errors raised in a nested leaf, and no clause of one matching.
+ratio(A, B) -> divide(A, B) + 1.
+sized(N) -> small(N).
+
+%% Recursive functions are no leaves.
+ping(0) -> done;
+ping(N) -> pong(N - 1).
+pong(0) -> done;
+pong(N) -> ping(N - 1).
+
+%% A leaf larger than the old 24-expression limit, inlined while the caller's budget pays for it.
+mix(A, B) ->
+    C = A * 3 + B,
+    D = C band 255,
+    E = (D bsl 2) bxor A,
+    F = E + (B rem 17),
+    G = F - (A div 3),
+    H = G band 65535,
+    H + C - D.
+
+twice(X) -> X * 2.
+
+picky(X) when is_integer(X) -> X.
+
+nesting(L) ->
+    show("nested", fun() -> [scale(X) || X <- L ++ [9, 20]] end),
+    show("four levels", fun() -> level1(id(2)) end),
+    show("nested badarith", fun() -> ratio(id(1), id(0)) end),
+    show_top("nested no clause", fun() -> sized(id(seven)) end),
+    show("recursive", fun() -> {ping(id(3)), ping(id(4))} end),
+    show("large leaf", fun() -> [mix(X, X + 1) || X <- L] end),
+    show("budget", fun() ->
+        {mix(1, 2), mix(3, 4), mix(5, 6), mix(7, 8), mix(9, 10), mix(11, 12)}
+    end),
+    show("remote self call", fun() -> [?MODULE:twice(X) || X <- L] end),
+    show_top("remote no clause", fun() -> ?MODULE:picky(id(seven)) end).
+
+%% Tuples and cons cells built and matched in one function are read from the words they were built of
+%% (construct/deconstruct fusion); results, sharing and error payloads stay those of building them.
+divmod(X, Y) -> {X div Y, X rem Y}.
+
+lookup(X) when X band 3 =:= 0 -> error;
+lookup(X) -> {ok, X}.
+
+classify(X) ->
+    case X rem 3 of
+        0 -> {zero, X};
+        1 -> {one, X + 1};
+        _ -> other
+    end.
+
+push(H, T) -> [H | T].
+
+split([H | T]) -> {H, T};
+split([]) -> empty.
+
+nest(X) -> {{inner, X}, X + 1}.
+
+pair(A, B) -> {A, B}.
+
+fusion(L) ->
+    show("divmod", fun() ->
+        [
+            begin
+                {Q, R} = divmod(X, 3),
+                Q * 10 + R
+            end
+         || X <- L ++ [7]
+        ]
+    end),
+    show("ok or error", fun() ->
+        [
+            case lookup(X) of
+                {ok, V} -> V;
+                error -> none
+            end
+         || X <- L
+        ]
+    end),
+    show("three shapes", fun() ->
+        [
+            case classify(X) of
+                {zero, V} -> {z, V};
+                {one, V} -> {o, V};
+                other -> o
+            end
+         || X <- L
+        ]
+    end),
+    show("cons", fun() ->
+        [
+            begin
+                [H | T] = push(X, L),
+                H + length(T)
+            end
+         || X <- L
+        ]
+    end),
+    show("cons or empty", fun() ->
+        [
+            case split(Xs) of
+                {H, _} -> H;
+                empty -> nothing
+            end
+         || Xs <- [L, []]
+        ]
+    end),
+    show("nested tuples", fun() ->
+        [
+            begin
+                {{inner, P}, Q} = nest(X),
+                P + Q
+            end
+         || X <- L
+        ]
+    end),
+    show("same function", fun() ->
+        X = id(4),
+        {A, B} = {X, X + 1},
+        A * B
+    end),
+    show("kept and matched", fun() ->
+        T = divmod(id(17), 5),
+        {Q, _} = T,
+        {Q, T}
+    end),
+    show("built argument", fun() -> bound(pair(id(3), id(4))) end),
+    show("mapfoldl", fun() -> lists:mapfoldl(fun(X, A) -> {X * 2, A + X} end, 0, L) end),
+    show("filtermap", fun() ->
+        lists:filtermap(
+            fun(X) ->
+                case X rem 2 of
+                    0 -> {true, X * 3};
+                    _ -> false
+                end
+            end,
+            L
+        )
+    end).
+
+%% A failing match raises with the term it was given, built on the error path only (allocation sinking).
+sinking() ->
+    show("case_clause tuple", fun() ->
+        case classify(id(4)) of
+            {zero, V} -> V
+        end
+    end),
+    show("case_clause atom", fun() ->
+        case classify(id(5)) of
+            {zero, V} -> V
+        end
+    end),
+    show("badmatch built here", fun() ->
+        {x, Y} = divmod(id(9), 2),
+        Y
+    end),
+    show("badmatch cons", fun() ->
+        [a | T] = push(id(1), [2]),
+        T
+    end),
+    show("badmatch nested", fun() ->
+        {{outer, P}, _} = nest(id(6)),
+        P
+    end).

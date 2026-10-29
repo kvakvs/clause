@@ -221,6 +221,8 @@ llvm::Value *join_inlined(ExpressionLowering &state, llvm::BasicBlock *join, con
     boundary->eraseFromParent();
     state.builder.SetInsertPoint(join);
     mark_term(state, value);
+    // Matches of the value answer from the clauses' constructions (OPT1.13).
+    record_join(state, value, join, incoming);
     return value;
 }
 
@@ -325,10 +327,10 @@ llvm::Value *inline_lambda(ExpressionLowering &state, const semantic::FunEntry &
         state.builder.ClearInsertionPoint();
         mismatch->eraseFromParent();
     } else {
-        // No clause matched: calling the fun raises function_clause with the fun's own frame on top.
-        auto *value = lower_apply_values(state, fun(), arguments);
-        incoming.emplace_back(state.builder.GetInsertBlock(), value);
-        state.builder.CreateBr(join);
+        // No clause matched: calling the fun raises function_clause with the fun's own frame on top. Its clauses reject
+        // the same arguments, so the call never returns and the join has only the clauses' values (OPT1.13).
+        lower_apply_values(state, fun(), arguments);
+        state.builder.CreateUnreachable();
     }
     return join_inlined(state, join, incoming);
 }

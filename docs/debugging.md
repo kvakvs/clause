@@ -53,7 +53,7 @@ compiled names, never runtime atom tables:
   debug:main/1
 ```
 
-At `-O2` small call-free local functions and known funs run inlined in their
+At `-O2` small local functions and known funs run inlined in their
 caller ([leaf inlining](specialization.md#leaf-inlining)). Their code keeps its
 lines in the function's own scope, inlined at the call, so debuggers stop in
 them and show an inlined frame (``debug.exe`leaf at debug.erl:8 [inlined]``);

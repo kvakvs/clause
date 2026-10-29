@@ -201,8 +201,10 @@ bool immediate_literal(ExpressionLowering &state, const semantic::MatchNode &nod
         !std::holds_alternative<ast::Atom>(value)) {
         return false;
     }
+    // A word known from constructions compares as its immediates, so the cells need not be built (OPT1.13).
+    auto *input = constructed_immediate(state, values[node.input]);
     auto *test = state.builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ,
-                                                            values[node.input], literal(state, value)));
+                                                            input ? input : values[node.input], literal(state, value)));
     state.builder.CreateCondBr(test, blocks.at(node.success), blocks.at(node.mismatch));
     return true;
 }
@@ -423,6 +425,8 @@ void unwind(ExpressionLowering &state) {
 }
 
 void raise_reason(ExpressionLowering &state, abi::v1::ErrorReason reason, llvm::Value *payload) {
+    // The error builds its own copy of a word matches read from its constructions (allocation sinking, OPT1.13).
+    payload = payload ? rebuilt(state, payload) : nullptr;
     auto &output = *state.entry.getParent();
     const auto symbol = services::symbol<services::Raise>(output.getTargetTriple());
     auto service = output.getOrInsertFunction(

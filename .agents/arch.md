@@ -57,8 +57,9 @@ stage outputs, `--shell`, `--generate-asn1`), see `README.md` and `docs/compile.
 - **Lowering (`codegen/`)**: AST + summaries → LLVM IR in the frame-based execution model
   (`docs/execution-model.md`). Calls into the runtime only through services declared in
   `codegen/runtime_symbols.hpp`, mangled per target (`mangling.hpp`). At O2 lowering itself inlines
-  known funs, `lists`/`maps:fold` loops of them and small call-free local functions (leaves): LLVM
-  cannot inline across frame transfers.
+  known funs, `lists`/`maps:fold` loops of them and small local functions calling only such leaves
+  (budgeted per function): LLVM cannot inline across frame transfers. Matches of tuples/cons cells
+  built in the same function read the built words, and unread cells are dropped (OPT1.13).
 - **Backend**: LLVM optimization and emission (objects, asm, IR, debug info), parallel per module.
   Emits a startup module handing a `StartupDescriptor` (module list + needed runtime extensions)
   to the runtime.

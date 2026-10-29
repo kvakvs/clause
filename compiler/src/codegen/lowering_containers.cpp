@@ -89,7 +89,7 @@ llvm::Value *construct(ExpressionLowering &state, abi::v1::ContainerConstruction
     auto *direct = llvm::BasicBlock::Create(context, "heap.inline", &state.entry);
     auto *service = llvm::BasicBlock::Create(context, "heap.service", &state.entry);
     auto *join = llvm::BasicBlock::Create(context, "heap.join", &state.entry);
-    builder.CreateCondBr(room.fits, direct, service);
+    auto *branch = builder.CreateCondBr(room.fits, direct, service);
     builder.SetInsertPoint(direct);
     auto *built = write_cells(state, operation, room.top, values);
     heap_commit(state, room);
@@ -100,7 +100,15 @@ llvm::Value *construct(ExpressionLowering &state, abi::v1::ContainerConstruction
     auto *service_end = builder.GetInsertBlock();
     builder.CreateBr(join);
     builder.SetInsertPoint(join);
-    return join_values(state, state.word, {direct, built}, {service_end, serviced});
+    auto *word = join_values(state, state.word, {direct, built}, {service_end, serviced});
+    // A cell whose word nothing reads once matches read its words is dropped (allocation sinking, OPT1.13).
+    mark_cell(branch, word);
+    // A list of several cells is known by its first cell only, whose tail word exists on the inline path alone.
+    const bool tuple = operation == abi::v1::ContainerConstruction::tuple;
+    if (tuple || values.size() == 2) {
+        record_construction(state, word, tuple, values);
+    }
+    return word;
 }
 
 // Values already exist in SSA after the common iterative expression walk visits every child.

@@ -8,12 +8,15 @@
 #include <stdexcept>
 
 // Leaf inlining (OPT1.9, docs/specialization.md#leaf-inlining): at O2 a call of a small function of the same module
-// that calls no Erlang code lowers the callee's clauses in place, with the caller's facts about the arguments; a call
-// costs a frame push and a return through it, often more than the leaf's own work.
+// that calls no Erlang code but other such leaves lowers the callee's clauses in place, with the caller's facts about
+// the arguments; a call costs a frame push and a return through it, often more than the leaf's own work.
 namespace clause::codegen {
 namespace {
-// A leaf holds at most this many expressions over all its clauses.
-constexpr std::size_t LEAF_EXPRESSIONS = 24;
+// Leaves nest at most this deep: a leaf may call leaves that call only call-free leaves (nested leaves).
+constexpr std::size_t LEAF_DEPTH = 3;
+// A leaf of at most this many expressions, its nested leaves included, is about the size of its call: inlining it
+// spends no budget (leaf budget).
+constexpr std::size_t FREE_LEAF = 12;
 
 // Whether an expression may be part of a leaf: no code of its own (funs, comprehensions), no waiting or catching,
 // and no transfer to Erlang code.
@@ -26,7 +29,7 @@ bool leaf_value(const ast::ExprValue &value) {
 
 // Whether a call in a leaf is a service that keeps the stack observable as it was: no apply, no raise (its stack
 // trace names the leaf) and no process_info (current_function).
-bool leaf_call(const semantic::Function &function, const ast::Expression &expression) {
+bool leaf_service(const semantic::Function &function, const ast::Expression &expression) {
     const auto service = function.services.find(&expression);
     if (service == function.services.end()) {
         return false;
@@ -36,36 +39,107 @@ bool leaf_call(const semantic::Function &function, const ast::Expression &expres
            resolution.identity.name != U"process_info";
 }
 
-// Whether `function` is a leaf: at most LEAF_EXPRESSIONS expressions, all of them leaf values and leaf calls.
-bool leaf(const semantic::Module &module, const semantic::Function &function) {
-    const auto &form = std::get<ast::Function>(module.syntax->form(function.form).value);
-    auto pending = semantic::function_roots(form);
-    std::size_t count = 0;
+// The live function of this module a local call (`f()` or `?MODULE:f()`) names; null for every other call.
+const semantic::FunctionRef *local_callee(const ExpressionLowering &state, const ast::Expression &expression) {
+    const auto callee = state.inferred.callees.find(&expression);
+    if (callee == state.inferred.callees.end() || callee->second.module != &state.module ||
+        !callee->second.function->live_) {
+        return nullptr;
+    }
+    return &callee->second;
+}
+
+struct LeafWalk {
+    // The lowering whose inference resolves calls, and the leaves being measured, outermost first (nested leaves).
+    const ExpressionLowering &state;
+    std::vector<const semantic::Function *> path;
+};
+
+std::optional<std::size_t> leaf_size(LeafWalk &walk, const semantic::Function &function);
+
+// The expressions a call in leaf `function` adds: none for a service, a nested leaf's size; none (nullopt) when the
+// call keeps `function` from being a leaf.
+std::optional<std::size_t> call_size(LeafWalk &walk, const semantic::Function &function,
+                                     const ast::Expression &expression) {
+    if (leaf_service(function, expression)) {
+        return 0;
+    }
+    const auto *callee = local_callee(walk.state, expression);
+    return callee ? leaf_size(walk, *callee->function) : std::nullopt;
+}
+
+// The expressions of `function`'s clauses, those of the leaves it calls counted in, while all of them are leaf
+// values and leaf calls and they stay within LEAF_BUDGET; none otherwise.
+std::optional<std::size_t> clauses_size(LeafWalk &walk, const semantic::Function &function) {
+    const auto &module = walk.state.module;
+    auto pending = semantic::function_roots(std::get<ast::Function>(module.syntax->form(function.form).value));
+    std::size_t size = 0;
     while (!pending.empty()) {
         const auto &expression = module.syntax->expression(pending.back());
         pending.pop_back();
-        const bool call = std::holds_alternative<ast::CallExpression>(expression.value);
-        if (++count > LEAF_EXPRESSIONS || !leaf_value(expression.value) || (call && !leaf_call(function, expression))) {
-            return false;
+        if (!leaf_value(expression.value)) {
+            return std::nullopt;
+        }
+        const auto added = std::holds_alternative<ast::CallExpression>(expression.value)
+                               ? call_size(walk, function, expression)
+                               : std::optional<std::size_t>{0};
+        if (!added) {
+            return std::nullopt;
+        }
+        size += 1 + *added;
+        if (size > LEAF_BUDGET) {
+            return std::nullopt;
         }
         const auto children = semantic::expression_children(module, expression);
         pending.insert(pending.end(), children.begin(), children.end());
     }
-    return true;
+    return size;
 }
 
-// The leaf a call names: a local call of a live function of this module, made where leaves are inlined (O2, which
-// sets `lambdas`, outside binary and float loops); null otherwise.
-const semantic::FunctionRef *leaf_callee(const ExpressionLowering &state, const ast::Expression &expression,
-                                         const ast::CallExpression &call) {
-    const auto &syntax = *state.module.syntax;
-    const auto callee = state.inferred.callees.find(&expression);
-    if (!state.lambdas || state.binary_loop || state.float_loop || callee == state.inferred.callees.end() ||
-        callee->second.module != &state.module || !callee->second.function->live_ ||
-        !std::holds_alternative<ast::Atom>(syntax.expression(semantic::ungroup(syntax, call.target)).value)) {
-        return nullptr;
+// The size of `function` as a leaf called at the end of the walk's path; none when it is no leaf there: nested too
+// deep, recursive or too large.
+std::optional<std::size_t> leaf_size(LeafWalk &walk, const semantic::Function &function) {
+    if (walk.path.size() == LEAF_DEPTH || std::ranges::contains(walk.path, &function)) {
+        return std::nullopt;
     }
-    return leaf(state.module, *callee->second.function) ? &callee->second : nullptr;
+    walk.path.push_back(&function);
+    const auto size = clauses_size(walk, function);
+    walk.path.pop_back();
+    return size;
+}
+
+struct LeafCallee {
+    // The leaf a call names and its size, its nested leaves counted in.
+    const semantic::FunctionRef *callee;
+    std::size_t size;
+};
+
+// The leaf a call names, where leaves are inlined (O2 gives a budget, outside binary and float loops); none for every
+// other call.
+std::optional<LeafCallee> leaf_callee(const ExpressionLowering &state, const ast::Expression &expression) {
+    if (!state.leaf_budget || state.binary_loop || state.float_loop) {
+        return std::nullopt;
+    }
+    const auto *callee = local_callee(state, expression);
+    if (!callee) {
+        return std::nullopt;
+    }
+    LeafWalk walk{state, {}};
+    const auto size = leaf_size(walk, *callee->function);
+    return size ? std::optional{LeafCallee{callee, *size}} : std::nullopt;
+}
+
+// Whether the function's leaf budget pays for a leaf of `size` expressions, which then spends it; a free leaf costs
+// nothing (leaf budget).
+bool afford(const ExpressionLowering &state, const std::size_t size) {
+    if (size <= FREE_LEAF) {
+        return true;
+    }
+    if (*state.leaf_budget < size) {
+        return false;
+    }
+    *state.leaf_budget -= size;
+    return true;
 }
 
 struct LeafSite {
@@ -74,6 +148,8 @@ struct LeafSite {
     const BindingReads &reads;
     std::vector<llvm::Value *> arguments;
     std::vector<std::optional<Known>> known;
+    // What the site paid for the leaves the leaf calls, which their sites spend (nested leaves).
+    std::size_t *budget;
 };
 
 // A lowering of the leaf's clause `index` that shares the caller's builder, frame slots, error exits and handler.
@@ -92,6 +168,10 @@ ExpressionLowering clause_state(const ExpressionLowering &state, const LeafSite 
     inner.atom_literals = state.atom_literals;
     inner.literal_values = state.literal_values;
     inner.inline_depth = state.inline_depth + 1;
+    inner.leaf_budget = site.budget;
+    // Matches in the leaf read the words of the caller's constructions (OPT1.13).
+    inner.constructions = state.constructions;
+    inner.joins = state.joins;
     return inner;
 }
 
@@ -104,6 +184,8 @@ void resume_caller(ExpressionLowering &state, ExpressionLowering &inner) {
     state.raw_floats.merge(inner.raw_floats);
     state.atom_literals.merge(inner.atom_literals);
     state.literal_values.merge(inner.literal_values);
+    state.constructions.merge(inner.constructions);
+    state.joins.merge(inner.joins);
 }
 
 // Lower clause `index` of the leaf against the arguments: its head and guard go to `mismatch` when they fail; its
@@ -148,19 +230,27 @@ InlineMark mark_inlining(const ExpressionLowering &state) {
             state.builder.getCurrentDebugLocation()};
 }
 
-// Locate one instruction of the leaf in the leaf's own scope, inlined at the call, as LLVM's inliner would. Nothing
-// is inlined yet while lowering, so every location is the caller's own.
-void inline_location(llvm::Instruction &instruction, llvm::DISubprogram *leaf, const llvm::DebugLoc &site) {
-    const auto &location = instruction.getDebugLoc();
-    if (!location) {
-        return;
+// A location of the leaf's code once it is inlined at `site`, as LLVM's inliner would place it: the leaf's own lines,
+// in the caller's scope while lowering, move to the leaf's scope; those of leaves inlined into it keep their scope,
+// inlined at their relocated call (nested leaves).
+llvm::DILocation *inlined(const llvm::DILocation *location, llvm::DISubprogram *leaf, llvm::DILocation *site) {
+    auto &context = location->getContext();
+    if (const auto *call = location->getInlinedAt()) {
+        return llvm::DILocation::get(context, location->getLine(), location->getColumn(), location->getScope(),
+                                     inlined(call, leaf, site));
     }
-    auto &context = instruction.getContext();
     llvm::DIScope *scope = leaf;
-    if (const auto *file = llvm::dyn_cast<llvm::DILexicalBlockFile>(location.getScope())) {
+    if (const auto *file = llvm::dyn_cast<llvm::DILexicalBlockFile>(location->getScope())) {
         scope = llvm::DILexicalBlockFile::get(context, leaf, file->getFile(), 0);
     }
-    instruction.setDebugLoc(llvm::DILocation::get(context, location.getLine(), location.getCol(), scope, site));
+    return llvm::DILocation::get(context, location->getLine(), location->getColumn(), scope, site);
+}
+
+// Locate one instruction of the leaf in the leaf's own scope, inlined at the call.
+void inline_location(llvm::Instruction &instruction, llvm::DISubprogram *leaf, const llvm::DebugLoc &site) {
+    if (const auto *location = instruction.getDebugLoc().get()) {
+        instruction.setDebugLoc(inlined(location, leaf, site.get()));
+    }
 }
 
 // Relocate the instructions of `range`: those of an error exit the caller shares belong to the call, whichever code
@@ -213,13 +303,15 @@ std::vector<BlockValue> inline_clauses(ExpressionLowering &state, const LeafSite
 
 llvm::Value *lower_leaf_call(ExpressionLowering &state, const ast::Expression &expression,
                              const ast::CallExpression &call) {
-    const auto *callee = leaf_callee(state, expression, call);
-    if (!callee) {
+    const auto leaf = leaf_callee(state, expression);
+    if (!leaf || !afford(state, leaf->size)) {
         return nullptr;
     }
     const auto &syntax = *state.module.syntax;
-    const auto reads = read_bindings(state.module, *callee->function);
-    LeafSite site{*callee->function, reads, {}, {}};
+    const auto &callee = *leaf->callee;
+    const auto reads = read_bindings(state.module, *callee.function);
+    auto nested = leaf->size;
+    LeafSite site{*callee.function, reads, {}, {}, &nested};
     for (const auto &argument : call.arguments) {
         const auto &value = syntax.expression(argument);
         site.arguments.push_back(state.values.at(&value));
@@ -234,10 +326,10 @@ llvm::Value *lower_leaf_call(ExpressionLowering &state, const ast::Expression &e
         state.builder.ClearInsertionPoint();
         mismatch->eraseFromParent();
     } else {
-        // No clause matched: calling the function raises function_clause with its own frame on top.
-        auto *value = lower_named_call(state, *callee, site.arguments);
-        incoming.emplace_back(state.builder.GetInsertBlock(), value);
-        state.builder.CreateBr(join);
+        // No clause matched: calling the function raises function_clause with its own frame on top. Its clauses reject
+        // the same arguments, so the call never returns and the join has only the clauses' values.
+        lower_named_call(state, callee, site.arguments);
+        state.builder.CreateUnreachable();
     }
     return join_inlined(state, join, incoming);
 }
