@@ -234,6 +234,18 @@ target_link_libraries(clause_runtime
     $<$<PLATFORM_ID:Windows>:iphlpapi> $<$<PLATFORM_ID:Windows>:crypt32>
 )
 
+# Clause's epmd (plan 30 step DIST3a, docs/distribution.md#epmd): the server the bundled epmd and clause-epmd share,
+# and clause-epmd, a foreground program the multi-node test runner starts.
+add_library(clause_epmd_server STATIC src/epmd/registry.cpp src/epmd/requests.cpp src/epmd/server.cpp)
+clause_project_options(clause_epmd_server)
+target_compile_definitions(clause_epmd_server PUBLIC BOOST_ASIO_NO_DEPRECATED $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x0A00>)
+target_link_libraries(clause_epmd_server PUBLIC clause_multiprecision_dependency $<$<PLATFORM_ID:Linux>:-pthread>
+    $<$<PLATFORM_ID:Windows>:ws2_32> $<$<PLATFORM_ID:Windows>:mswsock>)
+add_executable(clause_epmd src/epmd/main.cpp)
+clause_project_options(clause_epmd)
+set_target_properties(clause_epmd PROPERTIES OUTPUT_NAME clause-epmd)
+target_link_libraries(clause_epmd PRIVATE clause_epmd_server)
+
 # PCRE2 for the re builtins (plan step 41ZA): built from source into the archive itself, or an installed library
 # whose path clau adds when it links an executable. clause_runtime.link beside the archive (named after it:
 # libclause_runtime.link beside libclause_runtime.a) lists such extra linker inputs, one per line

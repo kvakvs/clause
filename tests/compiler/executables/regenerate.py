@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import cases
+import nodes
 
 # The program-fixture oracle already runs Entry:main(Argv) under the executable contract.
 ORACLE = cases.ROOT / 'tests/compiler/programs/oracle.escript'
@@ -22,15 +23,21 @@ def reference():
     return {'branch': branch, 'revision': re.search(r'REFERENCE_REVISION "([0-9a-f]{40})"', text).group(1)}
 
 
+def oracle_environment(asn1_options=()):
+    """The oracle's environment: NO_COLOR is dropped as run.py drops it (io_ansi's colors must not depend on the
+    caller's shell), plus the helper Python and the ASN.1 options."""
+    environment = {k: v for k, v in os.environ.items() if k.upper() != 'NO_COLOR'} | {'CLAUSE_TEST_PYTHON': sys.executable}
+    environment['CLAUSE_ASN1_OPTIONS'] = ','.join(asn1_options)
+    return environment
+
+
 def observe(escript, staged, entry, run, work, asn1_options=()):
     """Runs the entry with one run's argv and standard input under OTP; returns the completed process and the oracle
     version. ASN.1 specifications beside the sources compile with asn1ct and `asn1_options` first."""
     args = run['args']
     version = work / 'version.txt'
     version.unlink(missing_ok=True)
-    # NO_COLOR is dropped as run.py drops it: io_ansi's colors must not depend on the caller's shell.
-    environment = {k: v for k, v in os.environ.items() if k.upper() != 'NO_COLOR'} | {'CLAUSE_TEST_PYTHON': sys.executable}
-    environment['CLAUSE_ASN1_OPTIONS'] = ','.join(asn1_options)
+    environment = oracle_environment(asn1_options)
     result = subprocess.run([escript, str(ORACLE), str(version), str(staged), entry, *args],
                             cwd=staged, capture_output=True, timeout=300, check=False,
                             input=run.get('stdin', '').encode(), env=environment)
@@ -49,6 +56,31 @@ def generated_run(case, run, result, golden):
     authored = {key: run[key] for key in ('stdin', 'word_bits', 'os') if key in run}
     return {'args': run['args'], **authored, 'stderr': pattern or '^$', 'exit_status': result.returncode,
             'stdout': stdout}
+
+
+def observe_nodes(escript, staged, entry, run, work, golden):
+    """Runs every node of a multi-node run under OTP at once, on OTP's epmd with the run's 'epmd_args' (plan 30 step
+    DIST3a); returns the golden run and the oracle version."""
+    epmd, port = nodes.start_epmd([nodes.otp_program(escript, 'epmd'), *run.get('epmd_args', [])])
+    versions = [work / f'version-{node["name"]}.txt' for node in run['nodes']]
+    try:
+        commands = [[escript, str(ORACLE), str(version), str(staged), entry, *node['args']]
+                    for node, version in zip(run['nodes'], versions)]
+        environment = oracle_environment() | {'ERL_EPMD_PORT': str(port)}
+        results = nodes.run_nodes(commands, [environment] * len(commands), staged, 300)
+    finally:
+        nodes.stop(epmd)
+    observed = []
+    for node, result in zip(run['nodes'], results):
+        if result is None or result[0] == 125:
+            sys.exit(f'{staged.name}: oracle failed or timed out for node {node["name"]}')
+        returncode, stdout, stderr = result
+        process = subprocess.CompletedProcess(node['args'], returncode, stdout, stderr)
+        generated = generated_run(staged.name, node, process, golden)
+        authored = {key: node[key] for key in ('name', 'kind') if key in node}
+        observed.append(authored | generated)
+    fields = {key: run[key] for key in ('epmd', 'epmd_args', 'os', 'word_bits') if key in run}
+    return fields | {'nodes': observed}, versions[0].read_text().split()
 
 
 def refresh_abstr(clau, escript, case_dir):
@@ -78,12 +110,16 @@ def regenerate(escript, case_dir, work):
             # Clause-only behavior, or another operating system's, OTP here cannot show: kept as written.
             runs.append(run)
             continue
+        if nodes.multi(run):
+            observed, version = observe_nodes(escript, staged, golden['entry'], run, work, golden)
+            runs.append(observed)
+            continue
         result, version = observe(escript, staged, golden['entry'], run, work, golden.get('asn1_options', []))
         runs.append(generated_run(case_dir.name, run, result, golden))
     # Authored top-level fields: listed sources, the scheduler counts every run repeats with, extra compiler options
     # and output masks.
-    listed = {key: golden[key] for key in ('sources', 'data', 'workers', 'options', 'stdout_masks', 'asn1_options')
-              if key in golden}
+    listed = {key: golden[key] for key in ('sources', 'data', 'workers', 'options', 'stdout_masks', 'asn1_options',
+                                           'host_otp') if key in golden}
     return golden, {'schema': 1, 'entry': golden['entry'], **listed, 'runs': runs, 'oracle_version': version,
                     'reference': reference(), 'inputs': cases.inputs(case_dir, golden)}
 

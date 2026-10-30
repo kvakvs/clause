@@ -1,6 +1,6 @@
 %% Clause's net_adm (plan 21 step LIB25, docs/libraries/library.md): the answers of an OTP node that is not alive. Pings are
-%% pang, epmd is never reached ({error, address}), so worlds are empty; .hosts.erlang is read from the current
-%% directory, then the home directory.
+%% pang, so worlds are empty; names ask epmd through the kernel's epmd_module (plan 30 step DIST3a); .hosts.erlang is
+%% read from the current directory, then the home directory.
 -module(net_adm).
 -export([
     dns_hostname/1,
@@ -24,8 +24,12 @@ localhost() ->
 
 names() -> names(localhost()).
 
-%% Clause has no epmd client: epmd is not operational for it.
-names(_) -> {error, address}.
+% erl_epmd is called by name so that it is linked with net_adm.
+names(Host) ->
+    case application:get_env(kernel, epmd_module, erl_epmd) of
+        erl_epmd -> erl_epmd:names(Host);
+        Module -> Module:names(Host)
+    end.
 
 dns_hostname(Host) ->
     case inet:gethostbyname(Host) of

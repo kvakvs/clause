@@ -7,9 +7,11 @@ How a Clause executable becomes a distributed Erlang node. Decided in plan 30 st
 other nodes exist as terms ([terms](terms.md#identities-of-other-nodes), DIST1), the node can be
 named ([this node](#this-node), DIST2a), connection entries, node status messages, node monitors
 and the controller data path follow OTP's process-controller interface without moving any signal
-yet ([connections](#connections), DIST2b to DIST2d), and the libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`,
-`not_alive`). The rest of this file is the contract for
-distribution. Each section becomes current behavior when its step lands.
+yet ([connections](#connections), DIST2b to DIST2d). `erl_epmd` and `net_adm:names/0,1` speak to an
+epmd, and Clause's epmd server runs as a foreground `clause-epmd` ([epmd](#epmd), DIST3a). The other
+libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
+rest of this file is the contract for distribution. Each section becomes current behavior when its
+step lands.
 
 ## Scope
 
@@ -269,6 +271,28 @@ The runtime option `--epmd MODE` chooses what happens when distribution starts, 
 - Nodes without epmd stay possible through the `kernel` parameters `epmd_module` (a custom
   `erl_epmd` callback module) and `erl_epmd_node_listen_port`.
 
+Current since DIST3a (`runtime/src/epmd/`, `library/kernel/erl_epmd.erl`):
+
+- **Server:** `registry` keeps the names and `requests` answers each request as OTP's epmd does;
+  `server` listens (every address of both families, or `-address` plus loopback) and moves the
+  bytes. Observed from OTP 29's epmd and kept:
+  - a registration whose highest version is 6 or more gets `ALIVE2_X_RESP`, others `ALIVE2_RESP`
+    with a creation of 1 to 3; a name registered again gets its old creation plus one;
+  - a refused registration (name taken) is answered with result 1 and creation 99, and its
+    connection stays open; any byte on a registered connection closes it;
+  - `NAMES` lists the newest name first; `DUMP` ends each line with a NUL byte and also lists
+    remembered names (`old/unused name`);
+  - `KILL` answers `NO` while names are registered, `STOP` is ignored, and other hosts may only
+    ask `PORT_PLEASE2` and `NAMES`, unless `-relaxed_command_check`; with it, `STOP` of an unknown
+    name answers `NOEXISTSTOPPED`, as OTP's;
+  - malformed requests, unknown codes and bytes past a packet close the connection without reply;
+    a connection without a registration closes after 60 seconds.
+- **`clause-epmd`** (target `clause_epmd`) runs it in the foreground with `-port`, `-address` and
+  `-relaxed_command_check`; the test build makes it for the [multi-node runner](#testing).
+- **`erl_epmd`:** registers with `ALIVE2_REQ` (versions 6 to 5, type 77) and registers again a
+  second after the connection breaks. `names/0,1` list the oldest name first, as OTP's client
+  does.
+
 ## Node start options
 
 Runtime options ([executables](executables.md#runtime-options)) start distribution before the entry
@@ -314,13 +338,18 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
   - A case's `golden.json` lists its nodes. Each node has a name, its arguments, its kind (`clause`
     or `otp`), its expected stdout and exit status, and a stderr pattern. All nodes run the same
     program, with roles chosen by argument.
-  - The runner gives each case its own epmd port (`ERL_EPMD_PORT`), so cases run in parallel and
+  - The runner gives each run its own epmd port (`ERL_EPMD_PORT`), so cases run in parallel and
     never touch a user's epmd. It starts a foreground `clause-epmd -port N` (built once by the test
-    build) and runs the nodes with `--epmd none` and a fixed cookie. It collects each node's output
-    and stops everything at the end or on a timeout.
+    build; OTP's `epmd` for a run of `"epmd": "otp"`) and starts the nodes at once. It collects each
+    node's output and stops everything at the end or on a timeout. From DIST3b the nodes run with
+    `--epmd none`, and from DIST4 with a fixed cookie.
+  - Single-node runs get an `ERL_EPMD_PORT` where nothing listens, so they never ask a user's epmd.
   - Cases of the bundled and external modes start no runner epmd and check which epmd the nodes
     find.
   - Host names in output are masked with `stdout_masks`.
-- **Goldens** come from OTP nodes (`erl -sname`) on the same kind of epmd port, generated once.
-- **Interop cases** mix `clause` and `otp` nodes. They carry the CTest label `host_otp` and skip
-  when no `erl` is found. Clause-only cases need no OTP.
+- **Goldens** come from OTP nodes on OTP's `epmd` on the same kind of epmd port, generated once
+  (`tests/compiler/executables/nodes.py`, used by `run.py` and `regenerate.py`).
+- **Interop cases** mix `clause` and `otp` nodes, or use OTP's `epmd`. Their golden says
+  `"host_otp": true`: they carry the CTest label `host_otp` and skip when no `escript` is found.
+  Clause-only cases need no OTP: `epmd_names` runs on `clause-epmd`, and `epmd_interop` runs the
+  same program on OTP's `epmd` and with an OTP node.

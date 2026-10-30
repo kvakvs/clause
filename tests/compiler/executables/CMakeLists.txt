@@ -8,13 +8,26 @@ if(CLAUSE_BUILD_RUNTIME)
     set(full_only_cases qlc_queries shell_expand shell_session ssl_connections ssl_crls ssl_early_data ssl_features
         ssl_psk ssl_rekeys ssl_sessions ssl_suites ssl_sni ssl_tickets ssl_transports)
     file(GLOB goldens CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/tests/fixtures/executables/*/golden.json")
+    # The host OTP of host_otp cases, optional: without it they skip.
+    find_program(CLAUSE_ESCRIPT escript DOC "Host Erlang/OTP 29 or newer escript for optional live audits")
     foreach(golden IN LISTS goldens)
         get_filename_component(case_dir "${golden}" DIRECTORY)
         get_filename_component(case "${case_dir}" NAME)
+        # A case of OTP nodes or OTP's epmd ("host_otp": true) needs the host OTP; without it the runner skips it
+        # (plan 30 step DIST3a).
+        file(READ "${golden}" golden_text)
+        string(JSON host_otp ERROR_VARIABLE no_host_otp GET "${golden_text}" host_otp)
+        set(otp_arguments)
+        if(host_otp AND CLAUSE_ESCRIPT)
+            set(otp_arguments "--escript=${CLAUSE_ESCRIPT}")
+        endif()
         add_test(NAME executables_${case} COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/run.py"
             "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/${case}/$<CONFIG>" "${case_dir}"
-            "--suffix=${CMAKE_EXECUTABLE_SUFFIX}")
+            "--suffix=${CMAKE_EXECUTABLE_SUFFIX}" "--epmd-executable=$<TARGET_FILE:clause_epmd>" ${otp_arguments})
         set_tests_properties(executables_${case} PROPERTIES TIMEOUT 600)
+        if(host_otp)
+            set_tests_properties(executables_${case} PROPERTIES LABELS host_otp SKIP_RETURN_CODE 77)
+        endif()
         if(case IN_LIST full_only_cases)
             set_tests_properties(executables_${case} PROPERTIES COST 15 LABELS full_only)
         endif()

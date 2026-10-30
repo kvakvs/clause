@@ -29,3 +29,8 @@ Compact record of the network distribution plan, one bullet per step;
   `dist_ctrl_input_handler/2`, `dist_ctrl_get_opt/2`, `dist_ctrl_set_opt/3`, `dist_get_stat/1` with
   OTP's notsup/badarg order; queue filled and data decoded from DIST5; `connections` golden's
   data_path run identical to OTP — `a8c363b3`
+- **DIST3a** epmd server and client: shared C++ epmd (`runtime/src/epmd/`, OTP's replies and command
+  checks incl. `NOEXISTSTOPPED`, DUMP's NUL bytes, refused registrations kept open), foreground
+  `clause-epmd`, `erl_epmd` client and registration server (`stop/0` with `shutdown`), `net_adm:names`
+  over `epmd_module`; multi-node golden runs (`runs[].nodes`, per-run epmd, `kind`, `host_otp`); DIST3
+  split into DIST3a/3b/3c; `epmd_names` and `epmd_interop` goldens identical to OTP — `HASH`

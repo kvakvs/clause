@@ -12,6 +12,7 @@ import struct
 import subprocess
 import sys
 import cases
+import nodes
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'patternmatch'))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'programs'))
@@ -34,6 +35,14 @@ HOST_WORD_BITS = struct.calcsize('P') * 8
 RUN_TIMEOUT = 60 * int(os.environ.get('CLAUSE_TEST_TIMEOUT_SCALE', '1'))
 # What a program fixture's copy leaves out: its golden and its compile diagnostics.
 PROGRAM_EXTRAS = ('expected', 'compile.txt')
+# The OTP oracle that runs nodes of kind otp, as regenerate.py runs every node.
+ORACLE = cases.ROOT / 'tests/compiler/programs/oracle.escript'
+# clause-epmd for multi-node runs (--epmd-executable), and the host OTP's escript for runs that need OTP (--escript):
+# without it they are skipped.
+EPMD_EXECUTABLE = None
+ESCRIPT = None
+# The exit status of a case whose runs were all skipped or passed, at least one skipped (CTest SKIP_RETURN_CODE).
+SKIPPED = 77
 
 
 def manifest(case, entry, output, golden, asn1_dir):
@@ -104,13 +113,16 @@ def stdout_problem(expected, actual):
     return 'stdout differs:\n' + '\n'.join(lines)
 
 
-def environment(run):
+def environment(run, epmd_port=None):
     """The host environment without inherited runtime flags and NO_COLOR (io_ansi drops colors under it, so a
     golden would depend on the caller's shell), plus the Python that runs helper programs (CLAUSE_TEST_PYTHON), the
-    logger's default handler on standard error as the OTP oracle has it (CLAUSE_LOGGER_TYPE) and the run's own 'env'
-    entries."""
-    inherited = {name: value for name, value in os.environ.items() if name.upper() not in ('CLAUSE_FLAGS', 'NO_COLOR')}
-    oracle = {'CLAUSE_TEST_PYTHON': sys.executable, 'CLAUSE_LOGGER_TYPE': 'standard_error'}
+    logger's default handler on standard error as the OTP oracle has it (CLAUSE_LOGGER_TYPE), the epmd port of a
+    multi-node run, else one where no epmd listens, so that a user's epmd is never asked (ERL_EPMD_PORT), and the
+    run's own 'env' entries."""
+    inherited = {name: value for name, value in os.environ.items()
+                 if name.upper() not in ('CLAUSE_FLAGS', 'NO_COLOR', 'ERL_EPMD_PORT')}
+    oracle = {'CLAUSE_TEST_PYTHON': sys.executable, 'CLAUSE_LOGGER_TYPE': 'standard_error',
+              'ERL_EPMD_PORT': str(epmd_port or nodes.free_port())}
     return inherited | oracle | run.get('env', {})
 
 
@@ -127,44 +139,95 @@ def variants(golden, word_bits):
             yield run | {'env': run.get('env', {}) | {'CLAUSE_FLAGS': flags}}, f' workers={count}'
 
 
-def compare(executable, run, directory, golden):
-    """Runs one golden invocation in `directory`; returns readable mismatch descriptions (empty when it matches)."""
-    try:
-        result = subprocess.run([executable, *run['args']], capture_output=True, timeout=RUN_TIMEOUT, check=False,
-                                env=environment(run), input=run.get('stdin', '').encode(), cwd=directory)
-    except subprocess.TimeoutExpired:
-        return [f'timed out after {RUN_TIMEOUT} s']
-    stdout, stderr = cases.masked(golden, text(result.stdout)), text(result.stderr)
+def outcome_problems(expected, returncode, stdout, stderr, golden):
+    """Compares one invocation's exit status, stdout and stderr with its golden entry."""
+    stdout, stderr = cases.masked(golden, text(stdout)), text(stderr)
     problems = []
-    if result.returncode != run['exit_status']:
-        problems.append(f'exit status: expected {run["exit_status"]}, got {result.returncode}')
-    if problem := stdout_problem(run['stdout'], stdout):
+    if returncode != expected['exit_status']:
+        problems.append(f'exit status: expected {expected["exit_status"]}, got {returncode}')
+    if problem := stdout_problem(expected['stdout'], stdout):
         problems.append(problem)
-    if not re.search(run['stderr'], stderr):
-        problems.append(f'stderr does not match /{run["stderr"]}/')
+    if not re.search(expected['stderr'], stderr):
+        problems.append(f'stderr does not match /{expected["stderr"]}/')
     if problems and stderr:
         problems.append('stderr:\n' + stderr.rstrip('\n'))
     return problems
 
 
+def compare(executable, run, directory, golden):
+    """Runs one golden invocation in `directory`; returns readable mismatch descriptions (empty when it matches)."""
+    if nodes.multi(run):
+        return compare_nodes(executable, run, directory, golden)
+    try:
+        result = subprocess.run([executable, *run['args']], capture_output=True, timeout=RUN_TIMEOUT, check=False,
+                                env=environment(run), input=run.get('stdin', '').encode(), cwd=directory)
+    except subprocess.TimeoutExpired:
+        return [f'timed out after {RUN_TIMEOUT} s']
+    return outcome_problems(run, result.returncode, result.stdout, result.stderr, golden)
+
+
+def node_command(executable, node, directory, golden):
+    """The command of one node of a multi-node run: the linked program, or the OTP oracle for a node of kind otp."""
+    if node.get('kind') == 'otp':
+        version = directory / f'oracle-{node["name"]}.txt'
+        return [ESCRIPT, str(ORACLE), str(version), str(directory.parent / 'src'), golden['entry'], *node['args']]
+    return [executable, *node['args']]
+
+
+def epmd_command(run):
+    """The epmd of a multi-node run: clause-epmd, or OTP's epmd for 'epmd' otp, with the run's 'epmd_args'."""
+    program = nodes.otp_program(ESCRIPT, 'epmd') if run.get('epmd') == 'otp' else EPMD_EXECUTABLE
+    return [program, *run.get('epmd_args', [])]
+
+
+def compare_nodes(executable, run, directory, golden):
+    """Runs every node of a multi-node run at once on a fresh epmd; returns each node's mismatches."""
+    epmd, port = nodes.start_epmd(epmd_command(run))
+    try:
+        commands = [node_command(executable, node, directory, golden) for node in run['nodes']]
+        results = nodes.run_nodes(commands, [environment(run, port)] * len(commands), directory, RUN_TIMEOUT)
+    finally:
+        nodes.stop(epmd)
+    problems = []
+    for node, result in zip(run['nodes'], results):
+        found = [f'timed out after {RUN_TIMEOUT} s'] if result is None else outcome_problems(node, *result, golden)
+        problems.extend(f'node {node["name"]}: {problem}' for problem in found)
+    return problems
+
+
+def label(run):
+    """How a report line names a run: its arguments, or its nodes' names and arguments."""
+    if nodes.multi(run):
+        return 'nodes=' + json.dumps({node['name']: node['args'] for node in run['nodes']})
+    return f'args={json.dumps(run["args"])}'
+
+
+def skipped(run):
+    """Whether a run cannot run here: it needs a host OTP and none was given."""
+    return nodes.multi(run) and nodes.needs_otp(run) and ESCRIPT is None
+
+
 def check_policy(tool, work, case, golden, policy, suffix, target_options=(), word_bits=HOST_WORD_BITS):
     """Links the case under one policy and runs every golden invocation; returns the failure count and the report
     lines, printed by the caller so concurrent combinations do not interleave."""
-    label, arguments = command(tool, work, case, golden, policy, target_options)
+    name, arguments = command(tool, work, case, golden, policy, target_options)
     result = subprocess.run(arguments, cwd=work, capture_output=True, timeout=300, check=False)
     if result.returncode != 0:
-        return 1, [f'FAIL {case} [{label}]: compiler exited {result.returncode}\n{text(result.stderr)}']
-    executable = work / f'{label}/{case}{suffix}'
+        return 1, [f'FAIL {case} [{name}]: compiler exited {result.returncode}\n{text(result.stderr)}']
+    executable = work / f'{name}/{case}{suffix}'
     # Each combination runs in its own directory beside its executable, with the case's data files, so programs that
     # write files do not meet each other.
     for path in (work / 'src').iterdir():
         if path.is_file() and path.suffix not in cases.SOURCE_SUFFIXES:
-            shutil.copyfile(path, work / label / path.name)
+            shutil.copyfile(path, work / name / path.name)
     failures, lines = 0, []
     for run, variant in variants(golden, word_bits):
-        problems = compare(executable, run, work / label, golden)
+        if skipped(run):
+            lines.append(f'skip {case} [{name}] {label(run)}{variant}: needs a host OTP (--escript)')
+            continue
+        problems = compare(executable, run, work / name, golden)
         status = 'FAIL' if problems else 'ok'
-        lines.append(f'{status} {case} [{label}] args={json.dumps(run["args"])}{variant}')
+        lines.append(f'{status} {case} [{name}] {label(run)}{variant}')
         lines.extend('    ' + problem.replace('\n', '\n    ') for problem in problems)
         failures += bool(problems)
     return failures, lines
@@ -199,7 +262,7 @@ def prepare(case_dir, work):
 
 def main():
     """Checks one case or program directory against its golden under the fast or full policy matrix."""
-    global RUN_TIMEOUT  # pylint: disable=global-statement
+    global RUN_TIMEOUT, EPMD_EXECUTABLE, ESCRIPT  # pylint: disable=global-statement
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('tool', help='clau executable')
     parser.add_argument('work', type=pathlib.Path, help='scratch directory, recreated')
@@ -215,8 +278,10 @@ def main():
                         help='seconds each run may take (an emulated target runs many times slower)')
     parser.add_argument('--word-bits', type=int, choices=(32, 64), default=HOST_WORD_BITS,
                         help="the target's word width: runs of the other width only are skipped")
+    parser.add_argument('--epmd-executable', help='clause-epmd, the epmd of multi-node runs')
+    parser.add_argument('--escript', help="the host OTP's escript, for runs with OTP's epmd or otp nodes")
     options = parser.parse_args()
-    RUN_TIMEOUT = options.run_timeout
+    RUN_TIMEOUT, EPMD_EXECUTABLE, ESCRIPT = options.run_timeout, options.epmd_executable, options.escript
     case_dir, work, tool = options.case.resolve(), options.work.resolve(), str(pathlib.Path(options.tool).resolve())
     golden = prepare(case_dir, work)
     other = 64 if options.word_bits == 32 else 32
@@ -226,12 +291,13 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(COMBINATION_JOBS, len(policies))) as pool:
         outcomes = list(pool.map(lambda policy: check_policy(tool, work, case_dir.name, golden, policy, options.suffix,
                                                              options.target_options, options.word_bits), policies))
-    failures = 0
+    failures, skips = 0, 0
     for count, lines in outcomes:
         print('\n'.join(lines))
         failures += count
+        skips += sum(line.startswith('skip ') for line in lines)
     print(f'{case_dir.name}: {failures} failure(s)')
-    sys.exit(1 if failures else 0)
+    sys.exit(1 if failures else SKIPPED if skips else 0)
 
 
 if __name__ == '__main__':

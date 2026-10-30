@@ -44,12 +44,18 @@ def load(case_dir):
     assert isinstance(golden.get('entry'), str), f'{case_dir.name}: golden needs an entry module'
     assert golden.get('runs'), f'{case_dir.name}: golden needs at least one run'
     assert all(isinstance(count, int) and count > 0 for count in golden.get('workers', [])), case_dir.name
-    assert all(isinstance(arg, str) for run in golden['runs'] for arg in run['args']), case_dir.name
+    assert all(isinstance(arg, str) for invocation in invocations(golden) for arg in invocation['args']), case_dir.name
     # A run whose output holds on hosts of one word width only names it (the OTP oracle is a 64-bit host).
     assert all(run.get('word_bits', 64) in (32, 64) for run in golden['runs']), f'{case_dir.name}: word_bits'
     # OTP never sees a run's environment, so only authored runs may set one.
     assert all(run.get('authored') for run in golden['runs'] if 'env' in run), f'{case_dir.name}: env needs authored'
     return golden
+
+
+def invocations(golden):
+    """Every program invocation of a golden: each single-node run, and each node of a multi-node run (nodes.py)."""
+    for run in golden['runs']:
+        yield from run.get('nodes', [run])
 
 
 def sources(case_dir, golden):
@@ -88,7 +94,8 @@ def inputs(case_dir, golden):
 def verify(case_dir):
     """Loads a golden and rejects one that was never generated or whose sources changed since."""
     golden = load(case_dir)
-    generated = 'inputs' in golden and all(field in run for run in golden['runs'] for field in GENERATED_RUN_FIELDS)
+    generated = 'inputs' in golden and all(field in invocation for invocation in invocations(golden)
+                                           for field in GENERATED_RUN_FIELDS)
     if not generated:
         raise SystemExit(f'{case_dir.name}: golden was not generated; run tests/compiler/executables/regenerate.py')
     if golden['inputs'] != inputs(case_dir, golden):
