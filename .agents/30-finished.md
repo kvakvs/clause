@@ -5,4 +5,4 @@ Compact record of the network distribution plan, one bullet per step;
 
 - **DIST0** distribution contract in `docs/distribution.md` (user choices: the executable relaunches
   itself as epmd, OTP's `dist_util` carrier interface, atom cache and fragments later, `--env APP
-  KEY VALUE` with Clause node options); DIST4 split into DIST4a/DIST4b — `PENDING`
+  KEY VALUE` with Clause node options); DIST4 split into DIST4a/DIST4b — `235c0f1b`
