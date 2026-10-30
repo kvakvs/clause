@@ -989,7 +989,7 @@ void Executor::clear() noexcept {
     ending_.clear();
     stopped_.clear();
     names_.clear();
-    release_node(node_owner_);
+    forget_distribution();
     // Drivers go before the services.
     ports_.clear();
     services = {std::move(reactor_), std::move(sockets_), std::move(io_)};

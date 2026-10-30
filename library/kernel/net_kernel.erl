@@ -1,6 +1,6 @@
 %% Clause's net_kernel (plan 21 step LIB25, docs/libraries/library.md): the answers of an OTP node whose distribution is not
-%% started, which a Clause program always is. Most requests are ignored, node monitoring is accepted without any
-%% node ever coming up, and distribution cannot be started.
+%% started, which a Clause program always is. Most requests are ignored and distribution cannot be started. Node
+%% status subscriptions are the runtime's (plan 30 step DIST2b, docs/distribution.md#node-status-messages).
 -module(net_kernel).
 -export([
     allow/1,
@@ -82,22 +82,62 @@ connecttime() -> 7000.
 
 stop() -> {error, not_found}.
 
-%% Monitoring is accepted; no node ever comes up or goes down.
-monitor_nodes(Flag) when is_boolean(Flag) -> ok;
-monitor_nodes(_) -> error.
+%% A subscription to node status messages is a process flag of the runtime.
+monitor_nodes(Flag) ->
+    try process_flag(monitor_nodes, Flag) of
+        _ -> ok
+    catch
+        error:badarg -> error
+    end.
 
-monitor_nodes(Flag, Options) when is_boolean(Flag), is_list(Options) ->
-    case [Option || Option <- Options, not known_option(Option)] of
-        [] -> ok;
-        Unknown -> {error, {unknown_options, Unknown}}
+monitor_nodes(Flag, Options) when is_boolean(Flag) ->
+    case subscription(Options) of
+        {ok, Map} ->
+            _ = process_flag({monitor_nodes, Map}, Flag),
+            ok;
+        Error ->
+            Error
     end;
 monitor_nodes(_, _) ->
     error.
 
-known_option(connection_id) -> true;
-known_option(nodedown_reason) -> true;
-known_option({node_type, Type}) -> lists:member(Type, [visible, hidden, all]);
-known_option(_) -> false.
+%% The process flag's map of monitor_nodes/2's options (a list's map holds list => true), or the error for them: bad
+%% values first, then unknown options.
+subscription(Options) when is_list(Options) -> list_options(Options, #{list => true}, []);
+subscription(Options) when is_map(Options) -> map_options(Options);
+subscription(Options) -> {error, {invalid_options, Options}}.
+
+list_options([], Map, []) ->
+    {ok, Map};
+list_options([], _, Unknown) ->
+    {error, {unknown_options, lists:reverse(Unknown)}};
+list_options([connection_id | Rest], Map, Unknown) ->
+    list_options(Rest, Map#{connection_id => true}, Unknown);
+list_options([nodedown_reason | Rest], Map, Unknown) ->
+    list_options(Rest, Map#{nodedown_reason => true}, Unknown);
+list_options([{node_type, Type} = Option | Rest], Map, Unknown) ->
+    case {node_type(Type), Map} of
+        {false, _} -> {error, {bad_option_value, Option}};
+        {true, #{node_type := Old}} when Old =/= Type -> {error, {option_value_mismatch, [Option, {node_type, Old}]}};
+        {true, _} -> list_options(Rest, Map#{node_type => Type}, Unknown)
+    end;
+list_options([Option | Rest], Map, Unknown) ->
+    list_options(Rest, Map, [Option | Unknown]).
+
+map_options(Options) ->
+    Keys = [connection_id, node_type, nodedown_reason],
+    Bad = maps:filter(fun(Key, Value) -> not option_value(Key, Value) end, maps:with(Keys, Options)),
+    Unknown = maps:without(Keys, Options),
+    if
+        map_size(Bad) > 0 -> {error, {bad_option_value, Bad}};
+        map_size(Unknown) > 0 -> {error, {unknown_options, Unknown}};
+        true -> {ok, Options}
+    end.
+
+option_value(node_type, Type) -> node_type(Type);
+option_value(_, Value) -> is_boolean(Value).
+
+node_type(Type) -> lists:member(Type, [visible, hidden, all]).
 
 %% The distribution's own processes and tables are not there.
 aux_ticker(_, _, _, _) -> erlang:error({not_implemented, aux_ticker, 4}).

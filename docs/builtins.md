@@ -630,8 +630,11 @@ script.
 `builtins/erts_internal.cpp`, `library/erts/erts_internal.erl`: the functions
 `stdlib` and `kernel` call.
 
-- Builtins `cmp_term/2` and `map_next/3` (map iterators, key order), and
-  `get_creation/0` ([this node](distribution.md#this-node)).
+- Builtins `cmp_term/2` and `map_next/3` (map iterators, key order),
+  `get_creation/0` ([this node](distribution.md#this-node)), and
+  `new_connection/1`, `abort_pending_connection/2`, `create_dist_channel/3` and
+  `get_dflags/0` ([connections](distribution.md#connections),
+  `builtins/erlang/connections.cpp`).
 - Erlang: `list_to_integer/2`, `binary_to_integer/2`, `map_to_tuple_keys/1`,
   `term_type/1`, counters, `dynamic_node_name`.
 - The rest of the distribution group and the `.beam` group declined.

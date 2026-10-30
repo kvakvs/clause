@@ -364,6 +364,9 @@ std::span<const BuiltinEntry> apply_builtins() noexcept;
 // monitor_node/2,3, disconnect_node/1; module_loaded/1, loaded/0, pre_loaded/0, delete_module/1,
 // prepare_loading/2, finish_loading/1, get_module_info/1,2.
 std::span<const BuiltinEntry> node_builtins() noexcept;
+// Connection entries of other nodes (plan 30 step DIST2b): erts_internal:new_connection/1,
+// abort_pending_connection/2, create_dist_channel/3, get_dflags/0 and erlang:setnode/3.
+std::span<const BuiltinEntry> connection_builtins() noexcept;
 std::span<const BuiltinEntry> code_builtins() noexcept;
 // The process dictionary builtins: put/2, get/0,1, get_keys/0,1, erase/0,1. Added for step 41C.
 std::span<const BuiltinEntry> dictionary_builtins() noexcept;

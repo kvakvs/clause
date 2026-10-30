@@ -12,8 +12,8 @@
 
 // nodes/0,1,2, monitor_node/2,3, disconnect_node/1 and the cookies (plan step 41H, docs/processes.md#nodes), and
 // this node's name: erlang:setnode/2 and erts_internal:get_creation/0 (plan 30 step DIST2a,
-// docs/distribution.md#this-node). This node has no connections yet: monitoring another node raises notalive unless
-// the node has a name, disconnecting returns ignored.
+// docs/distribution.md#this-node). nodes/0,1,2 list the connection entries (plan 30 step DIST2b); monitoring another
+// node raises notalive unless the node has a name, disconnecting returns ignored.
 namespace clause::runtime::builtins {
 namespace {
 // The name of a node without one, which setnode/2 refuses.
@@ -21,43 +21,87 @@ constexpr std::string_view UNNAMED_NODE = "nonode@nohost";
 // The least creation setnode/2 gives this node, as OTP's.
 constexpr std::uint32_t MIN_CREATION = 4;
 
-// Whether a node type of nodes/1,2 includes this node: this or known; any other valid type has no members.
-bool includes_local(const Term &type) {
-    static constexpr std::array<std::string_view, 5> TYPES{"visible", "hidden", "connected", "this", "known"};
+// What nodes/1,2 list: the table's kinds and whether this node is listed.
+struct Listing final {
+    detail::NodeKinds kinds;
+    bool local = false;
+};
+
+// Add one node type of nodes/1,2 to a listing; badarg for an invalid one.
+void add_type(const Term &type, Listing &listing) {
     const auto name = type.is_atom() ? type.atom_spelling_unchecked() : std::string_view{};
+    auto &kinds = listing.kinds;
+    if (name == "visible" || name == "connected") {
+        kinds.visible = true;
+    }
+    if (name == "hidden" || name == "connected") {
+        kinds.hidden = true;
+    }
+    if (name == "known") {
+        kinds = {.visible = true, .hidden = true, .known = true};
+    }
+    if (name == "this" || name == "known") {
+        listing.local = true;
+    }
+    static constexpr std::array<std::string_view, 5> TYPES{"visible", "hidden", "connected", "this", "known"};
     if (!std::ranges::contains(TYPES, name)) {
         bad_argument();
     }
-    return name == "this" || name == "known";
 }
 
-// Whether a node type or list of types includes this node; badarg for an invalid one.
-bool local_listed(const Term &types) {
+// The listing of a node type or list of types; badarg for an invalid one.
+Listing listing_of(const Term &types) {
+    Listing listing;
     if (!types.is_list()) {
-        return includes_local(types);
+        add_type(types, listing);
+        return listing;
     }
-    bool listed = false;
     for (auto rest = types; !rest.is_nil(); rest = rest.tail_unchecked()) {
         if (!rest.is_cons()) {
             bad_argument();
         }
-        listed = includes_local(rest.head_unchecked()) || listed;
+        add_type(rest.head_unchecked(), listing);
     }
-    return listed;
+    return listing;
 }
 
-// [Node] with this node's name when listed, else [].
-TermResult<Term> local_list(ProcessContext &context, bool listed) {
+// One node nodes/1,2 lists: its name, its kind (visible, hidden, known or this) and its connection id while up.
+struct Listed final {
+    Term node;
+    AtomName kind;
+    std::optional<std::uint32_t> id;
+};
+
+// The node_type of a table entry nodes/2 reports.
+AtomName kind_name(detail::ListedNode::Kind kind) {
+    using Kind = detail::ListedNode::Kind;
+    return kind == Kind::visible ? AtomName{"visible"_atom}
+                                 : AtomName{kind == Kind::hidden ? "hidden"_atom : "known"_atom};
+}
+
+// The nodes of a listing in OTP's order: the table's entries, then this node.
+std::vector<Listed> listed(ProcessContext &context, const Listing &listing) {
+    std::vector<Listed> nodes;
+    for (const auto &entry : detail::Executor::of(context).list_nodes(listing.kinds)) {
+        nodes.push_back({need(Term::from_word(entry.node, context)), kind_name(entry.kind), entry.id});
+    }
+    if (listing.local) {
+        nodes.push_back({need(detail::this_node_atom(context)), "this"_atom, std::nullopt});
+    }
+    return nodes;
+}
+
+TermResult<Term> node_names(ProcessContext &context, const Listing &listing) {
     std::vector<Term> items;
-    if (listed) {
-        items.push_back(need(detail::this_node_atom(context)));
+    for (const auto &node : listed(context, listing)) {
+        items.push_back(node.node);
     }
     return TermFactory(context).list(items);
 }
 
-TermResult<Term> nodes0(ProcessContext &context) { return local_list(context, false); }
+TermResult<Term> nodes0(ProcessContext &context) { return node_names(context, {.kinds = {.visible = true}}); }
 
-TermResult<Term> nodes1(ProcessContext &context, const Term &types) { return local_list(context, local_listed(types)); }
+TermResult<Term> nodes1(ProcessContext &context, const Term &types) { return node_names(context, listing_of(types)); }
 
 // Whether erts_internal:dynamic_node_name(true) stored {erts_internal, dynamic_node_name} as a persistent term with a
 // value other than false.
@@ -74,40 +118,39 @@ TermResult<Term> is_alive(ProcessContext &context) {
     return TermFactory(context).boolean(detail::this_node_named() || dynamic_name(context));
 }
 
-// One {Key, Value} of nodes/2's info map for this node: connection_id is undefined and node_type this; none
-// when the option is false. Badarg for any other key or a value that is not a boolean.
-std::optional<std::pair<Term, Term>> info_entry(ProcessContext &context, const std::pair<Term, Term> &option) {
-    const auto &[key, value] = option;
-    const auto name = key.is_atom() ? key.atom_spelling_unchecked() : std::string_view{};
-    if ((name != "connection_id" && name != "node_type") || !value.is_boolean()) {
-        bad_argument();
-    }
-    if (!value.boolean_value_unchecked()) {
-        return std::nullopt;
-    }
-    return std::pair{key, atom(context, name == "node_type" ? "this"_atom : "undefined"_atom)};
-}
-
-// The info map of nodes/2 for this node, for the keys asked.
-Term local_info(ProcessContext &context, const MapArgument &options) {
-    std::vector<std::pair<Term, Term>> entries;
-    for (const auto &option : need(options.term.map_entries())) {
-        if (auto entry = info_entry(context, option)) {
-            entries.push_back(*entry);
+// Which keys nodes/2's info maps hold: connection_id and node_type. Badarg for any other key or a value that is not a
+// boolean.
+std::pair<bool, bool> info_keys(const MapArgument &options) {
+    std::pair<bool, bool> keys;
+    for (const auto &[key, value] : need(options.term.map_entries())) {
+        const auto name = key.is_atom() ? key.atom_spelling_unchecked() : std::string_view{};
+        if ((name != "connection_id" && name != "node_type") || !value.is_boolean()) {
+            bad_argument();
         }
+        (name == "connection_id" ? keys.first : keys.second) = value.boolean_value_unchecked();
     }
-    return need(TermFactory(context).map(entries));
+    return keys;
 }
 
-// nodes(Types, InfoOptions): [{Node, Info}] with this node's name when this node is listed.
+// nodes(Types, InfoOptions): [{Node, Info}] in nodes/1's order; Info holds the connection id (undefined unless up)
+// and the node type when asked.
 TermResult<Term> nodes2(ProcessContext &context, const Term &types, const MapArgument &options) {
-    const auto info = local_info(context, options);
+    const auto listing = listing_of(types);
+    const auto [with_id, with_type] = info_keys(options);
+    TermFactory factory(context);
     std::vector<Term> items;
-    if (local_listed(types)) {
-        const std::array parts{need(detail::this_node_atom(context)), info};
-        items.push_back(need(TermFactory(context).tuple(parts)));
+    for (const auto &node : listed(context, listing)) {
+        std::vector<std::pair<Term, Term>> info;
+        if (with_id) {
+            const auto id = node.id ? factory.integer(*node.id) : factory.atom("undefined"_atom);
+            info.emplace_back(atom(context, "connection_id"_atom), need(id));
+        }
+        if (with_type) {
+            info.emplace_back(atom(context, "node_type"_atom), atom(context, node.kind));
+        }
+        items.push_back(need(factory.tuple(std::array{node.node, need(factory.map(info))})));
     }
-    return TermFactory(context).list(items);
+    return factory.list(items);
 }
 
 // Badarg unless every monitor_node/3 option is allow_passive_connect.
@@ -122,7 +165,7 @@ void check_monitor_options(const ListArgument &options) {
 // monitor_node(Node, Flag[, Options]) in OTP's order of checks: badarg for an unknown option, error:notalive for a
 // node other than nonode@nohost while this node has no name, badarg for a flag that is not a boolean. Monitoring this
 // node does nothing; another node has no connection, so its monitor ends at once with {nodedown, Node}, as OTP's
-// when connecting fails (plan 30 step DIST2a; connecting is DIST2b).
+// when connecting fails (plan 30 step DIST2a; node monitors over connections are DIST2c).
 TermResult<Term> monitor_node(ProcessContext &context, const AtomArgument &node, const Term &flag,
                               const ListArgument *options) {
     if (options) {
@@ -179,27 +222,11 @@ TermResult<Term> disconnect_node(ProcessContext &context, const Term &) {
     return TermFactory(context).atom("ignored"_atom);
 }
 
-// Whether a character may be in the name part of a node name: a letter, a digit, '-' or '_'.
-bool name_char(char c) {
-    return c == '-' || c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
-}
-
-// Whether a spelling is a node name as OTP's is_node_name checks: name characters before an '@', then a host without
-// another '@'.
-bool node_name(std::string_view spelling) {
-    const auto at = spelling.find('@');
-    if (at == 0 || at == std::string_view::npos || at + 1 == spelling.size()) {
-        return false;
-    }
-    return std::ranges::all_of(spelling.substr(0, at), name_char) &&
-           spelling.find('@', at + 1) == std::string_view::npos;
-}
-
 // erlang:setnode(Node, Creation) (plan 30 step DIST2a): name this node as OTP's does. Node must be a node name other
 // than nonode@nohost and Creation a non-negative small integer, cut to 32 bits and raised to at least 4; a live
 // process must be registered as net_kernel and the node must have no name. Badarg otherwise.
 TermResult<Term> setnode2(ProcessContext &context, const AtomArgument &node, std::int64_t creation) {
-    if (creation < 0 || node.spelling == UNNAMED_NODE || !node_name(node.spelling)) {
+    if (creation < 0 || node.spelling == UNNAMED_NODE || !detail::is_node_name(node.spelling)) {
         bad_argument();
     }
     const auto cut = std::max(static_cast<std::uint32_t>(creation), MIN_CREATION);

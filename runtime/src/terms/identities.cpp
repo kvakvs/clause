@@ -346,6 +346,22 @@ void unname_this_node() noexcept {
     this_node_creation_value.store(0, std::memory_order_release);
 }
 
+namespace {
+// Whether a character may be in the name part of a node name: a letter, a digit, '-' or '_'.
+bool name_char(char c) noexcept {
+    return c == '-' || c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+}
+} // namespace
+
+bool is_node_name(std::string_view spelling) noexcept {
+    const auto at = spelling.find('@');
+    if (at == 0 || at == std::string_view::npos || at + 1 == spelling.size()) {
+        return false;
+    }
+    return std::ranges::all_of(spelling.substr(0, at), name_char) &&
+           spelling.find('@', at + 1) == std::string_view::npos;
+}
+
 TermResult<Term> ExternalAccess::make(ProcessHeap &heap, const ExternalIdentity &identity) {
     using layout::BoxHeader;
     static constexpr std::array<std::pair<TermKind, BoxedKind>, 3> KINDS{

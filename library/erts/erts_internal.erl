@@ -1,8 +1,9 @@
 %% Clause's replacement for OTP's erts_internal (docs/libraries/library.md#runtime-module-replacements), generated from
 %% erts_internal.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
 %% error({not_implemented, Name, Arity}). The functions stdlib needs are implemented (plan step 41N,
-%% docs/builtins.md#erts-internal): cmp_term/2, map_next/3 and get_creation/0 (plan 30 step DIST2a) are runtime
-%% builtins, the rest Erlang; write-concurrency counters are atomics arrays. A non-distributed node answers the
+%% docs/builtins.md#erts-internal): cmp_term/2, map_next/3, get_creation/0 (plan 30 step DIST2a), new_connection/1,
+%% abort_pending_connection/2, create_dist_channel/3 and get_dflags/0 (plan 30 step DIST2b) are runtime builtins, the
+%% rest Erlang; write-concurrency counters are atomics arrays. A non-distributed node answers the
 %% distribution queries; the other functions serve the emulator itself, .beam files or distribution and stay declined.
 -module(erts_internal).
 -export([
@@ -108,7 +109,7 @@
 
 '@flush_monitor_messages_refopt'() ->
     erlang:error({not_implemented, '@flush_monitor_messages_refopt', 0}).
-abort_pending_connection(_, _) -> erlang:error({not_implemented, abort_pending_connection, 2}).
+abort_pending_connection(_, _) -> clause_builtin_placeholder.
 atomics_new(_, _) -> erlang:error({not_implemented, atomics_new, 2}).
 await_microstate_accounting_modifications(_, _, _) ->
     erlang:error({not_implemented, await_microstate_accounting_modifications, 3}).
@@ -139,7 +140,7 @@ counters_info(Ref) ->
 counters_new(Size) -> atomics:new(Size, [{signed, true}]).
 counters_put(Ref, Ix, Value) -> atomics:put(Ref, Ix, Value).
 crasher(_, _, _, _, _, _) -> erlang:error({not_implemented, crasher, 6}).
-create_dist_channel(_, _, _) -> erlang:error({not_implemented, create_dist_channel, 3}).
+create_dist_channel(_, _, _) -> clause_builtin_placeholder.
 dirty_process_handle_signals(_) -> erlang:error({not_implemented, dirty_process_handle_signals, 1}).
 dist_ctrl_put_data(_, _) -> erlang:error({not_implemented, dist_ctrl_put_data, 2}).
 dist_spawn_init(_) -> erlang:error({not_implemented, dist_spawn_init, 1}).
@@ -177,7 +178,7 @@ gather_sched_wall_time_result(_) ->
     erlang:error({not_implemented, gather_sched_wall_time_result, 1}).
 gather_system_check_result(_) -> erlang:error({not_implemented, gather_system_check_result, 1}).
 get_creation() -> clause_builtin_placeholder.
-get_dflags() -> erlang:error({not_implemented, get_dflags, 0}).
+get_dflags() -> clause_builtin_placeholder.
 get_internal_state_blocked(_) -> erlang:error({not_implemented, get_internal_state_blocked, 1}).
 group_leader(_, _) -> erlang:error({not_implemented, group_leader, 2}).
 group_leader(_, _, _) -> erlang:error({not_implemented, group_leader, 3}).
@@ -240,7 +241,7 @@ map_next(_, _, _) -> clause_builtin_placeholder.
 map_to_tuple_keys(Map) when is_map(Map) -> list_to_tuple(maps:keys(Map)).
 mc_iterator(_) -> erlang:error({not_implemented, mc_iterator, 1}).
 mc_refill(_) -> erlang:error({not_implemented, mc_refill, 1}).
-new_connection(_) -> erlang:error({not_implemented, new_connection, 1}).
+new_connection(_) -> clause_builtin_placeholder.
 no_aux_work_threads() -> erlang:error({not_implemented, no_aux_work_threads, 0}).
 notify_breakpoint_hit(_, _, _) -> erlang:error({not_implemented, notify_breakpoint_hit, 3}).
 open_port(_, _) -> erlang:error({not_implemented, open_port, 2}).

@@ -87,6 +87,9 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   references of other nodes are `ExternalIdentityCell`s (node atom traced last); this node's name and
   creation are process-wide (`detail::this_node_*`, plan 30 DIST1); `erlang:setnode/2` sets them and the
   executor's `node_owner_` (net_kernel) clears them when it ends (DIST2a, `docs/distribution.md#this-node`).
+  The executor's `ConnectionTable` holds other nodes' entries and node status subscriptions (DIST2b,
+  `scheduler/connections.cpp`): a controller's end takes its connection down, net_kernel's end kills the
+  controllers and the name goes after the last one.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

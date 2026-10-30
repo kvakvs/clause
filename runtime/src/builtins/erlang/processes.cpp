@@ -221,21 +221,97 @@ TermResult<Term> save_calls(ProcessContext &context, const Term &value) {
     return TermFactory(context).integer(static_cast<std::int64_t>(previous));
 }
 
-// process_flag(trap_exit, Bool), (min_heap_size, Size) or (save_calls, N): the previous setting; every other flag is
-// badarg.
-TermResult<Term> process_flag(ProcessContext &context, const AtomArgument &flag, const Term &value) {
-    const auto name = flag.term.atom_spelling_unchecked();
+// The spelling of an atom, or empty for any other term.
+std::string_view spelling(const Term &term) { return term.is_atom() ? term.atom_spelling_unchecked() : ""; }
+
+// The bit of a boolean monitor_nodes option: `bit` for true, nothing for false; none for any other value.
+std::optional<unsigned> boolean_bit(std::string_view value, unsigned bit) {
+    if (value != "true" && value != "false") {
+        return std::nullopt;
+    }
+    return value == "true" ? bit : 0U;
+}
+
+// The subscription bits one monitor_nodes option adds (plan 30 step DIST2b); none for an invalid one.
+std::optional<unsigned> option_bits(std::string_view key, std::string_view value) {
+    namespace status = detail::node_status;
+    if (key == "connection_id") {
+        return boolean_bit(value, status::CONNECTION_ID);
+    }
+    if (key == "nodedown_reason") {
+        return boolean_bit(value, status::DOWN_REASON);
+    }
+    if (key != "node_type" || (value != "visible" && value != "hidden" && value != "all")) {
+        return std::nullopt;
+    }
+    return (value == "hidden" ? 0U : status::VISIBLE) | (value == "visible" ? 0U : status::HIDDEN);
+}
+
+// The subscription bits of monitor_nodes options, as OTP's erts_monitor_nodes reads them: [] is the plain form, a
+// map gives an info map unless it holds list => true. None for anything else.
+std::optional<unsigned> node_status_options(const Term &options) {
+    if (options.is_nil()) {
+        return 0U;
+    }
+    if (!options.is_map()) {
+        return std::nullopt;
+    }
+    auto bits = detail::node_status::INFO_MAP;
+    for (const auto &[key, value] : need(options.map_entries())) {
+        if (spelling(key) == "list" && spelling(value) == "true") {
+            bits &= ~detail::node_status::INFO_MAP;
+            continue;
+        }
+        const auto added = option_bits(spelling(key), spelling(value));
+        if (!added) {
+            return std::nullopt;
+        }
+        bits |= *added;
+    }
+    return bits;
+}
+
+// The options of a monitor_nodes flag: [] for monitor_nodes, Options for {monitor_nodes, Options}; none for any other
+// flag.
+std::optional<Term> monitor_nodes_options(ProcessContext &context, const Term &flag) {
+    if (flag.is_tuple() && flag.tuple_size_unchecked() == 2 &&
+        spelling(flag.tuple_element_unchecked(0)) == "monitor_nodes") {
+        return flag.tuple_element_unchecked(1);
+    }
+    return spelling(flag) == "monitor_nodes" ? std::optional{need(TermFactory(context).nil())} : std::nullopt;
+}
+
+// process_flag(monitor_nodes, Bool) or ({monitor_nodes, Options}, Bool) (plan 30 step DIST2b,
+// docs/distribution.md#node-status-messages): subscribe to node status messages with the options' bits once more, or
+// end that subscription; the count it had.
+TermResult<Term> monitor_nodes(ProcessContext &context, std::optional<unsigned> bits, const Term &value) {
+    if (!value.is_boolean() || !bits) {
+        bad_argument();
+    }
+    const auto count = detail::Executor::of(context).subscribe(context, *bits, value.boolean_value_unchecked());
+    return TermFactory(context).integer(static_cast<std::int64_t>(count));
+}
+
+using Flag = Named<struct FlagRole>;
+
+// process_flag(trap_exit, Bool), (min_heap_size, Size), (save_calls, N) or monitor_nodes: the previous setting;
+// every other flag is badarg.
+TermResult<Term> process_flag(ProcessContext &context, const Flag &flag, const Term &value) {
+    if (const auto options = monitor_nodes_options(context, flag.term)) {
+        return monitor_nodes(context, node_status_options(*options), value);
+    }
+    const auto name = spelling(flag.term);
     if (name == "min_heap_size") {
         return min_heap_size(context, value);
     }
     if (name == "save_calls") {
         return save_calls(context, value);
     }
-    const auto spelling = value.is_atom() ? value.atom_spelling_unchecked() : "";
-    if (name != "trap_exit" || (spelling != "true" && spelling != "false")) {
+    const auto setting = spelling(value);
+    if (name != "trap_exit" || (setting != "true" && setting != "false")) {
         bad_argument();
     }
-    return TermFactory(context).boolean(context.signals().set_trap_exit(spelling == "true"));
+    return TermFactory(context).boolean(context.signals().set_trap_exit(setting == "true"));
 }
 
 // is_process_alive(Pid): whether the process has not ended; badarg unless Pid is a pid.

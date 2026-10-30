@@ -7,6 +7,7 @@
 #include "../ports/sockets.hpp"
 #include "../ports/value.hpp"
 #include "../process/process_table.hpp"
+#include "connections.hpp"
 #include "timer_wheel.hpp"
 #include <atomic>
 #include <chrono>
@@ -345,6 +346,26 @@ class Executor final {
     // erlang:setnode/2 (plan 30 step DIST2a): name this node when it has no name and a live process is registered as
     // net_kernel, which then owns the name: its end makes the node nonode@nohost again. False otherwise.
     bool name_node(ProcessContext &context, const Term &node, std::uint32_t creation);
+
+    // Connections to other nodes (plan 30 step DIST2b, connections.cpp, docs/distribution.md#connections); a dist
+    // handle is {ConnId, Ref}. erts_internal:new_connection/1: the handle of `node`'s entry, made pending when idle;
+    // none for this node.
+    std::optional<Term> new_connection(ProcessContext &context, const Term &node);
+    // erts_internal:abort_pending_connection/2: whether the entry of `node` was not up, its pending connection of the
+    // handle's id aborted; none when the handle names another entry or none.
+    std::optional<bool> abort_connection(const Term &node, const DistHandle &handle);
+    // Whether the live process registered as net_kernel owns this node's name, as setnode/3 requires.
+    bool kernel_ready(ProcessContext &context) const;
+    // setnode/3: bring the pending connection of `node` up under the live process `controller`, which controls no
+    // other connection, telling net_kernel ({dist_ctrlr, ...}) and the subscribers; its handle, or none (badarg).
+    std::optional<Term> connect(ProcessContext &context, const Term &node, Word controller,
+                                const ChannelOptions &options);
+    // nodes/1,2: the entries of the asked kinds in OTP's order (known, hidden, visible; each oldest first), without
+    // this node.
+    std::vector<ListedNode> list_nodes(NodeKinds kinds) const;
+    // process_flag(monitor_nodes, ...): subscribe the caller to node status messages once more with `options`, or end
+    // that subscription; the count it had.
+    std::size_t subscribe(ProcessContext &context, unsigned options, bool on);
     // An exit signal of exit/2 or exit_signal/2 from the running `sender` to the process of a pid word, acted on at
     // once; `self_normal` is exit/2's quirk: reason normal sent to itself ends the sender. Allocation failure throws,
     // builtins::Blocked while the target runs on another worker.
@@ -744,8 +765,25 @@ class Executor final {
     // Send the exit signals of an ended process's links and the 'DOWN' messages of its monitors, and drop the
     // monitors it held; false after recording why its exit reason cannot be built.
     bool notify(ProcessContext &process);
-    // Take this node's name when `pid` owns it: net_kernel ended, or the runtime stops (plan 30 step DIST2a).
-    void release_node(Word pid) noexcept;
+    // Connections (plan 30 step DIST2b, connections.cpp). The entry of `node`, created idle with a new reference.
+    Connection &entry_of(ProcessContext &context, Word node);
+    // The dist handle {Id, Ref} of an entry, built in `context`.
+    static TermResult<Term> handle_term(ProcessContext &context, const Connection &connection);
+    // Post `status` to each subscription that asks for it, the message built in `builder`'s heap.
+    void announce(ProcessContext &builder, const NodeStatus &status);
+    // Tell the subscribers that setnode/2 named this node.
+    void announce_named(ProcessContext &builder);
+    // An ended process leaves distribution: its subscriptions end, a controller's connection goes down, and
+    // net_kernel's end takes every connection and then the node's name.
+    void end_distribution(ProcessContext &process);
+    void connection_down(ProcessContext &controller, Word node);
+    void kernel_down(ProcessContext &kernel);
+    // Make the node nonode@nohost again once net_kernel ended and no connection is up, announcing its nodedown.
+    void unname_when_done(ProcessContext &builder);
+    // A controller running elsewhere that net_kernel's end must kill, when `kernel` owns the node's name; else null.
+    ProcessContext *busy_controller(ProcessContext &kernel) noexcept;
+    // Drop every connection and subscription and the node's name: the runtime stops.
+    void forget_distribution() noexcept;
     // Signal the links and monitors of an ended process with its exit reason.
     void notify(ProcessContext &process, const Term &reason, const std::vector<Word> &links,
                 const Signals::Monitors &watchers);
@@ -824,6 +862,10 @@ class Executor final {
     std::map<Word, Word> names_;
     // The pid of the net_kernel process that owns this node's name (plan 30 step DIST2a), or 0.
     Word node_owner_ = 0;
+    // Connection entries and node status subscriptions (plan 30 step DIST2b), and the reason atom word of this node's
+    // nodedown from net_kernel's end until the name goes after the last connection, else 0.
+    ConnectionTable connections_;
+    Word node_down_reason_ = 0;
     // Active aliases by reference: the owner's pid and the mode (step 41G2).
     std::map<ReferenceIdentity, std::pair<Word, AliasMode>> aliases_;
     // Message timers by reference number (step 41F); the wheel links their embedded timers.

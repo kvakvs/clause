@@ -39,6 +39,9 @@ bool is_this_node(const Term &node) noexcept;
 void name_this_node(const Term &node, std::uint32_t creation) noexcept;
 // Make this node nonode@nohost with creation 0 again, as when net_kernel ends (plan 30 step DIST2a).
 void unname_this_node() noexcept;
+// Whether a spelling is a node name as OTP's is_node_name checks: letters, digits, '-' and '_' before an '@', then a
+// host without another '@'.
+bool is_node_name(std::string_view spelling) noexcept;
 
 // An identity of another node (plan 30 step DIST1, docs/terms.md#identities-of-other-nodes), as its cell holds it.
 struct ExternalIdentity final {

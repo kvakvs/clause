@@ -642,7 +642,7 @@ set_cookie(_, _) -> clause_builtin_placeholder.
 set_cpu_topology(_) -> erlang:error({not_implemented, set_cpu_topology, 1}).
 setelement(_, _, _) -> clause_builtin_placeholder.
 setnode(_, _) -> clause_builtin_placeholder.
-setnode(_, _, _) -> erlang:error({not_implemented, setnode, 3}).
+setnode(_, _, _) -> clause_builtin_placeholder.
 size(_) -> clause_builtin_placeholder.
 spawn(_) -> clause_builtin_placeholder.
 spawn(_, _) -> clause_builtin_placeholder.

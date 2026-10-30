@@ -282,7 +282,7 @@
 {set_cpu_topology, 1, [], {unavailable, not_selected}}.
 {setelement, 3, [auto_import], implemented}.
 {setnode, 2, [], implemented}.
-{setnode, 3, [], {unavailable, distribution}}.
+{setnode, 3, [], implemented}.
 {size, 1, [auto_import, guard], implemented}.
 {spawn, 1, [auto_import], implemented}.
 {spawn, 2, [auto_import], implemented}.

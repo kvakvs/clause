@@ -6,6 +6,7 @@
 #include <chrono>
 #include <clause/runtime/output.hpp>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
 #include <format>
 #include <string>
@@ -57,6 +58,20 @@ std::string report_text(ProcessContext &process) {
     return report_header() + "Error in process " + format_term(*pid, TermStyle::write).value_or("") +
            " with exit value:\n" + pretty_text(process, *reason) + "\n\n";
 }
+
+// Whether the logger's default handler writes on standard error: CLAUSE_LOGGER_TYPE=standard_error, as the golden
+// runner sets it (library/kernel/clause_logger.erl).
+bool logger_on_stderr() noexcept {
+    constexpr std::string_view WANTED = "standard_error";
+#ifdef _WIN32
+    std::array<char, 32> type{};
+    std::size_t size = 0;
+    return getenv_s(&size, type.data(), type.size(), "CLAUSE_LOGGER_TYPE") == 0 && type.data() == WANTED;
+#else
+    const auto *type = std::getenv("CLAUSE_LOGGER_TYPE");
+    return type != nullptr && type == WANTED;
+#endif
+}
 } // namespace
 
 TermResult<Term> exit_reason(ProcessContext &process) {
@@ -93,6 +108,17 @@ void report_exit(ProcessContext &process) noexcept {
     } catch (...) {
         // The report could not be built; say so instead of dropping it, the process ends all the same.
         std::fputs("Error in process: its exit value cannot be printed\n\n", stderr);
+    }
+}
+
+void report_error(ProcessContext &process, std::string_view text) {
+    const auto report = report_header() + std::string(text) + "\n\n";
+    if (logger_on_stderr()) {
+        std::fflush(stdout);
+        std::fwrite(report.data(), 1, report.size(), stderr);
+        std::fflush(stderr);
+    } else {
+        static_cast<void>(write_output(process.standard_output(), report));
     }
 }
 } // namespace clause::runtime::detail

@@ -504,14 +504,17 @@ monitors take no options.
 
 ## Nodes
 
-A Clause program is one node without connections, `nonode@nohost` until
-`erlang:setnode/2` names it ([this node](distribution.md#this-node)), and
-answers as such an OTP node (`builtins/erlang/node.cpp`): `nodes/0` is `[]`,
-`nodes(this | known)` the node's name, other types `[]`; `nodes/2` gives
-`{Node, #{connection_id => undefined, node_type => this}}` for the keys asked.
-`is_alive/0` is true once the node has a name. `monitor_node/2,3` raise
-`error:notalive` for another node while the node has no name, and
-`disconnect_node/1` returns `ignored`.
+A Clause program is one node, `nonode@nohost` until `erlang:setnode/2` names it
+([this node](distribution.md#this-node)), and answers as such an OTP node
+(`builtins/erlang/node.cpp`). `nodes/0,1,2` list the connection entries that
+`setnode/3` and `erts_internal:new_connection/1` make
+([connections](distribution.md#connections)), then this node for `this` and
+`known`; without them `nodes/0` is `[]`. `is_alive/0` is true once the node has
+a name. `monitor_node/2,3` raise `error:notalive` for another node while the
+node has no name, and `disconnect_node/1` returns `ignored`.
+`process_flag(monitor_nodes, Bool)` and `process_flag({monitor_nodes, Options},
+Bool)` subscribe to node status messages
+([node status messages](distribution.md#node-status-messages)).
 
 ## Exit signals
 

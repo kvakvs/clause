@@ -14,3 +14,8 @@ Compact record of the network distribution plan, one bullet per step;
   net_kernel, every hard-coded `nonode@nohost` reads the name, `monitor_node/2,3` checks in OTP's
   order, exact-creation decoding, name monitors in `process_info/2`; DIST2 split into
   DIST2a/2b/2c; `this_node` golden identical to OTP — `b21f21fb`
+- **DIST2b** connection entries: executor `ConnectionTable`, dist handles, `new_connection/1`,
+  `abort_pending_connection/2`, `create_dist_channel/3`, `setnode/3`, `get_dflags/0`, `nodes/0,1,2`
+  in OTP's order, `process_flag(monitor_nodes, ...)` and `net_kernel:monitor_nodes/1,2`, controller
+  and net_kernel ends; DIST2b split again into DIST2b/2c/2d; `connections` golden identical to OTP
+  — `PENDING`

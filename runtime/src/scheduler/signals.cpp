@@ -284,13 +284,13 @@ ProcessContext *Executor::busy_peer(ProcessContext &process) noexcept {
             return peer;
         }
     }
-    return nullptr;
+    return busy_controller(process);
 }
 
 bool Executor::notify(ProcessContext &process) {
     auto &signals = process.signals();
     names_.erase(signals.name());
-    release_node(pid_of(process));
+    end_distribution(process);
     // Tables go first, as in OTP: a monitor's 'DOWN' message finds them deleted or inherited.
     release_tables(process);
     for (const auto &[reference, monitored] : signals.take_monitors()) {
@@ -394,15 +394,8 @@ bool Executor::name_node(ProcessContext &context, const Term &node, std::uint32_
     }
     node_owner_ = owner;
     name_this_node(node, creation);
+    announce_named(context);
     return true;
-}
-
-void Executor::release_node(Word pid) noexcept {
-    // net_kernel's end takes this node's name (OTP's erts_do_net_exits).
-    if (node_owner_ != 0 && node_owner_ == pid) {
-        node_owner_ = 0;
-        unname_this_node();
-    }
 }
 
 std::vector<Word> Executor::registered(ProcessContext &context) const {

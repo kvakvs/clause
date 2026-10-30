@@ -5,8 +5,10 @@ How a Clause executable becomes a distributed Erlang node. Decided in plan 30 st
 
 **Today** a program is a non-distributed node, `nonode@nohost`. Pids, ports and references of
 other nodes exist as terms ([terms](terms.md#identities-of-other-nodes), DIST1), the node can be
-named ([this node](#this-node), DIST2a), and the libraries answer as OTP does without distribution
-(`{badrpc, nodedown}`, `pang`, `not_alive`). The rest of this file is the contract for
+named ([this node](#this-node), DIST2a), connection entries and node status messages follow OTP's
+process-controller interface without moving any signal yet ([connections](#connections), DIST2b),
+and the libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`,
+`not_alive`). The rest of this file is the contract for
 distribution. Each section becomes current behavior when its step lands.
 
 ## Scope
@@ -91,10 +93,71 @@ Current since DIST2a (`builtins/erlang/node.cpp`, `scheduler/signals.cpp`), as i
   (`erts_internal:dynamic_node_name/1`); `erts_internal:get_creation/0` is the creation, or
   `undefined` without a name. A decoded identity naming this node is local only under its creation.
 - **Monitoring nodes:** `monitor_node/2,3` raise `notalive` for a node other than `nonode@nohost`
-  while the node has no name. Monitoring this node does nothing. Another node has no connection
-  yet: its monitor ends at once with `{nodedown, Node}` (connecting is DIST2b).
-- **End:** when the `net_kernel` process that named the node ends, the node is `nonode@nohost` with
-  creation 0 again, and can be named anew.
+  while the node has no name. Monitoring this node does nothing. Monitoring another node does not
+  use the connection entries yet: its monitor ends at once with `{nodedown, Node}` (DIST2c).
+- **End:** when the `net_kernel` process that named the node ends, its connections end
+  ([connections](#connections)); after the last one the node is `nonode@nohost` with creation 0
+  again, and can be named anew. `setnode/2` and this end send `nodeup` and `nodedown` for this node
+  ([node status messages](#node-status-messages)).
+
+## Connections
+
+Current since DIST2b (`scheduler/connections.cpp`, `builtins/erlang/connections.cpp`), as OTP's
+process-controller interface. No signal moves over a connection yet (DIST2d, DIST5).
+
+- **Entries:** one per other node, made by `erts_internal:new_connection(Node)` (no name needed) or
+  a `setnode/3` attempt, and kept while the program runs. An entry is idle, pending or up; up holds
+  the controller process, the flags and the creation `setnode/3` gave.
+- **Dist handles:** `{ConnId, Ref}`. Every handle of an entry holds the same reference, so handles
+  of one entry compare equal. The connection id advances by one, within 24 bits, each time the
+  entry turns pending.
+- **`new_connection(Node)`:** the entry's handle; an idle entry turns pending. `badarg` unless
+  `Node` is a node name other than this node's.
+- **`abort_pending_connection(Node, DHandle)`:** `false` when the connection is up, else `true`;
+  a pending connection of the handle's id turns idle. `badarg` unless the handle is one of `Node`'s
+  entry.
+- **`erlang:setnode(Node, DistCtrlr, {Flags, Creation})`:** brings the pending connection up and
+  returns its handle. It sends `{dist_ctrlr, DistCtrlr, Node, Caller}` to `net_kernel` and
+  `nodeup` to the subscribers. `badarg` unless `net_kernel` owns this node's name, `Node` is a
+  node name other than this node's with a pending entry, `DistCtrlr` is a live local process that
+  controls no connection and is not `net_kernel`, `Flags` is a non-negative integer of at most 64
+  bits and `Creation` a non-negative small integer (cut to 32 bits). Flags without every mandatory
+  one also write OTP's error report (`... attempted to enable connection to node 'N' which does not
+  support all mandatory capabilities.`). A port controller is `badarg`: Clause's carriers run
+  controller processes. `erts_internal:create_dist_channel/3` answers `{ok, DHandle}` or `badarg`.
+- **`get_dflags/0`:** `{erts_dflags, Default, Mandatory, Addable, Rejectable, StrictOrder}` of the
+  flags Clause offers ([protocol](#protocol)).
+- **`nodes/0,1,2`:** `visible` and `hidden` are up entries with and without `DFLAG_PUBLISHED`,
+  `connected` both, `known` every entry and this node, `this` this node. The list is OTP's order:
+  pending, idle, hidden, then visible entries, each oldest change first, then this node. `nodes/2`
+  gives the connection id of an up entry (`undefined` otherwise) and the node type (`known` for an
+  entry that is not up).
+- **Ends:** a controller's end takes its connection down: the entry turns idle and the subscribers
+  get `nodedown` with the controller's exit reason (`{shutdown, R}` gives `R`, `normal`
+  `connection_closed`). `net_kernel`'s end aborts the pending entries and kills the controllers,
+  hidden before visible, the latest first (`nodedown` reason `killed`); after the last one this
+  node's name ends with reason `net_kernel_terminated`, or `no_network` when that was
+  `net_kernel`'s exit reason.
+
+## Node status messages
+
+Current since DIST2b, as OTP's: `process_flag(monitor_nodes, Bool)`,
+`process_flag({monitor_nodes, Options}, Bool)` and `net_kernel:monitor_nodes/1,2` over them.
+
+- **Subscriptions:** one per process and option set, counted: `true` adds one and returns the count
+  before, `false` ends the subscription and returns its count. Messages come in the order the
+  subscriptions were first made, as many copies as the count. A process's end ends its
+  subscriptions.
+- **Options:** `[]` (or `#{list => true}` alone) gives `{nodeup, Node}` and `{nodedown, Node}` for
+  visible nodes. A map gives `{nodeup | nodedown, Node, Info}` with `Info` a map, or a list with
+  `list => true`, holding `connection_id` (`undefined` for this node), `nodedown_reason` (on
+  `nodedown`) and `node_type` when asked; `node_type => visible | hidden | all` chooses the nodes.
+  The list holds them in that order. Anything else is `badarg`.
+- **`net_kernel:monitor_nodes/2`:** a list of `connection_id`, `nodedown_reason` and
+  `{node_type, T}`, or a map of them. Errors as OTP's: `{bad_option_value, ...}` first, then
+  `{unknown_options, ...}`, `{option_value_mismatch, [New, Old]}` for two node types and
+  `{invalid_options, Options}` for anything but a list or a map; `error` for a flag that is not a
+  boolean.
 
 ## Carriers
 
