@@ -28,4 +28,4 @@ Compact record of the network distribution plan, one bullet per step;
   `dist_ctrl_put_data/2` (iodata through `erts_internal:dist_ctrl_put_data/2`),
   `dist_ctrl_input_handler/2`, `dist_ctrl_get_opt/2`, `dist_ctrl_set_opt/3`, `dist_get_stat/1` with
   OTP's notsup/badarg order; queue filled and data decoded from DIST5; `connections` golden's
-  data_path run identical to OTP — `HASH`
+  data_path run identical to OTP — `a8c363b3`
