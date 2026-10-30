@@ -93,8 +93,8 @@ Current since DIST2a (`builtins/erlang/node.cpp`, `scheduler/signals.cpp`), as i
   (`erts_internal:dynamic_node_name/1`); `erts_internal:get_creation/0` is the creation, or
   `undefined` without a name. A decoded identity naming this node is local only under its creation.
 - **Monitoring nodes:** `monitor_node/2,3` raise `notalive` for a node other than `nonode@nohost`
-  while the node has no name. Monitoring this node does nothing. Monitoring another node does not
-  use the connection entries yet: its monitor ends at once with `{nodedown, Node}` (DIST2c).
+  while the node has no name. Monitoring this node does nothing; another node's monitor is its
+  connection entry's ([node monitors](#node-monitors)).
 - **End:** when the `net_kernel` process that named the node ends, its connections end
   ([connections](#connections)); after the last one the node is `nonode@nohost` with creation 0
   again, and can be named anew. `setnode/2` and this end send `nodeup` and `nodedown` for this node
@@ -103,10 +103,11 @@ Current since DIST2a (`builtins/erlang/node.cpp`, `scheduler/signals.cpp`), as i
 ## Connections
 
 Current since DIST2b (`scheduler/connections.cpp`, `builtins/erlang/connections.cpp`), as OTP's
-process-controller interface. No signal moves over a connection yet (DIST2d, DIST5).
+process-controller interface. No signal moves over a connection yet (DIST2d, DIST5). Node monitors
+hold entries too ([node monitors](#node-monitors)).
 
-- **Entries:** one per other node, made by `erts_internal:new_connection(Node)` (no name needed) or
-  a `setnode/3` attempt, and kept while the program runs. An entry is idle, pending or up; up holds
+- **Entries:** one per other node, made by `erts_internal:new_connection(Node)` (no name needed),
+  `monitor_node/2,3` or a `setnode/3` attempt, and kept while the program runs. An entry is idle, pending or up; up holds
   the controller process, the flags and the creation `setnode/3` gave.
 - **Dist handles:** `{ConnId, Ref}`. Every handle of an entry holds the same reference, so handles
   of one entry compare equal. The connection id advances by one, within 24 bits, each time the
@@ -114,7 +115,7 @@ process-controller interface. No signal moves over a connection yet (DIST2d, DIS
 - **`new_connection(Node)`:** the entry's handle; an idle entry turns pending. `badarg` unless
   `Node` is a node name other than this node's.
 - **`abort_pending_connection(Node, DHandle)`:** `false` when the connection is up, else `true`;
-  a pending connection of the handle's id turns idle. `badarg` unless the handle is one of `Node`'s
+  a pending connection of the handle's id turns idle, and its node monitors get `nodedown`. `badarg` unless the handle is one of `Node`'s
   entry.
 - **`erlang:setnode(Node, DistCtrlr, {Flags, Creation})`:** brings the pending connection up and
   returns its handle. It sends `{dist_ctrlr, DistCtrlr, Node, Caller}` to `net_kernel` and
@@ -134,10 +135,37 @@ process-controller interface. No signal moves over a connection yet (DIST2d, DIS
   entry that is not up).
 - **Ends:** a controller's end takes its connection down: the entry turns idle and the subscribers
   get `nodedown` with the controller's exit reason (`{shutdown, R}` gives `R`, `normal`
-  `connection_closed`). `net_kernel`'s end aborts the pending entries and kills the controllers,
+  `connection_closed`). `net_kernel`'s end aborts the pending entries, the latest first, and kills the controllers,
   hidden before visible, the latest first (`nodedown` reason `killed`); after the last one this
   node's name ends with reason `net_kernel_terminated`, or `no_network` when that was
   `net_kernel`'s exit reason.
+
+## Node monitors
+
+Current since DIST2c (`scheduler/connections.cpp`, `builtins/erlang/node.cpp`), as OTP's:
+
+- **`monitor_node(Node, true)`:** the caller's monitor of the node once more, held by its entry
+  (made idle when there is none). Each monitor gets one `{nodedown, Node}` when the connection goes
+  down or its pending connection is aborted, before the node status messages. `false` ends one of
+  the caller's monitors and makes no entry. A process's end ends its monitors.
+- **Auto-connect:** monitoring an idle entry makes it pending and sends
+  `{auto_connect, Node, DHandle}` to `net_kernel`; without a process registered as `net_kernel` the
+  connection is aborted at once, so the monitor gets its `nodedown`.
+- **Checks:** `badarg` for a `monitor_node/3` option other than `allow_passive_connect` or an
+  improper option list, then `notalive` ([this node](#this-node)), then `badarg` for a flag that is
+  not a boolean.
+- **`allow_passive_connect`:** with a connection that is not up, `monitor_node/3` holds no monitor
+  and asks `net_kernel:passive_cnct(Node)` (a `{passive_cnct, Node}` call to `net_kernel`, `false`
+  without one) in `clause_dist:passive_monitor/3`: `true` monitors again, `false` sends the caller
+  `{nodedown, Node}` at once. An up connection takes the monitor as without the option.
+- **`erlang:dmonitor_node(Node, Flag, Options)`:** asks `net_kernel` the same way when the options
+  hold `allow_passive_connect`; otherwise the caller gets `{nodedown, Node}` at once. It returns
+  `true` whatever the other arguments.
+- **Text of identities:** `list_to_pid/1`, `list_to_port/1` and `list_to_ref/1` read another
+  node's identity while its connection is up: the node part is the node name atom's number, as
+  printed, and the identity gets the connection's creation. A pid's numbers are cut to 32 bits, a
+  port's number to 64; a reference has one to five words below 2^32. Any other node part is
+  `badarg`.
 
 ## Node status messages
 

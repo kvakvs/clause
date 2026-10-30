@@ -8,7 +8,8 @@
 
 // Connection entries of other nodes and node status messages (plan 30 step DIST2b, docs/distribution.md#connections):
 // the executor keeps the table under its lock, as OTP's dist table; a controller's end takes its connection down and
-// net_kernel's end takes every connection and then the node's name (OTP's erts_do_net_exits).
+// net_kernel's end takes every connection and then the node's name (OTP's erts_do_net_exits). Node monitors and
+// auto-connect are DIST2c's.
 namespace clause::runtime::detail {
 namespace {
 // The connection id is 24 bits, as OTP's ERTS_DIST_CON_ID_MASK.
@@ -132,7 +133,7 @@ Connection &ConnectionTable::entry(Word node, std::uint64_t handle) {
         return *found;
     }
     handles_.emplace(handle, node);
-    return entries_.emplace(node, Connection{.handle = handle, .stamp = ++clock_}).first->second;
+    return entries_.emplace(node, Connection{.handle = handle, .stamp = ++clock_, .monitors = {}}).first->second;
 }
 
 std::optional<Word> ConnectionTable::node_of_handle(std::uint64_t handle) const noexcept {
@@ -167,6 +168,22 @@ void ConnectionTable::drop(Connection &connection) noexcept {
     connection.controller = 0;
     connection.flags = 0;
     connection.stamp = ++clock_;
+    connection.monitors.clear();
+}
+
+void ConnectionTable::monitor(Connection &connection, Word pid) { ++connection.monitors[pid]; }
+
+void ConnectionTable::demonitor(Connection &connection, Word pid) noexcept {
+    const auto found = connection.monitors.find(pid);
+    if (found != connection.monitors.end() && --found->second == 0) {
+        connection.monitors.erase(found);
+    }
+}
+
+void ConnectionTable::forget_monitors(Word pid) noexcept {
+    for (auto &[node, connection] : entries_) {
+        connection.monitors.erase(pid);
+    }
 }
 
 std::vector<Word> ConnectionTable::in_state(Connection::State state) const {
@@ -245,7 +262,7 @@ std::optional<Term> Executor::new_connection(ProcessContext &context, const Term
     return built(handle_term(context, connection));
 }
 
-std::optional<bool> Executor::abort_connection(const Term &node, const DistHandle &handle) {
+std::optional<bool> Executor::abort_connection(ProcessContext &context, const Term &node, const DistHandle &handle) {
     const std::scoped_lock lock(mutex_);
     const auto named = connections_.node_of_handle(handle.reference);
     auto *connection = named && *named == node.word() && !is_this_node(node) ? connections_.find(*named) : nullptr;
@@ -256,7 +273,7 @@ std::optional<bool> Executor::abort_connection(const Term &node, const DistHandl
         return true;
     }
     if (connection->state == Connection::State::pending) {
-        connections_.drop(*connection);
+        take_down(context, node.word());
     }
     return connection->state != Connection::State::up;
 }
@@ -305,6 +322,63 @@ std::vector<ListedNode> Executor::list_nodes(NodeKinds kinds) const {
     return listed;
 }
 
+bool Executor::monitor_node(ProcessContext &context, const Term &node, bool on, bool passive) {
+    const std::scoped_lock lock(mutex_);
+    const auto pid = pid_of(context);
+    if (!on) {
+        if (auto *connection = connections_.find(node.word())) {
+            ConnectionTable::demonitor(*connection, pid);
+        }
+        return true;
+    }
+    auto &connection = entry_of(context, node.word());
+    if (passive && connection.state != Connection::State::up) {
+        return false;
+    }
+    ConnectionTable::monitor(connection, pid);
+    if (connection.state == Connection::State::idle) {
+        auto_connect(context, node.word(), connection);
+    }
+    return true;
+}
+
+std::optional<std::uint32_t> Executor::connected_creation(Word node) const {
+    const std::scoped_lock lock(mutex_);
+    const auto *connection = connections_.find(node);
+    if (connection == nullptr || connection->state != Connection::State::up) {
+        return std::nullopt;
+    }
+    return connection->creation;
+}
+
+void Executor::auto_connect(ProcessContext &context, Word node, Connection &connection) {
+    connections_.pend(connection);
+    const auto kernel = lookup(context, atom(context, "net_kernel"_atom).word());
+    auto *target = kernel == 0 ? nullptr : process(kernel);
+    if (target == nullptr) {
+        take_down(context, node);
+        return;
+    }
+    const std::array parts{atom(context, "auto_connect"_atom), built(Term::from_word(node, context)),
+                           built(handle_term(context, connection))};
+    post(*target, buffered(context, built(TermFactory(context).tuple(parts))));
+}
+
+void Executor::take_down(ProcessContext &builder, Word node) {
+    auto &connection = *connections_.find(node);
+    if (!connection.monitors.empty()) {
+        const std::array parts{atom(builder, "nodedown"_atom), built(Term::from_word(node, builder))};
+        const auto message = buffered(builder, built(TermFactory(builder).tuple(parts)));
+        for (const auto &[pid, count] : connection.monitors) {
+            auto *receiver = process(pid);
+            for (std::size_t copy = 0; receiver != nullptr && copy < count; ++copy) {
+                post(*receiver, message);
+            }
+        }
+    }
+    connections_.drop(connection);
+}
+
 std::size_t Executor::subscribe(ProcessContext &context, unsigned options, bool on) {
     const std::scoped_lock lock(mutex_);
     return connections_.subscribe(pid_of(context), options, on);
@@ -331,6 +405,7 @@ void Executor::announce_named(ProcessContext &builder) {
 void Executor::end_distribution(ProcessContext &process) {
     const auto pid = pid_of(process);
     connections_.unsubscribe(pid);
+    connections_.forget_monitors(pid);
     if (const auto node = connections_.controlled_by(pid)) {
         connection_down(process, *node);
     }
@@ -346,7 +421,7 @@ void Executor::connection_down(ProcessContext &controller, Word node) {
                             .id = connection.id,
                             .visible = connection.visible(),
                             .reason = down_reason(controller)};
-    connections_.drop(connection);
+    take_down(controller, node);
     announce(controller, status);
     unname_when_done(controller);
 }
@@ -356,8 +431,11 @@ void Executor::kernel_down(ProcessContext &kernel) {
     const auto reason = built(exit_reason(kernel));
     node_down_reason_ =
         is_atom(reason, "no_network") ? reason.word() : atom(kernel, "net_kernel_terminated"_atom).word();
-    for (const auto node : connections_.in_state(Connection::State::pending)) {
-        connections_.drop(*connections_.find(node));
+    // OTP aborts the latest pending connection first.
+    auto pending = connections_.in_state(Connection::State::pending);
+    std::ranges::reverse(pending);
+    for (const auto node : pending) {
+        take_down(kernel, node);
     }
     // OTP kills hidden controllers before visible ones, the latest connected first.
     auto up = connections_.in_state(Connection::State::up);

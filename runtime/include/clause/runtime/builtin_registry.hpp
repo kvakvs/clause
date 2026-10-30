@@ -114,7 +114,7 @@ std::span<const BuiltinEntry> io_builtins() noexcept;
 // unregister/1, whereis/1 and registered/0.
 std::span<const BuiltinEntry> process_builtins() noexcept;
 // The port builtins (docs/ports.md): open_port/2, port_close/1, port_command/2,3, port_connect/2, port_control/3,
-// port_call/2,3, port_info/1,2, port_to_list/1, list_to_port/1 and ports/0.
+// port_call/2,3, port_info/1,2, port_to_list/1 and ports/0.
 std::span<const BuiltinEntry> port_builtins() noexcept;
 // The os builtins: os:type/0, os:getenv/0,1, os:env/0, os:putenv/2, os:unsetenv/1, os:getpid/0, os:version/0.
 std::span<const BuiltinEntry> os_builtins() noexcept;
@@ -336,8 +336,11 @@ std::span<const BuiltinEntry> binary_encoding_builtins() noexcept;
 // The binary, atom and number conversions of step 41D: atom_to_binary/1,2, binary_to_atom/1,2,
 // binary_to_existing_atom/1,2, list_to_existing_atom/1, integer_to_binary/1,2, binary_to_integer/1,2,
 // float_to_binary/1,2, binary_to_float/1, list_to_float/1, binary_to_list/3, bitstring_to_list/1,
-// list_to_bitstring/1, split_binary/2, iolist_size/1, list_to_pid/1 and list_to_ref/1.
+// list_to_bitstring/1, split_binary/2 and iolist_size/1.
 std::span<const BuiltinEntry> binary_conversion_builtins() noexcept;
+// The text of identities of this node or a connected one (plan 30 step DIST2c): list_to_pid/1, list_to_port/1 and
+// list_to_ref/1.
+std::span<const BuiltinEntry> identity_text_builtins() noexcept;
 // The external term format of step 41E: term_to_binary/1,2, term_to_iovec/1,2, external_size/1,2, and
 // binary_to_term/1,2.
 std::span<const BuiltinEntry> term_encoding_builtins() noexcept;

@@ -47,7 +47,7 @@ std::optional<detail::DistHandle> dist_handle(const Term &term) {
 // a pending connection of the handle's id. Badarg unless the handle names Node's entry.
 TermResult<Term> abort_pending_connection(ProcessContext &context, const AtomArgument &node, const Term &handle) {
     const auto parsed = dist_handle(handle);
-    const auto aborted = parsed ? Executor::of(context).abort_connection(node.term, *parsed) : std::nullopt;
+    const auto aborted = parsed ? Executor::of(context).abort_connection(context, node.term, *parsed) : std::nullopt;
     if (!aborted) {
         bad_argument();
     }

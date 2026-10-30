@@ -446,7 +446,7 @@ dist_ctrl_put_data(_, _) -> erlang:error({not_implemented, dist_ctrl_put_data, 2
 dist_ctrl_set_opt(_, _, _) -> erlang:error({not_implemented, dist_ctrl_set_opt, 3}).
 dist_get_stat(_) -> erlang:error({not_implemented, dist_get_stat, 1}).
 'div'(_, _) -> clause_builtin_placeholder.
-dmonitor_node(_, _, _) -> erlang:error({not_implemented, dmonitor_node, 3}).
+dmonitor_node(_, _, _) -> clause_builtin_placeholder.
 dt_append_vm_tag_data(_) -> erlang:error(notsup).
 dt_get_tag() -> erlang:error(notsup).
 dt_get_tag_data() -> erlang:error(notsup).

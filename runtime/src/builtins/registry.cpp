@@ -159,6 +159,7 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      os_builtins(),
                                      dictionary_builtins(),
                                      binary_conversion_builtins(),
+                                     identity_text_builtins(),
                                      term_encoding_builtins(),
                                      term_decoding_builtins(),
                                      time_builtins(),

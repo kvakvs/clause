@@ -89,7 +89,8 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   executor's `node_owner_` (net_kernel) clears them when it ends (DIST2a, `docs/distribution.md#this-node`).
   The executor's `ConnectionTable` holds other nodes' entries and node status subscriptions (DIST2b,
   `scheduler/connections.cpp`): a controller's end takes its connection down, net_kernel's end kills the
-  controllers and the name goes after the last one.
+  controllers and the name goes after the last one. Each entry holds its `monitor_node` monitors; an idle
+  one auto-connects through net_kernel (DIST2c); a passive monitor continues in `kernel/clause_dist.erl`, which asks net_kernel.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

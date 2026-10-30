@@ -7,13 +7,14 @@
 #include "terms.hpp"
 #include <algorithm>
 #include <array>
+#include <clause/runtime/code_server.hpp>
 #include <cstdint>
 #include <string_view>
 
 // nodes/0,1,2, monitor_node/2,3, disconnect_node/1 and the cookies (plan step 41H, docs/processes.md#nodes), and
 // this node's name: erlang:setnode/2 and erts_internal:get_creation/0 (plan 30 step DIST2a,
-// docs/distribution.md#this-node). nodes/0,1,2 list the connection entries (plan 30 step DIST2b); monitoring another
-// node raises notalive unless the node has a name, disconnecting returns ignored.
+// docs/distribution.md#this-node). nodes/0,1,2 list the connection entries (plan 30 step DIST2b) and monitor_node/2,3
+// monitors them (DIST2c); disconnecting returns ignored.
 namespace clause::runtime::builtins {
 namespace {
 // The name of a node without one, which setnode/2 refuses.
@@ -153,24 +154,34 @@ TermResult<Term> nodes2(ProcessContext &context, const Term &types, const MapArg
     return factory.list(items);
 }
 
-// Badarg unless every monitor_node/3 option is allow_passive_connect.
-void check_monitor_options(const ListArgument &options) {
+// Whether monitor_node/3's options ask for a passive connect; badarg unless every option is allow_passive_connect.
+bool passive_connect(const ListArgument &options) {
     for (const auto &option : options.elements) {
         if (!option.is_atom() || option.atom_spelling_unchecked() != "allow_passive_connect") {
             bad_argument();
         }
     }
+    return !options.elements.empty();
+}
+
+// Continue as clause_dist:passive_monitor(Node, Flag, Options), which asks net_kernel for a passive connect (plan 30
+// step DIST2c).
+Word passive_monitor(ProcessContext &context, const std::array<Word, 3> &arguments) {
+    const auto *frame = static_cast<const abi::v1::FrameDescriptor *>(context.code_server().function_frame(
+        atom(context, "clause_dist"_atom), atom(context, "passive_monitor"_atom), arguments.size()));
+    if (!frame) {
+        bad_argument();
+    }
+    context.stack().trap(*frame, arguments);
+    return 0;
 }
 
 // monitor_node(Node, Flag[, Options]) in OTP's order of checks: badarg for an unknown option, error:notalive for a
 // node other than nonode@nohost while this node has no name, badarg for a flag that is not a boolean. Monitoring this
-// node does nothing; another node has no connection, so its monitor ends at once with {nodedown, Node}, as OTP's
-// when connecting fails (plan 30 step DIST2a; node monitors over connections are DIST2c).
-TermResult<Term> monitor_node(ProcessContext &context, const AtomArgument &node, const Term &flag,
-                              const ListArgument *options) {
-    if (options) {
-        check_monitor_options(*options);
-    }
+// node does nothing; another node's monitor is held by its connection entry, which auto-connects when idle (plan 30
+// step DIST2c, docs/distribution.md#node-monitors). A passive one of a connection that is not up asks net_kernel.
+Word monitor_node(ProcessContext &context, const AtomArgument &node, const Term &flag, const ListArgument &options) {
+    const auto passive = passive_connect(options);
     if (node.spelling != UNNAMED_NODE && !detail::this_node_named()) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
                              .payload = atom(context, "notalive"_atom).word()};
@@ -178,20 +189,33 @@ TermResult<Term> monitor_node(ProcessContext &context, const AtomArgument &node,
     if (!flag.is_boolean()) {
         bad_argument();
     }
-    if (flag.boolean_value_unchecked() && !detail::is_this_node(node.term)) {
-        const std::array parts{atom(context, "nodedown"_atom), node.term};
-        need(detail::Executor::send(context, detail::pid_of(context), need(TermFactory(context).tuple(parts))));
+    if (!detail::is_this_node(node.term) &&
+        !detail::Executor::of(context).monitor_node(context, node.term, flag.boolean_value_unchecked(), passive)) {
+        return passive_monitor(context, {node.term.word(), flag.word(), options.term.word()});
     }
-    return TermFactory(context).boolean(true);
+    return atom(context, "true"_atom).word();
 }
 
-TermResult<Term> monitor_node2(ProcessContext &context, const AtomArgument &node, const Term &flag) {
-    return monitor_node(context, node, flag, nullptr);
+Word monitor_node2(ProcessContext &context, const AtomArgument &node, const Term &flag) {
+    return monitor_node(context, node, flag, {.term = need(TermFactory(context).nil()), .elements = {}});
 }
 
-TermResult<Term> monitor_node3(ProcessContext &context, const AtomArgument &node, const Term &flag,
-                               const ListArgument &options) {
-    return monitor_node(context, node, flag, &options);
+Word monitor_node3(ProcessContext &context, const AtomArgument &node, const Term &flag, const ListArgument &options) {
+    return monitor_node(context, node, flag, options);
+}
+
+// erlang:dmonitor_node(Node, Flag, Options) (plan 30 step DIST2c): with allow_passive_connect among the options it asks
+// net_kernel as monitor_node/3 does; otherwise the caller gets {nodedown, Node} at once, whatever the arguments.
+Word dmonitor_node(ProcessContext &context, const Term &node, const Term &flag, const ListArgument &options) {
+    const auto passive = std::ranges::any_of(options.elements, [](const Term &option) {
+        return option.is_atom() && option.atom_spelling_unchecked() == "allow_passive_connect";
+    });
+    if (passive) {
+        return passive_monitor(context, {node.word(), flag.word(), options.term.word()});
+    }
+    const std::array parts{atom(context, "nodedown"_atom), node};
+    need(detail::Executor::send(context, detail::pid_of(context), need(TermFactory(context).tuple(parts))));
+    return atom(context, "true"_atom).word();
 }
 
 // get_cookie() and get_cookie(Node): nocookie, since this node is not alive (plan 21 step LIB9A).
@@ -252,6 +276,7 @@ constexpr std::array NODE_BUILTINS{
     typed_entry<is_alive>("erlang", "is_alive"),
     typed_entry<monitor_node2>("erlang", "monitor_node"),
     typed_entry<monitor_node3>("erlang", "monitor_node"),
+    typed_entry<dmonitor_node>("erlang", "dmonitor_node"),
     typed_entry<disconnect_node>("erlang", "disconnect_node"),
     typed_entry<get_cookie0>("erlang", "get_cookie"),
     typed_entry<get_cookie1>("erlang", "get_cookie"),

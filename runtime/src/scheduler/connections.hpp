@@ -6,7 +6,7 @@
 #include <optional>
 #include <vector>
 
-// Connection entries of other nodes and node status subscriptions (plan 30 step DIST2b,
+// Connection entries of other nodes, node monitors (DIST2c) and node status subscriptions (plan 30 step DIST2b,
 // docs/distribution.md#connections): the data the executor keeps under its lock, as OTP's dist table and nodes
 // monitors keep it.
 namespace clause::runtime::detail {
@@ -45,6 +45,9 @@ struct Connection final {
     std::uint64_t handle = 0;
     // When the entry last changed state; nodes/1 lists each state's entries oldest first, as OTP's lists come out.
     std::uint64_t stamp = 0;
+    // monitor_node/2,3's monitors of the node (plan 30 step DIST2c): each process's count, one {nodedown, Node} per
+    // count when the connection goes down or is aborted.
+    std::map<Word, std::size_t> monitors;
 
     // Whether the connection is up and published (visible), not hidden.
     bool visible() const noexcept { return state == State::up && (flags & dflags::PUBLISHED) != 0; }
@@ -121,6 +124,11 @@ class ConnectionTable final {
     void pend(Connection &connection) noexcept;
     void connect(Word node, Word controller, const ChannelOptions &options);
     void drop(Connection &connection) noexcept;
+    // A node monitor of `pid` once more, or one fewer when it has one (plan 30 step DIST2c).
+    static void monitor(Connection &connection, Word pid);
+    static void demonitor(Connection &connection, Word pid) noexcept;
+    // End every node monitor of an ended process.
+    void forget_monitors(Word pid) noexcept;
     // The node words of the entries in `state`, oldest change first.
     std::vector<Word> in_state(Connection::State state) const;
 

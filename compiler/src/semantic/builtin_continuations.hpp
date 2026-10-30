@@ -18,8 +18,11 @@ struct BuiltinContinuation {
 };
 
 // io output to a process device goes through clause_io:put_chars/2, an I/O protocol request (plan 21 step LIB63);
-// writes of maps ordered by comparison funs sort their keys in clause_io_lib:sort_maps/6 (plan 21 step LIB4F).
+// writes of maps ordered by comparison funs sort their keys in clause_io_lib:sort_maps/6 (plan 21 step LIB4F); a
+// passive node monitor asks net_kernel in clause_dist:passive_monitor/3 (plan 30 step DIST2c).
 inline constexpr std::array BUILTIN_CONTINUATIONS{
+    BuiltinContinuation{{"erlang", "monitor_node", 3}, U"clause_dist", U"passive_monitor", 3},
+    BuiltinContinuation{{"erlang", "dmonitor_node", 3}, U"clause_dist", U"passive_monitor", 3},
     BuiltinContinuation{{"io", "format", 3}, U"clause_io", U"put_chars", 2},
     BuiltinContinuation{{"io", "fwrite", 3}, U"clause_io", U"put_chars", 2},
     BuiltinContinuation{{"io", "put_chars", 2}, U"clause_io", U"put_chars", 2},

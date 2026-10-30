@@ -18,7 +18,8 @@ tasks are in `runtime/src/scheduler/ports.cpp`, the builtins in
   ([pids](terms.md#pids-and-references)). A runtime admits only the numbers it
   issued; forged and foreign port words are rejected.
 - Printing: `#Port<0.N>`; `port_to_list/1` gives that text and `list_to_port/1`
-  parses it (badarg for anything else).
+  parses it, or a connected node's `#Port<C.N>`
+  ([node monitors](distribution.md#node-monitors)); badarg for anything else.
 - Order: numbers < atoms < references < funs < ports < pids < tuples, as in OTP;
   ports compare by number.
 - A closed port's identity stays valid: `is_port/1` stays true, `port_info/1,2`

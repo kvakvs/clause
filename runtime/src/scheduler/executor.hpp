@@ -353,7 +353,7 @@ class Executor final {
     std::optional<Term> new_connection(ProcessContext &context, const Term &node);
     // erts_internal:abort_pending_connection/2: whether the entry of `node` was not up, its pending connection of the
     // handle's id aborted; none when the handle names another entry or none.
-    std::optional<bool> abort_connection(const Term &node, const DistHandle &handle);
+    std::optional<bool> abort_connection(ProcessContext &context, const Term &node, const DistHandle &handle);
     // Whether the live process registered as net_kernel owns this node's name, as setnode/3 requires.
     bool kernel_ready(ProcessContext &context) const;
     // setnode/3: bring the pending connection of `node` up under the live process `controller`, which controls no
@@ -366,6 +366,12 @@ class Executor final {
     // process_flag(monitor_nodes, ...): subscribe the caller to node status messages once more with `options`, or end
     // that subscription; the count it had.
     std::size_t subscribe(ProcessContext &context, unsigned options, bool on);
+    // monitor_node(Node, Flag[, Options]) of another node (plan 30 step DIST2c): the caller's monitor once more, or
+    // one fewer; an idle entry auto-connects. False, with no monitor, when a passive one needs net_kernel first
+    // (erlang:dmonitor_node/3): allow_passive_connect while the connection is not up.
+    bool monitor_node(ProcessContext &context, const Term &node, bool on, bool passive);
+    // The creation of the up connection of `node`, an atom word, or none (list_to_pid/1 of another node).
+    std::optional<std::uint32_t> connected_creation(Word node) const;
     // An exit signal of exit/2 or exit_signal/2 from the running `sender` to the process of a pid word, acted on at
     // once; `self_normal` is exit/2's quirk: reason normal sent to itself ends the sender. Allocation failure throws,
     // builtins::Blocked while the target runs on another worker.
@@ -769,6 +775,11 @@ class Executor final {
     Connection &entry_of(ProcessContext &context, Word node);
     // The dist handle {Id, Ref} of an entry, built in `context`.
     static TermResult<Term> handle_term(ProcessContext &context, const Connection &connection);
+    // Make an idle entry pending and ask net_kernel for it ({auto_connect, Node, DHandle}); without a process
+    // registered as net_kernel the connection is aborted at once (plan 30 step DIST2c).
+    void auto_connect(ProcessContext &context, Word node, Connection &connection);
+    // Send the node monitors of `node`'s entry {nodedown, Node}, once per count, then make the entry idle.
+    void take_down(ProcessContext &builder, Word node);
     // Post `status` to each subscription that asks for it, the message built in `builder`'s heap.
     void announce(ProcessContext &builder, const NodeStatus &status);
     // Tell the subscribers that setnode/2 named this node.

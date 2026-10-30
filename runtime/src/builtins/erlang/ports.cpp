@@ -4,7 +4,6 @@
 #include "../text.hpp"
 #include "../typed.hpp"
 #include <array>
-#include <charconv>
 #include <string>
 
 // The port builtins of the bridge (docs/ports.md#builtins-and-port-messages): open_port/2, port_close/1,
@@ -560,32 +559,6 @@ TermResult<Term> port_to_list(ProcessContext &context, const Term &port) {
     return char_list(context, need(format_term(port, TermStyle::write)));
 }
 
-// list_to_port(Text): the port of #Port<0.N> text; badarg for other text or a number this program never issued.
-TermResult<Term> list_to_port(ProcessContext &context, const ListArgument &text) {
-    std::string spelling;
-    for (const auto &code : text.elements) {
-        const auto value = small(code.word());
-        if (!value || *value < 0 || *value > 127) {
-            bad_argument();
-        }
-        spelling.push_back(static_cast<char>(*value));
-    }
-    constexpr std::string_view prefix = "#Port<0.";
-    Word number = 0;
-    const auto *end = spelling.data() + spelling.size();
-    const auto parsed = spelling.starts_with(prefix) && spelling.ends_with(">")
-                            ? std::from_chars(spelling.data() + prefix.size(), end - 1, number)
-                            : std::from_chars_result{nullptr, std::errc::invalid_argument};
-    if (parsed.ec != std::errc{} || parsed.ptr != end - 1) {
-        bad_argument();
-    }
-    const auto port = Term::from_word(detail::port_word(number), context);
-    if (!port) {
-        bad_argument();
-    }
-    return *port;
-}
-
 // The element of a 2-tuple, or none for another term.
 std::optional<std::pair<Term, Term>> pair_of(const Term &value) {
     if (!value.is_tuple() || value.tuple_size_unchecked() != 2) {
@@ -598,19 +571,12 @@ std::optional<std::pair<Term, Term>> pair_of(const Term &value) {
 TermResult<Term> ports(ProcessContext &context) { return word_list(context, detail::Executor::of(context).ports()); }
 
 constexpr std::array PORT_BUILTINS{
-    typed_entry<open_port>("erlang", "open_port"),
-    typed_entry<port_close>("erlang", "port_close"),
-    typed_entry<port_command2>("erlang", "port_command"),
-    typed_entry<port_command3>("erlang", "port_command"),
-    typed_entry<port_connect>("erlang", "port_connect"),
-    typed_entry<port_control>("erlang", "port_control"),
-    typed_entry<port_call2>("erlang", "port_call"),
-    typed_entry<port_call3>("erlang", "port_call"),
-    typed_entry<port_info1>("erlang", "port_info"),
-    typed_entry<port_info2>("erlang", "port_info"),
-    typed_entry<port_to_list>("erlang", "port_to_list"),
-    typed_entry<list_to_port>("erlang", "list_to_port"),
-    typed_entry<ports>("erlang", "ports"),
+    typed_entry<open_port>("erlang", "open_port"),        typed_entry<port_close>("erlang", "port_close"),
+    typed_entry<port_command2>("erlang", "port_command"), typed_entry<port_command3>("erlang", "port_command"),
+    typed_entry<port_connect>("erlang", "port_connect"),  typed_entry<port_control>("erlang", "port_control"),
+    typed_entry<port_call2>("erlang", "port_call"),       typed_entry<port_call3>("erlang", "port_call"),
+    typed_entry<port_info1>("erlang", "port_info"),       typed_entry<port_info2>("erlang", "port_info"),
+    typed_entry<port_to_list>("erlang", "port_to_list"),  typed_entry<ports>("erlang", "ports"),
 };
 } // namespace
 

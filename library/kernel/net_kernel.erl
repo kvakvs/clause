@@ -70,7 +70,13 @@ async_disconnect(_) -> ok.
 
 publish_on_node(_) -> false.
 
-passive_cnct(_) -> false.
+%% Whether net_kernel holds a connection to Node up for erlang:dmonitor_node/3; false while no process is registered
+%% as net_kernel (plan 30 step DIST2c).
+passive_cnct(Node) ->
+    case whereis(net_kernel) of
+        undefined -> false;
+        _ -> gen_server:call(net_kernel, {passive_cnct, Node}, infinity)
+    end.
 
 dflag_unicode_io(_) -> true.
 

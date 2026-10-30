@@ -511,7 +511,9 @@ A Clause program is one node, `nonode@nohost` until `erlang:setnode/2` names it
 ([connections](distribution.md#connections)), then this node for `this` and
 `known`; without them `nodes/0` is `[]`. `is_alive/0` is true once the node has
 a name. `monitor_node/2,3` raise `error:notalive` for another node while the
-node has no name, and `disconnect_node/1` returns `ignored`.
+node has no name, and otherwise monitor its connection entry
+([node monitors](distribution.md#node-monitors)); `disconnect_node/1` returns
+`ignored`.
 `process_flag(monitor_nodes, Bool)` and `process_flag({monitor_nodes, Options},
 Bool)` subscribe to node status messages
 ([node status messages](distribution.md#node-status-messages)).

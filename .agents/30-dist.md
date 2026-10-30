@@ -6,9 +6,10 @@ direction); formerly backlog item F38.
 
 - **Today:** a Clause program is a non-distributed node.
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
-    (`erlang:setnode/2`, DIST2a) and connection entries with node status messages (`setnode/3`,
-    DIST2b), but moves no signal: the rest of the `erlang` distribution group (`dist_ctrl_*`,
-    `dmonitor_node/3`, `dist_get_stat/1`) is `{unavailable, distribution}`.
+    (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
+    DIST2b) and node monitors with auto-connect (DIST2c), but moves no signal: the rest of the
+    `erlang` distribution group (`dist_ctrl_*`, `dist_get_stat/1`) is `{unavailable,
+    distribution}`.
   - The libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`, `names` `{error, address}`), `net_kernel` (`start/1,2` and
     internals declined), `auth` (`nocookie`), `erl_epmd` (no epmd, server declined), `global` and
@@ -49,33 +50,12 @@ direction); formerly backlog item F38.
 <a id="step-dist2"></a>
 <a id="step-dist2b"></a>
 <a id="step-dist2c"></a>
-
-## DIST2c. Node monitors and auto-connect
-
-Depends on: DIST2b ([30-finished](30-finished.md)). DIST2 was split 2026-10-30 into DIST2a, DIST2b
-(both finished), DIST2c and DIST2d.
-  
-- Success criteria
-  - [ ] `monitor_node/2,3` over the table: a pending or up entry holds the monitor (counted per
-    process, as OTP's), and its connection's end or abort sends `{nodedown, Node}` once per count.
-  - [ ] Auto-connect as OTP's: `monitor_node(Node, true)` of a named node without a connection
-    makes a pending entry and sends `{auto_connect, Node, DHandle}` to `net_kernel` (replacing
-    DIST2a's immediate `{nodedown, Node}`); without `net_kernel` the entry is aborted and
-    `{nodedown, Node}` comes at once.
-  - [ ] `dmonitor_node/3` (`[]`: `{nodedown, Node}` at once). `allow_passive_connect` through
-    `net_kernel:passive_cnct/1` waits for DIST6's `net_kernel`; until then it answers as
-    `passive_cnct/1` returning false.
-  - [ ] `list_to_pid/1`, `list_to_port/1`, `list_to_ref/1` with another node's part name a node of
-    the table, as OTP's do (`badarg` without one, as today).
-- Tests
-  - [ ] The DIST2b golden extended: node monitors of pending, up and aborted entries,
-    auto-connect messages, `list_to_pid/1`.
-
 <a id="step-dist2d"></a>
 
 ## DIST2d. Controller data path
 
-Depends on: [DIST2c](#step-dist2c).
+Depends on: DIST2c ([30-finished](30-finished.md)). DIST2 was split 2026-10-30 into DIST2a, DIST2b,
+DIST2c (finished) and DIST2d.
 
 - Success criteria
   - [ ] An output queue and an input hook per entry: `dist_ctrl_get_data/1`,

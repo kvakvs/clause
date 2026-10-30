@@ -1,10 +1,8 @@
-#include "../../process/identities.hpp"
 #include "../../terms/bitstrings.hpp"
 #include "../text.hpp"
 #include "conversion_text.hpp"
 #include "terms.hpp"
 #include <array>
-#include <charconv>
 #include <clause/abi/equality.hpp>
 #include <clause/runtime/atoms.hpp>
 #include <vector>
@@ -284,60 +282,6 @@ TermResult<Term> split_binary(ProcessContext &context, const Term &value, std::i
     return TermFactory(context).tuple(parts);
 }
 
-// The ASCII text of a list of characters; badarg for anything else.
-std::string ascii(const ListArgument &text) {
-    std::string result;
-    for (const auto &code : text.elements) {
-        const auto value = small(code.word());
-        if (!value || *value < 0 || *value > 127) {
-            bad_argument();
-        }
-        result.push_back(static_cast<char>(*value));
-    }
-    return result;
-}
-
-// Parse "<prefix>N1.N2...Nk>" into k numbers; badarg for other text.
-template <std::size_t Count> std::array<std::uint64_t, Count> numbers(std::string_view text, std::string_view prefix) {
-    if (!text.starts_with(prefix) || !text.ends_with('>')) {
-        bad_argument();
-    }
-    std::array<std::uint64_t, Count> result{};
-    const char *at = text.data() + prefix.size();
-    const char *end = text.data() + text.size() - 1;
-    for (std::size_t i = 0; i < Count; ++i) {
-        const auto parsed = std::from_chars(at, end, result[i]);
-        const bool separated = i + 1 == Count ? parsed.ptr == end : parsed.ptr != end && *parsed.ptr == '.';
-        if (parsed.ec != std::errc{} || !separated) {
-            bad_argument();
-        }
-        at = parsed.ptr + 1;
-    }
-    return result;
-}
-
-// list_to_pid("<0.N.S>"): the local pid of number S * 2^28 + N; only pids this program issued are admitted.
-TermResult<Term> list_to_pid(ProcessContext &context, const ListArgument &text) {
-    const auto [number, serial] = numbers<2>(ascii(text), "<0.");
-    if (number >= (std::uint64_t{1} << 28) || serial >= (std::uint64_t{1} << 32)) {
-        bad_argument();
-    }
-    const auto pid = Term::from_word(detail::pid_word(static_cast<Word>(serial << 28 | number)), context);
-    if (!pid) {
-        bad_argument();
-    }
-    return *pid;
-}
-
-// list_to_ref("#Ref<0.A.B.C>"): the local reference of number A * 2^50 + B * 2^18 + C.
-TermResult<Term> list_to_ref(ProcessContext &context, const ListArgument &text) {
-    const auto [high, middle, low] = numbers<3>(ascii(text), "#Ref<0.");
-    if (low >= (std::uint64_t{1} << 18) || middle >= (std::uint64_t{1} << 32) || high >= (std::uint64_t{1} << 14)) {
-        bad_argument();
-    }
-    return TermFactory(context).reference_number(high << 50 | middle << 18 | low);
-}
-
 constexpr std::array BINARY_CONVERSION_BUILTINS{
     typed_entry<atom_to_binary1>("erlang", "atom_to_binary"),
     typed_entry<atom_to_binary2>("erlang", "atom_to_binary"),
@@ -359,8 +303,6 @@ constexpr std::array BINARY_CONVERSION_BUILTINS{
     typed_entry<list_to_bitstring>("erlang", "list_to_bitstring"),
     typed_entry<split_binary>("erlang", "split_binary"),
     typed_entry<iolist_size>("erlang", "iolist_size"),
-    typed_entry<list_to_pid>("erlang", "list_to_pid"),
-    typed_entry<list_to_ref>("erlang", "list_to_ref"),
 };
 } // namespace
 } // namespace clause::runtime::builtins
