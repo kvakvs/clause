@@ -103,6 +103,8 @@ int main() {
              "_Z31CLAUSE_crypto_fips_extension_v1v", "_Z31CLAUSE_crypto_fips_extension_v1v"});
         check<services::SslExtension>({"?CLAUSE_ssl_extension_v1@@YAPEBXXZ", "?CLAUSE_ssl_extension_v1@@YAPBXXZ",
                                        "_Z23CLAUSE_ssl_extension_v1v", "_Z23CLAUSE_ssl_extension_v1v"});
+        check<services::ConsTail>({"?CLAUSE_cons_tail_v1@@YAXPEAX_K1@Z", "?CLAUSE_cons_tail_v1@@YAXPAXII@Z",
+                                   "_Z19CLAUSE_cons_tail_v1Pvmm", "_Z19CLAUSE_cons_tail_v1Pvjj"});
         check<services::Exact>({"?CLAUSE_exact_v1@@YAEPEAX_K1@Z", "?CLAUSE_exact_v1@@YAEPAXII@Z",
                                 "_Z15CLAUSE_exact_v1Pvmm", "_Z15CLAUSE_exact_v1Pvjj"});
         check<services::CallFailed>({"?CLAUSE_call_failed_v2@@YAEPEAX@Z", "?CLAUSE_call_failed_v2@@YAEPAX@Z",

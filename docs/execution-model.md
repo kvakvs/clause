@@ -41,8 +41,9 @@ it inline:
 | `reductions` | Function entries left in the time slice |
 | `slow`, `failed` | Bits that send transfers to the services (`slow_collect`, `slow_profile`); nonzero while the failure channel holds a failure |
 
-`heap_top`/`heap_limit`, `runtime` and `self` serve inline allocation, atom
-loads and `self/0` ([frames and transfers](abi.md#frames-and-transfers)). A
+`heap_top`/`heap_limit`, `runtime`, `self` and `young` serve inline
+allocation, atom loads, `self/0` and inline tail writes of forward-built lists
+([frames and transfers](abi.md#frames-and-transfers)). A
 suspended process records the entry it continues at in `ProcessStack::resume_`.
 
 ## Frames

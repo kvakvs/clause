@@ -409,6 +409,14 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   (float cells tested at run time). Pinned (OTP): calls 1.13 s to 0.53 (1.29), limit 0.43 to 0.26
   (1.23), mandelbrot 0.32 to 0.24 (1.29), the rest unchanged; 69A dataproc/datagen code identical,
   luerl euler 1.00x, luerl -O2 compile 1.00x — `[plan20] OPT1.11 remainder ...`
+- **OPT1.12 part 1** forward-built lists: comprehensions and the `lists` loops append each new cell
+  to the last one's tail (always a fresh cell: a cell of immediates would be a shared literal), no
+  reverse. `FrameState::young` (published only when the window, a block or the high-water mark
+  changes) lets generated code write young cells inline; `CLAUSE_cons_tail_v1` remembers older ones,
+  whose tails minor collections take as roots (forced full sweeps instead cost a 1M `lists:map` 7%)
+  (ABI 26). Pinned vs 13be0a67 (OTP): map_foldl 1109 to 607 ms (1456), comprehension 880 to 666
+  (1507), the rest of dataproc/datagen/gc neutral or faster; 1M comprehension 179 to 85 ms, with 2M
+  live tuples 285 to 132, 1M `lists:map` building tuples 153 to 155 — `[plan20] OPT1.12 part 1 ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

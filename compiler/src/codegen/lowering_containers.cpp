@@ -5,6 +5,7 @@
 #include <clause/abi/equality.hpp>
 #include <clause/abi/frames.hpp>
 #include <clause/abi/term.hpp>
+#include <llvm/IR/MDBuilder.h>
 #include <llvm/IR/Module.h>
 #include <vector>
 
@@ -68,16 +69,9 @@ llvm::Value *write_cells(ExpressionLowering &state, abi::v1::ContainerConstructi
 }
 
 // Bump-allocate a small tuple or list in the heap block's free words that FrameState shows (OPT0.3); the service
-// builds it when they do not suffice. The term is rooted like a service output.
-llvm::Value *construct(ExpressionLowering &state, abi::v1::ContainerConstruction operation,
-                       const std::span<llvm::Value *const> values) {
-    if (operation == abi::v1::ContainerConstruction::reverse) {
-        return construct_service(state, operation, values);
-    }
-    // A tuple or list of immediates is a module literal (literal heap).
-    if (auto *literal = immediate_container(state, operation == abi::v1::ContainerConstruction::tuple, values)) {
-        return literal;
-    }
+// builds it when they do not suffice. The term is rooted like a service output, and always a new cell.
+llvm::Value *construct_fresh(ExpressionLowering &state, abi::v1::ContainerConstruction operation,
+                             const std::span<llvm::Value *const> values) {
     const auto words = container_words(operation, values.size());
     if (words > INLINE_WORDS) {
         return construct_service(state, operation, values);
@@ -109,6 +103,18 @@ llvm::Value *construct(ExpressionLowering &state, abi::v1::ContainerConstruction
         record_construction(state, word, tuple, values);
     }
     return word;
+}
+
+// A tuple or list: a module literal when it holds only immediates (literal heap), else a new cell.
+llvm::Value *construct(ExpressionLowering &state, abi::v1::ContainerConstruction operation,
+                       const std::span<llvm::Value *const> values) {
+    if (operation == abi::v1::ContainerConstruction::reverse) {
+        return construct_service(state, operation, values);
+    }
+    if (auto *literal = immediate_container(state, operation == abi::v1::ContainerConstruction::tuple, values)) {
+        return literal;
+    }
+    return construct_fresh(state, operation, values);
 }
 
 // Values already exist in SSA after the common iterative expression walk visits every child.
@@ -163,6 +169,68 @@ void heap_commit(ExpressionLowering &state, const HeapRoom &room) {
                                                             static_cast<unsigned>(abi::v1::StateField::heap_top)),
                    llvm::Align(state.word->getBitWidth() / 8)),
                MemoryKind::state);
+}
+
+void write_cons_tail(ExpressionLowering &state, llvm::Value *cell, llvm::Value *tail) {
+    auto &builder = state.builder;
+    auto &context = state.entry.getContext();
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    const auto field = [&](abi::v1::StateField at, const char *name) {
+        auto *address =
+            builder.CreateConstInBoundsGEP1_64(state.word, state.entry.getArg(0), static_cast<unsigned>(at));
+        return builder.CreatePtrToInt(
+            tag_memory(builder.CreateAlignedLoad(builder.getPtrTy(), address, align, name), MemoryKind::state),
+            state.word);
+    };
+    auto *address = cell_address(state, cell, abi::v1::list_tag);
+    auto *at = builder.CreatePtrToInt(address, state.word);
+    const auto compare = [&](llvm::CmpInst::Predicate predicate, llvm::Value *right) {
+        return builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, predicate, at, right));
+    };
+    auto *young = builder.CreateAnd(compare(llvm::CmpInst::ICMP_UGE, field(abi::v1::StateField::young, "heap.young")),
+                                    compare(llvm::CmpInst::ICMP_ULT, field(abi::v1::StateField::heap_top, "heap.top")));
+    auto *direct = llvm::BasicBlock::Create(context, "cons.tail.young", &state.entry);
+    auto *service = llvm::BasicBlock::Create(context, "cons.tail.service", &state.entry);
+    auto *join = llvm::BasicBlock::Create(context, "cons.tail.written", &state.entry);
+    builder.CreateCondBr(young, direct, service, llvm::MDBuilder(context).createLikelyBranchWeights());
+    builder.SetInsertPoint(direct);
+    tag_memory(builder.CreateAlignedStore(tail, builder.CreateConstInBoundsGEP1_64(state.word, address, 1), align),
+               MemoryKind::term);
+    builder.CreateBr(join);
+    builder.SetInsertPoint(service);
+    auto &output = *state.entry.getParent();
+    auto callee = output.getOrInsertFunction(
+        services::symbol<services::ConsTail>(output.getTargetTriple()),
+        llvm::FunctionType::get(builder.getVoidTy(), {builder.getPtrTy(), state.word, state.word}, false));
+    builder.CreateCall(callee, {state.entry.getArg(0), cell, tail});
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+}
+
+void append_cell(ExpressionLowering &state, const ListBuild build, llvm::Value *value) {
+    auto &builder = state.builder;
+    auto &context = state.entry.getContext();
+    const llvm::Align align(state.word->getBitWidth() / 8);
+    auto *empty = llvm::ConstantInt::get(state.word, abi::v1::empty_list);
+    // A cell of immediates must not be a shared module literal: its tail changes.
+    auto *cell = construct_fresh(state, abi::v1::ContainerConstruction::list,
+                                 std::array{value, static_cast<llvm::Value *>(empty)});
+    // The last cell is read after the new one is made: a collection there would have moved it.
+    auto *last = builder.CreateAlignedLoad(state.word, build.last, align, "list.last");
+    auto *first = llvm::BasicBlock::Create(context, "list.first", &state.entry);
+    auto *later = llvm::BasicBlock::Create(context, "list.later", &state.entry);
+    auto *linked = llvm::BasicBlock::Create(context, "list.linked", &state.entry);
+    builder.CreateCondBr(
+        builder.Insert(llvm::CmpInst::Create(llvm::Instruction::ICmp, llvm::CmpInst::ICMP_EQ, last, empty)), first,
+        later);
+    builder.SetInsertPoint(first);
+    builder.CreateAlignedStore(cell, build.root, align);
+    builder.CreateBr(linked);
+    builder.SetInsertPoint(later);
+    write_cons_tail(state, last, cell);
+    builder.CreateBr(linked);
+    builder.SetInsertPoint(linked);
+    builder.CreateAlignedStore(cell, build.last, align);
 }
 
 llvm::Value *lower_tuple(ExpressionLowering &state, const std::span<llvm::Value *const> values) {

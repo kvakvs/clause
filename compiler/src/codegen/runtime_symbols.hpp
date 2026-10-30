@@ -29,6 +29,8 @@ using Float = Function<"CLAUSE_float_v1", UInt8, Context, Bytes, Size, Slot>;
 using Immediate = Function<"CLAUSE_immediate_v1", UInt8, Context, UInt8, Size, Size, Slot>;
 using Construct = Function<"CLAUSE_construct_v1", UInt8, Context, UInt8, Words, Size, Slot>;
 using Inspect = Function<"CLAUSE_inspect_v1", UInt8, Context, UInt8, Size, Size, Slot>;
+// Forward-built lists (OPT1.12).
+using ConsTail = Function<"CLAUSE_cons_tail_v1", Void, Context, Size, Size>;
 using Bits = Function<"CLAUSE_bits_v1", UInt8, Context, UInt8, Words, Size, Slot>;
 using Map = Function<"CLAUSE_map_v1", UInt8, Context, UInt8, Words, Size, Slot>;
 using Record = Function<"CLAUSE_record_v1", UInt8, Context, UInt8, UInt8, Descriptor, Words, Size, Slot>;

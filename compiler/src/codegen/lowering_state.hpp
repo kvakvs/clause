@@ -528,13 +528,28 @@ llvm::Value *lower_reverse(ExpressionLowering &state, llvm::Value *list);
 // `Left ++ Right`: a short proper Left copied inline, anything else through the builtin (inline appends).
 llvm::Value *lower_append(ExpressionLowering &state, llvm::Value *left, llvm::Value *right);
 
+struct ListBuild {
+    // A list built forward (forward-built lists, OPT1.12): the term slots of its first and last cells, both [] while it
+    // is empty.
+    llvm::Value *root;
+    llvm::Value *last;
+};
+
+// Write `tail` into the tail word of `cell`, a cons cell built here that nothing else holds: inline when the cell is
+// young, else with CLAUSE_cons_tail_v1, which makes the next collection a full sweep (forward-built lists, OPT1.12).
+void write_cons_tail(ExpressionLowering &state, llvm::Value *cell, llvm::Value *tail);
+// Append a new cell of `value` to a list built forward (forward-built lists, OPT1.12).
+void append_cell(ExpressionLowering &state, ListBuild build, llvm::Value *value);
+
 struct Comprehension {
     // The list, binary or map comprehension being lowered.
     const ast::ExprValue *syntax;
     // The bindings before the comprehension come back after it: nothing it binds is visible outside.
     std::map<semantic::BindingId, llvm::Value *> bindings;
-    // The reversed result lives in a term slot, so the loops carry no SSA value across iterations or calls.
+    // The result and its last cell, whose tail the next element's cell replaces, live in term slots, so the loops
+    // carry no SSA value across iterations or calls (forward-built lists, OPT1.12).
     llvm::Value *accumulator;
+    llvm::Value *last;
     // Where the next qualifier continues once an element is done: the innermost generator's next element, or the
     // end when no generator encloses it.
     llvm::BasicBlock *next;

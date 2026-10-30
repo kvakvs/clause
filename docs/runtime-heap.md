@@ -590,6 +590,15 @@ Generational collection, as ERTS does it, without its write barrier:
   write integers, and a map update changes in place only nodes created since
   the latest collection. Debug builds check after every minor collection that
   no old object points into the young block or a fragment.
+- **Remembered tails.** Forward-built lists ([abi](abi.md)) write a young cell
+  into the tail of the last cell they built, which a collection during the build
+  may have left old or below the high-water mark. `CLAUSE_cons_tail_v1` remembers
+  such a cell (generated code writes young cells inline, between
+  `FrameState::young` and `heap_top`). A minor collection evacuates each
+  remembered cell (promoting one below the mark) and its tail as roots, and then
+  forgets those whose tail names an immediate or an old term; a full sweep
+  forgets them all. When a cell cannot be remembered (no memory), the next
+  collection is a full sweep. The Debug check skips remembered cells.
 - **Sweeps.** The off-heap binary list keeps cells of the old area, relinks
   forwarded ones and releases dead young ones; dead old cells wait for the next
   full sweep.

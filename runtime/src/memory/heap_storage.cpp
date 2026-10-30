@@ -52,11 +52,31 @@ void HeapStorage::expose() noexcept {
     }
     // A heap block nearly full shows this storage's own newest fragment instead, so allocation between safepoints (a
     // body recursion's returns) stays inline (fragment windows).
+    const auto shown_before = window_;
     window_ = !heap_.fits(WINDOW_WORDS) && own_fragment_ < fragments_.size() ? own_fragment_ : NO_FRAGMENT;
     const auto &area = window();
     const bool shown = area.capacity_ != 0 && options_.limit_bytes == UNLIMITED_HEAP_BYTES;
     inline_->heap_top = shown ? area.words_.get() + area.top_ : nullptr;
     inline_->heap_limit = shown ? area.words_.get() + area.capacity_ : nullptr;
+    // Published only when the window, a block or the mark changed: this runs after every runtime allocation.
+    if (young_stale_ || window_ != shown_before) {
+        publish_young(area, shown);
+    }
+}
+
+void HeapStorage::publish_young(const HeapArea &area, const bool shown) noexcept {
+    // Every word of a fragment is young; the heap block's are young from its high-water mark on (OPT1.12).
+    const auto floor = window_ == NO_FRAGMENT ? high_water_ : 0;
+    inline_->young = shown ? area.words_.get() + floor : nullptr;
+    young_stale_ = false;
+}
+
+bool HeapStorage::mature(std::uintptr_t address) noexcept {
+    if (!old_.from(address).empty()) {
+        return true;
+    }
+    const auto in_block = heap_.from(address);
+    return !in_block.empty() && heap_.top_ - in_block.size() < high_water_;
 }
 
 bool HeapStorage::alive() const noexcept { return !lifetime_.expired() && token_->alive(); }
@@ -84,6 +104,7 @@ void HeapStorage::rollback(HeapMark mark) noexcept {
     memory_->release(capacity_words_ - mark.capacity_words);
     capacity_words_ = mark.capacity_words;
     pending_ = false;
+    young_stale_ = true;
     expose();
 }
 
@@ -168,6 +189,7 @@ std::expected<HeapArea *, HeapError> HeapStorage::add_fragment(std::size_t words
     memory_->force(fresh->capacity_);
     signal_collection();
     own_fragment_ = fragments_.size();
+    young_stale_ = true;
     return &fragments_.emplace_back(std::move(*fresh));
 }
 
@@ -178,6 +200,7 @@ std::expected<HeapArea *, HeapError> HeapStorage::area_for(std::size_t words) {
             return std::unexpected(fresh.error());
         }
         heap_ = std::move(*fresh);
+        young_stale_ = true;
         capacity_words_ += heap_.capacity_;
         memory_->force(heap_.capacity_);
     }
@@ -296,6 +319,7 @@ void HeapStorage::replace(HeapArea heap, bool full) noexcept {
     window_ = NO_FRAGMENT;
     // Every survivor has now lived through a collection: the next minor collection promotes them (generational).
     high_water_ = heap_.top_;
+    young_stale_ = true;
     used_words_ = heap_.top_ + old_.top_;
     capacity_words_ = heap_.capacity_ + old_.capacity_;
     // The old area's words stay charged: release took every area's charge, so the runtime account is forced back up.

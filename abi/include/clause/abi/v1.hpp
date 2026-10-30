@@ -20,7 +20,7 @@ namespace clause::abi::v1 {
 // ModuleDescriptor::fun_cache (inline closures); revision 24 adds RecordDescriptor::definition and
 // ModuleDescriptor::features (plan 21 step LIB8B); revision 25 encodes module literals for the runtime's literal heap
 // (ModuleDescriptor::literals, literal_cache); v1 names the unchanged term encoding.
-inline constexpr std::uint32_t version = 25;
+inline constexpr std::uint32_t version = 26;
 // Decode the shared immediate-term representation without preprocessor constants.
 inline constexpr unsigned primary_mask = 0x3;
 inline constexpr unsigned small_integer_tag = 0xf;

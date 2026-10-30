@@ -186,6 +186,14 @@ class HeapStorage final {
     // The next collection is a full sweep that copies the retiring persistent terms it reaches (persistent term
     // reclamation).
     bool evacuation_requested_ = false;
+    // Cons cells of the old area, or below the high-water mark, whose tail a forward-built list wrote: their tails
+    // are roots of every minor collection until they name old terms; a full sweep, which keeps no old area, drops
+    // them. When one cannot be remembered, the next collection is a full sweep instead (forward-built lists,
+    // OPT1.12).
+    std::vector<Word> remembered_;
+    bool young_edges_ = false;
+    // FrameState::young must be published again: a block, a fragment window or the high-water mark changed.
+    bool young_stale_ = true;
     // The owning context's FrameState::slow word, so generated entries see a wanted collection (OPT0.1); null for
     // a message buffer's storage.
     std::size_t *collection_signal_ = nullptr;
@@ -196,9 +204,14 @@ class HeapStorage final {
 
     // Take the words generated code bump-allocated inline into the shown area's top and the accounting (OPT0.3).
     void absorb() noexcept;
+    // Whether an address lies in the old area or below the heap block's high-water mark, where the next minor
+    // collection would leave an object promoted (forward-built lists, OPT1.12).
+    bool mature(std::uintptr_t address) noexcept;
     // Show generated code the heap block's free words, or the newest own fragment's once the block is nearly full;
     // none without a block or under a per-process budget (OPT0.3, fragment windows).
     void expose() noexcept;
+    // Show generated code where the shown area's young words start (forward-built lists, OPT1.12).
+    void publish_young(const HeapArea &area, bool shown) noexcept;
 
     // The index of the newest fragment this storage allocated itself (adopted message blocks never are), and of the
     // fragment generated code bump-allocates in; NO_FRAGMENT for none and for the heap block (fragment windows).

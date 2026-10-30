@@ -158,8 +158,13 @@ class Verifier final {
 
 bool generations_valid(const HeapStorage &storage) noexcept {
     bool valid = true;
-    const auto walked =
-        walk(storage.old_.used(), [&](const HeapCell &cell) { valid = valid && !points_young(storage, cell); });
+    // A remembered cell's tail is a root of minor collections (forward-built lists, OPT1.12).
+    const auto remembered = [&](const HeapCell &cell) {
+        return cell.shape == HeapCell::Shape::cons && std::ranges::contains(storage.remembered_, cell.term());
+    };
+    const auto walked = walk(storage.old_.used(), [&](const HeapCell &cell) {
+        valid = valid && (!points_young(storage, cell) || remembered(cell));
+    });
     return valid && walked.has_value();
 }
 } // namespace clause::runtime::detail

@@ -392,10 +392,18 @@ std::vector<llvm::Value *> produced(ExpressionLowering &state, const Comprehensi
 } // namespace
 
 Comprehension begin_comprehension(ExpressionLowering &state, const ast::ExprValue &syntax) {
+    auto *empty = llvm::ConstantInt::get(state.word, abi::v1::empty_list);
     auto *accumulator = root_slot(state);
-    store(state, llvm::ConstantInt::get(state.word, abi::v1::empty_list), accumulator);
+    store(state, empty, accumulator);
+    auto *last = root_slot(state);
+    store(state, empty, last);
     auto *end = block(state, "comprehension.end");
-    return {.syntax = &syntax, .bindings = state.bindings, .accumulator = accumulator, .next = end, .end = end};
+    return {.syntax = &syntax,
+            .bindings = state.bindings,
+            .accumulator = accumulator,
+            .last = last,
+            .next = end,
+            .end = end};
 }
 
 void lower_generators(ExpressionLowering &state, Comprehension &comprehension,
@@ -450,19 +458,16 @@ void lower_filter(ExpressionLowering &state, const Comprehension &comprehension,
 }
 
 void lower_templates(ExpressionLowering &state, const Comprehension &comprehension) {
-    const auto values = produced(state, comprehension);
-    std::vector<llvm::Value *> cells;
-    cells.reserve(values.size() + 1);
-    cells.assign(values.rbegin(), values.rend());
-    cells.push_back(load(state, comprehension.accumulator, "comprehension.accumulator"));
-    store(state, lower_list(state, cells), comprehension.accumulator);
+    for (auto *value : produced(state, comprehension)) {
+        append_cell(state, {comprehension.accumulator, comprehension.last}, value);
+    }
     state.builder.CreateBr(comprehension.next);
 }
 
 llvm::Value *finish_comprehension(ExpressionLowering &state, Comprehension &comprehension) {
     state.builder.SetInsertPoint(comprehension.end);
     state.bindings = std::move(comprehension.bindings);
-    auto *result = lower_reverse(state, load(state, comprehension.accumulator, "comprehension.accumulator"));
+    auto *result = load(state, comprehension.accumulator, "comprehension.accumulator");
     if (std::holds_alternative<ast::BinaryComprehension>(*comprehension.syntax)) {
         return lower_bits_operation(state, abi::v1::BitOperation::concat, std::array{result});
     }

@@ -76,6 +76,7 @@ namespace detail {
 class HeapStorage;
 class GraphCopy;
 class RetiringRanges;
+class Copier;
 // The part of the heap one collection copies (heap_collect.hpp).
 enum class Generation : std::uint8_t;
 struct IntegerAccess;
@@ -167,6 +168,16 @@ class ProcessHeap final {
     // Note that a receive took a message from the mailbox: an adopted one now counts toward a collection (received
     // hand-off counts).
     void received(Word message) noexcept;
+
+    struct TailWrite {
+        // A cons cell generated code built and holds alone, and the tail written into it (forward-built lists,
+        // OPT1.12).
+        Word cell;
+        Word tail;
+    };
+
+    // Write a cell's new tail; a cell a collection may promote is remembered (forward-built lists, OPT1.12).
+    void write_tail(TailWrite write) noexcept;
     // Ask for a full sweep at the next safepoint that also copies the retiring persistent terms this process holds
     // into its heap (persistent term reclamation).
     void request_evacuation() noexcept;
@@ -223,6 +234,11 @@ class ProcessHeap final {
     // An evacuating sweep also copies the retiring persistent terms the roots reach (persistent term reclamation).
     std::expected<void, HeapError> copy_generation(std::span<Word> roots, detail::Generation generation,
                                                    bool evacuating) noexcept;
+    // Evacuate the cells a forward-built list wrote a tail of, and their tails, as roots of a minor collection; then
+    // forget those whose tails name immediates or old terms, or all after a full sweep (forward-built lists,
+    // OPT1.12).
+    void remembered_roots(detail::Copier &copier, detail::Generation generation) noexcept;
+    void settle_remembered(detail::Generation generation) noexcept;
     // Whether a safepoint collection must sweep everything: garbage_collect asked for it, off-heap binaries reached
     // their limit, a heap budget applies, or the old area cannot take the mature objects (generational collection).
     bool wants_full_sweep() const noexcept;

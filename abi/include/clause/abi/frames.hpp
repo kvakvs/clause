@@ -46,6 +46,10 @@ struct FrameState {
     std::size_t runtime;
     // The context's own pid word, which self/0 reads (OPT0.2D).
     TermWord self;
+    // The lowest word of [young, heap_top) whose objects were all created since the latest collection, so generated
+    // code may write a cons cell's tail there without making an old object point at a young one; null with
+    // heap_top (forward-built lists, OPT1.12).
+    TermWord *young;
 };
 
 // Word index of each FrameState field, as generated code addresses them (OPT0.1, heap fields OPT0.3).
@@ -62,14 +66,16 @@ enum class StateField : std::uint8_t {
     heap_top,
     heap_limit,
     runtime,
-    self
+    self,
+    young
 };
 static_assert(sizeof(TermWord *) == sizeof(TermWord) && sizeof(std::size_t) == sizeof(TermWord));
 static_assert(offsetof(FrameState, registers) == static_cast<unsigned>(StateField::registers) * sizeof(TermWord));
 static_assert(offsetof(FrameState, failed) == static_cast<unsigned>(StateField::failed) * sizeof(TermWord));
 static_assert(offsetof(FrameState, heap_limit) == static_cast<unsigned>(StateField::heap_limit) * sizeof(TermWord));
 static_assert(offsetof(FrameState, self) == static_cast<unsigned>(StateField::self) * sizeof(TermWord));
-static_assert(sizeof(FrameState) == (static_cast<unsigned>(StateField::self) + 1) * sizeof(TermWord));
+static_assert(offsetof(FrameState, young) == static_cast<unsigned>(StateField::young) * sizeof(TermWord));
+static_assert(sizeof(FrameState) == (static_cast<unsigned>(StateField::young) + 1) * sizeof(TermWord));
 } // namespace clause::abi::v1
 
 // Generated code moves between functions only by tail transfers to the Code these services return.

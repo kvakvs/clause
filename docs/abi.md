@@ -156,10 +156,9 @@ Without `else` that value is the result; otherwise `else` clauses select on it
 like `case` clauses and raise `{else_clause, Value}`
 (`ErrorReason::else_clause = 15`) when none matches.
 
-Comprehensions use the existing services with a few operations: the accumulated
-elements are reversed by the construction `reverse`
-(`ContainerConstruction::reverse = 2`, values `{List, Tail}`), which builds the
-result in one heap reservation; list generators test and read cons cells inline;
+Comprehensions use the existing services with a few operations: the result is
+built forward, each new cell written into the tail of the last one (forward-built
+lists below); list generators test and read cons cells inline;
 a binary comprehension joins its pieces with `BitOperation::concat` (`{List}`)
 and a map comprehension builds its map with `MapOperation::from_list`
 (`{Pairs}`, later keys win). Map generators take `MapOperation::entries` (11,
@@ -234,7 +233,8 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   limit, current frame offset, reductions left, register pointer, live register
   count, slow bits, the failed word, the heap block's free words
   `[heap_top, heap_limit)`, the runtime identity atom caches are claimed by, the
-  context's pid word (`self`), one target word each. A body reads its frame
+  context's pid word (`self`) and `young`, the lowest word of `[young, heap_top)`
+  whose objects were all made since the latest collection, one target word each. A body reads its frame
   header (`stack + frame`) and the registers from it on entry and switches on
   the header's resume word.
 - Binary patterns: the start test, the end test and integer segments of a
@@ -317,6 +317,16 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   with the module's `clause.float.box` helper and enters the function's
   descriptor instead. The variant has the function's name and arity in stack
   traces.
+- Forward-built lists: comprehensions and the `lists` loops (`map/2`, `filter/2`,
+  `filtermap/2`, `partition/2`, `takewhile/2`, `splitwith/2`, `zipwith/3,4`,
+  `mapfoldl/3`) build their lists in order: each new cell is made with `[]` as its
+  tail and written into the tail of the last cell, both kept in term slots, so no
+  reverse runs at the end (`flatmap/2` still prepends with `reverse/2`, and
+  `mapfoldr/3` prepends as it walks backwards). Only a cell built here and held by
+  nothing else is written. A cell in `[young, heap_top)` is written inline; any
+  other goes through `CLAUSE_cons_tail_v1(context, cell, tail)`, which writes it
+  and remembers a cell that is old or below the high-water mark
+  ([generations](runtime-heap.md#generations)).
 - Raw floats (64-bit targets): a double in a register compares with another
   word inline. `=:=` and `=/=` hold only against a float cell of the same bits;
   the other comparisons read a float cell's double, or convert a small integer
@@ -550,3 +560,4 @@ success.
 | 23 | Quick builtins: `BuiltinName::call` (`BuiltinCall`), 0 from `CLAUSE_builtin_call_v1` declines |
 | 24 | `RecordDescriptor::definition` (the field list as External Term Format bytes, for `records:get_definition/2`) and `ModuleDescriptor::features` (atom slots of the enabled features, for `erl_features:used/1`) |
 | 25 | Encoded module literals and the literal heap: `ModuleDescriptor::literals` holds encoded bytes (`literal_bytes`), `literal_cache`, `literal_count`; `CLAUSE_literal_v1` |
+| 26 | `FrameState::young` and `CLAUSE_cons_tail_v1`: forward-built lists |

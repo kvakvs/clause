@@ -156,6 +156,10 @@ std::uint8_t CLAUSE_construct_v1(void *context, std::uint8_t operation, const cl
                    : static_cast<std::uint8_t>(abi::v1::ValueOutcome::failure);
 }
 
+void CLAUSE_cons_tail_v1(void *context, clause::abi::v1::TermWord cell, clause::abi::v1::TermWord tail) noexcept {
+    static_cast<clause::runtime::ProcessContext *>(context)->heap().write_tail({cell, tail});
+}
+
 std::uint8_t CLAUSE_inspect_v1(void *context, std::uint8_t operation, clause::abi::v1::TermWord value,
                                std::size_t index, clause::abi::v1::TermWord *output) noexcept {
     using namespace clause;

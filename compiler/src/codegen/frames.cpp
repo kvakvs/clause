@@ -302,7 +302,7 @@ void mark_context(llvm::Function &body, const llvm::IntegerType &word) {
     auto *context = body.getArg(0);
     context->addAttr(llvm::Attribute::NonNull);
     context->addAttr(llvm::Attribute::getWithDereferenceableBytes(
-        body.getContext(), (static_cast<std::uint64_t>(StateField::self) + 1) * bytes));
+        body.getContext(), (static_cast<std::uint64_t>(StateField::young) + 1) * bytes));
     context->addAttr(llvm::Attribute::getWithAlignment(body.getContext(), llvm::Align(bytes)));
 }
 

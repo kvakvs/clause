@@ -125,13 +125,13 @@ later numbers in parentheses):
 | socket.tcp_echo          | 1294 / 1636       | 0.79x | OPT3.22                                                         |
 | datagen.binary_append    | 840 / 1098        | 0.76x | OPT3.6 remainder                                                |
 | socket.tcp_connect       | 1151 / 1510       | 0.76x | OPT3.22                                                         |
-| dataproc.map_foldl       | 1122 / 1465       | 0.77x | OPT1.12 (`lists:map` builds reversed)                           |
+| dataproc.map_foldl       | 1122 / 1465       | 0.77x | — (0.42x after OPT1.12 part 1)                                  |
 | msg.ping_pong            | 1110 / 1495       | 0.74x | OPT3.23                                                         |
 | msg.large_message        | 813 / 1099        | 0.74x | — (one copy per send, unprofiled)                               |
 | dataproc.term_to_binary  | 1053 / 1496       | 0.70x | term_to_binary remainder                                        |
 | datagen.list_of_tuples   | 1063 / 1517       | 0.70x | — (swings ~15% on code layout alone)                            |
 | gc.short_processes       | 1113 / 1665       | 0.67x | OPT3.5 remainder                                                |
-| dataproc.comprehension   | 896 / 1424        | 0.63x | OPT1.3 remainder, OPT1.12                                       |
+| dataproc.comprehension   | 896 / 1424        | 0.63x | OPT1.3 remainder (0.44x after OPT1.12 part 1)                   |
 | datagen.string_build     | 591 / 1047        | 0.56x | —                                                               |
 | dataproc.map_update      | 649 / 1235        | 0.53x | —                                                               |
 | dataproc.int_to_list     | 422 / 908         | 0.47x | —                                                               |
@@ -402,7 +402,10 @@ value:
   transfer and its `CLAUSE_return_v1` service path to box like entries do.
 - Calls from other modules enter the function itself (the planned loops are per module).
 
-### OPT1.12 Tail-modulo-cons and in-place list building
+### OPT1.12 remainder: tail-modulo-cons
+
+Part 1 builds comprehension and `lists` loop results forward (remembered tail writes, no reverse).
+Open: the two front-ends for user functions, on the same tail write.
 
 - **What:** a compiler-level transform (`tail_modulo_cons.md`, default-on in `lukas/erts/tmc`):
   - **Front-end 1:** `[E | self(...)]` body recursion (map, filter, append, comprehensions) becomes
@@ -411,8 +414,9 @@ value:
   - **Front-end 2:** `f([H|T], Acc) -> f(T, [g(H)|Acc]); f([], Acc) -> lists:reverse(Acc)` builds
     the list forward and seals it with `lists:reverse(Acc, Root)`. This fires only when `Acc` is
     used solely as the prepend tail and the reverse argument.
-- **GC rule:** if the hole cell is not young (`[high_water, HTOP)`), flag a full sweep. Otherwise,
-  without a remembered set, the write creates an old→young edge.
+- **GC rule (T2):** if the hole cell is not young (`[high_water, HTOP)`), flag a full sweep.
+  Clause remembers such cells instead (`CLAUSE_cons_tail_v1`, `docs/runtime-heap.md`): forced
+  sweeps made a 1M-element `lists:map` 7% slower than reversing, remembered cells 1%.
 - **Measured:**
   - O(1) stack (~5800× less peak stack at 200k elements)
   - front-end 2 builds n cells instead of 2n
@@ -493,7 +497,7 @@ Open steps only, by area:
   - then the OPT1.3 remainder
 - **Binaries:** OPT1.5 remainder.
 - **Maps:** OPT1.6 remainder.
-- **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
+- **Lists:** OPT1.12 remainder, then the OPT1.7 remainder together with OPT2.1.
 - **Floats:** OPT1.11 remainder (raw results, low value).
 - **Inlining and cleanup:** OPT1.9 and OPT1.13 remainders, by measured need.
 
@@ -507,7 +511,6 @@ OTP):
 - OPT3.21 (0.88x)
 - OPT1.5 remainder (0.86x)
 - OPT3.22 (0.80x)
-- OPT1.12 (0.77x)
 - OPT3.6 remainder (0.76x)
 - term_to_binary remainder (0.70x)
 - OPT3.5 remainder (0.67x)

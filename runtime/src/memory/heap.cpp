@@ -3,6 +3,7 @@
 #include "off_heap.hpp"
 #include "persistent_terms.hpp"
 #include <algorithm>
+#include <bit>
 #include <clause/runtime/process_context.hpp>
 #include <clause/runtime/runtime.hpp>
 #include <cstdio>
@@ -99,7 +100,7 @@ bool ProcessHeap::wants_full_sweep() const noexcept {
     const auto &storage = *storage_;
     const auto room = storage.old_.capacity_ - storage.old_.top_;
     const bool binaries = storage.off_heap_words_ >= storage.binary_limit_words_ && storage.binary_sweep_due_;
-    return storage.collection_requested_ || storage.evacuation_requested_ || binaries ||
+    return storage.collection_requested_ || storage.evacuation_requested_ || storage.young_edges_ || binaries ||
            storage.options_.limit_bytes != UNLIMITED_HEAP_BYTES ||
            (storage.old_.capacity_ != 0 && room < storage.high_water_);
 }
@@ -115,6 +116,8 @@ std::expected<CollectionStats, HeapError> ProcessHeap::collect(std::span<Word> r
         return std::unexpected(HeapError::unsafe_point);
     }
     storage.collection_requested_ = false;
+    // Only a full sweep leaves no old cell pointing at a young term (forward-built lists, OPT1.12).
+    storage.young_edges_ = storage.young_edges_ && generation != detail::Generation::full;
     const bool evacuating = evacuation(generation);
     storage.absorb();
     // A collection may promote map tree nodes, which then must not change in place (on-heap map trees).
@@ -212,6 +215,20 @@ void ProcessHeap::request_collection() noexcept {
     storage_->signal_collection();
 }
 
+void ProcessHeap::write_tail(const TailWrite write) noexcept {
+    auto &storage = *storage_;
+    const auto address = write.cell - abi::v1::list_tag;
+    std::bit_cast<Word *>(address)[1] = write.tail;
+    if (!storage.mature(address)) {
+        return;
+    }
+    try {
+        storage.remembered_.push_back(write.cell);
+    } catch (const std::bad_alloc &) {
+        storage.young_edges_ = true;
+    }
+}
+
 void ProcessHeap::request_evacuation() noexcept {
     storage_->evacuation_requested_ = true;
     request_collection();
@@ -239,12 +256,41 @@ void ProcessHeap::copy_live(std::span<Word> roots, std::size_t capacity, detail:
                             const detail::RetiringRanges *retiring, std::span<const void *const> held) {
     detail::Copier copier(*storage_, capacity, generation, retiring);
     owner_.visit_roots(roots, [&](Word &word) { word = copier.evacuate(word); });
+    remembered_roots(copier, generation);
     copier.finish();
+    settle_remembered(generation);
     for (const auto *cell : held) {
         if (!copier.copied_external(cell)) {
             detail::drop_off_heap(*storage_, *static_cast<const detail::layout::RefcBinaryCell *>(cell)->buffer_);
         }
     }
+}
+
+void ProcessHeap::remembered_roots(detail::Copier &copier, detail::Generation generation) noexcept {
+    if (generation == detail::Generation::full) {
+        return;
+    }
+    // A cell below the high-water mark is promoted now and remembered by its copy; an old one stays where it is.
+    for (auto &cell : storage_->remembered_) {
+        cell = copier.evacuate(cell);
+        auto *words = std::bit_cast<Word *>(cell - abi::v1::list_tag);
+        words[1] = copier.evacuate(words[1]);
+    }
+}
+
+void ProcessHeap::settle_remembered(detail::Generation generation) noexcept {
+    auto &storage = *storage_;
+    if (generation == detail::Generation::full) {
+        storage.remembered_.clear();
+        return;
+    }
+    // A tail naming an immediate or an old term needs no root any more.
+    std::erase_if(storage.remembered_, [&](Word cell) {
+        const auto tail = std::bit_cast<const Word *>(cell - abi::v1::list_tag)[1];
+        const auto primary = tail & static_cast<Word>(abi::v1::primary_mask);
+        const bool pointer = primary == abi::v1::list_tag || primary == abi::v1::boxed_tag;
+        return !pointer || !storage.old_.from(tail & ~static_cast<Word>(abi::v1::primary_mask)).empty();
+    });
 }
 
 std::expected<void, HeapError> ProcessHeap::copy_checked(std::span<Word> roots, std::size_t capacity,

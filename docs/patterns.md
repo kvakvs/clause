@@ -65,7 +65,8 @@ in unreachable code; legal code that needs a missing feature gets a
 
 Each generator is a loop in the function body whose input cursor (a list or
 bitstring rest, or a map and a position) lives in frame term slots; the produced
-elements accumulate reversed in another term slot and become the list, the
+elements are appended in order to a list whose first and last cells live in two
+more term slots ([forward-built lists](abi.md)), which becomes the result, the
 joined bitstring or the map once at the end, so long inputs need constant native
 and process stack.
 
