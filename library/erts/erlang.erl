@@ -437,14 +437,13 @@ disconnect_node(_) -> clause_builtin_placeholder.
 display(_) -> clause_builtin_placeholder.
 display_string(_) -> erlang:error({not_implemented, display_string, 1}).
 display_string(_, _) -> erlang:error({not_implemented, display_string, 2}).
-dist_ctrl_get_data(_) -> erlang:error({not_implemented, dist_ctrl_get_data, 1}).
-dist_ctrl_get_data_notification(_) ->
-    erlang:error({not_implemented, dist_ctrl_get_data_notification, 1}).
-dist_ctrl_get_opt(_, _) -> erlang:error({not_implemented, dist_ctrl_get_opt, 2}).
-dist_ctrl_input_handler(_, _) -> erlang:error({not_implemented, dist_ctrl_input_handler, 2}).
-dist_ctrl_put_data(_, _) -> erlang:error({not_implemented, dist_ctrl_put_data, 2}).
-dist_ctrl_set_opt(_, _, _) -> erlang:error({not_implemented, dist_ctrl_set_opt, 3}).
-dist_get_stat(_) -> erlang:error({not_implemented, dist_get_stat, 1}).
+dist_ctrl_get_data(_) -> clause_builtin_placeholder.
+dist_ctrl_get_data_notification(_) -> clause_builtin_placeholder.
+dist_ctrl_get_opt(_, _) -> clause_builtin_placeholder.
+dist_ctrl_input_handler(_, _) -> clause_builtin_placeholder.
+dist_ctrl_put_data(_, _) -> clause_builtin_placeholder.
+dist_ctrl_set_opt(_, _, _) -> clause_builtin_placeholder.
+dist_get_stat(_) -> clause_builtin_placeholder.
 'div'(_, _) -> clause_builtin_placeholder.
 dmonitor_node(_, _, _) -> clause_builtin_placeholder.
 dt_append_vm_tag_data(_) -> erlang:error(notsup).

@@ -7,9 +7,9 @@ direction); formerly backlog item F38.
 - **Today:** a Clause program is a non-distributed node.
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
-    DIST2b) and node monitors with auto-connect (DIST2c), but moves no signal: the rest of the
-    `erlang` distribution group (`dist_ctrl_*`, `dist_get_stat/1`) is `{unavailable,
-    distribution}`.
+    DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
+    `dist_get_stat/1`, DIST2d), but moves no signal: the output queue stays empty and put data is
+    dropped until DIST5 encodes and decodes signals.
   - The libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`, `names` `{error, address}`), `net_kernel` (`start/1,2` and
     internals declined), `auth` (`nocookie`), `erl_epmd` (no epmd, server declined), `global` and
@@ -51,23 +51,6 @@ direction); formerly backlog item F38.
 <a id="step-dist2b"></a>
 <a id="step-dist2c"></a>
 <a id="step-dist2d"></a>
-
-## DIST2d. Controller data path
-
-Depends on: DIST2c ([30-finished](30-finished.md)). DIST2 was split 2026-10-30 into DIST2a, DIST2b,
-DIST2c (finished) and DIST2d.
-
-- Success criteria
-  - [ ] An output queue and an input hook per entry: `dist_ctrl_get_data/1`,
-    `dist_ctrl_get_data_notification/1` (`dist_data` messages), `dist_ctrl_put_data/2` (with
-    `erts_internal:dist_ctrl_put_data/2` for iolists), `dist_ctrl_input_handler/2`,
-    `dist_ctrl_get_opt/2`, `dist_ctrl_set_opt/3` (`get_size`) and `dist_get_stat/1`.
-  - [ ] Only the controller (or its input handler) may call them, as in OTP.
-  - [ ] The `{unavailable, distribution}` entries of `erlang.terms` and the declined distribution
-    group of `erts_internal` become implemented.
-- Tests
-  - [ ] The DIST2b golden's controller reads and writes the data path; signal encoding and decoding
-    through it are DIST4b/DIST5.
 
 <a id="step-dist3"></a>
 <a id="step-dist3a"></a>
@@ -147,7 +130,7 @@ Depends on: DIST0 ([30-finished](30-finished.md)).
 
 ## DIST4b. Handshake, TCP carrier and first connections
 
-Depends on: [DIST2d](#step-dist2d), [DIST3a](#step-dist3a), [DIST4a](#step-dist4a).
+Depends on: DIST2d ([30-finished](30-finished.md)), [DIST3a](#step-dist3a), [DIST4a](#step-dist4a).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's
@@ -161,6 +144,11 @@ Depends on: [DIST2d](#step-dist2d), [DIST3a](#step-dist3a), [DIST4a](#step-dist4
   - [ ] First data path: `SEND_SENDER`, `REG_SEND`, `MONITOR_P`/`DEMONITOR_P`/`MONITOR_P_EXIT`
     (enough for `gen:call/3` to `{net_kernel, Node}`), pass-through framing, the offered flags of
     [protocol](../docs/distribution.md#protocol).
+    - Encoded packets join DIST2d's output queue (`DataPath::output`), sending `dist_data` to a
+      controller that asked; `dist_get_stat/1`'s pending bytes as OTP counts them.
+    - `dist_ctrl_put_data/2` decodes what it takes, drops data of an earlier connection id, and
+      for data it cannot read logs OTP's `** Got message from incompatible erlang on channel ...`
+      and ends the connection, as observed.
   - [ ] Start: distribution from the DIST4a options before the entry runs, `net_kernel:start/1,2`,
     `stop/0`, `connect_node/1`; `auth` cookies (`erlang:set_cookie/1,2`, `get_cookie/0,1`,
     `~/.erlang.cookie` read or created as OTP does); `net_adm:ping/1` answers `pong`.

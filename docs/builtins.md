@@ -635,6 +635,8 @@ script.
   `new_connection/1`, `abort_pending_connection/2`, `create_dist_channel/3` and
   `get_dflags/0` ([connections](distribution.md#connections),
   `builtins/erlang/connections.cpp`).
+- Erlang `dist_ctrl_put_data/2`, where `erlang:dist_ctrl_put_data/2` continues
+  with iodata ([controller data path](distribution.md#controller-data-path)).
 - Erlang: `list_to_integer/2`, `binary_to_integer/2`, `map_to_tuple_keys/1`,
   `term_type/1`, counters, `dynamic_node_name`.
 - The rest of the distribution group and the `.beam` group declined.

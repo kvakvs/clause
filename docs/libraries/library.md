@@ -93,7 +93,7 @@ Each provided module exports the complete OTP 29 interface for that module name.
 | [`init`](../../library/erts/init.erl) | Query results corresponding to an initialized system. `boot/1`, `restart/0,1` and `make_permanent/2` are refused ([init module](../builtins.md#init-module)) |
 | [`persistent_term`](../../library/erts/persistent_term.erl) | All functions as runtime builtins ([persistent terms](../builtins.md#persistent-terms)) |
 | [`atomics`](../../library/erts/atomics.erl), [`counters`](../../library/erts/counters.erl) | All functions ([atomics and counters](../builtins.md#atomics-and-counters)) |
-| [`erts_internal`](../../library/erts/erts_internal.erl), [`erts_code_purger`](../../library/erts/erts_code_purger.erl) | Interfaces required by `stdlib` and `kernel`. Distribution, `.beam`, emulator and purger-process function groups are declined ([erts_internal](../builtins.md#erts-internal)) |
+| [`erts_internal`](../../library/erts/erts_internal.erl), [`erts_code_purger`](../../library/erts/erts_code_purger.erl) | Interfaces required by `stdlib` and `kernel`. The `.beam`, emulator and purger-process function groups and the rest of the distribution group are declined ([erts_internal](../builtins.md#erts-internal)) |
 | [`erl_prim_loader`](../../library/erts/erl_prim_loader.erl) | File queries implemented through `file`. Loading and archive operations are declined ([files](../ports.md#standard-io-and-files)) |
 | [`zlib`](../../library/erts/zlib.erl) | All functions using the pinned zlib version ([zlib module](../builtins.md#zlib-module)) |
 | [`prim_eval`](../../library/erts/prim_eval.erl) | `'receive'/2` uses the steps of a compiled receive operation ([prim eval](../builtins.md#prim-eval)) |

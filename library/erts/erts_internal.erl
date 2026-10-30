@@ -3,7 +3,7 @@
 %% error({not_implemented, Name, Arity}). The functions stdlib needs are implemented (plan step 41N,
 %% docs/builtins.md#erts-internal): cmp_term/2, map_next/3, get_creation/0 (plan 30 step DIST2a), new_connection/1,
 %% abort_pending_connection/2, create_dist_channel/3 and get_dflags/0 (plan 30 step DIST2b) are runtime builtins, the
-%% rest Erlang; write-concurrency counters are atomics arrays. A non-distributed node answers the
+%% rest Erlang, dist_ctrl_put_data/2 among them (plan 30 step DIST2d); write-concurrency counters are atomics arrays. A non-distributed node answers the
 %% distribution queries; the other functions serve the emulator itself, .beam files or distribution and stay declined.
 -module(erts_internal).
 -export([
@@ -142,7 +142,8 @@ counters_put(Ref, Ix, Value) -> atomics:put(Ref, Ix, Value).
 crasher(_, _, _, _, _, _) -> erlang:error({not_implemented, crasher, 6}).
 create_dist_channel(_, _, _) -> clause_builtin_placeholder.
 dirty_process_handle_signals(_) -> erlang:error({not_implemented, dirty_process_handle_signals, 1}).
-dist_ctrl_put_data(_, _) -> erlang:error({not_implemented, dist_ctrl_put_data, 2}).
+%% erlang:dist_ctrl_put_data/2 continues here with iodata (plan 30 step DIST2d): the data as one binary.
+dist_ctrl_put_data(DHandle, IoList) -> erlang:dist_ctrl_put_data(DHandle, erlang:iolist_to_binary(IoList)).
 dist_spawn_init(_) -> erlang:error({not_implemented, dist_spawn_init, 1}).
 dist_spawn_request(_, _, _, _) -> erlang:error({not_implemented, dist_spawn_request, 4}).
 dynamic_node_name() ->

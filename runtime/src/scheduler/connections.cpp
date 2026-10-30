@@ -9,7 +9,7 @@
 // Connection entries of other nodes and node status messages (plan 30 step DIST2b, docs/distribution.md#connections):
 // the executor keeps the table under its lock, as OTP's dist table; a controller's end takes its connection down and
 // net_kernel's end takes every connection and then the node's name (OTP's erts_do_net_exits). Node monitors and
-// auto-connect are DIST2c's.
+// auto-connect are DIST2c's, the controller data path's state DIST2d's.
 namespace clause::runtime::detail {
 namespace {
 // The connection id is 24 bits, as OTP's ERTS_DIST_CON_ID_MASK.
@@ -118,6 +118,14 @@ Term down_reason(ProcessContext &controller) {
 }
 } // namespace
 
+std::size_t DataPath::queued() const noexcept {
+    std::size_t bytes = 0;
+    for (const auto &packet : output) {
+        bytes += packet.size();
+    }
+    return bytes;
+}
+
 Connection *ConnectionTable::find(Word node) noexcept {
     const auto found = entries_.find(node);
     return found == entries_.end() ? nullptr : &found->second;
@@ -133,7 +141,8 @@ Connection &ConnectionTable::entry(Word node, std::uint64_t handle) {
         return *found;
     }
     handles_.emplace(handle, node);
-    return entries_.emplace(node, Connection{.handle = handle, .stamp = ++clock_, .monitors = {}}).first->second;
+    return entries_.emplace(node, Connection{.handle = handle, .stamp = ++clock_, .monitors = {}, .data = {}})
+        .first->second;
 }
 
 std::optional<Word> ConnectionTable::node_of_handle(std::uint64_t handle) const noexcept {
@@ -160,6 +169,8 @@ void ConnectionTable::connect(Word node, Word controller, const ChannelOptions &
     connection.flags = options.flags;
     connection.creation = options.creation;
     connection.stamp = ++clock_;
+    connection.data = {};
+    connection.data.input_handler = controller;
 }
 
 void ConnectionTable::drop(Connection &connection) noexcept {
@@ -169,6 +180,7 @@ void ConnectionTable::drop(Connection &connection) noexcept {
     connection.flags = 0;
     connection.stamp = ++clock_;
     connection.monitors.clear();
+    connection.data = {};
 }
 
 void ConnectionTable::monitor(Connection &connection, Word pid) { ++connection.monitors[pid]; }
@@ -184,6 +196,44 @@ void ConnectionTable::forget_monitors(Word pid) noexcept {
     for (auto &[node, connection] : entries_) {
         connection.monitors.erase(pid);
     }
+}
+
+std::expected<Connection *, DataPathError>
+ConnectionTable::controlled(Word pid, const std::optional<DistHandle> &handle) noexcept {
+    const auto node = controlled_by(pid);
+    if (!node) {
+        return std::unexpected(DataPathError::notsup);
+    }
+    auto *connection = find(*node);
+    if (!handle || handle->id != connection->id || handle->reference != connection->handle) {
+        return std::unexpected(DataPathError::badarg);
+    }
+    return connection;
+}
+
+std::expected<Connection *, DataPathError> ConnectionTable::input_of(Connection *connection, Word pid) noexcept {
+    const auto takes_input = [pid](const Connection &entry) {
+        return entry.state == Connection::State::up && entry.data.input_handler == pid;
+    };
+    if (connection == nullptr) {
+        return std::unexpected(DataPathError::badarg);
+    }
+    if (takes_input(*connection)) {
+        return connection;
+    }
+    const auto handles_input =
+        std::ranges::any_of(entries_, [&](const auto &entry) { return takes_input(entry.second); });
+    return std::unexpected(handles_input ? DataPathError::badarg : DataPathError::notsup);
+}
+
+Connection *ConnectionTable::of_reference(std::uint64_t reference) noexcept {
+    const auto node = node_of_handle(reference);
+    return node ? find(*node) : nullptr;
+}
+
+Connection *ConnectionTable::of_handle(const DistHandle &handle, bool current) noexcept {
+    auto *connection = of_reference(handle.reference);
+    return connection != nullptr && (!current || connection->id == handle.id) ? connection : nullptr;
 }
 
 std::vector<Word> ConnectionTable::in_state(Connection::State state) const {

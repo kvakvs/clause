@@ -5,6 +5,8 @@
 %% runs, so each prints as a label; messages of different nodes are taken node by node, as OTP sends them from
 %% different threads. The monitors run covers node monitors and auto-connect (plan 30 step DIST2c):
 %% monitor_node/2,3, erlang:dmonitor_node/3 and list_to_pid/1, list_to_port/1, list_to_ref/1 of a connected node.
+%% The data_path run covers the controller data path (plan 30 step DIST2d): the dist_ctrl_* functions and
+%% dist_get_stat/1.
 -module(connections).
 -export([main/1]).
 
@@ -12,6 +14,8 @@ main(["mandatory"]) ->
     mandatory();
 main(["monitors"]) ->
     monitors();
+main(["data_path"]) ->
+    data_path();
 main(_) ->
     Mandatory = flags(),
     subscriptions(),
@@ -523,3 +527,169 @@ kernel_messages() ->
         {kernel, Message} -> [Message | kernel_messages()]
     after 0 -> []
     end.
+
+%% The controller data path (plan 30 step DIST2d) of a hidden connection, over which no OTP service sends anything:
+%% only the controller takes data and sets options, only its input handler puts data, and anyone reads the counts of
+%% dist_get_stat/1. Signals are encoded from DIST5 on, so the output queue stays empty.
+data_path() ->
+    {erts_dflags, _, Mandatory, _, _, _} = erts_internal:get_dflags(),
+    kernel(),
+    erlang:setnode('a@host', 5),
+    Handle = erts_internal:new_connection('c@host'),
+    data_calls("pending", self(), Handle),
+    Controller = worker(),
+    Handle = erlang:setnode('c@host', Controller, {Mandatory, 6}),
+    {dist_ctrlr, Controller, 'c@host', _} = kernel_message(),
+    data_calls("other process", self(), Handle),
+    data_calls("controller", Controller, Handle),
+    size_option(Controller, Handle),
+    data_handles(Controller, Handle),
+    puts(Controller, Handle),
+    input_handlers(Controller, Handle),
+    Controller ! {stop, bye},
+    timer:sleep(100),
+    data_calls("down", self(), Handle),
+    Next = erts_internal:new_connection('c@host'),
+    io:format("next stat: ~p ~p~n", [
+        safe(fun() -> erlang:dist_get_stat(Handle) end), safe(fun() -> erlang:dist_get_stat(Next) end)
+    ]),
+    io:format("connections: ok~n").
+
+%% A process that runs funs for the caller until told to stop: a controller or an input handler.
+worker() ->
+    spawn(fun Loop() ->
+        receive
+            {run, Fun, From} ->
+                From ! {ran, self(), safe(Fun)},
+                Loop();
+            {stop, Reason} ->
+                exit(Reason)
+        end
+    end).
+
+%% Fun's result in Worker, or its exception class and reason; self() runs it here.
+run(Worker, Fun) when Worker =:= self() ->
+    safe(Fun);
+run(Worker, Fun) ->
+    Worker ! {run, Fun, self()},
+    receive
+        {ran, Worker, Result} -> Result
+    after 2000 -> timeout
+    end.
+
+%% Each data path function called by Caller with a well-formed handle.
+data_calls(Title, Caller, Handle) ->
+    Calls = [
+        {get_data, fun() -> erlang:dist_ctrl_get_data(Handle) end},
+        {notification, fun() -> erlang:dist_ctrl_get_data_notification(Handle) end},
+        {get_opt, fun() -> erlang:dist_ctrl_get_opt(Handle, get_size) end},
+        {put_data, fun() -> erlang:dist_ctrl_put_data(Handle, <<>>) end},
+        {input_handler, fun() -> erlang:dist_ctrl_input_handler(Handle, self()) end},
+        {get_stat, fun() -> erlang:dist_get_stat(Handle) end}
+    ],
+    io:format("~s: ~p~n", [Title, [{Name, run(Caller, Call)} || {Name, Call} <- Calls]]).
+
+%% get_size: dist_ctrl_get_data/1 gives sizes; set_opt returns the value before. Notifications wait for data.
+size_option(Controller, Handle) ->
+    Calls = [
+        {set_opt, fun() -> erlang:dist_ctrl_set_opt(Handle, get_size, true) end},
+        {set_opt, fun() -> erlang:dist_ctrl_set_opt(Handle, get_size, true) end},
+        {get_opt, fun() -> erlang:dist_ctrl_get_opt(Handle, get_size) end},
+        {get_data, fun() -> erlang:dist_ctrl_get_data(Handle) end},
+        {set_opt, fun() -> erlang:dist_ctrl_set_opt(Handle, get_size, false) end},
+        {get_opt, fun() -> erlang:dist_ctrl_get_opt(Handle, other) end},
+        {set_opt, fun() -> erlang:dist_ctrl_set_opt(Handle, other, true) end},
+        {set_opt, fun() -> erlang:dist_ctrl_set_opt(Handle, get_size, 1) end},
+        {notifications, fun() ->
+            [erlang:dist_ctrl_get_data_notification(Handle), erlang:dist_ctrl_get_data_notification(Handle)]
+        end},
+        {messages, fun flush/0}
+    ],
+    [io:format("~w: ~p~n", [Name, run(Controller, Call)]) || {Name, Call} <- Calls],
+    ok.
+
+%% Handles other than the connection's: an earlier connection id, another reference, other terms.
+data_handles(Controller, {Id, Reference}) ->
+    Handles = [
+        {stale, {Id + 1, Reference}},
+        {other_reference, {Id, make_ref()}},
+        {negative_id, {-1, Reference}},
+        {atom_id, {id, Reference}},
+        {pid, {Id, self()}},
+        {atom, handle}
+    ],
+    [
+        io:format("handle ~w: ~p ~p~n", [
+            Name,
+            [
+                run(Caller, Call)
+             || Caller <- [Controller, self()],
+                Call <- [
+                    fun() -> erlang:dist_ctrl_get_data(Handle) end,
+                    fun() -> erlang:dist_ctrl_put_data(Handle, <<>>) end,
+                    fun() -> erlang:dist_ctrl_input_handler(Handle, self()) end
+                ]
+            ],
+            safe(fun() -> erlang:dist_get_stat(Handle) end)
+        ])
+     || {Name, Handle} <- Handles
+    ],
+    ok.
+
+%% dist_ctrl_put_data/2 counts a put of a binary or any term but a list before checking it; a list must be iodata.
+puts(Controller, {Id, Reference} = Handle) ->
+    Puts = [
+        {binary, fun() -> erlang:dist_ctrl_put_data(Handle, <<>>) end},
+        {nil, fun() -> erlang:dist_ctrl_put_data(Handle, []) end},
+        {iolist, fun() -> erlang:dist_ctrl_put_data(Handle, [<<>>, [[]]]) end},
+        {atom, fun() -> erlang:dist_ctrl_put_data(Handle, data) end},
+        {bits, fun() -> erlang:dist_ctrl_put_data(Handle, <<1:1>>) end},
+        {bad_list, fun() -> erlang:dist_ctrl_put_data(Handle, [1, data]) end},
+        {improper, fun() -> erlang:dist_ctrl_put_data(Handle, [<<>> | data]) end},
+        {internal, fun() -> erts_internal:dist_ctrl_put_data(Handle, <<>>) end},
+        {internal_atom, fun() -> erts_internal:dist_ctrl_put_data(Handle, data) end},
+        {stale, fun() -> erlang:dist_ctrl_put_data({Id + 1, Reference}, <<>>) end}
+    ],
+    [
+        io:format("put ~w: ~p ~p~n", [
+            Name, run(Controller, Put), run(Controller, fun() -> erlang:dist_get_stat(Handle) end)
+        ])
+     || {Name, Put} <- Puts
+    ],
+    io:format("other put: ~p ~p~n", [
+        safe(fun() -> erlang:dist_ctrl_put_data(Handle, data) end),
+        safe(fun() -> erlang:dist_ctrl_put_data(Handle, [1, data]) end)
+    ]).
+
+%% dist_ctrl_input_handler/2: the controller hands putting data to another process, even one that ended.
+input_handlers(Controller, Handle) ->
+    Input = worker(),
+    Ended = spawn(fun() -> ok end),
+    timer:sleep(50),
+    Steps = [
+        {Controller, input_atom, fun() -> erlang:dist_ctrl_input_handler(Handle, input) end},
+        {Controller, input, fun() -> erlang:dist_ctrl_input_handler(Handle, Input) end},
+        {Input, put, fun() -> erlang:dist_ctrl_put_data(Handle, <<>>) end},
+        {Input, put_atom, fun() -> erlang:dist_ctrl_put_data(Handle, data) end},
+        {Input, get_data, fun() -> erlang:dist_ctrl_get_data(Handle) end},
+        {Input, notification, fun() -> erlang:dist_ctrl_get_data_notification(Handle) end},
+        {Input, get_opt, fun() -> erlang:dist_ctrl_get_opt(Handle, get_size) end},
+        {Input, input, fun() -> erlang:dist_ctrl_input_handler(Handle, Input) end},
+        {Input, get_stat, fun() -> erlang:dist_get_stat(Handle) end},
+        {Controller, put, fun() -> erlang:dist_ctrl_put_data(Handle, <<>>) end},
+        {Controller, get_opt, fun() -> erlang:dist_ctrl_get_opt(Handle, get_size) end},
+        {Controller, ended, fun() -> erlang:dist_ctrl_input_handler(Handle, Ended) end},
+        {Input, put, fun() -> erlang:dist_ctrl_put_data(Handle, <<>>) end},
+        {Controller, put, fun() -> erlang:dist_ctrl_put_data(Handle, <<>>) end},
+        {Controller, controller, fun() -> erlang:dist_ctrl_input_handler(Handle, Controller) end},
+        {Controller, put, fun() -> erlang:dist_ctrl_put_data(Handle, <<>>) end},
+        {Controller, get_stat, fun() -> erlang:dist_get_stat(Handle) end}
+    ],
+    [
+        io:format("~s ~w: ~p~n", [role(Caller, Controller), Name, run(Caller, Step)])
+     || {Caller, Name, Step} <- Steps
+    ],
+    Input ! {stop, done}.
+
+role(Controller, Controller) -> "controller";
+role(_, _) -> "input".

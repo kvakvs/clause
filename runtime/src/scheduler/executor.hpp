@@ -372,6 +372,14 @@ class Executor final {
     bool monitor_node(ProcessContext &context, const Term &node, bool on, bool passive);
     // The creation of the up connection of `node`, an atom word, or none (list_to_pid/1 of another node).
     std::optional<std::uint32_t> connected_creation(Word node) const;
+
+    // Run `operation` on the connection table under the executor's lock: the controller data path (plan 30 step
+    // DIST2d, builtins/erlang/connections.cpp) reads and changes connections this way.
+    template <typename Operation> decltype(auto) with_connections(Operation &&operation) {
+        const std::scoped_lock lock(mutex_);
+        return std::forward<Operation>(operation)(connections_);
+    }
+
     // An exit signal of exit/2 or exit_signal/2 from the running `sender` to the process of a pid word, acted on at
     // once; `self_normal` is exit/2's quirk: reason normal sent to itself ends the sender. Allocation failure throws,
     // builtins::Blocked while the target runs on another worker.

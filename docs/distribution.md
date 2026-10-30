@@ -5,9 +5,9 @@ How a Clause executable becomes a distributed Erlang node. Decided in plan 30 st
 
 **Today** a program is a non-distributed node, `nonode@nohost`. Pids, ports and references of
 other nodes exist as terms ([terms](terms.md#identities-of-other-nodes), DIST1), the node can be
-named ([this node](#this-node), DIST2a), connection entries and node status messages follow OTP's
-process-controller interface without moving any signal yet ([connections](#connections), DIST2b),
-and the libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`,
+named ([this node](#this-node), DIST2a), connection entries, node status messages, node monitors
+and the controller data path follow OTP's process-controller interface without moving any signal
+yet ([connections](#connections), DIST2b to DIST2d), and the libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`,
 `not_alive`). The rest of this file is the contract for
 distribution. Each section becomes current behavior when its step lands.
 
@@ -103,8 +103,9 @@ Current since DIST2a (`builtins/erlang/node.cpp`, `scheduler/signals.cpp`), as i
 ## Connections
 
 Current since DIST2b (`scheduler/connections.cpp`, `builtins/erlang/connections.cpp`), as OTP's
-process-controller interface. No signal moves over a connection yet (DIST2d, DIST5). Node monitors
-hold entries too ([node monitors](#node-monitors)).
+process-controller interface. No signal moves over a connection yet (DIST5); the controller reads
+and writes through the [controller data path](#controller-data-path). Node monitors hold entries
+too ([node monitors](#node-monitors)).
 
 - **Entries:** one per other node, made by `erts_internal:new_connection(Node)` (no name needed),
   `monitor_node/2,3` or a `setnode/3` attempt, and kept while the program runs. An entry is idle, pending or up; up holds
@@ -166,6 +167,35 @@ Current since DIST2c (`scheduler/connections.cpp`, `builtins/erlang/node.cpp`), 
   printed, and the identity gets the connection's creation. A pid's numbers are cut to 32 bits, a
   port's number to 64; a reference has one to five words below 2^32. Any other node part is
   `badarg`.
+
+## Controller data path
+
+Current since DIST2d (`builtins/erlang/connections.cpp`), as OTP's. An up connection has an output
+queue of encoded packets, which the signal encoder fills from DIST5 on, and an input handler,
+first the controller.
+
+- **`dist_ctrl_get_data(DHandle)`:** the oldest queued packet as a list of binaries, `{Size,
+  Packet}` with `get_size`, or `none`. **`dist_ctrl_get_data_notification(DHandle)`:** `ok`; the
+  controller gets `dist_data` at once when a packet is queued, else when the next one is.
+  **`dist_ctrl_get_opt(DHandle, get_size)`** and **`dist_ctrl_set_opt(DHandle, get_size, Bool)`**
+  (which returns the value before) choose whether sizes come. Only the controller calls these:
+  `notsup` for any other caller, then `badarg` for a handle that is not its connection's current
+  one, another option or a value that is not a boolean.
+- **`dist_ctrl_put_data(DHandle, Data)`:** data from the other node. A list continues in
+  `erts_internal:dist_ctrl_put_data/2`, which makes iodata one binary (`badarg` otherwise). Checks:
+  `badarg` unless the handle is a pair of a small integer and the reference of an entry, `notsup`
+  unless the caller is the input handler of an up connection, `badarg` for another connection's.
+  The put is then counted as received, and `badarg` follows for data that is not a binary. Data
+  of an earlier connection id is dropped; an empty binary is a tick. Other data is decoded from
+  DIST5 on and dropped until then.
+- **`dist_ctrl_input_handler(DHandle, InputHandler)`:** the controller makes any pid, of an ended
+  process or of another node too, the process `dist_ctrl_put_data/2` takes data from; the
+  controller then puts no more data. `notsup` unless the handle is a pair of a small integer and
+  an entry's reference, else `badarg` unless the caller controls that up connection, the id is its
+  current one and `InputHandler` is a pid.
+- **`dist_get_stat(DHandle)`:** `{ok, Received, Sent, PendingBytes}` for any caller: the puts, the
+  packets taken and the bytes queued. Zeros while the connection is not up; `badarg` for a handle
+  that is not its entry's current one. Each connection starts at zero.
 
 ## Node status messages
 

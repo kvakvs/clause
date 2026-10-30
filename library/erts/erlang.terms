@@ -78,13 +78,13 @@
 {display, 1, [], implemented}.
 {display_string, 1, [], {unavailable, not_selected}}.
 {display_string, 2, [], {unavailable, not_selected}}.
-{dist_ctrl_get_data, 1, [], {unavailable, distribution}}.
-{dist_ctrl_get_data_notification, 1, [], {unavailable, distribution}}.
-{dist_ctrl_get_opt, 2, [], {unavailable, distribution}}.
-{dist_ctrl_input_handler, 2, [], {unavailable, distribution}}.
-{dist_ctrl_put_data, 2, [], {unavailable, distribution}}.
-{dist_ctrl_set_opt, 3, [], {unavailable, distribution}}.
-{dist_get_stat, 1, [], {unavailable, distribution}}.
+{dist_ctrl_get_data, 1, [], implemented}.
+{dist_ctrl_get_data_notification, 1, [], implemented}.
+{dist_ctrl_get_opt, 2, [], implemented}.
+{dist_ctrl_input_handler, 2, [], implemented}.
+{dist_ctrl_put_data, 2, [], implemented}.
+{dist_ctrl_set_opt, 3, [], implemented}.
+{dist_get_stat, 1, [], implemented}.
 {'div', 2, [], implemented}.
 {dmonitor_node, 3, [], implemented}.
 {dt_append_vm_tag_data, 1, [], {unavailable, tracing}}.

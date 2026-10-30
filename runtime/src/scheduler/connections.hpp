@@ -2,11 +2,14 @@
 #include <clause/runtime/terms.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
+#include <expected>
 #include <map>
 #include <optional>
 #include <vector>
 
-// Connection entries of other nodes, node monitors (DIST2c) and node status subscriptions (plan 30 step DIST2b,
+// Connection entries of other nodes, node monitors (DIST2c), the controller data path (DIST2d) and node status
+// subscriptions (plan 30 step DIST2b,
 // docs/distribution.md#connections): the data the executor keeps under its lock, as OTP's dist table and nodes
 // monitors keep it.
 namespace clause::runtime::detail {
@@ -29,6 +32,30 @@ inline constexpr std::uint64_t REJECTABLE = DIST_HDR_ATOM_CACHE | HIDDEN_ATOM_CA
 inline constexpr std::uint64_t STRICT_ORDER = DIST_HDR_ATOM_CACHE;
 } // namespace dflags
 
+// A refused dist_ctrl_* call, as OTP's: notsup when the caller has no part in a connection, badarg for another handle
+// or a bad argument (plan 30 step DIST2d).
+enum class DataPathError : std::uint8_t { notsup, badarg };
+
+// The controller data path of an up connection (plan 30 step DIST2d, docs/distribution.md#controller-data-path),
+// reset when it goes down.
+struct DataPath final {
+    // The process dist_ctrl_put_data/2 takes data from: the controller, or dist_ctrl_input_handler/2's; 0 for a
+    // process of another node, from which no data comes.
+    Word input_handler = 0;
+    // Encoded packets dist_ctrl_get_data/1 hands the controller, oldest first; the signal encoder (DIST5) queues them.
+    std::deque<std::vector<std::byte>> output;
+    // Whether the controller asked for a dist_data message when a packet is queued.
+    bool notify = false;
+    // dist_ctrl_set_opt(DHandle, get_size, Bool): dist_ctrl_get_data/1 returns {Size, Packet}.
+    bool get_size = false;
+    // dist_get_stat/1's counts: dist_ctrl_put_data/2 calls and packets taken.
+    std::uint64_t received = 0;
+    std::uint64_t sent = 0;
+
+    // The bytes queued, dist_get_stat/1's pending output.
+    std::size_t queued() const noexcept;
+};
+
 // One other node's connection entry, as OTP's dist entry: idle, pending (new_connection/1 or auto-connect) or up
 // (setnode/3).
 struct Connection final {
@@ -48,6 +75,8 @@ struct Connection final {
     // monitor_node/2,3's monitors of the node (plan 30 step DIST2c): each process's count, one {nodedown, Node} per
     // count when the connection goes down or is aborted.
     std::map<Word, std::size_t> monitors;
+    // The data path while up (plan 30 step DIST2d).
+    DataPath data;
 
     // Whether the connection is up and published (visible), not hidden.
     bool visible() const noexcept { return state == State::up && (flags & dflags::PUBLISHED) != 0; }
@@ -129,6 +158,15 @@ class ConnectionTable final {
     static void demonitor(Connection &connection, Word pid) noexcept;
     // End every node monitor of an ended process.
     void forget_monitors(Word pid) noexcept;
+    // The data path's connections (plan 30 step DIST2d). The up connection `pid` controls when `handle` is its
+    // current one; notsup when it controls none, badarg for another handle.
+    std::expected<Connection *, DataPathError> controlled(Word pid, const std::optional<DistHandle> &handle) noexcept;
+    // `connection`, a handle's entry, when it is up with `pid` as its input handler; badarg for no entry, else notsup
+    // when `pid` is no connection's input handler, badarg when another's.
+    std::expected<Connection *, DataPathError> input_of(Connection *connection, Word pid) noexcept;
+    // The entry of a handle's reference, or null; with `current`, only while the handle's id is the entry's.
+    Connection *of_reference(std::uint64_t reference) noexcept;
+    Connection *of_handle(const DistHandle &handle, bool current) noexcept;
     // The node words of the entries in `state`, oldest change first.
     std::vector<Word> in_state(Connection::State state) const;
 

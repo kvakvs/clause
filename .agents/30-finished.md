@@ -24,3 +24,8 @@ Compact record of the network distribution plan, one bullet per step;
   `clause_dist:passive_monitor/3` and `net_kernel:passive_cnct/1`, `dmonitor_node/3`,
   `list_to_pid/port/ref` of a connected node; `connections` golden's monitors run identical to OTP
   — `701f3409`
+- **DIST2d** controller data path: `dist_ctrl_get_data/1`, `dist_ctrl_get_data_notification/1`,
+  `dist_ctrl_put_data/2` (iodata through `erts_internal:dist_ctrl_put_data/2`),
+  `dist_ctrl_input_handler/2`, `dist_ctrl_get_opt/2`, `dist_ctrl_set_opt/3`, `dist_get_stat/1` with
+  OTP's notsup/badarg order; queue filled and data decoded from DIST5; `connections` golden's
+  data_path run identical to OTP — `HASH`
