@@ -59,7 +59,9 @@ stage outputs, `--shell`, `--generate-asn1`), see `README.md` and `docs/compile.
   `codegen/runtime_symbols.hpp`, mangled per target (`mangling.hpp`). At O2 lowering itself inlines
   known funs, `lists`/`maps:fold` loops of them and small local functions calling only such leaves
   (budgeted per function): LLVM cannot inline across frame transfers. Matches of tuples/cons cells
-  built in the same function read the built words, and unread cells are dropped (OPT1.13).
+  built in the same function read the built words, and unread cells are dropped (OPT1.13). Float
+  loops (`<f>.float` variants taking raw doubles) are planned per module before any function is
+  lowered, so calls between its functions pass doubles in registers (OPT1.11).
 - **Backend**: LLVM optimization and emission (objects, asm, IR, debug info), parallel per module.
   Before the pipeline, term-word loads get the `term` TBAA tag (state/frame/binary tags come from
   lowering); atom/literal/fun cache reads are invariant loads, so their claim checks merge (OPT1.10).

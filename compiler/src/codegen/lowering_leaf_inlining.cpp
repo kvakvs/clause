@@ -165,6 +165,7 @@ ExpressionLowering clause_state(const ExpressionLowering &state, const LeafSite 
     inner.atom_owner = state.atom_owner;
     inner.proofs = state.proofs;
     inner.raw_floats = state.raw_floats;
+    inner.float_loops = state.float_loops;
     inner.atom_literals = state.atom_literals;
     inner.literal_values = state.literal_values;
     inner.inline_depth = state.inline_depth + 1;

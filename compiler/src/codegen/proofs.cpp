@@ -65,6 +65,16 @@ std::optional<SmallRange> Proofs::small(const semantic::types::Id fact) const {
     return result;
 }
 
+bool Proofs::floating(const semantic::types::Id fact) const {
+    if (vacuous(graph_, fact)) {
+        return false;
+    }
+    return std::ranges::all_of(members(graph_, fact), [&](const semantic::types::Id member) {
+        const auto &node = graph_.get(member);
+        return node.kind == Kind::application && node.name == "float" && node.children.empty();
+    });
+}
+
 Known Proofs::normalized(const Known &known) const {
     const auto &node = graph_.get(known.fact);
     if (node.kind == Kind::positional && known.taken + 1 >= node.children.size()) {

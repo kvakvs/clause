@@ -7,6 +7,7 @@
 #include "source_locations.hpp"
 #include <algorithm>
 #include <cstdint>
+#include <llvm/IR/Module.h>
 #include <string>
 
 namespace clause::codegen {
@@ -206,6 +207,7 @@ void lower_candidates(ExpressionLowering &initial, const std::vector<ast::Functi
         state.proofs = initial.proofs;
         state.binary_loop = initial.binary_loop;
         state.float_loop = initial.float_loop;
+        state.float_loops = initial.float_loops;
         state.raw_floats = initial.raw_floats;
         state.literal_values = initial.literal_values;
         state.lambdas = initial.lambdas;
@@ -238,6 +240,7 @@ void lower_loop(ExpressionLowering &initial, const std::vector<ast::FunctionClau
     ExpressionLowering inner{builder, *variant, initial.module, initial.function, initial.inferred, initial.word, {}};
     inner.reads = initial.reads;
     inner.proofs = initial.proofs;
+    inner.float_loops = initial.float_loops;
     BinaryLoop looping{reads, variant, true};
     looping.scan = byte_scan(initial, clauses, reads.parameter);
     inner.binary_loop = &looping;
@@ -245,17 +248,40 @@ void lower_loop(ExpressionLowering &initial, const std::vector<ast::FunctionClau
     keep_invariants_alone(*variant);
 }
 
+// The float loop of a function's clauses, when they make no binary loop, with its variant declared (float loops,
+// OPT1.2); planned for the whole module before lowering, so calls of other functions can enter it (OPT1.11).
+std::optional<FloatLoop> plan_float_loop(const ExpressionLowering &initial,
+                                         const std::vector<ast::FunctionClause> &clauses) {
+    const auto leaves = tail_leaves(initial, clauses);
+    const auto tails = tail_calls(initial, leaves);
+    // Most functions have no self tail call, which float_loop_parameters finds first.
+    auto loop = float_loop_parameters(initial, clauses.size(), {.calls = tails, .leaves = leaves});
+    if (!loop || binary_loop_reads(initial, clauses.size(), tails)) {
+        return std::nullopt;
+    }
+    loop->variant = declare_loop_variant(initial, ".float");
+    std::uint64_t mask = 0;
+    for (const auto parameter : loop->parameters) {
+        mask |= std::uint64_t{1} << parameter;
+    }
+    loop->variant->addFnAttr(FLOAT_PARAMETERS_ATTRIBUTE, std::to_string(mask));
+    loop->variant->addFnAttr(FLOAT_GENERIC_ATTRIBUTE, initial.entry.getName());
+    return loop;
+}
+
+// The planned float loop of the function `initial` lowers; none for funs and functions without one.
+const FloatLoop *planned_float_loop(const ExpressionLowering &initial) {
+    if (initial.lambda || !initial.float_loops) {
+        return nullptr;
+    }
+    const auto found = initial.float_loops->find(&initial.function);
+    return found == initial.float_loops->end() ? nullptr : &found->second;
+}
+
 // A float loop (OPT1.2): the function and the variant, lowered from the same clauses, enter the variant with the
 // bits of the new doubles; the variant's service transfers enter the function with cells made of them instead.
 void lower_float_loop(ExpressionLowering &initial, const std::vector<ast::FunctionClause> &clauses,
                       const std::set<const ast::Expression *> &tails, FloatLoop loop) {
-    loop.variant = declare_loop_variant(initial, ".float");
-    std::uint64_t mask = 0;
-    for (const auto parameter : loop.parameters) {
-        mask |= std::uint64_t{1} << parameter;
-    }
-    loop.variant->addFnAttr(FLOAT_PARAMETERS_ATTRIBUTE, std::to_string(mask));
-    loop.variant->addFnAttr(FLOAT_GENERIC_ATTRIBUTE, initial.entry.getName());
     define_float_box(initial);
     FloatLoop outer = loop;
     initial.float_loop = &outer;
@@ -265,6 +291,7 @@ void lower_float_loop(ExpressionLowering &initial, const std::vector<ast::Functi
                              {}};
     inner.reads = initial.reads;
     inner.proofs = initial.proofs;
+    inner.float_loops = initial.float_loops;
     loop.in_variant = true;
     inner.float_loop = &loop;
     lower_candidates(inner, clauses, tails);
@@ -275,33 +302,55 @@ void lower_clauses(ExpressionLowering &initial, const std::vector<ast::FunctionC
     const auto tails = tail_calls(initial, leaves);
     if (const auto reads = binary_loop_reads(initial, clauses.size(), tails)) {
         lower_loop(initial, clauses, tails, *reads);
-    } else if (auto floats = float_loop_parameters(initial, clauses.size(), {.calls = tails, .leaves = leaves})) {
-        lower_float_loop(initial, clauses, tails, std::move(*floats));
+    } else if (const auto *floats = planned_float_loop(initial)) {
+        lower_float_loop(initial, clauses, tails, *floats);
     } else {
         lower_candidates(initial, clauses, tails);
     }
 }
 } // namespace
 
+FloatLoops plan_float_loops(llvm::Module &output, const semantic::Module &module, llvm::IntegerType *word,
+                            const semantic::types::Inference &inferred, const Proofs *proofs) {
+    FloatLoops loops;
+    llvm::IRBuilder<> builder(output.getContext());
+    for (const auto &function : module.functions) {
+        if (!function.live_) {
+            continue;
+        }
+        const auto reads = read_bindings(module, function);
+        ExpressionLowering initial{builder, *output.getFunction(function.symbol), module, function, inferred, word, {}};
+        initial.reads = &reads;
+        initial.proofs = proofs;
+        const auto &clauses = std::get<ast::Function>(module.syntax->form(function.form).value).clauses;
+        if (auto loop = plan_float_loop(initial, clauses)) {
+            loops.emplace(&function, std::move(*loop));
+        }
+    }
+    return loops;
+}
+
 void lower_function(llvm::IRBuilder<> &builder, llvm::Function &entry, const semantic::Module &module,
                     const semantic::Function &function, llvm::IntegerType *word,
-                    const semantic::types::Inference &inferred, const Proofs *proofs, const LambdaBindings *lambdas) {
+                    const semantic::types::Inference &inferred, const LoweringContext context) {
     const auto reads = read_bindings(module, function);
     ExpressionLowering initial{builder, entry, module, function, inferred, word, {}};
     initial.reads = &reads;
-    initial.proofs = proofs;
-    initial.lambdas = lambdas;
+    initial.proofs = context.proofs;
+    initial.lambdas = context.lambdas;
+    initial.float_loops = context.float_loops;
     lower_clauses(initial, std::get<ast::Function>(module.syntax->form(function.form).value).clauses);
 }
 
 void lower_lambda(llvm::IRBuilder<> &builder, llvm::Function &entry, const semantic::Module &module,
                   const semantic::FunEntry &lambda, llvm::IntegerType *word, const semantic::types::Inference &inferred,
-                  const LambdaBindings *lambdas) {
+                  const LoweringContext context) {
     const auto reads = read_bindings(module, *lambda.owner);
     ExpressionLowering initial{builder, entry, module, *lambda.owner, inferred, word, {}};
     initial.reads = &reads;
     initial.lambda = &lambda;
-    initial.lambdas = lambdas;
+    initial.lambdas = context.lambdas;
+    initial.float_loops = context.float_loops;
     lower_clauses(initial, *semantic::fun_clauses(lambda.expression->value));
 }
 } // namespace clause::codegen

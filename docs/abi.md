@@ -294,23 +294,29 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   within the result or a tail call of another function (never in a fun) is a
   float parameter. A float-only expression is a float literal, `/`, a `math`
   call, `float/1`, the negation of one, `+ - *` with such an operand, a read of
-  a float parameter found so far, or a variable every definition of which
-  matches (`V = Expression`) a float-only expression; parameters are added until
-  no self call makes another one float-only. The function gets a private variant
+  a float parameter found so far, a variable every definition of which matches
+  (`V = Expression`) a float-only expression, or at `-O2` an expression type
+  inference proves `float()` (a call of a function returning floats, a
+  parameter every caller passes floats); parameters are added until no self
+  call makes another one float-only. Each module's float loops are chosen before
+  any of its functions is lowered. The function gets a private variant
   `<symbol>.float` taking each float parameter as the bits of its double in the
   argument word (function attributes `clause-float-parameters`, a bit mask, and
-  `clause-float-generic`, the function). A self tail call of either enters the
-  variant with the bits of every float parameter's new double: a double in a
-  register, or the double of a float cell, tested at run time; so a float loop
-  makes no cell per step, and the function entered with cells enters its
+  `clause-float-generic`, the function). A self tail call of either, and a tail
+  or body call from another function of the module, enters the variant with
+  the bits of every float parameter's new double: a double in a register, or
+  the double of a float cell, tested at run time (a failed test calls the
+  function itself); so a float loop makes no cell per step, its callers make
+  none for its float arguments, and the function entered with cells enters its
   variant on its first step. The variant makes a cell of a parameter only where
-  it reads the word itself. Raw bits never reach a place a collection reads:
-  the variant's self tail calls passing a word that is no float (and its other
-  ones) re-enter the function, and a transfer into the variant that takes its
-  service path (a wanted collection, profiling, no reductions left, stack
-  growth) boxes the doubles with the module's `clause.float.box` helper and
-  enters the function's descriptor instead. The variant has the function's name
-  and arity in stack traces.
+  it reads the word itself, and returns words: a float result is a cell. Raw
+  bits never reach a place a collection reads: the variant's self tail calls
+  passing a word that is no float (and its other ones) re-enter the function,
+  and a transfer into the variant that takes its service path (a wanted
+  collection, profiling, no reductions left, stack growth) boxes the doubles
+  with the module's `clause.float.box` helper and enters the function's
+  descriptor instead. The variant has the function's name and arity in stack
+  traces.
 - Raw floats (64-bit targets): a double in a register compares with another
   word inline. `=:=` and `=/=` hold only against a float cell of the same bits;
   the other comparisons read a float cell's double, or convert a small integer

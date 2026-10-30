@@ -391,17 +391,16 @@ loop: zipwith/4 and zipwith3/5 (rare), uniq 4, keymap 1. Open:
 
 - Leaves that raise (`error/1`, `throw/1`) stay calls, since inlining loses their stack-trace frame.
 
-### OPT1.11 remainder: floats crossing calls
+### OPT1.11 remainder: raw float results
 
-Raw floats (OPT1.2, OPT1.11) cover literals, float-only results, comparisons, `float/1`, unary minus,
-type tests and self tail loop parameters. Open:
+Raw floats cover literals, float-only results, comparisons, `float/1`, unary minus, type tests,
+float loop parameters (seeded by inference) and float arguments of calls into float loops. Open, low
+value:
 
-- Floats crossing calls between functions: a call passes a cell of each float argument and a callee
-  returning a float makes a cell for it (`bench_float` float.calls, Horner over a coefficient list,
-  0.88x OTP). Needs a raw-double argument/result convention, or leaf inlining inside float loops (off
-  since OPT1.9: inlined reads would see the loop's parameters unchanged).
-- A loop whose accumulator only becomes float through a call or list element (`Acc * X + C` with
-  neither operand float-only) gets no variant; inference facts (`float()`) could seed it.
+- A float result still returns as a cell: one 2-word cell per call. float.calls (16M calls of a
+  12-step Horner loop, 33 ns each) would save an estimated ~4%; a raw result needs the return
+  transfer and its `CLAUSE_return_v1` service path to box like entries do.
+- Calls from other modules enter the function itself (the planned loops are per module).
 
 ### OPT1.12 Tail-modulo-cons and in-place list building
 
@@ -495,7 +494,7 @@ Open steps only, by area:
 - **Binaries:** OPT1.5 remainder.
 - **Maps:** OPT1.6 remainder.
 - **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
-- **Floats:** OPT1.11 remainder (calls).
+- **Floats:** OPT1.11 remainder (raw results, low value).
 - **Inlining and cleanup:** OPT1.9 and OPT1.13 remainders, by measured need.
 
 Runtime steps by 69A impact (worst kernel of each step, pinned 2026-10-21 run; all already ahead of

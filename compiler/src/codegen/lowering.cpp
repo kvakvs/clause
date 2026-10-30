@@ -4,6 +4,7 @@
 #include "llvm_state.hpp"
 #include "lowering_expressions.hpp"
 #include "lowering_roots.hpp"
+#include "lowering_state.hpp"
 #include "module_registration.hpp"
 #include "progress.hpp"
 #include "source_locations.hpp"
@@ -93,21 +94,24 @@ const LambdaBindings *bound_lambdas(const ModuleLambdas &lambdas, const semantic
 void define(llvm::Module &output, const semantic::Module &module, llvm::IntegerType *word,
             const semantic::types::Inference &inferred, const Optimizations optimizations) {
     const Proofs proofs(inferred.graph, word->getBitWidth());
+    const auto *proven = optimizations.proven ? &proofs : nullptr;
     const auto lambdas = optimizations.inline_funs ? module_lambdas(module) : ModuleLambdas{};
+    const auto loops = plan_float_loops(output, module, word, inferred, proven);
     for (const auto &function : module.functions) {
         if (!function.live_) {
             continue;
         }
         auto *entry = output.getFunction(function.symbol);
         llvm::IRBuilder<> builder(llvm::BasicBlock::Create(output.getContext(), "entry", entry));
-        lower_function(builder, *entry, module, function, word, inferred, optimizations.proven ? &proofs : nullptr,
-                       bound_lambdas(lambdas, &function));
+        lower_function(builder, *entry, module, function, word, inferred,
+                       {proven, bound_lambdas(lambdas, &function), &loops});
     }
     for (const auto &fun : module.funs) {
         if (fun.expression && fun.owner->live_) {
             auto *entry = output.getFunction(fun.symbol);
             llvm::IRBuilder<> builder(llvm::BasicBlock::Create(output.getContext(), "entry", entry));
-            lower_lambda(builder, *entry, module, fun, word, inferred, bound_lambdas(lambdas, fun.owner));
+            lower_lambda(builder, *entry, module, fun, word, inferred,
+                         {nullptr, bound_lambdas(lambdas, fun.owner), &loops});
         }
     }
 }

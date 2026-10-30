@@ -6,6 +6,7 @@
 #include <clause/abi/term.hpp>
 #include <llvm/IR/MDBuilder.h>
 #include <llvm/IR/Module.h>
+#include <span>
 #include <stdexcept>
 
 namespace clause::codegen {
@@ -156,11 +157,12 @@ struct RawArguments {
     llvm::Value *floats;
 };
 
-// The doubles of a call's float loop arguments (float loops, OPT1.2): a raw double, else the double of the argument's
-// float cell, read where it is one (OPT1.11).
-RawArguments raw_arguments(ExpressionLowering &state, const ast::CallExpression &call) {
+// The doubles of a call's arguments at a float loop's `parameters` (float loops, OPT1.2): a raw double, else the double
+// of the argument's float cell, read where it is one (OPT1.11).
+RawArguments raw_arguments(ExpressionLowering &state, const ast::CallExpression &call,
+                           std::span<const std::size_t> parameters) {
     RawArguments raws{{}, nullptr};
-    for (const auto parameter : state.float_loop->parameters) {
+    for (const auto parameter : parameters) {
         auto *word = state.values.at(&state.module.syntax->expression(call.arguments.at(parameter)));
         if (const auto raw = state.raw_floats.find(word); raw != state.raw_floats.end()) {
             raws.doubles.push_back(raw->second);
@@ -173,10 +175,50 @@ RawArguments raw_arguments(ExpressionLowering &state, const ast::CallExpression 
     return raws;
 }
 
-// A self tail call of a float loop (float loops, OPT1.2): the function and its variant both enter the variant with the
-// bits of the arguments' doubles as the argument words where every float parameter is passed a float, so their cells
-// go unread and are dropped; elsewhere the call stays the function's own. False when the call is no such call, or when
-// it may still be one of the function's own.
+// Branch to a new block where `floats` holds and leave the builder there; the block where it does not, or null (and
+// no branch) when every argument has a raw double.
+llvm::BasicBlock *branch_on_floats(ExpressionLowering &state, llvm::Value *floats) {
+    if (!floats) {
+        return nullptr;
+    }
+    auto &context = state.entry.getContext();
+    auto *variant = llvm::BasicBlock::Create(context, "float.loop.enter", &state.entry);
+    auto *generic = llvm::BasicBlock::Create(context, "float.loop.leave", &state.entry);
+    state.builder.CreateCondBr(floats, variant, generic, llvm::MDBuilder(context).createLikelyBranchWeights());
+    state.builder.SetInsertPoint(variant);
+    return generic;
+}
+
+// Pass the bits of the arguments' doubles as the words of the loop's float parameters.
+void pass_bits(ExpressionLowering &state, const ast::CallExpression &call, const FloatLoop &loop,
+               const RawArguments &raws) {
+    for (std::size_t i = 0; i < raws.doubles.size(); ++i) {
+        state.values.at(&state.module.syntax->expression(call.arguments.at(loop.parameters[i]))) =
+            state.builder.CreateBitCast(raws.doubles[i], state.word, "float.bits");
+    }
+}
+
+// A tail call entering `loop`'s variant with the bits of the arguments' doubles where every float parameter is passed a
+// float, so their cells go unread and are dropped (float loops, OPT1.2). True when the call is lowered; false leaves
+// the builder where the call stays a call of the function itself.
+bool enter_float_variant(ExpressionLowering &state, const ast::CallExpression &call, const FloatLoop &loop) {
+    const auto raws = raw_arguments(state, call, loop.parameters);
+    // An argument that is never a float (an integer literal) leaves the loop.
+    if (raws.floats == state.builder.getFalse()) {
+        return false;
+    }
+    auto *generic = branch_on_floats(state, raws.floats);
+    const auto saved = state.values;
+    pass_bits(state, call, loop, raws);
+    tail_enter(state, loop.variant, call);
+    state.values = saved;
+    if (generic) {
+        state.builder.SetInsertPoint(generic);
+    }
+    return !generic;
+}
+
+// A self tail call of a float loop, made from the function or its variant (float loops, OPT1.2).
 bool float_loop_call(ExpressionLowering &state, const ast::Expression &expression, const ast::CallExpression &call,
                      llvm::Function *target) {
     auto *loop = state.float_loop;
@@ -184,31 +226,74 @@ bool float_loop_call(ExpressionLowering &state, const ast::Expression &expressio
         target != state.entry.getParent()->getFunction(state.function.symbol)) {
         return false;
     }
-    const auto raws = raw_arguments(state, call);
-    // An argument that is never a float (an integer literal) leaves the loop.
+    return enter_float_variant(state, call, *loop);
+}
+
+// The float loop planned for a call of another function of this module (float loops across calls, OPT1.11); null for
+// every other call.
+const FloatLoop *callee_float_loop(const ExpressionLowering &state, const semantic::FunctionRef callee) {
+    if (!state.float_loops || callee.module != &state.module || callee.function == &state.function) {
+        return nullptr;
+    }
+    const auto found = state.float_loops->find(callee.function);
+    return found == state.float_loops->end() ? nullptr : &found->second;
+}
+
+// A checked body call of `target` with the call's arguments.
+llvm::Value *body_call(ExpressionLowering &state, llvm::Function *target, const ast::CallExpression &call) {
+    auto *result = state.builder.CreateCall(target, {state.entry.getArg(0), arguments(state, call)}, "call.result");
+    result->setCallingConv(llvm::CallingConv::C);
+    propagate_failure(state);
+    return result;
+}
+
+// A body call of another function entering its float loop variant with the bits of the arguments' doubles (float
+// loops across calls, OPT1.11): where an argument may be no float, a run-time test calls the function itself instead.
+// Null when some argument is never a float.
+llvm::Value *float_variant_result(ExpressionLowering &state, const ast::CallExpression &call, const FloatLoop &loop,
+                                  llvm::Function *target) {
+    const auto raws = raw_arguments(state, call, loop.parameters);
     if (raws.floats == state.builder.getFalse()) {
+        return nullptr;
+    }
+    auto *generic = branch_on_floats(state, raws.floats);
+    const auto saved = state.values;
+    pass_bits(state, call, loop, raws);
+    auto *entered = body_call(state, loop.variant, call);
+    state.values = saved;
+    if (!generic) {
+        return entered;
+    }
+    auto &builder = state.builder;
+    auto *variant_end = builder.GetInsertBlock();
+    auto *join = llvm::BasicBlock::Create(state.entry.getContext(), "float.call.join", &state.entry);
+    builder.CreateBr(join);
+    builder.SetInsertPoint(generic);
+    auto *own = body_call(state, target, call);
+    auto *own_end = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    return join_values(state, state.word, {variant_end, entered}, {own_end, own});
+}
+
+// Lower a tail call: a binary or float loop step, an entry of another function's float loop, or a transfer to
+// `target`. False for a body call, which nothing lowered yet.
+bool lower_tail_call(ExpressionLowering &state, const ast::Expression &expression, const ast::CallExpression &call,
+                     llvm::Function *target, const FloatLoop *loop) {
+    if (binary_loop_call(state, expression, call, target) || float_loop_call(state, expression, call, target)) {
+        return true;
+    }
+    if (!state.tail_calls || !state.tail_calls->contains(&expression)) {
         return false;
     }
-    llvm::BasicBlock *generic = nullptr;
-    if (raws.floats) {
-        auto &context = state.entry.getContext();
-        auto *variant = llvm::BasicBlock::Create(context, "float.loop.enter", &state.entry);
-        generic = llvm::BasicBlock::Create(context, "float.loop.leave", &state.entry);
-        state.builder.CreateCondBr(raws.floats, variant, generic, llvm::MDBuilder(context).createLikelyBranchWeights());
-        state.builder.SetInsertPoint(variant);
+    if (loop && enter_float_variant(state, call, *loop)) {
+        return true;
     }
-    const auto saved = state.values;
-    for (std::size_t i = 0; i < raws.doubles.size(); ++i) {
-        const auto parameter = loop->parameters[i];
-        state.values.at(&state.module.syntax->expression(call.arguments.at(parameter))) =
-            state.builder.CreateBitCast(raws.doubles[i], state.word, "float.bits");
-    }
-    tail_enter(state, loop->variant, call);
-    state.values = saved;
-    if (generic) {
-        state.builder.SetInsertPoint(generic);
-    }
-    return !generic;
+    auto *result = state.builder.CreateCall(target, {state.entry.getArg(0), arguments(state, call)}, "call.result");
+    result->setCallingConv(llvm::CallingConv::C);
+    // The callee's result is this function's: lower_frames turns the return into a tail transfer.
+    state.builder.CreateRet(result);
+    return true;
 }
 } // namespace
 
@@ -220,20 +305,15 @@ llvm::Value *lower_call(ExpressionLowering &state, const ast::Expression &expres
         throw std::invalid_argument("lowering: inconsistent resolved call arity");
     }
     auto *target = callee_declaration(state, callee);
-    if (binary_loop_call(state, expression, call, target) || float_loop_call(state, expression, call, target)) {
+    const auto *loop = callee_float_loop(state, callee);
+    if (lower_tail_call(state, expression, call, target, loop)) {
         state.builder.SetInsertPoint(llvm::BasicBlock::Create(state.entry.getContext(), "tail.dead", &state.entry));
         return llvm::ConstantInt::get(state.word, abi::v1::empty_list);
     }
-    auto *result = state.builder.CreateCall(target, {state.entry.getArg(0), arguments(state, call)}, "call.result");
-    result->setCallingConv(llvm::CallingConv::C);
-    if (state.tail_calls && state.tail_calls->contains(&expression)) {
-        // The callee's result is this function's: lower_frames turns the return into a tail transfer.
-        state.builder.CreateRet(result);
-        state.builder.SetInsertPoint(llvm::BasicBlock::Create(state.entry.getContext(), "tail.dead", &state.entry));
-        return llvm::ConstantInt::get(state.word, abi::v1::empty_list);
+    if (auto *entered = loop ? float_variant_result(state, call, *loop, target) : nullptr) {
+        return entered;
     }
-    propagate_failure(state);
-    return result;
+    return body_call(state, target, call);
 }
 
 llvm::Value *lower_named_call(ExpressionLowering &state, const semantic::FunctionRef callee,

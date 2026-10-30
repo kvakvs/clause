@@ -1,6 +1,7 @@
 #include "float_loops.hpp"
 #include "../semantic/capabilities.hpp"
 #include "binary_loops.hpp"
+#include "proofs.hpp"
 #include <algorithm>
 #include <clause/abi/frames.hpp>
 #include <cstdint>
@@ -42,9 +43,11 @@ std::optional<Op> service_operation(const semantic::Function &function, const as
     return found == function.services.end() ? std::nullopt : found->second.operation;
 }
 
-// What decides that an expression is float-only (wider float loops, OPT1.11): the function's services and reads, the
-// bindings of the float parameters found so far, and the expressions each variable is matched to.
+// What decides that an expression is float-only (wider float loops, OPT1.11): the lowering (its inferred facts), the
+// function's services and reads, the bindings of the float parameters found so far, and the expressions each variable
+// is matched to.
 struct FloatFacts {
+    const ExpressionLowering &state;
     const ast::Module &syntax;
     const semantic::Function &function;
     const BindingReads &reads;
@@ -57,10 +60,18 @@ constexpr std::size_t MATCH_DEPTH = 8;
 
 bool float_only(const FloatFacts &facts, const ast::ExprId &id, std::size_t depth = 0);
 
-// Whether an expression makes a float of any value: a float literal, a math function or float/1.
+// Whether inference proves every value of an expression a float: a call of a function returning floats, arithmetic
+// of parameters callers pass floats (OPT1.11 remainder).
+bool inferred_float(const ExpressionLowering &state, const ast::Expression &expression) {
+    const auto known = known_expression(state, expression);
+    return known && state.proofs->floating(known->fact);
+}
+
+// Whether an expression makes a float of any value: a float literal, a math function, float/1, or one inference proves
+// a float.
 bool float_source(const FloatFacts &facts, const ast::Expression &expression) {
     return std::holds_alternative<ast::FloatLiteral>(expression.value) || math_call(facts.syntax, expression.value) ||
-           service_operation(facts.function, expression) == Op::to_float;
+           service_operation(facts.function, expression) == Op::to_float || inferred_float(facts.state, expression);
 }
 
 // Whether every value of a variable read is a float: a float parameter's, or one matched only to float-only
@@ -350,7 +361,8 @@ std::optional<FloatLoop> float_loop_parameters(const ExpressionLowering &state, 
             candidates.emplace(parameter, std::move(*bindings));
         }
     }
-    FloatFacts facts{syntax, state.function, *state.reads, {}, variable_matches(state.function, syntax, expressions)};
+    FloatFacts facts{state,        syntax, state.function,
+                     *state.reads, {},     variable_matches(state.function, syntax, expressions)};
     FloatLoop loop{};
     grow_parameters(facts, evidence, candidates, loop);
     if (loop.parameters.empty()) {

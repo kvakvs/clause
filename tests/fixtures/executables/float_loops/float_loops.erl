@@ -34,7 +34,38 @@ main(_) ->
     io:format("~p~n", [signs(4, 0.0, [])]),
     io:format("~p~n", [wide(6, 1.0, a, b, c, d, e, 0.5)]),
     wider(),
+    across(),
     io:format("float_loops: ok~n").
+
+%% Float loops entered from other functions (OPT1.11 remainder): body and tail calls passing doubles in registers,
+%% float cells or integers, loops whose floats only inference proves, errors and collections inside them.
+across() ->
+    Coefficients = [1.0 / K || K <- lists:seq(1, 6)],
+    io:format("~p~n", [integrate(Coefficients, 50, 0.0, 0.0)]),
+    io:format("~p~n", [horner(Coefficients, id(0.5) * 1.0, 0.0)]),
+    io:format("~p~n", [{decay(3, id(7)), decay(3, id(7.0)), decay(3, id(2.0) * 3.0), decay(3, 7)}]),
+    io:format("~p~n", [
+        {decay(0, lists:last([7])), decay(0, lists:last([7.0])), caught(fun() -> decay(2, lists:last([an_atom])) end)}
+    ]),
+    io:format("~p~n", [handed(id(1.5))]),
+    io:format("~p~n", [caught(fun() -> handed(id(an_atom)) end)]),
+    io:format("~p~n", [caught(fun() -> failing(4, id(2.0) * 1.0) end)]),
+    io:format("~p~n", [{garbage(3000, id(0.25) * 2.0, []), collect(2000)}]).
+
+integrate(_Coefficients, 0, _X, Sum) ->
+    Sum;
+integrate(Coefficients, N, X, Sum) ->
+    integrate(Coefficients, N - 1, X + 0.02, Sum + horner(Coefficients, X, 0.0) * 0.02).
+
+%% Its floats are only known from the callers and the list elements.
+horner([], _X, Acc) -> Acc;
+horner([C | Rest], X, Acc) -> horner(Rest, X, Acc * X + C).
+
+%% A tail call of another float loop.
+handed(X) -> decay(4, X * 2.0).
+
+%% A tail call of a float loop that collects.
+collect(N) -> garbage(N, float(N), []).
 
 %% Wider float loops (OPT1.11): unary minus, float/1, is_float/1 and comparisons with words that are not loop floats,
 %% inside and outside loops, with their edge cases and errors.

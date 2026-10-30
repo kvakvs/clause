@@ -28,6 +28,8 @@ class Proofs {
 
     // The small integers `fact` holds when all of them fit an immediate; none otherwise.
     std::optional<SmallRange> small(semantic::types::Id fact) const;
+    // Whether `fact` holds only floats (wider float loops, OPT1.11 remainder).
+    bool floating(semantic::types::Id fact) const;
     // The arity shared by every tuple `known` holds, when it holds only tuples.
     std::optional<std::size_t> arity(const Known &known) const;
     // Whether `known` holds only proper lists, or only cons cells.

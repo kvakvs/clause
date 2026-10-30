@@ -403,6 +403,12 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   pinned (OTP): limit 4.13 s to 0.44 (1.23), negate 8.30 to 0.64 (1.26), guards 3.25 to 0.44
   (1.20), mandelbrot 0.76 to 0.33 (1.29), sum 0.48 (1.16) and calls 1.14 (1.29) unchanged; 69A
   dataproc/datagen code identical, luerl euler 1.00x — `d28eb5a7`
+- **OPT1.11 remainder** floats crossing calls: at `-O2` expressions inference proves `float()` are
+  float-only (loops whose floats come from callers or list elements), and a module's float loops are
+  planned before lowering, so tail and body calls of other functions enter a variant with raw doubles
+  (float cells tested at run time). Pinned (OTP): calls 1.13 s to 0.53 (1.29), limit 0.43 to 0.26
+  (1.23), mandelbrot 0.32 to 0.24 (1.29), the rest unchanged; 69A dataproc/datagen code identical,
+  luerl euler 1.00x, luerl -O2 compile 1.00x — `[plan20] OPT1.11 remainder ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

@@ -184,6 +184,9 @@ struct ExpressionLowering {
     BinaryLoop *binary_loop = nullptr;
     // The float loop of the function being lowered (float loops, OPT1.2); null for every other function.
     FloatLoop *float_loop = nullptr;
+    // The planned float loops of the module, which calls of other functions enter with raw doubles (OPT1.11); null
+    // where none are planned.
+    const FloatLoops *float_loops = nullptr;
     // The double each float word holds, where lowering has it in a register (raw floats, OPT1.2): float literals,
     // results of float arithmetic and cells of a float loop variant's parameters. Float operations read it instead.
     std::map<const llvm::Value *, llvm::Value *> raw_floats = {};
