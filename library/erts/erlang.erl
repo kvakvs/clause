@@ -360,704 +360,354 @@
 %% tracing function error(notsup).
 
 '!'(_, _) -> clause_builtin_placeholder.
-
 '*'(_, _) -> clause_builtin_placeholder.
-
 '+'(_) -> clause_builtin_placeholder.
-
 '+'(_, _) -> clause_builtin_placeholder.
-
 '++'(_, _) -> clause_builtin_placeholder.
-
 '-'(_) -> clause_builtin_placeholder.
-
 '-'(_, _) -> clause_builtin_placeholder.
-
 '--'(_, _) -> clause_builtin_placeholder.
-
 '/'(_, _) -> clause_builtin_placeholder.
-
 '/='(_, _) -> clause_builtin_placeholder.
-
 '<'(_, _) -> clause_builtin_placeholder.
-
 '=/='(_, _) -> clause_builtin_placeholder.
-
 '=:='(_, _) -> clause_builtin_placeholder.
-
 '=<'(_, _) -> clause_builtin_placeholder.
-
 '=='(_, _) -> clause_builtin_placeholder.
-
 '>'(_, _) -> clause_builtin_placeholder.
-
 '>='(_, _) -> clause_builtin_placeholder.
-
 abs(_) -> clause_builtin_placeholder.
-
 adler32(_) -> clause_builtin_placeholder.
-
 adler32(_, _) -> clause_builtin_placeholder.
-
 adler32_combine(_, _, _) -> clause_builtin_placeholder.
-
 alias() -> clause_builtin_placeholder.
-
 alias(_) -> clause_builtin_placeholder.
-
 alloc_info(_) -> erlang:error({not_implemented, alloc_info, 1}).
-
 alloc_sizes(_) -> erlang:error({not_implemented, alloc_sizes, 1}).
-
 'and'(_, _) -> clause_builtin_placeholder.
-
 append(_, _) -> erlang:error({not_implemented, append, 2}).
-
 append_element(_, _) -> clause_builtin_placeholder.
-
 apply(_, _) -> erlang:error({not_implemented, apply, 2}).
-
 apply(_, _, _) -> erlang:error({not_implemented, apply, 3}).
-
 atom_to_binary(_) -> clause_builtin_placeholder.
-
 atom_to_binary(_, _) -> clause_builtin_placeholder.
-
 atom_to_list(_) -> clause_builtin_placeholder.
-
 'band'(_, _) -> clause_builtin_placeholder.
-
 binary_part(_, _) -> clause_builtin_placeholder.
-
 binary_part(_, _, _) -> clause_builtin_placeholder.
-
 binary_to_atom(_) -> clause_builtin_placeholder.
-
 binary_to_atom(_, _) -> clause_builtin_placeholder.
-
 binary_to_existing_atom(_) -> clause_builtin_placeholder.
-
 binary_to_existing_atom(_, _) -> clause_builtin_placeholder.
-
 binary_to_float(_) -> clause_builtin_placeholder.
-
 binary_to_integer(_) -> clause_builtin_placeholder.
-
 binary_to_integer(_, _) -> clause_builtin_placeholder.
-
 binary_to_list(_) -> clause_builtin_placeholder.
-
 binary_to_list(_, _, _) -> clause_builtin_placeholder.
-
 binary_to_term(_) -> clause_builtin_placeholder.
-
 binary_to_term(_, _) -> clause_builtin_placeholder.
-
 bit_size(_) -> clause_builtin_placeholder.
-
 bitstring_to_list(_) -> clause_builtin_placeholder.
-
 'bnot'(_) -> clause_builtin_placeholder.
-
 'bor'(_, _) -> clause_builtin_placeholder.
-
 'bsl'(_, _) -> clause_builtin_placeholder.
-
 'bsr'(_, _) -> clause_builtin_placeholder.
-
 bump_reductions(_) -> clause_builtin_placeholder.
-
 'bxor'(_, _) -> clause_builtin_placeholder.
-
 byte_size(_) -> clause_builtin_placeholder.
-
 call_on_load_function(_) -> erlang:error({not_implemented, call_on_load_function, 1}).
-
 cancel_timer(_) -> clause_builtin_placeholder.
-
 cancel_timer(_, _) -> clause_builtin_placeholder.
-
 ceil(_) -> clause_builtin_placeholder.
-
 check_old_code(_) -> erlang:error({not_implemented, check_old_code, 1}).
-
 check_process_code(_, _) -> erlang:error({not_implemented, check_process_code, 2}).
-
 check_process_code(_, _, _) -> erlang:error({not_implemented, check_process_code, 3}).
-
 convert_time_unit(_, _, _) -> clause_builtin_placeholder.
-
 crc32(_) -> clause_builtin_placeholder.
-
 crc32(_, _) -> clause_builtin_placeholder.
-
 crc32_combine(_, _, _) -> clause_builtin_placeholder.
-
 date() -> clause_builtin_placeholder.
-
 decode_packet(_, _, _) -> clause_builtin_placeholder.
-
 delay_trap(_, _) -> erlang:error({not_implemented, delay_trap, 2}).
-
 delete_element(_, _) -> clause_builtin_placeholder.
-
 delete_module(_) -> clause_builtin_placeholder.
-
 demonitor(_) -> clause_builtin_placeholder.
-
 demonitor(_, _) -> clause_builtin_placeholder.
-
 disconnect_node(_) -> clause_builtin_placeholder.
-
 display(_) -> clause_builtin_placeholder.
-
 display_string(_) -> erlang:error({not_implemented, display_string, 1}).
-
 display_string(_, _) -> erlang:error({not_implemented, display_string, 2}).
-
 dist_ctrl_get_data(_) -> erlang:error({not_implemented, dist_ctrl_get_data, 1}).
-
 dist_ctrl_get_data_notification(_) ->
     erlang:error({not_implemented, dist_ctrl_get_data_notification, 1}).
-
 dist_ctrl_get_opt(_, _) -> erlang:error({not_implemented, dist_ctrl_get_opt, 2}).
-
 dist_ctrl_input_handler(_, _) -> erlang:error({not_implemented, dist_ctrl_input_handler, 2}).
-
 dist_ctrl_put_data(_, _) -> erlang:error({not_implemented, dist_ctrl_put_data, 2}).
-
 dist_ctrl_set_opt(_, _, _) -> erlang:error({not_implemented, dist_ctrl_set_opt, 3}).
-
 dist_get_stat(_) -> erlang:error({not_implemented, dist_get_stat, 1}).
-
 'div'(_, _) -> clause_builtin_placeholder.
-
 dmonitor_node(_, _, _) -> erlang:error({not_implemented, dmonitor_node, 3}).
-
 dt_append_vm_tag_data(_) -> erlang:error(notsup).
-
 dt_get_tag() -> erlang:error(notsup).
-
 dt_get_tag_data() -> erlang:error(notsup).
-
 dt_prepend_vm_tag_data(_) -> erlang:error(notsup).
-
 dt_put_tag(_) -> erlang:error(notsup).
-
 dt_restore_tag(_) -> erlang:error(notsup).
-
 dt_spread_tag(_) -> erlang:error(notsup).
-
 element(_, _) -> clause_builtin_placeholder.
-
 erase() -> clause_builtin_placeholder.
-
 erase(_) -> clause_builtin_placeholder.
-
 error(_) -> clause_builtin_placeholder.
-
 error(_, _) -> clause_builtin_placeholder.
-
 error(_, _, _) -> clause_builtin_placeholder.
-
 exit(_) -> clause_builtin_placeholder.
-
 exit(_, _) -> clause_builtin_placeholder.
-
 exit(_, _, _) -> clause_builtin_placeholder.
-
 exit_signal(_, _) -> clause_builtin_placeholder.
-
 exit_signal(_, _, _) -> clause_builtin_placeholder.
-
 external_size(_) -> clause_builtin_placeholder.
-
 external_size(_, _) -> clause_builtin_placeholder.
-
 finish_after_on_load(_, _) -> erlang:error({not_implemented, finish_after_on_load, 2}).
-
 finish_loading(_) -> clause_builtin_placeholder.
-
 float(_) -> clause_builtin_placeholder.
-
 float_to_binary(_) -> clause_builtin_placeholder.
-
 float_to_binary(_, _) -> clause_builtin_placeholder.
-
 float_to_list(_) -> clause_builtin_placeholder.
-
 float_to_list(_, _) -> clause_builtin_placeholder.
-
 floor(_) -> clause_builtin_placeholder.
-
 format_cpu_topology(_) -> erlang:error({not_implemented, format_cpu_topology, 1}).
-
 fun_info(_) -> clause_builtin_placeholder.
-
 fun_info(_, _) -> clause_builtin_placeholder.
-
 fun_info_mfa(_) -> erlang:error({not_implemented, fun_info_mfa, 1}).
-
 fun_to_list(_) -> clause_builtin_placeholder.
-
 function_exported(_, _, _) -> clause_builtin_placeholder.
-
 garbage_collect() -> clause_builtin_placeholder.
-
 garbage_collect(_) -> clause_builtin_placeholder.
-
 garbage_collect(_, _) -> clause_builtin_placeholder.
-
 garbage_collect_message_area() -> erlang:error({not_implemented, garbage_collect_message_area, 0}).
-
 gather_gc_info_result(_) -> erlang:error({not_implemented, gather_gc_info_result, 1}).
-
 get() -> clause_builtin_placeholder.
-
 get(_) -> clause_builtin_placeholder.
-
 get_cookie() -> clause_builtin_placeholder.
-
 get_cookie(_) -> clause_builtin_placeholder.
-
 get_keys() -> clause_builtin_placeholder.
-
 get_keys(_) -> clause_builtin_placeholder.
-
 get_module_info(_) -> clause_builtin_placeholder.
-
 get_module_info(_, _) -> clause_builtin_placeholder.
-
 group_leader() -> clause_builtin_placeholder.
-
 group_leader(_, _) -> clause_builtin_placeholder.
-
 halt() -> clause_builtin_placeholder.
-
 halt(_) -> clause_builtin_placeholder.
-
 halt(_, _) -> clause_builtin_placeholder.
-
 has_prepared_code_on_load(_) -> erlang:error({not_implemented, has_prepared_code_on_load, 1}).
-
 hd(_) -> clause_builtin_placeholder.
-
 hibernate() -> _ = erlang:hibernate(erlang, self, []), ok.
-
 hibernate(_, _, _) -> clause_builtin_placeholder.
-
 insert_element(_, _, _) -> clause_builtin_placeholder.
-
 integer_to_binary(_) -> clause_builtin_placeholder.
-
 integer_to_binary(_, _) -> clause_builtin_placeholder.
-
 integer_to_list(_) -> clause_builtin_placeholder.
-
 integer_to_list(_, _) -> clause_builtin_placeholder.
-
 iolist_size(_) -> clause_builtin_placeholder.
-
 iolist_to_binary(_) -> clause_builtin_placeholder.
-
 iolist_to_iovec(_) -> clause_builtin_placeholder.
-
 is_alive() -> clause_builtin_placeholder.
-
 is_atom(_) -> clause_builtin_placeholder.
-
 is_binary(_) -> clause_builtin_placeholder.
-
 is_bitstring(_) -> clause_builtin_placeholder.
-
 is_boolean(_) -> clause_builtin_placeholder.
-
 is_builtin(_, _, _) -> clause_builtin_placeholder.
-
 is_float(_) -> clause_builtin_placeholder.
-
 is_function(_) -> clause_builtin_placeholder.
-
 is_function(_, _) -> clause_builtin_placeholder.
-
 is_integer(_) -> clause_builtin_placeholder.
-
 is_integer(_, _, _) -> clause_builtin_placeholder.
-
 is_list(_) -> clause_builtin_placeholder.
-
 is_map(_) -> clause_builtin_placeholder.
-
 is_map_key(_, _) -> clause_builtin_placeholder.
-
 is_number(_) -> clause_builtin_placeholder.
-
 is_pid(_) -> clause_builtin_placeholder.
-
 is_port(_) -> clause_builtin_placeholder.
-
 is_process_alive(_) -> clause_builtin_placeholder.
-
 is_record(_) -> clause_builtin_placeholder.
-
 is_record(_, _) -> erlang:error({not_implemented, is_record, 2}).
-
 is_record(_, _, _) -> erlang:error({not_implemented, is_record, 3}).
-
 is_reference(_) -> clause_builtin_placeholder.
-
 is_tuple(_) -> clause_builtin_placeholder.
-
 length(_) -> clause_builtin_placeholder.
-
 link(_) -> clause_builtin_placeholder.
-
 link(_, _) -> clause_builtin_placeholder.
-
 list_to_atom(_) -> clause_builtin_placeholder.
-
 list_to_binary(_) -> clause_builtin_placeholder.
-
 list_to_bitstring(_) -> clause_builtin_placeholder.
-
 list_to_existing_atom(_) -> clause_builtin_placeholder.
-
 list_to_float(_) -> clause_builtin_placeholder.
-
 list_to_integer(_) -> clause_builtin_placeholder.
-
 list_to_integer(_, _) -> clause_builtin_placeholder.
-
 list_to_pid(_) -> clause_builtin_placeholder.
-
 list_to_port(_) -> clause_builtin_placeholder.
-
 list_to_ref(_) -> clause_builtin_placeholder.
-
 list_to_tuple(_) -> clause_builtin_placeholder.
-
 load_module(_, _) -> erlang:error({not_implemented, load_module, 2}).
-
 load_nif(_, _) -> erlang:error({not_implemented, load_nif, 2}).
-
 loaded() -> clause_builtin_placeholder.
-
 localtime() -> clause_builtin_placeholder.
-
 localtime_to_universaltime(_) -> clause_builtin_placeholder.
-
 localtime_to_universaltime(_, _) -> clause_builtin_placeholder.
-
 make_fun(_, _, _) -> clause_builtin_placeholder.
-
 make_ref() -> clause_builtin_placeholder.
-
 make_tuple(_, _) -> clause_builtin_placeholder.
-
 make_tuple(_, _, _) -> clause_builtin_placeholder.
-
 map_get(_, _) -> clause_builtin_placeholder.
-
 map_size(_) -> clause_builtin_placeholder.
-
 match_spec_test(_, _, _) -> clause_builtin_placeholder.
-
 max(_, _) -> clause_builtin_placeholder.
-
 md5(_) -> clause_builtin_placeholder.
-
 md5_final(_) -> clause_builtin_placeholder.
-
 md5_init() -> clause_builtin_placeholder.
-
 md5_update(_, _) -> clause_builtin_placeholder.
-
 memory() -> clause_builtin_placeholder.
-
 memory(_) -> clause_builtin_placeholder.
-
 min(_, _) -> clause_builtin_placeholder.
-
 module_loaded(_) -> clause_builtin_placeholder.
-
 monitor(_, _) -> clause_builtin_placeholder.
-
 monitor(_, _, _) -> clause_builtin_placeholder.
-
 monitor_node(_, _) -> clause_builtin_placeholder.
-
 monitor_node(_, _, _) -> clause_builtin_placeholder.
-
 monotonic_time() -> clause_builtin_placeholder.
-
 monotonic_time(_) -> clause_builtin_placeholder.
-
 nif_error(Reason) -> erlang:error(Reason).
-
 nif_error(Reason, Arguments) -> erlang:error(Reason, Arguments).
-
 node() -> clause_builtin_placeholder.
-
 node(_) -> clause_builtin_placeholder.
-
 nodes() -> clause_builtin_placeholder.
-
 nodes(_) -> clause_builtin_placeholder.
-
 nodes(_, _) -> clause_builtin_placeholder.
-
 'not'(_) -> clause_builtin_placeholder.
-
 now() -> clause_builtin_placeholder.
-
 open_port(_, _) -> clause_builtin_placeholder.
-
 'or'(_, _) -> clause_builtin_placeholder.
-
 phash(_, _) -> clause_builtin_placeholder.
-
 phash2(_) -> clause_builtin_placeholder.
-
 phash2(_, _) -> clause_builtin_placeholder.
-
 pid_to_list(_) -> clause_builtin_placeholder.
-
 port_call(_, _) -> clause_builtin_placeholder.
-
 port_call(_, _, _) -> clause_builtin_placeholder.
-
 port_close(_) -> clause_builtin_placeholder.
-
 port_command(_, _) -> clause_builtin_placeholder.
-
 port_command(_, _, _) -> clause_builtin_placeholder.
-
 port_connect(_, _) -> clause_builtin_placeholder.
-
 port_control(_, _, _) -> clause_builtin_placeholder.
-
 port_get_data(_) -> erlang:error({not_implemented, port_get_data, 1}).
-
 port_info(_) -> clause_builtin_placeholder.
-
 port_info(_, _) -> clause_builtin_placeholder.
-
 port_set_data(_, _) -> erlang:error({not_implemented, port_set_data, 2}).
-
 port_to_list(_) -> clause_builtin_placeholder.
-
 ports() -> clause_builtin_placeholder.
-
 posixtime_to_universaltime(_) -> clause_builtin_placeholder.
-
 pre_loaded() -> clause_builtin_placeholder.
-
 prepare_loading(_, _) -> clause_builtin_placeholder.
-
 process_display(_, _) -> clause_builtin_placeholder.
-
 process_flag(_, _) -> clause_builtin_placeholder.
-
 process_flag(_, _, _) -> clause_builtin_placeholder.
-
 process_info(_) -> clause_builtin_placeholder.
-
 process_info(_, _) -> clause_builtin_placeholder.
-
 processes() -> clause_builtin_placeholder.
-
 processes_iterator() -> clause_builtin_placeholder.
-
 processes_next(_) -> clause_builtin_placeholder.
-
 purge_module(_) -> erlang:error({not_implemented, purge_module, 1}).
-
 put(_, _) -> clause_builtin_placeholder.
-
 raise(_, _, _) -> clause_builtin_placeholder.
-
 read_timer(_) -> clause_builtin_placeholder.
-
 read_timer(_, _) -> clause_builtin_placeholder.
-
 ref_to_list(_) -> clause_builtin_placeholder.
-
 register(_, _) -> clause_builtin_placeholder.
-
 registered() -> clause_builtin_placeholder.
-
 'rem'(_, _) -> clause_builtin_placeholder.
-
 resume_process(_) -> clause_builtin_placeholder.
-
 round(_) -> clause_builtin_placeholder.
-
 self() -> clause_builtin_placeholder.
-
 send(_, _) -> clause_builtin_placeholder.
-
 send(_, _, _) -> clause_builtin_placeholder.
-
 send_after(_, _, _) -> clause_builtin_placeholder.
-
 send_after(_, _, _, _) -> clause_builtin_placeholder.
-
 send_nosuspend(_, _) -> clause_builtin_placeholder.
-
 send_nosuspend(_, _, _) -> clause_builtin_placeholder.
-
 seq_trace(_, _) -> erlang:error(notsup).
-
 seq_trace_info(_) -> erlang:error(notsup).
-
 seq_trace_print(_) -> erlang:error(notsup).
-
 seq_trace_print(_, _) -> erlang:error(notsup).
-
 set_cookie(_) -> clause_builtin_placeholder.
-
 set_cookie(_, _) -> clause_builtin_placeholder.
-
 set_cpu_topology(_) -> erlang:error({not_implemented, set_cpu_topology, 1}).
-
 setelement(_, _, _) -> clause_builtin_placeholder.
-
-setnode(_, _) -> erlang:error({not_implemented, setnode, 2}).
-
+setnode(_, _) -> clause_builtin_placeholder.
 setnode(_, _, _) -> erlang:error({not_implemented, setnode, 3}).
-
 size(_) -> clause_builtin_placeholder.
-
 spawn(_) -> clause_builtin_placeholder.
-
 spawn(_, _) -> clause_builtin_placeholder.
-
 spawn(_, _, _) -> clause_builtin_placeholder.
-
 spawn(_, _, _, _) -> clause_builtin_placeholder.
-
 spawn_link(_) -> clause_builtin_placeholder.
-
 spawn_link(_, _) -> clause_builtin_placeholder.
-
 spawn_link(_, _, _) -> clause_builtin_placeholder.
-
 spawn_link(_, _, _, _) -> clause_builtin_placeholder.
-
 spawn_monitor(_) -> clause_builtin_placeholder.
-
 spawn_monitor(_, _) -> clause_builtin_placeholder.
-
 spawn_monitor(_, _, _) -> clause_builtin_placeholder.
-
 spawn_monitor(_, _, _, _) -> clause_builtin_placeholder.
-
 spawn_opt(_, _) -> clause_builtin_placeholder.
-
 spawn_opt(_, _, _) -> clause_builtin_placeholder.
-
 spawn_opt(_, _, _, _) -> clause_builtin_placeholder.
-
 spawn_opt(_, _, _, _, _) -> clause_builtin_placeholder.
-
 spawn_request(_) -> clause_builtin_placeholder.
-
 spawn_request(_, _) -> clause_builtin_placeholder.
-
 spawn_request(_, _, _) -> clause_builtin_placeholder.
-
 spawn_request(_, _, _, _) -> clause_builtin_placeholder.
-
 spawn_request(_, _, _, _, _) -> clause_builtin_placeholder.
-
 spawn_request_abandon(_) -> clause_builtin_placeholder.
-
 split_binary(_, _) -> clause_builtin_placeholder.
-
 start_timer(_, _, _) -> clause_builtin_placeholder.
-
 start_timer(_, _, _, _) -> clause_builtin_placeholder.
-
 statistics(_) -> clause_builtin_placeholder.
-
 subtract(_, _) -> erlang:error({not_implemented, subtract, 2}).
-
 suspend_process(_) -> clause_builtin_placeholder.
-
 suspend_process(_, _) -> clause_builtin_placeholder.
-
 system_flag(_, _) -> clause_builtin_placeholder.
-
 system_info(_) -> clause_builtin_placeholder.
-
 system_monitor() -> erlang:error(notsup).
-
 system_monitor(_) -> erlang:error(notsup).
-
 system_monitor(_, _) -> erlang:error(notsup).
-
 system_profile() -> erlang:error(notsup).
-
 system_profile(_, _) -> erlang:error(notsup).
-
 system_time() -> clause_builtin_placeholder.
-
 system_time(_) -> clause_builtin_placeholder.
-
 term_to_binary(_) -> clause_builtin_placeholder.
-
 term_to_binary(_, _) -> clause_builtin_placeholder.
-
 term_to_iovec(_) -> clause_builtin_placeholder.
-
 term_to_iovec(_, _) -> clause_builtin_placeholder.
-
 throw(_) -> clause_builtin_placeholder.
-
 time() -> clause_builtin_placeholder.
-
 time_offset() -> clause_builtin_placeholder.
-
 time_offset(_) -> clause_builtin_placeholder.
-
 timestamp() -> clause_builtin_placeholder.
-
 tl(_) -> clause_builtin_placeholder.
-
 trace(_, _, _) -> erlang:error(notsup).
-
 trace_delivered(_) -> erlang:error(notsup).
-
 trace_info(_, _) -> erlang:error(notsup).
-
 trace_pattern(_, _) -> erlang:error(notsup).
-
 trace_pattern(_, _, _) -> erlang:error(notsup).
-
 trunc(_) -> clause_builtin_placeholder.
-
 tuple_size(_) -> clause_builtin_placeholder.
-
 tuple_to_list(_) -> clause_builtin_placeholder.
-
 unalias(_) -> clause_builtin_placeholder.
-
 unique_integer() -> clause_builtin_placeholder.
-
 unique_integer(_) -> clause_builtin_placeholder.
-
 universaltime() -> clause_builtin_placeholder.
-
 universaltime_to_localtime(_) -> clause_builtin_placeholder.
-
 universaltime_to_posixtime(_) -> clause_builtin_placeholder.
-
 unlink(_) -> clause_builtin_placeholder.
-
 unregister(_) -> clause_builtin_placeholder.
-
 whereis(_) -> clause_builtin_placeholder.
-
 'xor'(_, _) -> clause_builtin_placeholder.
-
 yield() -> clause_builtin_placeholder.

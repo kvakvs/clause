@@ -34,8 +34,9 @@ equality with upstream.
 [The audit manifest](../tests/fixtures/patternmatch/generated/guard_catalog/manifest.json)
 maps each to resolver, lowering and runtime owner. All 81 are implemented:
 `self()` is the calling process's pid, `node()` and `node/1` of a pid, reference
-or port are `nonode@nohost` (there is one node; any other `node/1` argument
-fails the guard, `badarg` in a body). Native records in guards:
+or port of this node are this node's name, `nonode@nohost` until it is named
+([distribution](distribution.md#this-node)); any other `node/1` argument fails
+the guard, `badarg` in a body. Native records in guards:
 `is_record/1,2,3` and field access as in
 [native records](native-records.md#operations).
 

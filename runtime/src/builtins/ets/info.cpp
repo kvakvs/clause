@@ -1,3 +1,4 @@
+#include "../../terms/identities.hpp"
 #include "ets.hpp"
 #include <algorithm>
 #include <array>
@@ -167,7 +168,7 @@ std::optional<Term> named_item(ProcessContext &context, const Table &table, std:
         return counted(context, table.size());
     }
     if (item == "node") {
-        return atom(context, "nonode@nohost"_atom);
+        return need(detail::this_node_atom(context));
     }
     if (item == "named_table") {
         return boolean(context, options.named);

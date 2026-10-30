@@ -193,9 +193,6 @@ inline constexpr std::size_t PORT_TASK_REDUCTIONS = SLICE_REDUCTIONS;
 inline constexpr std::size_t PORT_MESSAGE_REDUCTIONS = 100;
 inline constexpr std::size_t PORT_BYTES_PER_REDUCTION = 64;
 
-// The name of the only node, as node/0 returns it.
-inline constexpr std::string_view LOCAL_NODE = "nonode@nohost";
-
 // The pid word of a process.
 Word pid_of(ProcessContext &process) noexcept;
 // Whether an ended process ends the whole program: a halt or a failure outside Erlang, not an Erlang exception or an
@@ -323,7 +320,7 @@ class Executor final {
     static void unlink(ProcessContext &process, Word pid) noexcept;
     // monitor(process, Item), or monitor(port, Item) with `port`, of the running `watcher`: a new reference, for the
     // pid or port, or for what is registered as `name` (an atom word; `pid` is then 0), whose 'DOWN' names
-    // {Name, nonode@nohost}. For an ended, closed or unregistered target the watcher gets its 'DOWN' with noproc at
+    // {Name, Node} of this node. For an ended, closed or unregistered target the watcher gets its 'DOWN' with noproc at
     // once; monitoring itself creates nothing. Allocation failure throws.
     Term monitor(ProcessContext &watcher, Word pid, Word name = 0, bool port = false,
                  const MonitorOptions &options = {});
@@ -345,6 +342,9 @@ class Executor final {
     Word whereis(ProcessContext &context, Word name) const noexcept;
     // The registered names of live processes, in atom order. Allocation failure throws.
     std::vector<Word> registered(ProcessContext &context) const;
+    // erlang:setnode/2 (plan 30 step DIST2a): name this node when it has no name and a live process is registered as
+    // net_kernel, which then owns the name: its end makes the node nonode@nohost again. False otherwise.
+    bool name_node(ProcessContext &context, const Term &node, std::uint32_t creation);
     // An exit signal of exit/2 or exit_signal/2 from the running `sender` to the process of a pid word, acted on at
     // once; `self_normal` is exit/2's quirk: reason normal sent to itself ends the sender. Allocation failure throws,
     // builtins::Blocked while the target runs on another worker.
@@ -744,6 +744,8 @@ class Executor final {
     // Send the exit signals of an ended process's links and the 'DOWN' messages of its monitors, and drop the
     // monitors it held; false after recording why its exit reason cannot be built.
     bool notify(ProcessContext &process);
+    // Take this node's name when `pid` owns it: net_kernel ended, or the runtime stops (plan 30 step DIST2a).
+    void release_node(Word pid) noexcept;
     // Signal the links and monitors of an ended process with its exit reason.
     void notify(ProcessContext &process, const Term &reason, const std::vector<Word> &links,
                 const Signals::Monitors &watchers);
@@ -820,6 +822,8 @@ class Executor final {
     ProcessContext *finished_ = nullptr;
     // Registered names (atom words) and their pid or port words; a name is released when its owner ends.
     std::map<Word, Word> names_;
+    // The pid of the net_kernel process that owns this node's name (plan 30 step DIST2a), or 0.
+    Word node_owner_ = 0;
     // Active aliases by reference: the owner's pid and the mode (step 41G2).
     std::map<ReferenceIdentity, std::pair<Word, AliasMode>> aliases_;
     // Message timers by reference number (step 41F); the wheel links their embedded timers.

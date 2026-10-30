@@ -5,9 +5,9 @@ distributed Erlang node. Added 2026-10-30 as plan 11's phase DIST and moved here
 direction); formerly backlog item F38.
 
 - **Today:** a Clause program is a non-distributed node.
-  - The runtime knows only `nonode@nohost` and local identities: `binary_to_term/1` rejects other
-    nodes' pids, ports and references (`badarg`), and the `erlang` distribution group
-    (`setnode/2,3`, `dist_ctrl_*`, `dmonitor_node/3`, `dist_get_stat/1`) is
+  - The runtime has other nodes' pids, ports and references as terms (DIST1) and a nameable node
+    (`erlang:setnode/2`, DIST2a), but no connections: the rest of the `erlang` distribution group
+    (`setnode/3`, `dist_ctrl_*`, `dmonitor_node/3`, `dist_get_stat/1`) is
     `{unavailable, distribution}`.
   - The libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`, `names` `{error, address}`), `net_kernel` (`start/1,2` and
@@ -47,31 +47,51 @@ direction); formerly backlog item F38.
 ## Steps
 
 <a id="step-dist2"></a>
+<a id="step-dist2b"></a>
 
-## DIST2. Connection entries and controller BIFs
+## DIST2b. Connection entries
 
-Depends on: DIST1 ([30-finished](30-finished.md)).
+Depends on: DIST2a ([30-finished](30-finished.md)). DIST2 was split 2026-10-30 into DIST2a (this
+node's name, finished), DIST2b and DIST2c.
 
 - Success criteria
   - [ ] A runtime table with one entry per remote node: state (pending, up, exiting), controller
     (process or port), flags, creation, connection id.
-  - [ ] OTP's process-controller interface: `erlang:setnode/2,3`,
-    `erts_internal:new_connection/1`, `abort_pending_connection/2`, `get_creation/0`,
-    `dynamic_node_name/0,1`, `get_dflags/0`, `dist_ctrl_get_data/1`,
-    `dist_ctrl_get_data_notification/1`, `dist_ctrl_put_data/2`, `dist_ctrl_input_handler/2`,
-    `dist_ctrl_get_opt/2`, `dist_ctrl_set_opt/3`, `dist_get_stat/1`.
-  - [ ] `nodes/0,1,2`, `is_alive/0`, `disconnect_node/1`, `monitor_node/2,3`, `dmonitor_node/3`
-    over the table.
+  - [ ] `erts_internal:new_connection/1`, `abort_pending_connection/2`, `create_dist_channel/3` with
+    `erlang:setnode/3` over it (OTP's Erlang body), and `get_dflags/0`.
+  - [ ] `nodes/0,1,2` over the table (`visible`, `hidden`, `connected`, `known`, `connection_id`).
+  - [ ] Auto-connect as OTP's: `monitor_node(Node, true)` of a named node without a connection
+    makes a pending entry and sends `{auto_connect, Node, {ConnId, DHandle}}` to `net_kernel`
+    (replacing DIST2a's immediate `{nodedown, Node}`); `dmonitor_node/3` and
+    `allow_passive_connect` through `net_kernel:passive_cnct/1`.
+  - [ ] `process_flag(monitor_nodes, ...)` and `net_kernel:monitor_nodes/1,2`: `nodeup`/`nodedown`
+    messages, including those for this node that `setnode/2` and net_kernel's end send.
+  - [ ] net_kernel's end kills the controllers and aborts pending entries (OTP's
+    `erts_do_net_exits`).
+  - [ ] `list_to_pid/1`, `list_to_port/1`, `list_to_ref/1` with another node's part name a node of
+    the table, as OTP's do (`badarg` without one, as today).
+- Tests
+  - [ ] A golden with a registered stand-in `net_kernel` and a process controller, as OTP allows
+    without distribution: `new_connection/1`, `setnode/3`, `nodes/1,2`, auto-connect messages,
+    node monitor messages, `list_to_pid/1`.
+
+<a id="step-dist2c"></a>
+
+## DIST2c. Controller data path
+
+Depends on: [DIST2b](#step-dist2b).
+
+- Success criteria
+  - [ ] An output queue and an input hook per entry: `dist_ctrl_get_data/1`,
+    `dist_ctrl_get_data_notification/1` (`dist_data` messages), `dist_ctrl_put_data/2` (with
+    `erts_internal:dist_ctrl_put_data/2` for iolists), `dist_ctrl_input_handler/2`,
+    `dist_ctrl_get_opt/2`, `dist_ctrl_set_opt/3` (`get_size`) and `dist_get_stat/1`.
+  - [ ] Only the controller (or its input handler) may call them, as in OTP.
   - [ ] The `{unavailable, distribution}` entries of `erlang.terms` and the declined distribution
     group of `erts_internal` become implemented.
-  - [ ] `setnode` sets DIST1's this-node name and creation (`detail::this_node_*`); the remaining
-    hard-coded `nonode@nohost` constants (`node.cpp`, `processes.cpp`, `spawning.cpp`,
-    `introspection.cpp`, `ets/info.cpp`, the scheduler's `LOCAL_NODE`) read it.
-  - [ ] `list_to_pid/1`, `list_to_port/1`, `list_to_ref/1` with another node's part name a
-    connected node, as OTP's do (`badarg` without the connection, as today).
 - Tests
-  - [ ] Unit tests only for entry state transitions source cannot reach; behavior through the
-    DIST4b/DIST5 goldens.
+  - [ ] The DIST2b golden's controller reads and writes the data path; signal encoding and decoding
+    through it are DIST4b/DIST5.
 
 <a id="step-dist3"></a>
 <a id="step-dist3a"></a>
@@ -151,7 +171,7 @@ Depends on: DIST0 ([30-finished](30-finished.md)).
 
 ## DIST4b. Handshake, TCP carrier and first connections
 
-Depends on: [DIST2](#step-dist2), [DIST3a](#step-dist3a), [DIST4a](#step-dist4a).
+Depends on: [DIST2c](#step-dist2c), [DIST3a](#step-dist3a), [DIST4a](#step-dist4a).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's
@@ -321,7 +341,7 @@ Depends on: [DIST5](#step-dist5).
 
 ## DIST13. Close distribution
 
-Depends on: [DIST2](#step-dist2)–[DIST12](#step-dist12).
+Depends on: [DIST2b](#step-dist2b)–[DIST12](#step-dist12).
 
 - Success criteria
   - [ ] `docs/distribution.md`, `docs/libraries/library.md` rows and `differences.md` describe

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "this_node",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "unnamed: nonode@nohost false undefined [nonode@nohost]\ndynamic name: true\nmonitor_node [nonode@nohost,true]: {ok,true}\nmonitor_node [nonode@nohost,false]: {ok,true}\nmonitor_node [nonode@nohost,true,[allow_passive_connect]]: {ok,true}\nmonitor_node [nonode@nohost,true,[other]]: {error,badarg}\nmonitor_node [nonode@nohost,other]: {error,badarg}\nmonitor_node [other@host,true]: {error,notalive}\nmonitor_node [other@host,false]: {error,notalive}\nmonitor_node [other@host,other]: {error,notalive}\nmonitor_node [[111,116,104,101,114,64,104,111,115,116],true]: {error,badarg}\nmessages: []\nwithout net_kernel: {error,badarg}\nrefused {name,7}: {error,badarg}\nrefused {'@host',7}: {error,badarg}\nrefused {name@,7}: {error,badarg}\nrefused {a@b@c,7}: {error,badarg}\nrefused {'a.b@host',7}: {error,badarg}\nrefused {nonode@nohost,7}: {error,badarg}\nrefused {[97,64,104,111,115,116],7}: {error,badarg}\nrefused {a@host,-1}: {error,badarg}\nrefused {a@host,576460752303423488}: {error,badarg}\nrefused {a@host,1.0}: {error,badarg}\nrefused {a@host,creation}: {error,badarg}\nstill unnamed: nonode@nohost false\nsetnode: true\nnamed: 'a_1-B@host.example' 'a_1-B@host.example' true 7\nagain: {error,badarg}\nother name: {error,badarg}\nencoded: {'a_1-B@host.example',7} {'a_1-B@host.example',7}\ndecoded: [false,true,false] 'a_1-B@host.example' true\nnodes: [] ['a_1-B@host.example'] [{'a_1-B@host.example',\n                                      #{connection_id => undefined,\n                                        node_type => this}}]\nets node: 'a_1-B@host.example'\nspawned on this node\nsent by name\nmonitor_node ['a_1-B@host.example',true]: {ok,true}\nmonitor_node ['a_1-B@host.example',false]: {ok,true}\nmonitor_node [other@host,false]: {ok,true}\nmonitor_node ['a_1-B@host.example',true,[allow_passive_connect]]: {ok,true}\nmessages: []\nmonitors: {monitors,[{process,{watched,'a_1-B@host.example'}}]}\ndown: {watched,'a_1-B@host.example'} normal\nunnamed again: nonode@nohost false undefined {nonode@nohost,0}\nwithout net_kernel: {error,badarg}\nsetnode: true a@host 4\nagain: {error,badarg}\nthis_node: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "this_node.erl": "a34f0a289da6d49f28a3d15f05c3059eb7f30906714888f58b490aab4b8a1316"
+  }
+}

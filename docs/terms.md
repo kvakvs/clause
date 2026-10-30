@@ -249,10 +249,10 @@ the node's creation, the identity's numbers and, last, the node name atom: a
 pid's 32-bit number and serial, a port's 64-bit number, or a reference's zero to
 five 32-bit words.
 
-- **This node:** `nonode@nohost` with creation 0 until distribution starts. An
-  encoded identity naming this node with its creation or creation 0 decodes to a
-  local one; under another creation it stays another incarnation's identity, as
-  in OTP.
+- **This node:** `nonode@nohost` with creation 0 until `erlang:setnode/2` names
+  it ([distribution](distribution.md#this-node)). An encoded identity naming
+  this node with its creation decodes to a local one; under another creation,
+  creation 0 included, it stays another incarnation's identity, as in OTP.
 - **Guards and `node/1`:** `is_pid/1`, `is_port/1` and `is_reference/1` accept
   every node's identities; `node/1` returns the node atom.
 - **Order and equality:** as OTP orders them. Pids order by serial, number and

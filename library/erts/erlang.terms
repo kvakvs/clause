@@ -281,7 +281,7 @@
 {set_cookie, 2, [], implemented}.
 {set_cpu_topology, 1, [], {unavailable, not_selected}}.
 {setelement, 3, [auto_import], implemented}.
-{setnode, 2, [], {unavailable, distribution}}.
+{setnode, 2, [], implemented}.
 {setnode, 3, [], {unavailable, distribution}}.
 {size, 1, [auto_import, guard], implemented}.
 {spawn, 1, [auto_import], implemented}.

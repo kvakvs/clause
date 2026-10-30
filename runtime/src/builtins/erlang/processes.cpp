@@ -70,11 +70,9 @@ bool remote_name(const Term &destination) {
 }
 
 // Whether {Name, Node} names a process of this node.
-bool local_name(const Term &destination) {
-    return destination.tuple_element_unchecked(1).atom_spelling_unchecked() == detail::LOCAL_NODE;
-}
+bool local_name(const Term &destination) { return detail::is_this_node(destination.tuple_element_unchecked(1)); }
 
-// The name (an atom word) a monitor item gives: an atom or {Name, nonode@nohost}; badarg for anything else.
+// The name (an atom word) a monitor item gives: an atom or {Name, Node} of this node; badarg for anything else.
 Word monitored_name(const Term &item) {
     if (item.is_atom()) {
         return item.word();
@@ -87,7 +85,7 @@ Word monitored_name(const Term &item) {
 
 // monitor(process | port, Item[, Options]): a reference; the caller gets {'DOWN', Ref, Type, Item, Reason} (or
 // {Tag, ...} with {tag, Tag}) when the process ends or the port closes. Item is a pid or port of the type, or a
-// registered name as Name or {Name, nonode@nohost}. Options apply to process monitors (step 41G2).
+// registered name as Name or {Name, Node} of this node. Options apply to process monitors (step 41G2).
 TermResult<Term> monitor_with(ProcessContext &context, const AtomArgument &type, const Term &item,
                               const detail::MonitorOptions &options) {
     const bool port = type.spelling == "port";

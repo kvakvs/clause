@@ -237,7 +237,7 @@ process does not write one: its uncaught exception is the program's
 | A pid of a live process | `Msg` is copied flat into the receiver's heap ([copying between heaps](runtime-heap.md#copying-between-heaps)), as OTP copies messages, a large one into a block the receiver takes over ([message hand-off](runtime-heap.md#message-buffers)), and appended to its signal inbox; to a receiver that is not parked, into a buffer among its arrivals that it takes when it next looks ([arrival buffers](#arrival-buffers)) |
 | A pid of a process that has ended | Nothing; the send succeeds |
 | A [registered name](#registered-names) | As for its pid; `badarg` when no live process has the name |
-| `{Name, nonode@nohost}` of two atoms | As for the pid registered as `Name`; nothing when there is none |
+| `{Name, Node}` of two atoms, `Node` this node's name | As for the pid registered as `Name`; nothing when there is none |
 | `{Name, Node}` for any other node | Nothing (there are no other nodes) |
 | A reference | As for the owner of an active [alias](#aliases); nothing otherwise |
 | Anything else | `badarg` |
@@ -381,10 +381,11 @@ so it can send the message when it ends.
 - `spawn_monitor/1,3` return `{Pid, Ref}`, the monitor made before the new
   process runs.
 - A process that ends drops the monitors it holds.
-- `monitor(process, Name)` and `monitor(process, {Name, nonode@nohost})` monitor
-  the process registered as `Name` (`noproc` at once when there is none); its
-  `'DOWN'` names `{Name, nonode@nohost}` instead of the pid. `{Name, Node}` for
-  another node is `badarg`.
+- `monitor(process, Name)` and `monitor(process, {Name, Node})` with this
+  node's name monitor the process registered as `Name` (`noproc` at once when
+  there is none); its `'DOWN'` and `process_info/2`'s `monitors` name
+  `{Name, Node}` instead of the pid. `{Name, Node}` for another node is
+  `badarg`.
 - `monitor(port, Port | Name)` monitors a port
   ([ports](ports.md#port-table-and-ownership)):
   `{'DOWN', Ref, port, Port, Reason}` when it closes. A pid for `port`, or a
@@ -478,7 +479,7 @@ Sources: `builtins/erlang/spawning.cpp`, `scheduler/aliases.cpp`.
   `{min_bin_vheap_size, N}`, `{max_heap_size, S}`, `{message_queue_data, M}`,
   `{async_dist, B}`; `{min_heap_size, N}` sets the child's
   [minimum heap](runtime-heap.md#sizing-and-budget), the other tuning options
-  are checked and accepted, not applied. A node other than `nonode@nohost` is
+  are checked and accepted, not applied. A node other than this node is
   `badarg`.
 - `spawn_request/1..5` spawns at once and sends `{Tag, ReqId, ok, Pid}`
   (`{Tag, ReqId, error, Reason}` on failure, `badopt` for an invalid option) as
@@ -503,12 +504,14 @@ monitors take no options.
 
 ## Nodes
 
-A Clause program is one node that is not distributed, `nonode@nohost`, and
+A Clause program is one node without connections, `nonode@nohost` until
+`erlang:setnode/2` names it ([this node](distribution.md#this-node)), and
 answers as such an OTP node (`builtins/erlang/node.cpp`): `nodes/0` is `[]`,
-`nodes(this | known)` `[nonode@nohost]`, other types `[]`; `nodes/2` gives
-`{nonode@nohost, #{connection_id => undefined, node_type =>
-this}}` for the keys asked. `is_alive/0` is `false`, `monitor_node/2,3` raise
-`error:notalive` and `disconnect_node/1` returns `ignored`.
+`nodes(this | known)` the node's name, other types `[]`; `nodes/2` gives
+`{Node, #{connection_id => undefined, node_type => this}}` for the keys asked.
+`is_alive/0` is true once the node has a name. `monitor_node/2,3` raise
+`error:notalive` for another node while the node has no name, and
+`disconnect_node/1` returns `ignored`.
 
 ## Exit signals
 
@@ -580,7 +583,7 @@ not suspend.
 | `exit(Dest, Reason)`, `exit_signal(Dest, Reason)` | `badarg` unless `Dest` is a pid or reference; `true` after the [exit signal](#exit-signals) |
 | `process_flag(trap_exit, Bool)`, `process_flag(min_heap_size, N)`, `process_flag(save_calls, N)` | The previous setting; `badarg` for another flag, a non-boolean or a negative or non-integer size |
 | `erlang:send(Dest, Msg)`, `Dest ! Msg` | `Msg`, after sending it ([messages](#messages)); `send/2` is not auto-imported |
-| `spawn(Node, ...)`, `spawn_link(Node, ...)`, `spawn_monitor(Node, ...)` (`/2`, `/4`) | This node (`nonode@nohost`): as without `Node`. Another node: OTP's useless pid of a node that is not alive, a process that ends at once with reason `noconnection`, so a link or monitor reports `noconnection`; `badarg` for a non-atom node (plan 21 step LIB9A) |
+| `spawn(Node, ...)`, `spawn_link(Node, ...)`, `spawn_monitor(Node, ...)` (`/2`, `/4`) | This node (`node()`): as without `Node`. Another node: OTP's useless pid of a node that is not alive, a process that ends at once with reason `noconnection`, so a link or monitor reports `noconnection`; `badarg` for a non-atom node (plan 21 step LIB9A) |
 | `erlang:send(Dest, Msg, Options)` | `ok`, or `noconnect` for a message to another node with the `noconnect` option; options `nosuspend`, `noconnect`, `priority` (an ordinary message) |
 | `send_nosuspend(Dest, Msg)`, `send_nosuspend(Dest, Msg, [noconnect])` | `true`; `false` for another node with `noconnect` |
 | `link(Pid, Options)`, `exit(Dest, Reason, Options)`, `exit_signal(Dest, Reason, Options)` | As without options; `Options` is `[]` or `[priority]` (an ordinary signal) |

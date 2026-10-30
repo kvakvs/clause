@@ -1,9 +1,9 @@
 %% Clause's replacement for OTP's erts_internal (docs/libraries/library.md#runtime-module-replacements), generated from
 %% erts_internal.terms by tests/compiler/library/library_modules.py; edited by hand from here on. A stub raises
 %% error({not_implemented, Name, Arity}). The functions stdlib needs are implemented (plan step 41N,
-%% docs/builtins.md#erts-internal): cmp_term/2 and map_next/3 are runtime builtins, the rest Erlang; write-concurrency
-%% counters are atomics arrays. A non-distributed node answers the distribution queries; the other functions serve
-%% the emulator itself, .beam files or distribution and stay declined.
+%% docs/builtins.md#erts-internal): cmp_term/2, map_next/3 and get_creation/0 (plan 30 step DIST2a) are runtime
+%% builtins, the rest Erlang; write-concurrency counters are atomics arrays. A non-distributed node answers the
+%% distribution queries; the other functions serve the emulator itself, .beam files or distribution and stay declined.
 -module(erts_internal).
 -export([
     '@flush_monitor_messages_refopt'/0,
@@ -176,8 +176,7 @@ gather_microstate_accounting_result(_, _) ->
 gather_sched_wall_time_result(_) ->
     erlang:error({not_implemented, gather_sched_wall_time_result, 1}).
 gather_system_check_result(_) -> erlang:error({not_implemented, gather_system_check_result, 1}).
-%% A node that is not distributed has no creation.
-get_creation() -> undefined.
+get_creation() -> clause_builtin_placeholder.
 get_dflags() -> erlang:error({not_implemented, get_dflags, 0}).
 get_internal_state_blocked(_) -> erlang:error({not_implemented, get_internal_state_blocked, 1}).
 group_leader(_, _) -> erlang:error({not_implemented, group_leader, 2}).

@@ -140,7 +140,7 @@ OTP's trapping BIFs.
 ([external_term.hpp](../abi/include/clause/abi/external_term.hpp)), explicit
 stacks.
 
-- `term_to_binary/1,2`: OTP's bytes for `nonode@nohost`; options
+- `term_to_binary/1,2`: OTP's bytes for this node's name and creation; options
   `minor_version`, `deterministic`, `compressed`; local funs and native records
   are `notsup`. Identities of other nodes keep their node and creation
   ([terms](terms.md#identities-of-other-nodes)).
@@ -630,10 +630,11 @@ script.
 `builtins/erts_internal.cpp`, `library/erts/erts_internal.erl`: the functions
 `stdlib` and `kernel` call.
 
-- Builtins `cmp_term/2` and `map_next/3` (map iterators, key order).
+- Builtins `cmp_term/2` and `map_next/3` (map iterators, key order), and
+  `get_creation/0` ([this node](distribution.md#this-node)).
 - Erlang: `list_to_integer/2`, `binary_to_integer/2`, `map_to_tuple_keys/1`,
   `term_type/1`, counters, `dynamic_node_name`.
-- `get_creation/0` `undefined`; distribution and `.beam` groups declined.
+- The rest of the distribution group and the `.beam` group declined.
 - `erts_code_purger`: nothing to purge.
 
 ## Unicode util

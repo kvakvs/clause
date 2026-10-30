@@ -95,7 +95,7 @@ def clause(name, arity, status, builtins):
 def stub_module(entries, types, builtins):
     """library/erts/erlang.erl; it includes the observed types header when there is one (plan step 41K1)."""
     exports = ",\n".join(f"    {atom(name)}/{arity}" for name, arity, _, _ in entries)
-    clauses = "\n".join(clause(name, arity, status, builtins) for name, arity, _, status in entries)
+    clauses = "".join(clause(name, arity, status, builtins) for name, arity, _, status in entries)
     include = '-include("erlang.types.hrl").\n' if types else ""
     return f"-module(erlang).\n-export([\n{exports}\n]).\n{include}\n{HEADER}\n{clauses}"
 

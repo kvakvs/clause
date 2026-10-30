@@ -1,4 +1,5 @@
 #include "../../scheduler/executor.hpp"
+#include "../../terms/identities.hpp"
 #include "../typed.hpp"
 #include "terms.hpp"
 #include <algorithm>
@@ -81,14 +82,14 @@ Term links(const Inspection &inspection) {
     return list(inspection, items);
 }
 
-// {process, Pid}, or {process, {Name, nonode@nohost}} for a monitor made by name.
+// {process, Pid}, or {process, {Name, Node}} with this node's name for a monitor made by name.
 Term monitors(const Inspection &inspection) {
     std::vector<Term> items;
     for (const auto &[reference, monitor] : inspection.target.signals().monitors()) {
         auto subject = immediate(inspection, monitor.pid);
         if (monitor.name != 0) {
             subject =
-                pair(inspection, immediate(inspection, monitor.name), atom(inspection.caller, "nonode@nohost"_atom));
+                pair(inspection, immediate(inspection, monitor.name), need(detail::this_node_atom(inspection.caller)));
         }
         items.push_back(pair(inspection, atom(inspection.caller, "process"_atom), subject));
     }

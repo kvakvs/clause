@@ -304,13 +304,13 @@ class Decoder {
         return reinterpret_cast<Word>(words.data()) | static_cast<Word>(TermKindPrimary::list);
     }
 
-    // A pid, port or reference: this node's when it names this node with its creation or creation 0, as OTP
-    // decides, else another node's (plan 30 step DIST1).
+    // A pid, port or reference: this node's when it names this node with its creation, as OTP decides, else another
+    // node's (plan 30 step DIST1).
     Term identity(external::Item item) {
         const auto node = atom(reader_.atom());
         reader_.identity(item);
         if (node.atom_spelling_unchecked() != detail::this_node_name() ||
-            (item.creation_ != 0 && item.creation_ != detail::this_node_creation())) {
+            item.creation_ != detail::this_node_creation()) {
             return external_identity(item, node);
         }
         if (item.kind_ == external::ItemKind::reference) {

@@ -85,7 +85,8 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   modules (from `clause_interp`).
 - **Terms**: one-word tagged terms (ERTS-like), all Erlang kinds, term order and printing. Pids, ports and
   references of other nodes are `ExternalIdentityCell`s (node atom traced last); this node's name and
-  creation are process-wide (`detail::this_node_*`, plan 30 DIST1, `docs/distribution.md`).
+  creation are process-wide (`detail::this_node_*`, plan 30 DIST1); `erlang:setnode/2` sets them and the
+  executor's `node_owner_` (net_kernel) clears them when it ends (DIST2a, `docs/distribution.md#this-node`).
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

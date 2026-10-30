@@ -1,5 +1,6 @@
 #include "../builtins/support.hpp"
 #include "../process/exits.hpp"
+#include "../terms/identities.hpp"
 #include "../terms/service_errors.hpp"
 #include "signal_messages.hpp"
 #include <algorithm>
@@ -16,15 +17,15 @@ namespace clause::runtime::detail {
 namespace {
 using abi::v1::ErrorReason;
 
-// What a 'DOWN' message names, built in the heap of `process`: the pid or port, or {Name, nonode@nohost} for a
-// monitor made with a registered name.
+// What a 'DOWN' message names, built in the heap of `process`: the pid or port, or {Name, Node} with this node's name
+// for a monitor made with a registered name.
 TermResult<Term> monitored_item(ProcessContext &process, const Signals::Monitor &item) {
     if (item.name == 0) {
         return Term::from_word(item.pid, process);
     }
     TermFactory factory(process);
     const auto name = Term::from_word(item.name, process);
-    const auto node = factory.atom(LOCAL_NODE);
+    const auto node = this_node_atom(process);
     return name && node ? factory.tuple(std::array{*name, *node}) : (name ? node : name);
 }
 } // namespace
@@ -129,7 +130,7 @@ Term Executor::monitor(ProcessContext &watcher, Word pid, Word name, bool port, 
         forget_alias(*identity, false);
         return *reference;
     }
-    watcher.signals().monitor(*identity, pid);
+    watcher.signals().monitor(*identity, pid, name);
     target->signals().watch(*identity, {.pid = pid_of(watcher), .name = name, .tag = options.tag});
     return *reference;
 }
@@ -289,6 +290,7 @@ ProcessContext *Executor::busy_peer(ProcessContext &process) noexcept {
 bool Executor::notify(ProcessContext &process) {
     auto &signals = process.signals();
     names_.erase(signals.name());
+    release_node(pid_of(process));
     // Tables go first, as in OTP: a monitor's 'DOWN' message finds them deleted or inherited.
     release_tables(process);
     for (const auto &[reference, monitored] : signals.take_monitors()) {
@@ -381,6 +383,26 @@ Word Executor::lookup(ProcessContext &context, Word name) const noexcept {
         return 0;
     }
     return find(context, found->second) || open(found->second) ? found->second : 0;
+}
+
+bool Executor::name_node(ProcessContext &context, const Term &node, std::uint32_t creation) {
+    const auto kernel = atom(context, "net_kernel"_atom).word();
+    const std::scoped_lock lock(mutex_);
+    const auto owner = lookup(context, kernel);
+    if (owner == 0 || open(owner) || this_node_named()) {
+        return false;
+    }
+    node_owner_ = owner;
+    name_this_node(node, creation);
+    return true;
+}
+
+void Executor::release_node(Word pid) noexcept {
+    // net_kernel's end takes this node's name (OTP's erts_do_net_exits).
+    if (node_owner_ != 0 && node_owner_ == pid) {
+        node_owner_ = 0;
+        unname_this_node();
+    }
 }
 
 std::vector<Word> Executor::registered(ProcessContext &context) const {

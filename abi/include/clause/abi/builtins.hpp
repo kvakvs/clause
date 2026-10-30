@@ -354,6 +354,9 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"erlang", "monitor_node", 2},
     BuiltinName{"erlang", "monitor_node", 3},
     BuiltinName{"erlang", "disconnect_node", 1},
+    // This node's name (plan 30 step DIST2a; erlang/node.cpp).
+    BuiltinName{"erlang", "setnode", 2},
+    BuiltinName{"erts_internal", "get_creation", 0},
     BuiltinName{"erlang", "module_loaded", 1},
     BuiltinName{"erlang", "loaded", 0},
     BuiltinName{"erlang", "pre_loaded", 0},

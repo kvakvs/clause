@@ -1,6 +1,7 @@
 #include "spawning.hpp"
 #include "../../memory/message_buffer.hpp"
 #include "../../scheduler/executor.hpp"
+#include "../../terms/identities.hpp"
 #include "../portions.hpp"
 #include "../typed.hpp"
 #include "terms.hpp"
@@ -17,7 +18,7 @@ using detail::SpawnOptions;
 
 // The node a spawn on this node names; anything else is badarg.
 void local_node(const Term &node) {
-    if (!node.is_atom() || node.atom_spelling_unchecked() != "nonode@nohost") {
+    if (!detail::is_this_node(node)) {
         bad_argument();
     }
 }

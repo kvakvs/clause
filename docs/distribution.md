@@ -4,10 +4,10 @@ How a Clause executable becomes a distributed Erlang node. Decided in plan 30 st
 (2026-10-30); the steps that implement it are in [plan 30](../.agents/30-dist.md).
 
 **Today** a program is a non-distributed node, `nonode@nohost`. Pids, ports and references of
-other nodes exist as terms ([terms](terms.md#identities-of-other-nodes), DIST1), and the libraries
-answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The rest of
-this file is the contract for distribution. Each section becomes current behavior when its step
-lands.
+other nodes exist as terms ([terms](terms.md#identities-of-other-nodes), DIST1), the node can be
+named ([this node](#this-node), DIST2a), and the libraries answer as OTP does without distribution
+(`{badrpc, nodedown}`, `pang`, `not_alive`). The rest of this file is the contract for
+distribution. Each section becomes current behavior when its step lands.
 
 ## Scope
 
@@ -76,6 +76,25 @@ The work is split as in OTP: the runtime moves signals, and Erlang code makes co
   - later `inet_tls_dist` and `inet6_tls_dist` in `library/ssl`.
 - **Registered processes:** `net_sup`, `net_kernel`, `auth`, `erl_epmd` and `rex` start with
   distribution, as in OTP. The `global` and `pg` servers keep their OTP names and protocols.
+
+## This node
+
+Current since DIST2a (`builtins/erlang/node.cpp`, `scheduler/signals.cpp`), as in OTP:
+
+- **Naming:** `erlang:setnode(Node, Creation)` names the node. `Node` is a node name (letters,
+  digits, `-` and `_`, an `@`, then a host without another `@`) other than `nonode@nohost`;
+  `Creation` a non-negative small integer, cut to 32 bits and raised to at least 4. A live process
+  must be registered as `net_kernel`, and the node must have no name yet. Anything else is `badarg`.
+- **Readers:** `node/0,1`, `nodes/1,2` (`this`), `ets:info/2` (`node`), monitors and sends by
+  `{Name, Node}`, `spawn/2,4` and the encodings of this node's pids, ports and references use the
+  name and creation. `is_alive/0` is true for a named node or a dynamic name
+  (`erts_internal:dynamic_node_name/1`); `erts_internal:get_creation/0` is the creation, or
+  `undefined` without a name. A decoded identity naming this node is local only under its creation.
+- **Monitoring nodes:** `monitor_node/2,3` raise `notalive` for a node other than `nonode@nohost`
+  while the node has no name. Monitoring this node does nothing. Another node has no connection
+  yet: its monitor ends at once with `{nodedown, Node}` (connecting is DIST2b).
+- **End:** when the `net_kernel` process that named the node ends, the node is `nonode@nohost` with
+  creation 0 again, and can be named anew.
 
 ## Carriers
 

@@ -1,4 +1,5 @@
 #include "../../scheduler/executor.hpp"
+#include "../../terms/identities.hpp"
 #include "processes.hpp"
 #include <array>
 
@@ -79,7 +80,7 @@ Term exit3(ProcessContext &context, const DestinationArg &destination, const Mes
     return need(send_exit(context, destination.term, reason.term, SelfNormal));
 }
 
-bool local_node(const Term &node) { return node.is_atom() && node.atom_spelling_unchecked() == detail::LOCAL_NODE; }
+bool local_node(const Term &node) { return detail::is_this_node(node); }
 
 // What a spawn naming a node does besides starting the process.
 detail::SpawnOptions spawn_options(bool link, bool monitor) { return {.link = link, .monitor = monitor}; }

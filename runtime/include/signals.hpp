@@ -103,8 +103,11 @@ class Signals final {
         std::unique_ptr<Map> map_;
     };
 
-    // Monitor the process of `pid` with `reference` (monitor/2). Allocation failure throws.
-    void monitor(const ReferenceIdentity &reference, Word pid) { monitors_.emplace(reference, Monitor{pid}); }
+    // Monitor the process of `pid` with `reference` (monitor/2), made with the registered name `name` or 0, which
+    // process_info/2 shows. Allocation failure throws.
+    void monitor(const ReferenceIdentity &reference, Word pid, Word name = 0) {
+        monitors_.emplace(reference, Monitor{pid, name});
+    }
 
     // Stop the monitor `reference` this process holds; the monitored pid, or none when it is not active.
     std::optional<Word> demonitor(const ReferenceIdentity &reference) noexcept {

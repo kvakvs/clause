@@ -31,6 +31,14 @@ std::string_view this_node_name() noexcept;
 std::uint32_t this_node_creation() noexcept;
 // This node's name as an atom of `context`.
 TermResult<Term> this_node_atom(ProcessContext &context);
+// Whether erlang:setnode/2 named this node (plan 30 step DIST2a).
+bool this_node_named() noexcept;
+// Whether a term is the atom of this node's name.
+bool is_this_node(const Term &node) noexcept;
+// Name this node `node`, an atom, with `creation`, as erlang:setnode/2 does (plan 30 step DIST2a).
+void name_this_node(const Term &node, std::uint32_t creation) noexcept;
+// Make this node nonode@nohost with creation 0 again, as when net_kernel ends (plan 30 step DIST2a).
+void unname_this_node() noexcept;
 
 // An identity of another node (plan 30 step DIST1, docs/terms.md#identities-of-other-nodes), as its cell holds it.
 struct ExternalIdentity final {

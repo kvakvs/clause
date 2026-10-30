@@ -308,8 +308,8 @@ TermResult<void> print_identity(const Term &value, TextOutput &out) {
 }
 
 namespace {
-// This node's name, an atom word or 0 for nonode@nohost, and its creation (plan 30 step DIST1); distribution sets
-// them when it starts (DIST2).
+// This node's name, an atom word or 0 for nonode@nohost, and its creation (plan 30 step DIST1); erlang:setnode/2
+// sets them (DIST2a). The creation is stored before the name and cleared after it.
 std::atomic<Word> this_node_word{0};
 std::atomic<std::uint32_t> this_node_creation_value{0};
 // The name of a node that is not distributed.
@@ -328,6 +328,22 @@ TermResult<Term> this_node_atom(ProcessContext &context) {
         return TermFactory(context).atom("nonode@nohost"_atom);
     }
     return TermFactory(context).atom(AtomName(this_node_name()));
+}
+
+bool this_node_named() noexcept { return this_node_word.load(std::memory_order_acquire) != 0; }
+
+bool is_this_node(const Term &node) noexcept {
+    return node.is_atom() && node.atom_spelling_unchecked() == this_node_name();
+}
+
+void name_this_node(const Term &node, std::uint32_t creation) noexcept {
+    this_node_creation_value.store(creation, std::memory_order_release);
+    this_node_word.store(node.word(), std::memory_order_release);
+}
+
+void unname_this_node() noexcept {
+    this_node_word.store(0, std::memory_order_release);
+    this_node_creation_value.store(0, std::memory_order_release);
 }
 
 TermResult<Term> ExternalAccess::make(ProcessHeap &heap, const ExternalIdentity &identity) {

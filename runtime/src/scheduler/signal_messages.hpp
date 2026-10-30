@@ -12,7 +12,7 @@ Term atom(ProcessContext &process, AtomName name);
 // {'EXIT', From, Reason} built in the heap of `process`; From is a pid or a port.
 TermResult<Term> exit_message(ProcessContext &process, Word from, const Term &reason);
 // {'DOWN', Ref, Type, Item, Reason} built in the heap of `process`: Type is port for a monitored port, else process;
-// Item is the pid or port, or {Name, nonode@nohost} for a monitor made with a registered name.
+// Item is the pid or port, or {Name, Node} of this node for a monitor made with a registered name.
 TermResult<Term> down_message(ProcessContext &process, const ReferenceIdentity &reference, const Signals::Monitor &item,
                               const Term &reason);
 
