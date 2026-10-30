@@ -86,8 +86,8 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
 - **Terms**: one-word tagged terms (ERTS-like), all Erlang kinds, term order and printing.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
-- **Scheduler**: multi-worker executor with run queues and stealing, mailboxes, timers, signals,
-  links/monitors (`docs/processes.md`).
+- **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,
+  timers, signals, links/monitors (`docs/processes.md`).
 - **Ports / I/O**: port table and drivers (fd, spawn, file, sockets) over one reactor thread
   (`docs/ports.md`).
 - **ETS and match specs**: shared tables and compiled match programs.

@@ -383,6 +383,9 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   `{ok, V}` case 35 to 25 (139), nested leaves 79 to 27 (127), a 40-expression leaf 156 to 109 (138),
   `?MODULE:twice` 80 to 24 (105), mapfoldl 179 to 142 (294); 69A 0.99x, luerl euler 1.00x, programs
   +0.04% (69A) / +0.76% (luerl) — `[plan20] OPT1.9 remainder, OPT1.13 ...`
+  - OPT1.13 closed 2026-10-30 (user). Not fused: joins with a generic path (`mapfoldl`'s
+    `{List, Acc}`), literal tuples, inner cells of `[A, B | T]`, loop-carried values and cells
+    built in binary loops.
 - **OPT1.10** cleanup across inlined boundaries: atom/literal/fun cache claim, runtime identity and
   cached words are invariant loads (claim checks merge where one dominates the next, and leave
   loops); term-word loads tagged `term` TBAA (parent of the binary tags), frame-slot stores `frame`;
@@ -409,6 +412,8 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   (float cells tested at run time). Pinned (OTP): calls 1.13 s to 0.53 (1.29), limit 0.43 to 0.26
   (1.23), mandelbrot 0.32 to 0.24 (1.29), the rest unchanged; 69A dataproc/datagen code identical,
   luerl euler 1.00x, luerl -O2 compile 1.00x — `[plan20] OPT1.11 remainder ...`
+  - Closed 2026-10-30 (user). Left: float results still return as 2-word cells (est. ~4% on
+    float.calls, needs `CLAUSE_return_v1` boxing); calls from other modules enter the boxed function.
 - **OPT1.12 part 1** forward-built lists: comprehensions and the `lists` loops append each new cell
   to the last one's tail (always a fresh cell: a cell of immediates would be a shared literal), no
   reverse. `FrameState::young` (published only when the window, a block or the high-water mark
@@ -597,7 +602,14 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   whose waker locks anyway, gets the direct copy under it. The send hint remembers "parked", and the
   arrivals' running flag is gone. Pinned A/B medians at f4e5f3e0 (7 rounds, interleaved with OTP):
   fan_in 370 to 269 ms (0.21x of OTP); ring, ping_pong, ring_setup, short_processes, large_message,
-  socket and file kernels unchanged
+  socket and file kernels unchanged — `f80aab9f`
+- **OPT3.23 part 3** handed-over wakes: a process a worker wakes for itself into its empty queue
+  waits in a slot guarded by the executor mutex the send holds, and the worker takes it at its slice
+  end without the run queues' lock (same order as the queue; stealing and balancing count it); the
+  receive wait returns the fixed boolean words. A hop took 4 lock pairs, now 2. Pinned A/B medians
+  (7 rounds, static CRT): ping_pong 903 to 764 ms (OTP 1499), ring 1112 to 989 (1390), 16
+  concurrent pairs 2927 to 2481 (OTP 802: found 3.1x behind); ring_setup, fan_in, short_processes,
+  large_message unchanged
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/ `map_size` and present-key
   updates with atom/small-int keys scan and copy classic map cells inline; 4 reads 929 to 12 ns (OTP
   6), a 2-field update 576 to 11 ns (OTP 13); 69A kernel `dataproc.small_map` added — `9be0f412`

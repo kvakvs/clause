@@ -68,6 +68,12 @@ online schedulers), or per CPU of `--scheduler-cpus`.
   worker is woken only when a queue then holds more than one process. The timer
   and I/O threads, port tasks and workers between slices queue a process for its
   own worker, or for an idle worker when its own one is busy.
+- A process that a worker wakes for itself (the worker is its home and its
+  queue is empty) is handed over instead of queued: it waits beside the queue,
+  under the executor mutex the waking send holds anyway, and the worker takes
+  it when its slice ends without the run queues' lock (handed-over wakes,
+  OPT3.23). It would have been the first queued process, so the order is the
+  queue's; stealing, balancing and the queue counts include it.
 - One executor mutex guards the waiting processes, the timers, the registered
   names, the links and monitors of every process, and every process that is not
   running. A running process's heap, stack, mailbox and failure channel belong
@@ -124,7 +130,8 @@ process's scheduling state happens under the executor mutex:
   receiver parked wakes it under the executor mutex.
 - A worker that finds no runnable process sleeps until another worker, a send, a
   spawn or the timer thread queues one, or the program ends; it looks at the
-  queues and sleeps under the run queues' lock, which every queueing takes. Workers never read the clock
+  queues and sleeps under the run queues' lock, which every queueing takes (a
+  handed-over wake is the worker's own). Workers never read the clock
   for timers; parking a process with a timeout earlier than every other wakes
   only the timer thread.
 - A message and an expiring timeout of one receive may race: whichever comes

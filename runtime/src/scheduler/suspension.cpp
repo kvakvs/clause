@@ -70,7 +70,11 @@ void Executor::dequeue(ProcessContext &process) {
     bool queued = false;
     const std::scoped_lock queues(queues_mutex_);
     for (const auto &queue : queues_) {
-        queued = std::erase(queue->processes, &process) != 0 || queued;
+        queued = queue->processes.erase(&process) || queued;
+        if (queue->handed.load(std::memory_order_relaxed) == &process) {
+            queue->handed.store(nullptr, std::memory_order_relaxed);
+            queued = true;
+        }
     }
     if (queued) {
         schedule(process).ready = true;

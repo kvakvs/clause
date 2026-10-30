@@ -467,6 +467,13 @@ recorded elsewhere.
   benchmark_cpus (import it). For a new change copy the base lib/Release dir aside first, then
   rebuild in place. Lock-free posts to queued receivers did not reproduce OPT3.5B's allocator
   regression: the direct copy into parked receivers stays.
+- OPT3.23 part 3 (2026-10-30): runtime-only builds default to the /MD CRT (WindowsHost.cmake);
+  the compiler build is /MT (LLVM). Configure A/B and profiling runtimes with
+  `-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded`, else std::mutex goes through msvcp140.dll. The A/B
+  scaffolding (run_ab.py, bench_ab.erl with ring_setup/pairs) is in a session scratchpad under
+  `%TEMP%/claude/f--CLAUSE-clau/*/scratchpad/ab`: copy it forward. xperf `-a stack -butterfly`
+  callers of mtx_do_lock split the lock cost per site. One ping-pong pair is fast; 16 concurrent
+  pairs are 3.1x behind OTP (executor mutex contention).
 - LIB74 shell (2026-10-25): a call that resolves to a C++ builtin does not pull the module's Erlang
   source into the batch, so its other exports (erl_lint:format_error/1) are absent for dynamic calls
   even with --keep-exports: name them statically (clause_shell_eval:format_error/2). A static M:F

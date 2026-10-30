@@ -233,7 +233,7 @@ std::optional<Word> Executor::next_port() noexcept {
     if (port_queue_.empty()) {
         return std::nullopt;
     }
-    if (const std::scoped_lock queues(queues_mutex_); !queues_[worker_ ? worker_index_ : 0]->processes.empty()) {
+    if (const std::scoped_lock queues(queues_mutex_); queues_[worker_ ? worker_index_ : 0]->runnable() != 0) {
         // Processes and ports take turns, so neither can starve the other.
         port_turn_ = !port_turn_;
         if (port_turn_) {

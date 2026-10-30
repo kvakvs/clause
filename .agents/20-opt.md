@@ -6,7 +6,7 @@ input only; no OTP source is copied.
 
 This file keeps open work only:
 
-- Completed steps (tier OPT0, most of OPT1 and OPT3, OPTM.1-6): see
+- Completed steps (tier OPT0, most of OPT1 including OPT1.11 and OPT1.13, OPT3, OPTM.1-6): see
   [00-finished.md](00-finished.md).
 - Rejected steps (OPTM.1 and OPT1.10 remainders): see [00-reject.md](00-reject.md).
 
@@ -198,8 +198,14 @@ steps whose kernels are already ahead stay, ranked lower. Profile each kernel be
 
 ### OPT3.23 remainder: message signals
 
-Kernels (pinned 0-15, against OTP, 2026-10-30 at f4e5f3e0 plus part 2): ring 0.75x, ping_pong
-0.61x, fan_in 0.21x. Setup alone (`ring(1000, 1)`) is still 1.8x OTP: 3.5 us a process against 1.9.
+Kernels (pinned 0-15, against OTP, 2026-10-30 after part 3): ring 0.71x, ping_pong 0.51x, fan_in
+0.20x. Setup alone (`ring(1000, 1)`) is still 1.8x OTP: 3.5 us a process against 1.9.
+
+- **Concurrent pairs scale badly: 3.1x behind OTP.** 16 ping-pong pairs at once (`pairs(16, 5000)`
+  in the A/B program of part 3) take 2481 ms against OTP's 802, while one pair is 0.51x of OTP:
+  every hop still takes the executor mutex twice (the send to a parked receiver and the slice end),
+  so 16 workers contend on one lock. This is now the largest message gap and needs the per-process
+  signal locks below; add `pairs` to 69A when it is built.
 
 - **Part 1 re-measured at f4e5f3e0:** HEAD against HEAD with 1b14da68 reverted (runtime-only
   Release builds, one clau, 2 x 7 interleaved pinned rounds).
@@ -218,8 +224,10 @@ Kernels (pinned 0-15, against OTP, 2026-10-30 at f4e5f3e0 plus part 2): ring 0.7
     small heap block).
 - **Executor mutex on wakes:** since part 2 only a send that wakes a parked receiver takes the
   executor mutex; ping_pong and ring wake on every hop.
-  - ping_pong spent ~15% in SRW acquire/release (send, push, next_process), profiled before part 2.
-  - Candidate: per-process signal locks as ERTS, so a wake locks only its receiver.
+  - Part 3 dropped the run queues' lock from such a hop; SRW acquire/release is still ~9% of a
+    single ping_pong (the executor mutex at the send and at the slice end).
+  - Candidate: per-process signal locks as ERTS, so a wake locks only its receiver and a slice end
+    that parks locks only itself.
 - **Call round trips:** the file.read_line profile (a call per line) shows monitor plus demonitor of
   the call ~14% (a map node and a reference each).
 - Measured null or worse: batch stealing (half the victim's queue); sends that buffered every
@@ -391,17 +399,6 @@ loop: zipwith/4 and zipwith3/5 (rare), uniq 4, keymap 1. Open:
 
 - Leaves that raise (`error/1`, `throw/1`) stay calls, since inlining loses their stack-trace frame.
 
-### OPT1.11 remainder: raw float results
-
-Raw floats cover literals, float-only results, comparisons, `float/1`, unary minus, type tests,
-float loop parameters (seeded by inference) and float arguments of calls into float loops. Open, low
-value:
-
-- A float result still returns as a cell: one 2-word cell per call. float.calls (16M calls of a
-  12-step Horner loop, 33 ns each) would save an estimated ~4%; a raw result needs the return
-  transfer and its `CLAUSE_return_v1` service path to box like entries do.
-- Calls from other modules enter the function itself (the planned loops are per module).
-
 ### OPT1.12 remainder: tail-modulo-cons
 
 Part 1 builds comprehension and `lists` loop results forward (remembered tail writes, no reverse).
@@ -429,15 +426,6 @@ Open: the two front-ends for user functions, on the same tail write.
     on BEAM.
   - The cost is observable: shallower stacktraces and `stack_size`. Record it in
     `docs/differences.md`.
-
-### OPT1.13 remainder: constructions the fusion cannot see
-
-Open, by measured need only:
-
-- Joins with a path that is not a construction or an immediate (the `{List, Acc}` a `mapfoldl` loop
-  returns: its join also has the generic path's value).
-- Literal tuples (`{error, nf}`) and the inner cells of `[A, B | T]`.
-- Values a loop carries and cells built in a binary loop.
 
 ## Tier OPT2: possible because Clause compiles whole programs
 
@@ -498,13 +486,12 @@ Open steps only, by area:
 - **Binaries:** OPT1.5 remainder.
 - **Maps:** OPT1.6 remainder.
 - **Lists:** OPT1.12 remainder, then the OPT1.7 remainder together with OPT2.1.
-- **Floats:** OPT1.11 remainder (raw results, low value).
-- **Inlining and cleanup:** OPT1.9 and OPT1.13 remainders, by measured need.
+- **Inlining:** OPT1.9 remainder, by measured need.
 
 Runtime steps by 69A impact (worst kernel of each step, pinned 2026-10-21 run; all already ahead of
 OTP):
 
-- OPT3.23 remainder (ring ~0.75x)
+- OPT3.23 remainder (concurrent pairs 3.1x behind; ring 0.71x)
 - OPT1.6 remainder (~0.84x)
 - OPT3.15 remainder (0.96x)
 - OPT3.20 (0.90x)
@@ -519,7 +506,7 @@ OTP):
 Then the steps with no 69A kernel:
 
 - OPT3.13 and OPT3.14 remainders
-- OPT1.7, OPT1.9, OPT1.11 and OPT1.13 remainders
+- OPT1.7 and OPT1.9 remainders
 - OPT2.x
 
 **Gate for every item:**

@@ -50,11 +50,12 @@ bool expired(ProcessContext &context, const std::optional<std::int64_t> timeout)
 Word wait(ProcessContext &context, const builtins::Arguments state) {
     // Messages other processes posted wait in buffers until the receiver looks (arrival buffers).
     builtins::need(detail::MessageBuffer::take_arrivals(context, detail::MessageBuffer::ARRIVAL_BATCH));
+    // The fixed boolean words, without a factory per wake (handed-over wakes).
     if (context.mailbox().unexamined()) {
-        return builtins::need(TermFactory(context).boolean(true)).word();
+        return static_cast<Word>(abi::v1::true_atom);
     }
     if (expired(context, milliseconds(context, state[0]))) {
-        return builtins::need(TermFactory(context).boolean(false)).word();
+        return static_cast<Word>(abi::v1::false_atom);
     }
     context.stack().wait(WAIT_FRAME.frame, state);
     return 0;

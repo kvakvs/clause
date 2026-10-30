@@ -222,7 +222,10 @@ void Executor::withdraw(ProcessContext &process) {
     {
         const std::scoped_lock queues(queues_mutex_);
         for (const auto &queue : queues_) {
-            std::erase(queue->processes, &process);
+            queue->processes.erase(&process);
+            if (queue->handed.load(std::memory_order_relaxed) == &process) {
+                queue->handed.store(nullptr, std::memory_order_relaxed);
+            }
         }
     }
     auto &state = schedule(process);
@@ -426,6 +429,7 @@ void Executor::fail_main() noexcept {
         const std::scoped_lock queues(queues_mutex_);
         for (const auto &queue : queues_) {
             queue->processes.clear();
+            queue->handed.store(nullptr, std::memory_order_relaxed);
         }
     }
     auto &calls = main_->generated_calls();

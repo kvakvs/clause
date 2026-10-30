@@ -366,6 +366,13 @@ void Executor::push(ProcessContext &process, bool front) {
     state.home = home;
     auto &queue = queues_[home]->processes;
     if (front) {
+        // Woken blockers run ahead of a handed-over process too; they are pushed under the executor lock, which guards
+        // it (handed-over wakes).
+        auto &handed = queues_[home]->handed;
+        if (auto *next = handed.load(std::memory_order_relaxed)) {
+            queue.push_front(next);
+            handed.store(nullptr, std::memory_order_relaxed);
+        }
         queue.push_front(&process);
     } else {
         queue.push_back(&process);
@@ -396,7 +403,7 @@ void Executor::signal_queued(std::size_t home) {
     if (queue.idle && !(worker_ && worker_index_ == home)) {
         queue.wake.notify_one();
     }
-    if (queue.processes.size() > 1) {
+    if (queue.runnable() > 1) {
         wake_idle(home);
     }
 }
@@ -430,7 +437,7 @@ std::size_t Executor::queued() const noexcept {
     const std::scoped_lock queues(queues_mutex_);
     std::size_t count = 0;
     for (const auto &queue : queues_) {
-        count += queue->processes.size();
+        count += queue->runnable();
     }
     return count;
 }
@@ -441,46 +448,77 @@ ProcessContext *Executor::steal(std::size_t thief) {
         auto &queue = *queues_[index];
         // A sleeping worker's only process is taken too: this worker runs it before that one wakes.
         const auto spare = queue.idle ? std::size_t{1} : std::size_t{2};
-        if (index != thief && queue.processes.size() >= spare &&
-            (!victim || queue.processes.size() > victim->processes.size())) {
+        if (index != thief && !queue.processes.empty() && queue.runnable() >= spare &&
+            (!victim || queue.runnable() > victim->runnable())) {
             victim = &queue;
         }
     }
     if (!victim) {
         return nullptr;
     }
-    auto *process = victim->processes.back();
-    victim->processes.pop_back();
+    auto *process = victim->processes.pop_back();
     schedule(*process).home = thief;
     return process;
 }
 
-void Executor::balance(std::size_t index) {
+bool Executor::balance_due(std::size_t index) noexcept {
     // ERTS migrates processes between schedulers periodically; this compares one neighbor every few slices.
     constexpr std::size_t BALANCE_SLICES = 4;
     auto &own = *queues_[index];
     if (++own.since_balance < BALANCE_SLICES || queues_.size() < 2) {
-        return;
+        return false;
     }
     own.since_balance = 0;
+    return true;
+}
+
+void Executor::balance(std::size_t index) {
+    auto &own = *queues_[index];
     auto &neighbor = *queues_[(index + 1) % queues_.size()];
-    if (neighbor.processes.size() >= own.processes.size() + 2) {
-        auto *process = neighbor.processes.back();
-        neighbor.processes.pop_back();
+    if (!neighbor.processes.empty() && neighbor.runnable() >= own.runnable() + 2) {
+        auto *process = neighbor.processes.pop_back();
         schedule(*process).home = index;
         own.processes.push_back(process);
     }
 }
 
-ProcessContext *Executor::next_process(std::size_t index) {
-    balance(index);
-    auto &own = queues_[index]->processes;
-    if (own.empty()) {
-        return steal(index);
+bool Executor::hand_over(ProcessContext &process) noexcept {
+    // Only the worker itself hands over, while nothing else waits in its queue: the process would have been the
+    // first one queued anyway, so the order of the run queue stays as it was (handed-over wakes).
+    const auto &state = schedule(process);
+    if (!worker_ || state.home != worker_index_ || state.holds > 0) {
+        return false;
     }
-    auto *process = own.front();
-    own.pop_front();
-    return process;
+    auto &own = *queues_[worker_index_];
+    if (own.handed.load(std::memory_order_relaxed) != nullptr || own.processes.seen_size() != 0) {
+        return false;
+    }
+    own.handed.store(&process, std::memory_order_relaxed);
+    return true;
+}
+
+ProcessContext *Executor::handed_over(std::size_t index) {
+    auto &own = *queues_[index];
+    auto *handed = own.handed.load(std::memory_order_relaxed);
+    if (handed == nullptr) {
+        return nullptr;
+    }
+    // The neighbor is compared under the run queues' lock only when it may have a process to give.
+    if (balance_due(index) && queues_[(index + 1) % queues_.size()]->processes.seen_size() >= 2) {
+        const std::scoped_lock queues(queues_mutex_);
+        balance(index);
+    }
+    // Only the executor lock's holders change it.
+    own.handed.store(nullptr, std::memory_order_relaxed);
+    return handed;
+}
+
+ProcessContext *Executor::next_process(std::size_t index) {
+    if (balance_due(index)) {
+        balance(index);
+    }
+    auto &own = queues_[index]->processes;
+    return own.empty() ? steal(index) : own.pop_front();
 }
 
 TermResult<void> Executor::wake(ProcessContext &receiver) {
@@ -488,7 +526,9 @@ TermResult<void> Executor::wake(ProcessContext &receiver) {
         return {};
     }
     try {
-        push(receiver);
+        if (!hand_over(receiver)) {
+            push(receiver);
+        }
     } catch (const std::bad_alloc &) {
         return std::unexpected(TermError::out_of_memory);
     }
@@ -619,6 +659,9 @@ void Executor::work(const std::size_t index) noexcept {
 }
 
 ProcessContext *Executor::next_or_sleep(std::size_t index, std::unique_lock<std::mutex> &lock, Garbage &garbage) {
+    if (auto *handed = handed_over(index)) {
+        return handed;
+    }
     std::unique_lock queues(queues_mutex_);
     if (auto *next = next_process(index)) {
         return next;
@@ -939,6 +982,7 @@ void Executor::clear() noexcept {
         const std::scoped_lock queues(queues_mutex_);
         for (const auto &queue : queues_) {
             queue->processes.clear();
+            queue->handed.store(nullptr, std::memory_order_relaxed);
         }
     }
     port_queue_.clear();
