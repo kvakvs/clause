@@ -11,6 +11,7 @@ Per-plan records:
 - [Plan 20](20-finished.md): runtime and code generation optimizations (from 2026-10-12)
 - [Plan 21](21-finished.md): Clause's own erts, kernel and stdlib (from 2026-10-17)
 - [Plan 22](22-finished.md): compiler optimizations, type inference first (from 2026-10-23)
+- [Plan 30](30-finished.md): network distribution (from 2026-10-30)
 
 ## Before plan 11 (2026-09-17 to 2026-10-03)
 

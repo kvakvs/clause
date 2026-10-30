@@ -26,6 +26,7 @@ and limits that exist today; plans and step history live in `.agents/`.
 | Production builtins: catalog, bridge calls, module builtins, portions, registration | [builtins.md](builtins.md) |
 | Runtime lifecycle, memory, code server, persistent terms, threads, standard output, startup | [runtime.md](runtime.md) |
 | Processes: scheduler workers, messages and receive, links, monitors, registered names, timers, introspection, aliases, exit signals | [processes.md](processes.md) |
+| Distribution contract: scope, protocol and flags, runtime and library split, carriers, epmd, node start options, multi-node tests | [distribution.md](distribution.md) |
 | Ports: identity, port table, drivers, data modes, the I/O thread, busy ports, subprocesses, standard I/O, files and sockets | [ports.md](ports.md) |
 | Process heap contract: word layout, areas, admission, roots, collection | [runtime-heap.md](runtime-heap.md) |
 | Execution model: frames, calls, tail calls, yield, exceptions | [execution-model.md](execution-model.md) |

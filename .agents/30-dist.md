@@ -17,32 +17,24 @@ direction). Backlog: F38.
     `dist_ac`).
 - **Goal:** a Clause executable is a distributed Erlang node that connects to OTP 29 nodes and to
   other Clause nodes over OTP's protocol, and those libraries behave as OTP's distributed ones.
-- **Architecture (proposed; DIST0 decides):**
-  - Wire compatibility with OTP 29: distribution protocol 6 (handshake 23), OTP 26's mandatory
-    flags (`DFLAG_DIST_MANDATORY`), the external term format for control messages and payloads
-    (native records with `DFLAG_NATIVE_RECORDS`).
-  - OTP's split of work: the runtime keeps this node's identity, one entry per connected node and
-    the signal data path (encoding outgoing signals, decoding and delivering incoming ones) behind
-    OTP's process-controller interface (`erlang:setnode/2,3`, `dist_ctrl_*`,
-    `erts_internal:new_connection/1`). Erlang library code runs epmd, the handshake, `net_kernel`,
-    `auth` and the carriers (`inet_tcp_dist` over `gen_tcp`).
-  - What other nodes observe stays OTP's: registered names (`net_kernel`, `rex`,
-    `global_name_server`, `pg` scopes), message shapes and inter-node protocols, so mixed OTP and
-    Clause clusters work.
-  - A program without a node name stays exactly as today; distribution starts only with a node
-    name option or `net_kernel:start/1,2`.
-- **Testing:**
-  - Multi-node fixtures: a runner that starts an epmd and several executables (or one executable
-    several times with different arguments), then checks each node's stdout and exit status;
-    goldens generated once from OTP nodes.
-  - Interop cases (a Clause node with an OTP `erl` node) carry label `host_otp`; Clause-only cases
-    stay OTP-free.
+- **Contract:** [distribution.md](../docs/distribution.md), decided in DIST0 (2026-10-30, user
+  choices):
+  - OTP 29 wire compatibility (protocol 6, OTP 26's mandatory flags); OTP's split: the runtime
+    moves signals behind the process-controller interface, Erlang library code connects.
+  - epmd: the executable starts a detached copy of itself (`--epmd-daemon`) running the runtime's
+    C++ epmd when none listens.
+  - User carriers through OTP's `dist_util` interface and `#hs_data{}` record.
+  - Node options `--sname`, `--name`, `--setcookie`, `--hidden`, `--proto-dist`, ... and a general
+    `--env APP KEY VALUE`, from the command line, `CLAUSE_FLAGS` and the manifest's
+    `runtime_options`.
+  - The atom cache and fragments are later optimizations ([Later](#later)).
+  - Multi-node goldens with a per-case epmd port; OTP interop cases labeled `host_otp`.
 - **Afterwards:** revisit plan 21's MIM1 (`mnesia`) design, which assumes one node.
 
 ## Working rules for plan 30 steps
 
 - Commit each step when its gate is green: subject `[plan30] DISTn. Title`, e.g.
-  `[plan30] DIST4. Handshake, TCP carrier and first connections`.
+  `[plan30] DIST4b. Handshake, TCP carrier and first connections`.
 - The plan 11 gate applies (`check-quality` first, then fast CTest; full CTest when the phase
   closes). Steps that change only library code gate on their own goldens and the library checks
   first (AGENTS.md testing strategy).
@@ -53,34 +45,11 @@ direction). Backlog: F38.
 
 ## Steps
 
-<a id="step-dist0"></a>
-
-## DIST0. Decide the distribution contract
-
-Backlog: F38. Depends on: none. **Decision.**
-
-- Success criteria
-  - [ ] `docs/distribution.md` records:
-    - scope: TCP over IPv4 and IPv6 first; TLS distribution later (DIST12); left out unless
-      selected: code loading over distribution, `erl_boot_server`, remote shells (`-remsh`);
-    - the runtime/library split and the optional flags Clause offers (atom cache, fragments);
-    - whether user carriers (`-proto_dist` modules over `dist_util` and its record header) are
-      supported.
-  - [ ] epmd: a Clause-owned epmd started on demand like OTP's `-start_epmd` (a standalone
-    daemon program, not inside a node that may exit), and the epmd-less modes
-    (`-erl_epmd_port`, a custom `-epmd_module`).
-  - [ ] Node start options: runtime options (node name, cookie, hidden, connect-all, carrier,
-    epmd module) in the command line, `CLAUSE_FLAGS` and the manifest, and what
-    `init:get_argument/1` reports for them (OTP's `sname`, `name`, `setcookie`, `hidden`).
-  - [ ] The multi-node fixture runner and golden format.
-- Tests
-  - [ ] None beyond the gate.
-
 <a id="step-dist1"></a>
 
 ## DIST1. External identities in the runtime
 
-Backlog: F38. Depends on: [DIST0](#step-dist0).
+Backlog: F38. Depends on: DIST0 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] New term kinds under the representations rule: external pid, port and reference (node atom,
@@ -120,43 +89,77 @@ Backlog: F38. Depends on: [DIST1](#step-dist1).
     group of `erts_internal` become implemented.
 - Tests
   - [ ] Unit tests only for entry state transitions source cannot reach; behavior through the
-    DIST4/DIST5 goldens.
+    DIST4b/DIST5 goldens.
 
 <a id="step-dist3"></a>
 
 ## DIST3. epmd client and Clause's epmd
 
-Backlog: F38. Depends on: [DIST0](#step-dist0).
+Backlog: F38. Depends on: DIST0 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `erl_epmd` client over the epmd protocol: `register_node/2,3`, `port_please/2,3`,
     `names/0,1`, `address_please/3`, `listen_port_please/2`; the declined server functions
     (`start/0`, `start_link/0`, `stop/0`, `open/0,1,2`, callbacks) implemented; `ERL_EPMD_PORT`.
-  - [ ] Clause's epmd daemon (as DIST0 decides): registrations, `names`, the alive connection
-    that unregisters a node when it closes; started when a node starts and none listens.
+  - [ ] The runtime's C++ epmd behind `--epmd-daemon` (`--foreground` for tests): `ALIVE2`
+    (`ALIVE2_X` reply), `PORT_PLEASE2`, `NAMES`, `DUMP`, `KILL`, `STOP` with OTP's command checks,
+    a registration ends with its connection; `ERL_EPMD_PORT`, `ERL_EPMD_ADDRESS`.
+  - [ ] Starting it: a detached copy of the executable (Windows new process group without console
+    or inherited handles; POSIX double fork and `setsid`), a lost bind race exits quietly, nodes
+    retry the epmd connection briefly; an already running epmd (OTP's or Clause's) is used.
+  - [ ] The multi-node fixture runner ([testing](../docs/distribution.md#testing)): per-case epmd
+    port, nodes of kind `clause` or `otp`, per-node stdout, exit status and stderr pattern.
   - [ ] `net_adm:names/0,1` ask epmd (removes its `differences.md` row).
 - Tests
   - [ ] Golden of epmd registrations and `names` with two registered names; interop against OTP's
     `epmd` (`host_otp`).
 
 <a id="step-dist4"></a>
+<a id="step-dist4a"></a>
 
-## DIST4. Handshake, TCP carrier and first connections
+## DIST4a. Node start options
 
-Backlog: F38. Depends on: [DIST2](#step-dist2), [DIST3](#step-dist3).
+Backlog: F38. Depends on: DIST0 ([30-finished](30-finished.md)).
 
 - Success criteria
-  - [ ] The handshake of protocol 6 in Erlang: `send_name`, challenge and reply digests from the
-    cookie, `ok`/`ok_simultaneous`/`nok`/`not_allowed`/`alive`/`named` statuses, simultaneous
-    connects, `DFLAG_NAME_ME` dynamic names.
-  - [ ] `inet_tcp_dist` and `inet6_tcp_dist` (the `-proto_dist` callback interface: `listen`,
-    `accept`, `accept_connection`, `setup`, `close`, `select`, `address`, `is_node_name`), a
-    controller process over `gen_tcp` using the `dist_ctrl_*` BIFs, ticks and `net_ticktime`.
+  - [ ] Runtime options of [node start options](../docs/distribution.md#node-start-options):
+    `--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`,
+    `--start-epmd`, `--no-epmd`, `--dist-listen`; parsed and kept until DIST4b starts
+    distribution with them.
+  - [ ] `--env APP KEY VALUE` for every application: the value parsed as a term, applied over the
+    `.app` resources before applications start; invalid terms stop the program as other invalid
+    runtime options do.
+  - [ ] Manifest `runtime_options` in `[targets.options]` built into the executable as defaults;
+    precedence manifest < `CLAUSE_FLAGS` < command line.
+  - [ ] `init:get_argument/1` and `get_arguments/0` report them under OTP's flag names
+    (`sname`, `setcookie`, `kernel` with `[["net_ticktime", "20"]]`, ...); the
+    `init:get_arguments/0` row of `differences.md` narrowed.
+- Tests
+  - [ ] Golden `runtime_env_options`: `--env` values seen by `application:get_env/2` and the
+    reported arguments (authored runs for Clause-only spellings, OTP's `-App Key Value` for the
+    rest).
+
+<a id="step-dist4b"></a>
+
+## DIST4b. Handshake, TCP carrier and first connections
+
+Backlog: F38. Depends on: [DIST2](#step-dist2), [DIST3](#step-dist3), [DIST4a](#step-dist4a).
+
+- Success criteria
+  - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's
+    `#hs_data{}` fields and `DFLAG_*` macros (written by Clause): the handshake of protocol 6
+    (`send_name`, challenge and reply digests from the cookie,
+    `ok`/`ok_simultaneous`/`nok`/`not_allowed`/`alive`/`named` statuses, simultaneous connects,
+    `DFLAG_NAME_ME` dynamic names), ticks and `net_ticktime`.
+  - [ ] `inet_tcp_dist` and `inet6_tcp_dist` over that interface (`listen`, `accept`,
+    `accept_connection`, `setup`, `close`, `select`, `address`, `is_node_name`), a controller
+    process over `gen_tcp` using the `dist_ctrl_*` BIFs.
   - [ ] First data path: `SEND_SENDER`, `REG_SEND`, `MONITOR_P`/`DEMONITOR_P`/`MONITOR_P_EXIT`
-    (enough for `gen:call/3` to `{net_kernel, Node}`), pass-through framing.
-  - [ ] Start: the DIST0 node options, `net_kernel:start/1,2`, `stop/0`, `connect_node/1`;
-    `auth` cookies (`erlang:set_cookie/1,2`, `get_cookie/0,1`, `~/.erlang.cookie` read or created
-    as OTP does); `net_adm:ping/1` answers `pong`.
+    (enough for `gen:call/3` to `{net_kernel, Node}`), pass-through framing, the offered flags of
+    [protocol](../docs/distribution.md#protocol).
+  - [ ] Start: distribution from the DIST4a options before the entry runs, `net_kernel:start/1,2`,
+    `stop/0`, `connect_node/1`; `auth` cookies (`erlang:set_cookie/1,2`, `get_cookie/0,1`,
+    `~/.erlang.cookie` read or created as OTP does); `net_adm:ping/1` answers `pong`.
   - [ ] `net_kernel:start/1,2` leaves `differences.md`.
 - Tests
   - [ ] Golden `dist_ping`: two Clause nodes register, ping and exchange messages to pids and to
@@ -167,7 +170,7 @@ Backlog: F38. Depends on: [DIST2](#step-dist2), [DIST3](#step-dist3).
 
 ## DIST5. Every signal across nodes
 
-Backlog: F38. Depends on: [DIST4](#step-dist4).
+Backlog: F38. Depends on: [DIST4b](#step-dist4b).
 
 - Success criteria
   - [ ] Control messages: `LINK`, `UNLINK_ID`/`UNLINK_ID_ACK`, `EXIT`/`EXIT2` and their payload
@@ -181,7 +184,6 @@ Backlog: F38. Depends on: [DIST4](#step-dist4).
     `noconnection`, node monitors `{nodedown, Node}`.
   - [ ] Auto-connect: signals to an unconnected node wait while `net_kernel` connects
     (`dist_auto_connect`); `erlang:send/3` `noconnect` and `nosuspend`.
-  - [ ] Large messages: fragments (`DFLAG_FRAGMENTS`) if DIST0 selects them.
 - Tests
   - [ ] Golden `dist_signals`: remote spawn, links, monitors, exits, group leaders, aliases and a
     node going down, between Clause nodes and with an OTP node (`host_otp`).
@@ -298,15 +300,17 @@ Backlog: F38. Depends on: [DIST5](#step-dist5).
 - Success criteria
   - [ ] `inet_tls_dist` and `inet6_tls_dist` over Clause's `ssl` (`-proto_dist inet_tls`,
     `ssl_dist_optfile`, `ssl_dist_opt`), certificate checks as OTP's.
-  - [ ] User carriers through the `-proto_dist` interface, if DIST0 selected them.
+  - [ ] A user carrier written against OTP's `dist_util` interface (the carrier guide's
+    `gen_tcp`-based example shape, own code) runs with `--proto-dist`.
 - Tests
   - [ ] Golden `dist_tls` between Clause nodes and with an OTP node (`host_otp`).
+  - [ ] Golden `dist_user_carrier` with the user carrier.
 
 <a id="step-dist13"></a>
 
 ## DIST13. Close distribution
 
-Backlog: F38. Depends on: [DIST0](#step-dist0)–[DIST12](#step-dist12).
+Backlog: F38. Depends on: [DIST1](#step-dist1)–[DIST12](#step-dist12).
 
 - Success criteria
   - [ ] `docs/distribution.md`, `docs/libraries/library.md` rows and `differences.md` describe
@@ -316,3 +320,14 @@ Backlog: F38. Depends on: [DIST0](#step-dist0)–[DIST12](#step-dist12).
     node) or the single-node scope recorded.
 - Tests
   - [ ] Full gate and `check-quality-all`.
+
+<a id="later"></a>
+
+## Later (optional optimizations, user 2026-10-30)
+
+- Fragments (`DFLAG_FRAGMENTS`): large messages split so they do not hold a connection; receiving
+  and sending.
+- The distribution header atom cache (`DFLAG_DIST_HDR_ATOM_CACHE`), with its strict ordering
+  needs.
+- `DFLAG_NATIVE_RECORDS` once `term_to_binary/1` supports native records; `DFLAG_ALTACT_SIG` if
+  Clause gets priority signals.
