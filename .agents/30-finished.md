@@ -13,4 +13,4 @@ Compact record of the network distribution plan, one bullet per step;
   creation cut and raised to 4), `get_creation/0`, OTP's `is_alive/0`, the name's end with
   net_kernel, every hard-coded `nonode@nohost` reads the name, `monitor_node/2,3` checks in OTP's
   order, exact-creation decoding, name monitors in `process_info/2`; DIST2 split into
-  DIST2a/2b/2c; `this_node` golden identical to OTP — `PENDING`
+  DIST2a/2b/2c; `this_node` golden identical to OTP — `b21f21fb`
