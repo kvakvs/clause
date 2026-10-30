@@ -8,4 +8,4 @@ Compact record of the network distribution plan, one bullet per step;
   KEY VALUE` with Clause node options); DIST4 split into DIST4a/DIST4b — `235c0f1b`
 - **DIST1** pids, ports and references of other nodes: `ExternalIdentityCell`, guards, `node/1`,
   OTP's order, printing and hashes, ETF in current and older encodings, copies, non-alive answers of
-  process builtins; `external_identities` golden identical to OTP — `PENDING`
+  process builtins; `external_identities` golden identical to OTP — `fde12357`
