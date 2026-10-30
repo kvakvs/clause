@@ -17,9 +17,9 @@ current behavior when its step lands.
   - TLS (`inet_tls`, `inet6_tls`) over Clause's [`ssl`](libraries/ssl.md), later.
   - User-written carriers through `--proto-dist`, over OTP's `dist_util` interface
     ([carriers](#carriers)).
-- **Node discovery:** epmd ([epmd](#epmd)), custom epmd modules through the `kernel` parameter
-  `epmd_module` (the `erl_epmd` callbacks), and epmd-less nodes (`erl_epmd_node_listen_port`,
-  `--no-epmd` with a carrier that needs no epmd).
+- **Node discovery:** epmd ([epmd](#epmd)): bundled inside the program, a standalone
+  `clause-epmd`, or OTP's; custom epmd modules through the `kernel` parameter `epmd_module` (the
+  `erl_epmd` callbacks); nodes without epmd (`erl_epmd_node_listen_port`).
 - **Node kinds:** hidden nodes, dynamic node names (`--name undefined`), nodes that do not listen
   (`--dist-listen false`).
 - **Left out unless a later step selects them:**
@@ -66,7 +66,8 @@ The work is split as in OTP: the runtime moves signals, and Erlang code makes co
     `{nodedown, Node}`);
   - OTP's process-controller interface: `erlang:setnode/2,3`, the `dist_ctrl_*` functions,
     `dist_get_stat/1`, `erts_internal:new_connection/1`, `abort_pending_connection/2`,
-    `get_creation/0`, `dynamic_node_name/0,1` and `get_dflags/0`.
+    `get_creation/0`, `dynamic_node_name/0,1` and `get_dflags/0`;
+  - the epmd server, shared by the bundled epmd and `clause-epmd` ([epmd](#epmd)).
 - **Libraries (Erlang, written from OTP's documentation, never from its sources):**
   - `net_kernel`, `auth` and the `erl_epmd` client;
   - `dist_util` and the TCP carriers `inet_tcp_dist` and `inet6_tcp_dist` (in `library/kernel`). A
@@ -92,24 +93,40 @@ User carriers are supported through OTP's interface:
 
 ## epmd
 
-- A node starts epmd when it starts distribution with epmd (the default, `--start-epmd true`) and
-  nothing listens on the epmd port.
-- The node does not run epmd inside itself, because epmd must outlive it. It starts a detached copy
-  of its own executable with the runtime option `--epmd-daemon`.
-- That copy runs the runtime's C++ epmd and nothing else: no schedulers and no Erlang code. It
-  serves OTP's epmd protocol: `ALIVE2` (with the `ALIVE2_X` reply), `PORT_PLEASE2`, `NAMES`,
-  `DUMP`, `KILL` and `STOP`. A registration ends when its node's connection to epmd closes.
-- The copy stops only when it is killed or asked to stop (`KILL`). OTP's epmd allows `STOP` and
-  `KILL` only with `-relaxed_command_check`, and Clause's daemon does the same.
-- **Detaching:**
-  - Windows: a new process group, no console and no inherited handles.
-  - POSIX: `setsid` after a double fork, with standard I/O on `/dev/null`.
-- An epmd that already runs is used as it is, whether OTP's or another Clause program's.
-- When two nodes start one at the same time, the second daemon cannot bind and exits quietly. Nodes
-  retry the connection to epmd for a short time.
-- `ERL_EPMD_PORT` (default 4369) and `ERL_EPMD_ADDRESS` work as for OTP's epmd.
-- `prog --epmd-daemon` also runs the daemon by hand. `--epmd-daemon --foreground` keeps it attached
-  to the console; the test runner uses it this way.
+Clause can provide epmd in two forms, built from the same C++ epmd code in the runtime. Both serve
+OTP's epmd protocol: `ALIVE2` (with the `ALIVE2_X` reply), `PORT_PLEASE2`, `NAMES`, `DUMP`,
+`KILL` and `STOP`. A registration ends when its node's connection to epmd closes, and `STOP` and
+`KILL` are accepted only with `-relaxed_command_check`, as in OTP's epmd. `ERL_EPMD_PORT` (default
+4369) and `ERL_EPMD_ADDRESS` work as for OTP's epmd.
+
+- **Bundled epmd (built in by default):** the program's executable carries the epmd. It runs inside
+  the program, on a runtime thread with no Erlang processes, and only while the program runs.
+  - `clau --no-bundled-epmd`, or `bundled_epmd = false` in `[targets.options]`, leaves it out.
+  - It serves every node on the host, not only its own program. When the program exits, the other
+    nodes lose their registrations, and new connections to them fail until they register again.
+    Clusters that outlive one program use `external` with `clause-epmd`.
+- **`clause-epmd` executable (optional):** `clau --epmd-executable`, or `epmd_executable = true` in
+  `[targets.options]`, also writes `clause-epmd` (`clause-epmd.exe` on Windows) beside the output.
+  - It is a small standalone program with no Erlang code.
+  - It takes a subset of OTP's `epmd` flags: `-daemon`, `-port P`, `-address LIST`,
+    `-relaxed_command_check`, `-names` and `-kill`.
+  - `-daemon` detaches it. On Windows that means a new process group, no console and no inherited
+    handles; on POSIX, `setsid` after a double fork, with standard I/O on `/dev/null`.
+
+The runtime option `--epmd MODE` chooses what happens when distribution starts, at startup or by
+`net_kernel:start/1,2`:
+
+| Mode | When an epmd already listens | When none listens |
+| --- | --- | --- |
+| `bundled` (default) | Register with it | Run the bundled epmd inside the program, then register |
+| `external` | Register with it | Start `clause-epmd -daemon` (the program's directory first, then `PATH`) or OTP's `epmd -daemon` from `PATH`, then register; distribution fails to start if neither is found |
+| `none` | Register with it | Distribution fails to start |
+
+- A program built without the bundled epmd treats `bundled` as `none` and prints a warning once.
+- When two programs start an epmd at the same time, the one that cannot bind gives way. The nodes
+  retry their connection to epmd for a short time.
+- Nodes without epmd stay possible through the `kernel` parameters `epmd_module` (a custom
+  `erl_epmd` callback module) and `erl_epmd_node_listen_port`.
 
 ## Node start options
 
@@ -131,14 +148,13 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
 | `--nocookie` | `-nocookie` | No cookie until `erlang:set_cookie/1,2` |
 | `--hidden` | `-hidden` | Hidden node |
 | `--proto-dist PROTO` | `-proto_dist` | Carrier module `PROTO_dist`; default `inet_tcp` |
-| `--start-epmd true\|false` | `-start_epmd` | Start epmd when none runs; default `true` |
-| `--no-epmd` | `-no_epmd` | No epmd and no `erl_epmd` process (carriers that need none) |
+| `--epmd bundled\|external\|none` | `-start_epmd` | What to do when no epmd runs ([epmd](#epmd)); default `bundled` |
 | `--dist-listen true\|false` | `-dist_listen` | Accept incoming connections; `false` implies `--hidden` |
 | `--env APP KEY VALUE` | `-App Key Value` | Sets `APP`'s environment parameter `KEY` to the term `VALUE` before applications start, over the `.app` resources (for example `--env kernel net_ticktime 20`). It works for every application, not only for distribution |
-| `--epmd-daemon` | `epmd -daemon` | Runs epmd instead of the program ([epmd](#epmd)) |
 
 - `init:get_argument/1` and `init:get_arguments/0` report these options under OTP's flag names:
-  - `sname`, `name`, `setcookie`, `hidden`, `proto_dist`, `start_epmd`, `no_epmd`, `dist_listen`;
+  - `sname`, `name`, `setcookie`, `hidden`, `proto_dist`, `dist_listen`, and `start_epmd`
+    (`"false"` for `--epmd none`, `"true"` otherwise);
   - `--env kernel net_ticktime 20` as `kernel` with `[["net_ticktime", "20"]]`.
 - The `kernel` parameters distribution reads, as in OTP:
   - `net_ticktime`, `net_tickintensity`, `net_setuptime`;
@@ -148,8 +164,8 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
   - `epmd_module`, `erl_epmd_node_listen_port`;
   - `prevent_overlapping_partitions`, `global_groups`;
   - `distributed`, `sync_nodes_mandatory`, `sync_nodes_optional`, `sync_nodes_timeout`.
-- `net_kernel:start/1,2` starts distribution in a running program, as in OTP. It needs a running
-  epmd unless the node runs without one.
+- `net_kernel:start/1,2` starts distribution in a running program, as in OTP, under the same
+  `--epmd` mode.
 
 ## Testing
 
@@ -158,9 +174,11 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
     or `otp`), its expected stdout and exit status, and a stderr pattern. All nodes run the same
     program, with roles chosen by argument.
   - The runner gives each case its own epmd port (`ERL_EPMD_PORT`), so cases run in parallel and
-    never touch a user's epmd. It starts a foreground `--epmd-daemon` on that port, starts the nodes
-    with a fixed cookie, collects each node's output, and stops everything at the end or on a
-    timeout.
+    never touch a user's epmd. It starts a foreground `clause-epmd -port N` (built once by the test
+    build) and runs the nodes with `--epmd none` and a fixed cookie. It collects each node's output
+    and stops everything at the end or on a timeout.
+  - Cases of the bundled and external modes start no runner epmd and check which epmd the nodes
+    find.
   - Host names in output are masked with `stdout_masks`.
 - **Goldens** come from OTP nodes (`erl -sname`) on the same kind of epmd port, generated once.
 - **Interop cases** mix `clause` and `otp` nodes. They carry the CTest label `host_otp` and skip

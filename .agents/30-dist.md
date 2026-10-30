@@ -21,8 +21,9 @@ direction); formerly backlog item F38.
   choices):
   - OTP 29 wire compatibility (protocol 6, OTP 26's mandatory flags); OTP's split: the runtime
     moves signals behind the process-controller interface, Erlang library code connects.
-  - epmd: the executable starts a detached copy of itself (`--epmd-daemon`) running the runtime's
-    C++ epmd when none listens.
+  - epmd (replanned 2026-10-30, user): a bundled epmd inside the program by default, an optional
+    standalone `clause-epmd` executable, and `--epmd bundled|external|none` choosing what happens
+    when no epmd runs.
   - User carriers through OTP's `dist_util` interface and `#hs_data{}` record.
   - Node options `--sname`, `--name`, `--setcookie`, `--hidden`, `--proto-dist`, ... and a general
     `--env APP KEY VALUE`, from the command line, `CLAUSE_FLAGS` and the manifest's
@@ -92,27 +93,53 @@ Depends on: [DIST1](#step-dist1).
     DIST4b/DIST5 goldens.
 
 <a id="step-dist3"></a>
+<a id="step-dist3a"></a>
 
-## DIST3. epmd client and Clause's epmd
+## DIST3a. epmd client, bundled epmd and the multi-node runner
 
 Depends on: DIST0 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `erl_epmd` client over the epmd protocol: `register_node/2,3`, `port_please/2,3`,
     `names/0,1`, `address_please/3`, `listen_port_please/2`; the declined server functions
-    (`start/0`, `start_link/0`, `stop/0`, `open/0,1,2`, callbacks) implemented; `ERL_EPMD_PORT`.
-  - [ ] The runtime's C++ epmd behind `--epmd-daemon` (`--foreground` for tests): `ALIVE2`
-    (`ALIVE2_X` reply), `PORT_PLEASE2`, `NAMES`, `DUMP`, `KILL`, `STOP` with OTP's command checks,
-    a registration ends with its connection; `ERL_EPMD_PORT`, `ERL_EPMD_ADDRESS`.
-  - [ ] Starting it: a detached copy of the executable (Windows new process group without console
-    or inherited handles; POSIX double fork and `setsid`), a lost bind race exits quietly, nodes
-    retry the epmd connection briefly; an already running epmd (OTP's or Clause's) is used.
+    (`start/0`, `start_link/0`, `stop/0`, `open/0,1,2`, callbacks) implemented; `ERL_EPMD_PORT`,
+    `ERL_EPMD_ADDRESS`.
+  - [ ] The runtime's C++ epmd ([epmd](../docs/distribution.md#epmd)): `ALIVE2` (`ALIVE2_X` reply),
+    `PORT_PLEASE2`, `NAMES`, `DUMP`, `KILL`, `STOP` with OTP's command checks; a registration ends
+    with its connection. Written so the bundled epmd and DIST3b's `clause-epmd` share it.
+  - [ ] The bundled epmd: carried in executables by default, run on a runtime thread while the
+    program runs when no epmd listens; a lost bind race gives way, nodes retry the epmd
+    connection briefly.
+  - [ ] Runtime option `--epmd bundled|external|none` (default `bundled`; `external` lands in
+    DIST3b), applied whenever distribution starts.
   - [ ] The multi-node fixture runner ([testing](../docs/distribution.md#testing)): per-case epmd
     port, nodes of kind `clause` or `otp`, per-node stdout, exit status and stderr pattern.
   - [ ] `net_adm:names/0,1` ask epmd (removes its `differences.md` row).
 - Tests
-  - [ ] Golden of epmd registrations and `names` with two registered names; interop against OTP's
-    `epmd` (`host_otp`).
+  - [ ] Golden of epmd registrations and `names` with two registered names, once on the runner's
+    epmd and once on a bundled one; interop against OTP's `epmd` (`host_otp`).
+
+<a id="step-dist3b"></a>
+
+## DIST3b. `clause-epmd` executable and the external mode
+
+Depends on: [DIST3a](#step-dist3a).
+
+- Success criteria
+  - [ ] `clau --epmd-executable` and manifest `epmd_executable = true` write `clause-epmd` beside
+    the output: the shared C++ epmd with a subset of OTP's `epmd` flags (`-daemon`, `-port`,
+    `-address`, `-relaxed_command_check`, `-names`, `-kill`).
+  - [ ] `-daemon` detaches (Windows: new process group, no console, no inherited handles; POSIX:
+    double fork and `setsid`, standard I/O on `/dev/null`).
+  - [ ] `clau --no-bundled-epmd` and manifest `bundled_epmd = false` leave the bundled epmd out;
+    such a program treats `--epmd bundled` as `none` with one warning.
+  - [ ] `--epmd external`: start `clause-epmd -daemon` (the program's directory, then `PATH`) or
+    OTP's `epmd -daemon` from `PATH` when no epmd listens; distribution fails to start when neither
+    is found.
+  - [ ] The test build makes `clause-epmd` for the runner.
+- Tests
+  - [ ] Golden of the external mode with `clause-epmd` found beside the program, and of
+    `--epmd none` failing without an epmd; `clause-epmd -names` and `-kill` output.
 
 <a id="step-dist4"></a>
 <a id="step-dist4a"></a>
@@ -124,7 +151,7 @@ Depends on: DIST0 ([30-finished](30-finished.md)).
 - Success criteria
   - [ ] Runtime options of [node start options](../docs/distribution.md#node-start-options):
     `--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`,
-    `--start-epmd`, `--no-epmd`, `--dist-listen`; parsed and kept until DIST4b starts
+    `--dist-listen` (`--epmd` comes with DIST3a); parsed and kept until DIST4b starts
     distribution with them.
   - [ ] `--env APP KEY VALUE` for every application: the value parsed as a term, applied over the
     `.app` resources before applications start; invalid terms stop the program as other invalid
@@ -143,7 +170,7 @@ Depends on: DIST0 ([30-finished](30-finished.md)).
 
 ## DIST4b. Handshake, TCP carrier and first connections
 
-Depends on: [DIST2](#step-dist2), [DIST3](#step-dist3), [DIST4a](#step-dist4a).
+Depends on: [DIST2](#step-dist2), [DIST3a](#step-dist3a), [DIST4a](#step-dist4a).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's
