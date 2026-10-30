@@ -6,7 +6,7 @@
 
 // module_loaded/1, loaded/0, pre_loaded/0, delete_module/1, prepare_loading/2, finish_loading/1 and
 // get_module_info/1,2 (plan step 41H, docs/builtins.md#code-loading). Every module is linked into the program and
-// stays loaded (step 71 decides about dynamic code): loaded/0 and pre_loaded/0 list them all, no binary can be
+// stays loaded (step RT1 decides about dynamic code): loaded/0 and pre_loaded/0 list them all, no binary can be
 // prepared for loading, and deleting a loaded module raises notsup.
 namespace clause::runtime::builtins {
 namespace {

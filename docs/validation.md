@@ -176,7 +176,7 @@ never stand in for a whole-test pass.
 
 - Native generated-code execution: Windows x64; Linux x86-64. 32-bit and ARM
   results (runtime tests and cross-linked goldens) are in the history.
-- Apple Silicon: not validated since the backend exists (plan 11 step 66).
+- Apple Silicon: not validated since the backend exists (plan 11 step VAL1).
 - Compiler and runtime ASan, UBSan and LeakSanitizer: Linux x86-64, one combined
   Debug configuration
   (`-fsanitize=address,undefined -fno-sanitize=vptr -fno-sanitize-recover=undefined`),

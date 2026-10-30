@@ -25,8 +25,8 @@ gotchas and user directions not recorded elsewhere.
   s at -j 16. Tidy default jobs = half the logical cores. Keep slow tests parallel. Keep 20-25% CPUs
   free.
 - Tidy/Lizard run on the Windows dev host only; other platforms build+test.
-- All ABI symbol/namespace versions collapse to v1 in plan step 78A (never released).
-- 78B: rename runtime/src/builtins files to builtin_<name>.
+- All ABI symbol/namespace versions collapse to v1 in plan step RT4 (never released).
+- RT5: rename runtime/src/builtins files to builtin_<name>.
 - External Term Format code is shared (abi/include/clause/abi/external_term.hpp Writer/Reader);
   never reimplement it.
 - Inference: guards/patterns define a function's entry domain; uses narrow operands after them.

@@ -248,7 +248,7 @@ Each function in a provided module has one of four statuses:
 | `declined` | Retains stub behavior with a recorded reason for exclusion, such as distribution or code loading |
 
 Stub behavior follows the [`erlang` stubs](../builtins.md#erlang-module). Declined features are
-tracked in [step 71](../../.agents/11-plan.md#step-71). Functions directly supported by existing
+tracked in [step RT1](../../.agents/11-plan.md#step-rt1). Functions directly supported by existing
 runtime services are implemented without a separate classification decision.
 
 A function implemented by a catalog builtin retains its export and the placeholder body

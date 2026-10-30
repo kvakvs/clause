@@ -392,7 +392,7 @@ stdout are pipes of the port:
 - Clause's `file` is the file layer; Clause's `filelib` and `filename` run on
   it (`filelib:fold_files/5` uses `re`); `erl_prim_loader` is provided over `file`
   with OTP's bare `error` answers and a loader path of `["."]` (`set_path/1`),
-  its loading and archive functions declined until plan step 71; `prim_file` and
+  its loading and archive functions declined until plan step RT1; `prim_file` and
   `prim_buffer` stay missing, so OTP's `raw_file_io*` callers never enter a
   program.
 - Errors follow OTP: `{error, enoent}`, `eexist`, `eisdir` (a directory opened
