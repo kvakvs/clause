@@ -3,10 +3,11 @@
 How a Clause executable becomes a distributed Erlang node. Decided in plan 30 step DIST0
 (2026-10-30); the steps that implement it are in [plan 30](../.agents/30-dist.md).
 
-**Today** a program is a non-distributed node, `nonode@nohost`. It has only local pids, ports and
-references, and the libraries answer as OTP does without distribution (`{badrpc, nodedown}`,
-`pang`, `not_alive`). The rest of this file is the contract for distribution. Each section becomes
-current behavior when its step lands.
+**Today** a program is a non-distributed node, `nonode@nohost`. Pids, ports and references of
+other nodes exist as terms ([terms](terms.md#identities-of-other-nodes), DIST1), and the libraries
+answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The rest of
+this file is the contract for distribution. Each section becomes current behavior when its step
+lands.
 
 ## Scope
 

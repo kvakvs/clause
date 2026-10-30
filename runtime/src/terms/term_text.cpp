@@ -89,7 +89,7 @@ class Renderer final {
         if (term.is_function()) {
             return detail::print_fun(term, style_, out_);
         }
-        if (term.is_pid() || term.is_port() || term.is_reference()) {
+        if (detail::is_identity(term)) {
             return detail::print_identity(term, out_);
         }
         return term.is_bitstring() ? detail::print_bits(term, style_, out_) : open(term);

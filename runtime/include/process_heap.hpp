@@ -84,6 +84,7 @@ struct FloatAccess;
 struct MapAccess;
 struct BitAccess;
 struct HandleAccess;
+struct ExternalAccess;
 struct TermAccess;
 class MessageBuffer;
 } // namespace detail
@@ -204,6 +205,7 @@ class ProcessHeap final {
     friend struct detail::MapAccess;
     friend struct detail::BitAccess;
     friend struct detail::HandleAccess;
+    friend struct detail::ExternalAccess;
     friend struct detail::TermAccess;
     friend class detail::MessageBuffer;
     // Bind one process owner and validate heap limits before creating lazy backing storage.

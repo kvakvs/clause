@@ -157,16 +157,19 @@ llvm::Value *map_test(ExpressionLowering &state, llvm::Value *value) {
     return boxed(state, value, {HeaderKind::map, HeaderKind::tree_map});
 }
 
+// A local pid word, or a cell of another node's pid (plan 30 step DIST1); ports alike.
 llvm::Value *pid_test(ExpressionLowering &state, llvm::Value *value) {
-    return tagged(state, value, abi::v1::immediate_tag_mask, abi::v1::pid_tag);
+    return state.builder.CreateOr(tagged(state, value, abi::v1::immediate_tag_mask, abi::v1::pid_tag),
+                                  boxed(state, value, {HeaderKind::external_pid}));
 }
 
 llvm::Value *port_test(ExpressionLowering &state, llvm::Value *value) {
-    return tagged(state, value, abi::v1::immediate_tag_mask, abi::v1::port_tag);
+    return state.builder.CreateOr(tagged(state, value, abi::v1::immediate_tag_mask, abi::v1::port_tag),
+                                  boxed(state, value, {HeaderKind::external_port}));
 }
 
 llvm::Value *reference_test(ExpressionLowering &state, llvm::Value *value) {
-    return boxed(state, value, {HeaderKind::reference});
+    return boxed(state, value, {HeaderKind::reference, HeaderKind::external_reference});
 }
 
 llvm::Value *function_test(ExpressionLowering &state, llvm::Value *value) {

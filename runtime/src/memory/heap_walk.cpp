@@ -32,6 +32,21 @@ std::optional<std::size_t> fixed_payload(BoxedKind kind, std::size_t all) {
     }
 }
 
+// Whether the payload size suits an identity of another node, whose node atom is its one term after its creation and
+// numbers (plan 30 step DIST1): two numbers for a pid or port, up to five for a reference. None for any other kind.
+std::optional<bool> external_size(BoxedKind kind, std::size_t all) {
+    switch (kind) {
+    case BoxedKind::ext_pid:
+    case BoxedKind::ext_port:
+        return all == layout::external_payload_words(2);
+    case BoxedKind::ext_ref:
+        return all >= layout::external_payload_words(0) &&
+               all <= layout::external_payload_words(layout::MAX_EXTERNAL_NUMBERS);
+    default:
+        return std::nullopt;
+    }
+}
+
 // Whether the payload size suits a kind whose two untraced words precede its terms: a sub-binary's offset and length,
 // then its original (OPT1.4B); a map tree stub's or node's size and edit word, then its root, or keys and values or
 // children (on-heap map trees). None for any other kind.
@@ -48,6 +63,18 @@ std::optional<bool> prefixed_size(BoxedKind kind, std::size_t all) {
     }
 }
 
+// The untraced words of the kinds whose terms follow a prefix: two words, or every word but an identity's node
+// atom (plan 30 step DIST1); none for any other kind.
+std::optional<std::expected<std::size_t, WalkError>> prefixed(BoxedKind kind, std::size_t all) {
+    if (const auto valid = prefixed_size(kind, all)) {
+        return sized(*valid, 2);
+    }
+    if (const auto valid = external_size(kind, all)) {
+        return sized(*valid, all - 1);
+    }
+    return std::nullopt;
+}
+
 // Check the payload size each admitted kind requires and count the untraced words before its terms; a payload
 // without terms is untraced throughout. A native record's or fun's definition word precedes its values.
 std::expected<std::size_t, WalkError> untraced(BoxedKind kind, std::span<const Word> payload) {
@@ -55,8 +82,8 @@ std::expected<std::size_t, WalkError> untraced(BoxedKind kind, std::span<const W
     if (const auto words = fixed_payload(kind, all)) {
         return sized(all == *words, all);
     }
-    if (const auto valid = prefixed_size(kind, all)) {
-        return sized(*valid, 2);
+    if (const auto words = prefixed(kind, all)) {
+        return *words;
     }
     switch (kind) {
     case BoxedKind::tuple:

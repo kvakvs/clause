@@ -114,10 +114,13 @@ TermResult<Term> left_term(ProcessContext &context, std::optional<std::int64_t> 
 // with info the message {Tag, Ref, Result}.
 TermResult<Term> timer_query(ProcessContext &context, const Term &reference, bool cancel, bool async, bool info,
                              std::string_view tag) {
-    if (!reference.is_reference()) {
+    if (!reference.is_reference() && !reference.is_external_reference()) {
         bad_argument();
     }
-    const auto left = detail::Executor::timer_left(context, need(detail::reference_number(reference)), cancel);
+    // Another node's reference names no timer of this node (plan 30 step DIST1).
+    const auto left = reference.is_reference()
+                          ? detail::Executor::timer_left(context, need(detail::reference_number(reference)), cancel)
+                          : std::nullopt;
     TermFactory factory(context);
     if (!async) {
         return info ? left_term(context, left) : factory.atom("ok"_atom);

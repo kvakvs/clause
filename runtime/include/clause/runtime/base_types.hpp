@@ -70,6 +70,11 @@ enum class TermKind : std::uint8_t {
     native_record,
     // A fun: a local function or anonymous fun with its captured values, or an external fun M:F/A.
     function,
+    // A pid, port or reference of another node (plan 30 step DIST1, docs/terms.md#identities-of-other-nodes): a cell
+    // holding the node's name and creation and the identity's numbers.
+    external_pid,
+    external_port,
+    external_reference,
 };
 
 // Private object kinds distinguish layouts; these numeric IDs are provisional.
@@ -88,6 +93,7 @@ enum class BoxedKind : std::uint8_t {
     heap_binary = 9, // a locally heap-contained data blob
     sub_binary = 10,
     match_context = 11, // something created by binary matching?
+    // Identities of other nodes (plan 30 step DIST1): layout::ExternalIdentityCell.
     ext_pid = 12,
     ext_port = 13,
     ext_ref = 14,

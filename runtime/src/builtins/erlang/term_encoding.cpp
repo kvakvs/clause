@@ -31,9 +31,6 @@ namespace clause::runtime::builtins {
 namespace {
 namespace external = abi::external;
 
-// The node every identity of a non-distributed program names.
-constexpr std::string_view LOCAL_NODE = "nonode@nohost";
-
 // The zlib level of the plain `compressed` option, as OTP's.
 constexpr int Z_DEFAULT_LEVEL = 6;
 
@@ -262,20 +259,22 @@ class Encoder {
         }
     }
 
-    // Pids, ports, references and external funs; anything else is unsupported.
+    // Pids, ports, references of every node and external funs; anything else is unsupported.
     void identity(const Term &term) {
-        if (term.is_pid()) {
+        if (const auto other = detail::ExternalAccess::read(term)) {
+            external_identity(*other);
+        } else if (term.is_pid()) {
             const auto number = detail::pid_number(term.word());
             writer_.pid();
-            atom(LOCAL_NODE);
+            atom(detail::this_node_name());
             writer_.identity_word(static_cast<std::uint32_t>(number & 0x0FFF'FFFFU));
             writer_.identity_word(static_cast<std::uint32_t>(number >> 28U));
-            writer_.creation(0);
+            writer_.creation(detail::this_node_creation());
         } else if (term.is_port()) {
             writer_.port();
-            atom(LOCAL_NODE);
+            atom(detail::this_node_name());
             writer_.port_number(detail::port_number(term.word()));
-            writer_.creation(0);
+            writer_.creation(detail::this_node_creation());
         } else if (term.is_reference()) {
             reference(need(detail::reference_number(term)));
         } else {
@@ -283,11 +282,36 @@ class Encoder {
         }
     }
 
+    // A pid, port or reference of another node in OTP's newest encodings, its node atom first (plan 30 step DIST1).
+    void external_identity(const detail::ExternalIdentity &identity) {
+        const auto &numbers = identity.numbers;
+        if (identity.kind == TermKind::external_reference) {
+            writer_.reference(identity.count);
+            atom_word(identity.node);
+            writer_.creation(identity.creation);
+            for (std::size_t index = 0; index < identity.count; ++index) {
+                writer_.identity_word(numbers.at(index));
+            }
+            return;
+        }
+        if (identity.kind == TermKind::external_pid) {
+            writer_.pid();
+            atom_word(identity.node);
+            writer_.identity_word(numbers[0]);
+            writer_.identity_word(numbers[1]);
+        } else {
+            writer_.port();
+            atom_word(identity.node);
+            writer_.port_number(std::uint64_t{numbers[1]} << 32U | numbers[0]);
+        }
+        writer_.creation(identity.creation);
+    }
+
     // A reference's 3 words: the low 18 bits, the next 32 and the rest.
     void reference(std::uint64_t number) {
         writer_.reference(3);
-        atom(LOCAL_NODE);
-        writer_.creation(0);
+        atom(detail::this_node_name());
+        writer_.creation(detail::this_node_creation());
         writer_.identity_word(static_cast<std::uint32_t>(number & 0x3FFFFU));
         writer_.identity_word(static_cast<std::uint32_t>((number >> 18U) & 0xFFFF'FFFFU));
         writer_.identity_word(static_cast<std::uint32_t>(number >> 50U));

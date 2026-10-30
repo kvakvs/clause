@@ -241,6 +241,41 @@ in [abi.md](abi.md#terms).
   Pids order by number, references by number, so later references of a program
   order after earlier ones.
 
+## Identities of other nodes
+
+Pids, ports and references of other nodes come from `binary_to_term/1,2`
+(plan 30 step DIST1, [distribution](distribution.md)). Each is a cell holding
+the node's creation, the identity's numbers and, last, the node name atom: a
+pid's 32-bit number and serial, a port's 64-bit number, or a reference's zero to
+five 32-bit words.
+
+- **This node:** `nonode@nohost` with creation 0 until distribution starts. An
+  encoded identity naming this node with its creation or creation 0 decodes to a
+  local one; under another creation it stays another incarnation's identity, as
+  in OTP.
+- **Guards and `node/1`:** `is_pid/1`, `is_port/1` and `is_reference/1` accept
+  every node's identities; `node/1` returns the node atom.
+- **Order and equality:** as OTP orders them. Pids order by serial, number and
+  then node; ports and references by node and then numbers (a reference's words
+  from the most significant, a missing word counting as zero). Nodes order by
+  name, then creation.
+- **Printing:** `<C.Number.Serial>`, `#Port<C.Number>`, `#Ref<C.Wn....W0>`, with
+  `C` 0 for this node's name and the node atom's number otherwise. OTP prints
+  its own atom index there, so the number differs from OTP's
+  ([differences](differences.md)).
+- **Hashes:** `phash/2` and `phash2/1,2` hash the numbers only, as OTP does.
+- **Encoding:** `term_to_binary` writes `NEW_PID_EXT`, `V4_PORT_EXT` and
+  `NEWER_REFERENCE_EXT`; `binary_to_term` also reads `PID_EXT`, `PORT_EXT`,
+  `NEW_PORT_EXT`, `REFERENCE_EXT` and `NEW_REFERENCE_EXT`.
+- **Copies:** messages, ETS, persistent terms and collections copy the cell; the
+  node atom is its one traced word.
+- **Process builtins** on a node that is not distributed answer as OTP does: a
+  message to another node's pid or reference is dropped (`noconnect` with that
+  `send/3` option), a message to another node's port is `badarg`, `exit/2` and
+  `unlink/1` return `true`, `cancel_timer/1` and `read_timer/1` return `false`,
+  and local-only builtins (`is_process_alive/1`, `process_info/1,2`,
+  `register/2`, port builtins, timers aimed at the pid) are `badarg`.
+
 ## Comparison and order
 
 Iterative with no work cap, as in OTP: only memory for pending pairs bounds a

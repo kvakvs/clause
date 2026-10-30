@@ -22,15 +22,12 @@
 #include <zlib.h>
 
 // binary_to_term/1,2 (plan step 41E, docs/builtins.md#external-term-format): decodes iteratively, checking every
-// length against the input before allocating; malformed input, identities of another node and pids this program
-// never created are badarg, compressed input is inflated first (plan step 41Q). Bytes after the term are ignored, as in
-// OTP.
+// length against the input before allocating; malformed input and pids of this node the program never created are
+// badarg, identities of other nodes become their cells (plan 30 step DIST1), compressed input is inflated first (plan
+// step 41Q). Bytes after the term are ignored, as in OTP.
 namespace clause::runtime::builtins {
 namespace {
 namespace external = abi::external;
-
-// The node every identity of a non-distributed program names.
-constexpr std::string_view LOCAL_NODE = "nonode@nohost";
 
 // The binary_to_term/2 options.
 struct DecodeOptions {
@@ -307,12 +304,14 @@ class Decoder {
         return reinterpret_cast<Word>(words.data()) | static_cast<Word>(TermKindPrimary::list);
     }
 
-    // A pid, port or reference of the local node; another node's is badarg.
+    // A pid, port or reference: this node's when it names this node with its creation or creation 0, as OTP
+    // decides, else another node's (plan 30 step DIST1).
     Term identity(external::Item item) {
-        const auto node = reader_.atom();
+        const auto node = atom(reader_.atom());
         reader_.identity(item);
-        if (node.bytes_ != LOCAL_NODE) {
-            bad_argument();
+        if (node.atom_spelling_unchecked() != detail::this_node_name() ||
+            (item.creation_ != 0 && item.creation_ != detail::this_node_creation())) {
+            return external_identity(item, node);
         }
         if (item.kind_ == external::ItemKind::reference) {
             return reference(item);
@@ -327,9 +326,31 @@ class Decoder {
         return *term;
     }
 
-    // A reference of up to 3 words: the low 18 bits, the next 32 and the rest.
+    // An identity of another node, its numbers kept as read (plan 30 step DIST1).
+    Term external_identity(const external::Item &item, const Term &node) {
+        detail::ExternalIdentity identity;
+        identity.node = node.word();
+        identity.creation = item.creation_;
+        const auto number = [&](std::size_t index) { return static_cast<std::uint32_t>(item.identity_.at(index)); };
+        if (item.kind_ == external::ItemKind::reference) {
+            identity.kind = TermKind::external_reference;
+            identity.count = item.count_;
+            for (std::size_t index = 0; index < item.count_; ++index) {
+                identity.numbers.at(index) = number(index);
+            }
+        } else {
+            identity.kind = item.kind_ == external::ItemKind::pid ? TermKind::external_pid : TermKind::external_port;
+            identity.count = 2;
+            identity.numbers = {number(0), item.kind_ == external::ItemKind::pid
+                                               ? number(1)
+                                               : static_cast<std::uint32_t>(item.identity_[0] >> 32U)};
+        }
+        return need(detail::ExternalAccess::make(context_.heap(), identity));
+    }
+
+    // A reference of 1 to 3 words: the low 18 bits, the next 32 and the rest.
     Term reference(const external::Item &item) {
-        if (item.count_ > 3 || item.identity_[0] >= (std::uint64_t{1} << 18)) {
+        if (item.count_ == 0 || item.count_ > 3 || item.identity_[0] >= (std::uint64_t{1} << 18)) {
             bad_argument();
         }
         const auto number = item.identity_[2] << 50U | item.identity_[1] << 18U | item.identity_[0];

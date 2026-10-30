@@ -51,7 +51,8 @@ inline std::size_t untraced_words(BoxedKind kind, std::size_t payload) noexcept 
     case BoxedKind::map_node:
         return 2;
     default:
-        return payload;
+        // An identity of another node traces its last word, the node atom (plan 30 step DIST1).
+        return payload - static_cast<std::size_t>(layout::external_identity_kind(kind));
     }
 }
 

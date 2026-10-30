@@ -71,7 +71,7 @@ Cons cells have no header; they contain exactly a head term and a tail term.
 |---|---|---|
 | `BignumCell` | Native C++ layout | Owned Boost value; no term slots; may need alignment stronger than a word |
 | `FloatCell` | One word + 8 bytes | IEEE binary64 bytes, no traced slots |
-| `RemoteIdentityCell` | 3 words | Registry ID untraced, remote-host term traced |
+| `ExternalIdentityCell` | 2 words + numbers + 1 | Creation and 2 to 5 numbers untraced, the node atom last and traced |
 | `ConsCell` | 2 words | Head and tail traced |
 | `TupleCell` | 1 word | Arity consecutive term slots |
 | `MapCell` | 1 word | Key/value term pairs |

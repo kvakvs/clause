@@ -83,7 +83,9 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   Erlang errors vs infrastructure failures; startup parses runtime options and runs the entry.
 - **Code server**: registered modules, exports, builtins, literal heaps, atom caches, interpreted
   modules (from `clause_interp`).
-- **Terms**: one-word tagged terms (ERTS-like), all Erlang kinds, term order and printing.
+- **Terms**: one-word tagged terms (ERTS-like), all Erlang kinds, term order and printing. Pids, ports and
+  references of other nodes are `ExternalIdentityCell`s (node atom traced last); this node's name and
+  creation are process-wide (`detail::this_node_*`, plan 30 DIST1, `docs/distribution.md`).
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

@@ -1,4 +1,5 @@
 #include "floats.hpp"
+#include "identities.hpp"
 #include "immediate_order.hpp"
 #include "immediate_terms.hpp"
 #include "service_errors.hpp"
@@ -34,12 +35,23 @@ Result boolean(ProcessContext &context, bool value) {
     return term->word();
 }
 
-// Predicates classify admitted representations; ports do not exist, so is_port/1 is always false.
+// Predicates classify admitted representations; is_pid/1, is_port/1 and is_reference/1 accept every node's.
 bool predicate(Op operation, const Term &value) {
-    const std::array predicates{
-        value.is_atom(), value.is_integer(), value.is_number(),    value.is_boolean(),  value.is_tuple(),
-        value.is_list(), value.is_binary(),  value.is_bitstring(), value.is_float(),    value.is_map(),
-        value.is_pid(),  value.is_port(),    value.is_reference(), value.is_function(), value.is_native_record()};
+    const std::array predicates{value.is_atom(),
+                                value.is_integer(),
+                                value.is_number(),
+                                value.is_boolean(),
+                                value.is_tuple(),
+                                value.is_list(),
+                                value.is_binary(),
+                                value.is_bitstring(),
+                                value.is_float(),
+                                value.is_map(),
+                                value.is_pid() || value.is_external_pid(),
+                                value.is_port() || value.is_external_port(),
+                                value.is_reference() || value.is_external_reference(),
+                                value.is_function(),
+                                value.is_native_record()};
     return predicates.at(static_cast<unsigned>(operation) - static_cast<unsigned>(Op::is_atom));
 }
 
@@ -153,17 +165,19 @@ Result select(Op operation, const Term &left, const Term &right) {
     return lhs ? left.word() : right.word();
 }
 
-// self/0, node/0 and node/1: the caller's pid, or the name of the only node (node/1 of a pid, reference or port).
+// self/0, node/0 and node/1: the caller's pid, this node's name, or the node of a pid, reference or port.
 Result identity(ProcessContext &context, Op operation, const Term &operand) {
     if (operation == Op::self) {
         return checked(
             TermFactory(context).pid(context.identity()).transform([](const Term &pid) { return pid.word(); }));
     }
-    if (operation == Op::node_of && !operand.is_pid() && !operand.is_reference() && !operand.is_port()) {
+    if (operation == Op::node_of && !detail::is_identity(operand)) {
         return std::unexpected(Fault{Outcome::bad_argument});
     }
-    return checked(
-        TermFactory(context).atom("nonode@nohost"_atom).transform([](const Term &node) { return node.word(); }));
+    if (const auto external = detail::ExternalAccess::read(operand); operation == Op::node_of && external) {
+        return external->node;
+    }
+    return checked(detail::this_node_atom(context).transform([](const Term &node) { return node.word(); }));
 }
 
 // Boolean operators validate admitted terms; lazy lowering checks only the reached left operand here.

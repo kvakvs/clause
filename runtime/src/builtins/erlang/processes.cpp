@@ -1,4 +1,5 @@
 #include "processes.hpp"
+#include "../../terms/identities.hpp"
 #include "../typed.hpp"
 #include "ports.hpp"
 #include "spawning.hpp"
@@ -171,8 +172,15 @@ TermResult<Term> link(ProcessContext &context, const Term &pid) {
     return atom(context, "true"_atom);
 }
 
+// Whether a term is a pid or port of another node, which a node that is not distributed has no link to and sends
+// nothing to (plan 30 step DIST1).
+bool external_process(const Term &value) { return value.is_external_pid() || value.is_external_port(); }
+
 // unlink(Pid): true; the link, if any, has no effect from now on.
 TermResult<Term> unlink(ProcessContext &context, const Term &pid) {
+    if (external_process(pid)) {
+        return atom(context, "true"_atom);
+    }
     if (!pid.is_pid() && !pid.is_port()) {
         bad_argument();
     }
@@ -181,12 +189,13 @@ TermResult<Term> unlink(ProcessContext &context, const Term &pid) {
 }
 
 // exit(Dest, Reason) and exit_signal(Dest, Reason): true after sending an exit signal to the process of a pid; a
-// reference names no alias here, so nothing is sent. exit/2 to the caller itself with reason normal ends it.
+// reference names no alias here and another node's pid no process reachable, so nothing is sent. exit/2 to the
+// caller itself with reason normal ends it.
 template <bool SelfNormal>
 TermResult<Term> exit_signal(ProcessContext &context, const Term &destination, const Term &reason) {
     if (destination.is_pid() || destination.is_port()) {
         detail::Executor::of(context).exit(context, destination.word(), reason, SelfNormal);
-    } else if (!destination.is_reference()) {
+    } else if (!destination.is_reference() && !detail::is_identity(destination)) {
         bad_argument();
     }
     return atom(context, "true"_atom);
@@ -240,10 +249,14 @@ TermResult<Term> is_process_alive(ProcessContext &context, const Term &pid) {
 }
 
 // The pid a send goes to: a pid; the process registered as an atom (badarg when none is); for {Name, Node} the
-// process registered as Name on this node, or 0 to drop the message. Anything else is badarg.
+// process registered as Name on this node, or 0 to drop the message, as for another node's pid. Anything else, a
+// port of another node too, is badarg.
 Word destination_pid(ProcessContext &context, const Term &destination) {
     if (destination.is_pid() || destination.is_port()) {
         return destination.word();
+    }
+    if (destination.is_external_pid()) {
+        return 0;
     }
 
     const auto &executor = detail::Executor::of(context);
@@ -275,7 +288,10 @@ Term send_to(ProcessContext &context, Word pid, const Term &message) {
 // Dest ! Msg and erlang:send(Dest, Msg): Msg, after delivering it to the process Dest names (nothing when that
 // process has ended or a {Name, Node} names none).
 TermResult<Term> send(ProcessContext &context, const Term &destination, const Term &message) {
-    // A reference sends through an alias, or nowhere when it is none (step 41G2).
+    // A reference sends through an alias, or nowhere when it is none (step 41G2); another node's goes nowhere.
+    if (destination.is_external_reference()) {
+        return message;
+    }
     if (destination.is_reference()) {
         if (const auto sent = detail::Executor::send_alias(context, destination.reference_value_unchecked(), message);
             !sent) {
@@ -348,7 +364,11 @@ TermResult<Term> send_message(ProcessContext &context, const Term &destination, 
     return send(context, destination, message);
 }
 
-bool remote_destination(const Term &destination) { return remote_name(destination) && !local_name(destination); }
+bool remote_destination(const Term &destination) {
+    return detail::is_identity(destination)
+               ? !destination.is_pid() && !destination.is_port() && !destination.is_reference()
+               : remote_name(destination) && !local_name(destination);
+}
 
 TermResult<Term> link_process(ProcessContext &context, const Term &pid) { return link(context, pid); }
 

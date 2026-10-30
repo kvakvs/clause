@@ -41,6 +41,11 @@ enum Tag : std::uint8_t {
     NEWER_REFERENCE = 90,
     EXPORT = 113,
     V4_PORT = 120,
+    // The older identity encodings binary_to_term/1 still reads, with one-byte creations (plan 30 step DIST1).
+    REFERENCE = 101,
+    PORT = 102,
+    PID = 103,
+    NEW_REFERENCE = 114,
     SMALL_ATOM_LATIN1 = 115,
     MAP = 116,
     ATOM_UTF8 = 118,
@@ -97,6 +102,8 @@ struct Item {
     // Pid number and serial, port number, or reference words (low word first), and the node's creation.
     std::array<std::uint64_t, REFERENCE_WORDS> identity_{};
     std::uint32_t creation_ = 0;
+    // The tag an identity was read from, which fixes the widths of its numbers and creation (plan 30 step DIST1).
+    std::uint8_t encoding_ = 0;
 };
 
 // Appends encoded tags to a byte string; callers emit children in order after a container header.
@@ -293,21 +300,31 @@ class Reader {
         return result;
     }
 
-    // The numbers of an identity whose header and node atom next() and atom() returned (plan step 41E).
+    // The numbers of an identity whose header and node atom next() and atom() returned (plan step 41E), in the
+    // widths of its encoding: the older ones have one-byte creations and 32-bit port numbers (plan 30 step DIST1).
     void identity(Item &item) {
-        if (item.kind_ == ItemKind::pid) {
+        switch (item.encoding_) {
+        case NEW_PID:
+        case PID:
             item.identity_[0] = take<4>();
             item.identity_[1] = take<4>();
-        } else if (item.kind_ == ItemKind::port) {
+            break;
+        case V4_PORT:
             item.identity_[0] = take<8>();
-        } else {
-            item.creation_ = static_cast<std::uint32_t>(take<4>());
+            break;
+        case NEW_PORT:
+        case PORT:
+        case REFERENCE:
+            item.identity_[0] = take<4>();
+            break;
+        default:
+            item.creation_ = creation(item.encoding_);
             for (std::size_t word = 0; word < item.count_; ++word) {
                 item.identity_[word] = take<4>();
             }
             return;
         }
-        item.creation_ = static_cast<std::uint32_t>(take<4>());
+        item.creation_ = creation(item.encoding_);
     }
 
     [[noreturn]] void fail(const std::string &message) const {
@@ -428,22 +445,48 @@ class Reader {
     Item identity_header(const std::uint64_t tag) {
         switch (tag) {
         case NEW_PID:
-            return item(ItemKind::pid);
+        case PID:
+            return encoded(ItemKind::pid, tag);
         case V4_PORT:
-            return item(ItemKind::port);
-        case NEWER_REFERENCE: {
-            auto result = item(ItemKind::reference);
-            result.count_ = static_cast<std::size_t>(take<2>());
-            if (result.count_ == 0 || result.count_ > REFERENCE_WORDS) {
-                fail("invalid reference length");
-            }
-            return result;
-        }
+        case NEW_PORT:
+        case PORT:
+            return encoded(ItemKind::port, tag);
         case EXPORT:
             return item(ItemKind::export_fun);
         default:
+            return reference_header(tag);
+        }
+    }
+
+    // A reference header: one word in REFERENCE_EXT, a word count of up to five in the newer ones (plan 30 step
+    // DIST1).
+    Item reference_header(const std::uint64_t tag) {
+        auto result = encoded(ItemKind::reference, tag);
+        if (tag == REFERENCE) {
+            result.count_ = 1;
+            return result;
+        }
+        if (tag != NEWER_REFERENCE && tag != NEW_REFERENCE) {
             fail("unsupported tag " + std::to_string(tag));
         }
+        result.count_ = static_cast<std::size_t>(take<2>());
+        if (result.count_ > REFERENCE_WORDS) {
+            fail("invalid reference length");
+        }
+        return result;
+    }
+
+    // An identity header read from `tag`; a reference's word count is set by its reader.
+    static Item encoded(const ItemKind kind, const std::uint64_t tag) {
+        auto result = item(kind);
+        result.encoding_ = static_cast<std::uint8_t>(tag);
+        return result;
+    }
+
+    // The node's creation after an identity's numbers: one byte in the older encodings, four in the newer ones.
+    std::uint32_t creation(const std::uint8_t encoding) {
+        const bool narrow = encoding == PID || encoding == PORT || encoding == REFERENCE || encoding == NEW_REFERENCE;
+        return static_cast<std::uint32_t>(narrow ? take<1>() : take<4>());
     }
 
     Item big(const std::uint64_t size) {

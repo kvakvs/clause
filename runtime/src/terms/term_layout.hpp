@@ -66,13 +66,25 @@ struct alignas(Word) ReferenceCell final {
     std::array<std::byte, 8> number_;
 };
 
-struct alignas(Word) RemoteIdentityCell final {
-    // Distinguish identity kinds; the registry key is not a pointer for the future GC.
+struct alignas(Word) ExternalIdentityCell final {
+    // A pid, port or reference of another node (plan 30 step DIST1, docs/terms.md#identities-of-other-nodes): the
+    // header's kind is ext_pid, ext_port or ext_ref, then the node's creation and the identity's 32-bit numbers one per
+    // word (a pid's number and serial, a port's number low word first, a reference's words low first) follow; the node
+    // name atom is the last word, the only traced one.
     BoxHeader header_;
-    Word identity_id_;
-    // Trace the remote host atom independently of the registry key.
-    Word remote_host_;
+    Word creation_;
 };
+
+// Most numbers an identity of another node carries: a reference's five words.
+inline constexpr std::size_t MAX_EXTERNAL_NUMBERS = 5;
+
+// Words after the header of an identity of another node with `numbers` numbers: creation, numbers, node atom.
+constexpr std::size_t external_payload_words(std::size_t numbers) noexcept { return numbers + 2; }
+
+// Whether a header kind is an identity of another node.
+constexpr bool external_identity_kind(BoxedKind kind) noexcept {
+    return kind == BoxedKind::ext_pid || kind == BoxedKind::ext_port || kind == BoxedKind::ext_ref;
+}
 
 // Cons cells have no header: the list primary tag points to exactly two traceable terms.
 struct alignas(Word) ConsCell final {
@@ -219,7 +231,9 @@ static_assert([] {
            same(BoxedKind::refc_binary, HeaderKind::refc_binary) &&
            same(BoxedKind::heap_binary, HeaderKind::heap_binary) &&
            same(BoxedKind::sub_binary, HeaderKind::sub_binary) && same(BoxedKind::map, HeaderKind::map) &&
-           same(BoxedKind::tree_map, HeaderKind::tree_map);
+           same(BoxedKind::tree_map, HeaderKind::tree_map) && same(BoxedKind::ext_pid, HeaderKind::external_pid) &&
+           same(BoxedKind::ext_port, HeaderKind::external_port) &&
+           same(BoxedKind::ext_ref, HeaderKind::external_reference);
 }());
 static_assert(BoxHeader::make(BoxedKind::tuple, 3) == Word{3} << abi::v1::header_count_shift);
 static_assert(static_cast<unsigned>(TermKindPrimary::list) == abi::v1::list_tag &&
@@ -233,7 +247,7 @@ static_assert(sizeof(MapCell) == sizeof(Word));
 static_assert(sizeof(KeyValuePair) == 2 * sizeof(Word));
 static_assert(sizeof(FloatCell) == sizeof(Word) + 8);
 static_assert(offsetof(FloatCell, value_) == sizeof(Word));
-static_assert(sizeof(RemoteIdentityCell) == 3 * sizeof(Word));
+static_assert(sizeof(ExternalIdentityCell) == 2 * sizeof(Word));
 static_assert(sizeof(HeapBinaryCell) == 2 * sizeof(Word));
 static_assert(sizeof(NativeRecordCell) == 2 * sizeof(Word));
 static_assert(sizeof(BignumCell) % sizeof(Word) == 0);
@@ -263,7 +277,7 @@ static_assert(!std::is_trivially_copyable_v<RefcBinaryCell>);
 static_assert(std::is_nothrow_move_constructible_v<RefcBinaryCell>);
 // Every other cell moves by copying its words.
 static_assert(std::is_trivially_copyable_v<BoxHeader> && std::is_trivially_copyable_v<BignumCell> &&
-              std::is_trivially_copyable_v<FloatCell> && std::is_trivially_copyable_v<RemoteIdentityCell> &&
+              std::is_trivially_copyable_v<FloatCell> && std::is_trivially_copyable_v<ExternalIdentityCell> &&
               std::is_trivially_copyable_v<ConsCell> && std::is_trivially_copyable_v<TupleCell> &&
               std::is_trivially_copyable_v<KeyValuePair> && std::is_trivially_copyable_v<MapCell> &&
               std::is_trivially_copyable_v<HeapBinaryCell> && std::is_trivially_copyable_v<FunCell> &&

@@ -364,7 +364,28 @@ class Hash2 final {
         }
     }
 
+    // Another node's pid, port or reference by its numbers, as OTP hashes them (plan 30 step DIST1); false for any
+    // other term.
+    bool external(const Term &term) {
+        const auto identity = detail::ExternalAccess::read(term);
+        if (!identity) {
+            return false;
+        }
+        const auto &numbers = identity->numbers;
+        if (identity->kind == TermKind::external_pid) {
+            one(numbers[0], HCONST_5);
+        } else if (identity->kind == TermKind::external_port) {
+            two(numbers[0], numbers[1], HCONST_6);
+        } else {
+            one(numbers[0], HCONST_7);
+        }
+        return true;
+    }
+
     void identity(const Term &term) {
+        if (external(term)) {
+            return;
+        }
         if (term.is_pid()) {
             one(static_cast<std::uint32_t>(detail::pid_number(term.word())), HCONST_5);
         } else if (term.is_port()) {
@@ -547,7 +568,31 @@ class Hash1 final {
         hash_ = hash_ * PRIME_4 + static_cast<std::uint32_t>(bits.whole);
     }
 
+    // Another node's pid, port or reference by its numbers, as OTP's phash/2 hashes them (plan 30 step DIST1); false
+    // for any other term.
+    bool external(const Term &term) {
+        const auto identity = detail::ExternalAccess::read(term);
+        if (!identity) {
+            return false;
+        }
+        const auto &numbers = identity->numbers;
+        if (identity->kind == TermKind::external_pid) {
+            bytes(numbers[0], PRIME_5);
+            hash_ *= PRIME_6;
+            return true;
+        }
+        if (identity->kind == TermKind::external_port && numbers[1] != 0) {
+            bytes(numbers[1], PRIME_11);
+        }
+        bytes(numbers[0], PRIME_9);
+        hash_ *= PRIME_10;
+        return true;
+    }
+
     void identity(const Term &term) {
+        if (external(term)) {
+            return;
+        }
         if (term.is_pid()) {
             bytes(static_cast<std::uint32_t>(detail::pid_number(term.word())), PRIME_5);
             hash_ *= PRIME_6;

@@ -1,6 +1,8 @@
 #include "heap_object.hpp"
 #include "heap_storage.hpp"
 #include "heap_walk.hpp"
+#include <algorithm>
+#include <array>
 #include <clause/runtime/atoms.hpp>
 #include <new>
 
@@ -32,6 +34,17 @@ HeapObject map_object(Word value, std::span<const Word> words) {
     }
 }
 
+// A reference of this node, an identity of another node (plan 30 step DIST1) or else a map.
+HeapObject identity_object(Word value, std::span<const Word> words) {
+    static constexpr std::array<std::pair<BoxedKind, TermKind>, 4> IDENTITIES{
+        {{BoxedKind::reference, TermKind::local_reference},
+         {BoxedKind::ext_pid, TermKind::external_pid},
+         {BoxedKind::ext_port, TermKind::external_port},
+         {BoxedKind::ext_ref, TermKind::external_reference}}};
+    const auto found = std::ranges::find(IDENTITIES, BoxHeader::kind(words[0]), &std::pair<BoxedKind, TermKind>::first);
+    return found == IDENTITIES.end() ? map_object(value, words) : HeapObject{value, found->second, words, 1};
+}
+
 // Map an admitted header to its term kind and logical element count.
 HeapObject boxed(Word value, std::span<const Word> words) {
     const auto payload = words.subspan(1);
@@ -46,15 +59,13 @@ HeapObject boxed(Word value, std::span<const Word> words) {
         return {value, TermKind::bignum, words, payload.size() - 1};
     case BoxedKind::floating:
         return {value, TermKind::floating, words, 1};
-    case BoxedKind::reference:
-        return {value, TermKind::local_reference, words, 1};
     case BoxedKind::heap_binary:
         return {value, TermKind::bitstring, words, payload[0]};
     case BoxedKind::refc_binary:
     case BoxedKind::sub_binary:
         return {value, TermKind::bitstring, words, payload[1]};
     default:
-        return map_object(value, words);
+        return identity_object(value, words);
     }
 }
 

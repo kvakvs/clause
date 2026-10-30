@@ -321,9 +321,11 @@ Word iolist_to_binary_quick(ProcessContext &context, Arguments arguments) {
     return detail::trusted_binary_bytes(arguments[0]) ? arguments[0] : list_to_binary_quick(context, arguments);
 }
 
-// The ~w text of an identity as a list: pid_to_list/1 accepts only pids, ref_to_list/1 only references.
+// The ~w text of an identity as a list: pid_to_list/1 accepts only pids, ref_to_list/1 only references, of any node.
 template <bool Pid> TermResult<Term> identity_to_list(ProcessContext &context, const Term &value) {
-    if (Pid ? !value.is_pid() : !value.is_reference()) {
+    const bool accepted =
+        Pid ? value.is_pid() || value.is_external_pid() : value.is_reference() || value.is_external_reference();
+    if (!accepted) {
         bad_argument();
     }
     return byte_list(context, need(format_term(value, TermStyle::write)));

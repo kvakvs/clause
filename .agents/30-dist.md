@@ -46,35 +46,11 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-<a id="step-dist1"></a>
-
-## DIST1. External identities in the runtime
-
-Depends on: DIST0 ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] New term kinds under the representations rule: external pid, port and reference (node atom,
-    creation, numbers):
-    - construction by `binary_to_term/1,2` (`NEW_PID_EXT`, `V4_PORT_EXT`, `NEWER_REFERENCE_EXT`
-      of other nodes) and `list_to_pid/1`, `list_to_port/1`, `list_to_ref/1` with a node part;
-    - comparison and order as OTP's (local against external included), equality and hashing
-      (`phash2/1,2`, map keys, `ets` keys);
-    - printing `<N.X.Y>`, `#Port<N.X>`, `#Ref<N.A.B.C>` with OTP's node index;
-    - copying in messages, `ets`, `persistent_term` and garbage collection;
-    - `node/1`, type tests in guards, and OTP's `badarg` from local-only BIFs
-      (`is_process_alive/1`, `process_info/2`).
-  - [ ] This node's identity (name, creation) lives in the runtime, starts as `nonode@nohost`/0,
-    changes with `setnode`, and local identities survive the change as in OTP (`node(self())`,
-    `term_to_binary/1` of local pids follow the new name).
-- Tests
-  - [ ] Golden `external_identities`: OTP-produced binaries of other nodes' identities decoded,
-    ordered, printed, hashed, copied and stored.
-
 <a id="step-dist2"></a>
 
 ## DIST2. Connection entries and controller BIFs
 
-Depends on: [DIST1](#step-dist1).
+Depends on: DIST1 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] A runtime table with one entry per remote node: state (pending, up, exiting), controller
@@ -88,6 +64,11 @@ Depends on: [DIST1](#step-dist1).
     over the table.
   - [ ] The `{unavailable, distribution}` entries of `erlang.terms` and the declined distribution
     group of `erts_internal` become implemented.
+  - [ ] `setnode` sets DIST1's this-node name and creation (`detail::this_node_*`); the remaining
+    hard-coded `nonode@nohost` constants (`node.cpp`, `processes.cpp`, `spawning.cpp`,
+    `introspection.cpp`, `ets/info.cpp`, the scheduler's `LOCAL_NODE`) read it.
+  - [ ] `list_to_pid/1`, `list_to_port/1`, `list_to_ref/1` with another node's part name a
+    connected node, as OTP's do (`badarg` without the connection, as today).
 - Tests
   - [ ] Unit tests only for entry state transitions source cannot reach; behavior through the
     DIST4b/DIST5 goldens.
@@ -209,6 +190,9 @@ Depends on: [DIST4b](#step-dist4b).
   - [ ] Ordering: signals between a pair of processes arrive in order, as locally.
   - [ ] Connection loss: links exit `noconnection`, monitors deliver `'DOWN'` with
     `noconnection`, node monitors `{nodedown, Node}`.
+  - [ ] On a node that is not alive, as OTP: `link/1` to another node's pid returns `true` and sends
+    `{'EXIT', Pid, noconnection}`, `monitor/2` returns a reference, `group_leader/2` returns
+    `true` (DIST1 left them `badarg`, recorded in `differences.md`).
   - [ ] Auto-connect: signals to an unconnected node wait while `net_kernel` connects
     (`dist_auto_connect`); `erlang:send/3` `noconnect` and `nosuspend`.
 - Tests
@@ -337,7 +321,7 @@ Depends on: [DIST5](#step-dist5).
 
 ## DIST13. Close distribution
 
-Depends on: [DIST1](#step-dist1)–[DIST12](#step-dist12).
+Depends on: [DIST2](#step-dist2)–[DIST12](#step-dist12).
 
 - Success criteria
   - [ ] `docs/distribution.md`, `docs/libraries/library.md` rows and `differences.md` describe

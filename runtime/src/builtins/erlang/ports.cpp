@@ -552,9 +552,9 @@ TermResult<Term> port_info1(ProcessContext &context, const Term &port) {
     return TermFactory(context).list(items);
 }
 
-// port_to_list(Port): its text #Port<0.N>.
+// port_to_list(Port): its text #Port<0.N>, or #Port<C.N> for another node's port (plan 30 step DIST1).
 TermResult<Term> port_to_list(ProcessContext &context, const Term &port) {
-    if (!port.is_port()) {
+    if (!port.is_port() && !port.is_external_port()) {
         bad_argument();
     }
     return char_list(context, need(format_term(port, TermStyle::write)));

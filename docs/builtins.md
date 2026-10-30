@@ -142,10 +142,13 @@ stacks.
 
 - `term_to_binary/1,2`: OTP's bytes for `nonode@nohost`; options
   `minor_version`, `deterministic`, `compressed`; local funs and native records
-  are `notsup`.
+  are `notsup`. Identities of other nodes keep their node and creation
+  ([terms](terms.md#identities-of-other-nodes)).
 - `term_to_iovec/1,2`, `external_size/1,2`.
 - `binary_to_term/1,2`: lengths checked before allocating; `safe`, `used`;
-  malformed input or foreign identities are `badarg`.
+  malformed input and pids or ports of this node the program never created are
+  `badarg`; identities of other nodes, in the current and older encodings, become
+  their cells.
 - The codec's stacks and `term_to_binary`'s encoded bytes are per-thread
   buffers kept between calls (up to 1 MB each, `builtins/scratch.hpp`), so a
   large term does not take fresh pages each call; small integers skip the

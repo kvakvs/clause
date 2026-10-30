@@ -75,8 +75,13 @@ void synthetic() {
     require(parse(odd_map) == std::unexpected(WalkError::bad_size), "odd map accepted");
     const std::array binary{BoxHeader::make(BoxedKind::heap_binary, 3), Word{8}, Word{0}, Word{0}};
     require(parse(binary) == std::unexpected(WalkError::bad_size), "oversized heap binary accepted");
-    const std::array external{BoxHeader::make(BoxedKind::ext_ref, 1), Word{0}};
-    require(parse(external) == std::unexpected(WalkError::unknown_kind), "unadmitted kind accepted");
+    const std::array unadmitted{BoxHeader::make(BoxedKind::match_context, 1), Word{0}};
+    require(parse(unadmitted) == std::unexpected(WalkError::unknown_kind), "unadmitted kind accepted");
+    // Another node's identity (plan 30 step DIST1): creation and numbers untraced, the node atom its one slot.
+    const std::array short_external{BoxHeader::make(BoxedKind::ext_ref, 1), Word{0}};
+    require(parse(short_external) == std::unexpected(WalkError::bad_size), "external reference without node");
+    const std::array external{BoxHeader::make(BoxedKind::ext_pid, 4), Word{7}, Word{88}, Word{0}, Word{0x4b}};
+    require(parse(external).value()[0].slots.size() == 1, "external pid node not traced");
     const std::array reference{BoxHeader::make(BoxedKind::reference, 3), Word{0}, Word{0}, Word{0}};
     require(parse(reference) == std::unexpected(WalkError::bad_size), "oversized reference accepted");
     const std::array short_tuple{BoxHeader::make(BoxedKind::tuple, 5), small};

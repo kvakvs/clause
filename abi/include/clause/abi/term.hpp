@@ -63,6 +63,10 @@ enum class HeaderKind : std::uint8_t {
     refc_binary = 8,
     heap_binary = 9,
     sub_binary = 10,
+    // Pids, ports and references of other nodes, which guards test besides the local ones (plan 30 step DIST1).
+    external_pid = 12,
+    external_port = 13,
+    external_reference = 14,
     map = 15,
     tree_map = 18
 };

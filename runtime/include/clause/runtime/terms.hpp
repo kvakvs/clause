@@ -178,6 +178,10 @@ class Term final {
     bool is_function(std::size_t arity) const;
     bool is_port() const;
     bool is_pid() const;
+    // The local tests above see only this node's identities; these see another node's (plan 30 step DIST1).
+    bool is_external_pid() const;
+    bool is_external_port() const;
+    bool is_external_reference() const;
     // Test container categories without exposing their storage.
     bool is_tuple() const;
     bool is_map() const;

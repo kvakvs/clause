@@ -3,14 +3,18 @@
 #include "../memory/heap_storage.hpp"
 #include "../memory/off_heap.hpp"
 #include "../process/identities.hpp"
+#include "atom_table.hpp"
 #include "term_layout.hpp"
 #include <algorithm>
+#include <array>
 #include <atomic>
+#include <clause/runtime/atom_names.hpp>
 #include <clause/runtime/process_context.hpp>
 #include <cstddef>
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <new>
 #include <string>
 #include <unordered_map>
 
@@ -99,6 +103,12 @@ bool Term::is_reference() const { return kind() == TermKind::local_reference; }
 
 bool Term::is_port() const { return TermTag{value_}.get_kind() == TermKind::local_port; }
 
+bool Term::is_external_pid() const { return kind() == TermKind::external_pid; }
+
+bool Term::is_external_port() const { return kind() == TermKind::external_port; }
+
+bool Term::is_external_reference() const { return kind() == TermKind::external_reference; }
+
 namespace detail {
 TermResult<std::uint64_t> reference_number(const Term &value) noexcept {
     const auto object = TermAccess::object(value);
@@ -113,7 +123,137 @@ TermResult<std::uint64_t> reference_number(const Term &value) noexcept {
     return number;
 }
 
-TermResult<int> identity_order(const Term &left, const Term &right) noexcept {
+bool is_identity(const Term &value) noexcept {
+    if (value.is_pid() || value.is_port() || value.is_reference()) {
+        return true;
+    }
+    const auto kind = value.kind();
+    return kind == TermKind::external_pid || kind == TermKind::external_port || kind == TermKind::external_reference;
+}
+
+namespace {
+// The kind of identity a term is, telling pids, ports and references apart whichever node they belong to.
+enum class Family : std::uint8_t { pid, port, reference };
+
+// An identity as order and printing see it: its node and numbers, the same parts for every node (plan 30 step DIST1).
+struct Parts {
+    Family family = Family::pid;
+    // The node's name and creation; the local node's for an identity of this node.
+    std::string_view node;
+    std::uint32_t creation = 0;
+    // The node name atom's number, which OTP prints as the node part; 0 for this node.
+    std::uint64_t channel = 0;
+    // As ExternalIdentity::numbers: a pid's number and serial, a port's number low word first, a reference's words
+    // low first.
+    std::array<std::uint32_t, layout::MAX_EXTERNAL_NUMBERS> numbers{};
+    std::size_t count = 0;
+};
+
+// The family of an identity of another node.
+Family family_of(TermKind kind) noexcept {
+    if (kind == TermKind::external_pid) {
+        return Family::pid;
+    }
+    return kind == TermKind::external_port ? Family::port : Family::reference;
+}
+
+// The parts of a pid, port or reference of this node: its number split as OTP splits it.
+TermResult<Parts> local_parts(const Term &value) {
+    Parts parts;
+    parts.node = this_node_name();
+    parts.creation = this_node_creation();
+    if (value.is_pid()) {
+        const std::uint64_t number = pid_number(value.word());
+        parts.numbers = {static_cast<std::uint32_t>(number & ((std::uint64_t{1} << PID_NUMBER_BITS) - 1)),
+                         static_cast<std::uint32_t>(number >> PID_NUMBER_BITS)};
+        parts.count = 2;
+        return parts;
+    }
+    if (value.is_port()) {
+        const std::uint64_t number = port_number(value.word());
+        parts.family = Family::port;
+        parts.numbers = {static_cast<std::uint32_t>(number), static_cast<std::uint32_t>(number >> 32U)};
+        parts.count = 2;
+        return parts;
+    }
+    const auto number = reference_number(value);
+    if (!number) {
+        return std::unexpected(number.error());
+    }
+    parts.family = Family::reference;
+    parts.numbers = {static_cast<std::uint32_t>(*number & ((std::uint64_t{1} << REFERENCE_LOW_BITS) - 1)),
+                     static_cast<std::uint32_t>((*number >> REFERENCE_LOW_BITS) & REFERENCE_WORD_MASK),
+                     static_cast<std::uint32_t>(*number >> (REFERENCE_LOW_BITS + 32))};
+    parts.count = 3;
+    return parts;
+}
+
+// The parts of any identity: OTP prints this node's name, under any creation, with node part 0.
+TermResult<Parts> parts_of(const Term &value) {
+    const auto external = ExternalAccess::read(value);
+    if (!external) {
+        return local_parts(value);
+    }
+    const auto spelling = atom_table::spelling(external->node);
+    if (!spelling) {
+        return std::unexpected(TermError::expired_context);
+    }
+    Parts parts;
+    parts.family = family_of(external->kind);
+    parts.node = *spelling;
+    parts.creation = external->creation;
+    parts.numbers = external->numbers;
+    parts.count = external->count;
+    parts.channel = *spelling == this_node_name() ? 0 : external->node >> abi::v1::atom_tag_bits;
+    return parts;
+}
+
+// Order two nodes as OTP does: by name, then by creation.
+int node_order(const Parts &left, const Parts &right) {
+    if (left.node != right.node) {
+        return left.node < right.node ? -1 : 1;
+    }
+    return numbers(left.creation, right.creation);
+}
+
+// Order two references' words from the most significant, a missing word counting as zero, as OTP compares references
+// of different lengths.
+int words_order(const Parts &left, const Parts &right) {
+    for (auto index = std::max(left.count, right.count); index-- > 0;) {
+        const auto lhs = index < left.count ? left.numbers.at(index) : 0;
+        const auto rhs = index < right.count ? right.numbers.at(index) : 0;
+        if (lhs != rhs) {
+            return numbers(lhs, rhs);
+        }
+    }
+    return 0;
+}
+
+// Order two identities of one family: pids by serial, number and then node; ports and references by node first.
+int parts_order(const Parts &left, const Parts &right) {
+    if (left.family == Family::pid) {
+        if (const auto serial = numbers(left.numbers[1], right.numbers[1]); serial != 0) {
+            return serial;
+        }
+        if (const auto number = numbers(left.numbers[0], right.numbers[0]); number != 0) {
+            return number;
+        }
+        return node_order(left, right);
+    }
+    if (const auto node = node_order(left, right); node != 0) {
+        return node;
+    }
+    return words_order(left, right);
+}
+
+// Whether both terms are identities of this node, which order by their numbers alone.
+bool both_local(const Term &left, const Term &right) noexcept {
+    const auto local = [](const Term &value) { return value.is_pid() || value.is_port() || value.is_reference(); };
+    return local(left) && local(right);
+}
+
+// Order two identities of this node of one kind by number.
+TermResult<int> local_order(const Term &left, const Term &right) noexcept {
     if (left.is_pid() || left.is_port()) {
         // Pid and port words keep their number above the same four tag bits.
         return numbers(pid_number(left.word()), pid_number(right.word()));
@@ -125,28 +265,116 @@ TermResult<int> identity_order(const Term &left, const Term &right) noexcept {
     }
     return numbers(*lhs, *rhs);
 }
+} // namespace
+
+TermResult<int> identity_order(const Term &left, const Term &right) noexcept {
+    if (both_local(left, right)) {
+        return local_order(left, right);
+    }
+    try {
+        const auto lhs = parts_of(left);
+        const auto rhs = parts_of(right);
+        if (!lhs || !rhs) {
+            return std::unexpected(lhs ? rhs.error() : lhs.error());
+        }
+        return parts_order(*lhs, *rhs);
+    } catch (const std::bad_alloc &) {
+        return std::unexpected(TermError::out_of_memory);
+    }
+}
 
 TermResult<void> print_identity(const Term &value, TextOutput &out) {
-    if (value.is_port()) {
-        out.append("#Port<0." + std::to_string(port_number(value.word())) + ">");
-        return {};
+    const auto parts = parts_of(value);
+    if (!parts) {
+        return std::unexpected(parts.error());
     }
-    if (value.is_pid()) {
-        const std::uint64_t number = pid_number(value.word());
-        const auto serial = number >> PID_NUMBER_BITS;
-        const auto low = number & ((std::uint64_t{1} << PID_NUMBER_BITS) - 1);
-        out.append("<0." + std::to_string(low) + "." + std::to_string(serial) + ">");
-        return {};
+    const auto &numbers = parts->numbers;
+    auto text = std::to_string(parts->channel);
+    switch (parts->family) {
+    case Family::pid:
+        out.append("<" + text + "." + std::to_string(numbers[0]) + "." + std::to_string(numbers[1]) + ">");
+        break;
+    case Family::port:
+        out.append("#Port<" + text + "." + std::to_string(std::uint64_t{numbers[1]} << 32U | numbers[0]) + ">");
+        break;
+    case Family::reference:
+        for (auto index = parts->count; index-- > 0;) {
+            text += "." + std::to_string(numbers.at(index));
+        }
+        out.append("#Ref<" + text + ">");
+        break;
     }
-    const auto number = reference_number(value);
-    if (!number) {
-        return std::unexpected(number.error());
-    }
-    const auto low = *number & ((std::uint64_t{1} << REFERENCE_LOW_BITS) - 1);
-    const auto middle = (*number >> REFERENCE_LOW_BITS) & REFERENCE_WORD_MASK;
-    const auto high = *number >> (REFERENCE_LOW_BITS + 32);
-    out.append("#Ref<0." + std::to_string(high) + "." + std::to_string(middle) + "." + std::to_string(low) + ">");
     return {};
+}
+
+namespace {
+// This node's name, an atom word or 0 for nonode@nohost, and its creation (plan 30 step DIST1); distribution sets
+// them when it starts (DIST2).
+std::atomic<Word> this_node_word{0};
+std::atomic<std::uint32_t> this_node_creation_value{0};
+// The name of a node that is not distributed.
+constexpr std::string_view UNDISTRIBUTED_NODE = "nonode@nohost";
+} // namespace
+
+std::string_view this_node_name() noexcept {
+    const auto word = this_node_word.load(std::memory_order_acquire);
+    return word == 0 ? UNDISTRIBUTED_NODE : atom_table::spelling(word).value_or(UNDISTRIBUTED_NODE);
+}
+
+std::uint32_t this_node_creation() noexcept { return this_node_creation_value.load(std::memory_order_acquire); }
+
+TermResult<Term> this_node_atom(ProcessContext &context) {
+    if (this_node_word.load(std::memory_order_acquire) == 0) {
+        return TermFactory(context).atom("nonode@nohost"_atom);
+    }
+    return TermFactory(context).atom(AtomName(this_node_name()));
+}
+
+TermResult<Term> ExternalAccess::make(ProcessHeap &heap, const ExternalIdentity &identity) {
+    using layout::BoxHeader;
+    static constexpr std::array<std::pair<TermKind, BoxedKind>, 3> KINDS{
+        {{TermKind::external_pid, BoxedKind::ext_pid},
+         {TermKind::external_port, BoxedKind::ext_port},
+         {TermKind::external_reference, BoxedKind::ext_ref}}};
+    const auto kind = std::ranges::find(KINDS, identity.kind, &std::pair<TermKind, BoxedKind>::first);
+    if (kind == KINDS.end() || identity.count > layout::MAX_EXTERNAL_NUMBERS) {
+        return std::unexpected(TermError::invalid_encoding);
+    }
+    const auto payload = layout::external_payload_words(identity.count);
+    auto reserved = heap.reserve(1 + payload);
+    if (!reserved) {
+        return std::unexpected(heap_error(reserved.error()));
+    }
+    auto *words = reinterpret_cast<Word *>(reserved->bytes().data());
+    words[0] = BoxHeader::make(kind->second, payload);
+    words[1] = identity.creation;
+    for (std::size_t index = 0; index < identity.count; ++index) {
+        words[2 + index] = identity.numbers.at(index);
+    }
+    // The node atom is the last payload word.
+    words[payload] = identity.node;
+    return publish(heap.storage_, *reserved, reinterpret_cast<Word>(words) | static_cast<Word>(TermKindPrimary::boxed));
+}
+
+TermResult<ExternalIdentity> ExternalAccess::read(const Term &value) noexcept {
+    const auto object = TermAccess::object(value);
+    if (!object) {
+        return std::unexpected(object.error());
+    }
+    if (object->kind != TermKind::external_pid && object->kind != TermKind::external_port &&
+        object->kind != TermKind::external_reference) {
+        return std::unexpected(TermError::wrong_type);
+    }
+    const auto words = object->words;
+    ExternalIdentity identity;
+    identity.kind = object->kind;
+    identity.node = words.back();
+    identity.creation = static_cast<std::uint32_t>(words[1]);
+    identity.count = words.size() - 3;
+    for (std::size_t index = 0; index < identity.count; ++index) {
+        identity.numbers.at(index) = static_cast<std::uint32_t>(words[2 + index]);
+    }
+    return identity;
 }
 
 namespace {
