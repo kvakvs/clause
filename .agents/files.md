@@ -1,7 +1,7 @@
 # File lookup
 
 Directory map; find files inside by name. **C** = `compiler/src/`, **R** = `runtime/src/`; **+** =
-planned, create only with implementation. [Architecture](arch.md) · [Backlog](01-todo.md) ·
+planned, create only with implementation. [Architecture](arch.md) ·
 [Plan](11-plan.md) · [History](00-finished.md) ([11](11-finished.md), [20](20-finished.md),
 [21](21-finished.md), [22](22-finished.md)) · [Optimizations](20-opt.md) · [Library](21-lib.md).
 
@@ -105,5 +105,5 @@ planned, create only with implementation. [Architecture](arch.md) · [Backlog](0
 Validation → `C/semantic`; facts → `C/semantic/types`; LLVM → `C/codegen`; options → `C/driver` +
 `C/project`; publication → `C/artifacts`; linking → `C/linking`; values → `R/terms` + `R/memory`;
 processes → `R/process` + `R/scheduler`; builtins → `R/builtins`; code → `R/modules`. Tests use the
-owning area; generated-program behavior → `codegen`/`executables`, runtime → `tests/runtime/`. IDs
-in `01-todo.md`; D-items optional (D04/D05 stage dirs, D06 **+** `R/interop`).
+owning area; generated-program behavior → `codegen`/`executables`, runtime → `tests/runtime/`. Optional
+items of [plan 11](11-plan.md): CLAU4/CLAU5 stage dirs, RT3 **+** `R/interop`.

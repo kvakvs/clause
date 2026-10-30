@@ -69,7 +69,7 @@ not implemented yet (reported as `notimpl`) are not listed here; see
 | `re` argument errors | `badarg` raised from `re:run/3` (or `replace`, `split`) with the caller's arguments and `error_info` | `badarg` raised from the `re` helper that rejected the argument, with that helper's arguments | [builtins](builtins.md#re-module) |
 | `code:is_sticky/1` | `true` for modules of `kernel`, `stdlib` and `compiler`, and for the modules of directories `code:stick_dir/1` named | Always `false`; `stick_dir/1` only checks that the directory can be listed | [builtins](builtins.md#code-module) |
 | `code:root_dir/0` and the initial code path | OTP's installation directory; the path holds its `lib/*/ebin` directories | The executable's directory; the path holds the `ebin` directories of `lib/` beside it and of `ERL_LIBS`, then `"."` | [builtins](builtins.md#code-module) |
-| `code:load_file/1`, `load_abs/1`, `load_binary/3`, `atomic_load/1`, `prepare_loading/1` with valid object code | Load the module | `{error, badfile}`: every module is linked into the executable (D01) | [builtins](builtins.md#code-module) |
+| `code:load_file/1`, `load_abs/1`, `load_binary/3`, `atomic_load/1`, `prepare_loading/1` with valid object code | Load the module | `{error, badfile}`: every module is linked into the executable (plan 11 step RT1) | [builtins](builtins.md#code-module) |
 | `code:coverage_support/0` and the coverage functions | `true` with the JIT; coverage modes and counters | `false`; the others raise `badarg`, as OTP does without coverage support | [builtins](builtins.md#code-module) |
 | `code:get_doc/1` of a module the program has | Its EEP 48 documentation chunk | `{error, missing}`: executables embed no documentation | [builtins](builtins.md#code-module) |
 | Formatting a large term (`io:format/1,2`) | Runs in Erlang code (`io_lib`) and the group leader, so the process can be preempted while formatting | Runs to completion in one builtin call; other processes wait | [builtins](builtins.md#portions) |
@@ -285,7 +285,7 @@ Compared with the same module compiled by `compile:forms/2` and loaded by `code:
 | Options of the Core Erlang, SSA and assembly passes (`to_core`, `dssa`, `'S'`, `to_asm`, `core_transform`, ...), `from_core`, `from_asm`, `makedep`, `dcover`, encrypted `debug_info` | Listings, Core or assembly input, dependencies, encrypted debug information | Error `{none, compile, {clause_unsupported, Option}}`: "the Option option needs OTP's code generator, which Clause does not have" | [library](libraries/library.md) |
 | `-moduledoc`/`-doc` attributes | Saved in the `Docs` chunk unless `no_docs` | Removed; no `Docs` chunk | [library](libraries/library.md) |
 | `code:load_binary/3` of a binary of another module | `{error, badfile}` and an error report on the logger | `{error, badfile}`, no report | [library](libraries/library.md#module-interpreter) |
-| `code:load_binary/3` in a program without `compile` or `clause_interp` | Loads BEAM code | `{error, badfile}`, as for any binary (D01) | [library](libraries/library.md#module-interpreter) |
+| `code:load_binary/3` in a program without `compile` or `clause_interp` | Loads BEAM code | `{error, badfile}`, as for any binary (plan 11 step RT1) | [library](libraries/library.md#module-interpreter) |
 
 ## erl_syntax
 

@@ -1,12 +1,13 @@
 # Remaining compiler and runtime work — implementation plan 11
 
-Created 2026-10-03 from [completed work](00-finished.md) and [the feature backlog](01-todo.md).
+Created 2026-10-03 from [completed work](00-finished.md) and the feature backlog, which was merged
+into it on 2026-10-30.
 Planning only: every step is unchecked and creating this plan starts no implementation. It replaces
 the earlier 51-step draft with smaller, single-commit steps.
 
 ## How to use this plan
 
-- Steps run in numbered order by default. Each lists its backlog owners and dependencies; an
+- Steps run in numbered order by default. Each lists its dependencies; an
   independent step may move earlier once its dependencies pass.
 - Each single step ends with one focused commit titled
   `[plan11] <full step title with step number>`. A step that grows beyond one reviewable change is
@@ -17,8 +18,7 @@ the earlier 51-step draft with smaller, single-commit steps.
 
 - **Decision** steps publish a short contract in `docs/` (plus a prototype where stated) and enable
   no source feature by themselves.
-- Check a success or test box only with recorded evidence. Update the backlog checkboxes for the
-  slice delivered.
+- Check a success or test box only with recorded evidence.
 - Unfinished steps were renumbered on 2026-10-30 (user direction) by area: `CLAU` for the compiler,
   `RT` for the runtime, `VAL` for validation. Finished steps keep their numbers; old to new:
 
@@ -30,7 +30,7 @@ the earlier 51-step draft with smaller, single-commit steps.
   | 74 | CLAU4 | 71 | RT1 | 66 | VAL1 |
   | 75 | CLAU5 | 72 | RT2 | 69, 70 | VAL2, VAL3 |
 
-- Optional D-items (CLAU3–CLAU6, RT1–RT3) end in a recorded selection, deferral or omission. An
+- Optional items (CLAU3–CLAU6, RT1–RT3, RT7–RT9) end in a recorded selection, deferral or omission. An
   omitted item is never checked as implemented.
 - Phase C (steps 8A–8I) was inserted on 2026-10-04 after phase B closed; its steps run before step 9
   and keep their letter IDs in commit titles.
@@ -56,6 +56,19 @@ the earlier 51-step draft with smaller, single-commit steps.
   direction).
 - Network distribution (steps DIST0–DIST13, added 2026-10-30) moved to its own plan,
   [30-dist.md](30-dist.md) (user direction).
+- The feature backlog (`01-todo.md`) was merged into this plan on 2026-10-30 (user direction):
+  open items became steps, delivered features are listed in
+  [11-finished.md](11-finished.md#delivered-features). Former backlog IDs to steps:
+
+  | ID | Step | ID | Step | ID | Step |
+  | --- | --- | --- | --- | --- | --- |
+  | F01 | RT6 | F37 | CLAU11 | D02 | RT2 |
+  | F04 | RT7 | F38 | [plan 30](30-dist.md) | D03 | CLAU3, CLAU7 |
+  | F05 | RT8 | V01 | VAL1, VAL4 | D04 | CLAU4 |
+  | F11 | RT9 | V02 | VAL5 | D05 | CLAU5 |
+  | F20 | CLAU9 | V03 | VAL2 | D06 | RT3 |
+  | F34 | CLAU10 | V04 | VAL3 | D07 | CLAU6 |
+  | F36 | VAL5 (the rest done) | D01 | RT1 | | |
 
 ## Common gate and rules (apply to every step)
 
@@ -69,6 +82,8 @@ the earlier 51-step draft with smaller, single-commit steps.
   mode, never both (full covers every fast run), and `check-quality-all`. Lizard and clang-tidy pass
   without raised thresholds or suppressions. Code is clang-formatted; new and changed `.erl`/terms
   files pass erlfmt.
+- **Slices:** define behavior, exclusions and failures first; settle representation, ownership and
+  ABI before code; replace placeholders only for implemented semantics.
 - **Code:** project-internal C++23; document field and function intent in 1–2 lines; keep cyclomatic
   complexity low; runtime stays LLVM-free.
 - **OTP:** at the start of OTP-dependent work follow [otp-reference.md](../docs/otp-reference.md) to
@@ -135,17 +150,18 @@ full-mode CTests; `check-quality-all` clean (338 units, headers now checked); Li
 
 Completed steps link to [the plan 11 record](11-finished.md).
 
-| Phase | Steps | Backlog owners | State |
-| --- | --- | --- | --- |
-| I2. Inference convergence and cost | [58O](11-finished.md)–[58S](11-finished.md), [CLAU1](#step-clau1), [CLAU2](#step-clau2) | F29, V05 | open: [CLAU1](#step-clau1), [CLAU2](#step-clau2) |
-| I3. Inference cache for library directories | [58U](11-finished.md)–[58W](11-finished.md) | F29, D07 | done |
-| H3. Drop-in replacements for OTP runtime modules | [41I](11-finished.md)–[41S](11-finished.md) (41K1, 41K2 added) | F36, D01 | done |
-| H5. Regular expressions (`re`) | [41ZA](11-finished.md), [41ZB](11-finished.md) | F36 | done |
-| H4. Library functions luerl reaches | [41T](11-finished.md)–[41Z](11-finished.md), [41M1](11-finished.md), [41M2](11-finished.md), [41ZC](11-finished.md) | F36, F05 | done |
-| M. Validation closure | [63](11-finished.md)–[68](11-finished.md), [65A](11-finished.md), [65B](11-finished.md), [65C](11-finished.md), [69A](11-finished.md), [VAL1](#step-val1)–[VAL3](#step-val3) | V01–V05, D03 | open: [VAL1](#step-val1), [VAL2](#step-val2), [VAL3](#step-val3) |
-| N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [CLAU6](#step-clau6) | D01–D07 | open |
-| N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | D03 | open: [CLAU7](#step-clau7) |
-| O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | all | open |
+| Phase | Steps | State |
+| --- | --- | --- |
+| I2. Inference convergence and cost | [58O](11-finished.md)–[58S](11-finished.md), [CLAU1](#step-clau1), [CLAU2](#step-clau2) | open: [CLAU1](#step-clau1), [CLAU2](#step-clau2) |
+| I3. Inference cache for library directories | [58U](11-finished.md)–[58W](11-finished.md) | done |
+| H3. Drop-in replacements for OTP runtime modules | [41I](11-finished.md)–[41S](11-finished.md) (41K1, 41K2 added) | done |
+| H5. Regular expressions (`re`) | [41ZA](11-finished.md), [41ZB](11-finished.md) | done |
+| H4. Library functions luerl reaches | [41T](11-finished.md)–[41Z](11-finished.md), [41M1](11-finished.md), [41M2](11-finished.md), [41ZC](11-finished.md) | done |
+| M. Validation closure | [63](11-finished.md)–[68](11-finished.md), [65A](11-finished.md), [65B](11-finished.md), [65C](11-finished.md), [69A](11-finished.md), [VAL1](#step-val1)–[VAL5](#step-val5) | open: [VAL1](#step-val1)–[VAL5](#step-val5) |
+| N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [RT9](#step-rt9), [CLAU6](#step-clau6) | open |
+| N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | open: [CLAU7](#step-clau7) |
+| P. Remaining features | [CLAU9](#step-clau9)–[CLAU11](#step-clau11), [RT6](#step-rt6)–[RT8](#step-rt8) | open |
+| O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | open |
 
 
 
@@ -174,7 +190,7 @@ and evidence are in Git at those commits. The anchors below keep older links to 
 - 41H (for RT1): code loading answers for linked code (`delete_module/1` `notsup`,
   `prepare_loading/2` `badfile`) until step RT1 decides.
 - 62D (for CLAU6): cache layout and limits in [build caches](../docs/projects.md#build-caches);
-  per-module compile reuse and a directory scan cache stay open in D07.
+  per-module compile reuse and a directory scan cache were not worth it on measurements (CLAU6).
 - 73A–73G (for CLAU7): OTP-requiring tests carry label `host_otp` and skip when CMake finds no `erl`;
   host OTP lookup is `--erl`, `PATH`, then `%ProgramFiles%\Erlang OTP`; `--erl none` simulates a
   missing host OTP.
@@ -212,7 +228,7 @@ Steps 58O–58S are done ([finished work](11-finished.md)): luerl inference 330 
 
 ### CLAU1. Widen integers inside containers so local inputs settle
 
-Backlog: F29. Depends on: [58S](11-finished.md). Added 2026-10-13 as 58X from the `parsers.erl`
+Depends on: [58S](11-finished.md). Added 2026-10-13 as 58X from the `parsers.erl`
 fixture (user direction: an inference test shaped like yecc/leex output). Should run before CLAU2:
 it may remove most of the `inputs changed` passes CLAU2 wants to skip.
 
@@ -238,7 +254,7 @@ it may remove most of the `inputs changed` passes CLAU2 wants to skip.
 
 ### CLAU2. Re-infer only the components whose inputs changed since the last pass
 
-Backlog: F29, V05. Depends on: [58R](11-finished.md). Added 2026-10-13 as 58T (58R decision).
+Depends on: [58R](11-finished.md). Added 2026-10-13 as 58T (58R decision).
 
 - Success criteria
   - [ ] A pass re-infers a component only when its inputs (`Inference::inputs` of its members), a
@@ -257,7 +273,7 @@ Added and done 2026-10-13 (user direction), steps 58U–58W: [finished work](11-
 
 ## H3. Drop-in replacements for OTP runtime modules
 
-Added 2026-10-12 (user direction). Backlog: F36 (other modules), D01 for code loading answers. OTP's
+Added 2026-10-12 (user direction); code loading answers are RT1's. OTP's
 `kernel` and `stdlib` are plain Erlang, but they call modules that ERTS preloads and implements in C
 (NIFs, BIFs, port drivers). Clause compiles `kernel`/`stdlib` sources found through
 `source_search_paths`, so those calls fail with `unknown module`. Whatever needs the runtime and
@@ -355,7 +371,7 @@ uses stock PCRE2.
 
 ### VAL1. Validate macOS Apple Silicon
 
-Backlog: V01. Depends on: [63](11-finished.md).
+Depends on: [63](11-finished.md).
 
 - Success criteria
   - [ ] Same as step 63 on macOS arm64.
@@ -366,7 +382,7 @@ Backlog: V01. Depends on: [63](11-finished.md).
 
 ### VAL2. Broaden OTP compatibility evidence
 
-Backlog: V03. Depends on: [58](11-finished.md).
+Depends on: [58](11-finished.md).
 
 - Success criteria
   - [ ] Selected applicable upstream Common Test suites run against a matching built OTP, kept
@@ -379,13 +395,38 @@ Backlog: V03. Depends on: [58](11-finished.md).
 
 ### VAL3. Close the test migration ledger
 
-Backlog: V04. Depends on: [58](11-finished.md).
+Depends on: [58](11-finished.md).
 
 - Success criteria
   - [ ] Every remaining adapter or synthetic success test either has equivalent executable coverage
     and is removed, or has a recorded reason to stay.
 - Tests
   - [ ] Full gate after removals; ledger dispositions cite the replacing tests.
+
+<a id="step-val4"></a>
+
+### VAL4. Validate native ARM hardware
+
+Depends on: [65](11-finished.md). Formerly part of V01; Linux AArch64 and armhf ran under qemu-user
+only.
+
+- Success criteria
+  - [ ] Same as step 63 on native Linux AArch64 (and armhf if available), including `port_spawn`'s
+    `enoent`, which qemu cannot show.
+- Tests
+  - [ ] Full gate plus fixture goldens on the native host.
+
+<a id="step-val5"></a>
+
+### VAL5. TSan timer stress
+
+Depends on: [68](11-finished.md). Formerly F36 and V02; 41F left the timer stress run for the next
+Linux sanitizer gate.
+
+- Success criteria
+  - [ ] The timer stress run passes under TSan without suppressions on Linux.
+- Tests
+  - [ ] Linux sanitizer gate with the stress run.
 
 ## N. Optional scope decisions
 
@@ -396,7 +437,7 @@ implementation plan before coding.
 
 ### RT1. Decide dynamic modules and code upgrades
 
-Backlog: D01. Depends on: [55](11-finished.md). **Decision.**
+Depends on: [55](11-finished.md). **Decision.**
 
 - Success criteria
   - [ ] Static-only, native dynamic libraries, or an upgrade model chosen; static-only failures for
@@ -408,7 +449,7 @@ Backlog: D01. Depends on: [55](11-finished.md). **Decision.**
 
 ### RT2. Decide atom collection
 
-Backlog: D02. Depends on: [54](11-finished.md). **Decision.**
+Depends on: [54](11-finished.md). **Decision.**
 
 - Success criteria
   - [ ] Bounded permanent atoms kept, or collection roots and policy defined.
@@ -419,7 +460,7 @@ Backlog: D02. Depends on: [54](11-finished.md). **Decision.**
 
 ### CLAU3. Decide behavior-changing attributes and transforms
 
-Backlog: D03. Depends on: [58](11-finished.md). **Decision.**
+Depends on: [58](11-finished.md). **Decision.**
 
 - Success criteria
   - [ ] Per-attribute decision (`compile` options, `on_load`, others; parse transforms are selected
@@ -435,7 +476,7 @@ Backlog: D03. Depends on: [58](11-finished.md). **Decision.**
 
 ### CLAU4. Decide public stage interchange
 
-Backlog: D04. Depends on: [58](11-finished.md). **Decision.**
+Depends on: [58](11-finished.md). **Decision.**
 
 - Success criteria
   - [ ] A concrete consumer named, or deferral recorded; inspection dumps stay non-stable.
@@ -446,7 +487,7 @@ Backlog: D04. Depends on: [58](11-finished.md). **Decision.**
 
 ### CLAU5. Confirm intermediate-stage reader reservations
 
-Backlog: D05. Depends on: [CLAU4](#step-clau4). **Decision.**
+Depends on: [CLAU4](#step-clau4). **Decision.**
 
 - Success criteria
   - [ ] Directory reservations remain the only artifact per AGENTS.md, unless a D04 consumer
@@ -458,10 +499,23 @@ Backlog: D05. Depends on: [CLAU4](#step-clau4). **Decision.**
 
 ### RT3. Decide C/FFI interoperability
 
-Backlog: D06. Depends on: [58](11-finished.md). **Decision.**
+Depends on: [58](11-finished.md). **Decision.**
 
 - Success criteria
   - [ ] An external caller and minimal API named, or deferral recorded.
+- Tests
+  - [ ] None beyond the gate unless selected.
+
+<a id="step-rt9"></a>
+
+### RT9. Decide broader numeric scope
+
+Depends on: [38](11-finished.md). **Decision.** Formerly F11; step 38 delivered finite binary64
+floats, their operations and conversions.
+
+- Success criteria
+  - [ ] Any numeric behavior beyond finite binary64 floats and arbitrary integers selected with a
+    concrete need, or the current scope recorded as final.
 - Tests
   - [ ] None beyond the gate unless selected.
 
@@ -469,7 +523,7 @@ Backlog: D06. Depends on: [58](11-finished.md). **Decision.**
 
 ### CLAU6. Decide project schema extensions
 
-Backlog: D07. Depends on: [58](11-finished.md). **Decision.**
+Depends on: [58](11-finished.md). **Decision.**
 
 - Success criteria
   - [ ] Demand recorded for each extension (profiles, dependencies, exclusions, packages,
@@ -480,7 +534,7 @@ Backlog: D07. Depends on: [58](11-finished.md). **Decision.**
 
 ## N2. Parse transforms
 
-Added 2026-10-11 (user direction). Backlog: D03 (selected slice). Clause applies
+Added 2026-10-11 (user direction), the selected slice of CLAU3. Clause applies
 `{parse_transform, M}` the way `erlc` does, using Erlang/OTP on the host only to run the transform
 module:
 
@@ -503,7 +557,7 @@ contract are in [transforms](../docs/transforms.md).
 
 ### CLAU7. Close parse transforms
 
-Backlog: D03. Depends on: [73G](11-finished.md).
+Depends on: [73G](11-finished.md).
 
 - Success criteria
   - [ ] Real projects with parse transforms (for example a `lager`- or `qlc`-style user) compile
@@ -524,11 +578,108 @@ Backlog: D03. Depends on: [73G](11-finished.md).
       user can meet with their remedies.
   - [ ] Every command and example in that documentation executed as written with host OTP; the CLI
     `--help` text names the new options.
-  - [ ] `docs/transforms.md`, `docs/differences.md`, `features.md`, `01-todo.md` D03, step CLAU3,
+  - [ ] `docs/transforms.md`, `docs/differences.md`, `features.md`, step CLAU3,
     `11-finished.md`, `arch.md`, `files.md` and `aimemory.md` describe exactly what is supported.
 - Tests
   - [ ] Full-mode CTest and `check-quality-all`, once with host OTP and once without (OTP-requiring
     tests skipped and reported).
+
+## P. Remaining features
+
+Added 2026-10-30 from the open items of the former feature backlog (user direction).
+
+<a id="step-clau9"></a>
+
+### CLAU9. Nested exception handling and cleanup across calls
+
+Depends on: [15](11-finished.md). Formerly F20; steps 11–15 delivered raise classes, `catch`,
+`try`/`of`/`catch`/`after`, stack traces and `raise/3`.
+
+- Success criteria
+  - [ ] Nested `try`/`catch`/`after` across local, remote and builtin calls (funs raising inside
+    `lists`/`maps` loops included) run every cleanup once, in OTP's order, with OTP's exception
+    and stack; anything left different is recorded in `differences.md`.
+- Tests
+  - [ ] Golden `nested_exceptions` compared with OTP.
+
+<a id="step-clau10"></a>
+
+### CLAU10. Inference: dependent `case` splits and inadmissible calls
+
+Depends on: [58N3](11-finished.md). Formerly F34; steps 58A–58N3 delivered the fact domain,
+narrowing, spec contradictions, per-clause function types, per-call re-analysis and dependent facts
+([semantic](../docs/semantic.md#inference)).
+
+- Success criteria
+  - [ ] A `case` on a variable that itself depends on an argument splits the function's type over
+    that argument.
+  - [ ] Optional report, off by default, of calls that no function type of the callee admits.
+- Tests
+  - [ ] Expectations in `tests/fixtures/inference/` (values, base_types, narrowing, clauses,
+    dependent) and `contracts/` extended for both.
+
+<a id="step-clau11"></a>
+
+### CLAU11. Source locations and extended errors in stack traces and crash reports
+
+Depends on: none. Formerly F37 (late, unscheduled; added 2026-10-26).
+
+- Success criteria
+  - [ ] Per module, interned source file names and a line table per call site, kept beside the
+    frame descriptors and optional so executables can drop them; frames carry
+    `[{file, F}, {line, L}]`.
+  - [ ] `error_info` from `error/3` options and from failing builtins and operators, with their
+    frames.
+  - [ ] Crash reports, `proc_lib` reports and the uncaught exception line formatted through
+    `erl_error` with locations, extended error text and the stack.
+  - [ ] The `differences.md` rows on stack trace locations, builtin frames, uncaught exceptions and
+    crash report details removed ([ABI](../docs/abi.md#stack-traces)).
+- Tests
+  - [ ] Goldens of stack traces and crash reports with locations, compared with OTP.
+
+<a id="step-rt6"></a>
+
+### RT6. `--args-file` options file
+
+Depends on: [3](11-finished.md). Formerly F01; steps 3–8, 43 and 58 delivered entry, startup,
+linking, runtime options and program fixtures. Plan 30's DIST4a adds node options and `--env`
+that such a file holds as well.
+
+- Success criteria
+  - [ ] `--args-file FILE` reads runtime options like OTP's `vm.args` (several per line, `#`
+    comments, nested files), in order with `CLAUSE_FLAGS` and the command line; invalid content
+    stops the program as other invalid runtime options do. Today it reports
+    `runtime option --args-file is not implemented`.
+- Tests
+  - [ ] Authored runs of the `runtime_options` golden with a file, a nested file and a missing file.
+
+<a id="step-rt7"></a>
+
+### RT7. Generational garbage collection
+
+Depends on: [8H](11-finished.md). **Optional.** Formerly F04; steps 8A–8I, 23–27A and 51 delivered
+the Cheney collector, generated-code triggers, defined exhaustion, caps and `garbage_collect/0`.
+
+- Success criteria
+  - [ ] Measured with the step 69A benchmarks whether an old heap with minor collections pays off;
+    if selected, OTP's `fullsweep_after` and `minor_gcs` semantics, else the rejection recorded in
+    `00-reject.md`.
+- Tests
+  - [ ] Collector tests and benchmark results for the chosen design.
+
+<a id="step-rt8"></a>
+
+### RT8. Atoms and identities across runtimes
+
+Depends on: [45](11-finished.md). Formerly F05; steps 28 and 45 delivered sharing-preserving copies
+between heaps of one runtime.
+
+- Success criteria
+  - [ ] Decided whether several runtimes in one host process exchange terms: if selected, copies
+    translate atoms by spelling and handle pids, ports and references (compare plan 30's DIST1
+    identities of other nodes); otherwise today's `wrong_owner` refusal is the documented contract.
+- Tests
+  - [ ] Runtime consumer test of the chosen behavior.
 
 ## O. Final closure
 
@@ -536,7 +687,7 @@ Backlog: D03. Depends on: [73G](11-finished.md).
 
 ### RT4. Reset every versioned ABI name to v1
 
-Backlog: all. Depends on: steps 1–68, VAL1–VAL3 and any selected optional work. Inserted 2026-10-05.
+Depends on: steps 1–68, VAL1–VAL5 and any selected optional work. Inserted 2026-10-05.
 
 The project has never been released, so no earlier generated-code contract has to stay loadable.
 Collapse every version marker to v1: runtime service symbols (`CLAUSE_roots_enter_v5`,
@@ -561,7 +712,7 @@ prefixes if any other revision exists, and the revision tables in the docs.
 
 ### RT5. Rename runtime builtin modules to builtin_<name>
 
-Backlog: all. Depends on: [RT4](#step-rt4). Added 2026-10-09 (user direction).
+Depends on: [RT4](#step-rt4). Added 2026-10-09 (user direction).
 
 Rename the C++ sources and headers of `runtime/src/builtins/` to `builtin_<name>.cpp` /
 `builtin_<name>.hpp` (`erlang.cpp` to `builtin_erlang.cpp`, `io_format.hpp` to
@@ -578,11 +729,11 @@ document naming them.
 
 ### CLAU8. Publish the final implementation and validation boundary
 
-Backlog: all. Depends on: steps 1–68, VAL1–VAL3, [RT4](#step-rt4), [RT5](#step-rt5) and any
+Depends on: steps 1–68, VAL1–VAL5, CLAU9–CLAU11, RT6–RT9, [RT4](#step-rt4), [RT5](#step-rt5) and any
 selected optional work.
 
 - Success criteria
-  - [ ] `11-finished.md`, `01-todo.md`, `arch.md`, `files.md`, contracts and examples reflect
+  - [ ] `11-finished.md`, `arch.md`, `files.md`, contracts and examples reflect
     exactly what is implemented, validated, deferred or omitted.
   - [ ] README shows building and running a multi-process Erlang program as an executable.
 - Tests

@@ -2,7 +2,7 @@
 
 Distribution in the runtime and the libraries that depend on it, so a Clause executable is a
 distributed Erlang node. Added 2026-10-30 as plan 11's phase DIST and moved here the same day (user
-direction). Backlog: F38.
+direction); formerly backlog item F38.
 
 - **Today:** a Clause program is a non-distributed node.
   - The runtime knows only `nonode@nohost` and local identities: `binary_to_term/1` rejects other
@@ -49,7 +49,7 @@ direction). Backlog: F38.
 
 ## DIST1. External identities in the runtime
 
-Backlog: F38. Depends on: DIST0 ([30-finished](30-finished.md)).
+Depends on: DIST0 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] New term kinds under the representations rule: external pid, port and reference (node atom,
@@ -73,7 +73,7 @@ Backlog: F38. Depends on: DIST0 ([30-finished](30-finished.md)).
 
 ## DIST2. Connection entries and controller BIFs
 
-Backlog: F38. Depends on: [DIST1](#step-dist1).
+Depends on: [DIST1](#step-dist1).
 
 - Success criteria
   - [ ] A runtime table with one entry per remote node: state (pending, up, exiting), controller
@@ -95,7 +95,7 @@ Backlog: F38. Depends on: [DIST1](#step-dist1).
 
 ## DIST3. epmd client and Clause's epmd
 
-Backlog: F38. Depends on: DIST0 ([30-finished](30-finished.md)).
+Depends on: DIST0 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `erl_epmd` client over the epmd protocol: `register_node/2,3`, `port_please/2,3`,
@@ -119,7 +119,7 @@ Backlog: F38. Depends on: DIST0 ([30-finished](30-finished.md)).
 
 ## DIST4a. Node start options
 
-Backlog: F38. Depends on: DIST0 ([30-finished](30-finished.md)).
+Depends on: DIST0 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] Runtime options of [node start options](../docs/distribution.md#node-start-options):
@@ -143,7 +143,7 @@ Backlog: F38. Depends on: DIST0 ([30-finished](30-finished.md)).
 
 ## DIST4b. Handshake, TCP carrier and first connections
 
-Backlog: F38. Depends on: [DIST2](#step-dist2), [DIST3](#step-dist3), [DIST4a](#step-dist4a).
+Depends on: [DIST2](#step-dist2), [DIST3](#step-dist3), [DIST4a](#step-dist4a).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's
@@ -170,7 +170,7 @@ Backlog: F38. Depends on: [DIST2](#step-dist2), [DIST3](#step-dist3), [DIST4a](#
 
 ## DIST5. Every signal across nodes
 
-Backlog: F38. Depends on: [DIST4b](#step-dist4b).
+Depends on: [DIST4b](#step-dist4b).
 
 - Success criteria
   - [ ] Control messages: `LINK`, `UNLINK_ID`/`UNLINK_ID_ACK`, `EXIT`/`EXIT2` and their payload
@@ -192,7 +192,7 @@ Backlog: F38. Depends on: [DIST4b](#step-dist4b).
 
 ## DIST6. `net_kernel` and `auth` complete
 
-Backlog: F38. Depends on: [DIST5](#step-dist5).
+Depends on: [DIST5](#step-dist5).
 
 - Success criteria
   - [ ] `net_kernel`: `monitor_nodes/1,2` (with `nodeup`/`nodedown` info options), `allow/1`,
@@ -211,7 +211,7 @@ Backlog: F38. Depends on: [DIST5](#step-dist5).
 
 ## DIST7. `rpc`, `erpc`, `gen` and I/O across nodes
 
-Backlog: F38. Depends on: [DIST6](#step-dist6).
+Depends on: [DIST6](#step-dist6).
 
 - Success criteria
   - [ ] `rex` runs while distribution runs; `rpc` remote `call`, `cast`, `multicall`,
@@ -231,7 +231,7 @@ Backlog: F38. Depends on: [DIST6](#step-dist6).
 
 ## DIST8. `global` and `global_group` across nodes
 
-Backlog: F38. Depends on: [DIST6](#step-dist6).
+Depends on: [DIST6](#step-dist6).
 
 - Success criteria
   - [ ] OTP's `global` protocol between nodes: replicated registrations, name conflicts resolved by
@@ -250,7 +250,7 @@ Backlog: F38. Depends on: [DIST6](#step-dist6).
 
 ## DIST9. `pg` across nodes
 
-Backlog: F38. Depends on: [DIST6](#step-dist6).
+Depends on: [DIST6](#step-dist6).
 
 - Success criteria
   - [ ] Scope processes discover peers on `nodeup`, exchange memberships, relay joins and leaves,
@@ -264,7 +264,7 @@ Backlog: F38. Depends on: [DIST6](#step-dist6).
 
 ## DIST10. Starting nodes: `peer`, `slave`, `pool`
 
-Backlog: F38. Depends on: [DIST7](#step-dist7).
+Depends on: [DIST7](#step-dist7).
 
 - Success criteria
   - [ ] A node mode for executables: boot, start distribution and run no entry, so a program can
@@ -280,7 +280,7 @@ Backlog: F38. Depends on: [DIST7](#step-dist7).
 
 ## DIST11. Distributed applications
 
-Backlog: F38. Depends on: [DIST8](#step-dist8).
+Depends on: [DIST8](#step-dist8).
 
 - Success criteria
   - [ ] `dist_ac` with the `distributed` kernel environment, `sync_nodes_mandatory`,
@@ -295,7 +295,7 @@ Backlog: F38. Depends on: [DIST8](#step-dist8).
 
 ## DIST12. TLS distribution and other carriers
 
-Backlog: F38. Depends on: [DIST5](#step-dist5).
+Depends on: [DIST5](#step-dist5).
 
 - Success criteria
   - [ ] `inet_tls_dist` and `inet6_tls_dist` over Clause's `ssl` (`-proto_dist inet_tls`,
@@ -310,7 +310,7 @@ Backlog: F38. Depends on: [DIST5](#step-dist5).
 
 ## DIST13. Close distribution
 
-Backlog: F38. Depends on: [DIST1](#step-dist1)–[DIST12](#step-dist12).
+Depends on: [DIST1](#step-dist1)–[DIST12](#step-dist12).
 
 - Success criteria
   - [ ] `docs/distribution.md`, `docs/libraries/library.md` rows and `differences.md` describe

@@ -37,7 +37,7 @@ Per-plan records:
   `--new-project`; platform matrix not closed ([projects](../docs/projects.md)).
 - **Test migration:** 16 native project suites moved to CLI fixtures, frontend to CLI/OTP
   projections and 900 mutations, runtime to a separately built consumer; ledger audit still open
-  (step 70).
+  (step VAL3).
 - **Compiler/runtime 1–8:** LLVM SDK discovery, owned results, target policy, verification, object
   emission, ABI v1, feature reporting ([compile](../docs/compile.md)).
 - **Compiler/runtime 9–14:** runtime/context lifecycle, immediate terms, frozen builtin registries,
@@ -57,15 +57,16 @@ Per-plan records:
 
 ## Outstanding work to finish
 
-[The backlog](01-todo.md) expands each gap; [plan 11](11-plan.md) orders it. Done: everything above.
+[Plan 11](11-plan.md) orders the gaps. Done: everything above.
 
-- [ ] **Native platform validation:** macOS Apple Silicon (step 66) and native ARM hardware; Linux
+- [ ] **Native platform validation:** macOS Apple Silicon (step VAL1) and native ARM hardware; Linux
   x86-64, 32-bit x86 and ARM under emulation done.
-- [ ] **OTP compatibility:** upstream Common Test suites, wider differential comparisons (step 69).
-- [ ] **Test migration closure:** retire adapters after equivalent public coverage (step 70).
-- [ ] **Parse transform closure:** real projects and the user guide (step 73H).
+- [ ] **OTP compatibility:** upstream Common Test suites, wider differential comparisons
+  (step VAL2).
+- [ ] **Test migration closure:** retire adapters after equivalent public coverage (step VAL3).
+- [ ] **Parse transform closure:** real projects and the user guide (step CLAU7).
 
-Deferred, not required: dynamic modules (D01), atom collection (D02), behavior-changing attributes
-beyond the selected slices (D03), public interchange (D04), stage readers (D05), C/FFI (D06),
-project-schema extensions (D07). Every change keeps formatting, behavioral tests and the fresh
+Deferred, not required: dynamic modules (RT1), atom collection (RT2), behavior-changing attributes
+beyond the selected slices (CLAU3), public interchange (CLAU4), stage readers (CLAU5), C/FFI
+(RT3), project-schema extensions (CLAU6). Every change keeps formatting, behavioral tests and the fresh
 combined Debug quality gate without weakened thresholds or suppressions.

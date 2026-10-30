@@ -256,3 +256,45 @@ that were missing or wrong; all are fixed.
 - **`examples/benchmark`**: `--entry benchmarks:run` took `run/1`; the `/ARITY` suffix
   (`--entry M:F/0`, [executables](../docs/executables.md)) fixed it; all 22 suites print OTP's 158
   lines (Clause O0 1.8 s, OTP 0.55 s).
+
+<a id="delivered-features"></a>
+
+## Delivered features
+
+The delivered owners of the former feature backlog (merged into [plan 11](11-plan.md) on
+2026-10-30), with the steps that delivered them and their contracts. Also delivered: export
+liveness (62C), the OTP benchmarks (V05, 69A) and the replacements for ERTS-preloaded modules (F36,
+phase H3).
+
+| ID | Feature | Plan steps | Contract |
+| --- | --- | --- | --- |
+| F02 | Roots, safepoints, frames and generated-code ABI | 8E, 8F, 17, 19, 23, 24, 26, 51 | [abi](../docs/abi.md#frames-and-transfers) |
+| F03 | Process heaps and term construction | 8A–8I, 31B, 32, 42 | [runtime-heap](../docs/runtime-heap.md) |
+| F06 | Atom table, synchronized for workers | 54 | [terms](../docs/terms.md#atoms) |
+| F07 | Pid, port and reference identities | 42, 45, 48, 50, 57B | [terms](../docs/terms.md#pids-and-references) |
+| F08 | Lists, tuples, maps, strings; `lists`/`maps` subsets | 27B–27D, 28, 37, 39 | [terms](../docs/terms.md#tuples-lists-strings) |
+| F09 | Binaries and bitstrings, off-heap buffers | 8B, 8H, 28 | [terms](../docs/terms.md#bitstrings) |
+| F10 | Arbitrary integers with the ERTS size limit | 27E, 28 | [terms](../docs/terms.md) |
+| F12 | Equality, comparisons and term order | 31, 32, 42 | [terms](../docs/terms.md) |
+| F13 | Pattern matching and bindings in every context | 9–16, 21, 22, 32–34, 46 | [patterns](../docs/patterns.md) |
+| F14 | Guards, identity and function type tests | 9, 10, 52 | [guards](../docs/guards.md) |
+| F15 | Multiple function clauses | — | [patterns](../docs/patterns.md) |
+| F16 | Sequences, blocks, `case`, `if`, `maybe`, comprehensions | 9, 10, 16, 21, 22 | [features](../docs/features.md) |
+| F17 | Records: ordinary, updates, `record_info/2`, native | 29–31E | [features](../docs/features.md) |
+| F18 | Function values, closures, named funs | 32–34 | [abi](../docs/abi.md) |
+| F19 | Dynamic calls and `apply` | 35, 36 | [features](../docs/features.md) |
+| F21 | Recursion and proper tail calls | 17–20, 34 | [execution model](../docs/execution-model.md) |
+| F22 | Cooperative processes, exits, links, monitors | 43, 43A, 44, 48, 49 | [processes](../docs/processes.md) |
+| F23 | Scheduler workers, wakeups, timer wheel | 56, 57, 62B | [processes](../docs/processes.md) |
+| F24 | Signal inbox and message sending | 45 | [processes](../docs/processes.md) |
+| F25 | Selective receive and timeouts | 46, 47, 62B | [processes](../docs/processes.md) |
+| F26 | Production builtins: bridge, families, `io`, registered names | 4, 36–40, 43A, 50 | [runtime](../docs/runtime.md) |
+| F27 | Typed native callables | 41 | [runtime](../docs/runtime.md) |
+| F28 | Concurrent code server | 55 | [runtime](../docs/runtime.md) |
+| F29 | Source-driven specialization (O2 proofs) | 59 | [specialization](../docs/specialization.md) |
+| F30 | Debug information (`-g`) | 60, 63 | [debugging](../docs/debugging.md) |
+| F31 | Profiling (`--profile FILE`) | 61 | [profiling](../docs/profiling.md) |
+| F32 | Link-time optimization (`--lto`) | 62 | [compile](../docs/compile.md) |
+| F33 | Indexed code-server lookups | 62A | [runtime](../docs/runtime.md) |
+| F35 | Ports: subprocess, file, standard I/O, sockets | 57A–57G3 | [ports](../docs/ports.md) |
+| V02 | ASan/UBSan/LSan and TSan, no suppressions | 67, 68 | [validation](../docs/validation.md) |

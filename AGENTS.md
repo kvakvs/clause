@@ -62,7 +62,6 @@ recorded. Read only the section you need.
   - [21-lib.md](.agents/21-lib.md): Clause's own erts, kernel and stdlib
   - [22-opt-compiler.md](.agents/22-opt-compiler.md): compiler performance
   - [30-dist.md](.agents/30-dist.md): network distribution in the runtime and libraries
-  - [01-todo.md](.agents/01-todo.md): the feature backlog behind the plans
 - Finished work: [00-finished.md](.agents/00-finished.md) is the index, with the per-plan
   [11-finished.md](.agents/11-finished.md), [20-finished.md](.agents/20-finished.md),
   [21-finished.md](.agents/21-finished.md) and [22-finished.md](.agents/22-finished.md).

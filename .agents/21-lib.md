@@ -283,7 +283,7 @@ dependencies, non-test sources.
   replacements registered as library modules for the popular ones (`exml_nif`, `jiffy`,
   `fast_pbkdf2`, `stringprep`), or NIF loading through the runtime. `jwerl` and MongooseIM's
   `mongoose_mam_id` use `-on_load` without NIFs.
-- **MIM9 compiler and project gaps** (not library: route to plan 11 / `01-todo.md` when picked up):
+- **MIM9 compiler and project gaps** (not library: route to plan 11 when picked up):
   - `#r{a = 1, b = 2, _ = '_'}` with every field given is rejected (`record wildcard requires an
     omitted field`, `compiler/src/semantic/records.cpp`); OTP accepts it (checked with `erlc`).
     MongooseIM's `mod_muc_mnesia`. A difference from OTP: fix or record in `differences.md`.
