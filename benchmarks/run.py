@@ -2,7 +2,7 @@
 """Manual benchmarks of Clause against Erlang/OTP (plan step 69A); never part of the test gate.
 
 Builds every benchmarks/bench_*.erl program with OTP (JIT, and the emu flavor when installed),
-Clause at HEAD (O2, with and without --lto) and a previous Clause commit, runs them on this host,
+Clause at HEAD (O2, with and without --lto) and, with --baseline REV, another Clause commit, runs them on this host,
 prints a text report and keeps a 6-month history per host under benchmarks/history/, one run per day. Reports and
 history also hold executable sizes: every benchmark program at O2, --lto (with an extra O0 build that is never run)
 and the baseline, and clau itself at HEAD and the baseline.
@@ -36,13 +36,12 @@ EXE = ".exe" if os.name == "nt" else ""
 HISTORY_DAYS = 183
 # Paths whose changes make the Clause build differ from the HEAD commit.
 SOURCE_PATHS = ["abi", "cmake", "compiler", "library", "runtime", "CMakeLists.txt"]
-SECONDS_PER_DAY = 86400
 # Listing configurations with their optimization level, and the inspection flag and file extension of each listing
 # kind; every run replaces the previous run's listings.
 LISTING_CONFIGS = (("debug", "-O0"), ("release", "-O2"))
 LISTING_KINDS = (("--print-asm", "asm"), ("--print-ir", "ll"))
 # Executable size columns in report order, and the (measured, reference) column pairs compared; o0 is built only to
-# be measured, never run, and baseline is the previous Clause commit at O2 (the clause-base system).
+# be measured, never run, and baseline is the --baseline commit at O2 (the clause-base system).
 SIZE_COLUMNS = ("o0", "o2", "lto", "baseline")
 SIZE_RATIOS = (("o2", "o0"), ("lto", "o2"), ("lto", "o0"), ("o2", "baseline"))
 # Seconds a finished benchmark program's leftover processes get to exit before they are killed.
@@ -62,8 +61,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build-dir", default="build/bench", help="Release build of clau at HEAD")
     parser.add_argument("--config", default="Release", help="build configuration of clau")
-    parser.add_argument("--baseline", help="previous Clause revision (default: newest commit >= 1 day older than HEAD)")
-    parser.add_argument("--no-baseline", action="store_true", help="skip the previous Clause version")
+    parser.add_argument("--baseline", metavar="REV",
+                        help="also build and measure this Clause revision, for performance work (default: none)")
     parser.add_argument("--no-lto", action="store_true", help="skip the Clause --lto build")
     parser.add_argument("--repeat", type=int, default=3, help="runs of each program per system")
     parser.add_argument("--timeout", type=int, default=600, help="seconds allowed for one program run")
@@ -106,16 +105,6 @@ def commit_info(rev):
     """Full hash, short hash and ISO commit date of a revision."""
     full, short, date = git("log", "-1", "--format=%H %h %cI", rev).split()
     return {"hash": full, "short": short, "date": date}
-
-
-def default_baseline():
-    """The newest commit whose commit date is at least one day older than HEAD's."""
-    head_time = int(git("log", "-1", "--format=%ct", "HEAD"))
-    for line in git("log", "--format=%H %ct", "HEAD").splitlines():
-        rev, when = line.split()
-        if int(when) <= head_time - SECONDS_PER_DAY:
-            return rev
-    return None
 
 
 def find_erl(explicit):
@@ -651,7 +640,7 @@ def build_report(context, summary, walls, failures, systems, kernels):
                      compare_table(summary, kernels, "clause-lto", [references[0], "clause-o2"])]
     sections += ["Program wall times (s, startup included, median)", wall_table(walls, systems)]
     sizes = context["sizes"]
-    sections += ["Executable sizes (bytes; o0/o2/lto: HEAD, baseline: previous commit at O2; "
+    sections += ["Executable sizes (bytes; o0/o2/lto: HEAD, baseline: --baseline commit at O2; "
                  "-N% = smaller, +N% = larger)",
                  program_size_table(sizes["programs"]), clau_size_table(sizes["clau"])]
     if failures:
@@ -738,10 +727,13 @@ def update_history(context, summary, kernels):
     records.append(history_record(context, summary))
     kept = save_history(path, records)
     note = "time ratio, last 8 run days; below 1.00x = Clause O2 is faster"
-    return (f"History of Clause O2 vs OTP on this host ({note})\n\n"
-            + trend_table(kept, kernels, lambda r: r.get("otp_ratio", {})) + "\n\n"
-            + f"History of Clause O2 vs its baseline on this host ({note})\n\n"
-            + trend_table(kept, kernels, lambda r: r.get("baseline", {}).get("ratio", {})) + "\n")
+    sections = (f"History of Clause O2 vs OTP on this host ({note})\n\n"
+                + trend_table(kept, kernels, lambda r: r.get("otp_ratio", {})) + "\n")
+    # Only a --baseline run measures a baseline.
+    if context["base"]:
+        sections += (f"\nHistory of Clause O2 vs its baseline on this host ({note})\n\n"
+                     + trend_table(kept, kernels, lambda r: r.get("baseline", {}).get("ratio", {})) + "\n")
+    return sections
 
 
 def report_directory(host):
@@ -800,9 +792,8 @@ def prepare_clause(args, head_dir):
         builds["clause-lto"] = size_builds["lto"] = build_clause(clau, out / "clause-lto", ["--lto"])
         size_builds["o0"] = build_clause(clau, out / "clause-o0", [], level="-O0")
     base = None
-    rev = None if args.no_baseline else (args.baseline or default_baseline())
-    if rev:
-        base = commit_info(rev)
+    if args.baseline:
+        base = commit_info(args.baseline)
         base_clau = build_baseline(base, args.config, args.jobs)
         empty = {name: None for name in programs(None)}
         builds["clause-base"] = build_clause(base_clau, out / "clause-base", []) if base_clau else empty

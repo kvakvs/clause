@@ -130,8 +130,9 @@ dependent) and needs a build with both compiler and runtime enabled;
 ## Benchmarks and listings
 
 `make benchmark` / `make-benchmark.bat` build a Release `clau` in `build/bench`
-and compare the `benchmarks/bench_*.erl` programs against the host OTP and an
-older Clause commit; `benchmarks/run.py --help` lists the options
+and compare the `benchmarks/bench_*.erl` programs against the host OTP, and
+with `--baseline REV` against another Clause commit; `benchmarks/run.py --help`
+lists the options
 ([benchmarks](validation.md#benchmarks)). They are never part of the tests.
 
 `benchmarks/compile_times.py` times `clau` itself: it runs a compile workload

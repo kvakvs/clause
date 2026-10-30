@@ -210,7 +210,8 @@ host-specific evidence, not gate results.
 make-benchmark.bat                         # Windows; set JOBS=N to cap parallel builds
 make-benchmark.bat --repeat 9 --only bench_gc,bench_msg
 make-benchmark.bat --cpus all                 # unpinned set; default --cpus performance
-make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
+make-benchmark.bat --baseline HEAD           # performance work: HEAD vs the working tree
+make benchmark BENCH_ARGS="--repeat 9"         # other hosts
 ```
 
 - Both configure and build a Release `clau` and runtime in `build/bench`, then
@@ -244,10 +245,12 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
   (`cpus`) name the set; ratios of runs on different sets are not comparable.
 - Systems, on the same host in one run, interleaved: OTP with its default flavor
   (JIT), OTP `-emu_flavor emu` when installed (the Windows installer ships only
-  the JIT, so those columns read `n/a`), Clause HEAD at O2 and with `--lto`, and
-  a previous Clause commit (default: the newest commit at least one day older
-  than HEAD; `--baseline REV`, `--no-baseline`) built in a cached worktree under
-  `build/bench-base/<hash>` that shares `thirdparty/`.
+  the JIT, so those columns read `n/a`), Clause HEAD at O2 and with `--lto`,
+  and only with `--baseline REV` another Clause commit, built in a cached
+  worktree under `build/bench-base/<hash>` that shares `thirdparty/`. A baseline
+  is for performance work: `--baseline HEAD` measures the committed code against
+  the uncommitted changes in `build/bench`. The day-to-day trend comes from the
+  history, not from a baseline.
 - Report: per kernel the median of `--repeat` runs (default 3) in milliseconds
   with six decimals and its spread, the change of Clause O2 against each system
   (`+N%`: Clause faster, the other takes N% longer; `-N%`: Clause takes N%
@@ -256,15 +259,15 @@ make benchmark BENCH_ARGS="--baseline HEAD~5"   # other hosts
   timeouts (`--timeout`, 600 s per run). A default run measures for about 15
   minutes.
 - Executable sizes, in bytes: every program at `-O2`, with `--lto` and at `-O0`
-  (an extra build only measured, never run; both skipped by `--no-lto`) and the
+  (an extra build only measured, never run; both skipped by `--no-lto`) and any
   baseline at `-O2`, with a total row and the changes O2 vs O0, `--lto` vs O2,
   `--lto` vs O0 and O2 vs baseline (`-N%` smaller); and `clau` at HEAD and the
   baseline. The history keeps them as `sizes_bytes` (`programs`: program →
   column → bytes, `clau`: `head`/`baseline` → bytes; `null` where a build
   failed).
 - History: `benchmarks/history/<host>.json` keeps one record per run day (run
-  date, HEAD hash and commit date, Clause, OTP and baseline medians, sizes, and
-  Clause's time ratios `otp_ratio` and `baseline.ratio` per kernel),
+  date, HEAD hash and commit date, Clause, OTP and any baseline medians, sizes,
+  and Clause's time ratios `otp_ratio` and `baseline.ratio` per kernel),
   `benchmarks/history/reports/<host>/<day>-<hash>.txt` the text reports; a rerun
   on the same day replaces both. Records and reports run more than 183 days
   before the newest are pruned; a run with uncommitted source changes is
