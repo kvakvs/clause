@@ -18,4 +18,4 @@ Compact record of the network distribution plan, one bullet per step;
   `abort_pending_connection/2`, `create_dist_channel/3`, `setnode/3`, `get_dflags/0`, `nodes/0,1,2`
   in OTP's order, `process_flag(monitor_nodes, ...)` and `net_kernel:monitor_nodes/1,2`, controller
   and net_kernel ends; DIST2b split again into DIST2b/2c/2d; `connections` golden identical to OTP
-  — `PENDING`
+  — `c8ccabdd`
