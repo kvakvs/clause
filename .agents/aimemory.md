@@ -455,6 +455,11 @@ recorded elsewhere.
   measured null/worse on ring_setup, short_processes, fan_in: dropped. The embedded first stack
   block is charged on the first push (state limit 0 until then), else exact-account tests and
   --max-memory 64 break.
+- OPT1.10 remainder (2026-10-30): to judge an LLVM attribute or metadata idea, count `= load` in
+  `clau -O2 --print-optimized-ir --entry bench_X benchmarks/bench_X.erl benchmarks/bench_util.erl`
+  with the idea behind a temporary env switch in the debug clau (no runtime build needed). Call
+  memory effects (argmem/inaccessiblemem) changed nothing: term addresses are inttoptr, which BasicAA
+  cannot separate from pointer arguments.
 - OPT3.23 part 2 (2026-10-30): an old change's impact at HEAD = `git revert --no-commit` in a
   scratch worktree (runtime reverts cleanly; resolve .agents conflicts to HEAD), runtime-only
   Release builds (`-DCLAUSE_BUILD_COMPILER=OFF`, same /O2 /Ob2 flags), one build/bench clau with

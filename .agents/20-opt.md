@@ -8,7 +8,7 @@ This file keeps open work only:
 
 - Completed steps (tier OPT0, most of OPT1 and OPT3, OPTM.1-6): see
   [00-finished.md](00-finished.md).
-- Rejected steps (OPTM.1 remainder): see [00-reject.md](00-reject.md).
+- Rejected steps (OPTM.1 and OPT1.10 remainders): see [00-reject.md](00-reject.md).
 
 **NAMING CONVENTIONS** The optimization steps use prefixes based on their area of concern:
 
@@ -391,19 +391,6 @@ loop: zipwith/4 and zipwith3/5 (rare), uniq 4, keymap 1. Open:
 
 - Leaves that raise (`error/1`, `throw/1`) stay calls, since inlining loses their stack-trace frame.
 
-### OPT1.10 remainder: service memory effects
-
-Service calls on the fallback paths are what still clobber term loads (term TBAA alone removed 5 of
-~19k loads in bench_dataproc). Open, by measured need only:
-
-- `memory(...)`, `nounwind`, `willreturn` per service operation: most `CLAUSE_immediate_v1` /
-  `CLAUSE_inspect_v1` operations write their output slot and the failure word and may collect, so
-  only non-allocating ones qualify.
-- Claim checks of atom reads in sibling clauses (no read dominates the other) stay separate; one
-  check at the function's start would have to survive resumes after calls.
-- `select_val` on atoms cannot become an LLVM `switch`: atom words are runtime-assigned (integer
-  cases already become one).
-
 ### OPT1.11 Float unboxing and FP-register residency
 
 - **What:** keep float-typed values in FP registers within a function, and box only at escapes.
@@ -508,7 +495,7 @@ Open steps only, by area:
 - **Maps:** OPT1.6 remainder.
 - **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
 - **Floats:** OPT1.11.
-- **Inlining and cleanup:** OPT1.9, OPT1.10 and OPT1.13 remainders, by measured need.
+- **Inlining and cleanup:** OPT1.9 and OPT1.13 remainders, by measured need.
 
 Runtime steps by 69A impact (worst kernel of each step, pinned 2026-10-21 run; all already ahead of
 OTP):
@@ -529,7 +516,7 @@ OTP):
 Then the steps with no 69A kernel:
 
 - OPT3.13 and OPT3.14 remainders
-- OPT1.7, OPT1.9-1.11 and OPT1.13 remainders
+- OPT1.7, OPT1.9, OPT1.11 and OPT1.13 remainders
 - OPT2.x
 
 **Gate for every item:**

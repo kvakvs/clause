@@ -12,6 +12,20 @@ Steps investigated and dropped, with the measurement behind each decision.
   are not compiled code. The small tables (re flags, time units, port options, importer handlers)
   have 30 entries or fewer, where a linear scan is as fast as binary search. If revisited: a sorted
   or perfect-hash bridge index, and the builtin module names cached at registration.
+- **OPT1.10 remainder: service memory effects** (measured null 2026-10-30). Non-allocating
+  `CLAUSE_immediate_v1` operations (comparisons, `is_function/2`, `element`, `tuple_size`, `length`,
+  `byte_size`, min/max, boolean checks; about half of the ~590 sites left at -O2 in the benchmark
+  programs) were given `memory(read, argmem: readwrite, inaccessiblemem: readwrite)`, `nounwind`,
+  `willreturn` and `captures(none)`. The optimized IR of all six benchmark programs kept every load
+  (dataproc 18894). Alias analysis cannot separate a term address (formed from an integer) from the
+  context and frame-slot arguments, and a call's TBAA tag would cover the heap reads too. A
+  `noalias` body context removes 7-17 loads per program with or without the effects. Even an
+  unsound read-only ceiling removed 1.9% (dataproc) and under 0.4% elsewhere, mostly at the entry
+  guards of `lists`/`maps` library functions and partly through reloads it is not allowed to skip.
+  The other two notes were never steps: claim checks of sibling clauses stay separate, and
+  `select_val` on atoms cannot become a `switch` (atom words are runtime-assigned). If revisited:
+  `is_function(F, N)` has no inline form and is that ceiling's main source; inlining it needs the
+  arity of the runtime's `FunDefinition` at an ABI offset and removes the call itself.
 - **LIB80E2/E3** (public_key otp form walk and name functions in C++; reverted 2026-10-27, user
   decision): in a Release benchmark the C++ was 3-8% slower than compiled Erlang, and neither is a
   big recursive cluster. E2's long user notice fix (table constraint exits raised raw) and its golden
