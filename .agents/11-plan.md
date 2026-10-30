@@ -19,28 +19,39 @@ the earlier 51-step draft with smaller, single-commit steps.
   no source feature by themselves.
 - Check a success or test box only with recorded evidence. Update the backlog checkboxes for the
   slice delivered.
-- Optional D-items (steps 71–77) end in a recorded selection, deferral or omission. An omitted item
-  is never checked as implemented.
+- Unfinished steps were renumbered on 2026-10-30 (user direction) by area: `CLAU` for the compiler,
+  `RT` for the runtime, `VAL` for validation. Finished steps keep their numbers; old to new:
+
+  | Old | New | Old | New | Old | New |
+  | --- | --- | --- | --- | --- | --- |
+  | 58X | CLAU1 | 77 | CLAU6 | 76 | RT3 |
+  | 58T | CLAU2 | 73H | CLAU7 | 78A | RT4 |
+  | 73 | CLAU3 | 78 | CLAU8 | 78B | RT5 |
+  | 74 | CLAU4 | 71 | RT1 | 66 | VAL1 |
+  | 75 | CLAU5 | 72 | RT2 | 69, 70 | VAL2, VAL3 |
+
+- Optional D-items (CLAU3–CLAU6, RT1–RT3) end in a recorded selection, deferral or omission. An
+  omitted item is never checked as implemented.
 - Phase C (steps 8A–8I) was inserted on 2026-10-04 after phase B closed; its steps run before step 9
   and keep their letter IDs in commit titles.
-- Phase N2 (steps 73A–73H) was inserted on 2026-10-11 (user direction). It selects and implements
-  the parse-transform slice of step 73 and depends on [65C](11-finished.md), not on step 73, so it
-  may run before steps 66–72.
+- Phase N2 (steps 73A–73G and CLAU7) was inserted on 2026-10-11 (user direction). It selects and
+  implements the parse-transform slice of CLAU3 and depends on [65C](11-finished.md), not on CLAU3,
+  so it may run before the VAL, RT1 and RT2 steps.
 - Phases H2 (`erlang` builtins, 41A–41H), L2 (export liveness, 62C) and L3 (build directory and
-  caches, 62D1–62D5 and 62E; the cache item of D07 selected ahead of step 77) were inserted on
+  caches, 62D1–62D5 and 62E; the cache item of D07 selected ahead of step CLAU6) were inserted on
   2026-10-11/12 (user direction) and are done.
 - Phase H3 (steps 41I–41S) was inserted on 2026-10-12 (user direction): replacements for the
   ERTS-preloaded and build-generated modules OTP's `kernel`/`stdlib` call, driven by the luerl
   build. Its steps follow 41H numerically and grow as the luerl ledger advances.
 - Step 69A (manual benchmarks against OTP, backlog V05) was inserted on 2026-10-12 (user direction);
   it is never part of the gate.
-- Phase I2 (steps 58O–58T, inference convergence and cost) was inserted on 2026-10-13 (user
-  direction), driven by the luerl build's 330 s inference.
+- Phase I2 (steps 58O–58S, CLAU1, CLAU2, inference convergence and cost) was inserted on 2026-10-13
+  (user direction), driven by the luerl build's 330 s inference.
 - Phase I3 (steps 58U–58W, inference cache for library directories) was inserted on 2026-10-13 (user
-  direction); it may run before 58T.
+  direction); it may run before CLAU2.
 - Phase H4 (steps 41T–41Z, with 41M split into 41M1/41M2) was inserted on 2026-10-14 (user
-  direction) from [the luerl library ledger](21-lib.md); it runs before 58X and 58T. `re` stays out
-  of it.
+  direction) from [the luerl library ledger](21-lib.md); it runs before CLAU1 and CLAU2. `re` stays
+  out of it.
 - Phase H5 (steps 41ZA PCRE2 dependency, 41ZB `re` builtins) was inserted on 2026-10-14 (user
   direction).
 - Network distribution (steps DIST0–DIST13, added 2026-10-30) moved to its own plan,
@@ -126,15 +137,15 @@ Completed steps link to [the plan 11 record](11-finished.md).
 
 | Phase | Steps | Backlog owners | State |
 | --- | --- | --- | --- |
-| I2. Inference convergence and cost | [58O](11-finished.md)–[58T](#step-58t), [58X](#step-58x) | F29, V05 | open: [58X](#step-58x), [58T](#step-58t) |
+| I2. Inference convergence and cost | [58O](11-finished.md)–[58S](11-finished.md), [CLAU1](#step-clau1), [CLAU2](#step-clau2) | F29, V05 | open: [CLAU1](#step-clau1), [CLAU2](#step-clau2) |
 | I3. Inference cache for library directories | [58U](11-finished.md)–[58W](11-finished.md) | F29, D07 | done |
 | H3. Drop-in replacements for OTP runtime modules | [41I](11-finished.md)–[41S](11-finished.md) (41K1, 41K2 added) | F36, D01 | done |
 | H5. Regular expressions (`re`) | [41ZA](11-finished.md), [41ZB](11-finished.md) | F36 | done |
 | H4. Library functions luerl reaches | [41T](11-finished.md)–[41Z](11-finished.md), [41M1](11-finished.md), [41M2](11-finished.md), [41ZC](11-finished.md) | F36, F05 | done |
-| M. Validation closure | [63](11-finished.md)–[70](#step-70), [65A](11-finished.md), [65B](11-finished.md), [65C](11-finished.md), [69A](11-finished.md) | V01–V05, D03 | open: [66](#step-66), [69](#step-69), [70](#step-70) |
-| N. Optional scope decisions | [71](#step-71)–[77](#step-77) | D01–D07 | open |
-| N2. Parse transforms | [73A](11-finished.md)–[73H](#step-73h) | D03 | open: [73H](#step-73h) |
-| O. Final closure | [78A](#step-78a), [78B](#step-78b), [78](#step-78) | all | open |
+| M. Validation closure | [63](11-finished.md)–[68](11-finished.md), [65A](11-finished.md), [65B](11-finished.md), [65C](11-finished.md), [69A](11-finished.md), [VAL1](#step-val1)–[VAL3](#step-val3) | V01–V05, D03 | open: [VAL1](#step-val1), [VAL2](#step-val2), [VAL3](#step-val3) |
+| N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [CLAU6](#step-clau6) | D01–D07 | open |
+| N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | D03 | open: [CLAU7](#step-clau7) |
+| O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | all | open |
 
 
 
@@ -150,21 +161,21 @@ and evidence are in Git at those commits. The anchors below keep older links to 
   still expects 1025 inputs to fail; every gate from 73B to 41K ran with that one known failure.
   Disabled on 2026-10-12 (user) until it is rewritten for the new limit (16385 inputs need a
   project, not a command line).
-- 60 (for 66): Mach-O debug info: `dsymutil` writes `<name>.dSYM` at link and Darwin units record a compile
-  directory (2026-10-27); LLDB attach needs Developer Mode, else `linking_debugger` skips.
+- 60 (for VAL1): Mach-O debug info: `dsymutil` writes `<name>.dSYM` at link and Darwin units record
+  a compile directory (2026-10-27); LLDB attach needs Developer Mode, else `linking_debugger` skips.
 - 63: clang-tidy runs on the Windows host only (user); `cmake/tidy_filter.py` ignores Boost
   `cpp_int` analyzer reports (user decision).
-- 65 (for 66): ARM ran under qemu-user only; qemu's `posix_spawn` never reports a missing program
+- 65 (for VAL1): ARM ran under qemu-user only; qemu's `posix_spawn` never reports a missing program
   (`port_spawn` `enoent` fails there). Native ARM is open.
-- 65A–65C (for 73): still rejected are `on_load`, `nifs`, `export_all`, `{d, ...}`,
+- 65A–65C (for CLAU3): still rejected are `on_load`, `nifs`, `export_all`, `{d, ...}`,
   `warnings_as_errors` and unknown `-compile` options; each names itself in the diagnostic (imports
   of `erlang` functions reach the library module since 41B).
 - 41F (for V02): the timer stress run under TSan belongs to the next Linux sanitizer gate.
-- 41H (for 71): code loading answers for linked code (`delete_module/1` `notsup`,
-  `prepare_loading/2` `badfile`) until step 71 decides.
-- 62D (for 77): cache layout and limits in [build caches](../docs/projects.md#build-caches);
+- 41H (for RT1): code loading answers for linked code (`delete_module/1` `notsup`,
+  `prepare_loading/2` `badfile`) until step RT1 decides.
+- 62D (for CLAU6): cache layout and limits in [build caches](../docs/projects.md#build-caches);
   per-module compile reuse and a directory scan cache stay open in D07.
-- 73A–73G (for 73H): OTP-requiring tests carry label `host_otp` and skip when CMake finds no `erl`;
+- 73A–73G (for CLAU7): OTP-requiring tests carry label `host_otp` and skip when CMake finds no `erl`;
   host OTP lookup is `--erl`, `PATH`, then `%ProgramFiles%\Erlang OTP`; `--erl none` simulates a
   missing host OTP.
 
@@ -197,13 +208,13 @@ fixtures may change only where a step says so.
 
 Steps 58O–58S are done ([finished work](11-finished.md)): luerl inference 330 s to 107 s.
 
-<a id="step-58x"></a>
+<a id="step-clau1"></a>
 
-### 58X. Widen integers inside containers so local inputs settle
+### CLAU1. Widen integers inside containers so local inputs settle
 
-Backlog: F29. Depends on: [58S](11-finished.md). Added 2026-10-13 from the `parsers.erl` fixture
-(user direction: an inference test shaped like yecc/leex output). Should run before 58T: it may
-remove most of the `inputs changed` passes 58T wants to skip.
+Backlog: F29. Depends on: [58S](11-finished.md). Added 2026-10-13 as 58X from the `parsers.erl`
+fixture (user direction: an inference test shaped like yecc/leex output). Should run before CLAU2:
+it may remove most of the `inputs changed` passes CLAU2 wants to skip.
 
 - Evidence: `tests/fixtures/inference/parsers.erl` (CTest `inference_parsers`) never settles its
   local inputs in 16 passes, so the final pass gives every local input `term()` (1 of 18 functions
@@ -223,11 +234,11 @@ remove most of the `inputs changed` passes 58T wants to skip.
 - Tests
   - [ ] `inference_parsers` (and `count_up/2`) reach their expected types or recorded nearer ones.
 
-<a id="step-58t"></a>
+<a id="step-clau2"></a>
 
-### 58T. Re-infer only the components whose inputs changed since the last pass
+### CLAU2. Re-infer only the components whose inputs changed since the last pass
 
-Backlog: F29, V05. Depends on: [58R](11-finished.md). Added 2026-10-13 (58R decision).
+Backlog: F29, V05. Depends on: [58R](11-finished.md). Added 2026-10-13 as 58T (58R decision).
 
 - Success criteria
   - [ ] A pass re-infers a component only when its inputs (`Inference::inputs` of its members), a
@@ -340,9 +351,9 @@ uses stock PCRE2.
 
 ## M. Validation closure
 
-<a id="step-66"></a>
+<a id="step-val1"></a>
 
-### 66. Validate macOS Apple Silicon
+### VAL1. Validate macOS Apple Silicon
 
 Backlog: V01. Depends on: [63](11-finished.md).
 
@@ -351,9 +362,9 @@ Backlog: V01. Depends on: [63](11-finished.md).
 - Tests
   - [ ] Full gate plus fixture goldens.
 
-<a id="step-69"></a>
+<a id="step-val2"></a>
 
-### 69. Broaden OTP compatibility evidence
+### VAL2. Broaden OTP compatibility evidence
 
 Backlog: V03. Depends on: [58](11-finished.md).
 
@@ -364,9 +375,9 @@ Backlog: V03. Depends on: [58](11-finished.md).
 - Tests
   - [ ] Opt-in upstream run with recorded commands; normal CTest stays OTP-free.
 
-<a id="step-70"></a>
+<a id="step-val3"></a>
 
-### 70. Close the test migration ledger
+### VAL3. Close the test migration ledger
 
 Backlog: V04. Depends on: [58](11-finished.md).
 
@@ -381,9 +392,9 @@ Backlog: V04. Depends on: [58](11-finished.md).
 Each step records a decision in its contract document. If an item is selected, write its own small
 implementation plan before coding.
 
-<a id="step-71"></a>
+<a id="step-rt1"></a>
 
-### 71. Decide dynamic modules and code upgrades
+### RT1. Decide dynamic modules and code upgrades
 
 Backlog: D01. Depends on: [55](11-finished.md). **Decision.**
 
@@ -393,9 +404,9 @@ Backlog: D01. Depends on: [55](11-finished.md). **Decision.**
 - Tests
   - [ ] Golden check of the documented boundary behavior.
 
-<a id="step-72"></a>
+<a id="step-rt2"></a>
 
-### 72. Decide atom collection
+### RT2. Decide atom collection
 
 Backlog: D02. Depends on: [54](11-finished.md). **Decision.**
 
@@ -404,24 +415,25 @@ Backlog: D02. Depends on: [54](11-finished.md). **Decision.**
 - Tests
   - [ ] Atom-limit golden for the chosen behavior.
 
-<a id="step-73"></a>
+<a id="step-clau3"></a>
 
-### 73. Decide behavior-changing attributes and transforms
+### CLAU3. Decide behavior-changing attributes and transforms
 
 Backlog: D03. Depends on: [58](11-finished.md). **Decision.**
 
 - Success criteria
   - [ ] Per-attribute decision (`compile` options, `on_load`, others; parse transforms are selected
-    and implemented by phase N2, [73A](11-finished.md)–[73H](#step-73h) (applied since 73F);
+    and implemented by phase N2, [73A](11-finished.md)–[73G](11-finished.md) and
+    [CLAU7](#step-clau7) (applied since 73F);
     `behaviour` is implemented by [65A](11-finished.md), `module_info` and informational attributes
     by [65B](11-finished.md), imports and compile hints by [65C](11-finished.md)); rejected ones
     keep diagnostics.
 - Tests
   - [ ] CLI diagnostics for each rejected attribute.
 
-<a id="step-74"></a>
+<a id="step-clau4"></a>
 
-### 74. Decide public stage interchange
+### CLAU4. Decide public stage interchange
 
 Backlog: D04. Depends on: [58](11-finished.md). **Decision.**
 
@@ -430,11 +442,11 @@ Backlog: D04. Depends on: [58](11-finished.md). **Decision.**
 - Tests
   - [ ] None beyond the gate unless selected.
 
-<a id="step-75"></a>
+<a id="step-clau5"></a>
 
-### 75. Confirm intermediate-stage reader reservations
+### CLAU5. Confirm intermediate-stage reader reservations
 
-Backlog: D05. Depends on: [74](#step-74). **Decision.**
+Backlog: D05. Depends on: [CLAU4](#step-clau4). **Decision.**
 
 - Success criteria
   - [ ] Directory reservations remain the only artifact per AGENTS.md, unless a D04 consumer
@@ -442,9 +454,9 @@ Backlog: D05. Depends on: [74](#step-74). **Decision.**
 - Tests
   - [ ] None beyond the gate.
 
-<a id="step-76"></a>
+<a id="step-rt3"></a>
 
-### 76. Decide C/FFI interoperability
+### RT3. Decide C/FFI interoperability
 
 Backlog: D06. Depends on: [58](11-finished.md). **Decision.**
 
@@ -453,9 +465,9 @@ Backlog: D06. Depends on: [58](11-finished.md). **Decision.**
 - Tests
   - [ ] None beyond the gate unless selected.
 
-<a id="step-77"></a>
+<a id="step-clau6"></a>
 
-### 77. Decide project schema extensions
+### CLAU6. Decide project schema extensions
 
 Backlog: D07. Depends on: [58](11-finished.md). **Decision.**
 
@@ -483,13 +495,13 @@ only calls the stage's entry point from the driver. Normal builds and tests stay
 coverage uses OTP-generated goldens; tests that run a transform need host OTP and are labeled and
 skipped (recorded as a gap) without it.
 
-Steps 73A–73G are done ([record](11-finished.md)). OTP's transform pass (order, options, return
-shapes, messages, column stripping, forms) and Clause's contract are in
-[transforms](../docs/transforms.md).
+Steps 73A–73G are done ([record](11-finished.md)); CLAU7 (formerly 73H) closes the phase. OTP's
+transform pass (order, options, return shapes, messages, column stripping, forms) and Clause's
+contract are in [transforms](../docs/transforms.md).
 
-<a id="step-73h"></a>
+<a id="step-clau7"></a>
 
-### 73H. Close parse transforms
+### CLAU7. Close parse transforms
 
 Backlog: D03. Depends on: [73G](11-finished.md).
 
@@ -512,7 +524,7 @@ Backlog: D03. Depends on: [73G](11-finished.md).
       user can meet with their remedies.
   - [ ] Every command and example in that documentation executed as written with host OTP; the CLI
     `--help` text names the new options.
-  - [ ] `docs/transforms.md`, `docs/differences.md`, `features.md`, `01-todo.md` D03, step 73,
+  - [ ] `docs/transforms.md`, `docs/differences.md`, `features.md`, `01-todo.md` D03, step CLAU3,
     `11-finished.md`, `arch.md`, `files.md` and `aimemory.md` describe exactly what is supported.
 - Tests
   - [ ] Full-mode CTest and `check-quality-all`, once with host OTP and once without (OTP-requiring
@@ -520,11 +532,11 @@ Backlog: D03. Depends on: [73G](11-finished.md).
 
 ## O. Final closure
 
-<a id="step-78a"></a>
+<a id="step-rt4"></a>
 
-### 78A. Reset every versioned ABI name to v1
+### RT4. Reset every versioned ABI name to v1
 
-Backlog: all. Depends on: steps 1–70 and any selected optional work. Inserted 2026-10-05.
+Backlog: all. Depends on: steps 1–68, VAL1–VAL3 and any selected optional work. Inserted 2026-10-05.
 
 The project has never been released, so no earlier generated-code contract has to stay loadable.
 Collapse every version marker to v1: runtime service symbols (`CLAUSE_roots_enter_v5`,
@@ -545,11 +557,11 @@ prefixes if any other revision exists, and the revision tables in the docs.
     every target ABI and width.
   - [ ] Fresh full gate and `check-quality-all` pass.
 
-<a id="step-78b"></a>
+<a id="step-rt5"></a>
 
-### 78B. Rename runtime builtin modules to builtin_<name>
+### RT5. Rename runtime builtin modules to builtin_<name>
 
-Backlog: all. Depends on: [78A](#step-78a). Added 2026-10-09 (user direction).
+Backlog: all. Depends on: [RT4](#step-rt4). Added 2026-10-09 (user direction).
 
 Rename the C++ sources and headers of `runtime/src/builtins/` to `builtin_<name>.cpp` /
 `builtin_<name>.hpp` (`erlang.cpp` to `builtin_erlang.cpp`, `io_format.hpp` to
@@ -562,12 +574,12 @@ document naming them.
 - Tests
   - [ ] Fresh full gate and `check-quality-all` pass.
 
-<a id="step-78"></a>
+<a id="step-clau8"></a>
 
-### 78. Publish the final implementation and validation boundary
+### CLAU8. Publish the final implementation and validation boundary
 
-Backlog: all. Depends on: steps 1–70, [78A](#step-78a), [78B](#step-78b) and any selected optional
-work.
+Backlog: all. Depends on: steps 1–68, VAL1–VAL3, [RT4](#step-rt4), [RT5](#step-rt5) and any
+selected optional work.
 
 - Success criteria
   - [ ] `11-finished.md`, `01-todo.md`, `arch.md`, `files.md`, contracts and examples reflect
