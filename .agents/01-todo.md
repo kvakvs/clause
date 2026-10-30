@@ -73,6 +73,11 @@ Complete for the selected scope; the plan steps hold criteria and evidence.
   [41I](11-plan.md#step-41i)–[41S](11-plan.md#step-41s); delivered so far: `init` 41L,
   `persistent_term` 41M1/41M2). (leex/yecc generation for `.xrl`/`.yrl` sources: cancelled 2026-10-28,
   `00-reject.md`.)
+- **F38 — Network distribution** (plan 30, [DIST0](30-dist.md#step-dist0)–
+  [DIST13](30-dist.md#step-dist13); added 2026-10-30): [ ] external identities, connection
+  entries and the signal data path in the runtime; [ ] epmd, handshake, carriers, `net_kernel`
+  and `auth`; [ ] distributed `rpc`/`erpc`, `global`, `global_group`, `pg`, `peer`, `slave`,
+  `pool` and applications; [ ] TLS distribution.
 - **F32 follow-up — export liveness** ([62C](11-finished.md)): [x] unused exports leave the export
   table so dead-stripping and `--lto` can remove them (executables; `--keep-exports` opts out).
 - **F11 — Floating-point values** (38; delivered: finite binary64 values, operations, conversions):

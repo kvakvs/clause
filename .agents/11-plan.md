@@ -43,6 +43,8 @@ the earlier 51-step draft with smaller, single-commit steps.
   of it.
 - Phase H5 (steps 41ZA PCRE2 dependency, 41ZB `re` builtins) was inserted on 2026-10-14 (user
   direction).
+- Network distribution (steps DIST0–DIST13, added 2026-10-30) moved to its own plan,
+  [30-dist.md](30-dist.md) (user direction).
 
 ## Common gate and rules (apply to every step)
 

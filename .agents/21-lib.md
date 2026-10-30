@@ -6,6 +6,8 @@ programs need no OTP sources on `source_search_paths`. Native C++ runtime builti
 Erlang is used where a function takes funs, runs a process protocol or is glue. Undocumented and
 internal functions stay out unless a public function needs them (user direction 2026-10-17).
 
+- When adding plan steps and extending plan step that is too broad, prefer bullet lists (nested if
+  necessary) for easier reading.
 - IMPORTANT: Prefer compatibility with Erlang/OTP at all times, if something can be faster at the
   cost of compatibility, add that as a future task and we will create a new API that's for the end
   user to choose
@@ -169,9 +171,81 @@ dependencies, non-test sources.
   `table_info`, `sync_dirty`, `dirty_select`, `foldl`, `async_dirty`, `select`, `dirty_index_read`,
   `add_table_copy`, `create_table`, `wait_for_tables`, `create_schema`, `transform_table`,
   `backup`/`restore`/`install_fallback`/`traverse_backup`, `load_textfile`, `change_config`, ...
-  Local-node semantics: `ram_copies`, `disc_copies` and `disc_only_copies` on `nonode@nohost`
-  (schema in `dir`), OTP's transaction, lock and abort terms. Observe its documented API into
-  `documented.terms` first; a large step, split by tables/transactions/backup.
+  OTP 29.1.1's `mnesia-4.27` documents 138 functions in `mnesia` and 5 in `mnesia_frag_hash`.
+  - **Design (all steps):**
+    - Erlang over `ets`, `dets` and `disk_log` (processes and protocols; the hot paths are already
+      C++ `ets`). Own structure, never OTP's sources.
+    - Local-node semantics: one node `nonode@nohost`; `ram_copies`, `disc_copies` and
+      `disc_only_copies` there; other nodes get OTP's non-distributed answers.
+    - What programs observe stays OTP's: tables are public named `ets` tables (keypos 2) that
+      code may read directly, `{aborted, Reason}` and `exit({aborted, Reason})` terms, the `{tid, N,
+      Pid}` transaction ids, `table_info`/`system_info` items, event messages, the backup callback
+      interface, registered names of the processes Clause has (`mnesia_sup`, `mnesia_monitor`,
+      `mnesia_locker`, `mnesia_tm`, `mnesia_controller`, `mnesia_subscr`, `mnesia_event`).
+    - `mnesia` enters `library/` in MIM1A as PARTIAL (`library_modules.py`) and leaves it in
+      MIM1G. Docs in `docs/libraries/mnesia.md`; one golden per step, generated from OTP.
+  - **MIM1A Foundation, schema in memory and dirty access:**
+    - Observe `mnesia` and `mnesia_frag_hash` into `documented.terms`; inventories, stubs and
+      `mnesia.types.hrl`; catalog rows; `mnesia.app` (4.27) with `clause_mnesia_app`.
+    - `start/0`, `stop/0` with OTP's results and reports; answers when not started.
+    - ram schema: `create_table/2` with option validation (`type`, `attributes`, `record_name`,
+      `index`, `ram_copies`, `local_content`, `user_properties`, `storage_properties`,
+      `load_order`, `access_mode`, `majority`), `delete_table/1`, `table_info/2`, `system_info/1`,
+      `schema/0,1`, `wait_for_tables/2`, `error_description/1`.
+    - Dirty functions: `dirty_read/1,2`, `dirty_write/1,2`, `dirty_delete/1,2`,
+      `dirty_delete_object/1,2`, `dirty_update_counter/2,3`, `dirty_match_object/1,2`,
+      `dirty_select/2`, `dirty_select_reverse/2`, `dirty_all_keys/1`, `dirty_first/last/next/prev`,
+      `dirty_index_read/3`, `dirty_index_match_object/2,3`.
+    - Indexes: `add_table_index/2`, `del_table_index/2`, index tables kept on every write.
+    - Golden `mnesia_dirty`.
+  - **MIM1B Transactions and activities:**
+    - `mnesia_locker`: read and write locks on records and tables, OTP's age order (an older
+      transaction waits, a younger one restarts with the same tid), release on commit, abort and
+      exit.
+    - `mnesia_tm`: tids, atomic commit with index upkeep, `transaction_commits`/`failures`/
+      `restarts` counters.
+    - `transaction/1,2,3`, `sync_transaction/1,2,3`, `abort/1`, `is_transaction/0`, nested
+      transactions, retries, OTP's abort terms for errors, exits and throws.
+    - In a transaction: `read/1,2,3`, `wread/1`, `write/1,3`, `s_write/1`, `delete/1,3`,
+      `s_delete/1`, `delete_object/1,3`, `s_delete_object/1`, `match_object/1,3`,
+      `select/1,2,3,4`, `select_reverse/1,2,3,4` (continuations), `all_keys/1`,
+      `first/last/next/prev`, `foldl/3,4`, `foldr/3,4`, `index_read/3`, `index_match_object/2,4`,
+      `lock/2`, `read_lock_table/1`, `write_lock_table/1`; reads see the transaction's own writes.
+    - `activity/2,4` with access-module dispatch (`mnesia_activity_state`), `async_dirty/1,2`,
+      `sync_dirty/1,2`, `ets/1,2`.
+    - Golden `mnesia_transactions`.
+  - **MIM1C Schema changes:**
+    - `clear_table/1`, `transform_table/3,4`, `change_table_copy_type/3`, `add_table_copy/3`,
+      `del_table_copy/2`, `move_table_copy/3` on the local node.
+    - `read/write/delete_table_property`, `change_table_access_mode/2`,
+      `change_table_load_order/2`, `change_table_majority/2`, `set_master_nodes/1,2`,
+      `force_load_table/1`, `change_config/2`, `set_debug_level/1`.
+    - OTP's abort terms for other nodes. Golden `mnesia_schema`.
+  - **MIM1D Disc storage:**
+    - `create_schema/1`, `delete_schema/1` for `[node()]`; the `dir` environment (default
+      `Mnesia.nonode@nohost`); the schema on disc.
+    - `disc_copies`: `ets` plus a transaction log replayed at start and dumped to table files
+      (`dump_log/0`, `sync_log/0`, `dump_tables/1`, the dump thresholds).
+    - `disc_only_copies` over `dets`.
+    - Golden `mnesia_disc`: the program stops and starts mnesia and finds its data.
+  - **MIM1E Events, text files, queries and info:**
+    - `subscribe/1`, `unsubscribe/1`, `report_event/1`: `system`, `activity` and
+      `{table, Tab, simple | detailed}` events with OTP's messages.
+    - `load_textfile/1`, `dump_to_textfile/1`, `table/1,2` (qlc), `info/0`'s printout.
+    - Golden `mnesia_events`.
+  - **MIM1F Checkpoints and backups:**
+    - `activate_checkpoint/1`, `deactivate_checkpoint/1` with retainers.
+    - `backup/1,2`, `backup_checkpoint/2,3` through the backup callback module (default
+      `mnesia_backup` over `disk_log`), `traverse_backup/4,6`, `restore/2`.
+    - `install_fallback/1,2`, `uninstall_fallback/0,1` (the fallback replaces the database at the
+      next start).
+    - Golden `mnesia_backup`.
+  - **MIM1G Fragmentation and completion:**
+    - `mnesia_frag_hash` (5), `frag_properties`, `change_table_frag/2`, `activity` with
+      `mnesia_frag`. Golden `mnesia_frag`.
+    - `snmp_*` (5): decide (OTP's need the `snmp` application's `snmp_index`).
+    - `mnesia` leaves PARTIAL; check `test-mim.toml` resolves `mnesia` from `library/`.
+      `mnesia_tm:get_info/1` (prometheus) goes to MIM7.
 - **MIM2 `eldap`** (`eldap.hrl` and module `eldap`): `open`, `simple_bind`, `search` with the
   filter constructors (`equalityMatch`, `substrings`, `present`, `approxMatch`,
   `greaterOrEqual`, `lessOrEqual`, `extensibleMatch`), `close`. LDAPv3 over `gen_tcp`/`ssl` with
@@ -227,8 +301,9 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, then MIM6, MIM7 (small), MIM3, MIM4, MIM2, MIM5, MIM1 (largest);
-   MIM8 after a user decision.
+1. MIM1A–MIM1G (paused 2026-10-30 for plan 30, network distribution in `30-dist.md`; revisit the
+   single-node design after it), then MIM9's record wildcard fix, MIM6, MIM7
+   (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).
 

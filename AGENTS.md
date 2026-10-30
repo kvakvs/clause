@@ -52,7 +52,7 @@ Override per task only when the work needs deeper reasoning.
 ## Plans and Records (lazy references)
 
 Do not read these at the start of every task. Open one only when the task names its plan or step
-code (`OPT…`, `LIB…`, `OPTC…`, plan 11 step numbers), or when a step is finished and must be
+code (`OPT…`, `LIB…`, `OPTC…`, `DIST…`, plan 11 step numbers), or when a step is finished and must be
 recorded. Read only the section you need.
 
 - Open work, one file per plan:
@@ -61,6 +61,7 @@ recorded. Read only the section you need.
   - [20-opt.md](.agents/20-opt.md): runtime and code generation optimizations
   - [21-lib.md](.agents/21-lib.md): Clause's own erts, kernel and stdlib
   - [22-opt-compiler.md](.agents/22-opt-compiler.md): compiler performance
+  - [30-dist.md](.agents/30-dist.md): network distribution in the runtime and libraries
   - [01-todo.md](.agents/01-todo.md): the feature backlog behind the plans
 - Finished work: [00-finished.md](.agents/00-finished.md) is the index, with the per-plan
   [11-finished.md](.agents/11-finished.md), [20-finished.md](.agents/20-finished.md),
@@ -137,6 +138,12 @@ printed by `vcvars64.bat` is harmless.
   implemented yet belong to the plan and `docs/features.md`.
 
 ## Testing Strategy
+
+- **WHEN WORKING ON LIBRARIES** Prioritize library own tests and if known, dependant libraries first
+  as the quality gate. Postpone fast/full test as long as possible if there are no changes to either
+  the clau compiler or the runtime.
+  - Vice versa: When working on compiler and runtime, postpone library tests till full test/
+    quality gate is run.
 
 - When testing against golden master, make sure the project owns the fixtures used in testing as
   gold master and that they're generated once from Erlang/OTP, but Erlang/OTP should not be required
