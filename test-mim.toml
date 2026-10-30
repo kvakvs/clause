@@ -1,0 +1,65 @@
+# Clause project. Paths are relative to this TOML file's directory.
+# Builds MongooseIM (references/MongooseIM, https://github.com/esl/MongooseIM) against Clause's own library: no
+# Erlang/OTP source paths. Fetch the dependencies first with `escript rebar3 get-deps` in references/MongooseIM;
+# they land in _build/default/lib. Their .yrl/.xrl parsers are generated once with the host's erlc (Clause does
+# not provide yecc/leex, LIB78). Open gaps: plan 21 MIM1-MIM9.
+# Check with: clau --parse-check --project <this-file.toml>
+# Also available: --preprocess-check, --print-pp, and --print-ast.
+schema_version = 1
+
+# Add another [[targets]] block after this target's option tables for more targets.
+# All targets run by default; select with --target app (repeat for more names).
+[[targets]]
+name = "mongooseim"
+build_dir = "build-clau-mim"
+
+# List files or patterns, e.g. ["main.erl", "src/*.erl", "shared/**/*.erl"].
+# Patterns support *, ?, and ** as a whole directory component.
+sources = [
+  "references/MongooseIM/src/**/*.erl"
+]
+# Recursively collect .erl files. Create/populate src or edit these selections.
+# Set source_dirs = [] when selecting files exclusively through sources.
+source_dirs = []
+# Future executable path; checks/printing do not write it. Windows: build/app.exe.
+output = "test-mim"
+# mongooseim:start/0 starts the mongooseim application and its dependencies.
+entry = "mongooseim:start/0"
+
+# XmppAddr, compiled as rebar3's provider_asn1 compiles it (BER); cert_utils includes XmppAddr.hrl.
+[[targets.asn1]]
+sources = ["references/MongooseIM/asn1/XmppAddr.asn1"]
+options = ["ber"]
+
+[targets.options]
+ignore_dirs = ["references/MongooseIM/_build/default/lib/*/test"]
+# The LDAP modules include eldap.hrl; Clause's library has no eldap yet (plan 21 MIM2).
+ignore_modules = ["ejabberd_auth_ldap", "eldap_pool", "mod_shared_roster_ldap", "mod_vcard_ldap"]
+# Fallback roots for listed source filenames, e.g. ["src", "generated"].
+# These do not discover extra files or search for headers.
+# The rebar3 dependencies resolve from here when MongooseIM's modules name them.
+source_search_paths = [
+  "references/MongooseIM/_build/default/lib/*/src/**"
+]
+# Header search directories, first listed first, e.g. ["include", "vendor/include"].
+# CLI -I directories take precedence; the last CLI -I is searched first.
+# The dependency root serves include_lib("exml/include/exml.hrl") and the like.
+include_dirs = [
+  "references/MongooseIM/include",
+  "references/MongooseIM/_build/default/lib",
+  "references/MongooseIM/_build/default/lib/*/include"
+]
+# Predefined macros, e.g. ["DEBUG", "LIMIT=100", 'LABEL="demo"'].
+# A bare name means true; values are Erlang literal terms. Duplicates are errors.
+defines = []
+# Empty lists preserve compiler feature defaults; CLI feature settings apply last.
+# Example overrides: enable_features = ["maybe_expr"].
+# Do not list a feature in both arrays.
+enable_features = []
+disable_features = []
+
+# Explicit include_lib application roots. Empty by default.
+# Example entry: my_dependency = "vendor/my_dependency"
+# erts, kernel, stdlib and public_key headers come from Clause's library.
+[targets.options.applications]
+mongooseim = "references/MongooseIM"

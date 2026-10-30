@@ -24,8 +24,9 @@ internal functions stay out unless a public function needs them (user direction 
   documented functions.
 - **Done:** every documented module of `erts`, `kernel` and `stdlib`, `crypto` (LIB79),
   `public_key` (LIB80) and `ssl` (LIB81A–D5) (`21-finished.md`).
-- **Left:** optional `ssl` steps on request (LIB81D3c, LIB81D4b, LIB81E) and test support (LIB82
-  `eunit`, LIB83 `common_test`, the appendix).
+- **Left:** MongooseIM's missing applications (MIM1–MIM9, `test-mim.toml`), optional `ssl` steps
+  on request (LIB81D3c, LIB81D4b, LIB81E) and test support (LIB82 `eunit`, LIB83 `common_test`,
+  the appendix).
 - **Declined** (`00-reject.md`): the 20 `erlang` functions of the LIB9 remainder, LIB78
   `yecc`/`leex`, `ssl`'s SRP suites.
 - **Callback-only modules** (no functions to implement, only behaviours to honour): `erl_tracer`
@@ -152,10 +153,84 @@ written from the documented records and macros.
   `ct_snmp` (18, `snmp`), `ct_telnet` (16), `unix_telnet` (2); `ct_ftp` and `ct_slave` are
   deprecated only.
 
+### Phase: MongooseIM (survey 2026-10-30)
+
+`test-mim.toml` builds `references/MongooseIM` (esl/MongooseIM `master`, shallow clone) with its
+73 rebar3 dependencies (`escript rebar3 get-deps`, in `_build/default/lib`) on
+`source_search_paths`, no OTP paths. The `.yrl`/`.xrl` parsers of MongooseIM, `eini`, `graphql`,
+`luerl` and `tomerl` are generated once with the host `erlc`. 1001 sources resolve
+(`--print-inputs`); the build stops in the frontend (below), so later stages (unknown modules,
+undefined functions, inference) are not surveyed yet. Call counts are over MongooseIM and its
+dependencies, non-test sources.
+
+- **MIM1 `mnesia`:** MongooseIM's default backends (sessions, roster, MUC, pubsub, offline, auth
+  and more): 354 calls in 30 modules. Used: `transaction` (56), `write` (46), `dirty_read` (29),
+  `delete`, `add_table_index`, `read`, `system_info`, `delete_object`, `match_object`, `wread`,
+  `table_info`, `sync_dirty`, `dirty_select`, `foldl`, `async_dirty`, `select`, `dirty_index_read`,
+  `add_table_copy`, `create_table`, `wait_for_tables`, `create_schema`, `transform_table`,
+  `backup`/`restore`/`install_fallback`/`traverse_backup`, `load_textfile`, `change_config`, ...
+  Local-node semantics: `ram_copies`, `disc_copies` and `disc_only_copies` on `nonode@nohost`
+  (schema in `dir`), OTP's transaction, lock and abort terms. Observe its documented API into
+  `documented.terms` first; a large step, split by tables/transactions/backup.
+- **MIM2 `eldap`** (`eldap.hrl` and module `eldap`): `open`, `simple_bind`, `search` with the
+  filter constructors (`equalityMatch`, `substrings`, `present`, `approxMatch`,
+  `greaterOrEqual`, `lessOrEqual`, `extensibleMatch`), `close`. LDAPv3 over `gen_tcp`/`ssl` with
+  the ELDAPv3 BER codec (Clause's ASN.1 BER engine, LIB84). MongooseIM's
+  `ejabberd_auth_ldap`, `eldap_pool`, `mod_shared_roster_ldap` and `mod_vcard_ldap` are in
+  `ignore_modules` until then.
+- **MIM3 `xmerl`:** `xmerl.hrl` records (`#xmlElement{}`, `#xmlText{}`, ...), `xmerl_scan:string/1,2`,
+  `xmerl_xpath:string/2` (erlcloud), `xmerl_ucs:from_utf8/1`, `to_utf8/1`, `is_unicode/1`,
+  `from_utf16be/1` (jiffy, rabbit_common). The scanner in C++, XPath over C++ helpers.
+- **MIM4 `inets` client side:** `httpc:request/1,4` (erlcloud, MongooseIM) and
+  `http_uri:encode/1`, `decode/1` (erlcloud, lhttpc, MongooseIM; OTP 29 exports only these two,
+  erlcloud's `parse` calls sit behind `?OTP_RELEASE` guards). `httpc` over `gen_tcp`/`ssl` with OTP's profile,
+  option and result terms; the `inets` server parts (`httpd`, `ftp`, `tftp`) stay out unless asked.
+- **MIM5 `runtime_tools`:** `msacc:start/0,1`, `stop/0`, `stats/0` (rabbit_common) and `dbg`'s
+  `tracer`, `p`, `tp`, `ctp`, `stop`, `trace_port` (hackney's debug helper). `dbg` needs the real
+  tracing of "Later"; until then OTP's answers where tracing is unavailable.
+- **MIM6 application resources** for `application:ensure_all_started(mongooseim)`
+  (`mongooseim:start/0`, the target's entry): MongooseIM's `.app.src` lists `sasl`, `inets`,
+  `tools`, `runtime_tools`, `asn1` and `eldap`, its dependencies `xmerl`, `compiler` and
+  `syntax_tools`. Each needs an `.app` in `library/` (and the application callback module where OTP
+  has one: `sasl`'s `alarm_handler`/`release_handler` processes, `inets`' supervisor) so the
+  start order and `{error, {not_started, App}}` answers match OTP.
+- **MIM7 undocumented modules real code calls** (plan rule: internals stay out unless needed; these
+  are needed). Decide per function, provide with OTP's results or decline in `.terms`:
+  `inet_parse:ntoa/1`, `address/1`, `domain/1` (amqp_client, hackney, lhttpc, rabbit_common,
+  MongooseIM); `inet_db:res_option/1`, `gethostname/0` (MongooseIM); `io_lib_format:fwrite_g/1`
+  (eredis); `io_lib_pretty:print/2` (parse_trans); `ram_file:open/2`, `get_size/1` (prometheus);
+  `dist_util:split_node/1` (cets); `pubkey_cert:time_str_2_gregorian_sec/1` (MongooseIM);
+  `pubkey_pbe:pbdkdf2/7` (credentials_obfuscation); header `kernel/include/net_address.hrl`
+  (rabbit_common's `rabbit_net`). Not to provide: `pg2` (pooler's group functions call it
+  unguarded; OTP removed it in 24, so they raise `undef` there too).
+- **MIM8 NIF dependencies** (decision needed): `exml_nif` (hexml, MongooseIM's XML parser),
+  `jiffy`, `stringprep`, `cache_tab`'s `ets_cache`, `fast_pbkdf2`, `re2`, `lz4`, `snappy`,
+  `syslogger` load C NIFs (`-on_load`, `-nifs`, rejected by the compiler). Either Clause-owned C++
+  replacements registered as library modules for the popular ones (`exml_nif`, `jiffy`,
+  `fast_pbkdf2`, `stringprep`), or NIF loading through the runtime. `jwerl` and MongooseIM's
+  `mongoose_mam_id` use `-on_load` without NIFs.
+- **MIM9 compiler and project gaps** (not library: route to plan 11 / `01-todo.md` when picked up):
+  - `#r{a = 1, b = 2, _ = '_'}` with every field given is rejected (`record wildcard requires an
+    omitted field`, `compiler/src/semantic/records.cpp`); OTP accepts it (checked with `erlc`).
+    MongooseIM's `mod_muc_mnesia`. A difference from OTP: fix or record in `differences.md`.
+  - `-on_load`, `-nifs`, `-compile(export_all)` (`mongoose_xmpp_errors`) and `no_native`
+    (`ets_cache`) are rejected (plan 11, 65A–65C).
+  - One include path per target: mysql and epgsql both `-include("protocol.hrl")` from their own
+    `include/`, so one of them gets the other's header (rebar compiles each application with its
+    own `include`). Needs per-application include directories (for example under
+    `source_search_paths` roots, or `[[targets.apps]]`). `test-mim.toml` keeps epgsql's.
+  - Transform-time calls: hackney's `ct_expand` evaluates `certifi:cacerts()` while transforming
+    `hackney_ssl` and gets `undef` in the transform host, which only receives the transform's own
+    callees.
+  - `behaviour gen_fsm_compat undefined` warnings although the dependency's source on the search path
+    defines its callbacks.
+
 ### Order
 
-1. LIB81D3c, LIB81D4b and LIB81E on request.
-2. LIB82, LIB83 last (test support).
+1. MIM9's record wildcard fix, then MIM6, MIM7 (small), MIM3, MIM4, MIM2, MIM5, MIM1 (largest);
+   MIM8 after a user decision.
+2. LIB81D3c, LIB81D4b and LIB81E on request.
+3. LIB82, LIB83 last (test support).
 
 ## Later (optional: speed and features beyond OTP's documented functions)
 
