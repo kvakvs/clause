@@ -19,3 +19,8 @@ Compact record of the network distribution plan, one bullet per step;
   in OTP's order, `process_flag(monitor_nodes, ...)` and `net_kernel:monitor_nodes/1,2`, controller
   and net_kernel ends; DIST2b split again into DIST2b/2c/2d; `connections` golden identical to OTP
   — `c8ccabdd`
+- **DIST2c** node monitors and auto-connect: `monitor_node/2,3` counted per entry, `{auto_connect,
+  Node, DHandle}` to net_kernel (abort without one), passive connects through
+  `clause_dist:passive_monitor/3` and `net_kernel:passive_cnct/1`, `dmonitor_node/3`,
+  `list_to_pid/port/ref` of a connected node; `connections` golden's monitors run identical to OTP
+  — `701f3409`
