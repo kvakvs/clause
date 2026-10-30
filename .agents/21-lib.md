@@ -13,7 +13,7 @@ internal functions stay out unless a public function needs them (user direction 
   they are very heavy on inference engine, consider making C++ versions of those instead.
 
 - When a step is done, remove it from this file and add a 1-2 line bullet with its commit hash and
-  headline speedup to `00-finished.md` (Plan 21). Rejected or reverted steps go to `00-reject.md`
+  headline speedup to `21-finished.md`. Rejected or reverted steps go to `00-reject.md`
   with the measurement behind the decision.
 
 ## Status (2026-10-28)
@@ -23,7 +23,7 @@ internal functions stay out unless a public function needs them (user direction 
   `library_modules.py coverage .` prints the progress per module. 120 documented modules, 2,888
   documented functions.
 - **Done:** every documented module of `erts`, `kernel` and `stdlib`, `crypto` (LIB79),
-  `public_key` (LIB80) and `ssl` (LIB81A–D5) (`00-finished.md`, Plan 21).
+  `public_key` (LIB80) and `ssl` (LIB81A–D5) (`21-finished.md`).
 - **Left:** optional `ssl` steps on request (LIB81D3c, LIB81D4b, LIB81E) and test support (LIB82
   `eunit`, LIB83 `common_test`, the appendix).
 - **Declined** (`00-reject.md`): the 20 `erlang` functions of the LIB9 remainder, LIB78
@@ -34,7 +34,7 @@ internal functions stay out unless a public function needs them (user direction 
 ## Working rules for plan 21 steps
 
 - Commit each step when its gate is green: subject `[plan21] LIBn. Title`. Finished steps move to
-  `00-finished.md` (Plan 21) with their hash.
+  `21-finished.md` with their hash.
 - The plan 11 gate applies: `check-quality` first (clang-tidy and Lizard, no suppressions), then
   fast CTest, clang-format, erlfmt for `.erl`/`.terms`, docs (`docs/libraries/library.md` row,
   `docs/builtins.md` section, `docs/differences.md`, `.agents/arch.md`, `.agents/files.md`).

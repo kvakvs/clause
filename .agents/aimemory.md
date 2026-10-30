@@ -1,8 +1,8 @@
 # Project memory — compacted 2026-10-14
 
-Plan history: .agents/11-plan.md (compact step records), .agents/00-finished.md (archive),
-docs/validation.md (evidence history). This file keeps only durable gotchas and user directions not
-recorded elsewhere.
+Plan history: .agents/11-plan.md (compact step records), .agents/00-finished.md (archive index of
+the per-plan NN-finished.md), docs/validation.md (evidence history). This file keeps only durable
+gotchas and user directions not recorded elsewhere.
 
 ## User directions (keep)
 - Minimal first, iterate later; no defenses for impossible cases (classic ERTS trust model). Reject

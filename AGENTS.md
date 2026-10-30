@@ -49,10 +49,26 @@ Delegated subagents (search, doc cleanup, review, mechanical edits) run on a fas
 Sonnet; Claude Code applies this through `CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`.
 Override per task only when the work needs deeper reasoning.
 
+## Plans and Records (lazy references)
+
+Do not read these at the start of every task. Open one only when the task names its plan or step
+code (`OPT…`, `LIB…`, `OPTC…`, plan 11 step numbers), or when a step is finished and must be
+recorded. Read only the section you need.
+
+- Open work, one file per plan:
+  - [11-plan.md](.agents/11-plan.md): plan 11 leftovers (inference, validation, platforms,
+    parse transforms)
+  - [20-opt.md](.agents/20-opt.md): runtime and code generation optimizations
+  - [21-lib.md](.agents/21-lib.md): Clause's own erts, kernel and stdlib
+  - [22-opt-compiler.md](.agents/22-opt-compiler.md): compiler performance
+  - [01-todo.md](.agents/01-todo.md): the feature backlog behind the plans
+- Finished work: [00-finished.md](.agents/00-finished.md) is the index, with the per-plan
+  [11-finished.md](.agents/11-finished.md), [20-finished.md](.agents/20-finished.md),
+  [21-finished.md](.agents/21-finished.md) and [22-finished.md](.agents/22-finished.md).
+  Rejected steps are in [00-reject.md](.agents/00-reject.md).
+
 ## Artifacts Produced
 
-Completed foundations, frontend/project/compiler implementation, runtime skeleton and test migration
-are archived in `.agents/00-finished.md`.
 - Maintain a compact architecture overview in `.agents/arch.md` update it after major changes.
   Compact the contents sometimes.
 - Maintain a compact file list and overview of which large group of modules does what, and which

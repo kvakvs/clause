@@ -1,0 +1,258 @@
+# Plan 11 completed work (2026-10-03 to 2026-10-15)
+
+Compact record of [plan 11](11-plan.md), one bullet per step;
+[the index](00-finished.md) lists the other plans.
+
+- **1** refreshed the OTP reference (`maint-29` pin `21776803`) and baseline — `2d27503`
+- **1A** fast/full test modes — `07d2c38`
+- **1B** changed-scope quality check — `3cdc743`
+- **1C** documentation check run — `e381a86`
+- **2** six OTP-goldened program fixtures with a feature map — `1a006ac`
+- **3** entry, argv and exit-status contract ([executables](../docs/executables.md)) — `af55175`
+- **3A** escript compile mode — `8bb5f89`
+- **4** runtime term printing and `erlang:display/1` — `d63132b`
+- **5** generated startup object with `halt/0,1` — `6a246ae`
+- **6** Clang-linked executables from positional CLI inputs, staged publication — `8f68c18`
+- **6A** single project target linked with explicit `-o` — `0c27f72`
+- **7** executables from project targets — `bcaa23f`
+- **8** executable golden test runner — `736a194`
+- **8A** classic process heap contract ([runtime-heap](../docs/runtime-heap.md)) — `02ddf8d`
+- **8B** binary cells split, off-heap binary list — `34005ee`
+- **8C** parseable heap areas and a heap walker — `ad0f810`
+- **8D** heap words admitted by header, not object index — `a0dbc00`, `0c76a8a`
+- **8E** host terms held as raw words between safe points — `e5aa219`
+- **8F** generated root frames on a process stack — `e99e4a8`, `b4c99d3`, `9573722`, `7ac15fb`
+- **8G** one contiguous heap block plus fragments instead of chunks — `c162308`
+- **8H** copying Cheney collector with ERTS sizing on explicit request (also step 25) — `d0cf00b`
+- **8I** heap rework closed; per-context footprint 66 KB to 2.4 KB — `dc6e349`
+- **9** `begin`/`end` blocks and `case`, with `case_clause` — `60102a1`
+- **10** `if` with `if_clause` — `1982697`
+- **11** `error`/`exit`/`throw` from source — `80cd244`
+- **12** `catch Expr` — `328a290`
+- **13** `try ... of ... catch` — `27867ed`
+- **14** `try ... after` — `9df4e63`
+- **15** stack traces (8 frames), `Class:Reason:Stack`, `erlang:raise/3` — `c311ae7`
+- **16** `maybe` with `else_clause` — `aecbff2`
+- **17** frame and continuation model: explicit frames on a flat process stack, `musttail` transfers
+  ([execution-model](../docs/execution-model.md)) — `5447a16`
+- **18** recursive call graphs accepted in analysis — `0e6eb6d`
+- **19** proper tail calls — `eff731f`
+- **20** deep non-tail recursion — `26f8b27`
+- **21** list comprehensions — `07d249a`
+- **22** binary and map comprehensions with OTP generator/filter errors — `1f58ba4`
+- **23** root inventory extended to the execution model — `a3ef043`
+- **24** collection triggers and safepoints decided — `cf9d82b`
+- **26** collection from generated code — `0a94ccf`
+- **27** heap exhaustion reported as `out_of_memory` — `bcd1ed5`, `8e939f1`, `3a21bc0`
+- **27A** runtime-wide memory limit; optional `--max-heap`/`--max-stack`/`--max-memory` — `6a87dae`
+- **27B** list length caps removed — `5701ab5`
+- **27C** tuple arity limit as OTP — `12f772d`
+- **27D** map size and key-work caps removed — `d4baa1f`
+- **27E** big integer limit as OTP — `1c085f9`
+- **28** sharing-preserving term copies between heaps — `4d707e5`
+- **29** record updates — `ef7e2cc`
+- **30** `record_info/2` — `7186f18`
+- **31A** native record contract — `8e3e18b`
+- **31B** native record cells and runtime services — `206afc1`
+- **31C** local native records — `68252fc`
+- **31D** qualified and imported native records — `595650c`
+- **31E** anonymous native record forms — `a80d26b`
+- **32** funs without captures — `bffcb27`
+- **33** closures with captured variables — `76e4713`
+- **34** named funs — `4ad9bce`
+- **35** dynamic calls and `apply` — `919f32e`
+- **36** generic production builtin bridge — `78cbb41`
+- **37** term-access builtin family — `b29cbfc`
+- **38** conversion builtin family — `cd03833`
+- **39** project-owned `lists`/`maps` subsets — `21f1f77`
+- **40** console output through `io:format`/`put_chars` — `f6a5c30`
+- **41** typed native callables for builtins — `09bdac0`
+- **41A** `erlang` builtins get `runtime/src/builtins/erlang/`, one file per family
+  ([builtins](../docs/builtins.md)) — `9e22ff1`
+- **41B** `erlang` exports via generated stub `erlang.erl` and `library/erts/erlang.terms` (351
+  exports), OTP auto-import table — `8c7cb84`
+- **41C** process dictionary — `3fec7f8`
+- **41D** binary, atom and number conversions — `efa7d4c`
+- **41E** external term format, byte-exact and fuzzed (found two decoder bugs) — `da8118c`
+- **41F** time, unique values, timers (timer messages kept in a `MessageBuffer`) — `f9579d5`
+- **41G1** process and system introspection — `12a2838`
+- **41G2** spawn options, spawn requests, aliases, hibernation — `752c5fc`
+- **41G3** fun information, hashing, MD5 — `a0a9bc9`
+- **41H** non-distributed node and code-loading answers; phase gate left only non-`erlang` modules
+  for luerl — `89d0c7d`
+- **41I** replacement-module contract: Clause modules win over `source_search_paths`, missing
+  modules are reserved names ([library](../docs/libraries/library.md#runtime-module-replacements)) —
+  `8c6a94f1`
+- **41J** library split into `library/{erts,kernel,stdlib}/` with `modules.terms`;
+  `{Name, Arity, Group, Status}` inventories checked against OTP 29 — `b284a034`
+- **41K** provided runtime modules discoverable, all-stub replacements of preloaded modules
+  (`atomics`, `zlib`, `init`, ...); stubs raise `{not_implemented, F, A}` — `347ae0ad`
+- **41K1** OTP's exported types in `<module>.types.hrl` headers — `4810de56`
+- **41K2** remote types of ignored modules warn and are `term()`; luerl compiled and linked —
+  `4810de56`
+- **41L** `init` without a boot script ([builtins](../docs/builtins.md#init-module)): argv/home once
+  at startup, `stop`/`reboot` halt, `boot`/`restart` `notsup`; also `lists:filtermap`, `uniq` —
+  `377c2228`
+- **41N** handle references (off-heap buffer in a refc layout); `atomics`, `counters`,
+  `erts_internal`, `erts_code_purger` — `f7d42c4c`
+- **41O1** `unicode_util` tables generated from host OTP answers (573 KB C++), all 1.1M code points
+  match — `07a945b4`
+- **41O2** `unicode_util:gc/1` UAX #29 clusters and NFD/NFC/NFKD/NFKC — `84ec8037`
+- **41P** files: Clause `file` is the file layer, OTP `filelib`/`filename` run on it;
+  `erl_prim_loader` over `file`; link, cwd, copy operations — `92980354`
+- **41Q** `zlib` 1.3.2 linked, streams as handle references, compressed `term_to_binary` —
+  `dece5234`
+- **41R** networking: Clause `gen_tcp`/`gen_udp`/`inet` are the layer; `inet` address parsing,
+  `ntoa`, `getaddr`, `gethostname` — `a99595e8`
+- **41ZA** PCRE2 10.47 dependency (`cmake/Pcre2Dependencies.cmake`), provided `re` stub module —
+  `26a04085`
+- **41ZB** `re` over PCRE2: C++ `compile`/`run` plus Erlang `re.erl` loop, replace and split; luerl
+  `os.date` — `b17b2a09`
+- **41S** `prim_eval:'receive'/2` over `clause_receive` builtins; fixed receive scan position after
+  a bad timeout; luerl driver prints OTP output with no stand-ins — `9d3f3c17`
+- **41T** `lists` data functions as runtime builtins (`sublist`, `flatten`, `usort`, `keymember`,
+  ...); fun-taking ones stay Erlang; tracer fix of `6a7d402a` — `f6a53456`
+- **41U** `io:format/3`, `fwrite`, `put_chars/2`, `nl` builtins; pid or name devices go through
+  `file:write/2` ([io](../docs/libraries/io.md#calls)) — `cd08f1a8`
+- **41V** `math` as builtins over the C library (`library/stdlib/math.erl` stubs) — `42acff89`
+- **41W** `binary` search, split, parts, hex builtins; `replace` in Erlang over them — `82292d0a`
+- **41X** `os` env/getpid builtins and `maps` get/merge/take/with builtins; Erlang `os:timestamp`,
+  `maps:filter`/`map` — `c8de2662`
+- **41M1** runtime-wide persistent term table; reads copy into the reader's heap
+  ([runtime](../docs/runtime.md#persistent-terms)) — `dd5b4b3c`
+- **41M2** `persistent_term` `put/get/erase/info` builtins keyed by `phash2` hash — `65bde218`
+- **41Y1** `unicode:characters_to_binary/list` for latin1/utf8/utf16/utf32 — `e942687b`
+- **41Y2** `file:read_file_info/1,2`, `write_file/3`; `write` plus `append` no longer truncates —
+  `b0030e9b`
+- **41Z** `code` answers for the linked program without a code server — `d911b78d`
+- **41ZC** OTP I/O protocol on stdin and file servers (`get_until`, `io:request/1,2`, `requests`);
+  luerl euler prints OTP output ([ports](../docs/ports.md#standard-io-and-files)) — `31b20d73`
+- **42** pid and reference identities — `59064bf`
+- **43** cooperative executor for spawned processes — `f092504`
+- **43A** interruptible long-running builtins — `0682b54`
+- **44** process exit and crash reports — `98ad97a`
+- **45** signal inbox and message send — `dbad5db`
+- **46** selective receive without timeout — `45b424c`
+- **47** `receive ... after` timeouts — `e404460`
+- **48** links, exit signals, `trap_exit` — `82d8187`
+- **49** monitors — `e111740`
+- **50** registered process names — `d881d4b`
+- **51** collection with mailboxes and suspended processes — `55347de`
+- **52** identity-dependent guards — `dd6b8f2`
+- **53** port identity scope decided (superseded by 57A) — `583e779`
+- **54** synchronized atom table — `25215cf`
+- **55** synchronized code-server publication and lookup — `8b8a699`
+- **56** several scheduler workers — `c1ff627`
+- **57** cross-worker wakeups, timers, shutdown — `fa54da5`
+- **57A** port contract ([ports](../docs/ports.md)) — `d39a9e1`
+- **57B** port identities and table — `21a5199`
+- **57C** I/O poller with scheduler wakeups — `d1dc2f2`
+- **57D** subprocess ports — `6b04929`
+- **57E** file and standard I/O ports — `b1bc5d7`
+- **57F** socket ports — `8c99374`
+- **57G1** every port kind served by one event-driven I/O thread — `fbacc98`
+- **57G2** port tasks on scheduler workers — `171b7f9`
+- **57G3** senders suspended on busy ports, unread input bounded — `616e7b2`
+- **58** six fixture projects match OTP at O0/O2 on 1 and 4 workers — `3ec5737`
+- **58A** inference fact domain ([semantic](../docs/semantic.md#inference)) — `e52277c`
+- **58B** facts of all literals — `a6c01b5`
+- **58C** operator and builtin results — `e92650f`
+- **58D** container facts — `6adc311`
+- **58E** fun facts — `ebac255`
+- **58F** local function inputs from callers — `8b1e998`
+- **58F1** consecutive integers printed as ranges — `bfab7a8`
+- **58G** narrowing by patterns and guards, entry domains — `22dff64`
+- **58H** narrowing by uses — `c56d515`
+- **58H1** integer ranges narrowed by guard comparisons — `16fb58e`
+- **58I** specs contradicting inferred types rejected — `be76267`
+- **58I1** `term()` printed as `_` — `579e605`
+- **58I2** argument relations printed as variable names — `6d02bd1`
+- **58J** wide known containers kept, records printed — `bc94017`
+- **58J1** try and maybe values — `2607172`
+- **58K** per-clause function types, printed by `--print-types` — `c7f52b6`
+- **58L** calls matched against function types — `01fbba5`
+- **58M** callees re-analysed per call — `06042fa`
+- **58N1** dependent facts of `case`/`if` ([semantic](../docs/semantic.md#dependent-facts)) —
+  `e63e14c`
+- **58N2** dependent facts through operations and bindings — `60a5dd4`
+- **58N3** dependent facts of tuple scrutinees and `try ... of` — `175b545`
+- **58O** fixed-point rounds measured (`--print-stage-times`) — `c712d605`
+- **58P** non-converging groups remembered, given `term()` at once — `1ebaca6d`
+- **58Q** monotone rounds; a member flipping back to a recent summary gives up alone — `fa55a8d5`
+- **58R** a round re-walks only members whose inputs changed — `2a3059ba`
+- **58S** joins monotone at the container depth limit; luerl inference 330 s to 107 s — `b5aec11f`
+- **58U** `cache_inference_in_dirs` option, implicit `*/stdlib`, `*/kernel`, ...
+  ([projects](../docs/projects.md#inference-cache)) — `5490832e`
+- **58V** a module's inference results as bytes — `d8b26d1b`
+- **58W** cached results of covered modules reused; luerl warm recompile inference 180 s to 40.5 s —
+  `ff31997f`
+- **59** O2 specialization removes real tag/shape checks — `8a5ace2`
+- **60** source-level debug information (`-g`) — `116cff1`
+- **61** opt-in profiling (`--profile`) — `ecb8de5`
+- **62** link-time optimization (`--lto`, MSVC and ELF only) — `5ec3645`
+- **62A** hashed code-server lookups — `aa0198b`
+- **62B** receive timers in a timer wheel — `eccd7c4`
+- **62C** export liveness: executables drop functions the entry cannot reach; `--keep-exports` opts
+  out ([executables](../docs/executables.md#export-liveness)) — `fbfe99c`
+- **62D1** `build_dir`/`--build-dir`, Clause temp files below `<build_dir>/tmp` — `0cd45db`
+- **62D2** cache store for parse transform replies and compile outcomes, `--no-cache` — `8e71e4d`
+- **62D3** directory scan cache measured, no code — `d5a655f`
+- **62D4** whole-batch compile result cache — `176c4dd`
+- **62D5** SQLite 3.54 cache backend (2,000 puts 12 s to 250 ms)
+  ([compile](../docs/compile.md#compile-cache)) — `f4d29b9`
+- **62E** in-memory index of searched directories (15,215 probes to 0; luerl warm build 3.8 s to
+  1.65 s) — `0e8a6c5`
+- **63** Linux x86-64 validation (WSL2) — `5948a44`
+- **64** 32-bit x86 runtime validation (Windows x86, Linux i386), cross-linked goldens — `9eef9cc`
+- **65** Linux AArch64 and 32-bit ARM under qemu-user — `ab5943b`
+- **65A** `-behaviour` with OTP callback warnings, generated `behaviour_info/1` — `e3f7a89`
+- **65B** generated `module_info/0,1`, informational attributes kept — `86d84aa`
+- **65C** `-import` of any module, compile hints ignored, rejected attributes named — `12dc2d5`
+- **67** compiler and frontend sanitizers — `58b3243`
+- **68** ThreadSanitizer on the multi-worker runtime; fixed a shutdown use-after-free and a
+  lock-order inversion — `9679aea`
+- **69A** manual benchmarks against OTP (`benchmarks/`, 6 programs, 29 kernels); first run Clause O2
+  20.2x slower than OTP JIT ([validation](../docs/validation.md)) — `0777b693`
+- **73A** parse transform contract ([transforms](../docs/transforms.md)) — `57d4193`
+- **73B** owned abstract term model with ETF and `.abstr` codecs — `a3f66ab`
+- **73C** modules exported as abstract forms (`--print-abstr`) — `9a9f9aa`
+- **73D** abstract forms imported into the AST — `0ebf90e`
+- **73E** transforms run through the host OTP loader — `13a5e20`
+- **73F** transforms applied before lint in the compile pipeline — `1c92c5c`
+- **73G** precompiled and project transform modules — `d1ce36a`
+
+## Library gaps (luerl, 2026-10-14 to 2026-10-15)
+
+Compiling and running luerl (`tools/luerl-trace/` driver, 35 Lua snippets) found library functions
+that were missing or wrong; all are fixed.
+
+- **Ledger of 25 rows** (in order of first use) closed by plan 11 steps 41T–41ZC, each step's luerl
+  reason below.
+- **41T** `lists` stubs (`sublist` for every token, `droplast`, `mapfoldl`, `splitwith`, `nthtail`,
+  `flatten`, `duplicate`, `max/min`, `umerge`, `usort`, `partition`, `join`, `keymember`,
+  `keysearch`).
+- **41U** `io:nl/0`, `fwrite` (`print` crashed before its newline).
+- **41V** `math` NIFs (`pow` for `1e20` exponents and `^`, `sqrt`, `sin`, `exp`, `log`, `acos`,
+  ...).
+- **41W** `binary:match/part/split` (`string.find`/`sub`/`format`).
+- **41X** `os:timestamp` (`os.clock`), `maps:get/3`, `is_key`, `remove`.
+- **41M1/41M2** `persistent_term:get/put` (reached via `erl_features` from `io_lib` atom quoting in
+  Lua syntax errors).
+- **41Z** `code:ensure_modules_loaded` instead of the absent `code_server` on `io_lib:format`'s
+  error path.
+- **41L** `init:get_arguments/0`, `lists:filtermap`, `uniq` (`erl_features:init_features`); Lua
+  syntax-error text now equals OTP's.
+- **41Y1/41Y2** `unicode:characters_to_binary/2`, `file:read_file_info`, `write_file/3`
+  (`dofile`/`loadfile`).
+- **41ZA/41ZB** `re:run/2` over PCRE2 (`os.date`), `re:replace`.
+- **41ZC** `io:request/2` `get_until` on file pids (every `luerl:loadfile` failed with
+  `{not_implemented,request,2}`).
+- **Driver result** after 41S: 34 of 35 snippets print OTP's output; `goto` has the same
+  `function_clause` with frames lacking arguments and locations
+  ([differences](../docs/differences.md)); `coroutine` is nil on both.
+- **`examples/euler`**: all 10 problems print OTP's output; speed went 78 s (O0) / 21 s (O2) to 0.62
+  s (O2, OPT0.18) against OTP 0.35 s; sampling found inspection, boolean and atom lookups,
+  `bits_service` and `get/1` hot (OPT0.2–0.18).
+- **`examples/benchmark`**: `--entry benchmarks:run` took `run/1`; the `/ARITY` suffix
+  (`--entry M:F/0`, [executables](../docs/executables.md)) fixed it; all 22 suites print OTP's 158
+  lines (Clause O0 1.8 s, OTP 0.55 s).

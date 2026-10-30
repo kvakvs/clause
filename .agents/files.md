@@ -2,7 +2,8 @@
 
 Directory map; find files inside by name. **C** = `compiler/src/`, **R** = `runtime/src/`; **+** =
 planned, create only with implementation. [Architecture](arch.md) · [Backlog](01-todo.md) ·
-[Plan](11-plan.md) · [History](00-finished.md) · [Optimizations](20-opt.md) · [Library](21-lib.md).
+[Plan](11-plan.md) · [History](00-finished.md) ([11](11-finished.md), [20](20-finished.md),
+[21](21-finished.md), [22](22-finished.md)) · [Optimizations](20-opt.md) · [Library](21-lib.md).
 
 ## Placement
 

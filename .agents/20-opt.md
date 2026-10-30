@@ -7,7 +7,7 @@ input only; no OTP source is copied.
 This file keeps open work only:
 
 - Completed steps (tier OPT0, most of OPT1 including OPT1.11 and OPT1.13, OPT3, OPTM.1-6): see
-  [00-finished.md](00-finished.md).
+  [20-finished.md](20-finished.md).
 - Rejected steps (OPTM.1 and OPT1.10 remainders): see [00-reject.md](00-reject.md).
 
 **NAMING CONVENTIONS** The optimization steps use prefixes based on their area of concern:
@@ -27,7 +27,7 @@ This file keeps open work only:
   - docs updated: `docs/`, `.agents/arch.md`, `.agents/files.md`, `docs/differences.md` for
     observable differences
 - When a step is done, remove it from this file and add a 1-2 line bullet with its commit hash and
-  headline speedup to `00-finished.md` (Plan 20).
+  headline speedup to `20-finished.md`.
 
 ## Sources
 

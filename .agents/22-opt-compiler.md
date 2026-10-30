@@ -3,7 +3,7 @@
 Find where `clau` spends its time on real multi-module projects, starting with whole-program type
 inference (`compiler/src/semantic/types/`): inference must converge or give up within a small,
 bounded amount of work, then cost less per walk. Done steps, with commit hashes and numbers, are in
-`00-finished.md` (Plan 22).
+`22-finished.md`.
 
 **NAMING CONVENTION** Tasks in this file have prefixes based on what they are doing.
 - CONV.<id> - convergence of the inference engine
@@ -30,7 +30,7 @@ after LLVM.1 (parallel code generation), 54.9 → 39.2 s (16 P-core threads) aft
   `compiler/src/driver/` (timing output), docs, tests and benchmark scripts; never `runtime/` or
   `abi/`.
 - One commit per step: `[plan22] <code>. <title>`, then a `Record commit hash` commit for the
-  `00-finished.md` entry. Plan 11's gate applies: `check-quality` first, then fast CTest,
+  `22-finished.md` entry. Plan 11's gate applies: `check-quality` first, then fast CTest,
   clang-format, docs (`docs/semantic.md#inference` for passes, rounds, widening; `docs/compile.md`
   for every `--print-stage-times` line).
 - Instrumentation is opt-in: with `Inference::profile` null the hot paths gain at most one
