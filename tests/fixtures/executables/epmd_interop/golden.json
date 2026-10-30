@@ -79,6 +79,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "../epmd_names/epmd_names.erl": "0f7dae94eef818e780fa56dbb87ec5ff7f70677f4a523cb23ba88b7ad1a5c3be"
+    "../epmd_names/epmd_names.erl": "c192d7d8b9a97c39d4fa8ebb30ff765f8a403817da3ba702bc7cab0f116833ff"
   }
 }

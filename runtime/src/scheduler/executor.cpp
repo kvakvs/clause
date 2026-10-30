@@ -926,6 +926,8 @@ Executor::~Executor() {
     free_reclaimed(retired_first_);
 }
 
+EpmdMode Executor::epmd_mode() const noexcept { return runtime_.options.epmd; }
+
 void Executor::clear() noexcept {
     // The I/O thread and the Windows blocking readers stop outside the lock: a delivery in progress waits for it.
     // Workers have stopped, so nothing else creates or replaces the services meanwhile.

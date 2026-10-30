@@ -25,6 +25,13 @@ struct ServerOptions {
     bool relaxed_ = false;
 };
 
+// Why a server could not listen. Added for the bundled epmd, which gives way to another epmd on its port.
+struct OpenFailure {
+    std::string message_;
+    // Another socket holds the port: an epmd runs already, or won a race to listen.
+    bool in_use_ = false;
+};
+
 // A port number from 1 to 65535, from ERL_EPMD_PORT or -port.
 std::optional<std::uint16_t> port_number(std::string_view text);
 
@@ -38,7 +45,7 @@ class Server final {
 
     // Listen as `options` say, or describe why a listener could not open (an epmd on the port already). `killed`
     // runs on the io_context's thread after a KILL request stopped the server.
-    static std::expected<Server, std::string> open(boost::asio::io_context &io, const ServerOptions &options,
+    static std::expected<Server, OpenFailure> open(boost::asio::io_context &io, const ServerOptions &options,
                                                    std::function<void()> killed);
 
     // Stop listening and close every connection, ending their registrations; called on the io_context's thread.

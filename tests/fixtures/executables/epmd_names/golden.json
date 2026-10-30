@@ -25,6 +25,54 @@
       ]
     },
     {
+      "epmd": "bundled",
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "no server: {exit,noproc}\nstart again: true\ncreation: true\nregister again: {error,already_registered}\nnames: [{ok,[{\"alpha\",40001},{\"beta\",40003}]},\n        {ok,[{\"alpha\",40001},{\"beta\",40003}]},\n        {ok,[{\"alpha\",40001},{\"beta\",40003}]}]\nnet_adm: [{ok,[{\"alpha\",40001},{\"beta\",40003}]},\n          {ok,[{\"alpha\",40001},{\"beta\",40003}]}]\nno host: {error,nxdomain}\nport_please: [{port,40001,6},{port,40003,6},{port,40003,6},noport]\nport_please binary: {error,function_clause}\naddress_please: {ok,{127,0,0,1}}\nlisten_port_please: {ok,0}\nopen: {ok,[{active,true},{packet,0},{mode,list}]}\ngamma: {alive2_x,0,true}\ndelta: {alive2,0,true}\nepsilon: {alive2_x,0,true}\nalpha twice: {open,{118,1,99}}\ndelta twice: {open,{121,1,99}}\nno name: {closed,<<>>}\nshort alive: {closed,<<>>}\nlong name: {closed,<<>>}\nnames: {closed,[<<\"name epsilon at port 40006\">>,\n                <<\"name delta at port 40005\">>,<<\"name gamma at port 40004\">>,\n                <<\"name beta at port 40003\">>,<<\"name alpha at port 40001\">>,\n                <<>>]}\nnames extra: {closed,[<<\"name epsilon at port 40006\">>,\n                      <<\"name delta at port 40005\">>,\n                      <<\"name gamma at port 40004\">>,\n                      <<\"name beta at port 40003\">>,\n                      <<\"name alpha at port 40001\">>,<<>>]}\nport gamma: {closed,<<119,0,156,68,72,0,0,6,0,6,0,5,103,97,109,109,97,0,3,120,\n                      121,122>>}\nport none: {closed,<<119,1>>}\nport no name: {closed,<<>>}\nversions: [{port,40005,5},{port,40006,6}]\nzeta after request: {closed,<<>>}\ndump: {closed,[<<\"active name     <epsilon> at port 40006, fd = N\">>,\n               <<\"<NUL>active name     <delta> at port 40005, fd = N\">>,\n               <<\"<NUL>active name     <gamma> at port 40004, fd = N\">>,\n               <<\"<NUL>active name     <beta> at port 40003, fd = N\">>,\n               <<\"<NUL>active name     <alpha> at port 40001, fd = N\">>,\n               <<\"<NUL>old/unused name <zeta>, port = 40010, fd = N \">>,\n               <<\"<NUL>\">>]}\nkill: {closed,<<\"NO\">>}\nstop: {closed,<<>>}\nunknown: {closed,<<>>}\nempty: {closed,<<>>}\nsplit: {closed,[<<\"name epsilon at port 40006\">>,\n                <<\"name delta at port 40005\">>,<<\"name gamma at port 40004\">>,\n                <<\"name beta at port 40003\">>,<<\"name alpha at port 40001\">>,\n                <<>>]}\ncreation again: true\nepmd_names: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "names: {ok,[{\"beta\",40003}]}\nalpha: noport\nepmd_names: ok\n"
+        }
+      ]
+    },
+    {
+      "epmd": "bundled",
+      "nodes": [
+        {
+          "name": "race1",
+          "args": [
+            "race",
+            "race1"
+          ],
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "register: ok\nepmd_names: ok\n"
+        },
+        {
+          "name": "race2",
+          "args": [
+            "race",
+            "race2"
+          ],
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "register: ok\nepmd_names: ok\n"
+        }
+      ]
+    },
+    {
       "epmd_args": [
         "-relaxed_command_check"
       ],
@@ -50,6 +98,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "epmd_names.erl": "0f7dae94eef818e780fa56dbb87ec5ff7f70677f4a523cb23ba88b7ad1a5c3be"
+    "epmd_names.erl": "c192d7d8b9a97c39d4fa8ebb30ff765f8a403817da3ba702bc7cab0f116833ff"
   }
 }

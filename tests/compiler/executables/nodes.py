@@ -1,6 +1,7 @@
 """Multi-node golden runs (docs/distribution.md#testing, plan 30 step DIST3a): a run listing 'nodes' gets its own
 epmd on a free port and starts every node at once with ERL_EPMD_PORT naming it. Shared by run.py, which starts
-clause-epmd (or OTP's epmd for runs of 'epmd' otp), and regenerate.py, which runs every node under the OTP oracle."""
+clause-epmd (or OTP's epmd for runs of 'epmd' otp, and none for runs of 'epmd' bundled, whose Clause nodes start the
+bundled epmd), and regenerate.py, which runs every node under the OTP oracle on OTP's epmd."""
 import concurrent.futures
 import contextlib
 import pathlib
@@ -20,6 +21,11 @@ GENERATED_NODE_FIELDS = ('exit_status', 'stdout')
 def multi(run):
     """Whether a golden run is a multi-node run."""
     return 'nodes' in run
+
+
+def bundled(run):
+    """Whether a multi-node run starts no epmd: its Clause nodes start the bundled one (plan 30 step DIST3b)."""
+    return run.get('epmd') == 'bundled'
 
 
 def needs_otp(run):

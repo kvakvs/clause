@@ -8,7 +8,8 @@ other nodes exist as terms ([terms](terms.md#identities-of-other-nodes), DIST1),
 named ([this node](#this-node), DIST2a), connection entries, node status messages, node monitors
 and the controller data path follow OTP's process-controller interface without moving any signal
 yet ([connections](#connections), DIST2b to DIST2d). `erl_epmd` and `net_adm:names/0,1` speak to an
-epmd, and Clause's epmd server runs as a foreground `clause-epmd` ([epmd](#epmd), DIST3a). The other
+epmd, and Clause's epmd server runs as a foreground `clause-epmd` ([epmd](#epmd), DIST3a) or inside
+the program when a registration finds none (`--epmd bundled`, DIST3b). The other
 libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -293,6 +294,20 @@ Current since DIST3a (`runtime/src/epmd/`, `library/kernel/erl_epmd.erl`):
   second after the connection breaks. `names/0,1` list the oldest name first, as OTP's client
   does.
 
+Current since DIST3b (`runtime/src/epmd/bundled.cpp`, `runtime/src/builtins/epmd.cpp`):
+
+- **Bundled epmd:** every executable carries it (the runtime archive holds the server). It runs
+  on a thread of its own, opened by the first registration that needs it, and it ends with the
+  program; a `KILL` stops it, and the next registration that finds no epmd opens it again. It
+  listens as `clause-epmd` would under the program's `ERL_EPMD_PORT`, `ERL_EPMD_ADDRESS` and
+  `ERL_EPMD_RELAXED_COMMAND_CHECK`.
+- **`--epmd bundled|none`:** when `erl_epmd`'s registration (also the re-registration after a
+  lost epmd) finds no epmd (`econnrefused`), it asks `clause_dist:start_epmd/0`. Under `bundled`
+  the bundled epmd opens; when another epmd holds the port, it gives way. The registration then
+  connects again for up to a second. Under `none` the registration fails with `econnrefused`, as
+  OTP's. `--epmd external` stops the program as not implemented until DIST3c. `names/0,1` and
+  `port_please/2,3` never start an epmd, as in OTP.
+
 ## Node start options
 
 Runtime options ([executables](executables.md#runtime-options)) start distribution before the entry
@@ -341,15 +356,17 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
   - The runner gives each run its own epmd port (`ERL_EPMD_PORT`), so cases run in parallel and
     never touch a user's epmd. It starts a foreground `clause-epmd -port N` (built once by the test
     build; OTP's `epmd` for a run of `"epmd": "otp"`) and starts the nodes at once. It collects each
-    node's output and stops everything at the end or on a timeout. From DIST3b the nodes run with
-    `--epmd none`, and from DIST4 with a fixed cookie.
+    node's output and stops everything at the end or on a timeout. Clause nodes run with
+    `--epmd none` (DIST3b), and from DIST4 with a fixed cookie.
   - Single-node runs get an `ERL_EPMD_PORT` where nothing listens, so they never ask a user's epmd.
   - Cases of the bundled and external modes start no runner epmd and check which epmd the nodes
-    find.
+    find. A run of `"epmd": "bundled"` (DIST3b) also checks that no epmd listens on its port after
+    the nodes ended.
   - Host names in output are masked with `stdout_masks`.
 - **Goldens** come from OTP nodes on OTP's `epmd` on the same kind of epmd port, generated once
   (`tests/compiler/executables/nodes.py`, used by `run.py` and `regenerate.py`).
 - **Interop cases** mix `clause` and `otp` nodes, or use OTP's `epmd`. Their golden says
   `"host_otp": true`: they carry the CTest label `host_otp` and skip when no `escript` is found.
-  Clause-only cases need no OTP: `epmd_names` runs on `clause-epmd`, and `epmd_interop` runs the
-  same program on OTP's `epmd` and with an OTP node.
+  Clause-only cases need no OTP: `epmd_names` runs on `clause-epmd` and on bundled epmds (two
+  nodes racing to start one), and `epmd_interop` runs the same program on OTP's `epmd` and with an
+  OTP node.

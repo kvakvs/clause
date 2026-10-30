@@ -94,9 +94,10 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   An up entry's `DataPath` (DIST2d) holds the output queue, input handler, `get_size` and counts; the `dist_ctrl_*`
   builtins (`builtins/erlang/connections.cpp`) reach it through `Executor::with_connections`.
 - **epmd** (DIST3a): `runtime/src/epmd/` is a Boost.Asio epmd server (`registry` names, `requests` OTP's
-  replies and checks, `server` listeners and connections) in the `clause_epmd_server` library, run by the
-  foreground `clause-epmd`; the bundled epmd (DIST3b) puts it on the reactor. `kernel/erl_epmd.erl` is the
-  client and registration server.
+  replies and checks, `server` listeners and connections) in the `clause_epmd_server` object library, run by
+  the foreground `clause-epmd` and carried by `clause_runtime`. The bundled epmd (DIST3b, `epmd/bundled`) runs
+  it on a thread of its own owned by the executor; `kernel/erl_epmd.erl` (client and registration server)
+  asks `clause_dist:start_epmd/0` when a registration finds no epmd, under `--epmd bundled|none`.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

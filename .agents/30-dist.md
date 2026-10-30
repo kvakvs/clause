@@ -11,7 +11,8 @@ direction); formerly backlog item F38.
     `dist_get_stat/1`, DIST2d), but moves no signal: the output queue stays empty and put data is
     dropped until DIST5 encodes and decodes signals.
   - Clause's epmd server runs as a foreground `clause-epmd`; `erl_epmd` and `net_adm:names/0,1`
-    speak to any epmd (DIST3a).
+    speak to any epmd (DIST3a); a registration that finds no epmd opens the program's bundled epmd
+    under `--epmd bundled` (default) or fails under `--epmd none` (DIST3b).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (`start/1,2` and
     internals declined), `auth` (`nocookie`), `global` and
@@ -59,25 +60,11 @@ direction); formerly backlog item F38.
 
 <a id="step-dist3b"></a>
 
-## DIST3b. Bundled epmd and the `--epmd` option
-
-Depends on: DIST3a ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] The bundled epmd: carried in executables by default, run on a runtime thread while the
-        program runs when no epmd listens; a lost bind race gives way, nodes retry the epmd
-        connection briefly.
-  - [ ] Runtime option `--epmd bundled|external|none` (default `bundled`; `external` lands in
-        DIST3c), applied whenever registration starts; the runner's nodes run with `--epmd none`.
-- Tests
-  - [ ] DIST3a's golden once more on a bundled epmd (no runner epmd), and `--epmd none` failing
-        without an epmd.
-
 <a id="step-dist3c"></a>
 
 ## DIST3c. `clause-epmd` beside programs and the external mode
 
-Depends on: [DIST3b](#step-dist3b).
+Depends on: DIST3b ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `clau --epmd-executable` and manifest `epmd_executable = true` write `clause-epmd` beside
@@ -103,7 +90,7 @@ Depends on: DIST0 ([30-finished](30-finished.md)).
 - Success criteria
   - [ ] Runtime options of [node start options](../docs/distribution.md#node-start-options):
         `--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`,
-        `--dist-listen` (`--epmd` comes with DIST3b); parsed and kept until DIST4b starts
+        `--dist-listen` (`--epmd` is DIST3b's); parsed and kept until DIST4b starts
         distribution with them.
   - [ ] `--env APP KEY VALUE` for every application: the value parsed as a term, applied over the
         `.app` resources before applications start; invalid terms stop the program as other invalid
@@ -122,7 +109,7 @@ Depends on: DIST0 ([30-finished](30-finished.md)).
 
 ## DIST4b. Handshake, TCP carrier and first connections
 
-Depends on: DIST2d ([30-finished](30-finished.md)), [DIST3b](#step-dist3b), [DIST4a](#step-dist4a).
+Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), [DIST4a](#step-dist4a).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's

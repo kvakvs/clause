@@ -237,6 +237,7 @@ std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept {
                                      erl_posix_msg_builtins(),
                                      clause_io_builtins(),
                                      clause_net_builtins(),
+                                     epmd_builtins(),
                                      filelib_builtins(),
                                      argparse_builtins(),
                                      qlc_pt_builtins(),

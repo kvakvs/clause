@@ -116,7 +116,7 @@ class Server::Impl final : public std::enable_shared_from_this<Impl> {
           killed_(std::move(killed)) {}
 
     // Open the listeners, or describe the first that failed.
-    std::expected<void, std::string> listen(const ServerOptions &options);
+    std::expected<void, OpenFailure> listen(const ServerOptions &options);
     void close();
 
     // A request of a connection that holds no registration; a registration or a STOP takes effect at once.
@@ -260,10 +260,10 @@ class Session final : public std::enable_shared_from_this<Session> {
 };
 } // namespace
 
-std::expected<void, std::string> Server::Impl::listen(const ServerOptions &options) {
+std::expected<void, OpenFailure> Server::Impl::listen(const ServerOptions &options) {
     const auto wanted = endpoints(options);
     if (!wanted) {
-        return std::unexpected(wanted.error());
+        return std::unexpected(OpenFailure{.message_ = wanted.error()});
     }
     for (const auto &endpoint : *wanted) {
         auto acceptor = std::make_unique<tcp::acceptor>(io_);
@@ -271,8 +271,10 @@ std::expected<void, std::string> Server::Impl::listen(const ServerOptions &optio
             if (optional_listener(options, endpoint, error)) {
                 continue;
             }
-            return std::unexpected("cannot listen on " + endpoint.address().to_string() + " port " +
-                                   std::to_string(endpoint.port()) + ": " + error.message());
+            return std::unexpected(OpenFailure{.message_ = "cannot listen on " + endpoint.address().to_string() +
+                                                           " port " + std::to_string(endpoint.port()) + ": " +
+                                                           error.message(),
+                                               .in_use_ = error == asio::error::address_in_use});
         }
         acceptors_.push_back(std::move(acceptor));
     }
@@ -373,7 +375,7 @@ std::expected<ServerOptions, std::string> environment_options() {
     return options;
 }
 
-std::expected<Server, std::string> Server::open(asio::io_context &io, const ServerOptions &options,
+std::expected<Server, OpenFailure> Server::open(asio::io_context &io, const ServerOptions &options,
                                                 std::function<void()> killed) {
     auto impl = std::make_shared<Impl>(io, options, std::move(killed));
     if (auto listening = impl->listen(options); !listening) {

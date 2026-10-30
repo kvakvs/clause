@@ -360,6 +360,9 @@ byte for byte, same file orders.
   opcodes, escaped name labels, LOC as degrees and meters) and its `formerr`
   rules (compression pointers backwards past the header, names below 255
   bytes, truncated sections only with the TC bit); encoding compresses names.
+- `clause_dist:start_epmd/0` (`builtins/epmd.cpp`, plan 30 step DIST3b) opens
+  the bundled epmd for `erl_epmd`'s registration under `--epmd bundled`
+  ([epmd](distribution.md#epmd)).
 
 ## Filename
 

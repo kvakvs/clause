@@ -235,6 +235,8 @@ std::span<const BuiltinEntry> erl_posix_msg_builtins() noexcept;
 std::span<const BuiltinEntry> clause_io_builtins() noexcept;
 // clause_net, the name and interface lookups of net and inet (plan 21 step LIB60; runtime/src/builtins/net/).
 std::span<const BuiltinEntry> clause_net_builtins() noexcept;
+// clause_dist:start_epmd/0, the bundled epmd of registrations (plan 30 step DIST3b; runtime/src/builtins/epmd.cpp).
+std::span<const BuiltinEntry> epmd_builtins() noexcept;
 // clause_filelib's wildcard pattern builtins (plan 21 step LIB51; runtime/src/builtins/filelib.cpp).
 std::span<const BuiltinEntry> filelib_builtins() noexcept;
 // clause_argparse, argparse's validation, parser and help (plan 21 step LIB70; runtime/src/builtins/argparse/).

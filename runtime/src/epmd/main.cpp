@@ -68,7 +68,7 @@ int serve(const ServerOptions &options) {
     boost::asio::io_context io(1);
     auto server = clause::runtime::epmd::Server::open(io, options, [&io] { io.stop(); });
     if (!server) {
-        std::cerr << "clause-epmd: " << server.error() << '\n';
+        std::cerr << "clause-epmd: " << server.error().message_ << '\n';
         return 1;
     }
     io.run();

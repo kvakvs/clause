@@ -83,6 +83,7 @@ a value goes in the next argument or after `=`.
 | `--max-memory BYTES` | Cap on the memory of all processes together (heaps, off-heap binaries, stacks); default uncapped |
 | `--schedulers N` | Scheduler workers running processes, 1 to 1,024; default one per CPU of `--scheduler-cpus`, else one per logical processor the program may run on (its affinity mask), like OTP's online schedulers ([workers](processes.md#workers)) |
 | `--scheduler-cpus SET` | Bind worker N to the N-th CPU of `SET`, round-robin, like OTP's `+sbt`/`+sct`: `performance` (the fastest core class: P-cores of a hybrid CPU, every CPU otherwise), `all`, or a list such as `0-15` or `2,4,6`; every listed CPU must be in the affinity mask. Default unbound ([CPU binding](processes.md#cpu-binding)) |
+| `--epmd MODE` | What a registration with epmd does when none listens: `bundled` (default) runs the epmd the program carries, `none` fails as OTP's; `external` is not implemented yet ([epmd](distribution.md#epmd)) |
 | `--profile FILE` | Write a report of entries and self time per function and per process to `FILE` when the program ends ([profiling](profiling.md)); off by default |
 | `--args-file FILE` | Options file like OTP's `vm.args`: reserved, reports `runtime option --args-file is not implemented` |
 | `--` | Ends the runtime options; the following arguments all go to `Entry` |

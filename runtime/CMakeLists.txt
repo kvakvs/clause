@@ -19,7 +19,7 @@ add_library(clause_runtime STATIC src/runtime.cpp src/diagnostics/features.cpp
     src/scheduler/services.cpp src/scheduler/registry.cpp src/scheduler/transitions.cpp src/scheduler/executor.cpp src/scheduler/cpus.cpp src/scheduler/timer_wheel.cpp src/scheduler/timers.cpp src/scheduler/introspection.cpp src/scheduler/suspension.cpp src/scheduler/aliases.cpp src/scheduler/signals.cpp src/scheduler/connections.cpp src/scheduler/ports.cpp src/ports/fd.cpp src/ports/input.cpp src/ports/io.cpp src/ports/spawn.cpp src/ports/file.cpp src/ports/posix_reason.cpp src/ports/file_info.cpp src/ports/file_paths.cpp src/ports/file_changes.cpp src/ports/value.cpp src/ports/sockets.cpp src/ports/socket_options.cpp src/ports/reactor.cpp
     src/terms/term_text.cpp src/terms/term_text_scalars.cpp
     src/terms/atoms.cpp src/terms/atom_table.cpp src/terms/atom_spelling.cpp src/terms/factory.cpp src/terms/immediate.cpp src/terms/term.cpp src/terms/term_unchecked.cpp src/terms/equality.cpp src/terms/immediate_order.cpp src/terms/immediate_services.cpp
-    src/builtins/registry.cpp src/builtins/invocation.cpp src/builtins/bridge.cpp src/builtins/portions.cpp src/builtins/float_text.cpp src/builtins/text.cpp src/builtins/typed.cpp src/builtins/io.cpp src/builtins/io_format.cpp src/builtins/os.cpp src/builtins/math.cpp src/builtins/maps.cpp src/builtins/persistent_term.cpp src/builtins/code.cpp src/builtins/interpreted.cpp src/builtins/init.cpp src/builtins/atomics.cpp src/builtins/erts_internal.cpp src/builtins/output.cpp
+    src/builtins/registry.cpp src/builtins/invocation.cpp src/builtins/bridge.cpp src/builtins/portions.cpp src/builtins/float_text.cpp src/builtins/text.cpp src/builtins/typed.cpp src/builtins/io.cpp src/builtins/io_format.cpp src/builtins/os.cpp src/builtins/math.cpp src/builtins/maps.cpp src/builtins/persistent_term.cpp src/builtins/code.cpp src/builtins/interpreted.cpp src/builtins/init.cpp src/builtins/atomics.cpp src/builtins/erts_internal.cpp src/builtins/output.cpp src/builtins/epmd.cpp
     # Module erlang: one translation unit per builtin family (docs/builtins.md#source-layout).
     src/builtins/erlang/core.cpp src/builtins/erlang/term_access.cpp src/builtins/erlang/lists.cpp src/builtins/erlang/conversions.cpp src/builtins/erlang/conversion_text.cpp src/builtins/erlang/binary_conversions.cpp src/builtins/erlang/identity_text.cpp src/builtins/erlang/term_encoding.cpp src/builtins/erlang/term_decoding.cpp src/builtins/erlang/time.cpp src/builtins/erlang/timers.cpp src/builtins/erlang/introspection.cpp src/builtins/erlang/system.cpp src/builtins/erlang/spawning.cpp src/builtins/erlang/fun_info.cpp src/builtins/erlang/apply.cpp src/builtins/erlang/hashing.cpp src/builtins/erlang/md5.cpp src/builtins/erlang/node.cpp src/builtins/erlang/connections.cpp src/builtins/erlang/code.cpp src/builtins/erlang/processes.cpp src/builtins/erlang/ports.cpp src/builtins/erlang/dictionary.cpp
     # Module binary (plan step 41W).
@@ -235,9 +235,15 @@ target_link_libraries(clause_runtime
 )
 
 # Clause's epmd (plan 30 step DIST3a, docs/distribution.md#epmd): the server the bundled epmd and clause-epmd share,
-# and clause-epmd, a foreground program the multi-node test runner starts.
-add_library(clause_epmd_server STATIC src/epmd/registry.cpp src/epmd/requests.cpp src/epmd/server.cpp)
+# and clause-epmd, a foreground program the multi-node test runner starts. The runtime carries the server's objects for
+# the bundled epmd (plan 30 step DIST3b).
+add_library(clause_epmd_server OBJECT src/epmd/registry.cpp src/epmd/requests.cpp src/epmd/server.cpp)
 clause_project_options(clause_epmd_server)
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    target_compile_options(clause_epmd_server PRIVATE /Gy /Gw)
+else()
+    target_compile_options(clause_epmd_server PRIVATE -ffunction-sections -fdata-sections)
+endif()
 target_compile_definitions(clause_epmd_server PUBLIC BOOST_ASIO_NO_DEPRECATED $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x0A00>)
 target_link_libraries(clause_epmd_server PUBLIC clause_multiprecision_dependency $<$<PLATFORM_ID:Linux>:-pthread>
     $<$<PLATFORM_ID:Windows>:ws2_32> $<$<PLATFORM_ID:Windows>:mswsock>)
@@ -245,6 +251,7 @@ add_executable(clause_epmd src/epmd/main.cpp)
 clause_project_options(clause_epmd)
 set_target_properties(clause_epmd PROPERTIES OUTPUT_NAME clause-epmd)
 target_link_libraries(clause_epmd PRIVATE clause_epmd_server)
+target_sources(clause_runtime PRIVATE src/epmd/bundled.cpp $<TARGET_OBJECTS:clause_epmd_server>)
 
 # PCRE2 for the re builtins (plan step 41ZA): built from source into the archive itself, or an installed library
 # whose path clau adds when it links an executable. clause_runtime.link beside the archive (named after it:

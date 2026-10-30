@@ -1,4 +1,5 @@
 #pragma once
+#include "../epmd/bundled.hpp"
 #include "../ets/index.hpp"
 #include "../memory/message_buffer.hpp"
 #include "../ports/io.hpp"
@@ -379,6 +380,12 @@ class Executor final {
         const std::scoped_lock lock(mutex_);
         return std::forward<Operation>(operation)(connections_);
     }
+
+    // What a registration that finds no epmd does (--epmd), and the bundled epmd it may start (plan 30 step DIST3b,
+    // builtins/epmd.cpp, docs/distribution.md#epmd).
+    EpmdMode epmd_mode() const noexcept;
+
+    epmd::Bundled &bundled_epmd() noexcept { return bundled_epmd_; }
 
     // An exit signal of exit/2 or exit_signal/2 from the running `sender` to the process of a pid word, acted on at
     // once; `self_normal` is exit/2's quirk: reason normal sent to itself ends the sender. Allocation failure throws,
@@ -889,6 +896,8 @@ class Executor final {
     std::map<ReferenceIdentity, std::pair<Word, AliasMode>> aliases_;
     // Message timers by reference number (step 41F); the wheel links their embedded timers.
     std::unordered_map<std::uint64_t, std::unique_ptr<MessageTimer>> message_timers_;
+    // The bundled epmd on a thread of its own, stopped with the runtime (plan 30 step DIST3b).
+    epmd::Bundled bundled_epmd_;
     // The I/O thread; declared before the ports and services, so its io_context is destroyed after them.
     std::unique_ptr<Reactor> reactor_;
     // Open ports by number; a port leaves when it closes.

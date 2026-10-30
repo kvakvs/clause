@@ -222,6 +222,36 @@ std::expected<std::size_t, std::string> apply_scheduling(std::span<const std::st
     return apply_sizes(args, at, options);
 }
 
+// Parse --epmd (OTP's -start_epmd): bundled or none; external comes with clause-epmd beside programs. Added for the
+// bundled epmd.
+std::expected<EpmdMode, std::string> epmd_mode(std::string_view text) {
+    if (text == "bundled") {
+        return EpmdMode::bundled;
+    }
+    if (text == "none") {
+        return EpmdMode::none;
+    }
+    if (text == "external") {
+        return std::unexpected(std::string("runtime option --epmd external is not implemented"));
+    }
+    return std::unexpected("invalid --epmd value '" + std::string(text) + "' (bundled, external or none)");
+}
+
+// Apply a distribution option at `at` and return how many arguments it used; 0 when it is none, then the scheduler
+// options are tried. Added for the bundled epmd.
+std::expected<std::size_t, std::string> apply_distribution(std::span<const std::string> args, std::size_t at,
+                                                           RuntimeOptions &options) {
+    if (const auto epmd = match(args, at, "--epmd")) {
+        const auto mode = epmd_mode(epmd->value);
+        if (!mode) {
+            return std::unexpected(mode.error());
+        }
+        options.epmd = *mode;
+        return epmd->used;
+    }
+    return apply_scheduling(args, at, options);
+}
+
 // Apply the option at `at` and return how many arguments it used; 0 when it is not a runtime option.
 std::expected<std::size_t, std::string> apply(std::span<const std::string> args, std::size_t at,
                                               RuntimeOptions &options) {
@@ -244,7 +274,7 @@ std::expected<std::size_t, std::string> apply(std::span<const std::string> args,
     if (match(args, at, "--args-file")) {
         return std::unexpected(std::string("runtime option --args-file is not implemented"));
     }
-    return apply_scheduling(args, at, options);
+    return apply_distribution(args, at, options);
 }
 
 // Apply leading runtime options until another argument; `--` ends them and is used too.

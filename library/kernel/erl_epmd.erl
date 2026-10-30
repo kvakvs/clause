@@ -1,6 +1,7 @@
 %% Clause's erl_epmd (plan 30 step DIST3a, docs/distribution.md#epmd): OTP's epmd client over the epmd protocol. The
 %% erl_epmd server holds this node's registration on the connection to the host's epmd, and the client functions ask
-%% an epmd on their own connections. The epmd port is ERL_EPMD_PORT's, else 4369.
+%% an epmd on their own connections. The epmd port is ERL_EPMD_PORT's, else 4369. A registration that finds no epmd
+%% starts the bundled one under --epmd bundled (plan 30 step DIST3b).
 -module(erl_epmd).
 -behaviour(gen_server).
 -export([
@@ -41,6 +42,9 @@
 -define(DIST_VERSION, 5).
 % How long a broken registration waits before it registers again.
 -define(RECONNECT_MS, 1000).
+% How often, and how far apart, a registration connects again after starting an epmd that may still be starting.
+-define(EPMD_ATTEMPTS, 20).
+-define(EPMD_RETRY_MS, 50).
 
 % The registration this node holds: the epmd connection, and the name, port and family it registered.
 -record(state, {socket, name, port, family}).
@@ -133,7 +137,7 @@ code_change(_, State, _) -> {ok, State}.
 
 %% Registration: ALIVE2_REQ on a connection to the local epmd, kept while the name is registered.
 register_name(Name, Port, Family) ->
-    case gen_tcp:connect(loopback(Family), epmd_port(), [Family, binary, {packet, 0}, {active, false}]) of
+    case connect_local(Family) of
         {ok, Socket} ->
             NameBytes = unicode:characters_to_binary(to_string(Name)),
             Request =
@@ -144,6 +148,30 @@ register_name(Name, Port, Family) ->
         Error ->
             Error
     end.
+
+% A connection to the local epmd. When none listens, the --epmd mode may start the bundled epmd, which gives way to
+% another that wins its port; the connection is then tried again for a short while.
+connect_local(Family) ->
+    case connect_epmd(Family) of
+        {error, econnrefused} = Refused ->
+            case clause_dist:start_epmd() of
+                ok -> connect_again(Family, ?EPMD_ATTEMPTS);
+                _ -> Refused
+            end;
+        Result ->
+            Result
+    end.
+
+connect_again(Family, Attempts) ->
+    case connect_epmd(Family) of
+        {error, econnrefused} when Attempts > 1 ->
+            timer:sleep(?EPMD_RETRY_MS),
+            connect_again(Family, Attempts - 1);
+        Result ->
+            Result
+    end.
+
+connect_epmd(Family) -> gen_tcp:connect(loopback(Family), epmd_port(), [Family, binary, {packet, 0}, {active, false}]).
 
 % The creation of a registration; its connection then reports when epmd closes it.
 alive_reply(Socket, {ok, <<?ALIVE2_X_RESP, 0, Creation:32>>}) -> registered(Socket, Creation);

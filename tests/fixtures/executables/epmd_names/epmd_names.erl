@@ -3,6 +3,8 @@
 %% only beta is left. Meanwhile a asks epmd with erl_epmd and net_adm, then with raw epmd requests: ALIVE2 replies,
 %% PORT2 replies, NAMES, DUMP (descriptors masked), refused KILL and STOP and malformed requests. Creations differ
 %% between epmds, so only their kind prints. The relaxed run uses an epmd with -relaxed_command_check: STOP and KILL.
+%% The bundled runs (plan 30 step DIST3b) start no runner epmd: a starts the bundled epmd, and the two race nodes
+%% register at once, so one may lose the port to the other's bundled epmd and register there.
 -module(epmd_names).
 -export([main/1]).
 
@@ -13,7 +15,9 @@ main(["a"]) ->
 main(["b"]) ->
     node_b();
 main(["relaxed"]) ->
-    relaxed().
+    relaxed();
+main(["race", Name]) ->
+    race(list_to_atom(Name)).
 
 node_a() ->
     show("no server", catch_exit(fun() -> erl_epmd:register_node(alpha, 40001) end)),
@@ -122,6 +126,30 @@ relaxed() ->
     ok = erl_epmd:stop(),
     io:format("epmd_names: ok~n").
 
+%% A registration racing another node's. Every wait is for a state the other node cannot leave before this one saw it:
+%% both names, then a mark of each node that saw them, then neither name; the marks go last, with the programs.
+race(Name) ->
+    {ok, _} = erl_epmd:start(),
+    show("register", element(1, erl_epmd:register_node(Name, 40011))),
+    wait_registered(["race1", "race2"]),
+    Mark = alive(atom_to_list(Name) ++ "_saw", 40012, $M, 6, 5, <<>>),
+    first(Mark),
+    wait_registered(["race1_saw", "race2_saw"]),
+    ok = erl_epmd:stop(),
+    wait_for(no_race, fun
+        ({ok, Names}) -> not lists:any(fun({Registered, _}) -> lists:member(Registered, ["race1", "race2"]) end, Names);
+        (Answer) -> Answer =:= {error, address}
+    end),
+    gen_tcp:close(Mark),
+    io:format("epmd_names: ok~n").
+
+%% Wait until epmd lists every name of Wanted, among others.
+wait_registered(Wanted) ->
+    wait_for(Wanted, fun
+        ({ok, Names}) -> Wanted -- [Registered || {Registered, _} <- Names] =:= [];
+        (_) -> false
+    end).
+
 show(Label, Value) -> io:format("~s: ~tp~n", [Label, Value]).
 
 catch_exit(Fun) ->
@@ -138,22 +166,29 @@ catch_error(Fun) ->
         error:Reason -> {error, Reason}
     end.
 
-%% Wait until erl_epmd:names/0 answers Names (or the error), as the other node changes epmd.
+%% Wait until erl_epmd:names/0 answers Names in any order (or the error), as the other node changes epmd.
 wait_names(Names) when is_list(Names) -> wait_names({ok, Names});
-wait_names(Answer) -> wait_names(Answer, erlang:monotonic_time(millisecond) + ?WAIT_MS).
+wait_names(Answer) -> wait_for(Answer, fun(Names) -> sorted(Names) =:= sorted(Answer) end).
 
-wait_names(Answer, Deadline) ->
-    case erl_epmd:names() of
-        Answer ->
+sorted({ok, Names}) -> {ok, lists:sort(Names)};
+sorted(Answer) -> Answer.
+
+%% Wait until erl_epmd:names/0 answers what Wanted accepts; Description names it in a timeout.
+wait_for(Description, Wanted) -> wait_for(Description, Wanted, erlang:monotonic_time(millisecond) + ?WAIT_MS).
+
+wait_for(Description, Wanted, Deadline) ->
+    Names = erl_epmd:names(),
+    case Wanted(Names) of
+        true ->
             ok;
-        Other ->
+        false ->
             case erlang:monotonic_time(millisecond) > Deadline of
                 true ->
-                    io:format("timeout waiting for ~tp, names: ~tp~n", [Answer, Other]),
+                    io:format("timeout waiting for ~tp, names: ~tp~n", [Description, Names]),
                     halt(1);
                 false ->
                     timer:sleep(50),
-                    wait_names(Answer, Deadline)
+                    wait_for(Description, Wanted, Deadline)
             end
     end.
 

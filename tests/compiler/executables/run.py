@@ -180,18 +180,32 @@ def epmd_command(run):
     return [program, *run.get('epmd_args', [])]
 
 
+def node_environment(run, node, port):
+    """A node's environment: a Clause node of a run with the runner's epmd never starts its own (--epmd none, plan 30
+    step DIST3b)."""
+    result = environment(run, port)
+    if not nodes.bundled(run) and node.get('kind') != 'otp':
+        result['CLAUSE_FLAGS'] = ' '.join(filter(None, [result.get('CLAUSE_FLAGS'), '--epmd none']))
+    return result
+
+
 def compare_nodes(executable, run, directory, golden):
-    """Runs every node of a multi-node run at once on a fresh epmd; returns each node's mismatches."""
-    epmd, port = nodes.start_epmd(epmd_command(run))
+    """Runs every node of a multi-node run at once on a fresh epmd, or on none for a run of 'epmd' bundled, whose nodes
+    start the bundled epmd; returns each node's mismatches."""
+    epmd, port = (None, nodes.free_port()) if nodes.bundled(run) else nodes.start_epmd(epmd_command(run))
     try:
         commands = [node_command(executable, node, directory, golden) for node in run['nodes']]
-        results = nodes.run_nodes(commands, [environment(run, port)] * len(commands), directory, RUN_TIMEOUT)
+        environments = [node_environment(run, node, port) for node in run['nodes']]
+        results = nodes.run_nodes(commands, environments, directory, RUN_TIMEOUT)
     finally:
-        nodes.stop(epmd)
+        if epmd:
+            nodes.stop(epmd)
     problems = []
     for node, result in zip(run['nodes'], results):
         found = [f'timed out after {RUN_TIMEOUT} s'] if result is None else outcome_problems(node, *result, golden)
         problems.extend(f'node {node["name"]}: {problem}' for problem in found)
+    if nodes.bundled(run) and nodes.listening(port):
+        problems.append('the bundled epmd still listens after its program ended')
     return problems
 
 
