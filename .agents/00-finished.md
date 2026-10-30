@@ -609,7 +609,7 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   receive wait returns the fixed boolean words. A hop took 4 lock pairs, now 2. Pinned A/B medians
   (7 rounds, static CRT): ping_pong 903 to 764 ms (OTP 1499), ring 1112 to 989 (1390), 16
   concurrent pairs 2927 to 2481 (OTP 802: found 3.1x behind); ring_setup, fan_in, short_processes,
-  large_message unchanged
+  large_message unchanged — `70a5b30f`
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/ `map_size` and present-key
   updates with atom/small-int keys scan and copy classic map cells inline; 4 reads 929 to 12 ns (OTP
   6), a 2-field update 576 to 11 ns (OTP 13); 69A kernel `dataproc.small_map` added — `9be0f412`
