@@ -455,6 +455,13 @@ recorded elsewhere.
   measured null/worse on ring_setup, short_processes, fan_in: dropped. The embedded first stack
   block is charged on the first push (state limit 0 until then), else exact-account tests and
   --max-memory 64 break.
+- OPT3.23 part 2 (2026-10-30): an old change's impact at HEAD = `git revert --no-commit` in a
+  scratch worktree (runtime reverts cleanly; resolve .agents conflicts to HEAD), runtime-only
+  Release builds (`-DCLAUSE_BUILD_COMPILER=OFF`, same /O2 /Ob2 flags), one build/bench clau with
+  `--runtime-library`, interleaved rounds with OTP via benchmarks/run.py's run_once and
+  benchmark_cpus (import it). For a new change copy the base lib/Release dir aside first, then
+  rebuild in place. Lock-free posts to queued receivers did not reproduce OPT3.5B's allocator
+  regression: the direct copy into parked receivers stays.
 - LIB74 shell (2026-10-25): a call that resolves to a C++ builtin does not pull the module's Erlang
   source into the batch, so its other exports (erl_lint:format_error/1) are absent for dynamic calls
   even with --keep-exports: name them statically (clause_shell_eval:format_error/2). A static M:F

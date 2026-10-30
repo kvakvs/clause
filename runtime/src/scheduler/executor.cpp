@@ -267,31 +267,35 @@ TermResult<void> Executor::send(ProcessContext &sender, Word pid, const Term &me
     if (const auto walked = outgoing.walk(message); !walked) {
         return walked;
     }
-    const auto running = executor.running_arrivals(sender, pid);
-    if (!running) {
+    const auto posting = executor.posting_arrivals(sender, pid);
+    if (!posting) {
         return {};
     }
-    return *running != nullptr ? executor.send_running(sender, {.pid = pid, .arrivals = **running}, outgoing)
+    return *posting != nullptr ? executor.send_posted(sender, {.pid = pid, .arrivals = **posting}, outgoing)
                                : executor.send_locked(sender, pid, outgoing);
 }
 
-std::optional<Arrivals *> Executor::running_arrivals(ProcessContext &sender, Word pid) const noexcept {
-    // A receiver that was not running at the last send to it most likely still is not: no lookup then. Only workers
-    // look up without the lock, as only their slice boundaries keep what they find allocated (quiescent reclamation).
+std::optional<Arrivals *> Executor::posting_arrivals(ProcessContext &sender, Word pid) const noexcept {
+    // A receiver parked at the last send to it most likely is again, and its waker locks anyway: no lookup then. Only
+    // workers look up without the lock, as only their slice boundaries keep what they find allocated (quiescent
+    // reclamation).
     auto &hint = sender.mailbox().send_hint();
-    if (!worker_ || (hint.pid == pid && !hint.running)) {
+    if (!worker_ || (hint.pid == pid && hint.parked)) {
         return nullptr;
     }
     auto *arrivals = runtime_.processes.arrivals(pid_number(pid));
     if (arrivals == nullptr) {
         return std::nullopt;
     }
-    hint = {.pid = pid, .running = arrivals->running()};
-    return hint.running ? arrivals : nullptr;
+    // Only a parked receiver needs the lock to be woken, so it gets the message copied straight into its heap; any
+    // other takes it from its arrivals (lock-free posts).
+    hint = {.pid = pid, .parked = arrivals->parked()};
+    return hint.parked ? nullptr : arrivals;
 }
 
-TermResult<void> Executor::send_running(ProcessContext &sender, RunningReceiver receiver, OutgoingMessage &message) {
-    // A receiver running on another worker takes the message from its arrivals; no executor lock (arrival buffers).
+TermResult<void> Executor::send_posted(ProcessContext &sender, PostedReceiver receiver, OutgoingMessage &message) {
+    // A receiver that is not parked takes the message from its arrivals; no executor lock unless the post finds it
+    // parked meanwhile and wakes it (lock-free posts).
     auto posted = message.arrival();
     if (!posted) {
         return std::unexpected(posted.error());
@@ -311,10 +315,10 @@ TermResult<void> Executor::send_locked(ProcessContext &sender, Word pid, Outgoin
         return {};
     }
     auto &receiver = *found;
+    sender.mailbox().send_hint() = {.pid = pid, .parked = receiver.schedule().parked};
     // It began a slice meanwhile, or earlier messages still wait among its arrivals: this one goes behind them, never
     // past them, and the sender copies no backlog under the lock.
     if (busy(&receiver) || receiver.mailbox().arrivals().pending()) {
-        sender.mailbox().send_hint().running = busy(&receiver);
         auto posted = message.arrival();
         if (!posted) {
             return std::unexpected(posted.error());
@@ -588,7 +592,6 @@ void Executor::work(const std::size_t index) noexcept {
             }
             auto &process = *next;
             schedule(process).running = true;
-            process.mailbox().arrivals().set_running(true);
             ++slices_;
             lock.unlock();
             garbage.free();
@@ -711,7 +714,6 @@ void Executor::settle(ProcessContext &process, ProcessContext *blocked_on) {
 void Executor::after(ProcessContext &process, bool ended) {
     auto &state = schedule(process);
     state.running = false;
-    process.mailbox().arrivals().set_running(false);
     const auto blockers = std::exchange(state.blockers, {});
     // The process waited for may have ended since: only its pid finds it then, and never again.
     auto *blocked_on = std::exchange(state.blocked_on, nullptr);

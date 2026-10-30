@@ -396,8 +396,8 @@ reach the young block's, as ERTS counts a message fragment only once received
 (`HeapStorage::received`); the next collection treats them as young data, and
 copies a message still queued like any root.
 Smaller messages are copied once, cheaper than a fragment each: straight into
-the heap of a receiver that does not run, under the executor lock, or right
-behind an arrival node for a running one. The receiver takes such an arrival
+the heap of a parked receiver, under the executor lock that waking it takes, or
+right behind an arrival node for any other. The receiver takes such an arrival
 by copying its words as they are and moving the pointers between them by the
 distance of the copy, reading the objects in address order as the collector
 scans its copies (**relocated arrivals**); the graph is not walked again.

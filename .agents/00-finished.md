@@ -569,6 +569,12 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   not hops (315 ns against 407). Pinned 0-15 medians, base / new: ring_setup 260 / 208 ms (OTP 113),
   ring 1134 / 1089, short_processes 1150 / 1049; ping_pong, fan_in unchanged. Batch stealing
   measured null. Fixed the erlang_gaps fixture race behind its occasional hang — `1b14da68`
+- **OPT3.23 part 2** lock-free posts: a send to any receiver that is not parked (running, queued,
+  held, suspended) pushes onto its arrivals without the executor mutex; only a parked receiver,
+  whose waker locks anyway, gets the direct copy under it. The send hint remembers "parked", and the
+  arrivals' running flag is gone. Pinned A/B medians at f4e5f3e0 (7 rounds, interleaved with OTP):
+  fan_in 370 to 269 ms (0.21x of OTP); ring, ping_pong, ring_setup, short_processes, large_message,
+  socket and file kernels unchanged
 - **OPT3.12** small-map lookups: map patterns, `map_get`/`is_map_key`/ `map_size` and present-key
   updates with atom/small-int keys scan and copy classic map cells inline; 4 reads 929 to 12 ns (OTP
   6), a 2-field update 576 to 11 ns (OTP 13); 69A kernel `dataproc.small_map` added — `9be0f412`

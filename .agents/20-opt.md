@@ -55,6 +55,7 @@ This file keeps open work only:
    Most of these are now done in Clause (tier OPT0). Step 69A measured Clause O2 at 20.2x slower
    than OTP JIT at the start of plan 20 (worst kernels: `map_put` 618x, `binary_match` 492x,
    `binary_append` 462x).
+
 2. **Null results depend on the baseline.** T2 found inlining for call overhead alone gives 0 +/- 1
    % because a T1 call is cheap; Clause's calls were costly until OPT0.1 made transfers inline.
 3. **T2's deopt, profiling and tier-up machinery does not apply** (no T1 to fall back to). The
@@ -75,19 +76,19 @@ This file keeps open work only:
 
 ## Measured T2 results (reference numbers)
 
-| Mechanism | Result vs T1 | Source |
-|---|---|---|
-| Loop recovery + fused-guard leaf inlining (`total/2`) | 1.97× min, 1.85× median | `mvp/OUTCOME.md` |
-| Binary scan: match-context in registers + loop ownership + SWAR | 5.56× isolated (2.0 → 11.8 GB/s); 6–10 % end to end on `json:decode` | `GBIN_OUTCOME.md` |
-| Byte scan-and-count kernels (shipped) | 2.5–3.1× on Apple Silicon; up to 16× digit scan on server ARM | `15_scope…`, `BeamAsmTier2.md` |
-| Integer/float tail loops with register-homed accumulators | 1.3–3.8× (single accumulator ~2.4×) | PR text |
-| Register-pressured high-arity loops (register homing) | from 1.6× slower to 1.6–1.8× faster | PR text |
-| Flatmap shape guard + direct offset load | 1.64× (2 fields); codegen ceiling 2.0–13.6× | `G31_GMAP_OUTCOME.md`, `map_monomorphic_design.md` |
-| `maps:find` `{ok,V}` fused into the consumer branch | ≈7× isolated, but no real call sites found | `BeamAsmTier2.md` |
-| Inlining for call overhead only | null, 0 ± 1 % | `G3_OUTCOME.md` |
-| Cold-arm pruning / branchy dispatch | null, 1.01–1.02× | `G31_GMAP_OUTCOME.md` |
-| Body-recursion → loop (Y-homed) | parity; ≈1.37× only on 10-element lists | `BeamAsmTier2.md` |
-| TMC (compiler level) | O(1) stack; front-end 2 uses 2–4× less heap; often ~2× faster in the 10k–1M range | `tail_modulo_cons.md` |
+| Mechanism                                                       | Result vs T1                                                                      | Source                                             |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Loop recovery + fused-guard leaf inlining (`total/2`)           | 1.97× min, 1.85× median                                                           | `mvp/OUTCOME.md`                                   |
+| Binary scan: match-context in registers + loop ownership + SWAR | 5.56× isolated (2.0 → 11.8 GB/s); 6–10 % end to end on `json:decode`              | `GBIN_OUTCOME.md`                                  |
+| Byte scan-and-count kernels (shipped)                           | 2.5–3.1× on Apple Silicon; up to 16× digit scan on server ARM                     | `15_scope…`, `BeamAsmTier2.md`                     |
+| Integer/float tail loops with register-homed accumulators       | 1.3–3.8× (single accumulator ~2.4×)                                               | PR text                                            |
+| Register-pressured high-arity loops (register homing)           | from 1.6× slower to 1.6–1.8× faster                                               | PR text                                            |
+| Flatmap shape guard + direct offset load                        | 1.64× (2 fields); codegen ceiling 2.0–13.6×                                       | `G31_GMAP_OUTCOME.md`, `map_monomorphic_design.md` |
+| `maps:find` `{ok,V}` fused into the consumer branch             | ≈7× isolated, but no real call sites found                                        | `BeamAsmTier2.md`                                  |
+| Inlining for call overhead only                                 | null, 0 ± 1 %                                                                     | `G3_OUTCOME.md`                                    |
+| Cold-arm pruning / branchy dispatch                             | null, 1.01–1.02×                                                                  | `G31_GMAP_OUTCOME.md`                              |
+| Body-recursion → loop (Y-homed)                                 | parity; ≈1.37× only on 10-element lists                                           | `BeamAsmTier2.md`                                  |
+| TMC (compiler level)                                            | O(1) stack; front-end 2 uses 2–4× less heap; often ~2× faster in the 10k–1M range | `tail_modulo_cons.md`                              |
 
 On OTP about ⅓ of real time is JIT'd Erlang; the rest is C BIFs and GC (`erts_maps_put`, `eq`,
 `erts_cmp_compound`, `do_minor`). Clause's runtime services are the equivalent pool, so making them
@@ -106,38 +107,38 @@ fast is itself a target.
 Every kernel by Clause / OTP time, worst first, with the open step that owns it ("—": no open step;
 later numbers in parentheses):
 
-| Kernel | Clause / OTP (ms) | Ratio | Owner |
-|---|---|---|---|
-| file.small_files | 1256 / 1187 | 1.06x | file kernels (OS-bound; 0.81x pinned later) |
-| dataproc.small_map | 1544 / 1501 | 1.03x | OPT1.6 remainder (~0.84x alone after the caches) |
-| file.read_line | 1514 / 1545 | 0.98x | OPT3.23 (0.92x later) |
-| file.read_file | 1471 / 1514 | 0.97x | file kernels (page faults) |
-| file.large_write | 1000 / 1029 | 0.97x | — (0.88x later) |
-| datagen.map_put | 1589 / 1664 | 0.96x | OPT3.15 remainder |
-| msg.ring | 1355 / 1472 | 0.92x | OPT3.23 (~0.80x later) |
-| gc.long_lived_churn | 1195 / 1326 | 0.90x | OPT3.20 (collector, unprofiled) |
-| datagen.list_to_tuple | 1408 / 1605 | 0.88x | OPT3.21 (unprofiled) |
-| dataproc.binary_match | 1100 / 1277 | 0.86x | loop bookkeeping (a 32-bit stride sum; byte scans do not apply) |
-| file.large_read | 1203 / 1455 | 0.83x | — (0.74x later) |
-| gc.grow_shrink | 860 / 1068 | 0.81x | OPT3.20 |
-| socket.udp_round_trip | 1212 / 1511 | 0.80x | OPT3.22 (sockets, unprofiled) |
-| socket.tcp_echo | 1294 / 1636 | 0.79x | OPT3.22 |
-| datagen.binary_append | 840 / 1098 | 0.76x | OPT3.6 remainder |
-| socket.tcp_connect | 1151 / 1510 | 0.76x | OPT3.22 |
-| dataproc.map_foldl | 1122 / 1465 | 0.77x | OPT1.12 (`lists:map` builds reversed) |
-| msg.ping_pong | 1110 / 1495 | 0.74x | OPT3.23 |
-| msg.large_message | 813 / 1099 | 0.74x | — (one copy per send, unprofiled) |
-| dataproc.term_to_binary | 1053 / 1496 | 0.70x | term_to_binary remainder |
-| datagen.list_of_tuples | 1063 / 1517 | 0.70x | — (swings ~15% on code layout alone) |
-| gc.short_processes | 1113 / 1665 | 0.67x | OPT3.5 remainder |
-| dataproc.comprehension | 896 / 1424 | 0.63x | OPT1.3 remainder, OPT1.12 |
-| datagen.string_build | 591 / 1047 | 0.56x | — |
-| dataproc.map_update | 649 / 1235 | 0.53x | — |
-| dataproc.int_to_list | 422 / 908 | 0.47x | — |
-| dataproc.sort | 501 / 1113 | 0.45x | — |
-| msg.fan_in | 576 / 1388 | 0.42x | OPT3.23 |
-| gc.explicit_collect | 594 / 1615 | 0.37x | OPT3.20 |
-| datagen.bigint_factorial | 210 / 1145 | 0.18x | — |
+| Kernel                   | Clause / OTP (ms) | Ratio | Owner                                                           |
+| ------------------------ | ----------------- | ----- | --------------------------------------------------------------- |
+| file.small_files         | 1256 / 1187       | 1.06x | file kernels (OS-bound; 0.81x pinned later)                     |
+| dataproc.small_map       | 1544 / 1501       | 1.03x | OPT1.6 remainder (~0.84x alone after the caches)                |
+| file.read_line           | 1514 / 1545       | 0.98x | OPT3.23 (0.92x later)                                           |
+| file.read_file           | 1471 / 1514       | 0.97x | file kernels (page faults)                                      |
+| file.large_write         | 1000 / 1029       | 0.97x | — (0.88x later)                                                 |
+| datagen.map_put          | 1589 / 1664       | 0.96x | OPT3.15 remainder                                               |
+| msg.ring                 | 1355 / 1472       | 0.92x | OPT3.23 (~0.80x later)                                          |
+| gc.long_lived_churn      | 1195 / 1326       | 0.90x | OPT3.20 (collector, unprofiled)                                 |
+| datagen.list_to_tuple    | 1408 / 1605       | 0.88x | OPT3.21 (unprofiled)                                            |
+| dataproc.binary_match    | 1100 / 1277       | 0.86x | loop bookkeeping (a 32-bit stride sum; byte scans do not apply) |
+| file.large_read          | 1203 / 1455       | 0.83x | — (0.74x later)                                                 |
+| gc.grow_shrink           | 860 / 1068        | 0.81x | OPT3.20                                                         |
+| socket.udp_round_trip    | 1212 / 1511       | 0.80x | OPT3.22 (sockets, unprofiled)                                   |
+| socket.tcp_echo          | 1294 / 1636       | 0.79x | OPT3.22                                                         |
+| datagen.binary_append    | 840 / 1098        | 0.76x | OPT3.6 remainder                                                |
+| socket.tcp_connect       | 1151 / 1510       | 0.76x | OPT3.22                                                         |
+| dataproc.map_foldl       | 1122 / 1465       | 0.77x | OPT1.12 (`lists:map` builds reversed)                           |
+| msg.ping_pong            | 1110 / 1495       | 0.74x | OPT3.23                                                         |
+| msg.large_message        | 813 / 1099        | 0.74x | — (one copy per send, unprofiled)                               |
+| dataproc.term_to_binary  | 1053 / 1496       | 0.70x | term_to_binary remainder                                        |
+| datagen.list_of_tuples   | 1063 / 1517       | 0.70x | — (swings ~15% on code layout alone)                            |
+| gc.short_processes       | 1113 / 1665       | 0.67x | OPT3.5 remainder                                                |
+| dataproc.comprehension   | 896 / 1424        | 0.63x | OPT1.3 remainder, OPT1.12                                       |
+| datagen.string_build     | 591 / 1047        | 0.56x | —                                                               |
+| dataproc.map_update      | 649 / 1235        | 0.53x | —                                                               |
+| dataproc.int_to_list     | 422 / 908         | 0.47x | —                                                               |
+| dataproc.sort            | 501 / 1113        | 0.45x | —                                                               |
+| msg.fan_in               | 576 / 1388        | 0.42x | OPT3.23                                                         |
+| gc.explicit_collect      | 594 / 1615        | 0.37x | OPT3.20                                                         |
+| datagen.bigint_factorial | 210 / 1145        | 0.18x | —                                                               |
 
 Repeatability:
 
@@ -157,7 +158,7 @@ Repeatability:
   with "Profile system performance" and Performance Log Users (the kernel logger is admin-only; UAC
   filters the token). The VS Standard Collector runs as a service and works:
   - `VSDiagnostics.exe start N /launch:<exe> /launchArgs:<args>
-    /loadConfig:<Collector>\AgentConfigs\CpuUsageHigh.json`, then
+/loadConfig:<Collector>\AgentConfigs\CpuUsageHigh.json`, then
     `VSDiagnostics.exe stop N /output:<file>.diagsession` (under
     `<VS>\Team Tools\DiagnosticsHub\Collector`).
   - The `.diagsession` is a zip holding `*/sc.user_aux.etl`; with `_NT_SYMBOL_PATH` at the exe's
@@ -197,7 +198,16 @@ steps whose kernels are already ahead stay, ranked lower. Profile each kernel be
 
 ### OPT3.23 remainder: message signals
 
-Kernels (pinned 0-15, against OTP 1359/1476/1402 ms): ring 0.80x, ping_pong 0.61x, fan_in 0.27x.
+Kernels (pinned 0-15, against OTP, 2026-10-30 at f4e5f3e0 plus part 2): ring 0.75x, ping_pong
+0.61x, fan_in 0.21x. Setup alone (`ring(1000, 1)`) is still 1.8x OTP: 3.5 us a process against 1.9.
+
+- **Part 1 re-measured at f4e5f3e0:** HEAD against HEAD with 1b14da68 reverted (runtime-only
+  Release builds, one clau, 2 x 7 interleaved pinned rounds).
+  - ring_setup 0.84x, short_processes 0.88-0.91x: the setup gain holds.
+  - ring 1.02-1.04x and ping_pong 1.02-1.05x slower (ring's first run did not overlap); fan_in
+    within noise (15-31% spread).
+  - Suspect: the embedded stack words and mailbox nodes enlarge each context across 1000 live
+    processes; unconfirmed, and layout alone can move a few percent.
 
 - **Ring is process lifecycle, not hops:** `ring(1000, 500)` runs 315 ns a hop against OTP 407;
   `ring(1000, 1)` setup is 1.8x OTP's per process.
@@ -206,17 +216,15 @@ Kernels (pinned 0-15, against OTP 1359/1476/1402 ms): ring 0.80x, ping_pong 0.61
   allocates them and other workers free them.
   - A shared recycler of those blocks needs a multi-worker negative control (a global lock on every
     small heap block).
-- **Executor mutex on sends:** a send to a receiver that does not run still takes the executor mutex
-  to copy and wake it.
-  - fan_in (unpinned profile) spends 31% of samples contending for it in `send_locked`.
-  - ping_pong spends ~15% in SRW acquire/release (send, push, next_process).
+- **Executor mutex on wakes:** since part 2 only a send that wakes a parked receiver takes the
+  executor mutex; ping_pong and ring wake on every hop.
+  - ping_pong spent ~15% in SRW acquire/release (send, push, next_process), profiled before part 2.
+  - Candidate: per-process signal locks as ERTS, so a wake locks only its receiver.
 - **Call round trips:** the file.read_line profile (a call per line) shows monitor plus demonitor of
   the call ~14% (a map node and a reference each).
-- Candidates:
-  - per-process signal locks as ERTS
-  - posting to a parked receiver's arrivals with only the waking sender locking
 - Measured null or worse: batch stealing (half the victim's queue); sends that buffered every
-  message (OPT3.5B, allocator contention on fan_in).
+  message (OPT3.5B, allocator contention on fan_in; part 2 still copies straight into a parked
+  receiver, so only messages to receivers that are not parked are buffered).
 
 ### OPT3.15 remainder: owned map loop parameters (map_put 0.96x)
 
@@ -349,8 +357,8 @@ already scans 7 bytes at a time in source (`<<W:56, ...>>` with a SWAR guard). O
   - literal-byte scan clauses (`f(<<$a, R/binary>>, N) -> f(R, N - 2)`)
   - guards reading other unchanged parameters
   - `Acc*10 + D`-style dependent loops (stay scalar)
-  - the *born-8-wide classifier* (`<<W:56, ...>>` guards as in `json:string_ascii`)
-  - *read-and-sum*
+  - the _born-8-wide classifier_ (`<<W:56, ...>>` guards as in `json:string_ascii`)
+  - _read-and-sum_
 
 ### OPT1.6 remainder: static map shapes and the shared-keys layout
 
@@ -472,22 +480,22 @@ Open, by measured need only:
 
 ## Measured to have no value (do not build unless new evidence appears)
 
-| Idea | T2 finding | Clause note |
-|---|---|---|
-| Cold-arm pruning / branch-counter dispatch specialization | 1.01–1.02×; a 12-clause dispatch costs ~4 ns in T1 | Use branch weights for layout only |
-| Inlining for call overhead alone | 0 ± 1 % | Does not hold for Clause: a call pushes a heap frame (~2.8 ns); leaf inlining (OPT1.9) made a loop calling a leaf 3.5x faster |
-| Polymorphic inline caches wider than 2 | rarely pays; compiler sites see 20–130+ shapes | Monomorphic map cache only |
-| General interning of map shapes | measured unnecessary: literal shapes already share the pointer | — |
-| Escape analysis at scale / PEA | survivors escape; top allocators are inside C BIFs | Revisit only after OPT2.1 creates pairs |
-| Induction-variable strength reduction (beyond binaries and the `maps:fold` pointer walk) | cons walking has no IV | — |
-| Auto-vectorization beyond SWAR recipes | no measured pool | — |
-| Unrolling body-recursion loops | flat; serial `get_tl` chain dominates | — |
-| Reimplementing map/binary BIFs in Erlang to inline them | moves the cost, does not remove it | Make the C++ services fast instead |
-| Software prefetch, "home traffic" elimination, GcTest coalescing across unrolled iterations, broad register-pool widening | measured and dropped (PR text; doc 24 unavailable) | Recheck before attempting |
-| Straight-line GVN outside loops | pool ≈0 on real code | Leave to LLVM |
-| Frameless leaves (OPT0.1A) | — | Saves a few stores per call; loses the stack-trace entry and `process_info(current_function)` (dropped 2026-10-17) |
-| One heap check per basic block (OPT0.3) | — | Measured negligible in Clause (dropped 2026-10-17) |
-| String builder: pieces in a list, one `reserve`, then join (OPTM.6) | — | Dropped 2026-10-24: every `+=` site appends to one growing buffer (nothing quadratic), and in a pinned microbench of 2-65536 pieces the builder is 2-10x slower than `+=` |
+| Idea                                                                                                                      | T2 finding                                                     | Clause note                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cold-arm pruning / branch-counter dispatch specialization                                                                 | 1.01–1.02×; a 12-clause dispatch costs ~4 ns in T1             | Use branch weights for layout only                                                                                                                                        |
+| Inlining for call overhead alone                                                                                          | 0 ± 1 %                                                        | Does not hold for Clause: a call pushes a heap frame (~2.8 ns); leaf inlining (OPT1.9) made a loop calling a leaf 3.5x faster                                             |
+| Polymorphic inline caches wider than 2                                                                                    | rarely pays; compiler sites see 20–130+ shapes                 | Monomorphic map cache only                                                                                                                                                |
+| General interning of map shapes                                                                                           | measured unnecessary: literal shapes already share the pointer | —                                                                                                                                                                         |
+| Escape analysis at scale / PEA                                                                                            | survivors escape; top allocators are inside C BIFs             | Revisit only after OPT2.1 creates pairs                                                                                                                                   |
+| Induction-variable strength reduction (beyond binaries and the `maps:fold` pointer walk)                                  | cons walking has no IV                                         | —                                                                                                                                                                         |
+| Auto-vectorization beyond SWAR recipes                                                                                    | no measured pool                                               | —                                                                                                                                                                         |
+| Unrolling body-recursion loops                                                                                            | flat; serial `get_tl` chain dominates                          | —                                                                                                                                                                         |
+| Reimplementing map/binary BIFs in Erlang to inline them                                                                   | moves the cost, does not remove it                             | Make the C++ services fast instead                                                                                                                                        |
+| Software prefetch, "home traffic" elimination, GcTest coalescing across unrolled iterations, broad register-pool widening | measured and dropped (PR text; doc 24 unavailable)             | Recheck before attempting                                                                                                                                                 |
+| Straight-line GVN outside loops                                                                                           | pool ≈0 on real code                                           | Leave to LLVM                                                                                                                                                             |
+| Frameless leaves (OPT0.1A)                                                                                                | —                                                              | Saves a few stores per call; loses the stack-trace entry and `process_info(current_function)` (dropped 2026-10-17)                                                        |
+| One heap check per basic block (OPT0.3)                                                                                   | —                                                              | Measured negligible in Clause (dropped 2026-10-17)                                                                                                                        |
+| String builder: pieces in a list, one `reserve`, then join (OPTM.6)                                                       | —                                                              | Dropped 2026-10-24: every `+=` site appends to one growing buffer (nothing quadratic), and in a pinned microbench of 2-65536 pieces the builder is 2-10x slower than `+=` |
 
 ## Suggested order for Clause
 
@@ -505,7 +513,7 @@ Open steps only, by area:
 Runtime steps by 69A impact (worst kernel of each step, pinned 2026-10-21 run; all already ahead of
 OTP):
 
-- OPT3.23 (ring ~0.80x)
+- OPT3.23 remainder (ring ~0.75x)
 - OPT1.6 remainder (~0.84x)
 - OPT3.15 remainder (0.96x)
 - OPT3.20 (0.90x)

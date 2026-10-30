@@ -165,11 +165,9 @@ class Arrivals final : public Reclaimable {
     // The receiver was woken another way: a post no longer needs to wake it.
     void unpark() noexcept { parked_.store(false, std::memory_order_relaxed); }
 
-    // Whether the receiver runs a slice on a worker, set under the executor's lock; a sender reads it without that
-    // lock to choose how to deliver, and either answer of a race is correct.
-    bool running() const noexcept { return running_.load(std::memory_order_relaxed); }
-
-    void set_running(bool running) noexcept { running_.store(running, std::memory_order_relaxed); }
+    // Whether the receiver waits parked; a sender reads it without the executor's lock to choose how to deliver, and
+    // either answer of a race is correct (lock-free posts).
+    bool parked() const noexcept { return parked_.load(std::memory_order_relaxed); }
 
   private:
     // Push a message onto the senders' list, which owns it from then on (copy.cpp).
@@ -182,8 +180,6 @@ class Arrivals final : public Reclaimable {
     Message *taken_ = nullptr;
     // Set while the receiver waits parked for a message, so the next post wakes it.
     std::atomic<bool> parked_{false};
-    // A copy of the executor's running state of the receiver, readable without its lock.
-    std::atomic<bool> running_{false};
 };
 
 // Spare list nodes of one mailbox, which its next messages reuse instead of the C++ heap (pooled message nodes). Only
@@ -343,11 +339,11 @@ class Mailbox final {
     // (quiescent reclamation); the mailbox has none afterwards.
     std::unique_ptr<detail::Arrivals> release_arrivals() noexcept { return std::move(arrivals_); }
 
-    // The process this one last sent to and whether it was running then: a send to a receiver that was not skips
-    // the lookup of its running state (arrival buffers). Read and written by the owner only.
+    // The process this one last sent to and whether it was parked then: a send to a receiver that was skips the
+    // lookup of its arrivals and wakes it under the lock (lock-free posts). Read and written by the owner only.
     struct SendHint {
         Word pid = 0;
-        bool running = false;
+        bool parked = false;
     };
 
     SendHint &send_hint() noexcept { return send_hint_; }

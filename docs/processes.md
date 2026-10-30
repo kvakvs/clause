@@ -227,7 +227,7 @@ process does not write one: its uncaught exception is the program's
 
 | `Dest` | Effect |
 | --- | --- |
-| A pid of a live process | `Msg` is copied flat into the receiver's heap ([copying between heaps](runtime-heap.md#copying-between-heaps)), as OTP copies messages, a large one into a block the receiver takes over ([message hand-off](runtime-heap.md#message-buffers)), and appended to its signal inbox; to a receiver running on another worker, into a buffer among its arrivals that it takes when it next looks ([arrival buffers](#arrival-buffers)) |
+| A pid of a live process | `Msg` is copied flat into the receiver's heap ([copying between heaps](runtime-heap.md#copying-between-heaps)), as OTP copies messages, a large one into a block the receiver takes over ([message hand-off](runtime-heap.md#message-buffers)), and appended to its signal inbox; to a receiver that is not parked, into a buffer among its arrivals that it takes when it next looks ([arrival buffers](#arrival-buffers)) |
 | A pid of a process that has ended | Nothing; the send succeeds |
 | A [registered name](#registered-names) | As for its pid; `badarg` when no live process has the name |
 | `{Name, nonode@nohost}` of two atoms | As for the pid registered as `Name`; nothing when there is none |
@@ -252,8 +252,8 @@ process does not write one: its uncaught exception is the program's
 
 ### Arrival buffers
 
-A send to a process running on another worker takes no lock at all (process
-creation and teardown, OPT3.5B):
+A send to a process that is not parked takes no lock at all (process creation
+and teardown, OPT3.5B; lock-free posts, OPT3.23):
 
 - The runtime's process table (`ProcessTable`) is an open-addressed array of
   atomic slots that a send on a worker reads without any lock: pid numbers are
@@ -261,19 +261,20 @@ creation and teardown, OPT3.5B):
   the array. Inserts and erases take a writer lock and also hold the executor
   lock, under which lookups need nothing more.
 - Each process has its arrivals (`Arrivals`): a lock-free list senders push
-  messages onto, with a copy of the executor's running state of the process.
-  The sender looks up the receiver's arrivals and reads that state; a sender
-  whose last send to the same receiver found it not running skips the lookup.
+  messages onto, with the flag the process sets when it parks. The sender
+  looks up the receiver's arrivals and reads that flag; a sender whose last
+  send to the same receiver found it parked skips the lookup.
 - The sender walks the message once, before any lock
-  ([single message walk](runtime-heap.md#message-buffers)). To a running
-  receiver, it copies the message right behind a list node, in one allocation
-  (a large message or one holding off-heap binaries into a `MessageBuffer`),
-  and pushes it; the receiver later copies those words into its heap and
-  relocates their pointers. Any other receiver gets the message under the
-  executor lock as before: copied into its heap, or pushed behind
-  its arrivals when it began a slice meanwhile or still has arrivals, so a
-  sender's messages never pass each other and the sender never copies a
-  backlog under the lock. Either answer of a race is correct.
+  ([single message walk](runtime-heap.md#message-buffers)). To a receiver
+  that is not parked (running, queued, held or suspended), it copies the
+  message right behind a list node, in one allocation (a large message or one
+  holding off-heap binaries into a `MessageBuffer`), and pushes it; the
+  receiver later copies those words into its heap and relocates their
+  pointers. A parked receiver gets the message under the executor lock, which
+  waking it takes anyway: copied into its heap, or pushed behind its arrivals
+  when it began a slice meanwhile or still has arrivals, so a sender's
+  messages never pass each other and the sender never copies a backlog under
+  the lock. Either answer of a race is correct.
 - The receiver takes its arrivals into its heap and signal inbox, oldest
   first: 64 at a time when its receive has examined every message and would
   wait, so a flood reaches the heap as fast as the receive consumes it (OTP
