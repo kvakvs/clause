@@ -34,3 +34,8 @@ Compact record of the network distribution plan, one bullet per step;
   `clause-epmd`, `erl_epmd` client and registration server (`stop/0` with `shutdown`), `net_adm:names`
   over `epmd_module`; multi-node golden runs (`runs[].nodes`, per-run epmd, `kind`, `host_otp`); DIST3
   split into DIST3a/3b/3c; `epmd_names` and `epmd_interop` goldens identical to OTP — `ddeea2a3`
+- **DIST3b** bundled epmd: the epmd server's objects in `clause_runtime`, run on an executor-owned thread
+  (`epmd/bundled`) when `erl_epmd`'s registration finds no epmd (`clause_dist:start_epmd/0`), giving way to an
+  epmd that won the port and retrying the connection for a second; `--epmd bundled|none` (`external` not yet);
+  runner nodes run `--epmd none`, `"epmd": "bundled"` runs start none; `epmd_names` bundled and race runs
+  identical to OTP — `b2a8bf3a`
