@@ -1,5 +1,5 @@
 """Check which functions of the float_loops executable case get a variant taking float parameters as raw doubles
-(float loops, plan 20 OPT1.2); the executable case checks their results against OTP."""
+(float loops, plan 20 OPT1.2 and OPT1.11); the executable case checks their results against OTP."""
 from pathlib import Path
 import re
 import subprocess
@@ -14,7 +14,10 @@ assert result.returncode == 0, result.stderr
 variants = {f"{bytes.fromhex(name).decode('utf-8')}/{arity}"
             for name, arity in re.findall(r"@clausev1_666c6f61745f6c6f6f7073_([0-9a-f]+)_(\d+)\.float\b", result.stdout)}
 looping = {"decay/2", "halve/2", "sum/2", "mean/3", "pair/3", "reset/2", "literal/2", "until/1", "roots/2",
-           "handoff/2", "garbage/3", "calling/2", "failing/2", "signs/3", "wide/8"}
+           "handoff/2", "garbage/3", "calling/2", "failing/2", "signs/3", "wide/8",
+           # Wider float loops (OPT1.11): unary minus, float/1, is_float/1, comparisons with other words, float
+           # variables and loops entered with float cells.
+           "grow/3", "alternate/3", "clamp/3", "escape/5", "branches/2", "entered/2", "mixed/4"}
 # A parameter kept in a list, captured by a fun, passed on as another parameter, or never given a float-only value
 # keeps a new float per step.
 assert variants == looping, sorted(variants ^ looping)

@@ -8,6 +8,7 @@
 #include <clause/abi/v1.hpp>
 #include <cstdint>
 #include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/MDBuilder.h>
 #include <llvm/IR/Module.h>
 #include <span>
 #include <vector>
@@ -305,28 +306,131 @@ llvm::Value *materialized(ExpressionLowering &state, llvm::Value *word) {
     return raw == state.raw_floats.end() || state.literal_values.contains(word) ? word : float_box(state, raw->second);
 }
 
-llvm::Value *raw_comparison(ExpressionLowering &state, const Op operation, llvm::Value *left, llvm::Value *right) {
+namespace {
+// The true or false word of an i1.
+llvm::Value *truth_word(ExpressionLowering &state, llvm::Value *truth) {
+    return state.builder.CreateSelect(truth, llvm::ConstantInt::get(state.word, abi::v1::true_atom),
+                                      llvm::ConstantInt::get(state.word, abi::v1::false_atom));
+}
+
+// The i1 of comparing two doubles: exactly equal floats have the same bits (0.0 and -0.0 differ), the other
+// comparisons are numeric.
+llvm::Value *compare_doubles(ExpressionLowering &state, const Op operation, llvm::Value *left, llvm::Value *right) {
+    auto &builder = state.builder;
+    if (operation <= Op::exact_not_equal) {
+        return builder.Insert(llvm::CmpInst::Create(
+            llvm::Instruction::ICmp, operation == Op::exact_equal ? llvm::CmpInst::ICMP_EQ : llvm::CmpInst::ICMP_NE,
+            builder.CreateBitCast(left, state.word), builder.CreateBitCast(right, state.word)));
+    }
+    using P = llvm::CmpInst::Predicate;
+    constexpr std::array predicates{P::FCMP_OEQ, P::FCMP_UNE, P::FCMP_OLT, P::FCMP_OLE, P::FCMP_OGT, P::FCMP_OGE};
+    return builder.Insert(llvm::CmpInst::Create(llvm::Instruction::FCmp,
+                                                predicates.at(static_cast<unsigned>(operation) - 2), left, right));
+}
+
+// The word of `result` where it applies, the service's elsewhere (OPT1.11).
+llvm::Value *word_or_service(ExpressionLowering &state, const FloatResult result,
+                             const llvm::function_ref<llvm::Value *()> service) {
+    auto &builder = state.builder;
+    auto &context = state.entry.getContext();
+    auto *direct = llvm::BasicBlock::Create(context, "float.direct", &state.entry);
+    auto *fallback = llvm::BasicBlock::Create(context, "float.service", &state.entry);
+    auto *join = llvm::BasicBlock::Create(context, "float.join", &state.entry);
+    builder.CreateCondBr(result.applies, direct, fallback, llvm::MDBuilder(context).createLikelyBranchWeights());
+    builder.SetInsertPoint(direct);
+    builder.CreateBr(join);
+    builder.SetInsertPoint(fallback);
+    auto *serviced = service();
+    auto *fallback_end = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    return join_values(state, state.word, {direct, result.value}, {fallback_end, serviced});
+}
+
+// The magnitude below which ERTS compares a float with a small integer as two doubles (MAX_LOSSLESS_FLOAT).
+constexpr double LOSSLESS = static_cast<double>((std::int64_t{1} << 53) - 2);
+
+// A raw float compared with a word that has no double in a register (OPT1.11). =:= and =/= hold only against a float
+// cell of the same bits. The others compare doubles inline against a float cell, or against a small integer while the
+// float is within the lossless range, as ERTS does; any other word takes the service.
+llvm::Value *mixed_comparison(ExpressionLowering &state, const Op operation, llvm::Value *raw,
+                              const FloatOperand &other, const bool raw_left,
+                              const llvm::function_ref<llvm::Value *()> service) {
+    auto &builder = state.builder;
+    auto *left = raw_left ? raw : other.value;
+    auto *right = raw_left ? other.value : raw;
+    auto *is_float = builder.CreateAnd(other.number, builder.CreateNot(other.small));
+    if (operation <= Op::exact_not_equal) {
+        auto *same = builder.CreateAnd(is_float, compare_doubles(state, Op::exact_equal, left, right));
+        return truth_word(state, operation == Op::exact_equal ? same : builder.CreateNot(same));
+    }
+    auto *lossless = builder.CreateFCmpOLT(builder.CreateUnaryIntrinsic(llvm::Intrinsic::fabs, raw),
+                                           llvm::ConstantFP::get(builder.getDoubleTy(), LOSSLESS));
+    auto *applies = builder.CreateOr(is_float, builder.CreateAnd(other.small, lossless));
+    // The comparison reads no memory, so it is computed before the branch.
+    return word_or_service(state, {applies, truth_word(state, compare_doubles(state, operation, left, right))},
+                           service);
+}
+} // namespace
+
+llvm::Value *raw_comparison(ExpressionLowering &state, const Op operation, llvm::Value *left, llvm::Value *right,
+                            const llvm::function_ref<llvm::Value *()> service) {
     const auto first = state.raw_floats.find(left);
     const auto second = state.raw_floats.find(right);
-    if (operation > Op::greater_equal || first == state.raw_floats.end() || second == state.raw_floats.end()) {
+    const bool raw_left = first != state.raw_floats.end();
+    const bool raw_right = second != state.raw_floats.end();
+    if (operation > Op::greater_equal || (!raw_left && !raw_right)) {
         return nullptr;
     }
-    auto &builder = state.builder;
-    llvm::Value *truth = nullptr;
-    if (operation <= Op::exact_not_equal) {
-        // Exactly equal floats have the same bits: 0.0 and -0.0 differ.
-        truth = builder.Insert(llvm::CmpInst::Create(
-            llvm::Instruction::ICmp, operation == Op::exact_equal ? llvm::CmpInst::ICMP_EQ : llvm::CmpInst::ICMP_NE,
-            builder.CreateBitCast(first->second, state.word), builder.CreateBitCast(second->second, state.word)));
-    } else {
-        using P = llvm::CmpInst::Predicate;
-        constexpr std::array predicates{P::FCMP_OEQ, P::FCMP_UNE, P::FCMP_OLT, P::FCMP_OLE, P::FCMP_OGT, P::FCMP_OGE};
-        truth = builder.Insert(llvm::CmpInst::Create(llvm::Instruction::FCmp,
-                                                     predicates.at(static_cast<unsigned>(operation) - 2), first->second,
-                                                     second->second));
+    if (raw_left && raw_right) {
+        return truth_word(state, compare_doubles(state, operation, first->second, second->second));
     }
-    return builder.CreateSelect(truth, llvm::ConstantInt::get(state.word, abi::v1::true_atom),
-                                llvm::ConstantInt::get(state.word, abi::v1::false_atom));
+    // Inline float reads are 64-bit only.
+    if (state.word->getBitWidth() != 64) {
+        return nullptr;
+    }
+    return raw_left ? mixed_comparison(state, operation, first->second, operand(state, right), true, service)
+                    : mixed_comparison(state, operation, second->second, operand(state, left), false, service);
+}
+
+FloatCell float_cell(ExpressionLowering &state, llvm::Value *word) {
+    auto &builder = state.builder;
+    // An immediate is never a float cell.
+    if (llvm::isa<llvm::ConstantInt>(word)) {
+        return {builder.getFalse(), llvm::ConstantFP::get(builder.getDoubleTy(), 0.0)};
+    }
+    const auto read = operand(state, word);
+    return {builder.CreateAnd(read.number, builder.CreateNot(read.small)), read.value};
+}
+
+llvm::Value *raw_float_test(ExpressionLowering &state, const Op operation, llvm::Value *value) {
+    const bool test = operation == Op::is_float || operation == Op::is_number;
+    return test && state.raw_floats.contains(value) ? llvm::ConstantInt::get(state.word, abi::v1::true_atom) : nullptr;
+}
+
+llvm::Value *inline_to_float(ExpressionLowering &state, llvm::Value *value,
+                             const llvm::function_ref<llvm::Value *()> service) {
+    if (state.raw_floats.contains(value)) {
+        return value;
+    }
+    if (state.word->getBitWidth() != 64) {
+        return service();
+    }
+    const auto read = operand(state, value);
+    return raw_or_service(state, {read.number, read.value}, service);
+}
+
+llvm::Value *inline_float_negation(ExpressionLowering &state, llvm::Value *value,
+                                   const llvm::function_ref<llvm::Value *()> service) {
+    auto &builder = state.builder;
+    if (const auto raw = state.raw_floats.find(value); raw != state.raw_floats.end()) {
+        return float_box(state, builder.CreateFNeg(raw->second));
+    }
+    if (state.word->getBitWidth() != 64) {
+        return service();
+    }
+    const auto cell = float_cell(state, value);
+    return boxed_or_service(state, {cell.is_float, builder.CreateFNeg(cell.value)}, service);
 }
 
 void define_float_box(ExpressionLowering &state) {

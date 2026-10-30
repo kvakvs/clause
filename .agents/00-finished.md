@@ -394,6 +394,15 @@ the previous step unless noted; the luerl euler run went from 21 s (O2, before p
   specification compiler, so a transform walks once (was 121 walks for 57 transforms, each answer
   through Erlang); `ms_transform.erl` keeps format_error, result shapes and the shell's normalise.
   Pinned: libraries.qlc 4.17 s to 1.61 s (OTP 1.95 s) — `[plan20] OPT3.24 ...`
+- **OPT1.11** wider float loops and raw-float operations: float-only also covers unary minus,
+  `float/1`, float parameters already found (grown to a fixpoint) and variables matched to float-only
+  expressions; parameters may be read by `-X`, `float/1`, `is_float/1`, `is_number/1`; self calls
+  enter the variant with float cells tested at run time. Raw floats compare inline with float cells
+  and with small integers within ERTS's lossless range, `is_float`/`is_number` of them fold,
+  `float/1` and unary minus stay in registers (small negation inline). New `benchmarks/bench_float`,
+  pinned (OTP): limit 4.13 s to 0.44 (1.23), negate 8.30 to 0.64 (1.26), guards 3.25 to 0.44
+  (1.20), mandelbrot 0.76 to 0.33 (1.29), sum 0.48 (1.16) and calls 1.14 (1.29) unchanged; 69A
+  dataproc/datagen code identical, luerl euler 1.00x — `[plan20] OPT1.11 ...`
 - **OPT1.4C** binary loops: a `<fun>.loop` variant updates one fresh sub-binary cell in place across
   self tail calls; binary_match 8.5x — `c45402af`
 - **OPT1.4C (part 2)** the variant reads its parameter's view once per step and skips its bitstring

@@ -391,16 +391,17 @@ loop: zipwith/4 and zipwith3/5 (rare), uniq 4, keymap 1. Open:
 
 - Leaves that raise (`error/1`, `throw/1`) stay calls, since inlining loses their stack-trace frame.
 
-### OPT1.11 Float unboxing and FP-register residency
+### OPT1.11 remainder: floats crossing calls
 
-- **What:** keep float-typed values in FP registers within a function, and box only at escapes.
-- **Measured:** float loops 2.4–3.8×. OTP's AOT already does this (`ssa_opt_float`), which is why T2
-  lists it as "compiler already does it".
-- **Open** (raw floats of OPT1.2 cover literals, float-only results and self tail loop parameters):
-  - comparisons of a raw float with an unknown word (they make a cell)
-  - `float/1` and unary minus
-  - `is_float/1` on raw floats
-  - floats crossing calls between functions (arguments, results)
+Raw floats (OPT1.2, OPT1.11) cover literals, float-only results, comparisons, `float/1`, unary minus,
+type tests and self tail loop parameters. Open:
+
+- Floats crossing calls between functions: a call passes a cell of each float argument and a callee
+  returning a float makes a cell for it (`bench_float` float.calls, Horner over a coefficient list,
+  0.88x OTP). Needs a raw-double argument/result convention, or leaf inlining inside float loops (off
+  since OPT1.9: inlined reads would see the loop's parameters unchanged).
+- A loop whose accumulator only becomes float through a call or list element (`Acc * X + C` with
+  neither operand float-only) gets no variant; inference facts (`float()`) could seed it.
 
 ### OPT1.12 Tail-modulo-cons and in-place list building
 
@@ -494,7 +495,7 @@ Open steps only, by area:
 - **Binaries:** OPT1.5 remainder.
 - **Maps:** OPT1.6 remainder.
 - **Lists:** OPT1.12, then the OPT1.7 remainder together with OPT2.1.
-- **Floats:** OPT1.11.
+- **Floats:** OPT1.11 remainder (calls).
 - **Inlining and cleanup:** OPT1.9 and OPT1.13 remainders, by measured need.
 
 Runtime steps by 69A impact (worst kernel of each step, pinned 2026-10-21 run; all already ahead of

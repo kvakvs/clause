@@ -33,7 +33,101 @@ main(_) ->
     io:format("~p~n", [caught(fun() -> overflow(2000, 2.0) end)]),
     io:format("~p~n", [signs(4, 0.0, [])]),
     io:format("~p~n", [wide(6, 1.0, a, b, c, d, e, 0.5)]),
+    wider(),
     io:format("float_loops: ok~n").
+
+%% Wider float loops (OPT1.11): unary minus, float/1, is_float/1 and comparisons with words that are not loop floats,
+%% inside and outside loops, with their edge cases and errors.
+wider() ->
+    io:format("~p~n", [grow(1.0, 1000, 0)]),
+    io:format("~p~n", [grow(1.0, 1000.5, 0)]),
+    io:format("~p~n", [grow(1.0, id(12345678901234567890), 0)]),
+    io:format("~p~n", [caught(fun() -> grow(1.0, an_atom, 0) end)]),
+    io:format("~p~n", [alternate(9, 1.5, 0.0)]),
+    io:format("~p~n", [clamp(12, 0.5, 0.0)]),
+    io:format("~p~n", [clamp(3, 2, 0)]),
+    io:format("~p~n", [escape(0.0, 0.0, -0.75, 0.1, 0)]),
+    io:format("~p~n", [escape(0, 0, 1, 1, 0)]),
+    io:format("~p~n", [branches(11, 1.0)]),
+    io:format("~p~n", [entered(5, id(2.5))]),
+    io:format("~p~n", [mixed(3, 1.0, [1, 1.0, -0.5, 0, an_atom], [])]),
+    Words = [
+        1,
+        1.0,
+        -0.0,
+        0.0,
+        0,
+        9007199254740992,
+        9007199254740993,
+        9007199254740994,
+        -9007199254740994,
+        576460752303423487,
+        1 bsl 70,
+        an_atom,
+        "list"
+    ],
+    Floats = [1.0, -0.0, 0.0, 9007199254740990.0, 9007199254740992.0, 9007199254740994.0, -9007199254740994.0, 1.0e300],
+    io:format("~p~n", [compare_floats(Floats, Words)]),
+    Big = id(9007199254740993.0),
+    io:format("~p~n", [
+        {Big == 9007199254740992, Big < id(9007199254740993), Big > id(-1), id(-0.0) == 0 + id(0), -id(0.0), -id(-0.0)}
+    ]),
+    io:format("~p~n", [{-id(5), -id(-576460752303423488), -id(576460752303423487), -id(2.5), -id(1 bsl 70)}]),
+    io:format("~p~n", [{float(id(3)), float(id(-2.5)), float(id(1 bsl 70)), is_float(float(id(7)))}]),
+    io:format("~p~n", [caught(fun() -> float(id(an_atom)) end)]),
+    io:format("~p~n", [caught(fun() -> -id(an_atom) end)]).
+
+%% A float compared with a parameter that is no loop float: an integer, a float, a bignum or not a number.
+grow(X, Limit, Steps) when X > Limit -> {X, Steps};
+grow(X, Limit, Steps) -> grow(X * 1.5 + 0.5, Limit, Steps + 1).
+
+%% Unary minus and float/1 of loop floats and integers.
+alternate(0, X, Acc) -> {X, Acc};
+alternate(N, X, Acc) -> alternate(N - 1, -X * 0.5, Acc + X + float(N band 3) - -N).
+
+%% is_float/1 on a loop float; the accumulator is a float because it adds one.
+clamp(0, X, Acc) -> {X, Acc};
+clamp(N, X, Acc) when is_float(X), X > 1.0 -> clamp(N - 1, X - 1.0, Acc + X);
+clamp(N, X, Acc) -> clamp(N - 1, X * 1.7 + 0.1, Acc + X).
+
+%% Variables matched to float expressions of the loop floats, compared with a literal; entered with integers too.
+escape(_X, _Y, _Cx, _Cy, 20) ->
+    20;
+escape(X, Y, Cx, Cy, Count) ->
+    X2 = X * X,
+    Y2 = Y * Y,
+    if
+        X2 + Y2 > 4.0 -> {Count, X, Y};
+        true -> escape(X2 - Y2 + Cx, 2.0 * X * Y + Cy, Cx, Cy, Count + 1)
+    end.
+
+%% Self calls passing words that are not floats in registers: an integer leaves the loop, a float cell enters it; a
+%% variable bound to a float in both branches of a case passes its double.
+branches(0, X) ->
+    X;
+branches(N, _) when N rem 4 =:= 0 -> branches(N - 1, id(N));
+branches(N, X) when N rem 4 =:= 1 -> branches(N - 1, id(X * 0.5));
+branches(N, X) ->
+    case N rem 2 of
+        0 -> Next = X * 0.5;
+        _ -> Next = X + 1.0
+    end,
+    branches(N - 1, Next).
+
+%% Entered with a float cell from the caller.
+entered(0, X) -> X;
+entered(N, X) -> entered(N - 1, X * 3.0).
+
+%% Comparisons of loop floats with words of each kind.
+mixed(0, _X, _Words, Acc) -> lists:reverse(Acc);
+mixed(N, X, Words, Acc) -> mixed(N - 1, X * -0.5, Words, [compare(X * 1.0, Words) | Acc]).
+
+%% Every comparison of a float in a register with each word, on both sides.
+compare(_X, []) ->
+    [];
+compare(X, [W | Words]) ->
+    F = X * 1.0,
+    [{F == W, F /= W, F =:= W, F =/= W, F < W, F =< W, F > W, F >= W, W == F, W < F, W >= F} | compare(X, Words)].
 
 id(X) -> X.
 
@@ -134,3 +228,5 @@ caught(Fun) ->
             [{Module, Function, Arity, _} | _] = [Frame || {float_loops, _, _, _} = Frame <- Stack],
             {Reason, Module, Function, Arity}
     end.
+
+compare_floats(Floats, Words) -> [compare(F, Words) || F <- Floats].

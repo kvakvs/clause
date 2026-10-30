@@ -146,6 +146,54 @@ bool float_first(const ExpressionLowering &state, const Op operation, llvm::Valu
            (arithmetic(operation) && (state.raw_floats.contains(left) || state.raw_floats.contains(right)));
 }
 
+// Unary minus (OPT1.11): a small integer's negation while it stays small (only the smallest one leaves the range),
+// the inline float negation for other operands.
+llvm::Value *negation(ExpressionLowering &state, llvm::Value *value,
+                      const llvm::function_ref<llvm::Value *()> service) {
+    if (state.raw_floats.contains(value)) {
+        return inline_float_negation(state, value, service);
+    }
+    auto &builder = state.builder;
+    auto &context = state.entry.getContext();
+    auto *attempt = llvm::BasicBlock::Create(context, "integer.negate", &state.entry);
+    auto *fast = llvm::BasicBlock::Create(context, "integer.negate.success", &state.entry);
+    auto *fallback = llvm::BasicBlock::Create(context, "integer.negate.fallback", &state.entry);
+    auto *join = llvm::BasicBlock::Create(context, "integer.negate.join", &state.entry);
+    auto *likely = llvm::MDBuilder(context).createLikelyBranchWeights();
+    builder.CreateCondBr(small(state, value), attempt, fallback, likely);
+    builder.SetInsertPoint(attempt);
+    // The tagged zero minus the operand.
+    const auto result = tagged(state, llvm::Instruction::Sub, {llvm::ConstantInt::get(state.word, 15), value});
+    builder.CreateCondBr(result.valid, fast, fallback, likely);
+    builder.SetInsertPoint(fast);
+    builder.CreateBr(join);
+    builder.SetInsertPoint(fallback);
+    auto *promoted = inline_float_negation(state, value, service);
+    auto *slow = builder.GetInsertBlock();
+    builder.CreateBr(join);
+    builder.SetInsertPoint(join);
+    return joined(state, fast, result.value, slow, promoted);
+}
+
+// The float forms of an operation (raw floats OPT1.2, OPT1.11): arithmetic that takes the float path at once, type
+// tests and comparisons of raw floats, float/1 and unary minus; null when none applies.
+llvm::Value *float_operation(ExpressionLowering &state, const Op operation, llvm::Value *left, llvm::Value *right,
+                             const llvm::function_ref<llvm::Value *()> service) {
+    if (float_first(state, operation, left, right)) {
+        return inline_float_operation(state, operation, left, right, service);
+    }
+    if (auto *tested = raw_float_test(state, operation, left)) {
+        return tested;
+    }
+    if (operation == Op::to_float) {
+        return inline_to_float(state, left, service);
+    }
+    if (operation == Op::negative) {
+        return negation(state, left, service);
+    }
+    return raw_comparison(state, operation, left, right, service);
+}
+
 // Integer literals of at most this many limbs become module literals (OPT0.4, literal heap); larger ones (and those the
 // ERTS size limit rejects) keep the service.
 constexpr std::size_t LITERAL_LIMBS = 64;
@@ -247,11 +295,8 @@ llvm::Value *lower_operation(ExpressionLowering &state, const Op operation, llvm
     const auto service = [&] {
         return lower_immediate(state, operation, materialized(state, left), materialized(state, right));
     };
-    if (float_first(state, operation, left, right)) {
-        return inline_float_operation(state, operation, left, right, service);
-    }
-    if (auto *compared = raw_comparison(state, operation, left, right)) {
-        return compared;
+    if (auto *floating = float_operation(state, operation, left, right, service)) {
+        return floating;
     }
     if (!checked) {
         return service();

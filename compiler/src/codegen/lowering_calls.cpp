@@ -4,6 +4,7 @@
 #include <clause/abi/equality.hpp>
 #include <clause/abi/frames.hpp>
 #include <clause/abi/term.hpp>
+#include <llvm/IR/MDBuilder.h>
 #include <llvm/IR/Module.h>
 #include <stdexcept>
 
@@ -148,23 +149,34 @@ bool binary_loop_call(ExpressionLowering &state, const ast::Expression &expressi
     return true;
 }
 
-// The raw doubles of a call's float loop arguments, or none when one has no raw double (float loops, OPT1.2).
-std::optional<std::vector<llvm::Value *>> raw_arguments(ExpressionLowering &state, const ast::CallExpression &call) {
-    std::vector<llvm::Value *> raws;
+struct RawArguments {
+    // The doubles of a call's float loop arguments, and an i1 that holds when every argument is a float; null when
+    // each has a raw double.
+    std::vector<llvm::Value *> doubles;
+    llvm::Value *floats;
+};
+
+// The doubles of a call's float loop arguments (float loops, OPT1.2): a raw double, else the double of the argument's
+// float cell, read where it is one (OPT1.11).
+RawArguments raw_arguments(ExpressionLowering &state, const ast::CallExpression &call) {
+    RawArguments raws{{}, nullptr};
     for (const auto parameter : state.float_loop->parameters) {
-        const auto raw =
-            state.raw_floats.find(state.values.at(&state.module.syntax->expression(call.arguments.at(parameter))));
-        if (raw == state.raw_floats.end()) {
-            return std::nullopt;
+        auto *word = state.values.at(&state.module.syntax->expression(call.arguments.at(parameter)));
+        if (const auto raw = state.raw_floats.find(word); raw != state.raw_floats.end()) {
+            raws.doubles.push_back(raw->second);
+            continue;
         }
-        raws.push_back(raw->second);
+        const auto cell = float_cell(state, word);
+        raws.doubles.push_back(cell.value);
+        raws.floats = raws.floats ? state.builder.CreateAnd(raws.floats, cell.is_float) : cell.is_float;
     }
     return raws;
 }
 
-// A self tail call passing a raw double as every float parameter of a float loop (float loops, OPT1.2): the function
-// and its variant both enter the variant with the bits of those doubles as the argument words, so their cells go
-// unread and are dropped. False for any other call.
+// A self tail call of a float loop (float loops, OPT1.2): the function and its variant both enter the variant with the
+// bits of the arguments' doubles as the argument words where every float parameter is passed a float, so their cells
+// go unread and are dropped; elsewhere the call stays the function's own. False when the call is no such call, or when
+// it may still be one of the function's own.
 bool float_loop_call(ExpressionLowering &state, const ast::Expression &expression, const ast::CallExpression &call,
                      llvm::Function *target) {
     auto *loop = state.float_loop;
@@ -173,18 +185,30 @@ bool float_loop_call(ExpressionLowering &state, const ast::Expression &expressio
         return false;
     }
     const auto raws = raw_arguments(state, call);
-    if (!raws) {
+    // An argument that is never a float (an integer literal) leaves the loop.
+    if (raws.floats == state.builder.getFalse()) {
         return false;
     }
+    llvm::BasicBlock *generic = nullptr;
+    if (raws.floats) {
+        auto &context = state.entry.getContext();
+        auto *variant = llvm::BasicBlock::Create(context, "float.loop.enter", &state.entry);
+        generic = llvm::BasicBlock::Create(context, "float.loop.leave", &state.entry);
+        state.builder.CreateCondBr(raws.floats, variant, generic, llvm::MDBuilder(context).createLikelyBranchWeights());
+        state.builder.SetInsertPoint(variant);
+    }
     const auto saved = state.values;
-    for (std::size_t i = 0; i < raws->size(); ++i) {
+    for (std::size_t i = 0; i < raws.doubles.size(); ++i) {
         const auto parameter = loop->parameters[i];
         state.values.at(&state.module.syntax->expression(call.arguments.at(parameter))) =
-            state.builder.CreateBitCast(raws->at(i), state.word, "float.bits");
+            state.builder.CreateBitCast(raws.doubles[i], state.word, "float.bits");
     }
     tail_enter(state, loop->variant, call);
     state.values = saved;
-    return true;
+    if (generic) {
+        state.builder.SetInsertPoint(generic);
+    }
+    return !generic;
 }
 } // namespace
 

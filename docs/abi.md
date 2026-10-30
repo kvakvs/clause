@@ -288,23 +288,38 @@ registration rejects a module whose `code_convention` (0 none, 1 C, 2
   per byte. Skipped steps spend no reductions.
 - Float loops (64-bit targets): a parameter among the first six (those passed in
   registers) that every clause binds to a variable (or ignores), that some self
-  tail call passes a float-only expression (a float literal, `/`, a `math` call,
-  or `+ - *` with such an operand), and whose value is read only as an operand
-  of arithmetic, comparisons or `math` calls, as the same parameter of a self
-  tail call, or within the result or a tail call of another function (never in a
-  fun) is a float parameter. The function gets a private variant
+  tail call passes a float-only expression, and whose value is read only as an
+  operand of arithmetic, comparisons, unary minus, `math` calls, `float/1`,
+  `is_float/1` or `is_number/1`, as the same parameter of a self tail call, or
+  within the result or a tail call of another function (never in a fun) is a
+  float parameter. A float-only expression is a float literal, `/`, a `math`
+  call, `float/1`, the negation of one, `+ - *` with such an operand, a read of
+  a float parameter found so far, or a variable every definition of which
+  matches (`V = Expression`) a float-only expression; parameters are added until
+  no self call makes another one float-only. The function gets a private variant
   `<symbol>.float` taking each float parameter as the bits of its double in the
   argument word (function attributes `clause-float-parameters`, a bit mask, and
-  `clause-float-generic`, the function). A self tail call of either whose new
-  value of every float parameter is a double in a register enters the variant
-  with those bits, so a float loop makes no cell per step; the variant makes a
-  cell of a parameter only where it reads the word itself. Raw bits never reach
-  a place a collection reads: the variant's other self tail calls re-enter the
-  function, and a transfer into the variant that takes its service path (a
-  wanted collection, profiling, no reductions left, stack growth) boxes the
-  doubles with the module's `clause.float.box` helper and enters the function's
-  descriptor instead. The variant has the function's name and arity in stack
-  traces.
+  `clause-float-generic`, the function). A self tail call of either enters the
+  variant with the bits of every float parameter's new double: a double in a
+  register, or the double of a float cell, tested at run time; so a float loop
+  makes no cell per step, and the function entered with cells enters its
+  variant on its first step. The variant makes a cell of a parameter only where
+  it reads the word itself. Raw bits never reach a place a collection reads:
+  the variant's self tail calls passing a word that is no float (and its other
+  ones) re-enter the function, and a transfer into the variant that takes its
+  service path (a wanted collection, profiling, no reductions left, stack
+  growth) boxes the doubles with the module's `clause.float.box` helper and
+  enters the function's descriptor instead. The variant has the function's name
+  and arity in stack traces.
+- Raw floats (64-bit targets): a double in a register compares with another
+  word inline. `=:=` and `=/=` hold only against a float cell of the same bits;
+  the other comparisons read a float cell's double, or convert a small integer
+  while the float's magnitude is below 2^53 - 2 (ERTS's lossless range), and
+  take the comparison service otherwise. `is_float/1` and `is_number/1` of a
+  raw float are `true`. `float/1` keeps the double of a small integer or a float
+  cell in a register, and unary minus negates a raw float in its register and a
+  float cell into a new cell; a small integer's negation stays inline while it
+  stays small. Other operands take the immediate service, with OTP's errors.
 - A binary construction whose every byte is known at compile time (small integer
   constants and string literals at constant whole-byte widths, at most 64 bytes)
   is an inline binary cell of the module literal area, like other compound

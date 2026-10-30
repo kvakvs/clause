@@ -12,8 +12,9 @@ struct TailPositions {
 };
 
 // The float parameters and their head bindings, when some qualify: a parameter passed in a register that every head
-// binds to a variable, that some self tail call passes a float-only expression, and whose value is read only as an
-// arithmetic or comparison operand, as the same parameter of a self tail call, or within the result or a tail call of
+// binds to a variable, that some self tail call passes a float-only expression (which may read float parameters found
+// before it, OPT1.11), and whose value is read only as an operand of arithmetic, comparisons, unary minus, math
+// functions, float/1 or type tests, as the same parameter of a self tail call, or within the result or a tail call of
 // another function, so a step needs a cell of it only where the loop ends.
 std::optional<FloatLoop> float_loop_parameters(const ExpressionLowering &state, std::size_t clauses,
                                                const TailPositions &tails);

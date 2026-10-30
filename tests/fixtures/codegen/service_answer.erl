@@ -65,9 +65,10 @@ integer_body(X) -> X bsl 100.
 integer_budget(X) when is_integer(1 bsl X) -> fits;
 integer_budget(_) -> recovered.
 
-float_guard(X) when is_float(float(X)); true -> ok;
+%% float/1 of a small integer or a float is inline (OPT1.11): a list or a bignum still reaches the service.
+float_guard(X) when is_float(float([X])); true -> ok;
 float_guard(_) -> recovered.
-float_body(X) -> float(X).
+float_body(_X) -> float(123456789012345678901234567890).
 float_literal(_) -> 1.5.
 
 map_guard(X) when is_map(#{a => X}); true -> ok;

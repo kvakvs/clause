@@ -406,10 +406,30 @@ llvm::Value *constructed_immediate(ExpressionLowering &state, llvm::Value *word)
 // path that needs the word itself (an error's payload) keeps no cell alive on the others (allocation sinking, OPT1.13);
 // any other word itself.
 llvm::Value *rebuilt(ExpressionLowering &state, llvm::Value *word);
-// A comparison of two words whose doubles lowering holds, as the true or false word (raw floats, OPT1.2); null when
-// either has none.
+// A comparison of a word whose double lowering holds with another word, as the true or false word (raw floats,
+// OPT1.2): two doubles compare in registers; against any other word (OPT1.11) a float cell or a small integer
+// compares inline, anything else with `service`. Null when neither word has a double.
 llvm::Value *raw_comparison(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *left,
-                            llvm::Value *right);
+                            llvm::Value *right, llvm::function_ref<llvm::Value *()> service);
+
+struct FloatCell {
+    // An i1 that holds when a word is a float cell, and the double it then holds.
+    llvm::Value *is_float;
+    llvm::Value *value;
+};
+
+// Whether a word is a float cell and its double, read without branches on 64-bit targets (OPT1.11).
+FloatCell float_cell(ExpressionLowering &state, llvm::Value *word);
+// is_float/1 and is_number/1 of a word whose double lowering holds: the true word; null otherwise (OPT1.11).
+llvm::Value *raw_float_test(ExpressionLowering &state, abi::v1::ImmediateOperation operation, llvm::Value *value);
+// float/1 (OPT1.11): a raw float itself; on 64-bit targets the double of a small integer or a float cell, kept in a
+// register, with `service` for other operands.
+llvm::Value *inline_to_float(ExpressionLowering &state, llvm::Value *value,
+                             llvm::function_ref<llvm::Value *()> service);
+// Unary minus of a float (OPT1.11): a raw float's negated double in a register; on 64-bit targets a float cell's
+// negated into a new cell; `service` for other operands.
+llvm::Value *inline_float_negation(ExpressionLowering &state, llvm::Value *value,
+                                   llvm::function_ref<llvm::Value *()> service);
 // Define FLOAT_BOX in the module being lowered once: the slow paths of transfers into a float loop variant make
 // cells of their doubles with it (float loops, OPT1.2).
 void define_float_box(ExpressionLowering &state);

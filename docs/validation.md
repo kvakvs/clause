@@ -223,7 +223,9 @@ make benchmark BENCH_ARGS="--repeat 9"         # other hosts
   an empty temporary working directory under `build/bench/runs`, inside the
   repository so that a repository antivirus exclusion covers it), loopback
   sockets and libraries (`libraries.qlc`: `qlc_pt` transforms of queries and
-  modules shaped like `qlc_SUITE` cases, timed together). Iteration counts make every kernel last 1-2 s on OTP, so timer
+  modules shaped like `qlc_SUITE` cases, timed together) and float loops
+  (`float.`: accumulators, mandelbrot, comparisons with a parameter, unary minus
+  and `float/1`, `is_float/1` guards, floats crossing calls). Iteration counts make every kernel last 1-2 s on OTP, so timer
   resolution and host noise stay small against it; socket kernels grow the work
   per connection, not the number of sockets. Untimed, the warm-up and the timed
   calls each wait until the processes they spawned have exited (`processes_left`
