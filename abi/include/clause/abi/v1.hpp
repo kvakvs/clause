@@ -9,18 +9,10 @@ class ProcessContext;
 }
 
 namespace clause::abi::v1 {
-// Identify this project's generated-code contract; no external language compatibility is promised.
-// Revision 7 adds fun descriptors to modules; revision 9 starts every context with abi::v1::FrameState (OPT0.1);
-// revision 10 passes the leading X registers as code parameters (OPT0.1A); revision 11 fixes the words of false and
-// true (OPT0.2A); revision 12 adds the inline heap fields to FrameState (OPT0.3); revision 13 fixes more atoms and adds
-// the module atom cache and FrameState::runtime (OPT0.8); revision 14 adds module literal areas (OPT0.4); revision 15
-// adds FrameState::self (OPT0.2D); revision 16 records the Code convention in module descriptors; revision 17 passes
-// six X registers as Code parameters; revision 18 adds sub-binary cells (OPT1.4B); revision 19 keeps the append state
-// in off-heap binary cells (OPT0.11B); revision 20 adds MapOperation::entries (OPT0.13); revision 21 adds
-// ModuleDescriptor::fun_cache (inline closures); revision 24 adds RecordDescriptor::definition and
-// ModuleDescriptor::features (plan 21 step LIB8B); revision 25 encodes module literals for the runtime's literal heap
-// (ModuleDescriptor::literals, literal_cache); v1 names the unchanged term encoding.
-inline constexpr std::uint32_t version = 26;
+// Identify this project's generated-code contract; no external language compatibility is promised. Objects and
+// runtime come from the same build and nothing outside the project uses the ABI yet, so layout changes keep revision 1
+// until it is published (reset 2026-10-31, user decision). v1 names the term encoding.
+inline constexpr std::uint32_t version = 1;
 // Decode the shared immediate-term representation without preprocessor constants.
 inline constexpr unsigned primary_mask = 0x3;
 inline constexpr unsigned small_integer_tag = 0xf;

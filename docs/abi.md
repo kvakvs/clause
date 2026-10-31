@@ -1,8 +1,11 @@
-# Generated-code ABI (revision 21)
+# Generated-code ABI (revision 1)
 
 Private contract between compiler output and the runtime. It is project-internal
 C++23, not BEAM-compatible and not a general FFI. Objects and runtime must come
-from the same build; older descriptor revisions are rejected before use.
+from the same build. Nothing outside the project uses it yet, so layout changes
+keep revision 1 until the ABI is published; a descriptor of another revision or
+term width is rejected before use. `clau`'s caches are keyed by the `clau`
+executable, so a rebuilt compiler never reuses objects of an older layout.
 
 Headers: [v1.hpp](../abi/include/clause/abi/v1.hpp) (term/context/function
 types), [term.hpp](../abi/include/clause/abi/term.hpp) (immediate integer
@@ -92,7 +95,7 @@ publishes nothing (already interned atoms stay in the bounded table).
   `CLAUSE_main_v1(argc, argv, descriptor)`, which registers all modules and runs
   the entry ([executables](executables.md#startup-object)).
 
-## Failure channel (revision 2)
+## Failure channel
 
 Errors are not encoded in term bits. After every non-tail generated call the
 caller checks the channel before using the result or evaluating the next
