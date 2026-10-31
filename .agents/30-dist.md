@@ -61,10 +61,33 @@ direction); formerly backlog item F38.
 <a id="step-dist4a4"></a>
 
 <a id="step-dist4b"></a>
+<a id="step-dist4b1"></a>
 
-## DIST4b. Handshake, TCP carrier and first connections
+## DIST4b1. Starting distribution and cookies
 
-Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), DIST4a1 ([30-finished](30-finished.md)), DIST4a3b and DIST4a4 ([30-finished](30-finished.md)).
+Depends on: DIST2d, DIST3b and DIST4a1–DIST4a4 ([30-finished](30-finished.md)).
+
+- Success criteria
+  - [ ] `net_kernel:start/1,2` and `stop/0` as OTP's: the carrier module's `listen` (a placeholder carrier
+        until DIST4b2 listens with `gen_tcp`), epmd registration through `erl_epmd` under the `--epmd` mode,
+        `erlang:setnode/3` with the creation epmd gives, `node()`, `is_alive/0`, `net_kernel`'s registered
+        process and `nodedown`/`nodeup` subscriptions kept for DIST4b2.
+  - [ ] Distribution started from the node start options before the entry runs, as OTP's kernel starts
+        `net_kernel` (`--sname`/`--name`, `--hidden`, `--proto-dist`, `--dist-listen`, the `kernel`
+        parameters `net_ticktime`, `inet_dist_listen_min/max`, ...); a failed start stops the program with
+        OTP's report.
+  - [ ] `auth`: `erlang:set_cookie/1,2`, `get_cookie/0,1`, `--setcookie`, `--nocookie`, `~/.erlang.cookie`
+        read or created (permissions, random text) as OTP does.
+  - [ ] `net_kernel:start/1,2` leaves `differences.md`.
+- Tests
+  - [ ] Golden `dist_start`: names, `node()`, cookies, registration seen by `net_adm:names/0`, stop and start
+        again, start errors; the cookie file in a per-run home directory.
+
+<a id="step-dist4b2"></a>
+
+## DIST4b2. Handshake and TCP carrier
+
+Depends on: [DIST4b1](#step-dist4b1).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's
@@ -75,28 +98,49 @@ Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), DIST4a1 ([30-fini
   - [ ] `inet_tcp_dist` and `inet6_tcp_dist` over that interface (`listen`, `accept`,
         `accept_connection`, `setup`, `close`, `select`, `address`, `is_node_name`), a controller
         process over `gen_tcp` using the `dist_ctrl_*` BIFs.
-  - [ ] First data path: `SEND_SENDER`, `REG_SEND`, `MONITOR_P`/`DEMONITOR_P`/`MONITOR_P_EXIT`
-        (enough for `gen:call/3` to `{net_kernel, Node}`), pass-through framing, the offered flags of
+  - [ ] `net_kernel:connect_node/1`, `nodes/0,1`, `nodeup`/`nodedown` messages and `monitor_node/2` over
+        real connections; a wrong cookie refuses the connection with OTP's log line.
+- Tests
+  - [ ] Golden `dist_connect`: two Clause nodes connect, see each other in `nodes()`, receive
+        `nodeup`/`nodedown`; wrong cookie and name clashes.
+
+<a id="step-dist4b3"></a>
+
+## DIST4b3. First data path and ping
+
+Depends on: [DIST4b2](#step-dist4b2).
+
+- Success criteria
+  - [ ] `SEND_SENDER`, `REG_SEND`, `MONITOR_P`/`DEMONITOR_P`/`MONITOR_P_EXIT` (enough for `gen:call/3` to
+        `{net_kernel, Node}`), pass-through framing, the offered flags of
         [protocol](../docs/distribution.md#protocol).
     - Encoded packets join DIST2d's output queue (`DataPath::output`), sending `dist_data` to a
       controller that asked; `dist_get_stat/1`'s pending bytes as OTP counts them.
     - `dist_ctrl_put_data/2` decodes what it takes, drops data of an earlier connection id, and
       for data it cannot read logs OTP's `** Got message from incompatible erlang on channel ...`
       and ends the connection, as observed.
-  - [ ] Start: distribution from the DIST4a1 options before the entry runs, `net_kernel:start/1,2`,
-        `stop/0`, `connect_node/1`; `auth` cookies (`erlang:set_cookie/1,2`, `get_cookie/0,1`,
-        `~/.erlang.cookie` read or created as OTP does); `net_adm:ping/1` answers `pong`.
-  - [ ] `net_kernel:start/1,2` leaves `differences.md`.
+  - [ ] `net_adm:ping/1` answers `pong`; messages to remote pids and to `{Name, Node}`.
 - Tests
   - [ ] Golden `dist_ping`: two Clause nodes register, ping and exchange messages to pids and to
         `{Name, Node}`; wrong cookie gives `pang` and OTP's log line.
-  - [ ] The same with one OTP node (`host_otp`), both directions.
+
+<a id="step-dist4b4"></a>
+
+## DIST4b4. OTP interoperability
+
+Depends on: [DIST4b3](#step-dist4b3).
+
+- Success criteria
+  - [ ] Clause and OTP 29 nodes connect, ping and exchange messages in both directions over OTP's and
+        Clause's epmd; whatever differs from OTP's wire behavior found on the way is fixed or recorded.
+- Tests
+  - [ ] `dist_ping` and `dist_connect` runs with one OTP node (`host_otp`), both directions.
 
 <a id="step-dist5"></a>
 
 ## DIST5. Every signal across nodes
 
-Depends on: [DIST4b](#step-dist4b).
+Depends on: [DIST4b4](#step-dist4b4).
 
 - Success criteria
   - [ ] Control messages: `LINK`, `UNLINK_ID`/`UNLINK_ID_ACK`, `EXIT`/`EXIT2` and their payload
