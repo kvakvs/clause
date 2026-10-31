@@ -43,3 +43,8 @@ Compact record of the network distribution plan, one bullet per step;
   `clause_epmd_program` archive as a link companion; `-names`, `-kill` (OTP's messages and statuses), `-daemon`
   (POSIX double fork, Windows `-detached` respawn); DIST3c split into DIST3c/3d; `epmd_executable` golden identical
   to OTP (daemon run authored) — `617a08d6`
+- **DIST3d** bundled epmd as the `clause_runtime_epmd` archive behind the startup extension entry
+  `CLAUSE_epmd_extension_v1` (`RuntimeExtension::bundled_epmd`); `--no-bundled-epmd` / `bundled_epmd = false` leave
+  it out, `--epmd bundled` then acts as `none` after one warning; `--epmd external` finds `clause-epmd`/`epmd` in
+  `clause_dist` and starts it detached (`clause_dist:start_daemon/1`); `epmd_executable` golden identical to OTP
+  (external run authored) — `9c51b58e`
