@@ -88,6 +88,7 @@ wins. All are parsed the same way; a value goes in the next argument or after
 | `--epmd MODE` | What a registration with epmd does when none listens: `bundled` (default) runs the epmd the program carries, `external` starts an epmd program (`clause-epmd` beside the program or on `PATH`, else OTP's `epmd`), `none` fails as OTP's; a program built with `--no-bundled-epmd` treats `bundled` as `none` ([epmd](distribution.md#epmd)) |
 | `--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`, `--dist-listen` | Node start options, reported by `init:get_argument/1` under OTP's flag names; distribution starts with them from plan 30 step DIST4b ([node start options](distribution.md#node-start-options)) |
 | `--env APP KEY VALUE` | Sets `APP`'s environment parameter `KEY` to the term `VALUE`, as OTP's `-App Key Value`: `application_controller` parses it when it loads `APP` ([node start options](distribution.md#node-start-options)) |
+| `--config FILE` | Application environments from a `.config` file, as OTP's `-config FILE`; every one is kept ([config files](#config-files)) |
 | `--profile FILE` | Write a report of entries and self time per function and per process to `FILE` when the program ends ([profiling](profiling.md)); off by default |
 | `--args-file FILE` | Reads a release's `vm.args` as OTP's `-args_file` ([args files](#args-files)) |
 | `--` | Ends the runtime options; the following arguments all go to `Entry` |
@@ -104,8 +105,7 @@ fails with `resource_limit`, exit 70
 
 ## Args files
 
-Decided in plan 30 step DIST4a2 (2026-10-31, user choices); implemented in DIST4a3a (`-config` in DIST4a4,
-until then reported as a flag only).
+Decided in plan 30 step DIST4a2 (2026-10-31, user choices); implemented in DIST4a3a and DIST4a4 (`-config`).
 `--args-file FILE` reads a release's `vm.args` unchanged, as OTP's `erl -args_file FILE` does
 (`erts/etc/common/erlexec.c`):
 
@@ -126,7 +126,7 @@ until then reported as a flag only).
   | --- | --- |
   | `-sname`, `-name`, `-setcookie`, `-nocookie`, `-hidden`, `-proto_dist`, `-dist_listen` | The node start option of that name ([distribution](distribution.md#node-start-options)) |
   | `-start_epmd true\|false` | `--epmd bundled` / `--epmd none` |
-  | `-config FILE...` | Application environments from `sys.config` files, over the `.app` resources and under `-App Key Value`, as OTP merges them (DIST4a4) |
+  | `-config FILE...` | Application environments from `.config` files, as `--config` ([config files](#config-files)) |
   | `-env VAR VALUE` | Sets the environment variable before the runtime starts |
   | `+t N` | `--max-atoms N` |
   | `+S N[:M]` | `--schedulers N` |
@@ -140,6 +140,22 @@ until then reported as a flag only).
   `clau: warning: --args-file FILE: ignored: +K true +A 30 -heart`.
 - A file that cannot be read, or a bad value of a flag with a Clause meaning, stops the program as other invalid
   runtime options do (exit 70).
+
+## Config files
+
+`--config FILE` and an args file's `-config FILE...` are read as OTP's boot reads `-config`
+(`application_controller:check_conf/0`, plan 30 step DIST4a4), by `library/kernel/clause_config.erl`:
+
+- `.config` is appended to a name without it; the files are read in order and merged, a later file winning per
+  parameter. A file named `sys.config` may list other file names besides `{App, Parameters}` entries, relative to its
+  directory when the file is there, else to the current directory.
+- The configured parameters apply over the `.app` resources and under `--env` (`-App Key Value`), as OTP merges them;
+  `set_env/2,4`'s persistent parameters join them.
+- A file that cannot be read or parsed, or a configuration OTP rejects, stops the program with OTP's boot failure:
+  `Could not start kernel pid (application_controller) ("error in config file \"./x.config\" (none): ...")`, exit
+  1. The files are read when the program first uses `application` ([differences](differences.md)).
+- `-config A B` in an args file is one `config` flag with both files, or one flag per file on Windows, as OTP's
+  erlexec gives them to `init:get_argument/1`.
 
 ## Exit status
 

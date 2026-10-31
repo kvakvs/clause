@@ -19,7 +19,8 @@ direction); formerly backlog item F38.
   - The node start options and `--env APP KEY VALUE` are init flags under OTP's names, and
     `application_controller` applies `--env` as OTP's `-App Key Value` (DIST4a1); `--args-file` reads
     a release's `vm.args` as the [args files](../docs/executables.md#args-files) contract says (DIST4a2, DIST4a3a); the manifest's
-    `runtime_options` are built into executables as their defaults (DIST4a3b).
+    `runtime_options` are built into executables as their defaults (DIST4a3b); `--config` and `-config` read
+    `sys.config` files as OTP's boot does (DIST4a4).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (`start/1,2` and
     internals declined), `auth` (`nocookie`), `global` and
@@ -59,24 +60,11 @@ direction); formerly backlog item F38.
 
 <a id="step-dist4a4"></a>
 
-## DIST4a4. `-config` (`sys.config`)
-
-Depends on: DIST4a3b ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] `-config FILE...` from an args file or `--config FILE` on the command line: `application_controller`
-        reads the files as OTP's `check_conf` does (`.config` appended, included file names, OTP's error terms and
-        boot failure for a bad file), the environments merged over the `.app` resources and under
-        `-App Key Value`; `application:get_env/2` and `set_env/1,2`'s persistent configuration as in OTP.
-- Tests
-  - [ ] Golden runs of `sys.config` files with included files and errors; OTP observes them through
-        `ERL_FLAGS=-config ...`.
-
 <a id="step-dist4b"></a>
 
 ## DIST4b. Handshake, TCP carrier and first connections
 
-Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), DIST4a1 ([30-finished](30-finished.md)), DIST4a3b ([30-finished](30-finished.md)), [DIST4a4](#step-dist4a4).
+Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), DIST4a1 ([30-finished](30-finished.md)), DIST4a3b and DIST4a4 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's

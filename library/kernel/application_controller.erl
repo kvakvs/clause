@@ -77,7 +77,7 @@
 
 %% Created for LIB24: the controller's state. Callers waiting for starts and stops, applications being started
 %% ({Name, RestartType, Type, From}), running ones ({Name, Master}), started ones with their restart types, starts
-%% held back by permissions and the persistent environment of set_env/2,4.
+%% held back by permissions and the configured environments: -config files, then set_env/2,4's persistent ones.
 -record(state, {
     starting = [], start_req = [], running = [], started = [], stop_req = [], start_p_false = [], conf = []
 }).
@@ -122,16 +122,19 @@ wait_registered() ->
     end.
 
 init(Caller) ->
+    Conf = boot_conf(),
     ?TABLE = ets:new(?TABLE, [set, public, named_table, {read_concurrency, true}]),
     process_flag(trap_exit, true),
     lists:foreach(fun insert_loaded/1, [kernel_appl(), stdlib_appl()]),
     add_env(kernel, kernel_env()),
     true = register(?AC, self()),
     % Once registered: the log line of a bad --env value starts the logger, which reads kernel's environment.
-    add_boot_envs(),
+    add_boot_envs(Conf),
     Caller ! {self(), ok},
     State = #state{
-        running = [{stdlib, undefined}, {kernel, undefined}], started = [{stdlib, permanent}, {kernel, permanent}]
+        running = [{stdlib, undefined}, {kernel, undefined}],
+        started = [{stdlib, permanent}, {kernel, permanent}],
+        conf = Conf
     },
     gen_server:enter_loop(?MODULE, [], State, {local, ?AC}).
 
@@ -148,17 +151,41 @@ kernel_appl() ->
 stdlib_appl() ->
     #appl{name = stdlib, descr = ?OTP_DESCRIPTION, vsn = ?STDLIB_VSN, mods = library_modules(stdlib), apps = [kernel]}.
 
-%% The --env values of kernel and stdlib over their environments, merged as OTP loads them; a value that is no term
-%% stops the program as it stops OTP's boot. Added for --env (plan 30 step DIST4a1).
-add_boot_envs() ->
-    try
-        add_env(kernel, merge_app_env(merge_app_env(kernel_env(), []), get_cmd_env(kernel))),
-        add_env(stdlib, merge_app_env([], get_cmd_env(stdlib)))
-    catch
-        throw:{error, Reason} ->
-            Text = lists:flatten(io_lib:format("~p", [Reason])),
-            erlang:halt(lists:flatten(io_lib:format("Could not start kernel pid (~p) (~p)", [?AC, Text])))
+%% The -config files (sys.config) as OTP's boot reads and checks them. Added for -config (plan 30 step DIST4a4).
+boot_conf() ->
+    case clause_config:read() of
+        {ok, Conf} ->
+            case check_conf_data(Conf) of
+                ok -> Conf;
+                {error, Text} -> boot_failure("invalid config data: " ++ Text)
+            end;
+        {error, Text} ->
+            boot_failure(Text)
     end.
+
+%% The environments of kernel and stdlib with the -config and --env values over them, merged as OTP loads them; a
+%% value that is no term stops the program. Added for --env (plan 30 step DIST4a1).
+add_boot_envs(Conf) ->
+    try
+        add_env(kernel, full_env(kernel, kernel_env(), Conf)),
+        add_env(stdlib, full_env(stdlib, [], Conf))
+    catch
+        throw:{error, Reason} -> boot_failure(Reason)
+    end.
+
+%% An application's environment as OTP loads it: the configured one (-config, set_env/2 persistent) over its own,
+%% then the --env values. Added for --env and -config (DIST4a1, DIST4a4).
+full_env(Name, Env, Conf) ->
+    merge_app_env(merge_app_env(Env, proplists:get_value(Name, Conf, [])), get_cmd_env(Name)).
+
+%% Stop the program as OTP's init stops when the application controller cannot start. Added for --env (DIST4a1).
+boot_failure(Reason) ->
+    Text =
+        case io_lib:printable_list(Reason) of
+            true -> Reason;
+            false -> lists:flatten(io_lib:format("~0p", [Reason]))
+        end,
+    erlang:halt(lists:flatten(io_lib:format("Could not start kernel pid (~p) (~p)", [?AC, Text]))).
 
 %% kernel's environment as its kernel.app sets it.
 kernel_env() ->
@@ -580,7 +607,7 @@ load(Application, S) ->
 
 %% Stores the application with its environment, the persistent one winning, then loads its included applications.
 load_appl(#appl{name = Name, inc_apps = Included} = Appl, Env, S) ->
-    add_env(Name, merge_app_env(merge_app_env(Env, proplists:get_value(Name, S#state.conf, [])), get_cmd_env(Name))),
+    add_env(Name, full_env(Name, Env, S#state.conf)),
     insert_loaded(Appl),
     lists:foreach(
         fun(Inner) ->
@@ -648,24 +675,7 @@ make_term_error(Mod, Reason, Str) ->
     ?LOG_ERROR("application_controller: ~ts: ~ts~n", [Mod:format_error(Reason), Str], #{error_logger => #{tag => error}}),
     throw({error, {bad_environment_value, Str}}).
 
-%% OTP's merge of a configured or --env environment over an application's: the first value of a key the application
-%% has wins, the last of a new key, and the result is reversed, which decides between --env duplicates as in OTP.
-merge_app_env(Env1, Env2) -> merge_app_env(Env1, Env2, []).
-
-merge_app_env([{Key, Val} | T], Env2, Res) ->
-    case get_env_key(Key, Env2) of
-        {value, NewVal, RestEnv} -> merge_app_env(T, RestEnv, [{Key, NewVal} | Res]);
-        _ -> merge_app_env(T, Env2, [{Key, Val} | Res])
-    end;
-merge_app_env([], Env2, Res) ->
-    Env2 ++ Res.
-
-%% The first value of Key and the other entries in OTP's order, which decides between later duplicates.
-get_env_key(Key, Env) -> get_env_key(Env, Key, []).
-
-get_env_key([{Key, Val} | T], Key, Res) -> {value, Val, T ++ Res};
-get_env_key([H | T], Key, Res) -> get_env_key(T, Key, [H | Res]);
-get_env_key([], _Key, Res) -> Res.
+merge_app_env(Env1, Env2) -> clause_config:merge_app_env(Env1, Env2).
 
 merge_conf(Conf, Config) ->
     lists:foldl(

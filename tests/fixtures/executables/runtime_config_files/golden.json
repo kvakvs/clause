@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "entry": "runtime_config_files",
+  "data": [
+    "sys.config",
+    "extra.config",
+    "other.config",
+    "dup.config",
+    "broken.config",
+    "cfg.args",
+    "cfgapp.app"
+  ],
+  "runs": [
+    {
+      "args": [],
+      "env": {
+        "CLAUSE_FLAGS": "--config sys"
+      },
+      "otp_flags": "-config sys",
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "config: [\"sys\"]\nkernel: {ok,30}\nload: ok\ncfgapp: [{a,from_sys},{b,from_extra},{c,from_extra},{d,from_app}]\nruntime_config_files: ok\n"
+    },
+    {
+      "args": [],
+      "env": {
+        "CLAUSE_FLAGS": "--config sys --config other --env cfgapp b from_env"
+      },
+      "otp_flags": "-config sys -config other -cfgapp b from_env",
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "config: [\"sys\",\"other\"]\nkernel: {ok,30}\nload: ok\ncfgapp: [{a,from_other},{b,from_env},{c,from_extra},{d,from_app}]\nruntime_config_files: ok\n"
+    },
+    {
+      "args": [],
+      "env": {
+        "CLAUSE_FLAGS": "--args-file cfg.args"
+      },
+      "otp_flags": "-args_file cfg.args",
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "config: [\"sys\",\"other\"]\nkernel: {ok,30}\nload: ok\ncfgapp: [{a,from_other},{b,from_extra},{c,from_extra},{d,from_app}]\nruntime_config_files: ok\n"
+    },
+    {
+      "args": [
+        "--config",
+        "missing"
+      ],
+      "authored": true,
+      "stderr": "Could\\ not\\ start\\ kernel\\ pid\\ \\(application_controller\\)\\ \\(\"error\\ in\\ config\\ file\\ \\\\\"\\./missing\\.config\\\\\"\\ \\(none\\):\\ configuration\\ file\\ not\\ found\"\\)",
+      "exit_status": 1,
+      "stdout": ""
+    },
+    {
+      "args": [
+        "--config",
+        "broken"
+      ],
+      "authored": true,
+      "stderr": "Could\\ not\\ start\\ kernel\\ pid\\ \\(application_controller\\)\\ \\(\"error\\ in\\ config\\ file\\ \\\\\"\\./broken\\.config\\\\\"\\ \\(none\\):\\ no\\ ending\\ <dot>\\ found\"\\)",
+      "exit_status": 1,
+      "stdout": ""
+    },
+    {
+      "args": [
+        "--config=dup"
+      ],
+      "authored": true,
+      "stderr": "Could\\ not\\ start\\ kernel\\ pid\\ \\(application_controller\\)\\ \\(\"invalid\\ config\\ data:\\ application:\\ cfgapp;\\ duplicate\\ parameter:\\ a\"\\)",
+      "exit_status": 1,
+      "stdout": ""
+    },
+    {
+      "args": [
+        "--config"
+      ],
+      "authored": true,
+      "stderr": "^clau: runtime failure: --config needs a file\n$",
+      "exit_status": 70,
+      "stdout": ""
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "runtime_config_files.erl": "801f8385e5b934d99cebb9ca461126dbe1acb3e00cca5473fa0bc7d475092382",
+    "sys.config": "0d8fc8c804823e3f43d1047b8328ed61a664c487f64e03d14eb9f809f287ce8d",
+    "extra.config": "47a3412974584b60c9316f2ecff73627c4f69ecf1a29ebcd361097b1576e287e",
+    "other.config": "7869c7a6e2152b15b1ce1bde888d4d5facd7bbbbbe837ece93feaa0c03fdf14e",
+    "dup.config": "cbe3e777906d7c14070872291f91d7ad3aa4a1facd459e8daabbb49616835c5e",
+    "broken.config": "e6dc6d2ee72ffef02fc1c452cc6df35c3fd35cd9b5b8bf71552b82e0539d8cd3",
+    "cfg.args": "ca06bef0e4467ca1ac8adee7337c461cef1bb84b3be37c6065e23abd379c8a99",
+    "cfgapp.app": "01afcfa8ddce47f8540a8b05c4a478319d12783fe8d5170f98b7052dfb2c63a4"
+  }
+}

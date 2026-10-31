@@ -21,7 +21,7 @@ struct OtpFlag {
     // The same in Clause's runtime option spelling (`+t N` is `--max-atoms N`), applied by the caller.
     std::vector<std::string> options = {};
     // The init flag a flag without a Clause option is reported as (`-kernel K V`, user flags).
-    std::optional<ProgramFlag> flag = {};
+    std::vector<ProgramFlag> flags = {};
     // The environment variable of `-env VAR VALUE`, set before the runtime starts.
     std::optional<std::pair<std::string, std::string>> variable = {};
     // Whether the warning line names the flag: emulator tuning or a flag Clause cannot act on.

@@ -312,8 +312,30 @@ std::expected<std::size_t, std::string> apply_env(std::span<const std::string> a
     return 4;
 }
 
-// Apply a distribution option at `at` and return how many arguments it used; 0 when it is none, then the scheduler
-// options are tried. Added for the bundled epmd.
+// Apply an application environment option at `at`, --env or --config, and return how many arguments it used; else
+// the node start options and then the scheduler options are tried. Added for --env and -config (DIST4a1, DIST4a4).
+std::expected<std::size_t, std::string> apply_application_option(std::span<const std::string> args, std::size_t at,
+                                                                 RuntimeOptions &options) {
+    if (args[at] == "--env") {
+        return apply_env(args, at, options);
+    }
+    // OTP's -config: every one is kept, and application_controller reads the files.
+    if (const auto config = match(args, at, "--config")) {
+        if (config->value.empty()) {
+            return std::unexpected(std::string("--config needs a file"));
+        }
+        options.program.flags.push_back({"config", {std::string(config->value)}});
+        return config->used;
+    }
+    const auto node = apply_node_option(args, at, options);
+    if (!node || *node != 0) {
+        return node;
+    }
+    return apply_scheduling(args, at, options);
+}
+
+// Apply a distribution option at `at` and return how many arguments it used; 0 when it is none, then the application
+// environment options are tried. Added for the bundled epmd.
 std::expected<std::size_t, std::string> apply_distribution(std::span<const std::string> args, std::size_t at,
                                                            RuntimeOptions &options) {
     if (const auto epmd = match(args, at, "--epmd")) {
@@ -326,14 +348,7 @@ std::expected<std::size_t, std::string> apply_distribution(std::span<const std::
         replace_flag(options, "start_epmd", {*mode == EpmdMode::none ? "false" : "true"});
         return epmd->used;
     }
-    if (args[at] == "--env") {
-        return apply_env(args, at, options);
-    }
-    const auto node = apply_node_option(args, at, options);
-    if (!node || *node != 0) {
-        return node;
-    }
-    return apply_scheduling(args, at, options);
+    return apply_application_option(args, at, options);
 }
 
 // Most args files nested in one another; OTP sets no limit, so a file naming itself never ends there.
@@ -372,9 +387,7 @@ std::expected<std::size_t, std::string> apply_otp_flag(std::span<const std::stri
         ignored.insert(ignored.end(), words.begin() + static_cast<std::ptrdiff_t>(at),
                        words.begin() + static_cast<std::ptrdiff_t>(at + flag->used));
     }
-    if (flag->flag) {
-        options.program.flags.push_back(std::move(*flag->flag));
-    }
+    std::ranges::move(flag->flags, std::back_inserter(options.program.flags));
     return flag->used;
 }
 

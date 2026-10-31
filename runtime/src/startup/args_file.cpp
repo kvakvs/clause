@@ -111,6 +111,22 @@ std::expected<OtpFlag, std::string> environment_flag(std::span<const std::string
     return OtpFlag{.used = 3, .variable = std::pair{words[at + 1], words[at + 2]}};
 }
 
+// The init flags of `-Name Values...`: one, except that OTP's erlexec gives every file of -config its own flag on
+// Windows. Added for -config (plan 30 step DIST4a4).
+std::vector<ProgramFlag> init_flags(std::string_view name, std::vector<std::string> values) {
+#ifdef _WIN32
+    if (name == "config" && values.size() > 1) {
+        std::vector<ProgramFlag> flags;
+        flags.reserve(values.size());
+        for (auto &value : values) {
+            flags.push_back({"config", {std::move(value)}});
+        }
+        return flags;
+    }
+#endif
+    return {ProgramFlag{std::string(name), std::move(values)}};
+}
+
 // A -Flag: a node start option, -start_epmd, -env, or an init flag (ignored ones named in the warning line).
 std::expected<OtpFlag, std::string> init_flag(std::span<const std::string> words, std::size_t at) {
     const auto name = std::string_view(words[at]).substr(1);
@@ -126,7 +142,7 @@ std::expected<OtpFlag, std::string> init_flag(std::span<const std::string> words
         return OtpFlag{.used = used, .options = std::move(*options)};
     }
     const bool ignored = std::ranges::find(IGNORED_FLAGS, name) != IGNORED_FLAGS.end();
-    return OtpFlag{.used = used, .flag = ProgramFlag{std::string(name), std::move(values)}, .ignored = ignored};
+    return OtpFlag{.used = used, .flags = init_flags(name, std::move(values)), .ignored = ignored};
 }
 
 // The value of the emulator flag `prefix` at `at`, attached (`+t5000`) or the next word (`+t 5000`), and the words
