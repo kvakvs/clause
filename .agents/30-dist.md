@@ -6,7 +6,7 @@ direction); formerly backlog item F38.
 
 - **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a) or
   `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d); started nodes
-  connect (DIST4b2a, DIST4b2b) but move no signal yet.
+  connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c) but move no signal yet.
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -79,25 +79,14 @@ direction); formerly backlog item F38.
 
 ## DIST4b2. Handshake and TCP carrier
 
-Split 2026-10-31 into DIST4b2a (handshake with status `ok`, first connections; done), DIST4b2b (the other
-statuses and dynamic names; done) and DIST4b2c (IPv6 and carrier options).
-
-## DIST4b2c. IPv6 carrier and carrier options
-
-Depends on: DIST4b2b ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] `inet6_tcp_dist` over `inet_tcp_dist`'s family-generic functions (`gen_*`, `fam_*`);
-        `getopts/2`, `setopts/2`, `merge_options/2,3`, `nodelay/0`, the kernel parameters
-        `inet_dist_connect_options` and `dist_nodelay`.
-- Tests
-  - [ ] Golden `dist_connect` case over `--proto-dist inet6_tcp`.
+Split 2026-10-31 into DIST4b2a (handshake with status `ok`, first connections), DIST4b2b (the other statuses
+and dynamic names) and DIST4b2c (IPv6 and carrier options); all done ([30-finished](30-finished.md)).
 
 <a id="step-dist4b3"></a>
 
 ## DIST4b3. First data path and ping
 
-Depends on: [DIST4b2c](#dist4b2c-ipv6-carrier-and-carrier-options).
+Depends on: DIST4b2c ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `SEND_SENDER`, `REG_SEND`, `MONITOR_P`/`DEMONITOR_P`/`MONITOR_P_EXIT` (enough for `gen:call/3` to
@@ -161,6 +150,9 @@ Depends on: [DIST5](#step-dist5).
         hidden nodes and `connect_all`, `set_net_ticktime/1,2`, `get_net_ticktime/0`,
         `getopts/2`, `setopts/2`, `get_state/0`, `node_info/1,2`, `nodes_info/0`, `i/0,1`,
         `hidden_connect_node/1`; its declined internals implemented.
+    - `setopts(new, ...)` calls the carriers' `setopts/2` on their listen sockets (DIST4b2c) and merges the
+      options into `inet_dist_listen_options` and `inet_dist_connect_options`; a connected node's options go
+      through `#hs_data{}`'s `mf_setopts`/`mf_getopts`, which `inet_tcp_dist` does not fill yet.
   - [ ] `auth`'s declined server functions implemented.
   - [ ] `kernel` environment: `net_ticktime`, `dist_auto_connect`, `connect_all`,
         `inet_dist_listen_min`/`max`, `inet_dist_use_interface`, `inet_dist_listen_options`,

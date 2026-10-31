@@ -761,6 +761,14 @@ gotchas and user directions not recorded elsewhere.
   offline with `cdb -z prog.exe -y <dir> -lines -c "ln prog+0xOFF; q"`. A crash with `arrivals` null means a destroyed
   process ran: `wake()` queued an ended process (fixed). Multi-node goldens: a node may finish before its peer's
   main even starts; sync through epmd marker names (raw ALIVE2_REQ, kept while the socket is open), never sleeps.
-  Each newly linked executable path that listens on 0.0.0.0 makes Windows Firewall ask once: reuse scratch exe
-  names. OTP: dynamic names are base 36 of a 64-bit number, stable per acceptor and host, creation +1 per reuse;
+  Each newly linked executable path that listens on 0.0.0.0 makes Windows Firewall ask once; on this PC the user
+  turned the prompts off (`Set-NetFirewallProfile -Profile Private -NotifyOnListen False`), elsewhere reuse scratch
+  exe names. OTP: dynamic names are base 36 of a 64-bit number, stable per acceptor and host, creation +1 per reuse;
   losing the naming connection restarts only kernel_sup's net_sup child.
+- DIST4b2c OTP observations for DIST6 (net_kernel options): `setopts(Node, Opts)`/`getopts` raise function_clause
+  for a non-atom node or non-list options even unalive; `ignored` unalive; `{error, noconnection}` for an unknown
+  node and for `getopts(new, _)`. `setopts(new, Opts)` runs the carrier's `setopts/2` on the listen socket (error
+  returned, env untouched), then folds each option onto both `inet_dist_listen_options` and
+  `inet_dist_connect_options` (drop same key, prepend; `[]` still sets `{ok, []}`); a non-pair option crashes
+  net_kernel with badmatch. Up connection: `getopts` gives `{active,true}`, `{packet,4}`, `{mode,binary}`; `setopts`
+  refuses active/packet with badopts. A host's IPv6 address is link-local (fe80::...) on Windows, and works.

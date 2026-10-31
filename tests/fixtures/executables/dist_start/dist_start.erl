@@ -81,6 +81,10 @@ refused() ->
     started("port range", [pr, shortnames], fun() -> names() =:= [{"pr", Port}] orelse names() end),
     ok = application:unset_env(kernel, inet_dist_listen_min),
     ok = application:unset_env(kernel, inet_dist_listen_max),
+    % The carrier takes no address family from inet_dist_listen_options (DIST4b2c).
+    ok = application:set_env(kernel, inet_dist_listen_options, [inet]),
+    failed("listen family", [lfam, shortnames]),
+    ok = application:unset_env(kernel, inet_dist_listen_options),
     show("after refused", {node(), is_alive(), whereis(net_sup), whereis(net_kernel)}).
 
 % Start, show what Fun answers while started, then stop.

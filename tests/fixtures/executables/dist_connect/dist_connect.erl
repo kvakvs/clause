@@ -5,6 +5,8 @@
 %% the statuses alive, nok, named: and not_allowed, and sa connects to a node allow/1 does not allow; epmd names
 %% Node_ready tell each other they are subscribed. A node without a name (dynamic) takes one from node db, loses it
 %% with that connection and gets it back.
+%% The IPv6 carrier (DIST4b2c): node 6a connects to node 6b over inet6_tcp_dist, both with kernel socket options the
+%% carrier overrides; an address family there fails the connect. 6a also calls the carrier's option functions.
 -module(dist_connect).
 -export([main/1]).
 
@@ -64,6 +66,22 @@ main(["sb"]) ->
     ok = net_kernel:allow([A]),
     show("not allowed", raw(dsz, 0, none)),
     done();
+main(["6a"]) ->
+    B = peer("d6b"),
+    show("select", [inet6_tcp_dist:select(B), inet6_tcp_dist:select('x@::1'), inet_tcp_dist:select('x@::1')]),
+    show("address", [inet6_tcp_dist:address(), inet6_tcp_dist:is_node_name(B), inet6_tcp_dist:is_node_name(x)]),
+    {ok, Options} = application:get_env(kernel, inet_dist_connect_options),
+    ok = application:set_env(kernel, inet_dist_connect_options, [inet6 | Options]),
+    show("family option", [net_kernel:connect_node(B), nodes()]),
+    ok = application:set_env(kernel, inet_dist_connect_options, Options),
+    show("connect", [net_kernel:connect_node(B), nodes()]),
+    carrier_options(),
+    show("disconnect", erlang:disconnect_node(B)),
+    done();
+main(["6b"]) ->
+    ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
+    lists:foreach(fun(_) -> show("status", next()) end, lists:seq(1, 2)),
+    done();
 main(["db"]) ->
     ok = net_kernel:monitor_nodes(true, [nodedown_reason, {node_type, hidden}]),
     lists:foreach(fun(_) -> show("status", next()) end, lists:seq(1, 4)),
@@ -80,6 +98,37 @@ main(["dynamic"]) ->
     show("unnamed again", [node(), is_alive(), maps:with([name, name_type], net_kernel:get_state())]),
     show("connect again", [net_kernel:connect_node(B), node() =:= Name]),
     done().
+
+% The carrier's options of future connections, on a listen socket, and how it merges socket options.
+carrier_options() ->
+    {ok, Listen} = gen_tcp:listen(0, [inet6]),
+    show("setopts", [
+        inet6_tcp_dist:setopts(Listen, [{nodelay, false}, {keepalive, true}]),
+        inet6_tcp_dist:setopts(Listen, [{active, true}, {packet, 4}, {nodelay, true}, {deliver, term}]),
+        inet6_tcp_dist:setopts(Listen, [{active, true}, {badopt, 1}]),
+        error_of(fun() -> inet6_tcp_dist:setopts(Listen, foo) end)
+    ]),
+    show("getopts", inet6_tcp_dist:getopts(Listen, [nodelay, keepalive])),
+    gen_tcp:close(Listen),
+    Merge = fun inet_tcp_dist:merge_options/2,
+    show("merge", [
+        Merge([binary, {active, true}, {packet, 4}, {sndbuf, 10}], [{active, false}, {packet, 2}]),
+        Merge([inet6, list, {mode, list}, local], [binary, inet]),
+        Merge([foo, {foo, 1}, {raw, 1, 2, <<>>}, {a, 1, 2}, 1], [foo, {raw, 5, 6, <<>>}, {a, 3}, {a, 4}]),
+        error_of(fun() -> Merge(foo, []) end)
+    ]),
+    show("merge additional", [
+        inet_tcp_dist:merge_options([{nodelay, false}], [{packet, 2}], [{sndbuf, 5}, {nodelay, true}]),
+        inet_tcp_dist:merge_options([{x, 1}, binary], [{y, 2}, {x, 3}, inet], [{z, 4}, {y, 5}, list, inet6]),
+        error_of(fun() -> inet_tcp_dist:merge_options([], [], foo) end)
+    ]).
+
+error_of(Fun) ->
+    try Fun() of
+        Result -> {returned, Result}
+    catch
+        error:Reason -> {error, Reason}
+    end.
 
 % Dynamic names sb gives raw handshakes from another host: a name freed is given again with the next creation, and a
 % name in use is not.

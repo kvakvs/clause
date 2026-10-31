@@ -1,0 +1,12 @@
+%% OTP 29 inet6_tcp_dist exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{accept, 1, default, implemented}.
+{accept_connection, 5, default, implemented}.
+{address, 0, default, implemented}.
+{close, 1, default, implemented}.
+{getopts, 2, default, implemented}.
+{is_node_name, 1, default, implemented}.
+{listen, 2, default, implemented}.
+{select, 1, default, implemented}.
+{setopts, 2, default, implemented}.
+{setup, 5, default, implemented}.

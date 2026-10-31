@@ -65,6 +65,36 @@
     {
       "nodes": [
         {
+          "name": "6a",
+          "args": [
+            "6a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname d6a --setcookie dc --proto-dist inet6_tcp --env kernel inet_dist_connect_options [{packet,0},{active,true},list]"
+          },
+          "otp_flags": "-sname d6a -setcookie dc -proto_dist inet6_tcp -kernel inet_dist_connect_options [{packet,0},{active,true},list]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "select: [true,true,false]\naddress: [{net_address,undefined,\"HOST\",tcp,inet6},true,false]\nfamily option: [false,[]]\nconnect: [true,[d6b@HOST]]\nsetopts: [ok,\n {error,{badopts,[{active,true},{packet,4},{deliver,term}]}},\n {error,{badopts,[{active,true}]}},\n {error,{bad_generator,foo}}]\ngetopts: {ok,[{nodelay,false},{keepalive,true}]}\nmerge: [[{active,false},{packet,2},binary,{sndbuf,10}],\n [binary,inet],\n [foo,{raw,5,6,<<>>},{a,3},{a,4},foo,{foo,1},{raw,1,2,<<>>},{a,1,2},1],\n {error,function_clause}]\nmerge additional: [[{packet,2},{nodelay,false},{sndbuf,5}],\n [{y,2},{x,3},inet,binary,{z,4},{y,5},inet6],\n {error,function_clause}]\ndisconnect: true\ndist_connect: ok\n"
+        },
+        {
+          "name": "6b",
+          "args": [
+            "6b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname d6b --setcookie dc --proto-dist inet6_tcp --env kernel inet_dist_listen_options [{packet,0},{active,true},list]"
+          },
+          "otp_flags": "-sname d6b -setcookie dc -proto_dist inet6_tcp -kernel inet_dist_listen_options [{packet,0},{active,true},list]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "status: {nodeup,d6a@HOST,[]}\nstatus: {nodedown,d6a@HOST,[{nodedown_reason,connection_closed}]}\ndist_connect: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
           "name": "db",
           "args": [
             "db"
@@ -102,6 +132,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "dist_connect.erl": "573025d8a846fe4bfb68e7ec5748a46401f5caeaeaf0e85eee9a554abf91502c"
+    "dist_connect.erl": "aeecb8e04035f1faf4b153bcc4dcb78628bcd24e6068c15f8f3aeb0ea4b747a4"
   }
 }

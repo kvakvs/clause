@@ -320,8 +320,9 @@ listen_carriers([Proto | _], Alive, Host, Node, true) ->
             end
     end.
 
-% The built-in carrier is called by name, so that programs link it.
+% The built-in carriers are called by name, so that programs link them.
 listen(inet_tcp_dist, Alive, Host) -> inet_tcp_dist:listen(Alive, Host);
+listen(inet6_tcp_dist, Alive, Host) -> inet6_tcp_dist:listen(Alive, Host);
 listen(Module, Alive, Host) -> Module:listen(Alive, Host).
 
 log_listen_error(Proto, Node, invalid_node_name) ->
@@ -429,8 +430,9 @@ connecting(#state{listen = Listeners, ticktime = Time, intensity = Intensity} = 
     spawn_opt(?MODULE, ticker, [self(), Time * 1000 div Intensity], [link, {priority, max}]),
     State.
 
-% The built-in carrier is called by name, so that programs link it.
+% The built-in carriers are called by name, so that programs link them.
 accept(inet_tcp_dist, Socket) -> inet_tcp_dist:accept(Socket);
+accept(inet6_tcp_dist, Socket) -> inet6_tcp_dist:accept(Socket);
 accept(Module, Socket) -> Module:accept(Socket).
 
 % connect_node/1: this node is connected; a connection up answers at once, a pending one once its handshake ends.

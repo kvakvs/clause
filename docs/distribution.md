@@ -15,7 +15,8 @@ the bundled epmd out (DIST3d). `net_kernel:start/1,2` and `stop/0` start and end
 running program ([starting distribution](#starting-distribution), DIST4b1a), and `--sname`/`--name` before the
 entry ([node start options](#node-start-options), DIST4b1b), with OTP's cookies ([cookies](#cookies), DIST4b1c).
 Nodes connect through OTP's handshake with all its statuses, `allow/1` and dynamic names ([making
-connections](#making-connections), DIST4b2a, DIST4b2b); no signal moves over a connection yet.
+connections](#making-connections), DIST4b2a, DIST4b2b), over IPv4 or IPv6 (DIST4b2c); no signal moves over a
+connection yet.
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -316,8 +317,10 @@ statuses other than `ok`, `allow/1` and dynamic names since DIST4b2b.
   when the connection comes up.
 - **`inet_tcp_dist`:** `accept/1` links an acceptor at `max` priority; `accept_connection/5` and `setup/5` spawn
   the supervisor with `dist_util:net_ticker_spawn_options/0`. Setup asks the `epmd_module`'s `port_please/2` and
-  connects with `{packet, 2}`, `nodelay` (unless `dist_nodelay` is `false`) and `inet_dist_connect_options`;
-  host names the naming refuses log OTP's `** System running to use fully qualified hostnames **` lines. The
+  connects with `inet_dist_connect_options` under the carrier's own family, `binary`, `{active, false}` and
+  `{packet, 2}`, over `nodelay` (`{nodelay, false}` when `dist_nodelay` is `false`); an address family in
+  `inet_dist_connect_options` fails the connect, as in OTP. Host names the naming refuses log OTP's
+  `** System running to use fully qualified hostnames **` lines. The
   controller is a process owning the socket: during the handshake it answers its supervisor's requests and
   switches to `{packet, 4}` before the connection is up; then it reads with `{active, once}` and puts each packet
   with `dist_ctrl_put_data/2` (an empty one is a tick), sends the queued packets on `dist_data` and sends ticks
@@ -461,8 +464,21 @@ OTP's `net_kernel:start/1,2` and `stop/0`. The started node connects to others a
   and is hidden; the name `undefined` names no node yet (`erts_internal:dynamic_node_name/1`).
 - **`inet_tcp_dist`:** `listen/1,2` listens with `gen_tcp` (IPv4, `{packet, 2}`) on the first free port from
   `inet_dist_listen_min` to `inet_dist_listen_max` (any port without them), on `inet_dist_use_interface`, with
-  `inet_dist_listen_options`; `address/0`, `select/1` (both parts and an IPv4 address for the host),
-  `is_node_name/1` (an atom with one `@`) and `close/1` as OTP's.
+  `inet_dist_listen_options` under the carrier's own options (an address family there is `badarg`) and over a
+  backlog of 128; `address/0`, `select/1` (both parts and an IPv4 address for the host), `is_node_name/1` (an
+  atom with one `@`) and `close/1` as OTP's. Since DIST4b2c (`library/kernel/inet6_tcp_dist.erl`):
+  - `--proto-dist inet6_tcp` selects `inet6_tcp_dist`, the same carrier over IPv6: it listens on IPv6,
+    registers with epmd as `inet6_tcp`, selects nodes whose host has an IPv6 address and gives `inet6` addresses.
+    It runs over `inet_tcp_dist`'s `gen_*` functions, which take the driver `inet_tcp` or `inet6_tcp`, and
+    `fam_address/1` and `fam_select/2`, which take the family. OTP's undocumented `fam_listen/4`,
+    `fam_setup/4`, `getstat/1` and `tick/2` are stubs.
+  - `setopts/2` and `getopts/2` set and read options of future connections on a listen socket through `inet`;
+    `setopts/2` refuses `active`, `deliver` and `packet` options with `{error, {badopts, Refused}}`.
+    `net_kernel:setopts/2` and `getopts/2`, which call them, come in DIST6.
+  - `merge_options(Options, Forced)` gives `Forced`, then the options of `Options` whose key `Forced` has not.
+    A key is a pair's first element, `mode` for `binary` and `list`, and `family` for `inet`, `inet6` and
+    `local`; other options have none and always stay. `merge_options/3` appends the options of its third
+    argument whose key `Options` has not.
 - **Failures:** a start that fails returns OTP's `{error, {{shutdown, {failed_to_start_child, net_kernel,
   {'EXIT', nodistribution}}}, Child}}`, `kernel_sup`'s answer with the `net_sup_dynamic` child record.
 - **Requests:** `nodename/0`, `longnames/0`, `get_net_ticktime/0` and `get_state/0` (`started => dynamic`,
