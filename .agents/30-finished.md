@@ -79,3 +79,6 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST4b1e** `exclude_kernel_services` / `--exclude-kernel-service`: generated `clause_kernel_services` lists the
   included services for `kernel:init/1` and links their modules; excluded `global`/`rpc` start unlinked at first use;
   docs and template say it saves processes more than size (gen_server links global and rpc) — 518b781f
+- **DIST4b2a** handshake and first connections: `dist_util` (protocol 6 with status `ok`, cookies' MD5 digests,
+  mandatory flags, ticks), `dist.hrl`/`dist_util.hrl`, `inet_tcp_dist` accept/setup with a controller process,
+  `net_kernel` connections, ticker and `disconnect/1` (`erlang:disconnect_node/1` over it); golden `dist_connect` — a9dac44c
