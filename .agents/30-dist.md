@@ -76,11 +76,50 @@ direction); formerly backlog item F38.
 
 <a id="step-dist4b1c"></a>
 
+<a id="step-dist4b1d"></a>
+
+## DIST4b1d. `kernel_sup` and the kernel services
+
+Depends on: DIST4b1a–DIST4b1c ([30-finished](30-finished.md)). User choices (2026-10-31): `kernel_sup` starts at the
+first use of any kernel service; Clause's real servers only; opt-out by an exclude list (DIST4b1e).
+
+- Success criteria
+  - [ ] OTP's `kernel` module (`init/1` gives `kernel_sup`'s children; `start/2`, `stop/1`, `config_change/3` as the
+        kernel application's callbacks) and `kernel_sup`, started at the first use of a kernel service: `rex`
+        (`rpc`), `global_name_server` (`global`), `global_group`, or starting distribution. Its children, in OTP's
+        order: `rex`, `global_name_server`, `net_sup` (static: the node start options; otherwise
+        `erl_distribution:start_link/0` answers `ignore`), `global_group`, an empty `kernel_safe_sup`. The servers'
+        unlinked first-use starts go.
+  - [ ] `net_kernel:start/1,2` adds OTP's `net_sup_dynamic` child (`supervisor:start_child/2`, its errors as
+        OTP's), `stop/0` terminates and deletes it.
+  - [ ] `kernel_sup`'s end halts the program as OTP's node halts (`Kernel pid terminated (application_controller)
+        ("{application_terminated,kernel,shutdown}")`); the `differences.md` rows on the missing `kernel_sup` shrink
+        to the children Clause leaves out (`code_server`, `file_server_2`, `inet_db`, `logger_sup`, `user`, ...).
+- Tests
+  - [ ] Golden `kernel_sup`: the tree after a first use and after starting distribution, killing `net_kernel` of a
+        dynamic and of a static start halts as OTP's node.
+
+<a id="step-dist4b1e"></a>
+
+## DIST4b1e. Opting out of kernel services
+
+Depends on: [DIST4b1d](#step-dist4b1d).
+
+- Success criteria
+  - [ ] `exclude_kernel_services = ["global_name_server", ...]` in `[targets.options]` and
+        `clau --exclude-kernel-service ID` (OTP's child ids; `net_sup` cannot be excluded): an excluded service is not
+        linked on `kernel_sup`'s account and `kernel_sup` does not start it, even when the program calls its module.
+        The included services reach `kernel` through a module `clau` generates per program; `--print-env` reports
+        the list.
+- Tests
+  - [ ] Linking test: a program excluding `global_name_server` and `rex` links neither for `kernel_sup`, its tree
+        lacks them, and `global` called anyway still answers as without its server.
+
 <a id="step-dist4b2"></a>
 
 ## DIST4b2. Handshake and TCP carrier
 
-Depends on: DIST4b1c ([30-finished](30-finished.md)).
+Depends on: [DIST4b1e](#step-dist4b1e).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's
