@@ -14,4 +14,8 @@ void report_exit(ProcessContext &process) noexcept;
 // erts_send_error_to_logger reaches it through the logger: the legacy header, the text, then two newlines (plan 30
 // step DIST2b).
 void report_error(ProcessContext &process, std::string_view text);
+// The same report with OTP's =WARNING REPORT==== header (plan 30 step DIST4b3a).
+void report_warning(ProcessContext &process, std::string_view text);
+// A report under the header of `level`, ERROR or WARNING.
+void report(ProcessContext &process, std::string_view level, std::string_view text);
 } // namespace clause::runtime::detail

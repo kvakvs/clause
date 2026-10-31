@@ -373,6 +373,9 @@ class Executor final {
     bool monitor_node(ProcessContext &context, const Term &node, bool on, bool passive);
     // The creation of the up connection of `node`, an atom word, or none (list_to_pid/1 of another node).
     std::optional<std::uint32_t> connected_creation(Word node) const;
+    // Queue an encoded packet for `node` (plan 30 step DIST4b3a): on an up or pending connection, on an idle one
+    // after auto-connecting it unless `connect` is false; dropped while this node has no name and for its own name.
+    DistSend dist_output(ProcessContext &context, const Term &node, std::vector<std::byte> packet, bool connect);
 
     // Run `operation` on the connection table under the executor's lock: the controller data path (plan 30 step
     // DIST2d, builtins/erlang/connections.cpp) reads and changes connections this way.
@@ -795,6 +798,9 @@ class Executor final {
     // Make an idle entry pending and ask net_kernel for it ({auto_connect, Node, DHandle}); without a process
     // registered as net_kernel the connection is aborted at once (plan 30 step DIST2c).
     void auto_connect(ProcessContext &context, Word node, Connection &connection);
+    // The connection a packet for `node` goes on, an idle one auto-connected when `connect`; else what becomes of the
+    // packet (plan 30 step DIST4b3a).
+    std::expected<Connection *, DistSend> output_connection(ProcessContext &context, const Term &node, bool connect);
     // Send the node monitors of `node`'s entry {nodedown, Node}, once per count, then make the entry idle.
     void take_down(ProcessContext &builder, Word node);
     // Post `status` to each subscription that asks for it, the message built in `builder`'s heap.

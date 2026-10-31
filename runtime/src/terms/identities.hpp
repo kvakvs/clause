@@ -24,6 +24,9 @@ TermResult<int> identity_order(const Term &left, const Term &right) noexcept;
 // Print a pid as <C.Number.Serial>, a port as #Port<C.Number> and a reference as #Ref<C.Wn...W0>, as OTP prints
 // identities: C is 0 for this node and the node name atom's number for another node.
 TermResult<void> print_identity(const Term &value, TextOutput &out);
+// The number C another node's identities print with: its node name atom's number (OTP prints its own atom index),
+// also the channel number of OTP's distribution reports (plan 30 step DIST4b3a).
+std::uint64_t node_channel(Word node) noexcept;
 
 // This node's name and creation (plan 30 step DIST1, docs/distribution.md): nonode@nohost and 0 until
 // distribution starts. Process-wide, like the atom table.

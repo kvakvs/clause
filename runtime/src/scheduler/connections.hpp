@@ -36,14 +36,26 @@ inline constexpr std::uint64_t STRICT_ORDER = DIST_HDR_ATOM_CACHE;
 // or a bad argument (plan 30 step DIST2d).
 enum class DataPathError : std::uint8_t { notsup, badarg };
 
+// What became of a packet for another node (plan 30 step DIST4b3a): queued on its connection, dropped, or not sent
+// because the node is not connected and the send would have to connect it (send/3's noconnect).
+enum class DistSend : std::uint8_t { queued, dropped, noconnect };
+
+// The bytes OTP 29's dist_get_stat/1 counts for each queued packet besides its own, as observed: more for one queued
+// while the connection was pending.
+inline constexpr std::size_t PACKET_OVERHEAD = 160;
+inline constexpr std::size_t PENDING_PACKET_OVERHEAD = 174;
+
 // The controller data path of an up connection (plan 30 step DIST2d, docs/distribution.md#controller-data-path),
 // reset when it goes down.
 struct DataPath final {
     // The process dist_ctrl_put_data/2 takes data from: the controller, or dist_ctrl_input_handler/2's; 0 for a
     // process of another node, from which no data comes.
     Word input_handler = 0;
-    // Encoded packets dist_ctrl_get_data/1 hands the controller, oldest first; the signal encoder (DIST5) queues them.
+    // Encoded packets dist_ctrl_get_data/1 hands the controller, oldest first: messages since DIST4b3a, also while
+    // the connection is pending.
     std::deque<std::vector<std::byte>> output;
+    // How many packets at the front of `output` were queued while the connection was pending.
+    std::size_t pending_packets = 0;
     // Whether the controller asked for a dist_data message when a packet is queued.
     bool notify = false;
     // dist_ctrl_set_opt(DHandle, get_size, Bool): dist_ctrl_get_data/1 returns {Size, Packet}.
@@ -52,8 +64,10 @@ struct DataPath final {
     std::uint64_t received = 0;
     std::uint64_t sent = 0;
 
-    // The bytes queued, dist_get_stat/1's pending output.
+    // dist_get_stat/1's pending output: the bytes queued, each packet with OTP's overhead.
     std::size_t queued() const noexcept;
+    // Take the oldest packet (dist_ctrl_get_data/1); the output must not be empty.
+    std::vector<std::byte> take();
 };
 
 // One other node's connection entry, as OTP's dist entry: idle, pending (new_connection/1 or auto-connect) or up

@@ -204,7 +204,7 @@ TermResult<Parts> parts_of(const Term &value) {
     parts.creation = external->creation;
     parts.numbers = external->numbers;
     parts.count = external->count;
-    parts.channel = *spelling == this_node_name() ? 0 : external->node >> abi::v1::atom_tag_bits;
+    parts.channel = *spelling == this_node_name() ? 0 : node_channel(external->node);
     return parts;
 }
 
@@ -282,6 +282,8 @@ TermResult<int> identity_order(const Term &left, const Term &right) noexcept {
         return std::unexpected(TermError::out_of_memory);
     }
 }
+
+std::uint64_t node_channel(Word node) noexcept { return node >> abi::v1::atom_tag_bits; }
 
 TermResult<void> print_identity(const Term &value, TextOutput &out) {
     const auto parts = parts_of(value);

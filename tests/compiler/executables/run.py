@@ -117,12 +117,12 @@ def environment(run, epmd_port=None):
     """The host environment without inherited runtime flags and NO_COLOR (io_ansi drops colors under it, so a
     golden would depend on the caller's shell), plus the Python that runs helper programs (CLAUSE_TEST_PYTHON), the
     logger's default handler on standard error as the OTP oracle has it (CLAUSE_LOGGER_TYPE), the epmd port of a
-    multi-node run, else one where no epmd listens, so that a user's epmd is never asked (ERL_EPMD_PORT), and the
-    run's own 'env' entries."""
+    multi-node run, else one where no epmd listens, so that a user's epmd is never asked (ERL_EPMD_PORT), an epmd the
+    program starts listening on loopback only (ERL_EPMD_ADDRESS), and the run's own 'env' entries."""
     inherited = {name: value for name, value in os.environ.items()
                  if name.upper() not in ('CLAUSE_FLAGS', 'NO_COLOR', 'ERL_EPMD_PORT')}
     oracle = {'CLAUSE_TEST_PYTHON': sys.executable, 'CLAUSE_LOGGER_TYPE': 'standard_error',
-              'ERL_EPMD_PORT': str(epmd_port or nodes.free_port())}
+              'ERL_EPMD_PORT': str(epmd_port or nodes.free_port())} | nodes.LOOPBACK_EPMD
     return inherited | oracle | run.get('env', {})
 
 
@@ -190,12 +190,14 @@ def epmd_command(run):
 
 def node_environment(run, node, port):
     """A node's environment, with its own 'env' entries (plan 30 step DIST4b1b), or ERL_FLAGS from 'otp_flags' for an
-    otp node: a Clause node of a run with the runner's epmd never starts its own (--epmd none, plan 30 step DIST3b)."""
+    otp node: a Clause node of a run with the runner's epmd never starts its own (--epmd none, plan 30 step DIST3b).
+    Every node's distribution listens on loopback (nodes.loopback_flags)."""
     result = environment(run, port) | node.get('env', {})
-    if node.get('kind') == 'otp' and 'otp_flags' in node:
-        result['ERL_FLAGS'] = node['otp_flags']
-    if not nodes.bundled(run) and node.get('kind') != 'otp':
-        result['CLAUSE_FLAGS'] = ' '.join(filter(None, [result.get('CLAUSE_FLAGS'), '--epmd none']))
+    if node.get('kind') == 'otp':
+        result['ERL_FLAGS'] = nodes.loopback_flags(node.get('otp_flags'), True)
+        return result
+    epmd = [] if nodes.bundled(run) else ['--epmd none']
+    result['CLAUSE_FLAGS'] = ' '.join([nodes.loopback_flags(result.get('CLAUSE_FLAGS'), False), *epmd])
     return result
 
 

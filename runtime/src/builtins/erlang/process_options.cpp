@@ -1,5 +1,6 @@
 #include "../../scheduler/executor.hpp"
 #include "../../terms/identities.hpp"
+#include "dist_messages.hpp"
 #include "processes.hpp"
 #include <array>
 
@@ -36,15 +37,24 @@ std::vector<std::string_view> options_of(const OptionsArg &options, std::span<co
     return names;
 }
 
-// send(Dest, Msg, Options): ok; noconnect for a message to another node sent with noconnect. Priority sends are
-// accepted and delivered as ordinary messages.
+// Whether a send to another node with noconnect found its node not connected and sent nothing (plan 30 step
+// DIST4b3a).
+bool not_connected(ProcessContext &context, const DestinationArg &destination, const MessageArg &message) {
+    const RemoteMessage send{.destination = destination.term, .message = message.term, .connect = false};
+    return send_remote(context, send) == detail::DistSend::noconnect;
+}
+
+// send(Dest, Msg, Options): ok; noconnect for a message to another node sent with noconnect while that node is not
+// connected. Priority sends are accepted and delivered as ordinary messages.
 Term send3(ProcessContext &context, const DestinationArg &destination, const MessageArg &message,
            const OptionsArg &options) {
     static constexpr std::array<std::string_view, 3> ALLOWED{"nosuspend", "noconnect", "priority"};
     const auto names = options_of(options, ALLOWED);
+    if (std::ranges::contains(names, std::string_view{"noconnect"}) && remote_destination(destination.term)) {
+        return atom(context, not_connected(context, destination, message) ? "noconnect"_atom : "ok"_atom);
+    }
     need(send_message(context, destination.term, message.term));
-    const bool noconnect = std::ranges::contains(names, std::string_view{"noconnect"});
-    return atom(context, noconnect && remote_destination(destination.term) ? "noconnect"_atom : "ok"_atom);
+    return atom(context, "ok"_atom);
 }
 
 // send_nosuspend(Dest, Msg): true; a local send never suspends.
@@ -53,13 +63,16 @@ Term send_nosuspend2(ProcessContext &context, const DestinationArg &destination,
     return atom(context, "true"_atom);
 }
 
-// send_nosuspend(Dest, Msg, [noconnect]): false for a message to another node, else true.
+// send_nosuspend(Dest, Msg, [noconnect]): false for a message to another node that is not connected, else true.
 Term send_nosuspend3(ProcessContext &context, const DestinationArg &destination, const MessageArg &message,
                      const OptionsArg &options) {
     static constexpr std::array<std::string_view, 1> ALLOWED{"noconnect"};
     const auto names = options_of(options, ALLOWED);
+    if (!names.empty() && remote_destination(destination.term)) {
+        return TermFactory(context).boolean(!not_connected(context, destination, message)).value();
+    }
     need(send_message(context, destination.term, message.term));
-    return TermFactory(context).boolean(names.empty() || !remote_destination(destination.term)).value();
+    return atom(context, "true"_atom);
 }
 
 // The options of link/2, exit/3 and exit_signal/3: [] or [priority], which Clause delivers as ordinary signals.

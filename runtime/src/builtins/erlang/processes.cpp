@@ -1,6 +1,7 @@
 #include "processes.hpp"
 #include "../../terms/identities.hpp"
 #include "../typed.hpp"
+#include "dist_messages.hpp"
 #include "ports.hpp"
 #include "spawning.hpp"
 #include <array>
@@ -322,15 +323,12 @@ TermResult<Term> is_process_alive(ProcessContext &context, const Term &pid) {
     return TermFactory(context).boolean(detail::Executor::alive(context, pid.word()));
 }
 
-// The pid a send goes to: a pid; the process registered as an atom (badarg when none is); for {Name, Node} the
-// process registered as Name on this node, or 0 to drop the message, as for another node's pid. Anything else, a
-// port of another node too, is badarg.
+// The pid a send on this node goes to: a pid; the process registered as an atom (badarg when none is) or as Name of
+// {Name, Node} with this node's name (0 when none is, to drop the message). Anything else, a port of another node too,
+// is badarg.
 Word destination_pid(ProcessContext &context, const Term &destination) {
     if (destination.is_pid() || destination.is_port()) {
         return destination.word();
-    }
-    if (destination.is_external_pid()) {
-        return 0;
     }
 
     const auto &executor = detail::Executor::of(context);
@@ -341,10 +339,10 @@ Word destination_pid(ProcessContext &context, const Term &destination) {
         }
         return pid;
     }
-    if (!remote_name(destination)) {
+    if (!remote_name(destination) || !local_name(destination)) {
         bad_argument();
     }
-    return local_name(destination) ? executor.whereis(context, destination.tuple_element_unchecked(0).word()) : 0;
+    return executor.whereis(context, destination.tuple_element_unchecked(0).word());
 }
 
 // Deliver `message` to the process of `pid` unless it is 0; returns the message.
@@ -360,12 +358,14 @@ Term send_to(ProcessContext &context, Word pid, const Term &message) {
 }
 
 // Dest ! Msg and erlang:send(Dest, Msg): Msg, after delivering it to the process Dest names (nothing when that
-// process has ended or a {Name, Node} names none).
+// process has ended or a {Name, Node} names none). A message to another node's process goes on its connection (plan
+// 30 step DIST4b3a).
 TermResult<Term> send(ProcessContext &context, const Term &destination, const Term &message) {
-    // A reference sends through an alias, or nowhere when it is none (step 41G2); another node's goes nowhere.
-    if (destination.is_external_reference()) {
+    if (remote_destination(destination)) {
+        send_remote(context, {.destination = destination, .message = message});
         return message;
     }
+    // A reference sends through an alias, or nowhere when it is none (step 41G2).
     if (destination.is_reference()) {
         if (const auto sent = detail::Executor::send_alias(context, destination.reference_value_unchecked(), message);
             !sent) {
@@ -439,9 +439,8 @@ TermResult<Term> send_message(ProcessContext &context, const Term &destination, 
 }
 
 bool remote_destination(const Term &destination) {
-    return detail::is_identity(destination)
-               ? !destination.is_pid() && !destination.is_port() && !destination.is_reference()
-               : remote_name(destination) && !local_name(destination);
+    return destination.is_external_pid() || destination.is_external_reference() ||
+           (remote_name(destination) && !local_name(destination));
 }
 
 TermResult<Term> link_process(ProcessContext &context, const Term &pid) { return link(context, pid); }

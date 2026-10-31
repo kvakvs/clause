@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <new>
+#include <utility>
 
 // Connection entries of other nodes and node status messages (plan 30 step DIST2b, docs/distribution.md#connections):
 // the executor keeps the table under its lock, as OTP's dist table; a controller's end takes its connection down and
@@ -119,11 +120,18 @@ Term down_reason(ProcessContext &controller) {
 } // namespace
 
 std::size_t DataPath::queued() const noexcept {
-    std::size_t bytes = 0;
+    std::size_t bytes = pending_packets * (PENDING_PACKET_OVERHEAD - PACKET_OVERHEAD);
     for (const auto &packet : output) {
-        bytes += packet.size();
+        bytes += packet.size() + PACKET_OVERHEAD;
     }
     return bytes;
+}
+
+std::vector<std::byte> DataPath::take() {
+    auto packet = std::move(output.front());
+    output.pop_front();
+    pending_packets -= pending_packets > 0 ? 1 : 0;
+    return packet;
 }
 
 Connection *ConnectionTable::find(Word node) noexcept {
@@ -169,7 +177,12 @@ void ConnectionTable::connect(Word node, Word controller, const ChannelOptions &
     connection.flags = options.flags;
     connection.creation = options.creation;
     connection.stamp = ++clock_;
+    // Packets sent while the connection was pending wait for the controller (DIST4b3a).
+    auto output = std::move(connection.data.output);
+    const auto pending_packets = connection.data.pending_packets;
     connection.data = {};
+    connection.data.output = std::move(output);
+    connection.data.pending_packets = pending_packets;
     connection.data.input_handler = controller;
 }
 
@@ -412,6 +425,45 @@ void Executor::auto_connect(ProcessContext &context, Word node, Connection &conn
     const std::array parts{atom(context, "auto_connect"_atom), built(Term::from_word(node, context)),
                            built(handle_term(context, connection))};
     post(*target, buffered(context, built(TermFactory(context).tuple(parts))));
+}
+
+std::expected<Connection *, DistSend> Executor::output_connection(ProcessContext &context, const Term &node,
+                                                                  bool connect) {
+    if (!this_node_named()) {
+        return std::unexpected(connect ? DistSend::dropped : DistSend::noconnect);
+    }
+    // A pid or reference of an earlier incarnation of this node names no process.
+    if (is_this_node(node)) {
+        return std::unexpected(DistSend::dropped);
+    }
+    auto &connection = entry_of(context, node.word());
+    if (connection.state != Connection::State::idle) {
+        return &connection;
+    }
+    if (!connect) {
+        return std::unexpected(DistSend::noconnect);
+    }
+    auto_connect(context, node.word(), connection);
+    if (connection.state == Connection::State::idle) {
+        return std::unexpected(DistSend::dropped);
+    }
+    return &connection;
+}
+
+DistSend Executor::dist_output(ProcessContext &context, const Term &node, std::vector<std::byte> packet, bool connect) {
+    const std::scoped_lock lock(mutex_);
+    const auto found = output_connection(context, node, connect);
+    if (!found) {
+        return found.error();
+    }
+    auto &connection = **found;
+    connection.data.output.push_back(std::move(packet));
+    connection.data.pending_packets += connection.state == Connection::State::pending ? 1 : 0;
+    auto *controller = connection.state == Connection::State::up ? process(connection.controller) : nullptr;
+    if (controller != nullptr && std::exchange(connection.data.notify, false)) {
+        post(*controller, buffered(context, atom(context, "dist_data"_atom)));
+    }
+    return DistSend::queued;
 }
 
 void Executor::take_down(ProcessContext &builder, Word node) {

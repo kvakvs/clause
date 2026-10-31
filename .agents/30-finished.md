@@ -89,3 +89,8 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST4b2c** IPv6 carrier and carrier options: `inet6_tcp_dist` over `inet_tcp_dist`'s `gen_*` driver functions
   and `fam_address/1`, `fam_select/2`; `merge_options/2,3` as observed, listen/connect kernel options under the
   carrier's own (a family there is `badarg`), listen-socket `setopts/2`/`getopts/2`; golden `dist_connect` IPv6 run — 54959c19
+- **DIST4b3a** Messages across nodes: sends to another node's pid (`SEND_SENDER`, `SEND` while pending),
+  `{Name, Node}` and alias as pass-through packets on the connection (auto-connect, queued while pending, OTP's
+  pending-byte counts); `dist_ctrl_put_data/2` delivers the message operations and kills the controller on
+  unreadable data with OTP's reports; `net_kernel` logs unexpected messages and takes `undefined@Host`; golden
+  `dist_ping`; test programs and epmds listen on loopback only, nodes named @localhost — HASH

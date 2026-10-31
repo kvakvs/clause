@@ -199,7 +199,7 @@ init(#{name := Name} = Options) ->
     process_flag(trap_exit, true),
     Listen =
         maps:get(dist_listen, Options, init:get_argument(dist_listen) =/= {ok, [["false"]]}) andalso
-            Name =/= undefined,
+            not dynamic(Name),
     State = #state{
         name_domain = maps:get(name_domain, Options, longnames),
         started = started(Options),
@@ -208,10 +208,14 @@ init(#{name := Name} = Options) ->
         hidden = maps:get(hidden, Options, init:get_argument(hidden) =/= error) orelse not Listen,
         seed = rand:uniform(1 bsl 62)
     },
-    case Name of
-        undefined -> dynamic_name(node_name("undefined", State#state.name_domain), State);
-        _ -> name_node(node_name(atom_to_list(Name), State#state.name_domain), Listen, State)
+    Text = atom_to_list(Name),
+    case dynamic(Name) of
+        true -> dynamic_name(node_name(Text, State#state.name_domain), State);
+        false -> name_node(node_name(Text, State#state.name_domain), Listen, State)
     end.
+
+% Whether a node name asks the first peer for a name: undefined, also with a host (undefined@Host), as OTP's.
+dynamic(Name) -> hd(string:split(atom_to_list(Name), "@")) =:= "undefined".
 
 % The node of net_kernel:start/1,2 is dynamic, the node of the node start options static.
 started(#{supervisor := net_sup_dynamic}) -> dynamic;
@@ -407,7 +411,9 @@ handle_info({Pid, {set_name, Node, Creation}}, State) ->
     {noreply, NewState};
 handle_info({Pid, {nodeup, Node, Address, Type}}, State) ->
     {noreply, nodeup(Pid, Node, Address, Type, State)};
-handle_info({dist_ctrlr, Controller, Node, _SetupPid}, #state{controllers = Controllers} = State) ->
+handle_info({dist_ctrlr, Controller, Node, SetupPid}, #state{controllers = Controllers, owners = Owners} = State) when
+    map_get(SetupPid, Owners) =:= Node
+->
     link(Controller),
     {noreply, State#state{controllers = Controllers#{Controller => Node}}};
 handle_info(tick, #state{connections = Connections} = State) ->
@@ -415,7 +421,9 @@ handle_info(tick, #state{connections = Connections} = State) ->
     {noreply, State};
 handle_info({'EXIT', Pid, Reason}, State) ->
     exited(Pid, Reason, State);
-handle_info(_, State) ->
+% Anything else, a setnode/3 of a process that set up no connection too, is logged as OTP's (DIST4b3a).
+handle_info(Message, State) ->
+    error_logger:error_msg("Net kernel got ~tw~n", [Message]),
     {noreply, State}.
 
 % A node still waiting for its dynamic name is no longer alive once the server ends.

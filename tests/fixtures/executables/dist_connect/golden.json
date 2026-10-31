@@ -10,12 +10,12 @@
             "a"
           ],
           "env": {
-            "CLAUSE_FLAGS": "--sname dca --setcookie dc --env kernel net_ticktime 3"
+            "CLAUSE_FLAGS": "--sname dca@localhost --setcookie dc --env kernel net_ticktime 3"
           },
-          "otp_flags": "-sname dca -setcookie dc -kernel net_ticktime 3",
+          "otp_flags": "-sname dca@localhost -setcookie dc -kernel net_ticktime 3",
           "stderr": "^$",
           "exit_status": 0,
-          "stdout": "wrong cookie: [false,[]]\nconnect: [true,[dcb@HOST],[],[dcb@HOST]]\nstatus: {nodeup,dcb@HOST,[{node_type,visible}]}\nagain: true\nafter ticks: [dcb@HOST]\ndisconnect: [true,[]]\nmessages: [{nodedown,dcb@HOST},\n {nodedown,dcb@HOST,[{nodedown_reason,disconnect},{node_type,visible}]}]\ndisconnect again: [false,false]\nhidden: [true,[],[dcb@HOST]]\nstatus: {nodeup,dcb@HOST,[{node_type,hidden}]}\ndist_connect: ok\n"
+          "stdout": "wrong cookie: [false,[]]\nconnect: [true,[dcb@localhost],[],[dcb@localhost]]\nstatus: {nodeup,dcb@localhost,[{node_type,visible}]}\nagain: true\nafter ticks: [dcb@localhost]\ndisconnect: [true,[]]\nmessages: [{nodedown,dcb@localhost},\n {nodedown,dcb@localhost,[{nodedown_reason,disconnect},{node_type,visible}]}]\ndisconnect again: [false,false]\nhidden: [true,[],[dcb@localhost]]\nstatus: {nodeup,dcb@localhost,[{node_type,hidden}]}\ndist_connect: ok\n"
         },
         {
           "name": "b",
@@ -23,12 +23,12 @@
             "b"
           ],
           "env": {
-            "CLAUSE_FLAGS": "--sname dcb --setcookie dc --env kernel net_ticktime 3"
+            "CLAUSE_FLAGS": "--sname dcb@localhost --setcookie dc --env kernel net_ticktime 3"
           },
-          "otp_flags": "-sname dcb -setcookie dc -kernel net_ticktime 3",
+          "otp_flags": "-sname dcb@localhost -setcookie dc -kernel net_ticktime 3",
           "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt from node dca@\\S+ rejected\\. Invalid challenge reply\\. \\*\\*\\n\\n$",
           "exit_status": 0,
-          "stdout": "status: {nodeup,dca@HOST,[{node_type,visible}]}\nstatus: {nodedown,dca@HOST,\n          [{nodedown_reason,connection_closed},{node_type,visible}]}\nstatus: {nodeup,dca@HOST,[{node_type,hidden}]}\nstatus: {nodedown,dca@HOST,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_connect: ok\n"
+          "stdout": "status: {nodeup,dca@localhost,[{node_type,visible}]}\nstatus: {nodedown,dca@localhost,\n          [{nodedown_reason,connection_closed},{node_type,visible}]}\nstatus: {nodeup,dca@localhost,[{node_type,hidden}]}\nstatus: {nodedown,dca@localhost,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_connect: ok\n"
         }
       ]
     },
@@ -40,12 +40,12 @@
             "sa"
           ],
           "env": {
-            "CLAUSE_FLAGS": "--sname dsa --setcookie dc"
+            "CLAUSE_FLAGS": "--sname dsa@localhost --setcookie dc"
           },
-          "otp_flags": "-sname dsa -setcookie dc",
+          "otp_flags": "-sname dsa@localhost -setcookie dc",
           "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt with disallowed node dsb@\\S+ \\*\\* \\n\\n$",
           "exit_status": 0,
-          "stdout": "simultaneous: [true,[dsb@HOST]]\nstatus: {nodeup,dsb@HOST,[]}\nreplaced: {nodedown,dsb@HOST,[{nodedown_reason,connection_closed}]}\nallow: [ok,error,error]\nallowed: {ok,[dsz@nohost]}\ndisallowed: false\ndist_connect: ok\n"
+          "stdout": "simultaneous: [true,[dsb@localhost]]\nstatus: {nodeup,dsb@localhost,[]}\nreplaced: {nodedown,dsb@localhost,[{nodedown_reason,connection_closed}]}\nallow: [ok,error,error]\nallowed: {ok,[dsz@nohost]}\ndisallowed: false\ndist_connect: ok\n"
         },
         {
           "name": "sb",
@@ -53,12 +53,12 @@
             "sb"
           ],
           "env": {
-            "CLAUSE_FLAGS": "--sname dsb --setcookie dc"
+            "CLAUSE_FLAGS": "--sname dsb@localhost --setcookie dc"
           },
-          "otp_flags": "-sname dsb -setcookie dc",
+          "otp_flags": "-sname dsb@localhost -setcookie dc",
           "stderr": "^=ERROR REPORT==== .* ===\\n\\n\\*\\* Cannot get connection id for node dsb@\\S+\\n\\n=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt from disallowed node dsz@\\S+ \\*\\* \\n\\n$",
           "exit_status": 0,
-          "stdout": "simultaneous: [true,[dsa@HOST]]\nstatus: {nodeup,dsa@HOST,[]}\nalive false: {alive,{error,closed}}\nstill: [dsa@HOST]\nalive true: alive\nmessages: [{nodedown,dsa@HOST,[{nodedown_reason,wait_pending}]},\n {nodeup,dsa@HOST,[]}]\nclosed: {nodedown,dsa@HOST,[{nodedown_reason,connection_closed}]}\nown name: {nok,{error,closed}}\nnamed: [DYNAMIC@otherhost,true,true,true,DYNAMIC@otherhost]\nnot allowed: {not_allowed,{error,closed}}\ndist_connect: ok\n"
+          "stdout": "simultaneous: [true,[dsa@localhost]]\nstatus: {nodeup,dsa@localhost,[]}\nalive false: {alive,{error,closed}}\nstill: [dsa@localhost]\nalive true: alive\nmessages: [{nodedown,dsa@localhost,[{nodedown_reason,wait_pending}]},\n {nodeup,dsa@localhost,[]}]\nclosed: {nodedown,dsa@localhost,[{nodedown_reason,connection_closed}]}\nown name: {nok,{error,closed}}\nnamed: [DYNAMIC@otherhost,true,true,true,DYNAMIC@otherhost]\nnot allowed: {not_allowed,{error,closed}}\ndist_connect: ok\n"
         }
       ]
     },
@@ -70,12 +70,12 @@
             "6a"
           ],
           "env": {
-            "CLAUSE_FLAGS": "--sname d6a --setcookie dc --proto-dist inet6_tcp --env kernel inet_dist_connect_options [{packet,0},{active,true},list]"
+            "CLAUSE_FLAGS": "--sname d6a@localhost --setcookie dc --proto-dist inet6_tcp --env kernel inet_dist_connect_options [{packet,0},{active,true},list]"
           },
-          "otp_flags": "-sname d6a -setcookie dc -proto_dist inet6_tcp -kernel inet_dist_connect_options [{packet,0},{active,true},list]",
+          "otp_flags": "-sname d6a@localhost -setcookie dc -proto_dist inet6_tcp -kernel inet_dist_connect_options [{packet,0},{active,true},list]",
           "stderr": "^$",
           "exit_status": 0,
-          "stdout": "select: [true,true,false]\naddress: [{net_address,undefined,\"HOST\",tcp,inet6},true,false]\nfamily option: [false,[]]\nconnect: [true,[d6b@HOST]]\nsetopts: [ok,\n {error,{badopts,[{active,true},{packet,4},{deliver,term}]}},\n {error,{badopts,[{active,true}]}},\n {error,{bad_generator,foo}}]\ngetopts: {ok,[{nodelay,false},{keepalive,true}]}\nmerge: [[{active,false},{packet,2},binary,{sndbuf,10}],\n [binary,inet],\n [foo,{raw,5,6,<<>>},{a,3},{a,4},foo,{foo,1},{raw,1,2,<<>>},{a,1,2},1],\n {error,function_clause}]\nmerge additional: [[{packet,2},{nodelay,false},{sndbuf,5}],\n [{y,2},{x,3},inet,binary,{z,4},{y,5},inet6],\n {error,function_clause}]\ndisconnect: true\ndist_connect: ok\n"
+          "stdout": "select: [true,true,false]\naddress: [{net_address,undefined,\"HOST\",tcp,inet6},true,false]\nfamily option: [false,[]]\nconnect: [true,[d6b@localhost]]\nsetopts: [ok,\n {error,{badopts,[{active,true},{packet,4},{deliver,term}]}},\n {error,{badopts,[{active,true}]}},\n {error,{bad_generator,foo}}]\ngetopts: {ok,[{nodelay,false},{keepalive,true}]}\nmerge: [[{active,false},{packet,2},binary,{sndbuf,10}],\n [binary,inet],\n [foo,{raw,5,6,<<>>},{a,3},{a,4},foo,{foo,1},{raw,1,2,<<>>},{a,1,2},1],\n {error,function_clause}]\nmerge additional: [[{packet,2},{nodelay,false},{sndbuf,5}],\n [{y,2},{x,3},inet,binary,{z,4},{y,5},inet6],\n {error,function_clause}]\ndisconnect: true\ndist_connect: ok\n"
         },
         {
           "name": "6b",
@@ -83,12 +83,12 @@
             "6b"
           ],
           "env": {
-            "CLAUSE_FLAGS": "--sname d6b --setcookie dc --proto-dist inet6_tcp --env kernel inet_dist_listen_options [{packet,0},{active,true},list]"
+            "CLAUSE_FLAGS": "--sname d6b@localhost --setcookie dc --proto-dist inet6_tcp --env kernel inet_dist_listen_options [{packet,0},{active,true},list]"
           },
-          "otp_flags": "-sname d6b -setcookie dc -proto_dist inet6_tcp -kernel inet_dist_listen_options [{packet,0},{active,true},list]",
+          "otp_flags": "-sname d6b@localhost -setcookie dc -proto_dist inet6_tcp -kernel inet_dist_listen_options [{packet,0},{active,true},list]",
           "stderr": "^$",
           "exit_status": 0,
-          "stdout": "status: {nodeup,d6a@HOST,[]}\nstatus: {nodedown,d6a@HOST,[{nodedown_reason,connection_closed}]}\ndist_connect: ok\n"
+          "stdout": "status: {nodeup,d6a@localhost,[]}\nstatus: {nodedown,d6a@localhost,[{nodedown_reason,connection_closed}]}\ndist_connect: ok\n"
         }
       ]
     },
@@ -100,12 +100,12 @@
             "db"
           ],
           "env": {
-            "CLAUSE_FLAGS": "--sname ddb --setcookie dc"
+            "CLAUSE_FLAGS": "--sname ddb@localhost --setcookie dc"
           },
-          "otp_flags": "-sname ddb -setcookie dc",
+          "otp_flags": "-sname ddb@localhost -setcookie dc",
           "stderr": "^$",
           "exit_status": 0,
-          "stdout": "status: {nodeup,DYNAMIC@HOST,[{node_type,hidden}]}\nstatus: {nodedown,DYNAMIC@HOST,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\nstatus: {nodeup,DYNAMIC@HOST,[{node_type,hidden}]}\nstatus: {nodedown,DYNAMIC@HOST,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_connect: ok\n"
+          "stdout": "status: {nodeup,DYNAMIC@localhost,[{node_type,hidden}]}\nstatus: {nodedown,DYNAMIC@localhost,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\nstatus: {nodeup,DYNAMIC@localhost,[{node_type,hidden}]}\nstatus: {nodedown,DYNAMIC@localhost,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_connect: ok\n"
         },
         {
           "name": "dynamic",
@@ -113,12 +113,12 @@
             "dynamic"
           ],
           "env": {
-            "CLAUSE_FLAGS": "--sname undefined --setcookie dc"
+            "CLAUSE_FLAGS": "--sname undefined@localhost --setcookie dc"
           },
-          "otp_flags": "-sname undefined -setcookie dc",
+          "otp_flags": "-sname undefined@localhost -setcookie dc",
           "stderr": "^$",
           "exit_status": 0,
-          "stdout": "unnamed: [nonode@nohost,true,#{name => undefined,name_type => dynamic}]\nconnect: [true,DYNAMIC@HOST,[],[ddb@HOST]]\nnamed: [true,\n {nodeup,DYNAMIC@HOST,[{node_type,visible}]},\n {nodeup,ddb@HOST,[{node_type,hidden}]}]\ndisconnect: [true,\n {nodedown,ddb@HOST,[{nodedown_reason,disconnect},{node_type,hidden}]},\n {nodedown,DYNAMIC@HOST,\n           [{nodedown_reason,net_kernel_terminated},{node_type,visible}]}]\nunnamed again: [nonode@nohost,true,#{name => undefined,name_type => dynamic}]\nconnect again: [true,true]\ndist_connect: ok\n"
+          "stdout": "unnamed: [nonode@nohost,true,#{name => undefined,name_type => dynamic}]\nconnect: [true,DYNAMIC@localhost,[],[ddb@localhost]]\nnamed: [true,\n {nodeup,DYNAMIC@localhost,[{node_type,visible}]},\n {nodeup,ddb@localhost,[{node_type,hidden}]}]\ndisconnect: [true,\n {nodedown,ddb@localhost,[{nodedown_reason,disconnect},{node_type,hidden}]},\n {nodedown,DYNAMIC@localhost,\n           [{nodedown_reason,net_kernel_terminated},{node_type,visible}]}]\nunnamed again: [nonode@nohost,true,#{name => undefined,name_type => dynamic}]\nconnect again: [true,true]\ndist_connect: ok\n"
         }
       ]
     }
@@ -132,6 +132,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "dist_connect.erl": "aeecb8e04035f1faf4b153bcc4dcb78628bcd24e6068c15f8f3aeb0ea4b747a4"
+    "dist_connect.erl": "a987cbfdf3c96c6e7b318d2b3ae6412b26b94518548505ba769aecd8bf5b8345"
   }
 }

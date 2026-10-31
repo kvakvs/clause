@@ -70,6 +70,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "dist_node.erl": "96035cad3cd33bf419471044002fd17ed3b07cc444f3f7a4b8b06ed896482fc0"
+    "dist_node.erl": "9fbed7b404918ade8b8ba7d1be7736c32fd983c7afd6a01f93e4422798bda81d"
   }
 }

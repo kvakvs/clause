@@ -23,7 +23,7 @@ main(["external"]) ->
     {ok, _} = erl_epmd:start(),
     {ok, Creation} = erl_epmd:register_node(alpha, 40001),
     show("creation", is_integer(Creation)),
-    show("names", erl_epmd:names()),
+    show("names", erl_epmd:names(localhost)),
     ok = erl_epmd:stop(),
     wait_names({ok, []}),
     show("kill", tool(["-kill"])),
@@ -68,14 +68,14 @@ masked(Data) ->
     Text = binary:replace(Data, <<"\r\n">>, <<"\n">>, [global]),
     binary:replace(Text, list_to_binary(os:getenv("ERL_EPMD_PORT")), <<"PORT">>, [global]).
 
-%% Wait until erl_epmd:names() answers Expected.
+%% Wait until erl_epmd:names(localhost) answers Expected.
 wait_names(Expected) ->
     wait_names(Expected, ?WAIT_MS div 50).
 
 wait_names(Expected, 0) ->
-    error({names, Expected, erl_epmd:names()});
+    error({names, Expected, erl_epmd:names(localhost)});
 wait_names(Expected, Attempts) ->
-    case erl_epmd:names() of
+    case erl_epmd:names(localhost) of
         Expected ->
             ok;
         _ ->

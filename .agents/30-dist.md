@@ -6,7 +6,7 @@ direction); formerly backlog item F38.
 
 - **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a) or
   `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d); started nodes
-  connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c) but move no signal yet.
+  connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c) and exchange messages (DIST4b3a), no other signal yet.
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -86,21 +86,22 @@ and dynamic names) and DIST4b2c (IPv6 and carrier options); all done ([30-finish
 
 ## DIST4b3. First data path and ping
 
-Depends on: DIST4b2c ([30-finished](30-finished.md)).
+Split 2026-10-31 into DIST4b3a (messages) and DIST4b3b (process monitors and ping). Observed in OTP 29.1.1 with a
+Python peer and a test process as a connection's controller (`setnode/3` with a pid; `.agents/aimemory.md`).
+DIST4b3a is done ([30-finished](30-finished.md)).
+
+## DIST4b3b. Process monitors and ping
+
+Depends on: DIST4b3a ([30-finished](30-finished.md)).
 
 - Success criteria
-  - [ ] `SEND_SENDER`, `REG_SEND`, `MONITOR_P`/`DEMONITOR_P`/`MONITOR_P_EXIT` (enough for `gen:call/3` to
-        `{net_kernel, Node}`), pass-through framing, the offered flags of
-        [protocol](../docs/distribution.md#protocol).
-    - Encoded packets join DIST2d's output queue (`DataPath::output`), sending `dist_data` to a
-      controller that asked; `dist_get_stat/1`'s pending bytes as OTP counts them.
-    - `dist_ctrl_put_data/2` decodes what it takes, drops data of an earlier connection id, and
-      for data it cannot read logs OTP's `** Got message from incompatible erlang on channel ...`
-      and ends the connection, as observed.
-  - [ ] `net_adm:ping/1` answers `pong`; messages to remote pids and to `{Name, Node}`.
+  - [ ] `MONITOR_P`, `DEMONITOR_P` and `MONITOR_P_EXIT` (enough for `gen:call/3` to `{net_kernel, Node}`),
+        `'DOWN'` with `noconnection` when the connection goes down, as observed.
+  - [ ] `net_adm:ping/1` answers `pong`, or `pang` after OTP's log line for a wrong cookie.
+  - [ ] The program's end (entry returned, `halt/0,1`) waits until the controllers sent the queued packets, as
+        OTP's `halt` flushes outstanding output; the socket writes too (asynchronous on the I/O thread).
 - Tests
-  - [ ] Golden `dist_ping`: two Clause nodes register, ping and exchange messages to pids and to
-        `{Name, Node}`; wrong cookie gives `pang` and OTP's log line.
+  - [ ] Golden `dist_ping`: ping, remote monitors and calls to another node's server.
 
 <a id="step-dist4b4"></a>
 

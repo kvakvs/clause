@@ -6,8 +6,8 @@
 namespace clause::runtime::builtins {
 // Dest ! Msg: Msg, after delivering it to the process Dest names.
 TermResult<Term> send_message(ProcessContext &context, const Term &destination, const Term &message);
-// Whether a send destination is {Name, Node} naming another node, or another node's pid, port or reference: this
-// node, not alive, drops such messages.
+// Whether a send destination is {Name, Node} naming another node, or another node's pid or reference: the message
+// goes on that node's connection (plan 30 step DIST4b3a). Another node's port is badarg.
 bool remote_destination(const Term &destination);
 // link(Pid): true once linked; error:noproc for an ended process unless the caller traps exits.
 TermResult<Term> link_process(ProcessContext &context, const Term &pid);

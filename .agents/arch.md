@@ -123,6 +123,9 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   the carrier's controller process (socket owner: handshake requests, then `dist_ctrl_*` data and ticks) and then
   ticks the connection. `erlang:disconnect_node/1` continues in `net_kernel:disconnect/1` while alive.
   `inet6_tcp_dist` is the same carrier over IPv6, through `inet_tcp_dist`'s `gen_*` functions (DIST4b2c).
+  Messages to other nodes (`builtins/erlang/dist_messages.cpp`, DIST4b3a): the send builtins encode a pass-through
+  packet onto the connection's output queue (`Executor::dist_output`, auto-connecting an idle one), and
+  `dist_ctrl_put_data/2` decodes packets and delivers them, or kills the controller with OTP's report.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

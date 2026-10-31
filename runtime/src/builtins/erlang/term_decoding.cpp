@@ -460,6 +460,19 @@ Term decode_external(ProcessContext &context, std::string_view bytes) {
         bad_argument();
     }
 }
+
+std::optional<std::pair<Term, std::size_t>> decode_external_prefix(ProcessContext &context, std::string_view bytes) {
+    try {
+        Decoder decoder(context, bytes, {});
+        const auto term = decoder.decode();
+        return std::pair{term, decoder.used()};
+    } catch (const external::FormatError &) {
+        return std::nullopt;
+    } catch (const BuiltinFailure &) {
+        // A pid of this node the program never made.
+        return std::nullopt;
+    }
+}
 } // namespace clause::runtime::builtins
 
 namespace clause::runtime {

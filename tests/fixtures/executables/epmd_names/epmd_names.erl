@@ -43,7 +43,7 @@ node_b() ->
     {ok, _} = erl_epmd:start_link(),
     {ok, _} = erl_epmd:register_node(beta, 40003, inet_tcp),
     wait_names([{"beta", 40003}]),
-    show("names", erl_epmd:names()),
+    show("names", erl_epmd:names(localhost)),
     show("alpha", erl_epmd:port_please(alpha, localhost)),
     io:format("epmd_names: ok~n").
 
@@ -109,10 +109,10 @@ relaxed() ->
     show("stop beta", reply(request(packet(<<115, "beta">>)))),
     show("beta connection", reply(Beta)),
     show("stop none", reply(request(packet(<<115, "none">>)))),
-    show("names", erl_epmd:names()),
+    show("names", erl_epmd:names(localhost)),
     show("kill", reply(request(packet(<<107>>)))),
     wait_names({error, address}),
-    show("after kill", [erl_epmd:port_please(alpha, localhost), erl_epmd:names()]),
+    show("after kill", [erl_epmd:port_please(alpha, localhost), erl_epmd:names(localhost)]),
     ok = erl_epmd:stop(),
     show(
         "stopped",
@@ -177,7 +177,7 @@ sorted(Answer) -> Answer.
 wait_for(Description, Wanted) -> wait_for(Description, Wanted, erlang:monotonic_time(millisecond) + ?WAIT_MS).
 
 wait_for(Description, Wanted, Deadline) ->
-    Names = erl_epmd:names(),
+    Names = erl_epmd:names(localhost),
     case Wanted(Names) of
         true ->
             ok;

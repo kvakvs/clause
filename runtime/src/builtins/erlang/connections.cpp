@@ -3,6 +3,7 @@
 #include "../../terms/identities.hpp"
 #include "../../terms/integers.hpp"
 #include "../typed.hpp"
+#include "dist_messages.hpp"
 #include <array>
 #include <clause/runtime/code_server.hpp>
 #include <clause/runtime/output.hpp>
@@ -212,8 +213,7 @@ TermResult<Term> dist_ctrl_get_data(ProcessContext &context, const Term &handle)
         if (path.output.empty()) {
             return TakenPacket{};
         }
-        TakenPacket packet{.bytes = std::move(path.output.front()), .sized = path.get_size};
-        path.output.pop_front();
+        TakenPacket packet{.bytes = path.take(), .sized = path.get_size};
         ++path.sent;
         return packet;
     });
@@ -296,8 +296,25 @@ Word put_iodata(ProcessContext &context, const std::array<Word, 2> &arguments) {
     return 0;
 }
 
+// The up connection a put's handle names, as its input handler puts to it: its node, its controller and whether the
+// handle's id is the current one (plan 30 step DIST4b3a).
+struct PutTarget {
+    PacketSource source;
+    bool current = false;
+};
+
+// Count a put as received by the connection of a handle's reference, if it is still up.
+void count_put(ProcessContext &context, std::uint64_t reference) {
+    Executor::of(context).with_connections([&](ConnectionTable &table) {
+        if (auto *connection = table.of_reference(reference); connection != nullptr) {
+            ++connection->data.received;
+        }
+    });
+}
+
 // dist_ctrl_put_data(DHandle, Data): data from the other node, taken from the connection's input handler only and
-// counted as received before Data is checked. Ticks (no data) are ok; other data is decoded from DIST5 on.
+// counted as received before Data is checked. Ticks (no data) and data of an earlier connection id are ok; a packet
+// is delivered, or kills the controller when it cannot be read (DIST4b3a), before it is counted.
 Word dist_ctrl_put_data(ProcessContext &context, const Term &handle, const Term &data) {
     if (data.is_list()) {
         return put_iodata(context, {handle.word(), data.word()});
@@ -307,14 +324,23 @@ Word dist_ctrl_put_data(ProcessContext &context, const Term &handle, const Term 
         bad_argument();
     }
     const auto pid = detail::pid_of(context);
-    const auto counted = Executor::of(context).with_connections([&](ConnectionTable &table) {
-        return table.input_of(table.of_reference(parsed->reference), pid).transform([](detail::Connection *connection) {
-            return ++connection->data.received;
-        });
+    const auto target = Executor::of(context).with_connections([&](ConnectionTable &table) {
+        return table.input_of(table.of_reference(parsed->reference), pid)
+            .transform([&](detail::Connection *connection) {
+                return PutTarget{.source = {.node = table.node_of_handle(parsed->reference).value_or(0),
+                                            .controller = connection->controller},
+                                 .current = std::cmp_equal(connection->id, parsed->id)};
+            });
     });
-    if (!counted) {
-        refuse(context, counted.error());
+    if (!target) {
+        refuse(context, target.error());
     }
+    if (data.is_binary() && target->current) {
+        if (const auto bytes = need(data.binary_bytes()); !bytes.empty()) {
+            take_packet(context, target->source, bytes);
+        }
+    }
+    count_put(context, parsed->reference);
     if (!data.is_binary()) {
         bad_argument();
     }

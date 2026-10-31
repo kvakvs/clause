@@ -15,8 +15,8 @@ the bundled epmd out (DIST3d). `net_kernel:start/1,2` and `stop/0` start and end
 running program ([starting distribution](#starting-distribution), DIST4b1a), and `--sname`/`--name` before the
 entry ([node start options](#node-start-options), DIST4b1b), with OTP's cookies ([cookies](#cookies), DIST4b1c).
 Nodes connect through OTP's handshake with all its statuses, `allow/1` and dynamic names ([making
-connections](#making-connections), DIST4b2a, DIST4b2b), over IPv4 or IPv6 (DIST4b2c); no signal moves over a
-connection yet.
+connections](#making-connections), DIST4b2a, DIST4b2b), over IPv4 or IPv6 (DIST4b2c), and messages move
+between them ([messages](#messages), DIST4b3a); other signals do not yet.
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -180,9 +180,9 @@ Current since DIST2c (`scheduler/connections.cpp`, `builtins/erlang/node.cpp`), 
 
 ## Controller data path
 
-Current since DIST2d (`builtins/erlang/connections.cpp`), as OTP's. An up connection has an output
-queue of encoded packets, which the signal encoder fills from DIST5 on, and an input handler,
-first the controller.
+Current since DIST2d (`builtins/erlang/connections.cpp`), as OTP's. A connection has an output
+queue of encoded packets, which messages fill since DIST4b3a ([messages](#messages)), also while it
+is pending, and an up connection an input handler, first the controller.
 
 - **`dist_ctrl_get_data(DHandle)`:** the oldest queued packet as a list of binaries, `{Size,
   Packet}` with `get_size`, or `none`. **`dist_ctrl_get_data_notification(DHandle)`:** `ok`; the
@@ -195,17 +195,53 @@ first the controller.
   `erts_internal:dist_ctrl_put_data/2`, which makes iodata one binary (`badarg` otherwise). Checks:
   `badarg` unless the handle is a pair of a small integer and the reference of an entry, `notsup`
   unless the caller is the input handler of an up connection, `badarg` for another connection's.
-  The put is then counted as received, and `badarg` follows for data that is not a binary. Data
-  of an earlier connection id is dropped; an empty binary is a tick. Other data is decoded from
-  DIST5 on and dropped until then.
+  Data of an earlier connection id is dropped; an empty binary is a tick. Other data is read as a
+  packet ([messages](#messages)) and its message delivered, or the controller killed, before the
+  put is counted as received; `badarg` follows for data that is not a binary.
 - **`dist_ctrl_input_handler(DHandle, InputHandler)`:** the controller makes any pid, of an ended
   process or of another node too, the process `dist_ctrl_put_data/2` takes data from; the
   controller then puts no more data. `notsup` unless the handle is a pair of a small integer and
   an entry's reference, else `badarg` unless the caller controls that up connection, the id is its
   current one and `InputHandler` is a pid.
 - **`dist_get_stat(DHandle)`:** `{ok, Received, Sent, PendingBytes}` for any caller: the puts, the
-  packets taken and the bytes queued. Zeros while the connection is not up; `badarg` for a handle
+  packets taken and the bytes queued, also while the connection is pending. OTP 29 counts 160 bytes
+  more for each packet, 174 for one queued while the connection was pending, and Clause does the
+  same ([differences](differences.md)). Zeros while the connection is idle; `badarg` for a handle
   that is not its entry's current one. Each connection starts at zero.
+
+## Messages
+
+Current since DIST4b3a (`builtins/erlang/dist_messages.cpp`), as OTP 29's, observed with a peer
+speaking the protocol and with a test process as a connection's controller.
+
+- **Packets:** 112 (pass-through), then the control message and the payload, each in the external
+  format with its 131. Clause sends `SEND_SENDER` `{22, From, To}` to another node's pid, `SEND`
+  `{2, '', To}` while its connection is not up yet, `REG_SEND` `{6, From, '', Name}` to
+  `{Name, Node}` and `ALIAS_SEND` `{33, From, Alias}` to another node's reference.
+- **Sends:** `!`, `send/2,3` and `send_nosuspend/2,3` queue the packet on the node's connection: an
+  idle one auto-connects first ([node monitors](#node-monitors)) and the packet waits until
+  `setnode/3`; an aborted connection drops it. With `noconnect` an idle connection is left alone
+  (`noconnect`, `send_nosuspend/3` false). A node without a name drops every such message, as does
+  a pid or reference of an earlier incarnation of this node. Another node's port is `badarg`.
+- **Delivery:** `dist_ctrl_put_data/2` delivers `SEND`, `REG_SEND`, `SEND_SENDER`, `ALIAS_SEND` and
+  their `_TT` forms (the trace token is ignored). The sender field is never checked; another node's
+  receiver, a name no process has and a reference that is no alias get nothing. The other
+  operations of the protocol are read for their shape and wait for DIST4b3b and DIST5. Bytes after
+  the payload are ignored.
+- **Unreadable packets** kill the controller (`nodedown` reason `killed`) after OTP's report, `N`
+  being the node's number in its printed pids:
+  - fewer than three bytes: no report;
+  - a first byte other than 112, or a control message without 131: the error report
+    `** Got message from incompatible erlang on channel N`;
+  - a control message that does not decode, or a payload that is missing, lacks its 131 or does not
+    decode: the warning report `'Me' got a corrupted external term from 'Node' on distribution
+    channel N`, the bytes from that term on (`<<...,131,255>>`, or `>>` for none) and
+    `ATOM_CACHE_REF translations: none`;
+  - a control message of no known operation, arity or receiver: the error report
+    `Invalid distribution message: T`, `T` printed as `erlang:display/1` prints it.
+- **`net_kernel`** logs `Net kernel got ~tw` for a message it does not expect, as OTP's: a
+  `{dist_ctrlr, ...}` of a process that set up no connection, such as a test process calling
+  `setnode/3`, among them.
 
 ## Node status messages
 
@@ -607,6 +643,12 @@ Current since DIST4b1b (`library/kernel/clause_dist_start.erl`, `erl_distributio
   - Cases of the bundled and external modes start no runner epmd and check which epmd the nodes
     find. A run of `"epmd": "bundled"` (DIST3b) also checks that no epmd listens on its port after
     the nodes ended.
+  - Test programs and epmds listen on loopback only, so the host's firewall never asks about them
+    (DIST4b3a): every epmd and every program gets `ERL_EPMD_ADDRESS=127.0.0.1,::1`, and every node of a
+    multi-node run, Clause's and OTP's alike, `inet_dist_use_interface` of 127.0.0.1 (`::1` under
+    `--proto-dist inet6_tcp`; `nodes.loopback_flags`). Nodes that connect are named `@localhost`, and
+    fixtures ask `erl_epmd:names(localhost)`: a lookup by this host's name reaches its network
+    address, where no epmd listens (`{error, address}`, as in OTP).
   - Host names in output are masked with `stdout_masks`.
   - A program linked with `--epmd-executable` finds the `clause-epmd` beside it in
     `CLAUSE_TEST_EPMD`; under the oracle that names OTP's `epmd` (DIST3c). The oracle gives

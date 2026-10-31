@@ -72,7 +72,7 @@ refused() ->
     Taken = register_name(<<"taken">>),
     failed("taken", [taken, shortnames]),
     gen_tcp:close(Taken),
-    {ok, Listen} = gen_tcp:listen(0, []),
+    {ok, Listen} = gen_tcp:listen(0, [{ip, {127, 0, 0, 1}}]),
     {ok, Port} = inet:port(Listen),
     ok = application:set_env(kernel, inet_dist_listen_min, Port),
     ok = application:set_env(kernel, inet_dist_listen_max, Port),
@@ -139,7 +139,7 @@ monitor_down(Node) ->
 
 % The names epmd holds, with their ports.
 names() ->
-    {ok, Names} = erl_epmd:names(),
+    {ok, Names} = erl_epmd:names(localhost),
     lists:sort(Names).
 
 % Whether epmd let go of Name; it may see the closed registration a little later.

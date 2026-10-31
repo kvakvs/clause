@@ -26,15 +26,15 @@ std::tm local_time(std::time_t time) {
     return result;
 }
 
-// OTP's legacy report header: =ERROR REPORT==== 8-Oct-2026::03:42:15.983000 ===
-std::string report_header() {
+// OTP's legacy report header: =ERROR REPORT==== 8-Oct-2026::03:42:15.983000 ===, or WARNING for a warning.
+std::string report_header(std::string_view level = "ERROR") {
     static constexpr std::array<std::string_view, 12> months{"Jan", "Feb", "Mar", "Apr", "May", "Jun",
                                                              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
     const auto now = std::chrono::system_clock::now();
     const auto local = local_time(std::chrono::system_clock::to_time_t(now));
     const auto micros =
         std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count() % 1'000'000;
-    return std::format("=ERROR REPORT==== {}-{}-{}::{:02}:{:02}:{:02}.{:06} ===\n", local.tm_mday,
+    return std::format("={} REPORT==== {}-{}-{}::{:02}:{:02}:{:02}.{:06} ===\n", level, local.tm_mday,
                        months.at(static_cast<std::size_t>(local.tm_mon)), local.tm_year + 1900, local.tm_hour,
                        local.tm_min, local.tm_sec, micros);
 }
@@ -111,8 +111,12 @@ void report_exit(ProcessContext &process) noexcept {
     }
 }
 
-void report_error(ProcessContext &process, std::string_view text) {
-    const auto report = report_header() + std::string(text) + "\n\n";
+void report_error(ProcessContext &process, std::string_view text) { report(process, "ERROR", text); }
+
+void report_warning(ProcessContext &process, std::string_view text) { report(process, "WARNING", text); }
+
+void report(ProcessContext &process, std::string_view level, std::string_view text) {
+    const auto report = report_header(level) + std::string(text) + "\n\n";
     if (logger_on_stderr()) {
         std::fflush(stdout);
         std::fwrite(report.data(), 1, report.size(), stderr);

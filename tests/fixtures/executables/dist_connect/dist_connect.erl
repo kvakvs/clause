@@ -101,7 +101,7 @@ main(["dynamic"]) ->
 
 % The carrier's options of future connections, on a listen socket, and how it merges socket options.
 carrier_options() ->
-    {ok, Listen} = gen_tcp:listen(0, [inet6]),
+    {ok, Listen} = gen_tcp:listen(0, [inet6, {ip, {0, 0, 0, 0, 0, 0, 0, 1}}]),
     show("setopts", [
         inet6_tcp_dist:setopts(Listen, [{nodelay, false}, {keepalive, true}]),
         inet6_tcp_dist:setopts(Listen, [{active, true}, {packet, 4}, {nodelay, true}, {deliver, term}]),
@@ -146,7 +146,7 @@ dynamic_names() ->
 % default flags and Flags. An alive status is answered with Answer. Returns the status and, for a connection that
 % came up, its socket.
 raw(Claimed, Flags, Answer) ->
-    {ok, Names} = net_adm:names(),
+    {ok, Names} = net_adm:names(localhost),
     {_, Port} = lists:keyfind(hd(string:split(atom_to_list(node()), "@")), 1, Names),
     {ok, Socket} = gen_tcp:connect({127, 0, 0, 1}, Port, [binary, {active, false}, {packet, 2}]),
     {erts_dflags, Default, _, _, _, _} = erts_internal:get_dflags(),
@@ -214,12 +214,11 @@ peer(Name) ->
     wait_registered(Name),
     node_of(Name).
 
-node_of(Name) ->
-    {ok, Host} = inet:gethostname(),
-    list_to_atom(Name ++ "@" ++ Host).
+% Test nodes are named @localhost: they listen on loopback only.
+node_of(Name) -> list_to_atom(Name ++ "@localhost").
 
 wait_registered(Name) ->
-    {ok, Names} = net_adm:names(),
+    {ok, Names} = net_adm:names(localhost),
     case lists:keymember(Name, 1, Names) of
         true ->
             ok;
@@ -237,11 +236,11 @@ next() ->
 
 done() -> io:format("dist_connect: ok~n").
 
-% The host name is HOST and a dynamic name DYNAMIC in the output.
+% The host name (in carrier addresses) is HOST and a dynamic name DYNAMIC in the output.
 show(Label, Term) ->
     io:format("~s: ~s~n", [Label, mask(lists:flatten(io_lib:format("~p", [Term])))]).
 
 mask(Text) ->
     {ok, Host} = inet:gethostname(),
     Hosted = string:replace(Text, Host, "HOST", all),
-    re:replace(Hosted, "'?\\b[0-9A-Z]{6,13}@(HOST|otherhost)'?", "DYNAMIC@\\1", [global, {return, list}]).
+    re:replace(Hosted, "'?\\b[0-9A-Z]{6,13}@(localhost|otherhost)'?", "DYNAMIC@\\1", [global, {return, list}]).

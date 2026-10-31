@@ -19,7 +19,7 @@ already(Other) -> Other.
 
 % Whether epmd holds this node's name; the nodes of the run share one epmd.
 name_registered() ->
-    {ok, Names} = erl_epmd:names(),
+    {ok, Names} = erl_epmd:names(localhost),
     [Alive, _] = string:split(atom_to_list(node()), "@"),
     lists:keymember(Alive, 1, Names).
 

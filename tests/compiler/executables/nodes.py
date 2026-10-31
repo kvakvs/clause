@@ -18,6 +18,9 @@ EPMD_START_TIMEOUT = 10
 EPMD_ATTEMPTS = 3
 # Fields of a node the oracle observes; the others are authored.
 GENERATED_NODE_FIELDS = ('exit_status', 'stdout')
+# Test programs and epmds listen on loopback only, so the host's firewall never asks about them (plan 30 step DIST4b3a,
+# docs/distribution.md#testing): epmd through ERL_EPMD_ADDRESS, a node's distribution through loopback_flags.
+LOOPBACK_EPMD = {'ERL_EPMD_ADDRESS': '127.0.0.1,::1'}
 
 
 def multi(run):
@@ -28,6 +31,14 @@ def multi(run):
 def bundled(run):
     """Whether a multi-node run starts no epmd: its Clause nodes start the bundled one (plan 30 step DIST3b)."""
     return run.get('epmd') == 'bundled'
+
+
+def loopback_flags(flags, otp):
+    """A node's start flags with its distribution listening on loopback (the kernel parameter inet_dist_use_interface):
+    IPv6's for the inet6_tcp carrier, in OTP's -kernel form for an OTP node."""
+    flags = flags or ''
+    address = '{0,0,0,0,0,0,0,1}' if 'inet6_tcp' in flags else '{127,0,0,1}'
+    return f'{flags} {"-kernel" if otp else "--env kernel"} inet_dist_use_interface {address}'.strip()
 
 
 def needs_otp(run):
@@ -85,11 +96,11 @@ def listening(port):
 
 
 def start_epmd(command):
-    """Starts `command` plus '-port N' in the foreground on a free port; returns the process and the port."""
+    """Starts `command` plus '-port N' in the foreground on a free port, on loopback; returns the process and the port."""
     for _ in range(EPMD_ATTEMPTS):
         port = free_port()
         process = subprocess.Popen([*command, '-port', str(port)], stdin=subprocess.DEVNULL,
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=os.environ | LOOPBACK_EPMD)
         deadline = time.monotonic() + EPMD_START_TIMEOUT
         while process.poll() is None and time.monotonic() < deadline:
             if listening(port):

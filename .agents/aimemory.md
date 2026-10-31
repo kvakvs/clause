@@ -761,9 +761,11 @@ gotchas and user directions not recorded elsewhere.
   offline with `cdb -z prog.exe -y <dir> -lines -c "ln prog+0xOFF; q"`. A crash with `arrivals` null means a destroyed
   process ran: `wake()` queued an ended process (fixed). Multi-node goldens: a node may finish before its peer's
   main even starts; sync through epmd marker names (raw ALIVE2_REQ, kept while the socket is open), never sleeps.
-  Each newly linked executable path that listens on 0.0.0.0 makes Windows Firewall ask once; on this PC the user
-  turned the prompts off (`Set-NetFirewallProfile -Profile Private -NotifyOnListen False`), elsewhere reuse scratch
-  exe names. OTP: dynamic names are base 36 of a 64-bit number, stable per acceptor and host, creation +1 per reuse;
+  Each newly linked executable path that listens on 0.0.0.0 makes Windows Firewall ask once. Never suggest
+  `-NotifyOnListen False` (it silently blocks new apps and shows "managed by your organization"; the user reverted it).
+  Since DIST4b3a the golden runner binds everything to loopback (`nodes.LOOPBACK_EPMD`, `nodes.loopback_flags`), test
+  nodes are named @localhost, and fixtures ask `erl_epmd:names(localhost)` (by host name: `{error, address}`).
+  For hand runs do the same: `ERL_EPMD_ADDRESS=127.0.0.1,::1`, `--env kernel inet_dist_use_interface {127,0,0,1}`. OTP: dynamic names are base 36 of a 64-bit number, stable per acceptor and host, creation +1 per reuse;
   losing the naming connection restarts only kernel_sup's net_sup child.
 - DIST4b2c OTP observations for DIST6 (net_kernel options): `setopts(Node, Opts)`/`getopts` raise function_clause
   for a non-atom node or non-list options even unalive; `ignored` unalive; `{error, noconnection}` for an unknown
@@ -772,3 +774,21 @@ gotchas and user directions not recorded elsewhere.
   `inet_dist_connect_options` (drop same key, prepend; `[]` still sets `{ok, []}`); a non-pair option crashes
   net_kernel with badmatch. Up connection: `getopts` gives `{active,true}`, `{packet,4}`, `{mode,binary}`; `setopts`
   refuses active/packet with badopts. A host's IPv6 address is link-local (fe80::...) on Windows, and works.
+- DIST4b3 OTP observations (2026-10-31; tools: a Python protocol-6 peer, and a test process as controller via
+  `erts_internal:new_connection/1` + `erlang:setnode(Node, self(), {Flags, Creation})`, which OTP allows; its
+  net_kernel then logs `Net kernel got ~tw~n` for the `{dist_ctrlr, ...}` and for any unexpected info message).
+  Use Clause's flag set: OTP's default includes DIST_HDR_ATOM_CACHE (packets `131,68,...`). Packets are `112`,
+  control with 131, payload with 131; trailing bytes ignored. On connect OTP sends REG_SEND `{Pid, features_request}`
+  to `rex` and `$gen_cast {init_connect, {8, -576460752303423488}, Node, {locker, no_longer_a_pid, #{...}, Pid}}` to
+  `global_name_server` (DIST7/DIST8). Incoming: From never checked; arity exact; SEND/SEND_SENDER To must be a pid
+  (another node's dropped), REG_SEND name an atom (unregistered dropped), ALIAS_SEND a reference (no alias dropped);
+  `_TT` forms deliver; a well-formed LINK is taken. Unreadable data kills the controller (nodedown reason killed):
+  first byte not 112 or control not 131 -> error `** Got message from incompatible erlang on channel N\n\n`
+  (N the node number printed in its pids); fewer than 2 bytes after 112 -> no log; control decode failure or
+  payload missing/undecodable/not 131 -> warning `'me@h' got a corrupted external term from 'peer@h' on
+  distribution channel N\n<<...,B1,B2>>\nATOM_CACHE_REF translations: none\n` (bytes from the failing term to the
+  end, untruncated; nothing left prints `>>`); bad control -> error `Invalid distribution message: T\n` with T as
+  erlang:display prints it (1.500000e+00). Packets sent while pending wait for setnode/3; dist_get_stat shows them
+  pending (and works on the pending handle); pending bytes = packet bytes + 160 each (+24 more per binary over 64
+  bytes, OTP's off-heap); `send(.., [noconnect])` to an up node is ok. OTP decodes payloads lazily in the receiver:
+  a corrupted payload kills the connection only once the receiver takes messages (golden receivers must receive).

@@ -286,7 +286,7 @@ sctp() ->
     ]),
     show(sctp_error_strings, [gen_sctp:error_string(N) || N <- [0, 1, 5, 13, 99]]),
     show(sctp_error_string_bad, catch_error(fun() -> gen_sctp:error_string(id(x)) end)),
-    {ok, U} = gen_udp:open(0),
+    {ok, U} = gen_udp:open(0, [{ip, {127, 0, 0, 1}}]),
     ok = gen_udp:close(U),
     show(sctp_closed, [
         gen_sctp:listen(U, true),

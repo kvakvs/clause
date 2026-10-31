@@ -27,6 +27,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "socket_ops.erl": "6b87ee3b90475b381bb9617757a6522b7f57faee9712fac3330d01defb6381fc"
+    "socket_ops.erl": "c55abbc614f00dd7b7cef69ecee3192a46715195b7f90b978c65bf44e6d7bdd6"
   }
 }
