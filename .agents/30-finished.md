@@ -54,4 +54,4 @@ Compact record of the network distribution plan, one bullet per step;
   with OTP observing `ERL_FLAGS` (run field `otp_flags`) — `7a2d9a7a`
 - **DIST4a2** `vm.args` investigation (no code): erlexec's args file syntax and the flags of real releases mapped,
   user choices recorded as the [args files](../docs/executables.md#args-files) contract (OTP and Clause spellings,
-  unsupported and tuning flags ignored with one warning, `-config` and `-env` implemented) — `HASH`
+  unsupported and tuning flags ignored with one warning, `-config` and `-env` implemented) — `6ce77a00`
