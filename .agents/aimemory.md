@@ -798,3 +798,7 @@ gotchas and user directions not recorded elsewhere.
   monitor did; `monitored_by` lists the remote pid. OTP sends a non-immediate exit reason's MONITOR_P_EXIT later in
   exit handling than local 'DOWN's: tests wait for the packet (dist_ctrl_get_data_notification), not the 'DOWN'.
   `observe_case.py`-style runs (cases/nodes/regenerate imported) show OTP's raw stderr, which regenerate.py drops.
+- DIST4b3b2 (2026-10-31): OTP's `halt` does NOT flush distribution output (erl_process.c erts_halt: no process
+  runs during the flush, ports get exit killed). Two OTP 29.1.1 nodes (scratch F:/CLAUSE/scratch/haltflush, own
+  ERL_EPMD_PORT): 10 sends then halt() -> 0 arrive (5/5 runs); 1000 -> 995-1000; 20000 -> ~19500; sleep(200) or
+  init:stop() -> all. Plan premises citing OTP behavior can be wrong: probe before implementing.

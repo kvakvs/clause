@@ -7,7 +7,7 @@ direction); formerly backlog item F38.
 - **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a) or
   `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d); started nodes
   connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c), exchange messages (DIST4b3a), monitor each other's processes and
-  ping (DIST4b3b1), no other signal yet.
+  ping (DIST4b3b1), no other signal yet; the program's end loses queued packets as OTP's `halt` (DIST4b3b2).
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -89,24 +89,8 @@ and dynamic names) and DIST4b2c (IPv6 and carrier options); all done ([30-finish
 
 ## DIST4b3. First data path and ping
 
-Split 2026-10-31 into DIST4b3a (messages) and DIST4b3b (process monitors and ping). Observed in OTP 29.1.1 with a
-Python peer and a test process as a connection's controller (`setnode/3` with a pid; `.agents/aimemory.md`).
-DIST4b3a is done ([30-finished](30-finished.md)).
-
-## DIST4b3b. Process monitors, ping and flushed output
-
-Split 2026-10-31 into DIST4b3b1 (monitors and ping, done, [30-finished](30-finished.md)) and DIST4b3b2.
-
-## DIST4b3b2. Flushed output at the program's end
-
-Depends on: DIST4b3b1 ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] The program's end (entry returned, `halt/0,1`) waits until the controllers sent the queued packets, as
-        OTP's `halt` flushes outstanding output; the socket writes too (asynchronous on the I/O thread).
-  - [ ] The `differences.md` row on a message sent just before the program ends is removed.
-- Tests
-  - [ ] Golden `dist_ping`: a node sends and ends at once, its peer gets the messages.
+Split 2026-10-31 into DIST4b3a (messages), DIST4b3b1 (process monitors and ping) and DIST4b3b2 (the program's end);
+all done ([30-finished](30-finished.md)).
 
 <a id="step-dist4b4"></a>
 

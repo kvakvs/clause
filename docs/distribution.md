@@ -224,6 +224,10 @@ speaking the protocol and with a test process as a connection's controller.
   `setnode/3`; an aborted connection drops it. With `noconnect` an idle connection is left alone
   (`noconnect`, `send_nosuspend/3` false). A node without a name drops every such message, as does
   a pid or reference of an earlier incarnation of this node. Another node's port is `badarg`.
+- **The program's end** (the entry returned, `halt/0,1`) stops at once: packets still queued on a
+  connection may be lost, as OTP 29's `halt` loses them. Its flush runs no process and kills the
+  distribution ports; ten messages sent just before `halt()` never arrived in OTP 29.1.1, while a
+  pause or `init:stop/0`, which takes the applications down first, let them all through.
 - **Delivery:** `dist_ctrl_put_data/2` delivers `SEND`, `REG_SEND`, `SEND_SENDER`, `ALIAS_SEND` and
   their `_TT` forms (the trace token is ignored). The sender field is never checked; another node's
   receiver, a name no process has and a reference that is no alias get nothing. Process monitor
