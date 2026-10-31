@@ -75,4 +75,4 @@ Compact record of the network distribution plan, one bullet per step;
   per-node fresh `home`; golden `dist_cookie` — 7e057e3e
 - **DIST4b1d** `kernel_sup` (`kernel:init/1`, `clause_kernel` keeper that halts with OTP's slogan) at the first use
   of `rex`, `global_name_server`, `global_group` or distribution; `net_sup` static child, `net_sup_dynamic` via
-  `start_child`; `global_group` server; golden `kernel_sup` — `HASH`
+  `start_child`; `global_group` server; golden `kernel_sup` — 2a091875
