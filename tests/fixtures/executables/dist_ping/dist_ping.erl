@@ -1,7 +1,9 @@
 %% Messages across nodes (plan 30 step DIST4b3a). Node a sends node b's echo server messages to {Name, Node}, to its
 %% pid and to an alias, a large term and a long run of messages; b answers each. Node a also controls a connection to
 %% a node that does not exist (setnode/3 with its own process): the packets its sends queue, the connection's
-%% statistics, the data it puts and the unreadable data that kills it.
+%% statistics, the data it puts and the unreadable data that kills it. Process monitors and pings (plan 30 step
+%% DIST4b3b1): the monitor signals on that connection, then pings of b, monitors of b's processes and calls to b's
+%% server.
 -module(dist_ping).
 -export([main/1]).
 
@@ -13,9 +15,12 @@ main(["a"]) ->
     ok = net_kernel:monitor_nodes(true, #{node_type => hidden, nodedown_reason => true}),
     queued(),
     puts(),
+    fake_monitors(),
     faults(),
     B = peer("dpb"),
     wait_registered("dpb_ready"),
+    pings(B),
+    monitors(B),
     messages(B),
     done();
 main(["b"]) ->
@@ -23,10 +28,24 @@ main(["b"]) ->
     _Ready = mark("dpb_ready"),
     echo(0).
 
-%% The echo server: a reply to a pid, a message through an alias, and a stop. A program's end does not wait for its
-%% messages to other nodes, so b answers the stop and ends once a's node is gone.
+%% The echo server: a reply to a pid, a message through an alias, a gen call, processes to monitor, and a stop. A
+%% program's end does not wait for its messages to other nodes, so b answers the stop and ends once a's node is gone.
 echo(Count) ->
     receive
+        {'$gen_call', From, Request} ->
+            gen:reply(From, {echoed, Request}),
+            echo(Count + 1);
+        {spawn, Name, Pid} ->
+            Child = spawn(fun child/0),
+            Name =:= none orelse register(Name, Child),
+            Pid ! {spawned, Child},
+            echo(Count + 1);
+        {dead, Pid} ->
+            {Dead, Ref} = spawn_monitor(fun() -> ok end),
+            receive
+                {'DOWN', Ref, _, _, _} -> Pid ! {dead, Dead}
+            end,
+            echo(Count + 1);
         {Pid, Message} when is_pid(Pid) ->
             Pid ! {reply, Message, self()},
             echo(Count + 1);
@@ -46,7 +65,97 @@ echo(Count) ->
             end
     end.
 
-%% Messages between the two nodes; the first send connects them.
+% A process of b that a's processes monitor: it tells who monitors it, and ends with the reason it is given.
+child() ->
+    receive
+        {monitored_by, Pid} ->
+            {monitored_by, Watchers} = process_info(self(), monitored_by),
+            Pid ! {monitored_by, Watchers},
+            child();
+        {exit, Reason} ->
+            exit(Reason)
+    end.
+
+%% Pings of b: a wrong cookie fails the handshake (b logs it), then b answers; a node that is not there does not.
+pings(B) ->
+    true = erlang:set_cookie(B, wrong),
+    show("wrong cookie", [net_adm:ping(B), nodes()]),
+    true = erlang:set_cookie(B, erlang:get_cookie()),
+    show("ping", [net_adm:ping(B), nodes() =:= [B], net_adm:ping(B)]),
+    show("no node", net_adm:ping('nobody@localhost')).
+
+%% Monitors of b's processes: by pid and by name, with a tag, ended by demonitor/2 or the watcher's end, of a process
+%% that is gone; gen calls to b's server.
+monitors(B) ->
+    Child = spawned(none, B),
+    Ref = monitor(process, Child),
+    Named = spawned(named_child, B),
+    NamedRef = monitor(process, {named_child, B}),
+    {monitors, Monitors} = process_info(self(), monitors),
+    show("monitors", lists:sort(Monitors) =:= lists:sort([{process, Child}, {process, {named_child, B}}])),
+    Child ! {monitored_by, self()},
+    show("monitored by", next() =:= {monitored_by, [self()]}),
+    Child ! {exit, {shutdown, by_pid}},
+    show("by pid", down(Ref, Child)),
+    Named ! {exit, by_name},
+    show("by name", down(NamedRef, {named_child, B})),
+    Tagged = spawned(none, B),
+    TagRef = monitor(process, Tagged, [{tag, gone}]),
+    Tagged ! {exit, tagged},
+    show(
+        "tag",
+        receive
+            {gone, TagRef, process, Tagged, Tag} -> Tag
+        after 30000 -> timeout
+        end
+    ),
+    Quiet = spawned(none, B),
+    QuietRef = monitor(process, Quiet),
+    show("demonitor", [demonitor(QuietRef, [info]), demonitor(QuietRef, [info])]),
+    Quiet ! {monitored_by, self()},
+    show("after demonitor", next()),
+    Quiet ! {exit, quiet},
+    Lone = spawned(none, B),
+    {_, WatcherRef} = spawn_monitor(fun() -> monitor(process, Lone) end),
+    receive
+        {'DOWN', WatcherRef, _, _, _} -> ok
+    end,
+    Lone ! {monitored_by, self()},
+    show("watcher ended", next()),
+    Lone ! {exit, lone},
+    {echo, B} ! {dead, self()},
+    {dead, Dead} = next(),
+    show("noproc", [down(monitor(process, Dead), Dead), down(monitor(process, {nobody, B}), {nobody, B})]),
+    show("calls", [
+        gen:call({echo, B}, '$gen_call', hello),
+        gen:call({echo, B}, '$gen_call', hello, 5000),
+        exited(fun() -> gen:call({nobody, B}, '$gen_call', hello) end),
+        exited(fun() -> gen:call(Dead, '$gen_call', hello) end)
+    ]),
+    show("left", [process_info(self(), monitors), flush()]).
+
+% Fun's result, or {exit, Reason}.
+exited(Fun) ->
+    try
+        Fun()
+    catch
+        exit:Reason -> {exit, Reason}
+    end.
+
+% A new process of b, registered as Name unless none.
+spawned(Name, B) ->
+    {echo, B} ! {spawn, Name, self()},
+    {spawned, Child} = next(),
+    Child.
+
+% The reason of the 'DOWN' of Ref for Item.
+down(Ref, Item) ->
+    receive
+        {'DOWN', Ref, process, Item, Reason} -> Reason
+    after 30000 -> timeout
+    end.
+
+%% Messages between the two nodes.
 messages(B) ->
     {echo, B} ! {self(), hello},
     {reply, hello, Echo} = next(),
@@ -143,6 +252,80 @@ puts() ->
         show("stat", erlang:dist_get_stat(DH))
     end).
 
+%% Process monitors on a connection the test controls. Monitors of the fake node's processes, made while the
+%% connection is pending and once it is up, are MONITOR_P packets, demonitor/2 sends DEMONITOR_P, and its
+%% MONITOR_P_EXIT gives their 'DOWN'. Its MONITOR_P of processes here, by pid and by name, are answered by
+%% MONITOR_P_EXIT (the payload form, as the flags have EXIT_PAYLOAD) at once for no process, or once they end; its
+%% DEMONITOR_P ends one. The connection's end gives the monitors left 'DOWN' with noconnection.
+fake_monitors() ->
+    Main = self(),
+    controlled(fun(_) ->
+        Pending = monitor(process, remote_pid()),
+        DH = erlang:setnode(?FAKE, self(), {?FLAGS, 77}),
+        ByName = monitor(process, {x, ?FAKE}),
+        Gone = monitor(process, remote_pid(), [{tag, gone}]),
+        show("demonitor", demonitor(Gone, [info])),
+        show("monitor packets", [decoded(Packet) || Packet <- take(DH)]),
+        Self = self(),
+        Downs = [
+            [112, term_to_binary({28, remote_pid(), Self, Pending}), term_to_binary(pending_down)],
+            [112, term_to_binary({21, x, Self, ByName, by_name_down})],
+            [112, term_to_binary({28, remote_pid(), Self, Gone}), term_to_binary(after_demonitor)],
+            [112, term_to_binary({28, remote_pid(), Self, make_ref()}), term_to_binary(unknown)]
+        ],
+        [ok = erlang:dist_ctrl_put_data(DH, Down) || Down <- Downs],
+        show("downs", named(flush())),
+        Helper = spawn(fun() ->
+            receive
+                {exit, R} -> exit(R)
+            end
+        end),
+        Named = spawn(fun() ->
+            receive
+                {exit, R} -> exit(R)
+            end
+        end),
+        Third = spawn(fun() ->
+            receive
+                {exit, R} -> exit(R)
+            end
+        end),
+        register(watched, Named),
+        Watches = [
+            [112, term_to_binary({19, remote_pid(), Helper, remote_ref(1)})],
+            [112, term_to_binary({19, remote_pid(), watched, remote_ref(2)})],
+            [112, term_to_binary({19, remote_pid(), nobody, remote_ref(3)})],
+            [112, term_to_binary({19, remote_pid(), Third, remote_ref(4)})]
+        ],
+        [ok = erlang:dist_ctrl_put_data(DH, Watch) || Watch <- Watches],
+        show("watched", [named(process_info(P, monitored_by)) || P <- [Helper, Named, Third]]),
+        ok = erlang:dist_ctrl_put_data(DH, [112, term_to_binary({20, remote_pid(), Third, remote_ref(4)})]),
+        show("unwatched", named(process_info(Third, monitored_by))),
+        NoProc = taken(DH, 1),
+        Helper ! {exit, helper_done},
+        HelperExit = taken(DH, 1),
+        Named ! {exit, named_done},
+        NamedExit = taken(DH, 1),
+        show("monitor exits", [decoded(Packet) || Packet <- NoProc ++ HelperExit ++ NamedExit]),
+        spawn(fun() ->
+            Ref = monitor(process, {y, ?FAKE}),
+            Self ! monitoring,
+            receive
+                {'DOWN', Ref, _, _, _} = Down -> Main ! {watcher, named(Down)}
+            end
+        end),
+        receive
+            monitoring -> ok
+        end
+    end),
+    show(
+        "noconnection",
+        receive
+            {watcher, Down} -> Down
+        after 5000 -> timeout
+        end
+    ).
+
 %% Data the controller cannot read kills it, after OTP's report (on standard error). OTP decodes a message's payload
 %% when its receiver, here the controller, takes messages: it waits for one.
 faults() ->
@@ -152,6 +335,7 @@ faults() ->
         {"invalid", fun(_) -> [112, term_to_binary({99, "abc", <<"bin">>, 1.5, x})] end},
         {"wrong arity", fun(_) -> [112, term_to_binary({22, x}), term_to_binary(m)] end},
         {"bad receiver", fun(_) -> [112, term_to_binary({33, x, {}}), term_to_binary(m)] end},
+        {"bad watcher", fun(Self) -> [112, term_to_binary({19, Self, x, make_ref()})] end},
         {"corrupted", fun(Self) -> [112, term_to_binary({2, '', Self}), <<131, 109, 0, 0, 0, 9, 1, 2>>] end},
         {"no payload", fun(Self) -> [112, term_to_binary({2, '', Self})] end}
     ],
@@ -196,11 +380,31 @@ take(DH) ->
         Data -> [iolist_to_binary(Data) | take(DH)]
     end.
 
-% A packet's control message and payload, with this process's pid and the fake node's identities by name.
+% The next N packets, waiting for each.
+taken(_, 0) ->
+    [];
+taken(DH, N) ->
+    case erlang:dist_ctrl_get_data(DH) of
+        none ->
+            ok = erlang:dist_ctrl_get_data_notification(DH),
+            receive
+                dist_data -> taken(DH, N)
+            after 5000 -> []
+            end;
+        Data ->
+            [iolist_to_binary(Data) | taken(DH, N - 1)]
+    end.
+
+% A packet's control message and payload, if any, with this process's pid and the identities of other processes and
+% nodes by name.
 decoded(<<112, Rest/binary>>) ->
     {Control, Used} = binary_to_term(Rest, [used]),
-    <<_:Used/binary, Payload/binary>> = Rest,
-    [named(Control), binary_to_term(Payload)].
+    case Rest of
+        <<_:Used/binary>> ->
+            [named(Control)];
+        <<_:Used/binary, Payload/binary>> ->
+            [named(Control), binary_to_term(Payload)]
+    end.
 
 named(Term) when is_tuple(Term) -> list_to_tuple(named(tuple_to_list(Term)));
 named(Term) when is_list(Term) -> [named(Element) || Element <- Term];
@@ -211,6 +415,7 @@ named(Term) -> Term.
 % A pid and an alias of the fake node, as its creation 77 makes them.
 remote_pid() -> binary_to_term(<<131, 88, 119, 11, "fake@nohost", 5:32, 0:32, 77:32>>).
 remote_alias() -> binary_to_term(<<131, 90, 3:16, 119, 11, "fake@nohost", 77:32, 1:32, 2:32, 3:32>>).
+remote_ref(N) -> binary_to_term(<<131, 90, 3:16, 119, 11, "fake@nohost", 77:32, N:32, 0:32, 0:32>>).
 
 flush() ->
     receive

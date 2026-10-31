@@ -82,12 +82,18 @@ Term links(const Inspection &inspection) {
     return list(inspection, items);
 }
 
-// {process, Pid}, or {process, {Name, Node}} with this node's name for a monitor made by name.
+// Whether a Signals entry names another node's process by its node's atom (plan 30 step DIST4b3b1).
+bool remote(Word pid) { return TermTag{pid}.get_kind() == TermKind::atom; }
+
+// {process, Pid}, or {process, {Name, Node}} with this node's name for a monitor made by name; another node's
+// process as its connection keeps it.
 Term monitors(const Inspection &inspection) {
     std::vector<Term> items;
     for (const auto &[reference, monitor] : inspection.target.signals().monitors()) {
         auto subject = immediate(inspection, monitor.pid);
-        if (monitor.name != 0) {
+        if (remote(monitor.pid)) {
+            subject = inspection.executor.remote_item(inspection.caller, monitor.pid, reference, false);
+        } else if (monitor.name != 0) {
             subject =
                 pair(inspection, immediate(inspection, monitor.name), need(detail::this_node_atom(inspection.caller)));
         }
@@ -99,7 +105,9 @@ Term monitors(const Inspection &inspection) {
 Term monitored_by(const Inspection &inspection) {
     std::vector<Term> items;
     for (const auto &[reference, watcher] : inspection.target.signals().watchers()) {
-        items.push_back(immediate(inspection, watcher.pid));
+        items.push_back(remote(watcher.pid)
+                            ? inspection.executor.remote_item(inspection.caller, watcher.pid, reference, true)
+                            : immediate(inspection, watcher.pid));
     }
     return list(inspection, items);
 }

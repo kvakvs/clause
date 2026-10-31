@@ -4,7 +4,6 @@
 #include "signal_messages.hpp"
 #include <algorithm>
 #include <array>
-#include <new>
 #include <utility>
 
 // Connection entries of other nodes and node status messages (plan 30 step DIST2b, docs/distribution.md#connections):
@@ -52,14 +51,6 @@ void append_group(std::vector<ListedNode> &listed, const ConnectionTable &table,
     }
 }
 
-// A term or the failure to build it, as std::bad_alloc: the executor's operations throw on allocation failure.
-Term built(const TermResult<Term> &term) {
-    if (!term) {
-        throw std::bad_alloc();
-    }
-    return *term;
-}
-
 // The Info entries of a status message for `options`, in OTP's list order: connection_id, nodedown_reason, node_type.
 std::vector<std::pair<Term, Term>> status_info(ProcessContext &builder, const NodeStatus &status, unsigned options) {
     TermFactory factory(builder);
@@ -96,15 +87,6 @@ Term status_message(ProcessContext &builder, const NodeStatus &status, unsigned 
         items.push_back(built(factory.tuple(std::array{key, value})));
     }
     return built(factory.tuple(std::array{what, node, built(factory.list(items))}));
-}
-
-// A message built in `builder`'s heap as a buffer that can be posted to any process.
-std::shared_ptr<const MessageBuffer> buffered(ProcessContext &builder, const Term &message) {
-    auto buffer = MessageBuffer::copy_of(message, builder);
-    if (!buffer) {
-        throw std::bad_alloc();
-    }
-    return std::move(*buffer);
 }
 
 // A controller's exit reason as nodedown_reason, as OTP's: {shutdown, Reason} unwrapped, normal as
@@ -149,7 +131,8 @@ Connection &ConnectionTable::entry(Word node, std::uint64_t handle) {
         return *found;
     }
     handles_.emplace(handle, node);
-    return entries_.emplace(node, Connection{.handle = handle, .stamp = ++clock_, .monitors = {}, .data = {}})
+    return entries_
+        .emplace(node, Connection{.handle = handle, .stamp = ++clock_, .monitors = {}, .data = {}, .processes = {}})
         .first->second;
 }
 
@@ -194,6 +177,7 @@ void ConnectionTable::drop(Connection &connection) noexcept {
     connection.stamp = ++clock_;
     connection.monitors.clear();
     connection.data = {};
+    connection.processes = {};
 }
 
 void ConnectionTable::monitor(Connection &connection, Word pid) { ++connection.monitors[pid]; }
@@ -456,18 +440,22 @@ DistSend Executor::dist_output(ProcessContext &context, const Term &node, std::v
     if (!found) {
         return found.error();
     }
-    auto &connection = **found;
+    queue_packet(context, **found, std::move(packet));
+    return DistSend::queued;
+}
+
+void Executor::queue_packet(ProcessContext &builder, Connection &connection, std::vector<std::byte> packet) {
     connection.data.output.push_back(std::move(packet));
     connection.data.pending_packets += connection.state == Connection::State::pending ? 1 : 0;
     auto *controller = connection.state == Connection::State::up ? process(connection.controller) : nullptr;
     if (controller != nullptr && std::exchange(connection.data.notify, false)) {
-        post(*controller, buffered(context, atom(context, "dist_data"_atom)));
+        post(*controller, buffered(builder, atom(builder, "dist_data"_atom)));
     }
-    return DistSend::queued;
 }
 
 void Executor::take_down(ProcessContext &builder, Word node) {
     auto &connection = *connections_.find(node);
+    end_process_monitors(builder, node, connection.processes);
     if (!connection.monitors.empty()) {
         const std::array parts{atom(builder, "nodedown"_atom), built(Term::from_word(node, builder))};
         const auto message = buffered(builder, built(TermFactory(builder).tuple(parts)));

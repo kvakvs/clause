@@ -28,6 +28,20 @@ TermResult<Term> monitored_item(ProcessContext &process, const Signals::Monitor 
     const auto node = this_node_atom(process);
     return name && node ? factory.tuple(std::array{*name, *node}) : (name ? node : name);
 }
+
+// {Tag, Ref, Type, Item, Reason} built in the heap of `process`, Tag 'DOWN' unless monitor/3 gave one.
+TermResult<Term> down_tuple(ProcessContext &process, const ReferenceIdentity &reference, const MessageBuffer *tag,
+                            std::string_view type, const TermResult<Term> &item, const Term &reason) {
+    TermFactory factory(process);
+    // monitor/3's {tag, Tag} replaces 'DOWN' (step 41G2).
+    const std::array parts{tag ? tag->copy_to(process) : factory.atom("DOWN"_atom), factory.reference(reference),
+                           factory.atom(type), item, reason.copy_to(process.heap())};
+    const auto failed = std::ranges::find_if(parts, [](const auto &part) { return !part.has_value(); });
+    if (failed != parts.end()) {
+        return *failed;
+    }
+    return factory.tuple(std::array{*parts[0], *parts[1], *parts[2], *parts[3], *parts[4]});
+}
 } // namespace
 
 bool is_atom(const Term &term, std::string_view name) {
@@ -55,17 +69,28 @@ TermResult<Term> exit_message(ProcessContext &process, Word from, const Term &re
 
 TermResult<Term> down_message(ProcessContext &process, const ReferenceIdentity &reference, const Signals::Monitor &item,
                               const Term &reason) {
-    TermFactory factory(process);
     const auto type = TermTag{item.pid}.get_kind() == TermKind::local_port ? "port" : "process";
-    // monitor/3's {tag, Tag} replaces 'DOWN' (step 41G2).
-    const std::array parts{item.tag ? item.tag->copy_to(process) : factory.atom("DOWN"_atom),
-                           factory.reference(reference), factory.atom(type), monitored_item(process, item),
-                           reason.copy_to(process.heap())};
-    const auto failed = std::ranges::find_if(parts, [](const auto &part) { return !part.has_value(); });
-    if (failed != parts.end()) {
-        return *failed;
+    return down_tuple(process, reference, item.tag.get(), type, monitored_item(process, item), reason);
+}
+
+TermResult<Term> remote_down_message(ProcessContext &process, const ReferenceIdentity &reference,
+                                     const MessageBuffer *tag, const Term &item, const Term &reason) {
+    return down_tuple(process, reference, tag, "process", item.copy_to(process.heap()), reason);
+}
+
+Term built(const TermResult<Term> &term) {
+    if (!term) {
+        throw std::bad_alloc();
     }
-    return factory.tuple(std::array{*parts[0], *parts[1], *parts[2], *parts[3], *parts[4]});
+    return *term;
+}
+
+std::shared_ptr<const MessageBuffer> buffered(ProcessContext &builder, const Term &message) {
+    auto buffer = MessageBuffer::copy_of(message, builder);
+    if (!buffer) {
+        throw std::bad_alloc();
+    }
+    return std::move(*buffer);
 }
 
 bool Executor::link(ProcessContext &process, Word pid) {
@@ -135,7 +160,7 @@ Term Executor::monitor(ProcessContext &watcher, Word pid, Word name, bool port, 
     return *reference;
 }
 
-bool Executor::demonitor(ProcessContext &watcher, const ReferenceIdentity &reference) noexcept {
+bool Executor::demonitor(ProcessContext &watcher, const ReferenceIdentity &reference) {
     auto &executor = of(watcher);
     const std::scoped_lock lock(executor.mutex_);
     executor.forget_alias(reference, false);
@@ -143,12 +168,18 @@ bool Executor::demonitor(ProcessContext &watcher, const ReferenceIdentity &refer
     if (!pid) {
         return false;
     }
-    if (auto *port = executor.open(*pid)) {
+    executor.unwatch(watcher, *pid, reference);
+    return true;
+}
+
+void Executor::unwatch(ProcessContext &watcher, Word monitored, const ReferenceIdentity &reference) {
+    if (auto *port = open(monitored)) {
         port->watchers.erase(reference);
-    } else if (auto *target = find(watcher, *pid)) {
+    } else if (TermTag{monitored}.get_kind() == TermKind::atom) {
+        demonitor_remote(watcher, monitored, reference);
+    } else if (auto *target = find(watcher, monitored)) {
         target->signals().unwatch(reference);
     }
-    return true;
 }
 
 void Executor::exit(ProcessContext &sender, Word pid, const Term &reason, bool self_normal) {
@@ -294,11 +325,7 @@ bool Executor::notify(ProcessContext &process) {
     // Tables go first, as in OTP: a monitor's 'DOWN' message finds them deleted or inherited.
     release_tables(process);
     for (const auto &[reference, monitored] : signals.take_monitors()) {
-        if (auto *port = open(monitored.pid)) {
-            port->watchers.erase(reference);
-        } else if (auto *target = find(process, monitored.pid)) {
-            target->signals().unwatch(reference);
-        }
+        unwatch(process, monitored.pid, reference);
     }
     const auto links = signals.take_links();
     const auto watchers = signals.take_watchers();
@@ -327,6 +354,10 @@ void Executor::notify(ProcessContext &process, const Term &reason, const std::ve
         }
     }
     for (const auto &[reference, monitor] : watchers) {
+        if (TermTag{monitor.pid}.get_kind() == TermKind::atom) {
+            remote_exit(process, monitor.pid, reference, reason);
+            continue;
+        }
         auto *watcher = find(process, monitor.pid);
         if (watcher && !watcher->generated_calls().failure()) {
             watcher->signals().demonitor(reference);

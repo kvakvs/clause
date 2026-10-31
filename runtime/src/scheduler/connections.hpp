@@ -5,7 +5,9 @@
 #include <deque>
 #include <expected>
 #include <map>
+#include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 // Connection entries of other nodes, node monitors (DIST2c), the controller data path (DIST2d) and node status
@@ -13,10 +15,17 @@
 // docs/distribution.md#connections): the data the executor keeps under its lock, as OTP's dist table and nodes
 // monitors keep it.
 namespace clause::runtime::detail {
+class MessageBuffer;
+
 // OTP's distribution flags (dist.h) that the runtime reads or reports through erts_internal:get_dflags/0.
 namespace dflags {
 inline constexpr std::uint64_t PUBLISHED = 0x1;
 inline constexpr std::uint64_t ATOM_CACHE = 0x2;
+// A node takes process monitors only with both (plan 30 step DIST4b3b1); EXIT_PAYLOAD sends their exit reasons as
+// payloads.
+inline constexpr std::uint64_t DIST_MONITOR = 0x8;
+inline constexpr std::uint64_t DIST_MONITOR_NAME = 0x20;
+inline constexpr std::uint64_t EXIT_PAYLOAD = 0x40'0000;
 inline constexpr std::uint64_t HIDDEN_ATOM_CACHE = 0x40;
 inline constexpr std::uint64_t DIST_HDR_ATOM_CACHE = 0x2000;
 inline constexpr std::uint64_t FRAGMENTS = 0x800000;
@@ -70,6 +79,54 @@ struct DataPath final {
     std::vector<std::byte> take();
 };
 
+// A monitor a process of this node holds on a process of the connection's node (plan 30 step DIST4b3b1): the
+// watcher's pid word, the monitored pid in the external format or the registered name it was made with, and
+// monitor/3's tag.
+struct RemoteTarget final {
+    Word watcher = 0;
+    std::string pid;
+    Word name = 0;
+    std::shared_ptr<const MessageBuffer> tag = nullptr;
+};
+
+// A monitor a process of the connection's node holds on a process of this node (plan 30 step DIST4b3b1): the
+// monitored pid word and the name it was made with or 0, and the watcher's pid and the monitor's reference in the
+// external format.
+struct RemoteWatcher final {
+    Word target = 0;
+    Word name = 0;
+    std::string watcher;
+    std::string reference;
+};
+
+// The process monitors between this node and the connection's node (plan 30 step DIST4b3b1), ended when the
+// connection goes down. Each side's Signals entry names the node's atom in place of a pid.
+struct ProcessMonitors final {
+    // Monitors processes here hold, by their references.
+    std::map<ReferenceIdentity, RemoteTarget> targets;
+    // Monitors on processes here, by the key of the target's watcher entry, and those keys by the external format of
+    // the monitor's reference.
+    std::map<ReferenceIdentity, RemoteWatcher> watchers;
+    std::map<std::string, ReferenceIdentity> keys;
+};
+
+// A MONITOR_P or DEMONITOR_P from the connection's node, as read (plan 30 step DIST4b3b1): the watcher (that node's
+// pid), the monitored process of this node (a pid, a registered name, or a pid of an earlier incarnation) and the
+// reference; terms of the controller's heap.
+struct RemoteMonitor final {
+    Term watcher;
+    Term watched;
+    Term reference;
+};
+
+// A MONITOR_P_EXIT or PAYLOAD_MONITOR_P_EXIT from the connection's node, as read: the reference of a monitor held
+// here, its watcher (a pid) and the exit reason; terms of the controller's heap.
+struct RemoteDown final {
+    Term reference;
+    Term watcher;
+    Term reason;
+};
+
 // One other node's connection entry, as OTP's dist entry: idle, pending (new_connection/1 or auto-connect) or up
 // (setnode/3).
 struct Connection final {
@@ -91,6 +148,8 @@ struct Connection final {
     std::map<Word, std::size_t> monitors;
     // The data path while up (plan 30 step DIST2d).
     DataPath data;
+    // Process monitors to and from the node, made while pending or up (plan 30 step DIST4b3b1).
+    ProcessMonitors processes;
 
     // Whether the connection is up and published (visible), not hidden.
     bool visible() const noexcept { return state == State::up && (flags & dflags::PUBLISHED) != 0; }

@@ -15,6 +15,13 @@ TermResult<Term> exit_message(ProcessContext &process, Word from, const Term &re
 // Item is the pid or port, or {Name, Node} of this node for a monitor made with a registered name.
 TermResult<Term> down_message(ProcessContext &process, const ReferenceIdentity &reference, const Signals::Monitor &item,
                               const Term &reason);
+// The 'DOWN' message of a monitor of another node's process, Item its pid or {Name, Node} (plan 30 step DIST4b3b1).
+TermResult<Term> remote_down_message(ProcessContext &process, const ReferenceIdentity &reference,
+                                     const MessageBuffer *tag, const Term &item, const Term &reason);
+// A term or the failure to build it, as std::bad_alloc: the executor's operations throw on allocation failure.
+Term built(const TermResult<Term> &term);
+// A message built in `builder`'s heap as a buffer that can be posted to any process.
+std::shared_ptr<const MessageBuffer> buffered(ProcessContext &builder, const Term &message);
 
 // Makes a process the running one of this thread for a signal operation of a builtin, which may run outside run().
 class Executor::Running final {

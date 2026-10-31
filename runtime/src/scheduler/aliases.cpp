@@ -46,11 +46,10 @@ TermResult<void> Executor::send_alias(ProcessContext &sender, const ReferenceIde
     return executor.arrive(*receiver, copy->word());
 }
 
-void Executor::end_monitor(Word owner, const ReferenceIdentity &reference) noexcept {
+void Executor::end_monitor(Word owner, const ReferenceIdentity &reference) {
     auto *watcher = process(owner);
-    const auto monitored = watcher ? watcher->signals().demonitor(reference) : std::nullopt;
-    if (auto *target = monitored ? process(*monitored) : nullptr) {
-        target->signals().unwatch(reference);
+    if (const auto monitored = watcher ? watcher->signals().demonitor(reference) : std::nullopt) {
+        unwatch(*watcher, *monitored, reference);
     }
 }
 

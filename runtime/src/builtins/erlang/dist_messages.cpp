@@ -16,8 +16,8 @@
 // Messages across nodes (plan 30 step DIST4b3a, docs/distribution.md#messages): a send to another node's process
 // becomes OTP's pass-through packet (112, then the control message and the payload, each in the external format) on
 // the node's connection. The packets a connection's input handler puts are read as OTP 29 reads them (observed):
-// messages are delivered, other operations of the right shape wait for DIST4b3b and DIST5, and unreadable packets kill
-// the controller after OTP's report.
+// messages are delivered, process monitor signals go to the executor (DIST4b3b1), other operations of the right shape
+// wait for DIST5, and unreadable packets kill the controller after OTP's report.
 namespace clause::runtime::builtins {
 namespace {
 using detail::DistSend;
@@ -62,32 +62,22 @@ std::pair<Term, Term> control_of(ProcessContext &context, const Term &destinatio
     return {need(factory.tuple(parts)), destination.tuple_element_unchecked(1)};
 }
 
-// The pass-through packet of `control` and `message`.
-std::vector<std::byte> packet_of(ProcessContext &context, const Term &control, const Term &message) {
-    const auto head = encode_external(context, control);
-    const auto body = encode_external(context, message);
-    std::vector<std::byte> bytes;
-    bytes.reserve(1 + head.size() + body.size());
-    bytes.push_back(PASS_THROUGH);
-    for (const auto *part : {&head, &body}) {
-        const auto *data = reinterpret_cast<const std::byte *>(part->data());
-        bytes.insert(bytes.end(), data, data + part->size());
-    }
-    return bytes;
-}
-
 // Which element of a control message names the receiver of its message: a pid, a registered name or an alias; none
-// for the operations that bring no message to deliver yet.
+// for the operations that bring no message to deliver.
 enum class Receiver : std::uint8_t { none, pid, name, alias };
 
-// The shape of one of OTP's control messages: its operation, its tuple's arity, whether a payload follows, and the
-// receiver of a message and its element.
+// The process monitor signal of an operation the executor acts on (DIST4b3b1), or none.
+enum class Signal : std::uint8_t { none, monitor, demonitor, monitor_exit };
+
+// The shape of one of OTP's control messages: its operation, its tuple's arity, whether a payload follows, the
+// receiver of a message and its element, and its monitor signal.
 struct Shape {
     std::int64_t operation = 0;
     std::size_t arity = 0;
     bool payload = false;
     Receiver receiver = Receiver::none;
     std::size_t element = 0;
+    Signal signal = Signal::none;
 };
 
 // Every operation of OTP's protocol for the offered flags; the sends and their _TT forms (a trace token last) deliver.
@@ -104,20 +94,20 @@ constexpr std::array SHAPES{
     Shape{.operation = 13, .arity = 5},                                                            // EXIT_TT
     Shape{.operation = 16, .arity = 5, .payload = true, .receiver = Receiver::name, .element = 3}, // REG_SEND_TT
     Shape{.operation = 18, .arity = 5},                                                            // EXIT2_TT
-    Shape{.operation = 19, .arity = 4},                                                            // MONITOR_P
-    Shape{.operation = 20, .arity = 4},                                                            // DEMONITOR_P
-    Shape{.operation = 21, .arity = 5},                                                            // MONITOR_P_EXIT
+    Shape{.operation = 19, .arity = 4, .signal = Signal::monitor},                                 // MONITOR_P
+    Shape{.operation = 20, .arity = 4, .signal = Signal::demonitor},                               // DEMONITOR_P
+    Shape{.operation = 21, .arity = 5, .signal = Signal::monitor_exit},                            // MONITOR_P_EXIT
     Shape{.operation = SEND_SENDER, .arity = 3, .payload = true, .receiver = Receiver::pid, .element = 2},
     Shape{.operation = 23, .arity = 4, .payload = true, .receiver = Receiver::pid, .element = 2}, // SEND_SENDER_TT
     Shape{.operation = 24, .arity = 3, .payload = true},                                          // PAYLOAD_EXIT
     Shape{.operation = 25, .arity = 4, .payload = true},                                          // PAYLOAD_EXIT_TT
     Shape{.operation = 26, .arity = 3, .payload = true},                                          // PAYLOAD_EXIT2
     Shape{.operation = 27, .arity = 4, .payload = true},                                          // PAYLOAD_EXIT2_TT
-    Shape{.operation = 28, .arity = 4, .payload = true}, // PAYLOAD_MONITOR_P_EXIT
-    Shape{.operation = 29, .arity = 6, .payload = true}, // SPAWN_REQUEST
-    Shape{.operation = 30, .arity = 7, .payload = true}, // SPAWN_REQUEST_TT
-    Shape{.operation = 31, .arity = 5},                  // SPAWN_REPLY
-    Shape{.operation = 32, .arity = 6},                  // SPAWN_REPLY_TT
+    Shape{.operation = 28, .arity = 4, .payload = true, .signal = Signal::monitor_exit}, // PAYLOAD_MONITOR_P_EXIT
+    Shape{.operation = 29, .arity = 6, .payload = true},                                 // SPAWN_REQUEST
+    Shape{.operation = 30, .arity = 7, .payload = true},                                 // SPAWN_REQUEST_TT
+    Shape{.operation = 31, .arity = 5},                                                  // SPAWN_REPLY
+    Shape{.operation = 32, .arity = 6},                                                  // SPAWN_REPLY_TT
     Shape{.operation = ALIAS_SEND, .arity = 3, .payload = true, .receiver = Receiver::alias, .element = 2},
     Shape{.operation = 34, .arity = 4, .payload = true, .receiver = Receiver::alias, .element = 2}, // ALIAS_SEND_TT
     Shape{.operation = 35, .arity = 4},                                                             // UNLINK_ID
@@ -137,6 +127,43 @@ bool names_receiver(Receiver kind, const Term &term) {
         break;
     }
     return true;
+}
+
+// Whether `term` is a reference of any node.
+bool any_reference(const Term &term) { return term.is_reference() || term.is_external_reference(); }
+
+// Whether `term` is a pid of the other node `node`, or of an earlier incarnation of this node.
+bool pid_of_node(ProcessContext &context, const Term &term, Word node) {
+    return term.is_external_pid() && node_of(context, term).word() == node;
+}
+
+bool pid_of_old_self(ProcessContext &context, const Term &term) {
+    return term.is_external_pid() && detail::is_this_node(node_of(context, term));
+}
+
+// Whether a monitor signal from `node` names what OTP's dist.c accepts: MONITOR_P and DEMONITOR_P a watcher of that
+// node and a pid or name here (or of an earlier incarnation), MONITOR_P_EXIT a pid or name there and a pid here.
+bool well_formed(ProcessContext &context, const Shape &shape, const Term &control, Word node) {
+    const auto element = [&](std::size_t index) { return control.tuple_element_unchecked(index); };
+    if (shape.signal == Signal::none) {
+        return true;
+    }
+    if (!any_reference(element(3))) {
+        return false;
+    }
+    if (shape.signal == Signal::monitor_exit) {
+        const auto watcher = element(2);
+        return (element(1).is_external_pid() || element(1).is_atom()) &&
+               (watcher.is_pid() || pid_of_old_self(context, watcher));
+    }
+    const auto watched = element(2);
+    return pid_of_node(context, element(1), node) &&
+           (watched.is_pid() || watched.is_atom() || pid_of_old_self(context, watched));
+}
+
+// Whether an operation's payload is read: a message to deliver, or a monitor's exit reason.
+bool reads_payload(const Shape &shape) {
+    return shape.receiver != Receiver::none || (shape.payload && shape.signal == Signal::monitor_exit);
 }
 
 // The shape of a control message, or null for anything OTP calls an invalid distribution message.
@@ -178,8 +205,8 @@ std::optional<std::pair<Term, std::size_t>> term_at(ProcessContext &context, std
                                   std::string_view(reinterpret_cast<const char *>(bytes.data()), bytes.size()));
 }
 
-// Read a packet as OTP does; the payload only of operations that deliver a message.
-Reading read_packet(ProcessContext &context, std::span<const std::byte> packet) {
+// Read a packet from `node` as OTP does; the payload only of operations that use it.
+Reading read_packet(ProcessContext &context, Word node, std::span<const std::byte> packet) {
     if (packet.size() < SHORTEST_PACKET) {
         return {.fault = Fault::short_packet};
     }
@@ -192,10 +219,10 @@ Reading read_packet(ProcessContext &context, std::span<const std::byte> packet) 
         return {.fault = Fault::corrupted, .failed = rest};
     }
     const auto *shape = shape_of(control->first);
-    if (shape == nullptr) {
+    if (shape == nullptr || !well_formed(context, *shape, control->first, node)) {
         return {.fault = Fault::invalid, .control = control->first};
     }
-    if (shape->receiver == Receiver::none) {
+    if (!reads_payload(*shape)) {
         return {.shape = shape, .control = control->first};
     }
     const auto tail = rest.subspan(control->second);
@@ -223,6 +250,29 @@ void deliver(ProcessContext &context, const Reading &reading) {
     }
     if (!sent) {
         throw BuiltinFailure{.term = sent.error()};
+    }
+}
+
+// Hand a monitor signal to the executor; a MONITOR_P_EXIT to a pid of an earlier incarnation of this node does
+// nothing.
+void signal_monitor(ProcessContext &context, Word node, const Reading &reading) {
+    const auto element = [&](std::size_t index) { return reading.control.tuple_element_unchecked(index); };
+    auto &executor = Executor::of(context);
+    switch (reading.shape->signal) {
+    case Signal::monitor:
+        executor.watch_remote(context, node, {.watcher = element(1), .watched = element(2), .reference = element(3)});
+        break;
+    case Signal::demonitor:
+        executor.unwatch_remote(context, node, {.watcher = element(1), .watched = element(2), .reference = element(3)});
+        break;
+    case Signal::monitor_exit:
+        if (element(2).is_pid()) {
+            const auto reason = reading.shape->payload ? reading.message : element(4);
+            executor.remote_down(context, node, {.reference = element(3), .watcher = element(2), .reason = reason});
+        }
+        break;
+    case Signal::none:
+        break;
     }
 }
 
@@ -266,15 +316,29 @@ void report_fault(ProcessContext &context, Word node, const Reading &reading) {
 
 DistSend send_remote(ProcessContext &context, const RemoteMessage &send) {
     const auto [control, node] = control_of(context, send.destination);
-    return Executor::of(context).dist_output(context, node, packet_of(context, control, send.message), send.connect);
+    return Executor::of(context).dist_output(context, node, dist_packet(context, control, send.message), send.connect);
+}
+
+std::vector<std::byte> dist_packet(ProcessContext &context, const Term &control, const std::optional<Term> &payload) {
+    const auto head = encode_external(context, control);
+    const auto body = payload ? encode_external(context, *payload) : std::string{};
+    std::vector<std::byte> bytes;
+    bytes.reserve(1 + head.size() + body.size());
+    bytes.push_back(PASS_THROUGH);
+    for (const auto *part : {&head, &body}) {
+        const auto *data = reinterpret_cast<const std::byte *>(part->data());
+        bytes.insert(bytes.end(), data, data + part->size());
+    }
+    return bytes;
 }
 
 void take_packet(ProcessContext &context, const PacketSource &source, std::span<const std::byte> packet) {
-    const auto reading = read_packet(context, packet);
+    const auto reading = read_packet(context, source.node, packet);
     if (reading.fault == Fault::none) {
         if (reading.shape->receiver != Receiver::none) {
             deliver(context, reading);
         }
+        signal_monitor(context, source.node, reading);
         return;
     }
     Executor::of(context).exit(context, source.controller, atom(context, "kill"_atom), false);

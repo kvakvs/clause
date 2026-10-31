@@ -363,7 +363,10 @@ handle_call({allow, Nodes}, _From, #state{allowed = Allowed} = State) ->
 handle_call(allowed, _From, #state{allowed = Allowed} = State) ->
     {reply, {ok, Allowed}, State};
 handle_call({passive_cnct, _Node}, _From, State) ->
-    {reply, false, State}.
+    {reply, false, State};
+% A call from another node comes through only from an authorized node: net_adm:ping/1 (plan 30 step DIST4b3b1).
+handle_call({is_auth, _Node}, _From, State) ->
+    {reply, yes, State}.
 
 state_map(#state{node = Node, name_type = Type, name_domain = Domain, started = Started}) ->
     #{started => Started, name => Node, name_type => Type, name_domain => Domain}.

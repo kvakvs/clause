@@ -1,5 +1,5 @@
-%% Clause's net_adm (plan 21 step LIB25, docs/libraries/library.md): the answers of an OTP node that is not alive. Pings are
-%% pang, so worlds are empty; names ask epmd through the kernel's epmd_module (plan 30 step DIST3a); .hosts.erlang is
+%% Clause's net_adm (plan 21 step LIB25, docs/libraries/library.md): pings ask the other node's net_kernel (plan 30 step
+%% DIST4b3b1); worlds are empty; names ask epmd through the kernel's epmd_module (plan 30 step DIST3a); .hosts.erlang is
 %% read from the current directory, then the home directory.
 -module(net_adm).
 -export([
@@ -16,7 +16,16 @@
     world_list/2
 ]).
 
-ping(Node) when is_atom(Node) -> pang.
+%% A ping asks the other node's net_kernel whether this node is authorized; the call connects the nodes (plan 30 step
+%% DIST4b3b1).
+ping(Node) when is_atom(Node) ->
+    case catch gen:call({net_kernel, Node}, '$gen_call', {is_auth, node()}, infinity) of
+        {ok, yes} ->
+            pong;
+        _ ->
+            erlang:disconnect_node(Node),
+            pang
+    end.
 
 localhost() ->
     {ok, Host} = inet:gethostname(),

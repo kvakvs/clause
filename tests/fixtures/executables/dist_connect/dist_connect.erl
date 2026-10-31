@@ -188,12 +188,14 @@ wait_gone(Name) ->
     end.
 
 % The dynamic node's distribution starts again once its name is lost.
+% The new net_kernel registers before its init/1 runs: a call returns once init made the node alive again.
 wait_restarted() ->
     case whereis(net_kernel) of
         undefined ->
             timer:sleep(50),
             wait_restarted();
         _ ->
+            _ = net_kernel:get_state(),
             ok
     end.
 

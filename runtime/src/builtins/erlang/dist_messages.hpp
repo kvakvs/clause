@@ -2,10 +2,13 @@
 #include "../../scheduler/connections.hpp"
 #include "../support.hpp"
 #include <cstddef>
+#include <optional>
 #include <span>
+#include <vector>
 
 // Messages across nodes (plan 30 step DIST4b3a, docs/distribution.md#messages): sends to another node's processes as
-// OTP's pass-through packets on its connection, and the packets a connection's input handler puts, delivered.
+// OTP's pass-through packets on its connection, and the packets a connection's input handler puts, delivered or, for
+// process monitors, handed to the executor (DIST4b3b1).
 namespace clause::runtime::builtins {
 // A send to another node's process: another node's pid or alias, or {Name, Node} of another node; the message; and
 // whether an idle connection may be made (false: noconnect).
@@ -23,8 +26,11 @@ struct PacketSource {
 
 // Send a message to another node's process from the caller.
 detail::DistSend send_remote(ProcessContext &context, const RemoteMessage &send);
-// Take a packet of `source`: deliver its message, or kill the controller and write OTP's report when the packet
-// cannot be read. A killed controller may make the caller's builtin run again first, so nothing else is changed
-// before.
+// The pass-through packet of a control message built in `context`'s heap and its payload, if any (plan 30 step
+// DIST4b3b1: the runtime's monitor signals).
+std::vector<std::byte> dist_packet(ProcessContext &context, const Term &control, const std::optional<Term> &payload);
+// Take a packet of `source`: deliver its message, act on its monitor signal, or kill the controller and write OTP's
+// report when the packet cannot be read. A killed controller may make the caller's builtin run again first, so nothing
+// else is changed before.
 void take_packet(ProcessContext &context, const PacketSource &source, std::span<const std::byte> packet);
 } // namespace clause::runtime::builtins

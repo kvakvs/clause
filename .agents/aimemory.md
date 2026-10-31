@@ -792,3 +792,9 @@ gotchas and user directions not recorded elsewhere.
   pending (and works on the pending handle); pending bytes = packet bytes + 160 each (+24 more per binary over 64
   bytes, OTP's off-heap); `send(.., [noconnect])` to an up node is ok. OTP decodes payloads lazily in the receiver:
   a corrupted payload kills the connection only once the receiver takes messages (golden receivers must receive).
+- DIST4b3b1 (2026-10-31): the executables oracle compiles fixtures with warnings as errors: no `catch Expr`
+  (deprecated_catch) and no deprecated calls (`auth:is_auth/1`). OTP answers a fake node's MONITOR_P for no process at
+  once with PAYLOAD_MONITOR_P_EXIT `{28, Name|Pid as sent, Watcher, Ref}` + noproc; a target's end names it as the
+  monitor did; `monitored_by` lists the remote pid. OTP sends a non-immediate exit reason's MONITOR_P_EXIT later in
+  exit handling than local 'DOWN's: tests wait for the packet (dist_ctrl_get_data_notification), not the 'DOWN'.
+  `observe_case.py`-style runs (cases/nodes/regenerate imported) show OTP's raw stderr, which regenerate.py drops.

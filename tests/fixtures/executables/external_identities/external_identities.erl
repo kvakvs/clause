@@ -217,6 +217,19 @@ builtins(#{pid := P, port := Po, ref := R}) ->
     io:format("send_nosuspend: ~p~n", [safe(fun() -> erlang:send_nosuspend(id(P), hello, [noconnect]) end)]),
     io:format("exit: ~p~n", [[safe(fun() -> exit(id(P), kill) end), safe(fun() -> exit(id(R), kill) end)]]),
     io:format("unlink: ~p~n", [safe(fun() -> unlink(id(P)) end)]),
+    % Another node's process cannot be reached from a node that is not alive (plan 30 step DIST4b3b1).
+    io:format("monitor: ~p~n", [
+        [
+            safe(fun() ->
+                Ref = monitor(process, id(P), [{tag, gone}]),
+                receive
+                    {gone, Ref, process, Item, Reason} -> {Item =:= P, Reason}
+                after 1000 -> none
+                end
+            end),
+            safe(fun() -> monitor(process, {name, node(id(P))}) end)
+        ]
+    ]),
     io:format("local only: ~p~n", [
         [
             safe(fun() -> is_process_alive(id(P)) end),

@@ -9,6 +9,7 @@
 #include "../process/process_table.hpp"
 #include "connections.hpp"
 #include "timer_wheel.hpp"
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <clause/abi/frames.hpp>
@@ -333,8 +334,9 @@ class Executor final {
     // Send `message` through the alias `reference`: nothing when it is no active alias. A reply alias ends with the
     // delivery, after any wait for a busy owner, so a retried send still finds it.
     static TermResult<void> send_alias(ProcessContext &sender, const ReferenceIdentity &reference, const Term &message);
-    // demonitor(Ref) of `watcher`: whether the monitor was active; no 'DOWN' of it arrives afterwards.
-    static bool demonitor(ProcessContext &watcher, const ReferenceIdentity &reference) noexcept;
+    // demonitor(Ref) of `watcher`: whether the monitor was active; no 'DOWN' of it arrives afterwards. Allocation
+    // failure throws (another node's process is told).
+    static bool demonitor(ProcessContext &watcher, const ReferenceIdentity &reference);
     // register(Name, Pid) (docs/processes.md#registered-names): false when the name is taken, or the process has a
     // name or has ended. Allocation failure throws.
     bool register_name(ProcessContext &context, Word name, Word pid);
@@ -376,6 +378,22 @@ class Executor final {
     // Queue an encoded packet for `node` (plan 30 step DIST4b3a): on an up or pending connection, on an idle one
     // after auto-connecting it unless `connect` is false; dropped while this node has no name and for its own name.
     DistSend dist_output(ProcessContext &context, const Term &node, std::vector<std::byte> packet, bool connect);
+
+    // Process monitors between nodes (plan 30 step DIST4b3b1, remote_monitors.cpp,
+    // docs/distribution.md#process-monitors). monitor(process, Item[, Options]) of the running `watcher` for another
+    // node's pid or {Name, Node} of another node: a new reference, MONITOR_P on the node's connection; 'DOWN' at once
+    // with noconnection when the node cannot be reached, noproc for a pid of an earlier incarnation of this node.
+    // Allocation failure throws.
+    Term monitor_remote(ProcessContext &watcher, const Term &item, const MonitorOptions &options);
+    // The packets of `node`'s connection that `controller` takes, read and checked (dist_messages.cpp): MONITOR_P
+    // watches the process of this node it names or answers noproc, DEMONITOR_P ends that, MONITOR_P_EXIT sends the
+    // watcher of `down.reference` its 'DOWN'.
+    void watch_remote(ProcessContext &controller, Word node, const RemoteMonitor &watch);
+    void unwatch_remote(ProcessContext &controller, Word node, const RemoteMonitor &watch);
+    void remote_down(ProcessContext &controller, Word node, const RemoteDown &down);
+    // The other side of a monitor whose Signals entry names `node`, built in `builder`'s heap, as process_info/2
+    // shows it: the monitored pid or {Name, Node}, or the watcher's pid with `watcher`; the executor's lock is held.
+    Term remote_item(ProcessContext &builder, Word node, const ReferenceIdentity &reference, bool watcher) const;
 
     // Run `operation` on the connection table under the executor's lock: the controller data path (plan 30 step
     // DIST2d, builtins/erlang/connections.cpp) reads and changes connections this way.
@@ -770,7 +788,9 @@ class Executor final {
     // Drop the aliases of an ending process.
     void drop_aliases(Word pid) noexcept;
     // End the process monitor `reference` held by the process of `owner` (a reply_demonitor alias got its reply).
-    void end_monitor(Word owner, const ReferenceIdentity &reference) noexcept;
+    void end_monitor(Word owner, const ReferenceIdentity &reference);
+    // Forget `watcher`'s monitor `reference` at the monitored pid, port or (an atom) another node's process.
+    void unwatch(ProcessContext &watcher, Word monitored, const ReferenceIdentity &reference);
 
     // Act on an exit signal from `from` at `target`: end it, turn the signal into a message when it traps exits, or
     // drop it.
@@ -803,6 +823,22 @@ class Executor final {
     std::expected<Connection *, DistSend> output_connection(ProcessContext &context, const Term &node, bool connect);
     // Send the node monitors of `node`'s entry {nodedown, Node}, once per count, then make the entry idle.
     void take_down(ProcessContext &builder, Word node);
+    // Queue an encoded packet on a pending or up connection, telling a controller that asked for dist_data.
+    void queue_packet(ProcessContext &builder, Connection &connection, std::vector<std::byte> packet);
+    // Process monitors between nodes (plan 30 step DIST4b3b1, remote_monitors.cpp). End `watcher`'s monitor
+    // `reference` of `node`'s process, sending DEMONITOR_P; nothing when it already ended.
+    void demonitor_remote(ProcessContext &watcher, Word node, const ReferenceIdentity &reference);
+    // The ended `process` was monitored by `node`'s process under the watcher entry `key`: MONITOR_P_EXIT.
+    void remote_exit(ProcessContext &process, Word node, const ReferenceIdentity &key, const Term &reason);
+    // Queue MONITOR_P_EXIT (or its payload form) of the watched pid or name, the watcher and the reference.
+    void monitor_exit(ProcessContext &builder, Connection &connection, const std::array<Term, 3> &parts,
+                      const Term &reason);
+    // A connection goes down: each monitor of the node's processes gets 'DOWN' with noconnection, each of the node's
+    // monitors here ends.
+    void end_process_monitors(ProcessContext &builder, Word node, const ProcessMonitors &monitors);
+    // Queue a monitor signal on `connection` unless the node is up without OTP's monitor flags.
+    void queue_monitor_signal(ProcessContext &builder, Connection &connection, const Term &control,
+                              const std::optional<Term> &payload = std::nullopt);
     // Post `status` to each subscription that asks for it, the message built in `builder`'s heap.
     void announce(ProcessContext &builder, const NodeStatus &status);
     // Tell the subscribers that setnode/2 named this node.

@@ -94,3 +94,7 @@ Compact record of the network distribution plan, one bullet per step;
   pending-byte counts); `dist_ctrl_put_data/2` delivers the message operations and kills the controller on
   unreadable data with OTP's reports; `net_kernel` logs unexpected messages and takes `undefined@Host`; golden
   `dist_ping`; test programs and epmds listen on loopback only, nodes named @localhost — 7305f15a
+- **DIST4b3b1** Process monitors and ping: `MONITOR_P`/`DEMONITOR_P`/`MONITOR_P_EXIT` (payload form with
+  `EXIT_PAYLOAD`) by pid and by name in `scheduler/remote_monitors.cpp`, `'DOWN'` `noconnection` on connection loss
+  and at once when not alive, monitor signals checked as `dist.c`; `net_adm:ping/1` through `net_kernel`'s
+  `{is_auth, Node}`; golden `dist_ping` (fake-connection wire checks, pings, monitors, gen calls) — HASH

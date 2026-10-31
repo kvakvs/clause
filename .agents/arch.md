@@ -126,6 +126,9 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   Messages to other nodes (`builtins/erlang/dist_messages.cpp`, DIST4b3a): the send builtins encode a pass-through
   packet onto the connection's output queue (`Executor::dist_output`, auto-connecting an idle one), and
   `dist_ctrl_put_data/2` decodes packets and delivers them, or kills the controller with OTP's report.
+  Process monitors between nodes (`scheduler/remote_monitors.cpp`, DIST4b3b1): each side's `Signals` entry names the
+  other node's atom in place of a pid; the connection's `ProcessMonitors` keep the other side's identities in the
+  external format, so a watcher's or target's end, `demonitor` and the connection's end (`take_down`) find them.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

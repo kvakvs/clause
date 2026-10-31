@@ -15,9 +15,10 @@ the bundled epmd out (DIST3d). `net_kernel:start/1,2` and `stop/0` start and end
 running program ([starting distribution](#starting-distribution), DIST4b1a), and `--sname`/`--name` before the
 entry ([node start options](#node-start-options), DIST4b1b), with OTP's cookies ([cookies](#cookies), DIST4b1c).
 Nodes connect through OTP's handshake with all its statuses, `allow/1` and dynamic names ([making
-connections](#making-connections), DIST4b2a, DIST4b2b), over IPv4 or IPv6 (DIST4b2c), and messages move
-between them ([messages](#messages), DIST4b3a); other signals do not yet.
-The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
+connections](#making-connections), DIST4b2a, DIST4b2b), over IPv4 or IPv6 (DIST4b2c), messages move
+between them ([messages](#messages), DIST4b3a), processes monitor other nodes' processes and `net_adm:ping/1`
+answers ([process monitors](#process-monitors), DIST4b3b1); other signals do not yet.
+The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
 
@@ -225,9 +226,9 @@ speaking the protocol and with a test process as a connection's controller.
   a pid or reference of an earlier incarnation of this node. Another node's port is `badarg`.
 - **Delivery:** `dist_ctrl_put_data/2` delivers `SEND`, `REG_SEND`, `SEND_SENDER`, `ALIAS_SEND` and
   their `_TT` forms (the trace token is ignored). The sender field is never checked; another node's
-  receiver, a name no process has and a reference that is no alias get nothing. The other
-  operations of the protocol are read for their shape and wait for DIST4b3b and DIST5. Bytes after
-  the payload are ignored.
+  receiver, a name no process has and a reference that is no alias get nothing. Process monitor
+  signals are taken ([process monitors](#process-monitors)); the other operations of the protocol
+  are read for their shape and wait for DIST5. Bytes after the payload are ignored.
 - **Unreadable packets** kill the controller (`nodedown` reason `killed`) after OTP's report, `N`
   being the node's number in its printed pids:
   - fewer than three bytes: no report;
@@ -237,11 +238,46 @@ speaking the protocol and with a test process as a connection's controller.
     decode: the warning report `'Me' got a corrupted external term from 'Node' on distribution
     channel N`, the bytes from that term on (`<<...,131,255>>`, or `>>` for none) and
     `ATOM_CACHE_REF translations: none`;
-  - a control message of no known operation, arity or receiver: the error report
-    `Invalid distribution message: T`, `T` printed as `erlang:display/1` prints it.
+  - a control message of no known operation, arity or receiver, or a monitor signal naming what
+    OTP's `dist.c` refuses (below): the error report `Invalid distribution message: T`, `T` printed
+    as `erlang:display/1` prints it.
 - **`net_kernel`** logs `Net kernel got ~tw` for a message it does not expect, as OTP's: a
   `{dist_ctrlr, ...}` of a process that set up no connection, such as a test process calling
   `setnode/3`, among them.
+
+## Process monitors
+
+Current since DIST4b3b1 (`scheduler/remote_monitors.cpp`), as OTP 29's `dist.c`, observed with a
+test process as a connection's controller and between two nodes.
+
+- **Monitoring:** `monitor/2,3` of another node's pid or of `{Name, Node}` of another node queue
+  `MONITOR_P` `{19, Watcher, Pid | Name, Ref}` on the node's connection, auto-connecting an idle one,
+  also while it is pending. Options work as locally: `{tag, Tag}` replaces `'DOWN'`, `{alias, Mode}`
+  makes the reference an alias that another node's process can answer to (`gen:call/3,4`).
+- **'DOWN':** `{'DOWN', Ref, process, Item, Reason}`, Item the pid or `{Name, Node}`, comes from the
+  node's `MONITOR_P_EXIT` `{21, Item, Watcher, Ref, Reason}` or `PAYLOAD_MONITOR_P_EXIT`
+  `{28, Item, Watcher, Ref}` with the reason as payload. It comes with `noconnection` when the
+  connection goes down or cannot be made, at once on a node that is not alive (`{Name, Node}` of
+  another node is `badarg` there), and with `noproc` at once for a pid of an earlier incarnation of
+  this node.
+- **Ending:** `demonitor/1,2` and the watcher's end send `DEMONITOR_P` `{20, Watcher, Pid | Name,
+  Ref}`; `flush` also finds a `'DOWN'` that came from another node.
+- **Monitored here:** another node's `MONITOR_P` watches the process here it names by pid or
+  registered name; one that is not there (no process, a port's name, a pid of an earlier
+  incarnation) is answered with `noproc` at once. The process's end sends `MONITOR_P_EXIT` naming it
+  as the monitor did, in the payload form when the node has `EXIT_PAYLOAD`. `DEMONITOR_P` ends the
+  monitor. `process_info/2`'s `monitors` and `monitored_by` show the other node's pid or
+  `{Name, Node}`.
+- **Checks:** a `MONITOR_P` or `DEMONITOR_P` whose watcher is no pid of the connection's node, whose
+  monitored process is no pid or atom here, or whose reference is no reference, and a
+  `MONITOR_P_EXIT` whose monitored process is no pid or atom of another node or whose watcher is no
+  pid here, are invalid distribution messages ([messages](#messages)). A `MONITOR_P_EXIT` of a
+  monitor that already ended, or for a pid of an earlier incarnation, does nothing.
+- **Nodes without OTP's monitor flags** (`DIST_MONITOR`, `DIST_MONITOR_NAME`) get no monitor
+  signals; their monitors watch only the connection.
+- **Ping:** `net_adm:ping/1` calls `{net_kernel, Node}` with `{is_auth, node()}`, which `net_kernel`
+  answers `yes`: `pong`, else `disconnect_node/1` and `pang` (a wrong cookie fails the handshake with
+  its log line first). `auth:is_auth/1` pings.
 
 ## Node status messages
 
@@ -563,7 +599,8 @@ Current since DIST4b1c (`library/kernel/auth.erl`, `runtime/src/builtins/erlang/
 - **Alive:** the `erlang` functions continue in `auth`'s. `get_cookie/0` is this node's cookie; `get_cookie(Node)`
   the cookie set for `Node`, else this node's. `set_cookie(C)` and `set_cookie(node(), C)` set this node's cookie,
   `set_cookie(Node, C)` the cookie of `Node`; each answers `true`. `auth:cookie/0,1`, `node_cookie/1,2` and
-  `sync_cookie/0` (`true`) as OTP's; `is_auth/1` and `node_cookie/1,2` answer `no` until connections come (DIST4b2).
+  `sync_cookie/0` (`true`) as OTP's; `is_auth/1` and `node_cookie/1,2` ping the node
+  ([process monitors](#process-monitors)).
 - **End:** the cookies end with `net_sup`; a later start reads the file again.
 
 ## Node start options

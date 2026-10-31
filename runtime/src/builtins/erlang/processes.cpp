@@ -84,17 +84,43 @@ Word monitored_name(const Term &item) {
     return item.tuple_element_unchecked(0).word();
 }
 
-// monitor(process | port, Item[, Options]): a reference; the caller gets {'DOWN', Ref, Type, Item, Reason} (or
-// {Tag, ...} with {tag, Tag}) when the process ends or the port closes. Item is a pid or port of the type, or a
-// registered name as Name or {Name, Node} of this node. Options apply to process monitors (step 41G2).
-TermResult<Term> monitor_with(ProcessContext &context, const AtomArgument &type, const Term &item,
-                              const detail::MonitorOptions &options) {
-    const bool port = type.spelling == "port";
-    if ((!port && type.spelling != "process") || (port ? item.is_pid() : item.is_port()) ||
-        (port && (options.alias || options.tag))) {
+// Whether a process monitor's item names another node's process (plan 30 step DIST4b3b1): its pid, or {Name, Node}
+// of another node, which is badarg while this node is not alive, as OTP's.
+bool remote_process(const Term &item) {
+    if (item.is_external_pid()) {
+        return true;
+    }
+    if (!remote_name(item) || local_name(item)) {
+        return false;
+    }
+    if (!detail::this_node_named()) {
         bad_argument();
     }
+    return true;
+}
+
+// Whether a monitor's type, item and options fit together: no pid for port, no port for process, options for process.
+bool monitor_fits(const AtomArgument &type, const Term &item, const detail::MonitorOptions &options) {
+    if (type.spelling == "port") {
+        return !item.is_pid() && !options.alias && !options.tag;
+    }
+    return type.spelling == "process" && !item.is_port();
+}
+
+// monitor(process | port, Item[, Options]): a reference; the caller gets {'DOWN', Ref, Type, Item, Reason} (or
+// {Tag, ...} with {tag, Tag}) when the process ends or the port closes. Item is a pid or port of the type, or a
+// registered name as Name or {Name, Node}; another node's process is monitored over its connection. Options apply to
+// process monitors (step 41G2).
+TermResult<Term> monitor_with(ProcessContext &context, const AtomArgument &type, const Term &item,
+                              const detail::MonitorOptions &options) {
+    if (!monitor_fits(type, item, options)) {
+        bad_argument();
+    }
+    const bool port = type.spelling == "port";
     auto &executor = detail::Executor::of(context);
+    if (!port && remote_process(item)) {
+        return executor.monitor_remote(context, item, options);
+    }
     if (item.is_pid() || item.is_port()) {
         return executor.monitor(context, item.word(), 0, port, options);
     }
@@ -148,6 +174,8 @@ TermResult<Term> demonitor_options_call(ProcessContext &context, const Term &ref
     const auto identity = reference.reference_value_unchecked();
     const bool active = detail::Executor::demonitor(context, identity);
     if (!active && parsed.flush) {
+        // A 'DOWN' of another node's process is posted among the arrivals (DIST4b3b1).
+        need(detail::MessageBuffer::take_arrivals(context));
         context.mailbox().remove([&](Word message) { return monitor_message(context, message, identity); });
     }
     return TermFactory(context).boolean(active || !parsed.info);

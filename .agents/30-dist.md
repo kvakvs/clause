@@ -6,7 +6,8 @@ direction); formerly backlog item F38.
 
 - **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a) or
   `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d); started nodes
-  connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c) and exchange messages (DIST4b3a), no other signal yet.
+  connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c), exchange messages (DIST4b3a), monitor each other's processes and
+  ping (DIST4b3b1), no other signal yet.
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -40,8 +41,10 @@ direction); formerly backlog item F38.
   - Simultaneous connects, `alive` replacing a node's old connection, `nok` for this node's name, `allow/1` and
     `allowed/0`, and dynamic names (`--sname undefined`, `named:`, lost with the connection that gave them) as
     OTP's (DIST4b2b).
+  - Process monitors by pid and by name: `MONITOR_P`, `DEMONITOR_P`, `MONITOR_P_EXIT` and its payload form,
+    `'DOWN'` with `noconnection`; `net_adm:ping/1` through `net_kernel`'s `{is_auth, Node}` (DIST4b3b1).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
-    `noconnection`), `net_adm` (`pang`), `net_kernel` (internals declined), `auth` (`nocookie` until started), `global` and
+    `noconnection`), `net_kernel` (internals declined), `auth` (`nocookie` until started), `global` and
     `global_group` (one node, locker internals declined), `pg` (no peers), `peer`/`slave`
     (`not_alive`), `pool` (collector declined), `application` (`takeover/2` exits `noproc`, no
     `dist_ac`).
@@ -90,18 +93,20 @@ Split 2026-10-31 into DIST4b3a (messages) and DIST4b3b (process monitors and pin
 Python peer and a test process as a connection's controller (`setnode/3` with a pid; `.agents/aimemory.md`).
 DIST4b3a is done ([30-finished](30-finished.md)).
 
-## DIST4b3b. Process monitors and ping
+## DIST4b3b. Process monitors, ping and flushed output
 
-Depends on: DIST4b3a ([30-finished](30-finished.md)).
+Split 2026-10-31 into DIST4b3b1 (monitors and ping, done, [30-finished](30-finished.md)) and DIST4b3b2.
+
+## DIST4b3b2. Flushed output at the program's end
+
+Depends on: DIST4b3b1 ([30-finished](30-finished.md)).
 
 - Success criteria
-  - [ ] `MONITOR_P`, `DEMONITOR_P` and `MONITOR_P_EXIT` (enough for `gen:call/3` to `{net_kernel, Node}`),
-        `'DOWN'` with `noconnection` when the connection goes down, as observed.
-  - [ ] `net_adm:ping/1` answers `pong`, or `pang` after OTP's log line for a wrong cookie.
   - [ ] The program's end (entry returned, `halt/0,1`) waits until the controllers sent the queued packets, as
         OTP's `halt` flushes outstanding output; the socket writes too (asynchronous on the I/O thread).
+  - [ ] The `differences.md` row on a message sent just before the program ends is removed.
 - Tests
-  - [ ] Golden `dist_ping`: ping, remote monitors and calls to another node's server.
+  - [ ] Golden `dist_ping`: a node sends and ends at once, its peer gets the messages.
 
 <a id="step-dist4b4"></a>
 
@@ -132,8 +137,8 @@ Depends on: [DIST4b4](#step-dist4b4).
   - [ ] Connection loss: links exit `noconnection`, monitors deliver `'DOWN'` with
         `noconnection`, node monitors `{nodedown, Node}`.
   - [ ] On a node that is not alive, as OTP: `link/1` to another node's pid returns `true` and sends
-        `{'EXIT', Pid, noconnection}`, `monitor/2` returns a reference, `group_leader/2` returns
-        `true` (DIST1 left them `badarg`, recorded in `differences.md`).
+        `{'EXIT', Pid, noconnection}`, `group_leader/2` returns `true` (DIST1 left them `badarg`, recorded in
+        `differences.md`; `monitor/2` came in DIST4b3b1).
   - [ ] Auto-connect: signals to an unconnected node wait while `net_kernel` connects
         (`dist_auto_connect`); `erlang:send/3` `noconnect` and `nosuspend`.
 - Tests

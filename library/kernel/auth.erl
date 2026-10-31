@@ -34,8 +34,12 @@
 % This node's cookie, and the cookies set for other nodes by name.
 -record(state, {cookie, nodes = #{}}).
 
-%% Authorization is checked by connecting, which comes with the handshake (DIST4b2).
-is_auth(_) -> no.
+%% A node is authorized when it answers a ping (plan 30 step DIST4b3b1).
+is_auth(Node) ->
+    case net_adm:ping(Node) of
+        pong -> yes;
+        pang -> no
+    end.
 
 cookie() -> get_cookie().
 

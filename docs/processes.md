@@ -384,8 +384,10 @@ so it can send the message when it ends.
 - `monitor(process, Name)` and `monitor(process, {Name, Node})` with this
   node's name monitor the process registered as `Name` (`noproc` at once when
   there is none); its `'DOWN'` and `process_info/2`'s `monitors` name
-  `{Name, Node}` instead of the pid. `{Name, Node}` for another node is
-  `badarg`.
+  `{Name, Node}` instead of the pid. Another node's pid and `{Name, Node}` for
+  another node monitor that node's process over its connection
+  ([distribution](distribution.md#process-monitors)); `{Name, Node}` for another
+  node is `badarg` while this node is not alive.
 - `monitor(port, Port | Name)` monitors a port
   ([ports](ports.md#port-table-and-ownership)):
   `{'DOWN', Ref, port, Port, Reason}` when it closes. A pid for `port`, or a
