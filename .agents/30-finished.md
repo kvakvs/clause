@@ -97,4 +97,4 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST4b3b1** Process monitors and ping: `MONITOR_P`/`DEMONITOR_P`/`MONITOR_P_EXIT` (payload form with
   `EXIT_PAYLOAD`) by pid and by name in `scheduler/remote_monitors.cpp`, `'DOWN'` `noconnection` on connection loss
   and at once when not alive, monitor signals checked as `dist.c`; `net_adm:ping/1` through `net_kernel`'s
-  `{is_auth, Node}`; golden `dist_ping` (fake-connection wire checks, pings, monitors, gen calls) — HASH
+  `{is_auth, Node}`; golden `dist_ping` (fake-connection wire checks, pings, monitors, gen calls) — 51436b89
