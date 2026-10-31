@@ -5,7 +5,7 @@ distributed Erlang node. Added 2026-10-30 as plan 11's phase DIST and moved here
 direction); formerly backlog item F38.
 
 - **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a) or
-  `--sname`/`--name` (DIST4b1b).
+  `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c).
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -28,8 +28,10 @@ direction); formerly backlog item F38.
   - `--sname`/`--name` start distribution before the entry through `clause_dist_start:boot/3`; the distribution
     modules link with `clau --distribution`, manifest `distribution = true` or `runtime_options` naming the node,
     or a call of `net_kernel` (DIST4b1b).
+  - `auth` under `net_sup` keeps the cookies (`--setcookie`, `--nocookie`, `~/.erlang.cookie` read or created);
+    `erlang:get_cookie/0,1` and `set_cookie/1,2` continue in it while the node is alive (DIST4b1c).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
-    `noconnection`), `net_adm` (`pang`), `net_kernel` (internals declined), `auth` (`nocookie`), `global` and
+    `noconnection`), `net_adm` (`pang`), `net_kernel` (internals declined), `auth` (`nocookie` until started), `global` and
     `global_group` (one node, locker internals declined), `pg` (no peers), `peer`/`slave`
     (`not_alive`), `pool` (collector declined), `application` (`takeover/2` exits `noproc`, no
     `dist_ac`).
@@ -74,21 +76,11 @@ direction); formerly backlog item F38.
 
 <a id="step-dist4b1c"></a>
 
-## DIST4b1c. Cookies
-
-Depends on: DIST4b1b ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] `auth` under `net_sup`: `erlang:set_cookie/1,2`, `get_cookie/0,1`, `--setcookie`, `--nocookie`,
-        `~/.erlang.cookie` read or created (permissions, random text) as OTP does.
-- Tests
-  - [ ] Golden `dist_cookie`: cookies of started nodes, the cookie file in a per-run home directory.
-
 <a id="step-dist4b2"></a>
 
 ## DIST4b2. Handshake and TCP carrier
 
-Depends on: [DIST4b1c](#step-dist4b1c).
+Depends on: DIST4b1c ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's

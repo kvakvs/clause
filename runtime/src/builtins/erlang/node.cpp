@@ -218,23 +218,51 @@ Word dmonitor_node(ProcessContext &context, const Term &node, const Term &flag, 
     return atom(context, "true"_atom).word();
 }
 
-// get_cookie() and get_cookie(Node): nocookie, since this node is not alive (plan 21 step LIB9A).
-TermResult<Term> get_cookie0(ProcessContext &context) { return TermFactory(context).atom("nocookie"_atom); }
+// Whether this node is alive, named or waiting for a dynamic name, so that the auth server keeps its cookies.
+bool alive(ProcessContext &context) { return detail::this_node_named() || dynamic_name(context); }
 
-TermResult<Term> get_cookie1(ProcessContext &context, const AtomArgument & /*node*/) {
-    return TermFactory(context).atom("nocookie"_atom);
+// Continue as auth:Name(Arguments...), the auth server's cookies of an alive node (plan 30 step DIST4b1c,
+// docs/distribution.md#cookies).
+Word auth_call(ProcessContext &context, const CachedAtom &name, const std::span<const Word> arguments) {
+    const auto *frame = static_cast<const abi::v1::FrameDescriptor *>(
+        context.code_server().function_frame(atom(context, "auth"_atom), atom(context, name), arguments.size()));
+    if (!frame) {
+        bad_argument();
+    }
+    context.stack().trap(*frame, arguments);
+    return 0;
 }
 
-// set_cookie(Cookie) and set_cookie(Node, Cookie): error:distribution_not_started for atoms, badarg otherwise.
+// get_cookie() and get_cookie(Node): the auth server's cookies, nocookie while this node is not alive (plan 21 step
+// LIB9A).
+Word get_cookie0(ProcessContext &context) {
+    return alive(context) ? auth_call(context, "get_cookie"_atom, {}) : atom(context, "nocookie"_atom).word();
+}
+
+Word get_cookie1(ProcessContext &context, const AtomArgument &node) {
+    return alive(context) ? auth_call(context, "get_cookie"_atom, std::array{node.term.word()})
+                          : atom(context, "nocookie"_atom).word();
+}
+
+// set_cookie(Cookie) and set_cookie(Node, Cookie) while this node is not alive: error:distribution_not_started for
+// atoms, badarg otherwise.
 [[noreturn]] void not_started(ProcessContext &context) {
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
                          .payload = atom(context, "distribution_not_started"_atom).word()};
 }
 
-TermResult<Term> set_cookie1(ProcessContext &context, const AtomArgument & /*cookie*/) { not_started(context); }
+Word set_cookie1(ProcessContext &context, const AtomArgument &cookie) {
+    if (!alive(context)) {
+        not_started(context);
+    }
+    return auth_call(context, "set_cookie"_atom, std::array{cookie.term.word()});
+}
 
-// set_cookie(Node, Cookie): the local node's cookie is set with set_cookie/1, so naming it here is badarg.
-TermResult<Term> set_cookie2(ProcessContext &context, const AtomArgument &node, const AtomArgument & /*cookie*/) {
+// set_cookie(Node, Cookie): naming this node is badarg while it is not alive; once alive it sets this node's cookie.
+Word set_cookie2(ProcessContext &context, const AtomArgument &node, const AtomArgument &cookie) {
+    if (alive(context)) {
+        return auth_call(context, "set_cookie"_atom, std::array{node.term.word(), cookie.term.word()});
+    }
     if (node.spelling == detail::this_node_name()) {
         bad_argument();
     }

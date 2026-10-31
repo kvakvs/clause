@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "entry": "dist_cookie",
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "created",
+          "home": true,
+          "args": [
+            "created"
+          ],
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "off: [nocookie,nocookie,\n      {error,distribution_not_started},\n      {error,distribution_not_started},\n      {error,badarg},\n      nocookie,nocookie,\n      {error,distribution_not_started},\n      no]\nbad arguments: [{error,badarg},{error,badarg},{error,badarg}]\nfile before: false\ncookie from file: {true,20,true}\nfile writable: false\nother node: true\nauth: true\nset: true\ncookie after set: newc\nset other: true\nother cookies: [nodec,newc]\nset this node: true\nthis node's cookies: [selfc,selfc,selfc]\nauth functions: [true,viaauth,viaauth,true,c2,no,no,nc,nc2]\nbad arguments: [{error,badarg},{error,badarg},{error,badarg}]\nauth server: [true,true]\nstopped: [nocookie,{error,distribution_not_started}]\nagain from file: true\ndist_cookie: ok\n"
+        },
+        {
+          "name": "existing",
+          "home": true,
+          "args": [
+            "existing"
+          ],
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "cookie: '  Existing_Cookie'\ndist_cookie: ok\n"
+        },
+        {
+          "name": "given",
+          "home": true,
+          "args": [
+            "given"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--setcookie given_cookie"
+          },
+          "otp_flags": "-setcookie given_cookie",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "cookie: given_cookie\nfile: false\ndist_cookie: ok\n"
+        },
+        {
+          "name": "none",
+          "home": true,
+          "args": [
+            "none"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--nocookie"
+          },
+          "otp_flags": "-nocookie",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "cookie: [nocookie,nocookie]\nset: true\ncookie after set: later\nfile: false\ndist_cookie: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "dist_cookie.erl": "13a8af6b110de4272d718323d59845b84127549460d7b0fb68e7ddb48ebac828"
+  }
+}

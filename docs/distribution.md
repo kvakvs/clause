@@ -13,7 +13,8 @@ with `-daemon`, `-names` and `-kill` in DIST3c) or inside the program when a reg
 (`--epmd bundled`, DIST3b); `--epmd external` starts an epmd program, and `--no-bundled-epmd` leaves
 the bundled epmd out (DIST3d). `net_kernel:start/1,2` and `stop/0` start and end distribution in a
 running program ([starting distribution](#starting-distribution), DIST4b1a), and `--sname`/`--name` before the
-entry ([node start options](#node-start-options), DIST4b1b); its node reaches no other node yet.
+entry ([node start options](#node-start-options), DIST4b1b), with OTP's cookies ([cookies](#cookies), DIST4b1c); its
+node reaches no other node yet.
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -356,7 +357,7 @@ OTP's `net_kernel:start/1,2` and `stop/0`. Connections come in DIST4b2: until th
 
 - **Processes:** `net_kernel:start/1,2` starts the `net_sup` supervisor (`erl_distribution`, one-for-all, no
   restarts) with the `erl_epmd` server (the `kernel` parameter `epmd_module`, when that module has
-  `start_link/0`) and then the `net_kernel` server, and returns `{ok, NetSup}`. Clause has no `kernel_sup`: `net_sup`
+  `start_link/0`), the `auth` server ([cookies](#cookies)) and then the `net_kernel` server, and returns `{ok, NetSup}`. Clause has no `kernel_sup`: `net_sup`
   runs unlinked from the caller ([differences](differences.md)). `{error, {already_started, NetSup}}` while it runs.
 - **Options:** `start/2` takes `name_domain` (`longnames` by default), `net_ticktime` (the `kernel` parameter,
   60 by default; a value below 1 is 1), `net_tickintensity` (4), `dist_listen` and `hidden`; an invalid one
@@ -385,6 +386,26 @@ OTP's `net_kernel:start/1,2` and `stop/0`. Connections come in DIST4b2: until th
 - **`stop/0`:** ends `net_sup`, whose `net_kernel` takes the name with it and whose `erl_epmd` closes the
   registration; `{error, not_found}` without distribution, `{error, not_allowed}` for a node the node start options
   named ([node start options](#node-start-options)).
+
+## Cookies
+
+Current since DIST4b1c (`library/kernel/auth.erl`, `runtime/src/builtins/erlang/node.cpp`), as OTP's `auth`:
+
+- **Without distribution:** `erlang:get_cookie/0,1` and `auth:get_cookie/0,1` answer `nocookie`;
+  `erlang:set_cookie/1,2` and `auth:set_cookie/1,2` raise `distribution_not_started`, and
+  `erlang:set_cookie(node(), C)` raises `badarg`. A cookie or node that is no atom is `badarg`.
+- **This node's cookie:** the `auth` server under `net_sup` starts with `--nocookie` (`nocookie`), else
+  `--setcookie COOKIE`, else `.erlang.cookie` in the home directory (`init:get_argument(home)`: `HOME`, on Windows
+  `HOMEDRIVE` and `HOMEPATH`, else the user profile). The file's first line is the cookie, without its line end and
+  trailing blanks. A missing file is created with 20 random letters `A` to `Z` and made readable by its owner alone
+  (mode 400; read-only on Windows). On Unix, a file others may read stops `auth` with `Cookie file F must be
+  accessible by owner only`, and a start without a home with `No home for cookie file`, so distribution fails to
+  start.
+- **Alive:** the `erlang` functions continue in `auth`'s. `get_cookie/0` is this node's cookie; `get_cookie(Node)`
+  the cookie set for `Node`, else this node's. `set_cookie(C)` and `set_cookie(node(), C)` set this node's cookie,
+  `set_cookie(Node, C)` the cookie of `Node`; each answers `true`. `auth:cookie/0,1`, `node_cookie/1,2` and
+  `sync_cookie/0` (`true`) as OTP's; `is_auth/1` and `node_cookie/1,2` answer `no` until connections come (DIST4b2).
+- **End:** the cookies end with `net_sup`; a later start reads the file again.
 
 ## Node start options
 

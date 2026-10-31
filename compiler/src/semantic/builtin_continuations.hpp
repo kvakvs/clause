@@ -20,11 +20,16 @@ struct BuiltinContinuation {
 // io output to a process device goes through clause_io:put_chars/2, an I/O protocol request (plan 21 step LIB63);
 // writes of maps ordered by comparison funs sort their keys in clause_io_lib:sort_maps/6 (plan 21 step LIB4F); a
 // passive node monitor asks net_kernel in clause_dist:passive_monitor/3 (plan 30 step DIST2c); a controller's iolist
-// becomes one binary in erts_internal:dist_ctrl_put_data/2 (plan 30 step DIST2d).
+// becomes one binary in erts_internal:dist_ctrl_put_data/2 (plan 30 step DIST2d); an alive node's cookies are the
+// auth server's (plan 30 step DIST4b1c).
 inline constexpr std::array BUILTIN_CONTINUATIONS{
     BuiltinContinuation{{"erlang", "monitor_node", 3}, U"clause_dist", U"passive_monitor", 3},
     BuiltinContinuation{{"erlang", "dmonitor_node", 3}, U"clause_dist", U"passive_monitor", 3},
     BuiltinContinuation{{"erlang", "dist_ctrl_put_data", 2}, U"erts_internal", U"dist_ctrl_put_data", 2},
+    BuiltinContinuation{{"erlang", "get_cookie", 0}, U"auth", U"get_cookie", 0},
+    BuiltinContinuation{{"erlang", "get_cookie", 1}, U"auth", U"get_cookie", 1},
+    BuiltinContinuation{{"erlang", "set_cookie", 1}, U"auth", U"set_cookie", 1},
+    BuiltinContinuation{{"erlang", "set_cookie", 2}, U"auth", U"set_cookie", 2},
     BuiltinContinuation{{"io", "format", 3}, U"clause_io", U"put_chars", 2},
     BuiltinContinuation{{"io", "fwrite", 3}, U"clause_io", U"put_chars", 2},
     BuiltinContinuation{{"io", "put_chars", 2}, U"clause_io", U"put_chars", 2},

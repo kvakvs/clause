@@ -205,7 +205,8 @@ def compare_nodes(executable, run, directory, golden):
     epmd, port = (None, nodes.free_port()) if nodes.bundled(run) else nodes.start_epmd(epmd_command(run))
     try:
         commands = [node_command(executable, node, directory, golden) for node in run['nodes']]
-        environments = [node_environment(run, node, port) | epmd_tool(executable) for node in run['nodes']]
+        environments = [node_environment(run, node, port) | epmd_tool(executable) | nodes.node_home(node, directory)
+                        for node in run['nodes']]
         results = nodes.run_nodes(commands, environments, directory, RUN_TIMEOUT)
     finally:
         if epmd:
@@ -270,7 +271,7 @@ def program_golden(case_dir):
 
 def prepare(case_dir, work):
     """Recreates `work` holding the case's inputs; returns the case's golden."""
-    shutil.rmtree(work, ignore_errors=True)
+    nodes.remove_tree(work)
     if (case_dir / 'fixture.json').exists():
         golden = program_golden(case_dir)
         shutil.copytree(case_dir, work, ignore=shutil.ignore_patterns(*PROGRAM_EXTRAS))

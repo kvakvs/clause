@@ -4,9 +4,11 @@ clause-epmd (or OTP's epmd for runs of 'epmd' otp, and none for runs of 'epmd' b
 bundled epmd), and regenerate.py, which runs every node under the OTP oracle on OTP's epmd."""
 import concurrent.futures
 import contextlib
+import os
 import pathlib
 import shutil
 import socket
+import stat
 import subprocess
 import time
 
@@ -43,6 +45,29 @@ def otp_program(escript, name):
     if not found:
         raise RuntimeError(f'no {name} in the OTP installation of {escript}')
     return str(found)
+
+
+def remove_tree(path):
+    """Removes a directory tree that may hold read-only files, such as a run's cookie file (plan 30 step DIST4b1c)."""
+    if pathlib.Path(path).exists():
+        shutil.rmtree(path, onexc=lambda remove, name, _: (os.chmod(name, stat.S_IWRITE), remove(name)))
+
+
+def home_environment(path):
+    """Environment entries that make the fresh, empty directory `path` a program's home directory, where the cookie
+    file is (plan 30 step DIST4b1c): HOME, and on Windows HOMEDRIVE and HOMEPATH, which erl and Clause read first."""
+    path = pathlib.Path(path).resolve()
+    remove_tree(path)
+    path.mkdir(parents=True)
+    result = {'HOME': str(path)}
+    if path.drive:
+        result |= {'HOMEDRIVE': path.drive, 'HOMEPATH': str(path)[len(path.drive):]}
+    return result
+
+
+def node_home(node, directory):
+    """A node's home environment: a fresh directory below `directory` for a node of 'home' true, else nothing."""
+    return home_environment(pathlib.Path(directory) / f'home-{node["name"]}') if node.get('home') else {}
 
 
 def free_port():

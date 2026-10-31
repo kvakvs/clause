@@ -1,5 +1,5 @@
 %% Clause's erl_distribution (plan 30 step DIST4b1a, docs/distribution.md#starting-distribution): the net_sup
-%% supervisor of erl_epmd and net_kernel, and the dynamic start and stop behind net_kernel:start/1,2 and stop/0.
+%% supervisor of erl_epmd, auth (DIST4b1c) and net_kernel, and the dynamic start and stop behind net_kernel:start/1,2 and stop/0.
 %% Clause has no kernel_sup: a dynamic net_sup runs unlinked, and its start errors keep OTP's net_sup_dynamic child.
 -module(erl_distribution).
 -behaviour(supervisor).
@@ -23,12 +23,16 @@ start_link() ->
 
 start_link(Options) -> supervisor:start_link({local, net_sup}, ?MODULE, [Options]).
 
-% The children in start order: the epmd client, then net_kernel; one ending ends them all.
+% The children in start order: the epmd client, the cookies' auth server, then net_kernel; one ending ends them all.
 init([Options]) ->
     Epmd = net_kernel:epmd_module(),
     EpmdChild = #{id => Epmd, start => {Epmd, start_link, []}, shutdown => ?SHUTDOWN, modules => [Epmd]},
+    % The literal fun links the auth server into programs, as its child spec names it only as data.
+    _ = fun auth:start_link/0,
+    Auth = #{id => auth, start => {auth, start_link, []}, shutdown => ?SHUTDOWN},
     Kernel = #{id => net_kernel, start => {net_kernel, start_link, [Options]}, shutdown => ?SHUTDOWN},
-    {ok, {#{strategy => one_for_all, intensity => 0, period => 1}, [EpmdChild || epmd_child(Epmd)] ++ [Kernel]}}.
+    Flags = #{strategy => one_for_all, intensity => 0, period => 1},
+    {ok, {Flags, [EpmdChild || epmd_child(Epmd)] ++ [Auth, Kernel]}}.
 
 % Whether the epmd module runs a server of its own, as erl_epmd does.
 epmd_child(Epmd) ->
