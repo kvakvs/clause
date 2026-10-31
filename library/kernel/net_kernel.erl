@@ -1,7 +1,10 @@
-%% Clause's net_kernel (plan 21 step LIB25, docs/libraries/library.md): the answers of an OTP node whose distribution is not
-%% started, which a Clause program always is. Most requests are ignored and distribution cannot be started. Node
-%% status subscriptions are the runtime's (plan 30 step DIST2b, docs/distribution.md#node-status-messages).
+%% Clause's net_kernel (plan 21 step LIB25, docs/libraries/library.md): OTP's net_kernel server of a distributed node,
+%% started by start/1,2 under erl_distribution's net_sup (plan 30 step DIST4b1a, docs/distribution.md#starting-
+%% distribution). It names the node from the carrier's listen and epmd registration. Without it, requests are
+%% ignored as OTP's are. Node status subscriptions are the runtime's (plan 30 step DIST2b).
 -module(net_kernel).
+-behaviour(gen_server).
+-include_lib("kernel/include/inet.hrl").
 -export([
     allow/1,
     allowed/0,
@@ -50,21 +53,45 @@
     verbose/1
 ]).
 
-get_state() -> #{started => no}.
+% The kernel parameters' defaults: net tick time in seconds and ticks per tick time.
+-define(TICKTIME, 60).
+-define(TICKINTENSITY, 4).
+% The carrier of node names without --proto-dist.
+-define(PROTO, "inet_tcp").
 
-%% Requests the net_kernel server would answer: without distribution they are ignored.
+% A started node: its name (undefined until a peer names it), how it was named and started, its tick settings,
+% whether it is hidden, and its carriers' listen sockets as {Module, Socket, Address}.
+-record(state, {node, name_type, name_domain, started, ticktime, intensity, hidden, listen = []}).
+
+get_state() ->
+    case request(get_state) of
+        ignored -> #{started => no};
+        State -> State
+    end.
+
+nodename() -> request(nodename).
+longnames() -> request(longnames).
+get_net_ticktime() -> request(ticktime).
+
+%% Connections come with the handshake (DIST4b2): a started node reaches no other node yet.
+connect_node(Node) -> request({connect, normal, Node}).
+hidden_connect_node(Node) -> request({connect, hidden, Node}).
+
+%% Requests of a started node that DIST6 answers; ignored as without distribution until then.
 allow(_) -> ignored.
 allowed() -> ignored.
-connect_node(_) -> ignored.
-hidden_connect_node(_) -> ignored.
 disconnect(_) -> ignored.
-get_net_ticktime() -> ignored.
 set_net_ticktime(_) -> ignored.
 set_net_ticktime(_, _) -> ignored.
 getopts(_, _) -> ignored.
 setopts(_, _) -> ignored.
-nodename() -> ignored.
-longnames() -> ignored.
+
+% A call to the net_kernel server; ignored without one, as OTP's.
+request(Request) ->
+    case whereis(net_kernel) of
+        undefined -> ignored;
+        _ -> gen_server:call(net_kernel, Request, infinity)
+    end.
 
 async_disconnect(_) -> ok.
 
@@ -73,20 +100,225 @@ publish_on_node(_) -> false.
 %% Whether net_kernel holds a connection to Node up for erlang:dmonitor_node/3; false while no process is registered
 %% as net_kernel (plan 30 step DIST2c).
 passive_cnct(Node) ->
-    case whereis(net_kernel) of
-        undefined -> false;
-        _ -> gen_server:call(net_kernel, {passive_cnct, Node}, infinity)
+    case request({passive_cnct, Node}) of
+        ignored -> false;
+        Up -> Up
     end.
 
 dflag_unicode_io(_) -> true.
 
 protocol_childspecs() -> [].
 
-epmd_module() -> erl_epmd.
+% The epmd client module, the kernel parameter epmd_module.
+epmd_module() ->
+    case application:get_env(kernel, epmd_module) of
+        {ok, Module} when is_atom(Module) -> Module;
+        _ -> erl_epmd
+    end.
 
 connecttime() -> 7000.
 
-stop() -> {error, not_found}.
+stop() -> erl_distribution:stop().
+
+%% Starting distribution: the documented start/1 lists as start/2's options, which are checked before net_sup starts.
+start([Name]) when is_atom(Name) ->
+    start([Name, longnames, 15000]);
+start([Name, NameDomain]) when is_atom(Name), is_atom(NameDomain) ->
+    start([Name, NameDomain, 15000]);
+start([Name, NameDomain, TickTime]) when is_atom(Name), is_atom(NameDomain), is_integer(TickTime), TickTime > 0 ->
+    % TickTime is the time between ticks at intensity 4, net_ticktime seconds rounded up.
+    start(Name, #{name_domain => NameDomain, net_ticktime => ((TickTime * 4 - 1) div 1000) + 1, net_tickintensity => 4}).
+
+start(Name, Options) when is_atom(Name), is_map(Options) ->
+    lists:foreach(
+        fun({Key, Value}) ->
+            start_option(Key, Value) orelse erlang:error({invalid_option, Key, Value}, [Name, Options])
+        end,
+        maps:to_list(Options)
+    ),
+    erl_distribution:start(Options#{name => Name});
+start(Name, Options) when is_map(Options) ->
+    erlang:error(invalid_name, [Name, Options]);
+start(Name, Options) ->
+    erlang:error(invalid_options, [Name, Options]).
+
+% Whether Value is a valid value of start/2's option Key.
+start_option(name_domain, Domain) -> Domain =:= shortnames orelse Domain =:= longnames;
+start_option(net_ticktime, Time) -> is_integer(Time) andalso Time > 0;
+start_option(net_tickintensity, Intensity) -> is_integer(Intensity) andalso Intensity >= 4 andalso Intensity =< 1000;
+start_option(dist_listen, Listen) -> is_boolean(Listen);
+start_option(hidden, Hidden) -> is_boolean(Hidden);
+start_option(_, _) -> false.
+
+% The net_kernel server as net_sup's child; a server that cannot start ends the start with nodistribution.
+start_link(Options) ->
+    case gen_server:start_link({local, net_kernel}, ?MODULE, Options, []) of
+        {ok, Pid} -> {ok, Pid};
+        {error, {already_started, Pid}} -> {ok, Pid};
+        _ -> exit(nodistribution)
+    end.
+
+%% The server: names the node, listening and registering with epmd first unless dist_listen is false.
+init(#{name := Name} = Options) ->
+    process_flag(trap_exit, true),
+    Listen = maps:get(dist_listen, Options, true) andalso Name =/= undefined,
+    State = #state{
+        name_domain = maps:get(name_domain, Options, longnames),
+        started = started(Options),
+        ticktime = maps:get(net_ticktime, Options, kernel_ticktime()),
+        intensity = maps:get(net_tickintensity, Options, ?TICKINTENSITY),
+        hidden = maps:get(hidden, Options, false) orelse not Listen
+    },
+    case Name of
+        undefined -> dynamic_name(State);
+        _ -> name_node(node_name(atom_to_list(Name), State#state.name_domain), Listen, State)
+    end.
+
+% The node of net_kernel:start/1,2 is dynamic; static nodes come from the node start options (DIST4b1b).
+started(#{supervisor := net_sup_dynamic}) -> dynamic;
+started(_) -> static.
+
+% The kernel parameter net_ticktime: an invalid value is silently replaced, as OTP's.
+kernel_ticktime() ->
+    case application:get_env(kernel, net_ticktime) of
+        {ok, Time} when is_integer(Time), Time > 0 -> Time;
+        {ok, Time} when is_integer(Time) -> 1;
+        _ -> ?TICKTIME
+    end.
+
+% A node that asks the first peer for its name, which then comes with the handshake (DIST4b2).
+dynamic_name(State) ->
+    erts_internal:dynamic_node_name(true),
+    {ok, State#state{name_type = dynamic}}.
+
+% The node name of the name part and the host part of Text, or OTP's log text of a name it refuses: a host is taken
+% as given, else this host's short name or its fully qualified name.
+node_name(Text, Domain) ->
+    [Alive | Rest] = string:split(Text, "@"),
+    case {valid_alive(Alive), Rest, Domain} of
+        {false, _, _} -> {error, "Invalid node name!\nPlease check your configuration\n"};
+        {true, [[_ | _] = Host], shortnames} -> short_name(Alive, Host);
+        {true, [[_ | _] = Host], longnames} -> {ok, Alive, Host};
+        {true, _, shortnames} -> short_name(Alive, hd(string:split(hostname(), ".")));
+        {true, _, longnames} -> long_name(Alive, full_hostname())
+    end.
+
+% Whether a name part is letters, digits, - and _, as OTP accepts it.
+valid_alive(Alive) ->
+    Alive =/= [] andalso
+        lists:all(
+            fun(C) ->
+                (C >= $a andalso C =< $z) orelse (C >= $A andalso C =< $Z) orelse
+                    (C >= $0 andalso C =< $9) orelse C =:= $- orelse C =:= $_
+            end,
+            Alive
+        ).
+
+short_name(Alive, Host) ->
+    case lists:member($., Host) of
+        true -> {error, "Can't set short node name!\nPlease check your configuration\n"};
+        false -> {ok, Alive, Host}
+    end.
+
+long_name(Alive, Host) ->
+    case lists:member($., Host) of
+        true -> {ok, Alive, Host};
+        false -> {error, "Can't set long node name!\nPlease check your configuration\n"}
+    end.
+
+hostname() ->
+    {ok, Host} = inet:gethostname(),
+    Host.
+
+% This host's fully qualified name: its host name with a dot, else the name its address resolves to.
+full_hostname() ->
+    Host = hostname(),
+    case {lists:member($., Host), inet:gethostbyname(Host)} of
+        {true, _} -> Host;
+        {false, {ok, #hostent{h_name = Name}}} -> Name;
+        {false, _} -> Host
+    end.
+
+% Name the node once its carriers listen and registered it (dist_listen false: a random creation, no registration).
+name_node({error, Text}, _, _) ->
+    error_logger:info_msg(Text),
+    {stop, {error, badarg}};
+name_node({ok, Alive, Host}, Listen, State) ->
+    Node = list_to_atom(Alive ++ "@" ++ Host),
+    case listen_carriers(protocols(), Alive, Host, Node, Listen) of
+        {ok, Listeners, Creation} ->
+            true = erlang:setnode(Node, Creation),
+            {ok, State#state{node = Node, name_type = static, listen = Listeners}};
+        {error, Proto, Error} ->
+            log_listen_error(Proto, Node, Error),
+            {stop, {error, badarg}}
+    end.
+
+% The carriers of --proto-dist, else inet_tcp; the first one listens.
+protocols() ->
+    case init:get_argument(proto_dist) of
+        {ok, [Protos | _]} when Protos =/= [] -> Protos;
+        _ -> [?PROTO]
+    end.
+
+listen_carriers(_, _, _, _, false) ->
+    {ok, [], rand:uniform(16#fffffff0) + 3};
+listen_carriers([Proto | _], Alive, Host, Node, true) ->
+    Module = list_to_atom(Proto ++ "_dist"),
+    case Module:is_node_name(Node) of
+        false ->
+            {error, Proto, invalid_node_name};
+        true ->
+            case listen(Module, Alive, Host) of
+                {ok, {Socket, Address, Creation}} -> {ok, [{Module, Socket, Address}], Creation};
+                {error, Reason} -> {error, Proto, Reason}
+            end
+    end.
+
+% The built-in carrier is called by name, so that programs link it.
+listen(inet_tcp_dist, Alive, Host) -> inet_tcp_dist:listen(Alive, Host);
+listen(Module, Alive, Host) -> Module:listen(Alive, Host).
+
+log_listen_error(Proto, Node, invalid_node_name) ->
+    error_logger:info_msg("Protocol '~ts': invalid node name: ~ts~n", [Proto, atom_to_list(Node)]);
+log_listen_error(Proto, Node, duplicate_name) ->
+    error_logger:info_msg("Protocol '~ts': the name ~ts seems to be in use by another Erlang node~n", [
+        Proto, atom_to_list(Node)
+    ]);
+log_listen_error(Proto, _, Reason) ->
+    error_logger:info_msg("Protocol '~ts': register/listen error: ~p~n", [Proto, Reason]).
+
+handle_call(get_state, _From, State) ->
+    {reply, state_map(State), State};
+handle_call(nodename, _From, State) ->
+    {reply, node(), State};
+handle_call(longnames, _From, #state{name_domain = Domain} = State) ->
+    {reply, Domain =:= longnames, State};
+handle_call(ticktime, _From, #state{ticktime = Time} = State) ->
+    {reply, Time, State};
+handle_call({connect, _Type, _Node}, _From, State) ->
+    {reply, false, State};
+handle_call({passive_cnct, _Node}, _From, State) ->
+    {reply, false, State}.
+
+state_map(#state{node = Node, name_type = Type, name_domain = Domain, started = Started}) ->
+    #{started => Started, name => Node, name_type => Type, name_domain => Domain}.
+
+handle_cast(_, State) -> {noreply, State}.
+
+% A node monitor's connection attempt is aborted until connections come (DIST4b2), so the monitor gets nodedown.
+handle_info({auto_connect, Node, DHandle}, State) ->
+    erts_internal:abort_pending_connection(Node, DHandle),
+    {noreply, State};
+handle_info(_, State) ->
+    {noreply, State}.
+
+% A node still waiting for its dynamic name is no longer alive once the server ends.
+terminate(_, #state{listen = Listeners, name_type = Type}) ->
+    Type =:= dynamic andalso erts_internal:dynamic_node_name(false),
+    lists:foreach(fun({Module, Socket, _}) -> Module:close(Socket) end, Listeners).
+
+code_change(_, State, _) -> {ok, State}.
 
 %% A subscription to node status messages is a process flag of the runtime.
 monitor_nodes(Flag) ->
@@ -145,26 +377,17 @@ option_value(_, Value) -> is_boolean(Value).
 
 node_type(Type) -> lists:member(Type, [visible, hidden, all]).
 
-%% The distribution's own processes and tables are not there.
+%% The rest of the distribution's processes come with connections (DIST4b2) and net_kernel's complete API (DIST6).
 aux_ticker(_, _, _, _) -> erlang:error({not_implemented, aux_ticker, 4}).
-code_change(_, _, _) -> erlang:error({not_implemented, code_change, 3}).
 do_spawn(_, _, _) -> erlang:error({not_implemented, do_spawn, 3}).
-handle_call(_, _, _) -> erlang:error({not_implemented, handle_call, 3}).
-handle_cast(_, _) -> erlang:error({not_implemented, handle_cast, 2}).
-handle_info(_, _) -> erlang:error({not_implemented, handle_info, 2}).
 i() -> erlang:error({not_implemented, i, 0}).
 i(_) -> erlang:error({not_implemented, i, 1}).
-init(_) -> erlang:error({not_implemented, init, 1}).
 kernel_apply(_, _, _) -> erlang:error({not_implemented, kernel_apply, 3}).
 node_info(_) -> erlang:error({not_implemented, node_info, 1}).
 node_info(_, _) -> erlang:error({not_implemented, node_info, 2}).
 nodes_info() -> erlang:error({not_implemented, nodes_info, 0}).
 passive_connect_monitor(_, _) -> erlang:error({not_implemented, passive_connect_monitor, 2}).
 spawn_func(_, _, _, _, _, _) -> erlang:error({not_implemented, spawn_func, 6}).
-start(_) -> erlang:error({not_implemented, start, 1}).
-start(_, _) -> erlang:error({not_implemented, start, 2}).
-start_link(_) -> erlang:error({not_implemented, start_link, 1}).
-terminate(_, _) -> erlang:error({not_implemented, terminate, 2}).
 ticker(_, _) -> erlang:error({not_implemented, ticker, 2}).
 ticker_loop(_, _) -> erlang:error({not_implemented, ticker_loop, 2}).
 verbose(_) -> erlang:error({not_implemented, verbose, 1}).

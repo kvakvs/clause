@@ -11,8 +11,9 @@ yet ([connections](#connections), DIST2b to DIST2d). `erl_epmd` and `net_adm:nam
 epmd, and Clause's epmd server runs as `clause-epmd` ([epmd](#epmd), DIST3a; written beside programs
 with `-daemon`, `-names` and `-kill` in DIST3c) or inside the program when a registration finds none
 (`--epmd bundled`, DIST3b); `--epmd external` starts an epmd program, and `--no-bundled-epmd` leaves
-the bundled epmd out (DIST3d). The other
-libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
+the bundled epmd out (DIST3d). `net_kernel:start/1,2` and `stop/0` start and end distribution in a
+running program ([starting distribution](#starting-distribution), DIST4b1a); its node reaches no other node yet.
+The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
 
@@ -232,7 +233,8 @@ User carriers are supported through OTP's interface:
   `setup_timer/2`, `reset_timer/1`, `cancel_timer/1`, `is_node_name/1`, `split_node/1`,
   `is_allowed/2`, `shutdown/3,4` and `net_ticker_spawn_options/0`.
 - `kernel/include/dist_util.hrl` and `kernel/include/dist.hrl` provide the `#hs_data{}` record and
-  the `DFLAG_*` macros with OTP's names and fields. The header is written by Clause, and its fields
+  the `DFLAG_*` macros with OTP's names and fields; `kernel/include/net_address.hrl` (since DIST4b1a) the
+  `#net_address{}` record a carrier's `listen/2` returns. The header is written by Clause, and its fields
   follow OTP's because carriers set them.
 - Clause's own carriers are written over the same interface, so a third-party carrier and a built-in
   one run the same handshake code.
@@ -344,6 +346,44 @@ Current since DIST3d (`runtime/src/epmd/extension.cpp`, `launch_*.cpp`,
   waiting for its first process; Windows: detached, a new process group, not waited for). The
   registration then connects again for up to a second; without a program, or when it does not start,
   it fails with `econnrefused`. The epmd outlives the program, as OTP's does.
+
+## Starting distribution
+
+Current since DIST4b1a (`library/kernel/net_kernel.erl`, `erl_distribution.erl`, `inet_tcp_dist.erl`), as
+OTP's `net_kernel:start/1,2` and `stop/0`. Connections come in DIST4b2: until then `connect_node/1` answers
+`false` and a node monitor's auto-connect is aborted, so the monitor gets `nodedown`.
+
+- **Processes:** `net_kernel:start/1,2` starts the `net_sup` supervisor (`erl_distribution`, one-for-all, no
+  restarts) with the `erl_epmd` server (the `kernel` parameter `epmd_module`, when that module has
+  `start_link/0`) and then the `net_kernel` server, and returns `{ok, NetSup}`. Clause has no `kernel_sup`: `net_sup`
+  runs unlinked from the caller ([differences](differences.md)). `{error, {already_started, NetSup}}` while it runs.
+- **Options:** `start/2` takes `name_domain` (`longnames` by default), `net_ticktime` (the `kernel` parameter,
+  60 by default; a value below 1 is 1), `net_tickintensity` (4), `dist_listen` and `hidden`; an invalid one
+  raises `{invalid_option, Key, Value}`, a name that is no atom `invalid_name`, options that are no map
+  `invalid_options`. `start/1` takes OTP's documented lists (`[Name]`, `[Name, NameDomain]`,
+  `[Name, NameDomain, TickTime]`, `net_ticktime` being `TickTime` × 4 in seconds, rounded up).
+- **Names:** a name part of letters, digits, `-` and `_`. A host part is taken as given; with `shortnames` it
+  may hold no dot (`Can't set short node name!`). Without one (`a` or `a@`) the node takes this host's name,
+  its first label for `shortnames`, its fully qualified name for `longnames` (`Can't set long node name!` when
+  it has no dot). Other names log `Invalid node name!`. Each log line is an `error_logger:info_msg/1,2` report,
+  followed by the failed server's crash report and `net_sup`'s start error, as in OTP.
+- **Listening:** the first `--proto-dist` carrier (`inet_tcp` by default) checks the name with
+  `is_node_name/1` (`Protocol 'inet_tcp': invalid node name: ...`), then `listen/2` registers the port with epmd
+  under the `--epmd` mode ([epmd](#epmd)); a taken name logs `... the name N seems to be in use by another
+  Erlang node`, other errors `... register/listen error: Reason`. `erlang:setnode/2` then names the node with
+  the creation epmd gave. `dist_listen => false` listens nowhere and registers no name, takes a random creation
+  and is hidden; the name `undefined` names no node yet (`erts_internal:dynamic_node_name/1`).
+- **`inet_tcp_dist`:** `listen/1,2` listens with `gen_tcp` (IPv4, `{packet, 2}`) on the first free port from
+  `inet_dist_listen_min` to `inet_dist_listen_max` (any port without them), on `inet_dist_use_interface`, with
+  `inet_dist_listen_options`; `address/0`, `select/1` (both parts and an IPv4 address for the host),
+  `is_node_name/1` (an atom with one `@`) and `close/1` as OTP's.
+- **Failures:** a start that fails returns OTP's `{error, {{shutdown, {failed_to_start_child, net_kernel,
+  {'EXIT', nodistribution}}}, Child}}`, `Child` being OTP's `net_sup_dynamic` child record of `kernel_sup`.
+- **Requests:** `nodename/0`, `longnames/0`, `get_net_ticktime/0` and `get_state/0` (`started => dynamic`,
+  `name`, `name_type`, `name_domain`) ask the server; without one they answer `ignored` (`#{started => no}`).
+- **`stop/0`:** ends `net_sup`, whose `net_kernel` takes the name with it and whose `erl_epmd` closes the
+  registration; `{error, not_found}` without distribution, `{error, not_allowed}` for a node started with its name
+  (DIST4b1b).
 
 ## Node start options
 

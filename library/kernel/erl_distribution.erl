@@ -1,0 +1,58 @@
+%% Clause's erl_distribution (plan 30 step DIST4b1a, docs/distribution.md#starting-distribution): the net_sup
+%% supervisor of erl_epmd and net_kernel, and the dynamic start and stop behind net_kernel:start/1,2 and stop/0.
+%% Clause has no kernel_sup: a dynamic net_sup runs unlinked, and its start errors keep OTP's net_sup_dynamic child.
+-module(erl_distribution).
+-behaviour(supervisor).
+-export([init/1, start/1, start_link/0, start_link/1, stop/0]).
+
+% How long net_sup waits for each child to end, as OTP's.
+-define(SHUTDOWN, 2000).
+
+%% Starting distribution from the node start options comes in DIST4b1b.
+start_link() -> erlang:error({not_implemented, start_link, 0}).
+
+start_link(Options) -> supervisor:start_link({local, net_sup}, ?MODULE, [Options]).
+
+% The children in start order: the epmd client, then net_kernel; one ending ends them all.
+init([Options]) ->
+    Epmd = net_kernel:epmd_module(),
+    EpmdChild = #{id => Epmd, start => {Epmd, start_link, []}, shutdown => ?SHUTDOWN, modules => [Epmd]},
+    Kernel = #{id => net_kernel, start => {net_kernel, start_link, [Options]}, shutdown => ?SHUTDOWN},
+    {ok, {#{strategy => one_for_all, intensity => 0, period => 1}, [EpmdChild || epmd_child(Epmd)] ++ [Kernel]}}.
+
+% Whether the epmd module runs a server of its own, as erl_epmd does.
+epmd_child(Epmd) ->
+    _ = code:ensure_loaded(Epmd),
+    erlang:function_exported(Epmd, start_link, 0).
+
+% Start net_sup for net_kernel:start/2's Options: {ok, NetSup}, or {error, {Reason, Child}} as OTP's kernel_sup
+% answers for its net_sup_dynamic child.
+start(Options) ->
+    Arguments = Options#{supervisor => net_sup_dynamic, clean_halt => false},
+    case whereis(net_sup) of
+        undefined ->
+            Init = {{local, net_sup}, ?MODULE, [Arguments]},
+            case gen_server:start({local, net_sup}, supervisor, Init, []) of
+                {ok, Pid} -> {ok, Pid};
+                {error, Reason} -> {error, {Reason, dynamic_child(Arguments)}}
+            end;
+        Pid ->
+            {error, {already_started, Pid}}
+    end.
+
+% The #child{} record of OTP's supervisor for kernel_sup's net_sup_dynamic child.
+dynamic_child(Arguments) ->
+    Start = {erl_distribution, start_link, [Arguments]},
+    {child, undefined, net_sup_dynamic, Start, permanent, false, 1000, supervisor, [erl_distribution]}.
+
+% End a net_sup net_kernel:start/1,2 started: not_found without one, not_allowed for a node started with its name.
+stop() ->
+    case net_kernel:get_state() of
+        #{started := no} ->
+            {error, not_found};
+        #{started := dynamic} ->
+            gen_server:stop(net_sup),
+            ok;
+        #{} ->
+            {error, not_allowed}
+    end.

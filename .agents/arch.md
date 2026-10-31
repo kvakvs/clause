@@ -107,6 +107,9 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   `--env APP KEY VALUE` as init flags under OTP's names (`ProgramArguments::flags`, `init:get_argument/1`);
   `application_controller` reads `--env` from them as OTP's `get_cmd_env` reads `-App Key Value`, and
   distribution (DIST4b) reads the node flags as OTP's `net_kernel` does.
+- **Starting distribution** (DIST4b1a): Erlang only. `net_kernel:start/1,2` starts `erl_distribution`'s `net_sup`
+  unlinked (`erl_epmd`, `net_kernel`); `net_kernel`'s init names the node from the carrier's `listen/2`
+  (`inet_tcp_dist`, epmd registration) with `erlang:setnode/2`, and its end takes the name (DIST2a).
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

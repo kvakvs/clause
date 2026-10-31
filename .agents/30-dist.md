@@ -4,7 +4,7 @@ Distribution in the runtime and the libraries that depend on it, so a Clause exe
 distributed Erlang node. Added 2026-10-30 as plan 11's phase DIST and moved here the same day (user
 direction); formerly backlog item F38.
 
-- **Today:** a Clause program is a non-distributed node.
+- **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a).
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -21,9 +21,11 @@ direction); formerly backlog item F38.
     a release's `vm.args` as the [args files](../docs/executables.md#args-files) contract says (DIST4a2, DIST4a3a); the manifest's
     `runtime_options` are built into executables as their defaults (DIST4a3b); `--config` and `-config` read
     `sys.config` files as OTP's boot does (DIST4a4).
+  - `net_kernel:start/1,2` and `stop/0` start and end distribution in a running program: `erl_distribution`'s
+    `net_sup`, `inet_tcp_dist`'s listen and epmd registration, OTP's names, options and errors (DIST4b1a);
+    connections come in DIST4b2.
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
-    `noconnection`), `net_adm` (`pang`), `net_kernel` (`start/1,2` and
-    internals declined), `auth` (`nocookie`), `global` and
+    `noconnection`), `net_adm` (`pang`), `net_kernel` (internals declined), `auth` (`nocookie`), `global` and
     `global_group` (one node, locker internals declined), `pg` (no peers), `peer`/`slave`
     (`not_alive`), `pool` (collector declined), `application` (`takeover/2` exits `noproc`, no
     `dist_ac`).
@@ -62,32 +64,42 @@ direction); formerly backlog item F38.
 
 <a id="step-dist4b"></a>
 <a id="step-dist4b1"></a>
+<a id="step-dist4b1a"></a>
 
-## DIST4b1. Starting distribution and cookies
+<a id="step-dist4b1b"></a>
 
-Depends on: DIST2d, DIST3b and DIST4a1–DIST4a4 ([30-finished](30-finished.md)).
+## DIST4b1b. Distribution from the node start options
+
+Depends on: DIST4b1a ([30-finished](30-finished.md)).
 
 - Success criteria
-  - [ ] `net_kernel:start/1,2` and `stop/0` as OTP's: the carrier module's `listen` (a placeholder carrier
-        until DIST4b2 listens with `gen_tcp`), epmd registration through `erl_epmd` under the `--epmd` mode,
-        `erlang:setnode/3` with the creation epmd gives, `node()`, `is_alive/0`, `net_kernel`'s registered
-        process and `nodedown`/`nodeup` subscriptions kept for DIST4b2.
-  - [ ] Distribution started from the node start options before the entry runs, as OTP's kernel starts
-        `net_kernel` (`--sname`/`--name`, `--hidden`, `--proto-dist`, `--dist-listen`, the `kernel`
-        parameters `net_ticktime`, `inet_dist_listen_min/max`, ...); a failed start stops the program with
-        OTP's report.
-  - [ ] `auth`: `erlang:set_cookie/1,2`, `get_cookie/0,1`, `--setcookie`, `--nocookie`, `~/.erlang.cookie`
-        read or created (permissions, random text) as OTP does.
-  - [ ] `net_kernel:start/1,2` leaves `differences.md`.
+  - [ ] Distribution modules on demand (user, 2026-10-31): linked when the program names `net_kernel`, with
+        `clau --distribution`, manifest `distribution = true`, or manifest `runtime_options` holding `--sname` or
+        `--name`; a program without them stops on `--sname`/`--name` with a clear message (`differences.md`).
+  - [ ] Distribution started before the entry, as OTP's kernel starts `net_kernel` (`--sname`/`--name`,
+        `--hidden`, `--proto-dist`, `--dist-listen`, the `kernel` parameters `net_ticktime`,
+        `inet_dist_listen_min/max`, ...); `stop/0` answers `{error, not_allowed}`; a failed start stops the
+        program with OTP's report.
 - Tests
-  - [ ] Golden `dist_start`: names, `node()`, cookies, registration seen by `net_adm:names/0`, stop and start
-        again, start errors; the cookie file in a per-run home directory.
+  - [ ] Golden `dist_start` runs started with node options, and their failures.
+
+<a id="step-dist4b1c"></a>
+
+## DIST4b1c. Cookies
+
+Depends on: [DIST4b1b](#step-dist4b1b).
+
+- Success criteria
+  - [ ] `auth` under `net_sup`: `erlang:set_cookie/1,2`, `get_cookie/0,1`, `--setcookie`, `--nocookie`,
+        `~/.erlang.cookie` read or created (permissions, random text) as OTP does.
+- Tests
+  - [ ] Golden `dist_cookie`: cookies of started nodes, the cookie file in a per-run home directory.
 
 <a id="step-dist4b2"></a>
 
 ## DIST4b2. Handshake and TCP carrier
 
-Depends on: [DIST4b1](#step-dist4b1).
+Depends on: [DIST4b1c](#step-dist4b1c).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's
