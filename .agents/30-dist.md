@@ -10,9 +10,10 @@ direction); formerly backlog item F38.
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
     `dist_get_stat/1`, DIST2d), but moves no signal: the output queue stays empty and put data is
     dropped until DIST5 encodes and decodes signals.
-  - Clause's epmd server runs as a foreground `clause-epmd`; `erl_epmd` and `net_adm:names/0,1`
-    speak to any epmd (DIST3a); a registration that finds no epmd opens the program's bundled epmd
-    under `--epmd bundled` (default) or fails under `--epmd none` (DIST3b).
+  - Clause's epmd server runs as `clause-epmd`; `erl_epmd` and `net_adm:names/0,1` speak to any
+    epmd (DIST3a); a registration that finds no epmd opens the program's bundled epmd under
+    `--epmd bundled` (default) or fails under `--epmd none` (DIST3b); `clau --epmd-executable`
+    writes `clause-epmd` with `-daemon`, `-names` and `-kill` beside programs (DIST3c).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (`start/1,2` and
     internals declined), `auth` (`nocookie`), `global` and
@@ -61,24 +62,24 @@ direction); formerly backlog item F38.
 <a id="step-dist3b"></a>
 
 <a id="step-dist3c"></a>
+<a id="step-dist3d"></a>
 
-## DIST3c. `clause-epmd` beside programs and the external mode
+## DIST3d. Programs without the bundled epmd, and the external mode
 
-Depends on: DIST3b ([30-finished](30-finished.md)).
+Depends on: DIST3c ([30-finished](30-finished.md)). Split from DIST3c on 2026-10-31.
 
 - Success criteria
-  - [ ] `clau --epmd-executable` and manifest `epmd_executable = true` write `clause-epmd` beside
-        the output, with the rest of the flag subset (`-daemon`, `-names`, `-kill`).
-  - [ ] `-daemon` detaches (Windows: new process group, no console, no inherited handles; POSIX:
-        double fork and `setsid`, standard I/O on `/dev/null`).
-  - [ ] `clau --no-bundled-epmd` and manifest `bundled_epmd = false` leave the bundled epmd out;
-        such a program treats `--epmd bundled` as `none` with one warning.
+  - [ ] `clau --no-bundled-epmd` and manifest `bundled_epmd = false` leave the bundled epmd out of
+        the executable (its objects in an archive beside the runtime that only programs carrying it
+        link, e.g. through a startup-descriptor extension entry as the crypto archive's); such a
+        program treats `--epmd bundled` as `none` with one warning.
   - [ ] `--epmd external`: start `clause-epmd -daemon` (the program's directory, then `PATH`) or
         OTP's `epmd -daemon` from `PATH` when no epmd listens; distribution fails to start when
         neither is found.
 - Tests
-  - [ ] Golden of the external mode with `clause-epmd` found beside the program; `clause-epmd
-        -names` and `-kill` output.
+  - [ ] Golden of the external mode with `clause-epmd` found beside the program (authored where
+        OTP's Windows `epmd -daemon` does not stay up); a program without the bundled epmd under
+        `--epmd bundled`.
 
 <a id="step-dist4"></a>
 <a id="step-dist4a"></a>

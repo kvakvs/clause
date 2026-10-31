@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "entry": "epmd_executable",
+  "options": [
+    "--epmd-executable"
+  ],
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "tool",
+          "args": [
+            "names"
+          ],
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "names: {0,<<\"epmd: up and running on port PORT with data:\\n\">>}\nnames alpha: {0,\n              <<\"epmd: up and running on port PORT with data:\\nname alpha at port 40001\\n\">>}\nkill refused: {1,<<\"Killing not allowed - living nodes in database.\\n\">>}\nkill: {0,<<\"Killed\\n\">>}\nnames without epmd: {1,<<\"epmd: Cannot connect to local epmd\\n\">>}\nnames extra: 1\nepmd_executable: ok\n"
+        }
+      ]
+    },
+    {
+      "args": [
+        "daemon"
+      ],
+      "authored": true,
+      "env": {
+        "CLAUSE_FLAGS": "--epmd none"
+      },
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "daemon: {0,<<>>}\nnames: {0,<<\"epmd: up and running on port PORT with data:\\n\">>}\nnames alpha: {0,\n              <<\"epmd: up and running on port PORT with data:\\nname alpha at port 40001\\n\">>}\nkill refused: {1,<<\"Killing not allowed - living nodes in database.\\n\">>}\nkill: {0,<<\"Killed\\n\">>}\nnames without epmd: {1,<<\"epmd: Cannot connect to local epmd\\n\">>}\nnames extra: 1\nepmd_executable: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "epmd_executable.erl": "abb2bae5674e54b9e8536b94e1b1141404236d886ec6863ac44788fff9535401"
+  }
+}

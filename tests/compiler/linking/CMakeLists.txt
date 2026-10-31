@@ -58,6 +58,10 @@ if(CLAUSE_BUILD_RUNTIME)
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/shell/$<CONFIG>"
         "${CMAKE_EXECUTABLE_SUFFIX}")
     set_tests_properties(linking_shell PROPERTIES TIMEOUT 600 COST 20)
+    # --epmd-executable and the project option epmd_executable (plan 30 step DIST3c).
+    add_test(NAME linking_epmd COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/epmd.py"
+        "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/epmd/$<CONFIG>")
+    set_tests_properties(linking_epmd PROPERTIES TIMEOUT 300)
     # Export liveness: unreachable exports left out, --keep-exports and keep_exports keep them; sizes recorded (62C).
     add_test(NAME linking_exports COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/exports.py"
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/exports/$<CONFIG>"

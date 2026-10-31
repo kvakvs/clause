@@ -210,6 +210,9 @@ gotchas and user directions not recorded elsewhere.
   sites); auto-imports setelement/3, tuple_to_list/1, list_to_tuple/1 but not make_tuple. OTP lint
   rejects `X =:= 0.0`. Never probe huge atomics:new arities; ~.*c with -1 hangs OTP.
 - Reserved words unusable as fixture atoms/modules/functions: after, receive, case.
+- Windows host: Python `Path.write_text` translates to CRLF; editing repo files from Python must use
+  read_bytes/write_bytes (2026-10-31, every DIST3c file came out CRLF). OTP 29's Windows `epmd -daemon`
+  exits 0 but no epmd stays up (from Git Bash and PowerShell): goldens of -daemon are authored runs.
 - erlfmt: thirdparty/tools/erlfmt/_build/local; helper escript (scratchpad fmt.escript) does
   code:add_path + erlfmt:format_file and writes unicode:characters_to_binary back. Cannot parse
   `-record #r{a, b}.`, `#div`, `#m:r`, `f(...)(2)` (parenthesize); crashes on non-ASCII atoms

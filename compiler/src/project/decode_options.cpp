@@ -39,7 +39,7 @@ TargetOptions decode_options(const toml::node &node, const schema::Context &cont
     schema::keys(values,
                  {"source_search_paths", "include_dirs", "defines", "enable_features", "disable_features",
                   "applications", "parse_transforms", "transform_paths", "ignore_dirs", "ignore_modules",
-                  "keep_exports", "shell", "cache_inference_in_dirs"},
+                  "keep_exports", "shell", "epmd_executable", "cache_inference_in_dirs"},
                  context);
     TargetOptions result;
     result.source_search_paths = schema::strings(values, "source_search_paths", context);
@@ -54,6 +54,7 @@ TargetOptions decode_options(const toml::node &node, const schema::Context &cont
     result.ignore_modules = schema::strings(values, "ignore_modules", context);
     result.keep_exports_ = schema::boolean(values, "keep_exports", context);
     result.shell_ = schema::boolean(values, "shell", context);
+    result.epmd_executable_ = schema::boolean(values, "epmd_executable", context);
     result.cache_inference_in_dirs_ = schema::strings(values, "cache_inference_in_dirs", context);
     check_features(result);
     return result;

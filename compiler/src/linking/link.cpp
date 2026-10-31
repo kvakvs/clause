@@ -266,6 +266,38 @@ std::vector<std::pair<std::filesystem::path, std::filesystem::path>> stage_provi
     }
     return companions;
 }
+
+// Link clause-epmd for the request's target from its archive beside the runtime into the staging directory; the
+// staged program and its destination beside `output`. Added for clause-epmd beside programs (plan 30 step DIST3c).
+std::pair<std::filesystem::path, std::filesystem::path>
+stage_epmd(const LinkRequest &request, const std::string &linker, const std::filesystem::path &runtime,
+           const StagingDirectory &staging, const std::filesystem::path &output) {
+    const auto archive = sibling_archive(runtime, "clause_epmd_program");
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(archive, error)) {
+        throw std::runtime_error("--epmd-executable: clause-epmd archive not found: " + project::path_text(archive) +
+                                 "; build the clause_epmd_program target");
+    }
+    const llvm::Triple triple(request.target_triple);
+    const std::string name = triple.isOSWindows() ? "clause-epmd.exe" : "clause-epmd";
+    const auto staged = staging.path() / name;
+    std::vector<std::string> arguments{"--driver-mode=g++", "--target=" + request.target_triple, "-o",
+                                       utf8_path(staged)};
+    // main is in the archive, so MSVC's linker cannot infer the subsystem from the objects.
+    if (triple.isWindowsMSVCEnvironment()) {
+        arguments.insert(arguments.end(), {"-Wl,/MANIFEST:EMBED", "-Wl,/SUBSYSTEM:CONSOLE"});
+    }
+    if (request.strip_unused) {
+        std::ranges::move(strip_arguments(triple), std::back_inserter(arguments));
+    }
+    arguments.push_back(utf8_path(archive));
+    const auto run = run_linker(linker, arguments, staging.path() / "epmd-link.log");
+    const auto destination = output.parent_path() / name;
+    if (run.status != 0 || !std::filesystem::is_regular_file(staged, error)) {
+        throw link_failure(destination, linker, run);
+    }
+    return {staged, destination};
+}
 } // namespace
 
 StagedExecutable stage_executable(const LinkRequest &request) {
@@ -292,6 +324,9 @@ StagedExecutable stage_executable(const LinkRequest &request) {
     auto symbols = staged_symbols(request, linker, staged, output);
     auto companions = provider ? stage_provider(staging, *provider, output, request.target_triple)
                                : std::vector<std::pair<std::filesystem::path, std::filesystem::path>>{};
+    if (request.epmd_executable) {
+        companions.push_back(stage_epmd(request, linker, runtime, staging, output));
+    }
     return {std::move(staging),
             std::move(staged),
             output,

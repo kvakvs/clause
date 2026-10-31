@@ -247,10 +247,23 @@ endif()
 target_compile_definitions(clause_epmd_server PUBLIC BOOST_ASIO_NO_DEPRECATED $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x0A00>)
 target_link_libraries(clause_epmd_server PUBLIC clause_multiprecision_dependency $<$<PLATFORM_ID:Linux>:-pthread>
     $<$<PLATFORM_ID:Windows>:ws2_32> $<$<PLATFORM_ID:Windows>:mswsock>)
-add_executable(clause_epmd src/epmd/main.cpp)
+# clause-epmd's own code: its command line, -names and -kill, and -daemon (plan 30 step DIST3c).
+if(WIN32)
+    set(epmd_daemon src/epmd/daemon_windows.cpp)
+else()
+    set(epmd_daemon src/epmd/daemon_posix.cpp)
+endif()
+add_library(clause_epmd_main OBJECT src/epmd/main.cpp src/epmd/client.cpp ${epmd_daemon})
+clause_project_options(clause_epmd_main)
+target_link_libraries(clause_epmd_main PRIVATE clause_epmd_server)
+add_executable(clause_epmd $<TARGET_OBJECTS:clause_epmd_main>)
 clause_project_options(clause_epmd)
 set_target_properties(clause_epmd PROPERTIES OUTPUT_NAME clause-epmd)
 target_link_libraries(clause_epmd PRIVATE clause_epmd_server)
+# The same objects as an archive beside clause_runtime, from which clau --epmd-executable links clause-epmd for the
+# program's target (plan 30 step DIST3c).
+add_library(clause_epmd_program STATIC $<TARGET_OBJECTS:clause_epmd_main> $<TARGET_OBJECTS:clause_epmd_server>)
+set_target_properties(clause_epmd_program PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 target_sources(clause_runtime PRIVATE src/epmd/bundled.cpp $<TARGET_OBJECTS:clause_epmd_server>)
 
 # PCRE2 for the re builtins (plan step 41ZA): built from source into the archive itself, or an installed library

@@ -3,6 +3,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace clause::linking {
@@ -28,4 +29,7 @@ void check_runtime_target(const std::filesystem::path &library, const std::strin
 // The extra linker inputs an executable linked with `library` needs (installed PCRE2, step 41ZA): the lines of
 // clause_runtime.link beside the archive; none when the file is absent.
 std::vector<std::string> runtime_link_inputs(const std::filesystem::path &library);
+// The archive `name` beside a runtime archive: its file name with `name` in place of clause_runtime, unchecked; throws
+// when the runtime's name has no clause_runtime. Shared by the crypto archives and clause-epmd's.
+std::filesystem::path sibling_archive(const std::filesystem::path &runtime, std::string_view name);
 } // namespace clause::linking

@@ -23,11 +23,13 @@ def reference():
     return {'branch': branch, 'revision': re.search(r'REFERENCE_REVISION "([0-9a-f]{40})"', text).group(1)}
 
 
-def oracle_environment(asn1_options=()):
+def oracle_environment(escript, asn1_options=()):
     """The oracle's environment: NO_COLOR is dropped as run.py drops it (io_ansi's colors must not depend on the
-    caller's shell), plus the helper Python and the ASN.1 options."""
+    caller's shell), plus the helper Python, the ASN.1 options and OTP's epmd program, which stands for the clause-epmd
+    beside programs linked with --epmd-executable (CLAUSE_TEST_EPMD, plan 30 step DIST3c)."""
     environment = {k: v for k, v in os.environ.items() if k.upper() != 'NO_COLOR'} | {'CLAUSE_TEST_PYTHON': sys.executable}
     environment['CLAUSE_ASN1_OPTIONS'] = ','.join(asn1_options)
+    environment['CLAUSE_TEST_EPMD'] = nodes.otp_program(escript, 'epmd')
     return environment
 
 
@@ -37,7 +39,7 @@ def observe(escript, staged, entry, run, work, asn1_options=()):
     args = run['args']
     version = work / 'version.txt'
     version.unlink(missing_ok=True)
-    environment = oracle_environment(asn1_options)
+    environment = oracle_environment(escript, asn1_options)
     result = subprocess.run([escript, str(ORACLE), str(version), str(staged), entry, *args],
                             cwd=staged, capture_output=True, timeout=300, check=False,
                             input=run.get('stdin', '').encode(), env=environment)
@@ -66,7 +68,7 @@ def observe_nodes(escript, staged, entry, run, work, golden):
     try:
         commands = [[escript, str(ORACLE), str(version), str(staged), entry, *node['args']]
                     for node, version in zip(run['nodes'], versions)]
-        environment = oracle_environment() | {'ERL_EPMD_PORT': str(port)}
+        environment = oracle_environment(escript) | {'ERL_EPMD_PORT': str(port)}
         results = nodes.run_nodes(commands, [environment] * len(commands), staged, 300)
     finally:
         nodes.stop(epmd)

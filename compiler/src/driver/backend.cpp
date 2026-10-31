@@ -162,6 +162,7 @@ void link(const Compiled &compiled, const FrontendRequest &frontend, const std::
              .strip_unused = frontend.backend.optimization == codegen::OptimizationLevel::size,
              .debug_info = frontend.backend.debug_info,
              .lto = frontend.backend.lto,
+             .epmd_executable = frontend.backend.epmd_executable,
              .crypto = crypto_link(compiled, frontend)});
     });
     if (frontend.stage_times) {

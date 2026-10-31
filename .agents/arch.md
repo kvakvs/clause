@@ -98,6 +98,8 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   the foreground `clause-epmd` and carried by `clause_runtime`. The bundled epmd (DIST3b, `epmd/bundled`) runs
   it on a thread of its own owned by the executor; `kernel/erl_epmd.erl` (client and registration server)
   asks `clause_dist:start_epmd/0` when a registration finds no epmd, under `--epmd bundled|none`.
+  `clau --epmd-executable` (DIST3c) links `clause-epmd` (with `-daemon`, `-names`, `-kill`) for the target from
+  the `clause_epmd_program` archive beside the runtime and publishes it beside the executable as a link companion.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

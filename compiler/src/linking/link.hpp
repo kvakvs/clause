@@ -29,6 +29,9 @@ struct LinkRequest {
     bool debug_info = false;
     // The objects are bitcode: link with LLD's link-time optimization (Windows MSVC and ELF targets only).
     bool lto = false;
+    // Also link clause-epmd for the target beside the executable (--epmd-executable). Added for clause-epmd beside
+    // programs (plan 30 step DIST3c).
+    bool epmd_executable = false;
     // Link the crypto runtime archive and OpenSSL's libcrypto (the program calls crypto, or --with-crypto). Added for
     // the crypto runtime archive (plan 21 step LIB79).
     std::optional<CryptoLink> crypto = std::nullopt;
@@ -65,8 +68,8 @@ struct StagedExecutable {
     // Staged debug symbols published beside the output: a PDB (MSVC targets) or a dSYM bundle (Darwin targets)
     // with debug information; empty otherwise.
     std::filesystem::path symbols = {};
-    // Staged files published beside the output, with their destinations: a pinned program's FIPS provider. Added
-    // for crypto's FIPS mode (plan 21 step LIB79F).
+    // Staged files published beside the output, with their destinations: a pinned program's FIPS provider (added
+    // for crypto's FIPS mode, plan 21 step LIB79F) and clause-epmd (plan 30 step DIST3c).
     std::vector<std::pair<std::filesystem::path, std::filesystem::path>> companions = {};
 };
 

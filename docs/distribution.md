@@ -8,8 +8,9 @@ other nodes exist as terms ([terms](terms.md#identities-of-other-nodes), DIST1),
 named ([this node](#this-node), DIST2a), connection entries, node status messages, node monitors
 and the controller data path follow OTP's process-controller interface without moving any signal
 yet ([connections](#connections), DIST2b to DIST2d). `erl_epmd` and `net_adm:names/0,1` speak to an
-epmd, and Clause's epmd server runs as a foreground `clause-epmd` ([epmd](#epmd), DIST3a) or inside
-the program when a registration finds none (`--epmd bundled`, DIST3b). The other
+epmd, and Clause's epmd server runs as `clause-epmd` ([epmd](#epmd), DIST3a; written beside programs
+with `-daemon`, `-names` and `-kill` in DIST3c) or inside the program when a registration finds none
+(`--epmd bundled`, DIST3b). The other
 libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -256,6 +257,7 @@ OTP's epmd protocol: `ALIVE2` (with the `ALIVE2_X` reply), `PORT_PLEASE2`, `NAME
     `-relaxed_command_check`, `-names` and `-kill`.
   - `-daemon` detaches it. On Windows that means a new process group, no console and no inherited
     handles; on POSIX, `setsid` after a double fork, with standard I/O on `/dev/null`.
+  - `-names` and `-kill` print OTP's `epmd` messages and exit with its statuses.
 
 The runtime option `--epmd MODE` chooses what happens when distribution starts, at startup or by
 `net_kernel:start/1,2`:
@@ -289,7 +291,8 @@ Current since DIST3a (`runtime/src/epmd/`, `library/kernel/erl_epmd.erl`):
   - malformed requests, unknown codes and bytes past a packet close the connection without reply;
     a connection without a registration closes after 60 seconds.
 - **`clause-epmd`** (target `clause_epmd`) runs it in the foreground with `-port`, `-address` and
-  `-relaxed_command_check`; the test build makes it for the [multi-node runner](#testing).
+  `-relaxed_command_check`; the test build makes it for the [multi-node runner](#testing). DIST3c
+  adds the rest below.
 - **`erl_epmd`:** registers with `ALIVE2_REQ` (versions 6 to 5, type 77) and registers again a
   second after the connection breaks. `names/0,1` list the oldest name first, as OTP's client
   does.
@@ -307,6 +310,23 @@ Current since DIST3b (`runtime/src/epmd/bundled.cpp`, `runtime/src/builtins/epmd
   connects again for up to a second. Under `none` the registration fails with `econnrefused`, as
   OTP's. `--epmd external` stops the program as not implemented until DIST3c. `names/0,1` and
   `port_please/2,3` never start an epmd, as in OTP.
+
+Current since DIST3c (`runtime/src/epmd/main.cpp`, `client.cpp`, `daemon_*.cpp`,
+`compiler/src/linking/link.cpp`):
+
+- **Beside programs:** `clau --epmd-executable` and `epmd_executable = true` link `clause-epmd` for
+  the program's target from the archive `clause_epmd_program` beside the runtime archive, and
+  publish it beside the executable with it.
+- **`-names` and `-kill`:** as OTP's, only as the last argument (after `-port`). They ask the epmd on
+  the loopback (IPv6, then IPv4) at `ERL_EPMD_PORT` or `-port`. `-names` prints `epmd: up and
+  running on port P with data:` and the epmd's lines; `-kill` prints `Killed`, or `Killing not
+  allowed - living nodes in database.` with status 1. Without an epmd both print `epmd: Cannot
+  connect to local epmd` on standard error with status 1.
+- **`-daemon`:** POSIX forks twice around `setsid`, ignores `SIGHUP`, moves to `/` and puts
+  standard I/O on `/dev/null`; the parents exit with status 0 at once. Windows starts the program
+  again with its arguments and `-detached` (`DETACHED_PROCESS`, `CREATE_NEW_PROCESS_GROUP`, no
+  inherited handles), and that process serves with standard I/O on `NUL`. A daemon that cannot
+  listen exits silently, as OTP's.
 
 ## Node start options
 
@@ -363,6 +383,8 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
     find. A run of `"epmd": "bundled"` (DIST3b) also checks that no epmd listens on its port after
     the nodes ended.
   - Host names in output are masked with `stdout_masks`.
+  - A program linked with `--epmd-executable` finds the `clause-epmd` beside it in
+    `CLAUSE_TEST_EPMD`; under the oracle that names OTP's `epmd` (DIST3c).
 - **Goldens** come from OTP nodes on OTP's `epmd` on the same kind of epmd port, generated once
   (`tests/compiler/executables/nodes.py`, used by `run.py` and `regenerate.py`).
 - **Interop cases** mix `clause` and `otp` nodes, or use OTP's `epmd`. Their golden says

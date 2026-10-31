@@ -41,6 +41,9 @@ struct BackendOptions {
     // Link the interactive shell with every library module and keep every export callable (--shell or the project
     // option shell); without a selected entry the shell is the entry. Added for the shell option (plan 21 LIB74).
     bool shell = false;
+    // Also link clause-epmd beside the executable (--epmd-executable or the project option epmd_executable). Added
+    // for clause-epmd beside programs (plan 30 step DIST3c).
+    bool epmd_executable = false;
     // Override the Clang driver and runtime archive used to link an explicit --output executable.
     std::optional<std::filesystem::path> linker;
     std::optional<std::filesystem::path> runtime_library;

@@ -7,8 +7,8 @@
 #include "options.hpp"
 #include "publication.hpp"
 #include "stage_times.hpp"
-#include <algorithm>
 #include "transform_host.hpp"
+#include <algorithm>
 #include <iostream>
 #include <optional>
 #include <set>
@@ -26,6 +26,7 @@ BackendOptions target_options(const Options &options, const project::Invocation 
     backend.artifact_directory = root / artifacts::encoded_name(target.name);
     backend.keep_exports = backend.keep_exports || target.keep_exports_;
     backend.shell = backend.shell || target.shell_;
+    backend.epmd_executable = backend.epmd_executable || target.epmd_executable_;
     return backend;
 }
 

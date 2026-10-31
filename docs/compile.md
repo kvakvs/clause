@@ -164,6 +164,7 @@ annotations. The printer (`print_source`, `expression_source`, `type_source` in
 | `--lto` | Link the modules as bitcode with LLD link-time optimization (Windows MSVC and ELF targets; needs `-o` or a linking project build) ([linking](executables.md#linking)) |
 | `--keep-exports` | Keep every export of an executable callable instead of leaving out those it cannot reach; needs `-o`, a linking project build or an IR/assembly inspection ([export liveness](executables.md#export-liveness)) |
 | `--shell` | Link the interactive Erlang shell and every library module, keeping every export callable; without `--entry` the executable starts the shell, so `clau --shell -o erl` with no inputs builds a shell over the library alone; needs `-o` or a linking project build ([interactive shell](libraries/library.md#interactive-shell)) |
+| `--epmd-executable` | Also link `clause-epmd` (`clause-epmd.exe` on Windows), Clause's epmd program, for the target beside the executable; needs `-o` or a linking project build ([epmd](distribution.md#epmd)) |
 | `--fips=PATH` | Pin the program to FIPS mode with the user-supplied OpenSSL FIPS provider in `PATH` (module and `fipsmodule.cnf`, copied beside the executable); implies `--with-crypto`; a missing or malformed provider fails the build ([FIPS](libraries/crypto.md#fips)) |
 | `--with-crypto[=PATH]` | Link the crypto runtime archive and add the library `crypto` module to the batch, for programs that reach `crypto` only through dynamic calls (programs that call it are linked with it anyway); `PATH` is an OpenSSL ≥ 3.1.2 installation or source tree to link instead of the one Clause was built with; needs `-o` or a linking project build ([crypto](libraries/crypto.md#linking-programs)) |
 | `-g` | Erlang line tables in objects and linked executables (CodeView/PDB on MSVC targets, a dSYM bundle on Darwin, DWARF elsewhere) ([debugging](debugging.md)) |
@@ -264,6 +265,7 @@ debug_info = false
 lto = false
 keep_exports = false        # --keep-exports or the project option
 shell = false               # --shell or the project option
+epmd_executable = false     # --epmd-executable or the project option
 emit = "none"               # or obj, llvm-ir, llvm-bc
 artifact_dir = "/work/build/aot"
 ```

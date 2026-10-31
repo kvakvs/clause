@@ -10,18 +10,10 @@
 
 namespace clause::linking {
 namespace {
-constexpr std::string_view RUNTIME_NAME = "clause_runtime";
-
-// An archive beside a runtime archive: its name with `name` for clause_runtime; throws when it was not built.
-std::filesystem::path sibling_archive(const std::filesystem::path &runtime, std::string_view name,
-                                      std::string_view option) {
-    auto file = project::path_text(runtime.filename());
-    const auto at = file.rfind(RUNTIME_NAME);
-    if (at == std::string::npos) {
-        throw std::runtime_error("cannot locate " + std::string(name) + " beside " + project::path_text(runtime));
-    }
-    file.replace(at, RUNTIME_NAME.size(), name);
-    auto archive = runtime.parent_path() / project::native_path(file);
+// An archive beside a runtime archive; throws when it was not built.
+std::filesystem::path built_archive(const std::filesystem::path &runtime, std::string_view name,
+                                    std::string_view option) {
+    auto archive = sibling_archive(runtime, name);
     std::error_code error;
     if (!std::filesystem::is_regular_file(archive, error)) {
         throw std::runtime_error(std::string(name) + " runtime archive not found: " + project::path_text(archive) +
@@ -71,14 +63,14 @@ std::vector<std::string> prefix_libraries(const std::filesystem::path &prefix, s
 } // namespace
 
 CryptoInputs crypto_link_inputs(const std::filesystem::path &runtime, const CryptoLink &link) {
-    const auto archive = sibling_archive(runtime, "clause_runtime_crypto", "CLAUSE_RUNTIME_CRYPTO");
+    const auto archive = built_archive(runtime, "clause_runtime_crypto", "CLAUSE_RUNTIME_CRYPTO");
     auto recorded = runtime_link_inputs(archive);
     const auto root = openssl_root(link);
     const auto prefix = root ? std::optional(openssl_prefix(*root, link, archive)) : std::nullopt;
     CryptoInputs inputs{{utf8_path(archive)}, prefix ? prefix_libraries(*prefix, recorded) : std::move(recorded)};
     // Added for the ssl runtime archive (plan 21 step LIB81B): it and libssl go before their crypto counterparts.
     if (link.ssl) {
-        const auto ssl = sibling_archive(runtime, "clause_runtime_ssl", "CLAUSE_RUNTIME_CRYPTO");
+        const auto ssl = built_archive(runtime, "clause_runtime_ssl", "CLAUSE_RUNTIME_CRYPTO");
         inputs.archives.insert(inputs.archives.begin(), utf8_path(ssl));
         auto libssl = prefix ? utf8_path(libssl_of(*prefix)) : runtime_link_inputs(ssl).at(0);
         inputs.libraries.insert(inputs.libraries.begin(), std::move(libssl));

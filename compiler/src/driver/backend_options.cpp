@@ -95,7 +95,8 @@ bool inspection_flag(const std::string_view option, BackendOptions &options) {
         {"-g", &BackendOptions::debug_info},
         {"--lto", &BackendOptions::lto},
         {"--keep-exports", &BackendOptions::keep_exports},
-        {"--shell", &BackendOptions::shell}};
+        {"--shell", &BackendOptions::shell},
+        {"--epmd-executable", &BackendOptions::epmd_executable}};
     const auto found = flags.find(option);
     if (found == flags.end()) {
         return false;
@@ -158,7 +159,8 @@ bool links_project(const Options &options) {
            !options.backend.print_types && !options.preprocess;
 }
 
-// --keep-exports and --shell change what an executable keeps, so they need one (or an IR inspection).
+// --keep-exports and --shell change what an executable keeps, so they need one (or an IR inspection), as does
+// --epmd-executable, which writes clause-epmd beside it.
 std::optional<std::string> export_conflict(const BackendOptions &backend, const bool links) {
     if (backend.keep_exports && !links && !backend.inspect_ir()) {
         return "--keep-exports requires --output, a linking project build or IR/assembly inspection";
@@ -166,6 +168,10 @@ std::optional<std::string> export_conflict(const BackendOptions &backend, const 
     // Added for the shell option (plan 21 step LIB74).
     if (backend.shell && !links) {
         return "--shell requires --output or a linking project build";
+    }
+    // Added for clause-epmd beside programs (plan 30 step DIST3c).
+    if (backend.epmd_executable && !links) {
+        return "--epmd-executable requires --output or a linking project build";
     }
     return {};
 }
@@ -221,7 +227,7 @@ std::optional<codegen::OptimizationLevel> optimization_level(const std::string_v
 
 // The explicit options that only change how an executable is linked.
 bool explicit_linking(const BackendOptions &options) {
-    return options.lto || options.keep_exports || options.shell || options.links_crypto();
+    return options.lto || options.keep_exports || options.shell || options.epmd_executable || options.links_crypto();
 }
 
 // Remember any explicit backend policy so frontend-only actions cannot silently discard it.
@@ -245,6 +251,7 @@ bool is_backend_option(const std::string_view option) {
                                                     "--lto",
                                                     "--keep-exports",
                                                     "--shell",
+                                                    "--epmd-executable",
                                                     "--print-ir",
                                                     "--print-optimized-ir",
                                                     "--print-asm",

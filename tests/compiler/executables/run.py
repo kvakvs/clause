@@ -126,6 +126,14 @@ def environment(run, epmd_port=None):
     return inherited | oracle | run.get('env', {})
 
 
+def epmd_tool(executable):
+    """The epmd program a program linked with --epmd-executable finds beside it, in CLAUSE_TEST_EPMD (plan 30 step
+    DIST3c); nothing for other programs."""
+    path = pathlib.Path(executable)
+    tool = path.with_name('clause-epmd' + path.suffix)
+    return {'CLAUSE_TEST_EPMD': str(tool)} if tool.exists() else {}
+
+
 def variants(golden, word_bits):
     """Every run for targets of `word_bits`, once per scheduler count the golden lists under 'workers', else once with
     the default count."""
@@ -160,7 +168,7 @@ def compare(executable, run, directory, golden):
         return compare_nodes(executable, run, directory, golden)
     try:
         result = subprocess.run([executable, *run['args']], capture_output=True, timeout=RUN_TIMEOUT, check=False,
-                                env=environment(run), input=run.get('stdin', '').encode(), cwd=directory)
+                                env=environment(run) | epmd_tool(executable), input=run.get('stdin', '').encode(), cwd=directory)
     except subprocess.TimeoutExpired:
         return [f'timed out after {RUN_TIMEOUT} s']
     return outcome_problems(run, result.returncode, result.stdout, result.stderr, golden)
@@ -195,7 +203,7 @@ def compare_nodes(executable, run, directory, golden):
     epmd, port = (None, nodes.free_port()) if nodes.bundled(run) else nodes.start_epmd(epmd_command(run))
     try:
         commands = [node_command(executable, node, directory, golden) for node in run['nodes']]
-        environments = [node_environment(run, node, port) for node in run['nodes']]
+        environments = [node_environment(run, node, port) | epmd_tool(executable) for node in run['nodes']]
         results = nodes.run_nodes(commands, environments, directory, RUN_TIMEOUT)
     finally:
         if epmd:

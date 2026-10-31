@@ -27,6 +27,7 @@ ignore_dirs = ["src/legacy", "deps/*/test"]
 ignore_modules = ["telemetry", "*_SUITE"]
 keep_exports = false
 shell = false
+epmd_executable = false
 cache_inference_in_dirs = ["deps/*"]
 
 [targets.options.applications]
@@ -56,6 +57,9 @@ my_dependency = "vendor/my_dependency"
   ([export liveness](executables.md#export-liveness)). It must be a boolean.
 - `shell = true` in `options` links the interactive shell into the target's
   executable, as `--shell` does ([interactive shell](libraries/library.md#interactive-shell)).
+  It must be a boolean.
+- `epmd_executable = true` in `options` also writes `clause-epmd` beside the
+  target's executable, as `--epmd-executable` does ([epmd](distribution.md#epmd)).
   It must be a boolean.
 - `cache_inference_in_dirs` (directory wildcards) in `options` adds directories
   whose modules keep their inference results in the build cache

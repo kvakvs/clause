@@ -135,4 +135,15 @@ void check_runtime_target(const std::filesystem::path &library, const std::strin
                                  "; pass --runtime-library built for that target");
     }
 }
+
+std::filesystem::path sibling_archive(const std::filesystem::path &runtime, std::string_view name) {
+    constexpr std::string_view runtime_name = "clause_runtime";
+    auto file = project::path_text(runtime.filename());
+    const auto at = file.rfind(runtime_name);
+    if (at == std::string::npos) {
+        throw std::runtime_error("cannot locate " + std::string(name) + " beside " + project::path_text(runtime));
+    }
+    file.replace(at, runtime_name.size(), name);
+    return runtime.parent_path() / project::native_path(file);
+}
 } // namespace clause::linking
