@@ -66,4 +66,4 @@ Compact record of the network distribution plan, one bullet per step;
   `.app` env and under `--env`; Windows splits multi-file `-config` as erlexec; golden `runtime_config_files` — `1fdb6925`
 - **DIST4b1a** `net_kernel:start/1,2` and `stop/0`: `net_kernel` as OTP's gen_server under `erl_distribution`'s
   unlinked `net_sup`, `inet_tcp_dist` listen and epmd registration, OTP's names, options, errors and log lines;
-  golden `dist_start` — `HASH`
+  golden `dist_start` — 803d0144
