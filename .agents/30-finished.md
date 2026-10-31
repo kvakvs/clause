@@ -72,4 +72,4 @@ Compact record of the network distribution plan, one bullet per step;
   `runtime_options` naming the node, `net_kernel` callers); golden `dist_node` — 9f1a899c
 - **DIST4b1c** cookies: `auth` server under `net_sup` (`--setcookie`, `--nocookie`, `.erlang.cookie` read or
   created), `erlang:get_cookie/0,1` and `set_cookie/1,2` continue in `auth` while alive; multi-node goldens take a
-  per-node fresh `home`; golden `dist_cookie` — `HASH`
+  per-node fresh `home`; golden `dist_cookie` — 7e057e3e
