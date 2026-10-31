@@ -88,4 +88,4 @@ Compact record of the network distribution plan, one bullet per step;
   under simultaneous connects); golden `dist_connect` runs synchronized through epmd marker names — e403d9e6
 - **DIST4b2c** IPv6 carrier and carrier options: `inet6_tcp_dist` over `inet_tcp_dist`'s `gen_*` driver functions
   and `fam_address/1`, `fam_select/2`; `merge_options/2,3` as observed, listen/connect kernel options under the
-  carrier's own (a family there is `badarg`), listen-socket `setopts/2`/`getopts/2`; golden `dist_connect` IPv6 run
+  carrier's own (a family there is `badarg`), listen-socket `setopts/2`/`getopts/2`; golden `dist_connect` IPv6 run — 54959c19
