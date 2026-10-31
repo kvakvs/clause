@@ -741,3 +741,8 @@ gotchas and user directions not recorded elsewhere.
   flipped fast/slow either way; runtime library swap no effect). Before blaming a change on it,
   cross-link (each clau x each runtime) and pad with a dummy module (--keep-exports). Bisect codegen
   changes with temporary env switches in the debug clau + `--runtime-library` of build/bench.
+- DIST4a1 (2026-10-31): application_controller may not log before it registers: clause_logger's init reads kernel
+  env through application, whose ensure_started spawns a second controller (hang). OTP's merge_app_env reverses its
+  result, so even a merge with an empty sys.config env changes which --env duplicate wins: copy OTP's two merges.
+  Python write_text on Windows writes CRLF; use write_bytes. Library .erl files are erlfmt width 120
+  (.state/scripts/fmt.escript); width 80 reflows cannot be undone by reformatting.

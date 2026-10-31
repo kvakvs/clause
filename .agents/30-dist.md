@@ -16,6 +16,8 @@ direction); formerly backlog item F38.
     writes `clause-epmd` with `-daemon`, `-names` and `-kill` beside programs (DIST3c);
     `--epmd external` starts an epmd program and `--no-bundled-epmd` leaves the bundled epmd out
     (DIST3d).
+  - The node start options and `--env APP KEY VALUE` are init flags under OTP's names, and
+    `application_controller` applies `--env` as OTP's `-App Key Value` (DIST4a1).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (`start/1,2` and
     internals declined), `auth` (`nocookie`), `global` and
@@ -69,33 +71,54 @@ direction); formerly backlog item F38.
 <a id="step-dist4"></a>
 <a id="step-dist4a"></a>
 
-## DIST4a. Node start options
+<a id="step-dist4a2"></a>
 
-Depends on: DIST0 ([30-finished](30-finished.md)).
+## DIST4a2. Args files (`vm.args`): investigation
+
+Depends on: DIST4a1 ([30-finished](30-finished.md)). Requested 2026-10-31 (user): accept a release's
+`vm.args` file, whose flags mostly do not map one to one onto Clause's options, so investigate before
+coding.
 
 - Success criteria
-  - [ ] Runtime options of [node start options](../docs/distribution.md#node-start-options):
-        `--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`,
-        `--dist-listen` (`--epmd` is DIST3b's); parsed and kept until DIST4b starts
-        distribution with them.
-  - [ ] `--env APP KEY VALUE` for every application: the value parsed as a term, applied over the
-        `.app` resources before applications start; invalid terms stop the program as other invalid
-        runtime options do.
-  - [ ] Manifest `runtime_options` in `[targets.options]` built into the executable as defaults;
-        precedence manifest < `CLAUSE_FLAGS` < command line.
-  - [ ] `init:get_argument/1` and `get_arguments/0` report them under OTP's flag names
-        (`sname`, `setcookie`, `kernel` with `[["net_ticktime", "20"]]`, ...); the
-        `init:get_arguments/0` row of `differences.md` narrowed.
+  - [ ] OTP's `-args_file` syntax recorded from `erts/etc/common/erlexec.c` (`read_args_file`): words split on
+        whitespace, `#` comments, quoting and escapes, nested `-args_file`, how it merges with the command line and
+        `ERL_FLAGS`/`ERL_AFLAGS`/`ERL_ZFLAGS`; relx's `${VAR}` substitution (done by the release script, not erlexec)
+        and `-args_file` inside `vm.args`.
+  - [ ] A mapping table of the flags real releases put in `vm.args` (relx/rebar3 templates, `mix release`, a few
+        open-source projects), each one decided:
+    - direct: `-sname`, `-name`, `-setcookie`, `-nocookie`, `-hidden`, `-proto_dist`, `-dist_listen`, `-start_epmd`,
+      `-App Key Value`, `+t` (`--max-atoms`), `+S` (`--schedulers`), `+sbt`/`+sct` (`--scheduler-cpus`), `+hms`
+      (`--min-heap-size`), `-env VAR VALUE`;
+    - accepted and ignored, with or without a warning: `+K`, `+A`, `+P`, `+Q`, `-smp`, allocator flags (`+M...`),
+      `+zdbbl`, `+C`/`+c`, `-noshell`, `-noinput`, `-mode`, ...;
+    - candidates to implement: `-config sys.config` (application environments), `-kernel` parameters distribution
+      reads;
+    - refused: `-heart`, `-boot`, `-s`/`-run`/`-eval`, ...
+  - [ ] Decided with the user: OTP spellings only, or Clause's `--` spellings too; unknown flags warned or fatal;
+        whether `CLAUSE_FLAGS` and the manifest can name an args file; the result written into
+        [executables](../docs/executables.md#runtime-options) and DIST4a3's criteria.
+
+<a id="step-dist4a3"></a>
+
+## DIST4a3. Args files and manifest runtime options
+
+Depends on: [DIST4a2](#step-dist4a2).
+
+- Success criteria
+  - [ ] `--args-file FILE` (reserved today) reads a `vm.args` file as DIST4a2 decided.
+  - [ ] Manifest `runtime_options` in `[targets.options]` built into the executable as defaults
+        (startup descriptor); precedence manifest < `CLAUSE_FLAGS` < command line; printed by the
+        environment report and part of the compile cache key.
 - Tests
-  - [ ] Golden `runtime_env_options`: `--env` values seen by `application:get_env/2` and the
-        reported arguments (authored runs for Clause-only spellings, OTP's `-App Key Value` for the
-        rest).
+  - [ ] Golden runs of an args file with direct, ignored and refused flags; OTP observes the direct ones.
+  - [ ] A project golden or linking test whose manifest sets `--env` and a node option, overridden
+        by `CLAUSE_FLAGS` and the command line.
 
 <a id="step-dist4b"></a>
 
 ## DIST4b. Handshake, TCP carrier and first connections
 
-Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), [DIST4a](#step-dist4a).
+Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), DIST4a1 ([30-finished](30-finished.md)), [DIST4a3](#step-dist4a3).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's
@@ -114,7 +137,7 @@ Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), [DIST4a](#step-di
     - `dist_ctrl_put_data/2` decodes what it takes, drops data of an earlier connection id, and
       for data it cannot read logs OTP's `** Got message from incompatible erlang on channel ...`
       and ends the connection, as observed.
-  - [ ] Start: distribution from the DIST4a options before the entry runs, `net_kernel:start/1,2`,
+  - [ ] Start: distribution from the DIST4a1 options before the entry runs, `net_kernel:start/1,2`,
         `stop/0`, `connect_node/1`; `auth` cookies (`erlang:set_cookie/1,2`, `get_cookie/0,1`,
         `~/.erlang.cookie` read or created as OTP does); `net_adm:ping/1` answers `pong`.
   - [ ] `net_kernel:start/1,2` leaves `differences.md`.

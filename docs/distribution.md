@@ -369,6 +369,9 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
 | `--dist-listen true\|false` | `-dist_listen` | Accept incoming connections; `false` implies `--hidden` |
 | `--env APP KEY VALUE` | `-App Key Value` | Sets `APP`'s environment parameter `KEY` to the term `VALUE` before applications start, over the `.app` resources (for example `--env kernel net_ticktime 20`). It works for every application, not only for distribution |
 
+- `--env` values are parsed as OTP parses `-App Key Value`: when `application_controller` loads `APP` (kernel and
+  stdlib when it starts), over the `.app` resource, merged in OTP's order. A value that is no term fails the load with
+  `{bad_environment_value, Text}` after OTP's log line, and stops the program for kernel or stdlib.
 - `init:get_argument/1` and `init:get_arguments/0` report these options under OTP's flag names:
   - `sname`, `name`, `setcookie`, `hidden`, `proto_dist`, `dist_listen`, and `start_epmd`
     (`"false"` for `--epmd none`, `"true"` otherwise);

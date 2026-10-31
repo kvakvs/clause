@@ -125,8 +125,10 @@ init(Caller) ->
     ?TABLE = ets:new(?TABLE, [set, public, named_table, {read_concurrency, true}]),
     process_flag(trap_exit, true),
     lists:foreach(fun insert_loaded/1, [kernel_appl(), stdlib_appl()]),
-    lists:foreach(fun({Key, Value}) -> ets:insert(?TABLE, {{env, kernel, Key}, Value}) end, kernel_env()),
+    add_env(kernel, kernel_env()),
     true = register(?AC, self()),
+    % Once registered: the log line of a bad --env value starts the logger, which reads kernel's environment.
+    add_boot_envs(),
     Caller ! {self(), ok},
     State = #state{
         running = [{stdlib, undefined}, {kernel, undefined}], started = [{stdlib, permanent}, {kernel, permanent}]
@@ -145,6 +147,18 @@ kernel_appl() ->
 
 stdlib_appl() ->
     #appl{name = stdlib, descr = ?OTP_DESCRIPTION, vsn = ?STDLIB_VSN, mods = library_modules(stdlib), apps = [kernel]}.
+
+%% The --env values of kernel and stdlib over their environments, merged as OTP loads them; a value that is no term
+%% stops the program as it stops OTP's boot. Added for --env (plan 30 step DIST4a1).
+add_boot_envs() ->
+    try
+        add_env(kernel, merge_app_env(merge_app_env(kernel_env(), []), get_cmd_env(kernel))),
+        add_env(stdlib, merge_app_env([], get_cmd_env(stdlib)))
+    catch
+        throw:{error, Reason} ->
+            Text = lists:flatten(io_lib:format("~p", [Reason])),
+            erlang:halt(lists:flatten(io_lib:format("Could not start kernel pid (~p) (~p)", [?AC, Text])))
+    end.
 
 %% kernel's environment as its kernel.app sets it.
 kernel_env() ->
@@ -566,7 +580,7 @@ load(Application, S) ->
 
 %% Stores the application with its environment, the persistent one winning, then loads its included applications.
 load_appl(#appl{name = Name, inc_apps = Included} = Appl, Env, S) ->
-    add_env(Name, merge_env(Env, proplists:get_value(Name, S#state.conf, []))),
+    add_env(Name, merge_app_env(merge_app_env(Env, proplists:get_value(Name, S#state.conf, [])), get_cmd_env(Name))),
     insert_loaded(Appl),
     lists:foreach(
         fun(Inner) ->
@@ -607,6 +621,51 @@ unload(Name) ->
 add_env(Name, Env) -> lists:foreach(fun({Key, Value}) -> ets:insert(?TABLE, {{env, Name, Key}, Value}) end, Env).
 
 merge_env(Env, Over) -> lists:foldl(fun({Key, _} = Pair, Acc) -> lists:keystore(Key, 1, Acc, Pair) end, Env, Over).
+
+%% The --env values of an application (OTP's -App Key Value), from init's flags as OTP reads them; a value that is no
+%% term throws {error, {bad_environment_value, Text}} after OTP's log line. Added for --env (plan 30 step DIST4a1).
+get_cmd_env(Name) ->
+    case init:get_argument(Name) of
+        {ok, Args} -> lists:foldl(fun(List, Res) -> conv(List) ++ Res end, [], Args);
+        _ -> []
+    end.
+
+conv([Key, Val | T]) -> [{make_term(Key), make_term(Val)} | conv(T)];
+conv(_) -> [].
+
+make_term(Str) ->
+    case erl_scan:string(Str) of
+        {ok, Tokens, _} ->
+            case erl_parse:parse_term(Tokens ++ [{dot, erl_anno:new(1)}]) of
+                {ok, Term} -> Term;
+                {error, {_, M, Reason}} -> make_term_error(M, Reason, Str)
+            end;
+        {error, {_, M, Reason}, _} ->
+            make_term_error(M, Reason, Str)
+    end.
+
+make_term_error(Mod, Reason, Str) ->
+    ?LOG_ERROR("application_controller: ~ts: ~ts~n", [Mod:format_error(Reason), Str], #{error_logger => #{tag => error}}),
+    throw({error, {bad_environment_value, Str}}).
+
+%% OTP's merge of a configured or --env environment over an application's: the first value of a key the application
+%% has wins, the last of a new key, and the result is reversed, which decides between --env duplicates as in OTP.
+merge_app_env(Env1, Env2) -> merge_app_env(Env1, Env2, []).
+
+merge_app_env([{Key, Val} | T], Env2, Res) ->
+    case get_env_key(Key, Env2) of
+        {value, NewVal, RestEnv} -> merge_app_env(T, RestEnv, [{Key, NewVal} | Res]);
+        _ -> merge_app_env(T, Env2, [{Key, Val} | Res])
+    end;
+merge_app_env([], Env2, Res) ->
+    Env2 ++ Res.
+
+%% The first value of Key and the other entries in OTP's order, which decides between later duplicates.
+get_env_key(Key, Env) -> get_env_key(Env, Key, []).
+
+get_env_key([{Key, Val} | T], Key, Res) -> {value, Val, T ++ Res};
+get_env_key([H | T], Key, Res) -> get_env_key(T, Key, [H | Res]);
+get_env_key([], _Key, Res) -> Res.
 
 merge_conf(Conf, Config) ->
     lists:foldl(

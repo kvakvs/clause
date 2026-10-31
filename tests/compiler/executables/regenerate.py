@@ -42,6 +42,9 @@ def observe(escript, staged, entry, run, work, asn1_options=()):
     # An epmd port where nothing listens, as run.py gives single-node runs, so a host's epmd is never asked (added for
     # plan 30 step DIST3d).
     environment = oracle_environment(escript, asn1_options) | {'ERL_EPMD_PORT': str(nodes.free_port())}
+    # The emulator flags of a run's options, such as -App Key Value for --env (added for plan 30 step DIST4a1).
+    if 'otp_flags' in run:
+        environment['ERL_FLAGS'] = run['otp_flags']
     result = subprocess.run([escript, str(ORACLE), str(version), str(staged), entry, *args],
                             cwd=staged, capture_output=True, timeout=300, check=False,
                             input=run.get('stdin', '').encode(), env=environment)
@@ -57,7 +60,7 @@ def generated_run(case, run, result, golden):
         sys.exit(f'{case}: OTP wrote stderr for args {run["args"]}; author a "stderr" pattern for '
                  f'the Clause report:\n{result.stderr.decode(errors="replace")}')
     stdout = cases.masked(golden, result.stdout.replace(b'\r\n', b'\n').decode('utf8'))
-    authored = {key: run[key] for key in ('stdin', 'word_bits', 'os') if key in run}
+    authored = {key: run[key] for key in ('stdin', 'word_bits', 'os', 'env', 'otp_flags') if key in run}
     return {'args': run['args'], **authored, 'stderr': pattern or '^$', 'exit_status': result.returncode,
             'stdout': stdout}
 

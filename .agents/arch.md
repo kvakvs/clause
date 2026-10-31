@@ -103,6 +103,10 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   The bundled epmd lives in `clause_runtime_epmd` behind the startup extension entry `CLAUSE_epmd_extension_v1`
   (DIST3d; `--no-bundled-epmd` leaves both out, the executor creates it from `RuntimeExtension::bundled_epmd`);
   `--epmd external` finds `clause-epmd`/`epmd` in Erlang (`clause_dist`) and starts it detached.
+- **Node start options** (DIST4a1): `startup/options.cpp` keeps `--sname`, `--setcookie`, ..., `--epmd` and
+  `--env APP KEY VALUE` as init flags under OTP's names (`ProgramArguments::flags`, `init:get_argument/1`);
+  `application_controller` reads `--env` from them as OTP's `get_cmd_env` reads `-App Key Value`, and
+  distribution (DIST4b) reads the node flags as OTP's `net_kernel` does.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

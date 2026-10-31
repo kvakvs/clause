@@ -615,7 +615,12 @@ script.
 
 - Command line decoded once (`startup/arguments.cpp`): plain arguments feed the
   entry's argv and `get_plain_arguments/0`.
-- Only flag is `home`; `script_name/0` is the executable's path.
+- Flags are `home`, then those of the
+  [node start options](distribution.md#node-start-options) under OTP's names
+  (`--env kernel net_ticktime 20` is `kernel` with `["net_ticktime", "20"]`),
+  in the order given; `script_name/0` is the executable's path.
+- `application_controller` reads the `--env` values from these flags as OTP
+  reads `-App Key Value`.
 - Other functions are Erlang with OTP's started answers; `script_id/0` is
   `{"Clause", "29"}`.
 - `stop/0,1`, `reboot/0` halt at once; `boot/1`, `restart/0,1`,

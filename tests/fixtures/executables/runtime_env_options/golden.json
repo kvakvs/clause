@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "entry": "runtime_env_options",
+  "data": [
+    "envapp.app"
+  ],
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "kernel: error\nstdlib: error\nenvapp: error\nsetcookie: error\nnocookie: error\nhidden: error\nproto_dist: error\ndist_listen: error\nstart_epmd: error\nsname: error\nname: error\nkernel_env: [{ok,60},{ok,notice},undefined]\nstdlib_env: []\nload: ok\nenvapp_env: [{color,blue},{size,3}]\nruntime_env_options: ok\n"
+    },
+    {
+      "args": [],
+      "env": {
+        "CLAUSE_FLAGS": "--env kernel net_ticktime 20 --env kernel extra {a,1} --env stdlib s <<1,2>> --env envapp color red --env envapp size 7 --env envapp color green --env envapp new 1 --env envapp new 2 --setcookie xyz --nocookie --hidden --proto-dist inet_tcp --dist-listen false --epmd none"
+      },
+      "otp_flags": "-kernel net_ticktime 20 -kernel extra {a,1} -stdlib s <<1,2>> -envapp color red -envapp size 7 -envapp color green -envapp new 1 -envapp new 2 -setcookie xyz -nocookie -hidden -proto_dist inet_tcp -dist_listen false -start_epmd false",
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "kernel: {ok,[[\"net_ticktime\",\"20\"],[\"extra\",\"{a,1}\"]]}\nstdlib: {ok,[[\"s\",\"<<1,2>>\"]]}\nenvapp: {ok,[[\"color\",\"red\"],\n             [\"size\",\"7\"],\n             [\"color\",\"green\"],\n             [\"new\",\"1\"],\n             [\"new\",\"2\"]]}\nsetcookie: {ok,[[\"xyz\"]]}\nnocookie: {ok,[[]]}\nhidden: {ok,[[]]}\nproto_dist: {ok,[[\"inet_tcp\"]]}\ndist_listen: {ok,[[\"false\"]]}\nstart_epmd: {ok,[[\"false\"]]}\nsname: error\nname: error\nkernel_env: [{ok,20},{ok,notice},{ok,{a,1}}]\nstdlib_env: [{s,<<1,2>>}]\nload: ok\nenvapp_env: [{color,red},{new,2},{size,7}]\nruntime_env_options: ok\n"
+    },
+    {
+      "args": [],
+      "env": {
+        "CLAUSE_FLAGS": "--env envapp color [bad"
+      },
+      "otp_flags": "-envapp color [bad",
+      "stderr": "application_controller: syntax error before: '\\.': \\[bad",
+      "exit_status": 0,
+      "stdout": "kernel: error\nstdlib: error\nenvapp: {ok,[[\"color\",\"[bad\"]]}\nsetcookie: error\nnocookie: error\nhidden: error\nproto_dist: error\ndist_listen: error\nstart_epmd: error\nsname: error\nname: error\nkernel_env: [{ok,60},{ok,notice},undefined]\nstdlib_env: []\nload: {error,{bad_environment_value,\"[bad\"}}\nenvapp_env: []\nruntime_env_options: ok\n"
+    },
+    {
+      "args": [
+        "--sname",
+        "abc",
+        "--name=x@host.example",
+        "--env",
+        "kernel",
+        "net_ticktime",
+        "30",
+        "--epmd",
+        "external",
+        "--",
+        "plain"
+      ],
+      "env": {
+        "CLAUSE_FLAGS": "--sname first --setcookie c1 --env kernel net_ticktime 25 --epmd none"
+      },
+      "authored": true,
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "kernel: {ok,[[\"net_ticktime\",\"25\"],[\"net_ticktime\",\"30\"]]}\nstdlib: error\nenvapp: error\nsetcookie: {ok,[[\"c1\"]]}\nnocookie: error\nhidden: error\nproto_dist: error\ndist_listen: error\nstart_epmd: {ok,[[\"true\"]]}\nsname: {ok,[[\"abc\"]]}\nname: {ok,[[\"x@host.example\"]]}\nkernel_env: [{ok,30},{ok,notice},undefined]\nstdlib_env: []\nload: ok\nenvapp_env: [{color,blue},{size,3}]\nruntime_env_options: ok\n"
+    },
+    {
+      "args": [
+        "--env",
+        "kernel",
+        "net_ticktime",
+        "[bad"
+      ],
+      "authored": true,
+      "stderr": "Could not start kernel pid \\(application_controller\\) \\(\"\\{bad_environment_value,\\\\\"\\[bad\\\\\"\\}\"\\)",
+      "exit_status": 1,
+      "stdout": ""
+    },
+    {
+      "args": [
+        "--env",
+        "kernel",
+        "net_ticktime"
+      ],
+      "authored": true,
+      "stderr": "^clau: runtime failure: --env needs an application, a key and a value\n$",
+      "exit_status": 70,
+      "stdout": ""
+    },
+    {
+      "args": [
+        "--dist-listen",
+        "maybe"
+      ],
+      "authored": true,
+      "stderr": "^clau: runtime failure: invalid --dist-listen value 'maybe' \\(true or false\\)\n$",
+      "exit_status": 70,
+      "stdout": ""
+    },
+    {
+      "args": [
+        "--sname"
+      ],
+      "authored": true,
+      "stderr": "^clau: runtime failure: --sname needs a value\n$",
+      "exit_status": 70,
+      "stdout": ""
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "runtime_env_options.erl": "c256424311775a569e9a1969eb541eeff70a3e542008d75e354ffb61170b34ec",
+    "envapp.app": "739b3155c020562b2f5fca6a4ad46274d482b00fda5a977cc41c6bc5909c6003"
+  }
+}

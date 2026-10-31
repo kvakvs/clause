@@ -237,6 +237,79 @@ std::expected<EpmdMode, std::string> epmd_mode(std::string_view text) {
     return std::unexpected("invalid --epmd value '" + std::string(text) + "' (bundled, external or none)");
 }
 
+// Keep init's flag `name` with `values`, replacing an earlier one of that name: the later option wins. Added for node
+// start options.
+void replace_flag(RuntimeOptions &options, std::string_view name, std::vector<std::string> values) {
+    auto &flags = options.program.flags;
+    std::erase_if(flags, [&](const ProgramFlag &flag) { return flag.name == name; });
+    flags.push_back({std::string(name), std::move(values)});
+}
+
+// A node start option with a value and the init flag reporting it, as OTP spells it (docs/distribution.md).
+struct NodeOption {
+    std::string_view name;
+    std::string_view flag;
+};
+
+// Node start options with a value; their values are checked by distribution when it starts (DIST4b).
+constexpr std::array NODE_OPTIONS{
+    NodeOption{"--sname", "sname"},
+    NodeOption{"--name", "name"},
+    NodeOption{"--setcookie", "setcookie"},
+    NodeOption{"--proto-dist", "proto_dist"},
+    NodeOption{"--dist-listen", "dist_listen"},
+};
+
+// Node start options without a value.
+constexpr std::array NODE_SWITCHES{
+    NodeOption{"--nocookie", "nocookie"},
+    NodeOption{"--hidden", "hidden"},
+};
+
+// Check the value of a node start option: present, and true or false for --dist-listen.
+std::expected<void, std::string> node_value(const NodeOption &option, std::string_view value) {
+    if (value.empty()) {
+        return std::unexpected(std::string(option.name) + " needs a value");
+    }
+    if (option.flag == "dist_listen" && value != "true" && value != "false") {
+        return std::unexpected("invalid --dist-listen value '" + std::string(value) + "' (true or false)");
+    }
+    return {};
+}
+
+// Apply a node start option at `at` as its init flag and return how many arguments it used; 0 when it is none.
+// Added for node start options.
+std::expected<std::size_t, std::string> apply_node_option(std::span<const std::string> args, std::size_t at,
+                                                          RuntimeOptions &options) {
+    for (const auto &option : NODE_SWITCHES) {
+        if (args[at] == option.name) {
+            replace_flag(options, option.flag, {});
+            return 1;
+        }
+    }
+    for (const auto &option : NODE_OPTIONS) {
+        if (const auto found = match(args, at, option.name)) {
+            if (const auto valid = node_value(option, found->value); !valid) {
+                return std::unexpected(valid.error());
+            }
+            replace_flag(options, option.flag, {std::string(found->value)});
+            return found->used;
+        }
+    }
+    return 0;
+}
+
+// Apply --env APP KEY VALUE (OTP's -App Key Value) as init's flag APP with [KEY, VALUE]; every one is kept, and
+// application_controller parses the values (docs/distribution.md#node-start-options). Added for --env.
+std::expected<std::size_t, std::string> apply_env(std::span<const std::string> args, std::size_t at,
+                                                  RuntimeOptions &options) {
+    if (args.size() - at < 4 || args[at + 1].empty() || args[at + 2].empty()) {
+        return std::unexpected(std::string("--env needs an application, a key and a value"));
+    }
+    options.program.flags.push_back({args[at + 1], {args[at + 2], args[at + 3]}});
+    return 4;
+}
+
 // Apply a distribution option at `at` and return how many arguments it used; 0 when it is none, then the scheduler
 // options are tried. Added for the bundled epmd.
 std::expected<std::size_t, std::string> apply_distribution(std::span<const std::string> args, std::size_t at,
@@ -247,7 +320,16 @@ std::expected<std::size_t, std::string> apply_distribution(std::span<const std::
             return std::unexpected(mode.error());
         }
         options.epmd = *mode;
+        // OTP's -start_epmd: false only when no epmd may start. Added for init's flags (DIST4a1).
+        replace_flag(options, "start_epmd", {*mode == EpmdMode::none ? "false" : "true"});
         return epmd->used;
+    }
+    if (args[at] == "--env") {
+        return apply_env(args, at, options);
+    }
+    const auto node = apply_node_option(args, at, options);
+    if (!node || *node != 0) {
+        return node;
     }
     return apply_scheduling(args, at, options);
 }

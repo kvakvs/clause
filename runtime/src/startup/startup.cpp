@@ -227,7 +227,10 @@ int run(const StartupDescriptor &startup, int argc, char **argv) {
     if (!options) {
         return runtime_failure(options.error());
     }
+    // init's flags come from the runtime options, the rest from the command line.
+    auto flags = std::move(options->runtime.program.flags);
     options->runtime.program = command_line(argc, argv, options->consumed);
+    options->runtime.program.flags = std::move(flags);
     for (const auto entry : std::span(startup.extensions, startup.extension_count)) {
         options->runtime.extensions.push_back(static_cast<const RuntimeExtension *>(entry()));
     }

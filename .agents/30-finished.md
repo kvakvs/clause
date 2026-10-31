@@ -48,3 +48,7 @@ Compact record of the network distribution plan, one bullet per step;
   it out, `--epmd bundled` then acts as `none` after one warning; `--epmd external` finds `clause-epmd`/`epmd` in
   `clause_dist` and starts it detached (`clause_dist:start_daemon/1`); `epmd_executable` golden identical to OTP
   (external run authored) — `9c51b58e`
+- **DIST4a1** node start options (`--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`,
+  `--dist-listen`, `--epmd`) and `--env APP KEY VALUE` as init flags under OTP's names; `application_controller`
+  merges `--env` as OTP's `get_cmd_env` (bad kernel value halts with OTP's slogan); golden `runtime_env_options`
+  with OTP observing `ERL_FLAGS` (run field `otp_flags`) — `HASH`
