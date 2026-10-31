@@ -63,4 +63,4 @@ Compact record of the network distribution plan, one bullet per step;
   ABI revision reset to 1 beforehand (user decision, `47e69d48`) — `64729881`
 - **DIST4a4** `--config FILE` and args files' `-config`: `kernel/clause_config.erl` reads the files as OTP's
   `check_conf` (sys.config includes, OTP's merge and boot failures), `application_controller` merges them over the
-  `.app` env and under `--env`; Windows splits multi-file `-config` as erlexec; golden `runtime_config_files` — `HASH`
+  `.app` env and under `--env`; Windows splits multi-file `-config` as erlexec; golden `runtime_config_files` — `1fdb6925`
