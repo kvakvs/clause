@@ -51,4 +51,4 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST4a1** node start options (`--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`,
   `--dist-listen`, `--epmd`) and `--env APP KEY VALUE` as init flags under OTP's names; `application_controller`
   merges `--env` as OTP's `get_cmd_env` (bad kernel value halts with OTP's slogan); golden `runtime_env_options`
-  with OTP observing `ERL_FLAGS` (run field `otp_flags`) — `HASH`
+  with OTP observing `ERL_FLAGS` (run field `otp_flags`) — `7a2d9a7a`
