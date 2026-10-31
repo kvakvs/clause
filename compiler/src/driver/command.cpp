@@ -46,6 +46,8 @@ Options:
       --no-bundled-epmd  Leave the bundled epmd out of the executable (--epmd bundled then acts as none).
       --distribution   Link the distribution modules, so that --sname and --name name the node (automatic when
                          the program calls net_kernel).
+      --exclude-kernel-service <id>  Do not start the kernel service <id> (rex, global_name_server, global_group,
+                         kernel_safe_sup) under kernel_sup; repeatable.
       --print-ir          Print verified IR with Erlang source comments before LLVM optimization.
       --print-types       Print each module as source annotated with inferred types; stop before LLVM lowering.
       --print-optimized-ir  Print verified IR with Erlang source comments after the selected pipeline.

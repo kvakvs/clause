@@ -180,12 +180,14 @@ std::string_view emission_name(const std::optional<codegen::OutputKind> kind) {
 }
 
 // Print what an executable carries for distribution: clause-epmd beside it, the bundled epmd, the built-in runtime
-// options and the distribution modules. Added for plan 30's options (DIST3c, DIST3d, DIST4a3b, DIST4b1b).
+// options, the distribution modules and the excluded kernel services. Added for plan 30's options (DIST3c to
+// DIST4b1e).
 void print_distribution(const BackendOptions &backend) {
     print_value("epmd_executable", backend.epmd_executable ? "true" : "false");
     print_value("bundled_epmd", backend.no_bundled_epmd ? "false" : "true");
     print_array("runtime_options", quoted_texts(backend.runtime_options));
     print_value("distribution", backend.distribution ? "true" : "false");
+    print_array("exclude_kernel_services", quoted_texts(backend.excluded_kernel_services));
 }
 
 // Print code generation settings with the defaults compilation applies when an option is absent.

@@ -8,6 +8,7 @@
 #include "asn1_sources.hpp"
 #include "backend.hpp"
 #include "escript.hpp"
+#include "kernel_services.hpp"
 #include "library_modules.hpp"
 #include "options.hpp"
 #include "placeholders.hpp"
@@ -530,12 +531,31 @@ bool add_named_by(const std::size_t scanned, const FrontendRequest &request, con
     return failed;
 }
 
-// Add the modules every input names, those added meanwhile too; clause_dist_start joins once net_kernel did, as the
-// runtime starts distribution through it (plan 30 step DIST4b1b). True on a failure.
+// Compile clause_kernel_services for the batch's kernel module, which names it: the services not excluded, whose
+// modules join the batch through it. True on a failure. Added for opting out of kernel services (plan 30 DIST4b1e).
+bool add_kernel_services(const FrontendRequest &shared, const DiagnosticSink &sink, Inputs &inputs) {
+    FrontendRequest request;
+    request.compile = true;
+    SourceManager sources;
+    const auto path = kernel_services_path();
+    const auto source =
+        sources.add(project::path_text(path), kernel_services_source(shared.backend.excluded_kernel_services));
+    PreprocessorSession session(source, request.preprocessing);
+    FileTimes untimed; // Generated, not a file; its stage times are not printed.
+    untimed.fingerprint.add(source->bytes);
+    return parse_and_print(session, request, sink, source, path, false, inputs, untimed);
+}
+
+// Add the modules every input names, those added meanwhile too. clause_dist_start joins once net_kernel did, as the
+// runtime starts distribution through it (plan 30 step DIST4b1b), and clause_kernel_services once kernel did, before
+// kernel is scanned (DIST4b1e). True on a failure.
 bool add_all_named(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs, Discovery &discovery) {
     bool failed = false;
     for (std::size_t scanned = 0; scanned < inputs.size(); ++scanned) {
         failed = add_named_by(scanned, request, sink, inputs, discovery) || failed;
+        if (defined(inputs, U"kernel") && !defined(inputs, U"clause_kernel_services")) {
+            failed = add_kernel_services(request, sink, inputs) || failed;
+        }
         if (scanned + 1 == inputs.size() && defined(inputs, U"net_kernel")) {
             failed = add_module(U"clause_dist_start", "net_kernel", discovery, request, sink, inputs) || failed;
         }

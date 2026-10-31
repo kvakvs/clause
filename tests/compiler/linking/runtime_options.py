@@ -1,7 +1,8 @@
 """Manifest runtime options (plan 30 step DIST4a3b): the project option runtime_options is built into the target's
 executable as its default runtime options, CLAUSE_FLAGS and then the command line override them, a word that is not
 a runtime option stops the program, and --print-env reports the option. Runtime options that name the node, and the
-option distribution, link the distribution modules (plan 30 step DIST4b1b)."""
+option distribution, link the distribution modules (plan 30 step DIST4b1b); exclude_kernel_services and
+--exclude-kernel-service leave kernel services out of kernel_sup (DIST4b1e)."""
 import json
 import os
 from pathlib import Path
@@ -75,4 +76,24 @@ build([], "distribution = true\n")
 assert "distribution = true" in clau(["--print-env", "--project", str(manifest)])
 stdout, _ = run(["--sname", "flagged", "--dist-listen", "false"])
 assert stdout.startswith("flagged@"), stdout
-print("runtime_options: built-in defaults, overrides, refused words and distribution: ok")
+print("runtime_options: built-in defaults, overrides, refused words and distribution")
+
+# Excluded services are not kernel_sup's children; global, called anyway, starts its server unlinked as before.
+module.write_text('-module(app).\n-export([main/1]).\nmain(_) ->\n'
+                  '    yes = global:register_name(app_name, self()),\n'
+                  '    Ids = [Id || {Id, _, _, _} <- supervisor:which_children(kernel_sup)],\n'
+                  '    io:format("~p ~p~n", [Ids, is_pid(whereis(global_name_server))]).\n', encoding="utf-8")
+build([], 'exclude_kernel_services = ["global_name_server", "rex"]\n')
+assert 'exclude_kernel_services = [\n  "global_name_server",' in clau(["--print-env", "--project", str(manifest)])
+stdout, _ = run([])
+assert stdout == "[kernel_safe_sup,global_group,net_sup] true\n", stdout
+build([])
+stdout, _ = run([])
+assert stdout == "[kernel_safe_sup,global_group,net_sup,global_name_server,rex] true\n", stdout
+plain = manifest.read_text(encoding="utf-8")
+manifest.write_text(plain + 'exclude_kernel_services = ["net_sup"]\n', encoding="utf-8")
+assert "net_sup cannot be excluded" in clau(["--project", str(manifest)], 1)
+manifest.write_text(plain + 'exclude_kernel_services = ["bogus"]\n', encoding="utf-8")
+assert "unknown kernel service bogus" in clau(["--project", str(manifest)], 1)
+assert "net_sup cannot be excluded" in clau(["--exclude-kernel-service", "net_sup", "-o", "x", str(module)], 2)
+print("runtime_options: built-in defaults, overrides, refused words, distribution and kernel services: ok")

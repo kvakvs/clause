@@ -400,6 +400,12 @@ Clause starts it at the first use of a kernel service: `rex` (`rpc`), `global_na
   children to. One-for-all without restarts, as OTP's. OTP's other children (`code_server`, `file_server_2`,
   `inet_db`, `logger_sup`, `user`, ...) are runtime services in Clause ([differences](differences.md)).
 - **`net_kernel:start/1,2`** adds the `net_sup_dynamic` child, and `stop/0` terminates and deletes it.
+- **Opting out (DIST4b1e, user choice):** `exclude_kernel_services = [...]` in `[targets.options]` or
+  `clau --exclude-kernel-service ID` leaves `rex`, `global_name_server`, `global_group` or `kernel_safe_sup` out of
+  `kernel_sup` (`net_sup` cannot be excluded). `clau` generates `clause_kernel_services`, whose `services/0` tells
+  `kernel:init/1` the included services and links their modules; an excluded one is not linked for `kernel_sup`.
+  This mostly saves processes, not program size: `gen_server` already links `global` and `rpc`, so an excluded service usually stays linked and is only not started. An excluded server the program uses anyway (`global`, `rpc`) starts unlinked at its first use,
+  as before `kernel_sup`.
 - **End:** a keeper process links to `kernel_sup`; when `kernel_sup` ends, for example after `net_kernel` was
   killed, the program halts with OTP's slogan `Kernel pid terminated (application_controller)
   ("{application_terminated,kernel,shutdown}")`, exit 1. A first use racing another waits until the children

@@ -30,6 +30,7 @@ BackendOptions target_options(const Options &options, const project::Invocation 
     backend.no_bundled_epmd = backend.no_bundled_epmd || !target.bundled_epmd_;
     backend.runtime_options = target.runtime_options_;
     backend.distribution = backend.distribution || target.distribution_;
+    std::ranges::copy(target.excluded_kernel_services_, std::back_inserter(backend.excluded_kernel_services));
     return backend;
 }
 

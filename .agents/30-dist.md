@@ -31,7 +31,8 @@ direction); formerly backlog item F38.
   - `auth` under `net_sup` keeps the cookies (`--setcookie`, `--nocookie`, `~/.erlang.cookie` read or created);
     `erlang:get_cookie/0,1` and `set_cookie/1,2` continue in it while the node is alive (DIST4b1c).
   - `kernel_sup` (`kernel:init/1`) starts at the first use of `rex`, `global_name_server`, `global_group` or
-    distribution, with OTP's children Clause has; its end halts the program as OTP's node (DIST4b1d).
+    distribution, with OTP's children Clause has; its end halts the program as OTP's node (DIST4b1d); projects
+    exclude services with `exclude_kernel_services` or `--exclude-kernel-service` (DIST4b1e).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (internals declined), `auth` (`nocookie` until started), `global` and
     `global_group` (one node, locker internals declined), `pg` (no peers), `peer`/`slave`
@@ -68,42 +69,10 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-<a id="step-dist4a4"></a>
-
-<a id="step-dist4b"></a>
-<a id="step-dist4b1"></a>
-<a id="step-dist4b1a"></a>
-
-<a id="step-dist4b1b"></a>
-
-<a id="step-dist4b1c"></a>
-
-<a id="step-dist4b1d"></a>
-
-<a id="step-dist4b1e"></a>
-
-## DIST4b1e. Opting out of kernel services
-
-Depends on: DIST4b1d ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] `exclude_kernel_services = ["global_name_server", ...]` in `[targets.options]` and
-        `clau --exclude-kernel-service ID` (OTP's child ids; `net_sup` cannot be excluded): an excluded service is not
-        linked on `kernel_sup`'s account and `kernel_sup` does not start it, even when the program calls its module.
-        The included services reach `kernel` through a module `clau` generates per program; `--print-env` reports
-        the list.
-  - [ ] The documentation and the comment on the option in the project template (`compiler/src/project/template.cpp`,
-        `docs/projects.md`) say that excluding mostly stops a service from starting rather than shrinking the
-        program: `gen_server` already links `global` and `rpc` (user, 2026-10-31).
-- Tests
-  - [ ] Linking test: a program excluding `global_name_server` and `rex` links neither for `kernel_sup`, its tree
-        lacks them, and `global` called anyway still answers as without its server.
-
-<a id="step-dist4b2"></a>
 
 ## DIST4b2. Handshake and TCP carrier
 
-Depends on: [DIST4b1e](#step-dist4b1e).
+Depends on: DIST4b1e ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's

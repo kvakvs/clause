@@ -58,6 +58,10 @@ runtime_options = []
 # true links the distribution modules, so that --sname and --name name the node (automatic when the program calls
 # net_kernel or runtime_options holds --sname or --name).
 distribution = false
+# kernel_sup's services the executable does not start: "rex", "global_name_server", "global_group",
+# "kernel_safe_sup" (net_sup cannot be excluded), e.g. ["global_group"]. This mostly saves the processes, not
+# program size: gen_server already links global and rpc, so they stay linked, only not started.
+exclude_kernel_services = []
 # Directories whose modules keep their inference results in the build cache (relative patterns match the
 # trailing directories of any path), besides the implicit OTP ones "*/stdlib", "*/kernel", "*/compiler",
 # "*/syntax_tools" and their versioned "*/stdlib-*" forms, e.g. ["*/deps/*"].

@@ -55,6 +55,9 @@ struct BackendOptions {
     // Link the distribution modules, so that --sname and --name start distribution before the entry (--distribution
     // or the project option distribution). Added for distribution from the node start options (plan 30 DIST4b1b).
     bool distribution = false;
+    // kernel_sup's child ids it does not start, nor links for it (--exclude-kernel-service or the project option
+    // exclude_kernel_services). Added for opting out of kernel services (plan 30 step DIST4b1e).
+    std::vector<std::string> excluded_kernel_services = {};
     // Override the Clang driver and runtime archive used to link an explicit --output executable.
     std::optional<std::filesystem::path> linker;
     std::optional<std::filesystem::path> runtime_library;

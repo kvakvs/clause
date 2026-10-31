@@ -68,6 +68,8 @@ struct PlannedTarget {
     std::vector<std::string> runtime_options_ = {};
     // The distribution option. Added for distribution from the node start options (plan 30 step DIST4b1b).
     bool distribution_ = false;
+    // The exclude_kernel_services ids. Added for opting out of kernel services (plan 30 step DIST4b1e).
+    std::vector<std::string> excluded_kernel_services_ = {};
     // Where Clause keeps its temporary files and caches: --build-dir, else build_dir, else <manifest-dir>/build.
     // Added for the build directory (62D1).
     std::filesystem::path build_directory_ = {};

@@ -76,3 +76,6 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST4b1d** `kernel_sup` (`kernel:init/1`, `clause_kernel` keeper that halts with OTP's slogan) at the first use
   of `rex`, `global_name_server`, `global_group` or distribution; `net_sup` static child, `net_sup_dynamic` via
   `start_child`; `global_group` server; golden `kernel_sup` — 2a091875
+- **DIST4b1e** `exclude_kernel_services` / `--exclude-kernel-service`: generated `clause_kernel_services` lists the
+  included services for `kernel:init/1` and links their modules; excluded `global`/`rpc` start unlinked at first use;
+  docs and template say it saves processes more than size (gen_server links global and rpc) — `HASH`

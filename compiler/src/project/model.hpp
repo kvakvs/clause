@@ -59,6 +59,9 @@ struct TargetOptions {
     // Link the distribution modules into the target's executable (docs/distribution.md#node-start-options). Added for
     // distribution from the node start options (plan 30 step DIST4b1b).
     bool distribution_ = false;
+    // kernel_sup's services the target's executable neither starts nor links for it (docs/projects.md). Added for
+    // opting out of kernel services (plan 30 step DIST4b1e).
+    std::vector<Text> exclude_kernel_services_;
     // Directory wildcards whose modules keep their inference results in the build cache, besides the implicit OTP
     // application directories (docs/projects.md#inference-cache). Added for the inference cache (58U).
     std::vector<Text> cache_inference_in_dirs_;

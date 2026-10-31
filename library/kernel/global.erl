@@ -51,8 +51,16 @@ stop() -> gen_server:call(?SERVER, stop, infinity).
 %% The server starts with kernel_sup at the first use of a kernel service (plan 30 step DIST4b1d).
 ensure_started() ->
     case whereis(?SERVER) of
-        undefined -> ok = clause_kernel:ensure_started();
-        _ -> ok
+        undefined ->
+            ok = clause_kernel:ensure_started(),
+            % Excluded from kernel_sup (exclude_kernel_services), the server still starts unlinked at its first use.
+            case whereis(?SERVER) of
+                undefined -> _ = start();
+                _ -> ok
+            end,
+            ok;
+        _ ->
+            ok
     end.
 
 call(Request) ->

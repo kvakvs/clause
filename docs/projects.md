@@ -31,6 +31,7 @@ epmd_executable = false
 bundled_epmd = true
 runtime_options = ["--setcookie", "secret", "--args-file", "vm.args"]
 distribution = false
+exclude_kernel_services = ["global_group"]
 cache_inference_in_dirs = ["deps/*"]
 
 [targets.options.applications]
@@ -75,6 +76,11 @@ my_dependency = "vendor/my_dependency"
 - `distribution = true` in `options` links the distribution modules, as
   `--distribution` does ([node start options](distribution.md#node-start-options));
   `runtime_options` holding `--sname` or `--name` imply it. It must be a boolean.
+- `exclude_kernel_services` in `options` lists kernel services the target's
+  executable does not start under `kernel_sup`, by OTP's child ids: `rex`,
+  `global_name_server`, `global_group`, `kernel_safe_sup` (`net_sup` cannot be
+  excluded), as `--exclude-kernel-service` does ([kernel_sup](distribution.md#kernel_sup)).
+  This mostly saves processes, not program size: `gen_server` already links `global` and `rpc`, so an excluded service usually stays linked and is only not started.
 - `cache_inference_in_dirs` (directory wildcards) in `options` adds directories
   whose modules keep their inference results in the build cache
   ([inference cache](#inference-cache)).

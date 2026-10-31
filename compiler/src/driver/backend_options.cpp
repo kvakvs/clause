@@ -1,4 +1,5 @@
 #include "backend_options.hpp"
+#include "../project/kernel_services.hpp"
 #include "../project/paths.hpp"
 #include "options.hpp"
 #include <algorithm>
@@ -63,6 +64,15 @@ std::optional<std::string> jobs_option(const std::string &value, BackendOptions 
     return {};
 }
 
+// Exclude one kernel service from kernel_sup, by its child id. Added for opting out of kernel services (DIST4b1e).
+std::optional<std::string> exclude_option(const std::string &value, BackendOptions &options) {
+    if (auto error = project::kernel_service_error(value)) {
+        return "--exclude-kernel-service: " + *error;
+    }
+    options.excluded_kernel_services.push_back(value);
+    return {};
+}
+
 // Assign native path/triple operands only once, preserving option spelling in errors.
 std::optional<std::string> value_option(const std::string_view option, const std::string &value,
                                         BackendOptions &options) {
@@ -75,6 +85,9 @@ std::optional<std::string> value_option(const std::string_view option, const std
     }
     if (option == "--jobs") {
         return jobs_option(value, options);
+    }
+    if (option == "--exclude-kernel-service") {
+        return exclude_option(value, options);
     }
     if (const auto found = paths.find(option); found != paths.end()) {
         return path_option(option, value, options.*(found->second));
@@ -231,7 +244,7 @@ std::optional<codegen::OptimizationLevel> optimization_level(const std::string_v
 // The explicit options that only change how an executable is linked.
 bool explicit_linking(const BackendOptions &options) {
     return options.lto || options.keep_exports || options.shell || options.epmd_executable || options.no_bundled_epmd ||
-           options.distribution || options.links_crypto();
+           options.distribution || !options.excluded_kernel_services.empty() || options.links_crypto();
 }
 
 // Remember any explicit backend policy so frontend-only actions cannot silently discard it.
@@ -265,6 +278,7 @@ bool is_backend_option(const std::string_view option) {
                                                     "--epmd-executable",
                                                     "--no-bundled-epmd",
                                                     "--distribution",
+                                                    "--exclude-kernel-service",
                                                     "--print-ir",
                                                     "--print-optimized-ir",
                                                     "--print-asm",

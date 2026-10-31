@@ -166,6 +166,7 @@ annotations. The printer (`print_source`, `expression_source`, `type_source` in
 | `--shell` | Link the interactive Erlang shell and every library module, keeping every export callable; without `--entry` the executable starts the shell, so `clau --shell -o erl` with no inputs builds a shell over the library alone; needs `-o` or a linking project build ([interactive shell](libraries/library.md#interactive-shell)) |
 | `--epmd-executable` | Also link `clause-epmd` (`clause-epmd.exe` on Windows), Clause's epmd program, for the target beside the executable; needs `-o` or a linking project build ([epmd](distribution.md#epmd)) |
 | `--distribution` | Link the distribution modules (`clause_dist_start`, `erl_distribution`, `net_kernel`, ...), so that the node start options `--sname` and `--name` start distribution before the entry; automatic when the program calls `net_kernel` or the manifest's `runtime_options` hold `--sname` or `--name` ([node start options](distribution.md#node-start-options)) |
+| `--exclude-kernel-service ID` | Do not start the kernel service `ID` (`rex`, `global_name_server`, `global_group`, `kernel_safe_sup`) under `kernel_sup`, nor link its module for it; repeatable; `net_sup` cannot be excluded. This mostly saves processes, not program size: `gen_server` already links `global` and `rpc`, so an excluded service usually stays linked and is only not started. ([kernel_sup](distribution.md#kernel_sup)) |
 | `--no-bundled-epmd` | Leave the bundled epmd out of the executable: its startup descriptor lists no epmd extension entry and the `clause_runtime_epmd` archive is not linked; `--epmd bundled` then acts as `none` with one warning ([epmd](distribution.md#epmd)) |
 | `--fips=PATH` | Pin the program to FIPS mode with the user-supplied OpenSSL FIPS provider in `PATH` (module and `fipsmodule.cnf`, copied beside the executable); implies `--with-crypto`; a missing or malformed provider fails the build ([FIPS](libraries/crypto.md#fips)) |
 | `--with-crypto[=PATH]` | Link the crypto runtime archive and add the library `crypto` module to the batch, for programs that reach `crypto` only through dynamic calls (programs that call it are linked with it anyway); `PATH` is an OpenSSL ≥ 3.1.2 installation or source tree to link instead of the one Clause was built with; needs `-o` or a linking project build ([crypto](libraries/crypto.md#linking-programs)) |
@@ -271,6 +272,7 @@ epmd_executable = false     # --epmd-executable or the project option
 bundled_epmd = true         # false with --no-bundled-epmd or the project option
 runtime_options = []        # the project option, built into the executable
 distribution = false        # --distribution or the project option
+exclude_kernel_services = [] # --exclude-kernel-service or the project option
 emit = "none"               # or obj, llvm-ir, llvm-bc
 artifact_dir = "/work/build/aot"
 ```

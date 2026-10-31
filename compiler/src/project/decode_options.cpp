@@ -1,4 +1,5 @@
 #include "decode_options.hpp"
+#include "kernel_services.hpp"
 #include <set>
 
 namespace clause::project {
@@ -21,6 +22,15 @@ std::map<std::string, Text> applications(const toml::table &values, const schema
 }
 
 // Reject contradictory feature declarations before applying ordered CLI changes.
+// Every excluded kernel service is one kernel_sup can leave out. Added for opting out of kernel services (DIST4b1e).
+void check_kernel_services(const TargetOptions &options) {
+    for (const auto &id : options.exclude_kernel_services_) {
+        if (const auto error = kernel_service_error(id.value)) {
+            fail(id.site, *error);
+        }
+    }
+}
+
 void check_features(const TargetOptions &options) {
     std::set<std::string> enabled;
     for (const auto &value : options.enable_features) {
@@ -40,7 +50,7 @@ TargetOptions decode_options(const toml::node &node, const schema::Context &cont
                  {"source_search_paths", "include_dirs", "defines", "enable_features", "disable_features",
                   "applications", "parse_transforms", "transform_paths", "ignore_dirs", "ignore_modules",
                   "keep_exports", "shell", "epmd_executable", "bundled_epmd", "runtime_options", "distribution",
-                  "cache_inference_in_dirs"},
+                  "exclude_kernel_services", "cache_inference_in_dirs"},
                  context);
     TargetOptions result;
     result.source_search_paths = schema::strings(values, "source_search_paths", context);
@@ -59,8 +69,10 @@ TargetOptions decode_options(const toml::node &node, const schema::Context &cont
     result.bundled_epmd_ = !values.contains("bundled_epmd") || schema::boolean(values, "bundled_epmd", context);
     result.runtime_options_ = schema::strings(values, "runtime_options", context);
     result.distribution_ = schema::boolean(values, "distribution", context);
+    result.exclude_kernel_services_ = schema::strings(values, "exclude_kernel_services", context);
     result.cache_inference_in_dirs_ = schema::strings(values, "cache_inference_in_dirs", context);
     check_features(result);
+    check_kernel_services(result);
     return result;
 }
 } // namespace clause::project

@@ -38,6 +38,9 @@ std::string options_text(const FrontendRequest &frontend, const bool outputs) {
     flag(text, backend.fips.has_value(), "fips");         // Added for crypto's FIPS mode.
     flag(text, !backend.no_bundled_epmd, "bundled-epmd"); // Added for programs without the bundled epmd.
     flag(text, backend.distribution, "distribution");     // Added for distribution from the node start options.
+    for (const auto &id : backend.excluded_kernel_services) {
+        text += "\nexclude-kernel-service " + id; // Added for opting out of kernel services.
+    }
     for (const auto &word : backend.runtime_options) {
         text += "\nruntime-option " + word; // Added for manifest runtime options.
     }
