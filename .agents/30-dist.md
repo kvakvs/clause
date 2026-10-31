@@ -72,28 +72,59 @@ direction); formerly backlog item F38.
 
 ## DIST4b2. Handshake and TCP carrier
 
+Split 2026-10-31 into DIST4b2a (handshake with status `ok`, first connections), DIST4b2b (the other
+statuses and dynamic names) and DIST4b2c (IPv6 and carrier options).
+
+## DIST4b2a. Handshake and first connections
+
 Depends on: DIST4b1e ([30-finished](30-finished.md)).
 
 - Success criteria
-  - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's
-        `#hs_data{}` fields and `DFLAG_*` macros (written by Clause): the handshake of protocol 6
-        (`send_name`, challenge and reply digests from the cookie,
-        `ok`/`ok_simultaneous`/`nok`/`not_allowed`/`alive`/`named` statuses, simultaneous connects,
-        `DFLAG_NAME_ME` dynamic names), ticks and `net_ticktime`.
-  - [ ] `inet_tcp_dist` and `inet6_tcp_dist` over that interface (`listen`, `accept`,
-        `accept_connection`, `setup`, `close`, `select`, `address`, `is_node_name`), a controller
-        process over `gen_tcp` using the `dist_ctrl_*` BIFs.
-  - [ ] `net_kernel:connect_node/1`, `nodes/0,1`, `nodeup`/`nodedown` messages and `monitor_node/2` over
-        real connections; a wrong cookie refuses the connection with OTP's log line.
+  - [ ] `kernel/include/dist.hrl` (`DFLAG_*`) and `kernel/include/dist_util.hrl` (`#hs_data{}`, `?shutdown`
+        macros) with OTP's names and fields, written by Clause from OTP's documentation.
+  - [ ] `dist_util` with OTP's exports: the protocol 6 handshake on both sides with status `ok`
+        (`send_name`, challenge, reply and ack digests from `auth`'s cookies, mandatory flags,
+        `setnode/3`), the connection supervisor loop with ticks (`net_ticktime`, `net_tick_timeout`);
+        other statuses refuse the connection until DIST4b2b.
+  - [ ] `inet_tcp_dist`: `accept/1`, `accept_connection/5`, `setup/5` and a controller process over
+        `gen_tcp` (handshake requests, then `dist_data` out and input through `dist_ctrl_put_data/2`).
+  - [ ] `net_kernel`: the acceptor, pending and up connections, `connect_node/1`,
+        `hidden_connect_node/1`, node monitors' auto-connect, the ticker, `disconnect/1` with
+        `erlang:disconnect_node/1` over it as OTP's; `nodes/0,1`, `nodeup`/`nodedown` and
+        `monitor_node/2` over real connections; a wrong cookie refuses the connection with OTP's log line.
 - Tests
-  - [ ] Golden `dist_connect`: two Clause nodes connect, see each other in `nodes()`, receive
-        `nodeup`/`nodedown`; wrong cookie and name clashes.
+  - [ ] Golden `dist_connect`: two Clause nodes connect (visible and hidden), see each other in
+        `nodes/0,1`, receive `nodeup`/`nodedown` with reasons, `monitor_node/2`, an idle connection
+        stays up over several tick times; a wrong cookie gives `false` and OTP's log line.
+
+## DIST4b2b. Handshake statuses and dynamic names
+
+Depends on: [DIST4b2a](#dist4b2a-handshake-and-first-connections).
+
+- Success criteria
+  - [ ] Simultaneous connects (`ok_simultaneous`, `nok`), `alive` with the initiator's `true`/`false`,
+        `not_allowed` with `net_kernel:allow/1` and `allowed/0`, `named:` dynamic names
+        (`DFLAG_NAME_ME`, a node started without a name takes the first peer's), name clashes.
+- Tests
+  - [ ] Golden `dist_connect` cases: both ends connect at once, a restarted node meets its old
+        connection, `allow/1` refuses a node, a dynamic name.
+
+## DIST4b2c. IPv6 carrier and carrier options
+
+Depends on: [DIST4b2b](#dist4b2b-handshake-statuses-and-dynamic-names).
+
+- Success criteria
+  - [ ] `inet6_tcp_dist` over `inet_tcp_dist`'s family-generic functions (`gen_*`, `fam_*`);
+        `getopts/2`, `setopts/2`, `merge_options/2,3`, `nodelay/0`, the kernel parameters
+        `inet_dist_connect_options` and `dist_nodelay`.
+- Tests
+  - [ ] Golden `dist_connect` case over `--proto-dist inet6_tcp`.
 
 <a id="step-dist4b3"></a>
 
 ## DIST4b3. First data path and ping
 
-Depends on: [DIST4b2](#step-dist4b2).
+Depends on: [DIST4b2c](#dist4b2c-ipv6-carrier-and-carrier-options).
 
 - Success criteria
   - [ ] `SEND_SENDER`, `REG_SEND`, `MONITOR_P`/`DEMONITOR_P`/`MONITOR_P_EXIT` (enough for `gen:call/3` to
