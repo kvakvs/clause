@@ -32,7 +32,8 @@ preemptive scheduling, message passing and garbage collection.
 - **Platforms:** validated on Windows x64 and Linux x86-64; 32-bit x86 and Linux ARM have historical
   results; macOS on Apple Silicon is not yet validated ([validation](docs/validation.md)).
 
-Not supported: distribution (a program is the single node `nonode@nohost`), dynamic code loading and
+Not supported: distribution beyond naming a node and connecting to other nodes, as no message moves between
+nodes yet ([distribution](docs/distribution.md)), dynamic code loading and
 hot upgrades, NIFs and `-on_load`, the `socket` and `net` NIF modules. Unfinished library functions
 raise `{not_implemented, F, A}`; deferred language features report a `notimpl` diagnostic
 ([features](docs/features.md)). Observable differences from OTP are listed in

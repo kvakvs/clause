@@ -1,10 +1,12 @@
 %% Clause's net_kernel (plan 21 step LIB25, docs/libraries/library.md): OTP's net_kernel server of a distributed node,
 %% started by start/1,2 under erl_distribution's net_sup (plan 30 step DIST4b1a, docs/distribution.md#starting-
 %% distribution). It names the node from the carrier's listen and epmd registration. Without it, requests are
-%% ignored as OTP's are. Node status subscriptions are the runtime's (plan 30 step DIST2b).
+%% ignored as OTP's are. Node status subscriptions are the runtime's (plan 30 step DIST2b). It accepts and sets up
+%% connections through the carriers and dist_util's handshake, and ticks them (DIST4b2a, docs/distribution.md#connections).
 -module(net_kernel).
 -behaviour(gen_server).
 -include_lib("kernel/include/inet.hrl").
+-include_lib("kernel/include/net_address.hrl").
 -export([
     allow/1,
     allowed/0,
@@ -60,8 +62,27 @@
 -define(PROTO, "inet_tcp").
 
 % A started node: its name (undefined until a peer names it), how it was named and started, its tick settings,
-% whether it is hidden, and its carriers' listen sockets as {Module, Socket, Address}.
--record(state, {node, name_type, name_domain, started, ticktime, intensity, hidden, listen = []}).
+% whether it is hidden, its carriers' listen sockets as {Module, Socket, Address}, and the carrier modules that set up
+% connections. Connections (DIST4b2a): the entries by node, their handshake or supervisor processes by pid, and the
+% controllers by pid.
+-record(state, {
+    node,
+    name_type,
+    name_domain,
+    started,
+    ticktime,
+    intensity,
+    hidden,
+    listen = [],
+    carriers = [],
+    connections = #{},
+    owners = #{},
+    controllers = #{}
+}).
+
+% A connection to another node (DIST4b2a): pending during its handshake, then up; the handshake process that becomes
+% its supervisor, its dist handle, the connect_node callers waiting for it, the other node's address and its type.
+-record(connection, {state = pending, owner, handle, waiting = [], address, type = normal}).
 
 get_state() ->
     case request(get_state) of
@@ -73,14 +94,16 @@ nodename() -> request(nodename).
 longnames() -> request(longnames).
 get_net_ticktime() -> request(ticktime).
 
-%% Connections come with the handshake (DIST4b2): a started node reaches no other node yet.
-connect_node(Node) -> request({connect, normal, Node}).
-hidden_connect_node(Node) -> request({connect, hidden, Node}).
+%% Connections (plan 30 step DIST4b2a): true once the connection is up, false when it cannot be made.
+connect_node(Node) when is_atom(Node) -> request({connect, normal, Node}).
+hidden_connect_node(Node) when is_atom(Node) -> request({connect, hidden, Node}).
+
+% End the connection to Node; true once it is down, false without one. erlang:disconnect_node/1 calls it, as OTP's.
+disconnect(Node) -> request({disconnect, Node}).
 
 %% Requests of a started node that DIST6 answers; ignored as without distribution until then.
 allow(_) -> ignored.
 allowed() -> ignored.
-disconnect(_) -> ignored.
 set_net_ticktime(_) -> ignored.
 set_net_ticktime(_, _) -> ignored.
 getopts(_, _) -> ignored.
@@ -95,7 +118,8 @@ request(Request) ->
 
 async_disconnect(_) -> ok.
 
-publish_on_node(_) -> false.
+% Whether this node is published to the nodes it connects to: not when hidden (DIST4b2a).
+publish_on_node(Node) -> request({publish_on_node, Node}) =:= true.
 
 %% Whether net_kernel holds a connection to Node up for erlang:dmonitor_node/3; false while no process is registered
 %% as net_kernel (plan 30 step DIST2c).
@@ -251,7 +275,8 @@ name_node({ok, Alive, Host}, Listen, State) ->
     case listen_carriers(protocols(), Alive, Host, Node, Listen) of
         {ok, Listeners, Creation} ->
             true = erlang:setnode(Node, Creation),
-            {ok, State#state{node = Node, name_type = static, listen = Listeners}};
+            Carriers = [list_to_atom(Proto ++ "_dist") || Proto <- protocols()],
+            {ok, connecting(State#state{node = Node, name_type = static, listen = Listeners, carriers = Carriers})};
         {error, Proto, Error} ->
             log_listen_error(Proto, Node, Error),
             {stop, {error, badarg}}
@@ -299,8 +324,15 @@ handle_call(longnames, _From, #state{name_domain = Domain} = State) ->
     {reply, Domain =:= longnames, State};
 handle_call(ticktime, _From, #state{ticktime = Time} = State) ->
     {reply, Time, State};
-handle_call({connect, _Type, _Node}, _From, State) ->
-    {reply, false, State};
+handle_call({connect, Type, Node}, From, State) ->
+    connect(Type, Node, From, State);
+handle_call({disconnect, Node}, _From, #state{connections = Connections} = State) ->
+    case Connections of
+        #{Node := Connection} -> {reply, true, disconnected(Node, Connection, State)};
+        #{} -> {reply, false, State}
+    end;
+handle_call({publish_on_node, _Node}, _From, #state{hidden = Hidden} = State) ->
+    {reply, not Hidden, State};
 handle_call({passive_cnct, _Node}, _From, State) ->
     {reply, false, State}.
 
@@ -309,10 +341,35 @@ state_map(#state{node = Node, name_type = Type, name_domain = Domain, started = 
 
 handle_cast(_, State) -> {noreply, State}.
 
-% A node monitor's connection attempt is aborted until connections come (DIST4b2), so the monitor gets nodedown.
-handle_info({auto_connect, Node, DHandle}, State) ->
-    erts_internal:abort_pending_connection(Node, DHandle),
+% A node monitor's connection attempt sets the connection up; one that cannot be made is aborted, so the monitor
+% gets nodedown.
+handle_info({auto_connect, Node, DHandle}, #state{connections = Connections} = State) ->
+    case Connections of
+        #{Node := _} ->
+            {noreply, State};
+        #{} ->
+            case setup(Node, normal, [], State) of
+                {ok, NewState} ->
+                    {noreply, NewState};
+                error ->
+                    erts_internal:abort_pending_connection(Node, DHandle),
+                    {noreply, State}
+            end
+    end;
+handle_info({accept, Acceptor, Controller, Family, Protocol}, State) ->
+    {noreply, accepted(Acceptor, Controller, Family, Protocol, State)};
+handle_info({Pid, {accept_pending, Node, Address, Type}}, State) ->
+    {noreply, accept_pending(Pid, Node, Address, Type, State)};
+handle_info({Pid, {nodeup, Node, Address, Type}}, State) ->
+    {noreply, nodeup(Pid, Node, Address, Type, State)};
+handle_info({dist_ctrlr, Controller, Node, _SetupPid}, #state{controllers = Controllers} = State) ->
+    link(Controller),
+    {noreply, State#state{controllers = Controllers#{Controller => Node}}};
+handle_info(tick, #state{connections = Connections} = State) ->
+    _ = [Owner ! {self(), tick} || _ := #connection{state = up, owner = Owner} <- Connections],
     {noreply, State};
+handle_info({'EXIT', Pid, Reason}, State) ->
+    exited(Pid, Reason, State);
 handle_info(_, State) ->
     {noreply, State}.
 
@@ -320,6 +377,127 @@ handle_info(_, State) ->
 terminate(_, #state{listen = Listeners, name_type = Type}) ->
     Type =:= dynamic andalso erts_internal:dynamic_node_name(false),
     lists:foreach(fun({Module, Socket, _}) -> Module:close(Socket) end, Listeners).
+
+%% Connections (plan 30 step DIST4b2a). A named node accepts on each listen socket and ticks its up connections
+%% net_tickintensity times per net_ticktime.
+connecting(#state{listen = Listeners, ticktime = Time, intensity = Intensity} = State) ->
+    lists:foreach(fun({Module, Socket, _}) -> accept(Module, Socket) end, Listeners),
+    spawn_opt(?MODULE, ticker, [self(), Time * 1000 div Intensity], [link, {priority, max}]),
+    State.
+
+% The built-in carrier is called by name, so that programs link it.
+accept(inet_tcp_dist, Socket) -> inet_tcp_dist:accept(Socket);
+accept(Module, Socket) -> Module:accept(Socket).
+
+% connect_node/1: this node is connected; a connection up answers at once, a pending one once its handshake ends.
+connect(_, Node, _, #state{node = Node} = State) ->
+    {reply, true, State};
+connect(_, _, _, #state{node = undefined} = State) ->
+    {reply, false, State};
+connect(Type, Node, From, #state{connections = Connections} = State) ->
+    case Connections of
+        #{Node := #connection{state = up}} ->
+            {reply, true, State};
+        #{Node := #connection{waiting = Waiting} = Connection} ->
+            {noreply, State#state{
+                connections = Connections#{Node := Connection#connection{waiting = [From | Waiting]}}
+            }};
+        #{} ->
+            case setup(Node, Type, [From], State) of
+                {ok, NewState} -> {noreply, NewState};
+                error -> {reply, false, State}
+            end
+    end.
+
+% Set up a connection to Node with the first carrier that reaches it; error for a node no carrier reaches.
+setup(Node, Type, Waiting, #state{node = MyNode, name_domain = Domain, carriers = Carriers} = State) ->
+    case [Module || Module <- Carriers, Module:select(Node)] of
+        [Module | _] ->
+            case catch erts_internal:new_connection(Node) of
+                {'EXIT', _} ->
+                    error;
+                Handle ->
+                    Owner = Module:setup(Node, Type, MyNode, Domain, connecttime()),
+                    Connection = #connection{owner = Owner, handle = Handle, waiting = Waiting, type = Type},
+                    {ok, insert(Node, Connection, State)}
+            end;
+        [] ->
+            error
+    end.
+
+insert(Node, #connection{owner = Owner} = Connection, #state{connections = Connections, owners = Owners} = State) ->
+    State#state{connections = Connections#{Node => Connection}, owners = Owners#{Owner => Node}}.
+
+% An acceptor's connection: the carrier of its family and protocol starts the handshake process.
+accepted(Acceptor, Controller, Family, Protocol, #state{node = MyNode, listen = Listeners} = State) ->
+    case [Module || {Module, _, #net_address{family = F, protocol = P}} <- Listeners, F =:= Family, P =:= Protocol] of
+        [Module | _] ->
+            Supervisor = Module:accept_connection(Acceptor, Controller, MyNode, [], connecttime()),
+            Acceptor ! {self(), controller, Supervisor};
+        [] ->
+            Acceptor ! {self(), unsupported_protocol}
+    end,
+    State.
+
+% An accepted handshake asks to go on: ok when Node has no connection, which turns pending; refused otherwise, as the
+% statuses of simultaneous and existing connections come in DIST4b2b.
+accept_pending(Pid, Node, Address, Type, #state{node = MyNode, connections = Connections} = State) ->
+    case Connections of
+        #{Node := _} ->
+            Pid ! {self(), {accept_pending, nok_pending}},
+            State;
+        #{} when Node =:= MyNode ->
+            Pid ! {self(), {accept_pending, nok_pending}},
+            State;
+        #{} ->
+            Handle = erts_internal:new_connection(Node),
+            Pid ! {self(), {accept_pending, ok}},
+            insert(Node, #connection{owner = Pid, handle = Handle, address = Address, type = Type}, State)
+    end.
+
+% A handshake ended: the connection is up and its callers get true.
+nodeup(Pid, Node, Address, Type, #state{connections = Connections, intensity = Intensity} = State) ->
+    case Connections of
+        #{Node := #connection{owner = Pid, waiting = Waiting} = Connection} ->
+            lists:foreach(fun(From) -> gen_server:reply(From, true) end, Waiting),
+            Pid ! {self(), {inserted, Intensity}},
+            Up = Connection#connection{state = up, waiting = [], address = Address, type = Type},
+            State#state{connections = Connections#{Node := Up}};
+        #{} ->
+            exit(Pid, bad_nodeup),
+            State
+    end.
+
+% A connection's process ended: a pending connection is aborted and its callers get false; the runtime takes an up
+% one down with its controller. Other processes' ends, such as a failed accepted handshake's, change nothing.
+exited(Pid, _Reason, #state{owners = Owners, controllers = Controllers} = State) ->
+    case {Owners, Controllers} of
+        {#{Pid := Node}, _} -> {noreply, dropped(Node, State)};
+        {_, #{Pid := _}} -> {noreply, State#state{controllers = maps:remove(Pid, Controllers)}};
+        _ -> {noreply, State}
+    end.
+
+dropped(Node, #state{connections = Connections, owners = Owners} = State) ->
+    #{Node := #connection{state = Status, owner = Owner, handle = Handle, waiting = Waiting}} = Connections,
+    Status =:= pending andalso erts_internal:abort_pending_connection(Node, Handle),
+    lists:foreach(fun(From) -> gen_server:reply(From, false) end, Waiting),
+    State#state{connections = maps:remove(Node, Connections), owners = maps:remove(Owner, Owners)}.
+
+% disconnect/1: the connection's processes end with reason disconnect, and the answer waits for their ends, so the
+% connection is down by then.
+disconnected(Node, #connection{owner = Owner}, #state{controllers = Controllers} = State) ->
+    Ended = [Owner | [Controller || Controller := ControlledNode <- Controllers, ControlledNode =:= Node]],
+    lists:foreach(fun(Pid) -> exit(Pid, disconnect) end, Ended),
+    lists:foreach(
+        fun(Pid) ->
+            receive
+                {'EXIT', Pid, _} -> ok
+            end
+        end,
+        Ended
+    ),
+    Remaining = maps:without(Ended, Controllers),
+    dropped(Node, State#state{controllers = Remaining}).
 
 code_change(_, State, _) -> {ok, State}.
 
@@ -380,7 +558,18 @@ option_value(_, Value) -> is_boolean(Value).
 
 node_type(Type) -> lists:member(Type, [visible, hidden, all]).
 
-%% The rest of the distribution's processes come with connections (DIST4b2) and net_kernel's complete API (DIST6).
+%% The ticker (plan 30 step DIST4b2a): a linked process, spawned at max priority, that sends net_kernel tick every
+%% Interval milliseconds.
+ticker(Kernel, Interval) -> ticker_loop(Kernel, Interval).
+
+ticker_loop(Kernel, Interval) ->
+    receive
+    after Interval ->
+        Kernel ! tick,
+        ticker_loop(Kernel, Interval)
+    end.
+
+%% The rest of the distribution's processes come with net_kernel's complete API (DIST6).
 aux_ticker(_, _, _, _) -> erlang:error({not_implemented, aux_ticker, 4}).
 do_spawn(_, _, _) -> erlang:error({not_implemented, do_spawn, 3}).
 i() -> erlang:error({not_implemented, i, 0}).
@@ -391,6 +580,4 @@ node_info(_, _) -> erlang:error({not_implemented, node_info, 2}).
 nodes_info() -> erlang:error({not_implemented, nodes_info, 0}).
 passive_connect_monitor(_, _) -> erlang:error({not_implemented, passive_connect_monitor, 2}).
 spawn_func(_, _, _, _, _, _) -> erlang:error({not_implemented, spawn_func, 6}).
-ticker(_, _) -> erlang:error({not_implemented, ticker, 2}).
-ticker_loop(_, _) -> erlang:error({not_implemented, ticker_loop, 2}).
 verbose(_) -> erlang:error({not_implemented, verbose, 1}).

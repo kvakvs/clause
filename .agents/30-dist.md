@@ -5,7 +5,8 @@ distributed Erlang node. Added 2026-10-30 as plan 11's phase DIST and moved here
 direction); formerly backlog item F38.
 
 - **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a) or
-  `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d).
+  `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d); started nodes
+  connect (DIST4b2a) but move no signal yet.
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -24,7 +25,7 @@ direction); formerly backlog item F38.
     `sys.config` files as OTP's boot does (DIST4a4).
   - `net_kernel:start/1,2` and `stop/0` start and end distribution in a running program: `erl_distribution`'s
     `net_sup`, `inet_tcp_dist`'s listen and epmd registration, OTP's names, options and errors (DIST4b1a);
-    connections come in DIST4b2.
+    connections come in DIST4b2a.
   - `--sname`/`--name` start distribution before the entry through `clause_dist_start:boot/3`; the distribution
     modules link with `clau --distribution`, manifest `distribution = true` or `runtime_options` naming the node,
     or a call of `net_kernel` (DIST4b1b).
@@ -33,6 +34,9 @@ direction); formerly backlog item F38.
   - `kernel_sup` (`kernel:init/1`) starts at the first use of `rex`, `global_name_server`, `global_group` or
     distribution, with OTP's children Clause has; its end halts the program as OTP's node (DIST4b1d); projects
     exclude services with `exclude_kernel_services` or `--exclude-kernel-service` (DIST4b1e).
+  - Nodes connect over `inet_tcp_dist` through `dist_util`'s protocol 6 handshake with status `ok`, ticks keep
+    connections up, `connect_node/1`, `hidden_connect_node/1`, auto-connect and `disconnect_node/1` as OTP's;
+    a wrong cookie refuses the connection with OTP's log line (DIST4b2a).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (internals declined), `auth` (`nocookie` until started), `global` and
     `global_group` (one node, locker internals declined), `pg` (no peers), `peer`/`slave`
@@ -72,34 +76,12 @@ direction); formerly backlog item F38.
 
 ## DIST4b2. Handshake and TCP carrier
 
-Split 2026-10-31 into DIST4b2a (handshake with status `ok`, first connections), DIST4b2b (the other
+Split 2026-10-31 into DIST4b2a (handshake with status `ok`, first connections; done), DIST4b2b (the other
 statuses and dynamic names) and DIST4b2c (IPv6 and carrier options).
-
-## DIST4b2a. Handshake and first connections
-
-Depends on: DIST4b1e ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] `kernel/include/dist.hrl` (`DFLAG_*`) and `kernel/include/dist_util.hrl` (`#hs_data{}`, `?shutdown`
-        macros) with OTP's names and fields, written by Clause from OTP's documentation.
-  - [ ] `dist_util` with OTP's exports: the protocol 6 handshake on both sides with status `ok`
-        (`send_name`, challenge, reply and ack digests from `auth`'s cookies, mandatory flags,
-        `setnode/3`), the connection supervisor loop with ticks (`net_ticktime`, `net_tick_timeout`);
-        other statuses refuse the connection until DIST4b2b.
-  - [ ] `inet_tcp_dist`: `accept/1`, `accept_connection/5`, `setup/5` and a controller process over
-        `gen_tcp` (handshake requests, then `dist_data` out and input through `dist_ctrl_put_data/2`).
-  - [ ] `net_kernel`: the acceptor, pending and up connections, `connect_node/1`,
-        `hidden_connect_node/1`, node monitors' auto-connect, the ticker, `disconnect/1` with
-        `erlang:disconnect_node/1` over it as OTP's; `nodes/0,1`, `nodeup`/`nodedown` and
-        `monitor_node/2` over real connections; a wrong cookie refuses the connection with OTP's log line.
-- Tests
-  - [ ] Golden `dist_connect`: two Clause nodes connect (visible and hidden), see each other in
-        `nodes/0,1`, receive `nodeup`/`nodedown` with reasons, `monitor_node/2`, an idle connection
-        stays up over several tick times; a wrong cookie gives `false` and OTP's log line.
 
 ## DIST4b2b. Handshake statuses and dynamic names
 
-Depends on: [DIST4b2a](#dist4b2a-handshake-and-first-connections).
+Depends on: DIST4b2a ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] Simultaneous connects (`ok_simultaneous`, `nok`), `alive` with the initiator's `true`/`false`,
@@ -320,3 +302,6 @@ Depends on: [DIST2b](#step-dist2b)–[DIST12](#step-dist12).
   needs.
 - `DFLAG_NATIVE_RECORDS` once `term_to_binary/1` supports native records; `DFLAG_ALTACT_SIG` if
   Clause gets priority signals.
+- `inet_tcp_dist`'s controller reads with `{active, once}` and one `inet:setopts/2` per packet, since
+  Clause's sockets have no `{active, N}` (DIST4b2a); `{active, N}` or a runtime-side reader would cut that
+  cost once DIST5 moves real traffic.

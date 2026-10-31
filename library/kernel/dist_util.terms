@@ -1,0 +1,16 @@
+%% OTP 29 dist_util exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{cancel_timer, 1, default, implemented}.
+{handshake_other_started, 1, default, implemented}.
+{handshake_we_started, 1, default, implemented}.
+{is_allowed, 2, default, implemented}.
+{is_node_name, 1, default, implemented}.
+{net_ticker_spawn_options, 0, default, implemented}.
+{rejectable_flags, 0, default, implemented}.
+{reset_timer, 1, default, implemented}.
+{setup_timer, 2, default, implemented}.
+{shutdown, 3, default, implemented}.
+{shutdown, 4, default, implemented}.
+{split_node, 1, default, implemented}.
+{start_timer, 1, default, implemented}.
+{strict_order_flags, 0, default, implemented}.

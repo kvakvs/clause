@@ -221,16 +221,21 @@ Word dmonitor_node(ProcessContext &context, const Term &node, const Term &flag, 
 // Whether this node is alive, named or waiting for a dynamic name, so that the auth server keeps its cookies.
 bool alive(ProcessContext &context) { return detail::this_node_named() || dynamic_name(context); }
 
-// Continue as auth:Name(Arguments...), the auth server's cookies of an alive node (plan 30 step DIST4b1c,
-// docs/distribution.md#cookies).
-Word auth_call(ProcessContext &context, const CachedAtom &name, const std::span<const Word> arguments) {
+// Continue as Module:Name(Arguments...) of the library, the servers of an alive node: auth's cookies (plan 30 step
+// DIST4b1c, docs/distribution.md#cookies) and net_kernel's connections (DIST4b2a).
+Word library_call(ProcessContext &context, const CachedAtom &module, const CachedAtom &name,
+                  const std::span<const Word> arguments) {
     const auto *frame = static_cast<const abi::v1::FrameDescriptor *>(
-        context.code_server().function_frame(atom(context, "auth"_atom), atom(context, name), arguments.size()));
+        context.code_server().function_frame(atom(context, module), atom(context, name), arguments.size()));
     if (!frame) {
         bad_argument();
     }
     context.stack().trap(*frame, arguments);
     return 0;
+}
+
+Word auth_call(ProcessContext &context, const CachedAtom &name, const std::span<const Word> arguments) {
+    return library_call(context, "auth"_atom, name, arguments);
 }
 
 // get_cookie() and get_cookie(Node): the auth server's cookies, nocookie while this node is not alive (plan 21 step
@@ -269,9 +274,11 @@ Word set_cookie2(ProcessContext &context, const AtomArgument &node, const AtomAr
     not_started(context);
 }
 
-// disconnect_node(Node): ignored, since this node is not alive.
-TermResult<Term> disconnect_node(ProcessContext &context, const Term &) {
-    return TermFactory(context).atom("ignored"_atom);
+// disconnect_node(Node): net_kernel:disconnect(Node) of an alive node, as OTP's (plan 30 step DIST4b2a); ignored
+// otherwise.
+Word disconnect_node(ProcessContext &context, const Term &node) {
+    return alive(context) ? library_call(context, "net_kernel"_atom, "disconnect"_atom, std::array{node.word()})
+                          : atom(context, "ignored"_atom).word();
 }
 
 // erlang:setnode(Node, Creation) (plan 30 step DIST2a): name this node as OTP's does. Node must be a node name other

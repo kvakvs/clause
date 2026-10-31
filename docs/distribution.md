@@ -13,8 +13,9 @@ with `-daemon`, `-names` and `-kill` in DIST3c) or inside the program when a reg
 (`--epmd bundled`, DIST3b); `--epmd external` starts an epmd program, and `--no-bundled-epmd` leaves
 the bundled epmd out (DIST3d). `net_kernel:start/1,2` and `stop/0` start and end distribution in a
 running program ([starting distribution](#starting-distribution), DIST4b1a), and `--sname`/`--name` before the
-entry ([node start options](#node-start-options), DIST4b1b), with OTP's cookies ([cookies](#cookies), DIST4b1c); its
-node reaches no other node yet.
+entry ([node start options](#node-start-options), DIST4b1b), with OTP's cookies ([cookies](#cookies), DIST4b1c).
+Nodes connect through OTP's handshake ([making connections](#making-connections), DIST4b2a); no signal moves over a
+connection yet.
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -227,7 +228,8 @@ Current since DIST2b, as OTP's: `process_flag(monitor_nodes, Bool)`,
 
 ## Carriers
 
-User carriers are supported through OTP's interface:
+User carriers are supported through OTP's interface, current since DIST4b2a
+(`library/kernel/dist_util.erl`, `include/dist.hrl`, `include/dist_util.hrl`):
 
 - `--proto-dist Proto` selects the module `Proto_dist`, as OTP's `-proto_dist` does.
 - Clause's `dist_util` exports OTP's functions: `handshake_we_started/1`,
@@ -240,6 +242,58 @@ User carriers are supported through OTP's interface:
   follow OTP's because carriers set them.
 - Clause's own carriers are written over the same interface, so a third-party carrier and a built-in
   one run the same handshake code.
+
+## Making connections
+
+Current since DIST4b2a (`library/kernel/dist_util.erl`, `inet_tcp_dist.erl`, `net_kernel.erl`), as OTP's. The
+statuses `ok_simultaneous`, `alive` (on the accepting side), `not_allowed` and `named:` come in DIST4b2b.
+
+- **Handshake:** protocol 6: the initiator's name (`N`, flags, creation, name), the acceptor's status, its
+  challenge, the initiator's reply and the acceptor's ack. A digest is the MD5 of the cookie and the challenge as
+  decimal text; both sides take the cookie `auth:get_cookie(Node)` gives for the other node. The initiator
+  answers `alive` with `true`, since `net_kernel` only sets up a connection it does not hold. The acceptor
+  answers `nok` while it holds any connection of that node, or when the node has this node's name.
+- **Flags:** the offer is `get_dflags/0`'s default with the carrier's `add_flags` (of the addable ones) and
+  without its `reject_flags` (of the rejectable ones), and `PUBLISHED` unless this node is hidden
+  (`net_kernel:publish_on_node/1`) or the request is `hidden`. A peer's `MANDATORY_25_DIGEST` stands for the
+  OTP 25 set; a peer lacking a mandatory flag or one of `require_flags` is refused with an error report. The
+  connection takes the flags both nodes offer, and is visible when both published.
+- **Wrong cookie:** the acceptor logs `** Connection attempt from node N rejected. Invalid challenge reply. **`
+  (`error_logger:error_msg/2`) and closes; the initiator's `connect_node/1` answers `false` without a log.
+- **Up:** the supervisor calls `f_setopts_pre_nodeup`, `erlang:setnode/3` with the controller `f_getll` gives,
+  tells `net_kernel`, then calls `f_setopts_post_nodeup` and `f_handshake_complete` (arity 3, or 4 with
+  `#{creation, flags}`), and supervises the connection.
+- **`net_kernel`:**
+  - `connect_node/1` and `hidden_connect_node/1` answer `true` for this node and an up connection. Otherwise the
+    first carrier whose `select/1` takes the node sets the connection up, and the callers wait for its
+    handshake: `true`, or `false` once its process ended. A node no carrier takes, a name that is no node name
+    and a node waiting for its dynamic name answer `false`. A node monitor's auto-connect sets up the same way,
+    and is aborted when it cannot.
+  - Accepted connections: the documented `{accept, Acceptor, Controller, Family, Protocol}` from a carrier's
+    acceptor starts `accept_connection/5` of the listening carrier of that family and protocol.
+  - `disconnect/1` ends the connection's supervisor and controller with reason `disconnect` and answers `true`
+    once both ended, so the connection is down; `false` without a connection, and for this node.
+    `erlang:disconnect_node/1` is `net_kernel:disconnect/1` on an alive node and `ignored` on another, as OTP's.
+  - Between `dist_util` and `net_kernel` (Clause's own messages): `{Pid, {accept_pending, Node, Address,
+    Type}}` answered by `{Kernel, {accept_pending, ok | nok_pending}}`, `{Pid, {nodeup, Node, Address, Type}}`
+    answered by `{Kernel, {inserted, Intensity}}`, and the ticks `{Kernel, tick}`.
+- **Ticks:** a linked ticker spawned at `max` priority sends `net_kernel` `tick` every `net_ticktime` × 1000 /
+  `net_tickintensity` milliseconds, and `net_kernel` ticks each up connection's supervisor. The supervisor reads
+  `mf_getstat`: `net_tickintensity` ticks without input end the connection with
+  `** Node N not responding **` / `** Removing (timedout) connection **` and the reason `net_tick_timeout`; a
+  tick without output since the last one calls `mf_tick`.
+- **Setup timer:** `dist_util:start_timer/1` links a process that ends the handshake with `setup_timer_timeout`
+  unless a received handshake message resets it within `net_kernel:connecttime/0` (7 seconds); it is cancelled
+  when the connection comes up.
+- **`inet_tcp_dist`:** `accept/1` links an acceptor at `max` priority; `accept_connection/5` and `setup/5` spawn
+  the supervisor with `dist_util:net_ticker_spawn_options/0`. Setup asks the `epmd_module`'s `port_please/2` and
+  connects with `{packet, 2}`, `nodelay` (unless `dist_nodelay` is `false`) and `inet_dist_connect_options`;
+  host names the naming refuses log OTP's `** System running to use fully qualified hostnames **` lines. The
+  controller is a process owning the socket: during the handshake it answers its supervisor's requests and
+  switches to `{packet, 4}` before the connection is up; then it reads with `{active, once}` and puts each packet
+  with `dist_ctrl_put_data/2` (an empty one is a tick), sends the queued packets on `dist_data` and sends ticks
+  as empty packets. A closed socket, a failed send or refused data ends it with `connection_closed`, the other
+  node's `nodedown` reason.
 
 ## epmd
 
@@ -352,8 +406,8 @@ Current since DIST3d (`runtime/src/epmd/extension.cpp`, `launch_*.cpp`,
 ## Starting distribution
 
 Current since DIST4b1a (`library/kernel/net_kernel.erl`, `erl_distribution.erl`, `inet_tcp_dist.erl`), as
-OTP's `net_kernel:start/1,2` and `stop/0`. Connections come in DIST4b2: until then `connect_node/1` answers
-`false` and a node monitor's auto-connect is aborted, so the monitor gets `nodedown`.
+OTP's `net_kernel:start/1,2` and `stop/0`. The started node connects to others as
+[making connections](#making-connections) says.
 
 - **Processes:** `net_kernel:start/1,2` starts the `net_sup` supervisor (`erl_distribution`, one-for-all, no
   restarts) with the `erl_epmd` server (the `kernel` parameter `epmd_module`, when that module has

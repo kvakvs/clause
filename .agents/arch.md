@@ -117,6 +117,11 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   (DIST4b1d): `clause_kernel:ensure_started/0` at the first use of `rex`, `global`, `global_group` or distribution
   starts it under a keeper that halts the program when it ends; `net_sup` is its static child, `net_sup_dynamic`
   the child `net_kernel:start/1,2` adds.
+- **Connections** (DIST4b2a): Erlang over the runtime's process-controller interface. `net_kernel` runs the
+  carriers' acceptors and a ticker, keeps pending/up entries by node and their supervisors; `inet_tcp_dist`'s
+  `setup/5`/`accept_connection/5` spawn a supervisor running `dist_util`'s handshake, which calls `setnode/3` with
+  the carrier's controller process (socket owner: handshake requests, then `dist_ctrl_*` data and ticks) and then
+  ticks the connection. `erlang:disconnect_node/1` continues in `net_kernel:disconnect/1` while alive.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "entry": "dist_connect",
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dca --setcookie dc --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname dca -setcookie dc -kernel net_ticktime 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "wrong cookie: [false,[]]\nconnect: [true,[dcb@HOST],[],[dcb@HOST]]\nstatus: {nodeup,dcb@HOST,[{node_type,visible}]}\nagain: true\nafter ticks: [dcb@HOST]\ndisconnect: [true,[]]\nmessages: [{nodedown,dcb@HOST},\n {nodedown,dcb@HOST,[{nodedown_reason,disconnect},{node_type,visible}]}]\ndisconnect again: [false,false]\nhidden: [true,[],[dcb@HOST]]\nstatus: {nodeup,dcb@HOST,[{node_type,hidden}]}\ndist_connect: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dcb --setcookie dc --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname dcb -setcookie dc -kernel net_ticktime 3",
+          "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt from node dca@\\S+ rejected\\. Invalid challenge reply\\. \\*\\*\\n\\n$",
+          "exit_status": 0,
+          "stdout": "status: {nodeup,dca@HOST,[{node_type,visible}]}\nstatus: {nodedown,dca@HOST,\n          [{nodedown_reason,connection_closed},{node_type,visible}]}\nstatus: {nodeup,dca@HOST,[{node_type,hidden}]}\nstatus: {nodedown,dca@HOST,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_connect: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "dist_connect.erl": "960cdb9b8152eeeb6d3a0a096bdc04f08e97a8524da6d2cb9cd2eec885cc24cb"
+  }
+}

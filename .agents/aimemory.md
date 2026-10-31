@@ -748,3 +748,10 @@ gotchas and user directions not recorded elsewhere.
   result, so even a merge with an empty sys.config env changes which --env duplicate wins: copy OTP's two merges.
   Python write_text on Windows writes CRLF; use write_bytes. Library .erl files are erlfmt width 120
   (.state/scripts/fmt.escript); width 80 reflows cannot be undone by reformatting.
+- DIST4b2a (2026-10-31): on this PC `wslrelay.exe` holds 127.0.0.1:4369 and ::1:4369 (WSL's forwarding), so plain
+  OTP `erl -sname` nodes on the default epmd port never see each other; experiment with `ERL_EPMD_PORT` set (the
+  goldens use their own ports). The executables oracle sends logger output to stderr, so OTP's log lines belong in
+  a node's `stderr` pattern. `process_flag(priority, _)` is badarg in Clause (spawn option `{priority, max}` is
+  accepted). Python `Path.read_text()` without `encoding="utf-8"` reads cp1252 on Windows and double-encodes
+  non-ASCII on write (`×`, en dash): always pass the encoding. Library inventories must list exactly OTP's
+  exports, so helper processes spawn funs instead of new exports.

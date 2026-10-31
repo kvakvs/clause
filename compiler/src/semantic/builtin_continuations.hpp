@@ -21,11 +21,12 @@ struct BuiltinContinuation {
 // writes of maps ordered by comparison funs sort their keys in clause_io_lib:sort_maps/6 (plan 21 step LIB4F); a
 // passive node monitor asks net_kernel in clause_dist:passive_monitor/3 (plan 30 step DIST2c); a controller's iolist
 // becomes one binary in erts_internal:dist_ctrl_put_data/2 (plan 30 step DIST2d); an alive node's cookies are the
-// auth server's (plan 30 step DIST4b1c).
+// auth server's (plan 30 step DIST4b1c); an alive node's disconnect_node/1 is net_kernel's (plan 30 step DIST4b2a).
 inline constexpr std::array BUILTIN_CONTINUATIONS{
     BuiltinContinuation{{"erlang", "monitor_node", 3}, U"clause_dist", U"passive_monitor", 3},
     BuiltinContinuation{{"erlang", "dmonitor_node", 3}, U"clause_dist", U"passive_monitor", 3},
     BuiltinContinuation{{"erlang", "dist_ctrl_put_data", 2}, U"erts_internal", U"dist_ctrl_put_data", 2},
+    BuiltinContinuation{{"erlang", "disconnect_node", 1}, U"net_kernel", U"disconnect", 1},
     BuiltinContinuation{{"erlang", "get_cookie", 0}, U"auth", U"get_cookie", 0},
     BuiltinContinuation{{"erlang", "get_cookie", 1}, U"auth", U"get_cookie", 1},
     BuiltinContinuation{{"erlang", "set_cookie", 1}, U"auth", U"set_cookie", 1},
