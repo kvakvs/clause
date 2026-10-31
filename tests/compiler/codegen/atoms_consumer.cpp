@@ -203,8 +203,9 @@ void capacity() {
     require(register_module(*clean, descriptor).error() == CodeError::invalid_module,
             "reused descriptor address aliased published slots");
     require(!clean->code_server()->find_module("alias"), "duplicate descriptor published a module");
-    descriptor.abi_version = 2;
-    require(register_module(*clean, descriptor).error() == CodeError::abi_mismatch, "old descriptor admitted");
+    descriptor.abi_version = clause::abi::v1::version + 1;
+    require(register_module(*clean, descriptor).error() == CodeError::abi_mismatch,
+            "other-revision descriptor admitted");
 }
 } // namespace
 

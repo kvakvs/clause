@@ -62,6 +62,10 @@ if(CLAUSE_BUILD_RUNTIME)
     add_test(NAME linking_epmd COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/epmd.py"
         "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/epmd/$<CONFIG>")
     set_tests_properties(linking_epmd PROPERTIES TIMEOUT 300)
+    # The project option runtime_options built into executables, under CLAUSE_FLAGS and the command line (DIST4a3b).
+    add_test(NAME linking_runtime_options COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/runtime_options.py"
+        "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/runtime_options/$<CONFIG>" "${CMAKE_EXECUTABLE_SUFFIX}")
+    set_tests_properties(linking_runtime_options PROPERTIES TIMEOUT 600)
     # Export liveness: unreachable exports left out, --keep-exports and keep_exports keep them; sizes recorded (62C).
     add_test(NAME linking_exports COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/exports.py"
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/exports/$<CONFIG>"

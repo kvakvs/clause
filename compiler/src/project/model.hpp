@@ -53,6 +53,9 @@ struct TargetOptions {
     // Carry the bundled epmd in the target's executable (docs/distribution.md#epmd). Added for programs without the
     // bundled epmd (plan 30 step DIST3d).
     bool bundled_epmd_ = true;
+    // Runtime option words built into the target's executable as its defaults (docs/projects.md). Added for manifest
+    // runtime options (plan 30 step DIST4a3b).
+    std::vector<Text> runtime_options_;
     // Directory wildcards whose modules keep their inference results in the build cache, besides the implicit OTP
     // application directories (docs/projects.md#inference-cache). Added for the inference cache (58U).
     std::vector<Text> cache_inference_in_dirs_;

@@ -29,6 +29,7 @@ keep_exports = false
 shell = false
 epmd_executable = false
 bundled_epmd = true
+runtime_options = ["--setcookie", "secret", "--args-file", "vm.args"]
 cache_inference_in_dirs = ["deps/*"]
 
 [targets.options.applications]
@@ -65,6 +66,11 @@ my_dependency = "vendor/my_dependency"
 - `bundled_epmd = false` in `options` leaves the bundled epmd out of the
   target's executable, as `--no-bundled-epmd` does ([epmd](distribution.md#epmd)).
   It must be a boolean; absent means `true`.
+- `runtime_options` in `options` are runtime option words built into the
+  executable as its defaults; `CLAUSE_FLAGS` and then the command line override
+  them, and a word that is no runtime option stops the program
+  ([runtime options](executables.md#runtime-options)). A relative
+  `--args-file` is read from the directory the program runs in.
 - `cache_inference_in_dirs` (directory wildcards) in `options` adds directories
   whose modules keep their inference results in the build cache
   ([inference cache](#inference-cache)).

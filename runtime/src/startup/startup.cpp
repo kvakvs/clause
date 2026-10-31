@@ -223,7 +223,7 @@ int run(const StartupDescriptor &startup, int argc, char **argv) {
     if (!compatible(startup)) {
         return runtime_failure("startup ABI mismatch (rebuild objects and runtime together)");
     }
-    auto options = program_options(argc, argv);
+    auto options = program_options(std::span(startup.options, startup.option_count), argc, argv);
     if (!options) {
         return runtime_failure(options.error());
     }

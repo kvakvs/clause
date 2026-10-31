@@ -69,10 +69,12 @@ otherwise unchanged and in order, like `escript`.
 
 ## Runtime options
 
-The runtime reads its options from the `CLAUSE_FLAGS` environment variable
-(words split on spaces and tabs, no quoting) and then from the leading
-command-line arguments, so the command line wins. Both are parsed the same way;
-a value goes in the next argument or after `=`.
+The runtime reads its options from the defaults built into the executable
+(the project option `runtime_options`, [projects](projects.md)), then from the
+`CLAUSE_FLAGS` environment variable (words split on spaces and tabs, no
+quoting), then from the leading command-line arguments, so the command line
+wins. All are parsed the same way; a value goes in the next argument or after
+`=`.
 
 | Option | Effect |
 | --- | --- |
@@ -92,7 +94,7 @@ a value goes in the next argument or after `=`.
 
 On the command line, parsing stops at the first argument that is not a runtime
 option, so `prog data --max-atoms 9` passes all three arguments to the program.
-In `CLAUSE_FLAGS` every word must be a runtime option. An invalid value, a word
+In `CLAUSE_FLAGS` and the built-in defaults every word must be a runtime option. An invalid value, a word
 that is not an option in the variable, or an unreadable args file stops the program before
 any module is registered: `clau: runtime failure: <reason>`, exit 70. Process
 counts are not limited and memory is uncapped by default. Byte values are
@@ -188,7 +190,8 @@ collide with a module artifact). It contains a constant
 `abi::v1::StartupDescriptor`
 ([startup.hpp](../abi/include/clause/abi/startup.hpp)): ABI revision, term
 width, every module descriptor in source order, the entry module/function
-spellings and an escript flag. Its `int main(int, char **)` calls the runtime's
+spellings, an escript flag, the linked runtime extension entries and the
+built-in runtime options (`runtime_options`). Its `int main(int, char **)` calls the runtime's
 `CLAUSE_main_v1`, which:
 
 1. Checks the startup and every module descriptor for ABI revision and width

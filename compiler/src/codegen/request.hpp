@@ -60,6 +60,9 @@ struct StartupRequest {
     // The program carries the bundled epmd: the descriptor lists the epmd archive's entry. Added for programs without
     // the bundled epmd (plan 30 step DIST3d).
     bool bundled_epmd = true;
+    // Runtime option words built in as the program's defaults (the manifest's runtime_options). Added for manifest
+    // runtime options (plan 30 step DIST4a3b).
+    std::vector<std::string> runtime_options = {};
 };
 
 struct CompilationProgress {

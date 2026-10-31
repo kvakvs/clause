@@ -2,6 +2,8 @@
 #include "../codegen/request.hpp"
 #include <optional>
 #include <span>
+#include <string>
+#include <vector>
 
 namespace clause::cli {
 struct Options;
@@ -47,6 +49,9 @@ struct BackendOptions {
     // Leave the bundled epmd out of executables (--no-bundled-epmd or the project option bundled_epmd = false): the
     // startup descriptor does not list its extension entry. Added for programs without the bundled epmd (DIST3d).
     bool no_bundled_epmd = false;
+    // Runtime option words built into executables as their defaults (the project option runtime_options). Added for
+    // manifest runtime options (plan 30 step DIST4a3b).
+    std::vector<std::string> runtime_options = {};
     // Override the Clang driver and runtime archive used to link an explicit --output executable.
     std::optional<std::filesystem::path> linker;
     std::optional<std::filesystem::path> runtime_library;

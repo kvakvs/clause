@@ -501,19 +501,33 @@ std::expected<std::size_t, std::string> apply_all(std::span<const std::string> a
     }
     return at < args.size() ? at + 1 : at;
 }
+
+// Apply words that must all be runtime options (the built-in defaults, CLAUSE_FLAGS); an error names their `source`.
+std::expected<void, std::string> apply_every(std::span<const std::string> words, std::string_view source,
+                                             RuntimeOptions &options) {
+    const auto used = apply_all(words, options);
+    if (!used) {
+        return std::unexpected(used.error());
+    }
+    if (*used != words.size()) {
+        return std::unexpected(std::string(source) + ": not a runtime option: " + words[*used]);
+    }
+    return {};
+}
 } // namespace
 
-std::expected<ProgramOptions, std::string> program_options(int argc, char **argv) {
+std::expected<ProgramOptions, std::string> program_options(std::span<const char *const> defaults, int argc,
+                                                           char **argv) {
     ProgramOptions result;
     // 0 until --schedulers sets it; the default depends on --scheduler-cpus.
     result.runtime.schedulers = 0;
-    const auto flags = words(environment(FLAGS_VARIABLE));
-    const auto from_environment = apply_all(flags, result.runtime);
-    if (!from_environment) {
-        return std::unexpected(from_environment.error());
+    const std::vector<std::string> built_in(defaults.begin(), defaults.end());
+    if (const auto applied = apply_every(built_in, "runtime_options", result.runtime); !applied) {
+        return std::unexpected(applied.error());
     }
-    if (*from_environment != flags.size()) {
-        return std::unexpected(std::string(FLAGS_VARIABLE) + ": not a runtime option: " + flags[*from_environment]);
+    if (const auto applied = apply_every(words(environment(FLAGS_VARIABLE)), FLAGS_VARIABLE, result.runtime);
+        !applied) {
+        return std::unexpected(applied.error());
     }
     std::vector<std::string> arguments;
     arguments.reserve(argc > 1 ? static_cast<std::size_t>(argc - 1) : 0);

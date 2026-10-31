@@ -32,7 +32,7 @@ constexpr ModuleDescriptor stale{version - 1, bits, "old", 3, exports.data(), ex
 
 // Describe a program whose entry is app:main/1 over the given modules.
 StartupDescriptor program(std::span<const ModuleDescriptor *const> modules) {
-    return {version, bits, modules.data(), modules.size(), "app", 3, "main", 4, 0, nullptr, 0};
+    return {version, bits, modules.data(), modules.size(), "app", 3, "main", 4, 0, nullptr, 0, nullptr, 0};
 }
 
 // Run one program from a clean call count and return its exit status.

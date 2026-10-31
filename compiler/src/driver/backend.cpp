@@ -214,7 +214,8 @@ std::optional<codegen::StartupRequest> startup_request(const Analysis &analysis,
                                    uses_crypto(analysis, frontend),
                                    frontend.backend.fips.has_value(),
                                    calls_ssl_engine(analysis),
-                                   !frontend.backend.no_bundled_epmd};
+                                   !frontend.backend.no_bundled_epmd,
+                                   frontend.backend.runtime_options};
 }
 
 // The batch a compile time belongs to: its module count, and its project target when there is one.

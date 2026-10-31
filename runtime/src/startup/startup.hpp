@@ -19,8 +19,10 @@ struct ProgramOptions {
     std::size_t consumed = 0;
 };
 
-// Parse CLAUSE_FLAGS, then the leading arguments; the error is the text of an invalid or unimplemented option.
-std::expected<ProgramOptions, std::string> program_options(int argc, char **argv);
+// Parse the built-in defaults (the manifest's runtime_options), CLAUSE_FLAGS, then the leading arguments; the error
+// is the text of an invalid option.
+std::expected<ProgramOptions, std::string> program_options(std::span<const char *const> defaults, int argc,
+                                                           char **argv);
 // Decode the platform's native arguments after the first `skip` ones (runtime options), the executable's path and
 // the home directory (step 41L).
 ProgramArguments command_line(int argc, char **argv, std::size_t skip);

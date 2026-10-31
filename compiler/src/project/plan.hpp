@@ -64,6 +64,8 @@ struct PlannedTarget {
     bool epmd_executable_ = false;
     // The bundled_epmd option. Added for programs without the bundled epmd (plan 30 step DIST3d).
     bool bundled_epmd_ = true;
+    // The runtime_options words. Added for manifest runtime options (plan 30 step DIST4a3b).
+    std::vector<std::string> runtime_options_ = {};
     // Where Clause keeps its temporary files and caches: --build-dir, else build_dir, else <manifest-dir>/build.
     // Added for the build directory (62D1).
     std::filesystem::path build_directory_ = {};

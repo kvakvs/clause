@@ -18,7 +18,8 @@ direction); formerly backlog item F38.
     (DIST3d).
   - The node start options and `--env APP KEY VALUE` are init flags under OTP's names, and
     `application_controller` applies `--env` as OTP's `-App Key Value` (DIST4a1); `--args-file` reads
-    a release's `vm.args` as the [args files](../docs/executables.md#args-files) contract says (DIST4a2, DIST4a3a).
+    a release's `vm.args` as the [args files](../docs/executables.md#args-files) contract says (DIST4a2, DIST4a3a); the manifest's
+    `runtime_options` are built into executables as their defaults (DIST4a3b).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (`start/1,2` and
     internals declined), `auth` (`nocookie`), `global` and
@@ -56,23 +57,11 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-## DIST4a3b. Manifest runtime options
-
-Depends on: DIST4a3a ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] Manifest `runtime_options` in `[targets.options]` (may name `--args-file`) built into the executable as
-        defaults (startup descriptor); precedence manifest < `CLAUSE_FLAGS` < command line; printed by the
-        environment report and part of the compile cache key.
-- Tests
-  - [ ] A project golden or linking test whose manifest sets `--env` and a node option, overridden by
-        `CLAUSE_FLAGS` and the command line.
-
 <a id="step-dist4a4"></a>
 
 ## DIST4a4. `-config` (`sys.config`)
 
-Depends on: [DIST4a3b](#step-dist4a3b).
+Depends on: DIST4a3b ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `-config FILE...` from an args file or `--config FILE` on the command line: `application_controller`
@@ -87,7 +76,7 @@ Depends on: [DIST4a3b](#step-dist4a3b).
 
 ## DIST4b. Handshake, TCP carrier and first connections
 
-Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), DIST4a1 ([30-finished](30-finished.md)), [DIST4a3b](#step-dist4a3b), [DIST4a4](#step-dist4a4).
+Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), DIST4a1 ([30-finished](30-finished.md)), DIST4a3b ([30-finished](30-finished.md)), [DIST4a4](#step-dist4a4).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's

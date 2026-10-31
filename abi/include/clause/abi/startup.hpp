@@ -34,6 +34,10 @@ struct StartupDescriptor {
     // Borrow the entries of the runtime extensions linked into the program, whose builtins startup registers.
     const ExtensionEntry *extensions;
     std::size_t extension_count;
+    // Borrow the runtime options built in as the program's defaults (the manifest's runtime_options): NUL-terminated
+    // UTF-8 words applied before CLAUSE_FLAGS and the command line. Added for manifest runtime options (DIST4a3b).
+    const char *const *options;
+    std::size_t option_count;
 };
 
 static_assert(std::is_standard_layout_v<StartupDescriptor>);

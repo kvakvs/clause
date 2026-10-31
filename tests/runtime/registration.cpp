@@ -21,9 +21,9 @@ abi::v1::TermWord context_entry(ProcessContext *context, const abi::v1::TermWord
 
 // Reject incompatible and malformed drafts without publishing partial modules.
 void rejection(Runtime &runtime, abi::v1::ModuleDescriptor descriptor) {
-    for (const auto version : {1U, 2U, 3U}) {
+    for (const auto version : {abi::v1::version - 1, abi::v1::version + 1, abi::v1::version + 2}) {
         descriptor.abi_version = version;
-        require(register_module(runtime, descriptor).error() == CodeError::abi_mismatch, "old version accepted");
+        require(register_module(runtime, descriptor).error() == CodeError::abi_mismatch, "other version accepted");
     }
     descriptor.abi_version = abi::v1::version;
     descriptor.term_bits = sizeof(Word) == 8 ? 32 : 64;

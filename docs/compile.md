@@ -268,6 +268,7 @@ keep_exports = false        # --keep-exports or the project option
 shell = false               # --shell or the project option
 epmd_executable = false     # --epmd-executable or the project option
 bundled_epmd = true         # false with --no-bundled-epmd or the project option
+runtime_options = []        # the project option, built into the executable
 emit = "none"               # or obj, llvm-ir, llvm-bc
 artifact_dir = "/work/build/aot"
 ```

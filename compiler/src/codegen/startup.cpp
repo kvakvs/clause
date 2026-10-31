@@ -65,14 +65,32 @@ llvm::Constant *extensions(llvm::Module &output, const std::span<const std::stri
                                     "startup.extensions");
 }
 
-// Constant abi::v1::StartupDescriptor naming the modules, the entry (arity 1, or 0 without the arguments) and the
-// linked runtime extensions.
+// Array of the built-in runtime option words, NUL-terminated, or null without any. Added for manifest runtime options
+// (plan 30 step DIST4a3b).
+llvm::Constant *runtime_options(llvm::Module &output, const std::span<const std::string> words) {
+    auto *ptr = llvm::PointerType::get(output.getContext(), 0);
+    if (words.empty()) {
+        return llvm::ConstantPointerNull::get(ptr);
+    }
+    std::vector<llvm::Constant *> entries;
+    for (const auto &word : words) {
+        auto *bytes = llvm::ConstantDataArray::getString(output.getContext(), word, true);
+        entries.push_back(new llvm::GlobalVariable(output, bytes->getType(), true, llvm::GlobalValue::PrivateLinkage,
+                                                   bytes, "startup.option"));
+    }
+    auto *array = llvm::ConstantArray::get(llvm::ArrayType::get(ptr, entries.size()), entries);
+    return new llvm::GlobalVariable(output, array->getType(), true, llvm::GlobalValue::PrivateLinkage, array,
+                                    "startup.options");
+}
+
+// Constant abi::v1::StartupDescriptor naming the modules, the entry (arity 1, or 0 without the arguments), the
+// linked runtime extensions and the built-in runtime options.
 llvm::GlobalVariable *descriptor(llvm::Module &output, const std::span<const std::unique_ptr<semantic::Module>> modules,
                                  const StartupRequest &request, llvm::IntegerType *word) {
     llvm::IRBuilder<> builder(output.getContext());
     auto *ptr = builder.getPtrTy();
     auto *i32 = builder.getInt32Ty();
-    auto *type = llvm::StructType::get(i32, i32, ptr, word, ptr, word, ptr, word, i32, ptr, word);
+    auto *type = llvm::StructType::get(i32, i32, ptr, word, ptr, word, ptr, word, i32, ptr, word, ptr, word);
     const auto module = utf8(modules[request.module]->name);
     const auto symbols = extension_symbols(output.getTargetTriple(), request);
     const auto size = [word](const std::size_t value) { return llvm::ConstantInt::get(word, value); };
@@ -82,7 +100,8 @@ llvm::GlobalVariable *descriptor(llvm::Module &output, const std::span<const std
                spelling(output, request.function, "startup.function"), size(request.function.size()),
                builder.getInt32((request.escript ? abi::v1::startup_escript : 0U) |
                                 (request.arity == 0 ? abi::v1::startup_no_arguments : 0U)),
-               extensions(output, symbols), size(symbols.size())});
+               extensions(output, symbols), size(symbols.size()), runtime_options(output, request.runtime_options),
+               size(request.runtime_options.size())});
     return new llvm::GlobalVariable(output, type, true, llvm::GlobalValue::PrivateLinkage, data, "startup.descriptor");
 }
 
