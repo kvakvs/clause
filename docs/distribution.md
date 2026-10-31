@@ -357,8 +357,9 @@ OTP's `net_kernel:start/1,2` and `stop/0`. Connections come in DIST4b2: until th
 
 - **Processes:** `net_kernel:start/1,2` starts the `net_sup` supervisor (`erl_distribution`, one-for-all, no
   restarts) with the `erl_epmd` server (the `kernel` parameter `epmd_module`, when that module has
-  `start_link/0`), the `auth` server ([cookies](#cookies)) and then the `net_kernel` server, and returns `{ok, NetSup}`. Clause has no `kernel_sup`: `net_sup`
-  runs unlinked from the caller ([differences](differences.md)). `{error, {already_started, NetSup}}` while it runs.
+  `start_link/0`), the `auth` server ([cookies](#cookies)) and then the `net_kernel` server, as `kernel_sup`'s
+  `net_sup_dynamic` child ([kernel_sup](#kernel_sup)), and returns `{ok, NetSup}`; `{error, {already_started,
+  NetSup}}` while it runs.
 - **Options:** `start/2` takes `name_domain` (`longnames` by default), `net_ticktime` (the `kernel` parameter,
   60 by default; a value below 1 is 1), `net_tickintensity` (4), `dist_listen` and `hidden`; an invalid one
   raises `{invalid_option, Key, Value}`, a name that is no atom `invalid_name`, options that are no map
@@ -380,12 +381,29 @@ OTP's `net_kernel:start/1,2` and `stop/0`. Connections come in DIST4b2: until th
   `inet_dist_listen_options`; `address/0`, `select/1` (both parts and an IPv4 address for the host),
   `is_node_name/1` (an atom with one `@`) and `close/1` as OTP's.
 - **Failures:** a start that fails returns OTP's `{error, {{shutdown, {failed_to_start_child, net_kernel,
-  {'EXIT', nodistribution}}}, Child}}`, `Child` being OTP's `net_sup_dynamic` child record of `kernel_sup`.
+  {'EXIT', nodistribution}}}, Child}}`, `kernel_sup`'s answer with the `net_sup_dynamic` child record.
 - **Requests:** `nodename/0`, `longnames/0`, `get_net_ticktime/0` and `get_state/0` (`started => dynamic`,
   `name`, `name_type`, `name_domain`) ask the server; without one they answer `ignored` (`#{started => no}`).
-- **`stop/0`:** ends `net_sup`, whose `net_kernel` takes the name with it and whose `erl_epmd` closes the
+- **`stop/0`:** terminates and deletes `net_sup_dynamic`, whose `net_kernel` takes the name with it and whose `erl_epmd` closes the
   registration; `{error, not_found}` without distribution, `{error, not_allowed}` for a node the node start options
   named ([node start options](#node-start-options)).
+
+## kernel_sup
+
+Current since DIST4b1d (`library/kernel/kernel.erl`, `clause_kernel.erl`). OTP's node starts `kernel_sup` at boot;
+Clause starts it at the first use of a kernel service: `rex` (`rpc`), `global_name_server` (`global`),
+`global_group`, or distribution (`net_kernel:start/1,2`, `--sname`, `--name`). A program that uses none has none.
+
+- **Children:** `kernel:init/1`'s, in OTP's start order: `rex`, `global_name_server`, `net_sup` (distribution of the
+  node start options; otherwise `erl_distribution:start_link/0` answers `ignore` and the child stays without a
+  process), `global_group` (a server without groups) and `kernel_safe_sup`, an empty supervisor other libraries add
+  children to. One-for-all without restarts, as OTP's. OTP's other children (`code_server`, `file_server_2`,
+  `inet_db`, `logger_sup`, `user`, ...) are runtime services in Clause ([differences](differences.md)).
+- **`net_kernel:start/1,2`** adds the `net_sup_dynamic` child, and `stop/0` terminates and deletes it.
+- **End:** a keeper process links to `kernel_sup`; when `kernel_sup` ends, for example after `net_kernel` was
+  killed, the program halts with OTP's slogan `Kernel pid terminated (application_controller)
+  ("{application_terminated,kernel,shutdown}")`, exit 1. A first use racing another waits until the children
+  started.
 
 ## Cookies
 
@@ -458,12 +476,12 @@ Current since DIST4b1b (`library/kernel/clause_dist_start.erl`, `erl_distributio
   with `clau: runtime failure: --sname and --name need the distribution modules (link the program with
   --distribution)`, exit 70 ([differences](differences.md)).
 - **Start:** with `--sname` or `--name`, the runtime runs `clause_dist_start:boot(Module, Function, Arguments)` as
-  the main process instead of the entry. It starts `net_sup` with `erl_distribution:start_link/0`, as OTP's kernel
-  does at boot: the name of `--sname` (`shortnames`) or `--name` (`longnames`), `--hidden`, `--dist-listen`,
+  the main process instead of the entry. It starts `kernel_sup`, whose `net_sup` child `erl_distribution:start_link/0`
+  starts as OTP's kernel does at boot: the name of `--sname` (`shortnames`) or `--name` (`longnames`), `--hidden`, `--dist-listen`,
   `--proto-dist` and the `kernel` parameters as for `net_kernel:start/2`; `undefined` asks the first peer for a
   name. It then calls the entry in its place, so the entry runs in the main process with its usual reports.
 - **Such a node:** `get_state/0` says `started => static`, `stop/0` answers `{error, not_allowed}` and
-  `start/1,2` `{error, {already_started, NetSup}}`. `net_sup` is linked to the main process.
+  `start/1,2` `{error, {already_started, NetSup}}`. `net_sup` is `kernel_sup`'s `net_sup` child.
 - **Failure:** a start that fails logs OTP's lines and reports, then halts with OTP's slogan
   `Kernel pid terminated (application_controller) ("{application_start_failure,kernel,{{shutdown,
   {failed_to_start_child,net_sup,...}},{kernel,start,[normal,[]]}}}")`, exit 1, before the entry runs.

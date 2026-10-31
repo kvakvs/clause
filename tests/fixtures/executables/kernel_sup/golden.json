@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "entry": "kernel_sup",
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "first",
+          "args": [
+            "first"
+          ],
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "tree: [{kernel_safe_sup,supervisor,true},\n       {global_group,worker,true},\n       {net_sup,supervisor,false},\n       {global_name_server,worker,true},\n       {rex,worker,true}]\nkernel_safe_sup: []\nregistered: [true,true,true,true,true]\nstarted: [{net_sup_dynamic,supervisor,true},\n          {kernel_safe_sup,supervisor,true},\n          {global_group,worker,true},\n          {net_sup,supervisor,false},\n          {global_name_server,worker,true},\n          {rex,worker,true}]\nnet_sup: true\nstopped: [{kernel_safe_sup,supervisor,true},\n          {global_group,worker,true},\n          {net_sup,supervisor,false},\n          {global_name_server,worker,true},\n          {rex,worker,true}]\nkernel_sup: ok\n"
+        },
+        {
+          "name": "static",
+          "args": [
+            "static"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname kstatic"
+          },
+          "otp_flags": "-sname kstatic",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "tree: [{kernel_safe_sup,supervisor,true},\n       {global_group,worker,true},\n       {net_sup,supervisor,true},\n       {global_name_server,worker,true},\n       {rex,worker,true}]\nnet_sup: true\nkernel_sup: ok\n"
+        },
+        {
+          "name": "kill dynamic",
+          "args": [
+            "kill_dynamic"
+          ],
+          "stderr": "Kernel pid terminated \\(application_controller\\) \\(\"\\{application_terminated,kernel,shutdown\\}\"\\)\\n",
+          "exit_status": 1,
+          "stdout": "killing: true\n"
+        },
+        {
+          "name": "kill static",
+          "args": [
+            "kill_static"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname kkill"
+          },
+          "otp_flags": "-sname kkill",
+          "stderr": "Kernel pid terminated \\(application_controller\\) \\(\"\\{application_terminated,kernel,shutdown\\}\"\\)\\n",
+          "exit_status": 1,
+          "stdout": "killing: true\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "kernel_sup.erl": "5ec50dbaf3fec481ceb7079a7809d37ab4679e9ff0c7ac0edb42a8571195c3b1"
+  }
+}

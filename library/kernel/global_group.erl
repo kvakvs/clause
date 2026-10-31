@@ -1,7 +1,9 @@
 %% Clause's global_group (plan 21 step LIB25, docs/libraries/library.md): the answers of an OTP node without global groups,
 %% which a Clause program always is: there are no groups, the node's own group is all of it (the node itself), and
-%% names resolve through global.
+%% names resolve through global. Its server is kernel_sup's global_group child (plan 30 step DIST4b1d) and holds no
+%% groups.
 -module(global_group).
+-behaviour(gen_server).
 -export([
     global_groups/0,
     monitor_nodes/1,
@@ -100,12 +102,14 @@ ng_add_check(_, _, _) -> erlang:error({not_implemented, ng_add_check, 3}).
 registered_names_test(_) -> erlang:error({not_implemented, registered_names_test, 1}).
 send_test(_, _) -> erlang:error({not_implemented, send_test, 2}).
 whereis_name_test(_) -> erlang:error({not_implemented, whereis_name_test, 1}).
-start() -> erlang:error({not_implemented, start, 0}).
-start_link() -> erlang:error({not_implemented, start_link, 0}).
-stop() -> erlang:error({not_implemented, stop, 0}).
-init(_) -> erlang:error({not_implemented, init, 1}).
-handle_call(_, _, _) -> erlang:error({not_implemented, handle_call, 3}).
-handle_cast(_, _) -> erlang:error({not_implemented, handle_cast, 2}).
-handle_info(_, _) -> erlang:error({not_implemented, handle_info, 2}).
-terminate(_, _) -> erlang:error({not_implemented, terminate, 2}).
+start() -> gen_server:start({local, global_group}, ?MODULE, [], []).
+start_link() -> gen_server:start_link({local, global_group}, ?MODULE, [], []).
+stop() -> gen_server:call(global_group, stop, infinity).
+
+%% The server of a node without groups: requests are answered without it, so it only keeps its place in kernel_sup.
+init([]) -> {ok, no_groups}.
+handle_call(stop, _, State) -> {stop, normal, stopped, State}.
+handle_cast(_, State) -> {noreply, State}.
+handle_info(_, State) -> {noreply, State}.
+terminate(_, _) -> ok.
 code_change(_, _, _) -> erlang:error({not_implemented, code_change, 3}).

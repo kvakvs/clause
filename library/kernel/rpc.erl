@@ -1,5 +1,5 @@
 %% Clause's rpc (plan 21 step LIB25, docs/libraries/library.md): OTP's remote procedure calls over erpc, with {badrpc, Reason}
-%% results. The rex server, which block calls, sbcast/2,3 and server messages need, starts at the first use. A
+%% results. The rex server, which block calls, sbcast/2,3 and server messages need, starts under kernel_sup at the first use. A
 %% Clause program is one node, so other nodes are down: calls to them give {badrpc, nodedown} and multicalls list
 %% them as bad nodes.
 -module(rpc).
@@ -61,15 +61,11 @@ start_link() -> gen_server:start_link({local, ?NAME}, ?MODULE, [], []).
 
 stop() -> gen_server:call(?NAME, stop, infinity).
 
+% The server starts with kernel_sup at the first use of a kernel service (plan 30 step DIST4b1d).
 ensure_started() ->
     case whereis(?NAME) of
-        undefined ->
-            case start() of
-                {ok, _} -> ok;
-                {error, {already_started, _}} -> ok
-            end;
-        _ ->
-            ok
+        undefined -> ok = clause_kernel:ensure_started();
+        _ -> ok
     end.
 
 %% The state maps the monitor of each call's process to the caller.

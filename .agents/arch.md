@@ -113,7 +113,10 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   `--sname`/`--name` (DIST4b1b): `startup.cpp` starts `clause_dist_start:boot(M, F, Args)` as the main process,
   which starts `net_sup` then applies the entry; `clau` links it on demand (`--distribution`, `net_kernel` callers)
   and liveness keeps it as a second root. Cookies (DIST4b1c): `auth` under `net_sup`; the `erlang` cookie builtins
-  (`builtins/erlang/node.cpp`) trap to `auth` while the node is alive (builtin continuations).
+  (`builtins/erlang/node.cpp`) trap to `auth` while the node is alive (builtin continuations). `kernel_sup`
+  (DIST4b1d): `clause_kernel:ensure_started/0` at the first use of `rex`, `global`, `global_group` or distribution
+  starts it under a keeper that halts the program when it ends; `net_sup` is its static child, `net_sup_dynamic`
+  the child `net_kernel:start/1,2` adds.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

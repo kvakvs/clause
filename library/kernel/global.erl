@@ -1,5 +1,5 @@
 %% Clause's global (plan 21 step LIB25, docs/libraries/library.md): global names and locks as on an OTP node that is not
-%% distributed. The server global_name_server starts at the first use; the ETS tables global_names
+%% distributed. The server global_name_server starts under kernel_sup at the first use; the ETS tables global_names
 %% ({Name, Pid, Method, Ref}), global_pid_names ({Pid, Name}) and global_locks ({ResourceId, RequesterId,
 %% [{Pid, Ref}]}) are OTP's. Names and locks of a process go when it ends. Other nodes are never reachable, so
 %% lock requests for them succeed at once and name conflicts never arise.
@@ -48,16 +48,11 @@ start_link() -> gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 stop() -> gen_server:call(?SERVER, stop, infinity).
 
-%% Starts the server at the first use, unlinked from the caller.
+%% The server starts with kernel_sup at the first use of a kernel service (plan 30 step DIST4b1d).
 ensure_started() ->
     case whereis(?SERVER) of
-        undefined ->
-            case start() of
-                {ok, _} -> ok;
-                {error, {already_started, _}} -> ok
-            end;
-        _ ->
-            ok
+        undefined -> ok = clause_kernel:ensure_started();
+        _ -> ok
     end.
 
 call(Request) ->

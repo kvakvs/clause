@@ -5,7 +5,7 @@ distributed Erlang node. Added 2026-10-30 as plan 11's phase DIST and moved here
 direction); formerly backlog item F38.
 
 - **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a) or
-  `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c).
+  `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d).
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -30,6 +30,8 @@ direction); formerly backlog item F38.
     or a call of `net_kernel` (DIST4b1b).
   - `auth` under `net_sup` keeps the cookies (`--setcookie`, `--nocookie`, `~/.erlang.cookie` read or created);
     `erlang:get_cookie/0,1` and `set_cookie/1,2` continue in it while the node is alive (DIST4b1c).
+  - `kernel_sup` (`kernel:init/1`) starts at the first use of `rex`, `global_name_server`, `global_group` or
+    distribution, with OTP's children Clause has; its end halts the program as OTP's node (DIST4b1d).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (internals declined), `auth` (`nocookie` until started), `global` and
     `global_group` (one node, locker internals declined), `pg` (no peers), `peer`/`slave`
@@ -78,32 +80,11 @@ direction); formerly backlog item F38.
 
 <a id="step-dist4b1d"></a>
 
-## DIST4b1d. `kernel_sup` and the kernel services
-
-Depends on: DIST4b1a–DIST4b1c ([30-finished](30-finished.md)). User choices (2026-10-31): `kernel_sup` starts at the
-first use of any kernel service; Clause's real servers only; opt-out by an exclude list (DIST4b1e).
-
-- Success criteria
-  - [ ] OTP's `kernel` module (`init/1` gives `kernel_sup`'s children; `start/2`, `stop/1`, `config_change/3` as the
-        kernel application's callbacks) and `kernel_sup`, started at the first use of a kernel service: `rex`
-        (`rpc`), `global_name_server` (`global`), `global_group`, or starting distribution. Its children, in OTP's
-        order: `rex`, `global_name_server`, `net_sup` (static: the node start options; otherwise
-        `erl_distribution:start_link/0` answers `ignore`), `global_group`, an empty `kernel_safe_sup`. The servers'
-        unlinked first-use starts go.
-  - [ ] `net_kernel:start/1,2` adds OTP's `net_sup_dynamic` child (`supervisor:start_child/2`, its errors as
-        OTP's), `stop/0` terminates and deletes it.
-  - [ ] `kernel_sup`'s end halts the program as OTP's node halts (`Kernel pid terminated (application_controller)
-        ("{application_terminated,kernel,shutdown}")`); the `differences.md` rows on the missing `kernel_sup` shrink
-        to the children Clause leaves out (`code_server`, `file_server_2`, `inet_db`, `logger_sup`, `user`, ...).
-- Tests
-  - [ ] Golden `kernel_sup`: the tree after a first use and after starting distribution, killing `net_kernel` of a
-        dynamic and of a static start halts as OTP's node.
-
 <a id="step-dist4b1e"></a>
 
 ## DIST4b1e. Opting out of kernel services
 
-Depends on: [DIST4b1d](#step-dist4b1d).
+Depends on: DIST4b1d ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `exclude_kernel_services = ["global_name_server", ...]` in `[targets.options]` and
@@ -111,6 +92,9 @@ Depends on: [DIST4b1d](#step-dist4b1d).
         linked on `kernel_sup`'s account and `kernel_sup` does not start it, even when the program calls its module.
         The included services reach `kernel` through a module `clau` generates per program; `--print-env` reports
         the list.
+  - [ ] The documentation and the comment on the option in the project template (`compiler/src/project/template.cpp`,
+        `docs/projects.md`) say that excluding mostly stops a service from starting rather than shrinking the
+        program: `gen_server` already links `global` and `rpc` (user, 2026-10-31).
 - Tests
   - [ ] Linking test: a program excluding `global_name_server` and `rex` links neither for `kernel_sup`, its tree
         lacks them, and `global` called anyway still answers as without its server.
