@@ -69,4 +69,4 @@ Compact record of the network distribution plan, one bullet per step;
   golden `dist_start` — 803d0144
 - **DIST4b1b** `--sname`/`--name` start distribution before the entry (`clause_dist_start:boot/3`, a liveness root,
   `erl_distribution:start_link/0`); distribution modules on demand (`clau --distribution`, manifest `distribution`,
-  `runtime_options` naming the node, `net_kernel` callers); golden `dist_node` — `HASH`
+  `runtime_options` naming the node, `net_kernel` callers); golden `dist_node` — 9f1a899c
