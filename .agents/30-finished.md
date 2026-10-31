@@ -82,3 +82,7 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST4b2a** handshake and first connections: `dist_util` (protocol 6 with status `ok`, cookies' MD5 digests,
   mandatory flags, ticks), `dist.hrl`/`dist_util.hrl`, `inet_tcp_dist` accept/setup with a controller process,
   `net_kernel` connections, ticker and `disconnect/1` (`erlang:disconnect_node/1` over it); golden `dist_connect` — a9dac44c
+- **DIST4b2b** handshake statuses and dynamic names: simultaneous connects (`ok_simultaneous`/`nok` by name), `alive`
+  replacing an old connection (`wait_pending`), `nok` for this node's name, `allow/1`/`allowed/0` with `not_allowed`,
+  `named:` dynamic names restarting `net_sup` when lost; runtime `wake()` no longer queues an ended process (crash
+  under simultaneous connects); golden `dist_connect` runs synchronized through epmd marker names — e403d9e6
