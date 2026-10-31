@@ -1,6 +1,7 @@
 {
   "schema": 1,
   "entry": "dist_connect",
+  "host_otp": true,
   "runs": [
     {
       "nodes": [
@@ -27,6 +28,69 @@
           },
           "otp_flags": "-sname dcb@localhost -setcookie dc -kernel net_ticktime 3",
           "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt from node dca@\\S+ rejected\\. Invalid challenge reply\\. \\*\\*\\n\\n$",
+          "exit_status": 0,
+          "stdout": "status: {nodeup,dca@localhost,[{node_type,visible}]}\nstatus: {nodedown,dca@localhost,\n          [{nodedown_reason,connection_closed},{node_type,visible}]}\nstatus: {nodeup,dca@localhost,[{node_type,hidden}]}\nstatus: {nodedown,dca@localhost,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_connect: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dca@localhost --setcookie dc --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname dca@localhost -setcookie dc -kernel net_ticktime 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "wrong cookie: [false,[]]\nconnect: [true,[dcb@localhost],[],[dcb@localhost]]\nstatus: {nodeup,dcb@localhost,[{node_type,visible}]}\nagain: true\nafter ticks: [dcb@localhost]\ndisconnect: [true,[]]\nmessages: [{nodedown,dcb@localhost},\n {nodedown,dcb@localhost,[{nodedown_reason,disconnect},{node_type,visible}]}]\ndisconnect again: [false,false]\nhidden: [true,[],[dcb@localhost]]\nstatus: {nodeup,dcb@localhost,[{node_type,hidden}]}\ndist_connect: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dcb@localhost --setcookie dc --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname dcb@localhost -setcookie dc -kernel net_ticktime 3",
+          "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt from node dca@\\S+ rejected\\. Invalid challenge reply\\. \\*\\*\\n\\n$",
+          "exit_status": 0,
+          "stdout": "status: {nodeup,dca@localhost,[{node_type,visible}]}\nstatus: {nodedown,dca@localhost,\n          [{nodedown_reason,connection_closed},{node_type,visible}]}\nstatus: {nodeup,dca@localhost,[{node_type,hidden}]}\nstatus: {nodedown,dca@localhost,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_connect: ok\n"
+        }
+      ]
+    },
+    {
+      "epmd": "otp",
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dca@localhost --setcookie dc --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname dca@localhost -setcookie dc -kernel net_ticktime 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "wrong cookie: [false,[]]\nconnect: [true,[dcb@localhost],[],[dcb@localhost]]\nstatus: {nodeup,dcb@localhost,[{node_type,visible}]}\nagain: true\nafter ticks: [dcb@localhost]\ndisconnect: [true,[]]\nmessages: [{nodedown,dcb@localhost},\n {nodedown,dcb@localhost,[{nodedown_reason,disconnect},{node_type,visible}]}]\ndisconnect again: [false,false]\nhidden: [true,[],[dcb@localhost]]\nstatus: {nodeup,dcb@localhost,[{node_type,hidden}]}\ndist_connect: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dcb@localhost --setcookie dc --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname dcb@localhost -setcookie dc -kernel net_ticktime 3",
+          "stderr": "^\\S+ error: \\*\\* Connection attempt from node dca@\\S+ rejected\\. Invalid challenge reply\\. \\*\\*\\n$",
           "exit_status": 0,
           "stdout": "status: {nodeup,dca@localhost,[{node_type,visible}]}\nstatus: {nodedown,dca@localhost,\n          [{nodedown_reason,connection_closed},{node_type,visible}]}\nstatus: {nodeup,dca@localhost,[{node_type,hidden}]}\nstatus: {nodedown,dca@localhost,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_connect: ok\n"
         }
@@ -132,6 +196,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "dist_connect.erl": "24ebcd1e25f1e1329af88347daa8c7cdc456bb2fadbf9caf30f1aa058b7a22da"
+    "dist_connect.erl": "0abf69dc40bd04474dd09acf3fb0e80a68ea90aaf2e55b88ae409e63f66433c6"
   }
 }

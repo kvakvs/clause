@@ -17,7 +17,8 @@ entry ([node start options](#node-start-options), DIST4b1b), with OTP's cookies 
 Nodes connect through OTP's handshake with all its statuses, `allow/1` and dynamic names ([making
 connections](#making-connections), DIST4b2a, DIST4b2b), over IPv4 or IPv6 (DIST4b2c), messages move
 between them ([messages](#messages), DIST4b3a), processes monitor other nodes' processes and `net_adm:ping/1`
-answers ([process monitors](#process-monitors), DIST4b3b1); other signals do not yet.
+answers ([process monitors](#process-monitors), DIST4b3b1); other signals do not yet. Clause and OTP 29 nodes
+connect, ping, monitor and message each other both ways on either kind of epmd ([testing](#testing), DIST4b4).
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -701,3 +702,8 @@ Current since DIST4b1b (`library/kernel/clause_dist_start.erl`, `erl_distributio
   Clause-only cases need no OTP: `epmd_names` runs on `clause-epmd` and on bundled epmds (two
   nodes racing to start one), and `epmd_interop` runs the same program on OTP's `epmd` and with an
   OTP node.
+- **OTP peers** (DIST4b4): `dist_ping` and `dist_connect` repeat their first run with node `a` an OTP
+  node on `clause-epmd` and with node `b` one on OTP's `epmd`; each node's stdout is the oracle's.
+  An OTP node's stderr pattern is in OTP's own log format (a `Time level: message` line per report),
+  and a node that waits for another's node status messages waits for its epmd marker name first,
+  since an OTP node boots slower than a Clause program.

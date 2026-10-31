@@ -802,3 +802,8 @@ gotchas and user directions not recorded elsewhere.
   runs during the flush, ports get exit killed). Two OTP 29.1.1 nodes (scratch F:/CLAUSE/scratch/haltflush, own
   ERL_EPMD_PORT): 10 sends then halt() -> 0 arrive (5/5 runs); 1000 -> 995-1000; 20000 -> ~19500; sleep(200) or
   init:stop() -> all. Plan premises citing OTP behavior can be wrong: probe before implementing.
+- DIST4b4 (2026-11-01): mixed runs (`"kind": "otp"` node) pass with OTP nodes in both directions; a golden turning
+  host_otp needs a CMake reconfigure (labels and --escript are read from golden.json at configure time), else CTest
+  runs it without --escript and exit 77 counts as failure. An OTP node logs `Time level: msg` single lines on stderr
+  (oracle handler), so its stderr pattern differs from the Clause node's legacy reports. An OTP node starts ~1 s
+  after a Clause program: fixtures must sync on epmd markers before relying on the peer's subscriptions.

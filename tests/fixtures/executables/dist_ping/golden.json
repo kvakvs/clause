@@ -1,6 +1,7 @@
 {
   "schema": 1,
   "entry": "dist_ping",
+  "host_otp": true,
   "runs": [
     {
       "nodes": [
@@ -27,6 +28,69 @@
           },
           "otp_flags": "-sname dpb@localhost -setcookie dp",
           "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt from node dpa@\\S+ rejected\\. Invalid challenge reply\\. \\*\\*\\n\\n$",
+          "exit_status": 0,
+          "stdout": "echoed: 115\ndist_ping: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dpa@localhost --setcookie dp"
+          },
+          "otp_flags": "-sname dpa@localhost -setcookie dp",
+          "stderr": "(?s)^(?=(?:.*?\\S+ error: Net kernel got \\{dist_ctrlr,<0\\.\\d+\\.0>,fake@nohost,<0\\.\\d+\\.0>\\}\\n){11})(?=.*\\S+ error: \\*\\* Got message from incompatible erlang on channel \\d+\\n)(?=.*\\S+ error: Invalid distribution message: \\{99,\"abc\",<<\"bin\">>,1\\.500000e\\+00,x\\}\\n)(?=.*\\S+ error: Invalid distribution message: \\{22,x\\}\\n)(?=.*\\S+ error: Invalid distribution message: \\{33,x,\\{\\}\\}\\n)(?=.*\\S+ error: Invalid distribution message: \\{19,<0\\.\\d+\\.0>,x,#Ref<0\\.\\d+\\.\\d+\\.\\d+>\\}\\n)(?=.*\\S+ warning: 'dpa@[^']+' got a corrupted external term from 'fake@nohost' on distribution channel \\d+, <<\\.\\.\\.,131,109,0,0,0,9,1,2>>, ATOM_CACHE_REF translations: none\\n)(?=.*\\S+ warning: 'dpa@[^']+' got a corrupted external term from 'fake@nohost' on distribution channel \\d+, >>, ATOM_CACHE_REF translations: none\\n)",
+          "exit_status": 0,
+          "stdout": "setnode: [true,[fake@nohost]]\nqueued while pending: [[{6,self,'',x},before_up],\n                       [{2,'',{identity,fake@nohost}},early],\n                       348]\nnotification: [ok,dist_data]\nqueued: [[{6,self,'',x},hello],160,{ok,0,3,0}]\nsend options: [ok,noconnect,true,false]\npackets: [[{22,self,{identity,fake@nohost}},to_pid],\n          [{33,self,{identity,fake@nohost}},to_alias],\n          [{22,self,{identity,fake@nohost}},option],\n          [{22,self,{identity,fake@nohost}},nosuspend]]\ntaken: {ok,0,7,0}\nended: [normal,\n        {nodeup,fake@nohost,#{node_type => hidden}},\n        {nodedown,fake@nohost,\n                  #{node_type => hidden,\n                    nodedown_reason => connection_closed}}]\nputs: [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]\nother id: ok\nold handle: true\ndelivered: [send_sender,reg_send,send,send_tt,reg_send_tt,send_sender_tt,\n            alias_send,alias_send_tt,\n            {from_self,[1,2.5]},\n            <<\"binary\">>]\nstat: {ok,15,0,0}\nended: [normal,\n        {nodeup,fake@nohost,#{node_type => hidden}},\n        {nodedown,fake@nohost,\n                  #{node_type => hidden,\n                    nodedown_reason => connection_closed}}]\ndemonitor: true\nmonitor packets: [[{19,self,{identity,fake@nohost},{identity,dpa@localhost}}],\n                  [{19,self,x,{identity,dpa@localhost}}],\n                  [{19,self,{identity,fake@nohost},{identity,dpa@localhost}}],\n                  [{20,self,{identity,fake@nohost},{identity,dpa@localhost}}]]\ndowns: [{'DOWN',{identity,dpa@localhost},\n                process,\n                {identity,fake@nohost},\n                pending_down},\n        {'DOWN',{identity,dpa@localhost},\n                process,\n                {x,fake@nohost},\n                by_name_down}]\nwatched: [{monitored_by,[{identity,fake@nohost}]},\n          {monitored_by,[{identity,fake@nohost}]},\n          {monitored_by,[{identity,fake@nohost}]}]\nunwatched: {monitored_by,[]}\nmonitor exits: [[{28,nobody,{identity,fake@nohost},{identity,fake@nohost}},\n                 noproc],\n                [{28,\n                  {identity,dpa@localhost},\n                  {identity,fake@nohost},\n                  {identity,fake@nohost}},\n                 helper_done],\n                [{28,watched,{identity,fake@nohost},{identity,fake@nohost}},\n                 named_done]]\nended: [normal,\n        {nodeup,fake@nohost,#{node_type => hidden}},\n        {nodedown,fake@nohost,\n                  #{node_type => hidden,\n                    nodedown_reason => connection_closed}}]\nnoconnection: {'DOWN',{identity,dpa@localhost},\n                      process,\n                      {y,fake@nohost},\n                      noconnection}\nincompatible: [killed,\n               {nodeup,fake@nohost,#{node_type => hidden}},\n               {nodedown,fake@nohost,\n                         #{node_type => hidden,nodedown_reason => killed}}]\nshort: [killed,\n        {nodeup,fake@nohost,#{node_type => hidden}},\n        {nodedown,fake@nohost,\n                  #{node_type => hidden,nodedown_reason => killed}}]\ninvalid: [killed,\n          {nodeup,fake@nohost,#{node_type => hidden}},\n          {nodedown,fake@nohost,\n                    #{node_type => hidden,nodedown_reason => killed}}]\nwrong arity: [killed,\n              {nodeup,fake@nohost,#{node_type => hidden}},\n              {nodedown,fake@nohost,\n                        #{node_type => hidden,nodedown_reason => killed}}]\nbad receiver: [killed,\n               {nodeup,fake@nohost,#{node_type => hidden}},\n               {nodedown,fake@nohost,\n                         #{node_type => hidden,nodedown_reason => killed}}]\nbad watcher: [killed,\n              {nodeup,fake@nohost,#{node_type => hidden}},\n              {nodedown,fake@nohost,\n                        #{node_type => hidden,nodedown_reason => killed}}]\ncorrupted: [killed,\n            {nodeup,fake@nohost,#{node_type => hidden}},\n            {nodedown,fake@nohost,\n                      #{node_type => hidden,nodedown_reason => killed}}]\nno payload: [killed,\n             {nodeup,fake@nohost,#{node_type => hidden}},\n             {nodedown,fake@nohost,\n                       #{node_type => hidden,nodedown_reason => killed}}]\nwrong cookie: [pang,[]]\nping: [pong,true,pong]\nno node: pang\nmonitors: true\nmonitored by: true\nby pid: {shutdown,by_pid}\nby name: by_name\ntag: tagged\ndemonitor: [true,false]\nafter demonitor: {monitored_by,[]}\nwatcher ended: {monitored_by,[]}\nnoproc: [noproc,noproc]\ncalls: [{ok,{echoed,hello}},{ok,{echoed,hello}},{exit,noproc},{exit,noproc}]\nleft: [{monitors,[]},[]]\nreg_send: [true,true]\nsend_sender: to_pid\nalias_send: {via_alias,to_alias}\nafter unalias: done\nround trip: true\nin order: true\nsend options: [ok,true,option,nosuspend]\nstop: stopped\ndist_ping: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dpb@localhost --setcookie dp"
+          },
+          "otp_flags": "-sname dpb@localhost -setcookie dp",
+          "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt from node dpa@\\S+ rejected\\. Invalid challenge reply\\. \\*\\*\\n\\n$",
+          "exit_status": 0,
+          "stdout": "echoed: 115\ndist_ping: ok\n"
+        }
+      ]
+    },
+    {
+      "epmd": "otp",
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dpa@localhost --setcookie dp"
+          },
+          "otp_flags": "-sname dpa@localhost -setcookie dp",
+          "stderr": "(?s)^(?=(?:.*?=ERROR REPORT==== [^\\n]* ===\\nNet kernel got \\{dist_ctrlr,<0\\.\\d+\\.0>,fake@nohost,<0\\.\\d+\\.0>\\}\\n\\n){11})(?=.*=ERROR REPORT==== [^\\n]* ===\\n\\*\\* Got message from incompatible erlang on channel \\d+\\n\\n\\n)(?=.*=ERROR REPORT==== [^\\n]* ===\\nInvalid distribution message: \\{99,\"abc\",<<\"bin\">>,1\\.500000e\\+00,x\\}\\n\\n)(?=.*=ERROR REPORT==== [^\\n]* ===\\nInvalid distribution message: \\{22,x\\}\\n\\n)(?=.*=ERROR REPORT==== [^\\n]* ===\\nInvalid distribution message: \\{33,x,\\{\\}\\}\\n\\n)(?=.*=ERROR REPORT==== [^\\n]* ===\\nInvalid distribution message: \\{19,<0\\.\\d+\\.0>,x,#Ref<0\\.\\d+\\.\\d+\\.\\d+>\\}\\n\\n)(?=.*=WARNING REPORT==== [^\\n]* ===\\n'dpa@[^']+' got a corrupted external term from 'fake@nohost' on distribution channel \\d+\\n<<\\.\\.\\.,131,109,0,0,0,9,1,2>>\\nATOM_CACHE_REF translations: none\\n\\n)(?=.*=WARNING REPORT==== [^\\n]* ===\\n'dpa@[^']+' got a corrupted external term from 'fake@nohost' on distribution channel \\d+\\n>>\\nATOM_CACHE_REF translations: none\\n\\n)",
+          "exit_status": 0,
+          "stdout": "setnode: [true,[fake@nohost]]\nqueued while pending: [[{6,self,'',x},before_up],\n                       [{2,'',{identity,fake@nohost}},early],\n                       348]\nnotification: [ok,dist_data]\nqueued: [[{6,self,'',x},hello],160,{ok,0,3,0}]\nsend options: [ok,noconnect,true,false]\npackets: [[{22,self,{identity,fake@nohost}},to_pid],\n          [{33,self,{identity,fake@nohost}},to_alias],\n          [{22,self,{identity,fake@nohost}},option],\n          [{22,self,{identity,fake@nohost}},nosuspend]]\ntaken: {ok,0,7,0}\nended: [normal,\n        {nodeup,fake@nohost,#{node_type => hidden}},\n        {nodedown,fake@nohost,\n                  #{node_type => hidden,\n                    nodedown_reason => connection_closed}}]\nputs: [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]\nother id: ok\nold handle: true\ndelivered: [send_sender,reg_send,send,send_tt,reg_send_tt,send_sender_tt,\n            alias_send,alias_send_tt,\n            {from_self,[1,2.5]},\n            <<\"binary\">>]\nstat: {ok,15,0,0}\nended: [normal,\n        {nodeup,fake@nohost,#{node_type => hidden}},\n        {nodedown,fake@nohost,\n                  #{node_type => hidden,\n                    nodedown_reason => connection_closed}}]\ndemonitor: true\nmonitor packets: [[{19,self,{identity,fake@nohost},{identity,dpa@localhost}}],\n                  [{19,self,x,{identity,dpa@localhost}}],\n                  [{19,self,{identity,fake@nohost},{identity,dpa@localhost}}],\n                  [{20,self,{identity,fake@nohost},{identity,dpa@localhost}}]]\ndowns: [{'DOWN',{identity,dpa@localhost},\n                process,\n                {identity,fake@nohost},\n                pending_down},\n        {'DOWN',{identity,dpa@localhost},\n                process,\n                {x,fake@nohost},\n                by_name_down}]\nwatched: [{monitored_by,[{identity,fake@nohost}]},\n          {monitored_by,[{identity,fake@nohost}]},\n          {monitored_by,[{identity,fake@nohost}]}]\nunwatched: {monitored_by,[]}\nmonitor exits: [[{28,nobody,{identity,fake@nohost},{identity,fake@nohost}},\n                 noproc],\n                [{28,\n                  {identity,dpa@localhost},\n                  {identity,fake@nohost},\n                  {identity,fake@nohost}},\n                 helper_done],\n                [{28,watched,{identity,fake@nohost},{identity,fake@nohost}},\n                 named_done]]\nended: [normal,\n        {nodeup,fake@nohost,#{node_type => hidden}},\n        {nodedown,fake@nohost,\n                  #{node_type => hidden,\n                    nodedown_reason => connection_closed}}]\nnoconnection: {'DOWN',{identity,dpa@localhost},\n                      process,\n                      {y,fake@nohost},\n                      noconnection}\nincompatible: [killed,\n               {nodeup,fake@nohost,#{node_type => hidden}},\n               {nodedown,fake@nohost,\n                         #{node_type => hidden,nodedown_reason => killed}}]\nshort: [killed,\n        {nodeup,fake@nohost,#{node_type => hidden}},\n        {nodedown,fake@nohost,\n                  #{node_type => hidden,nodedown_reason => killed}}]\ninvalid: [killed,\n          {nodeup,fake@nohost,#{node_type => hidden}},\n          {nodedown,fake@nohost,\n                    #{node_type => hidden,nodedown_reason => killed}}]\nwrong arity: [killed,\n              {nodeup,fake@nohost,#{node_type => hidden}},\n              {nodedown,fake@nohost,\n                        #{node_type => hidden,nodedown_reason => killed}}]\nbad receiver: [killed,\n               {nodeup,fake@nohost,#{node_type => hidden}},\n               {nodedown,fake@nohost,\n                         #{node_type => hidden,nodedown_reason => killed}}]\nbad watcher: [killed,\n              {nodeup,fake@nohost,#{node_type => hidden}},\n              {nodedown,fake@nohost,\n                        #{node_type => hidden,nodedown_reason => killed}}]\ncorrupted: [killed,\n            {nodeup,fake@nohost,#{node_type => hidden}},\n            {nodedown,fake@nohost,\n                      #{node_type => hidden,nodedown_reason => killed}}]\nno payload: [killed,\n             {nodeup,fake@nohost,#{node_type => hidden}},\n             {nodedown,fake@nohost,\n                       #{node_type => hidden,nodedown_reason => killed}}]\nwrong cookie: [pang,[]]\nping: [pong,true,pong]\nno node: pang\nmonitors: true\nmonitored by: true\nby pid: {shutdown,by_pid}\nby name: by_name\ntag: tagged\ndemonitor: [true,false]\nafter demonitor: {monitored_by,[]}\nwatcher ended: {monitored_by,[]}\nnoproc: [noproc,noproc]\ncalls: [{ok,{echoed,hello}},{ok,{echoed,hello}},{exit,noproc},{exit,noproc}]\nleft: [{monitors,[]},[]]\nreg_send: [true,true]\nsend_sender: to_pid\nalias_send: {via_alias,to_alias}\nafter unalias: done\nround trip: true\nin order: true\nsend options: [ok,true,option,nosuspend]\nstop: stopped\ndist_ping: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dpb@localhost --setcookie dp"
+          },
+          "otp_flags": "-sname dpb@localhost -setcookie dp",
+          "stderr": "^\\S+ error: \\*\\* Connection attempt from node dpa@\\S+ rejected\\. Invalid challenge reply\\. \\*\\*\\n$",
           "exit_status": 0,
           "stdout": "echoed: 115\ndist_ping: ok\n"
         }

@@ -8,6 +8,7 @@ direction); formerly backlog item F38.
   `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d); started nodes
   connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c), exchange messages (DIST4b3a), monitor each other's processes and
   ping (DIST4b3b1), no other signal yet; the program's end loses queued packets as OTP's `halt` (DIST4b3b2).
+  Clause and OTP 29 nodes interoperate on either epmd (DIST4b4).
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -79,36 +80,13 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-
-## DIST4b2. Handshake and TCP carrier
-
-Split 2026-10-31 into DIST4b2a (handshake with status `ok`, first connections), DIST4b2b (the other statuses
-and dynamic names) and DIST4b2c (IPv6 and carrier options); all done ([30-finished](30-finished.md)).
-
-<a id="step-dist4b3"></a>
-
-## DIST4b3. First data path and ping
-
-Split 2026-10-31 into DIST4b3a (messages), DIST4b3b1 (process monitors and ping) and DIST4b3b2 (the program's end);
-all done ([30-finished](30-finished.md)).
-
-<a id="step-dist4b4"></a>
-
-## DIST4b4. OTP interoperability
-
-Depends on: [DIST4b3](#step-dist4b3).
-
-- Success criteria
-  - [ ] Clause and OTP 29 nodes connect, ping and exchange messages in both directions over OTP's and
-        Clause's epmd; whatever differs from OTP's wire behavior found on the way is fixed or recorded.
-- Tests
-  - [ ] `dist_ping` and `dist_connect` runs with one OTP node (`host_otp`), both directions.
+DIST0 to DIST4 are done ([30-finished](30-finished.md)).
 
 <a id="step-dist5"></a>
 
 ## DIST5. Every signal across nodes
 
-Depends on: [DIST4b4](#step-dist4b4).
+Depends on: DIST4b4 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] Control messages: `LINK`, `UNLINK_ID`/`UNLINK_ID_ACK`, `EXIT`/`EXIT2` and their payload

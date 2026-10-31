@@ -15,6 +15,8 @@
 
 main(["a"]) ->
     B = peer("dcb"),
+    % b may start after a (an OTP node boots slower): it gets every node status message once it marked itself ready.
+    wait_registered("dcb_ready"),
     ok = net_kernel:monitor_nodes(true, [nodedown_reason, {node_type, all}]),
     true = erlang:set_cookie(B, wrong),
     show("wrong cookie", [net_kernel:connect_node(B), nodes(connected)]),
@@ -34,6 +36,7 @@ main(["a"]) ->
     done();
 main(["b"]) ->
     ok = net_kernel:monitor_nodes(true, [nodedown_reason, {node_type, all}]),
+    _Ready = mark("dcb_ready"),
     lists:foreach(fun(_) -> show("status", next()) end, lists:seq(1, 4)),
     done();
 main(["sa"]) ->
@@ -202,13 +205,18 @@ wait_restarted() ->
 % Tell the other node this one subscribed to node status messages, by registering the epmd name Own_ready while the
 % returned socket stays open, and wait for its own; both then connect at about the same time.
 ready(Own, Other) ->
-    Name = list_to_binary(Own ++ "_ready"),
+    Socket = mark(Own ++ "_ready"),
+    wait_registered(Other ++ "_ready"),
+    Socket.
+
+% Register the epmd name Marker, which the other node waits for, while the returned socket stays open.
+mark(Marker) ->
+    Name = list_to_binary(Marker),
     Port = list_to_integer(os:getenv("ERL_EPMD_PORT", "4369")),
     {ok, Socket} = gen_tcp:connect({127, 0, 0, 1}, Port, [binary, {active, false}]),
     Request = <<120, 1:16, 77, 0, 6:16, 5:16, (byte_size(Name)):16, Name/binary, 0:16>>,
     ok = gen_tcp:send(Socket, [<<(byte_size(Request)):16>>, Request]),
     {ok, <<_, 0, _/binary>>} = gen_tcp:recv(Socket, 0, 5000),
-    wait_registered(Other ++ "_ready"),
     Socket.
 
 % The name of the other node once it registered with epmd.

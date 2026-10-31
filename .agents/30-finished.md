@@ -101,3 +101,7 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST4b3b2** The program's end: OTP 29's `halt` runs no process during its flush and kills the distribution
   ports, losing packets queued just before it (observed), so Clause's immediate end already matches; the wrong
   `differences.md` row went, `distribution.md#messages` records the behavior — e682996b
+- **DIST4b4** OTP interoperability: `dist_ping` and `dist_connect` (`host_otp`) repeat their first run with an OTP
+  node `a` on `clause-epmd` and an OTP node `b` on OTP's `epmd`; stdout matched OTP's first try, no wire difference
+  found; OTP nodes' stderr patterns in OTP's log format, `dist_connect`'s a waits for b's `dcb_ready` marker (an OTP
+  node boots slower and missed its nodeup) — HASH
