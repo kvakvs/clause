@@ -44,6 +44,9 @@ struct BackendOptions {
     // Also link clause-epmd beside the executable (--epmd-executable or the project option epmd_executable). Added
     // for clause-epmd beside programs (plan 30 step DIST3c).
     bool epmd_executable = false;
+    // Leave the bundled epmd out of executables (--no-bundled-epmd or the project option bundled_epmd = false): the
+    // startup descriptor does not list its extension entry. Added for programs without the bundled epmd (DIST3d).
+    bool no_bundled_epmd = false;
     // Override the Clang driver and runtime archive used to link an explicit --output executable.
     std::optional<std::filesystem::path> linker;
     std::optional<std::filesystem::path> runtime_library;

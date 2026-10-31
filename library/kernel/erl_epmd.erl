@@ -1,7 +1,7 @@
 %% Clause's erl_epmd (plan 30 step DIST3a, docs/distribution.md#epmd): OTP's epmd client over the epmd protocol. The
 %% erl_epmd server holds this node's registration on the connection to the host's epmd, and the client functions ask
 %% an epmd on their own connections. The epmd port is ERL_EPMD_PORT's, else 4369. A registration that finds no epmd
-%% starts the bundled one under --epmd bundled (plan 30 step DIST3b).
+%% starts the bundled one under --epmd bundled (plan 30 step DIST3b), or an epmd program under --epmd external (DIST3d).
 -module(erl_epmd).
 -behaviour(gen_server).
 -export([
@@ -150,16 +150,22 @@ register_name(Name, Port, Family) ->
     end.
 
 % A connection to the local epmd. When none listens, the --epmd mode may start the bundled epmd, which gives way to
-% another that wins its port; the connection is then tried again for a short while.
+% another that wins its port, or an epmd program; the connection is then tried again for a short while.
 connect_local(Family) ->
     case connect_epmd(Family) of
         {error, econnrefused} = Refused ->
-            case clause_dist:start_epmd() of
+            case start_epmd() of
                 ok -> connect_again(Family, ?EPMD_ATTEMPTS);
                 _ -> Refused
             end;
         Result ->
             Result
+    end.
+
+start_epmd() ->
+    case clause_dist:start_epmd() of
+        external -> clause_dist:start_external_epmd();
+        Started -> Started
     end.
 
 connect_again(Family, Attempts) ->

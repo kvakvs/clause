@@ -33,7 +33,7 @@ llvm::Constant *descriptors(llvm::Module &output, const std::span<const std::uni
 }
 
 // The symbols of the extension entries the program links: the crypto archive's, then the ssl archive's (added for
-// the ssl runtime archive, plan 21 step LIB81B).
+// the ssl runtime archive, plan 21 step LIB81B), then the epmd archive's (plan 30 step DIST3d).
 std::vector<std::string_view> extension_symbols(const llvm::Triple &triple, const StartupRequest &request) {
     std::vector<std::string_view> symbols;
     if (request.crypto) {
@@ -42,6 +42,9 @@ std::vector<std::string_view> extension_symbols(const llvm::Triple &triple, cons
     }
     if (request.ssl) {
         symbols.push_back(services::symbol<services::SslExtension>(triple));
+    }
+    if (request.bundled_epmd) {
+        symbols.push_back(services::symbol<services::EpmdExtension>(triple));
     }
     return symbols;
 }

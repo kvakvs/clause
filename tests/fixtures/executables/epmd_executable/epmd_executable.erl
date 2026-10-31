@@ -3,6 +3,9 @@
 %% registered name, -kill refused while a name is registered and accepted after, -names once nothing listens, and
 %% -names with an argument after it. The names run asks the runner's epmd; the daemon run (authored: OTP's Windows
 %% epmd does not stay up after -daemon) starts one with -daemon first. Port numbers of epmd print as PORT.
+%% Built with --no-bundled-epmd too (plan 30 step DIST3d): with no epmd running, a registration fails as OTP's, and
+%% warns once that --epmd bundled acts as none; under --epmd external (authored) it starts the clause-epmd beside the
+%% program, which the run kills at the end.
 -module(epmd_executable).
 -export([main/1]).
 
@@ -10,6 +13,21 @@
 
 main(["names"]) ->
     questions(),
+    io:format("epmd_executable: ok~n");
+main(["register"]) ->
+    {ok, _} = erl_epmd:start(),
+    show("register", erl_epmd:register_node(alpha, 40001)),
+    show("register again", erl_epmd:register_node(alpha, 40001)),
+    io:format("epmd_executable: ok~n");
+main(["external"]) ->
+    {ok, _} = erl_epmd:start(),
+    {ok, Creation} = erl_epmd:register_node(alpha, 40001),
+    show("creation", is_integer(Creation)),
+    show("names", erl_epmd:names()),
+    ok = erl_epmd:stop(),
+    wait_names({ok, []}),
+    show("kill", tool(["-kill"])),
+    wait_names({error, address}),
     io:format("epmd_executable: ok~n");
 main(["daemon"]) ->
     show("daemon", tool(["-daemon"])),

@@ -27,6 +27,7 @@ BackendOptions target_options(const Options &options, const project::Invocation 
     backend.keep_exports = backend.keep_exports || target.keep_exports_;
     backend.shell = backend.shell || target.shell_;
     backend.epmd_executable = backend.epmd_executable || target.epmd_executable_;
+    backend.no_bundled_epmd = backend.no_bundled_epmd || !target.bundled_epmd_;
     return backend;
 }
 

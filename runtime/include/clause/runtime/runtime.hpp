@@ -24,8 +24,9 @@ class Tables;
 // Most scheduler workers a runtime runs processes on, OTP's +S limit.
 inline constexpr std::size_t MAX_SCHEDULERS = 1024;
 
-// What a registration does when no epmd listens (--epmd, docs/distribution.md#epmd). Added for the bundled epmd.
-enum class EpmdMode : std::uint8_t { bundled, none };
+// What a registration does when no epmd listens (--epmd, docs/distribution.md#epmd). Added for the bundled epmd;
+// external (start an epmd program) since plan 30 step DIST3d.
+enum class EpmdMode : std::uint8_t { bundled, external, none };
 
 struct RuntimeOptions {
     // Bound retained UTF-8 atom entries (default 2^20, at most 2^26, programs set it with --max-atoms); no atom
@@ -53,8 +54,8 @@ struct RuntimeOptions {
     // File the program writes its profile report to at exit (--profile FILE, docs/profiling.md); empty disables
     // profiling. The runtime itself only collects the costs.
     std::string profile = {};
-    // Run the bundled epmd when a registration finds none, or fail it (--epmd bundled|none,
-    // docs/distribution.md#epmd). Added for the bundled epmd.
+    // Run the bundled epmd when a registration finds none, start an epmd program, or fail it (--epmd
+    // bundled|external|none, docs/distribution.md#epmd). Added for the bundled epmd.
     EpmdMode epmd = EpmdMode::bundled;
     // The command line and home directory startup decoded (plan step 41L); empty for runtimes a host starts.
     ProgramArguments program = {};

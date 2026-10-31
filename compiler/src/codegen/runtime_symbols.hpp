@@ -80,6 +80,9 @@ using CryptoExtension = Function<"CLAUSE_crypto_extension_v1", Descriptor>;
 using CryptoFipsExtension = Function<"CLAUSE_crypto_fips_extension_v1", Descriptor>;
 // The ssl runtime archive's extension entry. Added for the ssl runtime archive (plan 21 step LIB81B).
 using SslExtension = Function<"CLAUSE_ssl_extension_v1", Descriptor>;
+// The epmd runtime archive's extension entry, the bundled epmd. Added for programs without the bundled epmd (plan 30
+// step DIST3d).
+using EpmdExtension = Function<"CLAUSE_epmd_extension_v1", Descriptor>;
 
 // Mangling family and pointer width of the emitted target, independent of the compiler host.
 inline mangling::Target target(const llvm::Triple &triple) {

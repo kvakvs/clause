@@ -55,6 +55,9 @@ const void *CLAUSE_crypto_fips_extension_v1() noexcept;
 // The extension entry of the ssl runtime archive (clause_runtime_ssl, plan 21 step LIB81B): the clause_ssl_engine
 // builtins over libssl. Defined only in that archive, which needs the crypto archive's libcrypto.
 const void *CLAUSE_ssl_extension_v1() noexcept;
+// The extension entry of the epmd runtime archive (clause_runtime_epmd, plan 30 step DIST3d): the bundled epmd. Every
+// program lists it unless clau --no-bundled-epmd left the epmd out.
+const void *CLAUSE_epmd_extension_v1() noexcept;
 
 // Stop the program through erlang:halt/0,1: records the halt (or badarg) in the checked channel and never succeeds.
 std::uint8_t CLAUSE_halt_v1(void *context, clause::abi::v1::TermWord status) noexcept;

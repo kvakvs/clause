@@ -163,6 +163,7 @@ void link(const Compiled &compiled, const FrontendRequest &frontend, const std::
              .debug_info = frontend.backend.debug_info,
              .lto = frontend.backend.lto,
              .epmd_executable = frontend.backend.epmd_executable,
+             .bundled_epmd = !frontend.backend.no_bundled_epmd,
              .crypto = crypto_link(compiled, frontend)});
     });
     if (frontend.stage_times) {
@@ -212,7 +213,8 @@ std::optional<codegen::StartupRequest> startup_request(const Analysis &analysis,
                                    entry.escript,
                                    uses_crypto(analysis, frontend),
                                    frontend.backend.fips.has_value(),
-                                   calls_ssl_engine(analysis)};
+                                   calls_ssl_engine(analysis),
+                                   !frontend.backend.no_bundled_epmd};
 }
 
 // The batch a compile time belongs to: its module count, and its project target when there is one.

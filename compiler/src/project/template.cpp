@@ -50,6 +50,8 @@ ignore_modules = []
 keep_exports = false
 # true also writes clause-epmd, Clause's epmd program, beside the executable.
 epmd_executable = false
+# false leaves the bundled epmd out of the executable; --epmd bundled then acts as --epmd none.
+bundled_epmd = true
 # Directories whose modules keep their inference results in the build cache (relative patterns match the
 # trailing directories of any path), besides the implicit OTP ones "*/stdlib", "*/kernel", "*/compiler",
 # "*/syntax_tools" and their versioned "*/stdlib-*" forms, e.g. ["*/deps/*"].

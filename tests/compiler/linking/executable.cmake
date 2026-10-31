@@ -94,7 +94,7 @@ failure(wrong_target "^error: runtime library [^\n]* contains [^\n]* objects, bu
     --target-triple armv7-unknown-linux-gnueabihf -o kept.bin)
 failure(absent_linker "^error: linker not found: [^\n]*no-such-clang" --linker no-such-clang -o kept.bin)
 failure(link_error "^error: linking [^\n]*kept\\.bin failed: [^\n]* exited with status [1-9][0-9]*:\n.*[Uu]ndefined"
-    --runtime-library "${OTHER_LIBRARY}" -o kept.bin)
+    --no-bundled-epmd --runtime-library "${OTHER_LIBRARY}" -o kept.bin)
 failure(parent_is_file "^error: output directory does not exist: [^\n]*kept\\.bin" -o kept.bin/app)
 file(MAKE_DIRECTORY "${WORK}/folder.d")
 failure(output_is_directory "^error: artifact destination is not a regular file: [^\n]*folder\\.d" -o folder.d)

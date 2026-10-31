@@ -28,6 +28,7 @@ ignore_modules = ["telemetry", "*_SUITE"]
 keep_exports = false
 shell = false
 epmd_executable = false
+bundled_epmd = true
 cache_inference_in_dirs = ["deps/*"]
 
 [targets.options.applications]
@@ -61,6 +62,9 @@ my_dependency = "vendor/my_dependency"
 - `epmd_executable = true` in `options` also writes `clause-epmd` beside the
   target's executable, as `--epmd-executable` does ([epmd](distribution.md#epmd)).
   It must be a boolean.
+- `bundled_epmd = false` in `options` leaves the bundled epmd out of the
+  target's executable, as `--no-bundled-epmd` does ([epmd](distribution.md#epmd)).
+  It must be a boolean; absent means `true`.
 - `cache_inference_in_dirs` (directory wildcards) in `options` adds directories
   whose modules keep their inference results in the build cache
   ([inference cache](#inference-cache)).

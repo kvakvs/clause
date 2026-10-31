@@ -96,7 +96,8 @@ bool inspection_flag(const std::string_view option, BackendOptions &options) {
         {"--lto", &BackendOptions::lto},
         {"--keep-exports", &BackendOptions::keep_exports},
         {"--shell", &BackendOptions::shell},
-        {"--epmd-executable", &BackendOptions::epmd_executable}};
+        {"--epmd-executable", &BackendOptions::epmd_executable},
+        {"--no-bundled-epmd", &BackendOptions::no_bundled_epmd}};
     const auto found = flags.find(option);
     if (found == flags.end()) {
         return false;
@@ -227,7 +228,8 @@ std::optional<codegen::OptimizationLevel> optimization_level(const std::string_v
 
 // The explicit options that only change how an executable is linked.
 bool explicit_linking(const BackendOptions &options) {
-    return options.lto || options.keep_exports || options.shell || options.epmd_executable || options.links_crypto();
+    return options.lto || options.keep_exports || options.shell || options.epmd_executable || options.no_bundled_epmd ||
+           options.links_crypto();
 }
 
 // Remember any explicit backend policy so frontend-only actions cannot silently discard it.
@@ -252,6 +254,7 @@ bool is_backend_option(const std::string_view option) {
                                                     "--keep-exports",
                                                     "--shell",
                                                     "--epmd-executable",
+                                                    "--no-bundled-epmd",
                                                     "--print-ir",
                                                     "--print-optimized-ir",
                                                     "--print-asm",

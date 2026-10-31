@@ -1258,6 +1258,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"clause_net", "dns_encode", 1},
     // clause_dist, the bundled epmd of registrations (plan 30 step DIST3b; runtime/src/builtins/epmd.cpp).
     BuiltinName{"clause_dist", "start_epmd", 0},
+    // The epmd program of --epmd external (plan 30 step DIST3d).
+    BuiltinName{"clause_dist", "start_daemon", 1},
     // clause_filelib, filelib's wildcard patterns (plan 21 step LIB51; runtime/src/builtins/filelib.cpp).
     BuiltinName{"clause_filelib", "escape", 1},
     BuiltinName{"clause_filelib", "compile_part", 1},

@@ -928,6 +928,18 @@ Executor::~Executor() {
 
 EpmdMode Executor::epmd_mode() const noexcept { return runtime_.options.epmd; }
 
+BundledEpmd *Executor::bundled_epmd() {
+    std::call_once(bundled_epmd_created_, [this] {
+        for (const auto *extension : runtime_.options.extensions) {
+            if (extension->bundled_epmd) {
+                bundled_epmd_ = extension->bundled_epmd();
+                return;
+            }
+        }
+    });
+    return bundled_epmd_.get();
+}
+
 void Executor::clear() noexcept {
     // The I/O thread and the Windows blocking readers stop outside the lock: a delivery in progress waits for it.
     // Workers have stopped, so nothing else creates or replaces the services meanwhile.

@@ -105,6 +105,18 @@ void check_lto(const std::string &target) {
     }
 }
 
+// The epmd runtime archive beside the runtime archive: the bundled epmd of programs that carry it. Added for programs
+// without the bundled epmd (plan 30 step DIST3d).
+std::filesystem::path epmd_archive(const std::filesystem::path &runtime) {
+    auto archive = sibling_archive(runtime, "clause_runtime_epmd");
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(archive, error)) {
+        throw std::runtime_error("epmd runtime archive not found: " + project::path_text(archive) +
+                                 "; build the clause_runtime_epmd target or link with --no-bundled-epmd");
+    }
+    return archive;
+}
+
 // Build the Clang driver command: C++ link mode, explicit target, staged output, objects, then the runtime.
 std::vector<std::string> link_arguments(const LinkRequest &request, const std::filesystem::path &staged,
                                         std::vector<std::string> objects, const std::filesystem::path &runtime) {
@@ -131,6 +143,9 @@ std::vector<std::string> link_arguments(const LinkRequest &request, const std::f
     auto crypto = request.crypto ? std::optional(crypto_link_inputs(runtime, *request.crypto)) : std::nullopt;
     if (crypto) {
         std::ranges::move(crypto->archives, std::back_inserter(arguments));
+    }
+    if (request.bundled_epmd) {
+        arguments.push_back(utf8_path(epmd_archive(runtime)));
     }
     arguments.push_back(utf8_path(runtime));
     std::ranges::move(runtime_link_inputs(runtime), std::back_inserter(arguments));

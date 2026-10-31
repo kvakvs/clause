@@ -4,7 +4,9 @@
 #include <clause/abi/builtins.hpp>
 #include <clause/abi/modules.hpp>
 #include <cstddef>
+#include <expected>
 #include <map>
+#include <memory>
 #include <span>
 #include <string>
 #include <tuple>
@@ -235,7 +237,8 @@ std::span<const BuiltinEntry> erl_posix_msg_builtins() noexcept;
 std::span<const BuiltinEntry> clause_io_builtins() noexcept;
 // clause_net, the name and interface lookups of net and inet (plan 21 step LIB60; runtime/src/builtins/net/).
 std::span<const BuiltinEntry> clause_net_builtins() noexcept;
-// clause_dist:start_epmd/0, the bundled epmd of registrations (plan 30 step DIST3b; runtime/src/builtins/epmd.cpp).
+// clause_dist:start_epmd/0, the bundled epmd of registrations (plan 30 step DIST3b; runtime/src/builtins/epmd.cpp), and
+// clause_dist:start_daemon/1, the epmd program of --epmd external (DIST3d).
 std::span<const BuiltinEntry> epmd_builtins() noexcept;
 // clause_filelib's wildcard pattern builtins (plan 21 step LIB51; runtime/src/builtins/filelib.cpp).
 std::span<const BuiltinEntry> filelib_builtins() noexcept;
@@ -379,6 +382,22 @@ std::span<const BuiltinEntry> dictionary_builtins() noexcept;
 // extensions' builtins.
 std::span<const std::span<const BuiltinEntry>> production_builtins() noexcept;
 
+// The bundled epmd a program carries (docs/distribution.md#epmd), implemented by the clause_runtime_epmd archive.
+// Added for programs without the bundled epmd (plan 30 step DIST3d).
+class BundledEpmd {
+  public:
+    BundledEpmd() = default;
+    BundledEpmd(const BundledEpmd &) = delete;
+    BundledEpmd &operator=(const BundledEpmd &) = delete;
+    BundledEpmd(BundledEpmd &&) = delete;
+    BundledEpmd &operator=(BundledEpmd &&) = delete;
+    // Stops the epmd, ending its registrations.
+    virtual ~BundledEpmd() = default;
+
+    // Listen unless listening already; another epmd holding the port counts as success; other failures described.
+    virtual std::expected<void, std::string> start() = 0;
+};
+
 // The builtins of one runtime extension archive (clause_runtime_crypto), registered after the production ones when a
 // program links the archive. Added for the crypto runtime archive (plan 21 step LIB79).
 struct RuntimeExtension {
@@ -389,5 +408,8 @@ struct RuntimeExtension {
     // Runs before the runtime starts: why the program cannot run, empty when it can. Added for crypto's pinned
     // FIPS mode (plan 21 step LIB79F).
     std::string (*start)() = nullptr;
+    // Creates the bundled epmd the extension carries (the epmd archive's). Added for programs without the bundled epmd
+    // (plan 30 step DIST3d).
+    std::unique_ptr<BundledEpmd> (*bundled_epmd)() = nullptr;
 };
 } // namespace clause::runtime

@@ -235,8 +235,8 @@ target_link_libraries(clause_runtime
 )
 
 # Clause's epmd (plan 30 step DIST3a, docs/distribution.md#epmd): the server the bundled epmd and clause-epmd share,
-# and clause-epmd, a foreground program the multi-node test runner starts. The runtime carries the server's objects for
-# the bundled epmd (plan 30 step DIST3b).
+# and clause-epmd, which the multi-node test runner starts and clau writes beside programs (DIST3c). The bundled epmd
+# (DIST3b) is the archive clause_runtime_epmd below.
 add_library(clause_epmd_server OBJECT src/epmd/registry.cpp src/epmd/requests.cpp src/epmd/server.cpp)
 clause_project_options(clause_epmd_server)
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
@@ -264,7 +264,27 @@ target_link_libraries(clause_epmd PRIVATE clause_epmd_server)
 # program's target (plan 30 step DIST3c).
 add_library(clause_epmd_program STATIC $<TARGET_OBJECTS:clause_epmd_main> $<TARGET_OBJECTS:clause_epmd_server>)
 set_target_properties(clause_epmd_program PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
-target_sources(clause_runtime PRIVATE src/epmd/bundled.cpp $<TARGET_OBJECTS:clause_epmd_server>)
+# The bundled epmd (plan 30 step DIST3d): the server on a runtime thread, behind the extension entry the startup
+# descriptor lists unless clau --no-bundled-epmd left it out; beside clause_runtime, and part of generated programs.
+add_library(clause_runtime_epmd STATIC src/epmd/bundled.cpp src/epmd/extension.cpp
+    $<TARGET_OBJECTS:clause_epmd_server>)
+set_target_properties(clause_runtime_epmd PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    EXPORT_NAME epmd)
+clause_project_options(clause_runtime_epmd)
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    target_compile_options(clause_runtime_epmd PRIVATE /Gy /Gw)
+else()
+    target_compile_options(clause_runtime_epmd PRIVATE -ffunction-sections -fdata-sections)
+endif()
+target_compile_definitions(clause_runtime_epmd PRIVATE BOOST_ASIO_NO_DEPRECATED
+    $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x0A00>)
+target_link_libraries(clause_runtime_epmd PUBLIC clause_runtime)
+# Starting an epmd program for --epmd external (DIST3d).
+if(WIN32)
+    target_sources(clause_runtime PRIVATE src/epmd/launch_windows.cpp)
+else()
+    target_sources(clause_runtime PRIVATE src/epmd/launch_posix.cpp)
+endif()
 
 # PCRE2 for the re builtins (plan step 41ZA): built from source into the archive itself, or an installed library
 # whose path clau adds when it links an executable. clause_runtime.link beside the archive (named after it:
@@ -331,7 +351,7 @@ endif()
 # Every generated-program consumer links one matching target runtime through this boundary.
 # Platform dependencies (threads) come with clause_runtime.
 add_library(clause_generated_program INTERFACE)
-target_link_libraries(clause_generated_program INTERFACE clause_runtime)
+target_link_libraries(clause_generated_program INTERFACE clause_runtime_epmd clause_runtime)
 add_library(Clause::generated_program ALIAS clause_generated_program)
 # Exported for nested test programs as Clause::generated_program and Clause::runtime.
 set_target_properties(clause_generated_program PROPERTIES EXPORT_NAME generated_program)

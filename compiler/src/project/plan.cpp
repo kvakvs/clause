@@ -168,6 +168,7 @@ Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
         result.targets.back().keep_exports_ = target.options.keep_exports_;
         result.targets.back().shell_ = target.options.shell_;
         result.targets.back().epmd_executable_ = target.options.epmd_executable_;
+        result.targets.back().bundled_epmd_ = target.options.bundled_epmd_;
         result.targets.back().build_directory_ = build_directory(target, options, base);
         result.targets.back().cache_dirs_ = cache_dirs(target, options);
         result.targets.back().asn1_ =

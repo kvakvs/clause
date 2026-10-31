@@ -362,7 +362,10 @@ byte for byte, same file orders.
   bytes, truncated sections only with the TC bit); encoding compresses names.
 - `clause_dist:start_epmd/0` (`builtins/epmd.cpp`, plan 30 step DIST3b) opens
   the bundled epmd for `erl_epmd`'s registration under `--epmd bundled`
-  ([epmd](distribution.md#epmd)).
+  ([epmd](distribution.md#epmd)); it answers `external` under `--epmd external`
+  and `none` in a program without the bundled epmd (DIST3d), and
+  `clause_dist:start_daemon/1` starts the epmd program `erl_epmd` found with
+  `-daemon`, detached.
 
 ## Filename
 

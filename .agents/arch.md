@@ -100,6 +100,9 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   asks `clause_dist:start_epmd/0` when a registration finds no epmd, under `--epmd bundled|none`.
   `clau --epmd-executable` (DIST3c) links `clause-epmd` (with `-daemon`, `-names`, `-kill`) for the target from
   the `clause_epmd_program` archive beside the runtime and publishes it beside the executable as a link companion.
+  The bundled epmd lives in `clause_runtime_epmd` behind the startup extension entry `CLAUSE_epmd_extension_v1`
+  (DIST3d; `--no-bundled-epmd` leaves both out, the executor creates it from `RuntimeExtension::bundled_epmd`);
+  `--epmd external` finds `clause-epmd`/`epmd` in Erlang (`clause_dist`) and starts it detached.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

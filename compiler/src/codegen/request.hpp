@@ -57,6 +57,9 @@ struct StartupRequest {
     // The program links the ssl runtime archive: the descriptor lists its extension entry too. Added for the ssl
     // runtime archive (plan 21 step LIB81B).
     bool ssl = false;
+    // The program carries the bundled epmd: the descriptor lists the epmd archive's entry. Added for programs without
+    // the bundled epmd (plan 30 step DIST3d).
+    bool bundled_epmd = true;
 };
 
 struct CompilationProgress {

@@ -87,8 +87,8 @@ endif()
 if(BUILD_TESTING AND CLAUSE_BUILD_RUNTIME AND NOT CMAKE_CROSSCOMPILING)
     # Nested test programs link this build's runtime through these targets instead of compiling it again;
     # runtime_link alone keeps proving the standalone, LLVM-free runtime build.
-    export(TARGETS clause_generated_program clause_runtime clause_abi clause_multiprecision_dependency
-        NAMESPACE Clause:: FILE "${PROJECT_BINARY_DIR}/ClauseRuntimeTargets.cmake")
+    export(TARGETS clause_generated_program clause_runtime_epmd clause_runtime clause_abi
+        clause_multiprecision_dependency NAMESPACE Clause:: FILE "${PROJECT_BINARY_DIR}/ClauseRuntimeTargets.cmake")
 endif()
 if(BUILD_TESTING)
     clause_test_debug_info()

@@ -191,8 +191,9 @@ void print_backend(const BackendOptions &backend, const std::string &triple) {
     print_value("lto", backend.lto ? "true" : "false");
     print_value("keep_exports", backend.keep_exports ? "true" : "false");
     print_value("shell", backend.shell ? "true" : "false");
-    print_value("epmd_executable",
-                backend.epmd_executable ? "true" : "false");            // Added for clause-epmd beside programs.
+    // Added for clause-epmd beside programs and for programs without the bundled epmd.
+    print_value("epmd_executable", backend.epmd_executable ? "true" : "false");
+    print_value("bundled_epmd", backend.no_bundled_epmd ? "false" : "true");
     print_value("with_crypto", backend.with_crypto ? "true" : "false"); // Added for the crypto runtime archive.
     print_value("fips", toml_path(backend.fips.value_or("")));          // Added for crypto's FIPS mode.
     print_value("emit", toml_string(emission_name(backend.emit)));

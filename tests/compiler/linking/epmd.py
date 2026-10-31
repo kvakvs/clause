@@ -1,6 +1,7 @@
 """clause-epmd beside programs (plan 30 step DIST3c): the project option epmd_executable selects what
---epmd-executable selects, and both need an executable. Linking clause-epmd and its behaviour against OTP's epmd are
-the executables golden epmd_executable."""
+--epmd-executable selects, and both need an executable; bundled_epmd = false selects what --no-bundled-epmd selects
+(DIST3d). Linking clause-epmd, a program without the bundled epmd and their behaviour against OTP's epmd are the
+executables golden epmd_executable."""
 import json
 from pathlib import Path
 import shutil
@@ -22,14 +23,18 @@ def clau(arguments, status=0):
     return result.stdout + result.stderr
 
 
-assert "epmd_executable = false" in clau(["--print-env", "-o", "app", str(module)])
+default = clau(["--print-env", "-o", "app", str(module)])
+assert "epmd_executable = false" in default and "bundled_epmd = true" in default
+assert "bundled_epmd = false" in clau(["--print-env", "--no-bundled-epmd", "-o", "app", str(module)])
 assert "epmd_executable = true" in clau(["--print-env", "--epmd-executable", "-o", "app", str(module)])
 manifest = work / "project.toml"
 manifest.write_text(f'schema_version = 1\n\n[[targets]]\nname = "app"\nsources = [{json.dumps(module.name)}]\n'
                     'source_dirs = []\noutput = "app"\n\n[targets.options]\nepmd_executable = true\n',
                     encoding="utf-8")
 assert "epmd_executable = true" in clau(["--print-env", "--project", str(manifest)])
+manifest.write_text(manifest.read_text(encoding="utf-8") + "bundled_epmd = false\n", encoding="utf-8")
+assert "bundled_epmd = false" in clau(["--print-env", "--project", str(manifest)])
 manifest.write_text(manifest.read_text(encoding="utf-8").replace("= true", '= "yes"'), encoding="utf-8")
 assert "expected a boolean" in clau(["--project", str(manifest)], 1)
 assert "--epmd-executable requires --output" in clau(["--epmd-executable", str(module)], 2)
-print("epmd: the project option epmd_executable and refused uses: ok")
+print("epmd: the project options epmd_executable and bundled_epmd, and refused uses: ok")

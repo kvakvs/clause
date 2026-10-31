@@ -32,6 +32,9 @@ struct LinkRequest {
     // Also link clause-epmd for the target beside the executable (--epmd-executable). Added for clause-epmd beside
     // programs (plan 30 step DIST3c).
     bool epmd_executable = false;
+    // Link the epmd runtime archive, whose entry the startup descriptor lists (the program carries the bundled epmd).
+    // Added for programs without the bundled epmd (plan 30 step DIST3d).
+    bool bundled_epmd = true;
     // Link the crypto runtime archive and OpenSSL's libcrypto (the program calls crypto, or --with-crypto). Added for
     // the crypto runtime archive (plan 21 step LIB79).
     std::optional<CryptoLink> crypto = std::nullopt;

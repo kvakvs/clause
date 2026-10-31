@@ -10,7 +10,8 @@ and the controller data path follow OTP's process-controller interface without m
 yet ([connections](#connections), DIST2b to DIST2d). `erl_epmd` and `net_adm:names/0,1` speak to an
 epmd, and Clause's epmd server runs as `clause-epmd` ([epmd](#epmd), DIST3a; written beside programs
 with `-daemon`, `-names` and `-kill` in DIST3c) or inside the program when a registration finds none
-(`--epmd bundled`, DIST3b). The other
+(`--epmd bundled`, DIST3b); `--epmd external` starts an epmd program, and `--no-bundled-epmd` leaves
+the bundled epmd out (DIST3d). The other
 libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -299,7 +300,7 @@ Current since DIST3a (`runtime/src/epmd/`, `library/kernel/erl_epmd.erl`):
 
 Current since DIST3b (`runtime/src/epmd/bundled.cpp`, `runtime/src/builtins/epmd.cpp`):
 
-- **Bundled epmd:** every executable carries it (the runtime archive holds the server). It runs
+- **Bundled epmd:** every executable carries it (the `clause_runtime_epmd` archive since DIST3d). It runs
   on a thread of its own, opened by the first registration that needs it, and it ends with the
   program; a `KILL` stops it, and the next registration that finds no epmd opens it again. It
   listens as `clause-epmd` would under the program's `ERL_EPMD_PORT`, `ERL_EPMD_ADDRESS` and
@@ -308,8 +309,7 @@ Current since DIST3b (`runtime/src/epmd/bundled.cpp`, `runtime/src/builtins/epmd
   lost epmd) finds no epmd (`econnrefused`), it asks `clause_dist:start_epmd/0`. Under `bundled`
   the bundled epmd opens; when another epmd holds the port, it gives way. The registration then
   connects again for up to a second. Under `none` the registration fails with `econnrefused`, as
-  OTP's. `--epmd external` stops the program as not implemented until DIST3c. `names/0,1` and
-  `port_please/2,3` never start an epmd, as in OTP.
+  OTP's. `names/0,1` and `port_please/2,3` never start an epmd, as in OTP.
 
 Current since DIST3c (`runtime/src/epmd/main.cpp`, `client.cpp`, `daemon_*.cpp`,
 `compiler/src/linking/link.cpp`):
@@ -327,6 +327,23 @@ Current since DIST3c (`runtime/src/epmd/main.cpp`, `client.cpp`, `daemon_*.cpp`,
   again with its arguments and `-detached` (`DETACHED_PROCESS`, `CREATE_NEW_PROCESS_GROUP`, no
   inherited handles), and that process serves with standard I/O on `NUL`. A daemon that cannot
   listen exits silently, as OTP's.
+
+Current since DIST3d (`runtime/src/epmd/extension.cpp`, `launch_*.cpp`,
+`library/kernel/clause_dist.erl`):
+
+- **Without the bundled epmd:** the bundled epmd and the server are the `clause_runtime_epmd`
+  archive beside the runtime archive, behind the startup descriptor's extension entry
+  `CLAUSE_epmd_extension_v1` (as the crypto archive's). Every program lists it and links the
+  archive unless `clau --no-bundled-epmd` or `bundled_epmd = false`; such a program answers a
+  registration that finds no epmd as `--epmd none` does, after one warning on standard error
+  (`clau: warning: this program was built without the bundled epmd ...`). CMake consumers of
+  `Clause::generated_program` link the archive too.
+- **`--epmd external`:** `erl_epmd` looks for `clause-epmd` in the program's directory
+  (`init:script_name/0`), then for `clause-epmd` and OTP's `epmd` on `PATH`
+  (`os:find_executable/1,2`), and starts it with `-daemon` (POSIX: standard I/O on `/dev/null`,
+  waiting for its first process; Windows: detached, a new process group, not waited for). The
+  registration then connects again for up to a second; without a program, or when it does not start,
+  it fails with `econnrefused`. The epmd outlives the program, as OTP's does.
 
 ## Node start options
 
@@ -384,7 +401,8 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
     the nodes ended.
   - Host names in output are masked with `stdout_masks`.
   - A program linked with `--epmd-executable` finds the `clause-epmd` beside it in
-    `CLAUSE_TEST_EPMD`; under the oracle that names OTP's `epmd` (DIST3c).
+    `CLAUSE_TEST_EPMD`; under the oracle that names OTP's `epmd` (DIST3c). The oracle gives
+    single-node runs an `ERL_EPMD_PORT` where nothing listens, as the runner does (DIST3d).
 - **Goldens** come from OTP nodes on OTP's `epmd` on the same kind of epmd port, generated once
   (`tests/compiler/executables/nodes.py`, used by `run.py` and `regenerate.py`).
 - **Interop cases** mix `clause` and `otp` nodes, or use OTP's `epmd`. Their golden says

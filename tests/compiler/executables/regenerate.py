@@ -39,7 +39,9 @@ def observe(escript, staged, entry, run, work, asn1_options=()):
     args = run['args']
     version = work / 'version.txt'
     version.unlink(missing_ok=True)
-    environment = oracle_environment(escript, asn1_options)
+    # An epmd port where nothing listens, as run.py gives single-node runs, so a host's epmd is never asked (added for
+    # plan 30 step DIST3d).
+    environment = oracle_environment(escript, asn1_options) | {'ERL_EPMD_PORT': str(nodes.free_port())}
     result = subprocess.run([escript, str(ORACLE), str(version), str(staged), entry, *args],
                             cwd=staged, capture_output=True, timeout=300, check=False,
                             input=run.get('stdin', '').encode(), env=environment)

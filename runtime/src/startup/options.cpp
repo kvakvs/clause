@@ -222,8 +222,8 @@ std::expected<std::size_t, std::string> apply_scheduling(std::span<const std::st
     return apply_sizes(args, at, options);
 }
 
-// Parse --epmd (OTP's -start_epmd): bundled or none; external comes with clause-epmd beside programs. Added for the
-// bundled epmd.
+// Parse --epmd (OTP's -start_epmd): bundled, external or none. Added for the bundled epmd; external since plan 30
+// step DIST3d.
 std::expected<EpmdMode, std::string> epmd_mode(std::string_view text) {
     if (text == "bundled") {
         return EpmdMode::bundled;
@@ -232,7 +232,7 @@ std::expected<EpmdMode, std::string> epmd_mode(std::string_view text) {
         return EpmdMode::none;
     }
     if (text == "external") {
-        return std::unexpected(std::string("runtime option --epmd external is not implemented"));
+        return EpmdMode::external;
     }
     return std::unexpected("invalid --epmd value '" + std::string(text) + "' (bundled, external or none)");
 }

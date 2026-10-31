@@ -13,7 +13,9 @@ direction); formerly backlog item F38.
   - Clause's epmd server runs as `clause-epmd`; `erl_epmd` and `net_adm:names/0,1` speak to any
     epmd (DIST3a); a registration that finds no epmd opens the program's bundled epmd under
     `--epmd bundled` (default) or fails under `--epmd none` (DIST3b); `clau --epmd-executable`
-    writes `clause-epmd` with `-daemon`, `-names` and `-kill` beside programs (DIST3c).
+    writes `clause-epmd` with `-daemon`, `-names` and `-kill` beside programs (DIST3c);
+    `--epmd external` starts an epmd program and `--no-bundled-epmd` leaves the bundled epmd out
+    (DIST3d).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (`start/1,2` and
     internals declined), `auth` (`nocookie`), `global` and
@@ -63,23 +65,6 @@ direction); formerly backlog item F38.
 
 <a id="step-dist3c"></a>
 <a id="step-dist3d"></a>
-
-## DIST3d. Programs without the bundled epmd, and the external mode
-
-Depends on: DIST3c ([30-finished](30-finished.md)). Split from DIST3c on 2026-10-31.
-
-- Success criteria
-  - [ ] `clau --no-bundled-epmd` and manifest `bundled_epmd = false` leave the bundled epmd out of
-        the executable (its objects in an archive beside the runtime that only programs carrying it
-        link, e.g. through a startup-descriptor extension entry as the crypto archive's); such a
-        program treats `--epmd bundled` as `none` with one warning.
-  - [ ] `--epmd external`: start `clause-epmd -daemon` (the program's directory, then `PATH`) or
-        OTP's `epmd -daemon` from `PATH` when no epmd listens; distribution fails to start when
-        neither is found.
-- Tests
-  - [ ] Golden of the external mode with `clause-epmd` found beside the program (authored where
-        OTP's Windows `epmd -daemon` does not stay up); a program without the bundled epmd under
-        `--epmd bundled`.
 
 <a id="step-dist4"></a>
 <a id="step-dist4a"></a>

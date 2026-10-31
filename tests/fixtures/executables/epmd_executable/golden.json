@@ -2,7 +2,8 @@
   "schema": 1,
   "entry": "epmd_executable",
   "options": [
-    "--epmd-executable"
+    "--epmd-executable",
+    "--no-bundled-epmd"
   ],
   "runs": [
     {
@@ -20,6 +21,14 @@
     },
     {
       "args": [
+        "register"
+      ],
+      "stderr": "^clau: warning: this program was built without the bundled epmd \\(--no-bundled-epmd\\); --epmd bundled acts as --epmd none\n$",
+      "exit_status": 0,
+      "stdout": "register: {error,econnrefused}\nregister again: {error,econnrefused}\nepmd_executable: ok\n"
+    },
+    {
+      "args": [
         "daemon"
       ],
       "authored": true,
@@ -29,6 +38,18 @@
       "stderr": "^$",
       "exit_status": 0,
       "stdout": "daemon: {0,<<>>}\nnames: {0,<<\"epmd: up and running on port PORT with data:\\n\">>}\nnames alpha: {0,\n              <<\"epmd: up and running on port PORT with data:\\nname alpha at port 40001\\n\">>}\nkill refused: {1,<<\"Killing not allowed - living nodes in database.\\n\">>}\nkill: {0,<<\"Killed\\n\">>}\nnames without epmd: {1,<<\"epmd: Cannot connect to local epmd\\n\">>}\nnames extra: 1\nepmd_executable: ok\n"
+    },
+    {
+      "args": [
+        "external"
+      ],
+      "authored": true,
+      "env": {
+        "CLAUSE_FLAGS": "--epmd external"
+      },
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "creation: true\nnames: {ok,[{\"alpha\",40001}]}\nkill: {0,<<\"Killed\\n\">>}\nepmd_executable: ok\n"
     }
   ],
   "oracle_version": [
@@ -40,6 +61,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "epmd_executable.erl": "abb2bae5674e54b9e8536b94e1b1141404236d886ec6863ac44788fff9535401"
+    "epmd_executable.erl": "c4a7b64430bbcfae8871dd69cf1e26090fc32eb236e2784a3c0aed4b2f5026e1"
   }
 }

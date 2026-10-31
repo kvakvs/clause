@@ -62,6 +62,8 @@ struct PlannedTarget {
     bool shell_ = false;
     // The epmd_executable option. Added for clause-epmd beside programs (plan 30 step DIST3c).
     bool epmd_executable_ = false;
+    // The bundled_epmd option. Added for programs without the bundled epmd (plan 30 step DIST3d).
+    bool bundled_epmd_ = true;
     // Where Clause keeps its temporary files and caches: --build-dir, else build_dir, else <manifest-dir>/build.
     // Added for the build directory (62D1).
     std::filesystem::path build_directory_ = {};
