@@ -39,3 +39,7 @@ Compact record of the network distribution plan, one bullet per step;
   epmd that won the port and retrying the connection for a second; `--epmd bundled|none` (`external` not yet);
   runner nodes run `--epmd none`, `"epmd": "bundled"` runs start none; `epmd_names` bundled and race runs
   identical to OTP — `b2a8bf3a`
+- **DIST3c** `clause-epmd` beside programs: `clau --epmd-executable` / `epmd_executable = true` link it from the
+  `clause_epmd_program` archive as a link companion; `-names`, `-kill` (OTP's messages and statuses), `-daemon`
+  (POSIX double fork, Windows `-detached` respawn); DIST3c split into DIST3c/3d; `epmd_executable` golden identical
+  to OTP (daemon run authored) — `617a08d6`
