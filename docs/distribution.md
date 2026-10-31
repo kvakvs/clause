@@ -14,8 +14,8 @@ with `-daemon`, `-names` and `-kill` in DIST3c) or inside the program when a reg
 the bundled epmd out (DIST3d). `net_kernel:start/1,2` and `stop/0` start and end distribution in a
 running program ([starting distribution](#starting-distribution), DIST4b1a), and `--sname`/`--name` before the
 entry ([node start options](#node-start-options), DIST4b1b), with OTP's cookies ([cookies](#cookies), DIST4b1c).
-Nodes connect through OTP's handshake ([making connections](#making-connections), DIST4b2a); no signal moves over a
-connection yet.
+Nodes connect through OTP's handshake with all its statuses, `allow/1` and dynamic names ([making
+connections](#making-connections), DIST4b2a, DIST4b2b); no signal moves over a connection yet.
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -245,14 +245,39 @@ User carriers are supported through OTP's interface, current since DIST4b2a
 
 ## Making connections
 
-Current since DIST4b2a (`library/kernel/dist_util.erl`, `inet_tcp_dist.erl`, `net_kernel.erl`), as OTP's. The
-statuses `ok_simultaneous`, `alive` (on the accepting side), `not_allowed` and `named:` come in DIST4b2b.
+Current since DIST4b2a (`library/kernel/dist_util.erl`, `inet_tcp_dist.erl`, `net_kernel.erl`), as OTP's; the
+statuses other than `ok`, `allow/1` and dynamic names since DIST4b2b.
 
 - **Handshake:** protocol 6: the initiator's name (`N`, flags, creation, name), the acceptor's status, its
   challenge, the initiator's reply and the acceptor's ack. A digest is the MD5 of the cookie and the challenge as
-  decimal text; both sides take the cookie `auth:get_cookie(Node)` gives for the other node. The initiator
-  answers `alive` with `true`, since `net_kernel` only sets up a connection it does not hold. The acceptor
-  answers `nok` while it holds any connection of that node, or when the node has this node's name.
+  decimal text; both sides take the cookie `auth:get_cookie(Node)` gives for the other node.
+- **Statuses:** the acceptor answers
+  - `ok` for a node it holds no connection of;
+  - `alive` for a node whose connection is up. The initiator answers `true`, since `net_kernel` only sets up
+    a connection it does not hold; the acceptor then ends the old connection with nodedown reason
+    `wait_pending` and goes on. Any other answer closes the new one;
+  - for a node it is itself setting up a connection to (simultaneous connects): `ok_simultaneous` when the
+    other node's name is greater, ending its own attempt and handing its `connect_node/1` callers to the
+    accepted one, else `nok`. An initiator told `nok` waits for the other node's attempt, which takes its
+    callers over; the setup timer ends the wait;
+  - `nok` for a node another accepted handshake is pending for, and for this node's own name, logging
+    `** Cannot get connection id for node N` (after an empty line), as OTP does;
+  - `not_allowed` for a node outside the allow list (below);
+  - `named:` with a name and a creation for a node asking for a dynamic name (below).
+- **`allow/1`:** adds atoms to the allow list in order, each once, and answers `ok`; `error` for a
+  non-list or a list with a non-atom, which adds nothing; `ignored` without distribution. `allowed/0` gives
+  `{ok, Nodes}`. While the list is not empty, the acceptor refuses a node `dist_util:is_allowed/2` does not
+  find in it (`** Connection attempt from disallowed node N ** `), checking a dynamic name request by its
+  host, and `connect_node/1` refuses one before connecting (`** Connection attempt with disallowed node N ** `).
+- **Dynamic names:** a node started as `--sname undefined` or `--name undefined` is hidden, listens nowhere and
+  makes no auto-connects. Its first handshake offers `NAME_ME` and sends only its host; the acceptor names it
+  `Name@Host`, with `Name` the base-36 digits of a 64-bit number derived from a random seed of the acceptor,
+  the host and an attempt counter: a node asking again from that host gets the same name, unless one of that
+  name is connected, which moves on to the next attempt. The creation is random the first time and one more
+  each time the acceptor gives that name again. `net_kernel` names the node with `erlang:setnode/2`. When the
+  connection that gave the name ends, `net_kernel` restarts its `net_sup` child of `kernel_sup`
+  (`net_sup_dynamic` after `net_kernel:start/1,2`), as OTP does: the other connections end with
+  `net_kernel_terminated`, the node is unnamed and the next `connect_node/1` names it again.
 - **Flags:** the offer is `get_dflags/0`'s default with the carrier's `add_flags` (of the addable ones) and
   without its `reject_flags` (of the rejectable ones), and `PUBLISHED` unless this node is hidden
   (`net_kernel:publish_on_node/1`) or the request is `hidden`. A peer's `MANDATORY_25_DIGEST` stands for the
@@ -266,17 +291,21 @@ statuses `ok_simultaneous`, `alive` (on the accepting side), `not_allowed` and `
 - **`net_kernel`:**
   - `connect_node/1` and `hidden_connect_node/1` answer `true` for this node and an up connection. Otherwise the
     first carrier whose `select/1` takes the node sets the connection up, and the callers wait for its
-    handshake: `true`, or `false` once its process ended. A node no carrier takes, a name that is no node name
-    and a node waiting for its dynamic name answer `false`. A node monitor's auto-connect sets up the same way,
-    and is aborted when it cannot.
+    handshake: `true`, or `false` once its process ended. A node no carrier takes and a name that is no node
+    name answer `false`. A node monitor's auto-connect sets up the same way, and is aborted when it cannot, on a
+    dynamic node and under the `kernel` parameter `dist_auto_connect` `never`.
   - Accepted connections: the documented `{accept, Acceptor, Controller, Family, Protocol}` from a carrier's
     acceptor starts `accept_connection/5` of the listening carrier of that family and protocol.
   - `disconnect/1` ends the connection's supervisor and controller with reason `disconnect` and answers `true`
     once both ended, so the connection is down; `false` without a connection, and for this node.
     `erlang:disconnect_node/1` is `net_kernel:disconnect/1` on an alive node and `ignored` on another, as OTP's.
-  - Between `dist_util` and `net_kernel` (Clause's own messages): `{Pid, {accept_pending, Node, Address,
-    Type}}` answered by `{Kernel, {accept_pending, ok | nok_pending}}`, `{Pid, {nodeup, Node, Address, Type}}`
-    answered by `{Kernel, {inserted, Intensity}}`, and the ticks `{Kernel, tick}`.
+  - Between `dist_util` and `net_kernel` (Clause's own messages): `{Pid, {accept_pending, Node | {name_me,
+    Host}, Type}}` answered by `{Kernel, {accept_pending, Status}}` (`ok`, `ok_simultaneous`, `nok`, `alive` or
+    `{named, Node, Creation}`); after `alive` and `true`, `{Pid, {replace, Node, Type}}` answered by `{Kernel,
+    {replace, ok | nok}}`; on the initiator, `{Pid, {set_name, Node, Creation}}` answered by `{Kernel,
+    {set_name, ok | error}}`; `{Pid, {nodeup, Node, Address, Type}}` answered by `{Kernel, {inserted,
+    Intensity}}`, and the ticks `{Kernel, tick}`. Carriers receive `allow/1`'s list as `Allowed`, and a node
+    waiting for its dynamic name passes itself to `setup/5` as `undefined@Host`.
 - **Ticks:** a linked ticker spawned at `max` priority sends `net_kernel` `tick` every `net_ticktime` × 1000 /
   `net_tickintensity` milliseconds, and `net_kernel` ticks each up connection's supervisor. The supervisor reads
   `mf_getstat`: `net_tickintensity` ticks without input end the connection with

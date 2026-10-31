@@ -64,7 +64,8 @@
 % A started node: its name (undefined until a peer names it), how it was named and started, its tick settings,
 % whether it is hidden, its carriers' listen sockets as {Module, Socket, Address}, and the carrier modules that set up
 % connections. Connections (DIST4b2a): the entries by node, their handshake or supervisor processes by pid, and the
-% controllers by pid.
+% controllers by pid. The nodes of allow/1 (DIST4b2b). A dynamic name (DIST4b2b): the host it is asked with, the node
+% whose connection gave it; and the names this node gives others: a random seed, and the last creation of each.
 -record(state, {
     node,
     name_type,
@@ -77,12 +78,18 @@
     carriers = [],
     connections = #{},
     owners = #{},
-    controllers = #{}
+    controllers = #{},
+    allowed = [],
+    host,
+    named_by,
+    seed,
+    creations = #{}
 }).
 
 % A connection to another node (DIST4b2a): pending during its handshake, then up; the handshake process that becomes
-% its supervisor, its dist handle, the connect_node callers waiting for it, the other node's address and its type.
--record(connection, {state = pending, owner, handle, waiting = [], address, type = normal}).
+% its supervisor, its dist handle, the connect_node callers waiting for it, the other node's address and its type, and
+% whether this node set it up or accepted it (simultaneous connects, DIST4b2b).
+-record(connection, {state = pending, owner, handle, waiting = [], address, type = normal, direction = accept}).
 
 get_state() ->
     case request(get_state) of
@@ -101,9 +108,13 @@ hidden_connect_node(Node) when is_atom(Node) -> request({connect, hidden, Node})
 % End the connection to Node; true once it is down, false without one. erlang:disconnect_node/1 calls it, as OTP's.
 disconnect(Node) -> request({disconnect, Node}).
 
+%% The nodes that may connect to and from this one (plan 30 step DIST4b2b): allow/1 adds to them, error for a list
+%% with a non-atom; any node may while none were added.
+allow(Nodes) -> request({allow, Nodes}).
+
+allowed() -> request(allowed).
+
 %% Requests of a started node that DIST6 answers; ignored as without distribution until then.
-allow(_) -> ignored.
-allowed() -> ignored.
 set_net_ticktime(_) -> ignored.
 set_net_ticktime(_, _) -> ignored.
 getopts(_, _) -> ignored.
@@ -194,10 +205,11 @@ init(#{name := Name} = Options) ->
         started = started(Options),
         ticktime = maps:get(net_ticktime, Options, kernel_ticktime()),
         intensity = maps:get(net_tickintensity, Options, ?TICKINTENSITY),
-        hidden = maps:get(hidden, Options, init:get_argument(hidden) =/= error) orelse not Listen
+        hidden = maps:get(hidden, Options, init:get_argument(hidden) =/= error) orelse not Listen,
+        seed = rand:uniform(1 bsl 62)
     },
     case Name of
-        undefined -> dynamic_name(State);
+        undefined -> dynamic_name(node_name("undefined", State#state.name_domain), State);
         _ -> name_node(node_name(atom_to_list(Name), State#state.name_domain), Listen, State)
     end.
 
@@ -213,10 +225,14 @@ kernel_ticktime() ->
         _ -> ?TICKTIME
     end.
 
-% A node that asks the first peer for its name, which then comes with the handshake (DIST4b2).
-dynamic_name(State) ->
+% A node that asks the first peer for its name, which then comes with the handshake, giving this node's host
+% (DIST4b2b).
+dynamic_name({error, Text}, _) ->
+    error_logger:info_msg(Text),
+    {stop, {error, badarg}};
+dynamic_name({ok, _, Host}, State) ->
     erts_internal:dynamic_node_name(true),
-    {ok, State#state{name_type = dynamic}}.
+    {ok, connecting(State#state{name_type = dynamic, host = Host, carriers = carriers()})}.
 
 % The node name of the name part and the host part of Text, or OTP's log text of a name it refuses: a host is taken
 % as given, else this host's short name or its fully qualified name.
@@ -275,12 +291,13 @@ name_node({ok, Alive, Host}, Listen, State) ->
     case listen_carriers(protocols(), Alive, Host, Node, Listen) of
         {ok, Listeners, Creation} ->
             true = erlang:setnode(Node, Creation),
-            Carriers = [list_to_atom(Proto ++ "_dist") || Proto <- protocols()],
-            {ok, connecting(State#state{node = Node, name_type = static, listen = Listeners, carriers = Carriers})};
+            {ok, connecting(State#state{node = Node, name_type = static, listen = Listeners, carriers = carriers()})};
         {error, Proto, Error} ->
             log_listen_error(Proto, Node, Error),
             {stop, {error, badarg}}
     end.
+
+carriers() -> [list_to_atom(Proto ++ "_dist") || Proto <- protocols()].
 
 % The carriers of --proto-dist, else inet_tcp; the first one listens.
 protocols() ->
@@ -328,38 +345,65 @@ handle_call({connect, Type, Node}, From, State) ->
     connect(Type, Node, From, State);
 handle_call({disconnect, Node}, _From, #state{connections = Connections} = State) ->
     case Connections of
-        #{Node := Connection} -> {reply, true, disconnected(Node, Connection, State)};
+        #{Node := Connection} -> {reply, true, disconnected(Node, Connection, disconnect, State)};
         #{} -> {reply, false, State}
     end;
 handle_call({publish_on_node, _Node}, _From, #state{hidden = Hidden} = State) ->
     {reply, not Hidden, State};
+handle_call({allow, Nodes}, _From, #state{allowed = Allowed} = State) ->
+    case is_list(Nodes) andalso lists:all(fun erlang:is_atom/1, Nodes) of
+        true -> {reply, ok, State#state{allowed = lists:foldl(fun add_allowed/2, Allowed, Nodes)}};
+        false -> {reply, error, State}
+    end;
+handle_call(allowed, _From, #state{allowed = Allowed} = State) ->
+    {reply, {ok, Allowed}, State};
 handle_call({passive_cnct, _Node}, _From, State) ->
     {reply, false, State}.
 
 state_map(#state{node = Node, name_type = Type, name_domain = Domain, started = Started}) ->
     #{started => Started, name => Node, name_type => Type, name_domain => Domain}.
 
+% The allowed nodes in the order allow/1 added them, each once.
+add_allowed(Node, Allowed) ->
+    case lists:member(Node, Allowed) of
+        true -> Allowed;
+        false -> Allowed ++ [Node]
+    end.
+
 handle_cast(_, State) -> {noreply, State}.
 
 % A node monitor's connection attempt sets the connection up; one that cannot be made is aborted, so the monitor
-% gets nodedown.
+% gets nodedown. A dynamic node and dist_auto_connect never make none (DIST4b2b).
 handle_info({auto_connect, Node, DHandle}, #state{connections = Connections} = State) ->
-    case Connections of
-        #{Node := _} ->
+    case {Connections, auto_connect(State)} of
+        {#{Node := _}, _} ->
             {noreply, State};
-        #{} ->
+        {#{}, true} ->
             case setup(Node, normal, [], State) of
                 {ok, NewState} ->
                     {noreply, NewState};
                 error ->
                     erts_internal:abort_pending_connection(Node, DHandle),
                     {noreply, State}
-            end
+            end;
+        {#{}, false} ->
+            erts_internal:abort_pending_connection(Node, DHandle),
+            {noreply, State}
     end;
 handle_info({accept, Acceptor, Controller, Family, Protocol}, State) ->
     {noreply, accepted(Acceptor, Controller, Family, Protocol, State)};
-handle_info({Pid, {accept_pending, Node, Address, Type}}, State) ->
-    {noreply, accept_pending(Pid, Node, Address, Type, State)};
+handle_info({Pid, {accept_pending, Request, Type}}, State) ->
+    {Status, NewState} = accept_pending(Pid, Request, Type, State),
+    Pid ! {self(), {accept_pending, Status}},
+    {noreply, NewState};
+handle_info({Pid, {replace, Node, Type}}, State) ->
+    {Status, NewState} = replace(Pid, Node, Type, State),
+    Pid ! {self(), {replace, Status}},
+    {noreply, NewState};
+handle_info({Pid, {set_name, Node, Creation}}, State) ->
+    {Status, NewState} = set_name(Pid, Node, Creation, State),
+    Pid ! {self(), {set_name, Status}},
+    {noreply, NewState};
 handle_info({Pid, {nodeup, Node, Address, Type}}, State) ->
     {noreply, nodeup(Pid, Node, Address, Type, State)};
 handle_info({dist_ctrlr, Controller, Node, _SetupPid}, #state{controllers = Controllers} = State) ->
@@ -392,8 +436,6 @@ accept(Module, Socket) -> Module:accept(Socket).
 % connect_node/1: this node is connected; a connection up answers at once, a pending one once its handshake ends.
 connect(_, Node, _, #state{node = Node} = State) ->
     {reply, true, State};
-connect(_, _, _, #state{node = undefined} = State) ->
-    {reply, false, State};
 connect(Type, Node, From, #state{connections = Connections} = State) ->
     case Connections of
         #{Node := #connection{state = up}} ->
@@ -409,21 +451,42 @@ connect(Type, Node, From, #state{connections = Connections} = State) ->
             end
     end.
 
-% Set up a connection to Node with the first carrier that reaches it; error for a node no carrier reaches.
-setup(Node, Type, Waiting, #state{node = MyNode, name_domain = Domain, carriers = Carriers} = State) ->
-    case [Module || Module <- Carriers, Module:select(Node)] of
+% Set up a connection to Node with the first carrier that reaches it; error for a node no carrier reaches or that
+% allow/1 does not allow.
+setup(Node, Type, Waiting, #state{name_domain = Domain, carriers = Carriers} = State) ->
+    case connect_allowed(Node, State) andalso [Module || Module <- Carriers, Module:select(Node)] of
         [Module | _] ->
             case catch erts_internal:new_connection(Node) of
                 {'EXIT', _} ->
                     error;
                 Handle ->
-                    Owner = Module:setup(Node, Type, MyNode, Domain, connecttime()),
-                    Connection = #connection{owner = Owner, handle = Handle, waiting = Waiting, type = Type},
+                    Owner = Module:setup(Node, Type, this_node(State), Domain, connecttime()),
+                    Connection = #connection{
+                        owner = Owner, handle = Handle, waiting = Waiting, type = Type, direction = setup
+                    },
                     {ok, insert(Node, Connection, State)}
             end;
-        [] ->
+        _ ->
             error
     end.
+
+% Whether this node may connect to Node: any node until allow/1 added some (DIST4b2b).
+connect_allowed(_, #state{allowed = []}) ->
+    true;
+connect_allowed(Node, #state{allowed = Allowed}) ->
+    dist_util:is_allowed(Node, Allowed) orelse
+        begin
+            error_logger:error_msg("** Connection attempt with disallowed node ~w ** ~n", [Node]),
+            false
+        end.
+
+% This node's name for the carriers; a node waiting for its dynamic name gives its host with the name undefined.
+this_node(#state{node = undefined, host = Host}) -> list_to_atom("undefined@" ++ Host);
+this_node(#state{node = Node}) -> Node.
+
+% Whether a node monitor may set up a connection: not from a dynamic node, nor under dist_auto_connect never.
+auto_connect(#state{name_type = dynamic}) -> false;
+auto_connect(_) -> application:get_env(kernel, dist_auto_connect) =/= {ok, never}.
 
 insert(Node, #connection{owner = Owner} = Connection, #state{connections = Connections, owners = Owners} = State) ->
     State#state{connections = Connections#{Node => Connection}, owners = Owners#{Owner => Node}}.
@@ -432,28 +495,92 @@ insert(Node, #connection{owner = Owner} = Connection, #state{connections = Conne
 accepted(Acceptor, Controller, Family, Protocol, #state{node = MyNode, listen = Listeners} = State) ->
     case [Module || {Module, _, #net_address{family = F, protocol = P}} <- Listeners, F =:= Family, P =:= Protocol] of
         [Module | _] ->
-            Supervisor = Module:accept_connection(Acceptor, Controller, MyNode, [], connecttime()),
+            Allowed = State#state.allowed,
+            Supervisor = Module:accept_connection(Acceptor, Controller, MyNode, Allowed, connecttime()),
             Acceptor ! {self(), controller, Supervisor};
         [] ->
             Acceptor ! {self(), unsupported_protocol}
     end,
     State.
 
-% An accepted handshake asks to go on: ok when Node has no connection, which turns pending; refused otherwise, as the
-% statuses of simultaneous and existing connections come in DIST4b2b.
-accept_pending(Pid, Node, Address, Type, #state{node = MyNode, connections = Connections} = State) ->
+% An accepted handshake asks to go on, as {Status, State}: ok when Node has no connection, which turns pending; alive
+% when one is up; for this node's own setup, ok_simultaneous when the other node's name is greater, which takes it
+% over, else nok. A node asking for a dynamic name gets one (DIST4b2b).
+accept_pending(Pid, {name_me, Host}, Type, State) ->
+    {Node, Creation, NewState} = dynamic_node(Host, State),
+    Handle = erts_internal:new_connection(Node),
+    {{named, Node, Creation}, insert(Node, #connection{owner = Pid, handle = Handle, type = Type}, NewState)};
+accept_pending(Pid, Node, Type, #state{node = MyNode, connections = Connections} = State) ->
+    case Connections of
+        #{Node := #connection{state = up}} ->
+            {alive, State};
+        #{Node := #connection{direction = setup} = Own} when Node > MyNode ->
+            {ok_simultaneous, take_over(Pid, Own, State)};
+        #{Node := _} ->
+            {nok, State};
+        #{} ->
+            new_pending(Pid, Node, Type, State)
+    end.
+
+% Node's connection turns pending with the handshake process Pid; this node's own name has none, as OTP logs.
+new_pending(Pid, Node, Type, State) ->
+    try erts_internal:new_connection(Node) of
+        Handle -> {ok, insert(Node, #connection{owner = Pid, handle = Handle, type = Type}, State)}
+    catch
+        error:badarg ->
+            error_logger:error_msg("~n** Cannot get connection id for node ~w~n", [Node]),
+            {nok, State}
+    end.
+
+% Simultaneous connects: this node's own handshake ends and the accepted one Pid goes on with its callers.
+take_over(Pid, #connection{owner = Own} = Connection, #state{connections = Connections, owners = Owners} = State) ->
+    #{Own := Node} = Owners,
+    exit(Own, shutdown),
+    Accepted = Connection#connection{owner = Pid, direction = accept},
+    State#state{connections = Connections#{Node := Accepted}, owners = (maps:remove(Own, Owners))#{Pid => Node}}.
+
+% The other node answered alive with true: its up connection ends with wait_pending and Pid's turns pending.
+replace(Pid, Node, Type, #state{connections = Connections} = State) ->
+    case Connections of
+        #{Node := #connection{state = up} = Old} ->
+            new_pending(Pid, Node, Type, disconnected(Node, Old, wait_pending, State));
+        #{Node := _} ->
+            {nok, State};
+        #{} ->
+            new_pending(Pid, Node, Type, State)
+    end.
+
+% A dynamic name for a node on Host: the first free name of this node's seed, so that a node asking again gets its
+% name back, with a creation one past the one given with that name before.
+dynamic_node(Host, State) -> dynamic_node(Host, 0, State).
+
+dynamic_node(Host, Attempt, #state{seed = Seed, connections = Connections, creations = Creations} = State) ->
+    <<Number:64, _/binary>> = erlang:md5(term_to_binary({Seed, Host, Attempt})),
+    Node = list_to_atom(integer_to_list(Number, 36) ++ "@" ++ Host),
     case Connections of
         #{Node := _} ->
-            Pid ! {self(), {accept_pending, nok_pending}},
-            State;
-        #{} when Node =:= MyNode ->
-            Pid ! {self(), {accept_pending, nok_pending}},
-            State;
+            dynamic_node(Host, Attempt + 1, State);
         #{} ->
-            Handle = erts_internal:new_connection(Node),
-            Pid ! {self(), {accept_pending, ok}},
-            insert(Node, #connection{owner = Pid, handle = Handle, address = Address, type = Type}, State)
+            Creation = next_creation(maps:get(Node, Creations, undefined)),
+            {Node, Creation, State#state{creations = Creations#{Node => Creation}}}
     end.
+
+next_creation(undefined) -> rand:uniform(16#fffffff0) + 3;
+next_creation(Creation) -> max(4, (Creation + 1) band 16#ffffffff).
+
+% The other node named this one, which takes the name; the connection Pid sets up is the one that gave it.
+set_name(Pid, Node, Creation, #state{node = undefined, owners = Owners} = State) ->
+    case maps:find(Pid, Owners) of
+        {ok, Peer} ->
+            case catch erlang:setnode(Node, Creation) of
+                true -> {ok, State#state{node = Node, named_by = Peer}};
+                _ -> {error, State}
+            end;
+        error ->
+            {error, State}
+    end;
+set_name(_, _, _, State) ->
+    {error, State}.
 
 % A handshake ended: the connection is up and its callers get true.
 nodeup(Pid, Node, Address, Type, #state{connections = Connections, intensity = Intensity} = State) ->
@@ -477,17 +604,31 @@ exited(Pid, _Reason, #state{owners = Owners, controllers = Controllers} = State)
         _ -> {noreply, State}
     end.
 
-dropped(Node, #state{connections = Connections, owners = Owners} = State) ->
+dropped(Node, #state{connections = Connections, owners = Owners, named_by = NamedBy} = State) ->
     #{Node := #connection{state = Status, owner = Owner, handle = Handle, waiting = Waiting}} = Connections,
     Status =:= pending andalso erts_internal:abort_pending_connection(Node, Handle),
     lists:foreach(fun(From) -> gen_server:reply(From, false) end, Waiting),
+    Node =:= NamedBy andalso lose_name(State),
     State#state{connections = maps:remove(Node, Connections), owners = maps:remove(Owner, Owners)}.
 
-% disconnect/1: the connection's processes end with reason disconnect, and the answer waits for their ends, so the
-% connection is down by then.
-disconnected(Node, #connection{owner = Owner}, #state{controllers = Controllers} = State) ->
+% The connection that gave this node its dynamic name ended: net_sup starts again, unnamed, as OTP's; the end of
+% net_kernel takes the other connections down with net_kernel_terminated (DIST4b2b).
+lose_name(#state{started = Started}) ->
+    Child =
+        case Started of
+            static -> net_sup;
+            dynamic -> net_sup_dynamic
+        end,
+    spawn(fun() ->
+        _ = supervisor:terminate_child(kernel_sup, Child),
+        supervisor:restart_child(kernel_sup, Child)
+    end).
+
+% disconnect/1: the connection's processes end with Reason, disconnect, and the answer waits for their ends, so the
+% connection is down by then. A replaced connection ends with wait_pending (DIST4b2b).
+disconnected(Node, #connection{owner = Owner}, Reason, #state{controllers = Controllers} = State) ->
     Ended = [Owner | [Controller || Controller := ControlledNode <- Controllers, ControlledNode =:= Node]],
-    lists:foreach(fun(Pid) -> exit(Pid, disconnect) end, Ended),
+    lists:foreach(fun(Pid) -> exit(Pid, Reason) end, Ended),
     lists:foreach(
         fun(Pid) ->
             receive

@@ -522,7 +522,9 @@ ProcessContext *Executor::next_process(std::size_t index) {
 }
 
 TermResult<void> Executor::wake(ProcessContext &receiver) {
-    if (!receiver.stack().waiting()) {
+    // A process that ended while it waited is only finished: queued again, it would run once destroyed when it waits
+    // among a busy peer's blockers (found by the simultaneous connects of plan 30 step DIST4b2b).
+    if (!receiver.stack().waiting() || receiver.generated_calls().failure()) {
         return {};
     }
     try {

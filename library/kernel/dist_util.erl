@@ -29,10 +29,10 @@
 
 %% The initiator's handshake (setup/5): name, status, the other node's challenge, this node's reply and the ack.
 handshake_we_started(#hs_data{request_type = Type, other_node = Node} = HSData0) ->
-    HSData1 = offer(HSData0#hs_data{other_started = false}, Type =/= hidden andalso publish(Node)),
+    HSData1 = name_me(offer(HSData0#hs_data{other_started = false}, Type =/= hidden andalso publish(Node))),
     send(HSData1, name_message(HSData1)),
-    recv_status(HSData1),
-    {Challenge, HSData} = recv_challenge(HSData1),
+    HSData2 = recv_status(HSData1),
+    {Challenge, HSData} = recv_challenge(HSData2),
     Own = challenge(),
     send(HSData, <<$r, Own:32, (digest(Challenge, cookie(Node)))/binary>>),
     recv_challenge_ack(HSData, Own),
@@ -42,9 +42,9 @@ handshake_we_started(#hs_data{request_type = Type, other_node = Node} = HSData0)
 %% the reply's digest and the ack.
 handshake_other_started(#hs_data{} = HSData0) ->
     HSData1 = recv_name(HSData0#hs_data{other_started = true}),
-    Node = HSData1#hs_data.other_node,
-    HSData = offer(HSData1, publish(Node)),
-    mark_pending(HSData),
+    check_allowed(HSData1),
+    HSData = mark_pending(offer(HSData1, publish(HSData1#hs_data.other_node))),
+    Node = HSData#hs_data.other_node,
     Own = challenge(),
     send(HSData, challenge_message(HSData, Own)),
     Challenge = recv_challenge_reply(HSData, Own),
@@ -63,14 +63,34 @@ offer(#hs_data{add_flags = Add, reject_flags = Reject} = HSData, Published) ->
             true -> ?DFLAG_PUBLISHED;
             false -> 0
         end,
-    HSData#hs_data{this_flags = Flags bor Publish, this_creation = erts_internal:get_creation()}.
+    HSData#hs_data{this_flags = Flags bor Publish, this_creation = creation()}.
 
 optional(undefined) -> 0;
 optional(Flags) -> Flags.
 
-% The new send_name message of protocol 6.
-name_message(#hs_data{this_flags = Flags, this_creation = Creation, this_node = Node}) ->
-    Name = atom_to_binary(Node),
+% This node's creation; 0 while a dynamic name is pending, as the other node gives the creation with the name.
+creation() ->
+    case erts_internal:get_creation() of
+        undefined -> 0;
+        Creation -> Creation
+    end.
+
+% A node waiting for its dynamic name asks the other node for one (dynamic node names, DIST4b2b).
+name_me(#hs_data{this_flags = Flags} = HSData) ->
+    case node() of
+        nonode@nohost -> HSData#hs_data{this_flags = Flags bor ?DFLAG_NAME_ME};
+        _ -> HSData
+    end.
+
+name_me_requested(#hs_data{this_flags = Flags}) -> Flags band ?DFLAG_NAME_ME =/= 0.
+
+% The new send_name message of protocol 6; a request for a dynamic name sends only this node's host.
+name_message(#hs_data{this_flags = Flags, this_creation = Creation, this_node = Node} = HSData) ->
+    Name =
+        case name_me_requested(HSData) of
+            true -> unicode:characters_to_binary(lists:last(string:split(atom_to_list(Node), "@")));
+            false -> atom_to_binary(Node)
+        end,
     <<$N, Flags:64, Creation:32, (byte_size(Name)):16, Name/binary>>.
 
 challenge_message(#hs_data{this_flags = Flags, this_creation = Creation, this_node = Node}, Challenge) ->
@@ -94,13 +114,37 @@ recv(#hs_data{f_recv = Recv, socket = Socket, timer = Timer, other_node = Node})
     end.
 
 % The acceptor's status: ok continues; alive means it still holds an earlier connection of this node, which this one
-% replaces, since net_kernel only sets up a connection it does not hold.
+% replaces, since net_kernel only sets up a connection it does not hold. A requested dynamic name comes with named:
+% (DIST4b2b).
 recv_status(#hs_data{other_node = Node} = HSData) ->
-    case recv(HSData) of
-        <<"sok">> -> ok;
-        <<"sok_simultaneous">> -> ok;
-        <<"salive">> -> send(HSData, <<"strue">>);
-        Status -> ?shutdown2(Node, {recv_status_failed, Status})
+    case {recv(HSData), name_me_requested(HSData)} of
+        {<<"sok">>, false} ->
+            HSData;
+        {<<"sok_simultaneous">>, false} ->
+            HSData;
+        {<<"salive">>, false} ->
+            send(HSData, <<"strue">>),
+            HSData;
+        {<<"snamed:", Length:16, Name:Length/binary, Creation:32, _/binary>>, true} ->
+            named(HSData, binary_to_atom(Name), Creation);
+        {<<"snok">>, false} ->
+            wait_simultaneous();
+        {<<"s", Status/binary>>, _} ->
+            ?shutdown2(Node, {recv_status_failed, binary_to_list(Status)});
+        _ ->
+            ?shutdown2(Node, recv_status_failed)
+    end.
+
+% nok: the other node sets up its own connection to this one, which net_kernel takes over, ending this process; the
+% setup timer ends it when none comes (simultaneous connects, DIST4b2b).
+wait_simultaneous() -> timer:sleep(infinity).
+
+% The dynamic name the other node gave: net_kernel names this node with it and its creation (DIST4b2b).
+named(#hs_data{kernel_pid = Kernel, other_node = Node} = HSData, Name, Creation) ->
+    Kernel ! {self(), {set_name, Name, Creation}},
+    receive
+        {Kernel, {set_name, ok}} -> HSData#hs_data{this_node = Name, this_creation = Creation};
+        {Kernel, {set_name, Error}} -> ?shutdown2(Node, {set_name_failed, Error})
     end.
 
 recv_challenge(#hs_data{other_node = Node} = HSData) ->
@@ -127,12 +171,15 @@ recv_name(HSData) ->
             ?shutdown(no_node)
     end.
 
-% The other node of a received name, with its flags accepted.
+% The other node of a received name, with its flags accepted; a node asking for a dynamic name sends its host, which
+% stays the other node until net_kernel names it (DIST4b2b).
 other_node(HSData, Name, Flags) ->
-    case is_node_name(Name) of
-        true ->
+    case {is_node_name(Name), Flags band ?DFLAG_NAME_ME =/= 0 andalso is_host(Name)} of
+        {_, true} ->
+            accept_flags(HSData#hs_data{other_node = Name}, Flags);
+        {true, false} ->
             accept_flags(HSData#hs_data{other_node = list_to_atom(Name)}, Flags);
-        false ->
+        {false, false} ->
             error_logger:error_msg("** Connection attempt from node with illegal name ~ts **~n", [Name]),
             ?shutdown(Name)
     end.
@@ -160,17 +207,60 @@ accept_flags(#hs_data{require_flags = Require, other_node = Node} = HSData, Flag
 direction(#hs_data{other_started = true}) -> "from";
 direction(_) -> "to".
 
-% Ask net_kernel whether the connection may continue and tell the other node.
-mark_pending(#hs_data{kernel_pid = Kernel, other_node = Node, socket = Socket, f_address = Address} = HSData) ->
-    Kernel ! {self(), {accept_pending, Node, Address(Socket, Node), type(HSData)}},
+is_host(Name) -> Name =/= [] andalso not lists:member($@, Name).
+
+name_me_received(#hs_data{other_flags = Flags}) -> Flags band ?DFLAG_NAME_ME =/= 0.
+
+% A node outside the non-empty list of net_kernel:allow/1 is refused; a dynamic name request by its host (DIST4b2b).
+check_allowed(#hs_data{allowed = Allowed, other_node = Node} = HSData) ->
+    case Allowed =:= [] orelse Allowed =:= undefined orelse is_allowed(Node, Allowed) of
+        true ->
+            ok;
+        false ->
+            error_logger:error_msg("** Connection attempt from disallowed node ~ts ** ~n", [listify(Node)]),
+            send(HSData, <<"snot_allowed">>),
+            ?shutdown2(Node, {is_allowed, not_allowed})
+    end.
+
+% Ask net_kernel whether the connection may continue, or for the dynamic name of a node asking for one, and tell the
+% other node: ok, ok_simultaneous, nok, alive or named: (DIST4b2b).
+mark_pending(#hs_data{kernel_pid = Kernel, other_node = Node} = HSData) ->
+    Request =
+        case name_me_received(HSData) of
+            true -> {name_me, Node};
+            false -> Node
+        end,
+    Kernel ! {self(), {accept_pending, Request, type(HSData)}},
     receive
-        {Kernel, {accept_pending, ok}} ->
-            send(HSData, <<"sok">>);
-        {Kernel, {accept_pending, ok_pending}} ->
-            send(HSData, <<"sok_simultaneous">>);
-        {Kernel, {accept_pending, Status}} ->
-            send(HSData, <<"snok">>),
-            ?shutdown2(Node, {accept_pending, Status})
+        {Kernel, {accept_pending, Status}} -> pending_status(HSData, Status)
+    end.
+
+pending_status(HSData, ok) ->
+    send(HSData, <<"sok">>),
+    HSData;
+pending_status(HSData, ok_simultaneous) ->
+    send(HSData, <<"sok_simultaneous">>),
+    HSData;
+pending_status(HSData, {named, Node, Creation}) ->
+    Name = atom_to_binary(Node),
+    send(HSData, <<"snamed:", (byte_size(Name)):16, Name/binary, Creation:32>>),
+    HSData#hs_data{other_node = Node, other_creation = Creation};
+pending_status(#hs_data{other_node = Node} = HSData, alive) ->
+    send(HSData, <<"salive">>),
+    case recv(HSData) of
+        <<"strue">> -> replace(HSData);
+        _ -> ?shutdown2(Node, {is_pending, false})
+    end;
+pending_status(#hs_data{other_node = Node} = HSData, nok) ->
+    send(HSData, <<"snok">>),
+    ?shutdown2(Node, {accept_pending, nok}).
+
+% The other node answered alive with true: net_kernel ends the earlier connection and this one turns pending.
+replace(#hs_data{kernel_pid = Kernel, other_node = Node} = HSData) ->
+    Kernel ! {self(), {replace, Node, type(HSData)}},
+    receive
+        {Kernel, {replace, ok}} -> HSData;
+        {Kernel, {replace, Status}} -> ?shutdown2(Node, {replace, Status})
     end.
 
 recv_challenge_reply(#hs_data{other_node = Node} = HSData, Own) ->

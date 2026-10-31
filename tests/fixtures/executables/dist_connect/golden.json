@@ -31,6 +31,66 @@
           "stdout": "status: {nodeup,dca@HOST,[{node_type,visible}]}\nstatus: {nodedown,dca@HOST,\n          [{nodedown_reason,connection_closed},{node_type,visible}]}\nstatus: {nodeup,dca@HOST,[{node_type,hidden}]}\nstatus: {nodedown,dca@HOST,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_connect: ok\n"
         }
       ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "sa",
+          "args": [
+            "sa"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dsa --setcookie dc"
+          },
+          "otp_flags": "-sname dsa -setcookie dc",
+          "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt with disallowed node dsb@\\S+ \\*\\* \\n\\n$",
+          "exit_status": 0,
+          "stdout": "simultaneous: [true,[dsb@HOST]]\nstatus: {nodeup,dsb@HOST,[]}\nreplaced: {nodedown,dsb@HOST,[{nodedown_reason,connection_closed}]}\nallow: [ok,error,error]\nallowed: {ok,[dsz@nohost]}\ndisallowed: false\ndist_connect: ok\n"
+        },
+        {
+          "name": "sb",
+          "args": [
+            "sb"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dsb --setcookie dc"
+          },
+          "otp_flags": "-sname dsb -setcookie dc",
+          "stderr": "^=ERROR REPORT==== .* ===\\n\\n\\*\\* Cannot get connection id for node dsb@\\S+\\n\\n=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt from disallowed node dsz@\\S+ \\*\\* \\n\\n$",
+          "exit_status": 0,
+          "stdout": "simultaneous: [true,[dsa@HOST]]\nstatus: {nodeup,dsa@HOST,[]}\nalive false: {alive,{error,closed}}\nstill: [dsa@HOST]\nalive true: alive\nmessages: [{nodedown,dsa@HOST,[{nodedown_reason,wait_pending}]},\n {nodeup,dsa@HOST,[]}]\nclosed: {nodedown,dsa@HOST,[{nodedown_reason,connection_closed}]}\nown name: {nok,{error,closed}}\nnamed: [DYNAMIC@otherhost,true,true,true,DYNAMIC@otherhost]\nnot allowed: {not_allowed,{error,closed}}\ndist_connect: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "db",
+          "args": [
+            "db"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname ddb --setcookie dc"
+          },
+          "otp_flags": "-sname ddb -setcookie dc",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "status: {nodeup,DYNAMIC@HOST,[{node_type,hidden}]}\nstatus: {nodedown,DYNAMIC@HOST,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\nstatus: {nodeup,DYNAMIC@HOST,[{node_type,hidden}]}\nstatus: {nodedown,DYNAMIC@HOST,\n          [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_connect: ok\n"
+        },
+        {
+          "name": "dynamic",
+          "args": [
+            "dynamic"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname undefined --setcookie dc"
+          },
+          "otp_flags": "-sname undefined -setcookie dc",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "unnamed: [nonode@nohost,true,#{name => undefined,name_type => dynamic}]\nconnect: [true,DYNAMIC@HOST,[],[ddb@HOST]]\nnamed: [true,\n {nodeup,DYNAMIC@HOST,[{node_type,visible}]},\n {nodeup,ddb@HOST,[{node_type,hidden}]}]\ndisconnect: [true,\n {nodedown,ddb@HOST,[{nodedown_reason,disconnect},{node_type,hidden}]},\n {nodedown,DYNAMIC@HOST,\n           [{nodedown_reason,net_kernel_terminated},{node_type,visible}]}]\nunnamed again: [nonode@nohost,true,#{name => undefined,name_type => dynamic}]\nconnect again: [true,true]\ndist_connect: ok\n"
+        }
+      ]
     }
   ],
   "oracle_version": [
@@ -42,6 +102,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "dist_connect.erl": "960cdb9b8152eeeb6d3a0a096bdc04f08e97a8524da6d2cb9cd2eec885cc24cb"
+    "dist_connect.erl": "573025d8a846fe4bfb68e7ec5748a46401f5caeaeaf0e85eee9a554abf91502c"
   }
 }

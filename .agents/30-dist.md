@@ -6,7 +6,7 @@ direction); formerly backlog item F38.
 
 - **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a) or
   `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d); started nodes
-  connect (DIST4b2a) but move no signal yet.
+  connect (DIST4b2a, DIST4b2b) but move no signal yet.
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -37,6 +37,9 @@ direction); formerly backlog item F38.
   - Nodes connect over `inet_tcp_dist` through `dist_util`'s protocol 6 handshake with status `ok`, ticks keep
     connections up, `connect_node/1`, `hidden_connect_node/1`, auto-connect and `disconnect_node/1` as OTP's;
     a wrong cookie refuses the connection with OTP's log line (DIST4b2a).
+  - Simultaneous connects, `alive` replacing a node's old connection, `nok` for this node's name, `allow/1` and
+    `allowed/0`, and dynamic names (`--sname undefined`, `named:`, lost with the connection that gave them) as
+    OTP's (DIST4b2b).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (internals declined), `auth` (`nocookie` until started), `global` and
     `global_group` (one node, locker internals declined), `pg` (no peers), `peer`/`slave`
@@ -77,23 +80,11 @@ direction); formerly backlog item F38.
 ## DIST4b2. Handshake and TCP carrier
 
 Split 2026-10-31 into DIST4b2a (handshake with status `ok`, first connections; done), DIST4b2b (the other
-statuses and dynamic names) and DIST4b2c (IPv6 and carrier options).
-
-## DIST4b2b. Handshake statuses and dynamic names
-
-Depends on: DIST4b2a ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] Simultaneous connects (`ok_simultaneous`, `nok`), `alive` with the initiator's `true`/`false`,
-        `not_allowed` with `net_kernel:allow/1` and `allowed/0`, `named:` dynamic names
-        (`DFLAG_NAME_ME`, a node started without a name takes the first peer's), name clashes.
-- Tests
-  - [ ] Golden `dist_connect` cases: both ends connect at once, a restarted node meets its old
-        connection, `allow/1` refuses a node, a dynamic name.
+statuses and dynamic names; done) and DIST4b2c (IPv6 and carrier options).
 
 ## DIST4b2c. IPv6 carrier and carrier options
 
-Depends on: [DIST4b2b](#dist4b2b-handshake-statuses-and-dynamic-names).
+Depends on: DIST4b2b ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `inet6_tcp_dist` over `inet_tcp_dist`'s family-generic functions (`gen_*`, `fam_*`);

@@ -755,3 +755,12 @@ gotchas and user directions not recorded elsewhere.
   accepted). Python `Path.read_text()` without `encoding="utf-8"` reads cp1252 on Windows and double-encodes
   non-ASCII on write (`×`, en dash): always pass the encoding. Library inventories must list exactly OTP's
   exports, so helper processes spawn funs instead of new exports.
+- DIST4b2b (2026-10-31): runtime races hide under cdb (timing, first-chance C++ exceptions); find them with a stress
+  program of two nodes and temporary instrumentation instead: a per-process event letter history in `Schedule`
+  printed from a check, or stack offsets (`RtlCaptureStackBackTrace` minus `GetModuleHandleW(nullptr)`) resolved
+  offline with `cdb -z prog.exe -y <dir> -lines -c "ln prog+0xOFF; q"`. A crash with `arrivals` null means a destroyed
+  process ran: `wake()` queued an ended process (fixed). Multi-node goldens: a node may finish before its peer's
+  main even starts; sync through epmd marker names (raw ALIVE2_REQ, kept while the socket is open), never sleeps.
+  Each newly linked executable path that listens on 0.0.0.0 makes Windows Firewall ask once: reuse scratch exe
+  names. OTP: dynamic names are base 36 of a 64-bit number, stable per acceptor and host, creation +1 per reuse;
+  losing the naming connection restarts only kernel_sup's net_sup child.
