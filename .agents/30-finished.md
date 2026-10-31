@@ -100,4 +100,4 @@ Compact record of the network distribution plan, one bullet per step;
   `{is_auth, Node}`; golden `dist_ping` (fake-connection wire checks, pings, monitors, gen calls) — 51436b89
 - **DIST4b3b2** The program's end: OTP 29's `halt` runs no process during its flush and kills the distribution
   ports, losing packets queued just before it (observed), so Clause's immediate end already matches; the wrong
-  `differences.md` row went, `distribution.md#messages` records the behavior — HASH
+  `differences.md` row went, `distribution.md#messages` records the behavior — e682996b
