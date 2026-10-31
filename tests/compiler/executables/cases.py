@@ -48,8 +48,9 @@ def load(case_dir):
     # A run whose output holds on hosts of one word width only names it (the OTP oracle is a 64-bit host).
     assert all(run.get('word_bits', 64) in (32, 64) for run in golden['runs']), f'{case_dir.name}: word_bits'
     # OTP never sees a run's environment, so only authored runs may set one, or runs whose emulator flags give OTP
-    # the same options (otp_flags, added for --env in plan 30 step DIST4a1).
-    assert all(run.get('authored') or 'otp_flags' in run for run in golden['runs'] if 'env' in run),         f'{case_dir.name}: env needs authored or otp_flags'
+    # the same options (otp_flags, added for --env in plan 30 step DIST4a1); also each node's (DIST4b1b).
+    assert all(run.get('authored') or 'otp_flags' in run for run in invocations(golden) if 'env' in run), \
+        f'{case_dir.name}: env needs authored or otp_flags'
     return golden
 
 

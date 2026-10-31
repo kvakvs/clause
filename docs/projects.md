@@ -30,6 +30,7 @@ shell = false
 epmd_executable = false
 bundled_epmd = true
 runtime_options = ["--setcookie", "secret", "--args-file", "vm.args"]
+distribution = false
 cache_inference_in_dirs = ["deps/*"]
 
 [targets.options.applications]
@@ -71,6 +72,9 @@ my_dependency = "vendor/my_dependency"
   them, and a word that is no runtime option stops the program
   ([runtime options](executables.md#runtime-options)). A relative
   `--args-file` is read from the directory the program runs in.
+- `distribution = true` in `options` links the distribution modules, as
+  `--distribution` does ([node start options](distribution.md#node-start-options));
+  `runtime_options` holding `--sname` or `--name` imply it. It must be a boolean.
 - `cache_inference_in_dirs` (directory wildcards) in `options` adds directories
   whose modules keep their inference results in the build cache
   ([inference cache](#inference-cache)).

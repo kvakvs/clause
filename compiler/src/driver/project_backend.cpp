@@ -29,6 +29,7 @@ BackendOptions target_options(const Options &options, const project::Invocation 
     backend.epmd_executable = backend.epmd_executable || target.epmd_executable_;
     backend.no_bundled_epmd = backend.no_bundled_epmd || !target.bundled_epmd_;
     backend.runtime_options = target.runtime_options_;
+    backend.distribution = backend.distribution || target.distribution_;
     return backend;
 }
 

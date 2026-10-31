@@ -1,6 +1,7 @@
 """Manifest runtime options (plan 30 step DIST4a3b): the project option runtime_options is built into the target's
 executable as its default runtime options, CLAUSE_FLAGS and then the command line override them, a word that is not
-a runtime option stops the program, and --print-env reports the option."""
+a runtime option stops the program, and --print-env reports the option. Runtime options that name the node, and the
+option distribution, link the distribution modules (plan 30 step DIST4b1b)."""
 import json
 import os
 from pathlib import Path
@@ -27,11 +28,11 @@ def clau(arguments, status=0):
     return result.stdout + result.stderr
 
 
-def build(options):
-    """Write the manifest with these runtime_options and link its target."""
+def build(options, extra=""):
+    """Write the manifest with these runtime_options (and extra option lines) and link its target."""
     manifest.write_text(f'schema_version = 1\n\n[[targets]]\nname = "app"\nsources = ["app.erl"]\n'
                         f'source_dirs = []\noutput = "app"\n\n[targets.options]\nruntime_options = '
-                        f'{json.dumps(options)}\n', encoding="utf-8")
+                        f'{json.dumps(options)}\n{extra}', encoding="utf-8")
     clau(["--project", str(manifest)])
 
 
@@ -62,4 +63,16 @@ _, stderr = run([], status=70)
 assert stderr == "clau: runtime failure: runtime_options: not a runtime option: --bogus\n", stderr
 manifest.write_text(manifest.read_text(encoding="utf-8").replace('["--bogus"]', '"--hidden"'), encoding="utf-8")
 assert "runtime_options" in clau(["--project", str(manifest)], 1)
-print("runtime_options: built-in defaults, overrides and refused words: ok")
+print("runtime_options: built-in defaults, overrides and refused words")
+
+# A node that listens nowhere needs no epmd. The program never names net_kernel: the manifest links distribution.
+module.write_text('-module(app).\n-export([main/1]).\nmain(_) ->\n    io:format("~p~n", [node()]).\n',
+                  encoding="utf-8")
+build(["--sname", "built", "--dist-listen", "false"])
+stdout, _ = run([])
+assert stdout.startswith("built@"), stdout
+build([], "distribution = true\n")
+assert "distribution = true" in clau(["--print-env", "--project", str(manifest)])
+stdout, _ = run(["--sname", "flagged", "--dist-listen", "false"])
+assert stdout.startswith("flagged@"), stdout
+print("runtime_options: built-in defaults, overrides, refused words and distribution: ok")

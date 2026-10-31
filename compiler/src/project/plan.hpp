@@ -66,6 +66,8 @@ struct PlannedTarget {
     bool bundled_epmd_ = true;
     // The runtime_options words. Added for manifest runtime options (plan 30 step DIST4a3b).
     std::vector<std::string> runtime_options_ = {};
+    // The distribution option. Added for distribution from the node start options (plan 30 step DIST4b1b).
+    bool distribution_ = false;
     // Where Clause keeps its temporary files and caches: --build-dir, else build_dir, else <manifest-dir>/build.
     // Added for the build directory (62D1).
     std::filesystem::path build_directory_ = {};

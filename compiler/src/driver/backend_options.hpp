@@ -52,6 +52,9 @@ struct BackendOptions {
     // Runtime option words built into executables as their defaults (the project option runtime_options). Added for
     // manifest runtime options (plan 30 step DIST4a3b).
     std::vector<std::string> runtime_options = {};
+    // Link the distribution modules, so that --sname and --name start distribution before the entry (--distribution
+    // or the project option distribution). Added for distribution from the node start options (plan 30 DIST4b1b).
+    bool distribution = false;
     // Override the Clang driver and runtime archive used to link an explicit --output executable.
     std::optional<std::filesystem::path> linker;
     std::optional<std::filesystem::path> runtime_library;
@@ -66,6 +69,10 @@ struct BackendOptions {
 
     // Whether the program links the crypto runtime archive and the library crypto module whatever it calls.
     [[nodiscard]] bool links_crypto() const { return with_crypto || fips.has_value(); }
+
+    // Whether the program links the distribution modules whatever it calls: --distribution, or built-in runtime
+    // options that name the node. Added for distribution from the node start options (plan 30 DIST4b1b).
+    [[nodiscard]] bool links_distribution() const;
 };
 
 // Recognize backend options separately from preprocessing and project operands.

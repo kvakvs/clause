@@ -153,12 +153,62 @@ int run_processes(Runtime &runtime, ProcessContext &main, const StartupDescripto
     return released(runtime, ended, status);
 }
 
+// Start `frame` as the main process with the registers set and run the program; no context remains after.
+int start_main(Runtime &runtime, ProcessContext &main, const StartupDescriptor &startup,
+               const abi::v1::FrameDescriptor &frame) {
+    if (!detail::Executor::of(main).start(main, frame)) {
+        const auto &failure = main.generated_calls().failure();
+        const int status =
+            failure ? failed_entry(*failure, is_escript(startup)) : runtime_failure("cannot start the entry process");
+        return released(runtime, main, status);
+    }
+    return run_processes(runtime, main, startup);
+}
+
+// Whether the node start options name the node (--sname, --name): distribution then starts before the entry. Added
+// for distribution from the node start options (plan 30 step DIST4b1b).
+bool names_node(const ProgramArguments &program) {
+    return std::ranges::any_of(program.flags,
+                               [](const ProgramFlag &flag) { return flag.name == "sname" || flag.name == "name"; });
+}
+
+// Run clause_dist_start:boot(Module, Function, Arguments) as the main process: it starts distribution as OTP's kernel
+// does at boot, then calls the entry. Added for distribution from the node start options (plan 30 step DIST4b1b).
+int run_booted_entry(Runtime &runtime, ProcessContext &main, const StartupDescriptor &startup, const Term &arguments) {
+    TermFactory factory(main);
+    const auto boot_module = factory.atom("clause_dist_start");
+    const auto boot = factory.atom("boot");
+    const auto *frame =
+        boot_module && boot
+            ? static_cast<const abi::v1::FrameDescriptor *>(main.code_server().function_frame(*boot_module, *boot, 3))
+            : nullptr;
+    if (!frame) {
+        return released(runtime, main,
+                        runtime_failure("--sname and --name need the distribution modules (link the program with "
+                                        "--distribution)"));
+    }
+    const auto module = factory.atom(std::string_view{startup.entry_module, startup.entry_module_size});
+    const auto function = factory.atom(std::string_view{startup.entry_function, startup.entry_function_size});
+    const auto list = entry_arity(startup) == 1 ? factory.list(std::array{arguments}) : factory.list({});
+    if (!module || !function || !list) {
+        return released(runtime, main, runtime_failure("cannot build the entry's arguments"));
+    }
+    auto *registers = main.stack().registers();
+    registers[0] = module->word();
+    registers[1] = function->word();
+    registers[2] = list->word();
+    return start_main(runtime, main, startup, *frame);
+}
+
 // Build argv without the runtime options and run the entry as the main process, passing argv to an arity-1 entry;
 // no context remains after.
 int run_entry(Runtime &runtime, ProcessContext &main, const StartupDescriptor &startup) {
     const auto arguments = argument_list(main, runtime.program_arguments().plain);
     if (!arguments) {
         return released(runtime, main, runtime_failure("cannot build the argument list"));
+    }
+    if (names_node(runtime.program_arguments())) {
+        return run_booted_entry(runtime, main, startup, *arguments);
     }
     const auto *frame = entry_frame(main, startup);
     if (!frame) {
@@ -167,13 +217,7 @@ int run_entry(Runtime &runtime, ProcessContext &main, const StartupDescriptor &s
     if (entry_arity(startup) == 1) {
         main.stack().registers()[0] = arguments->word();
     }
-    if (!detail::Executor::of(main).start(main, *frame)) {
-        const auto &failure = main.generated_calls().failure();
-        const int status =
-            failure ? failed_entry(*failure, is_escript(startup)) : runtime_failure("cannot start the entry process");
-        return released(runtime, main, status);
-    }
-    return run_processes(runtime, main, startup);
+    return start_main(runtime, main, startup, *frame);
 }
 
 // Register every module before the entry runs; a failure discards the whole runtime before entry.

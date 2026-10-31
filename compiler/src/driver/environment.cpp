@@ -179,6 +179,15 @@ std::string_view emission_name(const std::optional<codegen::OutputKind> kind) {
     return "obj";
 }
 
+// Print what an executable carries for distribution: clause-epmd beside it, the bundled epmd, the built-in runtime
+// options and the distribution modules. Added for plan 30's options (DIST3c, DIST3d, DIST4a3b, DIST4b1b).
+void print_distribution(const BackendOptions &backend) {
+    print_value("epmd_executable", backend.epmd_executable ? "true" : "false");
+    print_value("bundled_epmd", backend.no_bundled_epmd ? "false" : "true");
+    print_array("runtime_options", quoted_texts(backend.runtime_options));
+    print_value("distribution", backend.distribution ? "true" : "false");
+}
+
 // Print code generation settings with the defaults compilation applies when an option is absent.
 void print_backend(const BackendOptions &backend, const std::string &triple) {
     const auto level = backend.optimization.value_or(codegen::OptimizationLevel::none);
@@ -191,12 +200,9 @@ void print_backend(const BackendOptions &backend, const std::string &triple) {
     print_value("lto", backend.lto ? "true" : "false");
     print_value("keep_exports", backend.keep_exports ? "true" : "false");
     print_value("shell", backend.shell ? "true" : "false");
-    // Added for clause-epmd beside programs and for programs without the bundled epmd.
-    print_value("epmd_executable", backend.epmd_executable ? "true" : "false");
-    print_value("bundled_epmd", backend.no_bundled_epmd ? "false" : "true");
-    print_array("runtime_options", quoted_texts(backend.runtime_options)); // Added for manifest runtime options.
-    print_value("with_crypto", backend.with_crypto ? "true" : "false");    // Added for the crypto runtime archive.
-    print_value("fips", toml_path(backend.fips.value_or("")));             // Added for crypto's FIPS mode.
+    print_distribution(backend);
+    print_value("with_crypto", backend.with_crypto ? "true" : "false"); // Added for the crypto runtime archive.
+    print_value("fips", toml_path(backend.fips.value_or("")));          // Added for crypto's FIPS mode.
     print_value("emit", toml_string(emission_name(backend.emit)));
     print_value("artifact_dir", toml_path(backend.artifact_directory.value_or("build/aot")));
 }

@@ -4,7 +4,8 @@ Distribution in the runtime and the libraries that depend on it, so a Clause exe
 distributed Erlang node. Added 2026-10-30 as plan 11's phase DIST and moved here the same day (user
 direction); formerly backlog item F38.
 
-- **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a).
+- **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a) or
+  `--sname`/`--name` (DIST4b1b).
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -24,6 +25,9 @@ direction); formerly backlog item F38.
   - `net_kernel:start/1,2` and `stop/0` start and end distribution in a running program: `erl_distribution`'s
     `net_sup`, `inet_tcp_dist`'s listen and epmd registration, OTP's names, options and errors (DIST4b1a);
     connections come in DIST4b2.
+  - `--sname`/`--name` start distribution before the entry through `clause_dist_start:boot/3`; the distribution
+    modules link with `clau --distribution`, manifest `distribution = true` or `runtime_options` naming the node,
+    or a call of `net_kernel` (DIST4b1b).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (internals declined), `auth` (`nocookie`), `global` and
     `global_group` (one node, locker internals declined), `pg` (no peers), `peer`/`slave`
@@ -68,26 +72,11 @@ direction); formerly backlog item F38.
 
 <a id="step-dist4b1b"></a>
 
-## DIST4b1b. Distribution from the node start options
-
-Depends on: DIST4b1a ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] Distribution modules on demand (user, 2026-10-31): linked when the program names `net_kernel`, with
-        `clau --distribution`, manifest `distribution = true`, or manifest `runtime_options` holding `--sname` or
-        `--name`; a program without them stops on `--sname`/`--name` with a clear message (`differences.md`).
-  - [ ] Distribution started before the entry, as OTP's kernel starts `net_kernel` (`--sname`/`--name`,
-        `--hidden`, `--proto-dist`, `--dist-listen`, the `kernel` parameters `net_ticktime`,
-        `inet_dist_listen_min/max`, ...); `stop/0` answers `{error, not_allowed}`; a failed start stops the
-        program with OTP's report.
-- Tests
-  - [ ] Golden `dist_start` runs started with node options, and their failures.
-
 <a id="step-dist4b1c"></a>
 
 ## DIST4b1c. Cookies
 
-Depends on: [DIST4b1b](#step-dist4b1b).
+Depends on: DIST4b1b ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `auth` under `net_sup`: `erlang:set_cookie/1,2`, `get_cookie/0,1`, `--setcookie`, `--nocookie`,

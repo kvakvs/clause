@@ -42,6 +42,8 @@
         "30",
         "--epmd",
         "external",
+        "--dist-listen",
+        "false",
         "--",
         "plain"
       ],
@@ -51,7 +53,7 @@
       "authored": true,
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "kernel: {ok,[[\"net_ticktime\",\"25\"],[\"net_ticktime\",\"30\"]]}\nstdlib: error\nenvapp: error\nsetcookie: {ok,[[\"c1\"]]}\nnocookie: error\nhidden: error\nproto_dist: error\ndist_listen: error\nstart_epmd: {ok,[[\"true\"]]}\nsname: {ok,[[\"abc\"]]}\nname: {ok,[[\"x@host.example\"]]}\nkernel_env: [{ok,30},{ok,notice},undefined]\nstdlib_env: []\nload: ok\nenvapp_env: [{color,blue},{size,3}]\nruntime_env_options: ok\n"
+      "stdout": "kernel: {ok,[[\"net_ticktime\",\"25\"],[\"net_ticktime\",\"30\"]]}\nstdlib: error\nenvapp: error\nsetcookie: {ok,[[\"c1\"]]}\nnocookie: error\nhidden: error\nproto_dist: error\ndist_listen: {ok,[[\"false\"]]}\nstart_epmd: {ok,[[\"true\"]]}\nsname: {ok,[[\"abc\"]]}\nname: {ok,[[\"x@host.example\"]]}\nkernel_env: [{ok,30},{ok,notice},undefined]\nstdlib_env: []\nload: ok\nenvapp_env: [{color,blue},{size,3}]\nruntime_env_options: ok\n"
     },
     {
       "args": [

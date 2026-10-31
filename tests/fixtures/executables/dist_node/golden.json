@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "entry": "dist_node",
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "short",
+          "args": [],
+          "env": {
+            "CLAUSE_FLAGS": "--sname s1"
+          },
+          "otp_flags": "-sname s1",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "node: {s1@HOST,true,s1@HOST}\nstate: #{name => s1@HOST,name_domain => shortnames,name_type => static,\n  started => static}\nrequests: [60,false]\nprocesses: [true,true,true]\nregistered: true\nstop: {error,not_allowed}\nstart: {already_started,true}\nstill: s1@HOST\ndist_node: ok\n"
+        },
+        {
+          "name": "hidden",
+          "args": [],
+          "env": {
+            "CLAUSE_FLAGS": "--sname s2 --hidden --env kernel net_ticktime 20"
+          },
+          "otp_flags": "-sname s2 -hidden -kernel net_ticktime 20",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "node: {s2@HOST,true,s2@HOST}\nstate: #{name => s2@HOST,name_domain => shortnames,name_type => static,\n  started => static}\nrequests: [20,false]\nprocesses: [true,true,true]\nregistered: true\nstop: {error,not_allowed}\nstart: {already_started,true}\nstill: s2@HOST\ndist_node: ok\n"
+        },
+        {
+          "name": "long",
+          "args": [],
+          "env": {
+            "CLAUSE_FLAGS": "--name n1@127.0.0.1"
+          },
+          "otp_flags": "-name n1@127.0.0.1",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "node: {'n1@127.0.0.1',true,'n1@127.0.0.1'}\nstate: #{name => 'n1@127.0.0.1',name_domain => longnames,name_type => static,\n  started => static}\nrequests: [60,true]\nprocesses: [true,true,true]\nregistered: true\nstop: {error,not_allowed}\nstart: {already_started,true}\nstill: 'n1@127.0.0.1'\ndist_node: ok\n"
+        },
+        {
+          "name": "no listen",
+          "args": [],
+          "env": {
+            "CLAUSE_FLAGS": "--sname s3 --dist-listen false"
+          },
+          "otp_flags": "-sname s3 -dist_listen false",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "node: {s3@HOST,true,s3@HOST}\nstate: #{name => s3@HOST,name_domain => shortnames,name_type => static,\n  started => static}\nrequests: [60,false]\nprocesses: [true,true,true]\nregistered: false\nstop: {error,not_allowed}\nstart: {already_started,true}\nstill: s3@HOST\ndist_node: ok\n"
+        }
+      ]
+    },
+    {
+      "args": [],
+      "authored": true,
+      "env": {
+        "CLAUSE_FLAGS": "--sname a.b"
+      },
+      "stderr": "Invalid node name!\\nPlease check your configuration[\\s\\S]*\\nKernel pid terminated \\(application_controller\\) \\(\"\\{application_start_failure,kernel,\\{\\{shutdown,\\{failed_to_start_child,net_sup,\\{shutdown,\\{failed_to_start_child,net_kernel,\\{'EXIT',nodistribution\\}\\}\\}\\}\\},\\{kernel,start,\\[normal,\\[\\]\\]\\}\\}\\}\"\\)\\n$",
+      "exit_status": 1,
+      "stdout": ""
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "dist_node.erl": "96035cad3cd33bf419471044002fd17ed3b07cc444f3f7a4b8b06ed896482fc0"
+  }
+}

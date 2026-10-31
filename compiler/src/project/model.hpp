@@ -56,6 +56,9 @@ struct TargetOptions {
     // Runtime option words built into the target's executable as its defaults (docs/projects.md). Added for manifest
     // runtime options (plan 30 step DIST4a3b).
     std::vector<Text> runtime_options_;
+    // Link the distribution modules into the target's executable (docs/distribution.md#node-start-options). Added for
+    // distribution from the node start options (plan 30 step DIST4b1b).
+    bool distribution_ = false;
     // Directory wildcards whose modules keep their inference results in the build cache, besides the implicit OTP
     // application directories (docs/projects.md#inference-cache). Added for the inference cache (58U).
     std::vector<Text> cache_inference_in_dirs_;

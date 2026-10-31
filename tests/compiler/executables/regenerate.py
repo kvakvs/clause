@@ -74,7 +74,10 @@ def observe_nodes(escript, staged, entry, run, work, golden):
         commands = [[escript, str(ORACLE), str(version), str(staged), entry, *node['args']]
                     for node, version in zip(run['nodes'], versions)]
         environment = oracle_environment(escript) | {'ERL_EPMD_PORT': str(port)}
-        results = nodes.run_nodes(commands, [environment] * len(commands), staged, 300)
+        # A node's emulator flags give OTP the node start options its 'env' gives Clause (plan 30 step DIST4b1b).
+        environments = [environment | ({'ERL_FLAGS': node['otp_flags']} if 'otp_flags' in node else {})
+                        for node in run['nodes']]
+        results = nodes.run_nodes(commands, environments, staged, 300)
     finally:
         nodes.stop(epmd)
     observed = []

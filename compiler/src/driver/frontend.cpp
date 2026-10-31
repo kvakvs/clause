@@ -530,6 +530,19 @@ bool add_named_by(const std::size_t scanned, const FrontendRequest &request, con
     return failed;
 }
 
+// Add the modules every input names, those added meanwhile too; clause_dist_start joins once net_kernel did, as the
+// runtime starts distribution through it (plan 30 step DIST4b1b). True on a failure.
+bool add_all_named(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs, Discovery &discovery) {
+    bool failed = false;
+    for (std::size_t scanned = 0; scanned < inputs.size(); ++scanned) {
+        failed = add_named_by(scanned, request, sink, inputs, discovery) || failed;
+        if (scanned + 1 == inputs.size() && defined(inputs, U"net_kernel")) {
+            failed = add_module(U"clause_dist_start", "net_kernel", discovery, request, sink, inputs) || failed;
+        }
+    }
+    return failed;
+}
+
 // Add the modules the batch references but does not define, from the library, then the search directories,
 // including those they reference in turn. Clause's modules come first so an installed OTP never replaces them.
 bool add_referenced(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs, Discovery &discovery) {
@@ -541,10 +554,11 @@ bool add_referenced(const FrontendRequest &request, const DiagnosticSink &sink, 
         const auto *option = request.backend.with_crypto ? "--with-crypto" : "--fips";
         failed = add_module(U"crypto", option, discovery, request, sink, inputs) || failed;
     }
-    for (std::size_t scanned = 0; scanned < inputs.size(); ++scanned) {
-        failed = add_named_by(scanned, request, sink, inputs, discovery) || failed;
+    // Added for distribution from the node start options (plan 30 step DIST4b1b).
+    if (request.backend.links_distribution()) {
+        failed = add_module(U"clause_dist_start", "--distribution", discovery, request, sink, inputs) || failed;
     }
-    return failed;
+    return add_all_named(request, sink, inputs, discovery) || failed;
 }
 
 // An explicit input that defines a module Clause's library provides replaces it: warn, naming both files.

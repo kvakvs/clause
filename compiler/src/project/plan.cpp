@@ -169,6 +169,7 @@ Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
         result.targets.back().shell_ = target.options.shell_;
         result.targets.back().epmd_executable_ = target.options.epmd_executable_;
         result.targets.back().bundled_epmd_ = target.options.bundled_epmd_;
+        result.targets.back().distribution_ = target.options.distribution_;
         for (const auto &word : target.options.runtime_options_) {
             result.targets.back().runtime_options_.push_back(word.value);
         }

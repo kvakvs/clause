@@ -44,6 +44,8 @@ Options:
                          without --entry the executable starts the shell.
       --epmd-executable  Also link clause-epmd, Clause's epmd program, beside the executable.
       --no-bundled-epmd  Leave the bundled epmd out of the executable (--epmd bundled then acts as none).
+      --distribution   Link the distribution modules, so that --sname and --name name the node (automatic when
+                         the program calls net_kernel).
       --print-ir          Print verified IR with Erlang source comments before LLVM optimization.
       --print-types       Print each module as source annotated with inferred types; stop before LLVM lowering.
       --print-optimized-ir  Print verified IR with Erlang source comments after the selected pipeline.

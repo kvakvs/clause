@@ -67,3 +67,6 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST4b1a** `net_kernel:start/1,2` and `stop/0`: `net_kernel` as OTP's gen_server under `erl_distribution`'s
   unlinked `net_sup`, `inet_tcp_dist` listen and epmd registration, OTP's names, options, errors and log lines;
   golden `dist_start` — 803d0144
+- **DIST4b1b** `--sname`/`--name` start distribution before the entry (`clause_dist_start:boot/3`, a liveness root,
+  `erl_distribution:start_link/0`); distribution modules on demand (`clau --distribution`, manifest `distribution`,
+  `runtime_options` naming the node, `net_kernel` callers); golden `dist_node` — `HASH`

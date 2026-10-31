@@ -12,7 +12,8 @@ epmd, and Clause's epmd server runs as `clause-epmd` ([epmd](#epmd), DIST3a; wri
 with `-daemon`, `-names` and `-kill` in DIST3c) or inside the program when a registration finds none
 (`--epmd bundled`, DIST3b); `--epmd external` starts an epmd program, and `--no-bundled-epmd` leaves
 the bundled epmd out (DIST3d). `net_kernel:start/1,2` and `stop/0` start and end distribution in a
-running program ([starting distribution](#starting-distribution), DIST4b1a); its node reaches no other node yet.
+running program ([starting distribution](#starting-distribution), DIST4b1a), and `--sname`/`--name` before the
+entry ([node start options](#node-start-options), DIST4b1b); its node reaches no other node yet.
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `pang`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -382,8 +383,8 @@ OTP's `net_kernel:start/1,2` and `stop/0`. Connections come in DIST4b2: until th
 - **Requests:** `nodename/0`, `longnames/0`, `get_net_ticktime/0` and `get_state/0` (`started => dynamic`,
   `name`, `name_type`, `name_domain`) ask the server; without one they answer `ignored` (`#{started => no}`).
 - **`stop/0`:** ends `net_sup`, whose `net_kernel` takes the name with it and whose `erl_epmd` closes the
-  registration; `{error, not_found}` without distribution, `{error, not_allowed}` for a node started with its name
-  (DIST4b1b).
+  registration; `{error, not_found}` without distribution, `{error, not_allowed}` for a node the node start options
+  named ([node start options](#node-start-options)).
 
 ## Node start options
 
@@ -427,6 +428,25 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
 - `net_kernel:start/1,2` starts distribution in a running program, as in OTP, under the same
   `--epmd` mode.
 
+Current since DIST4b1b (`library/kernel/clause_dist_start.erl`, `erl_distribution.erl`,
+`runtime/src/startup/startup.cpp`):
+
+- **Linking (user choice, 2026-10-31):** the distribution modules join a program that calls `net_kernel`, or one
+  built with `clau --distribution`, the manifest option `distribution = true`, or manifest `runtime_options`
+  holding `--sname` or `--name`. Other programs stay small; given `--sname` or `--name`, they stop before the entry
+  with `clau: runtime failure: --sname and --name need the distribution modules (link the program with
+  --distribution)`, exit 70 ([differences](differences.md)).
+- **Start:** with `--sname` or `--name`, the runtime runs `clause_dist_start:boot(Module, Function, Arguments)` as
+  the main process instead of the entry. It starts `net_sup` with `erl_distribution:start_link/0`, as OTP's kernel
+  does at boot: the name of `--sname` (`shortnames`) or `--name` (`longnames`), `--hidden`, `--dist-listen`,
+  `--proto-dist` and the `kernel` parameters as for `net_kernel:start/2`; `undefined` asks the first peer for a
+  name. It then calls the entry in its place, so the entry runs in the main process with its usual reports.
+- **Such a node:** `get_state/0` says `started => static`, `stop/0` answers `{error, not_allowed}` and
+  `start/1,2` `{error, {already_started, NetSup}}`. `net_sup` is linked to the main process.
+- **Failure:** a start that fails logs OTP's lines and reports, then halts with OTP's slogan
+  `Kernel pid terminated (application_controller) ("{application_start_failure,kernel,{{shutdown,
+  {failed_to_start_child,net_sup,...}},{kernel,start,[normal,[]]}}}")`, exit 1, before the entry runs.
+
 ## Testing
 
 - **Multi-node cases:**
@@ -439,6 +459,7 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
     node's output and stops everything at the end or on a timeout. Clause nodes run with
     `--epmd none` (DIST3b), and from DIST4 with a fixed cookie.
   - Single-node runs get an `ERL_EPMD_PORT` where nothing listens, so they never ask a user's epmd.
+  - A node's own `env` (Clause) and `otp_flags` (OTP, as `ERL_FLAGS`) give it node start options (DIST4b1b).
   - Cases of the bundled and external modes start no runner epmd and check which epmd the nodes
     find. A run of `"epmd": "bundled"` (DIST3b) also checks that no epmd listens on its port after
     the nodes ended.

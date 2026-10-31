@@ -8,8 +8,18 @@
 % How long net_sup waits for each child to end, as OTP's.
 -define(SHUTDOWN, 2000).
 
-%% Starting distribution from the node start options comes in DIST4b1b.
-start_link() -> erlang:error({not_implemented, start_link, 0}).
+% net_sup of the node start options, as OTP's kernel starts it at boot: --sname or --name (undefined asks the first
+% peer for a name). Added for distribution from the node start options (plan 30 step DIST4b1b).
+start_link() ->
+    {Name, Domain} =
+        case init:get_argument(sname) of
+            {ok, [[Short | _] | _]} ->
+                {Short, shortnames};
+            _ ->
+                {ok, [[Long | _] | _]} = init:get_argument(name),
+                {Long, longnames}
+        end,
+    start_link(#{name => list_to_atom(Name), name_domain => Domain, supervisor => net_sup, clean_halt => true}).
 
 start_link(Options) -> supervisor:start_link({local, net_sup}, ?MODULE, [Options]).
 

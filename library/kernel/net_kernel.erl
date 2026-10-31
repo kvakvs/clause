@@ -158,23 +158,26 @@ start_link(Options) ->
         _ -> exit(nodistribution)
     end.
 
-%% The server: names the node, listening and registering with epmd first unless dist_listen is false.
+%% The server: names the node, listening and registering with epmd first unless dist_listen is false. dist_listen
+%% and hidden default to the node start options --dist-listen and --hidden.
 init(#{name := Name} = Options) ->
     process_flag(trap_exit, true),
-    Listen = maps:get(dist_listen, Options, true) andalso Name =/= undefined,
+    Listen =
+        maps:get(dist_listen, Options, init:get_argument(dist_listen) =/= {ok, [["false"]]}) andalso
+            Name =/= undefined,
     State = #state{
         name_domain = maps:get(name_domain, Options, longnames),
         started = started(Options),
         ticktime = maps:get(net_ticktime, Options, kernel_ticktime()),
         intensity = maps:get(net_tickintensity, Options, ?TICKINTENSITY),
-        hidden = maps:get(hidden, Options, false) orelse not Listen
+        hidden = maps:get(hidden, Options, init:get_argument(hidden) =/= error) orelse not Listen
     },
     case Name of
         undefined -> dynamic_name(State);
         _ -> name_node(node_name(atom_to_list(Name), State#state.name_domain), Listen, State)
     end.
 
-% The node of net_kernel:start/1,2 is dynamic; static nodes come from the node start options (DIST4b1b).
+% The node of net_kernel:start/1,2 is dynamic, the node of the node start options static.
 started(#{supervisor := net_sup_dynamic}) -> dynamic;
 started(_) -> static.
 

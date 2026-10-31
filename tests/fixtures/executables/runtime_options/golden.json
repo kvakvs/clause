@@ -186,6 +186,16 @@
       "stderr": "^clau: runtime failure: --scheduler-cpus: CPU 1000 is not available to the program\n$",
       "exit_status": 70,
       "stdout": ""
+    },
+    {
+      "args": [
+        "--sname",
+        "x"
+      ],
+      "authored": true,
+      "stderr": "^clau: runtime failure: --sname and --name need the distribution modules \\(link the program with --distribution\\)\\n$",
+      "exit_status": 70,
+      "stdout": ""
     }
   ],
   "oracle_version": [

@@ -2,6 +2,6 @@
 %% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
 {init, 1, default, implemented}.
 {start, 1, default, implemented}.
-{start_link, 0, distribution, stub}.
+{start_link, 0, default, implemented}.
 {start_link, 1, default, implemented}.
 {stop, 0, default, implemented}.

@@ -98,9 +98,11 @@ class Liveness {
         }
     }
 
-    // Reach everything the entry reaches, then count the exports left out.
+    // Reach everything the entry reaches and clause_dist_start:boot/3, which the runtime calls before it to start
+    // distribution from the node start options (plan 30 step DIST4b1b), then count the exports left out.
     LivenessReport run(const FunctionRef entry) {
         reach(entry);
+        reach_name(U"clause_dist_start", {U"boot", 3}, entry);
         while (!pending_.empty()) {
             const auto function = pending_.back();
             pending_.pop_back();

@@ -189,9 +189,11 @@ def epmd_command(run):
 
 
 def node_environment(run, node, port):
-    """A node's environment: a Clause node of a run with the runner's epmd never starts its own (--epmd none, plan 30
-    step DIST3b)."""
-    result = environment(run, port)
+    """A node's environment, with its own 'env' entries (plan 30 step DIST4b1b), or ERL_FLAGS from 'otp_flags' for an
+    otp node: a Clause node of a run with the runner's epmd never starts its own (--epmd none, plan 30 step DIST3b)."""
+    result = environment(run, port) | node.get('env', {})
+    if node.get('kind') == 'otp' and 'otp_flags' in node:
+        result['ERL_FLAGS'] = node['otp_flags']
     if not nodes.bundled(run) and node.get('kind') != 'otp':
         result['CLAUSE_FLAGS'] = ' '.join(filter(None, [result.get('CLAUSE_FLAGS'), '--epmd none']))
     return result

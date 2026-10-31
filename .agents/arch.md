@@ -110,6 +110,9 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
 - **Starting distribution** (DIST4b1a): Erlang only. `net_kernel:start/1,2` starts `erl_distribution`'s `net_sup`
   unlinked (`erl_epmd`, `net_kernel`); `net_kernel`'s init names the node from the carrier's `listen/2`
   (`inet_tcp_dist`, epmd registration) with `erlang:setnode/2`, and its end takes the name (DIST2a).
+  `--sname`/`--name` (DIST4b1b): `startup.cpp` starts `clause_dist_start:boot(M, F, Args)` as the main process,
+  which starts `net_sup` then applies the entry; `clau` links it on demand (`--distribution`, `net_kernel` callers)
+  and liveness keeps it as a second root.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

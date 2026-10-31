@@ -55,6 +55,9 @@ bundled_epmd = true
 # Runtime options built into the executable as its defaults; CLAUSE_FLAGS and the command line override them,
 # e.g. ["--setcookie", "secret", "--env", "kernel", "net_ticktime", "20"] or ["--args-file", "vm.args"].
 runtime_options = []
+# true links the distribution modules, so that --sname and --name name the node (automatic when the program calls
+# net_kernel or runtime_options holds --sname or --name).
+distribution = false
 # Directories whose modules keep their inference results in the build cache (relative patterns match the
 # trailing directories of any path), besides the implicit OTP ones "*/stdlib", "*/kernel", "*/compiler",
 # "*/syntax_tools" and their versioned "*/stdlib-*" forms, e.g. ["*/deps/*"].
