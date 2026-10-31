@@ -57,4 +57,4 @@ Compact record of the network distribution plan, one bullet per step;
   unsupported and tuning flags ignored with one warning, `-config` and `-env` implemented) — `6ce77a00`
 - **DIST4a3a** `--args-file` (`startup/args_file.cpp`): erlexec's splitting, nested files, `-extra`, OTP and Clause
   spellings, `-Flag` init flags, `-env`, `+t`/`+S`/`+sbt`/`+hms` mapped, ignored flags in one warning line;
-  `system_info(atom_limit)` reports `--max-atoms`; golden `runtime_args_files` with OTP reading the same file — `HASH`
+  `system_info(atom_limit)` reports `--max-atoms`; golden `runtime_args_files` with OTP reading the same file — `320343c9`
