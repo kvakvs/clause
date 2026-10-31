@@ -17,7 +17,8 @@ direction); formerly backlog item F38.
     `--epmd external` starts an epmd program and `--no-bundled-epmd` leaves the bundled epmd out
     (DIST3d).
   - The node start options and `--env APP KEY VALUE` are init flags under OTP's names, and
-    `application_controller` applies `--env` as OTP's `-App Key Value` (DIST4a1).
+    `application_controller` applies `--env` as OTP's `-App Key Value` (DIST4a1); the
+    [args files](../docs/executables.md#args-files) contract reads a release's `vm.args` (DIST4a2).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (`start/1,2` and
     internals declined), `auth` (`nocookie`), `global` and
@@ -72,53 +73,50 @@ direction); formerly backlog item F38.
 <a id="step-dist4a"></a>
 
 <a id="step-dist4a2"></a>
-
-## DIST4a2. Args files (`vm.args`): investigation
-
-Depends on: DIST4a1 ([30-finished](30-finished.md)). Requested 2026-10-31 (user): accept a release's
-`vm.args` file, whose flags mostly do not map one to one onto Clause's options, so investigate before
-coding.
-
-- Success criteria
-  - [ ] OTP's `-args_file` syntax recorded from `erts/etc/common/erlexec.c` (`read_args_file`): words split on
-        whitespace, `#` comments, quoting and escapes, nested `-args_file`, how it merges with the command line and
-        `ERL_FLAGS`/`ERL_AFLAGS`/`ERL_ZFLAGS`; relx's `${VAR}` substitution (done by the release script, not erlexec)
-        and `-args_file` inside `vm.args`.
-  - [ ] A mapping table of the flags real releases put in `vm.args` (relx/rebar3 templates, `mix release`, a few
-        open-source projects), each one decided:
-    - direct: `-sname`, `-name`, `-setcookie`, `-nocookie`, `-hidden`, `-proto_dist`, `-dist_listen`, `-start_epmd`,
-      `-App Key Value`, `+t` (`--max-atoms`), `+S` (`--schedulers`), `+sbt`/`+sct` (`--scheduler-cpus`), `+hms`
-      (`--min-heap-size`), `-env VAR VALUE`;
-    - accepted and ignored, with or without a warning: `+K`, `+A`, `+P`, `+Q`, `-smp`, allocator flags (`+M...`),
-      `+zdbbl`, `+C`/`+c`, `-noshell`, `-noinput`, `-mode`, ...;
-    - candidates to implement: `-config sys.config` (application environments), `-kernel` parameters distribution
-      reads;
-    - refused: `-heart`, `-boot`, `-s`/`-run`/`-eval`, ...
-  - [ ] Decided with the user: OTP spellings only, or Clause's `--` spellings too; unknown flags warned or fatal;
-        whether `CLAUSE_FLAGS` and the manifest can name an args file; the result written into
-        [executables](../docs/executables.md#runtime-options) and DIST4a3's criteria.
-
 <a id="step-dist4a3"></a>
 
-## DIST4a3. Args files and manifest runtime options
+## DIST4a3. Args files, `-env` and manifest runtime options
 
-Depends on: [DIST4a2](#step-dist4a2).
+Depends on: DIST4a2 ([30-finished](30-finished.md)): the contract is
+[args files](../docs/executables.md#args-files).
 
 - Success criteria
-  - [ ] `--args-file FILE` (reserved today) reads a `vm.args` file as DIST4a2 decided.
-  - [ ] Manifest `runtime_options` in `[targets.options]` built into the executable as defaults
-        (startup descriptor); precedence manifest < `CLAUSE_FLAGS` < command line; printed by the
+  - [ ] `--args-file FILE` (command line, `CLAUSE_FLAGS`, nested `-args_file`) with erlexec's syntax (comments,
+        quotes, escapes, `-extra`), expanded in place; OTP's and Clause's spellings mixed.
+  - [ ] Every `-Flag Values...` an init flag; the mapped flags of the contract's table applied (`-start_epmd`,
+        `-env VAR VALUE` set before the runtime starts, `+t`, `+S`, `+sbt`, `+hms`); `-config` kept as a flag for
+        DIST4a4.
+  - [ ] Ignored flags gathered into the one warning line; unreadable files and bad mapped values exit 70.
+  - [ ] Manifest `runtime_options` in `[targets.options]` (may name `--args-file`) built into the executable as
+        defaults (startup descriptor); precedence manifest < `CLAUSE_FLAGS` < command line; printed by the
         environment report and part of the compile cache key.
 - Tests
-  - [ ] Golden runs of an args file with direct, ignored and refused flags; OTP observes the direct ones.
-  - [ ] A project golden or linking test whose manifest sets `--env` and a node option, overridden
-        by `CLAUSE_FLAGS` and the command line.
+  - [ ] Golden `runtime_args_files`: a `vm.args` with mapped, `-App Key Value`, user, ignored and nested flags,
+        comments and quotes; OTP observes the file through `ERL_FLAGS=-args_file ...` (`otp_flags`), the warning
+        and Clause spellings are authored.
+  - [ ] A project golden or linking test whose manifest sets `--env` and a node option, overridden by
+        `CLAUSE_FLAGS` and the command line.
+
+<a id="step-dist4a4"></a>
+
+## DIST4a4. `-config` (`sys.config`)
+
+Depends on: [DIST4a3](#step-dist4a3).
+
+- Success criteria
+  - [ ] `-config FILE...` from an args file or `--config FILE` on the command line: `application_controller`
+        reads the files as OTP's `check_conf` does (`.config` appended, included file names, OTP's error terms and
+        boot failure for a bad file), the environments merged over the `.app` resources and under
+        `-App Key Value`; `application:get_env/2` and `set_env/1,2`'s persistent configuration as in OTP.
+- Tests
+  - [ ] Golden runs of `sys.config` files with included files and errors; OTP observes them through
+        `ERL_FLAGS=-config ...`.
 
 <a id="step-dist4b"></a>
 
 ## DIST4b. Handshake, TCP carrier and first connections
 
-Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), DIST4a1 ([30-finished](30-finished.md)), [DIST4a3](#step-dist4a3).
+Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), DIST4a1 ([30-finished](30-finished.md)), [DIST4a3](#step-dist4a3), [DIST4a4](#step-dist4a4).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's

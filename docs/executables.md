@@ -87,7 +87,7 @@ a value goes in the next argument or after `=`.
 | `--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`, `--dist-listen` | Node start options, reported by `init:get_argument/1` under OTP's flag names; distribution starts with them from plan 30 step DIST4b ([node start options](distribution.md#node-start-options)) |
 | `--env APP KEY VALUE` | Sets `APP`'s environment parameter `KEY` to the term `VALUE`, as OTP's `-App Key Value`: `application_controller` parses it when it loads `APP` ([node start options](distribution.md#node-start-options)) |
 | `--profile FILE` | Write a report of entries and self time per function and per process to `FILE` when the program ends ([profiling](profiling.md)); off by default |
-| `--args-file FILE` | Options file like OTP's `vm.args`: reserved, reports `runtime option --args-file is not implemented` |
+| `--args-file FILE` | Options file like OTP's `vm.args` ([args files](#args-files)); reserved until plan 30 step DIST4a3, reports `runtime option --args-file is not implemented` |
 | `--` | Ends the runtime options; the following arguments all go to `Entry` |
 
 On the command line, parsing stops at the first argument that is not a runtime
@@ -99,6 +99,43 @@ counts are not limited and memory is uncapped by default. Byte values are
 decimal without suffixes and round down to whole words; a program reaching a cap
 fails with `resource_limit`, exit 70
 ([runtime memory limit](runtime-heap.md#runtime-memory-limit)).
+
+## Args files
+
+Decided in plan 30 step DIST4a2 (2026-10-31, user choices); implemented by DIST4a3 (`-config` by DIST4a4).
+`--args-file FILE` reads a release's `vm.args` unchanged, as OTP's `erl -args_file FILE` does
+(`erts/etc/common/erlexec.c`):
+
+- **Syntax:** words split on whitespace; `#` starts a comment to the end of the line; `'...'` and `"..."` quote,
+  `\` escapes the next character; `-args_file FILE` (or `--args-file FILE`) inside a file reads another one in its
+  place; the words after `-extra` are plain arguments, after those of the command line (erlexec puts every
+  `-extra` part last). A relative `FILE` is resolved against the current directory, as OTP's.
+- **Position:** the file's words stand where `--args-file FILE` was given (command line or `CLAUSE_FLAGS`), so a
+  later option replaces an earlier one, as on the command line.
+- **Spellings:** OTP's flags and Clause's runtime options (`--sname`, `--env`, ...) may be mixed.
+- **Every `-Flag Values...`** (the words up to the next word starting with `-` or `+`) is an init flag reported by
+  `init:get_argument/1`, as OTP's init reports user flags; `-App Key Value [Key Value ...]` is therefore an
+  application environment, as `--env`.
+- **Flags with a Clause meaning:**
+
+  | Flag | Clause |
+  | --- | --- |
+  | `-sname`, `-name`, `-setcookie`, `-nocookie`, `-hidden`, `-proto_dist`, `-dist_listen` | The node start option of that name ([distribution](distribution.md#node-start-options)) |
+  | `-start_epmd true\|false` | `--epmd bundled` / `--epmd none` |
+  | `-config FILE...` | Application environments from `sys.config` files, over the `.app` resources and under `-App Key Value`, as OTP merges them (DIST4a4) |
+  | `-env VAR VALUE` | Sets the environment variable before the runtime starts |
+  | `+t N` | `--max-atoms N` |
+  | `+S N[:M]` | `--schedulers N` |
+  | `+sbt u` / other `+sbt` types | Unbound / `--scheduler-cpus all` |
+  | `+hms N` | `--min-heap-size N` |
+
+- **Ignored with a warning:** emulator tuning without a Clause meaning (every other `+` flag: `+K`, `+A`, `+P`,
+  `+Q`, `+e`, `+zdbbl`, `+sbwt`, `+swt`, `+M...` allocators, `+C`, `+c`, ...) and the `-` flags Clause cannot act
+  on (`-heart`, `-eval`, `-s`, `-run`, `-boot`, `-mode`, `-pa`, `-pz`, `-noshell`, `-noinput`, `-smp`, ...; still
+  reported by init). One line on stderr names them all:
+  `clau: warning: --args-file FILE: ignored: +K true +A 30 -heart`.
+- A file that cannot be read, or a bad value of a flag with a Clause meaning, stops the program as other invalid
+  runtime options do (exit 70).
 
 ## Exit status
 
