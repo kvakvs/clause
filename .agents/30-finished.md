@@ -60,4 +60,4 @@ Compact record of the network distribution plan, one bullet per step;
   `system_info(atom_limit)` reports `--max-atoms`; golden `runtime_args_files` with OTP reading the same file — `320343c9`
 - **DIST4a3b** manifest `runtime_options` built into executables (`StartupDescriptor::options`, applied before
   `CLAUSE_FLAGS` and the command line), in `--print-env` and the compile cache key; test `linking_runtime_options`;
-  ABI revision reset to 1 beforehand (user decision, `47e69d48`) — `HASH`
+  ABI revision reset to 1 beforehand (user decision, `47e69d48`) — `64729881`
