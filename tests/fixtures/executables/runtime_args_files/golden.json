@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "entry": "runtime_args_files",
+  "data": [
+    "vm.args",
+    "nested.args",
+    "clause.args",
+    "bad.args",
+    "loop.args"
+  ],
+  "runs": [
+    {
+      "args": [
+        "plain"
+      ],
+      "env": {
+        "CLAUSE_FLAGS": "--args-file vm.args"
+      },
+      "otp_flags": "-args_file vm.args",
+      "stderr": "^clau: warning: --args-file vm\\.args: ignored: \\+K true \\+A30\n$",
+      "exit_status": 0,
+      "stdout": "args: [\"plain\",\"from_nested\",\"-proto_dist\",\"inet_tcp\",\"x\",\"y\"]\nsetcookie: {ok,[[\"args_cookie\"]]}\nhidden: {ok,[[]]}\nkernel: {ok,[[\"net_ticktime\",\"20\",\"inet_dist_listen_min\",\"9100\"]]}\nmyflag: {ok,[[\"a b\",\"c d\",\"e f\",\"g\"]]}\nnested: {ok,[[\"1\"]]}\nproto_dist: error\nsname: error\ndist_listen: error\nstart_epmd: error\nheart: error\neval: error\ns: error\nenv: \"hello\"\nkernel_env: [{ok,20},{ok,9100}]\nsystem_info: [2000000,2,{min_heap_size,1598}]\nruntime_args_files: ok\n"
+    },
+    {
+      "args": [
+        "--args-file",
+        "clause.args",
+        "plain"
+      ],
+      "authored": true,
+      "stderr": "^clau: warning: --args-file clause\\.args: ignored: -heart -eval io:format\\(x\\) -s mod fun \\+zdbbl 32768\n$",
+      "exit_status": 0,
+      "stdout": "args: [\"plain\"]\nsetcookie: error\nhidden: error\nkernel: {ok,[[\"net_ticktime\",\"30\"]]}\nmyflag: error\nnested: error\nproto_dist: error\nsname: {ok,[[\"args_node\"]]}\ndist_listen: {ok,[[\"false\"]]}\nstart_epmd: {ok,[[\"false\"]]}\nheart: {ok,[[]]}\neval: {ok,[[\"io:format(x)\"]]}\ns: {ok,[[\"mod\",\"fun\"]]}\nenv: false\nkernel_env: [{ok,30},undefined]\nsystem_info: [1048576,3,{min_heap_size,233}]\nruntime_args_files: ok\n"
+    },
+    {
+      "args": [
+        "--args-file",
+        "missing.args"
+      ],
+      "authored": true,
+      "stderr": "^clau: runtime failure: cannot read args file 'missing\\.args'\n$",
+      "exit_status": 70,
+      "stdout": ""
+    },
+    {
+      "args": [
+        "--args-file",
+        "bad.args"
+      ],
+      "authored": true,
+      "stderr": "^clau: runtime failure: --args-file bad\\.args: invalid -start_epmd value 'maybe' \\(true or false\\)\n$",
+      "exit_status": 70,
+      "stdout": ""
+    },
+    {
+      "args": [
+        "--args-file=loop.args"
+      ],
+      "authored": true,
+      "stderr": "^clau: runtime failure: args files nested too deeply at 'loop\\.args'\n$",
+      "exit_status": 70,
+      "stdout": ""
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "runtime_args_files.erl": "20ebe5c64deec7958b6d92148b5123b693f2ed61c6739ad00cb1378709559e9a",
+    "vm.args": "2c401bbeadbb03b016fddbc3403f7fa24ee750de789995c98fc81166a733959f",
+    "nested.args": "a807218413c76d7bf4bb529edca242cdc933d314c5a66624be75d4879373a515",
+    "clause.args": "5dd9386f562ed2659165b7d164108634c114b3de9ee14bd074581e84107a2359",
+    "bad.args": "7ecff85e75aba127503c9297c0715d83be85df15d298b2942048d7c12c00d167",
+    "loop.args": "ac4ac4b3f3efdf61f03279224e83afe42b1a245382d221c98ba885393e324589"
+  }
+}

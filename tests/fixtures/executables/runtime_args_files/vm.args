@@ -1,0 +1,13 @@
+## A release's vm.args: node and application flags, user flags, emulator tuning and a nested file.
+-setcookie args_cookie # a trailing comment
+-hidden
+-kernel net_ticktime 20 inet_dist_listen_min 9100
+-myflag "a b" 'c d' e\ f g#h
+-env CLAUSE_ARGS_VAR hello
++K true
++A30
++t 2000000
++S 2:2
++hms 1000
+-args_file nested.args
+-extra x y

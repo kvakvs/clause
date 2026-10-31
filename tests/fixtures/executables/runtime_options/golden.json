@@ -63,16 +63,6 @@
     },
     {
       "args": [
-        "--args-file",
-        "vm.args"
-      ],
-      "authored": true,
-      "stderr": "^clau: runtime failure: runtime option --args-file is not implemented\n$",
-      "exit_status": 70,
-      "stdout": ""
-    },
-    {
-      "args": [
         "c"
       ],
       "env": {

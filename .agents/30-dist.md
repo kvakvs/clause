@@ -17,8 +17,8 @@ direction); formerly backlog item F38.
     `--epmd external` starts an epmd program and `--no-bundled-epmd` leaves the bundled epmd out
     (DIST3d).
   - The node start options and `--env APP KEY VALUE` are init flags under OTP's names, and
-    `application_controller` applies `--env` as OTP's `-App Key Value` (DIST4a1); the
-    [args files](../docs/executables.md#args-files) contract reads a release's `vm.args` (DIST4a2).
+    `application_controller` applies `--env` as OTP's `-App Key Value` (DIST4a1); `--args-file` reads
+    a release's `vm.args` as the [args files](../docs/executables.md#args-files) contract says (DIST4a2, DIST4a3a).
   - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
     `noconnection`), `net_adm` (`pang`), `net_kernel` (`start/1,2` and
     internals declined), `auth` (`nocookie`), `global` and
@@ -56,44 +56,15 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-<a id="step-dist2"></a>
-<a id="step-dist2b"></a>
-<a id="step-dist2c"></a>
-<a id="step-dist2d"></a>
+## DIST4a3b. Manifest runtime options
 
-<a id="step-dist3"></a>
-<a id="step-dist3a"></a>
-
-<a id="step-dist3b"></a>
-
-<a id="step-dist3c"></a>
-<a id="step-dist3d"></a>
-
-<a id="step-dist4"></a>
-<a id="step-dist4a"></a>
-
-<a id="step-dist4a2"></a>
-<a id="step-dist4a3"></a>
-
-## DIST4a3. Args files, `-env` and manifest runtime options
-
-Depends on: DIST4a2 ([30-finished](30-finished.md)): the contract is
-[args files](../docs/executables.md#args-files).
+Depends on: DIST4a3a ([30-finished](30-finished.md)).
 
 - Success criteria
-  - [ ] `--args-file FILE` (command line, `CLAUSE_FLAGS`, nested `-args_file`) with erlexec's syntax (comments,
-        quotes, escapes, `-extra`), expanded in place; OTP's and Clause's spellings mixed.
-  - [ ] Every `-Flag Values...` an init flag; the mapped flags of the contract's table applied (`-start_epmd`,
-        `-env VAR VALUE` set before the runtime starts, `+t`, `+S`, `+sbt`, `+hms`); `-config` kept as a flag for
-        DIST4a4.
-  - [ ] Ignored flags gathered into the one warning line; unreadable files and bad mapped values exit 70.
   - [ ] Manifest `runtime_options` in `[targets.options]` (may name `--args-file`) built into the executable as
         defaults (startup descriptor); precedence manifest < `CLAUSE_FLAGS` < command line; printed by the
         environment report and part of the compile cache key.
 - Tests
-  - [ ] Golden `runtime_args_files`: a `vm.args` with mapped, `-App Key Value`, user, ignored and nested flags,
-        comments and quotes; OTP observes the file through `ERL_FLAGS=-args_file ...` (`otp_flags`), the warning
-        and Clause spellings are authored.
   - [ ] A project golden or linking test whose manifest sets `--env` and a node option, overridden by
         `CLAUSE_FLAGS` and the command line.
 
@@ -101,7 +72,7 @@ Depends on: DIST4a2 ([30-finished](30-finished.md)): the contract is
 
 ## DIST4a4. `-config` (`sys.config`)
 
-Depends on: [DIST4a3](#step-dist4a3).
+Depends on: [DIST4a3b](#step-dist4a3b).
 
 - Success criteria
   - [ ] `-config FILE...` from an args file or `--config FILE` on the command line: `application_controller`
@@ -116,7 +87,7 @@ Depends on: [DIST4a3](#step-dist4a3).
 
 ## DIST4b. Handshake, TCP carrier and first connections
 
-Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), DIST4a1 ([30-finished](30-finished.md)), [DIST4a3](#step-dist4a3), [DIST4a4](#step-dist4a4).
+Depends on: DIST2d and DIST3b ([30-finished](30-finished.md)), DIST4a1 ([30-finished](30-finished.md)), [DIST4a3b](#step-dist4a3b), [DIST4a4](#step-dist4a4).
 
 - Success criteria
   - [ ] `dist_util` with OTP's exports and `kernel/include/dist_util.hrl`, `dist.hrl` with OTP's

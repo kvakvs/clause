@@ -1,0 +1,6 @@
+# Clause's spellings, flags Clause cannot act on, and another binding type.
+--sname args_node --env kernel net_ticktime 30
+-heart -eval io:format(x) -s mod fun
++sbt u +zdbbl 32768 +sbt db +S3
+-start_epmd false
+--dist-listen false

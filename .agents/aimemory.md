@@ -214,8 +214,10 @@ gotchas and user directions not recorded elsewhere.
   read_bytes/write_bytes (2026-10-31, every DIST3c file came out CRLF). OTP 29's Windows `epmd -daemon`
   exits 0 but no epmd stays up (from Git Bash and PowerShell): goldens of -daemon are authored runs.
 - A runtime builtin replaces only remote calls of its placeholder (`clause_dist:start_daemon(...)`); a local call
-  inside the same module runs the placeholder body (DIST3d). Bash-tool heredocs here turn `\\n` in Python
-  source into real newlines: write edit scripts with the Write tool.
+  inside the same module runs the placeholder body (DIST3d).
+- NEVER put a backslash in a Bash-tool heredoc or `python -c` (even `<<'EOF'`): `\\` arrives as `\`, `\\n` as a
+  newline (broke regexes in golden.json, C++ literals, many retries). Write the script with the Write tool into the
+  scratchpad and run `python file.py` (user request 2026-10-31).
 - erlfmt: thirdparty/tools/erlfmt/_build/local; helper escript (scratchpad fmt.escript) does
   code:add_path + erlfmt:format_file and writes unicode:characters_to_binary back. Cannot parse
   `-record #r{a, b}.`, `#div`, `#m:r`, `f(...)(2)` (parenthesize); crashes on non-ASCII atoms

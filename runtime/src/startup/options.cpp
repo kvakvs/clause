@@ -1,9 +1,11 @@
 #include "../memory/heap_collect.hpp"
 #include "../scheduler/cpus.hpp"
+#include "args_file.hpp"
 #include "startup.hpp"
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <cstdio>
 #include <cstdlib>
 #include <iterator>
 #include <memory>
@@ -334,6 +336,135 @@ std::expected<std::size_t, std::string> apply_distribution(std::span<const std::
     return apply_scheduling(args, at, options);
 }
 
+// Most args files nested in one another; OTP sets no limit, so a file naming itself never ends there.
+constexpr std::size_t MAX_ARGS_FILE_DEPTH = 32;
+
+std::expected<std::size_t, std::string> apply(std::span<const std::string> args, std::size_t at,
+                                              RuntimeOptions &options);
+
+// Apply Clause option words an OTP flag stands for; every one must be an option. Added for args files.
+std::expected<void, std::string> apply_words(std::span<const std::string> words, RuntimeOptions &options) {
+    for (std::size_t at = 0; at < words.size();) {
+        const auto used = apply(words, at, options);
+        if (!used || *used == 0) {
+            return std::unexpected(used ? "not a runtime option: " + words[at] : used.error());
+        }
+        at += *used;
+    }
+    return {};
+}
+
+// Apply the OTP flag at `at` of an args file and return how many words it used; ignored words join `ignored`.
+// Added for args files.
+std::expected<std::size_t, std::string> apply_otp_flag(std::span<const std::string> words, std::size_t at,
+                                                       RuntimeOptions &options, std::vector<std::string> &ignored) {
+    auto flag = otp_flag(words, at);
+    if (!flag) {
+        return std::unexpected(flag.error());
+    }
+    if (const auto applied = apply_words(flag->options, options); !applied) {
+        return std::unexpected(applied.error());
+    }
+    if (flag->variable) {
+        set_environment(flag->variable->first, flag->variable->second);
+    }
+    if (flag->ignored) {
+        ignored.insert(ignored.end(), words.begin() + static_cast<std::ptrdiff_t>(at),
+                       words.begin() + static_cast<std::ptrdiff_t>(at + flag->used));
+    }
+    if (flag->flag) {
+        options.program.flags.push_back(std::move(*flag->flag));
+    }
+    return flag->used;
+}
+
+std::expected<void, std::string> apply_args_file(const std::string &path, RuntimeOptions &options, std::size_t depth);
+
+// An args file being applied: its path, how deep it is nested and the ignored words of its warning line.
+struct ArgsFile {
+    const std::string &path;
+    std::size_t depth;
+    std::vector<std::string> ignored;
+};
+
+// Apply a Clause runtime option or an OTP flag at `at` of an args file; how many words it used.
+std::expected<std::size_t, std::string> apply_own_word(std::span<const std::string> words, std::size_t at,
+                                                       RuntimeOptions &options, ArgsFile &file) {
+    if (!words[at].starts_with("--")) {
+        return apply_otp_flag(words, at, options, file.ignored);
+    }
+    const auto used = apply(words, at, options);
+    if (used && *used == 0) {
+        return std::unexpected("not a runtime option: " + words[at]);
+    }
+    return used;
+}
+
+// Apply the word at `at` of an args file: a nested file, a Clause runtime option or an OTP flag; how many words it
+// used. Errors of the file's own words name it. Added for args files.
+std::expected<std::size_t, std::string> apply_file_word(std::span<const std::string> words, std::size_t at,
+                                                        RuntimeOptions &options, ArgsFile &file) {
+    const auto &word = words[at];
+    const bool nests = word == "-args_file" || word == "--args-file";
+    if (nests && at + 1 < words.size()) {
+        const auto nested = apply_args_file(words[at + 1], options, file.depth + 1);
+        return nested ? std::expected<std::size_t, std::string>(2) : std::unexpected(nested.error());
+    }
+    const auto used = nests ? std::expected<std::size_t, std::string>(std::unexpected(word + " needs a file"))
+                            : apply_own_word(words, at, options, file);
+    return used ? used : std::unexpected("--args-file " + file.path + ": " + used.error());
+}
+
+// Apply an args file's words as OTP's erlexec does (docs/executables.md#args-files): the words after -extra are
+// plain arguments, and one warning line names the ignored flags. Added for args files.
+std::expected<void, std::string> apply_args_file(const std::string &path, RuntimeOptions &options, std::size_t depth) {
+    if (depth == MAX_ARGS_FILE_DEPTH) {
+        return std::unexpected("args files nested too deeply at '" + path + "'");
+    }
+    const auto words = args_file_words(path);
+    if (!words) {
+        return std::unexpected(words.error());
+    }
+    ArgsFile file{path, depth, {}};
+    for (std::size_t at = 0; at < words->size();) {
+        if ((*words)[at] == "-extra") {
+            options.program.plain.insert(options.program.plain.end(),
+                                         words->begin() + static_cast<std::ptrdiff_t>(at) + 1, words->end());
+            break;
+        }
+        const auto used = apply_file_word(*words, at, options, file);
+        if (!used) {
+            return std::unexpected(used.error());
+        }
+        at += *used;
+    }
+    if (!file.ignored.empty()) {
+        std::string text;
+        for (const auto &word : file.ignored) {
+            text += " " + word;
+        }
+        static_cast<void>(
+            std::fprintf(stderr, "clau: warning: --args-file %s: ignored:%s\n", path.c_str(), text.c_str()));
+    }
+    return {};
+}
+
+// Apply --args-file at `at`, a release's vm.args whose words stand in place of the option
+// (docs/executables.md#args-files), and return how many arguments it used; else the distribution options are tried.
+// Added for args files.
+std::expected<std::size_t, std::string> apply_args_option(std::span<const std::string> args, std::size_t at,
+                                                          RuntimeOptions &options) {
+    const auto file = match(args, at, "--args-file");
+    if (!file) {
+        return apply_distribution(args, at, options);
+    }
+    if (file->value.empty()) {
+        return std::unexpected(std::string("--args-file needs a file"));
+    }
+    const auto applied = apply_args_file(std::string(file->value), options, 0);
+    return applied ? std::expected<std::size_t, std::string>(file->used) : std::unexpected(applied.error());
+}
+
 // Apply the option at `at` and return how many arguments it used; 0 when it is not a runtime option.
 std::expected<std::size_t, std::string> apply(std::span<const std::string> args, std::size_t at,
                                               RuntimeOptions &options) {
@@ -352,11 +483,7 @@ std::expected<std::size_t, std::string> apply(std::span<const std::string> args,
         options.profile = profile->value;
         return profile->used;
     }
-    // Entry point for a vm.args-like options file; reading it is not implemented yet.
-    if (match(args, at, "--args-file")) {
-        return std::unexpected(std::string("runtime option --args-file is not implemented"));
-    }
-    return apply_distribution(args, at, options);
+    return apply_args_option(args, at, options);
 }
 
 // Apply leading runtime options until another argument; `--` ends them and is used too.

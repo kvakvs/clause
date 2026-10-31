@@ -55,3 +55,6 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST4a2** `vm.args` investigation (no code): erlexec's args file syntax and the flags of real releases mapped,
   user choices recorded as the [args files](../docs/executables.md#args-files) contract (OTP and Clause spellings,
   unsupported and tuning flags ignored with one warning, `-config` and `-env` implemented) — `6ce77a00`
+- **DIST4a3a** `--args-file` (`startup/args_file.cpp`): erlexec's splitting, nested files, `-extra`, OTP and Clause
+  spellings, `-Flag` init flags, `-env`, `+t`/`+S`/`+sbt`/`+hms` mapped, ignored flags in one warning line;
+  `system_info(atom_limit)` reports `--max-atoms`; golden `runtime_args_files` with OTP reading the same file — `HASH`

@@ -123,7 +123,7 @@ std::optional<std::int64_t> count_item(ProcessContext &context, std::string_view
         {"port_count", static_cast<std::int64_t>(counts.ports)},
         {"port_limit", PROCESS_LIMIT},
         {"atom_count", static_cast<std::int64_t>(context.atom_storage().size())},
-        {"atom_limit", AtomStorage::default_limit},
+        {"atom_limit", static_cast<std::int64_t>(context.atom_storage().limit())},
         {"schedulers", static_cast<std::int64_t>(counts.workers)},
         {"schedulers_online", static_cast<std::int64_t>(counts.workers)},
         {"logical_processors", processors},

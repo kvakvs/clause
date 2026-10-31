@@ -227,10 +227,13 @@ int run(const StartupDescriptor &startup, int argc, char **argv) {
     if (!options) {
         return runtime_failure(options.error());
     }
-    // init's flags come from the runtime options, the rest from the command line.
-    auto flags = std::move(options->runtime.program.flags);
+    // init's flags come from the runtime options, the rest from the command line; the plain arguments after an args
+    // file's -extra follow those of the command line, as erlexec puts them last.
+    auto from_options = std::move(options->runtime.program);
     options->runtime.program = command_line(argc, argv, options->consumed);
-    options->runtime.program.flags = std::move(flags);
+    options->runtime.program.flags = std::move(from_options.flags);
+    auto &plain = options->runtime.program.plain;
+    plain.insert(plain.end(), from_options.plain.begin(), from_options.plain.end());
     for (const auto entry : std::span(startup.extensions, startup.extension_count)) {
         options->runtime.extensions.push_back(static_cast<const RuntimeExtension *>(entry()));
     }

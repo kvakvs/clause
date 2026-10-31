@@ -53,6 +53,9 @@ class AtomStorage final {
     // here nor toward the limit (OPT0.2A, OPT0.8).
     std::size_t size() const noexcept;
 
+    // The entry ceiling (--max-atoms), erlang:system_info(atom_limit). Added for args files' +t.
+    std::uint32_t limit() const noexcept { return limit_; }
+
   private:
     friend class Runtime;
     // The fixed atoms (abi::v1::fixed_atom_spellings), entered with the storage.
