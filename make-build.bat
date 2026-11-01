@@ -16,9 +16,10 @@ call tools\windows-toolchain.cmd
 if errorlevel 1 goto finish
 call "%CMAKE%" -S . -B "%TOOL_BUILD_DIR%" %CLAUSE_CONFIGURE_ARGS% %CMAKE_ARGS% -DCMAKE_BUILD_TYPE="%BUILD_TYPE%" -DBUILD_TESTING=OFF -DCLAUSE_BUILD_COMPILER=ON -DCLAUSE_BUILD_RUNTIME=ON
 if errorlevel 1 goto finish
-rem Build the runtime archive too: clau links executables against it (-o).
+rem Build everything clau needs to link executables (-o): the runtime archives, the bundled epmd, the generated
+rem library modules; testing is off, so the default target builds no tests.
 set "MAKEFLAGS="
-call "%CMAKE%" --build "%TOOL_BUILD_DIR%" --config "%BUILD_TYPE%" --target clau clause_runtime --parallel %PARALLEL_JOBS%
+call "%CMAKE%" --build "%TOOL_BUILD_DIR%" --config "%BUILD_TYPE%" --parallel %PARALLEL_JOBS%
 :finish
 set "result=%errorlevel%"
 popd

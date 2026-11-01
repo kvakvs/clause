@@ -27,7 +27,7 @@ build:
 	$(CMAKE) -S . -B "$(TOOL_BUILD_DIR)" $(CMAKE_ARGS) \
 		-DCMAKE_BUILD_TYPE="$(BUILD_TYPE)" -DBUILD_TESTING=OFF \
 		-DCLAUSE_BUILD_COMPILER=ON -DCLAUSE_BUILD_RUNTIME=ON
-	+MAKEFLAGS= $(CMAKE) --build "$(TOOL_BUILD_DIR)" --config "$(BUILD_TYPE)" --target clau --parallel $(if $(strip $(JOBS)),"$(JOBS)")
+	+MAKEFLAGS= $(CMAKE) --build "$(TOOL_BUILD_DIR)" --config "$(BUILD_TYPE)" --parallel $(if $(strip $(JOBS)),"$(JOBS)")
 
 # Build all executables including those for testing
 build_test:
@@ -50,7 +50,7 @@ benchmark:
 	$(CMAKE) -S . -B "$(BENCH_BUILD_DIR)" $(CMAKE_ARGS) \
 		-DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
 		-DCLAUSE_BUILD_COMPILER=ON -DCLAUSE_BUILD_RUNTIME=ON
-	+MAKEFLAGS= $(CMAKE) --build "$(BENCH_BUILD_DIR)" --config Release --target clau clause_runtime --parallel $(if $(strip $(JOBS)),"$(JOBS)")
+	+MAKEFLAGS= $(CMAKE) --build "$(BENCH_BUILD_DIR)" --config Release --parallel $(if $(strip $(JOBS)),"$(JOBS)")
 	$(PYTHON) benchmarks/run.py --build-dir "$(BENCH_BUILD_DIR)" --config Release $(if $(strip $(JOBS)),--jobs "$(JOBS)") $(BENCH_ARGS)
 
 # Format project C++ files changed since HEAD (including untracked files).

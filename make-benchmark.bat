@@ -20,7 +20,7 @@ if errorlevel 1 goto finish
 call "%CMAKE%" -S . -B "%BENCH_BUILD_DIR%" %CLAUSE_CONFIGURE_ARGS% %CMAKE_ARGS% -DCMAKE_BUILD_TYPE="%BUILD_TYPE%" -DBUILD_TESTING=OFF -DCLAUSE_BUILD_COMPILER=ON -DCLAUSE_BUILD_RUNTIME=ON
 if errorlevel 1 goto finish
 set "MAKEFLAGS="
-call "%CMAKE%" --build "%BENCH_BUILD_DIR%" --config "%BUILD_TYPE%" --target clau clause_runtime --parallel %PARALLEL_JOBS%
+call "%CMAKE%" --build "%BENCH_BUILD_DIR%" --config "%BUILD_TYPE%" --parallel %PARALLEL_JOBS%
 if errorlevel 1 goto finish
 rem The driver pins every program, OTP and Clause alike, to the performance cores (--cpus performance).
 rem Remaining arguments go to the driver, for example --baseline <rev>, --repeat 9 or --cpus 0x5554.

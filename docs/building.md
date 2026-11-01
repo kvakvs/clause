@@ -60,7 +60,7 @@ Environment overrides: `BUILD_DIR`, `TOOL_BUILD_DIR`, `BUILD_TYPE`, `JOBS`,
 
 | Makefile | Windows | Does |
 | --- | --- | --- |
-| `make build` | `make-build.bat` | Build `clau` in `build/tool` without tests (the batch script builds Release and the runtime too) |
+| `make build` | `make-build.bat` | Build `clau` and everything it links programs with (runtime archives, bundled epmd, generated library modules) in `build/tool`, without tests (the batch script builds Release) |
 | `make test`, `make test-full` | `make-test.bat` | Configure `build/debug` with tests, build everything, run CTest |
 | `make format`, `make format-all` | `make-format.bat` | clang-format changed (or, with `FORMAT_SCOPE=all`, all) C++ files |
 | `make benchmark` | `make-benchmark.bat` | Release build in `build/bench`, then compare with the host OTP |
