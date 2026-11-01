@@ -8,13 +8,13 @@ direction); formerly backlog item F38.
   `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d); started nodes
   connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c), exchange messages (DIST4b3a), monitor each other's processes and
   ping (DIST4b3b1), link and send exit signals (DIST5a), lead each other's processes (DIST5b1) and spawn on each
-  other (DIST5b2); the program's end loses queued packets as OTP's `halt` (DIST4b3b2).
+  other (DIST5b2), every signal in order and with OTP 29 nodes (DIST5c); the program's end loses queued packets as
+  OTP's `halt` (DIST4b3b2).
   Clause and OTP 29 nodes interoperate on either epmd (DIST4b4).
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
-    `dist_get_stat/1`, DIST2d), but moves no signal: the output queue stays empty and put data is
-    dropped until DIST5 encodes and decodes signals.
+    `dist_get_stat/1`, DIST2d), which carries every signal since DIST4b3a and DIST5.
   - Clause's epmd server runs as `clause-epmd`; `erl_epmd` and `net_adm:names/0,1` speak to any
     epmd (DIST3a); a registration that finds no epmd opens the program's bundled epmd under
     `--epmd bundled` (default) or fails under `--epmd none` (DIST3b); `clau --epmd-executable`
@@ -81,48 +81,30 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-DIST0 to DIST4 are done ([30-finished](30-finished.md)).
+DIST0 to DIST5 are done ([30-finished](30-finished.md)).
 
-<a id="step-dist5"></a>
+<a id="step-dist5-followups"></a>
 
-## DIST5. Every signal across nodes
+## DIST5 follow-ups
 
-Depends on: DIST4b4 ([30-finished](30-finished.md)).
+DIST5 is done ([30-finished](30-finished.md)). Left from it, each small, to pick up with the step that needs it or
+on their own:
 
-- Success criteria
-  - [ ] Control messages: `LINK`, `UNLINK_ID`/`UNLINK_ID_ACK`, `EXIT`/`EXIT2` and their payload
-        forms, `GROUP_LEADER`, `ALIAS_SEND`, `SPAWN_REQUEST`/`SPAWN_REPLY`, monitors by name
-        (`{Name, Node}`).
-  - [ ] Remote BIFs: `link/1`, `unlink/1`, `monitor/2,3`, `demonitor/1,2`, `exit/2`,
-        `group_leader/2`, `spawn/2,4`, `spawn_link/2,4`, `spawn_monitor/2,4`, `spawn_opt/3,5`,
-        `spawn_request/2..5`, aliases reachable from other nodes.
-  - [ ] Ordering: signals between a pair of processes arrive in order, as locally.
-  - [ ] Connection loss: links exit `noconnection`, monitors deliver `'DOWN'` with
-        `noconnection`, node monitors `{nodedown, Node}`.
-  - [ ] On a node that is not alive, as OTP: `link/1` to another node's pid returns `true` and sends
-        `{'EXIT', Pid, noconnection}`, `group_leader/2` returns `true` (DIST1 left them `badarg`, recorded in
-        `differences.md`; `monitor/2` came in DIST4b3b1).
-  - [ ] Auto-connect: signals to an unconnected node wait while `net_kernel` connects
-        (`dist_auto_connect`); `erlang:send/3` `noconnect` and `nosuspend`.
-- Tests
-  - [ ] Golden `dist_signals`: remote spawn, links, monitors, exits, group leaders, aliases and a
-        node going down, between Clause nodes and with an OTP node (`host_otp`).
-
-Split (2026-11-01), each sub-step adds its part of `dist_signals`:
-
-- DIST5a (links and exit signals, golden `dist_signals` part one) is done ([30-finished](30-finished.md)).
-- DIST5b1 (group leaders) and DIST5b2 (spawning on other nodes) are done ([30-finished](30-finished.md)).
-- **DIST5c Ordering, send options and OTP peers.**
-  - Signals between a pair of processes in order across pending connections and auto-connect; `erlang:send/3`
-    `noconnect` and `nosuspend`, `send_nosuspend/2,3`.
-  - Aliases reachable from other nodes (`alias/0,1`, `monitor/3` aliases, `reply` mode) checked end to end.
-  - `dist_signals` repeated with OTP nodes (`host_otp`).
+- [ ] Funs across nodes: encode local funs (`NEW_FUN_EXT` with the module's MD5, index and free variables) and
+      decode another node's, so messages, exit reasons and `spawn(Node, Fun)` with a local fun work as in OTP
+      between Clause nodes of the same program and with OTP nodes that load the module; today they raise
+      `notsup` or arrive as `notsup` (`docs/differences.md`). Needed by `rpc`/`erpc` funs (DIST7).
+- [ ] Observe and match: `process_info(Pid, initial_call)` and `current_function` of a child another node spawned
+      (OTP runs `erts_internal:dist_spawn_init/1`); `spawn_request_abandon/1` and `demonitor/1,2` of another
+      node's reference; `process_info(Self, monitors)` while a spawn request with `monitor` is pending.
+- [ ] `UNLINK_ID`/`UNLINK_ID_ACK` ids above small integers (OTP accepts any below 2^64; `docs/differences.md`).
+- [ ] The useless pid's warning report `** Can not start M:F,A on Node **` (`docs/differences.md`).
 
 <a id="step-dist6"></a>
 
 ## DIST6. `net_kernel` and `auth` complete
 
-Depends on: [DIST5](#step-dist5).
+Depends on: DIST5 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `net_kernel`: `monitor_nodes/1,2` (with `nodeup`/`nodedown` info options), `allow/1`,
@@ -231,7 +213,7 @@ Depends on: [DIST8](#step-dist8).
 
 ## DIST12. TLS distribution and other carriers
 
-Depends on: [DIST5](#step-dist5).
+Depends on: DIST5 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `inet_tls_dist` and `inet6_tls_dist` over Clause's `ssl` (`-proto_dist inet_tls`,
@@ -266,7 +248,9 @@ Depends on: [DIST2b](#step-dist2b)–[DIST12](#step-dist12).
 - The distribution header atom cache (`DFLAG_DIST_HDR_ATOM_CACHE`), with its strict ordering
   needs.
 - `DFLAG_NATIVE_RECORDS` once `term_to_binary/1` supports native records; `DFLAG_ALTACT_SIG` if
-  Clause gets priority signals.
+  Clause gets priority signals (then `exit/2` to another node's alias and `{link, [priority]}` take effect).
+- Busy connections: OTP suspends senders past `dist_buf_busy_limit` and `nosuspend` sends fail then; Clause's
+  output queue never is busy, so `nosuspend` changes nothing (DIST5c).
 - `inet_tcp_dist`'s controller reads with `{active, once}` and one `inet:setopts/2` per packet, since
   Clause's sockets have no `{active, N}` (DIST4b2a); `{active, N}` or a runtime-side reader would cut that
-  cost once DIST5 moves real traffic.
+  cost now that DIST5 moves real traffic.

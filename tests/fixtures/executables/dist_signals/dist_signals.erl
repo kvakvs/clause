@@ -1,4 +1,5 @@
-%% Links and exit signals across nodes (plan 30 step DIST5a), group leaders (DIST5b1) and spawns (DIST5b2). Node a controls connections to a node that does not
+%% Links and exit signals across nodes (plan 30 step DIST5a), group leaders (DIST5b1), spawns (DIST5b2), and the
+%% order of signals, aliases and send options (DIST5c). Node a controls connections to a node that does not
 %% exist (setnode/3 with its own process): the LINK, UNLINK_ID and EXIT2 packets of its links and exits, the fake
 %% node's links, unlinks, link exits and exit signals put back, the links a lost connection ends, and the data OTP
 %% calls an invalid distribution message. Then links and exits between a's processes and b's agents, and b's node
@@ -19,6 +20,7 @@ main(["a"]) ->
     fake_leaders(),
     fake_requests(),
     fake_served(),
+    fake_order(),
     faults(),
     B = peer("dsb"),
     wait_registered("dsb_ready"),
@@ -28,6 +30,9 @@ main(["a"]) ->
     exits(B),
     leaders(B),
     spawns(B),
+    order(B),
+    aliases(B),
+    send_options(B),
     node_down(B),
     done();
 main(["b"]) ->
@@ -76,6 +81,11 @@ agent(Owner) ->
             end;
         {group_leader, Leader, Pid} ->
             Owner ! {agent, self(), group_leader(Leader, Pid)};
+        {send, To, Messages} ->
+            [To ! Message || Message <- Messages],
+            Owner ! {agent, self(), sent};
+        {collect, Count} ->
+            Owner ! {agent, self(), [next() || _ <- lists:seq(1, Count)]};
         {exit, Reason} ->
             exit(Reason);
         {'EXIT', From, Reason} ->
@@ -352,6 +362,26 @@ fake_served() ->
         show("bad options", [decoded(Packet) || Packet <- taken(DH, 1)])
     end).
 
+%% Signals of one process to the fake node while its connection is pending and once it is up keep their order
+%% (plan 30 step DIST5c): messages, a link, an unlink, a monitor, an exit signal.
+fake_order() ->
+    controlled(fun(DH0) ->
+        Self = self(),
+        Steps = fun(Tag) ->
+            remote_pid(1) ! {Tag, 1},
+            true = link(remote_pid(1)),
+            remote_pid(1) ! {Tag, 2},
+            true = unlink(remote_pid(1)),
+            _ = monitor(process, remote_pid(1)),
+            true = exit(remote_pid(1), {Tag, 3})
+        end,
+        Steps(pending),
+        {ok, 0, 0, _} = erlang:dist_get_stat(DH0),
+        DH = erlang:setnode(?FAKE, Self, {?FLAGS, 77}),
+        Steps(up),
+        show("order", [unlink_id(Packet) || Packet <- [decoded(P) || P <- take(DH)]])
+    end).
+
 % A process the fake node spawns: it tells the test its group leader and links, and ends when told.
 served(Test) ->
     {links, Links} = process_info(self(), links),
@@ -527,6 +557,61 @@ reported(Pid) ->
         {report, Pid, Leader} -> Leader =:= group_leader()
     after 30000 -> timeout
     end.
+
+%% Signals of one process to b's agent arrive in the order sent (plan 30 step DIST5c): messages around a link, an
+%% unlink and an exit signal the trapping agent turns into a message.
+order(B) ->
+    Agent = agent_of(B),
+    false = ask(Agent, {trap, true}),
+    Agent ! {collect, 3},
+    Agent ! one,
+    true = link(Agent),
+    Agent ! two,
+    true = unlink(Agent),
+    true = exit(Agent, three),
+    show("order there", [
+        case Message of
+            {'EXIT', From, Reason} -> {'EXIT', From =:= self(), Reason};
+            _ -> Message
+        end
+     || Message <- answer(Agent)
+    ]),
+    Collector = agent_of(this),
+    Collector ! {collect, 50},
+    sent = ask(Agent, {send, Collector, lists:seq(1, 50)}),
+    show("order here", answer(Collector) =:= lists:seq(1, 50)).
+
+%% Aliases reachable from b (plan 30 step DIST5c): an alias with reply takes one message, an explicit one until
+%% unalias/1, and a monitor's alias with reply_demonitor ends the monitor with its reply.
+aliases(B) ->
+    Agent = agent_of(B),
+    Once = alias([reply]),
+    sent = ask(Agent, {send, Once, [first, second]}),
+    Explicit = alias(),
+    sent = ask(Agent, {send, Explicit, [third, fourth]}),
+    true = unalias(Explicit),
+    sent = ask(Agent, {send, Explicit, [fifth]}),
+    Watched = agent_of(B),
+    Ref = monitor(process, Watched, [{alias, reply_demonitor}]),
+    sent = ask(Agent, {send, Ref, [reply]}),
+    sent = ask(Agent, {send, Ref, [late]}),
+    Watched ! {exit, after_reply},
+    timer:sleep(200),
+    show("aliases", [flush(), process_info(self(), monitors)]).
+
+%% send/3 options to b: noconnect sends on an up connection; a node not connected takes nothing with noconnect, and
+%% send_nosuspend/3 then returns false (plan 30 step DIST5c).
+send_options(B) ->
+    Agent = agent_of(B),
+    Agent ! {collect, 2},
+    show("send options", [
+        erlang:send(Agent, one, [noconnect]),
+        erlang:send(Agent, two, [nosuspend]),
+        answer(Agent),
+        erlang:send({x, 'nobody@localhost'}, lost, [noconnect]),
+        erlang:send_nosuspend({x, 'nobody@localhost'}, lost, [noconnect]),
+        erlang:send_nosuspend(Agent, three)
+    ]).
 
 %% b's node goes down: a process here linked to b's process and monitoring it gets the link's noconnection, then the
 %% 'DOWN', then nodedown; a process that does not trap exits ends with noconnection.

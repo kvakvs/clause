@@ -19,8 +19,10 @@ connections](#making-connections), DIST4b2a, DIST4b2b), over IPv4 or IPv6 (DIST4
 between them ([messages](#messages), DIST4b3a), processes monitor other nodes' processes and `net_adm:ping/1`
 answers ([process monitors](#process-monitors), DIST4b3b1), and they link and send exit signals to each other
 ([links and exit signals](#links-and-exit-signals), DIST5a), and lead each other's processes ([group
-leaders](#group-leaders), DIST5b1) and spawn processes on each other ([spawning](#spawning), DIST5b2). Clause and OTP 29 nodes
-connect, ping, monitor and message each other both ways on either kind of epmd ([testing](#testing), DIST4b4).
+leaders](#group-leaders), DIST5b1) and spawn processes on each other ([spawning](#spawning), DIST5b2), every
+signal of a pair of processes in the order sent ([signal order](#signal-order), DIST5c). Clause and OTP 29 nodes
+connect, ping, monitor, message, link, lead and spawn on each other both ways on either kind of epmd
+([testing](#testing), DIST4b4, DIST5c).
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -365,6 +367,21 @@ connection's controller and between two nodes.
   node, whose requester is no pid of another node, whose group leader is no pid or whose `{Module, Function,
   Arity}` is malformed, and a `SPAWN_REPLY` whose id or receiver is not of this node, whose flags are not below
   2^27 or whose result is no pid of another node or atom, are invalid distribution messages ([messages](#messages)).
+
+## Signal order
+
+Current since DIST5c, as OTP's. Every signal one process sends to another node (messages, links, unlinks,
+monitors, exit signals, group leaders, spawn requests) is a packet on that node's one connection, queued in the
+order sent, also while the connection is pending or being auto-connected; the packets of the other node are taken
+in the order its controller puts them, and each is acted on before the next. So signals between a pair of
+processes arrive in the order sent, as locally. While a connection is pending its packets use the forms of no
+flags (`SEND` without the sender, `EXIT2` without payload), as OTP's do.
+
+- **Aliases** of `alias/0,1` and of `monitor/3`'s `{alias, Mode}` take messages from other nodes as they take
+  local ones: `reply` ends with the first, `explicit_unalias` with `unalias/1`, `reply_demonitor` ends its monitor.
+- **Send options:** `erlang:send/3` with `noconnect` sends on an up or pending connection and returns `noconnect`
+  for a node not connected; `nosuspend` changes nothing, as a connection is never busy here
+  ([plan 30](../.agents/30-dist.md) Later); `send_nosuspend/2,3` return `true`, or `false` for `noconnect`.
 
 ## Node status messages
 
@@ -784,7 +801,7 @@ Current since DIST4b1b (`library/kernel/clause_dist_start.erl`, `erl_distributio
   Clause-only cases need no OTP: `epmd_names` runs on `clause-epmd` and on bundled epmds (two
   nodes racing to start one), and `epmd_interop` runs the same program on OTP's `epmd` and with an
   OTP node.
-- **OTP peers** (DIST4b4): `dist_ping` and `dist_connect` repeat their first run with node `a` an OTP
+- **OTP peers** (DIST4b4, DIST5c): `dist_ping`, `dist_connect` and `dist_signals` repeat their first run with node `a` an OTP
   node on `clause-epmd` and with node `b` one on OTP's `epmd`; each node's stdout is the oracle's.
   An OTP node's stderr pattern is in OTP's own log format (a `Time level: message` line per report),
   and a node that waits for another's node status messages waits for its epmd marker name first,
