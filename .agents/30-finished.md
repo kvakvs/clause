@@ -114,3 +114,6 @@ Compact record of the network distribution plan, one bullet per step;
   `SPAWN_REPLY` (`scheduler/remote_spawns.cpp`, `builtins/erlang/dist_spawns.cpp`), served requests' children,
   abandoned and orphaned requests as OTP 29, blocking spawns in `clause_dist_spawn:spawn/5`; continuations of
   unqualified auto-imported calls; golden `dist_signals` part two — eded4f16
+- **DIST5c** Signal order (pending and up connections, between nodes), aliases and send options checked across nodes;
+  `dist_signals` with OTP 29 nodes as a and as b (`host_otp`), no runtime change needed; DIST5 closed, follow-ups
+  in the plan — d0e00ea5
