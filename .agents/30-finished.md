@@ -105,3 +105,6 @@ Compact record of the network distribution plan, one bullet per step;
   node `a` on `clause-epmd` and an OTP node `b` on OTP's `epmd`; stdout matched OTP's first try, no wire difference
   found; OTP nodes' stderr patterns in OTP's log format, `dist_connect`'s a waits for b's `dcb_ready` marker (an OTP
   node boots slower and missed its nodeup) — b671ac03
+- **DIST5a** Links and exit signals: `LINK`, `UNLINK_ID`/`UNLINK_ID_ACK` with OTP's unlinking state, `EXIT`/`EXIT2`
+  and payload forms both ways (`scheduler/remote_links.cpp`), noconnection on connection loss and when not alive,
+  noproc for no process or an earlier incarnation, exits as port events; golden `dist_signals` part one — b3e33a15
